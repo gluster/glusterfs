@@ -23,6 +23,8 @@
 #include "config.h"
 #endif
 
+#include <fcntl.h>
+
 #include "tcp.h"
 #include "dict.h"
 #include "transport.h"
@@ -30,9 +32,8 @@
 #include "xlator.h"
 #include "byte-order.h"
 #include "common-utils.h"
-
-#include <fcntl.h>
-#include <errno.h>
+#include "compat.h"
+#include "compat-errno.h"
 
 
 static int tcp_init (transport_t *this);

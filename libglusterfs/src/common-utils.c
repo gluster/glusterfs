@@ -258,8 +258,6 @@ void
 gf_dump_spec_file (FILE *specfp)
 {
   extern FILE *gf_log_logfile;
-  extern glusterfs_ctx_t *gf_global_ctx;
-  glusterfs_ctx_t *ctx = gf_global_ctx;
   int fd = fileno (gf_log_logfile);
   int specfd = fileno (specfp);
   char msg[1024];
@@ -283,7 +281,7 @@ gf_dump_spec_file (FILE *specfp)
   return;
 }
 
-static void 
+void 
 gf_dump_config_flags (int fd)
 {
 

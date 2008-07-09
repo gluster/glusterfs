@@ -35,6 +35,9 @@
 #define ARGP_KEY_NO_ARGS        0x1000002 /* ??? */
 #define ARGP_HELP_USAGE         0x01 /* a Usage: message. (???) */
 
+#define OPTION_HIDDEN           0x2
+#define OPTION_ALIAS            0x4
+
 typedef int error_t;
 
 struct argp;
@@ -115,9 +118,11 @@ int argp_parse_ (const struct argp * __argp,
 		 unsigned __flags, int * __arg_index,
 		 void * __input);
 
-void argp_help (const struct argp *argp, FILE *stream, 
-		unsigned flags, char *name);
+void argp_help_ (const struct argp *__argp, char ** __argv);
+
+void argp_usage_ (const struct argp *__argp, char ** __argv);
  
+void argp_version_ (const char *version);
 
 #else
 #include <argp.h>
@@ -150,15 +155,24 @@ void argp_help (const struct argp *argp, FILE *stream,
 #include <sys/extattr.h>
 #include <limits.h>
 
+enum {
+  ATTR_CREATE = 1,
+#define XATTR_CREATE ATTR_CREATE
+  ATTR_REPLACE = 2
+#define XATTR_REPLACE ATTR_REPLACE
+};
 
 #ifndef sighandler_t
 #define sighandler_t sig_t
 #endif
 
-#define lremovexattr(path,key) extattr_delete_link(path, EXTATTR_NAMESPACE_USER, key)
-#define llistxattr(path,key,size)  extattr_list_link(path, EXTATTR_NAMESPACE_USER, key, size)
-#define lgetxattr(path, key, value, size) extattr_get_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
+#define lremovexattr(path,key)               extattr_delete_link(path, EXTATTR_NAMESPACE_USER, key)
+#define llistxattr(path,key,size)            extattr_list_link(path, EXTATTR_NAMESPACE_USER, key, size)
+#define lgetxattr(path, key, value, size)    extattr_get_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
 #define lsetxattr(path,key,value,size,flags) extattr_set_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
+#define fgetxattr(fd,key,value,size)         exattr_get_fd(fd, EXTATTR_NAMESPACE_USER, key, value, size)
+#define fsetxattr(fd,key,value,size,flag)    exattr_set_fd(fd, EXTATTR_NAMESPACE_USER, key, value, size)
+
 
 #define F_GETLK64	F_GETLK
 #define F_SETLK64	F_SETLK
@@ -171,7 +185,6 @@ void argp_help (const struct argp *argp, FILE *stream,
 #include <machine/endian.h>
 #include <sys/xattr.h>
 #include <limits.h>
-
 
 #ifndef sighandler_t
 #define sighandler_t sig_t
@@ -195,6 +208,13 @@ void argp_help (const struct argp *argp, FILE *stream,
 #include <endian.h>
 #include <limits.h>
 
+enum {
+  ATTR_CREATE = 1,
+#define XATTR_CREATE ATTR_CREATE
+  ATTR_REPLACE = 2
+#define XATTR_REPLACE ATTR_REPLACE
+};
+
 /* This patch is not present in Solaris 10 and before */
 #ifndef dirfd
 #define dirfd(dirp)   ((dirp)->dd_fd)
@@ -204,6 +224,8 @@ void argp_help (const struct argp *argp, FILE *stream,
 #define llistxattr(path,key,size)            solaris_listxattr(path,key,size)
 #define lgetxattr(path,key,value,size)       solaris_getxattr(path,key,value,size)
 #define lsetxattr(path,key,value,size,flags) solaris_setxattr(path,key,value,size,flags)
+#define fgetxattr(fd,key,value,size)         solaris_fgetxattr(path,key,value,size)
+#define fsetxattr(fd,key,value,size,flags)   solaris_fsetxattr(path,key,value,size,flags)
 #define lutimes(filename,times)              utimes(filename,times)
 
 int asprintf(char **string_ptr, const char *format, ...); 

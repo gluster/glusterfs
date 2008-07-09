@@ -61,10 +61,14 @@
 
 /* using argp for command line parsing */
 
-static char doc[] = "glusterfs is the executable of the GlusterFS filesystem";
-static char argp_doc[] = "--server=SERVER MOUNT-POINT";
-const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__ " " __TIME__;
-const char *argp_program_bug_address = PACKAGE_BUGREPORT;
+static char doc[] = "";
+static char argp_doc[] = "--server=SERVER [MOUNT-POINT]\n --spec-file=VOLUME-SPECFILE [MOUNT-POINT]";
+const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__ " " __TIME__ " \n" \
+                                   "Repository revision: " GLUSTERFS_REPOSITORY_REVISION "\n" \
+                                   "Copyright (c) 2006, 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>\n" \
+                                   "GlusterFS comes with ABSOLUTELY NO WARRANTY.\n" \
+                                   "You may redistribute copies of GlusterFS under the terms of the GNU General Public License.";
+const char *argp_program_bug_address = "<"PACKAGE_BUGREPORT">";
 
 static struct gf_spec_location spec;
 uint32_t glusterfs_fuse_direct_io_mode = 1;
@@ -73,36 +77,48 @@ uint32_t glusterfs_fuse_attr_timeout = 1;
 error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 static struct argp_option options[] = {
-  {"server", 's', "SERVER", 0, \
+  {0, 0, 0, 0, "Basic Options:"},
+  {"server", 's', "SERVER", 0, 
    "SERVER to connect to get client specification. This is a mandatory option."},
-  {"port", 'P', "PORT", 0, \
-   "Connect to PORT on SERVER."},
-  {"transport", 't', "TRANSPORT", 0, \
-   "Transport type to get the spec from server."},
-  {"pidfile", 'p', "PIDFILE", 0, \
-   "path for the pidfile"},
-  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, \
+  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, 
    "Load a local VOLUMESPEC file. Mandatory if --server option is not passed." },
   {"log-level", 'L', "LOGLEVEL", 0, 
-   "LOGLEVEL should be one of DEBUG, WARNING, [ERROR], CRITICAL, NONE"},
-  {"log-file", 'l', "LOGFILE", 0, \
+   "Logging Severity. Valid options are DEBUG, WARNING, ERROR, CRITICAL & NONE [DEFAULT: WARNING]"},
+  {"log-file", 'l', "LOGFILE", 0, 
    "Specify the file to redirect logs"},
-  {"no-daemon", 'N', 0, 0, \
-   "Run glusterfs in foreground"},
-  {"version", 'V', 0, 0, \
-   "print version information"},
-  {"volume-name", 'n', "VOLUME-NAME", 0, \
-   "Volume name in client spec to use. Defaults to the topmost volume" },
+
+  {0, 0, 0, 0, "Fuse Options:"},
   {"direct-io-mode", 'd', "ENABLE|DISABLE", 0,
    "Whether to force directIO on fuse fd. Defaults to ENABLE"},
   {"entry-timeout", 'e', "SECONDS", 0,
    "Entry timeout for dentries in the kernel. Defaults to 1 second"},
   {"attr-timeout", 'a', "SECONDS", 0,
    "Attribute timeout for inodes in the kernel. Defaults to 1 second"},
+
+  {0, 0, 0, 0, "Advanced Options:"},
+  {"port", 'P', "PORT", 0, 
+   "Connect to PORT on SERVER."},
+  {"transport", 't', "TRANSPORT", 0, 
+   "Transport type to get the spec from server."},
+  {"pidfile", 'p', "PIDFILE", 0, 
+   "path for the pidfile"},
+  {"no-daemon", 'N', 0, 0,
+   "Run glusterfs in foreground"},
+  {"volume-name", 'n', "VOLUME-NAME", 0,
+   "Volume name in client spec to use. Defaults to the topmost volume" },
   {"run-id", 'r', "RUN-ID", OPTION_HIDDEN,
    "Run ID for the process, used by scripts to keep track of process they started, defaults to none"},
+
+  {0, 0, 0, 0, "Miscellaneous Options:"},
+#ifndef GF_LINUX_HOST_OS 
+  {"help", 'h', 0, 0, "Give this help list"},
+  {"version", 'V', 0, 0, "Print program version"},
+  {"usage", 'u', 0, 0, "Give a short usage message"},
+#endif /* GF_LINUX_HOST_OS */
+
   { 0, }
 };
+
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
 extern FILE *

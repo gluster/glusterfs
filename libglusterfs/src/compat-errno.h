@@ -218,14 +218,9 @@
 
 #define GF_ERROR_CODE_NOATTR		GF_ERROR_CODE_NODATA		/* Attribute not found */
 
-
-#ifndef GF_BSD_HOST_OS
-
 #ifndef ENODATA
 #define ENODATA ENOATTR
-#endif
-
-#endif /* GF_BSD_HOST_OS */
+#endif /* ENODATA */
 
 
 /* These functions are defined for all the OS flags, but content will 

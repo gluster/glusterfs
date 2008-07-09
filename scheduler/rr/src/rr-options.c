@@ -53,8 +53,8 @@ _rr_options_min_free_disk_validate (const char *value_string, uint8_t *n)
       return -1;
     }
   
-  if (!(value >= RR_LIMITS_MIN_FREE_DISK_VALUE_MIN && 
-	value <= RR_LIMITS_MIN_FREE_DISK_VALUE_MAX))
+  if ((value <= RR_LIMITS_MIN_FREE_DISK_VALUE_MIN) || 
+      (value >= RR_LIMITS_MIN_FREE_DISK_VALUE_MAX))
     {
       gf_log ("rr", 
 	      GF_LOG_ERROR, 

@@ -14,6 +14,8 @@
 #include "event.h"
 #include "libglusterfsclient.h"
 #include "libglusterfsclient-internals.h"
+#include "compat.h"
+#include "compat-errno.h"
 
 #define XLATOR_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 14057

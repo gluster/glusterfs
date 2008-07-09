@@ -52,6 +52,9 @@
 
 #include <sys/xattr.h>
 #include <signal.h>
+#include "compat-errno.h"
+#include "compat.h"
+
 
 #define UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR(_loc) do { \
   if (!(_loc && _loc->inode && _loc->inode->ctx &&         \

@@ -22,9 +22,6 @@
 #include "config.h"
 #endif
 
-#include "compat.h"
-#include "common-utils.h"
-
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -36,6 +33,10 @@
 #include <libgen.h>
 #endif
 
+#ifdef GF_BSD_HOST_OS
+#include <libgen.h>
+#endif 
+
 #ifdef GF_SOLARIS_HOST_OS
 #include "logging.h"
 #include <sys/stat.h>
@@ -43,11 +44,15 @@
 #include <fcntl.h>
 #endif /* GF_SOLARIS_HOST_OS */
 
+#include "compat.h"
+#include "common-utils.h"
+
 /*
  * Produce output for --help
  */
 
 extern const char *argp_program_bug_address;
+extern const char *argp_program_version;
 
 void
 argp_help_ (const struct argp *__argp, char **__argv)
@@ -58,18 +63,57 @@ argp_help_ (const struct argp *__argp, char **__argv)
   const struct argp_option *options = __argp->options;
 
   fprintf (stderr, "Usage: %s %s\n", basename (__argv[0]), __argp->args_doc);
-  fprintf (stderr, "%s.\n", __argp->doc);
+  fprintf (stderr, "%s", __argp->doc);
+  
+  while (options->doc) {
+    if (options->name != NULL && options->key != 0) {
+      if (options->flags == 0) {
+	fprintf (stderr, "  -%c, --%s%s%s\n\t\t%s\n", 
+		 options->key, options->name, 
+		 options->arg ? "=" : "", 
+		 options->arg ? options->arg : "", options->doc);
+      }
+    } else {
+      fprintf (stderr,"\n%s\n", options->doc);
+    }
+    options++;
+  }
+  
+  fprintf (stderr, "\nMandatory or optional arguments to long options are also mandatory \nor optional for any corresponding short options.\n");
+  fprintf (stderr, "\nReport bugs to %s.\n", argp_program_bug_address);
+  exit (0);
+}
 
-  while (options->name) {
-    fprintf (stderr, "  -%c, --%s%s%s\n\t\t%s\n", options->key,
-	     options->name, options->arg ? "=" : "", options->arg ? options->arg : "",
-             options->doc);
+void
+argp_usage_ (const struct argp *__argp, char **__argv)
+{
+  if (!__argp || !__argv[0])
+    return;
+
+  const struct argp_option *options = __argp->options;
+
+  fprintf (stderr, "Usage: %s", basename (__argv[0]));
+
+  while (options->doc) {
+    if (options->name != NULL && options->key != 0) {
+      if (options->flags == 0) {
+	fprintf (stderr, " [-%c %s] [--%s%s%s] \n", 
+		 options->key, options->arg ? options->arg : "", 
+		 options->name, options->arg ? "=" : "", 
+		 options->arg ? options->arg : "");
+      }
+    }
     options++;
   }
 
- fprintf (stderr, "\nMandatory or optional arguments to long options are also mandatory \nor optional for any corresponding short options.\n");
- fprintf (stderr, "\nReport bugs to %s.\n", argp_program_bug_address);
- exit (0);
+  exit (0);
+}
+
+void
+argp_version_ (const char *version)
+{
+  fprintf (stderr, "%s\n", version);
+  exit(0);
 }
 
 int 
@@ -90,8 +134,10 @@ argp_parse_ (const struct argp * __argp,
   int short_idx = 0;
   int long_idx = 0;
 
-  while (options->name) {
-    num_opts++;
+  while (options->doc) {
+    if (options->name != NULL && options->key != 0) {
+      num_opts++;
+    }
     options++;
   }
 
@@ -102,17 +148,18 @@ argp_parse_ (const struct argp * __argp,
 
   options = __argp->options;
 
-  while (options->name) {
-    getopt_short_options[short_idx++] = options->key;
-    getopt_long_options[long_idx].name = options->name;
-    getopt_long_options[long_idx].val = options->key;
-
-    if (options->arg != NULL) {
-      getopt_short_options[short_idx++] = ':';
-      getopt_long_options[long_idx].has_arg = 1;
+  while (options->doc) {
+    if (options->name != NULL && options->key != 0) {
+      getopt_short_options[short_idx++] = options->key;
+      getopt_long_options[long_idx].name = options->name;
+      getopt_long_options[long_idx].val = options->key;
+      if (options->arg != NULL) {
+	getopt_short_options[short_idx++] = ':';
+	getopt_long_options[long_idx].has_arg = 1;
+      }
+      long_idx++;
     }
     options++;
-    long_idx++;
   }
 
   int option_index = 1;
@@ -124,10 +171,20 @@ argp_parse_ (const struct argp * __argp,
     
     if (c == -1)
       break;
-
-    if (c == '?')
+    
+    if (c == 'h')
       argp_help_ (__argp, __argv);
-
+    
+    if (c == 'u')
+      argp_usage_ (__argp, __argv);
+    
+    if (c == 'V')
+      argp_version_ (argp_program_version);
+    
+    if (c == '?')
+      fprintf (stderr, "Try `%s --help` or `%s --usage` for more information\n",
+	       basename (__argv[0]), basename (__argv[0]));
+    
     __argp->parser (c, optarg, &state);
     option_index += 2;
   }
@@ -140,14 +197,66 @@ argp_parse_ (const struct argp * __argp,
   return 0;
 }
 
-void 
-argp_help (const struct argp *argp, FILE *stream, unsigned flags, char *name)
+#ifdef GF_SOLARIS_HOST_OS
+
+
+int 
+solaris_fsetxattr(int fd, 
+		  const char* key, 
+		  const char *value, 
+		  size_t size, 
+		  int flags)
 {
-  fprintf (stream, "This is a help message");
+  int attrfd = -1;
+  int ret = 0;
+
+  attrfd = openat (fd, key, flags|O_CREAT|O_WRONLY, 0777);
+  if (attrfd >= 0) {
+    ftruncate (attrfd, 0);
+    ret = write (attrfd, value, size);
+    close (attrfd);
+  } else {
+    if (errno != ENOENT)
+      gf_log ("libglusterfs", GF_LOG_ERROR, 
+	      "Couldn't set extended attribute for %s (%d)", 
+	      path, errno);
+    return -1;
+  }
+
+  return 0;
 }
 
 
-#ifdef GF_SOLARIS_HOST_OS
+int 
+solaris_fgetxattr(int fd, 
+		  const char* key, 
+		  char *value, 
+		  size_t size)
+{
+  int attrfd = -1;
+  int ret = 0;
+
+  attrfd = openat (fd, key, O_RDONLY, 0);
+  if (attrfd >= 0) {
+    if (size == 0) {
+      struct stat buf;
+      fstat (attrfd, &buf);
+      ret = buf.st_size;
+    } else {
+      ret = read (attrfd, value, size);
+    }
+    close (attrfd);
+  } else {
+    if (errno != ENOENT)
+      gf_log ("libglusterfs", GF_LOG_DEBUG, 
+	      "Couldn't read extended attribute for the file %s (%d)", 
+	      path, errno);
+    return -1;
+  }
+
+  return ret;
+}
+
 
 int 
 solaris_setxattr(const char *path, 

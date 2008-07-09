@@ -46,6 +46,8 @@
 #include "call-stub.h"
 #include "defaults.h"
 #include "common-utils.h"
+#include "compat-errno.h"
+#include "compat.h"
 
 #define BUF_SIZE 512
 

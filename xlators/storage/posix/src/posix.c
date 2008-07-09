@@ -41,6 +41,8 @@
 #include "lock.h"
 #include "defaults.h"
 #include "common-utils.h"
+#include "compat-errno.h"
+#include "compat.h"
 
 
 #undef HAVE_SET_FSID
