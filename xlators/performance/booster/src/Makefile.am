@@ -38,5 +38,6 @@ glusterfs_booster_so_LDFLAGS = -shared -nostartfiles $(GF_DARWIN_BOOSTER_CFLAGS)
 glusterfs_booster_so_LDADD = -L$(top_builddir)/libglusterfs/src -lglusterfs
 
 
-CLEANFILES = *~
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in
 

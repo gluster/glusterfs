@@ -15,3 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SUBDIRS = filter fixed-id posix-locks trash path-convertor
+
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in

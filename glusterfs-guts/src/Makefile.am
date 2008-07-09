@@ -14,4 +14,5 @@ AM_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DFUSE_USE_VERSION=26 \
 	-I$(top_srcdir)/libglusterfs/src  -DDATADIR=\"$(localstatedir)\" \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\"
 
-CLEANFILES = *~
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in

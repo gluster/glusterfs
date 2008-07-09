@@ -7,4 +7,5 @@ noinst_HEADERS = tcp.h
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/transport/tcp/ -shared -nostartfiles $(GF_DARWIN_BUNDLE_CFLAGS)
 
-CLEANFILES = *~
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in

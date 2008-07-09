@@ -15,3 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SUBDIRS = src
+
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in

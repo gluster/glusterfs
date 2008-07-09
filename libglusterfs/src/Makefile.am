@@ -34,4 +34,5 @@ spec.lex.c: spec.l y.tab.h
 y.tab.c y.tab.h: spec.y
 	$(YACC) -d $(srcdir)/spec.y
 
-CLEANFILES = spec.lex.c y.tab.c y.tab.h *~
+CLEANFILES = spec.lex.c y.tab.c y.tab.h
+DISTCLEANFILES = .deps/*.P Makefile.in

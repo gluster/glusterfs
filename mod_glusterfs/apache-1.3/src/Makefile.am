@@ -27,4 +27,4 @@ install-data-local:
 #	cp -fv httpd.conf $(HTTPD_CONF_DIR)
 
 clean:
-	rm -fv *.c *.so *.o httpd.conf
+	rm -fv *.so *.o httpd.conf

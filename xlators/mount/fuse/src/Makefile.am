@@ -34,5 +34,6 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS) -Wall \
 
 AM_LDFLAGS = -shared -nostartfiles -lfuse $(GF_DARWIN_FUSE_LDADD)
 
-CLEANFILES = *~
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in
 

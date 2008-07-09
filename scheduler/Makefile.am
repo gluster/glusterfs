@@ -15,3 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SUBDIRS = alu random nufa rr switch
+
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in

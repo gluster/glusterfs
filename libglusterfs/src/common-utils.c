@@ -600,7 +600,7 @@ gf_volume_name_validate (const char *volume_name)
   
   for (vname = &volume_name[1]; *vname != '\0'; vname++)
     {
-      if (!(isalnum (vname) || *vname == '_'))
+      if (!(isalnum (*vname) || *vname == '_'))
 	return 1;
     }
   

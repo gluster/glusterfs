@@ -7,3 +7,6 @@ EmacsMode_DATA = glusterfs-mode.el
 SUBDIRS = init.d
 
 EXTRA_DIST = specgen.scm glusterfs.vim glusterfs-mode.el
+
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in

@@ -6,3 +6,6 @@ voldir = $(sysconfdir)/glusterfs
 vol_DATA = glusterfs-client.vol.sample glusterfs-server.vol.sample
 
 man8_MANS = glusterfs.8
+
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in

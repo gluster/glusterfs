@@ -15,3 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SUBDIRS = ip login
+
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in

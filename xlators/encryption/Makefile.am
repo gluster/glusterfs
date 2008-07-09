@@ -15,3 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SUBDIRS = rot-13
+
+CLEANFILES = 
+DISTCLEANFILES = .deps/*.P Makefile.in
