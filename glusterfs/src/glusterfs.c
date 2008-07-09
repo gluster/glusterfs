@@ -658,6 +658,29 @@ main (int32_t argc, char *argv[])
       return -1;
   }
   
+  /* Check if the mountpoint option is not given, and the spec file is not having a server volume */
+  if (!ctx->mount_point)
+    {
+      xlator_t *trav = ctx->graph;
+      int server_specified = 0;
+      while (trav)
+	{
+	  if (!strcmp (trav->type, "protocol/server\n"))
+	    {
+	      server_specified = 1;
+	      break;
+	    }
+
+	  trav = trav->next;
+	}
+      if (!server_specified)
+	{
+	  gf_log ("glusterfs", GF_LOG_ERROR, 
+		  "Either protocol/volume should be defined in volume spec file, or mountpoint should be given");
+	  return -1;
+	}
+    }
+
   event_dispatch (ctx->event_pool);
 
   return 0;

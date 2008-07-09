@@ -399,11 +399,21 @@ dnl	GF_SOLARIS_HOST_OS=1
         GF_HOST_OS="GF_SOLARIS_HOST_OS"
 	GF_SOLARIS_GLUSTERFSD_LDFLAGS="-lnsl -lresolv -lsocket"
 	GF_TRANSPORT_DIRS="tcp"
+dnl  Remove these line once the compilation of libglusterfsclient and mod_glusterfs successfully completes on Solaris
+	BUILD_MOD_GLUSTERFS=no
+	MOD_GLUSTERFS_SUBDIR=""
+	BUILD_LIBGLUSTERFSCLIENT=no
+	LIBGLUSTERFSCLIENT_SUBDIR=""
 	;;
      *bsd*)
 dnl	GF_BSD_HOST_OS=1
         GF_HOST_OS="GF_BSD_HOST_OS"
 	GF_TRANSPORT_DIRS="tcp unix"
+dnl  Remove these line once the compilation of libglusterfsclient and mod_glusterfs successfully completes on BSD
+	BUILD_MOD_GLUSTERFS=no
+	MOD_GLUSTERFS_SUBDIR=""
+	BUILD_LIBGLUSTERFSCLIENT=no
+	LIBGLUSTERFSCLIENT_SUBDIR=""
 	;;
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
