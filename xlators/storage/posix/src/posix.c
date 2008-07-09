@@ -125,8 +125,8 @@ posix_lookup (call_frame_t *frame,
 	/* log */
       }
       if (fd == -1) {
-	gf_log (this->name, GF_LOG_ERROR, "open (%s) => -1/%d",
-		real_path, errno);
+	gf_log (this->name, GF_LOG_ERROR, "opening file %s failed with %s",
+		real_path, strerror (errno));
       }
       ret = read (fd, databuf, buf.st_size);
       close (fd);

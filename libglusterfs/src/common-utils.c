@@ -524,6 +524,89 @@ gf_trim (char *string)
   return s;
 }
 
+int 
+gf_strsplit (const char *str, const char *delim, 
+	     char ***tokens, int *token_count)
+{
+  char *running = NULL;
+  char *token = NULL;
+  char **token_list = NULL;
+  int count = 0;
+  int i = 0;
+  int j = 0;
+  
+  if (str == NULL || delim == NULL || tokens == NULL || token_count == NULL)
+    {
+      return -1;
+    }
+  
+  if ((running = strdupa (str)) == NULL)
+    {
+      return -1;
+    }
+  
+  while ((token = strsep (&running, delim)) != NULL)
+    {
+      if (token[0] != '\0')
+	count++;
+    }
+  
+  if ((running = strdupa (str)) == NULL)
+    {
+      return -1;
+    }
+  
+  if ((token_list = calloc (count, sizeof (char *))) == NULL)
+    {
+      return -1;
+    }
+  
+  while ((token = strsep (&running, delim)) != NULL)
+    {
+      if (token[0] == '\0')
+	continue;
+      
+      if ((token_list[i++] = strdup (token)) == NULL)
+	goto free_exit;
+    }
+  
+  *tokens = token_list;
+  *token_count = count;
+  return 0;
+  
+ free_exit:
+  for (j = 0; j < i; j++)
+    {
+      free (token_list[j]);
+    }
+  free (token_list);
+  return -1;
+}
+
+int 
+gf_volume_name_validate (const char *volume_name)
+{
+  const char *vname = NULL;
+  
+  if (volume_name == NULL)
+    {
+      return -1;
+    }
+  
+  if (!isalpha (volume_name[0]))
+    {
+      return 1;
+    }
+  
+  for (vname = &volume_name[1]; *vname != '\0'; vname++)
+    {
+      if (!(isalnum (vname) || *vname == '_'))
+	return 1;
+    }
+  
+  return 0;
+}
+
 static int 
 _gf_string2long (const char *str, long *n, int base)
 {

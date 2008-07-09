@@ -198,8 +198,8 @@ stripe_stack_unwind_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       }
@@ -255,8 +255,8 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       } 
@@ -336,8 +336,8 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       } 
@@ -417,8 +417,8 @@ stripe_stack_unwind_inode_lookup_cbk (call_frame_t *frame,
     
     if (op_ret == -1) {
       if (op_errno != ENOENT)
-	gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-		((call_frame_t *)cookie)->this->name, op_errno);
+	gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+		((call_frame_t *)cookie)->this->name, strerror (op_errno));
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       }
@@ -1277,8 +1277,8 @@ stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       local->op_ret = -1;
       local->op_errno = op_errno;
     }
@@ -1334,8 +1334,8 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((xlator_t *)cookie)->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((xlator_t *)cookie)->name, strerror (op_errno));
       local->failed = 1;
       local->op_errno = op_errno;
     }
@@ -1713,8 +1713,8 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       local->op_ret = -1;
       local->op_errno = op_errno;
     }
@@ -1769,8 +1769,8 @@ stripe_create_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((xlator_t *)cookie)->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((xlator_t *)cookie)->name, strerror (op_errno));
       local->failed = 1;
       local->op_errno = op_errno;
     }
@@ -1992,8 +1992,8 @@ stripe_open_cbk (call_frame_t *frame,
 
     if (op_ret == -1) {
       local->failed = 1;
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      (char *)cookie, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      (char *)cookie, strerror (op_errno));
       local->op_ret = -1;
       local->op_errno = op_errno;
     }
@@ -2055,8 +2055,8 @@ stripe_open_getxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       }
@@ -2231,8 +2231,8 @@ stripe_opendir_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       local->op_ret = -1;
       local->failed = 1;
       local->op_errno = op_errno;
@@ -2395,8 +2395,8 @@ stripe_lk_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       } 
@@ -2566,8 +2566,8 @@ stripe_close_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       } 
@@ -3174,8 +3174,8 @@ stripe_writev_cbk (call_frame_t *frame,
     callcnt = ++local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       local->op_errno = op_errno;
       local->op_ret = -1;
     }
@@ -3327,8 +3327,8 @@ stripe_stats_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
       local->op_ret = -1;
       local->op_errno = op_errno;
     }

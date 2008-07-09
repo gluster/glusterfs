@@ -544,7 +544,9 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   dict_t *inode_ctx;
 
   if (op_ret != 0) {
-    gf_log (this->name, GF_LOG_ERROR, "got errno %d from child", op_errno);
+    gf_log (this->name, GF_LOG_ERROR, 
+	    "got error (errno=%d, stderror=%s) from child", 
+	    op_errno, strerror (op_errno));
     STACK_UNWIND (frame, -1, op_errno, buf);
     return 0;
   }

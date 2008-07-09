@@ -225,6 +225,9 @@ memdup (const void *ptr, size_t size)
 }
 
 char *gf_trim (char *string);
+int gf_strsplit (const char *str, const char *delim, 
+		 char ***tokens, int *token_count);
+int gf_volume_name_validate (const char *volume_name);
 
 int gf_string2long (const char *str, long *n);
 int gf_string2ulong (const char *str, unsigned long *n);
