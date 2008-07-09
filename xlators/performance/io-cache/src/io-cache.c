@@ -195,6 +195,7 @@ ioc_lookup_cbk (call_frame_t *frame,
   ioc_local_t *local = frame->local;
   data_t *page_data = NULL;
   ioc_table_t *table = this->private;
+  char need_unref = 0;
   
   if (op_ret == 0) {
     ioc_inode = ioc_get_inode (inode->ctx, this->name);
@@ -276,10 +277,10 @@ ioc_lookup_cbk (call_frame_t *frame,
 	  ioc_table_unlock (table);
 
 	} else {
-	  if (!(page && page->ready) && dict) {
+	  if (!(page && page->ready)) {
 	    gf_log (this->name,
 		    GF_LOG_DEBUG,
-		    "glusterfs.content is NULL");
+		    "page not present");
 
 	    ioc_inode_unlock (ioc_inode);
 	    STACK_WIND (frame,
@@ -303,6 +304,7 @@ ioc_lookup_cbk (call_frame_t *frame,
 		    "serving file %s from io-cache", local->file_loc.path);
 
 	    if (!dict) {
+	      need_unref = 1;
 	      dict = dict_ref (get_new_dict ());
 	    }
 	    dict_set (dict, "glusterfs.content", data_from_dynptr (buf, stbuf->st_size));
@@ -320,6 +322,11 @@ ioc_lookup_cbk (call_frame_t *frame,
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, dict);
+
+  if (need_unref) {
+    dict_unref (dict);
+  }
+
   return 0;
 }
 
