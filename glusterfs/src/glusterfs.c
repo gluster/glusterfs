@@ -110,11 +110,11 @@ static struct argp_option options[] = {
    "Run ID for the process, used by scripts to keep track of process they started, defaults to none"},
 
   {0, 0, 0, 0, "Miscellaneous Options:"},
-#ifndef GF_LINUX_HOST_OS 
+#ifndef HAVE_ARGP
   {"help", 'h', 0, 0, "Give this help list"},
   {"version", 'V', 0, 0, "Print program version"},
   {"usage", 'u', 0, 0, "Give a short usage message"},
-#endif /* GF_LINUX_HOST_OS */
+#endif /* HAVE_ARGP */
 
   { 0, }
 };

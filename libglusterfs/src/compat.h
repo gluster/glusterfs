@@ -128,6 +128,18 @@ void argp_version_ (const char *version);
 #include <argp.h>
 #endif /* HAVE_ARGP */
 
+#ifndef strdupa
+#define strdupa(s)                                     \
+  (__extension__                                       \
+    ({                                                 \
+      __const char *__old = (s);                       \
+      size_t __len = strlen (__old) + 1;               \
+      char *__new = (char *) __builtin_alloca (__len); \
+      (char *) memcpy (__new, __old, __len);	       \
+    }))
+#endif 
+
+
 #ifdef GF_LINUX_HOST_OS
 
 #include <linux/limits.h>
@@ -166,12 +178,13 @@ enum {
 #define sighandler_t sig_t
 #endif
 
+	
 #define lremovexattr(path,key)               extattr_delete_link(path, EXTATTR_NAMESPACE_USER, key)
 #define llistxattr(path,key,size)            extattr_list_link(path, EXTATTR_NAMESPACE_USER, key, size)
 #define lgetxattr(path, key, value, size)    extattr_get_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
 #define lsetxattr(path,key,value,size,flags) extattr_set_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
-#define fgetxattr(fd,key,value,size)         exattr_get_fd(fd, EXTATTR_NAMESPACE_USER, key, value, size)
-#define fsetxattr(fd,key,value,size,flag)    exattr_set_fd(fd, EXTATTR_NAMESPACE_USER, key, value, size)
+#define fgetxattr(fd,key,value,size)         extattr_get_fd(fd, EXTATTR_NAMESPACE_USER, key, value, size)
+#define fsetxattr(fd,key,value,size,flag)    extattr_set_fd(fd, EXTATTR_NAMESPACE_USER, key, value, size)
 
 
 #define F_GETLK64	F_GETLK
@@ -235,6 +248,10 @@ int solaris_getxattr(const char *path, const char* key,
 		     char *value, size_t size);
 int solaris_setxattr(const char *path, const char* key, const char *value, 
 		     size_t size, int flags);
+int solaris_fgetxattr(const char *path, const char* key,
+		      char *value, size_t size);
+int solaris_fsetxattr(const char *path, const char* key, const char *value, 
+		      size_t size, int flags);
 
 #endif /* GF_SOLARIS_HOST_OS */
 

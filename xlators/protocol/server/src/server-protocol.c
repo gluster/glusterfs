@@ -3674,14 +3674,17 @@ server_statfs (call_frame_t *frame,
   req = gf_param (hdr);
 
   loc.path  = req->path;
-  loc.ino   = 1;
-  loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+  loc.ino   = ntoh64 (req->ino);
+  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
   STACK_WIND (frame,
 	      server_statfs_cbk,
 	      BOUND_XL (frame),
 	      BOUND_XL (frame)->fops->statfs,
 	      &loc);
+
+  if (loc.inode)
+    inode_unref (loc.inode);
 
   return 0;
 }
