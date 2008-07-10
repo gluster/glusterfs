@@ -94,10 +94,11 @@ _gf_log (const char *domain,
 	 gf_loglevel_t level, const char *fmt, ...)
 {
   static char *level_strings[] = {"N", /* NONE */
+				  "T", /* TRACE */
 				  "C", /* CRITICAL */
 				  "E", /* ERROR */
 				  "W", /* WARNING */
-				  "T", /* TRACE (GF_LOG_NORMAL) */
+				  "N", /* TRACE (GF_LOG_NORMAL) */
 				  "D", /* DEBUG */
 				  ""};
   const char *basename = NULL;

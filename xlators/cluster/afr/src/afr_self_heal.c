@@ -49,9 +49,6 @@ enum {
   AFR_LABEL_9,
 };
 
-#define AFR_DEBUG_FMT(xl, format, args...) if(((afr_private_t*)(xl)->private)->debug) gf_log ((xl)->name, GF_LOG_DEBUG, "AFRDEBUG:" format, ##args);
-#define AFR_DEBUG(xl) if(((afr_private_t*)xl->private)->debug) gf_log (xl->name, GF_LOG_DEBUG, "AFRDEBUG:");
-
 extern int32_t
 afr_lookup_unlock_cbk (call_frame_t *frame,
 		       void *cookie,
@@ -306,9 +303,11 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
   int32_t child_count = pvt->child_count, i;
   afr_selfheal_t *ashptr = local->ashptr;
   xlator_t **children = pvt->children;
+  xlator_t *this = frame->this;
   dir_entry_t *entry;
   int32_t latest = local->latest;
-  int32_t cnt;
+  int32_t cnt = 0, len = 0;
+  char DEBUG1[BUFSIZ] = {0,}, DEBUG2[BUFSIZ] = {0,};
 
   local = frame->local;
   asp = local->asp;
@@ -340,6 +339,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
   }
 
  AFR_LABEL_1_GOTO:
+  GF_TRACE (this, "at LABEL1");
   /* FIXME: free asp */
   asp = calloc (1, sizeof(*asp));
   ERR_ABORT (asp);
@@ -347,12 +347,18 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
   ERR_ABORT (asp->loc);
 
   local->asp = asp;
-
+  DEBUG2[0] = '\0';
   for (i = 0; i < child_count; i++) {
+    if (ashptr[i].repair) {
+      strcat (DEBUG2, " ");
+      strcat (DEBUG2, children[i]->name);
+    }
+
     if (i == local->latest || ashptr[i].repair)
       local->call_count++;
   }
 
+  GF_TRACE (this, "Latest on %s, repair on %s, call_count %d", children[local->latest]->name, DEBUG2, local->call_count);
   asp->label = AFR_LABEL_2;
   for (i = 0; i < child_count; i++) {
     if (i == local->latest || ashptr[i].repair) {
@@ -366,6 +372,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
   }
   return;
  AFR_LABEL_2_GOTO:
+  GF_TRACE (this, "at LABEL_2");
   if (asp->error)
     goto AFR_ERROR;
   for (i = 0; i < child_count; i++) {
@@ -384,17 +391,35 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 		    0);
 	return;
  AFR_LABEL_3_GOTO:
+	GF_TRACE (this, "at LABEL_3");
 	if (asp->error)
 	  goto AFR_ERROR;
 	/* all the contents read */
 	if (asp->dents_count == 0) {
+	  GF_TRACE (this, "dents_count = 0, all conents read from %s, breaking.", children[i]->name);
 	  break;
 	}
+	DEBUG1[0] = '\0';
+	len = 0;
 	asp->label = AFR_LABEL_4;
 	for (entry = asp->entries; entry; entry = entry->next) {
 	  local->call_count++;
+
+	  /* for debug info only */
+	  len += strlen (entry->name) + 1;
+	  if (len + 1 >= BUFSIZ) {
+	    GF_TRACE (this, "getdents contents: %s", DEBUG1);
+	    len = 0;
+	    DEBUG1[0] = '\0';
+	  }
+	  strcat (DEBUG1, entry->name);
+	  strcat (DEBUG1, " ");
 	}
 	cnt = local->call_count;
+	if (len) {
+	  GF_TRACE (this, "getdents contents: %s", DEBUG1);
+	}
+	GF_TRACE (this, "call_count = %d", cnt);
 	for (entry = asp->entries; entry; entry = entry->next) {
 	  char path[PATH_MAX];
 	  strcpy (path, local->loc->path);
@@ -415,17 +440,37 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 	}
 	return;
  AFR_LABEL_4_GOTO:
+	GF_TRACE (this, "at LABEL_4");
 	if (asp->error)
 	  goto AFR_ERROR;
+	DEBUG1[0] = '\0';
+	len = 0;
 	asp->label = AFR_LABEL_5;
 	for (entry = asp->entries; entry; entry = entry->next) {
 	  if (entry->name == NULL)
 	    continue;
 	  local->call_count++;
+
+	  /* for debug info only */
+	  len += strlen (entry->name) + 1;
+	  if (len + 1 >= BUFSIZ) {
+	    GF_TRACE (this, "rmelem on %s: %s", children[i]->name, DEBUG1);
+	    len = 0;
+	    DEBUG1[0] = '\0';
+	  }
+	  strcat (DEBUG1, entry->name);
+	  strcat (DEBUG1, " ");
 	}
-	if (local->call_count == 0)
+	if (local->call_count == 0) {
+	  GF_TRACE (this, "nothing to rmelem in this loop");
 	  continue;
+	}
+
 	cnt = local->call_count;
+	if (len) {
+	  GF_TRACE (this, "rmelem contents: %s", DEBUG1);
+	}
+	GF_TRACE (this, "call_count = %d", cnt);
 	for (entry = asp->entries; entry; entry = entry->next) {
 	  char path[PATH_MAX];
 	  if (entry->name == NULL)
@@ -443,6 +488,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 	}
 	return;
  AFR_LABEL_5_GOTO:
+	GF_TRACE (this, "at LABEL_5");
 	if (asp->error)
 	  goto AFR_ERROR;
       }
@@ -461,6 +507,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 		0);
     return;
  AFR_LABEL_6_GOTO:
+    GF_TRACE (this, "at LABEL_6");
     if (asp->error)
       goto  AFR_ERROR;
     if (asp->dents_count == 0)
@@ -474,6 +521,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
     for (entry = asp->entries; entry; entry = entry->next)
       count++;
     cnt = local->call_count;
+    GF_TRACE (this, "calling setdents(), number of entries is %d", count);
     dir_entry_t *tmpdir = calloc (1, sizeof (*tmpdir));
     ERR_ABORT (tmpdir);
     tmpdir->next = asp->entries;
@@ -503,6 +551,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 
     return;
  AFR_LABEL_7_GOTO:
+    GF_TRACE (this, "at LABEL_7");
     if (asp->error)
       goto AFR_ERROR;
   }
@@ -516,6 +565,8 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
     asprintf (&ctime_str, "%u", ashptr[latest].ctime);
     dict_set (latest_xattr, GLUSTERFS_VERSION, data_from_dynptr (version_str, strlen(version_str)));
     dict_set (latest_xattr, GLUSTERFS_CREATETIME, data_from_dynptr (ctime_str, strlen(ctime_str)));
+
+    GF_TRACE (this, "latest ctime/version = %s/%s", ctime_str, version_str);
 
     for (i = 0; i < child_count; i++) {
       if (ashptr[i].repair)
@@ -541,6 +592,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
   }
 
  AFR_LABEL_8_GOTO:
+  GF_TRACE (this, "at LABEL_8");
   if (asp->error)
     goto AFR_ERROR;
 
@@ -563,13 +615,16 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
   }
   return;
  AFR_LABEL_9_GOTO:
+  GF_TRACE (this, "at LABEL_8");
   if (asp->error)
     goto AFR_ERROR;
 
   goto AFR_SUCCESS;
  AFR_ERROR:
+  GF_TRACE (this, "at AFR_ERROR");
   local->rmelem_status = 1;
  AFR_SUCCESS:
+  GF_TRACE (this, "at AFR_SUCCESS");
   if (asp) {
     FREE (asp->loc);
     FREE (asp);
