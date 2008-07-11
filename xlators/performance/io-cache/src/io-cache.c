@@ -221,7 +221,7 @@ ioc_lookup_cbk (call_frame_t *frame,
       ioc_table_unlock (ioc_inode->table);
     }
 
-    if (local && local->need_xattr >= stbuf->st_size) {
+    if (local && stbuf->st_size && local->need_xattr >= stbuf->st_size) {
       char *src = NULL, *dst = NULL;
       data_t *content_data = NULL;
       ioc_page_t *page = NULL;

@@ -554,7 +554,7 @@ glusterfs_lookup (libglusterfs_handle_t handle,
 
   op_ret = libgf_client_lookup (ctx, &loc, stbuf, &dict, (int32_t)size);
 
-  if (!op_ret && size && dict && buf) {
+  if (!op_ret && size && stbuf && stbuf->st_size && dict && buf) {
     data_t *mem_data = NULL;
     void *mem = NULL;
 
