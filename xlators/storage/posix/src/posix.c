@@ -2266,18 +2266,6 @@ posix_lk (call_frame_t *frame,
   return 0;
 }
 
-#define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
-
-static int32_t
-dirent_size (struct dirent *entry)
-{
-#ifdef GF_DARWIN_HOST_OS
-  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
-#else
-  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
-#endif
-}
-
 int32_t
 posix_readdir (call_frame_t *frame,
 	       xlator_t *this,
@@ -2367,7 +2355,10 @@ posix_readdir (call_frame_t *frame,
       /* d_reclen in Linux == d_namlen in Darwin */
       this_entry->d_len = entry->d_namlen; 
 #endif
-
+#ifdef GF_BSD_HOST_OS
+      /* d_reclen in Linux == d_namlen in Darwin */
+      this_entry->d_len = entry->d_namlen; 
+#endif
       strncpy (this_entry->d_name, entry->d_name, this_entry->d_len);
 
       filled += this_size;

@@ -666,12 +666,6 @@ bdb_dirent_size (DBT *key)
   return ALIGN (24 /* FIX MEEEE!!! */ + key->size);
 }
 
-int32_t
-dirent_size (struct dirent *entry)
-{
-  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
-}
-
 
 /* bdb_extract_bfd - translate a fd_t to a bfd (either a 'struct bdb_bfd' or 'struct bdb_dir')
  *

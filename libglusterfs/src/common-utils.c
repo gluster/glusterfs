@@ -381,6 +381,7 @@ glusterfs_stats (int32_t signum)
   time_t utime = time (NULL);
   struct tm *tm = localtime (&utime);
   char *loglevel[] = {"NONE", 
+		      "TRACE",
 		      "CRITICAL", 
 		      "ERROR", 
 		      "WARNING", 

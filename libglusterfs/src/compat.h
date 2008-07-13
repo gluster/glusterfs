@@ -25,6 +25,8 @@
 #include "config.h"
 #endif
 
+#include <stdint.h>
+
 #ifndef HAVE_ARGP
 #include <stdio.h>
 #include <errno.h>
@@ -138,6 +140,25 @@ void argp_version_ (const char *version);
       (char *) memcpy (__new, __old, __len);	       \
     }))
 #endif 
+
+#define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
+
+static inline int32_t
+dirent_size (struct dirent *entry)
+{
+#ifdef GF_BSD_HOST_OS
+  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
+#endif
+#ifdef GF_DARWIN_HOST_OS
+  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
+#endif
+#ifdef GF_LINUX_HOST_OS
+  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
+#endif
+#ifdef GF_SOLARIS_HOST_OS
+  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
+#endif
+}
 
 
 #ifdef GF_LINUX_HOST_OS

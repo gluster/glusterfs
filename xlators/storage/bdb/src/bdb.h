@@ -185,8 +185,6 @@
 /* maximum retries for a failed transactional operation */		  
 #define BDB_MAX_RETRIES 10
 
-#define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
-
 typedef struct bctx_table bctx_table_t;
 typedef struct bdb_ctx    bctx_t;
 typedef struct bdb_cache  bdb_cache_t;

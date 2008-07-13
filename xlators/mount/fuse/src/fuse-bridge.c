@@ -38,6 +38,7 @@
 
 #include "fuse-extra.h"
 #include "list.h"
+#include "compat-errno.h"
 
 #define BIG_FUSE_CHANNEL_SIZE 1048576
 
