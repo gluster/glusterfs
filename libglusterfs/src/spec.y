@@ -18,18 +18,20 @@
 */
 
 
-%token SECTION_BEGIN SECTION_END OPTION NEWLINE SUBSECTION ID WHITESPACE COMMENT TYPE STRING_TOK
+%token SECTION_BEGIN SECTION_END OPTION NEWLINE SUBSECTION ID WHITESPACE COMMENT TYPE STRING_TOK CMD_TOK
 
 %{
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 #include "xlator.h"
 #include "logging.h"
 
 static int new_section (char *name);
 static int section_type (char *type);
 static int section_option (char *key, char *value);
+static int section_option_cmd (char *key, char *cmd);
 static int section_sub (char *sub);
 static int section_end (void);
 
@@ -51,11 +53,14 @@ SECTION_LINE: OPTION_LINE | TYPE_LINE | SUBSECTION_LINE;
 
 TYPE_LINE: TYPE WORD {if ( -1 == section_type ($2)) { YYABORT; }};
 
-OPTION_LINE: OPTION WORD WORD {if(-1 == section_option($2,$3)){YYABORT;} };
+OPTION_LINE: OPTION WORD WORD {if(-1 == section_option($2,$3)){YYABORT;} } |
+             OPTION WORD CMD {if(-1 == section_option_cmd ($2,$3)){YYABORT;} };;
 
 SUBSECTION_LINE: SUBSECTION WORDS;
+
 WORDS: WORD {if (-1 == section_sub ($1)) {YYABORT; } } | WORDS WORD { if (-1 == section_sub ($2)) { YYABORT; } };
 WORD: ID | STRING_TOK ;
+CMD: CMD_TOK;
 %%
 
 xlator_t *complete_tree = NULL;
@@ -84,6 +89,7 @@ cut_tree (xlator_t *tree)
   
   return 0;
 }
+
 
 static int
 new_section (char *name)
@@ -125,6 +131,35 @@ section_type (char *type)
   }
 
   gf_log ("parser", GF_LOG_DEBUG, "Type:%s:%s", tree->name, type);
+
+  return 0;
+}
+
+static int 
+section_option_cmd (char *key, char *cmd)
+{
+  char cmd_output[1024] = {0,};
+  FILE *fpp = NULL;
+  if (!key || !cmd){
+    gf_log ("parser", GF_LOG_ERROR, "invalid argument");
+    return -1;
+  }
+  fpp = popen (cmd, "r");
+  if (!fpp)
+    {
+      gf_log ("parser", GF_LOG_ERROR, "%s: failed to popen", cmd);
+      return -1;
+    }
+  if (!fgets (cmd_output, 1024, fpp))
+    {
+      gf_log ("parser", GF_LOG_ERROR, "failed to read output of cmd (%s)", cmd);
+      return -1;
+    }
+  pclose (fpp);
+  
+  dict_set (tree->options, key, str_to_data (cmd_output));
+  gf_log ("parser", GF_LOG_DEBUG, "Option:%s:%s:%s",
+	  tree->name, key, cmd_output);
 
   return 0;
 }

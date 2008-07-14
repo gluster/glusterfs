@@ -24,7 +24,7 @@
 #include "xlator.h"
 #include "y.tab.h"
 #include <string.h>
-#define START_STRSIZE	16
+#define START_STRSIZE	32
 
 static char *text;
 static int text_asize;
@@ -66,6 +66,7 @@ END    [e][n][d]
 SUB    [s][u][b]
 OPTION [o][p][t][i][o][n]
 TYPE   [t][y][p][e]
+%x BKQUOTE
 %%
 \#.*                   ;
 {VOLUME}               return SECTION_BEGIN;
@@ -83,6 +84,16 @@ TYPE   [t][y][p][e]
                        return STRING_TOK;
        }
 }
-[^ \t\r\n\"\\]+   { yylval = strdup (yytext) ; return ID; }
+\`                     BEGIN(BKQUOTE);
+<BKQUOTE>{
+       [^\n\`\\]* {    append_string (yytext, yyleng); }
+       \\.        {    append_string (yytext + 1, yyleng - 1); }
+       \`         {
+                       BEGIN (INITIAL);
+                       yylval = text;
+                       return CMD_TOK;
+       }
+}
+[^ \t\r\n\`\"\\]+   { yylval = strdup (yytext) ; return ID; }
 [ \t\r\n]+               ;
 %%

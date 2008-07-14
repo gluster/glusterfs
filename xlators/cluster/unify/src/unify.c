@@ -4252,6 +4252,8 @@ init (xlator_t *this)
   data_t *scheduler = NULL;
   data_t *data = NULL;
 
+  /* Handle a small special case for NUFA scheduler */
+  int is_sched_nufa = 0;
 
   /* Check for number of child nodes, if there is no child nodes, exit */
   if (!this->children) {
@@ -4263,13 +4265,19 @@ init (xlator_t *this)
   
   /* Check for 'scheduler' in volume */
   scheduler = dict_get (this->options, "scheduler");
-  if (!scheduler) {
-    gf_log (this->name, 
-	    GF_LOG_ERROR, 
-	    "\"option scheduler <x>\" is missing in spec file");
-    return -1;
-  }
-  
+  if (!scheduler) 
+    {
+      gf_log (this->name, 
+	      GF_LOG_ERROR, 
+	      "\"option scheduler <x>\" is missing in spec file");
+      return -1;
+    }
+  else
+    {
+      if (!strcmp (scheduler->data, "nufa"))
+	is_sched_nufa = 1;
+    }
+
   {
     /* Setting "option namespace <node>" */
     data = dict_get (this->options, "namespace");
@@ -4312,6 +4320,58 @@ init (xlator_t *this)
 	    "namespace node specified as %s", data->data);
   }  
 
+  count = 1;
+  if (is_sched_nufa)
+    {
+      data_t *tmp_data = dict_get (this->options, "drop-hostname-from-subvolumes");
+      if (tmp_data)
+	{
+	  /* Well, drop the hostname from the subvolumes */
+	  char host_name[256];
+	  
+	  if (gethostname (host_name, 256) == -1)
+	    {
+	      gf_log (this->name, GF_LOG_ERROR, "gethostname(): %s", strerror (errno));
+	    }
+	  else
+	    {
+	      /* Check if the local_volume specified is proper subvolume of unify */
+	      trav = this->children;
+	      if (strcmp (host_name, trav->xlator->name) == 0)
+		{
+		  /* Well there is a volume with the name 'hostname()', hence neglect it */
+		  this->children = trav->next;
+		  count--;
+		}
+	      while (trav->next) 
+		{
+		  if (strcmp (host_name, (trav->next)->xlator->name) == 0)
+		    {
+		      /* Well there is a volume with the name 'hostname()', hence neglect it */
+		      /* Remove entry about this subvolume from the list */
+		      trav->next = (trav->next)->next;
+		      count--;
+		      break;
+		    }
+		  trav = trav->next;
+		  count++;
+		}
+	      
+	      if (!trav) 
+		{
+		  /* entry for 'local-volume-name' is wrong, not present in subvolumes */
+		  gf_log (this->name, GF_LOG_ERROR, "No volume by name '%s'", host_name);
+		} 
+	    }
+	}
+    }
+  
+  if (!count)
+    {
+      gf_log (this->name, GF_LOG_ERROR, "left with no subvolumes");
+      return -1;
+    }
+
   _private = calloc (1, sizeof (*_private));
   ERR_ABORT (_private);
   _private->sched_ops = get_scheduler (scheduler->data);
@@ -4325,13 +4385,16 @@ init (xlator_t *this)
 
   /* update _private structure */
   {
+    count = 0;
     trav = this->children;
     /* Get the number of child count */
     while (trav) {
       count++;
       trav = trav->next;
     }
-    _private->child_count = count;   
+
+    gf_log (this->name, GF_LOG_DEBUG, "Child node count is %d", count);    
+    _private->child_count = count;
     if (count == 1) {
       /* TODO: Should I error out here? */
       gf_log (this->name, GF_LOG_CRITICAL, 
@@ -4340,7 +4403,6 @@ init (xlator_t *this)
 	      "It may not be the desired config, review your volume spec file.",
 	      "If this is how you are testing it, you may hit some performance penalty");
     }
-    gf_log (this->name, GF_LOG_DEBUG, "Child node count is %d", count);
 
     _private->xl_array = calloc (1, sizeof (xlator_t) * (count + 1));
     ERR_ABORT (_private->xl_array);
