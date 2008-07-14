@@ -478,6 +478,19 @@ typedef struct {
       struct flock lock;
     } lk_cbk;
 
+    /* gf_lk */
+    struct {
+      fop_gf_lk_t fn;
+      fd_t *fd;
+      int32_t cmd;
+      struct flock lock;
+    } gf_lk;
+    struct {
+      fop_gf_lk_cbk_t fn;
+      int32_t op_ret, op_errno;
+      struct flock lock;
+    } gf_lk_cbk;
+
     /* readdir */
     struct {
       fop_readdir_t fn;
@@ -950,11 +963,25 @@ fop_lk_stub (call_frame_t *frame,
 	     struct flock *lock);
 
 call_stub_t *
+fop_gf_lk_stub (call_frame_t *frame,
+		fop_gf_lk_t fn,
+		fd_t *fd,
+		int32_t cmd,
+		struct flock *lock);
+
+call_stub_t *
 fop_lk_cbk_stub (call_frame_t *frame,
 		 fop_lk_cbk_t fn,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 struct flock *lock);
+
+call_stub_t *
+fop_gf_lk_cbk_stub (call_frame_t *frame,
+		    fop_gf_lk_cbk_t fn,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct flock *lock);
 
 call_stub_t *
 fop_readdir_stub (call_frame_t *frame,

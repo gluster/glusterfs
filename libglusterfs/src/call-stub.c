@@ -1813,6 +1813,55 @@ fop_lk_cbk_stub (call_frame_t *frame,
   return stub;
 }
 
+call_stub_t *
+fop_gf_lk_stub (call_frame_t *frame,
+		fop_gf_lk_t fn,
+		fd_t *fd,
+		int32_t cmd,
+		struct flock *lock)
+{
+  call_stub_t *stub = NULL;
+
+  if (!frame || !lock)
+    return NULL;
+
+  stub = stub_new (frame, 1, GF_FOP_GF_LK);
+  if (!stub)
+    return NULL;
+
+  stub->args.lk.fn = fn;
+  stub->args.lk.fd = fd;
+  stub->args.lk.cmd = cmd;
+  stub->args.lk.lock = *lock;
+
+  return stub;
+}
+
+call_stub_t *
+fop_gf_lk_cbk_stub (call_frame_t *frame,
+		    fop_gf_lk_cbk_t fn,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct flock *lock)
+
+{
+  call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
+
+  stub = stub_new (frame, 0, GF_FOP_GF_LK);
+  if (!stub)
+    return NULL;
+
+  stub->args.lk_cbk.fn = fn;
+  stub->args.lk_cbk.op_ret = op_ret;
+  stub->args.lk_cbk.op_errno = op_errno;
+  if (op_ret == 0)
+    stub->args.lk_cbk.lock = *lock;
+
+  return stub;
+}
 
 call_stub_t *
 fop_setdents_stub (call_frame_t *frame,
@@ -2211,6 +2260,16 @@ call_resume_wind (call_stub_t *stub)
 			stub->args.lk.fd,
 			stub->args.lk.cmd,
 			&stub->args.lk.lock);
+      break;
+    }
+
+  case GF_FOP_GF_LK:
+    {
+      stub->args.gf_lk.fn (stub->frame,
+			   stub->frame->this,
+			   stub->args.gf_lk.fd,
+			   stub->args.gf_lk.cmd,
+			   &stub->args.gf_lk.lock);
       break;
     }
   
@@ -2869,6 +2928,23 @@ call_resume_unwind (call_stub_t *stub)
 			      stub->args.lk_cbk.op_ret,
 			      stub->args.lk_cbk.op_errno,
 			      &stub->args.lk_cbk.lock);
+      break;
+    }
+
+  case GF_FOP_GF_LK:
+    {
+      if (!stub->args.gf_lk_cbk.fn)
+	STACK_UNWIND (stub->frame,
+		      stub->args.gf_lk_cbk.op_ret,
+		      stub->args.gf_lk_cbk.op_errno,
+		      &stub->args.gf_lk_cbk.lock);
+      else
+	stub->args.gf_lk_cbk.fn (stub->frame,
+				 stub->frame->cookie,
+				 stub->frame->this,
+				 stub->args.gf_lk_cbk.op_ret,
+				 stub->args.gf_lk_cbk.op_errno,
+				 &stub->args.gf_lk_cbk.lock);
       break;
     }
   

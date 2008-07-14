@@ -473,6 +473,13 @@ typedef int32_t (*fop_lk_cbk_t) (call_frame_t *frame,
 				 int32_t op_errno,
 				 struct flock *flock);
 
+typedef int32_t (*fop_gf_lk_cbk_t) (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno,
+				    struct flock *flock);
+
 typedef int32_t (*fop_setdents_cbk_t) (call_frame_t *frame,
 				       void *cookie,
 				       xlator_t *this,
@@ -680,6 +687,12 @@ typedef int32_t (*fop_lk_t) (call_frame_t *frame,
 			     int32_t cmd,
 			     struct flock *flock);
 
+typedef int32_t (*fop_gf_lk_t) (call_frame_t *frame,
+				xlator_t *this,
+				fd_t *fd,
+				int32_t cmd,
+				struct flock *flock);
+
 typedef int32_t (*fop_setdents_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   fd_t *fd,
@@ -731,6 +744,7 @@ struct xlator_fops {
   fop_getxattr_t       getxattr;
   fop_removexattr_t    removexattr;
   fop_lk_t             lk;
+  fop_gf_lk_t          gf_lk;
   fop_setdents_t       setdents;
   fop_getdents_t       getdents;
 
@@ -773,6 +787,7 @@ struct xlator_fops {
   fop_getxattr_cbk_t       getxattr_cbk;
   fop_removexattr_cbk_t    removexattr_cbk;
   fop_lk_cbk_t             lk_cbk;
+  fop_gf_lk_cbk_t	   gf_lk_cbk;
   fop_setdents_cbk_t       setdents_cbk;
   fop_getdents_cbk_t       getdents_cbk;
 };

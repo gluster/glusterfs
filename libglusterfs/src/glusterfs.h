@@ -115,11 +115,12 @@ typedef enum {
   GF_FOP_FTRUNCATE,
   GF_FOP_FSTAT,
   GF_FOP_LK,         /* 30 */
+  GF_FOP_GF_LK,
   GF_FOP_UTIMENS,
   GF_FOP_FCHMOD,
   GF_FOP_FCHOWN,
-  GF_FOP_LOOKUP,
-  GF_FOP_FORGET,     /* 35 */
+  GF_FOP_LOOKUP,     /* 35 */
+  GF_FOP_FORGET,     
   GF_FOP_SETDENTS,
   GF_FOP_RMELEM,
   GF_FOP_INCVER,
@@ -161,6 +162,11 @@ typedef enum {
   GF_LK_F_WRLCK,
   GF_LK_F_UNLCK
 } glusterfs_lk_types_t;
+
+typedef enum {
+  GF_LOCK_POSIX, 
+  GF_LOCK_INTERNAL
+} gf_lk_domain_t;
 
 typedef enum {
   GF_GET_ALL = 1,

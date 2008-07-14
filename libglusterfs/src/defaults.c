@@ -1189,6 +1189,23 @@ default_lk (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+default_gf_lk (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd,
+	       int32_t cmd,
+	       struct flock *lock)
+{
+  STACK_WIND (frame,
+	      default_lk_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->gf_lk,
+	      fd,
+	      cmd,
+	      lock);
+  return 0;
+}
+
 
 /* Management operations */
 

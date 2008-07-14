@@ -189,7 +189,7 @@ server_fchmod_cbk (call_frame_t *frame,
       gf_stat_from_stat (&rsp->stat, stbuf);
     }
 
-  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FCHMOD,
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LK,
 			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
@@ -4666,7 +4666,7 @@ server_rename (call_frame_t *frame,
 
 
 /* 
- * server_lk - lk function for server protocol
+ * server_lk_common - common lk function for lk/gf_lk for server protocol
  * @frame: call frame
  * @bound_xl:
  * @params: parameter dictionary
@@ -4674,10 +4674,10 @@ server_rename (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-server_lk (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   gf_hdr_common_t *hdr, size_t hdrlen,
-	   char *buf, size_t buflen)
+server_lk_common (call_frame_t *frame,
+		  xlator_t *bound_xl,
+		  gf_hdr_common_t *hdr, size_t hdrlen,
+		  char *buf, size_t buflen)
 {
   struct flock lock = {0, };
   gf_fop_lk_req_t *req = NULL;
@@ -4747,7 +4747,23 @@ server_lk (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+server_lk (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   gf_hdr_common_t *hdr, size_t hdrlen,
+	   char *buf, size_t buflen)
+{
+  return server_lk_common (frame, bound_xl, hdr, hdrlen, buf, buflen);
+}
 
+int32_t
+server_gf_lk (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
+{
+  return server_lk_common (frame, bound_xl, hdr, hdrlen, buf, buflen);
+}
 
 /*
  * server_writedir -
@@ -5833,6 +5849,7 @@ static gf_op_t gf_fops[] = {
   server_ftruncate,
   server_fstat,
   server_lk,
+  server_gf_lk,
   server_utimens,
   server_fchmod,
   server_fchown,

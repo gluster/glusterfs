@@ -540,7 +540,24 @@ iot_lk_wrapper (call_frame_t *frame,
   STACK_WIND (frame,
               iot_lk_cbk,
               FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->lk,
+	      FIRST_CHILD(this)->fops->lk,
+              fd,
+              cmd,
+              flock);
+  return 0;
+}
+
+static int32_t
+iot_gf_lk_wrapper (call_frame_t *frame,
+		   xlator_t *this,
+		   fd_t *fd,
+		   int32_t cmd,
+		   struct flock *flock)
+{
+  STACK_WIND (frame,
+              iot_lk_cbk,
+              FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->gf_lk,
               fd,
               cmd,
               flock);
@@ -548,11 +565,12 @@ iot_lk_wrapper (call_frame_t *frame,
 }
 
 int32_t
-iot_lk (call_frame_t *frame,
-        xlator_t *this,
-        fd_t *fd,
-        int32_t cmd,
-        struct flock *flock)
+iot_lk_common (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd,
+	       int32_t cmd,
+	       struct flock *flock,
+	       gf_lk_domain_t domain)
 {
   call_stub_t *stub;
   iot_local_t *local = NULL;
@@ -571,11 +589,20 @@ iot_lk (call_frame_t *frame,
   local = calloc (1, sizeof (*local));
   ERR_ABORT (local);
   frame->local = local;
-  stub = fop_lk_stub (frame,
-                      iot_lk_wrapper,
-                      fd,
-                      cmd,
-                      flock);
+
+  switch (domain) {
+  case GF_LOCK_POSIX:
+    stub = fop_lk_stub (frame, iot_lk_wrapper,
+			fd, cmd, flock);
+    break;
+  case GF_LOCK_INTERNAL:
+    stub = fop_gf_lk_stub (frame, iot_gf_lk_wrapper,
+			   fd, cmd, flock);
+    break;
+  default:
+    stub = 0;
+  }
+
   if (!stub) {
     gf_log (this->name, GF_LOG_ERROR, "cannot get fop_lk call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
@@ -587,6 +614,25 @@ iot_lk (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+iot_lk (call_frame_t *frame,
+	xlator_t *this,
+	fd_t *fd,
+	int32_t cmd,
+	struct flock *flock)
+{
+  return iot_lk_common (frame, this, fd, cmd, flock, GF_LOCK_POSIX);
+}
+
+int32_t
+iot_gf_lk (call_frame_t *frame,
+	   xlator_t *this,
+	   fd_t *fd,
+	   int32_t cmd,
+	   struct flock *flock)
+{
+  return iot_lk_common (frame, this, fd, cmd, flock, GF_LOCK_INTERNAL);
+}
 
 int32_t 
 iot_stat_cbk (call_frame_t *frame,
@@ -1184,6 +1230,7 @@ struct xlator_fops fops = {
   .flush       = iot_flush,
   .fsync       = iot_fsync,
   .lk          = iot_lk,
+  .gf_lk       = iot_gf_lk,
   .stat        = iot_stat,
   .fstat       = iot_fstat,
   .truncate    = iot_truncate,

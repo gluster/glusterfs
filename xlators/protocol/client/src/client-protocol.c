@@ -1696,23 +1696,13 @@ client_fstat (call_frame_t *frame,
   return ret;
 }
 
-/**
- * client_lk - lk function for client protocol
- * @frame: call frame
- * @this: this translator structure
- * @fd: file descriptor structure
- * @cmd: lock command
- * @lock: 
- *
- * external reference through client_protocol_xlator->fops->lk
- */
-
 int32_t 
-client_lk (call_frame_t *frame,
-	   xlator_t *this,
-	   fd_t *fd,
-	   int32_t cmd,
-	   struct flock *flock)
+client_lk_common (call_frame_t *frame,
+		  xlator_t *this,
+		  fd_t *fd,
+		  int32_t cmd,
+		  struct flock *flock,
+		  gf_lk_domain_t domain)
 {
   int ret = -1;
   gf_hdr_common_t *hdr = NULL;
@@ -1754,10 +1744,54 @@ client_lk (call_frame_t *frame,
   gf_flock_from_flock (&req->flock, flock);
 
   ret = protocol_client_xfer (frame, this,
-			      GF_OP_TYPE_FOP_REQUEST, GF_FOP_LK,
+			      GF_OP_TYPE_FOP_REQUEST, 
+			      (domain == GF_LOCK_POSIX ? GF_FOP_LK : GF_FOP_GF_LK),
 			      hdr, hdrlen, NULL, 0, NULL);
   return ret;
 }
+
+/**
+ * client_lk - lk function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ * @cmd: lock command
+ * @lock: 
+ *
+ * external reference through client_protocol_xlator->fops->lk
+ */
+
+int32_t 
+client_lk (call_frame_t *frame,
+	   xlator_t *this,
+	   fd_t *fd,
+	   int32_t cmd,
+	   struct flock *flock)
+{
+  return client_lk_common (frame, this, fd, cmd, flock, GF_LOCK_POSIX);
+}
+
+/**
+ * client_lk - lk function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ * @cmd: lock command
+ * @lock: 
+ *
+ * external reference through client_protocol_xlator->fops->gf_lk
+ */
+
+int32_t 
+client_gf_lk (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd,
+	      int32_t cmd,
+	      struct flock *flock)
+{
+  return client_lk_common (frame, this, fd, cmd, flock, GF_LOCK_INTERNAL);
+}
+
 
 /*
  * client_lookup - lookup function for client protocol
@@ -3563,7 +3597,7 @@ client_removexattr_cbk (call_frame_t *frame,
  * not for external reference
  */
 int32_t 
-client_lk_cbk (call_frame_t *frame,
+client_lk_common_cbk (call_frame_t *frame,
 	       gf_hdr_common_t *hdr, size_t hdrlen,
 	       char *buf, size_t buflen)
 {
@@ -4115,7 +4149,7 @@ static gf_op_t gf_fops[] = {
   client_create_cbk,
   client_ftruncate_cbk,
   client_fstat_cbk,
-  client_lk_cbk,
+  client_lk_common_cbk,
   client_utimens_cbk,
   client_fchmod_cbk,
   client_fchown_cbk,
@@ -4590,6 +4624,7 @@ struct xlator_fops fops = {
   .fstat       = client_fstat,
   .create      = client_create,
   .lk          = client_lk,
+  .gf_lk       = client_gf_lk,
   .lookup      = client_lookup,
   .forget      = client_forget,
   .fchmod      = client_fchmod,
