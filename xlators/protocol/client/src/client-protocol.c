@@ -4150,6 +4150,7 @@ static gf_op_t gf_fops[] = {
   client_ftruncate_cbk,
   client_fstat_cbk,
   client_lk_common_cbk,
+  client_lk_common_cbk,
   client_utimens_cbk,
   client_fchmod_cbk,
   client_fchown_cbk,
