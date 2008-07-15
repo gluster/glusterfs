@@ -39,5 +39,4 @@ glusterfs_booster_so_LDADD = -L$(top_builddir)/libglusterfs/src -lglusterfs
 
 
 CLEANFILES = 
-DISTCLEANFILES = .deps/*.P Makefile.in
 

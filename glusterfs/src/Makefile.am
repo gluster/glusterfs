@@ -27,7 +27,6 @@ AM_CFLAGS = -fPIC -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)\
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\"
 
 CLEANFILES = 
-DISTCLEANFILES = .deps/*.P Makefile.in
 
 $(top_builddir)/libglusterfs/src/libglusterfs.la:
 	make -C $(top_builddir)/libglusterfs/src/ all

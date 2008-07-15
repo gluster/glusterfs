@@ -527,6 +527,7 @@ int
 gf_strsplit (const char *str, const char *delim, 
 	     char ***tokens, int *token_count)
 {
+  char *_running = NULL;
   char *running = NULL;
   char *token = NULL;
   char **token_list = NULL;
@@ -539,24 +540,28 @@ gf_strsplit (const char *str, const char *delim,
       return -1;
     }
   
-  if ((running = strdupa (str)) == NULL)
+  if ((_running = strdup (str)) == NULL)
     {
       return -1;
     }
+  running = _running;
   
   while ((token = strsep (&running, delim)) != NULL)
     {
       if (token[0] != '\0')
 	count++;
     }
+  free (_running);
   
-  if ((running = strdupa (str)) == NULL)
+  if ((_running = strdup (str)) == NULL)
     {
       return -1;
     }
+  running = _running;
   
   if ((token_list = calloc (count, sizeof (char *))) == NULL)
     {
+      free (_running);
       return -1;
     }
   
@@ -569,11 +574,14 @@ gf_strsplit (const char *str, const char *delim,
 	goto free_exit;
     }
   
+  free (_running);
+  
   *tokens = token_list;
   *token_count = count;
   return 0;
   
  free_exit:
+  free (_running);
   for (j = 0; j < i; j++)
     {
       free (token_list[j]);

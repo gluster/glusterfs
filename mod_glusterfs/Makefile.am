@@ -1,4 +1,3 @@
 SUBDIRS = apache-1.3 lighttpd-1.4 lighttpd-1.5
 
 CLEANFILES = 
-DISTCLEANFILES = .deps/*.P Makefile.in

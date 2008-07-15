@@ -26,5 +26,4 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
 	-DDATADIR=\"$(localstatedir)\" -DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_DARWIN_BUNDLE_CFLAGS)
 
 CLEANFILES = 
-DISTCLEANFILES = .deps/*.P Makefile.in
 
