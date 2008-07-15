@@ -819,7 +819,7 @@ posix_chmod (call_frame_t *frame,
 
     SET_FS_UID (frame->root->uid, frame->root->gid);
   
-    op_ret = chmod (real_path, mode);
+    op_ret = lchmod (real_path, mode);
     op_errno = errno;
     if (op_ret == -1) {
 	gf_log (this->name, GF_LOG_WARNING, 

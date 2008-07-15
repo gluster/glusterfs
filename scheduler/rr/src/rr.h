@@ -45,6 +45,7 @@ struct rr
   uint64_t        schedule_index;
   struct timeval  last_stat_fetched_time;
   pthread_mutex_t mutex;
+  char            first_time;
 };
 typedef struct rr rr_t;
 

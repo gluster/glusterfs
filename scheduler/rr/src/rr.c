@@ -477,47 +477,47 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
 	}
     }
   
-  if (subvolume == NULL)
-    {
-      LOG_ERROR ("subvolume [%s] not found in subvolume list", 
-		 subvolume_xl->name);
-      return ;
-    }
-  
   switch (event)
     {
     case GF_EVENT_CHILD_UP:
-      pool = this_xl->ctx->pool;
-
-      pthread_mutex_lock (&rr->mutex);
-      subvolume->status = RR_SUBVOLUME_ONLINE;
-      pthread_mutex_unlock (&rr->mutex);
-      LOG_WARNING ("subvolume [%s] is online for scheduling", 
-		   subvolume->xl->name);
-
-      cctx = calloc (1, sizeof (call_ctx_t));
-      ERR_ABORT (cctx);
-      
-      cctx->frames.root = cctx;
-      cctx->frames.this = this_xl;
-      cctx->pool = pool;
-      
-      LOCK (&pool->lock);
-      list_add (&cctx->all_frames, &pool->all_frames);
-      UNLOCK (&pool->lock);
-      
-      STACK_WIND_COOKIE ((&cctx->frames), 
-			 rr_notify_cbk, 
-			 subvolume_xl->name, 
-			 subvolume_xl, 
-			 subvolume_xl->fops->incver, 
-			 "/", 
-			 NULL);
+      /* Seeding, to be done only once */
+      if (rr->first_time && (i == rr->subvolume_count)) 
+	{
+	  cctx = NULL;
+	  pool = this_xl->ctx->pool;
+	  cctx = calloc (1, sizeof (*cctx));
+	  ERR_ABORT (cctx);
+	  cctx->frames.root  = cctx;
+	  cctx->frames.this  = this_xl;    
+	  cctx->pool = pool;
+	  LOCK (&pool->lock);
+	  {
+	    list_add (&cctx->all_frames, &pool->all_frames);
+	  }
+	  UNLOCK (&pool->lock);
+	  
+	  STACK_WIND ((&cctx->frames), 
+		      rr_notify_cbk,
+		      (xlator_t *)data,
+		      ((xlator_t *)data)->fops->incver,
+		      "/",
+		      NULL);
+	  rr->first_time = 0;
+	}
+      if (subvolume)
+	{
+	  pthread_mutex_lock (&rr->mutex);
+	  subvolume->status = RR_SUBVOLUME_ONLINE;
+	  pthread_mutex_unlock (&rr->mutex);
+	}
       break;
     case GF_EVENT_CHILD_DOWN:
-      pthread_mutex_lock (&rr->mutex);
-      subvolume->status = RR_SUBVOLUME_OFFLINE;
-      pthread_mutex_unlock (&rr->mutex);
+      if (subvolume)
+	{
+	  pthread_mutex_lock (&rr->mutex);
+	  subvolume->status = RR_SUBVOLUME_OFFLINE;
+	  pthread_mutex_unlock (&rr->mutex);
+	}
       break;
     }
   
@@ -532,15 +532,13 @@ rr_notify_cbk (call_frame_t *frame,
 	       int32_t op_errno)
 {
   rr_t *rr = NULL;
-  rr_subvolume_t *subvolume = NULL;
-  int i = 0;
   
   if (frame == NULL)
     {
       return -1;
     }
   
-  if (cookie == NULL || this_xl == NULL)
+  if (this_xl == NULL)
     {
       STACK_DESTROY (frame->root);
       return -1;
@@ -551,23 +549,9 @@ rr_notify_cbk (call_frame_t *frame,
       STACK_DESTROY (frame->root);
       return -1;
     }
-  
-  for (i = 0; i < rr->subvolume_count; i++)
-    {
-      if (rr->subvolume_list[i].xl->name == (char *) cookie)
-	{
-	  subvolume = &rr->subvolume_list[i];
-	  break;
-	}
-    }
-  
-  if (subvolume == NULL)
-    {
-      LOG_ERROR ("unknown cookie [%s]", (char *) cookie);
-      STACK_DESTROY (frame->root);
-      return -1;
-    }  
 
+  rr->schedule_index = (op_ret % rr->subvolume_count);
+  
   STACK_DESTROY (frame->root);
   return 0;
 }
