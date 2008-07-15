@@ -1652,11 +1652,14 @@ posix_setxattr (call_frame_t *frame,
 			if (!(gf_posix_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
 			    gf_log (this->name, GF_LOG_WARNING, 
 				    "Extended attributes not supported, Try using a backend with Extended attribute support");
-		    } else {
+		    } 
+		else 
+		  {
 		    gf_log (this->name, GF_LOG_WARNING, 
 			    "%s: key:%s error:%s", loc->path, trav->key, strerror (op_errno));
-		}
-		break;
+		  }
+		/* TODO: Should we break or not? */
+		//break;
 	    }
 	} /* if(GF_FILE_CONTENT_REQUEST())...else */
 	trav = trav->next;
