@@ -821,11 +821,16 @@ posix_chmod (call_frame_t *frame,
   
     op_ret = lchmod (real_path, mode);
     op_errno = errno;
-    if (op_ret == -1) {
+    if ((op_ret == -1) && (op_errno == ENOSYS))
+      {
+	op_ret = chmod (real_path, mode);
+	op_errno = errno;
+      }
+    if ((op_ret == -1) && (op_errno != ENOENT))
+      {
 	gf_log (this->name, GF_LOG_WARNING, 
 		"chmod on %s: %s", loc->path, strerror (op_errno));
-    }
-    
+      }
     if (op_ret == 0)
 	lstat (real_path, &stbuf);
     
