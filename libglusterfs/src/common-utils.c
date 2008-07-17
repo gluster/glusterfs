@@ -171,75 +171,112 @@ gf_full_writev (int fd,
   return full_rwv (fd, vector, count, (rwv_op_t)writev);
 }
 
-struct dnscache {
-  in_addr_t addrs[17];
-  int i;
-  int len;
+struct dnscache6 {
+  struct addrinfo *first;
+  struct addrinfo *next;
 };
 
-#ifndef INADDR_NONE
-#define INADDR_NONE 0xffffffff
-#endif
-
-in_addr_t
-gf_resolve_ip (const char *hostname, void **dnscache)
+int32_t
+gf_resolve_ip6 (const char *hostname, 
+		uint16_t port, 
+		int family, 
+		void **dnscache, 
+		struct addrinfo **addr_info)
 {
-  in_addr_t addr = INADDR_NONE;
-  struct hostent *h = NULL;
-  struct dnscache *cache = NULL;
-  int i;
+  int32_t ret = 0;
+  struct addrinfo hints;
+  struct dnscache6 *cache = NULL;
+  char service[NI_MAXSERV], host[NI_MAXHOST];
+
   if (!hostname) {
     gf_log ("resolver", GF_LOG_WARNING, "hostname is NULL");
-    return INADDR_NONE;
+    return -1;
   }
 
   if (!*dnscache) {
-    *dnscache = calloc (1, sizeof (struct dnscache));
-    ERR_ABORT (dnscache);
-    gf_log ("resolver", GF_LOG_DEBUG,
-	    "DNS cache not present, freshly probing hostname: %s",
-	    hostname);
-    h = gethostbyname (hostname);
-    if (!h) {
-      FREE (*dnscache);
-      *dnscache = NULL;
-      return INADDR_NONE;
-    }
-    cache = *dnscache;
-    cache->len = h->h_length;
-    {
-      int j = 0;
-      for (j = 0; j < 16 && h->h_addr_list[j]; j++)
-	memcpy (&cache->addrs[j], h->h_addr_list[j], cache->len);
-    }
+    *dnscache = calloc (1, sizeof (**dnscache));
   }
 
   cache = *dnscache;
+  if (cache->first && !cache->next) {
+      freeaddrinfo(cache->first);
+      cache->first = cache->next = NULL;
+      gf_log ("resolver", GF_LOG_DEBUG,
+	      "flushing DNS cache");
+    }
 
-  i = cache->i;
-  if (cache->addrs[i]) {
-    struct in_addr in;
-    memcpy (&addr, &cache->addrs[i], cache->len);
-    in.s_addr = (addr);
+  if (!cache->first) {
+    char *port_str = NULL;
     gf_log ("resolver", GF_LOG_DEBUG,
-	    "returning IP:%s[%d] for hostname: %s",
-	    inet_ntoa (in), i, hostname);
+	    "DNS cache not present, freshly probing hostname: %s",
+	    hostname);
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family   = family;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags    = AI_ADDRCONFIG;
+
+    asprintf (&port_str, "%d", port);
+    if ((ret = getaddrinfo(hostname, port_str, &hints, &cache->first)) != 0) {
+      gf_log ("resolver", GF_LOG_ERROR,
+	      "getaddrinfo failed (%s)", gai_strerror (ret));
+
+      free (*dnscache);
+      *dnscache = NULL;
+      free (port_str);
+      return -1;
+    }
+    free (port_str);
+
+    cache->next = cache->first;
   }
 
-  cache->i++; i++;
-  if (!cache->addrs[i]) {
-    *dnscache = NULL;
-    FREE (cache);
+  if (cache->next) {
+    ret = getnameinfo((struct sockaddr *)cache->next->ai_addr,
+		      cache->next->ai_addrlen,
+		      host, sizeof (host),
+		      service, sizeof (service),
+		      NI_NUMERICHOST);
+    if (ret != 0) {
+      gf_log ("resolver",
+	      GF_LOG_ERROR,
+	      "getnameinfo failed (%s)", gai_strerror (ret));
+      goto err;
+    }
+
     gf_log ("resolver", GF_LOG_DEBUG,
-	    "flushing DNS cache");
-  } else {
-    struct in_addr in;
-    in.s_addr = cache->addrs[i];
-    gf_log ("resolver", GF_LOG_DEBUG,
-	    "next DNS query will return: %s", inet_ntoa (in));
+	    "returning ip-%s (port-%s) for hostname: %s and port: %d",
+	    host, service, hostname, port);
+
+    *addr_info = cache->next;
   }
 
-  return addr;
+  cache->next = cache->next->ai_next;
+  if (cache->next) {
+    ret = getnameinfo((struct sockaddr *)cache->next->ai_addr,
+		      cache->next->ai_addrlen,
+		      host, sizeof (host),
+		      service, sizeof (service),
+		      NI_NUMERICHOST);
+    if (ret != 0) {
+      gf_log ("resolver",
+	      GF_LOG_ERROR,
+	      "getnameinfo failed (%s)", gai_strerror (ret));
+      goto err;
+    }
+
+    gf_log ("resolver", GF_LOG_DEBUG,
+	    "next DNS query will return: ip-%s port-%s", host, service);
+  }
+
+  return 0;
+
+ err:
+  freeaddrinfo (cache->first);
+  cache->first = cache->next = NULL;
+  free (cache);
+  *dnscache = NULL;
+  return -1;
 }
 
 void 

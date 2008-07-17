@@ -5392,7 +5392,6 @@ mop_setvolume (call_frame_t *frame,
   data_t *name_data = NULL, *version_data = NULL;
   char *name = NULL, *version = NULL;
   xlator_t *xl = NULL;
-  struct sockaddr_in *_sock = NULL;
   dict_t *config_params = NULL;
   dict_t *params = NULL;
   gf_hdr_common_t *rsp_hdr = NULL;
@@ -5400,6 +5399,7 @@ mop_setvolume (call_frame_t *frame,
   gf_mop_setvolume_req_t *req = NULL;
   gf_mop_setvolume_rsp_t *rsp = NULL;
   size_t dict_len = -1;
+  peer_info_t *peerinfo = NULL;
 
   params = get_new_dict ();
   reply  = get_new_dict ();
@@ -5454,10 +5454,12 @@ mop_setvolume (call_frame_t *frame,
     goto fail;
   }
 
-  _sock = &(TRANSPORT_OF (frame))->peerinfo.sockaddr;
+  peerinfo = &(TRANSPORT_OF (frame))->peerinfo;
+  dict_set (params, "peer-info", data_from_static_ptr (peerinfo));
+  /*
   dict_set (params, "peer-ip", str_to_data(inet_ntoa (_sock->sin_addr)));
   dict_set (params, "peer-port", data_from_uint16 (ntohs (_sock->sin_port)));
-
+  */
   if (!server_priv->auth_modules) {
     gf_log (TRANSPORT_OF (frame)->xl->name,
             GF_LOG_ERROR,
@@ -5890,6 +5892,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
   server_proto_priv_t *priv = NULL;
   call_frame_t *frame = NULL;
   int type = -1, op = -1;
+  peer_info_t *peerinfo = NULL;
 
   hdr  = (gf_hdr_common_t *)hdr_p;
   type = ntoh32 (hdr->type);
@@ -5898,6 +5901,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
   priv = trans->xl_private;
   bound_xl = priv->bound_xl;
 
+  peerinfo = &trans->peerinfo;
   switch (type)
     {
     case GF_OP_TYPE_FOP_REQUEST:
@@ -6028,7 +6032,7 @@ server_protocol_cleanup (transport_t *trans)
 {
   server_proto_priv_t *priv = trans->xl_private;
   call_frame_t *frame = NULL, *unlock_frame = NULL;
-  struct sockaddr_in *_sock;
+  peer_info_t *peerinfo = NULL;
   xlator_t *bound_xl;
 
   if (!priv)

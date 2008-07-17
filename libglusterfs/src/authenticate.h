@@ -34,6 +34,7 @@
 #include "dict.h"
 #include "compat.h"
 #include "list.h"
+#include "transport.h"
 
 typedef enum {
   AUTH_ACCEPT,

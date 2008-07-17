@@ -1,4 +1,4 @@
-# Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+# Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
 # This file is part of GlusterFS.
 #
 # GlusterFS is free software; you can redistribute it and/or modify
@@ -14,5 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-SUBDIRS=client server
-noinst_HEADERS=ib-sdp.h
+
+auth_PROGRAMS = addr.so
+authdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/auth
+
+addr_so_SOURCES = addr.c
+
+AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\
+	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_DARWIN_BUNDLE_CFLAGS)
+
+CLEANFILES = 

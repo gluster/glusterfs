@@ -17,8 +17,8 @@
    <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _TCP_H
-#define _TCP_H
+#ifndef _SOCKET_H
+#define _SOCKET_H
 
 
 #ifndef _CONFIG_H
@@ -38,16 +38,15 @@
 
 
 typedef enum {
-  TCP_PROTO_STATE_NADA = 0,
-  TCP_PROTO_STATE_HEADER_COMING,
-  TCP_PROTO_STATE_HEADER_CAME,
-  TCP_PROTO_STATE_DATA_COMING,
-  TCP_PROTO_STATE_DATA_CAME,
-  TCP_PROTO_STATE_COMPLETE,
-} tcp_proto_state_t;
+  SOCKET_PROTO_STATE_NADA = 0,
+  SOCKET_PROTO_STATE_HEADER_COMING,
+  SOCKET_PROTO_STATE_HEADER_CAME,
+  SOCKET_PROTO_STATE_DATA_COMING,
+  SOCKET_PROTO_STATE_DATA_CAME,
+  SOCKET_PROTO_STATE_COMPLETE,
+} socket_proto_state_t;
 
-
-struct tcp_header {
+struct socket_header {
   char     colonO[3];
   uint32_t size1;
   uint32_t size2;
@@ -63,7 +62,7 @@ struct ioq {
       struct ioq    *prev;
     };
   };
-  struct tcp_header  header;
+  struct socket_header  header;
   struct iovec       vector[MAX_IOVEC];
   int                count;
   struct iovec      *pending_vector;
@@ -74,31 +73,31 @@ struct ioq {
 
 
 typedef struct {
-  int32_t             sock;
-  int32_t             idx;
-  unsigned char       connected; // -1 = not connected. 0 = in progress. 1 = connected
-  char                bio;
+  int32_t                sock;
+  int32_t                idx;
+  unsigned char          connected; // -1 = not connected. 0 = in progress. 1 = connected
+  char                   bio;
   union {
-    struct list_head  ioq;
+    struct list_head     ioq;
     struct {
-      struct ioq     *ioq_next;
-      struct ioq     *ioq_prev;
+      struct ioq        *ioq_next;
+      struct ioq        *ioq_prev;
     };
   };
   struct {
-    int               state;
-    struct tcp_header header;
-    char             *hdr_p;
-    size_t            hdrlen;
-    char             *buf_p;
-    size_t            buflen;
-    struct iovec      vector[2];
-    int               count;
-    struct iovec     *pending_vector;
-    int               pending_count;
+    int                  state;
+    struct socket_header header;
+    char                *hdr_p;
+    size_t               hdrlen;
+    char                *buf_p;
+    size_t               buflen;
+    struct iovec         vector[2];
+    int                  count;
+    struct iovec        *pending_vector;
+    int                  pending_count;
   } incoming;
-  pthread_mutex_t     lock;
-} tcp_private_t;
+  pthread_mutex_t        lock;
+} socket_private_t;
 
 
 #endif

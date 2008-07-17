@@ -34,10 +34,13 @@ typedef struct transport transport_t;
 
 #include "xlator.h"
 #include "dict.h"
+#include <linux/un.h>
 
-struct peer_info_t {
-  struct sockaddr_in sockaddr;
-};
+typedef struct peer_info {
+  struct sockaddr_storage sockaddr;
+  socklen_t sockaddr_len;
+  char identifier[UNIX_PATH_MAX];
+}peer_info_t;
 
 struct transport {
   struct transport_ops  *ops;
