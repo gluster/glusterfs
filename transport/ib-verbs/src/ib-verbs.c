@@ -243,7 +243,7 @@ ib_verbs_post_recv_qp (struct ibv_qp *qp,
 }
 
 
-int32_t
+static int32_t
 ib_verbs_writev (transport_t *this,
 		 const struct iovec *vector,
 		 int32_t count)
@@ -312,16 +312,53 @@ ib_verbs_writev (transport_t *this,
   return 0;
 }
 
+static int32_t
+ib_verbs_submit (transport_t *this, char *buf, int32_t len,
+		 struct iovec *vector, int count, dict_t *refs)
+{
+  struct iovec *new_vector = NULL;
+  ib_verbs_header_t header;
+  int i = 0;
 
-int32_t
-ib_verbs_receive (transport_t *this,
-		  char *buf,
-		  int32_t count)
+  header.colonO[0] = ':';
+  header.colonO[1] = 'O';
+  header.colonO[2] = '\0';
+
+  header.version = 0x42;
+  header.size1 = len;
+  header.size2 = iov_length (vector, count);
+
+  new_vector = calloc (count + 2, sizeof (*new_vector));
+
+  new_vector[0].iov_base = &header;
+  new_vector[0].iov_len = sizeof (header);
+
+  new_vector[1].iov_base = buf;
+  new_vector[1].iov_len = len;
+
+  for (i = 0; i < count; i++) 
+    {
+      new_vector[i+2].iov_base = vector[i].iov_base;
+      new_vector[i+2].iov_len = vector[i].iov_len;
+    }
+
+  ib_verbs_writev (this, new_vector, count + 2);
+  FREE (new_vector);
+
+  return 0;
+}
+
+static int
+ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
+		  char **buf_p, size_t *buflen_p)
 {
   ib_verbs_private_t *priv = this->private;
   /* TODO: return error if !priv->connected, check with locks */
   /* TODO: boundry checks for data_ptr/offset */
   char *copy_from = NULL;
+  ib_verbs_header_t *header = NULL;
+  uint32_t size1, size2;
+  char *hdr = NULL, *buf = NULL;
 
   pthread_mutex_lock (&priv->recv_mutex);
   {
@@ -330,16 +367,27 @@ ib_verbs_receive (transport_t *this,
 
     copy_from = priv->data_ptr + priv->data_offset;
 
-    priv->data_offset += count;
-
-    if (priv->data_offset == priv->data_len) {
-      priv->data_ptr = NULL;
-      pthread_cond_broadcast (&priv->recv_cond);
-    }
+    priv->data_ptr = NULL;
+    pthread_cond_broadcast (&priv->recv_cond);
   }
   pthread_mutex_unlock (&priv->recv_mutex);
 
-  memcpy (buf, copy_from, count);
+  header = (ib_verbs_header_t *)copy_from;
+  size1 = header->size1;
+  size2 = header->size2;
+
+  copy_from += sizeof (*header);
+
+  hdr = calloc (1, size1);
+  memcpy (hdr, copy_from, size1);
+  copy_from += size1;
+  *hdr_p = hdr;
+  *hdrlen_p = size1;
+
+  buf = calloc (1, size2);
+  memcpy (buf, copy_from, size2);
+  *buf_p = buf;
+  *buflen_p = size2;
 
   return 0;
 }
@@ -566,7 +614,7 @@ ib_verbs_create_qp (transport_t *this)
     if (!peer->qp) {
       gf_log ("transport/ib-verbs",
 	      GF_LOG_CRITICAL,
-	      "%s: could create QP[%d]",
+	      "%s: could not create QP[%d]",
 	      this->xl->name, i);
       ret = -1;
       break;
@@ -670,8 +718,8 @@ ib_verbs_create_posts (transport_t *this)
 }
 
 
-int32_t
-ib_verbs_connect (transport_t *this)
+static int32_t
+ib_verbs_connect_qp (transport_t *this)
 {
   int i = 0;
   ib_verbs_private_t *priv = this->private;
@@ -729,7 +777,7 @@ ib_verbs_connect (transport_t *this)
   return 0;
 }
 
-int32_t
+static int32_t
 ib_verbs_teardown (transport_t *this)
 {
   ib_verbs_destroy_qp (this);
@@ -737,163 +785,139 @@ ib_verbs_teardown (transport_t *this)
   return 0;
 }
 
-int32_t
-ib_verbs_handshake (transport_t *this)
+/*
+ * return value:
+ *   0 = success (completed)
+ *  -1 = error
+ * > 0 = incomplete
+ */
+
+static int
+__tcp_rwv (transport_t *this, struct iovec *vector, int count,
+	   struct iovec **pending_vector, int *pending_count,
+	   int write)
 {
-  ib_verbs_private_t *priv = this->private;
-  ib_verbs_options_t *options = &priv->options;
-  char buf[256] = {0,};
-  int32_t recv_buf_size[2], send_buf_size[2];
-  int32_t ret;
+  ib_verbs_private_t *priv = NULL;
+  int sock = -1;
+  int ret = -1;
+  struct iovec *opvector = vector;
+  int opcount = count;
+  int moved = 0;
 
-  priv->peers[0].send_count = options->send_count;
-  priv->peers[0].recv_count = options->recv_count;
-  priv->peers[0].send_size = options->send_size;
-  priv->peers[0].recv_size = options->recv_size;
-  priv->peers[1].send_count = options->send_count;
-  priv->peers[1].recv_count = options->recv_count;
+  priv = this->private;
+  sock = priv->sock;
 
-  if (ib_verbs_create_qp (this) < 0) {
-    gf_log ("transport/ib-verbs",
-            GF_LOG_ERROR,
-            "%s: could not create QP",
-            this->xl->name);
-    return -1;
-  }
+  while (opcount)
+    {
+      if (write)
+	{
+	  ret = writev (sock, opvector, opcount);
 
-  {
-    sprintf (buf,
-	     "QP1:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
-	     "QP2:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
-	     "QP1:LID=%04x:QPN=%06x:PSN=%06x\n"
-	     "QP2:LID=%04x:QPN=%06x:PSN=%06x\n",
-	     priv->peers[0].recv_size,
-	     priv->peers[0].send_size,
-	     priv->peers[1].recv_size,
-	     priv->peers[1].send_size,
-             priv->peers[0].local_lid,
-             priv->peers[0].local_qpn,
-             priv->peers[0].local_psn,
-             priv->peers[1].local_lid,
-             priv->peers[1].local_qpn,
-             priv->peers[1].local_psn);
+	  if (ret == 0 || (ret == -1 && errno == EAGAIN))
+	    {
+	      /* done for now */
+	      break;
+	    }
+	  total_bytes_xferd += ret;
+	}
+      else
+	{
+	  ret = readv (sock, opvector, opcount);
 
-    if (gf_full_write (priv->sock, buf, sizeof buf) != 0) {
-      gf_log ("transport/ib-verbs",
-              GF_LOG_ERROR,
-              "%s: could not send IB handshake data",
-              this->xl->name);
-      ib_verbs_destroy_qp (this);
-      return -1;
+	  if (ret == -1 && errno == EAGAIN)
+	    {
+	      /* done for now */
+	      break;
+	    }
+	  total_bytes_rcvd += ret;
+	}
+
+      if (ret == 0)
+	{
+	  gf_log (this->xl->name, GF_LOG_ERROR, "EOF from peer");
+	  opcount = -1;
+	  errno = ENOTCONN;
+	  break;
+	}
+
+      if (ret == -1)
+	{
+	  if (errno == EINTR)
+	    continue;
+
+	  gf_log (this->xl->name, GF_LOG_ERROR,
+		  "%s failed (%s)", write ? "writev" : "readv",
+		  strerror (errno));
+	  opcount = -1;
+	  break;
+	}
+
+      moved = 0;
+
+      while (moved < ret)
+	{
+	  if ((ret - moved) >= opvector[0].iov_len)
+	    {
+	      moved += opvector[0].iov_len;
+	      opvector++;
+	      opcount--;
+	    }
+	  else
+	    {
+	      opvector[0].iov_len -= (ret - moved);
+	      opvector[0].iov_base += (ret - moved);
+	      moved += (ret - moved);
+	    }
+	  while (opcount && !opvector[0].iov_len)
+	    {
+	      opvector++;
+	      opcount--;
+	    }
+	}
     }
 
-    buf[0] = '\0';
-    if (gf_full_read (priv->sock, buf, sizeof buf) != 0) {
-      gf_log ("transport/ib-verbs",
-              GF_LOG_ERROR,
-              "%s: could not recv IB handshake-2 data",
-              this->xl->name);
-      ib_verbs_destroy_qp (this);
-      return -1;
-    }
+  if (pending_vector)
+    *pending_vector = opvector;
 
-    if (strncmp (buf, "QP1:", 4)) {
-      gf_log ("transport/ib-verbs",
-              GF_LOG_CRITICAL,
-              "%s: remote-host's transport type is different",
-              this->xl->name);
-      ib_verbs_destroy_qp (this);
-      return -1;
-    }
-    ret = sscanf (buf,
-		  "QP1:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
-		  "QP2:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
-                  "QP1:LID=%04x:QPN=%06x:PSN=%06x\n"
-                  "QP2:LID=%04x:QPN=%06x:PSN=%06x\n",
-                  &send_buf_size[0],
-                  &recv_buf_size[0],
-                  &send_buf_size[1],
-                  &recv_buf_size[1],
-                  &priv->peers[0].remote_lid,
-                  &priv->peers[0].remote_qpn,
-                  &priv->peers[0].remote_psn,
-                  &priv->peers[1].remote_lid,
-                  &priv->peers[1].remote_qpn,
-                  &priv->peers[1].remote_psn);
+  if (pending_count)
+    *pending_count = opcount;
 
-    if (ret != 10) {
-      gf_log ("transport/ib-verbs",
-              GF_LOG_ERROR,
-              "%s: %d conversions in handshake data rather than 10",
-              this->xl->name,
-              ret);
-      ib_verbs_destroy_qp (this);
-      return -1;
-    }
-
-    if (recv_buf_size[0] < priv->peers[0].recv_size)
-      priv->peers[0].recv_size = recv_buf_size[0];
-    if (recv_buf_size[1] < priv->peers[1].recv_size)
-      priv->peers[1].recv_size = recv_buf_size[1];
-    if (send_buf_size[0] < priv->peers[0].send_size)
-      priv->peers[0].send_size = send_buf_size[0];
-    if (send_buf_size[1] < priv->peers[1].send_size)
-      priv->peers[1].send_size = send_buf_size[1];
-
-    gf_log ("transport/ib-verbs",
-	    GF_LOG_DEBUG,
-	    "%s: transacted recv_size=%d send_size=%d",
-	    this->xl->name, priv->peers[0].recv_size,
-	    priv->peers[0].send_size);
-  }
-
-
-  priv->peers[0].quota = priv->peers[0].send_count;
-  priv->peers[1].quota = 1;
-
-  pthread_mutex_init (&priv->recv_mutex, NULL);
-  pthread_cond_init (&priv->recv_cond, NULL);
-
-  if (ib_verbs_connect (this)) {
-    gf_log ("transport/ib-verbs",
-            GF_LOG_ERROR,
-            "%s: failed to connect with remote QP",
-            this->xl->name);
-    ib_verbs_destroy_qp (this);
-    return -1;
-  }
-
-  strcpy (buf, "DONE\n");
-  if (gf_full_write (priv->sock, buf, sizeof buf) != 0) {
-    gf_log ("transport/ib-verbs",
-	    GF_LOG_ERROR,
-	    "%s: could not send IB handshake data",
-	    this->xl->name);
-    ib_verbs_destroy_qp (this);
-    return -1;
-  }
-
-  buf[0] = '\0';
-  if (gf_full_read (priv->sock, buf, sizeof buf) != 0) {
-    gf_log ("transport/ib-verbs",
-	    GF_LOG_ERROR,
-	    "%s: could not recv IB handshake-3 data",
-	    this->xl->name);
-    ib_verbs_destroy_qp (this);
-    return -1;
-  }
-
-  if (strncmp (buf, "DONE", 4)) {
-    gf_log ("transport/ib-verbs", GF_LOG_ERROR,
-	    "%s: handshake-3 did not return 'DONE' (%s)",
-	    this->xl->name, buf);
-    ib_verbs_destroy_qp (this);
-    return -1;
-  }
-
-  return 0;
+  return opcount;
 }
 
+
+static int
+__tcp_readv (transport_t *this, struct iovec *vector, int count,
+	     struct iovec **pending_vector, int *pending_count)
+{
+  int ret = -1;
+
+  ret = __tcp_rwv (this, vector, count, pending_vector, pending_count, 0);
+
+  return ret;
+}
+
+
+static int
+__tcp_writev (transport_t *this, struct iovec *vector, int count,
+	      struct iovec **pending_vector, int *pending_count)
+{
+  int ret = -1;
+  ib_verbs_private_t *priv = this->private;
+
+  ret = __tcp_rwv (this, vector, count, pending_vector, pending_count, 1);
+
+  if (ret > 0) {
+    /* TODO: Avoid multiple calls when socket is already registered for POLLOUT */
+    priv->idx = event_select_on (this->xl->ctx->event_pool, priv->sock,
+				 priv->idx, -1, 1);
+  } else if (ret == 0) {
+    priv->idx = event_select_on (this->xl->ctx->event_pool, priv->sock,
+				 priv->idx, -1, 0);
+  }
+
+  return ret;
+}
 
 static ib_verbs_peer_t *
 other_peer (ib_verbs_peer_t *one)
@@ -987,7 +1011,7 @@ ib_verbs_recv_completion_proc (void *data)
 		device->device_name,
 		wc.status);
 	if (peer)
-	  transport_bail (peer->trans);
+	  transport_disconnect (peer->trans);
 
 	if (post) {
 	  if (!post->aux) {
@@ -1105,9 +1129,10 @@ ib_verbs_send_completion_proc (void *data)
 		device->device_name, wc.status, wc.vendor_err,
 		post->buf, wc.byte_len, post->reused);
 	if (peer)
-	  transport_bail (peer->trans);
+	  transport_disconnect (peer->trans);
       }
 
+      
       if (peer) {
 	int32_t q;
 	q = ib_verbs_quota_put (peer);
@@ -1379,7 +1404,7 @@ ib_verbs_get_device (transport_t *this,
   return trav;
 }
 
-int32_t 
+static int32_t 
 ib_verbs_init (transport_t *this)
 {
   ib_verbs_private_t *priv = this->private;
@@ -1451,9 +1476,8 @@ ib_verbs_init (transport_t *this)
   return 0;
 }
 
-
-int32_t 
-ib_verbs_disconnect (transport_t *this)
+static int32_t 
+ib_verbs_reset (transport_t *this)
 {
   ib_verbs_private_t *priv = this->private;
   int32_t ret= 0;
@@ -1464,20 +1488,22 @@ ib_verbs_disconnect (transport_t *this)
 	  this->xl->name);
 
   pthread_mutex_lock (&priv->write_mutex);
-  ib_verbs_teardown (this);
-  if (priv->connected || priv->connection_in_progress) {
-    event_unregister (this->xl->ctx->event_pool, priv->sock, priv->idx);
-    need_unref = 1;
+  {
+    ib_verbs_teardown (this);
+    if (priv->connected) {
+      event_unregister (this->xl->ctx->event_pool, priv->sock, priv->idx);
+      need_unref = 1;
 
-    if (close (priv->sock) != 0) {
-      gf_log ("transport/ib-verbs",
-	      GF_LOG_ERROR,
-	      "close () - error: %s",
-	      strerror (errno));
-      ret = -errno;
+      if (close (priv->sock) != 0) {
+	gf_log ("transport/ib-verbs",
+		GF_LOG_ERROR,
+		"close () - error: %s",
+		strerror (errno));
+	ret = -errno;
+      }
+      priv->tcp_connected = priv->connected = 0;
+      priv->sock = -1;
     }
-    priv->connected = 0;
-    priv->connection_in_progress = 0;
   }
   pthread_mutex_unlock (&priv->write_mutex);
 
@@ -1491,24 +1517,27 @@ ib_verbs_disconnect (transport_t *this)
 }
 
 
-int32_t
+static int32_t
 ib_verbs_except (transport_t *this)
 {
   ib_verbs_private_t *priv = this->private;
   int32_t ret = 0;
 
-  //  pthread_mutex_lock (&priv->write_mutex);
-  if (priv->connected) {
-    fcntl (priv->sock, F_SETFL, O_NONBLOCK);
-    if (shutdown (priv->sock, SHUT_RDWR) != 0) {
-      gf_log ("transport/ib-verbs",
-	      GF_LOG_ERROR,
-	      "shutdown () - error: %s",
-	      strerror (errno));
-      ret = -errno;
+  pthread_mutex_lock (&priv->write_mutex);
+  {
+    if (priv->connected || priv->tcp_connected) {
+      fcntl (priv->sock, F_SETFL, O_NONBLOCK);
+      if (shutdown (priv->sock, SHUT_RDWR) != 0) {
+	gf_log ("transport/ib-verbs",
+		GF_LOG_ERROR,
+		"shutdown () - error: %s",
+		strerror (errno));
+	ret = -errno;
+	priv->tcp_connected = 0;
+      }
     }
   }
-  //  pthread_mutex_unlock (&priv->write_mutex);
+  pthread_mutex_unlock (&priv->write_mutex);
   return ret;
 }
 
@@ -1522,8 +1551,8 @@ cont_hand (int32_t sig)
 }
 
 
-int32_t
-ib_verbs_bail (transport_t *this)
+static int32_t
+ib_verbs_disconnect (transport_t *this)
 {
   ib_verbs_except (this);
 
@@ -1534,25 +1563,786 @@ ib_verbs_bail (transport_t *this)
   return 0;
 }
 
-
-int32_t
-ib_verbs_tcp_notify (transport_t *trans,
-		     int32_t event,
-		     void *data)
+static int32_t
+__tcp_connect_finish (int fd)
 {
-  switch (event)
+  int ret = -1;
+  int optval = 0;
+  socklen_t optlen = sizeof (int);
+
+  ret = getsockopt (fd, SOL_SOCKET, SO_ERROR,
+		    (void *)&optval, &optlen);
+
+  if (ret == 0 && optval)
     {
-    case GF_EVENT_CHILD_UP:
-    case GF_EVENT_TRANSPORT_CLEANUP:
-    case GF_EVENT_POLLERR:
-      trans->xl->notify (trans->xl, event, trans, NULL);
-      break;
-    default:
-      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
-	      "%s: notify (%d) called on tcp socket",
-	      trans->xl->name, event);
-      trans->xl->notify (trans->xl, GF_EVENT_POLLERR, trans, NULL);
+      errno = optval;
+      ret = -1;
     }
 
+  return ret;
+}
+
+static inline void
+ib_verbs_fill_handshake_data (char *buf, struct ib_verbs_nbio *nbio, ib_verbs_private_t *priv)
+{
+    sprintf (buf,
+	     "QP1:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
+	     "QP2:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
+	     "QP1:LID=%04x:QPN=%06x:PSN=%06x\n"
+	     "QP2:LID=%04x:QPN=%06x:PSN=%06x\n",
+	     priv->peers[0].recv_size,
+	     priv->peers[0].send_size,
+	     priv->peers[1].recv_size,
+	     priv->peers[1].send_size,
+	     priv->peers[0].local_lid,
+	     priv->peers[0].local_qpn,
+	     priv->peers[0].local_psn,
+	     priv->peers[1].local_lid,
+	     priv->peers[1].local_qpn,
+	     priv->peers[1].local_psn);
+
+    nbio->vector.iov_base = buf;
+    nbio->vector.iov_len = strlen (buf) + 1;
+    nbio->count = 1;
+    return;
+}
+
+static inline void
+ib_verbs_fill_handshake_ack (char *buf, struct ib_verbs_nbio *nbio)
+{
+  sprintf (buf, "DONE\n");
+  nbio->vector.iov_base = buf;
+  nbio->vector.iov_len = strlen (buf) + 1;
+  nbio->count = 1;
+  return;
+}
+
+static int
+ib_verbs_handshake_pollin (transport_t *this)
+{
+  int ret = 0;
+  ib_verbs_private_t *priv = this->private;
+  char *buf = priv->handshake.incoming.buf;
+  int32_t recv_buf_size[2], send_buf_size[2];
+  int sock_len;
+
+  if (priv->handshake.incoming.state == IB_VERBS_HANDSHAKE_COMPLETE) {
+    return 0;
+  }
+
+  pthread_mutex_lock (&priv->write_mutex);
+  {
+    while (priv->handshake.incoming.state != IB_VERBS_HANDSHAKE_COMPLETE)
+      {
+	switch (priv->handshake.incoming.state) 
+	  {
+	  case IB_VERBS_HANDSHAKE_START:
+	    buf = priv->handshake.incoming.buf = calloc (1, 256);
+	    ib_verbs_fill_handshake_data (buf, &priv->handshake.incoming, priv);
+	    buf[0] = 0;
+	    priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_RECEIVING_DATA;
+	    break;
+
+	  case IB_VERBS_HANDSHAKE_RECEIVING_DATA:
+	    ret = __tcp_readv (this, 
+			       &priv->handshake.incoming.vector, 
+			       priv->handshake.incoming.count,
+			       &priv->handshake.incoming.pending_vector, 
+			       &priv->handshake.incoming.pending_count);
+	    if (ret == -1) {
+	      goto unlock;
+	    }
+
+	    if (ret > 0) {
+	      gf_log (this->xl->name, GF_LOG_DEBUG,
+		      "partial header read on NB socket. continue later");
+	      goto unlock;
+	    }
+	    
+	    if (!ret) {
+	      priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_RECEIVED_DATA;
+	    }
+	    break;
+
+	  case IB_VERBS_HANDSHAKE_RECEIVED_DATA:
+	    if (strncmp (buf, "QP1:", 4)) {
+	      gf_log ("transport/ib-verbs",
+		      GF_LOG_CRITICAL,
+		      "%s: remote-host's transport type is different",
+		      this->xl->name);
+	      ret = -1;
+	      goto unlock;
+	    }
+	    ret = sscanf (buf,
+			  "QP1:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
+			  "QP2:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
+			  "QP1:LID=%04x:QPN=%06x:PSN=%06x\n"
+			  "QP2:LID=%04x:QPN=%06x:PSN=%06x\n",
+			  &send_buf_size[0],
+			  &recv_buf_size[0],
+			  &send_buf_size[1],
+			  &recv_buf_size[1],
+			  &priv->peers[0].remote_lid,
+			  &priv->peers[0].remote_qpn,
+			  &priv->peers[0].remote_psn,
+			  &priv->peers[1].remote_lid,
+			  &priv->peers[1].remote_qpn,
+			  &priv->peers[1].remote_psn);
+
+	    if (ret != 10) {
+	      gf_log ("transport/ib-verbs",
+		      GF_LOG_ERROR,
+		      "%s: %d conversions in handshake data rather than 10",
+		      this->xl->name,
+		      ret);
+	      ret = -1;
+	      goto unlock;
+	    }
+
+	    if (recv_buf_size[0] < priv->peers[0].recv_size)
+	      priv->peers[0].recv_size = recv_buf_size[0];
+	    if (recv_buf_size[1] < priv->peers[1].recv_size)
+	      priv->peers[1].recv_size = recv_buf_size[1];
+	    if (send_buf_size[0] < priv->peers[0].send_size)
+	      priv->peers[0].send_size = send_buf_size[0];
+	    if (send_buf_size[1] < priv->peers[1].send_size)
+	      priv->peers[1].send_size = send_buf_size[1];
+	  
+	    gf_log ("transport/ib-verbs",
+		    GF_LOG_DEBUG,
+		    "%s: transacted recv_size=%d send_size=%d",
+		    this->xl->name, priv->peers[0].recv_size,
+		    priv->peers[0].send_size);
+
+	    priv->peers[0].quota = priv->peers[0].send_count;
+	    priv->peers[1].quota = 1;
+
+	    pthread_mutex_init (&priv->recv_mutex, NULL);
+	    pthread_cond_init (&priv->recv_cond, NULL);
+
+	    if (ib_verbs_connect_qp (this)) {
+	      gf_log ("transport/ib-verbs",
+		      GF_LOG_ERROR,
+		      "%s: failed to connect with remote QP",
+		      this->xl->name);
+	      ret = -1;
+	      goto unlock;
+	    }
+	    ib_verbs_fill_handshake_ack (buf, &priv->handshake.incoming);
+	    buf[0] = 0;
+	    priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_RECEIVING_ACK;
+	    break;
+
+	  case IB_VERBS_HANDSHAKE_RECEIVING_ACK:
+	    ret = __tcp_readv (this, 
+			       &priv->handshake.incoming.vector, 
+			       priv->handshake.incoming.count,
+			       &priv->handshake.incoming.pending_vector, 
+			       &priv->handshake.incoming.pending_count);
+	    if (ret == -1) {
+	      goto unlock;
+	    }
+
+	    if (ret > 0) {
+	      gf_log (this->xl->name, GF_LOG_DEBUG,
+		      "partial header read on NB socket. continue later");
+	      goto unlock;
+	    }
+	    
+	    if (!ret) {
+	      priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_RECEIVED_ACK;
+	    }
+	    break;
+
+	  case IB_VERBS_HANDSHAKE_RECEIVED_ACK:
+	    if (strncmp (buf, "DONE", 4)) {
+	      gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+		      "%s: handshake-3 did not return 'DONE' (%s)",
+		      this->xl->name, buf);
+	      ret = -1;
+	      goto unlock;
+	    }
+	    ret = 0;
+	    priv->connected = 1;
+	    sock_len = sizeof (struct sockaddr_in);
+	    getpeername (priv->sock,
+			 &this->peerinfo.sockaddr,
+			 &sock_len);
+
+	    FREE (priv->handshake.incoming.buf);
+	    priv->handshake.incoming.buf = NULL;
+	    priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_COMPLETE;
+	  }
+      }
+  }
+ unlock:
+  pthread_mutex_unlock (&priv->write_mutex);
+
+  if (ret == -1) {
+    transport_disconnect (this);
+  } else {
+    ret = 0;
+  }
+
+  if (!ret && priv->connected) {
+    ret = this->xl->notify (this->xl, GF_EVENT_CHILD_UP, this);
+  }
+
+  return ret;
+}
+
+static int 
+ib_verbs_handshake_pollout (transport_t *this)
+{
+  ib_verbs_private_t *priv = this->private;
+  char *buf = priv->handshake.outgoing.buf;
+  int32_t ret = 0;
+
+  if (priv->handshake.outgoing.state == IB_VERBS_HANDSHAKE_COMPLETE) {
+    return 0;
+  }
+
+  pthread_mutex_unlock (&priv->write_mutex);
+  {
+    while (priv->handshake.outgoing.state != IB_VERBS_HANDSHAKE_COMPLETE)
+      {
+	switch (priv->handshake.outgoing.state) 
+	  {
+	  case IB_VERBS_HANDSHAKE_START:
+	    buf = priv->handshake.outgoing.buf = calloc (1, 256);
+	    ib_verbs_fill_handshake_data (buf, &priv->handshake.outgoing, priv);
+	    priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_SENDING_DATA;
+	    break;
+
+	  case IB_VERBS_HANDSHAKE_SENDING_DATA:
+	    ret = __tcp_writev (this, 
+				&priv->handshake.outgoing.vector, 
+				priv->handshake.outgoing.count,
+				&priv->handshake.outgoing.pending_vector, 
+				&priv->handshake.outgoing.pending_count);
+	    if (ret == -1) {
+	      goto unlock;
+	    }
+
+	    if (ret > 0) {
+	      gf_log (this->xl->name, GF_LOG_DEBUG,
+		      "partial header read on NB socket. continue later");
+	      goto unlock;
+	    }
+	    
+	    if (!ret) {
+	      priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_SENT_DATA;
+	    }
+	    break;
+
+	  case IB_VERBS_HANDSHAKE_SENT_DATA:
+	    ib_verbs_fill_handshake_ack (buf, &priv->handshake.outgoing);
+	    priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_SENDING_ACK;
+	    break;
+
+	  case IB_VERBS_HANDSHAKE_SENDING_ACK:
+	    ret = __tcp_writev (this,
+				&priv->handshake.outgoing.vector,
+				priv->handshake.outgoing.count,
+				&priv->handshake.outgoing.pending_vector,
+				&priv->handshake.outgoing.pending_count);
+
+	    if (ret == -1) {
+	      goto unlock;
+	    }
+
+	    if (ret > 0) {
+	      gf_log (this->xl->name, GF_LOG_DEBUG,
+		      "partial header read on NB socket. continue later");
+	      goto unlock;
+	    }
+	    
+	    if (!ret) {
+	      FREE (priv->handshake.outgoing.buf);
+	      priv->handshake.outgoing.buf = NULL;
+	      priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_COMPLETE;
+	    }
+	    break;
+	  }
+      }
+  }
+ unlock:
+  pthread_mutex_unlock (&priv->write_mutex);
+
+  if (ret == -1) {
+    transport_disconnect (this);
+  } else {
+    ret = 0;
+  }
+
+  return ret;
+}
+
+static int
+ib_verbs_handshake_pollerr (transport_t *this)
+{
+  ib_verbs_private_t *priv = this->private;
+
+  ib_verbs_reset (this);
+
+  pthread_mutex_lock (&priv->write_mutex);
+  {
+    if (priv->handshake.incoming.state != IB_VERBS_HANDSHAKE_START 
+	&& priv->handshake.incoming.state != IB_VERBS_HANDSHAKE_COMPLETE) {
+      FREE (priv->handshake.incoming.buf);
+      priv->handshake.incoming.buf = NULL;
+    }
+    priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_COMPLETE;
+
+    if (priv->handshake.outgoing.state != IB_VERBS_HANDSHAKE_START
+	&& priv->handshake.outgoing.state != IB_VERBS_HANDSHAKE_COMPLETE) {
+      FREE (priv->handshake.outgoing.buf);
+      priv->handshake.outgoing.buf = NULL;
+    }
+    priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_COMPLETE;
+  }
+  pthread_mutex_unlock (&priv->write_mutex);
+
+  this->xl->notify (this->xl, GF_EVENT_POLLERR, this, NULL);
   return 0;
+}
+
+static int
+tcp_connect_finish (transport_t *this)
+{
+  ib_verbs_private_t *priv = this->private;
+  int error = 0, ret = 0;
+
+  pthread_mutex_lock (&priv->write_mutex);
+  {
+    ret = __tcp_connect_finish (priv->sock);
+
+    if (!ret) {
+      priv->tcp_connected = 1;
+    }
+
+    if (ret == -1 && errno != EINPROGRESS) {
+      error = 1;
+    }
+  }
+  pthread_mutex_unlock (&priv->write_mutex);
+
+  if (error) {
+    transport_disconnect (this);
+  }
+
+  return ret;
+}
+
+static int
+ib_verbs_event_handler (int fd, int idx, void *data,
+			int poll_in, int poll_out, int poll_err)
+{
+  transport_t *this = data;
+  ib_verbs_private_t *priv = this->private;
+  int ret = 0;
+
+  if (!priv->connected && !priv->tcp_connected) {
+    ret = tcp_connect_finish (this);
+    if (priv->tcp_connected) {
+      ib_verbs_options_t *options = &priv->options;
+      priv->peers[0].send_count = options->send_count;
+      priv->peers[0].recv_count = options->recv_count;
+      priv->peers[0].send_size = options->send_size;
+      priv->peers[0].recv_size = options->recv_size;
+      priv->peers[1].send_count = options->send_count;
+      priv->peers[1].recv_count = options->recv_count;
+
+      if ((ret = ib_verbs_create_qp (this)) < 0) {
+	gf_log ("transport/ib-verbs",
+		GF_LOG_ERROR,
+		"%s: could not create QP",
+		this->xl->name);
+	transport_disconnect (this);
+      }
+    }
+  }
+
+  if (!ret && poll_out && priv->tcp_connected) {
+    ret = ib_verbs_handshake_pollout (this);
+  }
+
+  if (!ret && poll_in && priv->tcp_connected) {
+    ret = ib_verbs_handshake_pollin (this);
+  }
+
+  if (poll_err) {
+    ret = ib_verbs_handshake_pollerr (this);
+  }
+
+  return 0;
+}
+
+static int
+__tcp_bind_port_lt_1024 (int fd)
+{
+  int ret = -1;
+  struct sockaddr_in sin = {0, };
+  uint16_t port = 1023;
+
+  sin.sin_family = PF_INET;
+  sin.sin_addr.s_addr = INADDR_ANY;
+
+  while (port)
+    {
+      sin.sin_port = htons (port);
+
+      ret = bind (fd, (struct sockaddr *)&sin, sizeof (sin));
+
+      if (ret == 0)
+	break;
+
+      if (ret == -1 && errno == EACCES)
+	break;
+
+      port--;
+    }
+
+  return ret;
+}
+
+static int
+__tcp_dns_resolve (transport_t *this, struct sockaddr_in *sin)
+{
+  dict_t *options = this->xl->options;
+  data_t *remote_host_data = NULL;
+  data_t *remote_port_data = NULL;
+  char *remote_host = NULL;
+  uint16_t remote_port = 0;
+  in_addr_t addr = INADDR_NONE;
+
+  remote_host_data = dict_get (options, "remote-host");
+  if (remote_host_data == NULL)
+    {
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "option remote-host missing in volume %s", this->xl->name);
+      return -1;
+    }
+
+  remote_host = data_to_str (remote_host_data);
+  if (remote_host == NULL)
+    {
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "option remote-host has data NULL in volume %s", this->xl->name);
+      return -1;
+    }
+
+  remote_port_data = dict_get (options, "remote-port");
+  if (remote_port_data == NULL)
+    {
+      gf_log (this->xl->name, GF_LOG_DEBUG,
+	      "option remote-port missing in volume %s. Defaulting to 6996",
+	      this->xl->name);
+
+      remote_port = GF_DEFAULT_LISTEN_PORT;
+    }
+  else
+    {
+      remote_port = data_to_uint16 (remote_port_data);
+    }
+
+  if (remote_port == (uint16_t)-1)
+    {
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "option remote-port has invalid port in volume %s",
+	      this->xl->name);
+      return -1;
+    }
+
+  /* TODO: gf_resolve is a blocking call. kick in some
+     non blocking dns techniques */
+  addr = gf_resolve_ip (remote_host, &this->dnscache);
+
+  if (addr == INADDR_NONE)
+    {
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "DNS resolution failed on host %s", remote_host);
+      return -1;
+    }
+
+  memset (sin, 0, sizeof (*sin));
+
+  sin->sin_family = PF_INET;
+  sin->sin_addr.s_addr = addr;
+  sin->sin_port = htons (remote_port);
+
+  return 0;
+}
+
+static int
+__tcp_nonblock (int fd)
+{
+  int flags = 0;
+  int ret = -1;
+
+  flags = fcntl (fd, F_GETFL);
+
+  if (flags != -1)
+    ret = fcntl (fd, F_SETFL, flags | O_NONBLOCK);
+
+  return ret;
+}
+
+static int32_t
+ib_verbs_connect (struct transport *this)
+{
+  GF_ERROR_IF_NULL (this);
+  dict_t *options = this->xl->options;
+  
+  ib_verbs_private_t *priv = this->private;
+  GF_ERROR_IF_NULL (priv);
+  
+  char non_blocking = 1;
+  int32_t ret = 0;
+  struct sockaddr_in sin;
+
+  if (priv->connected) {
+    return 0;
+  }
+
+  if (dict_get (options, "non-blocking-io")) {
+    char *nb_connect = data_to_str (dict_get (options,
+					      "non-blocking-io"));
+    if ((!strcasecmp (nb_connect, "off")) ||
+	(!strcasecmp (nb_connect, "no")))
+      non_blocking = 0;
+  }
+
+  pthread_mutex_lock (&priv->write_mutex);
+  {
+    if (priv->sock != -1) {
+      ret = 0;
+      goto unlock;
+    }
+  
+    priv->sock = socket (AF_INET, SOCK_STREAM, 0);
+	
+    gf_log (this->xl->name, GF_LOG_DEBUG,
+	    "socket fd = %d", priv->sock);
+	
+    if (priv->sock == -1) {
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "socket () - error: %s", strerror (errno));
+      ret = -errno;
+      goto unlock;
+    }
+
+    if (non_blocking) 
+      {
+	ret = __tcp_nonblock (priv->sock);
+	
+	if (ret == -1)
+	  {
+	    gf_log (this->xl->name, GF_LOG_ERROR,
+		    "could not set socket %d to non blocking mode (%s)",
+		    priv->sock, strerror (errno));
+	    close (priv->sock);
+	    priv->sock = -1;
+	    goto unlock;
+	  }
+      }
+    
+    ret = __tcp_bind_port_lt_1024 (priv->sock);
+    if (ret == -1)
+      {
+	gf_log (this->xl->name, GF_LOG_WARNING,
+		"could not bind to port < 1024 (%s)", strerror (errno));
+      }
+    
+    ret = __tcp_dns_resolve (this, &sin);
+    if (ret == -1)
+      {
+	/* logged inside __tcp_dns_resolve() */
+	close (priv->sock);
+	priv->sock = -1;
+	goto unlock;
+      }
+
+    ret = connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin));
+    if (ret == -1 && errno != EINPROGRESS)
+      {
+	gf_log (this->xl->name, GF_LOG_ERROR,
+		"connection attempt failed (%s)", strerror (errno));
+	close (priv->sock);
+	priv->sock = -1;
+	goto unlock;
+      }
+
+    priv->tcp_connected = priv->connected = 0;
+
+    transport_ref (this);
+    priv->handshake.incoming.state = priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_START;
+    priv->idx = event_register (this->xl->ctx->event_pool, priv->sock, 
+				ib_verbs_event_handler, this, 1, 1); 
+  }
+ unlock:
+  pthread_mutex_unlock (&priv->write_mutex);
+
+  return ret;
+}
+
+static int
+ib_verbs_server_event_handler (int fd, int idx, void *data,
+			       int poll_in, int poll_out, int poll_err)
+{
+  int32_t main_sock;
+  transport_t *this, *trans = data;
+  ib_verbs_private_t *priv;
+  ib_verbs_private_t *trans_priv = (ib_verbs_private_t *) trans->private;
+  struct sockaddr_in sin;
+  socklen_t addrlen = 0;
+
+  if (!poll_in)
+    return 0;
+
+  this = calloc (1, sizeof (transport_t));
+  ERR_ABORT (this);
+  priv = calloc (1, sizeof (ib_verbs_private_t));
+  ERR_ABORT (priv);
+  this->private = priv;
+  /* Copy all the ib_verbs related values in priv, from trans_priv as other than QP, 
+     all the values remain same */
+  priv->device = trans_priv->device;
+  priv->options = trans_priv->options;
+  this->ops = trans->ops;
+  this->xl = trans->xl;
+
+  addrlen = sizeof (sin);
+
+  main_sock = (trans_priv)->sock;
+  priv->sock = accept (main_sock, &sin, &addrlen);
+  if (priv->sock == -1) {
+    gf_log ("ib-verbs/server",
+	    GF_LOG_ERROR,
+	    "accept() failed: %s",
+	    strerror (errno));
+    free (this->private);
+    free (this);
+    return -1;
+  }
+
+  priv->handshake.incoming.state = priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_START;
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      ib_verbs_event_handler, transport_ref (this), 1, 1);
+
+  priv->addr = sin.sin_addr.s_addr;
+  priv->port = sin.sin_port;
+  priv->peers[0].trans = this;
+  priv->peers[1].trans = this;
+  this = transport_ref (this);
+
+  pthread_mutex_init (&priv->read_mutex, NULL);
+  pthread_mutex_init (&priv->write_mutex, NULL);
+
+  return 0;
+}
+
+static int32_t
+ib_verbs_listen (transport_t *this)
+{
+  struct sockaddr_in sin;
+  data_t *bind_addr_data;
+  data_t *listen_port_data;
+  char *bind_addr;
+  uint16_t listen_port;
+  dict_t *options = this->xl->options;
+  ib_verbs_private_t *priv = this->private;
+
+  priv->sock = socket (AF_INET, SOCK_STREAM, 0);
+  if (priv->sock == -1) {
+    gf_log ("ib-verbs/server",
+	    GF_LOG_CRITICAL,
+	    "init: failed to create socket, error: %s",
+	    strerror (errno));
+    free (this->private);
+    return -1;
+  }
+
+  bind_addr_data = dict_get (options, "bind-address");
+  if (bind_addr_data)
+    bind_addr = data_to_str (bind_addr_data);
+  else
+    bind_addr = "0.0.0.0";
+
+  listen_port_data = dict_get (options, "listen-port");
+  if (listen_port_data)
+    listen_port = htons (data_to_uint64 (listen_port_data));
+  else
+    listen_port = htons (GF_DEFAULT_LISTEN_PORT);
+
+  sin.sin_family = AF_INET;
+  sin.sin_port = listen_port;
+  sin.sin_addr.s_addr = bind_addr ? inet_addr (bind_addr) : htonl (INADDR_ANY);
+
+  int opt = 1;
+  setsockopt (priv->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt));
+  if (bind (priv->sock,
+	    (struct sockaddr *)&sin,
+	    sizeof (sin)) != 0) {
+    gf_log ("ib-verbs/server",
+	    GF_LOG_CRITICAL,
+	    "init: failed to bind to socket on port %d, error: %s",
+	    sin.sin_port,
+	    strerror (errno));
+    return -1;
+  }
+
+  if (listen (priv->sock, 10) != 0) {
+    gf_log ("ib-verbs/server",
+	    GF_LOG_CRITICAL,
+	    "init: listen () failed on socket, error: %s",
+	    strerror (errno));
+    return -1;
+  }
+
+  /* Register the main socket */
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      ib_verbs_server_event_handler, transport_ref (this), 1, 0);
+
+  return 0;
+}
+
+struct transport_ops tops = {
+  .receive = ib_verbs_receive,
+  .submit = ib_verbs_submit,
+  .connect = ib_verbs_connect,
+  .disconnect = ib_verbs_disconnect,
+  .listen = ib_verbs_listen,
+};
+
+int32_t
+init (transport_t *this)
+{
+  ib_verbs_private_t *priv = calloc (1, sizeof (*priv));
+  this->private = priv;
+  priv->sock = -1;
+
+  if (ib_verbs_init (this)) {
+    gf_log (this->xl->name,
+	    GF_LOG_ERROR,
+	    "Failed to initialize IB Device");
+    return -1;
+  }
+
+  return 0;
+}
+
+void  
+fini (struct transport *this)
+{
+  /* TODO: verify this function does graceful finish */
+  ib_verbs_private_t *priv = this->private;
+  free (priv);
+  this->private = NULL;
+
+  gf_log (this->xl->name,
+	  GF_LOG_CRITICAL,
+	  "called fini on transport: %p",
+	  this);
+  return;
 }

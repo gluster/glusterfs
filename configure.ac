@@ -93,6 +93,8 @@ AC_CONFIG_FILES([Makefile
 		transport/Makefile
 		transport/tcp/Makefile
 		transport/tcp/src/Makefile
+		transport/ib-verbs/Makefile
+		transport/ib-verbs/src/Makefile
 		auth/Makefile
 		auth/ip/Makefile
 		auth/ip/src/Makefile

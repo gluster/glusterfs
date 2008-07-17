@@ -5428,6 +5428,7 @@ mop_setvolume (call_frame_t *frame,
               version, PACKAGE_VERSION);
     remote_errno = EINVAL;
     dict_set (reply, "ERROR", data_from_dynstr (msg));
+    FREE (msg);
     goto fail;
   }
 
@@ -5449,6 +5450,7 @@ mop_setvolume (call_frame_t *frame,
     asprintf (&msg, "remote-subvolume \"%s\" is not found", name);
     dict_set (reply, "ERROR", data_from_dynstr (msg));
     remote_errno = ENOENT;
+    FREE (msg);
     goto fail;
   }
 

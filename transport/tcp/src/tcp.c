@@ -153,7 +153,7 @@ __tcp_readv (transport_t *this, struct iovec *vector, int count,
 
 static int
 __tcp_writev (transport_t *this, struct iovec *vector, int count,
-	     struct iovec **pending_vector, int *pending_count)
+	      struct iovec **pending_vector, int *pending_count)
 {
   int ret = -1;
 

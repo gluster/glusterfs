@@ -51,7 +51,7 @@ struct transport {
   data_t                *buf;
   int                  (*init)   (transport_t *this);
   void                 (*fini)   (transport_t *this);
-  int                  (*notify) (transport_t *this, int event, void *data);
+  /*  int                  (*notify) (transport_t *this, int event, void *data); */
   struct peer_info_t     peerinfo;
 };
 

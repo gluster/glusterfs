@@ -44,6 +44,13 @@ struct _ib_verbs_options {
 };
 typedef struct _ib_verbs_options ib_verbs_options_t;
 
+struct _ib_verbs_header {
+  char     colonO[3];
+  uint32_t size1;
+  uint32_t size2;
+  char     version;
+} __attribute__((packed));
+typedef struct _ib_verbs_header ib_verbs_header_t;
 
 /* represents one communication peer, two per transport_t */
 struct _ib_verbs_peer {
@@ -117,11 +124,33 @@ struct _ib_verbs_device {
 };
 typedef struct _ib_verbs_device ib_verbs_device_t;
 
+typedef enum {
+  IB_VERBS_HANDSHAKE_START = 0,
+  IB_VERBS_HANDSHAKE_SENDING_DATA,
+  IB_VERBS_HANDSHAKE_RECEIVING_DATA,
+  IB_VERBS_HANDSHAKE_SENT_DATA,
+  IB_VERBS_HANDSHAKE_RECEIVED_DATA,
+  IB_VERBS_HANDSHAKE_SENDING_ACK,
+  IB_VERBS_HANDSHAKE_RECEIVING_ACK,
+  IB_VERBS_HANDSHAKE_RECEIVED_ACK,
+  IB_VERBS_HANDSHAKE_COMPLETE,
+} ib_verbs_handshake_state_t;
+
+struct ib_verbs_nbio {
+  int state;
+  char *buf;
+  int count;
+  struct iovec vector;
+  struct iovec *pending_vector;
+  int pending_count;
+};
+
 struct _ib_verbs_private {
   int32_t sock;
   int32_t idx;
   unsigned char connected;
-  unsigned char connection_in_progress;
+  unsigned char tcp_connected;
+  /*  unsigned char connection_in_progress; */
   unsigned char ib_connected;
   in_addr_t addr;
   unsigned short port;
@@ -144,13 +173,26 @@ struct _ib_verbs_private {
 
   pthread_mutex_t recv_mutex;
   pthread_cond_t recv_cond;
+
+  /* used during ib_verbs_handshake */
+
+  struct {
+    struct ib_verbs_nbio incoming;
+    struct ib_verbs_nbio outgoing;
+    int               state;
+    ib_verbs_header_t header;
+    char *buf;
+    size_t size;
+    /*
+    char             *hdr_p;
+    size_t            hdrlen;
+    char             *buf_p;
+    size_t            buflen;
+    */
+  } handshake;
 };
 typedef struct _ib_verbs_private ib_verbs_private_t;
 
-
-/* Regular functions, used by the transports */
-int32_t ib_verbs_writev (transport_t *this, const struct iovec *vector, int32_t count);
-int32_t ib_verbs_receive (transport_t *this, char *buf, int32_t len);
 
 /* uses ibv_post_recv */
 //int32_t ib_verbs_post_recv (transport_t *trans,
@@ -162,19 +204,19 @@ int32_t ib_verbs_receive (transport_t *this, char *buf, int32_t len);
 //			    int32_t len);
 
 /* Device Init */
-int32_t ib_verbs_init (transport_t *this);
-
-int32_t ib_verbs_handshake (transport_t *this);
+static int32_t ib_verbs_init (transport_t *this);
 
 //int32_t ib_verbs_connect (transport_t *priv);
 
 /* Create QP */
 //int32_t ib_verbs_create_qp (transport_t *this);
 
-int32_t ib_verbs_bail (transport_t *this);
-int32_t ib_verbs_except (transport_t *this);
-int32_t ib_verbs_teardown (transport_t *this);
-int32_t ib_verbs_disconnect (transport_t *this);
+static int32_t ib_verbs_except (transport_t *this);
+static int32_t ib_verbs_teardown (transport_t *this);
+static int32_t ib_verbs_disconnect (transport_t *this);
 
-int32_t ib_verbs_tcp_notify (transport_t *this, int32_t event, void *data);
+static int 
+ib_verbs_event_handler (int fd, int idx, void *data,
+			int poll_in, int poll_out, int poll_err);
+/* int32_t ib_verbs_tcp_notify (transport_t *this, int32_t event, void *data); */
 #endif /* _XPORT_IB_VERBS_H */

@@ -13,13 +13,15 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+noinst_HEADERS = ib-verbs.h
 
-transport_PROGRAMS = client.so
-transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/transport/tcp/
+transport_PROGRAMS = ib-verbs.so
+transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/transport/
 
-client_so_SOURCES = tcp-client.c $(top_srcdir)/transport/tcp/tcp.c
+ib_verbs_so_SOURCES = ib-verbs.c
+ib_verbs_so_LDADD = -libverbs
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\
-	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/transport/tcp/ -shared -nostartfiles $(GF_DARWIN_BUNDLE_CFLAGS)
+	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/transport/ib-verbs -shared -nostartfiles
 
-CLEANFILES = 
+CLEANFILES = *~
