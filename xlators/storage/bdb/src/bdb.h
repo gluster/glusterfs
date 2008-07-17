@@ -53,6 +53,7 @@
 #include "xlator.h"
 #include "inode.h"
 #include "compat.h"
+#include "compat-errno.h"
 
 #define GLFS_BDB_STORAGE    "/glusterfs_storage.db"
 

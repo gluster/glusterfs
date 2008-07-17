@@ -222,6 +222,9 @@
 #define ENODATA ENOATTR
 #endif /* ENODATA */
 
+#ifndef EBADFD
+#define EBADFD EBADRPC
+#endif /* EBADFD */
 
 /* These functions are defined for all the OS flags, but content will 
  * be different for each OS flag. 

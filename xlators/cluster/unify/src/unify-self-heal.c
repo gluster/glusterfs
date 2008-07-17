@@ -49,7 +49,8 @@
 #include "stack.h"
 #include "common-utils.h"
 
-#define UNIFY_SELF_HEAL_GETDENTS_COUNT 12345 /* Sometimes one should use completely random numbers.. its good :p */
+/* TODO: Make sure this number doesn't overflow the 1MB header size limit, 12345 did overflow the limits */
+#define UNIFY_SELF_HEAL_GETDENTS_COUNT 2345 /* Sometimes one should use completely random numbers.. its good :p */
 
 
 /**

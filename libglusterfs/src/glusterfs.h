@@ -48,14 +48,8 @@ do {                    \
      } while (0) */
 
 
-
 #define GF_YES 1
 #define GF_NO  0
-
-#ifndef EBADFD
-/* savannah bug #20049, patch for compiling on darwin */
-#define EBADFD EBADRPC
-#endif 
 
 #ifndef O_LARGEFILE
 /* savannah bug #20053, patch for compiling on darwin */
