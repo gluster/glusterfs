@@ -90,13 +90,11 @@ void gf_print_bytes (void);
 
 void glusterfs_stats (int32_t signum);
 void gf_dump_spec_file (FILE *specfp);
+void gf_print_trace (int32_t signal);
 
 extern int64_t total_bytes_xferd;
 extern int64_t total_bytes_rcvd;
 
-#if HAVE_BACKTRACE
-void gf_print_trace (int32_t signal);
-#endif /* HAVE_BACKTRACE */
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 

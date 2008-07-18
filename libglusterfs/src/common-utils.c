@@ -446,7 +446,6 @@ glusterfs_stats (int32_t signum)
 }
 
 
-#if HAVE_BACKTRACE
 /* Obtain a backtrace and print it to stdout. */
 /* TODO: It looks like backtrace_symbols allocates memory,
    it may be problem because mostly memory allocation/free causes 'sigsegv' */
@@ -481,17 +480,18 @@ gf_print_trace (int32_t signum)
   sprintf (msg, "Signal received: %d", signum); 
   write (fd, msg, strlen (msg));
 
+#if HAVE_BACKTRACE
   /* Print 'backtrace' */
   size = backtrace (array, 200);
   backtrace_symbols_fd (&array[1], size-1, fd);
   sprintf (msg, "---------\n");
   write (fd, msg, strlen (msg));
+#endif /* HAVE_BACKTRACE */
   
   /* Send a signal to terminate the process */
   signal (signum, SIG_DFL);
   raise (signum);
 }
-#endif /* HAVE_BACKTRACE */
 
 void
 trap (void)

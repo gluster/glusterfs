@@ -564,7 +564,7 @@ main (int32_t argc, char *argv[])
   /* Handle SIGABORT and SIGSEGV */
   signal (SIGSEGV, gf_print_trace);
   signal (SIGABRT, gf_print_trace);
-#endif /* HAVE_BACKTRACE */
+#endif
 
   /* Ignore SIGPIPE */
   signal (SIGPIPE, SIG_IGN);

@@ -70,8 +70,8 @@ struct alu_sched {
 
   pthread_mutex_t alu_mutex;
   struct timeval last_stat_fetch;
-  int32_t refresh_interval;      /* in seconds */
-  int32_t refresh_create_count;  /* num-file-create */
+  uint32_t refresh_interval;      /* in seconds */
+  uint32_t refresh_create_count;  /* num-file-create */
 
   int32_t sched_nodes_pending;
 
