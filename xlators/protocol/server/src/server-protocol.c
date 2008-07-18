@@ -4969,19 +4969,18 @@ mop_getspec (call_frame_t *frame,
   char *filename = GLUSTERFSD_SPEC_PATH;
   int32_t file_len = 0;
   struct stat stbuf = {0,};
-  struct sockaddr_in *_sock = NULL;
   gf_hdr_common_t *_hdr = NULL;
   gf_mop_getspec_rsp_t *rsp = NULL;
   size_t _hdrlen = 0;
+  peer_info_t *peerinfo = NULL;
 
-  _sock = &(TRANSPORT_OF (frame))->peerinfo.sockaddr;
-
+  peerinfo = &(TRANSPORT_OF (frame))->peerinfo;
   if (dict_get (frame->this->options, "client-volume-filename")) {
     filename = data_to_str (dict_get (frame->this->options,
                                       "client-volume-filename"));
   }
   {
-    sprintf (tmp_filename, "%s.%s", filename, inet_ntoa (_sock->sin_addr));
+    sprintf (tmp_filename, "%s.%s", filename, peerinfo->identifier);
     /* Try for ip specific client spec file.
      * If not found, then go for, regular client file.
      */
@@ -5468,15 +5467,15 @@ mop_setvolume (call_frame_t *frame,
 
   if (gf_authenticate (params, config_params, server_priv->auth_modules) == AUTH_ACCEPT) {
     gf_log (TRANSPORT_OF (frame)->xl->name,  GF_LOG_DEBUG,
-            "accepted client from %s:%d",
-            inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
+            "accepted client from %s",
+	    peerinfo->identifier);
     ret = 0;
     priv->bound_xl = xl;
     dict_set (reply, "ERROR", str_to_data ("Success"));
   } else {
     gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
-            "Cannot authenticate client from %s:%d",
-            inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
+            "Cannot authenticate client from %s",
+	    peerinfo->identifier);
     ret = -1;
     remote_errno = EACCES;
     dict_set (reply, "ERROR", str_to_data ("Authentication failed"));
@@ -5909,7 +5908,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
         {
           gf_log (this->name, GF_LOG_ERROR,
                   "invalid fop %d from client %s", op,
-                  inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+		  peerinfo->identifier);
           break;
         }
       if (bound_xl == NULL)
@@ -5928,7 +5927,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
         {
           gf_log (this->name, GF_LOG_ERROR,
                   "invalid mop %d from client %s", op,
-                  inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+		  peerinfo->identifier);
           break;
         }
       frame = get_frame_for_call (trans, hdr);
@@ -6097,15 +6096,14 @@ server_protocol_cleanup (transport_t *trans)
               trans->xl->mops->unlock,
               NULL);
 
-  _sock = &trans->peerinfo.sockaddr;
 
   FREE (priv);
   trans->xl_private = NULL;
-
+  peerinfo = &trans->peerinfo;
   STACK_DESTROY (frame->root);
   gf_log (trans->xl->name, GF_LOG_DEBUG,
-          "cleaned up transport state for client %s:%d",
-          inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
+	  "cleaned up transport state for client %s",
+	  peerinfo->identifier);
 
   return 0;
 }

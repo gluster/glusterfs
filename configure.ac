@@ -91,13 +91,13 @@ AC_CONFIG_FILES([Makefile
 		scheduler/switch/Makefile
 		scheduler/switch/src/Makefile
 		transport/Makefile
-		transport/tcp/Makefile
-		transport/tcp/src/Makefile
+		transport/socket/Makefile
+		transport/socket/src/Makefile
 		transport/ib-verbs/Makefile
 		transport/ib-verbs/src/Makefile
 		auth/Makefile
-		auth/ip/Makefile
-		auth/ip/src/Makefile
+		auth/addr/Makefile
+		auth/addr/src/Makefile
 		auth/login/Makefile
 		auth/login/src/Makefile
 		doc/Makefile

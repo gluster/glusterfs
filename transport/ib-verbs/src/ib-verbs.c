@@ -1624,7 +1624,7 @@ ib_verbs_handshake_pollin (transport_t *this)
   ib_verbs_private_t *priv = this->private;
   char *buf = priv->handshake.incoming.buf;
   int32_t recv_buf_size[2], send_buf_size[2];
-  int sock_len;
+  socklen_t sock_len;
 
   if (priv->handshake.incoming.state == IB_VERBS_HANDSHAKE_COMPLETE) {
     return 0;
@@ -1764,9 +1764,9 @@ ib_verbs_handshake_pollin (transport_t *this)
 	    }
 	    ret = 0;
 	    priv->connected = 1;
-	    sock_len = sizeof (struct sockaddr_in);
+	    sock_len = sizeof (struct sockaddr_storage);
 	    getpeername (priv->sock,
-			 &this->peerinfo.sockaddr,
+			 (struct sockaddr *) &this->peerinfo.sockaddr,
 			 &sock_len);
 
 	    FREE (priv->handshake.incoming.buf);
