@@ -388,19 +388,16 @@ fi
 GF_HOST_OS=""
 GF_HOST_OS_FLAGS="-rdynamic"
 GF_SOLARIS_GLUSTERFSD_LDFLAGS=""
-GF_TRANSPORT_DIRS="tcp"
 case $host_os in
      linux*)
      dnl	GF_LINUX_HOST_OS=1
         GF_HOST_OS="GF_LINUX_HOST_OS"
-	GF_TRANSPORT_DIRS="tcp ib-sdp unix"
 	;;
      solaris*)
 dnl	GF_SOLARIS_HOST_OS=1
 	GF_HOST_OS_FLAGS=""
         GF_HOST_OS="GF_SOLARIS_HOST_OS"
 	GF_SOLARIS_GLUSTERFSD_LDFLAGS="-lnsl -lresolv -lsocket"
-	GF_TRANSPORT_DIRS="tcp"
 dnl  Remove these line once the compilation of libglusterfsclient and mod_glusterfs successfully completes on Solaris
 	BUILD_MOD_GLUSTERFS=no
 	MOD_GLUSTERFS_SUBDIR=""
@@ -410,7 +407,6 @@ dnl  Remove these line once the compilation of libglusterfsclient and mod_gluste
      *bsd*)
 dnl	GF_BSD_HOST_OS=1
         GF_HOST_OS="GF_BSD_HOST_OS"
-	GF_TRANSPORT_DIRS="tcp unix"
 dnl  Remove these line once the compilation of libglusterfsclient and mod_glusterfs successfully completes on BSD
 	BUILD_MOD_GLUSTERFS=no
 	MOD_GLUSTERFS_SUBDIR=""
@@ -419,7 +415,6 @@ dnl  Remove these line once the compilation of libglusterfsclient and mod_gluste
 	;;
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
-        GF_TRANSPORT_DIRS="tcp unix"
         LIBTOOL=glibtool
         GF_DARWIN_LIBGLUSTERFS_CFLAGS="-fnested-functions"
 	GF_DARWIN_BOOSTER_CFLAGS="-dynamiclib -undefined suppress -flat_namespace"
@@ -434,7 +429,6 @@ esac
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_SOLARIS_GLUSTERFSD_LDFLAGS)
-AC_SUBST(GF_TRANSPORT_DIRS)
 AC_SUBST(GF_HOST_OS_FLAGS)
 AC_SUBST(GF_DARWIN_LIBGLUSTERFS_CFLAGS)
 AC_SUBST(GF_DARWIN_BOOSTER_CFLAGS)
