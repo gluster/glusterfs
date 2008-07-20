@@ -832,8 +832,14 @@ posix_chmod (call_frame_t *frame,
 		"chmod on %s: %s", loc->path, strerror (op_errno));
       }
     if (op_ret == 0)
-	lstat (real_path, &stbuf);
+      lstat (real_path, &stbuf);
     
+    /* Handling lchmod for symlinks */
+    if ((op_ret == -1) && S_ISLNK(loc->inode->st_mode))
+      {
+	op_ret = 0;
+      }
+
     SET_TO_OLD_FS_UID ();
 
     frame->root->rsp_refs = NULL;

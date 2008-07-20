@@ -1968,17 +1968,25 @@ client_setdents (call_frame_t *frame,
   uint32_t len = 0;
   char *ptr = NULL;
   int32_t buf_len = 0;
+  int32_t ret = -1;
+  int32_t vec_count = 0;
   size_t hdrlen = -1;
-  int ret = -1;
-
+  struct iovec vector[1];
+  
   if (this_fd_get (fd, this, &remote_fd) == -1)
     {
       STACK_UNWIND (frame, -1, EBADFD, NULL);
       return 0;
     }
 
-  if (entries)
-    trav = entries->next;
+  if (!entries || !count)
+    {
+      /* If there is no data to be transmitted, just say invalid argument */
+      STACK_UNWIND (frame, -1, EINVAL);
+      return 0;
+    }
+
+  trav = entries->next;
   while (trav) {
     len += strlen (trav->name);
     len += 1;
@@ -1991,8 +1999,8 @@ client_setdents (call_frame_t *frame,
   ERR_ABORT (buffer);
 
   ptr = buffer;
-  if (entries)
-    trav = entries->next;
+
+  trav = entries->next;
   while (trav) {
     int32_t this_len = 0;
     char *tmp_buf = NULL;
@@ -2054,21 +2062,34 @@ client_setdents (call_frame_t *frame,
   }
   buf_len = strlen (buffer);
 
-  hdrlen = gf_hdr_len (req, buf_len + 1);
-  hdr    = gf_hdr_new (req, buf_len + 1);
+  hdrlen = gf_hdr_len (req, 0);
+  hdr    = gf_hdr_new (req, 0);
   req    = gf_param (hdr);
 
   req->fd    = hton64 (remote_fd);
   req->flags = hton32 (flags);
   req->count = hton32 (count);
 
-  strcpy (req->buf, buffer);
-
+  {
+    data_t *buf_data = get_new_data ();
+    dict_t *reply_dict = get_new_dict ();
+    
+    reply_dict->is_locked = 1;
+    buf_data->is_locked = 1;
+    buf_data->data = buffer;
+    buf_data->len = buf_len;
+    
+    dict_set (reply_dict, NULL, buf_data);
+    frame->root->rsp_refs = dict_ref (reply_dict);
+    vector[0].iov_base = buffer;
+    vector[0].iov_len = buf_len;
+    vec_count = 1;
+  }
+  
   ret = protocol_client_xfer (frame, this,
                               GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETDENTS,
-                              hdr, hdrlen, NULL, 0, NULL);
+                              hdr, hdrlen, vector, vec_count, frame->root->rsp_refs);
 
-  FREE (buffer);
   return ret;
 }
 
@@ -3311,7 +3332,7 @@ client_getdents_cbk (call_frame_t *frame,
       char tmp_buf[512] = {0,};
 
       nr_count = ntoh32 (rsp->count);
-      buffer_ptr = rsp->buf;
+      buffer_ptr = buf;
       prev = entry;
 
       for (i = 0; i < nr_count ; i++) {
@@ -3432,7 +3453,11 @@ client_getdents_cbk (call_frame_t *frame,
         trav = prev->next;
       }
       FREE (entry);
+      
+      /* Free the buffer */
+      FREE (buf);
     }
+
 
   return 0;
 }

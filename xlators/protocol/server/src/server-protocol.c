@@ -814,6 +814,8 @@ server_getdents_cbk (call_frame_t *frame,
   size_t hdrlen = 0;
   char *buffer = NULL;
   int32_t buf_len = 0;
+  int32_t vec_count = 0;
+  struct iovec vector[1];
 
   if (op_ret >= 0)
     {
@@ -852,8 +854,8 @@ server_getdents_cbk (call_frame_t *frame,
       }
     }
 
-  hdrlen = gf_hdr_len (rsp, buf_len + 1);
-  hdr    = gf_hdr_new (rsp, buf_len + 1);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
@@ -861,14 +863,30 @@ server_getdents_cbk (call_frame_t *frame,
 
   if (op_ret == 0)
     {
-      strcpy (rsp->buf, buffer);
+      data_t *buf_data = get_new_data ();
+      dict_t *reply_dict = get_new_dict ();
+      
+      reply_dict->is_locked = 1;
+      buf_data->is_locked = 1;
+      buf_data->data = buffer;
+      buf_data->len = buf_len;
+      
+      dict_set (reply_dict, NULL, buf_data);
+      frame->root->rsp_refs = dict_ref (reply_dict);
+      vector[0].iov_base = buffer;
+      vector[0].iov_len = buf_len;
+      vec_count = 1;
+
       rsp->count = hton32 (count);
     }
-
+  else
+    {
+      vector[0].iov_base = NULL;
+      vector[0].iov_len = 0;
+    }
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
-                         hdr, hdrlen, NULL, 0, NULL);
+                         hdr, hdrlen, vector, vec_count, frame->root->rsp_refs);
 
-  FREE (buffer);
   return 0;
 }
 
@@ -4816,7 +4834,7 @@ server_setdents (call_frame_t *frame,
     entry = calloc (1, sizeof (dir_entry_t));
     ERR_ABORT (entry);
     prev = entry;
-    buffer_ptr = req->buf;
+    buffer_ptr = buf;
 
     for (i = 0; i < nr_count ; i++) {
       bread = 0;

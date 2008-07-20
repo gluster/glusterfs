@@ -124,16 +124,16 @@ typedef enum {
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
-  GF_MOP_SETVOLUME,
-  GF_MOP_GETVOLUME,
+  GF_MOP_SETVOLUME, /* 0 */
+  GF_MOP_GETVOLUME, /* 1 */
   GF_MOP_STATS,
   GF_MOP_SETSPEC,
   GF_MOP_GETSPEC,
-  GF_MOP_LOCK,
+  GF_MOP_LOCK,      /* 5 */
   GF_MOP_UNLOCK,
   GF_MOP_LISTLOCKS,
   GF_MOP_FSCK,
-  GF_MOP_CHECKSUM,   
+  GF_MOP_CHECKSUM,  /* 9 */
   GF_MOP_MAXVALUE   
 } glusterfs_mop_t;
 
