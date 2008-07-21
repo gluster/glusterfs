@@ -4174,12 +4174,11 @@ server_incver (call_frame_t *frame,
   fd_no = ntoh64 (req->fd);
 
   priv = SERVER_PRIV (frame);
-  if (fd_no)
-    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
 
-  if (fd_no && fd == NULL) {
+  if ((strlen(path) == 0) && (fd == NULL)) {
     gf_log (frame->this->name, GF_LOG_ERROR,
-            "unresolved fd %d", fd_no);
+	    "path is \"\" and fd is NULL", fd_no);
     server_incver_cbk (frame, NULL, frame->this, -1, EINVAL);
     return 0;
   }
