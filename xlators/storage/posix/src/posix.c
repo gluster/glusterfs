@@ -831,14 +831,13 @@ posix_chmod (call_frame_t *frame,
 	gf_log (this->name, GF_LOG_WARNING, 
 		"chmod on %s: %s", loc->path, strerror (op_errno));
       }
-    if (op_ret == 0)
-      lstat (real_path, &stbuf);
     
     /* Handling lchmod for symlinks */
     if ((op_ret == -1) && S_ISLNK(loc->inode->st_mode))
-      {
 	op_ret = 0;
-      }
+
+    if (op_ret == 0)
+      lstat (real_path, &stbuf);
 
     SET_TO_OLD_FS_UID ();
 
@@ -1637,7 +1636,7 @@ posix_setxattr (call_frame_t *frame,
 		} /* if(file_fd!=-1)...else */
 	    } else {
 		/* we know file doesn't exist, create it */
-		file_fd = open (real_filepath, O_CREAT|O_WRONLY);
+		file_fd = open (real_filepath, O_CREAT|O_WRONLY, 0644);
 		if (file_fd != -1) {
 		    write (file_fd, trav->value->data, trav->value->len);
 		    close (file_fd);
@@ -1677,7 +1676,6 @@ posix_setxattr (call_frame_t *frame,
     } /* while(trav) */
 
     SET_TO_OLD_FS_UID ();
-
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, op_ret, op_errno);
 

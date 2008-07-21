@@ -5146,7 +5146,7 @@ mop_setspec (call_frame_t *frame,
     goto fail;
   }
 
-  ret = open (GLUSTERFSD_SPEC_PATH, O_WRONLY | O_CREAT | O_SYNC);
+  ret = open (GLUSTERFSD_SPEC_PATH, O_WRONLY | O_CREAT | O_SYNC, 0644);
   spec_fd = ret;
   if (spec_fd < 0){
     remote_errno = errno;
@@ -6154,7 +6154,6 @@ int32_t
 init (xlator_t *this)
 {
   transport_t *trans;
-  struct rlimit lim;
   server_private_t *server_priv = NULL;
   server_conf_t *conf = NULL;
   int32_t error = 0;
@@ -6210,19 +6209,23 @@ init (xlator_t *this)
   }
 
 #ifndef GF_DARWIN_HOST_OS
-  lim.rlim_cur = 1048576;
-  lim.rlim_max = 1048576;
-
-  if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-    gf_log (this->name, GF_LOG_WARNING, "WARNING: Failed to set 'ulimit -n 1048576': %s",
-            strerror(errno));
-    lim.rlim_cur = 65536;
-    lim.rlim_max = 65536;
+  {
+    struct rlimit lim;
+    
+    lim.rlim_cur = 1048576;
+    lim.rlim_max = 1048576;
 
     if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-      gf_log (this->name, GF_LOG_ERROR, "Failed to set max open fd to 64k: %s", strerror(errno));
-    } else {
-      gf_log (this->name, GF_LOG_ERROR, "max open fd set to 64k");
+      gf_log (this->name, GF_LOG_WARNING, "WARNING: Failed to set 'ulimit -n 1048576': %s",
+	      strerror(errno));
+      lim.rlim_cur = 65536;
+      lim.rlim_max = 65536;
+      
+      if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
+	gf_log (this->name, GF_LOG_ERROR, "Failed to set max open fd to 64k: %s", strerror(errno));
+      } else {
+	gf_log (this->name, GF_LOG_ERROR, "max open fd set to 64k");
+      }
     }
   }
 #endif

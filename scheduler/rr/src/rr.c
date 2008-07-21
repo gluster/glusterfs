@@ -108,7 +108,7 @@ rr_init (xlator_t *this_xl)
   
   for (i = 0; i < rr->options.read_only_subvolume_count; i++)
     {
-      gf_boolean_t found = false;
+      char found = 0;
       
       for (children = this_xl->children; 
 	   children != NULL; 
@@ -117,7 +117,7 @@ rr_init (xlator_t *this_xl)
 	  if (strcmp (rr->options.read_only_subvolume_list[i], 
 		      children->xlator->name) == 0)
 	    {
-	      found = true;
+	      found = 1;
 	      break;
 	    }
 	}
@@ -160,14 +160,14 @@ rr_init (xlator_t *this_xl)
        children != NULL; 
        children = children->next)
     {
-      gf_boolean_t found = false;
+      char found = 0;
       
       for (j = 0; j < rr->options.read_only_subvolume_count; j++)
 	{
 	  if (strcmp (rr->options.read_only_subvolume_list[i], 
 		      children->xlator->name) == 0)
 	    {
-	      found = true;
+	      found = 1;
 	      break;
 	    }
 	}

@@ -516,13 +516,16 @@ gf_print_trace (int32_t signum)
   write (fd, msg, strlen (msg));
 
 #if HAVE_BACKTRACE
-  void *array[200];
-  size_t size;
   /* Print 'backtrace' */
-  size = backtrace (array, 200);
-  backtrace_symbols_fd (&array[1], size-1, fd);
-  sprintf (msg, "---------\n");
-  write (fd, msg, strlen (msg));
+  {
+    void *array[200];
+    size_t size;
+    
+    size = backtrace (array, 200);
+    backtrace_symbols_fd (&array[1], size-1, fd);
+    sprintf (msg, "---------\n");
+    write (fd, msg, strlen (msg));
+  }
 #endif /* HAVE_BACKTRACE */
   
   /* Send a signal to terminate the process */

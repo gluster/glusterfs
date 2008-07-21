@@ -52,6 +52,7 @@
 
 #include <sys/xattr.h>
 #include <signal.h>
+#include <libgen.h>
 #include "compat-errno.h"
 #include "compat.h"
 
@@ -895,7 +896,8 @@ unify_open_close_cbk (call_frame_t *frame,
 		      int32_t op_errno)
 {
   unify_local_t *local = frame->local;
-
+  
+  unify_local_wipe (local);
   STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   
   return 0;
@@ -961,9 +963,167 @@ unify_open_cbk (call_frame_t *frame,
       return 0;
     }
 
+    unify_local_wipe (local);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   }
 
+  return 0;
+}
+
+
+/**
+ * unify_create_lookup_cbk - 
+ */
+int32_t 
+unify_open_lookup_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       inode_t *inode,
+		       struct stat *buf,
+		       dict_t *dict)
+{
+  int32_t callcnt = 0;
+  int16_t index = 0;
+  unify_private_t *priv = this->private;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+    if ((op_ret == -1) && (op_errno != ENOENT))
+      {
+	gf_log (this->name, GF_LOG_ERROR,
+		"child(%s): path(%s): %s", 
+		priv->xl_array[(long)cookie]->name, local->name, strerror (op_errno));
+	local->op_errno = op_errno;
+      }
+    
+    if (op_ret >= 0) 
+      {
+	local->op_ret = op_ret; 
+	local->index++;
+	if (NS(this) == (xlator_t *)cookie) {
+	  local->list[0] = (int16_t)(long)cookie;
+	} else {
+	  local->list[1] = (int16_t)(long)cookie;
+	}
+	if (S_ISDIR (buf->st_mode))
+	  local->failed = 1;
+      }
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    int16_t file_list[3] = {0,};
+    local->op_ret = -1;
+
+    file_list[0] = local->list[0];
+    file_list[1] = local->list[1];
+    file_list[2] = -1;
+
+    if (local->index != 2) {
+      /* Lookup failed, can't do open */
+      gf_log (this->name, GF_LOG_ERROR,
+	      "%s: present on %d nodes", local->name, local->index);
+
+      if (local->index < 2) {
+	unify_local_wipe (local);
+	gf_log (this->name, GF_LOG_ERROR,
+		"returning as file found on less than 2 nodes");
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
+	return 0;
+      }
+    }
+
+    if (local->failed)
+      {
+	/* Open on directory, return EISDIR */
+	unify_local_wipe (local);
+	STACK_UNWIND (frame, -1, EISDIR, local->fd);
+	return 0;
+      }
+
+    /* Everything is perfect :) */    
+    local->call_count = 2;
+    
+    for (index = 0; file_list[index] != -1; index++) {
+      char need_break = file_list[index+1] == -1;
+      loc_t tmp_loc = {
+	.inode = inode,
+	.path = local->name,
+      };
+      STACK_WIND_COOKIE (frame,
+			 unify_open_cbk,
+			 priv->xl_array[file_list[index]], //cookie
+			 priv->xl_array[file_list[index]],
+			 priv->xl_array[file_list[index]]->fops->open,
+			 &tmp_loc,
+			 local->flags,
+			 local->fd);
+      if (need_break)
+	break;
+    }
+  }
+
+  return 0;
+}
+
+
+int32_t
+unify_open_readlink_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno,
+			 const char *path)
+{
+  int16_t index = 0;
+  unify_private_t *priv = this->private;
+  unify_local_t *local = frame->local;
+
+  if (op_ret == -1)
+    {
+      STACK_UNWIND (frame, -1, ENOENT);
+      return 0;
+    }
+
+  if (path[0] == '/')
+    {
+      local->name = strdup (path);
+      ERR_ABORT (local->name);
+    }
+  else
+    {
+      char *tmp_str = strdup (local->path);
+      char *tmp_base = dirname (tmp_str);
+      local->name = calloc (1, GF_PATH_MAX);
+      strcpy (local->name, tmp_base);
+      strncat (local->name, "/", 1);
+      strcat (local->name, path);
+      FREE (tmp_str);
+    }
+
+  local->list = calloc (1, sizeof (int16_t) * 3);
+  ERR_ABORT (local->list);
+  local->call_count = priv->child_count + 1;
+  local->op_ret = -1;
+  for (index = 0; index <= priv->child_count; index++) {
+    /* Send the lookup to all the nodes including namespace */
+    loc_t tmp_loc = {
+      .path  = local->name,
+      .inode = dummy_inode(local->inode->table),
+    };
+    STACK_WIND_COOKIE (frame,
+		       unify_open_lookup_cbk,
+		       (void *)(long)index,
+		       priv->xl_array[index],
+		       priv->xl_array[index]->fops->lookup,
+		       &tmp_loc,
+		       0);
+  }
+  
   return 0;
 }
 
@@ -988,7 +1148,8 @@ unify_open (call_frame_t *frame,
   /* Init */
   INIT_LOCAL (frame, local);
   local->inode = loc->inode;
-  local->fd = fd;
+  local->fd    = fd;
+  local->flags = flags;
   list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
   local->list = list;
   file_list[0] = priv->child_count; /* Thats namespace */
@@ -1015,17 +1176,30 @@ unify_open (call_frame_t *frame,
       return 0;
     }
   }
+
+  /* Handle symlink here */
+  if (S_ISLNK (loc->inode->st_mode))
+    {
+      /* Callcount doesn't matter here */
+      STACK_WIND (frame,
+		  unify_open_readlink_cbk,
+		  NS(this),
+		  NS(this)->fops->readlink,
+		  loc, GF_PATH_MAX);
+      return 0;
+    }
+
   local->call_count = 2;
   for (index = 0; file_list[index] != -1; index++) {
     char need_break = file_list[index+1] == -1;
     STACK_WIND_COOKIE (frame,
-		 unify_open_cbk,
-		 priv->xl_array[file_list[index]], //cookie
-		 priv->xl_array[file_list[index]],
-		 priv->xl_array[file_list[index]]->fops->open,
-		 loc,
-		 flags,
-		 fd);
+		       unify_open_cbk,
+		       priv->xl_array[file_list[index]], //cookie
+		       priv->xl_array[file_list[index]],
+		       priv->xl_array[file_list[index]]->fops->open,
+		       loc,
+		       flags,
+		       fd);
     if (need_break)
       break;
   }
@@ -1102,7 +1276,7 @@ unify_create_open_cbk (call_frame_t *frame,
       }
     } else {
       gf_log (this->name, GF_LOG_ERROR,
-	      "child(%s): path(%s): %s", prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
+	      "child(%s): path(%s): %s", prev_frame->this->name, local->name, strerror (op_errno));
       local->op_errno = op_errno;
       local->failed = 1;
     }
@@ -1168,7 +1342,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
     if (op_ret == -1) {
       gf_log (this->name, GF_LOG_ERROR,
 	      "child(%s): path(%s): %s", 
-	      priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
+	      priv->xl_array[(long)cookie]->name, local->name, strerror (op_errno));
       local->op_errno = op_errno;
       local->failed = 1;
     }
@@ -1201,11 +1375,11 @@ unify_create_lookup_cbk (call_frame_t *frame,
     if (local->index != 2) {
       /* Lookup failed, can't do open */
       gf_log (this->name, GF_LOG_ERROR,
-	      "%s: present on %d nodes", local->path, local->index);
+	      "%s: present on %d nodes", local->name, local->index);
       file_list[0] = priv->child_count;
       for (index = 0; list[index] != -1; index++) {
 	gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
-		local->path, priv->xl_array[list[index]]->name);
+		local->name, priv->xl_array[list[index]]->name);
 	if (list[index] != priv->child_count)
 	  file_list[1] = list[index];
       }
@@ -2065,7 +2239,7 @@ unify_readlink (call_frame_t *frame,
   for (index = 0; list[index] != -1; index++)
     entry_count++;
 
-  if (entry_count == 2) {
+  if (entry_count >= 2) {
     for (index = 0; list[index] != -1; index++) {
       if (priv->xl_array[list[index]] != NS(this)) {
 	STACK_WIND (frame,
