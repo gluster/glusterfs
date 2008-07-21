@@ -163,6 +163,9 @@ dirent_size (struct dirent *entry)
 
 #ifdef GF_LINUX_HOST_OS
 
+#define UNIX_PATH_MAX 108
+
+#include <sys/un.h>
 #include <linux/limits.h>
 #include <sys/xattr.h>
 #include <endian.h>
@@ -184,6 +187,10 @@ dirent_size (struct dirent *entry)
 #ifdef GF_BSD_HOST_OS 
 /* In case of FreeBSD */
 
+#define UNIX_PATH_MAX 104
+#include <sys/types.h>
+
+#include <sys/un.h>
 #include <sys/endian.h>
 #include <sys/extattr.h>
 #include <limits.h>
@@ -216,6 +223,10 @@ enum {
 
 #ifdef GF_DARWIN_HOST_OS
 
+#define UNIX_PATH_MAX 104
+#include <sys/types.h>
+
+#include <sys/un.h>
 #include <machine/endian.h>
 #include <sys/xattr.h>
 #include <limits.h>
@@ -239,8 +250,14 @@ enum {
 
 #ifdef GF_SOLARIS_HOST_OS
 
-#include <endian.h>
+#define UNIX_PATH_MAX 108
+
+#include <sys/un.h>
 #include <limits.h>
+
+#ifndef lchmod
+#define lchmod chmod
+#endif 
 
 enum {
   ATTR_CREATE = 1,
@@ -258,20 +275,21 @@ enum {
 #define llistxattr(path,key,size)            solaris_listxattr(path,key,size)
 #define lgetxattr(path,key,value,size)       solaris_getxattr(path,key,value,size)
 #define lsetxattr(path,key,value,size,flags) solaris_setxattr(path,key,value,size,flags)
-#define fgetxattr(fd,key,value,size)         solaris_fgetxattr(path,key,value,size)
-#define fsetxattr(fd,key,value,size,flags)   solaris_fsetxattr(path,key,value,size,flags)
+#define fgetxattr(fd,key,value,size)         solaris_fgetxattr(fd,key,value,size)
+#define fsetxattr(fd,key,value,size,flags)   solaris_fsetxattr(fd,key,value,size,flags)
 #define lutimes(filename,times)              utimes(filename,times)
 
 int asprintf(char **string_ptr, const char *format, ...); 
+char* strsep(char** str, const char* delims);
 int solaris_listxattr(const char *path, char *list, size_t size);
 int solaris_removexattr(const char *path, const char* key);
 int solaris_getxattr(const char *path, const char* key, 
 		     char *value, size_t size);
 int solaris_setxattr(const char *path, const char* key, const char *value, 
 		     size_t size, int flags);
-int solaris_fgetxattr(const char *path, const char* key,
+int solaris_fgetxattr(int fd, const char* key,
 		      char *value, size_t size);
-int solaris_fsetxattr(const char *path, const char* key, const char *value, 
+int solaris_fsetxattr(int fd, const char* key, const char *value, 
 		      size_t size, int flags);
 
 #endif /* GF_SOLARIS_HOST_OS */

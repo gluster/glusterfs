@@ -490,8 +490,6 @@ void
 gf_print_trace (int32_t signum)
 {
   extern FILE *gf_log_logfile;
-  void *array[200];
-  size_t size;
   int fd = fileno (gf_log_logfile);
   char msg[1024];
 
@@ -518,6 +516,8 @@ gf_print_trace (int32_t signum)
   write (fd, msg, strlen (msg));
 
 #if HAVE_BACKTRACE
+  void *array[200];
+  size_t size;
   /* Print 'backtrace' */
   size = backtrace (array, 200);
   backtrace_symbols_fd (&array[1], size-1, fd);

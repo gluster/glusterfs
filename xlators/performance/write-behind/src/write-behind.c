@@ -30,6 +30,8 @@
 #include "dict.h"
 #include "xlator.h"
 #include "list.h"
+#include "compat.h"
+#include "compat-errno.h"
 #include "common-utils.h"
 
 

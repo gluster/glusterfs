@@ -272,7 +272,8 @@ af_unix_server_get_local_sockaddr (transport_t *this,
   data_t *listen_path_data = NULL;
   char *listen_path = NULL;
   int32_t ret = 0;
-  struct sockaddr_un *sun = (struct sockaddr_un *)addr;
+  struct sockaddr_un *sunaddr = (struct sockaddr_un *)addr;
+
 
   listen_path_data = dict_get (this->xl->options, "listen-path");
   if (!listen_path_data) {
@@ -296,8 +297,8 @@ af_unix_server_get_local_sockaddr (transport_t *this,
     goto err;
   }
 
-  sun->sun_family = AF_UNIX;
-  strcpy (sun->sun_path, listen_path);
+  sunaddr->sun_family = AF_UNIX;
+  strcpy (sunaddr->sun_path, listen_path);
   *addr_len = sizeof (struct sockaddr_un);
 
  err:
@@ -558,13 +559,13 @@ get_transport_identifiers (transport_t *this)
 
     case AF_UNIX:
       {
-	struct sockaddr_un *sun = NULL;
+	struct sockaddr_un *sunaddr = NULL;
 
-	sun = (struct sockaddr_un *) &this->myinfo.sockaddr;
-	strcpy (this->myinfo.identifier, sun->sun_path);
+	sunaddr = (struct sockaddr_un *) &this->myinfo.sockaddr;
+	strcpy (this->myinfo.identifier, sunaddr->sun_path);
 
-	sun = (struct sockaddr_un *) &this->peerinfo.sockaddr;
-	strcpy (this->peerinfo.identifier, sun->sun_path);
+	sunaddr = (struct sockaddr_un *) &this->peerinfo.sockaddr;
+	strcpy (this->peerinfo.identifier, sunaddr->sun_path);
       }
       break;
 

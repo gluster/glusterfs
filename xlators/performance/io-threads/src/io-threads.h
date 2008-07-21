@@ -25,6 +25,8 @@
 #include "config.h"
 #endif
 
+
+#include "compat-errno.h"
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"

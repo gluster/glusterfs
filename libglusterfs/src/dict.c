@@ -32,6 +32,7 @@
 #include "dict.h"
 #include "hashfn.h"
 #include "logging.h"
+#include "compat.h"
 
 data_pair_t *
 get_new_data_pair ()

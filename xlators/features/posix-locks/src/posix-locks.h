@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include "compat-errno.h"
 #include "transport.h"
 #include "stack.h"
 

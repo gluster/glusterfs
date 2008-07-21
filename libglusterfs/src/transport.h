@@ -34,7 +34,7 @@ typedef struct transport transport_t;
 
 #include "xlator.h"
 #include "dict.h"
-#include <linux/un.h>
+#include "compat.h"
 
 typedef struct peer_info {
   struct sockaddr_storage sockaddr;

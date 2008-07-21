@@ -27,6 +27,14 @@
 
 #include "xlator.h"
 
+enum gf_boolean
+  {
+    false = 0,
+    true = 1
+  };
+
+typedef enum gf_boolean gf_boolean_t;
+
 struct sched_ops {
   int32_t (*init) (xlator_t *this);
   void (*fini) (xlator_t *this);

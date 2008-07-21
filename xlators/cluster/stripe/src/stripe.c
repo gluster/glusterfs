@@ -41,6 +41,8 @@
 #include "xlator.h"
 #include "logging.h"
 #include "defaults.h"
+#include "compat.h"
+#include "compat-errno.h"
 #include <fnmatch.h>
 #include <signal.h>
 

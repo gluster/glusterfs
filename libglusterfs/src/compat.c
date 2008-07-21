@@ -42,6 +42,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <libgen.h>
 #endif /* GF_SOLARIS_HOST_OS */
 
 #include "compat.h"
@@ -218,8 +219,8 @@ solaris_fsetxattr(int fd,
   } else {
     if (errno != ENOENT)
       gf_log ("libglusterfs", GF_LOG_ERROR, 
-	      "Couldn't set extended attribute for %s (%d)", 
-	      path, errno);
+	      "Couldn't set extended attribute for %d (%d)", 
+	      fd, errno);
     return -1;
   }
 
@@ -249,8 +250,8 @@ solaris_fgetxattr(int fd,
   } else {
     if (errno != ENOENT)
       gf_log ("libglusterfs", GF_LOG_DEBUG, 
-	      "Couldn't read extended attribute for the file %s (%d)", 
-	      path, errno);
+	      "Couldn't read extended attribute for the file %d (%d)", 
+	      fd, errno);
     return -1;
   }
 
@@ -414,6 +415,29 @@ asprintf(char **string_ptr, const char *format, ...)
   *string_ptr = str;
   return (rv);
 }  
+
+char* strsep(char** str, const char* delims)
+{
+  char* token;
+
+  if (*str==NULL) {
+    /* No more tokens */
+    return NULL;
+  }
+
+  token=*str;
+  while (**str!='\0') {
+    if (strchr(delims,**str)!=NULL) {
+      **str='\0';
+      (*str)++;
+      return token;
+    }
+    (*str)++;
+  }
+  /* There is no other token */
+  *str=NULL;
+  return token;
+}
 
 #endif /* GF_SOLARIS_HOST_OS */
 

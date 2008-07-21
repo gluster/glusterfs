@@ -1,6 +1,8 @@
 #ifndef NAME_H
 #define NAME_H
 
+#include "compat.h"
+
 int32_t 
 client_bind (transport_t *this, 
 	     struct sockaddr *sockaddr, 

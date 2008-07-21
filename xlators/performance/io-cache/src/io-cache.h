@@ -25,6 +25,8 @@
 #include "config.h"
 #endif
 
+#include <sys/types.h>
+#include "compat-errno.h"
 
 #include "glusterfs.h"
 #include "logging.h"

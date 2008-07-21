@@ -44,13 +44,6 @@
 
 #define ROUND_ROBIN(index, count)    ((index + 1) % count)
 
-enum boolean
-  {
-    false,
-    true
-  };
-typedef enum boolean boolean_t;
-
 static int 
 _cleanup_rr (rr_t *rr)
 {
@@ -115,7 +108,7 @@ rr_init (xlator_t *this_xl)
   
   for (i = 0; i < rr->options.read_only_subvolume_count; i++)
     {
-      boolean_t found = false;
+      gf_boolean_t found = false;
       
       for (children = this_xl->children; 
 	   children != NULL; 
@@ -167,7 +160,7 @@ rr_init (xlator_t *this_xl)
        children != NULL; 
        children = children->next)
     {
-      boolean_t found = false;
+      gf_boolean_t found = false;
       
       for (j = 0; j < rr->options.read_only_subvolume_count; j++)
 	{
