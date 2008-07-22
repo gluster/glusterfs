@@ -39,6 +39,7 @@ transport_load (dict_t *options,
 {
   struct transport *trans = NULL;
   data_t *type_data = NULL;
+  data_t *addr_family = NULL;
   char *name = NULL;
   void *handle = NULL;
   char *type = NULL;
@@ -51,11 +52,40 @@ transport_load (dict_t *options,
     }
   
   trans = calloc (1, sizeof (struct transport));
-  type = str;
-  
-  type_data = dict_get (options, "transport-type"); // transport type, e.g., "tcp"
   trans->xl = xl;
+  type = str;
 
+  /* Backword compatibility */
+  type_data = dict_get (options, "transport-type");
+  addr_family = dict_get (options, "address-family");
+  if (!type_data)
+    {
+      dict_set (options, "transport-type", str_to_data ("socket"));
+      if (!addr_family)
+	dict_set (options, "address-family", str_to_data ("inet"));
+      gf_log ("transport", GF_LOG_DEBUG,
+	      "missing 'option transport-type'. defaulting to \"socket\" (%s)",
+	      addr_family?addr_family->data:"inet");
+    }
+  else
+    {
+      if ((strncmp (type_data->data, "tcp", 3) == 0) ||
+	  (strncmp (type_data->data, "unix", 4) == 0) ||
+	  (strncmp (type_data->data, "ipv6", 4) == 0) ||
+	  (strncmp (type_data->data, "ib-sdp", 6) == 0))
+	{
+	  dict_set (options, "transport-type", str_to_data ("socket"));
+	  if ((strncmp (type_data->data, "tcp", 3) == 0))
+	    dict_set (options, "address-family", str_to_data ("inet"));
+	  if ((strncmp (type_data->data, "unix", 4) == 0))
+	    dict_set (options, "address-family", str_to_data ("unix"));
+	  if ((strncmp (type_data->data, "ipv6", 4) == 0))
+	    dict_set (options, "address-family", str_to_data ("inet6"));
+	  if ((strncmp (type_data->data, "ib-sdp", 6) == 0))
+	    dict_set (options, "address-family", str_to_data ("ib-sdp"));
+	}
+    }
+  type_data = dict_get (options, "transport-type");
   if (type_data) {
     type = data_to_str (type_data);
   } else {

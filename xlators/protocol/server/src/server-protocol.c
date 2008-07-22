@@ -6153,12 +6153,11 @@ get_auth_types (dict_t *this,
 int32_t
 init (xlator_t *this)
 {
-  transport_t *trans;
-  server_private_t *server_priv = NULL;
-  server_conf_t *conf = NULL;
+  int32_t ret = 0;
   int32_t error = 0;
-
-  gf_log (this->name, GF_LOG_DEBUG, "protocol/server xlator loaded");
+  transport_t *trans = NULL;
+  server_conf_t *conf = NULL;
+  server_private_t *server_priv = NULL;
 
   if (!this->children) {
     gf_log (this->name, GF_LOG_ERROR,
@@ -6166,19 +6165,18 @@ init (xlator_t *this)
     return -1;
   }
 
-  if (!dict_get (this->options, "transport-type")) {
-    gf_log (this->name, GF_LOG_DEBUG,
-            "missing 'option transport-type'. defaulting to \"tcp\"");
-    dict_set (this->options, "transport-type", str_to_data ("tcp"));
-  }
   trans = transport_load (this->options, this);
-
   if (!trans) {
     gf_log (this->name, GF_LOG_ERROR, "failed to load transport");
     return -1;
   }
 
-  transport_listen (trans);
+  ret = transport_listen (trans);
+  if (ret == -1)
+    {
+      gf_log (this->name, GF_LOG_ERROR, "failed to bind/listen on socket");
+      return -1;
+    }
 
   server_priv = calloc (1, sizeof (*server_priv));
   ERR_ABORT (server_priv);
@@ -6199,14 +6197,17 @@ init (xlator_t *this)
   conf = calloc (1, sizeof (server_conf_t));
   ERR_ABORT (conf);
 
-  if (dict_get (this->options, "limits.transaction-size")) {
-    conf->max_block_size = data_to_int32 (dict_get (this->options,
-                                                    "limits.trasaction-size"));
-  } else {
-    gf_log (this->name, GF_LOG_DEBUG,
-            "defaulting limits.transaction-size to %d", DEFAULT_BLOCK_SIZE);
-    conf->max_block_size = DEFAULT_BLOCK_SIZE;
-  }
+  if (dict_get (this->options, "limits.transaction-size")) 
+    {
+      conf->max_block_size = data_to_int32 (dict_get (this->options,
+						      "limits.trasaction-size"));
+    } 
+  else 
+    {
+      gf_log (this->name, GF_LOG_DEBUG,
+	      "defaulting limits.transaction-size to %d", DEFAULT_BLOCK_SIZE);
+      conf->max_block_size = DEFAULT_BLOCK_SIZE;
+    }
 
 #ifndef GF_DARWIN_HOST_OS
   {

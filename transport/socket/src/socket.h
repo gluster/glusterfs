@@ -77,6 +77,8 @@ typedef struct {
   int32_t                idx;
   unsigned char          connected; // -1 = not connected. 0 = in progress. 1 = connected
   char                   bio;
+  char                   connect_finish_log;
+  char                   submit_log;
   union {
     struct list_head     ioq;
     struct {

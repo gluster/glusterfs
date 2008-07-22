@@ -670,7 +670,16 @@ main (int32_t argc, char *argv[])
 	      server_specified = 1;
 	      break;
 	    }
-
+	  /* Logically one can mount glusterfs with defining fuse volume in specfile, 
+	   * but not giving mountpoint on command line
+	   */
+	  if (!strcmp (trav->type, "mount/fuse\n"))
+	    {
+	      if (dict_get (trav->options, "mount-point"))
+		ctx->mount_point = strdup (data_to_str (dict_get (trav->options, "mount-point")));
+	      server_specified = 1;
+	      break;
+	    }
 	  trav = trav->next;
 	}
       if (!server_specified)

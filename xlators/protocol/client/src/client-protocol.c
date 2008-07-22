@@ -4281,12 +4281,6 @@ init (xlator_t *this)
     return -1;
   }
 
-  if (!dict_get (this->options, "transport-type")) {
-    gf_log (this->name, GF_LOG_DEBUG,
-            "missing 'option transport-type'. defaulting to \"tcp\"");
-    dict_set (this->options, "transport-type", str_to_data ("tcp"));
-  }
-
   if (!dict_get (this->options, "remote-subvolume")) {
     gf_log (this->name, GF_LOG_ERROR,
             "missing 'option remote-subvolume'.");
@@ -4573,6 +4567,7 @@ notify (xlator_t *this,
 
         priv->n_minus_1 = 0;
         priv->n = 1;
+
         priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
                                                client_protocol_reconnect,
                                                trans);
@@ -4580,6 +4575,21 @@ notify (xlator_t *this,
         if (ret) {
           /* TODO: schedule reconnection with timer */
         }
+
+	/* Let the connection/re-connection happen in background, for now, don't hang here,
+	 * tell the parents that i am all ok..
+	 */
+	{
+	  xlator_list_t *parent = NULL;
+	  parent = trans->xl->parents;
+	  while (parent) 
+	    {
+	      parent->xlator->notify (parent->xlator,
+				      GF_EVENT_CHILD_CONNECTING,
+				      trans->xl);
+	      parent = parent->next;
+	    }
+	}
       }
       break;
 
@@ -4590,16 +4600,19 @@ notify (xlator_t *this,
 
         gf_log (this->name, GF_LOG_DEBUG, "got GF_EVENT_CHILD_UP");
         if (!handshake ||
-            (strcasecmp (data_to_str (handshake), "on"))) {
-          ret = protocol_client_handshake (this, trans);
-        } else {
-          ((client_proto_priv_t *)trans->xl_private)->connected = 1;
-          ret = default_notify (this, event, trans);
-        }
+            (strcasecmp (data_to_str (handshake), "on"))) 
+	  {
+	    ret = protocol_client_handshake (this, trans);
+	  } 
+	else 
+	  {
+	    ((client_proto_priv_t *)trans->xl_private)->connected = 1;
+	    ret = default_notify (this, event, trans);
+	  }
 
-        if (ret) {
+        if (ret) 
           transport_disconnect (trans);
-        }
+        
       }
       break;
 

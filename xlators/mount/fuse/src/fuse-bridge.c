@@ -2635,6 +2635,7 @@ notify (xlator_t *this, int32_t event,
   switch (event)
     {
     case GF_EVENT_CHILD_UP:
+    case GF_EVENT_CHILD_CONNECTING:
       {
 	struct fuse_private *private = this->private;
 	int32_t ret = 0;

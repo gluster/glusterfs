@@ -7,7 +7,7 @@
 #undef CLIENT_PORT_CIELING
 #endif
 
-#define CLIENT_PORT_CIELING 1023
+#define CLIENT_PORT_CIELING 1024
 
 #ifndef AF_INET_SDP
 #define AF_INET_SDP 27
@@ -23,11 +23,12 @@ gf_resolve_ip6 (const char *hostname,
 		struct addrinfo **addr_info);
 
 static int32_t
-af_inet_bind_to_port_lt_1024 (int fd, struct sockaddr *sockaddr, socklen_t sockaddr_len)
+af_inet_bind_to_port_lt_cieling (int fd, struct sockaddr *sockaddr, 
+				 socklen_t sockaddr_len, int cieling)
 {
   int32_t ret = -1;
   /*  struct sockaddr_in sin = {0, }; */
-  uint16_t port = 1023;
+  uint16_t port = cieling - 1;
 
   while (port)
     {
@@ -377,11 +378,12 @@ client_bind (transport_t *this,
       *sockaddr_len = sizeof (struct sockaddr_in);
 
     case AF_INET6:
-      ret = af_inet_bind_to_port_lt_1024 (sock, sockaddr, *sockaddr_len);
+      ret = af_inet_bind_to_port_lt_cieling (sock, sockaddr, 
+					     *sockaddr_len, CLIENT_PORT_CIELING);
       if (ret == -1) {
 	gf_log (this->xl->name, GF_LOG_ERROR,
-		"cannot bind inet socket (%d) to port less than 1024 (%s)", 
-		sock, strerror (errno));
+		"cannot bind inet socket (%d) to port less than %d (%s)", 
+		sock, CLIENT_PORT_CIELING, strerror (errno));
 	ret = 0;
       }
       break;

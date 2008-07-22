@@ -31,6 +31,7 @@
 #include "xlator.h"
 #include "byte-order.h"
 #include "common-utils.h"
+#include "compat-errno.h"
 
 #include <fcntl.h>
 #include <errno.h>
@@ -87,7 +88,9 @@ __socket_rwv (transport_t *this, struct iovec *vector, int count,
 
       if (ret == 0)
 	{
-	  gf_log (this->xl->name, GF_LOG_ERROR, "EOF from peer");
+	  /* Mostly due to 'umount' in client */
+	  gf_log (this->xl->name, GF_LOG_WARNING, 
+		  "EOF from peer %s", this->peerinfo.identifier);
 	  opcount = -1;
 	  errno = ENOTCONN;
 	  break;
@@ -203,8 +206,13 @@ __socket_server_bind (transport_t *this)
   if (ret == -1)
     {
       gf_log (this->xl->name, GF_LOG_ERROR,
-	      "binding to %s failed:%s",
+	      "binding to %s failed: %s",
 	      this->myinfo.identifier, strerror (errno));
+      if (errno == EADDRINUSE)
+	{
+	  gf_log (this->xl->name, GF_LOG_ERROR, 
+		  "There seems to be another application using this port");
+	}
     }
 
   return ret;
@@ -555,9 +563,10 @@ socket_proto_state_machine (transport_t *this)
 
 	    if (ret == -1)
 	      {
-		gf_log (this->xl->name, GF_LOG_ERROR,
-			"socket read failed (%s) in state %d",
-			strerror (errno), SOCKET_PROTO_STATE_HEADER_COMING);
+		gf_log (this->xl->name, (errno == ENOTCONN)?GF_LOG_DEBUG:GF_LOG_ERROR,
+			"socket read failed (%s) in state %d (%s)",
+			strerror (errno), SOCKET_PROTO_STATE_HEADER_COMING, 
+			this->peerinfo.identifier);
 		goto unlock;
 	      }
 
@@ -616,8 +625,9 @@ socket_proto_state_machine (transport_t *this)
 	    if (ret == -1)
 	      {
 		gf_log (this->xl->name, GF_LOG_ERROR,
-			"socket read failed (%s) in state %d",
-			strerror (errno), SOCKET_PROTO_STATE_DATA_COMING);
+			"socket read failed (%s) in state %d (%s)",
+			strerror (errno), SOCKET_PROTO_STATE_DATA_COMING,
+			this->peerinfo.identifier);
 		goto unlock;
 	      }
 
@@ -696,8 +706,12 @@ socket_connect_finish (transport_t *this)
 
 	if (ret == -1 && errno != EINPROGRESS)
 	  {
-	    gf_log (this->xl->name, GF_LOG_ERROR,
-		    "connection failed (%s)", strerror (errno));
+	    if (!priv->connect_finish_log)
+	      {
+		gf_log (this->xl->name, GF_LOG_ERROR,
+			"connection failed (%s)", strerror (errno));
+		priv->connect_finish_log = 1;
+	      }
 	    __socket_disconnect (this);
 	    notify_xlator = 1;
 	    event = GF_EVENT_POLLERR;
@@ -720,6 +734,7 @@ socket_connect_finish (transport_t *this)
 	      }
 
 	    priv->connected = 1;
+	    priv->connect_finish_log = 0;
 	    event = GF_EVENT_CHILD_UP;
 	    get_transport_identifiers (this);
 	  }
@@ -849,7 +864,7 @@ socket_server_event_handler (int fd, int idx, void *data,
 	{
 	  new_priv->sock = new_sock;
 	  new_priv->connected = 1;
-
+	
 	  transport_ref (new_trans);
 	  new_priv->idx = event_register (this->xl->ctx->event_pool, new_sock,
 					  socket_event_handler, new_trans, 1, 0);
@@ -1164,12 +1179,16 @@ socket_submit (transport_t *this, char *buf, int len,
   {
     if (priv->connected != 1)
       {
-	gf_log (this->xl->name, GF_LOG_ERROR,
-		"transport not connected to submit (priv->connected = %d)",
-		priv->connected);
+	if (!priv->submit_log && !priv->connect_finish_log)
+	  {
+	    gf_log (this->xl->name, GF_LOG_ERROR,
+		    "transport not connected to submit (priv->connected = %d)",
+		    priv->connected);
+	    priv->submit_log = 1;
+	  }
 	goto unlock;
       }
-
+    priv->submit_log = 0;
     entry = __socket_ioq_new (this, buf, len, vector, count, refs);
 
     if (list_empty (&priv->ioq))
@@ -1265,7 +1284,7 @@ void
 fini (transport_t *this)
 {
   socket_private_t *priv = this->private;
-  gf_log (this->xl->name, GF_LOG_ERROR,
+  gf_log (this->xl->name, GF_LOG_DEBUG,
 	  "transport %p destroyed", this);
 
   pthread_mutex_destroy (&priv->lock);
