@@ -74,7 +74,10 @@ struct posix_private {
   int64_t interval_write;     /* Used to calculate the max_write value */
   int64_t read_value;    /* Total read, from init */
   int64_t write_value;   /* Total write, from init */
-  char export_statfs;
+  char export_statfs;    /* Some times, there may be an extra export from the same partition, in that case 
+			    statvfs output of which may not be desired on client, hence don't send statvfs 
+			    info to client, so the output of df over GlusterFS will be sane. */
+  char o_direct;         /* If set, always open the files with O_DIRECT flag set */
 };
 
 #endif /* _POSIX_H */

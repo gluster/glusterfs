@@ -979,6 +979,7 @@ posix_create (call_frame_t *frame,
     int32_t _fd;
     char *real_path;
     struct stat stbuf = {0, };
+    struct posix_private *priv = this->private;
     DECLARE_OLD_FS_UID_VAR;
 
     MAKE_REAL_PATH (real_path, this, loc->path);
@@ -986,15 +987,15 @@ posix_create (call_frame_t *frame,
     frame->root->rsp_refs = NULL;
     SET_FS_UID (frame->root->uid, frame->root->gid);
     
-    if (!flags) {
-	_fd = open (real_path, 
-		    O_CREAT|O_RDWR|O_EXCL,
-		    mode);
-    } else {
-	_fd = open (real_path, 
-		    flags|O_CREAT,
-		    mode);
-    }
+    if (!flags) 
+	flags = O_RDWR|O_EXCL;
+
+    if (priv->o_direct)
+      flags = (flags | O_DIRECT);
+
+    _fd = open (real_path, 
+		flags|O_CREAT,
+		mode);
 
     op_errno = errno;
     if (_fd == -1) {
@@ -1051,12 +1052,16 @@ posix_open (call_frame_t *frame,
     int32_t op_errno = 0;
     char *real_path;
     int32_t _fd;
+    struct posix_private *priv = this->private;
     DECLARE_OLD_FS_UID_VAR;
 
     MAKE_REAL_PATH (real_path, this, loc->path);
 
     SET_FS_UID (frame->root->uid, frame->root->gid);
-    
+
+    if (priv->o_direct)
+      flags = (flags | O_DIRECT);
+
     _fd = open (real_path, flags, 0);
     op_errno = errno;
     if (_fd == -1) {
@@ -2600,6 +2605,19 @@ init (xlator_t *this)
 		{
 		    gf_log (this->name, GF_LOG_DEBUG, "'statfs()' returns dummy size");
 		    _private->export_statfs = 0;
+		}
+	}
+
+    _private->o_direct = 0;
+    data = dict_get (this->options, "o-direct");
+    if (data) 
+	{
+	    if (!strcasecmp ("enable", data->data) ||
+		!strcasecmp ("on", data->data)) 
+		{
+		    gf_log (this->name, GF_LOG_DEBUG, 
+			    "o-direct mode is enabled. (ie, O_DIRECT for every open)");
+		    _private->o_direct = 1;
 		}
 	}
 
