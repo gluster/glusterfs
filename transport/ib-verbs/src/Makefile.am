@@ -13,12 +13,13 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-noinst_HEADERS = ib-verbs.h
+
+noinst_HEADERS = ib-verbs.h name.h
 
 transport_PROGRAMS = ib-verbs.so
 transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/transport/
 
-ib_verbs_so_SOURCES = ib-verbs.c
+ib_verbs_so_SOURCES = ib-verbs.c name.c
 ib_verbs_so_LDADD = -libverbs
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\

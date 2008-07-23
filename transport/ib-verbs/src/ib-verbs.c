@@ -29,9 +29,16 @@
 #include "protocol.h"
 #include "logging.h"
 #include "xlator.h"
-
+#include "name.h"
 #include "ib-verbs.h"
 #include <signal.h>
+
+int32_t
+gf_resolve_ip6 (const char *hostname, 
+		uint16_t port, 
+		int family, 
+		void **dnscache, 
+		struct addrinfo **addr_info);
 
 static uint16_t 
 ib_verbs_get_local_lid (struct ibv_context *context,
@@ -1882,11 +1889,32 @@ static int
 ib_verbs_handshake_pollerr (transport_t *this)
 {
   ib_verbs_private_t *priv = this->private;
+  int32_t ret = 0;
+  char need_unref = 0;
 
-  ib_verbs_reset (this);
+  gf_log ("transport/ib-verbs",
+	  GF_LOG_DEBUG,
+	  "%s: peer disconnected, cleaning up",
+	  this->xl->name);
 
   pthread_mutex_lock (&priv->write_mutex);
   {
+    ib_verbs_teardown (this);
+    if (priv->connected) {
+      event_unregister (this->xl->ctx->event_pool, priv->sock, priv->idx);
+      need_unref = 1;
+
+      if (close (priv->sock) != 0) {
+	gf_log ("transport/ib-verbs",
+		GF_LOG_ERROR,
+		"close () - error: %s",
+		strerror (errno));
+	ret = -errno;
+      }
+      priv->tcp_connected = priv->connected = 0;
+      priv->sock = -1;
+    }
+
     if (priv->handshake.incoming.state != IB_VERBS_HANDSHAKE_START 
 	&& priv->handshake.incoming.state != IB_VERBS_HANDSHAKE_COMPLETE) {
       FREE (priv->handshake.incoming.buf);
@@ -1904,6 +1932,13 @@ ib_verbs_handshake_pollerr (transport_t *this)
   pthread_mutex_unlock (&priv->write_mutex);
 
   this->xl->notify (this->xl, GF_EVENT_POLLERR, this, NULL);
+
+  pthread_mutex_destroy (&priv->recv_mutex);
+  pthread_cond_destroy (&priv->recv_cond);
+
+  if (need_unref)
+    transport_unref (this);
+
   return 0;
 }
 
@@ -1918,6 +1953,21 @@ tcp_connect_finish (transport_t *this)
     ret = __tcp_connect_finish (priv->sock);
 
     if (!ret) {
+      this->myinfo.sockaddr_len = sizeof (this->myinfo.sockaddr);
+      ret = getsockname (priv->sock,
+			 (struct sockaddr *)&this->myinfo.sockaddr, 
+			 &this->myinfo.sockaddr_len);
+      if (ret == -1) 
+	{
+	  gf_log (this->xl->name, GF_LOG_ERROR,
+		  "getsockname on new client-socket %d failed (%s)", 
+		  priv->sock, strerror (errno));
+	  close (priv->sock);
+	  error = 1;
+	  goto unlock;
+	}
+
+      get_transport_identifiers (this);
       priv->tcp_connected = 1;
     }
 
@@ -1925,6 +1975,7 @@ tcp_connect_finish (transport_t *this)
       error = 1;
     }
   }
+ unlock:
   pthread_mutex_unlock (&priv->write_mutex);
 
   if (error) {
@@ -1942,10 +1993,11 @@ ib_verbs_event_handler (int fd, int idx, void *data,
   ib_verbs_private_t *priv = this->private;
   int ret = 0;
 
-  if (!priv->connected && !priv->tcp_connected) {
+  if (!priv->tcp_connected) {
     ret = tcp_connect_finish (this);
     if (priv->tcp_connected) {
       ib_verbs_options_t *options = &priv->options;
+
       priv->peers[0].send_count = options->send_count;
       priv->peers[0].recv_count = options->recv_count;
       priv->peers[0].send_size = options->send_size;
@@ -1979,102 +2031,6 @@ ib_verbs_event_handler (int fd, int idx, void *data,
 }
 
 static int
-__tcp_bind_port_lt_1024 (int fd)
-{
-  int ret = -1;
-  struct sockaddr_in sin = {0, };
-  uint16_t port = 1023;
-
-  sin.sin_family = PF_INET;
-  sin.sin_addr.s_addr = INADDR_ANY;
-
-  while (port)
-    {
-      sin.sin_port = htons (port);
-
-      ret = bind (fd, (struct sockaddr *)&sin, sizeof (sin));
-
-      if (ret == 0)
-	break;
-
-      if (ret == -1 && errno == EACCES)
-	break;
-
-      port--;
-    }
-
-  return ret;
-}
-
-static int
-__tcp_dns_resolve (transport_t *this, struct sockaddr_in *sin)
-{
-  dict_t *options = this->xl->options;
-  data_t *remote_host_data = NULL;
-  data_t *remote_port_data = NULL;
-  char *remote_host = NULL;
-  uint16_t remote_port = 0;
-  in_addr_t addr = INADDR_NONE;
-
-  remote_host_data = dict_get (options, "remote-host");
-  if (remote_host_data == NULL)
-    {
-      gf_log (this->xl->name, GF_LOG_ERROR,
-	      "option remote-host missing in volume %s", this->xl->name);
-      return -1;
-    }
-
-  remote_host = data_to_str (remote_host_data);
-  if (remote_host == NULL)
-    {
-      gf_log (this->xl->name, GF_LOG_ERROR,
-	      "option remote-host has data NULL in volume %s", this->xl->name);
-      return -1;
-    }
-
-  remote_port_data = dict_get (options, "remote-port");
-  if (remote_port_data == NULL)
-    {
-      gf_log (this->xl->name, GF_LOG_DEBUG,
-	      "option remote-port missing in volume %s. Defaulting to 6996",
-	      this->xl->name);
-
-      remote_port = GF_DEFAULT_LISTEN_PORT;
-    }
-  else
-    {
-      remote_port = data_to_uint16 (remote_port_data);
-    }
-
-  if (remote_port == (uint16_t)-1)
-    {
-      gf_log (this->xl->name, GF_LOG_ERROR,
-	      "option remote-port has invalid port in volume %s",
-	      this->xl->name);
-      return -1;
-    }
-
-  /* TODO: gf_resolve is a blocking call. kick in some
-     non blocking dns techniques */
-  addr = gf_resolve_ip (remote_host, &this->dnscache);
-
-  if (addr == INADDR_NONE)
-    {
-      gf_log (this->xl->name, GF_LOG_ERROR,
-	      "DNS resolution failed on host %s", remote_host);
-      return -1;
-    }
-
-  memset (sin, 0, sizeof (*sin));
-
-  sin->sin_family = PF_INET;
-  sin->sin_addr.s_addr = addr;
-  sin->sin_port = htons (remote_port);
-
-  return 0;
-}
-
-static int
 __tcp_nonblock (int fd)
 {
   int flags = 0;
@@ -2099,7 +2055,8 @@ ib_verbs_connect (struct transport *this)
   
   char non_blocking = 1;
   int32_t ret = 0;
-  struct sockaddr_in sin;
+  struct sockaddr_storage sockaddr;
+  socklen_t sockaddr_len = 0;
 
   if (priv->connected) {
     return 0;
@@ -2113,6 +2070,14 @@ ib_verbs_connect (struct transport *this)
       non_blocking = 0;
   }
 
+  ret = client_get_remote_sockaddr (this, (struct sockaddr *)&sockaddr, &sockaddr_len);
+  if (ret != 0) {
+    gf_log (this->xl->name,
+	    GF_LOG_ERROR,
+	    "cannot get remote address to connect");
+    return ret;
+  }
+
   pthread_mutex_lock (&priv->write_mutex);
   {
     if (priv->sock != -1) {
@@ -2120,10 +2085,7 @@ ib_verbs_connect (struct transport *this)
       goto unlock;
     }
   
-    priv->sock = socket (AF_INET, SOCK_STREAM, 0);
-	
-    gf_log (this->xl->name, GF_LOG_DEBUG,
-	    "socket fd = %d", priv->sock);
+    priv->sock = socket (((struct sockaddr *) &sockaddr)->sa_family , SOCK_STREAM, 0);
 	
     if (priv->sock == -1) {
       gf_log (this->xl->name, GF_LOG_ERROR,
@@ -2131,6 +2093,14 @@ ib_verbs_connect (struct transport *this)
       ret = -errno;
       goto unlock;
     }
+
+    gf_log (this->xl->name, GF_LOG_DEBUG,
+	    "socket fd = %d", priv->sock);
+
+    memcpy (&this->peerinfo.sockaddr, &sockaddr, sockaddr_len);
+    this->peerinfo.sockaddr_len = sockaddr_len;
+
+    ((struct sockaddr *) &this->myinfo.sockaddr)->sa_family = ((struct sockaddr *)&this->peerinfo.sockaddr)->sa_family;
 
     if (non_blocking) 
       {
@@ -2146,24 +2116,19 @@ ib_verbs_connect (struct transport *this)
 	    goto unlock;
 	  }
       }
-    
-    ret = __tcp_bind_port_lt_1024 (priv->sock);
+
+    ret = client_bind (this, (struct sockaddr *)&this->myinfo.sockaddr, 
+		       &this->myinfo.sockaddr_len, priv->sock);
     if (ret == -1)
       {
 	gf_log (this->xl->name, GF_LOG_WARNING,
-		"could not bind to port < 1024 (%s)", strerror (errno));
-      }
-    
-    ret = __tcp_dns_resolve (this, &sin);
-    if (ret == -1)
-      {
-	/* logged inside __tcp_dns_resolve() */
+		"client bind failed", strerror (errno));
 	close (priv->sock);
 	priv->sock = -1;
 	goto unlock;
       }
 
-    ret = connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin));
+    ret = connect (priv->sock, (struct sockaddr *)&this->peerinfo.sockaddr, this->peerinfo.sockaddr_len);
     if (ret == -1 && errno != EINPROGRESS)
       {
 	gf_log (this->xl->name, GF_LOG_ERROR,
@@ -2176,6 +2141,7 @@ ib_verbs_connect (struct transport *this)
     priv->tcp_connected = priv->connected = 0;
 
     transport_ref (this);
+
     priv->handshake.incoming.state = priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_START;
     priv->idx = event_register (this->xl->ctx->event_pool, priv->sock, 
 				ib_verbs_event_handler, this, 1, 1); 
@@ -2190,12 +2156,11 @@ static int
 ib_verbs_server_event_handler (int fd, int idx, void *data,
 			       int poll_in, int poll_out, int poll_err)
 {
-  int32_t main_sock;
+  int32_t main_sock = -1;
   transport_t *this, *trans = data;
-  ib_verbs_private_t *priv;
+  ib_verbs_private_t *priv = NULL;
   ib_verbs_private_t *trans_priv = (ib_verbs_private_t *) trans->private;
-  struct sockaddr_in sin;
-  socklen_t addrlen = 0;
+  ib_verbs_options_t *options = NULL;
 
   if (!poll_in)
     return 0;
@@ -2209,13 +2174,17 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
      all the values remain same */
   priv->device = trans_priv->device;
   priv->options = trans_priv->options;
+  options = &priv->options;
+
   this->ops = trans->ops;
   this->xl = trans->xl;
 
-  addrlen = sizeof (sin);
+  memcpy (&this->myinfo.sockaddr, &trans->myinfo.sockaddr, trans->myinfo.sockaddr_len);
+  this->myinfo.sockaddr_len = trans->myinfo.sockaddr_len;
 
   main_sock = (trans_priv)->sock;
-  priv->sock = accept (main_sock, &sin, &addrlen);
+  this->peerinfo.sockaddr_len = sizeof (this->peerinfo.sockaddr);
+  priv->sock = accept (main_sock, (struct sockaddr *)&this->peerinfo.sockaddr, &this->peerinfo.sockaddr_len);
   if (priv->sock == -1) {
     gf_log ("ib-verbs/server",
 	    GF_LOG_ERROR,
@@ -2226,15 +2195,32 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
     return -1;
   }
 
-  priv->handshake.incoming.state = priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_START;
-  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
-			      ib_verbs_event_handler, transport_ref (this), 1, 1);
+  priv->peers[0].trans = priv->peers[1].trans = this;
+  transport_ref (this);
 
-  priv->addr = sin.sin_addr.s_addr;
-  priv->port = sin.sin_port;
-  priv->peers[0].trans = this;
-  priv->peers[1].trans = this;
-  this = transport_ref (this);
+  get_transport_identifiers (this);
+
+  priv->tcp_connected = 1;
+  priv->handshake.incoming.state = priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_START;
+
+  priv->peers[0].send_count = options->send_count;
+  priv->peers[0].recv_count = options->recv_count;
+  priv->peers[0].send_size = options->send_size;
+  priv->peers[0].recv_size = options->recv_size;
+  priv->peers[1].send_count = options->send_count;
+  priv->peers[1].recv_count = options->recv_count;
+
+  if (ib_verbs_create_qp (this) < 0) {
+    gf_log ("transport/ib-verbs",
+	    GF_LOG_ERROR,
+	    "%s: could not create QP",
+	    this->xl->name);
+    transport_disconnect (this);
+    return -1;
+  }
+
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      ib_verbs_event_handler, this, 1, 1);
 
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);
@@ -2245,66 +2231,75 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
 static int32_t
 ib_verbs_listen (transport_t *this)
 {
-  struct sockaddr_in sin;
-  data_t *bind_addr_data;
-  data_t *listen_port_data;
-  char *bind_addr;
-  uint16_t listen_port;
-  dict_t *options = this->xl->options;
+  struct sockaddr_storage sockaddr;
+  socklen_t sockaddr_len;
   ib_verbs_private_t *priv = this->private;
+  int opt = 1, ret = 0;
+  char service[NI_MAXSERV], host[NI_MAXHOST];
 
-  priv->sock = socket (AF_INET, SOCK_STREAM, 0);
+  memset (&sockaddr, 0, sizeof (sockaddr));
+  ret = server_get_local_sockaddr (this, (struct sockaddr *)&sockaddr, &sockaddr_len);
+  if (ret != 0) {
+    gf_log (this->xl->name,
+	    GF_LOG_ERROR,
+	    "cannot find network address of server to bind to");
+    goto err;
+  }
+
+  priv->sock = socket (((struct sockaddr *)&sockaddr)->sa_family, SOCK_STREAM, 0);
   if (priv->sock == -1) {
     gf_log ("ib-verbs/server",
 	    GF_LOG_CRITICAL,
 	    "init: failed to create socket, error: %s",
 	    strerror (errno));
     free (this->private);
-    return -1;
+    ret = -1;
+    goto err;
   }
 
-  bind_addr_data = dict_get (options, "bind-address");
-  if (bind_addr_data)
-    bind_addr = data_to_str (bind_addr_data);
-  else
-    bind_addr = "0.0.0.0";
+  memcpy (&this->myinfo.sockaddr, &sockaddr, sockaddr_len);
+  this->myinfo.sockaddr_len = sockaddr_len;
 
-  listen_port_data = dict_get (options, "listen-port");
-  if (listen_port_data)
-    listen_port = htons (data_to_uint64 (listen_port_data));
-  else
-    listen_port = htons (GF_DEFAULT_LISTEN_PORT);
-
-  sin.sin_family = AF_INET;
-  sin.sin_port = listen_port;
-  sin.sin_addr.s_addr = bind_addr ? inet_addr (bind_addr) : htonl (INADDR_ANY);
-
-  int opt = 1;
+  ret = getnameinfo ((struct sockaddr *)&this->myinfo.sockaddr, 
+		     this->myinfo.sockaddr_len,
+		     host, sizeof (host),
+		     service, sizeof (service),
+		     NI_NUMERICHOST);
+  if (ret != 0) {
+    gf_log (this->xl->name,
+	    GF_LOG_ERROR,
+	    "getnameinfo failed (%s)", gai_strerror (ret));
+    goto err;
+  }
+  sprintf (this->myinfo.identifier, "%s:%s", host, service);
+ 
   setsockopt (priv->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt));
   if (bind (priv->sock,
-	    (struct sockaddr *)&sin,
-	    sizeof (sin)) != 0) {
-    gf_log ("ib-verbs/server",
-	    GF_LOG_CRITICAL,
-	    "init: failed to bind to socket on port %d, error: %s",
-	    sin.sin_port,
-	    strerror (errno));
-    return -1;
-  }
+	    (struct sockaddr *)&sockaddr,
+	    sockaddr_len) != 0) {
+	ret = -1;
+	gf_log ("ib-verbs/server",
+		GF_LOG_CRITICAL,
+		"init: failed to bind to socket for %s (%s)",
+		this->myinfo.identifier, strerror (errno));
+	goto err;
+      }
 
   if (listen (priv->sock, 10) != 0) {
     gf_log ("ib-verbs/server",
 	    GF_LOG_CRITICAL,
-	    "init: listen () failed on socket, error: %s",
-	    strerror (errno));
-    return -1;
+	    "init: listen () failed on socket for %s (%s)",
+	    this->myinfo.identifier, strerror (errno));
+    ret = -1;
+    goto err;
   }
 
   /* Register the main socket */
   priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
 			      ib_verbs_server_event_handler, transport_ref (this), 1, 0);
 
-  return 0;
+  err:
+      return ret;
 }
 
 struct transport_ops tops = {
