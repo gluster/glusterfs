@@ -170,11 +170,13 @@ This package provides the development libraries.
 %exclude /usr/include/glusterfs/y.tab.h
 
 %post
+%if %with_modglfs
 ldconfig -n %_libdir
 %if %with_apxs_default
 %{_sbindir}/apxs -i -a -n glusterfs %{_libdir}/glusterfs/%version/apache-1.3/mod_glusterfs.so
 %else
 %{apxs_path}/apxs -i -a -n glusterfs  %{_libdir}/glusterfs/%version/apache-1.3/mod_glusterfs.so
+%endif
 %endif
 
 %postun 

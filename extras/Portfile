@@ -1,0 +1,16 @@
+# $Id$
+
+PortSystem          1.0
+
+name                glusterfs
+version             1.4.0qa30
+categories          fuse
+maintainers         amar@zresearch.com
+description         GlusterFS
+long_description    GlusterFS is a cluster file system, scalable to petabytes.
+homepage            http://www.gluster.org/
+platforms           darwin
+master_sites        http://ftp.zresearch.com/pub/gluster/glusterfs/1.4-qa  
+
+configure.args      --disable-bdb
+checksums           md5 0dd0e38387b6b921dee5625fde099133
