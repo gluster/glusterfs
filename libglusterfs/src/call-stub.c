@@ -1940,6 +1940,58 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 
   return stub;
 }
+
+
+call_stub_t *
+fop_checksum_stub (call_frame_t *frame,
+		   fop_checksum_t fn,
+		   loc_t *loc,
+		   int32_t flags)
+{
+  call_stub_t *stub = NULL;
+
+  if (!frame || !loc)
+    return NULL;
+
+  stub = stub_new (frame, 1, GF_FOP_CHECKSUM);
+  if (!stub)
+    return NULL;
+
+  stub->args.checksum.fn = fn;
+  loc_copy (&stub->args.checksum.loc, loc);
+  stub->args.checksum.flags = flags;
+
+  return stub;
+}
+
+
+call_stub_t *
+fop_checksum_cbk_stub (call_frame_t *frame,
+		       fop_checksum_cbk_t fn,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       uint8_t *file_checksum,
+		       uint8_t *dir_checksum)
+{
+  call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
+
+  stub = stub_new (frame, 0, GF_FOP_CHECKSUM);
+  if (!stub)
+    return NULL;
+
+  stub->args.checksum_cbk.fn = fn;
+  stub->args.checksum_cbk.op_ret = op_ret;
+  stub->args.checksum_cbk.op_errno = op_errno;
+  if (op_ret >= 0)
+    {
+      stub->args.checksum_cbk.file_checksum = memdup (file_checksum, GF_PATH_MAX);
+      stub->args.checksum_cbk.dir_checksum = memdup (dir_checksum, GF_PATH_MAX);
+    }
+  return stub;
+}
 		      
 static void
 call_resume_wind (call_stub_t *stub)
@@ -2334,6 +2386,16 @@ call_resume_wind (call_stub_t *stub)
       break;
     }
 
+  case GF_FOP_CHECKSUM:
+    {
+      stub->args.checksum.fn (stub->frame,
+			      stub->frame->this,
+			      &stub->args.checksum.loc,
+			      stub->args.checksum.flags);
+      loc_wipe (&stub->args.checksum.loc);
+      break;
+    }
+  
   case GF_FOP_FORGET:
     {
       gf_log ("call-stub", GF_LOG_CRITICAL, "forget should not be stubbed");
@@ -2352,6 +2414,7 @@ call_resume_wind (call_stub_t *stub)
     break;
   }
 }
+
 
 
 static void
@@ -3042,6 +3105,33 @@ call_resume_unwind (call_stub_t *stub)
 				    stub->args.setdents_cbk.op_errno);
       break;
     }
+
+  case GF_FOP_CHECKSUM:
+    {
+      if (!stub->args.checksum_cbk.fn)
+	STACK_UNWIND (stub->frame,
+		      stub->args.checksum_cbk.op_ret,
+		      stub->args.checksum_cbk.op_errno,
+		      stub->args.checksum_cbk.file_checksum,
+		      stub->args.checksum_cbk.dir_checksum);
+      else
+	stub->args.checksum_cbk.fn (stub->frame, 
+				    stub->frame->cookie,
+				    stub->frame->this,
+				    stub->args.checksum_cbk.op_ret, 
+				    stub->args.checksum_cbk.op_errno,
+				    stub->args.checksum_cbk.file_checksum,
+				    stub->args.checksum_cbk.dir_checksum);
+      if (stub->args.checksum_cbk.op_ret >= 0)
+	{
+	  FREE (stub->args.checksum_cbk.file_checksum);
+	  FREE (stub->args.checksum_cbk.dir_checksum);
+	}
+
+      break;
+    }
+
+
   case GF_FOP_FORGET:
     {
       gf_log ("call-stub", GF_LOG_CRITICAL, "forget should not be stubbed");

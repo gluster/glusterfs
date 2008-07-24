@@ -86,12 +86,12 @@ fill_defaults (xlator_t *xl)
   SET_DEFAULT_FOP (fchmod);
   SET_DEFAULT_FOP (setdents);
   SET_DEFAULT_FOP (getdents);
+  SET_DEFAULT_FOP (checksum);
 
   SET_DEFAULT_MOP (stats);
   SET_DEFAULT_MOP (lock);
   SET_DEFAULT_MOP (unlock);
   SET_DEFAULT_MOP (listlocks);
-  SET_DEFAULT_MOP (checksum);
 
   if (!xl->notify)
     xl->notify = default_notify;

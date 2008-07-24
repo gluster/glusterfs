@@ -1410,7 +1410,7 @@ default_checksum (call_frame_t *frame,
   STACK_WIND (frame,
 	      default_checksum_cbk,
 	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->mops->checksum,
+	      FIRST_CHILD(this)->fops->checksum,
 	      loc,
 	      flag);
   return 0;

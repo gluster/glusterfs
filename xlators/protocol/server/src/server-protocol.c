@@ -5061,7 +5061,7 @@ server_checksum_cbk (call_frame_t *frame,
                      uint8_t *dchecksum)
 {
   gf_hdr_common_t *hdr = NULL;
-  gf_mop_checksum_rsp_t *rsp = NULL;
+  gf_fop_checksum_rsp_t *rsp = NULL;
   size_t hdrlen = 0;
 
   hdrlen = gf_hdr_len (rsp, GF_PATH_MAX + 1 + GF_PATH_MAX + 1);
@@ -5078,7 +5078,7 @@ server_checksum_cbk (call_frame_t *frame,
     rsp->dchecksum[GF_PATH_MAX + GF_PATH_MAX] = '\0';
   }
 
-  protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_CHECKSUM,
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHECKSUM,
                          hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
@@ -5092,7 +5092,7 @@ server_checksum (call_frame_t *frame,
 {
   loc_t loc = {0,};
   int32_t flag = 0;
-  gf_mop_checksum_req_t *req = NULL;
+  gf_fop_checksum_req_t *req = NULL;
 
   req = gf_param (hdr);
 
@@ -5104,7 +5104,7 @@ server_checksum (call_frame_t *frame,
   STACK_WIND (frame,
               server_checksum_cbk,
               BOUND_XL (frame),
-              BOUND_XL (frame)->mops->checksum,
+              BOUND_XL (frame)->fops->checksum,
               &loc,
               flag);
 
@@ -5878,7 +5878,8 @@ static gf_op_t gf_fops[] = {
   [GF_FOP_RMELEM]       =  server_rmelem,
   [GF_FOP_INCVER]       =  server_incver,
   [GF_FOP_READDIR]      =  server_readdir,
-  [GF_FOP_GF_LK]        =  server_gf_lk
+  [GF_FOP_GF_LK]        =  server_gf_lk,
+  [GF_FOP_CHECKSUM]     =  server_checksum,
 };
 
 
@@ -5893,7 +5894,6 @@ static gf_op_t gf_mops[] = {
    [GF_MOP_UNLOCK]    = mop_unlock,
    [GF_MOP_LISTLOCKS] = mop_listlocks,
    [GF_MOP_FSCK]      = mop_fsck,
-   [GF_MOP_CHECKSUM]  = server_checksum
 };
 
 

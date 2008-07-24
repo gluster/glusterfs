@@ -503,6 +503,19 @@ typedef struct {
       int32_t op_ret, op_errno;
       gf_dirent_t *entries;
     } readdir_cbk;
+
+    /* checksum */
+    struct {
+      fop_checksum_t fn;
+      loc_t loc;
+      int32_t flags;
+    } checksum;
+    struct {
+      fop_checksum_cbk_t fn;
+      int32_t op_ret, op_errno;
+      uint8_t *file_checksum;
+      uint8_t *dir_checksum;
+    } checksum_cbk;
   } args;
 } call_stub_t;
 
@@ -996,6 +1009,20 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno,
 		      gf_dirent_t *entries);
+
+call_stub_t *
+fop_checksum_stub (call_frame_t *frame,
+		   fop_checksum_t fn,
+		   loc_t *loc,
+		   int32_t flags);
+
+call_stub_t *
+fop_checksum_cbk_stub (call_frame_t *frame,
+		       fop_checksum_cbk_t fn,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       uint8_t *file_checksum,
+		       uint8_t *dir_checksum);
 
 void call_resume (call_stub_t *stub);
 #endif

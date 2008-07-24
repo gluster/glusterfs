@@ -1141,8 +1141,9 @@ afr_setxattr_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     local->op_ret = op_ret;
   } else {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+    if (op_errno != ENOTSUP)
+      GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+		local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -6164,7 +6165,7 @@ afr_checksum_cbk (call_frame_t *frame,
     STACK_WIND (frame,
 		afr_checksum_cbk,
 		local->xlnodeptr->xlator,
-		local->xlnodeptr->xlator->mops->checksum,
+		local->xlnodeptr->xlator->fops->checksum,
 		local->loc,
 		local->flags);
 
@@ -6196,7 +6197,7 @@ afr_checksum (call_frame_t *frame,
   STACK_WIND (frame,
 	      afr_checksum_cbk,
 	      local->xlnodeptr->xlator,
-	      local->xlnodeptr->xlator->mops->checksum,
+	      local->xlnodeptr->xlator->fops->checksum,
 	      loc,
 	      flags);
 
@@ -6493,13 +6494,13 @@ struct xlator_fops fops = {
   .fchmod      = afr_fchmod,
   .fchown      = afr_fchown,
   .setdents    = afr_setdents,
-  .lookup_cbk  = afr_lookup_cbk
+  .lookup_cbk  = afr_lookup_cbk,
+  .checksum    = afr_checksum,
 };
 
 struct xlator_mops mops = {
   .stats = afr_stats,
   .lock = afr_lock,
   .unlock = afr_unlock,
-  .checksum = afr_checksum,
 };
 

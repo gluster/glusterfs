@@ -569,6 +569,17 @@ typedef struct {
 
 
 typedef struct {
+  uint64_t  ino;
+  uint32_t  flag;
+  char      path[0];
+} __attribute__((packed)) gf_fop_checksum_req_t;
+typedef struct {
+  unsigned char fchecksum[0];
+  unsigned char dchecksum[0];
+} __attribute__((packed)) gf_fop_checksum_rsp_t;
+
+
+typedef struct {
   char name[0];
 } __attribute__((packed)) gf_mop_lock_req_t;
 typedef struct {} __attribute__((packed)) gf_mop_lock_rsp_t;
@@ -582,16 +593,6 @@ typedef struct {
   char pattern[0];
 } __attribute__((packed)) gf_mop_listlocks_req_t;
 typedef struct {} __attribute__((packed)) gf_mop_listlocks_rsp_t;
-
-typedef struct {
-  uint64_t  ino;
-  uint32_t  flag;
-  char      path[0];
-} __attribute__((packed)) gf_mop_checksum_req_t;
-typedef struct {
-  unsigned char fchecksum[0];
-  unsigned char dchecksum[0];
-} __attribute__((packed)) gf_mop_checksum_rsp_t;
 
 typedef struct {
   uint32_t  flags;

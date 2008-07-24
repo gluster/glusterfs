@@ -1111,6 +1111,43 @@ path_access (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+path_checksum_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   uint8_t *fchecksum,
+		   uint8_t *dchecksum)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
+  return 0;
+}
+
+int32_t
+path_checksum (call_frame_t *frame,
+	       xlator_t *this,
+	       loc_t *loc,
+	       int32_t flag)
+{
+  loc_t tmp_loc = {0,};
+
+  if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
+    STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
+    return 0;
+  }
+  tmp_loc.inode = loc->inode;
+  STACK_WIND (frame,
+	      path_checksum_cbk,
+	      FIRST_CHILD(this), 
+	      FIRST_CHILD(this)->fops->checksum, 
+	      &tmp_loc, 
+	      flag);
+
+  return 0;
+}
+
+
 #if 0
 int32_t 
 path_setdents (call_frame_t *frame,
@@ -1230,43 +1267,8 @@ struct xlator_fops fops = {
   .lookup      = path_lookup,
   //.setdents    = path_setdents,
   //.getdents    = path_getdents,
+  .checksum = path_checksum,
 };
-
-int32_t
-path_checksum_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   uint8_t *fchecksum,
-		   uint8_t *dchecksum)
-{
-  STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
-  return 0;
-}
-
-int32_t
-path_checksum (call_frame_t *frame,
-	       xlator_t *this,
-	       loc_t *loc,
-	       int32_t flag)
-{
-  loc_t tmp_loc = {0,};
-
-  if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
-    STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
-    return 0;
-  }
-  tmp_loc.inode = loc->inode;
-  STACK_WIND (frame,
-	      path_checksum_cbk,
-	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->mops->checksum, 
-	      &tmp_loc, 
-	      flag);
-
-  return 0;
-}
 
 
 static int32_t
@@ -1334,5 +1336,4 @@ path_unlock (call_frame_t *frame,
 struct xlator_mops mops = {
   .lock = path_lock,
   .unlock = path_unlock,
-  .checksum = path_checksum,
 };

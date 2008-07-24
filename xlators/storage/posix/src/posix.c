@@ -544,7 +544,6 @@ posix_mkdir (call_frame_t *frame,
     int32_t op_errno;
     char *real_path;
     struct stat stbuf = {0, };
-    struct posix_private *priv = this->private;
     DECLARE_OLD_FS_UID_VAR;
 
     MAKE_REAL_PATH (real_path, this, loc->path);
@@ -2677,7 +2676,6 @@ struct xlator_mops mops = {
     .stats    = posix_stats,
     .lock     = mop_lock_impl,
     .unlock   = mop_unlock_impl,
-    .checksum = posix_checksum,
 };
 
 struct xlator_fops fops = {
@@ -2721,4 +2719,5 @@ struct xlator_fops fops = {
     .fchmod      = posix_fchmod,
     .setdents    = posix_setdents,
     .getdents    = posix_getdents,
+    .checksum    = posix_checksum,
 };

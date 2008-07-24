@@ -79,6 +79,7 @@ struct iot_file {
 
 struct iot_conf {
   int32_t thread_count;
+  int32_t misc_thread_index;  /* Used to schedule the miscellaneous calls like checksum */
   struct iot_worker workers;
   struct iot_file files;
   pthread_mutex_t files_lock;

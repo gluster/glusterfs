@@ -4319,7 +4319,7 @@ unify_checksum (call_frame_t *frame,
   STACK_WIND (frame,
 	      unify_checksum_cbk,
 	      NS(this),
-	      NS(this)->mops->checksum,
+	      NS(this)->fops->checksum,
 	      loc,
 	      flag);
 
@@ -4716,9 +4716,9 @@ struct xlator_fops fops = {
   .rmelem      = unify_rmelem,
   .getdents    = unify_getdents,
   //  .setdents    = unify_setdents,
+  .checksum    = unify_checksum,
 };
 
 struct xlator_mops mops = {
   //  .stats = unify_stats
-  .checksum = unify_checksum,
 };

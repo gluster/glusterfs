@@ -505,6 +505,9 @@ unify_sh_checksum_cbk (call_frame_t *frame,
     }
 	
     if (local->failed) {
+      /* Log it, it should be a rare event */
+      gf_log (this->name, GF_LOG_ERROR, "Self-heal triggered on directory %s", local->path);
+
       /* Any self heal will be done at the directory level */
       local->call_count = 0;
       local->op_ret = -1;
@@ -593,7 +596,7 @@ gf_unify_self_heal (call_frame_t *frame,
 		   unify_sh_checksum_cbk,
 		   priv->xl_array[index],
 		   priv->xl_array[index],
-		   priv->xl_array[index]->mops->checksum,
+		   priv->xl_array[index]->fops->checksum,
 		   &tmp_loc,
 		   0);
     }

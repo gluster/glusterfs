@@ -75,6 +75,7 @@ do {                    \
 #define GF_FILE_CONTENT_REQUEST(key) (!strncmp(key, GF_FILE_CONTENT_STRING, GF_FILE_CONTENT_STRING_LEN))
 
 #define GF_PATH_MAX 4096 /* TODO: Should we use PATH-MAX? */
+#define GF_FILENAME_MAX 256
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
@@ -118,7 +119,8 @@ typedef enum {
   GF_FOP_RMELEM,
   GF_FOP_INCVER,
   GF_FOP_READDIR,
-  GF_FOP_GF_LK,        
+  GF_FOP_GF_LK,      /* 40 */
+  GF_FOP_CHECKSUM,   /* 41 */   
   GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
@@ -132,8 +134,7 @@ typedef enum {
   GF_MOP_LOCK,      /* 5 */
   GF_MOP_UNLOCK,
   GF_MOP_LISTLOCKS,
-  GF_MOP_FSCK,
-  GF_MOP_CHECKSUM,  /* 9 */
+  GF_MOP_FSCK,      /* 8 */
   GF_MOP_MAXVALUE   
 } glusterfs_mop_t;
 

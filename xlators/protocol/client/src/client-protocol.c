@@ -3858,7 +3858,7 @@ client_checksum (call_frame_t *frame,
                  int32_t flag)
 {
   gf_hdr_common_t *hdr = NULL;
-  gf_mop_checksum_req_t *req = NULL;
+  gf_fop_checksum_req_t *req = NULL;
   size_t hdrlen = -1;
   int ret = -1;
 
@@ -3871,7 +3871,7 @@ client_checksum (call_frame_t *frame,
   strcpy (req->path, loc->path);
 
   ret = protocol_client_xfer (frame, this,
-                              GF_OP_TYPE_MOP_REQUEST, GF_MOP_CHECKSUM,
+                              GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHECKSUM,
                               hdr, hdrlen, NULL, 0, NULL);
 
   return ret;
@@ -3882,7 +3882,7 @@ client_checksum_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
                      char *buf, size_t buflen)
 {
-  gf_mop_checksum_rsp_t *rsp = NULL;
+  gf_fop_checksum_rsp_t *rsp = NULL;
   int op_ret = 0;
   int op_errno = 0;
   unsigned char *fchecksum = NULL;
@@ -4184,7 +4184,8 @@ static gf_op_t gf_fops[] = {
   [GF_FOP_RMELEM]         =  client_rmelem_cbk,
   [GF_FOP_INCVER]         =  client_incver_cbk,
   [GF_FOP_READDIR]        =  client_readdir_cbk,
-  [GF_FOP_GF_LK]          =  client_lk_common_cbk
+  [GF_FOP_GF_LK]          =  client_lk_common_cbk,
+  [GF_FOP_CHECKSUM]       =  client_checksum_cbk,
 };
 
 static gf_op_t gf_mops[] = {
@@ -4197,7 +4198,6 @@ static gf_op_t gf_mops[] = {
   [GF_MOP_UNLOCK]           =  client_unlock_cbk,
   [GF_MOP_LISTLOCKS]        =  client_listlocks_cbk,
   [GF_MOP_FSCK]             =  client_enosys_cbk,
-  [GF_MOP_CHECKSUM]         =  client_checksum_cbk
 };
 
 /*
@@ -4669,7 +4669,8 @@ struct xlator_fops fops = {
   .fchmod      = client_fchmod,
   .fchown      = client_fchown,
   .setdents    = client_setdents,
-  .getdents    = client_getdents
+  .getdents    = client_getdents,
+  .checksum    = client_checksum,
 };
 
 struct xlator_mops mops = {
@@ -4678,5 +4679,4 @@ struct xlator_mops mops = {
   .unlock    = client_unlock,
   .listlocks = client_listlocks,
   .getspec   = client_getspec,
-  .checksum  = client_checksum
 };

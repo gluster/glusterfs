@@ -992,6 +992,68 @@ iot_utimens (call_frame_t *frame,
 }
 
 
+int32_t 
+iot_checksum_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  uint8_t *file_checksum,
+		  uint8_t *dir_checksum)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, file_checksum, dir_checksum);
+  return 0;
+}
+
+static int32_t 
+iot_checksum_wrapper (call_frame_t *frame,
+		      xlator_t *this,
+		      loc_t *loc,
+		      int32_t flags)
+{
+  STACK_WIND (frame,
+              iot_checksum_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->checksum,
+              loc,
+              flags);
+  
+  return 0;
+}
+
+int32_t 
+iot_checksum (call_frame_t *frame,
+	      xlator_t *this,
+	      loc_t *loc,
+	      int32_t flags)
+{
+  call_stub_t *stub = NULL;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf = NULL;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  worker = iot_schedule (conf, NULL, conf->misc_thread_index++);
+
+  stub = fop_checksum_stub (frame,
+			    iot_checksum_wrapper,
+			    loc,
+			    flags);
+  if (!stub) {
+    gf_log (this->name, GF_LOG_ERROR, "cannot get fop_checksum call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+  iot_queue (worker, stub);
+
+  return 0;
+}
+
+
 static void
 iot_queue (iot_worker_t *worker,
            call_stub_t *stub)
@@ -1237,6 +1299,7 @@ struct xlator_fops fops = {
   .ftruncate   = iot_ftruncate,
   .utimens     = iot_utimens,
   .close       = iot_close,
+  .checksum    = iot_checksum,
 };
 
 struct xlator_mops mops = {
