@@ -74,8 +74,10 @@ do {                    \
 
 #define GF_FILE_CONTENT_REQUEST(key) (!strncmp(key, GF_FILE_CONTENT_STRING, GF_FILE_CONTENT_STRING_LEN))
 
-#define GF_PATH_MAX 4096 /* TODO: Should we use PATH-MAX? */
-#define GF_FILENAME_MAX 256
+#define GF_PATH_MAX 4096    /* TODO: Should we use PATH-MAX? On some systems it may save space */
+#define GF_FILENAME_MAX 256 /* This is used as the maximum permitted filename length over FS. If the backend 
+			     * FS supports higher than this, it should be changed. 
+			     */
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {

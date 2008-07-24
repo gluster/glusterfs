@@ -67,10 +67,10 @@ struct unify_private {
 typedef struct unify_private unify_private_t;
 
 struct unify_self_heal_struct {
-  uint8_t dir_checksum[GF_PATH_MAX];
-  uint8_t ns_dir_checksum[GF_PATH_MAX];
-  uint8_t file_checksum[GF_PATH_MAX];
-  uint8_t ns_file_checksum[GF_PATH_MAX];
+  uint8_t dir_checksum[GF_FILENAME_MAX];
+  uint8_t ns_dir_checksum[GF_FILENAME_MAX];
+  uint8_t file_checksum[GF_FILENAME_MAX];
+  uint8_t ns_file_checksum[GF_FILENAME_MAX];
 };
 
 

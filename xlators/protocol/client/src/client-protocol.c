@@ -3896,7 +3896,7 @@ client_checksum_cbk (call_frame_t *frame,
   if (op_ret >= 0)
     {
       fchecksum = rsp->fchecksum;
-      dchecksum = rsp->dchecksum + GF_PATH_MAX;
+      dchecksum = rsp->dchecksum + GF_FILENAME_MAX;
     }
 
   STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);

@@ -357,8 +357,8 @@ posix_getdents (call_frame_t *frame,
 	strcpy (&entry_path[real_path_len+1], tmp->name);
 	lstat (entry_path, &tmp->buf);
 	if (S_ISLNK(tmp->buf.st_mode)) {
-	    char linkpath[PATH_MAX];
-	    ret = readlink (entry_path, linkpath, PATH_MAX);
+	    char linkpath[GF_PATH_MAX];
+	    ret = readlink (entry_path, linkpath, GF_PATH_MAX);
 	    if (ret != -1) {
 		linkpath[ret] = '\0';
 		tmp->link = strdup (linkpath);
@@ -1604,7 +1604,7 @@ posix_setxattr (call_frame_t *frame,
 
     while (trav) {
 	if (GF_FILE_CONTENT_REQUEST(trav->key) ) {
-	    char real_filepath[PATH_MAX] = {0,};
+	    char real_filepath[GF_PATH_MAX] = {0,};
 	    char *key = NULL;
 	    int32_t file_fd = -1;
 
@@ -1719,7 +1719,7 @@ posix_getxattr (call_frame_t *frame,
   
   
     if (S_ISDIR(loc->inode->st_mode) && name && GF_FILE_CONTENT_REQUEST(name)) {
-	char real_filepath[PATH_MAX] = {0,};
+	char real_filepath[GF_PATH_MAX] = {0,};
 	char *key = NULL;
 	int32_t file_fd = -1;
 	struct stat stbuf = {0,};
@@ -2460,8 +2460,8 @@ posix_checksum (call_frame_t *frame,
     char *real_path;
     DIR *dir;
     struct dirent *dirent;
-    uint8_t file_checksum[GF_PATH_MAX] = {0,};
-    uint8_t dir_checksum[GF_PATH_MAX] = {0,};
+    uint8_t file_checksum[GF_FILENAME_MAX] = {0,};
+    uint8_t dir_checksum[GF_FILENAME_MAX] = {0,};
     int32_t op_ret = -1;
     int32_t op_errno = 2;
     int32_t i, length = 0;

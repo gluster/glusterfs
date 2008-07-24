@@ -1053,8 +1053,8 @@ bdb_getdents (call_frame_t *frame,
 	lstat (entry_path, &tmp->buf);
 	tmp->buf.st_ino = -1;
 	if (S_ISLNK(tmp->buf.st_mode)) {
-	  char linkpath[PATH_MAX] = {0,};
-	  ret = readlink (entry_path, linkpath, PATH_MAX);
+	  char linkpath[GF_PATH_MAX] = {0,};
+	  ret = readlink (entry_path, linkpath, GF_PATH_MAX);
 	  if (ret != -1) {
 	    linkpath[ret] = '\0';
 	    tmp->link = strdup (linkpath);
@@ -2474,8 +2474,8 @@ bdb_checksum (call_frame_t *frame,
   char *real_path = NULL;
   DIR *dir = NULL;
   struct dirent *dirent = NULL;
-  uint8_t file_checksum[GF_PATH_MAX] = {0,};
-  uint8_t dir_checksum[GF_PATH_MAX] = {0,};
+  uint8_t file_checksum[GF_FILENAME_MAX] = {0,};
+  uint8_t dir_checksum[GF_FILENAME_MAX] = {0,};
   int32_t op_ret = -1;
   int32_t op_errno = 2;
   int32_t i = 0, length = 0;

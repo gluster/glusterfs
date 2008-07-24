@@ -4982,7 +4982,7 @@ mop_getspec (call_frame_t *frame,
   int32_t ret = -1;
   int32_t op_errno = ENOENT;
   int32_t spec_fd = -1;
-  char tmp_filename[GF_PATH_MAX] = {0,};
+  char tmp_filename[GF_FILENAME_MAX] = {0,};
   char *filename = GLUSTERFSD_SPEC_PATH;
   int32_t file_len = 0;
   struct stat stbuf = {0,};
@@ -5064,18 +5064,18 @@ server_checksum_cbk (call_frame_t *frame,
   gf_fop_checksum_rsp_t *rsp = NULL;
   size_t hdrlen = 0;
 
-  hdrlen = gf_hdr_len (rsp, GF_PATH_MAX + 1 + GF_PATH_MAX + 1);
-  hdr    = gf_hdr_new (rsp, GF_PATH_MAX + 1 + GF_PATH_MAX + 1);
+  hdrlen = gf_hdr_len (rsp, GF_FILENAME_MAX + 1 + GF_FILENAME_MAX + 1);
+  hdr    = gf_hdr_new (rsp, GF_FILENAME_MAX + 1 + GF_FILENAME_MAX + 1);
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
   hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret >= 0) {
-    memcpy (rsp->fchecksum, fchecksum, GF_PATH_MAX);
-    rsp->fchecksum[GF_PATH_MAX] =  '\0';
-    memcpy (rsp->dchecksum + GF_PATH_MAX, dchecksum, GF_PATH_MAX);
-    rsp->dchecksum[GF_PATH_MAX + GF_PATH_MAX] = '\0';
+    memcpy (rsp->fchecksum, fchecksum, GF_FILENAME_MAX);
+    rsp->fchecksum[GF_FILENAME_MAX] =  '\0';
+    memcpy (rsp->dchecksum + GF_FILENAME_MAX, dchecksum, GF_FILENAME_MAX);
+    rsp->dchecksum[GF_FILENAME_MAX + GF_FILENAME_MAX] = '\0';
   }
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHECKSUM,

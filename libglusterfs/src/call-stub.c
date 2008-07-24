@@ -1987,8 +1987,8 @@ fop_checksum_cbk_stub (call_frame_t *frame,
   stub->args.checksum_cbk.op_errno = op_errno;
   if (op_ret >= 0)
     {
-      stub->args.checksum_cbk.file_checksum = memdup (file_checksum, GF_PATH_MAX);
-      stub->args.checksum_cbk.dir_checksum = memdup (dir_checksum, GF_PATH_MAX);
+      stub->args.checksum_cbk.file_checksum = memdup (file_checksum, GF_FILENAME_MAX);
+      stub->args.checksum_cbk.dir_checksum = memdup (dir_checksum, GF_FILENAME_MAX);
     }
   return stub;
 }

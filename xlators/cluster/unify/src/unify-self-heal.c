@@ -466,8 +466,8 @@ unify_sh_checksum_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     if (op_ret >= 0) {
       if (NS(this) == (xlator_t *)cookie) {
-	memcpy (local->sh_struct->ns_file_checksum, file_checksum, GF_PATH_MAX);
-	memcpy (local->sh_struct->ns_dir_checksum, dir_checksum, GF_PATH_MAX);
+	memcpy (local->sh_struct->ns_file_checksum, file_checksum, GF_FILENAME_MAX);
+	memcpy (local->sh_struct->ns_dir_checksum, dir_checksum, GF_FILENAME_MAX);
       } else {
 	if (local->entry_count == 0) {
 	  /* Initialize the dir_checksum to be used for comparision 
@@ -475,11 +475,11 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 	   * successful call *only*. 
 	   */
 	  local->entry_count = 1; /* Using 'entry_count' as a flag */
-	  memcpy (local->sh_struct->dir_checksum, dir_checksum, GF_PATH_MAX);
+	  memcpy (local->sh_struct->dir_checksum, dir_checksum, GF_FILENAME_MAX);
 	}
 
 	/* Reply from the storage nodes */
-	for (index = 0; index < GF_PATH_MAX; index++) {
+	for (index = 0; index < GF_FILENAME_MAX; index++) {
 	  /* Files should be present in only one node */
 	  local->sh_struct->file_checksum[index] ^= file_checksum[index];
 	  
@@ -493,7 +493,7 @@ unify_sh_checksum_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
-    for (index = 0; index < GF_PATH_MAX ; index++) {
+    for (index = 0; index < GF_FILENAME_MAX ; index++) {
       if (local->sh_struct->file_checksum[index] != local->sh_struct->ns_file_checksum[index]) {
 	local->failed = 1;
 	break;
