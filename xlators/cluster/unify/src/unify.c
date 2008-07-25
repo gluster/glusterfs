@@ -1104,7 +1104,7 @@ unify_open_readlink_cbk (call_frame_t *frame,
       strcat (local->name, path);
       FREE (tmp_str);
     }
-
+  
   local->list = calloc (1, sizeof (int16_t) * 3);
   ERR_ABORT (local->list);
   local->call_count = priv->child_count + 1;
@@ -1123,7 +1123,7 @@ unify_open_readlink_cbk (call_frame_t *frame,
 		       &tmp_loc,
 		       0);
   }
-  
+
   return 0;
 }
 
@@ -1180,6 +1180,7 @@ unify_open (call_frame_t *frame,
   /* Handle symlink here */
   if (S_ISLNK (loc->inode->st_mode))
     {
+      local->path = strdup (loc->path);
       /* Callcount doesn't matter here */
       STACK_WIND (frame,
 		  unify_open_readlink_cbk,
