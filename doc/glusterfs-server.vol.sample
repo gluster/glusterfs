@@ -38,5 +38,5 @@ volume server
 # NOTE: Access to any volume through protocol/server is denied by
 # default. You need to explicitly grant access through # "auth"
 # option.
-  option auth.ip.brick.allow * # Allow access to "brick" volume
+  option auth.addr.brick.allow * # Allow access to "brick" volume
 end-volume

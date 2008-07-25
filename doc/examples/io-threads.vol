@@ -17,6 +17,6 @@ volume server
   type protocol/server
   subvolumes iot brick
   option transport-type tcp/server     # For TCP/IP transport
-  option auth.ip.brick.allow 192.168.* # Allow access to "brick" volume
-  option auth.ip.iot.allow 192.168.* # Allow access to "p-locks" volume
+  option auth.addr.brick.allow 192.168.* # Allow access to "brick" volume
+  option auth.addr.iot.allow 192.168.* # Allow access to "p-locks" volume
 end-volume

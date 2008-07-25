@@ -19,5 +19,5 @@ volume server
 # option listen-port 6996              # Default is 6996
 # option client-volume-filename /etc/glusterfs/glusterfs-client.vol
  subvolumes brick 
-  option auth.ip.brick.allow 192.168.* # Allow access to "brick" volume
+  option auth.addr.brick.allow 192.168.* # Allow access to "brick" volume
 end-volume

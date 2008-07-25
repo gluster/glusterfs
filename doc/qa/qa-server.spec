@@ -271,14 +271,14 @@ volume server8
 # option transport-type ib-sdp/server  # For Infiniband transport
 # option transport-type ib-verbs/server # For ib-verbs transport
   option client-volume-filename /examples/qa-client.vol
-  option auth.ip.ra1.allow * # Allow access to "stat8" volume
-  option auth.ip.ra2.allow * # Allow access to "stat8" volume
-  option auth.ip.ra3.allow * # Allow access to "stat8" volume
-  option auth.ip.ra4.allow * # Allow access to "stat8" volume
-  option auth.ip.ra5.allow * # Allow access to "stat8" volume
-  option auth.ip.ra6.allow * # Allow access to "stat8" volume
-  option auth.ip.ra7.allow * # Allow access to "stat8" volume
-  option auth.ip.ra8.allow * # Allow access to "stat8" volume
-  option auth.ip.brick-ns.allow * # Allow access to "stat8" volume
+  option auth.addr.ra1.allow * # Allow access to "stat8" volume
+  option auth.addr.ra2.allow * # Allow access to "stat8" volume
+  option auth.addr.ra3.allow * # Allow access to "stat8" volume
+  option auth.addr.ra4.allow * # Allow access to "stat8" volume
+  option auth.addr.ra5.allow * # Allow access to "stat8" volume
+  option auth.addr.ra6.allow * # Allow access to "stat8" volume
+  option auth.addr.ra7.allow * # Allow access to "stat8" volume
+  option auth.addr.ra8.allow * # Allow access to "stat8" volume
+  option auth.addr.brick-ns.allow * # Allow access to "stat8" volume
 end-volume
 

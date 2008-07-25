@@ -442,7 +442,7 @@ detail. For now, just assume that the volume spec is like an NFS
        type protocol/server
        subvolumes colon-o
        option transport-type tcp/server
-       option auth.ip.colon-o.allow *
+       option auth.addr.colon-o.allow *
      end-volume
 
    A brief explanation of the file's contents. The first section
@@ -1391,9 +1391,9 @@ addresses / access control fields to match your environment.
         volume server
                 type protocol/server
                 option transport-type tcp/server
-                option auth.ip.posix-unify.allow 192.168.1.*
-                option auth.ip.posix-stripe.allow 192.168.1.*
-                option auth.ip.posix-namespace.allow 192.168.1.*
+                option auth.addr.posix-unify.allow 192.168.1.*
+                option auth.addr.posix-stripe.allow 192.168.1.*
+                option auth.addr.posix-namespace.allow 192.168.1.*
                 subvolumes posix-unify posix-stripe posix-namespace
         end-volume
 

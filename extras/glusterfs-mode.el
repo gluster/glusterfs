@@ -41,7 +41,7 @@
   (append glusterfs-font-lock-keywords-1
 	  (list
       ; "replicate" "namespace" "scheduler" "remote-subvolume" "remote-host" 
-      ; "auth.ip" "block-size" "remote-port" "listen-port" "transport-type"
+      ; "auth.addr" "block-size" "remote-port" "listen-port" "transport-type"
       ; "limits.min-free-disk" "directory"
 	; TODO: add all the keys here.
 	   '("\\<\\(inode-lru-limit\\|replicate\\|namespace\\|scheduler\\|username\\|password\\|allow\\|block-size\\|listen-port\\|transport-type\\|directory\\|page-size\\|page-count\\|aggregate-size\\|non-blocking-connect\\|client-volume-filename\\|bind-address\\|self-heal\\|read-only-subvolumes\\|read-subvolume\\|thread-count\\|cache-size\\|force-revalidate-timeout\\|priority\\|include\\|exclude\\|remote-\\(host\\|subvolume\\|port\\)\\|auth.\\(ip\\|login\\)\\|limits.\\(min-disk-free\\|transaction-size\\|ib-verbs-\\(work-request-\\(send-\\|recv-\\(count\\|size\\)\\)\\|port\\|mtu\\|device-name\\)\\)\\)\ \\>" . font-lock-constant-face)))

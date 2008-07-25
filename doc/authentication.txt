@@ -18,11 +18,11 @@
 	      option auth.login.<brick>.allow [comma seperated list of usernames using which clients can connect to volume <brick>]
 	      option auth.login.<username>.password <password> #specify password <password> for username <username>
 	* for ip based authentication:
-	      option auth.ip.<brick>.allow [comma seperated list of ip addresses from which clients are allowed to connect to volume <brick>]
-	      option auth.ip.<brick>.reject [comma seperated list of ip addresses from which clients are not allowed to connect to volume <brick>]
+	      option auth.addr.<brick>.allow [comma seperated list of ip addresses from which clients are allowed to connect to volume <brick>]
+	      option auth.addr.<brick>.reject [comma seperated list of ip addresses from which clients are not allowed to connect to volume <brick>]
 	* negation operator '!' is used to invert the sense of matching.
-	  Eg., option auth.ip.brick.allow !a.b.c.d #do not allow client from a.b.c.d to connect to volume brick
-	       option auth.ip.brick.reject !w.x.y.z #allow client from w.x.y.z to connect to volume brick
+	  Eg., option auth.addr.brick.allow !a.b.c.d #do not allow client from a.b.c.d to connect to volume brick
+	       option auth.addr.brick.reject !w.x.y.z #allow client from w.x.y.z to connect to volume brick
 	* wildcard '*' can be used to match any ips
 
 ----------------------------------------------------------------------------------------------------
@@ -40,7 +40,7 @@
 	option auth.login.foo.password foo-password
 	option auth.login.who.password who-password
 
-      * in protocol/server, dont specify ip from which client is connecting in auth.ip.foo-brick.reject list
+      * in protocol/server, dont specify ip from which client is connecting in auth.addr.foo-brick.reject list
 
 ****************************************************************************************************
 
@@ -50,7 +50,7 @@
 	* Client is connecting from a.b.c.d
       
       protocol/server:
-	option auth.ip.foo-brick.allow a.b.c.d,e.f.g.h,i.j.k.l #, other ip addresses from which clients are allowed to connect to foo-brick
+	option auth.addr.foo-brick.allow a.b.c.d,e.f.g.h,i.j.k.l #, other ip addresses from which clients are allowed to connect to foo-brick
 
 ****************************************************************************************************
 * ip and username/password based authentication
@@ -63,7 +63,7 @@
     protocol/server:
 	option auth.login.foo-brick.allow foo
 	option auth.login.foo.password foo-password
-	option auth.ip.foo-brick.reject !a.b.c.d
+	option auth.addr.foo-brick.reject !a.b.c.d
 
   * allow only "user foo" from a.b.c.d i.e., only user foo is allowed from a.b.c.d, but anyone is allowed from ip addresses other than a.b.c.d
     protocol/client:
@@ -74,7 +74,7 @@
     protocol/server:
 	option auth.login.foo-brick.allow foo
 	option auth.login.foo.password foo-password
-	option auth.ip.foo-brick.allow !a.b.c.d
+	option auth.addr.foo-brick.allow !a.b.c.d
 
   * reject only "user shoo from a.b.c.d"
     protcol/client:
@@ -83,7 +83,7 @@
     protocol/server:
 	# observe that no "option auth.login.shoo-brick.allow shoo" given
 	# Also other users from a.b.c.d have to be explicitly allowed using auth.login.shoo-brick.allow ...
-	option auth.ip.shoo-brick.allow !a.b.c.d
+	option auth.addr.shoo-brick.allow !a.b.c.d
 
   * reject only "user shoo" from a.b.c.d i.e., user shoo from a.b.c.d has to be rejected. 
     * same as reject only "user shoo from a.b.c.d" above, but rules have to be added whether to allow ip addresses (and users from those ips) other than a.b.c.d
@@ -99,7 +99,7 @@
     protocol/server:
 	option auth.login.foo-brick.allow foo
 	option auth.login.foo.password foo-password
-	option auth.ip.foo-brick.allow a.b.c.d
+	option auth.addr.foo-brick.allow a.b.c.d
 
   * reject user shoo or clients from a.b.c.d
     protocol/client:
@@ -109,4 +109,4 @@
 	option auth.login.shoo-brick.allow <usernames other than shoo>
 	#for each username mentioned in the above <usernames other than shoo> list, specify password as below
 	option auth.login.<username other than shoo>.password password
-	option auth.ip.shoo-brick.reject a.b.c.d
+	option auth.addr.shoo-brick.reject a.b.c.d

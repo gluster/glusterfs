@@ -45,7 +45,7 @@
      option transport-type [tcp,ib-verbs,ib-sdp] (tcp/server)
      option limits.transaction-size (4MB)
 #  > authentication options
-     option auth.ip.<brick>.allow [hostnames]
+     option auth.addr.<brick>.allow [hostnames]
      option auth.login.<brick>.allow [usernames]
      option auth.login.<username>.password <password>
 #  > Tranport options

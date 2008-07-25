@@ -108,9 +108,9 @@ volume server1
  option transport-type tcp/server
  subvolumes server1-iot
  option listen-port 7001
- option auth.ip.server1-posix1.allow *
- option auth.ip.server1-ns1.allow *
- option auth.ip.server1-iot.allow * 
+ option auth.addr.server1-posix1.allow *
+ option auth.addr.server1-ns1.allow *
+ option auth.addr.server1-iot.allow * 
 end-volume
 
 
@@ -224,9 +224,9 @@ volume server2
  option transport-type tcp/server
  subvolumes server2-iot
  option listen-port 7002
- option auth.ip.server2-posix2.allow *
- option auth.ip.server2-ns2.allow *
- option auth.ip.server2-iot.allow * 
+ option auth.addr.server2-posix2.allow *
+ option auth.addr.server2-ns2.allow *
+ option auth.addr.server2-iot.allow * 
 end-volume
 
 # == server 3 ==
@@ -339,8 +339,8 @@ volume server3
  option transport-type tcp/server
  subvolumes server3-iot
  option listen-port 7003
- option auth.ip.server3-posix3.allow *
- option auth.ip.server3-ns3.allow *
- option auth.ip.server3-iot.allow * 
+ option auth.addr.server3-posix3.allow *
+ option auth.addr.server3-ns3.allow *
+ option auth.addr.server3-iot.allow * 
 end-volume
 

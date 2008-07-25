@@ -524,7 +524,7 @@ volume server
   type protocol/server
   subvolumes colon-o
   option transport-type tcp/server     
-  option auth.ip.colon-o.allow *
+  option auth.addr.colon-o.allow *
 end-volume
 @end example
 @end cartouche
@@ -1007,7 +1007,7 @@ client will receive when it is invoked with the @command{--server} option
 The transport to use. You should use the server versions of all the transport
 modules (@command{tcp/server}, @command{ib-sdp/server}, @command{ib-verbs/server}).
 
-@item auth.ip.<volume name>.allow <IP address wildcard pattern>
+@item auth.addr.<volume name>.allow <IP address wildcard pattern>
 IP addresses of the clients that are allowed to attach to the specified volume.
 This can be a wildcard. For example, a wildcard of the form @command{192.168.*.*}
 allows any host in the @command{192.168.x.x} subnet to connect to the server.
@@ -1847,9 +1847,9 @@ addresses / access control fields to match your environment.
    volume server
            type protocol/server
            option transport-type tcp/server
-           option auth.ip.posix-unify.allow 192.168.1.*
-           option auth.ip.posix-stripe.allow 192.168.1.*
-           option auth.ip.posix-namespace.allow 192.168.1.*
+           option auth.addr.posix-unify.allow 192.168.1.*
+           option auth.addr.posix-stripe.allow 192.168.1.*
+           option auth.addr.posix-namespace.allow 192.168.1.*
            subvolumes posix-unify posix-stripe posix-namespace
    end-volume
 @end example
