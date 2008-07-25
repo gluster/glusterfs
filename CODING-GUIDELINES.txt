@@ -10,3 +10,14 @@
 2.  It's highly recommended to declare #define names in fully Caps.
 
 3.  Check return value of calloc(), malloc(), realloc(), alloca(), strdup() etc
+
+4.  Always when an "open()" call is used with O_CREAT as the second argument,
+    specifying the third argument "mode" is mandatory. 
+
+5.  All Platform specific code should go under proper "$(GF_HOST_OS)" in compat.h
+    to make sure there are no build errors. 
+
+6.  Please do not use variables/function names written or might comflicting with
+    the system libraries. This might have serious repurcussions during cross 
+    platform porting. 
+
