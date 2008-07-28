@@ -42,6 +42,13 @@ init (dict_t *this,
   auth_handle_t *auth_handle = NULL;
   auth_fn_t authenticate = NULL;
 
+  if (!strncasecmp (key, "ip", strlen ("ip"))) {
+    gf_log ("authenticate", GF_LOG_ERROR,
+	    "AUTHENTICATION MODULE \"IP\" HAS BEEN REPLACED BY \"ADDR\"");
+    dict_set (this, key, data_from_dynptr (NULL, 0));
+    return;
+  }
+
   asprintf (&auth_file, "%s/%s.so", LIBDIR, key);
   handle = dlopen (auth_file, RTLD_LAZY);
   if (!handle) {

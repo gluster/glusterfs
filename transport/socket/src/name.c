@@ -321,7 +321,7 @@ af_inet_server_get_local_sockaddr (transport_t *this,
   options = this->xl->options;
 
   listen_port_data = dict_get (options, "listen-port");
-  listen_host_data = dict_get (options, "listen-host");
+  listen_host_data = dict_get (options, "bind-address");
 
   if (listen_port_data)
     {
