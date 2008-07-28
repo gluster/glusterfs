@@ -1232,3 +1232,152 @@ data_from_iovec (struct iovec *vec,
 
   return new;
 }
+
+/*
+ * !!!!!!! CLEANED UP CODE !!!!!!!
+ */
+
+/* Common cleaned up interface:
+ * 
+ * Return value:  0   success
+ *               -val error, val = errno
+ */
+
+
+static int
+dict_get_with_ref (dict_t *this, char *key, data_t **data)
+{
+  data_pair_t * pair = NULL;
+  int           ret  = 0;
+
+  if (!this || !key || !data) {
+    ret = -EINVAL;
+    goto err;
+  }
+
+  LOCK (&this->lock);
+
+  pair = _dict_lookup (this, key);
+  if (pair) {
+    *data = data_ref (pair->value);
+  }
+
+  UNLOCK (&this->lock);
+
+ err:  
+  return ret;
+}
+
+static int
+_data_to_ptr (data_t *data, void **val)
+{
+  int ret = 0;
+
+  if (!data) {
+    ret = -EINVAL;
+    goto err;
+  }
+
+  *val = data->data;
+ err:
+  return ret;
+}
+
+static int
+_data_to_int32 (data_t *data, int32_t *val)
+{
+  int    ret = 0;
+  char * str = NULL;
+
+  if (!data || !val) {
+    ret = -EINVAL;
+    goto err;
+  }
+
+  str = alloca (data->len + 1);
+  if (!str) {
+    ret = -ENOMEM;
+    goto err;
+  }
+  memcpy (str, data->data, data->len);
+  str[data->len] = '\0';
+
+  errno = 0;
+  *val = strtol (str, NULL, 0);
+  if (errno != 0)
+    ret = -errno;
+
+ err:
+  return ret;
+}
+
+
+int
+dict_get_int32 (dict_t *this, char *key, int32_t *val)
+{
+  data_t * data = NULL;
+  int      ret  = 0;
+
+  if (!this || !key || !val) {
+    ret = -EINVAL;
+    goto err;
+  }
+
+  ret = dict_get_with_ref (this, key, &data);
+  if (ret != 0) {
+    goto err;
+  }
+
+  ret = _data_to_int32 (data, val);
+    
+ err:
+  if (data)
+    data_unref (data);
+  return ret;
+}
+
+int
+dict_get_ptr (dict_t *this, char *key, void **ptr)
+{
+  data_t * data = NULL;
+  int      ret  = 0;
+
+  if (!this || !key || !ptr) {
+    ret = -EINVAL;
+    goto err;
+  }
+
+  ret = dict_get_with_ref (this, key, &data);
+  if (ret != 0) {
+    goto err;
+  }
+
+  ret = _data_to_ptr (data, ptr);
+  if (ret != 0) {
+    goto err;
+  }
+
+ err: 
+  if (data)
+    data_unref (data);
+
+  return ret;
+}
+
+int
+dict_set_ptr (dict_t *this, char *key, void *ptr)
+{
+  data_t * data = NULL;
+  int      ret  = 0;
+
+  data = data_from_ptr (ptr);
+  if (!data) {
+    ret = -EINVAL;
+    goto err;
+  }
+
+  ret = dict_set (this, key, data);
+
+ err:
+  return ret;
+}

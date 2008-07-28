@@ -139,4 +139,9 @@ void dict_foreach (dict_t *this,
 dict_t *dict_copy (dict_t *this,
 		   dict_t *new);
 
+/* CLEANED UP FUNCTIONS DECLARATIONS */
+int dict_get_int32 (dict_t *this, char *key, int32_t *val);
+
+int dict_get_ptr (dict_t *this, char *key, void **ptr);
+int dict_set_ptr (dict_t *this, char *key, void *ptr);
 #endif
