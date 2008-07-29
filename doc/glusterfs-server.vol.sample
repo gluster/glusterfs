@@ -24,13 +24,15 @@ end-volume
 ### Add network serving capability to above brick.
 volume server
   type protocol/server
-  option transport-type tcp/server     # For TCP/IP transport
+  option transport-type tcp
+# option transport-type ib-sdp
+# option transport-type ib-verbs
+# option transport-type ipv6
+# option transport-type unix
 # option ib-verbs-work-request-send-size  131072
 # option ib-verbs-work-request-send-count 64
 # option ib-verbs-work-request-recv-size  131072
 # option ib-verbs-work-request-recv-count 64
-# option transport-type ib-sdp/server  # For Infiniband transport
-# option transport-type ib-verbs/server # For ib-verbs transport
 # option bind-address 192.168.1.10     # Default is to listen on all interfaces
 # option listen-port 6996              # Default is 6996
 # option client-volume-filename /etc/glusterfs/glusterfs-client.vol

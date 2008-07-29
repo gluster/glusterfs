@@ -13,6 +13,7 @@
 # storage/posix:
      option directory <path> *
      option export-statfs-size no (yes)
+     option o-direct [on|enable] (off)
 
 # protocol/client:
      option transport-type [socket | ib-verbs]
@@ -116,6 +117,7 @@
 
 # performance/write-behind:
      option aggregate-size <n> (0)
+     option window-size <n> (0)
      option flush-behind [on|yes|off|no] (off|no)
 
 # performance/read-ahead:

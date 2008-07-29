@@ -22,16 +22,18 @@
 GlusterFS \- Clustered Filesystem.
 .SH SYNOPSYS
 .B glusterfs 
-.I [options] mountpoint
+.I [options] [mountpoint]
 .PP
 .SH DESCRIPTION
 GlusterFS is a clustered file-system capable of scaling to several peta-bytes. It aggregates various storage bricks over Infiniband RDMA or TCP/IP interconnect into one large parallel network file system. Storage bricks can be made of any commodity hardware such as x86-64 server with SATA-II RAID and Infiniband HBA
+GlusterFS is fully POSIX compliant FileSystem. On client side, it has dependency on FUSE package, on server side, it works seemlessly on different OSes. (Currently supported on GNU/Linux, Mac OSX, FreeBSD, OpenSolaris).
 .SH FILES
 /etc/glusterfs/*.vol
 .SH OPTIONS
 .PP
 Mandatory arguments to long options are mandatory for short options too.
 .TP
+
 \fB\-a\fR, \fB\-\-attr\f-timeout=SECONDS\fR 
 Attribute timeout for inodes in the kernel. Defaults to 1 second
 .TP

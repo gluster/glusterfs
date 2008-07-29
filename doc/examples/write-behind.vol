@@ -19,5 +19,6 @@ volume wb
   type performance/write-behind
   subvolumes client         # In this example it is 'client' you may have to change it according to your spec file.
   option flush-behind on    # default value is 'off'
+  option window-size 2MB
   option aggregate-size 1MB # default value is 0
 end-volume

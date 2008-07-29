@@ -54,7 +54,7 @@ SECTION_LINE: OPTION_LINE | TYPE_LINE | SUBSECTION_LINE;
 TYPE_LINE: TYPE WORD {if ( -1 == section_type ($2)) { YYABORT; }};
 
 OPTION_LINE: OPTION WORD WORD {if(-1 == section_option($2,$3)){YYABORT;} } |
-             OPTION WORD CMD {if(-1 == section_option_cmd ($2,$3)){YYABORT;} };;
+             OPTION WORD CMD {if(-1 == section_option_cmd ($2,$3)){YYABORT;} };
 
 SUBSECTION_LINE: SUBSECTION WORDS;
 

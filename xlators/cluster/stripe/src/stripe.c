@@ -78,9 +78,10 @@ struct stripe_private {
   struct stripe_options *pattern;
   xlator_t **xl_array;
   gf_lock_t lock;
-  int8_t nodes_down;
+  uint8_t nodes_down;
   int8_t first_child_down;
   int8_t child_count;
+  int8_t state[256];       /* Current state of the child node, 0 for down, 1 for up */
 
   int8_t xattr_check[256]; /* Check for xattr support in underlying FS */
 };
@@ -2997,7 +2998,7 @@ stripe_readv_cbk (call_frame_t *frame,
   {
     main_local->replies[index].op_ret = op_ret;
     main_local->replies[index].op_errno = op_errno;
-    if (op_ret > 0) {
+    if (op_ret >= 0) {
       main_local->replies[index].count  = count;
       main_local->replies[index].vector = iov_dup (vector, count);
       main_local->replies[index].stbuf = *stbuf;
@@ -3454,6 +3455,8 @@ notify (xlator_t *this,
         ...)
 {
   stripe_private_t *priv = this->private;
+  int down_client = 0;
+  int i = 0;
 
   if (!priv)
     return 0;
@@ -3462,10 +3465,21 @@ notify (xlator_t *this,
     {
     case GF_EVENT_CHILD_UP:
       {
-	int i = 0;
+	/* get an index number to set */
+	for (i = 0; i < priv->child_count; i++) {
+	  if (data == priv->xl_array[i])
+	    break;
+	}
+        priv->state[i] = 1;
+	for (i = 0; i < priv->child_count; i++) {
+	  if (!priv->state[i])
+            down_client++;
+	}
+
 	LOCK (&priv->lock);
 	{
-	  --priv->nodes_down;
+          priv->nodes_down = down_client;
+
 	  if (data == FIRST_CHILD (this)) {
 	    priv->first_child_down = 0;
 	    default_notify (this, event, data);
@@ -3473,12 +3487,6 @@ notify (xlator_t *this,
 	}
 	UNLOCK (&priv->lock);
 	
-	/* get an index number to set */
-	for (i = 0; i < priv->child_count; i++) {
-	  if (data == priv->xl_array[i])
-	    break;
-	}
-
 	/* Check for the xattr support in the underlying FS */
 	if (!priv->xattr_check[i]) {
 	  stripe_check_xattr(this, data);
@@ -3488,9 +3496,21 @@ notify (xlator_t *this,
       break;
     case GF_EVENT_CHILD_DOWN:
       {
+	/* get an index number to set */
+	for (i = 0; i < priv->child_count; i++) {
+	  if (data == priv->xl_array[i])
+	    break;
+	}
+        priv->state[i] = 0;
+	for (i = 0; i < priv->child_count; i++) {
+	  if (!priv->state[i])
+            down_client++;
+	}
+
 	LOCK (&priv->lock);
 	{
-	  ++priv->nodes_down;
+          priv->nodes_down = down_client;
+
 	  if (data == FIRST_CHILD (this)) {
 	    priv->first_child_down = 1;
 	    default_notify (this, event, data);

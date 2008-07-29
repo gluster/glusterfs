@@ -1,3 +1,10 @@
+GlusterFS get/put API interface provided through extended attributes:
+
+API usage:
+  int put(dirpath/filename, data): setfattr -n glusterfs.file.<filename> -v <data> <dirpath>
+  void *get(dirpath/filename):  getfattr -n glusterfs.file.<filename> <dirpath>
+
+
 internals:
 * unify handling setxattr/getxattr
   - setxattr
@@ -13,6 +20,3 @@ internals:
   - getxattr
      posix getxattr does open with O_RDONLY on the <path>/<name>, reads the complete content of the file. file is closed after read.
 
-usage:
-  setfattr -n glusterfs.file.<name> -v <data> <path>
-  getfattr -n glusterfs.file.<name> <path>
