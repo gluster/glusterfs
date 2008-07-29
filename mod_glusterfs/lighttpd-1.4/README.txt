@@ -22,6 +22,7 @@ Below is a snippet from lighttpd.conf concerning to mod_glusterfs.
 
 $HTTP["url"] =~ "^/glusterfs" {
 	glusterfs.prefix = "/glusterfs" 
+	glusterfs.document-root = "/home/glusterfs/documnt-root"
 	glusterfs.logfile = "/var/log/glusterfs-logfile"
 	glusterfs.volume-specfile = "/etc/glusterfs/glusterfs.vol"
 	glusterfs.loglevel = "error"
