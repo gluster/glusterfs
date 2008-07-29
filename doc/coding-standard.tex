@@ -1,0 +1,284 @@
+\documentclass{article}[12pt]
+\usepackage{color}
+
+\begin{document}
+
+
+\hrule
+\begin{center}\textbf{\Large{GlusterFS Coding Standards}}\end{center}
+\begin{center}\textbf{\large{\textcolor{red}{Z} Research}}\end{center}
+\begin{center}{July 14, 2008}\end{center}
+\hrule
+
+\vspace{8ex}
+
+\section*{$\bullet$ Structure definitions should have a comment per member}
+
+Every member in a structure definition must have a comment about its
+purpose. The comment should be descriptive without being overly verbose.
+
+\vspace{2ex}
+\textsl{Bad}:
+
+\begin{verbatim}
+        gf_lock_t   lock;           /* lock */
+\end{verbatim}
+
+\textsl{Good}:
+
+\begin{verbatim}
+        DBTYPE      access_mode;    /* access mode for accessing 
+                                     * the databases, can be
+                                     * DB_HASH, DB_BTREE
+                                     * (option access-mode <mode>)
+                                     */
+\end{verbatim}
+
+\section*{$\bullet$ Declare all variables at the beginning of the function}
+All local variables in a function must be declared immediately after the
+opening brace. This makes it easy to keep track of memory that needs to be freed
+during exit. It also helps debugging, since gdb cannot handle variables
+declared inside loops or other such blocks.
+
+\section*{$\bullet$ Always initialize local variables}
+Every local variable should be initialized to a sensible default value
+at the point of its declaration. All pointers should be initialized to NULL,
+and all integers should be zero or (if it makes sense) an error value.
+
+\vspace{2ex}
+
+\textsl{Good}:
+
+\begin{verbatim}
+        int ret       = 0;
+        char *databuf = NULL;
+        int _fd       = -1;
+\end{verbatim}
+
+\section*{$\bullet$ Initialization should always be done with a constant value}
+Never use a non-constant expression as the initialization value for a variable.
+
+\vspace{2ex}
+
+\textsl{Bad}:
+
+\begin{verbatim}
+        pid_t pid     = frame->root->pid;
+        char *databuf = malloc (1024);
+\end{verbatim}
+
+\section*{$\bullet$ Validate all arguments to a function}
+All pointer arguments to a function must be checked for \texttt{NULL}.
+A macro named \texttt{VALIDATE} (in \texttt{common-utils.h}) 
+takes one argument, and if it is \texttt{NULL}, writes a log message and
+jumps to a label called \texttt{err} after setting op\_ret and op\_errno
+appropriately. It is recommended to use this template.
+
+\vspace{2ex}
+
+\textsl{Good}:
+
+\begin{verbatim}
+        VALIDATE(frame);
+        VALIDATE(this);
+        VALIDATE(inode);
+\end{verbatim}
+
+\section*{$\bullet$ Never rely on precedence of operators}
+Never write code that relies on the precedence of operators to execute correctly.
+Such code can be hard to read and someone else might not know the precedence
+of operators as accurately as you do.
+\vspace{2ex}
+
+\textsl{Bad}:
+
+\begin{verbatim}
+        if (op_ret == -1 && errno != ENOENT)
+\end{verbatim}
+
+\textsl{Good}:
+
+\begin{verbatim}
+        if ((op_ret == -1) && (errno != ENOENT))
+\end{verbatim}
+
+\section*{$\bullet$ Use exactly matching types}
+Use a variable of the exact type declared in the manual to hold the return value
+of a function. Do not use an ``equivalent'' type.
+
+\vspace{2ex}
+
+\textsl{Bad}:
+
+\begin{verbatim}
+        int len = strlen (path);
+\end{verbatim}
+
+\textsl{Good}:
+
+\begin{verbatim}
+        size_t len = strlen (path);
+\end{verbatim}
+
+\section*{$\bullet$ Never write code such as \texttt{foo->bar->baz}; check every pointer}
+Do not write code that blindly follows a chain of pointer references. Any pointer in
+the chain may be \texttt{NULL} and thus cause a crash. Verify that each pointer
+is non-null before following it.
+
+\section*{$\bullet$ Check return value of all functions and system calls}
+The return value of all system calls and API functions must be checked for success
+or failure.
+
+\vspace{2ex}
+\textsl{Bad}:
+
+\begin{verbatim}
+        close (fd);
+\end{verbatim}
+
+\textsl{Good}:
+
+\begin{verbatim}
+        op_ret = close (_fd);
+        if (op_ret == -1) {
+          gf_log (this->name, GF_LOG_ERROR, 
+                  "close on file %s failed (%s)", real_path, 
+                  strerror (errno));
+          op_errno = errno;
+          goto err;
+        }
+\end{verbatim}
+
+
+\section*{$\bullet$ Gracefully handle failure of malloc}
+GlusterFS should never crash or exit due to lack of memory. If a memory allocation
+fails, the call should be unwound and an error returned to the user.
+
+\section*{$\bullet$ Use result args and reserve the return value to indicate success or failure}
+The return value of every functions must indicate success or failure (unless 
+it is impossible for the function to fail --- e.g., boolean functions). If 
+the function needs to return additional data, it must be returned using a 
+result (pointer) argument.
+
+\vspace{2ex}
+\textsl{Bad}:
+
+\begin{verbatim}
+        int32_t dict_get_int32 (dict_t *this, char *key);
+\end{verbatim}
+
+\textsl{Good}:
+
+\begin{verbatim}
+        int dict_get_int32 (dict_t *this, char *key, int32_t *val);
+\end{verbatim}
+
+\section*{$\bullet$ Always use the `n' versions of string functions}
+Unless impossible, use the length-limited versions of the string functions.
+
+\vspace{2ex}
+\textsl{Bad}:
+
+\begin{verbatim}
+        strcpy (entry_path, real_path);
+\end{verbatim}
+
+\textsl{Good}:
+
+\begin{verbatim}
+        strncpy (entry_path, real_path, entry_path_len);
+\end{verbatim}
+
+\section*{$\bullet$ No dead or commented code}
+There must be no dead code (code to which control can never be passed) or 
+commented out code in the codebase.
+
+\section*{$\bullet$ Only one unwind and return per function}
+There must be only one exit out of a function. \texttt{UNWIND} and return 
+should happen at only point in the function.
+
+\section*{$\bullet$ Keep functions small}
+Try to keep functions small. Two to three screenfulls (80 lines per screen) is
+considered a reasonable limit. If a function is very long, try splitting it
+into many little helper functions.
+
+\vspace{2ex}
+\textsl{Example for a helper function}:
+\begin{verbatim}
+        static int
+        same_owner (posix_lock_t *l1, posix_lock_t *l2)
+        {
+          return ((l1->client_pid == l2->client_pid) &&
+                  (l1->transport  == l2->transport));
+        }
+\end{verbatim}
+
+\section*{A skeleton fop function}
+This is the recommended template for any fop. In the beginning come the
+initializations. After that, the `success' control flow should be linear. 
+Any error conditions should cause a \texttt{goto} to a single point, \texttt{err}.
+At that point, the code should detect the error that has occured and do
+appropriate cleanup.
+
+\begin{verbatim}
+int32_t 
+sample_fop (call_frame_t *frame,
+            xlator_t *this,
+            ...)
+{
+  char *var1 = NULL;
+  int32_t op_ret = 0;
+  int32_t op_errno = 0;
+  DIR *dir = NULL;
+  struct posix_fd *pfd = NULL;
+
+  VALIDATE(frame);
+  VALIDATE(this);
+
+  /* other validations */
+  
+  dir = opendir (...);
+
+  if (dir == NULL) {
+    op_ret = -1;
+    op_errno = errno;
+    gf_log (this->name, GF_LOG_ERROR, 
+            "opendir failed on %s (%s)", loc->path, strerror (op_errno));
+    goto err;
+  }
+
+  /* another system call */
+  if (...) {
+    op_ret = -1;
+    op_errno = ENOMEM;
+    gf_log (this->name, GF_LOG_ERROR,
+            "out of memory :(");
+    goto err;
+  }
+
+  /* ... */
+
+ err:
+  if (op_ret == -1) {
+
+    /* check for all the cleanup that needs to be
+       done */
+
+    if (dir) {
+      closedir (dir);
+      dir = NULL;
+    }
+    if (pfd) {
+      if (pfd->path)
+        FREE (pfd->path);
+      FREE (pfd);
+      pfd = NULL;
+    }
+  }
+
+  STACK_UNWIND (frame, op_ret, op_errno, fd);
+  return 0;
+}
+\end{verbatim}
+
+\end{document}
