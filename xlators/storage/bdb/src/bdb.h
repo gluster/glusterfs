@@ -66,6 +66,7 @@
 
 #define BDB_DEFAULT_CHECKPOINT_TIMEOUT 30
 
+#define BCTX_ENV(bctx) (bctx->table->dbenv)
 /* MAKE_REAL_PATH(var,this,path)
  * make the real path on the underlying file-system
  *
@@ -310,6 +311,7 @@ struct bdb_private {
 					      */
   uint32_t            lock_timeout;
   uint32_t            log_auto_remove;        /* DB_AUTO_LOG_REMOVE flag for DB_ENV*/
+  uint32_t            log_region_max;
 };
 
 

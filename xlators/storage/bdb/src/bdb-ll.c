@@ -164,7 +164,7 @@ bdb_open_db_cursor (bctx_t *bctx,
       gf_log ("bdb-ll",
 	      GF_LOG_ERROR,
 	      "failed to open storage db for %s", bctx->directory);
-      assert (bctx->dbp);
+      ret = -1;
     } else {
       ret = 0;
     }
@@ -715,8 +715,8 @@ bdb_init_db_env (xlator_t *this,
     dbenv = NULL;
   } else {
     dbenv->set_errpfx(dbenv, this->name);
-    
-    if ((ret = dbenv->set_lk_detect(dbenv, DB_LOCK_DEFAULT)) != 0) { 
+
+    if (dbenv && ((ret = dbenv->set_lk_detect(dbenv, DB_LOCK_DEFAULT)) != 0)) { 
       gf_log (this->name, GF_LOG_ERROR, 
 	      "failed to set deadlock detection (%s)", db_strerror (ret));
       dbenv = NULL;
@@ -759,6 +759,7 @@ bdb_init_db_env (xlator_t *this,
 		  GF_LOG_DEBUG,
 		  "set dbenv log dir to %s", private->logdir);
 	}
+	
 
 #if (DB_VERSION_MAJOR == 4 && \
      DB_VERSION_MINOR == 7)
@@ -789,7 +790,7 @@ bdb_init_db_env (xlator_t *this,
 		  GF_LOG_DEBUG,
 		  "DB_LOG_AUTOREMOVE set on dbenv");
 	}
-	
+
 	if (private->errfile) {
 	  private->errfp = fopen (private->errfile, "a+");
 	  if (private->errfp) {
@@ -1215,15 +1216,16 @@ bdb_init_db (xlator_t *this,
 
     if (log_remove)
       {
-	if (!strcasecmp (log_remove->data, "on"))
+	if (!strcasecmp (log_remove->data, "off"))
 	  {
-	    private->log_auto_remove = 1;
-	    gf_log (this->name, GF_LOG_DEBUG, "DB_ENV will use DB_LOG_AUTO_REMOVE");
+	    gf_log (this->name, GF_LOG_DEBUG, "not setting DB_LOG_AUTO_REMOVE");
 	  }
       }
-    if (!private->log_auto_remove)
-      gf_log (this->name, GF_LOG_DEBUG, "not setting DB_LOG_AUTO_REMOVE");
-
+    else
+      {
+	private->log_auto_remove = 1;
+	gf_log (this->name, GF_LOG_DEBUG, "DB_ENV will use DB_LOG_AUTO_REMOVE");
+      }
   }
 
 

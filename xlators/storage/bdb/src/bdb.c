@@ -431,11 +431,7 @@ bdb_open (call_frame_t *frame,
     op_errno = EBADFD;
   } else {
     char *key_string = NULL;
-    /* we are ready to go now, wat do we do??? do nothing... just place the same ctx which is there in 
-     * inode->ctx to fd->ctx... ashTe ashTe anta open storage_db for this directory and place that pointer too,
-     * in ctx, check if someone else has opened the same storage db already. */
 
-    /* successfully opened storage db */
     bfd = calloc (1, sizeof (*bfd));
     if (!bfd) {
       op_ret = -1;
@@ -1383,8 +1379,6 @@ bdb_do_rmdir (xlator_t *this,
   } else {
     LOCK(&bctx->lock);
     if (bctx->dbp) {
-      // DB *dbp = NULL;
-
       ret = bctx->dbp->close (bctx->dbp, 0);
       if (ret != 0) {
 	gf_log (this->name,
@@ -1392,6 +1386,7 @@ bdb_do_rmdir (xlator_t *this,
 		"failed to close db on path %s: %s", loc->path, db_strerror (ret));
       } else {
 	bctx->dbp = NULL;
+	//	BCTX_ENV(bctx)->lsn_reset (BCTX_ENV(bctx), bctx->db_path, 0);
       }
       ret = dbenv->dbremove (dbenv, NULL, bctx->db_path, NULL, 0);
       if (ret != 0) {
@@ -1400,17 +1395,6 @@ bdb_do_rmdir (xlator_t *this,
 		"failed to DB_ENV->dbremove() on path %s: %s", loc->path, db_strerror (ret));
       }
     }
-#if 0
-      db_create (&dbp, bctx->table->dbenv, 0);
-      ret = dbp->remove (dbp, bctx->db_path, NULL, 0);
-      if (ret != 0) {
-	gf_log (this->name,
-		GF_LOG_ERROR,
-		"failed to remove db on path %s: %s", loc->path, db_strerror (ret));
-      }
-      
-      bctx->dbp = NULL;
-#endif
     UNLOCK(&bctx->lock);
     
     if (ret) {
@@ -2692,6 +2676,7 @@ bctx_cleanup (struct list_head *head)
     if (storage) {
       storage->close (storage, 0);
       storage = NULL;
+      //      BCTX_ENV(trav)->lsn_reset (BCTX_ENV(trav), trav->db_path, 0);
     }
   }
   
