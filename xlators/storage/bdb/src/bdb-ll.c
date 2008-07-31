@@ -1204,15 +1204,8 @@ bdb_init_db (xlator_t *this,
   }
 
   {
-    data_t *log_remove = dict_get (options, "log-auto-remove");
-
-    if (log_remove && !strcasecmp (log_remove->data, "off")) {
-      private->log_auto_remove = OFF;
-      gf_log (this->name, GF_LOG_DEBUG, "not setting DB_LOG_AUTO_REMOVE");
-    } else {
-      private->log_auto_remove = ON;
-      gf_log (this->name, GF_LOG_DEBUG, "DB_ENV will use DB_LOG_AUTO_REMOVE");
-    }
+     private->log_auto_remove = ON;
+     gf_log (this->name, GF_LOG_DEBUG, "DB_ENV will use DB_LOG_AUTO_REMOVE");
   }
 
 
