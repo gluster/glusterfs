@@ -931,16 +931,8 @@ bdb_init_db (xlator_t *this,
 
   
   {
-    data_t *cache = dict_get (options, "cache");
-    
-    if (cache && !strcmp (cache->data, "on")) {
-      gf_log (this->name,
-	      GF_LOG_DEBUG,
-	      "bdb cache turned on");
-      private->cache = ON;
-    } else {
-      private->cache = OFF;
-    }
+    /* cache is always on */
+    private->cache = ON;
   }
   {
     data_t *access_mode = dict_get (options, "access-mode");
@@ -958,12 +950,12 @@ bdb_init_db (xlator_t *this,
     }
   }
   {
-    data_t *transaction = dict_get (options, "transaction");
+    data_t *mode = dict_get (options, "mode");
     
-    if (transaction && !strcmp (transaction->data, "off")) {
+    if (mode && !strcmp (mode->data, "cache")) {
       gf_log (this->name,
 	      GF_LOG_DEBUG,
-	      "transaction turned off");
+	      "\"mode = cache\" selected");
       private->envflags = DB_CREATE | DB_INIT_LOG | 
 	DB_INIT_MPOOL | DB_THREAD;
       private->dbflags = DB_CREATE | DB_THREAD;
@@ -971,12 +963,12 @@ bdb_init_db (xlator_t *this,
     } else {
       gf_log (this->name,
 	      GF_LOG_DEBUG,
-	      "transaction turned on");
+	      "\"mode = persistant\" selected");
       private->transaction = ON;
       private->envflags = DB_CREATE | DB_INIT_LOCK | DB_INIT_LOG | 
 	DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER | DB_THREAD;
       private->dbflags = DB_CREATE | DB_THREAD;
-    }
+    } 
   }
   {
     data_t *inode_bit_shift = dict_get (options, "inode-bit-shift");
@@ -1214,18 +1206,13 @@ bdb_init_db (xlator_t *this,
   {
     data_t *log_remove = dict_get (options, "log-auto-remove");
 
-    if (log_remove)
-      {
-	if (!strcasecmp (log_remove->data, "off"))
-	  {
-	    gf_log (this->name, GF_LOG_DEBUG, "not setting DB_LOG_AUTO_REMOVE");
-	  }
-      }
-    else
-      {
-	private->log_auto_remove = 1;
-	gf_log (this->name, GF_LOG_DEBUG, "DB_ENV will use DB_LOG_AUTO_REMOVE");
-      }
+    if (log_remove && !strcasecmp (log_remove->data, "off")) {
+      private->log_auto_remove = OFF;
+      gf_log (this->name, GF_LOG_DEBUG, "not setting DB_LOG_AUTO_REMOVE");
+    } else {
+      private->log_auto_remove = ON;
+      gf_log (this->name, GF_LOG_DEBUG, "DB_ENV will use DB_LOG_AUTO_REMOVE");
+    }
   }
 
 
