@@ -143,6 +143,9 @@ void argp_version_ (const char *version);
 
 #define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
 
+#include <sys/types.h>
+#include <dirent.h>
+
 static inline int32_t
 dirent_size (struct dirent *entry)
 {

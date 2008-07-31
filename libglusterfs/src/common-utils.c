@@ -194,7 +194,7 @@ gf_resolve_ip6 (const char *hostname,
   }
 
   if (!*dnscache) {
-    *dnscache = calloc (1, sizeof (**dnscache));
+    *dnscache = calloc (1, sizeof (struct dnscache6));
   }
 
   cache = *dnscache;

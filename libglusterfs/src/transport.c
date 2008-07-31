@@ -62,25 +62,22 @@ transport_load (dict_t *options,
     {
       dict_set (options, "transport-type", str_to_data ("socket"));
       if (!addr_family)
-	dict_set (options, "address-family", str_to_data ("inet"));
+	dict_set (options, "address-family", str_to_data ("inet/inet6"));
       gf_log ("transport", GF_LOG_DEBUG,
 	      "missing 'option transport-type'. defaulting to \"socket\" (%s)",
-	      addr_family?addr_family->data:"inet");
+	      addr_family?addr_family->data:"inet/inet6");
     }
   else
     {
       if ((strncmp (type_data->data, "tcp", 3) == 0) ||
 	  (strncmp (type_data->data, "unix", 4) == 0) ||
-	  (strncmp (type_data->data, "ipv6", 4) == 0) ||
 	  (strncmp (type_data->data, "ib-sdp", 6) == 0))
 	{
 	  dict_set (options, "transport-type", str_to_data ("socket"));
 	  if ((strncmp (type_data->data, "tcp", 3) == 0))
-	    dict_set (options, "address-family", str_to_data ("inet"));
+	    dict_set (options, "address-family", str_to_data ("inet/inet6"));
 	  if ((strncmp (type_data->data, "unix", 4) == 0))
 	    dict_set (options, "address-family", str_to_data ("unix"));
-	  if ((strncmp (type_data->data, "ipv6", 4) == 0))
-	    dict_set (options, "address-family", str_to_data ("inet6"));
 	  if ((strncmp (type_data->data, "ib-sdp", 6) == 0))
 	    dict_set (options, "address-family", str_to_data ("ib-sdp"));
 	}
@@ -91,7 +88,7 @@ transport_load (dict_t *options,
   } else {
     FREE (trans);
     gf_log ("transport", GF_LOG_ERROR,
-	    "'option transport-type <xxxx/_____>' missing in specification");
+	    "'option transport-type <xxxx>' missing in specification");
     return NULL;
   }
   {

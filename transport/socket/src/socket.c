@@ -868,6 +868,8 @@ socket_server_event_handler (int fd, int idx, void *data,
 	  transport_ref (new_trans);
 	  new_priv->idx = event_register (this->xl->ctx->event_pool, new_sock,
 					  socket_event_handler, new_trans, 1, 0);
+	  if (new_priv->idx == -1)
+		  ret = -1;
 	}
 	pthread_mutex_unlock (&new_priv->lock);
       }
@@ -996,6 +998,8 @@ socket_connect (transport_t *this)
 
     priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
 				socket_event_handler, this, 1, 1);
+    if (priv->idx == -1)
+	    ret -1;
   }
  unlock:
   pthread_mutex_unlock (&priv->lock);
@@ -1019,7 +1023,6 @@ socket_listen (transport_t *this)
     sock = priv->sock;
   }
   pthread_mutex_unlock (&priv->lock);
-  /*TODO: fall back to AF_INET if INET6 is not available*/
 
   if (sock != -1) 
     {
