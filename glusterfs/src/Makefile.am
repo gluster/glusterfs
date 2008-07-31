@@ -18,7 +18,7 @@ sbin_PROGRAMS = glusterfs
 
 glusterfs_SOURCES = glusterfs.c fetch-spec.c
 glusterfs_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
-glusterfs_LDFLAGS = $(GF_HOST_OS_FLAGS) $(GF_SOLARIS_GLUSTERFSD_LDFLAGS)
+glusterfs_LDFLAGS = $(GF_LDFLAGS) $(GF_GLUSTERFS_LDFLAGS)
 
 noinst_HEADERS = glusterfsd.h
 
