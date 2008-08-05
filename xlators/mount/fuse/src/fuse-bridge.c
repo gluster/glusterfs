@@ -2690,20 +2690,21 @@ init (xlator_t *this)
 
 #ifndef GF_DARWIN_HOST_OS
 		   "-o", "nonempty",
+		   "-o", "max_readahead=1048576",
+		   "-o", "max_read=1048576",
+		   "-o", "max_write=1048576",
 #else
 		   "-o", "noexec",
-		   "-o", "daemon_timeout=1048576",
+		   "-o", "auto_xattr", /* TODO: remove it once the proper support for com.apple.FinderInfo is added. */
+		   "-o", "volname=GlusterFS",
 #endif
 		   "-o", "allow_other",
 		   "-o", "default_permissions",
 		   "-o", source,
-		   "-o", "max_readahead=1048576",
-		   "-o", "max_read=1048576",
-		   "-o", "max_write=1048576",
 		   NULL };
 
 #ifdef GF_DARWIN_HOST_OS
-  argc = 17;
+  argc = 13;
 #else
   argc = 15;
 #endif

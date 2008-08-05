@@ -151,7 +151,8 @@ full_rwv (int32_t fd,
 void
 gf_print_bytes ()
 {
-  gf_log ("", 1, "xfer == %"PRId64", rcvd == %"PRId64"", 
+  gf_log ("glusterfs", GF_LOG_WARNING, 
+	  "Total data (in bytes): transfered (%"PRId64"), received (%"PRId64")", 
 	  total_bytes_xferd, total_bytes_rcvd);
 }
 
