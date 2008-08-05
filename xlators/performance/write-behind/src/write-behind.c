@@ -34,7 +34,8 @@
 #include "compat-errno.h"
 #include "common-utils.h"
 
-
+#define MAX_VECTOR_COUNT 8
+ 
 typedef struct list_head list_head_t;
 struct wb_conf;
 struct wb_page;
@@ -226,7 +227,7 @@ int32_t
 wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
 {
   wb_write_request_t *dummy = NULL, *request = NULL, *first_request = NULL;
-  size_t total_count = 0;
+  size_t total_count = 0, count = 0;
   size_t copied = 0;
   call_frame_t *sync_frame = NULL;
   dict_t *refs = NULL;
@@ -241,44 +242,60 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
       bytes += iov_length (request->vector, request->count);
     }
 
-  if (!total_count)
-    {
+  if (!total_count) {
       return 0;
     }
 
-  vector = malloc (VECTORSIZE (total_count));
-  refs = get_new_dict ();
-  refs->is_locked = 1;
-
-  local = calloc (1, sizeof (*local));
-  local->file = wb_file_ref (file);
-  INIT_LIST_HEAD (&local->winds);
-
   list_for_each_entry_safe (request, dummy, winds, winds)
     {
+      if ((count != 0) && (count + request->count > MAX_VECTOR_COUNT)) {
+	sync_frame = copy_frame (frame);  
+	sync_frame->local = local;
+	sync_frame->root->req_refs = dict_ref (refs);
+
+	STACK_WIND (sync_frame,
+		    wb_sync_cbk,
+		    FIRST_CHILD(sync_frame->this),
+		    FIRST_CHILD(sync_frame->this)->fops->writev,
+		    file->fd, vector,
+		    count, first_request->offset);
+	
+	dict_unref (refs);
+	FREE (vector);
+	first_request = NULL;
+	refs = NULL;
+	vector = NULL;
+	copied = count = 0;
+      }
+
+      if (!vector) {
+	vector = malloc (VECTORSIZE (MAX_VECTOR_COUNT));
+	refs = get_new_dict ();
+	refs->is_locked = 1;
+
+	local = calloc (1, sizeof (*local));
+	local->file = wb_file_ref (file);
+	INIT_LIST_HEAD (&local->winds);
+
+	first_request = request;
+      }
+
+      count += request->count;
       bytecount = VECTORSIZE (request->count);
       memcpy (((char *)vector)+copied,
 	      request->vector,
 	      bytecount);
       copied += bytecount;
 
-      if (request->refs)
-	{
+      if (request->refs) {
 	  dict_copy (request->refs, refs);
-	}
+      }
 
       list_del_init (&request->winds);
       list_add_tail (&request->winds, &local->winds);
-
-      if (!first_request)
-	{
-	  first_request = request;
-	}
     }
 
-
   sync_frame = copy_frame (frame);  
-
   sync_frame->local = local;
   sync_frame->root->req_refs = dict_ref (refs);
 
@@ -287,7 +304,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
 	      FIRST_CHILD(sync_frame->this),
 	      FIRST_CHILD(sync_frame->this)->fops->writev,
 	      file->fd, vector,
-	      total_count, first_request->offset);
+	      count, first_request->offset);
 
   dict_unref (refs);
   FREE (vector);
@@ -757,7 +774,7 @@ __wb_mark_wind_all (list_head_t *list, list_head_t *winds)
 
 
 size_t 
-__get_aggregate_size (list_head_t *list)
+__wb_get_aggregate_size (list_head_t *list)
 {
   wb_write_request_t *request = NULL;
   size_t size = 0;
@@ -777,15 +794,38 @@ __get_aggregate_size (list_head_t *list)
   return size;
 }
 
+uint32_t
+__wb_get_incomplete_writes (list_head_t *list)
+{
+  wb_write_request_t *request = NULL;
+  uint32_t count = 0;
+
+  list_for_each_entry (request, list, list)
+    {
+      LOCK (&request->lock);
+      {
+	if (request->stack_wound && !request->got_reply)
+	  {
+	    count++;
+	  }
+      }
+      UNLOCK (&request->lock);
+    }
+
+  return count;
+}
 
 int32_t
 __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf)
 {
   size_t aggregate_current = 0;
+  uint32_t incomplete_writes = 0;
 
-  aggregate_current = __get_aggregate_size (list);
+  incomplete_writes = __wb_get_incomplete_writes (list);
 
-  if (aggregate_current >= aggregate_conf)
+  aggregate_current = __wb_get_aggregate_size (list);
+
+  if ((incomplete_writes == 0) || (aggregate_current >= aggregate_conf))
     {
       __wb_mark_wind_all (list, winds);
     }
@@ -795,7 +835,7 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf)
 
 
 size_t
-__get_window_size (list_head_t *list)
+__wb_get_window_size (list_head_t *list)
 {
   wb_write_request_t *request = NULL;
   size_t size = 0;
@@ -857,7 +897,7 @@ __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds, size_t window_conf)
 {
   size_t window_current = 0;
 
-  window_current = __get_window_size (list);
+  window_current = __wb_get_window_size (list);
   if (window_current < window_conf)
     {
       window_current += __wb_mark_unwind_till (list, unwinds,
@@ -896,8 +936,7 @@ wb_do_ops (call_frame_t *frame, wb_file_t *file, list_head_t *winds, list_head_t
 {
   /* copy the frame before calling wb_stack_unwind, since this request containing current frame might get unwound */
   /*  call_frame_t *sync_frame = copy_frame (frame); */
-  /* or instead of copying frame, call wb_sync before unwind */
-
+ 
   wb_stack_unwind (unwinds);
   wb_sync (frame, file, winds);
 
@@ -1138,7 +1177,7 @@ wb_ffr_cbk (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 wb_flush (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
@@ -1177,7 +1216,7 @@ wb_flush (call_frame_t *frame,
 
     flush_frame->local = local;
 
-    wb_sync_all (frame, file);
+    wb_sync_all (flush_frame, file);
 
     STACK_WIND (flush_frame,
                 wb_ffr_bg_cbk,

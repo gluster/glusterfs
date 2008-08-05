@@ -858,6 +858,10 @@ socket_server_event_handler (int fd, int idx, void *data,
 
 	get_transport_identifiers (new_trans);
 	socket_init (new_trans);
+	new_trans->ops = this->ops;
+	new_trans->init = this->init;
+	new_trans->fini = this->fini;
+
 	new_priv = new_trans->private;
 
 	pthread_mutex_lock (&new_priv->lock);
@@ -1238,8 +1242,6 @@ static int32_t
 socket_init (transport_t *this)
 {
   socket_private_t *priv = NULL;
-
-  this->ops = &tops;
 
   if (this->private)
     {

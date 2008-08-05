@@ -1121,7 +1121,6 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
 
     if (!op_ret) {
       if (S_ISDIR (loc.inode->st_mode)) {
-	/*FIXME: check for O_DIRECTORY before calling opendir */
 	if ((flags & O_RDONLY) == O_RDONLY)
 	  op_ret = libgf_client_opendir (ctx, &loc, fd);
 	else {
