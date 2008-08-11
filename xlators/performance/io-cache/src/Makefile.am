@@ -18,6 +18,7 @@ xlator_PROGRAMS = io-cache.so
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
 io_cache_so_SOURCES = io-cache.c page.c ioc-inode.c
+io_cache_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = io-cache.h
 

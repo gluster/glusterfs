@@ -18,6 +18,7 @@ auth_PROGRAMS = login.so
 authdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/auth
 
 login_so_SOURCES = login.c
+login_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 #noinst_HEADERS = alu.h
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\

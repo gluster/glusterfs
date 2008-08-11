@@ -19,6 +19,7 @@ xlator_PROGRAMS = bdb.so
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/storage
 
 bdb_so_SOURCES = bctx.c bdb-ll.c bdb.c
+bdb_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la 
 
 noinst_HEADERS = bdb.h 
 

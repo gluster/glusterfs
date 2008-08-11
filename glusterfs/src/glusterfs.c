@@ -442,18 +442,16 @@ pidfile_update (int32_t fd)
   close (fd);
 }
 
-static char *pidfile;
 void 
 glusterfs_cleanup_and_exit (int signum)
 {
-  extern char *pidfile;
   glusterfs_ctx_t *ctx = get_global_ctx_ptr ();
 
   gf_log ("glusterfs", GF_LOG_WARNING, "shutting down server");
 
   gf_print_bytes();
-  if (pidfile)
-    unlink (pidfile);
+  if (ctx->pidfile)
+    unlink (ctx->pidfile);
 
   if (ctx->graph && ctx->mount_point)
     ((xlator_t *)ctx->graph)->fini (ctx->graph);
@@ -497,26 +495,29 @@ main (int32_t argc, char *argv[])
   LOCK_INIT (&pool->lock);
   INIT_LIST_HEAD (&pool->all_frames);
   
-  ret = stat (ctx->logfile, &stbuf);
-  if (((ret == 0) && (S_ISREG (stbuf.st_mode) || S_ISLNK (stbuf.st_mode))) || (ret == -1))
+  if (ctx->run_id) 
     {
+      ret = stat (ctx->logfile, &stbuf);
       /* If its /dev/null, or /dev/stdout, /dev/stderr, let it use the same, no need to alter */
-      /* Have seperate logfile per run */
-      char tmp_logfile[1024];
-      char timestr[256];
-      time_t utime = time (NULL);
-      struct tm *tm = localtime (&utime);
-      strftime (timestr, 256, "%Y%m%d.%H%M%S", tm); 
-      sprintf (tmp_logfile, "%s.%s.%d", ctx->logfile, timestr, getpid());
-
-      /* Create symlink to actual log file */
-      unlink (ctx->logfile);
-      symlink (tmp_logfile, ctx->logfile);
-
-      FREE (ctx->logfile);
-      ctx->logfile = strdup (tmp_logfile);      
+      if (((ret == 0) && (S_ISREG (stbuf.st_mode) || S_ISLNK (stbuf.st_mode))) 
+	  || (ret == -1))
+	{
+	  /* Have seperate logfile per run */
+	  char tmp_logfile[1024];
+	  char timestr[256];
+	  time_t utime = time (NULL);
+	  struct tm *tm = localtime (&utime);
+	  strftime (timestr, 256, "%Y%m%d.%H%M%S", tm); 
+	  sprintf (tmp_logfile, "%s.%s.%d", ctx->logfile, timestr, getpid());
+	  
+	  /* Create symlink to actual log file */
+	  unlink (ctx->logfile);
+	  symlink (tmp_logfile, ctx->logfile);
+	  
+	  FREE (ctx->logfile);
+	  ctx->logfile = strdup (tmp_logfile);      
+	}
     }
-
   if (gf_log_init (ctx->logfile) == -1) {
     fprintf (stderr,
 	     "glusterfs: failed to open logfile \"%s\"\n",
@@ -546,9 +547,6 @@ main (int32_t argc, char *argv[])
   }
   
   set_global_ctx_ptr (ctx);
-
-  /* This global is used in cleanup and exit */
-  pidfile = ctx->pidfile;
 
 #ifdef HAVE_MALLOC_STATS
 #ifdef DEBUG
@@ -583,37 +581,6 @@ main (int32_t argc, char *argv[])
     pidfd = pidfile_lock (ctx->pidfile);
 
   if (!ctx->foreground) {
-    /* customized ps output */
-
-    /* ps output should be something like this:
-     * "glusterfs -f specfile -l logfile -r runid mountpoint"
-     * "glusterfsd -f specfile -l logfile -r runid"
-     * 
-     * nothing extra, nothing less
-     */
-    /*
-    int i = 1;
-    if (ctx->specfile)
-      {
-	memcpy (argv[i++], "-f", 2);
-	memcpy (argv[i++], ctx->specfile, strlen (ctx->specfile));
-      }
-
-    if (ctx->run_id)
-      {
-	memcpy (argv[i++], "-r", 2);
-	memcpy (argv[i++], ctx->run_id, strlen (ctx->run_id));
-      }
-
-    if (ctx->mount_point)
-      {
-	memcpy (argv[i++], ctx->mount_point, strlen (ctx->mount_point));
-      }
-
-    for (;i<argc;i++)
-      memset (argv[i], ' ', strlen (argv[i]));
-    */
-
     daemon (0, 0);
   }
 
@@ -641,7 +608,8 @@ main (int32_t argc, char *argv[])
       /* Initialize fuse first */
       if (!(graph && (graph->init (graph) == 0)))
       {
-	  gf_log ("glusterfs", GF_LOG_ERROR, "Fuse Translator initialization failed. Exiting");
+	  gf_log ("glusterfs", GF_LOG_ERROR, 
+		  "Fuse Translator initialization failed. Exiting");
 	  return -1;
       }
       graph->ready = 1; /* Initialization Done */
@@ -650,7 +618,8 @@ main (int32_t argc, char *argv[])
   ctx->graph = graph;
   if (xlator_graph_init (graph) == -1) 
     {
-      gf_log ("glusterfs", GF_LOG_ERROR, "Error while initializing translators. Exiting");
+      gf_log ("glusterfs", GF_LOG_ERROR, 
+	      "Error while initializing translators. Exiting");
       if (ctx->mount_point) 
       {
         graph->fini (graph);
@@ -673,7 +642,7 @@ main (int32_t argc, char *argv[])
 	  /* Logically one can mount glusterfs with defining fuse volume in specfile, 
 	   * but not giving mountpoint on command line
 	   */
-	  if (!strcmp (trav->type, "mount/fuse\n"))
+	  if (!strcmp (trav->type, "mount/fuse"))
 	    {
 	      if (dict_get (trav->options, "mount-point"))
 		ctx->mount_point = strdup (data_to_str (dict_get (trav->options, "mount-point")));

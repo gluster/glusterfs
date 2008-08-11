@@ -19,6 +19,8 @@ xlator_PROGRAMS = server.so
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/protocol
 
 server_so_SOURCES = server-protocol.c
+server_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+
 noinst_HEADERS = server-protocol.h 
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \

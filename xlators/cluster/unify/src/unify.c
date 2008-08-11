@@ -629,20 +629,21 @@ unify_mkdir_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
   
-    if (op_ret == -1 && !(priv->optimist && 
-			  (op_errno == ENOENT || op_errno == EEXIST))) {
+    if ((op_ret == -1) && !(priv->optimist && 
+			    (op_errno == ENOENT || op_errno == EEXIST))) {
       /* TODO: Decrement the inode_generation of this->inode's parent inode, hence 
        * the missing directory is created properly by self-heal. Currently, there is 
        * no way to get the parent inode directly.
        */
       gf_log (this->name, GF_LOG_ERROR,
 	      "child(%s): path(%s): %s", 
-	      priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
-      local->failed = 1;
+	      priv->xl_array[(long)cookie]->name, (local->name)?local->name:"", strerror (op_errno));
+      if (op_errno != EEXIST)
+	local->failed = 1;
       local->op_errno = op_errno;
     }
   
-    if (op_ret >= 0) {
+    if ((op_ret >= 0) || ((op_ret == -1) && (op_errno == EEXIST)) {
       local->op_ret = 0;
       /* This is to be used as hint from the inode and also mapping */
       local->list[local->index++] = (int16_t)(long)cookie;

@@ -19,6 +19,8 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
 read_ahead_so_SOURCES = read-ahead.c page.c
 
+read_ahead_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+
 noinst_HEADERS = read-ahead.h
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\

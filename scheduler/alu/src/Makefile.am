@@ -18,6 +18,8 @@ sched_PROGRAMS = alu.so
 scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
 alu_so_SOURCES = alu.c
+alu_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+
 noinst_HEADERS = alu.h
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\

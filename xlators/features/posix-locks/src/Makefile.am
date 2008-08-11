@@ -18,6 +18,8 @@ xlator_PROGRAMS = posix-locks.so
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 posix_locks_so_SOURCES = posix-locks.c
+posix_locks_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la 
+
 noinst_HEADERS = posix-locks.h
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \

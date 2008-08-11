@@ -87,6 +87,9 @@ struct _server_state {
   transport_t *trans;
   xlator_t *bound_xl;
   inode_t *inode, *inode2;
+  char *path;
+  char is_revalidate;
+  char need_xattr;
 };
 
 

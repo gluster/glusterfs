@@ -1948,6 +1948,25 @@ server_lookup_cbk (call_frame_t *frame,
   gf_hdr_common_t *hdr = NULL;
   size_t hdrlen = 0;
   gf_fop_lookup_rsp_t *rsp = NULL;
+  server_state_t *state = STATE (frame);
+
+  if ((op_errno == ESTALE) && (op_ret == -1))
+    {
+      /* Send lookup again with new ctx dictionary */
+      loc_t loc = {0,};
+
+      inode_unref (state->inode);
+      state->inode = dummy_inode (BOUND_XL(frame)->itable);
+      loc.inode = state->inode;
+      loc.path = state->path;
+      state->is_revalidate = 2;
+      STACK_WIND (frame,          server_lookup_cbk,
+		  BOUND_XL(frame),
+		  BOUND_XL(frame)->fops->lookup,
+		  &loc,
+		  state->need_xattr);
+      return 0;
+    }
 
   if (dict)
     {
@@ -1962,23 +1981,20 @@ server_lookup_cbk (call_frame_t *frame,
   hdr->rsp.op_ret   = hton32 (op_ret);
   hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
-  if (op_ret == 0)
-    {
-      gf_stat_from_stat (&rsp->stat, stbuf);
-      rsp->dict_len = hton32 (dict_len);
-      if (dict)
-        dict_serialize (dict, rsp->dict);
-    }
-
   if (op_ret == 0) {
+    gf_stat_from_stat (&rsp->stat, stbuf);
+    rsp->dict_len = hton32 (dict_len);
+    if (dict)
+      dict_serialize (dict, rsp->dict);
+    
     root_inode = BOUND_XL(frame)->itable->root;
     if (inode == root_inode) {
       /* we just looked up root ("/") */
       stbuf->st_ino = 1;
       if (!inode->st_mode)
-        inode->st_mode = stbuf->st_mode;
+	inode->st_mode = stbuf->st_mode;
     }
-
+    
     if (!inode->ino) {
       server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
 
@@ -1990,12 +2006,14 @@ server_lookup_cbk (call_frame_t *frame,
           server_inode->generation = inode->generation;
         }
       }
-
+      
       inode_lookup (server_inode);
       inode_unref (server_inode);
     }
-
   }
+
+  if (state->path)
+    FREE (state->path);
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOOKUP,
                          hdr, hdrlen, NULL, 0, NULL);
@@ -2549,11 +2567,16 @@ server_lookup (call_frame_t *frame,
   if (loc.inode) {
     /* revalidate */
     state->inode = loc.inode;
+    state->is_revalidate = 1;
   } else {
     /* fresh lookup or inode was previously pruned out */
     state->inode = dummy_inode (bound_xl->itable);
     loc.inode = state->inode;
+    state->is_revalidate = -1;
   }
+
+  state->path = strdup (loc.path);
+  state->need_xattr = need_xattr;
 
   STACK_WIND (frame,          server_lookup_cbk,
               bound_xl,
