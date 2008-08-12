@@ -643,7 +643,7 @@ unify_mkdir_cbk (call_frame_t *frame,
       local->op_errno = op_errno;
     }
   
-    if ((op_ret >= 0) || ((op_ret == -1) && (op_errno == EEXIST)) {
+    if ((op_ret >= 0) || ((op_ret == -1) && (op_errno == EEXIST))) {
       local->op_ret = 0;
       /* This is to be used as hint from the inode and also mapping */
       local->list[local->index++] = (int16_t)(long)cookie;
