@@ -90,11 +90,11 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         dict_t *    xattr              = NULL;
         ssize_t     xattr_size         = 0;
         char *      databuf            = NULL;
-        data_t *    databuf_data       = NULL;
         const int   val_size           = 64;
         int         _fd                = -1;
         char        version[val_size];
-        char        ctime[val_size];    
+        char        ctime[val_size];
+	int ret                        = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -106,9 +106,11 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         op_ret   = lstat (real_path, &buf);
         op_errno = errno;
 
-        if ((op_ret == -1) && (op_errno != ENOENT)) {
-                gf_log (this->name, GF_LOG_WARNING, "lstat on %s failed: %s", 
-                        loc->path, strerror (op_errno));
+        if (op_ret == -1) {
+		if (op_errno != ENOENT) {
+			gf_log (this->name, GF_LOG_WARNING, "lstat on %s failed: %s", 
+				loc->path, strerror (op_errno));
+		}
                 goto out;
         }
 
@@ -138,20 +140,20 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 
                         _fd = open (real_path, O_RDONLY);
 
+                        if (_fd == -1) {
+                                op_errno = errno;
+                                gf_log (this->name, GF_LOG_ERROR, 
+                                        "opening file %s failed: %s",
+                                        real_path, strerror (op_errno));
+                                goto out;
+                        }
+      
                         databuf = malloc (buf.st_size);
 
                         if (!databuf) {
                                 op_errno = errno;
                                 gf_log (this->name, GF_LOG_ERROR, 
                                         "out of memory :(");
-                                goto out;
-                        }
-      
-                        if (_fd == -1) {
-                                op_errno = errno;
-                                gf_log (this->name, GF_LOG_ERROR, 
-                                        "opening file %s failed: %s",
-                                        real_path, strerror (op_errno));
                                 goto out;
                         }
       
@@ -173,20 +175,36 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                                 goto out;
                         }
       
-                        databuf_data = bin_to_data (databuf, buf.st_size);
-                        databuf_data->is_static = 0;
+                        ret = dict_set_bin (xattr, "glusterfs.content", 
+					    databuf, buf.st_size);
+			if (ret < 0) {
+				op_errno = -ret;
+				goto out;
+			}
 
-                        dict_set (xattr, "glusterfs.content", databuf_data);
+			/* To avoid double free in cleanup below */
+			databuf = NULL;
                 }
         }
-
+	
+	op_ret = 0;
  out:
         frame->root->rsp_refs = NULL;
+	if (op_ret == -1) {
+		if (databuf)
+			FREE (databuf);
+		if (_fd > 0) {
+			close (_fd);
+			_fd = -1;
+		}
+		if (xattr) {
+			dict_destroy (xattr);
+			xattr = NULL;
+		}
+	}
+
         if (xattr)
                 dict_ref (xattr);
-
-        if (databuf)
-                FREE (databuf);
 
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &buf, xattr);
 
@@ -2708,7 +2726,13 @@ create_entry (xlator_t *this, int32_t flags,
                                         goto out;
                                 }
                         }
-                }
+                } else {
+			gf_log (this->name, GF_LOG_ERROR,
+				"invalid mode 0%o for %s", entry->buf.st_mode,
+				pathname);
+			op_ret = -EINVAL;
+			goto out;
+		}
         }
  out:
         return op_ret;
@@ -2816,7 +2840,7 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
                 }
 
                 if (flags & GF_SET_EPOCH_TIME) {
-                        ret = utimes (pathname, tv); /* FIXME check return value */
+                        ret = utimes (pathname, tv);
                         if (ret == -1) {
                                 op_errno = errno;
                                 gf_log (this->name, GF_LOG_ERROR,
