@@ -4592,12 +4592,17 @@ init (xlator_t *this)
 
     /* self-heal part, start with generation '1' */
     _private->inode_generation = 1; 
-    _private->self_heal = 1;
+    _private->self_heal = GF_UNIFY_BG_SELF_HEAL;
     data = dict_get (this->options, "self-heal");
     if (data) {
-      if (strcmp (data->data, "off") == 0) {
-	_private->self_heal = 0;
-      }
+      if (strcasecmp (data->data, "off") == 0) 
+	_private->self_heal = GF_UNIFY_SELF_HEAL_OFF; /* 0 */
+
+      if (strcasecmp (data->data, "foreground") == 0)
+	_private->self_heal = GF_UNIFY_FG_SELF_HEAL;
+
+      if (strcasecmp (data->data, "background") == 0)
+	_private->self_heal = GF_UNIFY_BG_SELF_HEAL;
     }
     
     /* optimist - ask bulde for more about it */

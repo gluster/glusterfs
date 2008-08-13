@@ -30,8 +30,13 @@
 
 #define MAX_DIR_ENTRY_STRING     (32 * 1024)
 
-#define NS(xl)          (((unify_private_t *)xl->private)->namespace)
+#define GF_UNIFY_SELF_HEAL_OFF 0
+#define GF_UNIFY_FG_SELF_HEAL  1
+#define GF_UNIFY_BG_SELF_HEAL  2
 
+#define UNIFY_SELF_HEAL_GETDENTS_COUNT 2345 /* Sometimes one should use completely random numbers.. its good :p */
+
+#define NS(xl)          (((unify_private_t *)xl->private)->namespace)
 
 /* This is used to allocate memory for local structure */
 #define INIT_LOCAL(fr, loc)                   \
