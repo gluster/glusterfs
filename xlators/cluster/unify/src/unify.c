@@ -4592,7 +4592,7 @@ init (xlator_t *this)
 
     /* self-heal part, start with generation '1' */
     _private->inode_generation = 1; 
-    _private->self_heal = GF_UNIFY_BG_SELF_HEAL;
+    _private->self_heal = GF_UNIFY_FG_SELF_HEAL; /* Because, Foreground part is tested well */
     data = dict_get (this->options, "self-heal");
     if (data) {
       if (strcasecmp (data->data, "off") == 0) 

@@ -149,6 +149,7 @@ volume bricks
   option namespace client-ns # this will not be storage child of unify.
   subvolumes client1 client2 client3
 ### ** ALU Scheduler Option **
+  option self-heal background # foreground off # default is foreground
   option scheduler alu
   option alu.limits.min-free-disk  5% #%
   option alu.limits.max-open-files 10000

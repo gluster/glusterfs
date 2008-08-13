@@ -72,7 +72,7 @@
 # cluster/unify:
      option scheduler [rr|alu|random|nufa] * 
      option namespace <volume> *
-     option self-heal [on|off] (on)
+     option self-heal [off|foreground|background] (foreground)
      option optimist on (not set)
      option inode-lru-limit <n> (1000)
 #  > Option of Schedulers:

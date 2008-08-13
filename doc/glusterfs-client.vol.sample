@@ -18,7 +18,6 @@
 volume client
   type protocol/client
   option transport-type tcp
-# option transport-type ipv6
 # option transport-type unix
 # option transport-type ib-sdp
 # option transport-type ib-verbs

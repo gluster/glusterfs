@@ -27,7 +27,6 @@ volume server
   option transport-type tcp
 # option transport-type ib-sdp
 # option transport-type ib-verbs
-# option transport-type ipv6
 # option transport-type unix
 # option ib-verbs-work-request-send-size  131072
 # option ib-verbs-work-request-send-count 64

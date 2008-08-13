@@ -1955,8 +1955,12 @@ server_lookup_cbk (call_frame_t *frame,
       /* Send lookup again with new ctx dictionary */
       loc_t loc = {0,};
 
-      inode_unref (state->inode);
-      state->inode = dummy_inode (BOUND_XL(frame)->itable);
+      root_inode = BOUND_XL(frame)->itable->root;
+      if (state->inode != root_inode) {
+	inode_unref (state->inode);
+	state->inode = NULL;
+	state->inode = dummy_inode (BOUND_XL(frame)->itable);
+      }
       loc.inode = state->inode;
       loc.path = state->path;
       state->is_revalidate = 2;

@@ -2751,9 +2751,19 @@ init (xlator_t *this)
 	}
       else 
 	{
-	  gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
-		  "fuse_mount failed on %s (%s)\n", 
-		  mount_point, strerror (errno));
+	  if (errno == ENOENT)
+	    {
+	      gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
+		      "either 'fuse' module not present, or mountpoint '%s' not exists\n"\
+		      "Do 'modprobe fuse' or 'mkdir -p %s' to fix this error, and run glusterfs again", 
+		      mount_point, mount_point);
+	    }
+	  else 
+	    {
+	      gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
+		      "fuse_mount failed on %s (%s)\n", 
+		      mount_point, strerror (errno));
+	    }
 	}
     fuse_opt_free_args(&args);
     goto err_free;
