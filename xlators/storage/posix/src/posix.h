@@ -50,39 +50,50 @@
 #include "inode.h"
 #include "compat.h"
 
+/**
+ * posix_fd - internal structure common to file and directory fd's
+ */
+
 struct posix_fd {
-  int fd;
-  int32_t flags;
-  char *path;
-  DIR *dir;
+	int     fd;      /* fd returned by the kernel */
+	int32_t flags;   /* flags for open/creat      */
+	char *  path;    /* used by setdents/getdents */
+	DIR *   dir;     /* handle returned by the kernel */
 };
 
 struct posix_private {
-  inode_table_t *itable;
-  int32_t temp;
-  char is_stateless;
-  char *base_path;
-  int32_t base_path_length;
+	char *base_path;
+	int32_t base_path_length;
 
-  struct xlator_stats stats; /* Statastics, provides activity of the server */
+        /* Statistics, provides activity of the server */
+	struct xlator_stats stats; 
   
-  struct timeval prev_fetch_time;
-  struct timeval init_time;
-  int32_t max_read;            /* */
-  int32_t max_write;           /* */
-  int64_t interval_read;      /* Used to calculate the max_read value */
-  int64_t interval_write;     /* Used to calculate the max_write value */
-  int64_t read_value;    /* Total read, from init */
-  int64_t write_value;   /* Total write, from init */
+	struct timeval prev_fetch_time;
+	struct timeval init_time;
 
-/* 
-   Some times, there may be an extra export from the same partition,
-   in that case + statvfs output of which may not be desired on client,
-   hence don't send statvfs + info to client, so the output of df over
-   GlusterFS will be sane. 
+	int32_t max_read;            /* */
+	int32_t max_write;           /* */
+	int64_t interval_read;      /* Used to calculate the max_read value */
+	int64_t interval_write;     /* Used to calculate the max_write value */
+	int64_t read_value;    /* Total read, from init */
+	int64_t write_value;   /* Total write, from init */
+
+/*
+   In some cases, two exported volumes may reside on the same
+   partition on the server. Sending statvfs info for both
+   the volumes will lead to erroneous df output at the client,
+   since free space on the partition will be counted twice.
+
+   In such cases, user can disable exporting statvfs info
+   on one of the volumes by setting this option.
 */
-  char    export_statfs;
-  char    o_direct;      /* always open files in O_DIRECT mode */
+	char    export_statfs;
+
+	char    o_direct;     /* always open files in O_DIRECT mode */
 };
+
+#define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
+
+#define POSIX_BASE_PATH_LEN(this) (((struct posix_private *)this->private)->base_path_length)
 
 #endif /* _POSIX_H */

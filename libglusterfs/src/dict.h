@@ -144,4 +144,7 @@ int dict_get_int32 (dict_t *this, char *key, int32_t *val);
 
 int dict_get_ptr (dict_t *this, char *key, void **ptr);
 int dict_set_ptr (dict_t *this, char *key, void *ptr);
+
+int dict_set_bin (dict_t *this, char *key, void *ptr, size_t size);
+
 #endif

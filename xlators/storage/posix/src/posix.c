@@ -68,14 +68,13 @@
 #endif
 
 #define MAKE_REAL_PATH(var, this, path) do {                            \
-                int base_len = ((struct posix_private *)this->private)->base_path_length; \
-                var = alloca (strlen (path) + base_len + 2);            \
-                strcpy (var, ((struct posix_private *)this->private)->base_path); \
-                strcpy (&var[base_len], path);                          \
+		var = alloca (strlen (path) + POSIX_BASE_PATH_LEN(this) + 2); \
+                strcpy (var, POSIX_BASE_PATH(this));			\
+                strcpy (&var[POSIX_BASE_PATH_LEN(this)], path);		\
         } while (0)
 
 /* Log once in GF_UNIVERSAL_ANSWER times */
-#define GF_LOG_OCCASIONALLY(var, args...) if (!(var++ % GF_UNIVERSAL_ANSWER)) { \
+#define GF_LOG_OCCASIONALLY(var, args...) if (!(var++ % GF_UNIVERSAL_ANSWER)) {\
                 gf_log (args);                                          \
         }
 
@@ -520,6 +519,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
                 if (count == size)
                         break;
         }
+
         FREE (entry_path);
 
         op_ret = 0;
@@ -1810,6 +1810,7 @@ posix_close (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_WARNING, 
                         "close(): %s", strerror (op_errno));
+		goto out;
         }
 
         if (pfd->dir) {
@@ -1823,10 +1824,8 @@ posix_close (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
-        if (op_ret == -1) {
-                if (pfd)
-                        free (pfd);
-        }
+	if (pfd)
+		FREE (pfd);
 
         frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
