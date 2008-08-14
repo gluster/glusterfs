@@ -1003,7 +1003,7 @@ socket_connect (transport_t *this)
     priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
 				socket_event_handler, this, 1, 1);
     if (priv->idx == -1)
-	    ret -1;
+      ret = -1;
   }
  unlock:
   pthread_mutex_unlock (&priv->lock);

@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <netdb.h>
+#include <string.h>
 
 #ifdef CLIENT_PORT_CIELING
 #undef CLIENT_PORT_CIELING
@@ -513,7 +514,7 @@ server_get_local_sockaddr (transport_t *this, struct sockaddr *addr, socklen_t *
 int32_t
 get_transport_identifiers (transport_t *this)
 {
-  int32_t ret = 0;
+  int32_t ret = 0, i = 0;
   char is_inet_sdp = 0;
   switch (((struct sockaddr *) &this->myinfo.sockaddr)->sa_family)
     {
@@ -537,7 +538,13 @@ get_transport_identifiers (transport_t *this)
 		  "getnameinfo failed (%s)", gai_strerror (ret));
 	  goto err;
 	}
-	sprintf (this->myinfo.identifier, "%s:%s", host, service);
+
+	if (((struct sockaddr *) &this->myinfo.sockaddr)->sa_family == AF_INET6 &&
+	    strchr (host, '.')) {
+	  i = strlen ("::ffff:");
+	}
+
+	sprintf (this->myinfo.identifier, "%s:%s", host + i, service);
 
 	ret = getnameinfo ((struct sockaddr *)&this->peerinfo.sockaddr, 
 			   this->peerinfo.sockaddr_len,
@@ -551,7 +558,13 @@ get_transport_identifiers (transport_t *this)
 	  goto err;
 	}
 
-	sprintf (this->peerinfo.identifier, "%s:%s", host, service);
+	i = 0;
+	if (((struct sockaddr *) &this->peerinfo.sockaddr)->sa_family == AF_INET6 &&
+	    strchr (host, '.')) {
+	  i = strlen ("::ffff:");
+	}
+
+	sprintf (this->peerinfo.identifier, "%s:%s", host + i, service);
 
 	if (is_inet_sdp) {
 	  ((struct sockaddr *) &this->peerinfo.sockaddr)->sa_family = ((struct sockaddr *) &this->myinfo.sockaddr)->sa_family = AF_INET_SDP;

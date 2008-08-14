@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <netdb.h>
+#include <string.h>
 
 #ifdef CLIENT_PORT_CIELING
 #undef CLIENT_PORT_CIELING
@@ -510,11 +511,73 @@ server_get_local_sockaddr (transport_t *this, struct sockaddr *addr, socklen_t *
   return ret;
 }
 
+int32_t 
+fill_inet6_inet_identifiers (transport_t *this, struct sockaddr_storage *addr, 
+			     int32_t addr_len, char *identifier)
+{
+  int32_t ret = 0, tmpaddr_len = 0;
+  char service[NI_MAXSERV], host[NI_MAXHOST];
+  struct sockaddr_storage tmpaddr;
+
+  memset (&tmpaddr, 0, sizeof (tmpaddr));
+  tmpaddr = *addr;
+  tmpaddr_len = addr_len;
+
+  if (((struct sockaddr *) &tmpaddr)->sa_family == AF_INET6) {
+    int32_t one_to_four, four_to_eight, twelve_to_sixteen;
+    int16_t eight_to_ten, ten_to_twelve;
+    
+    one_to_four = four_to_eight = twelve_to_sixteen = 0;
+    eight_to_ten = ten_to_twelve = 0;
+    
+    one_to_four = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.in6_u.u6_addr32[0];
+    four_to_eight = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.in6_u.u6_addr32[1];
+    eight_to_ten = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.in6_u.u6_addr16[4];
+    ten_to_twelve = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.in6_u.u6_addr16[5];
+    twelve_to_sixteen = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.in6_u.u6_addr32[3];
+
+    /* ipv4 mapped ipv6 address has
+       bits 0-80: 0
+       bits 80-96: 0xffff
+       bits 96-128: ipv4 address 
+    */
+ 
+    if (one_to_four == 0 &&
+	four_to_eight == 0 &&
+	eight_to_ten == 0 &&
+	ten_to_twelve == -1) {
+      struct sockaddr_in *in_ptr = (struct sockaddr_in *)&tmpaddr;
+      memset (&tmpaddr, 0, sizeof (tmpaddr));
+      
+      in_ptr->sin_family = AF_INET;
+      in_ptr->sin_port = ((struct sockaddr_in6 *)addr)->sin6_port;
+      in_ptr->sin_addr.s_addr = twelve_to_sixteen;
+      tmpaddr_len = sizeof (*in_ptr);
+    }
+  }
+
+  ret = getnameinfo ((struct sockaddr *) &tmpaddr,
+		     tmpaddr_len,
+		     host, sizeof (host),
+		     service, sizeof (service),
+		     NI_NUMERICHOST);
+  if (ret != 0) {
+    gf_log (this->xl->name,
+	    GF_LOG_ERROR,
+	    "getnameinfo failed (%s)", gai_strerror (ret));
+  }
+
+  sprintf (identifier, "%s:%s", host, service);
+
+  return ret;
+}
+
 int32_t
 get_transport_identifiers (transport_t *this)
 {
   int32_t ret = 0;
   char is_inet_sdp = 0;
+
   switch (((struct sockaddr *) &this->myinfo.sockaddr)->sa_family)
     {
     case AF_INET_SDP:
@@ -524,34 +587,27 @@ get_transport_identifiers (transport_t *this)
     case AF_INET:
     case AF_INET6:
       {
-	char service[NI_MAXSERV], host[NI_MAXHOST];
-
-        ret = getnameinfo((struct sockaddr *)&this->myinfo.sockaddr, 
-			  this->myinfo.sockaddr_len,
-			  host, sizeof (host),
-			  service, sizeof (service),
-			  NI_NUMERICHOST);
-	if (ret != 0) {
+	ret = fill_inet6_inet_identifiers (this, 
+					   &this->myinfo.sockaddr, 
+					   this->myinfo.sockaddr_len,
+					   this->myinfo.identifier);
+	if (ret == -1) {
 	  gf_log (this->xl->name,
 		  GF_LOG_ERROR,
-		  "getnameinfo failed (%s)", gai_strerror (ret));
-	  goto err;
-	}
-	sprintf (this->myinfo.identifier, "%s:%s", host, service);
-
-	ret = getnameinfo ((struct sockaddr *)&this->peerinfo.sockaddr, 
-			   this->peerinfo.sockaddr_len,
-			   host, sizeof (host),
-			   service, sizeof (service),
-			   NI_NUMERICHOST);
-	if (ret != 0) {
-	  gf_log (this->xl->name,
-		  GF_LOG_ERROR,
-		  "getnameinfo failed (%s)", gai_strerror (ret));
+		  "cannot fill inet/inet6 identifier for server");
 	  goto err;
 	}
 
-	sprintf (this->peerinfo.identifier, "%s:%s", host, service);
+	ret = fill_inet6_inet_identifiers (this,
+					   &this->peerinfo.sockaddr,
+					   this->peerinfo.sockaddr_len,
+					   this->peerinfo.identifier);
+	if (ret == -1) {
+	  gf_log (this->xl->name,
+		  GF_LOG_ERROR,
+		  "cannot fill inet/inet6 identifier for client");
+	  goto err;
+	}
 
 	if (is_inet_sdp) {
 	  ((struct sockaddr *) &this->peerinfo.sockaddr)->sa_family = ((struct sockaddr *) &this->myinfo.sockaddr)->sa_family = AF_INET_SDP;

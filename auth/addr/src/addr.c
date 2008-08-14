@@ -41,11 +41,10 @@ gf_auth (dict_t *input_params, dict_t *config_params)
 {
   char *name = NULL;
   char *searchstr = NULL;
-  char peer_addr[NI_MAXHOST];
+  char peer_addr[UNIX_PATH_MAX];
   data_t *peer_info_data = NULL;
   peer_info_t *peer_info = NULL;
   data_t *allow_addr = NULL, *reject_addr = NULL;
-  int32_t ret = 0;
   char is_inet_sdp = 0;
 
   name = data_to_str (dict_get (input_params, "remote-subvolume"));
@@ -92,23 +91,15 @@ gf_auth (dict_t *input_params, dict_t *config_params)
     case AF_INET:
     case AF_INET6:
       {
-	char service[NI_MAXSERV];
+	char *service;
 	uint16_t peer_port;
-	ret = getnameinfo ((struct sockaddr *)&peer_info->sockaddr,
-			   peer_info->sockaddr_len,
-			   peer_addr, NI_MAXHOST,
-			   service, NI_MAXSERV,
-			   NI_NUMERICHOST);
+	strcpy (peer_addr, peer_info->identifier);
+	service = strrchr (peer_addr, ':');
+	*service = '\0';
+	service ++;
 
 	if (is_inet_sdp) {
 	  ((struct sockaddr *) &peer_info->sockaddr)->sa_family = AF_INET_SDP;
-	}
-
-	if (ret) {
-	  gf_log ("auth/addr", 
-		  GF_LOG_ERROR,
-		  "getnameinfo failed:%s", gai_strerror (ret));
-	  return AUTH_DONT_CARE;
 	}
 
 	peer_port = atoi (service);

@@ -3945,7 +3945,7 @@ client_setvolume_cbk (call_frame_t *frame,
   dict_t *reply = NULL;
   gf_mop_setvolume_rsp_t *rsp = NULL;
   client_proto_priv_t *priv = NULL;
-  char *remote_error;
+  char *remote_error = NULL;
   int32_t remote_errno = ENOTCONN;
   int32_t ret = -1;
   xlator_list_t *parent = NULL;
@@ -3971,13 +3971,11 @@ client_setvolume_cbk (call_frame_t *frame,
 
   if (dict_get (reply, "ERROR"))
     remote_error = data_to_str (dict_get (reply, "ERROR"));
-  else
-    remote_error = "Unknown Error";
 
   if (ret < 0) {
     gf_log (trans->xl->name, GF_LOG_ERROR,
-            "SETVOLUME on remote-host failed: ret=%d error=%s",
-            ret,  remote_error);
+            "SETVOLUME on remote-host failed: ret=%d error=%s", ret,  
+	    remote_error ? remote_error : strerror (remote_errno));
     errno = remote_errno;
   } else {
     gf_log (trans->xl->name, GF_LOG_DEBUG,
