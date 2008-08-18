@@ -1613,14 +1613,6 @@ posix_writev (call_frame_t *frame, xlator_t *this,
         if (pfd->flags & O_DIRECT) {
                 /* This is O_DIRECT'd file */
 
-                if (offset % align) {
-                        /* Return EINVAL */
-                        gf_log (this->name, GF_LOG_ERROR, 
-                                "O_DIRECT: offset is Invalid");
-                        op_errno = EINVAL;
-                        goto out;
-                }
-    
                 for (idx = 0; idx < count; idx++) {
                         if (max_buf_size < vector[idx].iov_len)
                                 max_buf_size = vector[idx].iov_len;
