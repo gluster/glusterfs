@@ -187,7 +187,9 @@ argp_parse_ (const struct argp * __argp,
 	       basename (__argv[0]), basename (__argv[0]));
     
     __argp->parser (c, optarg, &state);
-    option_index += 1 + optarg?1:0;
+    option_index++;
+    if (optarg != NULL)
+      option_index++;
   }
 
   while (option_index < __argc) {

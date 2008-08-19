@@ -530,11 +530,11 @@ fill_inet6_inet_identifiers (transport_t *this, struct sockaddr_storage *addr,
     one_to_four = four_to_eight = twelve_to_sixteen = 0;
     eight_to_ten = ten_to_twelve = 0;
     
-    one_to_four = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.in6_u.u6_addr32[0];
-    four_to_eight = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.in6_u.u6_addr32[1];
-    eight_to_ten = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.in6_u.u6_addr16[4];
-    ten_to_twelve = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.in6_u.u6_addr16[5];
-    twelve_to_sixteen = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.in6_u.u6_addr32[3];
+    one_to_four = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr32[0];
+    four_to_eight = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr32[1];
+    eight_to_ten = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr16[4];
+    ten_to_twelve = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr16[5];
+    twelve_to_sixteen = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr32[3];
 
     /* ipv4 mapped ipv6 address has
        bits 0-80: 0
