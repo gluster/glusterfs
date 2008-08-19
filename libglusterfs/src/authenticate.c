@@ -41,11 +41,13 @@ init (dict_t *this,
   char *auth_file = NULL;
   auth_handle_t *auth_handle = NULL;
   auth_fn_t authenticate = NULL;
+  int *error = (int *) data;
 
   if (!strncasecmp (key, "ip", strlen ("ip"))) {
     gf_log ("authenticate", GF_LOG_ERROR,
 	    "AUTHENTICATION MODULE \"IP\" HAS BEEN REPLACED BY \"ADDR\"");
     dict_set (this, key, data_from_dynptr (NULL, 0));
+    *error = -1;
     return;
   }
 
@@ -56,6 +58,7 @@ init (dict_t *this,
 	    auth_file, dlerror ());
     dict_set (this, key, data_from_dynptr (NULL, 0));
     FREE (auth_file);
+    *error = -1;
     return;
   }
   FREE (auth_file);
@@ -65,6 +68,7 @@ init (dict_t *this,
     gf_log ("authenticate", GF_LOG_ERROR,
 	    "dlsym(gf_auth) on %s\n", dlerror ());
     dict_set (this, key, data_from_dynptr (NULL, 0));
+    *error = -1;
     return;
   }
 
@@ -72,6 +76,7 @@ init (dict_t *this,
   if (!auth_handle) {
     gf_log ("authenticate", GF_LOG_ERROR, "Out of memory");
     dict_set (this, key, data_from_dynptr (NULL, 0));
+    *error = -1;
     return;
   }
 

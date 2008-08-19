@@ -2374,9 +2374,6 @@ fuse_getlk_cbk (call_frame_t *frame,
 	gf_fuse_lk_enosys_log++;
 	if (!(gf_fuse_lk_enosys_log % GF_UNIVERSAL_ANSWER))
 	  {
-	    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-		    "%"PRId64": ERR => -1 (%s)", frame->root->unique, 
-		    strerror(op_errno));
 	    gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
 		    "[ ERROR ] loading 'features/posix-locks' on server side may help your application");
 	  }
@@ -2441,9 +2438,6 @@ fuse_setlk_cbk (call_frame_t *frame,
 	gf_fuse_lk_enosys_log++;
 	if (!(gf_fuse_lk_enosys_log % GF_UNIVERSAL_ANSWER))
 	  {
-	    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-		    "%"PRId64": ERR => -1 (%s)", frame->root->unique, 
-		    strerror(op_errno));
 	    gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
 		    "[ ERROR ] loading 'features/posix-locks' on server side may help your application");
 	  }
@@ -2641,7 +2635,10 @@ notify (xlator_t *this, int32_t event,
        * if the client is not connected, it give 'Device not configured' error. Hence, create thread only when 
        * client sends CHILD_UP (ie, client is connected).
        */
-    case GF_EVENT_CHILD_CONNECTING:
+      /* TODO: some how, try to get the mountpoint active as soon as init() is complete, so that the hang 
+       * effect when server is not started is removed 
+       */
+      /* case GF_EVENT_CHILD_CONNECTING: */
 #endif /* DARWIN */
 
       {
