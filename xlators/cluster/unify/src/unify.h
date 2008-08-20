@@ -112,7 +112,10 @@ struct _unify_local_t {
   int16_t index;
 
   int32_t failed;
-  
+  int64_t inode_generation; /* used to store the per directory inode_generation. 
+			     * Got from inode->ctx of directory inodes
+			     */
+
   struct unify_self_heal_struct *sh_struct;
 };
 typedef struct _unify_local_t unify_local_t;

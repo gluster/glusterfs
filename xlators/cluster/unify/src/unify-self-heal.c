@@ -136,7 +136,6 @@ unify_sh_setdents_cbk (call_frame_t *frame,
   int32_t callcnt = -1;
   unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
-  int16_t *list = local->list;
   int32_t index = 0;
 
   LOCK (&frame->lock);
@@ -150,19 +149,14 @@ unify_sh_setdents_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt && local->flags) {
-    local->call_count = 0;
-    for (index = 0; list[index] != -1; index++)
-      local->call_count++;
+    local->call_count = priv->child_count + 1; /* +1 is for namespace */
     
-    for (index = 0; list[index] != -1; index++) {
-      char need_break = (list[index+1] == -1);
+    for (index = 0; index < (priv->child_count + 1); index++) {
       STACK_WIND (frame,
 		  unify_sh_closedir_cbk,
-		  priv->xl_array[list[index]],
-		  priv->xl_array[list[index]]->fops->closedir,
+		  priv->xl_array[index],
+		  priv->xl_array[index]->fops->closedir,
 		  local->fd);
-      if (need_break)
-	break;
     }
   }
   
@@ -181,10 +175,8 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
 {
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
-  int16_t *list = local->list;
   long index = 0;
   unsigned long final = 0;
-  int32_t callcnt = 0;
 
   if ((count < UNIFY_SELF_HEAL_GETDENTS_COUNT) || !entry) {
     final = 1;
@@ -207,30 +199,20 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
     /* local->call_count will be '0' till now. make it 1 so, it can be 
      * UNWIND'ed for the last call. 
      */
-    for (index = 0; list[index] != -1; index++) {
-      if (NS(this) != priv->xl_array[list[index]]) {
-	local->call_count++;
-	callcnt++;
-      }
-    }
+    local->call_count = priv->child_count;
     if (final)
       local->flags = 1;
   }
   UNLOCK (&frame->lock);
 
-  for (index = 0; list[index] != -1; index++) 
+  for (index = 0; index < priv->child_count; index++) 
     {
-      if (NS(this) != priv->xl_array[list[index]]) 
-	{
-	  STACK_WIND (frame,
-		      unify_sh_setdents_cbk, 
-		      priv->xl_array[list[index]],
-		      priv->xl_array[list[index]]->fops->setdents,
-		      local->fd, GF_SET_DIR_ONLY,
-		      entry, count);
-	  if (!--callcnt)
-	    break;
-	}
+      STACK_WIND (frame,
+		  unify_sh_setdents_cbk, 
+		  priv->xl_array[index],
+		  priv->xl_array[index]->fops->setdents,
+		  local->fd, GF_SET_DIR_ONLY,
+		  entry, count);
     }
 
   return 0;
@@ -290,19 +272,18 @@ unify_sh_getdents_cbk (call_frame_t *frame,
     /* count == size, that means, there are more entries to read from */
     local->offset_list[index] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
     STACK_WIND_COOKIE (frame,
-		 unify_sh_getdents_cbk,
-		 cookie,
-		 priv->xl_array[index],
-		 priv->xl_array[index]->fops->getdents,
-		 local->fd,
-		 UNIFY_SELF_HEAL_GETDENTS_COUNT,
-		 local->offset_list[index],
-		 GF_GET_ALL);
-
+		       unify_sh_getdents_cbk,
+		       cookie,
+		       priv->xl_array[index],
+		       priv->xl_array[index]->fops->getdents,
+		       local->fd,
+		       UNIFY_SELF_HEAL_GETDENTS_COUNT,
+		       local->offset_list[index],
+		       GF_GET_ALL);
+    
     gf_log (this->name, GF_LOG_DEBUG, "readdir on (%s) with offset %"PRId64"", 
 	    priv->xl_array[index]->name, 
 	    local->offset_list[index]);
-    
   }
 
   if (!callcnt) {
@@ -342,7 +323,6 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
-  int16_t *list = local->list;
   int16_t index = 0;
 
   LOCK (&frame->lock);
@@ -358,13 +338,11 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    for (index = 0; list[index] != -1; index++)
-      local->call_count++;
+    local->call_count = priv->child_count + 1;
     
     if (!local->failed) {
       /* send getdents() namespace after finishing storage nodes */
       local->call_count--; 
-      callcnt = local->call_count;
       
       if (local->call_count) {
 	/* Used as the offset index. This list keeps track of offset
@@ -374,20 +352,16 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	ERR_ABORT (local->offset_list);
 	
 	/* Send getdents on all the fds */
-	for (index = 0; list[index] != -1; index++) {
-	  if (priv->xl_array[list[index]] != NS(this)) {
-	    STACK_WIND_COOKIE (frame,
-			 unify_sh_getdents_cbk,
-			 (void *)(long)list[index],
-			 priv->xl_array[list[index]],
-			 priv->xl_array[list[index]]->fops->getdents,
-			 local->fd,
-			 UNIFY_SELF_HEAL_GETDENTS_COUNT,
-			 0, /* In this call, do send '0' as offset */
-			 GF_GET_ALL);
-	    if (!--callcnt)
-	      break;
-	  }
+	for (index = 0; index < priv->child_count; index++) {
+	  STACK_WIND_COOKIE (frame,
+			     unify_sh_getdents_cbk,
+			     (void *)(long)index,
+			     priv->xl_array[index],
+			     priv->xl_array[index]->fops->getdents,
+			     local->fd,
+			     UNIFY_SELF_HEAL_GETDENTS_COUNT,
+			     0, /* In this call, do send '0' as offset */
+			     GF_GET_ALL);
 	}
 	/* did a stack wind, so no need to unwind here */
 	return 0;
@@ -406,17 +380,14 @@ unify_sh_opendir_cbk (call_frame_t *frame,
       bg_local->fd = local->fd;
       local->fd = NULL;
       /* TODO */
-      bg_local->call_count = local->call_count;
+      bg_local->call_count = priv->child_count + 1;
       
-      for (index = 0; list[index] != -1; index++) {
-	char need_break = (list[index+1] == -1);
+      for (index = 0; index < (priv->child_count + 1); index++) {
 	STACK_WIND (bg_frame,
 		    unify_background_cbk,
-		    priv->xl_array[list[index]],
-		    priv->xl_array[list[index]]->fops->closedir,
+		    priv->xl_array[index],
+		    priv->xl_array[index]->fops->closedir,
 		    bg_local->fd);
-	if (need_break)
-	  break;
       }
       
       FREE (local->path);
@@ -454,7 +425,6 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 {
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
-  int16_t *list = NULL;
   int16_t index = 0;
   int32_t callcnt = 0;
   
@@ -511,31 +481,24 @@ unify_sh_checksum_cbk (call_frame_t *frame,
       local->failed = 0;
       
       local->fd = fd_create (local->inode);
-      list = data_to_ptr (dict_get (local->inode->ctx, this->name));
-      if (list) {
-	local->list = list;
-	for (index = 0; list[index] != -1; index++)
-	  local->call_count++;
+
+      local->call_count = priv->child_count + 1;
 	
-	for (index = 0; list[index] != -1; index++) {
-	  char need_break = (list[index+1] == -1);
-	  loc_t tmp_loc = {
-	    .inode = local->inode,
-	    .path = local->path,
-	  };
-	  STACK_WIND_COOKIE (frame,
-		       unify_sh_opendir_cbk,
-		       priv->xl_array[list[index]]->name,
-		       priv->xl_array[list[index]],
-		       priv->xl_array[list[index]]->fops->opendir,
-		       &tmp_loc,
-		       local->fd);
-	  if (need_break)
-	    break;
-	}
-	/* opendir can be done on the directory */
-	return 0;
+      for (index = 0; index < (priv->child_count + 1); index++) {
+	loc_t tmp_loc = {
+	  .inode = local->inode,
+	  .path = local->path,
+	};
+	STACK_WIND_COOKIE (frame,
+			   unify_sh_opendir_cbk,
+			   priv->xl_array[index]->name,
+			   priv->xl_array[index],
+			   priv->xl_array[index]->fops->opendir,
+			   &tmp_loc,
+			   local->fd);
       }
+      /* opendir can be done on the directory */
+      return 0;
     }
 
     /* no mismatch */
@@ -604,7 +567,6 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
   int32_t callcnt = -1;
   unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
-  int16_t *list = local->list;
   int32_t index = 0;
 
   LOCK (&frame->lock);
@@ -618,19 +580,14 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt && local->flags) {
-    local->call_count = 0;
-    for (index = 0; list[index] != -1; index++)
-      local->call_count++;
+    local->call_count = priv->child_count + 1;
     
-    for (index = 0; list[index] != -1; index++) {
-      char need_break = (list[index+1] == -1);
+    for (index = 0; index < (priv->child_count + 1); index++) {
       STACK_WIND (frame,
 		  unify_bgsh_closedir_cbk,
-		  priv->xl_array[list[index]],
-		  priv->xl_array[list[index]]->fops->closedir,
+		  priv->xl_array[index],
+		  priv->xl_array[index]->fops->closedir,
 		  local->fd);
-      if (need_break)
-	break;
     }
 
   }
@@ -650,10 +607,8 @@ unify_bgsh_ns_getdents_cbk (call_frame_t *frame,
 {
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
-  int16_t *list = local->list;
   long index = 0;
   unsigned long final = 0;
-  int32_t callcnt = 0;
 
   if ((count < UNIFY_SELF_HEAL_GETDENTS_COUNT) || !entry) {
     final = 1;
@@ -675,30 +630,20 @@ unify_bgsh_ns_getdents_cbk (call_frame_t *frame,
     /* local->call_count will be '0' till now. make it 1 so, it can be 
      * UNWIND'ed for the last call. 
      */
-    for (index = 0; list[index] != -1; index++) {
-      if (NS(this) != priv->xl_array[list[index]]) {
-	local->call_count++;
-	callcnt++;
-      }
-    }
+    local->call_count = priv->child_count;
     if (final)
       local->flags = 1;
   }
   UNLOCK (&frame->lock);
 
-  for (index = 0; list[index] != -1; index++) 
+  for (index = 0; index < priv->child_count; index++) 
     {
-      if (NS(this) != priv->xl_array[list[index]]) 
-	{
-	  STACK_WIND (frame,
-		      unify_bgsh_setdents_cbk, 
-		      priv->xl_array[list[index]],
-		      priv->xl_array[list[index]]->fops->setdents,
-		      local->fd, GF_SET_DIR_ONLY,
-		      entry, count);
-	  if (!--callcnt)
-	    break;
-	}
+      STACK_WIND (frame,
+		  unify_bgsh_setdents_cbk, 
+		  priv->xl_array[index],
+		  priv->xl_array[index]->fops->setdents,
+		  local->fd, GF_SET_DIR_ONLY,
+		  entry, count);
     }
 
   return 0;
@@ -758,15 +703,15 @@ unify_bgsh_getdents_cbk (call_frame_t *frame,
     /* count == size, that means, there are more entries to read from */
     local->offset_list[index] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
     STACK_WIND_COOKIE (frame,
-		 unify_bgsh_getdents_cbk,
-		 cookie,
-		 priv->xl_array[index],
-		 priv->xl_array[index]->fops->getdents,
-		 local->fd,
-		 UNIFY_SELF_HEAL_GETDENTS_COUNT,
-		 local->offset_list[index],
-		 GF_GET_ALL);
-
+		       unify_bgsh_getdents_cbk,
+		       cookie,
+		       priv->xl_array[index],
+		       priv->xl_array[index]->fops->getdents,
+		       local->fd,
+		       UNIFY_SELF_HEAL_GETDENTS_COUNT,
+		       local->offset_list[index],
+		       GF_GET_ALL);
+    
     gf_log (this->name, GF_LOG_DEBUG, "readdir on (%s) with offset %"PRId64"", 
 	    priv->xl_array[index]->name, 
 	    local->offset_list[index]);
@@ -809,7 +754,6 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
 {
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
-  int16_t *list = local->list;
   int32_t callcnt = 0;
   int16_t index = 0;
 
@@ -826,8 +770,7 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    for (index = 0; list[index] != -1; index++)
-      local->call_count++;
+    local->call_count = priv->child_count + 1;
     
     if (!local->failed) {
       /* send getdents() namespace after finishing storage nodes */
@@ -842,20 +785,16 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
 	ERR_ABORT (local->offset_list);
 	
 	/* Send getdents on all the fds */
-	for (index = 0; list[index] != -1; index++) {
-	  if (priv->xl_array[list[index]] != NS(this)) {
-	    STACK_WIND_COOKIE (frame,
-			       unify_bgsh_getdents_cbk,
-			       (void *)(long)list[index],
-			       priv->xl_array[list[index]],
-			       priv->xl_array[list[index]]->fops->getdents,
-			       local->fd,
-			       UNIFY_SELF_HEAL_GETDENTS_COUNT,
-			       0, /* In this call, do send '0' as offset */
-			       GF_GET_ALL);
-	    if (!--callcnt)
-	      break;
-	  }
+	for (index = 0; index < priv->child_count; index++) {
+	  STACK_WIND_COOKIE (frame,
+			     unify_bgsh_getdents_cbk,
+			     (void *)(long)index,
+			     priv->xl_array[index],
+			     priv->xl_array[index]->fops->getdents,
+			     local->fd,
+			     UNIFY_SELF_HEAL_GETDENTS_COUNT,
+			     0, /* In this call, do send '0' as offset */
+			     GF_GET_ALL);
 	}
 	/* did a stack wind, so no need to unwind here */
 	return 0;
@@ -874,17 +813,14 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
       bg_local->fd = local->fd;
       local->fd = NULL;
       /* TODO */
-      bg_local->call_count = local->call_count;
+      bg_local->call_count = priv->child_count + 1;
       
-      for (index = 0; list[index] != -1; index++) {
-	char need_break = (list[index+1] == -1);
+      for (index = 0; index < (priv->child_count + 1); index++) {
 	STACK_WIND (bg_frame,
 		    unify_background_cbk,
-		    priv->xl_array[list[index]],
-		    priv->xl_array[list[index]]->fops->closedir,
+		    priv->xl_array[index],
+		    priv->xl_array[index]->fops->closedir,
 		    bg_local->fd);
-	if (need_break)
-	  break;
       }
       
       FREE (local->path);
@@ -917,7 +853,6 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
 {
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
-  int16_t *list = NULL;
   int16_t index = 0;
   int32_t callcnt = 0;
   
@@ -969,37 +904,28 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
       gf_log (this->name, GF_LOG_ERROR, "Self-heal triggered on directory %s", local->path);
 
       /* Any self heal will be done at the directory level */
-      local->call_count = 0;
       local->op_ret = -1;
       local->failed = 0;
       
       local->fd = fd_create (local->inode);
-      list = data_to_ptr (dict_get (local->inode->ctx, this->name));
-      if (list) {
-	local->list = list;
-	for (index = 0; list[index] != -1; index++)
-	  local->call_count++;
+      local->call_count = priv->child_count + 1;
 	
-	for (index = 0; list[index] != -1; index++) {
-	  char need_break = (list[index+1] == -1);
-	  loc_t tmp_loc = {
-	    .inode = local->inode,
-	    .path = local->path,
-	  };
-	  STACK_WIND_COOKIE (frame,
-			     unify_bgsh_opendir_cbk,
-			     priv->xl_array[list[index]]->name,
-			     priv->xl_array[list[index]],
-			     priv->xl_array[list[index]]->fops->opendir,
-			     &tmp_loc,
-			     local->fd);
-	  if (need_break)
-	    break;
-	}
-	
-	/* opendir can be done on the directory */
-	return 0;
+      for (index = 0; index < (priv->child_count + 1); index++) {
+	loc_t tmp_loc = {
+	  .inode = local->inode,
+	  .path = local->path,
+	};
+	STACK_WIND_COOKIE (frame,
+			   unify_bgsh_opendir_cbk,
+			   priv->xl_array[index]->name,
+			   priv->xl_array[index],
+			   priv->xl_array[index]->fops->opendir,
+			   &tmp_loc,
+			   local->fd);
       }
+      
+      /* opendir can be done on the directory */
+      return 0;
     }
 
     /* no mismatch */
@@ -1035,11 +961,12 @@ gf_unify_self_heal (call_frame_t *frame,
   unify_local_t *bg_local = NULL;
   int16_t index = 0;
   
-  if (local->inode->generation < priv->inode_generation) {
+  if (local->inode_generation < priv->inode_generation) {
     /* Any self heal will be done at the directory level */
     /* Update the inode's generation to the current generation value. */
-    local->inode->generation = priv->inode_generation;
-    
+    local->inode_generation = priv->inode_generation;
+    dict_set (local->inode->ctx, this->name, data_from_int64 (local->inode_generation));
+
     if (priv->self_heal == GF_UNIFY_FG_SELF_HEAL) {
       local->op_ret = 0;
       local->failed = 0;
