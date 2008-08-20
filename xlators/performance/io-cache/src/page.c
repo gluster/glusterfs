@@ -294,6 +294,7 @@ ioc_fault_cbk (call_frame_t *frame,
   off_t trav_offset = 0;
   size_t payload_size = 0;
   int32_t destroy_size = 0;
+  int32_t idx = 0;
 
   trav_offset = offset;  
   payload_size = op_ret;
@@ -346,7 +347,14 @@ ioc_fault_cbk (call_frame_t *frame,
 		  GF_LOG_CRITICAL,
 		  "frame->root->rsp_refs (null)");
 	} /* if(frame->root->rsp_refs) */
-	page->size = op_ret;
+	
+	/* page->size should indicate exactly how much the readv call to the child
+	 * translator returned. earlier op_ret from child translator was used, which 
+	 * gave rise to a bug where reads from io-cached volume were resulting in 0 
+	 * byte replies */
+	for (idx = 0; idx < count; idx++)
+		page->size += vector[idx].iov_len;
+
 	if (page->waitq) {
 	  /* wake up all the frames waiting on this page, including 
 	   * the frame which triggered fault */

@@ -113,7 +113,7 @@ fault_cbk (call_frame_t *frame,
   ra_page_t *page;
   off_t trav_offset;
   size_t payload_size;
-
+  int32_t idx = 0;
 
   trav_offset = pending_offset;  
   payload_size = op_ret;
@@ -145,7 +145,15 @@ fault_cbk (call_frame_t *frame,
       page->count = count;
       page->ref = dict_ref (frame->root->rsp_refs);
       page->ready = 1;
-      page->size = op_ret;
+
+      /* page->size should indicate exactly how much the readv call to the child
+       * translator returned. earlier op_ret from child translator was used, which 
+       * gave rise to a bug where reads from io-cached volume were resulting in 0 
+       * byte replies */
+      for (idx = 0; idx < count; idx++)
+	      page->size += vector[idx].iov_len;
+
+//      page->size = op_ret;
 
       if (page->waitq) {
 	ra_page_wakeup (page);
