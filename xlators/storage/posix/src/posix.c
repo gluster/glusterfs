@@ -78,6 +78,7 @@
                 gf_log (args);                                          \
         }
 
+
 int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int32_t need_xattr)
@@ -1532,8 +1533,6 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                         "fstat failed: %s", strerror (op_errno));
                 goto out;
         }
-
-        op_ret = 0;
 
  out:
         if (op_ret == -1) {
