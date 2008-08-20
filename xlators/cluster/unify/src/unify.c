@@ -3548,7 +3548,7 @@ unify_rename_cbk (call_frame_t *frame,
 
   if (!callcnt) {
     local->stbuf.st_ino = local->st_ino;
-    if (S_ISDIR (local->stbuf.st_mode)) {
+    if (S_ISDIR (local->inode->st_mode)) {
       unify_local_wipe (local);
       STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
       return 0;
@@ -3655,8 +3655,10 @@ unify_ns_rename_cbk (call_frame_t *frame,
     /* Free local->new_inode */
     gf_log (this->name, GF_LOG_ERROR, 
 	    "namespace: path(%s -> %s): %s", local->path, local->name, strerror (op_errno));
-    inode_destroy (local->new_inode);
-    FREE (local->new_list);
+    if (!S_ISDIR (local->inode->st_mode)) {
+      inode_destroy (local->new_inode);
+      FREE (local->new_list);
+    }
     unify_local_wipe (local);
     STACK_UNWIND (frame, op_ret, op_errno, buf);
     return 0;
