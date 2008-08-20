@@ -64,6 +64,8 @@
 #define BDB_DEFAULT_LRU_LIMIT 100
 #define BDB_DEFAULT_HASH_SIZE 100
 
+#define BDB_ENOSPC_THRESHOLD 25600
+
 #define BDB_DEFAULT_CHECKPOINT_TIMEOUT 30
 
 #define BCTX_ENV(bctx) (bctx->table->dbenv)

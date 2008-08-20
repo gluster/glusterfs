@@ -518,6 +518,38 @@ bdb_readv (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+is_space_left (xlator_t *this,
+	       size_t size)
+{
+	struct bdb_private *private = this->private;
+	struct statvfs stbuf = {0,};
+	int32_t ret = -1;
+	fsblkcnt_t req_blocks = 0;
+	fsblkcnt_t usable_blocks = 0;
+
+	ret = statvfs (private->export_path, &stbuf);
+	if (ret != 0) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to do statvfs on %s", private->export_path);
+		return 0;
+	} else {
+		req_blocks = (size / stbuf.f_frsize) + 1;
+
+		usable_blocks = (stbuf.f_bfree - BDB_ENOSPC_THRESHOLD); 
+		
+		gf_log (this->name,
+			GF_LOG_DEBUG,
+			"requested size: %d\nfree blocks: %d\nblock size: %d\nfrag size: %d",
+			size, stbuf.f_bfree, stbuf.f_bsize, stbuf.f_frsize);
+		
+		if (req_blocks < usable_blocks)
+			return 1;
+		else 
+			return 0;
+	}
+}
 
 int32_t 
 bdb_writev (call_frame_t *frame,
@@ -531,7 +563,8 @@ bdb_writev (call_frame_t *frame,
   int32_t op_errno = EPERM;
   struct stat stbuf = {0,};
   struct bdb_fd *bfd = NULL;
- 
+  size_t total_size = 0;
+
   if ((bfd = bdb_extract_bfd (fd, this->name)) == NULL) {
     gf_log (this->name,
 	    GF_LOG_ERROR,
@@ -543,7 +576,19 @@ bdb_writev (call_frame_t *frame,
     int32_t idx = 0;
     off_t c_off = offset;
     int32_t c_ret = -1;
+
+    for (idx = 0; idx < count; idx++)
+	    total_size += vector[idx].iov_len;
     
+    if (!is_space_left (this, total_size)) {
+	    gf_log (this->name,
+		    GF_LOG_ERROR,
+		    "requested storage for %d, ENOSPC", total_size);
+	    op_ret = -1;
+	    op_errno = ENOSPC;
+	    goto out;
+    }
+
     for (idx = 0; idx < count; idx++) {
       c_ret = bdb_storage_put (bfd->ctx, NULL, bfd->key, 
 			       vector[idx].iov_base, vector[idx].iov_len, 
@@ -576,7 +621,8 @@ bdb_writev (call_frame_t *frame,
       op_errno = 0;
     }/* if(op_ret)...else */
   }/* if((fd->ctx == NULL)...)...else */
-  
+
+out:
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
   return 0;
