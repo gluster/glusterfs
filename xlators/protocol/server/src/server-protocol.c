@@ -400,6 +400,47 @@ server_lk_cbk (call_frame_t *frame,
 }
 
 /*
+ * server_gf_lk_cbk - lk callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @lock:
+ *
+ * not for external reference
+ */
+int32_t
+server_gf_lk_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct flock *lock)
+{
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_lk_rsp_t *rsp = NULL;
+
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
+
+  if (op_ret == 0)
+    {
+      gf_flock_from_flock (&rsp->flock, lock);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GF_LK,
+                         hdr, hdrlen, NULL, 0, NULL);
+
+  return 0;
+}
+
+/*
  * server_access_cbk - access callback for server protocol
  * @frame: call frame
  * @cookie:
@@ -4721,7 +4762,8 @@ int32_t
 server_lk_common (call_frame_t *frame,
                   xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  char *buf, size_t buflen,
+		  gf_lk_domain_t domain)
 {
   struct flock lock = {0, };
   gf_fop_lk_req_t *req = NULL;
@@ -4780,13 +4822,16 @@ server_lk_common (call_frame_t *frame,
 
   gf_flock_to_flock (&req->flock, &lock);
 
-  STACK_WIND (frame,
-              server_lk_cbk,
-              bound_xl,
-              bound_xl->fops->lk,
-              fd,
-              cmd,
-              &lock);
+  if (domain == GF_LOCK_POSIX) {
+	  STACK_WIND (frame, server_lk_cbk,
+		      bound_xl, bound_xl->fops->lk,
+		      fd, cmd, &lock);
+
+  } else if (domain == GF_LOCK_INTERNAL) {
+	  STACK_WIND (frame, server_gf_lk_cbk,
+		      bound_xl, bound_xl->fops->gf_lk,
+		      fd, cmd, &lock);
+  }
 
   return 0;
 }
@@ -4797,7 +4842,8 @@ server_lk (call_frame_t *frame,
            gf_hdr_common_t *hdr, size_t hdrlen,
            char *buf, size_t buflen)
 {
-  return server_lk_common (frame, bound_xl, hdr, hdrlen, buf, buflen);
+	return server_lk_common (frame, bound_xl, hdr, hdrlen, buf, buflen,
+				 GF_LOCK_POSIX);
 }
 
 int32_t
@@ -4806,7 +4852,8 @@ server_gf_lk (call_frame_t *frame,
               gf_hdr_common_t *hdr, size_t hdrlen,
               char *buf, size_t buflen)
 {
-  return server_lk_common (frame, bound_xl, hdr, hdrlen, buf, buflen);
+	return server_lk_common (frame, bound_xl, hdr, hdrlen, buf, buflen,
+				 GF_LOCK_INTERNAL);
 }
 
 /*
