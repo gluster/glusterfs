@@ -532,8 +532,18 @@ fill_inet6_inet_identifiers (transport_t *this, struct sockaddr_storage *addr,
     
     one_to_four = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr32[0];
     four_to_eight = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr32[1];
+#ifdef GF_SOLARIS_HOST_OS
+    eight_to_ten = S6_ADDR16(((struct sockaddr_in6 *) &tmpaddr)->sin6_addr)[4];
+#else
     eight_to_ten = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr16[4];
+#endif
+
+#ifdef GF_SOLARIS_HOST_OS
+    ten_to_twelve = S6_ADDR16(((struct sockaddr_in6 *) &tmpaddr)->sin6_addr)[5];
+#else
     ten_to_twelve = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr16[5];
+#endif
+
     twelve_to_sixteen = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr32[3];
 
     /* ipv4 mapped ipv6 address has

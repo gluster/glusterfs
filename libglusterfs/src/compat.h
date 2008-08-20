@@ -210,9 +210,21 @@ enum {
 #endif
 
 #include <netinet/in.h>
+#ifndef s6_addr16
 #define s6_addr16 __u6_addr.__u6_addr16
+#endif
+#ifndef s6_addr32
 #define s6_addr32 __u6_addr.__u6_addr32
+#endif 
 
+/* Posix dictates NAME_MAX to be used */
+# ifndef NAME_MAX
+#  ifdef  MAXNAMLEN
+#   define NAME_MAX MAXNAMLEN
+#  else
+#   define NAME_MAX 255
+#  endif
+# endif
 	
 #define lremovexattr(path,key)               extattr_delete_link(path, EXTATTR_NAMESPACE_USER, key)
 #define llistxattr(path,key,size)            extattr_list_link(path, EXTATTR_NAMESPACE_USER, key, size)
@@ -241,6 +253,23 @@ enum {
 #ifndef sighandler_t
 #define sighandler_t sig_t
 #endif
+
+#include <netinet/in.h>
+#ifndef s6_addr16
+#define s6_addr16 __u6_addr.__u6_addr16
+#endif 
+#ifndef s6_addr32
+#define s6_addr32 __u6_addr.__u6_addr32
+#endif 
+
+/* Posix dictates NAME_MAX to be used */
+# ifndef NAME_MAX
+#  ifdef  MAXNAMLEN
+#   define NAME_MAX MAXNAMLEN
+#  else
+#   define NAME_MAX 255
+#  endif
+# endif
 
 #define llistxattr(path,key,size)               listxattr(path,key,size,XATTR_NOFOLLOW)
 #define lgetxattr(path,key,value,size)          getxattr(path,key,value,size,0,XATTR_NOFOLLOW)
@@ -276,6 +305,23 @@ enum {
 /* This patch is not present in Solaris 10 and before */
 #ifndef dirfd
 #define dirfd(dirp)   ((dirp)->dd_fd)
+#endif
+
+/* Posix dictates NAME_MAX to be used */
+# ifndef NAME_MAX
+#  ifdef  MAXNAMLEN
+#   define NAME_MAX MAXNAMLEN
+#  else 
+#   define NAME_MAX 255
+#  endif
+# endif 
+
+#include <netinet/in.h>
+#ifndef s6_addr16
+#define S6_ADDR16(x)    ((uint16_t*) ((char*)&(x).s6_addr))
+#endif
+#ifndef s6_addr32
+#define s6_addr32       _S6_un._S6_u32
 #endif
 
 #define lremovexattr(path,key)               solaris_removexattr(path,key)
