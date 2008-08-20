@@ -2811,6 +2811,8 @@ fini (xlator_t *this)
   glusterfs_ctx_t *ctx = get_global_ctx_ptr ();
   if (dict_get (this->options, "mount-point")) {
     char *mount_point = data_to_str (dict_get (this->options, "mount-point"));
+    
+    fuse_session_exit (priv->se);
 
     fuse_unmount (mount_point, priv->ch);
   }
