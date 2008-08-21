@@ -872,8 +872,6 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = 0;
-
  out:
         SET_TO_OLD_FS_ID ();
         frame->root->rsp_refs = NULL;
