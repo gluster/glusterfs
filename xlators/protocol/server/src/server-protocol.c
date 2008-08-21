@@ -6053,6 +6053,7 @@ server_protocol_cleanup (transport_t *trans)
             call_frame_t *close_frame = copy_frame (frame);
 
             close_frame->local = fd;
+	    close_frame->root->trans = frame->root->trans;
 
             if (S_ISDIR (st_mode)) {
               STACK_WIND (close_frame,
@@ -6078,6 +6079,7 @@ server_protocol_cleanup (transport_t *trans)
   pthread_mutex_unlock (&priv->lock);
 
   unlock_frame = copy_frame (frame);
+  unlock_frame->root->trans = frame->root->trans;
 
   STACK_WIND (unlock_frame,
               server_nop_cbk,
