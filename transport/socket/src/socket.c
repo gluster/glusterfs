@@ -186,6 +186,7 @@ __socket_disconnect (transport_t *this)
   return ret;
 }
 
+
 static int
 __socket_server_bind (transport_t *this)
 {
@@ -451,15 +452,14 @@ socket_event_poll_out (transport_t *this)
 	if (ret == -1)
 	  {
 	    __socket_disconnect (this);
-	    event = GF_EVENT_POLLERR;
 	  }
       }
   }
   pthread_mutex_unlock (&priv->lock);
 
-  this->xl->notify (this->xl, event, this);
+  this->xl->notify (this->xl, GF_EVENT_POLLOUT, this);
 
-  return 0;
+  return ret;
 }
 
 
@@ -678,10 +678,7 @@ socket_event_poll_in (transport_t *this)
   if (ret == 0)
     ret = this->xl->notify (this->xl, GF_EVENT_POLLIN, this);
 
-  if (ret == -1)
-    transport_disconnect (this);
-
-  return 0;
+  return ret;
 }
 
 
@@ -772,11 +769,6 @@ socket_event_handler (int fd, int idx, void *data,
       ret = socket_connect_finish (this);
     }
 
-  if (!ret && poll_err)
-    {
-      ret = socket_event_poll_err (this);
-    }
-
   if (!ret && poll_out)
     {
       ret = socket_event_poll_out (this);
@@ -787,8 +779,11 @@ socket_event_handler (int fd, int idx, void *data,
       ret = socket_event_poll_in (this);
     }
 
-  if (ret < 0)
-    transport_unref (this);
+  if (ret < 0 || poll_err)
+    {
+      socket_event_poll_err (this);
+      transport_unref (this);
+    }
 
   return 0;
 }

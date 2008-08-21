@@ -271,6 +271,7 @@ event_unregister_poll (struct event_pool *event_pool, int fd, int idx_hint)
     if (idx != -1)
       {
 	event_pool->reg[idx] = event_pool->reg[--event_pool->used];
+	event_pool->changed = 1;
       }
     else
       {

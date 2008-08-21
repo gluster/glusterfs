@@ -294,11 +294,6 @@ need_fresh_lookup (int op_ret, inode_t *inode, struct stat *buf)
                 return 1;
 
         if (inode->ino != buf->st_ino) {
-                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "%"PRId64": (op_num=%d) %s => inode number changed %"PRId64" -> %"PRId64,
-                        frame->root->unique, frame->op, state->loc.path,
-                        inode->ino, buf->st_ino);
-
                 return 1;
 	}
 
