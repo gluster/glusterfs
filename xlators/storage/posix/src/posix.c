@@ -865,7 +865,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
   
         op_ret = rmdir (real_path);
 
-        if (op_ret == -1 && op_errno != ENOTEMPTY) {
+        if (op_ret == -1 && errno != ENOTEMPTY) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_WARNING, 
                         "rmdir of %s: %s", loc->path, strerror (op_errno));

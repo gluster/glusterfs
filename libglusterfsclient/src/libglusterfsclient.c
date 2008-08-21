@@ -124,28 +124,6 @@ xlator_graph_init (xlator_t *xl)
   return ret;
 }
 
-static inode_t *
-dummy_inode (inode_table_t *table)
-{
-  inode_t *dummy;
-
-  dummy = calloc (1, sizeof (*dummy));
-  ERR_ABORT (dummy);
-
-  dummy->table = table;
-
-  INIT_LIST_HEAD (&dummy->list);
-  INIT_LIST_HEAD (&dummy->inode_hash);
-  INIT_LIST_HEAD (&dummy->fds);
-  INIT_LIST_HEAD (&dummy->dentry.name_hash);
-  INIT_LIST_HEAD (&dummy->dentry.inode_list);
-
-  dummy->ref = 1;
-  dummy->ctx = get_new_dict ();
-
-  LOCK_INIT (&dummy->lock);
-  return dummy;
-}
 
 static call_frame_t *
 get_call_frame_for_req (libglusterfs_client_ctx_t *ctx, char d)
@@ -377,58 +355,9 @@ libgf_client_lookup_cbk (call_frame_t *frame,
     /* flat directory structure */
     inode_t *parent = inode_search (ctx->itable, 1, NULL);
 
-  try_again:
-    libgf_inode = inode_update (ctx->itable, parent, local->fop.lookup.loc->path, buf);
+    inode_link (inode, parent, local->fop.lookup.loc->path, buf);
+    libgf_inode = inode_ref (inode);
 
-    if (libgf_inode->ctx) {
-      /* if the inode was already in the hash, checks to flush out
-	 old name hashes */
-      if ((libgf_inode->st_mode ^ buf->st_mode) & S_IFMT) {
-	gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-		"%"PRId64": (op_num=%d) %s => %"PRId64" Rehashing %x/%x",
-		frame->root->unique, frame->op,
-		local->fop.lookup.loc->path, libgf_inode->ino, (S_IFMT & buf->st_ino),
-		(S_IFMT & libgf_inode->st_mode));
-
-	libgf_inode->st_mode = buf->st_mode;
-	inode_unhash_name (ctx->itable, libgf_inode);
-	inode_unref (libgf_inode);
-	goto try_again;
-      }
-      if (buf->st_nlink == 1 || S_ISDIR (buf->st_mode)) {
-	/* no other name hashes should exist */
-	if (!list_empty (&libgf_inode->dentry.inode_list)) {
-	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-		  "%"PRId64": (op_num=%d) %s => %"PRId64" Rehashing because st_nlink less than dentry maps",
-		  frame->root->unique, frame->op,
-		  local->fop.lookup.loc->path, libgf_inode->ino);
-	  inode_unhash_name (ctx->itable, libgf_inode);
-	  inode_unref (libgf_inode);
-	  goto try_again;
-	}
-	/*
-	if ((local->fop.lookup.loc->parent != libgf_inode->dentry.parent) || 
-	    (local->fop.lookup.loc->name && libgf_inode->dentry.name && 
-	     strcmp (local->fop.lookup.loc->name, libgf_inode->dentry.name))) {
-	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-		  "%"PRId64": (op_num=%d) %s => %"PRId64" Rehashing because single st_nlink does not match dentry map",
-		  frame->root->unique, frame->op,
-		  local->fop.lookup.loc->path, libgf_inode->ino);
-	  inode_unhash_name (ctx->itable, libgf_inode);
-	  inode_unref (libgf_inode);
-	  goto try_again;
-	}
-	*/
-      }
-    }
-
-    if (inode->ctx != libgf_inode->ctx /* && libgf_inode->fds */) {
-      dict_t *swap = inode->ctx;
-      inode->ctx = libgf_inode->ctx;
-      libgf_inode->ctx = swap;
-      libgf_inode->st_mode = buf->st_mode;
-      libgf_inode->generation = inode->generation;
-    }
     inode_lookup (libgf_inode);
 
     /*    if (!local->fop.lookup.is_revalidate || local->fop.lookup.is_revalidate == 2) */
@@ -449,7 +378,7 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 
     if (local->fop.lookup.is_revalidate == 1) {
       inode_unref (local->fop.lookup.loc->inode);
-      local->fop.lookup.loc->inode = dummy_inode (ctx->itable);
+      local->fop.lookup.loc->inode = inode_new (ctx->itable);
       local->fop.lookup.is_revalidate = 2;
 
       STACK_WIND (frame, libgf_client_lookup_cbk,
@@ -491,7 +420,7 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
     loc->ino = loc->inode->ino;
   }
   else
-    loc->inode = dummy_inode (ctx->itable);
+    loc->inode = inode_new (ctx->itable);
 
   local->fop.lookup.loc = loc;
 
@@ -599,58 +528,9 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
     /* flat directory structure */
     inode_t *parent = inode_search (ctx->itable, 1, NULL);
 
-  try_again:
-    libgf_inode = inode_update (ctx->itable, parent, local->fop.lookup_cbk.loc->path, buf);
+    inode_link (inode, parent, local->fop.lookup_cbk.loc->path, buf);
+    libgf_inode = inode_ref (inode);
 
-    if (libgf_inode->ctx) {
-      /* if the inode was already in the hash, checks to flush out
-	 old name hashes */
-      if ((libgf_inode->st_mode ^ buf->st_mode) & S_IFMT) {
-	gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-		"%"PRId64": (op_num=%d) %s => %"PRId64" Rehashing %x/%x",
-		frame->root->unique, frame->op,
-		local->fop.lookup_cbk.loc->path, libgf_inode->ino, (S_IFMT & buf->st_ino),
-		(S_IFMT & libgf_inode->st_mode));
-
-	libgf_inode->st_mode = buf->st_mode;
-	inode_unhash_name (ctx->itable, libgf_inode);
-	inode_unref (libgf_inode);
-	goto try_again;
-      }
-      if (buf->st_nlink == 1 || S_ISDIR (buf->st_mode)) {
-	/* no other name hashes should exist */
-	if (!list_empty (&libgf_inode->dentry.inode_list)) {
-	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-		  "%"PRId64": (op_num=%d) %s => %"PRId64" Rehashing because st_nlink less than dentry maps",
-		  frame->root->unique, frame->op,
-		  local->fop.lookup_cbk.loc->path, libgf_inode->ino);
-	  inode_unhash_name (ctx->itable, libgf_inode);
-	  inode_unref (libgf_inode);
-	  goto try_again;
-	}
-	/*
-	if ((local->fop.lookup_cbk.loc->parent != libgf_inode->dentry.parent) || 
-	    (local->fop.lookup_cbk.loc->name && libgf_inode->dentry.name && 
-	     strcmp (local->fop.lookup_cbk.loc->name, libgf_inode->dentry.name))) {
-	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-		  "%"PRId64": (op_num=%d) %s => %"PRId64" Rehashing because single st_nlink does not match dentry map",
-		  frame->root->unique, frame->op,
-		  local->fop.lookup_cbk.loc->path, libgf_inode->ino);
-	  inode_unhash_name (ctx->itable, libgf_inode);
-	  inode_unref (libgf_inode);
-	  goto try_again;
-	}
-	*/
-      }
-    }
-
-    if (inode->ctx != libgf_inode->ctx /* && libgf_inode->fds */) {
-      dict_t *swap = inode->ctx;
-      inode->ctx = libgf_inode->ctx;
-      libgf_inode->ctx = swap;
-      libgf_inode->st_mode = buf->st_mode;
-      libgf_inode->generation = inode->generation;
-    }
     
     inode_ctx_data = dict_get (libgf_inode->ctx, XLATOR_NAME);
     if (inode_ctx_data) {
@@ -686,7 +566,7 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
 
     if (local->fop.lookup_cbk.is_revalidate == 1) {
       inode_unref (local->fop.lookup_cbk.loc->inode);
-      local->fop.lookup_cbk.loc->inode = dummy_inode (ctx->itable);
+      local->fop.lookup_cbk.loc->inode = inode_new (ctx->itable);
       local->fop.lookup_cbk.is_revalidate = 2;
 
       STACK_WIND (frame, libgf_client_lookup_async_cbk,
@@ -745,7 +625,7 @@ glusterfs_lookup_async (libglusterfs_handle_t handle,
   loc->inode = inode_search (ctx->itable, 1, path);
 
   if (!loc->inode) {
-    loc->inode = dummy_inode (ctx->itable);
+    loc->inode = inode_new (ctx->itable);
     local->fop.lookup_cbk.is_revalidate = 0;
   } else {
     loc->ino = loc->inode->ino;
@@ -986,21 +866,12 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
     
     /* flat directory structure */
     inode_t *parent = inode_search (ctx->itable, 1, NULL);
-    libgf_inode = inode_update (ctx->itable, parent, loc->path, &stub->args.create_cbk.buf);
-    if (stub->args.create_cbk.inode->ctx != libgf_inode->ctx) {
-      dict_t *swap = stub->args.create_cbk.inode->ctx;
-      stub->args.create_cbk.inode->ctx = libgf_inode->ctx;
-      libgf_inode->ctx = swap;
-      libgf_inode->st_mode = stub->args.create_cbk.buf.st_mode;
-      libgf_inode->generation = stub->args.create_cbk.inode->generation;
-    }
+    inode_link (stub->args.create_cbk.inode, parent,
+		loc->path, &stub->args.create_cbk.buf);
+
+    libgf_inode = inode_ref (stub->args.create_cbk.inode);
 
     inode_lookup (libgf_inode);
-    LOCK (&libgf_inode->lock);
-    list_add (&fd->inode_list, &libgf_inode->fds);
-    inode_unref (fd->inode);
-    fd->inode = inode_ref (libgf_inode);
-    UNLOCK (&libgf_inode->lock);
 
     inode_unref (loc->inode);
     loc->inode = libgf_inode;
@@ -1132,7 +1003,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
 	op_ret = libgf_client_open (ctx, &loc, fd, flags);
     }
     else {
-      /*  loc.inode = dummy_inode (ctx->itable); */
+      /*  loc.inode = inode_new (ctx->itable); */
       op_ret = libgf_client_creat (ctx, &loc, fd, flags, mode);
       /*  inode_unref (loc.inode); */
     }
@@ -1182,7 +1053,7 @@ glusterfs_creat (libglusterfs_client_ctx_t *ctx,
   }
 
   loc.path = strdup (path);
-  loc.inode = dummy_inode (ctx->itable);
+  loc.inode = inode_new (ctx->itable);
 
   /*TODO: send create only if file does not exist, otherwise send open */
   /*  libgf_client_lookup (ctx, &loc, NULL); */

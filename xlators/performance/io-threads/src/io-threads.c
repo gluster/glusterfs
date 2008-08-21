@@ -679,7 +679,7 @@ iot_stat (call_frame_t *frame,
 
   LOCK (&(loc->inode->lock));
   {
-    if (list_empty (&(loc->inode->fds)))
+    if (list_empty (&(loc->inode->fd_list)))
       fd_list_empty = 1;
   }
   UNLOCK (&(loc->inode->lock));
@@ -816,7 +816,7 @@ iot_truncate (call_frame_t *frame,
 
   LOCK (&loc->inode->lock);
   {
-    if (list_empty (&loc->inode->fds))
+    if (list_empty (&loc->inode->fd_list))
       fd_list_empty = 1;
   }
   UNLOCK (&loc->inode->lock);
@@ -960,7 +960,7 @@ iot_utimens (call_frame_t *frame,
 
   LOCK (&(loc->inode->lock));
   {
-    if (list_empty (&(loc->inode->fds)))
+    if (list_empty (&(loc->inode->fd_list)))
 	fd_list_empty = 1;
   }
   UNLOCK (&(loc->inode->lock));
@@ -1243,8 +1243,9 @@ init (xlator_t *this)
   */
 
   conf->cache_size = 1048576 * 64;
-  cache_size_string = data_to_str (dict_get (options,
-					     "cache-size"));
+  if (dict_get (options, "cache-size"))
+    cache_size_string = data_to_str (dict_get (options,
+					       "cache-size"));
   if (cache_size_string)
     {
       if (gf_string2bytesize (cache_size_string, &conf->cache_size) != 0)

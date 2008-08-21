@@ -110,29 +110,6 @@ unify_local_wipe (unify_local_t *local)
   }
 }
 
-/* This function is required by the unify_rename() and unify_setxattr() */
-static inode_t *
-dummy_inode (inode_table_t *table)
-{
-  inode_t *dummy;
-
-  dummy = calloc (1, sizeof (*dummy));
-  ERR_ABORT (dummy);
-
-  dummy->table = table;
-
-  INIT_LIST_HEAD (&dummy->list);
-  INIT_LIST_HEAD (&dummy->inode_hash);
-  INIT_LIST_HEAD (&dummy->fds);
-  INIT_LIST_HEAD (&dummy->dentry.name_hash);
-  INIT_LIST_HEAD (&dummy->dentry.inode_list);
-
-  dummy->ref = 1;
-  dummy->ctx = get_new_dict ();
-
-  LOCK_INIT (&dummy->lock);
-  return dummy;
-}
 
 
 /*
@@ -580,19 +557,12 @@ unify_lookup (call_frame_t *frame,
 	    break;
 	}
     } 
-  else if (loc->inode->st_mode)
-    {
-      local->call_count = 1;
-      if (dict_get (loc->inode->ctx, this->name))
-	local->inode_generation = data_to_int64 (dict_get (loc->inode->ctx, this->name));
-
-      STACK_WIND_COOKIE (frame, unify_lookup_cbk,
-			 (void *)(long)priv->child_count, //cookie
-			 NS(this), NS(this)->fops->lookup,
-			 loc, need_xattr);
-    }
   else
     {
+      if (loc->inode->st_mode)
+	if (dict_get (loc->inode->ctx, this->name))
+	  local->inode_generation = data_to_int64 (dict_get (loc->inode->ctx,
+							     this->name));
       /* This is first call, there is no list */
       /* call count should be all child + 1 namespace */
       local->call_count = priv->child_count + 1;
@@ -1190,7 +1160,7 @@ unify_open_readlink_cbk (call_frame_t *frame,
     /* Send the lookup to all the nodes including namespace */
     loc_t tmp_loc = {
       .path  = local->name,
-      .inode = dummy_inode(local->inode->table),
+      .inode = inode_new (local->inode->table),
     };
     STACK_WIND_COOKIE (frame,
 		       unify_open_lookup_cbk,
@@ -3479,7 +3449,7 @@ unify_rename_unlink_cbk (call_frame_t *frame,
       
     }
 
-  inode_destroy (local->new_inode);
+  inode_unref (local->new_inode);
   FREE (local->new_list);
   unify_local_wipe (local);
 
@@ -3506,7 +3476,7 @@ unify_ns_rename_undo_cbk (call_frame_t *frame,
       
     }
 
-  inode_destroy (local->new_inode);
+  inode_unref (local->new_inode);
   FREE (local->new_list);
   unify_local_wipe (local);
   
@@ -3626,7 +3596,7 @@ unify_rename_cbk (call_frame_t *frame,
     }
 
     /* Need not send 'unlink' to storage node */
-    inode_destroy (local->new_inode);
+    inode_unref (local->new_inode);
     FREE (local->new_list);
     unify_local_wipe (local);
 
@@ -3656,7 +3626,7 @@ unify_ns_rename_cbk (call_frame_t *frame,
     gf_log (this->name, GF_LOG_ERROR, 
 	    "namespace: path(%s -> %s): %s", local->path, local->name, strerror (op_errno));
     if (!S_ISDIR (local->inode->st_mode)) {
-      inode_destroy (local->new_inode);
+      inode_unref (local->new_inode);
       FREE (local->new_list);
     }
     unify_local_wipe (local);
@@ -3729,7 +3699,7 @@ unify_ns_rename_cbk (call_frame_t *frame,
      */
     gf_log (this->name, GF_LOG_CRITICAL,
 	    "CRITICAL: source file not in storage node, rename successful on namespace :O");
-    inode_destroy (local->new_inode);
+    inode_unref (local->new_inode);
     FREE (local->new_list);
     unify_local_wipe (local);
     STACK_UNWIND (frame, -1, EIO, NULL);
@@ -3787,7 +3757,7 @@ unify_rename_lookup_cbk (call_frame_t *frame,
 	/* This means, source file is present only in NS, not on storage 
 	 * send errno with EIO, 
 	 */
-	inode_destroy (local->new_inode);
+	inode_unref (local->new_inode);
 	FREE (local->new_list);
 	unify_local_wipe (local);
 	gf_log (this->name, GF_LOG_ERROR, 
@@ -3855,7 +3825,7 @@ unify_rename (call_frame_t *frame,
   }
 
   /* Do a lookup on newloc->path. Use a dummy inode for the same */
-  local->new_inode = dummy_inode(local->inode->table);
+  local->new_inode = inode_new (local->inode->table);
   local->new_list = calloc (priv->child_count + 2, sizeof (int16_t));
   ERR_ABORT (local->new_list);
   if (!local->new_inode || !local->new_list) {

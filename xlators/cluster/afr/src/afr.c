@@ -576,7 +576,7 @@ afr_lookup_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     data_t *ctime_data, *version_data;
     local->op_ret = 0;
-    if (inode && list_empty (&inode->fds)) {
+    if (inode && list_empty (&inode->fd_list)) {
       child_errno[i] = 0;
     }
 
@@ -609,7 +609,7 @@ afr_lookup_cbk (call_frame_t *frame,
       AFR_DEBUG_FMT (this, "child %s ctime %d version %d", 
 		     prev_frame->this->name, ashptr[i].ctime, ashptr[i].version);
     }
-  } else if (inode && list_empty (&inode->fds)) {
+  } else if (inode && list_empty (&inode->fd_list)) {
     /* either self-heal is turned 'off' or we didn't recieve xattr, which we requested for */
     child_errno[i] = op_errno;
   }
@@ -4455,7 +4455,7 @@ afr_mkdir_cbk (call_frame_t *frame,
       break;
     }
   }
-  if (inode && list_empty (&inode->fds)) {
+  if (inode && list_empty (&inode->fd_list)) {
     if (op_ret == 0)
       child_errno[i] = 0;
     else 
@@ -4783,7 +4783,7 @@ afr_create_cbk (call_frame_t *frame,
     }
   }
 
-  if (inode && list_empty (&inode->fds)) {
+  if (inode && list_empty (&inode->fd_list)) {
     if (op_ret != -1)
       child_errno[i] = 0;
     else
@@ -4947,7 +4947,7 @@ afr_mknod_cbk (call_frame_t *frame,
     }
   }
 
-  if (inode && list_empty (&inode->fds)) {
+  if (inode && list_empty (&inode->fd_list)) {
     if (op_ret == 0)
       child_errno[i] = 0;
     else
@@ -5060,7 +5060,7 @@ afr_symlink_cbk (call_frame_t *frame,
     }
   }
 
-  if (inode && list_empty (&inode->fds)) {
+  if (inode && list_empty (&inode->fd_list)) {
     if (op_ret == 0)
       child_errno[i] = 0;
     else

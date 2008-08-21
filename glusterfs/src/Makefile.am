@@ -31,6 +31,9 @@ CLEANFILES =
 $(top_builddir)/libglusterfs/src/libglusterfs.la:
 	make -C $(top_builddir)/libglusterfs/src/ all
 
+uninstall-local:
+	rm -f $(DESTDIR)$(sbindir)/glusterfsd
+
 install-data-local:
 	$(INSTALL) -d -m 755 $(DESTDIR)$(localstatedir)/run
 	$(INSTALL) -d -m 755 $(DESTDIR)$(localstatedir)/log/glusterfs

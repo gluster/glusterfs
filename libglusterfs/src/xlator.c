@@ -318,7 +318,7 @@ fd_create (inode_t *inode)
 
   LOCK (&inode->lock);
   {
-    list_add (&fd->inode_list, &inode->fds);
+    list_add (&fd->inode_list, &inode->fd_list);
   }
   UNLOCK (&inode->lock);
 

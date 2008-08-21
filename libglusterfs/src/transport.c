@@ -73,13 +73,13 @@ transport_load (dict_t *options,
 	  (strncmp (type_data->data, "unix", 4) == 0) ||
 	  (strncmp (type_data->data, "ib-sdp", 6) == 0))
 	{
-	  dict_set (options, "transport-type", str_to_data ("socket"));
 	  if ((strncmp (type_data->data, "tcp", 3) == 0))
 	    dict_set (options, "address-family", str_to_data ("inet/inet6"));
 	  if ((strncmp (type_data->data, "unix", 4) == 0))
 	    dict_set (options, "address-family", str_to_data ("unix"));
 	  if ((strncmp (type_data->data, "ib-sdp", 6) == 0))
 	    dict_set (options, "address-family", str_to_data ("ib-sdp"));
+	  dict_set (options, "transport-type", str_to_data ("socket"));
 	}
     }
   type_data = dict_get (options, "transport-type");

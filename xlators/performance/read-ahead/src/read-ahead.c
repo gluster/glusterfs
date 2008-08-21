@@ -663,7 +663,7 @@ ra_truncate (call_frame_t *frame,
   if (loc->inode) {
     LOCK (&(loc->inode->lock));
     {
-      list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
+      list_for_each_entry (iter_fd, &(loc->inode->fd_list), inode_list) {
 	if (dict_get (iter_fd->ctx, this->name)) {
 	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
 	  flush_region (frame, file, 0, file->pages.prev->offset + 1);
@@ -862,8 +862,9 @@ init (xlator_t *this)
   conf->page_size = 256 * 1024;
   conf->page_count = 2;
 
-  page_size_string = data_to_str (dict_get (options,
-					    "page-size"));
+  if (dict_get (options, "page-size"))
+    page_size_string = data_to_str (dict_get (options,
+					      "page-size"));
   if (page_size_string)
     {
       if (gf_string2bytesize (page_size_string, &conf->page_size) != 0)
@@ -879,8 +880,9 @@ init (xlator_t *this)
 	      conf->page_size);
     }
   
-  page_count_string = data_to_str (dict_get (options, 
-					     "page-count"));
+  if (dict_get (options, "page-count"))
+    page_count_string = data_to_str (dict_get (options, 
+					       "page-count"));
   if (page_count_string)
     {
       if (gf_string2uint_base10 (page_count_string, &conf->page_count) != 0)

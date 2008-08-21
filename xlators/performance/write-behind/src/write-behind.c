@@ -347,7 +347,7 @@ wb_stat (call_frame_t *frame,
     {
       LOCK (&(loc->inode->lock));
       {
-	list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list)
+	list_for_each_entry (iter_fd, &(loc->inode->fd_list), inode_list)
 	  {
 	    if (dict_get (iter_fd->ctx, this->name))
 	      {
@@ -451,7 +451,7 @@ wb_truncate (call_frame_t *frame,
     {
       LOCK (&(loc->inode->lock));
       {
-	list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list)
+	list_for_each_entry (iter_fd, &(loc->inode->fd_list), inode_list)
 	  {
 	    if (dict_get (iter_fd->ctx, this->name))
 	      {
@@ -559,7 +559,7 @@ wb_utimens (call_frame_t *frame,
     {
       LOCK (&(loc->inode->lock));
       {
-	list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list)
+	list_for_each_entry (iter_fd, &(loc->inode->fd_list), inode_list)
 	  {
 	    if (dict_get (iter_fd->ctx, this->name))
 	      {
@@ -1344,8 +1344,11 @@ init (xlator_t *this)
   conf = calloc (1, sizeof (*conf));
 
   conf->aggregate_size = 0;
-  aggregate_size_string = data_to_str (dict_get (options, 
-						 "aggregate-size"));
+
+  if (dict_get (options, "aggregate-size"))
+    aggregate_size_string = data_to_str (dict_get (options, 
+						   "aggregate-size"));
+
   if (aggregate_size_string)
     {
       if (gf_string2bytesize (aggregate_size_string, &conf->aggregate_size) != 0)
@@ -1363,8 +1366,10 @@ init (xlator_t *this)
 	  "using aggregate-size = %d", conf->aggregate_size);
   
   conf->window_size = 0;
-  window_size_string = data_to_str (dict_get (options, 
-					      "window-size"));
+
+  if (dict_get (options, "window-size"))
+    window_size_string = data_to_str (dict_get (options, 
+						"window-size"));
   if (window_size_string)
     {
       if (gf_string2bytesize (window_size_string, &conf->window_size) != 0)
@@ -1380,7 +1385,7 @@ init (xlator_t *this)
   if (!conf->window_size)
     {
       gf_log (this->name, GF_LOG_WARNING,
-	      "Setting window-size to be equal to aggregate-size(%"PRId64")",
+	      "setting window-size to be equal to aggregate-size(%"PRId32")",
 	      conf->aggregate_size);
       conf->window_size = conf->aggregate_size;
     }
@@ -1388,8 +1393,8 @@ init (xlator_t *this)
   if (conf->window_size < conf->aggregate_size)
     {
       gf_log (this->name, GF_LOG_ERROR,
-	      "aggregate-size(%"PRId64") cannot be more than window-size"
-	      "(%"PRId64")", conf->window_size, conf->aggregate_size);
+	      "aggregate-size(%"PRId32") cannot be more than window-size"
+	      "(%"PRId32")", conf->window_size, conf->aggregate_size);
       FREE (conf);
       return -1;
     }

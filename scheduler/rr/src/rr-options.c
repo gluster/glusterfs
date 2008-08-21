@@ -160,9 +160,10 @@ rr_options_validate (dict_t *options, rr_options_t *rr_options)
       return -1;
     }
   
-  if (data_to_str (dict_get (options, RR_LIMITS_MIN_FREE_DISK_OPTION_STRING)))
-    value_string = data_to_str (dict_get (options, 
-					  RR_LIMITS_MIN_FREE_DISK_OPTION_STRING));
+  if (dict_get (options, RR_LIMITS_MIN_FREE_DISK_OPTION_STRING))
+    if (data_to_str (dict_get (options, RR_LIMITS_MIN_FREE_DISK_OPTION_STRING)))
+      value_string = data_to_str (dict_get (options, 
+					    RR_LIMITS_MIN_FREE_DISK_OPTION_STRING));
   if (value_string != NULL)
     {
       if (_rr_options_min_free_disk_validate (value_string, 

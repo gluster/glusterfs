@@ -58,36 +58,6 @@ afr_lookup_unlock_cbk (call_frame_t *frame,
 
 void afr_lookup_directory_selfheal (call_frame_t*);
 
-void
-dummy_inode_destroy (inode_t * inode)
-{
-  dict_destroy (inode->ctx);
-  LOCK_DESTROY (&inode->lock);
-  FREE (inode);
-}
-
-static inode_t *
-dummy_inode (inode_table_t *table)
-{
-  inode_t *dummy;
-
-  dummy = calloc (1, sizeof (*dummy));
-  ERR_ABORT (dummy);
-
-  dummy->table = table;
-
-  INIT_LIST_HEAD (&dummy->list);
-  INIT_LIST_HEAD (&dummy->inode_hash);
-  INIT_LIST_HEAD (&dummy->fds);
-  INIT_LIST_HEAD (&dummy->dentry.name_hash);
-  INIT_LIST_HEAD (&dummy->dentry.inode_list);
-
-  dummy->ref = 1;
-  dummy->ctx = get_new_dict ();
-
-  LOCK_INIT (&dummy->lock);
-  return dummy;
-}
 
 int32_t
 afr_lds_closedir_cbk (call_frame_t *frame,
@@ -213,7 +183,7 @@ afr_lds_lookup_cbk (call_frame_t *frame,
   dir_entry_t *entry = asp->entries;
 
   if (inode != NULL)
-    inode_destroy (inode);
+    inode_unref (inode);
   else
     GF_ERROR (this, "inode is NULL");
   if (op_ret == -1 && op_errno != ENOENT) {
@@ -426,7 +396,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 	  strcat (path, "/");
 	  strcat (path, entry->name);
 	  asp->loc->path = path;
-	  asp->loc->inode = dummy_inode (local->loc->inode->table);
+	  asp->loc->inode = inode_new (local->loc->inode->table);
 	  /* inode structure will be freed in the call back */
 	  STACK_WIND_COOKIE (frame,
 			     afr_lds_lookup_cbk,

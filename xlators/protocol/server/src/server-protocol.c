@@ -47,28 +47,6 @@
 #define SERVER_PRIV(frame) ((server_proto_priv_t *) TRANSPORT_OF(frame)->xl_private)
 #define BOUND_XL(frame) ((xlator_t *) STATE (frame)->bound_xl)
 
-static inode_t *
-dummy_inode (inode_table_t *table)
-{
-  inode_t *dummy;
-
-  dummy = calloc (1, sizeof (*dummy));
-  ERR_ABORT (dummy);
-
-  dummy->table = table;
-
-  INIT_LIST_HEAD (&dummy->list);
-  INIT_LIST_HEAD (&dummy->inode_hash);
-  INIT_LIST_HEAD (&dummy->fds);
-  INIT_LIST_HEAD (&dummy->dentry.name_hash);
-  INIT_LIST_HEAD (&dummy->dentry.inode_list);
-
-  dummy->ref = 1;
-  dummy->ctx = get_new_dict ();
-
-  LOCK_INIT (&dummy->lock);
-  return dummy;
-}
 
 /*
  * stat_to_str - convert struct stat to a ASCII string
@@ -707,7 +685,6 @@ server_mkdir_cbk (call_frame_t *frame,
                   inode_t *inode,
                   struct stat *stbuf)
 {
-  inode_t *server_inode = NULL;
   gf_hdr_common_t *hdr = NULL;
   gf_fop_mknod_rsp_t *rsp = NULL;
   size_t hdrlen = 0;
@@ -723,14 +700,8 @@ server_mkdir_cbk (call_frame_t *frame,
     {
       gf_stat_from_stat (&rsp->stat, stbuf);
 
-      server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
-
-      inode_lookup (server_inode);
-      server_inode->ctx = inode->ctx;
-      inode->ctx = NULL;
-      server_inode->st_mode = stbuf->st_mode;
-      server_inode->generation = inode->generation;
-      inode_unref (server_inode);
+      inode_link (inode, NULL, NULL, stbuf);
+      inode_lookup (inode);
       inode_unref (inode);
     }
 
@@ -760,7 +731,6 @@ server_mknod_cbk (call_frame_t *frame,
                   inode_t *inode,
                   struct stat *stbuf)
 {
-  inode_t *server_inode = NULL;
   gf_hdr_common_t *hdr = NULL;
   gf_fop_mknod_rsp_t *rsp = NULL;
   size_t hdrlen = 0;
@@ -776,14 +746,8 @@ server_mknod_cbk (call_frame_t *frame,
     {
       gf_stat_from_stat (&rsp->stat, stbuf);
 
-      server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
-
-      inode_lookup (server_inode);
-      server_inode->ctx = inode->ctx;
-      inode->ctx = NULL;
-      server_inode->st_mode = stbuf->st_mode;
-      server_inode->generation = inode->generation;
-      inode_unref (server_inode);
+      inode_link (inode, NULL, NULL, stbuf);
+      inode_lookup (inode);
       inode_unref (inode);
     }
 
@@ -1315,7 +1279,6 @@ server_symlink_cbk (call_frame_t *frame,
                     inode_t *inode,
                     struct stat *stbuf)
 {
-  inode_t *server_inode = NULL;
   gf_hdr_common_t *hdr = NULL;
   gf_fop_symlink_rsp_t *rsp = NULL;
   size_t hdrlen = 0;
@@ -1331,14 +1294,8 @@ server_symlink_cbk (call_frame_t *frame,
     {
       gf_stat_from_stat (&rsp->stat, stbuf);
 
-      server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
-
-      inode_lookup (server_inode);
-      server_inode->ctx = inode->ctx;
-      inode->ctx = NULL;
-      server_inode->st_mode = stbuf->st_mode;
-      server_inode->generation = inode->generation;
-      inode_unref (server_inode);
+      inode_link (inode, NULL, NULL, stbuf);
+      inode_lookup (inode);
       inode_unref (inode);
     }
 
@@ -1784,7 +1741,6 @@ server_create_cbk (call_frame_t *frame,
   gf_hdr_common_t *hdr = NULL;
   gf_fop_create_rsp_t *rsp = NULL;
   size_t hdrlen = 0;
-  inode_t *server_inode = NULL;
   int32_t fd_no = -1;
   server_proto_priv_t *priv = NULL;
 
@@ -1792,28 +1748,9 @@ server_create_cbk (call_frame_t *frame,
     {
       priv = SERVER_PRIV (frame);
 
-      server_inode = inode_update (BOUND_XL(frame)->itable,
-                                   NULL, NULL, stbuf);
-
-      {
-        server_inode->ctx = inode->ctx;
-        server_inode->st_mode = stbuf->st_mode;
-        inode_lookup (server_inode);
-        inode->ctx = NULL;
-
-        list_del (&fd->inode_list);
-
-        LOCK (&server_inode->lock);
-        {
-          list_add (&fd->inode_list, &server_inode->fds);
-          inode_unref (fd->inode);
-          inode_unref (inode);
-          fd->inode = inode_ref (server_inode);
-        }
-        UNLOCK (&server_inode->lock);
-      }
-
-      inode_unref (server_inode);
+      inode_link (inode, NULL, NULL, stbuf);
+      inode_lookup (inode);
+      inode_unref (inode);
 
       fd_no = gf_fd_unused_get (priv->fdtable, fd);
 
@@ -1983,7 +1920,6 @@ server_lookup_cbk (call_frame_t *frame,
                    struct stat *stbuf,
                    dict_t *dict)
 {
-  inode_t *server_inode = NULL;
   inode_t *root_inode = NULL;
   int dict_len = 0;
   gf_hdr_common_t *hdr = NULL;
@@ -2000,12 +1936,12 @@ server_lookup_cbk (call_frame_t *frame,
       if (state->inode != root_inode) {
 	inode_unref (state->inode);
 	state->inode = NULL;
-	state->inode = dummy_inode (BOUND_XL(frame)->itable);
+	state->inode = inode_new (BOUND_XL(frame)->itable);
       }
       loc.inode = state->inode;
       loc.path = state->path;
       state->is_revalidate = 2;
-      STACK_WIND (frame,          server_lookup_cbk,
+      STACK_WIND (frame, server_lookup_cbk,
 		  BOUND_XL(frame),
 		  BOUND_XL(frame)->fops->lookup,
 		  &loc,
@@ -2041,19 +1977,8 @@ server_lookup_cbk (call_frame_t *frame,
     }
     
     if (!inode->ino) {
-      server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
-
-      if (server_inode != inode && (!server_inode->ctx)) {
-        server_inode->ctx = inode->ctx;
-        inode->ctx = NULL;
-        if (op_ret >= 0) {
-          server_inode->st_mode = stbuf->st_mode;
-          server_inode->generation = inode->generation;
-        }
-      }
-      
-      inode_lookup (server_inode);
-      inode_unref (server_inode);
+      inode_link (inode, NULL, NULL, stbuf);
+      inode_lookup (inode);
     }
   }
 
@@ -2094,24 +2019,13 @@ server_stub_cbk (call_frame_t *frame,
                  struct stat *stbuf,
                  dict_t *dict)
 {
-  /* TODO: should inode pruning be done here or not??? */
   inode_t *server_inode = NULL;
 
-  server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
-
-  if (server_inode != inode) {
-    server_inode->ctx = inode->ctx;
-    server_inode->st_mode = stbuf->st_mode;
-    server_inode->generation = inode->generation;
-    inode->ctx = NULL;
+  if (op_ret == 0) {
+    inode_link (inode, NULL, NULL, stbuf);
+    inode_lookup (inode);
+    server_inode = inode_ref (inode);
   }
-
-  if (server_inode) {
-    inode_lookup (server_inode);
-    inode_unref (server_inode);
-  }
-
-  inode_unref (inode);
 
   if (frame->local) {
     /* we have a call stub to wind to */
@@ -2122,22 +2036,6 @@ server_stub_cbk (call_frame_t *frame,
        * frame->local. frame->local points to call_stub_t, which is
        * free()ed in call_resume(). */
       frame->local = NULL;
-#if 0
-    /* classic bug.. :O, intentionally left for sweet memory.
-     *                                              --benki
-     */
-    if (op_ret < 0) {
-      if (stub->fop != GF_FOP_RENAME) {
-        /* STACK_UNWIND helps prevent memory leak. how?? */
-        gf_log (frame->this->name, GF_LOG_ERROR,
-                "returning ENOENT");
-
-        STACK_UNWIND (stub->frame, -1, ENOENT, 0, 0);
-        FREE (stub);
-        return 0;
-      }
-    }
-#endif
 
     switch (stub->fop)
       {
@@ -2181,7 +2079,7 @@ server_stub_cbk (call_frame_t *frame,
 
           if (!newloc->inode) {
             /* lookup for newpath */
-            newloc->inode = dummy_inode (BOUND_XL(frame)->itable);
+            newloc->inode = inode_new (BOUND_XL(frame)->itable);
             STACK_WIND (stub->frame,
                         server_stub_cbk,
                         BOUND_XL (stub->frame),
@@ -2590,7 +2488,7 @@ server_stub_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
+int
 server_lookup (call_frame_t *frame,
                xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
@@ -2615,7 +2513,7 @@ server_lookup (call_frame_t *frame,
     state->is_revalidate = 1;
   } else {
     /* fresh lookup or inode was previously pruned out */
-    state->inode = dummy_inode (bound_xl->itable);
+    state->inode = inode_new (bound_xl->itable);
     loc.inode = state->inode;
     state->is_revalidate = -1;
   }
@@ -2623,7 +2521,7 @@ server_lookup (call_frame_t *frame,
   state->path = strdup (loc.path);
   state->need_xattr = need_xattr;
 
-  STACK_WIND (frame,          server_lookup_cbk,
+  STACK_WIND (frame, server_lookup_cbk,
               bound_xl,
               bound_xl->fops->lookup,
               &loc,
@@ -2723,7 +2621,7 @@ server_stat (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = stat_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -2799,7 +2697,7 @@ server_readlink (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = readlink_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -2844,7 +2742,7 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
 
 
   loc.path = path;
-  loc.inode = dummy_inode (bound_xl->itable);
+  loc.inode = inode_new (bound_xl->itable);
   fd = fd_create (loc.inode);
 
 
@@ -2925,7 +2823,7 @@ server_open (call_frame_t *frame, xlator_t *bound_xl,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = open_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -3352,7 +3250,7 @@ server_truncate (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = truncate_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -3445,7 +3343,7 @@ server_unlink (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = unlink_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -3563,7 +3461,7 @@ server_setxattr (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = setxattr_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -3644,7 +3542,7 @@ server_getxattr (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = getxattr_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -3723,7 +3621,7 @@ server_removexattr (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = removexattr_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -3837,7 +3735,7 @@ server_opendir (call_frame_t *frame, xlator_t *bound_xl,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = opendir_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -4080,7 +3978,7 @@ server_mknod (call_frame_t *frame,
   mode = ntoh32 (req->mode);
   dev = ntoh64 (req->dev);
   loc.path  = req->path;
-  loc.inode = dummy_inode (bound_xl->itable);
+  loc.inode = inode_new (bound_xl->itable);
 
   STACK_WIND (frame,
               server_mknod_cbk,
@@ -4114,7 +4012,7 @@ server_mkdir (call_frame_t *frame,
 
   mode = ntoh32 (req->mode);
   loc.path  = req->path;
-  loc.inode = dummy_inode (bound_xl->itable);
+  loc.inode = inode_new (bound_xl->itable);
 
   STACK_WIND (frame,
               server_mkdir_cbk,
@@ -4182,7 +4080,7 @@ server_rmdir (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = rmdir_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -4323,7 +4221,7 @@ server_chown (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = chown_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -4399,7 +4297,7 @@ server_chmod (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = chmod_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -4476,7 +4374,7 @@ server_utimens (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = utimens_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -4550,7 +4448,7 @@ server_access (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = access_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -4588,7 +4486,7 @@ server_symlink (call_frame_t *frame,
 
   link      = (req->newpath + 1 + strlen (req->oldpath));
   loc.path  = req->oldpath;
-  loc.inode = dummy_inode (bound_xl->itable);
+  loc.inode = inode_new (bound_xl->itable);
 
   STACK_WIND (frame,
               server_symlink_cbk,
@@ -4641,7 +4539,7 @@ server_link (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = link_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -4713,7 +4611,7 @@ server_rename (call_frame_t *frame,
      *    if lookup of oldpath fails, server_stub_cbk() UNWINDs to
      * server_rename_cbk() with ret=-1 and errno=ENOENT.
      */
-    oldloc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    oldloc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
@@ -4729,7 +4627,7 @@ server_rename (call_frame_t *frame,
      * continues with fops->rename(), irrespective of success or failure of
      * lookup for newpath.
      */
-    newloc.inode = dummy_inode (BOUND_XL(frame)->itable);
+    newloc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,

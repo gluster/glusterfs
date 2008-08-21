@@ -1286,8 +1286,10 @@ init (xlator_t *this)
   table->xl = this;
   table->page_size = IOC_PAGE_SIZE;
   table->cache_size = IOC_CACHE_SIZE;
-  
-  page_size_string = data_to_str (dict_get (options, "page-size"));
+
+  if (dict_get (options, "page-size"))
+    page_size_string = data_to_str (dict_get (options, "page-size"));
+
   if (page_size_string)
     {
       if (gf_string2bytesize (page_size_string, &table->page_size) != 0)
@@ -1304,8 +1306,9 @@ init (xlator_t *this)
 	      table->page_size);
     }
   
-  cache_size_string = data_to_str (dict_get (options, 
-					     "cache-size"));
+  if (dict_get (options, "cache-size"))
+    cache_size_string = data_to_str (dict_get (options, 
+					       "cache-size"));
   if (cache_size_string)
     {
       if (gf_string2bytesize (cache_size_string, &table->cache_size) != 0)
