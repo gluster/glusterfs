@@ -62,10 +62,11 @@ transport_load (dict_t *options,
     {
       dict_set (options, "transport-type", str_to_data ("socket"));
       if (!addr_family)
-	dict_set (options, "address-family", str_to_data ("inet/inet6"));
-      gf_log ("transport", GF_LOG_DEBUG,
+	dict_set (options, "address-family", str_to_data ("inet"));
+
+      gf_log ("transport", GF_LOG_WARNING,
 	      "missing 'option transport-type'. defaulting to \"socket\" (%s)",
-	      addr_family?addr_family->data:"inet/inet6");
+	      addr_family?addr_family->data:"inet");
     }
   else
     {
@@ -74,7 +75,7 @@ transport_load (dict_t *options,
 	  (strncmp (type_data->data, "ib-sdp", 6) == 0))
 	{
 	  if ((strncmp (type_data->data, "tcp", 3) == 0))
-	    dict_set (options, "address-family", str_to_data ("inet/inet6"));
+	    dict_set (options, "address-family", str_to_data ("inet"));
 	  if ((strncmp (type_data->data, "unix", 4) == 0))
 	    dict_set (options, "address-family", str_to_data ("unix"));
 	  if ((strncmp (type_data->data, "ib-sdp", 6) == 0))
@@ -88,7 +89,8 @@ transport_load (dict_t *options,
   } else {
     FREE (trans);
     gf_log ("transport", GF_LOG_ERROR,
-	    "'option transport-type <xxxx>' missing in specification");
+	    "'option transport-type <xxxx>' missing in volume '%s'",
+	    xl->name);
     return NULL;
   }
   {
@@ -102,9 +104,12 @@ transport_load (dict_t *options,
 	  "attempt to load file %s", name);
 
   handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
-
   if (!handle) {
     gf_log ("transport", GF_LOG_ERROR,
+	    "volume '%s': transport-type '%s' is not valid or not found on this machine", 
+	    xl->name, type);
+
+    gf_log ("transport", GF_LOG_DEBUG,
 	    "dlopen (%s): %s", name, dlerror ());
     FREE (name);
     FREE (trans);

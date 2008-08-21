@@ -18,6 +18,7 @@
 */
 
 %x STRING
+%option yylineno
 %{
 
 #define YYSTYPE char *
@@ -94,6 +95,6 @@ TYPE   [t][y][p][e]
                        return CMD_TOK;
        }
 }
-[^ \t\r\n\`\"\\]+   { yylval = strdup (yytext) ; return ID; }
-[ \t\r\n]+               ;
+[^ \t\r\n\`\"\\]+ {    yylval = strdup (yytext) ; return ID; }
+[ \t\r\n]+             ;
 %%

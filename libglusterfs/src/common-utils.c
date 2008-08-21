@@ -295,25 +295,23 @@ get_global_ctx_ptr (void)
 void
 gf_dump_spec_file (FILE *specfp)
 {
-  extern FILE *gf_log_logfile;
-  int fd = fileno (gf_log_logfile);
-  int specfd = fileno (specfp);
+  extern FILE *gf_log_logfile; 
+  int lineno = 0;
   char msg[1024];
-  int ret = -1;
-  
+  char *retchar = NULL;
+
   /* hopefully two breaks should break this loop :p */
-  write (fd, "\n", 1);
+  fprintf (gf_log_logfile, "\n");
   while (1) 
     {
-      ret = read (specfd, msg, 1024);
-      if (ret == -1)
+      lineno++;
+      retchar = fgets (msg, 1024, specfp);
+      if (retchar == NULL)
 	break;
-      if (ret == 0)
-	break;
-      write (fd, msg, ret);
+
+      fprintf (gf_log_logfile, "%3d: %s", lineno, msg);
     }
-  
-  write (fd, "\n", 1);
+  fprintf (gf_log_logfile, "\n");
   fseek (specfp, 0L, SEEK_SET);
 
   return;

@@ -120,7 +120,7 @@ xlator_set_type (xlator_t *xl,
   handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
 
   if (!handle) {
-    gf_log ("xlator", GF_LOG_ERROR, "dlopen(%s): %s", name, dlerror ());
+    gf_log ("xlator", GF_LOG_DEBUG, "dlopen(%s): %s", name, dlerror ());
     return -1;
   }
 
@@ -257,7 +257,7 @@ xlator_init_rec (xlator_t *xl)
       ret = xl->init (xl);
       if (ret) {
 	gf_log ("xlator", GF_LOG_ERROR, 
-		"'%s' init() failed. Check spec file.", 
+		"initialization of volume '%s' failed, review your volume spec file again", 
 		xl->name);
       }
     } else {
