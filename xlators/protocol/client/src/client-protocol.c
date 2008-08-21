@@ -3966,9 +3966,7 @@ client_setvolume_cbk (call_frame_t *frame,
 
   if (dict_get (reply, "ERRNO"))
     remote_errno = gf_error_to_errno (data_to_int32 (dict_get (reply, "ERRNO")));
-  else
-    remote_errno = ENOENT;
-
+  
   if (dict_get (reply, "ERROR"))
     remote_error = data_to_str (dict_get (reply, "ERROR"));
 

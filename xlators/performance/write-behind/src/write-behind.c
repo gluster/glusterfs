@@ -67,7 +67,6 @@ typedef struct write_request {
   list_head_t list;
   list_head_t winds;
   list_head_t unwinds;
-  gf_lock_t lock;
 } wb_write_request_t;
 
 
@@ -83,6 +82,7 @@ struct wb_file {
   fd_t *fd;
   gf_lock_t lock;
   xlator_t *this;
+  char closed;
 };
 
 
@@ -102,11 +102,6 @@ wb_sync_all (call_frame_t *frame, wb_file_t *file);
 
 int32_t 
 __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_size);
-
-int32_t
-wb_stack_wind (list_head_t *list, list_head_t *winds, char dont_aggregate);
-
-
 
 wb_file_t *
 wb_file_ref (wb_file_t *file)
@@ -168,7 +163,7 @@ wb_sync_cbk (call_frame_t *frame,
       unwind_frame = NULL;
       size = 0;
 
-      LOCK (&request->lock);
+      LOCK (&file->lock);
       {
 	request->got_reply = 1;
 	written_behind = request->write_behind;
@@ -179,7 +174,7 @@ wb_sync_cbk (call_frame_t *frame,
 	    size = iov_length (request->vector, request->count);
 	  }
       }
-      UNLOCK (&request->lock);
+      UNLOCK (&file->lock);
 
       if (!written_behind)
 	{
@@ -203,6 +198,11 @@ wb_sync_cbk (call_frame_t *frame,
 }
 
 
+void debug_function ()
+{
+
+}
+
 int32_t
 wb_sync_all (call_frame_t *frame, wb_file_t *file) 
 {
@@ -216,6 +216,14 @@ wb_sync_all (call_frame_t *frame, wb_file_t *file)
     bytes = __wb_mark_winds (&file->request, &winds, 0);
   }
   UNLOCK (&file->lock);
+
+  /*
+  if (list_empty (&winds)) {
+    gf_log (file->this->name,
+	    GF_LOG_DEBUG,
+	    "wind list is empty");
+  }
+  */
 
   wb_sync (frame, file, &winds);
 
@@ -236,6 +244,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
   int32_t bytes = 0;
   size_t bytecount = 0;
 
+
   list_for_each_entry (request, winds, winds)
     {
       total_count += request->count;
@@ -245,6 +254,10 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
   if (!total_count) {
       return 0;
     }
+
+  if (file->closed) {
+    debug_function ();
+  }
 
   list_for_each_entry_safe (request, dummy, winds, winds)
     {
@@ -722,24 +735,16 @@ __wb_cleanup_queue (wb_file_t *file)
 {
   wb_write_request_t *request = NULL, *dummy = NULL;
   int32_t bytes = 0;
-  char got_reply = 0;
 
   list_for_each_entry_safe (request, dummy, &file->request, list)
     {
-      LOCK (&request->lock);
-      {
-	got_reply = request->got_reply;
-      }
-      UNLOCK (&request->lock);
-
-      if (got_reply)
+      if (request->got_reply)
 	{
 	  bytes += iov_length (request->vector, request->count);
 	  list_del_init (&request->list);
 
 	  FREE (request->vector);
 	  dict_unref (request->refs);
-	  LOCK_DESTROY (&request->lock);
       
 	  FREE (request);
 	}
@@ -757,18 +762,14 @@ __wb_mark_wind_all (list_head_t *list, list_head_t *winds)
 
   list_for_each_entry (request, list, list)
     {
-      LOCK (&request->lock);
-      {
-	if (!request->stack_wound)
+      if (!request->stack_wound)
 	  {
 	    size += iov_length (request->vector, request->count);
 	    request->stack_wound = 1;
 	    list_add_tail (&request->winds, winds);
 	  }
-      }
-      UNLOCK (&request->lock);
     }
-
+  
   return size;
 }
 
@@ -781,14 +782,10 @@ __wb_get_aggregate_size (list_head_t *list)
 
   list_for_each_entry (request, list, list)
     {
-      LOCK (&request->lock);
-      {
-	if (!request->stack_wound)
-	  {
-	    size += iov_length (request->vector, request->count);
-	  }
-      }
-      UNLOCK (&request->lock);
+      if (!request->stack_wound)
+	{
+	  size += iov_length (request->vector, request->count);
+	}
     }
 
   return size;
@@ -802,14 +799,10 @@ __wb_get_incomplete_writes (list_head_t *list)
 
   list_for_each_entry (request, list, list)
     {
-      LOCK (&request->lock);
-      {
-	if (request->stack_wound && !request->got_reply)
-	  {
-	    count++;
-	  }
-      }
-      UNLOCK (&request->lock);
+      if (request->stack_wound && !request->got_reply)
+	{
+	  count++;
+	}
     }
 
   return count;
@@ -842,14 +835,10 @@ __wb_get_window_size (list_head_t *list)
 
   list_for_each_entry (request, list, list)
     {
-      LOCK (&request->lock);
-      {
-	if (request->write_behind && !request->got_reply)
-	  {
-	    size += iov_length (request->vector, request->count);
-	  }
-      }
-      UNLOCK (&request->lock);
+      if (request->write_behind && !request->got_reply)
+	{
+	  size += iov_length (request->vector, request->count);
+	}
     }
 
   return size;
@@ -864,28 +853,19 @@ __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
 
   list_for_each_entry (request, list, list)
     {
-      if (size > written_behind)
+      if (written_behind <= size)
 	{
-	  LOCK (&request->lock);
-	  {
-	    if (!request->write_behind)
-	      {
-		written_behind += iov_length (request->vector, request->count);
-		request->write_behind = 1;
-		list_add_tail (&request->unwinds, unwinds);
-	      }
-	  }
-	  UNLOCK (&request->lock);
+	  if (!request->write_behind)
+	    {
+	      written_behind += iov_length (request->vector, request->count);
+	      request->write_behind = 1;
+	      list_add_tail (&request->unwinds, unwinds);
+	    }
 	}
       else
 	{
 	  break;
 	}
-    }
-
-  if (written_behind < size)
-    {
-      //      wb_debug_function ();
     }
 
   return written_behind;
@@ -898,7 +878,7 @@ __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds, size_t window_conf)
   size_t window_current = 0;
 
   window_current = __wb_get_window_size (list);
-  if (window_current < window_conf)
+  if (window_current <= window_conf)
     {
       window_current += __wb_mark_unwind_till (list, unwinds,
 					       window_conf - window_current);
@@ -917,12 +897,8 @@ wb_stack_unwind (list_head_t *unwinds)
 
   list_for_each_entry_safe (request, dummy, unwinds, unwinds)
     {
-      LOCK (&request->lock);
-      {
-	size = iov_length (request->vector, request->count);
-	list_del_init (&request->unwinds);
-      }
-      UNLOCK (&request->lock);
+      size = iov_length (request->vector, request->count);
+      list_del_init (&request->unwinds);
 
       STACK_UNWIND (request->frame, size, 0, &buf);
     }
@@ -987,8 +963,6 @@ wb_enqueue (wb_file_t *file,
   INIT_LIST_HEAD (&request->list);
   INIT_LIST_HEAD (&request->winds);
   INIT_LIST_HEAD (&request->unwinds);
-
-  LOCK_INIT (&request->lock);
 
   request->frame = frame;
   request->vector = iov_dup (vector, count);
@@ -1189,6 +1163,10 @@ wb_flush (call_frame_t *frame,
 
   conf = this->private;
 
+  /*  gf_log (this->name,
+	  GF_LOG_DEBUG,
+	  "flushing fd %d", fd); */
+
   if (!dict_get (fd->ctx, this->name))
     {
       gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
@@ -1293,6 +1271,10 @@ wb_close (call_frame_t *frame,
       return 0;
     }
 
+  /* gf_log (this->name,
+	  GF_LOG_DEBUG,
+	  "closing fd %d", fd); */
+
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   dict_del (fd->ctx, this->name);
 
@@ -1314,6 +1296,7 @@ wb_close (call_frame_t *frame,
     }
   frame->local = local;
 
+  file->closed = 1;
   wb_file_unref (file);
 
   STACK_WIND (frame,
@@ -1321,6 +1304,7 @@ wb_close (call_frame_t *frame,
 	      FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->close,
               fd);
+
   return 0;
 }
 
