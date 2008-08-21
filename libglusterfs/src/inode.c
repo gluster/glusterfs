@@ -903,7 +903,7 @@ __inode_table_init_root (inode_table_t *table)
 	root = __inode_create (table);
 
 	stbuf.st_ino = 1;
-	stbuf.st_mode = __S_IFDIR|0755;
+	stbuf.st_mode = S_IFDIR|0755;
 
 	__inode_link (root, NULL, NULL, &stbuf);
 	table->root = root;
