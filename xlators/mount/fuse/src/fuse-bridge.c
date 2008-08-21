@@ -293,8 +293,14 @@ need_fresh_lookup (int op_ret, inode_t *inode, struct stat *buf)
         if (op_ret == -1)
                 return 1;
 
-        if (inode->ino != buf->st_ino)
+        if (inode->ino != buf->st_ino) {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRId64": (op_num=%d) %s => inode number changed %"PRId64" -> %"PRId64,
+                        frame->root->unique, frame->op, state->loc.path,
+                        inode->ino, buf->st_ino);
+
                 return 1;
+	}
 
         return 0;
 }
@@ -332,10 +338,6 @@ fuse_entry_cbk (call_frame_t *frame,
         }
 
         if (state->is_revalidate == 1 && need_fresh_lookup (op_ret, inode, buf)) {
-                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "%"PRId64": (op_num=%d) %s => inode number changed %"PRId64" -> %"PRId64,
-                        frame->root->unique, frame->op, state->loc.path,
-                        inode->ino, buf->st_ino);
                 inode_unref (state->loc.inode);
                 state->loc.inode = inode_new (state->itable);
                 state->is_revalidate = 2;
