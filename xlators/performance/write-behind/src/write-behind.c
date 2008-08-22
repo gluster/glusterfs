@@ -82,7 +82,6 @@ struct wb_file {
   fd_t *fd;
   gf_lock_t lock;
   xlator_t *this;
-  char closed;
 };
 
 
@@ -189,18 +188,12 @@ wb_sync_cbk (call_frame_t *frame,
       file->op_errno = op_errno;
     }
 
-  wb_process_queue (frame, file, 0); 
+  wb_process_queue (frame, file, 0);  
 
   STACK_DESTROY (frame->root);
   wb_file_unref (file);
 
   return 0;
-}
-
-
-void debug_function ()
-{
-
 }
 
 int32_t
@@ -216,14 +209,6 @@ wb_sync_all (call_frame_t *frame, wb_file_t *file)
     bytes = __wb_mark_winds (&file->request, &winds, 0);
   }
   UNLOCK (&file->lock);
-
-  /*
-  if (list_empty (&winds)) {
-    gf_log (file->this->name,
-	    GF_LOG_DEBUG,
-	    "wind list is empty");
-  }
-  */
 
   wb_sync (frame, file, &winds);
 
@@ -254,10 +239,6 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
   if (!total_count) {
       return 0;
     }
-
-  if (file->closed) {
-    debug_function ();
-  }
 
   list_for_each_entry_safe (request, dummy, winds, winds)
     {
@@ -814,7 +795,7 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf)
   size_t aggregate_current = 0;
   uint32_t incomplete_writes = 0;
 
-  incomplete_writes = __wb_get_incomplete_writes (list);
+  incomplete_writes = __wb_get_incomplete_writes (list); 
 
   aggregate_current = __wb_get_aggregate_size (list);
 
@@ -1296,7 +1277,6 @@ wb_close (call_frame_t *frame,
     }
   frame->local = local;
 
-  file->closed = 1;
   wb_file_unref (file);
 
   STACK_WIND (frame,
@@ -1392,9 +1372,14 @@ init (xlator_t *this)
 			"on")) ||
 	  (!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
 			"yes"))) {
-	gf_log (this->name, GF_LOG_DEBUG,
-		"enabling flush-behind");
-	conf->flush_behind = 1;
+	if (conf->aggregate_size != 0) {
+	  gf_log (this->name, GF_LOG_DEBUG,
+		  "aggregate-size is not zero, disbling flush-behind");
+	} else {
+	  gf_log (this->name, GF_LOG_DEBUG,
+		  "enabling flush-behind");
+	  conf->flush_behind = 1;
+	}
       }
     }
 
