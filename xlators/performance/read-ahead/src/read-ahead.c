@@ -97,7 +97,7 @@ ra_open_cbk (call_frame_t *frame,
 
     if (!file->disabled) {
       file->page_count = 1;
-      read_ahead (frame, file);
+      //      read_ahead (frame, file);
     }
   }
 

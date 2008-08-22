@@ -1430,7 +1430,7 @@ fuse_readv_cbk (call_frame_t *frame,
         fuse_state_t *state = frame->root->state;
         fuse_req_t req = state->req;
 
-        if (op_ret >= 0) {
+        if (op_ret > 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                         "%"PRId64": READ => %d/%d,%"PRId64"/%"PRId64, frame->root->unique,
                         op_ret, state->size, state->off, stbuf->st_size);
@@ -1438,8 +1438,8 @@ fuse_readv_cbk (call_frame_t *frame,
                 fuse_reply_vec (req, vector, count);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "%"PRId64": READ => -1 (%s)", frame->root->unique, 
-                        strerror(op_errno));
+                        "%"PRId64": READ => %d (%s)", frame->root->unique, 
+                        op_ret, strerror (op_errno));
 
                 fuse_reply_err (req, op_errno);
         }
