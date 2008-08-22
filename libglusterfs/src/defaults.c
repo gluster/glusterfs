@@ -1129,6 +1129,38 @@ default_getxattr (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+default_xattrop_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     dict_t *dict)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, dict);
+  return 0;
+}
+
+int32_t
+default_xattrop (call_frame_t *frame,
+		 xlator_t *this,
+		 fd_t *fd,
+		 const char *path,
+		 int32_t flags,
+		 dict_t *dict)
+{
+  STACK_WIND (frame,
+	      default_xattrop_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->xattrop,
+	      fd,
+	      path,
+	      flags,
+	      dict);
+  return 0;
+}
+
+
 static int32_t
 default_removexattr_cbk (call_frame_t *frame,
 			 void *cookie,
@@ -1444,7 +1476,6 @@ default_readdir (call_frame_t *frame,
 	      fd, size, off);
   return 0;
 }
-
 
 /* notify */
 int32_t

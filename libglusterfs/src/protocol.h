@@ -380,6 +380,19 @@ typedef struct {
 } __attribute__((packed)) gf_fop_setxattr_req_t;
 typedef struct { } __attribute__((packed)) gf_fop_setxattr_rsp_t;
 
+typedef struct {
+  uint64_t fd;
+  uint32_t flags;
+  uint32_t dict_len;
+  char     dict[0];
+  char     path[0];
+} __attribute__((packed)) gf_fop_xattrop_req_t;
+
+typedef struct {
+  uint32_t dict_len;
+  char  dict[0];
+} __attribute__((packed)) gf_fop_xattrop_rsp_t;
+
 
 typedef struct {
   uint64_t ino;

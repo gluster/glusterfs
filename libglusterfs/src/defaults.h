@@ -272,6 +272,13 @@ int32_t default_setdents (call_frame_t *frame,
 			  dir_entry_t *entries,
 			  int32_t count);
 
+int32_t default_xattrop (call_frame_t *frame,
+			 xlator_t *this,
+			 fd_t *fd,
+			 const char *path,
+			 int32_t flags,
+			 dict_t *dict);
+
 int32_t default_notify (xlator_t *this,
 			int32_t event,
 			void *data,

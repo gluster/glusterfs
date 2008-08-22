@@ -3480,6 +3480,90 @@ server_setxattr (call_frame_t *frame,
 }
 
 
+int32_t
+server_xattrop_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    dict_t *dict)
+{
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_xattrop_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+  int32_t len = 0;
+
+  if (op_ret >= 0) {
+    dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
+    len = dict_serialized_length (dict);
+  }
+
+  hdrlen = gf_hdr_len (rsp, len + 1);
+  hdr    = gf_hdr_new (rsp, len + 1);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
+
+  if (op_ret >= 0)
+    {
+      rsp->dict_len = hton32 (len);
+      dict_serialize (dict, rsp->dict);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_XATTROP,
+                         hdr, hdrlen, NULL, 0, NULL);
+
+  return 0;
+}
+
+int32_t
+server_xattrop (call_frame_t *frame,
+		xlator_t *bound_xl,
+		gf_hdr_common_t *hdr, size_t hdrlen,
+		char *buf, size_t buflen)
+{
+  int32_t flags = 0;
+  char *path;
+  gf_fop_xattrop_req_t *req = NULL;
+  dict_t *dict = NULL;
+  int32_t dict_len = 0, fd_no = -1;
+  fd_t *fd;
+  server_proto_priv_t *priv = NULL;
+
+  req = gf_param (hdr);
+  dict_len = ntoh32 (req->dict_len);
+
+  /* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
+   * in the protocol data.
+   */
+  path  = req->dict + dict_len;
+  flags = ntoh32 (req->flags);
+  priv = SERVER_PRIV (frame);
+  fd_no = ntoh64 (req->fd);
+  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+
+  if (dict_len) {
+    /* Unserialize the dictionary */
+    char *buf = memdup (req->dict, dict_len);
+    dict = get_new_dict ();
+    dict_unserialize (buf, dict_len, &dict);
+    dict->extra_free = buf;
+    dict_ref (dict);
+  }
+  STACK_WIND (frame,
+	      server_xattrop_cbk,
+	      bound_xl,
+	      bound_xl->fops->xattrop,
+	      fd,
+	      path,
+	      flags,
+	      dict);
+  if (dict)
+    dict_unref (dict);
+  return 0;
+}
+
 
 int32_t
 server_getxattr_resume (call_frame_t *frame,
@@ -5854,6 +5938,7 @@ static gf_op_t gf_fops[] = {
   [GF_FOP_READDIR]      =  server_readdir,
   [GF_FOP_GF_LK]        =  server_gf_lk,
   [GF_FOP_CHECKSUM]     =  server_checksum,
+  [GF_FOP_XATTROP]      =  server_xattrop,
 };
 
 

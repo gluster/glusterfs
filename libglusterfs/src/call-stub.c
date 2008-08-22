@@ -2411,6 +2411,7 @@ call_resume_wind (call_stub_t *stub)
   case GF_FOP_RMELEM:
   case GF_FOP_INCVER:
   case GF_FOP_READDIR:
+  case GF_FOP_XATTROP:
     break;
   }
 }
@@ -3149,6 +3150,7 @@ call_resume_unwind (call_stub_t *stub)
   case GF_FOP_INCVER:
     /* FIXME (krishna) is the stub functionality needed for readdir()? */
   case GF_FOP_READDIR:
+  case GF_FOP_XATTROP:
     break;
   }
 }

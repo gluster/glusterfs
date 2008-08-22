@@ -650,13 +650,6 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
 	}
 	buf += 9;
   
-	if (count == 0) {
-		gf_log ("dict",
-			GF_LOG_ERROR,
-			"count == 0");
-		goto err;
-	}
-
 	for (cnt = 0; cnt < count; cnt++) {
 		data_t *value = NULL;
 		char *key = NULL;

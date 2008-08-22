@@ -485,12 +485,18 @@ typedef int32_t (*fop_setdents_cbk_t) (call_frame_t *frame,
 				       int32_t op_errno);
 
 typedef int32_t (*fop_readdir_cbk_t) (call_frame_t *frame,
-				       void *cookie,
-				       xlator_t *this,
-				       int32_t op_ret,
-				       int32_t op_errno,
-				       gf_dirent_t *entries);
+				      void *cookie,
+				      xlator_t *this,
+				      int32_t op_ret,
+				      int32_t op_errno,
+				      gf_dirent_t *entries);
 
+typedef int32_t (*fop_xattrop_cbk_t) (call_frame_t *frame,
+				      void *cookie,
+				      xlator_t *this,
+				      int32_t op_ret,
+				      int32_t op_errno,
+				      dict_t *xattr);
 
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
 				 xlator_t *this,
@@ -703,6 +709,13 @@ typedef int32_t (*fop_readdir_t) (call_frame_t *frame,
 				  size_t size,
 				  off_t offset);
 
+typedef int32_t (*fop_xattrop_t) (call_frame_t *frame,
+				  xlator_t *this,
+				  fd_t *fd,
+				  const char *path,
+				  int32_t optype,
+				  dict_t *xattr);
+
 struct xlator_fops {
   fop_lookup_t         lookup;
   fop_forget_t         forget;
@@ -746,6 +759,7 @@ struct xlator_fops {
   fop_setdents_t       setdents;
   fop_getdents_t       getdents;
   fop_checksum_t       checksum;
+  fop_xattrop_t        xattrop;
 
   /* these entries are used for a typechecking hack in STACK_WIND _only_ */
   fop_lookup_cbk_t         lookup_cbk;
@@ -790,6 +804,7 @@ struct xlator_fops {
   fop_setdents_cbk_t       setdents_cbk;
   fop_getdents_cbk_t       getdents_cbk;
   fop_checksum_cbk_t       checksum_cbk;
+  fop_xattrop_cbk_t        xattrop_cbk;
 };
 
 

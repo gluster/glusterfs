@@ -29,6 +29,11 @@
 #include "scheduler.h"
 #include "call-stub.h"
 
+enum {
+  AFR_FOP_WRITEV,
+  AFR_FOP_FTRUNCATE,
+};
+
 /* afr file descriptor structure */
 typedef struct _afrfd {
   char *fdstate;
@@ -106,6 +111,74 @@ typedef struct _afr_statfs_local {
   int32_t stat_child;
 } afr_statfs_local_t;
 
+/* afr_lock_locak_t used by fops needing to gf_lk */
+
+typedef struct _afr_lock_local {
+  /* used by wrft and open-selfheal*/
+  fd_t *fd;
+  int32_t label;
+  int32_t op_errno;
+  int32_t op_ret;
+  int32_t call_count;
+  int32_t error;
+  int32_t fop;
+  off_t length;
+  void *returnfn;
+  struct stat stbuf;
+  char *locked;
+
+  /* used by wrft */
+  struct iovec *vector;
+  off_t offset;
+  int32_t count;
+  /* char *callres; */
+  dict_t *req_refs;
+
+  /* used by open selfheal */
+  fd_t *shfd;
+  loc_t *loc;
+  char *writecnt;
+  int32_t latest;
+  int32_t flags;
+  size_t size;
+  int32_t uid, gid;
+  int32_t sh, shclose, lock, unlock;
+} afr_lock_local_t;
+
+typedef enum {
+  AFR_WRFT_1,
+  AFR_WRFT_2,
+  AFR_WRFT_3,
+  AFR_WRFT_4,
+  AFR_WRFT_5,
+} afr_wrft_label_t;
+
+typedef enum {
+  AFR_SELFHEAL_1,
+  AFR_SELFHEAL_2,
+  AFR_SELFHEAL_3,
+  AFR_SELFHEAL_4,
+  AFR_SELFHEAL_5,
+  AFR_SELFHEAL_6,
+  AFR_SELFHEAL_7,
+  AFR_SELFHEAL_8,
+  AFR_SELFHEAL_9,
+} afr_selfheal_label_t;
+
+typedef enum {
+  AFR_OPEN_1,
+  AFR_OPEN_2,
+  AFR_OPEN_3,
+  AFR_OPEN_4,
+  AFR_OPEN_5,
+  AFR_OPEN_6,
+  AFR_OPEN_7,
+  AFR_OPEN_8,
+  AFR_OPEN_9,
+  AFR_OPEN_10,
+  AFR_OPEN_11,
+} afr_open_label_t;
+
 typedef struct _pattern_info {
   char *pattern;
   int copies;
@@ -121,6 +194,7 @@ typedef struct _afr_private {
   xlator_t **children;     /* array of pointers, to point to xlator_t object of the child nodes */
   char *state;
   char *xattr_check;
+  dict_t **shdict;
 } afr_private_t;
 
 #endif

@@ -1233,6 +1233,90 @@ client_incver (call_frame_t *frame,
   return ret;
 }
 
+int32_t
+client_xattrop (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		const char *path,
+		int32_t flags,
+		dict_t *dict)
+{
+  int ret = -1;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_xattrop_req_t *req = NULL;
+  size_t hdrlen = 0;
+  size_t dict_len = 0;
+  uint64_t remote_fd = 0;
+
+  if (dict)
+    dict_len = dict_serialized_length (dict);
+
+  hdrlen = gf_hdr_len (req, dict_len + strlen (path) + 1);
+  hdr    = gf_hdr_new (req, dict_len + strlen (path) + 1);
+  req    = gf_param (hdr);
+
+  if (fd && this_fd_get (fd, this, &remote_fd) == -1) {
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
+    return 0;
+  }
+
+  req->flags = hton32 (flags);
+  req->dict_len = hton32 (dict_len);
+  if (dict)
+    dict_serialize (dict, req->dict);
+  req->fd     = hton64 (remote_fd);
+
+  /* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
+   * in the protocol data.
+   */
+  strcpy (req->dict + dict_len, path);
+
+  ret = protocol_client_xfer (frame, this,
+                              GF_OP_TYPE_FOP_REQUEST, GF_FOP_XATTROP,
+                              hdr, hdrlen, NULL, 0, NULL);
+  return ret;
+}
+
+int32_t
+client_xattrop_cbk (call_frame_t *frame,
+                     gf_hdr_common_t *hdr, size_t hdrlen,
+                     char *buf, size_t buflen)
+{
+  gf_fop_xattrop_rsp_t *rsp = NULL;
+  int op_ret = 0;
+  int op_errno = 0;
+  int dict_len = 0;
+  dict_t *dict = NULL;
+
+  rsp = gf_param (hdr);
+
+  op_ret   = ntoh32 (hdr->rsp.op_ret);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
+
+  if (op_ret >= 0)
+    {
+      dict_len = ntoh32 (rsp->dict_len);
+
+      if (dict_len > 0)
+        {
+          char *dictbuf = memdup (rsp->dict, dict_len);
+          dict = get_new_dict();
+          dict_unserialize (dictbuf, dict_len, &dict);
+          dict->extra_free = dictbuf;
+          dict_del (dict, "__@@protocol_client@@__key");
+        }
+    }
+
+  if (dict)
+    dict_ref (dict);
+
+  STACK_UNWIND (frame, op_ret, op_errno, dict);
+
+  if (dict)
+    dict_unref (dict);
+
+  return 0;
+}
 
 /**
  * client_setxattr - setxattr function for client protocol
@@ -1278,7 +1362,6 @@ client_setxattr (call_frame_t *frame,
                               hdr, hdrlen, NULL, 0, NULL);
   return ret;
 }
-
 
 /**
  * client_getxattr - getxattr function for client protocol
@@ -4182,6 +4265,7 @@ static gf_op_t gf_fops[] = {
   [GF_FOP_READDIR]        =  client_readdir_cbk,
   [GF_FOP_GF_LK]          =  client_lk_common_cbk,
   [GF_FOP_CHECKSUM]       =  client_checksum_cbk,
+  [GF_FOP_XATTROP]        =  client_xattrop_cbk,
 };
 
 static gf_op_t gf_mops[] = {
@@ -4667,6 +4751,7 @@ struct xlator_fops fops = {
   .setdents    = client_setdents,
   .getdents    = client_getdents,
   .checksum    = client_checksum,
+  .xattrop     = client_xattrop,
 };
 
 struct xlator_mops mops = {

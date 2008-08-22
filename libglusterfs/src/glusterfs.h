@@ -123,6 +123,7 @@ typedef enum {
   GF_FOP_READDIR,
   GF_FOP_GF_LK,      /* 40 */
   GF_FOP_CHECKSUM,   /* 41 */   
+  GF_FOP_XATTROP,
   GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
@@ -172,6 +173,13 @@ typedef enum {
   GF_GET_REGULAR_FILES_ONLY,
 } glusterfs_getdents_flags_t;
 
+typedef enum {
+  GF_XATTROP_INC,
+  GF_XATTROP_DEC,
+  GF_XATTROP_SET,
+  GF_XATTROP_GET,
+  GF_XATTROP_RESET,
+} gf_xattrop_flags_t;
 
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
 #define GF_SET_OVERWRITE      0x2 /* Overwrite with the buf given */
