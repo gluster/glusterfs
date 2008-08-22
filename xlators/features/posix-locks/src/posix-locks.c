@@ -513,6 +513,14 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno,
 		 struct stat *buf)
 {
+	struct _truncate_ops *local = (struct _truncate_ops *) frame->local;
+	if (local) {
+		if (local->loc_or_fd && local->op == TRUNCATE) {
+			FREE (((loc_t *)local->loc_or_fd)->path);
+			FREE (local->loc_or_fd);
+		}
+	}
+
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
 }
@@ -618,7 +626,8 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
 
 	struct _truncate_ops *local = calloc (1, sizeof (struct _truncate_ops));
 	ERR_ABORT (local);
-	local->loc_or_fd  = loc;
+	local->loc_or_fd  = memdup (loc, sizeof (*loc));
+	((loc_t *)(local->loc_or_fd))->path = strdup (loc->path);
 	local->offset     = offset;
 	local->op         = TRUNCATE;
 

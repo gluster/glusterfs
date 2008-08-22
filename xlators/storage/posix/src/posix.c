@@ -1930,8 +1930,8 @@ posix_incver (call_frame_t *frame, xlator_t *this,
                 else {
                         gf_log (this->name, GF_LOG_WARNING, "%s: %s", 
                                 path, strerror(op_errno));
-                        goto out;
                 }
+		goto out;
         }
 
         else if (size > 0) {
