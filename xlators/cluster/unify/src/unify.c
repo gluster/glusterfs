@@ -332,6 +332,26 @@ unify_lookup_cbk (call_frame_t *frame,
     if (op_ret == 0) 
       {
 	local->op_ret = 0; 
+
+	if (local->stbuf.st_mode && local->stbuf.st_blksize) 
+	  /* make sure we already have a stbuf stored in local->stbuf */
+	  {
+	    if (S_ISDIR (local->stbuf.st_mode) && !S_ISDIR (buf->st_mode))
+	      {
+		gf_log (this->name, GF_LOG_CRITICAL, 
+			"[CRITICAL] '%s' is directory on namespace and, non-directory on node '%s', returning EIO",
+			local->path, priv->xl_array[(int)cookie]->name);
+		local->return_eio = 1;
+	      }
+	    if (!S_ISDIR (local->stbuf.st_mode) && S_ISDIR (buf->st_mode))
+	      {
+		gf_log (this->name, GF_LOG_CRITICAL, 
+			"[CRITICAL] '%s' is directory on node '%s', non-directory on namespace, returning EIO",
+			local->path, priv->xl_array[(int)cookie]->name);
+		local->return_eio = 1;
+	      }
+	  }
+	
 	if (!local->revalidate && !S_ISDIR (buf->st_mode))
 	  {
 	    /* This is the first time lookup on file*/
@@ -383,6 +403,21 @@ unify_lookup_cbk (call_frame_t *frame,
 
   if (!callcnt) 
     {
+      local_dict = local->dict;
+      if (local->return_eio)
+	{
+	  gf_log (this->name, GF_LOG_CRITICAL, 
+		  "[CRITICAL] Unable to fix the path (%s) with self-heal, try manual verification. returning EIO.",
+		  local->path);
+	  unify_local_wipe (local);
+	  STACK_UNWIND (frame, -1, EIO, local->inode, NULL, NULL);
+	  if (local_dict) 
+	    {
+	      dict_unref (local_dict);
+	    }
+	  return 0;
+	}
+
       if (!local->stbuf.st_blksize) 
 	{
 	  /* Inode not present */
@@ -440,7 +475,6 @@ unify_lookup_cbk (call_frame_t *frame,
 	  local->op_ret = -1;
 	}
 
-      local_dict = local->dict;
       if ((priv->self_heal && !priv->optimist) && 
 	  ((local->op_ret == 0) && S_ISDIR(local->inode->st_mode))) 
 	{

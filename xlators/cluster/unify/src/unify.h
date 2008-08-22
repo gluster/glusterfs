@@ -112,6 +112,8 @@ struct _unify_local_t {
   int16_t index;
 
   int32_t failed;
+  int32_t return_eio;  /* Used in case of different st-mode present for a given path */
+
   int64_t inode_generation; /* used to store the per directory inode_generation. 
 			     * Got from inode->ctx of directory inodes
 			     */
