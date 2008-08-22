@@ -1951,9 +1951,12 @@ posix_incver (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "setxattr failed on %s: %s", 
-                        real_path, strerror (op_errno));
-                goto out;
+		if (op_errno != ENOENT) {
+			gf_log (this->name, GF_LOG_ERROR, 
+				"setxattr failed on %s: %s", 
+				real_path, strerror (op_errno));
+		}
+		goto out;
         }
 
         op_ret = 0;

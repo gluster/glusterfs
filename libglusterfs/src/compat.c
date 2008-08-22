@@ -212,7 +212,7 @@ solaris_fsetxattr(int fd,
   int attrfd = -1;
   int ret = 0;
 
-  attrfd = openat (fd, key, flags|O_CREAT|O_WRONLY, 0777);
+  attrfd = openat (fd, key, flags|O_CREAT|O_WRONLY|O_XATTR, 0777);
   if (attrfd >= 0) {
     ftruncate (attrfd, 0);
     ret = write (attrfd, value, size);
@@ -238,7 +238,7 @@ solaris_fgetxattr(int fd,
   int attrfd = -1;
   int ret = 0;
 
-  attrfd = openat (fd, key, O_RDONLY, 0);
+  attrfd = openat (fd, key, O_RDONLY|O_XATTR);
   if (attrfd >= 0) {
     if (size == 0) {
       struct stat buf;
