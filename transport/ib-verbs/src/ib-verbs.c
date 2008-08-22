@@ -1633,7 +1633,7 @@ ib_verbs_handshake_pollin (transport_t *this)
   socklen_t sock_len;
 
   if (priv->handshake.incoming.state == IB_VERBS_HANDSHAKE_COMPLETE) {
-    return 0;
+    return -1;
   }
 
   pthread_mutex_lock (&priv->write_mutex);
@@ -2020,6 +2020,8 @@ ib_verbs_event_handler (int fd, int idx, void *data,
 
   if (!ret && poll_in && priv->tcp_connected) {
     ret = ib_verbs_handshake_pollin (this);
+    if (ret == -1)
+      ib_verbs_handshake_pollerr (this);
   }
 
   if (poll_err) {
