@@ -20,7 +20,7 @@ glusterfs_SOURCES = glusterfs.c fetch-spec.c
 glusterfs_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 glusterfs_LDFLAGS = $(GF_LDFLAGS) $(GF_GLUSTERFS_LDFLAGS)
 
-noinst_HEADERS = glusterfsd.h
+noinst_HEADERS = glusterfsd.h fetch-spec.h
 
 AM_CFLAGS = -fPIC -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)\
 	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \

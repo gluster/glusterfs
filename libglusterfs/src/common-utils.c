@@ -292,29 +292,24 @@ get_global_ctx_ptr (void)
   return gf_global_ctx;
 }
 
-void
-gf_dump_spec_file (FILE *specfp)
+void 
+gf_log_volume_specfile (FILE *specfp)
 {
-  extern FILE *gf_log_logfile; 
-  int lineno = 0;
-  char msg[1024];
-  char *retchar = NULL;
-
-  /* hopefully two breaks should break this loop :p */
-  fprintf (gf_log_logfile, "\n");
-  while (1) 
-    {
-      lineno++;
-      retchar = fgets (msg, 1024, specfp);
-      if (retchar == NULL)
-	break;
-
-      fprintf (gf_log_logfile, "%3d: %s", lineno, msg);
-    }
-  fprintf (gf_log_logfile, "\n");
-  fseek (specfp, 0L, SEEK_SET);
-
-  return;
+	extern FILE *gf_log_logfile;
+	int lcount = 0;
+	char data[GF_UNIT_KB];
+	
+	fseek (specfp, 0L, SEEK_SET);
+	
+	fprintf (gf_log_logfile, "given volume specfile\n");
+	fprintf (gf_log_logfile, "+-----\n");
+	while (!feof (specfp)) {
+		if (fgets (data, GF_UNIT_KB, specfp) == NULL)
+			break;
+		lcount++;
+		fprintf (gf_log_logfile, "%3d: %s", lcount, data);
+	}
+	fprintf (gf_log_logfile, "+-----\n");
 }
 
 void 
@@ -424,9 +419,9 @@ glusterfs_stats (int32_t signum)
 		      "NORMAL",
 		      "DEBUG"};
 
-  if (ctx->run_id)
+  if (ctx->cmd_args.run_id)
     {
-      sprintf (msg, "RunID: %s", ctx->run_id); 
+      sprintf (msg, "RunID: %s", ctx->cmd_args.run_id); 
       write (fd, msg, strlen (msg));
     }
 
@@ -441,41 +436,41 @@ glusterfs_stats (int32_t signum)
   write (fd, msg, strlen (msg));
 
   /* command line options given */
-  sprintf (msg, "%s", ctx->cmd); 
+  sprintf (msg, "%s", ctx->program_invocation_name); 
   write (fd, msg, strlen (msg));
   
-  if (ctx->specfile) {
-    sprintf (msg, " -f %s", ctx->specfile); 
+  if (ctx->cmd_args.volume_specfile) {
+    sprintf (msg, " -f %s", ctx->cmd_args.volume_specfile); 
     write (fd, msg, strlen (msg));
   }
 
-  if (ctx->serverip) {
-    sprintf (msg, " -s %s", ctx->serverip); 
+  if (ctx->cmd_args.specfile_server) {
+    sprintf (msg, " -s %s", ctx->cmd_args.specfile_server); 
     write (fd, msg, strlen (msg));
   }
 
-  if (ctx->node_name) {
-    sprintf (msg, " -n %s", ctx->node_name); 
+  if (ctx->cmd_args.volume_name) {
+    sprintf (msg, " -n %s", ctx->cmd_args.volume_name); 
     write (fd, msg, strlen (msg));
   }
 
-  if (ctx->logfile) {
-    sprintf (msg, " -l %s", ctx->logfile); 
+  if (ctx->cmd_args.log_file) {
+    sprintf (msg, " -l %s", ctx->cmd_args.log_file); 
     write (fd, msg, strlen (msg));
   }
   
-  if (ctx->loglevel) {
-    sprintf (msg, " -L %s", loglevel[ctx->loglevel]); 
+  if (ctx->cmd_args.log_level) {
+    sprintf (msg, " -L %s", loglevel[ctx->cmd_args.log_level]); 
     write (fd, msg, strlen (msg));
   }
 
-  if (ctx->pidfile) {
-    sprintf (msg, " --pidfile %s", ctx->pidfile); 
+  if (ctx->cmd_args.pid_file) {
+    sprintf (msg, " --pidfile %s", ctx->cmd_args.pid_file); 
     write (fd, msg, strlen (msg));
   }
 
-  if (ctx->mount_point) {
-    sprintf (msg, " %s", ctx->mount_point); 
+  if (ctx->cmd_args.mount_point) {
+    sprintf (msg, " %s", ctx->cmd_args.mount_point); 
     write (fd, msg, strlen (msg));
   }
   write (fd, "\n", 1);

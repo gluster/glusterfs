@@ -239,24 +239,24 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);  
 
-  ctx->gf_ctx.loglevel = GF_LOG_WARNING;
+  ctx->gf_ctx.cmd_args.log_level = GF_LOG_WARNING;
 
   if (init_ctx->logfile)
-    ctx->gf_ctx.logfile = strdup (init_ctx->logfile);
+    ctx->gf_ctx.cmd_args.log_file = strdup (init_ctx->logfile);
   else
-    asprintf (&ctx->gf_ctx.logfile, "/dev/stderr");
+    ctx->gf_ctx.cmd_args.log_file = strdup ("/dev/stderr");
 
   if (init_ctx->loglevel) {
     if (!strncasecmp (init_ctx->loglevel, "DEBUG", strlen ("DEBUG"))) {
-      ctx->gf_ctx.loglevel = GF_LOG_DEBUG;
+      ctx->gf_ctx.cmd_args.log_level = GF_LOG_DEBUG;
     } else if (!strncasecmp (init_ctx->loglevel, "WARNING", strlen ("WARNING"))) {
-      ctx->gf_ctx.loglevel = GF_LOG_WARNING;
+      ctx->gf_ctx.cmd_args.log_level = GF_LOG_WARNING;
     } else if (!strncasecmp (init_ctx->loglevel, "CRITICAL", strlen ("CRITICAL"))) {
-      ctx->gf_ctx.loglevel = GF_LOG_CRITICAL;
+      ctx->gf_ctx.cmd_args.log_level = GF_LOG_CRITICAL;
     } else if (!strncasecmp (init_ctx->loglevel, "NONE", strlen ("NONE"))) {
-      ctx->gf_ctx.loglevel = GF_LOG_NONE;
+      ctx->gf_ctx.cmd_args.log_level = GF_LOG_NONE;
     } else if (!strncasecmp (init_ctx->loglevel, "ERROR", strlen ("ERROR"))) {
-      ctx->gf_ctx.loglevel = GF_LOG_ERROR;
+      ctx->gf_ctx.cmd_args.log_level = GF_LOG_ERROR;
     } else {
       fprintf (stderr, "glusterfs: Unrecognized log-level \"%s\", possible values are \"DEBUG|WARNING|[ERROR]|CRITICAL|NONE\"\n", init_ctx->loglevel);
       FREE (ctx);
@@ -264,15 +264,15 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
     }
   }
   
-  if (gf_log_init (ctx->gf_ctx.logfile) == -1) {
+  if (gf_log_init (ctx->gf_ctx.cmd_args.log_file) == -1) {
     fprintf (stderr,
 	     "glusterfs: failed to open logfile \"%s\"\n",
-	     ctx->gf_ctx.logfile);
+	     ctx->gf_ctx.cmd_args.log_file);
     FREE (ctx);
     return NULL;
   }
 
-  gf_log_set_loglevel (ctx->gf_ctx.loglevel);
+  gf_log_set_loglevel (ctx->gf_ctx.cmd_args.log_level);
 
   /*  ctx->gf_ctx.specfile = strdup (specfile); */
   specfp = fopen (init_ctx->specfile, "r");
@@ -322,7 +322,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 int 
 glusterfs_fini (libglusterfs_client_ctx_t *ctx)
 {
-  FREE (ctx->gf_ctx.logfile);
+  FREE (ctx->gf_ctx.cmd_args.log_file);
   /* FREE (ctx->gf_ctx.specfile); */
 
   /* TODO complete cleanup of timer */

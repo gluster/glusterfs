@@ -112,8 +112,8 @@ xlator_set_type (xlator_t *xl,
       gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
       return -1;
     }
-  asprintf (&xl->type, "%s\n", type);
-
+  xl->type = strdup (type);
+  
   asprintf (&name, "%s/%s.so", XLATORDIR, type);
 
   gf_log ("xlator", GF_LOG_DEBUG, "attempt to load file %s", name);

@@ -23,24 +23,58 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
-#endif /* _CONFIG_H */
+#endif
 
-#define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfs.log"
-#define DEFAULT_GLUSTERFS_CLIENT_VOL CONFDIR "/glusterfs-client.vol"
+#define DEFAULT_VOLUME_SPECFILE               CONFDIR "/glusterfs/specfile.vol"
+#define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"
+#define DEFAULT_LOG_LEVEL                     GF_LOG_WARNING
+#define	DEFAULT_SPECFILE_SERVER_PORT          6996
+#define DEFAULT_SPECFILE_SERVER_TRANSPORT     "socket"
+#define DEFAULT_PID_FILE_DIRECTORY            DATADIR "/run"
+#define DEFAULT_FUSE_DIRECTORY_ENTRY_TIMEOUT       1
+#define DEFAULT_FUSE_ATTRIBUTE_TIMEOUT             1
 
-#define SPEC_LOCAL_FILE      1
-#define SPEC_REMOTE_FILE     2
+#define DEFAULT_EVENT_POOL_SIZE            16384
 
-struct gf_spec_location {
-  int32_t where;
-  union {
-    char *file;
-    struct {
-      char *ip;
-      char *port;
-      char *transport;
-    }server;
-  }spec;
+#define ARGP_LOG_LEVEL_NONE_OPTION        "NONE"
+#define ARGP_LOG_LEVEL_TRACE_OPTION       "TRACE"
+#define ARGP_LOG_LEVEL_CRITICAL_OPTION    "CRITICAL"
+#define ARGP_LOG_LEVEL_ERROR_OPTION       "ERROR"
+#define ARGP_LOG_LEVEL_WARNING_OPTION     "WARNING"
+#define ARGP_LOG_LEVEL_NORMAL_OPTION      "NORMAL"
+#define ARGP_LOG_LEVEL_DEBUG_OPTION       "DEBUG"
+
+#define ENABLE_NO_DAEMON_MODE     1
+#define ENABLE_DEBUG_MODE         1
+#define ENABLE_DIRECT_IO_MODE     1
+#define DISABLE_DIRECT_IO_MODE    0
+
+#define TRANSLATOR_TYPE_MOUNT_FUSE_STRING                          "mount/fuse"
+#define TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_MOUNT_POINT_STRING       "mount-point"
+#define TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_ATTR_TIMEOUT_STRING      "attr-timeout"
+#define TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_ENTRY_TIMEOUT_STRING     "entry-timeout"
+#define TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING    "direct-io-mode"
+
+
+#define SERVER_TRANSLATOR_TYPE_STRING    "protocol/server"
+#define CLIENT_TRANSLATOR_TYPE_STRING    TRANSLATOR_TYPE_MOUNT_FUSE_STRING
+#define CLIENT_TRANSLATOR_TYPE_MOUNT_POINT_STRING    TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_MOUNT_POINT_STRING
+
+enum argp_option_keys {
+	ARGP_SPECFILE_SERVER_KEY = 's', 
+	ARGP_VOLUME_SPECFILE_KEY = 'f', 
+	ARGP_LOG_LEVEL_KEY = 'L', 
+	ARGP_LOG_FILE_KEY = 'l', 
+	ARGP_SPECFILE_SERVER_PORT_KEY = 131, 
+	ARGP_SPECFILE_SERVER_TRANSPORT_KEY = 132, 
+	ARGP_PID_FILE_KEY = 'p',
+	ARGP_NO_DAEMON_KEY = 'N', 
+	ARGP_RUN_ID_KEY = 'r', 
+	ARGP_DEBUG_KEY = 133, 
+	ARGP_DISABLE_DIRECT_IO_MODE_KEY = 134, 
+	ARGP_DIRECTORY_ENTRY_TIMEOUT_KEY = 135, 
+	ARGP_ATTRIBUTE_TIMEOUT_KEY = 136, 
+	ARGP_VOLUME_NAME_KEY = 137
 };
 
 #endif /* __GLUSTERFSD_H__ */

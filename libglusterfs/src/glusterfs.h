@@ -42,11 +42,7 @@
 #include <sys/poll.h>
 #include <pthread.h>
 
-#define FUNCTION_CALLED /*\
-do {                    \
-     gf_log (__FILE__, GF_LOG_DEBUG, "%s called\n", __FUNCTION__); \
-     } while (0) */
-
+#include "logging.h"
 
 #define GF_YES 1
 #define GF_NO  0
@@ -186,24 +182,40 @@ typedef enum {
 #define GF_SET_DIR_ONLY       0x4
 #define GF_SET_EPOCH_TIME     0x8 /* used by afr dir lookup selfheal */
 
+
+struct _cmd_args {
+	/* basic options */
+	char           *specfile_server;
+	char           *volume_specfile;
+	gf_loglevel_t   log_level;
+	char           *log_file;
+	/* advanced options */
+	unsigned int    specfile_server_port;
+	char           *specfile_server_transport;
+	char           *pid_file;
+	int             no_daemon_mode;
+	char           *run_id;
+	int             debug_mode;
+	/* fuse options */
+	int             fuse_direct_io_mode_flag;
+	unsigned int    fuse_directory_entry_timeout;
+	unsigned int    fuse_attribute_timeout;
+	char           *volume_name;
+	/* key args */
+	char           *mount_point;
+};
+typedef struct _cmd_args cmd_args_t;
+
 struct _glusterfs_ctx {
-  char fin;
-  char foreground;
-  char *mount_point;
-  char *node_name;
-  char *logfile;
-  char *pidfile;
-  char *specfile;
-  char *serverip;
-  char *run_id;
-  char cmd[256];
-  int32_t loglevel;
-  void *timer;
-  void *ib;
-  void *pool;
-  void *graph;
-  void *event_pool;
-  pthread_mutex_t lock;
+	cmd_args_t         cmd_args;
+	char              *program_invocation_name;
+	char               fin;
+	void              *timer;
+	void              *ib;
+	void              *pool;
+	void              *graph;
+	void              *event_pool;
+	pthread_mutex_t    lock;
 };
 
 typedef struct _glusterfs_ctx glusterfs_ctx_t;

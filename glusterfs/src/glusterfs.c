@@ -34,7 +34,7 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
-#endif /* _CONFIG_H */
+#endif
 
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
@@ -58,9 +58,11 @@
 #include "revision.h"
 #include "common-utils.h"
 #include "event.h"
+#include "fetch-spec.h"
+
+const char *progname = NULL;
 
 /* using argp for command line parsing */
-
 static char doc[] = "";
 static char argp_doc[] = "--server=SERVER [MOUNT-POINT]\n --spec-file=VOLUME-SPECFILE [MOUNT-POINT]";
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__ " " __TIME__ " \n" \
@@ -68,598 +70,685 @@ const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on "
                                    "Copyright (c) 2006, 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>\n" \
                                    "GlusterFS comes with ABSOLUTELY NO WARRANTY.\n" \
                                    "You may redistribute copies of GlusterFS under the terms of the GNU General Public License.";
-const char *argp_program_bug_address = "<"PACKAGE_BUGREPORT">";
+const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
 
-static struct gf_spec_location spec;
-uint32_t glusterfs_fuse_direct_io_mode = 1;
-uint32_t glusterfs_fuse_entry_timeout = 1;
-uint32_t glusterfs_fuse_attr_timeout = 1;
 error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 static struct argp_option options[] = {
-  {0, 0, 0, 0, "Basic Options:"},
-  {"server", 's', "SERVER", 0, 
-   "SERVER to connect to get client specification. This is a mandatory option."},
-  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, 
-   "Load a local VOLUMESPEC file. Mandatory if --server option is not passed." },
-  {"log-level", 'L', "LOGLEVEL", 0, 
-   "Logging Severity. Valid options are DEBUG, WARNING, ERROR, CRITICAL & NONE [DEFAULT: WARNING]"},
-  {"log-file", 'l', "LOGFILE", 0, 
-   "Specify the file to redirect logs"},
-
-  {0, 0, 0, 0, "Fuse Options:"},
-  {"direct-io-mode", 'd', "ENABLE|DISABLE", 0,
-   "Whether to force directIO on fuse fd. Defaults to ENABLE"},
-  {"entry-timeout", 'e', "SECONDS", 0,
-   "Entry timeout for dentries in the kernel. Defaults to 1 second"},
-  {"attr-timeout", 'a', "SECONDS", 0,
-   "Attribute timeout for inodes in the kernel. Defaults to 1 second"},
-
-  {0, 0, 0, 0, "Advanced Options:"},
-  {"port", 'P', "PORT", 0, 
-   "Connect to PORT on SERVER."},
-  {"transport", 't', "TRANSPORT", 0, 
-   "Transport type to get the spec from server."},
-  {"pidfile", 'p', "PIDFILE", 0, 
-   "path for the pidfile"},
-  {"no-daemon", 'N', 0, 0,
-   "Run glusterfs in foreground"},
-  {"volume-name", 'n', "VOLUME-NAME", 0,
-   "Volume name in client spec to use. Defaults to the topmost volume" },
-  {"run-id", 'r', "RUN-ID", OPTION_HIDDEN,
-   "Run ID for the process, used by scripts to keep track of process they started, defaults to none"},
-
-  {0, 0, 0, 0, "Miscellaneous Options:"},
+ 	{0, 0, 0, 0, "Basic options:"},
+ 	{"specfile-server", ARGP_SPECFILE_SERVER_KEY, "SERVER", 0, 
+ 	 "Server to get the volume specfile from.  This option overrides --volume-specfile option"},
+ 	{"volume-specfile", ARGP_VOLUME_SPECFILE_KEY, "VOLUME-SPECFILE", 0, 
+ 	 "File to use as VOLUME-SPECFILE [default: " DEFAULT_VOLUME_SPECFILE "]"},
+ 	{"log-level", ARGP_LOG_LEVEL_KEY, "LOGLEVEL", 0, 
+ 	 "Logging severity.  Valid options are TRACE, DEBUG, WARNING, NORMAL, ERROR, CRITICAL and NONE [default: WARNING]"},
+ 	{"log-file", ARGP_LOG_FILE_KEY, "LOGFILE", 0, 
+ 	 "File to use for logging [default: " DEFAULT_LOG_FILE_DIRECTORY "/{PROGRAM-NAME}.log" "]"},
+ 	
+ 	{0, 0, 0, 0, "Advanced Options:"},
+ 	{"specfile-server-port", ARGP_SPECFILE_SERVER_PORT_KEY, "PORT", 0, 
+ 	 "Port number of specfile server"},
+ 	{"specfile-server-transport", ARGP_SPECFILE_SERVER_TRANSPORT_KEY, "TRANSPORT", 0, 
+ 	 "Transport type to get volume spec file from server [default: socket]"},
+ 	{"pid-file", ARGP_PID_FILE_KEY, "PIDFILE", 0, 
+ 	 "File to use as pid file"},
+ 	{"no-daemon", ARGP_NO_DAEMON_KEY, 0, 0,
+ 	 "Run in foreground"},
+ 	{"run-id", ARGP_RUN_ID_KEY, "RUN-ID", OPTION_HIDDEN,
+ 	 "Run ID for the process, used by scripts to keep track of process they started, defaults to none"},
+ 	{"debug", ARGP_DEBUG_KEY, 0, 0, 
+ 	 "Run in debug mode.  This option sets --no-daemon, --log-level to DEBUG and --log-file to console"},
+ 	
+ 	{0, 0, 0, 0, "Fuse options:"},
+ 	{"disable-direct-io-mode", ARGP_DISABLE_DIRECT_IO_MODE_KEY, 0, 0, 
+ 	 "Disable direct I/O mode in fuse kernel module"},
+ 	{"directory-entry-timeout", ARGP_DIRECTORY_ENTRY_TIMEOUT_KEY, "SECONDS", 0, 
+ 	 "Set directory entry timeout to SECONDS in fuse kernel module [default: 1]"},
+ 	{"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0, 
+ 	 "Set attribute timeout to SECONDS for inodes in fuse kernel module [default: 1]"},
+ 	{"volume-name", ARGP_VOLUME_NAME_KEY, "VOLUME-NAME", 0,
+ 	 "Volume name to be used for MOUNT-POINT [default: top most volume in VOLUME-SPECFILE]"},
+ 	
+ 	{0, 0, 0, 0, "Miscellaneous Options:"},
 #ifndef HAVE_ARGP
-  {"help", 'h', 0, 0, "Give this help list"},
-  {"version", 'V', 0, 0, "Print program version"},
-  {"usage", 'u', 0, 0, "Give a short usage message"},
-#endif /* HAVE_ARGP */
-
-  { 0, }
+ 	{"help", 'h', 0, 0, "Give this help list"},
+ 	{"usage", 'u', 0, 0, "Give a short usage message"},
+ 	{"version", 'V', 0, 0, "Print program version"},
+#endif
+ 	
+ 	{ 0, }
 };
 
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
-extern FILE *
-fetch_spec (glusterfs_ctx_t *ctx,
-	    const char *remote_host,
-	    const char *remote_port,
-	    const char *transport);
-
-static xlator_t *
-fuse_graph (xlator_t *graph)
+static int 
+_lockfd (int fd)
 {
-  int ret = 0;
-  xlator_t *top = NULL;
-  glusterfs_ctx_t *ctx = graph->ctx;
-  xlator_list_t *xlchild;
-
-  xlchild = calloc (1, sizeof (*xlchild));
-  ERR_ABORT (xlchild);
-  xlchild->xlator = graph;
-
-  top = calloc (1, sizeof (*top));
-  ERR_ABORT (top);
-  top->children = xlchild;
-  top->ctx = graph->ctx;
-  top->next = graph;
-  top->options = get_new_dict ();
-
-  gf_log ("glusterfs", GF_LOG_DEBUG,
-	  "setting option mount-point to %s", ctx->mount_point);
-
-  dict_set (top->options, "mount-point",
-	    data_from_static_ptr (ctx->mount_point));
-  dict_set (top->options, "attr-timeout",
-	    data_from_uint32 (glusterfs_fuse_attr_timeout));
-  dict_set (top->options, "entry-timeout",
-	    data_from_uint32 (glusterfs_fuse_entry_timeout));
-#ifdef GF_DARWIN_HOST_OS 
-  /* On Darwin machines, O_APPEND is not handled, which may corrupt the data */
-  dict_set (top->options, "direct-io-mode", data_from_uint32 (0));
-  gf_log ("glusterfs", GF_LOG_DEBUG, "Disabling 'direct-io-mode'");
-#else 
-  dict_set (top->options, "direct-io-mode",
-	    data_from_uint32 (glusterfs_fuse_direct_io_mode));
-  if (!glusterfs_fuse_direct_io_mode)
-    gf_log ("glusterfs", GF_LOG_DEBUG, "Disabling 'direct-io-mode'");
-
-#endif /* GF_DARWIN_HOST_OS */
-  graph->parents = calloc (1, sizeof(xlator_list_t));
-  graph->parents->xlator = top;
-
-  ret = xlator_set_type (top, "mount/fuse");
-  if (ret == -1) 
-    {
-      gf_log ("", GF_LOG_ERROR, "Failed to initialize 'fuse' translator");
-      return NULL;
-    }
-  return top;
+	struct flock fl;
+	
+	fl.l_type = F_WRLCK;
+	fl.l_whence = SEEK_SET;
+	fl.l_start = 0;
+	fl.l_len = 0;
+	
+	return fcntl (fd, F_SETLK, &fl);
 }
-
+  
+static int 
+_unlockfd (int fd)
+{
+	struct flock fl;
+	
+	fl.l_type = F_UNLCK;
+	fl.l_whence = SEEK_SET;
+	fl.l_start = 0;
+	fl.l_len = 0;
+	
+	return fcntl (fd, F_SETLK, &fl);
+}
+  
+static int 
+_is_file_exists (const char *filename)
+{
+	struct stat statinfo;
+	
+	if (filename == NULL)
+		return -1;
+	
+	if (stat (filename, &statinfo) == 0)
+		return 1;
+	if (errno == ENOENT)
+		return 0;
+	
+	return -1;
+}
+  
+static xlator_t *
+_add_fuse_mount (xlator_t *graph)
+{
+	cmd_args_t *cmd_args = NULL;
+	xlator_t *top = NULL;
+	glusterfs_ctx_t *ctx = NULL;
+	xlator_list_t *xlchild = NULL;
+	
+	ctx = graph->ctx;
+	cmd_args = &ctx->cmd_args;
+	
+	xlchild = calloc (1, sizeof (*xlchild));
+	ERR_ABORT (xlchild);
+	xlchild->xlator = graph;
+	
+	top = calloc (1, sizeof (*top));
+	ERR_ABORT (top);
+	if (xlator_set_type (top, TRANSLATOR_TYPE_MOUNT_FUSE_STRING) == -1) {
+		fprintf (stderr, 
+			 "MOUNT-POINT %s initialization failed", 
+			 cmd_args->mount_point);
+		gf_log (progname, GF_LOG_ERROR, 
+			"MOUNT-POINT %s initialization failed", 
+			cmd_args->mount_point);
+		return NULL;
+	}
+	top->children = xlchild;
+	top->ctx = graph->ctx;
+	top->next = graph;
+	top->options = get_new_dict ();
+	dict_set (top->options, 
+		  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_MOUNT_POINT_STRING, 
+		  data_from_static_ptr (cmd_args->mount_point));
+	dict_set (top->options, TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_ATTR_TIMEOUT_STRING, 
+		  data_from_uint32 (cmd_args->fuse_attribute_timeout));
+	dict_set (top->options, TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_ENTRY_TIMEOUT_STRING, 
+		  data_from_uint32 (cmd_args->fuse_directory_entry_timeout));
+#ifdef GF_DARWIN_HOST_OS 
+	/* On Darwin machines, O_APPEND is not handled, which may corrupt the data */
+	if (cmd_args->fuse_direct_io_mode_flag == ENABLE_DIRECT_IO_MODE) {
+		fprintf (stderr, 
+			 "'direct-io-mode' in fuse causes data corruption if O_APPEND is used.  "
+			 "disabling 'direct-io-mode' forcefully");
+		gf_log (progname, GF_LOG_WARNING, 
+			 "'direct-io-mode' in fuse causes data corruption if O_APPEND is used.  "
+			 "disabling 'direct-io-mode' forcefully");
+	}
+	dict_set (top->options, 
+		  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING, 
+		  data_from_uint32 (DISABLE_DIRECT_IO_MODE));
+#else 
+	dict_set (top->options, 
+		  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING,
+		  data_from_uint32 (cmd_args->fuse_direct_io_mode_flag));
+#endif /* GF_DARWIN_HOST_OS */
+	
+	graph->parents = calloc (1, sizeof (xlator_list_t));
+	graph->parents->xlator = top;
+	
+	return top;
+}
 
 static FILE *
-get_spec_fp (glusterfs_ctx_t *ctx)
+_get_specfp (glusterfs_ctx_t *ctx)
 {
-  char *specfile = spec.spec.file;
-  FILE *conf = NULL;
-
-  if (spec.where == SPEC_LOCAL_FILE) {
-    specfile = spec.spec.file;
-    
-    conf = fopen (specfile, "r");
-    
-    if (!conf) {
-      perror (specfile);
-      return NULL;
-    }
-    gf_log ("glusterfs", GF_LOG_DEBUG,
-	    "loading spec from %s", specfile);
-  } else if (spec.where == SPEC_REMOTE_FILE) {
-
-    conf = fetch_spec (ctx,
-		       spec.spec.server.ip,
-		       spec.spec.server.port,
-		       spec.spec.server.transport);
-  }
-
-  return conf;
+	cmd_args_t *cmd_args = NULL;
+	FILE *specfp = NULL;
+	
+	cmd_args = &ctx->cmd_args;
+	
+	if (cmd_args->specfile_server) {
+		specfp = fetch_spec (ctx);
+		
+		if (specfp == NULL) {
+			fprintf (stderr, 
+				 "error in getting volume specfile from server %s\n", 
+				 cmd_args->specfile_server);
+			gf_log (progname, GF_LOG_ERROR, 
+				"error in getting volume specfile from server %s\n", 
+				cmd_args->specfile_server);
+		}
+		else {
+			gf_log (progname, GF_LOG_DEBUG, 
+				"loading volume specfile from server %s", cmd_args->specfile_server);
+		}
+		
+		return specfp;
+	}
+	
+	if ((specfp = fopen (cmd_args->volume_specfile, "r")) == NULL) {
+		fprintf (stderr, "volume specfile %s: %s\n", 
+			 cmd_args->volume_specfile, 
+			 strerror (errno));
+		gf_log (progname, GF_LOG_ERROR, 
+			"volume specfile %s: %s\n", 
+			cmd_args->volume_specfile, 
+			strerror (errno));
+		return NULL;
+	}
+	
+	gf_log (progname, GF_LOG_DEBUG, 
+		"loading volume specfile %s", cmd_args->volume_specfile);
+	
+	return specfp;
 }
 
 static xlator_t *
-xlator_graph_get (glusterfs_ctx_t *ctx,
-		  FILE *conf)
+_parse_specfp (glusterfs_ctx_t *ctx, 
+	       FILE *specfp)
 {
-  xlator_t *tree, *trav, *new_tree = NULL;
-
-  tree = file_to_xlator_tree (ctx, conf);
-  trav = tree;
-
-  if (tree == NULL) {
-    gf_log ("glusterfs", GF_LOG_ERROR,
-	    "specification file parsing failed, exiting");
-    return NULL;
-  }
-
-  /* if node != null, then we try to attach to the specified node */
-  if (ctx->node_name) {
-    while (trav) {
-      if (0 == strcmp (trav->name, ctx->node_name)){
-	new_tree = trav;
-	break;
-      }
-      trav = trav->next;
-    }
-
-    if (!trav) {
-      gf_log ("glusterfs", GF_LOG_ERROR,
-	      "%s volume not found in xlator graph",
-	      ctx->node_name);
-      return NULL;
-    }
-
-    tree = trav;
-  }
-
-  return tree;
+	cmd_args_t *cmd_args = NULL;
+	xlator_t *tree = NULL, *trav = NULL, *new_tree = NULL;
+	
+	cmd_args = &ctx->cmd_args;
+	
+	fseek (specfp, 0L, SEEK_SET);
+	
+	tree = file_to_xlator_tree (ctx, specfp);
+	trav = tree;
+	
+	if (tree == NULL) {
+		if (cmd_args->specfile_server) {
+			fprintf (stderr, 
+				 "error in parsing volume specfile given by server %s\n", 
+				 cmd_args->specfile_server);
+			gf_log (progname, GF_LOG_ERROR, 
+				"error in parsing volume specfile given by server %s\n", 
+				cmd_args->specfile_server);
+		}
+		else {
+			fprintf (stderr, 
+				 "error in parsing volume specfile %s\n", 
+				 cmd_args->volume_specfile);
+			gf_log (progname, GF_LOG_ERROR, 
+				"error in parsing volume specfile %s\n", 
+				cmd_args->volume_specfile);
+		}
+		return NULL;
+	}
+	
+	/* if volume_name is given, then we attach to it */
+	if (cmd_args->volume_name) {
+		while (trav) {
+			if (strcmp (trav->name, cmd_args->volume_name) == 0) {
+				new_tree = trav;
+				break;
+			}
+			trav = trav->next;
+		}
+		
+		if (!trav) {
+			if (cmd_args->specfile_server) {
+				fprintf (stderr, 
+					 "volume %s not found in volume specfile given by server %s\n", 
+					 cmd_args->volume_name, cmd_args->specfile_server);
+				gf_log (progname, GF_LOG_ERROR, 
+					"volume %s not found in volume specfile given by server %s\n", 
+					cmd_args->volume_name, cmd_args->specfile_server);
+			}
+			else {
+				fprintf (stderr, 
+					 "volume %s not found in volume specfile %s\n", 
+					 cmd_args->volume_name, cmd_args->volume_specfile);
+				gf_log (progname, GF_LOG_ERROR, 
+					"volume %s not found in volume specfile %s\n", 
+					cmd_args->volume_name, cmd_args->volume_specfile);
+			}
+			return NULL;
+		}
+		
+		tree = trav;
+	}
+	
+	return tree;
 }
 
 
-int32_t
-xlator_graph_init (xlator_t *xl)
+static int 
+_xlator_graph_init (xlator_t *xl)
 {
-  xlator_t *trav = xl;
-  int32_t ret = -1;
-
-  while (trav->prev)
-    trav = trav->prev;
-
-  while (trav) {
-    if (!trav->ready) {
-      ret = xlator_tree_init (trav);
-      if (ret < 0)
-	break;
-    }
-    trav = trav->next;
-  }
-
-  return ret;
+	xlator_t *trav = NULL;
+	int ret = -1;
+	
+	trav = xl;
+	
+	while (trav->prev)
+		trav = trav->prev;
+	
+	while (trav) {
+		if (!trav->ready) {
+			if ((ret = xlator_tree_init (trav)) < 0)
+				break;
+		}
+		trav = trav->next;
+	}
+	
+	return ret;
 }
 
 
-static int32_t
-glusterfs_print_version (void)
-{
-  printf ("%s\n", argp_program_version);
-  printf ("Repository revision: %s\n", GLUSTERFS_REPOSITORY_REVISION);
-  printf ("Copyright (c) 2006, 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>\n");
-  printf ("GlusterFS comes with ABSOLUTELY NO WARRANTY.\nYou may redistribute copies of GlusterFS under the terms of the GNU General Public License.\n");
-  exit (0);
-}
-
-error_t
-parse_opts (int32_t key, char *arg, struct argp_state *_state)
-{
-  glusterfs_ctx_t *ctx = _state->input;
-
-  switch (key) {
-  case 'f':
-    if (spec.where == SPEC_REMOTE_FILE) {
-      fprintf (stderr, "glusterfs: -f|--spec-file option cannot be combined with -s|--server option\n");
-      exit (EXIT_FAILURE);
-    }
-    ctx->specfile = strdup (arg);
-    spec.where = SPEC_LOCAL_FILE;
-    spec.spec.file = ctx->specfile;
-    break;
-  case 's':
-    if (spec.where == SPEC_LOCAL_FILE) {
-      fprintf (stderr, "glusterfs: -s|--server option cannot be combined with -f|--spec-file option\n");
-      exit (EXIT_FAILURE);
-    }
-    ctx->serverip = strdup (arg);
-    spec.where = SPEC_REMOTE_FILE;
-    spec.spec.server.ip = ctx->serverip;
-    break;
-  case 't':
-    spec.spec.server.transport = strdup (arg);
-    break;
-  case 'p':
-    ctx->pidfile = strdup (arg);
-    break;
-  case 'P':
-    spec.spec.server.port = strdup (arg);
-    break;
-  case 'L':
-    /* set log level */
-    if (!strncasecmp (arg, "DEBUG", strlen ("DEBUG"))) {
-      ctx->loglevel = GF_LOG_DEBUG;
-    } else if (!strncasecmp (arg, "WARNING", strlen ("WARNING"))) {
-      ctx->loglevel = GF_LOG_WARNING;
-    } else if (!strncasecmp (arg, "CRITICAL", strlen ("CRITICAL"))) {
-      ctx->loglevel = GF_LOG_CRITICAL;
-    } else if (!strncasecmp (arg, "NONE", strlen ("NONE"))) {
-      ctx->loglevel = GF_LOG_NONE;
-    } else if (!strncasecmp (arg, "ERROR", strlen ("ERROR"))) {
-      ctx->loglevel = GF_LOG_ERROR;
-    } else {
-	fprintf (stderr, "glusterfs: Unrecognized log-level \"%s\", possible values are \"DEBUG|WARNING|[ERROR]|CRITICAL|NONE\"\n", arg);
-	exit (EXIT_FAILURE);
-    }
-    break;
-  case 'l':
-    /* set log file */
-    ctx->logfile = strdup (arg);
-    break;
-  case 'N':
-    ctx->foreground = 1;
-    break;
-  case 'V':
-    glusterfs_print_version ();
-    break;
-  case 'n':
-    ctx->node_name = strdup (arg);
-    break;
-  case 'd':
-    if ((!strcasecmp (arg, "disable"))) {
-      //fprintf (stderr, "disabling direct-io mode for write operations in fuse client");
-      glusterfs_fuse_direct_io_mode = 0;
-    }
-    break;
-  case 'e':
-    if (sscanf (arg, "%d", &glusterfs_fuse_entry_timeout) == 0) {
-      fprintf (stderr, "glusterfs: %s not a valid number\n", arg);
-      exit (1);
-    }
-    break;
-  case 'a':
-    if (sscanf (arg, "%d", &glusterfs_fuse_attr_timeout) == 0) {
-      fprintf (stderr, "glusterfs: %s not a valid number\n", arg);
-      exit (1);
-    }
-    break;
-  case 'r':
-    ctx->run_id = strdup (arg);
-    //ctx->pidfile = strdup (arg);
-    break;
-  case ARGP_KEY_NO_ARGS:
-    break;
-  case ARGP_KEY_ARG:
-    {
-      char *mpoint = NULL;
-      if (arg[0] == '/') {
-	mpoint = strdup (arg);
-      } else {
-	char *env = getenv ("PWD");
-	asprintf (&mpoint, "%s/%s", env, arg);
-      }
-      ctx->mount_point = mpoint;
-    }
-    break;
-  }
-  return 0;
-}
-
-
-static int32_t
-pidfile_lock (char *pidfile)
-{
-  int fd = 0;
-  char pidstr[8] = {0, };
-  struct stat stat;
-  pid_t pid;
-
-  fd = open (pidfile, O_RDONLY);
-
-  if (fd != -1) {
-    int32_t ret;
-    char *err;
-    ret = read (fd, pidstr, 8);
-    close (fd);
-    if (ret > 1) {
-      char procstr[16];
-      pidstr[ret-1] = 0;
-      pid = strtoul (pidstr, &err, 0);
-      sprintf (procstr, "/proc/%d", pid);
-      if (lstat (procstr, &stat) == 0) {
-	fprintf (stderr,
-		 "glusterfs: FATAL: already running as PID %d!\n",
-		 pid);
-	exit (1);
-      } else {
-	fprintf (stderr,
-		 "glusterfs: WARNING: ignoring stale pidfile for PID %d\n",
-		 pid);
-      }
-    }
-    unlink (pidfile);
-  }
-  fd = open (pidfile, O_CREAT|O_EXCL|O_WRONLY|O_TRUNC, S_IWUSR);
-  if (fd == -1) {
-    fprintf (stderr,
-	     "glusterfs: FATAL: unable to create pidfile `%s' (%s)\n",
-	     pidfile,
-	     strerror (errno));
-    exit (1);
-  }
-
-  sprintf (pidstr, "%d\n", getpid ());
-  write (fd, pidstr, strlen (pidstr));
-
-  return (fd);
-}
-
-static void
-pidfile_update (int32_t fd)
-{
-  char pidstr[16];
-
-  sprintf (pidstr, "%d\n", getpid ());
-  lseek (fd, 0, SEEK_SET);
-  ftruncate (fd, 0);
-  write (fd, pidstr, strlen (pidstr));
-  close (fd);
+error_t 
+parse_opts (int key, char *arg, struct argp_state *state) {
+	cmd_args_t *cmd_args = NULL;
+	unsigned int n = 0;
+	
+	cmd_args = state->input;
+	
+	switch (key) {
+	case ARGP_SPECFILE_SERVER_KEY:
+		cmd_args->specfile_server = strdup (arg);
+		break;
+		
+	case ARGP_VOLUME_SPECFILE_KEY:
+		cmd_args->volume_specfile = strdup (arg);
+		break;
+		
+	case ARGP_LOG_LEVEL_KEY:
+		if (strcasecmp (arg, ARGP_LOG_LEVEL_NONE_OPTION) == 0) {
+			cmd_args->log_level = GF_LOG_NONE;
+			break;
+		}
+		if (strcasecmp (arg, ARGP_LOG_LEVEL_TRACE_OPTION) == 0) {
+			cmd_args->log_level = GF_LOG_TRACE;
+			break;
+		}
+		if (strcasecmp (arg, ARGP_LOG_LEVEL_CRITICAL_OPTION) == 0) {
+			cmd_args->log_level = GF_LOG_CRITICAL;
+			break;
+		}
+		if (strcasecmp (arg, ARGP_LOG_LEVEL_ERROR_OPTION) == 0) {
+			cmd_args->log_level = GF_LOG_ERROR;
+			break;
+		}
+		if (strcasecmp (arg, ARGP_LOG_LEVEL_WARNING_OPTION) == 0) {
+			cmd_args->log_level = GF_LOG_WARNING;
+			break;
+		}
+		if (strcasecmp (arg, ARGP_LOG_LEVEL_NORMAL_OPTION) == 0) {
+			cmd_args->log_level = GF_LOG_NORMAL;
+			break;
+		}
+		if (strcasecmp (arg, ARGP_LOG_LEVEL_DEBUG_OPTION) == 0) {
+			cmd_args->log_level = GF_LOG_DEBUG;
+			break;
+		}
+		
+		argp_failure (state, -1, 0, "unknown log level %s", arg);
+		break;
+		
+	case ARGP_LOG_FILE_KEY:
+		cmd_args->log_file = strdup (arg);
+		break;
+		
+	case ARGP_SPECFILE_SERVER_PORT_KEY:
+	{
+		n = 0;
+		
+		if (gf_string2uint_base10 (arg, &n) == 0) {
+			cmd_args->specfile_server_port = n;
+			break;
+		}
+		
+		argp_failure (state, -1, 0, "unknown specfile server port %s", arg);
+		break;
+	}
+	
+	case ARGP_SPECFILE_SERVER_TRANSPORT_KEY:
+		cmd_args->specfile_server_transport = strdup (arg);
+		break;
+		
+	case ARGP_PID_FILE_KEY:
+		cmd_args->pid_file = strdup (arg);
+		break;
+		
+	case ARGP_NO_DAEMON_KEY:
+		cmd_args->no_daemon_mode = ENABLE_NO_DAEMON_MODE;
+		break;
+		
+	case ARGP_RUN_ID_KEY:
+		cmd_args->run_id = strdup (arg);
+		break;
+		
+	case ARGP_DEBUG_KEY:
+		cmd_args->debug_mode = ENABLE_DEBUG_MODE;
+		break;
+		
+	case ARGP_DISABLE_DIRECT_IO_MODE_KEY:
+		cmd_args->fuse_direct_io_mode_flag = DISABLE_DIRECT_IO_MODE;
+		break;
+		
+	case ARGP_DIRECTORY_ENTRY_TIMEOUT_KEY:
+	{
+		n = 0;
+		
+		if (gf_string2uint_base10 (arg, &n) == 0) {
+			cmd_args->fuse_directory_entry_timeout = n;
+			break;
+		}
+		
+		argp_failure (state, -1, 0, "unknown directory entry timeout %s", arg);
+		break;
+	}
+	
+	case ARGP_ATTRIBUTE_TIMEOUT_KEY:
+	{
+		n = 0;
+		
+		if (gf_string2uint_base10 (arg, &n) == 0) {
+			cmd_args->fuse_attribute_timeout = n;
+			break;
+		}
+		
+		argp_failure (state, -1, 0, "unknown attribute timeout %s", arg);
+		break;
+	}
+	
+	case ARGP_VOLUME_NAME_KEY:
+		cmd_args->volume_name = strdup (arg);
+		break;
+		
+	case ARGP_KEY_NO_ARGS:
+		break;
+		
+	case ARGP_KEY_ARG:
+		if (state->arg_num >= 1)
+			argp_usage (state);
+		
+		cmd_args->mount_point = strdup (arg);
+		break;
+	}
+	return 0;
 }
 
 void 
-glusterfs_cleanup_and_exit (int signum)
+cleanup_and_exit (int signum)
 {
-  glusterfs_ctx_t *ctx = get_global_ctx_ptr ();
-
-  gf_log ("glusterfs", GF_LOG_WARNING, "shutting down server");
-
-  gf_print_bytes();
-  if (ctx->pidfile)
-    unlink (ctx->pidfile);
-
-  if (ctx->graph && ctx->mount_point)
-    ((xlator_t *)ctx->graph)->fini (ctx->graph);
-
-  exit (0);
+	glusterfs_ctx_t *ctx = NULL;
+	
+	ctx = get_global_ctx_ptr ();
+	
+	gf_log (progname, GF_LOG_WARNING, "shutting down");
+	
+	if (ctx->cmd_args.pid_file)
+		unlink (ctx->cmd_args.pid_file);
+	
+	if (ctx->graph && ctx->cmd_args.mount_point)
+		((xlator_t *)ctx->graph)->fini (ctx->graph);
+	
+	exit (0);
 }
-
-int32_t 
-main (int32_t argc, char *argv[])
+  
+int 
+main (int argc, char *argv[])
 {
-  xlator_t *graph = NULL;
-  FILE *specfp = NULL;
-  struct rlimit lim;
-  struct stat stbuf;
-  call_pool_t *pool;
-  int32_t ret = 0;
-  int32_t pidfd = 0;
-  glusterfs_ctx_t *ctx = calloc (1, sizeof(glusterfs_ctx_t));
-
-  ERR_ABORT (ctx);
-  ctx->loglevel = GF_LOG_WARNING;
-  ctx->event_pool = event_pool_new (16384);
-
-  lim.rlim_cur = RLIM_INFINITY;
-  lim.rlim_max = RLIM_INFINITY;
-  
-  if (setrlimit (RLIMIT_CORE, &lim) == -1) {
-    fprintf (stderr, "WARNING: Failed to set 'ulimit -c unlimited': %s\n",
-	     strerror(errno));
-  }
-
-  asprintf (&(ctx->logfile), "%s/log/glusterfs/%s.log",
-	    DATADIR, basename (argv[0]));
-
-  argp_parse (&argp, argc, argv, 0, 0, ctx);
-
-  pthread_mutex_init (&(ctx->lock), NULL);
-
-  pool = ctx->pool = calloc (1, sizeof (call_pool_t));
-  ERR_ABORT (ctx->pool);
-  LOCK_INIT (&pool->lock);
-  INIT_LIST_HEAD (&pool->all_frames);
-  
-  if (ctx->run_id) 
-    {
-      ret = stat (ctx->logfile, &stbuf);
-      /* If its /dev/null, or /dev/stdout, /dev/stderr, let it use the same, no need to alter */
-      if (((ret == 0) && (S_ISREG (stbuf.st_mode) || S_ISLNK (stbuf.st_mode))) 
-	  || (ret == -1))
-	{
-	  /* Have seperate logfile per run */
-	  char tmp_logfile[1024];
-	  char timestr[256];
-	  time_t utime = time (NULL);
-	  struct tm *tm = localtime (&utime);
-	  strftime (timestr, 256, "%Y%m%d.%H%M%S", tm); 
-	  sprintf (tmp_logfile, "%s.%s.%d", ctx->logfile, timestr, getpid());
-	  
-	  /* Create symlink to actual log file */
-	  unlink (ctx->logfile);
-	  symlink (tmp_logfile, ctx->logfile);
-	  
-	  FREE (ctx->logfile);
-	  ctx->logfile = strdup (tmp_logfile);      
+	glusterfs_ctx_t *ctx = NULL;
+	cmd_args_t *cmd_args = NULL;
+	call_pool_t *pool = NULL;
+	
+	struct stat stbuf;
+	char tmp_logfile[1024] = { 0 };
+	char timestr[256] = { 0 };
+	time_t utime;
+	struct tm *tm = NULL;
+	int ret = 0;
+	
+	struct rlimit lim;
+	
+	FILE *specfp = NULL;
+	FILE *pidfp = NULL;
+	
+	xlator_t *graph = NULL;
+	
+	xlator_t *trav = NULL;
+	int fuse_volume_found = 0;
+	int server_or_fuse_found = 0;
+	
+	progname = basename (argv[0]);
+	
+	ctx = calloc (1, sizeof (glusterfs_ctx_t));
+	ERR_ABORT (ctx);
+	ctx->program_invocation_name = strdup (argv[0]);
+	set_global_ctx_ptr (ctx);
+	cmd_args = &ctx->cmd_args;
+	
+	/* parsing command line arguments */
+	cmd_args->log_level = DEFAULT_LOG_LEVEL;
+	cmd_args->fuse_directory_entry_timeout = DEFAULT_FUSE_DIRECTORY_ENTRY_TIMEOUT;
+	cmd_args->fuse_attribute_timeout = DEFAULT_FUSE_ATTRIBUTE_TIMEOUT;
+	cmd_args->fuse_direct_io_mode_flag = ENABLE_DIRECT_IO_MODE;
+	
+	argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
+	
+	if ((cmd_args->specfile_server == NULL) && 
+	    (cmd_args->volume_specfile == NULL))
+		cmd_args->volume_specfile = strdup (DEFAULT_VOLUME_SPECFILE);
+	if (cmd_args->log_file == NULL)
+		asprintf (&cmd_args->log_file, DEFAULT_LOG_FILE_DIRECTORY "/%s.log", progname);
+	if (cmd_args->specfile_server_port == 0)
+		cmd_args->specfile_server_port = DEFAULT_SPECFILE_SERVER_PORT;
+	if (cmd_args->specfile_server_transport == NULL)
+		cmd_args->specfile_server_transport = strdup (DEFAULT_SPECFILE_SERVER_TRANSPORT);
+	if (cmd_args->pid_file == NULL)
+		asprintf (&cmd_args->pid_file, DEFAULT_PID_FILE_DIRECTORY "/%s.pid", progname);
+	
+	ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
+	pthread_mutex_init (&(ctx->lock), NULL);
+	pool = ctx->pool = calloc (1, sizeof (call_pool_t));
+	ERR_ABORT (ctx->pool);
+	LOCK_INIT (&pool->lock);
+	INIT_LIST_HEAD (&pool->all_frames);
+	
+	if (_is_file_exists (cmd_args->pid_file) == 1) {
+		fprintf (stderr, "pid file %s already exists.  exiting\n", cmd_args->pid_file);
+		return -1;
 	}
-    }
-  if (gf_log_init (ctx->logfile) == -1) {
-    fprintf (stderr,
-	     "glusterfs: failed to open logfile \"%s\"\n",
-	     ctx->logfile);
-    return -1;
-  }
-
-  gf_log_set_loglevel (ctx->loglevel);
-
-  if (!spec.where) {
-    fprintf (stderr, "glusterfs: missing option --server=SERVER or --spec-file=VOLUME-SPEC-FILE\n");
-    return -1;
-  }
-
-  if (spec.spec.server.port) {
-    if (spec.where != SPEC_REMOTE_FILE)
-      {
-      	fprintf (stderr, "glusterfs: -p|--port requires -s|--server option to be specified\n");
-	exit (EXIT_FAILURE);
-      }
-  }
-
-  specfp = get_spec_fp (ctx);
-  if (!specfp) {
-    fprintf (stderr, "glusterfs: could not open specfile\n");
-    return -1;
-  }
-  
-  set_global_ctx_ptr (ctx);
-
+	
+	/* initializing logs */
+	if (cmd_args->run_id) {
+		ret = stat (cmd_args->log_file, &stbuf);
+		/* If its /dev/null, or /dev/stdout, /dev/stderr, let it use the same, no need to alter */
+		if (((ret == 0) && (S_ISREG (stbuf.st_mode) || S_ISLNK (stbuf.st_mode))) 
+		    || (ret == -1)) {
+			/* Have seperate logfile per run */
+			utime = time (NULL);
+			tm = localtime (&utime);
+			strftime (timestr, 256, "%Y%m%d.%H%M%S", tm); 
+			sprintf (tmp_logfile, "%s.%s.%d", cmd_args->log_file, timestr, getpid());
+			
+			/* Create symlink to actual log file */
+			unlink (cmd_args->log_file);
+			symlink (tmp_logfile, cmd_args->log_file);
+			
+			FREE (cmd_args->log_file);
+			cmd_args->log_file = strdup (tmp_logfile);
+		}
+	}
+	if (gf_log_init (cmd_args->log_file) == -1) {
+		fprintf (stderr, 
+			 "failed to open logfile %s.  exiting\n", 
+			 cmd_args->log_file);
+		return -1;
+	}
+	gf_log_set_loglevel (cmd_args->log_level);
+	gf_log (progname, GF_LOG_WARNING, "starting %s", argv[0]);
+	
+	/* setting up environment  */
+	lim.rlim_cur = RLIM_INFINITY;
+	lim.rlim_max = RLIM_INFINITY;
+	if (setrlimit (RLIMIT_CORE, &lim) == -1) {
+		fprintf (stderr, "ignoring %s\n", 
+			 strerror (errno));
+	}
 #ifdef HAVE_MALLOC_STATS
 #ifdef DEBUG
-  mtrace ();
+	mtrace ();
 #endif
-  signal (SIGUSR1, (sighandler_t)malloc_stats);
-#endif
-
-  /* This is used to dump details */
-  signal (SIGUSR2, glusterfs_stats);
-
-#if HAVE_BACKTRACE
-  /* Handle SIGABORT and SIGSEGV */
-  signal (SIGSEGV, gf_print_trace);
-  signal (SIGABRT, gf_print_trace);
+	signal (SIGUSR1, (sighandler_t) malloc_stats);
 #endif
 
-  /* Ignore SIGPIPE */
-  signal (SIGPIPE, SIG_IGN);
-
-  signal (SIGHUP, gf_log_logrotate);
-  signal (SIGTERM, glusterfs_cleanup_and_exit);
-
-  /* This is used to dump details */
-  //signal (SIGUSR2, (sighandler_t)glusterfs_stats);
-
-  /* Copy the command to be printed on bt */
-  strcpy (ctx->cmd, argv[0]);
-  
-  /* This is required as after calling 'daemon()' the chroot will change */
-  if (ctx->pidfile)
-    pidfd = pidfile_lock (ctx->pidfile);
-
-  if (!ctx->foreground) {
-    daemon (0, 0);
-  }
-
-  /* Because process is forked now, we need to update pid file */
-  if (pidfd)
-    pidfile_update (pidfd);
-
-  gf_timer_registry_init (ctx);
-
-  /* This is used to dump details */
-  //signal (SIGUSR2, (sighandler_t)glusterfs_stats);
-  glusterfs_stats(0);
-  gf_dump_spec_file (specfp);
-
-  graph = xlator_graph_get (ctx, specfp);
-  if (!graph) {
-    gf_log ("glusterfs", GF_LOG_DEBUG, "Unable to get xlator graph");
-    return -1;
-  }
-  fclose (specfp);
-
-  if (ctx->mount_point) 
-  {
-      graph = fuse_graph (graph);
-      /* Initialize fuse first */
-      if (!(graph && (graph->init (graph) == 0)))
-      {
-	  gf_log ("glusterfs", GF_LOG_ERROR, 
-		  "Fuse Translator initialization failed. Exiting");
-	  return -1;
-      }
-      graph->ready = 1; /* Initialization Done */
-  }
-
-  ctx->graph = graph;
-  if (xlator_graph_init (graph) == -1) 
-    {
-      gf_log ("glusterfs", GF_LOG_DEBUG, 
-	      "Error while initializing translators. Exiting");
-      if (ctx->mount_point) 
-      {
-        graph->fini (graph);
-      }
-      return -1;
-  }
-  
-  /* Check if the mountpoint option is not given, and the spec file is not having a server volume */
-  if (!ctx->mount_point)
-    {
-      xlator_t *trav = ctx->graph;
-      int server_specified = 0;
-      while (trav)
-	{
-	  if (!strcmp (trav->type, "protocol/server\n"))
-	    {
-	      server_specified = 1;
-	      break;
-	    }
-	  /* Logically one can mount glusterfs with defining fuse volume in specfile, 
-	   * but not giving mountpoint on command line
-	   */
-	  if (!strcmp (trav->type, "mount/fuse"))
-	    {
-	      if (dict_get (trav->options, "mount-point"))
-		ctx->mount_point = strdup (data_to_str (dict_get (trav->options, "mount-point")));
-	      server_specified = 1;
-	      break;
-	    }
-	  trav = trav->next;
+	signal (SIGSEGV, gf_print_trace);
+	signal (SIGABRT, gf_print_trace);
+	signal (SIGPIPE, SIG_IGN);
+	signal (SIGHUP, gf_log_logrotate);
+	signal (SIGTERM, cleanup_and_exit);
+	/* This is used to dump details */
+	/* signal (SIGUSR2, (sighandler_t) glusterfs_stats); */
+	
+	/* getting and parsing volume specfile */
+	if ((specfp = _get_specfp (ctx)) == NULL) {
+		/* _get_specfp() prints necessary error message  */
+		gf_log (progname, GF_LOG_ERROR, "exiting\n");
+		argp_help (&argp, stderr, ARGP_HELP_SEE, (char *) progname);
+		return -1;
 	}
-      if (!server_specified)
-	{
-	  gf_log ("glusterfs", GF_LOG_ERROR, 
-		  "either protocol/volume should be defined in volume spec file, or mountpoint should be given");
-	  return -1;
+	gf_log_volume_specfile (specfp);
+	if ((graph = _parse_specfp (ctx, specfp)) == NULL) {
+		/* _parse_specfp() prints necessary error message */
+		fprintf (stderr, "exiting\n");
+		gf_log (progname, GF_LOG_ERROR, "exiting\n");
+		return -1;
 	}
-    }
-
-  event_dispatch (ctx->event_pool);
-
-  return 0;
+	fclose (specfp);
+	
+	/* check whether MOUNT-POINT argument and fuse volume are given at same time or not */
+	/* if not, add argument MOUNT-POINT to graph as top volume if given */
+	{
+		trav = graph;
+		fuse_volume_found = 0;
+		
+		while (trav) {
+			if (strcmp (trav->type, CLIENT_TRANSLATOR_TYPE_STRING) == 0) {
+				if (dict_get (trav->options, 
+					      CLIENT_TRANSLATOR_TYPE_MOUNT_POINT_STRING) != NULL) {
+					fuse_volume_found = 1;
+					fprintf (stderr, 
+						 "fuse volume and MOUNT-POINT argument are given.  "
+						 "ignoring MOUNT-POINT argument\n");
+					gf_log (progname, GF_LOG_WARNING, 
+						"fuse volume and MOUNT-POINT argument are given.  "
+						"ignoring MOUNT-POINT argument\n");
+					break;
+				}
+			}
+			trav = trav->next;
+		}
+		
+		if (!fuse_volume_found && (cmd_args->mount_point != NULL)) {
+			if ((graph = _add_fuse_mount (graph)) == NULL) {
+				/* _add_fuse_mount() prints necessary error message */
+				fprintf (stderr, "exiting\n");
+				gf_log (progname, GF_LOG_ERROR, "exiting\n");
+				return -1;
+			}
+		}
+	}
+	
+	/* check server or fuse is given */
+	if (cmd_args->mount_point == NULL) {
+		trav = graph;
+		server_or_fuse_found = 0;
+		
+		while (trav) {
+			if (strcmp (trav->type, SERVER_TRANSLATOR_TYPE_STRING) == 0) {
+				server_or_fuse_found = 1;
+				break;
+			}
+			if (strcmp (trav->type, CLIENT_TRANSLATOR_TYPE_STRING) == 0) {
+				if (dict_get (trav->options, 
+					      CLIENT_TRANSLATOR_TYPE_MOUNT_POINT_STRING) != NULL) {
+					server_or_fuse_found = 1;
+					break;
+				}
+			}
+			trav = trav->next;
+		}
+		
+		if (!server_or_fuse_found) {
+			fprintf (stderr, 
+				 "no server protocol or mount point is given in volume specfile.  nothing to do.  exiting\n");
+			gf_log (progname, GF_LOG_ERROR, 
+				"no server protocol or mount point is given in volume specfile.  nothing to do.  exiting\n");
+			return -1;
+		}
+	}
+	
+	/* daemonize now */
+	if (!cmd_args->no_daemon_mode) {
+		if (daemon (0, 0) == -1) {
+			fprintf (stderr, "unable to run in daemon mode: %s.  exiting\n", strerror (errno));
+			gf_log (progname, GF_LOG_ERROR, 
+				"unable to run in daemon mode: %s.  exiting\n", strerror (errno));
+			return -1;
+		}
+		
+		/* we are daemon now */
+		/* update pid file */
+		if ((pidfp = fopen (cmd_args->pid_file, "w")) == NULL) {
+			gf_log (progname, GF_LOG_ERROR, 
+				"pid file %s: %s.  exiting\n", cmd_args->pid_file, strerror (errno));
+			/* do cleanup and exit ?! */
+			return -1;
+		}
+		fprintf (pidfp, "%d\n", getpid ());
+		fclose (pidfp);
+	}
+	
+	gf_log (progname, GF_LOG_WARNING, 
+		"running in pid %d\n", getpid ());
+	
+	gf_timer_registry_init (ctx);
+	
+	if (graph->init (graph) != 0) {
+		gf_log (progname, GF_LOG_ERROR, "translator initialization failed.  exiting\n");
+		/* do cleanup and exit ?! */
+		return -1;
+	}
+	graph->ready = 1;
+	ctx->graph = graph;
+	if (_xlator_graph_init (graph) == -1) {
+		gf_log (progname, GF_LOG_ERROR, "translator initialization failed.  exiting\n");
+		graph->fini (graph);
+		/* do cleanup and exit ?! */
+		return -1;
+	}
+	
+	event_dispatch (ctx->event_pool);
+	
+	return 0;
 }

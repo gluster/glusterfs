@@ -26,3 +26,4 @@ tlaclean: distclean
 	find . -name mount.glusterfs -exec rm -f {} \;
 	rm -fr autom4te.cache
 	rm -f missing aclocal.m4 config.h.in config.guess config.sub ltmain.sh install-sh configure depcomp
+	find . -iname .deps | xargs rm -fr

@@ -2398,6 +2398,8 @@ static struct fuse_lowlevel_ops fuse_ops = {
 static void *
 fuse_thread_proc (void *data)
 {
+        glusterfs_ctx_t *ctx = NULL;
+	char *mount_point = NULL;
         xlator_t *this = data;
         struct fuse_private *priv = this->private;
         int32_t res = 0;
@@ -2457,13 +2459,25 @@ fuse_thread_proc (void *data)
                         priv->buf->is_locked = 1;
                 }
         }
-
+	
+	ctx = get_global_ctx_ptr ();
+	if ((mount_point = data_to_str (dict_get (this->options, 
+						  "mount-point"))) != NULL) {
+		gf_log (basename (ctx->program_invocation_name), GF_LOG_WARNING, 
+			"unmounting %s\n", mount_point);
+	}
         fuse_session_remove_chan (priv->ch);
         fuse_session_destroy (priv->se);
         //  fuse_unmount (priv->mount_point, priv->ch);
-
+	
+	gf_log (basename (ctx->program_invocation_name), GF_LOG_WARNING, 
+		"shutting down\n");
+	
+	if (ctx->cmd_args.pid_file)
+		unlink (ctx->cmd_args.pid_file);
+	
         exit (0);
-
+	
         return NULL;
 }
 
@@ -2653,19 +2667,34 @@ err_free:
 }
 
 void
-fini (xlator_t *this)
+fini (xlator_t *this_xl)
 {
-        struct fuse_private *priv = this->private;
-        glusterfs_ctx_t *ctx = get_global_ctx_ptr ();
-        if (dict_get (this->options, "mount-point")) {
-                char *mount_point = data_to_str (dict_get (this->options, "mount-point"));
-
+        struct fuse_private *priv = NULL;
+        glusterfs_ctx_t *ctx = NULL;
+	char *mount_point = NULL;
+	
+	if (this_xl == NULL)
+		return;
+	
+	if ((priv = this_xl->private) == NULL)
+		return;
+	
+	ctx = get_global_ctx_ptr ();
+	
+	if ((mount_point = data_to_str (dict_get (this_xl->options, 
+						  "mount-point"))) != NULL) {
+		gf_log (basename (ctx->program_invocation_name), GF_LOG_WARNING, 
+			"unmounting %s\n", mount_point);
+		
 		fuse_session_exit (priv->se);
-
-                fuse_unmount (mount_point, priv->ch);
-        }
-
-        ctx->mount_point = NULL;
+		fuse_unmount (mount_point, priv->ch);
+	}
+	
+	gf_log (basename (ctx->program_invocation_name), GF_LOG_WARNING, 
+		"shutting down\n");
+	
+	if (ctx->cmd_args.pid_file)
+		unlink (ctx->cmd_args.pid_file);
 }
 
 struct xlator_fops fops = {

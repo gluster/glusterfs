@@ -222,29 +222,34 @@ fork_and_fetch (glusterfs_ctx_t *ctx,
 }
 
 FILE *
-fetch_spec (glusterfs_ctx_t *ctx,
-	    const char *remote_host,
-	    const char *remote_port,
-	    const char *transport)
+fetch_spec (glusterfs_ctx_t *ctx)
 {
-  FILE *spec_fp;
-  int32_t ret;
-
-  spec_fp = tmpfile ();
-
-  if (!spec_fp) {
-    perror ("tmpfile ()");
-    return NULL;
-  }
-
-  ret = fork_and_fetch (ctx, spec_fp, remote_host, remote_port, transport);
-
-  if (!ret) {
-    fseek (spec_fp, 0, SEEK_SET);
-  } else {
-    fclose (spec_fp);
-    spec_fp = NULL;
-  }
-
-  return spec_fp;
+	const char *remote_host = NULL;
+	char remote_port[64];
+	const char *transport = NULL;
+	FILE *spec_fp;
+	int32_t ret;
+	
+	spec_fp = tmpfile ();
+	
+	if (!spec_fp) {
+		perror ("tmpfile ()");
+		return NULL;
+	}
+	
+	remote_host = ctx->cmd_args.specfile_server;
+	snprintf (remote_port, 64, "%u", ctx->cmd_args.specfile_server_port);
+	transport = ctx->cmd_args.specfile_server_transport;
+	
+	ret = fork_and_fetch (ctx, spec_fp, remote_host, remote_port, transport);
+	
+	if (!ret) {
+		fseek (spec_fp, 0, SEEK_SET);
+	}
+	else {
+		fclose (spec_fp);
+		spec_fp = NULL;
+	}
+	
+	return spec_fp;
 }
