@@ -1337,7 +1337,7 @@ afr_open (call_frame_t *frame,
   if (local->gid)
     frame->root->gid = local->gid;
   for (i = 0; i < child_count; i++) {
-    if (local->locked[i])
+    if (local->locked[i] == 0 && afrfdp->fdstate[i])
       break;
   }
   if (i < child_count) {
