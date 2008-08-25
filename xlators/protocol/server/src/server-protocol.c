@@ -1662,8 +1662,6 @@ server_readv_cbk (call_frame_t *frame,
       gf_stat_from_stat (&rsp->stat, stbuf);
     }
 
-  if (op_ret == 0) trap ();
-
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READ,
                          hdr, hdrlen, vector, count, frame->root->rsp_refs);
 

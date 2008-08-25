@@ -1882,7 +1882,7 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
 
 static int gf_posix_xattr_enotsup_log;
 
-int32_t
+int
 posix_incver (call_frame_t *frame, xlator_t *this,
               const char *path, fd_t *fd)
 {
@@ -2381,16 +2381,19 @@ posix_fsyncdir (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
+
 void
 posix_print_xattr (dict_t *this,
 		   char *key,
 		   data_t *value,
 		   void *data)
 {
-  gf_log ("posix", GF_LOG_TRACE, "(key/val) = (%s/%d)", key, data_to_int32 (value));
+	gf_log ("posix", GF_LOG_TRACE,
+		"(key/val) = (%s/%d)", key, data_to_int32 (value));
 }
 
-int32_t 
+
+int
 posix_xattrop (call_frame_t *frame,
 	       xlator_t *this,
 	       fd_t *fd,
@@ -2398,94 +2401,118 @@ posix_xattrop (call_frame_t *frame,
 	       int32_t optype,
 	       dict_t *xattr)
 {
-  char *real_path;
-  char version[50];
-  int32_t size = 0, ret;
-  int32_t op_errno;
-  int32_t ver = 0, _fd = 0;
-  data_t *pfd_data = NULL; 
-  struct posix_fd *pfd;
+	char            *real_path = NULL;
+	char             number[50];
+	int              size = 0;
+	int              op_ret = -1;
+	int              op_errno = 0;
+	int              num = 0;
+	int              orignum = 0;
+	int              _fd = -1;
+	data_t          *pfd_data = NULL; 
+	struct posix_fd *pfd = NULL;
+	data_pair_t     *trav = NULL;
 
-  data_pair_t *trav = xattr->members_list;
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (xattr, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (path, out);
 
-  MAKE_REAL_PATH (real_path, this, path);
-  while (trav) {
-    if (fd)
-	{
-	    pfd_data = dict_get (fd->ctx, this->name);
-	    pfd = data_to_ptr (pfd_data);
-	    if (pfd == NULL) 
-		{
-		    gf_log (this->name, GF_LOG_WARNING, "pfd NULL!");
-		    STACK_UNWIND (frame, -1, EBADFD, NULL);
-		    return 0;
+	trav = xattr->members_list;
+
+	MAKE_REAL_PATH (real_path, this, path);
+
+	if (fd) {
+		pfd_data = dict_get (fd->ctx, this->name);
+		pfd = data_to_ptr (pfd_data);
+		if (pfd == NULL) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"pfd is NULL. path=%s. optype=%d",
+				path ? path : "<NULL>", optype);
+			op_ret = -1;
+			op_errno = EBADFD;
+			goto out;
 		}
+		_fd = pfd->fd;
 	}
 
-    if (fd) 
-	{
-	    _fd = pfd->fd;
-	    size = fgetxattr (_fd, trav->key, version, 50);
-	}
-    else
-	{
-	    size = lgetxattr (real_path, trav->key, version, 50);
-	}
-    op_errno = errno;
-    if ((size == -1) && ((op_errno != ENODATA) && (op_errno != ENOENT))) 
-	{
-	    if (op_errno == ENOTSUP)
-		{
-		    gf_posix_xattr_enotsup_log++;
-		    if (!(gf_posix_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
-			gf_log (this->name, GF_LOG_WARNING, 
-				"Extended attributes not supported, Try using a backend with Extended attribute support");
-		} 
-	    else 
-		{
-		    gf_log (this->name, GF_LOG_WARNING, "%s: %s", path, strerror(op_errno));
+	while (trav) {
+		if (_fd != -1) {
+			size = fgetxattr (_fd, trav->key, number, 50);
+		} else {
+			size = lgetxattr (real_path, trav->key, number, 50);
 		}
-	    STACK_UNWIND (frame, -1, op_errno, NULL);
-	    return 0;
-	} 
-    else if (size > 0) 
-	{
-	    version[size] = '\0';
-	    ver = strtoll (version, NULL, 10);
+
+		op_errno = errno;
+		if ((size == -1) && ((op_errno != ENODATA) && (op_errno != ENOENT))) {
+			if (op_errno == ENOTSUP) {
+                                GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
+                                                     this->name, GF_LOG_WARNING, 
+                                                     "Extended attributes not supported");
+			} else 	{
+				gf_log (this->name, GF_LOG_ERROR,
+					"%s (%d): %s", path, _fd,
+					strerror (op_errno));
+			}
+			goto out;
+		}
+
+		number[size] = '\0';
+		num = orignum = strtoll (number, NULL, 10);
+		
+		switch (optype) {
+		case GF_XATTROP_INC:
+			num++;
+			break;
+		case GF_XATTROP_DEC:
+			num--;
+			break;
+		case GF_XATTROP_GET:
+			dict_set (xattr, trav->key,
+				  data_from_dynstr (strdup (number)));
+			break;
+		case GF_XATTROP_RESET:
+			num = 0;
+			break;
+		default:
+			gf_log (this->name, GF_LOG_ERROR,
+				"unknown xattrop type %d. path=%s",
+				optype, path);
+			op_ret = -1;
+			op_errno = EINVAL;
+			goto out;
+		}
+
+		if (num != orignum) {
+			sprintf (number, "%u", num);
+			if (_fd != -1)
+				size = fsetxattr (_fd, trav->key, number,
+						  strlen (number), 0);
+			else
+				size = lsetxattr (real_path, trav->key, number,
+						  strlen (number), 0);
+
+			op_errno = errno;
+			if (size == -1) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"%s (%d): key=%s (%s)", path, _fd,
+					trav->key, strerror (op_errno));
+				op_ret = -1;
+				goto out;
+			}
+		}
+
+		num = 0;
+		trav = trav->next;
 	}
-    if (optype == GF_XATTROP_INC)
-      ver++;
-    else if (optype == GF_XATTROP_DEC)
-      ver--;
 
-    sprintf (version, "%u", ver);
-
-    if (optype == GF_XATTROP_GET)
-      dict_set (xattr, trav->key, data_from_dynstr (strdup(version)));
-    if (optype == GF_XATTROP_RESET)
-      strcpy (version, "0");
-    gf_log (this->name, GF_LOG_TRACE, "xattrop %s/%s", trav->key, version);
-
-    if (optype == GF_XATTROP_INC || optype == GF_XATTROP_DEC ||
-	optype == GF_XATTROP_SET || optype == GF_XATTROP_RESET) {
-      if (fd)
-	ret = fsetxattr (_fd, trav->key, version, strlen (version), 0);
-      else
-	ret = lsetxattr (real_path, trav->key, version, strlen (version), 0);
-      if (ret == -1) {
-	gf_log (this->name, GF_LOG_ERROR, "%s: %s", path, strerror(op_errno));
-	STACK_UNWIND (frame, -1, errno, NULL);
+out:
+	STACK_UNWIND (frame, op_ret, op_errno, xattr);
 	return 0;
-      }
-    }
-    ver = 0;
-    trav = trav->next;
-  }
-  STACK_UNWIND (frame, 0, 0, xattr);
-  return 0;
 }
 
-int32_t 
+
+int
 posix_access (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int32_t mask)
 {

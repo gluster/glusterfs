@@ -1879,7 +1879,6 @@ afr_wrft (call_frame_t *frame)
   cnt = local->call_count;
   GF_TRACE (this, "local->call_count = %d", local->call_count);
   if (local->call_count == 0) {
-    FREE (local);
     GF_ERROR (this, "afrfdp->fdstate[i] is 0, returning EBADFD");
     local->op_errno = EBADFD;
     goto AFR_WRFT_ERROR;

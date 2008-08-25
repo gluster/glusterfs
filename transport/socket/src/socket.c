@@ -439,7 +439,6 @@ socket_event_poll_out (transport_t *this)
 {
   socket_private_t *priv = NULL;
   int ret = -1;
-  int event = GF_EVENT_POLLOUT;
 
   priv = this->private;
 

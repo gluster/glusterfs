@@ -182,8 +182,7 @@ rr_options_validate (dict_t *options, rr_options_t *rr_options)
     {
       rr_options->min_free_disk = RR_LIMITS_MIN_FREE_DISK_VALUE_DEFAULT;
       
-      gf_log ("rr", 
-	      GF_LOG_WARNING, 
+      gf_log ("rr", GF_LOG_DEBUG, 
 	      "using %s = %d [default]", 
 	      RR_LIMITS_MIN_FREE_DISK_OPTION_STRING, 
 	      rr_options->min_free_disk);
@@ -211,8 +210,7 @@ rr_options_validate (dict_t *options, rr_options_t *rr_options)
     {
       rr_options->refresh_interval = RR_REFRESH_INTERVAL_VALUE_DEFAULT;
       
-      gf_log ("rr", 
-	      GF_LOG_WARNING, 
+      gf_log ("rr", GF_LOG_DEBUG, 
 	      "using %s = %d [default]", 
 	      RR_REFRESH_INTERVAL_OPTION_STRING, 
 	      rr_options->refresh_interval);

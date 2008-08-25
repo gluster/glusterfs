@@ -1346,7 +1346,7 @@ init (xlator_t *this)
 	}
     }
 
-  if (!conf->window_size)
+  if (!conf->window_size && conf->aggregate_size)
     {
       gf_log (this->name, GF_LOG_WARNING,
 	      "setting window-size to be equal to aggregate-size(%"PRId32")",
