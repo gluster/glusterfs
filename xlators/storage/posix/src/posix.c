@@ -2404,7 +2404,7 @@ posix_xattrop (call_frame_t *frame,
 	char            *real_path = NULL;
 	char             number[50];
 	int              size = 0;
-	int              op_ret = -1;
+	int              op_ret = 0;
 	int              op_errno = 0;
 	int              num = 0;
 	int              orignum = 0;
