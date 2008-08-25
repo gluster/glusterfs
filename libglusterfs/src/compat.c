@@ -200,6 +200,53 @@ argp_parse_ (const struct argp * __argp,
   return 0;
 }
 
+#ifdef GF_DARWIN_HOST_OS
+
+static const char finder_info_content[32] = {
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+};
+
+static const char finder_info_xattr[] = "com.apple.FinderInfo";
+
+static const char resource_fork_xattr[] = "com.apple.ResourceFork";
+
+int32_t 
+gf_darwin_compat_listxattr (int len, dict_t *dict, int size)
+{
+  if (len == -1)
+    len = 0;
+  if (size >= 0)
+    {
+      dict_set (dict, (char *)finder_info_xattr, str_to_data (""));
+      dict_set (dict, (char *)resource_fork_xattr, str_to_data (""));
+    }
+  
+  return (len + sizeof(finder_info_xattr) + sizeof (resource_fork_xattr));
+}
+
+int32_t 
+gf_darwin_compat_getxattr (char *key, char **value, int size)
+{
+  if (strcmp(key, finder_info_xattr) == 0) {
+    if (*value != 0 && size >= sizeof (finder_info_content)) {
+      memcpy(*value, finder_info_content, sizeof (finder_info_content));
+      return sizeof (finder_info_content);
+    }
+  }
+  if (strcmp(key, resource_fork_xattr) == 0) {
+    /* Always null */
+    return 0;
+  }
+  
+  return -1;
+}
+
+#endif /* DARWIN */
+
+
 #ifdef GF_SOLARIS_HOST_OS
 
 int 

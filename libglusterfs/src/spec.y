@@ -346,29 +346,68 @@ yyerror (const char *str)
   extern char *yytext;
   extern int yylineno;
 
-  if (complete_tree && complete_tree->name) {
-    if (!strcmp (yytext, "volume")) {
-      fprintf (stderr, 
-	       "'end-volume' not defined for volume '%s'\n", complete_tree->name);
-      gf_log ("parser", GF_LOG_ERROR, 
-	      "'end-volume' not defined for volume '%s'", complete_tree->name);
-    } else {
-      fprintf (stderr, 
-	       "syntax error in line %d (in volume '%s'): \"%s\"\n"
-	       "(allowed tokens are 'volume', 'type', 'subvolumes', 'option', 'end-volume')\n", yylineno, complete_tree->name, yytext);
-      gf_log ("parser", GF_LOG_ERROR,
-	      "syntax error in line %d (in volume '%s'): \"%s\"\n"
-	      "(allowed tokens are 'volume', 'type', 'subvolumes', 'option', 'end-volume')", yylineno, complete_tree->name, yytext);
+  if (complete_tree && complete_tree->name) 
+    {
+       if (!strcmp (yytext, "volume")) 
+	 {
+	   fprintf (stderr, 
+		    "'end-volume' not defined for volume '%s'\n", complete_tree->name);
+	   gf_log ("parser", GF_LOG_ERROR, 
+		   "'end-volume' not defined for volume '%s'", complete_tree->name);
+	 } 
+       else if (!strcmp (yytext, "type")) 
+	 {
+	   fprintf (stderr, 
+		    "line %d: duplicate 'type' defined for volume '%s'", 
+		    yylineno, complete_tree->name);
+	   gf_log ("parser", GF_LOG_ERROR, 
+		   "line %d: duplicate 'type' defined for volume '%s'", 
+		   yylineno, complete_tree->name);
+	 } 
+       else if (!strcmp (yytext, "subvolumes")) 
+	 {
+	   fprintf (stderr, 
+		    "line %d: duplicate 'subvolumes' defined for volume '%s'", 
+		    yylineno, complete_tree->name);
+	   gf_log ("parser", GF_LOG_ERROR, 
+		   "line %d: duplicate 'subvolumes' defined for volume '%s'", 
+		   yylineno, complete_tree->name);
+	 } 
+       else if (tree) 
+	 {
+	   fprintf (stderr, 
+		    "syntax error: line %d (volume '%s'): \"%s\"\n(%s)", 
+		    yylineno, complete_tree->name, yytext,
+		    "allowed tokens are 'volume', 'type', 'subvolumes', 'option', 'end-volume'");
+	   gf_log ("parser", GF_LOG_ERROR,
+		   "syntax error: line %d (volume '%s'): \"%s\"\n(%s)", 
+		   yylineno, complete_tree->name, yytext,
+		   "allowed tokens are 'volume', 'type', 'subvolumes', 'option', 'end-volume'");
+	 } 
+       else 
+	 {
+	   fprintf (stderr, 
+		    "syntax error: line %d (just after volume '%s'): \"%s\"\n(%s)", 
+		    yylineno, complete_tree->name, yytext,
+		    "allowed tokens are 'volume', 'type', 'subvolumes', 'option', 'end-volume'");
+	   gf_log ("parser", GF_LOG_ERROR,
+		   "syntax error: line %d (just after volume '%s'): \"%s\"\n(%s)", 
+		   yylineno, complete_tree->name, yytext,
+		   "allowed tokens are 'volume', 'type', 'subvolumes', 'option', 'end-volume'");
+	 }
     }
-  } else {
-    fprintf (stderr, 
-	     "syntax error in line %d: \"%s\" \n"
-	     "(allowed tokens are 'volume', 'type', 'subvolumes', 'option', 'end-volume')\n", yylineno, yytext);
-    gf_log ("parser", GF_LOG_ERROR,
-	    "syntax error in line %d: \"%s\" \n"
-	    "(allowed tokens are 'volume', 'type', 'subvolumes', 'option', 'end-volume')\n", yylineno, yytext);
-  }
-
+  else 
+    {
+      fprintf (stderr, 
+	       "syntax error in line %d: \"%s\" \n"
+	       "(allowed tokens are 'volume', 'type', 'subvolumes', 'option', 'end-volume')\n", 
+	       yylineno, yytext);
+      gf_log ("parser", GF_LOG_ERROR,
+	      "syntax error in line %d: \"%s\" \n"
+	      "(allowed tokens are 'volume', 'type', 'subvolumes', 'option', 'end-volume')\n", 
+	      yylineno, yytext);
+    }
+  
   cut_tree (tree);
   complete_tree = NULL;
   return 0;

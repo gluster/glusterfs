@@ -70,15 +70,20 @@ transport_load (dict_t *options,
     }
   else
     {
-      if ((strncmp (type_data->data, "tcp", 3) == 0) ||
-	  (strncmp (type_data->data, "unix", 4) == 0) ||
-	  (strncmp (type_data->data, "ib-sdp", 6) == 0))
+      {
+	char *tmp = strchr (type_data->data, '/');
+	if (tmp)
+	  *tmp = '\0';
+      }
+      if ((strcmp (type_data->data, "tcp") == 0) ||
+	  (strcmp (type_data->data, "unix") == 0) ||
+	  (strcmp (type_data->data, "ib-sdp") == 0))
 	{
-	  if ((strncmp (type_data->data, "tcp", 3) == 0))
+	  if ((strcmp (type_data->data, "tcp") == 0))
 	    dict_set (options, "address-family", str_to_data ("inet"));
-	  if ((strncmp (type_data->data, "unix", 4) == 0))
+	  if ((strcmp (type_data->data, "unix") == 0))
 	    dict_set (options, "address-family", str_to_data ("unix"));
-	  if ((strncmp (type_data->data, "ib-sdp", 6) == 0))
+	  if ((strcmp (type_data->data, "ib-sdp") == 0))
 	    dict_set (options, "address-family", str_to_data ("ib-sdp"));
 	  dict_set (options, "transport-type", str_to_data ("socket"));
 	}
@@ -93,11 +98,6 @@ transport_load (dict_t *options,
 	    xl->name);
     return NULL;
   }
-  {
-    char *tmp = strchr (type, '/');
-    if (tmp)
-      *tmp = '\0';
-  }
 
   asprintf (&name, "%s/%s.so", TRANSPORTDIR, type);
   gf_log ("transport", GF_LOG_DEBUG,
@@ -105,12 +105,10 @@ transport_load (dict_t *options,
 
   handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
   if (!handle) {
+    gf_log ("transport", GF_LOG_ERROR, "%s", dlerror ());
     gf_log ("transport", GF_LOG_ERROR,
 	    "volume '%s': transport-type '%s' is not valid or not found on this machine", 
 	    xl->name, type);
-
-    gf_log ("transport", GF_LOG_DEBUG,
-	    "dlopen (%s): %s", name, dlerror ());
     FREE (name);
     FREE (trans);
     return NULL;

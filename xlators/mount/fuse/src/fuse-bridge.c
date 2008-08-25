@@ -349,7 +349,7 @@ fuse_entry_cbk (call_frame_t *frame,
                         "%"PRId64": (op_num=%d) %s => %"PRId64, frame->root->unique,
                         frame->op, state->loc.path, buf->st_ino);
 
-                inode_link (inode, state->loc.parent,
+                 inode_link (inode, state->loc.parent,
                             state->loc.name, buf);
 
 		inode_lookup (inode);
@@ -2011,6 +2011,17 @@ fuse_xattr_cbk (call_frame_t *frame,
         fuse_state_t *state = frame->root->state;
         fuse_req_t req = state->req;
 
+	/* This is needed in MacFuse, where MacOSX Finder needs some specific 
+	 * keys to be supported from FS
+	 */
+	if (strcmp (state->loc.path, "/") == 0) {
+	  if (!state->name) {
+	    if (!dict)
+	      dict = get_new_dict ();
+	    ret = gf_compat_listxattr (ret, dict, state->size);
+	  }
+	}
+	
         if (ret >= 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                         "%"PRId64": (op_num=%d) %s => %d", frame->root->unique,
@@ -2116,6 +2127,19 @@ fuse_getxattr (fuse_req_t req,
                 return;
         }
 
+	/* This is needed in MacFuse, where MacOSX Finder needs some specific 
+	 * keys to be supported from FS
+	 */
+	/* if (strcmp (state->loc.path, "/") == 0) */
+	{
+	  char *value = alloca (state->size + 1);
+	  int ret = gf_compat_getxattr (state->name, &value, state->size);
+	  if (ret >= 0) {
+	    fuse_reply_buf (req, value, ret);
+	    return;
+	  }
+	}
+ 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                 "%"PRId64": GETXATTR %s/%"PRId64" (%s)", req_callid (req),
                 state->loc.path, (int64_t)ino, name);
@@ -2554,7 +2578,6 @@ init (xlator_t *this)
                          "-o", "max_write=1048576",
 #else
                          "-o", "noexec",
-                         "-o", "auto_xattr", /* TODO: remove it once the proper support for com.apple.FinderInfo is added. */
                          "-o", "volname=GlusterFS",
 #endif
                          "-o", "allow_other",
@@ -2563,7 +2586,7 @@ init (xlator_t *this)
                          NULL };
 
 #ifdef GF_DARWIN_HOST_OS
-        argc = 13;
+        argc = 11;
 #else
         argc = 15;
 #endif

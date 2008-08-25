@@ -119,9 +119,8 @@ xlator_set_type (xlator_t *xl,
   gf_log ("xlator", GF_LOG_DEBUG, "attempt to load file %s", name);
 
   handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
-
   if (!handle) {
-    gf_log ("xlator", GF_LOG_DEBUG, "dlopen(%s): %s", name, dlerror ());
+    gf_log ("xlator", GF_LOG_ERROR, "%s", dlerror ());
     return -1;
   }
 
