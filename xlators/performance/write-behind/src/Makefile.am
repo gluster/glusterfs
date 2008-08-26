@@ -14,11 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-xlator_PROGRAMS = write-behind.so
+xlator_LTLIBRARIES = write-behind.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
-write_behind_so_SOURCES = write-behind.c
-write_behind_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+write_behind_la_LDFLAGS = -module -avoidversion 
+
+write_behind_la_SOURCES = write-behind.c
+write_behind_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)

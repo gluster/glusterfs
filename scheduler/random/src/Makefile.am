@@ -14,11 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-sched_PROGRAMS = random.so
+sched_LTLIBRARIES = random.la
 scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
-random_so_SOURCES = random.c
-random_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+random_la_LDFLAGS = -module -avoidversion
+
+random_la_SOURCES = random.c
+random_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = random.h
 

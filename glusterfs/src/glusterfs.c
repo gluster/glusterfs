@@ -64,7 +64,7 @@ const char *progname = NULL;
 
 /* using argp for command line parsing */
 static char doc[] = "";
-static char argp_doc[] = "--server=SERVER [MOUNT-POINT]\n --spec-file=VOLUME-SPECFILE [MOUNT-POINT]";
+static char argp_doc[] = "--server=SERVER [MOUNT-POINT]\n--volume-specfile=VOLUME-SPECFILE [MOUNT-POINT]";
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__ " " __TIME__ " \n" \
                                    "Repository revision: " GLUSTERFS_REPOSITORY_REVISION "\n" \
                                    "Copyright (c) 2006, 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>\n" \
@@ -80,10 +80,12 @@ static struct argp_option options[] = {
  	 "Server to get the volume specfile from.  This option overrides --volume-specfile option"},
  	{"volume-specfile", ARGP_VOLUME_SPECFILE_KEY, "VOLUME-SPECFILE", 0, 
  	 "File to use as VOLUME-SPECFILE [default: " DEFAULT_VOLUME_SPECFILE "]"},
+	{"spec-file", ARGP_VOLUME_SPECFILE_KEY, "VOLUME-SPECFILE", OPTION_HIDDEN, 
+	 "File to use as VOLUME-SPECFILE [default : " DEFAULT_VOLUME_SPECFILE "]"},
  	{"log-level", ARGP_LOG_LEVEL_KEY, "LOGLEVEL", 0, 
  	 "Logging severity.  Valid options are TRACE, DEBUG, WARNING, NORMAL, ERROR, CRITICAL and NONE [default: WARNING]"},
  	{"log-file", ARGP_LOG_FILE_KEY, "LOGFILE", 0, 
- 	 "File to use for logging [default: " DEFAULT_LOG_FILE_DIRECTORY "/{PROGRAM-NAME}.log" "]"},
+ 	 "File to use for logging [default: " DEFAULT_LOG_FILE_DIRECTORY "/" PACKAGE_NAME ".log" "]"},
  	
  	{0, 0, 0, 0, "Advanced Options:"},
  	{"specfile-server-port", ARGP_SPECFILE_SERVER_PORT_KEY, "PORT", 0, 
@@ -110,13 +112,7 @@ static struct argp_option options[] = {
  	 "Volume name to be used for MOUNT-POINT [default: top most volume in VOLUME-SPECFILE]"},
  	
  	{0, 0, 0, 0, "Miscellaneous Options:"},
-#ifndef HAVE_ARGP
- 	{"help", 'h', 0, 0, "Give this help list"},
- 	{"usage", 'u', 0, 0, "Give a short usage message"},
- 	{"version", 'V', 0, 0, "Print program version"},
-#endif
- 	
- 	{ 0, }
+ 	{0, }
 };
 
 static struct argp argp = { options, parse_opts, argp_doc, doc };

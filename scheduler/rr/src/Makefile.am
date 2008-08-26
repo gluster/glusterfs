@@ -14,10 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-sched_PROGRAMS = rr.so
+sched_LTLIBRARIES = rr.la
 scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
-rr_so_SOURCES = rr.c rr-options.c
+rr_la_LDFLAGS = -module -avoidversion
+
+rr_la_SOURCES = rr.c rr-options.c
 noinst_HEADERS = rr.h rr-options.h
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \

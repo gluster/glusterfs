@@ -15,13 +15,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-xlator_PROGRAMS = stripe.so
+xlator_LTLIBRARIES = stripe.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
+stripe_la_LDFLAGS = -module -avoidversion
 
-stripe_so_SOURCES = stripe.c
-#noinst_HEADERS = unify.h
-stripe_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+stripe_la_SOURCES = stripe.c
+stripe_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)

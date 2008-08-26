@@ -1005,7 +1005,7 @@ afr_open (call_frame_t *frame,
     local->op_ret = -1;
     local->op_errno = ENOTCONN;
     local->offset = 0;
-    local->length = LONG_LONG_MAX;
+    local->length = LLONG_MAX;
     local->flags = flags;
     local->fd = fd;
     local->uid = frame->root->uid;
@@ -1331,7 +1331,7 @@ afr_open (call_frame_t *frame,
   /* so that we dont try to unlock in AFR_OPEN_ERROR */
   local->lock = 0; 
   local->offset = 0;
-  local->length = LONG_LONG_MAX;
+  local->length = LLONG_MAX;
   if (local->uid)
     frame->root->uid = local->uid;
   if (local->gid)
@@ -1377,7 +1377,7 @@ afr_open (call_frame_t *frame,
   GF_TRACE (this, "unlocking..");
   local->label = AFR_OPEN_10;
   local->offset = 0;
-  local->length = LONG_LONG_MAX;
+  local->length = LLONG_MAX;
   if (local->uid)
     frame->root->uid = local->uid;
   if (local->gid)

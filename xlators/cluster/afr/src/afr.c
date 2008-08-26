@@ -2076,7 +2076,7 @@ afr_ftruncate (call_frame_t *frame,
   local->op_errno = ENOTCONN;
   local->fd = fd;
   local->offset = offset;
-  local->length = LONG_LONG_MAX;
+  local->length = LLONG_MAX;
   local->fop = AFR_FOP_FTRUNCATE;
   local->label = AFR_WRFT_1;
 

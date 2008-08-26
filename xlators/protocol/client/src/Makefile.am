@@ -1,9 +1,11 @@
 
-xlator_PROGRAMS = client.so
+xlator_LTLIBRARIES = client.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/protocol
 
-client_so_SOURCES = client-protocol.c
-client_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+client_la_LDFLAGS = -module -avoidversion
+
+client_la_SOURCES = client-protocol.c
+client_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = client-protocol.h
 

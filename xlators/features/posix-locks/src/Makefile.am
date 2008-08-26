@@ -14,11 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-xlator_PROGRAMS = posix-locks.so
+xlator_LTLIBRARIES = posix-locks.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-posix_locks_so_SOURCES = posix-locks.c
-posix_locks_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la 
+posix_locks_la_LDFLAGS = -module -avoidversion
+
+posix_locks_la_SOURCES = posix-locks.c
+posix_locks_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la 
 
 noinst_HEADERS = posix-locks.h
 

@@ -15,11 +15,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-xlator_PROGRAMS = server.so
+xlator_LTLIBRARIES = server.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/protocol
 
-server_so_SOURCES = server-protocol.c
-server_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+server_la_LDFLAGS = -module -avoidversion
+
+server_la_SOURCES = server-protocol.c
+server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = server-protocol.h 
 

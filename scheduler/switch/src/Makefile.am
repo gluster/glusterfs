@@ -14,11 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-sched_PROGRAMS = switch.so
+sched_LTLIBRARIES = switch.la
 scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
-switch_so_SOURCES = switch.c
-switch_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+switch_la_LDFLAGS = -module -avoidversion
+
+switch_la_SOURCES = switch.c
+switch_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)

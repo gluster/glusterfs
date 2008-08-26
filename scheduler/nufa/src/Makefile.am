@@ -14,11 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-sched_PROGRAMS = nufa.so
+sched_LTLIBRARIES = nufa.la
 scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
-nufa_so_SOURCES = nufa.c
-nufa_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+nufa_la_LDFLAGS = -module -avoidversion
+
+nufa_la_SOURCES = nufa.c
+nufa_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = nufa.h
 

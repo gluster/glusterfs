@@ -14,11 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-sched_PROGRAMS = alu.so
+sched_LTLIBRARIES = alu.la
 scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
-alu_so_SOURCES = alu.c
-alu_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+alu_la_LDFLAGS = -module -avoidversion
+
+alu_la_SOURCES = alu.c
+alu_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = alu.h
 

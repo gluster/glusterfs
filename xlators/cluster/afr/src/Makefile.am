@@ -14,11 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-xlator_PROGRAMS = afr.so
+xlator_LTLIBRARIES = afr.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
-afr_so_SOURCES = afr.c afr_self_heal.c
-afr_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+afr_la_LDFLAGS = -module -avoidversion 
+
+afr_la_SOURCES = afr.c afr_self_heal.c
+afr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = afr.h
 

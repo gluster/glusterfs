@@ -63,6 +63,8 @@
 #include <sys/extattr.h>
 #include <limits.h>
 
+#include <libgen.h>
+
 enum {
   ATTR_CREATE = 1,
 #define XATTR_CREATE ATTR_CREATE
@@ -115,6 +117,8 @@ enum {
 #include <sys/xattr.h>
 #include <limits.h>
 
+#include <libgen.h>
+
 #ifndef sighandler_t
 #define sighandler_t sig_t
 #endif
@@ -158,6 +162,10 @@ int32_t gf_darwin_compat_getxattr (char *key, char **value, int size);
 
 #include <sys/un.h>
 #include <limits.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <libgen.h>
 
 #ifndef lchmod
 #define lchmod chmod
@@ -216,104 +224,7 @@ int solaris_fsetxattr(int fd, const char* key, const char *value,
 #endif /* GF_SOLARIS_HOST_OS */
 
 #ifndef HAVE_ARGP
-#include <stdio.h>
-#include <errno.h>
-
-#define ARGP_ERR_UNKNOWN E2BIG
-
-#define ARGP_KEY_ARG 		0
-#define ARGP_KEY_NO_ARGS        0x1000002 /* ??? */
-#define ARGP_HELP_USAGE         0x01 /* a Usage: message. (???) */
-
-#define OPTION_HIDDEN           0x2
-#define OPTION_ALIAS            0x4
-
-typedef int error_t;
-
-struct argp;
-struct argp_state;
-struct argp_child;
-
-struct argp_option {
-  const char *name;
-  int key;
-  const char *arg;
-  int flags;
-  const char *doc;
-  int group;
-};
-
-typedef int (*argp_parser_t) (int key, char *arg,
-			      struct argp_state *state);
-
-struct argp_child
-{
-  /* The child parser.  */
-  __const struct argp *argp;
-
-  /* Flags for this child.  */
-  int flags;
-
-  /* If non-zero, an optional header to be printed in help output before the
-     child options.  As a side-effect, a non-zero value forces the child
-     options to be grouped together; to achieve this effect without actually
-     printing a header string, use a value of "".  */
-  __const char *header;
-
-  /* Where to group the child options relative to the other (`consolidated')
-     options in the parent argp; the values are the same as the GROUP field
-     in argp_option structs, but all child-groupings follow parent options at
-     a particular group level.  If both this field and HEADER are zero, then
-     they aren't grouped at all, but rather merged with the parent options
-     (merging the child's grouping levels with the parents).  */
-  int group;
-};
-
-struct argp_state
-{
-  const struct argp *root_argp;
-
-  int argc;
-  char **argv;
-  int next;
-  unsigned flags;
-  unsigned arg_num;
-  int quoted;
-
-  void *input;
-  void **child_inputs;
-  void *hook;
-  char *name;
-
-  FILE *err_stream;
-  FILE *out_stream;
-
-  void *pstate;
-};
-
-struct argp
-{
-  const struct argp_option *options;
-  argp_parser_t parser;
-  const char *args_doc;
-  const char *doc;
-  const struct argp_child *children;
-  char *(*help_filter) (int __key, __const char *__text, void *__input);
-  const char *argp_domain;
-};
-
-#define argp_parse argp_parse_
-int argp_parse_ (const struct argp * __argp,
-		 int __argc, char **  __argv,
-		 unsigned __flags, int * __arg_index,
-		 void * __input);
-
-void argp_help_ (const struct argp *__argp, char ** __argv);
-
-void argp_usage_ (const struct argp *__argp, char ** __argv);
- 
-void argp_version_ (const char *version);
-
+#include "argp.h"
 #else
 #include <argp.h>
 #endif /* HAVE_ARGP */

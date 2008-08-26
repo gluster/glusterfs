@@ -15,11 +15,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-xlator_PROGRAMS = unify.so
+xlator_LTLIBRARIES = unify.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
-unify_so_SOURCES = unify.c unify-self-heal.c
-unify_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+unify_la_LDFLAGS = -module -avoidversion
+
+unify_la_SOURCES = unify.c unify-self-heal.c
+unify_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = unify.h
 

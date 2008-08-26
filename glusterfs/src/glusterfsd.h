@@ -25,7 +25,7 @@
 #include "config.h"
 #endif
 
-#define DEFAULT_VOLUME_SPECFILE               CONFDIR "/glusterfs/specfile.vol"
+#define DEFAULT_VOLUME_SPECFILE               CONFDIR "/specfile.vol"
 #define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"
 #define DEFAULT_LOG_LEVEL                     GF_LOG_WARNING
 #define	DEFAULT_SPECFILE_SERVER_PORT          6996

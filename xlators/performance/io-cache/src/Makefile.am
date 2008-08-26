@@ -14,11 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-xlator_PROGRAMS = io-cache.so
+xlator_LTLIBRARIES = io-cache.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
-io_cache_so_SOURCES = io-cache.c page.c ioc-inode.c
-io_cache_so_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+io_cache_la_LDFLAGS = -module -avoidversion 
+
+io_cache_la_SOURCES = io-cache.c page.c ioc-inode.c
+io_cache_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = io-cache.h
 
