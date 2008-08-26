@@ -898,12 +898,12 @@ afr_open_open_cbk (call_frame_t *frame,
   afrfd_t *afrfdp;
 
   GF_TRACE (this, "(child=%s) op_ret=%d op_errno=%d", prev_frame->this->name, op_ret, op_errno);
+  local = frame->local;
   if (op_ret == -1) {
     GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d", prev_frame->this->name, op_ret, op_errno);
     if (local->sh)
       local->error = 1;
   }
-  local = frame->local;
   if (local->sh)
     usefd = local->shfd;
   else
