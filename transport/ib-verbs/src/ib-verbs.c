@@ -351,6 +351,7 @@ ib_verbs_submit (transport_t *this, char *buf, int32_t len,
 
   ib_verbs_writev (this, new_vector, count + 2);
   FREE (new_vector);
+  FREE (buf);
 
   return 0;
 }
@@ -385,15 +386,19 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
 
   copy_from += sizeof (*header);
 
-  hdr = calloc (1, size1);
-  memcpy (hdr, copy_from, size1);
-  copy_from += size1;
-  *hdr_p = hdr;
+  if (size1) {
+    hdr = calloc (1, size1);
+    memcpy (hdr, copy_from, size1);
+    copy_from += size1;
+    *hdr_p = hdr;
+  }
   *hdrlen_p = size1;
 
-  buf = calloc (1, size2);
-  memcpy (buf, copy_from, size2);
-  *buf_p = buf;
+  if (size2) {
+    buf = calloc (1, size2);
+    memcpy (buf, copy_from, size2);
+    *buf_p = buf;
+  }
   *buflen_p = size2;
 
   return 0;
