@@ -3043,10 +3043,23 @@ posix_lk (call_frame_t *frame, xlator_t *this,
 
         gf_posix_lk_log++;
 
-        if (!(gf_posix_lk_log % GF_UNIVERSAL_ANSWER)) {
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "\"features/posix-locks\" translator is not loaded, you need to use it");
-        }
+	GF_LOG_OCCASIONALLY (gf_posix_lk_log, this->name, GF_LOG_ERROR, 
+			     "\"features/posix-locks\" translator is not loaded, you need to use it");
+
+        STACK_UNWIND (frame, -1, ENOSYS, &nullock);
+        return 0;
+}
+
+
+int32_t 
+posix_gf_lk (call_frame_t *frame, xlator_t *this,
+	     fd_t *fd, int32_t cmd, struct flock *lock)
+{
+        struct flock nullock = {0, };
+        frame->root->rsp_refs = NULL;
+
+	gf_log (this->name, GF_LOG_CRITICAL,
+		"\"features/posix-locks\" translator is not loaded. You need to use it for proper functioning of AFR");
 
         STACK_UNWIND (frame, -1, ENOSYS, &nullock);
         return 0;
@@ -3528,6 +3541,7 @@ struct xlator_fops fops = {
         .ftruncate   = posix_ftruncate,
         .fstat       = posix_fstat,
         .lk          = posix_lk,
+	.gf_lk       = posix_gf_lk,
         .fchown      = posix_fchown,
         .fchmod      = posix_fchmod,
         .setdents    = posix_setdents,
