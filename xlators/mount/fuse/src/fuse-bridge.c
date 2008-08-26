@@ -813,10 +813,9 @@ fuse_setattr (fuse_req_t req,
                 do_chown (req, ino, attr, valid, fi);
         else if (valid & FUSE_SET_ATTR_SIZE)
                 do_truncate (req, ino, attr, fi);
-        else if ((valid & (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME)) == (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME))
+        else if (valid & (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME))
                 do_utimes (req, ino, attr);
-
-        if (!valid)
+	else 
                 fuse_getattr (req, ino, fi);
 }
 
@@ -2567,6 +2566,15 @@ init (xlator_t *this)
         int32_t res;
 
         options = this->options;
+
+        if (!data_to_str (dict_get (options, "mount-point"))) {
+                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                        "'option mount-point /directory' not specified");
+                return -1;
+        }
+
+        mount_point = strdup (data_to_str (dict_get (options, "mount-point")));
+
         asprintf (&source, "fsname=glusterfs");
 
         char *argv[] = { "glusterfs",
@@ -2577,7 +2585,6 @@ init (xlator_t *this)
                          "-o", "max_read=1048576",
                          "-o", "max_write=1048576",
 #else
-                         "-o", "noexec",
                          "-o", "volname=GlusterFS",
 #endif
                          "-o", "allow_other",
@@ -2586,7 +2593,7 @@ init (xlator_t *this)
                          NULL };
 
 #ifdef GF_DARWIN_HOST_OS
-        argc = 11;
+        argc = 9;
 #else
         argc = 15;
 #endif
@@ -2596,15 +2603,6 @@ init (xlator_t *this)
         ERR_ABORT (priv);
 
         this->private = (void *)priv;
-
-        if (!data_to_str (dict_get (options, "mount-point"))) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "'option mount-point /directory' not specified");
-                return -1;
-        }
-
-        mount_point = strdup (data_to_str (dict_get (options, 
-                                                     "mount-point")));
 
         if (dict_get (options, "attr-timeout")) {
                 priv->attr_timeout = data_to_uint32 (dict_get (options,
