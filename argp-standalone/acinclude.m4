@@ -357,7 +357,7 @@ if test "x$lsh_cv_c_attribute" = "xyes"; then
 fi
 
 AH_BOTTOM(
-[#if __GNUC__ && HAVE_GCC_ATTRIBUTE
+[#if __GNUC__ || HAVE_GCC_ATTRIBUTE
 # define NORETURN __attribute__ ((__noreturn__))
 # define PRINTF_STYLE(f, a) __attribute__ ((__format__ (__printf__, f, a)))
 # define UNUSED __attribute__ ((__unused__))
