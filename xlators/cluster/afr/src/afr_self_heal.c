@@ -684,13 +684,14 @@ afr_open_readv_writev_cbk (call_frame_t *frame,
   GF_TRACE (this, "(child=%s) (op_ret=%d op_errno=%d)", prev_frame->this->name,
 	    op_ret, op_errno);
 
+  local = frame->local;
+
   if (op_ret == -1) {
     GF_ERROR (this, "(child=%s) (op_ret=%d op_errno=%d(%s))", prev_frame->this->name,
 	      op_ret, op_errno, strerror(op_errno));
     local->error = 1;
   }
 
-  local = frame->local;
   afrfdp = data_to_ptr (dict_get (local->shfd->ctx, this->name));
 
   LOCK (&frame->lock);
