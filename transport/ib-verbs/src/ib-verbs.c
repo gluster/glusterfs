@@ -152,15 +152,24 @@ ib_verbs_destroy_post (ib_verbs_post_t *post)
 static int32_t
 ib_verbs_quota_get (ib_verbs_peer_t *peer)
 {
-  int32_t ret;
+  int32_t ret = 1;
+  ib_verbs_private_t *priv = peer->trans->private;
   /* TODO: handle the locking guy here gracefully
      if QP is destroyed while he is waiting
   */
   pthread_mutex_lock (&peer->lock);
-  while (!peer->quota) {
-    pthread_cond_wait (&peer->has_quota, &peer->lock);
+  {
+    while (1) {
+      if (!priv->connected || ret > 0) {
+	break;
+      }
+      if (!peer->quota) {
+	pthread_cond_wait (&peer->has_quota, &peer->lock);
+      } else {
+	ret = peer->quota--;
+      }
+    }
   }
-  ret = peer->quota--;
   pthread_mutex_unlock (&peer->lock);
   return ret;
 }
@@ -255,7 +264,7 @@ ib_verbs_writev (transport_t *this,
 		 const struct iovec *vector,
 		 int32_t count)
 {
-  int32_t ctrl_len = 0, data_len = 0;
+  int32_t ctrl_len = 0, data_len = 0, quota_ret = -1;
   ib_verbs_post_t *ctrl_post = NULL, *data_post = NULL;
   ib_verbs_private_t *priv = this->private;
   ib_verbs_options_t *options = &priv->options;
@@ -266,7 +275,6 @@ ib_verbs_writev (transport_t *this,
   data_len = iov_length (vector, count);
 
   if (data_len > (options->send_size+2048)) {
-
     gf_log ("transport/ib-verbs",
 	    GF_LOG_DEBUG,
 	    "%s: using aux chan to post %d bytes",
@@ -294,7 +302,15 @@ ib_verbs_writev (transport_t *this,
 
   /* TODO hold write lock */
   if (ctrl_post) {
-    ib_verbs_quota_get (ctrl_peer);
+    quota_ret = ib_verbs_quota_get (ctrl_peer);
+    if (quota_ret == -1) {
+      gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+	      "%s: quota_get returned -1", this->xl->name);
+      ib_verbs_put_post (&device->sendq, ctrl_post);
+      ib_verbs_destroy_post (data_post);
+      return -1;
+    }
+
     if (ib_verbs_post_send (ctrl_qp, ctrl_post, ctrl_len) != 0) {
       gf_log ("transport/ib-verbs",
 	      GF_LOG_ERROR,
@@ -306,7 +322,17 @@ ib_verbs_writev (transport_t *this,
       return -1;
     }
   }
-  ib_verbs_quota_get (data_peer);
+  quota_ret = ib_verbs_quota_get (data_peer);
+  if (quota_ret == -1) {
+    gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+	    "%s: quota_get returned -1", this->xl->name);
+    if (data_post->aux) 
+      ib_verbs_destroy_post (data_post);
+    else
+      ib_verbs_put_post (&device->sendq, data_post);
+    return -1;
+  }
+
   if (ib_verbs_post_send (data_qp, data_post, data_len) != 0) {
     ib_verbs_quota_put (data_peer);
     if (data_post->aux)

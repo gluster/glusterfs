@@ -2526,7 +2526,7 @@ notify (xlator_t *this, int32_t event,
 	  /* TODO: somehow, try to get the mountpoint active as soon as init()
 	     is complete, so that the hang effect when the server is not not
 	     started is removed. */
-	  /*        case GF_EVENT_CHILD_CONNECTING: */
+	case GF_EVENT_CHILD_CONNECTING: 
 #endif /* DARWIN */
 
         {

@@ -58,6 +58,8 @@ typedef struct wb_local {
 typedef struct write_request {
   call_frame_t *frame;
   off_t offset;
+  int32_t op_ret;
+  int32_t op_errno;
   struct iovec *vector;
   int32_t count;
   dict_t *refs;
@@ -148,40 +150,20 @@ wb_sync_cbk (call_frame_t *frame,
   list_head_t *winds = NULL;
   wb_file_t *file = NULL;
   wb_write_request_t *request = NULL, *dummy = NULL;
-  char written_behind = 0;
-  int32_t ret = 0;
-  call_frame_t *unwind_frame = NULL;
-  size_t size = 0;
 
   local = frame->local;
   winds = &local->winds;
   file = local->file;
 
-  list_for_each_entry_safe (request, dummy, winds, winds)
-    {
-      unwind_frame = NULL;
-      size = 0;
-
-      LOCK (&file->lock);
-      {
-	request->got_reply = 1;
-	written_behind = request->write_behind;
-
-	if (!written_behind)
-	  {
-	    request->write_behind = 1;
-	    unwind_frame = request->frame;
-	    size = iov_length (request->vector, request->count);
-	  }
-      }
-      UNLOCK (&file->lock);
-
-      if (!written_behind)
-	{
-	  ret = (op_ret > 0) ? size : op_ret;
-	  STACK_UNWIND (unwind_frame, ret, op_errno, stbuf);
-	} 
+  LOCK (&file->lock);
+  {
+    list_for_each_entry_safe (request, dummy, winds, winds) {
+      request->got_reply = 1;
+      request->op_ret = op_ret;
+      request->op_errno = op_errno;
     }
+  }
+  UNLOCK (&file->lock);
 
   if (op_ret == -1)
     {
@@ -720,7 +702,7 @@ __wb_cleanup_queue (wb_file_t *file)
 
   list_for_each_entry_safe (request, dummy, &file->request, list)
     {
-      if (request->got_reply)
+      if (request->got_reply && request->write_behind)
 	{
 	  bytes += iov_length (request->vector, request->count);
 	  list_del_init (&request->list);
@@ -873,16 +855,23 @@ __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds, size_t window_conf)
 int32_t
 wb_stack_unwind (list_head_t *unwinds)
 {
-  size_t size = 0;
+  int32_t op_ret = 0, op_errno = 0;
   struct stat buf = {0,};
   wb_write_request_t *request = NULL, *dummy = NULL;
 
   list_for_each_entry_safe (request, dummy, unwinds, unwinds)
     {
-      size = iov_length (request->vector, request->count);
+      if (request->got_reply) {
+	op_ret = request->op_ret;
+	op_errno = request->op_errno;
+      } else {
+	op_ret = iov_length (request->vector, request->count);
+	op_errno = 0;
+      }
+
       list_del_init (&request->unwinds);
 
-      STACK_UNWIND (request->frame, size, 0, &buf);
+      STACK_UNWIND (request->frame, op_ret, op_errno, &buf);
     }
 
   return 0;
@@ -1374,8 +1363,8 @@ init (xlator_t *this)
 	  (!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
 			"yes"))) {
 	if (conf->aggregate_size != 0) {
-	  gf_log (this->name, GF_LOG_DEBUG,
-		  "aggregate-size is not zero, disbling flush-behind");
+	  gf_log (this->name, GF_LOG_WARNING,
+		  "aggregate-size is not zero, disabling flush-behind");
 	} else {
 	  gf_log (this->name, GF_LOG_DEBUG,
 		  "enabling flush-behind");
