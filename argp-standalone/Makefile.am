@@ -35,5 +35,5 @@ libargp_a_SOURCES = argp-ba.c argp-eexst.c argp-fmtstream.c \
 
 libargp_a_LIBADD = $(LIBOBJS)
 
-
+CFLAGS = -g -O2
 
