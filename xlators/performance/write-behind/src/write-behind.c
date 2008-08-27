@@ -169,6 +169,7 @@ wb_sync_cbk (call_frame_t *frame,
 
 	if (!written_behind)
 	  {
+	    request->write_behind = 1;
 	    unwind_frame = request->frame;
 	    size = iov_length (request->vector, request->count);
 	  }
