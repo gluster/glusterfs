@@ -100,7 +100,9 @@
 #  <nufa>
      option nufa.limits.min-free-disk <%> (15)
      option nufa.refresh-interval <t> (10 seconds)
-     option nufa.local-volume-name <volume1[,volume2,volume...N]> 
+     option nufa.local-volume-name <volume1[,volume2,volume...N]>  
+     # can be "option nufa.local-volume-name `hostname`", hence `hostname` will be replaced by actual hostname.
+     option drop-hostname-from-subvolumes yes # This will be useful for single process NUFA setting.
 #  <switch>
      option switch.case *jpg:child1,child2;*mpg:child3;*:child4,child5,child6
      option switch.read-only-subvolumes <volume1,...,volumeN>
@@ -143,11 +145,9 @@
 # performance/stat-prefetch (currently disabled): 
      option cache-seconds <n> (1000000)
 
-
 # encryption/rot-13:
      option encrypt-write [on|off] (on)
      option decrypt-read [on|off] (on)
-
 
 # features/posix-locks:
      option mandatory [on|off] (off)
@@ -170,3 +170,9 @@
      option start-offset n (0)
      option end-offset m (0)
      option regex      (not set)
+
+# features/squash
+     option root-squashing enable
+     option uidmap 1=2,100=2001,99=1
+     option gidmap 10=100,99=1000
+

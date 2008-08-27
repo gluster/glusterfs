@@ -632,6 +632,7 @@ main (int argc, char *argv[])
 		argp_help (&argp, stderr, ARGP_HELP_SEE, (char *) progname);
 		return -1;
 	}
+	glusterfs_stats (0);
 	gf_log_volume_specfile (specfp);
 	if ((graph = _parse_specfp (ctx, specfp)) == NULL) {
 		/* _parse_specfp() prints necessary error message */

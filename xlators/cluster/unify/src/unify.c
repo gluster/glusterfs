@@ -4356,16 +4356,22 @@ init (xlator_t *this)
 	  
 	  if (gethostname (host_name, 256) == -1)
 	    {
-	      gf_log (this->name, GF_LOG_ERROR, "gethostname(): %s", strerror (errno));
+	      gf_log (this->name, GF_LOG_ERROR, 
+		      "drop-hostname-from-subvolumes: gethostname(): %s", strerror (errno));
+	      return -1;
 	    }
 	  else
 	    {
+	      int flag = 0;
 	      /* Check if the local_volume specified is proper subvolume of unify */
 	      trav = this->children;
 	      if (strcmp (host_name, trav->xlator->name) == 0)
 		{
 		  /* Well there is a volume with the name 'hostname()', hence neglect it */
 		  this->children = trav->next;
+		  gf_log (this->name, GF_LOG_DEBUG, 
+			  "drop-hostname-from-subvolumes: skipped volume '%s'", host_name);
+		  flag = 1;
 		  count--;
 		}
 	      while (trav->next) 
@@ -4375,17 +4381,20 @@ init (xlator_t *this)
 		      /* Well there is a volume with the name 'hostname()', hence neglect it */
 		      /* Remove entry about this subvolume from the list */
 		      trav->next = (trav->next)->next;
+		      flag = 1;
 		      count--;
-		      break;
 		    }
 		  trav = trav->next;
 		  count++;
 		}
 	      
-	      if (!trav) 
+	      if (!flag) 
 		{
 		  /* entry for 'local-volume-name' is wrong, not present in subvolumes */
-		  gf_log (this->name, GF_LOG_ERROR, "No volume by name '%s'", host_name);
+		  gf_log (this->name, GF_LOG_ERROR, 
+			  "requested to drop hostname from subvolumes, but no volume by name '%s'", 
+			  host_name);
+		  return -1;
 		} 
 	    }
 	}
@@ -4393,7 +4402,8 @@ init (xlator_t *this)
   
   if (!count)
     {
-      gf_log (this->name, GF_LOG_ERROR, "left with no subvolumes");
+      gf_log (this->name, GF_LOG_ERROR, 
+	      "review option 'drop-hostname-from-subvolumes', left with no subvolumes");
       return -1;
     }
 
