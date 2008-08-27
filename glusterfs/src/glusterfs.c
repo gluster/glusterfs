@@ -560,8 +560,6 @@ main (int argc, char *argv[])
 		cmd_args->specfile_server_port = DEFAULT_SPECFILE_SERVER_PORT;
 	if (cmd_args->specfile_server_transport == NULL)
 		cmd_args->specfile_server_transport = strdup (DEFAULT_SPECFILE_SERVER_TRANSPORT);
-	if (cmd_args->pid_file == NULL)
-		asprintf (&cmd_args->pid_file, DEFAULT_PID_FILE_DIRECTORY "/%s.pid", progname);
 	
 	ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
 	pthread_mutex_init (&(ctx->lock), NULL);
@@ -570,7 +568,8 @@ main (int argc, char *argv[])
 	LOCK_INIT (&pool->lock);
 	INIT_LIST_HEAD (&pool->all_frames);
 	
-	if (_is_file_exists (cmd_args->pid_file) == 1) {
+	if (cmd_args->pid_file
+	    && _is_file_exists (cmd_args->pid_file) == 1) {
 		fprintf (stderr, "pid file %s already exists.  exiting\n", cmd_args->pid_file);
 		return -1;
 	}
@@ -658,7 +657,7 @@ main (int argc, char *argv[])
 						 "ignoring MOUNT-POINT argument\n");
 					gf_log (progname, GF_LOG_WARNING, 
 						"fuse volume and MOUNT-POINT argument are given.  "
-						"ignoring MOUNT-POINT argument\n");
+						"ignoring MOUNT-POINT argument");
 					break;
 				}
 			}
@@ -699,7 +698,7 @@ main (int argc, char *argv[])
 			fprintf (stderr, 
 				 "no server protocol or mount point is given in volume specfile.  nothing to do.  exiting\n");
 			gf_log (progname, GF_LOG_ERROR, 
-				"no server protocol or mount point is given in volume specfile.  nothing to do.  exiting\n");
+				"no server protocol or mount point is given in volume specfile. nothing to do. exiting");
 			return -1;
 		}
 	}
@@ -707,22 +706,27 @@ main (int argc, char *argv[])
 	/* daemonize now */
 	if (!cmd_args->no_daemon_mode) {
 		if (daemon (0, 0) == -1) {
-			fprintf (stderr, "unable to run in daemon mode: %s.  exiting\n", strerror (errno));
+			fprintf (stderr, "unable to run in daemon mode: %s",
+				 strerror (errno));
 			gf_log (progname, GF_LOG_ERROR, 
-				"unable to run in daemon mode: %s.  exiting\n", strerror (errno));
+				"unable to run in daemon mode: %s",
+				strerror (errno));
 			return -1;
 		}
 		
 		/* we are daemon now */
 		/* update pid file */
-		if ((pidfp = fopen (cmd_args->pid_file, "w")) == NULL) {
-			gf_log (progname, GF_LOG_ERROR, 
-				"pid file %s: %s.  exiting\n", cmd_args->pid_file, strerror (errno));
-			/* do cleanup and exit ?! */
-			return -1;
+		if (cmd_args->pid_file) {
+			if ((pidfp = fopen (cmd_args->pid_file, "w")) == NULL) {
+				gf_log (progname, GF_LOG_ERROR, 
+					"pid file %s: (%s). exiting",
+					cmd_args->pid_file, strerror (errno));
+				/* do cleanup and exit ?! */
+				return -1;
+			}
+			fprintf (pidfp, "%d\n", getpid ());
+			fclose (pidfp);
 		}
-		fprintf (pidfp, "%d\n", getpid ());
-		fclose (pidfp);
 	}
 	
 	gf_log (progname, GF_LOG_WARNING, 
