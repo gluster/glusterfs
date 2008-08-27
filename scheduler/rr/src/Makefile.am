@@ -19,6 +19,7 @@ scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
 rr_la_LDFLAGS = -module -avoidversion
 
+rr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 rr_la_SOURCES = rr.c rr-options.c
 noinst_HEADERS = rr.h rr-options.h
 
