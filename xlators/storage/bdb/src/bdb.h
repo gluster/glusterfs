@@ -287,6 +287,9 @@ struct bdb_private {
   uint32_t            transaction;           /* transaction: can be either ON or OFF */
   uint32_t            inode_bit_shift;       /* number of bits to be left shifted. 
 					      * see bdb_inode_transform() for details */
+  uint32_t            active;
+  gf_lock_t           active_lock;
+
   struct bctx_table  *b_table;
   DBTYPE              access_mode;           /* access mode for accessing the databases, 
 					      * can be DB_HASH, DB_BTREE 

@@ -2733,6 +2733,8 @@ void
 fini (xlator_t *this)
 {
   struct bdb_private *private = this->private;
+  int32_t ret = -1;
+
   if (B_TABLE(this)) {
     int32_t idx = 0;
     /* close all the dbs from lru list */
@@ -2743,6 +2745,17 @@ fini (xlator_t *this)
     if (BDB_ENV(this)) {
       /* TODO: pick each of the 'struct bctx' from private->b_hash
        * and close all the databases that are open */
+      LOCK (&private->active_lock);
+      private->active = 0;
+      UNLOCK (&private->active_lock);
+      
+      ret = pthread_join (private->checkpoint_thread, NULL);
+      if (ret != 0) {
+	      gf_log (this->name,
+		      GF_LOG_CRITICAL,
+		      "failed to join checkpoint thread");
+      }
+
       BDB_ENV(this)->close (BDB_ENV(this), 0);
     } else {
       /* impossible to reach here */

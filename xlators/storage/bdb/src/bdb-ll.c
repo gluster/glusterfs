@@ -895,20 +895,41 @@ bdb_checkpoint (void *data)
   xlator_t *this = data;
   struct bdb_private *private = this->private;
   DB_ENV *dbenv = NULL;
+  int32_t ret = 0;
+  uint32_t active = 0;
 
   dbenv = BDB_ENV(this);
+
   for (;;sleep (private->checkpoint_timeout)) {
-    int32_t ret = 0;
-    ret = dbenv->txn_checkpoint (dbenv, 1024, 0, 0);
-    if (ret) {
-      gf_log ("bctx",
-	      GF_LOG_ERROR,
-	      "failed to checkpoint environment: %s", db_strerror (ret));
-    } else {
-      gf_log ("bctx",
-	      GF_LOG_DEBUG,
-	      "checkpointing successful");
-    }
+	  LOCK (&private->active_lock);
+	  active = private->active;
+	  UNLOCK (&private->active_lock);
+
+	  if (active) {
+		  ret = dbenv->txn_checkpoint (dbenv, 1024, 0, 0);
+		  if (ret) {
+			  gf_log ("bctx",
+				  GF_LOG_ERROR,
+				  "failed to checkpoint environment: %s", db_strerror (ret));
+		  } else {
+			  gf_log ("bctx",
+				  GF_LOG_DEBUG,
+				  "checkpointing successful");
+		  } 
+	  } else {
+		  ret = dbenv->txn_checkpoint (dbenv, 1024, 0, 0);
+		  if (ret) {
+			  gf_log ("bctx",
+				  GF_LOG_ERROR,
+				  "failed to do final checkpoint environment: %s", 
+				  db_strerror (ret));
+		  } else {
+			  gf_log ("bctx",
+				  GF_LOG_DEBUG,
+				  "final checkpointing successful");
+		  }
+		  break;
+	  }
   }
 
   return NULL;
@@ -1256,6 +1277,12 @@ bdb_init_db (xlator_t *this,
       } else {
 	if (private->transaction) {
 	  /* all well, start the checkpointing thread */
+  	  LOCK_INIT (&private->active_lock);
+
+   	  LOCK (&private->active_lock);	
+          private->active = 1;
+	  UNLOCK (&private->active_lock);
+
 	  pthread_create (&private->checkpoint_thread, NULL,
 			  bdb_checkpoint, this);
 	}
