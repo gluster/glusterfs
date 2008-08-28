@@ -209,6 +209,7 @@ typedef struct _cmd_args cmd_args_t;
 struct _glusterfs_ctx {
 	cmd_args_t         cmd_args;
 	char              *program_invocation_name;
+	FILE              *pidfp;
 	char               fin;
 	void              *timer;
 	void              *ib;

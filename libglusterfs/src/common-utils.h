@@ -68,6 +68,13 @@ void trap (void);
       abort ();		  \
     }                     
 
+enum _boolean 
+{
+	false, 
+	true
+};
+
+typedef enum _boolean boolean_t;
 
 #ifdef DEBUG
 #define TRAP_ON(cond) if (cond) { gf_log ("trapper", GF_LOG_CRITICAL, "condition `%s' asserted", #cond); trap (); }
@@ -260,6 +267,11 @@ int gf_string2uint32_base10 (const char *str, uint32_t *n);
 int gf_string2uint64_base10 (const char *str, uint64_t *n);
 
 int gf_string2bytesize (const char *str, size_t *n);
+
+int gf_string2boolean (const char *str, boolean_t *b);
+
+int gf_lockfd (int fd);
+int gf_unlockfd (int fd);
 
 #endif /* _COMMON_UTILS_H */
 

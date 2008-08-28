@@ -60,6 +60,8 @@
 #include "event.h"
 #include "fetch-spec.h"
 
+#include "options.h"
+
 const char *progname = NULL;
 
 /* using argp for command line parsing */
@@ -117,48 +119,26 @@ static struct argp_option options[] = {
 
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
-static int 
-_lockfd (int fd)
+
+void 
+_log_command_line (int argc, char **argv)
 {
-	struct flock fl;
+	char str[1024] = { 0 };
+	int size = 1024;
+	int len = 0;
+	int i = 0;
 	
-	fl.l_type = F_WRLCK;
-	fl.l_whence = SEEK_SET;
-	fl.l_start = 0;
-	fl.l_len = 0;
-	
-	return fcntl (fd, F_SETLK, &fl);
+	for (i = 0; i < argc; i++) {
+		snprintf (str + len, size - len, "%s ", argv[i]);
+		len += strlen (argv[i]) + 1;
+		if (len >= size)
+			break;
+	}
+	gf_log (progname, GF_LOG_WARNING, "[%s]", str);
 }
-  
-static int 
-_unlockfd (int fd)
-{
-	struct flock fl;
-	
-	fl.l_type = F_UNLCK;
-	fl.l_whence = SEEK_SET;
-	fl.l_start = 0;
-	fl.l_len = 0;
-	
-	return fcntl (fd, F_SETLK, &fl);
-}
-  
-static int 
-_is_file_exists (const char *filename)
-{
-	struct stat statinfo;
-	
-	if (filename == NULL)
-		return -1;
-	
-	if (stat (filename, &statinfo) == 0)
-		return 1;
-	if (errno == ENOENT)
-		return 0;
-	
-	return -1;
-}
-  
+
+
+
 static xlator_t *
 _add_fuse_mount (xlator_t *graph)
 {
@@ -208,11 +188,18 @@ _add_fuse_mount (xlator_t *graph)
 	}
 	dict_set (top->options, 
 		  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING, 
-		  data_from_uint32 (DISABLE_DIRECT_IO_MODE));
+		  DISABLE_DIRECT_IO_MODE);
 #else 
-	dict_set (top->options, 
-		  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING,
-		  data_from_uint32 (cmd_args->fuse_direct_io_mode_flag));
+	if (cmd_args->fuse_direct_io_mode_flag == GF_ENABLE_VALUE) {
+		dict_set (top->options, 
+			  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING,
+			  data_from_static_ptr (ENABLE_DIRECT_IO_MODE));
+	}
+	else  {
+		dict_set (top->options, 
+			  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING,
+			  data_from_static_ptr (DISABLE_DIRECT_IO_MODE));
+	}
 #endif /* GF_DARWIN_HOST_OS */
 	
 	graph->parents = calloc (1, sizeof (xlator_list_t));
@@ -446,7 +433,7 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		break;
 		
 	case ARGP_DISABLE_DIRECT_IO_MODE_KEY:
-		cmd_args->fuse_direct_io_mode_flag = DISABLE_DIRECT_IO_MODE;
+		cmd_args->fuse_direct_io_mode_flag = GF_ENABLE_VALUE;
 		break;
 		
 	case ARGP_DIRECTORY_ENTRY_TIMEOUT_KEY:
@@ -501,6 +488,11 @@ cleanup_and_exit (int signum)
 	
 	gf_log (progname, GF_LOG_WARNING, "shutting down");
 	
+	if (ctx->pidfp) {
+		gf_unlockfd (fileno (ctx->pidfp));
+		fclose (ctx->pidfp);
+	}
+	
 	if (ctx->cmd_args.pid_file)
 		unlink (ctx->cmd_args.pid_file);
 	
@@ -513,6 +505,8 @@ cleanup_and_exit (int signum)
 int 
 main (int argc, char *argv[])
 {
+	int rv;
+	
 	glusterfs_ctx_t *ctx = NULL;
 	cmd_args_t *cmd_args = NULL;
 	call_pool_t *pool = NULL;
@@ -527,7 +521,6 @@ main (int argc, char *argv[])
 	struct rlimit lim;
 	
 	FILE *specfp = NULL;
-	FILE *pidfp = NULL;
 	
 	xlator_t *graph = NULL;
 	
@@ -547,7 +540,7 @@ main (int argc, char *argv[])
 	cmd_args->log_level = DEFAULT_LOG_LEVEL;
 	cmd_args->fuse_directory_entry_timeout = DEFAULT_FUSE_DIRECTORY_ENTRY_TIMEOUT;
 	cmd_args->fuse_attribute_timeout = DEFAULT_FUSE_ATTRIBUTE_TIMEOUT;
-	cmd_args->fuse_direct_io_mode_flag = ENABLE_DIRECT_IO_MODE;
+	cmd_args->fuse_direct_io_mode_flag = GF_ENABLE_VALUE;
 	
 	argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
 	
@@ -568,11 +561,29 @@ main (int argc, char *argv[])
 	LOCK_INIT (&pool->lock);
 	INIT_LIST_HEAD (&pool->all_frames);
 	
-	if (cmd_args->pid_file
-	    && _is_file_exists (cmd_args->pid_file) == 1) {
-		fprintf (stderr, "pid file %s already exists.  exiting\n", cmd_args->pid_file);
-		return -1;
-	}
+ 	if (cmd_args->pid_file != NULL) {
+ 		ctx->pidfp = fopen (cmd_args->pid_file, "a+");
+ 		if (ctx->pidfp == NULL) {
+ 			fprintf (stderr, "unable to open pid file %s.  %s.  exiting\n", cmd_args->pid_file, strerror (errno));
+ 			/* do cleanup and exit ?! */
+ 			return -1;
+ 		}
+ 		rv = gf_lockfd (fileno (ctx->pidfp));
+ 		if (rv == -1) {
+ 			fprintf (stderr, "unable to lock pid file %s.  %s.  Is another instance of %s running?!\n"
+ 				 "exiting\n", 
+ 				 cmd_args->pid_file, strerror (errno), progname);
+ 			fclose (ctx->pidfp);
+ 			return -1;
+ 		}
+ 		rv = ftruncate (fileno (ctx->pidfp), 0);
+ 		if (rv == -1) {
+ 			fprintf (stderr, "unable to truncate file %s.  %s.  exiting\n", cmd_args->pid_file, strerror (errno));
+ 			gf_unlockfd (fileno (ctx->pidfp));
+ 			fclose (ctx->pidfp);
+ 			return -1;
+ 		}
+ 	}
 	
 	/* initializing logs */
 	if (cmd_args->run_id) {
@@ -601,7 +612,11 @@ main (int argc, char *argv[])
 		return -1;
 	}
 	gf_log_set_loglevel (cmd_args->log_level);
-	gf_log (progname, GF_LOG_WARNING, "starting %s", argv[0]);
+	
+	_log_command_line (argc, argv);
+	gf_log (progname, GF_LOG_WARNING, PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__ " " __TIME__ ", "
+		"Repository revision: " GLUSTERFS_REPOSITORY_REVISION);
+	gf_log (progname, GF_LOG_WARNING, "starting %s", progname);
 	
 	/* setting up environment  */
 	lim.rlim_cur = RLIM_INFINITY;
@@ -716,18 +731,12 @@ main (int argc, char *argv[])
 		}
 		
 		/* we are daemon now */
-		/* update pid file */
-		if (cmd_args->pid_file) {
-			if ((pidfp = fopen (cmd_args->pid_file, "w")) == NULL) {
-				gf_log (progname, GF_LOG_ERROR, 
-					"pid file %s: (%s). exiting",
-					cmd_args->pid_file, strerror (errno));
-				/* do cleanup and exit ?! */
-				return -1;
-			}
-			fprintf (pidfp, "%d\n", getpid ());
-			fclose (pidfp);
-		}
+ 		/* update pid file, if given */
+ 		if (cmd_args->pid_file != NULL) {
+ 			fprintf (ctx->pidfp, "%d\n", getpid ());
+ 			fflush (ctx->pidfp);
+ 			/* we close pid file on exit */
+ 		}
 	}
 	
 	gf_log (progname, GF_LOG_WARNING, 

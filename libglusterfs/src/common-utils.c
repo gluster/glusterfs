@@ -46,6 +46,8 @@
 #include "glusterfs.h"
 #include "stack.h"
 
+#include "options.h"
+
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 static glusterfs_ctx_t *gf_global_ctx;
@@ -1235,3 +1237,56 @@ gf_str_to_long_long (const char *number)
   }
   return ret * unit;
 }
+
+int 
+gf_string2boolean (const char *str, boolean_t *b)
+{
+	if (str == NULL) {
+		return -1;
+	}
+	
+	if ((strcmp (str, GF_YES_STRING) == 0) || 
+	    (strcmp (str, GF_TRUE_STRING) == 0) || 
+	    (strcmp (str, GF_ENABLE_STRING) == 0)) {
+		*b = true;
+		return 0;
+	}
+	
+	if ((strcmp (str, GF_NO_STRING) == 0) || 
+	    (strcmp (str, GF_FALSE_STRING) == 0) || 
+	    (strcmp (str, GF_DISABLE_STRING) == 0)) {
+		*b = false;
+		return 0;
+	}
+	
+	return -1;
+}
+
+
+int 
+gf_lockfd (int fd)
+{
+	struct flock fl;
+	
+	fl.l_type = F_WRLCK;
+	fl.l_whence = SEEK_SET;
+	fl.l_start = 0;
+	fl.l_len = 0;
+	
+	return fcntl (fd, F_SETLK, &fl);
+}
+
+
+int 
+gf_unlockfd (int fd)
+{
+	struct flock fl;
+	
+	fl.l_type = F_UNLCK;
+	fl.l_whence = SEEK_SET;
+	fl.l_start = 0;
+	fl.l_len = 0;
+	
+	return fcntl (fd, F_SETLK, &fl);
+}
+  

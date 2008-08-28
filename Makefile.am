@@ -26,4 +26,6 @@ tlaclean: distclean
 	find . -name mount.glusterfs -exec rm -f {} \;
 	rm -fr autom4te.cache
 	rm -f missing aclocal.m4 config.h.in config.guess config.sub ltmain.sh install-sh configure depcomp
-
+	rm -fr argp-standalone/autom4te.cache
+	rm -f argp-standalone/aclocal.m4 argp-standalone/config.h.in argp-standalone/configure argp-standalone/depcomp argp-standalone/install-sh argp-standalone/missing
+	rm -fr mod_glusterfs/apache-1.3/src/.deps transport/ib-verbs/src/.deps
