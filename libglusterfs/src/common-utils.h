@@ -95,7 +95,6 @@ int32_t gf_full_writev (int32_t fd, const struct iovec *vector, int32_t count);
 in_addr_t gf_resolve_ip (const char *hostname, void **dnscache);
 void gf_print_bytes (void);
 
-void glusterfs_stats (int32_t signum);
 void gf_log_volume_specfile (FILE *specfp);
 void gf_print_trace (int32_t signal);
 

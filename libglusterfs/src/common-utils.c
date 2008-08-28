@@ -312,9 +312,11 @@ gf_log_volume_specfile (FILE *specfp)
 		fprintf (gf_log_logfile, "%3d: %s", lcount, data);
 	}
 	fprintf (gf_log_logfile, "+-----\n");
+	fflush (gf_log_logfile);
+	fseek (specfp, 0L, SEEK_SET);
 }
 
-void 
+static void 
 gf_dump_config_flags (int fd)
 {
 
@@ -402,83 +404,6 @@ gf_dump_config_flags (int fd)
   return;
 }
 
-void 
-glusterfs_stats (int32_t signum) 
-{
-  extern FILE *gf_log_logfile;
-  extern glusterfs_ctx_t *gf_global_ctx;
-  glusterfs_ctx_t *ctx = gf_global_ctx;
-  int fd = fileno (gf_log_logfile);
-  char msg[1024];
-  char timestr[256];
-  time_t utime = time (NULL);
-  struct tm *tm = localtime (&utime);
-  char *loglevel[] = {"NONE", 
-		      "TRACE",
-		      "CRITICAL", 
-		      "ERROR", 
-		      "WARNING", 
-		      "NORMAL",
-		      "DEBUG"};
-
-  if (ctx->cmd_args.run_id)
-    {
-      sprintf (msg, "RunID: %s", ctx->cmd_args.run_id); 
-      write (fd, msg, strlen (msg));
-    }
-
-#ifdef DEBUG
-  gf_dump_config_flags (fd);
-#endif
-
-  /* Which TLA? What time? */
-  strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
-  sprintf (msg, "\nVersion: %s %s\nTLA Repo Revision: %s\nTime : %s\n\n", 
-	   PACKAGE_NAME, PACKAGE_VERSION, GLUSTERFS_REPOSITORY_REVISION, timestr);
-  write (fd, msg, strlen (msg));
-
-  /* command line options given */
-  sprintf (msg, "%s", ctx->program_invocation_name); 
-  write (fd, msg, strlen (msg));
-  
-  if (ctx->cmd_args.volume_specfile) {
-    sprintf (msg, " -f %s", ctx->cmd_args.volume_specfile); 
-    write (fd, msg, strlen (msg));
-  }
-
-  if (ctx->cmd_args.specfile_server) {
-    sprintf (msg, " -s %s", ctx->cmd_args.specfile_server); 
-    write (fd, msg, strlen (msg));
-  }
-
-  if (ctx->cmd_args.volume_name) {
-    sprintf (msg, " -n %s", ctx->cmd_args.volume_name); 
-    write (fd, msg, strlen (msg));
-  }
-
-  if (ctx->cmd_args.log_file) {
-    sprintf (msg, " -l %s", ctx->cmd_args.log_file); 
-    write (fd, msg, strlen (msg));
-  }
-  
-  if (ctx->cmd_args.log_level) {
-    sprintf (msg, " -L %s", loglevel[ctx->cmd_args.log_level]); 
-    write (fd, msg, strlen (msg));
-  }
-
-  if (ctx->cmd_args.pid_file) {
-    sprintf (msg, " --pidfile %s", ctx->cmd_args.pid_file); 
-    write (fd, msg, strlen (msg));
-  }
-
-  if (ctx->cmd_args.mount_point) {
-    sprintf (msg, " %s", ctx->cmd_args.mount_point); 
-    write (fd, msg, strlen (msg));
-  }
-  write (fd, "\n", 1);
-}
-
-
 /* Obtain a backtrace and print it to stdout. */
 /* TODO: It looks like backtrace_symbols allocates memory,
    it may be problem because mostly memory allocation/free causes 'sigsegv' */
@@ -489,7 +414,6 @@ gf_print_trace (int32_t signum)
   int fd = fileno (gf_log_logfile);
   char msg[1024];
 
-  //glusterfs_stats (signum);
   /* Print the total number of bytes got transfered */
   gf_print_bytes ();
 
@@ -508,9 +432,10 @@ gf_print_trace (int32_t signum)
     write (fd, "\n", 1);
   }
 
-  sprintf (msg, "Signal received: %d", signum); 
+  sprintf (msg, "Signal received: %d\n", signum); 
   write (fd, msg, strlen (msg));
 
+  gf_dump_config_flags (fd);
 #if HAVE_BACKTRACE
   /* Print 'backtrace' */
   {

@@ -2373,20 +2373,20 @@ fuse_setlk (fuse_req_t req,
         return;
 }
 
-static int 
+static void 
 fuse_init (void *data, struct fuse_conn_info *conn)
 {
 	xlator_t *this_xl = NULL;
 	
 	if (data == NULL) {
-		return -1;
+		return ;
 	}
 	
 	this_xl = data;
 	
 	this_xl->itable = inode_table_new (0, this_xl);
 	
-	return 0;
+	return ;
 }
 
 static void
@@ -2496,7 +2496,7 @@ fuse_thread_proc (void *data)
 	
 	ctx = get_global_ctx_ptr ();
 	if ((mount_point = data_to_str (dict_get (this->options, 
-						  "mount-point"))) != NULL) {
+						  GF_FUSE_MOUNT_POINT_OPTION_STRING))) != NULL) {
 		gf_log (basename (ctx->program_invocation_name), GF_LOG_WARNING, 
 			"unmounting %s\n", mount_point);
 	}
@@ -2575,30 +2575,36 @@ notify (xlator_t *this, int32_t event,
 int 
 init (xlator_t *this_xl)
 {
-	int rv;
+	int rv = 0;
 	dict_t *options = NULL;
 	fuse_private_t *priv = NULL;
 	fuse_options_t *fuse_options = NULL;
+
 #ifdef GF_DARWIN_HOST_OS
-        int fuse_argc = 13;
-#else
-        int fuse_argc = 15;
-#endif
+	char *volume_name = NULL;;
+        int fuse_argc = 11;
 	char *fuse_argv[] = {"glusterfs",
-#ifdef GF_DARWIN_HOST_OS
-			     "-o", "noexec",
-			     "-o", "auto_xattr", /* TODO: remove it once the proper support for com.apple.FinderInfo is added. */
+			     "-o", "allow_other",
+			     "-o", "default_permissions",
+			     "-o", "fsname=glusterfs",
 			     "-o", "volname=GlusterFS",
-#else
+			     "-o", "local",
+			     NULL};
+
+#else /* ! DARWIN_OS */
+        int fuse_argc = 15;
+	
+	char *fuse_argv[] = {"glusterfs",
 			     "-o", "nonempty",
 			     "-o", "max_readahead=1048576",
 			     "-o", "max_read=1048576",
 			     "-o", "max_write=1048576",
-#endif
 			     "-o", "allow_other",
 			     "-o", "default_permissions",
 			     "-o", "fsname=glusterfs",
 			     NULL};
+
+#endif /* ! DARWIN_OS */
         struct fuse_args args = FUSE_ARGS_INIT (fuse_argc, fuse_argv);
 	
 	if (this_xl == NULL)
@@ -2621,117 +2627,29 @@ init (xlator_t *this_xl)
 	if (rv != 0) {
 		goto cleanup_exit;
 	}
-	
-        priv->ch = fuse_mount (fuse_options->mount_point, &args);
-        if (priv->ch == NULL) {
-                if (errno == ENOTCONN) {
-                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                                "A stale mount present on %s.  Unmount %s and run again",
-                                fuse_options->mount_point, fuse_options->mount_point);
-                }
-                else {
-                        if (errno == ENOENT) {
-                                gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
-                                        "unable to mount on %s.  Load fuse kernel module and run again", 
-                                        fuse_options->mount_point);
-                        }
-                        else {
-                                gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
-                                        "fuse_mount() failed with error %s on mount point %s", 
-                                        strerror (errno), fuse_options->mount_point);
-                        }
-                }
-		
-                goto cleanup_exit;
-        }
-	
-        priv->se = fuse_lowlevel_new (&args, &fuse_ops, sizeof (fuse_ops), this_xl);
-        if (priv->se == NULL) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "fuse_lowlevel_new() failed with error %s on mount point %s", 
-			strerror (errno), fuse_options->mount_point);
-                goto umount_exit;
-        }
-	
-        rv = fuse_set_signal_handlers (priv->se);
-        if (rv == -1) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
-			"fuse_set_signal_handlers() failed on mount point %s", 
-			fuse_options->mount_point);
-                goto umount_exit;
-        }
-	
-        fuse_opt_free_args (&args);
-	
-        fuse_session_add_chan (priv->se, priv->ch);
-	
-        priv->fd = fuse_chan_fd (priv->ch);
-        priv->buf = data_ref (data_from_dynptr (NULL, 0));
-        priv->buf->is_locked = 1;
-	
-        /*  (this->children->xlator)->notify (this->children->xlator, 
-            GF_EVENT_PARENT_UP, this); */
-        return 0;
-	
-umount_exit: 
-        fuse_unmount (priv->options.mount_point, priv->ch);
-cleanup_exit:
-        fuse_opt_free_args (&args);
-	FREE (priv->options.mount_point);
-	FREE (priv);
-        return -1;
-}
-
-
-int 
-init_old (xlator_t *this_xl)
-{
-	int rv;
-	dict_t *options = NULL;
-	fuse_private_t *priv = NULL;
-	fuse_options_t *fuse_options = NULL;
 
 #ifdef GF_DARWIN_HOST_OS
-        int fuse_argc = 9;
-#else
-        int fuse_argc = 15;
-#endif
-	char *fuse_argv[] = {"glusterfs",
-#ifdef GF_DARWIN_HOST_OS
-			     "-o", "volname=GlusterFS",
-#else
-			     "-o", "nonempty",
-			     "-o", "max_readahead=1048576",
-			     "-o", "max_read=1048576",
-			     "-o", "max_write=1048576",
-#endif
-			     "-o", "allow_other",
-			     "-o", "default_permissions",
-			     "-o", "fsname=glusterfs",
-			     NULL};
-        struct fuse_args args = FUSE_ARGS_INIT (fuse_argc, fuse_argv);
-	
-	if (this_xl == NULL)
-		return -1;
-	
-	if (this_xl->options == NULL)
-		return -1;
-	
-	options = this_xl->options;
-	
-	if (this_xl->name == NULL)
-		this_xl->name = (char *) xlator_name;
-	
-        priv = calloc (1, sizeof (*priv));
-        ERR_ABORT (priv);
-        this_xl->private = (void *) priv;
-	fuse_options = &priv->options;
-	
-	rv = fuse_options_validate (options, fuse_options);
-	if (rv != 0) {
-		goto cleanup_exit;
+
+	if (dict_get (options, "icon-name"))
+		asprintf (&volume_name, "volname=%s",
+			  data_to_str (dict_get (options, "icon-name")));
+	else
+		asprintf (&volume_name, "volname=%s", fuse_options->mount_point);
+	/* There is no way from GUI to know where exactly is this mounted */
+	fuse_argv[8] = volume_name;
+
+	if (dict_get (options, "non-local")) {
+		/* This way, GlusterFS will be detected as 'servers' instead of 'devices' */
+		/* This method is useful if you want to do 'umount <mount_point>' over network, 
+		   instead of 'eject'ing it from desktop. Works better for servers */
+		args.argc = 9;
+
+		/* Make the '-o local' in argv as NULL, so that its not in effect */
+		fuse_argv[9] = NULL;
+		fuse_argv[10] = NULL;
 	}
-	
+#endif
+
         priv->ch = fuse_mount (fuse_options->mount_point, &args);
         if (priv->ch == NULL) {
                 if (errno == ENOTCONN) {
@@ -2807,9 +2725,9 @@ fini (xlator_t *this_xl)
 		return;
 	
 	ctx = get_global_ctx_ptr ();
-	
-	if ((mount_point = data_to_str (dict_get (this_xl->options, 
-						  "mount-point"))) != NULL) {
+	mount_point = data_to_str (dict_get (this_xl->options, 
+					     GF_FUSE_MOUNT_POINT_OPTION_STRING));
+	if (mount_point != NULL) {
 		gf_log (basename (ctx->program_invocation_name), GF_LOG_WARNING, 
 			"unmounting %s\n", mount_point);
 		

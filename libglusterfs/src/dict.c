@@ -1613,7 +1613,7 @@ out:
  *          failure: -errno
  */
 
-dict_t *
+int32_t
 dict_unserialize (char *buf, int32_t size, dict_t **fill)
 {
 	int     ret   = -1;

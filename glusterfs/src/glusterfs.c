@@ -112,29 +112,42 @@ static struct argp_option options[] = {
  	 "Set attribute timeout to SECONDS for inodes in fuse kernel module [default: 1]"},
  	{"volume-name", ARGP_VOLUME_NAME_KEY, "VOLUME-NAME", 0,
  	 "Volume name to be used for MOUNT-POINT [default: top most volume in VOLUME-SPECFILE]"},
- 	
+#ifdef GF_DARWIN_HOST_OS
+ 	{"non-local", ARGP_NON_LOCAL_KEY, 0, 0, 
+ 	 "Mount the macfuse volume without '-o local' option"},
+ 	{"icon-name", ARGP_ICON_NAME_KEY, "ICON-NAME", 0, 
+ 	 "This string will appear as icon name on Desktop after mounting"},
+#endif
  	{0, 0, 0, 0, "Miscellaneous Options:"},
  	{0, }
 };
 
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
-
-void 
-_log_command_line (int argc, char **argv)
+static void 
+_gf_dump_details (int argc, char **argv)
 {
-	char str[1024] = { 0 };
-	int size = 1024;
-	int len = 0;
+	extern FILE *gf_log_logfile;
 	int i = 0;
+	char timestr[256];
+	time_t utime = time (NULL);
+	struct tm *tm = localtime (&utime);
 	
+	/* Which TLA? What time? */
+	strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
+	fprintf (gf_log_logfile, "\nVersion      : %s %s built on %s %s\n", 
+		 PACKAGE_NAME, PACKAGE_VERSION, __DATE__, __TIME__);
+	fprintf (gf_log_logfile, "TLA Revision : %s\n", 
+		 GLUSTERFS_REPOSITORY_REVISION);
+	fprintf (gf_log_logfile, "Starting Time: %s\n", timestr);
+	fprintf (gf_log_logfile, "Command line : ");
+
 	for (i = 0; i < argc; i++) {
-		snprintf (str + len, size - len, "%s ", argv[i]);
-		len += strlen (argv[i]) + 1;
-		if (len >= size)
-			break;
+		fprintf (gf_log_logfile, "%s ", argv[i]);
 	}
-	gf_log (progname, GF_LOG_WARNING, "[%s]", str);
+
+	fprintf (gf_log_logfile, "\n");
+	fflush (gf_log_logfile);
 }
 
 
@@ -176,20 +189,26 @@ _add_fuse_mount (xlator_t *graph)
 		  data_from_uint32 (cmd_args->fuse_attribute_timeout));
 	dict_set (top->options, TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_ENTRY_TIMEOUT_STRING, 
 		  data_from_uint32 (cmd_args->fuse_directory_entry_timeout));
+
 #ifdef GF_DARWIN_HOST_OS 
 	/* On Darwin machines, O_APPEND is not handled, which may corrupt the data */
-	if (cmd_args->fuse_direct_io_mode_flag == ENABLE_DIRECT_IO_MODE) {
-		fprintf (stderr, 
+	if (cmd_args->fuse_direct_io_mode_flag == GF_ENABLE_VALUE) {
+		gf_log (progname, GF_LOG_DEBUG, 
 			 "'direct-io-mode' in fuse causes data corruption if O_APPEND is used.  "
-			 "disabling 'direct-io-mode' forcefully");
-		gf_log (progname, GF_LOG_WARNING, 
-			 "'direct-io-mode' in fuse causes data corruption if O_APPEND is used.  "
-			 "disabling 'direct-io-mode' forcefully");
+			 "disabling 'direct-io-mode'");
 	}
 	dict_set (top->options, 
 		  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING, 
-		  DISABLE_DIRECT_IO_MODE);
-#else 
+		  data_from_static_ptr (DISABLE_DIRECT_IO_MODE));
+
+ 	if (cmd_args->non_local)
+ 		dict_set (top->options, "non-local", data_from_uint32 (cmd_args->non_local));
+	
+ 	if (cmd_args->icon_name)
+ 		dict_set (top->options, "icon-name",
+ 			  data_from_static_ptr (cmd_args->icon_name));
+
+#else /* ! DARWIN HOST OS */
 	if (cmd_args->fuse_direct_io_mode_flag == GF_ENABLE_VALUE) {
 		dict_set (top->options, 
 			  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING,
@@ -200,6 +219,7 @@ _add_fuse_mount (xlator_t *graph)
 			  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING,
 			  data_from_static_ptr (DISABLE_DIRECT_IO_MODE));
 	}
+
 #endif /* GF_DARWIN_HOST_OS */
 	
 	graph->parents = calloc (1, sizeof (xlator_list_t));
@@ -465,7 +485,17 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 	case ARGP_VOLUME_NAME_KEY:
 		cmd_args->volume_name = strdup (arg);
 		break;
-		
+
+#ifdef GF_DARWIN_HOST_OS		
+	case ARGP_NON_LOCAL_KEY:
+		cmd_args->non_local = 1;
+		break;
+
+	case ARGP_ICON_NAME_KEY:
+		cmd_args->icon_name = strdup (arg);
+		break;
+#endif /* DARWIN */
+
 	case ARGP_KEY_NO_ARGS:
 		break;
 		
@@ -613,11 +643,6 @@ main (int argc, char *argv[])
 	}
 	gf_log_set_loglevel (cmd_args->log_level);
 	
-	_log_command_line (argc, argv);
-	gf_log (progname, GF_LOG_WARNING, PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__ " " __TIME__ ", "
-		"Repository revision: " GLUSTERFS_REPOSITORY_REVISION);
-	gf_log (progname, GF_LOG_WARNING, "starting %s", progname);
-	
 	/* setting up environment  */
 	lim.rlim_cur = RLIM_INFINITY;
 	lim.rlim_max = RLIM_INFINITY;
@@ -647,7 +672,7 @@ main (int argc, char *argv[])
 		argp_help (&argp, stderr, ARGP_HELP_SEE, (char *) progname);
 		return -1;
 	}
-	glusterfs_stats (0);
+	_gf_dump_details (argc, argv);
 	gf_log_volume_specfile (specfp);
 	if ((graph = _parse_specfp (ctx, specfp)) == NULL) {
 		/* _parse_specfp() prints necessary error message */
@@ -739,7 +764,7 @@ main (int argc, char *argv[])
  		}
 	}
 	
-	gf_log (progname, GF_LOG_WARNING, 
+	gf_log (progname, GF_LOG_DEBUG, 
 		"running in pid %d\n", getpid ());
 	
 	gf_timer_registry_init (ctx);
