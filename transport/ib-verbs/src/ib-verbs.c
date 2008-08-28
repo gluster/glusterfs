@@ -2050,9 +2050,11 @@ ib_verbs_event_handler (int fd, int idx, void *data,
   }
 
   if (!ret && poll_in && priv->tcp_connected) {
-    ret = ib_verbs_handshake_pollin (this);
-    if (ret == -1)
+    if (priv->handshake.incoming.state == IB_VERBS_HANDSHAKE_COMPLETE) {
       ib_verbs_handshake_pollerr (this);
+      return 0;
+    }
+    ret = ib_verbs_handshake_pollin (this);
   }
 
   if (poll_err) {

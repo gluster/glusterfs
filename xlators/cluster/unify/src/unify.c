@@ -4277,9 +4277,6 @@ init (xlator_t *this)
   data_t *scheduler = NULL;
   data_t *data = NULL;
 
-  /* Handle a small special case for NUFA scheduler */
-  int is_sched_nufa = 0;
-
   /* Check for number of child nodes, if there is no child nodes, exit */
   if (!this->children) {
     gf_log (this->name,
@@ -4296,11 +4293,6 @@ init (xlator_t *this)
 	      GF_LOG_ERROR, 
 	      "\"option scheduler <x>\" is missing in spec file");
       return -1;
-    }
-  else
-    {
-      if (!strcmp (scheduler->data, "nufa"))
-	is_sched_nufa = 1;
     }
 
   {
@@ -4346,59 +4338,58 @@ init (xlator_t *this)
   }  
 
   count = 1;
-  if (is_sched_nufa)
-    {
-      data_t *tmp_data = dict_get (this->options, "drop-hostname-from-subvolumes");
-      if (tmp_data)
-	{
-	  /* Well, drop the hostname from the subvolumes */
-	  char host_name[256];
+  {
+    data_t *tmp_data = dict_get (this->options, "drop-hostname-from-subvolumes");
+    if (tmp_data)
+      {
+	/* Well, drop the hostname from the subvolumes */
+	char host_name[256];
 	  
-	  if (gethostname (host_name, 256) == -1)
-	    {
-	      gf_log (this->name, GF_LOG_ERROR, 
-		      "drop-hostname-from-subvolumes: gethostname(): %s", strerror (errno));
-	      return -1;
-	    }
-	  else
-	    {
-	      int flag = 0;
-	      /* Check if the local_volume specified is proper subvolume of unify */
-	      trav = this->children;
-	      if (strcmp (host_name, trav->xlator->name) == 0)
-		{
-		  /* Well there is a volume with the name 'hostname()', hence neglect it */
-		  this->children = trav->next;
-		  gf_log (this->name, GF_LOG_DEBUG, 
-			  "drop-hostname-from-subvolumes: skipped volume '%s'", host_name);
-		  flag = 1;
-		  count--;
-		}
-	      while (trav->next) 
-		{
-		  if (strcmp (host_name, (trav->next)->xlator->name) == 0)
-		    {
-		      /* Well there is a volume with the name 'hostname()', hence neglect it */
-		      /* Remove entry about this subvolume from the list */
-		      trav->next = (trav->next)->next;
-		      flag = 1;
-		      count--;
-		    }
-		  trav = trav->next;
-		  count++;
-		}
+	if (gethostname (host_name, 256) == -1)
+	  {
+	    gf_log (this->name, GF_LOG_ERROR, 
+		    "drop-hostname-from-subvolumes: gethostname(): %s", strerror (errno));
+	    return -1;
+	  }
+	else
+	  {
+	    int flag = 0;
+	    /* Check if the local_volume specified is proper subvolume of unify */
+	    trav = this->children;
+	    if (strcmp (host_name, trav->xlator->name) == 0)
+	      {
+	        /* Well there is a volume with the name 'hostname()', hence neglect it */
+		this->children = trav->next;
+		gf_log (this->name, GF_LOG_DEBUG, 
+			"drop-hostname-from-subvolumes: skipped volume '%s'", host_name);
+		flag = 1;
+		count--;
+	      }
+	    while (trav->next) 
+	      {
+		if (strcmp (host_name, (trav->next)->xlator->name) == 0)
+		  {
+		    /* Well there is a volume with the name 'hostname()', hence neglect it */
+		    /* Remove entry about this subvolume from the list */
+		    trav->next = (trav->next)->next;
+		    flag = 1;
+		    count--;
+		  }
+		trav = trav->next;
+		count++;
+	      }
 	      
-	      if (!flag) 
-		{
-		  /* entry for 'local-volume-name' is wrong, not present in subvolumes */
-		  gf_log (this->name, GF_LOG_ERROR, 
-			  "requested to drop hostname from subvolumes, but no volume by name '%s'", 
-			  host_name);
-		  return -1;
-		} 
-	    }
-	}
-    }
+	    if (!flag) 
+	      {
+		/* entry for 'local-volume-name' is wrong, not present in subvolumes */
+		gf_log (this->name, GF_LOG_ERROR, 
+			"requested to drop hostname from subvolumes, but no volume by name '%s'", 
+			host_name);
+		return -1;
+	      } 
+	  }
+      }
+  }
   
   if (!count)
     {
