@@ -1509,6 +1509,8 @@ ib_verbs_init (transport_t *this)
 
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);
+  pthread_mutex_init (&priv->recv_mutex, NULL);
+  pthread_cond_init (&priv->recv_cond, NULL);
 
   return 0;
 }
@@ -1754,8 +1756,6 @@ ib_verbs_handshake_pollin (transport_t *this)
 	    priv->peers[0].quota = priv->peers[0].send_count;
 	    priv->peers[1].quota = 1;
 
-	    pthread_mutex_init (&priv->recv_mutex, NULL);
-	    pthread_cond_init (&priv->recv_cond, NULL);
 
 	    if (ib_verbs_connect_qp (this)) {
 	      gf_log ("transport/ib-verbs",
@@ -1945,26 +1945,23 @@ ib_verbs_handshake_pollerr (transport_t *this)
       priv->sock = -1;
     }
 
-    if (priv->handshake.incoming.state != IB_VERBS_HANDSHAKE_START 
-	&& priv->handshake.incoming.state != IB_VERBS_HANDSHAKE_COMPLETE) {
+    if (priv->handshake.incoming.buf) {
       FREE (priv->handshake.incoming.buf);
       priv->handshake.incoming.buf = NULL;
     }
-    priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_COMPLETE;
 
-    if (priv->handshake.outgoing.state != IB_VERBS_HANDSHAKE_START
-	&& priv->handshake.outgoing.state != IB_VERBS_HANDSHAKE_COMPLETE) {
+    priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_START;
+
+    if (priv->handshake.outgoing.buf) {
       FREE (priv->handshake.outgoing.buf);
       priv->handshake.outgoing.buf = NULL;
     }
-    priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_COMPLETE;
+
+    priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_START;
   }
   pthread_mutex_unlock (&priv->write_mutex);
 
   this->xl->notify (this->xl, GF_EVENT_POLLERR, this, NULL);
-
-  pthread_mutex_destroy (&priv->recv_mutex);
-  pthread_cond_destroy (&priv->recv_cond);
 
   if (need_unref)
     transport_unref (this);
@@ -2258,6 +2255,8 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
 
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);
+  pthread_mutex_init (&priv->recv_mutex, NULL);
+  pthread_cond_init (&priv->recv_cond, NULL);
 
   return 0;
 }
@@ -2368,6 +2367,11 @@ fini (struct transport *this)
   ib_verbs_private_t *priv = this->private;
   free (priv);
   this->private = NULL;
+
+  pthread_mutex_destroy (&priv->recv_mutex);
+  pthread_mutex_destroy (&priv->write_mutex);
+  pthread_mutex_destroy (&priv->read_mutex);
+  pthread_cond_destroy (&priv->recv_cond);
 
   gf_log (this->xl->name,
 	  GF_LOG_CRITICAL,
