@@ -28,7 +28,7 @@ struct _fuse_options
 	char        *mount_point;
 	uint16_t     attr_timeout;
 	uint16_t     entry_timeout;
-	boolean_t    direct_io_mode;
+	gf_boolean_t    direct_io_mode;
 };
 
 typedef struct _fuse_options fuse_options_t;

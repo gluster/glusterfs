@@ -1239,7 +1239,7 @@ gf_str_to_long_long (const char *number)
 }
 
 int 
-gf_string2boolean (const char *str, boolean_t *b)
+gf_string2boolean (const char *str, gf_boolean_t *b)
 {
 	if (str == NULL) {
 		return -1;
@@ -1248,14 +1248,14 @@ gf_string2boolean (const char *str, boolean_t *b)
 	if ((strcmp (str, GF_YES_STRING) == 0) || 
 	    (strcmp (str, GF_TRUE_STRING) == 0) || 
 	    (strcmp (str, GF_ENABLE_STRING) == 0)) {
-		*b = true;
+		*b = _gf_true;
 		return 0;
 	}
 	
 	if ((strcmp (str, GF_NO_STRING) == 0) || 
 	    (strcmp (str, GF_FALSE_STRING) == 0) || 
 	    (strcmp (str, GF_DISABLE_STRING) == 0)) {
-		*b = false;
+		*b = _gf_false;
 		return 0;
 	}
 	

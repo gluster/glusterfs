@@ -102,9 +102,9 @@ _fuse_options_dir_entry_timeout_validate (const char *value_string, uint16_t *n)
 }
 
 static int 
-_fuse_options_direct_io_mode_validate (const char *value_string, boolean_t *b)
+_fuse_options_direct_io_mode_validate (const char *value_string, gf_boolean_t *b)
 {
-	boolean_t value;
+	gf_boolean_t value;
 	if (value_string == NULL) {
 		return -1;
 	}
