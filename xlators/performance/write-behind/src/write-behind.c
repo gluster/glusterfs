@@ -52,14 +52,18 @@ struct wb_conf {
 typedef struct wb_local {
   list_head_t winds;
   struct wb_file *file;
+  list_head_t unwind_frames;
+  int op_ret;
+  int op_errno;
+  call_frame_t *frame;
 } wb_local_t;
 
 
 typedef struct write_request {
   call_frame_t *frame;
   off_t offset;
-  int32_t op_ret;
-  int32_t op_errno;
+  /*  int32_t op_ret;
+      int32_t op_errno; */
   struct iovec *vector;
   int32_t count;
   dict_t *refs;
@@ -68,7 +72,7 @@ typedef struct write_request {
   char got_reply;
   list_head_t list;
   list_head_t winds;
-  list_head_t unwinds;
+  /*  list_head_t unwinds;*/
 } wb_write_request_t;
 
 
@@ -159,8 +163,16 @@ wb_sync_cbk (call_frame_t *frame,
   {
     list_for_each_entry_safe (request, dummy, winds, winds) {
       request->got_reply = 1;
-      request->op_ret = op_ret;
-      request->op_errno = op_errno;
+      if (!request->write_behind) {
+	wb_local_t *per_request_local = request->frame->local;
+	per_request_local->op_ret = op_ret;
+	per_request_local->op_errno = op_errno;
+      }
+
+      /*
+	request->op_ret = op_ret;
+	request->op_errno = op_errno; 
+      */
     }
   }
   UNLOCK (&file->lock);
@@ -821,9 +833,10 @@ __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
 	{
 	  if (!request->write_behind)
 	    {
+	      wb_local_t *local = request->frame->local;
 	      written_behind += iov_length (request->vector, request->count);
 	      request->write_behind = 1;
-	      list_add_tail (&request->unwinds, unwinds);
+	      list_add_tail (&local->unwind_frames, unwinds);
 	    }
 	}
       else
@@ -855,23 +868,25 @@ __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds, size_t window_conf)
 int32_t
 wb_stack_unwind (list_head_t *unwinds)
 {
-  int32_t op_ret = 0, op_errno = 0;
   struct stat buf = {0,};
-  wb_write_request_t *request = NULL, *dummy = NULL;
+  /*  wb_write_request_t *request = NULL, *dummy = NULL;*/
+  wb_local_t *local = NULL, *dummy = NULL;
 
-  list_for_each_entry_safe (request, dummy, unwinds, unwinds)
+  list_for_each_entry_safe (local, dummy, unwinds, unwind_frames)
     {
-      if (request->got_reply) {
+      /*
+	if (request->got_reply) {
 	op_ret = request->op_ret;
 	op_errno = request->op_errno;
-      } else {
+	} else {
 	op_ret = iov_length (request->vector, request->count);
 	op_errno = 0;
-      }
+	}
+      */
 
-      list_del_init (&request->unwinds);
-
-      STACK_UNWIND (request->frame, op_ret, op_errno, &buf);
+      /*      list_del_init (&request->unwinds); */
+      list_del_init (&local->unwind_frames);
+      STACK_UNWIND (local->frame, local->op_ret, local->op_errno, &buf);
     }
 
   return 0;
@@ -928,18 +943,25 @@ wb_enqueue (wb_file_t *file,
 	    off_t offset)
 {
   wb_write_request_t *request = NULL;
+  wb_local_t *local = calloc (1, sizeof (*local));
 
   request = calloc (1, sizeof (*request));
 
   INIT_LIST_HEAD (&request->list);
   INIT_LIST_HEAD (&request->winds);
-  INIT_LIST_HEAD (&request->unwinds);
+  /* INIT_LIST_HEAD (&request->unwinds); */
 
   request->frame = frame;
   request->vector = iov_dup (vector, count);
   request->count = count;
   request->offset = offset;
   request->refs = dict_ref (frame->root->req_refs);
+
+  frame->local = local;
+  local->frame = frame;
+  local->op_ret = iov_length (vector, count);
+  local->op_errno = 0;
+  INIT_LIST_HEAD (&local->unwind_frames);
 
   LOCK (&file->lock);
   {

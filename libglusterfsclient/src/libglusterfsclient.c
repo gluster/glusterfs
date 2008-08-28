@@ -387,7 +387,6 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 
       return 0;
     }
-
   }
 
   local->reply_stub = fop_lookup_cbk_stub (frame, NULL, op_ret, op_errno, libgf_inode, buf, dict);
