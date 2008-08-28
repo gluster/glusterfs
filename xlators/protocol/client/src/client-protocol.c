@@ -1128,7 +1128,6 @@ client_close (call_frame_t *frame,
   size_t hdrlen = 0;
   gf_fop_close_req_t *req = NULL;
 
-
   if (this_fd_get (fd, this, &remote_fd) == -1)
     {
       STACK_UNWIND (frame, -1, EBADFD);

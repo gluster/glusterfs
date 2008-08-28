@@ -126,6 +126,7 @@ typedef struct _afr_lock_local {
   void *returnfn;
   struct stat stbuf;
   char *locked;
+  //  int32_t lockcnt;
 
   /* used by wrft */
   struct iovec *vector;
@@ -133,7 +134,8 @@ typedef struct _afr_lock_local {
   int32_t count;
   /* char *callres; */
   dict_t *req_refs;
-
+  int32_t stat_child;
+  ino_t ino;
   /* used by open selfheal */
   fd_t *shfd;
   loc_t *loc;

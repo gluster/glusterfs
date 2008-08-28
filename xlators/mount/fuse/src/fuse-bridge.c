@@ -1449,7 +1449,7 @@ fuse_readv_cbk (call_frame_t *frame,
         fuse_state_t *state = frame->root->state;
         fuse_req_t req = state->req;
 
-        if (op_ret > 0) {
+        if (op_ret >= 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                         "%"PRId64": READ => %d/%d,%"PRId64"/%"PRId64, frame->root->unique,
                         op_ret, state->size, state->off, stbuf->st_size);

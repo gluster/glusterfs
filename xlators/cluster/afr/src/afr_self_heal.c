@@ -680,6 +680,7 @@ afr_open_readv_writev_cbk (call_frame_t *frame,
   int32_t callcnt;
   call_frame_t *prev_frame = cookie;
   afrfd_t *afrfdp;
+  local = frame->local;
 
   GF_TRACE (this, "(child=%s) (op_ret=%d op_errno=%d)", prev_frame->this->name,
 	    op_ret, op_errno);
@@ -734,7 +735,6 @@ afr_open_readv_cbk (call_frame_t *frame,
 
   GF_TRACE (this, "(child=%s) (op_ret=%d op_errno=%d)", prev_frame->this->name, op_ret, op_errno);
 
-  local = frame->local;
   afrfdp = data_to_ptr (dict_get (local->shfd->ctx, this->name));
 
   if (op_ret == -1) {
@@ -898,8 +898,8 @@ afr_open_open_cbk (call_frame_t *frame,
   call_frame_t *prev_frame = cookie;
   afrfd_t *afrfdp;
 
-  GF_TRACE (this, "(child=%s) op_ret=%d op_errno=%d", prev_frame->this->name, op_ret, op_errno);
   local = frame->local;
+  GF_TRACE (this, "(child=%s) op_ret=%d op_errno=%d", prev_frame->this->name, op_ret, op_errno);
   if (op_ret == -1) {
     GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d", prev_frame->this->name, op_ret, op_errno);
     if (local->sh)
@@ -1093,6 +1093,13 @@ afr_open (call_frame_t *frame,
   GF_TRACE (this, "AFR_OPEN_3_GOTO");
   cnt = 0;
   if (local->error) {
+    /*
+    if (local->lockcnt == 5) {
+      GF_ERROR (this, "error during locking");
+      goto AFR_OPEN_ERROR;
+    }
+    local->lockcnt++;
+    */
     for (i = 0; i < child_count; i++) {
       if (local->locked[i] == ENOTCONN)
 	cnt++;
@@ -1174,7 +1181,7 @@ afr_open (call_frame_t *frame,
       cnt++;
   }
   if (cnt == 0) {
-    GF_DEBUG (this, "none of the subvols need healing.");
+    GF_TRACE (this, "none of the subvols need healing.");
     goto AFR_OPEN_8_GOTO;
   }
 
