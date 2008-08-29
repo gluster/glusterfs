@@ -320,7 +320,7 @@ xlator_set_type (xlator_t *xl,
 
 	if (!(xl->std_options = dlsym (handle, "options"))) {
 		dlerror ();
-		gf_log (xl->name, GF_LOG_WARNING, 
+		gf_log (xl->name, GF_LOG_DEBUG,
 			"strict option validation is not enforced -- neglecting");
 	}
 

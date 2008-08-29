@@ -73,8 +73,7 @@ af_unix_client_bind (transport_t *this,
   if (path_data) {
     char *path = data_to_str (path_data);
     if (!path || strlen (path) > UNIX_PATH_MAX) {
-      gf_log (this->xl->name,
-	      GF_LOG_DEBUG,
+      gf_log (this->xl->name, GF_LOG_DEBUG,
 	      "bind-path not specfied for unix socket, letting connect to assign default value");
       goto err;
     }
@@ -83,8 +82,7 @@ af_unix_client_bind (transport_t *this,
     strcpy (addr->sun_path, path);
     ret = bind (sock, (struct sockaddr *)addr, sockaddr_len);
     if (ret == -1) {
-      gf_log (this->xl->name,
-	      GF_LOG_ERROR,
+      gf_log (this->xl->name, GF_LOG_ERROR,
 	      "cannot bind to unix-domain socket %d (%s)", sock, strerror (errno));
       goto err;
     }
@@ -113,13 +111,11 @@ client_fill_address_family (transport_t *this, struct sockaddr *sockaddr)
     } 
 
     if (remote_host_data) {
-      gf_log (this->xl->name,
-	      GF_LOG_WARNING,
+      gf_log (this->xl->name, GF_LOG_DEBUG,
 	      "address-family not specified, guessing it to be inet/inet6");
       sockaddr->sa_family = AF_UNSPEC;
     } else {
-      gf_log (this->xl->name,
-	      GF_LOG_WARNING,
+      gf_log (this->xl->name, GF_LOG_DEBUG,
 	      "address-family not specified, guessing it to be unix");
       sockaddr->sa_family = AF_UNIX;
     }
@@ -138,8 +134,7 @@ client_fill_address_family (transport_t *this, struct sockaddr *sockaddr)
 	       || !strcasecmp (address_family, "inet6/inet")) {
       sockaddr->sa_family = AF_UNSPEC;
     } else {
-      gf_log (this->xl->name,
-	      GF_LOG_ERROR,
+      gf_log (this->xl->name, GF_LOG_ERROR,
 	      "unknown address-family (%s) specified", address_family);
       return -1;
     }
@@ -231,8 +226,7 @@ af_unix_client_get_remote_sockaddr (transport_t *this,
 
   connect_path_data = dict_get (this->xl->options, "connect-path");
   if (!connect_path_data) {
-    gf_log (this->xl->name,
-	    GF_LOG_ERROR,
+    gf_log (this->xl->name, GF_LOG_ERROR,
 	    "option connect-path not specified for address-family unix");
     ret = -1;
     goto err;
@@ -240,8 +234,7 @@ af_unix_client_get_remote_sockaddr (transport_t *this,
 
   connect_path = data_to_str (connect_path_data);
   if (!connect_path) {
-    gf_log (this->xl->name,
-	    GF_LOG_ERROR,
+    gf_log (this->xl->name, GF_LOG_ERROR,
 	    "connect-path is null-string");
     ret = -1;
     goto err;
@@ -255,8 +248,7 @@ af_unix_client_get_remote_sockaddr (transport_t *this,
     goto err;
   }
 
-  gf_log (this->xl->name,
-	  GF_LOG_DEBUG,
+  gf_log (this->xl->name, GF_LOG_DEBUG,
 	  "using connect-path %s", connect_path);
   sockaddr_un = (struct sockaddr_un *)sockaddr;
   strcpy (sockaddr_un->sun_path, connect_path);
@@ -348,8 +340,7 @@ af_inet_server_get_local_sockaddr (transport_t *this,
 
   ret = getaddrinfo(listen_host, service, &hints, &res);
   if (ret != 0) {
-    gf_log (this->xl->name,
-	    GF_LOG_ERROR,
+    gf_log (this->xl->name, GF_LOG_ERROR,
 	    "getaddrinfo failed (%s)", gai_strerror (ret));
     goto err;
   }
@@ -395,8 +386,7 @@ client_bind (transport_t *this,
       break;
 
     default:
-      gf_log (this->xl->name,
-	      GF_LOG_ERROR,
+      gf_log (this->xl->name, GF_LOG_ERROR,
 	      "unknown address family %d", sockaddr->sa_family);
       ret = -1;
       break;
@@ -440,8 +430,7 @@ client_get_remote_sockaddr (transport_t *this,
       break;
 
     default:
-      gf_log (this->xl->name,
-	      GF_LOG_ERROR,
+      gf_log (this->xl->name, GF_LOG_ERROR,
 	      "unknown address-family %d", sockaddr->sa_family);
       ret = -1;
     }
@@ -474,15 +463,13 @@ server_get_local_sockaddr (transport_t *this, struct sockaddr *addr, socklen_t *
 	       || !strcasecmp (address_family, "inet6/inet")) {
       addr->sa_family = AF_UNSPEC;
     } else {
-      gf_log (this->xl->name,
-	      GF_LOG_ERROR,
+      gf_log (this->xl->name, GF_LOG_ERROR,
 	      "unknown address family (%s) specified", address_family);
       ret = -1;
       goto err;
     }
   } else {
-    gf_log (this->xl->name,
-	    GF_LOG_WARNING,
+    gf_log (this->xl->name, GF_LOG_WARNING,
 	    "option address-family not specified, defaulting to inet/inet6");
     addr->sa_family = AF_UNSPEC;
   }
@@ -572,8 +559,7 @@ fill_inet6_inet_identifiers (transport_t *this, struct sockaddr_storage *addr,
 		     service, sizeof (service),
 		     NI_NUMERICHOST);
   if (ret != 0) {
-    gf_log (this->xl->name,
-	    GF_LOG_ERROR,
+    gf_log (this->xl->name, GF_LOG_ERROR,
 	    "getnameinfo failed (%s)", gai_strerror (ret));
   }
 
@@ -602,8 +588,7 @@ get_transport_identifiers (transport_t *this)
 					   this->myinfo.sockaddr_len,
 					   this->myinfo.identifier);
 	if (ret == -1) {
-	  gf_log (this->xl->name,
-		  GF_LOG_ERROR,
+	  gf_log (this->xl->name, GF_LOG_ERROR,
 		  "cannot fill inet/inet6 identifier for server");
 	  goto err;
 	}
@@ -613,8 +598,7 @@ get_transport_identifiers (transport_t *this)
 					   this->peerinfo.sockaddr_len,
 					   this->peerinfo.identifier);
 	if (ret == -1) {
-	  gf_log (this->xl->name,
-		  GF_LOG_ERROR,
+	  gf_log (this->xl->name, GF_LOG_ERROR,
 		  "cannot fill inet/inet6 identifier for client");
 	  goto err;
 	}

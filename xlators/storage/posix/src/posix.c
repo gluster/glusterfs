@@ -44,6 +44,9 @@
 #include "compat-errno.h"
 #include "compat.h"
 
+
+#define IS_DIRECTORY_EMPTY_ERRNO(op_errno) ((op_errno == ENOTEMPTY) || (op_errno == EEXIST))
+
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
 
@@ -866,7 +869,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         op_ret = rmdir (real_path);
         op_errno = errno;
 
-        if (op_ret == -1 && errno != ENOTEMPTY) {
+        if (op_ret == -1 && !IS_DIRECTORY_EMPTY_ERRNO(op_errno)) {
                 gf_log (this->name, GF_LOG_WARNING, 
                         "rmdir of %s: %s", loc->path, strerror (op_errno));
                 goto out;
