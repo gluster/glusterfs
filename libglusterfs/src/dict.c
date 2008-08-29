@@ -222,7 +222,8 @@ _dict_set (dict_t *this,
 		data_unref (unref_data);
 		if (key_free)
 			FREE (key);
-		return 0;
+		/* Indicates duplicate key */
+		return 1;
 	}
 	pair = (data_pair_t *) calloc (1, sizeof (*pair));
 	if (!pair) {

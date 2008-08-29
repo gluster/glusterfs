@@ -169,6 +169,7 @@ _add_fuse_mount (xlator_t *graph)
 	
 	top = calloc (1, sizeof (*top));
 	ERR_ABORT (top);
+	top->name = strdup ("fuse");
 	if (xlator_set_type (top, TRANSLATOR_TYPE_MOUNT_FUSE_STRING) == -1) {
 		fprintf (stderr, 
 			 "MOUNT-POINT %s initialization failed", 

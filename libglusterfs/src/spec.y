@@ -207,8 +207,11 @@ section_type (char *type)
 static int 
 section_option_cmd (char *key, char *cmd)
 {
+  extern int yylineno;
   char cmd_output[1024] = {0,};
   FILE *fpp = NULL;
+  int ret = 0;
+
   if (!key || !cmd){
     fprintf (stderr, "invalid command specified\n");
     gf_log ("parser", GF_LOG_ERROR, "invalid command specified");
@@ -229,7 +232,14 @@ section_option_cmd (char *key, char *cmd)
     }
   pclose (fpp);
   
-  dict_set (tree->options, key, str_to_data (cmd_output));
+  ret = dict_set (tree->options, key, str_to_data (cmd_output));
+  if (ret == 1) {
+	  gf_log ("parser", GF_LOG_ERROR, 
+		  "volume '%s', line %d: duplicate entry ('option %s') present", 
+		  tree->name, yylineno, key);
+	  return -1;
+  }
+
   gf_log ("parser", GF_LOG_DEBUG, "Option:%s:%s:%s",
 	  tree->name, key, cmd_output);
 
@@ -239,12 +249,21 @@ section_option_cmd (char *key, char *cmd)
 static int 
 section_option (char *key, char *value)
 {
+  extern int yylineno;
+  int ret = 0;
+
   if (!key || !value){
     fprintf (stderr, "invalid argument\n");
     gf_log ("parser", GF_LOG_ERROR, "invalid argument");
     return -1;
   }
-  dict_set (tree->options, key, str_to_data (value));
+  ret = dict_set (tree->options, key, str_to_data (value));
+  if (ret == 1) {
+	  gf_log ("parser", GF_LOG_ERROR, 
+		  "volume '%s', line %d: duplicate entry ('option %s') present", 
+		  tree->name, yylineno, key);
+	  return -1;
+  }
   gf_log ("parser", GF_LOG_DEBUG, "Option:%s:%s:%s",
 	  tree->name, key, value);
 

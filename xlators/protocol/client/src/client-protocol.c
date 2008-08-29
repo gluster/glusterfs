@@ -4763,8 +4763,8 @@ struct xlator_mops mops = {
 
 struct xlator_options options[] = {
 	/* Authentication module */
-	{ "username", GF_OPTION_TYPE_STR, 0, 0, 0 },
-	{ "password", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
+	{ "username", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "password", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
 
 	/* Transport */
 	{ "ib-verbs-", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
@@ -4776,7 +4776,7 @@ struct xlator_options options[] = {
 
 	/* Client protocol itself */
 	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 1, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB }, 
-	{ "remote-subvolume", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
+	{ "remote-subvolume", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
 	
 	{ NULL, 0, 0, 0, 0 },
 };

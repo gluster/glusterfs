@@ -133,9 +133,25 @@ xlator_validate_given_options (xlator_t *xl)
 			}
 		}
 		if (!valid) {
+			char allowed_options[1024];
+			allowed_options[0] = ' ';
+			allowed_options[1] = 0;
+			for (index = 0; xl->std_options[index].key ; index++) {
+				if (index)
+					strcat (allowed_options, ", ");
+				strcat (allowed_options, "'");
+				strcat (allowed_options, xl->std_options[index].key);
+				if (!xl->std_options[index].strict_match)
+					strcat (allowed_options, "....");
+				strcat (allowed_options, "'");
+			}
+			
 			gf_log (xl->name, GF_LOG_ERROR,
 				"key (%s) in 'option %s %s' is not valid, recheck", 
 				pairs->key, pairs->key, pairs->value->data);
+			gf_log (xl->name, GF_LOG_ERROR, 
+				"valid options for translator type '%s' are %s",
+				xl->type, allowed_options);
 			return -1;
 		}
 		
