@@ -45,8 +45,6 @@
 #include "compat.h"
 
 
-#define IS_DIRECTORY_EMPTY_ERRNO(op_errno) ((op_errno == ENOTEMPTY) || (op_errno == EEXIST))
-
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
 
@@ -869,7 +867,11 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         op_ret = rmdir (real_path);
         op_errno = errno;
 
-        if (op_ret == -1 && !IS_DIRECTORY_EMPTY_ERRNO(op_errno)) {
+	if (op_errno == EEXIST)
+		/* Solaris sets errno = EEXIST instead of ENOTEMPTY */
+		op_errno = ENOTEMPTY;
+	  
+        if (op_ret == -1 && op_errno != ENOTEMPTY) {
                 gf_log (this->name, GF_LOG_WARNING, 
                         "rmdir of %s: %s", loc->path, strerror (op_errno));
                 goto out;
