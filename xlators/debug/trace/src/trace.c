@@ -2298,3 +2298,10 @@ trace_stats (call_frame_t *frame,
 struct xlator_mops mops = {
   .stats    = trace_stats,
 };
+
+
+struct xlator_options options[] = {
+	{ "include", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "exclude", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ NULL, 0, 0, 0, 0 },
+};

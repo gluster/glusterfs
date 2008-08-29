@@ -1297,8 +1297,7 @@ init (xlator_t *this)
 	trav = this->children;
 	while (trav->xlator->children) trav = trav->xlator->children;
 
-	if (strncmp ("storage/", trav->xlator->type, 8))
-	{
+	if (strncmp ("storage/", trav->xlator->type, 8)) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"'posix-locks' not loaded over storage translator");
 		return -1;
@@ -1341,4 +1340,9 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
+};
+
+struct xlator_options options[] = {
+	{ "mandatory", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ NULL, 0, 0, 0, 0 },
 };

@@ -4577,3 +4577,17 @@ struct xlator_fops fops = {
 
 struct xlator_mops mops = {
 };
+
+struct xlator_options options[] = {
+	{ "namespace", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "scheduler", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "alu.", GF_OPTION_TYPE_STR, 0, 0, 0 },
+	{ "rr.", GF_OPTION_TYPE_STR, 0, 0, 0 },
+	{ "random.", GF_OPTION_TYPE_STR, 0, 0, 0 },
+	{ "switch.", GF_OPTION_TYPE_STR, 0, 0, 0 },
+	{ "nufa.", GF_OPTION_TYPE_STR, 0, 0, 0 },
+	{ "drop-hostname-from-subvolumes", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "self-heal", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "optimist", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ NULL, 0, 0, 0, 0 },
+};

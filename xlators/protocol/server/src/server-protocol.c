@@ -6416,3 +6416,22 @@ struct xlator_mops mops = {
 struct xlator_fops fops = {
 
 };
+
+struct xlator_options options[] = {
+	/* Authentication module */
+	{ "auth.addr", GF_OPTION_TYPE_STR, 0, 0, 0 },
+	{ "auth.login", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
+
+	/* Transport */
+	{ "ib-verbs-", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
+	{ "listen-port", GF_OPTION_TYPE_INT32, 1, 1025, 65534 }, 
+	{ "transport-type", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+	{ "address-family", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+	{ "bind-address", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+
+	/* Server protocol itself */
+	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 1, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB }, 
+	{ "client-volume-filename", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
+	
+	{ NULL, 0, 0, 0, 0 },
+};

@@ -4760,3 +4760,23 @@ struct xlator_mops mops = {
   .listlocks = client_listlocks,
   .getspec   = client_getspec,
 };
+
+struct xlator_options options[] = {
+	/* Authentication module */
+	{ "username", GF_OPTION_TYPE_STR, 0, 0, 0 },
+	{ "password", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
+
+	/* Transport */
+	{ "ib-verbs-", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
+	{ "remote-port", GF_OPTION_TYPE_INT32, 1, 1025, 65534 }, 
+	{ "transport-type", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+	{ "address-family", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+	{ "remote-host", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+	{ "non-blocking-io", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+
+	/* Client protocol itself */
+	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 1, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB }, 
+	{ "remote-subvolume", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
+	
+	{ NULL, 0, 0, 0, 0 },
+};

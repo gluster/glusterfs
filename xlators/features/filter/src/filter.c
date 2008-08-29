@@ -359,3 +359,7 @@ struct xlator_fops fops = {
 struct xlator_mops mops = {
 
 };
+
+struct xlator_options options[] = {
+	{ NULL, 0, 0, 0, 0 },
+};

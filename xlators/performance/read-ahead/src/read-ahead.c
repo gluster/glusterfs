@@ -943,3 +943,10 @@ struct xlator_fops fops = {
 
 struct xlator_mops mops = {
 };
+
+struct xlator_options options[] = {
+	{ "force-atime-update", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "page-size", GF_OPTION_TYPE_SIZET, 1, 16 * GF_UNIT_KB, 2 * GF_UNIT_MB },
+	{ "page-count", GF_OPTION_TYPE_INT32, 1, 1, 16 },
+	{ NULL, 0, 0, 0, 0 },
+};

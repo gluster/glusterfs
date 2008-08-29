@@ -3708,3 +3708,9 @@ struct xlator_mops mops = {
   //.lock   = stripe_lock,
   //.unlock = stripe_unlock,
 };
+
+
+struct xlator_options options[] = {
+	{ "block-size", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ NULL, 0, 0, 0, 0 },
+};

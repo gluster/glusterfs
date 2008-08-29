@@ -583,3 +583,9 @@ struct xlator_fops fops = {
 struct xlator_mops mops = {
 
 };
+
+struct xlator_options options[] = {
+	{ "fixed-uid", GF_OPTION_TYPE_INT32, 1, -1, 0 },
+	{ "fixed-gid", GF_OPTION_TYPE_INT32, 1, -1, 0 },
+	{ NULL, 0, 0, 0, 0 },
+};

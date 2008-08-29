@@ -169,3 +169,10 @@ struct xlator_fops fops = {
 
 struct xlator_mops mops = {
 };
+
+
+struct xlator_options options[] = {
+	{ "encrypt-write", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "decrypt-read", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ NULL, 0, 0, 0, 0 },
+};

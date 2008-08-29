@@ -27,12 +27,12 @@
 #  > Tranport options
 #  <socket>
        option address-family [inet | inet6 | inet-sdp | unix]
-       option non-blocking-connect [no|off|on|yes] (on)
+       option non-blocking-io [no|off|on|yes] (on)
        option remote-port <n> (6996)
        option remote-host <hostname/unix-path> *
 #  <ib-verbs>
        option address-family [inet | inet6]
-       option non-blocking-connect [no|off|on|yes] (on)
+       option non-blocking-io [no|off|on|yes] (on)
        option remote-port <n> (6996)
        option remote-host <hostname> *
        option ib-verbs-work-request-send-count <n> (64)
@@ -75,6 +75,7 @@
      option self-heal [off|foreground|background] (foreground)
      option optimist on (not set)
      option inode-lru-limit <n> (1000)
+     option drop-hostname-from-subvolumes yes # This will be useful for single process NUFA setting.
 #  > Option of Schedulers:
 #  <alu>
      option alu.order <order> * 
@@ -102,7 +103,6 @@
      option nufa.refresh-interval <t> (10 seconds)
      option nufa.local-volume-name <volume1[,volume2,volume...N]>  
      # can be "option nufa.local-volume-name `hostname`", hence `hostname` will be replaced by actual hostname.
-     option drop-hostname-from-subvolumes yes # This will be useful for single process NUFA setting.
 #  <switch>
      option switch.case *jpg:child1,child2;*mpg:child3;*:child4,child5,child6
      option switch.read-only-subvolumes <volume1,...,volumeN>
