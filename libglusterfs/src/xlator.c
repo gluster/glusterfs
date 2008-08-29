@@ -172,7 +172,7 @@ xlator_validate_given_options (xlator_t *xl)
 					pairs->key, pairs->value->data);
 				break;
 			}
-			if ((input8 <= (int8_t)trav->min_value) || (input8 >= (int8_t)trav->max_value)) {
+			if ((input8 < (int8_t)trav->min_value) || (input8 > (int8_t)trav->max_value)) {
 				gf_log (xl->name, GF_LOG_ERROR,
 					"'%d' in 'option %s %s' is out of range [%d - %d]",
 					input8, pairs->key, pairs->value->data, 
@@ -196,7 +196,7 @@ xlator_validate_given_options (xlator_t *xl)
 					pairs->key, pairs->value->data);
 				break;
 			}
-			if ((input32 <= (int32_t)trav->min_value) || (input32 >= (int32_t)trav->max_value)) {
+			if ((input32 < (int32_t)trav->min_value) || (input32 > (int32_t)trav->max_value)) {
 				gf_log (xl->name, GF_LOG_ERROR,
 					"'%d' in 'option %s %s' is out of range [%d - %d]",
 					input32, pairs->key, pairs->value->data, 
@@ -221,7 +221,7 @@ xlator_validate_given_options (xlator_t *xl)
 					pairs->key, pairs->value->data);
 				break;
 			}
-			if ((input64 <= trav->min_value) || (input64 >= trav->max_value)) {
+			if ((input64 < trav->min_value) || (input64 > trav->max_value)) {
 				gf_log (xl->name, GF_LOG_ERROR,
 					"'%"PRId64"' in 'option %s %s' is out of range [%"PRId64" - %"PRId64"]",
 					input64, pairs->key, pairs->value->data, 
@@ -250,7 +250,7 @@ xlator_validate_given_options (xlator_t *xl)
 					pairs->key, pairs->value->data);
 				break;
 			}
-			if ((input_size <= trav->min_value ) || (input_size >= trav->max_value)) {
+			if ((input_size < trav->min_value ) || (input_size > trav->max_value)) {
 				gf_log (xl->name, GF_LOG_ERROR,
 					"'%"PRId64"' in 'option %s %s' is out of range [%"PRId64" - %"PRId64"]", 
 					input_size, pairs->key, pairs->value->data,
