@@ -1931,7 +1931,7 @@ ib_verbs_handshake_pollerr (transport_t *this)
   {
     ib_verbs_teardown (this);
 
-    if (sock->priv != -1) {
+    if (priv->sock != -1) {
       event_unregister (this->xl->ctx->event_pool, priv->sock, priv->idx);
       need_unref = 1;
 
