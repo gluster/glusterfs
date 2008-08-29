@@ -469,7 +469,7 @@ server_get_local_sockaddr (transport_t *this, struct sockaddr *addr, socklen_t *
       goto err;
     }
   } else {
-    gf_log (this->xl->name, GF_LOG_WARNING,
+    gf_log (this->xl->name, GF_LOG_DEBUG,
 	    "option address-family not specified, defaulting to inet/inet6");
     addr->sa_family = AF_UNSPEC;
   }

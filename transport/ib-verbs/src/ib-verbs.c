@@ -1930,13 +1930,13 @@ ib_verbs_handshake_pollerr (transport_t *this)
   pthread_mutex_lock (&priv->write_mutex);
   {
     ib_verbs_teardown (this);
-    if (priv->connected) {
+
+    if (sock->priv != -1) {
       event_unregister (this->xl->ctx->event_pool, priv->sock, priv->idx);
       need_unref = 1;
 
       if (close (priv->sock) != 0) {
-	gf_log ("transport/ib-verbs",
-		GF_LOG_ERROR,
+	gf_log ("transport/ib-verbs", GF_LOG_ERROR,
 		"close () - error: %s",
 		strerror (errno));
 	ret = -errno;
@@ -1947,14 +1947,12 @@ ib_verbs_handshake_pollerr (transport_t *this)
 
     if (priv->handshake.incoming.buf) {
       FREE (priv->handshake.incoming.buf);
-      priv->handshake.incoming.buf = NULL;
     }
 
     priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_START;
 
     if (priv->handshake.outgoing.buf) {
       FREE (priv->handshake.outgoing.buf);
-      priv->handshake.outgoing.buf = NULL;
     }
 
     priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_START;
@@ -1968,6 +1966,7 @@ ib_verbs_handshake_pollerr (transport_t *this)
 
   return 0;
 }
+
 
 static int
 tcp_connect_finish (transport_t *this)
