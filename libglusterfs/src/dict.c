@@ -1632,6 +1632,12 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
 		goto out;
 	}
 
+	if (size == 0) {
+		gf_log ("dict", GF_LOG_ERROR,
+			"size is 0!");
+		goto out;
+	}
+
 	if (!fill) {
 		gf_log ("dict", GF_LOG_ERROR,
 			"fill is null!");
