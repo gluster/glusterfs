@@ -167,7 +167,7 @@ server_fchmod_cbk (call_frame_t *frame,
       gf_stat_from_stat (&rsp->stat, stbuf);
     }
 
-  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LK,
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FCHMOD,
                          hdr, hdrlen, NULL, 0, NULL);
 
   return 0;

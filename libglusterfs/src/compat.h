@@ -28,6 +28,10 @@
 #include <stdint.h>
 #include "dict.h"
 
+#ifndef LLONG_MAX
+#define LLONG_MAX LONG_LONG_MAX /* compat with old gcc */
+#endif /* LLONG_MAX */
+
 
 #ifdef GF_LINUX_HOST_OS
 
