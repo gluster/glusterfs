@@ -274,6 +274,7 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame,
       if (FIRST_CHILD(this) == ((call_frame_t *)cookie)->this) {
 	/* Always, pass the inode number of first child to the above layer */
 	local->stbuf.st_ino = buf->st_ino;
+	local->stbuf.st_mtime = buf->st_mtime;
       }
 
       if (local->stbuf.st_size < buf->st_size)
@@ -356,6 +357,8 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
       }
       if (FIRST_CHILD(this) == ((call_frame_t *)cookie)->this) {
 	local->stbuf.st_ino = buf->st_ino;
+	local->stbuf.st_mtime = buf->st_mtime;
+
 	/* Increment striped's value, as if we set it to some value, it may
 	 * overwrite earlier value
 	 */

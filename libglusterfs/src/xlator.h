@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _XLATOR_H
@@ -66,38 +66,38 @@ void
 fd_destroy (fd_t *fd);
 
 struct _loc {
-  const char *path;
-  const char *name;
-  ino_t ino;
-  inode_t *inode;
-  inode_t *parent;
+	const char *path;
+	const char *name;
+	ino_t ino;
+	inode_t *inode;
+	inode_t *parent;
 };
 
 struct _dir_entry_t {
-  dir_entry_t *next;
-  char *name;
-  char *link;
-  struct stat buf;
+	dir_entry_t *next;
+	char *name;
+	char *link;
+	struct stat buf;
 };
 
 struct _gf_dirent_t {
-  uint64_t d_ino;
-  uint64_t d_off;
-  uint32_t d_len;
-  uint32_t d_type;
-  char d_name[0];
+	uint64_t d_ino;
+	uint64_t d_off;
+	uint32_t d_len;
+	uint32_t d_type;
+	char d_name[0];
 };
 
 struct xlator_stats {
-  uint64_t nr_files;   /* Number of files open via this xlator */
-  uint64_t free_disk; /* Mega bytes */
-  uint64_t total_disk_size; /* Mega Bytes */
-  uint64_t disk_usage; /* Mega bytes */
-  uint64_t disk_speed; /* MHz or Mbps */
-  uint64_t nr_clients; /* Number of client nodes (filled by glusterfsd) */
-  uint64_t write_usage;
-  uint64_t read_usage;
-  /* add more stats here */
+	uint64_t nr_files;   /* Number of files open via this xlator */
+	uint64_t free_disk; /* Mega bytes */
+	uint64_t total_disk_size; /* Mega Bytes */
+	uint64_t disk_usage; /* Mega bytes */
+	uint64_t disk_speed; /* MHz or Mbps */
+	uint64_t nr_clients; /* Number of client nodes (filled by glusterfsd) */
+	uint64_t write_usage;
+	uint64_t read_usage;
+	/* add more stats here */
 };
 
 
@@ -183,19 +183,19 @@ typedef int32_t (*fop_checksum_t) (call_frame_t *frame,
 				   int32_t flag);
 
 struct xlator_mops {
-  mop_stats_t            stats;
-  mop_fsck_t             fsck;
-  mop_lock_t             lock;
-  mop_unlock_t           unlock;
-  mop_listlocks_t        listlocks;
-  mop_getspec_t          getspec;
+	mop_stats_t            stats;
+	mop_fsck_t             fsck;
+	mop_lock_t             lock;
+	mop_unlock_t           unlock;
+	mop_listlocks_t        listlocks;
+	mop_getspec_t          getspec;
 
-  mop_stats_cbk_t        stats_cbk;
-  mop_fsck_cbk_t         fsck_cbk;
-  mop_lock_cbk_t         lock_cbk;
-  mop_unlock_cbk_t       unlock_cbk;
-  mop_listlocks_cbk_t    listlocks_cbk;
-  mop_getspec_cbk_t      getspec_cbk;
+	mop_stats_cbk_t        stats_cbk;
+	mop_fsck_cbk_t         fsck_cbk;
+	mop_lock_cbk_t         lock_cbk;
+	mop_unlock_cbk_t       unlock_cbk;
+	mop_listlocks_cbk_t    listlocks_cbk;
+	mop_getspec_cbk_t      getspec_cbk;
 };
 
 
@@ -413,12 +413,12 @@ typedef int32_t (*fop_opendir_cbk_t) (call_frame_t *frame,
 				      fd_t *fd);
 
 typedef int32_t (*fop_getdents_cbk_t) (call_frame_t *frame,
-				      void *cookie,
-				      xlator_t *this,
-				      int32_t op_ret,
-				      int32_t op_errno,
-				      dir_entry_t *entries,
-				      int32_t count);
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno,
+				       dir_entry_t *entries,
+				       int32_t count);
 
 typedef int32_t (*fop_closedir_cbk_t) (call_frame_t *frame,
 				       void *cookie,
@@ -717,125 +717,154 @@ typedef int32_t (*fop_xattrop_t) (call_frame_t *frame,
 				  dict_t *xattr);
 
 struct xlator_fops {
-  fop_lookup_t         lookup;
-  fop_forget_t         forget;
-  fop_stat_t           stat;
-  fop_fstat_t          fstat;
-  fop_chmod_t          chmod;
-  fop_fchmod_t         fchmod;
-  fop_chown_t          chown;
-  fop_fchown_t         fchown;
-  fop_truncate_t       truncate;
-  fop_ftruncate_t      ftruncate;
-  fop_utimens_t        utimens;
-  fop_access_t         access;
-  fop_readlink_t       readlink;
-  fop_mknod_t          mknod;
-  fop_mkdir_t          mkdir;
-  fop_unlink_t         unlink;
-  fop_rmelem_t         rmelem;
-  fop_rmdir_t          rmdir;
-  fop_symlink_t        symlink;
-  fop_rename_t         rename;
-  fop_link_t           link;
-  fop_create_t         create;
-  fop_open_t           open;
-  fop_readv_t          readv;
-  fop_writev_t         writev;
-  fop_flush_t          flush;
-  fop_close_t          close;
-  fop_fsync_t          fsync;
-  fop_opendir_t        opendir;
-  fop_readdir_t        readdir;
-  fop_closedir_t       closedir;
-  fop_fsyncdir_t       fsyncdir;
-  fop_statfs_t         statfs;
-  fop_incver_t         incver;
-  fop_setxattr_t       setxattr;
-  fop_getxattr_t       getxattr;
-  fop_removexattr_t    removexattr;
-  fop_lk_t             lk;
-  fop_gf_lk_t          gf_lk;
-  fop_setdents_t       setdents;
-  fop_getdents_t       getdents;
-  fop_checksum_t       checksum;
-  fop_xattrop_t        xattrop;
+	fop_lookup_t         lookup;
+	fop_forget_t         forget;
+	fop_stat_t           stat;
+	fop_fstat_t          fstat;
+	fop_chmod_t          chmod;
+	fop_fchmod_t         fchmod;
+	fop_chown_t          chown;
+	fop_fchown_t         fchown;
+	fop_truncate_t       truncate;
+	fop_ftruncate_t      ftruncate;
+	fop_utimens_t        utimens;
+	fop_access_t         access;
+	fop_readlink_t       readlink;
+	fop_mknod_t          mknod;
+	fop_mkdir_t          mkdir;
+	fop_unlink_t         unlink;
+	fop_rmelem_t         rmelem;
+	fop_rmdir_t          rmdir;
+	fop_symlink_t        symlink;
+	fop_rename_t         rename;
+	fop_link_t           link;
+	fop_create_t         create;
+	fop_open_t           open;
+	fop_readv_t          readv;
+	fop_writev_t         writev;
+	fop_flush_t          flush;
+	fop_close_t          close;
+	fop_fsync_t          fsync;
+	fop_opendir_t        opendir;
+	fop_readdir_t        readdir;
+	fop_closedir_t       closedir;
+	fop_fsyncdir_t       fsyncdir;
+	fop_statfs_t         statfs;
+	fop_incver_t         incver;
+	fop_setxattr_t       setxattr;
+	fop_getxattr_t       getxattr;
+	fop_removexattr_t    removexattr;
+	fop_lk_t             lk;
+	fop_gf_lk_t          gf_lk;
+	fop_setdents_t       setdents;
+	fop_getdents_t       getdents;
+	fop_checksum_t       checksum;
+	fop_xattrop_t        xattrop;
 
-  /* these entries are used for a typechecking hack in STACK_WIND _only_ */
-  fop_lookup_cbk_t         lookup_cbk;
-  fop_forget_cbk_t         forget_cbk;
-  fop_stat_cbk_t           stat_cbk;
-  fop_fstat_cbk_t          fstat_cbk;
-  fop_chmod_cbk_t          chmod_cbk;
-  fop_fchmod_cbk_t         fchmod_cbk;
-  fop_chown_cbk_t          chown_cbk;
-  fop_fchown_cbk_t         fchown_cbk;
-  fop_truncate_cbk_t       truncate_cbk;
-  fop_ftruncate_cbk_t      ftruncate_cbk;
-  fop_utimens_cbk_t        utimens_cbk;
-  fop_access_cbk_t         access_cbk;
-  fop_readlink_cbk_t       readlink_cbk;
-  fop_mknod_cbk_t          mknod_cbk;
-  fop_mkdir_cbk_t          mkdir_cbk;
-  fop_unlink_cbk_t         unlink_cbk;
-  fop_rmelem_cbk_t         rmelem_cbk;
-  fop_rmdir_cbk_t          rmdir_cbk;
-  fop_symlink_cbk_t        symlink_cbk;
-  fop_rename_cbk_t         rename_cbk;
-  fop_link_cbk_t           link_cbk;
-  fop_create_cbk_t         create_cbk;
-  fop_open_cbk_t           open_cbk;
-  fop_readv_cbk_t          readv_cbk;
-  fop_writev_cbk_t         writev_cbk;
-  fop_flush_cbk_t          flush_cbk;
-  fop_close_cbk_t          close_cbk;
-  fop_fsync_cbk_t          fsync_cbk;
-  fop_opendir_cbk_t        opendir_cbk;
-  fop_readdir_cbk_t        readdir_cbk;
-  fop_closedir_cbk_t       closedir_cbk;
-  fop_fsyncdir_cbk_t       fsyncdir_cbk;
-  fop_statfs_cbk_t         statfs_cbk;
-  fop_incver_cbk_t         incver_cbk;
-  fop_setxattr_cbk_t       setxattr_cbk;
-  fop_getxattr_cbk_t       getxattr_cbk;
-  fop_removexattr_cbk_t    removexattr_cbk;
-  fop_lk_cbk_t             lk_cbk;
-  fop_gf_lk_cbk_t	   gf_lk_cbk;
-  fop_setdents_cbk_t       setdents_cbk;
-  fop_getdents_cbk_t       getdents_cbk;
-  fop_checksum_cbk_t       checksum_cbk;
-  fop_xattrop_cbk_t        xattrop_cbk;
+	/* these entries are used for a typechecking hack in STACK_WIND _only_ */
+	fop_lookup_cbk_t         lookup_cbk;
+	fop_forget_cbk_t         forget_cbk;
+	fop_stat_cbk_t           stat_cbk;
+	fop_fstat_cbk_t          fstat_cbk;
+	fop_chmod_cbk_t          chmod_cbk;
+	fop_fchmod_cbk_t         fchmod_cbk;
+	fop_chown_cbk_t          chown_cbk;
+	fop_fchown_cbk_t         fchown_cbk;
+	fop_truncate_cbk_t       truncate_cbk;
+	fop_ftruncate_cbk_t      ftruncate_cbk;
+	fop_utimens_cbk_t        utimens_cbk;
+	fop_access_cbk_t         access_cbk;
+	fop_readlink_cbk_t       readlink_cbk;
+	fop_mknod_cbk_t          mknod_cbk;
+	fop_mkdir_cbk_t          mkdir_cbk;
+	fop_unlink_cbk_t         unlink_cbk;
+	fop_rmelem_cbk_t         rmelem_cbk;
+	fop_rmdir_cbk_t          rmdir_cbk;
+	fop_symlink_cbk_t        symlink_cbk;
+	fop_rename_cbk_t         rename_cbk;
+	fop_link_cbk_t           link_cbk;
+	fop_create_cbk_t         create_cbk;
+	fop_open_cbk_t           open_cbk;
+	fop_readv_cbk_t          readv_cbk;
+	fop_writev_cbk_t         writev_cbk;
+	fop_flush_cbk_t          flush_cbk;
+	fop_close_cbk_t          close_cbk;
+	fop_fsync_cbk_t          fsync_cbk;
+	fop_opendir_cbk_t        opendir_cbk;
+	fop_readdir_cbk_t        readdir_cbk;
+	fop_closedir_cbk_t       closedir_cbk;
+	fop_fsyncdir_cbk_t       fsyncdir_cbk;
+	fop_statfs_cbk_t         statfs_cbk;
+	fop_incver_cbk_t         incver_cbk;
+	fop_setxattr_cbk_t       setxattr_cbk;
+	fop_getxattr_cbk_t       getxattr_cbk;
+	fop_removexattr_cbk_t    removexattr_cbk;
+	fop_lk_cbk_t             lk_cbk;
+	fop_gf_lk_cbk_t	         gf_lk_cbk;
+	fop_setdents_cbk_t       setdents_cbk;
+	fop_getdents_cbk_t       getdents_cbk;
+	fop_checksum_cbk_t       checksum_cbk;
+	fop_xattrop_cbk_t        xattrop_cbk;
 };
 
 
 typedef struct xlator_list {
-  xlator_t *xlator;
-  struct xlator_list *next;
+	xlator_t *xlator;
+	struct xlator_list *next;
 } xlator_list_t;
 
+/* Add possible new type of option you may need */
+typedef enum {
+	GF_OPTION_TYPE_ANY = 0,
+	GF_OPTION_TYPE_STR,
+	GF_OPTION_TYPE_INT8,
+	GF_OPTION_TYPE_INT32,
+	GF_OPTION_TYPE_INT64,
+	GF_OPTION_TYPE_SIZET,
+	GF_OPTION_TYPE_PERCENT,
+	GF_OPTION_TYPE_TIME,
+} xlator_option_type_t;
+
+/* Each translator should define this structure */
+typedef struct xlator_options {
+	char *key;
+	xlator_option_type_t type;     
+	int32_t strict_match;  /* If set, will match whole str, instead of checking it at the beginning */
+	int64_t min_value;     /* -1 means no range */
+	int64_t max_value;
+} xlator_option_t;
+
 struct _xlator {
-  char *name;
-  char *type;
-  xlator_t *next, *prev;
-  xlator_list_t *parents;
-  xlator_list_t *children;
+	/* Built during parsing */
+	char *name;
+	char *type;
+	xlator_t *next, *prev;
+	xlator_list_t *parents;
+	xlator_list_t *children;
+	dict_t *options;
 
-  struct xlator_fops *fops;
-  struct xlator_mops *mops; 
+	/* Set after doing dlopen() */
+	struct xlator_fops *fops;
+	struct xlator_mops *mops; 
+	xlator_option_t *std_options;
+	void (*fini) (xlator_t *this);
+	int32_t (*init) (xlator_t *this);
+	event_notify_fn_t notify;
 
-  void (*fini) (xlator_t *this);
-  int32_t (*init) (xlator_t *this);
-  event_notify_fn_t notify;
-
-  dict_t *options;
-  glusterfs_ctx_t *ctx;
-  inode_table_t *itable;
-  char ready;
-  char trace;
-  void *private;
+	/* Misc */
+	glusterfs_ctx_t *ctx;
+	inode_table_t *itable;
+	char ready;
+	char trace;
+	void *private;
 };
 
+int32_t xlator_test_given_options (xlator_option_t *std_options,
+				   dict_t *options);
+
 int32_t xlator_set_type (xlator_t *xl, const char *type);
+
+int32_t xlator_validate_given_options (xlator_t *xl);
 
 xlator_t *file_to_xlator_tree (glusterfs_ctx_t *ctx,
 			       FILE *fp);
@@ -848,8 +877,7 @@ void xlator_foreach (xlator_t *this,
 				 void *data),
 		     void *data);
 
-xlator_t *
-xlator_search_by_name (xlator_t *any, const char *name);
+xlator_t *xlator_search_by_name (xlator_t *any, const char *name);
 
 void inode_destroy_notify (inode_t *inode, const char *xlname);
 

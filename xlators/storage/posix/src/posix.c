@@ -3549,3 +3549,10 @@ struct xlator_fops fops = {
         .checksum    = posix_checksum,
 	.xattrop     = posix_xattrop,
 };
+
+struct xlator_options options[] = {
+	{ "o-direct", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "directory", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "export-statfs-size", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ NULL, 0, 0, 0, 0 }
+};

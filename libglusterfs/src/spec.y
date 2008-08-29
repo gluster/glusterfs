@@ -330,6 +330,11 @@ section_end (void)
   }
   gf_log ("parser", GF_LOG_DEBUG, "end:%s", tree->name);
 
+  if (xlator_validate_given_options (tree) == -1) {
+    gf_log (tree->name, GF_LOG_DEBUG, "validating the options failed");
+    return -1;
+  }
+
   tree = NULL;
   return 0;
 }

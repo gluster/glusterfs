@@ -1305,3 +1305,10 @@ struct xlator_fops fops = {
 
 struct xlator_mops mops = {
 };
+
+struct xlator_options options[] = {
+	{"thread-count", GF_OPTION_TYPE_INT32, 1, 1, 32},
+	{"cache-size", GF_OPTION_TYPE_SIZET, 1, 4 * GF_UNIT_MB, 1 * GF_UNIT_GB},
+	{ NULL, 0, 0, 0, 0 }
+};
+
