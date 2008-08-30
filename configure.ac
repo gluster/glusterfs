@@ -378,11 +378,11 @@ AC_CONFIG_SUBDIRS(argp-standalone)
 BUILD_ARGP_STANDALONE=no
 if test "x${ac_cv_header_argp_h}" = "xno"; then 
    BUILD_ARGP_STANDALONE=yes
-   ARGP_STANDALONE_CFLAGS="-I${ac_pwd}/argp-standalone"
-   ARGP_STANDALONE_LDADD="${ac_pwd}/argp-standalone/libargp.a"
+   ARGP_STANDALONE_CPPFLAGS='-I${top_srcdir}/argp-standalone'
+   ARGP_STANDALONE_LDADD='${top_builddir}/argp-standalone/libargp.a'
 fi
 
-AC_SUBST(ARGP_STANDALONE_CFLAGS)
+AC_SUBST(ARGP_STANDALONE_CPPFLAGS)
 AC_SUBST(ARGP_STANDALONE_LDADD)
 
 AC_CHECK_HEADER([malloc.h], AC_DEFINE(HAVE_MALLOC_H, 1, [have malloc.h]))
@@ -403,13 +403,13 @@ case $host_os in
      linux*)
      dnl	GF_LINUX_HOST_OS=1
         GF_HOST_OS="GF_LINUX_HOST_OS"
-	GF_CFLAGS="${ARGP_STANDALONE_CFLAGS}"
+	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	;;
      solaris*)
         GF_HOST_OS="GF_SOLARIS_HOST_OS"
-	GF_CFLAGS="${ARGP_STANDALONE_CFLAGS} -D_REENTRANT"
+	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_REENTRANT"
 	GF_LDFLAGS=""
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
@@ -421,7 +421,7 @@ case $host_os in
 	;;
      *bsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
-	GF_CFLAGS="${ARGP_STANDALONE_CFLAGS}"
+	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	BUILD_MOD_GLUSTERFS=no
@@ -432,8 +432,8 @@ case $host_os in
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
 	LIBTOOL=glibtool
-	GF_CFLAGS="${ARGP_STANDALONE_CFLAGS} -bundle -undefined suppress -flat_namespace"
-	GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CFLAGS} -undefined suppress -flat_namespace"
+	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -bundle -undefined suppress -flat_namespace"
+	GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -undefined suppress -flat_namespace"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	GF_FUSE_LDADD="-liconv"
 	BUILD_MOD_GLUSTERFS=no
