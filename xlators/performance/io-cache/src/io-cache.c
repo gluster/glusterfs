@@ -1399,7 +1399,7 @@ struct xlator_mops mops = {
 struct xlator_options options[] = {
 	{ "priority", GF_OPTION_TYPE_STR, 1, 0, 0 },
 	{ "force-revalidate-timeout", GF_OPTION_TYPE_INT32, 1, 0, 1800 }, /* 30mins */
-	{ "page-size", GF_OPTION_TYPE_SIZET, 1, 16 * GF_UNIT_KB, 2 * GF_UNIT_MB },
-	{ "cache-size", GF_OPTION_TYPE_SIZET, 1, 16 * GF_UNIT_MB, 6 * GF_UNIT_GB },
+	{ "page-size", GF_OPTION_TYPE_SIZET, 1, 16 * GF_UNIT_KB, 8 * GF_UNIT_MB },
+	{ "cache-size", GF_OPTION_TYPE_SIZET, 1, 4 * GF_UNIT_MB, 6 * GF_UNIT_GB },
 	{ NULL, 0, 0, 0, 0 },
 };

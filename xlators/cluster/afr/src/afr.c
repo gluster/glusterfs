@@ -61,14 +61,6 @@
 } while(0);
 
 extern void afr_lookup_directory_selfheal (call_frame_t *);
-extern int32_t afr_open (call_frame_t *frame,
-			 xlator_t *this,
-			 loc_t *loc,
-			 int32_t flags,
-			 fd_t *fd);
-
-int32_t
-afr_wrft (call_frame_t *frame);
 
 loc_t*
 afr_loc_dup(loc_t *loc)
@@ -87,7 +79,7 @@ afr_loc_free(loc_t *loc)
 {
   GF_BUG_ON (!loc);
   FREE (loc->path);
-  FREE (loc);
+  FREE(loc);
 }
 
 inline void 
@@ -97,12 +89,12 @@ afr_free_ashptr (afr_selfheal_t *ashptr, int32_t child_count, int32_t latest)
 }
 
 int32_t
-afr_sync_ownership_permission_cbk (call_frame_t *frame,
-				   void *cookie,
-				   xlator_t *this,
-				   int32_t op_ret,
-				   int32_t op_errno,
-				   struct stat *stbuf)
+afr_sync_ownership_permission_cbk(call_frame_t *frame,
+				  void *cookie,
+				  xlator_t *this,
+				  int32_t op_ret,
+				  int32_t op_errno,
+				  struct stat *stbuf)
 {
   afr_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
@@ -1205,8 +1197,9 @@ afr_setxattr (call_frame_t *frame,
       }
       
       if (local->call_count == 0) {
-	GF_ERROR (this, "child_errno[] is not 0, returning ENOTCONN");
-	STACK_UNWIND (frame, -1, ENOTCONN);
+	GF_ERROR (this, "child_errno[] is not 0, returning -1 (%s)",
+		  strerror (child_errno[0]));
+	STACK_UNWIND (frame, -1, child_errno[0]);
 	return 0;
       }
       
@@ -1282,7 +1275,7 @@ afr_getxattr (call_frame_t *frame,
   }
 
   if (i == child_count) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    STACK_UNWIND (frame, -1, child_errno[0], NULL);
     return 0;
   }
   /* send getxattr command to the first child where the file is available */
@@ -1366,10 +1359,9 @@ afr_removexattr (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] is not 0, returning ENOTCONN");
-    STACK_UNWIND (frame,
-		  -1,
-		  ENOTCONN);
+    GF_ERROR (this, "child_errno[] is not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
+    STACK_UNWIND (frame, -1, child_errno[0]);
     return 0;
   }
   for (i = 0; i < child_count; i++) {
@@ -1381,6 +1373,1117 @@ afr_removexattr (call_frame_t *frame,
 		  loc,
 		  name);
   }
+  return 0;
+}
+
+int32_t
+afr_selfheal_unlock_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno)
+{
+  afr_local_t *local = frame->local;
+  afr_selfheal_t *ash, *ashtemp;
+  call_frame_t *prev_frame = cookie;
+  struct list_head *list = local->list;
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+    call_frame_t *open_frame = local->orig_frame;
+    afr_local_t *open_local = open_frame->local;
+    open_local->sh_return_error = 1;
+  }
+
+  AFR_DEBUG_FMT (this, "call_resume()");
+  call_resume (local->stub);
+  /* clean up after resume */
+  FREE (local->loc->path);
+  FREE (local->loc);
+
+  if (local->fd) {
+    afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
+    FREE (afrfdp->fdstate);
+    /* afrfdp->path is not allocated */
+    FREE (afrfdp);
+    dict_destroy (local->fd->ctx);
+    FREE (local->fd);
+  }
+  list_for_each_entry_safe (ash, ashtemp, list, clist) {
+    list_del (&ash->clist);
+    if (ash->dict)
+      dict_unref (ash->dict);
+    FREE (ash);
+  }
+  FREE (list);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+int32_t
+afr_selfheal_nosync_close_cbk (call_frame_t *frame,
+			       void *cookie,
+			       xlator_t *this,
+			       int32_t op_ret,
+			       int32_t op_errno);
+
+/* we call afr_error_during_sync if there was any error during read/write during syncing. */
+
+int32_t
+afr_error_during_sync (call_frame_t *frame)
+{
+  int32_t cnt;
+  afr_local_t *local = frame->local;
+  afr_private_t *pvt = frame->this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
+  afrfd_t *afrfdp = NULL;
+  call_frame_t *open_frame = local->orig_frame;
+  afr_local_t *open_local = open_frame->local;
+
+  GF_ERROR (frame->this, "error during self-heal");
+
+  afrfdp = data_to_ptr(dict_get(local->fd->ctx, frame->this->name));
+  open_local->sh_return_error = 1;
+
+  local->call_count = 0;
+  for (i = 0; i < child_count; i++) {
+    if(afrfdp->fdstate[i])
+      local->call_count++;
+  }
+  /* local->call_count cant be 0 because we'll have atleast source's fd in dict */
+  GF_BUG_ON (!local->call_count);
+  cnt = local->call_count;
+  for (i = 0; i < child_count; i++) {
+    if(afrfdp->fdstate[i]){
+      STACK_WIND (frame,
+		  afr_selfheal_nosync_close_cbk,
+		  children[i],
+		  children[i]->fops->close,
+		  local->fd);
+      /* in case this is the last WIND, list will be free'd before next iteration
+       * causing segfault. so we use a cnt counter
+       */
+      if (--cnt == 0)
+	break;
+    }
+  }
+
+  return 0;
+}
+
+
+int32_t
+afr_selfheal_setxattr_cbk (call_frame_t *frame,
+			   void *cookie,
+			   xlator_t *this,
+			   int32_t op_ret,
+			   int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  afr_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+
+  AFR_DEBUG_FMT (this, "op_ret = %d from client %s", op_ret, prev_frame->this->name);
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+    /* since we would have already called close, we wont use afr_error_during_sync */
+    call_frame_t *open_frame = local->orig_frame;
+    afr_local_t *open_local = open_frame->local;
+    open_local->sh_return_error = 1;
+  }
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0) {
+    char *lock_path = NULL;
+    asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);
+    STACK_WIND (frame,
+		afr_selfheal_unlock_cbk,
+		local->lock_node,
+		local->lock_node->mops->unlock,
+		lock_path);
+    FREE (lock_path);
+  }
+  return 0;
+}
+
+int32_t
+afr_selfheal_utimens_cbk (call_frame_t *frame,
+			  void *cookie,
+			  xlator_t *this,
+			  int32_t op_ret,
+			  int32_t op_errno,
+			  struct stat *stat)
+{
+  int32_t callcnt = 0;
+  afr_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+    /* since we would have already called close, we wont use afr_error_during_sync */
+    call_frame_t *open_frame = local->orig_frame;
+    afr_local_t *open_local = open_frame->local;
+    open_local->sh_return_error = 1;
+  }
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0) {
+    char *lock_path = NULL;
+    asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);
+    STACK_WIND (frame,
+		afr_selfheal_unlock_cbk,
+		local->lock_node,
+		local->lock_node->mops->unlock,
+		lock_path);
+    FREE (lock_path);
+  }
+  return 0;
+}
+
+/* FIXME handle the situation when one of the close fails */
+
+int32_t
+afr_selfheal_close_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
+  int32_t cnt;
+  int32_t callcnt;
+  struct list_head *list;
+  afr_selfheal_t *ash;
+  afr_local_t *local = frame->local;
+
+  AFR_DEBUG (this);
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0) {
+    if (local->source->ctime == 0) { /* if source didnt have any ctime xattr */
+      struct timeval tv;             /* if it was copied in the backend */
+      int32_t ctime;
+      char dict_ctime[100];
+      gettimeofday (&tv, NULL);
+      ctime = tv.tv_sec;
+      sprintf (dict_ctime, "%u", ctime);
+      dict_set (local->source->dict, GLUSTERFS_CREATETIME, 
+		bin_to_data (dict_ctime, strlen (dict_ctime)));
+    }
+    list = local->list;
+    list_for_each_entry (ash, list, clist) {
+      if (ash->inode && (ash->repair || ash->version == 1)) {
+	/* version 1 means there are no attrs, possibly it was copied
+	 * direcly in the backend
+	 */
+	local->call_count++; /* for setxattr */
+	local->call_count++; /* for utimens */
+      }
+    }
+    cnt = local->call_count;
+
+    list_for_each_entry (ash, list, clist) {
+      struct timespec ts[2];
+      ts[0].tv_sec = local->source->stat.st_atime;
+      ts[0].tv_nsec = 0;
+      ts[1].tv_sec = local->source->stat.st_mtime;
+      ts[1].tv_nsec = 0;
+      if (ash->inode && (ash->repair || ash->version == 1)) {
+	AFR_DEBUG_FMT (this, "setxattr() on %s version %u ctime %u", 
+		       ash->xl->name, local->source->version, local->source->ctime);
+	STACK_WIND (frame,
+		    afr_selfheal_setxattr_cbk,
+		    ash->xl,
+		    ash->xl->fops->setxattr,
+		    local->loc,
+		    local->source->dict,
+		    0);
+	STACK_WIND (frame,
+		    afr_selfheal_utimens_cbk,
+		    ash->xl,
+		    ash->xl->fops->utimens,
+		    local->loc,
+		    ts);
+	--cnt;              /* for setxattr */
+	if (--cnt == 0)     /* for utimens */
+	  break;
+      }
+    }
+  }
+  return 0;
+}
+
+int32_t
+afr_selfheal_sync_file (call_frame_t *frame,
+			xlator_t *this);
+
+int32_t
+afr_selfheal_sync_file_writev_cbk (call_frame_t *frame,
+				   void *cookie,
+				   xlator_t *this,
+				   int32_t op_ret,
+				   int32_t op_errno,
+				   struct stat *stat)
+{
+  int32_t callcnt = 0;
+  afr_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+
+  AFR_DEBUG_FMT (this, "op_ret = %d", op_ret);
+
+  if (op_ret == -1 && op_errno != ENOTCONN)
+    local->op_errno = op_errno;
+
+  if (op_ret >= 0)
+    local->op_ret = op_ret;
+
+  if (op_ret == -1) {
+    /* even if one write fails, we will return open with error, need to see if
+     * we can improve on this behaviour.
+     * We should wait for all cbks before calling afr_error_during_sync()
+     */
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+    local->sh_return_error = 1;
+  }
+
+  LOCK(&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK(&frame->lock);
+
+  if (callcnt == 0) {
+    if (local->sh_return_error) {
+      /* if there was an error during one of the writes */
+      afr_error_during_sync (frame);
+    } else {
+      local->offset = local->offset + op_ret;
+      afr_selfheal_sync_file (frame, this);
+    }
+  }
+  return 0;
+}
+
+int32_t
+afr_selfheal_sync_file_readv_cbk (call_frame_t *frame,
+				  void *cookie,
+				  xlator_t *this,
+				  int32_t op_ret,
+				  int32_t op_errno,
+				  struct iovec *vector,
+				  int32_t count,
+				  struct stat *stat)
+{
+  int32_t cnt;
+  afr_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
+  afrfd_t *afrfdp = NULL; 
+
+  AFR_DEBUG_FMT (this, "op_ret = %d", op_ret);
+
+  afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
+
+  for (i = 0; i < child_count; i++){
+    if (afrfdp->fdstate[i])
+      local->call_count++;
+  }
+
+  if (op_ret == 0) {
+    /* EOF reached */
+    AFR_DEBUG_FMT (this, "EOF reached");
+    cnt = local->call_count;
+    for (i = 0; i < child_count; i++){
+      if (afrfdp->fdstate[i]) {
+	STACK_WIND (frame,
+		    afr_selfheal_close_cbk,
+		    children[i],
+		    children[i]->fops->close,
+		    local->fd);
+	if (--cnt == 0)
+	  break;
+      }
+    }
+  } else if (op_ret > 0) {
+    dict_t *refs = NULL;
+    local->call_count--; /* we dont write on source */
+    local->op_ret = -1;
+    local->op_errno = ENOTCONN;
+    cnt = local->call_count;
+    frame->root->req_refs = refs = dict_ref (frame->root->rsp_refs);
+    for (i = 0; i < child_count; i++) {
+      if (children[i] == local->source->xl)
+	continue;
+      if (afrfdp->fdstate[i]) {
+	AFR_DEBUG_FMT (this, "write call on %s", children[i]->name);
+	STACK_WIND (frame,
+		    afr_selfheal_sync_file_writev_cbk,
+		    children[i],
+		    children[i]->fops->writev,
+		    local->fd,
+		    vector,
+		    count,
+		    local->offset);
+	if (--cnt == 0)
+	  break;
+      }
+    }
+    dict_unref (refs);
+  } else {
+    /* error during read */
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+    afr_error_during_sync(frame);
+  }
+  return 0;
+}
+
+int32_t
+afr_selfheal_sync_file (call_frame_t *frame,
+			xlator_t *this)
+{
+  afr_local_t *local = frame->local;
+  size_t readbytes = 128*1024;
+
+  AFR_DEBUG_FMT (this, "reading from offset %u", local->offset);
+
+  STACK_WIND (frame,
+	      afr_selfheal_sync_file_readv_cbk,
+	      local->source->xl,
+	      local->source->xl->fops->readv,
+	      local->fd,
+	      readbytes,
+	      local->offset);
+
+  return 0;
+}
+
+int32_t
+afr_selfheal_nosync_close_cbk (call_frame_t *frame,
+			       void *cookie,
+			       xlator_t *this,
+			       int32_t op_ret,
+			       int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  afr_local_t *local = frame->local;
+
+  AFR_DEBUG(this);
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0) {
+    char *lock_path = NULL;
+    AFR_DEBUG_FMT(this, "calling unlock on local->loc->path %s", local->loc->path);
+    asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);
+    STACK_WIND (frame,
+		afr_selfheal_unlock_cbk,
+		local->lock_node,
+		local->lock_node->mops->unlock,
+		lock_path);
+    FREE (lock_path);
+  }
+  return 0;
+}
+
+int32_t
+afr_selfheal_open_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       fd_t *fd)
+{
+  int32_t callcnt = 0;
+  afrfd_t *afrfdp = NULL;
+  afr_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
+
+  AFR_DEBUG_FMT (this, "op_ret = %d from %s", op_ret, prev_frame->this->name);
+  
+  afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
+
+  if (op_ret >= 0) {
+    GF_BUG_ON (!local->fd);
+    for (i = 0; i < child_count; i++)
+      if (prev_frame->this == children[i])
+	break;
+    afrfdp->fdstate[i] = 1;
+  } else {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0) {
+    int32_t src_open = 0, sync_file_cnt = 0;
+    for (i = 0; i < child_count; i++) {
+      if (afrfdp->fdstate[i]) {
+	sync_file_cnt++;
+	if (children[i] == local->source->xl)
+	  src_open = 1;
+      }
+    }
+    if (src_open  && (sync_file_cnt >= 2)) {
+      /* source open success + atleast a file to sync */
+      afr_selfheal_sync_file (frame, this);
+    } else {
+      local->call_count = sync_file_cnt;
+      for (i = 0; i < child_count; i++) {
+	if (afrfdp->fdstate[i])
+	  STACK_WIND (frame,
+		      afr_selfheal_nosync_close_cbk,
+		      children[i],
+		      children[i]->fops->close,
+		      local->fd);
+      }
+    }
+  }
+  return 0;
+}
+
+int32_t
+afr_selfheal_stat_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       struct stat *stat)
+{
+  int32_t cnt = 0;
+  afr_local_t *local = frame->local;
+  struct list_head *list = local->list;
+  afr_selfheal_t *ash, *source = local->source;
+
+  if (op_ret == 0) {
+    local->source->stat = *stat;
+  } else {
+    char *lock_path = NULL;
+    call_frame_t *open_frame = local->orig_frame;
+    afr_local_t *open_local = open_frame->local;
+
+    open_local->sh_return_error = 1;
+
+    asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);
+    GF_ERROR (this, "stat() on latest file failed (errno=%d), calling unlock on %s", 
+	      op_errno, lock_path);
+
+    STACK_WIND (frame,
+		afr_selfheal_unlock_cbk,
+		local->lock_node,
+		local->lock_node->mops->unlock,
+		lock_path);
+    FREE (lock_path);
+    return 0;
+  }
+
+  cnt = local->call_count;
+  list_for_each_entry (ash, list, clist) {
+    int32_t flags;
+    if (ash == source || ash->repair) {
+      if (ash == source)
+	flags = O_RDONLY;
+      else
+	flags = O_RDWR | O_TRUNC;
+      AFR_DEBUG_FMT (this, "open() on %s", ash->xl->name);
+      STACK_WIND (frame,
+		  afr_selfheal_open_cbk,
+		  ash->xl,
+		  ash->xl->fops->open,
+		  local->loc,
+		  flags,
+		  local->fd);
+      if (--cnt == 0)
+	break;
+      continue;
+    }
+  }
+  return 0;
+}
+
+
+/* TODO: crappy code, clean this function */
+
+int32_t
+afr_selfheal_getxattr_cbk (call_frame_t *frame,
+			   void *cookie,
+			   xlator_t *this,
+			   int32_t op_ret,
+			   int32_t op_errno,
+			   dict_t *dict)
+{
+  int32_t callcnt = 0;
+  afrfd_t *afrfdp = NULL;
+  afr_selfheal_t *ash = NULL;
+  afr_local_t *local = frame->local;
+  struct list_head *list = local->list;
+  call_frame_t *prev_frame = cookie;
+  afr_private_t *pvt = this->private;
+  int32_t child_count = pvt->child_count;
+
+  list_for_each_entry (ash, list, clist) {
+    if (prev_frame->this == ash->xl)
+      break;
+  }
+
+  if (op_ret >= 0) {
+    if (dict){
+      ash->dict = dict_ref (dict);
+      data_t *version_data = dict_get (dict, GLUSTERFS_VERSION);
+      if (version_data) {
+	/* version_data->data is NULL terminated bin data*/
+	ash->version = data_to_uint32 (version_data); 
+      } else {
+	AFR_DEBUG_FMT (this, "version attribute was not found on %s, defaulting to 1", 
+		       prev_frame->this->name)
+	ash->version = 1;
+	dict_set(ash->dict, GLUSTERFS_VERSION, bin_to_data("1", 1));
+      }
+      data_t *ctime_data = dict_get (dict, GLUSTERFS_CREATETIME);
+      if (ctime_data) {
+	/* ctime_data->data is NULL terminated bin data */
+	ash->ctime = data_to_uint32 (ctime_data);
+      } else {
+	ash->ctime = 0;
+      }
+
+      AFR_DEBUG_FMT (this, "op_ret = %d version = %u ctime = %u from %s", 
+		     op_ret, ash->version, ash->ctime, prev_frame->this->name);
+
+      ash->op_errno = 0;
+    }
+  } else {
+    AFR_DEBUG_FMT (this, "op_ret = %d from %s", op_ret, prev_frame->this->name);
+
+    if (op_errno != ENODATA) {
+      GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+		local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+    }
+
+    ash->op_errno = op_errno;
+    if (op_errno == ENODATA) {
+      ash->dict = dict_ref (dict);
+      ash->version = 1;
+      dict_set(ash->dict, GLUSTERFS_VERSION, bin_to_data("1", 1));
+      ash->ctime = 0;
+    }
+  }
+
+  LOCK(&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0) {
+    uint32_t latest = 0;
+    int32_t cnt = 0;
+    afr_selfheal_t *source = NULL;
+    int32_t ctime_repair = 0;
+
+    list_for_each_entry (ash, list, clist) {
+      if (ash->inode == NULL)
+	continue;
+      if (source == NULL) {
+	source = ash;
+	continue;
+      }
+      if (source->ctime != ash->ctime) {
+	ctime_repair = 1;
+	if (source->ctime < ash->ctime)
+	  source = ash;
+	continue;
+      }
+      if (source->ctime == ash->ctime && source->version < ash->version) {
+	source = ash;
+      }
+    }
+
+    if (ctime_repair) {
+      AFR_DEBUG_FMT(this, "create time difference! latest is %s", source->xl->name);
+      cnt = 0;
+      list_for_each_entry (ash, list, clist) {
+	cnt++;
+	if (ash == source) {
+	  AFR_DEBUG_FMT (this, "%s is the source", ash->xl->name);
+	  local->call_count++;
+	  continue;
+	}
+	if (ash->op_errno != 0) {
+	  continue;
+	}
+	if (source->ctime > ash->ctime) {
+	  AFR_DEBUG_FMT (this, "%s ctime is outdated", ash->xl->name);
+	  ash->repair = 1;
+	  local->call_count++;
+	  continue;
+	}
+	if (source->ctime == ash->ctime && source->version > ash->version) {
+	  AFR_DEBUG_FMT (this, "%s version is outdated", ash->xl->name);
+	  ash->repair = 1;
+	  local->call_count++;
+	}
+	AFR_DEBUG_FMT (this, "%s does not need repair", ash->xl->name);
+      }
+    } else {
+      source = NULL;
+      list_for_each_entry (ash, list, clist) {
+	AFR_DEBUG_FMT (this, "latest %d ash->version %d", latest, ash->version);
+	if (ash->inode) {
+	  if (latest == 0) {
+	    latest = ash->version;
+	    continue;
+	  }
+	  if (ash->version > latest)
+	    latest = ash->version;
+	}
+      }
+      if (latest == 0) {
+	char *lock_path = NULL;
+	asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);
+	AFR_DEBUG_FMT (this, "latest version is 0? or the file does not have verion attribute?");
+	STACK_WIND (frame,
+		    afr_selfheal_unlock_cbk,
+		    local->lock_node,
+		    local->lock_node->mops->unlock,
+		    lock_path);
+	FREE (lock_path);
+	return 0;
+      }
+
+      AFR_DEBUG_FMT (this, "latest version is %u", latest);
+      cnt = 0;
+      list_for_each_entry (ash, list, clist) {
+	cnt++;
+	if (latest == ash->version && source == NULL) {
+	  local->call_count++;
+	  AFR_DEBUG_FMT (this, "%s is latest, %d", ash->xl->name, local->call_count);
+	  source = ash;
+	  continue;
+	}
+
+	if (ash->op_errno != 0) 
+	  continue;             
+
+	if (latest > ash->version) {
+	  ash->repair = 1;
+	  local->call_count++;
+	  AFR_DEBUG_FMT (this, "%s version %d outdated, latest=%d, %d", 
+			 ash->xl->name, ash->version, latest, local->call_count);
+	}
+      }
+
+      if (local->call_count == 1) {
+	char *lock_path = NULL;
+	asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);
+	/* call_count would have got incremented for source */
+	AFR_DEBUG_FMT (this, "self heal NOT needed");
+	STACK_WIND (frame,
+		    afr_selfheal_unlock_cbk,
+		    local->lock_node,
+		    local->lock_node->mops->unlock,
+		    lock_path);
+	FREE (lock_path);
+	return 0;
+      }
+    }
+
+    GF_DEBUG (this, "self-heal needed (path=%s source=%s)", 
+	      local->loc->path, source->xl->name);
+
+    local->source = source;
+    local->fd = calloc (1, sizeof(fd_t));
+    ERR_ABORT (local->fd);
+    local->fd->ctx = get_new_dict();
+    afrfdp = calloc (1, sizeof (*afrfdp));
+    ERR_ABORT (afrfdp);
+    afrfdp->fdstate = calloc (child_count, sizeof (char));
+    ERR_ABORT (afrfdp->fdstate);
+    dict_set (local->fd->ctx, this->name, data_from_static_ptr (afrfdp));
+    local->fd->inode = local->loc->inode;
+    cnt = local->call_count;
+
+    STACK_WIND (frame,
+		afr_selfheal_stat_cbk,
+		source->xl,
+		source->xl->fops->stat,
+		local->loc);
+  }
+
+  return 0;
+}
+
+int32_t
+afr_selfheal_lock_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
+{
+  int32_t totcnt = 0;
+  afr_selfheal_t *ash, *ashtemp;
+  afr_local_t *local = frame->local;
+  struct list_head *list = local->list;
+  call_frame_t *prev_frame = cookie;
+
+  AFR_DEBUG_FMT(this, "op_ret = %d", op_ret, op_errno);
+
+  if (op_ret == -1) {
+    AFR_DEBUG_FMT (this, "locking failed!");
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+
+    call_frame_t *open_frame = local->orig_frame;
+    afr_local_t *open_local = open_frame->local;
+    open_local->sh_return_error = 1;
+    call_resume(local->stub);
+    FREE (local->loc->path);
+    FREE (local->loc);
+    if (local->fd) {
+      afrfd_t *afrfdp;
+      afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
+      FREE(afrfdp->fdstate);
+      /* afrfdp is freed in dict_destroy */
+      dict_destroy (local->fd->ctx);
+      FREE (local->fd);
+    }
+    list_for_each_entry_safe (ash, ashtemp, list, clist) {
+      list_del (&ash->clist);
+      if (ash->dict)
+	dict_unref (ash->dict);
+      FREE (ash);
+    }
+    FREE (list);
+    STACK_DESTROY (frame->root);
+    return 0;
+  }
+
+  list_for_each_entry (ash, list, clist) {
+    if(ash->inode)
+      local->call_count++;
+  }
+
+  totcnt = local->call_count;
+  list_for_each_entry (ash, list, clist) {
+    if (ash->inode) {
+      AFR_DEBUG_FMT (this, "calling getxattr on %s", ash->xl->name);
+      STACK_WIND (frame,
+		  afr_selfheal_getxattr_cbk,
+		  ash->xl,
+		  ash->xl->fops->getxattr,
+		  local->loc,
+		  NULL);
+      if (--totcnt == 0)
+	break;
+    }
+  }
+
+  return 0;
+}
+
+
+int32_t
+afr_selfheal (call_frame_t *frame,
+	      xlator_t *this,
+	      call_stub_t *stub,
+	      loc_t *loc)
+{
+  int32_t i, lock_node = 0;
+  char *child_errno = NULL;
+  char *lock_path = NULL;
+  afr_selfheal_t *ash;
+  call_frame_t *shframe = copy_frame (frame);
+  afr_local_t *shlocal = NULL;
+  struct list_head *list = NULL;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count;
+
+  shlocal = calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (shlocal);
+  list = calloc (1, sizeof (*list));
+  ERR_ABORT (list);
+
+
+
+  AFR_DEBUG(this);
+
+  child_errno = data_to_ptr (dict_get (loc->inode->ctx, this->name));
+
+  for (i = 0; i < child_count; i++) {
+    if (pvt->state[i])
+      break;
+  }
+  if (i == child_count) {
+    GF_ERROR (this, "none of the children are up for locking, returning EIO");
+
+    FREE (list);
+    FREE (shlocal);
+    STACK_DESTROY (shframe->root); /* copy_frame() allocates some memory, free it */
+    STACK_UNWIND (frame, -1, EIO, NULL);
+    return 0;
+  }
+
+  lock_node = i;
+  INIT_LIST_HEAD (list);
+  shframe->local = shlocal;
+  shlocal->list = list;
+  shlocal->loc = calloc (1, sizeof (loc_t));
+  ERR_ABORT (shlocal->loc);
+  shlocal->loc->path = strdup (loc->path);
+  shlocal->loc->inode = loc->inode;
+  shlocal->orig_frame = frame;
+  shlocal->stub = stub;
+
+  ((afr_local_t*)frame->local)->shcalled = 1;
+
+  shframe->root->uid = 0;
+  shframe->root->gid = 0;
+  for (i = 0; i < child_count; i++) {
+    ash = calloc (1, sizeof (*ash));
+    ERR_ABORT (ash);
+    ash->xl = children[i];
+    if (child_errno[i] == 0)
+      ash->inode = (void*)1;
+    ash->op_errno = child_errno[i];
+    list_add_tail (&ash->clist, list);
+  }
+
+  AFR_DEBUG_FMT (this, "locking the node %s", children[lock_node]->name);
+
+  shlocal->lock_node = children[lock_node];
+  asprintf (&lock_path, "/%s%s", children[lock_node]->name, loc->path);
+  STACK_WIND (shframe,
+	      afr_selfheal_lock_cbk,
+	      children[lock_node],
+	      children[lock_node]->mops->lock,
+	      lock_path);
+  FREE (lock_path);
+
+  return 0;
+}
+
+
+int32_t
+afr_open_cbk (call_frame_t *frame,
+	      void *cookie,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      fd_t *fd)
+{
+  int32_t callcnt, i;
+  afr_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count;
+
+  AFR_DEBUG(this);
+
+  if (op_ret == -1 && op_errno != ENOTCONN) {
+    local->op_errno = op_errno;
+  }
+
+  if (op_ret >= 0 && local->op_ret == -1) {
+    local->op_ret = op_ret;
+  }
+  if (op_ret == -1) {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
+
+  LOCK (&frame->lock);
+  {
+    if (op_ret >= 0) {
+      GF_BUG_ON (!fd);
+      afrfd_t *afrfdp;
+      data_t *afrfdp_data;
+      afrfdp_data = dict_get (fd->ctx, this->name);
+      if (afrfdp_data == NULL) {
+	/* first successful open_cbk */
+	afrfdp = calloc (1, sizeof (afrfd_t));
+	ERR_ABORT (afrfdp);
+	afrfdp->fdstate = calloc (child_count, sizeof (char));
+	ERR_ABORT (afrfdp->fdstate);
+	afrfdp->fdsuccess = calloc (child_count, sizeof (char));
+	ERR_ABORT (afrfdp->fdsuccess);
+	/* path will be used during close to increment version */
+	afrfdp->path = strdup (local->loc->path);
+	dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
+	/* we use the path here just for debugging */
+	if (local->flags & O_TRUNC)
+	  afrfdp->write = 1;
+      } else {
+	afrfdp = data_to_ptr (afrfdp_data);
+      }
+
+      for (i = 0; i < child_count; i++) {
+	if (children[i] == prev_frame->this)
+	  break;
+      }
+
+      /* 1 indicates open success, 0 indicates failure */
+      afrfdp->fdstate[i] = 1;
+      afrfdp->fdsuccess[i] = 1;
+    }
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0) {
+    afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
+    if (local->op_ret != -1) {
+      if (pvt->read_node == -1 || afrfdp->fdstate[pvt->read_node] == 0) {
+	int32_t rchild = 0, alive_children = 0;
+	for (i = 0; i < child_count; i++) {
+	  if (afrfdp->fdstate[i]) {
+	    /* op_ret != -1 implies atleast one increment */
+	    alive_children++;
+	  }
+	}
+	rchild = local->loc->inode->ino % alive_children;
+	/* read schedule among alive children */
+	for (i = 0; i < child_count; i++) {
+	  if (afrfdp->fdstate[i] == 1) {
+	    if (rchild == 0)
+	      break;
+	    rchild--;
+	  }
+	}
+	afrfdp->rchild = i;
+      } else {
+	afrfdp->rchild = pvt->read_node;
+      }
+    }
+
+    afr_loc_free (local->loc);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
+  }
+  return 0;
+}
+
+int32_t
+afr_open (call_frame_t *frame,
+	  xlator_t *this,
+	  loc_t *loc,
+	  int32_t flags,
+	  fd_t *fd)
+{
+  int32_t i = 0;
+  afr_local_t *local; 
+  char *afr_errno = NULL;
+  char *child_errno = NULL;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count;
+
+  AFR_DEBUG_FMT (this, "loc->path = %s loc->inode = %p", loc->path, loc->inode);
+
+  afr_errno = data_to_ptr (dict_get (loc->inode->ctx, this->name));
+
+  if (afr_errno == NULL) {
+    if (loc->inode->ctx == NULL) {
+      GF_ERROR (this, "inode->ctx is NULL, returning EIO");
+    }
+    GF_ERROR (this, "afr_errno is NULL, returning EIO");
+    STACK_UNWIND (frame, -1, EIO, fd);
+    return 0;
+  }
+
+  AFR_ERRNO_DUP(child_errno, afr_errno, child_count);
+
+  for (i = 0; i < child_count; i++) {
+    if (child_errno[i] == 0)
+      break;
+  }
+
+  if (i == child_count) {
+    GF_ERROR (this, "%s: child_errno[] is not 0, returning -1 (%s)",
+	      loc->path, strerror (child_errno[0]));
+    STACK_UNWIND (frame, -1, child_errno[0], NULL);
+    return 0;
+  }
+
+  if (frame->local == NULL) {
+    frame->local = (void *) calloc (1, sizeof (afr_local_t));
+    ERR_ABORT (frame->local);
+  }
+  local = frame->local;
+  
+  if (((afr_private_t *) this->private)->self_heal) {
+    AFR_DEBUG_FMT (this, "self heal enabled");
+    if (local->sh_return_error) {
+      GF_ERROR (this, "(path=%s) self heal failed, returning EIO", loc->path);
+      STACK_UNWIND (frame, -1, EIO, fd);
+      return 0;
+    }
+    if (local->shcalled == 0) {
+      call_stub_t *stub = fop_open_stub (frame, afr_open, loc, flags, fd);
+      AFR_DEBUG_FMT (this, "self heal checking...");
+      afr_selfheal (frame, this, stub, loc);
+      return 0;
+    }
+    AFR_DEBUG_FMT (this, "self heal already called");
+  } else {
+    AFR_DEBUG_FMT (this, "self heal disabled");
+  }
+
+  local->op_ret = -1;
+  local->op_errno = ENOTCONN;
+  local->flags = flags;
+  local->loc = afr_loc_dup (loc);
+  local->fd = fd;
+  for (i = 0; i < child_count; i++) {
+    if (child_errno[i] == 0)
+      ++local->call_count;
+  }
+
+  for (i = 0; i < child_count; i++) {
+    if (child_errno[i] == 0)
+      STACK_WIND (frame,
+		  afr_open_cbk,
+		  children[i],
+		  children[i]->fops->open,
+		  loc,
+		  flags,
+		  fd);
+  }
+
   return 0;
 }
 
@@ -1491,541 +2594,9 @@ afr_readv (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-afr_lock_servers_gf_lk_cbk (call_frame_t *frame,
-			    void *cookie,
-			    xlator_t *this,
-			    int32_t op_ret,
-			    int32_t op_errno,
-			    struct flock *flock)
-{
-  afr_lock_local_t *local = frame->local;
-  afr_private_t *pvt = this->private;
-  xlator_t **children = pvt->children;
-  int32_t child_count = pvt->child_count, i, callcnt = 0, cnt = 0;
-  call_frame_t *prev_frame = cookie;
-  struct flock flockt;
-  afrfd_t *afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
-
-  for (i = 0; i < child_count; i++) {
-    if (prev_frame->this == children[i])
-      break;
-  }
-
-  GF_TRACE (this, "(child=%s) (op_ret=%d, op_errno=%d)", children[i]->name, op_ret, op_errno);
-  if (op_ret == -1) {
-    GF_ERROR (this, "(child=%s) (op_ret=%d, op_errno=%d)", children[i]->name, op_ret, op_errno);
-    local->error = 1;
-    local->locked[i] = op_errno;
-  }
-  LOCK (&frame->lock);
-  callcnt = --local->call_count;
-  UNLOCK (&frame->lock);
-
-  if (callcnt == 0) {
-    if (local->unlock == 0) {
-      for (i = 0; i < child_count; i++) {
-	if (local->locked[i])
-	  break;
-      }
-      if ((i < child_count)){
-	flockt.l_type = F_UNLCK;
-	flockt.l_whence = SEEK_SET;
-	flockt.l_start = local->offset;
-	flockt.l_len = local->length;
-	flockt.l_pid = frame->root->uid;
-	local->unlock = 1;
-	for (i = 0; i < child_count; i++) {
-	  if (local->locked[i] == 0 && afrfdp->fdstate[i])
-	    local->call_count++;
-	}
-	cnt = local->call_count;
-	if (cnt) {
-	  for (i = 0; i < child_count; i++) {
-	    if (local->locked[i] == 0 && afrfdp->fdstate[i]) {
-	      STACK_WIND (frame,
-			  afr_lock_servers_gf_lk_cbk,
-			  children[i],
-			  children[i]->fops->gf_lk,
-			  local->fd,
-			  F_SETLK,
-			  &flockt);
-	      if (--cnt == 0)
-		break;
-	    }
-	  }
-	  return 0;
-	}
-      }
-    }
-    if (local->returnfn == afr_wrft)
-      afr_wrft(frame);
-    else if (local->returnfn == afr_open)
-      afr_open (frame, this, local->loc, local->flags, local->fd);
-    else GF_ERROR (this, "local->returnfn is NULL!");
-  }
-  return 0;
-}
-
-int32_t
-afr_lock_servers (call_frame_t *frame)
-{
-  afr_lock_local_t *local = frame->local;
-  afr_private_t *pvt = frame->this->private;
-  xlator_t **children = pvt->children, *this = frame->this;
-  struct flock flock;
-  afrfd_t *afrfdp = NULL;
-  int i, child_count = pvt->child_count, cnt = 0;
-
-  afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
-
-  flock.l_type = F_WRLCK;
-  flock.l_whence = SEEK_SET;
-  flock.l_start = local->offset;
-  flock.l_len = local->length;
-  flock.l_pid = frame->root->uid;
-
-  for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i])
-      cnt++;
-  }
-
-  if (cnt == 0) {
-    GF_ERROR (this, "cnt is 0 for afrfdp->state[]");
-    return 0;
-  }
-  local->call_count = cnt;
-  for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i]) {
-      STACK_WIND (frame,
-		  afr_lock_servers_gf_lk_cbk,
-		  children[i],
-		  children[i]->fops->gf_lk,
-		  local->fd,
-		  F_SETLK,
-		  &flock);
-      if (--cnt == 0)
-	break;
-    }
-  }
-
-  return 0;
-}
-
-int32_t
-afr_unlock_servers (call_frame_t *frame)
-{
-  afr_lock_local_t *local = frame->local;
-  afr_private_t *pvt = frame->this->private;
-  xlator_t **children = pvt->children, *this = frame->this;
-  struct flock flock;
-  afrfd_t *afrfdp = NULL;
-  int i, child_count = pvt->child_count, cnt = 0;
-
-  afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
-
-  flock.l_type = F_UNLCK;
-  flock.l_whence = SEEK_SET;
-  flock.l_start = local->offset;
-  flock.l_len = local->length;
-  flock.l_pid = frame->root->uid;
-  local->unlock = 1;
-
-  for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i])
-      cnt++;
-  }
-
-  if (cnt == 0) {
-    GF_ERROR (this, "cnt is 0 for afrfdp->state[]");
-    return 0;
-  }
-  local->call_count = cnt;
-  for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i]) {
-      STACK_WIND (frame,
-		  afr_lock_servers_gf_lk_cbk,
-		  children[i],
-		  children[i]->fops->gf_lk,
-		  local->fd,
-		  F_SETLK,
-		  &flock);
-    if (--cnt == 0)
-      break;
-    }
-  }
-
-  return 0;
-}
-
-int32_t
-afr_writev_writev_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       struct stat *stbuf)
-{
-  int callcnt;
-  afr_lock_local_t *local = frame->local;
-  afr_private_t *pvt = this->private;
-  xlator_t **children = pvt->children;
-  int32_t child_count = pvt->child_count, i;
-  call_frame_t *prev_frame = cookie;
-
-  local->stbuf = *stbuf;
-
-  for (i = 0; i < child_count; i++) {
-    if (prev_frame->this == children[i])
-      break;
-  }
-
-  GF_TRACE (this, "(child=%s fd=0x%x) (op_ret=%d, op_errno=%d)", children[i]->name, local->fd, op_ret, op_errno);
-  if (op_ret == -1)
-    GF_ERROR (this, "(child=%s fd=0x%x) (op_ret=%d, op_errno=%d)", children[i]->name, local->fd, op_ret, op_errno);
-
-  LOCK (&frame->lock);
-  if (op_ret == -1) {
-    afrfd_t *afrfdp = NULL;
-    afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
-    afrfdp->fdstate[i] = 0;
-    /* local->callres[i] = 0;  mark it as failure */
-    if (op_errno != ENOTCONN)
-      local->op_errno = op_errno;
-  }
-
-  if (op_ret != -1 && local->op_ret == -1) {
-    local->op_ret = op_ret;
-    local->stbuf = *stbuf;
-  }
-  callcnt = --local->call_count;
-  UNLOCK (&frame->lock);
-
-  if (callcnt == 0) {
-    afr_wrft(frame);
-  }
-  return 0;
-}
-
-dict_t *afr_dict_new (xlator_t **children, char *fdsuccess, int child_count)
-{
-  dict_t *dict = get_new_dict();
-  char key[BUFSIZ];
-  data_t *val;
-  int i;
-
-  val = bin_to_data ("1", 1);
-
-  for (i = 0; i < child_count; i++) {
-    if (fdsuccess[i] == 0)
-      continue;
-    strcpy (key, "trusted.glusterfs.afr.");
-    strcat (key, children[i]->name);
-    dict_set (dict, key, val);
-  }
-
-  return dict;
-}
-
-int32_t
-afr_writev_xattrop_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno,
-			dict_t *xattr)
-{
-  /* FIXME: assume success for now */
-  afr_lock_local_t *local = frame->local;
-  afr_private_t *pvt = this->private;
-  xlator_t **children = pvt->children;
-  int32_t child_count = pvt->child_count, i, callcnt;
-  call_frame_t *prev_frame = cookie;
-
-  for (i = 0; i < child_count; i++) {
-    if (prev_frame->this == children[i])
-      break;
-  }
-
-  GF_TRACE (this, "(child=%s fd=0x%x) (op_ret=%d, op_errno=%d)", children[i]->name, local->fd, op_ret, op_errno);
-  if (op_ret == -1)
-    GF_ERROR (this, "(child=%s fd=0x%x) (op_ret=%d, op_errno=%d)", children[i]->name, local->fd, op_ret, op_errno);
-
-  LOCK(&frame->lock);
-  if (op_ret == -1) {
-    afrfd_t *afrfdp = NULL;
-    afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
-    afrfdp->fdstate[i] = 0;
-    /* local->callres[i] = 0; mark it as failure */
-    if (op_errno != ENOTCONN)
-      local->op_errno = op_errno;
-  }
-  callcnt = --local->call_count;
-  UNLOCK(&frame->lock);
-
-  if (callcnt == 0) {
-    afr_wrft(frame);
-  }
-
-  return 0;
-}
-
-/*
-int32_t
-afr_writev_incver (call_frame_t *frame)
-{
-  afr_lock_local_t *local = NULL;
-  xlator_t *this = frame->this;
-  afr_private_t *pvt = this->private;
-  xlator_t **children = pvt->children;
-  int32_t child_count = pvt->child_count, i;
-  afrfd_t *afrfdp = NULL;
-
-  local = frame->local;
-  afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
-
-  for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i] == 0)
-      continue;
-    GF_TRACE (this, "calling xattrop/INC on %s", children[i]->name);
-    STACK_WIND (frame,
-		afr_writev_xattrop_cbk,
-		children[i],
-		children[i]->fops->xattrop,
-		local->fd,
-		"",
-		GF_XATTROP_INC,
-		pvt->shdict[i]);
-  }
-  return 0;
-}
-*/
-
-int32_t
-afr_wrft (call_frame_t *frame)
-{
-  afr_lock_local_t *local = NULL;
-  xlator_t *this = frame->this;
-  afr_private_t *pvt = this->private;
-  xlator_t **children = pvt->children;
-  int32_t child_count = pvt->child_count, i, cnt;
-  afrfd_t *afrfdp = NULL;
-
-  local = frame->local;
-  GF_TRACE (this, "--- fd=0x%x", local->fd);
-
-  afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
-  if (afrfdp == NULL) {
-    GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
-    STACK_UNWIND (frame, -1, EBADFD, NULL);
-    return 0;
-  }
-
-  switch (local->label) {
-  case AFR_WRFT_1:
-    goto AFR_WRFT_1_GOTO;
-  case AFR_WRFT_2:
-    goto AFR_WRFT_2_GOTO;
-  case AFR_WRFT_3:
-    goto AFR_WRFT_3_GOTO;
-  case AFR_WRFT_4:
-    goto AFR_WRFT_4_GOTO;
-  case AFR_WRFT_5:
-    goto AFR_WRFT_5_GOTO;
-  default:
-    GF_ERROR (this, "local->label = %d, error!", local->label);
-  }
-
- AFR_WRFT_1_GOTO:
-  GF_TRACE (this, "AFR_WRFT_1_GOTO");
-  local->label = AFR_WRFT_2;
-  local->returnfn = afr_wrft;
-  local->locked = calloc (1, child_count);
-
-  /* local->callres = calloc (1, child_count); */
-  GF_TRACE (this, "locking servers");
-  afr_lock_servers (frame);
-  return 0;
-
- AFR_WRFT_2_GOTO:
-  GF_TRACE (this, "ARF_WRFT_2_GOTO");
-  cnt = 0;
-  if (local->error) {
-    /*
-    if (local->lockcnt == 5) {
-      GF_ERROR (this, "error during locking");
-      goto AFR_WRFT_ERROR;
-    }
-    local->lockcnt++;
-    */
-    for (i = 0; i < child_count; i++) {
-      if (local->locked[i] == ENOTCONN)
-	cnt++;
-    }
-    for (i = 0; i < child_count; i++) {
-      if (afrfdp->fdstate[i])
-	cnt--;
-    }
-    if (cnt == 0) {
-      GF_ERROR (this, "error during locking");
-      goto AFR_WRFT_ERROR;
-    }
-    GF_TRACE (this, "locking failed, retrying");
-    local->error = 0;
-    memset (local->locked, 0, child_count);
-    local->unlock = 0;
-    afr_lock_servers (frame);
-    return 0;
-  }
-  for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i]) {
-      local->call_count += 2; /* xattrop/INC + writev */
-      /* local->callres[i] = 1; mark it as success */
-    } else;
-      /* local->callres[i] = 0; mark it as failure */
-  }
-  cnt = local->call_count;
-  GF_TRACE (this, "local->call_count = %d", local->call_count);
-  if (local->call_count == 0) {
-    GF_ERROR (this, "afrfdp->fdstate[i] is 0, returning EBADFD");
-    local->op_errno = EBADFD;
-    goto AFR_WRFT_ERROR;
-  }
-
-  local->label = AFR_WRFT_3;
-  for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i]) {
-      GF_TRACE (this, "calling xattrop/INC on %s", children[i]->name);
-      STACK_WIND (frame,
-		  afr_writev_xattrop_cbk,
-		  children[i],
-		  children[i]->fops->xattrop,
-		  local->fd,
-		  "",
-		  GF_XATTROP_INC,
-		  pvt->shdict[i]);
-      switch (local->fop) {
-      case AFR_FOP_WRITEV:
-	GF_TRACE (this, "calling write()");
-	STACK_WIND (frame,
-		    afr_writev_writev_cbk,
-		    children[i],
-		    children[i]->fops->writev,
-		    local->fd,
-		    local->vector,
-		    local->count,
-		    local->offset);
-	break;
-      case AFR_FOP_FTRUNCATE:
-	GF_TRACE (this, "calling ftruncate()");
-	STACK_WIND (frame,
-		    afr_writev_writev_cbk,
-		    children[i],
-		    children[i]->fops->ftruncate,
-		    local->fd,
-		    local->offset);
-	break;
-      default:
-	GF_ERROR (this, "default case, can't be reached");
-      }
-      cnt = cnt - 2;
-      if (cnt == 0)
-	break;
-    }
-  }
-  return 0;
-
- AFR_WRFT_3_GOTO:
-  GF_TRACE (this, "AFR_WRITEV_3_GOTO");
-  cnt = 0;
-  for (i = 0; i < child_count; i++) {
-    /*    if (local->callres[i])
-      cnt++;
-    */
-    if (afrfdp->fdstate[i])
-      cnt++;
-  }
-
-  /* if cnt is 1, we dont have to DEC anywhere */
-  if (cnt == 0) {
-    GF_TRACE (this, "afrfdp->fdstate[] is 0, xattr/DEC not needed");
-    goto AFR_WRFT_4_GOTO;
-  } else if (cnt == 1) {
-    GF_TRACE (this, "only one child up, xattr/DEC not needed");
-    goto AFR_WRFT_4_GOTO;
-  }
-
-  local->call_count = cnt;
-  local->label = AFR_WRFT_4;
-  for (i = 0; i < child_count; i++) {
-    /* if (local->callres[i]) { */
-    if (afrfdp->fdstate[i]) {
-      dict_t *xattr;
-      /* temporarily make it 0 so that afr_dict_new works as expected */
-      /*
-      local->callres[i] = 0;
-      xattr = afr_dict_new (children, local->callres, child_count);
-      local->callres[i] = 1;
-      */
-      afrfdp->fdstate[i] = 0;
-      xattr = afr_dict_new (children, afrfdp->fdstate, child_count);
-      afrfdp->fdstate[i] = 1;
-      STACK_WIND (frame,
-		  afr_writev_xattrop_cbk,
-		  children[i],
-		  children[i]->fops->xattrop,
-		  local->fd,
-		  "",
-		  GF_XATTROP_DEC,
-		  xattr);
-      dict_destroy (xattr);
-      if (--cnt == 0)
-	break;
-    }
-  }
-  return 0;
-
- AFR_WRFT_4_GOTO:
-  GF_TRACE (this, "AFR_WRITEV_4_GOTO");
-  cnt = 0;
-  for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i])
-      cnt++;
-  }
-  if (cnt == 0) {
-    GF_ERROR (this, "afrfdp->fdstate[] is 0");
-    goto AFR_WRFT_ERROR;
-  }
-
-  local->label = AFR_WRFT_5;
-  GF_TRACE (this, "unlocking servers");
-  afr_unlock_servers(frame);
-  return 0;
-
- AFR_WRFT_5_GOTO:
-  GF_TRACE (this, "AFR_WRFT_5");
-  if (local->error)
-    goto AFR_WRFT_ERROR;
-  GF_TRACE (this, "unwinding (op_ret=%d, op_errno=%d)", local->op_ret, local->op_errno);
-  if (local->vector)
-    FREE (local->vector);
-  /*  FREE (local->callres); */
-  FREE (local->locked);
-  if (local->req_refs)
-     dict_unref (local->req_refs);
-  STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
-  return 0;
- AFR_WRFT_ERROR:
-  GF_TRACE (this, "AFR_WRFT_ERROR (op_ret=-1, op_errno=%d)", local->op_errno);
-  if (local->vector)
-    FREE (local->vector);
-  /*  FREE (local->callres); */
-  FREE (local->locked);
-  if (local->req_refs)
-    dict_unref (local->req_refs);
-  STACK_UNWIND (frame, -1, local->op_errno, NULL);
-  return 0;
-}
+/* FIXME if one write fails, we should not increment version on 
+ * the other subvols
+ */
 
 int32_t
 afr_writev_cbk (call_frame_t *frame,
@@ -2036,13 +2607,13 @@ afr_writev_cbk (call_frame_t *frame,
 		struct stat *stat)
 {
   int32_t callcnt = 0;
-  afr_lock_local_t *local = frame->local;
+  afr_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
   afr_private_t *pvt = this->private;
   int32_t child_count = pvt->child_count, i;
   xlator_t **children = pvt->children;
 
-  GF_TRACE (this, "(child=%s) op_ret=%d op_errno=%d", prev_frame->this->name, op_ret, op_errno);
+  AFR_DEBUG_FMT(this, "op_ret %d op_errno %d", op_ret, op_errno);
 
   LOCK (&frame->lock);
   {
@@ -2097,67 +2668,116 @@ afr_writev (call_frame_t *frame,
 	    int32_t count,
 	    off_t offset)
 {
-  afr_lock_local_t *local = NULL;
-  afrfd_t *afrfdp = NULL;
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
-  int32_t child_count = pvt->child_count, i, cnt = 0;
   xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
+  afrfd_t *afrfdp = NULL;
 
-  GF_TRACE (this, "fd=%x, offset=%llu", fd, offset);
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
+
+  AFR_DEBUG_FMT(this, "fd %p", fd);
+
   afrfdp = data_to_ptr (dict_get (fd->ctx, this->name));
   if (afrfdp == NULL) {
+    FREE (local);
     GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
 
-  frame->local = local = calloc (1, sizeof(*local));
+  for (i = 0; i < child_count; i++) {
+    if (afrfdp->fdstate[i])
+      ++local->call_count;
+  }
+
+  if (local->call_count == 0) {
+    FREE (local);
+    GF_ERROR (this, "afrfdp->fdstate[] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    return 0;
+  }
+
+  frame->local = local;
+ 
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
   local->fd = fd;
   local->ino = fd->inode->ino;
   local->stat_child = child_count;
 
-  if (pvt->self_heal == 0) {
-    for (i = 0; i < child_count; i++) {
-      if (afrfdp->fdstate[i])
-	cnt++;
+  afrfdp->write = 1;
+
+  for (i = 0; i < child_count; i++) {
+    if (afrfdp->fdstate[i]) {
+      STACK_WIND (frame,
+		  afr_writev_cbk,
+		  children[i],
+		  children[i]->fops->writev,
+		  fd,
+		  vector,
+		  count,
+		  offset);
     }
-    local->call_count = cnt;
-    if (local->call_count == 0) {
-      STACK_UNWIND (frame, -1, EBADFD, NULL);
-      return 0;
-    }
-    for (i = 0; i < child_count; i++) {
-      if (afrfdp->fdstate[i]) {
-	STACK_WIND (frame,
-		    afr_writev_cbk,
-		    children[i],
-		    children[i]->fops->writev,
-		    fd,
-		    vector,
-		    count,
-		    offset);
-	if (--cnt == 0)
-	  break;
-      }
-    }
-    return 0;
   }
 
-  if (frame->root->req_refs)
-    local->req_refs = dict_ref (frame->root->req_refs);
-
-  local->vector = iov_dup (vector, count);
-  local->count = count;
-  local->offset = offset;
-  local->length = iov_length (local->vector, local->count);
-  local->fop = AFR_FOP_WRITEV;
-  local->label = AFR_WRFT_1;
-
-  afr_wrft (frame);
   return 0;
 }
+
+
+int32_t
+afr_ftruncate_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct stat *stbuf)
+{
+  int32_t callcnt = 0;
+  afr_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+  afr_private_t *pvt = this->private;
+
+  AFR_DEBUG(this);
+
+  if (op_ret != 0 && op_errno != ENOTCONN) {
+    local->op_errno = op_errno;
+  }
+
+  if (op_ret == -1) {
+    afrfd_t *afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
+  if (op_ret == 0)
+    GF_BUG_ON (!stbuf);
+
+  LOCK (&frame->lock);
+  {
+    if (op_ret == 0 && local->op_ret == -1) {
+      local->op_ret = op_ret;
+      local->stbuf = *stbuf;
+    }
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0) {
+    if (local->op_ret == 0) {
+      if (pvt->self_heal) {
+	afr_incver_internal_fd (frame, this, local->fd);
+      } else {
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+      }
+    } else {
+      STACK_UNWIND (frame, local->op_ret, local->op_errno, NULL);
+    }
+  }
+  return 0;
+}
+
 
 int32_t
 afr_ftruncate (call_frame_t *frame,
@@ -2165,28 +2785,51 @@ afr_ftruncate (call_frame_t *frame,
 	       fd_t *fd,
 	       off_t offset)
 {
-  afr_lock_local_t *local = NULL;
+  afr_local_t *local = NULL;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
   afrfd_t *afrfdp = NULL;
 
-  GF_TRACE (this, "fd=%x, offset=%llu", fd, offset);
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
+  AFR_DEBUG_FMT(this, "fd %p", fd);
+
   afrfdp = data_to_ptr (dict_get (fd->ctx, this->name));
   if (afrfdp == NULL) {
+    free (local);
     GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
 
-  frame->local = local = calloc (1, sizeof(*local));
-
+  frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
   local->fd = fd;
-  local->offset = offset;
-  local->length = LLONG_MAX;
-  local->fop = AFR_FOP_FTRUNCATE;
-  local->label = AFR_WRFT_1;
+  afrfdp->write = 1;
+  for (i = 0; i < child_count; i++) {
+    if (afrfdp->fdstate[i])
+      ++local->call_count;
+  }
+  if (local->call_count == 0) {
+    GF_ERROR (this, "afrfdp->fdstate[] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    return 0;
+  }
 
-  afr_wrft (frame);
+  for ( i = 0; i < child_count; i++) {
+    if (afrfdp->fdstate[i]) {
+      STACK_WIND(frame,
+		 afr_ftruncate_cbk,
+		 children[i],
+		 children[i]->fops->ftruncate,
+		 fd,
+		 offset);
+    }
+  }
+
   return 0;
 }
 
@@ -2422,6 +3065,15 @@ afr_close (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
 
+  if (((afr_private_t*) this->private)->self_heal && 
+      (afrfdp->write || afrfdp->create)) {
+    AFR_DEBUG_FMT (this, "self heal enabled, increasing the version count");
+    local->close = 1;
+    afr_incver_internal_fd (frame, this, fd);
+    return 0;
+  }
+
+  AFR_DEBUG_FMT (this, "self heal disabled or write was not done or fdstate[] is 0");
   for (i = 0; i < child_count; i++) {
     if (afrfdp->fdsuccess[i])
       local->call_count++;
@@ -2430,7 +3082,6 @@ afr_close (call_frame_t *frame,
   cnt = local->call_count;
 
   if (cnt == 0) {
-    GF_ERROR (this, "afrfdp->fdstate[] is 0, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -2742,10 +3393,11 @@ afr_stat (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] is not 0, returning ENOTCONN");
+    GF_ERROR (this, "child_errno[] is not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
     STACK_UNWIND (frame,
 		  -1,
-		  ENOTCONN,
+		  child_errno[0],
 		  NULL);
     return 0;
   }
@@ -2778,7 +3430,7 @@ afr_statfs_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
 
   if (op_ret == -1) {
-    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)",
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
 	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
@@ -2830,92 +3482,70 @@ afr_statfs (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-afr_truncate_close_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno)
-{
-  afr_local_t *local = frame->local;
-
-  GF_TRACE (this, "(path=%s) (op_ret=%d, op_errno=%d)", local->path, op_ret, op_errno);
-
-  if (op_ret == -1) {
-    GF_ERROR (this, "(path=%s) (op_ret=%d, op_errno=%d)", local->path, op_ret, op_errno);
-    return 0;
-  }
-
-  FREE (local->path);
-  dict_destroy (local->fd->ctx);
-  FREE (local->fd);
-
-  if (local->sh_return_error) {
-    GF_ERROR (this, "there was error on ftruncate, returning error");
-    STACK_UNWIND (frame, -1, local->op_errno, NULL);
-    return 0;
-  }
-
-  STACK_UNWIND (frame, op_ret, 0, &local->stbuf);
-  return 0;
-}
 
 int32_t
-afr_truncate_ftruncate_cbk (call_frame_t *frame,
-			    void *cookie,
-			    xlator_t *this,
-			    int32_t op_ret,
-			    int32_t op_errno,
-			    struct stat *stbuf)
+afr_truncate_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *stbuf)
 {
+  int32_t i, callcnt = 0;
   afr_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count;
 
-  GF_TRACE (this, "(path=%s) (op_ret=%d, op_errno=%d)", local->path, op_ret, op_errno);
+  AFR_DEBUG(this);
 
-  if (op_ret == -1) {
-    GF_ERROR (this, "(path=%s) (op_ret=%d, op_errno=%d)", local->path, op_ret, op_errno);
-    local->sh_return_error = 1;
+  if (op_ret != 0 && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
-  } else
-    local->stbuf = *stbuf;
-
-  STACK_WIND (frame,
-	      afr_truncate_close_cbk,
-	      this,
-	      this->fops->close,
-	      local->fd);
-  return 0;
-}
-
-int32_t
-afr_truncate_open_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       fd_t *fd)
-{
-  afr_local_t *local = frame->local;
-
-  GF_TRACE (this, "(path=%s) (op_ret=%d, op_errno=%d)", local->path, op_ret, op_errno);
-
-  if (op_ret == -1) {
-    GF_ERROR (this, "(path=%s) (op_ret=%d, op_errno=%d)", local->path, op_ret, op_errno);
-    FREE (local->path);
-    dict_destroy (local->fd->ctx);
-    FREE (local->fd);
-    STACK_UNWIND (frame, -1, op_errno, NULL);
-    return 0;
   }
 
-  STACK_WIND (frame,
-	      afr_truncate_ftruncate_cbk,
-	      this,
-	      this->fops->ftruncate,
-	      local->fd,
-	      local->offset);
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
+
+  LOCK (&frame->lock);
+  {
+    if (op_ret == 0) {
+      local->op_ret = op_ret;
+      /* we will return stat info from the first successful child */
+      for (i = 0; i < child_count; i++) {
+	if (children[i] == prev_frame->this) {
+	  if (i < local->stat_child) {
+	    local->stbuf = *stbuf;
+	    local->stat_child = i;
+	  }
+	}
+      }
+    }
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0) {
+    char *path = local->path;
+    if (local->op_ret == 0) {
+      if (pvt->self_heal) {
+	afr_incver_internal_inode (frame, this,
+				   local->inode, (char *) local->path);
+      } else {
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+      }
+    } else {
+      STACK_UNWIND (frame, local->op_ret, local->op_errno, NULL);
+    }
+    FREE (path);
+  }
+
   return 0;
 }
+
+/* FIXME increase the version count */
 
 int32_t
 afr_truncate (call_frame_t *frame,
@@ -2927,6 +3557,7 @@ afr_truncate (call_frame_t *frame,
   char *child_errno = NULL;
   afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count;
 
   local = (void *) calloc (1, sizeof (afr_local_t));
@@ -2942,7 +3573,6 @@ afr_truncate (call_frame_t *frame,
   local->stat_child = child_count;
   local->inode = loc->inode;
   local->path = strdup (loc->path);
-  local->offset = offset;
 
   for (i = 0; i  < child_count; i++) {
     if (child_errno[i] == 0) {
@@ -2951,27 +3581,25 @@ afr_truncate (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] is not 0, returning ENOTCONN");
+    GF_ERROR (this, "child_errno[] is not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
     STACK_UNWIND (frame,
 		  -1,
-		  ENOTCONN,
+		  child_errno[0],
 		  NULL);
     return 0;
   }
 
-  local->fd = calloc (1, sizeof(fd_t));
-  local->fd->ctx = get_new_dict();
-  local->fd->inode = loc->inode;
-
-  /* let afr open the file and selfheal */
-  
-  STACK_WIND (frame,
-	      afr_truncate_open_cbk,
-	      this,
-	      this->fops->open,
-	      loc,
-	      O_RDWR,
-	      local->fd);
+  for (i = 0; i < child_count; i++) {
+    if (child_errno[i] == 0) {
+      STACK_WIND(frame,
+		 afr_truncate_cbk,
+		 children[i],
+		 children[i]->fops->truncate,
+		 loc,
+		 offset);
+    }
+  }
 
   return 0;
 }
@@ -3058,8 +3686,9 @@ afr_utimens (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] is not 0, returning ENOTCONN");
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    GF_ERROR (this, "child_errno[] is not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
+    STACK_UNWIND (frame, -1, child_errno[0], NULL);
     return 0;
   }
 
@@ -3176,8 +3805,9 @@ afr_opendir (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] is not 0, returning ENOTCONN");
-    STACK_UNWIND (frame, -1, ENOTCONN, fd);
+    GF_ERROR (this, "child_errno[] is not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
+    STACK_UNWIND (frame, -1, child_errno[0], fd);
     return 0;
   }
 
@@ -3318,8 +3948,9 @@ afr_readlink (call_frame_t *frame,
   }
 
   if (i == child_count) {
-    GF_DEBUG (this, "child_errno[] is not 0, returning ENOTCONN");
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    GF_DEBUG (this, "child_errno[] is not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
+    STACK_UNWIND (frame, -1, child_errno[0], NULL);
     return 0;
   }
 
@@ -3986,8 +4617,9 @@ afr_unlink (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] is not 0, returning ENOTCONN");
-    STACK_UNWIND (frame, -1, ENOTCONN);
+    GF_ERROR (this, "child_errno[] is not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
+    STACK_UNWIND (frame, -1, child_errno[0]);
     return 0;
   }
 
@@ -4073,8 +4705,9 @@ afr_rmdir (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] is not 0, returning ENOTCONN");
-    STACK_UNWIND (frame, -1, ENOTCONN);
+    GF_ERROR (this, "child_errno[] is not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
+    STACK_UNWIND (frame, -1, child_errno[0]);
     return 0;
   }
 
@@ -4717,10 +5350,11 @@ afr_link (call_frame_t *frame,
       break;
   }
   if (i == child_count) {
-    GF_ERROR (this, "child_errno[] is not 0, returning ENOTCONN");
+    GF_ERROR (this, "child_errno[] is not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
     STACK_UNWIND (frame,
 		  -1,
-		  ENOTCONN,
+		  child_errno[0],
 		  NULL,
 		  NULL);
     return 0;
@@ -4823,8 +5457,9 @@ afr_chmod (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] is not 0, returning ENOTCONN");
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    GF_ERROR (this, "child_errno[] is not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
+    STACK_UNWIND (frame, -1, child_errno[0], NULL);
     return 0;
   }
 
@@ -4932,8 +5567,9 @@ afr_chown (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] not 0, returning ENOTCONN");
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    GF_ERROR (this, "child_errno[] not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
+    STACK_UNWIND (frame, -1, child_errno[0], NULL);
     return 0;
   }
 
@@ -5025,7 +5661,8 @@ afr_closedir (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] not 0, returning ENOTCONN");
+    GF_ERROR (this, "child_errno[] not 0, returning -1 (%s)",
+	      strerror (ENOTCONN));
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -5132,7 +5769,8 @@ afr_fchmod (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "afrfdp->fdstate[] is 0, returning ENOTCONN");
+    GF_ERROR (this, "afrfdp->fdstate[] is 0, returning -1 (%s)",
+	      strerror (ENOTCONN));
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -5237,7 +5875,8 @@ afr_fchown (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "afrfdp->fdstate[] is 0, returning ENOTCONN");
+    GF_ERROR (this, "afrfdp->fdstate[] is 0, returning -1 (%s)",
+	      strerror (ENOTCONN));
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -5342,8 +5981,9 @@ afr_access (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "child_errno[] not 0, returning ENOTCONN");
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    GF_ERROR (this, "child_errno[] not 0, returning -1 (%s)",
+	      strerror (child_errno[0]));
+    STACK_UNWIND (frame, -1, child_errno[0], NULL);
     return 0;
   }
 
@@ -5727,7 +6367,7 @@ notify (xlator_t *this,
 int32_t 
 init (xlator_t *this)
 {
-  int32_t i = 0, j;
+  int32_t i = 0;
   int32_t count = 0;
   afr_private_t *pvt = NULL;
   data_t *lock_node = dict_get (this->options, "lock-node");
@@ -5738,9 +6378,6 @@ init (xlator_t *this)
   /* change read_node to read_subvolume */
   data_t *read_schedule = dict_get (this->options, "read-schedule");
   xlator_list_t *trav = this->children;
-  dict_t **shdict;
-  char dictkey[BUFSIZ];
-  data_t *dictval;
 
   pvt = calloc (1, sizeof (afr_private_t));
   ERR_ABORT (pvt);
@@ -5826,22 +6463,6 @@ init (xlator_t *this)
     pvt->children[i++] = trav->xlator;
     trav = trav->next;
   }
-
-  pvt->shdict = shdict = calloc (sizeof (dict_t*), pvt->child_count);
-
-  for (i = 0; i < pvt->child_count; i++) {
-    shdict[i] = get_new_dict();
-    dictval = bin_to_data ("1", 1);
-
-    for (j = 0; j < pvt->child_count; j++) {
-      if (i == j)
-	continue;
-      strcpy (dictkey, "trusted.glusterfs.afr.");
-      strcat (dictkey, pvt->children[j]->name);
-      dict_set (shdict[i], dictkey, dictval);
-    }
-  }
-
   this->private = pvt;
 
   trav = this->children;

@@ -4081,6 +4081,7 @@ client_setvolume_cbk (call_frame_t *frame,
     }
   }
 
+  STACK_DESTROY (frame->root);
   return ret;
 }
 

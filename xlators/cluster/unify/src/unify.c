@@ -340,14 +340,14 @@ unify_lookup_cbk (call_frame_t *frame,
 	      {
 		gf_log (this->name, GF_LOG_CRITICAL, 
 			"[CRITICAL] '%s' is directory on namespace and, non-directory on node '%s', returning EIO",
-			local->path, priv->xl_array[(int)cookie]->name);
+			local->path, priv->xl_array[(long)cookie]->name);
 		local->return_eio = 1;
 	      }
 	    if (!S_ISDIR (local->stbuf.st_mode) && S_ISDIR (buf->st_mode))
 	      {
 		gf_log (this->name, GF_LOG_CRITICAL, 
 			"[CRITICAL] '%s' is directory on node '%s', non-directory on namespace, returning EIO",
-			local->path, priv->xl_array[(int)cookie]->name);
+			local->path, priv->xl_array[(long)cookie]->name);
 		local->return_eio = 1;
 	      }
 	  }
