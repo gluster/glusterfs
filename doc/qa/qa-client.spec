@@ -140,7 +140,7 @@ volume unify0
 #  subvolumes stripe1 stripe3
   option namespace ns
   option scheduler rr # random # alu # nufa
-  option rr.limits.min-disk-free 1GB
+  option rr.limits.min-free-disk 1GB
 # option alu.order x
 # option alu.x.entry-threshold
 # option alu.x.exit-threshold

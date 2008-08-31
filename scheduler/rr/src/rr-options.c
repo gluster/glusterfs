@@ -38,7 +38,7 @@ _rr_options_min_free_disk_validate (const char *value_string, uint8_t *n)
 {
   uint8_t value = 0;
   
-  if (value_string != NULL)
+  if (value_string == NULL)
     {
       return -1;
     }
@@ -74,7 +74,7 @@ _rr_options_refresh_interval_validate (const char *value_string, uint32_t *n)
 {
   uint32_t value = 0;
   
-  if (value_string != NULL)
+  if (value_string == NULL)
     {
       return -1;
     }
@@ -103,7 +103,7 @@ _rr_options_read_only_subvolumes_validate (const char *value_string,
   int vcount = 0;
   int i = 0;
   
-  if (value_string != NULL || volume_list == NULL || volume_count)
+  if (value_string == NULL || volume_list == NULL || volume_count)
     {
       return -1;
     }
