@@ -64,10 +64,9 @@ typedef struct glusterfs_dir_config {
   char *specfile;
   char *mount_dir;
   char *buf;
-  size_t window_size;
+  char async_reads;
   size_t xattr_file_size;
-  uint32_t lookup_timeout;
-  uint32_t stat_timeout;
+  uint32_t cache_timeout;
   libglusterfs_handle_t handle;
 } glusterfs_dir_config_t;
 
@@ -96,10 +95,11 @@ mod_glusterfs_dconfig(request_rec *r)
 }
 
 static 
-const char *add_window_size(cmd_parms *cmd, void *dummy, char *arg)
+const char *set_async_read(cmd_parms *cmd, void *dummy, char *arg)
 {
   glusterfs_dir_config_t *dir_config = dummy;
-  dir_config->window_size = atoi (arg);
+  if (!strcasecmp (arg, "yes"))
+    dir_config->async_reads = 1;
   return NULL;
 }
 
@@ -112,18 +112,10 @@ const char *add_xattr_file_size(cmd_parms *cmd, void *dummy, char *arg)
 }
 
 static
-const char *set_lookup_cache_timeout(cmd_parms *cmd, void *dummy, char *arg)
+const char *set_cache_timeout(cmd_parms *cmd, void *dummy, char *arg)
 {
   glusterfs_dir_config_t *dir_config = dummy;
-  dir_config->lookup_timeout = atoi (arg);
-  return NULL;
-}
-
-static
-const char *set_stat_cache_timeout(cmd_parms *cmd, void *dummy, char *arg)
-{
-  glusterfs_dir_config_t *dir_config = dummy;
-  dir_config->stat_timeout = atoi (arg);
+  dir_config->cache_timeout = atoi (arg);
   return NULL;
 }
 
@@ -189,9 +181,10 @@ mod_glusterfs_create_dir_config(pool *p, char *dirspec)
 
   dir_config->mount_dir = dirspec;
   dir_config->logfile = dir_config->specfile = (char *)0;
-  dir_config->loglevel = NULL;
+  dir_config->loglevel = "warning";
   dir_config->handle = (libglusterfs_handle_t) 0;
-  dir_config->window_size = 0;
+  dir_config->async_reads = 0;
+  dir_config->cache_timeout = 0;
   dir_config->buf = NULL;
 
   return (void *) dir_config;
@@ -217,8 +210,7 @@ mod_glusterfs_child_init(server_rec *s, pool *p)
 
       ctx.logfile = dir_config->logfile;
       ctx.loglevel = dir_config->loglevel;
-      ctx.lookup_timeout = dir_config->lookup_timeout;
-      ctx.stat_timeout = dir_config->stat_timeout;
+      ctx.lookup_timeout = ctx.stat_timeout = dir_config->cache_timeout;
       ctx.specfile = dir_config->specfile;
 
       dir_config->handle = glusterfs_init (&ctx);
@@ -347,7 +339,7 @@ mod_glusterfs_readv_async_cbk (glusterfs_read_buf_t *buf,
 
 
 static int
-mod_glusterfs_read_async (request_rec *r, int fd, off_t window, off_t offset, off_t length)
+mod_glusterfs_read_async (request_rec *r, int fd, off_t offset, off_t length)
 {
   glusterfs_async_local_t local;
   off_t end;
@@ -489,8 +481,9 @@ mod_glusterfs_read_async (request_rec *r, int fd, off_t window, off_t offset, of
   return (local.op_ret < 0 ? SERVER_ERROR : OK);
 }
 
+/* TODO: to read blocks of size "length" from offset "offset" */ 
 static int 
-mod_glusterfs_read_sync (request_rec *r, int fd, off_t length)
+mod_glusterfs_read_sync (request_rec *r, int fd, off_t offset, off_t length)
 { 
   int error = OK;
   off_t read_bytes;
@@ -582,22 +575,22 @@ mod_glusterfs_handler(request_rec *r)
   }
   
   if (!r->header_only) {
-    if (dir_config->window_size > 0) {
+    if (dir_config->async_reads) {
       if (!rangestatus) {
-	mod_glusterfs_read_async (r, fd, dir_config->window_size, 0, -1);
+	mod_glusterfs_read_async (r, fd, 0, -1);
       } else {
 	long offset, length;
 	while (ap_each_byterange(r, &offset, &length)) {
-	  mod_glusterfs_read_async (r, fd, dir_config->window_size, offset, length);
+	  mod_glusterfs_read_async (r, fd, offset, length);
 	}
       }
     }else {
       if (!rangestatus) {
-	mod_glusterfs_read_sync (r, fd, -1);
+	mod_glusterfs_read_sync (r, fd, 0, -1);
       } else {
 	long offset, length;
 	while (ap_each_byterange (r, &offset, &length)) {
-	  mod_glusterfs_read_sync (r, fd, length);
+	  mod_glusterfs_read_sync (r, fd, offset, length);
 	}
       }
     }
@@ -615,16 +608,13 @@ static const command_rec mod_glusterfs_cmds[] =
     {"GlusterfsLoglevel", set_loglevel, NULL,
      GLUSTERFS_CMD_PERMS, TAKE1,
      "Glusterfs Loglevel:anyone of none, critical, error, warning, debug"},
-    {"GlusterfsLookupCacheTimeout", set_lookup_cache_timeout, NULL,
+    {"GlusterfsCacheTimeout", set_cache_timeout, NULL,
      GLUSTERFS_CMD_PERMS, TAKE1,
-     "Timeout value in seconds for caching lookups"},
-    {"GlusterfsStatCacheTimeout", set_stat_cache_timeout, NULL,
-     GLUSTERFS_CMD_PERMS, TAKE1,
-     "Timeout value in seconds for caching stats"},
+     "Timeout value in seconds for caching lookups and stats"},
     {"GlusterfsVolumeSpecfile", add_specfile, NULL,
      GLUSTERFS_CMD_PERMS, TAKE1,
      "Glusterfs Specfile required to access contents of this directory"},
-    {"GlusterfsAsyncWindowSize", add_window_size, NULL,
+    {"GlusterfsAsyncReads", set_async_read, NULL,
      GLUSTERFS_CMD_PERMS, TAKE1,
      "Size of data to be read/written before sending next bunch of asynchronous read/write calls to glusterfs"},
     {"GlusterfsXattrFileSize", add_xattr_file_size, NULL, 
