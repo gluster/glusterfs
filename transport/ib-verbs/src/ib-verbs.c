@@ -1088,9 +1088,13 @@ ib_verbs_recv_completion_proc (void *data)
 	  }
 	  pthread_mutex_unlock (&priv->recv_mutex);
 
-	  if (peer->trans->xl->notify (peer->trans->xl, GF_EVENT_POLLIN, 
-				       peer->trans, NULL)) {
-	    /* TODO: log */
+	  if ((ret = peer->trans->xl->notify (peer->trans->xl, GF_EVENT_POLLIN, 
+					      peer->trans, NULL)) == -1) {
+	    gf_log ("transport/ib-verbs",
+		    GF_LOG_ERROR, 
+		    "pollin notification to %s failed, disconnecting transport", 
+		    peer->trans->xl->name);
+	    transport_disconnect (peer->trans);
 	  }
 	}
       } else {
@@ -1998,6 +2002,9 @@ tcp_connect_finish (transport_t *this)
     }
 
     if (ret == -1 && errno != EINPROGRESS) {
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "tcp connect to %s failed (%s)", 
+	      this->peerinfo.identifier, strerror (errno));
       error = 1;
     }
   }
@@ -2047,6 +2054,10 @@ ib_verbs_event_handler (int fd, int idx, void *data,
 
   if (!ret && poll_in && priv->tcp_connected) {
     if (priv->handshake.incoming.state == IB_VERBS_HANDSHAKE_COMPLETE) {
+      gf_log ("transport/ib-verbs",
+	      GF_LOG_ERROR,
+	      "%s: pollin received on tcp socket (peer: %s) after handshake is complete",
+	      this->xl->name, this->peerinfo.identifier);
       ib_verbs_handshake_pollerr (this);
       return 0;
     }
