@@ -6428,6 +6428,7 @@ struct xlator_options options[] = {
 	{ "transport-type", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
 	{ "address-family", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
 	{ "bind-address", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+	{ "listen-path", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
 
 	/* Server protocol itself */
 	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 1, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB }, 

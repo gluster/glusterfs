@@ -4773,6 +4773,7 @@ struct xlator_options options[] = {
 	{ "transport-type", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
 	{ "address-family", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
 	{ "remote-host", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+	{ "connect-path", GF_OPTION_TYPE_STR, 1, 0, 0 },
 	{ "non-blocking-io", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
 
 	/* Client protocol itself */
