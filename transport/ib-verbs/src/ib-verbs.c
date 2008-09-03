@@ -316,8 +316,8 @@ ib_verbs_writev (transport_t *this,
 	      GF_LOG_ERROR,
 	      "%s: post to control qp failed",
 	      this->xl->name);
-      ib_verbs_quota_put (ctrl_peer);
       ib_verbs_put_post (&device->sendq, ctrl_post);
+      ib_verbs_quota_put (ctrl_peer);
       ib_verbs_destroy_post (data_post);
       return -1;
     }
@@ -334,11 +334,11 @@ ib_verbs_writev (transport_t *this,
   }
 
   if (ib_verbs_post_send (data_qp, data_post, data_len) != 0) {
-    ib_verbs_quota_put (data_peer);
     if (data_post->aux)
       ib_verbs_destroy_post (data_post);
     else
       ib_verbs_put_post (&device->sendq, data_post);
+    ib_verbs_quota_put (data_peer);
     return -1;
   }
   /* unlock */
@@ -1173,6 +1173,11 @@ ib_verbs_send_completion_proc (void *data)
 	  transport_disconnect (peer->trans);
       }
 
+      if (post->aux) {
+	ib_verbs_destroy_post (post);
+      } else {
+	ib_verbs_put_post (&device->sendq, post);
+      }
       
       if (peer) {
 	int32_t q;
@@ -1182,12 +1187,6 @@ ib_verbs_send_completion_proc (void *data)
 		GF_LOG_DEBUG,
 		"could not lookup peer for qp_num: %d",
 		wc.qp_num);
-      }
-
-      if (post->aux) {
-	ib_verbs_destroy_post (post);
-      } else {
-	ib_verbs_put_post (&device->sendq, post);
       }
     }
 
