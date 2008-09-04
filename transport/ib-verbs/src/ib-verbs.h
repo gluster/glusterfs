@@ -64,7 +64,6 @@ struct _ib_verbs_peer {
 
   int32_t quota;
   pthread_cond_t has_quota;
-  pthread_mutex_t lock;
 
   /* QP attributes, needed to connect with remote QP */
   int32_t local_lid;

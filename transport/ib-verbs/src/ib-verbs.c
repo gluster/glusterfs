@@ -118,22 +118,23 @@ ib_verbs_get_post (ib_verbs_queue_t *queue)
   ib_verbs_post_t *post;
 
   pthread_mutex_lock (&queue->lock);
-
-  post = queue->passive_posts.next;
-  if (post == &queue->passive_posts)
-    post = NULL;
-
-  if (post) {
-    if (post->prev)
-      post->prev->next = post->next;
-    if (post->next)
-      post->next->prev = post->prev;
-    post->prev = &queue->active_posts;
-    post->next = post->prev->next;
-    post->prev->next = post;
-    post->next->prev = post;
-    post->reused++;
-    queue->active_count++;
+  {
+    post = queue->passive_posts.next;
+    if (post == &queue->passive_posts)
+      post = NULL;
+    
+    if (post) {
+      if (post->prev)
+	post->prev->next = post->next;
+      if (post->next)
+	post->next->prev = post->prev;
+      post->prev = &queue->active_posts;
+      post->next = post->prev->next;
+      post->prev->next = post;
+      post->next->prev = post;
+      post->reused++;
+      queue->active_count++;
+    }
   }
   pthread_mutex_unlock (&queue->lock);
 
@@ -157,38 +158,73 @@ ib_verbs_quota_get (ib_verbs_peer_t *peer)
   /* TODO: handle the locking guy here gracefully
      if QP is destroyed while he is waiting
   */
-  pthread_mutex_lock (&peer->lock);
+  pthread_mutex_lock (&priv->write_mutex);
   {
     while (1) {
       if (!priv->connected || ret > 0) {
 	break;
       }
       if (!peer->quota) {
-	pthread_cond_wait (&peer->has_quota, &peer->lock);
+	pthread_cond_wait (&peer->has_quota, &priv->write_mutex);
       } else {
 	ret = peer->quota--;
       }
     }
   }
-  pthread_mutex_unlock (&peer->lock);
+  pthread_mutex_unlock (&priv->write_mutex);
   return ret;
 }
 
+static int32_t
+__ib_verbs_quota_get (ib_verbs_peer_t *peer)
+{
+  int32_t ret = 1;
+  ib_verbs_private_t *priv = peer->trans->private;
+  /* TODO: handle the locking guy here gracefully
+     if QP is destroyed while he is waiting
+  */
+  while (1) {
+    if (!priv->connected || ret > 0) {
+      break;
+    }
+    if (!peer->quota) {
+      pthread_cond_wait (&peer->has_quota, &priv->write_mutex);
+    } else {
+      ret = peer->quota--;
+    }
+  }
+
+  return ret;
+}
 
 static int32_t
 ib_verbs_quota_put (ib_verbs_peer_t *peer)
 {
   int32_t ret;
+  ib_verbs_private_t *priv = peer->trans->private;
 
-  pthread_mutex_lock (&peer->lock);
-  peer->quota++;
-  ret = peer->quota;
-  pthread_cond_broadcast (&peer->has_quota);
-  pthread_mutex_unlock (&peer->lock);
+  pthread_mutex_lock (&priv->write_mutex);
+  {
+    peer->quota++;
+    ret = peer->quota;
+    pthread_cond_broadcast (&peer->has_quota);
+  }
+  pthread_mutex_unlock (&priv->write_mutex);
 
   return ret;
 }
 
+static int32_t
+__ib_verbs_quota_put (ib_verbs_peer_t *peer)
+{
+  int32_t ret;
+
+  peer->quota++;
+  ret = peer->quota;
+  pthread_cond_broadcast (&peer->has_quota);
+ 
+  return ret;
+}
 
 static int32_t
 ib_verbs_post_send (struct ibv_qp *qp,
@@ -264,84 +300,104 @@ ib_verbs_writev (transport_t *this,
 		 const struct iovec *vector,
 		 int32_t count)
 {
-  int32_t ctrl_len = 0, data_len = 0, quota_ret = -1;
+  int32_t ctrl_len = 0, data_len = 0, quota_ret = -1, ret = 0;
   ib_verbs_post_t *ctrl_post = NULL, *data_post = NULL;
   ib_verbs_private_t *priv = this->private;
   ib_verbs_options_t *options = &priv->options;
-  ib_verbs_device_t *device = priv->device;
-  ib_verbs_peer_t *ctrl_peer = NULL, *data_peer = &priv->peers[0];
-  struct ibv_qp *ctrl_qp = NULL, *data_qp = data_peer->qp;
+  ib_verbs_device_t *device = NULL;
+  ib_verbs_peer_t *ctrl_peer = NULL, *data_peer = NULL;
+  struct ibv_qp *ctrl_qp = NULL, *data_qp = NULL;
 
-  data_len = iov_length (vector, count);
+  pthread_mutex_lock (&priv->write_mutex);
+  {
+    if (!priv->connected) {
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "ib-verbs is not connected to post a send request");
+      ret = -1;
+      goto unlock;
+    }
 
-  if (data_len > (options->send_size+2048)) {
-    gf_log ("transport/ib-verbs",
-	    GF_LOG_DEBUG,
-	    "%s: using aux chan to post %d bytes",
-	    this->xl->name, data_len);
+    device = priv->device;
+    data_peer = &priv->peers[0];
+    data_qp = data_peer->qp; 
 
-    ctrl_post = ib_verbs_get_post (&device->sendq);
-    if (!ctrl_post)
-      ctrl_post = ib_verbs_new_post (device, (options->send_size + 2048));
-    ctrl_peer = &priv->peers[0];
-    ctrl_qp = ctrl_peer->qp;
+    data_len = iov_length (vector, count);
 
-    data_post = ib_verbs_new_post (device, data_len);
-    data_post->aux = 1;
-    data_peer = &priv->peers[1];
-    data_qp = data_peer->qp;
-  } else {
-    data_post = ib_verbs_get_post (&device->sendq);
-    if (!data_post)
-      data_post = ib_verbs_new_post (device, (options->send_size + 2048));
-  }
+    if (data_len > (options->send_size+2048)) {
+      gf_log ("transport/ib-verbs",
+	      GF_LOG_DEBUG,
+	      "%s: using aux chan to post %d bytes",
+	      this->xl->name, data_len);
 
-  if (ctrl_post)
-    ctrl_len = 1 + sprintf (ctrl_post->buf, "NeedDataMR:%d\n", data_len);
-  iov_unload (data_post->buf, vector, count);
+      ctrl_post = ib_verbs_get_post (&device->sendq);
+      if (!ctrl_post)
+	ctrl_post = ib_verbs_new_post (device, (options->send_size + 2048));
+      ctrl_peer = &priv->peers[0];
+      ctrl_qp = ctrl_peer->qp;
 
-  /* TODO hold write lock */
-  if (ctrl_post) {
-    quota_ret = ib_verbs_quota_get (ctrl_peer);
+      data_post = ib_verbs_new_post (device, data_len);
+      data_post->aux = 1;
+      data_peer = &priv->peers[1];
+      data_qp = data_peer->qp;
+    } else {
+      data_post = ib_verbs_get_post (&device->sendq);
+      if (!data_post)
+	data_post = ib_verbs_new_post (device, (options->send_size + 2048));
+    }
+
+    if (ctrl_post)
+      ctrl_len = 1 + sprintf (ctrl_post->buf, "NeedDataMR:%d\n", data_len);
+    iov_unload (data_post->buf, vector, count);
+
+    /* TODO hold write lock */
+    if (ctrl_post) {
+      quota_ret = __ib_verbs_quota_get (ctrl_peer);
+      if (quota_ret == -1) {
+	gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+		"%s: quota_get returned -1", this->xl->name);
+	ib_verbs_put_post (&device->sendq, ctrl_post);
+	ib_verbs_destroy_post (data_post);
+	ret = -1;
+	goto unlock;
+      }
+
+      if (ib_verbs_post_send (ctrl_qp, ctrl_post, ctrl_len) != 0) {
+	gf_log ("transport/ib-verbs",
+		GF_LOG_ERROR,
+		"%s: post to control qp failed",
+		this->xl->name);
+	__ib_verbs_quota_put (ctrl_peer);
+	ib_verbs_put_post (&device->sendq, ctrl_post);
+	ib_verbs_destroy_post (data_post);
+	ret = -1;
+	goto unlock;
+      }
+    }
+    quota_ret = __ib_verbs_quota_get (data_peer);
+    
     if (quota_ret == -1) {
       gf_log ("transport/ib-verbs", GF_LOG_ERROR,
 	      "%s: quota_get returned -1", this->xl->name);
-      ib_verbs_put_post (&device->sendq, ctrl_post);
-      ib_verbs_destroy_post (data_post);
-      return -1;
+      if (data_post->aux) 
+	ib_verbs_destroy_post (data_post);
+      else
+	ib_verbs_put_post (&device->sendq, data_post);
+      ret = -1;
+      goto unlock;
     }
 
-    if (ib_verbs_post_send (ctrl_qp, ctrl_post, ctrl_len) != 0) {
-      gf_log ("transport/ib-verbs",
-	      GF_LOG_ERROR,
-	      "%s: post to control qp failed",
-	      this->xl->name);
-      ib_verbs_put_post (&device->sendq, ctrl_post);
-      ib_verbs_quota_put (ctrl_peer);
-      ib_verbs_destroy_post (data_post);
-      return -1;
+    if (ib_verbs_post_send (data_qp, data_post, data_len) != 0) {
+      if (data_post->aux)
+	ib_verbs_destroy_post (data_post);
+      else
+	ib_verbs_put_post (&device->sendq, data_post);
+      __ib_verbs_quota_put (data_peer);
+      ret = -1;
+      goto unlock;
     }
   }
-  quota_ret = ib_verbs_quota_get (data_peer);
-  if (quota_ret == -1) {
-    gf_log ("transport/ib-verbs", GF_LOG_ERROR,
-	    "%s: quota_get returned -1", this->xl->name);
-    if (data_post->aux) 
-      ib_verbs_destroy_post (data_post);
-    else
-      ib_verbs_put_post (&device->sendq, data_post);
-    return -1;
-  }
-
-  if (ib_verbs_post_send (data_qp, data_post, data_len) != 0) {
-    if (data_post->aux)
-      ib_verbs_destroy_post (data_post);
-    else
-      ib_verbs_put_post (&device->sendq, data_post);
-    ib_verbs_quota_put (data_peer);
-    return -1;
-  }
-  /* unlock */
+ unlock:
+  pthread_mutex_unlock (&priv->write_mutex);
   return 0;
 }
 
@@ -351,7 +407,7 @@ ib_verbs_submit (transport_t *this, char *buf, int32_t len,
 {
   struct iovec *new_vector = NULL;
   ib_verbs_header_t header;
-  int i = 0;
+  int32_t i = 0, ret = 0;
 
   header.colonO[0] = ':';
   header.colonO[1] = 'O';
@@ -375,11 +431,11 @@ ib_verbs_submit (transport_t *this, char *buf, int32_t len,
       new_vector[i+2].iov_len = vector[i].iov_len;
     }
 
-  ib_verbs_writev (this, new_vector, count + 2);
+  ret = ib_verbs_writev (this, new_vector, count + 2);
   FREE (new_vector);
   FREE (buf);
 
-  return 0;
+  return ret;
 }
 
 static int
@@ -973,25 +1029,39 @@ ib_verbs_post_recv_aux (ib_verbs_peer_t *peer,
   ib_verbs_private_t *priv = peer->trans->private;
   ib_verbs_device_t *device = priv->device;
 
-  big_post = ib_verbs_new_post (device, len);
+  pthread_mutex_lock (&priv->write_mutex);
+  {
+    if (!priv->connected) {
+      gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+	      "%s:ib-verbs is not connected to post receive of large buffer",
+	      peer->trans->xl->name);
+      pthread_mutex_unlock (&priv->write_mutex);
+      return;
+    }
 
-  if (!big_post) {
-    /* TODO: handle this situation */
-    return;
+    big_post = ib_verbs_new_post (device, len);
+
+    if (!big_post) {
+      /* TODO: handle this situation */
+      pthread_mutex_unlock (&priv->write_mutex);
+      return;
+    }
+
+    big_post->aux = 1;
+    pthread_barrier_init (&big_post->wait, NULL, 2);
+
+    if (ib_verbs_post_recv_qp (other_peer (peer)->qp, big_post) != 0) {
+      gf_log ("transport/ib-verbs",
+	      GF_LOG_CRITICAL,
+	      "%s: post_recv failed",
+	      peer->trans->xl->name);
+      pthread_barrier_destroy (&big_post->wait);
+      ib_verbs_destroy_post (big_post);
+      pthread_mutex_unlock (&priv->write_mutex);
+      return;
+    }
   }
-
-  big_post->aux = 1;
-  pthread_barrier_init (&big_post->wait, NULL, 2);
-
-  if (ib_verbs_post_recv_qp (other_peer (peer)->qp, big_post) != 0) {
-    gf_log ("transport/ib-verbs",
-	    GF_LOG_CRITICAL,
-	    "%s: post_recv failed",
-	    peer->trans->xl->name);
-    pthread_barrier_destroy (&big_post->wait);
-    ib_verbs_destroy_post (big_post);
-    return;
-  }
+  pthread_mutex_unlock (&priv->write_mutex);
 
   pthread_barrier_wait (&big_post->wait);
   pthread_barrier_destroy (&big_post->wait);
@@ -1019,7 +1089,6 @@ ib_verbs_recv_completion_proc (void *data)
 	      GF_LOG_ERROR,
 	      "ibv_get_cq_event failed, terminating recv thread %d (%d)", ret, errno);
       continue;
-      //break;
     }
     ibv_ack_cq_events (event_cq, 1);
 
@@ -1030,7 +1099,7 @@ ib_verbs_recv_completion_proc (void *data)
       gf_log ("transport/ib-verbs", GF_LOG_ERROR,
 	      "ibv_req_notify_cq on %s failed, terminating recv thread: %d (%d)",
 	      device->device_name, ret, errno);
-      break;
+      continue;
     }
 
     device = (ib_verbs_device_t *) event_ctx;
@@ -1113,9 +1182,9 @@ ib_verbs_recv_completion_proc (void *data)
     if (ret < 0) {
       gf_log ("transport/ib-verbs",
 	      GF_LOG_ERROR,
-	      "ibv_poll_cq on `%s' returned error (%d)",
-	      device->device_name, ret);
-      break;
+	      "ibv_poll_cq on `%s' returned error (ret = %d, errno = %d)",
+	      device->device_name, ret, errno);
+      continue;
     }
   }
   return NULL;
@@ -1140,7 +1209,6 @@ ib_verbs_send_completion_proc (void *data)
       gf_log ("transport/ib-verbs", GF_LOG_ERROR,
 	      "ibv_get_cq_event on failed, terminating send thread: %d (%d)", ret, errno);
       continue;
-      //break;
     }
     ibv_ack_cq_events (event_cq, 1);
     
@@ -1151,7 +1219,7 @@ ib_verbs_send_completion_proc (void *data)
       gf_log ("transport/ib-verbs",  GF_LOG_ERROR,
 	      "ibv_req_notify_cq on %s failed, terminating send thread: %d (%d)",
 	      device->device_name, ret, errno);
-      break;
+      continue;
     }
 
     while ((ret = ibv_poll_cq (event_cq, 1, &wc)) > 0) {
@@ -1193,9 +1261,9 @@ ib_verbs_send_completion_proc (void *data)
     if (ret < 0) {
       gf_log ("transport/ib-verbs",
 	      GF_LOG_ERROR,
-	      "ibv_poll_cq on `%s' returned error (%d)",
-	      device->device_name, ret);
-      break;
+	      "ibv_poll_cq on `%s' returned error (ret = %d, errno = %d)",
+	      device->device_name, ret, errno);
+      continue;
     }
   }
 
@@ -1507,7 +1575,6 @@ ib_verbs_init (transport_t *this)
 
   priv->peers[0].trans = this;
   priv->peers[1].trans = this;
-  pthread_mutex_init (&priv->peers[0].lock, NULL);
   pthread_cond_init (&priv->peers[0].has_quota, NULL);
 
   pthread_mutex_init (&priv->read_mutex, NULL);
@@ -1584,26 +1651,13 @@ ib_verbs_except (transport_t *this)
 }
 
 
-static void
-cont_hand (int32_t sig)
-{
-  gf_log ("transport/ib-verbs",
-	  GF_LOG_DEBUG,
-	  "forcing poll/read/write to break on blocked socket (if any)");
-}
-
-
 static int32_t
 ib_verbs_disconnect (transport_t *this)
 {
   ib_verbs_except (this);
-
-  signal (SIGCONT, cont_hand);
-  raise (SIGCONT);
-  signal (SIGCONT, SIG_IGN);
-
   return 0;
 }
+
 
 static int32_t
 __tcp_connect_finish (int fd)
@@ -1932,6 +1986,7 @@ ib_verbs_handshake_pollerr (transport_t *this)
 
   pthread_mutex_lock (&priv->write_mutex);
   {
+    int i = 0;
     ib_verbs_teardown (this);
 
     if (priv->sock != -1) {
@@ -1944,6 +1999,11 @@ ib_verbs_handshake_pollerr (transport_t *this)
 		strerror (errno));
 	ret = -errno;
       }
+
+      for (i=0; i<2; i++) {
+	pthread_cond_broadcast (&priv->peers[i].has_quota);
+      }
+ 
       priv->tcp_connected = priv->connected = 0;
       priv->sock = -1;
     }

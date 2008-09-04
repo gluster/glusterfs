@@ -290,11 +290,14 @@ protocol_client_xfer (call_frame_t *frame,
     if (!priv->connected)
       transport_connect (trans);
 
-    ret = transport_submit (trans, (char *)hdr, hdrlen,
-                            vector, count, refs);
+    if (priv->connected || (type == GF_OP_TYPE_MOP_REQUEST && op == GF_MOP_SETVOLUME)) {
+      ret = transport_submit (trans, (char *)hdr, hdrlen,
+			      vector, count, refs);
+    }
 
     if (ret >= 0 && frame)
       {
+	gettimeofday (&priv->last_sent, NULL);
         __protocol_client_frame_save (this, frame, callid);
       }
   }
@@ -4779,6 +4782,7 @@ struct xlator_options options[] = {
 	/* Client protocol itself */
 	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 1, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB }, 
 	{ "remote-subvolume", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+	{ "transport-timeout", GF_OPTION_TYPE_INT32, 1, 1, 3600},
 	
 	{ NULL, 0, 0, 0, 0 },
 };
