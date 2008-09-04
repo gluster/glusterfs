@@ -133,6 +133,15 @@ typedef pthread_mutex_t gf_lock_t;
     }						\
   } while (0); 
 
+#define GF_VALIDATE_OR_GOTO(name,arg,label)   do {		\
+		if (!arg) {					\
+			errno = EINVAL;   			\
+			gf_log (name, GF_LOG_ERROR,		\
+				"invalid argument: " #arg);	\
+			goto label;				\
+		}						\
+	} while (0); 
+
 static inline void
 iov_free (struct iovec *vector,
 	  int32_t count)
