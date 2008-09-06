@@ -35,8 +35,9 @@ static int section_option_cmd (char *key, char *cmd);
 static int section_sub (char *sub);
 static int section_end (void);
 static void sub_error (void);
-static void option_error (void);
 static void type_error (void);
+static void option_error (void);
+static void more_option_error (void);
 
 #define YYSTYPE char *
 int yyerror (const char *);
@@ -67,8 +68,11 @@ OPTIONS_LINE: OPTION_LINE | OPTIONS_LINE OPTION_LINE;
 
 OPTION_LINE: OPTION WORD WORD {if(-1 == section_option($2,$3)){YYABORT;} } |
              OPTION WORD CMD {if(-1 == section_option_cmd ($2,$3)){YYABORT;} } |
+	     OPTION WORD WORD MORE_WORDS { more_option_error (); YYABORT; } |
 	     OPTION WORD { option_error (); YYABORT; } |
 	     OPTION { option_error (); YYABORT; };
+
+MORE_WORDS: WORD | MORE_WORDS WORD;
 
 WORDS: WORD {if (-1 == section_sub ($1)) {YYABORT; } } | WORDS WORD { if (-1 == section_sub ($2)) { YYABORT; } };
 WORD: ID | STRING_TOK ;
@@ -114,6 +118,19 @@ option_error (void)
 	  complete_tree->name, yylineno);
   gf_log ("parser", GF_LOG_ERROR, 
 	  "volume %s, before line %d: you need to specify <key> <value> pair for 'option' token",
+	  complete_tree->name, yylineno);
+  return;
+}
+
+static void
+more_option_error (void)
+{
+  extern int yylineno;
+
+  fprintf (stderr, "volume %s, before line %d: you need to specify only one value (space is a delimiter)\n",
+	  complete_tree->name, yylineno);
+  gf_log ("parser", GF_LOG_ERROR, 
+	  "volume %s, before line %d: you need to specify only one value (space is a delimiter)",
 	  complete_tree->name, yylineno);
   return;
 }

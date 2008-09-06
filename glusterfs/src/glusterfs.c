@@ -636,6 +636,9 @@ main (int argc, char *argv[])
 			cmd_args->log_file = strdup (tmp_logfile);
 		}
 	}
+	
+	gf_global_variable_init ();
+
 	if (gf_log_init (cmd_args->log_file) == -1) {
 		fprintf (stderr, 
 			 "failed to open logfile %s.  exiting\n", 

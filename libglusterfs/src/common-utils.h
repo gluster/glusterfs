@@ -85,6 +85,7 @@ typedef enum _gf_boolean gf_boolean_t;
 
 #endif /* DEBUG */
 
+void gf_global_variable_init(void);
 void set_global_ctx_ptr (glusterfs_ctx_t *ctx);
 glusterfs_ctx_t *get_global_ctx_ptr (void);
 int32_t gf_full_read (int32_t fd, char *buf, int32_t size);
@@ -100,6 +101,8 @@ void gf_print_trace (int32_t signal);
 
 extern int64_t total_bytes_xferd;
 extern int64_t total_bytes_rcvd;
+extern char *gf_fop_list[GF_FOP_MAXVALUE];
+extern char *gf_mop_list[GF_MOP_MAXVALUE];
 
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))

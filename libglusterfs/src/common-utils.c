@@ -282,6 +282,72 @@ gf_resolve_ip6 (const char *hostname,
   return -1;
 }
 
+char *gf_fop_list[GF_FOP_MAXVALUE];
+char *gf_mop_list[GF_MOP_MAXVALUE];
+
+void
+gf_global_variable_init()
+{
+	gf_fop_list[GF_FOP_STAT]     = "STAT";       /* 0 */
+	gf_fop_list[GF_FOP_READLINK] = "READLINK";   /* 1 */
+	gf_fop_list[GF_FOP_MKNOD]    = "MKNOD";      /* 2 */
+	gf_fop_list[GF_FOP_MKDIR]    = "MKDIR";
+	gf_fop_list[GF_FOP_UNLINK]   = "UNLINK";
+	gf_fop_list[GF_FOP_RMDIR]    = "RMDIR";      /* 5 */
+	gf_fop_list[GF_FOP_SYMLINK]  = "SYMLINK";
+	gf_fop_list[GF_FOP_RENAME]   = "RENAME";
+	gf_fop_list[GF_FOP_LINK]     = "LINK";
+	gf_fop_list[GF_FOP_CHMOD]    = "CHMOD";
+	gf_fop_list[GF_FOP_CHOWN]    = "CHOWN";      /* 10 */
+	gf_fop_list[GF_FOP_TRUNCATE] = "TRUNCATE";
+	gf_fop_list[GF_FOP_OPEN]     = "OPEN";
+	gf_fop_list[GF_FOP_READ]     = "READ";
+	gf_fop_list[GF_FOP_WRITE]    = "WRITE";
+	gf_fop_list[GF_FOP_STATFS]   = "STATFS";     /* 15 */
+	gf_fop_list[GF_FOP_FLUSH]    = "FLUSH";
+	gf_fop_list[GF_FOP_CLOSE]    = "CLOSE";
+	gf_fop_list[GF_FOP_FSYNC]    = "FSYNC";
+	gf_fop_list[GF_FOP_SETXATTR] = "SETXATTR";
+	gf_fop_list[GF_FOP_GETXATTR] = "GETXATTR";   /* 20 */
+	gf_fop_list[GF_FOP_REMOVEXATTR] = "REMOVEXATTR";
+	gf_fop_list[GF_FOP_OPENDIR]  = "OPENDIR";
+	gf_fop_list[GF_FOP_GETDENTS] = "GETDENTS";
+	gf_fop_list[GF_FOP_CLOSEDIR] = "CLOSEDIR";
+	gf_fop_list[GF_FOP_FSYNCDIR] = "FSYNCDIR";   /* 25 */
+	gf_fop_list[GF_FOP_ACCESS]   = "ACCESS";
+	gf_fop_list[GF_FOP_CREATE]   = "CREATE";
+	gf_fop_list[GF_FOP_FTRUNCATE] = "FTRUNCATE";
+	gf_fop_list[GF_FOP_FSTAT]    = "FSTAT";
+	gf_fop_list[GF_FOP_LK]       = "LK";         /* 30 */
+	gf_fop_list[GF_FOP_UTIMENS]  = "UTIMENS";
+	gf_fop_list[GF_FOP_FCHMOD]   = "FCHMOD";
+	gf_fop_list[GF_FOP_FCHOWN]   = "FCHOWN";
+	gf_fop_list[GF_FOP_LOOKUP]   = "LOOKUP";
+	gf_fop_list[GF_FOP_FORGET]   = "FORGET";     /* 35 */
+	gf_fop_list[GF_FOP_SETDENTS] = "SETDENTS";
+	gf_fop_list[GF_FOP_RMELEM]   = "RMELEM";
+	gf_fop_list[GF_FOP_INCVER]   = "INCVER";
+	gf_fop_list[GF_FOP_READDIR]  = "READDIR";
+	gf_fop_list[GF_FOP_GF_LK]    = "GF_LK";      /* 40 */
+	gf_fop_list[GF_FOP_CHECKSUM] = "CHECKSUM";   /* 41 */   
+	gf_fop_list[GF_FOP_XATTROP]  = "XATTROP";
+
+	gf_mop_list[GF_MOP_SETVOLUME] = "SETVOLUME"; /* 0 */
+	gf_mop_list[GF_MOP_GETVOLUME] = "GETVOLUME"; /* 1 */
+	gf_mop_list[GF_MOP_STATS]     = "STATS";
+	gf_mop_list[GF_MOP_SETSPEC]   = "SETSPEC";
+	gf_mop_list[GF_MOP_GETSPEC]   = "GETSPEC";
+	gf_mop_list[GF_MOP_LOCK]      = "LOCK";      /* 5 */
+	gf_mop_list[GF_MOP_UNLOCK]    = "UNLOCK";
+	gf_mop_list[GF_MOP_LISTLOCKS] = "LISTLOCKS";
+	gf_mop_list[GF_MOP_FSCK]      = "FSCK";      /* 8 */
+	
+	/* Are there any more variables to be included? All global 
+	   variables initialization should go here */
+
+	return;
+}
+
 void 
 set_global_ctx_ptr (glusterfs_ctx_t *ctx)
 {
@@ -601,8 +667,9 @@ _gf_string2long (const char *str, long *n, int base)
     {
       errno = old_errno;
     }
-  
-  if (tail[0] != '\0')
+
+  /* supports percentage and seconds */
+  if (!((tail[0] == '\0') || (tail[0] == '%') || (tail[0] == 's'))) 
     {
       /* bala: invalid integer format */
       return -1;
@@ -656,7 +723,7 @@ _gf_string2ulong (const char *str, unsigned long *n, int base)
       errno = old_errno;
     }
   
-  if (tail[0] != '\0')
+  if (!((tail[0] == '\0') || (tail[0] == '%') || (tail[0] == 's'))) 
     {
       /* bala: invalid integer format */
       return -1;
@@ -694,7 +761,7 @@ _gf_string2longlong (const char *str, long long *n, int base)
       errno = old_errno;
     }
   
-  if (tail[0] != '\0')
+  if (!((tail[0] == '\0') || (tail[0] == '%') || (tail[0] == 's'))) 
     {
       /* bala: invalid integer format */
       return -1;
@@ -748,7 +815,7 @@ _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
       errno = old_errno;
     }
   
-  if (tail[0] != '\0')
+  if (!((tail[0] == '\0') || (tail[0] == '%') || (tail[0] == 's'))) 
     {
       /* bala: invalid integer format */
       return -1;

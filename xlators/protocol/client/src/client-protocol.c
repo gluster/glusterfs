@@ -210,8 +210,8 @@ call_bail (void *trans)
       localtime_r (&priv->last_received.tv_sec, &last_received_tm);
       strftime (last_sent, 32, "%Y-%m-%d %H:%M:%S", &last_sent_tm);
       strftime (last_received, 32, "%Y-%m-%d %H:%M:%S", &last_received_tm);
-      gf_log (((transport_t *)trans)->xl->name, GF_LOG_WARNING,
-              "activating bail-out. pending frames = %d. last sent = %s. last received = %s transport-timeout = %d",
+      gf_log (((transport_t *)trans)->xl->name, GF_LOG_ERROR,
+              "activating bail-out. pending frames = %d. last sent = %s. last received = %s. transport-timeout = %d",
               priv->saved_frames->count, last_sent, last_received,
               priv->transport_timeout);
     }
@@ -4199,9 +4199,15 @@ protocol_client_cleanup (transport_t *trans)
 
       call_frame_t *tmp = (call_frame_t *) (trav->value->data);
 
-      gf_log (trans->xl->name, GF_LOG_ERROR,
-              "forced unwinding frame type(%d) op(%d) reply=@%p",
-              tmp->type, tmp->op, reply);
+      if ((tmp->type == GF_OP_TYPE_FOP_REQUEST) || (tmp->type == GF_OP_TYPE_FOP_REPLY))
+	      gf_log (trans->xl->name, GF_LOG_ERROR,
+		      "forced unwinding frame type(%d) op(%s) reply=@%p",
+		      tmp->type, gf_fop_list[tmp->op], reply);
+      else if ((tmp->type == GF_OP_TYPE_MOP_REQUEST) || (tmp->type == GF_OP_TYPE_MOP_REPLY))
+	      gf_log (trans->xl->name, GF_LOG_ERROR,
+		      "forced unwinding frame type(%d) op(%s) reply=@%p",
+		      tmp->type, gf_mop_list[tmp->op], reply);
+
       tmp->root->rsp_refs = dict_ref (reply);
 
       hdr.type = hton32 (tmp->type);
