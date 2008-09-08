@@ -26,10 +26,15 @@
 #include "config.h"
 #endif
 
+#ifndef MAX_IOVEC
+#define MAX_IOVEC 16
+#endif /* MAX_IOVEC */
+
 #include "xlator.h"
 #include "event.h"
 
 #include <stdio.h>
+#include <list.h>
 #include <arpa/inet.h>
 #include <infiniband/verbs.h>
 
@@ -44,6 +49,7 @@ struct _ib_verbs_options {
 };
 typedef struct _ib_verbs_options ib_verbs_options_t;
 
+
 struct _ib_verbs_header {
   char     colonO[3];
   uint32_t size1;
@@ -51,6 +57,22 @@ struct _ib_verbs_header {
   char     version;
 } __attribute__((packed));
 typedef struct _ib_verbs_header ib_verbs_header_t;
+
+struct _ib_verbs_ioq {
+  union {
+    struct list_head list;
+    struct {
+      struct _ib_verbs_ioq    *next;
+      struct _ib_verbs_ioq    *prev;
+    };
+  };
+  ib_verbs_header_t  header;
+  struct iovec       vector[MAX_IOVEC];
+  int                count;
+  char              *buf;
+  dict_t            *refs;
+};
+typedef struct _ib_verbs_ioq ib_verbs_ioq_t;
 
 /* represents one communication peer, two per transport_t */
 struct _ib_verbs_peer {
@@ -63,7 +85,13 @@ struct _ib_verbs_peer {
   int32_t send_size;
 
   int32_t quota;
-  pthread_cond_t has_quota;
+  union {
+    struct list_head     ioq;
+    struct {
+      ib_verbs_ioq_t        *ioq_next;
+      ib_verbs_ioq_t        *ioq_prev;
+    };
+  };
 
   /* QP attributes, needed to connect with remote QP */
   int32_t local_lid;
@@ -114,12 +142,12 @@ struct _ib_verbs_device {
   struct ibv_context *context;
   int32_t port;
   struct ibv_pd *pd;
-  struct ibv_srq *srq[2];
+  struct ibv_srq *srq;
   ib_verbs_qpreg_t qpreg;
-  struct ibv_comp_channel *send_chan, *recv_chan[2];
-  struct ibv_cq *send_cq, *recv_cq[2];
+  struct ibv_comp_channel *send_chan, *recv_chan;
+  struct ibv_cq *send_cq, *recv_cq;
   ib_verbs_queue_t sendq, recvq;
-  pthread_t send_thread, recv_thread[2];
+  pthread_t send_thread, recv_thread;
 };
 typedef struct _ib_verbs_device ib_verbs_device_t;
 
@@ -144,6 +172,7 @@ struct ib_verbs_nbio {
   int pending_count;
 };
 
+
 struct _ib_verbs_private {
   int32_t sock;
   int32_t idx;
@@ -155,7 +184,7 @@ struct _ib_verbs_private {
   unsigned short port;
 
   /* IB Verbs Driver specific variables, pointers */
-  ib_verbs_peer_t peers[2];
+  ib_verbs_peer_t peer;
   ib_verbs_device_t *device;
   ib_verbs_options_t options;
 
@@ -210,8 +239,7 @@ static int32_t ib_verbs_init (transport_t *this);
 /* Create QP */
 //int32_t ib_verbs_create_qp (transport_t *this);
 
-static int32_t ib_verbs_except (transport_t *this);
-static int32_t ib_verbs_teardown (transport_t *this);
+static int32_t __ib_verbs_teardown (transport_t *this);
 static int32_t ib_verbs_disconnect (transport_t *this);
 
 static int 

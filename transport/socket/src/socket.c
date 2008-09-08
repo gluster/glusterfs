@@ -282,7 +282,7 @@ __socket_reset (transport_t *this)
 
 static struct ioq *
 __socket_ioq_new (transport_t *this, char *buf, int len,
-	       struct iovec *vector, int count, dict_t *refs)
+		  struct iovec *vector, int count, dict_t *refs)
 {
   struct ioq *entry = NULL;
   socket_private_t *priv = NULL;
