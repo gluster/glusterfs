@@ -47,8 +47,8 @@ random_init (xlator_t *xl)
   data_t *limit = dict_get (xl->options, "random.limits.min-free-disk");
   if (limit)
     {
-      if (gf_string2uint64_base10 (data_to_str (limit),
-				   &random_buf->min_free_disk) != 0)
+      if (gf_string2percent (data_to_str (limit),
+			     &random_buf->min_free_disk) != 0)
 	{
 	  gf_log ("random", 
 		  GF_LOG_ERROR, 
@@ -75,8 +75,8 @@ random_init (xlator_t *xl)
   limit = dict_get (xl->options, "random.refresh-interval");
   if (limit)
     {
-      if (gf_string2uint32_base10 (data_to_str (limit),
-				   &random_buf->refresh_interval) != 0)
+      if (gf_string2time (data_to_str (limit),
+			  &random_buf->refresh_interval) != 0)
 	{
 	  gf_log ("random", 
 		  GF_LOG_ERROR, 

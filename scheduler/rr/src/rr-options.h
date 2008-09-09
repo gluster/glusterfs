@@ -22,7 +22,7 @@
 
 struct rr_options
 {
-  uint8_t  min_free_disk;
+  uint32_t min_free_disk;
   uint32_t refresh_interval;
   char     **read_only_subvolume_list;
   uint64_t read_only_subvolume_count;

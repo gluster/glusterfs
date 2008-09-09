@@ -456,6 +456,7 @@ which is constant");
 
     limits = dict_get (xl->options, "alu.limits.min-free-disk");
     if (limits) {
+	uint32_t min_free_disk = 0;
 	_limit_fn = calloc (1, sizeof (struct alu_limits));
 	ERR_ABORT (_limit_fn);
 	_limit_fn->min_value = get_stats_free_disk;
@@ -463,8 +464,8 @@ which is constant");
 	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
-	if (gf_string2uint64_base10 (limits->data, 
-				     &alu_sched->spec_limit.free_disk) != 0)
+	
+	if (gf_string2percent (limits->data, &min_free_disk) != 0)
 	  {
 	    gf_log ("alu", 
 		    GF_LOG_ERROR, 
@@ -472,7 +473,8 @@ which is constant");
 		    limits->data);
 	    return -1;
 	  }
-	
+	alu_sched->spec_limit.free_disk = min_free_disk;
+
 	if (alu_sched->spec_limit.free_disk >= 100) {
 	  gf_log ("alu", GF_LOG_ERROR,
 		  "check the \"option rr.limits.min-free-disk\", it should be percentage value");
@@ -517,8 +519,7 @@ which is constant");
     data_t *stats_refresh = dict_get (xl->options, "refresh-interval");
     if (stats_refresh)
       {
-	if (gf_string2uint_base10 (stats_refresh->data, 
-				   &alu_sched->refresh_interval) != 0)
+	if (gf_string2time (stats_refresh->data, &alu_sched->refresh_interval) != 0)
 	  {
 	    gf_log ("alu", 
 		    GF_LOG_ERROR, 

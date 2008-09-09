@@ -1339,9 +1339,9 @@ struct xlator_mops mops = {
 };
 
 struct xlator_options options[] = { 
-	{ "start-offset", GF_OPTION_TYPE_INT32, 1, 0, 4096 },
-	{ "end-offset", GF_OPTION_TYPE_INT32, 1, 1, 4096 },
-	{ "regex", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "replace-with", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ NULL, 0, 0, 0, 0 },
+	{ "start-offset", GF_OPTION_TYPE_INT, 0, 0, 4096 },
+	{ "end-offset", GF_OPTION_TYPE_INT, 0, 1, 4096 },
+	{ "regex", GF_OPTION_TYPE_STR, 0, },
+	{ "replace-with", GF_OPTION_TYPE_STR, 0, },
+	{ NULL, 0, },
 };

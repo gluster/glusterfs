@@ -4460,7 +4460,7 @@ init (xlator_t *this)
     _private->optimist = 0;
     data = dict_get (this->options, "optimist");
     if (data) {
-      if (strncasecmp (data->data, "on", 3) == 0) {
+      if (strncasecmp (data->data, "on", 2) == 0) {
 	_private->optimist = 1;
       }
     }
@@ -4579,15 +4579,15 @@ struct xlator_mops mops = {
 };
 
 struct xlator_options options[] = {
-	{ "namespace", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "scheduler", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "alu.", GF_OPTION_TYPE_STR, 0, 0, 0 },
-	{ "rr.", GF_OPTION_TYPE_STR, 0, 0, 0 },
-	{ "random.", GF_OPTION_TYPE_STR, 0, 0, 0 },
-	{ "switch.", GF_OPTION_TYPE_STR, 0, 0, 0 },
-	{ "nufa.", GF_OPTION_TYPE_STR, 0, 0, 0 },
-	{ "drop-hostname-from-subvolumes", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "self-heal", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "optimist", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "namespace", GF_OPTION_TYPE_XLATOR, 0, 0, 0 },
+	{ "scheduler", GF_OPTION_TYPE_STR, 0, 0, 0, "alu|rr|random|nufa|switch" },
+	{ "alu.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 4, 0, 0 },
+	{ "rr.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 3, 0, 0 },
+	{ "random.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 7, 0, 0 },
+	{ "switch.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 7, 0, 0 },
+	{ "nufa.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 5, 0, 0 },
+	{ "drop-hostname-from-subvolumes", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
+	{ "self-heal", GF_OPTION_TYPE_STR, 0, 0, 0, "foreground|background|off" },
+	{ "optimist", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
 	{ NULL, 0, 0, 0, 0 },
 };

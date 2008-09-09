@@ -817,11 +817,12 @@ typedef struct xlator_list {
 typedef enum {
 	GF_OPTION_TYPE_ANY = 0,
 	GF_OPTION_TYPE_STR,
-	GF_OPTION_TYPE_INT8,
-	GF_OPTION_TYPE_INT32,
-	GF_OPTION_TYPE_INT64,
+	GF_OPTION_TYPE_INT,
 	GF_OPTION_TYPE_SIZET,
 	GF_OPTION_TYPE_PERCENT,
+	GF_OPTION_TYPE_BOOL,
+	GF_OPTION_TYPE_XLATOR,
+	GF_OPTION_TYPE_PATH,
 	GF_OPTION_TYPE_TIME,
 } xlator_option_type_t;
 
@@ -829,9 +830,10 @@ typedef enum {
 typedef struct xlator_options {
 	char *key;
 	xlator_option_type_t type;     
-	int32_t strict_match;  /* If set, will match whole str, instead of checking it at the beginning */
-	int64_t min_value;     /* -1 means no range */
+	int32_t num_char_to_match;  /* If zero, will match whole str */
+	int64_t min_value;          /* -1 means no range */
 	int64_t max_value;
+	char *str;         /* If specified, will check one of the keys from this list, '|' separated */
 } xlator_option_t;
 
 struct _xlator {

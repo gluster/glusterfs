@@ -280,6 +280,8 @@ int gf_string2uint64_base10 (const char *str, uint64_t *n);
 int gf_string2bytesize (const char *str, size_t *n);
 
 int gf_string2boolean (const char *str, gf_boolean_t *b);
+int gf_string2percent (const char *str, uint32_t *n);
+int gf_string2time (const char *str, uint32_t *n);
 
 int gf_lockfd (int fd);
 int gf_unlockfd (int fd);

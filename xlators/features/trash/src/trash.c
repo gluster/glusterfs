@@ -623,6 +623,6 @@ struct xlator_mops mops = {
 };
 
 struct xlator_options options[] = {
-	{ "trash-dir", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ NULL, 0, 0, 0, 0 },
+	{ "trash-dir", GF_OPTION_TYPE_PATH, 0, },
+	{ NULL, 0, },
 };

@@ -3546,7 +3546,57 @@ init (xlator_t *this)
   xlator_list_t *trav = NULL;
   data_t *stripe_data = NULL;
   int32_t count = 0;
+  int flag = 0;
   
+  {
+    data_t *tmp_data = dict_get (this->options, "drop-hostname-from-subvolumes");
+    if (tmp_data)
+      {
+	/* Well, drop the hostname from the subvolumes */
+	char host_name[256];
+	  
+	if (gethostname (host_name, 256) == -1)
+	  {
+	    gf_log (this->name, GF_LOG_ERROR, 
+		    "drop-hostname-from-subvolumes: gethostname(): %s", strerror (errno));
+	    return -1;
+	  }
+	else
+	  {
+	    /* Check if the local_volume specified is proper subvolume of unify */
+	    trav = this->children;
+	    if (strcmp (host_name, trav->xlator->name) == 0)
+	      {
+	        /* Well there is a volume with the name 'hostname()', hence neglect it */
+		this->children = trav->next;
+		gf_log (this->name, GF_LOG_DEBUG, 
+			"drop-hostname-from-subvolumes: skipped volume '%s'", host_name);
+		flag = 1;
+	      }
+	    while (trav->next) 
+	      {
+		if (strcmp (host_name, (trav->next)->xlator->name) == 0)
+		  {
+		    /* Well there is a volume with the name 'hostname()', hence neglect it */
+		    /* Remove entry about this subvolume from the list */
+		    trav->next = (trav->next)->next;
+		    flag = 1;
+		  }
+		trav = trav->next;
+	      }
+	      
+	    if (!flag) 
+	      {
+		/* entry for 'local-volume-name' is wrong, not present in subvolumes */
+		gf_log (this->name, GF_LOG_ERROR, 
+			"requested to drop hostname from subvolumes, but no volume by name '%s'", 
+			host_name);
+		return -1;
+	      } 
+	  }
+      }
+  }
+
   trav = this->children;
   while (trav) {
     count++;
@@ -3711,6 +3761,7 @@ struct xlator_mops mops = {
 
 
 struct xlator_options options[] = {
-	{ "block-size", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ NULL, 0, 0, 0, 0 },
+	{ "block-size", GF_OPTION_TYPE_STR, 0, },
+	{ "drop-hostname-from-subvolumes", GF_OPTION_TYPE_BOOL, 0,  },
+	{ NULL, 0, },
 };

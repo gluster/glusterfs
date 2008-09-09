@@ -4771,24 +4771,25 @@ struct xlator_mops mops = {
   .getspec   = client_getspec,
 };
 
+
 struct xlator_options options[] = {
 	/* Authentication module */
-	{ "username", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "password", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+ 	{ "username", GF_OPTION_TYPE_STR, 0, },
+ 	{ "password", GF_OPTION_TYPE_STR, 0, }, 
+  
+  	/* Transport */
+ 	{ "ib-verbs-[work-request-send-size|...]", GF_OPTION_TYPE_ANY, 9, 0, 0 }, 
+ 	{ "remote-port", GF_OPTION_TYPE_INT, 0, 1025, 65534 }, 
+ 	{ "transport-type", GF_OPTION_TYPE_STR, 0, 0, 0, "tcp|socket|ib-verbs|unix|ib-sdp" }, 
+ 	{ "address-family", GF_OPTION_TYPE_STR, 0, 0, 0, "inet|inet6|inet/inet6|inet6/inet|unix|ib-sdp" }, 
+ 	{ "remote-host", GF_OPTION_TYPE_STR, 0, }, 
+ 	{ "connect-path", GF_OPTION_TYPE_STR, 0, },
+ 	{ "non-blocking-io", GF_OPTION_TYPE_BOOL, 0, }, 
+  
+  	/* Client protocol itself */
+ 	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB }, 
+ 	{ "remote-subvolume", GF_OPTION_TYPE_STR, 0, }, 
+ 	{ "transport-timeout", GF_OPTION_TYPE_TIME, 0, 1, 3600 }, /* More than 10mins? */
 
-	/* Transport */
-	{ "ib-verbs-", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
-	{ "remote-port", GF_OPTION_TYPE_INT32, 1, 1025, 65534 }, 
-	{ "transport-type", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
-	{ "address-family", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
-	{ "remote-host", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
-	{ "connect-path", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "non-blocking-io", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
-
-	/* Client protocol itself */
-	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 1, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB }, 
-	{ "remote-subvolume", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
-	{ "transport-timeout", GF_OPTION_TYPE_INT32, 1, 1, 3600},
-	
-	{ NULL, 0, 0, 0, 0 },
+	{ NULL, 0, },
 };

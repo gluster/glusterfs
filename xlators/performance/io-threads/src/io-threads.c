@@ -1307,9 +1307,9 @@ struct xlator_mops mops = {
 };
 
 struct xlator_options options[] = {
-	{"thread-count", GF_OPTION_TYPE_INT32, 1, 1, 32},
-	//{"queue-limit", GF_OPTION_TYPE_INT32, 1, 1, 128},
-	{"cache-size", GF_OPTION_TYPE_SIZET, 1, 1 * GF_UNIT_MB, 4 * GF_UNIT_GB},
-	{ NULL, 0, 0, 0, 0 }
+	{"thread-count", GF_OPTION_TYPE_INT, 0, 1, 32},
+	//{"queue-limit", GF_OPTION_TYPE_INT32, 0, 1, 128},
+	{"cache-size", GF_OPTION_TYPE_SIZET, 0, 1 * GF_UNIT_MB, 4 * GF_UNIT_GB},
+	{ NULL, 0, }
 };
 

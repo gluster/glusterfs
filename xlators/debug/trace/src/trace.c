@@ -2246,7 +2246,7 @@ struct xlator_mops mops = {
 
 
 struct xlator_options options[] = {
-	{ "include", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "exclude", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "include", GF_OPTION_TYPE_STR, 0, 0, 0 },
+	{ "exclude", GF_OPTION_TYPE_STR, 0, 0, 0 },
 	{ NULL, 0, 0, 0, 0 },
 };

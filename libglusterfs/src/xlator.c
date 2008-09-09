@@ -106,8 +106,6 @@ xlator_validate_given_options (xlator_t *xl)
 	data_pair_t     *pairs   = NULL;
 	int32_t          index   = 0;
 	int32_t          valid   = 0;
-	int8_t           input8  = 0;
-	int32_t          input32 = 0;
 	int64_t          input64 = 0;
 	int64_t          input_size = 0;
 
@@ -120,13 +118,13 @@ xlator_validate_given_options (xlator_t *xl)
 		valid = 0;
 		for (index = 0; xl->std_options[index].key ; index++) {
 			trav = &(xl->std_options[index]);
-			if (trav->strict_match) {
-				if (strcmp (trav->key, pairs->key) == 0) {
+			if (trav->num_char_to_match) {
+				if (strncmp (trav->key, pairs->key, trav->num_char_to_match) == 0) {
 					valid = 1;
 					break;
 				}
 			} else {
-				if (strncmp (trav->key, pairs->key, strlen (trav->key)) == 0) {
+				if (strcmp (trav->key, pairs->key) == 0) {
 					valid = 1;
 					break;
 				}
@@ -141,8 +139,6 @@ xlator_validate_given_options (xlator_t *xl)
 					strcat (allowed_options, ", ");
 				strcat (allowed_options, "'");
 				strcat (allowed_options, xl->std_options[index].key);
-				if (!xl->std_options[index].strict_match)
-					strcat (allowed_options, "....");
 				strcat (allowed_options, "'");
 			}
 			
@@ -157,55 +153,16 @@ xlator_validate_given_options (xlator_t *xl)
 		
 		/* Key is valid, check the range and other options */
 		switch (trav->type) {
-		case GF_OPTION_TYPE_INT8:
-			/* Check the range */
-			if (gf_string2int8 (pairs->value->data, &input8) != 0) {
-				gf_log (xl->name, 
-					GF_LOG_ERROR, 
-					"invalid number format \"%s\" in \"option %s\"", 
-					pairs->value->data, pairs->key);
+		case GF_OPTION_TYPE_PATH:
+			/* Make sure the given path is valid */
+			if (pairs->value->data[0] != '/') {
+				gf_log (xl->name, GF_LOG_ERROR, 
+					"option %s %s: '%s' is not an absolute path name", 
+					pairs->key, pairs->value->data, pairs->value->data);
 				return -1;
 			}
-			if (trav->min_value == -1) {
-				gf_log (xl->name, GF_LOG_DEBUG, 
-					"no range check required for 'option %s %s'",
-					pairs->key, pairs->value->data);
-				break;
-			}
-			if ((input8 < (int8_t)trav->min_value) || (input8 > (int8_t)trav->max_value)) {
-				gf_log (xl->name, GF_LOG_ERROR,
-					"'%d' in 'option %s %s' is out of range [%d - %d]",
-					input8, pairs->key, pairs->value->data, 
-					(int8_t)trav->min_value, (int8_t)trav->max_value);
-				return -1;
-			}		     
 			break;
-
-		case GF_OPTION_TYPE_INT32:
-			/* Check the range */
-			if (gf_string2int32 (pairs->value->data, &input32) != 0) {
-				gf_log (xl->name, 
-					GF_LOG_ERROR, 
-					"invalid number format \"%s\" in \"option %s\"", 
-					pairs->value->data, pairs->key);
-				return -1;
-			}
-			if (trav->min_value == -1) {
-				gf_log (xl->name, GF_LOG_DEBUG, 
-					"no range check required for 'option %s %s'",
-					pairs->key, pairs->value->data);
-				break;
-			}
-			if ((input32 < (int32_t)trav->min_value) || (input32 > (int32_t)trav->max_value)) {
-				gf_log (xl->name, GF_LOG_ERROR,
-					"'%d' in 'option %s %s' is out of range [%d - %d]",
-					input32, pairs->key, pairs->value->data, 
-					(int32_t)trav->min_value, (int32_t)trav->max_value);
-				return -1;
-			}		     
-			break;
-
-		case GF_OPTION_TYPE_INT64:
+		case GF_OPTION_TYPE_INT:
 			/* Check the range */
 			if (gf_string2longlong (pairs->value->data, &input64) != 0) {
 				gf_log (xl->name, 
@@ -229,7 +186,6 @@ xlator_validate_given_options (xlator_t *xl)
 				return -1;
 			}		     
 			break;
-
 		case GF_OPTION_TYPE_SIZET:
 		{
 			size_t tmp_size = 0;
@@ -259,9 +215,125 @@ xlator_validate_given_options (xlator_t *xl)
 			}
 			break;
 		}
-		case GF_OPTION_TYPE_ANY:
+		case GF_OPTION_TYPE_BOOL:
+		{
+			/* Check if the value is one of 'on|off|no|yes|true|false|enable|disable' */
+			if (strcasecmp (pairs->value->data, "on") && 
+			    strcasecmp (pairs->value->data, "yes") &&
+			    strcasecmp (pairs->value->data, "true") &&
+			    strcasecmp (pairs->value->data, "enable") &&
+			    strcasecmp (pairs->value->data, "no") &&
+			    strcasecmp (pairs->value->data, "off") &&
+			    strcasecmp (pairs->value->data, "false") &&
+			    strcasecmp (pairs->value->data, "disable")) {
+				gf_log (xl->name, GF_LOG_ERROR, 
+					"option %s %s: '%s' is not valid boolian value", 
+					pairs->key, pairs->value->data, pairs->value->data);
+				return -1;
+			}
+			break;
+		}
+		case GF_OPTION_TYPE_XLATOR:
+		{
+			/* Check if the value is one of the xlators */
+			xlator_t *xltrav = xl;
+			while (xltrav->prev)
+				xltrav = xltrav->prev;
+			
+			while (xltrav) {
+				if (strcmp (pairs->value->data, xltrav->name) == 0)
+					break;
+				xltrav = xltrav->next;
+			}
+			if (!xltrav) {
+				gf_log (xl->name, GF_LOG_ERROR,
+					"option %s %s: '%s' is not a valid volume name", 
+					pairs->key, pairs->value->data, pairs->value->data);
+				return -1;
+			}
+			break;
+		}
 		case GF_OPTION_TYPE_STR:
-		default:
+		{
+			char *tmp_str = NULL;
+			char *tmp_char = NULL;
+			char *tmp_value = NULL;
+
+			/* Check if the '*str' is valid */
+			if (!trav->str)
+				break;
+
+			tmp_str = strdup (trav->str);
+			tmp_value = strtok_r (tmp_str, "|", &tmp_char);
+			while (tmp_value) {
+				if (strcasecmp (tmp_value, pairs->value->data) == 0)
+					break;
+				tmp_value = strtok_r (NULL, "|", &tmp_char);
+			}
+			if (!tmp_value) {
+				gf_log (xl->name, GF_LOG_ERROR,
+					"option %s %s: '%s' is not valid (possible options are '%s')",
+					pairs->key, pairs->value->data, pairs->value->data, trav->str);
+				return -1;
+			}
+			break;
+		}
+		case GF_OPTION_TYPE_PERCENT:
+		{
+			uint32_t percent = 0;
+
+			/* Check if the value is valid percentage */
+			if (gf_string2percent (pairs->value->data, &percent) != 0) {
+				gf_log (xl->name, 
+					GF_LOG_ERROR, 
+					"invalid percent format \"%s\" in \"option %s\"", 
+					pairs->value->data, pairs->key);
+				return -1;
+			}
+
+			if (trav->min_value == -1) {
+				gf_log (xl->name, GF_LOG_DEBUG, 
+					"no range check required for 'option %s %s'",
+					pairs->key, pairs->value->data);
+				break;
+			}
+			if ((percent < 0) || (percent > 100)) {
+				gf_log (xl->name, GF_LOG_ERROR,
+					"'%d' in 'option %s %s' is out of range [0 - 100]",
+					percent, pairs->key, pairs->value->data);
+				return -1;
+			}		     
+			break;
+		}
+		case GF_OPTION_TYPE_TIME:
+		{
+			uint32_t input_time = 0;
+
+			/* Check if the value is valid percentage */
+			if (gf_string2time (pairs->value->data, &input_time) != 0) {
+				gf_log (xl->name, 
+					GF_LOG_ERROR, 
+					"invalid time format \"%s\" in \"option %s\"", 
+					pairs->value->data, pairs->key);
+				return -1;
+			}
+
+			if (trav->min_value == -1) {
+				gf_log (xl->name, GF_LOG_DEBUG, 
+					"no range check required for 'option %s %s'",
+					pairs->key, pairs->value->data);
+				break;
+			}
+			if ((input_time < trav->min_value) || (input_time > trav->max_value)) {
+				gf_log (xl->name, GF_LOG_ERROR,
+					"'%"PRId64"' in 'option %s %s' is out of range [%"PRId64" - %"PRId64"]",
+					input_time, pairs->key, pairs->value->data, 
+					trav->min_value, trav->max_value);
+				return -1;
+			}		     
+			break;
+		}
+		case GF_OPTION_TYPE_ANY:
 			break;
 		}
 		

@@ -43,7 +43,7 @@ nufa_init (xlator_t *xl)
   data = dict_get (xl->options, "nufa.limits.min-free-disk");
   if (data)
     {
-      if (gf_string2uint64_base10 (data->data, &nufa_buf->min_free_disk) != 0)
+      if (gf_string2percent (data->data, &nufa_buf->min_free_disk) != 0)
 	{
 	  gf_log ("nufa", 
 		  GF_LOG_ERROR, 
@@ -67,7 +67,7 @@ nufa_init (xlator_t *xl)
   data = dict_get (xl->options, "nufa.refresh-interval");
   if (data)
     {
-      if (gf_string2uint32_base10 (data->data, &nufa_buf->refresh_interval) != 0)
+      if (gf_string2time (data->data, &nufa_buf->refresh_interval) != 0)
 	{
 	  gf_log ("nufa", 
 		  GF_LOG_ERROR, 

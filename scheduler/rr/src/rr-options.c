@@ -34,16 +34,16 @@
 #define LOG_WARNING(args...)    gf_log ("rr-options", GF_LOG_WARNING, ##args)
 
 static int 
-_rr_options_min_free_disk_validate (const char *value_string, uint8_t *n)
+_rr_options_min_free_disk_validate (const char *value_string, uint32_t *n)
 {
-  uint8_t value = 0;
+  uint32_t value = 0;
   
   if (value_string == NULL)
     {
       return -1;
     }
   
-  if (gf_string2uint8_base10 (value_string, &value) != 0)
+  if (gf_string2percent (value_string, &value) != 0)
     {
       gf_log ("rr", 
 	      GF_LOG_ERROR, 
@@ -79,7 +79,7 @@ _rr_options_refresh_interval_validate (const char *value_string, uint32_t *n)
       return -1;
     }
   
-  if (gf_string2uint32_base10 (value_string, &value) != 0)
+  if (gf_string2time (value_string, &value) != 0)
     {
       gf_log ("rr", 
 	      GF_LOG_ERROR, 

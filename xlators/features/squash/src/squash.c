@@ -1314,8 +1314,8 @@ struct xlator_mops mops = {
 };
 
 struct xlator_options options[] = {
-	{ "root-squashing", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "uidmap", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "gidmap", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ NULL, 0, 0, 0, 0 },
+	{ "root-squashing", GF_OPTION_TYPE_STR, 0, },
+	{ "uidmap", GF_OPTION_TYPE_STR, 0, },
+	{ "gidmap", GF_OPTION_TYPE_STR, 0, },
+	{ NULL, 0, },
 };

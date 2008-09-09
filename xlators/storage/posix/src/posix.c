@@ -3556,8 +3556,8 @@ struct xlator_fops fops = {
 };
 
 struct xlator_options options[] = {
-	{ "o-direct", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "directory", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ "export-statfs-size", GF_OPTION_TYPE_STR, 1, 0, 0 },
-	{ NULL, 0, 0, 0, 0 }
+	{ "o-direct", GF_OPTION_TYPE_BOOL, 0, },
+	{ "directory", GF_OPTION_TYPE_PATH, 0, },
+	{ "export-statfs-size", GF_OPTION_TYPE_BOOL, 0,  },
+	{ NULL, 0, }
 };

@@ -1343,6 +1343,6 @@ struct xlator_mops mops = {
 };
 
 struct xlator_options options[] = {
-	{ "mandatory", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "mandatory", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
 	{ NULL, 0, 0, 0, 0 },
 };

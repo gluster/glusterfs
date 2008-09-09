@@ -2025,6 +2025,7 @@ server_stub_cbk (call_frame_t *frame,
     inode_link (inode, NULL, NULL, stbuf);
     inode_lookup (inode);
     server_inode = inode_ref (inode);
+    //server_inode = inode;
   }
 
   if (frame->local) {
@@ -2068,7 +2069,8 @@ server_stub_cbk (call_frame_t *frame,
            * newpath in inode table.
            * inode_ref()ed because, we might do a STACK_WIND to fops->lookup()
            * again to lookup for newpath */
-          stub->args.rename.old.inode = inode_ref (server_inode);
+          stub->args.rename.old.inode = inode_unref (server_inode);
+
           stub->args.rename.old.ino = stbuf->st_ino;
 
           /* now lookup for newpath */
@@ -2107,7 +2109,8 @@ server_stub_cbk (call_frame_t *frame,
           frame->local = NULL;
 
           if (server_inode) {
-            stub->args.rename.new.inode = inode_ref (server_inode);
+	    /* as new.inode doesn't get forget, it needs to be unref'd here */
+            stub->args.rename.new.inode = inode_unref (server_inode);
             stub->args.rename.new.ino = stbuf->st_ino;
           }
         }
@@ -6419,20 +6422,20 @@ struct xlator_fops fops = {
 
 struct xlator_options options[] = {
 	/* Authentication module */
-	{ "auth.addr.", GF_OPTION_TYPE_STR, 0, 0, 0 },
-	{ "auth.login.", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
+	{ "auth.addr.<volume-name>.[allow|reject]", GF_OPTION_TYPE_ANY, 10, 0, 0 },
+	{ "auth.login.<volume-name>.allow", GF_OPTION_TYPE_STR, 11, 0, 0 }, 
 
 	/* Transport */
-	{ "ib-verbs-", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
-	{ "listen-port", GF_OPTION_TYPE_INT32, 1, 1025, 65534 }, 
-	{ "transport-type", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
-	{ "address-family", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
-	{ "bind-address", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
-	{ "listen-path", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+	{ "ib-verbs-[port|mtu|device-name|work-request-send-size...]", GF_OPTION_TYPE_ANY, 9, 0, 0 }, 
+	{ "listen-port", GF_OPTION_TYPE_INT, 0, 1025, 65534 }, 
+	{ "transport-type", GF_OPTION_TYPE_STR, 0, 0, 0, "tcp|ib-verbs|ib-sdp|socket|unix" }, 
+	{ "address-family", GF_OPTION_TYPE_STR, 0, 0, 0, "inet|inet6|inet/inet6|inet6/inet|unix|ib-sdp" }, 
+	{ "bind-address", GF_OPTION_TYPE_STR, 0, }, 
+	{ "listen-path", GF_OPTION_TYPE_STR, 0, 0, 0 }, 
 
 	/* Server protocol itself */
-	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 1, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB }, 
-	{ "client-volume-filename", GF_OPTION_TYPE_STR, 1, 0, 0 }, 
+	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB }, 
+	{ "client-volume-filename", GF_OPTION_TYPE_PATH, 0, }, 
 	
 	{ NULL, 0, 0, 0, 0 },
 };

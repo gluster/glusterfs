@@ -641,6 +641,114 @@ gf_volume_name_validate (const char *volume_name)
   return 0;
 }
 
+
+int 
+gf_string2time (const char *str, uint32_t *n)
+{
+  unsigned long value = 0;
+  char *tail = NULL;
+  int old_errno = 0;
+  const char *s = NULL;
+  
+  if (str == NULL || n == NULL)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  
+  for (s = str; *s != '\0'; s++)
+    {
+      if (isspace (*s))
+	{
+	  continue;
+	}
+      if (*s == '-')
+	{
+	  return -1;
+	}
+      break;
+    }
+  
+  old_errno = errno;
+  errno = 0;
+  value = strtol (str, &tail, 0);
+  
+  if (errno == ERANGE || errno == EINVAL)
+    {
+      return -1;
+    }
+  
+  if (errno == 0)
+    {
+      errno = old_errno;
+    }
+  
+  if (!((tail[0] == '\0') || 
+	((tail[0] == 's') && (tail[1] == '\0')) ||
+	((tail[0] == 's') && (tail[1] == 'e') && (tail[2] == 'c') && (tail[3] == '\0'))))
+    {
+      return -1;
+    }
+  
+  *n = value;
+  
+  return 0;
+}
+
+
+int 
+gf_string2percent (const char *str, uint32_t *n)
+{
+  unsigned long value = 0;
+  char *tail = NULL;
+  int old_errno = 0;
+  const char *s = NULL;
+  
+  if (str == NULL || n == NULL)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  
+  for (s = str; *s != '\0'; s++)
+    {
+      if (isspace (*s))
+	{
+	  continue;
+	}
+      if (*s == '-')
+	{
+	  return -1;
+	}
+      break;
+    }
+  
+  old_errno = errno;
+  errno = 0;
+  value = strtol (str, &tail, 0);
+  
+  if (errno == ERANGE || errno == EINVAL)
+    {
+      return -1;
+    }
+  
+  if (errno == 0)
+    {
+      errno = old_errno;
+    }
+  
+  if (!((tail[0] == '\0') || 
+	((tail[0] == '%') && (tail[1] == '\0'))))
+    {
+      return -1;
+    }
+  
+  *n = value;
+  
+  return 0;
+}
+
+
 static int 
 _gf_string2long (const char *str, long *n, int base)
 {
@@ -668,8 +776,7 @@ _gf_string2long (const char *str, long *n, int base)
       errno = old_errno;
     }
 
-  /* supports percentage and seconds */
-  if (!((tail[0] == '\0') || (tail[0] == '%') || (tail[0] == 's'))) 
+  if (tail[0] != '\0')
     {
       /* bala: invalid integer format */
       return -1;
@@ -723,7 +830,7 @@ _gf_string2ulong (const char *str, unsigned long *n, int base)
       errno = old_errno;
     }
   
-  if (!((tail[0] == '\0') || (tail[0] == '%') || (tail[0] == 's'))) 
+  if (tail[0] != '\0')
     {
       /* bala: invalid integer format */
       return -1;
@@ -761,7 +868,7 @@ _gf_string2longlong (const char *str, long long *n, int base)
       errno = old_errno;
     }
   
-  if (!((tail[0] == '\0') || (tail[0] == '%') || (tail[0] == 's'))) 
+  if (tail[0] != '\0')
     {
       /* bala: invalid integer format */
       return -1;
@@ -815,7 +922,7 @@ _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
       errno = old_errno;
     }
   
-  if (!((tail[0] == '\0') || (tail[0] == '%') || (tail[0] == 's'))) 
+  if (tail[0] != '\0')
     {
       /* bala: invalid integer format */
       return -1;

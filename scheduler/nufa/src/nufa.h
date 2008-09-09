@@ -45,7 +45,7 @@ struct nufa_struct {
   int32_t local_xl_count; /* Count of the local subvolumes */
 
   uint32_t refresh_interval;
-  uint64_t min_free_disk;
+  uint32_t min_free_disk;
   
   gf_lock_t nufa_lock;
   int32_t child_count;
