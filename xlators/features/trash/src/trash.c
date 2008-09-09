@@ -44,14 +44,14 @@ struct trash_priv {
 };
 typedef struct trash_priv trash_private_t;
 
-int32_t 
+int32_t
 trash_unlink_rename_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
 			 struct stat *buf);
-int32_t 
+int32_t
 trash_rename_rename_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -60,9 +60,9 @@ trash_rename_rename_cbk (call_frame_t *frame,
 			 struct stat *buf);
 
 /**
- * trash_common_unwind_cbk - 
+ * trash_common_unwind_cbk -
  */
-int32_t 
+int32_t
 trash_common_unwind_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -74,9 +74,9 @@ trash_common_unwind_cbk (call_frame_t *frame,
 }
 
 /**
- * trash_common_unwind_buf_cbk - 
+ * trash_common_unwind_buf_cbk -
  */
-int32_t 
+int32_t
 trash_common_unwind_buf_cbk (call_frame_t *frame,
 			     void *cookie,
 			     xlator_t *this,
@@ -88,7 +88,7 @@ trash_common_unwind_buf_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
+int32_t
 trash_mkdir_bg_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -102,7 +102,7 @@ trash_mkdir_bg_cbk (call_frame_t *frame,
 }
 
 
-int32_t 
+int32_t
 trash_mkdir_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -118,7 +118,7 @@ trash_mkdir_cbk (call_frame_t *frame,
 		int32_t count = 0;
 		char *tmp_path = NULL;
 		char *tmp_dirname = strchr (tmp_str, '/');
-    
+
 		while (tmp_dirname) {
 			count = tmp_dirname - tmp_str;
 			if (count == 0)
@@ -130,7 +130,7 @@ trash_mkdir_cbk (call_frame_t *frame,
 				.inode = NULL,
 				.path = tmp_path,
 			};
-      
+
 			/* TODO: create the directory with proper permissions */
 			STACK_WIND_COOKIE (frame,
 					   trash_mkdir_cbk,
@@ -161,7 +161,7 @@ trash_mkdir_cbk (call_frame_t *frame,
 			    this->children->xlator->fops->rename,
 			    &loc,
 			    &new_loc);
-    
+
 	}
 	free (cookie); /* strdup (dir_name) was sent here :) */
 	free (tmp_str);
@@ -169,9 +169,9 @@ trash_mkdir_cbk (call_frame_t *frame,
 }
 
 /**
- * trash_unlink_rename_cbk - 
+ * trash_unlink_rename_cbk -
  */
-int32_t 
+int32_t
 trash_unlink_rename_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -181,8 +181,8 @@ trash_unlink_rename_cbk (call_frame_t *frame,
 {
 	trash_local_t *local = frame->local;
 	if (op_ret == -1 && op_errno == ENOENT) {
-		/* check for the errno, if its ENOENT create directory and call 
-		 * rename later 
+		/* check for the errno, if its ENOENT create directory and call
+		 * rename later
 		 */
 		char *tmp_str = strdup (local->newpath);
 		char *dir_name = dirname (tmp_str);
@@ -200,8 +200,8 @@ trash_unlink_rename_cbk (call_frame_t *frame,
 				   0777);
 		free (tmp_str);
 	} else if (op_ret == -1 && op_errno == ENOTDIR) {
-		gf_log (this->name, 
-			GF_LOG_WARNING, 
+		gf_log (this->name,
+			GF_LOG_WARNING,
 			"Target exists, cannot keep the copy, deleting");
 		loc_t tmp_loc = {
 			.inode = local->inode,
@@ -213,8 +213,8 @@ trash_unlink_rename_cbk (call_frame_t *frame,
 			    this->children->xlator->fops->unlink,
 			    &tmp_loc);
 	} else if (op_ret == -1 && op_errno == EISDIR) {
-		gf_log (this->name, 
-			GF_LOG_WARNING, 
+		gf_log (this->name,
+			GF_LOG_WARNING,
 			"Target exists as a directory, cannot keep the copy, deleting");
 		loc_t tmp_loc = {
 			.inode = local->inode,
@@ -230,13 +230,13 @@ trash_unlink_rename_cbk (call_frame_t *frame,
 		/* */
 		STACK_UNWIND (frame, 0, op_errno);
 	}
-  
+
 	return 0;
 }
 
 
 /**
- * trash_unlink - 
+ * trash_unlink -
  */
 int32_t
 trash_unlink (call_frame_t *frame,
@@ -281,7 +281,7 @@ trash_unlink (call_frame_t *frame,
 }
 
 /* */
-int32_t 
+int32_t
 trash_rename_mkdir_cbk (call_frame_t *frame,
 			void *cookie,
 			xlator_t *this,
@@ -297,7 +297,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 		int32_t count = 0;
 		char *tmp_path = NULL;
 		char *tmp_dirname = strchr (tmp_str, '/');
-    
+
 		while (tmp_dirname) {
 			count = tmp_dirname - tmp_str;
 			if (count == 0)
@@ -309,7 +309,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 				.inode = NULL,
 				.path = tmp_path,
 			};
-      
+
 			/* TODO: create the directory with proper permissions */
 			STACK_WIND_COOKIE (frame,
 					   trash_rename_mkdir_cbk,
@@ -340,7 +340,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 			    this->children->xlator->fops->rename,
 			    &loc,
 			    &new_loc);
-    
+
 	}
 	free (cookie); /* strdup (dir_name) was sent here :) */
 	free (tmp_str);
@@ -349,9 +349,9 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 
 
 /**
- * trash_unlink_rename_cbk - 
+ * trash_unlink_rename_cbk -
  */
-int32_t 
+int32_t
 trash_rename_rename_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -361,8 +361,8 @@ trash_rename_rename_cbk (call_frame_t *frame,
 {
 	trash_local_t *local = frame->local;
 	if (op_ret == -1 && op_errno == ENOENT) {
-		/* check for the errno, if its ENOENT create directory and call 
-		 * rename later 
+		/* check for the errno, if its ENOENT create directory and call
+		 * rename later
 		 */
 		char *tmp_str = strdup (local->newpath);
 		char *dir_name = dirname (tmp_str);
@@ -381,13 +381,13 @@ trash_rename_rename_cbk (call_frame_t *frame,
 		free (tmp_str);
 		return 0;
 	} else if (op_ret == -1 && op_errno == ENOTDIR) {
-		gf_log (this->name, 
-			GF_LOG_WARNING, 
+		gf_log (this->name,
+			GF_LOG_WARNING,
 			"Target exists, cannot keep the dest entry %s, renaming",
 			local->origpath);
 	} else if (op_ret == -1 && op_errno == EISDIR) {
-		gf_log (this->name, 
-			GF_LOG_WARNING, 
+		gf_log (this->name,
+			GF_LOG_WARNING,
 			"Target exists as a directory, cannot keep the copy %s, renaming",
 			local->origpath);
 	}
@@ -405,14 +405,14 @@ trash_rename_rename_cbk (call_frame_t *frame,
 		    this->children->xlator->fops->rename,
 		    &tmp_loc,
 		    &new_loc);
-  
+
 	return 0;
 }
 
 /**
- * trash_rename_lookup_cbk - 
+ * trash_rename_lookup_cbk -
  */
-int32_t 
+int32_t
 trash_rename_lookup_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -462,16 +462,16 @@ trash_rename_lookup_cbk (call_frame_t *frame,
 
 
 /**
- * trash_rename - 
+ * trash_rename -
  */
-int32_t 
+int32_t
 trash_rename (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *oldloc,
 	      loc_t *newloc)
 {
 	trash_private_t *priv = this->private;
-  
+
 	if (strncmp (oldloc->path, priv->trash_dir, strlen(priv->trash_dir)) == 0) {
 		/* Trying to rename from the trash can dir, do the actual rename */
 		STACK_WIND (frame,
@@ -493,7 +493,7 @@ trash_rename (call_frame_t *frame,
 		strcat (local->newpath, newloc->path);
 		strcpy (local->origpath, newloc->path);
 		strcpy (local->oldpath, oldloc->path);
-    
+
 		/* Send a lookup call on newloc, to ensure we are not overwriting */
 		STACK_WIND (frame,
 			    trash_rename_lookup_cbk,
@@ -513,7 +513,7 @@ notify (xlator_t *this,
 {
 	trash_private_t *priv = this->private;
 
-	switch (event) 
+	switch (event)
 	{
 	case GF_EVENT_CHILD_UP:
 	{
@@ -554,14 +554,14 @@ notify (xlator_t *this,
 /**
  * trash_init -
  */
-int32_t 
+int32_t
 init (xlator_t *this)
 {
-	data_t *trash_dir = NULL;
+  	data_t *trash_dir = NULL;
 	xlator_list_t *trav = NULL;
 	trash_private_t *_priv = NULL;
 
-	/* Create .trashcan directory in init */
+/* Create .trashcan directory in init */
 	if (!this->children || this->children->next) {
 		gf_log (this->name,
 			GF_LOG_ERROR,
@@ -571,7 +571,7 @@ init (xlator_t *this)
 	}
 
 	trav = this->children;
-	while (trav->xlator->children) 
+	while (trav->xlator->children)
 		trav = trav->xlator->children;
 
 	if (strncmp ("storage/", trav->xlator->type, 8))
@@ -583,10 +583,10 @@ init (xlator_t *this)
 
 	_priv = calloc (1, sizeof (*_priv));
 	ERR_ABORT (_priv);
-    
+
 	trash_dir = dict_get (this->options, "trash-dir");
 	if (!trash_dir) {
-		gf_log (this->name, 
+		gf_log (this->name,
 			GF_LOG_WARNING,
 			"no option specified for 'trash-dir', using \"/.trashcan/\"");
 		strcpy (_priv->trash_dir, "/.trashcan");
@@ -622,7 +622,10 @@ struct xlator_mops mops = {
 
 };
 
+struct xlator_cbks cbks = {
+};
+
 struct xlator_options options[] = {
-	{ "trash-dir", GF_OPTION_TYPE_PATH, 0, },
+	{"trash-dir", GF_OPTION_TYPE_PATH, 0, },
 	{ NULL, 0, },
 };

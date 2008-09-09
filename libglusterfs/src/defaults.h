@@ -284,4 +284,10 @@ int32_t default_notify (xlator_t *this,
 			void *data,
 			...);
 
+int32_t default_release (xlator_t *this,
+			 fd_t *fd);
+
+int32_t default_releasedir (xlator_t *this,
+			    fd_t *fd);
+
 #endif /* _DEFAULTS_H */

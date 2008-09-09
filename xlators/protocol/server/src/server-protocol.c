@@ -17,9 +17,6 @@
    <http://www.gnu.org/licenses/>.
 */
 
-/*
- * TODO: whenever inode_search() fails, we need to do dummy_inode() before diverting to lookup()s
- */
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -47,6 +44,377 @@
 #define SERVER_PRIV(frame) ((server_proto_priv_t *) TRANSPORT_OF(frame)->xl_private)
 #define BOUND_XL(frame) ((xlator_t *) STATE (frame)->bound_xl)
 
+
+server_state_t *
+server_state_fill (call_frame_t *frame,
+		   void *request, 
+		   int type)
+{
+	server_state_t *state = STATE (frame);
+	server_proto_priv_t *priv = SERVER_PRIV (frame);
+	xlator_t *bound_xl = state->bound_xl;
+	switch (type){
+	case GF_FOP_LOOKUP:
+	{
+		gf_fop_lookup_req_t *req = request;
+		
+		state->need_xattr = ntoh32 (req->flags);
+		state->loc.ino    = ntoh64 (req->ino);
+		state->loc.path   = req->path;
+		state->path = strdup (state->loc.path);
+		
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+	}
+	break;
+	case GF_FOP_STAT:
+	{
+		gf_fop_stat_req_t *req = request;
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+	}
+	break;
+	case GF_FOP_READLINK:
+	{
+		gf_fop_readlink_req_t *req = request;
+		state->size      = ntoh32 (req->size);
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+	}
+	break;
+	case GF_FOP_UNLINK:
+	{
+		gf_fop_unlink_req_t *req = request;
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+	}
+	break;
+	case GF_FOP_RENAME:
+	{
+		gf_fop_rename_req_t *req = request;
+		state->loc.path  = req->oldpath;
+		state->loc2.path  = (req->newpath + strlen (req->oldpath) + 1);
+
+		state->loc.ino   = ntoh64 (req->oldino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+
+		state->loc2.ino   = ntoh64 (req->newino);
+		state->loc2.inode = inode_search (bound_xl->itable, state->loc2.ino, NULL);
+	}
+	break;
+	case GF_FOP_LINK:
+	{
+		gf_fop_link_req_t *req = request;
+		state->name  = (req->newpath + strlen (req->oldpath) + 1);
+		state->loc.path  = req->oldpath;
+		state->loc.ino   = ntoh64 (req->oldino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+
+	}
+	break;
+	case GF_FOP_SETXATTR:
+	{
+		gf_fop_setxattr_req_t *req = request;
+
+		state->dict_len = ntoh32 (req->dict_len);
+
+		/* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
+		 * in the protocol data.
+		 */
+		state->loc.path  = req->dict + state->dict_len;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+
+		state->flags = ntoh32 (req->flags);
+	}
+	break;
+	case GF_FOP_GETXATTR:
+	{
+		gf_fop_getxattr_req_t *req = request;
+
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+
+		state->name_len = ntoh32 (req->name_len);
+		if (state->name_len)
+			state->name = (req->name + strlen (state->loc.path) + 1);
+
+	}
+	break;
+	case GF_FOP_REMOVEXATTR:
+	{
+		gf_fop_removexattr_req_t *req = request;
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+		
+		state->name = (req->name + strlen (state->loc.path) + 1);
+	}
+	break;
+	case GF_FOP_MKNOD:
+	{
+		gf_fop_mknod_req_t *req = request;
+
+		state->mode = ntoh32 (req->mode);
+		state->dev = ntoh64 (req->dev);
+		state->loc.path  = req->path;
+		state->loc.inode = inode_new (bound_xl->itable);
+	}
+	break;
+	case GF_FOP_OPEN:
+	{
+		gf_fop_open_req_t *req = request;
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+		state->flags     = ntoh32 (req->flags);
+	}
+	break;
+	case GF_FOP_CREATE:
+	{
+		gf_fop_create_req_t *req = request;
+		
+		state->mode  = ntoh32 (req->mode);
+		state->flags = ntoh32 (req->flags);
+		state->path  = req->path;
+				
+		state->loc.path = state->path;
+		state->loc.inode = inode_new (bound_xl->itable);
+		state->fd = fd_create (state->loc.inode, frame->root->pid);
+		state->fd = fd_ref (state->fd);
+	}
+	break;
+	case GF_FOP_CHOWN:
+	{
+		gf_fop_chown_req_t *req = request;
+
+		state->uid      = ntoh32 (req->uid);
+		state->gid      = ntoh32 (req->gid);
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+	}
+	break;
+	case GF_FOP_CHMOD:
+	{
+		gf_fop_chmod_req_t *req = request;
+		state->mode      = ntoh32 (req->mode);
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->oldino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+	}
+	break;
+	case GF_FOP_UTIMENS:
+	{
+		gf_fop_utimens_req_t *req = request;
+
+		gf_timespec_to_timespec (req->tv, state->tv);
+
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+	}
+	break;
+	case GF_FOP_MKDIR:
+	{
+		gf_fop_mkdir_req_t *req = request;
+		state->mode = ntoh32 (req->mode);
+		state->loc.path  = req->path;
+		state->loc.inode = inode_new (bound_xl->itable);
+	}
+	break;
+	case GF_FOP_RMDIR:
+	{
+		gf_fop_rmdir_req_t *req = request;
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+	}
+	break;
+	case GF_FOP_OPENDIR:
+	{
+		gf_fop_opendir_req_t *req = request;
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+	}
+	break;
+	case GF_FOP_FLUSH:
+	{
+		gf_fop_flush_req_t *req = request;
+
+		state->fd_no = ntoh64 (req->fd);
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_FSYNC:
+	{
+		gf_fop_fsync_req_t *req = request;
+
+		state->fd_no = ntoh64 (req->fd);
+		state->flags = ntoh32 (req->data);
+		
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_FTRUNCATE:
+	{
+		gf_fop_ftruncate_req_t *req = request;
+		state->offset = ntoh64 (req->offset);
+		state->fd_no  = ntoh64 (req->fd);
+		
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_FCHMOD:
+	{
+		gf_fop_fchmod_req_t *req = request;
+		state->mode   = ntoh32 (req->mode);
+		state->fd_no  = ntoh64 (req->fd);
+
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_FCHOWN:
+	{
+		gf_fop_fchown_req_t *req = request;
+		state->uid   = ntoh32 (req->uid);
+		state->gid   = ntoh32 (req->gid);
+		state->fd_no = ntoh64 (req->fd);
+		
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_FSTAT:
+	{
+		gf_fop_fstat_req_t *req = request;
+		state->fd_no  = ntoh64 (req->fd);
+
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_CLOSE:
+	{
+		gf_fop_close_req_t *req = request;
+		
+		state->fd_no = ntoh64 (req->fd);
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_TRUNCATE:
+	{
+		gf_fop_truncate_req_t *req = request;
+		state->offset    = ntoh64 (req->offset);
+		state->loc.path  = req->path;
+		state->loc.ino   = ntoh64 (req->ino);
+		state->loc.inode = inode_search (bound_xl->itable, state->loc.ino, NULL);
+	}
+	break;
+	case GF_FOP_CLOSEDIR:
+	{
+		gf_fop_closedir_req_t *req = request;
+		
+		state->fd_no = ntoh64 (req->fd);
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_READ:
+	{
+		gf_fop_read_req_t *req = request;
+
+		state->fd_no   = ntoh64 (req->fd);
+		state->size    = ntoh32 (req->size);
+		state->offset  = ntoh64 (req->offset);
+		
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_WRITE:
+	{
+		gf_fop_write_req_t *req = request;
+
+		state->offset = ntoh64 (req->offset);
+		state->fd_no  = ntoh64 (req->fd);
+		
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_LK:
+	{
+		gf_fop_lk_req_t *req = request;
+		state->fd_no  = ntoh64 (req->fd);
+		
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+
+		state->cmd =  ntoh32 (req->cmd);
+		state->type = ntoh32 (req->type);
+	}
+	break;
+	case GF_FOP_READDIR:
+	{
+		gf_fop_readdir_req_t *req = request;
+		state->size   = ntoh32 (req->size);
+		state->offset = ntoh64 (req->offset);
+		state->fd_no  = ntoh64 (req->fd);
+		
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_GETDENTS:
+	{
+		gf_fop_getdents_req_t *req = request;
+
+		state->size = ntoh32 (req->size);
+		state->offset = ntoh64 (req->offset);
+		state->flags = ntoh32 (req->flags);
+		state->fd_no  = ntoh64 (req->fd);
+
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+
+	}
+	break;
+	case GF_FOP_SETDENTS:
+	{
+		gf_fop_setdents_req_t *req = request;
+
+		state->fd_no  = ntoh64 (req->fd);
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->nr_count = ntoh32 (req->count);
+	}
+	break;
+	case GF_FOP_FSYNCDIR:
+	{
+		gf_fop_fsyncdir_req_t *req = request;
+		//state->fd_no = ntoh32 (req->fd);
+		state->flags = ntoh32 (req->data);
+
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	case GF_FOP_XATTROP:
+	{
+		gf_fop_xattrop_req_t *req = request;
+		
+		state->dict_len = ntoh32 (req->dict_len);
+
+		/* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
+		 * in the protocol data.
+		 */
+		state->path  = req->dict + state->dict_len;
+		state->flags = ntoh32 (req->flags);
+		state->fd_no = ntoh64 (req->fd);
+		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+	}
+	break;
+	default:
+		break;
+	}
+	
+	return state;
+}
 
 /*
  * stat_to_str - convert struct stat to a ASCII string
@@ -105,6 +473,25 @@ stat_to_str (struct stat *stbuf)
   return tmp_buf;
 }
 
+static void
+free_state (server_state_t *state)
+{
+  transport_t *trans = NULL;	
+
+  trans    = state->trans;
+
+  if (state->inode)
+    inode_unref (state->inode);
+  if (state->inode2)
+    inode_unref (state->inode2);
+  
+  if (state->fd)
+	  fd_unref (state->fd);
+
+  transport_unref (trans);
+
+  FREE (state);
+}
 
 static void
 protocol_server_reply (call_frame_t *frame,
@@ -119,7 +506,7 @@ protocol_server_reply (call_frame_t *frame,
 
   bound_xl = BOUND_XL (frame);
   state    = STATE (frame);
-  trans    = state->trans;
+  trans = state->trans;
 
   hdr->callid = hton64 (frame->root->unique);
   hdr->type   = hton32 (type);
@@ -131,12 +518,10 @@ protocol_server_reply (call_frame_t *frame,
 
   if (bound_xl)
     inode_table_prune (bound_xl->itable);
-  if (state->inode)
-    inode_unref (state->inode);
-  if (state->inode2)
-    inode_unref (state->inode2);
-  transport_unref (trans);
-  FREE (state);
+  
+  if (state)
+	  free_state (state);
+
 }
 
 
@@ -184,23 +569,17 @@ server_fchmod (call_frame_t *frame,
                char *buf, size_t buflen)
 {
   gf_fop_fchmod_req_t *req = NULL;
-  server_proto_priv_t *priv = NULL;
-  mode_t mode = 0;
-  int fd_no = -1;
-  fd_t *fd = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  mode   = ntoh32 (req->mode);
-  fd_no  = ntoh64 (req->fd);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_FCHMOD);
 
-  priv = SERVER_PRIV (frame);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_fchmod_cbk (frame, NULL, frame->this,
                          -1, EINVAL, NULL);
@@ -212,8 +591,8 @@ server_fchmod (call_frame_t *frame,
               server_fchmod_cbk,
               bound_xl,
               bound_xl->fops->fchmod,
-              fd,
-              mode);
+              state->fd,
+              state->mode);
 
   return 0;
 
@@ -264,25 +643,17 @@ server_fchown (call_frame_t *frame,
                char *buf, size_t buflen)
 {
   gf_fop_fchown_req_t *req = NULL;
-  server_proto_priv_t *priv = NULL;
-  uid_t uid = 0;
-  gid_t gid = 0;
-  int fd_no = -1;
-  fd_t *fd = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  uid   = ntoh32 (req->uid);
-  gid   = ntoh32 (req->gid);
-  fd_no = ntoh64 (req->fd);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_FCHOWN);
 
-  priv = SERVER_PRIV (frame);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_fchown_cbk (frame, NULL, frame->this,
                          -1, EINVAL, NULL);
@@ -294,9 +665,9 @@ server_fchown (call_frame_t *frame,
               server_fchown_cbk,
               bound_xl,
               bound_xl->fops->fchown,
-              fd,
-              uid,
-              gid);
+              state->fd,
+              state->uid,
+              state->gid);
 
   return 0;
 
@@ -958,11 +1329,7 @@ server_closedir_cbk (call_frame_t *frame,
 {
   gf_hdr_common_t *hdr = NULL;
   gf_fop_closedir_rsp_t *rsp = NULL;
-  fd_t *fd = NULL;
   size_t hdrlen = 0;
-
-  fd = frame->local;
-  frame->local = NULL;
 
   hdrlen = gf_hdr_len (rsp, 0);
   hdr    = gf_hdr_new (rsp, 0);
@@ -973,9 +1340,6 @@ server_closedir_cbk (call_frame_t *frame,
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CLOSEDIR,
                          hdr, hdrlen, NULL, 0, NULL);
-
-  if (fd)
-    fd_destroy (fd);
 
   return 0;
 }
@@ -1009,6 +1373,9 @@ server_opendir_cbk (call_frame_t *frame,
   if (op_ret >= 0)
     {
       priv = SERVER_PRIV (frame);
+
+      fd_bind (fd);
+
       fd_no = gf_fd_unused_get (priv->fdtable, fd);
     }
 
@@ -1557,24 +1924,16 @@ server_close_cbk (call_frame_t *frame,
 {
   gf_hdr_common_t *hdr = NULL;
   gf_fop_close_rsp_t *rsp = NULL;
-  fd_t *fd = NULL;
   size_t hdrlen = 0;
-
-  fd = frame->local;
-  frame->local = NULL;
 
   hdrlen = gf_hdr_len (rsp, 0);
   hdr    = gf_hdr_new (rsp, 0);
-  rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
   hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CLOSE,
                          hdr, hdrlen, NULL, 0, NULL);
-
-  if (fd)
-    fd_destroy (fd);
 
   return 0;
 }
@@ -1697,6 +2056,9 @@ server_open_cbk (call_frame_t *frame,
   if (op_ret >= 0)
     {
       priv = SERVER_PRIV (frame);
+
+      fd_bind (fd);
+
       fd_no = gf_fd_unused_get (priv->fdtable, fd);
     }
 
@@ -1751,14 +2113,15 @@ server_create_cbk (call_frame_t *frame,
       inode_link (inode, NULL, NULL, stbuf);
       inode_lookup (inode);
       inode_unref (inode);
+      
+      fd_bind (fd);
 
       fd_no = gf_fd_unused_get (priv->fdtable, fd);
 
-      if (fd_no < 0 || fd == 0)
-        {
+      if (fd_no < 0 || fd == 0){
           op_ret = fd_no;
           op_errno = errno;
-        }
+      } 
     }
 
   hdrlen = gf_hdr_len (rsp, 0);
@@ -2498,37 +2861,29 @@ server_lookup (call_frame_t *frame,
                char *buf, size_t buflen)
 {
   gf_fop_lookup_req_t *req = NULL;
-  loc_t loc = {0,};
-  server_state_t *state = STATE (frame);
-  int32_t need_xattr = 0;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-
-  need_xattr = ntoh32 (req->flags);
-  loc.ino    = ntoh64 (req->ino);
-  loc.path   = req->path;
-
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  if (loc.inode) {
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_LOOKUP);
+  
+  if (state->loc.inode) {
     /* revalidate */
-    state->inode = loc.inode;
+    state->inode = state->loc.inode;
     state->is_revalidate = 1;
   } else {
     /* fresh lookup or inode was previously pruned out */
     state->inode = inode_new (bound_xl->itable);
-    loc.inode = state->inode;
+    state->loc.inode = state->inode;
     state->is_revalidate = -1;
   }
-
-  state->path = strdup (loc.path);
-  state->need_xattr = need_xattr;
 
   STACK_WIND (frame, server_lookup_cbk,
               bound_xl,
               bound_xl->fops->lookup,
-              &loc,
-              need_xattr);
+              &(state->loc),
+              state->need_xattr);
 
   return 0;
 }
@@ -2600,37 +2955,35 @@ server_stat (call_frame_t *frame,
              gf_hdr_common_t *hdr, size_t hdrlen,
              char *buf, size_t buflen)
 {
-  loc_t loc = {0,};
   call_stub_t *stat_stub = NULL;
   gf_fop_stat_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_STAT);
 
   stat_stub = fop_stat_stub (frame,
                              server_stat_resume,
-                             &loc);
+                             &(state->loc));
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = stat_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (stat_stub);
@@ -2674,39 +3027,36 @@ server_readlink (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  char *buf, size_t buflen)
 {
-  size_t size = 0;
-  loc_t loc = {0,};
   call_stub_t *readlink_stub = NULL;
   gf_fop_readlink_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req       = gf_param (hdr);
-  size      = ntoh32 (req->size);
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_READLINK);
 
   readlink_stub = fop_readlink_stub (frame,
                                      server_readlink_resume,
-                                     &loc,
-                                     size);
+                                     &(state->loc),
+                                     state->size);
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = readlink_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (readlink_stub);
@@ -2731,33 +3081,15 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
                char *buf, size_t buflen)
 {
   gf_fop_create_req_t *req = NULL;
-  fd_t *fd = NULL;
-  loc_t loc = {0,};
-  mode_t mode = 0;
-  int flags = 0;
-  char *path = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-
-  mode  = ntoh32 (req->mode);
-  flags = ntoh32 (req->flags);
-  path  = req->path;
-
-
-  loc.path = path;
-  loc.inode = inode_new (bound_xl->itable);
-  fd = fd_create (loc.inode);
-
-
-  LOCK (&fd->inode->lock);
-  {
-    list_del_init (&fd->inode_list);
-  }
-  UNLOCK (&fd->inode->lock);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_CREATE);
 
   STACK_WIND (frame, server_create_cbk,
               bound_xl, bound_xl->fops->create,
-              &loc, flags, mode, fd);
+              &(state->loc), state->flags, state->mode, state->fd);
 
   return 0;
 }
@@ -2775,7 +3107,8 @@ server_open_resume (call_frame_t *frame,
 
   state->inode = inode_ref (loc->inode);
 
-  new_fd = fd_create (loc->inode);
+  new_fd = fd_create (loc->inode, frame->root->pid);
+  state->fd = fd_ref (new_fd);
 
   STACK_WIND (frame,
               server_open_cbk,
@@ -2783,7 +3116,7 @@ server_open_resume (call_frame_t *frame,
               BOUND_XL (frame)->fops->open,
               loc,
               flags,
-              new_fd);
+              state->fd);
 
   return 0;
 }
@@ -2802,37 +3135,34 @@ server_open (call_frame_t *frame, xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
              char *buf, size_t buflen)
 {
-  loc_t loc = {0,};
   call_stub_t *open_stub = NULL;
   gf_fop_open_req_t *req = NULL;
-  int flags = 0;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-  flags     = ntoh32 (req->flags);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_OPEN);
 
-  open_stub = fop_open_stub (frame, server_open_resume, &loc, flags, NULL);
+  open_stub = fop_open_stub (frame, server_open_resume, &(state->loc), state->flags, NULL);
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!(state->loc.inode)) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = open_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (open_stub);
@@ -2856,26 +3186,17 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
               char *buf, size_t buflen)
 {
   gf_fop_read_req_t *req = NULL;
-  server_proto_priv_t *priv = NULL;
-  int32_t fd_no = -1;
-  fd_t *fd = NULL;
-  size_t size = 0;
-  off_t offset = 0;
-
-  priv = SERVER_PRIV (frame);
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_READ);
 
-  fd_no   = ntoh64 (req->fd);
-  size    = ntoh32 (req->size);
-  offset  = ntoh64 (req->offset);
-
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_readv_cbk (frame, NULL, frame->this,
                         -1, EINVAL, NULL, 0, NULL);
@@ -2886,7 +3207,7 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
               server_readv_cbk,
               bound_xl,
               bound_xl->fops->readv,
-              fd, size, offset);
+              state->fd, state->size, state->offset);
 
   return 0;
 }
@@ -2907,25 +3228,18 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 {
   gf_fop_write_req_t *req = NULL;
   struct iovec iov = {0, };
-  server_proto_priv_t *priv = NULL;
-  fd_t *fd = NULL;
-  int32_t fd_no = -1;
   dict_t *refs = NULL;
-  off_t offset = 0;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_WRITE);
 
-  priv = SERVER_PRIV (frame);
-
-  offset = ntoh64 (req->offset);
-  fd_no  = ntoh64 (req->fd);
-
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_writev_cbk (frame, NULL, frame->this,
                          -1, EINVAL, NULL);
@@ -2943,12 +3257,13 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
               server_writev_cbk,
               bound_xl,
               bound_xl->fops->writev,
-              fd, &iov, 1, offset);
+              state->fd, &iov, 1, state->offset);
 
   dict_unref (refs);
 
   return 0;
 }
+
 
 
 /*
@@ -2966,37 +3281,32 @@ server_close (call_frame_t *frame, xlator_t *bound_xl,
               char *buf, size_t buflen)
 {
   gf_fop_close_req_t *req = NULL;
-  fd_t *fd = NULL;
-  int32_t fd_no = -1;
   server_proto_priv_t *priv = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
+  state = STATE (frame);
+  state = server_state_fill (frame, req, GF_FOP_CLOSE);
 
-  fd_no = ntoh64 (req->fd);
-
-  priv = SERVER_PRIV (frame);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_close_cbk (frame, NULL, frame->this,
                         -1, EINVAL);
       return -1;
     }
 
-  frame->local = fd;
-
-  gf_fd_put (priv->fdtable, fd_no);
-
+  priv = SERVER_PRIV (frame);
+  gf_fd_put (priv->fdtable, state->fd_no);
+  
   STACK_WIND (frame,
               server_close_cbk,
               bound_xl,
-              bound_xl->fops->close,
-              fd);
-
+              bound_xl->fops->flush,
+              state->fd);
+  
   return 0;
 }
 
@@ -3016,24 +3326,16 @@ server_fsync (call_frame_t *frame,
               char *buf, size_t buflen)
 {
   gf_fop_fsync_req_t *req = NULL;
-  server_proto_priv_t *priv = NULL;
-  int32_t fd_no = -1;
-  fd_t *fd = NULL;
-  int32_t flags = 0;
-
-  priv = SERVER_PRIV (frame);
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_FSYNC);
 
-  fd_no = ntoh64 (req->fd);
-  flags = ntoh32 (req->data);
-
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_fsync_cbk (frame, NULL, frame->this,
                         -1, EINVAL);
@@ -3044,7 +3346,7 @@ server_fsync (call_frame_t *frame,
               server_fsync_cbk,
               bound_xl,
               bound_xl->fops->fsync,
-              fd, flags);
+              state->fd, state->flags);
 
   return 0;
 }
@@ -3064,32 +3366,28 @@ server_flush (call_frame_t *frame, xlator_t *bound_xl,
               char *buf, size_t buflen)
 {
   gf_fop_flush_req_t *req = NULL;
-  fd_t *fd = NULL;
-  int32_t fd_no = -1;
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
+  state = STATE (frame);
 
-  fd_no = ntoh64 (req->fd);
+  server_state_fill (frame, req, GF_FOP_FLUSH);
 
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_flush_cbk (frame, NULL, frame->this,
                            -1, EINVAL);
       return -1;
     }
 
-
   STACK_WIND (frame,
               server_flush_cbk,
               bound_xl,
               bound_xl->fops->flush,
-              fd);
+              state->fd);
 
   return 0;
 }
@@ -3110,23 +3408,17 @@ server_ftruncate (call_frame_t *frame,
                   char *buf, size_t buflen)
 {
   gf_fop_ftruncate_req_t *req = NULL;
-  server_proto_priv_t *priv = NULL;
-  off_t offset = 0;
-  int fd_no = -1;
-  fd_t *fd = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  offset = ntoh64 (req->offset);
-  fd_no  = ntoh64 (req->fd);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_FTRUNCATE);
 
-  priv = SERVER_PRIV (frame);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_ftruncate_cbk (frame, NULL, frame->this,
                             -1, EINVAL, NULL);
@@ -3138,8 +3430,8 @@ server_ftruncate (call_frame_t *frame,
               server_ftruncate_cbk,
               bound_xl,
               bound_xl->fops->ftruncate,
-              fd,
-              offset);
+              state->fd,
+              state->offset);
 
   return 0;
 }
@@ -3160,21 +3452,17 @@ server_fstat (call_frame_t *frame,
               char *buf, size_t buflen)
 {
   gf_fop_fstat_req_t *req = NULL;
-  server_proto_priv_t *priv = NULL;
-  int fd_no = -1;
-  fd_t *fd = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  fd_no  = ntoh64 (req->fd);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_FSTAT);
 
-  priv = SERVER_PRIV (frame);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_fstat_cbk (frame, NULL, frame->this,
                         -1, EINVAL, NULL);
@@ -3186,7 +3474,7 @@ server_fstat (call_frame_t *frame,
               server_fstat_cbk,
               bound_xl,
               bound_xl->fops->fstat,
-              fd);
+              state->fd);
 
   return 0;
 }
@@ -3226,40 +3514,36 @@ server_truncate (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  char *buf, size_t buflen)
 {
-  off_t offset = 0;
-  loc_t loc = {0,};
   call_stub_t *truncate_stub = NULL;
   gf_fop_truncate_req_t *req = NULL;
-
+  server_state_t *state = NULL;
+  
   req = gf_param (hdr);
-
-  offset    = ntoh64 (req->offset);
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_TRUNCATE);
 
   truncate_stub = fop_truncate_stub (frame,
                                      server_truncate_resume,
-                                     &loc,
-                                     offset);
+                                     &(state->loc),
+                                     state->offset);
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = truncate_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (truncate_stub);
@@ -3322,37 +3606,36 @@ server_unlink (call_frame_t *frame,
                gf_hdr_common_t *hdr, size_t hdrlen,
                char *buf, size_t buflen)
 {
-  loc_t loc = {0,};
   call_stub_t *unlink_stub = NULL;
   gf_fop_unlink_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_UNLINK);
 
   unlink_stub = fop_unlink_stub (frame,
                                  server_unlink_resume,
-                                 &loc);
+                                 &(state->loc));
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = unlink_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (unlink_stub);
@@ -3422,55 +3705,47 @@ server_setxattr (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  char *buf, size_t buflen)
 {
-  int32_t flags = 0;
-  loc_t loc = {0,};
   call_stub_t *setxattr_stub = NULL;
   gf_fop_setxattr_req_t *req = NULL;
   dict_t *dict = NULL;
-  int32_t dict_len = 0;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-  dict_len = ntoh32 (req->dict_len);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_SETXATTR);
 
-  /* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
-   * in the protocol data.
-   */
-  loc.path  = req->dict + dict_len;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  flags = ntoh32 (req->flags);
   {
     /* Unserialize the dictionary */
-    char *buf = memdup (req->dict, dict_len);
+    char *buf = memdup (req->dict, state->dict_len);
     dict = get_new_dict ();
-    dict_unserialize (buf, dict_len, &dict);
+    dict_unserialize (buf, state->dict_len, &dict);
     dict->extra_free = buf;
   }
 
   setxattr_stub = fop_setxattr_stub (frame,
                                      server_setxattr_resume,
-                                     &loc,
+                                     &(state->loc),
                                      dict,
-                                     flags);
+                                     state->flags);
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = setxattr_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
 
   } else {
@@ -3524,31 +3799,20 @@ server_xattrop (call_frame_t *frame,
 		gf_hdr_common_t *hdr, size_t hdrlen,
 		char *buf, size_t buflen)
 {
-  int32_t flags = 0;
-  char *path;
   gf_fop_xattrop_req_t *req = NULL;
   dict_t *dict = NULL;
-  int32_t dict_len = 0, fd_no = -1;
-  fd_t *fd;
-  server_proto_priv_t *priv = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-  dict_len = ntoh32 (req->dict_len);
 
-  /* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
-   * in the protocol data.
-   */
-  path  = req->dict + dict_len;
-  flags = ntoh32 (req->flags);
-  priv = SERVER_PRIV (frame);
-  fd_no = ntoh64 (req->fd);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_XATTROP);
 
-  if (dict_len) {
+  if (state->dict_len) {
     /* Unserialize the dictionary */
-    char *buf = memdup (req->dict, dict_len);
+    char *buf = memdup (req->dict, state->dict_len);
     dict = get_new_dict ();
-    dict_unserialize (buf, dict_len, &dict);
+    dict_unserialize (buf, state->dict_len, &dict);
     dict->extra_free = buf;
     dict_ref (dict);
   }
@@ -3556,9 +3820,9 @@ server_xattrop (call_frame_t *frame,
 	      server_xattrop_cbk,
 	      bound_xl,
 	      bound_xl->fops->xattrop,
-	      fd,
-	      path,
-	      flags,
+	      state->fd,
+	      state->path,
+	      state->flags,
 	      dict);
   if (dict)
     dict_unref (dict);
@@ -3600,42 +3864,36 @@ server_getxattr (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  char *buf, size_t buflen)
 {
-  int32_t name_len = 0;
-  char *name = NULL;
-  loc_t loc = {0,};
   gf_fop_getxattr_req_t *req = NULL;
   call_stub_t *getxattr_stub = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_GETXATTR);
 
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  name_len = ntoh32 (req->name_len);
-  if (name_len)
-    name = (req->name + strlen (req->path) + 1);
 
   getxattr_stub = fop_getxattr_stub (frame,
                                      server_getxattr_resume,
-                                     &loc,
-                                     name);
+                                     &(state->loc),
+                                     state->name);
 
-  if (loc.inode) {
-    inode_unref (loc.inode);
+  if (state->loc.inode) {
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = getxattr_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
 
   } else {
@@ -3680,41 +3938,37 @@ server_removexattr (call_frame_t *frame,
                     gf_hdr_common_t *hdr, size_t hdrlen,
                     char *buf, size_t buflen)
 {
-  char *name = NULL;
-  loc_t loc = {0,};
   gf_fop_removexattr_req_t *req = NULL;
   call_stub_t *removexattr_stub = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  name = (req->name + strlen (req->path) + 1);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_REMOVEXATTR);
 
   removexattr_stub = fop_removexattr_stub (frame,
                                            server_removexattr_resume,
-                                           &loc,
-                                           name);
+                                           &(state->loc),
+                                           state->name);
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = removexattr_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
 
   } else {
@@ -3772,14 +4026,15 @@ server_opendir_resume (call_frame_t *frame,
   fd_t *new_fd = NULL;
 
   state->inode = inode_ref (loc->inode);
-  new_fd = fd_create (loc->inode);
+  new_fd = fd_create (loc->inode, frame->root->pid);
+  state->fd = fd_ref (new_fd);
 
   STACK_WIND (frame,
               server_opendir_cbk,
               BOUND_XL (frame),
               BOUND_XL (frame)->fops->opendir,
               loc,
-              new_fd);
+              state->fd);
   return 0;
 }
 
@@ -3797,38 +4052,37 @@ server_opendir (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 char *buf, size_t buflen)
 {
-  loc_t loc = {0,};
   call_stub_t *opendir_stub = NULL;
   gf_fop_opendir_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  state = STATE (frame);
+  state = server_state_fill (frame, req, GF_FOP_OPENDIR);
 
   opendir_stub = fop_opendir_stub (frame,
                                    server_opendir_resume,
-                                   &loc,
+                                   &(state->loc),
                                    NULL);
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!(state->loc.inode)) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = opendir_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (opendir_stub);
@@ -3852,37 +4106,28 @@ server_closedir (call_frame_t *frame, xlator_t *bound_xl,
                  char *buf, size_t buflen)
 {
   gf_fop_closedir_req_t *req = NULL;
-  fd_t *fd = NULL;
-  int32_t fd_no = -1;
   server_proto_priv_t *priv = NULL;
-
+  server_state_t *state = NULL;
   req = gf_param (hdr);
+  state = STATE (frame);
+  state = server_state_fill (frame, req, GF_FOP_CLOSEDIR);
 
-  fd_no = ntoh64 (req->fd);
-
-  priv = SERVER_PRIV (frame);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_closedir_cbk (frame, NULL, frame->this,
                            -1, EINVAL);
       return -1;
     }
 
-  frame->local = fd;
-
-  gf_fd_put (priv->fdtable, fd_no);
-
-  STACK_WIND (frame,
-              server_closedir_cbk,
-              bound_xl,
-              bound_xl->fops->closedir,
-              fd);
-
+  priv = SERVER_PRIV (frame);
+  gf_fd_put (priv->fdtable, state->fd_no);
+  
+  server_closedir_cbk (frame, NULL, frame->this,
+		       0, 0);
+  
   return 0;
 }
 
@@ -3902,23 +4147,17 @@ server_getdents (call_frame_t *frame,
                  char *buf, size_t buflen)
 {
   gf_fop_getdents_req_t *req = NULL;
-  server_proto_priv_t *priv = NULL;
-  off_t offset = 0;
-  int fd_no = -1;
-  fd_t *fd = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  offset = ntoh64 (req->offset);
-  fd_no  = ntoh64 (req->fd);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_GETDENTS);
 
-  priv = SERVER_PRIV (frame);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_getdents_cbk (frame, NULL, frame->this,
                            -1, EINVAL, NULL, 0);
@@ -3926,15 +4165,14 @@ server_getdents (call_frame_t *frame,
       return -1;
     }
 
-
   STACK_WIND (frame,
               server_getdents_cbk,
               bound_xl,
               bound_xl->fops->getdents,
-              fd,
-              ntoh32 (req->size),
-              ntoh64 (req->offset),
-              ntoh32 (req->flags));
+              state->fd,
+              state->size,
+              state->offset,
+              state->flags);
 
   return 0;
 }
@@ -3954,26 +4192,17 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
                 char *buf, size_t buflen)
 {
   gf_fop_readdir_req_t *req = NULL;
-  size_t size = 0;
-  off_t offset = 0;
-  int fd_no = -1;
-  server_proto_priv_t *priv = NULL;
-  fd_t *fd = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  size   = ntoh32 (req->size);
-  offset = ntoh64 (req->offset);
-  fd_no  = ntoh64 (req->fd);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_READDIR);
 
-
-  priv = SERVER_PRIV (frame);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_readdir_cbk (frame, NULL, frame->this,
                          -1, EINVAL, NULL);
@@ -3985,7 +4214,7 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
               server_readdir_cbk,
               bound_xl,
               bound_xl->fops->readdir,
-              fd, size, offset);
+              state->fd, state->size, state->offset);
 
   return 0;
 }
@@ -4007,24 +4236,17 @@ server_fsyncdir (call_frame_t *frame,
                  char *buf, size_t buflen)
 {
   gf_fop_fsyncdir_req_t *req = NULL;
-  server_proto_priv_t *priv = NULL;
-  int32_t fd_no = -1;
-  fd_t *fd = NULL;
-  int32_t flags = 0;
-
-  priv = SERVER_PRIV (frame);
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  //fd_no = ntoh32 (req->fd);
-  flags = ntoh32 (req->data);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_FSYNCDIR);
 
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_fsyncdir_cbk (frame, NULL, frame->this,
                            -1, EINVAL);
@@ -4035,7 +4257,7 @@ server_fsyncdir (call_frame_t *frame,
               server_fsyncdir_cbk,
               bound_xl,
               bound_xl->fops->fsyncdir,
-              fd, flags);
+              state->fd, state->flags);
 
   return 0;
 }
@@ -4055,23 +4277,19 @@ server_mknod (call_frame_t *frame,
               gf_hdr_common_t *hdr, size_t hdrlen,
               char *buf, size_t buflen)
 {
-  mode_t mode = 0;
-  dev_t dev = 0;
-  loc_t loc = {0,};
   gf_fop_mknod_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-
-  mode = ntoh32 (req->mode);
-  dev = ntoh64 (req->dev);
-  loc.path  = req->path;
-  loc.inode = inode_new (bound_xl->itable);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_MKNOD);
 
   STACK_WIND (frame,
               server_mknod_cbk,
               bound_xl,
               bound_xl->fops->mknod,
-              &loc, mode, dev);
+              &(state->loc), state->mode, state->dev);
 
   return 0;
 }
@@ -4091,22 +4309,20 @@ server_mkdir (call_frame_t *frame,
               gf_hdr_common_t *hdr, size_t hdrlen,
               char *buf, size_t buflen)
 {
-  mode_t mode = 0;
-  loc_t loc = {0,};
   gf_fop_mkdir_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-
-  mode = ntoh32 (req->mode);
-  loc.path  = req->path;
-  loc.inode = inode_new (bound_xl->itable);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_MKDIR);
 
   STACK_WIND (frame,
               server_mkdir_cbk,
               bound_xl,
               bound_xl->fops->mkdir,
-              &loc,
-              mode);
+              &(state->loc),
+              state->mode);
 
   return 0;
 }
@@ -4143,37 +4359,36 @@ server_rmdir (call_frame_t *frame,
               gf_hdr_common_t *hdr, size_t hdrlen,
               char *buf, size_t buflen)
 {
-  loc_t loc = {0,};
   call_stub_t *rmdir_stub = NULL;
   gf_fop_rmdir_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_RMDIR);
 
   rmdir_stub = fop_rmdir_stub (frame,
                                server_rmdir_resume,
-                               &loc);
+                               &(state->loc));
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = rmdir_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (rmdir_stub);
@@ -4279,42 +4494,38 @@ server_chown (call_frame_t *frame,
               gf_hdr_common_t *hdr, size_t hdrlen,
               char *buf, size_t buflen)
 {
-  uid_t uid = 0;
-  gid_t gid = 0;
-  loc_t loc = {0,};
   call_stub_t *chown_stub = NULL;
   gf_fop_chown_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-  uid      = ntoh32 (req->uid);
-  gid      = ntoh32 (req->gid);
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_CHOWN);
 
   chown_stub = fop_chown_stub (frame,
                                server_chown_resume,
-                               &loc,
-                               uid,
-                               gid);
+                               &(state->loc),
+                               state->uid,
+                               state->gid);
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = chown_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (chown_stub);
@@ -4358,39 +4569,37 @@ server_chmod (call_frame_t *frame,
               gf_hdr_common_t *hdr, size_t hdrlen,
               char *buf, size_t buflen)
 {
-  mode_t mode = 0;
-  loc_t loc = {0,};
   call_stub_t *chmod_stub = NULL;
   gf_fop_chmod_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req       = gf_param (hdr);
-  mode      = ntoh32 (req->mode);
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->oldino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_CHMOD);
 
   chmod_stub = fop_chmod_stub (frame,
                                server_chmod_resume,
-                               &loc,
-                               mode);
+                               &(state->loc),
+                               state->mode);
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = chmod_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (chmod_stub);
@@ -4433,41 +4642,37 @@ server_utimens (call_frame_t *frame,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 char *buf, size_t buflen)
 {
-  struct timespec tv[2];
-  loc_t loc = {0,};
   call_stub_t *utimens_stub = NULL;
   gf_fop_utimens_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-
-  gf_timespec_to_timespec (req->tv, tv);
-
-  loc.path  = req->path;
-  loc.ino   = ntoh64 (req->ino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_UTIMENS);
 
   utimens_stub = fop_utimens_stub (frame,
                                    server_utimens_resume,
-                                   &loc,
-                                   tv);
+                                   &(state->loc),
+                                   state->tv);
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = utimens_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (utimens_stub);
@@ -4599,40 +4804,37 @@ server_link (call_frame_t *frame,
              gf_hdr_common_t *hdr, size_t hdrlen,
              char *buf, size_t buflen)
 {
-  char *linkname = NULL;
-  loc_t loc = {0,};
   call_stub_t *link_stub = NULL;
   gf_fop_link_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req       = gf_param (hdr);
-
-  linkname  = (req->newpath + strlen (req->oldpath) + 1);
-  loc.path  = req->oldpath;
-  loc.ino   = ntoh64 (req->oldino);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_LINK);
 
   link_stub = fop_link_stub (frame,
                              server_link_resume,
-                             &loc,
-                             linkname);
+                             &(state->loc),
+                             state->name);
 
-  if (loc.inode) {
+  if (state->loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
-    inode_unref (loc.inode);
+    inode_unref (state->loc.inode);
   }
 
-  if (!loc.inode) {
+  if (!state->loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = link_stub;
-    loc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &loc,
+                &(state->loc),
                 0);
   } else {
     call_resume (link_stub);
@@ -4657,38 +4859,31 @@ server_rename (call_frame_t *frame,
                gf_hdr_common_t *hdr, size_t hdrlen,
                char *buf, size_t buflen)
 {
-  loc_t oldloc = {0,};
-  loc_t newloc = {0,};
   call_stub_t *rename_stub = NULL;
   gf_fop_rename_req_t *req = NULL;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
-
-  oldloc.path  = req->oldpath;
-  newloc.path  = (req->newpath + strlen (req->oldpath) + 1);
-
-  oldloc.ino   = ntoh64 (req->oldino);
-  oldloc.inode = inode_search (bound_xl->itable, oldloc.ino, NULL);
-
-  newloc.ino   = ntoh64 (req->newino);
-  newloc.inode = inode_search (bound_xl->itable, newloc.ino, NULL);
+  
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_RENAME);
 
   /* :O
      frame->this = bound_xl;
   */
   rename_stub = fop_rename_stub (frame,
                                  server_rename_resume,
-                                 &oldloc,
-                                 &newloc);
-  if (oldloc.inode)
-    inode_unref (oldloc.inode);
+                                 &(state->loc),
+                                 &(state->loc2));
+  if (state->loc.inode)
+    inode_unref (state->loc.inode);
 
-  if (newloc.inode)
-    inode_unref (newloc.inode);
+  if (state->loc2.inode)
+    inode_unref (state->loc2.inode);
 
   frame->local = rename_stub;
 
-  if (!oldloc.inode){
+  if (!state->loc.inode){
     /*    search of oldpath in inode cache _failed_.
      *    we need to do a lookup for oldpath. we do a fops->lookup() for
      * oldpath. call-back being server_stub_cbk(). server_stub_cbk() takes
@@ -4698,15 +4893,15 @@ server_rename (call_frame_t *frame,
      *    if lookup of oldpath fails, server_stub_cbk() UNWINDs to
      * server_rename_cbk() with ret=-1 and errno=ENOENT.
      */
-    oldloc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &oldloc,
+                &(state->loc),
                 0);
-  } else if (!newloc.inode){
+  } else if (!state->loc2.inode){
     /* inode for oldpath found in inode cache and search for newpath in inode
      * cache_failed_.
      * we need to lookup for newpath, with call-back being server_stub_cbk().
@@ -4714,13 +4909,13 @@ server_rename (call_frame_t *frame,
      * continues with fops->rename(), irrespective of success or failure of
      * lookup for newpath.
      */
-    newloc.inode = inode_new (BOUND_XL(frame)->itable);
+    state->loc2.inode = inode_new (BOUND_XL(frame)->itable);
 
     STACK_WIND (frame,
                 server_stub_cbk,
                 bound_xl,
                 bound_xl->fops->lookup,
-                &newloc,
+                &(state->loc2),
                 0);
   } else {
     /* we have found inode for both oldpath and newpath in inode cache.
@@ -4752,22 +4947,17 @@ server_lk_common (call_frame_t *frame,
 {
   struct flock lock = {0, };
   gf_fop_lk_req_t *req = NULL;
-  server_proto_priv_t *priv = NULL;
-  int fd_no = -1;
-  fd_t *fd = NULL;
-  int cmd, type;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  fd_no  = ntoh64 (req->fd);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_LK);
 
-  priv = SERVER_PRIV (frame);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_lk_cbk (frame, NULL, frame->this,
                      -1, EINVAL, NULL);
@@ -4775,22 +4965,19 @@ server_lk_common (call_frame_t *frame,
       return -1;
     }
 
-  cmd =  ntoh32 (req->cmd);
-  switch (cmd) {
+  switch (state->cmd) {
   case GF_LK_GETLK:
-    cmd = F_GETLK;
+    state->cmd = F_GETLK;
     break;
   case GF_LK_SETLK:
-    cmd = F_SETLK;
+    state->cmd = F_SETLK;
     break;
   case GF_LK_SETLKW:
-    cmd = F_SETLKW;
+    state->cmd = F_SETLKW;
     break;
   }
 
-  type = ntoh32 (req->type);
-
-  switch (type) {
+  switch (state->type) {
   case GF_LK_F_RDLCK:
     lock.l_type = F_RDLCK;
     break;
@@ -4801,7 +4988,7 @@ server_lk_common (call_frame_t *frame,
     lock.l_type = F_UNLCK;
     break;
   default:
-    gf_log (bound_xl->name, GF_LOG_ERROR, "Unknown lock type: %d!", type);
+    gf_log (bound_xl->name, GF_LOG_ERROR, "Unknown lock type: %d!", state->type);
     break;
   }
 
@@ -4810,12 +4997,12 @@ server_lk_common (call_frame_t *frame,
   if (domain == GF_LOCK_POSIX) {
 	  STACK_WIND (frame, server_lk_cbk,
 		      bound_xl, bound_xl->fops->lk,
-		      fd, cmd, &lock);
+		      state->fd, state->cmd, &lock);
 
   } else if (domain == GF_LOCK_INTERNAL) {
 	  STACK_WIND (frame, server_gf_lk_cbk,
 		      bound_xl, bound_xl->fops->gf_lk,
-		      fd, cmd, &lock);
+		      state->fd, state->cmd, &lock);
   }
 
   return 0;
@@ -4856,24 +5043,18 @@ server_setdents (call_frame_t *frame,
                  char *buf, size_t buflen)
 {
   gf_fop_setdents_req_t *req = NULL;
-  server_proto_priv_t *priv = NULL;
   dir_entry_t *entry = NULL;
-  int fd_no = -1;
-  fd_t *fd = NULL;
-  int32_t nr_count = 0;
-  int32_t flag = 0;
+  server_state_t *state = NULL;
 
   req = gf_param (hdr);
 
-  fd_no  = ntoh64 (req->fd);
+  state = STATE (frame);
+  server_state_fill (frame, req, GF_FOP_SETDENTS);
 
-  priv = SERVER_PRIV (frame);
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-
-  if (!fd)
+  if (!state->fd)
     {
       gf_log (frame->this->name, GF_LOG_ERROR,
-              "unresolved fd %d", fd_no);
+              "unresolved fd %d", state->fd_no);
 
       server_setdents_cbk (frame, NULL, frame->this,
                             -1, EINVAL);
@@ -4881,7 +5062,6 @@ server_setdents (call_frame_t *frame,
       return -1;
     }
 
-  nr_count = ntoh32 (req->count);
 
   {
     dir_entry_t *trav = NULL, *prev = NULL;
@@ -4894,7 +5074,7 @@ server_setdents (call_frame_t *frame,
     prev = entry;
     buffer_ptr = buf;
 
-    for (i = 0; i < nr_count ; i++) {
+    for (i = 0; i < state->nr_count ; i++) {
       bread = 0;
       trav = calloc (1, sizeof (dir_entry_t));
       ERR_ABORT (trav);
@@ -4998,10 +5178,10 @@ server_setdents (call_frame_t *frame,
               server_setdents_cbk,
               bound_xl,
               bound_xl->fops->setdents,
-              fd,
-              flag,
+              state->fd,
+              state->flags,
               entry,
-              nr_count);
+              state->nr_count);
 
   {
     /* Free the variables allocated in this fop here */
@@ -6040,7 +6220,7 @@ server_nop_cbk (call_frame_t *frame,
   fd_t *fd = frame->local;
 
   if (fd) {
-    fd_destroy (fd);
+    fd_unref (fd);
     frame->local = NULL;
   }
 
@@ -6136,26 +6316,10 @@ server_protocol_cleanup (transport_t *trans)
       {
         for (i=0; i < priv->fdtable->max_fds; i++) {
           if (priv->fdtable->fds[i]) {
-            mode_t st_mode = priv->fdtable->fds[i]->inode->st_mode ;
             fd_t *fd = priv->fdtable->fds[i];
-            call_frame_t *close_frame = copy_frame (frame);
 
-            close_frame->local = fd;
-	    close_frame->root->trans = frame->root->trans;
-
-            if (S_ISDIR (st_mode)) {
-              STACK_WIND (close_frame,
-                          server_nop_cbk,
-                          bound_xl,
-                          bound_xl->fops->closedir,
-                          fd);
-            } else {
-              STACK_WIND (close_frame,
-                          server_nop_cbk,
-                          bound_xl,
-                          bound_xl->fops->close,
-                          fd);
-            }
+	    /* FIXME: are we sure, there was only one reference? */
+	    fd_unref (fd);
           }
         }
       }
@@ -6418,6 +6582,9 @@ struct xlator_mops mops = {
 
 struct xlator_fops fops = {
 
+};
+
+struct xlator_cbks cbks = {
 };
 
 struct xlator_options options[] = {

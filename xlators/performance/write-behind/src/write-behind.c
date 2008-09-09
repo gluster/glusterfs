@@ -108,37 +108,45 @@ wb_sync_all (call_frame_t *frame, wb_file_t *file);
 int32_t 
 __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_size);
 
-wb_file_t *
-wb_file_ref (wb_file_t *file)
-{
-  LOCK (&file->lock);
-  {
-    file->refcount++;
-  }
-  UNLOCK (&file->lock);
 
-  return file;
+wb_file_t *
+wb_file_create (xlator_t *this,
+		fd_t *fd)
+{
+	wb_file_t *file = NULL;
+
+	file = calloc (1, sizeof (*file));
+	INIT_LIST_HEAD (&file->request);
+
+	/* fd_ref() not required, file should never decide the existance of
+	 * an fd */
+	file->fd= fd;
+	file->disable_till = 1048576;
+	file->this = this;
+
+	dict_set (fd->ctx, this->name,
+		  data_from_static_ptr (file));
+	
+	return file;
 }
 
-
 void
-wb_file_unref (wb_file_t *file)
+wb_file_destroy (wb_file_t *file)
 {
-  int32_t refcount;
+	int32_t refcount = 0;
 
-  LOCK (&file->lock);
-  {
-    refcount = --file->refcount;
-  }
-  UNLOCK (&file->lock);
+	LOCK (&file->lock);
+	{
+		refcount = --file->refcount;
+	}
+	UNLOCK (&file->lock);
 
-  if (!refcount)
-    {
-      LOCK_DESTROY (&file->lock);
-      FREE (file);
-    }
+	if (!refcount){
+		LOCK_DESTROY (&file->lock);
+		FREE (file);
+	}
 
-  return;
+	return;
 }
 
 
@@ -184,9 +192,11 @@ wb_sync_cbk (call_frame_t *frame,
     }
 
   wb_process_queue (frame, file, 0);  
+  
+  /* safe place to do fd_unref */
+  fd_unref (file->fd);
 
   STACK_DESTROY (frame->root);
-  wb_file_unref (file);
 
   return 0;
 }
@@ -214,91 +224,104 @@ wb_sync_all (call_frame_t *frame, wb_file_t *file)
 int32_t
 wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
 {
-  wb_write_request_t *dummy = NULL, *request = NULL, *first_request = NULL;
-  size_t total_count = 0, count = 0;
-  size_t copied = 0;
-  call_frame_t *sync_frame = NULL;
-  dict_t *refs = NULL;
-  wb_local_t *local = NULL;
-  struct iovec *vector = NULL;
-  int32_t bytes = 0;
-  size_t bytecount = 0;
+	wb_write_request_t *dummy = NULL, *request = NULL, *first_request = NULL;
+	size_t total_count = 0, count = 0;
+	size_t copied = 0;
+	call_frame_t *sync_frame = NULL;
+	dict_t *refs = NULL;
+	wb_local_t *local = NULL;
+	struct iovec *vector = NULL;
+	int32_t bytes = 0;
+	size_t bytecount = 0;
 
 
-  list_for_each_entry (request, winds, winds)
-    {
-      total_count += request->count;
-      bytes += iov_length (request->vector, request->count);
-    }
+	list_for_each_entry (request, winds, winds)
+	{
+		total_count += request->count;
+		bytes += iov_length (request->vector, request->count);
+	}
 
-  if (!total_count) {
-      return 0;
-    }
+	if (!total_count) {
+		return 0;
+	}
 
-  list_for_each_entry_safe (request, dummy, winds, winds)
-    {
-      if ((count != 0) && (count + request->count > MAX_VECTOR_COUNT)) {
+	list_for_each_entry_safe (request, dummy, winds, winds)
+	{
+		if (!vector) {
+			vector = malloc (VECTORSIZE (MAX_VECTOR_COUNT));
+			refs = get_new_dict ();
+			refs->is_locked = 1;
+	    
+			local = calloc (1, sizeof (*local));
+			INIT_LIST_HEAD (&local->winds);
+	    
+			first_request = request;
+		}
+
+		if (count + request->count > MAX_VECTOR_COUNT) {
+			sync_frame = copy_frame (frame);  
+			sync_frame->local = local;
+			local->file = file;
+			sync_frame->root->req_refs = dict_ref (refs);
+			fd_ref (file->fd);
+			STACK_WIND (sync_frame,
+				    wb_sync_cbk,
+				    FIRST_CHILD(sync_frame->this),
+				    FIRST_CHILD(sync_frame->this)->fops->writev,
+				    file->fd, vector,
+				    count, first_request->offset);
+	
+			dict_unref (refs);
+			FREE (vector);
+			first_request = NULL;
+			refs = NULL;
+			vector = NULL;
+			copied = count = 0;
+		}
+
+		count += request->count;
+		bytecount = VECTORSIZE (request->count);
+		memcpy (((char *)vector)+copied,
+			request->vector,
+			bytecount);
+		copied += bytecount;
+
+		if (request->refs) {
+			dict_copy (request->refs, refs);
+		}
+
+		list_del_init (&request->winds);
+		list_add_tail (&request->winds, &local->winds);
+	}
+
+	if (!vector) {
+		vector = malloc (VECTORSIZE (MAX_VECTOR_COUNT));
+		refs = get_new_dict ();
+		refs->is_locked = 1;
+	    
+		local = calloc (1, sizeof (*local));
+		INIT_LIST_HEAD (&local->winds);
+	    
+		first_request = request;
+	}
+
 	sync_frame = copy_frame (frame);  
+	local->file = file;
 	sync_frame->local = local;
 	sync_frame->root->req_refs = dict_ref (refs);
-
+  
+	fd_ref (file->fd);
 	STACK_WIND (sync_frame,
 		    wb_sync_cbk,
 		    FIRST_CHILD(sync_frame->this),
 		    FIRST_CHILD(sync_frame->this)->fops->writev,
 		    file->fd, vector,
 		    count, first_request->offset);
-	
+
 	dict_unref (refs);
 	FREE (vector);
-	first_request = NULL;
-	refs = NULL;
-	vector = NULL;
-	copied = count = 0;
-      }
 
-      if (!vector) {
-	vector = malloc (VECTORSIZE (MAX_VECTOR_COUNT));
-	refs = get_new_dict ();
-	refs->is_locked = 1;
-
-	local = calloc (1, sizeof (*local));
-	local->file = wb_file_ref (file);
-	INIT_LIST_HEAD (&local->winds);
-
-	first_request = request;
-      }
-
-      count += request->count;
-      bytecount = VECTORSIZE (request->count);
-      memcpy (((char *)vector)+copied,
-	      request->vector,
-	      bytecount);
-      copied += bytecount;
-
-      if (request->refs) {
-	  dict_copy (request->refs, refs);
-      }
-
-      list_del_init (&request->winds);
-      list_add_tail (&request->winds, &local->winds);
-    }
-
-  sync_frame = copy_frame (frame);  
-  sync_frame->local = local;
-  sync_frame->root->req_refs = dict_ref (refs);
-
-  STACK_WIND (sync_frame,
-	      wb_sync_cbk,
-	      FIRST_CHILD(sync_frame->this),
-	      FIRST_CHILD(sync_frame->this)->fops->writev,
-	      file->fd, vector,
-	      count, first_request->offset);
-
-  dict_unref (refs);
-  FREE (vector);
-
-  return bytes;
+	return bytes;
 }
 
 
@@ -310,12 +333,12 @@ wb_stat_cbk (call_frame_t *frame,
              int32_t op_errno,
              struct stat *buf)
 {
-  wb_local_t *local = frame->local;
-
+  wb_local_t *local = NULL;
+  
+  local = frame->local;
+  
   if (local->file)
-    {
-      wb_file_unref (local->file);
-    }
+	  fd_unref (local->file->fd);
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
 
@@ -334,19 +357,14 @@ wb_stat (call_frame_t *frame,
 
   if (loc->inode)
     {
-      LOCK (&(loc->inode->lock));
-      {
-	list_for_each_entry (iter_fd, &(loc->inode->fd_list), inode_list)
-	  {
-	    if (dict_get (iter_fd->ctx, this->name))
-	      {
-		file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-		break;
+      iter_fd = fd_lookup (loc->inode, frame->root->pid);
+      if (iter_fd) {
+	      if (dict_get (iter_fd->ctx, this->name)) {
+		      file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+	      } else {
+		      fd_unref (iter_fd);
 	      }
-	  }
       }
-      UNLOCK (&(loc->inode->lock));
-
       if (file)
 	{
 	  wb_sync_all (frame, file);
@@ -354,10 +372,8 @@ wb_stat (call_frame_t *frame,
     }
 
   local = calloc (1, sizeof (*local));
-  if (file)
-    {
-      local->file = wb_file_ref (file);
-    }
+  local->file = file;
+
   frame->local = local;
 
   STACK_WIND (frame, wb_stat_cbk,
@@ -387,16 +403,15 @@ wb_fstat (call_frame_t *frame,
 
   if (file)
     {
+      fd_ref (file->fd);
       wb_sync_all (frame, file);
     }
 
   local = calloc (1, sizeof (*local));
-  if (file)
-    {
-      local->file = wb_file_ref (file);
-    }
-  frame->local = local;
+  local->file = file;
 
+  frame->local = local;
+  
   STACK_WIND (frame,
               wb_stat_cbk,
               FIRST_CHILD(this),
@@ -414,12 +429,11 @@ wb_truncate_cbk (call_frame_t *frame,
                  int32_t op_errno,
                  struct stat *buf)
 {
-  wb_local_t *local = frame->local;
-
+  wb_local_t *local = NULL; 
+  
+  local = frame->local;
   if (local->file)
-    {
-      wb_file_unref (local->file);
-    }
+	  fd_unref (local->file->fd);
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -438,18 +452,14 @@ wb_truncate (call_frame_t *frame,
 
   if (loc->inode)
     {
-      LOCK (&(loc->inode->lock));
-      {
-	list_for_each_entry (iter_fd, &(loc->inode->fd_list), inode_list)
-	  {
-	    if (dict_get (iter_fd->ctx, this->name))
-	      {
+      iter_fd = fd_lookup (loc->inode, frame->root->pid);
+      if (iter_fd) {
+	  if (dict_get (iter_fd->ctx, this->name)){
 		file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-		break;
-	      }
+          } else {
+		  fd_unref (iter_fd);
 	  }
       }
-      UNLOCK (&(loc->inode->lock));
     
       if (file)
 	{
@@ -458,10 +468,8 @@ wb_truncate (call_frame_t *frame,
     }
   
   local = calloc (1, sizeof (*local));
-  if (file)
-    {
-      local->file = wb_file_ref (file);
-    }
+  local->file = file;
+
   frame->local = local;
 
   STACK_WIND (frame,
@@ -498,10 +506,13 @@ wb_ftruncate (call_frame_t *frame,
     }
 
   local = calloc (1, sizeof (*local));
+  local->file = file;
+
   if (file)
     {
-      local->file = wb_file_ref (file);
+      fd_ref (file->fd);
     }
+
   frame->local = local;
 
   STACK_WIND (frame,
@@ -522,12 +533,11 @@ wb_utimens_cbk (call_frame_t *frame,
                 int32_t op_errno,
                 struct stat *buf)
 {
-  wb_local_t *local = frame->local;
-
+  wb_local_t *local = NULL;	
+  
+  local = frame->local;
   if (local->file)
-    {
-      wb_file_unref (local->file);
-    }
+	  fd_unref (local->file->fd);
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -546,18 +556,14 @@ wb_utimens (call_frame_t *frame,
 
   if (loc->inode)
     {
-      LOCK (&(loc->inode->lock));
-      {
-	list_for_each_entry (iter_fd, &(loc->inode->fd_list), inode_list)
-	  {
-	    if (dict_get (iter_fd->ctx, this->name))
-	      {
-		file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-		break;
+      iter_fd = fd_lookup (loc->inode, frame->root->pid);
+      if (iter_fd) {
+	      if (dict_get (iter_fd->ctx, this->name)) {
+		      file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+	      } else {
+		      fd_unref (iter_fd);
 	      }
-	  }
       }
-      UNLOCK (&(loc->inode->lock));
 
       if (file)
 	{
@@ -566,10 +572,8 @@ wb_utimens (call_frame_t *frame,
     }
 
   local = calloc (1, sizeof (*local));
-  if (file)
-    {
-      local->file = wb_file_ref (file);
-    }
+  local->file = file;
+
   frame->local = local;
 
   STACK_WIND (frame,
@@ -594,15 +598,7 @@ wb_open_cbk (call_frame_t *frame,
 
   if (op_ret != -1)
     {
-      file = calloc (1, sizeof (*file));
-      INIT_LIST_HEAD (&file->request);
-
-      file->fd= fd;
-      file->this = this;
-      file->disable_till = 1048576;
-
-      dict_set (fd->ctx, this->name,
-		data_from_static_ptr (file));
+      file = wb_file_create (this, fd);
 
       /* If mandatory locking has been enabled on this file,
 	 we disable caching on it */
@@ -619,7 +615,6 @@ wb_open_cbk (call_frame_t *frame,
 	}
 
       LOCK_INIT (&file->lock);
-      wb_file_ref (file);
     }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd);
@@ -660,16 +655,7 @@ wb_create_cbk (call_frame_t *frame,
 
   if (op_ret != -1)
     {
-      file = calloc (1, sizeof (*file));
-      INIT_LIST_HEAD (&file->request);
-
-      file->fd= fd;
-      file->disable_till = 1048576;
-      file->this = this;
-
-      dict_set (fd->ctx, this->name,
-		data_from_static_ptr (file));
-
+      file = wb_file_create (this, fd);
     /* 
      * If mandatory locking has been enabled on this file,
      * we disable caching on it
@@ -681,7 +667,6 @@ wb_create_cbk (call_frame_t *frame,
 	}
 
       LOCK_INIT (&file->lock);
-      wb_file_ref (file);
     }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
@@ -1039,10 +1024,6 @@ wb_readv_cbk (call_frame_t *frame,
   wb_local_t *local = NULL;
 
   local = frame->local;
-  if (local->file)
-    {
-      wb_file_unref (local->file);
-    }
 
   STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
   return 0;
@@ -1074,10 +1055,8 @@ wb_readv (call_frame_t *frame,
     }
 
   local = calloc (1, sizeof (*local));
-  if (file)
-    {
-      local->file = wb_file_ref (file);
-    }
+  local->file = file;
+
   frame->local = local;
 
   STACK_WIND (frame,
@@ -1103,6 +1082,10 @@ wb_ffr_bg_cbk (call_frame_t *frame,
   local = frame->local;
   file = local->file;
 
+  if (file) {
+	  fd_unref (file->fd);
+  }
+
   if (file->op_ret == -1)
     {
       op_ret = file->op_ret;
@@ -1111,7 +1094,6 @@ wb_ffr_bg_cbk (call_frame_t *frame,
       file->op_ret = 0;
     }
   
-  wb_file_unref (file);
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -1129,6 +1111,10 @@ wb_ffr_cbk (call_frame_t *frame,
 
   local = frame->local;
   file = local->file;
+  if (file) {
+	  /* corresponds to the fd_ref() done during wb_file_create() */
+	  fd_unref (file->fd);
+  }
 
   if (file->op_ret == -1)
     {
@@ -1138,7 +1124,6 @@ wb_ffr_cbk (call_frame_t *frame,
       file->op_ret = 0;
     }
 
-  wb_file_unref (file);
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -1169,11 +1154,9 @@ wb_flush (call_frame_t *frame,
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   local = calloc (1, sizeof (*local));
-
+  local->file = file;
   if (file)
-    {
-      local->file = wb_file_ref (file);
-    }
+	  fd_ref (file->fd);
 
   if (&file->request != file->request.next)
     {
@@ -1186,7 +1169,6 @@ wb_flush (call_frame_t *frame,
     STACK_UNWIND (frame, file->op_ret, file->op_errno); // liar! liar! :O
 
     flush_frame->local = local;
-
     wb_sync_all (flush_frame, file);
 
     STACK_WIND (flush_frame,
@@ -1194,6 +1176,7 @@ wb_flush (call_frame_t *frame,
                 FIRST_CHILD(this),
                 FIRST_CHILD(this)->fops->flush,
                 fd);
+
   } else {
     wb_sync_all (frame, file);
 
@@ -1208,6 +1191,30 @@ wb_flush (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+wb_fsync_cbk (call_frame_t *frame,
+	      void *cookie,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno)
+{
+  wb_local_t *local = NULL;
+  wb_file_t *file = NULL;
+
+  local = frame->local;
+  file = local->file;
+
+  if (file->op_ret == -1)
+    {
+      op_ret = file->op_ret;
+      op_errno = file->op_errno;
+
+      file->op_ret = 0;
+    }
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
 
 int32_t
 wb_fsync (call_frame_t *frame,
@@ -1233,15 +1240,13 @@ wb_fsync (call_frame_t *frame,
     }
 
   local = calloc (1, sizeof (*local));
-  if (file)
-    {
-      local->file = wb_file_ref (file);
-    }
+  local->file = file;
+
 
   frame->local = local;
 
   STACK_WIND (frame,
-              wb_ffr_cbk,
+              wb_fsync_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->fsync,
               fd, datasync);
@@ -1250,52 +1255,14 @@ wb_fsync (call_frame_t *frame,
 
 
 int32_t
-wb_close (call_frame_t *frame,
-          xlator_t *this,
+wb_close (xlator_t *this,
           fd_t *fd)
 {
   wb_file_t *file = NULL;
-  wb_local_t *local = NULL;
-
-  if (!dict_get (fd->ctx, this->name))
-    {
-      gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
-      STACK_UNWIND (frame, -1, EBADFD);
-      return 0;
-    }
-
-  /* gf_log (this->name,
-	  GF_LOG_DEBUG,
-	  "closing fd %d", fd); */
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
-  dict_del (fd->ctx, this->name);
-
-  if (file)
-    {
-      if (&file->request != file->request.next)
-	{
-	  gf_log (this->name, GF_LOG_DEBUG,
-		  "request queue is not empty, it has to be synced");
-	}
-
-      wb_sync_all (frame, file);
-    }
-
-  local = calloc (1, sizeof (*local));
-  if (file)
-    {
-      local->file = wb_file_ref (file);
-    }
-  frame->local = local;
-
-  wb_file_unref (file);
-
-  STACK_WIND (frame,
-	      wb_ffr_cbk,
-	      FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->close,
-              fd);
+  
+  wb_file_destroy (file);
 
   return 0;
 }
@@ -1417,7 +1384,6 @@ struct xlator_fops fops = {
   .readv       = wb_readv,
   .flush       = wb_flush,
   .fsync       = wb_fsync,
-  .close       = wb_close,
   .stat        = wb_stat,
   .fstat       = wb_fstat,
   .truncate    = wb_truncate,
@@ -1426,6 +1392,10 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
+};
+
+struct xlator_cbks cbks = {
+	.release  = wb_close
 };
 
 

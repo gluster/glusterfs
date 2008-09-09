@@ -661,18 +661,6 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 	return 0;
 }
 
-
-int32_t 
-pl_close_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-	      int32_t op_ret, int32_t op_errno)
-{
-	GF_ERROR_IF_NULL (this);
-
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-
 static void
 delete_locks_of_owner (pl_inode_t *inode, transport_t *transport,
 		       pid_t pid, gf_lk_domain_t domain)
@@ -689,57 +677,21 @@ delete_locks_of_owner (pl_inode_t *inode, transport_t *transport,
 	}
 }
 
-
-int32_t 
-pl_close (call_frame_t *frame, xlator_t *this,
+int32_t
+pl_close (xlator_t *this,
 	  fd_t *fd)
 {
-	GF_ERROR_IF_NULL (this);
-	GF_ERROR_IF_NULL (fd);
-
-	posix_locks_private_t *priv = (posix_locks_private_t *)this->private;
-	pthread_mutex_lock (&priv->mutex);
-
-	struct flock nulllock = {0, };
 	data_t *fd_data = dict_get (fd->ctx, this->name);
 	if (fd_data == NULL) {
-		pthread_mutex_unlock (&priv->mutex);
-		gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
-		STACK_UNWIND (frame, -1, EBADF, &nulllock);
-		return 0;
+		gf_log (this->name, GF_LOG_ERROR, "failed to get pfd from ctx");
+	} else {
+		pl_fd_t *pfd = (pl_fd_t *)data_to_bin (fd_data);
+		free (pfd);
 	}
-	pl_fd_t *pfd = (pl_fd_t *)data_to_bin (fd_data);
 
-	data_t *inode_data = dict_get (fd->inode->ctx, this->name);
-	if (inode_data == NULL) {
-		pthread_mutex_unlock (&priv->mutex);
-		gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
-		STACK_UNWIND (frame, -1, EBADF, &nulllock);
-		return 0;
-	}
-	pl_inode_t *inode = (pl_inode_t *)data_to_bin (inode_data);
-
-	dict_del (fd->ctx, this->name);
-
-	delete_locks_of_owner (inode, frame->root->trans, frame->root->pid, 
-			       GF_LOCK_POSIX);
-	delete_locks_of_owner (inode, frame->root->trans, frame->root->pid, 
-			       GF_LOCK_INTERNAL);
-
-	do_blocked_rw (inode);
-
-	grant_blocked_locks (inode, GF_LOCK_POSIX);
-	grant_blocked_locks (inode, GF_LOCK_INTERNAL);
-
-	free (pfd);
-
-	pthread_mutex_unlock (&priv->mutex);
-
-	STACK_WIND (frame, pl_close_cbk, 
-		    FIRST_CHILD(this), FIRST_CHILD(this)->fops->close, 
-		    fd);
 	return 0;
 }
+
 
 
 int32_t 
@@ -1332,7 +1284,6 @@ struct xlator_fops fops = {
 	.open        = pl_open,
 	.readv       = pl_readv,
 	.writev      = pl_writev,
-	.close       = pl_close,
 	.lk          = pl_lk,
 	.gf_lk       = pl_gf_lk,
 	.flush       = pl_flush,
@@ -1340,6 +1291,10 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
+};
+
+struct xlator_cbks cbks = {
+	.release = pl_close
 };
 
 struct xlator_options options[] = {

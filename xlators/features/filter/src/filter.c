@@ -360,6 +360,9 @@ struct xlator_mops mops = {
 
 };
 
+struct xlator_cbks cbks = {
+};
+
 struct xlator_options options[] = {
 	{ NULL, 0, 0, 0, 0 },
 };

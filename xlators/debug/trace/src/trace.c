@@ -669,25 +669,6 @@ trace_flush_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
-trace_close_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno)
-{
-	ERR_EINVAL_NORETURN (!this );
-
-	if (trace_fop_names[GF_FOP_CLOSE].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
 
 int32_t 
 trace_opendir_cbk (call_frame_t *frame,
@@ -885,25 +866,6 @@ trace_removexattr_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
-trace_closedir_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-	ERR_EINVAL_NORETURN (!this );
-
-	if (trace_fop_names[GF_FOP_CLOSEDIR].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
 
 int32_t 
 trace_fsyncdir_cbk (call_frame_t *frame,
@@ -1599,27 +1561,6 @@ trace_flush (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
-trace_close (call_frame_t *frame,
-	     xlator_t *this,
-	     fd_t *fd)
-{
-	ERR_EINVAL_NORETURN (!this || !fd);
-  
-	if (trace_fop_names[GF_FOP_CLOSE].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, *fd=%p)",
-			this, fd);
-	}
-
-	STACK_WIND (frame, 
-		    trace_close_cbk, 
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->close, 
-		    fd);
-	return 0;
-}
 
 int32_t 
 trace_fsync (call_frame_t *frame,
@@ -1800,27 +1741,6 @@ trace_readdir (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
-trace_closedir (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd)
-{  
-	ERR_EINVAL_NORETURN (!this || !fd);
-
-	if (trace_fop_names[GF_FOP_CLOSEDIR].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"callid: %lld (*this=%p, *fd=%p)",
-			(long long) frame->root->unique, this, fd);
-	}
-
-	STACK_WIND (frame, 
-		    trace_closedir_cbk, 
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->closedir, 
-		    fd);
-	return 0;
-}
 
 int32_t 
 trace_fsyncdir (call_frame_t *frame,
@@ -2062,151 +1982,163 @@ trace_checksum (call_frame_t *frame,
 void
 enable_all_calls (int enabled)
 {
-	int i;
-	for (i = 0; i < GF_FOP_MAXVALUE; i++)
-		trace_fop_names[i].enabled = enabled;
+  int i;
+  for (i = 0; i < GF_FOP_MAXVALUE; i++)
+    trace_fop_names[i].enabled = enabled;
 }
 
 void 
 enable_call (const char *name, int enabled)
 {
-	int i;
-	for (i = 0; i < GF_FOP_MAXVALUE; i++)
-		if (!strcasecmp(trace_fop_names[i].name, name))
-			trace_fop_names[i].enabled = enabled;
+  int i;
+  for (i = 0; i < GF_FOP_MAXVALUE; i++)
+    if (!strcmp(trace_fop_names[i].name, name))
+      trace_fop_names[i].enabled = enabled;
 }
 
 
 /* 
    include = 1 for "include"
-   = 0 for "exclude" 
+           = 0 for "exclude" 
 */
 void
 process_call_list (const char *list, int include)
 {
-	enable_all_calls (include ? 0 : 1);
+  enable_all_calls (include ? 0 : 1);
 
-	char *call = strsep ((char **)&list, ",");
-	while (call) {
-		enable_call (call, include);
-		call = strsep ((char **)&list, ",");
-	}
+  char *call = strsep ((char **)&list, ",");
+  while (call) {
+    enable_call (call, include);
+    call = strsep ((char **)&list, ",");
+  }
 }
 #endif /* GF_SOLARIS_HOST_OS */
 
 int32_t 
 init (xlator_t *this)
 {
-	int i = 0;
-	dict_t *options = this->options;
-	char *includes = NULL, *excludes = NULL;
+  dict_t *options = this->options;
+  char *includes = NULL, *excludes = NULL;
   
-	if (!this)
-		return -1;
+  if (!this)
+    return -1;
 
-	if (!this->children) {
-		gf_log (this->name, 
-			GF_LOG_ERROR, 
-			"trace translator requires one subvolume");
-		return -1;
-	}
+  if (!this->children) {
+    gf_log (this->name, 
+	    GF_LOG_ERROR, 
+	    "trace translator requires one subvolume");
+    return -1;
+  }
     
-	if (this->children->next) {
-		gf_log (this->name, 
-			GF_LOG_ERROR, 
-			"trace translator does not support more than one sub-volume");
-		return -1;
-	}
-
-	for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-		trace_fop_names[i].name = (gf_fop_list[i])?gf_fop_list[i]:":O";
-		trace_fop_names[i].enabled = 1;
-	}
+  if (this->children->next) {
+    gf_log (this->name, 
+	    GF_LOG_ERROR, 
+	    "trace translator does not support more than one sub-volume");
+    return -1;
+  }
 
 #ifndef GF_SOLARIS_HOST_OS
-	includes = data_to_str (dict_get (options, "include"));
-	excludes = data_to_str (dict_get (options, "exclude"));
+  includes = data_to_str (dict_get (options, "include"));
+  excludes = data_to_str (dict_get (options, "exclude"));
   
-	if (includes && excludes) {
-		gf_log (this->name, 
-			GF_LOG_ERROR,
-			"must specify only one of 'include' and 'exclude'");
-		return -1;
-	}
-	if (includes)
-		process_call_list (includes, 1);
-	if (excludes)
-		process_call_list (excludes, 0);
+  if (includes && excludes) {
+    gf_log (this->name, 
+	    GF_LOG_ERROR,
+	    "must specify only one of 'include' and 'exclude'");
+    return -1;
+  }
+  if (includes)
+    process_call_list (includes, 1);
+  if (excludes)
+    process_call_list (excludes, 0);
 #endif /* GF_SOLARIS_HOST_OS */
 
-	gf_log_set_loglevel (GF_LOG_NORMAL);
+  gf_log_set_loglevel (GF_LOG_NORMAL);
  
+#if 0 
+  void gf_log_xlator (xlator_t *this) {
+    int32_t len;
+    char *buf;
+    
+    if (!this)
+      return;
+    
+    len = dict_serialized_length (this->options);
+    buf = alloca (len);
+    dict_serialize (this->options, buf);
+    
+    gf_log (this->name, 
+	    GF_LOG_NORMAL, 
+	    "init (xlator_t *this=%p {name=%s, *next=%p, *parent=%p, *children=%p {xlator=%p, next=%p}, *fops=%p {*open=%p, stat=%p, *readlink=%p, *mknod=%p, *mkdir=%p, *unlink=%p, *rmdir=%p, *symlink=%p, *rename=%p, *link=%p, *chmod=%p, *chown=%p, *truncate=%p, *utimens=%p, *read=%p, *write=%p, *statfs=%p, *flush=%p, *close=%p, *fsync=%p, *setxattr=%p, *getxattr=%p, *removexattr=%p, *opendir=%p, *readdir=%p, *closedir=%p, *fsyncdir=%p, *access=%p, *ftruncate=%p, *fstat=%p}, *mops=%p {*stats=%p, *fsck=%p, *lock=%p, *unlock=%p}, *fini()=%p, *init()=%p, *options=%p {%s}, *private=%p)", 
+	    this, this->name, this->next, this->parent, this->children, this->children->xlator, this->children->next, this->fops, this->fops->open, this->fops->stat, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utimens, this->fops->readv, this->fops->writev, this->fops->statfs, this->fops->flush, this->fops->close, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->closedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fstat, this->mops, this->mops->stats,  this->mops->fsck, this->mops->lock, this->mops->unlock, this->fini, this->init, this->options, buf, this->private);
+  }
+  
+  xlator_foreach (this, gf_log_xlator);
+#endif 
 
-	/* Set this translator's inode table pointer to child node's pointer. */
-	this->itable = FIRST_CHILD (this)->itable;
+  /* Set this translator's inode table pointer to child node's pointer. */
+  this->itable = FIRST_CHILD (this)->itable;
 
-	return 0;
+  return 0;
 }
 
 void
 fini (xlator_t *this)
 {
-	if (!this)
-		return;
+  if (!this)
+    return;
 
-	gf_log (this->name, 
-		GF_LOG_NORMAL, 
-		"fini (xlator_t *this=%p)", this);
+  gf_log (this->name, 
+	  GF_LOG_NORMAL, 
+	  "fini (xlator_t *this=%p)", this);
 
-	/* Free up the dictionary options */
-	dict_destroy (FIRST_CHILD(this)->options);
+  /* Free up the dictionary options */
+  dict_destroy (FIRST_CHILD(this)->options);
 
-	gf_log (this->name, 
-		GF_LOG_NORMAL, 
-		"trace translator unloaded");
-	return;
+  gf_log (this->name, 
+	  GF_LOG_NORMAL, 
+	  "trace translator unloaded");
+  return;
 }
 
 struct xlator_fops fops = {
-	.stat        = trace_stat,
-	.readlink    = trace_readlink,
-	.mknod       = trace_mknod,
-	.mkdir       = trace_mkdir,
-	.unlink      = trace_unlink,
-	.rmdir       = trace_rmdir,
-	.symlink     = trace_symlink,
-	.rename      = trace_rename,
-	.link        = trace_link,
-	.chmod       = trace_chmod,
-	.chown       = trace_chown,
-	.truncate    = trace_truncate,
-	.utimens     = trace_utimens,
-	.open        = trace_open,
-	.readv       = trace_readv,
-	.writev      = trace_writev,
-	.statfs      = trace_statfs,
-	.flush       = trace_flush,
-	.close       = trace_close,
-	.fsync       = trace_fsync,
-	.setxattr    = trace_setxattr,
-	.getxattr    = trace_getxattr,
-	.removexattr = trace_removexattr,
-	.opendir     = trace_opendir,
-	.readdir     = trace_readdir, 
-	.closedir    = trace_closedir,
-	.fsyncdir    = trace_fsyncdir,
-	.access      = trace_access,
-	.ftruncate   = trace_ftruncate,
-	.fstat       = trace_fstat,
-	.create      = trace_create,
-	.fchown      = trace_fchown,
-	.fchmod      = trace_fchmod,
-	.lk          = trace_lk,
-	.lookup      = trace_lookup,
-	.forget      = trace_forget,
-	.setdents    = trace_setdents,
-	.getdents    = trace_getdents,
-	.checksum    = trace_checksum,
+  .stat        = trace_stat,
+  .readlink    = trace_readlink,
+  .mknod       = trace_mknod,
+  .mkdir       = trace_mkdir,
+  .unlink      = trace_unlink,
+  .rmdir       = trace_rmdir,
+  .symlink     = trace_symlink,
+  .rename      = trace_rename,
+  .link        = trace_link,
+  .chmod       = trace_chmod,
+  .chown       = trace_chown,
+  .truncate    = trace_truncate,
+  .utimens     = trace_utimens,
+  .open        = trace_open,
+  .readv       = trace_readv,
+  .writev      = trace_writev,
+  .statfs      = trace_statfs,
+  .flush       = trace_flush,
+  .fsync       = trace_fsync,
+  .setxattr    = trace_setxattr,
+  .getxattr    = trace_getxattr,
+  .removexattr = trace_removexattr,
+  .opendir     = trace_opendir,
+  .readdir     = trace_readdir, 
+  .fsyncdir    = trace_fsyncdir,
+  .access      = trace_access,
+  .ftruncate   = trace_ftruncate,
+  .fstat       = trace_fstat,
+  .create      = trace_create,
+  .fchown      = trace_fchown,
+  .fchmod      = trace_fchmod,
+  .lk          = trace_lk,
+  .lookup      = trace_lookup,
+  .forget      = trace_forget,
+  .setdents    = trace_setdents,
+  .getdents    = trace_getdents,
+  .checksum    = trace_checksum,
 };
 
 int32_t 
@@ -2249,4 +2181,7 @@ struct xlator_options options[] = {
 	{ "include", GF_OPTION_TYPE_STR, 0, 0, 0 },
 	{ "exclude", GF_OPTION_TYPE_STR, 0, 0, 0 },
 	{ NULL, 0, 0, 0, 0 },
+};
+
+struct xlator_cbks cbks = {
 };

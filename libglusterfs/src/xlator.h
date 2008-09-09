@@ -34,7 +34,6 @@
 #include "common-utils.h"
 #include "dict.h"
 #include "compat.h"
-#include "fd.h"
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
 
@@ -55,15 +54,9 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this,
 
 #include "list.h"
 
-
 #include "stack.h"
 #include "inode.h"
-
-fd_t *
-fd_create (inode_t *inode);
-
-void
-fd_destroy (fd_t *fd);
+#include "fd.h"
 
 struct _loc {
 	const char *path;
@@ -546,7 +539,7 @@ typedef int32_t (*fop_ftruncate_t) (call_frame_t *frame,
 				    xlator_t *this,
 				    fd_t *fd,
 				    off_t offset);
-				
+
 typedef int32_t (*fop_utimens_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  loc_t *loc,
@@ -625,7 +618,7 @@ typedef int32_t (*fop_writev_t) (call_frame_t *frame,
 				 struct iovec *vector,
 				 int32_t count,
 				 off_t offset);
-				
+
 typedef int32_t (*fop_flush_t) (call_frame_t *frame,
 				xlator_t *this,
 				fd_t *fd);
@@ -800,13 +793,24 @@ struct xlator_fops {
 	fop_getxattr_cbk_t       getxattr_cbk;
 	fop_removexattr_cbk_t    removexattr_cbk;
 	fop_lk_cbk_t             lk_cbk;
-	fop_gf_lk_cbk_t	         gf_lk_cbk;
+	fop_gf_lk_cbk_t	   gf_lk_cbk;
 	fop_setdents_cbk_t       setdents_cbk;
 	fop_getdents_cbk_t       getdents_cbk;
 	fop_checksum_cbk_t       checksum_cbk;
 	fop_xattrop_cbk_t        xattrop_cbk;
 };
 
+typedef int32_t (*cbk_forget_t) (xlator_t *this,
+				 inode_t *inode);
+
+typedef int32_t (*cbk_release_t) (xlator_t *this,
+				  fd_t *fd);
+
+struct xlator_cbks {
+	cbk_forget_t     forget;
+	cbk_release_t   release;
+	cbk_release_t   releasedir;
+};
 
 typedef struct xlator_list {
 	xlator_t *xlator;
@@ -815,26 +819,27 @@ typedef struct xlator_list {
 
 /* Add possible new type of option you may need */
 typedef enum {
-	GF_OPTION_TYPE_ANY = 0,
-	GF_OPTION_TYPE_STR,
-	GF_OPTION_TYPE_INT,
-	GF_OPTION_TYPE_SIZET,
-	GF_OPTION_TYPE_PERCENT,
-	GF_OPTION_TYPE_BOOL,
-	GF_OPTION_TYPE_XLATOR,
-	GF_OPTION_TYPE_PATH,
-	GF_OPTION_TYPE_TIME,
+  	GF_OPTION_TYPE_ANY = 0,
+  	GF_OPTION_TYPE_STR,
+  	GF_OPTION_TYPE_INT,
+  	GF_OPTION_TYPE_SIZET,
+  	GF_OPTION_TYPE_PERCENT,
+  	GF_OPTION_TYPE_BOOL,
+  	GF_OPTION_TYPE_XLATOR,
+  	GF_OPTION_TYPE_PATH,
+  	GF_OPTION_TYPE_TIME,
 } xlator_option_type_t;
 
 /* Each translator should define this structure */
 typedef struct xlator_options {
-	char *key;
-	xlator_option_type_t type;     
-	int32_t num_char_to_match;  /* If zero, will match whole str */
-	int64_t min_value;          /* -1 means no range */
-	int64_t max_value;
-	char *str;         /* If specified, will check one of the keys from this list, '|' separated */
+  	char *key;
+  	xlator_option_type_t type;
+  	int32_t num_char_to_match;  /* If zero, will match whole str */
+  	int64_t min_value;          /* -1 means no range */
+  	int64_t max_value;
+  	char *str;         /* If specified, will check one of the keys from this list, '|' separated */
 } xlator_option_t;
+
 
 struct _xlator {
 	/* Built during parsing */
@@ -844,11 +849,12 @@ struct _xlator {
 	xlator_list_t *parents;
 	xlator_list_t *children;
 	dict_t *options;
-
+	
 	/* Set after doing dlopen() */
 	struct xlator_fops *fops;
-	struct xlator_mops *mops; 
+	struct xlator_mops *mops;
 	xlator_option_t *std_options;
+	struct xlator_cbks *cbks;
 	void (*fini) (xlator_t *this);
 	int32_t (*init) (xlator_t *this);
 	event_notify_fn_t notify;
@@ -862,11 +868,13 @@ struct _xlator {
 };
 
 int32_t xlator_test_given_options (xlator_option_t *std_options,
-				   dict_t *options);
+ 				   dict_t *options);
+ 
 
 int32_t xlator_set_type (xlator_t *xl, const char *type);
 
 int32_t xlator_validate_given_options (xlator_t *xl);
+ 
 
 xlator_t *file_to_xlator_tree (glusterfs_ctx_t *ctx,
 			       FILE *fp);

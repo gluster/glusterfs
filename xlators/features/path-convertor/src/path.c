@@ -1338,6 +1338,10 @@ struct xlator_mops mops = {
   .unlock = path_unlock,
 };
 
+
+struct xlator_cbks cbks = {
+};
+
 struct xlator_options options[] = { 
 	{ "start-offset", GF_OPTION_TYPE_INT, 0, 0, 4096 },
 	{ "end-offset", GF_OPTION_TYPE_INT, 0, 1, 4096 },

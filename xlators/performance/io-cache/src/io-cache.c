@@ -450,6 +450,10 @@ ioc_cache_validate_cbk (call_frame_t *frame,
 
   ioc_inode_wakeup (frame, ioc_inode, local_stbuf);
   
+  /* any page-fault initiated by ioc_inode_wakeup() will have its own fd_ref on fd,
+   * safe to unref validate frame's private copy */
+  fd_unref (local->fd);
+
   STACK_DESTROY (frame->root);
 
   return 0;
@@ -512,7 +516,7 @@ ioc_cache_validate (call_frame_t *frame,
     ioc_local_t *validate_local = calloc (1, sizeof (ioc_local_t));
     ERR_ABORT (validate_local);
     validate_frame = copy_frame (frame);
-    validate_local->fd = fd;
+    validate_local->fd = fd_ref (fd);
     validate_local->inode = ioc_inode;
     validate_frame->local = validate_local;
     
@@ -752,26 +756,6 @@ ioc_create (call_frame_t *frame,
 }
 
 
-/*
- * ioc_close_cbk - close callback
- * 
- * @frame:
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- */
-int32_t
-ioc_close_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
 
 
 /*
@@ -783,15 +767,9 @@ ioc_close_cbk (call_frame_t *frame,
  *
  */
 int32_t
-ioc_close (call_frame_t *frame,
-	   xlator_t *this,
+ioc_close (xlator_t *this,
 	   fd_t *fd)
 {
-  STACK_WIND (frame,
-	      ioc_close_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->close,
-	      fd);
   return 0;
 }
 
@@ -1384,7 +1362,6 @@ struct xlator_fops fops = {
   .create      = ioc_create,
   .readv       = ioc_readv,
   .writev      = ioc_writev,
-  .close       = ioc_close,
   .truncate    = ioc_truncate,
   .ftruncate   = ioc_ftruncate,
   .forget      = ioc_forget,
@@ -1394,6 +1371,10 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
+};
+
+struct xlator_cbks cbks = {
+	.release = ioc_close
 };
 
 struct xlator_options options[] = {

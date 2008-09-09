@@ -46,6 +46,7 @@ int protocol_client_interpret (xlator_t *this, transport_t *trans,
                                char *buf_p, size_t buflen);
 
 #define CLIENT_PRIVATE(frame) (((transport_t *)(frame->this->private))->xl_private)
+#define CLIENT_PRIV(this) (((transport_t *)(this->private))->xl_private)
 
 typedef int32_t (*gf_op_t) (call_frame_t *frame,
                             gf_hdr_common_t *hdr, size_t hdrlen,
@@ -1119,13 +1120,13 @@ client_flush (call_frame_t *frame,
  */
 
 int32_t
-client_close (call_frame_t *frame,
-              xlator_t *this,
+client_close (xlator_t *this,
               fd_t *fd)
 {
+  call_frame_t *fr = NULL;
   int32_t ret = -1;
   uint64_t remote_fd = 0;
-  char key[32];
+  char key[32] = {0,};
   client_proto_priv_t *priv = NULL;
   gf_hdr_common_t *hdr = NULL;
   size_t hdrlen = 0;
@@ -1133,7 +1134,6 @@ client_close (call_frame_t *frame,
 
   if (this_fd_get (fd, this, &remote_fd) == -1)
     {
-      STACK_UNWIND (frame, -1, EBADFD);
       return 0;
     }
 
@@ -1144,7 +1144,7 @@ client_close (call_frame_t *frame,
   req->fd = hton64 (remote_fd);
 
   {
-    priv = CLIENT_PRIVATE (frame);
+    priv = CLIENT_PRIV (this);
     sprintf (key, "%p", fd);
     pthread_mutex_lock (&priv->lock);
     {
@@ -1153,7 +1153,9 @@ client_close (call_frame_t *frame,
     pthread_mutex_unlock (&priv->lock);
   }
 
-  ret = protocol_client_xfer (frame, this,
+  fr = create_frame (this, this->ctx->pool);
+
+  ret = protocol_client_xfer (fr, this,
                               GF_OP_TYPE_FOP_REQUEST, GF_FOP_CLOSE,
                               hdr, hdrlen, NULL, 0, NULL);
   return ret;
@@ -1578,10 +1580,10 @@ client_readdir (call_frame_t *frame,
  */
 
 int32_t
-client_closedir (call_frame_t *frame,
-                 xlator_t *this,
+client_closedir (xlator_t *this,
                  fd_t *fd)
 {
+  call_frame_t *fr = NULL;
   int32_t ret = -1;
   uint64_t remote_fd = 0;
   char key[32];
@@ -1593,7 +1595,6 @@ client_closedir (call_frame_t *frame,
 
   if (this_fd_get (fd, this, &remote_fd) == -1)
     {
-      STACK_UNWIND (frame, -1, EBADFD);
       return 0;
     }
 
@@ -1604,7 +1605,7 @@ client_closedir (call_frame_t *frame,
   req->fd = hton64 (remote_fd);
 
   {
-    priv = CLIENT_PRIVATE (frame);
+    priv = CLIENT_PRIV (this);
     sprintf (key, "%p", fd);
     pthread_mutex_lock (&priv->lock);
     {
@@ -1613,7 +1614,9 @@ client_closedir (call_frame_t *frame,
     pthread_mutex_unlock (&priv->lock);
   }
 
-  ret = protocol_client_xfer (frame, this,
+  fr = create_frame (this, this->ctx->pool);
+
+  ret = protocol_client_xfer (fr, this,
                               GF_OP_TYPE_FOP_REQUEST, GF_FOP_CLOSEDIR,
                               hdr, hdrlen, NULL, 0, NULL);
   return ret;
@@ -3156,14 +3159,7 @@ client_close_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   char *buf, size_t buflen)
 {
-  int op_ret = 0;
-  int op_errno = 0;
-
-  op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-  STACK_UNWIND (frame, op_ret, op_errno);
-
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -3233,14 +3229,7 @@ client_closedir_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
                      char *buf, size_t buflen)
 {
-  int op_ret = 0;
-  int op_errno = 0;
-
-  op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-  STACK_UNWIND (frame, op_ret, op_errno);
-
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -4737,7 +4726,7 @@ struct xlator_fops fops = {
   .writev      = client_writev,
   .statfs      = client_statfs,
   .flush       = client_flush,
-  .close       = client_close,
+//  .close       = client_close,
   .fsync       = client_fsync,
   .incver      = client_incver,
   .setxattr    = client_setxattr,
@@ -4745,7 +4734,7 @@ struct xlator_fops fops = {
   .removexattr = client_removexattr,
   .opendir     = client_opendir,
   .readdir     = client_readdir,
-  .closedir    = client_closedir,
+//  .closedir    = client_closedir,
   .fsyncdir    = client_fsyncdir,
   .access      = client_access,
   .ftruncate   = client_ftruncate,
@@ -4769,6 +4758,11 @@ struct xlator_mops mops = {
   .unlock    = client_unlock,
   .listlocks = client_listlocks,
   .getspec   = client_getspec,
+};
+
+struct xlator_cbks cbks = {
+	.release = client_close,
+	.releasedir = client_closedir
 };
 
 

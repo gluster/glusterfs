@@ -386,6 +386,8 @@ ioc_fault_cbk (call_frame_t *frame,
   gf_log (this->name, GF_LOG_DEBUG, "fault frame %p returned", frame);
   pthread_mutex_destroy (&local->local_lock);
 
+  fd_unref (local->fd);
+
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -410,6 +412,10 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
   ioc_local_t *fault_local = calloc (1, sizeof (ioc_local_t));
   ERR_ABORT (fault_local);
 
+  /* NOTE: copy_frame() means, the frame the fop whose fd_ref we are using till now
+   *      won't be valid till we get reply from server. we unref this fd, in fault_cbk */
+  fault_local->fd = fd_ref (fd);
+
   fault_frame->local = fault_local;
   pthread_mutex_init (&fault_local->local_lock, NULL);
 
@@ -421,7 +427,7 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
   gf_log (frame->this->name, GF_LOG_DEBUG,
 	  "stack winding page fault for offset = %lld with frame %p",
 	  offset, fault_frame);
-
+  
   STACK_WIND (fault_frame, ioc_fault_cbk,
 	      FIRST_CHILD(fault_frame->this),
 	      FIRST_CHILD(fault_frame->this)->fops->readv,

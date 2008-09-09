@@ -882,42 +882,31 @@ out:
 }
 
 int32_t 
-bdb_close (call_frame_t *frame,
-           xlator_t *this,
-           fd_t *fd)
+bdb_close (xlator_t *this,
+	   fd_t *fd)
 {
-	int32_t        op_ret   = -1;
-	int32_t        op_errno = EBADFD;
-	struct bdb_fd *bfd      = NULL;
-	
-	GF_VALIDATE_OR_GOTO ("bdb", frame, out);
-	GF_VALIDATE_OR_GOTO ("bdb", this, out);
-	GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-	bfd = bdb_extract_bfd (fd, this->name);
-	op_errno = EBADFD;
-	GF_VALIDATE_OR_GOTO (this->name, bfd, out);
-	
-	/* NOTE: dict_del always returns success */
-	dict_del (fd->ctx, this->name);
-	
-	/* NOTE: bctx_unref always returns success, 
-	 * see description of bctx_unref for more details */
-	bctx_unref (bfd->ctx);
-	bfd->ctx = NULL; 
+  int32_t op_ret = -1;
+  int32_t op_errno = EBADFD;
+  struct bdb_fd *bfd = NULL;
+  
+  if ((bfd = bdb_extract_bfd (fd, this->name)) == NULL){
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "failed to extract %s specific information from fd:%p", this->name, fd);
+    op_ret = -1;
+    op_errno = EBADFD;
+  } else {
+    bctx_unref (bfd->ctx);
+    bfd->ctx = NULL; 
     
-	if (bfd->key)
-		free (bfd->key); /* we did strdup() in bdb_open() */
-	
-	free (bfd);
-	
-	op_ret = 0;
-	op_errno = 0;
-out:
-	frame->root->rsp_refs = NULL;
-	STACK_UNWIND (frame, op_ret, op_errno);
+    if (bfd->key)
+      free (bfd->key); /* we did strdup() in bdb_open() */
+    free (bfd);
+    op_ret = 0;
+    op_errno = 0;
+  } /* if((fd->ctx == NULL)...)...else */
 
-	return 0;
+  return 0;
 }/* bdb_close */
 
 
@@ -1508,56 +1497,45 @@ out:
 
 
 int32_t 
-bdb_closedir (call_frame_t *frame,
-              xlator_t *this,
-              fd_t *fd)
+bdb_closedir (xlator_t *this,
+	      fd_t *fd)
 {
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	struct bdb_dir *bfd = NULL;
+  int32_t op_ret = 0;
+  int32_t op_errno = 0;
+  struct bdb_dir *bfd = NULL;
 
-	GF_VALIDATE_OR_GOTO ("bdb", frame, out);
-	GF_VALIDATE_OR_GOTO ("bdb", this, out);
-	GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-	frame->root->rsp_refs = NULL;
-	
-	bfd = bdb_extract_bfd (fd, this->name);
-	op_errno = EBADFD;
-	GF_VALIDATE_OR_GOTO (this->name, bfd, out);
-
-	dict_del (fd->ctx, this->name);
-        
-	if (bfd->path) {
-		free (bfd->path);
-	} else {
-		gf_log (this->name, 
-			GF_LOG_ERROR, 
-			"bfd->path was NULL. fd=%p bfd=%p",
-			fd, bfd);
-	}
+  if ((bfd = bdb_extract_bfd (fd, this->name)) == NULL) {
+    gf_log (this->name, 
+	    GF_LOG_ERROR, 
+	    "failed to extract fd data from fd=%p", fd);
+    op_ret = -1;
+    op_errno = EBADF;
+  } else {
+    if (bfd->path) {
+      free (bfd->path);
+    } else {
+      gf_log (this->name, GF_LOG_ERROR, "bfd->path was NULL. fd=%p bfd=%p",
+	      fd, bfd);
+    }
     
-	if (bfd->dir) {
-		closedir (bfd->dir);
-	} else {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"bfd->dir is NULL.");
-	}
-	if (bfd->ctx) {
-		/* NOTE: bctx_unref always returns success, 
-		 * see description of bctx_unref for more details */
-		bctx_unref (bfd->ctx);
-	} else {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"bfd->ctx is NULL");
-	}
-	free (bfd);
+    if (bfd->dir) {
+      closedir (bfd->dir);
+    } else {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "bfd->dir is NULL.");
+    }
+    if (bfd->ctx) {
+      bctx_unref (bfd->ctx);
+    } else {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "bfd->ctx is NULL");
+    }
+    free (bfd);
+  }
 
-out:
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
+  return 0;
 }/* bdb_closedir */
 
 
@@ -3338,7 +3316,6 @@ struct xlator_fops fops = {
 	.stat        = bdb_stat,
 	.opendir     = bdb_opendir,
 	.readdir     = bdb_readdir,
-	.closedir    = bdb_closedir,
 	.readlink    = bdb_readlink,
 	.mknod       = bdb_mknod,
 	.mkdir       = bdb_mkdir,
@@ -3358,7 +3335,6 @@ struct xlator_fops fops = {
 	.writev      = bdb_writev,
 	.statfs      = bdb_statfs,
 	.flush       = bdb_flush,
-	.close       = bdb_close,
 	.fsync       = bdb_fsync,
 	.incver      = bdb_incver,
 	.setxattr    = bdb_setxattr,
@@ -3374,4 +3350,9 @@ struct xlator_fops fops = {
 	.setdents    = bdb_setdents,
 	.getdents    = bdb_getdents,
 	.checksum    = bdb_checksum,
+};
+
+struct xlator_cbks cbks = {
+	.release = bdb_close,
+	.releasedir = bdb_closedir
 };

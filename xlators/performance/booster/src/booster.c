@@ -142,6 +142,10 @@ booster_readv_cbk (call_frame_t *frame,
   struct glusterfs_booster_protocol_header hdr = {0, };
   transport_t *trans = frame->root->trans;
   struct iovec *hdrvec;
+  fd_t *fd = frame->local;
+
+  if (fd)
+	  fd_unref (fd);
 
   hdrvec = alloca (sizeof (*hdrvec) * (1 + count));
   ERR_ABORT (hdrvec);
@@ -173,6 +177,10 @@ booster_writev_cbk (call_frame_t *frame,
   struct glusterfs_booster_protocol_header hdr = {0, };
   transport_t *trans = frame->root->trans;
   struct iovec hdrvec;
+  fd_t *fd = frame->local;
+  
+  if (fd)
+	  fd_unref (fd);
 
   hdr.op_ret = op_ret;
   hdr.op_errno = op_errno;
@@ -211,8 +219,7 @@ booster_interpret (transport_t *trans)
 	  "inode number = %"PRId64, inode->ino);
 
   /* TODO: hold inode lock and check for fd */
-  if (!list_empty (&inode->fds))
-    fd = list_entry (inode->fds.next, fd_t, inode_list);
+  fd = fd_lookup (inode);
   if (!fd) {
     gf_log (trans->xl->name, GF_LOG_DEBUG,
 	    "no fd found for handle %p", inode);
@@ -223,6 +230,7 @@ booster_interpret (transport_t *trans)
   }
 
   frame = get_frame_for_transport (trans);
+  frame->local = fd;
   switch (hdr.op) {
   case GF_FOP_READ:
     STACK_WIND (frame, booster_readv_cbk,
@@ -356,4 +364,7 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
+};
+
+struct xlator_cbks cbks = {
 };

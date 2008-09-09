@@ -803,32 +803,6 @@ default_flush (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
-default_close_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
-{
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
-  return 0;
-}
-
-int32_t
-default_close (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd)
-{
-  STACK_WIND (frame,
-	      default_close_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->close,
-	      fd);
-  return 0;
-}
-
 
 static int32_t
 default_fsync_cbk (call_frame_t *frame,
@@ -984,32 +958,6 @@ default_setdents (call_frame_t *frame,
   return 0;
 }
 
-
-static int32_t
-default_closedir_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno)
-{
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
-  return 0;
-}
-
-int32_t
-default_closedir (call_frame_t *frame,
-		  xlator_t *this,
-		  fd_t *fd)
-{
-  STACK_WIND (frame,
-	      default_closedir_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->closedir,
-	      fd);
-  return 0;
-}
 
 static int32_t
 default_fsyncdir_cbk (call_frame_t *frame,
@@ -1511,3 +1459,18 @@ default_notify (xlator_t *this,
 
   return 0;
 }
+
+int32_t
+default_releasedir (xlator_t *this,
+		    fd_t *fd)
+{
+  return 0;
+}
+
+int32_t
+default_release (xlator_t *this,
+		 fd_t *fd)
+{
+  return 0;
+}
+

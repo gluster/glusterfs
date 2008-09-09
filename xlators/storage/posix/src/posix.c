@@ -550,7 +550,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
+/*int32_t 
 posix_closedir (call_frame_t *frame, xlator_t *this,
                 fd_t *fd)
 {
@@ -611,6 +611,65 @@ posix_closedir (call_frame_t *frame, xlator_t *this,
         }
 
         STACK_UNWIND (frame, op_ret, op_errno);
+
+        return 0;
+}
+*/
+int32_t 
+posix_closedir (xlator_t *this,
+                fd_t *fd)
+{
+        int32_t           op_ret   = -1;
+        int32_t           op_errno = 0;
+        struct posix_fd * pfd      = NULL;
+        int               ret      = 0;
+
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+        VALIDATE_OR_GOTO (fd->ctx, out);
+
+        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
+
+        if (ret < 0) {
+                op_errno = -ret;
+                gf_log (this->name, GF_LOG_ERROR, 
+                        "pfd from fd=%p is NULL", fd);
+                goto out;
+        }
+
+        if (!pfd->dir) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR, 
+                        "pfd->dir is NULL for fd=%p path=%s",
+                        fd, pfd->path ? pfd->path : "<NULL>");
+                goto out;
+        }
+
+        ret = closedir (pfd->dir);
+        if (ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR, 
+                        "closedir on %p failed", pfd->dir);
+                goto out;
+        }
+        pfd->dir = NULL;
+  
+        if (!pfd->path) {
+                op_errno = EBADFD;
+                gf_log (this->name, GF_LOG_ERROR, 
+                        "pfd->path was NULL. fd=%p pfd=%p",
+                        fd, pfd);
+                goto out;
+        }
+
+        op_ret = 0;
+
+ out:
+        if (pfd) {
+                if (pfd->path)
+                        FREE (pfd->path);
+		FREE (pfd);
+        }
 
         return 0;
 }
@@ -1769,7 +1828,7 @@ posix_flush (call_frame_t *frame, xlator_t *this,
 
         return 0;
 }
-
+/*
 int32_t 
 posix_close (call_frame_t *frame, xlator_t *this,
              fd_t *fd)
@@ -1823,6 +1882,58 @@ posix_close (call_frame_t *frame, xlator_t *this,
 
         frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
+        return 0;
+	} */
+int32_t 
+posix_close (xlator_t *this,
+             fd_t *fd)
+{
+        int32_t                op_ret   = -1;
+        int32_t                op_errno = 0;
+        int                    _fd      = -1;
+        struct posix_private * priv     = NULL;
+        struct posix_fd *      pfd      = NULL;
+        int                    ret      = -1;
+
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        priv = this->private;
+
+        priv->stats.nr_files--;
+
+        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
+        if (ret < 0) {
+                op_errno = -ret;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pfd is NULL from fd=%p", fd);
+                goto out;
+        }
+
+        _fd = pfd->fd;
+
+        op_ret = close (_fd);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_WARNING, 
+                        "close(): %s", strerror (op_errno));
+		goto out;
+        }
+
+        if (pfd->dir) {
+                op_errno = EBADF;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pfd->dir is %p (not NULL) for file fd=%p",
+                        pfd->dir, fd);
+                goto out;
+        }
+
+        op_ret = 0;
+
+ out:
+	if (pfd)
+		FREE (pfd);
+
         return 0;
 }
 
@@ -3515,7 +3626,7 @@ struct xlator_fops fops = {
         .stat        = posix_stat,
         .opendir     = posix_opendir,
         .readdir     = posix_readdir,
-        .closedir    = posix_closedir,
+//        .closedir    = posix_closedir,
         .readlink    = posix_readlink,
         .mknod       = posix_mknod,
         .mkdir       = posix_mkdir,
@@ -3535,7 +3646,7 @@ struct xlator_fops fops = {
         .writev      = posix_writev,
         .statfs      = posix_statfs,
         .flush       = posix_flush,
-        .close       = posix_close,
+//        .close       = posix_close,
         .fsync       = posix_fsync,
         .incver      = posix_incver,
         .setxattr    = posix_setxattr,
@@ -3553,6 +3664,11 @@ struct xlator_fops fops = {
         .getdents    = posix_getdents,
         .checksum    = posix_checksum,
 	.xattrop     = posix_xattrop,
+};
+
+struct xlator_cbks cbks = {
+	.release     = posix_close,
+	.releasedir  = posix_closedir
 };
 
 struct xlator_options options[] = {

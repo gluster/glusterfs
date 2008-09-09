@@ -969,21 +969,6 @@ unify_rmdir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-unify_open_close_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno)
-{
-  unify_local_t *local = frame->local;
-  
-  unify_local_wipe (local);
-  STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
-  
-  return 0;
-}
-
 /**
  * unify_open_cbk -
  */
@@ -1024,24 +1009,12 @@ unify_open_cbk (call_frame_t *frame,
       //local->op_errno = EIO; 
       
       if (dict_get (local->fd->ctx, this->name)) {
-	xlator_t *child = data_to_ptr (dict_get (local->fd->ctx, this->name));
 	gf_log (this->name, GF_LOG_ERROR, 
 		"Open success on child node, failed on namespace");
-	STACK_WIND (frame,
-		    unify_open_close_cbk,
-		    child,
-		    child->fops->close,
-		    local->fd);
       } else {
 	gf_log (this->name, GF_LOG_ERROR, 
 		"Open success on namespace, failed on child node");
-	STACK_WIND (frame,
-		    unify_open_close_cbk,
-		    NS(this),
-		    NS(this)->fops->close,
-		    local->fd);
       }
-      return 0;
     }
 
     unify_local_wipe (local);
@@ -1291,45 +1264,17 @@ unify_open (call_frame_t *frame,
 
 
 int32_t 
-unify_create_close_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno)
+unify_create_unlink_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno)
 {
   unify_local_t *local = frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd, 
 		local->inode, &local->stbuf);
   
-  return 0;
-}
-
-
-int32_t 
-unify_create_fail_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno)
-{
-  unify_local_t *local = frame->local;
-  
-  /* Create failed in storage node, but it was success in 
-   * namespace node, so after closing fd, need to unlink the file
-   */
-  loc_t tmp_loc = {
-    .inode = local->inode,
-    .path = local->name
-  };
-  local->call_count = 1;
-
-  STACK_WIND (frame,
-	      unify_create_close_cbk,
-	      NS(this),
-	      NS(this)->fops->unlink,
-	      &tmp_loc);
-
   return 0;
 }
 
@@ -1375,23 +1320,36 @@ unify_create_open_cbk (call_frame_t *frame,
       local->fd = fd;
       if (dict_get (local->fd->ctx, this->name)) {
 	xlator_t *child = data_to_ptr (dict_get (local->fd->ctx, this->name));
-	gf_log (this->name, GF_LOG_ERROR, 
-		"Open success on child node, failed on namespace");
+        loc_t tmp_loc = {
+	      .inode = local->inode,
+	      .path = local->name
+	};
+	local->call_count = 1;
+
 	STACK_WIND (frame,
-		    unify_create_close_cbk,
+		    unify_create_unlink_cbk,
 		    child,
-		    child->fops->close,
-		    local->fd);
-      } else {
+		    child->fops->unlink,
+		    &tmp_loc);
+
 	gf_log (this->name, GF_LOG_ERROR, 
-		"Open success on namespace, failed on child node");
+		"Create success on child node, failed on namespace");
+      } else {
+        loc_t tmp_loc = {
+		.inode = local->inode,
+		.path = local->name
+	};
+	local->call_count = 1;
+	
 	STACK_WIND (frame,
-		    unify_create_close_cbk,
+		    unify_create_unlink_cbk,
 		    NS(this),
-		    NS(this)->fops->close,
-		    local->fd);
+		    NS(this)->fops->unlink,
+		    &tmp_loc);
+
+	gf_log (this->name, GF_LOG_ERROR, 
+		"Create success on namespace, failed on child node");
       }
-      return 0;
     }
 
     STACK_UNWIND (frame, local->op_ret, local->op_errno, fd,
@@ -1518,19 +1476,24 @@ unify_create_cbk (call_frame_t *frame,
   call_frame_t *prev_frame = cookie;
 
   if (op_ret == -1) {
-    /* send close () on Namespace */
+    /* send unlink () on Namespace */
+    loc_t tmp_loc = {
+	    .inode = local->inode,
+	    .path = local->name
+    };
+
     local->op_errno = op_errno;
     local->op_ret = -1;
     local->call_count = 1;
     gf_log (this->name, GF_LOG_ERROR,
-	    "create failed on %s (file %s, error %s), sending close to namespace", 
+	    "create failed on %s (file %s, error %s), sending unlink to namespace", 
 	    prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
 
     STACK_WIND (frame,
-		unify_create_fail_cbk,
+		unify_create_unlink_cbk,
 		NS(this),
-		NS(this)->fops->close,
-		fd);
+		NS(this)->fops->unlink,
+		&tmp_loc);
 
     return 0;
   }
@@ -1608,19 +1571,24 @@ unify_ns_create_cbk (call_frame_t *frame,
     sched_xl = sched_ops->schedule (this, local->name);
     if (!sched_xl)
       {
-	/* send close () on Namespace */
+	/* send unlink () on Namespace */
 	local->op_errno = ENOTCONN;
 	local->op_ret = -1;
 	local->call_count = 1;
 	gf_log (this->name, GF_LOG_ERROR,
-		"no node online to schedule create:(file %s) sending close to namespace", 
+		"no node online to schedule create:(file %s) sending unlink to namespace", 
 		(local->path)?local->path:"");
-	
+
+        loc_t tmp_loc = {
+		.inode = local->inode,
+		.path = local->name
+	};
+
 	STACK_WIND (frame,
-		    unify_create_fail_cbk,
+		    unify_create_unlink_cbk,
 		    NS(this),
-		    NS(this)->fops->close,
-		    fd);
+		    NS(this)->fops->unlink,
+		    &tmp_loc);
 	
 	return 0;
       }
@@ -2343,86 +2311,6 @@ unify_flush (call_frame_t *frame,
   return 0;
 }
 
-/**
- * unify_close_cbk -
- */
-int32_t
-unify_ns_close_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-  unify_local_t *local = frame->local;
-
-  LOCK (&frame->lock);
-  {
-    if (op_ret >= 0) 
-      local->op_ret = op_ret;
-    if (op_ret == -1)
-      local->op_errno = op_errno;
-  }
-  UNLOCK (&frame->lock);
-
-  STACK_UNWIND (frame, local->op_ret, local->op_errno);
-  
-  return 0;
-}
-
-/**
- * unify_close_cbk -
- */
-int32_t
-unify_close_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno)
-{
-  unify_local_t *local = frame->local;
-
-  LOCK (&frame->lock);
-  {
-    if (op_ret >= 0)
-      local->op_ret = op_ret;
-    if (op_ret == -1)
-      local->op_errno = op_errno;
-  }
-  UNLOCK (&frame->lock);
-
-  /* to namespace */
-  STACK_WIND (frame, unify_ns_close_cbk, NS(this),
-	      NS(this)->fops->close, local->fd);
-
-  return 0;
-}
-
-/**
- * unify_close - send 'close' fop to all the nodes where 'fd' is open.
- */
-int32_t
-unify_close (call_frame_t *frame,
-	     xlator_t *this,
-	     fd_t *fd)
-{
-  unify_local_t *local = NULL;
-  xlator_t *child = NULL;
-
-  UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(fd);
-
-  /* Init */
-  INIT_LOCAL (frame, local);
-  local->inode = fd->inode;
-  local->fd = fd;
-
-  child = data_to_ptr (dict_get (fd->ctx, this->name));
-
-  /* to storage node */
-  STACK_WIND (frame, unify_close_cbk, child,
-	      child->fops->close, fd);
-
-  return 0;
-}
 
 /**
  * unify_fsync_cbk - 
@@ -2567,36 +2455,6 @@ unify_readdir (call_frame_t *frame,
   return 0;
 }
 
-/**
- * unify_closedir_cbk - 
- */
-int32_t
-unify_closedir_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  
-  return 0;
-}
-
-/**
- * unify_closedir - send 'closedir' fop to all the nodes, where 'fd' is open. 
- */
-int32_t
-unify_closedir (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd)
-{
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR (fd);
-  
-  STACK_WIND (frame, unify_closedir_cbk,
-	      NS(this), NS(this)->fops->closedir, fd);
-
-  return 0;
-}
 
 /**
  * unify_fsyncdir_cbk - 
@@ -4551,14 +4409,12 @@ struct xlator_fops fops = {
   .writev      = unify_writev,
   .statfs      = unify_statfs,
   .flush       = unify_flush,
-  .close       = unify_close,
   .fsync       = unify_fsync,
   .setxattr    = unify_setxattr,
   .getxattr    = unify_getxattr,
   .removexattr = unify_removexattr,
   .opendir     = unify_opendir,
   .readdir     = unify_readdir,
-  .closedir    = unify_closedir,
   .fsyncdir    = unify_fsyncdir,
   .access      = unify_access,
   .ftruncate   = unify_ftruncate,
@@ -4576,6 +4432,9 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
+};
+
+struct xlator_cbks cbks = {
 };
 
 struct xlator_options options[] = {

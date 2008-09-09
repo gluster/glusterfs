@@ -189,7 +189,7 @@ fop_fstat_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.fstat.fn = fn;
-  stub->args.fstat.fd = fd;
+  stub->args.fstat.fd = fd_ref (fd);
 
   return stub;
 }
@@ -286,7 +286,7 @@ fop_fchmod_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.fchmod.fn = fn;
-  stub->args.fchmod.fd = fd;
+  stub->args.fchmod.fd = fd_ref (fd);
   stub->args.fchmod.mode = mode;
 
   return stub;
@@ -387,7 +387,7 @@ fop_fchown_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.fchown.fn = fn;
-  stub->args.fchown.fd = fd;
+  stub->args.fchown.fd = fd_ref (fd);
   stub->args.fchown.uid = uid;
   stub->args.fchown.gid = gid;
 
@@ -487,7 +487,7 @@ fop_ftruncate_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.ftruncate.fn = fn;
-  stub->args.ftruncate.fd = fd;
+  stub->args.ftruncate.fd = fd_ref (fd);
   stub->args.ftruncate.off = off;
   return stub;
 }
@@ -1031,7 +1031,7 @@ fop_create_stub (call_frame_t *frame,
   loc_copy (&stub->args.create.loc, loc);
   stub->args.create.flags = flags;
   stub->args.create.mode = mode;
-  stub->args.create.fd = fd;
+  stub->args.create.fd = fd_ref (fd);
 
   return stub;
 }
@@ -1058,7 +1058,7 @@ fop_create_cbk_stub (call_frame_t *frame,
   stub->args.create_cbk.fn = fn;
   stub->args.create_cbk.op_ret = op_ret;
   stub->args.create_cbk.op_errno = op_errno;
-  stub->args.create_cbk.fd = fd;
+  stub->args.create_cbk.fd = fd_ref (fd);
   if (inode)
     stub->args.create_cbk.inode = inode_ref (inode);
   if (buf)
@@ -1086,7 +1086,8 @@ fop_open_stub (call_frame_t *frame,
   stub->args.open.fn = fn;
   loc_copy (&stub->args.open.loc, loc);
   stub->args.open.flags = flags;
-  stub->args.open.fd = fd;
+  if (fd)
+	  stub->args.open.fd = fd_ref (fd);
 
   return stub;
 }
@@ -1112,7 +1113,7 @@ fop_open_cbk_stub (call_frame_t *frame,
   stub->args.open_cbk.fn = fn;
   stub->args.open_cbk.op_ret = op_ret;
   stub->args.open_cbk.op_errno = op_errno;
-  stub->args.open_cbk.fd = fd;
+  stub->args.open_cbk.fd = fd_ref (fd);
 
   return stub;
 }
@@ -1135,7 +1136,7 @@ fop_readv_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.readv.fn = fn;
-  stub->args.readv.fd = fd;
+  stub->args.readv.fd = fd_ref (fd);
   stub->args.readv.size = size;
   stub->args.readv.off = off;
 
@@ -1194,7 +1195,7 @@ fop_writev_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.writev.fn = fn;
-  stub->args.writev.fd = fd;
+  stub->args.writev.fd = fd_ref (fd);
   stub->args.writev.vector = iov_dup (vector, count);
   stub->args.writev.count = count;
   stub->args.writev.off = off;
@@ -1249,7 +1250,7 @@ fop_flush_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.flush.fn = fn;
-  stub->args.flush.fd = fd;
+  stub->args.flush.fd = fd_ref (fd);
 
   return stub;
 }
@@ -1294,7 +1295,7 @@ fop_close_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.close.fn = fn;
-  stub->args.close.fd = fd;
+  stub->args.close.fd = fd_ref (fd);
 
   return stub;
 }
@@ -1340,7 +1341,7 @@ fop_fsync_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.fsync.fn = fn;
-  stub->args.fsync.fd = fd;
+  stub->args.fsync.fd = fd_ref (fd);
   stub->args.fsync.datasync = datasync;
 
   return stub;
@@ -1387,7 +1388,8 @@ fop_opendir_stub (call_frame_t *frame,
 
   stub->args.opendir.fn = fn;
   loc_copy (&stub->args.opendir.loc, loc);
-  stub->args.opendir.fd = fd;
+  if (stub->args.opendir.fd)
+	  stub->args.opendir.fd = fd_ref (fd);
 
   return stub;
 }
@@ -1413,7 +1415,7 @@ fop_opendir_cbk_stub (call_frame_t *frame,
   stub->args.opendir_cbk.fn = fn;
   stub->args.opendir_cbk.op_ret = op_ret;
   stub->args.opendir_cbk.op_errno = op_errno;
-  stub->args.opendir_cbk.fd = fd;
+  stub->args.opendir_cbk.fd = fd_ref (fd);
 
   return stub;
 }
@@ -1439,7 +1441,7 @@ fop_getdents_stub (call_frame_t *frame,
   stub->args.getdents.fn = fn;
   stub->args.getdents.size = size;
   stub->args.getdents.off = off;
-  stub->args.getdents.fd = fd;
+  stub->args.getdents.fd = fd_ref (fd);
   stub->args.getdents.flag = flag;
 
   return stub;
@@ -1494,7 +1496,7 @@ fop_closedir_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.closedir.fn = fn;
-  stub->args.closedir.fd = fd;
+  stub->args.closedir.fd = fd_ref (fd);
 
   return stub;
 }
@@ -1540,7 +1542,7 @@ fop_fsyncdir_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.fsyncdir.fn = fn;
-  stub->args.fsyncdir.fd = fd;
+  stub->args.fsyncdir.fd = fd_ref (fd);
   stub->args.fsyncdir.datasync = datasync;
 
   return stub;
@@ -1779,7 +1781,7 @@ fop_lk_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.lk.fn = fn;
-  stub->args.lk.fd = fd;
+  stub->args.lk.fd = fd_ref (fd);
   stub->args.lk.cmd = cmd;
   stub->args.lk.lock = *lock;
 
@@ -1830,7 +1832,7 @@ fop_gf_lk_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.lk.fn = fn;
-  stub->args.lk.fd = fd;
+  stub->args.lk.fd = fd_ref (fd);
   stub->args.lk.cmd = cmd;
   stub->args.lk.lock = *lock;
 
@@ -1880,7 +1882,7 @@ fop_setdents_stub (call_frame_t *frame,
   if (!stub)
     return NULL;
 
-  stub->args.setdents.fd = fd;
+  stub->args.setdents.fd = fd_ref (fd);
   stub->args.setdents.fn = fn;
   stub->args.setdents.flags = flags;
   stub->args.setdents.count = count;
@@ -2007,7 +2009,8 @@ call_resume_wind (call_stub_t *stub)
 			  &stub->args.open.loc, 
 			  stub->args.open.flags, stub->args.open.fd);
       loc_wipe (&stub->args.open.loc);
-
+      if (stub->args.open.fd)
+	      fd_unref (stub->args.open.fd);
       break;
     }
   case GF_FOP_CREATE:
@@ -2019,6 +2022,7 @@ call_resume_wind (call_stub_t *stub)
 			    stub->args.create.mode,
 			    stub->args.create.fd);
       loc_wipe (&stub->args.create.loc);
+      fd_unref (stub->args.create.fd);
       break;
     }
   case GF_FOP_STAT:
@@ -2151,6 +2155,7 @@ call_resume_wind (call_stub_t *stub)
 			   stub->args.readv.fd,
 			   stub->args.readv.size,
 			   stub->args.readv.off);
+      fd_unref (stub->args.readv.fd);
       break;
     }
   
@@ -2163,6 +2168,7 @@ call_resume_wind (call_stub_t *stub)
 			    stub->args.writev.vector,
 			    stub->args.writev.count,
 			    stub->args.writev.off);
+      fd_unref (stub->args.writev.fd);
       FREE (stub->args.writev.vector);
       if (refs)
 	dict_unref (refs);
@@ -2182,7 +2188,7 @@ call_resume_wind (call_stub_t *stub)
       stub->args.flush.fn (stub->frame,
 			   stub->frame->this,
 			   stub->args.flush.fd);
-      
+      fd_unref (stub->args.flush.fd);      
       break;
     }
   
@@ -2201,6 +2207,7 @@ call_resume_wind (call_stub_t *stub)
 			   stub->frame->this,
 			   stub->args.fsync.fd,
 			   stub->args.fsync.datasync);
+      fd_unref (stub->args.fsync.fd);
       break;
     }
 
@@ -2245,7 +2252,8 @@ call_resume_wind (call_stub_t *stub)
 			     &stub->args.opendir.loc,
 			     stub->args.opendir.fd);
       loc_wipe (&stub->args.opendir.loc);
-
+      if (stub->args.opendir.fd)
+	      fd_unref (stub->args.opendir.fd);
       break;
     }
 
@@ -2257,6 +2265,7 @@ call_resume_wind (call_stub_t *stub)
 			      stub->args.getdents.size,
 			      stub->args.getdents.off,
 			      stub->args.getdents.flag);
+      fd_unref (stub->args.getdents.fd);
       break;
     }
 
@@ -2274,6 +2283,7 @@ call_resume_wind (call_stub_t *stub)
 			      stub->frame->this,
 			      stub->args.fsyncdir.fd,
 			      stub->args.fsyncdir.datasync);
+      fd_unref (stub->args.fsyncdir.fd);
       break;
     }
   
@@ -2294,6 +2304,7 @@ call_resume_wind (call_stub_t *stub)
 			       stub->frame->this,
 			       stub->args.ftruncate.fd,
 			       stub->args.ftruncate.off);
+      fd_unref (stub->args.ftruncate.fd);
       break;
     }
   
@@ -2302,6 +2313,7 @@ call_resume_wind (call_stub_t *stub)
       stub->args.fstat.fn (stub->frame,
 			   stub->frame->this,
 			   stub->args.fstat.fd);
+      fd_unref (stub->args.fstat.fd);
       break;
     }
   
@@ -2312,6 +2324,7 @@ call_resume_wind (call_stub_t *stub)
 			stub->args.lk.fd,
 			stub->args.lk.cmd,
 			&stub->args.lk.lock);
+      fd_unref (stub->args.lk.fd);
       break;
     }
 
@@ -2322,6 +2335,7 @@ call_resume_wind (call_stub_t *stub)
 			   stub->args.gf_lk.fd,
 			   stub->args.gf_lk.cmd,
 			   &stub->args.gf_lk.lock);
+      fd_unref (stub->args.gf_lk.fd);
       break;
     }
   
@@ -2332,7 +2346,6 @@ call_resume_wind (call_stub_t *stub)
 			     &stub->args.utimens.loc,
 			     stub->args.utimens.tv);
       loc_wipe (&stub->args.utimens.loc);
-      
       break;
     }
   
@@ -2344,6 +2357,7 @@ call_resume_wind (call_stub_t *stub)
 			    stub->frame->this,
 			    stub->args.fchmod.fd,
 			    stub->args.fchmod.mode);
+      fd_unref (stub->args.fchmod.fd);
       break;
     }
   
@@ -2354,6 +2368,7 @@ call_resume_wind (call_stub_t *stub)
 			    stub->args.fchown.fd,
 			    stub->args.fchown.uid,
 			    stub->args.fchown.gid);
+      fd_unref (stub->args.fchown.fd);
       break;
     }
   
@@ -2376,6 +2391,7 @@ call_resume_wind (call_stub_t *stub)
 			      stub->args.setdents.flags,
 			      &stub->args.setdents.entries,
 			      stub->args.setdents.count);
+      fd_unref (stub->args.setdents.fd);
       entry = stub->args.setdents.entries.next;
       while (entry) {
 	next = entry->next;
@@ -2439,6 +2455,7 @@ call_resume_unwind (call_stub_t *stub)
 				stub->args.open_cbk.op_ret, 
 				stub->args.open_cbk.op_errno,
 				stub->args.open_cbk.fd);
+      fd_unref (stub->args.open_cbk.fd);
       break;
     }
 
@@ -2464,7 +2481,8 @@ call_resume_unwind (call_stub_t *stub)
       
       if (stub->args.create_cbk.inode)
 	inode_unref (stub->args.create_cbk.inode);
-      
+
+      fd_unref (stub->args.create_cbk.fd);
       break;
     }
 
@@ -2482,6 +2500,7 @@ call_resume_unwind (call_stub_t *stub)
 				stub->args.stat_cbk.op_ret,
 				stub->args.stat_cbk.op_errno,
 				&stub->args.stat_cbk.buf);
+
       break;
     }
 
@@ -2867,6 +2886,8 @@ call_resume_unwind (call_stub_t *stub)
 				   stub->args.opendir_cbk.op_ret,
 				   stub->args.opendir_cbk.op_errno,
 				   stub->args.opendir_cbk.fd);
+
+      fd_unref (stub->args.opendir_cbk.fd);
       break;
     }
   

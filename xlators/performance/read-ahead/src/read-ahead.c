@@ -263,22 +263,9 @@ flush_region (call_frame_t *frame,
 }
 
 
-int32_t
-ra_close_cbk (call_frame_t *frame,
-              void *cookie,
-              xlator_t *this,
-              int32_t op_ret,
-              int32_t op_errno)
-{
-  frame->local = NULL;
-
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
 
 int32_t
-ra_close (call_frame_t *frame,
-          xlator_t *this,
+ra_close (xlator_t *this,
           fd_t *fd)
 {
   data_t *file_data = dict_get (fd->ctx, this->name);
@@ -287,18 +274,9 @@ ra_close (call_frame_t *frame,
   if (file_data) {
     file = data_to_ptr (file_data);
     
-    flush_region (frame, file, 0, file->pages.prev->offset+1);
-    dict_del (fd->ctx, this->name);
-    
-    file->fd = NULL;
     ra_file_unref (file);
   }
 
-  STACK_WIND (frame,
-              ra_close_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->close,
-              fd);
   return 0;
 }
 
@@ -522,10 +500,17 @@ ra_readv (call_frame_t *frame,
   dispatch_requests (frame, file);
 
   flush_region (frame, file, 0, floor (offset, file->page_size));
+  /* read-ahead asynchronously does read_ahead(),
+   * not in any system call's context. fd_ref()ed to 
+   * preserve fd_t */
+  file->fd = fd_ref (file->fd);
 
   ra_frame_return (frame);
 
   read_ahead (ra_frame, file);
+  
+  /* read-ahead has finised asynchronous work on the fd_t */
+  fd_unref (file->fd);
 
   file->offset = offset + size;
 
@@ -934,7 +919,6 @@ struct xlator_fops fops = {
   .writev      = ra_writev,
   .flush       = ra_flush,
   .fsync       = ra_fsync,
-  .close       = ra_close,
   .truncate    = ra_truncate,
   .ftruncate   = ra_ftruncate,
   .fstat       = ra_fstat,
@@ -942,6 +926,10 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
+};
+
+struct xlator_cbks cbks = {
+	.release       = ra_close,
 };
 
 struct xlator_options options[] = {

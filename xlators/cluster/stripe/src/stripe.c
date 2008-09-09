@@ -183,7 +183,7 @@ stripe_common_cbk (call_frame_t *frame,
 /**
  * stripe_stack_unwind_cbk -  This function is used for all the _cbk without 
  *     any extra arguments (other than the minimum given)
- * This is called from functions like forget,fsync,unlink,rmdir,close,closedir etc.
+ * This is called from functions like fsync,unlink,rmdir etc.
  *
  */
 int32_t 
@@ -1643,6 +1643,7 @@ stripe_create_fail_unlink_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   stripe_local_t *local = frame->local;
+  fd_t *fd = NULL;
 
   LOCK (&frame->lock);
   {
@@ -1651,6 +1652,7 @@ stripe_create_fail_unlink_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
+    fd = local->fd;
     if (local->path)
       FREE (local->path);
     STACK_UNWIND (frame, 
@@ -1659,45 +1661,11 @@ stripe_create_fail_unlink_cbk (call_frame_t *frame,
 		  local->fd, 
 		  local->inode,
 		  &local->stbuf);
+    fd_unref (fd);
   }
   return 0;
 }
 
-int32_t 
-stripe_create_fail_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno)
-{
-  int32_t callcnt = 0;
-  stripe_local_t *local = frame->local;
-  stripe_private_t *priv = this->private;
-  xlator_list_t *trav = this->children;
-
-  LOCK (&frame->lock);
-  {
-    callcnt = --local->call_count;
-  }
-  UNLOCK (&frame->lock);
-
-  if (!callcnt) {
-    local->call_count = priv->child_count;
-    while (trav) {
-      loc_t tmp_loc = {
-	.inode = local->inode,
-	.path = local->path
-      };
-      STACK_WIND (frame,
-		  stripe_create_fail_unlink_cbk,
-		  trav->xlator,
-		  trav->xlator->fops->unlink,
-		  &tmp_loc);
-      trav = trav->next;
-    }
-  }
-  return 0;
-}
 
 /**
  * stripe_create_setxattr_cbk - 
@@ -1713,6 +1681,7 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
   stripe_local_t *local = frame->local;
   stripe_private_t *priv = this->private;
   xlator_list_t *trav = this->children;
+  fd_t *fd = NULL;
 
   LOCK (&frame->lock);
   {
@@ -1729,26 +1698,32 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
 
   if (!callcnt) {
     if (local->op_ret == -1) {
-      local->call_count = priv->child_count;
-      while (trav) {
-	STACK_WIND (frame,
-		    stripe_create_fail_cbk,
-		    trav->xlator,
-		    trav->xlator->fops->close,
-		    local->fd);
-	trav = trav->next;
-      }
-      return 0;
+        local->call_count = priv->child_count;
+	while (trav) {
+		loc_t tmp_loc = {
+			.inode = local->inode,
+			.path = local->path
+		};
+		STACK_WIND (frame,
+			    stripe_create_fail_unlink_cbk,
+			    trav->xlator,
+			    trav->xlator->fops->unlink,
+			    &tmp_loc);
+		trav = trav->next;
+	}
+	
+	return 0;
     }
 
     FREE (local->path);
-
+    fd = local->fd;
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
 		  local->fd,
 		  local->inode,
 		  &local->stbuf);
+    fd_unref (fd);
   }
   return 0;
 }
@@ -1769,6 +1744,7 @@ stripe_create_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   stripe_local_t *local = frame->local;
   stripe_private_t *priv = this->private;
+  fd_t *lfd = NULL;
 
   LOCK (&frame->lock);
   {
@@ -1847,7 +1823,7 @@ stripe_create_cbk (call_frame_t *frame,
 	  .path = local->path
 	};
 	dict_set (dict, index_key, data_from_int32 (index));
-
+	
 	STACK_WIND (frame,
 		    stripe_create_setxattr_cbk,
 		    trav->xlator,
@@ -1863,13 +1839,16 @@ stripe_create_cbk (call_frame_t *frame,
     } else {
       /* Create itself has failed.. so return without setxattring */
       FREE (local->path);
-      
+      lfd = local->fd;
+
       STACK_UNWIND (frame, 
 		    local->op_ret, 
 		    local->op_errno, 
 		    local->fd, 
 		    local->inode, 
 		    &local->stbuf);
+      
+      fd_unref (lfd);
     }
   }
   
@@ -1915,7 +1894,7 @@ stripe_create (call_frame_t *frame,
   local->stripe_size = stripe_size;
   local->path = strdup (loc->path);
   frame->local = local;
-  local->fd = fd;
+  local->fd = fd_ref (fd);
   local->inode = loc->inode;
 
   if (local->stripe_size) {
@@ -1972,7 +1951,7 @@ stripe_open_fail_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
+
   }
 
   return 0;
@@ -2012,20 +1991,7 @@ stripe_open_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     if (local->failed && (local->striped != 1)) {
-      stripe_private_t *priv = this->private;
-      xlator_list_t *trav = this->children;
-
-      local->op_ret = -1;
-      local->call_count = priv->child_count;
-      while (trav) {
-	STACK_WIND (frame, 
-		    stripe_open_fail_cbk,
-		    trav->xlator,
-		    trav->xlator->fops->close,
-		    local->fd);
-	trav = trav->next;
-      }
-      return 0;
+	    local->op_ret = -1;
     }
     if (local->op_ret >= 0) {
       dict_set (local->fd->ctx, 
@@ -2033,7 +1999,7 @@ stripe_open_cbk (call_frame_t *frame,
 		data_from_uint64 (local->stripe_size));
     }
     FREE (local->path);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
   }
 
   return 0;
@@ -2210,7 +2176,7 @@ stripe_opendir_fail_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
+
   }
   return 0;
 }
@@ -2229,8 +2195,6 @@ stripe_opendir_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   stripe_local_t *local = frame->local;
-  stripe_private_t *priv = this->private;
-  xlator_list_t *trav = this->children;
 
   LOCK (&frame->lock);
   {
@@ -2251,21 +2215,8 @@ stripe_opendir_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
-    if ((local->op_ret >= 0) && local->failed) {
-      /* Send closedir to nodes as opendir failed */
-      local->op_ret = -1;
-      local->call_count = priv->child_count;
-      while (trav) {
-	STACK_WIND (frame, 
-		    stripe_opendir_fail_cbk,
-		    trav->xlator,
-		    trav->xlator->fops->closedir,
-		    local->fd);
-	trav = trav->next;
-      }
-      return 0;
-    }
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
+    
   }
 
   return 0;
@@ -2557,92 +2508,14 @@ stripe_flush (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-stripe_close_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  int32_t callcnt = 0;
-  stripe_local_t *local = frame->local;
-
-  LOCK (&frame->lock);
-  {
-    callcnt = --local->call_count;
-
-    if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
-	      ((call_frame_t *)cookie)->this->name, strerror (op_errno));
-      if (op_errno == ENOTCONN) {
-	local->failed = 1;
-      } 
-      local->op_errno = op_errno;
-    }
-    if (op_ret >= 0) 
-      local->op_ret = op_ret;
-  }
-  UNLOCK (&frame->lock);
-
-  if (!callcnt) {
-    if (local->failed) {
-      local->op_ret = -1;
-    }
-    STACK_WIND (frame,	      
-		stripe_common_cbk,
-		FIRST_CHILD(this),
-		FIRST_CHILD(this)->fops->close,
-		local->fd);
-  }
-
-  return 0;
-}
 
 /**
  * stripe_close - 
  */
 int32_t
-stripe_close (call_frame_t *frame,
-	      xlator_t *this,
+stripe_close (xlator_t *this,
 	      fd_t *fd)
 {
-  stripe_local_t *local = NULL;
-  stripe_private_t *priv = this->private;
-  xlator_list_t *trav = this->children;
-  int8_t striped = 0;
-
-  STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
-
-  striped = data_to_int8 (dict_get (fd->inode->ctx, this->name));
-  if (striped == 1) {
-    STACK_WIND (frame,	      
-		stripe_common_cbk,
-		trav->xlator,
-		trav->xlator->fops->close,
-		fd);
-  } else {
-    /* Initialization */
-    local = calloc (1, sizeof (stripe_local_t));
-    ERR_ABORT (local);
-    local->op_ret = -1;
-    local->fd = fd;
-    frame->local = local;
-    local->call_count = priv->child_count - 1;
-
-    while (trav) {
-      /* Send close() to the first child only after closing fd in all other 
-       * nodes
-       */
-      if (trav->xlator != FIRST_CHILD(this)) {
-	STACK_WIND (frame,	      
-		    stripe_close_cbk,
-		    trav->xlator,
-		    trav->xlator->fops->close,
-		    fd);
-      }
-      trav = trav->next;
-    }
-  }
   return 0;
 }
 
@@ -2889,32 +2762,9 @@ stripe_ftruncate (call_frame_t *frame,
  * stripe_closedir - 
  */
 int32_t
-stripe_closedir (call_frame_t *frame,
-		 xlator_t *this,
+stripe_closedir (xlator_t *this,
 		 fd_t *fd)
 {
-  stripe_local_t *local = NULL;
-  stripe_private_t *priv = this->private;
-  xlator_list_t *trav = this->children;
-
-  STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
-
-  /* Initialization */
-  local = calloc (1, sizeof (stripe_local_t));
-  ERR_ABORT (local);
-  local->op_ret = -1;
-  frame->local = local;
-  local->call_count = priv->child_count;
-  
-  while (trav) {
-    STACK_WIND (frame,	      
-		stripe_stack_unwind_cbk,
-		trav->xlator,
-		trav->xlator->fops->closedir,
-		fd);
-    trav = trav->next;
-  }
-
   return 0;
 }
 
@@ -3730,7 +3580,6 @@ struct xlator_fops fops = {
   .writev      = stripe_writev,
   .statfs      = stripe_statfs,
   .flush       = stripe_flush,
-  .close       = stripe_close,
   .fsync       = stripe_fsync,
   .setxattr    = stripe_setxattr,
   .getxattr    = stripe_getxattr,
@@ -3742,7 +3591,6 @@ struct xlator_fops fops = {
   .mkdir       = stripe_mkdir,
   .rmdir       = stripe_rmdir,
   .lk          = stripe_lk,
-  .closedir    = stripe_closedir,
   .opendir     = stripe_opendir,
   .fsyncdir    = stripe_fsyncdir,
   .fchmod      = stripe_fchmod,
@@ -3757,6 +3605,11 @@ struct xlator_mops mops = {
   .stats  = stripe_stats,
   //.lock   = stripe_lock,
   //.unlock = stripe_unlock,
+};
+
+struct xlator_cbks cbks = {
+	.release = stripe_close,
+	.releasedir = stripe_closedir
 };
 
 

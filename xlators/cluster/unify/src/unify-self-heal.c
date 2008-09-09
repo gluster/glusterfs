@@ -77,7 +77,7 @@ unify_background_cbk (call_frame_t *frame,
     
     /* Destroy the fd here */
     if (local->fd)
-      fd_destroy (local->fd);
+      fd_unref (local->fd);
     
     STACK_DESTROY (frame->root);
   }
@@ -85,45 +85,6 @@ unify_background_cbk (call_frame_t *frame,
   return 0;
 }
 
-/**
- * unify_sh_closedir_cbk -
- */
-int32_t
-unify_sh_closedir_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno)
-{
-  int32_t callcnt;
-  unify_local_t *local = frame->local;
-
-  LOCK (&frame->lock);
-  {
-    callcnt = --local->call_count;
-  }
-  UNLOCK (&frame->lock);
-
-  if (!callcnt) {
-    FREE (local->path);
-    local->op_ret = 0;
-    if (local->offset_list)
-      FREE (local->offset_list);
-
-    fd_destroy (local->fd);
-    FREE (local->sh_struct);
-
-    /* This is _cbk() of lookup (). */
-    STACK_UNWIND (frame,
-		  local->op_ret,
-		  local->op_errno,
-		  local->inode,
-		  &local->stbuf,
-		  local->dict);
-  }
-
-  return 0;
-}
 
 
 int32_t 
@@ -136,7 +97,6 @@ unify_sh_setdents_cbk (call_frame_t *frame,
   int32_t callcnt = -1;
   unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
-  int32_t index = 0;
 
   LOCK (&frame->lock);
   {
@@ -151,13 +111,15 @@ unify_sh_setdents_cbk (call_frame_t *frame,
   if (!callcnt && local->flags) {
     local->call_count = priv->child_count + 1; /* +1 is for namespace */
     
-    for (index = 0; index < (priv->child_count + 1); index++) {
-      STACK_WIND (frame,
-		  unify_sh_closedir_cbk,
-		  priv->xl_array[index],
-		  priv->xl_array[index]->fops->closedir,
-		  local->fd);
-    }
+    fd_unref (local->fd);
+    
+    STACK_UNWIND (frame, 
+		  local->op_ret, 
+		  local->op_errno, 
+		  local->inode,
+		  &local->stbuf, 
+		  local->dict);
+
   }
   
   return 0;
@@ -344,6 +306,8 @@ unify_sh_opendir_cbk (call_frame_t *frame,
       /* send getdents() namespace after finishing storage nodes */
       local->call_count--; 
       
+      fd_bind (fd);
+
       if (local->call_count) {
 	/* Used as the offset index. This list keeps track of offset
 	 * sent to each node during STACK_WIND.
@@ -368,28 +332,11 @@ unify_sh_opendir_cbk (call_frame_t *frame,
       } /* (local->call_count) */
     } /* (!local->failed) */
 
-    /* Send the closedir() to nodes where opendir was sent */
     {
-      /* Opendir failed on one node, now send closedir to those nodes, 
-       * where it succeeded. 
+      /* Opendir failed on one node.
        */
-      call_frame_t *bg_frame = copy_frame (frame);
-      unify_local_t *bg_local = NULL;
-      
-      INIT_LOCAL (bg_frame, bg_local);
-      bg_local->fd = local->fd;
-      local->fd = NULL;
-      /* TODO */
-      bg_local->call_count = priv->child_count + 1;
-      
-      for (index = 0; index < (priv->child_count + 1); index++) {
-	STACK_WIND (bg_frame,
-		    unify_background_cbk,
-		    priv->xl_array[index],
-		    priv->xl_array[index]->fops->closedir,
-		    bg_local->fd);
-      }
-      
+      fd_unref (local->fd);
+
       FREE (local->path);
       FREE (local->sh_struct);
 
@@ -480,7 +427,7 @@ unify_sh_checksum_cbk (call_frame_t *frame,
       local->op_ret = -1;
       local->failed = 0;
       
-      local->fd = fd_create (local->inode);
+      local->fd = fd_create (local->inode, frame->root->pid);
 
       local->call_count = priv->child_count + 1;
 	
@@ -521,40 +468,6 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 
 /* Background self-heal part */
 
-/**
- * unify_bgsh_closedir_cbk -
- */
-int32_t
-unify_bgsh_closedir_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno)
-{
-  int32_t callcnt;
-  unify_local_t *local = frame->local;
-
-  LOCK (&frame->lock);
-  {
-    callcnt = --local->call_count;
-  }
-  UNLOCK (&frame->lock);
-
-  if (!callcnt) {
-    fd_destroy (local->fd);
-    if (local->offset_list)
-      FREE (local->offset_list);
-
-    FREE (local->path);
-    FREE (local->sh_struct);
-
-    inode_unref (local->inode);
-
-    STACK_DESTROY (frame->root);
-  }
-
-  return 0;
-}
 
 
 int32_t 
@@ -565,9 +478,7 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
 		       int32_t op_errno)
 {
   int32_t callcnt = -1;
-  unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
-  int32_t index = 0;
 
   LOCK (&frame->lock);
   {
@@ -580,16 +491,7 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt && local->flags) {
-    local->call_count = priv->child_count + 1;
-    
-    for (index = 0; index < (priv->child_count + 1); index++) {
-      STACK_WIND (frame,
-		  unify_bgsh_closedir_cbk,
-		  priv->xl_array[index],
-		  priv->xl_array[index]->fops->closedir,
-		  local->fd);
-    }
-
+    fd_unref (local->fd);
   }
   
   return 0;
@@ -777,6 +679,8 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
       local->call_count--; 
       callcnt = local->call_count;
       
+      fd_bind (fd);
+
       if (local->call_count) {
 	/* Used as the offset index. This list keeps track of offset
 	 * sent to each node during STACK_WIND.
@@ -801,27 +705,11 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
       } /* (local->call_count) */
     } /* (!local->failed) */
 
-    /* Send the closedir() to nodes where opendir was sent */
+
     {
-      /* Opendir failed on one node, now send closedir to those nodes, 
-       * where it succeeded. 
+      /* Opendir failed on one node. 
        */
-      call_frame_t *bg_frame = copy_frame (frame);
-      unify_local_t *bg_local = NULL;
-      
-      INIT_LOCAL (bg_frame, bg_local);
-      bg_local->fd = local->fd;
-      local->fd = NULL;
-      /* TODO */
-      bg_local->call_count = priv->child_count + 1;
-      
-      for (index = 0; index < (priv->child_count + 1); index++) {
-	STACK_WIND (bg_frame,
-		    unify_background_cbk,
-		    priv->xl_array[index],
-		    priv->xl_array[index]->fops->closedir,
-		    bg_local->fd);
-      }
+      fd_unref (local->fd);
       
       FREE (local->path);
       FREE (local->sh_struct);
@@ -907,7 +795,7 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
       local->op_ret = -1;
       local->failed = 0;
       
-      local->fd = fd_create (local->inode);
+      local->fd = fd_create (local->inode, frame->root->pid);
       local->call_count = priv->child_count + 1;
 	
       for (index = 0; index < (priv->child_count + 1); index++) {

@@ -987,7 +987,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
   */
 
   if (!op_ret || (op_ret == -1 && errno == ENOENT && ((flags & O_CREAT) == O_CREAT))) {
-    fd = fd_create (loc.inode);
+	  fd = fd_create (loc.inode, 0);
 
     if (!op_ret) {
       if (S_ISDIR (loc.inode->st_mode)) {
@@ -1008,7 +1008,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
     }
 
     if (op_ret == -1) {
-      fd_destroy (fd);
+      fd_unref (fd);
     } else {
       libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
       int offset = 0;
@@ -1057,12 +1057,12 @@ glusterfs_creat (libglusterfs_client_ctx_t *ctx,
   /*TODO: send create only if file does not exist, otherwise send open */
   /*  libgf_client_lookup (ctx, &loc, NULL); */
 
-  fd = fd_create (loc.inode);
+  fd = fd_create (loc.inode, 0);
 
   op_ret = libgf_client_creat (ctx, &loc, fd, O_CREAT|O_WRONLY|O_TRUNC, mode);
 
   if (op_ret == -1) {
-    fd_destroy (fd);
+    fd_unref (fd);
   } else {
     libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
     int offset = 0;
@@ -1114,7 +1114,7 @@ libgf_client_close_async_cbk (call_frame_t *frame,
   libglusterfs_client_async_local_t *local = frame->local;
 
   if (!op_ret)
-    fd_destroy (local->fop.close_cbk.fd);
+    fd_unref (local->fop.close_cbk.fd);
 
   STACK_DESTROY (frame->root);
   return 0;

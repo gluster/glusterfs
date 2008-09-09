@@ -156,83 +156,6 @@ iot_create (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-iot_close_cbk (call_frame_t *frame,
-               void *cookie,
-               xlator_t *this,
-               int32_t op_ret,
-               int32_t op_errno)
-{
-  iot_conf_t *conf = this->private;
-  iot_local_t *local = frame->local;
-  iot_file_t *file = local->file;
-
-  pthread_mutex_lock (&conf->files_lock);
-  {
-    file->prev->next = file->next;
-    file->next->prev = file->prev;
-  }
-  pthread_mutex_unlock (&conf->files_lock);
-
-  file->worker->fd_count--;
-  file->worker = NULL;
-  FREE (file);
-  
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
-
-static int32_t
-iot_close_wrapper (call_frame_t *frame,
-                   xlator_t *this,
-                   fd_t *fd)
-{
-  STACK_WIND (frame,
-              iot_close_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->close,
-              fd);
-  return 0;
-}
-
-int32_t
-iot_close (call_frame_t *frame,
-           xlator_t *this,
-           fd_t *fd)
-{
-  call_stub_t *stub;
-  iot_local_t *local = NULL;
-  iot_file_t *file = NULL;
-  iot_worker_t *worker = NULL;
-
-  if (!dict_get (fd->ctx, this->name)) {
-    gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
-    STACK_UNWIND (frame, -1, EBADFD);
-    return 0;
-  }
-
-  file = data_to_ptr (dict_get (fd->ctx, this->name));
-  worker = file->worker;
-
-  local = calloc (1, sizeof (*local));
-  ERR_ABORT (local);
-
-  local->file = file;
-  frame->local = local;
-  
-  stub = fop_close_stub (frame,
-                         iot_close_wrapper,
-                         fd);
-  if (!stub) {
-    gf_log (this->name, GF_LOG_ERROR, "cannot get close call stub");
-    STACK_UNWIND (frame, -1, ENOMEM);
-    return 0;
-  }
-
-  iot_queue (worker, stub);
-
-  return 0;
-}
 
 
 int32_t
@@ -669,22 +592,17 @@ iot_stat (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_worker_t *worker = NULL;
   iot_conf_t *conf;
-  char fd_list_empty = 0;
- 
+  fd_t *fd = NULL;
+
   conf = this->private;
 
   local = calloc (1, sizeof (*local));
   ERR_ABORT (local);
   frame->local = local;
 
-  LOCK (&(loc->inode->lock));
-  {
-    if (list_empty (&(loc->inode->fd_list)))
-      fd_list_empty = 1;
-  }
-  UNLOCK (&(loc->inode->lock));
+  fd = fd_lookup (loc->inode, frame->root->pid);
 
-  if (fd_list_empty) {
+  if (fd == NULL) {
     STACK_WIND(frame,
                iot_stat_cbk,
                FIRST_CHILD(this),
@@ -692,6 +610,8 @@ iot_stat (call_frame_t *frame,
                loc);
     return 0;
   } 
+  
+  fd_unref (fd);
 
   worker = iot_schedule (conf, NULL, loc->inode->ino);
 
@@ -807,21 +727,16 @@ iot_truncate (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_worker_t *worker = NULL;
   iot_conf_t *conf;
-  char fd_list_empty = 0;
+  fd_t *fd = NULL;
   
   conf = this->private;
   local = calloc (1, sizeof (*local));
   ERR_ABORT (local);
   frame->local = local;
 
-  LOCK (&loc->inode->lock);
-  {
-    if (list_empty (&loc->inode->fd_list))
-      fd_list_empty = 1;
-  }
-  UNLOCK (&loc->inode->lock);
+  fd = fd_lookup (loc->inode, frame->root->pid);
 
-  if (fd_list_empty) {
+  if (fd == NULL) {
     STACK_WIND(frame,
                iot_truncate_cbk,
                FIRST_CHILD(this),
@@ -830,6 +745,8 @@ iot_truncate (call_frame_t *frame,
                offset);
     return 0;
   } 
+  
+  fd_unref (fd);
 
   worker = iot_schedule (conf, NULL, loc->inode->ino);
 
@@ -950,22 +867,17 @@ iot_utimens (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_worker_t *worker = NULL;
   iot_conf_t *conf;
-  char fd_list_empty = 0;
+  fd_t *fd = NULL;
   
   conf = this->private;
 
   local = calloc (1, sizeof (*local));
   ERR_ABORT (local);
   frame->local = local;
+  
+  fd = fd_lookup (loc->inode, frame->root->pid);
 
-  LOCK (&(loc->inode->lock));
-  {
-    if (list_empty (&(loc->inode->fd_list)))
-	fd_list_empty = 1;
-  }
-  UNLOCK (&(loc->inode->lock));
-
-  if (fd_list_empty) {
+  if (fd == NULL) {
     STACK_WIND(frame,
                iot_utimens_cbk,
                FIRST_CHILD(this),
@@ -974,6 +886,8 @@ iot_utimens (call_frame_t *frame,
                tv);
     return 0;
   } 
+  
+  fd_unref (fd);
 
   worker = iot_schedule (conf, NULL, loc->inode->ino);
 
@@ -1299,11 +1213,13 @@ struct xlator_fops fops = {
   .truncate    = iot_truncate,
   .ftruncate   = iot_ftruncate,
   .utimens     = iot_utimens,
-  .close       = iot_close,
   .checksum    = iot_checksum,
 };
 
 struct xlator_mops mops = {
+};
+
+struct xlator_cbks cbks = {
 };
 
 struct xlator_options options[] = {
