@@ -224,104 +224,80 @@ wb_sync_all (call_frame_t *frame, wb_file_t *file)
 int32_t
 wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
 {
-	wb_write_request_t *dummy = NULL, *request = NULL, *first_request = NULL;
-	size_t total_count = 0, count = 0;
-	size_t copied = 0;
-	call_frame_t *sync_frame = NULL;
-	dict_t *refs = NULL;
-	wb_local_t *local = NULL;
-	struct iovec *vector = NULL;
-	int32_t bytes = 0;
-	size_t bytecount = 0;
+  wb_write_request_t *dummy = NULL, *request = NULL, *first_request = NULL, *next = NULL;
+  size_t total_count = 0, count = 0;
+  size_t copied = 0;
+  call_frame_t *sync_frame = NULL;
+  dict_t *refs = NULL;
+  wb_local_t *local = NULL;
+  struct iovec *vector = NULL;
+  int32_t bytes = 0;
+  size_t bytecount = 0;
 
+  list_for_each_entry (request, winds, winds)
+    {
+      total_count += request->count;
+      bytes += iov_length (request->vector, request->count);
+    }
 
-	list_for_each_entry (request, winds, winds)
-	{
-		total_count += request->count;
-		bytes += iov_length (request->vector, request->count);
-	}
-
-	if (!total_count) {
-		return 0;
-	}
-
-	list_for_each_entry_safe (request, dummy, winds, winds)
-	{
-		if (!vector) {
-			vector = malloc (VECTORSIZE (MAX_VECTOR_COUNT));
-			refs = get_new_dict ();
-			refs->is_locked = 1;
-	    
-			local = calloc (1, sizeof (*local));
-			INIT_LIST_HEAD (&local->winds);
-	    
-			first_request = request;
-		}
-
-		if (count + request->count > MAX_VECTOR_COUNT) {
-			sync_frame = copy_frame (frame);  
-			sync_frame->local = local;
-			local->file = file;
-			sync_frame->root->req_refs = dict_ref (refs);
-			fd_ref (file->fd);
-			STACK_WIND (sync_frame,
-				    wb_sync_cbk,
-				    FIRST_CHILD(sync_frame->this),
-				    FIRST_CHILD(sync_frame->this)->fops->writev,
-				    file->fd, vector,
-				    count, first_request->offset);
-	
-			dict_unref (refs);
-			FREE (vector);
-			first_request = NULL;
-			refs = NULL;
-			vector = NULL;
-			copied = count = 0;
-		}
-
-		count += request->count;
-		bytecount = VECTORSIZE (request->count);
-		memcpy (((char *)vector)+copied,
-			request->vector,
-			bytecount);
-		copied += bytecount;
-
-		if (request->refs) {
-			dict_copy (request->refs, refs);
-		}
-
-		list_del_init (&request->winds);
-		list_add_tail (&request->winds, &local->winds);
-	}
-
-	if (!vector) {
-		vector = malloc (VECTORSIZE (MAX_VECTOR_COUNT));
-		refs = get_new_dict ();
-		refs->is_locked = 1;
-	    
-		local = calloc (1, sizeof (*local));
-		INIT_LIST_HEAD (&local->winds);
-	    
-		first_request = request;
-	}
-
-	sync_frame = copy_frame (frame);  
-	local->file = file;
-	sync_frame->local = local;
-	sync_frame->root->req_refs = dict_ref (refs);
+  if (!total_count) {
+    return 0;
+  }
   
-	fd_ref (file->fd);
-	STACK_WIND (sync_frame,
-		    wb_sync_cbk,
-		    FIRST_CHILD(sync_frame->this),
-		    FIRST_CHILD(sync_frame->this)->fops->writev,
-		    file->fd, vector,
-		    count, first_request->offset);
+  list_for_each_entry_safe (request, dummy, winds, winds) {
+    if (!vector) {
+      vector = malloc (VECTORSIZE (MAX_VECTOR_COUNT));
+      refs = get_new_dict ();
+      refs->is_locked = 1;
+	
+      local = calloc (1, sizeof (*local));
+      INIT_LIST_HEAD (&local->winds);
+	    
+      first_request = request;
+    }
 
-	dict_unref (refs);
-	FREE (vector);
+    count += request->count;
+    bytecount = VECTORSIZE (request->count);
+    memcpy (((char *)vector)+copied,
+	    request->vector,
+	    bytecount);
+    copied += bytecount;
+      
+    if (request->refs) {
+      dict_copy (request->refs, refs);
+    }
 
-	return bytes;
+    next = NULL;
+    if (request->winds.next != winds) {    
+      next = list_entry (request->winds.next, struct write_request, winds);
+    }
+
+    list_del_init (&request->winds);
+    list_add_tail (&request->winds, &local->winds);
+
+    if (!next || ((count + next->count) > MAX_VECTOR_COUNT)) {
+      sync_frame = copy_frame (frame);  
+      sync_frame->local = local;
+      local->file = file;
+      sync_frame->root->req_refs = dict_ref (refs);
+      fd_ref (file->fd);
+      STACK_WIND (sync_frame,
+		  wb_sync_cbk,
+		  FIRST_CHILD(sync_frame->this),
+		  FIRST_CHILD(sync_frame->this)->fops->writev,
+		  file->fd, vector,
+		  count, first_request->offset);
+	
+      dict_unref (refs);
+      FREE (vector);
+      first_request = NULL;
+      refs = NULL;
+      vector = NULL;
+      copied = count = 0;
+    }
+  }
+
+  return bytes;
 }
 
 

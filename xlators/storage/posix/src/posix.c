@@ -2297,7 +2297,7 @@ get_file_contents (xlator_t *this, char *real_path,
  out:
         if (op_ret < 0) {
                 if (*contents)
-                        FREE (contents);
+                        FREE (*contents);
                 if (file_fd != -1) 
                         close (file_fd);
         }
