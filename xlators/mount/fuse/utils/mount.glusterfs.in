@@ -73,13 +73,13 @@ start_glusterfs ()
     if [ -z "$spec_location" ]; then
 	if [ -n "$transport" ]; then 
 	    cmd_line=$(echo "$cmd_line \
---server=$spec_server_ip \
---port=$spec_server_port \
---transport=$transport");
+--specfile-server=$spec_server_ip \
+--specfile-server-port=$spec_server_port \
+--specfile-server-transport=$transport");
 	else
 	    cmd_line=$(echo "$cmd_line \
---server=$spec_server_ip \
---port=$spec_server_port");
+--specfile-server=$spec_server_ip \
+--specfile-server-port=$spec_server_port");
 	fi
     else
 	cmd_line=$(echo "$cmd_line --spec-file=$spec_location");
