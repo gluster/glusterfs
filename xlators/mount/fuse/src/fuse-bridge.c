@@ -2596,7 +2596,7 @@ init (xlator_t *this_xl)
 			     NULL};
 
 #else /* ! DARWIN_OS */
-        int fuse_argc = 15;
+        int fuse_argc = 19;
 	
 	char *fuse_argv[] = {"glusterfs",
 			     "-o", "nonempty",
@@ -2606,6 +2606,8 @@ init (xlator_t *this_xl)
 			     "-o", "allow_other",
 			     "-o", "default_permissions",
 			     "-o", "fsname=glusterfs",
+			     "-o", "dev",
+			     "-o", "suid",
 			     NULL};
 
 #endif /* ! DARWIN_OS */
@@ -2646,13 +2648,24 @@ init (xlator_t *this_xl)
 		/* This way, GlusterFS will be detected as 'servers' instead of 'devices' */
 		/* This method is useful if you want to do 'umount <mount_point>' over network, 
 		   instead of 'eject'ing it from desktop. Works better for servers */
-		args.argc = 9;
 
 		/* Make the '-o local' in argv as NULL, so that its not in effect */
-		fuse_argv[9] = NULL;
-		fuse_argv[10] = NULL;
+		fuse_argv[--args.argc] = NULL;
+		fuse_argv[--args.argc] = NULL;
 	}
-#endif
+#else /* ! DARWIN */
+
+	if (dict_get (options, "set-option-nodev")) {
+		fuse_argv[15] = "-o";
+		fuse_argv[16] = "nodev";
+	}
+
+	if (dict_get (options, "set-option-nosuid")) {
+		fuse_argv[17] = "-o";
+		fuse_argv[18] = "nosuid";
+	}
+
+#endif /* ! DARWIN */
 
         priv->ch = fuse_mount (fuse_options->mount_point, &args);
         if (priv->ch == NULL) {

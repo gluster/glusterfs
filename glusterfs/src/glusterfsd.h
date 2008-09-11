@@ -78,6 +78,8 @@ enum argp_option_keys {
 	ARGP_NON_LOCAL_KEY = 138,
 	ARGP_ICON_NAME_KEY = 139,
 #endif /* DARWIN */
+	ARGP_FUSE_NODEV_KEY = 140,
+	ARGP_FUSE_NOSUID_KEY = 141,
 };
 
 #endif /* __GLUSTERFSD_H__ */

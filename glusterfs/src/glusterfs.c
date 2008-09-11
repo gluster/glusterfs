@@ -102,6 +102,8 @@ static struct argp_option options[] = {
  	 "Run ID for the process, used by scripts to keep track of process they started, defaults to none"},
  	{"debug", ARGP_DEBUG_KEY, 0, 0, 
  	 "Run in debug mode.  This option sets --no-daemon, --log-level to DEBUG and --log-file to console"},
+ 	{"volume-name", ARGP_VOLUME_NAME_KEY, "VOLUME-NAME", 0,
+ 	 "Volume name to be used for MOUNT-POINT [default: top most volume in VOLUME-SPECFILE]"},
  	
  	{0, 0, 0, 0, "Fuse options:"},
  	{"disable-direct-io-mode", ARGP_DISABLE_DIRECT_IO_MODE_KEY, 0, 0, 
@@ -110,8 +112,10 @@ static struct argp_option options[] = {
  	 "Set directory entry timeout to SECONDS in fuse kernel module [default: 1]"},
  	{"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0, 
  	 "Set attribute timeout to SECONDS for inodes in fuse kernel module [default: 1]"},
- 	{"volume-name", ARGP_VOLUME_NAME_KEY, "VOLUME-NAME", 0,
- 	 "Volume name to be used for MOUNT-POINT [default: top most volume in VOLUME-SPECFILE]"},
+	{"nodev", ARGP_FUSE_NODEV_KEY, 0, 0, 
+	 "Mount fuse mountpoint with '-o nodev' option"},
+	{"nosuid", ARGP_FUSE_NOSUID_KEY, 0, 0, 
+	 "Mount fuse mountpoint with '-o nosuid' option"},
 #ifdef GF_DARWIN_HOST_OS
  	{"non-local", ARGP_NON_LOCAL_KEY, 0, 0, 
  	 "Mount the macfuse volume without '-o local' option"},
@@ -190,6 +194,12 @@ _add_fuse_mount (xlator_t *graph)
 		  data_from_uint32 (cmd_args->fuse_attribute_timeout));
 	dict_set (top->options, TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_ENTRY_TIMEOUT_STRING, 
 		  data_from_uint32 (cmd_args->fuse_directory_entry_timeout));
+
+ 	if (cmd_args->fuse_nodev)
+ 		dict_set (top->options, "set-option-nodev", data_from_uint32 (cmd_args->fuse_nodev));
+
+ 	if (cmd_args->fuse_nosuid)
+ 		dict_set (top->options, "set-option-nosuid", data_from_uint32 (cmd_args->fuse_nosuid));
 
 #ifdef GF_DARWIN_HOST_OS 
 	/* On Darwin machines, O_APPEND is not handled, which may corrupt the data */
@@ -496,6 +506,14 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		cmd_args->icon_name = strdup (arg);
 		break;
 #endif /* DARWIN */
+
+	case ARGP_FUSE_NODEV_KEY:
+		cmd_args->fuse_nodev = 1;
+		break;
+
+	case ARGP_FUSE_NOSUID_KEY:
+		cmd_args->fuse_nosuid = 1;
+		break;
 
 	case ARGP_KEY_NO_ARGS:
 		break;

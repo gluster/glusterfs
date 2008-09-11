@@ -203,6 +203,9 @@ struct _cmd_args {
 	char           *volume_name;
 	int             non_local;         /* Used only by darwin os, used for '-o local' option */
 	char           *icon_name;  /* This string will appear as Desktop icon name when mounted on darwin */
+	int            fuse_nodev;
+	int            fuse_nosuid;
+
 	/* key args */
 	char           *mount_point;
 };
