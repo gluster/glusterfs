@@ -345,6 +345,9 @@ __inode_unref (inode_t *inode)
 static inode_t *
 __inode_ref (inode_t *inode)
 {
+	if (inode->ino != 1)
+		gf_log ("inode", GF_LOG_DEBUG, "");;
+
         if (!inode->ref) {
                 inode->table->lru_size--;
                 __inode_activate (inode);
@@ -921,9 +924,6 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
         if (!new)
                 return NULL;
 
-        if (lru_limit && lru_limit < 1024)
-                lru_limit = 1024;
-
         gf_log (xl->name, GF_LOG_DEBUG,
                 "creating new inode table with lru_limit=%d", lru_limit);
 
@@ -968,5 +968,63 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
         pthread_mutex_init (&new->lock, NULL);
 
         return new;
+}
+
+inode_t *
+inode_from_path (inode_table_t *itable,
+		 const char *path)
+{
+	inode_t *inode = NULL;
+	inode_t *parent = NULL;
+	inode_t *root = itable->root;
+	inode_t *trav = NULL;
+	char *pathname = NULL;
+	char *name = NULL;
+	dentry_t *dentry = NULL;
+
+	/* top-down approach */
+	trav = root;
+	parent = root;
+	inode = root;
+	pathname = strdup (path);
+	name = strtok (pathname, "/");
+	pthread_mutex_lock (&itable->lock);
+	{
+		while (name) {
+			if (list_empty (&trav->child_list)) {
+				/* no child dentries in dircache */
+				inode = NULL;
+				break;
+			}
+
+			dentry = __dentry_search (itable, parent->ino, name);
+
+			if (dentry) {
+				inode = dentry->inode;
+			} else {
+				inode = NULL;
+				break;
+			}
+
+			name = strtok (NULL, "/");
+
+			if (name && inode) {
+				trav = inode;
+				parent = inode;
+				inode = NULL;
+			} else {
+				break;
+			}
+		}
+
+		if (inode)
+			__inode_ref (inode);
+	}
+	pthread_mutex_unlock (&itable->lock);
+	
+	if (pathname)
+		free (pathname);
+
+	return inode;
 }
 

@@ -81,6 +81,7 @@ struct server_proto_priv {
 typedef struct {
 	server_reply_queue_t *queue;
 	int32_t max_block_size;
+	int32_t inode_lru_limit;
 } server_conf_t;
 
 struct _server_state {
@@ -103,11 +104,17 @@ struct _server_state {
 	int type;
 	char *name;
 	int name_len;
+	inode_table_t *itable;
+	ino_t ino;
+	ino_t ino2;
 	inode_t *inode, *inode2;
 	char *path;
+	char *path2;
+	int mask;
 	char is_revalidate;
 	char need_xattr;
 	struct timespec tv[2];
+	call_stub_t *stub;
 };
 
 

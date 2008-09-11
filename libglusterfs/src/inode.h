@@ -140,5 +140,7 @@ inode_path (inode_t *inode,
 	    char *buf,
 	    size_t size);
 
-	      
+inode_t *
+inode_from_path (inode_table_t *table,
+		 const char *path);
 #endif /* _INODE_H */
