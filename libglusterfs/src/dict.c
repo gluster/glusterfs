@@ -877,12 +877,15 @@ data_from_ptr (void *value)
 data_t *
 data_from_static_ptr (void *value)
 {
+/*
+  this is valid to set 0 as value..
+
 	if (!value) {
 		gf_log ("dict", GF_LOG_CRITICAL,
 			"@value=%p", value);
 		return NULL;
 	}
-
+*/
 	data_t *data = get_new_data ();
 
 	if (!data) {
@@ -1265,6 +1268,24 @@ dict_get_int32 (dict_t *this, char *key, int32_t *val)
 err:
 	if (data)
 		data_unref (data);
+	return ret;
+}
+
+int
+dict_set_static_ptr (dict_t *this, char *key, void *ptr)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_static_ptr (ptr);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
 	return ret;
 }
 

@@ -155,13 +155,6 @@
 # features/trash:
      option trash-dir <path> (/.trash)
 
-# features/fixed-id:
-     option fixed-uid <n> [if not set, not used]
-     option fixed-gid <n> [if not set, not used]
-
-# features/filter:
- - NO OPTIONS
-
 # debug/trace:
      option include <fops list> (*)
      option exclude <fops list> (nil)
@@ -171,8 +164,13 @@
      option end-offset m (0)
      option regex      (not set)
 
-# features/squash
-     option root-squashing enable
-     option uidmap 1=2,100=2001,99=1
-     option gidmap 10=100,99=1000
+# features/filter
+     option root-squashing <enable|on>
+     option translate-uid <uid-range=newuid,uid=newuid>
+     option translate-gid <gid-range=newgid,gid=newgid>
+     option complete-read-only <yes|true>
+     option fixed-uid <uid>
+     option fixed-gid <gid>
+     option filter-uid <uid-range,uid>
+     # option filter-gid <gid-range,gid> // not supported yet
 

@@ -382,7 +382,6 @@ unify_lookup_cbk (call_frame_t *frame,
 	    /* Take the inode number from namespace */
 	    local->st_ino = buf->st_ino;
 	    local->inode = inode;
-	    inode->st_mode = buf->st_mode;
 	    if (S_ISDIR (buf->st_mode) || !(local->stbuf.st_blksize))
 	      {
 		local->stbuf = *buf;

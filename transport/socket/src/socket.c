@@ -89,7 +89,7 @@ __socket_rwv (transport_t *this, struct iovec *vector, int count,
       if (ret == 0)
 	{
 	  /* Mostly due to 'umount' in client */
-	  gf_log (this->xl->name, GF_LOG_WARNING, 
+	  gf_log (this->xl->name, GF_LOG_DEBUG, 
 		  "EOF from peer %s", this->peerinfo.identifier);
 	  opcount = -1;
 	  errno = ENOTCONN;
