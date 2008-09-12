@@ -4572,15 +4572,15 @@ server_fsyncdir (call_frame_t *frame,
 
 int32_t
 server_mknod_resume (call_frame_t *frame,
-		     xlator_t *bound_xl,
+		     xlator_t *this,
 		     loc_t *loc,
 		     mode_t mode,
 		     dev_t dev)
 {
 	STACK_WIND (frame,
 		    server_mknod_cbk,
-		    bound_xl,
-		    bound_xl->fops->mknod,
+		    BOUND_XL (frame),
+		    BOUND_XL (frame)->fops->mknod,
 		    loc, mode, dev);
 
 	return 0;
@@ -4644,7 +4644,7 @@ server_mknod (call_frame_t *frame,
 
 int32_t
 server_mkdir_resume (call_frame_t *frame,
-		     xlator_t *bound_xl,
+		     xlator_t *this,
 		     loc_t *loc,
 		     mode_t mode)
 
@@ -4655,8 +4655,8 @@ server_mkdir_resume (call_frame_t *frame,
 
 	STACK_WIND (frame,
 		    server_mkdir_cbk,
-		    bound_xl,
-		    bound_xl->fops->mkdir,
+		    BOUND_XL (frame),
+		    BOUND_XL (frame)->fops->mkdir,
 		    &(state->loc),
 		    state->mode);
 	
@@ -4725,12 +4725,12 @@ server_rmdir_resume (call_frame_t *frame,
                      xlator_t *this,
                      loc_t *loc)
 {
-  STACK_WIND (frame,
-              server_rmdir_cbk,
-              BOUND_XL (frame),
-              BOUND_XL (frame)->fops->rmdir,
-              loc);
-  return 0;
+	STACK_WIND (frame,
+		    server_rmdir_cbk,
+		    BOUND_XL (frame),
+		    BOUND_XL (frame)->fops->rmdir,
+		    loc);
+	return 0;
 }
 
 /*
