@@ -3028,6 +3028,20 @@ out:
 }
 
 int32_t 
+bdb_gf_lk (call_frame_t *frame, xlator_t *this,
+	   fd_t *fd, int32_t cmd, struct flock *lock)
+{
+        struct flock nullock = {0, };
+        frame->root->rsp_refs = NULL;
+
+	gf_log (this->name, GF_LOG_CRITICAL,
+		"\"features/posix-locks\" translator is not loaded. You need to use it for proper functioning of AFR");
+
+        STACK_UNWIND (frame, -1, ENOSYS, &nullock);
+        return 0;
+}
+
+int32_t 
 bdb_checksum (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc,
@@ -3345,6 +3359,7 @@ struct xlator_fops fops = {
 	.ftruncate   = bdb_ftruncate,
 	.fstat       = bdb_fstat,
 	.lk          = bdb_lk,
+	.gf_lk       = bdb_gf_lk,
 	.fchown      = bdb_fchown,
 	.fchmod      = bdb_fchmod,
 	.setdents    = bdb_setdents,
