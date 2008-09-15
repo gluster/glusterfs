@@ -1,6 +1,6 @@
 
 #include <sys/stat.h>
-
+#include <errno.h>
 #include "fuse-options.h"
 
 #define LOG_ERROR(args...)      gf_log ("fuse-options", GF_LOG_ERROR, ##args)
@@ -17,9 +17,18 @@ _fuse_options_mount_point_validate (const char *value_string, char **s)
 	}
 	
 	if (stat (value_string, &stbuf) != 0) {
-		LOG_ERROR ("%s %s does not exist",
-			   GF_FUSE_MOUNT_POINT_OPTION_STRING,
-			   value_string);
+		if (errno == ENOENT) {
+			LOG_ERROR ("%s %s does not exist",
+				   GF_FUSE_MOUNT_POINT_OPTION_STRING,
+				   value_string);
+		} else if (errno == ENOTCONN) {
+			LOG_ERROR ("%s %s seems to have a stale mount, try 'umount %s' and re-run glusterfs",
+				   GF_FUSE_MOUNT_POINT_OPTION_STRING, value_string, value_string);
+		} else {
+			LOG_ERROR ("%s %s : stat returned %s",
+				   GF_FUSE_MOUNT_POINT_OPTION_STRING,
+				   value_string, strerror (errno));
+		}
 		return -1;
 	}
 	

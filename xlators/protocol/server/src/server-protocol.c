@@ -2660,8 +2660,7 @@ server_stub_cbk (call_frame_t *frame,
 	inode_t *server_inode = inode;
 	
 	if (inode) 
-		gf_log (this->name,
-			GF_LOG_WARNING,
+		gf_log (((call_frame_t *)cookie)->this->name, GF_LOG_DEBUG,
 			"active_count: %d", inode->table->active_size);
 
 	if (frame->local) {

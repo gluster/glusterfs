@@ -16,5 +16,8 @@ end-volume
 
 volume filter-ro
  type features/filter
+ option root-squashing enable
+# option completely-read-only yes
+# translate-uid 1-99=0
  subvolumes client
 end-volume

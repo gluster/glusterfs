@@ -116,6 +116,6 @@ end-volume
 volume stripe
   type cluster/stripe
   subvolumes client1 client2 client3
-  option block-size *:1MB
+  option block-size 1MB
 end-volume
 

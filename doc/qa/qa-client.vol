@@ -89,28 +89,28 @@ end-volume
 volume stripe1
   type cluster/stripe
   subvolumes client1 client2
-  option block-size *  # all striped in 128kB block
+  option block-size 128KB  # all striped in 128kB block
 end-volume
 
 # 2st Stripe (client3 client4)
 volume stripe2
   type cluster/stripe
   subvolumes client3 client4
-  option block-size *  # all striped in 128kB block
+  option block-size 128KB  # all striped in 128kB block
 end-volume
 
 # 3st Stripe (client5 client6)
 volume stripe3
   type cluster/stripe
   subvolumes client5 client6
-  option block-size *  # all striped in 128kB block
+  option block-size 128KB  # all striped in 128kB block
 end-volume
 
 # 4st Stripe (client7 client8)
 volume stripe4
   type cluster/stripe
   subvolumes client7 client8
-  option block-size *  # all striped in 128kB block
+  option block-size 128KB  # all striped in 128kB block
 end-volume
 
 

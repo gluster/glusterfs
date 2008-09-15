@@ -636,10 +636,20 @@ filter_mknod (call_frame_t *frame,
 	      mode_t mode,
 	      dev_t rdev)
 {
-	/* TODO: Parent directory permission matters */
 	int ret = 0;
+	inode_t *parent = loc->parent;
 	ret = update_frame (frame, loc->inode, this->private);
 	switch (ret) {		
+	case GF_FILTER_MAP_UID:
+		if (parent->st_mode & S_IWGRP)
+			break;
+	case GF_FILTER_MAP_BOTH:
+		if (parent->st_mode & S_IWOTH)
+			break;
+		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
+		STACK_UNWIND (frame, -1, EPERM);
+		return 0;
+
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
@@ -677,10 +687,20 @@ filter_mkdir (call_frame_t *frame,
 	      loc_t *loc,
 	      mode_t mode)
 {
-	/* TODO: Parent directory permission matters */
 	int ret = 0;
+	inode_t *parent = loc->parent;
 	ret = update_frame (frame, loc->inode, this->private);
-	switch (ret) {
+	switch (ret) {		
+	case GF_FILTER_MAP_UID:
+		if (parent->st_mode & S_IWGRP)
+			break;
+	case GF_FILTER_MAP_BOTH:
+		if (parent->st_mode & S_IWOTH)
+			break;
+		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
+		STACK_UNWIND (frame, -1, EPERM);
+		return 0;
+
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
@@ -712,12 +732,19 @@ filter_unlink (call_frame_t *frame,
 	       loc_t *loc)
 {
 	int32_t ret = 0;
+	inode_t *parent = loc->parent;
+	if (!parent)
+		parent = inode_parent (loc->inode, 0, NULL);
 	ret = update_frame (frame, loc->inode, this->private);
 	switch (ret) {
 	case GF_FILTER_MAP_UID:
+		if (parent->st_mode & S_IWGRP)
+			break;
 		if (loc->inode->st_mode & S_IWGRP)
 			break;
 	case GF_FILTER_MAP_BOTH:
+		if (parent->st_mode & S_IWOTH)
+			break;
 		if (loc->inode->st_mode & S_IWOTH)
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
@@ -754,12 +781,19 @@ filter_rmdir (call_frame_t *frame,
 	      loc_t *loc)
 {
 	int32_t ret = 0;
+	inode_t *parent = loc->parent;
+	if (!parent)
+		parent = inode_parent (loc->inode, 0, NULL);
 	ret = update_frame (frame, loc->inode, this->private);
 	switch (ret) {
 	case GF_FILTER_MAP_UID:
+		if (parent->st_mode & S_IWGRP)
+			break;
 		if (loc->inode->st_mode & S_IWGRP)
 			break;
 	case GF_FILTER_MAP_BOTH:
+		if (parent->st_mode & S_IWOTH)
+			break;
 		if (loc->inode->st_mode & S_IWOTH)
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
@@ -802,10 +836,20 @@ filter_symlink (call_frame_t *frame,
 		const char *linkpath,
 		loc_t *loc)
 {
-	/* TODO: parent directory permissions matters */
 	int ret = 0;
+	inode_t *parent = loc->parent;
 	ret = update_frame (frame, loc->inode, this->private);
-	switch (ret) {
+	switch (ret) {		
+	case GF_FILTER_MAP_UID:
+		if (parent->st_mode & S_IWGRP)
+			break;
+	case GF_FILTER_MAP_BOTH:
+		if (parent->st_mode & S_IWOTH)
+			break;
+		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
+		STACK_UNWIND (frame, -1, EPERM);
+		return 0;
+
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
@@ -842,21 +886,27 @@ filter_rename (call_frame_t *frame,
 	       loc_t *oldloc,
 	       loc_t *newloc)
 {
-	/* TODO: logically parent directory permissions matters */
 	int32_t ret = 0;
+	inode_t *parent = oldloc->parent;
+	if (!parent)
+		parent = inode_parent (oldloc->inode, 0, NULL);
 	ret = update_frame (frame, oldloc->inode, this->private);
-	switch (ret) {
+	switch (ret) {		
 	case GF_FILTER_MAP_UID:
+		if (parent->st_mode & S_IWGRP)
+			break;
 		if (oldloc->inode->st_mode & S_IWGRP)
 			break;
 	case GF_FILTER_MAP_BOTH:
+		if (parent->st_mode & S_IWOTH)
+			break;
 		if (oldloc->inode->st_mode & S_IWOTH)
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, 
-			"%s->%s: returning permission denied", 
-			oldloc->path, newloc->path);
-		STACK_UNWIND (frame, -1, EPERM, NULL);
+			"%s -> %s: returning permission denied", oldloc->path, newloc->path);
+		STACK_UNWIND (frame, -1, EPERM);
 		return 0;
+
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
@@ -938,10 +988,20 @@ filter_create (call_frame_t *frame,
 	       int32_t flags,
 	       mode_t mode, fd_t *fd)
 {
-	/* TODO: Parent directory permission */
 	int ret = 0;
+	inode_t *parent = loc->parent;
 	ret = update_frame (frame, loc->inode, this->private);
-	switch (ret) {
+	switch (ret) {		
+	case GF_FILTER_MAP_UID:
+		if (parent->st_mode & S_IWGRP)
+			break;
+	case GF_FILTER_MAP_BOTH:
+		if (parent->st_mode & S_IWOTH)
+			break;
+		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
+		STACK_UNWIND (frame, -1, EPERM);
+		return 0;
+
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:

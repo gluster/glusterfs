@@ -21,7 +21,7 @@
 #include "rr-options.h"
 
 #define RR_LIMITS_MIN_FREE_DISK_OPTION_STRING    "rr.limits.min-free-disk"
-#define RR_LIMITS_MIN_FREE_DISK_VALUE_DEFAULT    5
+#define RR_LIMITS_MIN_FREE_DISK_VALUE_DEFAULT    15
 #define RR_LIMITS_MIN_FREE_DISK_VALUE_MIN        0
 #define RR_LIMITS_MIN_FREE_DISK_VALUE_MAX        100
 

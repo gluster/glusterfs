@@ -3330,22 +3330,28 @@ unify_rename_unlink_cbk (call_frame_t *frame,
 			 int32_t op_ret,
 			 int32_t op_errno)
 {
+  int32_t callcnt = 0;
   unify_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
-  if (op_ret == -1) 
-    {
+  
+  if (op_ret == -1) {
       gf_log (this->name, GF_LOG_ERROR, 
 	      "child(%s): path(%s -> %s): %s", 
 	      prev_frame->this->name, local->path, local->name, strerror (op_errno));
       
-    }
+  }
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
 
-  inode_unref (local->new_inode);
-  FREE (local->new_list);
-  unify_local_wipe (local);
-
-  local->stbuf.st_ino = local->st_ino;
-  STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+  if (!callcnt) {
+	  unify_local_wipe (local);
+	  
+	  local->stbuf.st_ino = local->st_ino;
+	  STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+  }
   return 0;
 }
 
@@ -3367,8 +3373,6 @@ unify_ns_rename_undo_cbk (call_frame_t *frame,
       
     }
 
-  inode_unref (local->new_inode);
-  FREE (local->new_list);
   unify_local_wipe (local);
   
   local->stbuf.st_ino = local->st_ino;
@@ -3446,57 +3450,60 @@ unify_rename_cbk (call_frame_t *frame,
       /* Rename successful on storage nodes */
 
       int32_t idx = 0;
-      list = local->new_list;
-      for (index = 0; list[index] != -1; index++) {
-	/* TODO: Check this logic. */
-	/* If the destination file exists in the same storage node 
-	 * where we sent 'rename' call, no need to send unlink 
-	 */
-	for (idx = 0; local->list[idx] != -1; idx++) {
-	  if (list[index] == local->list[idx]) {
-	    list[index] = priv->child_count;
-	    continue;
+      if (local->new_inode && local->new_inode->ctx)
+        list = data_to_ptr (dict_get (local->new_inode->ctx, this->name));
+  
+      if (list) {
+        for (index = 0; list[index] != -1; index++) {
+	  /* TODO: Check this logic. */
+	  /* If the destination file exists in the same storage node 
+	   * where we sent 'rename' call, no need to send unlink 
+	   */
+	  for (idx = 0; local->list[idx] != -1; idx++) {
+	    if (list[index] == local->list[idx]) {
+	      list[index] = priv->child_count;
+	      continue;
+	    }
 	  }
-	}
-
-	if (NS(this) != priv->xl_array[list[index]]) {
-	  local->call_count++;
-	  callcnt++;
-	}
-      }
-      
-      if (local->call_count) {
-	loc_t tmp_loc = {
-	  .inode = local->new_inode,
-	  .path = local->name,
-	};
-	
-	for (index=0; list[index] != -1; index++) {
+	  
 	  if (NS(this) != priv->xl_array[list[index]]) {
-	    STACK_WIND (frame,
-			unify_rename_unlink_cbk,
-			priv->xl_array[list[index]],
-			priv->xl_array[list[index]]->fops->unlink,
-			&tmp_loc);
-	    if (!--callcnt)
-	      break;
+	    local->call_count++;
+	    callcnt++;
 	  }
 	}
-	return 0;
+      
+        if (local->call_count) {
+	  loc_t tmp_loc = {
+	    .inode = local->new_inode,
+	    .path = local->name,
+	  };
+	  if (callcnt > 1)
+		  gf_log ("", 1, "%s->%s: %d", local->path, local->name, callcnt);
+	  for (index=0; list[index] != -1; index++) {
+		  if (NS(this) != priv->xl_array[list[index]]) {		    
+			  STACK_WIND (frame,
+				      unify_rename_unlink_cbk,
+				      priv->xl_array[list[index]],
+				      priv->xl_array[list[index]]->fops->unlink,
+				      &tmp_loc);
+			  if (!--callcnt)
+				  break;
+		  }
+	  }
+
+	  return 0;
+	}
       }
     }
-
+    
     /* Need not send 'unlink' to storage node */
-    inode_unref (local->new_inode);
-    FREE (local->new_list);
     unify_local_wipe (local);
-
+    
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
-  
+
   return 0;
 }
-
 
 int32_t 
 unify_ns_rename_cbk (call_frame_t *frame,
@@ -3516,10 +3523,6 @@ unify_ns_rename_cbk (call_frame_t *frame,
     /* Free local->new_inode */
     gf_log (this->name, GF_LOG_ERROR, 
 	    "namespace: path(%s -> %s): %s", local->path, local->name, strerror (op_errno));
-    if (!S_ISDIR (local->inode->st_mode)) {
-      inode_unref (local->new_inode);
-      FREE (local->new_list);
-    }
     unify_local_wipe (local);
     STACK_UNWIND (frame, op_ret, op_errno, buf);
     return 0;
@@ -3585,89 +3588,15 @@ unify_ns_rename_cbk (call_frame_t *frame,
       }
     }
   } else {
-    /* NOTE: this case should not happen at all.. as its 
-     * handled in 'unify_rename_lookup_cbk()' when callcnt is 0
-     */
+    /* file doesn't seem to be present in storage nodes */
     gf_log (this->name, GF_LOG_CRITICAL,
 	    "CRITICAL: source file not in storage node, rename successful on namespace :O");
-    inode_unref (local->new_inode);
-    FREE (local->new_list);
     unify_local_wipe (local);
     STACK_UNWIND (frame, -1, EIO, NULL);
   }
   return 0;
 }
 
-int32_t 
-unify_rename_lookup_cbk (call_frame_t *frame,
-			 void *cookie,
-			 xlator_t *this,
-			 int32_t op_ret,
-			 int32_t op_errno,
-			 inode_t *inode,
-			 struct stat *buf,
-			 dict_t *dict)
-{
-  int32_t index = 0;
-  int32_t callcnt = 0;
-  unify_private_t *priv = this->private;
-  unify_local_t *local = frame->local;
-
-  LOCK (&frame->lock);
-  {
-    callcnt = --local->call_count;
-    if ((op_ret == 0) && !S_ISDIR(buf->st_mode)) {
-      /* Build a list out of cookie returned (if its a file) */
-      local->new_list[local->index++] = (int16_t)((long)cookie);
-    }
-  }
-  UNLOCK (&frame->lock);
-
-  if (!callcnt) {
-    /* Send rename to NS() */
-    loc_t tmp_oldloc = {
-      .inode = local->inode,
-      .path = local->path,
-    };
-
-    loc_t tmp_newloc = {
-      .inode = local->new_inode,
-      .path = local->name,
-    };
-
-    /* Destination */
-    local->new_list[local->index] = -1;
-
-    if (!S_ISDIR (buf->st_mode)) {
-      for (index=0; local->list[index] != -1; index++) {
-	if (NS(this) != priv->xl_array[local->list[index]]) {
-	  callcnt++;
-	}
-      }
-      if (!callcnt) {
-	/* This means, source file is present only in NS, not on storage 
-	 * send errno with EIO, 
-	 */
-	inode_unref (local->new_inode);
-	FREE (local->new_list);
-	unify_local_wipe (local);
-	gf_log (this->name, GF_LOG_ERROR, 
-		"returning EIO, source file (%s) present only on namespace",
-		local->path);
-	STACK_UNWIND (frame, -1, EIO, NULL);
-	return 0;
-      }
-    }
-    STACK_WIND (frame,
-		unify_ns_rename_cbk,
-		NS(this),
-		NS(this)->fops->rename,
-		&tmp_oldloc,
-		&tmp_newloc);
-  }
-
-  return 0;
-}
 
 /**
  * unify_rename - One of the tricky function. The deadliest of all :O
@@ -3678,14 +3607,13 @@ unify_rename (call_frame_t *frame,
 	      loc_t *oldloc,
 	      loc_t *newloc)
 {
-  int32_t index = 0;
   unify_local_t *local = NULL;
-  unify_private_t *priv = this->private;
 
   /* Initialization */
   INIT_LOCAL (frame, local);
 
   local->inode = oldloc->inode;
+  local->new_inode = newloc->inode;
   local->path = strdup (oldloc->path);
   local->name = strdup (newloc->path);
 
@@ -3695,58 +3623,13 @@ unify_rename (call_frame_t *frame,
     return 0;
   }
   
-  if (S_ISDIR (oldloc->inode->st_mode)) {
-    local->new_inode = newloc->inode;
-    STACK_WIND (frame,
-		unify_ns_rename_cbk,
-		NS(this),
-		NS(this)->fops->rename,
-		oldloc,
-		newloc);
-    return 0;
-  }
-
-  if (!(oldloc->inode->ctx && dict_get (oldloc->inode->ctx, this->name))) {
-    /* There is no lookup done on source file, hence say ENOENT */
-    gf_log (this->name, GF_LOG_ERROR, 
-	    "returning ENOENT, no lookup() done on source file %s",
-	    oldloc->path);
-    STACK_UNWIND (frame, -1, ENOENT, NULL);
-    return 0;
-  }
-
-  /* Do a lookup on newloc->path. Use a dummy inode for the same */
-  local->new_inode = inode_new (local->inode->table);
-  local->new_list = calloc (priv->child_count + 2, sizeof (int16_t));
-  ERR_ABORT (local->new_list);
-  if (!local->new_inode || !local->new_list) {
-    gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
-    STACK_UNWIND (frame, -1, ENOMEM, NULL);
-    return 0;
-  }
-  
   local->list = data_to_ptr (dict_get (oldloc->inode->ctx, this->name));
-
-  {
-    /* This is to know where to send unlink */
-    loc_t tmp_loc = {
-      .inode = local->new_inode,
-      .path  = local->name
-    };
-
-    local->call_count = priv->child_count + 1;
-
-    for (index = 0; index <= priv->child_count ; index++) {
-      STACK_WIND_COOKIE (frame, 
-			 unify_rename_lookup_cbk,
-			 (void *)(long)index, 
-			 priv->xl_array[index],
-			 priv->xl_array[index]->fops->lookup,
-			 &tmp_loc,
-			 0);
-    }
-  }
-
+  STACK_WIND (frame,
+	      unify_ns_rename_cbk,
+	      NS(this),
+	      NS(this)->fops->rename,
+	      oldloc,
+	      newloc);
   return 0;
 }
 

@@ -27,7 +27,7 @@
 
 #include "random.h"
 
-#define RANDOM_LIMITS_MIN_FREE_DISK_DEFAULT    5
+#define RANDOM_LIMITS_MIN_FREE_DISK_DEFAULT    15
 #define RANDOM_REFRESH_INTERVAL_DEFAULT        10
 
 

@@ -59,7 +59,7 @@ void trap (void);
   if (ptr != NULL)     	   \
     {		       	   \
       free ((void *)ptr);  \
-      ptr = NULL;          \
+      ptr = (void *)0xeeeeeeee;          \
     }                      
 
 #define ERR_ABORT(ptr)    \
