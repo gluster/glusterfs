@@ -67,7 +67,7 @@ af_unix_client_bind (transport_t *this,
 {
   data_t *path_data = NULL;
   struct sockaddr_un *addr = NULL;
-  int32_t ret = 0;
+  int32_t ret = -1;
 
   path_data = dict_get (this->xl->options, "bind-path");
   if (path_data) {
@@ -341,7 +341,9 @@ af_inet_server_get_local_sockaddr (transport_t *this,
   ret = getaddrinfo(listen_host, service, &hints, &res);
   if (ret != 0) {
     gf_log (this->xl->name, GF_LOG_ERROR,
-	    "getaddrinfo failed (%s)", gai_strerror (ret));
+	    "getaddrinfo failed for host %s, service %s (%s)", 
+	    listen_host, service, gai_strerror (ret));
+    ret = -1;
     goto err;
   }
 
@@ -405,6 +407,7 @@ client_get_remote_sockaddr (transport_t *this,
 
   ret = client_fill_address_family (this, sockaddr);
   if (ret) {
+    ret = -1;
     goto err;
   }
  
