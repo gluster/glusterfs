@@ -6615,55 +6615,56 @@ server_protocol_cleanup (transport_t *trans)
     return 0;
 
   bound_xl = (xlator_t *) priv->bound_xl;
+  if (bound_xl) {
 
-  /* trans will have ref_count = 1 after this call, but its ok since this function is
-     called in GF_EVENT_TRANSPORT_CLEANUP */
-  frame = get_frame_for_transport (trans);
-
-  /* its cleanup of transport */
-  /* but, mop_unlock_impl needs transport ptr to clear locks held by it */
-  /* ((server_state_t *)frame->root->state)->trans = NULL; */
-
-  /* ->unlock () with NULL path will cleanup
-     lock manager's internals by remove all
-     entries related to this transport
-  */
-  pthread_mutex_lock (&priv->lock);
-  {
-    if (priv->fdtable) {
-      int32_t i = 0;
-      pthread_mutex_lock (&priv->fdtable->lock);
-      {
-        for (i=0; i < priv->fdtable->max_fds; i++) {
-          if (priv->fdtable->fds[i]) {
-            fd_t *fd = priv->fdtable->fds[i];
-
-	    /* FIXME: are we sure, there was only one reference? */
-	    fd_unref (fd);
-          }
-        }
-      }
-      pthread_mutex_unlock (&priv->fdtable->lock);
-      gf_fd_fdtable_destroy (priv->fdtable);
-      priv->fdtable = NULL;
-    }
+	  /* trans will have ref_count = 1 after this call, but its ok since this function is
+	     called in GF_EVENT_TRANSPORT_CLEANUP */
+	  frame = get_frame_for_transport (trans);
+	  
+	  /* its cleanup of transport */
+	  /* but, mop_unlock_impl needs transport ptr to clear locks held by it */
+	  /* ((server_state_t *)frame->root->state)->trans = NULL; */
+	  
+	  /* ->unlock () with NULL path will cleanup
+	     lock manager's internals by remove all
+	     entries related to this transport
+	  */
+	  pthread_mutex_lock (&priv->lock);
+	  {
+		  if (priv->fdtable) {
+			  int32_t i = 0;
+			  pthread_mutex_lock (&priv->fdtable->lock);
+			  {
+				  for (i=0; i < priv->fdtable->max_fds; i++) {
+					  if (priv->fdtable->fds[i]) {
+						  fd_t *fd = priv->fdtable->fds[i];
+						  
+						  /* FIXME: are we sure, there was only one reference? */
+						  fd_unref (fd);
+					  }
+				  }
+			  }
+			  pthread_mutex_unlock (&priv->fdtable->lock);
+			  gf_fd_fdtable_destroy (priv->fdtable);
+			  priv->fdtable = NULL;
+		  }
+	  }
+	  pthread_mutex_unlock (&priv->lock);
+	  
+	  unlock_frame = copy_frame (frame);
+	  unlock_frame->root->trans = frame->root->trans;
+	  
+	  STACK_WIND (unlock_frame,
+		      server_nop_cbk,
+		      trans->xl,
+		      trans->xl->mops->unlock,
+		      NULL);
+	  
+	  STACK_DESTROY (frame->root);
   }
-  pthread_mutex_unlock (&priv->lock);
-
-  unlock_frame = copy_frame (frame);
-  unlock_frame->root->trans = frame->root->trans;
-
-  STACK_WIND (unlock_frame,
-              server_nop_cbk,
-              trans->xl,
-              trans->xl->mops->unlock,
-              NULL);
-
-
   FREE (priv);
   trans->xl_private = NULL;
   peerinfo = &trans->peerinfo;
-  STACK_DESTROY (frame->root);
   gf_log (trans->xl->name, GF_LOG_DEBUG,
 	  "cleaned up transport state for client %s",
 	  peerinfo->identifier);
