@@ -113,8 +113,8 @@ xlator_validate_given_options (xlator_t *xl)
  	data_pair_t     *pairs   = NULL;
  	int32_t          index   = 0;
  	int32_t          valid   = 0;
- 	int64_t          input64 = 0;
  	int64_t          input_size = 0;
+	long long        inputll = 0;
 
  	if (!xl->std_options)
  		return 0;
@@ -171,7 +171,7 @@ xlator_validate_given_options (xlator_t *xl)
   			break;
   		case GF_OPTION_TYPE_INT:
   			/* Check the range */
-  			if (gf_string2longlong (pairs->value->data, &input64) != 0) {
+  			if (gf_string2longlong (pairs->value->data, &inputll) != 0) {
   				gf_log (xl->name,
   					GF_LOG_ERROR,
   					"invalid number format \"%s\" in \"option %s\"",
@@ -185,10 +185,10 @@ xlator_validate_given_options (xlator_t *xl)
   					pairs->key, pairs->value->data);
   				break;
   			}
-  			if ((input64 < trav->min_value) || (input64 > trav->max_value)) {
+  			if ((inputll < trav->min_value) || (inputll > trav->max_value)) {
   				gf_log (xl->name, GF_LOG_ERROR,
   					"'%"PRId64"' in 'option %s %s' is out of range [%"PRId64" - %"PRId64"]",
-  					input64, pairs->key, pairs->value->data,
+  					inputll, pairs->key, pairs->value->data,
   					trav->min_value, trav->max_value);
   				return -1;
   			}

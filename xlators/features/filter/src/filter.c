@@ -218,7 +218,7 @@ filter_lookup_cbk (call_frame_t *frame,
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)buf->st_uid);
+		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
 	return 0;
@@ -623,7 +623,7 @@ filter_mknod_cbk (call_frame_t *frame,
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)buf->st_uid);
+		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -675,7 +675,7 @@ filter_mkdir_cbk (call_frame_t *frame,
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)buf->st_uid);
+		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -824,7 +824,7 @@ filter_symlink_cbk (call_frame_t *frame,
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)buf->st_uid);
+		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -933,7 +933,7 @@ filter_link_cbk (call_frame_t *frame,
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)buf->st_uid);
+		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, inode,	buf);
 	return 0;
@@ -975,7 +975,7 @@ filter_create_cbk (call_frame_t *frame,
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)buf->st_uid);
+		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 	return 0;

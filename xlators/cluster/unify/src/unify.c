@@ -4105,7 +4105,7 @@ init (xlator_t *this)
 		flag = 1;
 		count--;
 	      }
-	    while (trav->next) 
+	    while (trav && trav->next) 
 	      {
 		if (strcmp (host_name, (trav->next)->xlator->name) == 0)
 		  {
