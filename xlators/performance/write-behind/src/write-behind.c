@@ -121,11 +121,11 @@ wb_file_create (xlator_t *this,
 	/* fd_ref() not required, file should never decide the existance of
 	 * an fd */
 	file->fd= fd;
-	file->disable_till = 1048576;
+	file->disable_till = 1 * GF_UNIT_MB; /* TODO: Hard coded value?? why? */
 	file->this = this;
+	file->refcount = 1;
 
-	dict_set (fd->ctx, this->name,
-		  data_from_static_ptr (file));
+	dict_set (fd->ctx, this->name, data_from_static_ptr (file));
 	
 	return file;
 }
@@ -1374,10 +1374,9 @@ struct xlator_cbks cbks = {
 	.release  = wb_close
 };
 
-
 struct xlator_options options[] = {
 	{ "flush-behind", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
-	{ "aggregate-size", GF_OPTION_TYPE_SIZET, 0, 0, 4 * GF_UNIT_MB },
-	{ "window-size", GF_OPTION_TYPE_SIZET, 0, 0, 16 * GF_UNIT_MB },
+	{ "aggregate-size", GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 4 * GF_UNIT_MB },
+	{ "window-size", GF_OPTION_TYPE_SIZET, 0, 1 * GF_UNIT_MB, 16 * GF_UNIT_MB },
 	{ NULL, 0, },
 };

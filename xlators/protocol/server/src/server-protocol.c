@@ -122,6 +122,13 @@ server_state_fill (call_frame_t *frame,
 		state->ino   = ntoh64 (req->oldino);
 	}
 	break;
+	case GF_FOP_SYMLINK:
+	{
+		gf_fop_symlink_req_t *req = request;
+		state->name  = (req->newpath + strlen (req->oldpath) + 1);
+		state->path  = req->oldpath;
+	}
+	break;
 	case GF_FOP_SETXATTR:
 	{
 		gf_fop_setxattr_req_t *req = request;
@@ -5100,6 +5107,27 @@ server_access (call_frame_t *frame,
   return 0;
 }
 
+
+int32_t
+server_symlink_resume (call_frame_t *frame,
+		       xlator_t *this,
+		       const char *linkname,
+		       loc_t *loc)
+{
+	server_state_t *state = NULL;
+	
+	state = STATE (frame);
+
+	STACK_WIND (frame,
+		    server_symlink_cbk,
+		    BOUND_XL (frame),
+		    BOUND_XL (frame)->fops->symlink,
+		    linkname,
+		    &(state->loc));
+
+	return 0;
+}
+
 /*
  * server_symlink- symlink function for server protocol
  * @frame: call frame
@@ -5115,24 +5143,45 @@ server_symlink (call_frame_t *frame,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 char *buf, size_t buflen)
 {
-  char *link = NULL;
-  loc_t loc = {0,};
-  gf_fop_symlink_req_t *req = NULL;
+	server_state_t *state = NULL;
+	gf_fop_symlink_req_t *req = NULL;
+	call_stub_t *symlink_stub = NULL;
+	
+	req   = gf_param (hdr);
 
-  req       = gf_param (hdr);
+	state = STATE (frame);
+	server_state_fill (frame, req, GF_FOP_SYMLINK);
+  
+	server_loc_fill (&(state->loc), state, state->path); 
+	{
+		state->loc.inode = inode_new (bound_xl->itable);
+		state->inode = state->loc.inode;
+	}
+  
+	symlink_stub = fop_symlink_stub (frame, server_symlink_resume, 
+					 state->name, &(state->loc));
 
-  link      = (req->newpath + 1 + strlen (req->oldpath));
-  loc.path  = req->oldpath;
-  loc.inode = inode_new (bound_xl->itable);
+	if (state->loc.parent == NULL) {
+		loc_t parent_loc = { 0,};
+		char *parent_path = NULL;
+		
+		parent_path = strdup (state->path);
+		parent_path = dirname (parent_path);
 
-  STACK_WIND (frame,
-              server_symlink_cbk,
-              bound_xl,
-              bound_xl->fops->symlink,
-              link,
-              &loc);
+		server_loc_fill (&parent_loc, state, parent_path);
+		free (parent_path);
 
-  return 0;
+		parent_loc.inode = inode_new (state->itable);
+
+		frame->local = symlink_stub;
+
+		do_lookup (frame, bound_xl, &parent_loc, 0);
+
+	} else {
+		call_resume (symlink_stub);
+	}
+
+	return 0;
 }
 
 /*
@@ -5149,35 +5198,33 @@ server_link (call_frame_t *frame,
              gf_hdr_common_t *hdr, size_t hdrlen,
              char *buf, size_t buflen)
 {
-  call_stub_t *link_stub = NULL;
-  gf_fop_link_req_t *req = NULL;
-  server_state_t *state = NULL;
+	call_stub_t *link_stub = NULL;
+	gf_fop_link_req_t *req = NULL;
+	server_state_t *state = NULL;
 
-  req       = gf_param (hdr);
+	req   = gf_param (hdr);
   
-  state = STATE (frame);
-  server_state_fill (frame, req, GF_FOP_LINK);
+	state = STATE (frame);
+	server_state_fill (frame, req, GF_FOP_LINK);
 
-  server_loc_fill (&(state->loc), state, state->path);
+	server_loc_fill (&(state->loc), state, state->path);
 
-  link_stub = fop_link_stub (frame,
-                             server_link_resume,
-                             &(state->loc),
-                             state->name);
+	link_stub = fop_link_stub (frame, server_link_resume,
+				   &(state->loc), state->name);
 
-  if (!state->loc.inode) {
-    /* make a call stub and call lookup to get the inode structure.
-     * resume call after lookup is successful */
-    frame->local = link_stub;
-    state->loc.inode = inode_new (BOUND_XL(frame)->itable);
+	if (!state->loc.inode) {
+		/* make a call stub and call lookup to get the inode structure.
+		 * resume call after lookup is successful */
+		frame->local = link_stub;
+		state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 
-    do_lookup (frame, bound_xl, &(state->loc), 0);
+		do_lookup (frame, bound_xl, &(state->loc), 0);
 
-  } else {
-    call_resume (link_stub);
-  }
+	} else {
+		call_resume (link_stub);
+	}
 
-  return 0;
+	return 0;
 }
 
 
