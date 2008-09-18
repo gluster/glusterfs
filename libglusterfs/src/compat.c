@@ -80,6 +80,21 @@ gf_darwin_compat_getxattr (char *key, char **value, int size)
   return -1;
 }
 
+
+int32_t 
+gf_darwin_compat_setxattr (const char *key, const char *value)
+{
+  if (strcmp(key, finder_info_xattr) == 0) {
+	  
+    return 0;
+  }
+  if (strcmp(key, resource_fork_xattr) == 0) {
+    /* Always null */
+    return 0;
+  }
+  return -1;
+}
+
 #endif /* DARWIN */
 
 

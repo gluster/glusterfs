@@ -157,6 +157,7 @@ enum {
 
 int32_t gf_darwin_compat_listxattr (int len, dict_t *dict, int size);
 int32_t gf_darwin_compat_getxattr (char *key, char **value, int size);
+int32_t gf_darwin_compat_setxattr (const char *key, const char *value);
 
 #endif /* GF_DARWIN_HOST_OS */
 
@@ -276,7 +277,7 @@ gf_compat_getxattr (char *key, char **value, int size)
   return -1;
 }
 
-/* 
+
 static inline int32_t
 gf_compat_setxattr (const char *key, const char *value)
 {
@@ -285,7 +286,7 @@ gf_compat_setxattr (const char *key, const char *value)
 #endif
   return -1;
 }
-*/
+
 
 static inline int32_t
 gf_compat_listxattr (int len, dict_t *dict, int size)

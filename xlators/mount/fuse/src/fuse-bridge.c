@@ -1978,6 +1978,7 @@ fuse_setxattr (fuse_req_t req,
                size_t size,
                int flags)
 {
+	int ret = 0;
         fuse_state_t *state;
 
         state = state_from_req (req);
@@ -1992,6 +1993,13 @@ fuse_setxattr (fuse_req_t req,
                 fuse_reply_err (req, EINVAL);
                 return;
         }
+
+	ret = gf_compat_setxattr (name, value);
+	if (ret == 0) {
+                fuse_reply_err (req, 0);
+		free_state (state);
+		return ;
+	}
 
         state->dict = get_new_dict ();
 

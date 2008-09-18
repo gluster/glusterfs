@@ -3020,7 +3020,7 @@ init (xlator_t *this)
 					"drop-hostname-from-subvolumes: skipped volume '%s'", host_name);
 				flag = 1;
 			}
-			while (trav->next) {
+			while (trav && trav->next) {
 				if (strcmp (host_name, (trav->next)->xlator->name) == 0) {
 					/* Well there is a volume with the name 'hostname()', hence neglect it */
 					/* Remove entry about this subvolume from the list */
@@ -3070,7 +3070,7 @@ init (xlator_t *this)
 	data = dict_get (this->options, "block-size");
 	if (!data) {
 		gf_log (this->name, GF_LOG_WARNING,
-			"No block-size specified. check \"option block-size <x>\" in spec file, defaulting to 128KBss");
+			"No block-size specified. check \"option block-size <x>\" in spec file, defaulting to 128KB");
 		priv->block_size = (128 * GF_UNIT_KB);
 	} else {
 		if (gf_string2bytesize (data->data, &priv->block_size) != 0) {
