@@ -316,11 +316,26 @@ if test "x$enable_bdb" != "xno"; then
 		      ,
 		     [HAVE_BDB_VERSION="yes"],
 		     [HAVE_BDB_VERSION="no"])
+
+      dnl check for DB->stat having 4 arguments.
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <db.h>]], 
+			[[DB *bdb; bdb->stat (NULL, NULL, NULL, 0);]])],
+		  	[HAVE_BDB_VERSION=yes], [HAVE_BDB_VERSION=no])
+
+      dnl check for DBC->c_get presence. 
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <db.h>]],
+                        [[DBC *cursor; cursor->get (NULL, NULL, NULL, 0);]])],
+		        [HAVE_BDB_CURSOR_GET=yes], [HAVE_BDB_CURSOR_GET=no])
+
    fi		     
 fi
 
-if test "x$enable_bdb" = "xyes" -a "x$HAVE_BDB" = "xno"; then
-   echo "Berkeley-DB requested but not found."
+if test "x$HAVE_BDB_CURSOR_GET" = "xyes" -a "x$HAVE_BDB_VERSION" = "xyes"; then
+   AC_DEFINE(HAVE_BDB_CURSOR_GET, 1, [Berkeley-DB version has cursor->get()])
+fi
+
+if test "x$enable_bdb" = "xyes" -a "x$HAVE_BDB" = "xno" -a "x$HAVE_BDB_VERSION" = "xno" -a "x$HAVE_BDB_CURSOR_GET" = "xno"; then
+   echo "Berkeley-DB requested but not found. glusterfs bdb feature requires db version 4.6.21 or higher"
    exit 1
 fi
 
@@ -331,10 +346,7 @@ if test "x$enable_bdb" != "xno" -a "x$HAVE_BDB" = "xyes"; then
       BUILD_BDB=yes
 fi
 
-# TODO: fine tune BDB version check to disable bdb, in-case cursor->c_get() support is unavaliable
-if test "x$HAVE_BDB_VERSION" == "xyes"; then
-   AC_DEFINE(HAVE_BDB_CURSOR_GET,1,[Berkeley-DB version has cursor->get()])
-fi
+
 
 AC_SUBST(BDB_SUBDIR)
 # end BDB section
