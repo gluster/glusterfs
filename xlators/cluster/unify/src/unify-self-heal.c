@@ -49,44 +49,6 @@
 #include "stack.h"
 #include "common-utils.h"
 
-
-/**
- * unify_background_cbk - this is called by the background functions which 
- *   doesn't return any of inode, or buf. eg: rmdir, unlink, close, etc.
- *
- */
-int32_t 
-unify_background_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno)
-{
-  int32_t callcnt = 0;
-  unify_local_t *local = frame->local;
-
-  LOCK (&frame->lock);
-  {
-    callcnt = --local->call_count;
-    if (op_ret == 0)
-      local->op_ret = 0;
-  }
-  UNLOCK (&frame->lock);
-
-  if (!callcnt) {
-    
-    /* Destroy the fd here */
-    if (local->fd)
-      fd_unref (local->fd);
-    
-    STACK_DESTROY (frame->root);
-  }
-
-  return 0;
-}
-
-
-
 int32_t 
 unify_sh_setdents_cbk (call_frame_t *frame,
 		       void *cookie,
@@ -95,7 +57,6 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 		       int32_t op_errno)
 {
   int32_t callcnt = -1;
-  unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
 
   LOCK (&frame->lock);
@@ -109,10 +70,12 @@ unify_sh_setdents_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt && local->flags) {
-    local->call_count = priv->child_count + 1; /* +1 is for namespace */
     
     fd_unref (local->fd);
     
+    FREE (local->path);
+    FREE (local->sh_struct);
+
     STACK_UNWIND (frame, 
 		  local->op_ret, 
 		  local->op_errno, 
@@ -492,6 +455,10 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
 
   if (!callcnt && local->flags) {
     fd_unref (local->fd);
+
+    FREE (local->path);
+    FREE (local->sh_struct);
+    STACK_DESTROY (frame->root);
   }
   
   return 0;
