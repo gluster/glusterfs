@@ -2336,7 +2336,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        if (S_ISDIR(loc->inode->st_mode) && name && 
+        if (loc->inode && S_ISDIR(loc->inode->st_mode) && name && 
 	    GF_FILE_CONTENT_REQUEST(name)) {
                 ret = get_file_contents (this, real_path, name, &file_contents);
                 if (ret < 0) {

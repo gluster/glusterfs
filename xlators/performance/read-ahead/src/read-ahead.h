@@ -96,12 +96,12 @@ struct ra_file {
   int32_t refcount;
   pthread_mutex_t file_lock;
   struct stat stbuf;
-  size_t page_size;
+  uint64_t page_size;
   uint32_t page_count;
 };
 
 struct ra_conf {
-  size_t page_size;
+  uint64_t page_size;
   uint32_t page_count;
   void *cache_block;
   struct ra_file files;

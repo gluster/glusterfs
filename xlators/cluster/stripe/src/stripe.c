@@ -61,7 +61,7 @@ struct stripe_local;
  */
 struct stripe_private {
 	xlator_t **xl_array;
-	size_t     block_size;
+	uint64_t   block_size;
 	gf_lock_t  lock;
 	uint8_t    nodes_down;
 	int8_t     first_child_down;
@@ -3080,7 +3080,7 @@ init (xlator_t *this)
 		}
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG, "stripe block size %d", priv->block_size);
+	gf_log (this->name, GF_LOG_DEBUG, "stripe block size %"PRIu64"", priv->block_size);
 
 	/* notify related */
 	priv->nodes_down = priv->child_count;

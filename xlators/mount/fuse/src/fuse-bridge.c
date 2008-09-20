@@ -2447,7 +2447,6 @@ static struct fuse_lowlevel_ops fuse_ops = {
 static void *
 fuse_thread_proc (void *data)
 {
-        glusterfs_ctx_t *ctx = NULL;
 	char *mount_point = NULL;
         xlator_t *this = data;
         fuse_private_t *priv = this->private;
@@ -2505,29 +2504,19 @@ fuse_thread_proc (void *data)
                         priv->buf->is_locked = 1;
                 }
         }
-	
-	ctx = get_global_ctx_ptr ();
-	if ((mount_point = data_to_str (dict_get (this->options, 
-						  GF_FUSE_MOUNT_POINT_OPTION_STRING))) != NULL) {
-		gf_log (basename (ctx->program_invocation_name), GF_LOG_WARNING, 
+	if (dict_get (this->options, GF_FUSE_MOUNT_POINT_OPTION_STRING))
+		mount_point = data_to_str (dict_get (this->options, 
+						     GF_FUSE_MOUNT_POINT_OPTION_STRING));
+	if (mount_point) {
+		gf_log (this->name, GF_LOG_WARNING, 
 			"unmounting %s\n", mount_point);
+		dict_del (this->options, GF_FUSE_MOUNT_POINT_OPTION_STRING);
 	}
-        fuse_session_remove_chan (priv->ch);
-        fuse_session_destroy (priv->se);
-        //  fuse_unmount (priv->mount_point, priv->ch);
+	fuse_session_remove_chan (priv->ch);
+	fuse_session_destroy (priv->se);
+	//  fuse_unmount (priv->mount_point, priv->ch);
 	
-	gf_log (basename (ctx->program_invocation_name), GF_LOG_WARNING, 
-		"shutting down\n");
-	
-	if (ctx->pidfp) {
-		gf_unlockfd (fileno (ctx->pidfp));
-		fclose (ctx->pidfp);
-	}
-	
-	if (ctx->cmd_args.pid_file)
-		unlink (ctx->cmd_args.pid_file);
-	
-        exit (0);
+	raise (SIGTERM);
 	
         return NULL;
 }
@@ -2740,7 +2729,6 @@ void
 fini (xlator_t *this_xl)
 {
         struct fuse_private *priv = NULL;
-        glusterfs_ctx_t *ctx = NULL;
 	char *mount_point = NULL;
 	
 	if (this_xl == NULL)
@@ -2749,27 +2737,17 @@ fini (xlator_t *this_xl)
 	if ((priv = this_xl->private) == NULL)
 		return;
 	
-	ctx = get_global_ctx_ptr ();
-	mount_point = data_to_str (dict_get (this_xl->options, 
-					     GF_FUSE_MOUNT_POINT_OPTION_STRING));
+	if (dict_get (this_xl->options, GF_FUSE_MOUNT_POINT_OPTION_STRING))
+		mount_point = data_to_str (dict_get (this_xl->options, 
+						     GF_FUSE_MOUNT_POINT_OPTION_STRING));
 	if (mount_point != NULL) {
-		gf_log (basename (ctx->program_invocation_name), GF_LOG_WARNING, 
+		gf_log (this_xl->name, GF_LOG_WARNING, 
 			"unmounting %s\n", mount_point);
 		
+		dict_del (this_xl->options, GF_FUSE_MOUNT_POINT_OPTION_STRING);
 		fuse_session_exit (priv->se);
 		fuse_unmount (mount_point, priv->ch);
 	}
-	
-	gf_log (basename (ctx->program_invocation_name), GF_LOG_WARNING, 
-		"shutting down\n");
-	
-	if (ctx->pidfp) {
-		gf_unlockfd (fileno (ctx->pidfp));
-		fclose (ctx->pidfp);
-	}
-	
-	if (ctx->cmd_args.pid_file)
-		unlink (ctx->cmd_args.pid_file);
 }
 
 struct xlator_fops fops = {

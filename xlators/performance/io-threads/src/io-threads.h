@@ -84,7 +84,7 @@ struct iot_conf {
   struct iot_file files;
   pthread_mutex_t files_lock;
 
-  size_t cache_size;
+  uint64_t cache_size;
   off_t current_size;
   pthread_cond_t q_cond;
   pthread_mutex_t lock;

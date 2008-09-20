@@ -51,8 +51,8 @@
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 static glusterfs_ctx_t *gf_global_ctx;
-int64_t total_bytes_xferd;
-int64_t total_bytes_rcvd;
+uint64_t total_bytes_xferd;
+uint64_t total_bytes_rcvd;
 
 static int32_t 
 full_rw (int32_t fd, char *buf, int32_t size, 
@@ -154,7 +154,7 @@ void
 gf_print_bytes ()
 {
   gf_log ("glusterfs", GF_LOG_WARNING, 
-	  "Total data (in bytes): transfered (%"PRId64"), received (%"PRId64")", 
+	  "Total data (in bytes): transfered (%"PRIu64"), received (%"PRIu64")", 
 	  total_bytes_xferd, total_bytes_rcvd);
 }
 
@@ -1222,7 +1222,7 @@ gf_string2uint64_base10 (const char *str, uint64_t *n)
 }
 
 int 
-gf_string2bytesize (const char *str, size_t *n)
+gf_string2bytesize (const char *str, uint64_t *n)
 {
   uint64_t value = 0ULL;
   char *tail = NULL;

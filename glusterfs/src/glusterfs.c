@@ -532,10 +532,8 @@ void
 cleanup_and_exit (int signum)
 {
 	glusterfs_ctx_t *ctx = NULL;
-	
+	xlator_t *trav = NULL;
 	ctx = get_global_ctx_ptr ();
-	
-	gf_log (progname, GF_LOG_WARNING, "shutting down");
 	
 	if (ctx->pidfp) {
 		gf_unlockfd (fileno (ctx->pidfp));
@@ -545,8 +543,15 @@ cleanup_and_exit (int signum)
 	if (ctx->cmd_args.pid_file)
 		unlink (ctx->cmd_args.pid_file);
 	
-	if (ctx->graph && ctx->cmd_args.mount_point)
-		((xlator_t *)ctx->graph)->fini (ctx->graph);
+	if (ctx->graph) {
+		trav = ctx->graph;
+		while (trav) {
+			trav->fini (trav);
+			trav = trav->next;
+		}
+	}
+	
+	gf_log (progname, GF_LOG_WARNING, "shutting down");
 	
 	exit (0);
 }

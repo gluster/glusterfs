@@ -1160,21 +1160,17 @@ init (xlator_t *this)
   if (dict_get (options, "cache-size"))
     cache_size_string = data_to_str (dict_get (options,
 					       "cache-size"));
-  if (cache_size_string)
-    {
-      if (gf_string2bytesize (cache_size_string, &conf->cache_size) != 0)
-	{
-	gf_log ("io-threads", 
-		GF_LOG_ERROR, 
-		"invalid number format \"%s\" of \"option cache-size\"", 
-		cache_size_string);
-	return -1;
-      }
-      gf_log ("io-threads",
-	      GF_LOG_DEBUG,
-	      "Using conf->cache_size = %lld",
-	      conf->cache_size);
-    }
+  if (cache_size_string) {
+	  if (gf_string2bytesize (cache_size_string, &conf->cache_size) != 0) {
+		  gf_log ("io-threads", 
+			  GF_LOG_ERROR, 
+			  "invalid number format \"%s\" of \"option cache-size\"", 
+			  cache_size_string);
+		  return -1;
+	  }
+	  gf_log ("io-threads", GF_LOG_DEBUG,
+		  "Using conf->cache_size = %"PRIu64"", conf->cache_size);
+  }
   pthread_mutex_init (&conf->lock, NULL);
   pthread_cond_init (&conf->q_cond, NULL);
 

@@ -43,8 +43,8 @@ struct wb_file;
 
 
 struct wb_conf {
-  size_t aggregate_size;
-  size_t window_size;
+  uint64_t aggregate_size;
+  uint64_t window_size;
   char flush_behind;
 };
 
@@ -1280,9 +1280,8 @@ init (xlator_t *this)
 	}
     }
 
-  gf_log (this->name,
-	  GF_LOG_DEBUG,
-	  "using aggregate-size = %d", conf->aggregate_size);
+  gf_log (this->name, GF_LOG_DEBUG,
+	  "using aggregate-size = %"PRIu64"", conf->aggregate_size);
   
   conf->window_size = 0;
 
@@ -1304,7 +1303,7 @@ init (xlator_t *this)
   if (!conf->window_size && conf->aggregate_size)
     {
       gf_log (this->name, GF_LOG_WARNING,
-	      "setting window-size to be equal to aggregate-size(%"PRId32")",
+	      "setting window-size to be equal to aggregate-size(%"PRIu64")",
 	      conf->aggregate_size);
       conf->window_size = conf->aggregate_size;
     }
@@ -1312,8 +1311,8 @@ init (xlator_t *this)
   if (conf->window_size < conf->aggregate_size)
     {
       gf_log (this->name, GF_LOG_ERROR,
-	      "aggregate-size(%"PRId32") cannot be more than window-size"
-	      "(%"PRId32")", conf->window_size, conf->aggregate_size);
+	      "aggregate-size(%"PRIu64") cannot be more than window-size"
+	      "(%"PRIu64")", conf->window_size, conf->aggregate_size);
       FREE (conf);
       return -1;
     }
@@ -1323,10 +1322,8 @@ init (xlator_t *this)
   
   if (dict_get (options, "flush-behind"))
     {
-      if ((!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
-			"on")) ||
-	  (!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
-			"yes"))) {
+      if ((!strcasecmp (data_to_str (dict_get (options, "flush-behind")), "on")) ||
+	  (!strcasecmp (data_to_str (dict_get (options, "flush-behind")), "yes"))) {
 	if (conf->aggregate_size != 0) {
 	  gf_log (this->name, GF_LOG_WARNING,
 		  "aggregate-size is not zero, disabling flush-behind");

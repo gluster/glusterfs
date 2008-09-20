@@ -861,7 +861,7 @@ init (xlator_t *this)
 	  return -1;
 	}
       
-      gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_size = 0x%x",
+      gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_size = %"PRIu64"",
 	      conf->page_size);
     }
   
@@ -878,7 +878,7 @@ init (xlator_t *this)
 		  page_count_string);
 	  return -1;
 	}
-      gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_count = 0x%x",
+      gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_count = %u",
 	      conf->page_count);
     }
   

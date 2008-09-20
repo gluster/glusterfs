@@ -1278,10 +1278,8 @@ init (xlator_t *this)
 		  page_size_string);
 	  return -1;
 	}
-      gf_log (this->name, 
-	      GF_LOG_DEBUG, 
-	      "using page-size %d", 
-	      table->page_size);
+      gf_log (this->name, GF_LOG_DEBUG, 
+	      "using page-size %"PRIu64"",  table->page_size);
     }
   
   if (dict_get (options, "cache-size"))
@@ -1298,10 +1296,8 @@ init (xlator_t *this)
 	  return -1;
 	}
       
-      gf_log (this->name, 
-	      GF_LOG_DEBUG, 
-	      "using cache-size %d", 
-	      table->cache_size);
+      gf_log (this->name, GF_LOG_DEBUG, 
+	      "using cache-size %"PRIu64"", table->cache_size);
     }
   
   table->force_revalidate_timeout = 1;

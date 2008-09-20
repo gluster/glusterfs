@@ -99,8 +99,8 @@ void gf_print_bytes (void);
 void gf_log_volume_specfile (FILE *specfp);
 void gf_print_trace (int32_t signal);
 
-extern int64_t total_bytes_xferd;
-extern int64_t total_bytes_rcvd;
+extern uint64_t total_bytes_xferd;
+extern uint64_t total_bytes_rcvd;
 extern char *gf_fop_list[GF_FOP_MAXVALUE];
 extern char *gf_mop_list[GF_MOP_MAXVALUE];
 
@@ -277,7 +277,7 @@ int gf_string2uint16_base10 (const char *str, uint16_t *n);
 int gf_string2uint32_base10 (const char *str, uint32_t *n);
 int gf_string2uint64_base10 (const char *str, uint64_t *n);
 
-int gf_string2bytesize (const char *str, size_t *n);
+int gf_string2bytesize (const char *str, uint64_t *n);
 
 int gf_string2boolean (const char *str, gf_boolean_t *b);
 int gf_string2percent (const char *str, uint32_t *n);

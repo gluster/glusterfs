@@ -113,7 +113,7 @@ xlator_validate_given_options (xlator_t *xl)
  	data_pair_t     *pairs   = NULL;
  	int32_t          index   = 0;
  	int32_t          valid   = 0;
- 	int64_t          input_size = 0;
+ 	uint64_t         input_size = 0;
 	long long        inputll = 0;
 
  	if (!xl->std_options)
@@ -195,10 +195,8 @@ xlator_validate_given_options (xlator_t *xl)
   			break;
   		case GF_OPTION_TYPE_SIZET:
   		{
-  			size_t tmp_size = 0;
-
   			/* Check the range */
-  			if (gf_string2bytesize (pairs->value->data, &tmp_size) != 0) {
+  			if (gf_string2bytesize (pairs->value->data, &input_size) != 0) {
   				gf_log (xl->name,
   					GF_LOG_ERROR,
   					"invalid number format \"%s\" in \"option %s\"",
@@ -206,7 +204,6 @@ xlator_validate_given_options (xlator_t *xl)
   				return -1;
   			}
 
-  			input_size = (int64_t)tmp_size;
   			if (trav->min_value == -1) {
   				gf_log (xl->name, GF_LOG_DEBUG,
   					"no range check required for 'option %s %s'",

@@ -213,7 +213,7 @@ struct bctx_table {
 	int32_t             transaction;
 	xlator_t           *this;
 
-	size_t              page_size;       /* page-size of DB, 
+	uint64_t            page_size;       /* page-size of DB, 
 					      * DB->set_pagesize(), should be set before DB->open */
 };
 

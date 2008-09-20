@@ -53,7 +53,7 @@ struct client_proto_priv {
   char connected;
   int32_t n_minus_1;
   int32_t n;
-  size_t max_block_size;  /* maximum size of protocol data block that this client can recieve, 0 is unlimited */
+  uint64_t max_block_size;  /* maximum size of protocol data block that this client can recieve, 0 is unlimited */
   struct timeval last_sent;
   struct timeval last_received;
   gf_timer_t *timer;
