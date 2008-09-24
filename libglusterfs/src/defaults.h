@@ -168,8 +168,8 @@ int32_t default_rename (call_frame_t *frame,
 
 int32_t default_link (call_frame_t *frame,
 		      xlator_t *this,
-		      loc_t *loc,
-		      const char *newpath);
+		      loc_t *oldloc,
+		      loc_t *newloc);
 
 int32_t default_create (call_frame_t *frame,
 			xlator_t *this,

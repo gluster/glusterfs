@@ -119,6 +119,7 @@ struct _unify_local_t {
 			     */
 
   struct unify_self_heal_struct *sh_struct;
+  loc_t loc1, loc2;
 };
 typedef struct _unify_local_t unify_local_t;
 

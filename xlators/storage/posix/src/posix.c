@@ -80,6 +80,120 @@
         }
 
 
+dict_t *
+posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
+			 int need_xattr, struct stat *buf)
+{
+        ssize_t     xattr_size         = 0;
+        char *      databuf            = NULL;
+        const int   val_size           = 64;
+        char        version[val_size];
+        char        ctime[val_size];
+	char        layout[val_size];
+	char       *layout_p           = NULL;
+        int         _fd                = -1;
+	dict_t     *xattr              = NULL;
+	int         ret                = -1;
+
+
+	xattr = get_new_dict();
+	if (!xattr) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+		goto err;
+	}
+
+	xattr_size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 
+				val_size);
+
+	/* should size be put into the data_t ? */
+	if (xattr_size != -1) {
+		version[xattr_size] = '\0';
+		dict_set (xattr, GLUSTERFS_VERSION, 
+			  data_from_uint32 (strtoll (version, NULL, 10)));
+	}
+
+	xattr_size = lgetxattr (real_path, GLUSTERFS_CREATETIME, 
+				ctime, val_size);
+	if (xattr_size != -1) {
+		ctime[xattr_size] = '\0';
+		dict_set (xattr, GLUSTERFS_CREATETIME, 
+			  data_from_uint32 (strtoll (ctime, NULL, 10)));
+	}
+
+	xattr_size = lgetxattr (real_path, "trusted.glusterfs.dht", layout,
+				val_size);
+
+	/* should size be put into the data_t ? */
+	if (xattr_size != -1) {
+		layout[xattr_size] = '\0';
+		layout_p = memdup (layout, xattr_size);
+		dict_set_bin (xattr, "trusted.glusterfs.dht",
+			      layout_p, xattr_size);
+	}
+
+	if ((need_xattr > 0)
+	    && (buf->st_size <= need_xattr)
+	    && S_ISREG (buf->st_mode)) {
+		
+		_fd = open (real_path, O_RDONLY);
+
+		if (_fd == -1) {
+			gf_log (this->name, GF_LOG_ERROR, 
+				"opening file %s failed: %s",
+				real_path, strerror (errno));
+			goto err;
+		}
+      
+		databuf = malloc (buf->st_size);
+
+		if (!databuf) {
+			gf_log (this->name, GF_LOG_ERROR, 
+				"out of memory :(");
+			goto err;
+		}
+      
+		ret = gf_full_read (_fd, databuf, buf->st_size);
+		if (ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR, 
+				"read on file %s failed: %s", 
+				real_path, strerror (errno));
+			goto err;
+		}
+
+		ret = close (_fd);
+		_fd = -1;
+		if (ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR, 
+				"close on file %s failed: %s", 
+				real_path, strerror (errno));
+			goto err;
+		}
+      
+		ret = dict_set_bin (xattr, "glusterfs.content", 
+				    databuf, buf->st_size);
+		if (ret < 0) {
+			goto err;
+		}
+
+		/* To avoid double free in cleanup below */
+		databuf = NULL;
+	}
+
+	return xattr;
+
+err:
+	if (_fd != -1)
+		close (_fd);
+	if (databuf)
+		FREE (databuf);
+	if (xattr)
+		dict_destroy (xattr);
+
+	return NULL;
+}
+
+
 int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int32_t need_xattr)
@@ -89,13 +203,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         int32_t     op_ret             = -1;
         int32_t     op_errno           = 0;
         dict_t *    xattr              = NULL;
-        ssize_t     xattr_size         = 0;
-        char *      databuf            = NULL;
-        const int   val_size           = 64;
-        int         _fd                = -1;
-        char        version[val_size];
-        char        ctime[val_size];
-	int ret                        = -1;
+
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -116,93 +224,14 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         }
 
         if (need_xattr && (op_ret == 0)) {
-                xattr = get_new_dict();
-                xattr_size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 
-                                        val_size);
+		xattr = posix_lookup_xattr_fill (this, real_path,
+						 need_xattr, &buf);
 
-                /* should size be put into the data_t ? */
-                if (xattr_size != -1) {
-                        version[xattr_size] = '\0';
-                        dict_set (xattr, GLUSTERFS_VERSION, 
-                                  data_from_uint32 (strtoll(version, NULL, 10)));
-                }
-
-                xattr_size = lgetxattr (real_path, GLUSTERFS_CREATETIME, 
-                                        ctime, val_size);
-                if (xattr_size != -1) {
-                        ctime[xattr_size] = '\0';
-                        dict_set (xattr, GLUSTERFS_CREATETIME, 
-                                  data_from_uint32 (strtoll(ctime, NULL, 10)));
-                }
-
-                if ((need_xattr > 0)
-                    && (buf.st_size <= need_xattr)
-                    && S_ISREG (buf.st_mode)) {
-
-                        _fd = open (real_path, O_RDONLY);
-
-                        if (_fd == -1) {
-                                op_errno = errno;
-                                gf_log (this->name, GF_LOG_ERROR, 
-                                        "opening file %s failed: %s",
-                                        real_path, strerror (op_errno));
-                                goto out;
-                        }
-      
-                        databuf = malloc (buf.st_size);
-
-                        if (!databuf) {
-                                op_errno = errno;
-                                gf_log (this->name, GF_LOG_ERROR, 
-                                        "out of memory :(");
-                                goto out;
-                        }
-      
-                        op_ret = gf_full_read (_fd, databuf, buf.st_size);
-                        if (op_ret == -1) {
-                                op_errno = errno;
-                                gf_log (this->name, GF_LOG_ERROR, 
-                                        "read on file %s failed: %s", 
-                                        real_path, strerror (op_errno));
-                                goto out;
-                        }
-
-                        op_ret = close (_fd);
-                        if (op_ret == -1) {
-                                op_errno = errno;
-                                gf_log (this->name, GF_LOG_ERROR, 
-                                        "close on file %s failed: %s", 
-                                        real_path, strerror (op_errno));
-                                goto out;
-                        }
-      
-                        ret = dict_set_bin (xattr, "glusterfs.content", 
-					    databuf, buf.st_size);
-			if (ret < 0) {
-				op_errno = -ret;
-				goto out;
-			}
-
-			/* To avoid double free in cleanup below */
-			databuf = NULL;
-                }
         }
 	
 	op_ret = 0;
- out:
+out:
         frame->root->rsp_refs = NULL;
-	if (op_ret == -1) {
-		if (databuf)
-			FREE (databuf);
-		if (_fd > 0) {
-			close (_fd);
-			_fd = -1;
-		}
-		if (xattr) {
-			dict_destroy (xattr);
-			xattr = NULL;
-		}
-	}
 
         if (xattr)
                 dict_ref (xattr);
@@ -1057,7 +1086,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
 
 int
 posix_link (call_frame_t *frame, xlator_t *this,
-            loc_t *oldloc, const char *newpath)
+            loc_t *oldloc, loc_t *newloc)
 {
         int32_t     op_ret       = -1;
         int32_t     op_errno     = 0;
@@ -1065,23 +1094,24 @@ posix_link (call_frame_t *frame, xlator_t *this,
         char *      real_newpath = 0;
         struct stat stbuf        = {0, };
 
+
         DECLARE_OLD_FS_ID_VAR;
     
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (oldloc, out);
-        VALIDATE_OR_GOTO (newpath, out);
+        VALIDATE_OR_GOTO (newloc, out);
   
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
-        MAKE_REAL_PATH (real_newpath, this, newpath);
+        MAKE_REAL_PATH (real_newpath, this, newloc->path);
 
         op_ret = link (real_oldpath, real_newpath);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_WARNING, 
                         "link %s to %s failed: %s", 
-                        oldloc->path, newpath, strerror (op_errno));
+                        oldloc->path, newloc->path, strerror (op_errno));
                 goto out;
         }
     

@@ -102,6 +102,7 @@ typedef struct _afr_local {
   afr_selfheal_private_t *asp;
   uint32_t latest_ctime, latest_version;
   dict_t *latest_xattr;
+  loc_t locsrc, locdst;
 } afr_local_t;
 
 typedef struct _afr_statfs_local {

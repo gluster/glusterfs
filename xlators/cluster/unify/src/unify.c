@@ -108,6 +108,8 @@ unify_local_wipe (unify_local_t *local)
   if (local->name) {
     FREE (local->name);
   }
+  loc_wipe (&local->loc1);
+  loc_wipe (&local->loc2);
 }
 
 
@@ -3693,16 +3695,12 @@ unify_ns_link_cbk (call_frame_t *frame,
   for (index = 0; list[index] != -1; index++) {
     char need_break = list[index+1] == -1;
     if (priv->xl_array[list[index]] != NS (this)) {
-      loc_t tmp_loc = {
-	.inode = local->inode,
-	.path = local->path,
-      };
       STACK_WIND (frame,
 		  unify_link_cbk,
 		  priv->xl_array[list[index]],
 		  priv->xl_array[list[index]]->fops->link,
-		  &tmp_loc,
-		  local->name);
+		  &local->loc1,
+		  &local->loc2);
     }
     if (need_break)
       break;
@@ -3717,33 +3715,28 @@ unify_ns_link_cbk (call_frame_t *frame,
 int32_t
 unify_link (call_frame_t *frame,
 	    xlator_t *this,
-	    loc_t *loc,
-	    const char *newname)
+	    loc_t *oldloc,
+	    loc_t *newloc)
 {
   unify_local_t *local = NULL;
 
-  UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
+  UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (oldloc);
+  UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (newloc);
 
   /* Initialization */
   INIT_LOCAL (frame, local);
-  local->inode = loc->inode;
 
-  local->path = strdup (loc->path);
-  local->name = strdup (newname);
-  if (!local->path || !local->name) {
-    gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
-    STACK_UNWIND (frame, -1, ENOMEM, loc->inode, NULL);
-    return 0;
-  }
+  loc_copy (&local->loc1, oldloc);
+  loc_copy (&local->loc2, newloc);
 
-  local->list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
+  local->list = data_to_ptr (dict_get (oldloc->inode->ctx, this->name));
 
   STACK_WIND (frame,
 	      unify_ns_link_cbk,
 	      NS(this),
 	      NS(this)->fops->link,
-	      loc,
-	      newname);
+	      oldloc,
+	      newloc);
 
   return 0;
 }

@@ -1445,15 +1445,16 @@ stripe_symlink (call_frame_t *frame,
 int32_t
 stripe_link (call_frame_t *frame,
 	     xlator_t *this,
-	     loc_t *loc,
-	     const char *newname)
+	     loc_t *oldloc,
+	     loc_t *newloc)
 {
 	int send_fop_to_all = 0;
 	stripe_private_t *priv = this->private;
 	stripe_local_t *local = NULL;
 	xlator_list_t *trav = this->children;
   
-	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
+	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (oldloc);
+	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (newloc);
 
 	if (priv->first_child_down) {
 		gf_log (this->name, GF_LOG_WARNING, "First node down, returning EIO");
@@ -1462,7 +1463,7 @@ stripe_link (call_frame_t *frame,
 	}
 
 
-	if (S_ISDIR (loc->inode->st_mode) || S_ISREG (loc->inode->st_mode))
+	if (S_ISREG (oldloc->inode->st_mode))
 		send_fop_to_all = 1;
 
 	if (!send_fop_to_all) {
@@ -1470,7 +1471,7 @@ stripe_link (call_frame_t *frame,
 			    stripe_common_inode_cbk,
 			    trav->xlator,
 			    trav->xlator->fops->link,
-			    loc,  newname);
+			    oldloc, newloc);
 	} else {
 		/* Initialization */
 		local = calloc (1, sizeof (stripe_local_t));
@@ -1485,7 +1486,7 @@ stripe_link (call_frame_t *frame,
 				    stripe_stack_unwind_inode_cbk,
 				    trav->xlator,
 				    trav->xlator->fops->link,
-				    loc, newname);
+				    oldloc, newloc);
 			trav = trav->next;
 		}
 	}

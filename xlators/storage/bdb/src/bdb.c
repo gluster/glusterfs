@@ -508,7 +508,7 @@ int32_t
 bdb_link (call_frame_t *frame, 
           xlator_t *this,
           loc_t *oldloc,
-          const char *newpath)
+          loc_t *newloc)
 {
 	frame->root->rsp_refs = NULL;
 	STACK_UNWIND (frame, -1, EPERM, NULL, NULL);

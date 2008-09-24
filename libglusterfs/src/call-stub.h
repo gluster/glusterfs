@@ -257,7 +257,7 @@ typedef struct {
 		struct {
 			fop_link_t fn;
 			loc_t oldloc;
-			const char *newpath;
+			loc_t newloc;
 		} link;
 		struct {
 			fop_link_cbk_t fn;
@@ -749,7 +749,7 @@ call_stub_t *
 fop_link_stub (call_frame_t *frame,
 	       fop_link_t fn,
 	       loc_t *oldloc,
-	       const char *newpath);
+	       loc_t *newloc);
 
 call_stub_t *
 fop_link_cbk_stub (call_frame_t *frame,

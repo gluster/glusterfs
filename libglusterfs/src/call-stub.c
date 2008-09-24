@@ -24,33 +24,6 @@
 
 #include "call-stub.h"
 
-static void
-loc_wipe (loc_t *loc)
-{
-	GF_VALIDATE_OR_GOTO ("call-stub", loc, out);
-
-	FREE (loc->path);
-	if (loc->inode)
-		inode_unref (loc->inode);
-out:
-	return;
-}
-
-
-static void
-loc_copy (loc_t *dest, loc_t *src)
-{
-	GF_VALIDATE_OR_GOTO ("call-stub", dest, out);
-	GF_VALIDATE_OR_GOTO ("call-stub", src, out);
-
-	dest->path = strdup (src->path);
-	dest->ino = src->ino;
-	if (src->inode)
-		dest->inode = inode_ref (src->inode);
-out:
-	return;
-}
-
 
 static call_stub_t *
 stub_new (call_frame_t *frame,
@@ -919,20 +892,21 @@ call_stub_t *
 fop_link_stub (call_frame_t *frame,
 	       fop_link_t fn,
 	       loc_t *oldloc,
-	       const char *newpath)
+	       loc_t *newloc)
 {
 	call_stub_t *stub = NULL;
 
 	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 	GF_VALIDATE_OR_GOTO ("call-stub", oldloc, out);
-	GF_VALIDATE_OR_GOTO ("call-stub", newpath, out);
+	GF_VALIDATE_OR_GOTO ("call-stub", newloc, out);
 
 	stub = stub_new (frame, 1, GF_FOP_LINK);
 	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
 	stub->args.link.fn = fn;
 	loc_copy (&stub->args.link.oldloc, oldloc);
-	stub->args.link.newpath = strdup (newpath);
+	loc_copy (&stub->args.link.newloc, newloc);
+
 out:
 	return stub;
 }
@@ -2023,9 +1997,9 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.link.fn (stub->frame,
 				    stub->frame->this,
 				    &stub->args.link.oldloc,
-				    stub->args.link.newpath);
+				    &stub->args.link.newloc);
 		loc_wipe (&stub->args.link.oldloc);
-		FREE (stub->args.link.newpath);
+		loc_wipe (&stub->args.link.newloc);
 	}
 	break;
   

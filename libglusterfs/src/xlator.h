@@ -591,7 +591,7 @@ typedef int32_t (*fop_rename_t) (call_frame_t *frame,
 typedef int32_t (*fop_link_t) (call_frame_t *frame,
 			       xlator_t *this,
 			       loc_t *oldloc,
-			       const char *newpath);
+			       loc_t *newloc);
 
 typedef int32_t (*fop_create_t) (call_frame_t *frame,
 				 xlator_t *this,
@@ -890,6 +890,10 @@ void xlator_foreach (xlator_t *this,
 xlator_t *xlator_search_by_name (xlator_t *any, const char *name);
 
 void inode_destroy_notify (inode_t *inode, const char *xlname);
+
+int loc_copy (loc_t *dst, loc_t *src);
+#define loc_dup(src, dst) loc_copy(dst, src)
+void loc_wipe (loc_t *loc);
 
 #define GF_STAT_PRINT_FMT_STR "%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32"\n"
 

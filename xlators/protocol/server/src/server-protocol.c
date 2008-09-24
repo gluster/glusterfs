@@ -2893,15 +2893,18 @@ server_stub_cbk (call_frame_t *frame,
 						 ENOENT,
 						 NULL,
 						 NULL);
-				FREE (stub->args.link.oldloc.path);
-				FREE (stub->args.link.newpath);
+				server_loc_wipe (&stub->args.link.oldloc);
+				server_loc_wipe (&stub->args.link.newloc);
 				FREE (stub);
 				return 0;
 			}
 
 			stub->args.link.oldloc.inode = inode_ref (server_inode);
 			stub->args.link.oldloc.ino = stbuf->st_ino;
-			call_resume (stub);
+			if (stub->args.link.newloc.parent == NULL)
+			  do_lookup (frame, BOUND_XL(frame), &stub->args.link.newloc, 0);
+			else 
+			  call_resume (stub);
 			break;
 		}
 
@@ -3911,18 +3914,19 @@ int32_t
 server_link_resume (call_frame_t *frame,
                     xlator_t *this,
                     loc_t *oldloc,
-                    const char *newpath)
+		    loc_t *newloc)
 {
   server_state_t *state = STATE (frame);
 
-  state->inode = oldloc->inode;
-
+  state->inode  = oldloc->inode;
+  state->inode2 = newloc->inode = inode_ref (oldloc->inode);
+  
   STACK_WIND (frame,
               server_link_cbk,
               BOUND_XL (frame),
               BOUND_XL (frame)->fops->link,
               oldloc,
-              newpath);
+              newloc);
   return 0;
 }
 
@@ -5208,11 +5212,12 @@ server_link (call_frame_t *frame,
 	server_state_fill (frame, req, GF_FOP_LINK);
 
 	server_loc_fill (&(state->loc), state, state->path);
+	server_loc_fill (&(state->loc2), state, state->path);
 
 	link_stub = fop_link_stub (frame, server_link_resume,
 				   &(state->loc), state->name);
 
-	if (!state->loc.inode) {
+	if (!state->loc.inode || !state->loc.parent) {
 		/* make a call stub and call lookup to get the inode structure.
 		 * resume call after lookup is successful */
 		frame->local = link_stub;

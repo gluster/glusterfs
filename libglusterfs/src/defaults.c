@@ -637,14 +637,14 @@ default_link_cbk (call_frame_t *frame,
 int32_t
 default_link (call_frame_t *frame,
 	      xlator_t *this,
-	      loc_t *loc,
-	      const char *newname)
+	      loc_t *oldloc,
+	      loc_t *newloc)
 {
   STACK_WIND (frame,
 	      default_link_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->link,
-	      loc, newname);
+	      oldloc, newloc);
   return 0;
 }
 

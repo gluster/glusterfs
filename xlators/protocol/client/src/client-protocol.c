@@ -755,7 +755,7 @@ int32_t
 client_link (call_frame_t *frame,
              xlator_t *this,
              loc_t *oldloc,
-             const char *newpath)
+             loc_t *newloc)
 {
   int ret = -1;
   gf_hdr_common_t *hdr = NULL;
@@ -765,14 +765,14 @@ client_link (call_frame_t *frame,
   size_t newlen = 0;
 
   oldlen = strlen (oldloc->path);
-  newlen = strlen (newpath);
+  newlen = strlen (newloc->path);
 
   hdrlen = gf_hdr_len (req, oldlen + 1 + newlen + 1);
   hdr    = gf_hdr_new (req, oldlen + 1 + newlen + 1);
   req    = gf_param (hdr);
 
   strcpy (req->oldpath, oldloc->path);
-  strcpy (req->newpath + oldlen + 1, newpath);
+  strcpy (req->newpath + oldlen + 1, newloc->path);
 
   req->oldino = hton64 (this_ino_get (oldloc->inode, this));
 

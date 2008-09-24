@@ -32,13 +32,11 @@
 #include <assert.h>
 
 /* TODO: 
-   complete inode_table_new ->root
-   add validation
+   move latest accessed dentry to list_head of inode
 */
 
 static inode_t *
 __inode_unref (inode_t *inode);
-
 
 
 static int
@@ -92,7 +90,7 @@ __dentry_hash (dentry_t *dentry)
 
 
 static int
-__dentry_is_hashed (dentry_t *dentry)
+__is_dentry_hashed (dentry_t *dentry)
 {
         return !list_empty (&dentry->hash);
 }
@@ -133,7 +131,7 @@ __inode_unhash (inode_t *inode)
 
 
 static int
-__inode_is_hashed (inode_t *inode)
+__is_inode_hashed (inode_t *inode)
 {
         return !list_empty (&inode->hash);
 }
@@ -273,7 +271,7 @@ static void
 __inode_passivate (inode_t *inode)
 {
         dentry_t      *dentry = NULL;
-        dentry_t      *tmp = NULL;
+        dentry_t      *t = NULL;
         inode_table_t *table = NULL;
 
         table = inode->table;
@@ -286,8 +284,8 @@ __inode_passivate (inode_t *inode)
                 inode->ino, table->lru_size, table->lru_limit,
                 table->active_size, table->purge_size);
 
-        list_for_each_entry_safe (dentry, tmp, &inode->dentry_list, inode_list) {
-                if (!__dentry_is_hashed (dentry))
+        list_for_each_entry_safe (dentry, t, &inode->dentry_list, inode_list) {
+                if (!__is_dentry_hashed (dentry))
                         __dentry_unset (dentry);
         }
 }
@@ -297,7 +295,7 @@ static void
 __inode_retire (inode_t *inode)
 {
         dentry_t      *dentry = NULL;
-        dentry_t      *tmp = NULL;
+        dentry_t      *t = NULL;
         inode_table_t *table = NULL;
 
         table = inode->table;
@@ -313,7 +311,7 @@ __inode_retire (inode_t *inode)
 	__inode_unhash (inode);
         assert (list_empty (&inode->child_list));
 
-        list_for_each_entry_safe (dentry, tmp, &inode->dentry_list, inode_list) {
+        list_for_each_entry_safe (dentry, t, &inode->dentry_list, inode_list) {
                 __dentry_unset (dentry);
         }
 }
@@ -332,7 +330,7 @@ __inode_unref (inode_t *inode)
         if (!inode->ref) {
                 inode->table->active_size--;
 
-                if (inode->nlookup && __inode_is_hashed (inode))
+                if (inode->nlookup && __is_inode_hashed (inode))
                         __inode_passivate (inode);
                 else
                         __inode_retire (inode);
@@ -345,9 +343,6 @@ __inode_unref (inode_t *inode)
 static inode_t *
 __inode_ref (inode_t *inode)
 {
-	if (inode->ino != 1)
-		gf_log ("inode", GF_LOG_DEBUG, "");;
-
         if (!inode->ref) {
                 inode->table->lru_size--;
                 __inode_activate (inode);
@@ -468,7 +463,6 @@ inode_new (inode_table_t *table)
 static inode_t *
 __inode_lookup (inode_t *inode)
 {
-        /* TODO: search inode->ino inode and perform nlookup++ on that */
         inode->nlookup++;
 
         return inode;
@@ -535,7 +529,7 @@ __copy_dentries (inode_t *oldi, inode_t *newi)
                         newd = tmp;
                 }
 
-                if (__dentry_is_hashed (dentry)) {
+                if (__is_dentry_hashed (dentry)) {
                         __dentry_unhash (dentry);
                         __dentry_hash (newd);
                 }
@@ -653,7 +647,7 @@ inode_lookup (inode_t *inode)
 
         pthread_mutex_lock (&table->lock);
         {
-		if (__inode_is_hashed (inode))
+		if (__is_inode_hashed (inode))
 			lookup_inode = inode;
 		else
 			lookup_inode = __inode_search (table, inode->ino);
@@ -676,7 +670,7 @@ inode_forget (inode_t *inode, uint64_t nlookup)
 
         pthread_mutex_lock (&table->lock);
         {
-		if (__inode_is_hashed (inode))
+		if (__is_inode_hashed (inode))
 			forget_inode = inode;
 		else
 			forget_inode = __inode_search (table, inode->ino);
@@ -753,7 +747,7 @@ __dentry_search_arbit (inode_t *inode)
 	dentry_t *trav = NULL;
 
 	list_for_each_entry (trav, &inode->dentry_list, inode_list) {
-		if (__dentry_is_hashed (trav)) {
+		if (__is_dentry_hashed (trav)) {
 			dentry = trav;
 			break;
 		}
@@ -859,8 +853,12 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
 int
 inode_table_prune (inode_table_t *table)
 {
-        int              ret = 0;
-        struct list_head purge = {0, };
+        int               ret = 0;
+        struct list_head  purge = {0, };
+	inode_t          *del = NULL;
+	inode_t          *tmp = NULL;
+	inode_t          *entry = NULL;
+
 
         INIT_LIST_HEAD (&purge);
 
@@ -868,11 +866,8 @@ inode_table_prune (inode_table_t *table)
         {
                 while (table->lru_limit
                        && table->lru_size > (table->lru_limit)) {
-                        struct list_head *next;
-                        inode_t *entry;
         
-                        next = table->lru.next;
-                        entry = list_entry (next, inode_t, list);
+                        entry = list_entry (table->lru.next, inode_t, list);
 
                         table->lru_size--;
 			__inode_retire (entry);
@@ -881,18 +876,18 @@ inode_table_prune (inode_table_t *table)
                 }
 
                 list_splice_init (&table->purge, &purge);
+		table->purge_size = 0;
         }
         pthread_mutex_unlock (&table->lock);
 
         {
-                inode_t *del = NULL, *tmp = NULL;
-
                 list_for_each_entry_safe (del, tmp, &purge, list) {
                         list_del_init (&del->list);
                         __inode_forget (del, 0);
                         __inode_destroy (del);
                 }
         }
+
         return ret;
 }
 

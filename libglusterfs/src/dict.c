@@ -979,7 +979,7 @@ data_to_int64 (data_t *data)
 	ERR_ABORT (str);
 	memcpy (str, data->data, data->len);
 	str[data->len] = '\0';
-	return strtoll (str, NULL, 0);
+	return strtoull (str, NULL, 0);
 }
 
 int32_t
@@ -993,7 +993,7 @@ data_to_int32 (data_t *data)
 	memcpy (str, data->data, data->len);
 	str[data->len] = '\0';
 
-	return strtol (str, NULL, 0);
+	return strtoul (str, NULL, 0);
 }
 
 int16_t
@@ -1270,6 +1270,26 @@ err:
 		data_unref (data);
 	return ret;
 }
+
+
+int
+dict_set_int32 (dict_t *this, char *key, int32_t val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_int32 (val);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
+	return ret;
+}
+
 
 int
 dict_set_static_ptr (dict_t *this, char *key, void *ptr)
