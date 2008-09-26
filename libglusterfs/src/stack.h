@@ -217,6 +217,7 @@ copy_frame (call_frame_t *frame)
 
 	newctx->frames.this = frame->this;
 	newctx->frames.root = newctx;
+	newctx->pool = oldctx->pool;
 
 	LOCK (&oldctx->pool->lock);
 	{
@@ -225,8 +226,6 @@ copy_frame (call_frame_t *frame)
 		
 	}
 	UNLOCK (&oldctx->pool->lock);
-
-	newctx->pool = oldctx->pool;
 
 	LOCK_INIT (&newctx->frames.lock);
 

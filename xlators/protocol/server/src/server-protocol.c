@@ -5215,7 +5215,7 @@ server_link (call_frame_t *frame,
 	server_loc_fill (&(state->loc2), state, state->path);
 
 	link_stub = fop_link_stub (frame, server_link_resume,
-				   &(state->loc), state->name);
+				   &(state->loc), &(state->loc2));
 
 	if (!state->loc.inode || !state->loc.parent) {
 		/* make a call stub and call lookup to get the inode structure.
@@ -6355,7 +6355,39 @@ unknown_op_cbk (call_frame_t *frame,
 }
 
 /*
- * get_frame_for_call - create a frame into the call_ctx_t capable of
+ * get_frame_for_transport - get call frame for specified transport object
+ *
+ * @trans: transport object
+ *
+ */
+static call_frame_t *
+get_frame_for_transport (transport_t *trans)
+{
+  call_frame_t *frame = NULL;
+  call_pool_t *pool = trans->xl->ctx->pool;
+  server_proto_priv_t *priv = trans->xl_private;
+  server_state_t *state = NULL;;
+
+
+  frame = create_frame (trans->xl, pool);
+
+  state = calloc (1, sizeof (*state));
+
+  if (priv->bound_xl)
+    state->itable = priv->bound_xl->itable;
+
+  state->bound_xl = priv->bound_xl;
+  state->trans = transport_ref (trans);
+
+  frame->root->trans = trans;
+  frame->root->state = state;        /* which socket */
+  frame->root->unique = 0;           /* which call */
+
+  return frame;
+}
+
+/*
+ * get_frame_for_call - create a frame into the capable of
  *                      generating and replying the reply packet by itself.
  *                      By making a call with this frame, the last UNWIND
  *                      function will have all needed state from its
@@ -6370,65 +6402,20 @@ unknown_op_cbk (call_frame_t *frame,
 static call_frame_t *
 get_frame_for_call (transport_t *trans, gf_hdr_common_t *hdr)
 {
-  call_pool_t *pool = NULL;
-  call_ctx_t *_call = NULL;
-  server_state_t *state = NULL;
-  server_proto_priv_t *priv = NULL;
+  call_frame_t *frame = NULL;
 
-  priv = trans->xl_private;
-  pool = trans->xl->ctx->pool;
 
-  if (!pool)
-    {
-      pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
-      if (!pool)
-        {
-          gf_log (trans->xl->name, GF_LOG_ERROR, "could not malloc");
-          return NULL;
-        }
-      LOCK_INIT (&pool->lock);
-      INIT_LIST_HEAD (&pool->all_frames);
-    }
+  frame = get_frame_for_transport (trans);
 
-  state = calloc (1, sizeof (*state));
-  if (!state)
-    {
-      gf_log (trans->xl->name, GF_LOG_ERROR, "could not malloc");
-      return NULL;
-    }
+  frame->op   = ntoh32 (hdr->op);
+  frame->type = ntoh32 (hdr->type);
 
-  _call = (void *) calloc (1, sizeof (*_call));
-  if (!_call)
-    {
-      FREE (state);
-      gf_log (trans->xl->name, GF_LOG_ERROR, "could not malloc");
-      return NULL;
-    }
+  frame->root->uid         = ntoh32 (hdr->req.uid);
+  frame->root->unique      = ntoh64 (hdr->callid);      /* which call */
+  frame->root->gid         = ntoh32 (hdr->req.gid);
+  frame->root->pid         = ntoh32 (hdr->req.pid);
 
-  _call->pool = pool;
-
-  LOCK (&pool->lock);
-  {
-    list_add (&_call->all_frames, &pool->all_frames);
-  }
-  UNLOCK (&pool->lock);
-
-  state->bound_xl = priv->bound_xl;
-  state->trans    = transport_ref (trans);
-
-  _call->trans    = trans;
-  _call->state    = state;                        /* which socket */
-  _call->unique   = ntoh64 (hdr->callid);         /* which call */
-
-  _call->frames.root = _call;
-  _call->frames.this = trans->xl;
-  _call->frames.op   = ntoh32 (hdr->op);
-  _call->frames.type = ntoh32 (hdr->type);
-  _call->uid         = ntoh32 (hdr->req.uid);
-  _call->gid         = ntoh32 (hdr->req.gid);
-  _call->pid         = ntoh32 (hdr->req.pid);
-
-  return &_call->frames;
+  return frame;
 }
 
 /*
@@ -6598,55 +6585,6 @@ server_nop_cbk (call_frame_t *frame,
   return 0;
 }
 
-/*
- * get_frame_for_transport - get call frame for specified transport object
- *
- * @trans: transport object
- *
- */
-static call_frame_t *
-get_frame_for_transport (transport_t *trans)
-{
-  call_ctx_t *_call = NULL;
-  call_pool_t *pool = trans->xl->ctx->pool;
-  server_proto_priv_t *priv = trans->xl_private;
-  server_state_t *state = NULL;;
-
-  _call = (void *) calloc (1, sizeof (*_call));
-  ERR_ABORT (_call);
-
-  if (!pool) {
-    pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
-    ERR_ABORT (pool);
-
-    LOCK_INIT (&pool->lock);
-    INIT_LIST_HEAD (&pool->all_frames);
-  }
-
-  _call->pool = pool;
-
-  LOCK (&_call->pool->lock);
-  {
-    list_add (&_call->all_frames, &_call->pool->all_frames);
-  }
-  UNLOCK (&_call->pool->lock);
-
-  state = calloc (1, sizeof (*state));
-  ERR_ABORT (state);
-
-  state->itable = priv->bound_xl->itable;
-
-  state->bound_xl = priv->bound_xl;
-  state->trans = transport_ref (trans);
-  _call->trans = trans;
-  _call->state = state;        /* which socket */
-  _call->unique = 0;           /* which call */
-
-  _call->frames.root = _call;
-  _call->frames.this = trans->xl;
-
-  return &_call->frames;
-}
 
 
 /*

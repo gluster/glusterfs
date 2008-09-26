@@ -375,7 +375,7 @@ dht_selfheal_directory (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 
 	if (holes > missing) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"%d holes and %d free subvolumes -- not fixing",
+			"%d holes and %d pigeons -- not fixing",
 			holes, missing);
 		ret = 0;
 		goto sorry_no_fix;

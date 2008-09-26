@@ -5276,19 +5276,10 @@ static void
 afr_check_xattr (xlator_t *this, 
 		 xlator_t *child)
 {
-  call_ctx_t *cctx = NULL;
+  call_frame_t *frame = NULL;
   call_pool_t *pool = this->ctx->pool;
-  cctx = calloc (1, sizeof (*cctx));
-  ERR_ABORT (cctx);
-  cctx->frames.root  = cctx;
-  cctx->frames.this  = this;    
-  cctx->uid = 100; /* Make it some user */
-  cctx->pool = pool;
-  LOCK (&pool->lock);
-  {
-    list_add (&cctx->all_frames, &pool->all_frames);
-  }
-  UNLOCK (&pool->lock);
+
+  frame = create_frame (this, pool);
   
   {
     dict_t *dict = get_new_dict();
@@ -5299,7 +5290,7 @@ afr_check_xattr (xlator_t *this,
     dict_set (dict, "trusted.glusterfs-afr-test", 
 	      bin_to_data("testing", 7));
 
-    STACK_WIND_COOKIE ((&cctx->frames), 
+    STACK_WIND_COOKIE (frame,
 		       afr_check_xattr_cbk,
 		       child->name,
 		       child,

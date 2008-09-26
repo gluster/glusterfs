@@ -512,24 +512,14 @@ notify (xlator_t *this,
         ...)
 {
 	trash_private_t *priv = this->private;
+	call_frame_t    *frame = NULL;
 
 	switch (event)
 	{
 	case GF_EVENT_CHILD_UP:
 	{
 		/* mkdir (priv->trash_dir); */
-		call_ctx_t *cctx;
-		call_pool_t *pool = this->ctx->pool;
-		cctx = calloc (1, sizeof (*cctx));
-		ERR_ABORT (cctx);
-		cctx->frames.root  = cctx;
-		cctx->frames.this  = this;
-		cctx->pool = pool;
-		LOCK (&pool->lock);
-		{
-			list_add (&cctx->all_frames, &pool->all_frames);
-		}
-		UNLOCK (&pool->lock);
+		frame = create_frame (this, this->ctx->pool);
 		{
 			loc_t tmp_loc = {
 				.ino = 0,
@@ -537,7 +527,7 @@ notify (xlator_t *this,
 				.path = priv->trash_dir
 			};
 			/* TODO: create the directory with proper permissions */
-			STACK_WIND ((&cctx->frames),
+			STACK_WIND (frame,
 				    trash_mkdir_bg_cbk,
 				    this->children->xlator,
 				    this->children->xlator->fops->mkdir,

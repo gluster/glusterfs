@@ -204,48 +204,38 @@ get_call_frame_for_req (fuse_state_t *state, char d)
         call_pool_t *pool = state->pool;
         fuse_req_t req = state->req;
         const struct fuse_ctx *ctx = NULL;
-        call_ctx_t *cctx = NULL;
+	call_frame_t *frame = NULL;
         xlator_t *this = NULL;
         fuse_private_t *priv = NULL;
 
-        cctx = calloc (1, sizeof (*cctx));
-        ERR_ABORT (cctx);
-        cctx->frames.root = cctx;
+
+	if (req) {
+		this = fuse_req_userdata (req);
+	} else {
+		this = state->this;
+	}
+	priv = this->private;
+
+	frame = create_frame (this, pool);
 
         if (req) {
                 ctx = fuse_req_ctx(req);
 
-                cctx->uid = ctx->uid;
-                cctx->gid = ctx->gid;
-                cctx->pid = ctx->pid;
-                cctx->unique = req_callid (req);
-        }
-
-        if (req) {
-                this = fuse_req_userdata (req);
-                cctx->frames.this = this;
-                priv = this->private;
-        } else {
-                cctx->frames.this = state->this;
+                frame->root->uid    = ctx->uid;
+                frame->root->gid    = ctx->gid;
+                frame->root->pid    = ctx->pid;
+                frame->root->unique = req_callid (req);
         }
 
         if (d) {
-                cctx->req_refs = dict_ref (get_new_dict ());
-                dict_set (cctx->req_refs, NULL, priv->buf);
-                cctx->req_refs->is_locked = 1;
+                frame->root->req_refs = dict_ref (get_new_dict ());
+                dict_set (frame->root->req_refs, NULL, priv->buf);
+                frame->root->req_refs->is_locked = 1;
         }
 
-        cctx->pool = pool;
-        LOCK (&pool->lock);
-	{
-	  list_add (&cctx->all_frames, &pool->all_frames);
-	  pool->cnt++;
-	}
-        UNLOCK (&pool->lock);
+        frame->type = GF_OP_TYPE_FOP_REQUEST;
 
-        cctx->frames.type = GF_OP_TYPE_FOP_REQUEST;
-
-        return &cctx->frames;
+        return frame;
 }
 
 

@@ -72,26 +72,17 @@ quota_statvfs_cbk (call_frame_t *frame,
 void 
 gf_quota_update_current_free_disk (xlator_t *this)
 {
-	call_ctx_t *cctx = NULL;
+	call_frame_t *frame = NULL;
 	call_pool_t *pool = this->ctx->pool;
 
-	cctx = calloc (1, sizeof (*cctx));
-	ERR_ABORT (cctx);
-	cctx->frames.root  = cctx;
-	cctx->frames.this  = this;    
-	cctx->pool = pool;
-	LOCK (&pool->lock);
-	{
-		list_add (&cctx->all_frames, &pool->all_frames);
-	}
-	UNLOCK (&pool->lock);
+	frame = create_frame (this, pool);
   
 	{
 		loc_t tmp_loc = {
 			.inode = NULL,
 			.path = "/",
 		};
-		STACK_WIND ((&cctx->frames), 
+		STACK_WIND (frame,
 			    quota_statvfs_cbk,
 			    this->children->xlator,
 			    this->children->xlator->fops->statfs,
@@ -757,27 +748,17 @@ quota_getxattr_cbk (call_frame_t *frame,
 void
 gf_quota_get_disk_usage (xlator_t *this)
 {
-	call_ctx_t *cctx = NULL;
+	call_frame_t *frame = NULL;
 	call_pool_t *pool = this->ctx->pool;
 
-	cctx = calloc (1, sizeof (*cctx));
-	ERR_ABORT (cctx);
-	cctx->frames.root  = cctx;
-	cctx->frames.this  = this;    
-	cctx->pool = pool;
-	LOCK (&pool->lock);
-	{
-		list_add (&cctx->all_frames, &pool->all_frames);
-	}
-	UNLOCK (&pool->lock);
-  
+	frame = create_frame (this, pool);
 	{
 		loc_t tmp_loc = {
 			.inode = NULL,
 			.path = "/",
 		};
 
-		STACK_WIND ((&cctx->frames), 
+		STACK_WIND (frame,
 			    quota_getxattr_cbk,
 			    this->children->xlator,
 			    this->children->xlator->fops->getxattr,
@@ -882,21 +863,11 @@ init (xlator_t *this)
 void 
 fini (xlator_t *this)
 {
-	call_ctx_t *cctx = NULL;
+	call_frame_t *frame = NULL;
 	struct quota_priv *_private = this->private;
 	call_pool_t *pool = this->ctx->pool;
 
-	cctx = calloc (1, sizeof (*cctx));
-	ERR_ABORT (cctx);
-	cctx->frames.root  = cctx;
-	cctx->frames.this  = this;    
-	cctx->pool = pool;
-	LOCK (&pool->lock);
-	{
-		list_add (&cctx->all_frames, &pool->all_frames);
-	}
-	UNLOCK (&pool->lock);
-  
+	frame = create_frame (this, this->ctx->pool);
 	{
 		dict_t *dict = get_new_dict ();
 		loc_t tmp_loc = {
@@ -906,7 +877,7 @@ fini (xlator_t *this)
 		dict_set (dict, "trusted.glusterfs-quota-du", 
 			  data_from_uint64 (_private->current_disk_usage));
 
-		STACK_WIND ((&cctx->frames), 
+		STACK_WIND (frame,
 			    quota_setxattr_cbk,
 			    this->children->xlator,
 			    this->children->xlator->fops->setxattr,

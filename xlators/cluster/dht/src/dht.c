@@ -41,7 +41,6 @@
    - return directory size consistantly
    - get callback from directory selfheal (for rmdir/mkdir)
    - inode_ctx_set - static and dyn layouts
-   - call_frame_t create/free API to be used everywhere
 */
 
 int

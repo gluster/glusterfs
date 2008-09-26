@@ -48,32 +48,15 @@ struct booster_private {
 static call_frame_t *
 get_frame_for_transport (transport_t *trans)
 {
-  call_ctx_t *_call = NULL;
+  call_frame_t *frame = NULL;
   call_pool_t *pool = trans->xl->ctx->pool;
 
-  _call = (void *) calloc (1, sizeof (*_call));
-  ERR_ABORT (_call);
 
-  if (!pool) {
-    pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
-    ERR_ABORT (trans->xl->ctx->pool);
-    LOCK_INIT (&pool->lock);
-    INIT_LIST_HEAD (&pool->all_frames);
-  }
+  frame = create_frame (trans->xl, pool);
 
-  _call->pool = pool;
+  frame->root->trans = trans;
 
-  LOCK (&_call->pool->lock);
-  list_add (&_call->all_frames, &_call->pool->all_frames);
-  UNLOCK (&_call->pool->lock);
-
-  _call->trans = trans;
-  _call->unique = 0;           /* which call */
-
-  _call->frames.root = _call;
-  _call->frames.this = trans->xl;
-
-  return &_call->frames;
+  return frame;
 }
 
 int32_t
