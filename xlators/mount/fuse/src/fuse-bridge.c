@@ -118,8 +118,6 @@ typedef struct {
         char           is_revalidate;
 } fuse_state_t;
 
-static const char xlator_name[] = "fuse";
-
 int fuse_chan_receive (struct fuse_chan *ch,
 		       char *buf,
 		       int32_t size);
@@ -2520,7 +2518,7 @@ init (xlator_t *this_xl)
 	options = this_xl->options;
 	
 	if (this_xl->name == NULL)
-		this_xl->name = (char *) xlator_name;
+		this_xl->name = strdup ("fuse");
 	
         priv = calloc (1, sizeof (*priv));
         ERR_ABORT (priv);

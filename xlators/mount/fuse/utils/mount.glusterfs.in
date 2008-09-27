@@ -28,7 +28,7 @@ _init ()
     LOG_DEBUG=DEBUG;
 
     # set default log level to ERROR
-    log_level=$LOG_ERROR;
+    log_level=$LOG_WARNING;
 }
 
 start_glusterfs ()

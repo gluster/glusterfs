@@ -62,10 +62,8 @@
 
 #include "options.h"
 
-const char *progname = NULL;
-
 /* using argp for command line parsing */
-static char doc[] = "";
+static char gf_doc[] = "";
 static char argp_doc[] = "--server=SERVER [MOUNT-POINT]\n--volume-specfile=VOLUME-SPECFILE [MOUNT-POINT]";
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__ " " __TIME__ " \n" \
                                    "Repository revision: " GLUSTERFS_REPOSITORY_REVISION "\n" \
@@ -76,7 +74,7 @@ const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
 
 error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
-static struct argp_option options[] = {
+static struct argp_option gf_options[] = {
  	{0, 0, 0, 0, "Basic options:"},
  	{"specfile-server", ARGP_SPECFILE_SERVER_KEY, "SERVER", 0, 
  	 "Server to get the volume specfile from.  This option overrides --volume-specfile option"},
@@ -126,7 +124,7 @@ static struct argp_option options[] = {
  	{0, }
 };
 
-static struct argp argp = { options, parse_opts, argp_doc, doc };
+static struct argp argp = { gf_options, parse_opts, argp_doc, gf_doc };
 
 static void 
 _gf_dump_details (int argc, char **argv)
@@ -178,7 +176,7 @@ _add_fuse_mount (xlator_t *graph)
 		fprintf (stderr, 
 			 "MOUNT-POINT %s initialization failed", 
 			 cmd_args->mount_point);
-		gf_log (progname, GF_LOG_ERROR, 
+		gf_log ("glusterfs", GF_LOG_ERROR, 
 			"MOUNT-POINT %s initialization failed", 
 			cmd_args->mount_point);
 		return NULL;
@@ -204,7 +202,7 @@ _add_fuse_mount (xlator_t *graph)
 #ifdef GF_DARWIN_HOST_OS 
 	/* On Darwin machines, O_APPEND is not handled, which may corrupt the data */
 	if (cmd_args->fuse_direct_io_mode_flag == GF_ENABLE_VALUE) {
-		gf_log (progname, GF_LOG_DEBUG, 
+		gf_log ("glusterfs", GF_LOG_DEBUG, 
 			 "'direct-io-mode' in fuse causes data corruption if O_APPEND is used.  "
 			 "disabling 'direct-io-mode'");
 	}
@@ -242,9 +240,11 @@ _add_fuse_mount (xlator_t *graph)
 static FILE *
 _get_specfp (glusterfs_ctx_t *ctx)
 {
+	int ret = 0;
 	cmd_args_t *cmd_args = NULL;
 	FILE *specfp = NULL;
-	
+	struct stat statbuf;
+
 	cmd_args = &ctx->cmd_args;
 	
 	if (cmd_args->specfile_server) {
@@ -254,30 +254,36 @@ _get_specfp (glusterfs_ctx_t *ctx)
 			fprintf (stderr, 
 				 "error in getting volume specfile from server %s\n", 
 				 cmd_args->specfile_server);
-			gf_log (progname, GF_LOG_ERROR, 
+			gf_log ("glusterfs", GF_LOG_ERROR, 
 				"error in getting volume specfile from server %s\n", 
 				cmd_args->specfile_server);
 		}
 		else {
-			gf_log (progname, GF_LOG_DEBUG, 
+			gf_log ("glusterfs", GF_LOG_DEBUG, 
 				"loading volume specfile from server %s", cmd_args->specfile_server);
 		}
 		
 		return specfp;
 	}
 	
+	ret = stat (cmd_args->volume_specfile, &statbuf);
+	if ((ret == -1) || !(S_ISREG (statbuf.st_mode) || S_ISLNK (statbuf.st_mode))) {
+		fprintf (stderr, "provide a valid specfile\n");
+		gf_log ("glusterfs", GF_LOG_ERROR, "provide a valid specfile");
+		return NULL;
+	}
 	if ((specfp = fopen (cmd_args->volume_specfile, "r")) == NULL) {
 		fprintf (stderr, "volume specfile %s: %s\n", 
 			 cmd_args->volume_specfile, 
 			 strerror (errno));
-		gf_log (progname, GF_LOG_ERROR, 
+		gf_log ("glusterfs", GF_LOG_ERROR, 
 			"volume specfile %s: %s\n", 
 			cmd_args->volume_specfile, 
 			strerror (errno));
 		return NULL;
 	}
 	
-	gf_log (progname, GF_LOG_DEBUG, 
+	gf_log ("glusterfs", GF_LOG_DEBUG, 
 		"loading volume specfile %s", cmd_args->volume_specfile);
 	
 	return specfp;
@@ -302,7 +308,7 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 			fprintf (stderr, 
 				 "error in parsing volume specfile given by server %s\n", 
 				 cmd_args->specfile_server);
-			gf_log (progname, GF_LOG_ERROR, 
+			gf_log ("glusterfs", GF_LOG_ERROR, 
 				"error in parsing volume specfile given by server %s\n", 
 				cmd_args->specfile_server);
 		}
@@ -310,7 +316,7 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 			fprintf (stderr, 
 				 "error in parsing volume specfile %s\n", 
 				 cmd_args->volume_specfile);
-			gf_log (progname, GF_LOG_ERROR, 
+			gf_log ("glusterfs", GF_LOG_ERROR, 
 				"error in parsing volume specfile %s\n", 
 				cmd_args->volume_specfile);
 		}
@@ -332,7 +338,7 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 				fprintf (stderr, 
 					 "volume %s not found in volume specfile given by server %s\n", 
 					 cmd_args->volume_name, cmd_args->specfile_server);
-				gf_log (progname, GF_LOG_ERROR, 
+				gf_log ("glusterfs", GF_LOG_ERROR, 
 					"volume %s not found in volume specfile given by server %s\n", 
 					cmd_args->volume_name, cmd_args->specfile_server);
 			}
@@ -340,7 +346,7 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 				fprintf (stderr, 
 					 "volume %s not found in volume specfile %s\n", 
 					 cmd_args->volume_name, cmd_args->volume_specfile);
-				gf_log (progname, GF_LOG_ERROR, 
+				gf_log ("glusterfs", GF_LOG_ERROR, 
 					"volume %s not found in volume specfile %s\n", 
 					cmd_args->volume_name, cmd_args->volume_specfile);
 			}
@@ -551,7 +557,7 @@ cleanup_and_exit (int signum)
 		}
 	}
 	
-	gf_log (progname, GF_LOG_WARNING, "shutting down");
+	gf_log ("glusterfs", GF_LOG_WARNING, "shutting down");
 	
 	exit (0);
 }
@@ -582,8 +588,6 @@ main (int argc, char *argv[])
 	int fuse_volume_found = 0;
 	int server_or_fuse_found = 0;
 	
-	progname = basename (argv[0]);
-	
 	ctx = calloc (1, sizeof (glusterfs_ctx_t));
 	ERR_ABORT (ctx);
 	ctx->program_invocation_name = strdup (argv[0]);
@@ -602,7 +606,7 @@ main (int argc, char *argv[])
 	    (cmd_args->volume_specfile == NULL))
 		cmd_args->volume_specfile = strdup (DEFAULT_VOLUME_SPECFILE);
 	if (cmd_args->log_file == NULL)
-		asprintf (&cmd_args->log_file, DEFAULT_LOG_FILE_DIRECTORY "/%s.log", progname);
+		asprintf (&cmd_args->log_file, DEFAULT_LOG_FILE_DIRECTORY "/%s.log", argv[0]);
 	if (cmd_args->specfile_server_port == 0)
 		cmd_args->specfile_server_port = DEFAULT_SPECFILE_SERVER_PORT;
 	if (cmd_args->specfile_server_transport == NULL)
@@ -626,7 +630,7 @@ main (int argc, char *argv[])
  		if (rv == -1) {
  			fprintf (stderr, "unable to lock pid file %s.  %s.  Is another instance of %s running?!\n"
  				 "exiting\n", 
- 				 cmd_args->pid_file, strerror (errno), progname);
+ 				 cmd_args->pid_file, strerror (errno), argv[0]);
  			fclose (ctx->pidfp);
  			return -1;
  		}
@@ -695,8 +699,8 @@ main (int argc, char *argv[])
 	/* getting and parsing volume specfile */
 	if ((specfp = _get_specfp (ctx)) == NULL) {
 		/* _get_specfp() prints necessary error message  */
-		gf_log (progname, GF_LOG_ERROR, "exiting\n");
-		argp_help (&argp, stderr, ARGP_HELP_SEE, (char *) progname);
+		gf_log ("glusterfs", GF_LOG_ERROR, "exiting\n");
+		argp_help (&argp, stderr, ARGP_HELP_SEE, (char *) argv[0]);
 		return -1;
 	}
 	_gf_dump_details (argc, argv);
@@ -704,7 +708,7 @@ main (int argc, char *argv[])
 	if ((graph = _parse_specfp (ctx, specfp)) == NULL) {
 		/* _parse_specfp() prints necessary error message */
 		fprintf (stderr, "exiting\n");
-		gf_log (progname, GF_LOG_ERROR, "exiting\n");
+		gf_log ("glusterfs", GF_LOG_ERROR, "exiting\n");
 		return -1;
 	}
 	fclose (specfp);
@@ -723,7 +727,7 @@ main (int argc, char *argv[])
 					fprintf (stderr, 
 						 "fuse volume and MOUNT-POINT argument are given.  "
 						 "ignoring MOUNT-POINT argument\n");
-					gf_log (progname, GF_LOG_WARNING, 
+					gf_log ("glusterfs", GF_LOG_WARNING, 
 						"fuse volume and MOUNT-POINT argument are given.  "
 						"ignoring MOUNT-POINT argument");
 					break;
@@ -736,7 +740,7 @@ main (int argc, char *argv[])
 			if ((graph = _add_fuse_mount (graph)) == NULL) {
 				/* _add_fuse_mount() prints necessary error message */
 				fprintf (stderr, "exiting\n");
-				gf_log (progname, GF_LOG_ERROR, "exiting\n");
+				gf_log ("glusterfs", GF_LOG_ERROR, "exiting\n");
 				return -1;
 			}
 		}
@@ -765,7 +769,7 @@ main (int argc, char *argv[])
 		if (!server_or_fuse_found) {
 			fprintf (stderr, 
 				 "no server protocol or mount point is given in volume specfile.  nothing to do.  exiting\n");
-			gf_log (progname, GF_LOG_ERROR, 
+			gf_log ("glusterfs", GF_LOG_ERROR, 
 				"no server protocol or mount point is given in volume specfile. nothing to do. exiting");
 			return -1;
 		}
@@ -776,7 +780,7 @@ main (int argc, char *argv[])
 		if (daemon (0, 0) == -1) {
 			fprintf (stderr, "unable to run in daemon mode: %s",
 				 strerror (errno));
-			gf_log (progname, GF_LOG_ERROR, 
+			gf_log ("glusterfs", GF_LOG_ERROR, 
 				"unable to run in daemon mode: %s",
 				strerror (errno));
 			return -1;
@@ -791,20 +795,20 @@ main (int argc, char *argv[])
  		}
 	}
 	
-	gf_log (progname, GF_LOG_DEBUG, 
+	gf_log ("glusterfs", GF_LOG_DEBUG, 
 		"running in pid %d\n", getpid ());
 	
 	gf_timer_registry_init (ctx);
 	
 	if (graph->init (graph) != 0) {
-		gf_log (progname, GF_LOG_ERROR, "translator initialization failed.  exiting\n");
+		gf_log ("glusterfs", GF_LOG_ERROR, "translator initialization failed.  exiting\n");
 		/* do cleanup and exit ?! */
 		return -1;
 	}
 	graph->ready = 1;
 	ctx->graph = graph;
 	if (_xlator_graph_init (graph) == -1) {
-		gf_log (progname, GF_LOG_ERROR, "translator initialization failed.  exiting\n");
+		gf_log ("glusterfs", GF_LOG_ERROR, "translator initialization failed.  exiting\n");
 		graph->fini (graph);
 		/* do cleanup and exit ?! */
 		return -1;

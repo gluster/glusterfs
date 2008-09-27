@@ -968,6 +968,61 @@ iot_checksum (call_frame_t *frame,
 }
 
 
+int32_t 
+iot_unlink_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
+{
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+static int32_t 
+iot_unlink_wrapper (call_frame_t *frame,
+		    xlator_t *this,
+		    loc_t *loc)
+{
+	STACK_WIND (frame,
+		    iot_unlink_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->unlink,
+		    loc);
+  
+	return 0;
+}
+
+int32_t 
+iot_unlink (call_frame_t *frame,
+	    xlator_t *this,
+	    loc_t *loc)
+{
+	call_stub_t *stub = NULL;
+	iot_local_t *local = NULL;
+	iot_worker_t *worker = NULL;
+	iot_conf_t *conf = NULL;
+
+	conf = this->private;
+
+	local = calloc (1, sizeof (*local));
+	frame->local = local;
+
+	worker = iot_schedule (conf, NULL, conf->misc_thread_index++);
+
+	stub = fop_unlink_stub (frame, iot_unlink_wrapper, loc);
+	if (!stub) {
+		gf_log (this->name, GF_LOG_ERROR, "cannot get fop_unlink call stub");
+		STACK_UNWIND (frame, -1, ENOMEM);
+		return 0;
+	}
+	iot_queue (worker, stub);
+
+	return 0;
+}
+
+
+
 static void
 iot_queue (iot_worker_t *worker,
            call_stub_t *stub)
@@ -1210,6 +1265,7 @@ struct xlator_fops fops = {
   .ftruncate   = iot_ftruncate,
   .utimens     = iot_utimens,
   .checksum    = iot_checksum,
+  .unlink      = iot_unlink,
 };
 
 struct xlator_mops mops = {
