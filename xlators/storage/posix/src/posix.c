@@ -3219,20 +3219,24 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
         struct posix_fd * pfd    = NULL;
         DIR *             dir    = NULL;
         int               ret    = -1;
-        char *            buf    = NULL;
         size_t            filled = 0;
+	int               count = 0;
 
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
 
         gf_dirent_t *     this_entry = NULL;
+	gf_dirent_t       entries;
         struct dirent *   entry      = NULL;
         off_t             in_case    = -1;
         int32_t           this_size  = -1;
 
+
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
+
+	INIT_LIST_HEAD (&entries.list);
 
         ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
 
@@ -3252,16 +3256,7 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        buf = calloc (size, 1); /* readdir buffer needs 0 padding */
 
-        if (!buf) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory :(");
-                goto out;
-        }
-
-        /* TODO: verify if offset is where fd is parked at */
         if (!off) {
                 rewinddir (dir);
         } else {
@@ -3273,7 +3268,8 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
 
                 if (in_case == -1) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR, "telldir failed: %s", 
+                        gf_log (this->name, GF_LOG_ERROR,
+				"telldir failed: %s", 
                                 strerror (errno));
                         goto out;
                 }
@@ -3284,7 +3280,8 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
                 if (!entry) {
                         if (errno == EBADF) {
                                 op_errno = errno;
-                                gf_log (this->name, GF_LOG_ERROR, "readdir failed: %s", 
+                                gf_log (this->name, GF_LOG_ERROR,
+					"readdir failed: %s", 
                                         strerror (op_errno));
                                 goto out;
                         }
@@ -3298,32 +3295,31 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
                         break;
                 }
 
-                /* TODO - consider endianness here */
-                this_entry        = (void *)(buf + filled);
-                this_entry->d_ino = entry->d_ino;
-                this_entry->d_len = entry->d_reclen;
-                this_entry->d_off = telldir(dir);
 
-#ifndef GF_SOLARIS_HOST_OS
-                this_entry->d_type = entry->d_type;
-#endif
+		this_entry = gf_dirent_for_name (entry->d_name);
 
-#if  defined(GF_DARWIN_HOST_OS) || defined(GF_BSD_HOST_OS)
-                this_entry->d_len = entry->d_namlen; 
-#endif
+		if (!this_entry) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"could not create gf_dirent for entry %s (%s)",
+				entry->d_name, strerror (errno));
+			goto out;
+		}
+		this_entry->d_off = telldir (dir);
+		this_entry->d_ino = entry->d_ino;
 
-                strncpy (this_entry->d_name, entry->d_name, this_entry->d_len);
+		list_add_tail (&this_entry->list, &entries.list);
 
                 filled += this_size;
+		count ++;
         }
 
-        op_ret = filled;
+        op_ret = count;
 
  out:
         frame->root->rsp_refs = NULL;
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
-        if (buf)
-                FREE (buf);
+        STACK_UNWIND (frame, op_ret, op_errno, &entries);
+
+	gf_dirent_free (&entries);
 
         return 0;
 }

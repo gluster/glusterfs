@@ -1374,20 +1374,22 @@ server_readdir_cbk (call_frame_t *frame,
   gf_hdr_common_t *hdr = NULL;
   gf_fop_readdir_rsp_t *rsp = NULL;
   size_t hdrlen = 0;
-  size_t entry_size = 0;
+  size_t buf_size = 0;
 
   if (op_ret > 0)
-    entry_size = op_ret;
+    buf_size = gf_dirent_serialize (entries, NULL, 0);
 
-  hdrlen = gf_hdr_len (rsp, entry_size);
-  hdr    = gf_hdr_new (rsp, entry_size);
+  hdrlen = gf_hdr_len (rsp, buf_size);
+  hdr    = gf_hdr_new (rsp, buf_size);
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
   hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
-  if (entry_size)
-    memcpy (rsp->buf, entries, entry_size);
+  if (op_ret > 0) {
+    rsp->size = hton32 (buf_size);
+    gf_dirent_serialize (entries, rsp->buf, buf_size);
+  }
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READDIR,
                          hdr, hdrlen, NULL, 0, NULL);

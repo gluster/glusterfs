@@ -2934,13 +2934,23 @@ client_readdir_cbk (call_frame_t *frame,
   gf_fop_readdir_rsp_t *rsp = NULL;
   int op_ret = 0;
   int op_errno = 0;
+  uint32_t buf_size = 0;
+  gf_dirent_t entries;
 
   rsp = gf_param (hdr);
 
   op_ret    = ntoh32 (hdr->rsp.op_ret);
   op_errno  = ntoh32 (hdr->rsp.op_errno);
 
-  STACK_UNWIND (frame, op_ret, op_errno, rsp->buf);
+  INIT_LIST_HEAD (&entries.list);
+  if (op_ret > 0) {
+    buf_size = ntoh32 (rsp->size);
+    gf_dirent_unserialize (&entries, rsp->buf, buf_size);
+  }
+
+  STACK_UNWIND (frame, op_ret, op_errno, &entries);
+
+  gf_dirent_free (&entries);
 
   return 0;
 }

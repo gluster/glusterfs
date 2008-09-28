@@ -2804,9 +2804,9 @@ bdb_readdir (call_frame_t *frame,
 	struct bdb_dir *bfd        = NULL;
 	int32_t         op_ret     = -1; 
 	int32_t         op_errno   = EINVAL;
-	char           *buf        = NULL;
 	size_t          filled     = 0;
 	gf_dirent_t    *this_entry = NULL;
+	gf_dirent_t     entries;
 	struct dirent  *entry      = NULL;
 	off_t           in_case    = 0;
 	int32_t         this_size  = 0;
@@ -2816,14 +2816,14 @@ bdb_readdir (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO ("bdb", frame, out);
 	GF_VALIDATE_OR_GOTO ("bdb", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+	INIT_LIST_HEAD (&entries.list);
 	
 	bfd = bdb_extract_bfd (fd, this->name);
 	op_errno = EBADFD;
 	GF_VALIDATE_OR_GOTO (this->name, bfd, out);
 
-	buf = calloc (size, 1); /* readdir buffer needs 0 padding */
 	op_errno = ENOMEM;
-	GF_VALIDATE_OR_GOTO (this->name, buf, out);
 
 	while (filled <= size) {
 		this_entry = NULL;
@@ -2835,6 +2835,9 @@ bdb_readdir (call_frame_t *frame,
 		entry = readdir (bfd->dir);
 		if (!entry)
 			break;
+
+		if (IS_BDB_PRIVATE_FILE(entry->d_name))
+			continue;
 		
 		this_size = dirent_size (entry);
         
@@ -2843,19 +2846,18 @@ bdb_readdir (call_frame_t *frame,
 			break;
 		}
 		
-		if (IS_BDB_PRIVATE_FILE(entry->d_name))
-			continue;
-		
 		count++;
 
-		this_entry = (void *)(buf + filled);
+		this_entry = gf_dirent_for_name (entry->d_name);
 		this_entry->d_ino = entry->d_ino;
           
 		this_entry->d_off = -1;
           
 		this_entry->d_type = entry->d_type;
 		this_entry->d_len = entry->d_reclen;
-		strncpy (this_entry->d_name, entry->d_name, this_entry->d_len);
+
+
+		list_add (&this_entry->list, &entries.list);
           
 		filled += this_size;
 	}
@@ -2925,19 +2927,20 @@ bdb_readdir (call_frame_t *frame,
 		if (this_size + filled > size)
 			break;
 		/* TODO - consider endianness here */
-		this_entry = (void *)(buf + filled);
+		this_entry = gf_dirent_for_name ((const char *)key.data);
 		/* FIXME: bug, if someone is going to use ->d_ino */
 		this_entry->d_ino = -1;
 		this_entry->d_off = 0;
 		this_entry->d_type = 0;
 		this_entry->d_len = key.size;
-		strncpy (this_entry->d_name, (char *)key.data, key.size);
                 
 		if (key.data) {
 			strncpy (bfd->offset, key.data, key.size);
 			bfd->offset [key.size] = '\0';
 			free (key.data);
 		}
+
+		list_add (&this_entry->list, &entries.list);
 
 		filled += this_size;
 	}/* while */
@@ -2949,9 +2952,9 @@ out:
 	gf_log (this->name,
 		GF_LOG_DEBUG,
 		"read %d bytes for %d entries", filled, count);
-	STACK_UNWIND (frame, filled, op_errno, buf);
+	STACK_UNWIND (frame, count, op_errno, &entries);
 
-	free (buf);
+	gf_dirent_free (&entries);
     
 	return 0;
 }

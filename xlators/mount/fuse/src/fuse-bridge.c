@@ -1721,25 +1721,55 @@ fuse_readdir_cbk (call_frame_t *frame,
                   xlator_t *this,
                   int32_t op_ret,
                   int32_t op_errno,
-                  gf_dirent_t *buf)
+                  gf_dirent_t *entries)
 {
         fuse_state_t *state = frame->root->state;
-        fuse_req_t req = state->req;
+        fuse_req_t    req = state->req;
+	int           size = 0;
+	int           entry_size = 0;
+	char         *buf = NULL;
+	gf_dirent_t  *entry = NULL;
+	struct stat   stbuf = {0, };
 
-        if (op_ret >= 0) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                        "%"PRId64": READDIR => %d/%d,%"PRId64,
-			frame->root->unique, op_ret, state->size, state->off);
-
-                fuse_reply_buf (req, (void *)buf, op_ret);
-        } else {
+        if (op_ret < 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRId64": READDIR => -1 (%s)", frame->root->unique, 
                         strerror (op_errno));
 
                 fuse_reply_err (req, op_errno);
-        }
-	
+		goto out;
+	}
+
+	gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+		"%"PRId64": READDIR => %d/%d,%"PRId64,
+		frame->root->unique, op_ret, state->size, state->off);
+
+	list_for_each_entry (entry, &entries->list, list) {
+		size += fuse_dirent_size (strlen (entry->d_name));
+	}
+
+	buf = calloc (1, size);
+	if (!buf) {
+		gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+			"%"PRId64": READDIR => -1 (%s)", frame->root->unique,
+			strerror (ENOMEM));
+		fuse_reply_err (req, -ENOMEM);
+		goto out;
+	}
+
+	size = 0;
+	list_for_each_entry (entry, &entries->list, list) {
+		stbuf.st_ino = entry->d_ino;
+		entry_size = fuse_dirent_size (strlen (entry->d_name));
+		fuse_add_direntry (req, buf + size, entry_size,
+				   entry->d_name, &stbuf,
+				   entry->d_off);
+		size += entry_size;
+	}
+
+	fuse_reply_buf (req, (void *)buf, size);
+
+out:
         free_state (state);
         STACK_DESTROY (frame->root);
 

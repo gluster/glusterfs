@@ -29,11 +29,13 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+
 #include "glusterfs.h"
 #include "logging.h"
 #include "common-utils.h"
 #include "dict.h"
 #include "compat.h"
+
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
 
@@ -43,9 +45,9 @@ struct _dir_entry_t;
 typedef struct _dir_entry_t dir_entry_t;
 struct _gf_dirent_t;
 typedef struct _gf_dirent_t gf_dirent_t;
-
 struct _loc;
 typedef struct _loc loc_t;
+
 
 typedef int32_t (*event_notify_fn_t) (xlator_t *this,
 				      int32_t event,
@@ -53,7 +55,7 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this,
 				      ...);
 
 #include "list.h"
-
+#include "gf-dirent.h"
 #include "stack.h"
 #include "inode.h"
 #include "fd.h"
@@ -66,31 +68,16 @@ struct _loc {
 	inode_t *parent;
 };
 
-struct _dir_entry_t {
-	dir_entry_t *next;
-	char *name;
-	char *link;
-	struct stat buf;
-};
-
-struct _gf_dirent_t {
-	uint64_t d_ino;
-	uint64_t d_off;
-	uint32_t d_len;
-	uint32_t d_type;
-	char     d_name[0];
-};
 
 struct xlator_stats {
-	uint64_t nr_files;   /* Number of files open via this xlator */
-	uint64_t free_disk; /* Mega bytes */
-	uint64_t total_disk_size; /* Mega Bytes */
-	uint64_t disk_usage; /* Mega bytes */
-	uint64_t disk_speed; /* MHz or Mbps */
-	uint64_t nr_clients; /* Number of client nodes (filled by glusterfsd) */
+	uint64_t nr_files;         /* Number of files open via this xlator */
+	uint64_t free_disk;        /* Mega bytes */
+	uint64_t total_disk_size;  /* Mega Bytes */
+	uint64_t disk_usage;       /* Mega bytes */
+	uint64_t disk_speed;       /* MHz or Mbps */
+	uint64_t nr_clients;       /* Number of client nodes */
 	uint64_t write_usage;
-	uint64_t read_usage;
-	/* add more stats here */
+	uint64_t read_usage;       /* add more stats here */
 };
 
 
