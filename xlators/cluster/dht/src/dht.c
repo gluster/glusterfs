@@ -33,10 +33,8 @@
 
 /* TODO:
    - use NS locks
-   - complete dht_itransform
    - handle all cases in self heal layout reconstruction
    - complete linkfile selfheal
-   - make readdir use scaled offset
    - return inode num consistantly in all cases
    - return directory size consistantly
    - get callback from directory selfheal (for rmdir/mkdir)
@@ -132,7 +130,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
         if (op_ret == -1)
                 goto out;
 
-        stbuf->st_ino = dht_itransform (this, prev->this, stbuf->st_ino);
+        dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
 
 out:
         DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
@@ -154,7 +152,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         prev = cookie;
 
-        stbuf->st_ino = dht_itransform (this, prev->this, stbuf->st_ino);
+        dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
 
         /* add checks to see if directory was recreated with same
            inode number */
@@ -217,8 +215,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 call_cnt        = conf->subvolume_cnt;
 		local->call_cnt = call_cnt;
 
-                stbuf->st_ino = dht_itransform (this, prev->this,
-                                                     stbuf->st_ino);
+                dht_itransform (this, prev->this, stbuf->st_ino,
+				&stbuf->st_ino);
                 local->stbuf = *stbuf;
                 local->inode = inode_ref (inode);
                 local->xattr = dict_ref (xattr);
@@ -364,8 +362,9 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		local->stbuf = *stbuf;
 		local->op_ret = 0;
-		local->stbuf.st_ino = dht_itransform (this, prev->this,
-							   stbuf->st_ino);
+		
+		dht_itransform (this, prev->this, stbuf->st_ino,
+				&local->stbuf.st_ino);
 	}
 unlock:
 	UNLOCK (&frame->lock);
@@ -1609,9 +1608,69 @@ err:
 
 int
 dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		 int op_ret, int op_errno, gf_dirent_t *entries)
+		 int op_ret, int op_errno, gf_dirent_t *orig_entries)
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, entries);
+	dht_local_t  *local = NULL;
+	gf_dirent_t   entries;
+	gf_dirent_t  *orig_entry = NULL;
+	gf_dirent_t  *entry = NULL;
+	call_frame_t *prev = NULL;
+	xlator_t     *subvol = NULL;
+	xlator_t     *next = NULL;
+	dht_layout_t *layout = NULL;
+	int           count = 0;
+
+
+	INIT_LIST_HEAD (&entries.list);
+	prev = cookie;
+	local = frame->local;
+
+	if (op_ret < 0)
+		goto done;
+
+	layout = dht_layout_get (this, local->fd->inode);
+
+	list_for_each_entry (orig_entry, &orig_entries->list, list) {
+		subvol = dht_layout_search (this, layout, orig_entry->d_name);
+
+		if (!subvol || subvol == prev->this) {
+			entry = gf_dirent_for_name (orig_entry->d_name);
+			if (!entry) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"memory allocation failed :(");
+				goto unwind;
+			}
+
+			dht_itransform (this, subvol, orig_entry->d_ino,
+					&entry->d_ino);
+			dht_itransform (this, subvol, orig_entry->d_off,
+					&entry->d_off);
+
+			entry->d_type = orig_entry->d_type;
+			entry->d_len  = orig_entry->d_len;
+
+			list_add_tail (&entry->list, &entries.list);
+			count++;
+		}
+	}
+	op_ret = count;
+
+done:
+	if (count == 0) {
+		next = dht_subvol_next (this, prev->this);
+		if (!next)
+			goto unwind;
+
+		STACK_WIND (frame, dht_readdir_cbk,
+			    next, next->fops->readdir,
+			    local->fd, local->size, 0);
+		return 0;
+	}
+
+unwind:
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, &entries);
+
+	gf_dirent_free (&entries);
 
         return 0;
 }
@@ -1620,11 +1679,13 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 dht_readdir (call_frame_t *frame, xlator_t *this,
-	     fd_t *fd, size_t size, off_t offset)
+	     fd_t *fd, size_t size, off_t yoff)
 {
 	dht_local_t  *local  = NULL;
 	dht_conf_t   *conf = NULL;
         int           op_errno = -1;
+	xlator_t     *xvol = NULL;
+	off_t         xoff = 0;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -1634,14 +1695,22 @@ dht_readdir (call_frame_t *frame, xlator_t *this,
 	conf = this->private;
 
 	local = dht_local_init (frame);
+	if (!local) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+		op_errno = ENOMEM;
+		goto err;
+	}
 
 	local->fd = fd;
+	local->size = size;
+
+	dht_deitransform (this, yoff, &xvol, &xoff);
 
 	/* TODO: do proper readdir */
 	STACK_WIND (frame, dht_readdir_cbk,
-		    conf->subvolumes[0],
-		    conf->subvolumes[0]->fops->readdir,
-		    fd, size, offset);
+		    xvol, xvol->fops->readdir,
+		    fd, size, xoff);
 
 	return 0;
 
@@ -1738,7 +1807,8 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto out;
 
 	prev = cookie;
-	stbuf->st_ino = dht_itransform (this, prev->this, stbuf->st_ino);
+
+	dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
 	layout = dht_layout_for_subvol (this, prev->this);
 
 	if (!layout) {
@@ -2063,7 +2133,8 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto out;
 
 	prev = cookie;
-	stbuf->st_ino = dht_itransform (this, prev->this, stbuf->st_ino);
+
+	dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
 	layout = dht_layout_for_subvol (this, prev->this);
 
 	if (!layout) {

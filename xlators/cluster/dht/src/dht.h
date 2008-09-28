@@ -54,6 +54,7 @@ struct dht_local {
 	inode_t                 *inode;
 	dict_t                  *xattr;
 	dht_layout_t            *layout;
+	size_t                   size;
 	struct {
 		fop_mknod_cbk_t  linkfile_cbk;
 		struct stat      stbuf;
@@ -145,13 +146,17 @@ int dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
 
 int dht_frame_return (call_frame_t *frame);
 
-int dht_itransform (xlator_t *this, xlator_t *subvol, ino_t ino);
+int dht_itransform (xlator_t *this, xlator_t *subvol, uint64_t x, uint64_t *y);
+int dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol,
+		      uint64_t *x);
 
 void dht_local_wipe (dht_local_t *local);
 dht_local_t *dht_local_init (call_frame_t *frame);
 
 xlator_t *dht_subvol_get_hashed (xlator_t *this, loc_t *loc);
 xlator_t *dht_subvol_get_cached (xlator_t *this, inode_t *inode);
+xlator_t *dht_subvol_next (xlator_t *this, xlator_t *prev);
+int dht_subvol_cnt (xlator_t *this, xlator_t *subvol);
 
 int dht_hash_compute (int type, const char *name, uint32_t *hash_p);
 

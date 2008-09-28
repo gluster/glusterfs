@@ -92,10 +92,60 @@ dht_frame_return (call_frame_t *frame)
 
 
 int
-dht_itransform (xlator_t *this, xlator_t *subvol, ino_t ino)
+dht_itransform (xlator_t *this, xlator_t *subvol, uint64_t x, uint64_t *y_p)
 {
-	/* TODO: fill this properly */
-	return ino;
+	dht_conf_t *conf = NULL;
+	int         cnt = 0;
+	int         max = 0;
+	uint64_t    y = 0;
+
+
+	if (x == ((uint64_t) -1)) {
+		y = (uint64_t) -1;
+		goto out;
+	}
+
+	conf = this->private;
+
+	max = conf->subvolume_cnt;
+	cnt = dht_subvol_cnt (this, subvol);
+
+	y = ((x * max) + cnt);
+
+out:
+	if (y_p)
+		*y_p = y;
+
+	return 0;
+}
+
+
+int
+dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol_p,
+		  uint64_t *x_p)
+{
+	dht_conf_t *conf = NULL;
+	int         cnt = 0;
+	int         max = 0;
+	uint64_t    x = 0;
+	xlator_t   *subvol = 0;
+
+
+	conf = this->private;
+	max = conf->subvolume_cnt;
+
+	cnt = y % max;
+	x   = y / max;
+
+	subvol = conf->subvolumes[cnt];
+
+	if (subvol_p)
+		*subvol_p = subvol;
+
+	if (x_p)
+		*x_p = x;
+
+	return 0;
 }
 
 
@@ -244,5 +294,47 @@ inode_ctx_set (inode_t *inode, xlator_t *this, void *ctx)
 	ret = dict_set (inode->ctx, this->name, data);
 
 out:
+	return ret;
+}
+
+
+xlator_t *
+dht_subvol_next (xlator_t *this, xlator_t *prev)
+{
+	dht_conf_t *conf = NULL;
+	int         i = 0;
+	xlator_t   *next = NULL;
+
+	conf = this->private;
+
+	for (i = 0; i < conf->subvolume_cnt; i++) {
+		if (conf->subvolumes[i] == prev) {
+			if ((i + 1) < conf->subvolume_cnt)
+				next = conf->subvolumes[i + 1];
+			break;
+		}
+	}
+
+	return next;
+}
+
+
+int
+dht_subvol_cnt (xlator_t *this, xlator_t *subvol)
+{
+	int i = 0;
+	int ret = -1;
+	dht_conf_t *conf = NULL;
+
+
+	conf = this->private;
+
+	for (i = 0; i < conf->subvolume_cnt; i++) {
+		if (subvol == conf->subvolumes[i]) {
+			ret = i;
+			break;
+		}
+	}
+
 	return ret;
 }
