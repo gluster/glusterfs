@@ -90,7 +90,9 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
         char        version[val_size];
         char        ctime[val_size];
 	char        layout[val_size];
+	char        linkto[val_size];
 	char       *layout_p           = NULL;
+	char       *linkto_p           = NULL;
         int         _fd                = -1;
 	dict_t     *xattr              = NULL;
 	int         ret                = -1;
@@ -130,6 +132,17 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
 		layout_p = memdup (layout, xattr_size);
 		dict_set_bin (xattr, "trusted.glusterfs.dht",
 			      layout_p, xattr_size);
+	}
+
+	xattr_size = lgetxattr (real_path, "trusted.glusterfs.dht.linkto",
+				linkto, val_size);
+
+	/* should size be put into the data_t ? */
+	if (xattr_size != -1) {
+		linkto[xattr_size] = '\0';
+		linkto_p = strdup (linkto);
+		dict_set_bin (xattr, "trusted.glusterfs.dht.linkto",
+			      linkto_p, xattr_size);
 	}
 
 	if ((need_xattr > 0)

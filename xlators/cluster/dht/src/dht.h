@@ -103,7 +103,7 @@ typedef struct dht_disk_layout dht_disk_layout_t;
 
 #define is_last_call(cnt) (cnt == 0)
 
-#define check_is_linkfile(i,s,x) (S_ISCHR (s->st_mode)		\
+#define check_is_linkfile(i,s,x) (S_ISBLK (s->st_mode)		\
 				  && (major (s->st_rdev) == 0)	\
 				  && (minor (s->st_rdev) == 0))
 

@@ -268,17 +268,6 @@ out:
 }
 
 
-xlator_t *
-dht_linkfile_subvol (xlator_t *this, inode_t *inode, struct stat *stbuf,
-		     dict_t *xattr)
-{
-	xlator_t *subvol = NULL;
-
-
-	return subvol;
-}
-
-
 int
 inode_ctx_set (inode_t *inode, xlator_t *this, void *ctx)
 {

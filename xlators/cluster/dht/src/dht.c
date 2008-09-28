@@ -122,7 +122,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                          inode_t *inode, struct stat *stbuf, dict_t *xattr)
 {
         call_frame_t *prev = NULL;
-
+	dht_layout_t *layout = NULL;
 
         prev = cookie;
         /* TODO: assert type is non-dir and non-linkfile */
@@ -131,6 +131,18 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                 goto out;
 
         dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+
+	layout = dht_layout_for_subvol (this, prev->this);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no pre-set layout for subvolume %s",
+			prev->this->name);
+		op_ret   = -1;
+		op_errno = EINVAL;
+		goto out;
+	}
+
+	inode_ctx_set (inode, this, layout);
 
 out:
         DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
@@ -196,6 +208,9 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (!is_dir && !is_linkfile) {
                 /* non-directory and not a linkfile */
+
+		dht_itransform (this, prev->this, stbuf->st_ino,
+				&stbuf->st_ino);
 
 		layout = dht_layout_for_subvol (this, prev->this);
 		if (!layout) {
@@ -2009,7 +2024,30 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int op_ret, int op_errno,
 	      inode_t *inode, struct stat *stbuf)
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+        call_frame_t *prev = NULL;
+	dht_layout_t *layout = NULL;
+
+        prev = cookie;
+
+        if (op_ret == -1)
+                goto out;
+
+        dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+
+	layout = dht_layout_for_subvol (this, prev->this);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no pre-set layout for subvolume %s",
+			prev->this->name);
+		op_ret   = -1;
+		op_errno = EINVAL;
+		goto out;
+	}
+
+	inode_ctx_set (inode, this, layout);
+
+out:
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
 	return 0;
 }
