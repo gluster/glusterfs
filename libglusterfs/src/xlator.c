@@ -456,8 +456,7 @@ xlator_foreach (xlator_t *this,
 {
 	xlator_t *first = NULL;
 
-	if (this == NULL || fn == NULL || data == NULL)
-	{
+	if (this == NULL || fn == NULL || data == NULL)	{
 		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
 		return;
 	}
@@ -479,8 +478,7 @@ xlator_search_by_name (xlator_t *any, const char *name)
 {
 	xlator_t *search = NULL;
 
-	if (any == NULL || name == NULL)
-	{
+	if (any == NULL || name == NULL) {
 		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
 		return NULL;
 	}
@@ -506,8 +504,7 @@ xlator_init_rec (xlator_t *xl)
 	xlator_list_t *trav = NULL;
 	int32_t ret = 0;
 
-	if (xl == NULL)
-	{
+	if (xl == NULL)	{
 		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
 		return 0;
 	}
@@ -547,8 +544,7 @@ xlator_tree_init (xlator_t *xl)
 	xlator_t *top = NULL;
 	int32_t ret = 0;
 
-	if (xl == NULL)
-	{
+	if (xl == NULL)	{
 		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
 		return 0;
 	}
@@ -560,8 +556,7 @@ xlator_tree_init (xlator_t *xl)
 
 	ret = xlator_init_rec (top);
 
-	if (ret == 0 && top->notify)
-	{
+	if (ret == 0 && top->notify) {
 		top->notify (top, GF_EVENT_PARENT_UP, NULL);
 	}
 
@@ -596,7 +591,7 @@ loc_copy (loc_t *dst, loc_t *src)
 	if (src->inode)
 		dst->inode = inode_ref (src->inode);
 
-	if (dst->parent)
+	if (src->parent)
 		dst->parent = inode_ref (src->parent);
 
 	dst->path = strdup (src->path);
