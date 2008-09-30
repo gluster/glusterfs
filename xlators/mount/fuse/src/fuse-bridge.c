@@ -1053,11 +1053,12 @@ fuse_unlink (fuse_req_t req,
 
         state = state_from_req (req);
 
+        fuse_loc_fill (&state->loc, state, 0, par, name);
+
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                 "%"PRId64": UNLINK %s", req_callid (req),
                 state->loc.path);
 
-        fuse_loc_fill (&state->loc, state, 0, par, name);
         if (!state->loc.inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRId64": UNLINK %s (fuse_loc_fill() returned NULL inode)",

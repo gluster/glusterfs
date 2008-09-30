@@ -388,6 +388,10 @@ dht_selfheal_directory (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 	return 0;
 
 sorry_no_fix:
+
+	inode_ctx_set (local->inode, this, layout);
+	local->layout = NULL;
+
 	DHT_STACK_UNWIND (frame, ret, local->op_errno, local->inode,
 			  &local->stbuf);
 	return 0;

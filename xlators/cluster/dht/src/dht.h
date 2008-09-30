@@ -55,6 +55,8 @@ struct dht_local {
 	dict_t                  *xattr;
 	dht_layout_t            *layout;
 	size_t                   size;
+	xlator_t                *src_hashed, *src_cached;
+	xlator_t                *dst_hashed, *dst_cached;
 	struct {
 		fop_mknod_cbk_t  linkfile_cbk;
 		struct stat      stbuf;
@@ -172,4 +174,6 @@ int loc_dup (loc_t *src, loc_t *dst);
 int inode_ctx_set (inode_t *inode, xlator_t *this, void *ctx);
 int inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx);
 
+int dht_rename (call_frame_t *frame, xlator_t *this,
+		loc_t *oldloc, loc_t *newloc);
 #endif /* _DHT_H */

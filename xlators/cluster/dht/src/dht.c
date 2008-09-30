@@ -2646,10 +2646,9 @@ struct xlator_fops fops = {
 	.create      = dht_create,
 	.mkdir       = dht_mkdir,
 	.rmdir       = dht_rmdir,
+	.rename      = dht_rename,
 #if 0
 
-
-  .rename      = dht_rename,
   .getdents    = dht_getdents,
   .checksum    = dht_checksum,
 #endif

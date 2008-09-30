@@ -111,22 +111,23 @@ err:
 
 int
 dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
-		     xlator_t *srcvol, xlator_t *dstvol, loc_t *loc)
+		     xlator_t *tovol, xlator_t *fromvol, loc_t *loc)
 {
 	dht_local_t *local = NULL;
 
 
 	local = frame->local;
 	local->linkfile.linkfile_cbk = linkfile_cbk;
-	local->linkfile.srcvol = srcvol;
+	local->linkfile.srcvol = tovol;
 	loc_copy (&local->linkfile.loc, loc);
 
 	STACK_WIND (frame, dht_linkfile_create_cbk,
-		    dstvol, dstvol->fops->mknod, loc,
+		    fromvol, fromvol->fops->mknod, loc,
 		    S_IFBLK, makedev (0, 0));
 
 	return 0;
 }
+
 
 xlator_t *
 dht_linkfile_subvol (xlator_t *this, inode_t *inode, struct stat *stbuf,

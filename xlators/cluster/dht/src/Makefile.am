@@ -5,7 +5,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 dht_la_LDFLAGS = -module -avoidversion
 
 dht_la_SOURCES = dht.c dht-layout.c dht-helper.c dht-hashfn.c dht-linkfile.c \
-		dht-selfheal.c
+		dht-selfheal.c dht-rename.c
 dht_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = dht.h
