@@ -126,7 +126,7 @@ gf_dirent_unserialize (gf_dirent_t *entries, const char *buf, size_t buf_size)
 	remaining_size = buf_size;
 	least_dirent_size = (sizeof (struct gf_dirent_nb) + 2);
 
-	while (remaining_size > least_dirent_size) {
+	while (remaining_size >= least_dirent_size) {
 		entry_nb = (void *)(buf + (buf_size - remaining_size));
 
 		entry_strlen = strnlen (entry_nb->d_name, remaining_size);
