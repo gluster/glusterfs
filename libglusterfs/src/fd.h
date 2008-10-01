@@ -25,29 +25,32 @@
 #include "config.h"
 #endif
 
-#include "glusterfs.h"
-#include "logging.h"
 #include "list.h"
-#include "dict.h"
+#include <sys/types.h>
+#include <unistd.h>
+#include "glusterfs.h"
 
 struct _inode;
+struct _dict;
 struct _fd {
-	pid_t pid;
-	struct list_head inode_list;
-	struct _inode *inode;
-	dict_t *ctx;
-	int32_t refcount;
+        pid_t pid;
+        struct list_head inode_list;
+        struct _inode *inode;
+        struct _dict *ctx;
+        int32_t refcount;
 };
 typedef struct _fd fd_t;
 
 struct _fdtable {
-	uint32_t max_fds;
-	fd_t **fds;
-	pthread_mutex_t lock;
+        uint32_t max_fds;
+        fd_t **fds;
+        int refcount;
+        pthread_mutex_t lock;
 };
 typedef struct _fdtable fdtable_t;
 
-#include "inode.h"
+#include "logging.h"
+
 
 inline void 
 gf_fd_put (fdtable_t *fdtable, int32_t fd);
@@ -61,23 +64,26 @@ gf_fd_fdtable_alloc (void);
 int32_t 
 gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr);
 
+int32_t 
+gf_fd_unused_get2 (fdtable_t *fdtable, fd_t *fdptr, int32_t fd);
+
 void 
 gf_fd_fdtable_destroy (fdtable_t *fdtable);
 
 fd_t *
 fd_ref (fd_t *fd);
 
-fd_t *
+void
 fd_unref (fd_t *fd);
 
 fd_t *
-fd_create (inode_t *inode, pid_t pid);
+fd_create (struct _inode *inode, pid_t pid);
 
 fd_t *
-fd_lookup (inode_t *inode, pid_t pid);
+fd_lookup (struct _inode *inode, pid_t pid);
 
 uint8_t
-fd_list_empty (inode_t *inode);
+fd_list_empty (struct _inode *inode);
 
 fd_t *
 fd_bind (fd_t *fd);

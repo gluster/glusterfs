@@ -129,27 +129,27 @@ static struct argp argp = { gf_options, parse_opts, argp_doc, gf_doc };
 static void 
 _gf_dump_details (int argc, char **argv)
 {
-	extern FILE *gf_log_logfile;
-	int i = 0;
-	char timestr[256];
-	time_t utime = time (NULL);
-	struct tm *tm = localtime (&utime);
-	
-	/* Which TLA? What time? */
-	strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
-	fprintf (gf_log_logfile, "\nVersion      : %s %s built on %s %s\n", 
-		 PACKAGE_NAME, PACKAGE_VERSION, __DATE__, __TIME__);
-	fprintf (gf_log_logfile, "TLA Revision : %s\n", 
-		 GLUSTERFS_REPOSITORY_REVISION);
-	fprintf (gf_log_logfile, "Starting Time: %s\n", timestr);
-	fprintf (gf_log_logfile, "Command line : ");
+        extern FILE *gf_log_logfile;
+        int i = 0;
+        char timestr[256];
+        time_t utime = time (NULL);
+        struct tm *tm = localtime (&utime);
+        
+        /* Which TLA? What time? */
+        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
+        fprintf (gf_log_logfile, "\nVersion      : %s %s built on %s %s\n", 
+                 PACKAGE_NAME, PACKAGE_VERSION, __DATE__, __TIME__);
+        fprintf (gf_log_logfile, "TLA Revision : %s\n", 
+                 GLUSTERFS_REPOSITORY_REVISION);
+        fprintf (gf_log_logfile, "Starting Time: %s\n", timestr);
+        fprintf (gf_log_logfile, "Command line : ");
 
-	for (i = 0; i < argc; i++) {
-		fprintf (gf_log_logfile, "%s ", argv[i]);
-	}
+        for (i = 0; i < argc; i++) {
+                fprintf (gf_log_logfile, "%s ", argv[i]);
+        }
 
-	fprintf (gf_log_logfile, "\n");
-	fflush (gf_log_logfile);
+        fprintf (gf_log_logfile, "\n");
+        fflush (gf_log_logfile);
 }
 
 
@@ -711,7 +711,7 @@ main (int argc, char *argv[])
 		gf_log ("glusterfs", GF_LOG_ERROR, "exiting\n");
 		return -1;
 	}
-	fclose (specfp);
+	ctx->specfp = specfp;
 	
 	/* check whether MOUNT-POINT argument and fuse volume are given at same time or not */
 	/* if not, add argument MOUNT-POINT to graph as top volume if given */

@@ -18,14 +18,22 @@
 */
 
 #include "fd.h"
+#include "glusterfs.h"
+#include "inode.h"
+#include "dict.h"
+
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
 #endif
 
+
 static uint32_t 
 gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr);
+
+static fd_t *
+_fd_ref (fd_t *fd);
 
 /* 
    Allocate in memory chunks of power of 2 starting from 1024B 
@@ -135,6 +143,52 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
 	}
 }
 
+int32_t
+gf_fd_unused_get2 (fdtable_t *fdtable, fd_t *fdptr, int32_t fd)
+{
+	int32_t ret = -1;
+	
+	if (fdtable == NULL || fdptr == NULL || fd < 0)
+	{
+		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+		errno = EINVAL;
+		return -1;
+	}
+ 
+	pthread_mutex_lock (&fdtable->lock);
+	{
+		while (fdtable->max_fds < fd) {
+			int error = 0;
+			error = gf_fd_fdtable_expand (fdtable, fdtable->max_fds + 1);
+			if (error) 
+			{
+				gf_log ("fd.c",
+					GF_LOG_ERROR,
+					"Cannot expand fdtable:%s", strerror (error));
+				goto err;
+			}
+		}
+		
+		if (!fdtable->fds[fd]) 
+		{
+			fdtable->fds[fd] = fdptr;
+			fd_ref (fdptr);
+			ret = fd;
+		} 
+		else 
+		{
+			gf_log ("fd.c",
+				GF_LOG_ERROR,
+				"Cannot allocate fd %d (slot not empty in fdtable)", fd);
+		}
+	}
+err:
+	pthread_mutex_unlock (&fdtable->lock);
+	
+	return ret;
+}
+
+  
 int32_t 
 gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
 {
@@ -175,9 +229,11 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
 	return fd;
 }
 
+
 inline void 
 gf_fd_put (fdtable_t *fdtable, int32_t fd)
 {
+	fd_t *fdptr = NULL;
 	if (fdtable == NULL || fd < 0)
 	{
 		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
@@ -192,11 +248,16 @@ gf_fd_put (fdtable_t *fdtable, int32_t fd)
 
 	pthread_mutex_lock (&fdtable->lock);
 	{
-		fd_unref (fdtable->fds[fd]);
+		fdptr = fdtable->fds[fd];
 		fdtable->fds[fd] = NULL;
 	}
 	pthread_mutex_unlock (&fdtable->lock);
+
+	if (fdptr) {
+		fd_unref (fdptr);
+	}
 }
+
 
 fd_t *
 gf_fd_fdptr_get (fdtable_t *fdtable, int32_t fd)
@@ -240,6 +301,11 @@ fd_ref (fd_t *fd)
 {
 	fd_t *refed_fd = NULL;
 
+	if (!fd) {
+		gf_log ("fd", GF_LOG_DEBUG, "@fd=%p", fd);
+		return NULL;
+	}
+
 	LOCK (&fd->inode->lock);
 	refed_fd = _fd_ref (fd);
 	UNLOCK (&fd->inode->lock);
@@ -267,163 +333,173 @@ fd_destroy (fd_t *fd)
         data_pair_t *pair = NULL;
         xlator_t    *xl = NULL;
 
-	if (fd == NULL){
-		gf_log ("xlator", GF_LOG_ERROR, "invalid arugument");
-		goto out;
-	}
+        if (fd == NULL){
+                gf_log ("xlator", GF_LOG_ERROR, "invalid arugument");
+                goto out;
+        }
   
-	if (fd->inode == NULL){
-		gf_log ("xlator", GF_LOG_ERROR, "fd->inode is NULL");
-		goto out;
-	}
-	if (S_ISDIR (fd->inode->st_mode)) {
-		for (pair = fd->ctx->members_list; pair; pair = pair->next) {
-			/* notify all xlators which have a context */
-			xl = xlator_search_by_name (fd->inode->table->xl, pair->key);
-	  
-			if (!xl) {
-				gf_log ("fd", GF_LOG_CRITICAL,
-					"fd(%p)->ctx has invalid key(%s)",
-					fd, pair->key);
-				continue;
-			}
-			if (xl->cbks->releasedir) {
-				xl->cbks->releasedir (xl, fd);
-			} else {
-				gf_log ("fd", GF_LOG_CRITICAL,
-					"xlator(%s) in fd(%p) no FORGET fop",
-					xl->name, fd);
-			}
-		}
-	} else {
-		for (pair = fd->ctx->members_list; pair; pair = pair->next) {
-			/* notify all xlators which have a context */
-			xl = xlator_search_by_name (fd->inode->table->xl, pair->key);
-	  
-			if (!xl) {
-				gf_log ("fd", GF_LOG_CRITICAL,
-					"fd(%p)->ctx has invalid key(%s)",
-					fd, pair->key);
-				continue;
-			}
-			if (xl->cbks->release) {
-				xl->cbks->release (xl, fd);
-			} else {
-				gf_log ("fd", GF_LOG_CRITICAL,
-					"xlator(%s) in fd(%p) no FORGET fop",
-					xl->name, fd);
-			}
-		}
-	}
+        if (fd->inode == NULL){
+                gf_log ("xlator", GF_LOG_ERROR, "fd->inode is NULL");
+                goto out;
+        }
+        if (S_ISDIR (fd->inode->st_mode)) {
+                for (pair = fd->ctx->members_list; pair; pair = pair->next) {
+                        /* notify all xlators which have a context */
+                        xl = xlator_search_by_name (fd->inode->table->xl, pair->key);
+          
+                        if (!xl) {
+                                gf_log ("fd", GF_LOG_CRITICAL,
+                                        "fd(%p)->ctx has invalid key(%s)",
+                                        fd, pair->key);
+                                continue;
+                        }
+                        if (xl->cbks->releasedir) {
+                                xl->cbks->releasedir (xl, fd);
+                        } else {
+                                gf_log ("fd", GF_LOG_CRITICAL,
+                                        "xlator(%s) in fd(%p) no FORGET fop",
+                                        xl->name, fd);
+                        }
+                }
+        } else {
+                for (pair = fd->ctx->members_list; pair; pair = pair->next) {
+                        /* notify all xlators which have a context */
+                        xl = xlator_search_by_name (fd->inode->table->xl, pair->key);
+          
+                        if (!xl) {
+                                gf_log ("fd", GF_LOG_CRITICAL,
+                                        "fd(%p)->ctx has invalid key(%s)",
+                                        fd, pair->key);
+                                continue;
+                        }
+                        if (xl->cbks->release) {
+                                xl->cbks->release (xl, fd);
+                        } else {
+                                gf_log ("fd", GF_LOG_CRITICAL,
+                                        "xlator(%s) in fd(%p) no FORGET fop",
+                                        xl->name, fd);
+                        }
+                }
+        }
 
-	inode_unref (fd->inode);
-	fd->inode = (inode_t *)0xaaaaaaaa;
-	dict_destroy (fd->ctx);
-	FREE (fd);
-	
+        inode_unref (fd->inode);
+        fd->inode = (inode_t *)0xaaaaaaaa;
+        dict_destroy (fd->ctx);
+        FREE (fd);
+        
 out:
-	return;
+        return;
 }
 
-fd_t *
+void
 fd_unref (fd_t *fd)
 {
-	int32_t refcount = 0;
+        int32_t refcount = 0;
 
-	LOCK (&fd->inode->lock);
-	{
-		_fd_unref (fd);
-		refcount = fd->refcount;
-	}
-	UNLOCK (&fd->inode->lock);
-	
-	if (refcount == 0) {
-		fd_destroy (fd);
-	}
+        if (!fd) {
+                gf_log ("fd.c", GF_LOG_ERROR, "fd is NULL");
+                return;
+        }
+        
+        LOCK (&fd->inode->lock);
+        {
+                _fd_unref (fd);
+                refcount = fd->refcount;
+        }
+        UNLOCK (&fd->inode->lock);
+        
+        if (refcount == 0) {
+                fd_destroy (fd);
+        }
 
-	return fd;
+        return ;
 }
 
 fd_t *
 fd_bind (fd_t *fd)
 {
-	inode_t *inode = fd->inode;
+        inode_t *inode = fd->inode;
 
-	LOCK (&inode->lock);
-	{
-		list_add (&fd->inode_list, &inode->fd_list);
-	}
-	UNLOCK (&inode->lock);
-	
-	return fd;
+        if (!fd) {
+                gf_log ("fd.c", GF_LOG_ERROR, "fd is NULL");
+                return NULL;
+        }
+
+        LOCK (&inode->lock);
+        {
+                list_add (&fd->inode_list, &inode->fd_list);
+        }
+        UNLOCK (&inode->lock);
+        
+        return fd;
 }
 
 fd_t *
 fd_create (inode_t *inode, pid_t pid)
 {
-	fd_t *fd = NULL;
+        fd_t *fd = NULL;
   
-	if (inode == NULL)
-	{
-		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
-		return NULL;
-	}
+        if (inode == NULL)
+        {
+                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+                return NULL;
+        }
   
-	fd = calloc (1, sizeof (fd_t));
-	ERR_ABORT (fd);
+        fd = calloc (1, sizeof (fd_t));
+        ERR_ABORT (fd);
   
-	fd->ctx = get_new_dict ();
-	fd->ctx->is_locked = 1;
-	fd->inode = inode_ref (inode);
-	fd->pid = pid;
-	INIT_LIST_HEAD (&fd->inode_list);
-	
-	LOCK (&inode->lock);
-	fd = _fd_ref (fd);
-	UNLOCK (&inode->lock);
+        fd->ctx = get_new_dict ();
+        fd->ctx->is_locked = 1;
+        fd->inode = inode_ref (inode);
+        fd->pid = pid;
+        INIT_LIST_HEAD (&fd->inode_list);
+        
+        LOCK (&inode->lock);
+        fd = _fd_ref (fd);
+        UNLOCK (&inode->lock);
 
-	return fd;
+        return fd;
 }
 
 fd_t *
 fd_lookup (inode_t *inode, pid_t pid)
 {
-	fd_t *fd = NULL;
-	fd_t *iter_fd = NULL;
+        fd_t *fd = NULL;
+        fd_t *iter_fd = NULL;
 
-	LOCK (&inode->lock);
-	{
-		if (list_empty (&inode->fd_list)) {
-			fd = NULL;
-		} else {
-			list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
-				if (pid) {
-					if (iter_fd->pid == pid) {
-						fd = _fd_ref (iter_fd);
-						break;
-					}
-				} else {
-					fd = _fd_ref (iter_fd);
-					break;
-				}
-			}
-		}
-	}
-	UNLOCK (&inode->lock);
-	
-	return fd;
+        LOCK (&inode->lock);
+        {
+                if (list_empty (&inode->fd_list)) {
+                        fd = NULL;
+                } else {
+                        list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                                if (pid) {
+                                        if (iter_fd->pid == pid) {
+                                                fd = _fd_ref (iter_fd);
+                                                break;
+                                        }
+                                } else {
+                                        fd = _fd_ref (iter_fd);
+                                        break;
+                                }
+                        }
+                }
+        }
+        UNLOCK (&inode->lock);
+        
+        return fd;
 }
 
 uint8_t
 fd_list_empty (inode_t *inode)
 {
-	uint8_t empty = 0; 
+        uint8_t empty = 0; 
 
-	LOCK (&inode->lock);
-	{
-		empty = list_empty (&inode->fd_list);
-	}
-	UNLOCK (&inode->lock);
-	
-	return empty;
+        LOCK (&inode->lock);
+        {
+                empty = list_empty (&inode->fd_list);
+        }
+        UNLOCK (&inode->lock);
+        
+        return empty;
 }

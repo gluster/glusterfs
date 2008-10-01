@@ -1136,7 +1136,7 @@ ib_verbs_send_completion_proc (void *data)
     void *event_ctx;
     ib_verbs_device_t *device;
     struct ibv_wc wc;
-    
+
     ret = ibv_get_cq_event (chan, &event_cq, &event_ctx);
     if (ret) {
       gf_log ("transport/ib-verbs", GF_LOG_ERROR,
@@ -1196,7 +1196,7 @@ ib_verbs_send_completion_proc (void *data)
 	      device->device_name, ret, errno);
       continue;
     }
-    ibv_ack_cq_events (event_cq, 1);
+    ibv_ack_cq_events (event_cq, 1); 
   }
 
   return NULL;

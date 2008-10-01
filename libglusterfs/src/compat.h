@@ -70,9 +70,9 @@
 #include <libgen.h>
 
 enum {
-  ATTR_CREATE = 1,
+        ATTR_CREATE = 1,
 #define XATTR_CREATE ATTR_CREATE
-  ATTR_REPLACE = 2
+        ATTR_REPLACE = 2
 #define XATTR_REPLACE ATTR_REPLACE
 };
 
@@ -96,7 +96,7 @@ enum {
 #   define NAME_MAX 255
 #  endif
 # endif
-	
+        
 #define lremovexattr(path,key)               extattr_delete_link(path, EXTATTR_NAMESPACE_USER, key)
 #define llistxattr(path,key,size)            extattr_list_link(path, EXTATTR_NAMESPACE_USER, key, size)
 #define lgetxattr(path, key, value, size)    extattr_get_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
@@ -105,9 +105,9 @@ enum {
 #define fsetxattr(fd,key,value,size,flag)    extattr_set_fd(fd, EXTATTR_NAMESPACE_USER, key, value, size)
 
 
-#define F_GETLK64	F_GETLK
-#define F_SETLK64	F_SETLK
-#define F_SETLKW64	F_SETLKW
+#define F_GETLK64       F_GETLK
+#define F_SETLK64       F_SETLK
+#define F_SETLKW64      F_SETLKW
 
 #endif /* GF_BSD_HOST_OS */
 
@@ -151,9 +151,9 @@ enum {
 #define fgetxattr(path,key,value,size)          fgetxattr(path,key,value,size,0,0)
 #define fsetxattr(path,key,value,size,flag)     fsetxattr(path,key,value,size,0,flag)
 
-#define F_GETLK64	F_GETLK
-#define F_SETLK64	F_SETLK
-#define F_SETLKW64	F_SETLKW
+#define F_GETLK64       F_GETLK
+#define F_SETLK64       F_SETLK
+#define F_SETLKW64      F_SETLKW
 
 int32_t gf_darwin_compat_listxattr (int len, dict_t *dict, int size);
 int32_t gf_darwin_compat_getxattr (char *key, char **value, int size);
@@ -169,7 +169,7 @@ int32_t gf_darwin_compat_setxattr (const char *key, const char *value);
 #include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <fcntl.h>
+#include <asm/fcntl.h>
 #include <libgen.h>
 
 #ifndef lchmod
@@ -177,9 +177,9 @@ int32_t gf_darwin_compat_setxattr (const char *key, const char *value);
 #endif 
 
 enum {
-  ATTR_CREATE = 1,
+        ATTR_CREATE = 1,
 #define XATTR_CREATE ATTR_CREATE
-  ATTR_REPLACE = 2
+        ATTR_REPLACE = 2
 #define XATTR_REPLACE ATTR_REPLACE
 };
 
@@ -218,13 +218,13 @@ char* strsep(char** str, const char* delims);
 int solaris_listxattr(const char *path, char *list, size_t size);
 int solaris_removexattr(const char *path, const char* key);
 int solaris_getxattr(const char *path, const char* key, 
-		     char *value, size_t size);
+                     char *value, size_t size);
 int solaris_setxattr(const char *path, const char* key, const char *value, 
-		     size_t size, int flags);
+                     size_t size, int flags);
 int solaris_fgetxattr(int fd, const char* key,
-		      char *value, size_t size);
+                      char *value, size_t size);
 int solaris_fsetxattr(int fd, const char* key, const char *value, 
-		      size_t size, int flags);
+                      size_t size, int flags);
 
 #endif /* GF_SOLARIS_HOST_OS */
 
@@ -235,14 +235,14 @@ int solaris_fsetxattr(int fd, const char* key, const char *value,
 #endif /* HAVE_ARGP */
 
 #ifndef strdupa
-#define strdupa(s)                                     \
-  (__extension__                                       \
-    ({                                                 \
-      __const char *__old = (s);                       \
-      size_t __len = strlen (__old) + 1;               \
-      char *__new = (char *) __builtin_alloca (__len); \
-      (char *) memcpy (__new, __old, __len);	       \
-    }))
+#define strdupa(s)                                                      \
+        (__extension__                                                  \
+         ({                                                             \
+                 __const char *__old = (s);                             \
+                 size_t __len = strlen (__old) + 1;                     \
+                 char *__new = (char *) __builtin_alloca (__len);       \
+                 (char *) memcpy (__new, __old, __len);                 \
+         }))
 #endif 
 
 #define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
@@ -254,16 +254,16 @@ static inline int32_t
 dirent_size (struct dirent *entry)
 {
 #ifdef GF_BSD_HOST_OS
-  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
+        return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
 #endif
 #ifdef GF_DARWIN_HOST_OS
-  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
+        return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
 #endif
 #ifdef GF_LINUX_HOST_OS
-  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
+        return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
 #endif
 #ifdef GF_SOLARIS_HOST_OS
-  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
+        return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
 #endif
 }
 

@@ -32,6 +32,8 @@ AC_CONFIG_FILES([Makefile
 		mod_glusterfs/lighttpd-1.5/Makefile
 		glusterfs/Makefile
 		glusterfs/src/Makefile
+		booster/Makefile
+		booster/src/Makefile
 		xlators/Makefile
 		xlators/mount/Makefile
 		xlators/mount/fuse/Makefile

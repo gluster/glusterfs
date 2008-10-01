@@ -51,6 +51,8 @@ struct fuse_private {
         struct fuse         *fuse;
         struct fuse_session *se;
         struct fuse_chan    *ch;
+        char *specfile;
+        size_t specfile_size;
         char                *mount_point;
         data_t              *buf;
         pthread_t            fuse_thread;
@@ -66,8 +68,10 @@ struct _fuse_private {
         struct fuse         *fuse;
         struct fuse_session *se;
         struct fuse_chan    *ch;
-	fuse_options_t       options;
+        fuse_options_t       options;
         data_t              *buf;
+        char                      *specfile;
+        size_t                     specfile_size; 
         pthread_t            fuse_thread;
         char                 fuse_thread_started;
 };
@@ -77,26 +81,26 @@ typedef struct _fuse_private fuse_private_t;
 
 #define FI_TO_FD(fi) ((_FI_TO_FD (fi))?(fd_ref (_FI_TO_FD(fi))):((fd_t *) 0))
 
-#define FUSE_FOP(state, ret, op_num, fop, args ...)                      \
-        do {                                                             \
+#define FUSE_FOP(state, ret, op_num, fop, args ...)                     \
+        do {                                                            \
                 call_frame_t *frame = get_call_frame_for_req (state, 1); \
-                xlator_t *xl = frame->this->children ?                   \
-                        frame->this->children->xlator : NULL;            \
-                dict_t *refs = frame->root->req_refs;                    \
-                frame->root->state = state;                              \
-                frame->op   = op_num;                                    \
-                STACK_WIND (frame, ret, xl, xl->fops->fop, args);        \
-                dict_unref (refs);                                       \
+                xlator_t *xl = frame->this->children ?                  \
+                        frame->this->children->xlator : NULL;           \
+                dict_t *refs = frame->root->req_refs;                   \
+                frame->root->state = state;                             \
+                frame->op   = op_num;                                   \
+                STACK_WIND (frame, ret, xl, xl->fops->fop, args);       \
+                dict_unref (refs);                                      \
         } while (0)
 
 
-#define FUSE_FOP_NOREPLY(_state, op_num, fop, args ...)                     \
-        do {                                                                \
-                call_frame_t *_frame = get_call_frame_for_req (_state, 0);  \
-                xlator_t *xl = _frame->this->children->xlator;              \
-                _frame->root->state = _state;                               \
-                _frame->root->req_refs = NULL;                              \
-                _frame->op   = op_num;                                      \
+#define FUSE_FOP_NOREPLY(_state, op_num, fop, args ...)                 \
+        do {                                                            \
+                call_frame_t *_frame = get_call_frame_for_req (_state, 0); \
+                xlator_t *xl = _frame->this->children->xlator;          \
+                _frame->root->state = _state;                           \
+                _frame->root->req_refs = NULL;                          \
+                _frame->op   = op_num;                                  \
                 STACK_WIND (_frame, fuse_nop_cbk, xl, xl->fops->fop, args); \
         } while (0)
 
@@ -119,8 +123,8 @@ typedef struct {
 } fuse_state_t;
 
 int fuse_chan_receive (struct fuse_chan *ch,
-		       char *buf,
-		       int32_t size);
+                       char *buf,
+                       int32_t size);
 
 
 static void
@@ -138,10 +142,10 @@ free_state (fuse_state_t *state)
                 FREE (state->name);
                 state->name = NULL;
         }
-	if (state->fd) {
-		fd_unref (state->fd);
-		state->fd = (void *)0xfdfdfdfd;
-	}
+        if (state->fd) {
+                fd_unref (state->fd);
+                state->fd = (void *)0xfdfdfdfd;
+        }
 #ifdef DEBUG
         memset (state, 0x90, sizeof (*state));
 #endif
@@ -176,7 +180,7 @@ state_from_req (fuse_req_t req)
         fuse_state_t *state;
         xlator_t *this = NULL;
 
-	this = fuse_req_userdata (req);
+        this = fuse_req_userdata (req);
 
         state = (void *)calloc (1, sizeof (*state));
         ERR_ABORT (state);
@@ -192,8 +196,8 @@ static pid_t
 get_pid_from_req (fuse_req_t req)
 {
         const struct fuse_ctx *ctx = NULL;
-	ctx = fuse_req_ctx(req);
-	return ctx->pid;
+        ctx = fuse_req_ctx(req);
+        return ctx->pid;
 }
 
 static call_frame_t *
@@ -299,7 +303,7 @@ need_fresh_lookup (int op_ret, inode_t *inode, struct stat *buf)
 
         if (inode->ino != buf->st_ino) {
                 return 1;
-	}
+        }
 
 	if ((inode->st_mode & S_IFMT) ^ (buf->st_mode & S_IFMT)) {
 		return 1;
@@ -337,7 +341,7 @@ fuse_entry_cbk (call_frame_t *frame,
         req = state->req;
 
         if (!op_ret && inode->ino == 1) {
-		buf->st_ino = 1;
+                buf->st_ino = 1;
         }
 
         if (state->is_revalidate == 1
@@ -502,7 +506,7 @@ fuse_attr_cbk (call_frame_t *frame,
 
                 fuse_reply_err (req, op_errno);
         }
-	
+        
         free_state (state);
         STACK_DESTROY (frame->root);
         return 0;
@@ -515,7 +519,7 @@ fuse_getattr (fuse_req_t req,
               struct fuse_file_info *fi)
 {
         fuse_state_t *state;
-	fd_t         *fd = NULL;
+        fd_t         *fd = NULL;
 
         state = state_from_req (req);
 
@@ -538,9 +542,9 @@ fuse_getattr (fuse_req_t req,
                 fuse_reply_err (req, EINVAL);
                 return;
         }
-	
-	fd = fd_lookup (state->loc.inode, get_pid_from_req (req));
-	state->fd = fd;
+        
+        fd = fd_lookup (state->loc.inode, get_pid_from_req (req));
+        state->fd = fd;
         if ((fd == NULL) || 
             S_ISDIR (state->loc.inode->st_mode)) {
 
@@ -579,7 +583,7 @@ fuse_fd_cbk (call_frame_t *frame,
 
         if (op_ret >= 0) {
                 struct fuse_file_info fi = {0, };
-		
+                
                 fi.fh = (unsigned long) fd;
                 fi.flags = state->flags;
 
@@ -640,12 +644,12 @@ do_chmod (fuse_req_t req,
           struct fuse_file_info *fi)
 {
         fuse_state_t *state = state_from_req (req);
-	fd_t *fd = NULL;
-	
-	if (fi) {
-		fd = FI_TO_FD (fi);
-		state->fd = fd;
-	}
+        fd_t *fd = NULL;
+        
+        if (fi) {
+                fd = FI_TO_FD (fi);
+                state->fd = fd;
+        }
 
         if (fd) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
@@ -683,16 +687,16 @@ do_chown (fuse_req_t req,
           struct fuse_file_info *fi)
 {
         fuse_state_t *state;
-	fd_t *fd = NULL;
+        fd_t *fd = NULL;
         uid_t uid = (valid & FUSE_SET_ATTR_UID) ? attr->st_uid : (uid_t) -1;
         gid_t gid = (valid & FUSE_SET_ATTR_GID) ? attr->st_gid : (gid_t) -1;
 
         state = state_from_req (req);
 
-	if (fi) {
-		fd = FI_TO_FD (fi);
-		state->fd = fd;
-	}
+        if (fi) {
+                fd = FI_TO_FD (fi);
+                state->fd = fd;
+        }
 
         if (fd) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
@@ -728,14 +732,14 @@ do_truncate (fuse_req_t req,
              struct fuse_file_info *fi)
 {
         fuse_state_t *state;
-	fd_t *fd = NULL;
+        fd_t *fd = NULL;
 
         state = state_from_req (req);
-	
-	if (fi) {
-		fd = FI_TO_FD (fi);
-		state->fd = fd;
-	}
+        
+        if (fi) {
+                fd = FI_TO_FD (fi);
+                state->fd = fd;
+        }
         if (fd) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                         "%"PRId64": FTRUNCATE %p/%"PRId64, req_callid (req),
@@ -819,7 +823,7 @@ fuse_setattr (fuse_req_t req,
                 do_truncate (req, ino, attr, fi);
         else if (valid & (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME))
                 do_utimes (req, ino, attr);
-	else 
+        else 
                 fuse_getattr (req, ino, fi);
 }
 
@@ -1400,7 +1404,7 @@ fuse_readv_cbk (call_frame_t *frame,
 
                 fuse_reply_err (req, op_errno);
         }
-	
+        
         free_state (state);
         STACK_DESTROY (frame->root);
 
@@ -1415,13 +1419,13 @@ fuse_readv (fuse_req_t req,
             struct fuse_file_info *fi)
 {
         fuse_state_t *state;
-	fd_t *fd = NULL;
+        fd_t *fd = NULL;
         state = state_from_req (req);
         state->size = size;
         state->off = off;
-	
-	fd = FI_TO_FD (fi);
-	state->fd = fd;
+        
+        fd = FI_TO_FD (fi);
+        state->fd = fd;
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                 "%"PRId64": READ (%p, size=%d, offset=%"PRId64")",
@@ -1457,7 +1461,7 @@ fuse_writev_cbk (call_frame_t *frame,
 
                 fuse_reply_err (req, op_errno);
         }
-	
+        
         free_state (state);
         STACK_DESTROY (frame->root);
 
@@ -1519,8 +1523,8 @@ fuse_flush (fuse_req_t req,
 
 static void 
 fuse_close (fuse_req_t req,
-	    fuse_ino_t ino,
-	    struct fuse_file_info *fi)
+            fuse_ino_t ino,
+            struct fuse_file_info *fi)
 {
         fuse_state_t *state;
 
@@ -1530,11 +1534,11 @@ fuse_close (fuse_req_t req,
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                 "%"PRId64": CLOSE %p", req_callid (req), state->fd);
 
-	fd_unref (state->fd);
-	
-	fuse_reply_err (req, 0);
-	
-	free_state (state);
+        fd_unref (state->fd);
+        
+        fuse_reply_err (req, 0);
+        
+        free_state (state);
         return;
 }
 
@@ -1546,11 +1550,11 @@ fuse_fsync (fuse_req_t req,
             struct fuse_file_info *fi)
 {
         fuse_state_t *state;
-	fd_t *fd = NULL;
+        fd_t *fd = NULL;
 
         state = state_from_req (req);
-	fd = FI_TO_FD (fi);
-	state->fd = fd;
+        fd = FI_TO_FD (fi);
+        state->fd = fd;
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                 "%"PRId64": FSYNC %p", req_callid (req), fd);
@@ -2022,11 +2026,54 @@ fuse_xattr_cbk (call_frame_t *frame,
                                         /* if callback for getxattr and asks for value length only */
                                         fuse_reply_xattr (req, ret);
                                 } /* if(ret >...)...else if...else */
-                        } else {
-                                fuse_reply_err (req, ENODATA);
-                        } /* if(value_data)...else */
-                } else {
-                        /* if callback for listxattr */
+                        }  else if (!strcmp (state->name, "user.glusterfs-booster-specfile")) {
+				fuse_private_t *priv = this->private;
+ 
+				if (!priv->specfile) {
+					glusterfs_ctx_t *ctx = NULL;
+					int32_t fd = -1, ret = -1;
+					struct stat st;
+					char *file = NULL;
+					
+					memset (&st, 0, sizeof (st));
+                                         ctx = get_global_ctx_ptr ();
+                                         fd = fileno (ctx->specfp);
+                                         ret = fstat (fd, &st);
+                                         if (ret != 0) {
+                                                 gf_log (this->name,
+                                                         GF_LOG_ERROR,
+                                                         "fstat on fd (%d) failed (%s)", fd, strerror (errno));
+                                                 fuse_reply_err (req, ENODATA);
+                                         }
+					 
+                                         priv->specfile_size = st.st_size;
+                                         file = priv->specfile = calloc (1, priv->specfile_size);
+                                         ret = lseek (fd, 0, SEEK_SET);
+                                         while ((ret = read (fd, file, GF_UNIT_KB)) > 0) {
+                                                 file += ret;
+                                         }
+				}
+ 
+				if (priv->specfile_size > GLUSTERFS_XATTR_LEN_MAX) {
+					fuse_reply_err (req, E2BIG);
+				} else if (state->size) {
+					/* if callback for getxattr and asks for value */
+					fuse_reply_buf (req, priv->specfile, priv->specfile_size);
+				} else {
+					/* if callback for getxattr and asks for value length only */
+					fuse_reply_xattr (req, priv->specfile_size);
+				} /* if(ret >...)...else if...else */
+			} else if (!strcmp (state->name, "user.glusterfs-booster-path")) {
+				if (state->size) {
+					fuse_reply_buf (req, state->loc.path, strlen (state->loc.path) + 1);
+				} else {
+					fuse_reply_xattr (req, strlen (state->loc.path) + 1);
+				}
+			} else {
+				fuse_reply_err (req, ENODATA);
+			} /* if(value_data)...else */
+		} else {
+				/* if callback for listxattr */
                         int32_t len = 0;
                         data_pair_t *trav = dict->members_list;
                         while (trav) {
@@ -2050,7 +2097,7 @@ fuse_xattr_cbk (call_frame_t *frame,
                                 /* if callback for listxattr and asks for length of keys only */
                                 fuse_reply_xattr (req, len);
                         } /* if(state->size)...else */
-                } /* if(state->name)...else */
+		} /* if(state->name)...else */
         } else {
                 /* if failure - no need to check if listxattr or getxattr */
                 if (op_errno != ENODATA) {
@@ -2220,7 +2267,7 @@ fuse_getlk_cbk (call_frame_t *frame,
                 }
                 fuse_reply_err (state->req, op_errno);
         }
-	
+        
         free_state (state);
         STACK_DESTROY (frame->root);
 
@@ -2281,7 +2328,7 @@ fuse_setlk_cbk (call_frame_t *frame,
 
                 fuse_reply_err (state->req, op_errno);
         }
-	
+        
         free_state (state);
         STACK_DESTROY (frame->root);
 
@@ -2297,12 +2344,12 @@ fuse_setlk (fuse_req_t req,
             int sleep)
 {
         fuse_state_t *state;
-	fd_t *fd = NULL;
-	
-	fd = FI_TO_FD (fi);
+        fd_t *fd = NULL;
+        
+        fd = FI_TO_FD (fi);
         state = state_from_req (req);
         state->req = req;
-	state->fd = fd;
+        state->fd = fd;
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                 "%"PRId64": SETLK %p (sleep=%d)", req_callid (req), fd,
@@ -2318,17 +2365,17 @@ fuse_setlk (fuse_req_t req,
 static void 
 fuse_init (void *data, struct fuse_conn_info *conn)
 {
-	xlator_t *this_xl = NULL;
-	
-	if (data == NULL) {
-		return ;
-	}
-	
-	this_xl = data;
-	
-	this_xl->itable = inode_table_new (0, this_xl);
-	
-	return ;
+        xlator_t *this_xl = NULL;
+        
+        if (data == NULL) {
+                return ;
+        }
+        
+        this_xl = data;
+        
+        this_xl->itable = inode_table_new (0, this_xl);
+        
+        return ;
 }
 
 static void
@@ -2462,16 +2509,16 @@ notify (xlator_t *this, int32_t event,
         case GF_EVENT_CHILD_UP:
 
 #ifndef GF_DARWIN_HOST_OS
-	  /* This is because macfuse sends statfs() once the fuse thread
-	     gets activated, and by that time if the client is not connected,
-	     it give 'Device not configured' error. Hence, create thread only when 
-	     client sends CHILD_UP (ie, client is connected).
-	   */
+                /* This is because macfuse sends statfs() once the fuse thread
+                   gets activated, and by that time if the client is not connected,
+                   it give 'Device not configured' error. Hence, create thread only when 
+                   client sends CHILD_UP (ie, client is connected).
+                */
 
-	  /* TODO: somehow, try to get the mountpoint active as soon as init()
-	     is complete, so that the hang effect when the server is not not
-	     started is removed. */
-	case GF_EVENT_CHILD_CONNECTING: 
+                /* TODO: somehow, try to get the mountpoint active as soon as init()
+                   is complete, so that the hang effect when the server is not not
+                   started is removed. */
+        case GF_EVENT_CHILD_CONNECTING: 
 #endif /* DARWIN */
 
         {
@@ -2613,44 +2660,44 @@ init (xlator_t *this_xl)
                                         strerror (errno), fuse_options->mount_point);
                         }
                 }
-		
+                
                 goto cleanup_exit;
         }
-	
+        
         priv->se = fuse_lowlevel_new (&args, &fuse_ops, sizeof (fuse_ops), this_xl);
         if (priv->se == NULL) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "fuse_lowlevel_new() failed with error %s on mount point %s", 
-			strerror (errno), fuse_options->mount_point);
+                        strerror (errno), fuse_options->mount_point);
                 goto umount_exit;
         }
-	
+        
         rv = fuse_set_signal_handlers (priv->se);
         if (rv == -1) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
-			"fuse_set_signal_handlers() failed on mount point %s", 
-			fuse_options->mount_point);
+                        "fuse_set_signal_handlers() failed on mount point %s", 
+                        fuse_options->mount_point);
                 goto umount_exit;
         }
-	
+        
         fuse_opt_free_args (&args);
-	
+        
         fuse_session_add_chan (priv->se, priv->ch);
-	
+        
         priv->fd = fuse_chan_fd (priv->ch);
         priv->buf = data_ref (data_from_dynptr (NULL, 0));
         priv->buf->is_locked = 1;
-	
+        
         /*  (this->children->xlator)->notify (this->children->xlator, 
             GF_EVENT_PARENT_UP, this); */
         return 0;
-	
+        
 umount_exit: 
         fuse_unmount (priv->options.mount_point, priv->ch);
 cleanup_exit:
         fuse_opt_free_args (&args);
-	FREE (priv->options.mount_point);
-	FREE (priv);
+        FREE (priv->options.mount_point);
+        FREE (priv);
         return -1;
 }
 

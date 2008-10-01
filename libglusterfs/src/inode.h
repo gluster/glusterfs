@@ -42,48 +42,48 @@ typedef struct _dentry dentry_t;
 
 
 struct _inode_table {
-  pthread_mutex_t    lock;
-  size_t             hashsize;    /* bucket size of inode hash and dentry hash */
-  char              *name;        /* name of the inode table, just for gf_log() */
-  inode_t           *root;        /* root directory inode, with number 1 */
-  xlator_t          *xl;          /* xlator to be called to do purge */
-  uint32_t           lru_limit;   /* maximum LRU cache size */
-  struct list_head  *inode_hash;  /* buckets for inode hash table */
-  struct list_head  *name_hash;   /* buckets for dentry hash table */
-  struct list_head   active;      /* list of inodes currently active (in an fop) */
-  uint32_t           active_size; /* count of inodes in active list */
-  struct list_head   lru;         /* list of inodes recently used.
-				     lru.next most recent */
-  uint32_t           lru_size;    /* count of inodes in lru list  */
-  struct list_head   purge;       /* list of inodes to be purged soon */
-  uint32_t           purge_size;  /* count of inodes in purge list */
+        pthread_mutex_t    lock;
+        size_t             hashsize;    /* bucket size of inode hash and dentry hash */
+        char              *name;        /* name of the inode table, just for gf_log() */
+        inode_t           *root;        /* root directory inode, with number 1 */
+        xlator_t          *xl;          /* xlator to be called to do purge */
+        uint32_t           lru_limit;   /* maximum LRU cache size */
+        struct list_head  *inode_hash;  /* buckets for inode hash table */
+        struct list_head  *name_hash;   /* buckets for dentry hash table */
+        struct list_head   active;      /* list of inodes currently active (in an fop) */
+        uint32_t           active_size; /* count of inodes in active list */
+        struct list_head   lru;         /* list of inodes recently used.
+                                           lru.next most recent */
+        uint32_t           lru_size;    /* count of inodes in lru list  */
+        struct list_head   purge;       /* list of inodes to be purged soon */
+        uint32_t           purge_size;  /* count of inodes in purge list */
 };
 
 
 struct _dentry {
-  struct list_head   inode_list;   /* list of dentries of inode */
-  struct list_head   hash;         /* hash table pointers */
-  struct list_head   parent_list;  /* list of dentries under the parent  */
-  inode_t           *inode;        /* inode of this directory entry */
-  char              *name;         /* name of the directory entry */
-  inode_t           *parent;       /* directory of the entry */
+        struct list_head   inode_list;   /* list of dentries of inode */
+        struct list_head   hash;         /* hash table pointers */
+        struct list_head   parent_list;  /* list of dentries under the parent  */
+        inode_t           *inode;        /* inode of this directory entry */
+        char              *name;         /* name of the directory entry */
+        inode_t           *parent;       /* directory of the entry */
 };
 
 
 struct _inode {
-  inode_table_t    *table;         /* the table this inode belongs to */
-  gf_lock_t         lock;
-  uint64_t          nlookup;
-  uint64_t          generation;
-  uint32_t          ref;           /* reference count on this inode */
-  ino_t             ino;           /* inode number in the storage (persistent) */
-  dict_t           *ctx;           /* per xlator private */
-  mode_t            st_mode;       /* what kind of file */
-  struct list_head  fd_list;       /* list of open files on this inode */
-  struct list_head  dentry_list;   /* list of directory entries for this inode */
-  struct list_head  child_list;    /* list of directory entries under this inode */
-  struct list_head  hash;          /* hash table pointers */
-  struct list_head  list;          /* active/lru/purge */
+        inode_table_t    *table;         /* the table this inode belongs to */
+        gf_lock_t         lock;
+        uint64_t          nlookup;
+        uint64_t          generation;
+        uint32_t          ref;           /* reference count on this inode */
+        ino_t             ino;           /* inode number in the storage (persistent) */
+        dict_t           *ctx;           /* per xlator private */
+        mode_t            st_mode;       /* what kind of file */
+        struct list_head  fd_list;       /* list of open files on this inode */
+        struct list_head  dentry_list;   /* list of directory entries for this inode */
+        struct list_head  child_list;    /* list of directory entries under this inode */
+        struct list_head  hash;          /* hash table pointers */
+        struct list_head  list;          /* active/lru/purge */
 };
 
 
@@ -101,12 +101,12 @@ inode_search (inode_table_t *table, ino_t ino, const char *name);
 
 int
 inode_link (inode_t *inode, inode_t *parent,
-	    const char *name, struct stat *stbuf);
+            const char *name, struct stat *stbuf);
 
 void
 inode_unlink (inode_t *inode,
-	      inode_t *parent,
-	      const char *name);
+              inode_t *parent,
+              const char *name);
 
 inode_t *
 inode_parent (inode_t *inode, ino_t par, const char *name);

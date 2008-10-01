@@ -18,6 +18,7 @@
 */
 
 %x STRING
+%option prefix="glusterfs_"
 %option yylineno
 %{
 
@@ -77,24 +78,24 @@ TYPE   [t][y][p][e]
 {OPTION}               return OPTION;
 \"                     BEGIN(STRING);
 <STRING>{
-       [^\n\"\\]* {    append_string (yytext, yyleng); }
-       \\.        {    append_string (yytext + 1, yyleng - 1); }
+       [^\n\"\\]* {    append_string (glusterfs_text, yyleng); }
+       \\.        {    append_string (glusterfs_text + 1, yyleng - 1); }
        \"         {
                        BEGIN (INITIAL);
-                       yylval = text;
+                       glusterfs_lval = text;
                        return STRING_TOK;
        }
 }
 \`                     BEGIN(BKQUOTE);
 <BKQUOTE>{
-       [^\n\`\\]* {    append_string (yytext, yyleng); }
-       \\.        {    append_string (yytext + 1, yyleng - 1); }
+       [^\n\`\\]* {    append_string (glusterfs_text, yyleng); }
+       \\.        {    append_string (glusterfs_text + 1, yyleng - 1); }
        \`         {
                        BEGIN (INITIAL);
-                       yylval = text;
+                       glusterfs_lval = text;
                        return CMD_TOK;
        }
 }
-[^ \t\r\n\`\"\\]+ {    yylval = strdup (yytext) ; return ID; }
+[^ \t\r\n\`\"\\]+ {    glusterfs_lval = strdup (glusterfs_text) ; return ID; }
 [ \t\r\n]+             ;
 %%
