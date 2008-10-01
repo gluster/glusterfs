@@ -3,14 +3,24 @@
 PortSystem          1.0
 
 name                glusterfs
-version             1.4.0qa30
+version             1.4.0pre6
 categories          fuse
 maintainers         amar@zresearch.com
 description         GlusterFS
-long_description    GlusterFS is a cluster file system, scalable to petabytes.
+long_description    GlusterFS is a cluster file system, flexible to tune it for your needs.
 homepage            http://www.gluster.org/
 platforms           darwin
-master_sites        http://ftp.zresearch.com/pub/gluster/glusterfs/1.4-qa  
+master_sites        http://ftp.zresearch.com/pub/gluster/glusterfs/1.4-pre
 
 configure.args      --disable-bdb
-checksums           md5 0dd0e38387b6b921dee5625fde099133
+checksums           md5 8dfc5feec338468412bb4d408f683443
+
+post-destroot {
+    file mkdir ${destroot}/Library/LaunchDaemons/
+    file copy ${worksrcpath}/extras/glusterfs-server.plist \
+        ${destroot}/Library/LaunchDaemons/com.zresearch.glusterfs.plist
+
+    file mkdir ${destroot}/sbin/
+    file copy ${worksrcpath}/xlators/mount/fuse/utils/mount_glusterfs \
+	${destroot}/sbin/
+}

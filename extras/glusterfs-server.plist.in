@@ -11,7 +11,5 @@
                 <string>-f</string>
                 <string>/usr/local/etc/glusterfs/server.vol</string>
         </array>
-        <key>KeepAlive</key>
-        <true/>
 </dict>
 </plist>

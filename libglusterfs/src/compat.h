@@ -127,6 +127,10 @@ enum {
 #define sighandler_t sig_t
 #endif
 
+#ifndef EUCLEAN
+#define EUCLEAN 0
+#endif
+
 #include <netinet/in.h>
 #ifndef s6_addr16
 #define s6_addr16 __u6_addr.__u6_addr16

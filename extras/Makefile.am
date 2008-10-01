@@ -10,4 +10,4 @@ EXTRA_DIST = specgen.scm glusterfs.vim glusterfs-mode.el
 CLEANFILES = 
 
 install-data-am:
-	[ "${GF_HOST_OS}" == "GF_DARWIN_HOST_OS" ] && cp glusterfs-server.plist /Library/LaunchDaemons/
+	[ "${GF_HOST_OS}" == "GF_DARWIN_HOST_OS" ] && cp glusterfs-server.plist /Library/LaunchDaemons/com.zresearch.glusterfs.plist
