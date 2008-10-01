@@ -267,9 +267,15 @@ _get_specfp (glusterfs_ctx_t *ctx)
 	}
 	
 	ret = stat (cmd_args->volume_specfile, &statbuf);
-	if ((ret == -1) || !(S_ISREG (statbuf.st_mode) || S_ISLNK (statbuf.st_mode))) {
-		fprintf (stderr, "provide a valid specfile\n");
-		gf_log ("glusterfs", GF_LOG_ERROR, "provide a valid specfile");
+	if (ret == -1) {
+		fprintf (stderr, "%s: %s\n", cmd_args->volume_specfile, strerror (errno));
+		gf_log ("glusterfs", GF_LOG_ERROR, 
+			"%s: %s\n", cmd_args->volume_specfile, strerror (errno));
+		return NULL;		
+	}
+	if (!(S_ISREG (statbuf.st_mode) || S_ISLNK (statbuf.st_mode))) {
+		fprintf (stderr, "provide a valid volume specification file\n");
+		gf_log ("glusterfs", GF_LOG_ERROR, "provide a valid volume specification file");
 		return NULL;
 	}
 	if ((specfp = fopen (cmd_args->volume_specfile, "r")) == NULL) {
@@ -566,24 +572,19 @@ int
 main (int argc, char *argv[])
 {
 	int rv;
-	
 	glusterfs_ctx_t *ctx = NULL;
 	cmd_args_t *cmd_args = NULL;
 	call_pool_t *pool = NULL;
-	
 	struct stat stbuf;
 	char tmp_logfile[1024] = { 0 };
 	char timestr[256] = { 0 };
+	char *base_exec_name = NULL;
 	time_t utime;
 	struct tm *tm = NULL;
 	int ret = 0;
-	
 	struct rlimit lim;
-	
 	FILE *specfp = NULL;
-	
 	xlator_t *graph = NULL;
-	
 	xlator_t *trav = NULL;
 	int fuse_volume_found = 0;
 	int server_or_fuse_found = 0;
@@ -591,6 +592,7 @@ main (int argc, char *argv[])
 	ctx = calloc (1, sizeof (glusterfs_ctx_t));
 	ERR_ABORT (ctx);
 	ctx->program_invocation_name = strdup (argv[0]);
+	base_exec_name = strdup (ctx->program_invocation_name);
 	set_global_ctx_ptr (ctx);
 	cmd_args = &ctx->cmd_args;
 	
@@ -606,12 +608,13 @@ main (int argc, char *argv[])
 	    (cmd_args->volume_specfile == NULL))
 		cmd_args->volume_specfile = strdup (DEFAULT_VOLUME_SPECFILE);
 	if (cmd_args->log_file == NULL)
-		asprintf (&cmd_args->log_file, DEFAULT_LOG_FILE_DIRECTORY "/%s.log", argv[0]);
+		asprintf (&cmd_args->log_file, DEFAULT_LOG_FILE_DIRECTORY "/%s.log", basename (base_exec_name));
 	if (cmd_args->specfile_server_port == 0)
 		cmd_args->specfile_server_port = DEFAULT_SPECFILE_SERVER_PORT;
 	if (cmd_args->specfile_server_transport == NULL)
 		cmd_args->specfile_server_transport = strdup (DEFAULT_SPECFILE_SERVER_TRANSPORT);
 	
+	free (base_exec_name);
 	ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
 	pthread_mutex_init (&(ctx->lock), NULL);
 	pool = ctx->pool = calloc (1, sizeof (call_pool_t));

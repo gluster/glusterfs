@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-slashsbin_SCRIPTS = mount.glusterfs
-
-slashsbindir = /sbin
-
 CLEANFILES = 
+
+install-data-am:
+	[ "${GF_HOST_OS}" == "GF_DARWIN_HOST_OS" ] && cp mount_glusterfs /sbin/ || cp mount.glusterfs /sbin/
+

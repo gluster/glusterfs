@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>Label</key>
+        <string>com.zresearch.glusterfs</string>
+        <key>ProgramArguments</key>
+        <array>
+                <string>/usr/local/sbin/glusterfsd</string>
+                <string>-N</string>
+                <string>-f</string>
+                <string>/usr/local/etc/glusterfs/server.vol</string>
+        </array>
+        <key>KeepAlive</key>
+        <true/>
+</dict>
+</plist>
