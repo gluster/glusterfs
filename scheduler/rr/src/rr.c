@@ -315,25 +315,16 @@ rr_update (xlator_t *this_xl)
       for (i = 0; i < rr->subvolume_count; i++)
 	{
 	  xlator_t *subvolume_xl = NULL;
-	  call_ctx_t *cctx = NULL;
+	  call_frame_t *frame = NULL;
 	  call_pool_t *pool = NULL;
 	  
 	  subvolume_xl = rr->subvolume_list[i].xl;
 	  
 	  pool = this_xl->ctx->pool;
 	  
-	  cctx = calloc (1, sizeof (call_ctx_t));
-	  ERR_ABORT (cctx);
-	  
-	  cctx->frames.root = cctx;
-	  cctx->frames.this = this_xl;
-	  cctx->pool = pool;
-	  
-	  LOCK (&pool->lock);
-	  list_add (&cctx->all_frames, &pool->all_frames);
-	  UNLOCK (&pool->lock);
-	  
-	  STACK_WIND_COOKIE ((&cctx->frames), 
+	  frame = create_frame (this_xl, pool);
+
+	  STACK_WIND_COOKIE (frame,
 			     rr_update_cbk, 
 			     subvolume_xl->name, 
 			     subvolume_xl, 
@@ -446,7 +437,7 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
   rr_subvolume_t *subvolume = NULL;
   xlator_t *subvolume_xl = NULL;
   int i = 0;
-  call_ctx_t *cctx = NULL;
+  call_frame_t *frame = NULL;
   call_pool_t *pool = NULL;
   
   if (this_xl == NULL || data == NULL)
@@ -476,20 +467,10 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
       /* Seeding, to be done only once */
       if (rr->first_time && (i == rr->subvolume_count)) 
 	{
-	  cctx = NULL;
 	  pool = this_xl->ctx->pool;
-	  cctx = calloc (1, sizeof (*cctx));
-	  ERR_ABORT (cctx);
-	  cctx->frames.root  = cctx;
-	  cctx->frames.this  = this_xl;    
-	  cctx->pool = pool;
-	  LOCK (&pool->lock);
-	  {
-	    list_add (&cctx->all_frames, &pool->all_frames);
-	  }
-	  UNLOCK (&pool->lock);
+	  frame = create_frame (this_xl, pool);
 	  
-	  STACK_WIND ((&cctx->frames), 
+	  STACK_WIND (frame,
 		      rr_notify_cbk,
 		      (xlator_t *)data,
 		      ((xlator_t *)data)->fops->incver,

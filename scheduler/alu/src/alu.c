@@ -741,27 +741,18 @@ update_stat_array (xlator_t *xl)
   /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
   int32_t idx = 0;
-  call_ctx_t *cctx;
+  call_frame_t *frame = NULL;
+  call_pool_t *pool = xl->ctx->pool;
 
   for (idx = 0 ; idx < alu_sched->child_count; idx++) {
-    call_pool_t *pool = xl->ctx->pool;
-    cctx = calloc (1, sizeof (*cctx));
-    ERR_ABORT (cctx);
-    cctx->frames.root  = cctx;
-    cctx->frames.this  = xl;    
-    cctx->pool = pool;
-    LOCK (&pool->lock);
-    {
-      list_add (&cctx->all_frames, &pool->all_frames);
-    }
-    UNLOCK (&pool->lock);
+    frame = create_frame (xl, pool);
 
-    STACK_WIND_COOKIE ((&cctx->frames), 
-		 update_stat_array_cbk, 
-		 alu_sched->array[idx].xl, //cookie
-		 alu_sched->array[idx].xl, 
-		 (alu_sched->array[idx].xl)->mops->stats,
-		 0); //flag
+    STACK_WIND_COOKIE (frame,
+		       update_stat_array_cbk, 
+		       alu_sched->array[idx].xl, //cookie
+		       alu_sched->array[idx].xl, 
+		       (alu_sched->array[idx].xl)->mops->stats,
+		       0); //flag
   }
   return;
 }
