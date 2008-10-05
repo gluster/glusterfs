@@ -46,8 +46,6 @@
 #include "glusterfs.h"
 #include "stack.h"
 
-#include "options.h"
-
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 static glusterfs_ctx_t *gf_global_ctx;
@@ -1344,16 +1342,20 @@ gf_string2boolean (const char *str, gf_boolean_t *b)
 		return -1;
 	}
 	
-	if ((strcmp (str, GF_YES_STRING) == 0) || 
-	    (strcmp (str, GF_TRUE_STRING) == 0) || 
-	    (strcmp (str, GF_ENABLE_STRING) == 0)) {
+	if ((strcasecmp (str, "1") == 0) || 
+	    (strcasecmp (str, "on") == 0) || 
+	    (strcasecmp (str, "yes") == 0) || 
+	    (strcasecmp (str, "true") == 0) || 
+	    (strcasecmp (str, "enable") == 0)) {
 		*b = _gf_true;
 		return 0;
 	}
 	
-	if ((strcmp (str, GF_NO_STRING) == 0) || 
-	    (strcmp (str, GF_FALSE_STRING) == 0) || 
-	    (strcmp (str, GF_DISABLE_STRING) == 0)) {
+	if ((strcasecmp (str, "0") == 0) || 
+	    (strcasecmp (str, "off") == 0) || 
+	    (strcasecmp (str, "no") == 0) || 
+	    (strcasecmp (str, "false") == 0) || 
+	    (strcasecmp (str, "disable") == 0)) {
 		*b = _gf_false;
 		return 0;
 	}

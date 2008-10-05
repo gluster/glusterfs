@@ -60,8 +60,6 @@
 #include "event.h"
 #include "fetch-spec.h"
 
-#include "options.h"
-
 /* using argp for command line parsing */
 static char gf_doc[] = "";
 static char argp_doc[] = "--server=SERVER [MOUNT-POINT]\n--volume-specfile=VOLUME-SPECFILE [MOUNT-POINT]";
@@ -201,14 +199,14 @@ _add_fuse_mount (xlator_t *graph)
 
 #ifdef GF_DARWIN_HOST_OS 
 	/* On Darwin machines, O_APPEND is not handled, which may corrupt the data */
-	if (cmd_args->fuse_direct_io_mode_flag == GF_ENABLE_VALUE) {
+	if (cmd_args->fuse_direct_io_mode_flag == _gf_true) {
 		gf_log ("glusterfs", GF_LOG_DEBUG, 
 			 "'direct-io-mode' in fuse causes data corruption if O_APPEND is used.  "
 			 "disabling 'direct-io-mode'");
 	}
 	dict_set (top->options, 
 		  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING, 
-		  data_from_static_ptr (DISABLE_DIRECT_IO_MODE));
+		  data_from_static_ptr ("disable"));
 
  	if (cmd_args->non_local)
  		dict_set (top->options, "non-local", data_from_uint32 (cmd_args->non_local));
@@ -218,15 +216,15 @@ _add_fuse_mount (xlator_t *graph)
  			  data_from_static_ptr (cmd_args->icon_name));
 
 #else /* ! DARWIN HOST OS */
-	if (cmd_args->fuse_direct_io_mode_flag == GF_ENABLE_VALUE) {
+	if (cmd_args->fuse_direct_io_mode_flag == _gf_true) {
 		dict_set (top->options, 
 			  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING,
-			  data_from_static_ptr (ENABLE_DIRECT_IO_MODE));
+			  data_from_static_ptr ("enable"));
 	}
 	else  {
 		dict_set (top->options, 
 			  TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING,
-			  data_from_static_ptr (DISABLE_DIRECT_IO_MODE));
+			  data_from_static_ptr ("disable"));
 	}
 
 #endif /* GF_DARWIN_HOST_OS */
@@ -476,7 +474,7 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		break;
 		
 	case ARGP_DISABLE_DIRECT_IO_MODE_KEY:
-		cmd_args->fuse_direct_io_mode_flag = GF_ENABLE_VALUE;
+		cmd_args->fuse_direct_io_mode_flag = _gf_false;
 		break;
 		
 	case ARGP_DIRECTORY_ENTRY_TIMEOUT_KEY:
@@ -511,7 +509,7 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 
 #ifdef GF_DARWIN_HOST_OS		
 	case ARGP_NON_LOCAL_KEY:
-		cmd_args->non_local = 1;
+		cmd_args->non_local = _gf_true;
 		break;
 
 	case ARGP_ICON_NAME_KEY:
@@ -520,11 +518,11 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 #endif /* DARWIN */
 
 	case ARGP_FUSE_NODEV_KEY:
-		cmd_args->fuse_nodev = 1;
+		cmd_args->fuse_nodev = _gf_true;
 		break;
 
 	case ARGP_FUSE_NOSUID_KEY:
-		cmd_args->fuse_nosuid = 1;
+		cmd_args->fuse_nosuid = _gf_true;
 		break;
 
 	case ARGP_KEY_NO_ARGS:
@@ -600,7 +598,7 @@ main (int argc, char *argv[])
 	cmd_args->log_level = DEFAULT_LOG_LEVEL;
 	cmd_args->fuse_directory_entry_timeout = DEFAULT_FUSE_DIRECTORY_ENTRY_TIMEOUT;
 	cmd_args->fuse_attribute_timeout = DEFAULT_FUSE_ATTRIBUTE_TIMEOUT;
-	cmd_args->fuse_direct_io_mode_flag = GF_ENABLE_VALUE;
+	cmd_args->fuse_direct_io_mode_flag = _gf_true;
 	
 	argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
 	

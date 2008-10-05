@@ -45,8 +45,6 @@
 
 #define ENABLE_NO_DAEMON_MODE     1
 #define ENABLE_DEBUG_MODE         1
-#define ENABLE_DIRECT_IO_MODE     GF_ENABLE_STRING
-#define DISABLE_DIRECT_IO_MODE    GF_DISABLE_STRING
 
 #define TRANSLATOR_TYPE_MOUNT_FUSE_STRING                          "mount/fuse"
 #define TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_MOUNT_POINT_STRING       "mount-point"

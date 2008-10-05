@@ -2735,3 +2735,15 @@ struct xlator_cbks cbks = {
 
 struct xlator_mops mops = {
 };
+
+struct xlator_options options[] = {
+	{ "direct-io-mode", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
+	{ "set-option-nosuid", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
+	{ "set-option-nodev", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
+	{ "non-local", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
+	{ "icon-name", GF_OPTION_TYPE_ANY, 0, 0, 0 },
+	{ "mount-point", GF_OPTION_TYPE_PATH, 0, 0, 0 },
+	{ "attr-timeout", GF_OPTION_TYPE_INT, 0, 0, 3600, },
+	{ "entry-tiemout", GF_OPTION_TYPE_PATH, 0, 0, 3600, },
+	{ NULL, 0, 0, 0 },
+};

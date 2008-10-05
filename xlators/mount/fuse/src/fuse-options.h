@@ -6,7 +6,6 @@
 
 #include "common-utils.h"
 #include "dict.h"
-#include "options.h"
 
 #define GF_FUSE_MOUNT_POINT_OPTION_STRING          "mount-point"
 
@@ -21,14 +20,14 @@
 #define GF_FUSE_DIR_ENTRY_TIMEOUT_VALUE_MAX        UINT16_MAX
 
 #define GF_FUSE_DIRECT_IO_MODE_OPTION_STRING       "direct-io-mode"
-#define GF_FUSE_DIRECT_IO_MODE_VALUE_DEFAULT       GF_YES_VALUE
+#define GF_FUSE_DIRECT_IO_MODE_VALUE_DEFAULT       1
 
 struct _fuse_options
 {
-	char        *mount_point;
-	uint16_t     attr_timeout;
-	uint16_t     entry_timeout;
-	gf_boolean_t    direct_io_mode;
+	char          *mount_point;
+	uint16_t      attr_timeout;
+	uint16_t      entry_timeout;
+	gf_boolean_t  direct_io_mode;
 };
 
 typedef struct _fuse_options fuse_options_t;

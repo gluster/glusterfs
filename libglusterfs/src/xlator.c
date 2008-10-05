@@ -225,17 +225,11 @@ xlator_validate_given_options (xlator_t *xl)
   		}
   		case GF_OPTION_TYPE_BOOL:
   		{
-  			/* Check if the value is one of 'on|off|no|yes|true|false|enable|disable' */
-  			if (strcasecmp (pairs->value->data, "on") &&
-  			    strcasecmp (pairs->value->data, "yes") &&
-  			    strcasecmp (pairs->value->data, "true") &&
-  			    strcasecmp (pairs->value->data, "enable") &&
-  			    strcasecmp (pairs->value->data, "no") &&
-  			    strcasecmp (pairs->value->data, "off") &&
-  			    strcasecmp (pairs->value->data, "false") &&
-  			    strcasecmp (pairs->value->data, "disable")) {
+  			/* Check if the value is one of '0|1|on|off|no|yes|true|false|enable|disable' */
+			gf_boolean_t bool_value;
+  			if (gf_string2boolean (pairs->value->data, &bool_value) != 0) {
   				gf_log (xl->name, GF_LOG_ERROR,
-  					"option %s %s: '%s' is not valid boolian value",
+  					"option %s %s: '%s' is not valid boolean value",
   					pairs->key, pairs->value->data, pairs->value->data);
   				return -1;
   			}
