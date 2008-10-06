@@ -97,7 +97,8 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	this_call_cnt = dht_frame_return (frame);
 
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+				  &local->stbuf);
 
 	return 0;
 }

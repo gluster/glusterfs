@@ -66,11 +66,11 @@ struct dht_local {
 		xlator_t        *srcvol;
 	} linkfile;
 	struct {
-		int              hole_cnt;
-		int              overlaps_cnt;
-		int              missing;
-		int              down;
-		int              misc;
+		uint32_t         hole_cnt;
+		uint32_t         overlaps_cnt;
+		uint32_t         missing;
+		uint32_t         down;
+		uint32_t         misc;
 	} selfheal;
 };
 typedef struct dht_local dht_local_t;

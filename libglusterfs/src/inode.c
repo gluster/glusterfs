@@ -343,9 +343,6 @@ __inode_unref (inode_t *inode)
 static inode_t *
 __inode_ref (inode_t *inode)
 {
-        if (inode->ino != 1)
-                gf_log ("inode", GF_LOG_DEBUG, "");;
-
         if (!inode->ref) {
                 inode->table->lru_size--;
                 __inode_activate (inode);

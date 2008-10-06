@@ -157,15 +157,17 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     inode_t *inode, struct stat *stbuf, dict_t *xattr)
 {
         call_frame_t *prev = NULL;
+	dht_local_t  *local = NULL;
 
 
         if (op_ret == -1)
                 goto out;
 
         prev = cookie;
+	local = frame->local;
 
         dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
-
+	stbuf->st_ino = local->inode->ino;
         /* add checks to see if directory was recreated with same
            inode number */
 
@@ -325,6 +327,8 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
+		local->inode = inode_ref (loc->inode);
+
                 STACK_WIND (frame, dht_revalidate_cbk,
                             subvol, subvol->fops->lookup,
                             loc, need_xattr);
@@ -380,6 +384,9 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		
 		dht_itransform (this, prev->this, stbuf->st_ino,
 				&local->stbuf.st_ino);
+
+		if (local->inode)
+			local->stbuf.st_ino = local->inode->ino;
 	}
 unlock:
 	UNLOCK (&frame->lock);
@@ -425,6 +432,7 @@ dht_stat (call_frame_t *frame, xlator_t *this,
 	}
 
 	local->call_cnt = 1;
+	local->inode = inode_ref (loc->inode);
 
 	STACK_WIND (frame, dht_attr_cbk,
 		    subvol, subvol->fops->stat,
@@ -470,6 +478,7 @@ dht_fstat (call_frame_t *frame, xlator_t *this,
 	}
 
 	local->call_cnt = 1;
+	local->inode    = inode_ref (fd->inode);
 
 	STACK_WIND (frame, dht_attr_cbk,
 		    subvol, subvol->fops->fstat,
@@ -1720,7 +1729,7 @@ dht_readdir (call_frame_t *frame, xlator_t *this,
 	local->fd = fd;
 	local->size = size;
 
-	dht_deitransform (this, yoff, &xvol, &xoff);
+	dht_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
 
 	/* TODO: do proper readdir */
 	STACK_WIND (frame, dht_readdir_cbk,

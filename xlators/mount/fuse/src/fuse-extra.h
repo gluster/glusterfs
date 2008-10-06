@@ -32,6 +32,8 @@
 
 uint64_t req_callid (fuse_req_t req);
 
+size_t fuse_dirent_size (const char *name);
+
 int32_t
 fuse_reply_vec (fuse_req_t req,
 		struct iovec *vector,

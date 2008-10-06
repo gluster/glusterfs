@@ -502,7 +502,7 @@ fuse_attr_cbk (call_frame_t *frame,
                         "%"PRId64": %s() %s => -1 (%s)", frame->root->unique, 
                         gf_fop_list[frame->op],
 			state->loc.path ? state->loc.path : "ERR", 
-                        strerror(op_errno));
+                        strerror (op_errno));
 
                 fuse_reply_err (req, op_errno);
         }
