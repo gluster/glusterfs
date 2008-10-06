@@ -156,6 +156,7 @@ dht_local_wipe (dht_local_t *local)
 		return;
 
 	loc_wipe (&local->loc);
+	loc_wipe (&local->loc2);
 
 	if (local->xattr)
 		dict_unref (local->xattr);
@@ -283,6 +284,17 @@ inode_ctx_set (inode_t *inode, xlator_t *this, void *ctx)
 	ret = dict_set (inode->ctx, this->name, data);
 
 out:
+	return ret;
+}
+
+
+int
+inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx)
+{
+	int ret = 0;
+
+	ret = dict_get_ptr (inode->ctx, this->name, ctx);
+
 	return ret;
 }
 

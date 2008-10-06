@@ -2442,6 +2442,21 @@ err:
 }
 
 
+int
+dht_forget (xlator_t *this, inode_t *inode)
+{
+	dht_layout_t *layout = NULL;
+
+	inode_ctx_get (inode, this, (void **)&layout);
+
+	if (!layout)
+		return 0;
+
+	if (!layout->preset)
+		FREE (layout);
+}
+
+
 static int
 dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
 {
@@ -2671,7 +2686,7 @@ struct xlator_mops mops = {
 struct xlator_cbks cbks = {
 //	.release    = dht_release,
 //      .releasedir = dht_releasedir,
-//	.forget     = dht_forget
+	.forget     = dht_forget
 };
 
 

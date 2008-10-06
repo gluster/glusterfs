@@ -28,6 +28,7 @@
 
 struct dht_layout {
         int               cnt;
+	int               preset;
 	int               type;
         struct {
 		int       err;   /* 0 = normal

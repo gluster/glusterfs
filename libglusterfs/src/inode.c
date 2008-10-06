@@ -235,7 +235,9 @@ __inode_destroy (inode_t *inode)
 
                 if (xl->fops->forget)
                         xl->fops->forget (NULL, xl, inode);
-                else
+                if (xl->cbks->forget)
+			xl->cbks->forget (xl, inode);
+		else
                         gf_log (inode->table->name, GF_LOG_CRITICAL,
                                 "xlator(%s) in inode(%"PRId64") no FORGET fop",
                                 xl->name, inode->ino);
@@ -695,7 +697,7 @@ __inode_unlink (inode_t *inode,
         dentry = __dentry_search_for_inode (inode, parent->ino, name);
 
         if (dentry)
-                __dentry_unhash (dentry);
+		__dentry_unset (dentry);
 }
 
 
@@ -720,17 +722,23 @@ inode_unlink (inode_t *inode,
 
 int
 inode_rename (inode_table_t *table,
-              inode_t *olddir,
-              const char *oldname,
-              inode_t *newdir,
-              const char *newname,
+              inode_t *srcdir,
+              const char *srcname,
+              inode_t *dstdir,
+              const char *dstname,
               inode_t *inode,
               struct stat *stbuf)
 {
+	dentry_t *old_dst = NULL;
+
         pthread_mutex_lock (&table->lock);
         {
-                __inode_unlink (inode, olddir, oldname);
-                __inode_link (inode, newdir, newname, stbuf);
+		old_dst = __dentry_search (table, dstdir->ino, dstname);
+		if (old_dst)
+			__dentry_unset (old_dst);
+
+                __inode_unlink (inode, srcdir, srcname);
+                __inode_link (inode, dstdir, dstname, stbuf);
         }
         pthread_mutex_unlock (&table->lock);
 

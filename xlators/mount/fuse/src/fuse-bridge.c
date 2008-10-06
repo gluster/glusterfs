@@ -1777,7 +1777,8 @@ fuse_readdir_cbk (call_frame_t *frame,
 out:
         free_state (state);
         STACK_DESTROY (frame->root);
-
+	if (buf)
+		FREE (buf);
         return 0;
 
 }

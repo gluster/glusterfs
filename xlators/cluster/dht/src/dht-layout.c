@@ -149,6 +149,8 @@ dht_layouts_init (xlator_t *this, dht_conf_t *conf)
 			goto out;
 		}
 
+		layout->preset = 1;
+
 		layout->list[0].xlator = conf->subvolumes[i];
 
 		conf->file_layouts[i] = layout;
