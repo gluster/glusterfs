@@ -19,13 +19,13 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 posix_locks_la_LDFLAGS = -module -avoidversion
 
-posix_locks_la_SOURCES = posix-locks.c
+posix_locks_la_SOURCES = common.c posix.c internal.c
 posix_locks_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la 
 
-noinst_HEADERS = posix-locks.h
+noinst_HEADERS = locks.h
 
-AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
-	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)
+AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -fno-strict-aliasing -D$(GF_HOST_OS) \
+	-I$(top_srcdir)/libglusterfs/src $(GF_CFLAGS) -shared -nostartfiles
 
 CLEANFILES = 
 

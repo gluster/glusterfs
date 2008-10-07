@@ -1708,53 +1708,104 @@ out:
 }
 
 call_stub_t *
-fop_gf_lk_stub (call_frame_t *frame,
-		fop_gf_lk_t fn,
-		fd_t *fd,
-		int32_t cmd,
-		struct flock *lock)
+fop_gf_file_lk_stub (call_frame_t *frame,
+		     fop_gf_file_lk_t fn,
+		     loc_t *loc,
+		     int32_t cmd,
+		     struct flock *lock)
 {
-	call_stub_t *stub = NULL;
+  call_stub_t *stub = NULL;
 
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-	GF_VALIDATE_OR_GOTO ("call-stub", lock, out);
+  if (!frame || !lock)
+    return NULL;
 
-	stub = stub_new (frame, 1, GF_FOP_GF_LK);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+  stub = stub_new (frame, 1, GF_FOP_GF_FILE_LK);
+  if (!stub)
+    return NULL;
 
-	stub->args.lk.fn = fn;
-	if (fd)
-		stub->args.lk.fd = fd_ref (fd);
-	stub->args.lk.cmd = cmd;
-	if (lock)
-		stub->args.lk.lock = *lock;
-out:
-	return stub;
+  stub->args.gf_file_lk.fn = fn;
+
+  loc_copy (&stub->args.gf_file_lk.loc, loc);
+
+  stub->args.gf_file_lk.cmd = cmd;
+  stub->args.gf_file_lk.lock = *lock;
+
+  return stub;
 }
 
 call_stub_t *
-fop_gf_lk_cbk_stub (call_frame_t *frame,
-		    fop_gf_lk_cbk_t fn,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct flock *lock)
+fop_gf_file_lk_cbk_stub (call_frame_t *frame,
+			 fop_gf_file_lk_cbk_t fn,
+			 int32_t op_ret,
+			 int32_t op_errno)
+{
+  call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
+
+  stub = stub_new (frame, 0, GF_FOP_GF_FILE_LK);
+  if (!stub)
+    return NULL;
+
+  stub->args.gf_file_lk_cbk.fn = fn;
+  stub->args.gf_file_lk_cbk.op_ret = op_ret;
+  stub->args.gf_file_lk_cbk.op_errno = op_errno;
+
+  return stub;
+}
+
+
+call_stub_t *
+fop_gf_dir_lk_stub (call_frame_t *frame,
+		    fop_gf_dir_lk_t fn,
+		    loc_t *loc,
+		    const char *basename,
+		    gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+{
+  call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
+
+  stub = stub_new (frame, 1, GF_FOP_GF_DIR_LK);
+  if (!stub)
+    return NULL;
+
+  stub->args.gf_dir_lk.fn = fn;
+  loc_copy (&stub->args.gf_dir_lk.loc, loc);
+
+  stub->args.gf_dir_lk.basename = strdup (basename);
+  stub->args.gf_dir_lk.cmd = cmd;
+  stub->args.gf_dir_lk.type = type;
+
+  return stub;
+}
+
+call_stub_t *
+fop_gf_dir_lk_cbk_stub (call_frame_t *frame,
+			fop_gf_dir_lk_cbk_t fn,
+			int32_t op_ret,
+			int32_t op_errno)
+
 
 {
-	call_stub_t *stub = NULL;
+  call_stub_t *stub = NULL;
 
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+  if (!frame)
+    return NULL;
 
-	stub = stub_new (frame, 0, GF_FOP_GF_LK);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+  stub = stub_new (frame, 0, GF_FOP_GF_DIR_LK);
+  if (!stub)
+    return NULL;
 
-	stub->args.lk_cbk.fn = fn;
-	stub->args.lk_cbk.op_ret = op_ret;
-	stub->args.lk_cbk.op_errno = op_errno;
-	if (op_ret == 0)
-		stub->args.lk_cbk.lock = *lock;
-out:
-	return stub;
+  stub->args.gf_dir_lk_cbk.fn = fn;
+  stub->args.gf_dir_lk_cbk.op_ret = op_ret;
+  stub->args.gf_dir_lk_cbk.op_errno = op_errno;
+
+  return stub;
 }
+
 
 call_stub_t *
 fop_setdents_stub (call_frame_t *frame,
@@ -2224,15 +2275,25 @@ call_resume_wind (call_stub_t *stub)
 		break;
 	}
 
-	case GF_FOP_GF_LK:
+	case GF_FOP_GF_FILE_LK:
 	{
-		stub->args.gf_lk.fn (stub->frame,
-				     stub->frame->this,
-				     stub->args.gf_lk.fd,
-				     stub->args.gf_lk.cmd,
-				     &stub->args.gf_lk.lock);
-		if (stub->args.gf_lk.fd)
-			fd_unref (stub->args.gf_lk.fd);
+		stub->args.gf_file_lk.fn (stub->frame,
+					  stub->frame->this,
+					  &stub->args.gf_file_lk.loc,
+					  stub->args.gf_file_lk.cmd,
+					  &stub->args.gf_file_lk.lock);
+		break;
+	}
+
+	case GF_FOP_GF_DIR_LK:
+	{
+		stub->args.gf_dir_lk.fn (stub->frame,
+					 stub->frame->this,
+					 &stub->args.gf_dir_lk.loc,
+					 stub->args.gf_dir_lk.basename,
+					 stub->args.gf_dir_lk.cmd,
+					 stub->args.gf_dir_lk.type);
+		FREE (stub->args.gf_dir_lk.basename);
 		break;
 	}
   
@@ -2918,20 +2979,35 @@ call_resume_unwind (call_stub_t *stub)
 		break;
 	}
 
-	case GF_FOP_GF_LK:
+	case GF_FOP_GF_FILE_LK:
 	{
-		if (!stub->args.gf_lk_cbk.fn)
+		if (!stub->args.gf_file_lk_cbk.fn)
 			STACK_UNWIND (stub->frame,
-				      stub->args.gf_lk_cbk.op_ret,
-				      stub->args.gf_lk_cbk.op_errno,
-				      &stub->args.gf_lk_cbk.lock);
+				      stub->args.gf_file_lk_cbk.op_ret,
+				      stub->args.gf_file_lk_cbk.op_errno);
+
 		else
-			stub->args.gf_lk_cbk.fn (stub->frame,
-						 stub->frame->cookie,
-						 stub->frame->this,
-						 stub->args.gf_lk_cbk.op_ret,
-						 stub->args.gf_lk_cbk.op_errno,
-						 &stub->args.gf_lk_cbk.lock);
+			stub->args.gf_file_lk_cbk.fn (stub->frame,
+						      stub->frame->cookie,
+						      stub->frame->this,
+						      stub->args.gf_file_lk_cbk.op_ret,
+						      stub->args.gf_file_lk_cbk.op_errno);
+		break;
+	}
+
+	case GF_FOP_GF_DIR_LK:
+	{
+		if (!stub->args.gf_dir_lk_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.gf_dir_lk_cbk.op_ret,
+				      stub->args.gf_dir_lk_cbk.op_errno);
+
+		else
+			stub->args.gf_dir_lk_cbk.fn (stub->frame,
+						     stub->frame->cookie,
+						     stub->frame->this,
+						     stub->args.gf_dir_lk_cbk.op_ret,
+						     stub->args.gf_dir_lk_cbk.op_errno);
 		break;
 	}
   

@@ -478,18 +478,33 @@ typedef struct {
 			struct flock lock;
 		} lk_cbk;
 
-		/* gf_lk */
+		/* gf_file_lk */
 		struct {
-			fop_gf_lk_t fn;
-			fd_t *fd;
+			fop_gf_file_lk_t fn;
+			loc_t loc;
 			int32_t cmd;
 			struct flock lock;
-		} gf_lk;
+		} gf_file_lk;
+
 		struct {
-			fop_gf_lk_cbk_t fn;
+			fop_gf_file_lk_cbk_t fn;
 			int32_t op_ret, op_errno;
-			struct flock lock;
-		} gf_lk_cbk;
+		} gf_file_lk_cbk;
+
+
+		/* gf_dir_lk */
+		struct {
+			fop_gf_dir_lk_t fn;
+			loc_t loc;
+			const char *basename;
+			gf_dir_lk_cmd cmd;
+			gf_dir_lk_type type;
+		} gf_dir_lk;
+
+		struct {
+			fop_gf_dir_lk_cbk_t fn;
+			int32_t op_ret, op_errno;
+		} gf_dir_lk_cbk;
 
 		/* readdir */
 		struct {
@@ -976,13 +991,6 @@ fop_lk_stub (call_frame_t *frame,
 	     struct flock *lock);
 
 call_stub_t *
-fop_gf_lk_stub (call_frame_t *frame,
-		fop_gf_lk_t fn,
-		fd_t *fd,
-		int32_t cmd,
-		struct flock *lock);
-
-call_stub_t *
 fop_lk_cbk_stub (call_frame_t *frame,
 		 fop_lk_cbk_t fn,
 		 int32_t op_ret,
@@ -990,11 +998,29 @@ fop_lk_cbk_stub (call_frame_t *frame,
 		 struct flock *lock);
 
 call_stub_t *
-fop_gf_lk_cbk_stub (call_frame_t *frame,
-		    fop_gf_lk_cbk_t fn,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct flock *lock);
+fop_gf_file_lk_stub (call_frame_t *frame,
+		     fop_gf_file_lk_t fn,
+		     loc_t *loc,
+		     int32_t cmd,
+		     struct flock *lock);
+
+call_stub_t *
+fop_gf_dir_lk_stub (call_frame_t *frame,
+		    fop_gf_dir_lk_t fn,
+		    loc_t *loc, const char *basename,
+		    gf_dir_lk_cmd cmd, gf_dir_lk_type type);
+
+call_stub_t *
+fop_gf_file_lk_cbk_stub (call_frame_t *frame,
+			 fop_gf_file_lk_cbk_t fn,
+			 int32_t op_ret,
+			 int32_t op_errno);
+
+call_stub_t *
+fop_gf_dir_lk_cbk_stub (call_frame_t *frame,
+			fop_gf_dir_lk_cbk_t fn,
+			int32_t op_ret,
+			int32_t op_errno);
 
 call_stub_t *
 fop_readdir_stub (call_frame_t *frame,

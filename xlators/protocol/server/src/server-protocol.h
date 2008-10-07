@@ -114,9 +114,11 @@ struct _server_state {
 	ino_t ino2;
 	char *path;
 	char *path2;
+	char *basename;
 	int mask;
 	char is_revalidate;
 	char need_xattr;
+	struct flock flock;
 	struct timespec tv[2];
 	char *resolved;
 };

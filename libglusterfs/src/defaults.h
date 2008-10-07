@@ -254,11 +254,17 @@ int32_t default_lk (call_frame_t *frame,
 		    int32_t cmd,
 		    struct flock *flock);
 
-int32_t default_gf_lk (call_frame_t *frame,
-		       xlator_t *this,
-		       fd_t *fd,
-		       int32_t cmd,
-		       struct flock *flock);
+int32_t default_gf_file_lk (call_frame_t *frame,
+			    xlator_t *this,
+			    loc_t *loc,
+			    int32_t cmd,
+			    struct flock *flock);
+
+int32_t default_gf_dir_lk (call_frame_t *frame,
+			   xlator_t *this,
+			   loc_t *loc, const char *basename,
+			   gf_dir_lk_cmd cmd,
+			   gf_dir_lk_type type);
 
 int32_t default_readdir (call_frame_t *frame,
 			  xlator_t *this,

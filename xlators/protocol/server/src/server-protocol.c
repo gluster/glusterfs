@@ -773,8 +773,34 @@ server_lk_cbk (call_frame_t *frame,
 	return 0;
 }
 
+
+int32_t
+server_gf_file_lk_cbk (call_frame_t *frame,
+ 		       void *cookie,
+ 		       xlator_t *this,
+ 		       int32_t op_ret,
+ 		       int32_t op_errno)
+{
+ 	size_t hdrlen = 0;
+ 	gf_hdr_common_t *hdr = NULL;
+ 	gf_fop_lk_rsp_t *rsp = NULL;
+  
+ 	hdrlen = gf_hdr_len (rsp, 0);
+ 	hdr    = gf_hdr_new (rsp, 0);
+ 	rsp    = gf_param (hdr);
+  
+ 	hdr->rsp.op_ret   = hton32 (op_ret);
+ 	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
+  
+ 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GF_FILE_LK,
+ 			       hdr, hdrlen, NULL, 0, NULL);
+  
+ 	return 0;
+}
+  
+ 
 /*
- * server_gf_lk_cbk - lk callback for server protocol
+ * server_gf_dir_lk_cbk - gf_dir_lk callback for server protocol
  * @frame: call frame
  * @cookie:
  * @this:
@@ -784,33 +810,31 @@ server_lk_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
+
 int32_t
-server_gf_lk_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct flock *lock)
+server_gf_dir_lk_cbk (call_frame_t *frame,
+ 		      void *cookie,
+ 		      xlator_t *this,
+ 		      int32_t op_ret,
+ 		      int32_t op_errno)
 {
-	size_t hdrlen = 0;
-	gf_hdr_common_t *hdr = NULL;
-	gf_fop_lk_rsp_t *rsp = NULL;
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret   = hton32 (op_ret);
-	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
-
-	if (op_ret == 0)
-		gf_flock_from_flock (&rsp->flock, lock);
-
-	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GF_LK,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
+ 	size_t hdrlen = 0;
+ 	gf_hdr_common_t *hdr = NULL;
+ 	gf_fop_lk_rsp_t *rsp = NULL;
+ 
+ 	hdrlen = gf_hdr_len (rsp, 0);
+ 	hdr    = gf_hdr_new (rsp, 0);
+ 	rsp    = gf_param (hdr);
+ 
+ 	hdr->rsp.op_ret   = hton32 (op_ret);
+ 	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
+ 
+ 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GF_DIR_LK,
+ 			       hdr, hdrlen, NULL, 0, NULL);
+ 
+ 	return 0;
 }
+  
 
 /*
  * server_access_cbk - access callback for server protocol
@@ -4987,6 +5011,132 @@ server_utimens (call_frame_t *frame,
 }
 
 
+ 
+int32_t
+server_gf_file_lk_resume (call_frame_t *frame,
+ 			  xlator_t *this,
+ 			  loc_t *loc, int32_t cmd,
+ 			  struct flock *flock)
+{
+ 	server_state_t *state = STATE (frame);
+ 
+ 	STACK_WIND (frame,
+ 		    server_gf_file_lk_cbk,
+ 		    BOUND_XL (frame),
+ 		    BOUND_XL (frame)->fops->gf_file_lk,
+ 		    loc, cmd, flock);
+ 	return 0;
+ 
+}
+  
+ 
+int32_t
+server_gf_file_lk (call_frame_t *frame,
+ 		   xlator_t *bound_xl,
+ 		   gf_hdr_common_t *hdr, size_t hdrlen,
+ 		   char *buf, size_t buflen)
+{
+ 	call_stub_t *gf_file_lk_stub = NULL;
+ 	gf_fop_gf_file_lk_req_t *req = NULL;
+ 	server_state_t *state = NULL;
+ 
+ 	req       = gf_param (hdr);
+   
+ 	state = STATE (frame);
+ 	server_state_fill (frame, req, GF_FOP_CHMOD);
+ 
+ 	server_loc_fill (&(state->loc), state, state->path);
+ 
+ 
+ 	gf_file_lk_stub = fop_gf_file_lk_stub (frame,
+ 					       server_gf_file_lk_resume,
+ 					       &state->loc, state->cmd, &state->flock);
+ 
+ 	if (!state->loc.inode) {
+ 		/* make a call stub and call lookup to get the inode structure.
+ 		 * resume call after lookup is successful */
+ 
+ 		frame->local = gf_file_lk_stub;
+ 		state->loc.inode = inode_new (BOUND_XL(frame)->itable);
+ 
+ 		gf_flock_to_flock (&req->flock, &state->flock);
+ 
+ 		do_path_lookup (gf_file_lk_stub, &(state->loc));
+ 
+ 	} else {
+ 		call_resume (gf_file_lk_stub);
+ 	}
+ 
+ 	return 0;
+}
+  
+ 
+int32_t
+server_gf_dir_lk_resume (call_frame_t *frame,
+ 			 xlator_t *this,
+ 			 loc_t *loc, const char *basename,
+ 			 gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+{
+ 	server_state_t *state = STATE (frame);
+ 
+ 	STACK_WIND (frame,
+ 		    server_gf_dir_lk_cbk,
+ 		    BOUND_XL (frame),
+ 		    BOUND_XL (frame)->fops->gf_dir_lk,
+ 		    loc, basename, cmd, type);
+ 	return 0;
+ 
+}
+ 
+/*
+ * server_gf_dir_lk - gf_dir_lk function for server protocol
+ * @frame: call frame
+ * @bound_xl:
+ * @params: parameter dictionary
+ *
+ * not for external reference
+ */
+int32_t
+server_gf_dir_lk (call_frame_t *frame,
+ 		  xlator_t *bound_xl,
+ 		  gf_hdr_common_t *hdr, size_t hdrlen,
+ 		  char *buf, size_t buflen)
+{
+ 	call_stub_t *gf_dir_lk_stub = NULL;
+ 	gf_fop_gf_dir_lk_req_t *req = NULL;
+ 	server_state_t *state = NULL;
+ 
+ 	req       = gf_param (hdr);
+   
+ 	state = STATE (frame);
+ 	server_state_fill (frame, req, GF_FOP_GF_DIR_LK);
+ 
+ 	server_loc_fill (&(state->loc), state, state->path);
+ 
+ 
+ 	gf_dir_lk_stub = fop_gf_dir_lk_stub (frame,
+ 					     server_gf_dir_lk_resume,
+ 					     &state->loc, state->basename, state->cmd, 
+ 					     state->type);
+ 
+ 
+ 	if (!state->loc.inode) {
+ 		/* make a call stub and call lookup to get the inode structure.
+ 		 * resume call after lookup is successful */
+ 
+ 		frame->local = gf_dir_lk_stub;
+ 		state->loc.inode = inode_new (BOUND_XL(frame)->itable);
+ 
+ 		do_path_lookup (gf_dir_lk_stub, &(state->loc));
+ 
+ 	} else {
+ 		call_resume (gf_dir_lk_stub);
+ 	}
+ 
+ 	return 0;
+}
+
+
 int32_t
 server_access_resume (call_frame_t *frame,
                       xlator_t *this,
@@ -5250,19 +5400,19 @@ server_rename (call_frame_t *frame,
 
 
 /*
- * server_lk_common - common lk function for lk/gf_lk for server protocol
+ * server_lk - lk function for server protocol
  * @frame: call frame
  * @bound_xl:
  * @params: parameter dictionary
  *
  * not for external reference
  */
+
 int32_t
-server_lk_common (call_frame_t *frame,
-                  xlator_t *bound_xl,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen,
-		  gf_lk_domain_t domain)
+server_lk (call_frame_t *frame,
+           xlator_t *bound_xl,
+           gf_hdr_common_t *hdr, size_t hdrlen,
+           char *buf, size_t buflen)
 {
 	struct flock lock = {0, };
 	gf_fop_lk_req_t *req = NULL;
@@ -5312,39 +5462,14 @@ server_lk_common (call_frame_t *frame,
 
 	gf_flock_to_flock (&req->flock, &lock);
 
-	if (domain == GF_LOCK_POSIX) {
-		STACK_WIND (frame, server_lk_cbk,
-			    bound_xl, bound_xl->fops->lk,
-			    state->fd, state->cmd, &lock);
+	STACK_WIND (frame, server_lk_cbk,
+		    bound_xl, bound_xl->fops->lk,
+		    state->fd, state->cmd, &lock);
 
-	} else if (domain == GF_LOCK_INTERNAL) {
-		STACK_WIND (frame, server_gf_lk_cbk,
-			    bound_xl, bound_xl->fops->gf_lk,
-			    state->fd, state->cmd, &lock);
-	}
 out:
 	return 0;
 }
 
-int32_t
-server_lk (call_frame_t *frame,
-           xlator_t *bound_xl,
-           gf_hdr_common_t *hdr, size_t hdrlen,
-           char *buf, size_t buflen)
-{
-	return server_lk_common (frame, bound_xl, hdr, hdrlen, buf, buflen,
-				 GF_LOCK_POSIX);
-}
-
-int32_t
-server_gf_lk (call_frame_t *frame,
-              xlator_t *bound_xl,
-              gf_hdr_common_t *hdr, size_t hdrlen,
-              char *buf, size_t buflen)
-{
-	return server_lk_common (frame, bound_xl, hdr, hdrlen, buf, buflen,
-				 GF_LOCK_INTERNAL);
-}
 
 /*
  * server_writedir -
@@ -6411,7 +6536,8 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_RMELEM]       =  server_rmelem,
 	[GF_FOP_INCVER]       =  server_incver,
 	[GF_FOP_READDIR]      =  server_readdir,
-	[GF_FOP_GF_LK]        =  server_gf_lk,
+	[GF_FOP_GF_FILE_LK]   =  server_gf_file_lk,
+	[GF_FOP_GF_DIR_LK]    =  server_gf_dir_lk,
 	[GF_FOP_CHECKSUM]     =  server_checksum,
 	[GF_FOP_XATTROP]      =  server_xattrop,
 };

@@ -506,6 +506,26 @@ typedef struct {
 	struct gf_flock flock;
 } __attribute__((packed)) gf_fop_lk_rsp_t;
 
+typedef struct {
+	uint64_t ino;
+	uint32_t cmd;
+	uint32_t type;
+	char     path[0];
+	struct gf_flock flock;
+} __attribute__((packed)) gf_fop_gf_file_lk_req_t;
+typedef struct {
+} __attribute__((packed)) gf_fop_gf_file_lk_rsp_t;
+
+
+typedef struct {
+	uint64_t  ino;
+	uint32_t  cmd;
+	uint32_t  type;
+	char      path[0];
+	char      basename[0];
+} __attribute__((packed)) gf_fop_gf_dir_lk_req_t;
+typedef struct {
+} __attribute__((packed)) gf_fop_gf_dir_lk_rsp_t;
 
 typedef struct {
 	uint64_t           ino;

@@ -69,19 +69,29 @@ struct __pl_rw_req_t {
 };
 typedef struct __pl_rw_req_t pl_rw_req_t;
 
+struct __dir_lock {
+	struct list_head inode_list;  /* list_head back to pl_inode_t */
+	const char *basename;
+	gf_dir_lk_type type;
+	unsigned int read_count;      /* number of read locks */
+};
+typedef struct __dir_lock pl_dir_lock_t;
+
 /* The "simulated" inode. This contains a list of all the locks associated 
    with this file */
 
 struct __pl_inode {
-  posix_lock_t *locks;          /* list of locks on this inode */
-  posix_lock_t *internal_locks; /* list of internal locks */
-  pl_rw_req_t *rw_reqs;         /* list of waiting r/w requests */
-  int mandatory;                /* whether mandatory locking is enabled on this inode */
+	struct list_head gf_dir_locks;
+	posix_lock_t *posix_locks;      /* list of locks on this inode */
+	posix_lock_t *gf_file_locks;    /* list of internal file locks */
+	pthread_mutex_t dir_lock_mutex;
+	pl_rw_req_t *rw_reqs;           /* list of waiting r/w requests */
+	int mandatory;                  /* whether mandatory locking is enabled on this inode */
 };
 typedef struct __pl_inode pl_inode_t;
 
-#define LOCKS_FOR_DOMAIN(inode,domain) (domain == GF_LOCK_POSIX ? inode->locks \
-					: inode->internal_locks)
+#define LOCKS_FOR_DOMAIN(inode,domain) (domain == GF_LOCK_POSIX ? inode->posix_locks \
+					: inode->gf_file_locks)
 
 struct __pl_fd {
   int nonblocking;       /* whether O_NONBLOCK has been set */

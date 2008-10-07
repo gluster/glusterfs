@@ -1183,7 +1183,7 @@ static int
 dict_get_with_ref (dict_t *this, char *key, data_t **data)
 {
 	data_pair_t * pair = NULL;
-	int           ret  = 0;
+	int           ret  = -ENOENT;
 
 	if (!this || !key || !data) {
 		ret = -EINVAL;
@@ -1371,7 +1371,7 @@ dict_get_str (dict_t *this, char *key, char **str)
 		goto err;
 	}
 
-	if (!data->data) {
+	if (!data || !data->data) {
 		goto err;
 	}
 	*str = data->data;

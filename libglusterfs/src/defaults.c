@@ -1169,20 +1169,60 @@ default_lk (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t
+default_gf_file_lk_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
 int32_t
-default_gf_lk (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       int32_t cmd,
-	       struct flock *lock)
+default_gf_file_lk (call_frame_t *frame,
+		    xlator_t *this,
+		    loc_t *loc,
+		    int32_t cmd,
+		    struct flock *lock)
 {
   STACK_WIND (frame,
-	      default_lk_cbk,
+	      default_gf_file_lk_cbk,
 	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->gf_lk,
-	      fd,
-	      cmd,
-	      lock);
+	      FIRST_CHILD(this)->fops->gf_file_lk,
+	      loc, cmd, lock);
+  return 0;
+}
+
+static int32_t
+default_gf_dir_lk_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
+
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+default_gf_dir_lk (call_frame_t *frame,
+		   xlator_t *this,
+		   loc_t *loc, const char *basename,
+		   gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+{
+  STACK_WIND (frame, default_gf_dir_lk_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->gf_dir_lk,
+	      loc, basename, cmd, type);
   return 0;
 }
 

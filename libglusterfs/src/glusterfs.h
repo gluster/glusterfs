@@ -117,8 +117,9 @@ typedef enum {
         GF_FOP_RMELEM,
         GF_FOP_INCVER,
         GF_FOP_READDIR,
-        GF_FOP_GF_LK,      /* 40 */
-        GF_FOP_CHECKSUM,   /* 41 */   
+        GF_FOP_GF_FILE_LK, /* 40 */
+	GF_FOP_GF_DIR_LK,  
+        GF_FOP_CHECKSUM,      
         GF_FOP_XATTROP,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
@@ -163,6 +164,16 @@ typedef enum {
 } gf_lk_domain_t;
 
 typedef enum {
+	GF_DIR_LK_LOCK,
+	GF_DIR_LK_UNLOCK
+} gf_dir_lk_cmd;
+
+typedef enum {
+	GF_DIR_LK_RDLCK,
+	GF_DIR_LK_WRLCK
+} gf_dir_lk_type;
+
+typedef enum {
         GF_GET_ALL = 1,
         GF_GET_DIR_ONLY,
         GF_GET_SYMLINK_ONLY,
@@ -170,11 +181,7 @@ typedef enum {
 } glusterfs_getdents_flags_t;
 
 typedef enum {
-        GF_XATTROP_INC,
-        GF_XATTROP_DEC,
-        GF_XATTROP_SET,
-        GF_XATTROP_GET,
-        GF_XATTROP_RESET,
+	GF_XATTROP_ADD_ARRAY,
 } gf_xattrop_flags_t;
 
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */

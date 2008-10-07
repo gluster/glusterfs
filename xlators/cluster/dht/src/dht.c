@@ -1451,7 +1451,7 @@ err:
 	return 0;
 }
 
-
+/* gf_lk no longer exists 
 int
 dht_gf_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	    int op_ret, int op_errno, struct flock *flock)
@@ -1464,7 +1464,7 @@ dht_gf_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 dht_gf_lk (call_frame_t *frame, xlator_t *this,
-	   fd_t *fd, int cmd, struct flock *flock)
+	   loc_t *loc, int cmd, struct flock *flock)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -1494,7 +1494,7 @@ err:
 
 	return 0;
 }
-
+*/
 
 int
 dht_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2658,7 +2658,6 @@ struct xlator_fops fops = {
 	.fsync       = dht_fsync,
 	.statfs      = dht_statfs,
 	.lk          = dht_lk,
-	.gf_lk       = dht_gf_lk,
 	.opendir     = dht_opendir,
 	.readdir     = dht_readdir,
 	.fsyncdir    = dht_fsyncdir,

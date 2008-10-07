@@ -1784,27 +1784,96 @@ client_fstat (call_frame_t *frame,
   return ret;
 }
 
+
+/**
+ * client_lk - lk function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ * @cmd: lock command
+ * @lock:
+ *
+ * external reference through client_protocol_xlator->fops->lk
+ */
+
 int32_t
-client_lk_common (call_frame_t *frame,
-                  xlator_t *this,
-                  fd_t *fd,
-                  int32_t cmd,
-                  struct flock *flock,
-                  gf_lk_domain_t domain)
+client_lk (call_frame_t *frame,
+           xlator_t *this,
+           fd_t *fd,
+           int32_t cmd,
+           struct flock *flock)
+{
+	int ret = -1;
+	gf_hdr_common_t *hdr = NULL;
+	gf_fop_lk_req_t *req = NULL;
+	size_t hdrlen = 0;
+	uint64_t remote_fd = 0;
+	int32_t gf_cmd = 0;
+	int32_t gf_type = 0;
+
+	if (this_fd_get (fd, this, &remote_fd) == -1)
+	{
+		STACK_UNWIND (frame, -1, EBADFD, NULL);
+		return 0;
+	}
+
+	if (cmd == F_GETLK || cmd == F_GETLK64)
+		gf_cmd = GF_LK_GETLK;
+	else if (cmd == F_SETLK || cmd == F_SETLK64)
+		gf_cmd = GF_LK_SETLK;
+	else if (cmd == F_SETLKW || cmd == F_SETLKW64)
+		gf_cmd = GF_LK_SETLKW;
+	else
+		gf_log (this->name, GF_LOG_ERROR, "Unknown cmd (%d)!", gf_cmd);
+
+	switch (flock->l_type)
+	{
+	case F_RDLCK: gf_type = GF_LK_F_RDLCK; break;
+	case F_WRLCK: gf_type = GF_LK_F_WRLCK; break;
+	case F_UNLCK: gf_type = GF_LK_F_UNLCK; break;
+	}
+
+	hdrlen = gf_hdr_len (req, 0);
+	hdr    = gf_hdr_new (req, 0);
+	req    = gf_param (hdr);
+
+	req->fd   = hton64 (remote_fd);
+	req->cmd  = hton32 (gf_cmd);
+	req->type = hton32 (gf_type);
+	gf_flock_from_flock (&req->flock, flock);
+
+	ret = protocol_client_xfer (frame, this,
+				    GF_OP_TYPE_FOP_REQUEST,
+				    GF_FOP_LK,
+				    hdr, hdrlen, NULL, 0, NULL);
+	return ret;
+}
+
+
+/**
+ * client_gf_file_lk - gf_file_lk function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @inode: inode structure
+ * @cmd: lock command
+ * @lock: flock struct
+ *
+ * external reference through client_protocol_xlator->fops->gf_file_lk
+ */
+
+int32_t
+client_gf_file_lk (call_frame_t *frame,
+		   xlator_t *this,
+		   loc_t *loc,
+		   int32_t cmd,
+		   struct flock *flock)
 {
   int ret = -1;
   gf_hdr_common_t *hdr = NULL;
-  gf_fop_lk_req_t *req = NULL;
+  gf_fop_gf_file_lk_req_t *req = NULL;
   size_t hdrlen = 0;
-  uint64_t remote_fd = 0;
   int32_t gf_cmd = 0;
   int32_t gf_type = 0;
-
-  if (this_fd_get (fd, this, &remote_fd) == -1)
-    {
-      STACK_UNWIND (frame, -1, EBADFD, NULL);
-      return 0;
-    }
 
   if (cmd == F_GETLK || cmd == F_GETLK64)
     gf_cmd = GF_LK_GETLK;
@@ -1826,58 +1895,52 @@ client_lk_common (call_frame_t *frame,
   hdr    = gf_hdr_new (req, 0);
   req    = gf_param (hdr);
 
-  req->fd   = hton64 (remote_fd);
+  req->ino  = hton64 (this_ino_get (loc->inode, this));
   req->cmd  = hton32 (gf_cmd);
   req->type = hton32 (gf_type);
   gf_flock_from_flock (&req->flock, flock);
 
   ret = protocol_client_xfer (frame, this,
                               GF_OP_TYPE_FOP_REQUEST,
-                              (domain == GF_LOCK_POSIX ? GF_FOP_LK : GF_FOP_GF_LK),
+			      GF_FOP_GF_FILE_LK,
                               hdr, hdrlen, NULL, 0, NULL);
   return ret;
 }
 
-/**
- * client_lk - lk function for client protocol
- * @frame: call frame
- * @this: this translator structure
- * @fd: file descriptor structure
- * @cmd: lock command
- * @lock:
- *
- * external reference through client_protocol_xlator->fops->lk
- */
-
 int32_t
-client_lk (call_frame_t *frame,
-           xlator_t *this,
-           fd_t *fd,
-           int32_t cmd,
-           struct flock *flock)
+client_gf_dir_lk (call_frame_t *frame, xlator_t *this,
+		  loc_t *loc, const char *basename,
+		  gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
-  return client_lk_common (frame, this, fd, cmd, flock, GF_LOCK_POSIX);
-}
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_gf_dir_lk_req_t *req = NULL;
 
-/**
- * client_lk - lk function for client protocol
- * @frame: call frame
- * @this: this translator structure
- * @fd: file descriptor structure
- * @cmd: lock command
- * @lock:
- *
- * external reference through client_protocol_xlator->fops->gf_lk
- */
+  size_t pathlen = 0;
+  size_t baselen = 0;
 
-int32_t
-client_gf_lk (call_frame_t *frame,
-              xlator_t *this,
-              fd_t *fd,
-              int32_t cmd,
-              struct flock *flock)
-{
-  return client_lk_common (frame, this, fd, cmd, flock, GF_LOCK_INTERNAL);
+  size_t hdrlen = -1;
+  int ret = -1;
+  
+  pathlen = strlen (loc->path) + 1;
+  baselen = strlen (basename) + 1;
+
+  hdrlen = gf_hdr_len (req, pathlen + baselen);
+  hdr    = gf_hdr_new (req, pathlen + baselen);
+  req    = gf_param (hdr);
+
+  req->ino  = hton64 (this_ino_get (loc->inode, this));
+  strcpy (req->path, loc->path);
+
+  strcpy (req->path + pathlen, basename);
+
+  req->cmd  = hton32 (cmd);
+  req->type = hton32 (type);
+
+  ret = protocol_client_xfer (frame, this,
+                              GF_OP_TYPE_FOP_REQUEST, GF_FOP_GF_DIR_LK,
+                              hdr, hdrlen, NULL, 0, NULL);
+
+  return ret;
 }
 
 
@@ -3729,6 +3792,59 @@ client_lk_common_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/*
+ * client_gf_file_lk_cbk - gf_file_lk callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
+int32_t
+client_gf_file_lk_cbk (call_frame_t *frame,
+		       gf_hdr_common_t *hdr, size_t hdrlen,
+		       char *buf, size_t buflen)
+{
+  gf_fop_gf_file_lk_rsp_t *rsp = NULL;
+  int op_ret = 0;
+  int op_errno = 0;
+
+  rsp = gf_param (hdr);
+
+  op_ret   = ntoh32 (hdr->rsp.op_ret);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+
+/*
+ * client_gf_dir_lk_cbk - gf_dir_lk callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
+int32_t
+client_gf_dir_lk_cbk (call_frame_t *frame,
+		      gf_hdr_common_t *hdr, size_t hdrlen,
+		      char *buf, size_t buflen)
+{
+  gf_fop_gf_dir_lk_rsp_t *rsp = NULL;
+  int op_ret = 0;
+  int op_errno = 0;
+
+  rsp = gf_param (hdr);
+
+  op_ret   = ntoh32 (hdr->rsp.op_ret);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+
 /**
  * client_writedir_cbk -
  *
@@ -4271,7 +4387,8 @@ static gf_op_t gf_fops[] = {
   [GF_FOP_RMELEM]         =  client_rmelem_cbk,
   [GF_FOP_INCVER]         =  client_incver_cbk,
   [GF_FOP_READDIR]        =  client_readdir_cbk,
-  [GF_FOP_GF_LK]          =  client_lk_common_cbk,
+  [GF_FOP_GF_FILE_LK]     =  client_gf_file_lk_cbk,
+  [GF_FOP_GF_DIR_LK]      =  client_gf_dir_lk_cbk,
   [GF_FOP_CHECKSUM]       =  client_checksum_cbk,
   [GF_FOP_XATTROP]        =  client_xattrop_cbk,
 };
@@ -4751,7 +4868,8 @@ struct xlator_fops fops = {
   .fstat       = client_fstat,
   .create      = client_create,
   .lk          = client_lk,
-  .gf_lk       = client_gf_lk,
+  .gf_file_lk  = client_gf_file_lk,
+  .gf_dir_lk   = client_gf_dir_lk,
   .lookup      = client_lookup,
   .forget      = client_forget,
   .fchmod      = client_fchmod,

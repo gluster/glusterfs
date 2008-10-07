@@ -43,7 +43,7 @@
 #include "common-utils.h"
 #include "compat-errno.h"
 #include "compat.h"
-
+#include "byte-order.h"
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -2552,30 +2552,50 @@ posix_print_xattr (dict_t *this,
 }
 
 
+/**
+ * add_array - add two arrays of 32-bit numbers (stored in network byte order)
+ * dest = dest + src
+ * @count: number of 32-bit numbers
+ * FIXME: handle overflow
+ */
+
+static void
+add_array (int32_t *dest, int32_t *src, int count)
+{
+	int i = 0;
+	for (i = 0; i < count; i++) {
+		dest[i] = hton32 (ntoh32 (dest[i]) + ntoh32 (src[i]));
+	}
+}
+
+/**
+ * xattrop - xattr operations - for internal use by GlusterFS
+ * @optype: ADD_ARRAY:
+ *            dict should contain:
+ *               "key" ==> array of 32-bit numbers in network byte order
+ */
+
 int
-posix_xattrop (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       const char *path,
-	       int32_t optype,
-	       dict_t *xattr)
+posix_xattrop (call_frame_t *frame, xlator_t *this,
+	       fd_t *fd, const char *path, gf_xattrop_flags_t optype, dict_t *xattr)
 {
 	char            *real_path = NULL;
-	char             number[50];
+	int32_t         *array = NULL;
 	int              size = 0;
+	int              count = 0;
+
 	int              op_ret = 0;
 	int              op_errno = 0;
-	int              num = 0;
-	int              orignum = 0;
+
 	int              _fd = -1;
 	data_t          *pfd_data = NULL; 
 	struct posix_fd *pfd = NULL;
+
 	data_pair_t     *trav = NULL;
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (xattr, out);
 	VALIDATE_OR_GOTO (this, out);
-	VALIDATE_OR_GOTO (path, out);
 
 	trav = xattr->members_list;
 
@@ -2596,18 +2616,21 @@ posix_xattrop (call_frame_t *frame,
 	}
 
 	while (trav) {
+		count = trav->value->len / 4;
+		array = calloc (count, sizeof (int32_t));
+		
 		if (_fd != -1) {
-			size = fgetxattr (_fd, trav->key, number, 50);
+			size = fgetxattr (_fd, trav->key, array, trav->value->len);
 		} else {
-			size = lgetxattr (real_path, trav->key, number, 50);
+			size = lgetxattr (real_path, trav->key, array, trav->value->len);
 		}
 
 		op_errno = errno;
-		if ((size == -1) && ((op_errno != ENODATA) && (op_errno != ENOENT))) {
+		if ((size == -1) && (op_errno != ENODATA)) {
 			if (op_errno == ENOTSUP) {
                                 GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
                                                      this->name, GF_LOG_WARNING, 
-                                                     "Extended attributes not supported");
+                                                     "extended attributes not supported by filesystem");
 			} else 	{
 				gf_log (this->name, GF_LOG_ERROR,
 					"%s (%d): %s", path, _fd,
@@ -2616,22 +2639,9 @@ posix_xattrop (call_frame_t *frame,
 			goto out;
 		}
 
-		number[size] = '\0';
-		num = orignum = strtoll (number, NULL, 10);
-		
 		switch (optype) {
-		case GF_XATTROP_INC:
-			num++;
-			break;
-		case GF_XATTROP_DEC:
-			num--;
-			break;
-		case GF_XATTROP_GET:
-			dict_set (xattr, trav->key,
-				  data_from_dynstr (strdup (number)));
-			break;
-		case GF_XATTROP_RESET:
-			num = 0;
+		case GF_XATTROP_ADD_ARRAY:
+			add_array (array, (int32_t *) trav->value->data, trav->value->len / 4);
 			break;
 		default:
 			gf_log (this->name, GF_LOG_ERROR,
@@ -2642,26 +2652,23 @@ posix_xattrop (call_frame_t *frame,
 			goto out;
 		}
 
-		if (num != orignum) {
-			sprintf (number, "%u", num);
-			if (_fd != -1)
-				size = fsetxattr (_fd, trav->key, number,
-						  strlen (number), 0);
-			else
-				size = lsetxattr (real_path, trav->key, number,
-						  strlen (number), 0);
+		if (_fd != -1)
+			size = fsetxattr (_fd, trav->key, array,
+					  trav->value->len, 0);
+		else
+			size = lsetxattr (real_path, trav->key, array,
+					  trav->value->len, 0);
 
-			op_errno = errno;
-			if (size == -1) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"%s (%d): key=%s (%s)", path, _fd,
-					trav->key, strerror (op_errno));
-				op_ret = -1;
-				goto out;
-			}
+		op_errno = errno;
+		if (size == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"%s (%d): key=%s (%s)", path, _fd,
+				trav->key, strerror (op_errno));
+			op_ret = -1;
+			goto out;
 		}
 
-		num = 0;
+		FREE (array);
 		trav = trav->next;
 	}
 
@@ -3211,16 +3218,30 @@ posix_lk (call_frame_t *frame, xlator_t *this,
 
 
 int32_t 
-posix_gf_lk (call_frame_t *frame, xlator_t *this,
-	     fd_t *fd, int32_t cmd, struct flock *lock)
+posix_gf_file_lk (call_frame_t *frame, xlator_t *this,
+		  loc_t *loc, int32_t cmd, struct flock *lock)
 {
-        struct flock nullock = {0, };
         frame->root->rsp_refs = NULL;
 
 	gf_log (this->name, GF_LOG_CRITICAL,
 		"\"features/posix-locks\" translator is not loaded. You need to use it for proper functioning of AFR");
 
-        STACK_UNWIND (frame, -1, ENOSYS, &nullock);
+        STACK_UNWIND (frame, -1, ENOSYS);
+        return 0;
+}
+
+
+int32_t 
+posix_gf_dir_lk (call_frame_t *frame, xlator_t *this,
+		 loc_t *loc, const char *basename, gf_dir_lk_cmd cmd, 
+		 gf_dir_lk_type type)
+{
+        frame->root->rsp_refs = NULL;
+
+	gf_log (this->name, GF_LOG_CRITICAL,
+		"\"features/posix-locks\" translator is not loaded. You need to use it for proper functioning of AFR");
+
+        STACK_UNWIND (frame, -1, ENOSYS);
         return 0;
 }
 
@@ -3697,7 +3718,8 @@ struct xlator_fops fops = {
         .ftruncate   = posix_ftruncate,
         .fstat       = posix_fstat,
         .lk          = posix_lk,
-	.gf_lk       = posix_gf_lk,
+	.gf_file_lk  = posix_gf_file_lk,
+	.gf_dir_lk   = posix_gf_dir_lk,
         .fchown      = posix_fchown,
         .fchmod      = posix_fchmod,
         .setdents    = posix_setdents,
