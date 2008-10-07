@@ -1854,7 +1854,7 @@ posix_flush (call_frame_t *frame, xlator_t *this,
 
         ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
 
-        if (ret == -1) {
+        if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_ERROR,
                         "pfd is NULL on fd=%p", fd);
@@ -1871,62 +1871,7 @@ posix_flush (call_frame_t *frame, xlator_t *this,
 
         return 0;
 }
-/*
-int32_t 
-posix_close (call_frame_t *frame, xlator_t *this,
-             fd_t *fd)
-{
-        int32_t                op_ret   = -1;
-        int32_t                op_errno = 0;
-        int                    _fd      = -1;
-        struct posix_private * priv     = NULL;
-        struct posix_fd *      pfd      = NULL;
-        int                    ret      = -1;
 
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (fd, out);
-
-        priv = this->private;
-
-        priv->stats.nr_files--;
-
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-        if (ret < 0) {
-                op_errno = -ret;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "pfd is NULL from fd=%p", fd);
-                goto out;
-        }
-
-        _fd = pfd->fd;
-
-        op_ret = close (_fd);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "close(): %s", strerror (op_errno));
-		goto out;
-        }
-
-        if (pfd->dir) {
-                op_errno = EBADF;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "pfd->dir is %p (not NULL) for file fd=%p",
-                        pfd->dir, fd);
-                goto out;
-        }
-
-        op_ret = 0;
-
- out:
-	if (pfd)
-		FREE (pfd);
-
-        frame->root->rsp_refs = NULL;
-        STACK_UNWIND (frame, op_ret, op_errno);
-        return 0;
-	} */
 int32_t 
 posix_close (xlator_t *this,
              fd_t *fd)
