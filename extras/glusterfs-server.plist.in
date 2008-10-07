@@ -6,10 +6,10 @@
         <string>com.zresearch.glusterfs</string>
         <key>ProgramArguments</key>
         <array>
-                <string>/usr/local/sbin/glusterfsd</string>
+                <string>@prefix@/sbin/glusterfsd</string>
                 <string>-N</string>
                 <string>-f</string>
-                <string>/usr/local/etc/glusterfs/server.vol</string>
+                <string>@prefix@/etc/glusterfs/server.vol</string>
         </array>
 </dict>
 </plist>

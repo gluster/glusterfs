@@ -1195,11 +1195,11 @@ dict_get_with_ref (dict_t *this, char *key, data_t **data)
 	pair = _dict_lookup (this, key);
 	if (pair) {
 		*data = data_ref (pair->value);
+		ret = 0;
 	}
 
 	UNLOCK (&this->lock);
 	
-	ret = 0;
 err:  
 	return ret;
 }
