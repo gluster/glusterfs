@@ -1281,24 +1281,25 @@ trace_rename (call_frame_t *frame,
 int32_t 
 trace_link (call_frame_t *frame,
 	    xlator_t *this,
-	    loc_t *loc,
-	    const char *newpath)
+	    loc_t *oldloc,
+	    loc_t *newloc)
 {
-	ERR_EINVAL_NORETURN (!this || !loc || !newpath);
+	ERR_EINVAL_NORETURN (!this || !oldloc || !newloc);
 
 	if (trace_fop_names[GF_FOP_LINK].enabled) {  
 		gf_log (this->name, 
 			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, newpath=%s)",
-			this, loc, loc->path, loc->inode, newpath);
+			"(*this=%p, oldloc=%p {path=%s, inode=%p}, newloc=%p {path=%s, inode=%p})",
+			this, oldloc, oldloc->path, oldloc->inode, 
+			newloc, newloc->path, newloc->inode);
 	}
 
 	STACK_WIND (frame, 
 		    trace_link_cbk, 
 		    FIRST_CHILD(this), 
 		    FIRST_CHILD(this)->fops->link, 
-		    loc,
-		    newpath);
+		    oldloc,
+		    newloc);
 	return 0;
 }
 

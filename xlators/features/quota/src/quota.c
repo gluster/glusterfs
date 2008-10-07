@@ -865,7 +865,6 @@ fini (xlator_t *this)
 {
 	call_frame_t *frame = NULL;
 	struct quota_priv *_private = this->private;
-	call_pool_t *pool = this->ctx->pool;
 
 	frame = create_frame (this, this->ctx->pool);
 	{

@@ -942,11 +942,11 @@ filter_link_cbk (call_frame_t *frame,
 int32_t
 filter_link (call_frame_t *frame,
 	     xlator_t *this,
-	     loc_t *loc,
-	     const char *newname)
+	     loc_t *oldloc,
+	     loc_t *newloc)
 {
 	int ret = 0;
-	ret = update_frame (frame, loc->inode, this->private);
+	ret = update_frame (frame, oldloc->inode, this->private);
 	switch (ret) {
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
@@ -958,7 +958,7 @@ filter_link (call_frame_t *frame,
 		    filter_link_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->link,
-		    loc, newname);
+		    oldloc, newloc);
 	return 0;
 }
 

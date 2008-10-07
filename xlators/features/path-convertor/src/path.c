@@ -695,23 +695,23 @@ path_rename (call_frame_t *frame,
 int32_t 
 path_link (call_frame_t *frame,
 	    xlator_t *this,
-	    loc_t *loc,
-	    const char *newpath)
+	    loc_t *oldloc,
+	    loc_t *newloc)
 {
   loc_t tmp_loc = {0,};
 
-  if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
+  if (!(tmp_loc.path = path_this_to_that (this, oldloc->path))) {
     STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
     return 0;
   }
-  tmp_loc.inode = loc->inode;
+  tmp_loc.inode = oldloc->inode;
   STACK_WIND (frame, 
 	      path_link_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->link, 
 	      &tmp_loc, 
-	      newpath);
-  if (tmp_loc.path != loc->path)
+	      newloc);
+  if (tmp_loc.path != oldloc->path)
     FREE (tmp_loc.path);
 
   return 0;
