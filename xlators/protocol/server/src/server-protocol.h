@@ -40,6 +40,11 @@
 #define GLUSTERFSD_SPEC_DIR    CONFDIR
 #define GLUSTERFSD_SPEC_PATH   CONFDIR "/glusterfs-client.vol"
 
+typedef struct _server_state server_state_t;
+
+#define STATE(frame)        ((server_state_t *)frame->root->state)
+
+#define BOUND_XL(frame)     ((xlator_t *) STATE (frame)->bound_xl)
 
 
 struct held_locks {
@@ -107,14 +112,13 @@ struct _server_state {
 	inode_table_t *itable;
 	ino_t ino;
 	ino_t ino2;
-	inode_t *inode, *inode2;
 	char *path;
 	char *path2;
 	int mask;
 	char is_revalidate;
 	char need_xattr;
 	struct timespec tv[2];
-	call_stub_t *stub;
+	char *resolved;
 };
 
 
@@ -123,7 +127,44 @@ typedef struct {
 	transport_t *trans;
 } server_private_t;
 
-typedef struct _server_state server_state_t;
-
 typedef struct server_proto_priv server_proto_priv_t;
+
+static inline __attribute__((always_inline))
+void
+server_loc_wipe (loc_t *loc)
+{
+	if (loc->parent)
+		inode_unref (loc->parent);
+	if (loc->inode)
+		inode_unref (loc->inode);
+	if (loc->path)
+		free ((char *)loc->path);
+}
+
+static inline void
+free_state (server_state_t *state)
+{
+	transport_t *trans = NULL;	
+
+	trans    = state->trans;
+
+	if (state->fd)
+		fd_unref (state->fd);
+
+	transport_unref (trans);
+
+	FREE (state);
+}
+
+int32_t
+server_stub_resume (call_stub_t *stub,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    inode_t *inode,
+		    inode_t *parent);
+
+int32_t
+do_path_lookup (call_stub_t *stub,
+		const loc_t *loc);
+
 #endif
