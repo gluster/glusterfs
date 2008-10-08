@@ -1899,6 +1899,7 @@ client_gf_file_lk (call_frame_t *frame,
   req->cmd  = hton32 (gf_cmd);
   req->type = hton32 (gf_type);
   gf_flock_from_flock (&req->flock, flock);
+  strcpy (req->path, loc->path);
 
   ret = protocol_client_xfer (frame, this,
                               GF_OP_TYPE_FOP_REQUEST,
