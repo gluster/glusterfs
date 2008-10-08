@@ -412,6 +412,26 @@ server_state_fill (call_frame_t *frame,
 		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
 	}
 	break;
+	case GF_FOP_GF_DIR_LK:
+	{
+		gf_fop_gf_dir_lk_req_t *req = request;
+		
+		state->cmd = ntoh32 (req->cmd);
+		state->type = ntoh32 (req->type);
+		state->path = req->path;
+		state->basename = (req->basename + strlen (state->path) + 1);
+	}
+	break;
+	case GF_FOP_GF_FILE_LK:
+	{
+		gf_fop_gf_file_lk_req_t *req = request;
+		
+		state->cmd = ntoh32 (req->cmd);
+		state->type = ntoh32 (req->type);
+		state->path  = req->path;
+		gf_flock_to_flock (&req->flock, &state->flock);
+	}
+	break;
 	default:
 		break;
 	}
@@ -2514,6 +2534,11 @@ server_stub_resume (call_stub_t *stub,
 				loc_t *newloc = NULL;
 				/* now we are called by lookup of oldpath. */
 				if (op_ret < 0) {
+					gf_log (stub->frame->this->name, 
+						GF_LOG_ERROR,
+						"rename returning ENOENT: %d (%d)", 
+						op_ret, op_errno);
+
 					/* lookup of oldpath failed, UNWIND to 
 					 * server_rename_cbk with ret=-1 and errno=ENOENT */
 					server_rename_cbk (stub->frame,
@@ -2576,7 +2601,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"open returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 
 				server_open_cbk (stub->frame,
@@ -2605,7 +2630,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_DEBUG,
-					"returning ENOENT: %d (%d)", 
+					"lookup returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 
 				server_lookup_cbk (stub->frame,
@@ -2639,7 +2664,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"stat returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_stat_cbk (stub->frame,
 						 NULL,
@@ -2669,7 +2694,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"unlink returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_unlink_cbk (stub->frame,
 						   NULL,
@@ -2697,7 +2722,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"symlink returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_symlink_cbk (stub->frame,
 						    NULL,
@@ -2727,7 +2752,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"rmdir returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_rmdir_cbk (stub->frame,
 						  NULL,
@@ -2755,7 +2780,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"chmod returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_chmod_cbk (stub->frame,
 						  NULL,
@@ -2784,7 +2809,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"chown returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_chown_cbk (stub->frame,
 						  NULL,
@@ -2814,7 +2839,7 @@ server_stub_resume (call_stub_t *stub,
 				if (op_ret < 0) {
 					gf_log (stub->frame->this->name, 
 						GF_LOG_ERROR,
-						"returning ENOENT: %d (%d)", 
+						"link returning ENOENT: %d (%d)", 
 						op_ret, op_errno);
 					server_link_cbk (stub->frame,
 							 NULL,
@@ -2846,7 +2871,7 @@ server_stub_resume (call_stub_t *stub,
 				if ((op_ret < 0) && (parent == NULL)) {
 					gf_log (stub->frame->this->name, 
 						GF_LOG_ERROR,
-						"returning ENOENT: %d (%d)", 
+						"link returning ENOENT: %d (%d)", 
 						op_ret, op_errno);
 					server_link_cbk (stub->frame,
 							 NULL,
@@ -2880,7 +2905,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"truncate returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_truncate_cbk (stub->frame,
 						     NULL,
@@ -2909,7 +2934,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"statfs returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_statfs_cbk (stub->frame,
 						   NULL,
@@ -2939,7 +2964,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"setxattr returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_setxattr_cbk (stub->frame,
 						     NULL,
@@ -2968,7 +2993,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"getxattr returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_getxattr_cbk (stub->frame,
 						     NULL,
@@ -2997,7 +3022,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"removexattr returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_removexattr_cbk (stub->frame,
 							NULL,
@@ -3025,7 +3050,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"opendir returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_opendir_cbk (stub->frame,
 						    NULL,
@@ -3054,7 +3079,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"access returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_access_cbk (stub->frame,
 						   NULL,
@@ -3083,7 +3108,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"utimens returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_utimens_cbk (stub->frame,
 						    NULL,
@@ -3112,7 +3137,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"readlink returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_readlink_cbk (stub->frame,
 						     NULL,
@@ -3140,7 +3165,7 @@ server_stub_resume (call_stub_t *stub,
 			if ((op_ret < 0) && (parent == NULL)) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"mkdir returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_mkdir_cbk (stub->frame,
 						  NULL,
@@ -3171,7 +3196,7 @@ server_stub_resume (call_stub_t *stub,
 			if ((op_ret < 0) && (parent == NULL)) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"create returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_create_cbk (stub->frame,
 						   NULL,
@@ -3199,12 +3224,13 @@ server_stub_resume (call_stub_t *stub,
 			call_resume (stub);
 			break;
 		}
+
 		case GF_FOP_MKNOD:
 		{
 			if ((op_ret < 0) && (parent == NULL)) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"returning ENOENT: %d (%d)", 
+					"mknod returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
 				server_mknod_cbk (stub->frame,
 						  NULL,
@@ -3224,6 +3250,60 @@ server_stub_resume (call_stub_t *stub,
 			if (server_inode && (stub->args.mknod.loc.inode == NULL)) {
 				stub->args.mknod.loc.inode = inode_ref (server_inode);
 				stub->args.mknod.loc.ino = server_inode->ino;
+			}
+			call_resume (stub);
+			break;
+		}
+		case GF_FOP_GF_DIR_LK:
+		{
+			if (op_ret < 0) {
+				gf_log (stub->frame->this->name, 
+					GF_LOG_ERROR,
+					"gf_dir_lk returning ENOENT: %d (%d)", 
+					op_ret, op_errno);
+				server_gf_dir_lk_cbk (stub->frame,
+						      NULL,
+						      stub->frame->this,
+						      -1,
+						      ENOENT);
+				server_loc_wipe (&stub->args.gf_dir_lk.loc);
+				FREE (stub);
+				break;
+			}
+			
+			if (stub->args.gf_dir_lk.loc.parent == NULL)
+				stub->args.gf_dir_lk.loc.parent = inode_ref (parent);
+
+			if (server_inode && (stub->args.gf_dir_lk.loc.inode == NULL)) {
+				stub->args.gf_dir_lk.loc.inode = inode_ref (server_inode);
+				stub->args.gf_dir_lk.loc.ino = server_inode->ino;
+			}
+			call_resume (stub);
+			break;
+		}
+		case GF_FOP_GF_FILE_LK:
+		{
+			if (op_ret < 0) {
+				gf_log (stub->frame->this->name, 
+					GF_LOG_ERROR,
+					"gf_file_lk returning ENOENT: %d (%d)", 
+					op_ret, op_errno);
+				server_gf_file_lk_cbk (stub->frame,
+						       NULL,
+						       stub->frame->this,
+						       -1,
+						       ENOENT);
+				server_loc_wipe (&stub->args.gf_file_lk.loc);
+				FREE (stub);
+				break;
+			}
+			
+			if (stub->args.gf_file_lk.loc.parent == NULL)
+				stub->args.gf_file_lk.loc.parent = inode_ref (parent);
+
+			if (server_inode && (stub->args.gf_file_lk.loc.inode == NULL)) {
+				stub->args.gf_file_lk.loc.inode = inode_ref (server_inode);
+				stub->args.gf_file_lk.loc.ino = server_inode->ino;
 			}
 			call_resume (stub);
 			break;
@@ -5018,8 +5098,6 @@ server_gf_file_lk_resume (call_frame_t *frame,
  			  loc_t *loc, int32_t cmd,
  			  struct flock *flock)
 {
- 	server_state_t *state = STATE (frame);
- 
  	STACK_WIND (frame,
  		    server_gf_file_lk_cbk,
  		    BOUND_XL (frame),
@@ -5043,27 +5121,18 @@ server_gf_file_lk (call_frame_t *frame,
  	req       = gf_param (hdr);
    
  	state = STATE (frame);
- 	server_state_fill (frame, req, GF_FOP_CHMOD);
+ 	server_state_fill (frame, req, GF_FOP_GF_FILE_LK);
  
  	server_loc_fill (&(state->loc), state, state->path);
- 
  
  	gf_file_lk_stub = fop_gf_file_lk_stub (frame,
  					       server_gf_file_lk_resume,
  					       &state->loc, state->cmd, &state->flock);
  
- 	if (!state->loc.inode) {
- 		/* make a call stub and call lookup to get the inode structure.
- 		 * resume call after lookup is successful */
- 
- 		frame->local = gf_file_lk_stub;
- 		state->loc.inode = inode_new (BOUND_XL(frame)->itable);
- 
- 		gf_flock_to_flock (&req->flock, &state->flock);
- 
- 		do_path_lookup (gf_file_lk_stub, &(state->loc));
- 
- 	} else {
+ 	if ((state->loc.parent == NULL) || 
+	    (state->loc.inode == NULL)) {
+  		do_path_lookup (gf_file_lk_stub, &(state->loc));
+  	} else {
  		call_resume (gf_file_lk_stub);
  	}
  
@@ -5077,8 +5146,6 @@ server_gf_dir_lk_resume (call_frame_t *frame,
  			 loc_t *loc, const char *basename,
  			 gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
- 	server_state_t *state = STATE (frame);
- 
  	STACK_WIND (frame,
  		    server_gf_dir_lk_cbk,
  		    BOUND_XL (frame),
@@ -5113,22 +5180,14 @@ server_gf_dir_lk (call_frame_t *frame,
  
  	server_loc_fill (&(state->loc), state, state->path);
  
- 
- 	gf_dir_lk_stub = fop_gf_dir_lk_stub (frame,
+  	gf_dir_lk_stub = fop_gf_dir_lk_stub (frame,
  					     server_gf_dir_lk_resume,
  					     &state->loc, state->basename, state->cmd, 
  					     state->type);
  
- 
- 	if (!state->loc.inode) {
- 		/* make a call stub and call lookup to get the inode structure.
- 		 * resume call after lookup is successful */
- 
- 		frame->local = gf_dir_lk_stub;
- 		state->loc.inode = inode_new (BOUND_XL(frame)->itable);
- 
+ 	if ((state->loc.parent == NULL) ||
+	    (state->loc.inode == NULL)) {
  		do_path_lookup (gf_dir_lk_stub, &(state->loc));
- 
  	} else {
  		call_resume (gf_dir_lk_stub);
  	}
@@ -5151,6 +5210,7 @@ server_access_resume (call_frame_t *frame,
 		    mask);
 	return 0;
 }
+
 /*
  * server_access - access function for server protocol
  * @frame: call frame
