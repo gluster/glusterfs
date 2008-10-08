@@ -588,6 +588,7 @@ stripe_chown (call_frame_t *frame,
 	if (S_ISDIR (loc->inode->st_mode) || S_ISREG (loc->inode->st_mode))
 		send_fop_to_all = 1;
 
+	trav = this->children;
 	if (!send_fop_to_all) {
 		STACK_WIND (frame,
 			    stripe_common_buf_cbk,

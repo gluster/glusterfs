@@ -712,3 +712,8 @@ struct xlator_mops mops = {
 
 struct xlator_cbks cbks = {
 };
+
+struct xlator_options options[] = {
+	{ "read-subvolume", GF_OPTION_TYPE_XLATOR, 0, },
+	{ NULL, 0, },
+};

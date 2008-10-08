@@ -1170,6 +1170,13 @@ posix_chmod (call_frame_t *frame, xlator_t *this,
         if (S_ISLNK (loc->inode->st_mode)) {
                 /* chmod on a link should always succeed */
                 op_ret = 0;
+		op_ret = lstat (real_path, &stbuf);
+		if (op_ret == -1) {
+			op_errno = errno;
+			gf_log (this->name, GF_LOG_ERROR, "lstat on %s failed: %s",
+				real_path, strerror (op_errno));
+			goto out;
+		}
                 goto out;
         }
 
@@ -2522,7 +2529,7 @@ add_array (int32_t *dest, int32_t *src, int count)
 
 int
 posix_xattrop (call_frame_t *frame, xlator_t *this,
-	       fd_t *fd, const char *path, gf_xattrop_flags_t optype, dict_t *xattr)
+	       fd_t *fd, const char *path, int32_t optype, dict_t *xattr)
 {
 	char            *real_path = NULL;
 	int32_t         *array = NULL;
