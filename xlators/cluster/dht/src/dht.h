@@ -26,6 +26,11 @@
 #define _DHT_H
 
 
+typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret, int32_t op_errno);
+
+
 struct dht_layout {
         int               cnt;
 	int               preset;
@@ -58,6 +63,7 @@ struct dht_local {
 	size_t                   size;
 	xlator_t                *src_hashed, *src_cached;
 	xlator_t                *dst_hashed, *dst_cached;
+	char                     need_selfheal;
 	struct {
 		fop_mknod_cbk_t  linkfile_cbk;
 		struct stat      stbuf;
@@ -72,6 +78,7 @@ struct dht_local {
 		uint32_t         missing;
 		uint32_t         down;
 		uint32_t         misc;
+		dht_selfheal_dir_cbk_t   dir_cbk;
 	} selfheal;
 };
 typedef struct dht_local dht_local_t;
@@ -166,8 +173,12 @@ int dht_hash_compute (int type, const char *name, uint32_t *hash_p);
 int dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 			 xlator_t *srcvol, xlator_t *dstvol, loc_t *loc);
 
-int dht_selfheal_directory (call_frame_t *frame, loc_t *loc,
-			    dht_layout_t *layout);
+int
+dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
+			loc_t *loc, dht_layout_t *layout);
+int
+dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
+		      loc_t *loc, dht_layout_t *layout);
 
 void loc_wipe (loc_t *loc);
 int loc_dup (loc_t *src, loc_t *dst);

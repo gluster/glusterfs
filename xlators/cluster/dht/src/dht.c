@@ -38,8 +38,35 @@
    - return inode num consistantly in all cases
    - return directory size consistantly
    - get callback from directory selfheal (for rmdir/mkdir)
-   - inode_ctx_set - static and dyn layouts
 */
+
+
+int
+dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
+			 xlator_t *this,
+			 int op_ret, int op_errno)
+{
+	dht_local_t  *local = NULL;
+	dht_layout_t *layout = NULL;
+	int           ret = 0;
+
+	local = frame->local;
+	ret = op_ret;
+
+	if (ret == 0) {
+		layout = local->layout;
+		ret = inode_ctx_set (local->inode, this, layout);
+
+		if (ret == 0)
+			local->layout = NULL;
+	}
+
+	DHT_STACK_UNWIND (frame, ret, local->op_errno, local->inode,
+			  &local->stbuf, local->xattr);
+
+	return 0;
+}
+
 
 int
 dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -110,7 +137,8 @@ unlock:
 	return 0;
 
 selfheal:
-	ret = dht_selfheal_directory (frame, &local->loc, layout);
+	ret = dht_selfheal_directory (frame, dht_lookup_selfheal_cbk,
+				      &local->loc, layout);
 
 	return 0;
 }
@@ -2247,6 +2275,30 @@ err:
 
 
 int
+dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
+			xlator_t *this,
+			int32_t op_ret, int32_t op_errno)
+{
+	dht_local_t   *local = NULL;
+	dht_layout_t  *layout = NULL;
+
+
+	local = frame->local;
+	layout = local->layout;
+
+	if (op_ret == 0) {
+		inode_ctx_set (local->inode, this, layout);
+		local->layout = NULL;
+	}
+
+	DHT_STACK_UNWIND (frame, op_ret, op_errno,
+			  local->inode, &local->stbuf);
+
+	return 0;
+}
+
+
+int
 dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno, inode_t *inode, struct stat *stbuf)
 {
@@ -2280,7 +2332,8 @@ unlock:
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		dht_selfheal_directory (frame, &local->loc, local->layout);
+		dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
+					&local->loc, local->layout);
 
         return 0;
 }
@@ -2351,6 +2404,21 @@ err:
 
 
 int
+dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			int op_ret, int op_errno)
+{
+	dht_local_t  *local = NULL;
+
+	local = frame->local;
+	local->layout = NULL;
+
+	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+
+	return 0;
+}
+
+
+int
 dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno)
 {
@@ -2362,13 +2430,15 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	local = frame->local;
 	prev  = cookie;
-	layout = local->layout;
 
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
 			local->op_errno = op_errno;
 			local->op_ret   = -1;
+
+			if (op_errno != ENOENT)
+				local->need_selfheal = 1;
 
 			gf_log (this->name, GF_LOG_ERROR,
 				"rmdir on %s for %s failed (%s)",
@@ -2382,8 +2452,20 @@ unlock:
 
 
 	this_call_cnt = dht_frame_return (frame);
-	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	if (is_last_call (this_call_cnt)) {
+		if (local->need_selfheal) {
+			inode_ctx_get (local->loc.inode, this, &layout);
+			local->layout = layout;
+			/* TODO: neater interface needed below */
+			local->stbuf.st_mode = local->loc.inode->st_mode;
+
+			dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
+					      &local->loc, layout);
+		} else {
+			DHT_STACK_UNWIND (frame, local->op_ret,
+					  local->op_errno);
+		}
+	}
 
         return 0;
 }
@@ -2454,6 +2536,8 @@ dht_forget (xlator_t *this, inode_t *inode)
 
 	if (!layout->preset)
 		FREE (layout);
+
+	return 0;
 }
 
 
@@ -2564,7 +2648,6 @@ int
 notify (xlator_t *this, int event, void *data, ...)
 {
 	int ret = -1;
-
 
 	ret = dht_notify (this, event, data);
 

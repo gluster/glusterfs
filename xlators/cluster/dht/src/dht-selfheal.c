@@ -29,21 +29,14 @@
 
 
 int
-dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this)
+dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
 {
-	dht_layout_t *layout = NULL;
 	dht_local_t  *local = NULL;
 
 
 	local = frame->local;
-	layout = local->layout;
-
-	inode_ctx_set (local->inode, this, layout);
-
-	local->layout = NULL;
-
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-			  local->inode, &local->stbuf, local->xattr);
+	local->selfheal.dir_cbk (frame, NULL, frame->this, ret,
+				 local->op_errno);
 
 	return 0;
 }
@@ -82,7 +75,7 @@ dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	this_call_cnt = dht_frame_return (frame);
 
 	if (is_last_call (this_call_cnt)) {
-		dht_selfheal_dir_finish (frame, this);
+		dht_selfheal_dir_finish (frame, this, 0);
 	}
 
 	return 0;
@@ -186,7 +179,7 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 	}
 
 	if (!missing_xattr)
-		dht_selfheal_dir_finish (frame, this);
+		dht_selfheal_dir_finish (frame, this, 0);
 
 	return 0;
 }
@@ -230,7 +223,7 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
-			dht_layout_t *layout)
+			dht_layout_t *layout, int force)
 {
 	int           missing_dirs = 0;
 	int           i = 0;
@@ -242,13 +235,13 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 	this = frame->this;
 
 	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err == ENOENT)
+		if (layout->list[i].err == ENOENT || force)
 			missing_dirs++;
 	}
 
 	local->call_cnt = missing_dirs;
 	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err == ENOENT) {
+		if (layout->list[i].err == ENOENT || force) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"creating directory %s on subvol %s",
 				loc->path, layout->list[i].xlator->name);
@@ -313,7 +306,7 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
 	conf = this->private;
 	local = frame->local;
 
-	if (local->selfheal.missing == conf->subvolume_cnt)
+//	if (local->selfheal.missing == conf->subvolume_cnt)
 		dht_selfheal_fix_this_virgin (frame, loc, layout);
 
 	/* TODO: give a fix to these non-virgins */
@@ -323,7 +316,8 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
 
 
 int
-dht_selfheal_directory (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
+dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
+			loc_t *loc, dht_layout_t *layout)
 {
 	dht_local_t *local    = NULL;
 	uint32_t     holes    = 0;
@@ -350,6 +344,8 @@ dht_selfheal_directory (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 	missing  = local->selfheal.missing;
 	down     = local->selfheal.down;
 	misc     = local->selfheal.misc;
+
+	local->selfheal.dir_cbk = dir_cbk;
 
 	if (overlaps) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -383,16 +379,31 @@ dht_selfheal_directory (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 
 	dht_selfheal_dir_getafix (frame, loc, layout);
 
-	dht_selfheal_dir_mkdir (frame, loc, layout);
+	dht_selfheal_dir_mkdir (frame, loc, layout, 0);
 
 	return 0;
 
 sorry_no_fix:
 
-	inode_ctx_set (local->inode, this, layout);
-	local->layout = NULL;
+	dht_selfheal_dir_finish (frame, this, ret);
 
-	DHT_STACK_UNWIND (frame, ret, local->op_errno, local->inode,
-			  &local->stbuf);
+	return 0;
+}
+
+
+int
+dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
+		      loc_t *loc, dht_layout_t *layout)
+{
+	int          ret = 0;
+	dht_local_t *local    = NULL;
+
+
+	local = frame->local;
+
+	local->selfheal.dir_cbk = dir_cbk;
+
+	ret = dht_selfheal_dir_mkdir (frame, loc, layout, 1);
+
 	return 0;
 }

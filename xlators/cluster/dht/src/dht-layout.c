@@ -236,9 +236,8 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	int32_t *disk_layout = 0;
 
 
-	if (!(op_ret == 0)) {
+	if (op_ret != 0) {
 		err = op_errno;
-		goto out;
 	}
 
 	for (i = 0; i < layout->cnt; i++) {

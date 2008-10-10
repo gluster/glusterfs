@@ -235,7 +235,7 @@ __inode_destroy (inode_t *inode)
 
                 if (xl->fops->forget)
                         xl->fops->forget (NULL, xl, inode);
-                if (xl->cbks->forget)
+                else if (xl->cbks->forget)
 			xl->cbks->forget (xl, inode);
 		else
                         gf_log (inode->table->name, GF_LOG_CRITICAL,
