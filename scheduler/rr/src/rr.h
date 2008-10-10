@@ -51,7 +51,7 @@ typedef struct rr rr_t;
 
 int rr_init (xlator_t *this_xl);
 void rr_fini (xlator_t *this_xl);
-xlator_t *rr_schedule (xlator_t *this_xl, void *path);
+xlator_t *rr_schedule (xlator_t *this_xl, const void *path);
 void rr_update (xlator_t *this_xl);
 int rr_update_cbk (call_frame_t *frame, 
 		   void *cookie, 

@@ -246,7 +246,7 @@ nufa_update (xlator_t *xl)
 }
 
 static xlator_t *
-nufa_schedule (xlator_t *xl, void *path)
+nufa_schedule (xlator_t *xl, const void *path)
 {
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
   int32_t nufa_orig = nufa_buf->local_xl_index;  

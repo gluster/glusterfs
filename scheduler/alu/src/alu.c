@@ -772,7 +772,7 @@ alu_update (xlator_t *xl)
 }
 
 static xlator_t *
-alu_scheduler (xlator_t *xl, void *path)
+alu_scheduler (xlator_t *xl, const void *path)
 {
   /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);

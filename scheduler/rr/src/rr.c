@@ -217,7 +217,7 @@ rr_fini (xlator_t *this_xl)
 }
 
 xlator_t *
-rr_schedule (xlator_t *this_xl, void *path)
+rr_schedule (xlator_t *this_xl, const void *path)
 {
   rr_t *rr = NULL;
   uint64_t next_schedule_index = 0;

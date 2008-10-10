@@ -95,10 +95,7 @@ struct _unify_local_t {
   struct stat stbuf;
   struct statvfs statvfs_buf;
   struct timespec tv[2];
-  char *path;
   char *name;
-  inode_t *inode;
-  inode_t *new_inode; /* Only used in case of rename */
   int32_t revalidate;
 
   ino_t st_ino;

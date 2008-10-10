@@ -286,7 +286,7 @@ switch_fini (xlator_t *xl)
 }
 
 static xlator_t *
-switch_schedule (xlator_t *xl, void *path)
+switch_schedule (xlator_t *xl, const void *path)
 {
   struct switch_struct *switch_buf = NULL;
   switch_buf = (struct switch_struct *)*((long *)xl->private);

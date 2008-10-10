@@ -49,6 +49,24 @@
 #include "stack.h"
 #include "common-utils.h"
 
+/**
+ * unify_local_wipe - free all the extra allocation of local->* here.
+ */
+static void 
+unify_local_wipe (unify_local_t *local)
+{
+  /* Free the strdup'd variables in the local structure */
+  if (local->name) {
+    FREE (local->name);
+  }
+
+  if (local->sh_struct)
+    FREE (local->sh_struct);
+  
+  loc_wipe (&local->loc1);
+  loc_wipe (&local->loc2);
+}
+
 int32_t 
 unify_sh_setdents_cbk (call_frame_t *frame,
 		       void *cookie,
@@ -58,7 +76,7 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 {
   int32_t callcnt = -1;
   unify_local_t *local = frame->local;
-
+  inode_t *inode = NULL;
   LOCK (&frame->lock);
   {
     /* if local->call_count == 0, that means, setdents on storagenodes is 
@@ -72,14 +90,14 @@ unify_sh_setdents_cbk (call_frame_t *frame,
   if (!callcnt && local->flags) {
     
     fd_unref (local->fd);
-    
-    FREE (local->path);
-    FREE (local->sh_struct);
+    inode = local->loc1.inode;
+
+    unify_local_wipe (local);
 
     STACK_UNWIND (frame, 
 		  local->op_ret, 
 		  local->op_errno, 
-		  local->inode,
+		  inode,
 		  &local->stbuf, 
 		  local->dict);
 
@@ -249,6 +267,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
   int16_t index = 0;
+  inode_t *inode = NULL;
 
   LOCK (&frame->lock);
   {
@@ -300,14 +319,13 @@ unify_sh_opendir_cbk (call_frame_t *frame,
        */
       fd_unref (local->fd);
 
-      FREE (local->path);
-      FREE (local->sh_struct);
-
+      inode = local->loc1.inode;
+      unify_local_wipe (local);
       /* Only 'self-heal' did not succeed, lookup() was successful. */
       local->op_ret = 0;
       
       /* This is lookup_cbk ()'s UNWIND. */
-      STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode,
+      STACK_UNWIND (frame, local->op_ret, local->op_errno, inode,
 		    &local->stbuf, local->dict);
       
     }
@@ -337,7 +355,8 @@ unify_sh_checksum_cbk (call_frame_t *frame,
   unify_private_t *priv = this->private;
   int16_t index = 0;
   int32_t callcnt = 0;
-  
+  inode_t *inode = NULL;
+
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
@@ -383,21 +402,21 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 	
     if (local->failed) {
       /* Log it, it should be a rare event */
-      gf_log (this->name, GF_LOG_WARNING, "Self-heal triggered on directory %s", local->path);
+      gf_log (this->name, GF_LOG_WARNING, "Self-heal triggered on directory %s", local->loc1.path);
 
       /* Any self heal will be done at the directory level */
       local->call_count = 0;
       local->op_ret = -1;
       local->failed = 0;
       
-      local->fd = fd_create (local->inode, frame->root->pid);
+      local->fd = fd_create (local->loc1.inode, frame->root->pid);
 
       local->call_count = priv->child_count + 1;
 	
       for (index = 0; index < (priv->child_count + 1); index++) {
 	loc_t tmp_loc = {
-	  .inode = local->inode,
-	  .path = local->path,
+	  .inode = local->loc1.inode,
+	  .path = local->loc1.path,
 	};
 	STACK_WIND_COOKIE (frame,
 			   unify_sh_opendir_cbk,
@@ -412,14 +431,15 @@ unify_sh_checksum_cbk (call_frame_t *frame,
     }
 
     /* no mismatch */
-    FREE (local->path);
-    FREE (local->sh_struct);
+    inode = local->loc1.inode;
+
+    unify_local_wipe (local);
 
     /* This is lookup_cbk ()'s UNWIND. */
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
-		  local->inode,
+		  inode,
 		  &local->stbuf,
 		  local->dict);
   }
@@ -456,8 +476,7 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
   if (!callcnt && local->flags) {
     fd_unref (local->fd);
 
-    FREE (local->path);
-    FREE (local->sh_struct);
+    unify_local_wipe (local);
     STACK_DESTROY (frame->root);
   }
   
@@ -678,9 +697,7 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
        */
       fd_unref (local->fd);
       
-      FREE (local->path);
-      FREE (local->sh_struct);
-
+      unify_local_wipe (local);
       STACK_DESTROY (frame->root);
     }
 
@@ -756,19 +773,20 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
 	
     if (local->failed) {
       /* Log it, it should be a rare event */
-      gf_log (this->name, GF_LOG_WARNING, "Self-heal triggered on directory %s", local->path);
+      gf_log (this->name, GF_LOG_WARNING, "Self-heal triggered on directory %s", local->loc1.path);
 
       /* Any self heal will be done at the directory level */
       local->op_ret = -1;
       local->failed = 0;
       
-      local->fd = fd_create (local->inode, frame->root->pid);
+      local->fd = fd_create (local->loc1.inode, frame->root->pid);
       local->call_count = priv->child_count + 1;
 	
       for (index = 0; index < (priv->child_count + 1); index++) {
 	loc_t tmp_loc = {
-	  .inode = local->inode,
-	  .path = local->path,
+	  .inode = local->loc1.inode,
+	  .path = local->loc1.path,
+	  .parent = local->loc1.parent
 	};
 	STACK_WIND_COOKIE (frame,
 			   unify_bgsh_opendir_cbk,
@@ -784,9 +802,7 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
     }
 
     /* no mismatch */
-    FREE (local->path);
-    FREE (local->sh_struct);
-
+    unify_local_wipe (local);
     STACK_DESTROY (frame->root);
   }
 
@@ -820,7 +836,7 @@ gf_unify_self_heal (call_frame_t *frame,
     /* Any self heal will be done at the directory level */
     /* Update the inode's generation to the current generation value. */
     local->inode_generation = priv->inode_generation;
-    dict_set (local->inode->ctx, this->name, data_from_int64 (local->inode_generation));
+    dict_set (local->loc1.inode->ctx, this->name, data_from_int64 (local->inode_generation));
 
     if (priv->self_heal == GF_UNIFY_FG_SELF_HEAL) {
       local->op_ret = 0;
@@ -831,8 +847,9 @@ gf_unify_self_heal (call_frame_t *frame,
       /* +1 is for NS */
       for (index = 0; index < (priv->child_count + 1); index++) {
 	loc_t tmp_loc = {
-	  .inode = local->inode,
-	  .path = local->path,
+	  .inode = local->loc1.inode,
+	  .path = local->loc1.path,
+	  .parent = local->loc1.parent
 	};
 	STACK_WIND_COOKIE (frame,
 			   unify_sh_checksum_cbk,
@@ -850,9 +867,7 @@ gf_unify_self_heal (call_frame_t *frame,
     /* Self Heal done in background */
     bg_frame = copy_frame (frame);
     INIT_LOCAL (bg_frame, bg_local);
-    bg_local->inode = inode_ref (local->inode);
-    bg_local->path = strdup (local->path);
-
+    loc_copy (&bg_local->loc1, &local->loc1);
     bg_local->op_ret = 0;
     bg_local->failed = 0;
     bg_local->call_count = priv->child_count + 1;
@@ -861,8 +876,9 @@ gf_unify_self_heal (call_frame_t *frame,
     /* +1 is for NS */
     for (index = 0; index < (priv->child_count + 1); index++) {
       loc_t tmp_loc = {
-	.inode = bg_local->inode,
-	.path = bg_local->path,
+	.inode = bg_local->loc1.inode,
+	.path = bg_local->loc1.path,
+	.parent = bg_local->loc1.parent
       };
       STACK_WIND_COOKIE (bg_frame,
 			 unify_bgsh_checksum_cbk,
@@ -874,8 +890,6 @@ gf_unify_self_heal (call_frame_t *frame,
     }
   }
 
-  FREE (local->path);
-  
   /* generation number matches, self heal already done or self heal done in background:
    * just do STACK_UNWIND 
    */
@@ -884,7 +898,7 @@ gf_unify_self_heal (call_frame_t *frame,
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
-		local->inode,
+		local->loc1.inode,
 		&local->stbuf,
 		local->dict);
   
