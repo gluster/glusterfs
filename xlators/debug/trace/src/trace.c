@@ -2166,6 +2166,8 @@ init (xlator_t *this)
     return -1;
   }
 
+  enable_all_calls (1);
+
 #ifndef GF_SOLARIS_HOST_OS
   includes = data_to_str (dict_get (options, "include"));
   excludes = data_to_str (dict_get (options, "exclude"));
