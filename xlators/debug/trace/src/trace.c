@@ -1024,6 +1024,134 @@ trace_setdents_cbk (call_frame_t *frame,
 }
 
 int32_t 
+trace_gf_dir_lk_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
+{
+	ERR_EINVAL_NORETURN (!this );
+
+	if (trace_fop_names[GF_FOP_GF_DIR_LK].enabled) {  
+		gf_log (this->name, GF_LOG_NORMAL,
+			"op_ret=%d, op_errno=%d",
+			op_ret, op_errno);
+	}
+
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t 
+trace_xattrop_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   dict_t *dict)
+{
+	ERR_EINVAL_NORETURN (!this || !dict);
+
+	if (trace_fop_names[GF_FOP_XATTROP].enabled) {
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d)",
+			op_ret, op_errno);
+	}
+
+	STACK_UNWIND (frame, op_ret, op_errno, dict);
+	return 0;
+}
+
+int32_t 
+trace_gf_file_lk_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno)
+{
+	ERR_EINVAL_NORETURN (!this );
+
+	if (trace_fop_names[GF_FOP_GF_FILE_LK].enabled) {  
+		gf_log (this->name, GF_LOG_NORMAL,
+			"op_ret=%d, op_errno=%d",
+			op_ret, op_errno);
+	}
+
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+int32_t
+trace_gf_dir_lk (call_frame_t *frame, xlator_t *this,
+		 loc_t *loc, const char *basename,
+		 gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+{
+	ERR_EINVAL_NORETURN (!this || !loc || !basename);
+
+	if (trace_fop_names[GF_FOP_GF_DIR_LK].enabled) {  
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"callid: %lld (loc=%p {path=%s, inode=%p} basename=%s, cmd=%d, type=%d)",
+			(long long) frame->root->unique, loc, loc->path,
+			loc->inode, basename, cmd, type);
+	}
+
+	STACK_WIND (frame, 
+		    trace_gf_dir_lk_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->gf_dir_lk,
+		    loc, basename, cmd, type);
+	return 0;
+}
+
+int32_t
+trace_gf_file_lk (call_frame_t *frame,
+		  xlator_t *this,
+		  loc_t *loc,
+		  int32_t cmd,
+		  struct flock *flock)
+{
+	ERR_EINVAL_NORETURN (!this || !loc);
+
+	if (trace_fop_names[GF_FOP_GF_FILE_LK].enabled) {  
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"callid: %lld (loc {path=%s, inode=%p} cmd=%d)",
+			(long long) frame->root->unique, loc->path, loc->inode, cmd);
+	}
+
+	STACK_WIND (frame, 
+		    trace_gf_file_lk_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->gf_file_lk,
+		    loc, cmd, flock);
+	return 0;
+}
+int32_t
+trace_xattrop (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		const char *path,
+		int32_t flags,
+		dict_t *dict)
+{
+	ERR_EINVAL_NORETURN (!this || !path || !fd);
+
+	if (trace_fop_names[GF_FOP_XATTROP].enabled) {  
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"callid: %lld (path=%s, flags=%d)",
+			(long long) frame->root->unique, path, flags);
+			
+	}
+  
+	STACK_WIND (frame, trace_xattrop_cbk,
+		    FIRST_CHILD(this), 
+		    FIRST_CHILD(this)->fops->xattrop, 
+		    fd, path, flags, dict);
+
+	return 0;
+}
+
+int32_t 
 trace_lookup (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -1033,8 +1161,8 @@ trace_lookup (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_LOOKUP].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (*this=%p, loc=%p {path=%s, inode=%p} )",
-			(long long) frame->root->unique, this, loc, loc->path,
+			"callid: %lld (loc=%p {path=%s, inode=%p} need_xattr=%d)",
+			(long long) frame->root->unique, loc, loc->path,
 			loc->inode, need_xattr);
 	}
   
@@ -1993,7 +2121,7 @@ enable_call (const char *name, int enabled)
 {
   int i;
   for (i = 0; i < GF_FOP_MAXVALUE; i++)
-    if (!strcmp(trace_fop_names[i].name, name))
+    if (!strcasecmp(trace_fop_names[i].name, name))
       trace_fop_names[i].enabled = enabled;
 }
 
@@ -2041,6 +2169,14 @@ init (xlator_t *this)
 #ifndef GF_SOLARIS_HOST_OS
   includes = data_to_str (dict_get (options, "include"));
   excludes = data_to_str (dict_get (options, "exclude"));
+
+  {
+	  int i;
+	  for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+		  trace_fop_names[i].name = (gf_fop_list[i])?gf_fop_list[i]:":O";
+		  trace_fop_names[i].enabled = 1;
+	  }
+  }
   
   if (includes && excludes) {
     gf_log (this->name, 
@@ -2089,15 +2225,7 @@ fini (xlator_t *this)
   if (!this)
     return;
 
-  gf_log (this->name, 
-	  GF_LOG_NORMAL, 
-	  "fini (xlator_t *this=%p)", this);
-
-  /* Free up the dictionary options */
-  dict_destroy (FIRST_CHILD(this)->options);
-
-  gf_log (this->name, 
-	  GF_LOG_NORMAL, 
+  gf_log (this->name, GF_LOG_NORMAL, 
 	  "trace translator unloaded");
   return;
 }
@@ -2135,11 +2263,14 @@ struct xlator_fops fops = {
   .fchown      = trace_fchown,
   .fchmod      = trace_fchmod,
   .lk          = trace_lk,
+  .gf_file_lk  = trace_gf_file_lk,
+  .gf_dir_lk   = trace_gf_dir_lk,
   .lookup      = trace_lookup,
-  .forget      = trace_forget,
   .setdents    = trace_setdents,
   .getdents    = trace_getdents,
   .checksum    = trace_checksum,
+  .xattrop     = trace_xattrop,
+
 };
 
 int32_t 

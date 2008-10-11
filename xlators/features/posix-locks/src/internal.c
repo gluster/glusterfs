@@ -92,8 +92,10 @@ pl_gf_file_lk (call_frame_t *frame, xlator_t *this,
 			}
 			break;
 		default:
+			op_errno = ENOTSUP;
 			gf_log (this->name, GF_LOG_ERROR,
-				"lock commands F_GETLK and F_SETLKW not supported for GF_FILE_LK");
+				"lock commands F_GETLK and F_SETLKW not supported for GF_FILE_LK (cmd=%d)", 
+				cmd);
 			goto unlock;
 		}
 	}
