@@ -135,7 +135,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	/* TODO: delete files in background */
 
-	if (src_cached != dst_hashed)
+	if (src_cached != dst_hashed && src_cached != dst_cached)
 		local->call_cnt++;
 
 	if (src_cached != src_hashed)
@@ -147,7 +147,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (local->call_cnt == 0)
 		goto unwind;
 
-	if (src_cached != dst_hashed) {
+	if (src_cached != dst_hashed && src_cached != dst_cached) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"deleting old src datafile %s @ %s",
 			local->loc.path, src_cached->name);
@@ -193,20 +193,30 @@ dht_do_rename (call_frame_t *frame)
 {
 	dht_local_t *local = NULL;
 	xlator_t    *dst_hashed = NULL;
+	xlator_t    *src_cached = NULL;
+	xlator_t    *dst_cached = NULL;
 	xlator_t    *this = NULL;
+	xlator_t    *rename_subvol = NULL;
 
 
 	local = frame->local;
 	this  = frame->this;
 
 	dst_hashed = local->dst_hashed;
+	dst_cached = local->dst_cached;
+	src_cached = local->src_cached;
+
+	if (src_cached == dst_cached)
+		rename_subvol = src_cached;
+	else
+		rename_subvol = dst_hashed;
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"renaming %s => %s (%s)",
-		local->loc.path, local->loc2.path, dst_hashed->name);
+		local->loc.path, local->loc2.path, rename_subvol->name);
 
 	STACK_WIND (frame, dht_rename_cbk,
-		    dst_hashed, dst_hashed->fops->rename,
+		    rename_subvol, rename_subvol->fops->rename,
 		    &local->loc, &local->loc2);
 
 	return 0;
@@ -261,6 +271,7 @@ dht_rename_create_links (call_frame_t *frame)
 	xlator_t    *src_cached = NULL;
 	xlator_t    *dst_hashed = NULL;
 	xlator_t    *dst_cached = NULL;
+	int          call_cnt = 0;
 
 
 	local = frame->local;
@@ -271,16 +282,16 @@ dht_rename_create_links (call_frame_t *frame)
 	dst_hashed = local->dst_hashed;
 	dst_cached = local->dst_cached;
 
+	if (src_cached == dst_cached)
+		goto nolinks;
+
 	if (dst_hashed != src_hashed && dst_hashed != src_cached)
-		local->call_cnt++;
+		call_cnt++;
 
 	if (src_cached != dst_hashed)
-		local->call_cnt++;
+		call_cnt++;
 
-	if (!local->call_cnt) {
-		/* skip to next step */
-		dht_do_rename (frame);
-	}
+	local->call_cnt = call_cnt;
 
 	if (dst_hashed != src_hashed && dst_hashed != src_cached) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -297,6 +308,12 @@ dht_rename_create_links (call_frame_t *frame)
 		STACK_WIND (frame, dht_rename_links_cbk,
 			    src_cached, src_cached->fops->link,
 			    &local->loc, &local->loc2);
+	}
+
+nolinks:
+	if (!call_cnt) {
+		/* skip to next step */
+		dht_do_rename (frame);
 	}
 
 	return 0;
