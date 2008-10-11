@@ -117,8 +117,7 @@ server_state_fill (call_frame_t *frame,
 		state->path2 = (req->newpath + strlen (req->oldpath) + 1);
 
 		state->ino   = ntoh64 (req->oldino);
-
-		state->ino2   = ntoh64 (req->newino);
+		state->ino2  = ntoh64 (req->newino);
 	}
 	break;
 	case GF_FOP_LINK:
@@ -1850,6 +1849,7 @@ server_link_cbk (call_frame_t *frame,
 		inode_link (inode, state->loc2.parent, state->loc2.name, stbuf);
 	}
 	server_loc_wipe (&(state->loc));
+	server_loc_wipe (&(state->loc2));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LINK,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -4060,11 +4060,15 @@ server_link_resume (call_frame_t *frame,
 		state->loc2.parent = inode_ref (newloc->parent);
 	
 	if (state->loc2.inode == NULL) {
-		state->loc2.inode = inode_ref (oldloc->inode);
+		if (newloc->inode)
+			state->loc2.inode = inode_ref (newloc->inode);
 	} else if (state->loc2.inode != state->loc.inode) {
-		if (state->loc2.inode)
+		if (state->loc2.inode) {
 			inode_unref (state->loc2.inode);
-		state->loc2.inode = inode_ref (oldloc->inode);
+			state->loc2.inode = NULL;
+		}
+		if (newloc->inode)
+			state->loc2.inode = inode_ref (newloc->inode);
 	}
 
 	STACK_WIND (frame,
@@ -5336,7 +5340,7 @@ server_symlink (call_frame_t *frame,
  */
 int32_t
 server_link (call_frame_t *frame,
-             xlator_t *bound_xl,
+             xlator_t *this,
              gf_hdr_common_t *hdr, size_t hdrlen,
              char *buf, size_t buflen)
 {
@@ -5390,7 +5394,8 @@ server_rename_resume (call_frame_t *frame,
 		state->loc2.parent = inode_ref (newloc->parent);
 	
 	if (state->loc2.inode == NULL) {
-		state->loc.inode = inode_new (BOUND_XL(frame)->itable);
+		if (newloc->inode)
+			state->loc2.inode = inode_ref (newloc->inode);
 	}
 
 	STACK_WIND (frame,
