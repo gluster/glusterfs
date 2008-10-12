@@ -20,11 +20,11 @@
 #ifndef __TRANSACTION_H__
 #define __TRANSACTION_H__
 
-#define AFR_METADATA_PENDING "trusted.glusterfs-afr.metadata-pending"
+#define AFR_METADATA_PENDING "trusted.glusterfs.afr.metadata-pending"
 
-#define AFR_DATA_PENDING "trusted.glusterfs-afr.data-pending"
+#define AFR_DATA_PENDING "trusted.glusterfs.afr.data-pending"
 
-#define AFR_ENTRY_PENDING "trusted.glusterfs-afr.entry-pending"
+#define AFR_ENTRY_PENDING "trusted.glusterfs.afr.entry-pending"
 
 int32_t
 afr_inode_transaction (call_frame_t *frame, afr_private_t *priv);

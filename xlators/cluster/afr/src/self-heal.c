@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -16,4 +16,71 @@
    along with this program.  If not, see
    <http://www.gnu.org/licenses/>.
 */
+
+#include <libgen.h>
+#include <unistd.h>
+#include <fnmatch.h>
+#include <sys/time.h>
+#include <stdlib.h>
+#include <signal.h>
+
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
+#include "glusterfs.h"
+#include "afr.h"
+#include "dict.h"
+#include "xlator.h"
+#include "hashfn.h"
+#include "logging.h"
+#include "stack.h"
+#include "list.h"
+#include "call-stub.h"
+#include "defaults.h"
+#include "common-utils.h"
+#include "compat-errno.h"
+#include "compat.h"
+#include "byte-order.h"
+
+#include "transaction.h"
+#include "self-heal.h"
+
+
+int
+afr_dir_self_heal_needed (dict_t *xattr)
+{
+	int32_t *pending = NULL;
+	int ret = -1;
+	int op_ret = 0;
+
+	ret = dict_get_bin (xattr, AFR_ENTRY_PENDING, &pending);
+	if (ret == 0) {
+		op_ret = 1;
+	}
+
+	return op_ret;
+}
+
+
+int
+afr_inode_self_heal_needed (dict_t *xattr)
+{
+	int32_t *pending = NULL;
+	int ret = -1;
+	int op_ret = 0;
+
+	ret = dict_get_bin (xattr, AFR_METADATA_PENDING, &pending);
+	if (ret == 0) {
+		op_ret = 1;
+	}
+
+	ret = dict_get_bin (xattr, AFR_DATA_PENDING, &pending);
+	if (ret == 0) {
+		op_ret = 1;
+	}
+
+	return op_ret;
+}
 

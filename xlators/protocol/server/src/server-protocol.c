@@ -426,6 +426,18 @@ server_state_fill (call_frame_t *frame,
 		gf_fop_gf_file_lk_req_t *req = request;
 		
 		state->cmd = ntoh32 (req->cmd);
+		switch (state->cmd) {
+		case GF_LK_GETLK:
+			state->cmd = F_GETLK;
+			break;
+		case GF_LK_SETLK:
+			state->cmd = F_SETLK;
+			break;
+		case GF_LK_SETLKW:
+			state->cmd = F_SETLKW;
+			break;
+		}
+
 		state->type = ntoh32 (req->type);
 		state->path  = req->path;
 		gf_flock_to_flock (&req->flock, &state->flock);

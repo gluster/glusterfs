@@ -300,6 +300,8 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
+	frame->local = local;
+
 	call_child = first_up_child (priv);
 	if (call_child == -1) {
 		op_errno = ENOTCONN;

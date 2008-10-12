@@ -85,10 +85,17 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		if (buf)
-			local->cont.create.buf = *buf;
-		local->cont.create.inode = inode;
-		local->cont.create.fd    = fd;
+
+		if (!local->success_count) {
+			local->op_ret            = op_ret;
+			local->op_errno          = op_errno;
+			local->cont.create.buf   = *buf;
+			local->cont.create.inode = inode;
+			local->cont.create.fd    = fd;
+		}
+
+		if (op_ret == 0)
+			local->success_count++;
 	}
 	UNLOCK (&frame->lock);
 
@@ -138,7 +145,7 @@ afr_create_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	FREE (local->transaction.basename);
 
-	STACK_UNWIND (frame, op_ret, op_errno, local->cont.create.fd,
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.create.fd,
 		      local->cont.create.inode, &local->cont.create.buf);
 	
 	return 0;
@@ -223,9 +230,17 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		if (buf)
-			local->cont.mknod.buf = *buf;
-		local->cont.mknod.inode = inode;
+		
+		if (!local->success_count) {
+			local->op_ret           = op_ret;
+			local->op_errno         = op_errno;
+			local->cont.mknod.buf   = *buf;
+			local->cont.mknod.inode = inode;
+		}
+
+		if (op_ret == 0)
+			local->success_count++;
+
 	}
 	UNLOCK (&frame->lock);
 
@@ -277,7 +292,7 @@ afr_mknod_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	FREE (local->transaction.basename);
 
-	STACK_UNWIND (frame, op_ret, op_errno, local->cont.mknod.inode, 
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mknod.inode, 
 		      &local->cont.mknod.buf);
 	
 	return 0;
@@ -362,9 +377,16 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		if (buf)
-			local->cont.mkdir.buf = *buf;
-		local->cont.mkdir.inode = inode;
+
+		if (!local->success_count) {
+			local->op_ret           = op_ret;
+			local->op_errno         = op_errno;
+			local->cont.mkdir.buf   = *buf;
+			local->cont.mkdir.inode = inode;
+		}
+
+		if (op_ret == 0)
+			local->success_count++;
 	}
 	UNLOCK (&frame->lock);
 
@@ -413,7 +435,7 @@ afr_mkdir_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	FREE (local->transaction.basename);
 
-	STACK_UNWIND (frame, op_ret, op_errno, local->cont.mkdir.loc.inode, 
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mkdir.loc.inode, 
 		      &local->cont.mkdir.buf);
 	
 	return 0;
@@ -495,8 +517,16 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		local->cont.link.inode = inode;
-		local->cont.link.buf   = *buf;
+
+		if (!local->success_count) {
+			local->op_ret   = op_ret;
+			local->op_errno = op_errno;
+			local->cont.link.inode    = inode;
+			local->cont.link.buf      = *buf;
+		}
+		
+		if (op_ret == 0)
+			local->success_count++;
 	}
 	UNLOCK (&frame->lock);
 
@@ -547,7 +577,7 @@ afr_link_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	local->cont.link.buf.st_ino = local->cont.link.ino;
 
-	STACK_UNWIND (frame, op_ret, op_errno, local->cont.link.inode,
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.link.inode,
 		      &local->cont.link.buf);
 	
 	return 0;
@@ -635,8 +665,16 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		local->cont.symlink.inode = inode;
-		local->cont.symlink.buf   = *buf;
+		
+		if (!local->success_count) {
+			local->cont.symlink.inode    = inode;
+			local->cont.symlink.buf      = *buf;
+			local->op_ret   = op_ret;
+			local->op_errno = op_errno;
+		}
+
+		if (op_ret == 0) 
+			local->success_count++;
 	}
 	UNLOCK (&frame->lock);
 
@@ -685,7 +723,7 @@ afr_symlink_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 	FREE (local->transaction.basename);
 	FREE (local->transaction.new_basename);
 
-	STACK_UNWIND (frame, op_ret, op_errno, local->cont.symlink.inode,
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.symlink.inode,
 		      &local->cont.symlink.buf);
 	
 	return 0;
@@ -771,8 +809,16 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
+		if (!local->success_count) {
+			local->op_ret   = op_ret;
+			local->op_errno = op_errno;
+			local->cont.rename.buf = *buf;
+		}
+
 		call_count = --local->call_count;
-		local->cont.rename.buf = *buf;
+		
+		if (op_ret == 0)
+			local->success_count++;
 	}
 	UNLOCK (&frame->lock);
 
@@ -823,7 +869,7 @@ afr_rename_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	local->cont.rename.buf.st_ino = local->cont.rename.ino;
 
-	STACK_UNWIND (frame, op_ret, op_errno, &local->cont.rename.buf);
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.rename.buf);
 	
 	return 0;
 }
@@ -910,8 +956,8 @@ afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (!local->success_count) {
-			local->cont.unlink.op_ret   = op_ret;
-			local->cont.unlink.op_errno = op_errno;
+			local->op_ret   = op_ret;
+			local->op_errno = op_errno;
 		}
 
 		if (op_ret == 0)
@@ -964,7 +1010,7 @@ afr_unlink_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	FREE (local->transaction.basename);
 
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND (frame, local->op_ret, local->op_errno);
 	
 	return 0;
 }
@@ -1045,8 +1091,8 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 
 		if (!local->success_count) {
-			local->cont.rmdir.op_ret   = op_ret;
-			local->cont.rmdir.op_errno = op_errno;
+			local->op_ret   = op_ret;
+			local->op_errno = op_errno;
 		}
 
 		if (op_ret == 0)
@@ -1098,7 +1144,7 @@ afr_rmdir_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	FREE (local->transaction.basename);
 
-	STACK_UNWIND (frame, local->cont.rmdir.op_ret, local->cont.rmdir.op_errno);
+	STACK_UNWIND (frame, local->op_ret, local->op_errno);
 	
 	return 0;
 }

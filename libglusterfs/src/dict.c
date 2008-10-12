@@ -1194,12 +1194,12 @@ dict_get_with_ref (dict_t *this, char *key, data_t **data)
 
 	pair = _dict_lookup (this, key);
 	if (pair) {
-		*data = data_ref (pair->value);
 		ret = 0;
+		*data = data_ref (pair->value);
 	}
 
 	UNLOCK (&this->lock);
-	
+
 err:  
 	return ret;
 }
@@ -1399,6 +1399,34 @@ dict_set_str (dict_t *this, char *key, char *str)
 	ret = dict_set (this, key, data);
 
 err:
+	return ret;
+}
+
+
+int
+dict_get_bin (dict_t *this, char *key, void **bin)
+{
+	data_t * data = NULL;
+	int      ret  = -EINVAL;
+
+	if (!this || !key || !bin) {
+		goto err;
+	}
+
+	ret = dict_get_with_ref (this, key, &data);
+	if (ret < 0) {
+		goto err;
+	}
+
+	if (!data || !data->data) {
+		goto err;
+	}
+	*bin = data->data;
+
+err: 
+	if (data)
+		data_unref (data);
+
 	return ret;
 }
 

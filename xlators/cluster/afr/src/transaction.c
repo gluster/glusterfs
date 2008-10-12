@@ -463,7 +463,7 @@ afr_lock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (call_count == 0) {
 		if (local->transaction.success_count != priv->child_count) {
-			acquire_lock_serially (frame, this);
+//			acquire_lock_serially (frame, this);
 		}
 
 		afr_write_pending (frame, priv);

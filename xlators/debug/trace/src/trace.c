@@ -1091,9 +1091,9 @@ trace_gf_dir_lk (call_frame_t *frame, xlator_t *this,
 
 	if (trace_fop_names[GF_FOP_GF_DIR_LK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (loc=%p {path=%s, inode=%p} basename=%s, cmd=%d, type=%d)",
+			"callid: %lld (loc=%p {path=%s, inode=%p} basename=%s, cmd=%s, type=%s)",
 			(long long) frame->root->unique, loc, loc->path,
-			loc->inode, basename, cmd, type);
+			loc->inode, basename, cmd == GF_DIR_LK_LOCK ? "GF_DIR_LK_LOCK" : "GF_DIR_LK_UNLOCK", type == GF_DIR_LK_RDLCK ? "GF_DIR_LK_RDLCK" : "GF_DIR_LK_WRLCK");
 	}
 
 	STACK_WIND (frame, 
@@ -1115,8 +1115,8 @@ trace_gf_file_lk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_GF_FILE_LK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (loc {path=%s, inode=%p} cmd=%d)",
-			(long long) frame->root->unique, loc->path, loc->inode, cmd);
+			"callid: %lld (loc {path=%s, inode=%p} cmd=%s)",
+			(long long) frame->root->unique, loc->path, loc->inode, cmd == F_SETLK ? "F_SETLK" : "unknown");
 	}
 
 	STACK_WIND (frame, 

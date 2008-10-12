@@ -50,6 +50,8 @@
 #include "dir-write.h"
 #include "transaction.h"
 
+#include "self-heal.h"
+
 void
 loc_wipe (loc_t *loc)
 {
@@ -182,6 +184,15 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			local->cont.lookup.xattr = xattr;
 
 			local->success_count = 1;
+
+			if (S_ISDIR (buf->st_mode)) {
+				if (afr_dir_self_heal_needed (xattr)) {
+					gf_log (this->name, GF_LOG_TRACE,
+						"self heal needed on %s",
+						local->cont.lookup.loc.path);
+					
+				}
+			}
 		}
 	}
 	UNLOCK (&frame->lock);
@@ -212,6 +223,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
+	loc_copy (&local->cont.lookup.loc, loc);
+
 	if (loc->inode->ino != 0) {
 		/* revalidate */
 
@@ -226,7 +239,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) i,
 				   priv->children[child_index],
 				   priv->children[child_index]->fops->lookup,
-				   loc, need_xattr);
+				   loc, 1);
 	} else {
 		/* fresh lookup */
 
@@ -236,7 +249,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 			STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) i,
 					   priv->children[i],
 					   priv->children[i]->fops->lookup,
-					   loc, need_xattr);
+					   loc, 1);
 		}
 	}
 
@@ -280,18 +293,24 @@ int32_t afr_open (call_frame_t *frame, xlator_t *this,
 	int i = 0;
 	int32_t op_errno = 0;
 
+	int call_count = 0;
+
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
-	local->call_count = priv->child_count;
+	call_count = up_children_count (priv->child_count, priv->child_up); 
+
 	frame->local = local;
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {
-		STACK_WIND (frame, afr_open_cbk,
-			    priv->children[i],
-			    priv->children[i]->fops->open,
-			    loc, flags, fd);
+		if (priv->child_up[i]) {
+			STACK_WIND (frame, afr_open_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->open,
+				    loc, flags, fd);
+		}
 	}
 
 out:
@@ -335,18 +354,24 @@ int32_t afr_flush (call_frame_t *frame, xlator_t *this,
 	int i = 0;
 	int32_t op_errno = 0;
 
+	int32_t call_count = 0;
+
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
-	local->call_count = priv->child_count;
+	call_count = up_children_count (priv->child_count, priv->child_up); 
+
 	frame->local = local;
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {
-		STACK_WIND (frame, afr_flush_cbk,
-			    priv->children[i],
-			    priv->children[i]->fops->flush,
-			    fd);
+		if (priv->child_up[i]) {
+			STACK_WIND (frame, afr_flush_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->flush,
+				    fd);
+		}
 	}
 
 out:
@@ -397,6 +422,8 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 	int32_t          op_ret      = -1;
 	int32_t          op_errno    = 0;
 
+	int32_t call_count = 0;
+
 	VALIDATE_OR_GOTO (this, out);
 	VALIDATE_OR_GOTO (this->private, out);
 	VALIDATE_OR_GOTO (loc, out);
@@ -406,15 +433,17 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
-	local->call_count = child_count;
+	local->call_count = up_children_count (priv->child_count, priv->child_up); 
 
 	frame->local = local;
 
 	for (i = 0; i < child_count; i++) {
-		STACK_WIND (frame, afr_statfs_cbk,
-			    priv->children[i],
-			    priv->children[i]->fops->statfs, 
-			    loc);
+		if (priv->child_up[i]) {
+			STACK_WIND (frame, afr_statfs_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->statfs, 
+				    loc);
+		}
 	}
 	
 	op_ret = 0;
@@ -532,7 +561,7 @@ notify (xlator_t *this, int32_t event,
 	case GF_EVENT_CHILD_UP:
 		i = find_child_index (this, data);
 
-		afr_test_gf_lk (this, data);
+//		afr_test_gf_lk (this, data);
 
 		/* 
 		   if all the children were down, and one child came up, 

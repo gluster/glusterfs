@@ -46,6 +46,9 @@ typedef struct _afr_local {
 	unsigned int call_count;
 	unsigned int success_count;
 
+	int32_t op_ret;
+	int32_t op_errno;
+
 	/* 
 	   This struct contains the arguments for the "continuation"
 	   (scheme-like) of fops
@@ -58,6 +61,8 @@ typedef struct _afr_local {
 		} statfs;
 
 		struct {
+			loc_t loc;
+
 			inode_t *inode;
 			struct stat buf;
 			dict_t *xattr;

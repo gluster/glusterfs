@@ -33,6 +33,42 @@
 #include "locks.h"
 #include "common.h"
 
+
+static int
+set_new_pinode (dict_t *ctx, xlator_t *this, void **pinode_ret)
+{
+	pl_inode_t * pinode = NULL;
+	int ret = -1;
+	int op_ret = -1;
+	int op_errno = 0;
+
+	pinode = calloc (sizeof (pl_inode_t), 1);
+	if (!pinode) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		op_errno = ENOMEM;
+		goto out;
+	}
+
+	*pinode_ret = pinode;
+
+	pthread_mutex_init (&pinode->dir_lock_mutex, NULL);
+	INIT_LIST_HEAD (&pinode->gf_dir_locks);
+
+	ret = dict_set_ptr (ctx, this->name, pinode);
+	if (ret < 0) {
+		op_errno = -ret;
+		gf_log (this->name, GF_LOG_ERROR,
+			"dict_set failed: %s", strerror (op_errno));
+		goto out;
+	}
+
+	op_ret = 0;
+out:
+	return op_ret;
+}
+
+
 /**
  * pl_gf_file_lk: 
  *
@@ -76,10 +112,11 @@ pl_gf_file_lk (call_frame_t *frame, xlator_t *this,
 	{
 		ret = dict_get_ptr (loc->inode->ctx, this->name, (void **) &pinode);
 		if (ret < 0) {
-			op_errno = -ret;
-			gf_log (this->name, GF_LOG_ERROR,
-				"inode->ctx corrupted");
-			goto unlock;
+			ret = set_new_pinode (loc->inode->ctx, this, (void **) &pinode);
+			if (ret < 0) {
+				op_errno = -ret;
+				goto unlock;
+			}
 		}
 
 		reqlock = new_posix_lock (flock, transport, client_pid);
@@ -308,6 +345,15 @@ unlock_name (pl_inode_t *pinode, const char *basename, gf_dir_lk_type type)
 	pthread_mutex_lock (&pinode->dir_lock_mutex);
 	{
 		lock = find_most_matching_lock (pinode, basename);
+		
+		if (!lock) {
+			gf_log ("locks", GF_LOG_DEBUG,
+				"unlock on %s (type=%s) attempted but no matching lock found",
+				basename, type == GF_DIR_LK_RDLCK ? "GF_DIR_LK_RDLCK" : 
+				"GF_DIR_LK_WRLCK");
+			goto out;
+		}
+
 		if (names_equal (lock->basename, basename) &&
 		    lock->type == type) {
 			if (type == GF_DIR_LK_RDLCK) {
@@ -353,29 +399,13 @@ pl_gf_dir_lk (call_frame_t *frame, xlator_t *this,
 	pl_inode_t *       pinode = NULL; 
 	int                ret    = -1;
 
-	ret = dict_get_ptr (loc->inode->ctx, this->name, (void **)&pinode);
+	ret = dict_get_ptr (loc->inode->ctx, this->name, (void **) &pinode);
 	if (ret < 0) {
-		pinode = calloc (sizeof (pl_inode_t), 1);
-		if (!pinode) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"out of memory :(");
-			op_ret = -1;
-			op_errno = ENOMEM;
-			goto out;
-		}
-
-		pthread_mutex_init (&pinode->dir_lock_mutex, NULL);
-		INIT_LIST_HEAD (&pinode->gf_dir_locks);
-
-		ret = dict_set_ptr (loc->inode->ctx, this->name, pinode);
+		ret = set_new_pinode (loc->inode->ctx, this, (void **) &pinode);
 		if (ret < 0) {
-			op_ret = -1;
 			op_errno = -ret;
-			gf_log (this->name, GF_LOG_ERROR,
-				"dict_set failed: %s", strerror (op_errno));
 			goto out;
 		}
-
 	}
 
 	switch (cmd) {
