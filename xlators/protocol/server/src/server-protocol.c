@@ -417,6 +417,7 @@ server_state_fill (call_frame_t *frame,
 		
 		state->cmd = ntoh32 (req->cmd);
 		state->type = ntoh32 (req->type);
+		state->ino  = ntoh64 (req->ino);
 		state->path = req->path;
 		state->basename = (req->basename + strlen (state->path) + 1);
 	}
@@ -439,8 +440,15 @@ server_state_fill (call_frame_t *frame,
 		}
 
 		state->type = ntoh32 (req->type);
-		state->path  = req->path;
+		state->path = req->path;
+		state->ino  = ntoh64 (req->ino);
 		gf_flock_to_flock (&req->flock, &state->flock);
+
+		switch (state->type) {
+		case GF_LK_F_RDLCK: state->flock.l_type = F_RDLCK; break;
+		case GF_LK_F_WRLCK: state->flock.l_type = F_WRLCK; break;
+		case GF_LK_F_UNLCK: state->flock.l_type = F_UNLCK; break;
+		}
 	}
 	break;
 	default:
@@ -455,7 +463,7 @@ server_state_fill (call_frame_t *frame,
  * NOTE: make sure that @loc is empty, because any pointers it holds with reference will
  *       be leaked after returning from here.
  */
-static inline __attribute__((always_inline))
+static //inline __attribute__((always_inline))
 void
 server_loc_fill (loc_t *loc,
 		 server_state_t *state,

@@ -604,6 +604,8 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
+	frame->local = local;
+
 	if (priv->read_child != -1) {
 		call_child = priv->read_child;
 

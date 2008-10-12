@@ -78,9 +78,12 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t * priv  = NULL;
 
 	int call_count = -1;
+	int child_index = -1;
 
 	local = frame->local;
 	priv = this->private;
+
+	child_index = (int) cookie;
 
 	LOCK (&frame->lock);
 	{
@@ -89,7 +92,13 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (!local->success_count) {
 			local->op_ret            = op_ret;
 			local->op_errno          = op_errno;
-			local->cont.create.buf   = *buf;
+			if (buf) {
+				local->cont.create.buf        = *buf;
+				local->cont.create.buf.st_ino = 
+					afr_itransform (buf->st_ino,
+							priv->child_count,
+							child_index);
+			}
 			local->cont.create.inode = inode;
 			local->cont.create.fd    = fd;
 		}
@@ -124,11 +133,13 @@ afr_create_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_create_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->create,
-				&local->cont.create.loc, local->cont.create.flags, 
-				local->cont.create.mode, local->cont.create.fd); 
+			STACK_WIND_COOKIE (frame, afr_create_wind_cbk, (void *) i,
+					   priv->children[i], 
+					   priv->children[i]->fops->create,
+					   &local->cont.create.loc, 
+					   local->cont.create.flags, 
+					   local->cont.create.mode, 
+					   local->cont.create.fd); 
 		}
 	}
 	
@@ -223,9 +234,12 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t * priv  = NULL;
 
 	int call_count = -1;
+	int child_index = -1;
 
 	local = frame->local;
 	priv = this->private;
+
+	child_index = (int) cookie;
 
 	LOCK (&frame->lock);
 	{
@@ -234,7 +248,12 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (!local->success_count) {
 			local->op_ret           = op_ret;
 			local->op_errno         = op_errno;
-			local->cont.mknod.buf   = *buf;
+			if (buf) {
+				local->cont.mknod.buf   = *buf;
+				local->cont.mknod.buf.st_ino = 
+					afr_itransform (buf->st_ino, priv->child_count,
+							child_index);
+			}
 			local->cont.mknod.inode = inode;
 		}
 
@@ -269,11 +288,11 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_mknod_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->mknod,
-				&local->cont.mknod.loc, local->cont.mknod.mode,
-				local->cont.mknod.dev);
+			STACK_WIND_COOKIE (frame, afr_mknod_wind_cbk, (void *) i,
+					   priv->children[i], 
+					   priv->children[i]->fops->mknod,
+					   &local->cont.mknod.loc, local->cont.mknod.mode,
+					   local->cont.mknod.dev);
 		}
 	}
 	
@@ -370,9 +389,12 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t * priv  = NULL;
 
 	int call_count = -1;
+	int child_index = -1;
 
 	local = frame->local;
 	priv = this->private;
+
+	child_index = (int) cookie;
 
 	LOCK (&frame->lock);
 	{
@@ -381,7 +403,12 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (!local->success_count) {
 			local->op_ret           = op_ret;
 			local->op_errno         = op_errno;
-			local->cont.mkdir.buf   = *buf;
+			if (buf) {
+				local->cont.mkdir.buf   = *buf;
+				local->cont.mkdir.buf.st_ino = 
+					afr_itransform (buf->st_ino, priv->child_count,
+							child_index);
+			}
 			local->cont.mkdir.inode = inode;
 		}
 
@@ -415,10 +442,10 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_mkdir_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->mkdir,
-				&local->cont.mkdir.loc, local->cont.mkdir.mode);
+			STACK_WIND_COOKIE (frame, afr_mkdir_wind_cbk, (void *) i,	
+					   priv->children[i], 
+					   priv->children[i]->fops->mkdir,
+					   &local->cont.mkdir.loc, local->cont.mkdir.mode);
 		}
 	}
 	
@@ -510,9 +537,12 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t * priv  = NULL;
 
 	int call_count = -1;
+	int child_index = -1;
 
 	local = frame->local;
 	priv = this->private;
+
+	child_index = (int) cookie;
 
 	LOCK (&frame->lock);
 	{
@@ -522,7 +552,13 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			local->op_ret   = op_ret;
 			local->op_errno = op_errno;
 			local->cont.link.inode    = inode;
-			local->cont.link.buf      = *buf;
+			if (buf) {
+				local->cont.link.buf        = *buf;
+				local->cont.link.buf.st_ino = 
+					afr_itransform (buf->st_ino, priv->child_count,
+							child_index);
+
+			}
 		}
 		
 		if (op_ret == 0)
@@ -555,11 +591,11 @@ afr_link_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_link_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->link,
-				&local->cont.link.oldloc,
-				local->transaction.new_basename);
+			STACK_WIND_COOKIE (frame, afr_link_wind_cbk, (void *) i,
+					   priv->children[i], 
+					   priv->children[i]->fops->link,
+					   &local->cont.link.oldloc,
+					   &local->cont.link.newloc);
 		}
 	}
 	
@@ -571,6 +607,9 @@ int32_t
 afr_link_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
+
+	loc_wipe (&local->cont.link.oldloc);
+	loc_wipe (&local->cont.link.newloc);
 
 	FREE (local->transaction.basename);
 	FREE (local->transaction.new_basename);
@@ -589,6 +628,9 @@ afr_link_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_
 {
 	afr_local_t *local = frame->local;
 
+	loc_wipe (&local->cont.link.oldloc);
+	loc_wipe (&local->cont.link.newloc);
+
 	FREE (local->transaction.basename);
 	FREE (local->transaction.new_basename);
 
@@ -599,7 +641,7 @@ afr_link_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_
 
 int32_t
 afr_link (call_frame_t *frame, xlator_t *this,
-	  loc_t *oldloc, const char *path)
+	  loc_t *oldloc, loc_t *newloc)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
@@ -615,6 +657,7 @@ afr_link (call_frame_t *frame, xlator_t *this,
 	frame->local = local;
 
 	loc_copy (&local->cont.link.oldloc, oldloc);
+	loc_copy (&local->cont.link.newloc, newloc);
 
 	local->cont.link.ino = oldloc->inode->ino;
 
@@ -628,7 +671,7 @@ afr_link (call_frame_t *frame, xlator_t *this,
 	local->transaction.basename = strdup (basename (tmp));
 	FREE (tmp);
 
-	tmp = strdup (path);
+	tmp = strdup (newloc->path);
 	local->transaction.new_basename = strdup (basename (tmp));
 	FREE (tmp);
 
@@ -658,19 +701,28 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t * priv  = NULL;
 
 	int call_count = -1;
+	int child_index = -1;
 
 	local = frame->local;
 	priv = this->private;
+
+	child_index = (int) cookie;
 
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
 		
 		if (!local->success_count) {
-			local->cont.symlink.inode    = inode;
-			local->cont.symlink.buf      = *buf;
 			local->op_ret   = op_ret;
 			local->op_errno = op_errno;
+
+			local->cont.symlink.inode    = inode;
+			if (buf) {
+				local->cont.symlink.buf        = *buf;
+				local->cont.symlink.buf.st_ino = 
+					afr_itransform (buf->st_ino, priv->child_count,
+							child_index);
+			}
 		}
 
 		if (op_ret == 0) 
@@ -703,11 +755,11 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_symlink_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->symlink,
-				local->transaction.new_basename,
-				&local->cont.symlink.oldloc);
+			STACK_WIND_COOKIE (frame, afr_symlink_wind_cbk, (void *) i,	
+					   priv->children[i], 
+					   priv->children[i]->fops->symlink,
+					   local->transaction.new_basename,
+					   &local->cont.symlink.oldloc);
 		}
 	}
 	
@@ -803,16 +855,24 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t * priv  = NULL;
 
 	int call_count = -1;
+	int child_index = -1;
 
 	local = frame->local;
 	priv = this->private;
+
+	child_index = (int) cookie;
 
 	LOCK (&frame->lock);
 	{
 		if (!local->success_count) {
 			local->op_ret   = op_ret;
 			local->op_errno = op_errno;
-			local->cont.rename.buf = *buf;
+			if (buf) {
+				local->cont.rename.buf = *buf;
+				local->cont.rename.buf.st_ino = 
+					afr_itransform (buf->st_ino, priv->child_count,
+							child_index);
+			}
 		}
 
 		call_count = --local->call_count;
@@ -847,11 +907,11 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_rename_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->rename,
-				&local->cont.rename.oldloc,
-				&local->cont.rename.newloc);
+			STACK_WIND_COOKIE (frame, afr_rename_wind_cbk, (void *) i,	
+					   priv->children[i], 
+					   priv->children[i]->fops->rename,
+					   &local->cont.rename.oldloc,
+					   &local->cont.rename.newloc);
 		}
 	}
 	
@@ -952,7 +1012,7 @@ afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	local = frame->local;
 	priv = this->private;
-
+	
 	LOCK (&frame->lock);
 	{
 		if (!local->success_count) {
@@ -1076,7 +1136,7 @@ out:
 
 int32_t
 afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		     int32_t op_ret, int32_t op_errno)
+		    int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1164,7 +1224,7 @@ afr_rmdir_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op
 
 int32_t
 afr_rmdir (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc)
+	   loc_t *loc)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;

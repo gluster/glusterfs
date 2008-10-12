@@ -224,6 +224,7 @@ typedef struct _afr_local {
 		struct {
 			ino_t ino;
 			loc_t oldloc;
+			loc_t newloc;
 			inode_t *inode;
 			struct stat buf;
 		} link;
@@ -298,5 +299,12 @@ up_children_count (int child_count, unsigned char *child_up);
 
 int
 first_up_child (afr_private_t *priv);
+
+ino64_t
+afr_itransform (ino64_t ino, int child_count, int child_index);
+
+int
+afr_deitransform (ino64_t ino, int child_count);
+
 
 #endif /* __AFR_H__ */

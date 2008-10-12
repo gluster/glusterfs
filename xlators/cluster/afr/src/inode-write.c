@@ -65,7 +65,15 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		local->cont.chmod.buf = *buf;
+
+		local->op_ret         = op_ret;
+		local->op_errno       = op_errno;
+		
+		if (buf)
+			local->cont.chmod.buf = *buf;
+
+		if (op_ret == 0)
+			local->success_count++;
 	}
 	UNLOCK (&frame->lock);
 
@@ -113,7 +121,7 @@ afr_chmod_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 	local = frame->local;
 	local->cont.chmod.buf.st_ino = local->cont.chmod.ino;
 
-	STACK_UNWIND (frame, op_ret, op_errno, &local->cont.chmod.buf);
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.chmod.buf);
 	
 	return 0;
 }
@@ -185,7 +193,16 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		local->cont.chown.buf = *buf;
+
+		if (!local->success_count) {
+			local->op_ret         = op_ret;
+			local->op_errno       = op_errno;
+			if (buf)
+				local->cont.chown.buf = *buf;
+		}
+
+		if (op_ret == 0)
+			local->success_count++;
 	}
 	UNLOCK (&frame->lock);
 
@@ -235,7 +252,7 @@ afr_chown_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	local->cont.chown.buf.st_ino = local->cont.chown.ino;
 
-	STACK_UNWIND (frame, op_ret, op_errno, &local->cont.chown.buf);
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.chown.buf);
 
 	return 0;
 }
@@ -309,9 +326,16 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		local->cont.writev.op_ret = op_ret;
-		if (buf)
-			local->cont.writev.buf    = *buf;
+
+		if (!local->success_count) {
+			local->op_ret   = op_ret;
+			local->op_errno = op_errno;
+			if (buf)
+				local->cont.writev.buf = *buf;
+		}
+
+		if (op_ret == 0)
+			local->success_count++;
 	}
 	UNLOCK (&frame->lock);
 
@@ -365,7 +389,7 @@ afr_writev_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	FREE (local->cont.writev.vector);
 
-	STACK_UNWIND (frame, local->cont.writev.op_ret, op_errno, &local->cont.writev.buf);
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.writev.buf);
 
 	return 0;
 }
@@ -452,8 +476,16 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		if (buf)
-			local->cont.truncate.buf    = *buf;
+
+		if (!local->success_count) {
+			local->op_ret    = op_ret;
+			local->op_errno  = op_errno;
+			if (buf)
+				local->cont.truncate.buf    = *buf;
+		}
+
+		if (op_ret == 0)
+			local->success_count++;
 	}
 	UNLOCK (&frame->lock);
 
@@ -502,7 +534,7 @@ afr_truncate_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	local->cont.truncate.buf.st_ino = local->cont.truncate.ino;
 
-	STACK_UNWIND (frame, op_ret, op_errno, &local->cont.truncate.buf);
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.truncate.buf);
 
 	return 0;
 }
@@ -575,7 +607,16 @@ afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		local->cont.utimens.buf = *buf;
+		if (!local->success_count) {
+			local->op_ret           = op_ret;
+			local->op_errno         = op_errno;
+
+			if (buf)
+				local->cont.utimens.buf = *buf;
+		}
+
+		if (op_ret == 0)
+			local->success_count++;
 	}
 	UNLOCK (&frame->lock);
 
@@ -623,7 +664,7 @@ afr_utimens_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 	local = frame->local;
 	local->cont.utimens.buf.st_ino = local->cont.utimens.ino;
 
-	STACK_UNWIND (frame, op_ret, op_errno, &local->cont.utimens.buf);
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.utimens.buf);
 	
 	return 0;
 }

@@ -123,8 +123,8 @@ up_children_count (int child_count, unsigned char *child_up)
 }
 
 
-static ino64_t
-itransform (ino64_t ino, int child_count, int child_index)
+ino64_t
+afr_itransform (ino64_t ino, int child_count, int child_index)
 {
 	ino64_t scaled_ino = -1;
 
@@ -140,8 +140,8 @@ out:
 }
 
 
-static int
-deitransform (ino64_t ino, int child_count)
+int
+afr_deitransform (ino64_t ino, int child_count)
 {
 	int index = -1;
 
@@ -171,12 +171,17 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		call_count = --local->call_count;
 
 		if ((op_ret == 0) && !local->success_count) {
-			local->cont.lookup.inode = inode;
-			local->cont.lookup.buf   = *buf;
+			local->op_ret   = op_ret;
+			local->op_errno = op_errno;
 
-			local->cont.lookup.buf.st_ino = itransform (buf->st_ino, 
-								    priv->child_count, 
-								    child_index);
+			local->cont.lookup.inode = inode;
+
+			if (buf)
+				local->cont.lookup.buf   = *buf;
+
+			local->cont.lookup.buf.st_ino = afr_itransform (buf->st_ino, 
+									priv->child_count, 
+									child_index);
 			gf_log (this->name, GF_LOG_TRACE,
 				"scaling inode %"PRId64" to %"PRId64,
 				buf->st_ino, local->cont.lookup.buf.st_ino);
@@ -198,7 +203,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0)
-		STACK_UNWIND (frame, op_ret, op_errno, inode, 
+		STACK_UNWIND (frame, local->op_ret, local->op_errno, inode, 
 			      &local->cont.lookup.buf, xattr);
 
 	return 0;
@@ -228,7 +233,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	if (loc->inode->ino != 0) {
 		/* revalidate */
 
-		child_index = deitransform (loc->inode->ino, priv->child_count);
+		child_index = afr_deitransform (loc->inode->ino, priv->child_count);
 
 		gf_log (this->name, GF_LOG_TRACE,
 			"revalidate on node %d",
@@ -561,7 +566,7 @@ notify (xlator_t *this, int32_t event,
 	case GF_EVENT_CHILD_UP:
 		i = find_child_index (this, data);
 
-//		afr_test_gf_lk (this, data);
+		child_up[i] = 1;
 
 		/* 
 		   if all the children were down, and one child came up, 

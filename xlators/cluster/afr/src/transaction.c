@@ -190,7 +190,16 @@ afr_erase_pending (call_frame_t *frame, afr_private_t *priv)
 		/* some node is down, so we shouldn't erase the pending
 		   entries */
 
-		afr_unlock_inode (frame, priv);
+		switch (local->transaction.type) {
+		case AFR_INODE_TRANSACTION: 		
+			afr_unlock_inode (frame, priv);
+			break;
+		case AFR_DIR_TRANSACTION:
+			afr_unlock_dir (frame, priv);
+			break;
+		case AFR_DIR_LINK_TRANSACTION:
+			afr_unlock_dir (frame, priv);
+		}
 
 		goto out;
 	}
