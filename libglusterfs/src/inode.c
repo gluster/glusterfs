@@ -38,6 +38,8 @@
 static inode_t *
 __inode_unref (inode_t *inode);
 
+static int
+inode_table_prune (inode_table_t *table);
 
 static int
 hash_name (ino_t par,
@@ -858,7 +860,7 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
 }
 
 
-int
+static int
 inode_table_prune (inode_table_t *table)
 {
         int               ret = 0;

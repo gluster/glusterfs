@@ -90,9 +90,6 @@ struct _inode {
 inode_table_t *
 inode_table_new (size_t lru_limit, xlator_t *xl);
 
-int
-inode_table_prune (inode_table_t *table);
-
 inode_t *
 inode_new (inode_table_t *table);
 

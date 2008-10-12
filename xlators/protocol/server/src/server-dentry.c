@@ -22,6 +22,7 @@
 		if (resolved) {						\
 			resolvedlen = strlen (resolved);		\
 			strncpy (path, resolved, resolvedlen);		\
+			strcpy_till (path + resolvedlen, loc->path + resolvedlen, '/'); \
 			new_state->resolved = memdup (path, pathlen);	\
 		} else {						\
 			strncpy (path, loc->path, pathlen);		\

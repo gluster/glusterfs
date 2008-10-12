@@ -567,9 +567,6 @@ protocol_server_reply (call_frame_t *frame,
 
 	STACK_DESTROY (frame->root);
 
-	if (bound_xl)
-		inode_table_prune (bound_xl->itable);
-  
 	if (state)
 		free_state (state);
 
@@ -4059,24 +4056,14 @@ server_link_resume (call_frame_t *frame,
 	if (state->loc2.parent == NULL)
 		state->loc2.parent = inode_ref (newloc->parent);
 	
-	if (state->loc2.inode == NULL) {
-		if (newloc->inode)
-			state->loc2.inode = inode_ref (newloc->inode);
-	} else if (state->loc2.inode != state->loc.inode) {
-		if (state->loc2.inode) {
-			inode_unref (state->loc2.inode);
-			state->loc2.inode = NULL;
-		}
-		if (newloc->inode)
-			state->loc2.inode = inode_ref (newloc->inode);
-	}
+	state->loc2.inode = inode_ref (state->loc.inode);
 
 	STACK_WIND (frame,
 		    server_link_cbk,
 		    BOUND_XL (frame),
 		    BOUND_XL (frame)->fops->link,
-		    oldloc,
-		    newloc);
+		    &(state->loc),
+		    &(state->loc2));
 	return 0;
 }
 
@@ -5362,8 +5349,7 @@ server_link (call_frame_t *frame,
 	if ((state->loc.parent == NULL) || 
 	    (state->loc.inode == NULL)) {
 		do_path_lookup (link_stub, &(state->loc));
-	} else if ((state->loc2.parent == NULL) ||
-		   (state->loc2.inode == NULL)) {
+	} else if (state->loc2.parent == NULL) {
 		do_path_lookup (link_stub, &(state->loc2));
 	} else {
 		call_resume (link_stub);
@@ -5393,17 +5379,12 @@ server_rename_resume (call_frame_t *frame,
 	if (state->loc2.parent == NULL)
 		state->loc2.parent = inode_ref (newloc->parent);
 	
-	if (state->loc2.inode == NULL) {
-		if (newloc->inode)
-			state->loc2.inode = inode_ref (newloc->inode);
-	}
-
 	STACK_WIND (frame,
 		    server_rename_cbk,
 		    BOUND_XL (frame),
 		    BOUND_XL (frame)->fops->rename,
-		    oldloc,
-		    newloc);
+		    &(state->loc),
+		    &(state->loc2));
 	return 0;
 }
 
@@ -5451,8 +5432,7 @@ server_rename (call_frame_t *frame,
 		 * server_rename_cbk() with ret=-1 and errno=ENOENT.
 		 */
 		do_path_lookup (rename_stub, &(state->loc));
-	} else if ((state->loc2.parent == NULL) || 
-		   (state->loc2.inode == NULL)){
+	} else if ((state->loc2.parent == NULL)){
 		/* inode for oldpath found in inode cache and search for newpath in inode
 		 * cache_failed_.
 		 * we need to lookup for newpath, with call-back being server_stub_cbk().
