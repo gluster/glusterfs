@@ -266,6 +266,16 @@ typedef struct _afr_local {
 
 		int (*resume) (call_frame_t *frame, afr_private_t *priv);
 	} transaction;
+
+	struct {
+		/* array of stat's, one for each child */
+		struct stat *buf;  
+
+		/* array of xattr's, one for each child */
+		dict_t **xattr;
+
+	} selfheal;
+
 } afr_local_t;
 
 /* try alloc and if it fails, goto label */

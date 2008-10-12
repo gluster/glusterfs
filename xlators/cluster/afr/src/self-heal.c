@@ -84,3 +84,23 @@ afr_inode_self_heal_needed (dict_t *xattr)
 	return op_ret;
 }
 
+
+/**
+ * Return true if attributes of any two children do not match
+ */
+
+static int
+attr_mismatch_p ()
+{
+}
+
+
+/**
+ * Return index of the child which has the higest AFR_*_PENDING
+ * number.
+ */
+
+static int
+freshest_child ()
+{
+}
