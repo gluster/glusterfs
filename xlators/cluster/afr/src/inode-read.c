@@ -158,11 +158,15 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t *   local    = NULL;
 	xlator_t **     children = NULL;
 
+	int deitransform_child = -1;
+
 	int unwind     = 1;
 	int last_tried = -1;
 
 	priv     = this->private;
 	children = priv->children;
+
+	deitransform_child = (int) cookie;
 
 	local = frame->local;
 
@@ -176,16 +180,36 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 		}
 
 		local->cont.stat.last_tried++;
+		if (local->cont.stat.last_tried == deitransform_child) {
+			/* 
+			   skip the deitransform'd child since if we are here
+			   we must have already tried that child
+			*/
+			local->cont.stat.last_tried++;
+
+			if (local->cont.stat.last_tried == priv->child_count) {
+				/* we have tried all children */
+				op_ret = -1;
+				op_errno = ENOTCONN;
+				goto out;
+			}
+		}
+
 		unwind = 0;
-		STACK_WIND (frame, afr_stat_cbk,
-			    children[last_tried], 
-			    children[last_tried]->fops->stat,
-			    &local->cont.stat.loc);
+
+		STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) deitransform_child,
+				   children[last_tried], 
+				   children[last_tried]->fops->stat,
+				   &local->cont.stat.loc);
 	}
 
 out:
 	if (unwind) {
 		loc_wipe (&local->cont.stat.loc);
+
+		buf->st_ino = afr_itransform (buf->st_ino, priv->child_count, 
+					      deitransform_child);
+
 		STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
 
@@ -198,39 +222,41 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 	  loc_t *loc)
 {
 	afr_private_t * priv       = NULL;
+	afr_local_t   * local      = NULL;
 	xlator_t **     children   = NULL;
-	int             call_child = 0;
-	afr_local_t     *local     = NULL;
 
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
+	int             call_child = 0;
+
+	int32_t         op_ret     = -1;
+	int32_t         op_errno   = 0;
 
 	priv     = this->private;
 	children = priv->children;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+
 	frame->local = local;
 
-	call_child = first_up_child (priv);
-	if (call_child == -1) {
-		op_errno = ENOTCONN;
-		gf_log (this->name, GF_LOG_ERROR,
-			"no child is up :(");
-		goto out;
-	}
-
-	local->cont.stat.last_tried = call_child;
+	call_child = afr_deitransform (loc->inode->ino, priv->child_count);
 	loc_copy (&local->cont.stat.loc, loc);
 
-	STACK_WIND (frame, afr_stat_cbk,
-		    children[call_child], children[call_child]->fops->stat,
-		    loc);
+	/* 
+	   if stat fails from the deitranform'd child, we try
+	   all children starting with the first one
+	*/
+	local->cont.stat.last_tried = -1;
+
+	STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) call_child,
+			   children[call_child],
+			   children[call_child]->fops->stat,
+			   loc);
 
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
 		STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
+
 	return 0;
 }
 
@@ -248,11 +274,15 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t *   local    = NULL;
 	xlator_t **     children = NULL;
 
+	int deitransform_child = -1;
+
 	int unwind     = 1;
 	int last_tried = -1;
 
 	priv     = this->private;
 	children = priv->children;
+
+	deitransform_child = (int) cookie;
 
 	local = frame->local;
 
@@ -266,16 +296,34 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 		}
 
 		local->cont.fstat.last_tried++;
+		if (local->cont.fstat.last_tried == deitransform_child) {
+			/* 
+			   skip the deitransform'd child since if we are here
+			   we must have already tried that child
+			*/
+			local->cont.fstat.last_tried++;
+
+			if (local->cont.fstat.last_tried == priv->child_count) {
+				/* we have tried all children */
+				op_ret = -1;
+				op_errno = ENOTCONN;
+				goto out;
+			}
+		}
+
 		unwind = 0;
 
-		STACK_WIND (frame, afr_fstat_cbk,
-			    children[last_tried], 
-			    children[last_tried]->fops->fstat,
-			    local->cont.fstat.fd);
+		STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) deitransform_child,
+				   children[last_tried], 
+				   children[last_tried]->fops->fstat,
+				   local->cont.readv.fd);
 	}
 
 out:
 	if (unwind) {
+		buf->st_ino = afr_itransform (buf->st_ino, priv->child_count, 
+					      deitransform_child);
+
 		STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
 
@@ -288,12 +336,13 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 	   fd_t *fd)
 {
 	afr_private_t * priv       = NULL;
+	afr_local_t   * local      = NULL;
 	xlator_t **     children   = NULL;
-	int             call_child = 0;
-	afr_local_t     *local     = NULL;
 
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
+	int             call_child = 0;
+
+	int32_t         op_ret     = -1;
+	int32_t         op_errno   = 0;
 
 	priv     = this->private;
 	children = priv->children;
@@ -302,26 +351,27 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-	call_child = first_up_child (priv);
-	if (call_child == -1) {
-		op_errno = ENOTCONN;
-		gf_log (this->name, GF_LOG_ERROR,
-			"no child is up :(");
-		goto out;
-	}
+	call_child = afr_deitransform (fd->inode->ino, priv->child_count);
 
-	local->cont.fstat.last_tried = call_child;
+	/* 
+	   if fstat fails from the deitranform'd child, we try
+	   all children starting with the first one
+	*/
+	local->cont.fstat.last_tried = -1;
+
 	local->cont.fstat.fd         = fd;
 
-	STACK_WIND (frame, afr_fstat_cbk,
-		    children[call_child], children[call_child]->fops->fstat,
-		    fd);
+	STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) call_child,
+			   children[call_child],
+			   children[call_child]->fops->fstat,
+			   fd);
 
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
 		STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
+
 	return 0;
 }
 

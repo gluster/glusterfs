@@ -680,6 +680,7 @@ typedef int32_t (*fop_lk_t) (call_frame_t *frame,
 typedef int32_t (*fop_gf_file_lk_t) (call_frame_t *frame,
 				     xlator_t *this,
 				     loc_t *loc,
+				     fd_t *fd,
 				     int32_t cmd,
 				     struct flock *flock);
 

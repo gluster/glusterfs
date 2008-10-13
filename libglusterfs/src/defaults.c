@@ -1188,6 +1188,7 @@ int32_t
 default_gf_file_lk (call_frame_t *frame,
 		    xlator_t *this,
 		    loc_t *loc,
+		    fd_t *fd,
 		    int32_t cmd,
 		    struct flock *lock)
 {
@@ -1195,7 +1196,7 @@ default_gf_file_lk (call_frame_t *frame,
 	      default_gf_file_lk_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->gf_file_lk,
-	      loc, cmd, lock);
+	      loc, fd, cmd, lock);
   return 0;
 }
 

@@ -1711,6 +1711,7 @@ call_stub_t *
 fop_gf_file_lk_stub (call_frame_t *frame,
 		     fop_gf_file_lk_t fn,
 		     loc_t *loc,
+		     fd_t *fd,
 		     int32_t cmd,
 		     struct flock *lock)
 {
@@ -1725,9 +1726,11 @@ fop_gf_file_lk_stub (call_frame_t *frame,
 
   stub->args.gf_file_lk.fn = fn;
 
-  loc_copy (&stub->args.gf_file_lk.loc, loc);
+  if (loc)
+	  loc_copy (&stub->args.gf_file_lk.loc, loc);
 
-  stub->args.gf_file_lk.cmd = cmd;
+  stub->args.gf_file_lk.fd   = fd;
+  stub->args.gf_file_lk.cmd  = cmd;
   stub->args.gf_file_lk.lock = *lock;
 
   return stub;
@@ -2280,6 +2283,7 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.gf_file_lk.fn (stub->frame,
 					  stub->frame->this,
 					  &stub->args.gf_file_lk.loc,
+					  stub->args.gf_file_lk.fd,
 					  stub->args.gf_file_lk.cmd,
 					  &stub->args.gf_file_lk.lock);
 		break;

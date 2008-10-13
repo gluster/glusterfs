@@ -508,6 +508,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+	uint64_t fd;
 	uint32_t cmd;
 	uint32_t type;
 	char     path[0];

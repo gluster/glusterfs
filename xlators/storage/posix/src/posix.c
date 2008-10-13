@@ -3185,7 +3185,7 @@ posix_lk (call_frame_t *frame, xlator_t *this,
 
 int32_t 
 posix_gf_file_lk (call_frame_t *frame, xlator_t *this,
-		  loc_t *loc, int32_t cmd, struct flock *lock)
+		  loc_t *loc, fd_t *fd, int32_t cmd, struct flock *lock)
 {
         frame->root->rsp_refs = NULL;
 

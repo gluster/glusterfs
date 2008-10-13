@@ -484,6 +484,7 @@ find_child_index (xlator_t *this, xlator_t *child)
 }
 
 
+#if 0
 static int32_t
 afr_test_gf_lk_cbk (call_frame_t *frame, void *cookie,
 		    xlator_t *this, int32_t op_ret, int32_t op_errno)
@@ -546,7 +547,7 @@ afr_test_gf_lk (xlator_t *this, xlator_t *child)
 			   &loc, F_SETLK, &lock);
 	return;
 }
-
+#endif
 
 int32_t
 notify (xlator_t *this, int32_t event,

@@ -1007,7 +1007,7 @@ client_writev (call_frame_t *frame,
   gf_hdr_common_t *hdr = NULL;
   gf_fop_write_req_t *req = NULL;
   size_t hdrlen = 0;
-  uint64_t remote_fd = 0;
+  uint64_t remote_fd = -1;
   int ret = -1;
 
   if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1864,7 +1864,7 @@ client_lk (call_frame_t *frame,
 int32_t
 client_gf_file_lk (call_frame_t *frame,
 		   xlator_t *this,
-		   loc_t *loc,
+		   loc_t *loc, fd_t *fd,
 		   int32_t cmd,
 		   struct flock *flock)
 {
@@ -1874,6 +1874,9 @@ client_gf_file_lk (call_frame_t *frame,
   size_t hdrlen = 0;
   int32_t gf_cmd = 0;
   int32_t gf_type = 0;
+  int64_t remote_fd = -1;
+
+  size_t pathlen = 0;
 
   if (cmd == F_GETLK || cmd == F_GETLK64)
     gf_cmd = GF_LK_GETLK;
@@ -1891,15 +1894,30 @@ client_gf_file_lk (call_frame_t *frame,
     case F_UNLCK: gf_type = GF_LK_F_UNLCK; break;
     }
 
-  hdrlen = gf_hdr_len (req, 0);
-  hdr    = gf_hdr_new (req, 0);
+  if (loc && loc->path)
+	  pathlen = strlen (loc->path) + 1;
+
+  hdrlen = gf_hdr_len (req, pathlen);
+  hdr    = gf_hdr_new (req, pathlen);
   req    = gf_param (hdr);
 
+  if (fd) {
+	  if (this_fd_get (fd, this, &remote_fd) == -1) {
+		  STACK_UNWIND (frame, -1, EBADFD);
+	  }
+  }
+
+  req->fd   = hton64 (remote_fd);
+
+  if (loc && loc->path)
+	  strcpy (req->path, loc->path);
+
   req->ino  = hton64 (this_ino_get (loc->inode, this));
+
   req->cmd  = hton32 (gf_cmd);
   req->type = hton32 (gf_type);
   gf_flock_from_flock (&req->flock, flock);
-  strcpy (req->path, loc->path);
+
 
   ret = protocol_client_xfer (frame, this,
                               GF_OP_TYPE_FOP_REQUEST,

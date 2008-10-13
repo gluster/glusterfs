@@ -71,7 +71,8 @@ afr_unlock_inode (call_frame_t *frame, afr_private_t *priv)
 		    STACK_WIND (frame, afr_unlock_common_cbk,	
 				priv->children[i], 
 				priv->children[i]->fops->gf_file_lk, 
-				&local->transaction.loc, F_SETLK, &flock); 
+				&local->transaction.loc, 
+				local->transaction.fd, F_SETLK, &flock); 
 		}
 	}
 
@@ -354,7 +355,8 @@ void retry_lock_serially (call_frame_t *frame, xlator_t *this)
 	STACK_WIND_COOKIE (frame, afr_retry_serial_cbk, (void *) i,
 			   priv->children[i], 
 			   priv->children[i]->fops->gf_file_lk,
-			   &local->transaction.loc, F_SETLKW, &flock);
+			   &local->transaction.loc, 
+			   local->transaction.fd, F_SETLKW, &flock);
 
 }
 
@@ -426,7 +428,8 @@ void acquire_lock_serially (call_frame_t *frame, xlator_t *this)
 
 			STACK_WIND (frame, afr_retry_unlock_cbk,
 				    priv->children[i], priv->children[i]->fops->gf_file_lk,
-				    &local->transaction.loc, F_SETLK, &flock);
+				    &local->transaction.loc, 
+				    local->transaction.fd, F_SETLK, &flock);
 		}
 	}
 
@@ -504,7 +507,8 @@ afr_lock_inode (call_frame_t *frame, afr_private_t *priv)
 			STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_file_lk, 
-					   &local->transaction.loc, F_SETLK, &flock); 
+					   &local->transaction.loc, 
+					   local->transaction.fd, F_SETLK, &flock); 
 		}
 	}
 
@@ -570,7 +574,7 @@ transaction_resume (call_frame_t *frame, afr_private_t *priv)
 void
 build_loc_from_fd (loc_t *loc, fd_t *fd)
 {
-	loc->path   = strdup ("");
+	loc->path   = NULL;
 	loc->name   = "avati's fault";
 	loc->parent = inode_parent (fd->inode, 0, NULL);
 	loc->inode  = inode_ref (fd->inode);

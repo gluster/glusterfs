@@ -79,7 +79,7 @@ out:
 
 int32_t 
 pl_gf_file_lk (call_frame_t *frame, xlator_t *this,
-	       loc_t *loc, int32_t cmd,
+	       loc_t *loc, fd_t *fd, int32_t cmd,
 	       struct flock *flock)
 {
 	int32_t op_ret   = -1;
@@ -91,6 +91,8 @@ pl_gf_file_lk (call_frame_t *frame, xlator_t *this,
 	pid_t                   client_pid = -1;
 	pl_inode_t *            pinode     = NULL;
 	posix_lock_t *          reqlock    = NULL;
+
+	dict_t *                ctx        = NULL;
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (loc, out);
@@ -108,11 +110,24 @@ pl_gf_file_lk (call_frame_t *frame, xlator_t *this,
 
 	VALIDATE_OR_GOTO (priv, out);
 
+	if (loc && loc->inode && loc->inode->ctx) {
+		ctx = loc->inode->ctx;
+	}
+	else if (fd && fd->inode && fd->inode->ctx) {
+		ctx = fd->inode->ctx;
+	}
+	else {
+		gf_log (this->name, GF_LOG_CRITICAL,
+			"neither loc->inode->ctx nor fd->inode->ctx found!");
+		op_errno = EINVAL;
+		goto out;
+	}
+
 	pthread_mutex_lock (&priv->mutex);
 	{
-		ret = dict_get_ptr (loc->inode->ctx, this->name, (void **) &pinode);
+		ret = dict_get_ptr (ctx, this->name, (void **) &pinode);
 		if (ret < 0) {
-			ret = set_new_pinode (loc->inode->ctx, this, (void **) &pinode);
+			ret = set_new_pinode (ctx, this, (void **) &pinode);
 			if (ret < 0) {
 				op_errno = -ret;
 				goto unlock;

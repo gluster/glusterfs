@@ -257,6 +257,7 @@ int32_t default_lk (call_frame_t *frame,
 int32_t default_gf_file_lk (call_frame_t *frame,
 			    xlator_t *this,
 			    loc_t *loc,
+			    fd_t *fd,
 			    int32_t cmd,
 			    struct flock *flock);
 

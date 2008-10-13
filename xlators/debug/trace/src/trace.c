@@ -1107,7 +1107,7 @@ trace_gf_dir_lk (call_frame_t *frame, xlator_t *this,
 int32_t
 trace_gf_file_lk (call_frame_t *frame,
 		  xlator_t *this,
-		  loc_t *loc,
+		  loc_t *loc, fd_t *fd,
 		  int32_t cmd,
 		  struct flock *flock)
 {
@@ -1115,15 +1115,16 @@ trace_gf_file_lk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_GF_FILE_LK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (loc {path=%s, inode=%p} cmd=%s)",
-			(long long) frame->root->unique, loc->path, loc->inode, cmd == F_SETLK ? "F_SETLK" : "unknown");
+			"callid: %lld (loc {path=%s, inode=%p}, fd=%p, cmd=%s)",
+			(long long) frame->root->unique, loc ? loc->path : NULL, 
+			loc ? loc->inode : NULL, fd, cmd == F_SETLK ? "F_SETLK" : "unknown");
 	}
 
 	STACK_WIND (frame, 
 		    trace_gf_file_lk_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->gf_file_lk,
-		    loc, cmd, flock);
+		    loc, fd, cmd, flock);
 	return 0;
 }
 int32_t

@@ -482,6 +482,7 @@ typedef struct {
 		struct {
 			fop_gf_file_lk_t fn;
 			loc_t loc;
+			fd_t *fd;
 			int32_t cmd;
 			struct flock lock;
 		} gf_file_lk;
@@ -1000,7 +1001,7 @@ fop_lk_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_gf_file_lk_stub (call_frame_t *frame,
 		     fop_gf_file_lk_t fn,
-		     loc_t *loc,
+		     loc_t *loc, fd_t *fd,
 		     int32_t cmd,
 		     struct flock *lock);
 
