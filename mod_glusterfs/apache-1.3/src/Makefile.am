@@ -17,7 +17,7 @@ install-data-local:
 	@echo ""
 	@echo "**********************************************************************************"
 	@echo "* TO INSTALL MODGLUSTERFS, PLEASE USE,                                            "
-	@echo "* $(APXS) -n mod_glusterfs -ia $(mod_glusterfsdir)/mod_glusterfs.so               "
+	@echo "* $(APXS) -n glusterfs -ia $(mod_glusterfsdir)/mod_glusterfs.so               "
 	@echo "**********************************************************************************"
 	@echo ""
 	@echo ""
