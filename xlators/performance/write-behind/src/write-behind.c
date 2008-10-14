@@ -171,7 +171,7 @@ wb_sync_cbk (call_frame_t *frame,
   {
     list_for_each_entry_safe (request, dummy, winds, winds) {
       request->got_reply = 1;
-      if (!request->write_behind) {
+      if (!request->write_behind && (op_ret == -1)) {
 	wb_local_t *per_request_local = request->frame->local;
 	per_request_local->op_ret = op_ret;
 	per_request_local->op_errno = op_errno;
