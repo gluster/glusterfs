@@ -223,7 +223,7 @@ copy_frame (call_frame_t *frame)
 
 	LOCK (&oldstack->pool->lock);
 	{
-		list_add (&oldstack->all_frames, &oldstack->all_frames);
+		list_add (&newstack->all_frames, &oldstack->all_frames);
 		newstack->pool->cnt++;
 		
 	}
