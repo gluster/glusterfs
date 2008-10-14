@@ -30,8 +30,8 @@
 #include "config.h"
 #endif
 
-struct _call_ctx_t;
-typedef struct _call_ctx_t call_ctx_t;
+struct _call_stack_t;
+typedef struct _call_stack_t call_stack_t;
 struct _call_frame_t;
 typedef struct _call_frame_t call_frame_t;
 struct _call_pool_t;
@@ -54,8 +54,8 @@ struct _call_pool_t {
 	union {
 		struct list_head   all_frames;
 		struct {
-			call_ctx_t *next_call;
-			call_ctx_t *prev_call;
+			call_stack_t *next_call;
+			call_stack_t *prev_call;
 		};
 	};
 	int64_t                     cnt;
@@ -63,7 +63,7 @@ struct _call_pool_t {
 };
 
 struct _call_frame_t {
-	call_ctx_t   *root;        /* stack root */
+	call_stack_t *root;        /* stack root */
 	call_frame_t *parent;      /* previous BP */
 	call_frame_t *next;
 	call_frame_t *prev;        /* maintainence list */
@@ -77,24 +77,24 @@ struct _call_frame_t {
 	int8_t        type;
 };
 
-struct _call_ctx_t {
+struct _call_stack_t {
 	union {
-		struct list_head    all_frames;
+		struct list_head      all_frames;
 		struct {
-			call_ctx_t *next_call;
-			call_ctx_t *prev_call;
+			call_stack_t *next_call;
+			call_stack_t *prev_call;
 		};
 	};
-	call_pool_t                *pool;
-	void                       *trans;
-	uint64_t                    unique;
-	void                       *state;  /* pointer to request state */
-	uid_t                       uid;
-	gid_t                       gid;
-	pid_t                       pid;
-	call_frame_t                frames;
-	dict_t                     *req_refs;
-	dict_t                     *rsp_refs;
+	call_pool_t                  *pool;
+	void                         *trans;
+	uint64_t                      unique;
+	void                         *state;  /* pointer to request state */
+	uid_t                         uid;
+	gid_t                         gid;
+	pid_t                         pid;
+	call_frame_t                  frames;
+	dict_t                       *req_refs;
+	dict_t                       *rsp_refs;
 };
 
 
@@ -113,24 +113,24 @@ FRAME_DESTROY (call_frame_t *frame)
 
 
 static inline void
-STACK_DESTROY (call_ctx_t *cctx)
+STACK_DESTROY (call_stack_t *stack)
 {
-	LOCK (&cctx->pool->lock);
+	LOCK (&stack->pool->lock);
 	{
-		list_del_init (&cctx->all_frames);
-		cctx->pool->cnt--;
+		list_del_init (&stack->all_frames);
+		stack->pool->cnt--;
 	}
-	UNLOCK (&cctx->pool->lock);
+	UNLOCK (&stack->pool->lock);
 
-	if (cctx->frames.local)
-		FREE (cctx->frames.local);
+	if (stack->frames.local)
+		FREE (stack->frames.local);
 
-	LOCK_DESTROY (&cctx->frames.lock);
+	LOCK_DESTROY (&stack->frames.lock);
 
-	while (cctx->frames.next) {
-		FRAME_DESTROY (cctx->frames.next);
+	while (stack->frames.next) {
+		FRAME_DESTROY (stack->frames.next);
 	}
-	FREE (cctx);
+	FREE (stack);
 }
 
 
@@ -200,65 +200,65 @@ STACK_DESTROY (call_ctx_t *cctx)
 static inline call_frame_t *
 copy_frame (call_frame_t *frame)
 {
-	call_ctx_t *newctx = NULL;
-	call_ctx_t *oldctx = NULL;
+	call_stack_t *newstack = NULL;
+	call_stack_t *oldstack = NULL;
 
 	if (!frame) {
 		return NULL;
 	}
 
-	newctx = (void *) calloc (1, sizeof (*newctx));
-	oldctx = frame->root;
+	newstack = (void *) calloc (1, sizeof (*newstack));
+	oldstack = frame->root;
 
-	newctx->uid = oldctx->uid;
-	newctx->gid = oldctx->gid;
-	newctx->pid = oldctx->pid;
-	newctx->unique = oldctx->unique;
+	newstack->uid = oldstack->uid;
+	newstack->gid = oldstack->gid;
+	newstack->pid = oldstack->pid;
+	newstack->unique = oldstack->unique;
 
-	newctx->frames.this = frame->this;
-	newctx->frames.root = newctx;
-	newctx->pool = oldctx->pool;
+	newstack->frames.this = frame->this;
+	newstack->frames.root = newstack;
+	newstack->pool = oldstack->pool;
 
-	LOCK (&oldctx->pool->lock);
+	LOCK_INIT (&newstack->frames.lock);
+
+	LOCK (&oldstack->pool->lock);
 	{
-		list_add (&newctx->all_frames, &oldctx->all_frames);
-		newctx->pool->cnt++;
+		list_add (&oldstack->all_frames, &oldstack->all_frames);
+		newstack->pool->cnt++;
 		
 	}
-	UNLOCK (&oldctx->pool->lock);
+	UNLOCK (&oldstack->pool->lock);
 
-	LOCK_INIT (&newctx->frames.lock);
-
-	return &newctx->frames;
+	return &newstack->frames;
 }
 
 static inline call_frame_t *
 create_frame (xlator_t *xl, call_pool_t *pool)
 {
-	call_ctx_t *cctx = NULL;
+	call_stack_t *stack = NULL;
 
 	if (!xl || !pool) {
 		return NULL;
 	}
 
-	cctx = calloc (1, sizeof (*cctx));
-	if (!cctx)
+	stack = calloc (1, sizeof (*stack));
+	if (!stack)
 		return NULL;
 
-	cctx->pool = pool;
-	cctx->frames.root = cctx;
-	cctx->frames.this = xl;
+	stack->pool = pool;
+	stack->frames.root = stack;
+	stack->frames.this = xl;
 
 	LOCK (&pool->lock);
 	{
-		list_add (&cctx->all_frames, &pool->all_frames);
+		list_add (&stack->all_frames, &pool->all_frames);
 		pool->cnt++;
 	}
 	UNLOCK (&pool->lock);
 
-	LOCK_INIT (&cctx->frames.lock);
+	LOCK_INIT (&stack->frames.lock);
 
-	return &cctx->frames;
+	return &stack->frames;
 }
 
 

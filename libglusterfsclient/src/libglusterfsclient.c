@@ -132,36 +132,29 @@ xlator_graph_init (xlator_t *xl)
 static call_frame_t *
 get_call_frame_for_req (libglusterfs_client_ctx_t *ctx, char d)
 {
-        call_pool_t *pool = ctx->gf_ctx.pool;
-        call_ctx_t *cctx = NULL;
+        call_pool_t  *pool = ctx->gf_ctx.pool;
+	xlator_t     *this = ctx->gf_ctx.graph;
+        call_frame_t *frame = NULL;
   
-        cctx = calloc (1, sizeof (*cctx));
-        ERR_ABORT (cctx);
-        cctx->frames.root = cctx;
 
-        cctx->uid = geteuid ();
-        cctx->gid = getegid ();
-        cctx->pid = getpid ();
-        cctx->unique = ctx->counter++;
-  
-        cctx->frames.this = ctx->gf_ctx.graph;
+	frame = create_frame (this, pool);
+
+        frame->root->uid = geteuid ();
+        frame->root->gid = getegid ();
+        frame->root->pid = getpid ();
+        frame->root->unique = ctx->counter++;
   
         if (d) {
-                cctx->req_refs = dict_ref (get_new_dict ());
-                cctx->req_refs->is_locked = 1;
+                frame->root->req_refs = dict_ref (get_new_dict ());
+                frame->root->req_refs->is_locked = 1;
                 /*
                   TODO
-                  dict_set (cctx->req_refs, NULL, priv->buf);
-                  cctx->req_refs->is_locked = 1;
+                  dict_set (frame->root->req_refs, NULL, priv->buf);
+                  frame->root->req_refs->is_locked = 1;
                 */
         }
 
-        cctx->pool = pool;
-        LOCK (&pool->lock);
-        list_add (&cctx->all_frames, &pool->all_frames);
-        UNLOCK (&pool->lock);
-
-        return &cctx->frames;
+        return frame;
 }
 
 void 

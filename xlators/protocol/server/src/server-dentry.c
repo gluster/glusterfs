@@ -130,20 +130,17 @@ server_copy_frame (call_frame_t *frame)
 {
 	call_frame_t *new_frame = NULL;
 	server_state_t *state = NULL, *new_state = NULL;
-	call_ctx_t *_call = NULL;
 
 	state = frame->root->state;
 
 	new_frame = copy_frame (frame);
 
-	_call = new_frame->root;
-
 	new_state = calloc (1, sizeof (server_state_t));
 
-	_call->frames.op   = frame->op;
-	_call->frames.type = frame->type;
-	_call->trans       = state->trans;
-	_call->state       = new_state;
+	new_frame->root->frames.op   = frame->op;
+	new_frame->root->frames.type = frame->type;
+	new_frame->root->trans       = state->trans;
+	new_frame->root->state       = new_state;
 
 	new_state->bound_xl = state->bound_xl;
 	new_state->trans    = transport_ref (state->trans);
