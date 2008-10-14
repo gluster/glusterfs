@@ -56,7 +56,7 @@ dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 	local = frame->local;
-	layout = local->layout;
+	layout = local->selfheal.layout;
 	prev = cookie;
 	subvol = prev->this;
 
@@ -199,7 +199,7 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 	local  = frame->local;
-	layout = local->layout;
+	layout = local->selfheal.layout;
 	prev   = cookie;
 	subvol = prev->this;
 
@@ -377,6 +377,8 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 		goto sorry_no_fix;
 	}
 
+	local->selfheal.layout = layout;
+
 	dht_selfheal_dir_getafix (frame, loc, layout);
 
 	dht_selfheal_dir_mkdir (frame, loc, layout, 0);
@@ -402,6 +404,7 @@ dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	local = frame->local;
 
 	local->selfheal.dir_cbk = dir_cbk;
+	local->selfheal.layout = layout;
 
 	ret = dht_selfheal_dir_mkdir (frame, loc, layout, 1);
 

@@ -310,7 +310,7 @@ dht_layout_entry_cmp (dht_layout_t *layout, int i, int j)
 	if (layout->list[i].err || layout->list[j].err)
 		diff = layout->list[i].err - layout->list[j].err;
 	else
-		diff = (int64_t)layout->list[i].start - (int64_t)layout->list[j].start;
+		diff = (int64_t) layout->list[i].start - (int64_t)layout->list[j].start;
 
 	return diff;
 }
@@ -328,7 +328,7 @@ dht_layout_sort (dht_layout_t *layout)
 	for (i = 0; i < layout->cnt - 1; i++) {
 		for (j = i + 1; j < layout->cnt; j++) {
 			ret = dht_layout_entry_cmp (layout, i, j);
-			if ( ret > 0)
+			if (ret > 0)
 				dht_layout_entry_swap (layout, i, j);
 		}
 	}

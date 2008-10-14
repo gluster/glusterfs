@@ -37,7 +37,6 @@
    - complete linkfile selfheal
    - return inode num consistantly in all cases
    - return directory size consistantly
-   - get callback from directory selfheal (for rmdir/mkdir)
 */
 
 
@@ -54,11 +53,11 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 	ret = op_ret;
 
 	if (ret == 0) {
-		layout = local->layout;
+		layout = local->selfheal.layout;
 		ret = inode_ctx_set (local->inode, this, layout);
 
 		if (ret == 0)
-			local->layout = NULL;
+			local->selfheal.layout = NULL;
 	}
 
 	DHT_STACK_UNWIND (frame, ret, local->op_errno, local->inode,
@@ -82,6 +81,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
         prev  = cookie;
+	layout = local->layout;
 
         LOCK (&frame->lock);
         {
@@ -96,8 +96,6 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		/* TODO: if subvol is down for hashed lookup, try other
 		   subvols in case entry was a directory */
-
-		layout = local->layout;
 
 		ret = dht_layout_merge (this, layout, prev->this,
 					op_ret, op_errno, xattr);
@@ -114,9 +112,9 @@ unlock:
 
         if (is_last_call (this_call_cnt)) {
 		if (local->op_ret == 0) {
-			layout        = local->layout;
-
 			ret = dht_layout_normalize (this, &local->loc, layout);
+
+			local->layout = NULL;
 
 			if (ret != 0) {
 				gf_log (this->name, GF_LOG_ERROR,
@@ -124,8 +122,6 @@ unlock:
 					local->loc.path);
 				goto selfheal;
 			}
-
-			local->layout = NULL;
 
 			inode_ctx_set (local->inode, this, layout);
 		}
@@ -2284,11 +2280,11 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 
 
 	local = frame->local;
-	layout = local->layout;
+	layout = local->selfheal.layout;
 
 	if (op_ret == 0) {
 		inode_ctx_set (local->inode, this, layout);
-		local->layout = NULL;
+		local->selfheal.layout = NULL;
 	}
 
 	DHT_STACK_UNWIND (frame, op_ret, op_errno,
@@ -2331,9 +2327,11 @@ unlock:
 
 
 	this_call_cnt = dht_frame_return (frame);
-	if (is_last_call (this_call_cnt))
+	if (is_last_call (this_call_cnt)) {
+		local->layout = NULL;
 		dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
-					&local->loc, local->layout);
+					&local->loc, layout);
+	}
 
         return 0;
 }
@@ -2454,8 +2452,8 @@ unlock:
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
 		if (local->need_selfheal) {
-			inode_ctx_get (local->loc.inode, this, &layout);
-			local->layout = layout;
+			inode_ctx_get (local->loc.inode, this,
+				       (void **)&layout);
 			/* TODO: neater interface needed below */
 			local->stbuf.st_mode = local->loc.inode->st_mode;
 

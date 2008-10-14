@@ -79,6 +79,7 @@ struct dht_local {
 		uint32_t         down;
 		uint32_t         misc;
 		dht_selfheal_dir_cbk_t   dir_cbk;
+		dht_layout_t    *layout;
 	} selfheal;
 };
 typedef struct dht_local dht_local_t;

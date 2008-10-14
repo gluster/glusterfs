@@ -432,7 +432,7 @@ typedef struct {
 
 
 typedef struct fsyncdir_req {
-	uint64_t ino;
+	uint64_t fd;
 	int32_t  data;
 	char     path[0];
 } __attribute__((packed)) gf_fop_fsyncdir_req_t;
