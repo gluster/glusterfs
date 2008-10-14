@@ -1726,10 +1726,11 @@ fop_gf_file_lk_stub (call_frame_t *frame,
 
   stub->args.gf_file_lk.fn = fn;
 
-  if (loc)
+  if (fd == NULL)
 	  loc_copy (&stub->args.gf_file_lk.loc, loc);
+  else
+	  stub->args.gf_file_lk.fd = fd_ref (fd);
 
-  stub->args.gf_file_lk.fd   = fd;
   stub->args.gf_file_lk.cmd  = cmd;
   stub->args.gf_file_lk.lock = *lock;
 
@@ -1935,7 +1936,62 @@ fop_checksum_cbk_stub (call_frame_t *frame,
 out:
 	return stub;
 }
-		      
+
+
+call_stub_t *
+fop_xattrop_stub_cbk_stub (call_frame_t *frame,
+			   fop_xattrop_cbk_t fn,
+			   int32_t op_ret,
+			   int32_t op_errno)
+{
+	call_stub_t *stub = NULL;
+
+	if (!frame)
+		return NULL;
+	
+	stub = stub_new (frame, 0, GF_FOP_XATTROP);
+	if (!stub)
+		return NULL;
+
+	stub->args.xattrop_cbk.fn       = fn;
+	stub->args.xattrop_cbk.op_ret   = op_ret;
+	stub->args.xattrop_cbk.op_errno = op_errno;
+
+	return stub;
+}
+
+
+call_stub_t *
+fop_xattrop_stub (call_frame_t *frame,
+		  fop_xattrop_t fn,
+		  fd_t *fd,
+		  const char *path,
+		  gf_xattrop_flags_t optype,
+		  dict_t *xattr)
+{
+	call_stub_t *stub = NULL;
+
+	if (!frame || !xattr)
+		return NULL;
+
+	stub = stub_new (frame, 1, GF_FOP_XATTROP);
+	if (!stub)
+		return NULL;
+
+	stub->args.xattrop.fn = fn;
+	
+	if (fd == NULL)
+		stub->args.xattrop.path = strdup (path);
+	else
+		stub->args.xattrop.fd = fd_ref (fd);
+
+	stub->args.xattrop.optype = optype;
+	stub->args.xattrop.xattr = dict_ref (xattr);
+
+	return stub;
+}
+
+
 static void
 call_resume_wind (call_stub_t *stub)
 {
@@ -2286,6 +2342,8 @@ call_resume_wind (call_stub_t *stub)
 					  stub->args.gf_file_lk.fd,
 					  stub->args.gf_file_lk.cmd,
 					  &stub->args.gf_file_lk.lock);
+		if (stub->args.gf_file_lk.fd)
+			fd_unref (stub->args.gf_file_lk.fd);
 		break;
 	}
 
@@ -2393,6 +2451,19 @@ call_resume_wind (call_stub_t *stub)
 	case GF_FOP_INCVER:
 	case GF_FOP_READDIR:
 	case GF_FOP_XATTROP:
+		stub->args.xattrop.fn (stub->frame,
+				       stub->frame->this,
+				       stub->args.xattrop.fd,
+				       stub->args.xattrop.path,
+				       stub->args.xattrop.optype,
+				       stub->args.xattrop.xattr);
+
+		FREE (stub->args.xattrop.path);
+		if (stub->args.xattrop.fd)
+			fd_unref (stub->args.xattrop.fd);
+
+		dict_unref (stub->args.xattrop.xattr);
+
 		break;
 	}
 out:
@@ -3154,6 +3225,22 @@ call_resume_unwind (call_stub_t *stub)
 		/* FIXME (krishna) is the stub functionality needed for readdir()? */
 	case GF_FOP_READDIR:
 	case GF_FOP_XATTROP:
+
+		if (!stub->args.xattrop_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.xattrop_cbk.op_ret,
+				      stub->args.xattrop_cbk.op_errno);
+		else
+			stub->args.xattrop_cbk.fn (stub->frame,
+						   stub->frame->cookie,
+						   stub->frame->this,
+						   stub->args.xattrop_cbk.op_ret,
+						   stub->args.xattrop_cbk.op_errno,
+						   stub->args.xattrop_cbk.xattr);
+
+		if (stub->args.xattrop_cbk.xattr)
+			dict_unref (stub->args.xattrop_cbk.xattr);
+
 		break;
 	}
 out:

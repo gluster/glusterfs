@@ -532,6 +532,21 @@ typedef struct {
 			uint8_t *file_checksum;
 			uint8_t *dir_checksum;
 		} checksum_cbk;
+
+		/* xattrop */
+		struct {
+			fop_xattrop_t fn;
+			fd_t *fd;
+			const char *path;
+			gf_xattrop_flags_t optype;
+			dict_t *xattr;
+		} xattrop;
+		struct {
+			fop_xattrop_cbk_t fn;
+			int32_t op_ret;
+			int32_t op_errno;
+			dict_t *xattr;
+		} xattrop_cbk;
 	} args;
 } call_stub_t;
 
@@ -1050,6 +1065,20 @@ fop_checksum_cbk_stub (call_frame_t *frame,
 		       int32_t op_errno,
 		       uint8_t *file_checksum,
 		       uint8_t *dir_checksum);
+
+call_stub_t *
+fop_xattrop_stub (call_frame_t *frame,
+		  fop_xattrop_t fn,
+		  fd_t *fd,
+		  const char *path,
+		  gf_xattrop_flags_t optype,
+		  dict_t *xattr);
+
+call_stub_t *
+fop_xattrop_stub_cbk_stub (call_frame_t *frame,
+			   fop_xattrop_cbk_t fn,
+			   int32_t op_ret,
+			   int32_t op_errno);
 
 void call_resume (call_stub_t *stub);
 #endif
