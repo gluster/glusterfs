@@ -1196,6 +1196,7 @@ client_fsync (call_frame_t *frame,
 
   req->fd   = hton64 (remote_fd);
   req->data = hton32 (flags);
+  req->fd   = hton64 (remote_fd);
 
   ret = protocol_client_xfer (frame, this,
                               GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSYNC,
