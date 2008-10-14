@@ -1656,6 +1656,7 @@ client_fsyncdir (call_frame_t *frame,
   req    = gf_param (hdr);
 
   req->data = hton32 (flags);
+  req->fd   = hton64 (remote_fd);
 
   ret = protocol_client_xfer (frame, this,
                               GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSYNCDIR,
