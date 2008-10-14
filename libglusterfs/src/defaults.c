@@ -68,33 +68,10 @@ default_lookup (call_frame_t *frame,
 }
 
 
-/*
-static int32_t 
-default_forget_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
-  return 0;
-}
-*/
-
 int32_t 
-default_forget (call_frame_t *frame,
-		xlator_t *this,
+default_forget (xlator_t *this,
 		inode_t *inode)
 {
-  /*
-  STACK_WIND (frame,
-	      default_forget_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->forget,
-	      inode);
-  */
   return 0;
 }
 
@@ -536,32 +513,6 @@ default_rmelem (call_frame_t *frame,
 	      FIRST_CHILD (this),
 	      FIRST_CHILD (this)->fops->rmelem,
 	      path);
-  return 0;
-}
-
-int32_t
-default_incver_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
-
-int32_t
-default_incver (call_frame_t *frame,
-		xlator_t *this,
-		const char *path,
-		fd_t *fd)
-{
-  STACK_WIND (frame,
-	      default_incver_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->incver,
-	      path,
-	      fd);
   return 0;
 }
 

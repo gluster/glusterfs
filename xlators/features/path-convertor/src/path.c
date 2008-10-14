@@ -99,32 +99,6 @@ path_this_to_that (xlator_t *xl, const char *path)
 {
   path_private_t *priv = xl->private;
   int32_t path_len = strlen (path);
-#if 0
-  /* */
-  if (priv->this_len) {
-    if (path_len < priv->this_len)
-      return NULL;
-    if (path[priv->this_len] == '/')
-      return (char *)path + priv->this_len;
-    return NULL;
-  }
-
-  if (priv->preg) {
-    int32_t ret = 0;
-    regmatch_t match;
-    ret = regexec (priv->preg, path, 0, &match, REG_NOTBOL);
-    if (!ret) {
-      char *priv_path = calloc (1, path_len);
-      ERR_ABORT (priv_path);
-
-      strncpy (priv_path, (char *)path, match.rm_so);
-      strncat (priv_path, priv->that, strlen (priv->that));
-      strncat (priv_path, ((char *)path+match.rm_eo), (path_len - match.rm_eo));
-      return priv_path;
-    }
-    return (char *)path;
-  }
-#endif
 
   if (priv->end_off && (path_len > priv->start_off)) {
     char *priv_path = calloc (1, path_len);
@@ -421,16 +395,6 @@ path_removexattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-path_closedir_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
 
 int32_t 
 path_access_cbk (call_frame_t *frame,
@@ -462,8 +426,6 @@ path_lookup (call_frame_t *frame,
 	     int32_t need_xattr)
 {
   loc_t tmp_loc = {0,};
-
-  
 
   if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
     STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
@@ -1003,88 +965,8 @@ path_opendir (call_frame_t *frame,
   return 0;
 }
 
-#if 0
-int32_t 
-path_getdents (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       size_t size,
-	       off_t offset,
-	       int32_t flag)
-{
-  loc_t tmp_loc = {0,};
-
-  if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
-    STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
-    return 0;
-  }
-  tmp_loc.inode = loc->inode;
-  STACK_WIND (frame, 
-	      path_getdents_cbk, 
-	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->fops->getdents, 
-	      fd,
-	      size, 
-	      offset, 
-	      flag);
-  if (tmp_loc.path != loc->path)
-    FREE (tmp_loc.path);
-
-  return 0;
-}
 
 
-int32_t 
-path_readdir (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       size_t size,
-	       off_t offset)
-{
-  loc_t tmp_loc = {0,};
-
-  if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
-    STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
-    return 0;
-  }
-  tmp_loc.inode = loc->inode;
-  STACK_WIND (frame, 
-	      path_readdir_cbk, 
-	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->fops->readdir,
-	      fd,
-	      size, 
-	      offset);
-
-  if (tmp_loc.path != loc->path)
-    FREE (tmp_loc.path);
-
-  return 0;
-}
-
-int32_t 
-path_closedir (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd)
-{  
-  loc_t tmp_loc = {0,};
-
-  if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
-    STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
-    return 0;
-  }
-  tmp_loc.inode = loc->inode;
-  STACK_WIND (frame, 
-	      path_closedir_cbk, 
-	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->fops->closedir, 
-	      fd);
-  if (tmp_loc.path != loc->path)
-    FREE (tmp_loc.path);
-
-  return 0;
-}
-#endif /* if 0 */
 
 int32_t 
 path_access (call_frame_t *frame,
@@ -1148,36 +1030,6 @@ path_checksum (call_frame_t *frame,
 }
 
 
-#if 0
-int32_t 
-path_setdents (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
-		int32_t flags,
-		dir_entry_t *entries,
-		int32_t count)
-{
-  loc_t tmp_loc = {0,};
-
-  if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
-    STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
-    return 0;
-  }
-  tmp_loc.inode = loc->inode;
-  STACK_WIND (frame, 
-	      path_setdents_cbk, 
-	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->fops->setdents, 
-	      fd,
-	      flags,
-	      entries,
-	      count);
-  if (tmp_loc.path != loc->path)
-    FREE (tmp_loc.path);
-
-  return 0;
-}
-#endif /* if 0 */
 
 int32_t 
 init (xlator_t *this)
@@ -1260,13 +1112,9 @@ struct xlator_fops fops = {
   .getxattr    = path_getxattr,
   .removexattr = path_removexattr,
   .opendir     = path_opendir,
-  //  .readdir     = path_readdir, 
-  //.closedir    = path_closedir,
   .access      = path_access,
   .create      = path_create,
   .lookup      = path_lookup,
-  //.setdents    = path_setdents,
-  //.getdents    = path_getdents,
   .checksum = path_checksum,
 };
 

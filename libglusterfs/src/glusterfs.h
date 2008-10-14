@@ -94,34 +94,30 @@ typedef enum {
         GF_FOP_WRITE,
         GF_FOP_STATFS,     /* 15 */
         GF_FOP_FLUSH,
-        GF_FOP_CLOSE,
         GF_FOP_FSYNC,
         GF_FOP_SETXATTR,
-        GF_FOP_GETXATTR,   /* 20 */
-        GF_FOP_REMOVEXATTR,
+        GF_FOP_GETXATTR,   
+        GF_FOP_REMOVEXATTR,/* 20 */
         GF_FOP_OPENDIR,
         GF_FOP_GETDENTS,
-        GF_FOP_CLOSEDIR,
-        GF_FOP_FSYNCDIR,   /* 25 */
+        GF_FOP_FSYNCDIR,   
         GF_FOP_ACCESS,
-        GF_FOP_CREATE,
+        GF_FOP_CREATE,     /* 25 */
         GF_FOP_FTRUNCATE,
         GF_FOP_FSTAT,
-        GF_FOP_LK,         /* 30 */
+        GF_FOP_LK,         
         GF_FOP_UTIMENS,
-        GF_FOP_FCHMOD,
+        GF_FOP_FCHMOD,     /* 30 */
         GF_FOP_FCHOWN,
         GF_FOP_LOOKUP,
-        GF_FOP_FORGET,     /* 35 */
         GF_FOP_SETDENTS,
         GF_FOP_RMELEM,
-        GF_FOP_INCVER,
-        GF_FOP_READDIR,
-        GF_FOP_GF_FILE_LK, /* 40 */
+        GF_FOP_READDIR,    /* 35 */
+        GF_FOP_GF_FILE_LK, 
 	GF_FOP_GF_DIR_LK,  
         GF_FOP_CHECKSUM,      
         GF_FOP_XATTROP,
-        GF_FOP_MAXVALUE,
+        GF_FOP_MAXVALUE,  /* 40 */
 } glusterfs_fop_t;
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
@@ -134,15 +130,25 @@ typedef enum {
         GF_MOP_LOCK,      /* 5 */
         GF_MOP_UNLOCK,
         GF_MOP_LISTLOCKS,
-        GF_MOP_FSCK,      /* 8 */
+        GF_MOP_FSCK,      
+/* 8 */
         GF_MOP_MAXVALUE   
 } glusterfs_mop_t;
 
 typedef enum {
+	GF_CBK_FORGET,      /* 0 */
+	GF_CBK_RELEASE,     /* 1 */
+	GF_CBK_RELEASEDIR,  /* 2 */
+	GF_CBK_MAXVALUE     /* 3 */
+} glusterfs_cbk_t;
+
+typedef enum {
         GF_OP_TYPE_FOP_REQUEST = 1,
         GF_OP_TYPE_MOP_REQUEST,
+	GF_OP_TYPE_CBK_REQUEST,
         GF_OP_TYPE_FOP_REPLY,
-        GF_OP_TYPE_MOP_REPLY
+        GF_OP_TYPE_MOP_REPLY,
+	GF_OP_TYPE_CBK_REPLY
 } glusterfs_op_type_t;
 
 /* NOTE: all the miscellaneous flags used by GlusterFS should be listed here */

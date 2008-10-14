@@ -273,42 +273,6 @@ out:
 
 
 int32_t
-posix_forget (call_frame_t *frame,
-              xlator_t *this,
-              inode_t *inode)
-{
-        int32_t _fd      = -1;
-        int     ret      = -1;
-        int32_t op_ret   = -1;
-        int32_t op_errno = 0;
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (inode, out);
-
-        ret = dict_get_int32 (inode->ctx, this->name, &_fd);
-
-        if (ret < 0) {
-                op_errno = -ret;
-                goto out;
-        }
-
-        op_ret = close (_fd);
-
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "close failed (%s)", 
-                        strerror (errno));
-                goto out;
-        }
-
-        op_ret = 0;
-  
- out:
-        return op_ret;
-}
-
-int32_t
 posix_stat (call_frame_t *frame,
             xlator_t *this,
             loc_t *loc)
@@ -606,74 +570,9 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
 }
 
 
-/*int32_t 
-posix_closedir (call_frame_t *frame, xlator_t *this,
-                fd_t *fd)
-{
-        int32_t           op_ret   = -1;
-        int32_t           op_errno = 0;
-        struct posix_fd * pfd      = NULL;
-        int               ret      = 0;
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (fd, out);
-        VALIDATE_OR_GOTO (fd->ctx, out);
-
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
-        if (ret < 0) {
-                op_errno = -ret;
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "pfd from fd=%p is NULL", fd);
-                goto out;
-        }
-
-        if (!pfd->dir) {
-                op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "pfd->dir is NULL for fd=%p path=%s",
-                        fd, pfd->path ? pfd->path : "<NULL>");
-                goto out;
-        }
-
-        ret = closedir (pfd->dir);
-        if (ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "closedir on %p failed", pfd->dir);
-                goto out;
-        }
-        pfd->dir = NULL;
-  
-        if (!pfd->path) {
-                op_errno = EBADFD;
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "pfd->path was NULL. fd=%p pfd=%p",
-                        fd, pfd);
-                goto out;
-        }
-
-        op_ret = 0;
-
- out:
-        frame->root->rsp_refs = NULL;
-
-        if (pfd) {
-                if (pfd->path)
-                        FREE (pfd->path);
-                dict_del (fd->ctx, this->name);
-                FREE (pfd);
-        }
-
-        STACK_UNWIND (frame, op_ret, op_errno);
-
-        return 0;
-}
-*/
 int32_t 
-posix_closedir (xlator_t *this,
-                fd_t *fd)
+posix_releasedir (xlator_t *this,
+		  fd_t *fd)
 {
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
@@ -1894,8 +1793,8 @@ posix_flush (call_frame_t *frame, xlator_t *this,
 }
 
 int32_t 
-posix_close (xlator_t *this,
-             fd_t *fd)
+posix_release (xlator_t *this,
+	       fd_t *fd)
 {
         int32_t                op_ret   = -1;
         int32_t                op_errno = 0;
@@ -2006,90 +1905,6 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
 }
 
 static int gf_posix_xattr_enotsup_log;
-
-int
-posix_incver (call_frame_t *frame, xlator_t *this,
-              const char *path, fd_t *fd)
-{
-        char *            real_path   = NULL;
-        char              version[50] = {0,};
-        int               size        = 0;
-        int               ret         = -1;
-        int32_t           op_ret      = -1;
-        int32_t           op_errno    = 0;
-        int32_t           ver         = 1;
-        int               _fd         = 0;
-        struct posix_fd * pfd         = NULL;
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (path, out);
-
-        MAKE_REAL_PATH (real_path, this, path);
-
-        if (fd) {
-                ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-      
-                if (ret < 0) {
-                        op_errno = -ret;
-                        gf_log (this->name, GF_LOG_WARNING, "pfd NULL!");
-                        return 0;
-                }
-        }
-
-        if (fd) {
-                _fd = pfd->fd;
-                size = fgetxattr (_fd, GLUSTERFS_VERSION, version, 50);
-        }
-        else {
-                size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
-        }
-
-        op_errno = errno;
-        if ((size == -1) && ((op_errno != ENODATA) && (op_errno != ENOENT))) {
-                if (op_errno == ENOTSUP) {
-                        GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
-                                             this->name, GF_LOG_WARNING, 
-                                             "Extended attributes not supported. "); 
-                } 
-                else {
-                        gf_log (this->name, GF_LOG_WARNING, "%s: %s", 
-                                path, strerror(op_errno));
-                }
-		goto out;
-        }
-
-        else if (size > 0) {
-                version[size] = '\0';
-                ver = strtoll (version, NULL, 10);
-        }
-  
-        ver++;
-        sprintf (version, "%u", ver);
-
-        if (fd)
-                op_ret = fsetxattr (_fd, GLUSTERFS_VERSION, version, 
-                                    strlen (version), 0);
-        else
-                op_ret = lsetxattr (real_path, GLUSTERFS_VERSION, version, 
-                                    strlen (version), 0);
-
-        if (op_ret == -1) {
-                op_errno = errno;
-		if (op_errno != ENOENT) {
-			gf_log (this->name, GF_LOG_ERROR, 
-				"setxattr failed on %s: %s", 
-				real_path, strerror (op_errno));
-		}
-		goto out;
-        }
-
-        op_ret = 0;
-
- out:
-        STACK_UNWIND (frame, op_ret, op_errno);
-        return 0;
-}
 
 int
 set_file_contents (xlator_t *this, char *real_path, 
@@ -2582,7 +2397,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 	}
 
 	while (trav) {
-		count = trav->value->len / 4;
+		count = trav->value->len / sizeof (int32_t);
 		array = calloc (count, sizeof (int32_t));
 		
 		if (_fd != -1) {
@@ -2632,12 +2447,22 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 				trav->key, strerror (op_errno));
 			op_ret = -1;
 			goto out;
+		} else {
+			size = dict_set_bin (xattr, trav->key, array, trav->value->len);
+			if (size != 0) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"%s (%d): key=%s (%s)", path, _fd, 
+					trav->key, strerror (-size));
+				op_ret = -1;
+				op_errno = EINVAL;
+				goto out;
+			}
 		}
 
 		FREE (array);
 		trav = trav->next;
 	}
-
+	
 out:
 	STACK_UNWIND (frame, op_ret, op_errno, xattr);
 	return 0;
@@ -3649,11 +3474,9 @@ struct xlator_mops mops = {
 
 struct xlator_fops fops = {
         .lookup      = posix_lookup,
-        .forget      = posix_forget,
         .stat        = posix_stat,
         .opendir     = posix_opendir,
         .readdir     = posix_readdir,
-//        .closedir    = posix_closedir,
         .readlink    = posix_readlink,
         .mknod       = posix_mknod,
         .mkdir       = posix_mkdir,
@@ -3673,9 +3496,7 @@ struct xlator_fops fops = {
         .writev      = posix_writev,
         .statfs      = posix_statfs,
         .flush       = posix_flush,
-//        .close       = posix_close,
         .fsync       = posix_fsync,
-        .incver      = posix_incver,
         .setxattr    = posix_setxattr,
         .getxattr    = posix_getxattr,
         .removexattr = posix_removexattr,
@@ -3695,8 +3516,8 @@ struct xlator_fops fops = {
 };
 
 struct xlator_cbks cbks = {
-	.release     = posix_close,
-	.releasedir  = posix_closedir
+	.release     = posix_release,
+	.releasedir  = posix_releasedir
 };
 
 struct xlator_options options[] = {

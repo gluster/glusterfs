@@ -324,14 +324,6 @@ fop_flush_stub (call_frame_t *frame,
 		fop_flush_t fn,
 		fd_t *fd);
 
-@frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
-@fd    - file descriptor parameter to close fop.
-         NOTE: @fd is stored with a fd_ref().
-call_stub_t *
-fop_close_stub (call_frame_t *frame,
-		fop_close_t fn,
-		fd_t *fd);
 
 @frame    - call frame which has to be used to resume the call at call_resume().
 @fn       - procedure to call during call_resume(). 
@@ -385,15 +377,6 @@ fop_setdents_stub (call_frame_t *frame,
 		   int32_t flags,
 		   dir_entry_t *entries,
 		   int32_t count);
-
-@frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
-@fd    - file descriptor parameter to setdents fop.
-         NOTE: @fd is stored with a fd_ref().
-call_stub_t *
-fop_closedir_stub (call_frame_t *frame,
-		   fop_closedir_t fn,
-		   fd_t *fd);
 
 @frame    - call frame which has to be used to resume the call at call_resume().
 @fn       - procedure to call during call_resume(). 
@@ -859,18 +842,6 @@ fop_flush_cbk_stub (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno);
 
-
-@frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
-@op_ret    - op_ret parameter to @fn.
-@op_errno  - op_errno parameter to @fn.
-call_stub_t *
-fop_close_cbk_stub (call_frame_t *frame,
-		    fop_close_cbk_t fn,
-		    int32_t op_ret,
-		    int32_t op_errno);
-
-
 @frame     - call frame which has to be used to resume the call at call_resume().
 @fn        - procedure to call during call_resume(). 
 @op_ret    - op_ret parameter to @fn.
@@ -920,18 +891,6 @@ fop_setdents_cbk_stub (call_frame_t *frame,
 		       fop_setdents_cbk_t fn,
 		       int32_t op_ret,
 		       int32_t op_errno);
-
-
-@frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
-@op_ret    - op_ret parameter to @fn.
-@op_errno  - op_errno parameter to @fn.
-call_stub_t *
-fop_closedir_cbk_stub (call_frame_t *frame,
-		       fop_closedir_cbk_t fn,
-		       int32_t op_ret,
-		       int32_t op_errno);
-
 
 @frame     - call frame which has to be used to resume the call at call_resume().
 @fn        - procedure to call during call_resume(). 

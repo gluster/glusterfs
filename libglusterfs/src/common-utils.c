@@ -282,6 +282,7 @@ gf_resolve_ip6 (const char *hostname,
 
 char *gf_fop_list[GF_FOP_MAXVALUE];
 char *gf_mop_list[GF_MOP_MAXVALUE];
+char *gf_cbk_list[GF_CBK_MAXVALUE];
 
 void
 gf_global_variable_init()
@@ -303,14 +304,12 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_WRITE]    = "WRITE";
 	gf_fop_list[GF_FOP_STATFS]   = "STATFS";     /* 15 */
 	gf_fop_list[GF_FOP_FLUSH]    = "FLUSH";
-	gf_fop_list[GF_FOP_CLOSE]    = "CLOSE";
 	gf_fop_list[GF_FOP_FSYNC]    = "FSYNC";
 	gf_fop_list[GF_FOP_SETXATTR] = "SETXATTR";
 	gf_fop_list[GF_FOP_GETXATTR] = "GETXATTR";   /* 20 */
 	gf_fop_list[GF_FOP_REMOVEXATTR] = "REMOVEXATTR";
 	gf_fop_list[GF_FOP_OPENDIR]  = "OPENDIR";
 	gf_fop_list[GF_FOP_GETDENTS] = "GETDENTS";
-	gf_fop_list[GF_FOP_CLOSEDIR] = "CLOSEDIR";
 	gf_fop_list[GF_FOP_FSYNCDIR] = "FSYNCDIR";   /* 25 */
 	gf_fop_list[GF_FOP_ACCESS]   = "ACCESS";
 	gf_fop_list[GF_FOP_CREATE]   = "CREATE";
@@ -321,10 +320,8 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_FCHMOD]   = "FCHMOD";
 	gf_fop_list[GF_FOP_FCHOWN]   = "FCHOWN";
 	gf_fop_list[GF_FOP_LOOKUP]   = "LOOKUP";
-	gf_fop_list[GF_FOP_FORGET]   = "FORGET";     /* 35 */
 	gf_fop_list[GF_FOP_SETDENTS] = "SETDENTS";
 	gf_fop_list[GF_FOP_RMELEM]   = "RMELEM";
-	gf_fop_list[GF_FOP_INCVER]   = "INCVER";
 	gf_fop_list[GF_FOP_READDIR]  = "READDIR";
 	gf_fop_list[GF_FOP_GF_FILE_LK] = "GF_FILE_LK";      /* 40 */
 	gf_fop_list[GF_FOP_GF_DIR_LK] = "GF_DIR_LK";
@@ -341,6 +338,9 @@ gf_global_variable_init()
 	gf_mop_list[GF_MOP_LISTLOCKS] = "LISTLOCKS";
 	gf_mop_list[GF_MOP_FSCK]      = "FSCK";      /* 8 */
 	
+	gf_cbk_list[GF_CBK_FORGET]     = "FORGET";
+	gf_cbk_list[GF_CBK_RELEASE]    = "RELEASE";
+	gf_cbk_list[GF_CBK_RELEASEDIR] = "RELEASEDIR";
 	/* Are there any more variables to be included? All global 
 	   variables initialization should go here */
 

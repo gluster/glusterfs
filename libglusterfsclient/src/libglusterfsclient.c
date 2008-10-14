@@ -91,8 +91,7 @@ static inline xlator_t *
 libglusterfs_graph (xlator_t *graph);
 
 int32_t
-libglusterfsclient_forget (call_frame_t *frame,
-                           xlator_t *this,
+libglusterfsclient_forget (xlator_t *this,
                            inode_t *inode)
 {
         return 0;
@@ -2697,13 +2696,13 @@ glusterfs_fstat (unsigned long fd, struct stat *buf)
 }
  
 static struct xlator_fops libgf_client_fops = {
-        .forget      = libglusterfsclient_forget,
 };
 
 static struct xlator_mops libgf_client_mops = {
 };
 
 static struct xlator_cbks libgf_client_cbks = {
+	.forget      = libglusterfsclient_forget,
 };
 
 static inline xlator_t *

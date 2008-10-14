@@ -196,12 +196,6 @@ typedef int32_t (*fop_lookup_cbk_t) (call_frame_t *frame,
 				     struct stat *buf,
 				     dict_t *xattr);
 
-typedef int32_t (*fop_forget_cbk_t) (call_frame_t *frame,
-				     void *cookie,
-				     xlator_t *this,
-				     int32_t op_ret,
-				     int32_t op_errno);
-
 typedef int32_t (*fop_stat_cbk_t) (call_frame_t *frame,
 				   void *cookie,
 				   xlator_t *this,
@@ -373,12 +367,6 @@ typedef int32_t (*fop_flush_cbk_t) (call_frame_t *frame,
 				    int32_t op_ret,
 				    int32_t op_errno);
 
-typedef int32_t (*fop_close_cbk_t) (call_frame_t *frame,
-				    void *cookie,
-				    xlator_t *this,
-				    int32_t op_ret,
-				    int32_t op_errno);
-
 typedef int32_t (*fop_fsync_cbk_t) (call_frame_t *frame,
 				    void *cookie,
 				    xlator_t *this,
@@ -400,12 +388,6 @@ typedef int32_t (*fop_getdents_cbk_t) (call_frame_t *frame,
 				       dir_entry_t *entries,
 				       int32_t count);
 
-typedef int32_t (*fop_closedir_cbk_t) (call_frame_t *frame,
-				       void *cookie,
-				       xlator_t *this,
-				       int32_t op_ret,
-				       int32_t op_errno);
-
 typedef int32_t (*fop_fsyncdir_cbk_t) (call_frame_t *frame,
 				       void *cookie,
 				       xlator_t *this,
@@ -418,12 +400,6 @@ typedef int32_t (*fop_statfs_cbk_t) (call_frame_t *frame,
 				     int32_t op_ret,
 				     int32_t op_errno,
 				     struct statvfs *buf);
-
-typedef int32_t (*fop_incver_cbk_t) (call_frame_t *frame,
-				     void *cookie,
-				     xlator_t *this,
-				     int32_t op_ret,
-				     int32_t op_errno);
 
 typedef int32_t (*fop_setxattr_cbk_t) (call_frame_t *frame,
 				       void *cookie,
@@ -488,10 +464,6 @@ typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *loc,
 				 int32_t need_xattr);
-
-typedef int32_t (*fop_forget_t) (call_frame_t *frame,
-				 xlator_t *this,
-				 inode_t *inode);
 
 typedef int32_t (*fop_stat_t) (call_frame_t *frame,
 			       xlator_t *this,
@@ -616,10 +588,6 @@ typedef int32_t (*fop_flush_t) (call_frame_t *frame,
 				xlator_t *this,
 				fd_t *fd);
 
-typedef int32_t (*fop_close_t) (call_frame_t *frame,
-				xlator_t *this,
-				fd_t *fd);
-
 typedef int32_t (*fop_fsync_t) (call_frame_t *frame,
 				xlator_t *this,
 				fd_t *fd,
@@ -637,10 +605,6 @@ typedef int32_t (*fop_getdents_t) (call_frame_t *frame,
 				   off_t offset,
 				   int32_t flag);
 
-typedef int32_t (*fop_closedir_t) (call_frame_t *frame,
-				   xlator_t *this,
-				   fd_t *fd);
-
 typedef int32_t (*fop_fsyncdir_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   fd_t *fd,
@@ -649,11 +613,6 @@ typedef int32_t (*fop_fsyncdir_t) (call_frame_t *frame,
 typedef int32_t (*fop_statfs_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *loc);
-
-typedef int32_t (*fop_incver_t) (call_frame_t *frame,
-				 xlator_t *this,
-				 const char *path,
-				 fd_t *fd);
 
 typedef int32_t (*fop_setxattr_t) (call_frame_t *frame,
 				   xlator_t *this,
@@ -710,7 +669,6 @@ typedef int32_t (*fop_xattrop_t) (call_frame_t *frame,
 
 struct xlator_fops {
 	fop_lookup_t         lookup;
-	fop_forget_t         forget;
 	fop_stat_t           stat;
 	fop_fstat_t          fstat;
 	fop_chmod_t          chmod;
@@ -735,14 +693,11 @@ struct xlator_fops {
 	fop_readv_t          readv;
 	fop_writev_t         writev;
 	fop_flush_t          flush;
-	fop_close_t          close;
 	fop_fsync_t          fsync;
 	fop_opendir_t        opendir;
 	fop_readdir_t        readdir;
-	fop_closedir_t       closedir;
 	fop_fsyncdir_t       fsyncdir;
 	fop_statfs_t         statfs;
-	fop_incver_t         incver;
 	fop_setxattr_t       setxattr;
 	fop_getxattr_t       getxattr;
 	fop_removexattr_t    removexattr;
@@ -756,7 +711,6 @@ struct xlator_fops {
 
 	/* these entries are used for a typechecking hack in STACK_WIND _only_ */
 	fop_lookup_cbk_t         lookup_cbk;
-	fop_forget_cbk_t         forget_cbk;
 	fop_stat_cbk_t           stat_cbk;
 	fop_fstat_cbk_t          fstat_cbk;
 	fop_chmod_cbk_t          chmod_cbk;
@@ -781,14 +735,11 @@ struct xlator_fops {
 	fop_readv_cbk_t          readv_cbk;
 	fop_writev_cbk_t         writev_cbk;
 	fop_flush_cbk_t          flush_cbk;
-	fop_close_cbk_t          close_cbk;
 	fop_fsync_cbk_t          fsync_cbk;
 	fop_opendir_cbk_t        opendir_cbk;
 	fop_readdir_cbk_t        readdir_cbk;
-	fop_closedir_cbk_t       closedir_cbk;
 	fop_fsyncdir_cbk_t       fsyncdir_cbk;
 	fop_statfs_cbk_t         statfs_cbk;
-	fop_incver_cbk_t         incver_cbk;
 	fop_setxattr_cbk_t       setxattr_cbk;
 	fop_getxattr_cbk_t       getxattr_cbk;
 	fop_removexattr_cbk_t    removexattr_cbk;

@@ -61,7 +61,6 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (unlink);
 	SET_DEFAULT_FOP (rmdir);
 	SET_DEFAULT_FOP (rmelem);
-	SET_DEFAULT_FOP (incver);
 	SET_DEFAULT_FOP (symlink);
 	SET_DEFAULT_FOP (rename);
 	SET_DEFAULT_FOP (link);
@@ -87,7 +86,6 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (gf_file_lk);
 	SET_DEFAULT_FOP (gf_dir_lk);
 	SET_DEFAULT_FOP (lookup);
-	SET_DEFAULT_FOP (forget);
 	SET_DEFAULT_FOP (fchown);
 	SET_DEFAULT_FOP (fchmod);
 	SET_DEFAULT_FOP (setdents);
@@ -102,6 +100,7 @@ fill_defaults (xlator_t *xl)
 
 	SET_DEFAULT_CBK (release);
 	SET_DEFAULT_CBK (releasedir);
+	SET_DEFAULT_CBK (forget);
 
 	if (!xl->notify)
 		xl->notify = default_notify;

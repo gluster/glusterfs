@@ -505,26 +505,6 @@ trace_lookup_cbk (call_frame_t *frame,
 }
 
 int32_t 
-trace_forget_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-	ERR_EINVAL_NORETURN (!this );
-
-	if (trace_fop_names[GF_FOP_FORGET].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-int32_t 
 trace_symlink_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -1172,29 +1152,6 @@ trace_lookup (call_frame_t *frame,
 		    FIRST_CHILD(this)->fops->lookup, 
 		    loc, need_xattr);
 
-	return 0;
-}
-
-int32_t 
-trace_forget (call_frame_t *frame,
-	      xlator_t *this,
-	      inode_t *inode)
-{
-	ERR_EINVAL_NORETURN (!this || !inode);
-
-	if (trace_fop_names[GF_FOP_FORGET].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"callid: %lld (*this=%p, inode=%p})",
-			(long long) frame->root->unique, this, inode);
-	}
-
-	STACK_WIND (frame, 
-		    trace_forget_cbk,
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->forget, 
-		    inode);
-  
 	return 0;
 }
 
@@ -2195,27 +2152,6 @@ init (xlator_t *this)
 
   gf_log_set_loglevel (GF_LOG_NORMAL);
  
-#if 0 
-  void gf_log_xlator (xlator_t *this) {
-    int32_t len;
-    char *buf;
-    
-    if (!this)
-      return;
-    
-    len = dict_serialized_length (this->options);
-    buf = alloca (len);
-    dict_serialize (this->options, buf);
-    
-    gf_log (this->name, 
-	    GF_LOG_NORMAL, 
-	    "init (xlator_t *this=%p {name=%s, *next=%p, *parent=%p, *children=%p {xlator=%p, next=%p}, *fops=%p {*open=%p, stat=%p, *readlink=%p, *mknod=%p, *mkdir=%p, *unlink=%p, *rmdir=%p, *symlink=%p, *rename=%p, *link=%p, *chmod=%p, *chown=%p, *truncate=%p, *utimens=%p, *read=%p, *write=%p, *statfs=%p, *flush=%p, *close=%p, *fsync=%p, *setxattr=%p, *getxattr=%p, *removexattr=%p, *opendir=%p, *readdir=%p, *closedir=%p, *fsyncdir=%p, *access=%p, *ftruncate=%p, *fstat=%p}, *mops=%p {*stats=%p, *fsck=%p, *lock=%p, *unlock=%p}, *fini()=%p, *init()=%p, *options=%p {%s}, *private=%p)", 
-	    this, this->name, this->next, this->parent, this->children, this->children->xlator, this->children->next, this->fops, this->fops->open, this->fops->stat, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utimens, this->fops->readv, this->fops->writev, this->fops->statfs, this->fops->flush, this->fops->close, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->closedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fstat, this->mops, this->mops->stats,  this->mops->fsck, this->mops->lock, this->mops->unlock, this->fini, this->init, this->options, buf, this->private);
-  }
-  
-  xlator_foreach (this, gf_log_xlator);
-#endif 
-
   /* Set this translator's inode table pointer to child node's pointer. */
   this->itable = FIRST_CHILD (this)->itable;
 

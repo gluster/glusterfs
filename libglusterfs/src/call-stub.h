@@ -335,16 +335,6 @@ typedef struct {
 			int32_t op_ret, op_errno;
 		} flush_cbk;
 
-		/* close */
-		struct {
-			fop_close_t fn;
-			fd_t *fd;
-		} close;
-		struct {
-			fop_close_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} close_cbk;
-
 		/* fsync */
 		struct {
 			fop_fsync_t fn;
@@ -397,16 +387,6 @@ typedef struct {
 			int32_t op_ret;
 			int32_t op_errno;
 		} setdents_cbk;
-
-		/* closedir */
-		struct {
-			fop_closedir_t fn;
-			fd_t *fd;
-		} closedir;
-		struct {
-			fop_closedir_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} closedir_cbk;
 
 		/* fsyncdir */
 		struct {
@@ -863,17 +843,6 @@ fop_flush_cbk_stub (call_frame_t *frame,
 		    int32_t op_errno);
 
 call_stub_t *
-fop_close_stub (call_frame_t *frame,
-		fop_close_t fn,
-		fd_t *fd);
-
-call_stub_t *
-fop_close_cbk_stub (call_frame_t *frame,
-		    fop_close_cbk_t fn,
-		    int32_t op_ret,
-		    int32_t op_errno);
-
-call_stub_t *
 fop_fsync_stub (call_frame_t *frame,
 		fop_fsync_t fn,
 		fd_t *fd,
@@ -924,17 +893,6 @@ fop_setdents_stub (call_frame_t *frame,
 call_stub_t *
 fop_setdents_cbk_stub (call_frame_t *frame,
 		       fop_setdents_cbk_t fn,
-		       int32_t op_ret,
-		       int32_t op_errno);
-
-call_stub_t *
-fop_closedir_stub (call_frame_t *frame,
-		   fop_closedir_t fn,
-		   fd_t *fd);
-
-call_stub_t *
-fop_closedir_cbk_stub (call_frame_t *frame,
-		       fop_closedir_cbk_t fn,
 		       int32_t op_ret,
 		       int32_t op_errno);
 

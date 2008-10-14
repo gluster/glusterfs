@@ -364,13 +364,6 @@ typedef struct {
 typedef struct { } __attribute__((packed)) gf_fop_flush_rsp_t;
 
 
-typedef struct {
-	uint64_t fd;
-} __attribute__((packed)) gf_fop_close_req_t;
-typedef struct {
-} __attribute__((packed)) gf_fop_close_rsp_t;
-
-
 typedef struct fsync_req {
 	uint64_t fd;
 	uint32_t data;
@@ -449,13 +442,6 @@ typedef struct {
 	uint32_t size;
 	char     buf[0];
 } __attribute__((packed)) gf_fop_readdir_rsp_t;
-
-
-typedef struct {
-	uint64_t fd;
-} __attribute__((packed)) gf_fop_closedir_req_t;
-typedef struct {
-} __attribute__((packed)) gf_fop_closedir_rsp_t;
 
 
 typedef struct  {
@@ -570,12 +556,6 @@ typedef struct {
 
 
 typedef struct {
-	uint64_t ino;
-} __attribute__((packed)) gf_fop_forget_req_t;
-typedef struct { } __attribute__((packed)) gf_fop_forget_rsp_t;
-
-
-typedef struct {
 	uint64_t fd;
 	uint32_t flags;
 	uint32_t count;
@@ -658,6 +638,26 @@ typedef struct {
 	char buf[0];
 } __attribute__((packed)) gf_mop_setvolume_rsp_t;
 
+
+
+typedef struct {
+	uint64_t fd;
+} __attribute__((packed)) gf_cbk_releasedir_req_t;
+typedef struct {
+} __attribute__((packed)) gf_cbk_releasedir_rsp_t;
+
+
+typedef struct {
+	uint64_t fd;
+} __attribute__((packed)) gf_cbk_release_req_t;
+typedef struct {
+} __attribute__((packed)) gf_cbk_release_rsp_t;
+
+
+typedef struct {
+	uint64_t ino;
+} __attribute__((packed)) gf_cbk_forget_req_t;
+typedef struct { } __attribute__((packed)) gf_cbk_forget_rsp_t;
 
 
 typedef struct {

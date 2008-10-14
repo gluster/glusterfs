@@ -439,7 +439,9 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
   int i = 0;
   call_frame_t *frame = NULL;
   call_pool_t *pool = NULL;
-  
+  dict_t *xattr = get_new_dict ();
+  int32_t version[1] = {1};
+
   if (this_xl == NULL || data == NULL)
     {
       return ;
@@ -469,13 +471,23 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
 	{
 	  pool = this_xl->ctx->pool;
 	  frame = create_frame (this_xl, pool);
-	  
+	  dict_set_bin (xattr, "trusted.glusterfs.scheduler.rr",
+			version, sizeof (int32_t));
+	  if (xattr)
+		  dict_ref (xattr);
+
 	  STACK_WIND (frame,
 		      rr_notify_cbk,
 		      (xlator_t *)data,
-		      ((xlator_t *)data)->fops->incver,
+		      ((xlator_t *)data)->fops->xattrop,
+		      NULL,
 		      "/",
-		      NULL);
+		      GF_XATTROP_ADD_ARRAY,
+		      xattr);
+	  
+	  if (xattr)
+		  dict_unref (xattr);
+
 	  rr->first_time = 0;
 	}
       if (subvolume)
@@ -503,16 +515,19 @@ rr_notify_cbk (call_frame_t *frame,
 	       void *cookie, 
 	       xlator_t *this_xl, 
 	       int32_t op_ret, 
-	       int32_t op_errno)
+	       int32_t op_errno,
+	       dict_t *xattr)
 {
   rr_t *rr = NULL;
-  
+  int32_t *index = NULL;
+  int32_t ret = -1;
+
   if (frame == NULL)
     {
       return -1;
     }
   
-  if (this_xl == NULL)
+  if ((this_xl == NULL) || (op_ret == -1))
     {
       STACK_DESTROY (frame->root);
       return -1;
@@ -523,9 +538,13 @@ rr_notify_cbk (call_frame_t *frame,
       STACK_DESTROY (frame->root);
       return -1;
     }
-
-  rr->schedule_index = (op_ret % rr->subvolume_count);
   
+  ret = dict_get_bin (xattr, "trusted.glusterfs.scheduler.rr", (void **)(&index));
+  if (ret == 0)
+	  rr->schedule_index = (index[0] % rr->subvolume_count);
+  else
+	  rr->schedule_index = 0;
+
   STACK_DESTROY (frame->root);
   return 0;
 }

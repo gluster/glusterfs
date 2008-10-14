@@ -2173,8 +2173,8 @@ stripe_flush (call_frame_t *frame,
  * stripe_close - 
  */
 int32_t
-stripe_close (xlator_t *this,
-	      fd_t *fd)
+stripe_release (xlator_t *this,
+		fd_t *fd)
 {
 	return 0;
 }
@@ -2360,11 +2360,11 @@ stripe_ftruncate (call_frame_t *frame,
 
 
 /**
- * stripe_closedir - 
+ * stripe_releasedir - 
  */
 int32_t
-stripe_closedir (xlator_t *this,
-		 fd_t *fd)
+stripe_releasedir (xlator_t *this,
+		   fd_t *fd)
 {
 	return 0;
 }
@@ -3106,8 +3106,8 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
-	.release    = stripe_close,
-	.releasedir = stripe_closedir
+	.release    = stripe_release,
+	.releasedir = stripe_releasedir
 };
 
 

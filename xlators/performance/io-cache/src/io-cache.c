@@ -378,8 +378,7 @@ ioc_lookup (call_frame_t *frame,
  *
  */
 int32_t
-ioc_forget (call_frame_t *frame,
-	    xlator_t *this,
+ioc_forget (xlator_t *this,
 	    inode_t *inode)
 {
   ioc_inode_t *ioc_inode = NULL;
@@ -759,7 +758,7 @@ ioc_create (call_frame_t *frame,
 
 
 /*
- * ioc_close - close fop for io cache
+ * ioc_release - release fop for io cache
  * 
  * @frame:
  * @this:
@@ -767,8 +766,8 @@ ioc_create (call_frame_t *frame,
  *
  */
 int32_t
-ioc_close (xlator_t *this,
-	   fd_t *fd)
+ioc_release (xlator_t *this,
+	     fd_t *fd)
 {
   return 0;
 }
@@ -1360,7 +1359,6 @@ struct xlator_fops fops = {
   .writev      = ioc_writev,
   .truncate    = ioc_truncate,
   .ftruncate   = ioc_ftruncate,
-  .forget      = ioc_forget,
   .utimens     = ioc_utimens,
   .lookup      = ioc_lookup,
   .lk          = ioc_lk
@@ -1370,7 +1368,8 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
-	.release = ioc_close
+	.forget      = ioc_forget,
+  	.release     = ioc_release
 };
 
 struct xlator_options options[] = {

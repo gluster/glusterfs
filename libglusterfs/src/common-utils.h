@@ -103,7 +103,7 @@ extern uint64_t total_bytes_xferd;
 extern uint64_t total_bytes_rcvd;
 extern char *gf_fop_list[GF_FOP_MAXVALUE];
 extern char *gf_mop_list[GF_MOP_MAXVALUE];
-
+extern char *gf_cbk_list[GF_CBK_MAXVALUE];
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 

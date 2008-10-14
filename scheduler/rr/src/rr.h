@@ -64,6 +64,7 @@ int rr_notify_cbk (call_frame_t *frame,
 		   void *cookie, 
 		   xlator_t *this_xl, 
 		   int32_t op_ret, 
-		   int32_t op_errno);
+		   int32_t op_errno,
+		   dict_t *xattr);
 
 #endif /* _RR_H */

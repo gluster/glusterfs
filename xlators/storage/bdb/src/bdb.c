@@ -882,8 +882,8 @@ out:
 }
 
 int32_t 
-bdb_close (xlator_t *this,
-	   fd_t *fd)
+bdb_release (xlator_t *this,
+	     fd_t *fd)
 {
   int32_t op_ret = -1;
   int32_t op_errno = EBADFD;
@@ -907,7 +907,7 @@ bdb_close (xlator_t *this,
   } /* if((fd->ctx == NULL)...)...else */
 
   return 0;
-}/* bdb_close */
+}/* bdb_release */
 
 
 int32_t 
@@ -942,15 +942,6 @@ bdb_lk (call_frame_t *frame,
 	STACK_UNWIND (frame, -1, ENOSYS, &nullock);
 	return 0;
 }/* bdb_lk */
-
-int32_t
-bdb_forget (call_frame_t *frame,
-            xlator_t *this,
-            inode_t *inode)
-{
-	return 0;
-}/* bdb_forget */
-
 
 /* bdb_lookup
  *
@@ -1497,8 +1488,8 @@ out:
 
 
 int32_t 
-bdb_closedir (xlator_t *this,
-	      fd_t *fd)
+bdb_releasedir (xlator_t *this,
+		fd_t *fd)
 {
   int32_t op_ret = 0;
   int32_t op_errno = 0;
@@ -1536,7 +1527,7 @@ bdb_closedir (xlator_t *this,
   }
 
   return 0;
-}/* bdb_closedir */
+}/* bdb_releasedir */
 
 
 int32_t 
@@ -2110,54 +2101,6 @@ out:
 	STACK_UNWIND (frame, op_ret, op_errno, &buf);
 	return 0;
 }/* bdb_statfs */
-
-int32_t
-bdb_incver (call_frame_t *frame,
-            xlator_t *this,
-            const char *path,
-            fd_t *fd)
-{
-	/* TODO: version exists for directory, version is consistent for every
-	 * entry in the directory */
-	char   *real_path   = NULL;
-	char    version[50] = {0,};
-	int32_t size        = 0;
-	int32_t op_errno    = EINVAL;
-	int32_t op_ret      = -1;
-
-	GF_VALIDATE_OR_GOTO ("bdb", frame, out);
-	GF_VALIDATE_OR_GOTO ("bdb", this, out);
-	GF_VALIDATE_OR_GOTO (this->name, path, out);
-	GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-	MAKE_REAL_PATH (real_path, this, path);
-
-	op_ret = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
-	size = op_ret;
-	if ((size == -1) && (errno != ENODATA)) {
-		op_ret = -1;
-		op_errno = errno;
-		goto out;
-	} else {
-		version[size] = '\0';
-		op_ret = strtoll (version, NULL, 10);
-	}
-	op_ret++;
-	sprintf (version, "%u", op_ret);
-	
-	op_ret = lsetxattr (real_path, GLUSTERFS_VERSION, 
-			    version, strlen (version), 0);
-	op_errno = errno;
-	if (op_ret != 0) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to do lsetxattr on %s (%s)", 
-			path, strerror (op_errno));
-	}
-out:
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}/* bdb_incver */
 
 static int gf_bdb_xattr_log;
 
@@ -3345,7 +3288,6 @@ struct xlator_mops mops = {
 
 struct xlator_fops fops = {
 	.lookup      = bdb_lookup,
-	.forget      = bdb_forget,
 	.stat        = bdb_stat,
 	.opendir     = bdb_opendir,
 	.readdir     = bdb_readdir,
@@ -3369,7 +3311,6 @@ struct xlator_fops fops = {
 	.statfs      = bdb_statfs,
 	.flush       = bdb_flush,
 	.fsync       = bdb_fsync,
-	.incver      = bdb_incver,
 	.setxattr    = bdb_setxattr,
 	.getxattr    = bdb_getxattr,
 	.removexattr = bdb_removexattr,
@@ -3388,6 +3329,6 @@ struct xlator_fops fops = {
 };
 
 struct xlator_cbks cbks = {
-	.release = bdb_close,
-	.releasedir = bdb_closedir
+	.release    = bdb_release,
+	.releasedir = bdb_releasedir
 };

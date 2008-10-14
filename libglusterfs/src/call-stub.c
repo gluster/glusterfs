@@ -1197,47 +1197,6 @@ out:
 }
 
 
-call_stub_t *
-fop_close_stub (call_frame_t *frame,
-		fop_close_t fn,
-		fd_t *fd)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 1, GF_FOP_CLOSE);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.close.fn = fn;
-
-	if (fd)
-		stub->args.close.fd = fd_ref (fd);
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_close_cbk_stub (call_frame_t *frame,
-		    fop_close_cbk_t fn,
-		    int32_t op_ret,
-		    int32_t op_errno)
-
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 0, GF_FOP_CLOSE);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.close_cbk.fn = fn;
-	stub->args.close_cbk.op_ret = op_ret;
-	stub->args.close_cbk.op_errno = op_errno;
-out:
-	return stub;
-}
 
 
 call_stub_t *
@@ -1387,49 +1346,6 @@ out:
 	return stub;
 }
 
-
-
-call_stub_t *
-fop_closedir_stub (call_frame_t *frame,
-		   fop_closedir_t fn,
-		   fd_t *fd)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 1, GF_FOP_CLOSEDIR);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.closedir.fn = fn;
-
-	if (fd)
-		stub->args.closedir.fd = fd_ref (fd);
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_closedir_cbk_stub (call_frame_t *frame,
-		       fop_closedir_cbk_t fn,
-		       int32_t op_ret,
-		       int32_t op_errno)
-
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 0, GF_FOP_CLOSEDIR);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.closedir_cbk.fn = fn;
-	stub->args.closedir_cbk.op_ret = op_ret;
-	stub->args.closedir_cbk.op_errno = op_errno;
-out:
-	return stub;
-}
 
 
 call_stub_t *
@@ -2192,16 +2108,6 @@ call_resume_wind (call_stub_t *stub)
 		break;
 	}
   
-	case GF_FOP_CLOSE:
-	{
-		stub->args.close.fn (stub->frame,
-				     stub->frame->this,
-				     stub->args.close.fd);
-		if (stub->args.close.fd)
-			fd_unref (stub->args.close.fd);
-      		break;
-	}
-  
 	case GF_FOP_FSYNC:
 	{
 		stub->args.fsync.fn (stub->frame,
@@ -2272,14 +2178,6 @@ call_resume_wind (call_stub_t *stub)
 		break;
 	}
 
-	case GF_FOP_CLOSEDIR:
-	{
-		stub->args.closedir.fn (stub->frame,
-					stub->frame->this,
-					stub->args.closedir.fd);
-		break;
-	}
-  
 	case GF_FOP_FSYNCDIR:
 	{
 		stub->args.fsyncdir.fn (stub->frame,
@@ -2435,11 +2333,6 @@ call_resume_wind (call_stub_t *stub)
 		break;
 	}
   
-	case GF_FOP_FORGET:
-	{
-		gf_log ("call-stub", GF_LOG_CRITICAL, "forget should not be stubbed");
-	}
-	break;
 	case GF_FOP_MAXVALUE:
 	{
 		gf_log ("call-stub",
@@ -2448,7 +2341,6 @@ call_resume_wind (call_stub_t *stub)
 	}
 	break;
 	case GF_FOP_RMELEM:
-	case GF_FOP_INCVER:
 	case GF_FOP_READDIR:
 	case GF_FOP_XATTROP:
 		stub->args.xattrop.fn (stub->frame,
@@ -2828,21 +2720,6 @@ call_resume_unwind (call_stub_t *stub)
 		break;
 	}
   
-	case GF_FOP_CLOSE:
-	{
-		if (!stub->args.close_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.close_cbk.op_ret,
-				      stub->args.close_cbk.op_errno);
-		else
-			stub->args.close_cbk.fn (stub->frame,
-						 stub->frame->cookie,
-						 stub->frame->this,
-						 stub->args.close_cbk.op_ret,
-						 stub->args.close_cbk.op_errno);
-		break;
-	}
-  
 	case GF_FOP_FSYNC:
 	{
 		if (!stub->args.fsync_cbk.fn)
@@ -2953,21 +2830,6 @@ call_resume_unwind (call_stub_t *stub)
 			FREE (entry);
 			entry = next;
 		}
-		break;
-	}
-  
-	case GF_FOP_CLOSEDIR:
-	{
-		if (!stub->args.closedir_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.closedir_cbk.op_ret,
-				      stub->args.closedir_cbk.op_errno);	
-		else
-			stub->args.closedir_cbk.fn (stub->frame,
-						    stub->frame->cookie,
-						    stub->frame->this,
-						    stub->args.closedir_cbk.op_ret,
-						    stub->args.closedir_cbk.op_errno);
 		break;
 	}
   
@@ -3205,14 +3067,6 @@ call_resume_unwind (call_stub_t *stub)
 
 		break;
 	}
-
-
-	case GF_FOP_FORGET:
-	{
-		gf_log ("call-stub", GF_LOG_CRITICAL, "forget should not be stubbed");
-	}
-	break;
-
 	case GF_FOP_MAXVALUE:
 	{
 		gf_log ("call-stub",
@@ -3221,8 +3075,6 @@ call_resume_unwind (call_stub_t *stub)
 	}
 	break;
 	case GF_FOP_RMELEM:
-	case GF_FOP_INCVER:
-		/* FIXME (krishna) is the stub functionality needed for readdir()? */
 	case GF_FOP_READDIR:
 	case GF_FOP_XATTROP:
 

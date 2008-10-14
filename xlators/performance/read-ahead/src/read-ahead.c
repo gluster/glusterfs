@@ -265,8 +265,8 @@ flush_region (call_frame_t *frame,
 
 
 int32_t
-ra_close (xlator_t *this,
-          fd_t *fd)
+ra_release (xlator_t *this,
+	    fd_t *fd)
 {
   data_t *file_data = dict_get (fd->ctx, this->name);
   ra_file_t *file = NULL;
@@ -929,7 +929,7 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
-	.release       = ra_close,
+	.release       = ra_release,
 };
 
 struct xlator_options options[] = {

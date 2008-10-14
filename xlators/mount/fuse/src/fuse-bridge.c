@@ -1522,9 +1522,9 @@ fuse_flush (fuse_req_t req,
 
 
 static void 
-fuse_close (fuse_req_t req,
-            fuse_ino_t ino,
-            struct fuse_file_info *fi)
+fuse_release (fuse_req_t req,
+	      fuse_ino_t ino,
+	      struct fuse_file_info *fi)
 {
         fuse_state_t *state;
 
@@ -1532,7 +1532,7 @@ fuse_close (fuse_req_t req,
         state->fd = FI_TO_FD (fi);
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                "%"PRId64": CLOSE %p", req_callid (req), state->fd);
+                "%"PRId64": RELEASE %p", req_callid (req), state->fd);
 
         fd_unref (state->fd);
         
@@ -1809,9 +1809,9 @@ fuse_readdir (fuse_req_t req,
 
 
 static void 
-fuse_closedir (fuse_req_t req,
-	       fuse_ino_t ino,
-	       struct fuse_file_info *fi)
+fuse_releasedir (fuse_req_t req,
+		 fuse_ino_t ino,
+		 struct fuse_file_info *fi)
 {
         fuse_state_t *state;
 
@@ -1819,7 +1819,7 @@ fuse_closedir (fuse_req_t req,
         state->fd = FI_TO_FD (fi);
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                "%"PRId64": CLOSE %p", req_callid (req), state->fd);
+                "%"PRId64": RELEASEDIR %p", req_callid (req), state->fd);
 	
 	fd_unref (state->fd);
 
@@ -2394,7 +2394,7 @@ static struct fuse_lowlevel_ops fuse_ops = {
         .setattr      = fuse_setattr,
         .opendir      = fuse_opendir,
         .readdir      = fuse_readdir,
-        .releasedir   = fuse_closedir,
+        .releasedir   = fuse_releasedir,
         .access       = fuse_access,
         .readlink     = fuse_readlink,
         .mknod        = fuse_mknod,
@@ -2409,7 +2409,7 @@ static struct fuse_lowlevel_ops fuse_ops = {
         .read         = fuse_readv,
         .write        = fuse_write,
         .flush        = fuse_flush,
-        .release      = fuse_close,
+        .release      = fuse_release,
         .fsync        = fuse_fsync,
         .fsyncdir     = fuse_fsyncdir,
         .statfs       = fuse_statfs,

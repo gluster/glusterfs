@@ -260,16 +260,6 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
-pl_close_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-	      int32_t op_ret, int32_t op_errno)
-{
-	GF_ERROR_IF_NULL (this);
-
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
 
 static void
 delete_locks_of_owner (pl_inode_t *inode, transport_t *transport,
@@ -289,8 +279,8 @@ delete_locks_of_owner (pl_inode_t *inode, transport_t *transport,
 
 
 int32_t 
-pl_close (call_frame_t *frame, xlator_t *this,
-	  fd_t *fd)
+pl_release (xlator_t *this,
+	    fd_t *fd)
 {
 	GF_ERROR_IF_NULL (this);
 	GF_ERROR_IF_NULL (fd);
@@ -298,44 +288,18 @@ pl_close (call_frame_t *frame, xlator_t *this,
 	posix_locks_private_t *priv = (posix_locks_private_t *)this->private;
 	pthread_mutex_lock (&priv->mutex);
 
-	struct flock nulllock = {0, };
 	data_t *fd_data = dict_get (fd->ctx, this->name);
 	if (fd_data == NULL) {
 		pthread_mutex_unlock (&priv->mutex);
 		gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
-		STACK_UNWIND (frame, -1, EBADF, &nulllock);
-		return 0;
+		return -1;
 	}
 	pl_fd_t *pfd = (pl_fd_t *)data_to_bin (fd_data);
-
-	data_t *inode_data = dict_get (fd->inode->ctx, this->name);
-	if (inode_data == NULL) {
-		pthread_mutex_unlock (&priv->mutex);
-		gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
-		STACK_UNWIND (frame, -1, EBADF, &nulllock);
-		return 0;
-	}
-	pl_inode_t *inode = (pl_inode_t *)data_to_bin (inode_data);
-
-	dict_del (fd->ctx, this->name);
-
-	delete_locks_of_owner (inode, frame->root->trans, frame->root->pid, 
-			       GF_LOCK_POSIX);
-	delete_locks_of_owner (inode, frame->root->trans, frame->root->pid, 
-			       GF_LOCK_INTERNAL);
-
-	do_blocked_rw (inode);
-
-	grant_blocked_locks (inode, GF_LOCK_POSIX);
-	grant_blocked_locks (inode, GF_LOCK_INTERNAL);
 
 	free (pfd);
 
 	pthread_mutex_unlock (&priv->mutex);
 
-	STACK_WIND (frame, pl_close_cbk, 
-		    FIRST_CHILD(this), FIRST_CHILD(this)->fops->close, 
-		    fd);
 	return 0;
 }
 
@@ -605,7 +569,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 				pthread_mutex_unlock (&priv->mutex);
 				gf_log (this->name, GF_LOG_ERROR, "returning EWOULDBLOCK");
 				STACK_UNWIND (frame, -1, EWOULDBLOCK, &nullbuf);
-				return -1;
+				return 0;
 			}
 
 			pl_rw_req_t *rw = calloc (1, sizeof (pl_rw_req_t));
@@ -689,7 +653,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
 				pthread_mutex_unlock (&priv->mutex);
 				gf_log (this->name, GF_LOG_ERROR, "returning EWOULDBLOCK");
 				STACK_UNWIND (frame, -1, EWOULDBLOCK, &nullbuf);
-				return -1;
+				return 0;
 			}
 
 			pl_rw_req_t *rw = calloc (1, sizeof (pl_rw_req_t));
@@ -747,7 +711,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 		pthread_mutex_unlock (&priv->mutex);
 		gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
 		STACK_UNWIND (frame, -1, EBADF, nulllock);
-		return -1;
+		return 0;
 	}
 
 	data_t *inode_data = dict_get (fd->inode->ctx, this->name);
@@ -825,13 +789,12 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 	pthread_mutex_unlock (&priv->mutex);
 	gf_log (this->name, GF_LOG_ERROR, "returning EINVAL");
 	STACK_UNWIND (frame, -1, EINVAL, flock); /* Normally this shouldn't be reached */
-	return -1;
+	return 0;
 }
 
 
 int32_t
-pl_forget (call_frame_t *frame,
-	   xlator_t *this,
+pl_forget (xlator_t *this,
 	   inode_t *inode)
 {
 	data_t *inode_data = dict_get (inode->ctx, this->name);
@@ -904,7 +867,7 @@ fini (xlator_t *this)
 
 int32_t
 pl_gf_file_lk (call_frame_t *frame, xlator_t *this, 
-	       loc_t *loc, int32_t cmd, struct flock *flock);
+	       loc_t *loc, fd_t *fd, int32_t cmd, struct flock *flock);
 
 int32_t
 pl_gf_dir_lk (call_frame_t *frame, xlator_t *this, 
@@ -919,18 +882,18 @@ struct xlator_fops fops = {
 	.open        = pl_open,
 	.readv       = pl_readv,
 	.writev      = pl_writev,
-	.close       = pl_close,
 	.lk          = pl_lk,
 	.gf_file_lk  = pl_gf_file_lk,
 	.gf_dir_lk   = pl_gf_dir_lk,
 	.flush       = pl_flush,
-	.forget      = pl_forget
 };
 
 struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
+	.forget      = pl_forget,
+	.release     = pl_release
 };
 
 struct xlator_options options[] = {

@@ -69,10 +69,6 @@ int32_t default_lookup (call_frame_t *frame,
 			loc_t *loc,
 			int32_t need_xattr);
 
-int32_t default_forget (call_frame_t *frame,
-			xlator_t *this,
-			inode_t *inode);
-
 int32_t default_stat (call_frame_t *frame,
 		      xlator_t *this,
 		      loc_t *loc);
@@ -151,11 +147,6 @@ int32_t default_rmelem (call_frame_t *frame,
 			xlator_t *this,
 			const char *path);
 
-int32_t default_incver (call_frame_t *frame,
-			xlator_t *this,
-			const char *path,
-			fd_t *fd);
-
 int32_t default_symlink (call_frame_t *frame,
 			 xlator_t *this,
 			 const char *linkpath,
@@ -199,10 +190,6 @@ int32_t default_flush (call_frame_t *frame,
 		       xlator_t *this,
 		       fd_t *fd);
 
-int32_t default_close (call_frame_t *frame,
-		       xlator_t *this,
-		       fd_t *fd);
-
 int32_t default_fsync (call_frame_t *frame,
 		       xlator_t *this,
 		       fd_t *fd,
@@ -218,10 +205,6 @@ int32_t default_getdents (call_frame_t *frame,
 			  size_t size,
 			  off_t offset,
 			  int32_t flag);
-
-int32_t default_closedir (call_frame_t *frame,
-			  xlator_t *this,
-			  fd_t *fd);
 
 int32_t default_fsyncdir (call_frame_t *frame,
 			  xlator_t *this,
@@ -290,6 +273,9 @@ int32_t default_notify (xlator_t *this,
 			int32_t event,
 			void *data,
 			...);
+
+int32_t default_forget (xlator_t *this,
+			inode_t *inode);
 
 int32_t default_release (xlator_t *this,
 			 fd_t *fd);

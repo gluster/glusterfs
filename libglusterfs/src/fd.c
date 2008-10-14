@@ -357,7 +357,7 @@ fd_destroy (fd_t *fd)
                                 xl->cbks->releasedir (xl, fd);
                         } else {
                                 gf_log ("fd", GF_LOG_CRITICAL,
-                                        "xlator(%s) in fd(%p) no FORGET fop",
+                                        "xlator(%s) in fd(%p) no RELEASE cbk",
                                         xl->name, fd);
                         }
                 }
@@ -376,7 +376,7 @@ fd_destroy (fd_t *fd)
                                 xl->cbks->release (xl, fd);
                         } else {
                                 gf_log ("fd", GF_LOG_CRITICAL,
-                                        "xlator(%s) in fd(%p) no FORGET fop",
+                                        "xlator(%s) in fd(%p) no RELEASE cbk",
                                         xl->name, fd);
                         }
                 }

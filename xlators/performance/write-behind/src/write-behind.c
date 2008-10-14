@@ -1231,8 +1231,8 @@ wb_fsync (call_frame_t *frame,
 
 
 int32_t
-wb_close (xlator_t *this,
-          fd_t *fd)
+wb_release (xlator_t *this,
+	    fd_t *fd)
 {
   wb_file_t *file = NULL;
 
@@ -1368,7 +1368,7 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
-	.release  = wb_close
+	.release  = wb_release
 };
 
 struct xlator_options options[] = {

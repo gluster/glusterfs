@@ -148,6 +148,7 @@ int dict_get_ptr (dict_t *this, char *key, void **ptr);
 int dict_set_ptr (dict_t *this, char *key, void *ptr);
 
 int dict_set_bin (dict_t *this, char *key, void *ptr, size_t size);
+int dict_get_bin (dict_t *this, char *key, void **bin);
 
 int dict_set_str (dict_t *this, char *key, char *str);
 int dict_get_str (dict_t *this, char *key, char **str);
