@@ -1,6 +1,8 @@
-GlusterFS's translator feature is very flexible and there are quite a lot of ways one can configure their filesystem to behave like. 
+GlusterFS's translator feature is very flexible and there are quite a lot of ways one 
+can configure their filesystem to behave like. 
 
-Volume Specification is a way in which GlusterFS understands how it has to work, based on what is written there. 
+Volume Specification is a way in which GlusterFS understands how it has to work, based 
+on what is written there. 
 
 Going through the following URLs may give you more idea about all these.
 

@@ -5,9 +5,7 @@ EmacsMode_DATA = glusterfs-mode.el
 
 SUBDIRS = init.d
 
-EXTRA_DIST = specgen.scm glusterfs.vim glusterfs-mode.el
+EXTRA_DIST = specgen.scm glusterfs.vim glusterfs-mode.el glfs-bm.c
 
 CLEANFILES = 
 
-install-data-am:
-	[ "${GF_HOST_OS}" == "GF_DARWIN_HOST_OS" ] && cp glusterfs-server.plist /Library/LaunchDaemons/com.zresearch.glusterfs.plist || echo ""

@@ -38,61 +38,73 @@
 
 #ifdef GF_DARWIN_HOST_OS
 
-static const char finder_info_content[32] = {
+
+#define GF_FINDER_INFO_XATTR   "com.apple.FinderInfo"
+#define GF_RESOURCE_FORK_XATTR "com.apple.ResourceFork"
+#define GF_FINDERINFO_SIZE     32
+
+static const char gf_finder_info_content[GF_FINDERINFO_SIZE] = {
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 };
 
-static const char finder_info_xattr[] = "com.apple.FinderInfo";
-
-static const char resource_fork_xattr[] = "com.apple.ResourceFork";
 
 int32_t 
 gf_darwin_compat_listxattr (int len, dict_t *dict, int size)
 {
-  if (len == -1)
-    len = 0;
-  if (size >= 0)
-    {
-      dict_set (dict, (char *)finder_info_xattr, str_to_data (""));
-      dict_set (dict, (char *)resource_fork_xattr, str_to_data (""));
-    }
+	if (len == -1)
+		len = 0;
+	if (size >= 0)
+	{
+		dict_set (dict, GF_FINDER_INFO_XATTR, str_to_data (""));
+		dict_set (dict, GF_RESOURCE_FORK_XATTR, str_to_data (""));
+	}
   
-  return (len + sizeof(finder_info_xattr) + sizeof (resource_fork_xattr));
+	return (len + strlen (GF_FINDER_INFO_XATTR) + strlen (GF_RESOURCE_FORK_XATTR));
 }
 
 int32_t 
-gf_darwin_compat_getxattr (char *key, char **value, int size)
+gf_darwin_compat_getxattr (const char *key, dict_t *dict)
 {
-  if (strcmp(key, finder_info_xattr) == 0) {
-    if (*value != 0 && size >= sizeof (finder_info_content)) {
-      memcpy(*value, finder_info_content, sizeof (finder_info_content));
-      return sizeof (finder_info_content);
-    }
-  }
-  if (strcmp(key, resource_fork_xattr) == 0) {
-    /* Always null */
-    return 0;
-  }
-  
-  return -1;
+	data_t *data = NULL;
+
+	data = dict_get (dict, GF_FINDER_INFO_XATTR);
+	if (!data) {
+		if (strcmp(key, GF_FINDER_INFO_XATTR) == 0) {
+			dict_set (dict, GF_FINDER_INFO_XATTR, 
+				  bin_to_data ((void *)gf_finder_info_content,
+					       GF_FINDERINFO_SIZE));
+			return GF_FINDERINFO_SIZE;
+		}
+	}
+	data = dict_get (dict, GF_RESOURCE_FORK_XATTR);
+	if (!data) {
+		if (strcmp(key, GF_RESOURCE_FORK_XATTR) == 0) {
+			/* Always null */
+			dict_set (dict, GF_RESOURCE_FORK_XATTR,
+				  str_to_data (""));
+			return 0;
+		}
+	}
+	return -1;
 }
 
 
 int32_t 
-gf_darwin_compat_setxattr (const char *key, const char *value)
+gf_darwin_compat_setxattr (dict_t *dict)
 {
-  if (strcmp(key, finder_info_xattr) == 0) {
-	  
-    return 0;
-  }
-  if (strcmp(key, resource_fork_xattr) == 0) {
-    /* Always null */
-    return 0;
-  }
-  return -1;
+	data_t *data = NULL;
+
+	data = dict_get (dict, GF_FINDER_INFO_XATTR);
+	if (data)
+		return 0;
+	data = dict_get (dict, GF_RESOURCE_FORK_XATTR);
+	if (data)
+		return 0;
+
+	return -1;
 }
 
 #endif /* DARWIN */

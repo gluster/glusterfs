@@ -848,13 +848,16 @@ fuse_err_cbk (call_frame_t *frame,
 
                 fuse_reply_err (req, 0);
         } else {
-                if (((frame->op == GF_FOP_SETXATTR)
-		     || (frame->op == GF_FOP_REMOVEXATTR))
-		    && (op_errno == ENOTSUP)) {
-                        gf_fuse_xattr_enotsup_log++;
-                        if (!(gf_fuse_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
-                                gf_log ("glusterfs-fuse", GF_LOG_CRITICAL,
-                                        "[ ERROR ] Extended attribute not supported by the backend storage");
+                if (frame->op == GF_FOP_SETXATTR) {
+			op_ret = gf_compat_setxattr (state->dict);
+			if (op_ret == 0)
+				op_errno = 0;
+			if (op_errno == ENOTSUP) {
+				gf_fuse_xattr_enotsup_log++;
+				if (!(gf_fuse_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
+					gf_log ("glusterfs-fuse", GF_LOG_CRITICAL,
+						"[ ERROR ] Extended attribute not supported by the backend storage");
+			}
                 } else {
                         gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                                 "%"PRId64": %s() %s => -1 (%s)",
@@ -1940,7 +1943,6 @@ fuse_setxattr (fuse_req_t req,
                size_t size,
                int flags)
 {
-	int ret = 0;
         fuse_state_t *state;
 
         state = state_from_req (req);
@@ -1955,13 +1957,6 @@ fuse_setxattr (fuse_req_t req,
                 fuse_reply_err (req, EINVAL);
                 return;
         }
-
-	ret = gf_compat_setxattr (name, value);
-	if (ret == 0) {
-                fuse_reply_err (req, 0);
-		free_state (state);
-		return ;
-	}
 
         state->dict = get_new_dict ();
 
@@ -1998,10 +1993,21 @@ fuse_xattr_cbk (call_frame_t *frame,
 	 */
 	if (strcmp (state->loc.path, "/") == 0) {
 	  if (!state->name) {
-	    if (!dict)
+ 	    if (!dict)
 	      dict = get_new_dict ();
 	    ret = gf_compat_listxattr (ret, dict, state->size);
 	  }
+	}
+	if (ret < 0) {
+		/* This is needed in MacFuse, where MacOSX Finder needs some specific 
+		 * keys to be supported from FS
+		 */
+		/* if (strcmp (state->loc.path, "/") == 0) */
+		{
+			if (!dict)
+				dict = get_new_dict ();
+			ret = gf_compat_getxattr (state->name, dict);
+		}
 	}
 	
         if (ret >= 0) {
@@ -2152,21 +2158,6 @@ fuse_getxattr (fuse_req_t req,
                 return;
         }
 
-	/* This is needed in MacFuse, where MacOSX Finder needs some specific 
-	 * keys to be supported from FS
-	 */
-	/* if (strcmp (state->loc.path, "/") == 0) */
-	{
-		char *value = alloca (state->size + 1);
-		int ret = 0;
-
-		ret = gf_compat_getxattr (state->name, &value, state->size);
-		if (ret >= 0) {
-			fuse_reply_buf (req, value, ret);
-			return;
-		}
-	}
- 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                 "%"PRId64": GETXATTR %s/%"PRId64" (%s)", req_callid (req),
                 state->loc.path, (int64_t)ino, name);

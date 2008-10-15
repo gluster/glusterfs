@@ -160,8 +160,8 @@ enum {
 #define F_SETLKW64      F_SETLKW
 
 int32_t gf_darwin_compat_listxattr (int len, dict_t *dict, int size);
-int32_t gf_darwin_compat_getxattr (char *key, char **value, int size);
-int32_t gf_darwin_compat_setxattr (const char *key, const char *value);
+int32_t gf_darwin_compat_getxattr (const char *key, dict_t *dict);
+int32_t gf_darwin_compat_setxattr (dict_t *dict);
 
 #endif /* GF_DARWIN_HOST_OS */
 
@@ -273,20 +273,20 @@ dirent_size (struct dirent *entry)
 
 
 static inline int32_t
-gf_compat_getxattr (char *key, char **value, int size)
+gf_compat_getxattr (const char *key, dict_t *dict)
 {
 #ifdef GF_DARWIN_HOST_OS
-  return gf_darwin_compat_getxattr (key, value, size);
+  return gf_darwin_compat_getxattr (key, dict);
 #endif
   return -1;
 }
 
 
 static inline int32_t
-gf_compat_setxattr (const char *key, const char *value)
+gf_compat_setxattr (dict_t *dict)
 {
 #ifdef GF_DARWIN_HOST_OS
-  return gf_darwin_compat_setxattr (key, value);
+  return gf_darwin_compat_setxattr (dict);
 #endif
   return -1;
 }

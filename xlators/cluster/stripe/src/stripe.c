@@ -67,7 +67,6 @@ struct stripe_private {
 	int8_t     first_child_down;
 	int8_t     child_count;
 	int8_t     state[256];       /* Current state of the child node, 0 for down, 1 for up */
-	int8_t     xattr_check[256]; /* Check for xattr support in underlying FS */
 };
 
 /**
@@ -2803,58 +2802,6 @@ stripe_stats (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-stripe_check_xattr_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno)
-{
-	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_CRITICAL, 
-			"[CRITICAL]: '%s' doesn't support Extended attribute: %s", 
-			(char *)cookie, strerror (op_errno));
-		raise (SIGTERM);
-	} else {
-		gf_log (this->name, GF_LOG_DEBUG, 
-			"'%s' supports extended attribute", (char *)cookie);
-	}
-
-	STACK_DESTROY (frame->root);
-	return 0;
-}
-
-static void 
-stripe_check_xattr(xlator_t *this, 
-		   xlator_t *child)
-{
-	call_frame_t *frame = NULL;
-	call_pool_t *pool = this->ctx->pool;
-
-	frame = create_frame (this, pool);
-  
-	{
-		dict_t *dict = get_new_dict ();
-		loc_t tmp_loc = {
-			.inode = NULL,
-			.path = "/",
-		};
-		dict_set (dict, "trusted.glusterfs-stripe-test", 
-			  bin_to_data("testing", 7));
-
-		STACK_WIND_COOKIE (frame,
-				   stripe_check_xattr_cbk,
-				   child->name,
-				   child,
-				   child->fops->setxattr,
-				   &tmp_loc,
-				   dict,
-				   0);
-	}
-
-	return;
-}
-
 /**
  * notify
  */
@@ -2896,12 +2843,6 @@ notify (xlator_t *this,
 			}
 		}
 		UNLOCK (&priv->lock);
-	
-		/* Check for the xattr support in the underlying FS */
-		if (!priv->xattr_check[i]) {
-			stripe_check_xattr(this, data);
-			priv->xattr_check[i] = 1;
-		}
 	}
 	break;
 	case GF_EVENT_CHILD_DOWN:

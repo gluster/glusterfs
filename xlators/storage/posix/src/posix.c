@@ -3349,17 +3349,10 @@ init (xlator_t *this)
         int                    op_ret   = -1;
         struct stat            buf      = {0,};
         struct posix_private * _private = NULL;
-        data_t *               data     = NULL;
+        data_t *               dir_data = NULL;
+	data_t *               tmp_data = NULL;
 
-        data = dict_get (this->options, "directory");
-
-        _private = calloc (1, sizeof (*_private));
-        if (!_private) {
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "out of memory :(");
-                ret = -1;
-                goto out;
-        }
+        dir_data = dict_get (this->options, "directory");
 
         if (this->children) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -3368,7 +3361,7 @@ init (xlator_t *this)
                 goto out;
         }
 
-        if (!data) {
+        if (!dir_data) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "export directory not specified in spec file");
                 ret = -1;
@@ -3377,22 +3370,50 @@ init (xlator_t *this)
 
         umask (000); // umask `masking' is done at the client side
 
-        op_ret = mkdir (data->data, 0777);
+        op_ret = mkdir (dir_data->data, 0777);
         if (op_ret == 0) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "directory '%s' did not exist, created", data->data);
+                        "directory '%s' did not exist, created", dir_data->data);
         }
 
         /* Check whether the specified directory exists, if not create it. */
-        op_ret = stat (data->data, &buf);
+        op_ret = stat (dir_data->data, &buf);
         if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
                 gf_log (this->name, GF_LOG_ERROR, 
-                        "directory '%s' doesn't exists, Exiting", data->data);
+                        "directory '%s' doesn't exists, Exiting", dir_data->data);
                 ret = -1;
                 goto out;
         }
 
-        _private->base_path = strdup (data->data);
+        /* Check for Extended attribute support, if not present, log it */
+        op_ret = lsetxattr (dir_data->data, "trusted.glusterfs.test", "working", 8, 0);
+        if (op_ret < 0) {
+		tmp_data = dict_get (this->options, "starting-without-extendend-attribute");
+		if (tmp_data) {
+			if (strcasecmp (tmp_data->data, "enable") == 0) {
+				gf_log (this->name, GF_LOG_WARNING,
+					"Extended attribute not supported, starting as per option");
+			} else {
+				gf_log (this->name, GF_LOG_CRITICAL, "Extended attribute not supported, exiting");
+				ret = -1;
+				goto out;
+			}
+		} else {
+			gf_log (this->name, GF_LOG_CRITICAL, "Extended attribute not supported, exiting");
+			ret = -1;
+			goto out;
+		}
+        }
+
+        _private = calloc (1, sizeof (*_private));
+        _private->base_path = strdup (dir_data->data);
+        if (!_private) {
+                gf_log (this->name, GF_LOG_ERROR, 
+                        "out of memory :(");
+                ret = -1;
+                goto out;
+        }
+
         _private->base_path_length = strlen (_private->base_path);
 
         {
@@ -3403,26 +3424,20 @@ init (xlator_t *this)
                 _private->max_write = 1;
         }
 
-        /* Check for Extended attribute support, if not present, log it */
-        op_ret = lsetxattr (data->data, "trusted.glusterfs.test", "working", 8, 0);
-        if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Extended attribute not supported");
-        }
-
         _private->export_statfs = 1;
-        data = dict_get (this->options, "export-statfs-size");
-        if (data) {
-                if (!strcasecmp ("no", data->data)) {
+        tmp_data = dict_get (this->options, "export-statfs-size");
+        if (tmp_data) {
+                if (!strcasecmp ("no", tmp_data->data)) {
                         gf_log (this->name, GF_LOG_DEBUG, "'statfs()' returns dummy size");
                         _private->export_statfs = 0;
                 }
         }
 
         _private->o_direct = 0;
-        data = dict_get (this->options, "o-direct");
-        if (data) {
-                if (!strcasecmp    ("enable", data->data)
-                    || !strcasecmp ("on",     data->data)) {
+        tmp_data = dict_get (this->options, "o-direct");
+        if (tmp_data) {
+                if (!strcasecmp    ("enable", tmp_data->data)
+                    || !strcasecmp ("on",     tmp_data->data)) {
                         gf_log (this->name, GF_LOG_DEBUG, 
                                 "o-direct mode is enabled (O_DIRECT for every open)");
                         _private->o_direct = 1;
@@ -3524,5 +3539,6 @@ struct xlator_options options[] = {
 	{ "o-direct", GF_OPTION_TYPE_BOOL, 0, },
 	{ "directory", GF_OPTION_TYPE_PATH, 0, },
 	{ "export-statfs-size", GF_OPTION_TYPE_BOOL, 0,  },
+	{ "starting-without-extendend-attribute", GF_OPTION_TYPE_BOOL, 0,  },
 	{ NULL, 0, }
 };

@@ -107,9 +107,10 @@ AC_CONFIG_FILES([Makefile
 		auth/login/src/Makefile
 		doc/Makefile
 		doc/examples/Makefile
+		doc/hacker-guide/Makefile
 		extras/Makefile
-		extras/glusterfs-server.plist
 		extras/init.d/Makefile
+		extras/init.d/glusterfs-server.plist
 		glusterfs.spec])
 
 AC_CANONICAL_HOST

@@ -14,6 +14,7 @@
      option directory <path> *
      option export-statfs-size no (yes)
      option o-direct [on|enable] (off)
+     option starting-without-extended-attribute [enable] (disable)
 
 # protocol/client:
      option transport-type [socket | ib-verbs]
@@ -162,7 +163,6 @@
 # features/path-convertor
      option start-offset n (0)
      option end-offset m (0)
-     option regex      (not set)
 
 # features/filter
      option root-squashing <enable|on>
