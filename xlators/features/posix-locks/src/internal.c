@@ -138,15 +138,35 @@ pl_gf_file_lk (call_frame_t *frame, xlator_t *this,
 		switch (cmd) {
 		case F_SETLK:
 			ret = pl_setlk (pinode, reqlock, 0, GF_LOCK_INTERNAL);
+
 			if (ret == -1) {
 				op_errno = EAGAIN;
 				goto unlock;
 			}
 			break;
+		case F_SETLKW:
+			reqlock->frame = frame;
+			reqlock->this  = this;
+			reqlock->fd    = fd;
+
+                        /* TODO: free this */
+			reqlock->user_flock = calloc (1, sizeof (struct flock));
+			if (!reqlock->user_flock) {
+				op_errno = ENOMEM;
+				goto unlock;
+			}
+
+			memcpy (reqlock->user_flock, flock, sizeof (struct flock));
+
+			ret = pl_setlk (pinode, reqlock, 1, GF_LOCK_INTERNAL);
+			if (ret == -1)
+				return -1; /* lock has been blocked */
+
+			break;
 		default:
 			op_errno = ENOTSUP;
 			gf_log (this->name, GF_LOG_ERROR,
-				"lock commands F_GETLK and F_SETLKW not supported for GF_FILE_LK (cmd=%d)", 
+				"lock command F_GETLK not supported for GF_FILE_LK (cmd=%d)", 
 				cmd);
 			goto unlock;
 		}

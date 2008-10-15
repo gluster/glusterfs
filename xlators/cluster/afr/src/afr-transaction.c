@@ -336,12 +336,14 @@ void retry_lock_serially (call_frame_t *frame, xlator_t *this, int child_index)
 	flock.l_len   = local->transaction.len;
 	flock.l_type  = F_WRLCK;
 
-	STACK_WIND_COOKIE (frame, afr_retry_serial_cbk, (void *) child_index,
-			   priv->children[child_index], 
-			   priv->children[child_index]->fops->gf_file_lk,
-			   &local->transaction.loc, 
-			   local->transaction.fd, F_SETLKW, &flock);
-
+	if ((child_index < priv->child_count) &&
+	    local->transaction.child_up[child_index]) {
+		STACK_WIND_COOKIE (frame, afr_retry_serial_cbk, (void *) child_index,
+				   priv->children[child_index], 
+				   priv->children[child_index]->fops->gf_file_lk,
+				   &local->transaction.loc, 
+				   local->transaction.fd, F_SETLKW, &flock);
+	}
 }
 
 
@@ -409,7 +411,11 @@ void acquire_lock_serially (call_frame_t *frame, xlator_t *this)
 					   local->transaction.fd, F_SETLK, &flock);
 		}
 	}
-
+	
+	if (local->call_count == 0) {
+		/* we didn't send unlock on any child */
+		retry_lock_serially (frame, this, 0);
+	}
 }
 
 
