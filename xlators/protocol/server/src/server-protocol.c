@@ -6094,21 +6094,21 @@ mop_setvolume (call_frame_t *frame,
                char *req_buf,
                size_t req_buflen)
 {
-	int32_t ret = -1;
-	int32_t remote_errno = 0;
-	dict_t *reply = NULL;
+	int32_t              ret = -1;
+	int32_t              remote_errno = 0;
+	dict_t              *reply = NULL;
 	server_proto_priv_t *priv = NULL;
-	server_private_t *server_priv = NULL;
-	data_t *name_data = NULL, *version_data = NULL;
-	char *name = NULL, *version = NULL;
-	xlator_t *xl = NULL;
-	dict_t *config_params = NULL;
-	dict_t *params = NULL;
-	gf_hdr_common_t *rsp_hdr = NULL;
-	size_t rsp_hdrlen = -1;
+	server_private_t    *server_priv = NULL;
+	char                *name = NULL;
+	char                *version = NULL;
+	xlator_t            *xl = NULL;
+	dict_t              *config_params = NULL;
+	dict_t              *params = NULL;
+	gf_hdr_common_t     *rsp_hdr = NULL;
+	size_t               rsp_hdrlen = -1;
 	gf_mop_setvolume_req_t *req = NULL;
 	gf_mop_setvolume_rsp_t *rsp = NULL;
-	size_t dict_len = -1;
+	size_t       dict_len = -1;
 	peer_info_t *peerinfo = NULL;
 
 	params = get_new_dict ();
@@ -6122,87 +6122,84 @@ mop_setvolume (call_frame_t *frame,
 
 	server_priv = TRANSPORT_OF (frame)->xl->private;
 
-	version_data = dict_get (params, "version");
-	if (!version_data) {
+	ret = dict_get_str (params, "version", &version);
+	if (ret < 0) {
 		remote_errno = EINVAL;
-		dict_set (reply, "ERROR",
-			  str_to_data ("No version number specified"));
+		dict_set_str (reply, "ERROR", 
+			      "No version number specified");
 		goto fail;
 	}
 
-	version = data_to_str (version_data);
 	if (strcmp (version, PACKAGE_VERSION)) {
-		char *msg;
+		char *msg = NULL;
 		asprintf (&msg,
 			  "Version mismatch: client(%s) Vs server (%s)",
 			  version, PACKAGE_VERSION);
 		remote_errno = EINVAL;
-		dict_set (reply, "ERROR", data_from_dynstr (msg));
-		FREE (msg);
+		ret = -1;
+		dict_set_dynstr (reply, "ERROR", msg);
 		goto fail;
 	}
 
 
-	name_data = dict_get (params,
-			      "remote-subvolume");
-	if (!name_data) {
+	ret = dict_get_str (params,
+			     "remote-subvolume", &name);
+	if (ret < 0) {
 		remote_errno = EINVAL;
-		dict_set (reply, "ERROR",
-			  str_to_data ("No remote-subvolume option specified"));
+		dict_set_str (reply, "ERROR",
+			      "No remote-subvolume option specified");
 		goto fail;
 	}
 
-	name = data_to_str (name_data);
 	xl = get_xlator_by_name (frame->this, name);
-
-	if (!xl) {
-		char *msg;
+	if (xl == NULL) {
+		char *msg = NULL;
 		asprintf (&msg, "remote-subvolume \"%s\" is not found", name);
-		dict_set (reply, "ERROR", data_from_dynstr (msg));
+		dict_set_dynstr (reply, "ERROR", msg);
+		ret = -1;
 		remote_errno = ENOENT;
-		FREE (msg);
 		goto fail;
 	}
 
 	peerinfo = &(TRANSPORT_OF (frame))->peerinfo;
-	dict_set (params, "peer-info", data_from_static_ptr (peerinfo));
-	/*
-	  dict_set (params, "peer-ip", str_to_data(inet_ntoa (_sock->sin_addr)));
-	  dict_set (params, "peer-port", data_from_uint16 (ntohs (_sock->sin_port)));
-	*/
-	if (!server_priv->auth_modules) {
+	dict_set_static_ptr (params, "peer-info", peerinfo);
+
+	if (server_priv->auth_modules == NULL) {
 		gf_log (TRANSPORT_OF (frame)->xl->name,
 			GF_LOG_ERROR,
 			"Authentication module not initialized");
 	}
-
-	if (gf_authenticate (params, config_params, server_priv->auth_modules) == AUTH_ACCEPT) {
+	
+	ret = gf_authenticate (params, config_params, server_priv->auth_modules);
+	if (ret == AUTH_ACCEPT) {
 		gf_log (TRANSPORT_OF (frame)->xl->name,  GF_LOG_DEBUG,
 			"accepted client from %s",
 			peerinfo->identifier);
 		ret = 0;
 		priv->bound_xl = xl;
-		dict_set (reply, "ERROR", str_to_data ("Success"));
+		dict_set_str (reply, "ERROR", "Success");
 	} else {
 		gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
 			"Cannot authenticate client from %s",
 			peerinfo->identifier);
 		ret = -1;
 		remote_errno = EACCES;
-		dict_set (reply, "ERROR", str_to_data ("Authentication failed"));
+		dict_set_str (reply, "ERROR", "Authentication failed");
 		goto fail;
 	}
 
-	if (!priv->bound_xl) {
-		dict_set (reply, "ERROR",
-			  str_to_data ("Check volume spec file and handshake options"));
+	if (priv->bound_xl == NULL) {
+		dict_set_str (reply, "ERROR",
+			      "Check volume spec file and handshake options");
 		ret = -1;
 		remote_errno = EACCES;
 		goto fail;
 	}
 
 fail:
-	if (priv->bound_xl && ret >= 0 && (!(priv->bound_xl->itable))) {
+	if ((priv->bound_xl != NULL) && 
+	    (ret >= 0)               && 
+	    (priv->bound_xl->itable == NULL)) {
 		/* create inode table for this bound_xl, if one doesn't already exist */
 		int32_t lru_limit = 1024;
 		xlator_t *xl = TRANSPORT_OF (frame)->xl;
@@ -6216,8 +6213,8 @@ fail:
 		priv->bound_xl->itable = inode_table_new (lru_limit, priv->bound_xl);
 	}
 
-	dict_set (reply, "RET", data_from_int32 (ret));
-	dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (remote_errno)));
+	dict_set_int32 (reply, "RET", ret);
+	dict_set_int32 (reply, "ERRNO", gf_errno_to_error (remote_errno));
 
 	dict_len = dict_serialized_length (reply);
 	rsp_hdr = gf_hdr_new (rsp, dict_len);
