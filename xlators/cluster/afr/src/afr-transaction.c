@@ -41,6 +41,8 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (call_count == 0) {
 		loc_wipe (&local->transaction.loc);
+		FREE (local->transaction.child_up);
+
 		local->transaction.success (frame, op_ret, op_errno);
 	}
 	
@@ -254,6 +256,8 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 		/* free the dict */
 		dict_unref (xattr);
 
+		loc_wipe (&local->transaction.loc);
+		FREE (local->transaction.child_up);
 		local->transaction.error (frame, this, -1, ENOTCONN);
 	}
 
@@ -550,6 +554,7 @@ afr_inode_transaction (call_frame_t *frame, xlator_t *this)
 	local->transaction.child_up = calloc (sizeof (*local->transaction.child_up), 
 					      priv->child_count);
 	if (!local->transaction.child_up) {
+		loc_wipe (&local->transaction.loc);
 		local->transaction.error (frame, this, -1, ENOMEM);
 	}
 
@@ -578,6 +583,7 @@ afr_dir_transaction (call_frame_t *frame, xlator_t *this)
 	local->transaction.child_up = calloc (sizeof (*local->transaction.child_up), 
 					      priv->child_count);
 	if (!local->transaction.child_up) {
+		loc_wipe (&local->transaction.loc);
 		local->transaction.error (frame, this, -1, ENOMEM);
 	}
 
@@ -604,6 +610,7 @@ afr_dir_link_transaction (call_frame_t *frame, xlator_t *this)
 	local->transaction.child_up = calloc (sizeof (*local->transaction.child_up), 
 					      priv->child_count);
 	if (!local->transaction.child_up) {
+		loc_wipe (&local->transaction.loc);
 		local->transaction.error (frame, this, -1, ENOMEM);
 	}
 
