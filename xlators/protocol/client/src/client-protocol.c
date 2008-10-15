@@ -1166,7 +1166,7 @@ client_xattrop (call_frame_t *frame,
 	gf_fop_xattrop_req_t *req = NULL;
 	size_t hdrlen = 0;
 	size_t dict_len = 0;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 
 	if (dict)
 		dict_len = dict_serialized_length (dict);
@@ -1742,7 +1742,7 @@ client_gf_file_lk (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 
 	size_t pathlen = 0;
 
@@ -1772,7 +1772,9 @@ client_gf_file_lk (call_frame_t *frame,
 	if (fd) {
 		if (this_fd_get (fd, this, &remote_fd) == -1) {
 			STACK_UNWIND (frame, -1, EBADFD);
+			return 0;
 		}
+
 	}
 
 	req->fd   = hton64 (remote_fd);

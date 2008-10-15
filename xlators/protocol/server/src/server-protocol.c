@@ -394,7 +394,8 @@ server_state_fill (call_frame_t *frame,
 		state->path  = req->dict + state->dict_len;
 		state->flags = ntoh32 (req->flags);
 		state->fd_no = ntoh64 (req->fd);
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		if (state->fd_no != -1)
+			state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_GF_DIR_LK:
@@ -426,7 +427,12 @@ server_state_fill (call_frame_t *frame,
 		}
 
 		state->type = ntoh32 (req->type);
-		if (req->path && *req->path)
+
+		state->fd_no = ntoh64 (req->fd);
+		if (state->fd_no != -1)
+			state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+
+		if (state->fd_no == -1)
 			state->path = req->path;
 
 		state->ino  = ntoh64 (req->ino);
@@ -438,9 +444,6 @@ server_state_fill (call_frame_t *frame,
 		case GF_LK_F_UNLCK: state->flock.l_type = F_UNLCK; break;
 		}
 
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no != -1)
-			state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
 	}
 	break;
 	default:
@@ -5073,7 +5076,7 @@ server_gf_file_lk (call_frame_t *frame,
  	state = STATE (frame);
  	server_state_fill (frame, req, GF_FOP_GF_FILE_LK);
 
-	if (state->path)
+	if (state->fd_no == -1)
 		server_loc_fill (&(state->loc), state, state->path);
  
  	gf_file_lk_stub = fop_gf_file_lk_stub (frame,
@@ -5081,9 +5084,13 @@ server_gf_file_lk (call_frame_t *frame,
  					       &state->loc, state->fd,
 					       state->cmd, &state->flock);
  
- 	if ((state->loc.parent == NULL) || 
-	    (state->loc.inode == NULL)) {
-  		do_path_lookup (gf_file_lk_stub, &(state->loc));
+	if (state->fd == NULL) {
+		if ((state->loc.parent == NULL) || 
+		    (state->loc.inode == NULL)) {
+			do_path_lookup (gf_file_lk_stub, &(state->loc));
+		} else {
+			call_resume (gf_file_lk_stub);
+		}
   	} else {
  		call_resume (gf_file_lk_stub);
  	}
