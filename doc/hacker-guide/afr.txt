@@ -79,42 +79,33 @@ Each of the four major groups has its own algorithm:
 
  All operations are done in parallel unless specified otherwise.
 
- (1) Send a GF_FILE_LK request on all children for a write lock on the appropriate
-     region (for metadata operations: entire file (0, 0)
+ (1) Send a GF_FILE_LK request on all children for a write lock on 
+     the appropriate region
+            (for metadata operations: entire file (0, 0)
              for writev: (offset, offset+size of buffer))
 
      - If a lock request fails on a child:
          unlock all children
          try to acquire a blocking lock (F_SETLKW) on each child, serially.
+	 
+	 If this fails (due to ENOTCONN or EINVAL):
+           Consider this child as dead for rest of transaction.
 
- (2) Increment "pending" numbers on all children (see below for meaning of "pending").
+ (2) Mark all children as "pending" on all (alive) children 
+     (see below for meaning of "pending").
 
      - If it fails on any child:
-         remember which child it failed on (needed in step four).
+         mark it as dead (in transaction local state).
 
- (3) Perform operation on all children.
+ (3) Perform operation on all (alive) children.
 
      - If it fails on any child:
-         remember which child it failed on (needed in step four).
+         mark it as dead (in transaction local state).
 
- (4) Decrement "pending" numbers on all children.
+ (4) Unmark all successful children as not "pending" on all nodes.
+
+ (5) Unlock region on all (alive) children.
      
-     - If (2) & (3) succeeded on all children:
-         decrement pending number on all children
-         - if decrement failed on any child:
-           increment pending number on all surviving children.
-
-     - If (2) & (3) failed on any child:
-         increment pending number on all surviving children.
-
- (5) Unlock region on all children.
-
-     - If unlock fails on any child:
-       - If it is due to child dying (ENOTCONN):
-           do nothing.
-       - If it is due to other reason:
-           return failure.
-
  -----------
  - dir-write
  -----------

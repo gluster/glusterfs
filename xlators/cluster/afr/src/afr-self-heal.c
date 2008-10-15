@@ -44,8 +44,8 @@
 #include "compat.h"
 #include "byte-order.h"
 
-#include "transaction.h"
-#include "self-heal.h"
+#include "afr-transaction.h"
+#include "afr-self-heal.h"
 
 
 int

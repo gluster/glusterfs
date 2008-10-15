@@ -17,3 +17,10 @@
    <http://www.gnu.org/licenses/>.
 */
 
+#ifndef __AFR_SELF_HEAL_H__
+#define __AFR_SELF_HEAL_H__
+
+int
+afr_dir_self_heal_needed (dict_t *xattr);
+
+#endif /* __AFR_SELF_HEAL_H__ */

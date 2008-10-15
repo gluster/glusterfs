@@ -184,7 +184,7 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 	local = frame->local;
 
 	if (child_went_down (op_ret, op_errno)) {
-		last_tried = local->cont.access.last_tried;
+		last_tried = local->cont.readdir.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
 			op_ret   = -1;

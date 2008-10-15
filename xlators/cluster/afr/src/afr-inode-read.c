@@ -198,8 +198,8 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 		unwind = 0;
 
 		STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) deitransform_child,
-				   children[last_tried], 
-				   children[last_tried]->fops->stat,
+				   children[local->cont.stat.last_tried], 
+				   children[local->cont.stat.last_tried]->fops->stat,
 				   &local->cont.stat.loc);
 	}
 

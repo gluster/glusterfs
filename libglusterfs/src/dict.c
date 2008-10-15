@@ -223,7 +223,7 @@ _dict_set (dict_t *this,
 		if (key_free)
 			FREE (key);
 		/* Indicates duplicate key */
-		return 1;
+		return 0;
 	}
 	pair = (data_pair_t *) calloc (1, sizeof (*pair));
 	if (!pair) {

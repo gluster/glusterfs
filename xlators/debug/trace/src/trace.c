@@ -1115,7 +1115,7 @@ trace_xattrop (call_frame_t *frame,
 		int32_t flags,
 		dict_t *dict)
 {
-	ERR_EINVAL_NORETURN (!this || !path || !fd);
+	ERR_EINVAL_NORETURN (!this || (!path && !fd));
 
 	if (trace_fop_names[GF_FOP_XATTROP].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 

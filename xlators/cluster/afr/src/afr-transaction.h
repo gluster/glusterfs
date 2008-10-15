@@ -26,16 +26,17 @@
 
 #define AFR_ENTRY_PENDING "trusted.glusterfs.afr.entry-pending"
 
-int32_t
-afr_inode_transaction (call_frame_t *frame, afr_private_t *priv);
-
-int32_t
-afr_dir_transaction (call_frame_t *frame, afr_private_t *priv);
-
-int32_t
-afr_dir_link_transaction (call_frame_t *frame, afr_private_t *priv);
-
 void
-build_loc_from_fd (loc_t *loc, fd_t *fd);
+afr_transaction_fop_done_on_child (call_frame_t *frame, xlator_t *this, int child_index,
+				   int32_t op_ret, int32_t op_errno);
+
+int32_t
+afr_inode_transaction (call_frame_t *frame, xlator_t *this);
+
+int32_t
+afr_dir_transaction (call_frame_t *frame, xlator_t *this);
+
+int32_t
+afr_dir_link_transaction (call_frame_t *frame, xlator_t *this);
 
 #endif /* __TRANSACTION_H__ */

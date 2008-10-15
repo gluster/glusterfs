@@ -44,13 +44,13 @@
 #include "compat.h"
 #include "byte-order.h"
 
-#include "inode-read.h"
-#include "inode-write.h"
-#include "dir-read.h"
-#include "dir-write.h"
-#include "transaction.h"
+#include "afr-inode-read.h"
+#include "afr-inode-write.h"
+#include "afr-dir-read.h"
+#include "afr-dir-write.h"
+#include "afr-transaction.h"
 
-#include "self-heal.h"
+#include "afr-self-heal.h"
 
 void
 loc_wipe (loc_t *loc)
@@ -170,9 +170,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		local = frame->local;
 		call_count = --local->call_count;
 
-		if ((op_ret == 0) && !local->success_count) {
+		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret   = op_ret;
-			local->op_errno = op_errno;
 
 			local->cont.lookup.inode = inode;
 
@@ -188,7 +187,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
 			local->cont.lookup.xattr = xattr;
 
-			local->success_count = 1;
+			local->success_count++;
 
 			if (S_ISDIR (buf->st_mode)) {
 				if (afr_dir_self_heal_needed (xattr)) {
@@ -199,6 +198,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 				}
 			}
 		}
+
+		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
 
@@ -225,6 +226,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	local->op_ret = -1;
 
 	frame->local = local;
 
@@ -426,8 +429,6 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 
 	int32_t          op_ret      = -1;
 	int32_t          op_errno    = 0;
-
-	int32_t call_count = 0;
 
 	VALIDATE_OR_GOTO (this, out);
 	VALIDATE_OR_GOTO (this->private, out);
@@ -684,8 +685,8 @@ init (xlator_t *this)
 	trav = this->children;
 	while (i < child_count) {
 		priv->children[i] = trav->xlator;
-		priv->pending_inc_array[i] = hton32 (1);
-		priv->pending_dec_array[i] = hton32 (-1);
+		priv->pending_inc_array[i] = 1;
+		priv->pending_dec_array[i] = -1;
 
 		trav = trav->next;
 		i++;

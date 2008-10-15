@@ -231,7 +231,7 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
-			loc_t oldloc;
+			loc_t loc;
 			inode_t *inode;
 			struct stat buf;
 		} symlink;
@@ -249,14 +249,20 @@ typedef struct _afr_local {
 
 		char *pending;
 
-		enum {AFR_INODE_TRANSACTION,  /* chmod, write, ... */
-		      AFR_DIR_TRANSACTION,    /* create, rmdir, ... */
-		      AFR_DIR_LINK_TRANSACTION} /* link, rename, symlink, ... */ type;
+		enum {AFR_INODE_TRANSACTION,    /* chmod, write, ... */
+		      AFR_DIR_TRANSACTION,      /* create, rmdir, ... */
+		      AFR_DIR_LINK_TRANSACTION  /* link, rename */
+		} type;
 
 		int success_count;
-		unsigned char lock_state[1024];
+		int failure_count;
 
-		int (*fop) (call_frame_t *frame, xlator_t *this, loc_t *loc);
+		unsigned char *child_up; 
+
+		int last_tried;
+		int32_t child_errno[1024];
+
+		int (*fop) (call_frame_t *frame, xlator_t *this);
 
 		int (*success) (call_frame_t *frame, 
 				int32_t op_ret, int32_t op_errno);
@@ -264,7 +270,7 @@ typedef struct _afr_local {
 		int (*error) (call_frame_t *frame, xlator_t *this, 
 			      int32_t op_ret, int32_t op_errno);
 
-		int (*resume) (call_frame_t *frame, afr_private_t *priv);
+		int (*resume) (call_frame_t *frame, xlator_t *this);
 	} transaction;
 
 	struct {

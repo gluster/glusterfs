@@ -45,7 +45,7 @@
 #include "compat.h"
 
 #include "afr.h"
-#include "transaction.h"
+#include "afr-transaction.h"
 
 
 /* {{{ chmod */
@@ -57,7 +57,7 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
-	int call_count = -1;
+	int call_count  = -1;
 
 	local = frame->local;
 	priv = this->private;
@@ -66,19 +66,20 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		call_count = --local->call_count;
 
-		local->op_ret         = op_ret;
-		local->op_errno       = op_errno;
-		
-		if (buf)
-			local->cont.chmod.buf = *buf;
+		if ((op_ret != -1) && (local->success_count == 0)) {
+			local->op_ret = op_ret;
+			if (buf)
+				local->cont.chmod.buf = *buf;
 
-		if (op_ret == 0)
 			local->success_count++;
+		}
+
+		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		local->transaction.resume (frame, priv);
+		local->transaction.resume (frame, this);
 	}
 	
 	return 0;
@@ -86,7 +87,7 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int32_t
-afr_chmod_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
+afr_chmod_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
@@ -101,11 +102,12 @@ afr_chmod_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_chmod_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->chmod,
-				loc, local->cont.chmod.mode); 
+		if (local->transaction.child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_chmod_wind_cbk, (void *) i,
+					   priv->children[i], 
+					   priv->children[i]->fops->chmod,
+					   &local->transaction.loc, 
+					   local->cont.chmod.mode); 
 		}
 	}
 	
@@ -150,6 +152,8 @@ afr_chmod (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
 
+	local->op_ret = -1;
+
 	local->cont.chmod.mode = mode;
 	local->cont.chmod.ino  = loc->inode->ino;
 
@@ -163,7 +167,7 @@ afr_chmod (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = 0;
 	local->transaction.pending = AFR_METADATA_PENDING;
 
-	afr_inode_transaction (frame, priv);
+	afr_inode_transaction (frame, this);
 
 	op_ret = 0;
 out:
@@ -185,7 +189,7 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
  
-	int call_count = -1;
+	int call_count  = -1;
 
 	local = frame->local;
 	priv = this->private;
@@ -194,20 +198,20 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		call_count = --local->call_count;
 
-		if (!local->success_count) {
-			local->op_ret         = op_ret;
-			local->op_errno       = op_errno;
+		if ((op_ret != -1) && (local->success_count == 0)) {
+			local->op_ret = op_ret;
+
 			if (buf)
 				local->cont.chown.buf = *buf;
+			local->success_count++;
 		}
 
-		if (op_ret == 0)
-			local->success_count++;
+		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		local->transaction.resume (frame, priv);
+		local->transaction.resume (frame, this);
 	}
 	
 	return 0;
@@ -215,7 +219,7 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int32_t
-afr_chown_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
+afr_chown_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
@@ -230,12 +234,12 @@ afr_chown_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_chown_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->chown,
-				loc, local->cont.chown.uid,
-				local->cont.chown.gid); 
+		if (local->transaction.child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_chown_wind_cbk, (void *) i,
+					   priv->children[i], 
+					   priv->children[i]->fops->chown,
+					   &local->transaction.loc, local->cont.chown.uid,
+					   local->cont.chown.gid); 
 		}
 	}
 	
@@ -281,6 +285,8 @@ afr_chown (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
 
+	local->op_ret = -1;
+
 	local->cont.chown.uid  = uid;
 	local->cont.chown.gid  = gid;
 	local->cont.chown.ino  = loc->inode->ino;
@@ -295,7 +301,7 @@ afr_chown (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = 0;
 	local->transaction.pending = AFR_METADATA_PENDING;
 
-	afr_inode_transaction (frame, priv);
+	afr_inode_transaction (frame, this);
 
 	op_ret = 0;
 out:
@@ -318,7 +324,7 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
  
-	int call_count = -1;
+	int call_count  = -1;
 
 	local = frame->local;
 	priv = this->private;
@@ -327,20 +333,20 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		call_count = --local->call_count;
 
-		if (!local->success_count) {
+		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret   = op_ret;
-			local->op_errno = op_errno;
+
 			if (buf)
 				local->cont.writev.buf = *buf;
+			local->success_count++;
 		}
 
-		if (op_ret == 0)
-			local->success_count++;
+		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		local->transaction.resume (frame, priv);
+		local->transaction.resume (frame, this);
 	}
 	
 	return 0;
@@ -348,7 +354,7 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int32_t
-afr_writev_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
+afr_writev_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
@@ -363,12 +369,14 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_writev_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->writev,
-				local->transaction.fd, local->cont.writev.vector,
-				local->cont.writev.count, local->cont.writev.offset); 
+		if (local->transaction.child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_writev_wind_cbk, (void *) i,	
+					   priv->children[i], 
+					   priv->children[i]->fops->writev,
+					   local->transaction.fd, 
+					   local->cont.writev.vector,
+					   local->cont.writev.count, 
+					   local->cont.writev.offset); 
 		}
 	}
 	
@@ -384,8 +392,6 @@ afr_writev_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 	local = frame->local;
 
 	local->cont.writev.buf.st_ino = local->cont.writev.ino;
-
-	inode_unref (local->transaction.loc.inode);
 
 	FREE (local->cont.writev.vector);
 
@@ -426,6 +432,8 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
 
+	local->op_ret = -1;
+
 	local->cont.writev.vector  = iov_dup (vector, count);
 	local->cont.writev.count   = count;
 	local->cont.writev.offset  = offset;
@@ -438,14 +446,12 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	local->transaction.success = afr_writev_success;
 	local->transaction.error   = afr_writev_error;
 
-	build_loc_from_fd (&local->transaction.loc, fd);
-	
 	local->transaction.fd      = fd;
 	local->transaction.start   = offset;
 	local->transaction.len     = iov_length (vector, count);
 	local->transaction.pending = AFR_DATA_PENDING;
 
-	afr_inode_transaction (frame, priv);
+	afr_inode_transaction (frame, this);
 
 	op_ret = 0;
 out:
@@ -468,7 +474,7 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
  
-	int call_count = -1;
+	int call_count  = -1;
 
 	local = frame->local;
 	priv = this->private;
@@ -477,20 +483,20 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		call_count = --local->call_count;
 
-		if (!local->success_count) {
-			local->op_ret    = op_ret;
-			local->op_errno  = op_errno;
-			if (buf)
-				local->cont.truncate.buf    = *buf;
-		}
+		if ((op_ret != -1) && (local->success_count == 0)) {
+			local->op_ret = op_ret;
 
-		if (op_ret == 0)
+			if (buf)
+				local->cont.truncate.buf = *buf;
+
 			local->success_count++;
+		}
+		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		local->transaction.resume (frame, priv);
+		local->transaction.resume (frame, this);
 	}
 	
 	return 0;
@@ -498,7 +504,7 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int32_t
-afr_truncate_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
+afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
@@ -513,11 +519,12 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_truncate_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->truncate,
-				&local->transaction.loc, local->cont.truncate.offset);
+		if (local->transaction.child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_truncate_wind_cbk, (void *) i,	
+					   priv->children[i], 
+					   priv->children[i]->fops->truncate,
+					   &local->transaction.loc, 
+					   local->cont.truncate.offset);
 		}
 	}
 	
@@ -563,6 +570,8 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
 
+	local->op_ret = -1;
+
 	local->cont.truncate.offset  = offset;
 	local->cont.truncate.ino     = loc->inode->ino;
 
@@ -576,7 +585,7 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = offset;
 	local->transaction.pending = AFR_DATA_PENDING;
 
-	afr_inode_transaction (frame, priv);
+	afr_inode_transaction (frame, this);
 
 	op_ret = 0;
 out:
@@ -594,12 +603,12 @@ out:
 
 int32_t
 afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		    int32_t op_ret, int32_t op_errno, struct stat *buf)
+		      int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
-	int call_count = -1;
+	int call_count  = -1;
 
 	local = frame->local;
 	priv = this->private;
@@ -607,21 +616,20 @@ afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
-		if (!local->success_count) {
-			local->op_ret           = op_ret;
-			local->op_errno         = op_errno;
+		if ((op_ret != -1) && (local->success_count == 0)) {
+			local->op_ret = op_ret;
 
 			if (buf)
 				local->cont.utimens.buf = *buf;
+			local->success_count++;
 		}
 
-		if (op_ret == 0)
-			local->success_count++;
+		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		local->transaction.resume (frame, priv);
+		local->transaction.resume (frame, this);
 	}
 	
 	return 0;
@@ -629,7 +637,7 @@ afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int32_t
-afr_utimens_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
+afr_utimens_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
@@ -639,16 +647,17 @@ afr_utimens_wind (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, priv->child_up); 
+	call_count = up_children_count (priv->child_count, local->transaction.child_up); 
 
 	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-		    STACK_WIND (frame, afr_utimens_wind_cbk,	
-				priv->children[i], 
-				priv->children[i]->fops->utimens,
-				loc, local->cont.utimens.tv); 
+			STACK_WIND_COOKIE (frame, afr_utimens_wind_cbk, (void *) i,	
+					   priv->children[i], 
+					   priv->children[i]->fops->utimens,
+					   &local->transaction.loc, 
+					   local->cont.utimens.tv); 
 		}
 	}
 	
@@ -693,6 +702,8 @@ afr_utimens (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
 
+	local->op_ret = -1;
+
 	local->cont.utimens.tv[0] = tv[0];
 	local->cont.utimens.tv[1] = tv[1];
 
@@ -708,7 +719,7 @@ afr_utimens (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = 0;
 	local->transaction.pending = AFR_METADATA_PENDING;
 
-	afr_inode_transaction (frame, priv);
+	afr_inode_transaction (frame, this);
 
 	op_ret = 0;
 out:
