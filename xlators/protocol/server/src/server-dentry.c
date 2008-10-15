@@ -11,27 +11,34 @@
  * @resolved - component of @loc->path which has been resolved
  *             through dentry cache
  */
-#define SERVER_DENTRY_STATE_PREPARE(state,loc,parent,resolved) do {	\
+#define SERVER_DENTRY_STATE_PREPARE(_state,loc,parent,resolved) do {	\
 		size_t pathlen = 0;					\
 		size_t resolvedlen = 0;					\
 		char *path = NULL;					\
+		int pad = 0;						\
 		pathlen   = strlen (loc->path) + 1;			\
 		path = calloc (1, pathlen);				\
-		new_state->loc.parent = inode_ref (parent);		\
-		new_state->loc.inode  = inode_new (new_state->itable);	\
+		_state->loc.parent = inode_ref (parent);		\
+		_state->loc.inode  = inode_new (_state->itable);	\
 		if (resolved) {						\
 			resolvedlen = strlen (resolved);		\
 			strncpy (path, resolved, resolvedlen);		\
-			strcpy_till (path + resolvedlen, loc->path + resolvedlen, '/'); \
-			new_state->resolved = memdup (path, pathlen);	\
+			_state->resolved = memdup (path, pathlen);	\
+			if (resolvedlen == 1) /* only root resolved */	\
+				pad = 0;				\
+			else {						\
+				pad = 1;				\
+				path[resolvedlen] = '/';		\
+			}						\
+			strcpy_till (path + resolvedlen + pad, loc->path + resolvedlen + pad, '/'); \
 		} else {						\
 			strncpy (path, loc->path, pathlen);		\
 		}							\
-		new_state->loc.path = path;				\
-		new_state->loc.name = strrchr (path, '/');		\
-		if (new_state->loc.name)				\
-			new_state->loc.name++;				\
-		new_state->path = strdup (loc->path);			\
+		_state->loc.path = path;				\
+		_state->loc.name = strrchr (path, '/');			\
+		if (_state->loc.name)					\
+			_state->loc.name++;				\
+		_state->path = strdup (loc->path);			\
 	}while (0);
 
 /* SERVER_DENTRY_UPDATE_STATE - update a server_state_t, to prepare state
@@ -39,28 +46,28 @@
  *
  * @state - state to be updated.
  */
-#define SERVER_DENTRY_UPDATE_STATE(state) do {				\
+#define SERVER_DENTRY_UPDATE_STATE(_state) do {				\
 		char *path = NULL;					\
 		size_t pathlen = 0;					\
-		strcpy (state->resolved, state->loc.path);		\
-		pathlen = strlen (state->loc.path);			\
-		if (!strcmp (state->resolved, state->path)) {		\
-			free (state->resolved);				\
-			state->resolved = NULL;				\
+		strcpy (_state->resolved, _state->loc.path);		\
+		pathlen = strlen (_state->loc.path);			\
+		if (!strcmp (_state->resolved, _state->path)) {		\
+			free (_state->resolved);			\
+			_state->resolved = NULL;			\
 			goto resume;					\
 		}							\
 									\
-		path = (char *)(state->loc.path + pathlen);		\
+		path = (char *)(_state->loc.path + pathlen);		\
 		path[0] = '/';						\
 		strcpy_till (path + 1,					\
-			     state->path + pathlen + 1, '/');		\
-		state->loc.name = strrchr (state->loc.path, '/');	\
-		if (state->loc.name)					\
-			state->loc.name++;				\
-		inode_unref (state->loc.parent);			\
-		state->loc.parent = inode_ref (state->loc.inode);	\
-		inode_unref (state->loc.inode);				\
-		state->loc.inode = inode_new (state->itable);		\
+			     _state->path + pathlen + 1, '/');		\
+		_state->loc.name = strrchr (_state->loc.path, '/');	\
+		if (_state->loc.name)					\
+			_state->loc.name++;				\
+		inode_unref (_state->loc.parent);			\
+		_state->loc.parent = inode_ref (_state->loc.inode);	\
+		inode_unref (_state->loc.inode);			\
+		_state->loc.inode = inode_new (_state->itable);		\
 	}while (0);
 
 /* NOTE: should be used only for a state which was created by __do_path_resolve
@@ -282,7 +289,7 @@ out:
 	return 0;
 }
 
-/* __do_resolve_path - resolve @loc->path into @loc->inode and @loc->parent. also
+/* __do_path_resolve - resolve @loc->path into @loc->inode and @loc->parent. also
  *                     update the dentry cache
  *
  * @stub - call stub to resume after resolving @loc->path
@@ -317,6 +324,8 @@ __do_path_resolve (call_stub_t *stub,
 
 		SERVER_DENTRY_STATE_PREPARE(new_state, loc, parent, resolved);
 		
+		if (parent)
+			inode_unref (parent); /* __server_path_to_parenti()'s  inode_ref */
 		free (resolved);
 		/* now interpret state as:
 		 * state->path - compelete pathname to resolve

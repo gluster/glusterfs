@@ -4422,7 +4422,7 @@ server_opendir_resume (call_frame_t *frame,
 {
 	server_state_t *state = STATE (frame);
 	fd_t *new_fd = NULL;
-
+	
 	new_fd = fd_create (loc->inode, frame->root->pid);
 	state->fd = fd_ref (new_fd);
 
