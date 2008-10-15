@@ -1803,7 +1803,23 @@ out:
 	return stub;
 }
 
+call_stub_t *
+fop_readdir_stub (call_frame_t *frame,
+		  fop_readdir_t fn,
+		  fd_t *fd,
+		  size_t size,
+		  off_t off)
+{
+  call_stub_t *stub = NULL;
 
+  stub = stub_new (frame, 1, GF_FOP_READDIR);
+  stub->args.readdir.fn = fn;
+  stub->args.readdir.fd = fd_ref (fd);
+  stub->args.readdir.size = size;
+  stub->args.readdir.off = off;
+
+  return stub;
+}
 call_stub_t *
 fop_checksum_stub (call_frame_t *frame,
 		   fop_checksum_t fn,
@@ -3117,3 +3133,288 @@ call_resume (call_stub_t *stub)
 out:
 	return;
 }
+
+
+void
+call_stub_destroy (call_stub_t *stub)
+{
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	switch (stub->fop) {
+	case GF_FOP_OPEN:
+	{
+		loc_wipe (&stub->args.open.loc);
+		if (stub->args.open.fd)
+			fd_unref (stub->args.open.fd);
+		break;
+	}
+	case GF_FOP_CREATE:
+	{
+		loc_wipe (&stub->args.create.loc);
+		if (stub->args.create.fd)
+			fd_unref (stub->args.create.fd);
+		break;
+	}
+	case GF_FOP_STAT:
+	{
+		loc_wipe (&stub->args.stat.loc);
+		break;
+	}
+	case GF_FOP_READLINK:
+	{
+		loc_wipe (&stub->args.readlink.loc);
+		break;
+	}
+  
+	case GF_FOP_MKNOD:
+	{
+		loc_wipe (&stub->args.mknod.loc);
+	}
+	break;
+  
+	case GF_FOP_MKDIR:
+	{
+		loc_wipe (&stub->args.mkdir.loc);
+	}
+	break;
+  
+	case GF_FOP_UNLINK:
+	{
+		loc_wipe (&stub->args.unlink.loc);
+	}
+	break;
+
+	case GF_FOP_RMDIR:
+	{
+		loc_wipe (&stub->args.rmdir.loc);
+	}
+	break;
+      
+	case GF_FOP_SYMLINK:
+	{
+		FREE (stub->args.symlink.linkname);
+		loc_wipe (&stub->args.symlink.loc);
+	}
+	break;
+  
+	case GF_FOP_RENAME:
+	{
+		loc_wipe (&stub->args.rename.old);
+		loc_wipe (&stub->args.rename.new);
+	}
+	break;
+
+	case GF_FOP_LINK:
+	{
+		loc_wipe (&stub->args.link.oldloc);
+		loc_wipe (&stub->args.link.newloc);
+	}
+	break;
+  
+	case GF_FOP_CHMOD:
+	{
+		loc_wipe (&stub->args.chmod.loc);
+	}
+	break;
+
+	case GF_FOP_CHOWN:
+	{
+		loc_wipe (&stub->args.chown.loc);
+		break;
+	}
+	case GF_FOP_TRUNCATE:
+	{
+		loc_wipe (&stub->args.truncate.loc);
+		break;
+	}
+      
+	case GF_FOP_READ:
+	{
+		if (stub->args.readv.fd)
+			fd_unref (stub->args.readv.fd);
+		break;
+	}
+  
+	case GF_FOP_WRITE:
+	{
+		dict_t *refs = stub->frame->root->req_refs;
+		if (stub->args.writev.fd)
+			fd_unref (stub->args.writev.fd);
+		FREE (stub->args.writev.vector);
+		if (refs)
+			dict_unref (refs);
+		break;
+	}
+  
+	case GF_FOP_STATFS:
+	{
+		loc_wipe (&stub->args.statfs.loc);
+		break;
+	}
+	case GF_FOP_FLUSH:
+	{
+		if (stub->args.flush.fd)
+			fd_unref (stub->args.flush.fd);      
+		break;
+	}
+  
+	case GF_FOP_FSYNC:
+	{
+		if (stub->args.fsync.fd)
+			fd_unref (stub->args.fsync.fd);
+		break;
+	}
+
+	case GF_FOP_SETXATTR:
+	{
+		loc_wipe (&stub->args.setxattr.loc);
+		if (stub->args.setxattr.dict)
+			dict_unref (stub->args.setxattr.dict);
+		break;
+	}
+  
+	case GF_FOP_GETXATTR:
+	{
+		loc_wipe (&stub->args.getxattr.loc);
+		break;
+	}
+
+	case GF_FOP_REMOVEXATTR:
+	{
+		loc_wipe (&stub->args.removexattr.loc);
+		FREE (stub->args.removexattr.name);
+		break;
+	}
+  
+	case GF_FOP_OPENDIR:
+	{
+		loc_wipe (&stub->args.opendir.loc);
+		if (stub->args.opendir.fd)
+			fd_unref (stub->args.opendir.fd);
+		break;
+	}
+
+	case GF_FOP_GETDENTS:
+	{
+		if (stub->args.getdents.fd)
+			fd_unref (stub->args.getdents.fd);
+		break;
+	}
+
+	case GF_FOP_FSYNCDIR:
+	{
+		if (stub->args.fsyncdir.fd)
+			fd_unref (stub->args.fsyncdir.fd);
+		break;
+	}
+  
+	case GF_FOP_ACCESS:
+	{
+		loc_wipe (&stub->args.access.loc);
+		break;
+	}
+  
+	case GF_FOP_FTRUNCATE:
+	{
+		if (stub->args.ftruncate.fd)
+			fd_unref (stub->args.ftruncate.fd);
+		break;
+	}
+  
+	case GF_FOP_FSTAT:
+	{
+		if (stub->args.fstat.fd)
+			fd_unref (stub->args.fstat.fd);
+		break;
+	}
+  
+	case GF_FOP_LK:
+	{
+		if (stub->args.lk.fd)
+			fd_unref (stub->args.lk.fd);
+		break;
+	}
+
+	case GF_FOP_UTIMENS:
+	{
+		loc_wipe (&stub->args.utimens.loc);
+		break;
+	}
+  
+  
+	break;
+	case GF_FOP_FCHMOD:
+	{
+		if (stub->args.fchmod.fd)
+			fd_unref (stub->args.fchmod.fd);
+		break;
+	}
+  
+	case GF_FOP_FCHOWN:
+	{
+		if (stub->args.fchown.fd)
+			fd_unref (stub->args.fchown.fd);
+		break;
+	}
+  
+	case GF_FOP_LOOKUP:
+	{
+		loc_wipe (&stub->args.lookup.loc);
+		break;
+	}
+
+	case GF_FOP_SETDENTS:
+	{
+		dir_entry_t *entry, *next;
+		if (stub->args.setdents.fd)
+			fd_unref (stub->args.setdents.fd);
+		entry = stub->args.setdents.entries.next;
+		while (entry) {
+			next = entry->next;
+			FREE (entry->name);
+			FREE (entry);
+			entry = next;
+		}
+		break;
+	}
+
+	case GF_FOP_CHECKSUM:
+	{
+		loc_wipe (&stub->args.checksum.loc);
+		break;
+	}
+  	break;
+	case GF_FOP_MAXVALUE:
+	{
+		gf_log ("call-stub",
+			GF_LOG_DEBUG,
+			"Invalid value of FOP");
+	}
+	break;
+	case GF_FOP_READDIR:
+	{
+	    if (stub->args.readdir.fd)
+	      fd_unref (stub->args.readdir.fd);
+	}
+	case GF_FOP_GF_FILE_LK:
+	{
+		if (stub->args.gf_file_lk.fd)
+			fd_unref (stub->args.gf_file_lk.fd);
+		break;
+	}
+
+	case GF_FOP_GF_DIR_LK:
+	{
+		FREE (stub->args.gf_dir_lk.basename);
+		break;
+	}
+  
+	case GF_FOP_RMELEM:
+	case GF_FOP_XATTROP:
+		break;
+	}
+	FREE (stub);
+out:
+	return;
+}
+

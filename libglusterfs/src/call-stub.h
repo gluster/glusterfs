@@ -1039,4 +1039,5 @@ fop_xattrop_stub_cbk_stub (call_frame_t *frame,
 			   int32_t op_errno);
 
 void call_resume (call_stub_t *stub);
+void call_stub_destroy (call_stub_t *stub);
 #endif
