@@ -6988,6 +6988,8 @@ struct xlator_cbks cbks = {
 
 struct xlator_options options[] = {
 	/* Authentication module */
+	{ "auth.ip.<volume-name>.allow", 
+	  GF_OPTION_TYPE_ANY, 10, 0, 0 }, /* 1.3.x version support */
 	{ "auth.addr.<volume-name>.[allow|reject]", 
 	  GF_OPTION_TYPE_ANY, 10, 0, 0 },
 	{ "auth.login.<volume-name>.allow", 
@@ -7000,7 +7002,7 @@ struct xlator_options options[] = {
 	  GF_OPTION_TYPE_INT, 0, 1025, 65534 }, 
 	{ "transport-type", 
 	  GF_OPTION_TYPE_STR, 0, 0, 0, 
-	  "tcp|ib-verbs|ib-sdp|socket|unix" }, 
+	  "tcp|ib-verbs|ib-sdp|socket|unix|tcp/server|ib-verbs/server" }, 
 	{ "address-family", 
 	  GF_OPTION_TYPE_STR, 0, 0, 0, 
 	  "inet|inet6|inet/inet6|inet6/inet|unix|ib-sdp" }, 

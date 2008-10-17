@@ -1983,32 +1983,30 @@ fuse_xattr_cbk (call_frame_t *frame,
                 int32_t op_errno,
                 dict_t *dict)
 {
+	int need_to_free_dict = 0;
         int32_t ret = op_ret;
         char *value = "";
         fuse_state_t *state = frame->root->state;
         fuse_req_t req = state->req;
 
+#ifdef GF_DARWIN_HOST_OS
 	/* This is needed in MacFuse, where MacOSX Finder needs some specific 
 	 * keys to be supported from FS
 	 */
-	if (strcmp (state->loc.path, "/") == 0) {
-	  if (!state->name) {
- 	    if (!dict)
-	      dict = get_new_dict ();
-	    ret = gf_compat_listxattr (ret, dict, state->size);
-	  }
-	}
-	if (ret < 0) {
-		/* This is needed in MacFuse, where MacOSX Finder needs some specific 
-		 * keys to be supported from FS
-		 */
-		/* if (strcmp (state->loc.path, "/") == 0) */
-		{
-			if (!dict)
-				dict = get_new_dict ();
-			ret = gf_compat_getxattr (state->name, dict);
+	if (state->name) {
+		if (!dict) {
+			dict = get_new_dict ();
+			need_to_free_dict = 1;
 		}
+		ret = gf_compat_getxattr (state->name, dict);
+	} else {
+		if (!dict) {
+			dict = get_new_dict ();
+			need_to_free_dict = 1;
+		}
+		ret = gf_compat_listxattr (ret, dict, state->size);
 	}
+#endif /* DARWIN */
 	
         if (ret >= 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
@@ -2129,6 +2127,9 @@ fuse_xattr_cbk (call_frame_t *frame,
 
                 fuse_reply_err (req, op_errno);
         } /* if(op_ret>=0)...else */
+
+	if (need_to_free_dict)
+		dict_unref (dict);
 
         free_state (state);
         STACK_DESTROY (frame->root);

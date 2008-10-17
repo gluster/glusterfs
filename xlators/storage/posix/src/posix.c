@@ -2006,9 +2006,16 @@ handle_pair (xlator_t *this, char *real_path,
                                         "setxattr on %s failed: %s", real_path,
                                         strerror (errno));
                         } else {
+
+#ifdef GF_DARWIN_HOST_OS
+				gf_log (this->name, ((errno == EINVAL) ? GF_LOG_DEBUG : GF_LOG_WARNING), 
+					"%s: key:%s error:%s", 
+					real_path, trav->key, strerror (errno));
+#else /* ! DARWIN */
                                 gf_log (this->name, GF_LOG_WARNING, 
                                         "%s: key:%s error:%s", 
                                         real_path, trav->key, strerror (errno));
+#endif /* DARWIN */
                         }
 
                         ret = -errno;

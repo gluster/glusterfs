@@ -47,7 +47,8 @@ init (dict_t *this,
     gf_log ("authenticate", GF_LOG_ERROR,
 	    "AUTHENTICATION MODULE \"IP\" HAS BEEN REPLACED BY \"ADDR\"");
     dict_set (this, key, data_from_dynptr (NULL, 0));
-    *error = -1;
+    /* TODO: 1.3.x backword compatibility */
+    //*error = -1;
     return;
   }
 

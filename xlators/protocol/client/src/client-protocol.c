@@ -4884,7 +4884,8 @@ struct xlator_options options[] = {
   	/* Transport */
  	{ "ib-verbs-[work-request-send-size|...]", GF_OPTION_TYPE_ANY, 9, 0, 0 }, 
  	{ "remote-port", GF_OPTION_TYPE_INT, 0, 1025, 65534 }, 
- 	{ "transport-type", GF_OPTION_TYPE_STR, 0, 0, 0, "tcp|socket|ib-verbs|unix|ib-sdp" }, 
+ 	{ "transport-type", GF_OPTION_TYPE_STR, 0, 0, 0, 
+	  "tcp|socket|ib-verbs|unix|ib-sdp|tcp/client|ib-verbs/client" }, 
  	{ "address-family", GF_OPTION_TYPE_STR, 0, 0, 0, "inet|inet6|inet/inet6|inet6/inet|unix|ib-sdp" }, 
  	{ "remote-host", GF_OPTION_TYPE_STR, 0, }, 
  	{ "connect-path", GF_OPTION_TYPE_STR, 0, },

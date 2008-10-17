@@ -38,12 +38,11 @@
 
 #ifdef GF_DARWIN_HOST_OS
 
-
 #define GF_FINDER_INFO_XATTR   "com.apple.FinderInfo"
 #define GF_RESOURCE_FORK_XATTR "com.apple.ResourceFork"
-#define GF_FINDERINFO_SIZE     32
+#define GF_FINDER_INFO_SIZE    32
 
-static const char gf_finder_info_content[GF_FINDERINFO_SIZE] = {
+static const char gf_finder_info_content[GF_FINDER_INFO_SIZE] = {
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -54,15 +53,25 @@ static const char gf_finder_info_content[GF_FINDERINFO_SIZE] = {
 int32_t 
 gf_darwin_compat_listxattr (int len, dict_t *dict, int size)
 {
+	data_t *data = NULL;
 	if (len == -1)
 		len = 0;
-	if (size >= 0)
-	{
-		dict_set (dict, GF_FINDER_INFO_XATTR, str_to_data (""));
-		dict_set (dict, GF_RESOURCE_FORK_XATTR, str_to_data (""));
+
+	data = dict_get (dict, GF_FINDER_INFO_XATTR);
+	if (!data) {
+		dict_set (dict, GF_FINDER_INFO_XATTR, 
+			  bin_to_data ((void *)gf_finder_info_content,
+				       GF_FINDER_INFO_SIZE));
+		len += strlen (GF_FINDER_INFO_XATTR);
 	}
-  
-	return (len + strlen (GF_FINDER_INFO_XATTR) + strlen (GF_RESOURCE_FORK_XATTR));
+
+	data = dict_get (dict, GF_RESOURCE_FORK_XATTR);
+	if (!data) {
+		dict_set (dict, GF_RESOURCE_FORK_XATTR, str_to_data (""));
+		len += strlen (GF_RESOURCE_FORK_XATTR);
+	}
+
+	return len;
 }
 
 int32_t 
@@ -75,8 +84,8 @@ gf_darwin_compat_getxattr (const char *key, dict_t *dict)
 		if (strcmp(key, GF_FINDER_INFO_XATTR) == 0) {
 			dict_set (dict, GF_FINDER_INFO_XATTR, 
 				  bin_to_data ((void *)gf_finder_info_content,
-					       GF_FINDERINFO_SIZE));
-			return GF_FINDERINFO_SIZE;
+					       GF_FINDER_INFO_SIZE));
+			return GF_FINDER_INFO_SIZE;
 		}
 	}
 	data = dict_get (dict, GF_RESOURCE_FORK_XATTR);

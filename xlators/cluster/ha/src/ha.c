@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -17,15 +17,6 @@
    <http://www.gnu.org/licenses/>.
 */
 
-/* libglusterfs/src/defaults.c:
-     This file contains functions, which are used to fill the 'fops' and 'mops' 
-     structures in the xlator structures, if they are not written. Here, all the 
-     function calls are plainly forwared to the first child of the xlator, and 
-     all the *_cbk function does plain STACK_UNWIND of the frame, and returns.
-
-     All the functions are plain enough to understand.
-*/
-
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
@@ -35,6 +26,7 @@
 #include "call-stub.h"
 #include "defaults.h"
 #include "dict.h"
+#include "compat-errno.h"
 
 typedef struct {
   call_stub_t *stub;

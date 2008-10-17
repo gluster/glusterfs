@@ -28,6 +28,8 @@
 
 #include "scheduler.h"
 #include "call-stub.h"
+#include "compat-errno.h"
+
 
 typedef struct _afr_private {
 	gf_lock_t lock;               /* to guard access to child_count, etc */

@@ -351,7 +351,8 @@ section_end (void)
 
         if (xlator_validate_given_options (tree) == -1) {
                 gf_log (tree->name, GF_LOG_DEBUG, "validating the options failed");
-                return -1;
+		/* TODO: currently strict type check is disabled, till we make 1.4.1+ releases */
+                //return -1;
         }
 
         tree = NULL;
