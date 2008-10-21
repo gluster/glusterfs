@@ -1148,25 +1148,6 @@ dict_copy (dict_t *dict,
 
 	return new;
 }
-
-data_t *
-data_from_iovec (struct iovec *vec,
-		 int32_t len)
-{
-	data_t *new = get_new_data ();
-	if (!vec || !new) {
-		gf_log ("dict", GF_LOG_CRITICAL,
-			"@vec=%p @new=%p", vec, new);
-		return NULL;
-	}
-
-	new->vec = memdup (vec,
-			   len * (sizeof (void *) + sizeof (size_t)));
-	new->len = len;
-
-	return new;
-}
-
 /*
  * !!!!!!! CLEANED UP CODE !!!!!!!
  */
@@ -1219,6 +1200,63 @@ err:
 	return ret;
 }
 
+
+static int
+_data_to_int8 (data_t *data, int8_t *val)
+{
+	int    ret = 0;
+	char * str = NULL;
+
+	if (!data || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	str = alloca (data->len + 1);
+	if (!str) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	memcpy (str, data->data, data->len);
+	str[data->len] = '\0';
+
+	errno = 0;
+	*val = strtol (str, NULL, 0);
+	if (errno != 0)
+		ret = -errno;
+
+err:
+	return ret;
+}
+
+static int
+_data_to_int16 (data_t *data, int16_t *val)
+{
+	int    ret = 0;
+	char * str = NULL;
+
+	if (!data || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	str = alloca (data->len + 1);
+	if (!str) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	memcpy (str, data->data, data->len);
+	str[data->len] = '\0';
+
+	errno = 0;
+	*val = strtol (str, NULL, 0);
+	if (errno != 0)
+		ret = -errno;
+
+err:
+	return ret;
+}
+
 static int
 _data_to_int32 (data_t *data, int32_t *val)
 {
@@ -1247,6 +1285,203 @@ err:
 	return ret;
 }
 
+static int
+_data_to_int64 (data_t *data, int64_t *val)
+{
+	int    ret = 0;
+	char * str = NULL;
+
+	if (!data || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	str = alloca (data->len + 1);
+	if (!str) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	memcpy (str, data->data, data->len);
+	str[data->len] = '\0';
+
+	errno = 0;
+	*val = strtoll (str, NULL, 0);
+	if (errno != 0)
+		ret = -errno;
+
+err:
+	return ret;
+}
+
+static int
+_data_to_uint16 (data_t *data, uint16_t *val)
+{
+	int    ret = 0;
+	char * str = NULL;
+
+	if (!data || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	str = alloca (data->len + 1);
+	if (!str) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	memcpy (str, data->data, data->len);
+	str[data->len] = '\0';
+
+	errno = 0;
+	*val = strtoul (str, NULL, 0);
+	if (errno != 0)
+		ret = -errno;
+
+err:
+	return ret;
+}
+
+static int
+_data_to_uint32 (data_t *data, uint32_t *val)
+{
+	int    ret = 0;
+	char * str = NULL;
+
+	if (!data || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	str = alloca (data->len + 1);
+	if (!str) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	memcpy (str, data->data, data->len);
+	str[data->len] = '\0';
+
+	errno = 0;
+	*val = strtoul (str, NULL, 0);
+	if (errno != 0)
+		ret = -errno;
+
+err:
+	return ret;
+}
+
+static int
+_data_to_uint64 (data_t *data, uint64_t *val)
+{
+	int    ret = 0;
+	char * str = NULL;
+
+	if (!data || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	str = alloca (data->len + 1);
+	if (!str) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	memcpy (str, data->data, data->len);
+	str[data->len] = '\0';
+
+	errno = 0;
+	*val = strtoull (str, NULL, 0);
+	if (errno != 0)
+		ret = -errno;
+
+err:
+	return ret;
+}
+
+int
+dict_get_int8 (dict_t *this, char *key, int8_t *val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	if (!this || !key || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_get_with_ref (this, key, &data);
+	if (ret != 0) {
+		goto err;
+	}
+
+	ret = _data_to_int8 (data, val);
+    
+err:
+	if (data)
+		data_unref (data);
+	return ret;
+}
+
+
+int
+dict_set_int8 (dict_t *this, char *key, int8_t val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_int8 (val);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
+	return ret;
+}
+
+int
+dict_get_int16 (dict_t *this, char *key, int16_t *val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	if (!this || !key || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_get_with_ref (this, key, &data);
+	if (ret != 0) {
+		goto err;
+	}
+
+	ret = _data_to_int16 (data, val);
+    
+err:
+	if (data)
+		data_unref (data);
+	return ret;
+}
+
+
+int
+dict_set_int16 (dict_t *this, char *key, int16_t val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_int16 (val);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
+	return ret;
+}
 
 int
 dict_get_int32 (dict_t *this, char *key, int32_t *val)
@@ -1291,6 +1526,177 @@ err:
 	return ret;
 }
 
+int
+dict_get_int64 (dict_t *this, char *key, int64_t *val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	if (!this || !key || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_get_with_ref (this, key, &data);
+	if (ret != 0) {
+		goto err;
+	}
+
+	ret = _data_to_int64 (data, val);
+    
+err:
+	if (data)
+		data_unref (data);
+	return ret;
+}
+
+
+int
+dict_set_int64 (dict_t *this, char *key, int64_t val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_int64 (val);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
+	return ret;
+}
+
+int
+dict_get_uint16 (dict_t *this, char *key, uint16_t *val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	if (!this || !key || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_get_with_ref (this, key, &data);
+	if (ret != 0) {
+		goto err;
+	}
+
+	ret = _data_to_uint16 (data, val);
+    
+err:
+	if (data)
+		data_unref (data);
+	return ret;
+}
+
+
+int
+dict_set_uint16 (dict_t *this, char *key, uint16_t val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_uint16 (val);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
+	return ret;
+}
+
+int
+dict_get_uint32 (dict_t *this, char *key, uint32_t *val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	if (!this || !key || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_get_with_ref (this, key, &data);
+	if (ret != 0) {
+		goto err;
+	}
+
+	ret = _data_to_uint32 (data, val);
+    
+err:
+	if (data)
+		data_unref (data);
+	return ret;
+}
+
+
+int
+dict_set_uint32 (dict_t *this, char *key, uint32_t val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_uint32 (val);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
+	return ret;
+}
+
+int
+dict_get_uint64 (dict_t *this, char *key, uint64_t *val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	if (!this || !key || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_get_with_ref (this, key, &data);
+	if (ret != 0) {
+		goto err;
+	}
+
+	ret = _data_to_uint64 (data, val);
+    
+err:
+	if (data)
+		data_unref (data);
+	return ret;
+}
+
+
+int
+dict_set_uint64 (dict_t *this, char *key, uint64_t val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_uint64 (val);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
+	return ret;
+}
 
 int
 dict_set_static_ptr (dict_t *this, char *key, void *ptr)

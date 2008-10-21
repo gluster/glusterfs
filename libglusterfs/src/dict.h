@@ -96,7 +96,6 @@ data_t *data_from_dynptr (void *value, int32_t len);
 data_t *bin_to_data (void *value, int32_t len);
 data_t *static_str_to_data (char *value);
 data_t *static_bin_to_data (void *value);
-data_t *data_from_iovec (struct iovec *vec, int32_t len);
 
 int64_t data_to_int64 (data_t *data);
 int32_t data_to_int32 (data_t *data);
@@ -140,8 +139,26 @@ dict_t *dict_copy (dict_t *this,
 		   dict_t *new);
 
 /* CLEANED UP FUNCTIONS DECLARATIONS */
+int dict_get_int8 (dict_t *this, char *key, int8_t *val);
+int dict_set_int8 (dict_t *this, char *key, int8_t val);
+
+int dict_get_int16 (dict_t *this, char *key, int16_t *val);
+int dict_set_int16 (dict_t *this, char *key, int16_t val);
+
 int dict_get_int32 (dict_t *this, char *key, int32_t *val);
 int dict_set_int32 (dict_t *this, char *key, int32_t val);
+
+int dict_get_int64 (dict_t *this, char *key, int64_t *val);
+int dict_set_int64 (dict_t *this, char *key, int64_t val);
+
+int dict_get_uint16 (dict_t *this, char *key, uint16_t *val);
+int dict_set_uint16 (dict_t *this, char *key, uint16_t val);
+
+int dict_get_uint32 (dict_t *this, char *key, uint32_t *val);
+int dict_set_uint32 (dict_t *this, char *key, uint32_t val);
+
+int dict_get_uint64 (dict_t *this, char *key, uint64_t *val);
+int dict_set_uint64 (dict_t *this, char *key, uint64_t val);
 
 int dict_set_static_ptr (dict_t *this, char *key, void *ptr);
 int dict_get_ptr (dict_t *this, char *key, void **ptr);
@@ -149,7 +166,6 @@ int dict_set_ptr (dict_t *this, char *key, void *ptr);
 
 int dict_get_bin (dict_t *this, char *key, void **ptr);
 int dict_set_bin (dict_t *this, char *key, void *ptr, size_t size);
-int dict_get_bin (dict_t *this, char *key, void **bin);
 
 int dict_set_str (dict_t *this, char *key, char *str);
 int dict_set_dynstr (dict_t *this, char *key, char *str);
