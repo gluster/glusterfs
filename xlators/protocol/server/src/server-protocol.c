@@ -1456,6 +1456,9 @@ server_opendir_cbk (call_frame_t *frame,
 		fd_bind (fd);
 
 		fd_no = gf_fd_unused_get (priv->fdtable, fd);
+	} else {
+		/* NOTE: corresponding to fd_create()'s ref */
+		fd_unref (fd);
 	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -2184,6 +2187,9 @@ server_open_cbk (call_frame_t *frame,
 		fd_bind (fd);
 
 		fd_no = gf_fd_unused_get (priv->fdtable, fd);
+	} else {
+		/* NOTE: corresponding to fd_create()'s ref */
+		fd_unref (fd);
 	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -2249,6 +2255,11 @@ server_create_cbk (call_frame_t *frame,
 			op_ret = fd_no;
 			op_errno = errno;
 		} 
+	} 
+	
+	if (op_ret < 0) {
+		/* NOTE: corresponding to fd_create()'s ref */
+		fd_unref (fd);
 	}
 
 	hdrlen = gf_hdr_len (rsp, 0);

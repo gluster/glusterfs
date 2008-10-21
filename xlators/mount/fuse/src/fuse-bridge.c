@@ -627,6 +627,9 @@ fuse_fd_cbk (call_frame_t *frame,
                         gf_fop_list[frame->op], state->loc.path,
 			strerror (op_errno));
 
+		/* NOTE: corresponding to fd_create()'s ref */
+		fd_unref (fd);
+
                 fuse_reply_err (req, op_errno);
         }
 out:
@@ -1305,6 +1308,8 @@ fuse_create_cbk (call_frame_t *frame,
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRId64": %s => -1 (%s)", req_callid (req),
                         state->loc.path, strerror (op_errno));
+		/* NOTE: corresponding to fd_create()'s ref */
+		fd_unref (fd);
                 fuse_reply_err (req, op_errno);
         }
 out:
