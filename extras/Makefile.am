@@ -3,9 +3,9 @@ docdir = $(datadir)/doc/$(PACKAGE_NAME)
 EmacsModedir = $(docdir)/examples
 EmacsMode_DATA = glusterfs-mode.el
 
-SUBDIRS = init.d
+SUBDIRS = init.d benchmarking
 
-EXTRA_DIST = specgen.scm glusterfs.vim glusterfs-mode.el glfs-bm.c
+EXTRA_DIST = specgen.scm glusterfs.vim glusterfs-mode.el 
 
 CLEANFILES = 
 

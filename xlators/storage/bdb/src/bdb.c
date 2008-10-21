@@ -3332,3 +3332,19 @@ struct xlator_cbks cbks = {
 	.release    = bdb_release,
 	.releasedir = bdb_releasedir
 };
+
+struct xlator_options options[] = {
+	{ "directory", GF_OPTION_TYPE_PATH, 0, },
+	{ "logdir", GF_OPTION_TYPE_PATH, 0, },
+	{ "errfile", GF_OPTION_TYPE_PATH, 0, },
+	{ "dir-mode", GF_OPTION_TYPE_ANY, 0, }, /* base 8 number */
+	{ "file-mode", GF_OPTION_TYPE_ANY, 0, }, /* base 8 number */
+	{ "page-size", GF_OPTION_TYPE_SIZET, -1, },
+	{ "lru-limit", GF_OPTION_TYPE_INT, -1, },
+	{ "lock-timeout", GF_OPTION_TYPE_TIME, 0, },
+	{ "checkpoint-timeout", GF_OPTION_TYPE_TIME, 0, },
+	{ "transaction-timeout", GF_OPTION_TYPE_TIME, 0, },
+	{ "mode", GF_OPTION_TYPE_BOOL, 0, }, /* Should be 'cache' ?? */
+	{ "access-mode", GF_OPTION_TYPE_STR, 0, 0, 0, "btree"},
+	{ NULL, 0, }
+};

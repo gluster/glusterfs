@@ -7000,7 +7000,7 @@ struct xlator_cbks cbks = {
 struct xlator_options options[] = {
 	/* Authentication module */
 	{ "auth.ip.<volume-name>.allow", 
-	  GF_OPTION_TYPE_ANY, 10, 0, 0 }, /* 1.3.x version support */
+	  GF_OPTION_TYPE_ANY, 8, 0, 0 }, /* 1.3.x version support */
 	{ "auth.addr.<volume-name>.[allow|reject]", 
 	  GF_OPTION_TYPE_ANY, 10, 0, 0 },
 	{ "auth.login.<volume-name>.allow", 

@@ -79,23 +79,26 @@ gf_darwin_compat_getxattr (const char *key, dict_t *dict)
 {
 	data_t *data = NULL;
 
-	data = dict_get (dict, GF_FINDER_INFO_XATTR);
-	if (!data) {
-		if (strcmp(key, GF_FINDER_INFO_XATTR) == 0) {
+	if (strcmp(key, GF_FINDER_INFO_XATTR) == 0) {
+		data = dict_get (dict, GF_FINDER_INFO_XATTR);
+		if (!data) {
 			dict_set (dict, GF_FINDER_INFO_XATTR, 
 				  bin_to_data ((void *)gf_finder_info_content,
 					       GF_FINDER_INFO_SIZE));
 			return GF_FINDER_INFO_SIZE;
 		}
+		return 0;
 	}
-	data = dict_get (dict, GF_RESOURCE_FORK_XATTR);
-	if (!data) {
-		if (strcmp(key, GF_RESOURCE_FORK_XATTR) == 0) {
+	
+	if (strcmp(key, GF_RESOURCE_FORK_XATTR) == 0) {
+		data = dict_get (dict, GF_RESOURCE_FORK_XATTR);
+		if (!data) {
 			/* Always null */
 			dict_set (dict, GF_RESOURCE_FORK_XATTR,
 				  str_to_data (""));
 			return 0;
 		}
+		return 0;
 	}
 	return -1;
 }

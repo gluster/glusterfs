@@ -67,6 +67,8 @@ struct stripe_private {
 	int8_t     first_child_down;
 	int8_t     child_count;
 	int8_t     state[256];       /* Current state of the child node, 0 for down, 1 for up */
+	gf_boolean_t  xattr_supported;  /* 0 for no, 1 for yes, default yes */
+	uint8_t       xattr_supported_option_given; /* 0 of no, 1 for yes */
 };
 
 /**
@@ -232,8 +234,11 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame,
     
 		if (op_ret == 0) {
 			local->op_ret = 0;
-			if (local->stbuf.st_blksize == 0)
+			if (local->stbuf.st_blksize == 0) {
 				local->stbuf = *buf;
+				/* Because st_blocks gets added again */
+				local->stbuf.st_blocks = 0;
+			}
 
 			if (FIRST_CHILD(this) == ((call_frame_t *)cookie)->this) {
 				/* Always, pass the inode number of first child to the above layer */
@@ -318,6 +323,8 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
 			if (local->stbuf.st_blksize == 0) {
 				local->inode = inode;
 				local->stbuf = *buf;
+				/* Because st_blocks gets added again */
+				local->stbuf.st_blocks = 0;
 			}
 			if (FIRST_CHILD(this) == ((call_frame_t *)cookie)->this) {
 				local->stbuf.st_ino = buf->st_ino;
@@ -378,6 +385,8 @@ stripe_stack_unwind_inode_lookup_cbk (call_frame_t *frame,
 			if (local->stbuf.st_blksize == 0) {
 				local->inode = inode;
 				local->stbuf = *buf;
+				/* Because st_blocks gets added again */
+				local->stbuf.st_blocks = 0;
 			}
 			if (FIRST_CHILD(this) == ((call_frame_t *)cookie)->this) {
 				local->stbuf.st_ino = buf->st_ino;
@@ -1152,6 +1161,16 @@ stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame,
 	{
 		callcnt = --local->call_count;
     
+		if ((op_ret == -1) && (op_errno == ENOTSUP)) {
+			if (!priv->xattr_supported_option_given) {
+				priv->xattr_supported = 0;
+				op_ret = 0;
+				gf_log (this->name, GF_LOG_CRITICAL, 
+					"seems like extended attribute not supported, "
+					"falling back to no extended attribute mode");
+			}
+		}
+
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
 				((call_frame_t *)cookie)->this->name, strerror (op_errno));
@@ -1212,8 +1231,11 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame,
 			local->op_ret = op_ret;
 			/* Get the mapping in inode private */
 			/* Get the stat buf right */
-			if (local->stbuf.st_blksize == 0) 
+			if (local->stbuf.st_blksize == 0) {
 				local->stbuf = *buf;
+				/* Because st_blocks gets added again */
+				local->stbuf.st_blocks = 0;
+			}
 
 			/* Always, pass the inode number of first child to the above layer */
 			if (FIRST_CHILD(this) == ((call_frame_t *)cookie)->this)
@@ -1233,7 +1255,7 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame,
 		if (local->failed) 
 			local->op_ret = -1;
 
-		if (local->op_ret != -1) {
+		if ((local->op_ret != -1) && priv->xattr_supported) {
 			/* Send a setxattr request to nodes where the files are created */
 			int32_t index = 0;
 			char size_key[256] = {0,};
@@ -1516,6 +1538,16 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
 	{
 		callcnt = --local->call_count;
     
+		if ((op_ret == -1) && (op_errno == ENOTSUP)) {
+			if (!priv->xattr_supported_option_given) {
+				priv->xattr_supported = 0;
+				op_ret = 0;
+				gf_log (this->name, GF_LOG_CRITICAL, 
+					"seems like extended attribute not supported, "
+					"falling back to no extended attribute mode");
+			}
+		}
+
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
 				((call_frame_t *)cookie)->this->name, strerror (op_errno));
@@ -1583,8 +1615,11 @@ stripe_create_cbk (call_frame_t *frame,
 			local->op_ret = op_ret;
 			/* Get the mapping in inode private */
 			/* Get the stat buf right */
-			if (local->stbuf.st_blksize == 0)
+			if (local->stbuf.st_blksize == 0) {
 				local->stbuf = *buf;
+				/* Because st_blocks gets added again */
+				local->stbuf.st_blocks = 0;
+			}
       
 			/* Always, pass the inode number of first child to the above layer */
 			if (FIRST_CHILD(this) == ((call_frame_t *)cookie)->this)
@@ -1609,7 +1644,7 @@ stripe_create_cbk (call_frame_t *frame,
 				  data_from_uint64 (local->stripe_size));
 		}
 
-		if (local->op_ret != -1 && local->stripe_size) {
+		if ((local->op_ret != -1) && local->stripe_size && priv->xattr_supported) {
 			/* Send a setxattr request to nodes where the files are created */
 			int32_t index = 0;
 			char size_key[256] = {0,};
@@ -1784,6 +1819,14 @@ stripe_open_getxattr_cbk (call_frame_t *frame,
 			local->op_errno = op_errno;
 			if (op_errno == ENOTCONN)
 				local->failed = 1;
+			if (op_errno == ENOTSUP) {
+				if (!priv->xattr_supported_option_given) {
+					priv->xattr_supported = 0;
+					gf_log (this->name, GF_LOG_CRITICAL, 
+						"seems like extended attribute not supported, "
+						"falling back to no extended attribute mode");
+				}
+			}
 		}
 	}
 	UNLOCK (&frame->lock);
@@ -1863,13 +1906,25 @@ stripe_open (call_frame_t *frame,
 	local->flags = flags;
 	local->call_count = priv->child_count;
 
-	while (trav) {
-		STACK_WIND (frame,
-			    stripe_open_getxattr_cbk,
-			    trav->xlator,
-			    trav->xlator->fops->getxattr,
-			    loc, NULL);
-		trav = trav->next;
+	if (priv->xattr_supported) {
+		while (trav) {
+			STACK_WIND (frame,
+				    stripe_open_getxattr_cbk,
+				    trav->xlator,
+				    trav->xlator->fops->getxattr,
+				    loc, NULL);
+			trav = trav->next;
+		}
+	} else {
+		local->stripe_size = priv->block_size;
+		while (trav) {
+			STACK_WIND (frame,
+				    stripe_open_cbk,
+				    trav->xlator,
+				    trav->xlator->fops->open,
+				    &local->loc, local->flags, local->fd);
+			trav = trav->next;
+		}
 	}
 
 	return 0;
@@ -2942,8 +2997,7 @@ init (xlator_t *this)
 	}
 
 	if (!count) {
-		gf_log (this->name, 
-			GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_ERROR,
 			"stripe configured without \"subvolumes\" option. exiting");
 		return -1;
 	}
@@ -2961,7 +3015,49 @@ init (xlator_t *this)
 		trav = trav->next;
 	}
 
+	if (count > 256) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"maximum number of stripe subvolumes supported is 256");
+		return -1;
+	}
+
 	/* option stripe-pattern *avi:1GB,*pdf:4096 */
+	data = dict_get (this->options, "block-size");
+	if (!data) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"No stripe pattern specified. check \"option block-size <x>\" in spec file");
+	} else {
+		char *tmp_str = NULL;
+		char *tmp_str1 = NULL;
+		char *dup_str = NULL;
+		char *stripe_str = NULL;
+		char *pattern = NULL;
+		char *num = NULL;
+		/* Get the pattern for striping. "option block-size *avi:10MB" etc */
+		stripe_str = strtok_r (data->data, ",", &tmp_str);
+		while (stripe_str) {
+			dup_str = strdup (stripe_str);
+			pattern = strtok_r (dup_str, ":", &tmp_str1);
+			num = strtok_r (NULL, ":", &tmp_str1);
+			if (num) {
+				if (gf_string2bytesize (num, &priv->block_size) != 0) {
+					gf_log (this->name, GF_LOG_ERROR, 
+						"invalid number format \"%s\"", 
+						num);
+					return -1;
+				}
+			} else {
+				/* Possible that there is no pattern given */
+				if (gf_string2bytesize (pattern, &priv->block_size) != 0) {
+					priv->block_size = (128 * GF_UNIT_KB);
+				}
+			}
+			stripe_str = strtok_r (NULL, ",", &tmp_str);
+		}
+	}
+
+/* The below code will be used when its only size as option */
+/*
 	data = dict_get (this->options, "block-size");
 	if (!data) {
 		gf_log (this->name, GF_LOG_WARNING,
@@ -2974,7 +3070,21 @@ init (xlator_t *this)
 			return -1;
 		}
 	}
+*/
 
+	priv->xattr_supported = 1;
+	priv->xattr_supported_option_given = 0;
+	data = dict_get (this->options, "extended-attribute-support");
+	if (data) {
+		if (gf_string2boolean (data->data, &priv->xattr_supported) == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"error setting hard check for extended attribute");
+			//return -1;
+		}
+		priv->xattr_supported_option_given = 1;
+	}
+	
+        
 	gf_log (this->name, GF_LOG_DEBUG, "stripe block size %"PRIu64"", priv->block_size);
 
 	/* notify related */
@@ -2986,7 +3096,7 @@ init (xlator_t *this)
 		trav->xlator->notify (trav->xlator, GF_EVENT_PARENT_UP, this);
 		trav = trav->next;
 	}
-  
+
 	return 0;
 } 
 
@@ -3053,7 +3163,8 @@ struct xlator_cbks cbks = {
 
 
 struct xlator_options options[] = {
-	{ "block-size", GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 2 * GF_UNIT_MB, 0},
+	{ "block-size", GF_OPTION_TYPE_ANY, 0, },
 	{ "drop-hostname-from-subvolumes", GF_OPTION_TYPE_BOOL, 0,  },
+	{ "extended-attribute-support", GF_OPTION_TYPE_BOOL, 0,  },
 	{ NULL, 0, },
 };
