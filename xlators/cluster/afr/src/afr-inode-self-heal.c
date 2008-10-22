@@ -149,7 +149,9 @@ open_sources_and_sinks (call_frame_t *frame, xlator_t *this)
 {
 	int i = 0;				
 	int call_count = 0;		     
+
 	int source = -1;
+	int *sources = NULL;
 
 	fd_t *fd = NULL;
 
@@ -164,7 +166,8 @@ open_sources_and_sinks (call_frame_t *frame, xlator_t *this)
 	fd = fd_create (local->cont.open.loc.inode, frame->root->pid);
 	fd = fd_ref (fd);
 
-	source = local->self_heal.source;
+	source  = local->self_heal.source;
+	sources = local->self_heal.sources;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if ((i == source) || (sources[i] == 0)) {
@@ -185,29 +188,33 @@ static int
 lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	  int32_t op_ret, int32_t op_errno)
 {
+	afr_local_t * local = NULL;
+
 	/* TODO: what if lock fails? */
+	
+	local = frame->local;
 
 	LOCK (&frame->lock);
 	{
-		frame->local->call_count--;
+		local->call_count--;
 	}
 	UNLOCK (&frame->lock);
 
-	if (frame->local->call_count == 0) {
+	if (local->call_count == 0) {
 		open_sources_and_sinks (frame, this);
 	}
 }
 
 
 static int
-lock_inode (call_frame_t *frame, xlator_t *this);
+lock_inode (call_frame_t *frame, xlator_t *this)
 {
 	struct flock flock;			
 	int i = 0;				
 	int call_count = 0;		     
 
 	int source;
-	int sources[];
+	int *sources;
 
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = this->private;
@@ -219,7 +226,7 @@ lock_inode (call_frame_t *frame, xlator_t *this);
 	source = sh->source;
 	sources = sh->sources;
 
-	call_count = sink_count (sources) + 1; 
+	call_count = sink_count (sources, priv->child_count) + 1; 
 
 	local->call_count = call_count;		
 
@@ -291,6 +298,10 @@ sync_sources_and_sinks (call_frame_t *frame, xlator_t *this,
 	/* select a source */
 	sh->source = select_source (sources, priv->child_count);
 
+	gf_log (this->name, GF_LOG_DEBUG,
+		"selecting child %d as source",
+		sh->source);
+
 	/* stat on source */
 	get_source_stat (frame, this, sh->source);
 
@@ -298,7 +309,7 @@ sync_sources_and_sinks (call_frame_t *frame, xlator_t *this,
 	lock_inode (frame, this);
 
 	/* open all sources and sinks */
-	open_source_and_sinks (frame, this);
+//	open_source_and_sinks (frame, this);
 
 	/* read 1MB from source: 
 	    in the cbk: if EOF or node goes down
@@ -307,13 +318,13 @@ sync_sources_and_sinks (call_frame_t *frame, xlator_t *this,
 			  write it to all sinks
 	    in write cbk: jump back to read cbk
 	*/
-	read_write (frame, this);
+//	read_write (frame, this);
 
 	/* erase pending on all synced nodes */
-	erase_pending (frame, this);
+//	erase_pending (frame, this);
 
 	/* unlock all nodes */
-	unlock_inode (frame, this);
+//	unlock_inode (frame, this);
 
 	/* call completion_cbk */
 }
