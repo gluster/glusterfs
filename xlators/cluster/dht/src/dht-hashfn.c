@@ -144,7 +144,7 @@ typedef enum {
 
 
 int
-dht_hash_compute (int type, const char *name, uint32_t *hash_p)
+dht_hash_compute_internal (int type, const char *name, uint32_t *hash_p)
 {
 	int      ret = 0;
 	uint32_t hash = 0;
@@ -165,3 +165,31 @@ dht_hash_compute (int type, const char *name, uint32_t *hash_p)
 	return ret;
 }
 
+
+#define MAKE_RSYNC_FRIENDLY_NAME(rsync_frndly_name, name) do {          \
+                rsync_frndly_name = (char *) name;			\
+                if (name[0] == '.') {                                   \
+                        char *dot   = 0;                                \
+                        int namelen = 0;                                \
+                                                                        \
+                        dot = strrchr (name, '.');                      \
+                        if (dot && dot > (name + 1) && *(dot + 1)) {    \
+                                namelen = (dot - name);                 \
+                                rsync_frndly_name = alloca (namelen);   \
+                                strncpy (rsync_frndly_name, name + 1,   \
+                                         namelen);                      \
+                                rsync_frndly_name[namelen - 1] = 0;     \
+                        }                                               \
+                }                                                       \
+        } while (0);
+
+
+int
+dht_hash_compute (int type, const char *name, uint32_t *hash_p)
+{
+	char     *rsync_friendly_name = NULL;
+
+	MAKE_RSYNC_FRIENDLY_NAME (rsync_friendly_name, name);
+
+	return dht_hash_compute (type, name, hash_p);
+}

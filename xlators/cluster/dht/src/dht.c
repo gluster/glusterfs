@@ -32,6 +32,8 @@
 
 
 /* TODO:
+   - make filename hash rsync friendly
+   - use volumename in xattr instead of "dht"
    - use NS locks
    - handle all cases in self heal layout reconstruction
    - complete linkfile selfheal
