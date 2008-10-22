@@ -159,8 +159,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
-	int call_count = -1;
-	
+	int call_count       = -1;
+
 	int child_index = (int) cookie;
 
 	priv = this->private;
@@ -185,27 +185,17 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 				"scaling inode %"PRId64" to %"PRId64,
 				buf->st_ino, local->cont.lookup.buf.st_ino);
 
-			local->cont.lookup.xattr = xattr;
-
 			local->success_count++;
-
-			if (S_ISDIR (buf->st_mode)) {
-				if (afr_dir_self_heal_needed (xattr)) {
-					gf_log (this->name, GF_LOG_TRACE,
-						"self heal needed on %s",
-						local->cont.lookup.loc.path);
-					
-				}
-			}
 		}
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
 
-	if (call_count == 0)
+	if (call_count == 0) {
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, inode, 
 			      &local->cont.lookup.buf, xattr);
+	}
 
 	return 0;
 }
@@ -232,7 +222,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	frame->local = local;
 
 	loc_copy (&local->cont.lookup.loc, loc);
-
+	
 	if (loc->inode->ino != 0) {
 		/* revalidate */
 
@@ -292,24 +282,21 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-int32_t afr_open (call_frame_t *frame, xlator_t *this,
-		  loc_t *loc, int32_t flags, fd_t *fd)
+int
+afr_open_self_heal_completion_cbk (call_frame_t *frame, xlator_t *this)
 {
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
 
 	int i = 0;
-	int32_t op_errno = 0;
 
 	int call_count = 0;
 
 	priv = this->private;
-
-	ALLOC_OR_GOTO (local, afr_local_t, out);
+	local = frame->local;
 
 	call_count = up_children_count (priv->child_count, priv->child_up); 
 
-	frame->local = local;
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {
@@ -317,11 +304,43 @@ int32_t afr_open (call_frame_t *frame, xlator_t *this,
 			STACK_WIND (frame, afr_open_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->open,
-				    loc, flags, fd);
+				    &local->cont.open.loc, local->cont.open.flags, 
+				    local->cont.open.fd);
 		}
 	}
 
+	return 0;
+}
+
+
+int32_t afr_open (call_frame_t *frame, xlator_t *this,
+		  loc_t *loc, int32_t flags, fd_t *fd)
+{
+	afr_private_t *priv = NULL;
+	afr_local_t *local = NULL;
+
+	int32_t op_ret   = -1;
+	int32_t op_errno = 0;
+
+	priv = this->private;
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	frame->local = local;
+
+	loc_copy (&local->cont.open.loc, loc);
+	local->cont.open.flags = flags;
+	local->cont.open.fd    = fd;
+
+	afr_inode_data_self_heal (frame, this,
+				  afr_open_self_heal_completion_cbk);
+
+	op_ret = 0;
 out:
+	if (op_ret == -1) {
+		STACK_UNWIND (frame, op_ret, op_errno, fd);
+	}
+
 	return 0;
 }
 
@@ -461,6 +480,99 @@ out:
 }
 
 
+int32_t
+afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+	    int32_t op_ret, int32_t op_errno, struct flock *lock)
+{
+	afr_local_t *local = NULL;
+	afr_private_t *priv = NULL;
+
+	int call_count  = -1;
+	int child_index = -1;
+
+	local = frame->local;
+	priv  = this->private;
+
+	child_index = (int) cookie;
+
+	call_count = --local->call_count;
+
+	if (!child_went_down (op_ret, op_errno) && (op_ret == -1)) {
+		local->op_ret         = op_ret;
+		local->op_errno       = op_errno;
+		local->cont.lk.flock  = *lock;
+		local->success_count  = -1;
+
+		goto out;
+	}
+
+	child_index++;
+
+	if (child_index < priv->child_count) {
+		STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) child_index,
+				   priv->children[child_index],
+				   priv->children[child_index]->fops->lk,
+				   local->cont.lk.fd, local->cont.lk.cmd, 
+				   &local->cont.lk.flock);
+	}
+
+out:
+	if ((call_count == 0) || (local->success_count == -1))
+		STACK_UNWIND (frame, local->op_ret, local->op_errno, &
+			      local->cont.lk.flock);
+
+	return 0;
+}
+
+
+int
+afr_lk (call_frame_t *frame, xlator_t *this,
+	fd_t *fd, int32_t cmd,
+	struct flock *flock)
+{
+	afr_private_t *priv = NULL;
+	afr_local_t *local = NULL;
+
+	int i = 0;
+
+	int32_t op_ret   = -1;
+	int32_t op_errno = 0;
+
+	int call_count = 0;
+
+	priv = this->private;
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	call_count = up_children_count (priv->child_count, priv->child_up); 
+	if (call_count == 0) {
+		op_errno = ENOTCONN;
+		goto out;
+	}
+
+	frame->local      = local;
+	local->call_count = call_count;
+
+	local->cont.lk.fd    = fd;
+	local->cont.lk.cmd   = cmd;
+	local->cont.lk.flock = *flock;
+
+	i = first_up_child (priv);
+
+	STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) i,
+			   priv->children[i],
+			   priv->children[i]->fops->lk,
+			   fd, cmd, flock);
+
+	op_ret = 0;
+out:
+	if (op_ret == -1) {
+		STACK_UNWIND (frame, op_ret, op_errno, NULL);
+	}
+	return 0;
+}
+
+
 /**
  * find_child_index - find the child's index in the array of subvolumes
  * @this: AFR
@@ -484,71 +596,6 @@ find_child_index (xlator_t *this, xlator_t *child)
 	return i;
 }
 
-
-#if 0
-static int32_t
-afr_test_gf_lk_cbk (call_frame_t *frame, void *cookie,
-		    xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	afr_private_t * priv  = NULL;
-	int             i     = -1;
-	xlator_t      * child = (xlator_t *) cookie;
-
-	priv = this->private;
-
-	if (op_errno == ENOSYS) {
-		gf_log (this->name, GF_LOG_CRITICAL,
-			"'locks' translator has not been loaded on server corresponding to subvolume '%s', neglecting the subvolume. Data WILL NOT be replicated on it.",
-			child->name);
-	} else {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"'%s' supports GF_*_LK", child->name);
-
-		i = find_child_index (this, child);
-		priv->child_up[i] = 1;
-	}
-
-	STACK_DESTROY (frame->root);
-
-	return 0;
-}
-
-
-static void
-afr_test_gf_lk (xlator_t *this, xlator_t *child)
-{
-	call_ctx_t *  cctx = NULL;
-	call_pool_t * pool = this->ctx->pool;
-	loc_t         loc  = {
-		.inode = NULL,
-		.path = "/",
-	};
-
-	struct        flock lock = {
-		.l_start = -1,
-		.l_len   = -1,
-	};
-
-	cctx = calloc (1, sizeof (*cctx));
-
-	cctx->frames.root  = cctx;
-	cctx->frames.this  = this;    
-	cctx->pool         = pool;
-
-	LOCK (&pool->lock);
-	{
-		list_add (&cctx->all_frames, &pool->all_frames);
-	}
-	UNLOCK (&pool->lock);
-  
-	STACK_WIND_COOKIE ((&cctx->frames), 
-			   afr_test_gf_lk_cbk,
-			   child, child,
-			   child->fops->gf_file_lk,
-			   &loc, F_SETLK, &lock);
-	return;
-}
-#endif
 
 int32_t
 notify (xlator_t *this, int32_t event,
@@ -685,8 +732,8 @@ init (xlator_t *this)
 	trav = this->children;
 	while (i < child_count) {
 		priv->children[i] = trav->xlator;
-		priv->pending_inc_array[i] = 1;
-		priv->pending_dec_array[i] = -1;
+		priv->pending_inc_array[i] = hton32 (1);
+		priv->pending_dec_array[i] = hton32 (-1);
 
 		trav = trav->next;
 		i++;
@@ -708,6 +755,8 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
   .lookup      = afr_lookup,
   .open        = afr_open,
+  .lk          = afr_lk,
+  .flush       = afr_flush,
 
   /* inode read */
   .access      = afr_access,
@@ -726,7 +775,6 @@ struct xlator_fops fops = {
 
   /* dir read */
   .opendir     = afr_opendir,
-/*  .closedir    = afr_closedir,  no need to implement this if I don't store ctx */
   .readdir     = afr_readdir,
   .statfs      = afr_statfs,
 

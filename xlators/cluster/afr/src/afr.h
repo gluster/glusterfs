@@ -44,6 +44,20 @@ typedef struct _afr_private {
 	unsigned int read_child;      /* read-subvolume */
 } afr_private_t;
 
+typedef struct {
+	/* array of stat's, one for each child */
+	struct stat *buf;  
+
+	/* array of xattr's, one for each child */
+	dict_t **xattr;
+
+	int sources[1024];
+	int source;
+
+	blksize_t block_size;
+	int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
+} afr_self_heal_t;
+
 typedef struct _afr_local {
 	unsigned int call_count;
 	unsigned int success_count;
@@ -56,7 +70,7 @@ typedef struct _afr_local {
 	   (scheme-like) of fops
 	*/
 	   
-	struct {
+	union {
 		struct {
 			unsigned char buf_set;
 			struct statvfs buf;
@@ -69,6 +83,18 @@ typedef struct _afr_local {
 			struct stat buf;
 			dict_t *xattr;
 		} lookup;
+
+		struct {
+			loc_t loc;
+			int32_t flags;
+			fd_t *fd;
+		} open;
+
+		struct {
+			fd_t *fd;
+			int32_t cmd;
+			struct flock flock;
+		} lk;
 
 		/* inode read */
 
@@ -253,7 +279,7 @@ typedef struct _afr_local {
 
 		enum {AFR_INODE_TRANSACTION,    /* chmod, write, ... */
 		      AFR_DIR_TRANSACTION,      /* create, rmdir, ... */
-		      AFR_DIR_LINK_TRANSACTION  /* link, rename */
+		      AFR_DIR_LINK_TRANSACTION,  /* link, rename */
 		} type;
 
 		int success_count;
@@ -275,15 +301,7 @@ typedef struct _afr_local {
 		int (*resume) (call_frame_t *frame, xlator_t *this);
 	} transaction;
 
-	struct {
-		/* array of stat's, one for each child */
-		struct stat *buf;  
-
-		/* array of xattr's, one for each child */
-		dict_t **xattr;
-
-	} selfheal;
-
+	afr_self_heal_t self_heal;
 } afr_local_t;
 
 /* try alloc and if it fails, goto label */

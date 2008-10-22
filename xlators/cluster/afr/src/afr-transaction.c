@@ -540,7 +540,11 @@ transaction_resume (call_frame_t *frame, xlator_t *this)
 	
 	local = frame->local;
 	
-	afr_write_pending_post_op (frame, this);
+	if (local->transaction.failure_count) {
+		afr_unlock_inode (frame, this);
+	} else {
+		afr_write_pending_post_op (frame, this);
+	}
 
 	return 0;
 }

@@ -316,7 +316,7 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 		STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) deitransform_child,
 				   children[last_tried], 
 				   children[last_tried]->fops->fstat,
-				   local->cont.readv.fd);
+				   local->cont.fstat.fd);
 	}
 
 out:

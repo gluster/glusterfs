@@ -333,6 +333,9 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		call_count = --local->call_count;
 
+		if (child_went_down (op_ret, op_errno))
+			local->transaction.failure_count++;
+
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret   = op_ret;
 
@@ -367,6 +370,10 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 	call_count = up_children_count (priv->child_count, priv->child_up); 
 
 	local->call_count = call_count;		
+
+	if (call_count < priv->child_count) {
+		local->transaction.failure_count = 1;
+	}
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->transaction.child_up[i]) {
