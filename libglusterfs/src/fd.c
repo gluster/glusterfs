@@ -132,9 +132,20 @@ gf_fd_fdtable_alloc (void)
 void 
 gf_fd_fdtable_destroy (fdtable_t *fdtable)
 {
+				
+	int32_t i = 0;
+
 	if (fdtable) {
 		pthread_mutex_lock (&fdtable->lock);
 		{
+			for (i=0; i < fdtable->max_fds; i++) {
+				if (fdtable->fds[i]) {
+					fd_t *fd = fdtable->fds[i];
+						  
+					fd_unref (fd);
+				}
+			}
+
 			FREE (fdtable->fds);
 		}
 		pthread_mutex_unlock (&fdtable->lock);

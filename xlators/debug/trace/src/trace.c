@@ -1107,13 +1107,14 @@ trace_gf_file_lk (call_frame_t *frame,
 		    loc, fd, cmd, flock);
 	return 0;
 }
+
 int32_t
 trace_xattrop (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
-		const char *path,
-		int32_t flags,
-		dict_t *dict)
+	       xlator_t *this,
+	       fd_t *fd,
+	       const char *path,
+	       gf_xattrop_flags_t flags,
+	       dict_t *dict)
 {
 	ERR_EINVAL_NORETURN (!this || (!path && !fd));
 

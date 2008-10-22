@@ -47,16 +47,6 @@ typedef struct _server_state server_state_t;
 #define BOUND_XL(frame)     ((xlator_t *) STATE (frame)->bound_xl)
 
 
-struct held_locks {
-	struct held_locks *next;
-	char *path;
-};
-
-/* private structure per socket (transport object)
-   used as transport_t->xl_private
-*/
-
-
 struct _server_reply {
 	struct list_head list;
 	call_frame_t *frame;
@@ -76,11 +66,29 @@ struct _server_reply_queue {
 };
 typedef struct _server_reply_queue server_reply_queue_t;
 
-struct server_proto_priv {
+struct _locker {
+	struct list_head lockers;
+	loc_t loc;
+	fd_t *fd;
+	pid_t pid;
+};
+
+struct _lock_table {
+	struct list_head file_lockers;
+	struct list_head dir_lockers;
+	gf_lock_t lock;
+	size_t count;
+};
+
+/* private structure per connection (transport object)
+ * used as transport_t->xl_private
+ */
+struct _connection_priv {
 	pthread_mutex_t lock;
-	char disconnected;
-	fdtable_t *fdtable;
-	xlator_t *bound_xl; /* to be set after an authenticated SETVOLUME */
+	char disconnected;    /* represents a disconnected object, if set */
+	fdtable_t *fdtable; 
+	struct _lock_table *ltable;
+	xlator_t *bound_xl;   /* to be set after an authenticated SETVOLUME */
 };
 
 typedef struct {
@@ -129,7 +137,7 @@ typedef struct {
 	transport_t *trans;
 } server_private_t;
 
-typedef struct server_proto_priv server_proto_priv_t;
+typedef struct _connection_priv connection_private_t;
 
 static inline __attribute__((always_inline))
 void

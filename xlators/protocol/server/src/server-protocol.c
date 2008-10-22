@@ -43,7 +43,7 @@
 
 
 #define TRANSPORT_OF(frame) ((transport_t *) STATE (frame)->trans)
-#define SERVER_PRIV(frame)  ((server_proto_priv_t *) TRANSPORT_OF(frame)->xl_private)
+#define CONNECTION_PRIVATE(frame)  ((connection_private_t *) TRANSPORT_OF(frame)->xl_private)
 
 #define __TRANSPORT_OF(this)    ((((server_private_t *)this->private))->trans)
 
@@ -60,7 +60,7 @@ server_state_fill (call_frame_t *frame,
 		   int type)
 {
 	server_state_t *state = STATE (frame);
-	server_proto_priv_t *priv = SERVER_PRIV (frame);
+	connection_private_t *connection_priv = CONNECTION_PRIVATE (frame);
 	
 	state->itable = BOUND_XL(frame)->itable;
 
@@ -250,7 +250,7 @@ server_state_fill (call_frame_t *frame,
 		gf_fop_flush_req_t *req = request;
 
 		state->fd_no = ntoh64 (req->fd);
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_FSYNC:
@@ -260,7 +260,7 @@ server_state_fill (call_frame_t *frame,
 		state->fd_no = ntoh64 (req->fd);
 		state->flags = ntoh32 (req->data);
 		
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_FTRUNCATE:
@@ -269,7 +269,7 @@ server_state_fill (call_frame_t *frame,
 		state->offset = ntoh64 (req->offset);
 		state->fd_no  = ntoh64 (req->fd);
 		
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_FCHMOD:
@@ -278,7 +278,7 @@ server_state_fill (call_frame_t *frame,
 		state->mode   = ntoh32 (req->mode);
 		state->fd_no  = ntoh64 (req->fd);
 
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_FCHOWN:
@@ -288,7 +288,7 @@ server_state_fill (call_frame_t *frame,
 		state->gid   = ntoh32 (req->gid);
 		state->fd_no = ntoh64 (req->fd);
 		
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_FSTAT:
@@ -296,7 +296,7 @@ server_state_fill (call_frame_t *frame,
 		gf_fop_fstat_req_t *req = request;
 		state->fd_no  = ntoh64 (req->fd);
 
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	break;
@@ -317,7 +317,7 @@ server_state_fill (call_frame_t *frame,
 		state->size    = ntoh32 (req->size);
 		state->offset  = ntoh64 (req->offset);
 		
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_WRITE:
@@ -327,7 +327,7 @@ server_state_fill (call_frame_t *frame,
 		state->offset = ntoh64 (req->offset);
 		state->fd_no  = ntoh64 (req->fd);
 		
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_LK:
@@ -335,7 +335,7 @@ server_state_fill (call_frame_t *frame,
 		gf_fop_lk_req_t *req = request;
 		state->fd_no  = ntoh64 (req->fd);
 		
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 
 		state->cmd =  ntoh32 (req->cmd);
 		state->type = ntoh32 (req->type);
@@ -348,7 +348,7 @@ server_state_fill (call_frame_t *frame,
 		state->offset = ntoh64 (req->offset);
 		state->fd_no  = ntoh64 (req->fd);
 		
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_GETDENTS:
@@ -360,7 +360,7 @@ server_state_fill (call_frame_t *frame,
 		state->flags = ntoh32 (req->flags);
 		state->fd_no  = ntoh64 (req->fd);
 
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 
 	}
 	break;
@@ -369,7 +369,7 @@ server_state_fill (call_frame_t *frame,
 		gf_fop_setdents_req_t *req = request;
 
 		state->fd_no  = ntoh64 (req->fd);
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 		state->nr_count = ntoh32 (req->count);
 	}
 	break;
@@ -379,7 +379,7 @@ server_state_fill (call_frame_t *frame,
 		state->fd_no = ntoh32 (req->fd);
 		state->flags = ntoh32 (req->data);
 
-		state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_XATTROP:
@@ -395,7 +395,7 @@ server_state_fill (call_frame_t *frame,
 		state->flags = ntoh32 (req->flags);
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no != -1)
-			state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
+			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
 	case GF_FOP_GF_DIR_LK:
@@ -430,8 +430,8 @@ server_state_fill (call_frame_t *frame,
 
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no != -1)
-			state->fd = gf_fd_fdptr_get (priv->fdtable, state->fd_no);
-
+			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
+		
 		if (state->fd_no == -1)
 			state->path = req->path;
 
@@ -804,6 +804,102 @@ server_lk_cbk (call_frame_t *frame,
 	return 0;
 }
 
+int32_t
+gf_add_locker (struct _lock_table *table,
+	       loc_t *loc,
+	       fd_t *fd,
+	       pid_t pid)
+{
+	int32_t ret = -1;
+	struct _locker *new = NULL;
+	uint8_t dir = 0;
+
+	new = calloc (1, sizeof (struct _locker));
+	if (new == NULL) {
+		gf_log ("server", GF_LOG_ERROR,
+			"failed to allocate memory for \'struct _locker\'");
+		goto out;
+	} 
+	INIT_LIST_HEAD (&new->lockers);
+
+	if (fd == NULL) {
+		loc_copy (&new->loc, loc);
+		dir = S_ISDIR (new->loc.inode->st_mode);
+	} else {
+		new->fd = fd_ref (fd);
+		dir = S_ISDIR (fd->inode->st_mode);
+	}
+	
+	new->pid = pid;
+
+	LOCK (&table->lock);
+	{
+		if (dir)
+			list_add_tail (&new->lockers, &table->dir_lockers);
+		else
+			list_add_tail (&new->lockers, &table->file_lockers);
+	}
+	UNLOCK (&table->lock);
+out:
+	return ret;
+}
+
+int32_t
+gf_del_locker (struct _lock_table *table,
+	       loc_t *loc,
+	       fd_t *fd,
+	       pid_t pid)
+{
+	struct _locker *locker = NULL, *tmp = NULL;
+	int32_t ret = 0;
+	uint8_t dir = 0;
+	struct list_head *head = NULL;
+	struct list_head del;
+	
+	INIT_LIST_HEAD (&del);
+
+	if (fd) {
+		dir = S_ISDIR (fd->inode->st_mode);
+	} else {
+		dir = S_ISDIR (loc->inode->st_mode);
+	}
+
+	LOCK (&table->lock);
+	{
+		if (dir) {
+			head = &table->dir_lockers;
+		} else {
+			head = &table->file_lockers;
+		}
+
+		list_for_each_entry_safe (tmp, locker, head, lockers) {
+			if (locker->fd && 
+			    (locker->fd == fd) && (locker->pid == pid)) {
+				list_move_tail (&locker->lockers, &del);
+			} else if (locker->loc.inode && 
+				   (locker->loc.inode == loc->inode) &&
+				   (locker->pid == pid)) {
+				list_move_tail (&locker->lockers, &del);
+			}
+		}
+	}
+	UNLOCK (&table->lock);
+
+	tmp = NULL;
+	locker = NULL;
+
+	list_for_each_entry_safe (tmp, locker, &del, lockers) {
+		list_del_init (&locker->lockers);
+		if (locker->fd)
+			fd_unref (locker->fd);
+		else
+			loc_wipe (&locker->loc);
+		
+		free (locker);
+	}
+
+	return ret;
+}
 
 int32_t
 server_gf_file_lk_cbk (call_frame_t *frame,
@@ -815,14 +911,23 @@ server_gf_file_lk_cbk (call_frame_t *frame,
  	size_t hdrlen = 0;
  	gf_hdr_common_t *hdr = NULL;
  	gf_fop_lk_rsp_t *rsp = NULL;
-  
+	server_state_t *state = NULL;
+
  	hdrlen = gf_hdr_len (rsp, 0);
  	hdr    = gf_hdr_new (rsp, 0);
  	rsp    = gf_param (hdr);
   
  	hdr->rsp.op_ret   = hton32 (op_ret);
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
-  
+	
+	state = STATE (frame);
+	if (state->flock.l_type == F_UNLCK)
+		gf_del_locker (CONNECTION_PRIVATE(frame)->ltable, 
+			       &state->loc, state->fd, frame->root->pid);
+	else
+		gf_add_locker (CONNECTION_PRIVATE(frame)->ltable, 
+			       &state->loc, state->fd, frame->root->pid);
+
  	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GF_FILE_LK,
  			       hdr, hdrlen, NULL, 0, NULL);
   
@@ -841,7 +946,6 @@ server_gf_file_lk_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-
 int32_t
 server_gf_dir_lk_cbk (call_frame_t *frame,
  		      void *cookie,
@@ -852,14 +956,23 @@ server_gf_dir_lk_cbk (call_frame_t *frame,
  	size_t hdrlen = 0;
  	gf_hdr_common_t *hdr = NULL;
  	gf_fop_lk_rsp_t *rsp = NULL;
- 
+	server_state_t *state = NULL;
+
  	hdrlen = gf_hdr_len (rsp, 0);
  	hdr    = gf_hdr_new (rsp, 0);
  	rsp    = gf_param (hdr);
  
  	hdr->rsp.op_ret   = hton32 (op_ret);
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
- 
+
+	state = STATE (frame);
+	if (state->flock.l_type == F_UNLCK)
+		gf_del_locker (CONNECTION_PRIVATE(frame)->ltable, 
+			       &state->loc, state->fd, frame->root->pid);
+	else
+		gf_add_locker (CONNECTION_PRIVATE(frame)->ltable, 
+			       &state->loc, state->fd, frame->root->pid);
+
  	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GF_DIR_LK,
  			       hdr, hdrlen, NULL, 0, NULL);
  
@@ -1444,14 +1557,14 @@ server_opendir_cbk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_opendir_rsp_t *rsp = NULL;
 	size_t hdrlen = 0;
-	server_proto_priv_t *priv = NULL;
+	connection_private_t *priv = NULL;
 	uint64_t fd_no = -1;
 	server_state_t *state = NULL;
   
 	state = STATE (frame);
 
 	if (op_ret >= 0) {
-		priv = SERVER_PRIV (frame);
+		priv = CONNECTION_PRIVATE (frame);
 
 		fd_bind (fd);
 
@@ -2175,14 +2288,14 @@ server_open_cbk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_open_rsp_t *rsp = NULL;
 	size_t hdrlen = 0;
-	server_proto_priv_t *priv = NULL;
+	connection_private_t *priv = NULL;
 	int fd_no = -1;
 	server_state_t *state = NULL;
   
 	state = STATE (frame);
 
 	if (op_ret >= 0) {
-		priv = SERVER_PRIV (frame);
+		priv = CONNECTION_PRIVATE (frame);
 
 		fd_bind (fd);
 
@@ -2236,13 +2349,13 @@ server_create_cbk (call_frame_t *frame,
 	gf_fop_create_rsp_t *rsp = NULL;
 	size_t hdrlen = 0;
 	int32_t fd_no = -1;
-	server_proto_priv_t *priv = NULL;
+	connection_private_t *priv = NULL;
 	server_state_t *state = NULL;
   
 	state = STATE (frame);
 
 	if (op_ret >= 0) {
-		priv = SERVER_PRIV (frame);
+		priv = CONNECTION_PRIVATE (frame);
 
 		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 		inode_lookup (inode);
@@ -3780,10 +3893,10 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
 		char *buf, size_t buflen)
 {
 	gf_cbk_release_req_t *req = NULL;
-	server_proto_priv_t *priv = NULL;
+	connection_private_t *priv = NULL;
 	server_state_t *state = NULL;
 	
-	priv = SERVER_PRIV (frame);
+	priv = CONNECTION_PRIVATE (frame);
 	req = gf_param (hdr);
 	state = STATE (frame);
 	
@@ -3799,7 +3912,7 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
 		goto out;
 	}
 
-	priv = SERVER_PRIV (frame);
+	priv = CONNECTION_PRIVATE (frame);
 	gf_fd_put (priv->fdtable, state->fd_no);
   
 	STACK_WIND (frame,
@@ -4504,10 +4617,10 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 		   char *buf, size_t buflen)
 {
 	gf_cbk_releasedir_req_t *req = NULL;
-	server_proto_priv_t *priv = NULL;
+	connection_private_t *priv = NULL;
 	server_state_t *state = NULL;
 
-	priv = SERVER_PRIV (frame);
+	priv = CONNECTION_PRIVATE (frame);
 	req = gf_param (hdr);
 	state = STATE (frame);
 
@@ -4523,7 +4636,7 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 		goto out;
 	}
 
-	priv = SERVER_PRIV (frame);
+	priv = CONNECTION_PRIVATE (frame);
 	gf_fd_put (priv->fdtable, state->fd_no);
   
 	server_releasedir_cbk (frame, NULL, frame->this,
@@ -6108,7 +6221,7 @@ mop_setvolume (call_frame_t *frame,
 	int32_t              ret = -1;
 	int32_t              remote_errno = 0;
 	dict_t              *reply = NULL;
-	server_proto_priv_t *priv = NULL;
+	connection_private_t *connection_priv = NULL;
 	server_private_t    *server_priv = NULL;
 	char                *name = NULL;
 	char                *version = NULL;
@@ -6129,7 +6242,7 @@ mop_setvolume (call_frame_t *frame,
 
 	dict_unserialize (req->buf, ntoh32 (req_hdr->size), &params);
 
-	priv = SERVER_PRIV (frame);
+	connection_priv = CONNECTION_PRIVATE (frame);
 
 	server_priv = TRANSPORT_OF (frame)->xl->private;
 
@@ -6187,7 +6300,7 @@ mop_setvolume (call_frame_t *frame,
 			"accepted client from %s",
 			peerinfo->identifier);
 		ret = 0;
-		priv->bound_xl = xl;
+		connection_priv->bound_xl = xl;
 		dict_set_str (reply, "ERROR", "Success");
 	} else {
 		gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
@@ -6199,7 +6312,7 @@ mop_setvolume (call_frame_t *frame,
 		goto fail;
 	}
 
-	if (priv->bound_xl == NULL) {
+	if (connection_priv->bound_xl == NULL) {
 		dict_set_str (reply, "ERROR",
 			      "Check volume spec file and handshake options");
 		ret = -1;
@@ -6208,9 +6321,9 @@ mop_setvolume (call_frame_t *frame,
 	}
 
 fail:
-	if ((priv->bound_xl != NULL) && 
+	if ((connection_priv->bound_xl != NULL) && 
 	    (ret >= 0)               && 
-	    (priv->bound_xl->itable == NULL)) {
+	    (connection_priv->bound_xl->itable == NULL)) {
 		/* create inode table for this bound_xl, if one doesn't already exist */
 		int32_t lru_limit = 1024;
 		xlator_t *xl = TRANSPORT_OF (frame)->xl;
@@ -6219,9 +6332,10 @@ fail:
 
 		gf_log (xl->name, GF_LOG_DEBUG,
 			"creating inode table with lru_limit=%d, xlator=%s",
-			lru_limit, priv->bound_xl->name);
+			lru_limit, connection_priv->bound_xl->name);
 
-		priv->bound_xl->itable = inode_table_new (lru_limit, priv->bound_xl);
+		connection_priv->bound_xl->itable = inode_table_new (lru_limit, 
+								     connection_priv->bound_xl);
 	}
 
 	dict_set_int32 (reply, "RET", ret);
@@ -6279,7 +6393,9 @@ server_mop_stats_cbk (call_frame_t *frame,
 	if (ret >= 0)
 	{
 		sprintf (buffer,
-			 "%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64"\n",
+			 "%"PRIx64",%"PRIx64",%"PRIx64
+			 ",%"PRIx64",%"PRIx64",%"PRIx64
+			 ",%"PRIx64",%"PRIx64"\n",
 			 stats->nr_files,
 			 stats->disk_usage,
 			 stats->free_disk,
@@ -6448,7 +6564,7 @@ get_frame_for_transport (transport_t *trans)
 {
 	call_frame_t *frame = NULL;
 	call_pool_t *pool = trans->xl->ctx->pool;
-	server_proto_priv_t *priv = trans->xl_private;
+	connection_private_t *priv = trans->xl_private;
 	server_state_t *state = NULL;;
 
 
@@ -6586,7 +6702,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
 	int                  ret = -1;
 	gf_hdr_common_t     *hdr = NULL;
 	xlator_t            *bound_xl = NULL;
-	server_proto_priv_t *priv = NULL;
+	connection_private_t   *priv = NULL;
 	call_frame_t        *frame = NULL;
 	int32_t              type = -1;
 	int32_t              op = -1;
@@ -6664,14 +6780,11 @@ server_nop_cbk (call_frame_t *frame,
                 int32_t op_ret,
                 int32_t op_errno)
 {
-	/* TODO: cleanup frame->root->state */
-	fd_t *fd = frame->local;
-
-	if (fd) {
-		fd_unref (fd);
-		frame->local = NULL;
-	}
-
+	server_state_t *state = NULL;
+	
+	state = STATE (frame);
+	
+	free_state (state);
 	STACK_DESTROY (frame->root);
 	return 0;
 }
@@ -6687,70 +6800,107 @@ server_nop_cbk (call_frame_t *frame,
 int32_t
 server_protocol_cleanup (transport_t *trans)
 {
-	server_proto_priv_t *priv = trans->xl_private;
-	call_frame_t *frame = NULL, *unlock_frame = NULL;
-	peer_info_t *peerinfo = NULL;
-	xlator_t *bound_xl;
+	connection_private_t *connection_priv = NULL;
+	call_frame_t      *frame = NULL, *tmp_frame = NULL;
+	peer_info_t       *peerinfo = NULL;
+	xlator_t          *bound_xl = NULL;
+	int32_t            ret = -1;
+	struct list_head   file_lockers;
+	struct list_head   dir_lockers;
+	struct _lock_table *ltable = NULL;
+	struct _locker     *locker = NULL, *tmp = NULL;
+	struct flock        flock = {0,};
+	
+	connection_priv = trans->xl_private;
+	if (connection_priv == NULL) {
+		gf_log ("server",
+			GF_LOG_CRITICAL,
+			"connection private (null) for transport %p", trans);
+		ret = -1;
+		goto out;
+	}
 
-	if (!priv)
-		return 0;
-
-	bound_xl = (xlator_t *) priv->bound_xl;
+	bound_xl = (xlator_t *) (connection_priv->bound_xl);
 	if (bound_xl) {
-
 		/* trans will have ref_count = 1 after this call, but its ok since this function is
 		   called in GF_EVENT_TRANSPORT_CLEANUP */
 		frame = get_frame_for_transport (trans);
 	  
-		/* its cleanup of transport */
-		/* but, mop_unlock_impl needs transport ptr to clear locks held by it */
-		/* ((server_state_t *)frame->root->state)->trans = NULL; */
-	  
-		/* ->unlock () with NULL path will cleanup
-		   lock manager's internals by remove all
-		   entries related to this transport
-		*/
-		pthread_mutex_lock (&priv->lock);
+		pthread_mutex_lock (&(connection_priv->lock));
 		{
-			if (priv->fdtable) {
-				int32_t i = 0;
-				pthread_mutex_lock (&priv->fdtable->lock);
-				{
-					for (i=0; i < priv->fdtable->max_fds; i++) {
-						if (priv->fdtable->fds[i]) {
-							fd_t *fd = priv->fdtable->fds[i];
-						  
-							/* FIXME: are we sure, there was only one reference? */
-							fd_unref (fd);
-						}
-					}
-				}
-				pthread_mutex_unlock (&priv->fdtable->lock);
-				gf_fd_fdtable_destroy (priv->fdtable);
-				priv->fdtable = NULL;
+			if (connection_priv->ltable) {
+				ltable = connection_priv->ltable;
+				connection_priv->ltable = NULL;
 			}
 		}
-		pthread_mutex_unlock (&priv->lock);
-	  
-		unlock_frame = copy_frame (frame);
-		unlock_frame->root->trans = frame->root->trans;
-	  
-		STACK_WIND (unlock_frame,
-			    server_nop_cbk,
-			    trans->xl,
-			    trans->xl->mops->unlock,
-			    NULL);
-	  
-		STACK_DESTROY (frame->root);
+		pthread_mutex_unlock (&connection_priv->lock);
+		
+		INIT_LIST_HEAD (&file_lockers);
+		INIT_LIST_HEAD (&dir_lockers);
+		
+		LOCK (&ltable->lock);
+		{
+			list_splice_init (&ltable->file_lockers, &file_lockers);
+			list_splice_init (&ltable->dir_lockers, &dir_lockers);
+		}
+		UNLOCK (&ltable->lock);
+		free (ltable);
+
+		flock.l_type  = F_UNLCK;
+		flock.l_start = 0;
+		flock.l_len   = 0;
+		list_for_each_entry_safe (tmp, locker, &file_lockers, lockers) {
+			tmp_frame = copy_frame (frame);
+			tmp_frame->root->pid = locker->pid;
+			STACK_WIND (tmp_frame,
+				    server_nop_cbk,
+				    BOUND_XL (tmp_frame),
+				    BOUND_XL (tmp_frame)->fops->gf_file_lk,
+				    &(locker->loc), locker->fd, F_SETLK, &flock);
+
+			list_del_init (&locker->lockers);
+			if (locker->fd)
+				fd_unref (locker->fd);
+			else
+				loc_wipe (&locker->loc);
+			free (locker);
+		}
+		
+		tmp = NULL;
+		locker = NULL;
+		list_for_each_entry_safe (tmp, locker, &file_lockers, lockers) {
+			tmp_frame = copy_frame (frame);
+			tmp_frame->root->pid = locker->pid;
+			STACK_WIND (tmp_frame,
+				    server_nop_cbk,
+				    BOUND_XL (tmp_frame),
+				    BOUND_XL (tmp_frame)->fops->gf_dir_lk,
+				    &(locker->loc), NULL, 
+				    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+			list_del_init (&locker->lockers);
+			loc_wipe (&locker->loc);
+			free (locker);
+		}
+
+		pthread_mutex_lock (&(connection_priv->lock));
+		{
+			if (connection_priv->fdtable) {
+				gf_fd_fdtable_destroy (connection_priv->fdtable);
+				connection_priv->fdtable = NULL;
+			}
+		}
+		pthread_mutex_unlock (&connection_priv->lock);
+
 	}
-	FREE (priv);
+	FREE (connection_priv);
 	trans->xl_private = NULL;
 	peerinfo = &trans->peerinfo;
 	gf_log (trans->xl->name, GF_LOG_DEBUG,
 		"cleaned up transport state for client %s",
 		peerinfo->identifier);
 
-	return 0;
+out:
+	return ret;
 }
 
 static void
@@ -6879,6 +7029,23 @@ init (xlator_t *this)
 	return 0;
 }
 
+static struct _lock_table *
+gf_lock_table_new (void)
+{
+	struct _lock_table *new = NULL;
+
+	new = calloc (1, sizeof (struct _lock_table));
+	if (new == NULL) {
+		gf_log ("server-protocol", GF_LOG_CRITICAL,
+			"failed to allocate memory for new lock table");
+		goto out;
+	}
+	INIT_LIST_HEAD (&new->dir_lockers);
+	INIT_LIST_HEAD (&new->file_lockers);
+	LOCK_INIT (&new->lock);
+out:
+	return new;
+}
 
 int
 protocol_server_pollin (xlator_t *this, transport_t *trans)
@@ -6887,25 +7054,32 @@ protocol_server_pollin (xlator_t *this, transport_t *trans)
 	size_t hdrlen = 0;
 	char *buf = NULL;
 	size_t buflen = 0;
-	server_proto_priv_t *priv = NULL;
+	connection_private_t *priv = NULL;
 	server_conf_t *conf = NULL;
 	int ret = -1;
 
 	priv = trans->xl_private;
 	conf = this->private;
 
-	if (!priv)
-	{
+	if (!priv) {
 		priv = (void *) calloc (1, sizeof (*priv));
 		ERR_ABORT (priv);
 
 		trans->xl_private = priv;
 
 		priv->fdtable = gf_fd_fdtable_alloc ();
-		if (!priv->fdtable)
-		{
+		if (priv->fdtable == NULL) {
 			gf_log (this->name, GF_LOG_ERROR,  "Cannot allocate fdtable");
-			return -1;
+			ret = -1;
+			goto out;
+		}
+		
+		priv->ltable = gf_lock_table_new ();
+		if (priv->ltable == NULL) {
+			gf_log (this->name, GF_LOG_ERROR, 
+				"Cannot allocate lock table");
+			ret = -1;
+			goto out;
 		}
 		pthread_mutex_init (&priv->lock, NULL);
 	}
@@ -6917,7 +7091,7 @@ protocol_server_pollin (xlator_t *this, transport_t *trans)
 
 	/* TODO: use mem-pool */
 	FREE (hdr);
-
+out:
 	return ret;
 }
 
