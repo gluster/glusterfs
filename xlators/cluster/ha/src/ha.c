@@ -27,124 +27,7 @@
 #include "defaults.h"
 #include "dict.h"
 #include "compat-errno.h"
-
-typedef struct {
-  call_stub_t *stub;
-  int32_t op_ret, op_errno;
-  int32_t active, tries, revalidate, revalidate_error;
-  int32_t call_count;
-  char *state, *pattern;
-  dict_t *dict;
-  loc_t *loc;
-  struct stat buf;
-  fd_t *fd;
-  inode_t *inode;
-  int32_t flags;
-  int32_t first_success;
-} ha_local_t;
-
-typedef struct {
-  char *state;
-  xlator_t **children;
-  int child_count, active;
-} ha_private_t;
-
-typedef struct {
-  char *fdsuccess;
-  char *fdstate;
-  char *path;
-  gf_lock_t lock;
-} hafd_t;
-
-#define HA_ACTIVE_CHILD(this, local) (((ha_private_t *)this->private)->children[local->active])
-
-#define HA_CALL_CODE_FD do {\
-  if (local == NULL) {\
-    int i;\
-    int child_count = ((ha_private_t *)this->private)->child_count;\
-    local = frame->local = calloc (1, sizeof (*local));\
-    local->active = pvt->active;\
-    local->state = calloc (1, child_count);\
-    LOCK (&hafdp->lock);\
-    memcpy (local->state, hafdp->fdstate, child_count);\
-    UNLOCK (&hafdp->lock);\
-    if (local->active != -1 && local->state[local->active] == 0)\
-      local->active = -1;\
-    for (i = 0; i < pvt->child_count; i++) {\
-      if (local->state[i]) {\
-	if (local->active == -1)\
-	  local->active = i;\
-	local->tries++;\
-      }\
-    }\
-  }\
-} while(0);
-
-#define HA_CALL_CBK_CODE_FD do {\
-    if (op_ret == -1 && (op_errno == ENOTCONN || op_errno == EBADFD)) { \
-      while (1) {\
-	int i;\
-	xlator_t **children = pvt->children;\
-	call_frame_t *prev_frame = cookie;\
-	for (i = 0; i < pvt->child_count; i++){ \
-	  if (prev_frame->this == children[i])\
-	    break;\
-	}\
-	LOCK(&hafdp->lock);\
-	hafdp->fdstate[i] = 0;\
-	UNLOCK(&hafdp->lock);\
-        local->active = (local->active + 1) % pvt->child_count;\
-        local->tries--;\
-        if (local->tries == 0)\
-	  break;\
-        if (local->state[local->active])\
-	  break;\
-      }\
-      if (local->tries != 0) {\
-        call_resume (local->stub);\
-        return 0;\
-      }\
-    }\
-    FREE (local->state);\
-    call_stub_destroy (local->stub);\
-} while(0);
-
-
-#define HA_CALL_CODE do {\
-  if (local == NULL) {\
-    int i;\
-    local = frame->local = calloc (1, sizeof (*local));\
-    local->active = pvt->active;\
-    local->state = data_to_bin (dict_get(ctx, this->name));\
-    if (local->active != -1 && local->state[local->active] == 0)\
-      local->active = -1;\
-    for (i = 0; i < pvt->child_count; i++) {\
-      if (local->state[i]) {\
-	if (local->active == -1)\
-	  local->active = i;\
-	local->tries++;\
-      }\
-    }\
-  }\
-} while(0);
-
-#define HA_CALL_CBK_CODE do {\
-    if (op_ret == -1 && (op_errno == ENOTCONN || op_errno == EBADFD)) { \
-      while (1) {\
-        local->active = (local->active + 1) % pvt->child_count;\
-        local->tries--;\
-        if (local->tries == 0)\
-	  break;\
-        if (local->state[local->active])\
-	  break;\
-      }\
-      if (local->tries != 0) {\
-        call_resume (local->stub);\
-        return 0;\
-      }\
-    }\
-    call_stub_destroy (local->stub);\
-} while(0);
+#include "ha.h"
 
 static int32_t 
 ha_lookup_cbk (call_frame_t *frame,
@@ -2486,12 +2369,13 @@ ha_lk_setlk_unlck_cbk (call_frame_t *frame,
 
   if (cnt == 0) {
     stub = local->stub;
+    FREE (local->state);
     if (stub->args.lk.lock.l_type == F_UNLCK) {
       STACK_UNWIND (frame, local->op_ret, local->op_errno, &stub->args.lk.lock);
-      call_stub_destroy (stub);
     } else {
       STACK_UNWIND (frame, -1, EIO, NULL);
     }
+    call_stub_destroy (stub);
   }
   return 0;
 }
@@ -2510,22 +2394,23 @@ ha_lk_setlk_cbk (call_frame_t *frame,
   int i, cnt, j;
   int child_count = pvt->child_count;
   call_frame_t *prev_frame = cookie;
-  char *state = data_to_bin (dict_get(local->stub->args.lk.fd->ctx, this->name));
+  char *state = local->state;
   if (op_ret == 0)
     local->op_ret = 0;
 
-  if ((op_ret == 0) || (op_ret == -1 && (op_errno == ENOTCONN || op_errno == EBADFD))) {
+  if ((op_ret == 0) || (op_ret == -1 && op_errno == ENOTCONN)) {
     for (i = 0; i < child_count; i++) {
       if (prev_frame->this == cookie)
 	break;
     }
     i++;
     for (; i < child_count; i++) {
-      if (state[i])
+      if (local->state[i])
 	break;
     }
     if (i == child_count) {
       call_stub_t *stub = local->stub;
+      FREE (local->state);
       STACK_UNWIND (frame, 0, op_errno, &stub->args.lk.lock);
       call_stub_destroy (stub);
       return 0;
@@ -2549,7 +2434,8 @@ ha_lk_setlk_cbk (call_frame_t *frame,
 	cnt++;
     }
     if (cnt) {
-      local->stub->args.lk.lock.l_type = F_UNLCK;
+      struct flock lock;
+      lock = local->stub->args.lk.lock;
       for (i = 0; i < child_count; i++) {
 	if (state[i]) {
 	  STACK_WIND (frame,
@@ -2558,13 +2444,14 @@ ha_lk_setlk_cbk (call_frame_t *frame,
 		      children[i]->fops->lk,
 		      local->stub->args.lk.fd,
 		      local->stub->args.lk.cmd,
-		      &local->stub->args.lk.lock);
+		      &lock);
 	  if (--cnt == 0)
 	    break;
 	}
       }
       return 0;
     } else {
+      FREE (local->state);
       call_stub_destroy (local->stub);
       STACK_UNWIND (frame,
 		    op_ret,
@@ -2591,6 +2478,8 @@ ha_lk_getlk_cbk (call_frame_t *frame,
   call_frame_t *prev_frame = cookie;
 
   if (op_ret == 0) {
+    FREE (local->state);
+    call_stub_destroy (local->stub);
     STACK_UNWIND (frame, 0, 0, lock);
     return 0;
   }
@@ -2606,6 +2495,8 @@ ha_lk_getlk_cbk (call_frame_t *frame,
   }
 
   if (i == child_count) {
+    FREE (local->state);
+    call_stub_destroy (local->stub);
     STACK_UNWIND (frame, op_ret, op_errno, lock);
     return 0;
   }
@@ -2629,7 +2520,7 @@ ha_lk (call_frame_t *frame,
 {
   ha_local_t *local = frame->local;
   ha_private_t *pvt = this->private;
-  dict_t *ctx = fd->ctx;
+  hafd_t *hafdp = data_to_ptr (dict_get (fd->ctx, this->name));
   char *state;
   int child_count = pvt->child_count, i, cnt;
   xlator_t **children = pvt->children;
@@ -2648,9 +2539,12 @@ ha_lk (call_frame_t *frame,
   }
 
   local->stub = fop_lk_stub (frame, ha_lk, fd, cmd, lock);
-
+  local->state = calloc (1, child_count);
+  state = hafdp->fdstate;
+  LOCK (&hafdp->lock);
+  memcpy (local->state, state, child_count);
+  UNLOCK (&hafdp->lock);
   if (cmd == F_GETLK) {
-    local->state = data_to_bin (dict_get(ctx, this->name));
     for (i = 0; i < child_count; i++) {
       if (local->state[i])
 	break;
@@ -2663,14 +2557,13 @@ ha_lk (call_frame_t *frame,
 		cmd,
 		lock);
   } else if (cmd == F_SETLK && lock->l_type == F_UNLCK) {
-    state = data_to_bin (dict_get(ctx, this->name));
     for (i = 0; i < child_count; i++) {
-      if (state[i])
+      if (local->state[i])
 	local->call_count++;
     }
     cnt = local->call_count;
     for (i = 0; i < child_count; i++) {
-      if (state[i]) {
+      if (local->state[i]) {
 	STACK_WIND (frame,
 		    ha_lk_setlk_unlck_cbk,
 		    children[i],
@@ -2681,9 +2574,8 @@ ha_lk (call_frame_t *frame,
       }
     }
   } else {
-    local->state = data_to_bin (dict_get(ctx, this->name));
     for (i = 0; i < child_count; i++) {
-      if (state[i])
+      if (local->state[i])
 	break;
     }
     STACK_WIND (frame,
