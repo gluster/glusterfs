@@ -51,10 +51,12 @@ typedef struct {
 	/* array of xattr's, one for each child */
 	dict_t **xattr;
 
-	int sources[1024];
+	int32_t **pending_matrix;
+
+	int *sources;
 	int source;
 
-	fd_t *fds[1024];
+	fd_t *healing_fd;
 
 	blksize_t block_size;
 	off_t file_size;

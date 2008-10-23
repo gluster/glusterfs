@@ -53,10 +53,10 @@ extern gf_loglevel_t gf_log_loglevel;
 #else
 #define gf_log(dom, levl, fmt...) do {                          \
   if (levl <= gf_log_loglevel)                                  \
-  _gf_log (dom, __FILE__, __FUNCTION__, __LINE__, levl, ##fmt); \
+	  _gf_log (dom, __FILE__, __FUNCTION__, __LINE__, levl, ##fmt); \
 } while (0)
 #endif
-
+			
 void 
 gf_log_logrotate (int signum);
 
@@ -104,7 +104,7 @@ do { \
 #define GF_TRACE(xl, args...) \
   do { \
     if ((xl)->trace) \
-      _gf_log ((xl)->name, __FILE__, __FUNCTION__, __LINE__, GF_LOG_TRACE, ##args); \
+	    _gf_log ((xl)->name, __FILE__, __FUNCTION__, __LINE__, GF_LOG_TRACE, ##args); \
   } while(0); \
 
 #endif /* __LOGGING_H__ */
