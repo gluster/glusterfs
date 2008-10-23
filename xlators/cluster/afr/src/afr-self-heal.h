@@ -29,4 +29,7 @@ afr_inode_self_heal_needed (dict_t *xattr);
 int 
 afr_inode_self_heal (call_frame_t *frame, xlator_t *this);
 
+int 
+afr_inode_data_self_heal (call_frame_t *frame, xlator_t *this,
+			  int (*completion_cbk) (call_frame_t *, xlator_t *));
 #endif /* __AFR_SELF_HEAL_H__ */

@@ -266,7 +266,7 @@ int32_t default_xattrop (call_frame_t *frame,
 			 xlator_t *this,
 			 fd_t *fd,
 			 const char *path,
-			 int32_t flags,
+			 gf_xattrop_flags_t flags,
 			 dict_t *dict);
 
 int32_t default_notify (xlator_t *this,

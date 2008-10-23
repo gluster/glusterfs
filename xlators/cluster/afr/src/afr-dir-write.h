@@ -42,7 +42,7 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
 int32_t
 afr_link (call_frame_t *frame, xlator_t *this,
-	  loc_t *oldloc, const char *path);
+	  loc_t *oldloc, loc_t *newloc);
 
 int32_t
 afr_rename (call_frame_t *frame, xlator_t *this,

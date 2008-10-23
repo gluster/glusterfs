@@ -872,7 +872,7 @@ gf_del_locker (struct _lock_table *table,
 			head = &table->file_lockers;
 		}
 
-		list_for_each_entry_safe (tmp, locker, head, lockers) {
+		list_for_each_entry_safe (locker, tmp, head, lockers) {
 			if (locker->fd && 
 			    (locker->fd == fd) && (locker->pid == pid)) {
 				list_move_tail (&locker->lockers, &del);
@@ -888,7 +888,7 @@ gf_del_locker (struct _lock_table *table,
 	tmp = NULL;
 	locker = NULL;
 
-	list_for_each_entry_safe (tmp, locker, &del, lockers) {
+	list_for_each_entry_safe (locker, tmp, &del, lockers) {
 		list_del_init (&locker->lockers);
 		if (locker->fd)
 			fd_unref (locker->fd);
@@ -6849,7 +6849,7 @@ server_protocol_cleanup (transport_t *trans)
 		flock.l_type  = F_UNLCK;
 		flock.l_start = 0;
 		flock.l_len   = 0;
-		list_for_each_entry_safe (tmp, locker, &file_lockers, lockers) {
+		list_for_each_entry_safe (locker, tmp, &file_lockers, lockers) {
 			tmp_frame = copy_frame (frame);
 			tmp_frame->root->pid = locker->pid;
 			STACK_WIND (tmp_frame,
@@ -6868,7 +6868,7 @@ server_protocol_cleanup (transport_t *trans)
 		
 		tmp = NULL;
 		locker = NULL;
-		list_for_each_entry_safe (tmp, locker, &file_lockers, lockers) {
+		list_for_each_entry_safe (locker, tmp, &file_lockers, lockers) {
 			tmp_frame = copy_frame (frame);
 			tmp_frame->root->pid = locker->pid;
 			STACK_WIND (tmp_frame,
