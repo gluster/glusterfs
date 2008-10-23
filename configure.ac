@@ -151,6 +151,14 @@ if test "x${have_spinlock}" = "xyes"; then
 fi
 AC_SUBST(HAVE_SPINLOCK)
 
+dnl some os may not have GNU defined strnlen function
+AC_CHECK_FUNC([strnlen], [have_strnlen=yes])
+if test "x${have_strnlen}" = "xyes"; then
+   AC_DEFINE(HAVE_STRNLEN, 1, [define if found strnlen])
+fi
+AC_SUBST(HAVE_STRNLEN)
+
+
 AC_CHECK_FUNC([setfsuid], [have_setfsuid=yes])
 AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
 

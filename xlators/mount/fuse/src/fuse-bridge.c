@@ -1998,18 +1998,23 @@ fuse_xattr_cbk (call_frame_t *frame,
 	/* This is needed in MacFuse, where MacOSX Finder needs some specific 
 	 * keys to be supported from FS
 	 */
+	int32_t dummy_ret = 0;
 	if (state->name) {
 		if (!dict) {
 			dict = get_new_dict ();
 			need_to_free_dict = 1;
 		}
-		ret = gf_compat_getxattr (state->name, dict);
+		dummy_ret = gf_compat_getxattr (state->name, dict);
+		if (dummy_ret != -1)
+			ret = dummy_ret;
 	} else {
 		if (!dict) {
 			dict = get_new_dict ();
 			need_to_free_dict = 1;
 		}
-		ret = gf_compat_listxattr (ret, dict, state->size);
+		dummy_ret = gf_compat_listxattr (ret, dict, state->size);
+		if (dummy_ret != -1)
+			ret = dummy_ret;
 	}
 #endif /* DARWIN */
 	
