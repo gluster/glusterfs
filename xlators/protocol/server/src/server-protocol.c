@@ -376,7 +376,7 @@ server_state_fill (call_frame_t *frame,
 	case GF_FOP_FSYNCDIR:
 	{
 		gf_fop_fsyncdir_req_t *req = request;
-		state->fd_no = ntoh32 (req->fd);
+		state->fd_no = ntoh64 (req->fd);
 		state->flags = ntoh32 (req->data);
 
 		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
