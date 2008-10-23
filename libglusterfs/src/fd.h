@@ -56,7 +56,7 @@ inline void
 gf_fd_put (fdtable_t *fdtable, int32_t fd);
 
 fd_t *
-gf_fd_fdptr_get (fdtable_t *fdtable, int32_t fd);
+gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd);
 
 fdtable_t *
 gf_fd_fdtable_alloc (void);

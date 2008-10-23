@@ -94,7 +94,7 @@ this_ino_set (inode_t *inode, xlator_t *this, ino_t ino)
 }
 
 static int
-this_fd_get (fd_t *file, xlator_t *this, uint64_t *remote_fd)
+this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
 {
 	int ret = -1;
 	uint64_t fd = 0;
@@ -960,7 +960,7 @@ client_readv (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_read_req_t *req = NULL;
 	size_t hdrlen = 0;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	int ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1008,7 +1008,7 @@ client_writev (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_write_req_t *req = NULL;
 	size_t hdrlen = 0;
-	uint64_t remote_fd = -1;
+	int64_t remote_fd = -1;
 	int ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1085,7 +1085,7 @@ client_flush (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_flush_req_t *req = NULL;
 	size_t hdrlen = 0;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	int ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1129,7 +1129,7 @@ client_fsync (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fsync_req_t *req = NULL;
 	size_t hdrlen = 0;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	int32_t ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1420,7 +1420,7 @@ client_getdents (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_getdents_req_t *req = NULL;
 	size_t hdrlen = 0;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	int ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1463,7 +1463,7 @@ client_readdir (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_readdir_req_t *req = NULL;
 	size_t hdrlen = 0;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	int ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1509,7 +1509,7 @@ client_fsyncdir (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fsyncdir_req_t *req = NULL;
 	size_t hdrlen = 0;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	int32_t ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1588,7 +1588,7 @@ client_ftruncate (call_frame_t *frame,
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_ftruncate_req_t *req = NULL;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
 
@@ -1629,7 +1629,7 @@ client_fstat (call_frame_t *frame,
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fstat_req_t *req = NULL;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
 
@@ -1675,7 +1675,7 @@ client_lk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_lk_req_t *req = NULL;
 	size_t hdrlen = 0;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 
@@ -1883,7 +1883,7 @@ client_fchmod (call_frame_t *frame,
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fchmod_req_t *req = NULL;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
 
@@ -1927,7 +1927,7 @@ client_fchown (call_frame_t *frame,
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fchown_req_t *req = NULL;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
 
@@ -1966,7 +1966,7 @@ client_setdents (call_frame_t *frame,
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_setdents_req_t *req = NULL;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	char *buffer = NULL;
 	dir_entry_t *trav = NULL;
 	uint32_t len = 0;
@@ -2149,7 +2149,7 @@ client_releasedir (xlator_t *this,
 {
 	call_frame_t          *fr = NULL;
 	int32_t                ret = -1;
-	uint64_t               remote_fd = 0;
+	int64_t                remote_fd = 0;
 	char                   key[32] = {0,};
 	client_proto_priv_t   *priv = NULL;
 	gf_hdr_common_t       *hdr = NULL;
@@ -2200,7 +2200,7 @@ client_release (xlator_t *this,
 {
 	call_frame_t        *fr = NULL;
 	int32_t              ret = -1;
-	uint64_t             remote_fd = 0;
+	int64_t              remote_fd = 0;
 	char                 key[32] = {0,};
 	client_proto_priv_t *priv = NULL;
 	gf_hdr_common_t     *hdr = NULL;
@@ -2481,7 +2481,7 @@ client_create_cbk (call_frame_t *frame,
 	fd_t *fd = NULL;
 	inode_t *inode = NULL;
 	struct stat stbuf = {0, };
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	client_proto_priv_t *priv = NULL;
 	char key[32];
 
@@ -2532,7 +2532,7 @@ client_open_cbk (call_frame_t *frame,
 	int32_t op_ret = -1;
 	int32_t op_errno = ENOTCONN;
 	fd_t *fd = NULL;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	gf_fop_open_rsp_t *rsp = NULL;
 	client_proto_priv_t *priv = NULL;
 	char key[32];
@@ -3229,7 +3229,7 @@ client_opendir_cbk (call_frame_t *frame,
 	int32_t op_ret = -1;
 	int32_t op_errno = ENOTCONN;
 	fd_t *fd = NULL;
-	uint64_t remote_fd = 0;
+	int64_t remote_fd = 0;
 	gf_fop_opendir_rsp_t *rsp = NULL;
 	client_proto_priv_t *priv = NULL;
 	char key[32];

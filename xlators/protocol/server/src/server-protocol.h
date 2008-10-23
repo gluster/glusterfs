@@ -103,7 +103,7 @@ struct _server_state {
 	loc_t loc;
 	loc_t loc2;
 	int flags;
-	int fd_no;
+	int64_t fd_no;
 	fd_t *fd;
 	size_t size;
 	off_t offset;
