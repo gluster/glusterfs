@@ -920,13 +920,15 @@ server_gf_file_lk_cbk (call_frame_t *frame,
  	hdr->rsp.op_ret   = hton32 (op_ret);
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 	
-	state = STATE (frame);
-	if (state->flock.l_type == F_UNLCK)
-		gf_del_locker (CONNECTION_PRIVATE(frame)->ltable, 
-			       &state->loc, state->fd, frame->root->pid);
-	else
-		gf_add_locker (CONNECTION_PRIVATE(frame)->ltable, 
-			       &state->loc, state->fd, frame->root->pid);
+	if (op_ret >= 0) {
+		state = STATE (frame);
+		if (state->flock.l_type == F_UNLCK)
+			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable, 
+				       &state->loc, state->fd, frame->root->pid);
+		else
+			gf_add_locker (CONNECTION_PRIVATE(frame)->ltable, 
+				       &state->loc, state->fd, frame->root->pid);
+	}
 
  	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GF_FILE_LK,
  			       hdr, hdrlen, NULL, 0, NULL);
@@ -964,14 +966,16 @@ server_gf_dir_lk_cbk (call_frame_t *frame,
  
  	hdr->rsp.op_ret   = hton32 (op_ret);
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
-
-	state = STATE (frame);
-	if (state->flock.l_type == F_UNLCK)
-		gf_del_locker (CONNECTION_PRIVATE(frame)->ltable, 
-			       &state->loc, state->fd, frame->root->pid);
-	else
-		gf_add_locker (CONNECTION_PRIVATE(frame)->ltable, 
-			       &state->loc, state->fd, frame->root->pid);
+	
+	if (op_ret >= 0) {
+		state = STATE (frame);
+		if (state->flock.l_type == F_UNLCK)
+			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable, 
+				       &state->loc, state->fd, frame->root->pid);
+		else
+			gf_add_locker (CONNECTION_PRIVATE(frame)->ltable, 
+				       &state->loc, state->fd, frame->root->pid);
+	}
 
  	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GF_DIR_LK,
  			       hdr, hdrlen, NULL, 0, NULL);
