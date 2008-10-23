@@ -5175,6 +5175,19 @@ server_gf_file_lk_resume (call_frame_t *frame,
  			  loc_t *loc, fd_t *fd, int32_t cmd,
  			  struct flock *flock)
 {
+	server_state_t *state = NULL;
+	
+	if (fd == NULL) {
+		state = STATE (frame);
+		if (state->loc.inode == NULL) {
+			state->loc.inode = inode_ref (loc->inode);
+		}
+	
+		if (state->loc.parent == NULL) {
+			state->loc.parent = inode_ref (loc->parent);
+		}
+	}
+
  	STACK_WIND (frame,
  		    server_gf_file_lk_cbk,
  		    BOUND_XL (frame),
@@ -5229,6 +5242,15 @@ server_gf_dir_lk_resume (call_frame_t *frame,
  			 loc_t *loc, const char *basename,
  			 gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
+	server_state_t *state = NULL;
+	
+	state = STATE (frame);
+	if (state->loc.inode == NULL)
+		state->loc.inode = inode_ref (loc->inode);
+	
+	if (state->loc.parent == NULL)
+		state->loc.parent = inode_ref (loc->parent);
+
  	STACK_WIND (frame,
  		    server_gf_dir_lk_cbk,
  		    BOUND_XL (frame),
