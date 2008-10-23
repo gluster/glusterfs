@@ -54,7 +54,12 @@ typedef struct {
 	int sources[1024];
 	int source;
 
+	fd_t *fds[1024];
+
 	blksize_t block_size;
+	off_t file_size;
+	off_t offset;
+
 	int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
 } afr_self_heal_t;
 
