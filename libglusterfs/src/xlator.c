@@ -418,30 +418,6 @@ xlator_set_type (xlator_t *xl,
 }
 
 
-static void
-_foreach_dfs (xlator_t *this,
-	      void (*fn)(xlator_t *each,
-			 void *data),
-	      void *data)
-{
-	xlator_list_t *child = NULL;
-
-	if ((this == NULL) || (fn == NULL) || (data == NULL)) {
-		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
-		return;
-	}
-
-	child = this->children;
-
-	while (child) {
-		_foreach_dfs (child->xlator, fn, data);
-		child = child->next;
-	}
-
-	fn (this, data);
-}
-
-
 void
 xlator_foreach (xlator_t *this,
 		void (*fn)(xlator_t *each,

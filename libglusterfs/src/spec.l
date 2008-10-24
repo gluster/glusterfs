@@ -94,6 +94,10 @@ TYPE   [t][y][p][e]
                        BEGIN (INITIAL);
                        glusterfs_lval = text;
                        return CMD_TOK;
+
+                       /* ugly  trick to fix warnings */
+                       if (0) unput (0);
+                       if (0) input();
        }
 }
 [^ \t\r\n\`\"\\]+ {    glusterfs_lval = strdup (glusterfs_text) ; return ID; }
