@@ -488,10 +488,12 @@ AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 
 AC_OUTPUT
 
+exec >&2
+
 echo
 echo "GlusterFS configure summary"
 echo "==========================="
-echo "Fuse client        : $BUILD_FUSE_CLIENT"
+echo "FUSE client        : $BUILD_FUSE_CLIENT"
 echo "Infiniband verbs   : $BUILD_IBVERBS"
 echo "epoll IO multiplex : $BUILD_EPOLL"
 echo "Berkeley-DB        : $BUILD_BDB"
