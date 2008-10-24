@@ -83,17 +83,17 @@ get_stats_file_usage (struct xlator_stats *this)
   return this->nr_files;
 }
 
+#if 0
 static int64_t 
 get_stats_num_client (struct xlator_stats *this)
 {
-  (void) &get_stats_num_client;    /* Avoid warning "defined but not used" */
   return this->nr_clients;
 }
+#endif
 
 static int64_t 
 get_stats_free_disk (struct xlator_stats *this)
 {
-  (void) &get_stats_free_disk;    /* Avoid warning "defined but not used" */
   if (this->total_disk_size > 0)
     return (this->free_disk * 100) / this->total_disk_size;
   return 0;
@@ -129,6 +129,7 @@ get_max_diff_file_usage (struct xlator_stats *max, struct xlator_stats *min)
   return (max->nr_files - min->nr_files);
 }
 
+#if 0
 static int64_t 
 get_max_diff_num_client (struct xlator_stats *max, struct xlator_stats *min)
 {
@@ -142,6 +143,7 @@ get_max_diff_free_disk (struct xlator_stats *max, struct xlator_stats *min)
   (void) &get_max_diff_free_disk;    /* Avoid warning "defined but not used" */        
   return (max->free_disk - min->free_disk);
 }
+#endif
 
 static int32_t
 alu_init (xlator_t *xl)
