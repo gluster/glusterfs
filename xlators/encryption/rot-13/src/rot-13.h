@@ -26,8 +26,8 @@
 #endif
 
 typedef struct {
-  int encrypt_write;
-  int decrypt_read;
+	gf_boolean_t encrypt_write;
+	gf_boolean_t decrypt_read;
 } rot_13_private_t;
 
 #endif /* __ROT_13_H__ */

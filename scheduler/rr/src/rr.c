@@ -521,6 +521,7 @@ rr_notify_cbk (call_frame_t *frame,
   rr_t *rr = NULL;
   int32_t *index = NULL;
   int32_t ret = -1;
+  void *tmp_index_ptr = NULL;
 
   if (frame == NULL)
     {
@@ -539,7 +540,8 @@ rr_notify_cbk (call_frame_t *frame,
       return -1;
     }
   
-  ret = dict_get_bin (xattr, "trusted.glusterfs.scheduler.rr", (void **)(&index));
+  ret = dict_get_bin (xattr, "trusted.glusterfs.scheduler.rr", &tmp_index_ptr);
+  index = tmp_index_ptr;
   if (ret == 0)
 	  rr->schedule_index = (index[0] % rr->subvolume_count);
   else
@@ -549,11 +551,10 @@ rr_notify_cbk (call_frame_t *frame,
   return 0;
 }
 
-struct sched_ops sched = 
-  {
-    .init     = rr_init,
-    .fini     = rr_fini,
-    .update   = rr_update,
-    .schedule = rr_schedule,
-    .notify   = rr_notify
-  };
+struct sched_ops sched = {
+	.init     = rr_init,
+	.fini     = rr_fini,
+	.update   = rr_update,
+	.schedule = rr_schedule,
+	.notify   = rr_notify
+};

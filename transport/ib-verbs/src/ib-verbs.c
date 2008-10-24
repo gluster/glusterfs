@@ -1990,8 +1990,8 @@ ib_verbs_connect (struct transport *this)
   ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
   
-  char non_blocking = 1;
   int32_t ret = 0;
+  gf_boolean_t non_blocking = 1;
   struct sockaddr_storage sockaddr;
   socklen_t sockaddr_len = 0;
 
@@ -2000,11 +2000,14 @@ ib_verbs_connect (struct transport *this)
   }
 
   if (dict_get (options, "non-blocking-io")) {
-    char *nb_connect = data_to_str (dict_get (options,
-					      "non-blocking-io"));
-    if ((!strcasecmp (nb_connect, "off")) ||
-	(!strcasecmp (nb_connect, "no")))
-      non_blocking = 0;
+	  char *nb_connect = data_to_str (dict_get (this->xl->options,
+						    "non-blocking-io"));
+	  
+	  if (gf_string2boolean (nb_connect, &non_blocking) == -1) {
+		  gf_log (this->xl->name, GF_LOG_ERROR,
+			  "'non-blocking-io' takes only boolean options, not taking any action");
+		  non_blocking = 1;
+	  }
   }
 
   ret = client_get_remote_sockaddr (this, (struct sockaddr *)&sockaddr, &sockaddr_len);

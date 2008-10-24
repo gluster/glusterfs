@@ -885,11 +885,13 @@ init (xlator_t *this)
   if (dict_get (options, "force-atime-update")) {
     char *force_atime_update_str = data_to_str (dict_get (options,
 							  "force-atime-update"));
-    if ((!strcasecmp (force_atime_update_str, "on")) ||
-	(!strcasecmp (force_atime_update_str, "yes"))) {
-      conf->force_atime_update = 1;
-      gf_log (this->name, GF_LOG_DEBUG, "Forcing atime updates on cache hit");
+    if (gf_string2boolean (force_atime_update_str, &conf->force_atime_update) == -1) {
+	    gf_log (this->name, GF_LOG_ERROR,
+		    "'force-atime-update' takes only boolean options");
+	    return -1;
     }
+    if (conf->force_atime_update)
+      gf_log (this->name, GF_LOG_DEBUG, "Forcing atime updates on cache hit");
   }
 
   conf->files.next = &conf->files;

@@ -462,8 +462,13 @@ fuse_forget (fuse_req_t req,
 
         state = state_from_req (req);
         fuse_inode = inode_search (state->itable, ino, NULL);
-        inode_forget (fuse_inode, nlookup);
-        inode_unref (fuse_inode);
+	if (fuse_inode) {
+		inode_forget (fuse_inode, nlookup);
+		inode_unref (fuse_inode);
+	} else {
+		gf_log ("fuse", GF_LOG_ERROR, 
+			"got forget, but inode (%"PRId64") not found", ino);
+	}
 
         free_state (state);
         fuse_reply_none (req);

@@ -100,7 +100,7 @@ typedef struct __pl_fd pl_fd_t;
 
 typedef struct {
   pthread_mutex_t mutex;
-  int mandatory;         /* true if mandatory locking is enabled */
+  gf_boolean_t mandatory;         /* true if mandatory locking is enabled */
 } posix_locks_private_t;
 
 #endif /* __POSIX_LOCKS_H__ */

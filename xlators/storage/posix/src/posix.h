@@ -87,9 +87,9 @@ struct posix_private {
    In such cases, user can disable exporting statvfs info
    on one of the volumes by setting this option.
 */
-	char    export_statfs;
+	gf_boolean_t    export_statfs;
 
-	char    o_direct;     /* always open files in O_DIRECT mode */
+	gf_boolean_t    o_direct;     /* always open files in O_DIRECT mode */
 };
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)

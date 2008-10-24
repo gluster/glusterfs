@@ -61,10 +61,10 @@ struct unify_private {
   struct sched_ops *sched_ops;   /* Scheduler options  */
   xlator_t *namespace;           /* ptr to namespace xlator */
   xlator_t **xl_array;
+  gf_boolean_t optimist;
   int16_t child_count;
   int16_t num_child_up;
   uint8_t self_heal;
-  uint8_t optimist;
   uint8_t is_up;
   uint64_t inode_generation;
   gf_lock_t lock;

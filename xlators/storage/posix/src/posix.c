@@ -3377,6 +3377,7 @@ init (xlator_t *this)
 {
         int                    ret      = 0;
         int                    op_ret   = -1;
+	gf_boolean_t           tmp_bool = 0;
         struct stat            buf      = {0,};
         struct posix_private * _private = NULL;
         data_t *               dir_data = NULL;
@@ -3420,7 +3421,13 @@ init (xlator_t *this)
         if (op_ret < 0) {
 		tmp_data = dict_get (this->options, "starting-without-extendend-attribute");
 		if (tmp_data) {
-			if (strcasecmp (tmp_data->data, "enable") == 0) {
+			if (gf_string2boolean (tmp_data->data, &tmp_bool) == -1) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"wrong option provided for 'starting-without-extended-attribute'");
+				ret = -1;
+				goto out;
+			}
+			if (tmp_bool) {
 				gf_log (this->name, GF_LOG_WARNING,
 					"Extended attribute not supported, starting as per option");
 			} else {
@@ -3457,21 +3464,27 @@ init (xlator_t *this)
         _private->export_statfs = 1;
         tmp_data = dict_get (this->options, "export-statfs-size");
         if (tmp_data) {
-                if (!strcasecmp ("no", tmp_data->data)) {
+		if (gf_string2boolean (tmp_data->data, &_private->export_statfs) == -1) {
+			ret = -1;
+			gf_log (this->name, GF_LOG_ERROR,
+				"'export-statfs-size' takes only boolean options");
+			goto out;
+		}
+                if (!_private->export_statfs)
                         gf_log (this->name, GF_LOG_DEBUG, "'statfs()' returns dummy size");
-                        _private->export_statfs = 0;
-                }
         }
 
-        _private->o_direct = 0;
         tmp_data = dict_get (this->options, "o-direct");
         if (tmp_data) {
-                if (!strcasecmp    ("enable", tmp_data->data)
-                    || !strcasecmp ("on",     tmp_data->data)) {
+		if (gf_string2boolean (tmp_data->data, &_private->o_direct) == -1) {
+			ret = -1;
+			gf_log (this->name, GF_LOG_ERROR,
+				"wrong option provided for 'o-direct'");
+			goto out;
+		}
+		if (_private->o_direct) 
                         gf_log (this->name, GF_LOG_DEBUG, 
                                 "o-direct mode is enabled (O_DIRECT for every open)");
-                        _private->o_direct = 1;
-                }
         }
 
 #ifndef GF_DARWIN_HOST_OS

@@ -105,7 +105,7 @@ struct ra_conf {
   uint32_t page_count;
   void *cache_block;
   struct ra_file files;
-  char force_atime_update;
+  gf_boolean_t force_atime_update;
   pthread_mutex_t conf_lock;
 };
 

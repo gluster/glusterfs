@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #include <ctype.h>
@@ -41,22 +41,22 @@
 void 
 rot13 (char *buf, int len)
 {
-  int i;
-  for (i = 0; i < len; i++) {
-    if (buf[i] >= 'a' && buf[i] <= 'z')
-      buf[i] = 'a' + ((buf[i] - 'a' + 13) % 26);
-    else if (buf[i] >= 'A' && buf[i] <= 'Z')
-      buf[i] = 'A' + ((buf[i] - 'A' + 13) % 26);
-  }
+	int i;
+	for (i = 0; i < len; i++) {
+		if (buf[i] >= 'a' && buf[i] <= 'z')
+			buf[i] = 'a' + ((buf[i] - 'a' + 13) % 26);
+		else if (buf[i] >= 'A' && buf[i] <= 'Z')
+			buf[i] = 'A' + ((buf[i] - 'A' + 13) % 26);
+	}
 }
 
 void
 rot13_iovec (struct iovec *vector, int count)
 {
-  int i;
-  for (i = 0; i < count; i++) {
-    rot13 (vector[i].iov_base, vector[i].iov_len);
-  }
+	int i;
+	for (i = 0; i < count; i++) {
+		rot13 (vector[i].iov_base, vector[i].iov_len);
+	}
 }
 
 int32_t
@@ -69,13 +69,13 @@ rot13_readv_cbk (call_frame_t *frame,
                  int32_t count,
 		 struct stat *stbuf)
 {
-  rot_13_private_t *priv = (rot_13_private_t *)this->private;
+	rot_13_private_t *priv = (rot_13_private_t *)this->private;
   
-  if (priv->decrypt_read)
-    rot13_iovec (vector, count);
+	if (priv->decrypt_read)
+		rot13_iovec (vector, count);
 
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
-  return 0;
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+	return 0;
 }
 
 int32_t
@@ -85,12 +85,12 @@ rot13_readv (call_frame_t *frame,
              size_t size,
              off_t offset)
 {
-  STACK_WIND (frame,
-              rot13_readv_cbk,
-              FIRST_CHILD (this),
-              FIRST_CHILD (this)->fops->readv,
-              fd, size, offset);
-  return 0;
+	STACK_WIND (frame,
+		    rot13_readv_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->readv,
+		    fd, size, offset);
+	return 0;
 }
 
 int32_t
@@ -101,8 +101,8 @@ rot13_writev_cbk (call_frame_t *frame,
                   int32_t op_errno,
 		  struct stat *stbuf)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  return 0;
+	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+	return 0;
 }
 
 int32_t
@@ -113,58 +113,71 @@ rot13_writev (call_frame_t *frame,
               int32_t count, 
               off_t offset)
 {
-  rot_13_private_t *priv = (rot_13_private_t *)this->private;
-  if (priv->encrypt_write)
-    rot13_iovec (vector, count);
+	rot_13_private_t *priv = (rot_13_private_t *)this->private;
+	if (priv->encrypt_write)
+		rot13_iovec (vector, count);
 
-  STACK_WIND (frame, 
-              rot13_writev_cbk,
-              FIRST_CHILD (this),
-              FIRST_CHILD (this)->fops->writev,
-              fd, vector, count, offset);
-  return 0;
+	STACK_WIND (frame, 
+		    rot13_writev_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->writev,
+		    fd, vector, count, offset);
+	return 0;
 }
 
 int32_t
 init (xlator_t *this)
 {
-  if (!this->children) {
-    gf_log ("rot13", GF_LOG_ERROR, 
-            "FATAL: rot13 should have exactly one child");
-    return -1;
-  }
+	data_t *data = NULL;
+	rot_13_private_t *priv = NULL;
 
-  rot_13_private_t *priv = calloc (sizeof (rot_13_private_t), 1);
-  ERR_ABORT (priv);
-  priv->decrypt_read = 1;
-  priv->encrypt_write = 1;
+	if (!this->children) {
+		gf_log ("rot13", GF_LOG_ERROR, 
+			"FATAL: rot13 should have exactly one child");
+		return -1;
+	}
 
-  data_t *write = dict_get (this->options, "encrypt-write");
-  if (write) {
-    if (!strcasecmp ("off", data_to_str (write)))
-      priv->encrypt_write = 0;
-  }
+	priv = calloc (sizeof (rot_13_private_t), 1);
+	ERR_ABORT (priv);
+	priv->decrypt_read = 1;
+	priv->encrypt_write = 1;
 
-  data_t *read = dict_get (this->options, "decrypt-read");
-  if (read) {
-    if (!strcasecmp ("off", data_to_str (read)))
-      priv->decrypt_read = 0;
-  }
+	data = dict_get (this->options, "encrypt-write");
+	if (data) {
+		if (gf_string2boolean (data->data, &priv->encrypt_write) == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"encrypt-write takes only boolean options");
+			return -1;
+		}
+	}
 
-  this->private = priv;
-  gf_log ("rot13", GF_LOG_DEBUG, "rot13 xlator loaded");
-  return 0;
+	data = dict_get (this->options, "decrypt-read");
+	if (data) {
+		if (gf_string2boolean (data->data, &priv->decrypt_read) == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"decrypt-read takes only boolean options");
+			return -1;
+		}
+	}
+
+	this->private = priv;
+	gf_log ("rot13", GF_LOG_DEBUG, "rot13 xlator loaded");
+	return 0;
 }
 
 void 
 fini (xlator_t *this)
 {
-  return;
+	rot_13_private_t *priv = this->private;
+	
+	FREE (priv);
+	
+	return;
 }
 
 struct xlator_fops fops = {
-  .readv        = rot13_readv,
-  .writev       = rot13_writev
+	.readv        = rot13_readv,
+	.writev       = rot13_writev
 };
 
 struct xlator_mops mops = {

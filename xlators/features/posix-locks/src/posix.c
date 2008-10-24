@@ -848,8 +848,11 @@ init (xlator_t *this)
 
 	mandatory = dict_get (this->options, "mandatory");
 	if (mandatory) {
-		if (strcasecmp (mandatory->data, "on") == 0)
-			priv->mandatory = 1;
+		if (gf_string2boolean (mandatory->data, &priv->mandatory) == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"'mandatory' takes only boolean options");
+			return -1;
+		}
 	}
 
 	this->private = priv;
@@ -897,6 +900,6 @@ struct xlator_cbks cbks = {
 };
 
 struct xlator_options options[] = {
-	{ "mandatory", GF_OPTION_TYPE_STR, 1, 0, 0 },
+	{ "mandatory", GF_OPTION_TYPE_BOOL, 0, },
 	{ NULL, 0, 0, 0, 0 },
 };

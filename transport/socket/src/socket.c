@@ -1260,17 +1260,22 @@ socket_init (transport_t *this)
 
   INIT_LIST_HEAD (&priv->ioq);
 
-  if (dict_get (this->xl->options, "non-blocking-io"))
-    {
+  if (dict_get (this->xl->options, "non-blocking-io")) {
+      gf_boolean_t tmp_bool = 0;
       char *nb_connect = data_to_str (dict_get (this->xl->options,
 					      "non-blocking-io"));
-      if ((!strcasecmp (nb_connect, "off")) ||
-	  (!strcasecmp (nb_connect, "no")))
-	{
-	  priv->bio = 1;
-	  gf_log (this->xl->name, GF_LOG_WARNING,
-		  "disabling non-blocking IO");
-	}
+      
+      if (gf_string2boolean (nb_connect, &tmp_bool) == -1) {
+	      gf_log (this->xl->name, GF_LOG_ERROR,
+		      "'non-blocking-io' takes only boolean options, not taking any action");
+	      tmp_bool = 1;
+      }
+      priv->bio = 0;
+      if (!tmp_bool) {
+	      priv->bio = 1;
+	      gf_log (this->xl->name, GF_LOG_WARNING,
+		      "disabling non-blocking IO");
+      }
     }
 
   this->private = priv;

@@ -52,7 +52,7 @@
 
 struct gf_filter {
 	/* Flags */
-	char complete_read_only;
+	gf_boolean_t complete_read_only;
 	char fixed_uid_set;
 	char fixed_gid_set;
 	char partial_filter;
@@ -1389,6 +1389,7 @@ init (xlator_t *this)
 	int32_t output_value = 0;
 	data_t *option_data = NULL;
 	struct gf_filter *filter = NULL;
+	gf_boolean_t tmp_bool = 0;
 
 	if (!this->children || this->children->next) {
 		gf_log (this->name,
@@ -1403,16 +1404,21 @@ init (xlator_t *this)
 	
 	if (dict_get (this->options, "complete-read-only")) {
 		value = data_to_str (dict_get (this->options, "complete-read-only"));
-		if ((strcasecmp (value, "yes") == 0) ||
-		    (strcasecmp (value, "true") == 0)) {
-			filter->complete_read_only = 1;
+		if (gf_string2boolean (value, &filter->complete_read_only) == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"wrong value provided for 'complete-read-only'");
+			return -1;
 		}
 	}
 
 	if (dict_get (this->options, "root-squashing")) {
 		value = data_to_str (dict_get (this->options, "root-squashing"));
-		if ((strcasecmp (value, "enable") == 0) ||
-		    (strcasecmp (value, "on") == 0)) {
+		if (gf_string2boolean (value, &tmp_bool) == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"wrong value provided for 'root-squashing'");
+			return -1;
+		}
+		if (tmp_bool) {
 			filter->translate_num_uid_entries = 1;
 			filter->translate_num_gid_entries = 1;
 			filter->translate_input_uid[0][0] = GF_FILTER_ROOT_UID; /* root */

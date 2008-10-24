@@ -45,7 +45,7 @@ struct wb_file;
 struct wb_conf {
   uint64_t aggregate_size;
   uint64_t window_size;
-  char flush_behind;
+  gf_boolean_t flush_behind;
 };
 
 
@@ -1251,7 +1251,8 @@ init (xlator_t *this)
   wb_conf_t *conf = NULL;
   char *aggregate_size_string = NULL;
   char *window_size_string = NULL;
-  
+  data_t *data = NULL;
+
   if (!this->children || this->children->next)
     {
       gf_log (this->name, GF_LOG_ERROR,
@@ -1320,21 +1321,24 @@ init (xlator_t *this)
 
   conf->flush_behind = 0;
   
-  if (dict_get (options, "flush-behind"))
-    {
-      if ((!strcasecmp (data_to_str (dict_get (options, "flush-behind")), "on")) ||
-	  (!strcasecmp (data_to_str (dict_get (options, "flush-behind")), "yes"))) {
-	if (conf->aggregate_size != 0) {
-	  gf_log (this->name, GF_LOG_WARNING,
-		  "aggregate-size is not zero, disabling flush-behind");
-	} else {
-	  gf_log (this->name, GF_LOG_DEBUG,
-		  "enabling flush-behind");
-	  conf->flush_behind = 1;
+  if (dict_get (options, "flush-behind")) {
+	data = dict_get (options, "flush-behind");
+	if (gf_string2boolean (data->data, &conf->flush_behind) == -1) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"'flush-behind' takes only boolean arguments");
+		return -1;
 	}
-      }
-    }
-
+	if (conf->flush_behind) {
+		if (conf->aggregate_size != 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"aggregate-size is not zero, disabling flush-behind");
+			conf->flush_behind = 0;
+		} else {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"enabling flush-behind");
+		}
+	}
+  }
   this->private = conf;
   return 0;
 }
