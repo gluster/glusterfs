@@ -191,5 +191,5 @@ dht_hash_compute (int type, const char *name, uint32_t *hash_p)
 
 	MAKE_RSYNC_FRIENDLY_NAME (rsync_friendly_name, name);
 
-	return dht_hash_compute (type, name, hash_p);
+	return dht_hash_compute_internal (type, rsync_friendly_name, hash_p);
 }

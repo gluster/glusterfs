@@ -544,13 +544,13 @@ __adopt_children (inode_t *oldi, inode_t *newi)
 {
         dentry_t *dentry = NULL;
 
-        list_splice_init (&oldi->child_list, &newi->child_list);
-
-        list_for_each_entry (dentry, &newi->child_list, parent_list) {
+        list_for_each_entry (dentry, &oldi->child_list, parent_list) {
                 assert (dentry->parent == oldi);
                 __inode_unref (dentry->parent);
                 dentry->parent = __inode_ref (newi);
         }
+
+        list_splice_init (&oldi->child_list, &newi->child_list);
 }
 
 
@@ -973,19 +973,20 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
         return new;
 }
 
+
 inode_t *
-inode_from_path (inode_table_t *itable,
-		 const char *path)
+inode_from_path (inode_table_t *itable, const char *path)
 {
-	inode_t *inode = NULL;
-	inode_t *parent = NULL;
-	inode_t *root = itable->root;
-	inode_t *trav = NULL;
-	char *pathname = NULL;
-	char *name = NULL;
+	inode_t  *inode = NULL;
+	inode_t  *parent = NULL;
+	inode_t  *root = NULL;
+	inode_t  *trav = NULL;
+	char     *pathname = NULL;
+	char     *name = NULL;
 	dentry_t *dentry = NULL;
 
 	/* top-down approach */
+	root = itable->root;
 	trav = root;
 	parent = root;
 	inode = root;
