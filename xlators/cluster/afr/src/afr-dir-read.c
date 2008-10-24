@@ -65,7 +65,7 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 			local->cont.opendir.success_count++;
 			local->cont.opendir.op_ret = op_ret;
 			local->cont.opendir.op_ret = op_errno;
-			local->cont.opendir.fd = fd;
+			local->fd = fd;
 		}
 
 		if (local->call_count == 0) {
@@ -86,10 +86,10 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 
 /* out: */
 	if (unwind)
-		STACK_UNWIND (frame, 
+		AFR_STACK_UNWIND (frame, 
 			      local->cont.opendir.op_ret, 
 			      local->cont.opendir.op_errno, 
-			      local->cont.opendir.fd);
+			      local->fd);
 
 	return 0;
 }
@@ -116,7 +116,7 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
 	frame->local = local;
-	local->cont.opendir.fd = fd;
+	local->fd    = fd;
 
 	child_up = alloca (sizeof (unsigned char) * child_count);
 
@@ -149,7 +149,7 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, fd);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, fd);
 	}
 
 	return 0;
@@ -198,13 +198,13 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 		STACK_WIND (frame, afr_readdir_cbk,
 			    children[last_tried], 
 			    children[last_tried]->fops->readdir,
-			    local->cont.readdir.fd, local->cont.readdir.size,
+			    local->fd, local->cont.readdir.size,
 			    local->cont.readdir.offset);
 	}
 
 out:
 	if (unwind) {
-		STACK_UNWIND (frame, op_ret, op_errno, buf);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
 
 	return 0;
@@ -240,7 +240,7 @@ afr_readdir (call_frame_t *frame, xlator_t *this,
 
 	local->cont.readdir.last_tried = call_child;
 
-	local->cont.readdir.fd     = fd;
+	local->fd                  = fd;
 	local->cont.readdir.size   = size;
 	local->cont.readdir.offset = offset;
 
@@ -251,7 +251,7 @@ afr_readdir (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 	return 0;
 }
@@ -289,13 +289,13 @@ afr_getdents_cbk (call_frame_t *frame, void *cookie,
 		STACK_WIND (frame, afr_getdents_cbk,
 			    children[last_tried], 
 			    children[last_tried]->fops->getdents,
-			    local->cont.getdents.fd, local->cont.getdents.size,
+			    local->fd, local->cont.getdents.size,
 			    local->cont.getdents.offset, local->cont.getdents.flag);
 	}
 
 out:
 	if (unwind) {
-		STACK_UNWIND (frame, op_ret, op_errno, entry, count);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, entry, count);
 	}
 
 	return 0;
@@ -329,7 +329,8 @@ afr_getdents (call_frame_t *frame, xlator_t *this,
 
 	local->cont.getdents.last_tried = call_child;
 
-	local->cont.getdents.fd     = fd;
+	local->fd                   = fd;
+
 	local->cont.getdents.size   = size;
 	local->cont.getdents.offset = offset;
 	local->cont.getdents.flag   = flag;
@@ -341,7 +342,7 @@ afr_getdents (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 
 	return 0;
@@ -353,7 +354,7 @@ afr_checksum_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno,
 		  uint8_t *fchecksum, uint8_t *dchecksum)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
+	AFR_STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
 	return 0;
 }
 

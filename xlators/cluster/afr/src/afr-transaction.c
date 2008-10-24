@@ -40,7 +40,6 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		loc_wipe (&local->transaction.loc);
 		FREE (local->transaction.child_up);
 
 		local->transaction.success (frame, op_ret, op_errno);
@@ -75,8 +74,8 @@ afr_unlock_inode (call_frame_t *frame, xlator_t *this)
 			STACK_WIND (frame, afr_unlock_common_cbk,	
 				    priv->children[i], 
 				    priv->children[i]->fops->gf_file_lk, 
-				    &local->transaction.loc, 
-				    local->transaction.fd, F_SETLK, &flock); 
+				    &local->loc, 
+				    local->fd, F_SETLK, &flock); 
 		}
 	}
 
@@ -106,7 +105,7 @@ afr_unlock_dir (call_frame_t *frame, xlator_t *this)
 			STACK_WIND (frame, afr_unlock_common_cbk,	
 				    priv->children[i], 
 				    priv->children[i]->fops->gf_dir_lk, 
-				    &local->transaction.loc, local->transaction.basename,
+				    &local->loc, local->transaction.basename,
 				    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
 
 			if (local->transaction.type == AFR_DIR_LINK_TRANSACTION) {
@@ -114,7 +113,7 @@ afr_unlock_dir (call_frame_t *frame, xlator_t *this)
 				STACK_WIND (frame, afr_unlock_common_cbk,	
 					    priv->children[i], 
 					    priv->children[i]->fops->gf_dir_lk, 
-					    &local->transaction.loc, 
+					    &local->loc, 
 					    local->transaction.new_basename,
 					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
 			}
@@ -187,7 +186,7 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 			STACK_WIND (frame, afr_write_pending_post_op_cbk,
 				    priv->children[i], 
 				    priv->children[i]->fops->xattrop,
-				    local->transaction.fd, local->transaction.loc.path, 
+				    local->fd, local->loc.path, 
 				    GF_XATTROP_ADD_ARRAY, xattr);
 		}
 	}
@@ -206,10 +205,10 @@ afr_write_pending_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	loc_t       *   loc   = NULL;
 
 	int call_count  = -1;
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 
 	local = frame->local;
-	loc   = &local->transaction.loc;
+	loc   = &local->loc;
 
 	LOCK (&frame->lock);
 	{
@@ -254,10 +253,9 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 		/* no child is up */
 
 		/* free the dict */
-		dict_unref (xattr);
+//		dict_unref (xattr);
 
-		loc_wipe (&local->transaction.loc);
-		FREE (local->transaction.child_up);
+//		FREE (local->transaction.child_up);
 		local->transaction.error (frame, this, -1, ENOTCONN);
 	}
 
@@ -271,7 +269,7 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 
 			STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk, (void *) i,
 					   priv->children[i], priv->children[i]->fops->xattrop,
-					   local->transaction.fd, local->transaction.loc.path, 
+					   local->fd, local->loc.path, 
 					   GF_XATTROP_ADD_ARRAY, xattr);
 		}
 	}
@@ -295,7 +293,7 @@ afr_retry_serial_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv = NULL;
 	
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 	int call_count  = -1;
 
 	local = frame->local;
@@ -341,8 +339,8 @@ void retry_lock_serially (call_frame_t *frame, xlator_t *this, int child_index)
 		STACK_WIND_COOKIE (frame, afr_retry_serial_cbk, (void *) child_index,
 				   priv->children[child_index], 
 				   priv->children[child_index]->fops->gf_file_lk,
-				   &local->transaction.loc, 
-				   local->transaction.fd, F_SETLKW, &flock);
+				   &local->loc, 
+				   local->fd, F_SETLKW, &flock);
 	}
 }
 
@@ -355,7 +353,7 @@ afr_retry_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t * priv  = NULL;
 
 	int call_count = 0;
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 
 	local = frame->local;
 	priv  = this->private;
@@ -407,8 +405,8 @@ void acquire_lock_serially (call_frame_t *frame, xlator_t *this)
 
 			STACK_WIND_COOKIE (frame, afr_retry_unlock_cbk, (void *) i,
 					   priv->children[i], priv->children[i]->fops->gf_file_lk,
-					   &local->transaction.loc, 
-					   local->transaction.fd, F_SETLK, &flock);
+					   &local->loc, 
+					   local->fd, F_SETLK, &flock);
 		}
 	}
 	
@@ -426,7 +424,7 @@ afr_lock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 
 	int call_count = -1;
 
@@ -482,8 +480,8 @@ afr_lock_inode (call_frame_t *frame, xlator_t *this)
 			STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_file_lk, 
-					   &local->transaction.loc, 
-					   local->transaction.fd, F_SETLK, &flock); 
+					   &local->loc, 
+					   local->fd, F_SETLK, &flock); 
 		}
 	}
 
@@ -513,7 +511,7 @@ afr_lock_dir (call_frame_t *frame, xlator_t *this)
 			STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_dir_lk, 
-					   &local->transaction.loc, local->transaction.basename,
+					   &local->loc, local->transaction.basename,
 					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
 
 			if (local->transaction.type == AFR_DIR_LINK_TRANSACTION) {
@@ -521,7 +519,7 @@ afr_lock_dir (call_frame_t *frame, xlator_t *this)
 				STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) i,	
 						   priv->children[i], 
 						   priv->children[i]->fops->gf_dir_lk, 
-						   &local->transaction.loc, 
+						   &local->loc, 
 						   local->transaction.new_basename,
 						   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
 			}
@@ -564,7 +562,6 @@ afr_inode_transaction (call_frame_t *frame, xlator_t *this)
 	local->transaction.child_up = calloc (sizeof (*local->transaction.child_up), 
 					      priv->child_count);
 	if (!local->transaction.child_up) {
-		loc_wipe (&local->transaction.loc);
 		local->transaction.error (frame, this, -1, ENOMEM);
 	}
 
@@ -593,7 +590,6 @@ afr_dir_transaction (call_frame_t *frame, xlator_t *this)
 	local->transaction.child_up = calloc (sizeof (*local->transaction.child_up), 
 					      priv->child_count);
 	if (!local->transaction.child_up) {
-		loc_wipe (&local->transaction.loc);
 		local->transaction.error (frame, this, -1, ENOMEM);
 	}
 
@@ -620,7 +616,6 @@ afr_dir_link_transaction (call_frame_t *frame, xlator_t *this)
 	local->transaction.child_up = calloc (sizeof (*local->transaction.child_up), 
 					      priv->child_count);
 	if (!local->transaction.child_up) {
-		loc_wipe (&local->transaction.loc);
 		local->transaction.error (frame, this, -1, ENOMEM);
 	}
 

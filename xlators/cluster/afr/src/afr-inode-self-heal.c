@@ -136,7 +136,7 @@ sh_unlock_inode_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t * local = NULL;
 	afr_self_heal_t * sh = NULL;
 
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 	int call_count = 0;
 
 	local = frame->local;
@@ -198,7 +198,7 @@ sh_unlock_inode (call_frame_t *frame, xlator_t *this)
 			STACK_WIND_COOKIE (frame, sh_unlock_inode_cbk, (void *) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_file_lk, 
-					   &local->cont.open.loc, 
+					   &local->loc, 
 					   NULL, F_SETLK, &flock); 
 			call_count--;
 		}
@@ -295,7 +295,7 @@ sh_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t * local  = NULL;
 	afr_self_heal_t *sh  = NULL;
 
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 	int call_count = 0;
 
 	priv = this->private;
@@ -336,7 +336,7 @@ sh_read_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t * local  = NULL;
 	afr_self_heal_t *sh  = NULL;
 
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 	int i = 0;
 	int call_count = 0;
 
@@ -403,7 +403,7 @@ sh_open_source_and_sinks_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t * local = NULL;
 	afr_self_heal_t *sh = NULL;
 
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 
 	local = frame->local;
 	sh = &local->self_heal;
@@ -459,7 +459,7 @@ sh_open_source_and_sinks (call_frame_t *frame, xlator_t *this)
 
 	local->call_count = call_count;		
 
-	fd = fd_create (local->cont.open.loc.inode, frame->root->pid);
+	fd = fd_create (local->loc.inode, frame->root->pid);
 	fd = fd_ref (fd);
 
 	source  = local->self_heal.source;
@@ -471,7 +471,7 @@ sh_open_source_and_sinks (call_frame_t *frame, xlator_t *this)
 					   (void *) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->open,
-					   &local->cont.open.loc, 
+					   &local->loc, 
 					   O_RDWR|O_LARGEFILE, fd); 
 
 			call_count--;
@@ -491,7 +491,7 @@ sh_lock_inode_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t * local = NULL;
 
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 
 	/* TODO: what if lock fails? */
 	
@@ -553,7 +553,7 @@ sh_lock_inode (call_frame_t *frame, xlator_t *this)
 			STACK_WIND_COOKIE (frame, sh_lock_inode_cbk, (void *) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_file_lk, 
-					   &local->cont.open.loc, 
+					   &local->loc, 
 					   NULL, F_SETLK, &flock); 
 		}
 	}
@@ -604,7 +604,7 @@ sh_get_source_stat (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame, sh_source_stat_cbk,
 		    priv->children[source],
 		    priv->children[source]->fops->stat,
-		    &local->cont.open.loc);
+		    &local->loc);
 	
 	return 0;
 }
@@ -784,7 +784,7 @@ sh_do_data_self_heal (call_frame_t *frame, xlator_t *this)
 	}
 
 	gf_log (this->name, GF_LOG_DEBUG,
-		"starting self heal on %s", local->cont.open.loc.path);
+		"starting self heal on %s", local->loc.path);
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"%d sources found", nsources);
@@ -809,7 +809,7 @@ afr_inode_data_self_heal_lookup_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t   * local = NULL;
 
 	int call_count  = -1;
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 
 	priv = this->private;
 
@@ -881,7 +881,7 @@ afr_inode_data_self_heal (call_frame_t *frame, xlator_t *this,
 					   (void *) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->lookup,
-					   &local->cont.open.loc, NEED_XATTR_YES);
+					   &local->loc, NEED_XATTR_YES);
 		}
 	}
 

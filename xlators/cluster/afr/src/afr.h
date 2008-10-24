@@ -72,6 +72,9 @@ typedef struct _afr_local {
 	int32_t op_ret;
 	int32_t op_errno;
 
+	loc_t loc;
+	fd_t *fd;
+
 	/* 
 	   This struct contains the arguments for the "continuation"
 	   (scheme-like) of fops
@@ -84,21 +87,16 @@ typedef struct _afr_local {
 		} statfs;
 
 		struct {
-			loc_t loc;
-
 			inode_t *inode;
 			struct stat buf;
 			dict_t *xattr;
 		} lookup;
 
 		struct {
-			loc_t loc;
 			int32_t flags;
-			fd_t *fd;
 		} open;
 
 		struct {
-			fd_t *fd;
 			int32_t cmd;
 			struct flock flock;
 		} lk;
@@ -106,35 +104,29 @@ typedef struct _afr_local {
 		/* inode read */
 
 		struct {
-			loc_t loc;
 			int32_t mask;
 			int last_tried;  /* index of the child we tried previously */
 		} access;
 
 		struct {
-			loc_t loc;
 			int last_tried;
 		} stat;
 
 		struct {
-			fd_t *fd;
 			int last_tried;
 		} fstat;
 
 		struct {
-			loc_t loc;
 			size_t size;
 			int last_tried;
 		} readlink;
 
 		struct {
-			loc_t loc;
 			const char *name;
 			int last_tried;
 		} getxattr;
 
 		struct {
-			fd_t *fd;
 			size_t size;
 			off_t offset;
 			int last_tried;
@@ -146,13 +138,11 @@ typedef struct _afr_local {
 			int success_count;
 			int32_t op_ret;
 			int32_t op_errno;
-			fd_t *fd;
 		} opendir;
 
 		struct {
 			int32_t op_ret;
 			int32_t op_errno;
-			fd_t *fd;
 			size_t size;
 			off_t offset;
 
@@ -162,7 +152,7 @@ typedef struct _afr_local {
 		struct {
 			int32_t op_ret;
 			int32_t op_errno;
-			fd_t *fd;
+
 			size_t size;
 			off_t offset;
 			int32_t flag;
@@ -212,17 +202,14 @@ typedef struct _afr_local {
 		
 		struct {
 			ino_t ino;
-			loc_t loc;
 			int32_t flags;
 			mode_t mode;
-			fd_t *fd;
 			inode_t *inode;
 			struct stat buf;
 		} create;
 
 		struct {
 			ino_t ino;
-			loc_t loc;
 			dev_t dev;
 			mode_t mode;
 			inode_t *inode;
@@ -231,7 +218,6 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
-			loc_t loc;
 			int32_t mode;
 			inode_t *inode;
 			struct stat buf;
@@ -240,13 +226,11 @@ typedef struct _afr_local {
 		struct {
 			int32_t op_ret;
 			int32_t op_errno;
-			loc_t loc;
 		} unlink;
 
 		struct {
 			int32_t op_ret;
 			int32_t op_errno;
-			loc_t loc;
 		} rmdir;
 
 		struct {
@@ -266,7 +250,6 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
-			loc_t loc;
 			inode_t *inode;
 			struct stat buf;
 		} symlink;
@@ -274,9 +257,6 @@ typedef struct _afr_local {
 	} cont;
 	
 	struct {
-		loc_t loc;
-		fd_t *fd;
-
 		off_t start, len;
 		const char *basename;
 		
@@ -284,8 +264,10 @@ typedef struct _afr_local {
 
 		char *pending;
 
-		enum {AFR_INODE_TRANSACTION,    /* chmod, write, ... */
-		      AFR_DIR_TRANSACTION,      /* create, rmdir, ... */
+		loc_t parent_loc;
+
+		enum {AFR_INODE_TRANSACTION,     /* chmod, write, ... */
+		      AFR_DIR_TRANSACTION,       /* create, rmdir, ... */
 		      AFR_DIR_LINK_TRANSACTION,  /* link, rename */
 		} type;
 
@@ -349,5 +331,13 @@ afr_itransform (ino64_t ino, int child_count, int child_index);
 int
 afr_deitransform (ino64_t ino, int child_count);
 
+void
+afr_local_cleanup (call_frame_t *frame);
+
+#define AFR_STACK_UNWIND(frame, params ...)		\
+	do {						\
+		afr_local_cleanup (frame);		\
+		STACK_UNWIND (frame, params);		\
+} while (0);					
 
 #endif /* __AFR_H__ */

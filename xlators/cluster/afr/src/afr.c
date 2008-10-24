@@ -80,6 +80,16 @@ loc_copy (loc_t *dest, loc_t *src)
 */
 
 /**
+ * afr_local_cleanup - cleanup everything in frame->local
+ */
+
+void 
+afr_local_cleanup (call_frame_t *frame)
+{
+}
+
+
+/**
  * first_up_child - return the index of the first child that is up
  */
 
@@ -161,7 +171,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
 	int call_count       = -1;
 
-	int child_index = (int) cookie;
+	int child_index = (long) cookie;
 
 	priv = this->private;
 
@@ -193,8 +203,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		STACK_UNWIND (frame, local->op_ret, local->op_errno, inode, 
-			      &local->cont.lookup.buf, xattr);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, inode, 
+				  &local->cont.lookup.buf, xattr);
 	}
 
 	return 0;
@@ -221,7 +231,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-	loc_copy (&local->cont.lookup.loc, loc);
+	loc_copy (&local->loc, loc);
 	
 	if (loc->inode->ino != 0) {
 		/* revalidate */
@@ -276,7 +286,7 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0)
-		STACK_UNWIND (frame, 0, op_errno, fd);
+		AFR_STACK_UNWIND (frame, 0, op_errno, fd);
 
 	return 0;
 }
@@ -304,8 +314,8 @@ afr_open_self_heal_completion_cbk (call_frame_t *frame, xlator_t *this)
 			STACK_WIND (frame, afr_open_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->open,
-				    &local->cont.open.loc, local->cont.open.flags, 
-				    local->cont.open.fd);
+				    &local->loc, local->cont.open.flags, 
+				    local->fd);
 		}
 	}
 
@@ -328,9 +338,9 @@ int32_t afr_open (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-	loc_copy (&local->cont.open.loc, loc);
+	loc_copy (&local->loc, loc);
 	local->cont.open.flags = flags;
-	local->cont.open.fd    = fd;
+	local->fd    = fd;
 
 	afr_inode_data_self_heal (frame, this,
 				  afr_open_self_heal_completion_cbk);
@@ -338,7 +348,7 @@ int32_t afr_open (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, fd);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, fd);
 	}
 
 	return 0;
@@ -366,7 +376,7 @@ afr_flush_cbk (call_frame_t *frame, void *cookie,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0)
-		STACK_UNWIND (frame, 0, op_errno);
+		AFR_STACK_UNWIND (frame, 0, op_errno);
 
 	return 0;
 }
@@ -431,7 +441,7 @@ afr_statfs_cbk (call_frame_t *frame, void *cookie,
 
 
 	if (local->call_count == 0)
-		STACK_UNWIND (frame, op_ret, op_errno, &local->cont.statfs.buf);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, &local->cont.statfs.buf);
 
 	return 0;
 }
@@ -474,7 +484,7 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 	return 0;
 }
@@ -493,7 +503,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 	priv  = this->private;
 
-	child_index = (int) cookie;
+	child_index = (long) cookie;
 
 	call_count = --local->call_count;
 
@@ -512,13 +522,13 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) child_index,
 				   priv->children[child_index],
 				   priv->children[child_index]->fops->lk,
-				   local->cont.lk.fd, local->cont.lk.cmd, 
+				   local->fd, local->cont.lk.cmd, 
 				   &local->cont.lk.flock);
 	}
 
 out:
 	if ((call_count == 0) || (local->success_count == -1))
-		STACK_UNWIND (frame, local->op_ret, local->op_errno, &
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &
 			      local->cont.lk.flock);
 
 	return 0;
@@ -553,7 +563,7 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 	frame->local      = local;
 	local->call_count = call_count;
 
-	local->cont.lk.fd    = fd;
+	local->fd    = fd;
 	local->cont.lk.cmd   = cmd;
 	local->cont.lk.flock = *flock;
 
@@ -567,7 +577,7 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 	return 0;
 }
@@ -607,7 +617,10 @@ notify (xlator_t *this, int32_t event,
 	int i           = -1;
 	int up_children = 0;
 
-	priv  = this->private;
+	priv = this->private;
+
+	if (!priv)
+		return 0;
 
 	child_up = priv->child_up;
 

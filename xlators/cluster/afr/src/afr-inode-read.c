@@ -90,13 +90,12 @@ afr_access_cbk (call_frame_t *frame, void *cookie,
 		STACK_WIND (frame, afr_access_cbk,
 			    children[last_tried], 
 			    children[last_tried]->fops->access,
-			    &local->cont.access.loc, local->cont.access.mask);
+			    &local->loc, local->cont.access.mask);
 	}
 
 out:
 	if (unwind) {
-		loc_wipe (&local->cont.access.loc);
-		STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
 	}
 
 	return 0;
@@ -129,7 +128,7 @@ afr_access (call_frame_t *frame, xlator_t *this,
 	}
 
 	local->cont.access.last_tried = call_child;
-	loc_copy (&local->cont.access.loc, loc);
+	loc_copy (&local->loc, loc);
 	local->cont.access.mask       = mask;
 
 	STACK_WIND (frame, afr_access_cbk,
@@ -139,7 +138,7 @@ afr_access (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
 	}
 	return 0;
 }
@@ -166,7 +165,7 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 	priv     = this->private;
 	children = priv->children;
 
-	deitransform_child = (int) cookie;
+	deitransform_child = (long) cookie;
 
 	local = frame->local;
 
@@ -200,17 +199,15 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 		STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) deitransform_child,
 				   children[local->cont.stat.last_tried], 
 				   children[local->cont.stat.last_tried]->fops->stat,
-				   &local->cont.stat.loc);
+				   &local->loc);
 	}
 
 out:
 	if (unwind) {
-		loc_wipe (&local->cont.stat.loc);
-
 		buf->st_ino = afr_itransform (buf->st_ino, priv->child_count, 
 					      deitransform_child);
 
-		STACK_UNWIND (frame, op_ret, op_errno, buf);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
 
 	return 0;
@@ -238,7 +235,7 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 	frame->local = local;
 
 	call_child = afr_deitransform (loc->inode->ino, priv->child_count);
-	loc_copy (&local->cont.stat.loc, loc);
+	loc_copy (&local->loc, loc);
 
 	/* 
 	   if stat fails from the deitranform'd child, we try
@@ -254,7 +251,7 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 
 	return 0;
@@ -282,7 +279,7 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 	priv     = this->private;
 	children = priv->children;
 
-	deitransform_child = (int) cookie;
+	deitransform_child = (long) cookie;
 
 	local = frame->local;
 
@@ -316,7 +313,7 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 		STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) deitransform_child,
 				   children[last_tried], 
 				   children[last_tried]->fops->fstat,
-				   local->cont.fstat.fd);
+				   local->fd);
 	}
 
 out:
@@ -324,7 +321,7 @@ out:
 		buf->st_ino = afr_itransform (buf->st_ino, priv->child_count, 
 					      deitransform_child);
 
-		STACK_UNWIND (frame, op_ret, op_errno, buf);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
 
 	return 0;
@@ -359,7 +356,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 	*/
 	local->cont.fstat.last_tried = -1;
 
-	local->cont.fstat.fd         = fd;
+	local->fd = fd;
 
 	STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) call_child,
 			   children[call_child],
@@ -369,7 +366,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 
 	return 0;
@@ -410,14 +407,13 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 		STACK_WIND (frame, afr_readlink_cbk,
 			    children[last_tried], 
 			    children[last_tried]->fops->readlink,
-			    &local->cont.readlink.loc,
+			    &local->loc,
 			    local->cont.readlink.size);
 	}
 
 out:
 	if (unwind) {
-		loc_wipe (&local->cont.readlink.loc);
-		STACK_UNWIND (frame, op_ret, op_errno, buf);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
 
 	return 0;
@@ -452,7 +448,7 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 	}
 
 	local->cont.readlink.last_tried = call_child;
-	loc_copy (&local->cont.readlink.loc, loc);
+	loc_copy (&local->loc, loc);
 	local->cont.readlink.size       = size;
 
 	STACK_WIND (frame, afr_readlink_cbk,
@@ -462,7 +458,7 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 	return 0;
 }
@@ -503,14 +499,13 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 		STACK_WIND (frame, afr_getxattr_cbk,
 			    children[last_tried], 
 			    children[last_tried]->fops->getxattr,
-			    &local->cont.getxattr.loc,
+			    &local->loc,
 			    local->cont.getxattr.name);
 	}
 
 out:
 	if (unwind) {
-		loc_wipe (&local->cont.getxattr.loc);
-		STACK_UNWIND (frame, op_ret, op_errno, dict);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, dict);
 	}
 
 	return 0;
@@ -544,7 +539,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	}
 
 	local->cont.getxattr.last_tried = call_child;
-	loc_copy (&local->cont.getxattr.loc, loc);
+	loc_copy (&local->loc, loc);
 	local->cont.getxattr.name       = name;
 
 	STACK_WIND (frame, afr_getxattr_cbk,
@@ -554,7 +549,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 	return 0;
 }
@@ -623,13 +618,13 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 		STACK_WIND (frame, afr_readv_cbk,
 			    children[last_tried], 
 			    children[last_tried]->fops->readv,
-			    local->cont.readv.fd, local->cont.readv.size,
+			    local->fd, local->cont.readv.size,
 			    local->cont.readv.offset);
 	}
 
 out:
 	if (unwind) {
-		STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf);
 	}
 
 	return 0;
@@ -676,7 +671,8 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 		local->cont.readv.last_tried = call_child;
 	}
 
-	local->cont.readv.fd         = fd;
+	local->fd                    = fd;
+
 	local->cont.readv.size       = size;
 	local->cont.readv.offset     = offset;
 
@@ -688,7 +684,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		STACK_UNWIND (frame, op_ret, op_errno, NULL, 0, NULL);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, 0, NULL);
 	}
 	return 0;
 }
