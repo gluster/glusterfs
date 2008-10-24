@@ -468,7 +468,7 @@ afr_mkdir_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	FREE (local->transaction.basename);
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->loc.inode, 
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mkdir.inode, 
 			  &local->cont.mkdir.buf);
 	
 	return 0;

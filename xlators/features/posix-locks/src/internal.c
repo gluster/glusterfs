@@ -437,6 +437,15 @@ pl_gf_dir_lk (call_frame_t *frame, xlator_t *this,
 	LOCK (&loc->inode->lock);
 	ret = dict_get_ptr (loc->inode->ctx, this->name, (void **) &pinode);
 	if (ret < 0) {
+		if (cmd == GF_DIR_LK_UNLOCK) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"cmd is GF_DIR_LK_UNLOCK but inode->ctx is not set!");
+
+			UNLOCK (&loc->inode->lock);
+			op_errno = -EINVAL;
+			goto out;
+		}
+
 		ret = set_new_pinode (loc->inode->ctx, this, (void **) &pinode);
 		
 		UNLOCK (&loc->inode->lock);

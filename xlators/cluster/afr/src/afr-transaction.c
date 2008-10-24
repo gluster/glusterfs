@@ -105,7 +105,8 @@ afr_unlock_dir (call_frame_t *frame, xlator_t *this)
 			STACK_WIND (frame, afr_unlock_common_cbk,	
 				    priv->children[i], 
 				    priv->children[i]->fops->gf_dir_lk, 
-				    &local->loc, local->transaction.basename,
+				    &local->transaction.parent_loc, 
+				    local->transaction.basename,
 				    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
 
 			if (local->transaction.type == AFR_DIR_LINK_TRANSACTION) {
@@ -520,7 +521,7 @@ afr_lock_dir (call_frame_t *frame, xlator_t *this)
 				STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) (long) i,	
 						   priv->children[i], 
 						   priv->children[i]->fops->gf_dir_lk, 
-						   &local->loc, 
+						   &local->transaction.parent_loc, 
 						   local->transaction.new_basename,
 						   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
 			}

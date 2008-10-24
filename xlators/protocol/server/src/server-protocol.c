@@ -5248,6 +5248,7 @@ server_gf_dir_lk_resume (call_frame_t *frame,
 	server_state_t *state = NULL;
 	
 	state = STATE (frame);
+	
 	if (state->loc.inode == NULL)
 		state->loc.inode = inode_ref (loc->inode);
 	

@@ -46,6 +46,8 @@
 
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
+#include "afr-self-heal-common.h"
+
 
 /**
  * Return true if attributes of any two children do not match
@@ -57,39 +59,6 @@ attr_mismatch_p ()
 	return 1;
 }
 */
-
-
-/**
- * select_source - select a source and return it
- * TODO: take into account option 'favorite-child'
- */
-
-static int
-select_source (int sources[], int child_count)
-{
-	int i;
-	for (i = 0; i < child_count; i++)
-		if (sources[i])
-			return i;
-
-	return -1;
-}
-
-
-/**
- * sink_count - return number of sinks in sources array
- */
-
-static int
-sink_count (int sources[], int child_count)
-{
-	int i;
-	int sinks = 0;
-	for (i = 0; i < child_count; i++)
-		if (!sources[i])
-			sinks++;
-	return sinks;
-}
 
 
 /**
@@ -185,7 +154,7 @@ sh_unlock_inode (call_frame_t *frame, xlator_t *this)
 	source = sh->source;
 	sources = sh->sources;
 
-	call_count = sink_count (sources, priv->child_count) + 1; 
+	call_count = afr_sh_sink_count (sources, priv->child_count) + 1; 
 
 	local->call_count = call_count;		
 
@@ -261,7 +230,7 @@ sh_close_fds (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh = &local->self_heal;
 
-	call_count = sink_count (local->self_heal.sources, priv->child_count) + 1; 
+	call_count = afr_sh_sink_count (local->self_heal.sources, priv->child_count) + 1; 
 
 	local->call_count = call_count;		
 
@@ -346,7 +315,7 @@ sh_read_cbk (call_frame_t *frame, void *cookie,
 	local = frame->local;
 	sh = &local->self_heal;
 
-	call_count = sink_count (sh->sources, priv->child_count);
+	call_count = afr_sh_sink_count (sh->sources, priv->child_count);
 	local->call_count = call_count;
 
 	gf_log (this->name, GF_LOG_DEBUG, 
@@ -455,7 +424,7 @@ sh_open_source_and_sinks (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 
-	call_count = sink_count (local->self_heal.sources, priv->child_count) + 1; 
+	call_count = afr_sh_sink_count (local->self_heal.sources, priv->child_count) + 1; 
 
 	local->call_count = call_count;		
 
@@ -540,7 +509,7 @@ sh_lock_inode (call_frame_t *frame, xlator_t *this)
 	source = sh->source;
 	sources = sh->sources;
 
-	call_count = sink_count (sources, priv->child_count) + 1; 
+	call_count = afr_sh_sink_count (sources, priv->child_count) + 1; 
 
 	local->call_count = call_count;		
 
@@ -623,7 +592,7 @@ sh_sync_source_and_sinks (call_frame_t *frame, xlator_t *this,
 	sh    = &local->self_heal;
 
 	/* select a source */
-	sh->source = select_source (sources, priv->child_count);
+	sh->source = afr_sh_select_source (sources, priv->child_count);
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"selecting child %d as source",
@@ -633,111 +602,6 @@ sh_sync_source_and_sinks (call_frame_t *frame, xlator_t *this,
 	sh_get_source_stat (frame, this, sh->source);
 
 	return 0;
-}
-
-
-
-static void
-print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
-{
-	afr_private_t * priv = this->private;
-
-	char *buf = NULL;
-	char *ptr = NULL;
-
-	int i, j;
-
-        /* 10 digits per entry + 1 space + '[' and ']' */
-	buf = malloc (priv->child_count * 11 + 8); 
-
-	for (i = 0; i < priv->child_count; i++) {
-		ptr = buf;
-		ptr += sprintf (ptr, "[ ");
-		for (j = 0; j < priv->child_count; j++) {
-			ptr += sprintf (ptr, "%d ", pending_matrix[i][j]);
-		}
-		ptr += sprintf (ptr, "]");
-		gf_log (this->name, GF_LOG_DEBUG,
-			"pending_matrix: %s", buf);
-	}
-
-	FREE (buf);
-}
-
-
-static void
-build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
-		      int child_count)
-{
-	data_t *data = NULL;
-	int i = 0;
-	int j = 0;
-
-	for (i = 0; i < child_count; i++) {
-		if (xattr[i]) {
-			data = dict_get (xattr[i], AFR_DATA_PENDING);
-			if (data) {
-				for (j = 0; j < child_count; j++) {
-					pending_matrix[i][j] = 
-						ntoh32 (((int32_t *)(data->data))[j]);
-				}
-			}
-		}
-	}
-}
-
-
-/**
- * mark_sources: Mark all 'source' nodes and return number of source
- * nodes found
- */
-
-static int
-mark_sources (int32_t *pending_matrix[], int sources[], int child_count)
-{
-	int i = 0;
-	int j = 0;
-
-	int nsources = 0;
-
-	/*
-	  Let's 'normalize' the pending matrix first,
-	  by disregarding all pending entries that refer
-	  to themselves
-	*/
-	for (i = 0; i < child_count; i++) {
-		pending_matrix[i][i] = 0;
-	}
-
-	for (i = 0; i < child_count; i++) {
-		for (j = 0; j < child_count; j++) {
-			if (pending_matrix[j][i])
-				break;
-		}
-
-		if (j == child_count) {
-			nsources++;
-			sources[i] = 1;
-		}
-	}
-
-	return nsources;
-}
-
-/**
- * is_zero - return true if pending matrix is all zeroes
- */
-
-static int
-is_zero (int32_t *pending_matrix[], int child_count)
-{
-	int i, j;
-
-	for (i = 0; i < child_count; i++) 
-		for (j = 0; j < child_count; j++) 
-			if (pending_matrix[i][j]) 
-				return 0;
-	return 1;
 }
 
 
@@ -763,11 +627,12 @@ sh_do_data_self_heal (call_frame_t *frame, xlator_t *this)
 		sh->pending_matrix[i] = calloc (sizeof (int32_t), priv->child_count);
 	}
 
-	build_pending_matrix (sh->pending_matrix, sh->xattr, priv->child_count);
+	afr_sh_build_pending_matrix (sh->pending_matrix, sh->xattr, 
+				     priv->child_count);
 
-	print_pending_matrix (sh->pending_matrix, this);
+	afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
-	if (is_zero (sh->pending_matrix, priv->child_count)) {
+	if (afr_sh_is_matrix_zero (sh->pending_matrix, priv->child_count)) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"no self heal needed");
 		goto out;
@@ -775,7 +640,8 @@ sh_do_data_self_heal (call_frame_t *frame, xlator_t *this)
 
 	priv = this->private;
 
-	nsources = mark_sources (sh->pending_matrix, sh->sources, priv->child_count);
+	nsources = afr_sh_mark_sources (sh->pending_matrix, sh->sources, 
+					priv->child_count);
 
 	if (nsources == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
