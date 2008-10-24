@@ -434,13 +434,19 @@ pl_gf_dir_lk (call_frame_t *frame, xlator_t *this,
 	pl_inode_t *       pinode = NULL; 
 	int                ret    = -1;
 
+	LOCK (&loc->inode->lock);
 	ret = dict_get_ptr (loc->inode->ctx, this->name, (void **) &pinode);
 	if (ret < 0) {
 		ret = set_new_pinode (loc->inode->ctx, this, (void **) &pinode);
+		
+		UNLOCK (&loc->inode->lock);
+
 		if (ret < 0) {
 			op_errno = -ret;
 			goto out;
 		}
+	} else {
+		UNLOCK (&loc->inode->lock);
 	}
 
 	switch (cmd) {
