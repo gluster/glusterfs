@@ -135,7 +135,7 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_create_wind_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, afr_create_wind_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->create,
 					   &local->loc, 
@@ -292,7 +292,7 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_mknod_wind_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, afr_mknod_wind_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->mknod,
 					   &local->loc, local->cont.mknod.mode,
@@ -448,7 +448,7 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_mkdir_wind_cbk, (void *) i,	
+			STACK_WIND_COOKIE (frame, afr_mkdir_wind_cbk, (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->mkdir,
 					   &local->loc, local->cont.mkdir.mode);
@@ -598,7 +598,7 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_link_wind_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, afr_link_wind_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->link,
 					   &local->cont.link.oldloc,
@@ -763,7 +763,7 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_symlink_wind_cbk, (void *) i,	
+			STACK_WIND_COOKIE (frame, afr_symlink_wind_cbk, (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->symlink,
 					   local->transaction.new_basename,
@@ -918,7 +918,7 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_rename_wind_cbk, (void *) i,	
+			STACK_WIND_COOKIE (frame, afr_rename_wind_cbk, (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->rename,
 					   &local->cont.rename.oldloc,

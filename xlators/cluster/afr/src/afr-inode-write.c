@@ -103,7 +103,7 @@ afr_chmod_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->transaction.child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_chmod_wind_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, afr_chmod_wind_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->chmod,
 					   &local->transaction.parent_loc, 
@@ -235,7 +235,7 @@ afr_chown_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->transaction.child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_chown_wind_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, afr_chown_wind_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->chown,
 					   &local->loc, local->cont.chown.uid,
@@ -377,7 +377,7 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->transaction.child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_writev_wind_cbk, (void *) i,	
+			STACK_WIND_COOKIE (frame, afr_writev_wind_cbk, (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->writev,
 					   local->fd, 
@@ -528,7 +528,7 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->transaction.child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_truncate_wind_cbk, (void *) i,	
+			STACK_WIND_COOKIE (frame, afr_truncate_wind_cbk, (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->truncate,
 					   &local->loc, 
@@ -661,7 +661,7 @@ afr_utimens_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_utimens_wind_cbk, (void *) i,	
+			STACK_WIND_COOKIE (frame, afr_utimens_wind_cbk, (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->utimens,
 					   &local->loc, 

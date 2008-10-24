@@ -131,31 +131,6 @@ str_rerase_till (char *str,
 	return idx;
 }
 
-static inline __attribute__((always_inline))
-call_frame_t *
-server_copy_frame (call_frame_t *frame)
-{
-	call_frame_t *new_frame = NULL;
-	server_state_t *state = NULL, *new_state = NULL;
-
-	state = frame->root->state;
-
-	new_frame = copy_frame (frame);
-
-	new_state = calloc (1, sizeof (server_state_t));
-
-	new_frame->root->frames.op   = frame->op;
-	new_frame->root->frames.type = frame->type;
-	new_frame->root->trans       = state->trans;
-	new_frame->root->state       = new_state;
-
-	new_state->bound_xl = state->bound_xl;
-	new_state->trans    = transport_ref (state->trans);
-	new_state->itable   = state->itable;
-
-	return new_frame;
-}
-
 
 /* __server_path_to_parenti - derive parent inode for @path. if immediate parent is
  *                            not available in the dentry cache, return nearest

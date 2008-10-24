@@ -195,7 +195,7 @@ sh_unlock_inode (call_frame_t *frame, xlator_t *this)
 		flock.l_type  = F_UNLCK;			
 
 		if ((i == source) || (sources[i] == 0)) {
-			STACK_WIND_COOKIE (frame, sh_unlock_inode_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, sh_unlock_inode_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_file_lk, 
 					   &local->loc, 
@@ -270,7 +270,7 @@ sh_close_fds (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if ((i == source) || (sources[i] == 0)) {
-			STACK_WIND_COOKIE (frame, sh_close_fds_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, sh_close_fds_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->flush,
 					   sh->healing_fd);
@@ -360,7 +360,7 @@ sh_read_cbk (call_frame_t *frame, void *cookie,
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->sources[i] == 0) {
 			/* this is a sink, so write to it */
-			STACK_WIND_COOKIE (frame, sh_write_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, sh_write_cbk, (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->writev,
 					   sh->healing_fd, vector, count, offset);
@@ -386,7 +386,7 @@ sh_read_write (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh = &local->self_heal;
 
-	STACK_WIND_COOKIE (frame, sh_read_cbk, (void *) sh->source,
+	STACK_WIND_COOKIE (frame, sh_read_cbk, (void *) (long) sh->source,
 			   priv->children[sh->source],
 			   priv->children[sh->source]->fops->readv,
 			   sh->healing_fd, sh->block_size,
@@ -468,7 +468,7 @@ sh_open_source_and_sinks (call_frame_t *frame, xlator_t *this)
 	for (i = 0; i < priv->child_count; i++) {				
 		if ((i == source) || (sources[i] == 0)) {
 			STACK_WIND_COOKIE (frame, sh_open_source_and_sinks_cbk, 
-					   (void *) i,
+					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->open,
 					   &local->loc, 
@@ -550,7 +550,7 @@ sh_lock_inode (call_frame_t *frame, xlator_t *this)
 		flock.l_type  = F_WRLCK;			
 
 		if ((i == source) || (sources[i] == 0)) {
-			STACK_WIND_COOKIE (frame, sh_lock_inode_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, sh_lock_inode_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_file_lk, 
 					   &local->loc, 
@@ -878,7 +878,7 @@ afr_inode_data_self_heal (call_frame_t *frame, xlator_t *this,
 	for (i = 0; i < priv->child_count; i++) {
 		if (child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_inode_data_self_heal_lookup_cbk,
-					   (void *) i,
+					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->lookup,
 					   &local->loc, NEED_XATTR_YES);

@@ -86,6 +86,11 @@ loc_copy (loc_t *dest, loc_t *src)
 void 
 afr_local_cleanup (call_frame_t *frame)
 {
+	afr_local_t * local = NULL;
+
+	local = frame->local;
+
+	loc_wipe (&local->loc);
 }
 
 
@@ -191,7 +196,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			local->cont.lookup.buf.st_ino = afr_itransform (buf->st_ino, 
 									priv->child_count, 
 									child_index);
-			gf_log (this->name, GF_LOG_TRACE,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"scaling inode %"PRId64" to %"PRId64,
 				buf->st_ino, local->cont.lookup.buf.st_ino);
 
@@ -238,13 +243,13 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 		child_index = afr_deitransform (loc->inode->ino, priv->child_count);
 
-		gf_log (this->name, GF_LOG_TRACE,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"revalidate on node %d",
 			child_index);
 
 		local->call_count = 1;
 
-		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) i,
+		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
 				   priv->children[child_index],
 				   priv->children[child_index]->fops->lookup,
 				   loc, 1);
@@ -254,7 +259,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 		local->call_count = priv->child_count;
 
 		for (i = 0; i < priv->child_count; i++) {
-			STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->lookup,
 					   loc, 1);
@@ -519,7 +524,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	child_index++;
 
 	if (child_index < priv->child_count) {
-		STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) child_index,
+		STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) (long) child_index,
 				   priv->children[child_index],
 				   priv->children[child_index]->fops->lk,
 				   local->fd, local->cont.lk.cmd, 
@@ -569,7 +574,7 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 
 	i = first_up_child (priv);
 
-	STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) i,
+	STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) (long) i,
 			   priv->children[i],
 			   priv->children[i]->fops->lk,
 			   fd, cmd, flock);

@@ -113,7 +113,7 @@ afr_unlock_dir (call_frame_t *frame, xlator_t *this)
 				STACK_WIND (frame, afr_unlock_common_cbk,	
 					    priv->children[i], 
 					    priv->children[i]->fops->gf_dir_lk, 
-					    &local->loc, 
+					    &local->transaction.parent_loc, 
 					    local->transaction.new_basename,
 					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
 			}
@@ -267,7 +267,7 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 					     priv->pending_inc_array, 
 					     priv->child_count * sizeof (int32_t));
 
-			STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk, (void *) (long) i,
 					   priv->children[i], priv->children[i]->fops->xattrop,
 					   local->fd, local->loc.path, 
 					   GF_XATTROP_ADD_ARRAY, xattr);
@@ -336,7 +336,7 @@ void retry_lock_serially (call_frame_t *frame, xlator_t *this, int child_index)
 
 	if ((child_index < priv->child_count) &&
 	    local->transaction.child_up[child_index]) {
-		STACK_WIND_COOKIE (frame, afr_retry_serial_cbk, (void *) child_index,
+		STACK_WIND_COOKIE (frame, afr_retry_serial_cbk, (void *) (long) child_index,
 				   priv->children[child_index], 
 				   priv->children[child_index]->fops->gf_file_lk,
 				   &local->loc, 
@@ -403,7 +403,7 @@ void acquire_lock_serially (call_frame_t *frame, xlator_t *this)
 
 			local->call_count++;
 
-			STACK_WIND_COOKIE (frame, afr_retry_unlock_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, afr_retry_unlock_cbk, (void *) (long) i,
 					   priv->children[i], priv->children[i]->fops->gf_file_lk,
 					   &local->loc, 
 					   local->fd, F_SETLK, &flock);
@@ -477,7 +477,7 @@ afr_lock_inode (call_frame_t *frame, xlator_t *this)
 		flock.l_type  = F_WRLCK;			
 
 		if (local->transaction.child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) i,
+			STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_file_lk, 
 					   &local->loc, 
@@ -508,15 +508,16 @@ afr_lock_dir (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->transaction.child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) i,	
+			STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_dir_lk, 
-					   &local->loc, local->transaction.basename,
+					   &local->transaction.parent_loc, 
+					   local->transaction.basename,
 					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
 
 			if (local->transaction.type == AFR_DIR_LINK_TRANSACTION) {
 
-				STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) i,	
+				STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) (long) i,	
 						   priv->children[i], 
 						   priv->children[i]->fops->gf_dir_lk, 
 						   &local->loc, 

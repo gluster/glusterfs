@@ -65,6 +65,7 @@ typedef struct {
 	int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
 } afr_self_heal_t;
 
+
 typedef struct _afr_local {
 	unsigned int call_count;
 	unsigned int success_count;

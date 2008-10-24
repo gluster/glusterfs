@@ -196,7 +196,7 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 
 		unwind = 0;
 
-		STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) deitransform_child,
+		STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) (long) deitransform_child,
 				   children[local->cont.stat.last_tried], 
 				   children[local->cont.stat.last_tried]->fops->stat,
 				   &local->loc);
@@ -243,7 +243,7 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 	*/
 	local->cont.stat.last_tried = -1;
 
-	STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) call_child,
+	STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) (long) call_child,
 			   children[call_child],
 			   children[call_child]->fops->stat,
 			   loc);
@@ -310,7 +310,7 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 
 		unwind = 0;
 
-		STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) deitransform_child,
+		STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) (long) deitransform_child,
 				   children[last_tried], 
 				   children[last_tried]->fops->fstat,
 				   local->fd);
@@ -358,7 +358,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
 	local->fd = fd;
 
-	STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) call_child,
+	STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) (long) call_child,
 			   children[call_child],
 			   children[call_child]->fops->fstat,
 			   fd);
