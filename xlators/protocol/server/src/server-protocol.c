@@ -41,7 +41,6 @@
 #include "compat.h"
 #include "compat-errno.h"
 
-
 #define TRANSPORT_OF(frame) ((transport_t *) STATE (frame)->trans)
 #define CONNECTION_PRIVATE(frame)  ((connection_private_t *) TRANSPORT_OF(frame)->xl_private)
 
@@ -6876,7 +6875,7 @@ server_protocol_cleanup (transport_t *trans)
 		flock.l_start = 0;
 		flock.l_len   = 0;
 		list_for_each_entry_safe (locker, tmp, &file_lockers, lockers) {
-			tmp_frame = copy_frame (frame);
+			tmp_frame = server_copy_frame (frame);
 			tmp_frame->root->pid = locker->pid;
 			STACK_WIND (tmp_frame,
 				    server_nop_cbk,
