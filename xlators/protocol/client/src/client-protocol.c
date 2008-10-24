@@ -59,77 +59,97 @@ static ino_t
 this_ino_get (inode_t *inode, xlator_t *this)
 {
 	ino_t ino = 0;
-	data_t *ino_data = NULL;
+	int32_t ret = -1;
 
-	if (!inode || !this)
-		return 0;
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
-	ino_data = dict_get (inode->ctx, this->name);
-	if (ino_data)
-	{
-		ino = data_to_uint64 (ino_data);
+	ret = dict_get_uint64 (inode->ctx, this->name, &ino);
+	if (ret < 0) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to do dict get from inode(%p)",
+			inode);
 	}
+out:
 	return ino;
 }
 
 static void
 this_ino_set (inode_t *inode, xlator_t *this, ino_t ino)
 {
-	data_t *old_ino_data = NULL;
-	data_t *new_ino_data = NULL;
 	ino_t old_ino = 0;
+	int32_t ret = -1;
+	
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
-	old_ino_data = dict_get (inode->ctx, this->name);
-	if (old_ino_data)
-	{
-		old_ino = data_to_uint64 (old_ino_data);
+	ret = dict_get_uint64 (inode->ctx, this->name, &old_ino);
+
+	if (old_ino != ino) {
+		gf_log (this->name,
+			GF_LOG_WARNING,
+			"inode number(%d) changed for inode(%p)",
+			old_ino, inode);
+		ret = dict_set_uint64 (inode->ctx, this->name, ino);
+		if (ret < 0) {
+			gf_log (this->name,
+				GF_LOG_ERROR,
+				"failed to dict set inode number(%d) to inode(%p)",
+				ino, inode);
+		}
 	}
-
-	if (old_ino != ino)
-	{
-		new_ino_data = data_from_uint64 (ino);
-
-		dict_set (inode->ctx, this->name, new_ino_data);
-	}
+out:
+	return;
 }
 
 static int
 this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
 {
 	int ret = -1;
-	uint64_t fd = 0;
-	data_t *fd_data = NULL;
+	
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	GF_VALIDATE_OR_GOTO (this->name, file, out);
+	GF_VALIDATE_OR_GOTO (this->name, remote_fd, out);
 
-	fd_data = dict_get (file->ctx, this->name);
-	if (fd_data)
-	{
-		fd = data_to_uint64 (fd_data);
-		if (remote_fd)
-			*remote_fd = fd;
-		ret = 0;
+	ret = dict_get_int64 (file->ctx, this->name, remote_fd);
+	if (ret < 0) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd number for fd_t(%p)",
+			file);
 	}
+out:
 	return ret;
 }
 
 
 static void
-this_fd_set (fd_t *file, xlator_t *this, uint64_t fd)
+this_fd_set (fd_t *file, xlator_t *this, int64_t fd)
 {
-	data_t *old_fd_data = NULL;
-	data_t *new_fd_data = NULL;
-	uint64_t old_fd = 0;
-
-	old_fd_data = dict_get (file->ctx, this->name);
-	if (old_fd_data)
-	{
-		old_fd = data_to_uint64 (old_fd_data);
+	int64_t old_fd = 0;
+	int32_t ret = -1;
+	
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	GF_VALIDATE_OR_GOTO (this->name, file, out);
+	
+	ret = dict_get_int64 (file->ctx, this->name, &old_fd);
+	if (ret >=0 ) {
+		gf_log (this->name,
+			GF_LOG_WARNING,
+			"duplicate fd_set for fd_t(%p) with old_fd(%d)",
+			file, old_fd);
 	}
 
-	{
-		new_fd_data = data_from_uint64 (fd);
-
-		dict_set (file->ctx, this->name, new_fd_data);
+	ret = dict_set_int64 (file->ctx, this->name, fd);
+	if (ret < 0) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to set remote fd(%d) to fd_t(%p)",
+			fd, file);
 	}
+out:
+	return;
 }
 
 
@@ -232,20 +252,25 @@ void
 __protocol_client_frame_save (xlator_t *this, call_frame_t *frame,
                               uint64_t callid)
 {
-	client_proto_priv_t *priv = NULL;
-	transport_t *trans = NULL;
-	char callid_str[32];
-	struct timeval timeout = {0, };
+	client_proto_priv_t *priv           = NULL;
+	transport_t         *trans          = NULL;
+	char                 callid_str[32] = {0,};
+	struct timeval       timeout        = {0, };
+	int32_t              ret            = -1;
 
 	trans = this->private;
 	priv = trans->xl_private;
 
 	snprintf (callid_str, 32, "%"PRId64, callid);
 
-	dict_set (priv->saved_frames, callid_str, data_from_static_ptr (frame));
+	ret = dict_set_static_ptr (priv->saved_frames, callid_str, frame);
+	if (ret < 0) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to save frame(%s:%p)", callid_str, frame);
+	}
 
-	if (!priv->timer)
-	{
+	if (priv->timer == NULL) {
 		timeout.tv_sec  = 10;
 		timeout.tv_usec = 0;
 		priv->timer     = gf_timer_call_after (trans->xl->ctx, timeout,
@@ -2476,14 +2501,15 @@ client_create_cbk (call_frame_t *frame,
                    char *buf, size_t buflen)
 {
 	gf_fop_create_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
-	fd_t *fd = NULL;
-	inode_t *inode = NULL;
-	struct stat stbuf = {0, };
-	int64_t remote_fd = 0;
+	int32_t              op_ret = 0;
+	int32_t              op_errno = 0;
+	fd_t                *fd = NULL;
+	inode_t             *inode = NULL;
+	struct stat          stbuf = {0, };
+	int64_t              remote_fd = 0;
 	client_proto_priv_t *priv = NULL;
-	char key[32];
+	char                 key[32] = {0, };
+	int32_t              ret = -1;
 
 	fd = frame->local;
 	frame->local = NULL;
@@ -2494,21 +2520,29 @@ client_create_cbk (call_frame_t *frame,
 	op_ret    = ntoh32 (hdr->rsp.op_ret);
 	op_errno  = ntoh32 (hdr->rsp.op_errno);
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		remote_fd = ntoh64 (rsp->fd);
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		priv = CLIENT_PRIVATE (frame);
 
 		this_ino_set (inode, frame->this, stbuf.st_ino);
 		this_fd_set (fd, frame->this, remote_fd);
 
 		sprintf (key, "%p", fd);
-		dict_set (priv->saved_fds, key, str_to_data (""));
+		pthread_mutex_lock (&priv->lock);
+		{
+			ret = dict_set_str (priv->saved_fds, key, "");
+		}
+		pthread_mutex_unlock (&priv->lock);
+		if (ret < 0) {
+			free (key);
+			gf_log (frame->this->name,
+				GF_LOG_ERROR,
+				"failed to save fd(%p)", fd);
+		}
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);
@@ -2529,13 +2563,14 @@ client_open_cbk (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  char *buf, size_t buflen)
 {
-	int32_t op_ret = -1;
-	int32_t op_errno = ENOTCONN;
-	fd_t *fd = NULL;
-	int64_t remote_fd = 0;
-	gf_fop_open_rsp_t *rsp = NULL;
+	int32_t              op_ret = -1;
+	int32_t              op_errno = ENOTCONN;
+	fd_t                *fd = NULL;
+	int64_t              remote_fd = 0;
+	gf_fop_open_rsp_t   *rsp = NULL;
 	client_proto_priv_t *priv = NULL;
-	char key[32];
+	char                 key[32] = {0,};
+	int32_t              ret = -1;
 
 	fd = frame->local;
 	frame->local = NULL;
@@ -2545,13 +2580,11 @@ client_open_cbk (call_frame_t *frame,
 	op_ret    = ntoh32 (hdr->rsp.op_ret);
 	op_errno  = ntoh32 (hdr->rsp.op_errno);
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		remote_fd = ntoh64 (rsp->fd);
 	}
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		priv = CLIENT_PRIVATE(frame);
 
 		this_fd_set (fd, frame->this, remote_fd);
@@ -2560,9 +2593,16 @@ client_open_cbk (call_frame_t *frame,
 
 		pthread_mutex_lock (&priv->lock);
 		{
-			dict_set (priv->saved_fds, key, str_to_data (""));
+			ret = dict_set_str (priv->saved_fds, key, "");
 		}
 		pthread_mutex_unlock (&priv->lock);
+
+		if (ret < 0) {
+			gf_log (frame->this->name,
+				GF_LOG_ERROR,
+				"failed to save fd(%p)", fd);
+			free (key);
+		}
 
 	}
 
@@ -3226,13 +3266,14 @@ client_opendir_cbk (call_frame_t *frame,
                     gf_hdr_common_t *hdr, size_t hdrlen,
                     char *buf, size_t buflen)
 {
-	int32_t op_ret = -1;
-	int32_t op_errno = ENOTCONN;
-	fd_t *fd = NULL;
-	int64_t remote_fd = 0;
-	gf_fop_opendir_rsp_t *rsp = NULL;
-	client_proto_priv_t *priv = NULL;
-	char key[32];
+	int32_t               op_ret   = -1;
+	int32_t               op_errno = ENOTCONN;
+	fd_t                 *fd       = NULL;
+	int64_t               remote_fd = 0;
+	gf_fop_opendir_rsp_t *rsp  = NULL;
+	client_proto_priv_t  *priv = NULL;
+	char                  key[32] = {0,};
+	int32_t               ret     = -1;
 
 	fd = frame->local;
 	frame->local = NULL;
@@ -3242,13 +3283,11 @@ client_opendir_cbk (call_frame_t *frame,
 	op_ret    = ntoh32 (hdr->rsp.op_ret);
 	op_errno  = ntoh32 (hdr->rsp.op_errno);
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		remote_fd = ntoh64 (rsp->fd);
 	}
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		priv = CLIENT_PRIVATE(frame);
 
 		this_fd_set (fd, frame->this, remote_fd);
@@ -3257,10 +3296,15 @@ client_opendir_cbk (call_frame_t *frame,
 
 		pthread_mutex_lock (&priv->lock);
 		{
-			dict_set (priv->saved_fds, key, str_to_data (""));
+			ret = dict_set_str (priv->saved_fds, key, "");
 		}
 		pthread_mutex_unlock (&priv->lock);
-
+		if (ret < 0) {
+			free (key);
+			gf_log (frame->this->name,
+				GF_LOG_ERROR,
+				"failed to save fd(%p)", fd);
+		}
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd);
@@ -4583,16 +4627,22 @@ int
 protocol_client_handshake (xlator_t *this,
                            transport_t *trans)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t        *hdr = NULL;
 	gf_mop_setvolume_req_t *req = NULL;
-	dict_t *options = NULL;
-	int ret = -1;
-	int hdrlen = 0;
-	int dict_len = 0;
-	call_frame_t *fr = NULL;
+	dict_t                 *options = NULL;
+	int32_t                 ret = -1;
+	int                     hdrlen = 0;
+	int                     dict_len = 0;
+	call_frame_t           *fr = NULL;
 
 	options = this->options;
-	dict_set (options, "version", str_to_data (PACKAGE_VERSION));
+	ret = dict_set_str (options, "version", PACKAGE_VERSION);
+	if (ret < 0) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to set version(%s) in options dictionary",
+			PACKAGE_VERSION);
+	}
 
 	dict_len = dict_serialized_length (options);
 
