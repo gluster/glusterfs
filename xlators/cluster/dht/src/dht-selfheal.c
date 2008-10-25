@@ -346,6 +346,7 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	misc     = local->selfheal.misc;
 
 	local->selfheal.dir_cbk = dir_cbk;
+	local->selfheal.layout = layout;
 
 	if (overlaps) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -376,8 +377,6 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 		ret = 0;
 		goto sorry_no_fix;
 	}
-
-	local->selfheal.layout = layout;
 
 	dht_selfheal_dir_getafix (frame, loc, layout);
 
