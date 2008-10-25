@@ -682,6 +682,14 @@ notify (xlator_t *this, int32_t event,
 }
 
 
+static const char *favorite_child_warning_str = "You have specified subvolume '%s' "
+	"as the 'favorite child'. This means that if a discrepancy in the content "
+	"or attributes (ownership, permission, etc.) of a file is detected among "
+	"the subvolumes, the file on '%s' will be considered the definitive "
+	"version and its contents will OVERWRITE the contents of the file on other "
+	"subvolumes. All versions of the file except that on '%s' "
+	"WILL BE LOST.";
+
 int32_t 
 init (xlator_t *this)
 {
@@ -714,7 +722,10 @@ init (xlator_t *this)
 			priv->read_child = child_count;
 		}
 
-		if (fav_ret == 0 && !strcmp (read_subvol, trav->xlator->name)) {
+		if (fav_ret == 0 && !strcmp (fav_child, trav->xlator->name)) {
+			gf_log (this->name, GF_LOG_WARNING,
+				favorite_child_warning_str, trav->xlator->name,
+				trav->xlator->name, trav->xlator->name);
 			priv->favorite_child = child_count;
 		}
 
