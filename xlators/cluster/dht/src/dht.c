@@ -2313,6 +2313,9 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
+		ret = dht_layout_merge (this, layout, prev->this,
+					op_ret, op_errno, NULL);
+
 		if (op_ret == -1) {
 			local->op_errno = op_errno;
 			goto unlock;
@@ -2320,9 +2323,6 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->op_ret = 0;
 
 		local->stbuf = *stbuf;
-
-		ret = dht_layout_merge (this, layout, prev->this,
-					op_ret, op_errno, NULL);
 	}
 unlock:
 	UNLOCK (&frame->lock);
