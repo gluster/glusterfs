@@ -431,10 +431,6 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 
-	afr_ctx_t * ctx = NULL;
-
-	int ret = -1;
-
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -442,14 +438,6 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
-
-	ret = dict_get_ptr (fd->ctx, this->name, (void **) &ctx);
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_DEBUG, "fd->ctx not set! (%s)",
-			strerror (-ret));
-		op_errno = -ret;
-		goto out;
-	}
 
 	local->op_ret = -1;
 
@@ -467,7 +455,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	local->fd                  = fd;
 
-	if (ctx->append) {
+	if (fd->flags & O_APPEND) {
 		local->transaction.start   = 0;
 		local->transaction.len     = 0;
 	} else {

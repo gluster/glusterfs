@@ -34,6 +34,7 @@ struct _inode;
 struct _dict;
 struct _fd {
         pid_t pid;
+	int32_t flags;
         struct list_head inode_list;
         struct _inode *inode;
         struct _dict *ctx;

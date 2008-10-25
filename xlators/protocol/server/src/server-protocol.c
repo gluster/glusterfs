@@ -3675,6 +3675,7 @@ server_create_resume (call_frame_t *frame,
 	}
 
 	state->fd = fd_create (state->loc.inode, frame->root->pid);
+	state->fd->flags = flags;
 	state->fd = fd_ref (state->fd);
 
 	STACK_WIND (frame,
@@ -3737,6 +3738,8 @@ server_open_resume (call_frame_t *frame,
 	fd_t *new_fd = NULL;
 
 	new_fd = fd_create (loc->inode, frame->root->pid);
+	new_fd->flags = flags;
+
 	state->fd = fd_ref (new_fd);
 
 	STACK_WIND (frame,

@@ -279,35 +279,13 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 	      fd_t *fd)
 {
 	afr_local_t *local = NULL;
-	afr_ctx_t *ctx = NULL;
 
 	int call_count = -1;
-	int ret = -1;
 
 	local = frame->local;
 
 	LOCK (&frame->lock);
 	{
-		if (op_ret == 0) {
-			ctx = calloc (sizeof (*ctx), 1);
-			if (!ctx) {
-				gf_log (this->name, GF_LOG_DEBUG,
-					"out of memory :(");
-				goto out;
-			}
-
-			if (local->cont.open.flags & O_APPEND) 
-				ctx->append = 1;
-
-			ret = dict_set_ptr (fd->ctx, this->name, ctx);
-			if (ret < 0) {
-				gf_log (this->name, GF_LOG_DEBUG,
-					"dict_set_ptr failed: %s",
-					strerror (-ret));
-			}
-		}
-
-	out:
 		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);

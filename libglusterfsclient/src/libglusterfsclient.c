@@ -1124,6 +1124,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
 
         if (!op_ret || (op_ret == -1 && errno == ENOENT && ((flags & O_CREAT) == O_CREAT))) {
                 fd = fd_create (loc.inode, 0);
+		fd->flags = flags;
 
                 if (!op_ret) {
                         if (S_ISDIR (loc.inode->st_mode)) {
@@ -1195,6 +1196,7 @@ glusterfs_creat (libglusterfs_client_ctx_t *ctx,
         /*  libgf_client_lookup (ctx, &loc, NULL); */
 
         fd = fd_create (loc.inode, 0);
+	fd->flags = flags;
 
         op_ret = libgf_client_creat (ctx, &loc, fd, O_CREAT|O_WRONLY|O_TRUNC, mode);
 
