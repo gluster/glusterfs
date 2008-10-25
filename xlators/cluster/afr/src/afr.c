@@ -279,13 +279,35 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 	      fd_t *fd)
 {
 	afr_local_t *local = NULL;
-	
+	afr_ctx_t *ctx = NULL;
+
 	int call_count = -1;
+	int ret = -1;
 
 	local = frame->local;
 
 	LOCK (&frame->lock);
 	{
+		if (op_ret == 0) {
+			ctx = calloc (sizeof (*ctx), 1);
+			if (!ctx) {
+				gf_log (this->name, GF_LOG_DEBUG,
+					"out of memory :(");
+				goto out;
+			}
+
+			if (local->cont.open.flags & O_APPEND) 
+				ctx->append = 1;
+
+			ret = dict_set_ptr (fd->ctx, this->name, ctx);
+			if (ret < 0) {
+				gf_log (this->name, GF_LOG_DEBUG,
+					"dict_set_ptr failed: %s",
+					strerror (-ret));
+			}
+		}
+
+	out:
 		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
@@ -693,19 +715,29 @@ init (xlator_t *this)
 	int             op_errno    = 0;
 
 	char * read_subvol = NULL;
-	int    dict_ret    = -1;
+	char * fav_child   = NULL;
+
+	int    read_ret    = -1;
+	int    fav_ret     = -1;
 
 	ALLOC_OR_GOTO (this->private, afr_private_t, out);
 
 	priv = this->private;
 
-	dict_ret = dict_get_str (this->options, "read-subvolume", &read_subvol);
+	read_ret = dict_get_str (this->options, "read-subvolume", &read_subvol);
 	priv->read_child = -1;
+
+	fav_ret = dict_get_str (this->options, "favorite-child", &fav_child);
+	priv->favorite_child = -1;
 
 	trav = this->children;
 	while (trav) {
-		if (dict_ret == 0 && !strcmp (read_subvol, trav->xlator->name)) {
+		if (read_ret == 0 && !strcmp (read_subvol, trav->xlator->name)) {
 			priv->read_child = child_count;
+		}
+
+		if (fav_ret == 0 && !strcmp (read_subvol, trav->xlator->name)) {
+			priv->favorite_child = child_count;
 		}
 
 		child_count++;
@@ -817,5 +849,6 @@ struct xlator_cbks cbks = {
 
 struct xlator_options options[] = {
 	{ "read-subvolume", GF_OPTION_TYPE_XLATOR, 0, },
+	{ "favorite-child", GF_OPTION_TYPE_XLATOR, 0, },
 	{ NULL, 0, },
 };

@@ -42,6 +42,8 @@ typedef struct _afr_private {
 	int32_t *pending_dec_array;
 
 	unsigned int read_child;      /* read-subvolume */
+	unsigned int favorite_child;  /* subvolume to be preferred in resolving
+					 split-brain cases */
 } afr_private_t;
 
 typedef struct {
@@ -65,6 +67,10 @@ typedef struct {
 	int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
 } afr_self_heal_t;
 
+
+typedef struct _afr_ctx {
+	int append;   /* set if fd was opened with O_APPEND flag */
+} afr_ctx_t;
 
 typedef struct _afr_local {
 	unsigned int call_count;
