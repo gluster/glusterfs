@@ -23,6 +23,8 @@
 
 #include "afr.h"
 #include "afr-transaction.h"
+#include "afr-self-heal-common.h"
+#include "afr-self-heal.h"
 
 
 /**
@@ -159,4 +161,44 @@ afr_sh_is_matrix_zero (int32_t *pending_matrix[], int child_count)
 			if (pending_matrix[i][j]) 
 				return 0;
 	return 1;
+}
+
+
+int
+afr_self_heal_create_missing_entries (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	build_parent_loc (&sh->parent_loc, &local->loc);
+
+	return 0;
+}
+
+
+int
+afr_self_heal (call_frame_t *frame, xlator_t *this,
+	       int (*completion_cbk) (call_frame_t *, xlator_t *))
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+
+	sh->completion_cbk = completion_cbk;
+
+	if (local->success_count && local->enoent_count)
+		afr_self_heal_create_missing_entries (frame, this);
+	else
+		afr_self_heal_metadata (frame, this);
+
+	return 0;
 }

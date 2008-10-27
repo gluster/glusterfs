@@ -52,32 +52,6 @@
 
 #include "afr-self-heal.h"
 
-void
-loc_wipe (loc_t *loc)
-{
-  if (!loc)
-    return;
-
-  if (loc->path) 
-	  FREE (loc->path);
-
-  if (loc->inode)
-    inode_unref (loc->inode);
-}
-
-/*
-void
-loc_copy (loc_t *dest, loc_t *src)
-{
-  if (!dest || !src)
-    return;
-
-  dest->path = strdup (src->path);
-  dest->ino = src->ino;
-  if (src->inode)
-    dest->inode = inode_ref (src->inode);
-}
-*/
 
 /**
  * afr_local_cleanup - cleanup everything in frame->local
@@ -262,18 +236,21 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-#if 0
-		if ((local->success_count && local->enoent_count)
-		    || local->need_metadata_self_heal
+		if (local->success_count && local->enoent_count) {
+			local->need_metadata_self_heal = 1;
+			local->need_data_self_heal = 1;
+			local->need_entry_self_heal = 1;
+		}
+
+		if (local->need_metadata_self_heal
 		    || local->need_data_self_heal
 		    || local->need_entry_self_heal) {
-//			afr_self_heal (frame, this, afr_self_heal_cbk);
+			afr_self_heal (frame, this, afr_self_heal_cbk);
 		} else {
-#endif
 			AFR_STACK_UNWIND (frame, local->op_ret,
 					  local->op_errno, inode, 
 					  &local->cont.lookup.buf, xattr);
-//		}
+		}
 	}
 
 	return 0;
@@ -357,6 +334,7 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 }
 
 
+#ifdef AFR_OPEN_SELFHEAL
 int
 afr_open_self_heal_completion_cbk (call_frame_t *frame, xlator_t *this)
 {
@@ -386,16 +364,20 @@ afr_open_self_heal_completion_cbk (call_frame_t *frame, xlator_t *this)
 
 	return 0;
 }
+#endif
 
 
-int32_t afr_open (call_frame_t *frame, xlator_t *this,
-		  loc_t *loc, int32_t flags, fd_t *fd)
+int32_t
+afr_open (call_frame_t *frame, xlator_t *this,
+	  loc_t *loc, int32_t flags, fd_t *fd)
 {
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
+	int     call_count = 0;
+	int     i = 0;
 
 	priv = this->private;
 
@@ -403,12 +385,28 @@ int32_t afr_open (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
+#ifdef AFR_OPEN_SELFHEAL
 	loc_copy (&local->loc, loc);
 	local->cont.open.flags = flags;
 	local->fd    = fd;
 
-	afr_self_heal_data (frame, this,
-			    afr_open_self_heal_completion_cbk);
+	afr_self_heal_data (frame, this);
+
+#else
+	call_count = up_children_count (priv->child_count, priv->child_up); 
+
+	local->call_count = call_count;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (priv->child_up[i]) {
+			STACK_WIND (frame, afr_open_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->open,
+				    loc, flags, fd);
+		}
+	}
+
+#endif
 
 	op_ret = 0;
 out:

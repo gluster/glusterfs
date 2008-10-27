@@ -48,7 +48,7 @@ typedef struct _afr_private {
 
 typedef struct {
 	/* array of stat's, one for each child */
-	struct stat *buf;  
+	struct stat *buf;
 
 	/* array of xattr's, one for each child */
 	dict_t **xattr;
@@ -64,6 +64,7 @@ typedef struct {
 	off_t file_size;
 	off_t offset;
 
+	loc_t parent_loc;
 	int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
 } afr_self_heal_t;
 
@@ -330,7 +331,7 @@ typedef struct _afr_local {
 #define all_tried(i, count)  ((i) == (count) - 1)
 
 void
-loc_wipe (loc_t *loc);
+build_parent_loc (loc_t *parent, loc_t *child);
 
 int
 up_children_count (int child_count, unsigned char *child_up);

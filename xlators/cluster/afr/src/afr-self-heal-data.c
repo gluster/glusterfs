@@ -700,8 +700,7 @@ afr_inode_data_self_heal_lookup_cbk (call_frame_t *frame, void *cookie,
 
 
 int
-afr_self_heal_data (call_frame_t *frame, xlator_t *this, 
-		    int (*completion_cbk) (call_frame_t *, xlator_t *))
+afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 {
 	afr_self_heal_t * sh    = NULL; 
 	afr_local_t    *  local = NULL;
@@ -719,8 +718,6 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this,
 	priv  = this->private;
 	local = frame->local;
 	sh    = &local->self_heal;
-
-	sh->completion_cbk = completion_cbk;
 
 	sh->xattr = calloc (sizeof (dict_t *), priv->child_count);
 	if (!sh->xattr) {
@@ -756,7 +753,7 @@ out:
 	FREE (child_up);
 
 	if (op_ret == -1) {
-		completion_cbk (frame, this);
+		local->self_heal.completion_cbk (frame, this);
 	}
 	
 	return 0;
