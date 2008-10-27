@@ -143,6 +143,14 @@ afr_deitransform (ino64_t ino, int child_count)
 int
 afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 {
+	afr_local_t *local = NULL;
+
+	local = frame->local;
+
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+			  local->cont.lookup.inode,
+			  &local->cont.lookup.buf,
+			  local->cont.lookup.xattr);
 
 	return 0;
 }
@@ -157,7 +165,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	afr_private_t * priv  = NULL;
 	struct stat *   lookup_buf = NULL;
 	int call_count       = -1;
-
 	int child_index = (long) cookie;
 
 	priv = this->private;
@@ -183,6 +190,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 				local->op_ret   = op_ret;
 
 				local->cont.lookup.inode = inode;
+				local->cont.lookup.xattr = dict_ref (xattr);
 
 				*lookup_buf = *buf;
 				lookup_buf->st_ino = afr_itransform (buf->st_ino,
@@ -248,8 +256,10 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			afr_self_heal (frame, this, afr_self_heal_cbk);
 		} else {
 			AFR_STACK_UNWIND (frame, local->op_ret,
-					  local->op_errno, inode, 
-					  &local->cont.lookup.buf, xattr);
+					  local->op_errno,
+					  local->cont.lookup.inode, 
+					  &local->cont.lookup.buf,
+					  local->cont.lookup.xattr);
 		}
 	}
 
@@ -262,12 +272,11 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	    loc_t *loc, int32_t need_xattr)
 {
 	afr_private_t *priv = NULL;
-	afr_local_t *local = NULL;
-	int ret = -1;
-	int i = 0;
-	int32_t op_errno = 0;
-
-	int child_index = -1;
+	afr_local_t   *local = NULL;
+	int            ret = -1;
+	int            i = 0;
+	int32_t        op_errno = 0;
+	int            child_index = -1;
 
 	priv = this->private;
 
@@ -291,6 +300,10 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	}
 
 	local->call_count = priv->child_count;
+
+	local->child_up = memdup (priv->child_up, priv->child_count);
+	local->child_count = up_children_count (priv->child_count,
+						local->child_up);
 
 	for (i = 0; i < priv->child_count; i++) {
 		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,

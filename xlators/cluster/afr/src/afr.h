@@ -53,6 +53,9 @@ typedef struct {
 	/* array of xattr's, one for each child */
 	dict_t **xattr;
 
+	/* array of errno's, one for each child */
+	int *child_errno;
+
 	int32_t **pending_matrix;
 
 	int *sources;
@@ -87,6 +90,7 @@ typedef struct _afr_local {
 	fd_t *fd;
 
 	unsigned char *child_up; 
+	int            child_count;
 
 	/* 
 	   This struct contains the arguments for the "continuation"

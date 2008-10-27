@@ -52,14 +52,15 @@
 int
 afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 {
-	afr_self_heal_t * sh    = NULL; 
-	afr_local_t    *  local = NULL;
-	afr_private_t  *  priv  = NULL;
+	afr_local_t   *local = NULL;
+	afr_self_heal_t *sh = NULL;
 
 
-	priv  = this->private;
 	local = frame->local;
-	sh    = &local->self_heal;
+	sh = &local->self_heal;
+
+
+	sh->completion_cbk (frame, this);
 
 	return 0;
 }
