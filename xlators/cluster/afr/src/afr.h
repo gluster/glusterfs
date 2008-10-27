@@ -85,6 +85,8 @@ typedef struct _afr_local {
 	loc_t loc;
 	fd_t *fd;
 
+	unsigned char *child_up; 
+
 	/* 
 	   This struct contains the arguments for the "continuation"
 	   (scheme-like) of fops
@@ -283,8 +285,6 @@ typedef struct _afr_local {
 
 		int success_count;
 		int failure_count;
-
-		unsigned char *child_up; 
 
 		int last_tried;
 		int32_t child_errno[1024];

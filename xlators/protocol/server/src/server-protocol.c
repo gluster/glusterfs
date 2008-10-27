@@ -496,8 +496,8 @@ server_loc_fill (loc_t *loc,
 
 	loc->name = name;
 	
-	if (parent_path)
-		free (parent_path);
+//	if (parent_path)
+//		free (parent_path);
 }
 
 /*
@@ -5219,7 +5219,7 @@ server_gf_file_lk (call_frame_t *frame,
  	state = STATE (frame);
  	server_state_fill (frame, req, GF_FOP_GF_FILE_LK);
 
-	if (state->fd_no == -1)
+	if (state->fd == NULL)
 		server_loc_fill (&(state->loc), state, state->path);
  
  	gf_file_lk_stub = fop_gf_file_lk_stub (frame,

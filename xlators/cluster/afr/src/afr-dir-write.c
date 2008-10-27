@@ -156,8 +156,6 @@ afr_create_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	local = frame->local;
 
-	FREE (local->transaction.basename);
-
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd,
 			  local->cont.create.inode, &local->cont.create.buf);
 	
@@ -168,10 +166,6 @@ afr_create_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 int32_t
 afr_create_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t *local = frame->local;
-
-	FREE (local->transaction.basename);
-
 	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
 	return 0;
 }
@@ -313,8 +307,6 @@ afr_mknod_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	local->cont.mknod.buf.st_ino = local->cont.mknod.ino;
 
-	FREE (local->transaction.basename);
-
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mknod.inode, 
 			  &local->cont.mknod.buf);
 	
@@ -325,10 +317,6 @@ afr_mknod_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 int32_t
 afr_mknod_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t *local = frame->local;
-
-	FREE (local->transaction.basename);
-
 	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
 	return 0;
 }
@@ -466,8 +454,6 @@ afr_mkdir_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 	local = frame->local;
 
-	FREE (local->transaction.basename);
-
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mkdir.inode, 
 			  &local->cont.mkdir.buf);
 	
@@ -478,10 +464,6 @@ afr_mkdir_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 int32_t
 afr_mkdir_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t *local = frame->local;
-
-	FREE (local->transaction.basename);
-
 	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
 	return 0;
 }
@@ -615,12 +597,6 @@ afr_link_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
-	loc_wipe (&local->cont.link.oldloc);
-	loc_wipe (&local->cont.link.newloc);
-
-	FREE (local->transaction.basename);
-	FREE (local->transaction.new_basename);
-
 	local->cont.link.buf.st_ino = local->cont.link.ino;
 
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.link.inode,
@@ -633,14 +609,6 @@ afr_link_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 int32_t
 afr_link_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t *local = frame->local;
-
-	loc_wipe (&local->cont.link.oldloc);
-	loc_wipe (&local->cont.link.newloc);
-
-	FREE (local->transaction.basename);
-	FREE (local->transaction.new_basename);
-
 	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
 	return 0;
 }
@@ -780,9 +748,6 @@ afr_symlink_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
-	FREE (local->transaction.basename);
-	FREE (local->transaction.new_basename);
-
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.symlink.inode,
 			  &local->cont.symlink.buf);
 	
@@ -793,11 +758,6 @@ afr_symlink_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 int32_t
 afr_symlink_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t *local = frame->local;
-
-	FREE (local->transaction.basename);
-	FREE (local->transaction.new_basename);
-
 	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
 	return 0;
 }
@@ -935,9 +895,6 @@ afr_rename_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
-	FREE (local->transaction.basename);
-	FREE (local->transaction.new_basename);
-
 	local->cont.rename.buf.st_ino = local->cont.rename.ino;
 
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.rename.buf);
@@ -949,11 +906,6 @@ afr_rename_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 int32_t
 afr_rename_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t *local = frame->local;
-
-	FREE (local->transaction.basename);
-	FREE (local->transaction.new_basename);
-
 	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	return 0;
 }
@@ -1063,7 +1015,7 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (local->transaction.child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_unlink_wind_cbk,	
 				    priv->children[i], 
 				    priv->children[i]->fops->unlink,
@@ -1080,8 +1032,6 @@ afr_unlink_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
-	FREE (local->transaction.basename);
-
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 	
 	return 0;
@@ -1091,10 +1041,6 @@ afr_unlink_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 int32_t
 afr_unlink_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t *local = frame->local;
-
-	FREE (local->transaction.basename);
-
 	AFR_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
@@ -1214,8 +1160,6 @@ afr_rmdir_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
-	FREE (local->transaction.basename);
-
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 	
 	return 0;
@@ -1225,10 +1169,6 @@ afr_rmdir_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 int32_t
 afr_rmdir_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t *local = frame->local;
-
-	FREE (local->transaction.basename);
-
 	AFR_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }

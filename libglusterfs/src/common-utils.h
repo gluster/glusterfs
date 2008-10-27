@@ -127,14 +127,14 @@ typedef pthread_spinlock_t gf_lock_t;
 typedef pthread_mutex_t gf_lock_t;
 #endif /* HAVE_SPINLOCK */
 
-#define VALIDATE_OR_GOTO(arg,label)   do {	\
-    if (!arg) {					\
-      errno = EINVAL;   			\
-      gf_log (this->name, GF_LOG_ERROR,		\
-	      "invalid argument: " #arg);	\
-      goto label;				\
-    }						\
-  } while (0); 
+#define VALIDATE_OR_GOTO(arg,label)   do {				\
+		if (!arg) {						\
+			errno = EINVAL;					\
+			gf_log (this ? this->name : "(Govinda! Govinda!)", GF_LOG_ERROR, \
+				"invalid argument: " #arg);		\
+			goto label;					\
+		}							\
+	} while (0); 
 
 #define GF_VALIDATE_OR_GOTO(name,arg,label)   do {		\
 		if (!arg) {					\

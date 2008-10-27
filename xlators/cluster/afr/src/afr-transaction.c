@@ -40,8 +40,6 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		FREE (local->transaction.child_up);
-
 		local->transaction.success (frame, op_ret, op_errno);
 	}
 	
@@ -61,7 +59,7 @@ afr_unlock_inode (call_frame_t *frame, xlator_t *this)
 	afr_private_t * priv = this->private;
 
 	local = frame->local;
-	call_count = up_children_count (priv->child_count, local->transaction.child_up); 
+	call_count = up_children_count (priv->child_count, local->child_up); 
 
 	local->call_count = call_count;		
 
@@ -70,7 +68,7 @@ afr_unlock_inode (call_frame_t *frame, xlator_t *this)
 		flock.l_len   = local->transaction.len;
 		flock.l_type  = F_UNLCK;			
 
-		if (local->transaction.child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_unlock_common_cbk,	
 				    priv->children[i], 
 				    priv->children[i]->fops->gf_file_lk, 
@@ -93,7 +91,7 @@ afr_unlock_dir (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 
-	call_count = up_children_count (priv->child_count, local->transaction.child_up); 
+	call_count = up_children_count (priv->child_count, local->child_up); 
 
 	local->call_count = call_count;		
 
@@ -101,7 +99,7 @@ afr_unlock_dir (call_frame_t *frame, xlator_t *this)
 		local->call_count *= 2;
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (local->transaction.child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_unlock_common_cbk,	
 				    priv->children[i], 
 				    priv->children[i]->fops->gf_dir_lk, 
@@ -183,7 +181,7 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {					
-		if (local->transaction.child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_write_pending_post_op_cbk,
 				    priv->children[i], 
 				    priv->children[i]->fops->xattrop,
@@ -214,7 +212,7 @@ afr_write_pending_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			local->transaction.child_up[child_index] = 0;
+			local->child_up[child_index] = 0;
 
 			if (!child_went_down (op_ret, op_errno)) {
 				gf_log (this->name, GF_LOG_ERROR,
@@ -247,23 +245,22 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 
 	local = frame->local;
+	dict_ref (xattr);
 
-	call_count = up_children_count (priv->child_count, local->transaction.child_up); 
+	call_count = up_children_count (priv->child_count, local->child_up); 
 
 	if (call_count == 0) {
 		/* no child is up */
+		dict_unref (xattr);
 
-		/* free the dict */
-//		dict_unref (xattr);
-
-//		FREE (local->transaction.child_up);
 		local->transaction.error (frame, this, -1, ENOTCONN);
+		return 0;
 	}
 
 	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {					
-		if (local->transaction.child_up[i]) {
+		if (local->child_up[i]) {
 			dict_set_static_bin (xattr, local->transaction.pending, 
 					     priv->pending_inc_array, 
 					     priv->child_count * sizeof (int32_t));
@@ -303,7 +300,7 @@ afr_retry_serial_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			local->transaction.child_up[child_index] = 0;
+			local->child_up[child_index] = 0;
 		}
 
 		call_count = --local->call_count;
@@ -336,7 +333,7 @@ void retry_lock_serially (call_frame_t *frame, xlator_t *this, int child_index)
 	flock.l_type  = F_WRLCK;
 
 	if ((child_index < priv->child_count) &&
-	    local->transaction.child_up[child_index]) {
+	    local->child_up[child_index]) {
 		STACK_WIND_COOKIE (frame, afr_retry_serial_cbk, (void *) (long) child_index,
 				   priv->children[child_index], 
 				   priv->children[child_index]->fops->gf_file_lk,
@@ -362,7 +359,7 @@ afr_retry_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			local->transaction.child_up[child_index] = 0;
+			local->child_up[child_index] = 0;
 		}
 
 		call_count = --local->call_count;
@@ -477,7 +474,7 @@ afr_lock_inode (call_frame_t *frame, xlator_t *this)
 		flock.l_len   = local->transaction.len;
 		flock.l_type  = F_WRLCK;			
 
-		if (local->transaction.child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_file_lk, 
@@ -508,7 +505,7 @@ afr_lock_dir (call_frame_t *frame, xlator_t *this)
 		local->call_count *= 2;
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (local->transaction.child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->gf_dir_lk, 
@@ -561,14 +558,14 @@ afr_inode_transaction (call_frame_t *frame, xlator_t *this)
 
 	local->transaction.resume = transaction_resume;
 	local->transaction.type   = AFR_INODE_TRANSACTION;
-	local->transaction.child_up = calloc (sizeof (*local->transaction.child_up), 
+	local->child_up = calloc (sizeof (*local->child_up), 
 					      priv->child_count);
-	if (!local->transaction.child_up) {
+	if (!local->child_up) {
 		local->transaction.error (frame, this, -1, ENOMEM);
 	}
 
-	memcpy (local->transaction.child_up, priv->child_up,
-		sizeof (*local->transaction.child_up) * priv->child_count);
+	memcpy (local->child_up, priv->child_up,
+		sizeof (*local->child_up) * priv->child_count);
 
 	afr_lock_inode (frame, this);
 
@@ -589,14 +586,14 @@ afr_dir_transaction (call_frame_t *frame, xlator_t *this)
 	local->transaction.resume = transaction_resume;
 	local->transaction.type   = AFR_DIR_TRANSACTION;
 
-	local->transaction.child_up = calloc (sizeof (*local->transaction.child_up), 
+	local->child_up = calloc (sizeof (*local->child_up), 
 					      priv->child_count);
-	if (!local->transaction.child_up) {
+	if (!local->child_up) {
 		local->transaction.error (frame, this, -1, ENOMEM);
 	}
 
-	memcpy (local->transaction.child_up, priv->child_up,
-		sizeof (*local->transaction.child_up) * priv->child_count);
+	memcpy (local->child_up, priv->child_up,
+		sizeof (*local->child_up) * priv->child_count);
 
 	afr_lock_dir (frame, this);
 
@@ -615,14 +612,14 @@ afr_dir_link_transaction (call_frame_t *frame, xlator_t *this)
 
 	local->transaction.resume = transaction_resume;
 	local->transaction.type   = AFR_DIR_LINK_TRANSACTION;
-	local->transaction.child_up = calloc (sizeof (*local->transaction.child_up), 
+	local->child_up = calloc (sizeof (*local->child_up), 
 					      priv->child_count);
-	if (!local->transaction.child_up) {
+	if (!local->child_up) {
 		local->transaction.error (frame, this, -1, ENOMEM);
 	}
 
-	memcpy (local->transaction.child_up, priv->child_up,
-		sizeof (*local->transaction.child_up) * priv->child_count);
+	memcpy (local->child_up, priv->child_up,
+		sizeof (*local->child_up) * priv->child_count);
 
 	afr_lock_dir (frame, this);
 

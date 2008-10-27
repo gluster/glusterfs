@@ -979,7 +979,7 @@ data_to_int64 (data_t *data)
 	ERR_ABORT (str);
 	memcpy (str, data->data, data->len);
 	str[data->len] = '\0';
-	return strtoull (str, NULL, 0);
+	return (int64_t) strtoull (str, NULL, 0);
 }
 
 int32_t

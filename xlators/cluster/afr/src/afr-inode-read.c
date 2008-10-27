@@ -114,7 +114,13 @@ afr_access (call_frame_t *frame, xlator_t *this,
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv     = this->private;
+	VALIDATE_OR_GOTO (priv->children, out);
+
 	children = priv->children;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -227,7 +233,13 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 	int32_t         op_ret     = -1;
 	int32_t         op_errno   = 0;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv     = this->private;
+	VALIDATE_OR_GOTO (priv->children, out);
+
 	children = priv->children;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -341,7 +353,14 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 	int32_t         op_ret     = -1;
 	int32_t         op_errno   = 0;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (fd, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv     = this->private;
+	VALIDATE_OR_GOTO (priv->children, out);
+
 	children = priv->children;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -432,7 +451,13 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv     = this->private;
+	VALIDATE_OR_GOTO (priv->children, out);
+
 	children = priv->children;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -524,7 +549,13 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv     = this->private;
+	VALIDATE_OR_GOTO (priv->children, out);
+
 	children = priv->children;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -583,7 +614,13 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 	int unwind     = 1;
 	int last_tried = -1;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv     = this->private;
+	VALIDATE_OR_GOTO (priv->children, out);
+
 	children = priv->children;
 
 	local = frame->local;
