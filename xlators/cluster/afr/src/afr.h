@@ -325,10 +325,7 @@ typedef struct _afr_local {
 
 void
 loc_wipe (loc_t *loc);
-/*
-void
-loc_copy (loc_t *dest, loc_t *src);
-*/
+
 int
 up_children_count (int child_count, unsigned char *child_up);
 
@@ -350,4 +347,16 @@ afr_local_cleanup (call_frame_t *frame);
 		STACK_UNWIND (frame, params);		\
 } while (0);					
 
+/* allocate and return a string that is the basename of argument */
+static inline char * 
+AFR_BASENAME (const char *str)						
+{
+	char *__tmp_str = NULL;				
+	char *__basename_str = NULL;			
+	__tmp_str = strdup (str);			
+	__basename_str = strdup (basename (__tmp_str));	
+	FREE (__tmp_str);
+	return __basename_str;
+}
+		
 #endif /* __AFR_H__ */

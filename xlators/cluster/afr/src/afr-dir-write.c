@@ -178,8 +178,6 @@ afr_create (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	
-	char *tmp = NULL;
-
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -202,11 +200,8 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
-	tmp = strdup (loc->path);
-	local->transaction.basename = strdup (basename (tmp));
-	FREE (tmp);
-
-	local->transaction.pending = AFR_ENTRY_PENDING;
+	local->transaction.basename = AFR_BASENAME (loc->path);
+	local->transaction.pending  = AFR_ENTRY_PENDING;
 
 	afr_dir_transaction (frame, this);
 
@@ -329,8 +324,6 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	
-	char *tmp = NULL;
-
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -352,11 +345,8 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
-	tmp = strdup (loc->path);
-	local->transaction.basename = strdup (basename (tmp));
-	FREE (tmp);
-
-	local->transaction.pending = AFR_ENTRY_PENDING;
+	local->transaction.basename = AFR_BASENAME (loc->path);
+	local->transaction.pending  = AFR_ENTRY_PENDING;
 
 	afr_dir_transaction (frame, this);
 
@@ -476,8 +466,6 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	
-	char *tmp = NULL;
-
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -497,11 +485,8 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
-	tmp = strdup (loc->path);
-	local->transaction.basename = strdup (basename (tmp));
-	FREE (tmp);
-
-	local->transaction.pending = AFR_ENTRY_PENDING;
+	local->transaction.basename = AFR_BASENAME (loc->path);
+	local->transaction.pending  = AFR_ENTRY_PENDING;
 
 	afr_dir_transaction (frame, this);
 
@@ -621,8 +606,6 @@ afr_link (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	
-	char *tmp = NULL;
-
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -644,14 +627,8 @@ afr_link (call_frame_t *frame, xlator_t *this,
 
 	build_parent_loc (&local->transaction.parent_loc, oldloc);
 
-	tmp = strdup (oldloc->path);
-	local->transaction.basename = strdup (basename (tmp));
-	FREE (tmp);
-
-	tmp = strdup (newloc->path);
-	local->transaction.new_basename = strdup (basename (tmp));
-	FREE (tmp);
-
+	local->transaction.basename = AFR_BASENAME (oldloc->path);
+	local->transaction.new_basename = AFR_BASENAME (newloc->path);
 	local->transaction.pending = AFR_ENTRY_PENDING;
 
 	afr_dir_link_transaction (frame, this);
@@ -770,8 +747,6 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	
-	char *tmp = NULL;
-
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -792,14 +767,8 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
-	tmp = strdup (loc->path);
-	local->transaction.basename = strdup (basename (tmp));
-	FREE (tmp);
-
-	tmp = strdup (linkpath);
-	local->transaction.new_basename = strdup (basename (tmp));
-	FREE (tmp);
-
+	local->transaction.basename = AFR_BASENAME (loc->path);
+	local->transaction.new_basename = AFR_BASENAME (linkpath);
 	local->transaction.pending = AFR_ENTRY_PENDING;
 
 	afr_dir_transaction (frame, this);
@@ -918,8 +887,6 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	
-	char *tmp = NULL;
-
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -930,6 +897,7 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
 	local->op_ret = -1;
 
+	loc_copy (&local->loc, oldloc);
 	loc_copy (&local->cont.rename.oldloc, oldloc);
 	loc_copy (&local->cont.rename.newloc, newloc);
 
@@ -941,14 +909,8 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
 	build_parent_loc (&local->transaction.parent_loc, newloc);
 
-	tmp = strdup (oldloc->path);
-	local->transaction.basename = strdup (basename (tmp));
-	FREE (tmp);
-
-	tmp = strdup (newloc->path);
-	local->transaction.new_basename = strdup (basename (tmp));
-	FREE (tmp);
-
+	local->transaction.basename = AFR_BASENAME (oldloc->path);
+	local->transaction.new_basename = AFR_BASENAME (newloc->path);
 	local->transaction.pending = AFR_ENTRY_PENDING;
 
 	afr_dir_link_transaction (frame, this);
@@ -1053,8 +1015,6 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	
-	char *tmp = NULL;
-
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -1073,11 +1033,8 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
-	tmp = strdup (loc->path);
-	local->transaction.basename = strdup (basename (tmp));
-	FREE (tmp);
-
-	local->transaction.pending = AFR_ENTRY_PENDING;
+	local->transaction.basename = AFR_BASENAME (loc->path);
+	local->transaction.pending  = AFR_ENTRY_PENDING;
 
 	afr_dir_transaction (frame, this);
 
@@ -1181,8 +1138,6 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	
-	char *tmp = NULL;
-
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -1201,11 +1156,8 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
-	tmp = strdup (loc->path);
-	local->transaction.basename = strdup (basename (tmp));
-	FREE (tmp);
-
-	local->transaction.pending = AFR_ENTRY_PENDING;
+	local->transaction.basename = AFR_BASENAME (loc->path);
+	local->transaction.pending  = AFR_ENTRY_PENDING;
 
 	afr_dir_transaction (frame, this);
 
