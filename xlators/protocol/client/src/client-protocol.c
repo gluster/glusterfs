@@ -59,15 +59,16 @@ static ino_t
 this_ino_get (inode_t *inode, xlator_t *this)
 {
 	ino_t ino = 0;
-	int32_t ret = -1;
+	int32_t ret = 0;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
-	ret = dict_get_uint64 (inode->ctx, this->name, &ino);
+	if (inode->ino > 1)
+		ret = dict_get_uint64 (inode->ctx, this->name, &ino);
+
 	if (ret < 0) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_ERROR,
 			"failed to do dict get from inode(%p)",
 			inode);
 	}
@@ -87,15 +88,14 @@ this_ino_set (inode_t *inode, xlator_t *this, ino_t ino)
 	ret = dict_get_uint64 (inode->ctx, this->name, &old_ino);
 
 	if (old_ino != ino) {
-		gf_log (this->name,
-			GF_LOG_WARNING,
-			"inode number(%d) changed for inode(%p)",
-			old_ino, inode);
+		if (old_ino)
+			gf_log (this->name, GF_LOG_WARNING,
+				"inode number(%lld) changed for inode(%p)",
+				old_ino, inode);
 		ret = dict_set_uint64 (inode->ctx, this->name, ino);
 		if (ret < 0) {
-			gf_log (this->name,
-				GF_LOG_ERROR,
-				"failed to dict set inode number(%d) to inode(%p)",
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to set inode number(%lld) to inode(%p)",
 				ino, inode);
 		}
 	}
@@ -114,8 +114,7 @@ this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
 
 	ret = dict_get_int64 (file->ctx, this->name, remote_fd);
 	if (ret < 0) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get remote fd number for fd_t(%p)",
 			file);
 	}
@@ -134,17 +133,15 @@ this_fd_set (fd_t *file, xlator_t *this, int64_t fd)
 	GF_VALIDATE_OR_GOTO (this->name, file, out);
 	
 	ret = dict_get_int64 (file->ctx, this->name, &old_fd);
-	if (ret >=0 ) {
-		gf_log (this->name,
-			GF_LOG_WARNING,
+	if (ret >= 0) {
+		gf_log (this->name, GF_LOG_WARNING,
 			"duplicate fd_set for fd_t(%p) with old_fd(%d)",
 			file, old_fd);
 	}
 
 	ret = dict_set_int64 (file->ctx, this->name, fd);
 	if (ret < 0) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_ERROR,
 			"failed to set remote fd(%d) to fd_t(%p)",
 			fd, file);
 	}
@@ -1807,7 +1804,8 @@ client_gf_file_lk (call_frame_t *frame,
 	if (fd == NULL)
 		strcpy (req->path, loc->path);
 
-	req->ino  = hton64 (this_ino_get (loc->inode, this));
+	if (loc->inode)
+		req->ino  = hton64 (this_ino_get (loc->inode, this));
 
 	req->cmd  = hton32 (gf_cmd);
 	req->type = hton32 (gf_type);

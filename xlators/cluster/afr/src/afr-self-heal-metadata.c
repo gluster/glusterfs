@@ -666,7 +666,7 @@ out:
 }
 
 
-int
+static int
 afr_inode_data_self_heal_lookup_cbk (call_frame_t *frame, void *cookie,
 				     xlator_t *this, int32_t op_ret, int32_t op_errno,
 				     inode_t *inode, struct stat *buf, dict_t *xattr)
@@ -700,8 +700,8 @@ afr_inode_data_self_heal_lookup_cbk (call_frame_t *frame, void *cookie,
 
 
 int
-afr_inode_data_self_heal (call_frame_t *frame, xlator_t *this, 
-			  int (*completion_cbk) (call_frame_t *, xlator_t *))
+afr_self_heal_metadata (call_frame_t *frame, xlator_t *this, 
+			int (*completion_cbk) (call_frame_t *, xlator_t *))
 {
 	afr_self_heal_t * sh    = NULL; 
 	afr_local_t    *  local = NULL;

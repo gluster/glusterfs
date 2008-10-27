@@ -166,6 +166,14 @@ afr_deitransform (ino64_t ino, int child_count)
 }
 
 
+int
+afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
+{
+
+	return 0;
+}
+
+
 int32_t
 afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		xlator_t *this,	int32_t op_ret,	int32_t op_errno,
@@ -173,7 +181,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
-
+	struct stat *   lookup_buf = NULL;
 	int call_count       = -1;
 
 	int child_index = (long) cookie;
@@ -185,22 +193,68 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		local = frame->local;
 		call_count = --local->call_count;
 
-		if ((op_ret != -1) && (local->success_count == 0)) {
-			local->op_ret   = op_ret;
+		if (op_ret == 0) {
+			lookup_buf = &local->cont.lookup.buf;
+/*
+			if (afr_sh_has_metadata_pending (xattr, this))
+				local->need_metadata_self_heal = 1;
 
-			local->cont.lookup.inode = inode;
+			if (afr_sh_has_entry_pending (xattr, this))
+				local->need_entry_self_heal = 1;
 
-			if (buf)
-				local->cont.lookup.buf   = *buf;
+			if (afr_sh_has_data_pending (xattr, this))
+				local->need_data_self_heal = 1;
+*/
+			if (local->success_count == 0) {
+				local->op_ret   = op_ret;
 
-			local->cont.lookup.buf.st_ino = afr_itransform (buf->st_ino, 
-									priv->child_count, 
-									child_index);
-			gf_log (this->name, GF_LOG_DEBUG,
-				"scaling inode %"PRId64" to %"PRId64,
-				buf->st_ino, local->cont.lookup.buf.st_ino);
+				local->cont.lookup.inode = inode;
+
+				*lookup_buf = *buf;
+				lookup_buf->st_ino = afr_itransform (buf->st_ino,
+								     priv->child_count,
+								     child_index);
+			} else {
+				if (FILETYPE_DIFFERS (buf, lookup_buf)) {
+					/* mismatching filetypes with same name
+					   -- Govinda !! GOvinda !!!
+					*/
+					local->govinda_gOvinda = 1;
+				}
+
+				if (PERMISSION_DIFFERS (buf, lookup_buf)) {
+					/* mismatching permissions */
+					local->need_metadata_self_heal = 1;
+				}
+
+				if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
+					/* mismatching permissions */
+					local->need_metadata_self_heal = 1;
+				}
+
+				if (SIZE_DIFFERS (buf, lookup_buf)) {
+					/* mismatching permissions */
+					local->need_data_self_heal = 1;
+				}
+			}
 
 			local->success_count++;
+
+			if (local->reval_child_index == child_index) {
+				*lookup_buf = *buf;
+				lookup_buf->st_ino = afr_itransform (buf->st_ino, 
+								     priv->child_count, 
+								     child_index);
+
+				gf_log (this->name, GF_LOG_DEBUG,
+					"scaling inode %"PRId64" to %"PRId64,
+					buf->st_ino, lookup_buf->st_ino);
+			}
+		}
+
+		if (op_ret == -1) {
+			if (op_errno == ENOENT)
+				local->enoent_count++;
 		}
 
 		local->op_errno = op_errno;
@@ -208,8 +262,18 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, inode, 
-				  &local->cont.lookup.buf, xattr);
+#if 0
+		if ((local->success_count && local->enoent_count)
+		    || local->need_metadata_self_heal
+		    || local->need_data_self_heal
+		    || local->need_entry_self_heal) {
+//			afr_self_heal (frame, this, afr_self_heal_cbk);
+		} else {
+#endif
+			AFR_STACK_UNWIND (frame, local->op_ret,
+					  local->op_errno, inode, 
+					  &local->cont.lookup.buf, xattr);
+//		}
 	}
 
 	return 0;
@@ -222,7 +286,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
-
+	int ret = -1;
 	int i = 0;
 	int32_t op_errno = 0;
 
@@ -237,36 +301,32 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	frame->local = local;
 
 	loc_copy (&local->loc, loc);
-	
+
+	local->reval_child_index = -1;
+
 	if (loc->inode->ino != 0) {
 		/* revalidate */
 
-		child_index = afr_deitransform (loc->inode->ino, priv->child_count);
+		child_index = afr_deitransform (loc->inode->ino,
+						priv->child_count);
 
-		gf_log (this->name, GF_LOG_DEBUG,
-			"revalidate on node %d",
-			child_index);
-
-		local->call_count = 1;
-
-		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
-				   priv->children[child_index],
-				   priv->children[child_index]->fops->lookup,
-				   loc, 1);
-	} else {
-		/* fresh lookup */
-
-		local->call_count = priv->child_count;
-
-		for (i = 0; i < priv->child_count; i++) {
-			STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
-					   priv->children[i],
-					   priv->children[i]->fops->lookup,
-					   loc, 1);
-		}
+		local->reval_child_index = child_index;
 	}
 
+	local->call_count = priv->child_count;
+
+	for (i = 0; i < priv->child_count; i++) {
+		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
+				   priv->children[i],
+				   priv->children[i]->fops->lookup,
+				   loc, 1);
+	}
+
+	ret = 0;
 out:
+	if (ret == -1)
+		AFR_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
+
 	return 0;
 }
 
@@ -347,8 +407,8 @@ int32_t afr_open (call_frame_t *frame, xlator_t *this,
 	local->cont.open.flags = flags;
 	local->fd    = fd;
 
-	afr_inode_data_self_heal (frame, this,
-				  afr_open_self_heal_completion_cbk);
+	afr_self_heal_data (frame, this,
+			    afr_open_self_heal_completion_cbk);
 
 	op_ret = 0;
 out:

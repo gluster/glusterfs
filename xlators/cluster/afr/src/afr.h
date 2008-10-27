@@ -71,7 +71,14 @@ typedef struct {
 typedef struct _afr_local {
 	unsigned int call_count;
 	unsigned int success_count;
+	unsigned int enoent_count;
 
+	unsigned int need_metadata_self_heal;
+	unsigned int need_entry_self_heal;
+	unsigned int need_data_self_heal;
+	unsigned int govinda_gOvinda;
+
+	unsigned int reval_child_index;
 	int32_t op_ret;
 	int32_t op_errno;
 

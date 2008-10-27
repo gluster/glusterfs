@@ -20,11 +20,29 @@
 #ifndef __AFR_SELF_HEAL_H__
 #define __AFR_SELF_HEAL_H__
 
-int
-afr_inode_data_self_heal (call_frame_t *frame, xlator_t *this, 
-			  int (*completion_cbk) (call_frame_t *, xlator_t *));
+#include <sys/stat.h>
 
-int 
-afr_inode_data_self_heal (call_frame_t *frame, xlator_t *this,
-			  int (*completion_cbk) (call_frame_t *, xlator_t *));
+#define FILETYPE_DIFFERS(buf1,buf2) ((S_IFMT & ((struct stat *)buf1)->st_mode) != (S_IFMT & ((struct stat *)buf2)->st_mode))
+#define PERMISSION_DIFFERS(buf1,buf2) ((((struct stat *)buf1)->st_mode) != (((struct stat *)buf2)->st_mode))
+#define OWNERSHIP_DIFFERS(buf1,buf2) ((((struct stat *)buf1)->st_uid) != (((struct stat *)buf2)->st_uid) || (((struct stat *)buf1)->st_gid != (((struct stat *)buf2)->st_gid)))
+#define SIZE_DIFFERS(buf1,buf2) ((((struct stat *)buf1)->st_size) != (((struct stat *)buf2)->st_size))
+
+
+
+int
+afr_sh_has_metadata_pending (dict_t *xattr, xlator_t *this);
+int
+afr_sh_has_entry_pending (dict_t *xattr, xlator_t *this);
+int
+afr_sh_has_data_pending (dict_t *xattr, xlator_t *this);
+
+
+int
+afr_self_heal (call_frame_t *frame, xlator_t *this,
+	       int (*completion_cbk) (call_frame_t *, xlator_t *));
+
+int
+afr_self_heal_data (call_frame_t *frame, xlator_t *this,
+		    int (*completion_cbk) (call_frame_t *, xlator_t *));
+
 #endif /* __AFR_SELF_HEAL_H__ */
