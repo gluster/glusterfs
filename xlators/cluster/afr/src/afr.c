@@ -871,6 +871,8 @@ struct xlator_fops fops = {
   .writev      = afr_writev,
   .truncate    = afr_truncate,
   .utimens     = afr_utimens,
+  .setxattr    = afr_setxattr,
+  .removexattr = afr_removexattr,
 
   /* dir read */
   .opendir     = afr_opendir,

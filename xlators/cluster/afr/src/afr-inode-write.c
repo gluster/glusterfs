@@ -745,3 +745,257 @@ out:
 }
 
 /* }}} */
+
+/* {{{ setxattr */
+
+
+int32_t
+afr_setxattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+		       int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+
+	int call_count  = -1;
+
+	local = frame->local;
+	priv = this->private;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+		if ((op_ret != -1) && (local->success_count == 0)) {
+			local->op_ret = op_ret;
+
+			local->success_count++;
+		}
+
+		local->op_errno = op_errno;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+	}
+	
+	return 0;
+}
+
+
+int32_t
+afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t *local = NULL;
+	afr_private_t *priv = NULL;
+	int i = 0;
+	int call_count = 0;
+
+	local = frame->local;
+	priv = this->private;
+
+	call_count = up_children_count (priv->child_count, local->child_up); 
+
+	local->call_count = call_count;		
+
+	for (i = 0; i < priv->child_count; i++) {				
+		if (priv->child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_setxattr_wind_cbk, (void *) (long) i,	
+					   priv->children[i], 
+					   priv->children[i]->fops->setxattr,
+					   &local->loc, 
+					   local->cont.setxattr.dict,
+					   local->cont.setxattr.flags); 
+		}
+	}
+	
+	return 0;
+}
+
+
+int32_t
+afr_setxattr_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t * local = frame->local;
+
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	
+	return 0;
+}
+
+
+int32_t
+afr_setxattr_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+	AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t
+afr_setxattr (call_frame_t *frame, xlator_t *this,
+	      loc_t *loc, dict_t *dict, int32_t flags)
+{
+	afr_private_t * priv  = NULL;
+	afr_local_t   * local = NULL;
+	
+	int op_ret   = -1;
+	int op_errno = 0;
+
+	priv = this->private;
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+	frame->local = local;
+
+	local->op_ret = -1;
+
+	local->cont.setxattr.dict  = dict;
+	local->cont.setxattr.flags = flags;
+
+	local->transaction.fop     = afr_setxattr_wind;
+	local->transaction.success = afr_setxattr_success;
+	local->transaction.error   = afr_setxattr_error;
+
+	loc_copy (&local->loc, loc);
+	
+	local->transaction.start   = 0;
+	local->transaction.len     = 0;
+	local->transaction.pending = AFR_METADATA_PENDING;
+
+	afr_inode_transaction (frame, this);
+
+	op_ret = 0;
+out:
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	}
+
+	return 0;
+}
+
+/* }}} */
+
+/* {{{ removexattr */
+
+
+int32_t
+afr_removexattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+			  int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+
+	int call_count  = -1;
+
+	local = frame->local;
+	priv = this->private;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+		if ((op_ret != -1) && (local->success_count == 0)) {
+			local->op_ret = op_ret;
+
+			local->success_count++;
+		}
+
+		local->op_errno = op_errno;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+	}
+	
+	return 0;
+}
+
+
+int32_t
+afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t *local = NULL;
+	afr_private_t *priv = NULL;
+	int i = 0;
+	int call_count = 0;
+
+	local = frame->local;
+	priv = this->private;
+
+	call_count = up_children_count (priv->child_count, local->child_up); 
+
+	local->call_count = call_count;		
+
+	for (i = 0; i < priv->child_count; i++) {				
+		if (priv->child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_removexattr_wind_cbk, 
+					   (void *) (long) i,	
+					   priv->children[i], 
+					   priv->children[i]->fops->removexattr,
+					   &local->loc, 
+					   local->cont.removexattr.name);
+		}
+	}
+	
+	return 0;
+}
+
+
+int32_t
+afr_removexattr_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t * local = frame->local;
+
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	
+	return 0;
+}
+
+
+int32_t
+afr_removexattr_error (call_frame_t *frame, xlator_t *this, 
+		       int32_t op_ret, int32_t op_errno)
+{
+	AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t
+afr_removexattr (call_frame_t *frame, xlator_t *this,
+		 loc_t *loc, const char *name)
+{
+		afr_private_t * priv  = NULL;
+	afr_local_t   * local = NULL;
+	
+	int op_ret   = -1;
+	int op_errno = 0;
+
+	priv = this->private;
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+	frame->local = local;
+
+	local->op_ret = -1;
+
+	local->cont.removexattr.name = strdup (name);
+
+	local->transaction.fop     = afr_removexattr_wind;
+	local->transaction.success = afr_removexattr_success;
+	local->transaction.error   = afr_removexattr_error;
+
+	loc_copy (&local->loc, loc);
+	
+	local->transaction.start   = 0;
+	local->transaction.len     = 0;
+	local->transaction.pending = AFR_METADATA_PENDING;
+
+	afr_inode_transaction (frame, this);
+
+	op_ret = 0;
+out:
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	}
+
+	return 0;
+}

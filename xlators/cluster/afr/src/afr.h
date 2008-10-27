@@ -210,6 +210,15 @@ typedef struct _afr_local {
 			struct stat buf;
 		} utimens;
 
+		struct {
+			dict_t *dict;
+			int32_t flags;
+		} setxattr;
+
+		struct {
+			const char *name;
+		} removexattr;
+
 		/* dir write */
 		
 		struct {

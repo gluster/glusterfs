@@ -40,4 +40,12 @@ int32_t
 afr_utimens (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, struct timespec tv[2]);
 
+int32_t
+afr_setxattr (call_frame_t *frame, xlator_t *this,
+	      loc_t *loc, dict_t *dict, int32_t flags);
+
+int32_t
+afr_removexattr (call_frame_t *frame, xlator_t *this,
+		 loc_t *loc, const char *name);
+
 #endif /* __INODE_WRITE_H__ */
