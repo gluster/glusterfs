@@ -116,23 +116,21 @@ afr_chmod_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_chmod_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_chmod_done (call_frame_t *frame, xlator_t *this, 
+		int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = NULL;
 
 	local = frame->local;
-	local->cont.chmod.buf.st_ino = local->cont.chmod.ino;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.chmod.buf);
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+	} else {
+		local->cont.chmod.buf.st_ino = local->cont.chmod.ino;
+
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.chmod.buf);
+	}
 	
-	return 0;
-}
-
-
-int32_t
-afr_chmod_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	return 0;
 }
 
@@ -157,9 +155,8 @@ afr_chmod (call_frame_t *frame, xlator_t *this,
 	local->cont.chmod.mode = mode;
 	local->cont.chmod.ino  = loc->inode->ino;
 
-	local->transaction.fop     = afr_chmod_wind;
-	local->transaction.success = afr_chmod_success;
-	local->transaction.error   = afr_chmod_error;
+	local->transaction.fop   = afr_chmod_wind;
+	local->transaction.done  = afr_chmod_done;
 
 	loc_copy (&local->loc, loc);
 	
@@ -248,24 +245,21 @@ afr_chown_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_chown_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_chown_done (call_frame_t *frame, xlator_t *this, 
+		int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t *local = NULL;
 
 	local = frame->local;
 
-	local->cont.chown.buf.st_ino = local->cont.chown.ino;
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+	} else {
+		local->cont.chown.buf.st_ino = local->cont.chown.ino;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.chown.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.chown.buf);
+	}
 
-	return 0;
-}
-
-
-int32_t
-afr_chown_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	return 0;
 }
 
@@ -291,9 +285,8 @@ afr_chown (call_frame_t *frame, xlator_t *this,
 	local->cont.chown.gid  = gid;
 	local->cont.chown.ino  = loc->inode->ino;
 
-	local->transaction.fop     = afr_chown_wind;
-	local->transaction.success = afr_chown_success;
-	local->transaction.error   = afr_chown_error;
+	local->transaction.fop   = afr_chown_wind;
+	local->transaction.done  = afr_chown_done;
 
 	loc_copy (&local->loc, loc);
 	
@@ -392,34 +385,21 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_writev_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_writev_done (call_frame_t *frame, xlator_t *this, 
+		 int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t *local = NULL;
 
 	local = frame->local;
 
-	local->cont.writev.buf.st_ino = local->cont.writev.ino;
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+	} else {
+		local->cont.writev.buf.st_ino = local->cont.writev.ino;
 
-	FREE (local->cont.writev.vector);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.writev.buf);
+	}
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.writev.buf);
-
-	return 0;
-}
-
-
-int32_t
-afr_writev_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	afr_local_t *local;
-
-	local = frame->local;
-
-//	inode_unref (local->transaction.loc.inode);
-
-	FREE (local->cont.writev.vector);
-
-	AFR_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -449,9 +429,8 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	if (frame->root->req_refs)
 		dict_ref (frame->root->req_refs);
 
-	local->transaction.fop     = afr_writev_wind;
-	local->transaction.success = afr_writev_success;
-	local->transaction.error   = afr_writev_error;
+	local->transaction.fop   = afr_writev_wind;
+	local->transaction.done  = afr_writev_done;
 
 	local->fd                  = fd;
 
@@ -547,24 +526,21 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_truncate_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_truncate_done (call_frame_t *frame, xlator_t *this,
+		   int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t *local = NULL;
 
 	local = frame->local;
 
-	local->cont.truncate.buf.st_ino = local->cont.truncate.ino;
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+	} else {
+		local->cont.truncate.buf.st_ino = local->cont.truncate.ino;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.truncate.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.truncate.buf);
+	}
 
-	return 0;
-}
-
-
-int32_t
-afr_truncate_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -589,9 +565,8 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 	local->cont.truncate.offset  = offset;
 	local->cont.truncate.ino     = loc->inode->ino;
 
-	local->transaction.fop     = afr_truncate_wind;
-	local->transaction.success = afr_truncate_success;
-	local->transaction.error   = afr_truncate_error;
+	local->transaction.fop  = afr_truncate_wind;
+	local->transaction.done = afr_truncate_done;
 
 	loc_copy (&local->loc, loc);
 
@@ -680,23 +655,21 @@ afr_utimens_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_utimens_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_utimens_done (call_frame_t *frame, xlator_t *this,
+		  int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = NULL;
 
 	local = frame->local;
-	local->cont.utimens.buf.st_ino = local->cont.utimens.ino;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.utimens.buf);
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+	} else {
+		local->cont.utimens.buf.st_ino = local->cont.utimens.ino;
+
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.utimens.buf);
+	}
 	
-	return 0;
-}
-
-
-int32_t
-afr_utimens_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	return 0;
 }
 
@@ -723,9 +696,8 @@ afr_utimens (call_frame_t *frame, xlator_t *this,
 
 	local->cont.utimens.ino  = loc->inode->ino;
 
-	local->transaction.fop     = afr_utimens_wind;
-	local->transaction.success = afr_utimens_success;
-	local->transaction.error   = afr_utimens_error;
+	local->transaction.fop  = afr_utimens_wind;
+	local->transaction.done = afr_utimens_done;
 
 	loc_copy (&local->loc, loc);
 	
@@ -813,20 +785,13 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_setxattr_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_setxattr_done (call_frame_t *frame, xlator_t *this,
+		   int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 	
-	return 0;
-}
-
-
-int32_t
-afr_setxattr_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -851,9 +816,8 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 	local->cont.setxattr.dict  = dict;
 	local->cont.setxattr.flags = flags;
 
-	local->transaction.fop     = afr_setxattr_wind;
-	local->transaction.success = afr_setxattr_success;
-	local->transaction.error   = afr_setxattr_error;
+	local->transaction.fop   = afr_setxattr_wind;
+	local->transaction.done  = afr_setxattr_done;
 
 	loc_copy (&local->loc, loc);
 	
@@ -941,7 +905,8 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_removexattr_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_removexattr_done (call_frame_t *frame, xlator_t *this,
+		      int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
@@ -952,19 +917,10 @@ afr_removexattr_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
 
 
 int32_t
-afr_removexattr_error (call_frame_t *frame, xlator_t *this, 
-		       int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-
-int32_t
 afr_removexattr (call_frame_t *frame, xlator_t *this,
 		 loc_t *loc, const char *name)
 {
-		afr_private_t * priv  = NULL;
+	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	
 	int op_ret   = -1;
@@ -979,9 +935,8 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 
 	local->cont.removexattr.name = strdup (name);
 
-	local->transaction.fop     = afr_removexattr_wind;
-	local->transaction.success = afr_removexattr_success;
-	local->transaction.error   = afr_removexattr_error;
+	local->transaction.fop   = afr_removexattr_wind;
+	local->transaction.done  = afr_removexattr_done;
 
 	loc_copy (&local->loc, loc);
 	

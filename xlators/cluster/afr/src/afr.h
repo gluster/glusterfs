@@ -300,11 +300,8 @@ typedef struct _afr_local {
 
 		int (*fop) (call_frame_t *frame, xlator_t *this);
 
-		int (*success) (call_frame_t *frame, 
-				int32_t op_ret, int32_t op_errno);
-
-		int (*error) (call_frame_t *frame, xlator_t *this, 
-			      int32_t op_ret, int32_t op_errno);
+		int (*done) (call_frame_t *frame, xlator_t *this, 
+			     int32_t op_ret, int32_t op_errno);
 
 		int (*resume) (call_frame_t *frame, xlator_t *this);
 	} transaction;

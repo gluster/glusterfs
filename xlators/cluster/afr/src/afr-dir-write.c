@@ -150,23 +150,20 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_create_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_create_done (call_frame_t *frame, xlator_t *this,
+		 int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = NULL;
 
 	local = frame->local;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd,
-			  local->cont.create.inode, &local->cont.create.buf);
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
+	} else {
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd,
+				  local->cont.create.inode, &local->cont.create.buf);
+	}
 	
-	return 0;
-}
-
-
-int32_t
-afr_create_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
 	return 0;
 }
 
@@ -192,11 +189,11 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
 	local->cont.create.flags = flags;
 	local->cont.create.mode  = mode;
+
 	local->fd    = fd;
 
-	local->transaction.fop     = afr_create_wind;
-	local->transaction.success = afr_create_success;
-	local->transaction.error   = afr_create_error;
+	local->transaction.fop   = afr_create_wind;
+	local->transaction.done  = afr_create_done;
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
@@ -294,25 +291,22 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_mknod_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_mknod_done (call_frame_t *frame, xlator_t *this,
+		int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = NULL;
 
 	local = frame->local;
 
-	local->cont.mknod.buf.st_ino = local->cont.mknod.ino;
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
+	} else {
+		local->cont.mknod.buf.st_ino = local->cont.mknod.ino;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mknod.inode, 
-			  &local->cont.mknod.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mknod.inode, 
+				  &local->cont.mknod.buf);
+	}
 	
-	return 0;
-}
-
-
-int32_t
-afr_mknod_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
 	return 0;
 }
 
@@ -339,9 +333,8 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 	local->cont.mknod.mode  = mode;
 	local->cont.mknod.dev   = dev;
 
-	local->transaction.fop     = afr_mknod_wind;
-	local->transaction.success = afr_mknod_success;
-	local->transaction.error   = afr_mknod_error;
+	local->transaction.fop   = afr_mknod_wind;
+	local->transaction.done  = afr_mknod_done;
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
@@ -438,23 +431,20 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_mkdir_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_mkdir_done (call_frame_t *frame, xlator_t *this,
+		int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = NULL;
 
 	local = frame->local;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mkdir.inode, 
-			  &local->cont.mkdir.buf);
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
+	} else {
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mkdir.inode, 
+				  &local->cont.mkdir.buf);
+	}
 	
-	return 0;
-}
-
-
-int32_t
-afr_mkdir_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
 	return 0;
 }
 
@@ -479,9 +469,8 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 	loc_copy (&local->loc, loc);
 	local->cont.mkdir.mode  = mode;
 
-	local->transaction.fop     = afr_mkdir_wind;
-	local->transaction.success = afr_mkdir_success;
-	local->transaction.error   = afr_mkdir_error;
+	local->transaction.fop  = afr_mkdir_wind;
+	local->transaction.done = afr_mkdir_done;
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
@@ -578,23 +567,20 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_link_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_link_done (call_frame_t *frame, xlator_t *this,
+	       int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
-	local->cont.link.buf.st_ino = local->cont.link.ino;
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
+	} else {
+		local->cont.link.buf.st_ino = local->cont.link.ino;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.link.inode,
-			  &local->cont.link.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.link.inode,
+				  &local->cont.link.buf);
+	}
 	
-	return 0;
-}
-
-
-int32_t
-afr_link_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
 	return 0;
 }
 
@@ -621,15 +607,14 @@ afr_link (call_frame_t *frame, xlator_t *this,
 
 	local->cont.link.ino = oldloc->inode->ino;
 
-	local->transaction.fop     = afr_link_wind;
-	local->transaction.success = afr_link_success;
-	local->transaction.error   = afr_link_error;
+	local->transaction.fop  = afr_link_wind;
+	local->transaction.done = afr_link_done;
 
 	build_parent_loc (&local->transaction.parent_loc, oldloc);
 
-	local->transaction.basename = AFR_BASENAME (oldloc->path);
+	local->transaction.basename     = AFR_BASENAME (oldloc->path);
 	local->transaction.new_basename = AFR_BASENAME (newloc->path);
-	local->transaction.pending = AFR_ENTRY_PENDING;
+	local->transaction.pending      = AFR_ENTRY_PENDING;
 
 	afr_dir_link_transaction (frame, this);
 
@@ -721,21 +706,18 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_symlink_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_symlink_done (call_frame_t *frame, xlator_t *this,
+		  int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.symlink.inode,
-			  &local->cont.symlink.buf);
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
+	} else {
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.symlink.inode,
+				  &local->cont.symlink.buf);
+	}
 	
-	return 0;
-}
-
-
-int32_t
-afr_symlink_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
 	return 0;
 }
 
@@ -761,22 +743,21 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 
 	local->cont.symlink.ino = loc->inode->ino;
 
-	local->transaction.fop     = afr_symlink_wind;
-	local->transaction.success = afr_symlink_success;
-	local->transaction.error   = afr_symlink_error;
+	local->transaction.fop  = afr_symlink_wind;
+	local->transaction.done = afr_symlink_done;
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
-	local->transaction.basename = AFR_BASENAME (loc->path);
+	local->transaction.basename     = AFR_BASENAME (loc->path);
 	local->transaction.new_basename = AFR_BASENAME (linkpath);
-	local->transaction.pending = AFR_ENTRY_PENDING;
+	local->transaction.pending      = AFR_ENTRY_PENDING;
 
 	afr_dir_transaction (frame, this);
 
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
 	}
 
 	return 0;
@@ -860,22 +841,19 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_rename_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_rename_done (call_frame_t *frame, xlator_t *this,
+		 int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
-	local->cont.rename.buf.st_ino = local->cont.rename.ino;
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+	} else {
+		local->cont.rename.buf.st_ino = local->cont.rename.ino;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.rename.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.rename.buf);
+	}
 	
-	return 0;
-}
-
-
-int32_t
-afr_rename_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	return 0;
 }
 
@@ -903,22 +881,21 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
 	local->cont.rename.ino     = oldloc->inode->ino;
 
-	local->transaction.fop     = afr_rename_wind;
-	local->transaction.success = afr_rename_success;
-	local->transaction.error   = afr_rename_error;
+	local->transaction.fop  = afr_rename_wind;
+	local->transaction.done = afr_rename_done;
 
 	build_parent_loc (&local->transaction.parent_loc, newloc);
 
-	local->transaction.basename = AFR_BASENAME (oldloc->path);
+	local->transaction.basename     = AFR_BASENAME (oldloc->path);
 	local->transaction.new_basename = AFR_BASENAME (newloc->path);
-	local->transaction.pending = AFR_ENTRY_PENDING;
+	local->transaction.pending      = AFR_ENTRY_PENDING;
 
 	afr_dir_link_transaction (frame, this);
 
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 
 	return 0;
@@ -990,20 +967,17 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_unlink_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_unlink_done (call_frame_t *frame, xlator_t *this,
+		 int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	} else {
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	}
 	
-	return 0;
-}
-
-
-int32_t
-afr_unlink_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -1027,9 +1001,8 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 
 	loc_copy (&local->loc, loc);
 
-	local->transaction.fop     = afr_unlink_wind;
-	local->transaction.success = afr_unlink_success;
-	local->transaction.error   = afr_unlink_error;
+	local->transaction.fop  = afr_unlink_wind;
+	local->transaction.done = afr_unlink_done;
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
@@ -1113,20 +1086,13 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_rmdir_success (call_frame_t *frame, int32_t op_ret, int32_t op_errno)
+afr_rmdir_done (call_frame_t *frame, xlator_t *this,
+		int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = frame->local;
 
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 	
-	return 0;
-}
-
-
-int32_t
-afr_rmdir_error (call_frame_t *frame, xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -1150,9 +1116,8 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
 	loc_copy (&local->loc, loc);
 
-	local->transaction.fop     = afr_rmdir_wind;
-	local->transaction.success = afr_rmdir_success;
-	local->transaction.error   = afr_rmdir_error;
+	local->transaction.fop  = afr_rmdir_wind;
+	local->transaction.done = afr_rmdir_done;
 
 	build_parent_loc (&local->transaction.parent_loc, loc);
 

@@ -40,7 +40,7 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		local->transaction.success (frame, op_ret, op_errno);
+		local->transaction.done (frame, this, op_ret, op_errno);
 	}
 	
 	return 0;
@@ -253,7 +253,7 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 		/* no child is up */
 		dict_unref (xattr);
 
-		local->transaction.error (frame, this, -1, ENOTCONN);
+		local->transaction.done (frame, this, -1, ENOTCONN);
 		return 0;
 	}
 
@@ -561,7 +561,7 @@ afr_inode_transaction (call_frame_t *frame, xlator_t *this)
 	local->child_up = calloc (sizeof (*local->child_up), 
 					      priv->child_count);
 	if (!local->child_up) {
-		local->transaction.error (frame, this, -1, ENOMEM);
+		local->transaction.done (frame, this, -1, ENOMEM);
 	}
 
 	memcpy (local->child_up, priv->child_up,
@@ -589,7 +589,7 @@ afr_dir_transaction (call_frame_t *frame, xlator_t *this)
 	local->child_up = calloc (sizeof (*local->child_up), 
 					      priv->child_count);
 	if (!local->child_up) {
-		local->transaction.error (frame, this, -1, ENOMEM);
+		local->transaction.done (frame, this, -1, ENOMEM);
 	}
 
 	memcpy (local->child_up, priv->child_up,
@@ -615,7 +615,7 @@ afr_dir_link_transaction (call_frame_t *frame, xlator_t *this)
 	local->child_up = calloc (sizeof (*local->child_up), 
 					      priv->child_count);
 	if (!local->child_up) {
-		local->transaction.error (frame, this, -1, ENOMEM);
+		local->transaction.done (frame, this, -1, ENOMEM);
 	}
 
 	memcpy (local->child_up, priv->child_up,
