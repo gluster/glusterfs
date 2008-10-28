@@ -301,6 +301,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
 	unify_local_t *local = frame->local;
+	inode_t *tmp_inode = NULL;
 	dict_t *local_dict = NULL;
 
 	LOCK (&frame->lock);
@@ -482,9 +483,10 @@ unify_lookup_cbk (call_frame_t *frame,
 		else 
 		{
 			/* either no self heal, or op_ret == -1 (failure) */
+			tmp_inode = local->loc1.inode;
 			unify_local_wipe (local);
 			STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-				      inode, &local->stbuf, local->dict);
+				      tmp_inode, &local->stbuf, local->dict);
 		}
 		if (local_dict) 
 		{
@@ -735,6 +737,7 @@ unify_mkdir_cbk (call_frame_t *frame,
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
 	unify_local_t *local = frame->local;
+	inode_t *tmp_inode = NULL;
 
 	LOCK (&frame->lock);
 	{
@@ -764,11 +767,12 @@ unify_mkdir_cbk (call_frame_t *frame,
 		if (!local->failed) {
 			dict_set (local->loc1.inode->ctx, this->name, data_from_int64 (priv->inode_generation));
 		}
-
+		
+		tmp_inode = local->loc1.inode;
 		unify_local_wipe (local);
 
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-			      inode, &local->stbuf);
+			      tmp_inode, &local->stbuf);
 	}
 
 	return 0;
@@ -1103,7 +1107,7 @@ unify_open_lookup_cbk (call_frame_t *frame,
 		for (index = 0; file_list[index] != -1; index++) {
 			char need_break = file_list[index+1] == -1;
 			loc_t tmp_loc = {
-				.inode = inode,
+				.inode = local->loc1.inode,
 				.path = local->name
 			};
 			STACK_WIND_COOKIE (frame,
@@ -1436,8 +1440,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 				unify_local_wipe (local);
 				gf_log (this->name, GF_LOG_ERROR,
 					"returning EIO as file found on only one node");
-				STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd, 
-					      inode, NULL);
+				STACK_UNWIND (frame, -1, EIO, local->fd, inode, NULL);
 				return 0;
 			}
 		}

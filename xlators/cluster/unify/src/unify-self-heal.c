@@ -830,6 +830,7 @@ gf_unify_self_heal (call_frame_t *frame,
   unify_private_t *priv = this->private;
   call_frame_t *bg_frame = NULL;
   unify_local_t *bg_local = NULL;
+  inode_t *tmp_inode = NULL;
   int16_t index = 0;
   
   if (local->inode_generation < priv->inode_generation) {
@@ -893,12 +894,14 @@ gf_unify_self_heal (call_frame_t *frame,
   /* generation number matches, self heal already done or self heal done in background:
    * just do STACK_UNWIND 
    */
+  tmp_inode = local->loc1.inode;
+  unify_local_wipe (local);
 
   /* This is lookup_cbk ()'s UNWIND. */
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
-		local->loc1.inode,
+		tmp_inode,
 		&local->stbuf,
 		local->dict);
   
