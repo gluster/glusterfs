@@ -70,7 +70,7 @@ out:
 
 
 /**
- * pl_gf_file_lk: 
+ * pl_inodelk: 
  *
  * This fop provides fcntl-style locking on files for internal
  * purposes. Locks held through this fop reside in a domain different
@@ -78,9 +78,8 @@ out:
  */
 
 int32_t 
-pl_gf_file_lk (call_frame_t *frame, xlator_t *this,
-	       loc_t *loc, fd_t *fd, int32_t cmd,
-	       struct flock *flock)
+pl_inodelk (call_frame_t *frame, xlator_t *this,
+	    loc_t *loc, int32_t cmd, struct flock *flock)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -112,13 +111,111 @@ pl_gf_file_lk (call_frame_t *frame, xlator_t *this,
 
 	if (loc && loc->inode && loc->inode->ctx) {
 		ctx = loc->inode->ctx;
+	} else {
+		gf_log (this->name, GF_LOG_CRITICAL,
+			"loc->inode->ctx not found!");
+		op_errno = EINVAL;
+		goto out;
 	}
-	else if (fd && fd->inode && fd->inode->ctx) {
+
+	pthread_mutex_lock (&priv->mutex);
+	{
+		ret = dict_get_ptr (ctx, this->name, (void **) &pinode);
+		if (ret < 0) {
+			ret = set_new_pinode (ctx, this, (void **) &pinode);
+			if (ret < 0) {
+				op_errno = -ret;
+				goto unlock;
+			}
+		}
+
+		reqlock = new_posix_lock (flock, transport, client_pid);
+		switch (cmd) {
+		case F_SETLK:
+			ret = pl_setlk (pinode, reqlock, 0, GF_LOCK_INTERNAL);
+
+			if (ret == -1) {
+				op_errno = EAGAIN;
+				goto unlock;
+			}
+			break;
+		case F_SETLKW:
+			reqlock->frame = frame;
+			reqlock->this  = this;
+
+                        /* TODO: free this */
+			reqlock->user_flock = calloc (1, sizeof (struct flock));
+			if (!reqlock->user_flock) {
+				op_errno = ENOMEM;
+				goto unlock;
+			}
+
+			memcpy (reqlock->user_flock, flock, sizeof (struct flock));
+
+			ret = pl_setlk (pinode, reqlock, 1, GF_LOCK_INTERNAL);
+			if (ret == -1)
+				return -1; /* lock has been blocked */
+
+			break;
+		default:
+			op_errno = ENOTSUP;
+			gf_log (this->name, GF_LOG_ERROR,
+				"lock command F_GETLK not supported for GF_FILE_LK (cmd=%d)", 
+				cmd);
+			goto unlock;
+		}
+	}
+
+	op_ret = 0;
+unlock:
+	pthread_mutex_unlock (&priv->mutex);
+out:
+	if (op_ret == -1) {
+
+	}
+	
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return op_ret;
+}
+
+
+int32_t 
+pl_finodelk (call_frame_t *frame, xlator_t *this,
+	     fd_t *fd, int32_t cmd, struct flock *flock)
+{
+	int32_t op_ret   = -1;
+	int32_t op_errno = 0;
+	int     ret      = -1;
+
+	posix_locks_private_t * priv       = NULL;
+	transport_t *           transport  = NULL;
+	pid_t                   client_pid = -1;
+	pl_inode_t *            pinode     = NULL;
+	posix_lock_t *          reqlock    = NULL;
+
+	dict_t *                ctx        = NULL;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (flock, out);
+	
+	if ((flock->l_start < 0) || (flock->l_len < 0)) {
+		op_errno = EINVAL;
+		goto out;
+	}
+
+	transport  = frame->root->trans;
+	client_pid = frame->root->pid;
+
+	priv = (posix_locks_private_t *) this->private;
+
+	VALIDATE_OR_GOTO (priv, out);
+
+	if (fd && fd->inode && fd->inode->ctx) {
 		ctx = fd->inode->ctx;
 	}
 	else {
 		gf_log (this->name, GF_LOG_CRITICAL,
-			"neither loc->inode->ctx nor fd->inode->ctx found!");
+			"fd->inode->ctx not found!");
 		op_errno = EINVAL;
 		goto out;
 	}
@@ -424,9 +521,9 @@ out:
  */
 
 int32_t 
-pl_gf_dir_lk (call_frame_t *frame, xlator_t *this,
-	      loc_t *loc, const char *basename, 
-	      gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+pl_entrylk (call_frame_t *frame, xlator_t *this,
+	    loc_t *loc, const char *basename, 
+	    gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -456,6 +553,78 @@ pl_gf_dir_lk (call_frame_t *frame, xlator_t *this,
 		}
 	} else {
 		UNLOCK (&loc->inode->lock);
+	}
+
+	switch (cmd) {
+	case GF_DIR_LK_LOCK:
+		ret = lock_name (pinode, basename, type);
+		if (ret < 0) {
+			op_errno = -ret;
+			goto out;
+		}
+		break;
+	case GF_DIR_LK_UNLOCK:
+		ret = unlock_name (pinode, basename, type);
+		if (ret < 0) {
+			op_errno = -ret;
+			goto out;
+		}
+		break;
+	default:
+		gf_log (this->name, GF_LOG_ERROR,
+			"unexpected case!");
+		goto out;
+	}
+
+	op_ret = 0;
+out:
+	if (op_ret == -1) {
+	}
+
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+/**
+ * pl_gf_dir_lk:
+ * 
+ * Locking on names (directory entries)
+ */
+
+int32_t 
+pl_fentrylk (call_frame_t *frame, xlator_t *this,
+	     fd_t *fd, const char *basename, 
+	     gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+{
+	int32_t op_ret   = -1;
+	int32_t op_errno = 0;
+	
+	pl_inode_t *       pinode = NULL; 
+	int                ret    = -1;
+
+	LOCK (&fd->inode->lock);
+	ret = dict_get_ptr (fd->inode->ctx, this->name, (void **) &pinode);
+	if (ret < 0) {
+		if (cmd == GF_DIR_LK_UNLOCK) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"cmd is GF_DIR_LK_UNLOCK but inode->ctx is not set!");
+
+			UNLOCK (&fd->inode->lock);
+			op_errno = -EINVAL;
+			goto out;
+		}
+
+		ret = set_new_pinode (fd->inode->ctx, this, (void **) &pinode);
+		
+		UNLOCK (&fd->inode->lock);
+
+		if (ret < 0) {
+			op_errno = -ret;
+			goto out;
+		}
+	} else {
+		UNLOCK (&fd->inode->lock);
 	}
 
 	switch (cmd) {

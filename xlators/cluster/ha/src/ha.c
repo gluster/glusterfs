@@ -2590,11 +2590,11 @@ ha_lk (call_frame_t *frame,
 }
 
 static int32_t
-ha_gf_file_dir_lk_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
+ha_inode_entry_lk_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
 {
   ha_local_t *local = frame->local;
   ha_private_t *pvt = this->private;
@@ -2608,43 +2608,11 @@ ha_gf_file_dir_lk_cbk (call_frame_t *frame,
 }
 
 int32_t
-ha_gf_file_lk (call_frame_t *frame,
-	       xlator_t *this,
-	       loc_t *loc,
-	       fd_t *fd,
-	       int32_t cmd,
-	       struct flock *lock)
-{
-  ha_local_t *local = frame->local;
-  ha_private_t *pvt = this->private;
-  dict_t *ctx = fd->ctx;
-  GF_TRACE (this, "fd=%x", fd);
-
-  HA_CALL_CODE;
-  if (local->active == -1) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-    return 0;
-  }
-
-  local->stub = fop_gf_file_lk_stub (frame, ha_gf_file_lk, loc, fd, cmd, lock);
-  STACK_WIND (frame,
-	      ha_gf_file_dir_lk_cbk,
-	      HA_ACTIVE_CHILD(this, local),
-	      HA_ACTIVE_CHILD(this, local)->fops->gf_file_lk,
-	      loc,
-	      fd,
-	      cmd,
-	      lock);
-  return 0;
-}
-
-int32_t
-ha_gf_dir_lk (call_frame_t *frame,
-	      xlator_t *this,
-	      loc_t *loc,
-	      const char *basename,
-	      gf_dir_lk_cmd cmd,
-	      gf_dir_lk_type type)
+ha_inodelk (call_frame_t *frame,
+	    xlator_t *this,
+	    loc_t *loc,
+	    int32_t cmd,
+	    struct flock *lock)
 {
   ha_local_t *local = frame->local;
   ha_private_t *pvt = this->private;
@@ -2656,11 +2624,40 @@ ha_gf_dir_lk (call_frame_t *frame,
     return 0;
   }
 
-  local->stub = fop_gf_dir_lk_stub (frame, ha_gf_dir_lk, loc, basename, cmd, type);
+  local->stub = fop_inodelk_stub (frame, ha_inodelk, loc, cmd, lock);
   STACK_WIND (frame,
-	      ha_gf_file_dir_lk_cbk,
+	      ha_inode_entry_lk_cbk,
 	      HA_ACTIVE_CHILD(this, local),
-	      HA_ACTIVE_CHILD(this, local)->fops->gf_dir_lk,
+	      HA_ACTIVE_CHILD(this, local)->fops->inodelk,
+	      loc,
+	      cmd,
+	      lock);
+  return 0;
+}
+
+int32_t
+ha_entrylk (call_frame_t *frame,
+	    xlator_t *this,
+	    loc_t *loc,
+	    const char *basename,
+	    gf_dir_lk_cmd cmd,
+	    gf_dir_lk_type type)
+{
+  ha_local_t *local = frame->local;
+  ha_private_t *pvt = this->private;
+  dict_t *ctx = loc->inode->ctx;
+
+  HA_CALL_CODE;
+  if (local->active == -1) {
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    return 0;
+  }
+
+  local->stub = fop_entrylk_stub (frame, ha_entrylk, loc, basename, cmd, type);
+  STACK_WIND (frame,
+	      ha_inode_entry_lk_cbk,
+	      HA_ACTIVE_CHILD(this, local),
+	      HA_ACTIVE_CHILD(this, local)->fops->entrylk,
 	      loc, basename, cmd, type);
   return 0;
 }

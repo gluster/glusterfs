@@ -113,8 +113,10 @@ typedef enum {
         GF_FOP_SETDENTS,
         GF_FOP_RMELEM,
         GF_FOP_READDIR,    /* 35 */
-        GF_FOP_GF_FILE_LK, 
-	GF_FOP_GF_DIR_LK,  
+        GF_FOP_INODELK, 
+        GF_FOP_FINODELK, 
+	GF_FOP_ENTRYLK,  
+	GF_FOP_FENTRYLK,  
         GF_FOP_CHECKSUM,      
         GF_FOP_XATTROP,
         GF_FOP_MAXVALUE,  /* 40 */

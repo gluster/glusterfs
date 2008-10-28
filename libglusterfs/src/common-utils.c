@@ -323,8 +323,10 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_SETDENTS] = "SETDENTS";
 	gf_fop_list[GF_FOP_RMELEM]   = "RMELEM";
 	gf_fop_list[GF_FOP_READDIR]  = "READDIR";
-	gf_fop_list[GF_FOP_GF_FILE_LK] = "GF_FILE_LK";      /* 40 */
-	gf_fop_list[GF_FOP_GF_DIR_LK] = "GF_DIR_LK";
+	gf_fop_list[GF_FOP_INODELK]  = "INODELK";
+	gf_fop_list[GF_FOP_FINODELK] = "FINODELK";      
+	gf_fop_list[GF_FOP_ENTRYLK]  = "ENTRYLK";
+	gf_fop_list[GF_FOP_FENTRYLK] = "FENTRYLK";
 	gf_fop_list[GF_FOP_CHECKSUM] = "CHECKSUM";   /* 41 */   
 	gf_fop_list[GF_FOP_XATTROP]  = "XATTROP";
 

@@ -166,9 +166,8 @@ sh_unlock_inode (call_frame_t *frame, xlator_t *this)
 		if ((i == source) || (sources[i] == 0)) {
 			STACK_WIND_COOKIE (frame, sh_unlock_inode_cbk, (void *) (long) i,
 					   priv->children[i], 
-					   priv->children[i]->fops->gf_file_lk, 
-					   &local->loc, 
-					   NULL, F_SETLK, &flock); 
+					   priv->children[i]->fops->inodelk, 
+					   &local->loc, F_SETLK, &flock); 
 			call_count--;
 		}
 
@@ -521,9 +520,8 @@ sh_lock_inode (call_frame_t *frame, xlator_t *this)
 		if ((i == source) || (sources[i] == 0)) {
 			STACK_WIND_COOKIE (frame, sh_lock_inode_cbk, (void *) (long) i,
 					   priv->children[i], 
-					   priv->children[i]->fops->gf_file_lk, 
-					   &local->loc, 
-					   NULL, F_SETLK, &flock); 
+					   priv->children[i]->fops->inodelk,
+					   &local->loc, F_SETLK, &flock); 
 		}
 	}
 

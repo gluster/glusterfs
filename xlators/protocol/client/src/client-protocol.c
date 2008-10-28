@@ -126,7 +126,7 @@ out:
 static void
 this_fd_set (fd_t *file, xlator_t *this, int64_t fd)
 {
-	int64_t old_fd = 0;
+	int64_t old_fd = -1;
 	int32_t ret = -1;
 	
 	GF_VALIDATE_OR_GOTO ("client", this, out);
@@ -982,7 +982,7 @@ client_readv (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_read_req_t *req = NULL;
 	size_t hdrlen = 0;
-	int64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 	int ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1107,7 +1107,7 @@ client_flush (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_flush_req_t *req = NULL;
 	size_t hdrlen = 0;
-	int64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 	int ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1151,7 +1151,7 @@ client_fsync (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fsync_req_t *req = NULL;
 	size_t hdrlen = 0;
-	int64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 	int32_t ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1442,7 +1442,7 @@ client_getdents (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_getdents_req_t *req = NULL;
 	size_t hdrlen = 0;
-	int64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 	int ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1485,7 +1485,7 @@ client_readdir (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_readdir_req_t *req = NULL;
 	size_t hdrlen = 0;
-	int64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 	int ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1531,7 +1531,7 @@ client_fsyncdir (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fsyncdir_req_t *req = NULL;
 	size_t hdrlen = 0;
-	int64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 	int32_t ret = -1;
 
 	if (this_fd_get (fd, this, &remote_fd) == -1)
@@ -1610,7 +1610,7 @@ client_ftruncate (call_frame_t *frame,
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_ftruncate_req_t *req = NULL;
-	int64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 	size_t hdrlen = -1;
 	int ret = -1;
 
@@ -1651,7 +1651,7 @@ client_fstat (call_frame_t *frame,
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fstat_req_t *req = NULL;
-	int64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 	size_t hdrlen = -1;
 	int ret = -1;
 
@@ -1697,7 +1697,7 @@ client_lk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_lk_req_t *req = NULL;
 	size_t hdrlen = 0;
-	int64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 
@@ -1741,26 +1741,85 @@ client_lk (call_frame_t *frame,
 
 
 /**
- * client_gf_file_lk - gf_file_lk function for client protocol
+ * client_inodelk - inodelk function for client protocol
  * @frame: call frame
  * @this: this translator structure
  * @inode: inode structure
  * @cmd: lock command
  * @lock: flock struct
  *
- * external reference through client_protocol_xlator->fops->gf_file_lk
+ * external reference through client_protocol_xlator->fops->inodelk
  */
 
 int32_t
-client_gf_file_lk (call_frame_t *frame,
-		   xlator_t *this,
-		   loc_t *loc, fd_t *fd,
-		   int32_t cmd,
-		   struct flock *flock)
+client_inodelk (call_frame_t *frame, xlator_t *this,
+		loc_t *loc, int32_t cmd, struct flock *flock)
 {
 	int ret = -1;
 	gf_hdr_common_t *hdr = NULL;
-	gf_fop_gf_file_lk_req_t *req = NULL;
+	gf_fop_inodelk_req_t *req = NULL;
+	size_t hdrlen = 0;
+	int32_t gf_cmd = 0;
+	int32_t gf_type = 0;
+
+	size_t pathlen = 0;
+
+	if (cmd == F_GETLK || cmd == F_GETLK64)
+		gf_cmd = GF_LK_GETLK;
+	else if (cmd == F_SETLK || cmd == F_SETLK64)
+		gf_cmd = GF_LK_SETLK;
+	else if (cmd == F_SETLKW || cmd == F_SETLKW64)
+		gf_cmd = GF_LK_SETLKW;
+	else
+		gf_log (this->name, GF_LOG_ERROR, "Unknown cmd (%d)!", gf_cmd);
+
+	switch (flock->l_type)
+	{
+	case F_RDLCK: gf_type = GF_LK_F_RDLCK; break;
+	case F_WRLCK: gf_type = GF_LK_F_WRLCK; break;
+	case F_UNLCK: gf_type = GF_LK_F_UNLCK; break;
+	}
+
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
+	req    = gf_param (hdr);
+
+	strcpy (req->path, loc->path);
+
+	if (loc->inode)
+		req->ino  = hton64 (this_ino_get (loc->inode, this));
+
+	req->cmd  = hton32 (gf_cmd);
+	req->type = hton32 (gf_type);
+	gf_flock_from_flock (&req->flock, flock);
+
+
+	ret = protocol_client_xfer (frame, this,
+				    GF_OP_TYPE_FOP_REQUEST,
+				    GF_FOP_INODELK,
+				    hdr, hdrlen, NULL, 0, NULL);
+	return ret;
+}
+
+
+/**
+ * client_finodelk - finodelk function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @inode: inode structure
+ * @cmd: lock command
+ * @lock: flock struct
+ *
+ * external reference through client_protocol_xlator->fops->finodelk
+ */
+
+int32_t
+client_finodelk (call_frame_t *frame, xlator_t *this,
+		 fd_t *fd, int32_t cmd, struct flock *flock)
+{
+	int ret = -1;
+	gf_hdr_common_t *hdr = NULL;
+	gf_fop_finodelk_req_t *req = NULL;
 	size_t hdrlen = 0;
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
@@ -1784,48 +1843,36 @@ client_gf_file_lk (call_frame_t *frame,
 	case F_UNLCK: gf_type = GF_LK_F_UNLCK; break;
 	}
 
-	if (fd == NULL)
-		pathlen = strlen (loc->path) + 1;
-
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
-	if (fd) {
-		if (this_fd_get (fd, this, &remote_fd) == -1) {
-			STACK_UNWIND (frame, -1, EBADFD);
-			return 0;
-		}
-
+	if (this_fd_get (fd, this, &remote_fd) == -1) {
+		STACK_UNWIND (frame, -1, EBADFD);
+		return 0;
 	}
 
-	req->fd   = hton64 (remote_fd);
-
-	if (fd == NULL)
-		strcpy (req->path, loc->path);
-
-	if (loc->inode)
-		req->ino  = hton64 (this_ino_get (loc->inode, this));
+	req->fd = hton64 (remote_fd);
 
 	req->cmd  = hton32 (gf_cmd);
 	req->type = hton32 (gf_type);
 	gf_flock_from_flock (&req->flock, flock);
 
-
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST,
-				    GF_FOP_GF_FILE_LK,
+				    GF_FOP_FINODELK,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
 }
 
+
 int32_t
-client_gf_dir_lk (call_frame_t *frame, xlator_t *this,
-		  loc_t *loc, const char *basename,
-		  gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+client_entrylk (call_frame_t *frame, xlator_t *this,
+		loc_t *loc, const char *basename,
+		gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
 	gf_hdr_common_t *hdr = NULL;
-	gf_fop_gf_dir_lk_req_t *req = NULL;
+	gf_fop_entrylk_req_t *req = NULL;
 
 	size_t pathlen = 0;
 	size_t baselen = 0;
@@ -1849,7 +1896,47 @@ client_gf_dir_lk (call_frame_t *frame, xlator_t *this,
 	req->type = hton32 (type);
 
 	ret = protocol_client_xfer (frame, this,
-				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_GF_DIR_LK,
+				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_ENTRYLK,
+				    hdr, hdrlen, NULL, 0, NULL);
+
+	return ret;
+}
+
+
+int32_t
+client_fentrylk (call_frame_t *frame, xlator_t *this,
+		 fd_t *fd, const char *basename,
+		 gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+{
+	gf_hdr_common_t *hdr = NULL;
+	gf_fop_fentrylk_req_t *req = NULL;
+	int64_t remote_fd = -1;
+
+	size_t baselen = 0;
+
+	size_t hdrlen = -1;
+	int ret = -1;
+  
+	baselen = strlen (basename) + 1;
+
+	hdrlen = gf_hdr_len (req, baselen);
+	hdr    = gf_hdr_new (req, baselen);
+	req    = gf_param (hdr);
+
+	if (this_fd_get (fd, this, &remote_fd) == -1) {
+		STACK_UNWIND (frame, -1, EBADFD);
+		return 0;
+	}
+
+	req->fd = hton64 (remote_fd);
+
+	strcpy (req->basename, basename);
+
+	req->cmd  = hton32 (cmd);
+	req->type = hton32 (type);
+
+	ret = protocol_client_xfer (frame, this,
+				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FENTRYLK,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
@@ -1906,7 +1993,7 @@ client_fchmod (call_frame_t *frame,
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fchmod_req_t *req = NULL;
-	int64_t remote_fd = 0;
+	int64_t remote_fd = -1;
 	size_t hdrlen = -1;
 	int ret = -1;
 
@@ -3779,11 +3866,30 @@ client_lk_common_cbk (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-client_gf_file_lk_cbk (call_frame_t *frame,
-		       gf_hdr_common_t *hdr, size_t hdrlen,
-		       char *buf, size_t buflen)
+client_inodelk_cbk (call_frame_t *frame,
+		    gf_hdr_common_t *hdr, size_t hdrlen,
+		    char *buf, size_t buflen)
 {
-	gf_fop_gf_file_lk_rsp_t *rsp = NULL;
+	gf_fop_inodelk_rsp_t *rsp = NULL;
+	int op_ret = 0;
+	int op_errno = 0;
+
+	rsp = gf_param (hdr);
+
+	op_ret   = ntoh32 (hdr->rsp.op_ret);
+	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
+
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t
+client_finodelk_cbk (call_frame_t *frame,
+		     gf_hdr_common_t *hdr, size_t hdrlen,
+		     char *buf, size_t buflen)
+{
+	gf_fop_finodelk_rsp_t *rsp = NULL;
 	int op_ret = 0;
 	int op_errno = 0;
 
@@ -3805,11 +3911,29 @@ client_gf_file_lk_cbk (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-client_gf_dir_lk_cbk (call_frame_t *frame,
-		      gf_hdr_common_t *hdr, size_t hdrlen,
-		      char *buf, size_t buflen)
+client_entrylk_cbk (call_frame_t *frame,
+		    gf_hdr_common_t *hdr, size_t hdrlen,
+		    char *buf, size_t buflen)
 {
-	gf_fop_gf_dir_lk_rsp_t *rsp = NULL;
+	gf_fop_entrylk_rsp_t *rsp = NULL;
+	int op_ret = 0;
+	int op_errno = 0;
+
+	rsp = gf_param (hdr);
+
+	op_ret   = ntoh32 (hdr->rsp.op_ret);
+	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
+
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+int32_t
+client_fentrylk_cbk (call_frame_t *frame,
+		     gf_hdr_common_t *hdr, size_t hdrlen,
+		     char *buf, size_t buflen)
+{
+	gf_fop_fentrylk_rsp_t *rsp = NULL;
 	int op_ret = 0;
 	int op_errno = 0;
 
@@ -4400,8 +4524,10 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_SETDENTS]       =  client_setdents_cbk,
 	[GF_FOP_RMELEM]         =  client_rmelem_cbk,
 	[GF_FOP_READDIR]        =  client_readdir_cbk,
-	[GF_FOP_GF_FILE_LK]     =  client_gf_file_lk_cbk,
-	[GF_FOP_GF_DIR_LK]      =  client_gf_dir_lk_cbk,
+	[GF_FOP_INODELK]        =  client_inodelk_cbk,
+	[GF_FOP_FINODELK]       =  client_finodelk_cbk,
+	[GF_FOP_ENTRYLK]        =  client_entrylk_cbk,
+	[GF_FOP_FENTRYLK]       =  client_fentrylk_cbk,
 	[GF_FOP_CHECKSUM]       =  client_checksum_cbk,
 	[GF_FOP_XATTROP]        =  client_xattrop_cbk,
 };
@@ -4898,8 +5024,10 @@ struct xlator_fops fops = {
 	.fstat       = client_fstat,
 	.create      = client_create,
 	.lk          = client_lk,
-	.gf_file_lk  = client_gf_file_lk,
-	.gf_dir_lk   = client_gf_dir_lk,
+	.inodelk     = client_inodelk,
+	.finodelk    = client_finodelk,
+	.entrylk     = client_entrylk,
+	.fentrylk    = client_fentrylk,
 	.lookup      = client_lookup,
 	.fchmod      = client_fchmod,
 	.fchown      = client_fchown,

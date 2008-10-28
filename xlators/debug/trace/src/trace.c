@@ -1004,7 +1004,7 @@ trace_setdents_cbk (call_frame_t *frame,
 }
 
 int32_t 
-trace_gf_dir_lk_cbk (call_frame_t *frame,
+trace_entrylk_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
 		     int32_t op_ret,
@@ -1012,7 +1012,7 @@ trace_gf_dir_lk_cbk (call_frame_t *frame,
 {
 	ERR_EINVAL_NORETURN (!this );
 
-	if (trace_fop_names[GF_FOP_GF_DIR_LK].enabled) {  
+	if (trace_fop_names[GF_FOP_ENTRYLK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL,
 			"op_ret=%d, op_errno=%d",
 			op_ret, op_errno);
@@ -1044,15 +1044,15 @@ trace_xattrop_cbk (call_frame_t *frame,
 }
 
 int32_t 
-trace_gf_file_lk_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno)
+trace_inodelk_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
 {
 	ERR_EINVAL_NORETURN (!this );
 
-	if (trace_fop_names[GF_FOP_GF_FILE_LK].enabled) {  
+	if (trace_fop_names[GF_FOP_INODELK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL,
 			"op_ret=%d, op_errno=%d",
 			op_ret, op_errno);
@@ -1063,13 +1063,13 @@ trace_gf_file_lk_cbk (call_frame_t *frame,
 }
 
 int32_t
-trace_gf_dir_lk (call_frame_t *frame, xlator_t *this,
-		 loc_t *loc, const char *basename,
-		 gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+trace_entrylk (call_frame_t *frame, xlator_t *this,
+	       loc_t *loc, const char *basename,
+	       gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
 	ERR_EINVAL_NORETURN (!this || !loc || !basename);
 
-	if (trace_fop_names[GF_FOP_GF_DIR_LK].enabled) {  
+	if (trace_fop_names[GF_FOP_ENTRYLK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
 			"callid: %lld (loc=%p {path=%s, inode=%p} basename=%s, cmd=%s, type=%s)",
 			(long long) frame->root->unique, loc, loc->path,
@@ -1077,34 +1077,32 @@ trace_gf_dir_lk (call_frame_t *frame, xlator_t *this,
 	}
 
 	STACK_WIND (frame, 
-		    trace_gf_dir_lk_cbk,
+		    trace_entrylk_cbk,
 		    FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->gf_dir_lk,
+		    FIRST_CHILD (this)->fops->entrylk,
 		    loc, basename, cmd, type);
 	return 0;
 }
 
 int32_t
-trace_gf_file_lk (call_frame_t *frame,
-		  xlator_t *this,
-		  loc_t *loc, fd_t *fd,
-		  int32_t cmd,
-		  struct flock *flock)
+trace_inodelk (call_frame_t *frame,
+	       xlator_t *this,
+	       loc_t *loc, int32_t cmd, struct flock *flock)
 {
 	ERR_EINVAL_NORETURN (!this || !loc);
 
-	if (trace_fop_names[GF_FOP_GF_FILE_LK].enabled) {  
+	if (trace_fop_names[GF_FOP_INODELK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
 			"callid: %lld (loc {path=%s, inode=%p}, fd=%p, cmd=%s)",
 			(long long) frame->root->unique, loc ? loc->path : NULL, 
-			loc ? loc->inode : NULL, fd, cmd == F_SETLK ? "F_SETLK" : "unknown");
+			loc ? loc->inode : NULL, cmd == F_SETLK ? "F_SETLK" : "unknown");
 	}
 
 	STACK_WIND (frame, 
-		    trace_gf_file_lk_cbk,
+		    trace_inodelk_cbk,
 		    FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->gf_file_lk,
-		    loc, fd, cmd, flock);
+		    FIRST_CHILD (this)->fops->inodelk,
+		    loc, cmd, flock);
 	return 0;
 }
 
@@ -2203,8 +2201,8 @@ struct xlator_fops fops = {
   .fchown      = trace_fchown,
   .fchmod      = trace_fchmod,
   .lk          = trace_lk,
-  .gf_file_lk  = trace_gf_file_lk,
-  .gf_dir_lk   = trace_gf_dir_lk,
+  .inodelk     = trace_inodelk,
+  .entrylk     = trace_entrylk,
   .lookup      = trace_lookup,
   .setdents    = trace_setdents,
   .getdents    = trace_getdents,

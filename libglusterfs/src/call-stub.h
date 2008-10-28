@@ -458,34 +458,59 @@ typedef struct {
 			struct flock lock;
 		} lk_cbk;
 
-		/* gf_file_lk */
+		/* inodelk */
 		struct {
-			fop_gf_file_lk_t fn;
+			fop_inodelk_t fn;
 			loc_t loc;
+			int32_t cmd;
+			struct flock lock;
+		} inodelk;
+
+		struct {
+			fop_inodelk_cbk_t fn;
+			int32_t op_ret, op_errno;
+		} inodelk_cbk;
+
+		/* finodelk */
+		struct {
+			fop_finodelk_t fn;
 			fd_t *fd;
 			int32_t cmd;
 			struct flock lock;
-		} gf_file_lk;
+		} finodelk;
 
 		struct {
-			fop_gf_file_lk_cbk_t fn;
+			fop_finodelk_cbk_t fn;
 			int32_t op_ret, op_errno;
-		} gf_file_lk_cbk;
+		} finodelk_cbk;
 
-
-		/* gf_dir_lk */
+		/* entrylk */
 		struct {
-			fop_gf_dir_lk_t fn;
+			fop_entrylk_t fn;
 			loc_t loc;
 			const char *basename;
 			gf_dir_lk_cmd cmd;
 			gf_dir_lk_type type;
-		} gf_dir_lk;
+		} entrylk;
 
 		struct {
-			fop_gf_dir_lk_cbk_t fn;
+			fop_entrylk_cbk_t fn;
 			int32_t op_ret, op_errno;
-		} gf_dir_lk_cbk;
+		} entrylk_cbk;
+
+		/* fentrylk */
+		struct {
+			fop_fentrylk_t fn;
+			fd_t *fd;
+			const char *basename;
+			gf_dir_lk_cmd cmd;
+			gf_dir_lk_type type;
+		} fentrylk;
+
+		struct {
+			fop_fentrylk_cbk_t fn;
+			int32_t op_ret, op_errno;
+		} fentrylk_cbk;
 
 		/* readdir */
 		struct {
@@ -972,29 +997,38 @@ fop_lk_cbk_stub (call_frame_t *frame,
 		 struct flock *lock);
 
 call_stub_t *
-fop_gf_file_lk_stub (call_frame_t *frame,
-		     fop_gf_file_lk_t fn,
-		     loc_t *loc, fd_t *fd,
-		     int32_t cmd,
-		     struct flock *lock);
+fop_inodelk_stub (call_frame_t *frame, fop_inodelk_t fn,
+		  loc_t *loc, int32_t cmd, struct flock *lock);
 
 call_stub_t *
-fop_gf_dir_lk_stub (call_frame_t *frame,
-		    fop_gf_dir_lk_t fn,
-		    loc_t *loc, const char *basename,
-		    gf_dir_lk_cmd cmd, gf_dir_lk_type type);
+fop_finodelk_stub (call_frame_t *frame, fop_finodelk_t fn,
+		   fd_t *fd, int32_t cmd, struct flock *lock);
 
 call_stub_t *
-fop_gf_file_lk_cbk_stub (call_frame_t *frame,
-			 fop_gf_file_lk_cbk_t fn,
-			 int32_t op_ret,
-			 int32_t op_errno);
+fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,
+		  loc_t *loc, const char *basename,
+		  gf_dir_lk_cmd cmd, gf_dir_lk_type type);
 
 call_stub_t *
-fop_gf_dir_lk_cbk_stub (call_frame_t *frame,
-			fop_gf_dir_lk_cbk_t fn,
-			int32_t op_ret,
-			int32_t op_errno);
+fop_fentrylk_stub (call_frame_t *frame, fop_fentrylk_t fn,
+		   fd_t *fd, const char *basename,
+		   gf_dir_lk_cmd cmd, gf_dir_lk_type type);
+
+call_stub_t *
+fop_inodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
+		      int32_t op_ret, int32_t op_errno);
+
+call_stub_t *
+fop_finodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
+		       int32_t op_ret, int32_t op_errno);
+
+call_stub_t *
+fop_entrylk_cbk_stub (call_frame_t *frame, fop_entrylk_cbk_t fn,
+		      int32_t op_ret, int32_t op_errno);
+
+call_stub_t *
+fop_fentrylk_cbk_stub (call_frame_t *frame, fop_entrylk_cbk_t fn,
+		       int32_t op_ret, int32_t op_errno);
 
 call_stub_t *
 fop_readdir_stub (call_frame_t *frame,

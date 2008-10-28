@@ -397,20 +397,66 @@ server_state_fill (call_frame_t *frame,
 			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 	}
 	break;
-	case GF_FOP_GF_DIR_LK:
+	case GF_FOP_ENTRYLK:
 	{
-		gf_fop_gf_dir_lk_req_t *req = request;
+		gf_fop_entrylk_req_t *req = request;
 		
-		state->cmd = ntoh32 (req->cmd);
+		state->cmd  = ntoh32 (req->cmd);
 		state->type = ntoh32 (req->type);
 		state->ino  = ntoh64 (req->ino);
 		state->path = req->path;
 		state->basename = (req->basename + strlen (state->path) + 1);
 	}
 	break;
-	case GF_FOP_GF_FILE_LK:
+	case GF_FOP_FENTRYLK:
 	{
-		gf_fop_gf_file_lk_req_t *req = request;
+		gf_fop_fentrylk_req_t *req = request;
+		
+		state->cmd   = ntoh32 (req->cmd);
+		state->type  = ntoh32 (req->type);
+		state->ino   = ntoh64 (req->ino);
+		state->fd_no = ntoh64 (req->fd);
+		state->fd    = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
+
+		state->basename = req->basename;
+	}
+	break;
+
+	case GF_FOP_INODELK:
+	{
+		gf_fop_inodelk_req_t *req = request;
+		
+		state->cmd = ntoh32 (req->cmd);
+		switch (state->cmd) {
+		case GF_LK_GETLK:
+			state->cmd = F_GETLK;
+			break;
+		case GF_LK_SETLK:
+			state->cmd = F_SETLK;
+			break;
+		case GF_LK_SETLKW:
+			state->cmd = F_SETLKW;
+			break;
+		}
+
+		state->type = ntoh32 (req->type);
+
+		state->path = req->path;
+
+		state->ino  = ntoh64 (req->ino);
+		gf_flock_to_flock (&req->flock, &state->flock);
+
+		switch (state->type) {
+		case GF_LK_F_RDLCK: state->flock.l_type = F_RDLCK; break;
+		case GF_LK_F_WRLCK: state->flock.l_type = F_WRLCK; break;
+		case GF_LK_F_UNLCK: state->flock.l_type = F_UNLCK; break;
+		}
+
+	}
+	break;
+	case GF_FOP_FINODELK:
+	{
+		gf_fop_finodelk_req_t *req = request;
 		
 		state->cmd = ntoh32 (req->cmd);
 		switch (state->cmd) {
@@ -428,12 +474,8 @@ server_state_fill (call_frame_t *frame,
 		state->type = ntoh32 (req->type);
 
 		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no != -1)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
+		state->fd = gf_fd_fdptr_get (connection_priv->fdtable, state->fd_no);
 		
-		if (state->fd_no == -1)
-			state->path = req->path;
-
 		state->ino  = ntoh64 (req->ino);
 		gf_flock_to_flock (&req->flock, &state->flock);
 
@@ -445,6 +487,7 @@ server_state_fill (call_frame_t *frame,
 
 	}
 	break;
+
 	default:
 		break;
 	}
@@ -496,8 +539,8 @@ server_loc_fill (loc_t *loc,
 
 	loc->name = name;
 	
-//	if (parent_path)
-//		free (parent_path);
+	if (parent_path)
+		free (parent_path);
 }
 
 /*
@@ -901,15 +944,12 @@ gf_del_locker (struct _lock_table *table,
 }
 
 int32_t
-server_gf_file_lk_cbk (call_frame_t *frame,
- 		       void *cookie,
- 		       xlator_t *this,
- 		       int32_t op_ret,
- 		       int32_t op_errno)
+server_inodelk_cbk (call_frame_t *frame, void *cookie,
+		    xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
  	size_t hdrlen = 0;
  	gf_hdr_common_t *hdr = NULL;
- 	gf_fop_lk_rsp_t *rsp = NULL;
+ 	gf_fop_inodelk_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
  	hdrlen = gf_hdr_len (rsp, 0);
@@ -929,7 +969,40 @@ server_gf_file_lk_cbk (call_frame_t *frame,
 				       &state->loc, state->fd, frame->root->pid);
 	}
 
- 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GF_FILE_LK,
+ 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_INODELK,
+ 			       hdr, hdrlen, NULL, 0, NULL);
+  
+ 	return 0;
+}
+
+
+int32_t
+server_finodelk_cbk (call_frame_t *frame, void *cookie,
+		     xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+ 	size_t hdrlen = 0;
+ 	gf_hdr_common_t *hdr = NULL;
+ 	gf_fop_finodelk_rsp_t *rsp = NULL;
+	server_state_t *state = NULL;
+
+ 	hdrlen = gf_hdr_len (rsp, 0);
+ 	hdr    = gf_hdr_new (rsp, 0);
+ 	rsp    = gf_param (hdr);
+  
+ 	hdr->rsp.op_ret   = hton32 (op_ret);
+ 	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
+	
+	if (op_ret >= 0) {
+		state = STATE (frame);
+		if (state->flock.l_type == F_UNLCK)
+			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable, 
+				       &state->loc, state->fd, frame->root->pid);
+		else
+			gf_add_locker (CONNECTION_PRIVATE(frame)->ltable, 
+				       &state->loc, state->fd, frame->root->pid);
+	}
+
+ 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FINODELK,
  			       hdr, hdrlen, NULL, 0, NULL);
   
  	return 0;
@@ -948,15 +1021,12 @@ server_gf_file_lk_cbk (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-server_gf_dir_lk_cbk (call_frame_t *frame,
- 		      void *cookie,
- 		      xlator_t *this,
- 		      int32_t op_ret,
- 		      int32_t op_errno)
+server_entrylk_cbk (call_frame_t *frame, void *cookie,
+		    xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
  	size_t hdrlen = 0;
  	gf_hdr_common_t *hdr = NULL;
- 	gf_fop_lk_rsp_t *rsp = NULL;
+ 	gf_fop_entrylk_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
  	hdrlen = gf_hdr_len (rsp, 0);
@@ -976,7 +1046,40 @@ server_gf_dir_lk_cbk (call_frame_t *frame,
 				       &state->loc, state->fd, frame->root->pid);
 	}
 
- 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GF_DIR_LK,
+ 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ENTRYLK,
+ 			       hdr, hdrlen, NULL, 0, NULL);
+ 
+ 	return 0;
+}
+
+
+int32_t
+server_fentrylk_cbk (call_frame_t *frame, void *cookie,
+		     xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+ 	size_t hdrlen = 0;
+ 	gf_hdr_common_t *hdr = NULL;
+ 	gf_fop_fentrylk_rsp_t *rsp = NULL;
+	server_state_t *state = NULL;
+
+ 	hdrlen = gf_hdr_len (rsp, 0);
+ 	hdr    = gf_hdr_new (rsp, 0);
+ 	rsp    = gf_param (hdr);
+ 
+ 	hdr->rsp.op_ret   = hton32 (op_ret);
+ 	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
+	
+	if (op_ret >= 0) {
+		state = STATE (frame);
+		if (state->flock.l_type == F_UNLCK)
+			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable, 
+				       &state->loc, state->fd, frame->root->pid);
+		else
+			gf_add_locker (CONNECTION_PRIVATE(frame)->ltable, 
+				       &state->loc, state->fd, frame->root->pid);
+	}
+
+ 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FENTRYLK,
  			       hdr, hdrlen, NULL, 0, NULL);
  
  	return 0;
@@ -3366,56 +3469,56 @@ server_stub_resume (call_stub_t *stub,
 			call_resume (stub);
 			break;
 		}
-		case GF_FOP_GF_DIR_LK:
+		case GF_FOP_ENTRYLK:
 		{
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"gf_dir_lk returning ENOENT: %d (%d)", 
+					"entrylk returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
-				server_gf_dir_lk_cbk (stub->frame,
-						      NULL,
-						      stub->frame->this,
-						      -1,
-						      ENOENT);
-				server_loc_wipe (&stub->args.gf_dir_lk.loc);
+				server_entrylk_cbk (stub->frame,
+						    NULL,
+						    stub->frame->this,
+						    -1,
+						    ENOENT);
+				server_loc_wipe (&stub->args.entrylk.loc);
 				FREE (stub);
 				break;
 			}
 			
-			if (stub->args.gf_dir_lk.loc.parent == NULL)
-				stub->args.gf_dir_lk.loc.parent = inode_ref (parent);
+			if (stub->args.entrylk.loc.parent == NULL)
+				stub->args.entrylk.loc.parent = inode_ref (parent);
 
-			if (server_inode && (stub->args.gf_dir_lk.loc.inode == NULL)) {
-				stub->args.gf_dir_lk.loc.inode = inode_ref (server_inode);
-				stub->args.gf_dir_lk.loc.ino = server_inode->ino;
+			if (server_inode && (stub->args.entrylk.loc.inode == NULL)) {
+				stub->args.entrylk.loc.inode = inode_ref (server_inode);
+				stub->args.entrylk.loc.ino = server_inode->ino;
 			}
 			call_resume (stub);
 			break;
 		}
-		case GF_FOP_GF_FILE_LK:
+		case GF_FOP_INODELK:
 		{
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, 
 					GF_LOG_ERROR,
-					"gf_file_lk returning ENOENT: %d (%d)", 
+					"inodelk returning ENOENT: %d (%d)", 
 					op_ret, op_errno);
-				server_gf_file_lk_cbk (stub->frame,
+				server_inodelk_cbk (stub->frame,
 						       NULL,
 						       stub->frame->this,
 						       -1,
 						       ENOENT);
-				server_loc_wipe (&stub->args.gf_file_lk.loc);
+				server_loc_wipe (&stub->args.inodelk.loc);
 				FREE (stub);
 				break;
 			}
 			
-			if (stub->args.gf_file_lk.loc.parent == NULL)
-				stub->args.gf_file_lk.loc.parent = inode_ref (parent);
+			if (stub->args.inodelk.loc.parent == NULL)
+				stub->args.inodelk.loc.parent = inode_ref (parent);
 
-			if (server_inode && (stub->args.gf_file_lk.loc.inode == NULL)) {
-				stub->args.gf_file_lk.loc.inode = inode_ref (server_inode);
-				stub->args.gf_file_lk.loc.ino = server_inode->ino;
+			if (server_inode && (stub->args.inodelk.loc.inode == NULL)) {
+				stub->args.inodelk.loc.inode = inode_ref (server_inode);
+				stub->args.inodelk.loc.ino = server_inode->ino;
 			}
 			call_resume (stub);
 			break;
@@ -5176,77 +5279,99 @@ server_utimens (call_frame_t *frame,
 
  
 int32_t
-server_gf_file_lk_resume (call_frame_t *frame,
- 			  xlator_t *this,
- 			  loc_t *loc, fd_t *fd, int32_t cmd,
- 			  struct flock *flock)
+server_inodelk_resume (call_frame_t *frame,
+		       xlator_t *this,
+		       loc_t *loc, int32_t cmd,
+		       struct flock *flock)
 {
 	server_state_t *state = NULL;
 	
-	if (fd == NULL) {
-		state = STATE (frame);
-		if (state->loc.inode == NULL) {
-			state->loc.inode = inode_ref (loc->inode);
-		}
+	state = STATE (frame);
+	if (state->loc.inode == NULL) {
+		state->loc.inode = inode_ref (loc->inode);
+	}
 	
-		if (state->loc.parent == NULL) {
-			state->loc.parent = inode_ref (loc->parent);
-		}
+	if (state->loc.parent == NULL) {
+		state->loc.parent = inode_ref (loc->parent);
 	}
 
  	STACK_WIND (frame,
- 		    server_gf_file_lk_cbk,
+ 		    server_inodelk_cbk,
  		    BOUND_XL (frame),
- 		    BOUND_XL (frame)->fops->gf_file_lk,
- 		    loc, fd, cmd, flock);
+ 		    BOUND_XL (frame)->fops->inodelk,
+ 		    loc, cmd, flock);
  	return 0;
  
 }
   
  
 int32_t
-server_gf_file_lk (call_frame_t *frame,
- 		   xlator_t *bound_xl,
- 		   gf_hdr_common_t *hdr, size_t hdrlen,
- 		   char *buf, size_t buflen)
+server_inodelk (call_frame_t *frame,
+		xlator_t *bound_xl,
+		gf_hdr_common_t *hdr, size_t hdrlen,
+		char *buf, size_t buflen)
 {
- 	call_stub_t *gf_file_lk_stub = NULL;
- 	gf_fop_gf_file_lk_req_t *req = NULL;
+ 	call_stub_t *inodelk_stub = NULL;
+ 	gf_fop_inodelk_req_t *req = NULL;
  	server_state_t *state = NULL;
  
  	req       = gf_param (hdr);
    
  	state = STATE (frame);
- 	server_state_fill (frame, req, GF_FOP_GF_FILE_LK);
+ 	server_state_fill (frame, req, GF_FOP_INODELK);
 
-	if (state->fd == NULL)
-		server_loc_fill (&(state->loc), state, state->path);
+	server_loc_fill (&(state->loc), state, state->path);
  
- 	gf_file_lk_stub = fop_gf_file_lk_stub (frame,
- 					       server_gf_file_lk_resume,
- 					       &state->loc, state->fd,
-					       state->cmd, &state->flock);
+ 	inodelk_stub = fop_inodelk_stub (frame,
+					 server_inodelk_resume,
+					 &state->loc, state->cmd, &state->flock);
  
-	if (state->fd == NULL) {
-		if ((state->loc.parent == NULL) || 
-		    (state->loc.inode == NULL)) {
-			do_path_lookup (gf_file_lk_stub, &(state->loc));
-		} else {
-			call_resume (gf_file_lk_stub);
-		}
-  	} else {
- 		call_resume (gf_file_lk_stub);
- 	}
+	if ((state->loc.parent == NULL) || 
+	    (state->loc.inode == NULL)) {
+		do_path_lookup (inodelk_stub, &(state->loc));
+	} else {
+		call_resume (inodelk_stub);
+	}
  
+ 	return 0;
+}
+
+
+int32_t
+server_finodelk (call_frame_t *frame,
+		 xlator_t *bound_xl,
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
+{
+ 	gf_fop_inodelk_req_t *req = NULL;
+ 	server_state_t *state = NULL;
+ 
+ 	req       = gf_param (hdr);
+   
+ 	state = STATE (frame);
+ 	server_state_fill (frame, req, GF_FOP_FINODELK);
+
+	if (!state->fd) {
+		gf_log (frame->this->name, GF_LOG_ERROR,
+			"unresolved fd %d", state->fd_no);
+		
+		server_finodelk_cbk (frame, NULL, frame->this,
+				     -1, EINVAL);
+		return -1;
+  	} 
+
+	STACK_WIND (frame, server_finodelk_cbk,
+		    bound_xl, bound_xl->fops->finodelk,
+		    state->fd, state->cmd, &state->flock);
  	return 0;
 }
   
  
 int32_t
-server_gf_dir_lk_resume (call_frame_t *frame,
- 			 xlator_t *this,
- 			 loc_t *loc, const char *basename,
- 			 gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+server_entrylk_resume (call_frame_t *frame,
+		       xlator_t *this,
+		       loc_t *loc, const char *basename,
+		       gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
 	server_state_t *state = NULL;
 	
@@ -5259,9 +5384,9 @@ server_gf_dir_lk_resume (call_frame_t *frame,
 		state->loc.parent = inode_ref (loc->parent);
 
  	STACK_WIND (frame,
- 		    server_gf_dir_lk_cbk,
+ 		    server_entrylk_cbk,
  		    BOUND_XL (frame),
- 		    BOUND_XL (frame)->fops->gf_dir_lk,
+ 		    BOUND_XL (frame)->fops->entrylk,
  		    loc, basename, cmd, type);
  	return 0;
  
@@ -5276,34 +5401,64 @@ server_gf_dir_lk_resume (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-server_gf_dir_lk (call_frame_t *frame,
- 		  xlator_t *bound_xl,
- 		  gf_hdr_common_t *hdr, size_t hdrlen,
- 		  char *buf, size_t buflen)
+server_entrylk (call_frame_t *frame,
+		xlator_t *bound_xl,
+		gf_hdr_common_t *hdr, size_t hdrlen,
+		char *buf, size_t buflen)
 {
- 	call_stub_t *gf_dir_lk_stub = NULL;
- 	gf_fop_gf_dir_lk_req_t *req = NULL;
+ 	call_stub_t *entrylk_stub = NULL;
+ 	gf_fop_entrylk_req_t *req = NULL;
  	server_state_t *state = NULL;
  
  	req       = gf_param (hdr);
    
  	state = STATE (frame);
- 	server_state_fill (frame, req, GF_FOP_GF_DIR_LK);
+ 	server_state_fill (frame, req, GF_FOP_ENTRYLK);
  
  	server_loc_fill (&(state->loc), state, state->path);
  
-  	gf_dir_lk_stub = fop_gf_dir_lk_stub (frame,
- 					     server_gf_dir_lk_resume,
- 					     &state->loc, state->basename, state->cmd, 
- 					     state->type);
+  	entrylk_stub = fop_entrylk_stub (frame,
+					 server_entrylk_resume,
+					 &state->loc, state->basename, state->cmd, 
+					 state->type);
  
  	if ((state->loc.parent == NULL) ||
 	    (state->loc.inode == NULL)) {
- 		do_path_lookup (gf_dir_lk_stub, &(state->loc));
+ 		do_path_lookup (entrylk_stub, &(state->loc));
  	} else {
- 		call_resume (gf_dir_lk_stub);
+ 		call_resume (entrylk_stub);
  	}
  
+ 	return 0;
+}
+
+
+int32_t
+server_fentrylk (call_frame_t *frame,
+		 xlator_t *bound_xl,
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
+{
+ 	gf_fop_fentrylk_req_t *req = NULL;
+ 	server_state_t *state = NULL;
+ 
+ 	req       = gf_param (hdr);
+   
+ 	state = STATE (frame);
+ 	server_state_fill (frame, req, GF_FOP_FENTRYLK);
+
+	if (!state->fd) {
+		gf_log (frame->this->name, GF_LOG_ERROR,
+			"unresolved fd %d", state->fd_no);
+		
+		server_fentrylk_cbk (frame, NULL, frame->this,
+				     -1, EINVAL);
+		return -1;
+  	} 
+
+	STACK_WIND (frame, server_fentrylk_cbk,
+		    bound_xl, bound_xl->fops->fentrylk,
+		    state->fd, state->basename, state->cmd, state->type);
  	return 0;
 }
 
@@ -6698,8 +6853,10 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_SETDENTS]     =  server_setdents,
 	[GF_FOP_RMELEM]       =  server_rmelem,
 	[GF_FOP_READDIR]      =  server_readdir,
-	[GF_FOP_GF_FILE_LK]   =  server_gf_file_lk,
-	[GF_FOP_GF_DIR_LK]    =  server_gf_dir_lk,
+	[GF_FOP_INODELK]      =  server_inodelk,
+	[GF_FOP_FINODELK]     =  server_finodelk,
+	[GF_FOP_ENTRYLK]      =  server_entrylk,
+	[GF_FOP_FENTRYLK]     =  server_fentrylk,
 	[GF_FOP_CHECKSUM]     =  server_checksum,
 	[GF_FOP_XATTROP]      =  server_xattrop,
 };
@@ -6884,8 +7041,8 @@ server_protocol_cleanup (transport_t *trans)
 			STACK_WIND (tmp_frame,
 				    server_nop_cbk,
 				    BOUND_XL (tmp_frame),
-				    BOUND_XL (tmp_frame)->fops->gf_file_lk,
-				    &(locker->loc), locker->fd, F_SETLK, &flock);
+				    BOUND_XL (tmp_frame)->fops->inodelk,
+				    &(locker->loc), F_SETLK, &flock);
 
 			list_del_init (&locker->lockers);
 			if (locker->fd)
@@ -6903,7 +7060,7 @@ server_protocol_cleanup (transport_t *trans)
 			STACK_WIND (tmp_frame,
 				    server_nop_cbk,
 				    BOUND_XL (tmp_frame),
-				    BOUND_XL (tmp_frame)->fops->gf_dir_lk,
+				    BOUND_XL (tmp_frame)->fops->entrylk,
 				    &(locker->loc), NULL, 
 				    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
 			list_del_init (&locker->lockers);

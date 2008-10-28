@@ -83,8 +83,10 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (ftruncate);
 	SET_DEFAULT_FOP (fstat);
 	SET_DEFAULT_FOP (lk);
-	SET_DEFAULT_FOP (gf_file_lk);
-	SET_DEFAULT_FOP (gf_dir_lk);
+	SET_DEFAULT_FOP (inodelk);
+	SET_DEFAULT_FOP (finodelk);
+	SET_DEFAULT_FOP (entrylk);
+	SET_DEFAULT_FOP (fentrylk);
 	SET_DEFAULT_FOP (lookup);
 	SET_DEFAULT_FOP (fchown);
 	SET_DEFAULT_FOP (fchmod);

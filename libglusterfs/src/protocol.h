@@ -494,15 +494,23 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
-	int64_t fd;
 	uint32_t cmd;
 	uint32_t type;
 	struct gf_flock flock;
 	char     path[0];
-} __attribute__((packed)) gf_fop_gf_file_lk_req_t;
+} __attribute__((packed)) gf_fop_inodelk_req_t;
 typedef struct {
-} __attribute__((packed)) gf_fop_gf_file_lk_rsp_t;
+} __attribute__((packed)) gf_fop_inodelk_rsp_t;
 
+typedef struct {
+	uint64_t ino;
+	int64_t fd;
+	uint32_t cmd;
+	uint32_t type;
+	struct gf_flock flock;
+} __attribute__((packed)) gf_fop_finodelk_req_t;
+typedef struct {
+} __attribute__((packed)) gf_fop_finodelk_rsp_t;
 
 typedef struct {
 	uint64_t  ino;
@@ -510,9 +518,19 @@ typedef struct {
 	uint32_t  type;
 	char      path[0];
 	char      basename[0];
-} __attribute__((packed)) gf_fop_gf_dir_lk_req_t;
+} __attribute__((packed)) gf_fop_entrylk_req_t;
 typedef struct {
-} __attribute__((packed)) gf_fop_gf_dir_lk_rsp_t;
+} __attribute__((packed)) gf_fop_entrylk_rsp_t;
+
+typedef struct {
+	uint64_t  ino;
+	int64_t  fd;
+	uint32_t  cmd;
+	uint32_t  type;
+	char      basename[0];
+} __attribute__((packed)) gf_fop_fentrylk_req_t;
+typedef struct {
+} __attribute__((packed)) gf_fop_fentrylk_rsp_t;
 
 typedef struct {
 	uint64_t           ino;
@@ -522,7 +540,6 @@ typedef struct {
 typedef struct {
 	struct gf_stat stat;
 } __attribute__((packed)) gf_fop_utimens_rsp_t;
-
 
 typedef struct {
 	uint64_t  fd;

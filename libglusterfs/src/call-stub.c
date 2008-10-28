@@ -1624,104 +1624,177 @@ out:
 }
 
 call_stub_t *
-fop_gf_file_lk_stub (call_frame_t *frame,
-		     fop_gf_file_lk_t fn,
-		     loc_t *loc,
-		     fd_t *fd,
-		     int32_t cmd,
-		     struct flock *lock)
+fop_inodelk_stub (call_frame_t *frame, fop_inodelk_t fn,
+		  loc_t *loc, int32_t cmd, struct flock *lock)
 {
   call_stub_t *stub = NULL;
 
   if (!frame || !lock)
     return NULL;
 
-  stub = stub_new (frame, 1, GF_FOP_GF_FILE_LK);
+  stub = stub_new (frame, 1, GF_FOP_INODELK);
   if (!stub)
     return NULL;
 
-  stub->args.gf_file_lk.fn = fn;
+  stub->args.inodelk.fn = fn;
 
-  if (fd == NULL)
-	  loc_copy (&stub->args.gf_file_lk.loc, loc);
-  else
-	  stub->args.gf_file_lk.fd = fd_ref (fd);
-
-  stub->args.gf_file_lk.cmd  = cmd;
-  stub->args.gf_file_lk.lock = *lock;
+  loc_copy (&stub->args.inodelk.loc, loc);
+  stub->args.inodelk.cmd  = cmd;
+  stub->args.inodelk.lock = *lock;
 
   return stub;
 }
 
 call_stub_t *
-fop_gf_file_lk_cbk_stub (call_frame_t *frame,
-			 fop_gf_file_lk_cbk_t fn,
-			 int32_t op_ret,
-			 int32_t op_errno)
+fop_inodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
+		      int32_t op_ret, int32_t op_errno)
 {
   call_stub_t *stub = NULL;
 
   if (!frame)
     return NULL;
 
-  stub = stub_new (frame, 0, GF_FOP_GF_FILE_LK);
+  stub = stub_new (frame, 0, GF_FOP_INODELK);
   if (!stub)
     return NULL;
 
-  stub->args.gf_file_lk_cbk.fn = fn;
-  stub->args.gf_file_lk_cbk.op_ret = op_ret;
-  stub->args.gf_file_lk_cbk.op_errno = op_errno;
+  stub->args.inodelk_cbk.fn       = fn;
+  stub->args.inodelk_cbk.op_ret   = op_ret;
+  stub->args.inodelk_cbk.op_errno = op_errno;
 
   return stub;
 }
 
 
 call_stub_t *
-fop_gf_dir_lk_stub (call_frame_t *frame,
-		    fop_gf_dir_lk_t fn,
-		    loc_t *loc,
-		    const char *basename,
-		    gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+fop_finodelk_stub (call_frame_t *frame, fop_finodelk_t fn,
+		   fd_t *fd, int32_t cmd, struct flock *lock)
+{
+  call_stub_t *stub = NULL;
+
+  if (!frame || !lock)
+    return NULL;
+
+  stub = stub_new (frame, 1, GF_FOP_FINODELK);
+  if (!stub)
+    return NULL;
+
+  stub->args.finodelk.fn = fn;
+
+  stub->args.finodelk.fd   = fd_ref (fd);
+  stub->args.finodelk.cmd  = cmd;
+  stub->args.finodelk.lock = *lock;
+
+  return stub;
+}
+
+
+call_stub_t *
+fop_finodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
+		       int32_t op_ret, int32_t op_errno)
 {
   call_stub_t *stub = NULL;
 
   if (!frame)
     return NULL;
 
-  stub = stub_new (frame, 1, GF_FOP_GF_DIR_LK);
+  stub = stub_new (frame, 0, GF_FOP_FINODELK);
   if (!stub)
     return NULL;
 
-  stub->args.gf_dir_lk.fn = fn;
-  loc_copy (&stub->args.gf_dir_lk.loc, loc);
+  stub->args.finodelk_cbk.fn       = fn;
+  stub->args.finodelk_cbk.op_ret   = op_ret;
+  stub->args.finodelk_cbk.op_errno = op_errno;
 
-  stub->args.gf_dir_lk.basename = strdup (basename);
-  stub->args.gf_dir_lk.cmd = cmd;
-  stub->args.gf_dir_lk.type = type;
+  return stub;
+}
+
+
+call_stub_t *
+fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,
+		  loc_t *loc, const char *basename,
+		  gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+{
+  call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
+
+  stub = stub_new (frame, 1, GF_FOP_ENTRYLK);
+  if (!stub)
+    return NULL;
+
+  stub->args.entrylk.fn = fn;
+  loc_copy (&stub->args.entrylk.loc, loc);
+
+  stub->args.entrylk.basename = strdup (basename);
+  stub->args.entrylk.cmd = cmd;
+  stub->args.entrylk.type = type;
 
   return stub;
 }
 
 call_stub_t *
-fop_gf_dir_lk_cbk_stub (call_frame_t *frame,
-			fop_gf_dir_lk_cbk_t fn,
-			int32_t op_ret,
-			int32_t op_errno)
-
-
+fop_entrylk_cbk_stub (call_frame_t *frame, fop_entrylk_cbk_t fn,
+		      int32_t op_ret, int32_t op_errno)
 {
   call_stub_t *stub = NULL;
 
   if (!frame)
     return NULL;
 
-  stub = stub_new (frame, 0, GF_FOP_GF_DIR_LK);
+  stub = stub_new (frame, 0, GF_FOP_ENTRYLK);
   if (!stub)
     return NULL;
 
-  stub->args.gf_dir_lk_cbk.fn = fn;
-  stub->args.gf_dir_lk_cbk.op_ret = op_ret;
-  stub->args.gf_dir_lk_cbk.op_errno = op_errno;
+  stub->args.entrylk_cbk.fn       = fn;
+  stub->args.entrylk_cbk.op_ret   = op_ret;
+  stub->args.entrylk_cbk.op_errno = op_errno;
+
+  return stub;
+}
+
+
+call_stub_t *
+fop_fentrylk_stub (call_frame_t *frame, fop_fentrylk_t fn,
+		   fd_t *fd, const char *basename,
+		   gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+{
+  call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
+
+  stub = stub_new (frame, 1, GF_FOP_FENTRYLK);
+  if (!stub)
+    return NULL;
+
+  stub->args.fentrylk.fn = fn;
+  
+  stub->args.fentrylk.fd = fd_ref (fd);
+  stub->args.fentrylk.basename = strdup (basename);
+  stub->args.fentrylk.cmd = cmd;
+  stub->args.fentrylk.type = type;
+
+  return stub;
+}
+
+call_stub_t *
+fop_fentrylk_cbk_stub (call_frame_t *frame, fop_fentrylk_cbk_t fn,
+		       int32_t op_ret, int32_t op_errno)
+{
+  call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
+
+  stub = stub_new (frame, 0, GF_FOP_FENTRYLK);
+  if (!stub)
+    return NULL;
+
+  stub->args.fentrylk_cbk.fn       = fn;
+  stub->args.fentrylk_cbk.op_ret   = op_ret;
+  stub->args.fentrylk_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -2248,28 +2321,49 @@ call_resume_wind (call_stub_t *stub)
 		break;
 	}
 
-	case GF_FOP_GF_FILE_LK:
+	case GF_FOP_INODELK:
 	{
-		stub->args.gf_file_lk.fn (stub->frame,
-					  stub->frame->this,
-					  &stub->args.gf_file_lk.loc,
-					  stub->args.gf_file_lk.fd,
-					  stub->args.gf_file_lk.cmd,
-					  &stub->args.gf_file_lk.lock);
-		if (stub->args.gf_file_lk.fd)
-			fd_unref (stub->args.gf_file_lk.fd);
+		stub->args.inodelk.fn (stub->frame,
+				       stub->frame->this,
+				       &stub->args.inodelk.loc,
+				       stub->args.inodelk.cmd,
+				       &stub->args.inodelk.lock);
 		break;
 	}
 
-	case GF_FOP_GF_DIR_LK:
+	case GF_FOP_FINODELK:
 	{
-		stub->args.gf_dir_lk.fn (stub->frame,
-					 stub->frame->this,
-					 &stub->args.gf_dir_lk.loc,
-					 stub->args.gf_dir_lk.basename,
-					 stub->args.gf_dir_lk.cmd,
-					 stub->args.gf_dir_lk.type);
-		FREE (stub->args.gf_dir_lk.basename);
+		stub->args.finodelk.fn (stub->frame,
+					stub->frame->this,
+					stub->args.finodelk.fd,
+					stub->args.finodelk.cmd,
+					&stub->args.finodelk.lock);
+		if (stub->args.finodelk.fd)
+			fd_unref (stub->args.finodelk.fd);
+		break;
+	}
+
+	case GF_FOP_ENTRYLK:
+	{
+		stub->args.entrylk.fn (stub->frame,
+				       stub->frame->this,
+				       &stub->args.entrylk.loc,
+				       stub->args.entrylk.basename,
+				       stub->args.entrylk.cmd,
+				       stub->args.entrylk.type);
+		FREE (stub->args.entrylk.basename);
+		break;
+	}
+
+	case GF_FOP_FENTRYLK:
+	{
+		stub->args.fentrylk.fn (stub->frame,
+					stub->frame->this,
+					stub->args.fentrylk.fd,
+					stub->args.fentrylk.basename,
+					stub->args.fentrylk.cmd,
+					stub->args.fentrylk.type);
+		fd_unref (stub->args.fentrylk.fd);
 		break;
 	}
   
@@ -2932,35 +3026,67 @@ call_resume_unwind (call_stub_t *stub)
 		break;
 	}
 
-	case GF_FOP_GF_FILE_LK:
+	case GF_FOP_INODELK:
 	{
-		if (!stub->args.gf_file_lk_cbk.fn)
+		if (!stub->args.inodelk_cbk.fn)
 			STACK_UNWIND (stub->frame,
-				      stub->args.gf_file_lk_cbk.op_ret,
-				      stub->args.gf_file_lk_cbk.op_errno);
+				      stub->args.inodelk_cbk.op_ret,
+				      stub->args.inodelk_cbk.op_errno);
 
 		else
-			stub->args.gf_file_lk_cbk.fn (stub->frame,
-						      stub->frame->cookie,
-						      stub->frame->this,
-						      stub->args.gf_file_lk_cbk.op_ret,
-						      stub->args.gf_file_lk_cbk.op_errno);
+			stub->args.inodelk_cbk.fn (stub->frame,
+						   stub->frame->cookie,
+						   stub->frame->this,
+						   stub->args.inodelk_cbk.op_ret,
+						   stub->args.inodelk_cbk.op_errno);
 		break;
 	}
 
-	case GF_FOP_GF_DIR_LK:
+	case GF_FOP_FINODELK:
 	{
-		if (!stub->args.gf_dir_lk_cbk.fn)
+		if (!stub->args.finodelk_cbk.fn)
 			STACK_UNWIND (stub->frame,
-				      stub->args.gf_dir_lk_cbk.op_ret,
-				      stub->args.gf_dir_lk_cbk.op_errno);
+				      stub->args.finodelk_cbk.op_ret,
+				      stub->args.finodelk_cbk.op_errno);
 
 		else
-			stub->args.gf_dir_lk_cbk.fn (stub->frame,
-						     stub->frame->cookie,
-						     stub->frame->this,
-						     stub->args.gf_dir_lk_cbk.op_ret,
-						     stub->args.gf_dir_lk_cbk.op_errno);
+			stub->args.finodelk_cbk.fn (stub->frame,
+						    stub->frame->cookie,
+						    stub->frame->this,
+						    stub->args.finodelk_cbk.op_ret,
+						    stub->args.finodelk_cbk.op_errno);
+		break;
+	}
+
+	case GF_FOP_ENTRYLK:
+	{
+		if (!stub->args.entrylk_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.entrylk_cbk.op_ret,
+				      stub->args.entrylk_cbk.op_errno);
+
+		else
+			stub->args.entrylk_cbk.fn (stub->frame,
+						   stub->frame->cookie,
+						   stub->frame->this,
+						   stub->args.entrylk_cbk.op_ret,
+						   stub->args.entrylk_cbk.op_errno);
+		break;
+	}
+
+	case GF_FOP_FENTRYLK:
+	{
+		if (!stub->args.fentrylk_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.fentrylk_cbk.op_ret,
+				      stub->args.fentrylk_cbk.op_errno);
+
+		else
+			stub->args.fentrylk_cbk.fn (stub->frame,
+						    stub->frame->cookie,
+						    stub->frame->this,
+						    stub->args.fentrylk_cbk.op_ret,
+						    stub->args.fentrylk_cbk.op_errno);
 		break;
 	}
   
@@ -3396,16 +3522,28 @@ call_stub_destroy (call_stub_t *stub)
 	    if (stub->args.readdir.fd)
 	      fd_unref (stub->args.readdir.fd);
 	}
-	case GF_FOP_GF_FILE_LK:
+	case GF_FOP_INODELK:
 	{
-		if (stub->args.gf_file_lk.fd)
-			fd_unref (stub->args.gf_file_lk.fd);
+		loc_wipe (&stub->args.inodelk.loc);
 		break;
 	}
-
-	case GF_FOP_GF_DIR_LK:
+	case GF_FOP_FINODELK:
 	{
-		FREE (stub->args.gf_dir_lk.basename);
+		if (stub->args.finodelk.fd)
+			fd_unref (stub->args.finodelk.fd);
+		break;
+	}
+	case GF_FOP_ENTRYLK:
+	{
+		FREE (stub->args.entrylk.basename);
+		break;
+	}
+	case GF_FOP_FENTRYLK:
+	{
+		FREE (stub->args.fentrylk.basename);
+
+		if (stub->args.fentrylk.fd) 
+			fd_unref (stub->args.fentrylk.fd);
 		break;
 	}
   

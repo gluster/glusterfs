@@ -869,13 +869,22 @@ fini (xlator_t *this)
 
 
 int32_t
-pl_gf_file_lk (call_frame_t *frame, xlator_t *this, 
-	       loc_t *loc, fd_t *fd, int32_t cmd, struct flock *flock);
+pl_inodelk (call_frame_t *frame, xlator_t *this, 
+	    loc_t *loc, int32_t cmd, struct flock *flock);
 
 int32_t
-pl_gf_dir_lk (call_frame_t *frame, xlator_t *this, 
-	      loc_t *inode, const char *basename, 
-	      gf_dir_lk_cmd cmd, gf_dir_lk_type type);
+pl_finodelk (call_frame_t *frame, xlator_t *this, 
+	     fd_t *fd, int32_t cmd, struct flock *flock);
+
+int32_t
+pl_entrylk (call_frame_t *frame, xlator_t *this, 
+	    loc_t *loc, const char *basename, 
+	    gf_dir_lk_cmd cmd, gf_dir_lk_type type);
+
+int32_t
+pl_fentrylk (call_frame_t *frame, xlator_t *this, 
+	     fd_t *fd, const char *basename, 
+	     gf_dir_lk_cmd cmd, gf_dir_lk_type type);
 
 struct xlator_fops fops = {
 	.lookup      = pl_lookup,
@@ -886,8 +895,10 @@ struct xlator_fops fops = {
 	.readv       = pl_readv,
 	.writev      = pl_writev,
 	.lk          = pl_lk,
-	.gf_file_lk  = pl_gf_file_lk,
-	.gf_dir_lk   = pl_gf_dir_lk,
+	.inodelk     = pl_inodelk,
+	.finodelk    = pl_finodelk,
+	.entrylk     = pl_entrylk,
+	.fentrylk    = pl_fentrylk,
 	.flush       = pl_flush,
 };
 
