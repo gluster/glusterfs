@@ -80,6 +80,8 @@ afr_unlock_inode (call_frame_t *frame, xlator_t *this)
 					    priv->children[i]->fops->inodelk, 
 					    &local->loc,  F_SETLK, &flock); 
 			}
+			if (!--call_count)
+				break;
 		}
 	}
 
@@ -99,10 +101,10 @@ afr_unlock_entry (call_frame_t *frame, xlator_t *this)
 
 	call_count = up_children_count (priv->child_count, local->child_up); 
 
-	local->call_count = call_count;		
-
 	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) 
-		local->call_count *= 2;
+		call_count *= 2;
+
+	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -122,6 +124,8 @@ afr_unlock_entry (call_frame_t *frame, xlator_t *this)
 					    local->transaction.new_basename,
 					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
 			}
+			if (!--call_count)
+				break;
 		}
 	}
 
@@ -205,6 +209,8 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 					    GF_XATTROP_ADD_ARRAY, xattr);
 				break;
 			}
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -305,6 +311,8 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 						   GF_XATTROP_ADD_ARRAY, xattr);
 				break;
 			}
+			if (!--call_count)
+				break;
 		}
 	}
 
@@ -544,6 +552,8 @@ afr_lock_inode (call_frame_t *frame, xlator_t *this)
 						   priv->children[i]->fops->inodelk, 
 						   &local->loc, F_SETLK, &flock); 
 			}
+			if (!--call_count)
+				break;
 		}
 	}
 
@@ -563,10 +573,11 @@ afr_lock_entry (call_frame_t *frame, xlator_t *this)
 	call_count = up_children_count (priv->child_count, priv->child_up); 
 
 	local = frame->local;
-	local->call_count = call_count;
 		
 	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION)
-		local->call_count *= 2;
+		call_count *= 2;
+
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -586,6 +597,9 @@ afr_lock_entry (call_frame_t *frame, xlator_t *this)
 						   local->transaction.new_basename,
 						   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
 			}
+
+			if (!--call_count)
+				break;
 		}
 	}
 
