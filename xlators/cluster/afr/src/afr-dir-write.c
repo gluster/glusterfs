@@ -190,7 +190,7 @@ afr_create (call_frame_t *frame, xlator_t *this,
 	local->cont.create.flags = flags;
 	local->cont.create.mode  = mode;
 
-	local->fd    = fd;
+	local->fd    = fd_ref (fd);
 
 	local->transaction.fop   = afr_create_wind;
 	local->transaction.done  = afr_create_done;
@@ -557,8 +557,8 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 			STACK_WIND_COOKIE (frame, afr_link_wind_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->link,
-					   &local->cont.link.oldloc,
-					   &local->cont.link.newloc);
+					   &local->loc,
+					   &local->newloc);
 		}
 	}
 	
@@ -602,8 +602,8 @@ afr_link (call_frame_t *frame, xlator_t *this,
 
 	local->op_ret = -1;
 
-	loc_copy (&local->cont.link.oldloc, oldloc);
-	loc_copy (&local->cont.link.newloc, newloc);
+	loc_copy (&local->loc,    oldloc);
+	loc_copy (&local->newloc, newloc);
 
 	local->cont.link.ino = oldloc->inode->ino;
 
@@ -778,7 +778,7 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int child_index = -1;
 
 	local = frame->local;
-	priv = this->private;
+	priv  = this->private;
 
 	child_index = (long) cookie;
 
@@ -828,11 +828,12 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_rename_wind_cbk, (void *) (long) i,	
+			STACK_WIND_COOKIE (frame, afr_rename_wind_cbk, 
+					   (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->rename,
-					   &local->cont.rename.oldloc,
-					   &local->cont.rename.newloc);
+					   &local->loc,
+					   &local->newloc);
 		}
 	}
 	
@@ -870,21 +871,25 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
 	priv = this->private;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
 
 	local->op_ret = -1;
 
-	loc_copy (&local->loc, oldloc);
-	loc_copy (&local->cont.rename.oldloc, oldloc);
-	loc_copy (&local->cont.rename.newloc, newloc);
+	loc_copy (&local->loc,    oldloc);
+	loc_copy (&local->newloc, newloc);
 
 	local->cont.rename.ino     = oldloc->inode->ino;
 
 	local->transaction.fop  = afr_rename_wind;
 	local->transaction.done = afr_rename_done;
 
-	build_parent_loc (&local->transaction.parent_loc, newloc);
+	build_parent_loc (&local->transaction.parent_loc, oldloc);
+	build_parent_loc (&local->transaction.new_parent_loc, newloc);
 
 	local->transaction.basename     = AFR_BASENAME (oldloc->path);
 	local->transaction.new_basename = AFR_BASENAME (newloc->path);

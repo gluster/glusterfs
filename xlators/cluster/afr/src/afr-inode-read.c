@@ -375,7 +375,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 	*/
 	local->cont.fstat.last_tried = -1;
 
-	local->fd = fd;
+	local->fd = fd_ref (fd);
 
 	STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) (long) call_child,
 			   children[call_child],
@@ -571,7 +571,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
 	local->cont.getxattr.last_tried = call_child;
 	loc_copy (&local->loc, loc);
-	local->cont.getxattr.name       = name;
+	local->cont.getxattr.name       = strdup (name);
 
 	STACK_WIND (frame, afr_getxattr_cbk,
 		    children[call_child], children[call_child]->fops->getxattr,
@@ -708,7 +708,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 		local->cont.readv.last_tried = call_child;
 	}
 
-	local->fd                    = fd;
+	local->fd                    = fd_ref (fd);
 
 	local->cont.readv.size       = size;
 	local->cont.readv.offset     = offset;

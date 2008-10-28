@@ -145,6 +145,10 @@ afr_chmod (call_frame_t *frame, xlator_t *this,
 	int op_ret   = -1;
 	int op_errno = 0;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -273,6 +277,10 @@ afr_chown (call_frame_t *frame, xlator_t *this,
 	
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
@@ -414,6 +422,10 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int op_ret   = -1;
 	int op_errno = 0;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -432,7 +444,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	local->transaction.fop   = afr_writev_wind;
 	local->transaction.done  = afr_writev_done;
 
-	local->fd                  = fd;
+	local->fd                  = fd_ref (fd);
 
 	if (fd->flags & O_APPEND) {
 		local->transaction.start   = 0;
@@ -554,6 +566,10 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 	
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
@@ -684,6 +700,10 @@ afr_utimens (call_frame_t *frame, xlator_t *this,
 	int op_ret   = -1;
 	int op_errno = 0;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -806,6 +826,10 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 	int op_ret   = -1;
 	int op_errno = 0;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -813,7 +837,7 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 
 	local->op_ret = -1;
 
-	local->cont.setxattr.dict  = dict;
+	local->cont.setxattr.dict  = dict_ref (dict);
 	local->cont.setxattr.flags = flags;
 
 	local->transaction.fop   = afr_setxattr_wind;

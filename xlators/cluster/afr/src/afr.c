@@ -64,7 +64,30 @@ afr_local_cleanup (call_frame_t *frame)
 
 	local = frame->local;
 
+	if (!local)
+		return;
+
 	loc_wipe (&local->loc);
+	loc_wipe (&local->newloc);
+
+	if (local->fd)
+		fd_unref (local->fd);
+
+	switch (frame->op) {
+	case GF_FOP_GETXATTR:
+		FREE (local->cont.getxattr.name);
+		break;
+	case GF_FOP_WRITE:
+		FREE (local->cont.writev.vector);
+		break;
+	case GF_FOP_SETXATTR:
+		dict_unref (local->cont.setxattr.dict);
+		break;
+	case GF_FOP_REMOVEXATTR:
+		FREE (local->cont.removexattr.name);
+		break;
+	}
+
 }
 
 

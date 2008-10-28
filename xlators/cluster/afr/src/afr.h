@@ -87,7 +87,11 @@ typedef struct _afr_local {
 	int32_t op_errno;
 
 	loc_t loc;
+	loc_t newloc;
+
 	fd_t *fd;
+
+	glusterfs_fop_t fop;
 
 	unsigned char *child_up; 
 	int            child_count;
@@ -97,7 +101,7 @@ typedef struct _afr_local {
 	   (scheme-like) of fops
 	*/
 	   
-	union {
+	struct {
 		struct {
 			unsigned char buf_set;
 			struct statvfs buf;
@@ -261,15 +265,11 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
-			loc_t oldloc;
-			loc_t newloc;
 			struct stat buf;
 		} rename;
 
 		struct {
 			ino_t ino;
-			loc_t oldloc;
-			loc_t newloc;
 			inode_t *inode;
 			struct stat buf;
 		} link;
@@ -291,10 +291,11 @@ typedef struct _afr_local {
 		char *pending;
 
 		loc_t parent_loc;
+		loc_t new_parent_loc;
 
-		enum {AFR_INODE_TRANSACTION,     /* chmod, write, ... */
-		      AFR_DIR_TRANSACTION,       /* create, rmdir, ... */
-		      AFR_DIR_LINK_TRANSACTION,  /* link, rename */
+		enum {AFR_INODE_TRANSACTION,         /* chmod, write, ... */
+		      AFR_ENTRY_TRANSACTION,         /* create, rmdir, ... */
+		      AFR_ENTRY_RENAME_TRANSACTION,  /* rename */
 		} type;
 
 		int success_count;

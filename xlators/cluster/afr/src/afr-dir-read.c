@@ -116,7 +116,7 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
 	frame->local = local;
-	local->fd    = fd;
+	local->fd    = fd_ref (fd);
 
 	child_up = alloca (sizeof (unsigned char) * child_count);
 
@@ -240,7 +240,7 @@ afr_readdir (call_frame_t *frame, xlator_t *this,
 
 	local->cont.readdir.last_tried = call_child;
 
-	local->fd                  = fd;
+	local->fd                  = fd_ref (fd);
 	local->cont.readdir.size   = size;
 	local->cont.readdir.offset = offset;
 
@@ -329,7 +329,7 @@ afr_getdents (call_frame_t *frame, xlator_t *this,
 
 	local->cont.getdents.last_tried = call_child;
 
-	local->fd                   = fd;
+	local->fd                   = fd_ref (fd);
 
 	local->cont.getdents.size   = size;
 	local->cont.getdents.offset = offset;
