@@ -182,7 +182,7 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 	dict_set_static_bin (xattr, local->transaction.pending, priv->pending_dec_array, 
 			     priv->child_count * sizeof (int32_t));
 
-	call_count = up_children_count (priv->child_count, priv->child_up); 
+	call_count = up_children_count (priv->child_count, local->child_up); 
 
 	local->call_count = call_count;		
 
@@ -622,14 +622,6 @@ afr_inode_transaction (call_frame_t *frame, xlator_t *this)
 
 	local->transaction.resume = transaction_resume;
 	local->transaction.type   = AFR_INODE_TRANSACTION;
-	local->child_up = calloc (sizeof (*local->child_up), 
-					      priv->child_count);
-	if (!local->child_up) {
-		local->transaction.done (frame, this, -1, ENOMEM);
-	}
-
-	memcpy (local->child_up, priv->child_up,
-		sizeof (*local->child_up) * priv->child_count);
 
 	afr_lock_inode (frame, this);
 
@@ -650,15 +642,6 @@ afr_entry_transaction (call_frame_t *frame, xlator_t *this)
 	local->transaction.resume = transaction_resume;
 	local->transaction.type   = AFR_ENTRY_TRANSACTION;
 
-	local->child_up = calloc (sizeof (*local->child_up), 
-					      priv->child_count);
-	if (!local->child_up) {
-		local->transaction.done (frame, this, -1, ENOMEM);
-	}
-
-	memcpy (local->child_up, priv->child_up,
-		sizeof (*local->child_up) * priv->child_count);
-
 	afr_lock_entry (frame, this);
 
 	return 0;
@@ -676,14 +659,6 @@ afr_entry_rename_transaction (call_frame_t *frame, xlator_t *this)
 
 	local->transaction.resume = transaction_resume;
 	local->transaction.type   = AFR_ENTRY_RENAME_TRANSACTION;
-	local->child_up = calloc (sizeof (*local->child_up), 
-					      priv->child_count);
-	if (!local->child_up) {
-		local->transaction.done (frame, this, -1, ENOMEM);
-	}
-
-	memcpy (local->child_up, priv->child_up,
-		sizeof (*local->child_up) * priv->child_count);
 
 	afr_lock_entry (frame, this);
 

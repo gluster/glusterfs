@@ -128,6 +128,8 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_create_wind_cbk, (void *) (long) i,
@@ -273,6 +275,8 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_mknod_wind_cbk, (void *) (long) i,
@@ -416,6 +420,8 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_mkdir_wind_cbk,
@@ -554,6 +560,8 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 	priv  = this->private;
+
+	local->call_count = up_children_count (priv->child_count, local->child_up);
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -696,6 +704,8 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_symlink_wind_cbk,
@@ -834,6 +844,8 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_rename_wind_cbk, 
@@ -968,6 +980,8 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_unlink_wind_cbk,	
@@ -1088,6 +1102,8 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 	priv  = this->private;
+
+	local->call_count = up_children_count (priv->child_count, local->child_up);
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {

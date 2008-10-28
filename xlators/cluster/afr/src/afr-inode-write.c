@@ -96,6 +96,8 @@ afr_chmod_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_chmod_wind_cbk, (void *) (long) i,
@@ -229,6 +231,8 @@ afr_chown_wind (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 	priv = this->private;
+
+	local->call_count = up_children_count (priv->child_count, local->child_up);
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -369,6 +373,8 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 	priv = this->private;
+
+	local->call_count = up_children_count (priv->child_count, local->child_up);
 
 	if (local->call_count < priv->child_count) {
 		local->transaction.failure_count = 1;
@@ -524,6 +530,8 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_truncate_wind_cbk,
@@ -661,6 +669,8 @@ afr_utimens_wind (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 	priv = this->private;
+
+	local->call_count = up_children_count (priv->child_count, local->child_up);
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -800,6 +810,8 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_setxattr_wind_cbk,
@@ -928,6 +940,8 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 	priv = this->private;
+
+	local->call_count = up_children_count (priv->child_count, local->child_up);
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
