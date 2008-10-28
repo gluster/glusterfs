@@ -169,14 +169,21 @@ afr_create (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
@@ -307,14 +314,21 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
@@ -441,14 +455,21 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
@@ -573,14 +594,21 @@ afr_link (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
@@ -706,14 +734,21 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 	
@@ -838,7 +873,9 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -849,7 +886,12 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (this->private, out);
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
@@ -961,14 +1003,21 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
@@ -1072,13 +1121,20 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 

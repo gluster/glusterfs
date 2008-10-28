@@ -383,7 +383,10 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 	memcpy (local->child_up, priv->child_up, 
 		sizeof (*local->child_up) * priv->child_count);
 
-	local->child_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+	if (local->call_count == 0)
+		return -ENOTCONN;
+
 	local->op_ret = -1;
 
 	return 0;

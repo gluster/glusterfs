@@ -414,19 +414,26 @@ afr_open (call_frame_t *frame, xlator_t *this,
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
+	
 	int     i = 0;
+	int   ret = -1;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+	
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
 #ifdef AFR_OPEN_SELFHEAL
 	loc_copy (&local->loc, loc);
 	local->cont.open.flags = flags;
-	local->fd    = fd;
+	local->fd    = fd_ref (fd);
 
 	afr_self_heal_data (frame, this);
 
@@ -485,13 +492,22 @@ int32_t afr_flush (call_frame_t *frame, xlator_t *this,
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
 
+	int ret = -1;
+
 	int i = 0;
+
+	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
@@ -504,7 +520,11 @@ int32_t afr_flush (call_frame_t *frame, xlator_t *this,
 		}
 	}
 
+	op_ret = 0;
 out:
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	}
 	return 0;
 }
 
@@ -549,6 +569,8 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 	afr_local_t   *  local       = NULL;
 	int              i           = 0;
 
+	int ret = -1;
+
 	int32_t          op_ret      = -1;
 	int32_t          op_errno    = 0;
 
@@ -560,7 +582,12 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 	child_count = priv->child_count;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+	
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 

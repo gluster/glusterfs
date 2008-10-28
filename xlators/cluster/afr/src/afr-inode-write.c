@@ -136,7 +136,9 @@ afr_chmod (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -147,7 +149,11 @@ afr_chmod (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
@@ -264,7 +270,9 @@ afr_chown (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -275,7 +283,12 @@ afr_chown (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
@@ -405,6 +418,8 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -415,7 +430,12 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	AFR_LOCAL_INIT (local, priv);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 
@@ -545,7 +565,9 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -556,6 +578,13 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
+
 	frame->local = local;
 
 	local->op_ret = -1;
@@ -674,7 +703,9 @@ afr_utimens (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -685,6 +716,13 @@ afr_utimens (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
+
 	frame->local = local;
 
 	local->op_ret = -1;
@@ -796,7 +834,9 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
@@ -807,6 +847,13 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
+
 	frame->local = local;
 
 	local->op_ret = -1;
@@ -915,13 +962,22 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	
+
+	int ret = -1;
+
 	int op_ret   = -1;
 	int op_errno = 0;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
+
 	frame->local = local;
 
 	local->op_ret = -1;
