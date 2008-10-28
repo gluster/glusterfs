@@ -34,9 +34,9 @@ int32_t
 afr_inode_transaction (call_frame_t *frame, xlator_t *this);
 
 int32_t
-afr_dir_transaction (call_frame_t *frame, xlator_t *this);
+afr_entry_transaction (call_frame_t *frame, xlator_t *this);
 
 int32_t
-afr_dir_link_transaction (call_frame_t *frame, xlator_t *this);
+afr_entry_rename_transaction (call_frame_t *frame, xlator_t *this);
 
 #endif /* __TRANSACTION_H__ */
