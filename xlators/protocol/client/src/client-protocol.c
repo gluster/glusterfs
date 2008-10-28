@@ -1762,7 +1762,7 @@ client_inodelk (call_frame_t *frame, xlator_t *this,
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 
-	size_t pathlen = 0;
+	size_t pathlen = strlen (loc->path) + 1;
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
 		gf_cmd = GF_LK_GETLK;
@@ -1786,8 +1786,7 @@ client_inodelk (call_frame_t *frame, xlator_t *this,
 
 	strcpy (req->path, loc->path);
 
-	if (loc->inode)
-		req->ino  = hton64 (this_ino_get (loc->inode, this));
+	req->ino  = hton64 (this_ino_get (loc->inode, this));
 
 	req->cmd  = hton32 (gf_cmd);
 	req->type = hton32 (gf_type);
