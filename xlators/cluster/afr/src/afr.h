@@ -57,9 +57,12 @@ typedef struct {
 	int *child_errno;
 
 	int32_t **pending_matrix;
+	int32_t **delta_matrix;
 
 	int *sources;
 	int source;
+	int active_sinks;
+	int *success;
 
 	fd_t *healing_fd;
 

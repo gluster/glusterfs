@@ -607,7 +607,6 @@ static int
 sh_do_data_self_heal (call_frame_t *frame, xlator_t *this)
 {
 	int nsources = -1;
-	int i = 0;
 	
 	int32_t op_ret = -1;
 
@@ -618,15 +617,8 @@ sh_do_data_self_heal (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh = &local->self_heal;
 
-	sh->pending_matrix = calloc (sizeof (int32_t *), priv->child_count);
-	sh->sources = calloc (sizeof (*sh->sources), priv->child_count);
-
-	for (i = 0; i < priv->child_count; i++) {
-		sh->pending_matrix[i] = calloc (sizeof (int32_t), priv->child_count);
-	}
-
 	afr_sh_build_pending_matrix (sh->pending_matrix, sh->xattr, 
-				     priv->child_count);
+				     priv->child_count, AFR_DATA_PENDING);
 
 	afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
@@ -637,9 +629,6 @@ sh_do_data_self_heal (call_frame_t *frame, xlator_t *this)
 	}
 
 	priv = this->private;
-
-	nsources = afr_sh_mark_sources (sh->pending_matrix, sh->sources, 
-					priv->child_count);
 
 	if (nsources == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -704,12 +693,7 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 	afr_local_t    *  local = NULL;
 	afr_private_t  *  priv  = NULL;
 
-	unsigned char *child_up = NULL;
-
 	int NEED_XATTR_YES = 1;
-
-	int op_ret   = -1;
-	int op_errno = 0;
 
 	int i;
 
@@ -717,28 +701,13 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh    = &local->self_heal;
 
-	sh->xattr = calloc (sizeof (dict_t *), priv->child_count);
-	if (!sh->xattr) {
-		op_errno = ENOMEM;
-		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
-		goto out;
-	}
+	local->call_count = up_children_count (priv->child_count,
+					       local->child_up);
 
-	child_up = calloc (priv->child_count, sizeof (*child_up));
-	if (!child_up) {
-		op_errno = ENOMEM;
-		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
-		goto out;
-	}
-
-	memcpy (child_up, priv->child_up, priv->child_count * sizeof (*child_up));
-
-	local->call_count = up_children_count (priv->child_count, child_up);
 	for (i = 0; i < priv->child_count; i++) {
-		if (child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_inode_data_self_heal_lookup_cbk,
+		if (local->child_up[i]) {
+			STACK_WIND_COOKIE (frame,
+					   afr_inode_data_self_heal_lookup_cbk,
 					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->lookup,
@@ -746,14 +715,6 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 		}
 	}
 
-	op_ret = 0;
-out:
-	FREE (child_up);
-
-	if (op_ret == -1) {
-		local->self_heal.completion_cbk (frame, this);
-	}
-	
 	return 0;
 }
 

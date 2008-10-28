@@ -26,15 +26,31 @@ afr_sh_select_source (int sources[], int child_count);
 int
 afr_sh_sink_count (int sources[], int child_count);
 
+int
+afr_sh_source_count (int sources[], int child_count);
+
+int
+afr_sh_supress_errenous_children (int sources[], int child_errno[],
+				  int child_count);
+
 void
 afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this);
 
 void
 afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
-			     int child_count);
+			     int child_count, const char *key);
+
+void
+afr_sh_pending_to_delta (int32_t *pending_matrix[], int32_t *delta_matrix[],
+			 int32_t success[], int child_count);
 
 int
-afr_sh_mark_sources (int32_t *pending_matrix[], int sources[], int child_count);
+afr_sh_mark_sources (int32_t *pending_matrix[], int sources[],
+		     int child_count);
+
+int
+afr_sh_delta_to_xattr (int32_t *delta_matrix[], dict_t *xattr[],
+		       int child_count, const char *key);
 
 int
 afr_sh_is_matrix_zero (int32_t *pending_matrix[], int child_count);

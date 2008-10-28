@@ -50,6 +50,632 @@
 
 
 int
+afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              i = 0;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	memset (sh->child_errno, 0, sizeof (int) * priv->child_count);
+	memset (sh->buf, 0, sizeof (struct stat) * priv->child_count);
+	
+	for (i = 0; i < priv->child_count; i++) {
+		if (sh->xattr[i])
+			dict_unref (sh->xattr[i]);
+		sh->xattr[i] = NULL;
+	}
+
+	if (local->govinda_gOvinda, 1) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"aborting selfheal of %s",
+			local->loc.path);
+		sh->completion_cbk (frame, this);
+	} else {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"proceeding to data check on %s",
+			local->loc.path);
+		afr_self_heal_data (frame, this);
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			   int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t      *local = NULL;
+	int               call_count = 0;
+
+
+	local = frame->local;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0)
+		afr_sh_metadata_done (frame, this);
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_finish (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              i = 0;
+	int              call_count = 0;
+	struct flock     flock = {0, };
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	call_count = local->child_count;
+	local->call_count = call_count;
+
+	for (i = 0; i < priv->child_count; i++) {
+		flock.l_start   = 0;
+		flock.l_len     = 0;
+		flock.l_type    = F_UNLCK;
+
+		if (local->child_up[i]) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"locking %s on subvolume %s",
+				local->loc.path, priv->children[i]->name);
+
+			STACK_WIND (frame, afr_sh_metadata_unlck_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->inodelk,
+				    &local->loc, F_SETLK, &flock);
+
+			if (!--call_count)
+				break;
+		}
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_erase_pending_cbk (call_frame_t *frame, void *cookie,
+				   xlator_t *this, int32_t op_ret,
+				   int32_t op_errno, dict_t *xattr)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int             call_count = 0;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0)
+		afr_sh_metadata_finish (frame, this);
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              call_count = 0;
+	int              i = 0;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+
+	afr_sh_pending_to_delta (sh->pending_matrix, sh->delta_matrix,
+				 sh->success, priv->child_count);
+
+	afr_sh_delta_to_xattr (sh->delta_matrix, sh->xattr, priv->child_count,
+			       AFR_METADATA_PENDING);
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (sh->xattr[i])
+			call_count++;
+	}
+
+	local->call_count = call_count;
+	for (i = 0; i < priv->child_count; i++) {
+		if (!sh->xattr[i])
+			continue;
+
+		gf_log (this->name, GF_LOG_DEBUG,
+			"erasing pending flags from %s on %s",
+			local->loc.path, priv->children[i]->name);
+
+		STACK_WIND_COOKIE (frame, afr_sh_metadata_erase_pending_cbk,
+				   (void *) (long) i,
+				   priv->children[i],
+				   priv->children[i]->fops->xattrop,
+				   NULL, local->loc.path,
+				   GF_XATTROP_ADD_ARRAY, sh->xattr[i]);
+		if (!--call_count)
+			break;
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			  int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              call_count = 0;
+	int              child_index = 0;
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	child_index = (long) cookie;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+
+		if (op_ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"setting attributes failed for %s on %s (%s)",
+				local->loc.path,
+				priv->children[child_index]->name,
+				strerror (op_errno));
+
+			sh->success[child_index] = 0;
+		}
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0)
+		afr_sh_metadata_erase_pending (frame, this);
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			  int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+	afr_sh_metadata_sync_cbk (frame, cookie, this, op_ret, op_errno);
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			   int32_t op_ret, int32_t op_errno)
+{
+	afr_sh_metadata_sync_cbk (frame, cookie, this, op_ret, op_errno);
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              source = 0;
+	int              active_sinks = 0;
+	int              call_count = 0;
+	int              i = 0;
+	struct timespec  ts[2];
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	source = sh->source;
+	active_sinks = sh->active_sinks;
+
+	/*
+	 * 4 calls per sink - chown, chmod, utimes, setxattr
+	 */
+	if (xattr)
+		call_count = active_sinks * 4;
+	else
+		call_count = active_sinks * 3;
+
+	local->call_count = call_count;
+
+#ifdef HAVE_TV_NSEC
+	ts[0] = sh->buf[source].st_atim;
+	ts[1] = sh->buf[source].st_mtim;
+#else
+	ts[0].tv_sec = sh->buf[source].st_atime;
+	ts[1].tv_sec = sh->buf[source].st_mtime;
+#endif
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (sh->sources[i] || !local->child_up[i])
+			continue;
+
+		gf_log (this->name, GF_LOG_DEBUG,
+			"syncing metadata of %s from %s to %s",
+			local->loc.path, priv->children[source]->name,
+			priv->children[i]->name);
+			
+		STACK_WIND_COOKIE (frame, afr_sh_metadata_attr_cbk,
+				   (void *) (long) i,
+				   priv->children[i],
+				   priv->children[i]->fops->chown,
+				   &local->loc,
+				   sh->buf[source].st_uid,
+				   sh->buf[source].st_gid);
+
+		STACK_WIND_COOKIE (frame, afr_sh_metadata_attr_cbk,
+				   (void *) (long) i,
+				   priv->children[i],
+				   priv->children[i]->fops->chmod,
+				   &local->loc, sh->buf[source].st_mode);
+
+		STACK_WIND_COOKIE (frame, afr_sh_metadata_attr_cbk,
+				   (void *) (long) i,
+				   priv->children[i],
+				   priv->children[i]->fops->utimens,
+				   &local->loc, ts);
+
+		if (!xattr)
+			continue;
+
+		STACK_WIND_COOKIE (frame, afr_sh_metadata_xattr_cbk,
+				   (void *) (long) i,
+				   priv->children[i],
+				   priv->children[i]->fops->setxattr,
+				   &local->loc, xattr, 0);
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie,
+			      xlator_t *this,
+			      int32_t op_ret, int32_t op_errno, dict_t *xattr)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              source = 0;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	source = sh->source;
+
+	if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"getxattr of %s failed on subvolume %s (%s). proceeding without xattr",
+			local->loc.path, priv->children[source]->name,
+			strerror (op_errno));
+
+		afr_sh_metadata_sync (frame, this, NULL);
+	} else {
+		afr_sh_metadata_sync (frame, this, xattr);
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              active_sinks = 0;
+	int              source = 0;
+	int              i = 0;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	source = afr_sh_select_source (sh->sources, priv->child_count);
+	sh->source = source;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (sh->sources[i] == 0 && local->child_up[i] == 1) {
+			active_sinks++;
+			sh->success[i] = 1;
+		}
+	}
+	sh->success[source] = 1;
+
+	if (active_sinks == 0) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"no active sinks for performing self-heal on file %s",
+			local->loc.path);
+		afr_sh_metadata_finish (frame, this);
+		return 0;
+	}
+	sh->active_sinks = active_sinks;
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"syncing metadata of %s from subvolume %s to %d active sinks",
+		local->loc.path, priv->children[source]->name, active_sinks);
+
+
+	STACK_WIND (frame, afr_sh_metadata_getxattr_cbk,
+		    priv->children[source],
+		    priv->children[source]->fops->getxattr,
+		    &local->loc, NULL);
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              nsources = 0;
+	int              source = 0;
+	int              i = 0;
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	afr_sh_build_pending_matrix (sh->pending_matrix, sh->xattr, 
+				     priv->child_count, AFR_METADATA_PENDING);
+
+	afr_sh_print_pending_matrix (sh->pending_matrix, this);
+
+	afr_sh_mark_sources (sh->pending_matrix, sh->sources, 
+			     priv->child_count);
+
+
+	afr_sh_supress_errenous_children (sh->sources, sh->child_errno,
+					  priv->child_count);
+
+	nsources = afr_sh_source_count (sh->sources, priv->child_count);
+
+	if ((nsources == 0)
+	    && (priv->favorite_child != -1)
+	    && (sh->child_errno[priv->favorite_child] == 0)) {
+
+		gf_log (this->name, GF_LOG_WARNING,
+			"Picking favorite child %s as authentic source to resolve conflicting metadata of %s",
+			priv->children[priv->favorite_child],
+			local->loc.path);
+
+		sh->sources[priv->favorite_child] = 1;
+
+		nsources = afr_sh_source_count (sh->sources,
+						priv->child_count);
+	}
+
+	if (nsources == 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"Unable to resolve conflicting metadata of %s. Please resolve manually by deleting the file %s from all but the preferred subvolume",
+			local->loc.path, local->loc.path);
+
+		local->govinda_gOvinda = 1;
+
+		afr_sh_metadata_finish (frame, this);
+		return 0;
+	}
+
+	source = afr_sh_select_source (sh->sources, priv->child_count);
+
+	/* detect changes not visible through pending flags -- JIC */
+	for (i = 0; i < priv->child_count; i++) {
+		if (i == source || sh->child_errno[i])
+			continue;
+
+		if (PERMISSION_DIFFERS (&sh->buf[i], &sh->buf[source]))
+			sh->sources[i] = 0;
+
+		if (OWNERSHIP_DIFFERS (&sh->buf[i], &sh->buf[source]))
+			sh->sources[i] = 0;
+	}
+
+	afr_sh_metadata_sync_prepare (frame, this);
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			    int32_t op_ret, int32_t op_errno,
+			    inode_t *inode, struct stat *buf, dict_t *xattr)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              call_count = 0;
+	int              child_index = 0;
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	child_index = (long) cookie;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+
+		if (op_ret == 0) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"path %s on subvolume %s is of mode 0%o",
+				local->loc.path,
+				priv->children[child_index]->name,
+				buf->st_mode);
+
+			sh->buf[child_index] = *buf;
+			if (xattr)
+				sh->xattr[child_index] = dict_ref (xattr);
+		} else {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"path %s on subvolume %s => -1 (%s)",
+				local->loc.path,
+				priv->children[child_index]->name,
+				strerror (op_errno));
+
+			sh->child_errno[child_index] = op_errno;
+		}
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0)
+		afr_sh_metadata_fix (frame, this);
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              i = 0;
+	int              call_count = 0;
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	call_count = local->child_count;
+	local->call_count = call_count;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->child_up[i]) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"looking up %s on %s",
+				local->loc.path, priv->children[i]->name);
+
+			STACK_WIND_COOKIE (frame, afr_sh_metadata_lookup_cbk,
+					   (void *) (long) i,
+					   priv->children[i],
+					   priv->children[i]->fops->lookup,
+					   &local->loc, 1);
+			if (!--call_count)
+				break;
+		}
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t     *local = NULL;
+	int              call_count = 0;
+
+	local = frame->local;
+
+	/* TODO: handle lock errors */
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0) {
+		afr_sh_metadata_lookup (frame, this);
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              i = 0;
+	int              call_count = 0;
+	struct flock     flock = {0, };
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	call_count = local->child_count;
+	local->call_count = call_count;
+
+	for (i = 0; i < priv->child_count; i++) {
+		flock.l_start   = 0;
+		flock.l_len     = 0;
+		flock.l_type    = F_WRLCK;
+
+		if (local->child_up[i]) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"locking %s on subvolume %s",
+				local->loc.path, priv->children[i]->name);
+
+			STACK_WIND (frame, afr_sh_metadata_lk_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->inodelk,
+				    &local->loc, F_SETLK, &flock);
+
+			if (!--call_count)
+				break;
+		}
+	}
+
+	return 0;
+}
+
+
+int
 afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t   *local = NULL;
@@ -59,8 +685,14 @@ afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh = &local->self_heal;
 
-
-	sh->completion_cbk (frame, this);
+	if (local->need_metadata_self_heal) {
+		afr_sh_metadata_lock (frame, this);
+	} else {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"proceeding to data check on %s",
+			local->loc.path);
+		afr_sh_metadata_done (frame, this);
+	}
 
 	return 0;
 }

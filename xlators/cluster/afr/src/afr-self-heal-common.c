@@ -59,6 +59,34 @@ afr_sh_sink_count (int sources[], int child_count)
 	return sinks;
 }
 
+int
+afr_sh_source_count (int sources[], int child_count)
+{
+	int i;
+	int nsource = 0;
+
+	for (i = 0; i < child_count; i++)
+		if (sources[i])
+			nsource++;
+	return nsource;
+}
+
+
+int
+afr_sh_supress_errenous_children (int sources[], int child_errno[],
+				  int child_count)
+{
+	int i = 0;
+
+	for (i = 0; i < child_count; i++) {
+		if (child_errno[i] && sources[i]) {
+			sources[i] = 0;
+		}
+	}
+
+	return 0;
+}
+
 
 void
 afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
@@ -90,21 +118,32 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 
 void
 afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
-			     int child_count)
+			     int child_count, const char *key)
 {
-	data_t *data = NULL;
 	int i = 0;
 	int j = 0;
+	int32_t *pending = NULL;
+
+
+	/* start clean */
+	for (i = 0; i < child_count; i++) {
+		for (j = 0; j < child_count; j++) {
+			pending_matrix[i][j] = 0;
+		}
+	}
 
 	for (i = 0; i < child_count; i++) {
-		if (xattr[i]) {
-			data = dict_get (xattr[i], AFR_DATA_PENDING);
-			if (data) {
-				for (j = 0; j < child_count; j++) {
-					pending_matrix[i][j] = 
-						ntoh32 (((int32_t *)(data->data))[j]);
-				}
-			}
+		if (!xattr[i])
+			continue;
+
+		pending = NULL;
+
+		dict_get_ptr (xattr[i], (char *) key, (void **)&pending);
+		if (!pending)
+			continue;
+
+		for (j = 0; j < child_count; j++) {
+			pending_matrix[i][j] = ntoh32 (pending[j]);
 		}
 	}
 }
@@ -122,6 +161,12 @@ afr_sh_mark_sources (int32_t *pending_matrix[], int sources[], int child_count)
 	int j = 0;
 
 	int nsources = 0;
+
+
+	/* start clean */
+	for (i = 0; i < child_count; i++) {
+		sources[i] = 0;
+	}
 
 	/*
 	  Let's 'normalize' the pending matrix first,
@@ -147,6 +192,50 @@ afr_sh_mark_sources (int32_t *pending_matrix[], int sources[], int child_count)
 	return nsources;
 }
 
+
+void
+afr_sh_pending_to_delta (int32_t *pending_matrix[], int32_t *delta_matrix[],
+			 int success[], int child_count)
+{
+	int i = 0;
+	int j = 0;
+
+	for (i = 0; i < child_count; i++) {
+		for (j = 0; j < child_count; j++) {
+			if (!success[j])
+				continue;
+			delta_matrix[i][j] = -pending_matrix[i][j];
+		}
+	}
+}
+
+
+int
+afr_sh_delta_to_xattr (int32_t *delta_matrix[], dict_t *xattr[],
+		       int child_count, const char *key)
+{
+	int i = 0;
+	int j = 0;
+
+	int32_t *pending = 0;
+
+	for (i = 0; i < child_count; i++) {
+		if (!xattr[i])
+			continue;
+
+		pending = calloc (sizeof (int32_t), child_count);
+		for (j = 0; j < child_count; j++) {
+			pending[j] = hton32 (delta_matrix[i][j]);
+		}
+
+		dict_set_bin (xattr[i], (char *) key, pending,
+			      child_count * sizeof (int32_t));
+	}
+
+	return 0;
+}
+
+
 /**
  * is_matrix_zero - return true if pending matrix is all zeroes
  */
@@ -163,6 +252,44 @@ afr_sh_is_matrix_zero (int32_t *pending_matrix[], int child_count)
 	return 1;
 }
 
+
+int
+afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              i = 0;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+//	memset (sh->child_errno, 0, sizeof (int) * priv->child_count);
+	memset (sh->buf, 0, sizeof (struct stat) * priv->child_count);
+	
+	for (i = 0; i < priv->child_count; i++) {
+		if (sh->xattr[i])
+			dict_unref (sh->xattr[i]);
+		sh->xattr[i] = NULL;
+	}
+
+	if (local->govinda_gOvinda) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"aborting selfheal of %s",
+			local->loc.path);
+		sh->completion_cbk (frame, this);
+	} else {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"proceeding to metadata check on %s",
+			local->loc.path);
+		afr_self_heal_metadata (frame, this);
+	}
+
+	return 0;
+}
+
+
 int
 sh_missing_entries_unlck_cbk (call_frame_t *frame, void *cookie,
 			      xlator_t *this,
@@ -170,11 +297,13 @@ sh_missing_entries_unlck_cbk (call_frame_t *frame, void *cookie,
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
 	int              call_count = 0;
 
 
 	local = frame->local;
 	sh = &local->self_heal;
+	priv = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -183,18 +312,7 @@ sh_missing_entries_unlck_cbk (call_frame_t *frame, void *cookie,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		if (local->govinda_gOvinda) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"aborting selfheal of %s",
-				local->loc.path);
-
-			sh->completion_cbk (frame, this);
-		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"proceeding to metadata check on %s",
-				local->loc.path);
-			afr_self_heal_metadata (frame, this);
-		}
+		afr_sh_missing_entries_done (frame, this);
 	}
 
 	return 0;
@@ -543,6 +661,7 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
 		break;
 	case S_IFLNK:
 		sh_missing_entries_readlink (frame, this);
+		break;
 	case S_IFDIR:
 		sh_missing_entries_mkdir (frame, this);
 		break;
@@ -623,11 +742,6 @@ sh_missing_entries_lookup (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 	local->call_count = call_count;
-	local->self_heal.buf = calloc (priv->child_count,
-				       sizeof (struct stat));
-	local->self_heal.child_errno = calloc (priv->child_count,
-					       sizeof (int));
-
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
@@ -722,12 +836,33 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              i = 0;
 
 
 	local = frame->local;
 	sh = &local->self_heal;
+	priv = this->private;
 
 	sh->completion_cbk = completion_cbk;
+
+	sh->buf = calloc (priv->child_count, sizeof (struct stat));
+	sh->child_errno = calloc (priv->child_count, sizeof (int));
+	sh->success = calloc (priv->child_count, sizeof (int));
+	sh->xattr = calloc (priv->child_count, sizeof (dict_t *));
+	sh->sources = calloc (sizeof (*sh->sources), priv->child_count);
+
+	sh->pending_matrix = calloc (sizeof (int32_t *), priv->child_count);
+	for (i = 0; i < priv->child_count; i++) {
+		sh->pending_matrix[i] = calloc (sizeof (int32_t),
+						priv->child_count);
+	}
+
+	sh->delta_matrix = calloc (sizeof (int32_t *), priv->child_count);
+	for (i = 0; i < priv->child_count; i++) {
+		sh->delta_matrix[i] = calloc (sizeof (int32_t),
+					      priv->child_count);
+	}
 
 	if (local->success_count && local->enoent_count) {
 		afr_self_heal_missing_entries (frame, this);
@@ -735,7 +870,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"proceeding to metadata check on %s",
 			local->loc.path);
-		afr_self_heal_metadata (frame, this);
+		afr_sh_missing_entries_done (frame, this);
 	}
 
 	return 0;
