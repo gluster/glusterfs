@@ -92,14 +92,9 @@ afr_chmod_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
 	priv = this->private;
-
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -152,9 +147,9 @@ afr_chmod (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	frame->local = local;
+	AFR_LOCAL_INIT (local, priv);
 
-	local->op_ret = -1;
+	frame->local = local;
 
 	local->cont.chmod.mode = mode;
 	local->cont.chmod.ino  = loc->inode->ino;
@@ -225,14 +220,9 @@ afr_chown_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
 	priv = this->private;
-
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -285,9 +275,9 @@ afr_chown (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	frame->local = local;
+	AFR_LOCAL_INIT (local, priv);
 
-	local->op_ret = -1;
+	frame->local = local;
 
 	local->cont.chown.uid  = uid;
 	local->cont.chown.gid  = gid;
@@ -363,22 +353,18 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
-
-	if (call_count < priv->child_count) {
+	if (local->call_count < priv->child_count) {
 		local->transaction.failure_count = 1;
 	}
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_writev_wind_cbk, (void *) (long) i,	
+			STACK_WIND_COOKIE (frame, afr_writev_wind_cbk, 
+					   (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->writev,
 					   local->fd, 
@@ -429,9 +415,9 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	frame->local = local;
+	AFR_LOCAL_INIT (local, priv);
 
-	local->op_ret = -1;
+	frame->local = local;
 
 	local->cont.writev.vector  = iov_dup (vector, count);
 	local->cont.writev.count   = count;
@@ -514,18 +500,14 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
-
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_truncate_wind_cbk, (void *) (long) i,	
+			STACK_WIND_COOKIE (frame, afr_truncate_wind_cbk,
+					   (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->truncate,
 					   &local->loc, 
@@ -647,18 +629,14 @@ afr_utimens_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up); 
-
-	local->call_count = call_count;		
-
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_utimens_wind_cbk, (void *) (long) i,	
+		if (local->child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_utimens_wind_cbk,
+					   (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->utimens,
 					   &local->loc, 
@@ -780,18 +758,14 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up); 
-
-	local->call_count = call_count;		
-
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_setxattr_wind_cbk, (void *) (long) i,	
+		if (local->child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_setxattr_wind_cbk,
+					   (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->setxattr,
 					   &local->loc, 
@@ -904,17 +878,12 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up); 
-
-	local->call_count = call_count;		
-
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_removexattr_wind_cbk, 
 					   (void *) (long) i,	
 					   priv->children[i], 

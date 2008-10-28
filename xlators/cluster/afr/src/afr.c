@@ -73,6 +73,8 @@ afr_local_cleanup (call_frame_t *frame)
 	if (local->fd)
 		fd_unref (local->fd);
 
+	FREE (local->child_up);
+
 	switch (frame->op) {
 	case GF_FOP_GETXATTR:
 		FREE (local->cont.getxattr.name);
@@ -384,12 +386,12 @@ afr_open_self_heal_completion_cbk (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 	local = frame->local;
 
-	call_count = up_children_count (priv->child_count, priv->child_up); 
+	call_count = up_children_count (priv->child_count, local->child_up); 
 
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (priv->child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_open_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->open,
@@ -412,12 +414,12 @@ afr_open (call_frame_t *frame, xlator_t *this,
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
-	int     call_count = 0;
 	int     i = 0;
 
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+	AFR_LOCAL_INIT (local, priv);
 
 	frame->local = local;
 
@@ -429,12 +431,8 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	afr_self_heal_data (frame, this);
 
 #else
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;
-
 	for (i = 0; i < priv->child_count; i++) {
-		if (priv->child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_open_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->open,
@@ -490,19 +488,15 @@ int32_t afr_flush (call_frame_t *frame, xlator_t *this,
 	int i = 0;
 	int32_t op_errno = 0;
 
-	int32_t call_count = 0;
-
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-
-	call_count = up_children_count (priv->child_count, priv->child_up); 
+	AFR_LOCAL_INIT (local, priv);
 
 	frame->local = local;
-	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (priv->child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_flush_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->flush,
@@ -566,13 +560,12 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 	child_count = priv->child_count;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-
-	local->call_count = up_children_count (priv->child_count, priv->child_up); 
+	AFR_LOCAL_INIT (local, priv);
 
 	frame->local = local;
 
 	for (i = 0; i < child_count; i++) {
-		if (priv->child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_statfs_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->statfs, 
@@ -647,22 +640,19 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
-	int call_count = 0;
-
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+	AFR_LOCAL_INIT (local, priv);
 
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-	if (call_count == 0) {
+	if (local->call_count == 0) {
 		op_errno = ENOTCONN;
 		goto out;
 	}
 
 	frame->local      = local;
-	local->call_count = call_count;
 
-	local->fd    = fd;
+	local->fd    = fd_ref (fd);
 	local->cont.lk.cmd   = cmd;
 	local->cont.lk.flock = *flock;
 

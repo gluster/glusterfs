@@ -88,7 +88,7 @@ afr_unlock_inode (call_frame_t *frame, xlator_t *this)
 
 
 int
-afr_unlock_dir (call_frame_t *frame, xlator_t *this)
+afr_unlock_entry (call_frame_t *frame, xlator_t *this)
 {
 	int i = 0;				
 	int call_count = 0;		     
@@ -157,7 +157,7 @@ afr_write_pending_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this
 			break;
 		case AFR_ENTRY_TRANSACTION:
 		case AFR_ENTRY_RENAME_TRANSACTION:
-			afr_unlock_dir (frame, this);
+			afr_unlock_entry (frame, this);
 			break;
 		}
 	}
@@ -552,7 +552,7 @@ afr_lock_inode (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_lock_dir (call_frame_t *frame, xlator_t *this)
+afr_lock_entry (call_frame_t *frame, xlator_t *this)
 {
 	int i = 0;				
 	int call_count = 0;		     
@@ -659,7 +659,7 @@ afr_dir_transaction (call_frame_t *frame, xlator_t *this)
 	memcpy (local->child_up, priv->child_up,
 		sizeof (*local->child_up) * priv->child_count);
 
-	afr_lock_dir (frame, this);
+	afr_lock_entry (frame, this);
 
 	return 0;
 }
@@ -685,7 +685,7 @@ afr_dir_link_transaction (call_frame_t *frame, xlator_t *this)
 	memcpy (local->child_up, priv->child_up,
 		sizeof (*local->child_up) * priv->child_count);
 
-	afr_lock_dir (frame, this);
+	afr_lock_entry (frame, this);
 
 	return 0;
 }

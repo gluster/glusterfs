@@ -124,17 +124,12 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
-
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_create_wind_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->create,
@@ -181,11 +176,11 @@ afr_create (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+	AFR_LOCAL_INIT (local, priv);
+
 	frame->local = local;
 
 	loc_copy (&local->loc, loc);
-
-	local->op_ret            = -1;
 
 	local->cont.create.flags = flags;
 	local->cont.create.mode  = mode;
@@ -267,17 +262,12 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
-	priv = this->private;
-
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
+	priv  = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_mknod_wind_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->mknod,
@@ -324,11 +314,11 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+	AFR_LOCAL_INIT (local, priv);
+
 	frame->local = local;
 
 	loc_copy (&local->loc, loc);
-
-	local->op_ret           = -1;
 
 	local->cont.mknod.mode  = mode;
 	local->cont.mknod.dev   = dev;
@@ -408,18 +398,14 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
-	priv = this->private;
-
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
+	priv  = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_mkdir_wind_cbk, (void *) (long) i,	
+		if (local->child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_mkdir_wind_cbk,
+					   (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->mkdir,
 					   &local->loc, local->cont.mkdir.mode);
@@ -462,11 +448,12 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+	AFR_LOCAL_INIT (local, priv);
+
 	frame->local = local;
 
-	local->op_ret = -1;
-
 	loc_copy (&local->loc, loc);
+
 	local->cont.mkdir.mode  = mode;
 
 	local->transaction.fop  = afr_mkdir_wind;
@@ -543,17 +530,12 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
-	priv = this->private;
-
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
+	priv  = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_link_wind_cbk, (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->link,
@@ -598,9 +580,9 @@ afr_link (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	frame->local = local;
+	AFR_LOCAL_INIT (local, priv);
 
-	local->op_ret = -1;
+	frame->local = local;
 
 	loc_copy (&local->loc,    oldloc);
 	loc_copy (&local->newloc, newloc);
@@ -682,18 +664,14 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
-
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_symlink_wind_cbk, (void *) (long) i,	
+		if (local->child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_symlink_wind_cbk,
+					   (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->symlink,
 					   local->transaction.new_basename,
@@ -735,10 +713,10 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+	AFR_LOCAL_INIT (local, priv);
+
 	frame->local = local;
-
-	local->op_ret = -1;
-
+	
 	loc_copy (&local->loc, loc);
 
 	local->cont.symlink.ino = loc->inode->ino;
@@ -817,17 +795,12 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
-
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_rename_wind_cbk, 
 					   (void *) (long) i,	
 					   priv->children[i], 
@@ -876,14 +849,14 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (this->private, out);
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	frame->local = local;
+	AFR_LOCAL_INIT (local, priv);
 
-	local->op_ret = -1;
+	frame->local = local;
 
 	loc_copy (&local->loc,    oldloc);
 	loc_copy (&local->newloc, newloc);
 
-	local->cont.rename.ino     = oldloc->inode->ino;
+	local->cont.rename.ino = oldloc->inode->ino;
 
 	local->transaction.fop  = afr_rename_wind;
 	local->transaction.done = afr_rename_done;
@@ -949,14 +922,9 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
-	priv = this->private;
-
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
+	priv  = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -1000,9 +968,9 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	frame->local = local;
+	AFR_LOCAL_INIT (local, priv);
 
-	local->op_ret = -1;
+	frame->local = local;
 
 	loc_copy (&local->loc, loc);
 
@@ -1068,17 +1036,12 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	int call_count = 0;
 
 	local = frame->local;
-	priv = this->private;
-
-	call_count = up_children_count (priv->child_count, priv->child_up); 
-
-	local->call_count = call_count;		
+	priv  = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {				
-		if (priv->child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_rmdir_wind_cbk,	
 				    priv->children[i], 
 				    priv->children[i]->fops->rmdir,
@@ -1115,9 +1078,9 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	frame->local = local;
+	AFR_LOCAL_INIT (local, priv);
 
-	local->op_ret = -1;
+	frame->local = local;
 
 	loc_copy (&local->loc, loc);
 

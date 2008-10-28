@@ -370,5 +370,23 @@ AFR_BASENAME (const char *str)
 	FREE (__tmp_str);
 	return __basename_str;
 }
-		
+
+/* initialize local_t */
+static inline int
+AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
+{
+	local->child_up = malloc (sizeof (*local->child_up) * priv->child_count);
+	if (!local->child_up) {
+		return -ENOMEM;
+	}
+
+	memcpy (local->child_up, priv->child_up, 
+		sizeof (*local->child_up) * priv->child_count);
+
+	local->child_count = up_children_count (priv->child_count, local->child_up);
+	local->op_ret = -1;
+
+	return 0;
+}
+
 #endif /* __AFR_H__ */
