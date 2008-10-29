@@ -712,7 +712,7 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->symlink,
-					   local->transaction.new_basename,
+					   local->cont.symlink.linkpath,
 					   &local->loc);
 		}
 	}
@@ -764,7 +764,8 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 	
 	loc_copy (&local->loc, loc);
 
-	local->cont.symlink.ino = loc->inode->ino;
+	local->cont.symlink.ino      = loc->inode->ino;
+	local->cont.symlink.linkpath = strdup (linkpath);
 
 	local->transaction.fop  = afr_symlink_wind;
 	local->transaction.done = afr_symlink_done;
@@ -772,7 +773,6 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 	build_parent_loc (&local->transaction.parent_loc, loc);
 
 	local->transaction.basename     = AFR_BASENAME (loc->path);
-	local->transaction.new_basename = AFR_BASENAME (linkpath);
 	local->transaction.pending      = AFR_ENTRY_PENDING;
 
 	afr_entry_transaction (frame, this);

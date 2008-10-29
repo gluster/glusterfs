@@ -281,6 +281,7 @@ typedef struct _afr_local {
 			ino_t ino;
 			inode_t *inode;
 			struct stat buf;
+			char *linkpath;
 		} symlink;
 
 	} cont;
