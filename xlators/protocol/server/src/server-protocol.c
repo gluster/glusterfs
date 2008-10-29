@@ -753,7 +753,7 @@ server_fchown (call_frame_t *frame,
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_fchown_cbk (frame, NULL, frame->this,
 				   -1, EINVAL, NULL);
@@ -1677,7 +1677,8 @@ server_opendir_cbk (call_frame_t *frame,
 		fd_no = gf_fd_unused_get (priv->fdtable, fd);
 	} else {
 		/* NOTE: corresponding to fd_create()'s ref */
-		fd_unref (fd);
+		if (state->fd)
+			fd_unref (state->fd);
 	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -2408,7 +2409,8 @@ server_open_cbk (call_frame_t *frame,
 		fd_no = gf_fd_unused_get (priv->fdtable, fd);
 	} else {
 		/* NOTE: corresponding to fd_create()'s ref */
-		fd_unref (fd);
+		if (state->fd)
+			fd_unref (state->fd);
 	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -2478,7 +2480,8 @@ server_create_cbk (call_frame_t *frame,
 	
 	if (op_ret < 0) {
 		/* NOTE: corresponding to fd_create()'s ref */
-		fd_unref (fd);
+		if (state->fd)
+			fd_unref (state->fd);
 	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -3918,7 +3921,7 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_readv_cbk (frame, NULL, frame->this,
 				  -1, EINVAL, NULL, 0, NULL);
@@ -3960,7 +3963,7 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 
 	if (state->fd == NULL)	{
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_writev_cbk (frame, NULL, frame->this,
 				   -1, EINVAL, NULL);
@@ -4014,7 +4017,7 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
 	
 	if (state->fd == NULL)	{
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_release_cbk (frame, NULL, frame->this,
 				    -1, EINVAL);
@@ -4057,7 +4060,7 @@ server_fsync (call_frame_t *frame,
 
 	if (state->fd == NULL)	{
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_fsync_cbk (frame, NULL, frame->this,
 				  -1, EINVAL);
@@ -4097,7 +4100,7 @@ server_flush (call_frame_t *frame, xlator_t *bound_xl,
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_flush_cbk (frame, NULL, frame->this,
 				  -1, EINVAL);
@@ -4138,7 +4141,7 @@ server_ftruncate (call_frame_t *frame,
 
 	if (state->fd == NULL)	{
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_ftruncate_cbk (frame, NULL, frame->this,
 				      -1, EINVAL, NULL);
@@ -4181,7 +4184,7 @@ server_fstat (call_frame_t *frame,
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_fstat_cbk (frame, NULL, frame->this,
 				  -1, EINVAL, NULL);
@@ -4738,7 +4741,7 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_releasedir_cbk (frame, NULL, frame->this,
 				       -1, EINVAL);
@@ -4779,7 +4782,7 @@ server_getdents (call_frame_t *frame,
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_getdents_cbk (frame, NULL, frame->this,
 				     -1, EINVAL, NULL, 0);
@@ -4823,7 +4826,7 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_readdir_cbk (frame, NULL, frame->this,
 				    -1, EINVAL, NULL);
@@ -4866,7 +4869,7 @@ server_fsyncdir (call_frame_t *frame,
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_fsyncdir_cbk (frame, NULL, frame->this,
 				     -1, EINVAL);
@@ -5353,7 +5356,7 @@ server_finodelk (call_frame_t *frame,
 
 	if (!state->fd) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 		
 		server_finodelk_cbk (frame, NULL, frame->this,
 				     -1, EINVAL);
@@ -5449,7 +5452,7 @@ server_fentrylk (call_frame_t *frame,
 
 	if (!state->fd) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 		
 		server_fentrylk_cbk (frame, NULL, frame->this,
 				     -1, EINVAL);
@@ -5746,7 +5749,7 @@ server_lk (call_frame_t *frame,
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_lk_cbk (frame, NULL, frame->this,
 			       -1, EINVAL, NULL);
@@ -5817,7 +5820,7 @@ server_setdents (call_frame_t *frame,
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"unresolved fd %d", state->fd_no);
+			"unresolved fd %"PRId64"", state->fd_no);
 
 		server_setdents_cbk (frame, NULL, frame->this,
 				     -1, EINVAL);
@@ -7293,6 +7296,9 @@ void
 fini (xlator_t *this)
 {
 	server_private_t *server_priv = this->private;
+	if (!server_priv)
+		return;
+
 	if (server_priv->auth_modules) {
 		dict_destroy (server_priv->auth_modules);
 	}

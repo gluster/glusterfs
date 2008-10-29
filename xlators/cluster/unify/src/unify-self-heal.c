@@ -89,8 +89,8 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 
   if (!callcnt && local->flags) {
     
-    fd_unref (local->fd);
     inode = local->loc1.inode;
+    fd_unref (local->fd);
 
     unify_local_wipe (local);
 
@@ -316,10 +316,10 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 
     {
       /* Opendir failed on one node.
-       */
+       */ 
+      inode = local->loc1.inode;
       fd_unref (local->fd);
 
-      inode = local->loc1.inode;
       unify_local_wipe (local);
       /* Only 'self-heal' did not succeed, lookup() was successful. */
       local->op_ret = 0;
@@ -414,16 +414,12 @@ unify_sh_checksum_cbk (call_frame_t *frame,
       local->call_count = priv->child_count + 1;
 	
       for (index = 0; index < (priv->child_count + 1); index++) {
-	loc_t tmp_loc = {
-	  .inode = local->loc1.inode,
-	  .path = local->loc1.path,
-	};
 	STACK_WIND_COOKIE (frame,
 			   unify_sh_opendir_cbk,
 			   priv->xl_array[index]->name,
 			   priv->xl_array[index],
 			   priv->xl_array[index]->fops->opendir,
-			   &tmp_loc,
+			   &local->loc1,
 			   local->fd);
       }
       /* opendir can be done on the directory */
@@ -783,17 +779,12 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
       local->call_count = priv->child_count + 1;
 	
       for (index = 0; index < (priv->child_count + 1); index++) {
-	loc_t tmp_loc = {
-	  .inode = local->loc1.inode,
-	  .path = local->loc1.path,
-	  .parent = local->loc1.parent
-	};
 	STACK_WIND_COOKIE (frame,
 			   unify_bgsh_opendir_cbk,
 			   priv->xl_array[index]->name,
 			   priv->xl_array[index],
 			   priv->xl_array[index]->fops->opendir,
-			   &tmp_loc,
+			   &local->loc1,
 			   local->fd);
       }
       
@@ -847,17 +838,12 @@ gf_unify_self_heal (call_frame_t *frame,
       
       /* +1 is for NS */
       for (index = 0; index < (priv->child_count + 1); index++) {
-	loc_t tmp_loc = {
-	  .inode = local->loc1.inode,
-	  .path = local->loc1.path,
-	  .parent = local->loc1.parent
-	};
 	STACK_WIND_COOKIE (frame,
 			   unify_sh_checksum_cbk,
 			   priv->xl_array[index],
 			   priv->xl_array[index],
 			   priv->xl_array[index]->fops->checksum,
-			   &tmp_loc,
+			   &local->loc1,
 			   0);
       }
 
@@ -876,17 +862,12 @@ gf_unify_self_heal (call_frame_t *frame,
     
     /* +1 is for NS */
     for (index = 0; index < (priv->child_count + 1); index++) {
-      loc_t tmp_loc = {
-	.inode = bg_local->loc1.inode,
-	.path = bg_local->loc1.path,
-	.parent = bg_local->loc1.parent
-      };
       STACK_WIND_COOKIE (bg_frame,
 			 unify_bgsh_checksum_cbk,
 			 priv->xl_array[index],
 			 priv->xl_array[index],
 			 priv->xl_array[index]->fops->checksum,
-			 &tmp_loc,
+			 &bg_local->loc1,
 			 0);
     }
   }

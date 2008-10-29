@@ -484,9 +484,11 @@ xlator_init_rec (xlator_t *xl)
 	trav = xl->children;
 
 	while (trav) {
+		ret = 0;
 		ret = xlator_init_rec (trav->xlator);
 		if (ret != 0)
 			break;
+		gf_log (trav->xlator->name, GF_LOG_DEBUG, "Initialization done");
 		trav = trav->next;
 	}
 
@@ -522,10 +524,10 @@ xlator_tree_init (xlator_t *xl)
 	}
 
 	top = xl;
-
+/*
 	while (top->parents)
 		top = top->parents->xlator;
-
+*/
 	ret = xlator_init_rec (top);
 
 	if (ret == 0 && top->notify) {
