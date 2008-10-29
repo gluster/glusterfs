@@ -200,6 +200,13 @@ afr_sh_pending_to_delta (int32_t *pending_matrix[], int32_t *delta_matrix[],
 	int i = 0;
 	int j = 0;
 
+	/* start clean */
+	for (i = 0; i < child_count; i++) {
+		for (j = 0; j < child_count; j++) {
+			delta_matrix[i][j] = 0;
+		}
+	}
+
 	for (i = 0; i < child_count; i++) {
 		for (j = 0; j < child_count; j++) {
 			if (!success[j])

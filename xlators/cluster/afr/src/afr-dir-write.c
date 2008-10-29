@@ -135,13 +135,14 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_create_wind_cbk, (void *) (long) i,
+			STACK_WIND_COOKIE (frame, afr_create_wind_cbk,
+					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->create,
 					   &local->loc, 
 					   local->cont.create.flags, 
 					   local->cont.create.mode, 
-					   local->fd); 
+					   local->cont.create.fd);
 		}
 	}
 	
@@ -160,8 +161,10 @@ afr_create_done (call_frame_t *frame, xlator_t *this,
 	if (op_ret == -1) {
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
 	} else {
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd,
-				  local->cont.create.inode, &local->cont.create.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+				  local->cont.create.fd,
+				  local->cont.create.inode,
+				  &local->cont.create.buf);
 	}
 	
 	return 0;
@@ -196,8 +199,7 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
 	local->cont.create.flags = flags;
 	local->cont.create.mode  = mode;
-
-	local->fd    = fd_ref (fd);
+	local->cont.create.fd    = fd_ref (fd);
 
 	local->transaction.fop   = afr_create_wind;
 	local->transaction.done  = afr_create_done;

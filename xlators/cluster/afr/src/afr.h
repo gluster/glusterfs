@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -65,6 +65,7 @@ typedef struct {
 	int *success;
 
 	fd_t *healing_fd;
+	int   op_failed;
 
 	blksize_t block_size;
 	off_t file_size;
@@ -239,6 +240,7 @@ typedef struct _afr_local {
 			mode_t mode;
 			inode_t *inode;
 			struct stat buf;
+			fd_t *fd;
 		} create;
 
 		struct {

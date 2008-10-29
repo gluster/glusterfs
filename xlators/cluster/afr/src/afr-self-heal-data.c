@@ -49,76 +49,134 @@
 #include "afr-self-heal-common.h"
 
 
-/**
- * Return true if attributes of any two children do not match
 
-
-static int
-attr_mismatch_p ()
+int
+afr_sh_data_done (call_frame_t *frame, xlator_t *this)
 {
-	return 1;
-}
-*/
-
-
-/**
- * sh_cleanup_and_terminate - do necessary cleanup and call the completion function
- */
-
-static int
-sh_cleanup_and_terminate (call_frame_t *frame, xlator_t *this)
-{
-	afr_local_t *     local  = NULL;
-	afr_self_heal_t * sh     = NULL;
-	afr_private_t *   priv   = NULL;
-
-	int i = 0;
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
 
 	local = frame->local;
-	sh    = &local->self_heal;
-	priv  = this->private;
+	sh = &local->self_heal;
+	priv = this->private;
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (sh->pending_matrix[i])
-			FREE (sh->pending_matrix[i]);
-		if (sh->xattr[i])
-			dict_unref (sh->xattr[i]);
-	}
-	
-	if (sh->healing_fd)
-		fd_unref (sh->healing_fd);
-
-	FREE (sh->sources);
-
-	gf_log (this->name, GF_LOG_DEBUG,
-		"terminating self heal");
+	/* 
+	   TODO: cleanup sh->* 
+	 */
 
 	sh->completion_cbk (frame, this);
+
 	return 0;
 }
 
 
-static int
-sh_unlock_inode_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		     int32_t op_ret, int32_t op_errno)
+int
+afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		       int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t * local = NULL;
-	afr_self_heal_t * sh = NULL;
-
-	int child_index = (long) cookie;
-	int call_count = 0;
+	afr_local_t     *local = NULL;
+	afr_private_t   *priv  = NULL;
+	afr_self_heal_t *sh = NULL;
+	int              call_count = 0;
 
 	local = frame->local;
 	sh = &local->self_heal;
+	priv = this->private;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+	}
+	UNLOCK (&frame->lock);
+
+
+	if (call_count == 0) {
+		fd_unref (sh->healing_fd);
+		afr_sh_data_done (frame, this);
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_data_close (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_private_t   *priv  = NULL;
+	afr_self_heal_t *sh  = NULL;
+	int              i = 0;
+	int              call_count = 0;
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	if (!sh->healing_fd) {
+		afr_sh_data_done (frame, this);
+		return 0;
+	}
+
+	call_count = sh->active_sinks + 1;
+	local->call_count = call_count;
+
+
+	/* closed source */
+	gf_log (this->name, GF_LOG_DEBUG,
+		"closing fd of %s on %s",
+		local->loc.path, priv->children[sh->source]->name);
+
+	STACK_WIND_COOKIE (frame, afr_sh_data_flush_cbk,
+			   (void *) (long) sh->source,
+			   priv->children[sh->source],
+			   priv->children[sh->source]->fops->flush,
+			   sh->healing_fd);
+	call_count--;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (sh->sources[i] || !local->child_up[i])
+			continue;
+
+		gf_log (this->name, GF_LOG_DEBUG,
+			"closing fd of %s on %s",
+			local->loc.path, priv->children[i]->name);
+
+		STACK_WIND_COOKIE (frame, afr_sh_data_flush_cbk,
+				   (void *) (long) i,
+				   priv->children[i],
+				   priv->children[i]->fops->flush,
+				   sh->healing_fd);
+		if (!--call_count)
+			break;
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_data_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		       int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t * local = NULL;
+	int           call_count = 0;
+	int           child_index = (long) cookie;
+
+	/* TODO: what if lock fails? */
+	
+	local = frame->local;
 
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_DEBUG, 
-				"unlocking inode on child %d failed: %s",
+			gf_log (this->name, GF_LOG_ERROR, 
+				"locking inode on child %d failed: %s",
 				child_index, strerror (op_errno));
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG, "inode on child %d unlocked",
+			gf_log (this->name, GF_LOG_DEBUG,
+				"inode on child %d locked",
 				child_index);
 		}
 
@@ -127,77 +185,87 @@ sh_unlock_inode_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		sh_cleanup_and_terminate (frame, this);
+		afr_sh_data_close (frame, this);
 	}
-	
+
 	return 0;
 }
 
 
-static int
-sh_unlock_inode (call_frame_t *frame, xlator_t *this)
+int
+afr_sh_data_unlock (call_frame_t *frame, xlator_t *this)
 {
 	struct flock flock;			
 	int i = 0;				
 	int call_count = 0;		     
 
-	int source;
-	int *sources;
-
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = this->private;
+	afr_private_t * priv  = NULL;
 	afr_self_heal_t * sh  = NULL;
+
 
 	local = frame->local;
 	sh = &local->self_heal;
+	priv = this->private;
 
-	source = sh->source;
-	sources = sh->sources;
-
-	call_count = afr_sh_sink_count (sources, priv->child_count) + 1; 
+	call_count = local->child_count;
 
 	local->call_count = call_count;		
 
-	for (i = 0; i < priv->child_count; i++) {				
-		flock.l_start = 0;
-		flock.l_len   = 0;
-		flock.l_type  = F_UNLCK;			
+	flock.l_start = 0;
+	flock.l_len   = 0;
+	flock.l_type  = F_UNLCK;
 
-		if ((i == source) || (sources[i] == 0)) {
-			STACK_WIND_COOKIE (frame, sh_unlock_inode_cbk, (void *) (long) i,
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->child_up[i]) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"unlocking %s on subvolume %s",
+				local->loc.path, priv->children[i]->name);
+
+			STACK_WIND_COOKIE (frame, afr_sh_data_unlck_cbk,
+					   (void *) (long) i,
 					   priv->children[i], 
-					   priv->children[i]->fops->inodelk, 
+					   priv->children[i]->fops->inodelk,
 					   &local->loc, F_SETLK, &flock); 
-			call_count--;
+			if (!--call_count)
+				break;
 		}
-
-		if (call_count == 0)
-			break;
 	}
 
 	return 0;
 }
 
 
-static int
-sh_erase_pending (call_frame_t *frame, xlator_t *this)
+int
+afr_sh_data_finish (call_frame_t *frame, xlator_t *this)
 {
-	sh_unlock_inode (frame, this);
+	afr_local_t   *local = NULL;
+
+	local = frame->local;
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"finishing data selfheal of %s", local->loc.path);
+
+	afr_sh_data_unlock (frame, this);
+
 	return 0;
 }
 
 
-static int32_t
-sh_close_fds_cbk (call_frame_t *frame, void *cookie,
-		  xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-	afr_local_t *local = NULL;
-	afr_self_heal_t * sh = NULL;
 
-	int call_count = -1;
+int
+afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
+			       xlator_t *this, int32_t op_ret,
+			       int32_t op_errno, dict_t *xattr)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int             call_count = 0;
 
 	local = frame->local;
 	sh = &local->self_heal;
+	priv = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -205,59 +273,157 @@ sh_close_fds_cbk (call_frame_t *frame, void *cookie,
 	}
 	UNLOCK (&frame->lock);
 
+	if (call_count == 0)
+		afr_sh_data_finish (frame, this);
+
+	return 0;
+}
+
+
+int
+afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              call_count = 0;
+	int              i = 0;
+	dict_t          **erase_xattr = NULL;
+
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+
+	afr_sh_pending_to_delta (sh->pending_matrix, sh->delta_matrix,
+				 sh->success, priv->child_count);
+
+	erase_xattr = calloc (sizeof (*erase_xattr), priv->child_count);
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (sh->xattr[i]) {
+			call_count++;
+
+			erase_xattr[i] = get_new_dict();
+			dict_ref (erase_xattr[i]);
+		}
+	}
+
+	afr_sh_delta_to_xattr (sh->delta_matrix, erase_xattr,
+			       priv->child_count, AFR_DATA_PENDING);
+
+	local->call_count = call_count;
+	for (i = 0; i < priv->child_count; i++) {
+		if (!erase_xattr[i])
+			continue;
+
+		gf_log (this->name, GF_LOG_DEBUG,
+			"erasing pending flags from %s on %s",
+			local->loc.path, priv->children[i]->name);
+
+		STACK_WIND_COOKIE (frame, afr_sh_data_erase_pending_cbk,
+				   (void *) (long) i,
+				   priv->children[i],
+				   priv->children[i]->fops->xattrop,
+				   NULL, local->loc.path,
+				   GF_XATTROP_ADD_ARRAY, erase_xattr[i]);
+		if (!--call_count)
+			break;
+	}
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (erase_xattr[i]) {
+			dict_unref (erase_xattr[i]);
+		}
+	}
+	FREE (erase_xattr);
+
+	return 0;
+}
+
+
+int
+afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		      int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+	afr_private_t * priv = NULL;
+	afr_local_t * local  = NULL;
+	afr_self_heal_t *sh  = NULL;
+	int              call_count = 0;
+	int              child_index = 0;
+
+	priv = this->private;
+	local = frame->local;
+	sh = &local->self_heal;
+
+	child_index = (long) cookie;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+		if (op_ret == -1)
+			gf_log (this->name, GF_LOG_ERROR,
+				"ftruncate on subvolume %s failed (%s)",
+				priv->children[child_index]->name,
+				strerror (op_errno));
+		else
+			gf_log (this->name, GF_LOG_DEBUG,
+				"ftruncate on subvolume %s completed",
+				priv->children[child_index]->name);
+	}
+	UNLOCK (&frame->lock);
+
 	if (call_count == 0) {
-		sh_erase_pending (frame, this);
+		afr_sh_data_erase_pending (frame, this);
 	}
 
 	return 0;
 }
 
 
-static int
-sh_close_fds (call_frame_t *frame, xlator_t *this)
+int
+afr_sh_data_trim_sinks (call_frame_t *frame, xlator_t *this)
 {
-	int i = 0;				
-	int call_count = 0;		     
+	afr_private_t * priv = NULL;
+	afr_local_t * local  = NULL;
+	afr_self_heal_t *sh  = NULL;
+	int             *sources = NULL;
+	int              call_count = 0;
+	int              i = 0;
 
-	int source = -1;
-	int *sources = NULL;
 
-	afr_local_t *   local = NULL;
-	afr_private_t * priv  = this->private;
-	afr_self_heal_t * sh  = NULL;
-
+	priv = this->private;
 	local = frame->local;
 	sh = &local->self_heal;
 
-	call_count = afr_sh_sink_count (local->self_heal.sources, priv->child_count) + 1; 
+	sources = sh->sources;
+	call_count = sh->active_sinks;
 
-	local->call_count = call_count;		
+	for (i = 0; i < priv->child_count; i++) {
+		if (sources[i] || !local->child_up[i])
+			continue;
 
-	source  = local->self_heal.source;
-	sources = local->self_heal.sources;
+		STACK_WIND_COOKIE (frame, afr_sh_data_trim_cbk,
+				   (void *) (long) i,
+				   priv->children[i], 
+				   priv->children[i]->fops->ftruncate,
+				   sh->healing_fd, sh->file_size); 
 
-	for (i = 0; i < priv->child_count; i++) {				
-		if ((i == source) || (sources[i] == 0)) {
-			STACK_WIND_COOKIE (frame, sh_close_fds_cbk, (void *) (long) i,
-					   priv->children[i], 
-					   priv->children[i]->fops->flush,
-					   sh->healing_fd);
-			call_count--;
-		}
-
-		if (call_count == 0)
+		if (!--call_count)
 			break;
 	}
 
 	return 0;
 }
 
-static int
-sh_read_write (call_frame_t *frame, xlator_t *this);
 
-static int
-sh_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-	      int32_t op_ret, int32_t op_errno, struct stat *buf)
+int
+afr_sh_data_read_write (call_frame_t *frame, xlator_t *this);
+
+int
+afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+		       int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
 	afr_private_t * priv = NULL;
 	afr_local_t * local  = NULL;
@@ -277,17 +443,30 @@ sh_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
+
+		if (op_ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"write failed on subvolume %s (%s)",
+				priv->children[child_index]->name,
+				strerror (op_errno));
+			sh->op_failed = 1;
+		}
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
+		if (sh->op_failed) {
+			afr_sh_data_finish (frame, this);
+			return 0;
+		}
+
 		if (sh->offset < sh->file_size) {
-			sh_read_write (frame, this);
+			afr_sh_data_read_write (frame, this);
 		} else {
 			gf_log (this->name, GF_LOG_DEBUG, 
 				"closing fd's");
 		
-			sh_close_fds (frame, this);
+			afr_sh_data_trim_sinks (frame, this);
 		}
 	}
 
@@ -295,10 +474,10 @@ sh_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-static int32_t
-sh_read_cbk (call_frame_t *frame, void *cookie,
-	     xlator_t *this, int32_t op_ret, int32_t op_errno,
-	     struct iovec *vector, int32_t count, struct stat *buf)
+int
+afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
+		      xlator_t *this, int32_t op_ret, int32_t op_errno,
+		      struct iovec *vector, int32_t count, struct stat *buf)
 {
 	afr_private_t * priv = NULL;
 	afr_local_t * local  = NULL;
@@ -314,28 +493,35 @@ sh_read_cbk (call_frame_t *frame, void *cookie,
 	local = frame->local;
 	sh = &local->self_heal;
 
-	call_count = afr_sh_sink_count (sh->sources, priv->child_count);
+	call_count = sh->active_sinks;
+
 	local->call_count = call_count;
 
 	gf_log (this->name, GF_LOG_DEBUG, 
 		"read %d bytes of data from child %d, offset %d", 
 		op_ret, child_index, sh->offset);
 
+	if (op_ret <= 0) {
+		afr_sh_data_finish (frame, this);
+		return 0;
+	}
+
 	/* what if we read less than block size? */
 	offset = sh->offset;
 	sh->offset += op_ret;
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (sh->sources[i] == 0) {
-			/* this is a sink, so write to it */
-			STACK_WIND_COOKIE (frame, sh_write_cbk, (void *) (long) i,
-					   priv->children[i],
-					   priv->children[i]->fops->writev,
-					   sh->healing_fd, vector, count, offset);
-			call_count--;
-		}
+		if (sh->sources[i] || !local->child_up[i])
+			continue;
 
-		if (call_count == 0)
+		/* this is a sink, so write to it */
+		STACK_WIND_COOKIE (frame, afr_sh_data_write_cbk,
+				   (void *) (long) i,
+				   priv->children[i],
+				   priv->children[i]->fops->writev,
+				   sh->healing_fd, vector, count, offset);
+
+		if (!--call_count)
 			break;
 	}
 
@@ -343,8 +529,8 @@ sh_read_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-static int
-sh_read_write (call_frame_t *frame, xlator_t *this)
+int
+afr_sh_data_read_write (call_frame_t *frame, xlator_t *this)
 {
 	afr_private_t * priv = NULL;
 	afr_local_t * local  = NULL;
@@ -354,7 +540,8 @@ sh_read_write (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh = &local->self_heal;
 
-	STACK_WIND_COOKIE (frame, sh_read_cbk, (void *) (long) sh->source,
+	STACK_WIND_COOKIE (frame, afr_sh_data_read_cbk,
+			   (void *) (long) sh->source,
 			   priv->children[sh->source],
 			   priv->children[sh->source]->fops->readv,
 			   sh->healing_fd, sh->block_size,
@@ -364,17 +551,21 @@ sh_read_write (call_frame_t *frame, xlator_t *this)
 }
 
 
-static int
-sh_open_source_and_sinks_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			      int32_t op_ret, int32_t op_errno, fd_t *fd)
+int
+afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		      int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-	afr_local_t * local = NULL;
+	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
-
-	int child_index = (long) cookie;
+	afr_private_t   *priv = NULL;
+	int              call_count = 0;
+	int              child_index = 0;
 
 	local = frame->local;
 	sh = &local->self_heal;
+	priv = this->private;
+
+	child_index = (long) cookie;
 
 	/* TODO: some of the open's might fail.
 	   In that case, modify cleanup fn to send flush on those 
@@ -382,33 +573,35 @@ sh_open_source_and_sinks_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
+		call_count = --local->call_count;
+		
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"open failed on child %d: %s",
-				child_index, strerror (op_errno));
-			sh_cleanup_and_terminate (frame, this);
+			gf_log (this->name, GF_LOG_ERROR,
+				"open failed on child %s (%s)",
+				priv->children[child_index]->name,
+				strerror (op_errno));
+			sh->op_failed = 1;
 		}
 
-		if ((op_ret == 0) && !sh->healing_fd) {
-			fd_bind (fd);
-			sh->healing_fd = fd;
-		}
-
-		local->call_count--;
 	}
 	UNLOCK (&frame->lock);
 
-	if (local->call_count == 0) {
-		gf_log (this->name, GF_LOG_DEBUG, "fd's opened, commencing sync");
-		sh_read_write (frame, this);
+	if (call_count == 0) {
+		if (sh->op_failed) {
+			afr_sh_data_finish (frame, this);
+			return 0;
+		}
+		gf_log (this->name, GF_LOG_DEBUG,
+			"fd opened, commencing sync");
+		afr_sh_data_read_write (frame, this);
 	}
 
 	return 0;
 }
 
 
-static int
-sh_open_source_and_sinks (call_frame_t *frame, xlator_t *this)
+int
+afr_sh_data_open (call_frame_t *frame, xlator_t *this)
 {
 	int i = 0;				
 	int call_count = 0;		     
@@ -419,33 +612,46 @@ sh_open_source_and_sinks (call_frame_t *frame, xlator_t *this)
 	fd_t *fd = NULL;
 
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = this->private;
+	afr_private_t * priv  = NULL;
+	afr_self_heal_t *sh = NULL;
 
 	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
 
-	call_count = afr_sh_sink_count (local->self_heal.sources, priv->child_count) + 1; 
-
-	local->call_count = call_count;		
+	call_count = sh->active_sinks + 1;
+	local->call_count = call_count;
 
 	fd = fd_create (local->loc.inode, frame->root->pid);
-	fd = fd_ref (fd);
+	sh->healing_fd = fd;
 
 	source  = local->self_heal.source;
 	sources = local->self_heal.sources;
 
-	for (i = 0; i < priv->child_count; i++) {				
-		if ((i == source) || (sources[i] == 0)) {
-			STACK_WIND_COOKIE (frame, sh_open_source_and_sinks_cbk, 
-					   (void *) (long) i,
-					   priv->children[i], 
-					   priv->children[i]->fops->open,
-					   &local->loc, 
-					   O_RDWR|O_LARGEFILE, fd); 
+	sh->block_size = sh->buf[source].st_blksize;
+	sh->file_size  = sh->buf[source].st_size;
 
-			call_count--;
-		}
+	/* open source */
+	STACK_WIND_COOKIE (frame, afr_sh_data_open_cbk,
+			   (void *) (long) source,
+			   priv->children[source],
+			   priv->children[source]->fops->open,
+			   &local->loc, O_RDONLY|O_LARGEFILE, fd);
+	call_count--;
 
-		if (call_count == 0)
+	/* open sinks */
+	for (i = 0; i < priv->child_count; i++) {
+		if(sources[i] || !local->child_up[i])
+			continue;
+
+		STACK_WIND_COOKIE (frame, afr_sh_data_open_cbk,
+				   (void *) (long) i,
+				   priv->children[i], 
+				   priv->children[i]->fops->open,
+				   &local->loc, 
+				   O_WRONLY|O_LARGEFILE, fd); 
+
+		if (!--call_count)
 			break;
 	}
 
@@ -453,13 +659,202 @@ sh_open_source_and_sinks (call_frame_t *frame, xlator_t *this)
 }
 
 
-static int
-sh_lock_inode_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		   int32_t op_ret, int32_t op_errno)
+int
+afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              active_sinks = 0;
+	int              source = 0;
+	int              i = 0;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	source = sh->source;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (sh->sources[i] == 0 && local->child_up[i] == 1) {
+			active_sinks++;
+			sh->success[i] = 1;
+		}
+	}
+	sh->success[source] = 1;
+
+	if (active_sinks == 0) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"no active sinks for performing self-heal on file %s",
+			local->loc.path);
+		afr_sh_data_finish (frame, this);
+		return 0;
+	}
+	sh->active_sinks = active_sinks;
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"syncing data of %s from subvolume %s to %d active sinks",
+		local->loc.path, priv->children[source]->name, active_sinks);
+
+	afr_sh_data_open (frame, this);
+
+	return 0;
+}
+
+
+int
+afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              nsources = 0;
+	int              source = 0;
+	int              i = 0;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	afr_sh_build_pending_matrix (sh->pending_matrix, sh->xattr, 
+				     priv->child_count, AFR_DATA_PENDING);
+
+	afr_sh_print_pending_matrix (sh->pending_matrix, this);
+
+
+	afr_sh_mark_sources (sh->pending_matrix, sh->sources, 
+			     priv->child_count);
+
+	afr_sh_supress_errenous_children (sh->sources, sh->child_errno,
+					  priv->child_count);
+
+	nsources = afr_sh_source_count (sh->sources, priv->child_count);
+
+	if ((nsources == 0)
+	    && (priv->favorite_child != -1)
+	    && (sh->child_errno[priv->favorite_child] == 0)) {
+
+		gf_log (this->name, GF_LOG_WARNING,
+			"Picking favorite child %s as authentic source to resolve conflicting data of %s",
+			priv->children[priv->favorite_child],
+			local->loc.path);
+
+		sh->sources[priv->favorite_child] = 1;
+
+		nsources = afr_sh_source_count (sh->sources,
+						priv->child_count);
+	}
+
+	if (nsources == 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"Unable to resolve conflicting data of %s. Please resolve manually by deleting the file %s from all but the preferred subvolume",
+			local->loc.path, local->loc.path);
+
+		local->govinda_gOvinda = 1;
+
+		afr_sh_data_finish (frame, this);
+		return 0;
+	}
+
+	source = afr_sh_select_source (sh->sources, priv->child_count);
+	sh->source = source;
+
+	/* detect changes not visible through pending flags -- JIC */
+	for (i = 0; i < priv->child_count; i++) {
+		if (i == source || sh->child_errno[i])
+			continue;
+
+		if (SIZE_DIFFERS (&sh->buf[i], &sh->buf[source]))
+			sh->sources[i] = 0;
+	}
+
+	afr_sh_data_sync_prepare (frame, this);
+
+	return 0;
+}
+
+
+
+int
+afr_sh_data_lookup_cbk (call_frame_t *frame, void *cookie,
+			xlator_t *this, int32_t op_ret, int32_t op_errno,
+			inode_t *inode, struct stat *buf, dict_t *xattr)
+{
+	afr_private_t   *priv  = NULL;
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+
+	int call_count  = -1;
+	int child_index = (long) cookie;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+
+		if (op_ret != -1) {
+			sh->xattr[child_index] = dict_ref (xattr);
+			sh->buf[child_index] = *buf;
+		}
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0) {
+		afr_sh_data_fix (frame, this);
+	}
+
+	return 0;
+}
+
+
+
+int
+afr_sh_data_lookup (call_frame_t *frame, xlator_t *this)
+{
+	afr_self_heal_t * sh    = NULL; 
+	afr_local_t    *  local = NULL;
+	afr_private_t  *  priv  = NULL;
+
+	int NEED_XATTR_YES = 1;
+	int call_count = 0;
+	int i = 0;
+
+	priv  = this->private;
+	local = frame->local;
+	sh    = &local->self_heal;
+
+	call_count = local->child_count;
+
+	local->call_count = call_count;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->child_up[i]) {
+			STACK_WIND_COOKIE (frame,
+					   afr_sh_data_lookup_cbk,
+					   (void *) (long) i,
+					   priv->children[i], 
+					   priv->children[i]->fops->lookup,
+					   &local->loc, NEED_XATTR_YES);
+			if (!--call_count)
+				break;
+		}
+	}
+
+	return 0;
+}
+
+
+
+int
+afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		      int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t * local = NULL;
-
-	int child_index = (long) cookie;
+	int           call_count = 0;
+	int           child_index = (long) cookie;
 
 	/* TODO: what if lock fails? */
 	
@@ -468,218 +863,65 @@ sh_lock_inode_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_DEBUG, 
+			gf_log (this->name, GF_LOG_ERROR, 
 				"locking inode on child %d failed: %s",
 				child_index, strerror (op_errno));
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG, "inode on child %d locked",
+			gf_log (this->name, GF_LOG_DEBUG,
+				"inode on child %d locked",
 				child_index);
 		}
 
-		local->call_count--;
+		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
 
-	if (local->call_count == 0) {
-		sh_open_source_and_sinks (frame, this);
+	if (call_count == 0) {
+		afr_sh_data_lookup (frame, this);
 	}
-
-	return 0;
-}
-
-
-static int
-sh_lock_inode (call_frame_t *frame, xlator_t *this)
-{
-	struct flock flock;			
-	int i = 0;				
-	int call_count = 0;		     
-
-	int source;
-	int *sources;
-
-	afr_local_t *   local = NULL;
-	afr_private_t * priv  = this->private;
-	afr_self_heal_t * sh  = NULL;
-
-	local = frame->local;
-	sh = &local->self_heal;
-
-	source = sh->source;
-	sources = sh->sources;
-
-	call_count = afr_sh_sink_count (sources, priv->child_count) + 1; 
-
-	local->call_count = call_count;		
-
-	for (i = 0; i < priv->child_count; i++) {				
-		flock.l_start = 0;
-		flock.l_len   = 0;
-		flock.l_type  = F_WRLCK;			
-
-		if ((i == source) || (sources[i] == 0)) {
-			STACK_WIND_COOKIE (frame, sh_lock_inode_cbk, (void *) (long) i,
-					   priv->children[i], 
-					   priv->children[i]->fops->inodelk,
-					   &local->loc, F_SETLK, &flock); 
-		}
-	}
-
-	return 0;
-}
-
-
-static int
-sh_source_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		    int32_t op_ret, int32_t op_errno,
-		    struct stat *buf)
-{
-	afr_local_t * local = NULL;
-
-	local = frame->local;
-
-	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"getting stat of source child failed: %s", 
-			strerror (op_errno));
-		sh_cleanup_and_terminate (frame, this);
-		return -1;
-	}
-
-	local->self_heal.block_size = buf->st_blksize;
-	local->self_heal.file_size  = buf->st_size;
-
-	gf_log (this->name, GF_LOG_DEBUG, "got stat from source child: "
-		"(block size = %d, file size = %d)", buf->st_blksize, buf->st_size);
-
-	sh_lock_inode (frame, this);
-
-	return 0;
-}
-
-
-static int
-sh_get_source_stat (call_frame_t *frame, xlator_t *this,
-		    int source)
-{
-	afr_private_t * priv = NULL;
-	afr_local_t * local  = NULL;
-
-	priv  = this->private;
-	local = frame->local;
-
-	STACK_WIND (frame, sh_source_stat_cbk,
-		    priv->children[source],
-		    priv->children[source]->fops->stat,
-		    &local->loc);
-	
-	return 0;
-}
-
-
-static int
-sh_sync_source_and_sinks (call_frame_t *frame, xlator_t *this,
-			   int sources[])
-{
-	afr_local_t * local  = NULL;
-	afr_private_t * priv = NULL;
-	afr_self_heal_t * sh = NULL;
-
-	local = frame->local;
-	priv  = this->private;
-	sh    = &local->self_heal;
-
-	/* select a source */
-	sh->source = afr_sh_select_source (sources, priv->child_count);
-
-	gf_log (this->name, GF_LOG_DEBUG,
-		"selecting child %d as source",
-		sh->source);
-
-	/* stat on source */
-	sh_get_source_stat (frame, this, sh->source);
-
-	return 0;
-}
-
-
-static int
-sh_do_data_self_heal (call_frame_t *frame, xlator_t *this)
-{
-	int nsources = -1;
-	
-	int32_t op_ret = -1;
-
-	afr_local_t    * local = NULL;
-	afr_private_t  * priv  = this->private;
-	afr_self_heal_t * sh   = NULL;
-
-	local = frame->local;
-	sh = &local->self_heal;
-
-	afr_sh_build_pending_matrix (sh->pending_matrix, sh->xattr, 
-				     priv->child_count, AFR_DATA_PENDING);
-
-	afr_sh_print_pending_matrix (sh->pending_matrix, this);
-
-	if (afr_sh_is_matrix_zero (sh->pending_matrix, priv->child_count)) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no self heal needed");
-		goto out;
-	}
-
-	priv = this->private;
-
-	if (nsources == 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"split brain detected ... Govinda, Govinda!");
-		goto out;
-	}
-
-	gf_log (this->name, GF_LOG_DEBUG,
-		"starting self heal on %s", local->loc.path);
-
-	gf_log (this->name, GF_LOG_DEBUG,
-		"%d sources found", nsources);
-
-	sh_sync_source_and_sinks (frame, this, sh->sources);
-
-	op_ret = 0;
-out:
-	if (op_ret == -1)
-		sh->completion_cbk (frame, this);
 
 	return 0;
 }
 
 
 int
-afr_inode_data_self_heal_lookup_cbk (call_frame_t *frame, void *cookie,
-				     xlator_t *this, int32_t op_ret, int32_t op_errno,
-				     inode_t *inode, struct stat *buf, dict_t *xattr)
+afr_sh_data_lock (call_frame_t *frame, xlator_t *this)
 {
+	struct flock flock;			
+	int i = 0;				
+	int call_count = 0;		     
+
+	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
-	afr_local_t   * local = NULL;
+	afr_self_heal_t * sh  = NULL;
 
-	int call_count  = -1;
-	int child_index = (long) cookie;
-
-	priv = this->private;
 
 	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
 
-	LOCK (&frame->lock);
-	{
-		call_count = --local->call_count;
+	call_count = local->child_count;
 
-		if (op_ret != -1) {
-			local->self_heal.xattr[child_index] = dict_ref (xattr);
+	local->call_count = call_count;		
+
+	flock.l_start = 0;
+	flock.l_len   = 0;
+	flock.l_type  = F_WRLCK;			
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->child_up[i]) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"locking %s on subvolume %s",
+				local->loc.path, priv->children[i]->name);
+
+			STACK_WIND_COOKIE (frame, afr_sh_data_lock_cbk,
+					   (void *) (long) i,
+					   priv->children[i], 
+					   priv->children[i]->fops->inodelk,
+					   &local->loc, F_SETLK, &flock); 
+			if (!--call_count)
+				break;
 		}
-	}
-	UNLOCK (&frame->lock);
-
-	if (call_count == 0) {
-		sh_do_data_self_heal (frame, this);
 	}
 
 	return 0;
@@ -689,30 +931,20 @@ afr_inode_data_self_heal_lookup_cbk (call_frame_t *frame, void *cookie,
 int
 afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 {
-	afr_self_heal_t * sh    = NULL; 
-	afr_local_t    *  local = NULL;
-	afr_private_t  *  priv  = NULL;
+	afr_local_t   *local = NULL;
+	afr_self_heal_t *sh = NULL;
 
-	int NEED_XATTR_YES = 1;
 
-	int i;
-
-	priv  = this->private;
 	local = frame->local;
-	sh    = &local->self_heal;
+	sh = &local->self_heal;
 
-	local->call_count = up_children_count (priv->child_count,
-					       local->child_up);
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
-			STACK_WIND_COOKIE (frame,
-					   afr_inode_data_self_heal_lookup_cbk,
-					   (void *) (long) i,
-					   priv->children[i], 
-					   priv->children[i]->fops->lookup,
-					   &local->loc, NEED_XATTR_YES);
-		}
+	if (local->need_data_self_heal) {
+		afr_sh_data_lock (frame, this);
+	} else {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"proceeding to data check on %s",
+			local->loc.path);
+		afr_sh_data_done (frame, this);
 	}
 
 	return 0;

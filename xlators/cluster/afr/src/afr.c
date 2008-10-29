@@ -240,7 +240,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 				}
 
 				if (SIZE_DIFFERS (buf, lookup_buf)) {
-					/* mismatching permissions */
 					local->need_data_self_heal = 1;
 				}
 			}

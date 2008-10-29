@@ -61,7 +61,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	memset (sh->child_errno, 0, sizeof (int) * priv->child_count);
+//	memset (sh->child_errno, 0, sizeof (int) * priv->child_count);
 	memset (sh->buf, 0, sizeof (struct stat) * priv->child_count);
 	
 	for (i = 0; i < priv->child_count; i++) {
@@ -70,16 +70,25 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 		sh->xattr[i] = NULL;
 	}
 
-	if (local->govinda_gOvinda, 1) {
+	if (local->govinda_gOvinda) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"aborting selfheal of %s",
 			local->loc.path);
 		sh->completion_cbk (frame, this);
 	} else {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"proceeding to data check on %s",
-			local->loc.path);
-		afr_self_heal_data (frame, this);
+		if (S_ISREG (local->cont.lookup.buf.st_mode)) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"proceeding to data check on %s",
+				local->loc.path);
+			afr_self_heal_data (frame, this);
+		}
+
+		if (S_ISDIR (local->cont.lookup.buf.st_mode)) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"proceeding to entry check on %s",
+				local->loc.path);
+			afr_self_heal_entry (frame, this);
+		}
 	}
 
 	return 0;
@@ -430,8 +439,7 @@ afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	source = afr_sh_select_source (sh->sources, priv->child_count);
-	sh->source = source;
+	source = sh->source;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->sources[i] == 0 && local->child_up[i] == 1) {
@@ -454,7 +462,6 @@ afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
 		"syncing metadata of %s from subvolume %s to %d active sinks",
 		local->loc.path, priv->children[source]->name, active_sinks);
 
-
 	STACK_WIND (frame, afr_sh_metadata_getxattr_cbk,
 		    priv->children[source],
 		    priv->children[source]->fops->getxattr,
@@ -474,7 +481,6 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 	int              source = 0;
 	int              i = 0;
 
-
 	local = frame->local;
 	sh = &local->self_heal;
 	priv = this->private;
@@ -486,7 +492,6 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 
 	afr_sh_mark_sources (sh->pending_matrix, sh->sources, 
 			     priv->child_count);
-
 
 	afr_sh_supress_errenous_children (sh->sources, sh->child_errno,
 					  priv->child_count);
@@ -520,6 +525,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 	}
 
 	source = afr_sh_select_source (sh->sources, priv->child_count);
+	sh->source = source;
 
 	/* detect changes not visible through pending flags -- JIC */
 	for (i = 0; i < priv->child_count; i++) {
