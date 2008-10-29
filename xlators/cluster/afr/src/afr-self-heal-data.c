@@ -400,6 +400,8 @@ afr_sh_data_trim_sinks (call_frame_t *frame, xlator_t *this)
 	sources = sh->sources;
 	call_count = sh->active_sinks;
 
+	local->call_count = call_count;
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (sources[i] || !local->child_up[i])
 			continue;
