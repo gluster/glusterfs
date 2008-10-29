@@ -506,11 +506,7 @@ afr_lock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		if (local->transaction.failure_count != 0) {
-			acquire_lock_serially (frame, this);
-		} else {
-			afr_write_pending_pre_op (frame, this);
-		}
+		afr_write_pending_pre_op (frame, this);
 	}
 
 	return 0;
@@ -527,9 +523,10 @@ afr_lock_inode (call_frame_t *frame, xlator_t *this)
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = this->private;
 
+	local = frame->local;
+
 	call_count = up_children_count (priv->child_count, priv->child_up); 
 
-	local = frame->local;
 	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -569,10 +566,10 @@ afr_lock_entry (call_frame_t *frame, xlator_t *this)
 	
 	afr_local_t * local  = NULL;
 	afr_private_t * priv = this->private;
-	
-	call_count = up_children_count (priv->child_count, priv->child_up); 
 
-	local = frame->local;
+	local = frame->local;	
+
+	call_count = up_children_count (priv->child_count, priv->child_up); 
 		
 	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION)
 		call_count *= 2;
@@ -581,7 +578,8 @@ afr_lock_entry (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) (long) i,	
+			STACK_WIND_COOKIE (frame, afr_lock_common_cbk,
+					   (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->entrylk, 
 					   &local->transaction.parent_loc, 
@@ -590,7 +588,8 @@ afr_lock_entry (call_frame_t *frame, xlator_t *this)
 
 			if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
 
-				STACK_WIND_COOKIE (frame, afr_lock_common_cbk, (void *) (long) i,	
+				STACK_WIND_COOKIE (frame, afr_lock_common_cbk,
+						   (void *) (long) i,	
 						   priv->children[i], 
 						   priv->children[i]->fops->entrylk, 
 						   &local->transaction.new_parent_loc, 
@@ -616,7 +615,8 @@ transaction_resume (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	
 	if (local->transaction.failure_count) {
-		afr_unlock_inode (frame, this);
+		local->transaction.done (frame, this, 0, 0);
+//		afr_unlock_inode (frame, this);
 	} else {
 		afr_write_pending_post_op (frame, this);
 	}
@@ -637,7 +637,13 @@ afr_inode_transaction (call_frame_t *frame, xlator_t *this)
 	local->transaction.resume = transaction_resume;
 	local->transaction.type   = AFR_INODE_TRANSACTION;
 
-	afr_lock_inode (frame, this);
+	if (up_children_count (priv->child_count, local->child_up) !=
+	    priv->child_count) {
+		local->transaction.failure_count = 1;
+	}
+
+	afr_write_pending_pre_op (frame, this);
+//	afr_lock_inode (frame, this);
 
 	return 0;
 }
@@ -656,6 +662,11 @@ afr_entry_transaction (call_frame_t *frame, xlator_t *this)
 	local->transaction.resume = transaction_resume;
 	local->transaction.type   = AFR_ENTRY_TRANSACTION;
 
+	if (up_children_count (priv->child_count, local->child_up) !=
+	    priv->child_count) {
+		local->transaction.failure_count = 1;
+	}
+
 	afr_lock_entry (frame, this);
 
 	return 0;
@@ -673,6 +684,11 @@ afr_entry_rename_transaction (call_frame_t *frame, xlator_t *this)
 
 	local->transaction.resume = transaction_resume;
 	local->transaction.type   = AFR_ENTRY_RENAME_TRANSACTION;
+
+	if (up_children_count (priv->child_count, local->child_up) !=
+	    priv->child_count) {
+		local->transaction.failure_count = 1;
+	}
 
 	afr_lock_entry (frame, this);
 

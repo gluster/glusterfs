@@ -66,6 +66,9 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		call_count = --local->call_count;
 
+		if (child_went_down (op_ret, op_errno))
+			local->transaction.failure_count++;
+
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
 			if (buf)
@@ -201,6 +204,9 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
+
+		if (child_went_down (op_ret, op_errno))
+			local->transaction.failure_count++;
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
@@ -500,6 +506,9 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		call_count = --local->call_count;
 
+		if (child_went_down (op_ret, op_errno))
+			local->transaction.failure_count++;
+
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
 
@@ -640,6 +649,10 @@ afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
+		
+		if (child_went_down (op_ret, op_errno))
+			local->transaction.failure_count++;
+
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
 
