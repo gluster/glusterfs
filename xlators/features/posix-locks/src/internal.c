@@ -320,7 +320,7 @@ names_conflict (const char *n1, const char *n2)
 static int 
 names_equal (const char *n1, const char *n2)
 {
-	return (n1 == NULL && n2 == NULL) || !strcmp (n1, n2);
+	return (n1 == NULL && n2 == NULL) || (n1 && n2 && !strcmp (n1, n2));
 }
 
 /**

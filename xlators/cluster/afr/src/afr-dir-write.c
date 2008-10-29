@@ -323,8 +323,6 @@ afr_mknod_done (call_frame_t *frame, xlator_t *this,
 	if (op_ret == -1) {
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
 	} else {
-		local->cont.mknod.buf.st_ino = local->cont.mknod.ino;
-
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
 				  local->cont.mknod.inode, 
 				  &local->cont.mknod.buf);
