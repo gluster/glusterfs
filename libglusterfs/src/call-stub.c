@@ -2452,6 +2452,16 @@ call_resume_wind (call_stub_t *stub)
 	break;
 	case GF_FOP_RMELEM:
 	case GF_FOP_READDIR:
+	{
+		stub->args.readdir.fn (stub->frame,
+				       stub->frame->this,
+				       stub->args.readdir.fd,
+				       stub->args.readdir.size,
+				       stub->args.readdir.off);
+		if (stub->args.readdir.fd)
+			fd_unref (stub->args.readdir.fd);
+		break;
+	}
 	case GF_FOP_XATTROP:
 		stub->args.xattrop.fn (stub->frame,
 				       stub->frame->this,
@@ -3519,8 +3529,9 @@ call_stub_destroy (call_stub_t *stub)
 	break;
 	case GF_FOP_READDIR:
 	{
-	    if (stub->args.readdir.fd)
-	      fd_unref (stub->args.readdir.fd);
+		if (stub->args.readdir.fd)
+			fd_unref (stub->args.readdir.fd);
+		break;
 	}
 	case GF_FOP_INODELK:
 	{
