@@ -303,6 +303,7 @@ typedef struct _afr_local {
 		} type;
 
 		int success_count;
+		int erase_pending;
 		int failure_count;
 
 		int last_tried;
@@ -390,6 +391,8 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 	local->call_count = up_children_count (priv->child_count, local->child_up);
 	if (local->call_count == 0)
 		return -ENOTCONN;
+
+	local->transaction.erase_pending = 1;
 
 	local->op_ret = -1;
 

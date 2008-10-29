@@ -90,7 +90,7 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 
 		if (child_went_down (op_ret, op_errno))
-			local->transaction.failure_count++;
+			afr_transaction_child_died (frame, this);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
@@ -391,7 +391,7 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 
 		if (child_went_down (op_ret, op_errno))
-			local->transaction.failure_count++;
+			afr_transaction_child_died (frame, this);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret           = op_ret;
@@ -536,7 +536,7 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 
 		if (child_went_down (op_ret, op_errno))
-			local->transaction.failure_count++;
+			afr_transaction_child_died (frame, this);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret   = op_ret;
@@ -682,7 +682,7 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 
 		if (child_went_down (op_ret, op_errno))
-			local->transaction.failure_count++;
+			afr_transaction_child_died (frame, this);
 		
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret   = op_ret;
@@ -823,7 +823,7 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (child_went_down (op_ret, op_errno))
-			local->transaction.failure_count++;
+			afr_transaction_child_died (frame, this);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
@@ -970,7 +970,7 @@ afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (child_went_down (op_ret, op_errno))
-			local->transaction.failure_count++;
+			afr_transaction_child_died (frame, this);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret   = op_ret;
@@ -1098,7 +1098,7 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 
 		if (child_went_down (op_ret, op_errno))
-			local->transaction.failure_count++;
+			afr_transaction_child_died (frame, this);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
