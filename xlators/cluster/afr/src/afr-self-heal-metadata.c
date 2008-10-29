@@ -87,7 +87,8 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 			gf_log (this->name, GF_LOG_DEBUG,
 				"proceeding to entry check on %s",
 				local->loc.path);
-			afr_self_heal_entry (frame, this);
+			sh->completion_cbk (frame, this);
+//			afr_self_heal_entry (frame, this);
 		}
 	}
 

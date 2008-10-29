@@ -410,7 +410,7 @@ afr_open (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
-
+	int32_t call_count = 0;
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 	
@@ -428,6 +428,7 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	}
 
 	frame->local = local;
+	call_count = local->call_count;
 
 #ifdef AFR_OPEN_SELFHEAL
 	loc_copy (&local->loc, loc);
@@ -443,6 +444,8 @@ afr_open (call_frame_t *frame, xlator_t *this,
 				    priv->children[i],
 				    priv->children[i]->fops->open,
 				    loc, flags, fd);
+			if (!--call_count)
+				break;
 		}
 	}
 
@@ -485,8 +488,8 @@ afr_flush_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-int32_t afr_flush (call_frame_t *frame, xlator_t *this,
-		   fd_t *fd)
+int32_t
+afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
@@ -494,7 +497,7 @@ int32_t afr_flush (call_frame_t *frame, xlator_t *this,
 	int ret = -1;
 
 	int i = 0;
-
+	int32_t call_count = 0;
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
@@ -508,6 +511,7 @@ int32_t afr_flush (call_frame_t *frame, xlator_t *this,
 		goto out;
 	}
 
+	call_count = local->call_count;
 	frame->local = local;
 
 	for (i = 0; i < priv->child_count; i++) {
@@ -516,6 +520,8 @@ int32_t afr_flush (call_frame_t *frame, xlator_t *this,
 				    priv->children[i],
 				    priv->children[i]->fops->flush,
 				    fd);
+			if (!--call_count)
+				break;
 		}
 	}
 
@@ -569,7 +575,7 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 	int              i           = 0;
 
 	int ret = -1;
-
+	int              call_count = 0;
 	int32_t          op_ret      = -1;
 	int32_t          op_errno    = 0;
 
@@ -589,6 +595,7 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 	}
 
 	frame->local = local;
+	call_count = local->call_count;
 
 	for (i = 0; i < child_count; i++) {
 		if (local->child_up[i]) {
@@ -596,6 +603,8 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 				    priv->children[i],
 				    priv->children[i]->fops->statfs, 
 				    loc);
+			if (!--call_count)
+				break;
 		}
 	}
 	
