@@ -60,7 +60,7 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int call_count  = -1;
 
 	local = frame->local;
-	priv = this->private;
+	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -92,14 +92,17 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 afr_chmod_wind (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t *local = NULL;
-	afr_private_t *priv = NULL;
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+	
 	int i = 0;
+	int call_count = -1;
 
 	local = frame->local;
-	priv = this->private;
+	priv  = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -108,6 +111,9 @@ afr_chmod_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i]->fops->chmod,
 					   &local->loc, 
 					   local->cont.chmod.mode); 
+		
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -128,7 +134,8 @@ afr_chmod_done (call_frame_t *frame, xlator_t *this,
 	} else {
 		local->cont.chmod.buf.st_ino = local->cont.chmod.ino;
 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.chmod.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  &local->cont.chmod.buf);
 	}
 	
 	return 0;
@@ -231,14 +238,17 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 afr_chown_wind (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t *local = NULL;
-	afr_private_t *priv = NULL;
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
-	priv = this->private;
+	priv  = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -247,6 +257,9 @@ afr_chown_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i]->fops->chown,
 					   &local->loc, local->cont.chown.uid,
 					   local->cont.chown.gid); 
+
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -267,7 +280,8 @@ afr_chown_done (call_frame_t *frame, xlator_t *this,
 	} else {
 		local->cont.chown.buf.st_ino = local->cont.chown.ino;
 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.chown.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  &local->cont.chown.buf);
 	}
 
 	return 0;
@@ -375,16 +389,16 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+	
 	int i = 0;
+	int call_count = -1;
 
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
 
-	if (local->call_count < priv->child_count) {
-		local->transaction.failure_count = 1;
-	}
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -396,6 +410,9 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 					   local->cont.writev.vector,
 					   local->cont.writev.count, 
 					   local->cont.writev.offset); 
+		
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -416,7 +433,8 @@ afr_writev_done (call_frame_t *frame, xlator_t *this,
 	} else {
 		local->cont.writev.buf.st_ino = local->cont.writev.ino;
 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.writev.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  &local->cont.writev.buf);
 	}
 
 	return 0;
@@ -462,7 +480,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	local->transaction.fop   = afr_writev_wind;
 	local->transaction.done  = afr_writev_done;
 
-	local->fd                  = fd_ref (fd);
+	local->fd                = fd_ref (fd);
 
 	if (fd->flags & O_APPEND) {
 		local->transaction.start   = 0;
@@ -500,7 +518,7 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int call_count  = -1;
 
 	local = frame->local;
-	priv = this->private;
+	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -534,6 +552,8 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+	
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
@@ -549,6 +569,9 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i]->fops->truncate,
 					   &local->loc, 
 					   local->cont.truncate.offset);
+
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -569,7 +592,8 @@ afr_truncate_done (call_frame_t *frame, xlator_t *this,
 	} else {
 		local->cont.truncate.buf.st_ino = local->cont.truncate.ino;
 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.truncate.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  &local->cont.truncate.buf);
 	}
 
 	return 0;
@@ -678,12 +702,15 @@ afr_utimens_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+	
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -693,6 +720,9 @@ afr_utimens_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i]->fops->utimens,
 					   &local->loc, 
 					   local->cont.utimens.tv); 
+
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -713,7 +743,8 @@ afr_utimens_done (call_frame_t *frame, xlator_t *this,
 	} else {
 		local->cont.utimens.buf.st_ino = local->cont.utimens.ino;
 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.utimens.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  &local->cont.utimens.buf);
 	}
 	
 	return 0;
@@ -818,12 +849,15 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -834,6 +868,9 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 					   &local->loc, 
 					   local->cont.setxattr.dict,
 					   local->cont.setxattr.flags); 
+
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -949,12 +986,15 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -964,6 +1004,9 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i]->fops->removexattr,
 					   &local->loc, 
 					   local->cont.removexattr.name);
+
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -994,6 +1037,11 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+	VALIDATE_OR_GOTO (loc, out);
 
 	priv = this->private;
 

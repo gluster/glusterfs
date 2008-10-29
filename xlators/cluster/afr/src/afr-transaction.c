@@ -40,7 +40,7 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		local->transaction.done (frame, this, op_ret, op_errno);
+		local->transaction.done (frame, this, 0, 0);
 	}
 	
 	return 0;

@@ -52,44 +52,22 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 		 fd_t *fd)
 {
 	afr_local_t * local  = NULL;
-	int           unwind = 0;
+
+	int call_count = -1;
 
 	LOCK (&frame->lock);
 	{
 		local = frame->local;
-		local->call_count--;
-
-		if (!child_went_down (op_ret, op_errno)) {
-			/* we got a result, store it */
-
-			local->cont.opendir.success_count++;
-			local->cont.opendir.op_ret = op_ret;
-			local->cont.opendir.op_ret = op_errno;
-			local->fd = fd;
-		}
-
-		if (local->call_count == 0) {
-			if (local->cont.opendir.success_count == 0) {
-				/* no child is up */
-			
-				gf_log (this->name, GF_LOG_ERROR,
-					"no child is up :(");
-
-				local->cont.opendir.op_ret   = -1;
-				local->cont.opendir.op_errno = ENOTCONN;
-			}
-		
-			unwind = 1;
-		}
+		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
 
-/* out: */
-	if (unwind)
+	if (call_count == 0) {
 		AFR_STACK_UNWIND (frame, 
-			      local->cont.opendir.op_ret, 
-			      local->cont.opendir.op_errno, 
-			      local->fd);
+				  local->cont.opendir.op_ret, 
+				  local->cont.opendir.op_errno, 
+				  local->fd);
+	}
 
 	return 0;
 }
@@ -102,47 +80,44 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv        = NULL;
 	afr_local_t   * local       = NULL;
 
-	unsigned char * child_up    = NULL;
 	int             child_count = 0;
 	int             i           = 0;
 
+	int ret = -1;
+	int call_count = -1;
+
 	int32_t         op_ret   = -1;
 	int32_t         op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
 	child_count = priv->child_count;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 
 	frame->local = local;
 	local->fd    = fd_ref (fd);
 
-	child_up = alloca (sizeof (unsigned char) * child_count);
-
-	LOCK (&priv->lock);
-	{
-		memcpy (child_up, priv->child_up, 
-			sizeof (unsigned char) * child_count);
-	}
-	UNLOCK (&priv->lock);
-
-	local->call_count = up_children_count (priv->child_count,
-					       child_up);
+	call_count = local->call_count;
 	
-	if (local->call_count == 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"no child is up :(");
-		op_errno = ENOTCONN;
-		goto out;
-	}
-
 	for (i = 0; i < child_count; i++) {
-		if (child_up[i]) {
+		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_opendir_cbk, 
 				    priv->children[i],
 				    priv->children[i]->fops->opendir,
 				    loc, fd);
+
+			if (!--call_count)
+				break;
 		}
 	}
 
@@ -220,13 +195,24 @@ afr_readdir (call_frame_t *frame, xlator_t *this,
 	int             call_child = 0;
 	afr_local_t     *local     = NULL;
 
+	int ret = -1;
+
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv     = this->private;
 	children = priv->children;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
 						
 	frame->local = local;
 
@@ -313,6 +299,10 @@ afr_getdents (call_frame_t *frame, xlator_t *this,
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv     = this->private;
 	children = priv->children;

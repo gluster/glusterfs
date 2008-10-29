@@ -70,6 +70,9 @@ afr_local_cleanup (call_frame_t *frame)
 	loc_wipe (&local->loc);
 	loc_wipe (&local->newloc);
 
+	loc_wipe (&local->transaction.parent_loc);	
+	loc_wipe (&local->transaction.new_parent_loc);
+
 	if (local->fd)
 		fd_unref (local->fd);
 
@@ -420,6 +423,11 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	int     i = 0;
 	int   ret = -1;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+	VALIDATE_OR_GOTO (loc, out);
+	
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -504,6 +512,10 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -545,10 +557,12 @@ afr_statfs_cbk (call_frame_t *frame, void *cookie,
 {
 	afr_local_t *local = NULL;
 
+	int call_count = 0;
+
 	LOCK (&frame->lock);
 	{
 		local = frame->local;
-		local->call_count--;
+		call_count = --local->call_count;
 
 		if (local->cont.statfs.buf_set) {
 			if (statvfs->f_bavail < local->cont.statfs.buf.f_bavail)
@@ -560,8 +574,7 @@ afr_statfs_cbk (call_frame_t *frame, void *cookie,
 	}
 	UNLOCK (&frame->lock);
 
-
-	if (local->call_count == 0)
+	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, &local->cont.statfs.buf);
 
 	return 0;
@@ -677,6 +690,10 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
@@ -918,6 +935,7 @@ struct xlator_fops fops = {
   .open        = afr_open,
   .lk          = afr_lk,
   .flush       = afr_flush,
+  .statfs      = afr_statfs,
 
   /* inode read */
   .access      = afr_access,
@@ -939,7 +957,6 @@ struct xlator_fops fops = {
   /* dir read */
   .opendir     = afr_opendir,
   .readdir     = afr_readdir,
-  .statfs      = afr_statfs,
   .getdents    = afr_getdents,
 
   /* dir write */

@@ -125,12 +125,15 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -142,6 +145,8 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 					   local->cont.create.flags, 
 					   local->cont.create.mode, 
 					   local->cont.create.fd);
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -181,6 +186,10 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
@@ -277,12 +286,15 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv  = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -291,6 +303,8 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i]->fops->mknod,
 					   &local->loc, local->cont.mknod.mode,
 					   local->cont.mknod.dev);
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -311,7 +325,8 @@ afr_mknod_done (call_frame_t *frame, xlator_t *this,
 	} else {
 		local->cont.mknod.buf.st_ino = local->cont.mknod.ino;
 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mknod.inode, 
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  local->cont.mknod.inode, 
 				  &local->cont.mknod.buf);
 	}
 	
@@ -330,6 +345,10 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
@@ -425,12 +444,15 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+	
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv  = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -439,6 +461,8 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i], 
 					   priv->children[i]->fops->mkdir,
 					   &local->loc, local->cont.mkdir.mode);
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -457,7 +481,8 @@ afr_mkdir_done (call_frame_t *frame, xlator_t *this,
 	if (op_ret == -1) {
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
 	} else {
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.mkdir.inode, 
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  local->cont.mkdir.inode, 
 				  &local->cont.mkdir.buf);
 	}
 	
@@ -476,6 +501,10 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
@@ -569,12 +598,15 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv  = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -583,6 +615,9 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i]->fops->link,
 					   &local->loc,
 					   &local->newloc);
+			
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -601,7 +636,8 @@ afr_link_done (call_frame_t *frame, xlator_t *this,
 	} else {
 		local->cont.link.buf.st_ino = local->cont.link.ino;
 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.link.inode,
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  local->cont.link.inode,
 				  &local->cont.link.buf);
 	}
 	
@@ -620,6 +656,10 @@ afr_link (call_frame_t *frame, xlator_t *this,
 
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
@@ -715,12 +755,15 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -730,6 +773,10 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i]->fops->symlink,
 					   local->cont.symlink.linkpath,
 					   &local->loc);
+
+			if (!--call_count)
+				break;
+
 		}
 	}
 	
@@ -746,7 +793,8 @@ afr_symlink_done (call_frame_t *frame, xlator_t *this,
 	if (op_ret == -1) {
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
 	} else {
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->cont.symlink.inode,
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  local->cont.symlink.inode,
 				  &local->cont.symlink.buf);
 	}
 	
@@ -765,6 +813,10 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
@@ -858,12 +910,15 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -873,6 +928,8 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i]->fops->rename,
 					   &local->loc,
 					   &local->newloc);
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -891,7 +948,8 @@ afr_rename_done (call_frame_t *frame, xlator_t *this,
 	} else {
 		local->cont.rename.buf.st_ino = local->cont.rename.ino;
 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->cont.rename.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  &local->cont.rename.buf);
 	}
 	
 	return 0;
@@ -910,11 +968,11 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 	int op_ret   = -1;
 	int op_errno = 0;
 
-	priv = this->private;
-
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
 	VALIDATE_OR_GOTO (this->private, out);
+
+	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
@@ -997,12 +1055,15 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv  = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -1010,6 +1071,9 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 				    priv->children[i], 
 				    priv->children[i]->fops->unlink,
 				    &local->loc);
+			
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -1044,6 +1108,10 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
@@ -1123,12 +1191,15 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv  = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -1136,6 +1207,9 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 				    priv->children[i], 
 				    priv->children[i]->fops->rmdir,
 				    &local->loc);
+
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -1166,6 +1240,10 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 
@@ -1245,12 +1323,15 @@ afr_setdents_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+
+	int call_count = -1;
 	int i = 0;
 
 	local = frame->local;
 	priv  = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -1260,6 +1341,9 @@ afr_setdents_wind (call_frame_t *frame, xlator_t *this)
 				    local->fd, local->cont.setdents.flags,
 				    local->cont.setdents.entries, 
 				    local->cont.setdents.count);
+		
+			if (!--call_count)
+				break;
 		}
 	}
 	
@@ -1290,6 +1374,10 @@ afr_setdents (call_frame_t *frame, xlator_t *this,
 
 	int op_ret   = -1;
 	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
 

@@ -367,6 +367,8 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
+	VALIDATE_OR_GOTO (fd->inode, out);
+
 	call_child = afr_deitransform (fd->inode->ino, priv->child_count);
 
 	/* 
@@ -680,6 +682,11 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 
 	int32_t         op_ret     = -1;
 	int32_t         op_errno   = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+	VALIDATE_OR_GOTO (fd, out);
 
 	priv     = this->private;
 	children = priv->children;
