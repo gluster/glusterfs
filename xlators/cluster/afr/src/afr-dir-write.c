@@ -104,7 +104,6 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			}
 
 			local->cont.create.inode = inode;
-			local->fd    = fd;
 
 			local->success_count++;
 		}

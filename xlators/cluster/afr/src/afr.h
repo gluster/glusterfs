@@ -236,11 +236,11 @@ typedef struct _afr_local {
 		
 		struct {
 			ino_t ino;
+			fd_t *fd;
 			int32_t flags;
 			mode_t mode;
 			inode_t *inode;
 			struct stat buf;
-			fd_t *fd;
 		} create;
 
 		struct {

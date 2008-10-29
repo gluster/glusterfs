@@ -60,6 +60,11 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 	call_count = up_children_count (priv->child_count, local->child_up); 
+	
+	if (call_count == 0) {
+		local->transaction.done (frame, this, 0, 0);
+		return 0;
+	}
 
 //	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) 
 //		call_count *= 2;
@@ -332,7 +337,6 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t * priv = NULL;
 	
 	int child_index = (long) cookie;
-	int call_count  = -1;
 
 	local = frame->local;
 	priv  = this->private;
@@ -342,16 +346,10 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret == -1) {
 			local->child_up[child_index] = 0;
 		}
-
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
 
 	afr_lock_rec (frame, this, child_index + 1);
-
-	if (call_count == 0) {
-		afr_write_pending_pre_op (frame, this);
-	}
 
 	return 0;
 }
@@ -372,50 +370,59 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 	flock.l_len   = local->transaction.len;
 	flock.l_type  = F_WRLCK;
 
-	if ((child_index < priv->child_count) &&
-	    local->child_up[child_index]) {
-		switch (local->transaction.type) {
-		case AFR_INODE_TRANSACTION:		
-			if (local->fd) {
-				STACK_WIND_COOKIE (frame, afr_lock_cbk,
-						   (void *) (long) child_index,
-						   priv->children[child_index], 
-						   priv->children[child_index]->fops->finodelk,
-						   local->fd, F_SETLKW, &flock);
-				
-			} else {
-				STACK_WIND_COOKIE (frame, afr_lock_cbk,
-						   (void *) (long) child_index,
-						   priv->children[child_index], 
-						   priv->children[child_index]->fops->inodelk,
-						   &local->loc, F_SETLKW, &flock);
-			}
-			
-			break;
+	/* skip over children that are down */
+	while ((child_index < priv->child_count)
+	       && !local->child_up[child_index])
+		child_index++;
 
-		case AFR_ENTRY_RENAME_TRANSACTION:
-/*
+	if (child_index == priv->child_count) {
+		/* we're done locking */
+		afr_write_pending_pre_op (frame, this);
+		return 0;
+	}
+
+	switch (local->transaction.type) {
+	case AFR_INODE_TRANSACTION:		
+		if (local->fd) {
 			STACK_WIND_COOKIE (frame, afr_lock_cbk,
 					   (void *) (long) child_index,
 					   priv->children[child_index], 
-					   priv->children[child_index]->fops->entrylk, 
-					   &local->transaction.new_parent_loc, 
-					   local->transaction.new_basename,
-					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+					   priv->children[child_index]->fops->finodelk,
+					   local->fd, F_SETLKW, &flock);
+			
+		} else {
+			STACK_WIND_COOKIE (frame, afr_lock_cbk,
+					   (void *) (long) child_index,
+					   priv->children[child_index], 
+					   priv->children[child_index]->fops->inodelk,
+					   &local->loc, F_SETLKW, &flock);
+		}
+		
+		break;
+		
+	case AFR_ENTRY_RENAME_TRANSACTION:
+/*
+  STACK_WIND_COOKIE (frame, afr_lock_cbk,
+  (void *) (long) child_index,
+  priv->children[child_index], 
+  priv->children[child_index]->fops->entrylk, 
+  &local->transaction.new_parent_loc, 
+  local->transaction.new_basename,
+  GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
 */
-			/* fall through */
-
-		case AFR_ENTRY_TRANSACTION:
-			if (local->fd) {
-				STACK_WIND_COOKIE (frame, afr_lock_cbk,
+		/* fall through */
+		
+	case AFR_ENTRY_TRANSACTION:
+		if (local->fd) {
+			STACK_WIND_COOKIE (frame, afr_lock_cbk,
 					   (void *) (long) child_index,	
 					   priv->children[child_index], 
 					   priv->children[child_index]->fops->fentrylk, 
 					   local->fd, 
 					   local->transaction.basename,
 					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
-			} else {
-				STACK_WIND_COOKIE (frame, afr_lock_cbk,
+		} else {
+			STACK_WIND_COOKIE (frame, afr_lock_cbk,
 					   (void *) (long) child_index,	
 					   priv->children[child_index], 
 					   priv->children[child_index]->fops->entrylk, 
@@ -423,10 +430,9 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 					   local->transaction.basename,
 					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
 			}
-			break;
-		}
+		break;
 	}
-	
+
 	return 0;
 }
 

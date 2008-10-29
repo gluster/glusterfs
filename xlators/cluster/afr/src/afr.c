@@ -79,6 +79,9 @@ afr_local_cleanup (call_frame_t *frame)
 	case GF_FOP_GETXATTR:
 		FREE (local->cont.getxattr.name);
 		break;
+	case GF_FOP_CREATE:
+		fd_unref (local->cont.create.fd);
+		break;
 	case GF_FOP_WRITE:
 		FREE (local->cont.writev.vector);
 		break;

@@ -70,6 +70,9 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 		sh->xattr[i] = NULL;
 	}
 
+	/* TODO: remove this temporary fix */
+	local->govinda_gOvinda = 1;
+
 	if (local->govinda_gOvinda) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"aborting selfheal of %s",
