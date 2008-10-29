@@ -134,7 +134,7 @@ afr_sh_metadata_finish (call_frame_t *frame, xlator_t *this)
 
 		if (local->child_up[i]) {
 			gf_log (this->name, GF_LOG_DEBUG,
-				"locking %s on subvolume %s",
+				"unlocking %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
 
 			STACK_WIND (frame, afr_sh_metadata_unlck_cbk,
@@ -186,6 +186,8 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 	afr_private_t   *priv = NULL;
 	int              call_count = 0;
 	int              i = 0;
+	dict_t          **erase_xattr = NULL;
+
 
 	local = frame->local;
 	sh = &local->self_heal;
@@ -195,17 +197,23 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 	afr_sh_pending_to_delta (sh->pending_matrix, sh->delta_matrix,
 				 sh->success, priv->child_count);
 
-	afr_sh_delta_to_xattr (sh->delta_matrix, sh->xattr, priv->child_count,
-			       AFR_METADATA_PENDING);
+	erase_xattr = calloc (sizeof (*erase_xattr), priv->child_count);
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (sh->xattr[i])
+		if (sh->xattr[i]) {
 			call_count++;
+
+			erase_xattr[i] = get_new_dict();
+			dict_ref (erase_xattr[i]);
+		}
 	}
+
+	afr_sh_delta_to_xattr (sh->delta_matrix, erase_xattr,
+			       priv->child_count, AFR_METADATA_PENDING);
 
 	local->call_count = call_count;
 	for (i = 0; i < priv->child_count; i++) {
-		if (!sh->xattr[i])
+		if (!erase_xattr[i])
 			continue;
 
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -217,10 +225,17 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 				   priv->children[i],
 				   priv->children[i]->fops->xattrop,
 				   NULL, local->loc.path,
-				   GF_XATTROP_ADD_ARRAY, sh->xattr[i]);
+				   GF_XATTROP_ADD_ARRAY, erase_xattr[i]);
 		if (!--call_count)
 			break;
 	}
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (erase_xattr[i]) {
+			dict_unref (erase_xattr[i]);
+		}
+	}
+	FREE (erase_xattr);
 
 	return 0;
 }
@@ -391,6 +406,9 @@ afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie,
 
 		afr_sh_metadata_sync (frame, this, NULL);
 	} else {
+		dict_del (xattr, AFR_DATA_PENDING);
+		dict_del (xattr, AFR_METADATA_PENDING);
+		dict_del (xattr, AFR_ENTRY_PENDING);
 		afr_sh_metadata_sync (frame, this, xattr);
 	}
 
