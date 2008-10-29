@@ -284,6 +284,11 @@ typedef struct _afr_local {
 			char *linkpath;
 		} symlink;
 
+		struct {
+			int32_t flags;
+			dir_entry_t *entries;
+			int32_t count;
+		} setdents;
 	} cont;
 	
 	struct {

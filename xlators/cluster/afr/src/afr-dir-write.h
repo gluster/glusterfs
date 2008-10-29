@@ -52,4 +52,8 @@ int32_t
 afr_symlink (call_frame_t *frame, xlator_t *this,
 	     const char *linkpath, loc_t *oldloc);
 
+int32_t
+afr_setdents (call_frame_t *frame, xlator_t *this,
+	      fd_t *fd, int32_t flags, dir_entry_t *entries, int32_t count);
+
 #endif /* __DIR_WRITE_H__ */

@@ -929,6 +929,7 @@ struct xlator_fops fops = {
   .opendir     = afr_opendir,
   .readdir     = afr_readdir,
   .statfs      = afr_statfs,
+  .getdents    = afr_getdents,
 
   /* dir write */
   .create      = afr_create,
@@ -939,6 +940,7 @@ struct xlator_fops fops = {
   .link        = afr_link,
   .symlink     = afr_symlink,
   .rename      = afr_rename,
+  .setdents    = afr_setdents,
 };
 
 

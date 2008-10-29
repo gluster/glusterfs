@@ -1203,4 +1203,126 @@ out:
 
 /* {{{ setdents */
 
+int32_t
+afr_setdents_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+		       int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+
+	int call_count = -1;
+
+	local = frame->local;
+	priv = this->private;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+
+		if (child_went_down (op_ret, op_errno))
+			afr_transaction_child_died (frame, this);
+
+		if ((op_ret != -1) && (local->success_count == 0)) {
+			local->op_ret = op_ret;
+			local->success_count++;
+		}
+
+		local->op_errno = op_errno;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+	}
+	
+	return 0;
+}
+
+
+int32_t
+afr_setdents_wind (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t *local = NULL;
+	afr_private_t *priv = NULL;
+	int i = 0;
+
+	local = frame->local;
+	priv  = this->private;
+
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
+	for (i = 0; i < priv->child_count; i++) {				
+		if (local->child_up[i]) {
+			STACK_WIND (frame, afr_setdents_wind_cbk,	
+				    priv->children[i], 
+				    priv->children[i]->fops->setdents,
+				    local->fd, local->cont.setdents.flags,
+				    local->cont.setdents.entries, 
+				    local->cont.setdents.count);
+		}
+	}
+	
+	return 0;
+}
+
+
+int32_t
+afr_setdents_done (call_frame_t *frame, xlator_t *this,
+		   int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t * local = frame->local;
+
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	
+	return 0;
+}
+
+
+int32_t
+afr_setdents (call_frame_t *frame, xlator_t *this,
+	      fd_t *fd, int32_t flags, dir_entry_t *entries, int32_t count)
+{
+	afr_private_t * priv  = NULL;
+	afr_local_t   * local = NULL;
+	
+	int ret = -1;
+
+	int op_ret   = -1;
+	int op_errno = 0;
+
+	priv = this->private;
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
+
+	frame->local = local;
+
+	local->fd = fd_ref (fd);
+
+	local->cont.setdents.flags   = flags;
+	local->cont.setdents.entries = entries;
+	local->cont.setdents.count   = count;
+
+	local->transaction.fop  = afr_setdents_wind;
+	local->transaction.done = afr_setdents_done;
+
+	local->transaction.basename = NULL;
+	local->transaction.pending  = AFR_ENTRY_PENDING;
+
+	afr_entry_transaction (frame, this);
+
+	op_ret = 0;
+out:
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	}
+
+	return 0;
+}
+
 /* }}} */

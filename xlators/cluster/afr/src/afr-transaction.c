@@ -406,13 +406,23 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 			/* fall through */
 
 		case AFR_ENTRY_TRANSACTION:
-			STACK_WIND_COOKIE (frame, afr_lock_cbk,
+			if (local->fd) {
+				STACK_WIND_COOKIE (frame, afr_lock_cbk,
+					   (void *) (long) child_index,	
+					   priv->children[child_index], 
+					   priv->children[child_index]->fops->fentrylk, 
+					   local->fd, 
+					   local->transaction.basename,
+					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+			} else {
+				STACK_WIND_COOKIE (frame, afr_lock_cbk,
 					   (void *) (long) child_index,	
 					   priv->children[child_index], 
 					   priv->children[child_index]->fops->entrylk, 
 					   &local->transaction.parent_loc, 
 					   local->transaction.basename,
 					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+			}
 			break;
 		}
 	}
