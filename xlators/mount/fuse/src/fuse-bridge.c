@@ -570,14 +570,15 @@ fuse_fd_cbk (call_frame_t *frame,
                         "%"PRId64": %s() %s => %p", frame->root->unique,
 			gf_fop_list[frame->op], state->loc.path, fd);
 
+		fd_ref (fd);
                 if (fuse_reply_open (req, &fi) == -ENOENT) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 				"open() got EINTR");
+			fd_unref (fd);
 				goto out;
                 }
 		
 		fd_bind (fd);
-		fd_ref (fd);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRId64": %s() %s => -1 (%s)", frame->root->unique,
@@ -1248,15 +1249,16 @@ fuse_create_cbk (call_frame_t *frame,
 		inode_link (inode, state->loc.parent,
 			    state->loc.name, buf);
 
+		fd_ref (fd);
                 if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 				"create() got EINTR");
+			fd_unref (fd);
 			goto out;
                 } 
 
 		inode_lookup (inode);
 		fd_bind (fd);
-		fd_ref (fd);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRId64": %s => -1 (%s)", req_callid (req),

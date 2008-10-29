@@ -6972,8 +6972,9 @@ server_nop_cbk (call_frame_t *frame,
 	server_state_t *state = NULL;
 	
 	state = STATE (frame);
-	
-	free_state (state);
+
+	if (state)
+		free_state (state);
 	STACK_DESTROY (frame->root);
 	return 0;
 }
@@ -7041,33 +7042,48 @@ server_protocol_cleanup (transport_t *trans)
 		list_for_each_entry_safe (locker, tmp, &file_lockers, lockers) {
 			tmp_frame = server_copy_frame (frame);
 			tmp_frame->root->pid = locker->pid;
-			STACK_WIND (tmp_frame,
-				    server_nop_cbk,
-				    BOUND_XL (tmp_frame),
-				    BOUND_XL (tmp_frame)->fops->inodelk,
-				    &(locker->loc), F_SETLK, &flock);
+
+			if (locker->fd) {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->finodelk,
+					    locker->fd, F_SETLK, &flock);
+				fd_unref (locker->fd);
+			} else {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->inodelk,
+					    &(locker->loc), F_SETLK, &flock);
+				loc_wipe (&locker->loc);
+			}
 
 			list_del_init (&locker->lockers);
-			if (locker->fd)
-				fd_unref (locker->fd);
-			else
-				loc_wipe (&locker->loc);
 			free (locker);
 		}
 		
 		tmp = NULL;
 		locker = NULL;
-		list_for_each_entry_safe (locker, tmp, &file_lockers, lockers) {
+		list_for_each_entry_safe (locker, tmp, &dir_lockers, lockers) {
 			tmp_frame = copy_frame (frame);
 			tmp_frame->root->pid = locker->pid;
-			STACK_WIND (tmp_frame,
-				    server_nop_cbk,
-				    BOUND_XL (tmp_frame),
-				    BOUND_XL (tmp_frame)->fops->entrylk,
-				    &(locker->loc), NULL, 
-				    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+
+			if (locker->fd) {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->fentrylk,
+					    locker->fd, NULL, 
+					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+				fd_unref (locker->fd);
+			} else {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->entrylk,
+					    &(locker->loc), NULL, 
+					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+				loc_wipe (&locker->loc);
+			}
+
 			list_del_init (&locker->lockers);
-			loc_wipe (&locker->loc);
 			free (locker);
 		}
 

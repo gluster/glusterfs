@@ -56,7 +56,7 @@ struct _call_pool_t {
 		struct {
 			call_stack_t *next_call;
 			call_stack_t *prev_call;
-		};
+		} all_stacks;
 	};
 	int64_t                     cnt;
 	gf_lock_t                   lock;

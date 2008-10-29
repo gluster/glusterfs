@@ -93,6 +93,7 @@ afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (call_count == 0) {
 		fd_unref (sh->healing_fd);
+		sh->healing_fd = NULL;
 		afr_sh_data_done (frame, this);
 	}
 
@@ -738,7 +739,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
 		gf_log (this->name, GF_LOG_WARNING,
 			"Picking favorite child %s as authentic source to resolve conflicting data of %s",
-			priv->children[priv->favorite_child],
+			priv->children[priv->favorite_child]->name,
 			local->loc.path);
 
 		sh->sources[priv->favorite_child] = 1;

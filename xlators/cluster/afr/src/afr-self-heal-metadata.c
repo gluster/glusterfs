@@ -71,9 +71,6 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 		sh->xattr[i] = NULL;
 	}
 
-	/* TODO: remove this temporary fix */
-	local->govinda_gOvinda = 1;
-
 	if (local->govinda_gOvinda) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"aborting selfheal of %s",
@@ -509,7 +506,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 
 		gf_log (this->name, GF_LOG_WARNING,
 			"Picking favorite child %s as authentic source to resolve conflicting metadata of %s",
-			priv->children[priv->favorite_child],
+			priv->children[priv->favorite_child]->name,
 			local->loc.path);
 
 		sh->sources[priv->favorite_child] = 1;

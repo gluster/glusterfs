@@ -57,6 +57,63 @@
  * afr_local_cleanup - cleanup everything in frame->local
  */
 
+void
+afr_local_sh_cleanup (call_frame_t *frame)
+{
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
+	int              i = 0;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = frame->this->private;
+
+	if (sh->buf)
+		FREE (sh->buf);
+
+	if (sh->xattr) {
+		for (i = 0; i < priv->child_count; i++) {
+			if (sh->xattr[i]) {
+				dict_unref (sh->xattr[i]);
+				sh->xattr[i] = NULL;
+			}
+		}
+		FREE (sh->xattr);
+	}
+
+	if (sh->child_errno)
+		FREE (sh->child_errno);
+
+	if (sh->pending_matrix) {
+		for (i = 0; i < priv->child_count; i++) {
+			FREE (sh->pending_matrix[i]);
+		}
+		FREE (sh->pending_matrix);
+	}
+
+	if (sh->delta_matrix) {
+		for (i = 0; i < priv->child_count; i++) {
+			FREE (sh->delta_matrix[i]);
+		}
+		FREE (sh->delta_matrix);
+	}
+
+	if (sh->sources)
+		FREE (sh->sources);
+
+	if (sh->success)
+		FREE (sh->success);
+
+	if (sh->healing_fd) {
+		fd_unref (sh->healing_fd);
+		sh->healing_fd = NULL;
+	}
+
+	loc_wipe (&sh->parent_loc);
+}
+
+
 void 
 afr_local_cleanup (call_frame_t *frame)
 {
@@ -66,6 +123,8 @@ afr_local_cleanup (call_frame_t *frame)
 
 	if (!local)
 		return;
+
+	afr_local_sh_cleanup (frame);
 
 	loc_wipe (&local->loc);
 	loc_wipe (&local->newloc);
@@ -78,24 +137,31 @@ afr_local_cleanup (call_frame_t *frame)
 
 	FREE (local->child_up);
 
-	switch (frame->op) {
-	case GF_FOP_GETXATTR:
+	{ /* getxattr */
 		FREE (local->cont.getxattr.name);
-		break;
-	case GF_FOP_CREATE:
-		fd_unref (local->cont.create.fd);
-		break;
-	case GF_FOP_WRITE:
-		FREE (local->cont.writev.vector);
-		break;
-	case GF_FOP_SETXATTR:
-		dict_unref (local->cont.setxattr.dict);
-		break;
-	case GF_FOP_REMOVEXATTR:
-		FREE (local->cont.removexattr.name);
-		break;
 	}
 
+	{ /* create */
+		if (local->cont.create.fd)
+			fd_unref (local->cont.create.fd);
+	}
+
+	{ /* writev */
+		FREE (local->cont.writev.vector);
+	}
+
+	{ /* setxattr */
+		if (local->cont.setxattr.dict)
+			dict_unref (local->cont.setxattr.dict);
+	}
+
+	{ /* removexattr */
+		FREE (local->cont.removexattr.name);
+	}
+
+	{ /* symlink */
+		FREE (local->cont.symlink.linkpath);
+	}
 }
 
 
@@ -672,7 +738,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
 	if ((call_count == 0) || (local->success_count == -1))
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &
-			      local->cont.lk.flock);
+				  local->cont.lk.flock);
 
 	return 0;
 }
@@ -710,6 +776,7 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 	local->fd    = fd_ref (fd);
 	local->cont.lk.cmd   = cmd;
 	local->cont.lk.flock = *flock;
+	local->op_ret = 0;
 
 	i = first_up_child (priv);
 
