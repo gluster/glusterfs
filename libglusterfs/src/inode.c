@@ -558,8 +558,8 @@ static void
 __inode_replace (inode_t *oldi, inode_t *newi)
 {
         gf_log (oldi->table->name, GF_LOG_DEBUG,
-                "inode(%"PRId64") replaced %p=>%p",
-                oldi->ino, oldi, newi);
+                "inode(%"PRId64") replaced (%"PRId64"",
+                oldi->ino, newi->ino);
 
         __copy_dentries (oldi, newi);
         __adopt_children (oldi, newi);
@@ -586,6 +586,9 @@ __inode_link (inode_t *inode,
         inode_table_t *table = NULL;
 
         table = inode->table;
+
+	if (inode->ino)
+		assert (inode->ino == stbuf->st_ino);
 
         inode->ino     = stbuf->st_ino;
         inode->st_mode = stbuf->st_mode;

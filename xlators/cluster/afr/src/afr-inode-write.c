@@ -428,6 +428,8 @@ afr_writev_done (call_frame_t *frame, xlator_t *this,
 
 	local = frame->local;
 
+	dict_unref (frame->root->req_refs);
+
 	if (op_ret == -1) {
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	} else {

@@ -2406,7 +2406,8 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 
 	trav = xattr->members_list;
 
-	MAKE_REAL_PATH (real_path, this, path);
+	if (path)
+		MAKE_REAL_PATH (real_path, this, path);
 
 	if (fd) {
 		pfd_data = dict_get (fd->ctx, this->name);
