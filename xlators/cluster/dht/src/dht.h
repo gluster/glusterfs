@@ -61,8 +61,11 @@ struct dht_local {
 	dict_t                  *xattr;
 	dht_layout_t            *layout;
 	size_t                   size;
+	ino_t                    st_ino;
 	xlator_t                *src_hashed, *src_cached;
 	xlator_t                *dst_hashed, *dst_cached;
+	xlator_t                *cached_subvol;
+	xlator_t                *hashed_subvol;
 	char                     need_selfheal;
 	struct {
 		fop_mknod_cbk_t  linkfile_cbk;
@@ -163,6 +166,8 @@ int dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol,
 
 void dht_local_wipe (dht_local_t *local);
 dht_local_t *dht_local_init (call_frame_t *frame);
+int dht_stat_merge (xlator_t *this, struct stat *to, struct stat *from,
+		    xlator_t *subvol);
 
 xlator_t *dht_subvol_get_hashed (xlator_t *this, loc_t *loc);
 xlator_t *dht_subvol_get_cached (xlator_t *this, inode_t *inode);

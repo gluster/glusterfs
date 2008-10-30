@@ -58,16 +58,15 @@
  */
 
 void
-afr_local_sh_cleanup (call_frame_t *frame)
+afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 {
-	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
 	int              i = 0;
 
-	local = frame->local;
+
 	sh = &local->self_heal;
-	priv = frame->this->private;
+	priv = this->private;
 
 	if (sh->buf)
 		FREE (sh->buf);
@@ -115,16 +114,12 @@ afr_local_sh_cleanup (call_frame_t *frame)
 
 
 void 
-afr_local_cleanup (call_frame_t *frame)
+afr_local_cleanup (afr_local_t *local, xlator_t *this)
 {
-	afr_local_t * local = NULL;
-
-	local = frame->local;
-
 	if (!local)
 		return;
 
-	afr_local_sh_cleanup (frame);
+	afr_local_sh_cleanup (local, this);
 
 	loc_wipe (&local->loc);
 	loc_wipe (&local->newloc);

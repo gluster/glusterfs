@@ -339,3 +339,33 @@ dht_subvol_cnt (xlator_t *this, xlator_t *subvol)
 
 	return ret;
 }
+
+
+#define set_if_greater(a, b) do {		\
+		if ((a) < (b))			\
+			(a) = (b);		\
+	} while (0)
+
+int
+dht_stat_merge (xlator_t *this, struct stat *to,
+		struct stat *from, xlator_t *subvol)
+{
+	to->st_dev      = from->st_dev;
+
+	dht_itransform (this, subvol, from->st_ino, &to->st_ino);
+
+	to->st_mode     = from->st_mode;
+	to->st_nlink    = from->st_nlink;
+	to->st_uid      = from->st_uid;
+	to->st_gid      = from->st_gid;
+	to->st_rdev     = from->st_rdev;
+	to->st_size    += from->st_size;
+	to->st_blksize  = from->st_blksize;
+	to->st_blocks  += from->st_blocks;
+
+	set_if_greater (to->st_atime, from->st_atime);
+	set_if_greater (to->st_mtime, from->st_mtime);
+	set_if_greater (to->st_ctime, from->st_ctime);
+
+	return 0;
+}

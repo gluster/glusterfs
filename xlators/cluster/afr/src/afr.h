@@ -363,12 +363,18 @@ int
 afr_deitransform (ino64_t ino, int child_count);
 
 void
-afr_local_cleanup (call_frame_t *frame);
+afr_local_cleanup (afr_local_t *local, xlator_t *this);
 
 #define AFR_STACK_UNWIND(frame, params ...)		\
 	do {						\
-		afr_local_cleanup (frame);		\
+		afr_local_t *__local = NULL;		\
+		xlator_t    *__this = NULL;		\
+		__local = frame->local;			\
+		__this = frame->this;			\
+		frame->local = NULL;                    \
 		STACK_UNWIND (frame, params);		\
+		afr_local_cleanup (__local, __this);	\
+		free (__local);				\
 } while (0);					
 
 /* allocate and return a string that is the basename of argument */

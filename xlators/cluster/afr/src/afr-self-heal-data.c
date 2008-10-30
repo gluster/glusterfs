@@ -513,6 +513,8 @@ afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
 	offset = sh->offset;
 	sh->offset += op_ret;
 
+	frame->root->req_refs = frame->root->rsp_refs;
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->sources[i] || !local->child_up[i])
 			continue;
