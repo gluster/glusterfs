@@ -264,10 +264,11 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 
 	int i = 0;				
 	int call_count = 0;		     
-	dict_t *xattr = dict_ref (get_new_dict ());
+	dict_t *xattr = NULL;
 	afr_local_t *local = NULL;
 
 	local = frame->local;
+	xattr = get_new_dict ();
 	dict_ref (xattr);
 
 	call_count = up_children_count (priv->child_count, local->child_up); 

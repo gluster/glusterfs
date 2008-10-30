@@ -129,6 +129,9 @@ afr_local_cleanup (call_frame_t *frame)
 	loc_wipe (&local->loc);
 	loc_wipe (&local->newloc);
 
+	FREE (local->transaction.basename);
+	FREE (local->transaction.new_basename);
+
 	loc_wipe (&local->transaction.parent_loc);	
 	loc_wipe (&local->transaction.new_parent_loc);
 
@@ -136,6 +139,11 @@ afr_local_cleanup (call_frame_t *frame)
 		fd_unref (local->fd);
 
 	FREE (local->child_up);
+
+	{ /* lookup */
+		if (local->cont.lookup.xattr)
+			dict_unref (local->cont.lookup.xattr);
+	}
 
 	{ /* getxattr */
 		FREE (local->cont.getxattr.name);
