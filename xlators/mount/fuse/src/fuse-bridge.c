@@ -1290,7 +1290,7 @@ fuse_create (fuse_req_t req,
         state->loc.inode = inode_new (state->itable);
 
         fd = fd_create (state->loc.inode, get_pid_from_req (req));
-        state->fd = fd_ref (fd);
+        state->fd = fd;
 	fd->flags = state->flags;
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
