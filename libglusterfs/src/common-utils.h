@@ -127,6 +127,7 @@ typedef pthread_spinlock_t gf_lock_t;
 typedef pthread_mutex_t gf_lock_t;
 #endif /* HAVE_SPINLOCK */
 
+#define STRLEN_0(str) (strlen(str) + 1)
 #define VALIDATE_OR_GOTO(arg,label)   do {				\
 		if (!arg) {						\
 			errno = EINVAL;					\

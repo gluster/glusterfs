@@ -103,7 +103,6 @@ struct _server_state {
 	loc_t loc;
 	loc_t loc2;
 	int flags;
-	int64_t fd_no;
 	fd_t *fd;
 	size_t size;
 	off_t offset;
@@ -119,10 +118,13 @@ struct _server_state {
 	int name_len;
 	inode_table_t *itable;
 	ino_t ino;
+	ino_t par;
 	ino_t ino2;
+	ino_t par2;
 	char *path;
 	char *path2;
 	char *basename;
+	char *basename2;
 	int mask;
 	char is_revalidate;
 	char need_xattr;

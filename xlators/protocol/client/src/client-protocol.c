@@ -64,13 +64,14 @@ this_ino_get (inode_t *inode, xlator_t *this)
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
-	if (inode->ino > 1)
+	if (inode->ino > 1) {
 		ret = dict_get_uint64 (inode->ctx, this->name, &ino);
 
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"failed to do dict get from inode(%p)",
-			inode);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to do dict get from inode(%p)",
+				inode);
+		}
 	}
 out:
 	return ino;
@@ -204,9 +205,11 @@ call_bail (void *trans)
 		/* Chaining to get call-always functionality from call-once timer */
 		if (priv->timer) {
 			struct timeval timeout = {0,};
+			gf_timer_cbk_t timer_cbk = priv->timer->cbk;
+
 			timeout.tv_sec = 10;
 			timeout.tv_usec = 0;
-			gf_timer_cbk_t timer_cbk = priv->timer->cbk;
+
 			gf_timer_call_cancel (((transport_t *) trans)->xl->ctx, priv->timer);
 			priv->timer = gf_timer_call_after (((transport_t *) trans)->xl->ctx,
 							   timeout,
@@ -230,7 +233,8 @@ call_bail (void *trans)
 			strftime (last_sent, 32, "%Y-%m-%d %H:%M:%S", &last_sent_tm);
 			strftime (last_received, 32, "%Y-%m-%d %H:%M:%S", &last_received_tm);
 			gf_log (((transport_t *)trans)->xl->name, GF_LOG_ERROR,
-				"activating bail-out. pending frames = %d. last sent = %s. last received = %s. transport-timeout = %d",
+				"activating bail-out. pending frames = %d. last sent = %s. "
+				"last received = %s. transport-timeout = %d",
 				priv->saved_frames->count, last_sent, last_received,
 				priv->transport_timeout);
 		}
@@ -365,27 +369,35 @@ protocol_client_xfer (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->create
  */
-
 int32_t
 client_create (call_frame_t *frame,
-               xlator_t *this,
-               loc_t *loc,
-               int32_t flags,
-               mode_t mode,
-               fd_t *fd)
+               xlator_t     *this,
+               loc_t        *loc,
+               int32_t       flags,
+               mode_t        mode,
+               fd_t         *fd)
 {
-	int ret = -1;
+	int              ret = -1;
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_create_req_t *req = NULL;
-	size_t hdrlen = 0;
+	size_t               hdrlen = 0;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t par = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	par = this_ino_get (loc->parent, this);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
 	req->flags   = hton32 (flags);
 	req->mode    = hton32 (mode);
+	req->par     = hton64 (par);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	frame->local = fd;
 
@@ -405,7 +417,6 @@ client_create (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->open
  */
-
 int32_t
 client_open (call_frame_t *frame,
              xlator_t *this,
@@ -413,18 +424,30 @@ client_open (call_frame_t *frame,
              int32_t flags,
              fd_t *fd)
 {
-	int ret = -1;
+	int              ret = -1;
 	gf_hdr_common_t *hdr = NULL;
-	size_t hdrlen = 0;
+	size_t           hdrlen = 0;
 	gf_fop_open_req_t *req = NULL;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+	
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino   = hton64 (this_ino_get (loc->inode, this));
+	req->ino   = hton64 (ino);
+	req->par   = hton64 (par);
 	req->flags = hton32 (flags);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	frame->local = fd;
 
@@ -444,23 +467,34 @@ client_open (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->stat
  */
-
 int32_t
 client_stat (call_frame_t *frame,
              xlator_t *this,
              loc_t *loc)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t   *hdr = NULL;
 	gf_fop_stat_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino  = hton64 (this_ino_get (loc->inode, this));
+	req->ino  = hton64 (ino);
+	req->par  = hton64 (par);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_STAT,
@@ -479,27 +513,36 @@ client_stat (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->readlink
  */
-
-
 int32_t
 client_readlink (call_frame_t *frame,
                  xlator_t *this,
                  loc_t *loc,
                  size_t size)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_readlink_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino  = hton64 (this_ino_get (loc->inode, this));
+	req->ino  = hton64 (ino);
+	req->par  = hton64 (par);
 	req->size = hton32 (size);
 	strcpy (req->path, loc->path);
-
+	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_READLINK,
@@ -519,7 +562,6 @@ client_readlink (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->mknod
  */
-
 int32_t
 client_mknod (call_frame_t *frame,
               xlator_t *this,
@@ -527,18 +569,27 @@ client_mknod (call_frame_t *frame,
               mode_t mode,
               dev_t dev)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_mknod_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  par = 0;
+	
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
+	req->par  = hton64 (par);
 	req->mode = hton32 (mode);
 	req->dev  = hton64 (dev);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	frame->local = loc->inode;
 
@@ -559,25 +610,32 @@ client_mknod (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->mkdir
  */
-
-
 int32_t
 client_mkdir (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc,
               mode_t mode)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_mkdir_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  par = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	par = this_ino_get (loc->parent, this);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
-
+	
+	req->par  = hton64 (par);
 	req->mode = hton32 (mode);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	frame->local = loc->inode;
 
@@ -598,23 +656,34 @@ client_mkdir (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->unlink
  */
-
 int32_t
 client_unlink (call_frame_t *frame,
                xlator_t *this,
                loc_t *loc)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_unlink_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
+	
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino  = hton64 (this_ino_get (loc->inode, this));
+	req->ino  = hton64 (ino);
+	req->par  = hton64 (par);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_UNLINK,
@@ -628,13 +697,16 @@ client_rmelem (call_frame_t *frame,
                xlator_t *this,
                const char *path)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_rmelem_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	
+	pathlen = STRLEN_0(path);
 
-	hdrlen = gf_hdr_len (req, strlen (path) + 1);
-	hdr    = gf_hdr_new (req, strlen (path) + 1);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	strcpy (req->path, path);
@@ -654,23 +726,34 @@ client_rmelem (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->rmdir
  */
-
 int32_t
 client_rmdir (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_rmdir_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
+	
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino  = hton64 (this_ino_get (loc->inode, this));
+	req->ino  = hton64 (ino);
+	req->par  = hton64 (par);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RMDIR,
@@ -690,7 +773,6 @@ client_rmdir (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->symlink
  */
-
 int32_t
 client_symlink (call_frame_t *frame,
                 xlator_t *this,
@@ -698,23 +780,29 @@ client_symlink (call_frame_t *frame,
                 loc_t *loc)
 {
 	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_symlink_req_t *req = NULL;
-	size_t hdrlen = 0;
-	size_t oldlen = 0;
-	size_t newlen = 0;
+	size_t hdrlen  = 0;
+	size_t pathlen = 0;
+	size_t newlen  = 0;
+	size_t baselen = 0;
+	ino_t par = 0;
 
 	frame->local = loc->inode;
 
-	oldlen = strlen (loc->path);
-	newlen = strlen (linkname);
+	pathlen = STRLEN_0 (loc->path);
+	baselen = STRLEN_0 (loc->name);
+	newlen = STRLEN_0 (linkname);
+	par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, oldlen + 1 + newlen + 1);
-	hdr    = gf_hdr_new (req, oldlen + 1 + newlen + 1);
+	hdrlen = gf_hdr_len (req, pathlen + baselen + newlen);
+	hdr    = gf_hdr_new (req, pathlen + baselen + newlen);
 	req    = gf_param (hdr);
-
-	strcpy (req->oldpath, loc->path);
-	strcpy (req->newpath + oldlen + 1, linkname);
+	
+	req->par =  hton64 (par);
+	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
+	strcpy (req->linkname + pathlen + baselen, linkname);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SYMLINK,
@@ -732,7 +820,6 @@ client_symlink (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->rename
  */
-
 int32_t
 client_rename (call_frame_t *frame,
                xlator_t *this,
@@ -743,22 +830,40 @@ client_rename (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_rename_req_t *req = NULL;
 	size_t hdrlen = 0;
-	size_t oldlen = 0;
-	size_t newlen = 0;
+	size_t oldpathlen = 0;
+	size_t oldbaselen = 0;
+	size_t newpathlen = 0;
+	size_t newbaselen = 0;
+	ino_t  oldino = 0;
+	ino_t  oldpar = 0;
+	ino_t  newino = 0;
+	ino_t  newpar = 0;
 
-	oldlen = strlen (oldloc->path);
-	newlen = strlen (newloc->path);
+	oldpathlen = STRLEN_0(oldloc->path);
+	oldbaselen = STRLEN_0(oldloc->name);
+	newpathlen = STRLEN_0(newloc->path);
+	newbaselen = STRLEN_0(newloc->name);
+	oldino = this_ino_get (oldloc->inode, this);
+	if (oldloc->ino != 1)
+		oldpar = this_ino_get (oldloc->parent, this);
+	if (newloc->ino)
+		newino = this_ino_get (newloc->inode, this);
+	newpar = this_ino_get (newloc->parent, this);
 
-	hdrlen = gf_hdr_len (req, oldlen + 1 + newlen + 1);
-	hdr    = gf_hdr_new (req, oldlen + 1 + newlen + 1);
+	hdrlen = gf_hdr_len (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
+	hdr    = gf_hdr_new (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
 	req    = gf_param (hdr);
 
-	req->oldino = hton64 (this_ino_get (oldloc->inode, this));
+	req->oldino = hton64 (oldino);
+	req->oldpar = hton64 (oldpar);
 	if (newloc->ino)
-		req->newino = hton64 (this_ino_get (newloc->inode, this));
+		req->newino = hton64 (newino);
+	req->newpar = hton64 (newpar);
 
 	strcpy (req->oldpath, oldloc->path);
-	strcpy (req->newpath + oldlen + 1, newloc->path);
+	strcpy (req->oldbasename + oldpathlen, oldloc->name);
+	strcpy (req->newpath     + oldpathlen + oldbaselen, newloc->path);
+	strcpy (req->newbasename + oldpathlen + oldbaselen + newpathlen, newloc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RENAME,
@@ -789,20 +894,35 @@ client_link (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_link_req_t *req = NULL;
 	size_t hdrlen = 0;
-	size_t oldlen = 0;
-	size_t newlen = 0;
+	size_t oldpathlen = 0;
+	size_t oldbaselen = 0;
+	size_t newpathlen = 0;
+	size_t newbaselen = 0;
+	ino_t  oldino = 0;
+	ino_t  oldpar = 0;
+	ino_t  newpar = 0;
 
-	oldlen = strlen (oldloc->path);
-	newlen = strlen (newloc->path);
+	oldpathlen = STRLEN_0(oldloc->path);
+	oldbaselen = STRLEN_0(oldloc->name);
+	newpathlen = STRLEN_0(newloc->path);
+	newbaselen = STRLEN_0(newloc->name);
+	oldino = this_ino_get (oldloc->inode, this);
+	if (oldloc->ino != 1)
+		oldpar = this_ino_get (oldloc->parent, this);
+	newpar = this_ino_get (newloc->parent, this);
 
-	hdrlen = gf_hdr_len (req, oldlen + 1 + newlen + 1);
-	hdr    = gf_hdr_new (req, oldlen + 1 + newlen + 1);
+	hdrlen = gf_hdr_len (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
+	hdr    = gf_hdr_new (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
 	req    = gf_param (hdr);
 
 	strcpy (req->oldpath, oldloc->path);
-	strcpy (req->newpath + oldlen + 1, newloc->path);
+	strcpy (req->oldbasename + oldpathlen, oldloc->name);
+	strcpy (req->newpath     + oldpathlen + oldbaselen, newloc->path);
+	strcpy (req->newbasename + oldpathlen + oldbaselen + newpathlen, newloc->name);
 
-	req->oldino = hton64 (this_ino_get (oldloc->inode, this));
+	req->oldino = hton64 (oldino);
+	req->oldpar = hton64 (oldpar);
+	req->newpar = hton64 (newpar);
 
 	frame->local = oldloc->inode;
 
@@ -823,25 +943,36 @@ client_link (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->chmod
  */
-
 int32_t
 client_chmod (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc,
               mode_t mode)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_chmod_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t ino = 0;
+	ino_t par = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+	
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->oldino  = hton64 (this_ino_get (loc->inode, this));
+	req->ino     = hton64 (ino);
+	req->par     = hton64 (par);
 	req->mode    = hton32 (mode);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHMOD,
@@ -861,7 +992,6 @@ client_chmod (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->chown
  */
-
 int32_t
 client_chown (call_frame_t *frame,
               xlator_t *this,
@@ -869,19 +999,31 @@ client_chown (call_frame_t *frame,
               uid_t uid,
               gid_t gid)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_chown_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino = hton64 (this_ino_get (loc->inode, this));
+	req->ino = hton64 (ino);
+	req->par = hton64 (par);
 	req->uid = hton32 (uid);
 	req->gid = hton32 (gid);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHOWN,
@@ -899,25 +1041,36 @@ client_chown (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->truncate
  */
-
 int32_t
 client_truncate (call_frame_t *frame,
                  xlator_t *this,
                  loc_t *loc,
                  off_t offset)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_truncate_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino    = hton64 (this_ino_get (loc->inode, this));
+	req->ino    = hton64 (ino);
+	req->par    = hton64 (par);
 	req->offset = hton64 (offset);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_TRUNCATE,
@@ -937,25 +1090,36 @@ client_truncate (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->utimes
  */
-
 int32_t
 client_utimens (call_frame_t *frame,
                 xlator_t *this,
                 loc_t *loc,
                 struct timespec *tvp)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_utimens_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino = hton64 (this_ino_get (loc->inode, this));
+	req->ino = hton64 (ino);
+	req->par = hton64 (par);
 	gf_timespec_from_timespec (req->tv, tvp);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_UTIMENS,
@@ -976,7 +1140,6 @@ client_utimens (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->readv
  */
-
 int32_t
 client_readv (call_frame_t *frame,
               xlator_t *this,
@@ -989,9 +1152,13 @@ client_readv (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd for fd_t (%p) returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL, 0, NULL);
 		return 0;
 	}
@@ -1023,7 +1190,6 @@ client_readv (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->writev
  */
-
 int32_t
 client_writev (call_frame_t *frame,
                xlator_t *this,
@@ -1032,14 +1198,18 @@ client_writev (call_frame_t *frame,
                int32_t count,
                off_t offset)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_write_req_t *req = NULL;
-	size_t hdrlen = 0;
+	size_t  hdrlen = 0;
 	int64_t remote_fd = -1;
-	int ret = -1;
-
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	int     ret = -1;
+	
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -1069,23 +1239,34 @@ client_writev (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->statfs
  */
-
 int32_t
 client_statfs (call_frame_t *frame,
                xlator_t *this,
                loc_t *loc)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_statfs_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino = hton64 (this_ino_get (loc->inode, this));
+	req->ino = hton64 (ino);
+	req->par = hton64 (par);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_STATFS,
@@ -1114,9 +1295,13 @@ client_flush (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
@@ -1158,9 +1343,12 @@ client_fsync (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int32_t ret = -1;
-
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
@@ -1171,7 +1359,6 @@ client_fsync (call_frame_t *frame,
 
 	req->fd   = hton64 (remote_fd);
 	req->data = hton32 (flags);
-	req->fd   = hton64 (remote_fd);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSYNC,
@@ -1188,12 +1375,12 @@ client_xattrop (call_frame_t *frame,
 		gf_xattrop_flags_t flags,
 		dict_t *dict)
 {
-	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_xattrop_req_t *req = NULL;
-	size_t hdrlen = 0;
-	size_t dict_len = 0;
+	size_t  hdrlen = 0;
+	size_t  dict_len = 0;
 	int64_t remote_fd = -1;
+	int     ret = -1;
 
 	if (dict)
 		dict_len = dict_serialized_length (dict);
@@ -1202,9 +1389,15 @@ client_xattrop (call_frame_t *frame,
 	hdr    = gf_hdr_new (req, dict_len + (path ? (strlen (path) + 1) : 0));
 	req    = gf_param (hdr);
 
-	if (fd && this_fd_get (fd, this, &remote_fd) == -1) {
-		STACK_UNWIND (frame, -1, EBADFD, NULL);
-		return 0;
+	if (fd) {
+		ret = this_fd_get (fd, this, &remote_fd);
+		if (ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to get remote fd from fd_t(%p). returning EBADFD",
+				fd);
+			STACK_UNWIND (frame, -1, EBADFD, NULL);
+			return 0;
+		}
 	}
 
 	req->flags = hton32 (flags);
@@ -1242,12 +1435,10 @@ client_xattrop_cbk (call_frame_t *frame,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		dict_len = ntoh32 (rsp->dict_len);
 
-		if (dict_len > 0)
-		{
+		if (dict_len > 0) {
 			char *dictbuf = memdup (rsp->dict, dict_len);
 			dict = get_new_dict();
 			dict_unserialize (dictbuf, dict_len, &dict);
@@ -1277,7 +1468,6 @@ client_xattrop_cbk (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->setxattr
  */
-
 int32_t
 client_setxattr (call_frame_t *frame,
                  xlator_t *this,
@@ -1285,26 +1475,37 @@ client_setxattr (call_frame_t *frame,
                  dict_t *dict,
                  int32_t flags)
 {
-	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_setxattr_req_t *req = NULL;
 	size_t hdrlen = 0;
 	size_t dict_len = 0;
+	int    ret = -1;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
 
 	dict_len = dict_serialized_length (dict);
-
-	hdrlen = gf_hdr_len (req, dict_len + strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, dict_len + strlen (loc->path) + 1);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+	
+	hdrlen = gf_hdr_len (req, dict_len + pathlen + baselen);
+	hdr    = gf_hdr_new (req, dict_len + pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino   = hton64 (this_ino_get (loc->inode, this));
+	req->ino   = hton64 (ino);
+	req->par   = hton64 (par);
 	req->flags = hton32 (flags);
 	req->dict_len = hton32 (dict_len);
 	dict_serialize (dict, req->dict);
 	/* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
 	 * in the protocol data.
 	 */
-	strcpy (req->dict + dict_len, loc->path);
+	strcpy (req->path + dict_len, loc->path);
+	strcpy (req->basename + dict_len + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETXATTR,
@@ -1320,7 +1521,6 @@ client_setxattr (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->getxattr
  */
-
 int32_t
 client_getxattr (call_frame_t *frame,
                  xlator_t *this,
@@ -1331,20 +1531,32 @@ client_getxattr (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_getxattr_req_t *req = NULL;
 	size_t hdrlen = 0;
-	size_t name_len = 0;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	size_t namelen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
 
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
 	if (name)
-		name_len = strlen (name);
+		namelen = STRLEN_0(name);
 
-	hdrlen = gf_hdr_len (req, name_len + 1 + strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, name_len + 1 + strlen (loc->path) + 1);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen + namelen);
+	hdr    = gf_hdr_new (req, pathlen + baselen + namelen);
 	req    = gf_param (hdr);
 
-	req->ino   = hton64 (this_ino_get (loc->inode, this));
-	req->name_len = hton32 (name_len);
+	req->ino   = hton64 (ino);
+	req->par   = hton64 (par);
+	req->namelen = hton32 (namelen);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 	if (name)
-		strcpy (req->name + strlen (loc->path) + 1, name);
+		strcpy (req->name + pathlen + baselen, name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_GETXATTR,
@@ -1361,7 +1573,6 @@ client_getxattr (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->removexattr
  */
-
 int32_t
 client_removexattr (call_frame_t *frame,
                     xlator_t *this,
@@ -1372,17 +1583,28 @@ client_removexattr (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_removexattr_req_t *req = NULL;
 	size_t hdrlen = 0;
-	size_t name_len = 0;
+	size_t namelen = 0;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	ino_t  ino = 0;
+	ino_t  par = 0;
 
-	name_len = strlen (name);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	namelen = STRLEN_0(name);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, name_len + 1 + strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, name_len + 1 + strlen (loc->path) + 1);
+	hdrlen = gf_hdr_len (req, pathlen + baselen + namelen);
+	hdr    = gf_hdr_new (req, pathlen + baselen + namelen);
 	req    = gf_param (hdr);
 
-	req->ino   = hton64 (this_ino_get (loc->inode, this));
+	req->ino   = hton64 (ino);
+	req->par   = hton64 (par);
 	strcpy (req->path, loc->path);
-	strcpy (req->name + strlen (loc->path) + 1, name);
+	strcpy (req->basename + pathlen, loc->name);
+	strcpy (req->name     + pathlen + baselen, name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_REMOVEXATTR,
@@ -1399,24 +1621,35 @@ client_removexattr (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->opendir
  */
-
 int32_t
 client_opendir (call_frame_t *frame,
                 xlator_t *this,
                 loc_t *loc,
                 fd_t *fd)
 {
-	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
-	size_t hdrlen = 0;
 	gf_fop_opendir_req_t *req = NULL;
+	gf_hdr_common_t      *hdr = NULL;
+	size_t hdrlen = 0;
+	int    ret = -1;
+	ino_t  ino = 0;
+	ino_t  par = 0;
+	size_t pathlen = 0;
+	size_t baselen = 0;
+	
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->parent, this);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino = hton64 (this_ino_get (loc->inode, this));
+	req->ino = hton64 (ino);
+	req->par = hton64 (par);
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
 	frame->local = fd;
 
@@ -1449,9 +1682,13 @@ client_getdents (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -1492,9 +1729,12 @@ client_readdir (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -1513,7 +1753,6 @@ client_readdir (call_frame_t *frame,
 
 	return 0;
 }
-
 
 
 
@@ -1538,9 +1777,13 @@ client_fsyncdir (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int32_t ret = -1;
-
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
@@ -1569,26 +1812,37 @@ client_fsyncdir (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->access
  */
-
 int32_t
 client_access (call_frame_t *frame,
                xlator_t *this,
                loc_t *loc,
                int32_t mask)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_access_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	ino_t  ino = 0;
+	ino_t  par = 0;
+	size_t pathlen = 0;
+	size_t baselen = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	ino = this_ino_get (loc->inode, this);
+	if (loc->ino != 1)
+		par = this_ino_get (loc->inode, this);
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino  = hton64 (this_ino_get (loc->inode, this));
+	req->ino  = hton64 (ino);
+	req->par  = hton64 (par);
 	req->mask = hton32 (mask);
 	strcpy (req->path, loc->path);
-
+	strcpy (req->basename + pathlen, loc->name);
+	
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_ACCESS,
 				    hdr, hdrlen, NULL, 0, NULL);
@@ -1619,15 +1873,19 @@ client_ftruncate (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int ret = -1;
 
-	hdrlen = gf_hdr_len (req, 0);
-	hdr    = gf_hdr_new (req, 0);
-	req    = gf_param (hdr);
-
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
+
+	hdrlen = gf_hdr_len (req, 0);
+	hdr    = gf_hdr_new (req, 0);
+	req    = gf_param (hdr);
 
 	req->fd     = hton64 (remote_fd);
 	req->offset = hton64 (offset);
@@ -1660,15 +1918,19 @@ client_fstat (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int ret = -1;
 
-	hdrlen = gf_hdr_len (req, 0);
-	hdr    = gf_hdr_new (req, 0);
-	req    = gf_param (hdr);
-
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
+
+	hdrlen = gf_hdr_len (req, 0);
+	hdr    = gf_hdr_new (req, 0);
+	req    = gf_param (hdr);
 
 	req->fd = hton64 (remote_fd);
 
@@ -1690,7 +1952,6 @@ client_fstat (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->lk
  */
-
 int32_t
 client_lk (call_frame_t *frame,
            xlator_t *this,
@@ -1706,8 +1967,12 @@ client_lk (call_frame_t *frame,
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -1718,14 +1983,23 @@ client_lk (call_frame_t *frame,
 		gf_cmd = GF_LK_SETLK;
 	else if (cmd == F_SETLKW || cmd == F_SETLKW64)
 		gf_cmd = GF_LK_SETLKW;
-	else
-		gf_log (this->name, GF_LOG_ERROR, "Unknown cmd (%d)!", gf_cmd);
+	else {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"Unknown cmd (%d)!", gf_cmd);
+		STACK_UNWIND (frame, -1, EINVAL, NULL);
+		return 0;
+	}
 
-	switch (flock->l_type)
-	{
-	case F_RDLCK: gf_type = GF_LK_F_RDLCK; break;
-	case F_WRLCK: gf_type = GF_LK_F_WRLCK; break;
-	case F_UNLCK: gf_type = GF_LK_F_UNLCK; break;
+	switch (flock->l_type) {
+	case F_RDLCK: 
+		gf_type = GF_LK_F_RDLCK; 
+		break;
+	case F_WRLCK: 
+		gf_type = GF_LK_F_WRLCK; 
+		break;
+	case F_UNLCK: 
+		gf_type = GF_LK_F_UNLCK; 
+		break;
 	}
 
 	hdrlen = gf_hdr_len (req, 0);
@@ -1755,10 +2029,12 @@ client_lk (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->inodelk
  */
-
 int32_t
-client_inodelk (call_frame_t *frame, xlator_t *this,
-		loc_t *loc, int32_t cmd, struct flock *flock)
+client_inodelk (call_frame_t *frame, 
+		xlator_t *this,
+		loc_t *loc, 
+		int32_t cmd, 
+		struct flock *flock)
 {
 	int ret = -1;
 	gf_hdr_common_t *hdr = NULL;
@@ -1766,8 +2042,12 @@ client_inodelk (call_frame_t *frame, xlator_t *this,
 	size_t hdrlen = 0;
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
+	ino_t   ino  = 0;
+	size_t  pathlen = 0;
+	size_t  baselen = 0;
 
-	size_t pathlen = strlen (loc->path) + 1;
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
 		gf_cmd = GF_LK_GETLK;
@@ -1775,23 +2055,33 @@ client_inodelk (call_frame_t *frame, xlator_t *this,
 		gf_cmd = GF_LK_SETLK;
 	else if (cmd == F_SETLKW || cmd == F_SETLKW64)
 		gf_cmd = GF_LK_SETLKW;
-	else
-		gf_log (this->name, GF_LOG_ERROR, "Unknown cmd (%d)!", gf_cmd);
-
-	switch (flock->l_type)
-	{
-	case F_RDLCK: gf_type = GF_LK_F_RDLCK; break;
-	case F_WRLCK: gf_type = GF_LK_F_WRLCK; break;
-	case F_UNLCK: gf_type = GF_LK_F_UNLCK; break;
+	else {
+		gf_log (this->name, GF_LOG_ERROR,
+			"Unknown cmd (%d)!", gf_cmd);
+		STACK_UNWIND (frame, -1, EINVAL);
+		return 0;
 	}
 
-	hdrlen = gf_hdr_len (req, pathlen);
-	hdr    = gf_hdr_new (req, pathlen);
+	switch (flock->l_type) {
+	case F_RDLCK: 
+		gf_type = GF_LK_F_RDLCK; 
+		break;
+	case F_WRLCK: 
+		gf_type = GF_LK_F_WRLCK; 
+		break;
+	case F_UNLCK: 
+		gf_type = GF_LK_F_UNLCK; 
+		break;
+	}
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
 	strcpy (req->path, loc->path);
+	strcpy (req->basename + pathlen, loc->name);
 
-	req->ino  = hton64 (this_ino_get (loc->inode, this));
+	req->ino  = hton64 (ino);
 
 	req->cmd  = hton32 (gf_cmd);
 	req->type = hton32 (gf_type);
@@ -1816,10 +2106,12 @@ client_inodelk (call_frame_t *frame, xlator_t *this,
  *
  * external reference through client_protocol_xlator->fops->finodelk
  */
-
 int32_t
-client_finodelk (call_frame_t *frame, xlator_t *this,
-		 fd_t *fd, int32_t cmd, struct flock *flock)
+client_finodelk (call_frame_t *frame, 
+		 xlator_t *this,
+		 fd_t *fd, 
+		 int32_t cmd, 
+		 struct flock *flock)
 {
 	int ret = -1;
 	gf_hdr_common_t *hdr = NULL;
@@ -1828,8 +2120,16 @@ client_finodelk (call_frame_t *frame, xlator_t *this,
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 	int64_t remote_fd = -1;
-
-	size_t pathlen = 0;
+	
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
+		STACK_UNWIND (frame, -1, EBADFD, NULL);
+		return 0;
+	}
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
 		gf_cmd = GF_LK_GETLK;
@@ -1837,24 +2137,27 @@ client_finodelk (call_frame_t *frame, xlator_t *this,
 		gf_cmd = GF_LK_SETLK;
 	else if (cmd == F_SETLKW || cmd == F_SETLKW64)
 		gf_cmd = GF_LK_SETLKW;
-	else
-		gf_log (this->name, GF_LOG_ERROR, "Unknown cmd (%d)!", gf_cmd);
-
-	switch (flock->l_type)
-	{
-	case F_RDLCK: gf_type = GF_LK_F_RDLCK; break;
-	case F_WRLCK: gf_type = GF_LK_F_WRLCK; break;
-	case F_UNLCK: gf_type = GF_LK_F_UNLCK; break;
+	else {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"Unknown cmd (%d)!", gf_cmd);
+		STACK_UNWIND (frame, -1, EINVAL);
 	}
 
-	hdrlen = gf_hdr_len (req, pathlen);
-	hdr    = gf_hdr_new (req, pathlen);
+	switch (flock->l_type) {
+	case F_RDLCK: 
+		gf_type = GF_LK_F_RDLCK; 
+		break;
+	case F_WRLCK: 
+		gf_type = GF_LK_F_WRLCK; 
+		break;
+	case F_UNLCK: 
+		gf_type = GF_LK_F_UNLCK; 
+		break;
+	}
+
+	hdrlen = gf_hdr_len (req, 0);
+	hdr    = gf_hdr_new (req, 0);
 	req    = gf_param (hdr);
-
-	if (this_fd_get (fd, this, &remote_fd) == -1) {
-		STACK_UNWIND (frame, -1, EBADFD);
-		return 0;
-	}
 
 	req->fd = hton64 (remote_fd);
 
@@ -1871,30 +2174,34 @@ client_finodelk (call_frame_t *frame, xlator_t *this,
 
 
 int32_t
-client_entrylk (call_frame_t *frame, xlator_t *this,
-		loc_t *loc, const char *basename,
-		gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+client_entrylk (call_frame_t *frame, 
+		xlator_t *this,
+		loc_t *loc, 
+		const char *basename,
+		gf_dir_lk_cmd cmd, 
+		gf_dir_lk_type type)
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_entrylk_req_t *req = NULL;
-
 	size_t pathlen = 0;
 	size_t baselen = 0;
-
 	size_t hdrlen = -1;
 	int ret = -1;
-  
-	pathlen = strlen (loc->path) + 1;
-	baselen = strlen (basename) + 1;
+	ino_t ino = 0;
+	ino_t par = 0;
+
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(basename);
+	ino = this_ino_get (loc->inode, this);
+	par = this_ino_get (loc->parent, this);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino  = hton64 (this_ino_get (loc->inode, this));
+	req->ino  = hton64 (ino);
 	strcpy (req->path, loc->path);
-
-	strcpy (req->path + pathlen, basename);
+	strcpy (req->basename + pathlen, basename);
 
 	req->cmd  = hton32 (cmd);
 	req->type = hton32 (type);
@@ -1908,33 +2215,37 @@ client_entrylk (call_frame_t *frame, xlator_t *this,
 
 
 int32_t
-client_fentrylk (call_frame_t *frame, xlator_t *this,
-		 fd_t *fd, const char *basename,
-		 gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+client_fentrylk (call_frame_t *frame, 
+		 xlator_t *this,
+		 fd_t *fd, 
+		 const char *name,
+		 gf_dir_lk_cmd cmd, 
+		 gf_dir_lk_type type)
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fentrylk_req_t *req = NULL;
 	int64_t remote_fd = -1;
-
-	size_t baselen = 0;
-
+	size_t namelen = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
   
-	baselen = strlen (basename) + 1;
-
-	hdrlen = gf_hdr_len (req, baselen);
-	hdr    = gf_hdr_new (req, baselen);
-	req    = gf_param (hdr);
-
-	if (this_fd_get (fd, this, &remote_fd) == -1) {
+	namelen = STRLEN_0(name);
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
+	
+	hdrlen = gf_hdr_len (req, namelen);
+	hdr    = gf_hdr_new (req, namelen);
+	req    = gf_param (hdr);
 
 	req->fd = hton64 (remote_fd);
 
-	strcpy (req->basename, basename);
+	strcpy (req->name, name);
 
 	req->cmd  = hton32 (cmd);
 	req->type = hton32 (type);
@@ -1961,18 +2272,33 @@ client_lookup (call_frame_t *frame,
                loc_t *loc,
                int32_t need_xattr)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_lookup_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int ret = -1;
+	int    ret = -1;
+	ino_t  ino = 0;
+	ino_t  par = 0;
+	size_t pathlen = 0;
+	size_t baselen = 0;
 
-	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
+	if (loc->ino != 1) {
+		ino = this_ino_get (loc->inode, this);
+		par = this_ino_get (loc->parent, this);
+	} else 
+		ino = loc->ino;
+
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+
+	hdrlen = gf_hdr_len (req, pathlen + baselen);
+	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
-
-	req->ino   = hton64 (this_ino_get (loc->inode, this));
+	
+	req->ino   = hton64 (ino);
+	req->par   = hton64 (par);
 	req->flags = hton32 (need_xattr);
 	strcpy (req->path, loc->path);
+	strcpy (req->path + pathlen, loc->name);
 
 	frame->local = loc->inode;
 
@@ -2000,16 +2326,21 @@ client_fchmod (call_frame_t *frame,
 	int64_t remote_fd = -1;
 	size_t hdrlen = -1;
 	int ret = -1;
+	
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
+		STACK_UNWIND (frame, -1, EBADFD, NULL);
+		return 0;
+	}
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	req    = gf_param (hdr);
 
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
-		STACK_UNWIND (frame, -1, EBADFD, NULL);
-		return 0;
-	}
 
 	req->fd   = hton64 (remote_fd);
 	req->mode = hton32 (mode);
@@ -2045,16 +2376,20 @@ client_fchown (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int ret = -1;
 
-	hdrlen = gf_hdr_len (req, 0);
-	hdr    = gf_hdr_new (req, 0);
-	req    = gf_param (hdr);
-
-	if (this_fd_get (fd, this, &remote_fd) == -1)
-	{
+	ret = this_fd_get (fd, this, &remote_fd);
+	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
 
+	hdrlen = gf_hdr_len (req, 0);
+	hdr    = gf_hdr_new (req, 0);
+	req    = gf_param (hdr);
+	
 	req->fd  = hton64 (remote_fd);
 	req->uid = hton32 (uid);
 	req->gid = hton32 (gid);
@@ -2093,6 +2428,11 @@ client_setdents (call_frame_t *frame,
   
 	if (this_fd_get (fd, this, &remote_fd) == -1)
 	{
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			fd);
+
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -2272,6 +2612,10 @@ client_releasedir (xlator_t *this,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1){
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p).",
+			fd);
 		goto out;
 	}
 
@@ -2323,6 +2667,10 @@ client_release (xlator_t *this,
 	
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p).",
+			fd);
 		goto out;
 	}
 
