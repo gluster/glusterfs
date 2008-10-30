@@ -154,7 +154,7 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 
 			ret = pl_setlk (pinode, reqlock, 1, GF_LOCK_INTERNAL);
 			if (ret == -1)
-				return -1; /* lock has been blocked */
+				return 0; /* lock has been blocked */
 
 			break;
 		default:
@@ -175,7 +175,7 @@ out:
 	}
 	
 	STACK_UNWIND (frame, op_ret, op_errno);
-	return op_ret;
+	return 0;
 }
 
 
@@ -257,7 +257,7 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 
 			ret = pl_setlk (pinode, reqlock, 1, GF_LOCK_INTERNAL);
 			if (ret == -1)
-				return -1; /* lock has been blocked */
+				return 0; /* lock has been blocked */
 
 			break;
 		default:
@@ -278,7 +278,7 @@ out:
 	}
 	
 	STACK_UNWIND (frame, op_ret, op_errno);
-	return op_ret;
+	return 0;
 }
 
 

@@ -555,21 +555,6 @@ unify_lookup (call_frame_t *frame,
 	return 0;
 }
 
-
-/**
- * unify_forget - call inode_forget which removes it from cache 
- */
-int32_t 
-unify_forget (xlator_t *this,
-	      inode_t *inode)
-{
-	/* in dictionary list is stored as pointer, so will be freed, when dictionary
-	 * is destroyed 
-	 */
-
-	return 0;
-}
-
 /**
  * unify_stat - if directory, get the stat directly from NameSpace child.
  *     if file, check for a hint and send it only there (also to NS).
@@ -4044,7 +4029,6 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
-	.forget      = unify_forget,
 };
 
 struct xlator_options options[] = {
