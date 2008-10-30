@@ -545,27 +545,32 @@ cleanup_and_exit (int signum)
 	xlator_t *trav = NULL;
 	ctx = get_global_ctx_ptr ();
 	
+	gf_log ("glusterfs", GF_LOG_WARNING, "shutting down");
 	if (ctx->pidfp) {
 		gf_unlockfd (fileno (ctx->pidfp));
 		fclose (ctx->pidfp);
+		ctx->pidfp = NULL;
 	}
 	
-	if (ctx->cmd_args.pid_file)
+	if (ctx->cmd_args.pid_file) {
 		unlink (ctx->cmd_args.pid_file);
+		ctx->cmd_args.pid_file = NULL;
+	}
 	
 	if (ctx->graph) {
 		trav = ctx->graph;
+		ctx->graph = NULL;
 		while (trav) {
 			trav->fini (trav);
 			trav = trav->next;
 		}
+		exit (0);
+	} else {
+		gf_log ("glusterfs", GF_LOG_DEBUG, "no graph present");
 	}
-	
-	gf_log ("glusterfs", GF_LOG_WARNING, "shutting down");
-	
-	exit (0);
 }
-  
+
+
 int 
 main (int argc, char *argv[])
 {

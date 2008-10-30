@@ -338,10 +338,15 @@ protocol_client_xfer (call_frame_t *frame,
 			rsphdr.type = GF_OP_TYPE_FOP_REPLY;
 			gf_fops[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
 		}
-		else
+		else if (frame->type == GF_OP_TYPE_MOP_REQUEST) 
 		{
 			rsphdr.type = GF_OP_TYPE_MOP_REPLY;
 			gf_mops[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
+		}
+		else
+		{
+			rsphdr.type = GF_OP_TYPE_CBK_REPLY;
+			gf_cbks[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
 		}
 	}
 
