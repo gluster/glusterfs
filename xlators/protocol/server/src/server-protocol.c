@@ -751,6 +751,7 @@ server_loc_fill (loc_t *loc,
 
   	/* anything beyond this point is success */
   	ret = 0;
+	loc->ino = ino;
   	inode = loc->inode;
   	if (inode == NULL) {
   		if (ino)
