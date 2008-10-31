@@ -207,6 +207,7 @@ typedef struct _afr_local {
 			int32_t op_ret;
 
 			struct iovec *vector;
+			dict_t *refs;
 			int32_t count;
 			off_t offset;
 		} writev;

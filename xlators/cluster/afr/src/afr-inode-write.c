@@ -275,6 +275,8 @@ afr_chown_done (call_frame_t *frame, xlator_t *this,
 
 	local = frame->local;
 
+	dict_unref (local->cont.writev.refs);
+
 	if (op_ret == -1) {
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	} else {
@@ -428,7 +430,9 @@ afr_writev_done (call_frame_t *frame, xlator_t *this,
 
 	local = frame->local;
 
-	dict_unref (frame->root->req_refs);
+	if (local->cont.writev.refs)
+		dict_unref (local->cont.writev.refs);
+	local->cont.writev.refs = NULL;
 
 	if (op_ret == -1) {
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
@@ -477,7 +481,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	local->cont.writev.ino     = fd->inode->ino;
 
 	if (frame->root->req_refs)
-		dict_ref (frame->root->req_refs);
+		local->cont.writev.refs = dict_ref (frame->root->req_refs);
 
 	local->transaction.fop   = afr_writev_wind;
 	local->transaction.done  = afr_writev_done;

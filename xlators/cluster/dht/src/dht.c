@@ -32,13 +32,10 @@
 
 
 /* TODO:
-   - make filename hash rsync friendly
    - use volumename in xattr instead of "dht"
    - use NS locks
    - handle all cases in self heal layout reconstruction
    - complete linkfile selfheal
-   - return inode num consistantly in all cases
-   - return directory size consistantly
 */
 
 
@@ -2133,13 +2130,13 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         call_frame_t *prev = NULL;
 	dht_layout_t *layout = NULL;
+	dht_local_t  *local = NULL;
 
         prev = cookie;
+	local = frame->local;
 
         if (op_ret == -1)
                 goto out;
-
-        dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
 
 	layout = dht_layout_for_subvol (this, prev->this);
 	if (!layout) {
@@ -2151,7 +2148,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto out;
 	}
 
-	inode_ctx_set (inode, this, layout);
+	stbuf->st_ino = local->loc.inode->ino;
 
 out:
         DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
@@ -2394,7 +2391,7 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 		local->op_ret = 0;
 
-		local->stbuf = *stbuf;
+		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
 	}
 unlock:
 	UNLOCK (&frame->lock);
