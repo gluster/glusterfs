@@ -67,6 +67,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/debug/Makefile
 		xlators/debug/trace/Makefile
 		xlators/debug/trace/src/Makefile
+		xlators/debug/error-gen/Makefile
+		xlators/debug/error-gen/src/Makefile
 		xlators/protocol/Makefile
 		xlators/protocol/client/Makefile
 		xlators/protocol/client/src/Makefile

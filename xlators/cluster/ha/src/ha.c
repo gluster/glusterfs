@@ -17,6 +17,10 @@
   <http://www.gnu.org/licenses/>.
 */
 
+/* generate errors randomly, code is simple now, better alogorithm
+ * can be written to decide what error to be returned and when
+ */
+
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
@@ -1542,7 +1546,7 @@ ha_link_lookup_cbk (call_frame_t *frame,
 		STACK_UNWIND (frame,
 			      local->op_ret,
 			      local->op_errno,
-			      local->stub->args.link.newloc.inode,
+			      local->stub->args.link.oldloc.inode,
 			      &local->buf);
 		call_stub_destroy (stub);
 	}
@@ -1598,7 +1602,7 @@ ha_link_cbk (call_frame_t *frame,
 		GF_TRACE (this, "unwind (%d, %s)", op_ret, strerror (op_errno));
 		FREE (local->state);
 		stub = local->stub;
-		STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stub->args.link.newloc.inode, &local->buf);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stub->args.link.oldloc.inode, &local->buf);
 		call_stub_destroy (stub);
 		return 0;
 	}
@@ -1738,12 +1742,6 @@ ha_create_cbk (call_frame_t *frame,
 		char *state = local->state;
 		call_stub_t *stub = local->stub;
 		GF_TRACE (this, "unwind(%d, %s)", op_ret, strerror (op_errno));
-		if (local->op_ret == -1) {
-			FREE (hafdp->fdsuccess);
-			FREE (hafdp->fdstate);
-			FREE (hafdp->path);
-			LOCK_DESTROY (&hafdp->lock);
-		}
 		STACK_UNWIND (frame, local->op_ret, local->op_errno,
 			      stub->args.create.fd,
 			      stub->args.create.loc.inode, &local->buf);
@@ -1869,12 +1867,6 @@ ha_open_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
 
 	if (callcnt == 0) {
-		if (local->op_ret == -1) {
-			FREE (hafdp->fdsuccess);
-			FREE (hafdp->fdstate);
-			FREE (hafdp->path);
-			LOCK_DESTROY (&hafdp->lock);
-		}
 		STACK_UNWIND (frame,
 			      local->op_ret,
 			      local->op_errno,
@@ -2062,6 +2054,7 @@ ha_writev (call_frame_t *frame,
 	if (local->active == -1) {
 		GF_ERROR (this, "unwind(-1, ENOTCONN), none of the subvols are up");
 		op_errno = ENOTCONN;
+		goto err;
 	}
 
 	local->stub = fop_writev_stub (frame, ha_writev, fd, vector, count, off);
@@ -2316,12 +2309,6 @@ ha_opendir_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
 
 	if (callcnt == 0) {
-		if (local->op_ret == -1) {
-			FREE (hafdp->fdsuccess);
-			FREE (hafdp->fdstate);
-			FREE (hafdp->path);
-			LOCK_DESTROY (&hafdp->lock);
-		}
 		STACK_UNWIND (frame,
 			      local->op_ret,
 			      local->op_errno,
@@ -2364,7 +2351,10 @@ ha_opendir (call_frame_t *frame,
 	LOCK_INIT (&hafdp->lock);
 	dict_set (ctx, this->name, data_from_dynptr (hafdp, sizeof (*hafdp)));
 	ret = dict_get_ptr (loc->inode->ctx, this->name, (void *) &stateino);
-
+	
+	if (ret != 0) {
+		GF_ERROR (this, "dict_get_ptr() error");
+	}
 	for (i = 0; i < child_count; i++)
 		if (stateino[i])
 			cnt++;
