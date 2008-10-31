@@ -274,6 +274,7 @@ int32_t
 pl_flush (call_frame_t *frame, xlator_t *this,
 	  fd_t *fd)
 {
+	posix_locks_private_t *priv = this->private;
 	pl_inode_t *pl_inode = NULL;
 	data_t *inode_data = dict_get (fd->inode->ctx, this->name);
 	if (inode_data == NULL) {
@@ -281,6 +282,8 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 		STACK_UNWIND (frame, -1, EBADF);
 		return 0;
 	}
+
+	pthread_mutex_lock (&priv->mutex);
 
 	pl_inode = (pl_inode_t *)data_to_bin (inode_data);
 	
@@ -291,6 +294,8 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 
 	grant_blocked_locks (pl_inode, GF_LOCK_POSIX);
 	grant_blocked_locks (pl_inode, GF_LOCK_INTERNAL);
+
+	pthread_mutex_unlock (&priv->mutex);
 
 	STACK_WIND (frame, pl_flush_cbk, 
 		    FIRST_CHILD(this), FIRST_CHILD(this)->fops->flush, 
