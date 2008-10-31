@@ -434,7 +434,7 @@ fuse_forget (fuse_req_t req,
         state = state_from_req (req);
         fuse_inode = inode_search (state->itable, ino, NULL);
 	if (fuse_inode) {
-		gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
+		gf_log ("glusterfs-fuse", GF_LOG_DEBUG, 
 			"got forget on inode (%"PRId64")", ino);
 		inode_forget (fuse_inode, nlookup);
 		inode_unref (fuse_inode);

@@ -488,7 +488,7 @@ typedef struct {
 		struct {
 			fop_entrylk_t fn;
 			loc_t loc;
-			const char *basename;
+			const char *name;
 			gf_dir_lk_cmd cmd;
 			gf_dir_lk_type type;
 		} entrylk;
@@ -502,7 +502,7 @@ typedef struct {
 		struct {
 			fop_fentrylk_t fn;
 			fd_t *fd;
-			const char *basename;
+			const char *name;
 			gf_dir_lk_cmd cmd;
 			gf_dir_lk_type type;
 		} fentrylk;

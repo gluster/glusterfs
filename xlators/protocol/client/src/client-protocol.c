@@ -72,7 +72,8 @@ this_ino_get (inode_t *inode, xlator_t *this)
 				"failed to do dict get from inode(%p)",
 				inode);
 		}
-	}
+	} else if (inode->ino == 1)
+		ino = 1;
 out:
 	return ino;
 }
@@ -2043,11 +2044,15 @@ client_inodelk (call_frame_t *frame,
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 	ino_t   ino  = 0;
+	ino_t   par  = 0;
 	size_t  pathlen = 0;
 	size_t  baselen = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (ino != 1)
+		par = this_ino_get (loc->parent, this);
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
 		gf_cmd = GF_LK_GETLK;
@@ -2082,6 +2087,7 @@ client_inodelk (call_frame_t *frame,
 	strcpy (req->basename + pathlen, loc->name);
 
 	req->ino  = hton64 (ino);
+	req->par  = hton64 (par);
 
 	req->cmd  = hton32 (gf_cmd);
 	req->type = hton32 (gf_type);
@@ -2193,13 +2199,15 @@ client_entrylk (call_frame_t *frame,
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(basename);
 	ino = this_ino_get (loc->inode, this);
-	par = this_ino_get (loc->parent, this);
+	if (ino != 1)
+		par = this_ino_get (loc->parent, this);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
+	req->par  = hton64 (par);
 	strcpy (req->path, loc->path);
 	strcpy (req->basename + pathlen, basename);
 

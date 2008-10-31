@@ -51,7 +51,7 @@
 
 #define IS_ROOT_INODE(inode) (inode == inode->table->root)
 
-
+#define IS_NOT_ROOT(pathlen) ((pathlen > 2)? 1 : 0)
 
 server_state_t *
 server_state_fill (call_frame_t *frame,
@@ -76,7 +76,7 @@ server_state_fill (call_frame_t *frame,
 		state->ino    = ntoh64 (req->ino);
 		state->par    = ntoh64 (req->par);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 	}
 	break;
@@ -90,7 +90,7 @@ server_state_fill (call_frame_t *frame,
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 	}
 	break;
@@ -105,7 +105,7 @@ server_state_fill (call_frame_t *frame,
 		state->par   = ntoh64 (req->par);
 
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 	}
 	break;
@@ -122,7 +122,7 @@ server_state_fill (call_frame_t *frame,
 		state->par   = ntoh64 (req->par);
 
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 	}
 	break;
@@ -136,7 +136,7 @@ server_state_fill (call_frame_t *frame,
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 	}
 	break;
@@ -152,7 +152,7 @@ server_state_fill (call_frame_t *frame,
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 	}
 	break;
@@ -213,7 +213,7 @@ server_state_fill (call_frame_t *frame,
 		
 		state->par = ntoh64 (req->par);
 		state->path = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 
 		state->name     = (req->linkname + pathlen + baselen);
@@ -228,7 +228,7 @@ server_state_fill (call_frame_t *frame,
 
 		state->path     = req->path + state->dict_len;
 		pathlen = STRLEN_0(state->path);
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + state->dict_len + pathlen;
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
@@ -247,7 +247,7 @@ server_state_fill (call_frame_t *frame,
 		baselen = STRLEN_0(req->basename + pathlen);
 
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
@@ -267,7 +267,7 @@ server_state_fill (call_frame_t *frame,
 		baselen = STRLEN_0(req->basename + pathlen);
 
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
@@ -284,7 +284,7 @@ server_state_fill (call_frame_t *frame,
 		
 		state->par = ntoh64 (req->par);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 
 		state->mode = ntoh32 (req->mode);
@@ -301,7 +301,7 @@ server_state_fill (call_frame_t *frame,
 		state->ino = ntoh64 (req->ino);
 		state->par = ntoh64 (req->par);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 
 		state->flags     = ntoh32 (req->flags);
@@ -316,7 +316,7 @@ server_state_fill (call_frame_t *frame,
 		
 		state->par = ntoh64 (req->par);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 
 		state->mode  = ntoh32 (req->mode);
@@ -333,7 +333,7 @@ server_state_fill (call_frame_t *frame,
 		state->ino = ntoh64 (req->ino);
 		state->par = ntoh64 (req->par);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 
 		state->uid   = ntoh32 (req->uid);
@@ -350,7 +350,7 @@ server_state_fill (call_frame_t *frame,
 		state->ino = ntoh64 (req->ino);
 		state->par = ntoh64 (req->par);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 
 		state->mode      = ntoh32 (req->mode);
@@ -366,7 +366,7 @@ server_state_fill (call_frame_t *frame,
 		state->ino = ntoh64 (req->ino);
 		state->par = ntoh64 (req->par);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 
 		gf_timespec_to_timespec (req->tv, state->tv);
@@ -381,7 +381,7 @@ server_state_fill (call_frame_t *frame,
 		state->mode = ntoh32 (req->mode);
 
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 		state->par      = ntoh64 (req->par);
 	}
@@ -393,7 +393,7 @@ server_state_fill (call_frame_t *frame,
 
 		pathlen = STRLEN_0(req->path);
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
@@ -407,7 +407,7 @@ server_state_fill (call_frame_t *frame,
 		pathlen = STRLEN_0(req->path);
 
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
@@ -491,7 +491,7 @@ server_state_fill (call_frame_t *frame,
 		state->offset    = ntoh64 (req->offset);
 
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
@@ -612,7 +612,7 @@ server_state_fill (call_frame_t *frame,
 		pathlen = STRLEN_0(req->path);
 
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
@@ -659,7 +659,7 @@ server_state_fill (call_frame_t *frame,
 		pathlen = STRLEN_0(req->path);
 
 		state->path     = req->path;
-		if (pathlen > 2)
+		if (IS_NOT_ROOT(pathlen))
 			state->basename = req->basename + pathlen;
 		state->ino   = ntoh64 (req->ino);
 		state->par   = ntoh64 (req->par);
@@ -3054,7 +3054,6 @@ server_stub_resume (call_stub_t *stub,
 
 				if (newloc->inode == NULL) {
 					/* lookup for newpath */
-					newloc->inode = inode_new (BOUND_XL(stub->frame)->itable);
 					do_path_lookup (stub, newloc);
 					break;
 				} else {

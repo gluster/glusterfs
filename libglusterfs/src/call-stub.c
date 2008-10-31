@@ -1681,7 +1681,8 @@ fop_finodelk_stub (call_frame_t *frame, fop_finodelk_t fn,
 
   stub->args.finodelk.fn = fn;
 
-  stub->args.finodelk.fd   = fd_ref (fd);
+  if (fd)
+	  stub->args.finodelk.fd   = fd_ref (fd);
   stub->args.finodelk.cmd  = cmd;
   stub->args.finodelk.lock = *lock;
 
@@ -1712,7 +1713,7 @@ fop_finodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
 
 call_stub_t *
 fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,
-		  loc_t *loc, const char *basename,
+		  loc_t *loc, const char *name,
 		  gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
   call_stub_t *stub = NULL;
@@ -1729,8 +1730,8 @@ fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,
 
   stub->args.entrylk.cmd = cmd;
   stub->args.entrylk.type = type;
-  if (basename)
-	  stub->args.entrylk.basename = strdup (basename);
+  if (name)
+	  stub->args.entrylk.name = strdup (name);
 
   return stub;
 }
@@ -1758,7 +1759,7 @@ fop_entrylk_cbk_stub (call_frame_t *frame, fop_entrylk_cbk_t fn,
 
 call_stub_t *
 fop_fentrylk_stub (call_frame_t *frame, fop_fentrylk_t fn,
-		   fd_t *fd, const char *basename,
+		   fd_t *fd, const char *name,
 		   gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
   call_stub_t *stub = NULL;
@@ -1772,11 +1773,12 @@ fop_fentrylk_stub (call_frame_t *frame, fop_fentrylk_t fn,
 
   stub->args.fentrylk.fn = fn;
   
-  stub->args.fentrylk.fd = fd_ref (fd);
+  if (fd)
+	  stub->args.fentrylk.fd = fd_ref (fd);
   stub->args.fentrylk.cmd = cmd;
   stub->args.fentrylk.type = type;
-  if (basename)
-	  stub->args.fentrylk.basename = strdup (basename);
+  if (name)
+	  stub->args.fentrylk.name = strdup (name);
 
   return stub;
 }
@@ -2350,12 +2352,12 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.entrylk.fn (stub->frame,
 				       stub->frame->this,
 				       &stub->args.entrylk.loc,
-				       stub->args.entrylk.basename,
+				       stub->args.entrylk.name,
 				       stub->args.entrylk.cmd,
 				       stub->args.entrylk.type);
 		
-		if (stub->args.entrylk.basename)
-			FREE (stub->args.entrylk.basename);
+		if (stub->args.entrylk.name)
+			FREE (stub->args.entrylk.name);
 		break;
 	}
 
@@ -2364,11 +2366,11 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.fentrylk.fn (stub->frame,
 					stub->frame->this,
 					stub->args.fentrylk.fd,
-					stub->args.fentrylk.basename,
+					stub->args.fentrylk.name,
 					stub->args.fentrylk.cmd,
 					stub->args.fentrylk.type);
-		if (stub->args.fentrylk.basename)
-			FREE (stub->args.fentrylk.basename);
+		if (stub->args.fentrylk.name)
+			FREE (stub->args.fentrylk.name);
  		if (stub->args.fentrylk.fd) 
 			fd_unref (stub->args.fentrylk.fd);
 		break;
@@ -3553,14 +3555,14 @@ call_stub_destroy (call_stub_t *stub)
 	}
 	case GF_FOP_ENTRYLK:
 	{
-		if (stub->args.entrylk.basename)
-			FREE (stub->args.entrylk.basename);
+		if (stub->args.entrylk.name)
+			FREE (stub->args.entrylk.name);
 		break;
 	}
 	case GF_FOP_FENTRYLK:
 	{
-		if (stub->args.fentrylk.basename)
-			FREE (stub->args.fentrylk.basename);
+		if (stub->args.fentrylk.name)
+			FREE (stub->args.fentrylk.name);
 
  		if (stub->args.fentrylk.fd) 
 			fd_unref (stub->args.fentrylk.fd);
