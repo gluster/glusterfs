@@ -552,7 +552,6 @@ ioc_frame_unwind (call_frame_t *frame)
 
   //  ioc_local_lock (local);
   refs = get_new_dict ();
-  refs->is_locked = 1;
 
   frame->local = NULL;
 

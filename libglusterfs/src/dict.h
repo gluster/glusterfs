@@ -38,7 +38,6 @@ typedef struct _data_pair data_pair_t;
 struct _data {
   unsigned char is_static:1;
   unsigned char is_const:1;
-  char is_locked:1;
   int32_t len;
   struct iovec *vec;
   char *data;
@@ -56,7 +55,6 @@ struct _data_pair {
 
 struct _dict {
   unsigned char is_static:1;
-  unsigned char is_locked:1;
   int32_t hash_size;
   int32_t count;
   int32_t refcount;

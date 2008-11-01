@@ -145,11 +145,9 @@ get_call_frame_for_req (libglusterfs_client_ctx_t *ctx, char d)
   
         if (d) {
                 frame->root->req_refs = dict_ref (get_new_dict ());
-                frame->root->req_refs->is_locked = 1;
                 /*
                   TODO
                   dict_set (frame->root->req_refs, NULL, priv->buf);
-                  frame->root->req_refs->is_locked = 1;
                 */
         }
 

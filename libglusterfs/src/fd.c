@@ -460,7 +460,6 @@ fd_create (inode_t *inode, pid_t pid)
         ERR_ABORT (fd);
   
         fd->ctx = get_new_dict ();
-        fd->ctx->is_locked = 1;
         fd->inode = inode_ref (inode);
         fd->pid = pid;
         INIT_LIST_HEAD (&fd->inode_list);

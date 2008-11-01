@@ -83,7 +83,6 @@ get_new_dict_full (int size_hint)
 	}
 
 	LOCK_INIT (&dict->lock);
-	dict->is_locked = 1;
 
 	return dict;
 }
@@ -270,13 +269,11 @@ dict_set (dict_t *this,
 		return -1;
 	}
 
-	if (this->is_locked)
-		LOCK (&this->lock);
+	LOCK (&this->lock);
 
 	ret = _dict_set (this, key, value);
 
-	if (this->is_locked)
-		UNLOCK (&this->lock);
+	UNLOCK (&this->lock);
 
 	return ret;
 }
@@ -294,13 +291,11 @@ dict_get (dict_t *this,
 		return NULL;
 	}
 
-	if (this->is_locked)
-		LOCK (&this->lock);
+	LOCK (&this->lock);
 
 	pair = _dict_lookup (this, key);
 
-	if (this->is_locked)
-		UNLOCK (&this->lock);
+	UNLOCK (&this->lock);
 
 	if (pair)
 		return pair->value;
@@ -318,8 +313,7 @@ dict_del (dict_t *this,
 		return;
 	}
 
-	if (this->is_locked)
-		LOCK (&this->lock);
+	LOCK (&this->lock);
 
 	int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
 	data_pair_t *pair = this->members[hashval];
@@ -352,8 +346,7 @@ dict_del (dict_t *this,
 		pair = pair->hash_next;
 	}
 
-	if (this->is_locked)
-		UNLOCK (&this->lock);
+	UNLOCK (&this->lock);
 
 	return;
 }
@@ -402,14 +395,12 @@ dict_unref (dict_t *this)
 		return;
 	}
 
-	if (this->is_locked)
-		LOCK (&this->lock);
+	LOCK (&this->lock);
 
 	this->refcount--;
 	ref = this->refcount;
 
-	if (this->is_locked)
-		UNLOCK (&this->lock);
+	UNLOCK (&this->lock);
 
 	if (!ref)
 		dict_destroy (this);
@@ -424,13 +415,11 @@ dict_ref (dict_t *this)
 		return NULL;
 	}
 
-	if (this->is_locked)
-		LOCK (&this->lock);
+	LOCK (&this->lock);
 
 	this->refcount++;
 
-	if (this->is_locked)
-		UNLOCK (&this->lock);
+	UNLOCK (&this->lock);
 
 	return this;
 }
@@ -446,14 +435,12 @@ data_unref (data_t *this)
 		return;
 	}
 
-	if (this->is_locked)
-		LOCK (&this->lock);
+	LOCK (&this->lock);
 
 	this->refcount--;
 	ref = this->refcount;
 
-	if (this->is_locked)
-		UNLOCK (&this->lock);
+	UNLOCK (&this->lock);
 
 	if (!ref)
 		data_destroy (this);
@@ -468,13 +455,11 @@ data_ref (data_t *this)
 		return NULL;
 	}
 
-	if (this->is_locked)
-		LOCK (&this->lock);
+	LOCK (&this->lock);
 
 	this->refcount++;
 
-	if (this->is_locked)
-		UNLOCK (&this->lock);
+	UNLOCK (&this->lock);
 
 	return this;
 }

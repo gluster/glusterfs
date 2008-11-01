@@ -263,7 +263,6 @@ ra_frame_unwind (call_frame_t *frame)
   dict_t *refs = NULL;
 
   refs = get_new_dict ();
-  refs->is_locked = 1;
 
   frame->local = NULL;
 

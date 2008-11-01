@@ -2553,8 +2553,6 @@ client_setdents (call_frame_t *frame,
 		data_t *buf_data = get_new_data ();
 		dict_t *reply_dict = get_new_dict ();
     
-		reply_dict->is_locked = 1;
-		buf_data->is_locked = 1;
 		buf_data->data = buffer;
 		buf_data->len = buf_len;
     
@@ -4781,7 +4779,6 @@ protocol_client_cleanup (transport_t *trans)
 	{
 		data_pair_t *trav = saved_frames->members_list;
 		dict_t *reply = dict_ref (get_new_dict ());
-		reply->is_locked = 1;
 
 		while (trav && trav->next)
 			trav = trav->next;

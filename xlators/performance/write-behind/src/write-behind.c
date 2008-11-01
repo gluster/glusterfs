@@ -248,7 +248,6 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
     if (!vector) {
       vector = malloc (VECTORSIZE (MAX_VECTOR_COUNT));
       refs = get_new_dict ();
-      refs->is_locked = 1;
 	
       local = calloc (1, sizeof (*local));
       INIT_LIST_HEAD (&local->winds);

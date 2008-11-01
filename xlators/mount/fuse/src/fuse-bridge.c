@@ -201,7 +201,6 @@ get_call_frame_for_req (fuse_state_t *state, char d)
         if (d) {
                 frame->root->req_refs = dict_ref (get_new_dict ());
                 dict_set (frame->root->req_refs, NULL, priv->buf);
-                frame->root->req_refs->is_locked = 1;
         }
 
         frame->type = GF_OP_TYPE_FOP_REQUEST;
@@ -2445,7 +2444,6 @@ fuse_thread_proc (void *data)
                         data_unref (buf);
 
                         priv->buf = data_ref (data_from_dynptr (NULL, 0));
-                        priv->buf->is_locked = 1;
                 }
         }
 	if (dict_get (this->options, GF_FUSE_MOUNT_POINT_OPTION_STRING))
@@ -2653,7 +2651,6 @@ init (xlator_t *this_xl)
         
         priv->fd = fuse_chan_fd (priv->ch);
         priv->buf = data_ref (data_from_dynptr (NULL, 0));
-        priv->buf->is_locked = 1;
         
         /*  (this->children->xlator)->notify (this->children->xlator, 
             GF_EVENT_PARENT_UP, this); */

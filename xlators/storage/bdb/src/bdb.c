@@ -733,8 +733,6 @@ bdb_readv (call_frame_t *frame,
 	op_errno = ENOMEM;
 	GF_VALIDATE_OR_GOTO (this->name, reply_dict, out);
 
-	reply_dict->is_locked = 1;
-	buf_data->is_locked = 1;
 	buf_data->data      = buf;
 
 	if (size < read_size) {

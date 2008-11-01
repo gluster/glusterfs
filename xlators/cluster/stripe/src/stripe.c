@@ -2612,7 +2612,6 @@ stripe_readv (call_frame_t *frame,
 	local->wind_count = num_stripe;
 	frame->local = local;
 	frame->root->rsp_refs = dict_ref (get_new_dict ());
-	frame->root->rsp_refs->is_locked = 1;
 	
 	/* This is where all the vectors should be copied. */
 	local->replies = calloc (1, num_stripe * sizeof (struct readv_replies));
