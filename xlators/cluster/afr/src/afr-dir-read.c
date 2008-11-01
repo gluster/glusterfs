@@ -152,6 +152,7 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 
 	int unwind     = 1;
 	int last_tried = -1;
+	int this_try = -1;
 
 	priv     = this->private;
 	children = priv->children;
@@ -167,12 +168,12 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 			goto out;
 		}
 
-		local->cont.readdir.last_tried++;
+		this_try = ++local->cont.readdir.last_tried;
 		unwind = 0;
 
 		STACK_WIND (frame, afr_readdir_cbk,
-			    children[last_tried], 
-			    children[last_tried]->fops->readdir,
+			    children[this_try],
+			    children[this_try]->fops->readdir,
 			    local->fd, local->cont.readdir.size,
 			    local->cont.readdir.offset);
 	}
@@ -254,6 +255,7 @@ afr_getdents_cbk (call_frame_t *frame, void *cookie,
 
 	int unwind     = 1;
 	int last_tried = -1;
+	int this_try = -1;
 
 	priv     = this->private;
 	children = priv->children;
@@ -269,12 +271,12 @@ afr_getdents_cbk (call_frame_t *frame, void *cookie,
 			goto out;
 		}
 
-		local->cont.getdents.last_tried++;
+		this_try = ++local->cont.getdents.last_tried;
 		unwind = 0;
 
 		STACK_WIND (frame, afr_getdents_cbk,
-			    children[last_tried], 
-			    children[last_tried]->fops->getdents,
+			    children[this_try],
+			    children[this_try]->fops->getdents,
 			    local->fd, local->cont.getdents.size,
 			    local->cont.getdents.offset, local->cont.getdents.flag);
 	}

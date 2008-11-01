@@ -135,10 +135,12 @@ typedef struct _afr_local {
 
 		struct {
 			int last_tried;
+			ino_t ino;
 		} stat;
 
 		struct {
 			int last_tried;
+			ino_t ino;
 		} fstat;
 
 		struct {

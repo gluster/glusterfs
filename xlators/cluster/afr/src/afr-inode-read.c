@@ -69,6 +69,7 @@ afr_access_cbk (call_frame_t *frame, void *cookie,
 
 	int unwind     = 1;
 	int last_tried = -1;
+	int this_try = -1;
 
 	priv     = this->private;
 	children = priv->children;
@@ -83,13 +84,13 @@ afr_access_cbk (call_frame_t *frame, void *cookie,
 			op_errno = ENOTCONN;
 			goto out;
 		}
+		this_try    = ++local->cont.access.last_tried;
 
-		local->cont.access.last_tried++;
 		unwind = 0;
 
 		STACK_WIND (frame, afr_access_cbk,
-			    children[last_tried], 
-			    children[last_tried]->fops->access,
+			    children[this_try], 
+			    children[this_try]->fops->access,
 			    &local->loc, local->cont.access.mask);
 	}
 
@@ -167,6 +168,7 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 
 	int unwind     = 1;
 	int last_tried = -1;
+	int this_try = -1;
 
 	priv     = this->private;
 	children = priv->children;
@@ -176,6 +178,7 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 	local = frame->local;
 
 	if (child_went_down (op_ret, op_errno)) {
+	retry:
 		last_tried = local->cont.stat.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
@@ -183,35 +186,24 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 			op_errno = ENOTCONN;
 			goto out;
 		}
+		this_try = ++local->cont.stat.last_tried;
 
-		local->cont.stat.last_tried++;
-		if (local->cont.stat.last_tried == deitransform_child) {
-			/* 
-			   skip the deitransform'd child since if we are here
-			   we must have already tried that child
-			*/
-			local->cont.stat.last_tried++;
-
-			if (local->cont.stat.last_tried == priv->child_count) {
-				/* we have tried all children */
-				op_ret = -1;
-				op_errno = ENOTCONN;
-				goto out;
-			}
+		if (this_try == deitransform_child) {
+			goto retry;
 		}
 
 		unwind = 0;
 
-		STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) (long) deitransform_child,
-				   children[local->cont.stat.last_tried], 
-				   children[local->cont.stat.last_tried]->fops->stat,
+		STACK_WIND_COOKIE (frame, afr_stat_cbk,
+				   (void *) (long) deitransform_child,
+				   children[this_try], 
+				   children[this_try]->fops->stat,
 				   &local->loc);
 	}
 
 out:
 	if (unwind) {
-		buf->st_ino = afr_itransform (buf->st_ino, priv->child_count, 
-					      deitransform_child);
+		buf->st_ino = local->cont.stat.ino;
 
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
@@ -254,6 +246,7 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 	   all children starting with the first one
 	*/
 	local->cont.stat.last_tried = -1;
+	local->cont.stat.ino = loc->inode->ino;
 
 	STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) (long) call_child,
 			   children[call_child],
@@ -287,6 +280,7 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 
 	int unwind     = 1;
 	int last_tried = -1;
+	int this_try = -1;
 
 	priv     = this->private;
 	children = priv->children;
@@ -296,6 +290,7 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 	local = frame->local;
 
 	if (child_went_down (op_ret, op_errno)) {
+	retry:
 		last_tried = local->cont.fstat.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
@@ -303,28 +298,23 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 			op_errno = ENOTCONN;
 			goto out;
 		}
+		this_try   = ++local->cont.fstat.last_tried;
 
-		local->cont.fstat.last_tried++;
-		if (local->cont.fstat.last_tried == deitransform_child) {
+		if (this_try == deitransform_child) {
 			/* 
 			   skip the deitransform'd child since if we are here
 			   we must have already tried that child
 			*/
-			local->cont.fstat.last_tried++;
-
-			if (local->cont.fstat.last_tried == priv->child_count) {
-				/* we have tried all children */
-				op_ret = -1;
-				op_errno = ENOTCONN;
-				goto out;
-			}
+			goto retry;
 		}
+	       
 
 		unwind = 0;
 
-		STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) (long) deitransform_child,
-				   children[last_tried], 
-				   children[last_tried]->fops->fstat,
+		STACK_WIND_COOKIE (frame, afr_fstat_cbk,
+				   (void *) (long) deitransform_child,
+				   children[this_try], 
+				   children[this_try]->fops->fstat,
 				   local->fd);
 	}
 
@@ -408,6 +398,7 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 
 	int unwind     = 1;
 	int last_tried = -1;
+	int this_try = -1;
 
 	priv     = this->private;
 	children = priv->children;
@@ -422,12 +413,12 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 			op_errno = ENOTCONN;
 			goto out;
 		}
+		this_try = ++local->cont.readlink.last_tried;
 
-		local->cont.readlink.last_tried++;
 		unwind = 0;
 		STACK_WIND (frame, afr_readlink_cbk,
-			    children[last_tried], 
-			    children[last_tried]->fops->readlink,
+			    children[this_try], 
+			    children[this_try]->fops->readlink,
 			    &local->loc,
 			    local->cont.readlink.size);
 	}
@@ -506,6 +497,7 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 
 	int unwind     = 1;
 	int last_tried = -1;
+	int this_try = -1;
 
 	priv     = this->private;
 	children = priv->children;
@@ -520,12 +512,12 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 			op_errno = ENOTCONN;
 			goto out;
 		}
+		this_try = ++local->cont.getxattr.last_tried;
 
-		local->cont.getxattr.last_tried++;
 		unwind = 0;
 		STACK_WIND (frame, afr_getxattr_cbk,
-			    children[last_tried], 
-			    children[last_tried]->fops->getxattr,
+			    children[this_try], 
+			    children[this_try]->fops->getxattr,
 			    &local->loc,
 			    local->cont.getxattr.name);
 	}
@@ -615,6 +607,7 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 
 	int unwind     = 1;
 	int last_tried = -1;
+	int this_try = -1;
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
@@ -628,6 +621,7 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 	local = frame->local;
 
 	if (child_went_down (op_ret, op_errno)) {
+	retry:
 		last_tried = local->cont.readv.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
@@ -635,28 +629,21 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 			op_errno = ENOTCONN;
 			goto out;
 		}
+		this_try = ++local->cont.readv.last_tried;
 
-		local->cont.readv.last_tried++;
-		if (local->cont.readv.last_tried == priv->read_child) {
+		if (this_try == priv->read_child) {
 			/* 
 			   skip the read child since if we are here
 			   we must have already tried that child
 			*/
-			local->cont.readv.last_tried++;
-
-			if (local->cont.readv.last_tried == priv->child_count) {
-				/* we have tried all children */
-				op_ret = -1;
-				op_errno = ENOTCONN;
-				goto out;
-			}
+			goto retry;
 		}
 
 		unwind = 0;
 
 		STACK_WIND (frame, afr_readv_cbk,
-			    children[last_tried], 
-			    children[last_tried]->fops->readv,
+			    children[this_try], 
+			    children[this_try]->fops->readv,
 			    local->fd, local->cont.readv.size,
 			    local->cont.readv.offset);
 	}
