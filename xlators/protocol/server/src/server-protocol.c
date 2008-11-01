@@ -41,7 +41,7 @@
 #include "compat.h"
 #include "compat-errno.h"
 
-#define TRANSPORT_OF(frame) ((transport_t *) STATE (frame)->trans)
+#define TRANSPORT_OF(frame) ((transport_t *) CALL_STATE(frame)->trans)
 #define CONNECTION_PRIVATE(frame)  ((connection_private_t *) TRANSPORT_OF(frame)->xl_private)
 
 #define __TRANSPORT_OF(this)    ((((server_private_t *)this->private))->trans)
@@ -53,686 +53,6 @@
 
 #define IS_NOT_ROOT(pathlen) ((pathlen > 2)? 1 : 0)
 
-server_state_t *
-server_state_fill (call_frame_t *frame,
-		   void *request,
-		   int type)
-{
-	server_state_t *state = STATE (frame);
-	connection_private_t *connection_priv = CONNECTION_PRIVATE (frame);
-
-	state->itable = BOUND_XL(frame)->itable;
-
-	switch (type){
-	case GF_FOP_LOOKUP:
-	{
-		gf_fop_lookup_req_t *req = request;
-		size_t pathlen = 0;
-
-		pathlen = STRLEN_0 (req->path);
-
-		state->need_xattr = ntoh32 (req->flags);
-
-		state->ino    = ntoh64 (req->ino);
-		state->par    = ntoh64 (req->par);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-	}
-	break;
-	case GF_FOP_STAT:
-	{
-		gf_fop_stat_req_t *req = request;
-		size_t pathlen = 0;
-
-		pathlen = STRLEN_0(req->path);
-
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-	}
-	break;
-	case GF_FOP_STATFS:
-	{
-		gf_fop_statfs_req_t *req = request;
-		size_t pathlen = 0;
-
-		pathlen = STRLEN_0(req->path);
-
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-	}
-	break;
-	case GF_FOP_READLINK:
-	{
-		gf_fop_readlink_req_t *req = request;
-		size_t pathlen = 0;
-
-		pathlen = STRLEN_0(req->path);
-
-		state->size  = ntoh32 (req->size);
-
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-	}
-	break;
-	case GF_FOP_UNLINK:
-	{
-		gf_fop_unlink_req_t *req = request;
-		size_t pathlen = 0;
-
-		pathlen = STRLEN_0(req->path);
-
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-	}
-	break;
-	case GF_FOP_ACCESS:
-	{
-		gf_fop_access_req_t *req = request;
-		size_t pathlen = 0;
-
-		pathlen = STRLEN_0(req->path);
-
-		state->mask  = ntoh32 (req->mask);
-
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-	}
-	break;
-	case GF_FOP_RENAME:
-	{
-		gf_fop_rename_req_t *req = request;
-		size_t oldpathlen = 0;
-		size_t oldbaselen = 0;
-		size_t newpathlen = 0;
-		size_t newbaselen = 0;
-
-		oldpathlen = STRLEN_0(req->oldpath);
-		oldbaselen = STRLEN_0(req->oldbasename + oldpathlen);
-		newpathlen = STRLEN_0(req->newpath     + oldpathlen + oldbaselen);
-		newbaselen = STRLEN_0(req->newbasename + oldpathlen + oldbaselen + newpathlen);
-
-		state->path      = req->oldpath;
-		state->basename  = req->oldbasename + oldpathlen;
-		state->path2     = req->newpath     + oldpathlen + oldbaselen;
-		state->basename2 = req->newbasename + oldpathlen + oldbaselen + newpathlen;
-
-		state->ino   = ntoh64 (req->oldino);
-		state->par   = ntoh64 (req->oldpar);
-		state->ino2  = ntoh64 (req->newino);
-		state->par2  = ntoh64 (req->newpar);
-	}
-	break;
-	case GF_FOP_LINK:
-	{
-		gf_fop_link_req_t *req = request;
-		size_t oldpathlen = 0;
-		size_t oldbaselen = 0;
-		size_t newpathlen = 0;
-		size_t newbaselen = 0;
-
-		oldpathlen = STRLEN_0(req->oldpath);
-		oldbaselen = STRLEN_0(req->oldbasename + oldpathlen);
-		newpathlen = STRLEN_0(req->newpath     + oldpathlen + oldbaselen);
-		newbaselen = STRLEN_0(req->newbasename + oldpathlen + oldbaselen + newpathlen);
-
-		state->path      = req->oldpath;
-		state->basename  = req->oldbasename + oldpathlen;
-		state->path2     = req->newpath     + oldpathlen + oldbaselen;
-		state->basename2 = req->newbasename + oldpathlen + oldbaselen + newpathlen;
-		state->ino   = ntoh64 (req->oldino);
-		state->par   = ntoh64 (req->oldpar);
-		state->par2  = ntoh64 (req->newpar);
-	}
-	break;
-	case GF_FOP_SYMLINK:
-	{
-		gf_fop_symlink_req_t *req = request;
-		size_t pathlen = 0;
-		size_t baselen = 0;
-		
-		pathlen = STRLEN_0(req->path);
-		baselen = STRLEN_0(req->basename + pathlen);
-		
-		state->par = ntoh64 (req->par);
-		state->path = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-
-		state->name     = (req->linkname + pathlen + baselen);
-	}
-	break;
-	case GF_FOP_SETXATTR:
-	{
-		gf_fop_setxattr_req_t *req = request;
-		size_t pathlen = 0;
-
-		state->dict_len = ntoh32 (req->dict_len);
-
-		state->path     = req->path + state->dict_len;
-		pathlen = STRLEN_0(state->path);
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + state->dict_len + pathlen;
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-
-		state->flags = ntoh32 (req->flags);
-	}
-	break;
-	case GF_FOP_GETXATTR:
-	{
-		gf_fop_getxattr_req_t *req = request;
-		size_t namelen = 0;
-		size_t pathlen = 0;
-		size_t baselen = 0;
-
-		pathlen = STRLEN_0(req->path);
-		baselen = STRLEN_0(req->basename + pathlen);
-
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-
-		namelen = ntoh32 (req->namelen);
-		if (namelen)
-			state->name = (req->name + pathlen + baselen);
-	}
-	break;
-	case GF_FOP_REMOVEXATTR:
-	{
-		gf_fop_removexattr_req_t *req = request;
-		size_t pathlen = 0;
-		size_t baselen = 0;
-
-		pathlen = STRLEN_0(req->path);
-		baselen = STRLEN_0(req->basename + pathlen);
-
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-
-		state->name = (req->name + pathlen + baselen);
-	}
-	break;
-	case GF_FOP_MKNOD:
-	{
-		gf_fop_mknod_req_t *req = request;
-		size_t pathlen = 0;
-		
-		pathlen = STRLEN_0(req->path);
-		
-		state->par = ntoh64 (req->par);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-
-		state->mode = ntoh32 (req->mode);
-		state->dev = ntoh64 (req->dev);
-	}
-	break;
-	case GF_FOP_OPEN:
-	{
-		gf_fop_open_req_t *req = request;
-		size_t pathlen = 0;
-		
-		pathlen = STRLEN_0(req->path);
-		
-		state->ino = ntoh64 (req->ino);
-		state->par = ntoh64 (req->par);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-
-		state->flags     = ntoh32 (req->flags);
-	}
-	break;
-	case GF_FOP_CREATE:
-	{
-		gf_fop_create_req_t *req = request;
-		size_t pathlen = 0;
-				
-		pathlen = STRLEN_0(req->path);
-		
-		state->par = ntoh64 (req->par);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-
-		state->mode  = ntoh32 (req->mode);
-		state->flags = ntoh32 (req->flags);
-	}
-	break;
-	case GF_FOP_CHOWN:
-	{
-		gf_fop_chown_req_t *req = request;
-		size_t pathlen = 0;
-		
-		pathlen = STRLEN_0(req->path);
-		
-		state->ino = ntoh64 (req->ino);
-		state->par = ntoh64 (req->par);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-
-		state->uid   = ntoh32 (req->uid);
-		state->gid   = ntoh32 (req->gid);
-	}
-	break;
-	case GF_FOP_CHMOD:
-	{
-		gf_fop_chmod_req_t *req = request;
-		size_t pathlen = 0;
-		
-		pathlen = STRLEN_0(req->path);
-		
-		state->ino = ntoh64 (req->ino);
-		state->par = ntoh64 (req->par);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-
-		state->mode      = ntoh32 (req->mode);
-	}
-	break;
-	case GF_FOP_UTIMENS:
-	{
-		gf_fop_utimens_req_t *req = request;
-		size_t pathlen = 0;
-		
-		pathlen = STRLEN_0(req->path);
-		
-		state->ino = ntoh64 (req->ino);
-		state->par = ntoh64 (req->par);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-
-		gf_timespec_to_timespec (req->tv, state->tv);
-	}
-	break;
-	case GF_FOP_MKDIR:
-	{
-		gf_fop_mkdir_req_t *req = request;
-		size_t pathlen = 0;
-
-		pathlen = STRLEN_0(req->path);
-		state->mode = ntoh32 (req->mode);
-
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-		state->par      = ntoh64 (req->par);
-	}
-	break;
-	case GF_FOP_RMDIR:
-	{
-		gf_fop_rmdir_req_t *req = request;
-		size_t pathlen = 0;
-
-		pathlen = STRLEN_0(req->path);
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-	}
-	break;
-	case GF_FOP_OPENDIR:
-	{
-		gf_fop_opendir_req_t *req = request;
-		size_t pathlen = 0;
-
-		pathlen = STRLEN_0(req->path);
-
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-	}
-	break;
-	case GF_FOP_FLUSH:
-	{
-		gf_fop_flush_req_t *req = request;
-		int64_t fd_no = 0;
-
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-	}
-	break;
-	case GF_FOP_FSYNC:
-	{
-		gf_fop_fsync_req_t *req = request;
-		int64_t fd_no = 0;
-
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->flags = ntoh32 (req->data);
-	}
-	break;
-	case GF_FOP_FTRUNCATE:
-	{
-		gf_fop_ftruncate_req_t *req = request;
-		int64_t fd_no = 0;
-
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->offset = ntoh64 (req->offset);
-	}
-	break;
-	case GF_FOP_FCHMOD:
-	{
-		gf_fop_fchmod_req_t *req = request;
-		int64_t fd_no = 0;
-
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->mode   = ntoh32 (req->mode);
-	}
-	break;
-	case GF_FOP_FCHOWN:
-	{
-		gf_fop_fchown_req_t *req = request;
-		int64_t fd_no = 0;
-
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->uid   = ntoh32 (req->uid);
-		state->gid   = ntoh32 (req->gid);
-	}
-	break;
-	case GF_FOP_FSTAT:
-	{
-		gf_fop_fstat_req_t *req = request;
-		int64_t fd_no = 0;
-
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-	}
-	break;
-	case GF_FOP_TRUNCATE:
-	{
-		gf_fop_truncate_req_t *req = request;
-		size_t pathlen = 0;
-
-		pathlen = STRLEN_0(req->path);
-		state->offset    = ntoh64 (req->offset);
-
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-	}
-	break;
-	case GF_FOP_READ:
-	{
-		gf_fop_read_req_t *req = request;
-		int64_t fd_no = 0;
-
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->size    = ntoh32 (req->size);
-		state->offset  = ntoh64 (req->offset);
-	}
-	break;
-	case GF_FOP_WRITE:
-	{
-		gf_fop_write_req_t *req = request;
-		int64_t fd_no = 0;
-
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->offset = ntoh64 (req->offset);
-	}
-	break;
-	case GF_FOP_LK:
-	{
-		gf_fop_lk_req_t *req = request;
-		int64_t fd_no = 0;
-
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->cmd =  ntoh32 (req->cmd);
-		state->type = ntoh32 (req->type);
-	}
-	break;
-	case GF_FOP_READDIR:
-	{
-		gf_fop_readdir_req_t *req = request;
-		int64_t fd_no = 0;
-		
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->size   = ntoh32 (req->size);
-		state->offset = ntoh64 (req->offset);
-	}
-	break;
-	case GF_FOP_GETDENTS:
-	{
-		gf_fop_getdents_req_t *req = request;
-		int64_t fd_no = 0;
-		
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->size = ntoh32 (req->size);
-		state->offset = ntoh64 (req->offset);
-		state->flags = ntoh32 (req->flags);
-	}
-	break;
-	case GF_FOP_SETDENTS:
-	{
-		gf_fop_setdents_req_t *req = request;
-		int64_t fd_no = 0;
-		
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->nr_count = ntoh32 (req->count);
-	}
-	break;
-	case GF_FOP_FSYNCDIR:
-	{
-		gf_fop_fsyncdir_req_t *req = request;
-		int64_t fd_no = 0;
-		
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->flags = ntoh32 (req->data);
-	}
-	break;
-	case GF_FOP_XATTROP:
-	{
-		gf_fop_xattrop_req_t *req = request;
-		int64_t fd_no = 0;
-		size_t pathlen = 0;
-
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->dict_len = ntoh32 (req->dict_len);
-
-		/* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
-		 * in the protocol data.
-		 */
-		state->ino = ntoh64 (req->ino);
-		state->par = ntoh64 (req->par);
-		state->path  = req->dict + state->dict_len;
-		pathlen = STRLEN_0(state->path);
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen + state->dict_len;
-		state->flags = ntoh32 (req->flags);
-	}
-	break;
-	case GF_FOP_ENTRYLK:
-	{
-		gf_fop_entrylk_req_t *req = request;
-		size_t pathlen = 0;
-				
-		pathlen = STRLEN_0(req->path);
-
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-
-		state->cmd  = ntoh32 (req->cmd);
-		state->type = ntoh32 (req->type);
-	}
-	break;
-	case GF_FOP_FENTRYLK:
-	{
-		gf_fop_fentrylk_req_t *req = request;
-		int64_t fd_no = 0;
-		
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->cmd   = ntoh32 (req->cmd);
-		state->type  = ntoh32 (req->type);
-		state->name = req->name;
-	}
-	break;
-
-	case GF_FOP_INODELK:
-	{
-		gf_fop_inodelk_req_t *req = request;
-		size_t pathlen = 0;
-
-		state->cmd = ntoh32 (req->cmd);
-		switch (state->cmd) {
-		case GF_LK_GETLK:
-			state->cmd = F_GETLK;
-			break;
-		case GF_LK_SETLK:
-			state->cmd = F_SETLK;
-			break;
-		case GF_LK_SETLKW:
-			state->cmd = F_SETLKW;
-			break;
-		}
-
-		state->type = ntoh32 (req->type);
-
-		pathlen = STRLEN_0(req->path);
-
-		state->path     = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->basename = req->basename + pathlen;
-		state->ino   = ntoh64 (req->ino);
-		state->par   = ntoh64 (req->par);
-
-		gf_flock_to_flock (&req->flock, &state->flock);
-
-		switch (state->type) {
-		case GF_LK_F_RDLCK: 
-			state->flock.l_type = F_RDLCK; 
-			break;
-		case GF_LK_F_WRLCK: 
-			state->flock.l_type = F_WRLCK; 
-			break;
-		case GF_LK_F_UNLCK: 
-			state->flock.l_type = F_UNLCK; 
-			break;
-		}
-
-	}
-	break;
-	case GF_FOP_FINODELK:
-	{
-		gf_fop_finodelk_req_t *req = request;
-		int64_t fd_no = 0;
-		
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
-
-		state->cmd = ntoh32 (req->cmd);
-		switch (state->cmd) {
-		case GF_LK_GETLK:
-			state->cmd = F_GETLK;
-			break;
-		case GF_LK_SETLK:
-			state->cmd = F_SETLK;
-			break;
-		case GF_LK_SETLKW:
-			state->cmd = F_SETLKW;
-			break;
-		}
-
-		state->type = ntoh32 (req->type);
-
-		gf_flock_to_flock (&req->flock, &state->flock);
-
-		switch (state->type) {
-		case GF_LK_F_RDLCK: 
-			state->flock.l_type = F_RDLCK; 
-			break;
-		case GF_LK_F_WRLCK: 
-			state->flock.l_type = F_WRLCK; 
-			break;
-		case GF_LK_F_UNLCK: 
-			state->flock.l_type = F_UNLCK; 
-			break;
-		}
-
-	}
-	break;
-
-	default:
-		break;
-	}
-
-	return state;
-}
 
 /* server_loc_fill - derive a loc_t for a given inode number
  *
@@ -885,7 +205,7 @@ protocol_server_reply (call_frame_t *frame,
 	transport_t *trans = NULL;
 
 	bound_xl = BOUND_XL (frame);
-	state    = STATE (frame);
+	state    = CALL_STATE(frame);
 	trans = state->trans;
 
 	hdr->callid = hton64 (frame->root->unique);
@@ -945,11 +265,19 @@ server_fchmod (call_frame_t *frame,
 {
 	gf_fop_fchmod_req_t *req = NULL;
 	server_state_t *state = NULL;
+	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_FCHMOD);
+		state->mode   = ntoh32 (req->mode);
+	}
+
 
 	if (!state->fd)	{
 		gf_log (frame->this->name, GF_LOG_ERROR,
@@ -1019,10 +347,18 @@ server_fchown (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_FCHOWN);
+		state->uid   = ntoh32 (req->uid);
+		state->gid   = ntoh32 (req->gid);
+	}
+
 
 	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
@@ -1234,7 +570,7 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie,
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret >= 0) {
-		state = STATE (frame);
+		state = CALL_STATE(frame);
 		if (state->flock.l_type == F_UNLCK)
 			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable,
 				       &state->loc, state->fd, frame->root->pid);
@@ -1267,7 +603,7 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie,
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret >= 0) {
-		state = STATE (frame);
+		state = CALL_STATE(frame);
 		if (state->flock.l_type == F_UNLCK)
 			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable,
 				       &state->loc, state->fd, frame->root->pid);
@@ -1311,7 +647,7 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie,
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret >= 0) {
-		state = STATE (frame);
+		state = CALL_STATE(frame);
 		if (state->flock.l_type == F_UNLCK)
 			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable,
 				       &state->loc, state->fd, frame->root->pid);
@@ -1344,7 +680,7 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie,
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret >= 0) {
-		state = STATE (frame);
+		state = CALL_STATE(frame);
 		if (state->flock.l_type == F_UNLCK)
 			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable,
 				       &state->loc, state->fd, frame->root->pid);
@@ -1382,7 +718,7 @@ server_access_cbk (call_frame_t *frame,
 	size_t hdrlen = 0;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1423,7 +759,7 @@ server_utimens_cbk (call_frame_t *frame,
 	gf_fop_utimens_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1467,7 +803,7 @@ server_chmod_cbk (call_frame_t *frame,
 	gf_fop_chmod_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1511,7 +847,7 @@ server_chown_cbk (call_frame_t *frame,
 	gf_fop_chown_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1553,7 +889,7 @@ server_rmdir_cbk (call_frame_t *frame,
 	size_t hdrlen = 0;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (op_ret == 0)
 		inode_unlink (state->loc.inode, state->loc.parent, state->loc.name);
@@ -1626,7 +962,7 @@ server_mkdir_cbk (call_frame_t *frame,
 	size_t hdrlen = 0;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1675,7 +1011,7 @@ server_mknod_cbk (call_frame_t *frame,
 	size_t hdrlen = 0;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1935,18 +1271,16 @@ server_opendir_cbk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_opendir_rsp_t *rsp = NULL;
 	size_t hdrlen = 0;
-	connection_private_t *priv = NULL;
 	uint64_t fd_no = -1;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (op_ret >= 0) {
-		priv = CONNECTION_PRIVATE (frame);
-
 		fd_bind (fd);
 
-		fd_no = gf_fd_unused_get (priv->fdtable, fd);
+		fd_no = gf_fd_unused_get (CONNECTION_PRIVATE(frame)->fdtable, 
+					  fd);
 	} else {
 		/* NOTE: corresponding to fd_create()'s ref */
 		if (state->fd)
@@ -1993,7 +1327,7 @@ server_statfs_cbk (call_frame_t *frame,
 	gf_fop_statfs_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2036,7 +1370,7 @@ server_removexattr_cbk (call_frame_t *frame,
 	size_t hdrlen = 0;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2078,7 +1412,7 @@ server_getxattr_cbk (call_frame_t *frame,
 	int32_t len = 0;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (op_ret >= 0) {
 		dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
@@ -2127,7 +1461,7 @@ server_setxattr_cbk (call_frame_t *frame,
 	size_t hdrlen = 0;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2168,7 +1502,7 @@ server_rename_cbk (call_frame_t *frame,
 	gf_fop_rename_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2178,7 +1512,7 @@ server_rename_cbk (call_frame_t *frame,
 	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret == 0) {
-		stbuf->st_ino = state->loc.ino;
+		stbuf->st_ino = state->loc.inode->ino;
 
 		inode_rename (state->itable,
 			      state->loc.parent, state->loc.name,
@@ -2220,7 +1554,7 @@ server_unlink_cbk (call_frame_t *frame,
 	size_t hdrlen = 0;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (op_ret == 0)
 		inode_unlink (state->loc.inode, state->loc.parent, state->loc.name);
@@ -2264,7 +1598,7 @@ server_symlink_cbk (call_frame_t *frame,
 	size_t hdrlen = 0;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2313,7 +1647,7 @@ server_link_cbk (call_frame_t *frame,
 	gf_fop_link_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2323,7 +1657,7 @@ server_link_cbk (call_frame_t *frame,
 	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret == 0) {
-		stbuf->st_ino = state->loc.ino;
+		stbuf->st_ino = state->loc.inode->ino;
 		gf_stat_from_stat (&rsp->stat, stbuf);
 		inode_link (inode, state->loc2.parent, state->loc2.name, stbuf);
 	}
@@ -2361,7 +1695,7 @@ server_truncate_cbk (call_frame_t *frame,
 	gf_fop_truncate_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2667,18 +2001,16 @@ server_open_cbk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_open_rsp_t *rsp = NULL;
 	size_t hdrlen = 0;
-	connection_private_t *priv = NULL;
 	int fd_no = -1;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (op_ret >= 0) {
-		priv = CONNECTION_PRIVATE (frame);
-
 		fd_bind (fd);
 
-		fd_no = gf_fd_unused_get (priv->fdtable, fd);
+		fd_no = gf_fd_unused_get (CONNECTION_PRIVATE(frame)->fdtable, 
+					  fd);
 	} else {
 		/* NOTE: corresponding to fd_create()'s ref */
 		if (state->fd)
@@ -2729,20 +2061,18 @@ server_create_cbk (call_frame_t *frame,
 	gf_fop_create_rsp_t *rsp = NULL;
 	size_t hdrlen = 0;
 	int32_t fd_no = -1;
-	connection_private_t *priv = NULL;
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (op_ret >= 0) {
-		priv = CONNECTION_PRIVATE (frame);
-
 		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 		inode_lookup (inode);
 
 		fd_bind (fd);
 
-		fd_no = gf_fd_unused_get (priv->fdtable, fd);
+		fd_no = gf_fd_unused_get (CONNECTION_PRIVATE(frame)->fdtable, 
+					  fd);
 
 		if ((fd_no < 0) || (fd == 0)) {
 			op_ret = fd_no;
@@ -2800,7 +2130,7 @@ server_readlink_cbk (call_frame_t *frame,
 	size_t linklen = 0;
 	server_state_t *state = NULL;
 
-	state  = STATE (frame);
+	state  = CALL_STATE(frame);
 
 	if (op_ret >= 0)
 		linklen = strlen (buf) + 1;
@@ -2848,7 +2178,7 @@ server_stat_cbk (call_frame_t *frame,
 	gf_fop_stat_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
-	state  = STATE (frame);
+	state  = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2930,7 +2260,7 @@ server_lookup_cbk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	size_t hdrlen = 0;
 	gf_fop_lookup_rsp_t *rsp = NULL;
-	server_state_t *state = STATE (frame);
+	server_state_t *state = CALL_STATE(frame);
 
 	if ((op_errno == ESTALE) && (op_ret == -1)) {
 		/* Send lookup again with new ctx dictionary */
@@ -3813,7 +3143,7 @@ server_lookup_resume (call_frame_t *frame,
 {
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
@@ -3862,8 +3192,28 @@ server_lookup (call_frame_t *frame,
 
 	req = gf_param (hdr);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_LOOKUP);
+	state = CALL_STATE(frame);
+	{
+		size_t pathlen = 0;
+
+		pathlen = STRLEN_0 (req->path);
+		
+		state->itable = BOUND_XL(frame)->itable;
+
+		state->need_xattr = ntoh32 (req->flags);
+		
+		/* NOTE: lookup() uses req->ino only to identify if a lookup()
+		 *       is requested for 'root' or not 
+		 */
+		state->ino    = ntoh64 (req->ino);
+		if (state->ino != 1)
+			state->ino = 0;
+
+		state->par    = ntoh64 (req->par);
+		state->path   = req->path;
+		if (IS_NOT_ROOT(pathlen))
+			state->basename = req->basename + pathlen;
+	}
 
 	ret = server_loc_fill (&state->loc, state,
 			       state->ino, state->par, state->basename,
@@ -3957,8 +3307,10 @@ server_stat (call_frame_t *frame,
 	int32_t ret = -1;
 
 	req = gf_param (hdr);
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_STAT);
+	state = CALL_STATE(frame);
+
+	state->ino  = ntoh64 (req->ino);
+	state->path = req->path;
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -4013,9 +3365,13 @@ server_readlink (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int32_t ret = -1;
 
-	req       = gf_param (hdr);
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_READLINK);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+
+	state->size  = ntoh32 (req->size);
+
+	state->ino  = ntoh64 (req->ino);
+	state->path = req->path;
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -4044,7 +3400,7 @@ server_create_resume (call_frame_t *frame,
 		      mode_t mode,
 		      fd_t *fd)
 {
-	server_state_t *state = STATE (frame);
+	server_state_t *state = CALL_STATE(frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
@@ -4085,10 +3441,21 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
 	server_state_t      *state = NULL;
 	call_stub_t         *create_stub = NULL;
 	int32_t ret = -1;
+	size_t pathlen = 0;
 
-	req = gf_param (hdr);
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_CREATE);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		pathlen = STRLEN_0(req->path);
+		
+		state->par  = ntoh64 (req->par);
+		state->path = req->path;
+		if (IS_NOT_ROOT(pathlen))
+			state->basename = req->basename + pathlen;
+
+		state->mode  = ntoh32 (req->mode);
+		state->flags = ntoh32 (req->flags);
+	}
 
 	ret = server_loc_fill (&(state->loc), state,
 			       0, state->par, state->basename,
@@ -4114,7 +3481,7 @@ server_open_resume (call_frame_t *frame,
                     int32_t flags,
                     fd_t *fd)
 {
-	server_state_t *state = STATE (frame);
+	server_state_t *state = CALL_STATE(frame);
 	fd_t *new_fd = NULL;
 
 	new_fd = fd_create (loc->inode, frame->root->pid);
@@ -4152,11 +3519,14 @@ server_open (call_frame_t *frame, xlator_t *bound_xl,
 	server_state_t *state = NULL;
 	int32_t ret = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		state->ino   = ntoh64 (req->ino);
+		state->path  = req->path;
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_OPEN);
-
+		state->flags = ntoh32 (req->flags);
+	}
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
 			       state->path);
@@ -4194,8 +3564,17 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
 
 	req = gf_param (hdr);
   
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_READ);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
+
+		state->size   = ntoh32 (req->size);
+		state->offset = ntoh64 (req->offset);
+	}
+
 
 	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
@@ -4236,10 +3615,17 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
-  
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_WRITE);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
+
+		state->offset = ntoh64 (req->offset);
+	}
+
 
 	if (state->fd == NULL)	{
 		fd_no = ntoh64 (req->fd);
@@ -4285,16 +3671,15 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
 		char *buf, size_t buflen)
 {
 	gf_cbk_release_req_t *req = NULL;
-	connection_private_t *priv = NULL;
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	priv = CONNECTION_PRIVATE (frame);
 	req = gf_param (hdr);
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 	
 	fd_no = ntoh64 (req->fd);
-	state->fd    = gf_fd_fdptr_get (priv->fdtable, fd_no);
+	state->fd    = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+					fd_no);
 	
 	if (state->fd == NULL)	{
 		gf_log (frame->this->name, GF_LOG_ERROR,
@@ -4305,8 +3690,8 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
 		goto out;
 	}
 
-	priv = CONNECTION_PRIVATE (frame);
-	gf_fd_put (priv->fdtable, fd_no);
+	gf_fd_put (CONNECTION_PRIVATE(frame)->fdtable, 
+		   fd_no);
 
 	STACK_WIND (frame,
 		    server_release_cbk,
@@ -4336,9 +3721,17 @@ server_fsync (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_FSYNC);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
+
+		state->flags = ntoh32 (req->data);
+	}
+
 
 	if (state->fd == NULL)	{
 		fd_no = ntoh64 (req->fd);
@@ -4377,10 +3770,15 @@ server_flush (call_frame_t *frame, xlator_t *bound_xl,
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
-	state = STATE (frame);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
+	}
 
-	server_state_fill (frame, req, GF_FOP_FLUSH);
 
 	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
@@ -4422,8 +3820,16 @@ server_ftruncate (call_frame_t *frame,
 
 	req = gf_param (hdr);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_FTRUNCATE);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
+
+		state->offset = ntoh64 (req->offset);
+	}
+
 
 	if (state->fd == NULL)	{
 		fd_no = ntoh64 (req->fd);
@@ -4465,10 +3871,15 @@ server_fstat (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
+	}
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_FSTAT);
 
 	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
@@ -4525,10 +3936,18 @@ server_truncate (call_frame_t *frame,
 	gf_fop_truncate_req_t *req = NULL;
 	server_state_t *state = NULL;
   	int32_t ret = -1;
+	size_t pathlen = 0;
 
-	req = gf_param (hdr);
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_TRUNCATE);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		pathlen = STRLEN_0(req->path);
+		state->offset = ntoh64 (req->offset);
+
+		state->path = req->path;
+		state->ino  = ntoh64 (req->ino);
+	}
+
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -4559,7 +3978,7 @@ server_unlink_resume (call_frame_t *frame,
 {
 	server_state_t *state = NULL;
 
-	state = STATE(frame);
+	state = CALL_STATE(frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
@@ -4593,11 +4012,17 @@ server_unlink (call_frame_t *frame,
 	gf_fop_unlink_req_t *req = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t  pathlen = 0;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_UNLINK);
+	pathlen = STRLEN_0(req->path);
+	
+	state->par   = ntoh64 (req->par);
+	state->path     = req->path;
+	if (IS_NOT_ROOT(pathlen))
+		state->basename = req->basename + pathlen;
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -4658,12 +4083,21 @@ server_setxattr (call_frame_t *frame,
 	dict_t *dict = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t pathlen = 0;
+	size_t dict_len = 0;
 
 	req = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		dict_len = ntoh32 (req->dict_len);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_SETXATTR);
+		state->path     = req->path + dict_len;
 
+		pathlen = STRLEN_0(state->path);
+		state->ino   = ntoh64 (req->ino);
+
+		state->flags = ntoh32 (req->flags);
+	}
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
 			       state->path);
@@ -4740,11 +4174,24 @@ server_xattrop (call_frame_t *frame,
 	dict_t *dict = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	int64_t fd_no = 0;
+	size_t pathlen = 0;
+	size_t dict_len = 0;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_XATTROP);
+		dict_len = ntoh32 (req->dict_len);
+		state->ino = ntoh64 (req->ino);
+		state->path  = req->path + dict_len;
+		pathlen = STRLEN_0(state->path);
+		state->flags = ntoh32 (req->flags);
+	}
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -4806,11 +4253,21 @@ server_getxattr (call_frame_t *frame,
 	call_stub_t *getxattr_stub = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t namelen = 0;
+	size_t pathlen = 0;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		pathlen = STRLEN_0(req->path);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_GETXATTR);
+		state->path = req->path;
+		state->ino  = ntoh64 (req->ino);
+
+		namelen = ntoh32 (req->namelen);
+		if (namelen)
+			state->name = (req->name + pathlen);
+	}
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -4866,11 +4323,18 @@ server_removexattr (call_frame_t *frame,
 	call_stub_t *removexattr_stub = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t pathlen = 0;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		pathlen = STRLEN_0(req->path);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_REMOVEXATTR);
+		state->path = req->path;
+		state->ino  = ntoh64 (req->ino);
+
+		state->name = (req->name + pathlen);
+	}
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -4912,9 +4376,9 @@ server_statfs (call_frame_t *frame,
 
 	req = gf_param (hdr);
 
-	state = STATE (frame);
-
-	server_state_fill (frame, req, GF_FOP_STATFS);
+	state = CALL_STATE(frame);
+	state->ino  = ntoh64 (req->ino);
+	state->path = req->path;
 
 	ret = server_loc_fill (&state->loc, state,
 			       state->ino, state->par, state->basename,
@@ -4937,7 +4401,7 @@ server_opendir_resume (call_frame_t *frame,
                        loc_t *loc,
                        fd_t *fd)
 {
-	server_state_t *state = STATE (frame);
+	server_state_t *state = CALL_STATE(frame);
 	fd_t *new_fd = NULL;
 
 	new_fd = fd_create (loc->inode, frame->root->pid);
@@ -4971,10 +4435,12 @@ server_opendir (call_frame_t *frame, xlator_t *bound_xl,
 	server_state_t *state = NULL;
 	int32_t ret = -1;
 
-	req = gf_param (hdr);
-
-	state = STATE (frame);
-	state = server_state_fill (frame, req, GF_FOP_OPENDIR);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		state->path  = req->path;
+		state->ino   = ntoh64 (req->ino);
+	}
 
 	ret = server_loc_fill (&state->loc, state,
 			       state->ino, state->par, state->basename,
@@ -5010,16 +4476,15 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 		   char *buf, size_t buflen)
 {
 	gf_cbk_releasedir_req_t *req = NULL;
-	connection_private_t *priv = NULL;
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	priv = CONNECTION_PRIVATE (frame);
 	req = gf_param (hdr);
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	fd_no = ntoh64 (req->fd);
-	state->fd    = gf_fd_fdptr_get (priv->fdtable, fd_no);
+	state->fd    = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+					fd_no);
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
@@ -5030,8 +4495,8 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 		goto out;
 	}
 
-	priv = CONNECTION_PRIVATE (frame);
-	gf_fd_put (priv->fdtable, fd_no);
+	gf_fd_put (CONNECTION_PRIVATE(frame)->fdtable, 
+		   fd_no);
 
 	server_releasedir_cbk (frame, NULL, frame->this,
 			       0, 0);
@@ -5058,10 +4523,19 @@ server_getdents (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_GETDENTS);
+		state->size = ntoh32 (req->size);
+		state->offset = ntoh64 (req->offset);
+		state->flags = ntoh32 (req->flags);
+	}
+
 
 	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
@@ -5104,10 +4578,18 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_READDIR);
+		state->size   = ntoh32 (req->size);
+		state->offset = ntoh64 (req->offset);
+	}
+
 
 	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
@@ -5149,10 +4631,16 @@ server_fsyncdir (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_FSYNCDIR);
+		state->flags = ntoh32 (req->data);
+	}
 
 	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
@@ -5183,7 +4671,7 @@ server_mknod_resume (call_frame_t *frame,
 {
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
@@ -5216,12 +4704,21 @@ server_mknod (call_frame_t *frame,
 	server_state_t *state = NULL;
 	call_stub_t *mknod_stub = NULL;
 	int32_t ret = -1;
+	size_t pathlen = 0;
+		
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		pathlen = STRLEN_0(req->path);
+		
+		state->par  = ntoh64 (req->par);
+		state->path = req->path;
+		if (IS_NOT_ROOT(pathlen))
+			state->basename = req->basename + pathlen;
 
-	req = gf_param (hdr);
-
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_MKNOD);
-
+		state->mode = ntoh32 (req->mode);
+		state->dev  = ntoh64 (req->dev);
+	}
 	ret = server_loc_fill (&(state->loc), state,
 			       0, state->par, state->basename,
 			       state->path);
@@ -5247,7 +4744,7 @@ server_mkdir_resume (call_frame_t *frame,
 {
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
@@ -5282,11 +4779,19 @@ server_mkdir (call_frame_t *frame,
 	server_state_t *state = NULL;
 	call_stub_t *mkdir_stub = NULL;
 	int32_t ret = -1;
+	size_t pathlen = 0;
+		
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		pathlen = STRLEN_0(req->path);
+		state->mode = ntoh32 (req->mode);
 
-	req = gf_param (hdr);
+		state->path     = req->path;
+		state->basename = req->basename + pathlen;
+		state->par      = ntoh64 (req->par);
+	}
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_MKDIR);
 
 	ret = server_loc_fill (&(state->loc), state,
 			       0, state->par, state->basename,
@@ -5312,7 +4817,7 @@ server_rmdir_resume (call_frame_t *frame,
 {
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
@@ -5346,11 +4851,17 @@ server_rmdir (call_frame_t *frame,
 	gf_fop_rmdir_req_t *req = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t pathlen = 0;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		pathlen = STRLEN_0(req->path);
+		state->path = req->path;
+		state->par  = ntoh64 (req->par);
+		state->basename = req->basename + pathlen;
+	}
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_RMDIR);
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -5429,10 +4940,16 @@ server_chown (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int32_t ret = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		state->ino  = ntoh64 (req->ino);
+		state->path = req->path;
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_CHOWN);
+		state->uid   = ntoh32 (req->uid);
+		state->gid   = ntoh32 (req->gid);
+	}
+
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -5492,8 +5009,13 @@ server_chmod (call_frame_t *frame,
 
 	req       = gf_param (hdr);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_CHMOD);
+	state = CALL_STATE(frame);
+	{
+		state->ino  = ntoh64 (req->ino);
+		state->path = req->path;
+
+		state->mode = ntoh32 (req->mode);
+	}
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -5549,10 +5071,15 @@ server_utimens (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int32_t ret = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		state->ino  = ntoh64 (req->ino);
+		state->path = req->path;
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_UTIMENS);
+		gf_timespec_to_timespec (req->tv, state->tv);
+	}
+
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -5583,7 +5110,7 @@ server_inodelk_resume (call_frame_t *frame,
 {
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 	if (state->loc.inode == NULL) {
 		state->loc.inode = inode_ref (loc->inode);
 	}
@@ -5611,11 +5138,46 @@ server_inodelk (call_frame_t *frame,
  	call_stub_t *inodelk_stub = NULL;
  	gf_fop_inodelk_req_t *req = NULL;
  	server_state_t *state = NULL;
+	size_t pathlen = 0;
 
- 	req       = gf_param (hdr);
+ 	req   = gf_param (hdr);
+ 	state = CALL_STATE(frame);
+	{
+		state->cmd = ntoh32 (req->cmd);
+		switch (state->cmd) {
+		case GF_LK_GETLK:
+			state->cmd = F_GETLK;
+			break;
+		case GF_LK_SETLK:
+			state->cmd = F_SETLK;
+			break;
+		case GF_LK_SETLKW:
+			state->cmd = F_SETLKW;
+			break;
+		}
 
- 	state = STATE (frame);
- 	server_state_fill (frame, req, GF_FOP_INODELK);
+		state->type = ntoh32 (req->type);
+
+		pathlen = STRLEN_0(req->path);
+
+		state->path = req->path;
+		state->ino  = ntoh64 (req->ino);
+
+		gf_flock_to_flock (&req->flock, &state->flock);
+
+		switch (state->type) {
+		case GF_LK_F_RDLCK: 
+			state->flock.l_type = F_RDLCK; 
+			break;
+		case GF_LK_F_WRLCK: 
+			state->flock.l_type = F_WRLCK; 
+			break;
+		case GF_LK_F_UNLCK: 
+			state->flock.l_type = F_UNLCK; 
+			break;
+		}
+
+	}
 
 	server_loc_fill (&(state->loc), state, 
 			 state->ino, state->par, state->basename, 
@@ -5646,12 +5208,46 @@ server_finodelk (call_frame_t *frame,
  	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
- 	req       = gf_param (hdr);
-   
- 	state = STATE (frame);
- 	server_state_fill (frame, req, GF_FOP_FINODELK);
+ 	req   = gf_param (hdr);
+ 	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
 
-	if (!state->fd) {
+		state->cmd = ntoh32 (req->cmd);
+		switch (state->cmd) {
+		case GF_LK_GETLK:
+			state->cmd = F_GETLK;
+			break;
+		case GF_LK_SETLK:
+			state->cmd = F_SETLK;
+			break;
+		case GF_LK_SETLKW:
+			state->cmd = F_SETLKW;
+			break;
+		}
+
+		state->type = ntoh32 (req->type);
+
+		gf_flock_to_flock (&req->flock, &state->flock);
+
+		switch (state->type) {
+		case GF_LK_F_RDLCK: 
+			state->flock.l_type = F_RDLCK; 
+			break;
+		case GF_LK_F_WRLCK: 
+			state->flock.l_type = F_WRLCK; 
+			break;
+		case GF_LK_F_UNLCK: 
+			state->flock.l_type = F_UNLCK; 
+			break;
+		}
+
+	}
+
+	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
@@ -5676,7 +5272,7 @@ server_entrylk_resume (call_frame_t *frame,
 {
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (state->loc.inode == NULL)
 		state->loc.inode = inode_ref (loc->inode);
@@ -5707,14 +5303,23 @@ server_entrylk (call_frame_t *frame,
 		gf_hdr_common_t *hdr, size_t hdrlen,
 		char *buf, size_t buflen)
 {
- 	call_stub_t *entrylk_stub = NULL;
  	gf_fop_entrylk_req_t *req = NULL;
  	server_state_t *state = NULL;
+ 	call_stub_t *entrylk_stub = NULL;
+	size_t pathlen = 0;
 
- 	req       = gf_param (hdr);
+ 	req   = gf_param (hdr);
+ 	state = CALL_STATE(frame);
+	{
+		pathlen = STRLEN_0(req->path);
 
- 	state = STATE (frame);
- 	server_state_fill (frame, req, GF_FOP_ENTRYLK);
+		state->path = req->path;
+		state->ino  = ntoh64 (req->ino);
+
+		state->cmd  = ntoh32 (req->cmd);
+		state->type = ntoh32 (req->type);
+	}
+
 
  	server_loc_fill (&(state->loc), state, 
 			 state->ino, state->par, state->basename,
@@ -5746,10 +5351,18 @@ server_fentrylk (call_frame_t *frame,
  	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
- 	req       = gf_param (hdr);
-   
- 	state = STATE (frame);
- 	server_state_fill (frame, req, GF_FOP_FENTRYLK);
+ 	req   = gf_param (hdr);
+ 	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
+
+		state->cmd   = ntoh32 (req->cmd);
+		state->type  = ntoh32 (req->type);
+		state->name = req->name;
+	}
 
 	if (!state->fd) {
 		fd_no = ntoh64 (req->fd);
@@ -5802,10 +5415,13 @@ server_access (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int32_t ret = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_ACCESS);
+	state->mask  = ntoh32 (req->mask);
+
+	state->ino  = ntoh64 (req->ino);
+	state->path = req->path;
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -5833,8 +5449,9 @@ server_symlink_resume (call_frame_t *frame,
 		       const char *linkname,
 		       loc_t *loc)
 {
-	server_state_t *state = STATE (frame);
+	server_state_t *state = NULL;
 
+	state = CALL_STATE(frame);
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
 
@@ -5869,11 +5486,21 @@ server_symlink (call_frame_t *frame,
 	gf_fop_symlink_req_t *req = NULL;
 	call_stub_t *symlink_stub = NULL;
 	int32_t ret = -1;
+	size_t  pathlen = 0;
+	size_t  baselen = 0;
 
 	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		pathlen = STRLEN_0(req->path);
+		baselen = STRLEN_0(req->basename + pathlen);
+		
+		state->par  = ntoh64 (req->par);
+		state->path = req->path;
+		state->basename = req->basename + pathlen;
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_SYMLINK);
+		state->name = (req->linkname + pathlen + baselen);
+	}
 
 	ret = server_loc_fill (&(state->loc), state,
 			       0, state->par, state->basename,
@@ -5899,7 +5526,7 @@ server_link_resume (call_frame_t *frame,
 {
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (oldloc->parent);
@@ -5940,15 +5567,28 @@ server_link (call_frame_t *frame,
              gf_hdr_common_t *hdr, size_t hdrlen,
              char *buf, size_t buflen)
 {
-	call_stub_t *link_stub = NULL;
 	gf_fop_link_req_t *req = NULL;
 	server_state_t *state = NULL;
+	call_stub_t    *link_stub = NULL;
 	int32_t ret = -1;
+	size_t  oldpathlen = 0;
+	size_t  newpathlen = 0;
+	size_t  newbaselen = 0;
 
 	req   = gf_param (hdr);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_LINK);
+	state = CALL_STATE(frame);
+	{
+		oldpathlen = STRLEN_0(req->oldpath);
+		newpathlen = STRLEN_0(req->newpath     + oldpathlen);
+		newbaselen = STRLEN_0(req->newbasename + oldpathlen + newpathlen);
+
+		state->path      = req->oldpath;
+		state->path2     = req->newpath     + oldpathlen;
+		state->basename2 = req->newbasename + oldpathlen + newpathlen;
+		state->ino   = ntoh64 (req->oldino);
+		state->par2  = ntoh64 (req->newpar);
+	}
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -5981,7 +5621,7 @@ server_rename_resume (call_frame_t *frame,
 {
 	server_state_t *state = NULL;
 
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (oldloc->parent);
@@ -6016,21 +5656,38 @@ server_rename (call_frame_t *frame,
                gf_hdr_common_t *hdr, size_t hdrlen,
                char *buf, size_t buflen)
 {
-	call_stub_t *rename_stub = NULL;
 	gf_fop_rename_req_t *req = NULL;
 	server_state_t *state = NULL;
+	call_stub_t    *rename_stub = NULL;
 	int32_t ret = -1;
+	size_t  oldpathlen = 0;
+	size_t  oldbaselen = 0;
+	size_t  newpathlen = 0;
+	size_t  newbaselen = 0;
 
 	req = gf_param (hdr);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_RENAME);
+	state = CALL_STATE(frame);
+	{
+		oldpathlen = STRLEN_0(req->oldpath);
+		oldbaselen = STRLEN_0(req->oldbasename + oldpathlen);
+		newpathlen = STRLEN_0(req->newpath     + oldpathlen + oldbaselen);
+		newbaselen = STRLEN_0(req->newbasename + oldpathlen + oldbaselen + newpathlen);
+
+		state->path      = req->oldpath;
+		state->basename  = req->oldbasename + oldpathlen;
+		state->path2     = req->newpath     + oldpathlen + oldbaselen;
+		state->basename2 = req->newbasename + oldpathlen + oldbaselen + newpathlen;
+
+		state->par   = ntoh64 (req->oldpar);
+		state->par2  = ntoh64 (req->newpar);
+	}
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
 			       state->path);
 	ret = server_loc_fill (&(state->loc2), state,
-			       0, state->par, state->basename,
+			       0, state->par2, state->basename2,
 			       state->path2);
 
 	rename_stub = fop_rename_stub (frame,
@@ -6089,10 +5746,18 @@ server_lk (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_LK);
+		state->cmd =  ntoh32 (req->cmd);
+		state->type = ntoh32 (req->type);
+	}
+
 
 	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
@@ -6162,10 +5827,17 @@ server_setdents (call_frame_t *frame,
 	server_state_t *state = NULL;
 	int64_t fd_no = -1;
 
-	req = gf_param (hdr);
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
 
-	state = STATE (frame);
-	server_state_fill (frame, req, GF_FOP_SETDENTS);
+		state->nr_count = ntoh32 (req->count);
+	}
+
 
 	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
@@ -6837,7 +6509,7 @@ mop_setvolume (call_frame_t *frame,
 			"accepted client from %s",
 			peerinfo->identifier);
 		ret = 0;
-		connection_priv->bound_xl = xl;
+		CONNECTION_PRIVATE(frame)->bound_xl = xl;
 		dict_set_str (reply, "ERROR", "Success");
 	} else {
 		gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
@@ -6849,7 +6521,7 @@ mop_setvolume (call_frame_t *frame,
 		goto fail;
 	}
 
-	if (connection_priv->bound_xl == NULL) {
+	if (CONNECTION_PRIVATE(frame)->bound_xl == NULL) {
 		dict_set_str (reply, "ERROR",
 			      "Check volume spec file and handshake options");
 		ret = -1;
@@ -6858,9 +6530,9 @@ mop_setvolume (call_frame_t *frame,
 	}
 
 fail:
-	if ((connection_priv->bound_xl != NULL) &&
+	if ((CONNECTION_PRIVATE(frame)->bound_xl != NULL) &&
 	    (ret >= 0)               &&
-	    (connection_priv->bound_xl->itable == NULL)) {
+	    (CONNECTION_PRIVATE(frame)->bound_xl->itable == NULL)) {
 		/* create inode table for this bound_xl, if one doesn't already exist */
 		int32_t lru_limit = 1024;
 		xlator_t *xl = TRANSPORT_OF (frame)->xl;
@@ -6869,10 +6541,10 @@ fail:
 
 		gf_log (xl->name, GF_LOG_DEBUG,
 			"creating inode table with lru_limit=%d, xlator=%s",
-			lru_limit, connection_priv->bound_xl->name);
+			lru_limit, CONNECTION_PRIVATE(frame)->bound_xl->name);
 
-		connection_priv->bound_xl->itable = inode_table_new (lru_limit,
-								     connection_priv->bound_xl);
+		CONNECTION_PRIVATE(frame)->bound_xl->itable = inode_table_new (lru_limit,
+									       CONNECTION_PRIVATE(frame)->bound_xl);
 	}
 
 	dict_set_int32 (reply, "RET", ret);
@@ -7321,7 +6993,7 @@ server_nop_cbk (call_frame_t *frame,
 {
 	server_state_t *state = NULL;
 	
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 
 	if (state)
 		free_state (state);

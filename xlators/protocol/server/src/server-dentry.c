@@ -224,7 +224,7 @@ __do_path_resolve_cbk (call_frame_t *frame,
 	inode_t *parent = NULL;
 
 	stub = frame->local;
-	state = STATE (frame);
+	state = CALL_STATE(frame);
 	
 	parent = state->loc.parent;
 
@@ -295,7 +295,7 @@ __do_path_resolve (call_stub_t *stub,
 
 	{
 		new_frame = server_copy_frame (stub->frame);
-		new_state = STATE (new_frame);
+		new_state = CALL_STATE(new_frame);
 
 		SERVER_DENTRY_STATE_PREPARE(new_state, loc, parent, resolved);
 		

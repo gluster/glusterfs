@@ -430,25 +430,18 @@ client_open (call_frame_t *frame,
 	size_t           hdrlen = 0;
 	gf_fop_open_req_t *req = NULL;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 	
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
-	req->par   = hton64 (par);
 	req->flags = hton32 (flags);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 
 	frame->local = fd;
 
@@ -478,24 +471,17 @@ client_stat (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int    ret = -1;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
-	req->par  = hton64 (par);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_STAT,
@@ -525,25 +511,18 @@ client_readlink (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int    ret = -1;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
-	req->par  = hton64 (par);
 	req->size = hton32 (size);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_READLINK,
@@ -668,20 +647,16 @@ client_unlink (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	size_t baselen = 0;
-	ino_t  ino = 0;
 	ino_t  par = 0;
 	
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
+	par = this_ino_get (loc->parent, this);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino  = hton64 (ino);
 	req->par  = hton64 (par);
 	strcpy (req->path, loc->path);
 	strcpy (req->basename + pathlen, loc->name);
@@ -738,20 +713,16 @@ client_rmdir (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	size_t baselen = 0;
-	ino_t  ino = 0;
 	ino_t  par = 0;
 	
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
+	par = this_ino_get (loc->parent, this);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
 	req    = gf_param (hdr);
 
-	req->ino  = hton64 (ino);
 	req->par  = hton64 (par);
 	strcpy (req->path, loc->path);
 	strcpy (req->basename + pathlen, loc->name);
@@ -835,30 +806,21 @@ client_rename (call_frame_t *frame,
 	size_t oldbaselen = 0;
 	size_t newpathlen = 0;
 	size_t newbaselen = 0;
-	ino_t  oldino = 0;
 	ino_t  oldpar = 0;
-	ino_t  newino = 0;
 	ino_t  newpar = 0;
 
 	oldpathlen = STRLEN_0(oldloc->path);
 	oldbaselen = STRLEN_0(oldloc->name);
 	newpathlen = STRLEN_0(newloc->path);
 	newbaselen = STRLEN_0(newloc->name);
-	oldino = this_ino_get (oldloc->inode, this);
-	if (oldloc->ino != 1)
-		oldpar = this_ino_get (oldloc->parent, this);
-	if (newloc->ino)
-		newino = this_ino_get (newloc->inode, this);
+	oldpar = this_ino_get (oldloc->parent, this);
 	newpar = this_ino_get (newloc->parent, this);
 
 	hdrlen = gf_hdr_len (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
 	hdr    = gf_hdr_new (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
 	req    = gf_param (hdr);
 
-	req->oldino = hton64 (oldino);
 	req->oldpar = hton64 (oldpar);
-	if (newloc->ino)
-		req->newino = hton64 (newino);
 	req->newpar = hton64 (newpar);
 
 	strcpy (req->oldpath, oldloc->path);
@@ -896,33 +858,26 @@ client_link (call_frame_t *frame,
 	gf_fop_link_req_t *req = NULL;
 	size_t hdrlen = 0;
 	size_t oldpathlen = 0;
-	size_t oldbaselen = 0;
 	size_t newpathlen = 0;
 	size_t newbaselen = 0;
 	ino_t  oldino = 0;
-	ino_t  oldpar = 0;
 	ino_t  newpar = 0;
 
 	oldpathlen = STRLEN_0(oldloc->path);
-	oldbaselen = STRLEN_0(oldloc->name);
 	newpathlen = STRLEN_0(newloc->path);
 	newbaselen = STRLEN_0(newloc->name);
 	oldino = this_ino_get (oldloc->inode, this);
-	if (oldloc->ino != 1)
-		oldpar = this_ino_get (oldloc->parent, this);
 	newpar = this_ino_get (newloc->parent, this);
 
-	hdrlen = gf_hdr_len (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
-	hdr    = gf_hdr_new (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
+	hdrlen = gf_hdr_len (req, oldpathlen + newpathlen + newbaselen);
+	hdr    = gf_hdr_new (req, oldpathlen + newpathlen + newbaselen);
 	req    = gf_param (hdr);
 
 	strcpy (req->oldpath, oldloc->path);
-	strcpy (req->oldbasename + oldpathlen, oldloc->name);
-	strcpy (req->newpath     + oldpathlen + oldbaselen, newloc->path);
-	strcpy (req->newbasename + oldpathlen + oldbaselen + newpathlen, newloc->name);
+	strcpy (req->newpath     + oldpathlen, newloc->path);
+	strcpy (req->newbasename + oldpathlen + newpathlen, newloc->name);
 
 	req->oldino = hton64 (oldino);
-	req->oldpar = hton64 (oldpar);
 	req->newpar = hton64 (newpar);
 
 	frame->local = oldloc->inode;
@@ -955,25 +910,18 @@ client_chmod (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int    ret = -1;
 	size_t pathlen = 0;
-	size_t baselen = 0;
-	ino_t ino = 0;
-	ino_t par = 0;
+	ino_t  ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 	
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino     = hton64 (ino);
-	req->par     = hton64 (par);
 	req->mode    = hton32 (mode);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHMOD,
@@ -1005,26 +953,19 @@ client_chown (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int    ret = -1;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino = hton64 (ino);
-	req->par = hton64 (par);
 	req->uid = hton32 (uid);
 	req->gid = hton32 (gid);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHOWN,
@@ -1053,25 +994,18 @@ client_truncate (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int    ret = -1;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino    = hton64 (ino);
-	req->par    = hton64 (par);
 	req->offset = hton64 (offset);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_TRUNCATE,
@@ -1102,25 +1036,18 @@ client_utimens (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int    ret = -1;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino = hton64 (ino);
-	req->par = hton64 (par);
 	gf_timespec_from_timespec (req->tv, tvp);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_UTIMENS,
@@ -1250,24 +1177,17 @@ client_statfs (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int    ret = -1;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino = hton64 (ino);
-	req->par = hton64 (par);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_STATFS,
@@ -1383,9 +1303,7 @@ client_xattrop (call_frame_t *frame,
 	int64_t remote_fd = -1;
 	int     ret = -1;
 	size_t  pathlen = 0;
-	size_t  baselen = 0;
-	ino_t ino = 0;
-	ino_t par = 0;
+	ino_t   ino = 0;
 
 	if (dict)
 		dict_len = dict_serialized_length (dict);
@@ -1401,14 +1319,11 @@ client_xattrop (call_frame_t *frame,
 		}
 	} else {
 		pathlen = STRLEN_0(loc->path);
-		baselen = STRLEN_0(loc->name);
 		ino = this_ino_get (loc->inode, this);
-		if (ino != 1)
-			par = this_ino_get (loc->parent, this);
 	}
 
-	hdrlen = gf_hdr_len (req, dict_len + (fd? 0 : (pathlen + baselen)));
-	hdr    = gf_hdr_new (req, dict_len + (fd? 0 : (pathlen + baselen)));
+	hdrlen = gf_hdr_len (req, dict_len + (fd? 0 : pathlen));
+	hdr    = gf_hdr_new (req, dict_len + (fd? 0 : pathlen));
 	req    = gf_param (hdr);
 
 	req->flags = hton32 (flags);
@@ -1418,15 +1333,11 @@ client_xattrop (call_frame_t *frame,
 
 	req->fd = hton64 (remote_fd);
 
-	/* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
-	 * in the protocol data.
-	 */
 	if (fd == NULL) {
 		req->ino = hton64 (ino);
-		req->par = hton64 (par);
 		strcpy (req->path + dict_len, loc->path);
-		strcpy (req->basename + dict_len + pathlen, loc->name);
 	}
+
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_XATTROP,
 				    hdr, hdrlen, NULL, 0, NULL);
@@ -1495,31 +1406,22 @@ client_setxattr (call_frame_t *frame,
 	size_t dict_len = 0;
 	int    ret = -1;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 
 	dict_len = dict_serialized_length (dict);
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 	
-	hdrlen = gf_hdr_len (req, dict_len + pathlen + baselen);
-	hdr    = gf_hdr_new (req, dict_len + pathlen + baselen);
+	hdrlen = gf_hdr_len (req, dict_len + pathlen);
+	hdr    = gf_hdr_new (req, dict_len + pathlen);
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
-	req->par   = hton64 (par);
 	req->flags = hton32 (flags);
 	req->dict_len = hton32 (dict_len);
 	dict_serialize (dict, req->dict);
-	/* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
-	 * in the protocol data.
-	 */
+
 	strcpy (req->path + dict_len, loc->path);
-	strcpy (req->basename + dict_len + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETXATTR,
@@ -1546,31 +1448,24 @@ client_getxattr (call_frame_t *frame,
 	gf_fop_getxattr_req_t *req = NULL;
 	size_t hdrlen = 0;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	size_t namelen = 0;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	if (name)
 		namelen = STRLEN_0(name);
 
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen + namelen);
-	hdr    = gf_hdr_new (req, pathlen + baselen + namelen);
+	hdrlen = gf_hdr_len (req, pathlen + namelen);
+	hdr    = gf_hdr_new (req, pathlen + namelen);
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
-	req->par   = hton64 (par);
 	req->namelen = hton32 (namelen);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 	if (name)
-		strcpy (req->name + pathlen + baselen, name);
+		strcpy (req->name + pathlen, name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_GETXATTR,
@@ -1599,26 +1494,19 @@ client_removexattr (call_frame_t *frame,
 	size_t hdrlen = 0;
 	size_t namelen = 0;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	namelen = STRLEN_0(name);
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen + namelen);
-	hdr    = gf_hdr_new (req, pathlen + baselen + namelen);
+	hdrlen = gf_hdr_len (req, pathlen + namelen);
+	hdr    = gf_hdr_new (req, pathlen + namelen);
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
-	req->par   = hton64 (par);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
-	strcpy (req->name     + pathlen + baselen, name);
+	strcpy (req->name + pathlen, name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_REMOVEXATTR,
@@ -1646,24 +1534,17 @@ client_opendir (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int    ret = -1;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->parent, this);
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino = hton64 (ino);
-	req->par = hton64 (par);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 
 	frame->local = fd;
 
@@ -1837,25 +1718,18 @@ client_access (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int    ret = -1;
 	ino_t  ino = 0;
-	ino_t  par = 0;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 
 	ino = this_ino_get (loc->inode, this);
-	if (loc->ino != 1)
-		par = this_ino_get (loc->inode, this);
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
-	req->par  = hton64 (par);
 	req->mask = hton32 (mask);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 	
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_ACCESS,
@@ -2057,15 +1931,10 @@ client_inodelk (call_frame_t *frame,
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 	ino_t   ino  = 0;
-	ino_t   par  = 0;
 	size_t  pathlen = 0;
-	size_t  baselen = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
 	ino = this_ino_get (loc->inode, this);
-	if (ino != 1)
-		par = this_ino_get (loc->parent, this);
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
 		gf_cmd = GF_LK_GETLK;
@@ -2092,15 +1961,13 @@ client_inodelk (call_frame_t *frame,
 		break;
 	}
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, loc->name);
 
 	req->ino  = hton64 (ino);
-	req->par  = hton64 (par);
 
 	req->cmd  = hton32 (gf_cmd);
 	req->type = hton32 (gf_type);
@@ -2203,26 +2070,19 @@ client_entrylk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_entrylk_req_t *req = NULL;
 	size_t pathlen = 0;
-	size_t baselen = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
 	ino_t ino = 0;
-	ino_t par = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(basename);
 	ino = this_ino_get (loc->inode, this);
-	if (ino != 1)
-		par = this_ino_get (loc->parent, this);
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
-	req->par  = hton64 (par);
 	strcpy (req->path, loc->path);
-	strcpy (req->basename + pathlen, basename);
 
 	req->cmd  = hton32 (cmd);
 	req->type = hton32 (type);
@@ -2303,10 +2163,10 @@ client_lookup (call_frame_t *frame,
 	size_t baselen = 0;
 
 	if (loc->ino != 1) {
-		ino = this_ino_get (loc->inode, this);
 		par = this_ino_get (loc->parent, this);
-	} else 
-		ino = loc->ino;
+	} else {
+		ino = 1;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);

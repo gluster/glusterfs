@@ -42,9 +42,9 @@
 
 typedef struct _server_state server_state_t;
 
-#define STATE(frame)        ((server_state_t *)frame->root->state)
+#define CALL_STATE(frame)   ((server_state_t *)frame->root->state)
 
-#define BOUND_XL(frame)     ((xlator_t *) STATE (frame)->bound_xl)
+#define BOUND_XL(frame)     ((xlator_t *) CALL_STATE(frame)->bound_xl)
 
 
 struct _server_reply {
