@@ -1299,7 +1299,7 @@ int32_t
 error_gen_xattrop (call_frame_t *frame,
 		   xlator_t *this,
 		   fd_t *fd,
-		   const char *path,
+		   loc_t *loc,
 		   gf_xattrop_flags_t flags,
 		   dict_t *dict)
 {
@@ -1315,10 +1315,7 @@ error_gen_xattrop (call_frame_t *frame,
 		    error_gen_xattrop_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->xattrop,
-		    fd,
-		    path,
-		    flags,
-		    dict);
+		    fd, loc, flags, dict);
 	return 0;
 }
 
@@ -1924,6 +1921,7 @@ struct xlator_fops fops = {
 	.setdents    = error_gen_setdents,
 	.lookup_cbk  = error_gen_lookup_cbk,
 	.checksum    = error_gen_checksum,
+	.xattrop     = error_gen_xattrop,
 };
 
 struct xlator_mops mops = {
