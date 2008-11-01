@@ -1399,12 +1399,13 @@ client_xattrop (call_frame_t *frame,
 			STACK_UNWIND (frame, -1, EBADFD, NULL);
 			return 0;
 		}
+	} else {
+		pathlen = STRLEN_0(loc->path);
+		baselen = STRLEN_0(loc->name);
+		ino = this_ino_get (loc->inode, this);
+		if (ino != 1)
+			par = this_ino_get (loc->parent, this);
 	}
-	pathlen = STRLEN_0(loc->path);
-	baselen = STRLEN_0(loc->name);
-	ino = this_ino_get (loc->inode, this);
-	if (ino != 1)
-		par = this_ino_get (loc->parent, this);
 
 	hdrlen = gf_hdr_len (req, dict_len + (fd? 0 : (pathlen + baselen)));
 	hdr    = gf_hdr_new (req, dict_len + (fd? 0 : (pathlen + baselen)));
