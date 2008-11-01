@@ -685,7 +685,7 @@ typedef int32_t (*fop_readdir_t) (call_frame_t *frame,
 typedef int32_t (*fop_xattrop_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  fd_t *fd,
-				  const char *path,
+				  loc_t *loc,
 				  gf_xattrop_flags_t optype,
 				  dict_t *xattr);
 

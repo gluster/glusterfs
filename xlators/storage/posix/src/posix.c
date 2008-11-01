@@ -2384,7 +2384,7 @@ add_array (int32_t *dest, int32_t *src, int count)
 
 int
 posix_xattrop (call_frame_t *frame, xlator_t *this,
-	       fd_t *fd, const char *path, gf_xattrop_flags_t optype, dict_t *xattr)
+	       fd_t *fd, loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr)
 {
 	char            *real_path = NULL;
 	int32_t         *array = NULL;
@@ -2406,8 +2406,8 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 
 	trav = xattr->members_list;
 
-	if (path)
-		MAKE_REAL_PATH (real_path, this, path);
+	if (loc->path)
+		MAKE_REAL_PATH (real_path, this, loc->path);
 
 	if (fd) {
 		pfd_data = dict_get (fd->ctx, this->name);
@@ -2415,7 +2415,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 		if (pfd == NULL) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"pfd is NULL. path=%s. optype=%d",
-				path ? path : "<NULL>", optype);
+				loc->path ? loc->path : "<NULL>", optype);
 			op_ret = -1;
 			op_errno = EBADFD;
 			goto out;
@@ -2441,7 +2441,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
                                                      "extended attributes not supported by filesystem");
 			} else 	{
 				gf_log (this->name, GF_LOG_ERROR,
-					"%s (%d): %s", path, _fd,
+					"%s (%d): %s", loc->path, _fd,
 					strerror (op_errno));
 			}
 			goto out;
@@ -2454,7 +2454,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 		default:
 			gf_log (this->name, GF_LOG_ERROR,
 				"unknown xattrop type %d. path=%s",
-				optype, path);
+				optype, loc->path);
 			op_ret = -1;
 			op_errno = EINVAL;
 			goto out;
@@ -2470,7 +2470,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 		op_errno = errno;
 		if (size == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"%s (%d): key=%s (%s)", path, _fd,
+				"%s (%d): key=%s (%s)", loc->path, _fd,
 				trav->key, strerror (op_errno));
 			op_ret = -1;
 			goto out;
@@ -2479,7 +2479,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 
 			if (size != 0) {
 				gf_log (this->name, GF_LOG_ERROR,
-					"%s (%d): key=%s (%s)", path, _fd, 
+					"%s (%d): key=%s (%s)", loc->path, _fd, 
 					trav->key, strerror (-size));
 				op_ret = -1;
 				op_errno = EINVAL;

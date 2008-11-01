@@ -1372,7 +1372,7 @@ int32_t
 client_xattrop (call_frame_t *frame,
 		xlator_t *this,
 		fd_t *fd,
-		const char *path,
+		loc_t *loc,
 		gf_xattrop_flags_t flags,
 		dict_t *dict)
 {
@@ -1382,13 +1382,13 @@ client_xattrop (call_frame_t *frame,
 	size_t  dict_len = 0;
 	int64_t remote_fd = -1;
 	int     ret = -1;
+	size_t  pathlen = 0;
+	size_t  baselen = 0;
+	ino_t ino = 0;
+	ino_t par = 0;
 
 	if (dict)
 		dict_len = dict_serialized_length (dict);
-
-	hdrlen = gf_hdr_len (req, dict_len + (path ? (strlen (path) + 1) : 0));
-	hdr    = gf_hdr_new (req, dict_len + (path ? (strlen (path) + 1) : 0));
-	req    = gf_param (hdr);
 
 	if (fd) {
 		ret = this_fd_get (fd, this, &remote_fd);
@@ -1400,6 +1400,15 @@ client_xattrop (call_frame_t *frame,
 			return 0;
 		}
 	}
+	pathlen = STRLEN_0(loc->path);
+	baselen = STRLEN_0(loc->name);
+	ino = this_ino_get (loc->inode, this);
+	if (ino != 1)
+		par = this_ino_get (loc->parent, this);
+
+	hdrlen = gf_hdr_len (req, dict_len + (fd? 0 : (pathlen + baselen)));
+	hdr    = gf_hdr_new (req, dict_len + (fd? 0 : (pathlen + baselen)));
+	req    = gf_param (hdr);
 
 	req->flags = hton32 (flags);
 	req->dict_len = hton32 (dict_len);
@@ -1411,9 +1420,12 @@ client_xattrop (call_frame_t *frame,
 	/* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
 	 * in the protocol data.
 	 */
-	if (fd == NULL)
-		strcpy (req->dict + dict_len, path);
-
+	if (fd == NULL) {
+		req->ino = hton64 (ino);
+		req->par = hton64 (par);
+		strcpy (req->path + dict_len, loc->path);
+		strcpy (req->basename + dict_len + pathlen, loc->name);
+	}
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_XATTROP,
 				    hdr, hdrlen, NULL, 0, NULL);

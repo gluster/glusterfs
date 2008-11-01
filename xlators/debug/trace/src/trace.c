@@ -1110,23 +1110,23 @@ int32_t
 trace_xattrop (call_frame_t *frame,
 	       xlator_t *this,
 	       fd_t *fd,
-	       const char *path,
+	       loc_t *loc,
 	       gf_xattrop_flags_t flags,
 	       dict_t *dict)
 {
-	ERR_EINVAL_NORETURN (!this || (!path && !fd));
+	ERR_EINVAL_NORETURN (!this || (!loc && !fd));
 
 	if (trace_fop_names[GF_FOP_XATTROP].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
 			"callid: %lld (path=%s, flags=%d)",
-			(long long) frame->root->unique, path, flags);
+			(long long) frame->root->unique, loc->path, flags);
 			
 	}
   
 	STACK_WIND (frame, trace_xattrop_cbk,
 		    FIRST_CHILD(this), 
 		    FIRST_CHILD(this)->fops->xattrop, 
-		    fd, path, flags, dict);
+		    fd, loc, flags, dict);
 
 	return 0;
 }

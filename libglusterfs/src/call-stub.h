@@ -542,7 +542,7 @@ typedef struct {
 		struct {
 			fop_xattrop_t fn;
 			fd_t *fd;
-			const char *path;
+			loc_t loc;
 			gf_xattrop_flags_t optype;
 			dict_t *xattr;
 		} xattrop;
@@ -1062,7 +1062,7 @@ call_stub_t *
 fop_xattrop_stub (call_frame_t *frame,
 		  fop_xattrop_t fn,
 		  fd_t *fd,
-		  const char *path,
+		  loc_t *loc,
 		  gf_xattrop_flags_t optype,
 		  dict_t *xattr);
 

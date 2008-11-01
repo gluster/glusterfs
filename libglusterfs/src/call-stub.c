@@ -1974,7 +1974,7 @@ call_stub_t *
 fop_xattrop_stub (call_frame_t *frame,
 		  fop_xattrop_t fn,
 		  fd_t *fd,
-		  const char *path,
+		  loc_t *loc,
 		  gf_xattrop_flags_t optype,
 		  dict_t *xattr)
 {
@@ -1990,7 +1990,7 @@ fop_xattrop_stub (call_frame_t *frame,
 	stub->args.xattrop.fn = fn;
 	
 	if (fd == NULL)
-		stub->args.xattrop.path = strdup (path);
+		loc_copy (&stub->args.xattrop.loc, loc);
 	else
 		stub->args.xattrop.fd = fd_ref (fd);
 
@@ -2475,11 +2475,11 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.xattrop.fn (stub->frame,
 				       stub->frame->this,
 				       stub->args.xattrop.fd,
-				       stub->args.xattrop.path,
+				       &stub->args.xattrop.loc,
 				       stub->args.xattrop.optype,
 				       stub->args.xattrop.xattr);
 
-		FREE (stub->args.xattrop.path);
+		loc_wipe (&stub->args.xattrop.loc);
 		if (stub->args.xattrop.fd)
 			fd_unref (stub->args.xattrop.fd);
 
@@ -3568,7 +3568,6 @@ call_stub_destroy (call_stub_t *stub)
 			fd_unref (stub->args.fentrylk.fd);
 		break;
 	}
-  
 	case GF_FOP_RMELEM:
 	case GF_FOP_XATTROP:
 		break;

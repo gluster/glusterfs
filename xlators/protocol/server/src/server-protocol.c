@@ -590,7 +590,8 @@ server_state_fill (call_frame_t *frame,
 	{
 		gf_fop_xattrop_req_t *req = request;
 		int64_t fd_no = 0;
-		
+		size_t pathlen = 0;
+
 		fd_no = ntoh64 (req->fd);
 		if (fd_no >= 0)
 			state->fd = gf_fd_fdptr_get (connection_priv->fdtable, fd_no);
@@ -600,7 +601,12 @@ server_state_fill (call_frame_t *frame,
 		/* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
 		 * in the protocol data.
 		 */
+		state->ino = ntoh64 (req->ino);
+		state->par = ntoh64 (req->par);
 		state->path  = req->dict + state->dict_len;
+		pathlen = STRLEN_0(state->path);
+		if (IS_NOT_ROOT(pathlen))
+			state->basename = req->basename + pathlen + state->dict_len;
 		state->flags = ntoh32 (req->flags);
 	}
 	break;
@@ -4735,12 +4741,17 @@ server_xattrop (call_frame_t *frame,
 	gf_fop_xattrop_req_t *req = NULL;
 	dict_t *dict = NULL;
 	server_state_t *state = NULL;
+	int32_t ret = -1;
 
 	req = gf_param (hdr);
 
 	state = STATE (frame);
 	server_state_fill (frame, req, GF_FOP_XATTROP);
 
+	ret = server_loc_fill (&(state->loc), state,
+			       state->ino, state->par, state->basename,
+			       state->path);
+	
 	if (state->dict_len) {
 		/* Unserialize the dictionary */
 		char *buf = memdup (req->dict, state->dict_len);
@@ -4754,7 +4765,7 @@ server_xattrop (call_frame_t *frame,
 		    bound_xl,
 		    bound_xl->fops->xattrop,
 		    state->fd,
-		    state->path,
+		    &state->loc,
 		    state->flags,
 		    dict);
 	if (dict)

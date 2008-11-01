@@ -18,9 +18,9 @@
 */
 
 /* libglusterfs/src/defaults.c:
-     This file contains functions, which are used to fill the 'fops' and 'mops' 
-     structures in the xlator structures, if they are not written. Here, all the 
-     function calls are plainly forwared to the first child of the xlator, and 
+     This file contains functions, which are used to fill the 'fops' and 'mops'
+     structures in the xlator structures, if they are not written. Here, all the
+     function calls are plainly forwared to the first child of the xlator, and
      all the *_cbk function does plain STACK_UNWIND of the frame, and returns.
 
      All the functions are plain enough to understand.
@@ -33,7 +33,7 @@
 
 #include "xlator.h"
 
-static int32_t 
+static int32_t
 default_lookup_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -52,7 +52,7 @@ default_lookup_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+int32_t
 default_lookup (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
@@ -68,7 +68,7 @@ default_lookup (call_frame_t *frame,
 }
 
 
-int32_t 
+int32_t
 default_forget (xlator_t *this,
 		inode_t *inode)
 {
@@ -149,7 +149,7 @@ default_fchmod_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+int32_t
 default_fchmod (call_frame_t *frame,
 		xlator_t *this,
 		fd_t *fd,
@@ -186,7 +186,7 @@ default_chown (call_frame_t *frame,
 	       uid_t uid,
 	       gid_t gid)
 {
-  STACK_WIND (frame,	      
+  STACK_WIND (frame,
 	      default_chown_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->chown,
@@ -211,14 +211,14 @@ default_fchown_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+int32_t
 default_fchown (call_frame_t *frame,
 		xlator_t *this,
 		fd_t *fd,
 		uid_t uid,
 		gid_t gid)
 {
-  STACK_WIND (frame,	      
+  STACK_WIND (frame,
 	      default_fchown_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->fchown,
@@ -288,7 +288,7 @@ default_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+int32_t
 default_utimens_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
@@ -304,7 +304,7 @@ default_utimens_cbk (call_frame_t *frame,
 }
 
 
-int32_t 
+int32_t
 default_utimens (call_frame_t *frame,
 		 xlator_t *this,
 		 loc_t *loc,
@@ -494,26 +494,26 @@ default_rmdir (call_frame_t *frame,
 
 int32_t
 default_rmelem_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+ 		    void *cookie,
+ 		    xlator_t *this,
+ 		    int32_t op_ret,
+ 		    int32_t op_errno)
 {
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
 }
 
 int32_t
 default_rmelem (call_frame_t *frame,
-		xlator_t *this,
-		const char *path)
+ 		xlator_t *this,
+ 		const char *path)
 {
-  STACK_WIND (frame,
-	      default_rmelem_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->rmelem,
-	      path);
-  return 0;
+	STACK_WIND (frame,
+		    default_rmelem_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->rmelem,
+		    path);
+	return 0;
 }
 
 
@@ -1044,7 +1044,7 @@ int32_t
 default_xattrop (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
-		 const char *path,
+		 loc_t *loc,
 		 gf_xattrop_flags_t flags,
 		 dict_t *dict)
 {
@@ -1053,7 +1053,7 @@ default_xattrop (call_frame_t *frame,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->xattrop,
 	      fd,
-	      path,
+	      loc,
 	      flags,
 	      dict);
   return 0;
@@ -1178,7 +1178,7 @@ default_entrylk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 default_entrylk (call_frame_t *frame, xlator_t *this,
-		 loc_t *loc, const char *basename, 
+		 loc_t *loc, const char *basename,
 		 gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
   STACK_WIND (frame, default_entrylk_cbk,
@@ -1199,7 +1199,7 @@ default_fentrylk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 default_fentrylk (call_frame_t *frame, xlator_t *this,
-		  fd_t *fd, const char *basename, 
+		  fd_t *fd, const char *basename,
 		  gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
   STACK_WIND (frame, default_fentrylk_cbk,

@@ -2776,7 +2776,7 @@ int32_t
 ha_xattrop (call_frame_t *frame,
 	    xlator_t *this,
 	    fd_t *fd,
-	    const char *path,
+	    loc_t *loc,
 	    int32_t flags,
 	    dict_t *dict)
 {
@@ -2789,7 +2789,7 @@ ha_xattrop (call_frame_t *frame,
 		    HA_ACTIVE_CHILD(this, local),
 		    HA_ACTIVE_CHILD(this, local)->fops->xattrop,
 		    fd,
-		    path,
+		    loc,
 		    flags,
 		    dict);
 	return 0;

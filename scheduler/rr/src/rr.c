@@ -433,81 +433,83 @@ rr_update_cbk (call_frame_t *frame,
 void
 rr_notify (xlator_t *this_xl, int32_t event, void *data)
 {
-  rr_t *rr = NULL;
-  rr_subvolume_t *subvolume = NULL;
-  xlator_t *subvolume_xl = NULL;
-  int i = 0;
-  call_frame_t *frame = NULL;
-  call_pool_t *pool = NULL;
-  dict_t *xattr = get_new_dict ();
-  int32_t version[1] = {1};
+	rr_t *rr = NULL;
+	rr_subvolume_t *subvolume = NULL;
+	xlator_t *subvolume_xl = NULL;
+	int i = 0;
+	call_frame_t *frame = NULL;
+	call_pool_t *pool = NULL;
+	dict_t *xattr = get_new_dict ();
+	int32_t version[1] = {1};
 
-  if (this_xl == NULL || data == NULL)
-    {
-      return ;
-    }
-  
-  if ((rr = (rr_t *) *((long *)this_xl->private)) == NULL)
-    {
-      return ;
-    }
-  
-  subvolume_xl = (xlator_t *) data;
-  
-  for (i = 0; i < rr->subvolume_count; i++)
-    {
-      if (rr->subvolume_list[i].xl == subvolume_xl)
-	{
-	  subvolume = &rr->subvolume_list[i];
-	  break;
+	if (this_xl == NULL || data == NULL) {
+		return ;
 	}
-    }
   
-  switch (event)
-    {
-    case GF_EVENT_CHILD_UP:
-      /* Seeding, to be done only once */
-      if (rr->first_time && (i == rr->subvolume_count)) 
-	{
-	  pool = this_xl->ctx->pool;
-	  frame = create_frame (this_xl, pool);
-	  dict_set_bin (xattr, "trusted.glusterfs.scheduler.rr",
-			version, sizeof (int32_t));
-	  if (xattr)
-		  dict_ref (xattr);
+	if ((rr = (rr_t *) *((long *)this_xl->private)) == NULL) {
+		return ;
+	}
+  
+	subvolume_xl = (xlator_t *) data;
+  
+	for (i = 0; i < rr->subvolume_count; i++) {
+		if (rr->subvolume_list[i].xl == subvolume_xl) {
+			subvolume = &rr->subvolume_list[i];
+			break;
+		}
+	}
+  
+	switch (event) {
+	case GF_EVENT_CHILD_UP:
+		/* Seeding, to be done only once */
+		if (rr->first_time && (i == rr->subvolume_count)) {
+			loc_t loc = {0,};
+			xlator_t *trav = NULL;
 
-	  STACK_WIND (frame,
-		      rr_notify_cbk,
-		      (xlator_t *)data,
-		      ((xlator_t *)data)->fops->xattrop,
-		      NULL,
-		      "/",
-		      GF_XATTROP_ADD_ARRAY,
-		      xattr);
+			pool = this_xl->ctx->pool;
+			frame = create_frame (this_xl, pool);
+			dict_set_bin (xattr, "trusted.glusterfs.scheduler.rr",
+				      version, sizeof (int32_t));
+			if (xattr)
+				dict_ref (xattr);
+			
+			loc.path = strdup ("/");
+			for (trav = this_xl->parents->xlator; trav; trav = trav->parents->xlator) {
+				if (trav->itable) {
+					loc.inode = trav->itable->root;
+					break;
+				}
+			}
+			STACK_WIND (frame,
+				    rr_notify_cbk,
+				    (xlator_t *)data,
+				    ((xlator_t *)data)->fops->xattrop,
+				    NULL,
+				    &loc,
+				    GF_XATTROP_ADD_ARRAY,
+				    xattr);
 	  
-	  if (xattr)
-		  dict_unref (xattr);
+			if (xattr)
+				dict_unref (xattr);
 
-	  rr->first_time = 0;
+			rr->first_time = 0;
+		}
+		if (subvolume) {
+			pthread_mutex_lock (&rr->mutex);
+			subvolume->status = RR_SUBVOLUME_ONLINE;
+			pthread_mutex_unlock (&rr->mutex);
+		}
+		break;
+	case GF_EVENT_CHILD_DOWN:
+		if (subvolume) {
+			pthread_mutex_lock (&rr->mutex);
+			subvolume->status = RR_SUBVOLUME_OFFLINE;
+			pthread_mutex_unlock (&rr->mutex);
+		}
+		break;
 	}
-      if (subvolume)
-	{
-	  pthread_mutex_lock (&rr->mutex);
-	  subvolume->status = RR_SUBVOLUME_ONLINE;
-	  pthread_mutex_unlock (&rr->mutex);
-	}
-      break;
-    case GF_EVENT_CHILD_DOWN:
-      if (subvolume)
-	{
-	  pthread_mutex_lock (&rr->mutex);
-	  subvolume->status = RR_SUBVOLUME_OFFLINE;
-	  pthread_mutex_unlock (&rr->mutex);
-	}
-      break;
-    }
   
-  return ;
+	return ;
 }
 
 int 

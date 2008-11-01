@@ -193,7 +193,7 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 				STACK_WIND (frame, afr_write_pending_post_op_cbk,
 					    priv->children[i], 
 					    priv->children[i]->fops->xattrop,
-					    local->fd, local->loc.path, 
+					    local->fd, &local->loc, 
 					    GF_XATTROP_ADD_ARRAY, xattr);
 				break;
 
@@ -204,7 +204,7 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 				STACK_WIND (frame, afr_write_pending_post_op_cbk,
 					    priv->children[i], 
 					    priv->children[i]->fops->xattrop,
-					    local->fd, local->transaction.parent_loc.path, 
+					    local->fd, &local->transaction.parent_loc, 
 					    GF_XATTROP_ADD_ARRAY, xattr);
 				break;
 			}
@@ -297,7 +297,7 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 						   (void *) (long) i,
 						   priv->children[i], 
 						   priv->children[i]->fops->xattrop,
-						   local->fd, local->loc.path, 
+						   local->fd, &local->loc, 
 						   GF_XATTROP_ADD_ARRAY, xattr);
 				break;
 				
@@ -310,7 +310,7 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 						   priv->children[i], 
 						   priv->children[i]->fops->xattrop,
 						   local->fd, 
-						   local->transaction.parent_loc.path, 
+						   &local->transaction.parent_loc, 
 						   GF_XATTROP_ADD_ARRAY, xattr);
 				break;
 			}
