@@ -28,48 +28,6 @@
 #include "dht.h"
 
 
-void
-loc_wipe (loc_t *loc)
-{
-        if (loc->inode) {
-                inode_unref (loc->inode);
-                loc->inode = NULL;
-        }
-        if (loc->path) {
-                FREE (loc->path);
-                loc->path = NULL;
-        }
-  
-        if (loc->parent) {
-                inode_unref (loc->parent);
-                loc->parent = NULL;
-        }
-}
-
-
-int
-loc_dup (loc_t *src, loc_t *dst)
-{
-	int ret = -1;
-
-	dst->inode  = inode_ref (src->inode);
-	if (dst->parent)
-		dst->parent = inode_ref (src->parent);
-	dst->path   = strdup (src->path);
-
-	if (!dst->path)
-		goto out;
-
-	dst->name = strrchr (dst->path, '/');
-	if (dst->name)
-		dst->name++;
-
-	ret = 0;
-out:
-	return ret;
-}
-
-
 int
 dht_frame_return (call_frame_t *frame)
 {

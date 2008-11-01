@@ -186,9 +186,6 @@ int
 dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
 		      loc_t *loc, dht_layout_t *layout);
 
-void loc_wipe (loc_t *loc);
-int loc_dup (loc_t *src, loc_t *dst);
-
 int inode_ctx_set (inode_t *inode, xlator_t *this, void *ctx);
 int inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx);
 

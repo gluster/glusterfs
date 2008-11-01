@@ -562,6 +562,8 @@ loc_copy (loc_t *dst, loc_t *src)
 {
 	int ret = -1;
 
+	dst->ino = src->ino;
+
 	if (src->inode)
 		dst->inode = inode_ref (src->inode);
 
