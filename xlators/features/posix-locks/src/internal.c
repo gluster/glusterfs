@@ -143,14 +143,7 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 			reqlock->frame = frame;
 			reqlock->this  = this;
 
-                        /* TODO: free this */
-			reqlock->user_flock = calloc (1, sizeof (struct flock));
-			if (!reqlock->user_flock) {
-				op_errno = ENOMEM;
-				goto unlock;
-			}
-
-			memcpy (reqlock->user_flock, flock, sizeof (struct flock));
+			memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
 
 			ret = pl_setlk (pinode, reqlock, 1, GF_LOCK_INTERNAL);
 			if (ret == -1)
@@ -246,14 +239,7 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 			reqlock->this  = this;
 			reqlock->fd    = fd;
 
-                        /* TODO: free this */
-			reqlock->user_flock = calloc (1, sizeof (struct flock));
-			if (!reqlock->user_flock) {
-				op_errno = ENOMEM;
-				goto unlock;
-			}
-
-			memcpy (reqlock->user_flock, flock, sizeof (struct flock));
+			memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
 
 			ret = pl_setlk (pinode, reqlock, 1, GF_LOCK_INTERNAL);
 			if (ret == -1)

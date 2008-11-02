@@ -106,8 +106,6 @@ new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
 void
 destroy_lock (posix_lock_t *lock)
 {
-	if (lock->user_flock)
-		free (lock->user_flock);
 	free (lock);
 }
 
@@ -330,7 +328,7 @@ grant_blocked_locks (pl_inode_t *pl_inode, gf_lk_domain_t domain)
 			posix_lock_t *conf = first_overlap (pl_inode, l, LOCKS_FOR_DOMAIN(pl_inode, domain));
 			if (conf == NULL) {
 				l->blocked = 0;
-				posix_lock_to_flock (l, l->user_flock);
+				posix_lock_to_flock (l, &l->user_flock);
 
 #ifdef _POSIX_LOCKS_DEBUG
 				printf ("[UNBLOCKING] "); print_lock (l);

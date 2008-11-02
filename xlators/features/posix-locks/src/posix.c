@@ -716,9 +716,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 		reqlock->frame = frame;
 		reqlock->this  = this;
 		reqlock->fd    = fd;
-		reqlock->user_flock = calloc (1, sizeof (struct flock));
-		ERR_ABORT (reqlock->user_flock);
-		memcpy (reqlock->user_flock, flock, sizeof (struct flock));
+		memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
 
 #if F_SETLK != F_SETLK64
 	case F_SETLK64:

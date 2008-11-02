@@ -2354,6 +2354,7 @@ call_resume_wind (call_stub_t *stub)
 				       &stub->args.inodelk.loc,
 				       stub->args.inodelk.cmd,
 				       &stub->args.inodelk.lock);
+		loc_wipe (&stub->args.inodelk.loc);
 		break;
 	}
 
@@ -2380,6 +2381,7 @@ call_resume_wind (call_stub_t *stub)
 		
 		if (stub->args.entrylk.name)
 			FREE (stub->args.entrylk.name);
+		loc_wipe (&stub->args.entrylk.loc);
 		break;
 	}
 
@@ -3609,6 +3611,7 @@ call_stub_destroy (call_stub_t *stub)
 	{
 		if (stub->args.entrylk.name)
 			FREE (stub->args.entrylk.name);
+		loc_wipe (&stub->args.entrylk.loc);
 		break;
 	}
 	case GF_FOP_FENTRYLK:

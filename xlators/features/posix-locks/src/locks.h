@@ -37,7 +37,7 @@ struct __posix_lock {
   off_t fl_end;  
 
   short blocked;              /* waiting to acquire */
-  struct flock *user_flock;   /* the flock supplied by the user */
+  struct flock user_flock;   /* the flock supplied by the user */
   xlator_t *this;             /* required for blocked locks */
   fd_t *fd;
 
