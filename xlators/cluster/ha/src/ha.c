@@ -1239,38 +1239,6 @@ err:
 	return 0;
 }
 
-int32_t
-ha_rmelem_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno)
-{
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-/* FIXME: fix this! */
-
-int32_t
-ha_rmelem (call_frame_t *frame,
-	   xlator_t *this,
-	   const char *path)
-{
-	STACK_UNWIND (frame, -1, ENOSYS);
-	/*
-	  ha_local_t *local = frame->local;
-	  ha_private_t *pvt = this->private;
-
-	  STACK_WIND (frame,
-	  ha_rmelem_cbk,
-	  HA_ACTIVE_CHILD(this, local),
-	  HA_ACTIVE_CHILD(this, local)->fops->rmelem,
-	  path);
-	*/
-	return 0;
-}
-
 
 int
 ha_symlink_lookup_cbk (call_frame_t *frame,
@@ -2810,10 +2778,10 @@ ha_fxattrop_cbk (call_frame_t *frame,
 /* FIXME */
 int32_t
 ha_fxattrop (call_frame_t *frame,
-	    xlator_t *this,
-	    fd_t *fd,
-		    int32_t flags,
-	    dict_t *dict)
+	     xlator_t *this,
+	     fd_t *fd,
+	     int32_t flags,
+	     dict_t *dict)
 {
 	ha_local_t *local = frame->local;
 

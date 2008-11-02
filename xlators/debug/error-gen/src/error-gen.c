@@ -608,37 +608,6 @@ error_gen_rmdir (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-error_gen_rmelem_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno)
-{
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-int32_t
-error_gen_rmelem (call_frame_t *frame,
-		  xlator_t *this,
-		  const char *path)
-{
-	int op_errno = 0;
-	op_errno = error_gen(this);
-	if (op_errno) {
-		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
-		return 0;
-	}
-	STACK_WIND (frame,
-		    error_gen_rmelem_cbk,
-		    FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->rmelem,
-		    path);
-	return 0;
-}
-
 
 int32_t
 error_gen_symlink_cbk (call_frame_t *frame,

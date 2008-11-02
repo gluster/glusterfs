@@ -3537,72 +3537,6 @@ unify_link (call_frame_t *frame,
 }
 
 
-int32_t
-unify_rmelem_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-	int32_t callcnt = 0;
-	unify_local_t *local = frame->local;
-	call_frame_t *prev_frame = cookie;
-
-	LOCK (&frame->lock);
-	{
-		callcnt = --local->call_count;
-		if (op_ret < 0 && op_errno != ENOENT) {
-			gf_log (this->name, GF_LOG_ERROR, 
-				"child(%s): path(%s): %s", 
-				prev_frame->this->name, (local->loc1.path)?local->loc1.path:"", strerror (op_errno));
-			local->op_errno = op_errno;
-		}
-		if (op_ret >= 0)
-			local->op_ret = op_ret;
-      
-	}
-	UNLOCK (&frame->lock);
-
-	if (!callcnt) {
-		STACK_UNWIND (frame, local->op_ret, local->op_errno);
-	}
-	return 0;
-}
-
-
-int32_t 
-unify_rmelem (call_frame_t *frame,
-	      xlator_t *this,
-	      const char *path)
-{
-	unify_local_t *local = NULL;
-	unify_private_t *priv = this->private;
-	int16_t index = 0;
-  
-	if (!path) {
-		gf_log (this->name, GF_LOG_ERROR, "path is NULL");
-		STACK_UNWIND (frame, -1, EINVAL);
-		return 0;
-	}
-
-	/* Initialization */
-	INIT_LOCAL (frame, local);
-	local->loc1.path = strdup (path);
-	/* This is first call, there is no list */
-	/* call count should be all child + 1 namespace */
-	local->call_count = priv->child_count + 1;
-  
-	for (index = 0; index <= priv->child_count; index++) {
-		STACK_WIND (frame,
-			    unify_rmelem_cbk,
-			    priv->xl_array[index],
-			    priv->xl_array[index]->fops->rmelem,
-			    path);
-	}
-
-	return 0;
-}
-
 /**
  * unify_checksum_cbk - 
  */
@@ -4020,7 +3954,6 @@ struct xlator_fops fops = {
 	.fchmod      = unify_fchmod,
 	.utimens     = unify_utimens,
 	.lookup      = unify_lookup,
-	.rmelem      = unify_rmelem,
 	.getdents    = unify_getdents,
 	.checksum    = unify_checksum,
 };

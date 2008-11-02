@@ -61,7 +61,6 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (unlink);
 	SET_DEFAULT_FOP (rmdir);
 	SET_DEFAULT_FOP (symlink);
-	SET_DEFAULT_FOP (rmelem);
 	SET_DEFAULT_FOP (rename);
 	SET_DEFAULT_FOP (link);
 	SET_DEFAULT_FOP (chmod);

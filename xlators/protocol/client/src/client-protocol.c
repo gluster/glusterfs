@@ -668,32 +668,6 @@ client_unlink (call_frame_t *frame,
 	return ret;
 }
 
-int32_t
-client_rmelem (call_frame_t *frame,
-               xlator_t *this,
-               const char *path)
-{
-	gf_hdr_common_t     *hdr = NULL;
-	gf_fop_rmelem_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	
-	pathlen = STRLEN_0(path);
-
-	hdrlen = gf_hdr_len (req, pathlen);
-	hdr    = gf_hdr_new (req, pathlen);
-	req    = gf_param (hdr);
-
-	strcpy (req->path, path);
-
-	ret = protocol_client_xfer (frame, this,
-				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RMELEM,
-				    hdr, hdrlen, NULL, 0, NULL);
-
-	return ret;
-}
-
 /**
  * client_rmdir - rmdir function for client protocol
  * @frame: call frame
@@ -3504,26 +3478,6 @@ client_unlink_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-client_rmelem_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
-{
-	gf_fop_rmelem_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
-
-	rsp = gf_param (hdr);
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	STACK_UNWIND (frame, op_ret, op_errno);
-
-	return 0;
-}
-
-
 /*
  * client_rename_cbk - rename callback for client protocol
  * @frame: call frame
@@ -4834,7 +4788,6 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_FCHOWN]         =  client_fchown_cbk,
 	[GF_FOP_LOOKUP]         =  client_lookup_cbk,
 	[GF_FOP_SETDENTS]       =  client_setdents_cbk,
-	[GF_FOP_RMELEM]         =  client_rmelem_cbk,
 	[GF_FOP_READDIR]        =  client_readdir_cbk,
 	[GF_FOP_INODELK]        =  client_inodelk_cbk,
 	[GF_FOP_FINODELK]       =  client_finodelk_cbk,
@@ -5312,7 +5265,6 @@ struct xlator_fops fops = {
 	.mkdir       = client_mkdir,
 	.unlink      = client_unlink,
 	.rmdir       = client_rmdir,
-	.rmelem      = client_rmelem,
 	.symlink     = client_symlink,
 	.rename      = client_rename,
 	.link        = client_link,

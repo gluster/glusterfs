@@ -2090,40 +2090,6 @@ err:
 
 
 int
-dht_rmelem (call_frame_t *frame, xlator_t *this, const char *path)
-{
-	dht_local_t  *local  = NULL;
-	dht_conf_t   *conf = NULL;
-        int           op_errno = -1;
-	int           i = -1;
-
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (path, err);
-
-	conf = this->private;
-
-	local = dht_local_init (frame);
-	local->call_cnt = conf->subvolume_cnt;
-
-	for (i = 0; i < conf->subvolume_cnt; i++) {
-		STACK_WIND (frame, dht_err_cbk,
-			    conf->subvolumes[i],
-			    conf->subvolumes[i]->fops->rmelem, path);
-	}
-
-	return 0;
-
-err:
-	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
-
-	return 0;
-}
-
-
-int
 dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int op_ret, int op_errno,
 	      inode_t *inode, struct stat *stbuf)
@@ -2816,7 +2782,6 @@ struct xlator_fops fops = {
 	.mknod       = dht_mknod,
 	.symlink     = dht_symlink,
 	.unlink      = dht_unlink,
-	.rmelem      = dht_rmelem,
 	.link        = dht_link,
 	.create      = dht_create,
 	.mkdir       = dht_mkdir,

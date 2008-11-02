@@ -916,34 +916,6 @@ server_rmdir_cbk (call_frame_t *frame,
 }
 
 /*
- * server_rmelem_cbk - remove a directory entry (file, dir, link, symlink...)
- */
-int32_t
-server_rmelem_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno)
-{
-	gf_hdr_common_t *hdr = NULL;
-	gf_fop_rmelem_rsp_t *rsp = NULL;
-	size_t hdrlen = 0;
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret   = hton32 (op_ret);
-	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
-
-	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMELEM,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
-
-
-/*
  * server_mkdir_cbk - mkdir callback for server protocol
  * @frame: call frame
  * @cookie:
@@ -4964,29 +4936,6 @@ server_rmdir (call_frame_t *frame,
 	return 0;
 }
 
-/*
- * server_rmelem - remove directory entry - file, dir, links etc
- */
-
-int32_t
-server_rmelem (call_frame_t *frame,
-               xlator_t *bound_xl,
-               gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
-{
-	char *path = NULL;
-	gf_fop_rmelem_req_t *req = NULL;
-
-	req  = gf_param (hdr);
-	path = req->path;
-
-	STACK_WIND (frame,
-		    server_rmelem_cbk,
-		    bound_xl,
-		    bound_xl->fops->rmelem,
-		    path);
-	return 0;
-}
 
 
 int32_t
@@ -6967,7 +6916,6 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_FCHOWN]       =  server_fchown,
 	[GF_FOP_LOOKUP]       =  server_lookup,
 	[GF_FOP_SETDENTS]     =  server_setdents,
-	[GF_FOP_RMELEM]       =  server_rmelem,
 	[GF_FOP_READDIR]      =  server_readdir,
 	[GF_FOP_INODELK]      =  server_inodelk,
 	[GF_FOP_FINODELK]     =  server_finodelk,

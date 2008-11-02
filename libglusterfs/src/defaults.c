@@ -492,30 +492,6 @@ default_rmdir (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-default_rmelem_cbk (call_frame_t *frame,
- 		    void *cookie,
- 		    xlator_t *this,
- 		    int32_t op_ret,
- 		    int32_t op_errno)
-{
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-int32_t
-default_rmelem (call_frame_t *frame,
- 		xlator_t *this,
- 		const char *path)
-{
-	STACK_WIND (frame,
-		    default_rmelem_cbk,
-		    FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->rmelem,
-		    path);
-	return 0;
-}
-
 
 static int32_t
 default_symlink_cbk (call_frame_t *frame,

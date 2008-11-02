@@ -625,13 +625,6 @@ typedef struct { } __attribute__((packed)) gf_fop_setdents_rsp_t;
 
 
 typedef struct {
-	char path[0];
-} __attribute__((packed)) gf_fop_rmelem_req_t;
-typedef struct {
-} __attribute__((packed)) gf_fop_rmelem_rsp_t;
-
-
-typedef struct {
 	uint64_t ino;
 	int64_t  fd;
 	uint64_t offset;

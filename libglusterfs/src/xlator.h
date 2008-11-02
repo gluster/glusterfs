@@ -294,12 +294,6 @@ typedef int32_t (*fop_unlink_cbk_t) (call_frame_t *frame,
 				     int32_t op_ret,
 				     int32_t op_errno);
 
-typedef int32_t (*fop_rmelem_cbk_t) (call_frame_t *frame,
-				     void *cookie,
-				     xlator_t *this,
-				     int32_t op_ret,
-				     int32_t op_errno);
-
 typedef int32_t (*fop_rmdir_cbk_t) (call_frame_t *frame,
 				    void *cookie,
 				    xlator_t *this,
@@ -553,10 +547,6 @@ typedef int32_t (*fop_unlink_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *loc);
 
-typedef int32_t (*fop_rmelem_t) (call_frame_t *frame,
-				 xlator_t *this,
-				 const char *path);
-
 typedef int32_t (*fop_rmdir_t) (call_frame_t *frame,
 				xlator_t *this,
 				loc_t *loc);
@@ -717,7 +707,6 @@ struct xlator_fops {
 	fop_mknod_t          mknod;
 	fop_mkdir_t          mkdir;
 	fop_unlink_t         unlink;
-	fop_rmelem_t         rmelem;
 	fop_rmdir_t          rmdir;
 	fop_symlink_t        symlink;
 	fop_rename_t         rename;
@@ -762,7 +751,6 @@ struct xlator_fops {
 	fop_mknod_cbk_t          mknod_cbk;
 	fop_mkdir_cbk_t          mkdir_cbk;
 	fop_unlink_cbk_t         unlink_cbk;
-	fop_rmelem_cbk_t         rmelem_cbk;
 	fop_rmdir_cbk_t          rmdir_cbk;
 	fop_symlink_cbk_t        symlink_cbk;
 	fop_rename_cbk_t         rename_cbk;

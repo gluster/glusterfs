@@ -836,51 +836,6 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 }
 
 int32_t 
-posix_remove (const char *path, const struct stat *stat, 
-              int32_t typeflag, struct FTW *ftw)
-{
-        return remove (path);
-}
-
-int32_t
-posix_rmelem (call_frame_t *frame, xlator_t *this,
-              const char *path)
-{
-        int32_t op_ret    = -1;
-        int32_t op_errno  = 0;
-        char *  real_path = 0;
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (path, out);
-
-        MAKE_REAL_PATH (real_path, this, path);
-
-        /* 
-         * FTW_DEPTH = traverse subdirs first before calling
-         *             posix_remove on real_path 
-         * FTW_PHYS  = do not follow symlinks
-         */
-
-        op_ret = nftw (real_path, posix_remove, 20, FTW_DEPTH|FTW_PHYS);
-
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "nftw on %s: %s", path, strerror (op_errno));
-                goto out;
-        }
-
-        op_ret = 0;
-
- out:
-        frame->root->rsp_refs = NULL;
-        STACK_UNWIND (frame, op_ret, op_errno);
-
-        return 0;
-}
-
-int32_t 
 posix_rmdir (call_frame_t *frame, xlator_t *this,
              loc_t *loc)
 {
@@ -3646,7 +3601,6 @@ struct xlator_fops fops = {
         .mknod       = posix_mknod,
         .mkdir       = posix_mkdir,
         .unlink      = posix_unlink,
-        .rmelem      = posix_rmelem,
         .rmdir       = posix_rmdir,
         .symlink     = posix_symlink,
         .rename      = posix_rename,

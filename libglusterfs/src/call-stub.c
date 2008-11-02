@@ -2473,7 +2473,6 @@ call_resume_wind (call_stub_t *stub)
 		loc_wipe (&stub->args.checksum.loc);
 		break;
 	}
-	case GF_FOP_RMELEM:
 	case GF_FOP_READDIR:
 	{
 		stub->args.readdir.fn (stub->frame,
@@ -3262,7 +3261,6 @@ call_resume_unwind (call_stub_t *stub)
 
 		break;
 	}
-	case GF_FOP_RMELEM:
 	case GF_FOP_READDIR:
 	case GF_FOP_XATTROP:
 	{
@@ -3622,7 +3620,6 @@ call_stub_destroy (call_stub_t *stub)
 			fd_unref (stub->args.fentrylk.fd);
 		break;
 	}
-	case GF_FOP_RMELEM:
 	case GF_FOP_XATTROP:
 	{
 		loc_wipe (&stub->args.xattrop.loc);

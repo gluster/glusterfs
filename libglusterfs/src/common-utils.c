@@ -321,7 +321,6 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_FCHOWN]   = "FCHOWN";
 	gf_fop_list[GF_FOP_LOOKUP]   = "LOOKUP";
 	gf_fop_list[GF_FOP_SETDENTS] = "SETDENTS";
-	gf_fop_list[GF_FOP_RMELEM]   = "RMELEM";
 	gf_fop_list[GF_FOP_READDIR]  = "READDIR";
 	gf_fop_list[GF_FOP_INODELK]  = "INODELK";
 	gf_fop_list[GF_FOP_FINODELK] = "FINODELK";      

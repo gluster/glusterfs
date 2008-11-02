@@ -1694,20 +1694,6 @@ out:
 }/* bdb_unlink */
 
 
-int32_t
-bdb_rmelem (call_frame_t *frame,
-            xlator_t *this,
-            const char *path)
-{
-	int32_t op_ret   = -1; 
-	int32_t op_errno = EPERM;
-
-	frame->root->rsp_refs = NULL;
-	STACK_UNWIND (frame, op_ret, op_errno);
-
-	return 0;
-} /* bdb_rmelm */
-
 
 int32_t
 bdb_do_rmdir (xlator_t *this,
@@ -3322,7 +3308,6 @@ struct xlator_fops fops = {
 	.mknod       = bdb_mknod,
 	.mkdir       = bdb_mkdir,
 	.unlink      = bdb_unlink,
-	.rmelem      = bdb_rmelem,
 	.rmdir       = bdb_rmdir,
 	.symlink     = bdb_symlink,
 	.rename      = bdb_rename,
