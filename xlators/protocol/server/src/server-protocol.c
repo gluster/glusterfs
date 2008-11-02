@@ -4104,9 +4104,9 @@ server_setxattr (call_frame_t *frame,
 
 	{
 		/* Unserialize the dictionary */
-		char *buf = memdup (req->dict, state->dict_len);
+		char *buf = memdup (req->dict, dict_len);
 		dict = get_new_dict ();
-		dict_unserialize (buf, state->dict_len, &dict);
+		dict_unserialize (buf, dict_len, &dict);
 		dict->extra_free = buf;
 	}
 
@@ -4196,11 +4196,11 @@ server_xattrop (call_frame_t *frame,
 			       state->ino, state->par, state->basename,
 			       state->path);
 	
-	if (state->dict_len) {
+	if (dict_len) {
 		/* Unserialize the dictionary */
-		char *buf = memdup (req->dict, state->dict_len);
+		char *buf = memdup (req->dict, dict_len);
 		dict = get_new_dict ();
-		dict_unserialize (buf, state->dict_len, &dict);
+		dict_unserialize (buf, dict_len, &dict);
 		dict->extra_free = buf;
 		dict_ref (dict);
 	}

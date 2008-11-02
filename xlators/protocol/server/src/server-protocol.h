@@ -110,7 +110,6 @@ struct _server_state {
 	dev_t dev;
 	uid_t uid;
 	gid_t gid;
-	int32_t dict_len;
 	int32_t nr_count;
 	int cmd;
 	int type;
