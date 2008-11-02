@@ -70,7 +70,7 @@ error_gen_lookup (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -114,7 +114,7 @@ error_gen_stat (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -150,7 +150,7 @@ error_gen_chmod (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -188,7 +188,7 @@ error_gen_fchmod (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -226,7 +226,7 @@ error_gen_chown (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,	      
@@ -265,7 +265,7 @@ error_gen_fchown (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,	      
@@ -303,7 +303,7 @@ error_gen_truncate (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -340,7 +340,7 @@ error_gen_ftruncate (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -378,7 +378,7 @@ error_gen_utimens (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -451,7 +451,7 @@ error_gen_readlink (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -492,7 +492,7 @@ error_gen_mknod (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -530,7 +530,7 @@ error_gen_mkdir (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -660,7 +660,7 @@ error_gen_symlink (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -694,7 +694,7 @@ error_gen_rename (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -729,7 +729,7 @@ error_gen_link (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -766,7 +766,7 @@ error_gen_create (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
 		return 0;
 	}
 
@@ -802,7 +802,7 @@ error_gen_open (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -844,7 +844,7 @@ error_gen_readv (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
 		return 0;
 	}
 
@@ -887,7 +887,7 @@ error_gen_writev (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -998,7 +998,7 @@ error_gen_fstat (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1034,7 +1034,7 @@ error_gen_opendir (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1076,7 +1076,7 @@ error_gen_getdents (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL, 0);
 		return 0;
 	}
 
@@ -1117,7 +1117,7 @@ error_gen_setdents (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL, 0);
 		return 0;
 	}
 
@@ -1194,7 +1194,7 @@ error_gen_statfs (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1270,7 +1270,7 @@ error_gen_getxattr (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1307,7 +1307,7 @@ error_gen_xattrop (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1382,7 +1382,7 @@ error_gen_lk (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1545,7 +1545,7 @@ error_gen_stats (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1690,7 +1690,7 @@ error_gen_listlocks (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1728,7 +1728,7 @@ error_gen_getspec (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1769,7 +1769,7 @@ error_gen_checksum (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 		return 0;
 	}
 
@@ -1806,7 +1806,7 @@ error_gen_readdir (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
