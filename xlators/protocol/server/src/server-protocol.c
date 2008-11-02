@@ -4140,7 +4140,7 @@ server_xattrop_cbk (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int32_t len = 0;
 
-	if (op_ret >= 0) {
+	if ((op_ret >= 0) && dict) {
 		dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
 		len = dict_serialized_length (dict);
 	}
@@ -4152,9 +4152,8 @@ server_xattrop_cbk (call_frame_t *frame,
 	hdr->rsp.op_ret   = hton32 (op_ret);
 	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
-	if (op_ret >= 0)
-	{
-		rsp->dict_len = hton32 (len);
+	rsp->dict_len = hton32 (len);
+	if ((op_ret >= 0) && dict) {
 		dict_serialize (dict, rsp->dict);
 	}
 

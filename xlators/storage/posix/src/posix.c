@@ -2485,16 +2485,17 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 				op_errno = EINVAL;
 				goto out;
 			}
-
 			array = NULL;
 		}
-
+	       
 		FREE (array);
+		array = NULL;
 		trav = trav->next;
 	}
 	
 out:
-	FREE (array);
+	if (array)
+		FREE (array);
 	STACK_UNWIND (frame, op_ret, op_errno, xattr);
 	return 0;
 }
