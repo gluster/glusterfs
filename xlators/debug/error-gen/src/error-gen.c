@@ -23,7 +23,10 @@
 #endif
 
 #include "xlator.h"
-#include "error-gen.h"
+
+typedef struct {
+	int op_count;
+} eg_t;
 
 int error_gen (xlator_t *this)
 {
