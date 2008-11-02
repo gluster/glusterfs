@@ -211,12 +211,6 @@ _dict_set (dict_t *this,
 
 	if (pair) {
 		data_t *unref_data = pair->value;
-		if (strlen (pair->key) < strlen (key))
-		{
-			pair->key = realloc (pair->key, strlen (key));
-			ERR_ABORT (pair->key);
-		}
-		strcpy (pair->key, key);
 		pair->value = data_ref (value);
 		data_unref (unref_data);
 		if (key_free)

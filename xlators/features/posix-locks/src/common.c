@@ -168,6 +168,9 @@ delete_lock (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domain)
 			lock->next->prev = prev;
 	}
 
+	lock->prev = NULL;
+	lock->next = NULL;
+
 	return lock;
 }
 
@@ -200,13 +203,16 @@ void
 delete_unlck_locks (pl_inode_t *pl_inode, gf_lk_domain_t domain)
 {
 	posix_lock_t *l = LOCKS_FOR_DOMAIN(pl_inode, domain);
+	posix_lock_t *l_tmp = NULL;
+
 	while (l) {
+		l_tmp = l->next;
+
 		if (l->fl_type == F_UNLCK) {
 			delete_lock (pl_inode, l, domain);
 			destroy_lock (l);
 		}
-
-		l = l->next;
+		l = l_tmp;
 	}
 }
 
@@ -324,6 +330,7 @@ grant_blocked_locks (pl_inode_t *pl_inode, gf_lk_domain_t domain)
 	posix_lock_t *l = LOCKS_FOR_DOMAIN(pl_inode, domain);
 
 	while (l) {
+		/* ASK VIKAS: where are the locks granted ? */
 		if (l->blocked) {
 			posix_lock_t *conf = first_overlap (pl_inode, l, LOCKS_FOR_DOMAIN(pl_inode, domain));
 			if (conf == NULL) {
@@ -391,6 +398,7 @@ insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domai
 
 				destroy_lock (lock);
 				insert_and_merge (pl_inode, sum, domain);
+
 				return;
 			}
 			else {
@@ -406,8 +414,17 @@ insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domai
 				delete_lock (pl_inode, conf, domain);
 				destroy_lock (conf);
 
+				delete_lock (pl_inode, lock, domain);
+				destroy_lock (lock);
+
+				destroy_lock (sum);
+
 				for (i = 0; i < 3; i++) {
 					if (v.locks[i]) {
+						if (v.locks[i]->fl_type == F_UNLCK) {
+							destroy_lock (v.locks[i]);
+							continue;
+						}
 						insert_and_merge (pl_inode, v.locks[i], domain);
 					}
 				}
@@ -433,6 +450,8 @@ insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domai
 	/* no conflicts, so just insert */
 	if (lock->fl_type != F_UNLCK) {
 		insert_lock (pl_inode, lock, domain);
+	} else {
+		destroy_lock (lock);
 	}
 }
 
