@@ -1291,7 +1291,6 @@ client_fsync (call_frame_t *frame,
 int32_t
 client_xattrop (call_frame_t *frame,
 		xlator_t *this,
-		fd_t *fd,
 		loc_t *loc,
 		gf_xattrop_flags_t flags,
 		dict_t *dict)
@@ -1300,9 +1299,86 @@ client_xattrop (call_frame_t *frame,
 	gf_fop_xattrop_req_t *req = NULL;
 	size_t  hdrlen = 0;
 	size_t  dict_len = 0;
-	int64_t remote_fd = -1;
 	int     ret = -1;
 	size_t  pathlen = 0;
+	ino_t   ino = 0;
+
+	if (dict)
+		dict_len = dict_serialized_length (dict);
+
+	pathlen = STRLEN_0(loc->path);
+	ino = this_ino_get (loc->inode, this);
+
+	hdrlen = gf_hdr_len (req, dict_len + pathlen);
+	hdr    = gf_hdr_new (req, dict_len + pathlen);
+	req    = gf_param (hdr);
+
+	req->flags = hton32 (flags);
+	req->dict_len = hton32 (dict_len);
+	if (dict)
+		dict_serialize (dict, req->dict);
+
+	req->ino = hton64 (ino);
+	strcpy (req->path + dict_len, loc->path);
+
+	ret = protocol_client_xfer (frame, this,
+				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_XATTROP,
+				    hdr, hdrlen, NULL, 0, NULL);
+	return ret;
+}
+
+int32_t
+client_xattrop_cbk (call_frame_t *frame,
+		    gf_hdr_common_t *hdr, size_t hdrlen,
+		    char *buf, size_t buflen)
+{
+	gf_fop_xattrop_rsp_t *rsp = NULL;
+	int op_ret = 0;
+	int op_errno = 0;
+	int dict_len = 0;
+	dict_t *dict = NULL;
+
+	rsp = gf_param (hdr);
+
+	op_ret   = ntoh32 (hdr->rsp.op_ret);
+	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
+
+	if (op_ret >= 0) {
+		dict_len = ntoh32 (rsp->dict_len);
+
+		if (dict_len > 0) {
+			char *dictbuf = memdup (rsp->dict, dict_len);
+			dict = get_new_dict();
+			dict_unserialize (dictbuf, dict_len, &dict);
+			dict->extra_free = dictbuf;
+			dict_del (dict, "__@@protocol_client@@__key");
+		}
+	}
+
+	if (dict)
+		dict_ref (dict);
+
+	STACK_UNWIND (frame, op_ret, op_errno, dict);
+
+	if (dict)
+		dict_unref (dict);
+
+	return 0;
+}
+
+int32_t
+client_fxattrop (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		 gf_xattrop_flags_t flags,
+		dict_t *dict)
+{
+	gf_hdr_common_t      *hdr = NULL;
+	gf_fop_fxattrop_req_t *req = NULL;
+	size_t  hdrlen = 0;
+	size_t  dict_len = 0;
+	int64_t remote_fd = -1;
+	int     ret = -1;
 	ino_t   ino = 0;
 
 	if (dict)
@@ -1317,13 +1393,11 @@ client_xattrop (call_frame_t *frame,
 			STACK_UNWIND (frame, -1, EBADFD, NULL);
 			return 0;
 		}
-	} else {
-		pathlen = STRLEN_0(loc->path);
-		ino = this_ino_get (loc->inode, this);
-	}
+		ino = fd->inode->ino;
+	} 
 
-	hdrlen = gf_hdr_len (req, dict_len + (fd? 0 : pathlen));
-	hdr    = gf_hdr_new (req, dict_len + (fd? 0 : pathlen));
+	hdrlen = gf_hdr_len (req, dict_len);
+	hdr    = gf_hdr_new (req, dict_len);
 	req    = gf_param (hdr);
 
 	req->flags = hton32 (flags);
@@ -1332,22 +1406,18 @@ client_xattrop (call_frame_t *frame,
 		dict_serialize (dict, req->dict);
 
 	req->fd = hton64 (remote_fd);
-
-	if (fd == NULL) {
-		req->ino = hton64 (ino);
-		strcpy (req->path + dict_len, loc->path);
-	}
+	req->ino = hton64 (ino);
 
 	ret = protocol_client_xfer (frame, this,
-				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_XATTROP,
+				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FXATTROP,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
 }
 
 int32_t
-client_xattrop_cbk (call_frame_t *frame,
-		    gf_hdr_common_t *hdr, size_t hdrlen,
-		    char *buf, size_t buflen)
+client_fxattrop_cbk (call_frame_t *frame,
+		     gf_hdr_common_t *hdr, size_t hdrlen,
+		     char *buf, size_t buflen)
 {
 	gf_fop_xattrop_rsp_t *rsp = NULL;
 	int op_ret = 0;
@@ -2063,7 +2133,7 @@ int32_t
 client_entrylk (call_frame_t *frame, 
 		xlator_t *this,
 		loc_t *loc, 
-		const char *basename,
+		const char *name,
 		gf_dir_lk_cmd cmd, 
 		gf_dir_lk_type type)
 {
@@ -2073,16 +2143,24 @@ client_entrylk (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int ret = -1;
 	ino_t ino = 0;
+	size_t namelen = 0;
 
 	pathlen = STRLEN_0(loc->path);
+	if (name)
+		namelen = STRLEN_0(name);
+
 	ino = this_ino_get (loc->inode, this);
 
-	hdrlen = gf_hdr_len (req, pathlen);
-	hdr    = gf_hdr_new (req, pathlen);
+	hdrlen = gf_hdr_len (req, pathlen + namelen);
+	hdr    = gf_hdr_new (req, pathlen + namelen);
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
+	req->namelen = hton64 (namelen);
+
 	strcpy (req->path, loc->path);
+	if (name)
+		strcpy (req->name + pathlen, name);
 
 	req->cmd  = hton32 (cmd);
 	req->type = hton32 (type);
@@ -2110,7 +2188,9 @@ client_fentrylk (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int ret = -1;
   
-	namelen = STRLEN_0(name);
+	if (name)
+		namelen = STRLEN_0(name);
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -2125,8 +2205,10 @@ client_fentrylk (call_frame_t *frame,
 	req    = gf_param (hdr);
 
 	req->fd = hton64 (remote_fd);
-
-	strcpy (req->name, name);
+	req->namelen = hton64 (namelen);
+	
+	if (name)
+		strcpy (req->name, name);
 
 	req->cmd  = hton32 (cmd);
 	req->type = hton32 (type);
@@ -4760,6 +4842,7 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_FENTRYLK]       =  client_fentrylk_cbk,
 	[GF_FOP_CHECKSUM]       =  client_checksum_cbk,
 	[GF_FOP_XATTROP]        =  client_xattrop_cbk,
+	[GF_FOP_FXATTROP]       =  client_fxattrop_cbk,
 };
 
 static gf_op_t gf_mops[] = {
@@ -5265,6 +5348,7 @@ struct xlator_fops fops = {
 	.getdents    = client_getdents,
 	.checksum    = client_checksum,
 	.xattrop     = client_xattrop,
+	.fxattrop    = client_fxattrop,
 };
 
 struct xlator_mops mops = {

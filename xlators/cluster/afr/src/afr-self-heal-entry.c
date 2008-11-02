@@ -242,7 +242,7 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
 				   (void *) (long) i,
 				   priv->children[i],
 				   priv->children[i]->fops->xattrop,
-				   NULL, &local->loc,
+				   &local->loc,
 				   GF_XATTROP_ADD_ARRAY, erase_xattr[i]);
 		if (!--call_count)
 			break;

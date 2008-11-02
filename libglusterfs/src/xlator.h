@@ -471,6 +471,13 @@ typedef int32_t (*fop_xattrop_cbk_t) (call_frame_t *frame,
 				      int32_t op_errno,
 				      dict_t *xattr);
 
+typedef int32_t (*fop_fxattrop_cbk_t) (call_frame_t *frame,
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno,
+				       dict_t *xattr);
+
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *loc,
@@ -684,10 +691,15 @@ typedef int32_t (*fop_readdir_t) (call_frame_t *frame,
 
 typedef int32_t (*fop_xattrop_t) (call_frame_t *frame,
 				  xlator_t *this,
-				  fd_t *fd,
 				  loc_t *loc,
 				  gf_xattrop_flags_t optype,
 				  dict_t *xattr);
+
+typedef int32_t (*fop_fxattrop_t) (call_frame_t *frame,
+				   xlator_t *this,
+				   fd_t *fd,
+				   gf_xattrop_flags_t optype,
+				   dict_t *xattr);
 
 struct xlator_fops {
 	fop_lookup_t         lookup;
@@ -732,6 +744,7 @@ struct xlator_fops {
 	fop_getdents_t       getdents;
 	fop_checksum_t       checksum;
 	fop_xattrop_t        xattrop;
+	fop_fxattrop_t        fxattrop;
 
 	/* these entries are used for a typechecking hack in STACK_WIND _only_ */
 	fop_lookup_cbk_t         lookup_cbk;
@@ -776,6 +789,7 @@ struct xlator_fops {
 	fop_getdents_cbk_t       getdents_cbk;
 	fop_checksum_cbk_t       checksum_cbk;
 	fop_xattrop_cbk_t        xattrop_cbk;
+	fop_fxattrop_cbk_t       fxattrop_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,

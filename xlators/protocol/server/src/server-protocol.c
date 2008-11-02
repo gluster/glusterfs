@@ -562,6 +562,8 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie,
  	gf_fop_inodelk_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
+	state = CALL_STATE(frame);
+
  	hdrlen = gf_hdr_len (rsp, 0);
  	hdr    = gf_hdr_new (rsp, 0);
  	rsp    = gf_param (hdr);
@@ -570,7 +572,6 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie,
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret >= 0) {
-		state = CALL_STATE(frame);
 		if (state->flock.l_type == F_UNLCK)
 			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable,
 				       &state->loc, state->fd, frame->root->pid);
@@ -578,6 +579,8 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie,
 			gf_add_locker (CONNECTION_PRIVATE(frame)->ltable,
 				       &state->loc, state->fd, frame->root->pid);
 	}
+	
+	server_loc_wipe (&state->loc);
 
  	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_INODELK,
  			       hdr, hdrlen, NULL, 0, NULL);
@@ -639,6 +642,8 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie,
  	gf_fop_entrylk_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 
+	state = CALL_STATE(frame);
+
  	hdrlen = gf_hdr_len (rsp, 0);
  	hdr    = gf_hdr_new (rsp, 0);
  	rsp    = gf_param (hdr);
@@ -647,7 +652,6 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie,
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret >= 0) {
-		state = CALL_STATE(frame);
 		if (state->flock.l_type == F_UNLCK)
 			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable,
 				       &state->loc, state->fd, frame->root->pid);
@@ -655,6 +659,8 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie,
 			gf_add_locker (CONNECTION_PRIVATE(frame)->ltable,
 				       &state->loc, state->fd, frame->root->pid);
 	}
+	
+	server_loc_wipe (&state->loc);
 
  	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ENTRYLK,
  			       hdr, hdrlen, NULL, 0, NULL);
@@ -4139,6 +4145,46 @@ server_xattrop_cbk (call_frame_t *frame,
 	gf_fop_xattrop_rsp_t *rsp = NULL;
 	size_t hdrlen = 0;
 	int32_t len = 0;
+	server_state_t *state = NULL;
+
+	if ((op_ret >= 0) && dict) {
+		dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
+		len = dict_serialized_length (dict);
+	}
+
+	hdrlen = gf_hdr_len (rsp, len + 1);
+	hdr    = gf_hdr_new (rsp, len + 1);
+	rsp    = gf_param (hdr);
+
+	hdr->rsp.op_ret   = hton32 (op_ret);
+	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
+
+	rsp->dict_len = hton32 (len);
+	if ((op_ret >= 0) && dict) {
+		dict_serialize (dict, rsp->dict);
+	}
+	
+	state = CALL_STATE(frame);
+	server_loc_wipe (&(state->loc));
+
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_XATTROP,
+			       hdr, hdrlen, NULL, 0, NULL);
+
+	return 0;
+}
+
+int32_t
+server_fxattrop_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     dict_t *dict)
+{
+	gf_hdr_common_t *hdr = NULL;
+	gf_fop_xattrop_rsp_t *rsp = NULL;
+	size_t hdrlen = 0;
+	int32_t len = 0;
 
 	if ((op_ret >= 0) && dict) {
 		dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
@@ -4157,9 +4203,54 @@ server_xattrop_cbk (call_frame_t *frame,
 		dict_serialize (dict, rsp->dict);
 	}
 
-	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_XATTROP,
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FXATTROP,
 			       hdr, hdrlen, NULL, 0, NULL);
 
+	return 0;
+}
+
+int32_t
+server_fxattrop (call_frame_t *frame,
+		xlator_t *bound_xl,
+		gf_hdr_common_t *hdr, size_t hdrlen,
+		char *buf, size_t buflen)
+{
+	gf_fop_fxattrop_req_t *req = NULL;
+	dict_t *dict = NULL;
+	server_state_t *state = NULL;
+	int64_t fd_no = 0;
+	size_t dict_len = 0;
+
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		fd_no = ntoh64 (req->fd);
+		if (fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
+						     fd_no);
+
+		dict_len = ntoh32 (req->dict_len);
+		state->ino = ntoh64 (req->ino);
+		state->flags = ntoh32 (req->flags);
+	}
+
+	if (dict_len) {
+		/* Unserialize the dictionary */
+		char *buf = memdup (req->dict, dict_len);
+		dict = get_new_dict ();
+		dict_unserialize (buf, dict_len, &dict);
+		dict->extra_free = buf;
+		dict_ref (dict);
+	}
+	STACK_WIND (frame,
+		    server_fxattrop_cbk,
+		    bound_xl,
+		    bound_xl->fops->fxattrop,
+		    state->fd,
+		    state->flags,
+		    dict);
+	if (dict)
+		dict_unref (dict);
 	return 0;
 }
 
@@ -4173,18 +4264,12 @@ server_xattrop (call_frame_t *frame,
 	dict_t *dict = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
-	int64_t fd_no = 0;
 	size_t pathlen = 0;
 	size_t dict_len = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
-						     fd_no);
-
 		dict_len = ntoh32 (req->dict_len);
 		state->ino = ntoh64 (req->ino);
 		state->path  = req->path + dict_len;
@@ -4208,7 +4293,6 @@ server_xattrop (call_frame_t *frame,
 		    server_xattrop_cbk,
 		    bound_xl,
 		    bound_xl->fops->xattrop,
-		    state->fd,
 		    &state->loc,
 		    state->flags,
 		    dict);
@@ -5306,6 +5390,7 @@ server_entrylk (call_frame_t *frame,
  	server_state_t *state = NULL;
  	call_stub_t *entrylk_stub = NULL;
 	size_t pathlen = 0;
+	size_t namelen = 0;
 
  	req   = gf_param (hdr);
  	state = CALL_STATE(frame);
@@ -5314,6 +5399,9 @@ server_entrylk (call_frame_t *frame,
 
 		state->path = req->path;
 		state->ino  = ntoh64 (req->ino);
+		namelen = ntoh64 (req->namelen);
+		if (namelen)
+			state->name = req->name + pathlen;
 
 		state->cmd  = ntoh32 (req->cmd);
 		state->type = ntoh32 (req->type);
@@ -5326,7 +5414,7 @@ server_entrylk (call_frame_t *frame,
 
   	entrylk_stub = fop_entrylk_stub (frame,
 					 server_entrylk_resume,
-					 &state->loc, state->basename, state->cmd,
+					 &state->loc, state->name, state->cmd,
 					 state->type);
 
  	if ((state->loc.parent == NULL) ||
@@ -5349,6 +5437,7 @@ server_fentrylk (call_frame_t *frame,
  	gf_fop_fentrylk_req_t *req = NULL;
  	server_state_t *state = NULL;
 	int64_t fd_no = -1;
+	size_t  namelen = 0;
 
  	req   = gf_param (hdr);
  	state = CALL_STATE(frame);
@@ -5358,9 +5447,12 @@ server_fentrylk (call_frame_t *frame,
 			state->fd = gf_fd_fdptr_get (CONNECTION_PRIVATE(frame)->fdtable, 
 						     fd_no);
 
-		state->cmd   = ntoh32 (req->cmd);
-		state->type  = ntoh32 (req->type);
-		state->name = req->name;
+		state->cmd  = ntoh32 (req->cmd);
+		state->type = ntoh32 (req->type);
+		namelen = ntoh64 (req->namelen);
+		
+		if (namelen)
+			state->name = req->name;
 	}
 
 	if (!state->fd) {
@@ -6883,6 +6975,7 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_FENTRYLK]     =  server_fentrylk,
 	[GF_FOP_CHECKSUM]     =  server_checksum,
 	[GF_FOP_XATTROP]      =  server_xattrop,
+	[GF_FOP_FXATTROP]     =  server_fxattrop,
 };
 
 

@@ -2384,7 +2384,7 @@ add_array (int32_t *dest, int32_t *src, int count)
 
 int
 posix_xattrop (call_frame_t *frame, xlator_t *this,
-	       fd_t *fd, loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr)
+	       loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr)
 {
 	char            *real_path = NULL;
 	int32_t         *array = NULL;
@@ -2393,10 +2393,6 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 
 	int              op_ret = 0;
 	int              op_errno = 0;
-
-	int              _fd = -1;
-	data_t          *pfd_data = NULL; 
-	struct posix_fd *pfd = NULL;
 
 	data_pair_t     *trav = NULL;
 
@@ -2409,29 +2405,11 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 	if (loc->path)
 		MAKE_REAL_PATH (real_path, this, loc->path);
 
-	if (fd) {
-		pfd_data = dict_get (fd->ctx, this->name);
-		pfd = data_to_ptr (pfd_data);
-		if (pfd == NULL) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"pfd is NULL. path=%s. optype=%d",
-				loc->path ? loc->path : "<NULL>", optype);
-			op_ret = -1;
-			op_errno = EBADFD;
-			goto out;
-		}
-		_fd = pfd->fd;
-	}
-
 	while (trav) {
 		count = trav->value->len / sizeof (int32_t);
 		array = calloc (count, sizeof (int32_t));
 		
-		if (_fd != -1) {
-			size = fgetxattr (_fd, trav->key, array, trav->value->len);
-		} else {
-			size = lgetxattr (real_path, trav->key, array, trav->value->len);
-		}
+		size = lgetxattr (real_path, trav->key, array, trav->value->len);
 
 		op_errno = errno;
 		if ((size == -1) && (op_errno != ENODATA)) {
@@ -2441,7 +2419,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
                                                      "extended attributes not supported by filesystem");
 			} else 	{
 				gf_log (this->name, GF_LOG_ERROR,
-					"%s (%d): %s", loc->path, _fd,
+					"%s: %s", loc->path,
 					strerror (op_errno));
 			}
 			goto out;
@@ -2460,17 +2438,13 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 			goto out;
 		}
 
-		if (_fd != -1)
-			size = fsetxattr (_fd, trav->key, array,
-					  trav->value->len, 0);
-		else
-			size = lsetxattr (real_path, trav->key, array,
-					  trav->value->len, 0);
+		size = lsetxattr (real_path, trav->key, array,
+				  trav->value->len, 0);
 
 		op_errno = errno;
 		if (size == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"%s (%d): key=%s (%s)", loc->path, _fd,
+				"%s: key=%s (%s)", loc->path,
 				trav->key, strerror (op_errno));
 			op_ret = -1;
 			goto out;
@@ -2479,7 +2453,112 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 
 			if (size != 0) {
 				gf_log (this->name, GF_LOG_ERROR,
-					"%s (%d): key=%s (%s)", loc->path, _fd, 
+					"%s: key=%s (%s)", loc->path, 
+					trav->key, strerror (-size));
+				op_ret = -1;
+				op_errno = EINVAL;
+				goto out;
+			}
+			array = NULL;
+		}
+	       
+		FREE (array);
+		array = NULL;
+		trav = trav->next;
+	}
+	
+out:
+	if (array)
+		FREE (array);
+	STACK_UNWIND (frame, op_ret, op_errno, xattr);
+	return 0;
+}
+
+int
+posix_fxattrop (call_frame_t *frame, xlator_t *this,
+		fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
+{
+	int32_t         *array = NULL;
+	int              size = 0;
+	int              count = 0;
+
+	int              op_ret = 0;
+	int              op_errno = 0;
+
+	int              _fd = -1;
+	struct posix_fd *pfd = NULL;
+
+	data_pair_t     *trav = NULL;
+	int32_t          ret = -1;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (xattr, out);
+	VALIDATE_OR_GOTO (this, out);
+
+	trav = xattr->members_list;
+
+	if (fd) {
+		ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to get pfd from fd=%p. optype=%d",
+				fd, optype);
+			op_ret = -1;
+			op_errno = EBADFD;
+			goto out;
+		}
+		_fd = pfd->fd;
+	}
+
+	while (trav) {
+		count = trav->value->len / sizeof (int32_t);
+		array = calloc (count, sizeof (int32_t));
+		
+		size = fgetxattr (_fd, trav->key, array, trav->value->len);
+
+		op_errno = errno;
+		if ((size == -1) && (op_errno != ENODATA)) {
+			if (op_errno == ENOTSUP) {
+                                GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
+                                                     this->name, GF_LOG_WARNING, 
+                                                     "extended attributes not supported by filesystem");
+			} else 	{
+				gf_log (this->name, GF_LOG_ERROR,
+					"%d: %s", _fd,
+					strerror (op_errno));
+			}
+			goto out;
+		}
+
+		switch (optype) {
+		case GF_XATTROP_ADD_ARRAY:
+			add_array (array, (int32_t *) trav->value->data, trav->value->len / 4);
+			break;
+		default:
+			gf_log (this->name, GF_LOG_ERROR,
+				"unknown xattrop type %d. fd=%d",
+				optype, _fd);
+			op_ret = -1;
+			op_errno = EINVAL;
+			goto out;
+		}
+
+		size = fsetxattr (_fd, trav->key, array,
+				  trav->value->len, 0);
+
+		op_errno = errno;
+		if (size == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"%d: key=%s (%s)", _fd,
+				trav->key, strerror (op_errno));
+			op_ret = -1;
+			goto out;
+		} else {
+			size = dict_set_bin (xattr, trav->key, array, trav->value->len);
+
+			if (size != 0) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"%d: key=%s (%s)", _fd, 
 					trav->key, strerror (-size));
 				op_ret = -1;
 				op_errno = EINVAL;
@@ -3601,6 +3680,7 @@ struct xlator_fops fops = {
         .getdents    = posix_getdents,
         .checksum    = posix_checksum,
 	.xattrop     = posix_xattrop,
+	.fxattrop    = posix_fxattrop,
 };
 
 struct xlator_cbks cbks = {

@@ -1044,6 +1044,26 @@ trace_xattrop_cbk (call_frame_t *frame,
 }
 
 int32_t 
+trace_fxattrop_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    dict_t *dict)
+{
+	ERR_EINVAL_NORETURN (!this || !dict);
+
+	if (trace_fop_names[GF_FOP_FXATTROP].enabled) {
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d)",
+			op_ret, op_errno);
+	}
+
+	STACK_UNWIND (frame, op_ret, op_errno, dict);
+	return 0;
+}
+
+int32_t 
 trace_inodelk_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -1109,12 +1129,11 @@ trace_inodelk (call_frame_t *frame,
 int32_t
 trace_xattrop (call_frame_t *frame,
 	       xlator_t *this,
-	       fd_t *fd,
 	       loc_t *loc,
 	       gf_xattrop_flags_t flags,
 	       dict_t *dict)
 {
-	ERR_EINVAL_NORETURN (!this || (!loc && !fd));
+	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_XATTROP].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
@@ -1126,7 +1145,31 @@ trace_xattrop (call_frame_t *frame,
 	STACK_WIND (frame, trace_xattrop_cbk,
 		    FIRST_CHILD(this), 
 		    FIRST_CHILD(this)->fops->xattrop, 
-		    fd, loc, flags, dict);
+		    loc, flags, dict);
+
+	return 0;
+}
+
+int32_t
+trace_fxattrop (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		gf_xattrop_flags_t flags,
+		dict_t *dict)
+{
+	ERR_EINVAL_NORETURN (!this || !fd);
+
+	if (trace_fop_names[GF_FOP_FXATTROP].enabled) {  
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"callid: %lld (fd=%p, flags=%d)",
+			(long long) frame->root->unique, fd, flags);
+			
+	}
+  
+	STACK_WIND (frame, trace_fxattrop_cbk,
+		    FIRST_CHILD(this), 
+		    FIRST_CHILD(this)->fops->fxattrop, 
+		    fd, flags, dict);
 
 	return 0;
 }
@@ -2208,7 +2251,7 @@ struct xlator_fops fops = {
   .getdents    = trace_getdents,
   .checksum    = trace_checksum,
   .xattrop     = trace_xattrop,
-
+  .fxattrop    = trace_fxattrop,
 };
 
 int32_t 

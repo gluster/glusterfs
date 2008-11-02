@@ -2775,7 +2775,6 @@ ha_xattrop_cbk (call_frame_t *frame,
 int32_t
 ha_xattrop (call_frame_t *frame,
 	    xlator_t *this,
-	    fd_t *fd,
 	    loc_t *loc,
 	    int32_t flags,
 	    dict_t *dict)
@@ -2788,8 +2787,43 @@ ha_xattrop (call_frame_t *frame,
 		    ha_xattrop_cbk,
 		    HA_ACTIVE_CHILD(this, local),
 		    HA_ACTIVE_CHILD(this, local)->fops->xattrop,
-		    fd,
 		    loc,
+		    flags,
+		    dict);
+	return 0;
+}
+
+int32_t
+ha_fxattrop_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 dict_t *dict)
+{
+
+	//HA_CALL_CBK_CODE(this, cookie, local, op_ret, op_errno);
+
+	STACK_UNWIND (frame, op_ret, op_errno, dict);
+	return 0;
+}
+/* FIXME */
+int32_t
+ha_fxattrop (call_frame_t *frame,
+	    xlator_t *this,
+	    fd_t *fd,
+		    int32_t flags,
+	    dict_t *dict)
+{
+	ha_local_t *local = frame->local;
+
+	//HA_CALL_CODE(frame, local, state);
+	//local->stub = fop_xattrop_stub (frame, ha_xattrop, fd, path, flags, dict);
+	STACK_WIND (frame,
+		    ha_fxattrop_cbk,
+		    HA_ACTIVE_CHILD(this, local),
+		    HA_ACTIVE_CHILD(this, local)->fops->fxattrop,
+		    fd,
 		    flags,
 		    dict);
 	return 0;

@@ -190,23 +190,41 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 		if (local->child_up[i]) {
 			switch (local->transaction.type) {
 			case AFR_INODE_TRANSACTION:
-				STACK_WIND (frame, afr_write_pending_post_op_cbk,
-					    priv->children[i], 
-					    priv->children[i]->fops->xattrop,
-					    local->fd, &local->loc, 
-					    GF_XATTROP_ADD_ARRAY, xattr);
-				break;
+			{
+				if (local->fd)
+					STACK_WIND (frame, afr_write_pending_post_op_cbk,
+						    priv->children[i], 
+						    priv->children[i]->fops->fxattrop,
+						    local->fd, 
+						    GF_XATTROP_ADD_ARRAY, xattr);
+				else 
+					STACK_WIND (frame, afr_write_pending_post_op_cbk,
+						    priv->children[i], 
+						    priv->children[i]->fops->xattrop,
+						    &local->loc, 
+						    GF_XATTROP_ADD_ARRAY, xattr);
+			}
+			break;
 
 			case AFR_ENTRY_RENAME_TRANSACTION:
 				/* TODO: write pending on new_parent_loc also */
 
 			case AFR_ENTRY_TRANSACTION:
-				STACK_WIND (frame, afr_write_pending_post_op_cbk,
-					    priv->children[i], 
-					    priv->children[i]->fops->xattrop,
-					    local->fd, &local->transaction.parent_loc, 
-					    GF_XATTROP_ADD_ARRAY, xattr);
-				break;
+			{
+				if (local->fd)
+					STACK_WIND (frame, afr_write_pending_post_op_cbk,
+						    priv->children[i], 
+						    priv->children[i]->fops->fxattrop,
+						    local->fd, 
+						    GF_XATTROP_ADD_ARRAY, xattr);
+				else 
+					STACK_WIND (frame, afr_write_pending_post_op_cbk,
+						    priv->children[i], 
+						    priv->children[i]->fops->xattrop,
+						    &local->transaction.parent_loc, 
+						    GF_XATTROP_ADD_ARRAY, xattr);
+			}
+			break;
 			}
 			if (!--call_count)
 				break;
@@ -293,26 +311,45 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 
 			switch (local->transaction.type) {
 			case AFR_INODE_TRANSACTION:
-				STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk,
-						   (void *) (long) i,
-						   priv->children[i], 
-						   priv->children[i]->fops->xattrop,
-						   local->fd, &local->loc, 
-						   GF_XATTROP_ADD_ARRAY, xattr);
-				break;
+			{
+				if (local->fd)
+					STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk,
+							   (void *) (long) i,
+							   priv->children[i], 
+							   priv->children[i]->fops->fxattrop,
+							   local->fd,
+							   GF_XATTROP_ADD_ARRAY, xattr);
+				else
+					STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk,
+							   (void *) (long) i,
+							   priv->children[i], 
+							   priv->children[i]->fops->xattrop,
+							   &(local->loc), 
+							   GF_XATTROP_ADD_ARRAY, xattr);
+			}
+			break;
 				
 			case AFR_ENTRY_RENAME_TRANSACTION:
 				/* TODO: write pending on new_parent */
 
 			case AFR_ENTRY_TRANSACTION:
-				STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk,
-						   (void *) (long) i,
-						   priv->children[i], 
-						   priv->children[i]->fops->xattrop,
-						   local->fd, 
-						   &local->transaction.parent_loc, 
-						   GF_XATTROP_ADD_ARRAY, xattr);
-				break;
+			{
+				if (local->fd)
+					STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk,
+							   (void *) (long) i,
+							   priv->children[i], 
+							   priv->children[i]->fops->fxattrop,
+							   local->fd, 
+							   GF_XATTROP_ADD_ARRAY, xattr);
+				else
+					STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk,
+							   (void *) (long) i,
+							   priv->children[i], 
+							   priv->children[i]->fops->xattrop,
+							   &local->transaction.parent_loc, 
+							   GF_XATTROP_ADD_ARRAY, xattr);
+			}
+			break;
 			}
 			if (!--call_count)
 				break;

@@ -41,7 +41,7 @@ int error_gen (xlator_t *this)
 	return 0;
 }
 
-static int32_t 
+static int32_t
 error_gen_lookup_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -60,7 +60,7 @@ error_gen_lookup_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
+int32_t
 error_gen_lookup (call_frame_t *frame,
 		  xlator_t *this,
 		  loc_t *loc,
@@ -83,7 +83,7 @@ error_gen_lookup (call_frame_t *frame,
 }
 
 
-int32_t 
+int32_t
 error_gen_forget (xlator_t *this,
 		  inode_t *inode)
 {
@@ -178,7 +178,7 @@ error_gen_fchmod_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
+int32_t
 error_gen_fchmod (call_frame_t *frame,
 		  xlator_t *this,
 		  fd_t *fd,
@@ -229,7 +229,7 @@ error_gen_chown (call_frame_t *frame,
 		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
-	STACK_WIND (frame,	      
+	STACK_WIND (frame,
 		    error_gen_chown_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->chown,
@@ -254,7 +254,7 @@ error_gen_fchown_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
+int32_t
 error_gen_fchown (call_frame_t *frame,
 		  xlator_t *this,
 		  fd_t *fd,
@@ -268,7 +268,7 @@ error_gen_fchown (call_frame_t *frame,
 		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
-	STACK_WIND (frame,	      
+	STACK_WIND (frame,
 		    error_gen_fchown_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->fchown,
@@ -352,7 +352,7 @@ error_gen_ftruncate (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
+int32_t
 error_gen_utimens_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
@@ -368,7 +368,7 @@ error_gen_utimens_cbk (call_frame_t *frame,
 }
 
 
-int32_t 
+int32_t
 error_gen_utimens (call_frame_t *frame,
 		   xlator_t *this,
 		   loc_t *loc,
@@ -1298,7 +1298,6 @@ error_gen_xattrop_cbk (call_frame_t *frame,
 int32_t
 error_gen_xattrop (call_frame_t *frame,
 		   xlator_t *this,
-		   fd_t *fd,
 		   loc_t *loc,
 		   gf_xattrop_flags_t flags,
 		   dict_t *dict)
@@ -1315,10 +1314,44 @@ error_gen_xattrop (call_frame_t *frame,
 		    error_gen_xattrop_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->xattrop,
-		    fd, loc, flags, dict);
+		    loc, flags, dict);
 	return 0;
 }
 
+int32_t
+error_gen_fxattrop_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno,
+			dict_t *dict)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, dict);
+	return 0;
+}
+
+int32_t
+error_gen_fxattrop (call_frame_t *frame,
+  		    xlator_t *this,
+  		    fd_t *fd,
+  		    gf_xattrop_flags_t flags,
+  		    dict_t *dict)
+{
+  	int op_errno = 0;
+  	op_errno = error_gen(this);
+  	if (op_errno) {
+  		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
+  		STACK_UNWIND (frame, -1, op_errno, NULL);
+  		return 0;
+  	}
+
+  	STACK_WIND (frame,
+  		    error_gen_fxattrop_cbk,
+  		    FIRST_CHILD(this),
+  		    FIRST_CHILD(this)->fops->fxattrop,
+  		    fd, flags, dict);
+  	return 0;
+}
 
 int32_t
 error_gen_removexattr_cbk (call_frame_t *frame,
@@ -1343,7 +1376,7 @@ error_gen_removexattr (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND (frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1470,7 +1503,7 @@ error_gen_entrylk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 error_gen_entrylk (call_frame_t *frame, xlator_t *this,
-		   loc_t *loc, const char *basename, 
+		   loc_t *loc, const char *basename,
 		   gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
 	int op_errno = 0;
@@ -1499,7 +1532,7 @@ error_gen_fentrylk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 error_gen_fentrylk (call_frame_t *frame, xlator_t *this,
-		    fd_t *fd, const char *basename, 
+		    fd_t *fd, const char *basename,
 		    gf_dir_lk_cmd cmd, gf_dir_lk_type type)
 {
 	int op_errno = 0;
@@ -1922,6 +1955,7 @@ struct xlator_fops fops = {
 	.lookup_cbk  = error_gen_lookup_cbk,
 	.checksum    = error_gen_checksum,
 	.xattrop     = error_gen_xattrop,
+	.fxattrop    = error_gen_fxattrop,
 };
 
 struct xlator_mops mops = {

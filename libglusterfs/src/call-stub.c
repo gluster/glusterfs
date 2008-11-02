@@ -1973,7 +1973,6 @@ fop_xattrop_stub_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_xattrop_stub (call_frame_t *frame,
 		  fop_xattrop_t fn,
-		  fd_t *fd,
 		  loc_t *loc,
 		  gf_xattrop_flags_t optype,
 		  dict_t *xattr)
@@ -1989,13 +1988,36 @@ fop_xattrop_stub (call_frame_t *frame,
 
 	stub->args.xattrop.fn = fn;
 	
-	if (fd == NULL)
-		loc_copy (&stub->args.xattrop.loc, loc);
-	else
-		stub->args.xattrop.fd = fd_ref (fd);
+	loc_copy (&stub->args.xattrop.loc, loc);
 
 	stub->args.xattrop.optype = optype;
 	stub->args.xattrop.xattr = dict_ref (xattr);
+
+	return stub;
+}
+
+call_stub_t *
+fop_fxattrop_stub (call_frame_t *frame,
+		   fop_fxattrop_t fn,
+		   fd_t *fd,
+		   gf_xattrop_flags_t optype,
+		   dict_t *xattr)
+{
+	call_stub_t *stub = NULL;
+
+	if (!frame || !xattr)
+		return NULL;
+
+	stub = stub_new (frame, 1, GF_FOP_FXATTROP);
+	if (!stub)
+		return NULL;
+
+	stub->args.fxattrop.fn = fn;
+	
+	stub->args.fxattrop.fd = fd_ref (fd);
+
+	stub->args.fxattrop.optype = optype;
+	stub->args.fxattrop.xattr = dict_ref (xattr);
 
 	return stub;
 }
@@ -2451,14 +2473,6 @@ call_resume_wind (call_stub_t *stub)
 		loc_wipe (&stub->args.checksum.loc);
 		break;
 	}
-  
-	case GF_FOP_MAXVALUE:
-	{
-		gf_log ("call-stub",
-			GF_LOG_DEBUG,
-			"Invalid value of FOP");
-	}
-	break;
 	case GF_FOP_RMELEM:
 	case GF_FOP_READDIR:
 	{
@@ -2472,20 +2486,40 @@ call_resume_wind (call_stub_t *stub)
 		break;
 	}
 	case GF_FOP_XATTROP:
+	{
 		stub->args.xattrop.fn (stub->frame,
 				       stub->frame->this,
-				       stub->args.xattrop.fd,
 				       &stub->args.xattrop.loc,
 				       stub->args.xattrop.optype,
 				       stub->args.xattrop.xattr);
 
 		loc_wipe (&stub->args.xattrop.loc);
-		if (stub->args.xattrop.fd)
-			fd_unref (stub->args.xattrop.fd);
 
 		dict_unref (stub->args.xattrop.xattr);
 
 		break;
+	}
+	case GF_FOP_FXATTROP:
+	{
+		stub->args.fxattrop.fn (stub->frame,
+					stub->frame->this,
+					stub->args.fxattrop.fd,
+					stub->args.fxattrop.optype,
+					stub->args.fxattrop.xattr);
+
+		if (stub->args.fxattrop.fd)
+			fd_unref (stub->args.fxattrop.fd);
+		dict_unref (stub->args.xattrop.xattr);
+
+		break;
+	}
+	default:
+	{
+		gf_log ("call-stub",
+			GF_LOG_DEBUG,
+			"Invalid value of FOP");
+	}
+	break;
 	}
 out:
 	return;
@@ -3228,17 +3262,10 @@ call_resume_unwind (call_stub_t *stub)
 
 		break;
 	}
-	case GF_FOP_MAXVALUE:
-	{
-		gf_log ("call-stub",
-			GF_LOG_DEBUG,
-			"Invalid value of FOP");
-	}
-	break;
 	case GF_FOP_RMELEM:
 	case GF_FOP_READDIR:
 	case GF_FOP_XATTROP:
-
+	{
 		if (!stub->args.xattrop_cbk.fn)
 			STACK_UNWIND (stub->frame,
 				      stub->args.xattrop_cbk.op_ret,
@@ -3255,6 +3282,33 @@ call_resume_unwind (call_stub_t *stub)
 			dict_unref (stub->args.xattrop_cbk.xattr);
 
 		break;
+	}
+	case GF_FOP_FXATTROP:
+	{
+		if (!stub->args.fxattrop_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.fxattrop_cbk.op_ret,
+				      stub->args.fxattrop_cbk.op_errno);
+		else
+			stub->args.fxattrop_cbk.fn (stub->frame,
+						    stub->frame->cookie,
+						    stub->frame->this,
+						    stub->args.fxattrop_cbk.op_ret,
+						    stub->args.fxattrop_cbk.op_errno,
+						    stub->args.fxattrop_cbk.xattr);
+
+		if (stub->args.fxattrop_cbk.xattr)
+			dict_unref (stub->args.fxattrop_cbk.xattr);
+
+		break;
+	}
+	case GF_FOP_MAXVALUE:
+	{
+		gf_log ("call-stub",
+			GF_LOG_DEBUG,
+			"Invalid value of FOP");
+	}
+	break;
 	}
 out:
 	return;
@@ -3570,6 +3624,17 @@ call_stub_destroy (call_stub_t *stub)
 	}
 	case GF_FOP_RMELEM:
 	case GF_FOP_XATTROP:
+	{
+		loc_wipe (&stub->args.xattrop.loc);
+		break;
+	}
+	case GF_FOP_FXATTROP:
+	{
+		if (stub->args.fxattrop.fd)
+			fd_unref (stub->args.fxattrop.fd);
+		break;
+	}
+	default:
 		break;
 	}
 	FREE (stub);

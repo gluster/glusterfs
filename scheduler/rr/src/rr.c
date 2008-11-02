@@ -484,7 +484,6 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
 				    rr_notify_cbk,
 				    (xlator_t *)data,
 				    ((xlator_t *)data)->fops->xattrop,
-				    NULL,
 				    &loc,
 				    GF_XATTROP_ADD_ARRAY,
 				    xattr);

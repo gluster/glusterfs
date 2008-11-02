@@ -270,10 +270,15 @@ int32_t error_gen_setdents (call_frame_t *frame,
 
 int32_t error_gen_xattrop (call_frame_t *frame,
 			   xlator_t *this,
-			   fd_t *fd,
 			   loc_t *loc,
 			   gf_xattrop_flags_t flags,
 			   dict_t *dict);
+
+int32_t error_gen_fxattrop (call_frame_t *frame,
+			    xlator_t *this,
+			    fd_t *fd,
+			    gf_xattrop_flags_t flags,
+			    dict_t *dict);
 
 int32_t error_gen_notify (xlator_t *this,
 			  int32_t event,

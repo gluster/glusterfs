@@ -541,7 +541,6 @@ typedef struct {
 		/* xattrop */
 		struct {
 			fop_xattrop_t fn;
-			fd_t *fd;
 			loc_t loc;
 			gf_xattrop_flags_t optype;
 			dict_t *xattr;
@@ -552,6 +551,20 @@ typedef struct {
 			int32_t op_errno;
 			dict_t *xattr;
 		} xattrop_cbk;
+
+		/* fxattrop */
+		struct {
+			fop_fxattrop_t fn;
+			fd_t *fd;
+			gf_xattrop_flags_t optype;
+			dict_t *xattr;
+		} fxattrop;
+		struct {
+			fop_fxattrop_cbk_t fn;
+			int32_t op_ret;
+			int32_t op_errno;
+			dict_t *xattr;
+		} fxattrop_cbk;
 	} args;
 } call_stub_t;
 
@@ -1061,7 +1074,6 @@ fop_checksum_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_xattrop_stub (call_frame_t *frame,
 		  fop_xattrop_t fn,
-		  fd_t *fd,
 		  loc_t *loc,
 		  gf_xattrop_flags_t optype,
 		  dict_t *xattr);
@@ -1071,6 +1083,19 @@ fop_xattrop_stub_cbk_stub (call_frame_t *frame,
 			   fop_xattrop_cbk_t fn,
 			   int32_t op_ret,
 			   int32_t op_errno);
+
+call_stub_t *
+fop_fxattrop_stub (call_frame_t *frame,
+		   fop_fxattrop_t fn,
+		   fd_t *fd,
+		   gf_xattrop_flags_t optype,
+		   dict_t *xattr);
+
+call_stub_t *
+fop_fxattrop_stub_cbk_stub (call_frame_t *frame,
+			    fop_xattrop_cbk_t fn,
+			    int32_t op_ret,
+			    int32_t op_errno);
 
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);
