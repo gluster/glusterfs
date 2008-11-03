@@ -2088,8 +2088,9 @@ out:
  */
 
 int32_t
-dict_unserialize (char *buf, int32_t size, dict_t **fill)
+dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 {
+	char   *buf = NULL;
 	int     ret   = -1;
 	int32_t count = 0;
 	int     i     = 0;
@@ -2098,6 +2099,9 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
 	char   * key     = NULL;
 	int32_t  keylen  = 0;
 	int32_t  vallen  = 0;
+
+
+	buf = orig_buf;
 
 	if (!buf) {
 		gf_log ("dict", GF_LOG_ERROR,
@@ -2123,7 +2127,15 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
 		goto out;
 	}
 
+	if ((buf + DICT_HDR_LEN) > (orig_buf + size)) {
+		gf_log ("dict", GF_LOG_ERROR,
+			"undersized buffer passsed");
+		goto out;
+	}
+
 	count = ntoh32 (*(int32_t *) buf);
+	buf += DICT_HDR_LEN;
+
 	if (count < 0) {
 		gf_log ("dict", GF_LOG_ERROR,
 			"count (%d) <= 0", count);
@@ -2132,18 +2144,37 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
 
 	/* count will be set by the dict_set's below */
 	(*fill)->count = 0;
-	buf += DICT_HDR_LEN;
 
 	for (i = 0; i < count; i++) {
+		if ((buf + DICT_DATA_HDR_KEY_LEN) > (orig_buf + size)) {
+			gf_log ("dict", GF_LOG_ERROR,
+				"undersized buffer passsed");
+			goto out;
+		}
 		keylen = ntoh32 (*(int32_t *) buf);
 		buf += DICT_DATA_HDR_KEY_LEN;
 
+		if ((buf + DICT_DATA_HDR_VAL_LEN) > (orig_buf + size)) {
+			gf_log ("dict", GF_LOG_ERROR,
+				"undersized buffer passsed");
+			goto out;
+		}
 		vallen = ntoh32 (*(int32_t *) buf);
 		buf += DICT_DATA_HDR_VAL_LEN;
 
+		if ((buf + keylen) > (orig_buf + size)) {
+			gf_log ("dict", GF_LOG_ERROR,
+				"undersized buffer passsed");
+			goto out;
+		}
 		key = buf;
 		buf += keylen + 1;  /* for '\0' */
 
+		if ((buf + vallen) > (orig_buf + size)) {
+			gf_log ("dict", GF_LOG_ERROR,
+				"undersized buffer passsed");
+			goto out;
+		}
 		value = get_new_data ();
 		value->len  = vallen;
 		value->data = buf;
