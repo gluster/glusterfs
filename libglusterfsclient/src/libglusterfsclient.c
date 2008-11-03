@@ -128,6 +128,34 @@ xlator_graph_init (xlator_t *xl)
 }
 
 
+static void 
+libgf_client_loc_wipe (loc_t *loc)
+{
+	FREE (loc->path);
+	inode_unref (loc->parent);
+	/*TODO: add inode_unref (loc->inode) in a generic way to satisfy all the procedures using loc_fill */
+}
+
+
+static void
+libgf_client_loc_fill (loc_t *loc, const char *path, libglusterfs_client_ctx_t *ctx)
+{
+        loc->path = strdup (path);
+        loc->inode = inode_search (ctx->itable, 1, loc->path);
+	loc->parent = inode_ref (ctx->itable->root);
+
+	if (path) {
+		loc->name = strrchr (loc->path, '/');
+		if (loc->name)
+			loc->name++;
+	}
+
+	if (loc->inode) {
+		loc->ino = loc->inode->ino;
+	}
+}
+
+
 static call_frame_t *
 get_call_frame_for_req (libglusterfs_client_ctx_t *ctx, char d)
 {
@@ -585,13 +613,11 @@ glusterfs_lookup (libglusterfs_handle_t handle,
                   struct stat *stbuf)
 {
         int32_t op_ret = 0;
-        loc_t loc;
+        loc_t loc = {0, };
         libglusterfs_client_ctx_t *ctx = handle;
         dict_t *dict = NULL;
 
-        memset (&loc, 0, sizeof (loc));
-        loc.path = strdup (path);
-        loc.inode = inode_search (ctx->itable, 1, path);
+	libgf_client_loc_fill (&loc, path, ctx);
 
         if (size < 0)
                 size = 0;
@@ -616,7 +642,7 @@ glusterfs_lookup (libglusterfs_handle_t handle,
                 dict_unref (dict);
         }
 
-        FREE (loc.path);
+	libgf_client_loc_wipe (&loc);
         return op_ret;
 }
 
@@ -851,8 +877,7 @@ glusterfs_getxattr (libglusterfs_client_ctx_t *ctx,
         loc_t loc = {0, };
         /*   list_head_t signal_handlers; */
 
-        loc.path = strdup (path);
-        loc.inode = inode_search (ctx->itable, 1, loc.path);
+	libgf_client_loc_fill (&loc, path, ctx);
 
         if (loc.inode)
                 inode_in_itable = 1;
@@ -891,13 +916,13 @@ glusterfs_getxattr (libglusterfs_client_ctx_t *ctx,
         if (!op_ret)
                 op_ret = libgf_client_getxattr (ctx, &loc, name, value, size);
 
-        FREE (loc.path);
-
         if (lookup_required) {
                 inode_unref (loc.inode);
         } else if (inode_in_itable) {
                 inode_unref (loc.inode);
         }
+
+	libgf_client_loc_wipe (&loc);
 
         /*  LIBGF_RESTORE_SIGNAL_HANDLERS (signal_handlers); */
         return op_ret;
@@ -1075,8 +1100,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
                 return -1;
         }
 
-        loc.path = strdup (path);
-        loc.inode = inode_search (ctx->itable, 1, loc.path);
+	libgf_client_loc_fill (&loc, path, ctx);
 
         if (loc.inode)
                 inode_in_itable = 1;
@@ -1162,14 +1186,13 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
                 }
         }
 
-        FREE (loc.path);
-
         if (lookup_required) {
                 inode_unref (loc.inode);
         } else if (inode_in_itable) {
                 inode_unref (loc.inode);
         }
 
+	libgf_client_loc_wipe (&loc);
         return op_ret;
 }
 
@@ -1187,8 +1210,7 @@ glusterfs_creat (libglusterfs_client_ctx_t *ctx,
                 return -1;
         }
 
-        loc.path = strdup (path);
-        loc.inode = inode_new (ctx->itable);
+	libgf_client_loc_fill (&loc, path, ctx);
 
         /*TODO: send create only if file does not exist, otherwise send open */
         /*  libgf_client_lookup (ctx, &loc, NULL); */
@@ -1214,8 +1236,7 @@ glusterfs_creat (libglusterfs_client_ctx_t *ctx,
                 dict_set (fd->ctx, XLATOR_NAME, data_from_dynptr (fd_ctx, sizeof (*fd_ctx)));
         }
 
-        FREE (loc.path);
-
+	libgf_client_loc_wipe (&loc);
         inode_unref (loc.inode);
 
         return op_ret;
@@ -1355,8 +1376,7 @@ glusterfs_setxattr (libglusterfs_client_ctx_t *ctx,
         char lookup_required = 1, inode_in_itable = 0;
         /*   list_head_t signal_handlers; */
 
-        loc.path = strdup (path);
-        loc.inode = inode_search (ctx->itable, 1, loc.path);
+	libgf_client_loc_fill (&loc, path, ctx);
 
         if (loc.inode)
                 inode_in_itable = 1;
@@ -1394,13 +1414,13 @@ glusterfs_setxattr (libglusterfs_client_ctx_t *ctx,
         if (!op_ret)
                 op_ret = libgf_client_setxattr (ctx, &loc, name, value, size, flags);
 
-        FREE (loc.path);
 
         if (lookup_required) {
                 inode_unref (loc.inode);
         } else if (inode_in_itable) {
                 inode_unref (loc.inode);
         }
+	libgf_client_loc_wipe (&loc);
         /*  LIBGF_RESTORE_SIGNAL_HANDLERS (signal_handlers); */
         return op_ret;
 }
@@ -2540,8 +2560,7 @@ glusterfs_stat (libglusterfs_handle_t handle,
         char lookup_required = 1, inode_in_itable = 0;
         libglusterfs_client_ctx_t *ctx = handle;
 
-        loc.path = strdup (path);
-        loc.inode = inode_search (ctx->itable, 1, loc.path);
+	libgf_client_loc_fill (&loc, path, ctx);
 
         if (loc.inode)
                 inode_in_itable = 1;
@@ -2582,13 +2601,13 @@ glusterfs_stat (libglusterfs_handle_t handle,
                 op_ret = libgf_client_stat (ctx, &loc, buf);
         }
 
-        FREE (loc.path);
-
         if (lookup_required) {
                 inode_unref (loc.inode);
         } else if (inode_in_itable) {
                 inode_unref (loc.inode);
         }
+
+	libgf_client_loc_wipe (&loc);
 
         return op_ret;
 }

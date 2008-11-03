@@ -556,7 +556,7 @@ fill_inet6_inet_identifiers (transport_t *this, struct sockaddr_storage *addr,
 		     tmpaddr_len,
 		     host, sizeof (host),
 		     service, sizeof (service),
-		     NI_NUMERICHOST);
+		     NI_NUMERICHOST | NI_NUMERICSERV);
   if (ret != 0) {
     gf_log (this->xl->name,
 	    GF_LOG_ERROR,

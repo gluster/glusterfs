@@ -1849,12 +1849,14 @@ ib_verbs_handshake_pollerr (transport_t *this)
 
     if (priv->handshake.incoming.buf) {
       FREE (priv->handshake.incoming.buf);
+      priv->handshake.incoming.buf = NULL;
     }
 
     priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_START;
 
     if (priv->handshake.outgoing.buf) {
       FREE (priv->handshake.outgoing.buf);
+      priv->handshake.outgoing.buf = NULL;
     }
 
     priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_START;

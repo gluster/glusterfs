@@ -32,7 +32,7 @@
 #define GLUSTERFS_INVALID_LOGLEVEL "mod_glusterfs: Unrecognized log-level \"%s\", possible values are \"DEBUG|WARNING|ERROR|CRITICAL|NONE\"\n"
 
 #define GLUSTERFS_HANDLER "glusterfs-handler"
-#define GLUSTERFS_CHUNK_SIZE 131072 //65536
+#define GLUSTERFS_CHUNK_SIZE 131072 
 
 module MODULE_VAR_EXPORT glusterfs_module;
 extern module core_module;
@@ -45,10 +45,6 @@ typedef struct {
         char *gprof_dir;
 #endif
 
-        /* Name translations --- we want the core to be able to do *something*
-         * so it's at least a minimally functional web server on its own (and
-         * can be tested that way).  But let's keep it to the bare minimum:
-         */
         char *ap_document_root;
   
         /* Access control */
@@ -64,7 +60,6 @@ typedef struct glusterfs_dir_config {
         char *specfile;
         char *mount_dir;
         char *buf;
-        char async_reads;
         size_t xattr_file_size;
         uint32_t cache_timeout;
         libglusterfs_handle_t handle;
@@ -76,10 +71,6 @@ typedef struct glusterfs_async_local {
         char async_read_complete;
         off_t length;
         off_t read_bytes;
-        //off_t offset;
-        // int fd;
-        //int callcnt;
-        //  off_t read_bytes;
         glusterfs_read_buf_t *buf;
         request_rec *request;
         pthread_mutex_t lock;
@@ -97,15 +88,6 @@ mod_glusterfs_dconfig(request_rec *r)
         }
 
         return dir_config;
-}
-
-static 
-const char *set_async_read(cmd_parms *cmd, void *dummy, char *arg)
-{
-        glusterfs_dir_config_t *dir_config = dummy;
-        if (!strcasecmp (arg, "yes"))
-                dir_config->async_reads = 1;
-        return NULL;
 }
 
 static 
@@ -144,15 +126,7 @@ const char *set_loglevel(cmd_parms *cmd, void *dummy, char *arg)
 static 
 const char *add_logfile(cmd_parms *cmd, void *dummy, char *arg)
 {
-        /* This one's pretty generic... */
-
         glusterfs_dir_config_t *dir_config = dummy;
-        /*    
-              const char *err = ap_check_cmd_context(cmd, NOT_IN_LIMIT);
-              if (err != NULL) {
-              return err;
-              }
-        */
         dir_config->logfile = arg;
 
         return NULL;
@@ -161,15 +135,7 @@ const char *add_logfile(cmd_parms *cmd, void *dummy, char *arg)
 static 
 const char *add_specfile(cmd_parms *cmd, void *dummy, char *arg)
 {
-        /* This one's pretty generic... */
         glusterfs_dir_config_t *dir_config = dummy;
-  
-        /*  
-            const char *err = ap_check_cmd_context(cmd, NOT_IN_LIMIT);
-            if (err != NULL) {
-            return err;
-            }
-        */
 
         dir_config->specfile = arg;
 
@@ -180,7 +146,6 @@ static void *
 mod_glusterfs_create_dir_config(pool *p, char *dirspec)
 {
         glusterfs_dir_config_t *dir_config = NULL;
-        /*    char *dname = dirspec; */
 
         dir_config = (glusterfs_dir_config_t *) ap_pcalloc(p, sizeof(*dir_config));
 
@@ -188,7 +153,6 @@ mod_glusterfs_create_dir_config(pool *p, char *dirspec)
         dir_config->logfile = dir_config->specfile = (char *)0;
         dir_config->loglevel = "warning";
         dir_config->handle = (libglusterfs_handle_t) 0;
-        dir_config->async_reads = 0;
         dir_config->cache_timeout = 0;
         dir_config->buf = NULL;
 
@@ -205,8 +169,8 @@ mod_glusterfs_child_init(server_rec *s, pool *p)
         glusterfs_dir_config_t *dir_config = NULL;
         glusterfs_init_ctx_t ctx;
   
-        n = mod_core_config->sec_url->nelts;
-        mod_config = (void **)mod_core_config->sec_url->elts;
+        n = mod_core_config->sec_dir->nelts;
+        mod_config = (void **)mod_core_config->sec_dir->elts;
         for (i = 0; i < n; i++) {
                 dir_config = ap_get_module_config (mod_config[i], &glusterfs_module);
 
@@ -233,8 +197,8 @@ mod_glusterfs_child_exit(server_rec *s, pool *p)
                                                                     &core_module);
         glusterfs_dir_config_t *dir_config = NULL;
   
-        n = mod_core_config->sec_url->nelts;
-        mod_config = (void **)mod_core_config->sec_url->elts;
+        n = mod_core_config->sec_dir->nelts;
+        mod_config = (void **)mod_core_config->sec_dir->elts;
         for (i = 0; i < n; i++) {
                 dir_config = ap_get_module_config (mod_config[i], &glusterfs_module);
                 if (dir_config && dir_config->handle) {
@@ -270,7 +234,8 @@ static int mod_glusterfs_fixup(request_rec *r)
                 return HTTP_INTERNAL_SERVER_ERROR;
         }
 
-        ret = glusterfs_lookup (dir_config->handle, path, dir_config->buf, dir_config->xattr_file_size, &r->finfo);
+        ret = glusterfs_lookup (dir_config->handle, path, dir_config->buf, 
+				dir_config->xattr_file_size, &r->finfo);
 
         if (ret == -1 || r->finfo.st_size > dir_config->xattr_file_size || S_ISDIR (r->finfo.st_mode)) {
                 free (dir_config->buf);
@@ -312,29 +277,10 @@ mod_glusterfs_readv_async_cbk (glusterfs_read_buf_t *buf,
 {
         glusterfs_async_local_t *local = cbk_data;
 
-        /*
-          if (op_ret > 0) {
-          int i;
-          for (i = 0; i < count; i++) {
-          if (ap_rwrite (vector[i].iov_base, vector[i].iov_len, local->request) < 0) {
-          op_ret = -1;
-          break;
-          }
-          }
-          }
-        */
         pthread_mutex_lock (&local->lock);
         {
                 local->async_read_complete = 1;
                 local->buf = buf;
-                /*
-                  local->op_ret = op_ret;
-                  local->op_errno = op_errno;
-
-                  if (op_ret > 0)
-                  local->read_bytes += op_ret;
-                */
-
                 pthread_cond_signal (&local->cond);
         }
         pthread_mutex_unlock (&local->lock);
@@ -342,7 +288,7 @@ mod_glusterfs_readv_async_cbk (glusterfs_read_buf_t *buf,
         return 0;
 }
 
-
+/* use read_async just to avoid memcpy of read buffer in libglusterfsclient */
 static int
 mod_glusterfs_read_async (request_rec *r, int fd, off_t offset, off_t length)
 {
@@ -353,7 +299,6 @@ mod_glusterfs_read_async (request_rec *r, int fd, off_t offset, off_t length)
         pthread_cond_init (&local.cond, NULL);
         pthread_mutex_init (&local.lock, NULL);
   
-        //local.fd = fd;
         memset (&local, 0, sizeof (local));
         local.request = r;
 
@@ -410,83 +355,11 @@ mod_glusterfs_read_async (request_rec *r, int fd, off_t offset, off_t length)
                 offset += nbytes;
         } while (!complete);
 
-        /*
-          pthread_mutex_lock (&local.lock);
-          {
-          off_t nbytes = 0;
-          off_t end, init_value = offset;
-
-          if (length > 0)
-          end = offset + length;
-
-          local.complete = 0;
-          //      local.callcnt = 0;
-  
-          while (offset <= r->finfo.st_size && (offset - init_value)< window && (length > 0 ? offset < end : 1)) {
-
-          if (length > 0) {
-          nbytes = end - offset;
-          if (nbytes > GLUSTERFS_CHUNK_SIZE)
-          nbytes = GLUSTERFS_CHUNK_SIZE;
-          } else
-          nbytes = GLUSTERFS_CHUNK_SIZE;
-
-          local.callcnt ++;
-          glusterfs_read_async(fd, 
-          nbytes,
-          offset,
-          mod_glusterfs_readv_async_cbk,
-          (void *)&local);
-      
-          offset += nbytes;
-          }
-          do {
-          while (!local.complete) {
-          pthread_cond_wait (&local.cond, &local.lock);
-          }
-          local.complete = 0;
-      
-          if (length > 0) {
-          if (!local.callcnt && offset >= end) {
-          glusterfs_close (fd);
-          break;
-          }
-
-          if (offset < end) {
-          nbytes = end - offset;
-          if (nbytes > GLUSTERFS_CHUNK_SIZE)
-          nbytes = GLUSTERFS_CHUNK_SIZE;
-
-          local.callcnt ++;
-          glusterfs_read_async(fd, 
-          nbytes,
-          offset,
-          mod_glusterfs_readv_async_cbk,
-          (void *)&local);
-          offset += nbytes;
-          }
-          } else {
-          if (local.op_ret <= 0)
-          break;
-        
-          local.callcnt++;
-          glusterfs_read_async(fd, 
-          GLUSTERFS_CHUNK_SIZE,
-          offset,
-          mod_glusterfs_readv_async_cbk,
-          (void *)&local);
-        
-          offset += GLUSTERFS_CHUNK_SIZE;
-          }
-          } while (1);
-          }
-          pthread_mutex_unlock (&local.lock);
-        */
-        
         return (local.op_ret < 0 ? SERVER_ERROR : OK);
 }
 
 /* TODO: to read blocks of size "length" from offset "offset" */ 
+/*
 static int 
 mod_glusterfs_read_sync (request_rec *r, int fd, off_t offset, off_t length)
 { 
@@ -502,6 +375,7 @@ mod_glusterfs_read_sync (request_rec *r, int fd, off_t offset, off_t length)
         }
         return error;
 }
+*/
 
 static int 
 mod_glusterfs_handler(request_rec *r)
@@ -580,25 +454,14 @@ mod_glusterfs_handler(request_rec *r)
         }
   
         if (!r->header_only) {
-                if (dir_config->async_reads) {
-                        if (!rangestatus) {
-                                mod_glusterfs_read_async (r, fd, 0, -1);
-                        } else {
-                                long offset, length;
-                                while (ap_each_byterange(r, &offset, &length)) {
-                                        mod_glusterfs_read_async (r, fd, offset, length);
-                                }
-                        }
-                }else {
-                        if (!rangestatus) {
-                                mod_glusterfs_read_sync (r, fd, 0, -1);
-                        } else {
-                                long offset, length;
-                                while (ap_each_byterange (r, &offset, &length)) {
-                                        mod_glusterfs_read_sync (r, fd, offset, length);
-                                }
-                        }
-                }
+		if (!rangestatus) {
+			mod_glusterfs_read_async (r, fd, 0, -1);
+		} else {
+			long offset, length;
+			while (ap_each_byterange(r, &offset, &length)) {
+				mod_glusterfs_read_async (r, fd, offset, length);
+			}
+		}
         }
   
         glusterfs_close (fd);
@@ -619,9 +482,6 @@ static const command_rec mod_glusterfs_cmds[] =
         {"GlusterfsVolumeSpecfile", add_specfile, NULL,
          GLUSTERFS_CMD_PERMS, TAKE1,
          "Glusterfs Specfile required to access contents of this directory"},
-        {"GlusterfsAsyncReads", set_async_read, NULL,
-         GLUSTERFS_CMD_PERMS, TAKE1,
-         "Size of data to be read/written before sending next bunch of asynchronous read/write calls to glusterfs"},
         {"GlusterfsXattrFileSize", add_xattr_file_size, NULL, 
          GLUSTERFS_CMD_PERMS, TAKE1,
          "Maximum size of the file to be fetched using xattr interface of glusterfs"},
