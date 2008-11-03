@@ -1,6 +1,7 @@
 #include "glusterfs.h"
 #include "xlator.h"
 #include "server-protocol.h"
+#include "server-helpers.h"
 #include <libgen.h>
 
 /* SERVER_DENTRY_STATE_PREPARE - prepare a fresh state for use

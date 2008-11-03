@@ -34,163 +34,13 @@
 #include "protocol.h"
 #include "lock.h"
 #include "server-protocol.h"
+#include "server-helpers.h"
 #include "call-stub.h"
 #include "defaults.h"
 #include "list.h"
 #include "dict.h"
 #include "compat.h"
 #include "compat-errno.h"
-
-#define TRANSPORT_OF(frame) ((transport_t *) CALL_STATE(frame)->trans)
-#define CONNECTION_PRIVATE(frame)  ((connection_private_t *) TRANSPORT_OF(frame)->xl_private)
-
-#define __TRANSPORT_OF(this)    ((((server_private_t *)this->private))->trans)
-
-#define INODE_LRU_LIMIT(this)						\
-	(((server_conf_t *)(__TRANSPORT_OF(this)->xl_private))->inode_lru_limit)
-
-#define IS_ROOT_INODE(inode) (inode == inode->table->root)
-
-#define IS_NOT_ROOT(pathlen) ((pathlen > 2)? 1 : 0)
-
-
-/* server_loc_fill - derive a loc_t for a given inode number
- *
- * NOTE: make sure that @loc is empty, because any pointers it holds with reference will
- *       be leaked after returning from here.
- */
-static int32_t
-server_loc_fill (loc_t *loc,
-  		 server_state_t *state,
-  		 ino_t ino,
-  		 ino_t par,
-  		 const char *name,
-  		 const char *path)
-{
-  	inode_t *inode = NULL;
-  	inode_t *parent = NULL;
-  	int32_t ret = -1;
-
-  	GF_VALIDATE_OR_GOTO ("server", loc, out);
-  	GF_VALIDATE_OR_GOTO ("server", state, out);
-  	GF_VALIDATE_OR_GOTO ("server", path, out);
-
-  	/* anything beyond this point is success */
-  	ret = 0;
-	loc->ino = ino;
-  	inode = loc->inode;
-  	if (inode == NULL) {
-  		if (ino)
-  			inode = inode_search (state->itable, ino, NULL);
-
-  		if ((inode != NULL) &&
-  		    (par && name))
-  			inode = inode_search (state->itable, par, name);
-
-  		loc->inode = inode;
-  		if (inode)
-  			loc->ino = inode->ino;
-  	}
-
-  	parent = loc->parent;
-	if (parent == NULL) {
-		if (inode)
-			parent = inode_parent (inode, par, name);
-		else
-			parent = inode_search (state->itable, par, NULL);
-		loc->parent = parent;
-	}
-
-  	if (path) {
-  		loc->path = strdup (path);
-  		loc->name = strrchr (path, '/');
-  		if (loc->name)
-  			(loc->name)++;
-  	}
-  	{
-  		char *tmp_path = NULL;
-  		size_t n = 0;
-
-  		if (name && parent) {
-  			n = inode_path (parent, name, NULL, 0) + 1;
-  			tmp_path = calloc (1, n);
-  			inode_path (parent, name, tmp_path, n);
-  		} else if (inode){
-  			n = inode_path (inode, NULL, NULL, 0) + 1;
-  			tmp_path = calloc (1, n);
-  			inode_path (inode, NULL, tmp_path, n);
-  		}
-
-  		if (tmp_path && (strncmp (tmp_path, path, n))) {
-  			gf_log ("server",
-  				GF_LOG_ERROR,
-  				"paths differ: path (%s) from dentry tree is %s",
-  				path, tmp_path);
-  		}
-		
-		if (tmp_path)
-			free (tmp_path);
-  	}
-out:
-  	return ret;
-}
-
-/*
- * stat_to_str - convert struct stat to a ASCII string
- * @stbuf: struct stat pointer
- *
- * not for external reference
- */
-static char *
-stat_to_str (struct stat *stbuf)
-{
-	char *tmp_buf = NULL;
-
-	uint64_t dev = stbuf->st_dev;
-	uint64_t ino = stbuf->st_ino;
-	uint32_t mode = stbuf->st_mode;
-	uint32_t nlink = stbuf->st_nlink;
-	uint32_t uid = stbuf->st_uid;
-	uint32_t gid = stbuf->st_gid;
-	uint64_t rdev = stbuf->st_rdev;
-	uint64_t size = stbuf->st_size;
-	uint32_t blksize = stbuf->st_blksize;
-	uint64_t blocks = stbuf->st_blocks;
-	uint32_t atime = stbuf->st_atime;
-	uint32_t mtime = stbuf->st_mtime;
-	uint32_t ctime = stbuf->st_ctime;
-
-#ifdef HAVE_TV_NSEC
-	uint32_t atime_nsec = stbuf->st_atim.tv_nsec;
-	uint32_t mtime_nsec = stbuf->st_mtim.tv_nsec;
-	uint32_t ctime_nsec = stbuf->st_ctim.tv_nsec;
-#else
-	uint32_t atime_nsec = 0;
-	uint32_t mtime_nsec = 0;
-	uint32_t ctime_nsec = 0;
-#endif
-
-	asprintf (&tmp_buf,
-		  GF_STAT_PRINT_FMT_STR,
-		  dev,
-		  ino,
-		  mode,
-		  nlink,
-		  uid,
-		  gid,
-		  rdev,
-		  size,
-		  blksize,
-		  blocks,
-		  atime,
-		  atime_nsec,
-		  mtime,
-		  mtime_nsec,
-		  ctime,
-		  ctime_nsec);
-
-	return tmp_buf;
-}
 
 
 static void
@@ -456,102 +306,6 @@ server_lk_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-gf_add_locker (struct _lock_table *table,
-	       loc_t *loc,
-	       fd_t *fd,
-	       pid_t pid)
-{
-	int32_t ret = -1;
-	struct _locker *new = NULL;
-	uint8_t dir = 0;
-
-	new = calloc (1, sizeof (struct _locker));
-	if (new == NULL) {
-		gf_log ("server", GF_LOG_ERROR,
-			"failed to allocate memory for \'struct _locker\'");
-		goto out;
-	}
-	INIT_LIST_HEAD (&new->lockers);
-
-	if (fd == NULL) {
-		loc_copy (&new->loc, loc);
-		dir = S_ISDIR (new->loc.inode->st_mode);
-	} else {
-		new->fd = fd_ref (fd);
-		dir = S_ISDIR (fd->inode->st_mode);
-	}
-
-	new->pid = pid;
-
-	LOCK (&table->lock);
-	{
-		if (dir)
-			list_add_tail (&new->lockers, &table->dir_lockers);
-		else
-			list_add_tail (&new->lockers, &table->file_lockers);
-	}
-	UNLOCK (&table->lock);
-out:
-	return ret;
-}
-
-int32_t
-gf_del_locker (struct _lock_table *table,
-	       loc_t *loc,
-	       fd_t *fd,
-	       pid_t pid)
-{
-	struct _locker *locker = NULL, *tmp = NULL;
-	int32_t ret = 0;
-	uint8_t dir = 0;
-	struct list_head *head = NULL;
-	struct list_head del;
-
-	INIT_LIST_HEAD (&del);
-
-	if (fd) {
-		dir = S_ISDIR (fd->inode->st_mode);
-	} else {
-		dir = S_ISDIR (loc->inode->st_mode);
-	}
-
-	LOCK (&table->lock);
-	{
-		if (dir) {
-			head = &table->dir_lockers;
-		} else {
-			head = &table->file_lockers;
-		}
-
-		list_for_each_entry_safe (locker, tmp, head, lockers) {
-			if (locker->fd &&
-			    (locker->fd == fd) && (locker->pid == pid)) {
-				list_move_tail (&locker->lockers, &del);
-			} else if (locker->loc.inode &&
-				   (locker->loc.inode == loc->inode) &&
-				   (locker->pid == pid)) {
-				list_move_tail (&locker->lockers, &del);
-			}
-		}
-	}
-	UNLOCK (&table->lock);
-
-	tmp = NULL;
-	locker = NULL;
-
-	list_for_each_entry_safe (locker, tmp, &del, lockers) {
-		list_del_init (&locker->lockers);
-		if (locker->fd)
-			fd_unref (locker->fd);
-		else
-			loc_wipe (&locker->loc);
-
-		free (locker);
-	}
-
-	return ret;
-}
 
 int32_t
 server_inodelk_cbk (call_frame_t *frame, void *cookie,
@@ -574,10 +328,10 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie,
 	if (op_ret >= 0) {
 		if (state->flock.l_type == F_UNLCK)
 			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable,
-				       &state->loc, state->fd, frame->root->pid);
+				       &state->loc, NULL, frame->root->pid);
 		else
 			gf_add_locker (CONNECTION_PRIVATE(frame)->ltable,
-				       &state->loc, state->fd, frame->root->pid);
+				       &state->loc, NULL, frame->root->pid);
 	}
 	
 	server_loc_wipe (&state->loc);
@@ -609,10 +363,10 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie,
 		state = CALL_STATE(frame);
 		if (state->flock.l_type == F_UNLCK)
 			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable,
-				       &state->loc, state->fd, frame->root->pid);
+				       NULL, state->fd, frame->root->pid);
 		else
 			gf_add_locker (CONNECTION_PRIVATE(frame)->ltable,
-				       &state->loc, state->fd, frame->root->pid);
+				       NULL, state->fd, frame->root->pid);
 	}
 
  	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FINODELK,
@@ -623,7 +377,7 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 
 /*
- * server_gf_dir_lk_cbk - gf_dir_lk callback for server protocol
+ * server_entrylk_cbk - 
  * @frame: call frame
  * @cookie:
  * @this:
@@ -652,12 +406,12 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie,
  	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret >= 0) {
-		if (state->flock.l_type == F_UNLCK)
+		if (state->cmd == GF_DIR_LK_UNLOCK)
 			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable,
-				       &state->loc, state->fd, frame->root->pid);
+				       &state->loc, NULL, frame->root->pid);
 		else
 			gf_add_locker (CONNECTION_PRIVATE(frame)->ltable,
-				       &state->loc, state->fd, frame->root->pid);
+				       &state->loc, NULL, frame->root->pid);
 	}
 	
 	server_loc_wipe (&state->loc);
@@ -687,12 +441,12 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret >= 0) {
 		state = CALL_STATE(frame);
-		if (state->flock.l_type == F_UNLCK)
+		if (state->cmd == GF_DIR_LK_UNLOCK)
 			gf_del_locker (CONNECTION_PRIVATE(frame)->ltable,
-				       &state->loc, state->fd, frame->root->pid);
+				       NULL, state->fd, frame->root->pid);
 		else
 			gf_add_locker (CONNECTION_PRIVATE(frame)->ltable,
-				       &state->loc, state->fd, frame->root->pid);
+				       NULL, state->fd, frame->root->pid);
 	}
 
  	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FENTRYLK,
@@ -3123,7 +2877,8 @@ server_lookup_resume (call_frame_t *frame,
 
 	state = CALL_STATE(frame);
 
-	if (state->loc.parent == NULL)
+	if ((state->loc.parent == NULL) && 
+	    (loc->parent))
 		state->loc.parent = inode_ref (loc->parent);
 
 	if (state->loc.inode == NULL) {
@@ -3167,12 +2922,12 @@ server_lookup (call_frame_t *frame,
 	server_state_t      *state = NULL;
 	call_stub_t *lookup_stub = NULL;
 	int32_t      ret = -1;
+	size_t pathlen = 0;
 
 	req = gf_param (hdr);
 
 	state = CALL_STATE(frame);
 	{
-		size_t pathlen = 0;
 
 		pathlen = STRLEN_0 (req->path);
 		
@@ -3208,7 +2963,8 @@ server_lookup (call_frame_t *frame,
 	lookup_stub = fop_lookup_stub (frame, server_lookup_resume,
 				       &(state->loc), state->need_xattr);
 
-	if (state->loc.parent == NULL)
+	if ((state->loc.parent == NULL) && 
+	    IS_NOT_ROOT(pathlen))
 		do_path_lookup (lookup_stub, &(state->loc));
 	else
 		call_resume (lookup_stub);
@@ -3283,12 +3039,14 @@ server_stat (call_frame_t *frame,
 	gf_fop_stat_req_t *req = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t  pathlen = 0;
 
 	req = gf_param (hdr);
 	state = CALL_STATE(frame);
 
 	state->ino  = ntoh64 (req->ino);
 	state->path = req->path;
+	pathlen = STRLEN_0(state->path);
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -3298,7 +3056,8 @@ server_stat (call_frame_t *frame,
 				   server_stat_resume,
 				   &(state->loc));
 
-	if ((state->loc.parent == NULL) || (state->loc.inode == NULL)) {
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) || 
+	    (state->loc.inode == NULL)) {
 		do_path_lookup (stat_stub, &(state->loc));
 	} else {
 		call_resume (stat_stub);
@@ -3496,13 +3255,14 @@ server_open (call_frame_t *frame, xlator_t *bound_xl,
 	gf_fop_open_req_t *req = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t  pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->ino   = ntoh64 (req->ino);
 		state->path  = req->path;
-
+		pathlen = STRLEN_0(state->path);
 		state->flags = ntoh32 (req->flags);
 	}
 	ret = server_loc_fill (&(state->loc), state,
@@ -3513,7 +3273,8 @@ server_open (call_frame_t *frame, xlator_t *bound_xl,
 				   server_open_resume,
 				   &(state->loc), state->flags, NULL);
 
-	if ((state->loc.parent == NULL) || (state->loc.inode == NULL)) {
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) || 
+	    (state->loc.inode == NULL)) {
 		do_path_lookup (open_stub, &state->loc);
 	} else {
 		call_resume (open_stub);
@@ -3998,7 +3759,7 @@ server_unlink (call_frame_t *frame,
 	pathlen = STRLEN_0(req->path);
 	
 	state->par   = ntoh64 (req->par);
-	state->path     = req->path;
+	state->path  = req->path;
 	if (IS_NOT_ROOT(pathlen))
 		state->basename = req->basename + pathlen;
 
@@ -4086,6 +3847,7 @@ server_setxattr (call_frame_t *frame,
 		dict = get_new_dict ();
 		dict_unserialize (buf, dict_len, &dict);
 		dict->extra_free = buf;
+		dict_ref (dict);
 	}
 
 	setxattr_stub = fop_setxattr_stub (frame,
@@ -4094,12 +3856,15 @@ server_setxattr (call_frame_t *frame,
 					   dict,
 					   state->flags);
 
-	if ((state->loc.parent == NULL) ||
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
 		do_path_lookup (setxattr_stub, &(state->loc));
 	} else {
 		call_resume (setxattr_stub);
 	}
+	
+	if (dict)
+		dict_unref (dict);
 
 	return 0;
 }
@@ -4227,6 +3992,23 @@ server_fxattrop (call_frame_t *frame,
 }
 
 int32_t
+server_xattrop_resume (call_frame_t *frame,
+		       xlator_t *this,
+		       loc_t *loc,
+		       gf_xattrop_flags_t flags,
+		       dict_t *dict)
+{
+	STACK_WIND (frame,
+		    server_xattrop_cbk,
+		    BOUND_XL (frame),
+		    BOUND_XL (frame)->fops->xattrop,
+		    loc,
+		    flags,
+		    dict);
+	return 0;
+}
+
+int32_t
 server_xattrop (call_frame_t *frame,
 		xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
@@ -4235,10 +4017,11 @@ server_xattrop (call_frame_t *frame,
 	gf_fop_xattrop_req_t *req = NULL;
 	dict_t *dict = NULL;
 	server_state_t *state = NULL;
+	call_stub_t *xattrop_stub = NULL;
 	int32_t ret = -1;
 	size_t pathlen = 0;
 	size_t dict_len = 0;
-
+	
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
@@ -4261,13 +4044,19 @@ server_xattrop (call_frame_t *frame,
 		dict->extra_free = buf;
 		dict_ref (dict);
 	}
-	STACK_WIND (frame,
-		    server_xattrop_cbk,
-		    bound_xl,
-		    bound_xl->fops->xattrop,
-		    &state->loc,
-		    state->flags,
-		    dict);
+	xattrop_stub = fop_xattrop_stub (frame,
+					 server_xattrop_resume,
+					 &(state->loc),
+					 state->flags,
+					 dict);
+
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
+	    (state->loc.inode == NULL)) {
+		do_path_lookup (xattrop_stub, &(state->loc));
+	} else {
+		call_resume (xattrop_stub);
+	}
+
 	if (dict)
 		dict_unref (dict);
 	return 0;
@@ -4297,7 +4086,6 @@ server_getxattr_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-
 int32_t
 server_getxattr (call_frame_t *frame,
                  xlator_t *bound_xl,
@@ -4333,7 +4121,7 @@ server_getxattr (call_frame_t *frame,
 					   &(state->loc),
 					   state->name);
 
-	if ((state->loc.parent == NULL) ||
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
 		do_path_lookup (getxattr_stub, &(state->loc));
 	} else {
@@ -4400,7 +4188,7 @@ server_removexattr (call_frame_t *frame,
 						 &(state->loc),
 						 state->name);
 
-	if ((state->loc.parent == NULL) ||
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
 		do_path_lookup (removexattr_stub, &(state->loc));
 	} else {
@@ -4489,11 +4277,13 @@ server_opendir (call_frame_t *frame, xlator_t *bound_xl,
 	gf_fop_opendir_req_t *req = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t  pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->path  = req->path;
+		pathlen = STRLEN_0(state->path);
 		state->ino   = ntoh64 (req->ino);
 	}
 
@@ -4506,7 +4296,7 @@ server_opendir (call_frame_t *frame, xlator_t *bound_xl,
 					 &(state->loc),
 					 NULL);
 
-	if ((state->loc.parent == NULL) ||
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
 		do_path_lookup (opendir_stub, &(state->loc));
 	} else {
@@ -4971,13 +4761,14 @@ server_chown (call_frame_t *frame,
 	gf_fop_chown_req_t *req = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t  pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->ino  = ntoh64 (req->ino);
 		state->path = req->path;
-
+		pathlen = STRLEN_0(state->path);
 		state->uid   = ntoh32 (req->uid);
 		state->gid   = ntoh32 (req->gid);
 	}
@@ -4993,7 +4784,7 @@ server_chown (call_frame_t *frame,
 				     state->uid,
 				     state->gid);
 
-	if ((state->loc.parent == NULL) ||
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
 		do_path_lookup (chown_stub, &(state->loc));
 	} else {
@@ -5038,6 +4829,7 @@ server_chmod (call_frame_t *frame,
 	gf_fop_chmod_req_t *req = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t  pathlen = 0;
 
 	req       = gf_param (hdr);
 
@@ -5045,6 +4837,7 @@ server_chmod (call_frame_t *frame,
 	{
 		state->ino  = ntoh64 (req->ino);
 		state->path = req->path;
+		pathlen = STRLEN_0(state->path);
 
 		state->mode = ntoh32 (req->mode);
 	}
@@ -5058,7 +4851,7 @@ server_chmod (call_frame_t *frame,
 				     &(state->loc),
 				     state->mode);
 
-	if ((state->loc.parent == NULL) ||
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
 		do_path_lookup (chmod_stub, &(state->loc));
 	} else {
@@ -5102,12 +4895,14 @@ server_utimens (call_frame_t *frame,
 	gf_fop_utimens_req_t *req = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t  pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->ino  = ntoh64 (req->ino);
 		state->path = req->path;
+		pathlen = STRLEN_0(state->path);
 
 		gf_timespec_to_timespec (req->tv, state->tv);
 	}
@@ -5122,7 +4917,7 @@ server_utimens (call_frame_t *frame,
 					 &(state->loc),
 					 state->tv);
 
-	if ((state->loc.parent == NULL) ||
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
 		do_path_lookup (utimens_stub, &(state->loc));
 	} else {
@@ -5309,7 +5104,8 @@ server_entrylk_resume (call_frame_t *frame,
 	if (state->loc.inode == NULL)
 		state->loc.inode = inode_ref (loc->inode);
 
-	if (state->loc.parent == NULL)
+	if ((state->loc.parent == NULL) &&
+	    (loc->parent))
 		state->loc.parent = inode_ref (loc->parent);
 
  	STACK_WIND (frame,
@@ -5366,7 +5162,7 @@ server_entrylk (call_frame_t *frame,
 					 &state->loc, state->name, state->cmd,
 					 state->type);
 
- 	if ((state->loc.parent == NULL) ||
+ 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
  		do_path_lookup (entrylk_stub, &(state->loc));
  	} else {
@@ -5404,7 +5200,7 @@ server_fentrylk (call_frame_t *frame,
 			state->name = req->name;
 	}
 
-	if (!state->fd) {
+	if (state->fd == NULL) {
 		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
@@ -5454,6 +5250,7 @@ server_access (call_frame_t *frame,
 	gf_fop_access_req_t *req = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
+	size_t  pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -5462,6 +5259,7 @@ server_access (call_frame_t *frame,
 
 	state->ino  = ntoh64 (req->ino);
 	state->path = req->path;
+	pathlen = STRLEN_0(state->path);
 
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, state->par, state->basename,
@@ -5472,7 +5270,7 @@ server_access (call_frame_t *frame,
 				       &(state->loc),
 				       state->mask);
 
-	if ((state->loc.parent == NULL) ||
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
 		do_path_lookup (access_stub, &(state->loc));
 	} else {
