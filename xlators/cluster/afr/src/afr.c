@@ -914,6 +914,8 @@ init (xlator_t *this)
 
 	int    read_ret    = -1;
 	int    fav_ret     = -1;
+	gf_boolean_t readonly  = 0;
+	char *ro_string    = NULL;
 
 	ALLOC_OR_GOTO (this->private, afr_private_t, out);
 
@@ -924,6 +926,21 @@ init (xlator_t *this)
 
 	fav_ret = dict_get_str (this->options, "favorite-child", &fav_child);
 	priv->favorite_child = -1;
+
+	ret = dict_get_str (this->options, "read-only", &ro_string);
+	gf_string2boolean (ro_string, &readonly);
+	if (readonly == 0) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"read-only option disabled. glusterfs will exit in case of "
+			"absence of features/posix-locks translator in tree");
+		priv->readonly = 0;
+	} else {
+		gf_log (this->name, GF_LOG_WARNING,
+			"read-only option enabled. "
+			"read-only access will be provided in case of absence of "
+			"features/posix-locks translator in tree");
+		priv->readonly = 1;
+	}
 
 	trav = this->children;
 	while (trav) {
@@ -1052,5 +1069,6 @@ struct xlator_cbks cbks = {
 struct xlator_options options[] = {
 	{ "read-subvolume", GF_OPTION_TYPE_XLATOR, 0, },
 	{ "favorite-child", GF_OPTION_TYPE_XLATOR, 0, },
+	{ "read-only", GF_OPTION_TYPE_BOOL, 0, },
 	{ NULL, 0, },
 };

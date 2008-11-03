@@ -22,6 +22,8 @@
 #include "afr.h"
 #include "afr-transaction.h"
 
+#include <signal.h>
+
 /* {{{ unlock */
 
 int32_t
@@ -373,7 +375,7 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv = NULL;
-	
+	int done = 0;
 	int child_index = (long) cookie;
 
 	local = frame->local;
@@ -382,12 +384,34 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
+			if (op_errno == ENOSYS) {
+				if (priv->readonly == 1) {
+					/* return ENOTSUP */
+					local->op_ret   = op_ret;
+					local->op_errno = op_errno;
+				} else {
+					/* afr cannot continue from here */
+					gf_log (this->name, GF_LOG_CRITICAL,
+						"missing lock translator. "
+						"features/posix-locks mandatory for afr. "
+						"terminating glusterfs");
+				}
+				done = 1;
+			}
 			local->child_up[child_index] = 0;
 		}
 	}
 	UNLOCK (&frame->lock);
-
-	afr_lock_rec (frame, this, child_index + 1);
+	
+	if (done) {
+		local->transaction.done (frame, this, op_ret, op_errno);
+		if (priv->readonly == 0) {
+			/* suicide time */
+			raise (SIGTERM);
+		}
+	} else {
+		afr_lock_rec (frame, this, child_index + 1);
+	}
 
 	return 0;
 }
