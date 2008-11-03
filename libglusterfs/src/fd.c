@@ -292,7 +292,9 @@ gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd)
 	pthread_mutex_lock (&fdtable->lock);
 	{
 		fdptr = fdtable->fds[fd];
-		fd_ref (fdptr);
+		if (fdptr) {
+			fd_ref (fdptr);
+		}
 	}
 	pthread_mutex_unlock (&fdtable->lock);
 
@@ -313,7 +315,7 @@ fd_ref (fd_t *fd)
 	fd_t *refed_fd = NULL;
 
 	if (!fd) {
-		gf_log ("fd", GF_LOG_DEBUG, "@fd=%p", fd);
+		gf_log ("fd", GF_LOG_ERROR, "@fd=%p", fd);
 		return NULL;
 	}
 

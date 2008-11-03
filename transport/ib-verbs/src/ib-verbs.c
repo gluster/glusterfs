@@ -57,14 +57,6 @@ static void
 ib_verbs_put_post (ib_verbs_queue_t *queue,
 		   ib_verbs_post_t *post)
 {
-  if (post->aux) {
-    /* this is a post from the dynamic size queue */
-    ibv_dereg_mr (post->mr);
-    free (post->buf);
-    free (post);
-    return;
-  }
-
   pthread_mutex_lock (&queue->lock);
   if (post->prev) {
     queue->active_count--;
@@ -1173,10 +1165,8 @@ ib_verbs_send_completion_proc (void *data)
 	  transport_disconnect (peer->trans);
       }
 
-      if (post->aux) {
-	ib_verbs_destroy_post (post);
-      } else {
-	ib_verbs_put_post (&device->sendq, post);
+      if (post) {
+	      ib_verbs_put_post (&device->sendq, post);
       }
       
       if (peer) {
