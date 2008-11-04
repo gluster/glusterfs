@@ -17,6 +17,10 @@
   <http://www.gnu.org/licenses/>.
 */
 
+#ifndef CORE_PRIVATE
+#define CORE_PRIVATE
+#endif
+
 #include <httpd.h>
 #include <http_config.h>
 #include <http_core.h>
@@ -35,24 +39,8 @@
 #define GLUSTERFS_CHUNK_SIZE 131072 
 
 module MODULE_VAR_EXPORT glusterfs_module;
-extern module core_module;
 
 /*TODO: verify error returns to server core */
-
-typedef struct {
-  
-#ifdef GPROF
-        char *gprof_dir;
-#endif
-
-        char *ap_document_root;
-  
-        /* Access control */
-
-        char *access_name;
-        array_header *sec;
-        array_header *sec_url;
-} core_server_config;
 
 typedef struct glusterfs_dir_config {
         char *logfile;
@@ -169,8 +157,8 @@ mod_glusterfs_child_init(server_rec *s, pool *p)
         glusterfs_dir_config_t *dir_config = NULL;
         glusterfs_init_ctx_t ctx;
   
-        n = mod_core_config->sec_dir->nelts;
-        mod_config = (void **)mod_core_config->sec_dir->elts;
+        n = mod_core_config->sec_url->nelts;
+        mod_config = (void **)mod_core_config->sec_url->elts;
         for (i = 0; i < n; i++) {
                 dir_config = ap_get_module_config (mod_config[i], &glusterfs_module);
 
@@ -197,8 +185,8 @@ mod_glusterfs_child_exit(server_rec *s, pool *p)
                                                                     &core_module);
         glusterfs_dir_config_t *dir_config = NULL;
   
-        n = mod_core_config->sec_dir->nelts;
-        mod_config = (void **)mod_core_config->sec_dir->elts;
+        n = mod_core_config->sec_url->nelts;
+        mod_config = (void **)mod_core_config->sec_url->elts;
         for (i = 0; i < n; i++) {
                 dir_config = ap_get_module_config (mod_config[i], &glusterfs_module);
                 if (dir_config && dir_config->handle) {
