@@ -283,8 +283,9 @@ __do_path_resolve (call_stub_t *stub,
 	call_frame_t   *new_frame = NULL;
 	server_state_t *state = NULL, *new_state = NULL;
 	inode_t        *parent = NULL;
+	
+	state = CALL_STATE(stub->frame);
 
-	state = (server_state_t *) (stub->frame->root->state);
 	parent = __server_path_to_parenti (state->itable, loc->path, &resolved);
 	if (parent == NULL) {
 		/* fire in the bush.. run! run!! run!!! */
@@ -293,7 +294,7 @@ __do_path_resolve (call_stub_t *stub,
 			"failed to get parent inode number");
 		goto panic;
 	}
-
+	
 	{
 		new_frame = server_copy_frame (stub->frame);
 		new_state = CALL_STATE(new_frame);
@@ -336,7 +337,30 @@ int32_t
 do_path_lookup (call_stub_t *stub,
 		const loc_t *loc)
 {
-	__do_path_resolve (stub, loc);
+	char       *pathname  = NULL;
+	char       *directory = NULL;
+	inode_t    *inode = NULL;
+	inode_t    *parent = NULL;
+	server_state_t *state = NULL;
+	
+	state = CALL_STATE(stub->frame);
+
+	inode = inode_from_path (state->itable, loc->path);
+	pathname  = strdup (loc->path);
+	directory = dirname (pathname);
+	parent = inode_from_path (state->itable, directory);
+	if (pathname)
+		free (pathname);
+	
+	if (inode && parent) {
+		server_stub_resume (stub, 0, 0, inode, parent);
+		inode_unref (inode);
+		inode_unref (parent);
+	} else {
+		if (parent)
+			inode_unref (parent);
+		__do_path_resolve (stub, loc);
+	}
 
 	return 0;
 }
