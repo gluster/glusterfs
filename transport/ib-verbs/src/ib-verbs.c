@@ -133,7 +133,7 @@ ib_verbs_get_post (ib_verbs_queue_t *queue)
   return post;
 }
 
-static void
+void
 ib_verbs_destroy_post (ib_verbs_post_t *post)
 {
   ibv_dereg_mr (post->mr);
