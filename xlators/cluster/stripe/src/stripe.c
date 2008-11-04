@@ -1273,6 +1273,8 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame,
 
 			local->call_count = priv->child_count;
 	
+			dict_ref (dict);
+
 			while (trav) {
 				dict_set (dict, index_key, data_from_int32 (index));
 
@@ -1285,7 +1287,7 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame,
 				index++;
 				trav = trav->next;
 			}
-			dict_destroy (dict);
+			dict_unref (dict);
 		} else {
 			/* Create itself has failed.. so return without setxattring */
 			loc_wipe (&local->loc);
@@ -1662,6 +1664,7 @@ stripe_create_cbk (call_frame_t *frame,
 
 			local->call_count = priv->child_count;
 	
+			dict_ref (dict);
 			while (trav) {
 				dict_set (dict, index_key, data_from_int32 (index));
 	
@@ -1676,7 +1679,7 @@ stripe_create_cbk (call_frame_t *frame,
 				index++;
 				trav = trav->next;
 			}
-			dict_destroy (dict);
+			dict_unref (dict);
 		} else {
 			/* Create itself has failed.. so return without setxattring */
 			lfd = local->fd;
