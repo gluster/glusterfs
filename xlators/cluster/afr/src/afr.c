@@ -436,47 +436,20 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
+
+		if (op_ret == 0) {
+			local->op_ret   = 0;
+		}
+
+		local->op_errno = 0;
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, 0, op_errno, fd);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
 
 	return 0;
 }
-
-
-#ifdef AFR_OPEN_SELFHEAL
-int
-afr_open_self_heal_completion_cbk (call_frame_t *frame, xlator_t *this)
-{
-	afr_private_t *priv = NULL;
-	afr_local_t *local = NULL;
-
-	int i = 0;
-
-	int call_count = 0;
-
-	priv = this->private;
-	local = frame->local;
-
-	call_count = up_children_count (priv->child_count, local->child_up); 
-
-	local->call_count = call_count;
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
-			STACK_WIND (frame, afr_open_cbk,
-				    priv->children[i],
-				    priv->children[i]->fops->open,
-				    &local->loc, local->cont.open.flags, 
-				    local->fd);
-		}
-	}
-
-	return 0;
-}
-#endif
 
 
 int32_t
@@ -509,15 +482,7 @@ afr_open (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 	call_count = local->call_count;
-
-#ifdef AFR_OPEN_SELFHEAL
-	loc_copy (&local->loc, loc);
-	local->cont.open.flags = flags;
-	local->fd    = fd_ref (fd);
-
-	afr_self_heal_data (frame, this);
-
-#else
+	
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
 			STACK_WIND (frame, afr_open_cbk,
@@ -528,8 +493,6 @@ afr_open (call_frame_t *frame, xlator_t *this,
 				break;
 		}
 	}
-
-#endif
 
 	op_ret = 0;
 out:
@@ -558,11 +521,16 @@ afr_flush_cbk (call_frame_t *frame, void *cookie,
 	LOCK (&frame->lock);
 	{
 		call_count = --local->call_count;
+
+		if (op_ret == 0)
+			local->op_ret = 0;
+
+		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, 0, op_errno);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
 	return 0;
 }

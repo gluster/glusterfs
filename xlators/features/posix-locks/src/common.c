@@ -330,7 +330,6 @@ grant_blocked_locks (pl_inode_t *pl_inode, gf_lk_domain_t domain)
 	posix_lock_t *l = LOCKS_FOR_DOMAIN(pl_inode, domain);
 
 	while (l) {
-		/* ASK VIKAS: where are the locks granted ? */
 		if (l->blocked) {
 			posix_lock_t *conf = first_overlap (pl_inode, l, LOCKS_FOR_DOMAIN(pl_inode, domain));
 			if (conf == NULL) {

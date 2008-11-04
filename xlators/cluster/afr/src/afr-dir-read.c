@@ -59,14 +59,16 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 	{
 		local = frame->local;
 		call_count = --local->call_count;
+
+		if (op_ret == 0)
+			local->op_ret = 0;
+
+		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		AFR_STACK_UNWIND (frame, 
-				  local->cont.opendir.op_ret, 
-				  local->cont.opendir.op_errno, 
-				  local->fd);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
 	}
 
 	return 0;
