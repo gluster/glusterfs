@@ -734,7 +734,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 			if (can_block)
 				return 0;
 
-			gf_log (this->name, GF_LOG_ERROR, "returning EAGAIN");
+			gf_log (this->name, GF_LOG_DEBUG, "returning EAGAIN");
 			STACK_UNWIND (frame, ret, EAGAIN, flock);
 			return 0;
 		}

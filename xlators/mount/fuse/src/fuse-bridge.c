@@ -2287,7 +2287,8 @@ fuse_setlk_cbk (call_frame_t *frame,
                                         "[ ERROR ] loading 'features/posix-locks' on server side may help your application");
                         }
                 } else  {
-                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                        gf_log ("glusterfs-fuse",
+				(op_errno == EGAIN) ? GF_LOG_DEBUG : GF_LOG_ERROR,
                                 "%"PRId64": ERR => -1 (%s)",
 				frame->root->unique, strerror (op_errno));
                 }
