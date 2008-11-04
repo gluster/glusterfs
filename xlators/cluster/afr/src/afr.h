@@ -44,8 +44,6 @@ typedef struct _afr_private {
 	unsigned int read_child;      /* read-subvolume */
 	unsigned int favorite_child;  /* subvolume to be preferred in resolving
 					 split-brain cases */
-	gf_boolean_t readonly;        /* support all read operations, 
-					 when entrylk, inodelk return ENOSYS */
 } afr_private_t;
 
 typedef struct {

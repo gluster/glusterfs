@@ -385,17 +385,12 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		if (op_ret == -1) {
 			if (op_errno == ENOSYS) {
-				if (priv->readonly == 1) {
-					/* return ENOTSUP */
-					local->op_ret   = op_ret;
-					local->op_errno = op_errno;
-				} else {
-					/* afr cannot continue from here */
-					gf_log (this->name, GF_LOG_CRITICAL,
-						"missing lock translator. "
-						"features/posix-locks mandatory for afr. "
-						"terminating glusterfs");
-				}
+				/* return ENOTSUP */
+				gf_log (this->name, GF_LOG_ERROR,
+					"subvolume does not support locking. "
+					"please load features/posix-locks xlator on server");
+				local->op_ret   = op_ret;
+				local->op_errno = op_errno;
 				done = 1;
 			}
 			local->child_up[child_index] = 0;
@@ -404,11 +399,7 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 	
 	if (done) {
-		local->transaction.done (frame, this, op_ret, op_errno);
-		if (priv->readonly == 0) {
-			/* suicide time */
-			raise (SIGTERM);
-		}
+		afr_unlock (frame, this);
 	} else {
 		afr_lock_rec (frame, this, child_index + 1);
 	}
