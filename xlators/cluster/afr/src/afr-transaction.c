@@ -106,12 +106,22 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 				/* fall through */
 
 			case AFR_ENTRY_TRANSACTION:
-				STACK_WIND (frame, afr_unlock_common_cbk,	
-					    priv->children[i], 
-					    priv->children[i]->fops->entrylk, 
-					    &local->transaction.parent_loc, 
-					    local->transaction.basename,
-					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+				if (local->fd) {
+					STACK_WIND (frame, afr_unlock_common_cbk,	
+						    priv->children[i], 
+						    priv->children[i]->fops->fentrylk, 
+						    local->fd, 
+						    local->transaction.basename,
+						    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+				} else {
+					STACK_WIND (frame, afr_unlock_common_cbk,	
+						    priv->children[i], 
+						    priv->children[i]->fops->entrylk, 
+						    &local->transaction.parent_loc, 
+						    local->transaction.basename,
+						    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+
+				}
 				break;
 			}
 			
