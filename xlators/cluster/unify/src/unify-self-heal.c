@@ -124,25 +124,7 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 	unify_local_t *local = frame->local;
 	inode_t *inode = NULL;
 	dict_t *tmp_dict = NULL;
-	long index = (long)cookie;
 	dir_entry_t *prev, *entry, *trav;
-
-	if (local->sh_struct->entry_list[index]) {
-		prev = entry = local->sh_struct->entry_list[0];
-		if (!entry)
-			return 0;
-		trav = entry->next;
-		while (trav) {
-			prev->next = trav->next;
-			FREE (trav->name);
-			if (S_ISLNK (trav->buf.st_mode))
-				FREE (trav->link);
-			FREE (trav);
-			trav = prev->next;
-		}
-		FREE (entry);
-		
-	}
 
 	LOCK (&frame->lock);
 	{
@@ -172,19 +154,29 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 	}
 
 	if (!callcnt && local->flags) {
-    
+		if (local->sh_struct->entry_list[0]) {
+			prev = entry = local->sh_struct->entry_list[0];
+			if (!entry)
+				return 0;
+			trav = entry->next;
+			while (trav) {
+				prev->next = trav->next;
+				FREE (trav->name);
+				if (S_ISLNK (trav->buf.st_mode))
+					FREE (trav->link);
+				FREE (trav);
+				trav = prev->next;
+			}
+			FREE (entry);
+		}
+
 		inode = local->loc1.inode;
 		fd_unref (local->fd);
 		tmp_dict = local->dict;
 
 		unify_local_wipe (local);
 
-		STACK_UNWIND (frame, 
-			      local->op_ret, 
-			      local->op_errno, 
-			      inode,
-			      &local->stbuf, 
-			      local->dict);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno, inode, &local->stbuf, local->dict);
 		if (tmp_dict)
 			dict_unref (local->dict);
 	}
@@ -206,10 +198,14 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
 	unify_private_t *priv = this->private;
 	long index = 0;
 	unsigned long final = 0;
-
-	local->sh_struct->entry_list[0] = entry;
+	dir_entry_t *tmp = calloc (1, sizeof (dir_entry_t));
+	
+	local->sh_struct->entry_list[0] = tmp;
 	local->sh_struct->count_list[0] = count;
-	entry = NULL;
+	if (entry) {
+		tmp->next = entry->next;
+		entry->next = NULL;
+	}
 
 	if ((count < UNIFY_SELF_HEAL_GETDENTS_COUNT) || !entry) {
 		final = 1;
@@ -234,7 +230,7 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
 				   priv->xl_array[index],
 				   priv->xl_array[index]->fops->setdents,
 				   local->fd, GF_SET_DIR_ONLY,
-				   local->sh_struct->entry_list[index], count);
+				   local->sh_struct->entry_list[0], count);
 	}
 
 	return 0;
@@ -253,22 +249,24 @@ unify_sh_ns_setdents_cbk (call_frame_t *frame,
 	long index = (long)cookie;
 	dir_entry_t *prev, *entry, *trav;
 
-	if (local->sh_struct->entry_list[index]) {
-		prev = entry = local->sh_struct->entry_list[index];
-		if (!entry)
-			return 0;
-		trav = entry->next;
-		while (trav) {
-			prev->next = trav->next;
-			FREE (trav->name);
-			if (S_ISLNK (trav->buf.st_mode))
-				FREE (trav->link);
-			FREE (trav);
-			trav = prev->next;
+	LOCK (&frame->lock);
+	{
+		if (local->sh_struct->entry_list[index]) {
+			prev = entry = local->sh_struct->entry_list[index];
+			trav = entry->next;
+			while (trav) {
+				prev->next = trav->next;
+				FREE (trav->name);
+				if (S_ISLNK (trav->buf.st_mode))
+					FREE (trav->link);
+				FREE (trav);
+				trav = prev->next;
+			}
+			FREE (entry);
 		}
-		FREE (entry);
-		
 	}
+	UNLOCK (&frame->lock);
+
 	if (local->sh_struct->count_list[index] < UNIFY_SELF_HEAL_GETDENTS_COUNT) {
 		LOCK (&frame->lock);
 		{
@@ -331,20 +329,26 @@ unify_sh_getdents_cbk (call_frame_t *frame,
 	unify_local_t *local = frame->local;
 	unify_private_t *priv = this->private;
 	long index = (long)cookie;
-  
+	dir_entry_t *tmp = NULL; 
+
 	if (op_ret >= 0 && count > 0) {
 		/* There is some dentry found, just send the dentry to NS */
-		local->sh_struct->entry_list[index] = entry;
+		tmp = calloc (1, sizeof (dir_entry_t));
+		local->sh_struct->entry_list[index] = tmp;
 		local->sh_struct->count_list[index] = count;
-		entry = NULL;
-		STACK_WIND (frame,
-			    unify_sh_ns_setdents_cbk,
-			    NS(this),
-			    NS(this)->fops->setdents,
-			    local->fd,
-			    GF_SET_IF_NOT_PRESENT,
-			    local->sh_struct->entry_list[index],
-			    count);
+		if (entry) {
+			tmp->next = entry->next;
+			entry->next = NULL;
+		}
+		STACK_WIND_COOKIE (frame,
+				   unify_sh_ns_setdents_cbk,
+				   cookie,
+				   NS(this),
+				   NS(this)->fops->setdents,
+				   local->fd,
+				   GF_SET_IF_NOT_PRESENT,
+				   local->sh_struct->entry_list[index],
+				   count);
 		return 0;
 	}
   
@@ -420,6 +424,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 		if (op_ret >= 0) {
 			local->op_ret = op_ret;
 		} else {
+			gf_log (this->name, GF_LOG_WARNING, "failed");
 			local->failed = 1;
 		}
 	}
@@ -679,10 +684,14 @@ unify_bgsh_ns_getdents_cbk (call_frame_t *frame,
 	unify_private_t *priv = this->private;
 	long index = 0;
 	unsigned long final = 0;
+	dir_entry_t *tmp = calloc (1, sizeof (dir_entry_t));
 
-	local->sh_struct->entry_list[0] = entry;
+	local->sh_struct->entry_list[0] = tmp;
 	local->sh_struct->count_list[0] = count;
-	entry = NULL;
+	if (entry) {
+		tmp->next = entry->next;
+		entry->next = NULL;
+	}
 
 	if ((count < UNIFY_SELF_HEAL_GETDENTS_COUNT) || !entry) {
 		final = 1;
@@ -707,7 +716,7 @@ unify_bgsh_ns_getdents_cbk (call_frame_t *frame,
 				   priv->xl_array[index],
 				   priv->xl_array[index]->fops->setdents,
 				   local->fd, GF_SET_DIR_ONLY,
-				   local->sh_struct->entry_list[index], count);
+				   local->sh_struct->entry_list[0], count);
 	}
 
 	return 0;
@@ -804,20 +813,26 @@ unify_bgsh_getdents_cbk (call_frame_t *frame,
 	unify_local_t *local = frame->local;
 	unify_private_t *priv = this->private;
 	long index = (long)cookie;
-  
+	dir_entry_t *tmp = NULL; 
+
 	if (op_ret >= 0 && count > 0) {
 		/* There is some dentry found, just send the dentry to NS */
-		local->sh_struct->entry_list[index] = entry;
+		tmp = calloc (1, sizeof (dir_entry_t));
+		local->sh_struct->entry_list[index] = tmp;
 		local->sh_struct->count_list[index] = count;
-		entry = NULL;
-		STACK_WIND (frame,
-			    unify_bgsh_ns_setdents_cbk,
-			    NS(this),
-			    NS(this)->fops->setdents,
-			    local->fd,
-			    GF_SET_IF_NOT_PRESENT,
-			    local->sh_struct->entry_list[index],
-			    count);
+		if (entry) {
+			tmp->next = entry->next;
+			entry->next = NULL;
+		}
+		STACK_WIND_COOKIE (frame,
+				   unify_bgsh_ns_setdents_cbk,
+				   cookie,
+				   NS(this),
+				   NS(this)->fops->setdents,
+				   local->fd,
+				   GF_SET_IF_NOT_PRESENT,
+				   local->sh_struct->entry_list[index],
+				   count);
 		return 0;
 	}
   
@@ -913,6 +928,12 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
 				local->sh_struct->offset_list = calloc (priv->child_count, sizeof (off_t));
 				ERR_ABORT (local->sh_struct->offset_list);
 	
+				local->sh_struct->entry_list = calloc (priv->child_count, sizeof (dir_entry_t *));
+				ERR_ABORT (local->sh_struct->entry_list);
+
+				local->sh_struct->count_list = calloc (priv->child_count, sizeof (int));
+				ERR_ABORT (local->sh_struct->count_list);
+
 				/* Send getdents on all the fds */
 				for (index = 0; index < priv->child_count; index++) {
 					STACK_WIND_COOKIE (frame,
@@ -931,15 +952,11 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
 		} /* (!local->failed) */
 
 
-		{
-			/* Opendir failed on one node. 
-			 */
-			fd_unref (local->fd);
-      
-			unify_local_wipe (local);
-			STACK_DESTROY (frame->root);
-		}
-
+		/* Opendir failed on one node. 	 */
+		fd_unref (local->fd);
+		
+		unify_local_wipe (local);
+		STACK_DESTROY (frame->root);
 	}
 
 	return 0;

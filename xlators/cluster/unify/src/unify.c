@@ -388,7 +388,7 @@ unify_lookup_cbk (call_frame_t *frame,
 			/* Inode not present */
 			local->op_ret = -1;
 		} else {
-			if (!local->revalidate && !S_ISDIR (local->loc1.inode->st_mode)) { 
+			if (!local->revalidate && !S_ISDIR (local->stbuf.st_mode)) { 
 				/* If its a file, big array is useless, allocate the smaller one */
 				int16_t *list = NULL;
 				list = calloc (1, sizeof (int16_t) * (local->index + 1));
@@ -430,7 +430,7 @@ unify_lookup_cbk (call_frame_t *frame,
 		}
 
 		if ((priv->self_heal && !priv->optimist) && 
-		    ((local->op_ret == 0) && S_ISDIR(local->loc1.inode->st_mode))) {
+		    (!local->revalidate && (local->op_ret == 0) && S_ISDIR(local->stbuf.st_mode))) {
 			/* Let the self heal be done here */
 			gf_unify_self_heal (frame, this, local);
 			local_dict = NULL;
