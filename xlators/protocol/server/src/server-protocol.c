@@ -6800,6 +6800,12 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
 				op, peerinfo->identifier);
 			break;
 		}
+		if (bound_xl == NULL) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"Received cbk %d before authentication.", op);
+			break;
+		}
+
 		frame = get_frame_for_call (trans, hdr);
 		ret = gf_cbks[op] (frame, bound_xl, hdr, hdrlen, buf, buflen);
 		break;

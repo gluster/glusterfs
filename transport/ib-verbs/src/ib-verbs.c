@@ -468,25 +468,46 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
   /* TODO: boundry checks for data_ptr/offset */
   char *copy_from = NULL;
   ib_verbs_header_t *header = NULL;
-  uint32_t size1, size2;
+  uint32_t size1, size2, data_len = 0;
   char *hdr = NULL, *buf = NULL;
+  int32_t ret = 0;
 
   pthread_mutex_lock (&priv->recv_mutex);
   {
+/*
     while (!priv->data_ptr)
       pthread_cond_wait (&priv->recv_cond, &priv->recv_mutex);
+*/
 
     copy_from = priv->data_ptr + priv->data_offset;
 
     priv->data_ptr = NULL;
-    pthread_cond_broadcast (&priv->recv_cond);
+    data_len = priv->data_len;
+    /* pthread_cond_broadcast (&priv->recv_cond); */
   }
   pthread_mutex_unlock (&priv->recv_mutex);
 
   header = (ib_verbs_header_t *)copy_from;
+  if (strcmp (header->colonO, ":O")) {
+	  gf_log ("transport/ib-verbs",
+		  GF_LOG_ERROR,
+		  "%s: corrupt header received", this->xl->name);
+	  ret = -1;
+	  goto err;
+  }
+
   size1 = ntoh32 (header->size1);
   size2 = ntoh32 (header->size2);
 
+  if (data_len != (size1 + size2 + sizeof (*header))) {
+	  gf_log ("transport/ib-verbs",
+		  GF_LOG_ERROR,
+		  "%s: sizeof data read from transport is not equal to the size specified in the header",
+		  this->xl->name);
+	  ret = -1;
+	  goto err;
+  }
+		  
   copy_from += sizeof (*header);
 
   if (size1) {
@@ -504,7 +525,8 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
   }
   *buflen_p = size2;
 
-  return 0;
+err:
+  return ret;
 }
 
 
@@ -1075,14 +1097,15 @@ ib_verbs_recv_completion_proc (void *data)
 	
 	pthread_mutex_lock (&priv->recv_mutex);
 	{
-	  while (priv->data_ptr)
+/*	  while (priv->data_ptr)
 	    pthread_cond_wait (&priv->recv_cond, &priv->recv_mutex);
+*/
 	  
 	  priv->data_ptr = post->buf;
 	  priv->data_offset = 0;
 	  priv->data_len = wc.byte_len;
 	  
-	  pthread_cond_broadcast (&priv->recv_cond);
+	  /*pthread_cond_broadcast (&priv->recv_cond);*/
 	}
 	pthread_mutex_unlock (&priv->recv_mutex);
 	
@@ -1493,7 +1516,7 @@ ib_verbs_init (transport_t *this)
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);
   pthread_mutex_init (&priv->recv_mutex, NULL);
-  pthread_cond_init (&priv->recv_cond, NULL);
+/*  pthread_cond_init (&priv->recv_cond, NULL); */
 
   return 0;
 }
@@ -2156,7 +2179,7 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);
   pthread_mutex_init (&priv->recv_mutex, NULL);
-  pthread_cond_init (&priv->recv_cond, NULL);
+/*  pthread_cond_init (&priv->recv_cond, NULL); */
 
   return 0;
 }
@@ -2271,7 +2294,7 @@ fini (struct transport *this)
   pthread_mutex_destroy (&priv->recv_mutex);
   pthread_mutex_destroy (&priv->write_mutex);
   pthread_mutex_destroy (&priv->read_mutex);
-  pthread_cond_destroy (&priv->recv_cond);
+/*  pthread_cond_destroy (&priv->recv_cond); */
 
   gf_log (this->xl->name,
 	  GF_LOG_CRITICAL,

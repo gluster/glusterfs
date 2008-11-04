@@ -2288,7 +2288,7 @@ fuse_setlk_cbk (call_frame_t *frame,
                         }
                 } else  {
                         gf_log ("glusterfs-fuse",
-				(op_errno == EGAIN) ? GF_LOG_DEBUG : GF_LOG_ERROR,
+				(op_errno == EAGAIN) ? GF_LOG_DEBUG : GF_LOG_ERROR,
                                 "%"PRId64": ERR => -1 (%s)",
 				frame->root->unique, strerror (op_errno));
                 }

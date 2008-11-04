@@ -69,6 +69,9 @@ gf_fd_fdptr_get (struct _fdtable *fdtable, int32_t fd);
 struct _fdtable *
 gf_fd_fdtable_alloc (void);
 
+void
+gf_fd_fdtable_destroy (struct _fdtable *);
+
 int32_t 
 gf_fd_unused_get (struct _fdtable *fdtable, struct _fd *fdptr);
 
@@ -114,6 +117,8 @@ static int (*real_close) (int fd);
 /* dup dup2 */
 static int (*real_dup) (int fd);
 static int (*real_dup2) (int oldfd, int newfd);
+
+static pid_t (*real_fork) (void);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -750,20 +755,21 @@ dup2 (int oldfd, int newfd)
 
 #define MOUNT_TABLE_HASH_SIZE 256
 
-void
-_init (void)
+
+static int 
+booster_init (void)
 {
         int i = 0;
         booster_glfs_fdtable = gf_fd_fdtable_alloc ();
         if (!booster_glfs_fdtable) {
                 fprintf (stderr, "cannot allocate fdtable: %s\n", strerror (errno));
-                exit (1);
+		goto err;
         }
  
         booster_mount_table = calloc (1, sizeof (*booster_mount_table));
         if (!booster_mount_table) {
                 fprintf (stderr, "cannot allocate memory: %s\n", strerror (errno));
-                exit (1);
+		goto err;
         }
 
         pthread_mutex_init (&booster_mount_table->lock, NULL);
@@ -771,13 +777,84 @@ _init (void)
         booster_mount_table->mounts = calloc (booster_mount_table->hash_size, sizeof (*booster_mount_table->mounts));
         if (!booster_mount_table->mounts) {
                 fprintf (stderr, "cannot allocate memory: %s\n", strerror (errno));
-                exit (1);
+		goto err;
         }
  
         for (i = 0; i < booster_mount_table->hash_size; i++) 
         {
                 INIT_LIST_HEAD (&booster_mount_table->mounts[i]);
         }
+
+	return 0;
+
+err:
+	if (booster_glfs_fdtable) {
+		gf_fd_fdtable_destroy (booster_glfs_fdtable);
+		booster_glfs_fdtable = NULL;
+	}
+
+	if (booster_mount_table) {
+		if (booster_mount_table->mounts) {
+			free (booster_mount_table->mounts);
+		}
+
+		free (booster_mount_table);
+		booster_mount_table = NULL;
+	}
+	return -1; 
+}
+
+
+static void
+booster_cleanup (void)
+{
+	int i;
+	booster_mount_t *mount = NULL, *tmp = NULL;
+	
+	gf_fd_fdtable_destroy (booster_glfs_fdtable);
+	booster_glfs_fdtable = NULL;
+
+        pthread_mutex_lock (&booster_mount_table->lock);
+        {
+		for (i = 0; i < booster_mount_table->hash_size; i++) 
+		{
+			list_for_each_entry_safe (mount, tmp, 
+						  &booster_mount_table->mounts[i], device_list) {
+				list_del (&mount->device_list);
+				free (mount);
+			}
+                }
+		free (booster_mount_table->mounts);
+        }
+        pthread_mutex_unlock (&booster_mount_table->lock);
+
+	free (booster_mount_table);
+	booster_mount_table = NULL;
+}
+
+
+pid_t 
+fork (void)
+{
+	pid_t pid = 0;
+	char child = 0;
+
+	pid = real_fork ();
+
+	child = (pid == 0);
+	if (child) {
+		booster_cleanup ();
+		booster_init ();
+	}
+
+	return pid;
+}
+
+
+void
+_init (void)
+{
+	booster_init ();
 
         RESOLVE (open);
         RESOLVE (open64);
@@ -800,5 +877,7 @@ _init (void)
 
         RESOLVE (dup);
         RESOLVE (dup2);
+
+	RESOLVE (fork);
 }
 

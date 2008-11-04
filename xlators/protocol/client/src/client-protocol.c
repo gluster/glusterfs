@@ -5166,12 +5166,12 @@ notify (xlator_t *this,
 
 		pthread_mutex_lock (&priv->lock);
 		{
+			priv->connected = 0;
 			if (!priv->reconnect)
 				priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
 								       client_protocol_reconnect,
 								       trans);
 
-			priv->connected = 0;
 		}
 		pthread_mutex_unlock (&priv->lock);
 
