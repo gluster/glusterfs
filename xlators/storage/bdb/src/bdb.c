@@ -3177,10 +3177,12 @@ init (xlator_t *this)
 		goto out;
 	} 
 	umask (000); // umask `masking' is done at the client side
+	/* // * No need to create directory, sys admin should do it himself 
 	if (mkdir (directory->data, 0777) == 0) {
 		gf_log (this->name, GF_LOG_WARNING,
 			"directory specified not exists, created");
 	}
+	*/
   
 	/* Check whether the specified directory exists, if not create it. */
 	ret = stat (directory->data, &buf);

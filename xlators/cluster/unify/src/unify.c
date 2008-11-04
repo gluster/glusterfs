@@ -433,6 +433,7 @@ unify_lookup_cbk (call_frame_t *frame,
 		    ((local->op_ret == 0) && S_ISDIR(local->loc1.inode->st_mode))) {
 			/* Let the self heal be done here */
 			gf_unify_self_heal (frame, this, local);
+			local_dict = NULL;
 		} else {
 			/* either no self heal, or op_ret == -1 (failure) */
 			tmp_inode = local->loc1.inode;

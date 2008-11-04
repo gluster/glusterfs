@@ -2559,6 +2559,320 @@ err:
 }
 
 
+static int32_t
+dht_xattrop_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 dict_t *dict)
+{
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, dict);
+	return 0;
+}
+
+int32_t
+dht_xattrop (call_frame_t *frame,
+	     xlator_t *this,
+	     loc_t *loc,
+	     gf_xattrop_flags_t flags,
+	     dict_t *dict)
+{
+	xlator_t     *subvol = NULL;
+        int           op_errno = -1;
+	dht_local_t  *local = NULL;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+        VALIDATE_OR_GOTO (loc->inode, err);
+        VALIDATE_OR_GOTO (loc->path, err);
+
+	subvol = dht_subvol_get_cached (this, loc->inode);
+	if (!subvol) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no cached subvolume for path=%s", loc->path);
+		op_errno = EINVAL;
+		goto err;
+	}
+
+	local = dht_local_init (frame);
+	if (!local) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+		goto err;
+	}
+
+	local->inode = inode_ref (loc->inode);
+	local->call_cnt = 1;
+
+	STACK_WIND (frame,
+		    dht_xattrop_cbk,
+		    subvol, subvol->fops->xattrop,
+		    loc, flags, dict);
+
+	return 0;
+
+err:
+	op_errno = (op_errno == -1) ? errno : op_errno;
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+
+	return 0;
+}
+
+static int32_t
+dht_fxattrop_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  dict_t *dict)
+{
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, dict);
+	return 0;
+}
+
+int32_t
+dht_fxattrop (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd,
+	      gf_xattrop_flags_t flags,
+	      dict_t *dict)
+{
+	xlator_t     *subvol = NULL;
+        int           op_errno = -1;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+
+	subvol = dht_subvol_get_cached (this, fd->inode);
+	if (!subvol) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no cached subvolume for fd=%p", fd);
+		op_errno = EINVAL;
+		goto err;
+	}
+
+	STACK_WIND (frame,
+		    dht_fxattrop_cbk,
+		    subvol, subvol->fops->fxattrop,
+		    fd, flags, dict);
+
+	return 0;
+
+err:
+	op_errno = (op_errno == -1) ? errno : op_errno;
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+
+	return 0;
+}
+
+
+static int32_t
+dht_inodelk_cbk (call_frame_t *frame, void *cookie,
+		 xlator_t *this, int32_t op_ret, int32_t op_errno)
+
+{
+	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t
+dht_inodelk (call_frame_t *frame, xlator_t *this,
+	     loc_t *loc, int32_t cmd, struct flock *lock)
+{
+	xlator_t     *subvol = NULL;
+        int           op_errno = -1;
+	dht_local_t  *local = NULL;
+
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+        VALIDATE_OR_GOTO (loc->inode, err);
+        VALIDATE_OR_GOTO (loc->path, err);
+
+	subvol = dht_subvol_get_cached (this, loc->inode);
+	if (!subvol) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no cached subvolume for path=%s", loc->path);
+		op_errno = EINVAL;
+		goto err;
+	}
+
+	local = dht_local_init (frame);
+	if (!local) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+		goto err;
+	}
+
+	local->inode = inode_ref (loc->inode);
+	local->call_cnt = 1;
+
+	STACK_WIND (frame,
+		    dht_inodelk_cbk,
+		    subvol, subvol->fops->inodelk,
+		    loc, cmd, lock);
+
+	return 0;
+
+err:
+	op_errno = (op_errno == -1) ? errno : op_errno;
+	DHT_STACK_UNWIND (frame, -1, op_errno);
+
+	return 0;
+}
+
+
+static int32_t
+dht_finodelk_cbk (call_frame_t *frame, void *cookie,
+		  xlator_t *this, int32_t op_ret, int32_t op_errno)
+
+{
+	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t
+dht_finodelk (call_frame_t *frame, xlator_t *this,
+	      fd_t *fd, int32_t cmd, struct flock *lock)
+{
+	xlator_t     *subvol = NULL;
+        int           op_errno = -1;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+
+	subvol = dht_subvol_get_cached (this, fd->inode);
+	if (!subvol) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no cached subvolume for fd=%p", fd);
+		op_errno = EINVAL;
+		goto err;
+	}
+
+
+	STACK_WIND (frame,
+		    dht_finodelk_cbk,
+		    subvol, subvol->fops->finodelk,
+		    fd, cmd, lock);
+
+	return 0;
+
+err:
+	op_errno = (op_errno == -1) ? errno : op_errno;
+	DHT_STACK_UNWIND (frame, -1, op_errno);
+
+	return 0;
+}
+
+
+static int32_t
+dht_entrylk_cbk (call_frame_t *frame, void *cookie,
+		 xlator_t *this, int32_t op_ret, int32_t op_errno)
+
+{
+	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+int32_t
+dht_entrylk (call_frame_t *frame, xlator_t *this,
+	     loc_t *loc, const char *basename,
+	     gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+{
+	xlator_t     *subvol = NULL;
+        int           op_errno = -1;
+	dht_local_t  *local = NULL;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+        VALIDATE_OR_GOTO (loc->inode, err);
+        VALIDATE_OR_GOTO (loc->path, err);
+
+	subvol = dht_subvol_get_cached (this, loc->inode);
+	if (!subvol) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no cached subvolume for path=%s", loc->path);
+		op_errno = EINVAL;
+		goto err;
+	}
+
+	local = dht_local_init (frame);
+	if (!local) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+		goto err;
+	}
+
+	local->inode = inode_ref (loc->inode);
+	local->call_cnt = 1;
+
+	STACK_WIND (frame, dht_entrylk_cbk,
+		    subvol, subvol->fops->entrylk,
+		    loc, basename, cmd, type);
+
+	return 0;
+
+err:
+	op_errno = (op_errno == -1) ? errno : op_errno;
+	DHT_STACK_UNWIND (frame, -1, op_errno);
+
+	return 0;
+}
+
+static int32_t
+dht_fentrylk_cbk (call_frame_t *frame, void *cookie,
+		  xlator_t *this, int32_t op_ret, int32_t op_errno)
+
+{
+	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+int32_t
+dht_fentrylk (call_frame_t *frame, xlator_t *this,
+	      fd_t *fd, const char *basename,
+	      gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+{
+	xlator_t     *subvol = NULL;
+        int           op_errno = -1;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+
+	subvol = dht_subvol_get_cached (this, fd->inode);
+	if (!subvol) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no cached subvolume for fd=%p", fd);
+		op_errno = EINVAL;
+		goto err;
+	}
+
+	STACK_WIND (frame, dht_fentrylk_cbk,
+		    subvol, subvol->fops->fentrylk,
+		    fd, basename, cmd, type);
+
+	return 0;
+
+err:
+	op_errno = (op_errno == -1) ? errno : op_errno;
+	DHT_STACK_UNWIND (frame, -1, op_errno);
+
+	return 0;
+}
+
+
 int
 dht_forget (xlator_t *this, inode_t *inode)
 {
@@ -2787,10 +3101,16 @@ struct xlator_fops fops = {
 	.mkdir       = dht_mkdir,
 	.rmdir       = dht_rmdir,
 	.rename      = dht_rename,
+	.inodelk     = dht_inodelk,
+	.finodelk    = dht_finodelk,
+	.entrylk     = dht_entrylk,
+	.fentrylk    = dht_fentrylk,
+	.xattrop     = dht_xattrop,
+	.fxattrop    = dht_fxattrop,
 #if 0
-
-  .getdents    = dht_getdents,
-  .checksum    = dht_checksum,
+	.setdents    = dht_setdents,
+	.getdents    = dht_getdents,
+	.checksum    = dht_checksum,
 #endif
 };
 

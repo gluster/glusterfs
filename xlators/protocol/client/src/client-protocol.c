@@ -3919,6 +3919,9 @@ client_getdents_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0)
 	{
+		/* Free the buffer */
+		FREE (buf);
+
 		prev = entry;
 		if (!entry)
 			return 0;
@@ -3932,10 +3935,7 @@ client_getdents_cbk (call_frame_t *frame,
 			trav = prev->next;
 		}
 		FREE (entry);
-      
-		/* Free the buffer */
-		FREE (buf);
-	}
+      	}
 
 
 	return 0;
