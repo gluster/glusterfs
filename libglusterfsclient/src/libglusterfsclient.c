@@ -2169,7 +2169,7 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
                 */
 
                 dirp->d_off = entry->d_off;
-                dirp->d_type = entry->d_type;
+                /* dirp->d_type = entry->d_type; */
                 dirp->d_reclen = entry->d_len;
                 strncpy (dirp->d_name, entry->d_name, dirp->d_reclen);
                 FREE (stub->args.readdir_cbk.entries);

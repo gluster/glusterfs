@@ -41,7 +41,9 @@
 #include <linux/limits.h>
 #include <sys/xattr.h>
 #include <endian.h>
+#include <sys/sysmacros.h>
 
+#define MAKEDEV(maj, min) makedev(maj, min)
 #ifndef HAVE_LLISTXATTR
 
 /* This part is valid only incase of old glibc which doesn't support 
@@ -168,14 +170,17 @@ int32_t gf_darwin_compat_setxattr (dict_t *dict);
 #ifdef GF_SOLARIS_HOST_OS
 
 #define UNIX_PATH_MAX 108
+#define EUCLEAN 117 
 
 #include <sys/un.h>
 #include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <asm/fcntl.h>
+#include <sys/fcntl.h>
 #include <libgen.h>
+#include <sys/sysmacros.h>
 
+#define MAKEDEV(maj, min) makedevice(maj, min)
 #ifndef lchmod
 #define lchmod chmod
 #endif 
