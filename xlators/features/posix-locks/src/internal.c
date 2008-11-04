@@ -146,8 +146,10 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 			memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
 
 			ret = pl_setlk (pinode, reqlock, 1, GF_LOCK_INTERNAL);
-			if (ret == -1)
+			if (ret == -1) {
+				pthread_mutex_unlock (&priv->mutex);
 				return 0; /* lock has been blocked */
+			}
 
 			break;
 		default:
@@ -242,8 +244,10 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 			memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
 
 			ret = pl_setlk (pinode, reqlock, 1, GF_LOCK_INTERNAL);
-			if (ret == -1)
+			if (ret == -1) {
+				pthread_mutex_unlock (&priv->mutex);
 				return 0; /* lock has been blocked */
+			}
 
 			break;
 		default:
