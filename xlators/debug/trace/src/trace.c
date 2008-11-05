@@ -1082,6 +1082,7 @@ trace_inodelk_cbk (call_frame_t *frame,
 	return 0;
 }
 
+
 int32_t
 trace_entrylk (call_frame_t *frame, xlator_t *this,
 	       loc_t *loc, const char *basename,
@@ -1125,6 +1126,49 @@ trace_inodelk (call_frame_t *frame,
 		    loc, cmd, flock);
 	return 0;
 }
+
+
+int32_t 
+trace_finodelk_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+	ERR_EINVAL_NORETURN (!this );
+
+	if (trace_fop_names[GF_FOP_FINODELK].enabled) {  
+		gf_log (this->name, GF_LOG_NORMAL,
+			"op_ret=%d, op_errno=%d",
+			op_ret, op_errno);
+	}
+
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+int32_t
+trace_finodelk (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd, int32_t cmd, struct flock *flock)
+{
+	ERR_EINVAL_NORETURN (!this || !fd);
+
+	if (trace_fop_names[GF_FOP_FINODELK].enabled) {  
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"callid: %lld (fd=%p, cmd=%s)",
+			(long long) frame->root->unique, fd,
+			cmd == F_SETLK ? "F_SETLK" : "unknown");
+	}
+
+	STACK_WIND (frame, 
+		    trace_finodelk_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->finodelk,
+		    fd, cmd, flock);
+	return 0;
+}
+
 
 int32_t
 trace_xattrop (call_frame_t *frame,
@@ -2245,6 +2289,7 @@ struct xlator_fops fops = {
   .fchmod      = trace_fchmod,
   .lk          = trace_lk,
   .inodelk     = trace_inodelk,
+  .finodelk    = trace_finodelk,
   .entrylk     = trace_entrylk,
   .lookup      = trace_lookup,
   .setdents    = trace_setdents,

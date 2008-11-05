@@ -6965,7 +6965,11 @@ server_protocol_cleanup (transport_t *trans)
 		flock.l_len   = 0;
 		list_for_each_entry_safe (locker, tmp, &file_lockers, lockers) {
 			tmp_frame = server_copy_frame (frame);
-			tmp_frame->root->pid = locker->pid;
+			/* 
+			   pid = 0 is a special case that tells posix-locks
+			   to release all locks from this transport
+			*/
+			tmp_frame->root->pid = 0;
 
 			if (locker->fd) {
 				STACK_WIND (tmp_frame, server_nop_cbk,

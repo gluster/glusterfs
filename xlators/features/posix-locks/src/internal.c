@@ -69,6 +69,26 @@ out:
 }
 
 
+static int
+delete_locks_of_transport (pl_inode_t *pinode, transport_t *trans)
+{
+	posix_lock_t *tmp = NULL;
+	posix_lock_t *l = LOCKS_FOR_DOMAIN(pinode, GF_LOCK_INTERNAL);
+
+	while (l) {
+		tmp = l;
+		l = l->next;
+
+		if (tmp->transport == trans) {
+			delete_lock (pinode, tmp, GF_LOCK_INTERNAL);
+			destroy_lock (tmp);
+		}
+	}
+
+	return 0;
+}
+
+
 /**
  * pl_inodelk: 
  *
@@ -127,6 +147,19 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 				op_errno = -ret;
 				goto unlock;
 			}
+		}
+
+		if (client_pid == 0) {
+			/* 
+			   special case: this means release all locks 
+			   from this transport
+			*/
+
+			gf_log (this->name, GF_LOG_DEBUG,
+				"releasing all locks from transport %p", transport);
+
+			delete_locks_of_transport (pinode, transport);
+			goto unlock;
 		}
 
 		reqlock = new_posix_lock (flock, transport, client_pid);
@@ -224,6 +257,20 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 				op_errno = -ret;
 				goto unlock;
 			}
+		}
+
+
+		if (client_pid == 0) {
+			/* 
+			   special case: this means release all locks 
+			   from this transport
+			*/
+
+			gf_log (this->name, GF_LOG_DEBUG,
+				"releasing all locks from transport %p", transport);
+
+			delete_locks_of_transport (pinode, transport);
+			goto unlock;
 		}
 
 		reqlock = new_posix_lock (flock, transport, client_pid);
