@@ -3644,8 +3644,7 @@ notify (xlator_t *this,
 		}
 	}
 	break;
-	case GF_EVENT_PARENT_UP:
-		break;
+
 	default:
 	{
 		default_notify (this, event, data);
@@ -3888,19 +3887,12 @@ init (xlator_t *this)
 					parent = parent->next;
 				parent->next = xlparent;
 			}
-			ns_xl->notify (ns_xl, GF_EVENT_PARENT_UP, this);
 		} else {
 			gf_log (this->name, GF_LOG_CRITICAL, 
 				"initializing namespace node failed, Exiting");
 			FREE (_private);
 			return -1;
 		}
-	}
-
-	trav = this->children;
-	while (trav) {
-		trav->xlator->notify (trav->xlator, GF_EVENT_PARENT_UP, this);
-		trav = trav->next;
 	}
 
 	return 0;

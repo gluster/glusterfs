@@ -423,6 +423,9 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
                 return NULL;
         }
 
+	/* Send notify to all translator saying things are ready */
+	graph->notify (graph, GF_EVENT_PARENT_UP, graph);
+
         if (gf_timer_registry_init (&ctx->gf_ctx) == NULL) {
                 fprintf (stderr, "glusterfs: timer init failed (%s)\n", strerror (errno));
                 FREE (ctx->gf_ctx.pool);

@@ -846,12 +846,6 @@ notify (xlator_t *this, int32_t event,
 
 		break;
 
-	case GF_EVENT_PARENT_UP:
-		for (i = 0; i < priv->child_count; i++)
-			priv->children[i]->notify (priv->children[i], 
-						   GF_EVENT_PARENT_UP, this);
-		break;
-		
 	default:
 		default_notify (this, event, data);
 	}

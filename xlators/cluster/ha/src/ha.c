@@ -3859,17 +3859,6 @@ notify (xlator_t *this,
 
 	switch (event)
 	{
-	case GF_EVENT_PARENT_UP:
-	{
-		xlator_list_t *list = this->children;
-		GF_DEBUG (this, "GF_EVENT_PARENT_UP from %s", this->parents->xlator->name);
-		while (list)
-		{
-			list->xlator->notify (list->xlator, event, this);
-			list = list->next;
-		}
-	}
-	break;
 	case GF_EVENT_CHILD_DOWN:
 	{
 		for (i = 0; i < pvt->child_count; i++) {
@@ -3914,11 +3903,7 @@ notify (xlator_t *this,
 
 	default:
 	{
-		xlator_list_t *parent = this->parents;
-		while (parent) {
-			parent->xlator->notify (parent->xlator, event, this, NULL);
-			parent = parent->next;
-		}
+		default_notify (this, event, data);
 	}
 	}
 

@@ -1823,41 +1823,6 @@ error_gen_readdir (call_frame_t *frame,
 	return 0;
 }
 
-/* notify */
-int32_t
-error_gen_notify (xlator_t *this,
-		  int32_t event,
-		  void *data,
-		  ...)
-{
-	switch (event)
-	{
-	case GF_EVENT_PARENT_UP:
-	{
-		xlator_list_t *list = this->children;
-
-		while (list)
-		{
-			list->xlator->notify (list->xlator, event, this);
-			list = list->next;
-		}
-	}
-	break;
-	case GF_EVENT_CHILD_DOWN:
-	case GF_EVENT_CHILD_UP:
-	default:
-	{
-		xlator_list_t *parent = this->parents;
-		while (parent) {
-			parent->xlator->notify (parent->xlator, event, this, NULL);
-			parent = parent->next;
-		}
-	}
-	}
-
-	return 0;
-}
-
 int32_t
 error_gen_closedir (xlator_t *this,
 		    fd_t *fd)
@@ -1884,6 +1849,7 @@ init (xlator_t *this)
 void
 fini (xlator_t *this)
 {
+	gf_log (this->name, GF_LOG_DEBUG, "fini called");
 	return;
 }
 

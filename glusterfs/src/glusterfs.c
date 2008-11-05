@@ -820,6 +820,9 @@ main (int argc, char *argv[])
 		return -1;
 	}
 	
+	/* Send PARENT_UP notify to all the translators now */
+	graph->notify (graph, GF_EVENT_PARENT_UP, ctx->graph);
+	
 	event_dispatch (ctx->event_pool);
 	
 	return 0;

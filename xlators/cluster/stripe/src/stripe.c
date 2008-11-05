@@ -2929,8 +2929,7 @@ notify (xlator_t *this,
 		UNLOCK (&priv->lock);
 	}
 	break;
-	case GF_EVENT_PARENT_UP:
-		break;
+
 	default:
 	{
 		/* */
@@ -3094,12 +3093,6 @@ init (xlator_t *this)
 	/* notify related */
 	priv->nodes_down = priv->child_count;
 	this->private = priv;
-
-	trav = this->children;
-	while (trav) {
-		trav->xlator->notify (trav->xlator, GF_EVENT_PARENT_UP, this);
-		trav = trav->next;
-	}
 
 	return 0;
 } 

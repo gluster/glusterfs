@@ -2653,8 +2653,6 @@ init (xlator_t *this_xl)
         priv->fd = fuse_chan_fd (priv->ch);
         priv->buf = data_ref (data_from_dynptr (NULL, 0));
         
-        /*  (this->children->xlator)->notify (this->children->xlator, 
-            GF_EVENT_PARENT_UP, this); */
         return 0;
         
 umount_exit: 
