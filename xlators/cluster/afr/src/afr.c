@@ -141,7 +141,8 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 	}
 
 	{ /* getxattr */
-		FREE (local->cont.getxattr.name);
+		if (local->cont.getxattr.name)
+			FREE (local->cont.getxattr.name);
 	}
 
 	{ /* create */

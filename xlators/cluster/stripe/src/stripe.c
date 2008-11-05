@@ -1262,20 +1262,21 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame,
 			char index_key[256] = {0,};
 			char count_key[256] = {0,};
 			xlator_list_t *trav = this->children;
-			dict_t *dict = get_new_dict ();
+			dict_t *dict = NULL;
 
 			sprintf (size_key, "trusted.%s.stripe-size", this->name);
 			sprintf (count_key, "trusted.%s.stripe-count", this->name);
 			sprintf (index_key, "trusted.%s.stripe-index", this->name);
 
-			dict_set (dict, size_key, data_from_int64 (local->stripe_size));
-			dict_set (dict, count_key, data_from_int32 (local->call_count));
 
 			local->call_count = priv->child_count;
 	
-			dict_ref (dict);
 
 			while (trav) {
+				dict = get_new_dict ();
+				dict_ref (dict);
+				dict_set (dict, size_key, data_from_int64 (local->stripe_size));
+				dict_set (dict, count_key, data_from_int32 (local->call_count));
 				dict_set (dict, index_key, data_from_int32 (index));
 
 				STACK_WIND (frame,
@@ -1284,10 +1285,10 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame,
 					    trav->xlator->fops->setxattr,
 					    &local->loc, dict, 0);
 	
+				dict_unref (dict);
 				index++;
 				trav = trav->next;
 			}
-			dict_unref (dict);
 		} else {
 			/* Create itself has failed.. so return without setxattring */
 			loc_wipe (&local->loc);
@@ -1653,19 +1654,20 @@ stripe_create_cbk (call_frame_t *frame,
 			char index_key[256] = {0,};
 			char count_key[256] = {0,};
 			xlator_list_t *trav = this->children;
-			dict_t *dict = get_new_dict ();
+			dict_t *dict = NULL;
 
 			sprintf (size_key, "trusted.%s.stripe-size", this->name);
 			sprintf (count_key, "trusted.%s.stripe-count", this->name);
 			sprintf (index_key, "trusted.%s.stripe-index", this->name);
 
-			dict_set (dict, size_key, data_from_int64 (local->stripe_size));
-			dict_set (dict, count_key, data_from_int32 (local->call_count));
-
 			local->call_count = priv->child_count;
 	
-			dict_ref (dict);
 			while (trav) {
+				dict = get_new_dict ();
+				dict_ref (dict);
+
+				dict_set (dict, size_key, data_from_int64 (local->stripe_size));
+				dict_set (dict, count_key, data_from_int32 (local->call_count));
 				dict_set (dict, index_key, data_from_int32 (index));
 	
 				STACK_WIND (frame,
@@ -1676,10 +1678,10 @@ stripe_create_cbk (call_frame_t *frame,
 					    dict,
 					    0);
 	
+				dict_unref (dict);
 				index++;
 				trav = trav->next;
 			}
-			dict_unref (dict);
 		} else {
 			/* Create itself has failed.. so return without setxattring */
 			lfd = local->fd;
