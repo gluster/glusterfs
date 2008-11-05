@@ -565,7 +565,8 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
 	local->cont.getxattr.last_tried = call_child;
 	loc_copy (&local->loc, loc);
-	local->cont.getxattr.name       = strdup (name);
+	if (name)
+	  local->cont.getxattr.name       = strdup (name);
 
 	STACK_WIND (frame, afr_getxattr_cbk,
 		    children[call_child], children[call_child]->fops->getxattr,
