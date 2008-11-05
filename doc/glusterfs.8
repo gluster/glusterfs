@@ -27,61 +27,104 @@ GlusterFS \- Clustered Filesystem.
 .SH DESCRIPTION
 GlusterFS is a clustered file-system capable of scaling to several peta-bytes. It aggregates various storage bricks over Infiniband RDMA or TCP/IP interconnect into one large parallel network file system. Storage bricks can be made of any commodity hardware such as x86-64 server with SATA-II RAID and Infiniband HBA
 GlusterFS is fully POSIX compliant FileSystem. On client side, it has dependency on FUSE package, on server side, it works seemlessly on different OSes. (Currently supported on GNU/Linux, Mac OSX, FreeBSD, OpenSolaris).
-.SH FILES
-/etc/glusterfs/*.vol
 .SH OPTIONS
 .PP
-Mandatory arguments to long options are mandatory for short options too.
+Mandatory or optional arguments to long options are also mandatory or optional
+for any corresponding short options.
+.SS "Basic options"
+.PP
+.TP 
+
+\fB\-f, \fB\-\-volume\f-specfile=VOLUME-SPECFILE\fR
+File to use as VOLUME-SPECFILE [default:/etc/glusterfs/specfile.vol]
+.TP
+\fB\-l, \fB\-\-log\f-file=LOGFILE\fR
+File to use for logging [default:/var/log/glusterfs/glusterfs.log]
+.TP
+\fB\-L, \fB\-\-log\f-level=LOGLEVEL\fR   
+Logging severity.  Valid options are TRACE, DEBUG, WARNING, NORMAL,
+ERROR, CRITICAL and NONE [default: WARNING]
+.TP
+\fB\-s, \fB\-\-specfile\f-server=SERVER\fR
+Server to get the volume specfile from.  This option overrides \fB\-\-volume\f-specfile option
+
+.SS "Advanced options"
+.PP
 .TP
 
-\fB\-a\fR, \fB\-\-attr\f-timeout=SECONDS\fR 
-Attribute timeout for inodes in the kernel. Defaults to 1 second
+\fB\-\-debug\fR
+Run in debug mode.  This option sets \fB\-\-no\f-daemon\fR, \fB\-\-log\f-level\fR to DEBUG 
+and \fB\-\-log\f-file\fR to console
 .TP
-\fB\-d\fR, \fB\-\-direct\-io\-mode=ENABLE|DISABLE\fR
-Whether to force directIO on fuse fd. Defaults to ENABLE
+\fB\-N, \fB\-\-no\f-daemon\fR
+Run in foreground
 .TP
-\fB\-e\fR, \fB\-\-entry\-timeout=SECONDS\fR
-Entry timeout for dentries in the kernel. Defaults to 1 second
+\fB\-p, \fB\-\-pid\f-file=PIDFILE\fR
+File to use as pid file
 .TP
-\fB\-f\fR, \fB\-\-spec\-file=VOLUMESPEC\-FILE\fR
-Load a local VOLUMESPEC file. Mandatory if \-\-server option is not passed.
+\fB\-\-specfile\f-server\f-port=PORT\fR
+Port number of specfile server
 .TP
-\fB\-l\fR, \fB\-\-log\-file=LOGFILE\fR
-Specify the file to redirect logs
+\fB\-\-specfile\f-server\f-transport=TRANSPORT\fR
+Transport type to get volume spec file from server [default: socket]
 .TP
-\fB\-L\fR, \fB\-\-log\-level=LOGLEVEL\fR
-LOGLEVEL should be one of DEBUG, [WARNING], ERROR, CRITICAL, NONE
+\fB\-\-volume\f-name=VOLUME\f-NAME\fR
+Volume name to be used for MOUNT-POINT [default: top most volume in VOLUME-SPECFILE]
+
+.SS "Fuse options"
+.PP
 .TP
-\fB\-n\fR, \fB\-\-volume\-name=VOLUME-NAME\fR
-Volume name in client spec to use. Defaults to the topmost volume
+
+\fB\-\-attribute\f-timeout=SECONDS\fR
+Set attribute timeout to SECONDS for inodes in fuse kernel module [default: 1]
 .TP
-\fB\-N\fR, \fB\-\-no\-daemon\fR
-Run glusterfs in foreground
+\fB\-\-directory\f-entry\f-timeout=SECONDS\fR
+Set directory entry timeout to SECONDS in fuse kernel module [default: 1]
 .TP
-\fB\-p\fR, \fB\-\-pidfile=PIDFILE\fR
-Path for the pidfile
+\fB\-\-disable\f-direct\f-io\f-mode\fR 
+Disable direct I/O mode in fuse kernel module
 .TP
-\fB\-P\fR, \fB\-\-port=PORT\fR            
-Connect to PORT on SERVER.
+\fB\-\-nodev\fR
+Mount fuse mountpoint with \fI'-o nodev'\fR option
 .TP
-\fB\-s\fR, \fB\-\-server=SERVER\fR
-SERVER to connect to get client specification. This is a mandatory option.
+\fB\-\-nosuid\fR
+Mount fuse mountpoint with \fI'-o nosuid'\fR option
+
+.SS "Miscellaneous Options"
+.PP
 .TP
-\fB\-t\fR, \fB\-\-transport=TRANSPORT\fR  
-Transport type to get the spec from server.
-.TP
-\fB\-?\fR, \fB\-\-help\fR
+
+\fB\-?, \fB\-\-help\fR
 Give this help list
 .TP
 \fB\-\-usage\fR
 Give a short usage message
 .TP
-\fB\-V\fR, \fB\-\-version\fR
-Print version information
+\fB\-V, \fB\-\-version\fR
+Print program version
+
 .PP
+.SH FILES
+/etc/glusterfs/*.vol
+
 .SH SEE ALSO
-http://www.gluster.org/docs/index.php/GlusterFS
+.nf
+\fBbison\fR(1) \fBflex\fR(1) \fBfusermount\fR(1) 
+\fBhttp://www.glusterfs.org/ <URL:http://www.glusterfs.org/>
+\fR
+.fi
 .SH SUPPORT
-http://support.zresearch.com
+.nf
+\fBhttp://support.gluster.com/ <URL:http://support.gluster.com/>
+\fR
+.fi
+.SH AUTHORS
+.nf
+\fBhttp://www.gluster.org/core-team.php <URL:http://www.gluster.org/core-team.php>
+\fR
+.fi
 .SH COPYRIGHT
-Copyright(c)2006,2007,2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+.nf
+\fBCopyright(c)2006,2007,2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+\fR
+.fi
