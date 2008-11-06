@@ -3902,6 +3902,8 @@ init (xlator_t *this)
 		LOCK_INIT (&_private->lock);
 	}
 
+	/* Now that everything is fine. */
+	this->private = (void *)_private;
 	{
 		/* Initialize the scheduler, if everything else is successful */
 		ret = _private->sched_ops->init (this); 
@@ -3941,9 +3943,6 @@ init (xlator_t *this)
 			return -1;
 		}
 	}
-
-	/* Now that everything is fine. */
-	this->private = (void *)_private;
 
 	/* Tell namespace node that init is done */
 	ns_xl->notify (ns_xl, GF_EVENT_PARENT_UP, this);
