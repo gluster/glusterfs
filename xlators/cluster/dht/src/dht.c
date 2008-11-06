@@ -1301,7 +1301,7 @@ dht_open (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local->fd = fd;
+	local->fd = fd_ref (fd);
 	ret = loc_dup (loc, &local->loc);
 	if (ret == -1) {
 		op_errno = ENOMEM;
@@ -1443,7 +1443,7 @@ dht_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 		goto err;
 	}
 
-	local->fd = fd;
+	local->fd = fd_ref (fd);
 	local->call_cnt = 1;
 
 	STACK_WIND (frame, dht_err_cbk,
@@ -1697,7 +1697,7 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 		goto err;
 	}
 
-	local->fd = fd;
+	local->fd = fd_ref (fd);
 	ret = loc_dup (loc, &local->loc);
 	if (ret == -1) {
 		op_errno = ENOMEM;
@@ -1821,7 +1821,7 @@ dht_readdir (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local->fd = fd;
+	local->fd = fd_ref (fd);
 	local->size = size;
 
 	dht_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
@@ -1892,7 +1892,7 @@ dht_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 		goto err;
 	}
 
-	local->fd = fd;
+	local->fd = fd_ref (fd);
 	local->call_cnt = conf->subvolume_cnt;
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
@@ -2507,6 +2507,102 @@ unlock:
 
 
 int
+dht_rmdir_do (call_frame_t *frame, xlator_t *this)
+{
+	dht_local_t  *local = NULL;
+	dht_conf_t   *conf = NULL;
+	int           i = 0;
+
+	conf = this->private;
+	local = frame->local;
+
+	if (local->op_ret == -1)
+		goto err;
+
+	local->call_cnt = conf->subvolume_cnt;
+
+	for (i = 0; i < conf->subvolume_cnt; i++) {
+		STACK_WIND (frame, dht_rmdir_cbk,
+			    conf->subvolumes[i],
+			    conf->subvolumes[i]->fops->rmdir,
+			    &local->loc);
+	}
+
+	return 0;
+
+err:
+	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	return 0;
+}
+
+
+int
+dht_rmdir_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		       int op_ret, int op_errno, gf_dirent_t *entries)
+{
+	dht_local_t  *local = NULL;
+	int           this_call_cnt = -1;
+	call_frame_t *prev = NULL;
+
+	local = frame->local;
+	prev  = cookie;
+
+	if (op_ret > 2) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"readdir on %s for %s returned %d entries",
+			prev->this->name, local->loc.path, op_ret);
+		local->op_ret = -1;
+		local->op_errno = ENOTEMPTY;
+	}
+
+	this_call_cnt = dht_frame_return (frame);
+
+	if (is_last_call (this_call_cnt)) {
+		dht_rmdir_do (frame, this);
+	}
+
+	return 0;
+}
+
+
+int
+dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		       int op_ret, int op_errno, fd_t *fd)
+{
+	dht_local_t  *local = NULL;
+	int           this_call_cnt = -1;
+	call_frame_t *prev = NULL;
+
+
+	local = frame->local;
+	prev  = cookie;
+
+	if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"opendir on %s for %s failed (%s)",
+			prev->this->name, local->loc.path,
+			strerror (op_errno));
+		goto err;
+	}
+
+	STACK_WIND (frame, dht_rmdir_readdir_cbk,
+		    prev->this, prev->this->fops->readdir,
+		    local->fd, 4096, 0);
+
+	return 0;
+
+err:
+	this_call_cnt = dht_frame_return (frame);
+
+	if (is_last_call (this_call_cnt)) {
+		dht_rmdir_do (frame, this);
+	}
+
+	return 0;
+}
+
+
+int
 dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	dht_local_t  *local  = NULL;
@@ -2543,10 +2639,19 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 		goto err;
 	}
 
+	local->fd = fd_create (local->loc.inode, frame->root->pid);
+	if (!local->fd) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+		op_errno = ENOMEM;
+		goto err;
+	}
+
 	for (i = 0; i < conf->subvolume_cnt; i++) {
-		STACK_WIND (frame, dht_rmdir_cbk,
+		STACK_WIND (frame, dht_rmdir_opendir_cbk,
 			    conf->subvolumes[i],
-			    conf->subvolumes[i]->fops->rmdir, loc);
+			    conf->subvolumes[i]->fops->opendir,
+			    loc, local->fd);
 	}
 
 	return 0;

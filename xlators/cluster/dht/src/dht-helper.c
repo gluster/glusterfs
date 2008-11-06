@@ -133,6 +133,11 @@ dht_local_wipe (dht_local_t *local)
 	if (local->linkfile.inode)
 		inode_unref (local->linkfile.inode);
 
+	if (local->fd) {
+		fd_unref (local->fd);
+		local->fd = NULL;
+	}
+
 	FREE (local);
 }
 

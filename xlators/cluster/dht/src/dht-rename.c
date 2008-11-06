@@ -33,18 +33,25 @@ int
 dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		    int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
-	dht_local_t *local = NULL;
-	int          this_call_cnt = 0;
+	dht_local_t  *local = NULL;
+	int           this_call_cnt = 0;
+	call_frame_t *prev = NULL;
 
 
 	local = frame->local;
+	prev = cookie;
 
 	if (op_ret == -1) {
 		/* TODO: undo the damage */
+
+		gf_log (this->name, GF_LOG_ERROR,
+			"rename %s -> %s on %s failed (%s)",
+			local->loc.path, local->loc2.path,
+			prev->this->name, strerror (op_errno));
+
 		local->op_ret   = op_ret;
 		local->op_errno = op_errno;
 	} else {
-		local->op_ret = 0;
 		/* TODO: construct proper stbuf for dir */
 		local->stbuf = *stbuf;
 	}
@@ -59,13 +66,111 @@ dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
+
 int
-dht_rename_dir (call_frame_t *frame)
+dht_rename_dir_do (call_frame_t *frame, xlator_t *this)
+{
+	dht_local_t  *local = NULL;
+	dht_conf_t   *conf = NULL;
+	int           i = 0;
+
+	conf = this->private;
+	local = frame->local;
+
+	if (local->op_ret == -1)
+		goto err;
+
+	local->call_cnt = conf->subvolume_cnt;
+	local->op_ret = 0;
+
+	for (i = 0; i < conf->subvolume_cnt; i++) {
+		STACK_WIND (frame, dht_rename_dir_cbk,
+			    conf->subvolumes[i],
+			    conf->subvolumes[i]->fops->rename,
+			    &local->loc, &local->loc2);
+	}
+
+	return 0;
+
+err:
+	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	return 0;
+}
+
+
+int
+dht_rename_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			int op_ret, int op_errno, gf_dirent_t *entries)
+{
+	dht_local_t  *local = NULL;
+	int           this_call_cnt = -1;
+	call_frame_t *prev = NULL;
+
+	local = frame->local;
+	prev  = cookie;
+
+	if (op_ret > 2) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"readdir on %s for %s returned %d entries",
+			prev->this->name, local->loc.path, op_ret);
+		local->op_ret = -1;
+		local->op_errno = ENOTEMPTY;
+	}
+
+	this_call_cnt = dht_frame_return (frame);
+
+	if (is_last_call (this_call_cnt)) {
+		dht_rename_dir_do (frame, this);
+	}
+
+	return 0;
+}
+
+
+int
+dht_rename_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			int op_ret, int op_errno, fd_t *fd)
+{
+	dht_local_t  *local = NULL;
+	int           this_call_cnt = -1;
+	call_frame_t *prev = NULL;
+
+
+	local = frame->local;
+	prev  = cookie;
+
+	if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"opendir on %s for %s failed (%s)",
+			prev->this->name, local->loc.path,
+			strerror (op_errno));
+		goto err;
+	}
+
+	STACK_WIND (frame, dht_rename_readdir_cbk,
+		    prev->this, prev->this->fops->readdir,
+		    local->fd, 4096, 0);
+
+	return 0;
+
+err:
+	this_call_cnt = dht_frame_return (frame);
+
+	if (is_last_call (this_call_cnt)) {
+		dht_rename_dir_do (frame, this);
+	}
+
+	return 0;
+}
+
+
+int
+dht_rename_dir (call_frame_t *frame, xlator_t *this)
 {
 	dht_conf_t  *conf = NULL;
 	dht_local_t *local = NULL;
-	xlator_t    *subvol = NULL;
 	int          i = 0;
+	int          op_errno = -1;
 
 
 	conf = frame->this->private;
@@ -73,14 +178,33 @@ dht_rename_dir (call_frame_t *frame)
 
 	local->call_cnt = conf->subvolume_cnt;
 
-	for (i = 0; i < conf->subvolume_cnt; i++) {
-		subvol = conf->subvolumes[i];
-
-		STACK_WIND (frame, dht_rename_dir_cbk,
-			    subvol, subvol->fops->rename,
-			    &local->loc, &local->loc2);
+	local->fd = fd_create (local->loc.inode, frame->root->pid);
+	if (!local->fd) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+		op_errno = ENOMEM;
+		goto err;
 	}
 
+	local->op_ret = 0;
+
+	if (!local->dst_cached) {
+		dht_rename_dir_do (frame, this);
+		return 0;
+	}
+
+	for (i = 0; i < conf->subvolume_cnt; i++) {
+		STACK_WIND (frame, dht_rename_opendir_cbk,
+			    conf->subvolumes[i],
+			    conf->subvolumes[i]->fops->opendir,
+			    &local->loc2, local->fd);
+	}
+
+	return 0;
+
+err:
+	op_errno = (op_errno == -1) ? errno : op_errno;
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 	return 0;
 }
 
@@ -403,7 +527,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 		dst_cached ? dst_cached->name : "<nul>");
 
 	if (S_ISDIR (oldloc->inode->st_mode)) {
-		dht_rename_dir (frame);
+		dht_rename_dir (frame, this);
 	} else {
 		local->op_ret = 0;
 		dht_rename_create_links (frame);
