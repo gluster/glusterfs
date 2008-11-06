@@ -434,12 +434,12 @@ fuse_forget (fuse_req_t req,
         fuse_inode = inode_search (state->itable, ino, NULL);
 	if (fuse_inode) {
 		gf_log ("glusterfs-fuse", GF_LOG_DEBUG, 
-			"got forget on inode (%"PRId64")", ino);
+			"got forget on inode (%lu)", ino);
 		inode_forget (fuse_inode, nlookup);
 		inode_unref (fuse_inode);
 	} else {
 		gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
-			"got forget, but inode (%"PRId64") not found", ino);
+			"got forget, but inode (%lu) not found", ino);
 	}
 
         free_state (state);
@@ -720,7 +720,7 @@ do_truncate (fuse_req_t req,
                 }
 
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                        "%"PRId64": TRUNCATE %s/%"PRId64"(%"PRId64")", req_callid (req),
+                        "%"PRId64": TRUNCATE %s/%"PRId64"(%lu)", req_callid (req),
                         state->loc.path, attr->st_size, ino);
 
                 FUSE_FOP (state, fuse_attr_cbk, GF_FOP_TRUNCATE,
@@ -760,7 +760,7 @@ do_utimes (fuse_req_t req,
         }
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                "%"PRId64": UTIMENS (%"PRId64")%s", req_callid (req),
+                "%"PRId64": UTIMENS (%lu)%s", req_callid (req),
                 ino, state->loc.path);
 
         FUSE_FOP (state, fuse_attr_cbk, GF_FOP_UTIMENS,
@@ -893,7 +893,7 @@ fuse_access (fuse_req_t req,
         }
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                "%"PRId64" ACCESS %s/%"PRId64" mask=%d", req_callid (req),
+                "%"PRId64" ACCESS %s/%lu mask=%d", req_callid (req),
                 state->loc.path, ino, mask);
 
         FUSE_FOP (state, fuse_err_cbk,

@@ -327,7 +327,7 @@ ioc_fault_cbk (call_frame_t *frame,
 	/* page was flushed */
 	/* some serious bug ? */
 	gf_log (this->name, GF_LOG_DEBUG,
-		"wasted copy: %lld[+%d] ioc_inode=%p", 
+		"wasted copy: %"PRId64"[+%"PRId64"] ioc_inode=%p", 
 		offset, table->page_size, ioc_inode);
       } else {
 	if (page->vector) {

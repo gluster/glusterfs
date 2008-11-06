@@ -545,7 +545,8 @@ glusterfs_fini (libglusterfs_client_ctx_t *ctx)
         FREE (ctx);
 
 	if (first_fini) {
-		gf_log_cleanup ();
+		;
+		//gf_log_cleanup ();
 	}
 
         /* FREE (ctx->gf_ctx.specfile); */

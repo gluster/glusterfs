@@ -53,7 +53,7 @@ random_init (xlator_t *xl)
 	  gf_log ("random", 
 		  GF_LOG_ERROR, 
 		  "invalid number format \"%s\" of \"option random.limits.min-free-disk\"", 
-		  limit);
+		  limit->data);
 	  return -1;
 	}
       if (random_buf->min_free_disk >= 100)
@@ -68,7 +68,7 @@ random_init (xlator_t *xl)
     {
       gf_log ("random", 
 	      GF_LOG_WARNING, 
-	      "No option for limit min-free-disk given, defaulting it to 5%");
+	      "No option for limit min-free-disk given, defaulting it to 5%%");
       random_buf->min_free_disk = RANDOM_LIMITS_MIN_FREE_DISK_DEFAULT;
     }
   
@@ -81,7 +81,7 @@ random_init (xlator_t *xl)
 	  gf_log ("random", 
 		  GF_LOG_ERROR, 
 		  "invalid number format \"%s\" of \"option random.refresh-interval\"", 
-		  limit);
+		  limit->data);
 	  return -1;
 	}
     }

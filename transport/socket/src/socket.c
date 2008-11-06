@@ -974,7 +974,7 @@ socket_connect (transport_t *this)
     if (ret == -1)
       {
 	gf_log (this->xl->name, GF_LOG_WARNING,
-		"client bind failed", strerror (errno));
+		"client bind failed: %s", strerror (errno));
 	close (priv->sock);
 	priv->sock = -1;
 	goto unlock;

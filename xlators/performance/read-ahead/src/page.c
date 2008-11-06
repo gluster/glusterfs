@@ -134,7 +134,7 @@ fault_cbk (call_frame_t *frame,
       /* some serious bug ? */
   //  trav = ra_page_create (file, trav_offset);
       gf_log (this->name, GF_LOG_DEBUG,
-	      "wasted copy: %lld[+%d] file=%p", 
+	      "wasted copy: %"PRId64"[+%"PRId64"] file=%p", 
 	      pending_offset, file->page_size, file);
     } else {
       if (page->vector) {

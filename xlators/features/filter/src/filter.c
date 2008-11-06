@@ -1394,8 +1394,7 @@ init (xlator_t *this)
 	if (!this->children || this->children->next) {
 		gf_log (this->name,
 			GF_LOG_ERROR,
-			"translator not configured with exactly one child",
-			this->name);
+			"translator not configured with exactly one child");
 		return -1;
 	}
 	

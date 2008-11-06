@@ -492,7 +492,7 @@ unify_lookup (call_frame_t *frame,
 		if (index != 2) {
 			if (index < 2) {
 				gf_log (this->name, GF_LOG_ERROR,
-					"returning ESTALE for %s: file count is %d", 
+					"returning ESTALE for %s: file count is %ld", 
 					loc->path, index);
 				/* Print where all the file is present */
 				for (index = 0; local->list[index] != -1; index++) {
@@ -506,7 +506,7 @@ unify_lookup (call_frame_t *frame,
 				/* There are more than 2 presences */
 				/* Just log and continue */
 				gf_log (this->name, GF_LOG_ERROR,
-					"%s: file count is %d", loc->path, index);
+					"%s: file count is %ld", loc->path, index);
 				/* Print where all the file is present */
 				for (index = 0; local->list[index] != -1; index++) {
 					gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",

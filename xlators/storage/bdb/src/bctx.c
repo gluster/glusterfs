@@ -79,13 +79,11 @@ bctx_table_prune (bctx_table_t *table)
 			if (del->dbp) {
 				ret = del->dbp->close (del->dbp, 0);
 				if (ret != 0) {
-					gf_log (table->this->name,
-						GF_LOG_ERROR,
-						"failed to close db on path: %s", 
+					gf_log (table->this->name, GF_LOG_ERROR,
+						"failed to close db on path (%s): %s", 
 						del->directory, db_strerror (ret));
 				} else {
-					gf_log (table->this->name,
-						GF_LOG_WARNING,
+					gf_log (table->this->name, GF_LOG_WARNING,
 						"close db for path %s; table->lru_count = %d", 
 						del->directory, table->lru_size);
 				}

@@ -553,10 +553,8 @@ init (xlator_t *this)
 
 /* Create .trashcan directory in init */
 	if (!this->children || this->children->next) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"not configured with exactly one child. exiting",
-			this->name);
+		gf_log (this->name, GF_LOG_ERROR,
+			"not configured with exactly one child. exiting");
 		return -1;
 	}
 
@@ -576,8 +574,7 @@ init (xlator_t *this)
 
 	trash_dir = dict_get (this->options, "trash-dir");
 	if (!trash_dir) {
-		gf_log (this->name,
-			GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_WARNING,
 			"no option specified for 'trash-dir', using \"/.trashcan/\"");
 		strcpy (_priv->trash_dir, "/.trashcan");
 	} else {

@@ -330,7 +330,7 @@ xlator_validate_given_options (xlator_t *xl)
   			}
   			if ((input_time < trav->min_value) || (input_time > trav->max_value)) {
   				gf_log (xl->name, GF_LOG_ERROR,
-  					"'%"PRId64"' in 'option %s %s' is out of range [%"PRId64" - %"PRId64"]",
+  					"'%"PRIu32"' in 'option %s %s' is out of range [%"PRId64" - %"PRId64"]",
   					input_time, pairs->key, pairs->value->data,
   					trav->min_value, trav->max_value);
   				return -1;

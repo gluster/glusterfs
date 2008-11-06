@@ -396,7 +396,7 @@ alu_init (xlator_t *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: = %ld,%ld\n", 
+	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: = %"PRIu64",%"PRIu64"\n", 
 		alu_sched->entry_limit.nr_files, 
 		alu_sched->exit_limit.nr_files);
 

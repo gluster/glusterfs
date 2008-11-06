@@ -536,9 +536,8 @@ is_space_left (xlator_t *this,
 
 		usable_blocks = (stbuf.f_bfree - BDB_ENOSPC_THRESHOLD); 
 		
-		gf_log (this->name,
-			GF_LOG_DEBUG,
-			"requested size: %d\nfree blocks: %d\nblock size: %d\nfrag size: %d",
+		gf_log (this->name, GF_LOG_DEBUG,
+			"requested size: %u\nfree blocks: %"PRIu64"\nblock size: %lu\nfrag size: %lu",
 			size, stbuf.f_bfree, stbuf.f_bsize, stbuf.f_frsize);
 		
 		if (req_blocks < usable_blocks)
@@ -822,7 +821,7 @@ bdb_writev (call_frame_t *frame,
 		if (c_ret != 0) {
 			gf_log (this->name,
 				GF_LOG_ERROR,
-				"failed to do bdb_db_put at offset: %d for file: %s", 
+				"failed to do bdb_db_put at offset: %"PRIu64" for file: %s", 
 				c_off, bfd->key);
 			break;
 		} else {

@@ -40,8 +40,7 @@ do                                               \
   {						 \
     if ((cond))					 \
       {						 \
-	gf_log ("ERROR", 			 \
-		GF_LOG_ERROR, 			 \
+	gf_log ("ERROR", GF_LOG_ERROR,   	 \
 		"%s: %s: (%s) is true", 	 \
 		__FILE__, __FUNCTION__, #cond);	 \
       }                                          \
@@ -78,13 +77,16 @@ trace_create_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(*this=%s, op_ret=%d, op_errno=%d, fd=%p, inode=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this->name, op_ret, op_errno, fd, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+				"(op_ret=%d, fd=%p, ino=%"PRId64"), *buf {st_dev=%lld, st_ino=%lld, st_mode=%d, "
+				"st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, "
+				"st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, fd, inode->ino, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, 
+				buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, 
+				buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -103,10 +105,9 @@ trace_open_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this);
 
 	if (trace_fop_names[GF_FOP_OPEN].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d, *fd=%p)",
-			this, op_ret, op_errno, fd);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d, *fd=%p)",
+			op_ret, op_errno, fd);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd);
@@ -131,15 +132,17 @@ trace_stat_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, buf {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, "
+				"st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, "
+				"st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, 
+				buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, 
+				buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}    
 
@@ -167,15 +170,17 @@ trace_readv_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, *buf {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, "
+				"st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, "
+				"st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, 
+				buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, 
+				atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
   
@@ -200,15 +205,14 @@ trace_writev_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, *buf {st_ino=%lld, st_size=%lld, st_blocks=%lld, st_atime=%s, "
+				"st_mtime=%s, st_ctime=%s})",
+				op_ret, buf->st_ino, buf->st_size, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -228,10 +232,9 @@ trace_getdents_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_GETDENTS].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d, count=%d)",
-			this, op_ret, op_errno, count);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d, count=%d)",
+			op_ret, op_errno, count);
 	}
   
 	STACK_UNWIND (frame, op_ret, op_errno, entries, count);
@@ -249,8 +252,7 @@ trace_readdir_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_READDIR].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
+		gf_log (this->name, GF_LOG_NORMAL, 
 			"(op_ret=%d, op_errno=%d)",
 			op_ret, op_errno);
 	}
@@ -270,10 +272,9 @@ trace_fsync_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_FSYNC].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d)",
+			op_ret, op_errno);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno);
@@ -297,15 +298,15 @@ trace_chown_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, *buf {st_ino=%lld, st_mode=%d, st_uid=%d, st_gid=%d, "
+				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, buf->st_ino, buf->st_mode, buf->st_uid, buf->st_gid, 
+				atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -330,15 +331,13 @@ trace_chmod_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, *buf {st_ino=%lld, st_mode=%d, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, buf->st_ino, buf->st_mode, atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -363,15 +362,13 @@ trace_fchmod_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, *buf {st_ino=%lld, st_mode=%d, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, buf->st_ino, buf->st_mode, atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -396,15 +393,15 @@ trace_fchown_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, *buf {st_ino=%lld, st_mode=%d, st_uid=%d, st_gid=%d, "
+				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, buf->st_ino, buf->st_mode, buf->st_uid, buf->st_gid, 
+				atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -422,10 +419,9 @@ trace_unlink_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_UNLINK].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d)",
+			op_ret, op_errno);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno);
@@ -443,10 +439,9 @@ trace_rename_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_RENAME].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d, buf=%p)",
-			this, op_ret, op_errno, buf);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d, buf {st_ino=%lld})",
+			op_ret, op_errno, (buf)?buf->st_ino:0);
 	}
   
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -464,10 +459,9 @@ trace_readlink_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_READLINK].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d, buf=%s)",
-			this, op_ret, op_errno, buf);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d, buf=%s)",
+			op_ret, op_errno, buf);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -488,15 +482,17 @@ trace_lookup_cbk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_LOOKUP].enabled) {
 		if (op_ret >= 0) {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"callid: %lld (*this=%p, op_ret=%d, op_errno=%d, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
-				(long long) frame->root->unique, this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"%lld (op_ret=%d, inode=%"PRId64", *buf {st_dev=%lld, st_ino=%lld, "
+				"st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, "
+				"st_blksize=%ld, st_blocks=%lld})",
+				(long long) frame->root->unique, op_ret, inode->ino, buf->st_dev, buf->st_ino, 
+				buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, 
+				buf->st_blksize, buf->st_blocks);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -522,15 +518,17 @@ trace_symlink_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, ino=%"PRId64", *buf {st_dev=%lld, st_ino=%lld, st_mode=%d, "
+				"st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, "
+				"st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, inode->ino, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, 
+				buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, 
+				buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -556,15 +554,17 @@ trace_mknod_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, ino=%"PRId64", *buf {st_dev=%lld, st_ino=%lld, st_mode=%d, "
+				"st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, "
+				"st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, inode->ino, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, 
+				buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, 
+				buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -585,10 +585,9 @@ trace_mkdir_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_MKDIR].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d, inode=%p",
-			this, op_ret, op_errno, inode);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d, inode=%"PRId64"",
+			op_ret, op_errno, (inode)?inode->ino:0);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
@@ -604,24 +603,17 @@ trace_link_cbk (call_frame_t *frame,
 		inode_t *inode,
 		struct stat *buf)
 {
-	char atime_buf[256], mtime_buf[256], ctime_buf[256];
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_LINK].enabled) {
 		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
-    
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, inode=%"PRId64", *buf {st_nlink=%d})",
+				op_ret, inode->ino, buf->st_nlink);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -639,10 +631,9 @@ trace_flush_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_FLUSH].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d)",
+			op_ret, op_errno);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno);
@@ -661,10 +652,9 @@ trace_opendir_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_OPENDIR].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d, fd=%p)",
-			this, op_ret, op_errno, fd);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d, fd=%p)",
+			op_ret, op_errno, fd);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd);
@@ -681,10 +671,9 @@ trace_rmdir_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_RMDIR].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d)",
+			op_ret, op_errno);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno);
@@ -699,24 +688,17 @@ trace_truncate_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *buf)
 {
-	char atime_buf[256], mtime_buf[256], ctime_buf[256];
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_TRUNCATE].enabled) {  
 		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
-    
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, *buf {st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
+				op_ret, buf->st_size, buf->st_blksize, buf->st_blocks);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -741,15 +723,13 @@ trace_utimens_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, *buf {st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -769,15 +749,17 @@ trace_statfs_cbk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_STATFS].enabled) {
 		if (op_ret >= 0) {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, *buf=%p {f_bsize=%u, f_frsize=%u, f_blocks=%lu, f_bfree=%lu, f_bavail=%lu, f_files=%lu, f_ffree=%lu, f_favail=%lu, f_fsid=%u, f_flag=%u, f_namemax=%u}) => ret=%d, errno=%d",
-				this, buf, buf->f_bsize, buf->f_frsize, buf->f_blocks, buf->f_bfree, buf->f_bavail, buf->f_files, buf->f_ffree, buf->f_favail, buf->f_fsid, buf->f_flag, buf->f_namemax, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"({f_bsize=%lu, f_frsize=%lu, f_blocks=%"PRIu64", f_bfree=%"PRIu64", "
+				"f_bavail=%"PRIu64", f_files=%"PRIu64", f_ffree=%"PRIu64", f_favail=%"PRIu64", "
+				"f_fsid=%lu, f_flag=%lu, f_namemax=%lu}) => ret=%d",
+				buf->f_bsize, buf->f_frsize, buf->f_blocks, buf->f_bfree, buf->f_bavail, 
+				buf->f_files, buf->f_ffree, buf->f_favail, buf->f_fsid, buf->f_flag, 
+				buf->f_namemax, op_ret);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -795,10 +777,9 @@ trace_setxattr_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_SETXATTR].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d)",
+			op_ret, op_errno);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno);
@@ -816,10 +797,9 @@ trace_getxattr_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !dict);
 
 	if (trace_fop_names[GF_FOP_GETXATTR].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d, dict=%p)",
-			this, op_ret, op_errno, dict);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d, dict=%p)",
+			op_ret, op_errno, dict);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, dict);
@@ -836,10 +816,9 @@ trace_removexattr_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_REMOVEXATTR].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d)",
+			op_ret, op_errno);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno);
@@ -857,10 +836,9 @@ trace_fsyncdir_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_FSYNCDIR].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d)",
+			op_ret, op_errno);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno);
@@ -877,10 +855,9 @@ trace_access_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_ACCESS].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, op_ret=%d, op_errno=%d)",
-			this, op_ret, op_errno);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(op_ret=%d, op_errno=%d)",
+			op_ret, op_errno);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno);
@@ -895,24 +872,17 @@ trace_ftruncate_cbk (call_frame_t *frame,
 		     int32_t op_errno,
 		     struct stat *buf)
 {
-	char atime_buf[256], mtime_buf[256], ctime_buf[256];
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_FTRUNCATE].enabled) {
 		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
-    
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, *buf {st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
+				op_ret, buf->st_size, buf->st_blksize, buf->st_blocks);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -937,15 +907,17 @@ trace_fstat_cbk (call_frame_t *frame,
 			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, *buf {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, "
+				"st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, "
+				"st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+				op_ret, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, 
+				buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, 
+				buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -965,16 +937,13 @@ trace_lk_cbk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_LK].enabled) {
 		if (op_ret >= 0) {
-			gf_log (this->name,
-				GF_LOG_NORMAL,
-				"(*this=%p, op_ret=%d, op_errno=%d, *lock=%p {l_type=%d, l_whence=%d, l_start=%lld, l_len=%lld, l_pid=%ld})",
-				this, op_ret, op_errno, lock, 
-				lock->l_type, lock->l_whence, lock->l_start, lock->l_len, lock->l_pid);
+			gf_log (this->name, GF_LOG_NORMAL,
+				"(op_ret=%d, {l_type=%d, l_whence=%d, l_start=%lld, l_len=%lld, l_pid=%u})",
+				op_ret, lock->l_type, lock->l_whence, lock->l_start, lock->l_len, lock->l_pid);
 		} else {
-			gf_log (this->name, 
-				GF_LOG_NORMAL, 
-				"(*this=%p, op_ret=%d, op_errno=%d)",
-				this, op_ret, op_errno);
+			gf_log (this->name, GF_LOG_NORMAL, 
+				"(op_ret=%d, op_errno=%d)",
+				op_ret, op_errno);
 		}    
 	}
 
@@ -993,10 +962,9 @@ trace_setdents_cbk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this );
 
 	if (trace_fop_names[GF_FOP_SETDENTS].enabled) {  
-		gf_log (this->name,
-			GF_LOG_NORMAL,
-			"*this=%p, op_ret=%d, op_errno=%d",
-			this, op_ret, op_errno);
+		gf_log (this->name, GF_LOG_NORMAL,
+			"op_ret=%d, op_errno=%d",
+			op_ret, op_errno);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno);
@@ -1092,9 +1060,10 @@ trace_entrylk (call_frame_t *frame, xlator_t *this,
 
 	if (trace_fop_names[GF_FOP_ENTRYLK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (loc=%p {path=%s, inode=%p} basename=%s, cmd=%s, type=%s)",
-			(long long) frame->root->unique, loc, loc->path,
-			loc->inode, basename, cmd == GF_DIR_LK_LOCK ? "GF_DIR_LK_LOCK" : "GF_DIR_LK_UNLOCK", type == GF_DIR_LK_RDLCK ? "GF_DIR_LK_RDLCK" : "GF_DIR_LK_WRLCK");
+			"(loc= {path=%s, ino=%"PRId64"} basename=%s, cmd=%s, type=%s)",
+			loc->path, loc->inode->ino, basename, 
+			(cmd == GF_DIR_LK_LOCK) ? "GF_DIR_LK_LOCK" : "GF_DIR_LK_UNLOCK", 
+			(type == GF_DIR_LK_RDLCK) ? "GF_DIR_LK_RDLCK" : "GF_DIR_LK_WRLCK");
 	}
 
 	STACK_WIND (frame, 
@@ -1114,9 +1083,9 @@ trace_inodelk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_INODELK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (loc {path=%s, inode=%p}, fd=%p, cmd=%s)",
-			(long long) frame->root->unique, loc ? loc->path : NULL, 
-			loc ? loc->inode : NULL, cmd == F_SETLK ? "F_SETLK" : "unknown");
+			"(loc {path=%s, ino=%"PRId64"}, cmd=%s)",
+			loc->path, loc->inode->ino, 
+			cmd == F_SETLK ? "F_SETLK" : "unknown");
 	}
 
 	STACK_WIND (frame, 
@@ -1156,9 +1125,8 @@ trace_finodelk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_FINODELK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (fd=%p, cmd=%s)",
-			(long long) frame->root->unique, fd,
-			cmd == F_SETLK ? "F_SETLK" : "unknown");
+			"(fd=%p, cmd=%s)",
+			fd, cmd == F_SETLK ? "F_SETLK" : "unknown");
 	}
 
 	STACK_WIND (frame, 
@@ -1181,8 +1149,8 @@ trace_xattrop (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_XATTROP].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (path=%s, flags=%d)",
-			(long long) frame->root->unique, loc->path, flags);
+			"callid: %lld (path=%s, ino=%lld flags=%d)",
+			(long long) frame->root->unique, loc->path, loc->inode->ino, flags);
 			
 	}
   
@@ -1228,9 +1196,9 @@ trace_lookup (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_LOOKUP].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (loc=%p {path=%s, inode=%p} need_xattr=%d)",
-			(long long) frame->root->unique, loc, loc->path,
-			loc->inode, need_xattr);
+			"callid: %lld (loc {path=%s, ino=%lld} need_xattr=%d)",
+			(long long) frame->root->unique, loc->path,
+			loc->inode->ino, need_xattr);
 	}
   
 	STACK_WIND (frame, trace_lookup_cbk,
@@ -1265,10 +1233,9 @@ trace_stat (call_frame_t *frame,
 #endif 
 
 	if (trace_fop_names[GF_FOP_STAT].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"callid: %lld (*this=%p, loc=%p {path=%s, inode=%p})\n",
-			(long long) frame->root->unique, this, loc, loc->path, loc->inode);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"callid: %lld (loc {path=%s, ino=%lld})\n",
+			(long long) frame->root->unique, loc->path, loc->inode->ino);
 	}
 
 	STACK_WIND (frame, 
@@ -1288,10 +1255,9 @@ trace_readlink (call_frame_t *frame,
 {
 	ERR_EINVAL_NORETURN (!this || !loc || (size < 1));
 	if (trace_fop_names[GF_FOP_READLINK].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, size=%d)",
-			this, loc, loc->path, loc->inode, size);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}, size=%u)",
+			loc->path, loc->inode->ino, size);
 	}
 
 	STACK_WIND (frame, 
@@ -1314,10 +1280,9 @@ trace_mknod (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc->path);
 
 	if (trace_fop_names[GF_FOP_MKNOD].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, mode=%d, dev=%lld)",
-			this, loc, loc->path, loc->inode, mode, dev);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}, mode=%d, dev=%lld)",
+			loc->path, loc->inode->ino, mode, dev);
 	}
 
 	STACK_WIND (frame, 
@@ -1337,13 +1302,12 @@ trace_mkdir (call_frame_t *frame,
 	     loc_t *loc,
 	     mode_t mode)
 {
-	ERR_EINVAL_NORETURN (!this || !loc->path);
+	ERR_EINVAL_NORETURN (!this || !loc || !loc->path);
 
 	if (trace_fop_names[GF_FOP_MKDIR].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, path=%s, loc=%p {path=%s, inode=%p}, mode=%d)",
-			this, loc->path, loc, loc->inode, mode);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(path=%s, ino=%lld, mode=%d)",
+			loc->path, (loc->inode)?loc->inode->ino:0, mode);
 	}
   
 	STACK_WIND (frame, 
@@ -1363,10 +1327,9 @@ trace_unlink (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_UNLINK].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p{path=%s, inode=%p})",
-			this, loc, loc->path, loc->inode);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld})",
+			loc->path, loc->inode->ino);
 	}
 
 	STACK_WIND (frame, 
@@ -1385,10 +1348,9 @@ trace_rmdir (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_RMDIR].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p})",
-			this, loc, loc->path, loc->inode);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld})",
+			loc->path, loc->inode->ino);
 	}
 
 	STACK_WIND (frame, 
@@ -1406,13 +1368,13 @@ trace_symlink (call_frame_t *frame,
 	       const char *linkpath,
 	       loc_t *loc)
 {
-	ERR_EINVAL_NORETURN (!this || !linkpath || !loc->path);
+	ERR_EINVAL_NORETURN (!this || !linkpath || !loc || !loc->path);
 
 	if (trace_fop_names[GF_FOP_SYMLINK].enabled) {  
 		gf_log (this->name, 
 			GF_LOG_NORMAL, 
-			"(*this=%p, linkpath=%s, loc=%p {path=%s, inode=%p})",
-			this, linkpath, loc, loc->path, loc->inode);
+			"(linkpath=%s, loc {path=%s, ino=%lld})",
+			linkpath, loc->path, (loc->inode)?loc->inode->ino:0);
 	}
 
 	STACK_WIND (frame, 
@@ -1434,10 +1396,9 @@ trace_rename (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !oldloc || !newloc);
 
 	if (trace_fop_names[GF_FOP_RENAME].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(oldloc=%p{path=%s, inode=%p, ino=%lld}, newloc=%p{path=%s, inode=%p, ino=%lld})",
-			oldloc, oldloc->path, oldloc->inode, oldloc->ino, newloc, newloc->path, newloc->inode, newloc->ino);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(oldloc {path=%s, ino=%lld}, newloc{path=%s, ino=%lld})",
+			oldloc->path, oldloc->ino, newloc->path, newloc->ino);
 	}
 
 	STACK_WIND (frame, 
@@ -1459,11 +1420,9 @@ trace_link (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !oldloc || !newloc);
 
 	if (trace_fop_names[GF_FOP_LINK].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, oldloc=%p {path=%s, inode=%p}, newloc=%p {path=%s, inode=%p})",
-			this, oldloc, oldloc->path, oldloc->inode, 
-			newloc, newloc->path, newloc->inode);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(oldloc {path=%s, ino=%lld}, newloc {path=%s, ino=%lld})",
+			oldloc->path, oldloc->inode->ino, newloc->path, newloc->inode->ino);
 	}
 
 	STACK_WIND (frame, 
@@ -1484,10 +1443,9 @@ trace_chmod (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_CHMOD].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, mode=%o)",
-			this, loc, loc->path, loc->inode, mode);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}, mode=%o)",
+			loc->path, loc->inode->ino, mode);
 	}
 
 	STACK_WIND (frame, 
@@ -1510,10 +1468,9 @@ trace_chown (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_CHOWN].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, uid=%d, gid=%d)",
-			this, loc, loc->path, loc->inode, uid, gid);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}, uid=%d, gid=%d)",
+			loc->path, loc->inode->ino, uid, gid);
 	}
 
 	STACK_WIND (frame, 
@@ -1536,10 +1493,9 @@ trace_truncate (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_TRUNCATE].enabled) { 
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, offset=%lld)",
-			this, loc, loc->path, loc->inode, offset);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}, offset=%lld)",
+			loc->path, loc->inode->ino, offset);
 	}
 
 	STACK_WIND (frame, 
@@ -1567,10 +1523,9 @@ trace_utimens (call_frame_t *frame,
 		strftime (actime_str, 256, "[%b %d %H:%M:%S]", localtime (&tv[0].tv_sec));
 		strftime (modtime_str, 256, "[%b %d %H:%M:%S]", localtime (&tv[1].tv_sec));
 
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, *tv=%p {actime=%s, modtime=%s})",
-			this, loc, loc->path, loc->inode, tv, actime_str, modtime_str);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}, *tv=%p {actime=%s, modtime=%s})",
+			loc->path, loc->inode->ino, tv, actime_str, modtime_str);
 	}
 
 	STACK_WIND (frame, 
@@ -1593,10 +1548,9 @@ trace_open (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_OPEN].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, flags=%d, fd=%p)",
-			this, loc, loc->path, loc->inode, flags, fd);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}, flags=%d, fd=%p)",
+			loc->path, loc->inode->ino, flags, fd);
 	}
 
 	STACK_WIND (frame, 
@@ -1620,10 +1574,9 @@ trace_create (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc->path);
 
 	if (trace_fop_names[GF_FOP_CREATE].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, flags=0%o mode=0%o)",
-			this, loc, loc->path, loc->inode, flags, mode);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}, flags=0%o mode=0%o)",
+			loc->path, loc->inode->ino, flags, mode);
 	}
 
 	STACK_WIND (frame, 
@@ -1647,10 +1600,9 @@ trace_readv (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd || (size < 1));
 
 	if (trace_fop_names[GF_FOP_READ].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, *fd=%p, size=%d, offset=%lld)",
-			this, fd, size, offset);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(*fd=%p, size=%d, offset=%lld)",
+			fd, size, offset);
 	}
 
 	STACK_WIND (frame, 
@@ -1674,10 +1626,9 @@ trace_writev (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd || !vector || (count < 1));
 
 	if (trace_fop_names[GF_FOP_WRITE].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, *fd=%p, *vector=%p, count=%d, offset=%lld)",
-			this, fd, vector, count, offset);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(*fd=%p, *vector=%p, count=%d, offset=%lld)",
+			fd, vector, count, offset);
 	}
 
 	STACK_WIND (frame, 
@@ -1699,10 +1650,9 @@ trace_statfs (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_STATFS].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p})",
-			this, loc, loc->path, loc->inode);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld})",
+			loc->path, (loc->inode)?loc->inode->ino:0);
 	}
 
 	STACK_WIND (frame, 
@@ -1720,10 +1670,8 @@ trace_flush (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd);
 
 	if (trace_fop_names[GF_FOP_FLUSH].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, *fd=%p)",
-			this, fd);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(*fd=%p)", fd);
 	}
 
 	STACK_WIND (frame, 
@@ -1744,10 +1692,8 @@ trace_fsync (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd);
 
 	if (trace_fop_names[GF_FOP_FSYNC].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, flags=%d, *fd=%p)",
-			this, flags, fd);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(flags=%d, *fd=%p)", flags, fd);
 	}
 
 	STACK_WIND (frame, 
@@ -1769,10 +1715,9 @@ trace_setxattr (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc || !dict);
 
 	if (trace_fop_names[GF_FOP_SETXATTR].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, dict=%p, flags=%d)",
-			this, loc, loc->path, loc->inode, dict, flags);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}, dict=%p, flags=%d)",
+			loc->path, (loc->inode)?loc->inode->ino:0, dict, flags);
 	}
 
 	STACK_WIND (frame, 
@@ -1794,10 +1739,9 @@ trace_getxattr (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_GETXATTR].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}), name=%s",
-			this, loc, loc->path, loc->inode, name);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}), name=%s",
+			loc->path, (loc->inode)?loc->inode->ino:0, name);
 	}
 
 	STACK_WIND (frame, 
@@ -1818,10 +1762,9 @@ trace_removexattr (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc || !name);
 
 	if (trace_fop_names[GF_FOP_REMOVEXATTR].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, loc=%p {path=%s, inode=%p}, name=%s)",
-			this, loc, loc->path, loc->inode, name);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(loc {path=%s, ino=%lld}, name=%s)",
+			loc->path, (loc->inode)?loc->inode->ino:0, name);
 	}
 
 	STACK_WIND (frame, 
@@ -1843,10 +1786,9 @@ trace_opendir (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc );
 
 	if (trace_fop_names[GF_FOP_OPENDIR].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"callid: %lld (*this=%p, loc=%p {path=%s, inode=%p}, fd=%p)",
-			(long long) frame->root->unique, this, loc, loc->path, loc->inode, fd);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"callid: %lld ( loc {path=%s, ino=%lld}, fd=%p)",
+			(long long) frame->root->unique, loc->path, loc->inode->ino, fd);
 	}
 
 	STACK_WIND (frame, 
@@ -1869,10 +1811,9 @@ trace_getdents (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd);  
 
 	if (trace_fop_names[GF_FOP_GETDENTS].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"callid: %lld (*this=%p, fd=%p, size=%d, offset=%lld, flag=0x%x)",
-			(long long) frame->root->unique, this, fd, size, offset, flag);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"callid: %lld (fd=%p, size=%d, offset=%lld, flag=0x%x)",
+			(long long) frame->root->unique, fd, size, offset, flag);
 	}
 
 	STACK_WIND (frame, 
@@ -1897,8 +1838,7 @@ trace_readdir (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd);  
 
 	if (trace_fop_names[GF_FOP_READDIR].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
+		gf_log (this->name, GF_LOG_NORMAL, 
 			"callid: %lld (fd=%p, size=%d, offset=%lld)",
 			(long long) frame->root->unique, fd, size, offset);
 	}
@@ -1924,10 +1864,8 @@ trace_fsyncdir (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd);
 
 	if (trace_fop_names[GF_FOP_FSYNCDIR].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, datasync=%d, *fd=%p)",
-			this, datasync, fd);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(datasync=%d, *fd=%p)", datasync, fd);
 	}
 
 	STACK_WIND (frame, 
@@ -1948,10 +1886,9 @@ trace_access (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_ACCESS].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, *loc=%p {path=%s, inode=%p}, mask=%d)",
-			this, loc, loc->path, loc->inode, mask);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(*loc {path=%s, ino=%lld}, mask=%d)",
+			loc->path, (loc->inode)?loc->inode->ino:0, mask);
 	}
 
 	STACK_WIND (frame, 
@@ -1972,10 +1909,8 @@ trace_ftruncate (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd);
 
 	if (trace_fop_names[GF_FOP_FTRUNCATE].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, offset=%lld, *fd=%p)",
-			this, offset, fd);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(offset=%lld, *fd=%p)", offset, fd);
 	}
 
 	STACK_WIND (frame, 
@@ -1998,10 +1933,8 @@ trace_fchown (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd);
 
 	if (trace_fop_names[GF_FOP_FCHOWN].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, *fd=%p, uid=%d, gid=%d)",
-			this, fd, uid, gid);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(*fd=%p, uid=%d, gid=%d)", fd, uid, gid);
 	}
 
 	STACK_WIND (frame, 
@@ -2023,10 +1956,8 @@ trace_fchmod (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd);
 
 	if (trace_fop_names[GF_FOP_FCHMOD].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, mode=%o, *fd=%p)",
-			this, mode, fd);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(mode=%o, *fd=%p)", mode, fd);
 	}
 
 	STACK_WIND (frame, 
@@ -2046,10 +1977,8 @@ trace_fstat (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd);
 
 	if (trace_fop_names[GF_FOP_FSTAT].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, *fd=%p)",
-			this, fd);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(*fd=%p)", fd);
 	}
 
 	STACK_WIND (frame, 
@@ -2070,11 +1999,9 @@ trace_lk (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !fd);
 
 	if (trace_fop_names[GF_FOP_LK].enabled) {  
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, *fd=%p, cmd=%d, lock=%p {l_type=%d, l_whence=%d, l_start=%lld, l_len=%lld, l_pid=%ld})",
-			this, fd, cmd, lock,
-			lock->l_type, lock->l_whence, lock->l_start, lock->l_len, lock->l_pid);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(*fd=%p, cmd=%d, lock {l_type=%d, l_whence=%d, l_start=%"PRId64", l_len=%"PRId64", l_pid=%u})",
+			fd, cmd, lock->l_type, lock->l_whence, lock->l_start, lock->l_len, lock->l_pid);
 	}
 
 	STACK_WIND (frame, 
@@ -2096,10 +2023,8 @@ trace_setdents (call_frame_t *frame,
 		int32_t count)
 {
 	if (trace_fop_names[GF_FOP_SETDENTS].enabled) {
-		gf_log (this->name, 
-			GF_LOG_NORMAL, 
-			"(*this=%p, *fd=%p, flags=%d, entries=%p count=%d",
-			this, fd, flags, entries, count);
+		gf_log (this->name, GF_LOG_NORMAL, 
+			"(*fd=%p, flags=%d, count=%d", fd, flags, count);
 	}
 
 	STACK_WIND (frame, 
@@ -2150,6 +2075,40 @@ trace_checksum (call_frame_t *frame,
 	return 0;
 }
 
+
+int32_t 
+trace_stats_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct xlator_stats *stats)
+{
+	gf_log (this->name, GF_LOG_NORMAL, 
+		"op_ret (%d), op_errno(%d)", op_ret, op_errno);
+
+	STACK_UNWIND (frame, op_ret, op_errno, stats);
+	return 0;
+}
+
+int32_t 
+trace_stats (call_frame_t *frame,
+	     xlator_t *this, 
+	     int32_t flags)
+{
+	ERR_EINVAL_NORETURN (!this);
+  
+	gf_log (this->name, GF_LOG_NORMAL, 
+		"(flags=%d)", flags);
+	
+	STACK_WIND (frame, 
+		    trace_stats_cbk, 
+		    FIRST_CHILD(this), 
+		    FIRST_CHILD(this)->mops->stats, 
+		    flags);
+
+	return 0;
+}
 
 #ifndef GF_SOLARIS_HOST_OS
 void
@@ -2298,37 +2257,6 @@ struct xlator_fops fops = {
   .xattrop     = trace_xattrop,
   .fxattrop    = trace_fxattrop,
 };
-
-int32_t 
-trace_stats_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct xlator_stats *stats)
-{
-	STACK_UNWIND (frame, op_ret, op_errno, stats);
-	return 0;
-}
-
-int32_t 
-trace_stats (call_frame_t *frame,
-	     xlator_t *this, 
-	     int32_t flags)
-{
-	ERR_EINVAL_NORETURN (!this);
-  
-	{
-		gf_log (this->name, GF_LOG_NORMAL, "trace_stats (*this=%p, flags=%d\n", this, flags);
-
-		STACK_WIND (frame, 
-			    trace_stats_cbk, 
-			    FIRST_CHILD(this), 
-			    FIRST_CHILD(this)->mops->stats, 
-			    flags);
-	}
-	return 0;
-}
 
 struct xlator_mops mops = {
 	.stats    = trace_stats,

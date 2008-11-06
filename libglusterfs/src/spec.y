@@ -151,7 +151,7 @@ new_section (char *name)
         xlator_t *node = (void *) calloc (1, sizeof (*node));
 
         if (!name) {
-                gf_log ("parser", GF_LOG_DEBUG, "invalid argument name", name);
+                gf_log ("parser", GF_LOG_DEBUG, "invalid argument name '%s'", name);
                 return -1;
         }
 

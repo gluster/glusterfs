@@ -27,6 +27,7 @@
 #endif
 
 #include <stdint.h>
+#include <stdio.h>  
 
 /* Replace gf_log with _GF_FORMAT_WARN during compile time and let gcc spit the format specificier warnings. Make sure you replace them back with gf_log call. */
 #define _GF_FORMAT_WARN(domain, loglevel, format, args...)  printf ("__DEBUG__" format, ##args);

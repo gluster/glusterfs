@@ -95,11 +95,11 @@ bdb_db_open (bctx_t *bctx)
 						    table->page_size);
 		if (op_ret != 0) {
 			gf_log ("bdb-ll", GF_LOG_ERROR, 
-				"failed to set the page_size (%d) for directory %s (%s)", 
+				"failed to set the page_size (%"PRIu64") for directory %s (%s)", 
 				table->page_size, bctx->directory, db_strerror (op_ret));
 		} else {
 			gf_log ("bdb-ll", GF_LOG_DEBUG,
-				"page-size (%d) set on DB", 
+				"page-size (%"PRIu64") set on DB", 
 				table->page_size);
 		}
 	}
@@ -1100,7 +1100,7 @@ BDB_TABLE_INIT (xlator_t *this,
 				      table->page_size <= BDB_LL_PAGE_SIZE_MAX)) {
 					gf_log ("bdb-ll", 
 						GF_LOG_ERROR, 
-						"pagesize %d is out of range."
+						"pagesize %s is out of range."
 						"Allowed pagesize is between %d and %d", 
 						page_size->data, 
 						BDB_LL_PAGE_SIZE_MIN, 
@@ -1111,7 +1111,7 @@ BDB_TABLE_INIT (xlator_t *this,
 				table->page_size = BDB_LL_PAGE_SIZE_DEFAULT;
 			}
 			gf_log ("bdb-ll", 
-				GF_LOG_DEBUG, "using page-size %d", 
+				GF_LOG_DEBUG, "using page-size %"PRIu64, 
 				table->page_size);
 		}
       
