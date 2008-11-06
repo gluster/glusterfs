@@ -422,7 +422,8 @@ find_most_matching_lock (pl_inode_t *pinode, const char *basename)
  */
 
 static int
-insert_new_lock (pl_inode_t *pinode, const char *basename, gf_dir_lk_type type)
+insert_new_lock (pl_inode_t *pinode, const char *basename, gf_dir_lk_type type,
+		 transport_t *trans)
 {
 	pl_dir_lock_t *newlock = NULL;
 	int ret = -EINVAL;
@@ -435,6 +436,8 @@ insert_new_lock (pl_inode_t *pinode, const char *basename, gf_dir_lk_type type)
 
 	newlock->basename = basename ? strdup (basename) : NULL;
 	newlock->type     = type;
+	newlock->trans    = trans;
+
 	if (type == GF_DIR_LK_RDLCK)
 		newlock->read_count = 1;
 
@@ -458,7 +461,8 @@ out:
  */
 
 int
-lock_name (pl_inode_t *pinode, const char *basename, gf_dir_lk_type type)
+lock_name (pl_inode_t *pinode, const char *basename, gf_dir_lk_type type,
+	   transport_t *trans)
 {
 	pl_dir_lock_t *lock    = NULL;
 
@@ -477,14 +481,14 @@ lock_name (pl_inode_t *pinode, const char *basename, gf_dir_lk_type type)
 			if (lock && names_equal (lock->basename, basename)) {
 				lock->read_count++;
 			} else {
-				ret = insert_new_lock (pinode, basename, type);
+				ret = insert_new_lock (pinode, basename, type, trans);
 				if (ret < 0)
 					goto out;
 			}
 			break;
 
 		case GF_DIR_LK_WRLCK:
-			ret = insert_new_lock (pinode, basename, type);
+			ret = insert_new_lock (pinode, basename, type, trans);
 			if (ret < 0)
 				goto out;
 			break;
@@ -552,6 +556,33 @@ out:
 
 
 /**
+ * release_entry_locks_for_transport: release all entry locks from this
+ * transport for this loc_t
+ */
+
+static int
+release_entry_locks_for_transport (pl_inode_t *pinode, transport_t *trans)
+{
+	pl_dir_lock_t *lock;
+	pl_dir_lock_t *tmp;
+
+	if (list_empty (&pinode->gf_dir_locks)) 
+		return 0;
+
+	pthread_mutex_lock (&pinode->dir_lock_mutex);
+
+	list_for_each_entry_safe (lock, tmp, &pinode->gf_dir_locks, inode_list) {
+		if (lock->trans == trans)
+			list_del (&lock->inode_list);
+	}
+
+	pthread_mutex_unlock (&pinode->dir_lock_mutex);
+
+	return 0;
+}
+
+
+/**
  * pl_gf_dir_lk:
  * 
  * Locking on names (directory entries)
@@ -564,7 +595,10 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
-	
+
+	transport_t * transport = NULL;
+	pid_t pid = -1;
+
 	pl_inode_t *       pinode = NULL; 
 	int                ret    = -1;
 
@@ -592,9 +626,25 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 		UNLOCK (&loc->inode->lock);
 	}
 
+	pid       = frame->root->pid;
+	transport = frame->root->trans;
+
+	if (pid == 0) {
+		/* 
+		   this is a special case that means release
+		   all locks from this transport 
+		*/
+
+		gf_log (this->name, GF_LOG_DEBUG,
+			"releasing locks for transport %p", transport);
+
+		release_entry_locks_for_transport (pinode, transport);
+		goto out;
+	}
+
 	switch (cmd) {
 	case GF_DIR_LK_LOCK:
-		ret = lock_name (pinode, basename, type);
+		ret = lock_name (pinode, basename, type, transport);
 		if (ret < 0) {
 			op_errno = -ret;
 			goto out;
@@ -636,7 +686,10 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
-	
+
+	pid_t pid = -1;
+	transport_t * transport = NULL;
+
 	pl_inode_t *       pinode = NULL; 
 	int                ret    = -1;
 
@@ -664,9 +717,25 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 		UNLOCK (&fd->inode->lock);
 	}
 
+	pid       = frame->root->pid;
+	transport = frame->root->trans;
+
+	if (pid == 0) {
+		/* 
+		   this is a special case that means release
+		   all locks from this transport 
+		*/
+
+		gf_log (this->name, GF_LOG_DEBUG,
+			"releasing locks for transport %p", transport);
+
+		release_entry_locks_for_transport (pinode, transport);
+		goto out;
+	}
+
 	switch (cmd) {
 	case GF_DIR_LK_LOCK:
-		ret = lock_name (pinode, basename, type);
+		ret = lock_name (pinode, basename, type, transport);
 		if (ret < 0) {
 			op_errno = -ret;
 			goto out;

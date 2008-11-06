@@ -121,6 +121,8 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
 	afr_local_sh_cleanup (local, this);
 
+	FREE (local->child_errno);
+
 	loc_wipe (&local->loc);
 	loc_wipe (&local->newloc);
 
@@ -424,11 +426,21 @@ out:
 /* {{{ open */
 
 int32_t
+afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+			int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+	return 0;
+}
+
+
+int32_t
 afr_open_cbk (call_frame_t *frame, void *cookie,
 	      xlator_t *this, int32_t op_ret, int32_t op_errno,
 	      fd_t *fd)
 {
-	afr_local_t *local = NULL;
+	afr_local_t *  local = NULL;
+
+	int child_index = (long) cookie;
 
 	int call_count = -1;
 
@@ -438,15 +450,17 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 	{
 		call_count = --local->call_count;
 
-		if (op_ret == 0) {
-			local->op_ret   = 0;
+		if (op_ret == -1) {
+			local->child_errno[child_index] = op_errno;
+			local->op_errno = op_errno;
 		}
 
-		local->op_errno = 0;
+		if (op_ret == 0)
+			local->op_ret = 0;
 	}
 	UNLOCK (&frame->lock);
 
-	if (call_count == 0)
+	if (call_count == 0) 
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
 
 	return 0;
@@ -457,12 +471,16 @@ int32_t
 afr_open (call_frame_t *frame, xlator_t *this,
 	  loc_t *loc, int32_t flags, fd_t *fd)
 {
-	afr_private_t *priv = NULL;
-	afr_local_t *local = NULL;
+	afr_private_t * priv  = NULL;
+	afr_local_t *   local = NULL;
+	
 	int32_t call_count = 0;
+	
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 	
+	int32_t wind_flags = flags & (~O_TRUNC);
+
 	int     i = 0;
 	int   ret = -1;
 
@@ -482,14 +500,17 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	}
 
 	frame->local = local;
-	call_count = local->call_count;
-	
+	call_count   = local->call_count;
+
+	local->cont.open.flags = flags;
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			STACK_WIND (frame, afr_open_cbk,
-				    priv->children[i],
-				    priv->children[i]->fops->open,
-				    loc, flags, fd);
+			STACK_WIND_COOKIE (frame, afr_open_cbk, (void *) (long) i,
+					   priv->children[i],
+					   priv->children[i]->fops->open,
+					   loc, wind_flags, fd);
+			
 			if (!--call_count)
 				break;
 		}
@@ -602,18 +623,27 @@ afr_statfs_cbk (call_frame_t *frame, void *cookie,
 		local = frame->local;
 		call_count = --local->call_count;
 
-		if (local->cont.statfs.buf_set) {
-			if (statvfs->f_bavail < local->cont.statfs.buf.f_bavail)
+		if (op_ret == 0) {
+			local->op_ret   = op_ret;
+			
+			if (local->cont.statfs.buf_set) {
+				if (statvfs->f_bavail < local->cont.statfs.buf.f_bavail)
+					local->cont.statfs.buf = *statvfs;
+			} else {
 				local->cont.statfs.buf = *statvfs;
-		} else {
-			local->cont.statfs.buf = *statvfs;
-			local->cont.statfs.buf_set = 1;
+				local->cont.statfs.buf_set = 1;
+			}
 		}
+
+		if (op_ret == -1)
+			local->op_errno = op_errno;
+
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, &local->cont.statfs.buf);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  &local->cont.statfs.buf);
 
 	return 0;
 }

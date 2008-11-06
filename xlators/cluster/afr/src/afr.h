@@ -102,6 +102,8 @@ typedef struct _afr_local {
 	unsigned char *child_up; 
 	int            child_count;
 
+	int32_t *child_errno;
+
 	/* 
 	   This struct contains the arguments for the "continuation"
 	   (scheme-like) of fops
@@ -410,6 +412,11 @@ AFR_BASENAME (const char *str)
 static inline int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
+	local->child_errno = malloc (sizeof (*local->child_errno) * priv->child_count);
+	if (!local->child_errno) {
+		return -ENOMEM;
+	}
+
 	local->child_up = malloc (sizeof (*local->child_up) * priv->child_count);
 	if (!local->child_up) {
 		return -ENOMEM;

@@ -6993,7 +6993,7 @@ server_protocol_cleanup (transport_t *trans)
 		locker = NULL;
 		list_for_each_entry_safe (locker, tmp, &dir_lockers, lockers) {
 			tmp_frame = copy_frame (frame);
-			tmp_frame->root->pid = locker->pid;
+			tmp_frame->root->pid = 0;
 
 			if (locker->fd) {
 				STACK_WIND (tmp_frame, server_nop_cbk,

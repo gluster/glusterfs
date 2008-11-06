@@ -114,12 +114,16 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 						    local->transaction.basename,
 						    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
 				} else {
+					local->transaction.done (frame, this, 0, 0);
+					return 0;
+/*
 					STACK_WIND (frame, afr_unlock_common_cbk,	
 						    priv->children[i], 
 						    priv->children[i]->fops->entrylk, 
 						    &local->transaction.parent_loc, 
 						    local->transaction.basename,
 						    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+*/
 
 				}
 				break;

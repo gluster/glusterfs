@@ -74,6 +74,7 @@ struct __dir_lock {
 	const char *basename;
 	gf_dir_lk_type type;
 	unsigned int read_count;      /* number of read locks */
+	transport_t *trans;
 };
 typedef struct __dir_lock pl_dir_lock_t;
 
