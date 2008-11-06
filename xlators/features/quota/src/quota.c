@@ -804,16 +804,14 @@ init (xlator_t *this)
 	struct quota_priv *_private = NULL;
 
 	if (!this->children) {
-		gf_log (this->name, 
-			GF_LOG_ERROR, 
-			"FATAL: posix-locks should have exactly one child");
+		gf_log (this->name, GF_LOG_ERROR, 
+			"FATAL: quota should have exactly one child");
 		return -1;
 	}
 
 	if (this->children->next) {
-		gf_log (this->name, 
-			GF_LOG_ERROR, 
-			"FATAL: posix-locks should have exactly one child");
+		gf_log (this->name, GF_LOG_ERROR, 
+			"FATAL: quota should have exactly one child");
 		return -1;
 	}
 
@@ -866,13 +864,15 @@ fini (xlator_t *this)
 	call_frame_t *frame = NULL;
 	struct quota_priv *_private = this->private;
 
-	frame = create_frame (this, this->ctx->pool);
-	{
+	this->private = NULL;
+
+	if (_private) {
 		dict_t *dict = get_new_dict ();
 		loc_t tmp_loc = {
 			.inode = NULL,
 			.path = "/",
 		};
+		frame = create_frame (this, this->ctx->pool);
 		dict_set (dict, "trusted.glusterfs-quota-du", 
 			  data_from_uint64 (_private->current_disk_usage));
 
@@ -883,9 +883,10 @@ fini (xlator_t *this)
 			    &tmp_loc,
 			    dict,
 			    0);
+		
+		FREE (_private);
 	}
 	
-	FREE (_private);
 	return ;
 }
 
