@@ -1997,11 +1997,11 @@ afr_self_heal_entry (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh = &local->self_heal;
 
-	if (local->need_data_self_heal) {
+	if (local->need_entry_self_heal) {
 		afr_sh_entry_lock (frame, this);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"proceeding to data check on %s",
+			"proceeding to completion on %s",
 			local->loc.path);
 		afr_sh_entry_done (frame, this);
 	}
