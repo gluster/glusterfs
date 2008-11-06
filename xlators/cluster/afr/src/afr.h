@@ -61,6 +61,7 @@ typedef struct {
 
 	int *sources;
 	int source;
+	int active_source;
 	int active_sinks;
 	int *success;
 
@@ -73,6 +74,7 @@ typedef struct {
 
 	loc_t parent_loc;
 	int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
+	call_frame_t *sh_frame;
 } afr_self_heal_t;
 
 
@@ -376,6 +378,18 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this);
 		__this = frame->this;			\
 		frame->local = NULL;                    \
 		STACK_UNWIND (frame, params);		\
+		afr_local_cleanup (__local, __this);	\
+		free (__local);				\
+} while (0);					
+
+#define AFR_STACK_DESTROY(frame)			\
+	do {						\
+		afr_local_t *__local = NULL;		\
+		xlator_t    *__this = NULL;		\
+		__local = frame->local;			\
+		__this = frame->this;			\
+		frame->local = NULL;                    \
+		STACK_DESTROY (frame->root);		\
 		afr_local_cleanup (__local, __this);	\
 		free (__local);				\
 } while (0);					

@@ -1500,7 +1500,8 @@ fop_getxattr_stub (call_frame_t *frame,
 	stub->args.getxattr.fn = fn;
 	loc_copy (&stub->args.getxattr.loc, loc);
 
-	stub->args.getxattr.name = name;
+	if (name)
+		stub->args.getxattr.name = name;
 out:
 	return stub;
 }
@@ -2253,6 +2254,8 @@ call_resume_wind (call_stub_t *stub)
 					stub->frame->this,
 					&stub->args.getxattr.loc,
 					stub->args.getxattr.name);
+		if (stub->args.getxattr.name)
+			FREE (stub->args.getxattr.name);
 		loc_wipe (&stub->args.getxattr.loc);
 		break;
 	}
@@ -3474,6 +3477,8 @@ call_stub_destroy (call_stub_t *stub)
   
 	case GF_FOP_GETXATTR:
 	{
+		if (stub->args.getxattr.name)
+			FREE (stub->args.getxattr.name);
 		loc_wipe (&stub->args.getxattr.loc);
 		break;
 	}

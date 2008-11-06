@@ -173,12 +173,13 @@ afr_sh_data_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR, 
-				"locking inode on child %d failed: %s",
-				child_index, strerror (op_errno));
+				"locking inode of %s on child %d failed: %s",
+				local->loc.path, child_index,
+				strerror (op_errno));
 		} else {
 			gf_log (this->name, GF_LOG_DEBUG,
-				"inode on child %d locked",
-				child_index);
+				"inode of %s on child %d locked",
+				local->loc.path, child_index);
 		}
 
 		call_count = --local->call_count;
@@ -365,12 +366,14 @@ afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 		if (op_ret == -1)
 			gf_log (this->name, GF_LOG_ERROR,
-				"ftruncate on subvolume %s failed (%s)",
+				"ftruncate of %s on subvolume %s failed (%s)",
+				local->loc.path,
 				priv->children[child_index]->name,
 				strerror (op_errno));
 		else
 			gf_log (this->name, GF_LOG_DEBUG,
-				"ftruncate on subvolume %s completed",
+				"ftruncate of %s on subvolume %s completed",
+				local->loc.path,
 				priv->children[child_index]->name);
 	}
 	UNLOCK (&frame->lock);
@@ -440,8 +443,8 @@ afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	sh = &local->self_heal;
 
 	gf_log (this->name, GF_LOG_DEBUG, 
-		"wrote %d bytes of data to child %d, offset %d", 
-		op_ret, child_index, sh->offset - op_ret);
+		"wrote %d bytes of data from %s to child %d, offset %lld", 
+		op_ret, local->loc.path, child_index, sh->offset - op_ret);
 
 	LOCK (&frame->lock);
 	{
@@ -449,7 +452,8 @@ afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"write failed on subvolume %s (%s)",
+				"write to %s failed on subvolume %s (%s)",
+				local->loc.path,
 				priv->children[child_index]->name,
 				strerror (op_errno));
 			sh->op_failed = 1;
@@ -467,7 +471,8 @@ afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			afr_sh_data_read_write (frame, this);
 		} else {
 			gf_log (this->name, GF_LOG_DEBUG, 
-				"closing fd's");
+				"closing fd's of %s",
+				local->loc.path);
 		
 			afr_sh_data_trim_sinks (frame, this);
 		}
@@ -501,8 +506,8 @@ afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
 	local->call_count = call_count;
 
 	gf_log (this->name, GF_LOG_DEBUG, 
-		"read %d bytes of data from child %d, offset %d", 
-		op_ret, child_index, sh->offset);
+		"read %d bytes of data from %s on child %d, offset %lld",
+		op_ret, local->loc.path, child_index, sh->offset);
 
 	if (op_ret <= 0) {
 		afr_sh_data_finish (frame, this);
@@ -582,7 +587,8 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"open failed on child %s (%s)",
+				"open of %s failed on child %s (%s)",
+				local->loc.path,
 				priv->children[child_index]->name,
 				strerror (op_errno));
 			sh->op_failed = 1;
@@ -597,7 +603,8 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			return 0;
 		}
 		gf_log (this->name, GF_LOG_DEBUG,
-			"fd opened, commencing sync");
+			"fd for %s opened, commencing sync",
+			local->loc.path);
 		afr_sh_data_read_write (frame, this);
 	}
 
@@ -869,12 +876,13 @@ afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR, 
-				"locking inode on child %d failed: %s",
-				child_index, strerror (op_errno));
+				"locking inode of %s on child %d failed: %s",
+				local->loc.path, child_index,
+				strerror (op_errno));
 		} else {
 			gf_log (this->name, GF_LOG_DEBUG,
-				"inode on child %d locked",
-				child_index);
+				"inode of %s on child %d locked",
+				local->loc.path, child_index);
 		}
 
 		call_count = --local->call_count;

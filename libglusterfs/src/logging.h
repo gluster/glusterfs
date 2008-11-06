@@ -45,17 +45,15 @@ typedef enum {
 
 extern gf_loglevel_t gf_log_loglevel;
 
-
-//#define GF_LOG_FORMAT_CHECK
-
-#ifdef GF_LOG_FORMAT_CHECK
-#define gf_log _GF_FORMAT_WARN
-#else
-#define gf_log(dom, levl, fmt...) do {                          \
-  if (levl <= gf_log_loglevel)                                  \
-	  _gf_log (dom, __FILE__, __FUNCTION__, __LINE__, levl, ##fmt); \
+#define gf_log(dom, levl, fmt...) do {					\
+		if (levl <= gf_log_loglevel)				\
+			_gf_log (dom, __FILE__, __FUNCTION__, __LINE__, \
+				 levl, ##fmt);				\
+		if (0) {						\
+			printf (fmt);					\
+		}							\
 } while (0)
-#endif
+
 			
 void 
 gf_log_logrotate (int signum);
