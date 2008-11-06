@@ -6992,7 +6992,7 @@ server_protocol_cleanup (transport_t *trans)
 		tmp = NULL;
 		locker = NULL;
 		list_for_each_entry_safe (locker, tmp, &dir_lockers, lockers) {
-			tmp_frame = copy_frame (frame);
+			tmp_frame = server_copy_frame (frame);
 			tmp_frame->root->pid = 0;
 
 			if (locker->fd) {

@@ -561,7 +561,7 @@ out:
  */
 
 static int
-release_entry_locks_for_transport (pl_inode_t *pinode, transport_t *trans)
+release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode, transport_t *trans)
 {
 	pl_dir_lock_t *lock;
 	pl_dir_lock_t *tmp;
@@ -572,8 +572,13 @@ release_entry_locks_for_transport (pl_inode_t *pinode, transport_t *trans)
 	pthread_mutex_lock (&pinode->dir_lock_mutex);
 
 	list_for_each_entry_safe (lock, tmp, &pinode->gf_dir_locks, inode_list) {
-		if (lock->trans == trans)
+		if (lock->trans == trans) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"forcing unlock of %s",
+				lock->basename);
+
 			list_del (&lock->inode_list);
+		}
 	}
 
 	pthread_mutex_unlock (&pinode->dir_lock_mutex);
@@ -638,7 +643,7 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"releasing locks for transport %p", transport);
 
-		release_entry_locks_for_transport (pinode, transport);
+		release_entry_locks_for_transport (this, pinode, transport);
 		goto out;
 	}
 
@@ -729,7 +734,7 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"releasing locks for transport %p", transport);
 
-		release_entry_locks_for_transport (pinode, transport);
+		release_entry_locks_for_transport (this, pinode, transport);
 		goto out;
 	}
 
