@@ -65,6 +65,10 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 	   TODO: cleanup sh->* 
 	*/
 
+	gf_log (this->name, GF_LOG_WARNING,
+		"self heal of %s completed",
+		local->loc.path);
+
 	sh->completion_cbk (frame, this);
 
 	return 0;
@@ -89,12 +93,12 @@ afr_sh_entry_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR, 
-				"locking inode of %s on child %d failed: %s",
+				"unlocking inode of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
 		} else {
 			gf_log (this->name, GF_LOG_DEBUG,
-				"inode of %s on child %d locked",
+				"unlocked inode of %s on child %d",
 				local->loc.path, child_index);
 		}
 
@@ -259,6 +263,83 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
 }
 
 
+
+static int
+next_active_source (call_frame_t *frame, xlator_t *this,
+		    int current_active_source)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *local  = NULL;
+	afr_self_heal_t *sh  = NULL;
+	int              source = -1;
+	int              next_active_source = -1;
+	int              i = 0;
+
+	priv = this->private;
+	local = frame->local;
+	sh = &local->self_heal;
+
+	source = sh->source;
+
+	if (source != -1) {
+		if (current_active_source != source)
+			next_active_source = source;
+		goto out;
+	}
+
+	/*
+	  the next active sink becomes the source for the
+	  'conservative decision' of merging all entries
+	*/
+
+	for (i = 0; i < priv->child_count; i++) {
+		if ((sh->sources[i] == 0)
+		    && (local->child_up[i] == 1)
+		    && (i > current_active_source)) {
+
+			next_active_source = i;
+			break;
+		}
+	}
+out:
+	return next_active_source;
+}
+
+
+
+static int
+next_active_sink (call_frame_t *frame, xlator_t *this,
+		  int current_active_sink)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *local  = NULL;
+	afr_self_heal_t *sh  = NULL;
+	int              next_active_sink = -1;
+	int              i = 0;
+
+	priv = this->private;
+	local = frame->local;
+	sh = &local->self_heal;
+
+	/*
+	  the next active sink becomes the source for the
+	  'conservative decision' of merging all entries
+	*/
+
+	for (i = 0; i < priv->child_count; i++) {
+		if ((sh->sources[i] == 0)
+		    && (local->child_up[i] == 1)
+		    && (i > current_active_sink)) {
+
+			next_active_sink = i;
+			break;
+		}
+	}
+
+	return next_active_sink;
+}
+
+
 int
 build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 {
@@ -302,10 +383,485 @@ out:
 
 
 int
+afr_sh_entry_expunge_all (call_frame_t *frame, xlator_t *this);
+
+int
+afr_sh_entry_expunge_subvol (call_frame_t *frame, xlator_t *this,
+			     int active_src);
+
+int
+afr_sh_entry_expunge_entry_done (call_frame_t *frame, xlator_t *this,
+				 int active_src)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *local  = NULL;
+	afr_self_heal_t *sh  = NULL;
+	int              call_count = 0;
+
+	priv = this->private;
+	local = frame->local;
+	sh = &local->self_heal;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0)
+		afr_sh_entry_expunge_subvol (frame, this, active_src);
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
+				 xlator_t *this,
+				 int32_t op_ret, int32_t op_errno)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *expunge_local = NULL;
+	afr_self_heal_t *expunge_sh = NULL;
+	int              active_src = 0;
+	call_frame_t    *frame = NULL;
+
+
+	priv = this->private;
+	expunge_local = expunge_frame->local;
+	expunge_sh = &expunge_local->self_heal;
+	frame = expunge_sh->sh_frame;
+
+	active_src = (long) cookie;
+
+	if (op_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"removed %s on %s",
+			expunge_local->loc.path,
+			priv->children[active_src]->name);
+	} else {
+		gf_log (this->name, GF_LOG_ERROR,
+			"removing %s on %s failed (%s)",
+			expunge_local->loc.path,
+			priv->children[active_src]->name,
+			strerror (op_errno));
+	}
+
+	AFR_STACK_DESTROY (expunge_frame);
+	afr_sh_entry_expunge_entry_done (frame, this, active_src);
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_expunge_rmdir (call_frame_t *expunge_frame, xlator_t *this,
+			     int active_src)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *expunge_local = NULL;
+
+	priv = this->private;
+	expunge_local = expunge_frame->local;
+
+	gf_log (this->name, GF_LOG_WARNING,
+		"removing directory %s on %s",
+		expunge_local->loc.path, priv->children[active_src]->name);
+
+	STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_remove_cbk,
+			   (void *) (long) active_src,
+			   priv->children[active_src],
+			   priv->children[active_src]->fops->rmdir,
+			   &expunge_local->loc);
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_expunge_unlink (call_frame_t *expunge_frame, xlator_t *this,
+			     int active_src)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *expunge_local = NULL;
+
+	priv = this->private;
+	expunge_local = expunge_frame->local;
+
+	gf_log (this->name, GF_LOG_WARNING,
+		"unlinking file %s on %s",
+		expunge_local->loc.path, priv->children[active_src]->name);
+	
+	STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_remove_cbk,
+			   (void *) (long) active_src,
+			   priv->children[active_src],
+			   priv->children[active_src]->fops->unlink,
+			   &expunge_local->loc);
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
+			     int active_src, struct stat *buf)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *expunge_local = NULL;
+	afr_self_heal_t *expunge_sh = NULL;
+	int              source = 0;
+	call_frame_t    *frame = NULL;
+	int              type = 0;
+
+	priv = this->private;
+	expunge_local = expunge_frame->local;
+	expunge_sh = &expunge_local->self_heal;
+	frame = expunge_sh->sh_frame;
+	source = expunge_sh->source;
+
+	type = (buf->st_mode & S_IFMT);
+
+	switch (type) {
+	case S_IFSOCK:
+	case S_IFREG:
+	case S_IFBLK:
+	case S_IFCHR:
+	case S_IFIFO:
+	case S_IFLNK:
+		afr_sh_entry_expunge_unlink (expunge_frame, this, active_src);
+
+		break;
+	case S_IFDIR:
+		afr_sh_entry_expunge_rmdir (expunge_frame, this, active_src);
+		break;
+	default:
+		gf_log (this->name, GF_LOG_ERROR,
+			"%s has unknown file type on %s: 0%o",
+			expunge_local->loc.path,
+			priv->children[source]->name, type);
+		goto out;
+		break;
+	}
+
+	return 0;
+out:
+	AFR_STACK_DESTROY (expunge_frame);
+	afr_sh_entry_expunge_entry_done (frame, this, active_src);
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_expunge_lookup_cbk (call_frame_t *expunge_frame, void *cookie,
+				xlator_t *this,
+				int32_t op_ret,	int32_t op_errno,
+				inode_t *inode, struct stat *buf, dict_t *x)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *expunge_local = NULL;
+	afr_self_heal_t *expunge_sh = NULL;
+	call_frame_t    *frame = NULL;
+	int              active_src = 0;
+
+	priv = this->private;
+	expunge_local = expunge_frame->local;
+	expunge_sh = &expunge_local->self_heal;
+	frame = expunge_sh->sh_frame;
+	active_src = (long) cookie;
+
+	if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"lookup of %s on %s failed (%s)",
+			expunge_local->loc.path,
+			priv->children[active_src]->name,
+			strerror (op_errno));
+		goto out;
+	}
+
+	afr_sh_entry_expunge_remove (expunge_frame, this, active_src, buf);
+
+	return 0;
+out:
+	AFR_STACK_DESTROY (expunge_frame);
+	afr_sh_entry_expunge_entry_done (frame, this, active_src);
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_expunge_purge (call_frame_t *expunge_frame, xlator_t *this,
+			    int active_src)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *expunge_local = NULL;
+
+	priv = this->private;
+	expunge_local = expunge_frame->local;
+
+	gf_log (this->name, GF_LOG_WARNING,
+		"looking up %s on %s",
+		expunge_local->loc.path, priv->children[active_src]->name);
+	
+	STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_lookup_cbk,
+			   (void *) (long) active_src,
+			   priv->children[active_src],
+			   priv->children[active_src]->fops->lookup,
+			   &expunge_local->loc, 0);
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
+				xlator_t *this,
+				int32_t op_ret,	int32_t op_errno,
+				inode_t *inode, struct stat *buf, dict_t *x)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *expunge_local = NULL;
+	afr_self_heal_t *expunge_sh = NULL;
+	int              source = 0;
+	call_frame_t    *frame = NULL;
+	int              active_src = 0;
+
+
+	priv = this->private;
+	expunge_local = expunge_frame->local;
+	expunge_sh = &expunge_local->self_heal;
+	frame = expunge_sh->sh_frame;
+	active_src = expunge_sh->active_source;
+	source = (long) cookie;
+
+	if (op_ret == -1 && op_errno == ENOENT) {
+
+		gf_log (this->name, GF_LOG_DEBUG,
+			"missing entry %s on %s",
+			expunge_local->loc.path,
+			priv->children[source]->name);
+
+		afr_sh_entry_expunge_purge (expunge_frame, this, active_src);
+
+		return 0;
+	}
+
+	if (op_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"%s exists under %s",
+			expunge_local->loc.path,
+			priv->children[source]->name);
+	} else {
+		gf_log (this->name, GF_LOG_ERROR,
+			"looking up %s under %s failed (%s)",
+			expunge_local->loc.path,
+			priv->children[source]->name,
+			strerror (op_errno));
+	}
+
+	AFR_STACK_DESTROY (expunge_frame);
+	afr_sh_entry_expunge_entry_done (frame, this, active_src);
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
+			    char *name)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *local  = NULL;
+	afr_self_heal_t *sh  = NULL;
+	int              ret = -1;
+	call_frame_t    *expunge_frame = NULL;
+	afr_local_t     *expunge_local = NULL;
+	afr_self_heal_t *expunge_sh = NULL;
+	int              active_src = 0;
+	int              source = 0;
+	int              op_errno = 0;
+
+	priv = this->private;
+	local = frame->local;
+	sh = &local->self_heal;
+
+	active_src = sh->active_source;
+	source = sh->source;
+
+	if ((strcmp (name, ".") == 0)
+	    || (strcmp (name, "..") == 0)) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"skipping inspection of %s under %s",
+			name, local->loc.path);
+		goto out;
+	}
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"inspecting existance of %s under %s",
+		name, local->loc.path);
+
+	expunge_frame = copy_frame (frame);
+	if (!expunge_frame) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		goto out;
+	}
+
+	ALLOC_OR_GOTO (expunge_local, afr_local_t, out);
+
+	expunge_frame->local = expunge_local;
+	expunge_sh = &expunge_local->self_heal;
+	expunge_sh->sh_frame = frame;
+	expunge_sh->active_source = active_src;
+
+	ret = build_child_loc (this, &expunge_local->loc, &local->loc, name);
+	if (ret != 0) {
+		goto out;
+	}
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"looking up %s on %s", expunge_local->loc.path,
+		priv->children[source]->name);
+
+	STACK_WIND_COOKIE (expunge_frame,
+			   afr_sh_entry_expunge_entry_cbk,
+			   (void *) (long) source,
+			   priv->children[source],
+			   priv->children[source]->fops->lookup,
+			   &expunge_local->loc, 0);
+
+	ret = 0;
+out:
+	if (ret == -1)
+		afr_sh_entry_expunge_entry_done (frame, this, active_src);
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_expunge_readdir_cbk (call_frame_t *frame, void *cookie,
+				  xlator_t *this,
+				  int32_t op_ret, int32_t op_errno,
+				  gf_dirent_t *entries)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *local  = NULL;
+	afr_self_heal_t *sh  = NULL;
+	gf_dirent_t     *entry = NULL;
+	off_t            last_offset = 0;
+	int              active_src = 0;
+	int              entry_count = 0;
+
+	priv = this->private;
+	local = frame->local;
+	sh = &local->self_heal;
+
+	active_src = sh->active_source;
+
+	if (op_ret <= 0) {
+		if (op_ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"readdir of %s on subvolume %s failed (%s)",
+				local->loc.path,
+				priv->children[active_src]->name,
+				strerror (op_errno));
+		} else {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"readdir of %s on subvolume %s complete",
+				local->loc.path,
+				priv->children[active_src]->name);
+		}
+
+		afr_sh_entry_expunge_all (frame, this);
+		return 0;
+	}
+
+	list_for_each_entry (entry, &entries->list, list) {
+		last_offset = entry->d_off;
+		entry_count++;
+	}
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"readdir'ed %d entries from %s",
+		entry_count, priv->children[active_src]->name);
+
+	sh->offset = last_offset;
+	local->call_count = entry_count;
+
+	list_for_each_entry (entry, &entries->list, list) {
+		afr_sh_entry_expunge_entry (frame, this, entry->d_name);
+	}
+
+	return 0;
+}
+
+int
+afr_sh_entry_expunge_subvol (call_frame_t *frame, xlator_t *this,
+			     int active_src)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *local  = NULL;
+	afr_self_heal_t *sh  = NULL;
+
+	priv = this->private;
+	local = frame->local;
+	sh = &local->self_heal;
+
+	STACK_WIND (frame, afr_sh_entry_expunge_readdir_cbk,
+		    priv->children[active_src],
+		    priv->children[active_src]->fops->readdir,
+		    sh->healing_fd, sh->block_size, sh->offset);
+
+	return 0;
+}
+
+
+int
 afr_sh_entry_expunge_all (call_frame_t *frame, xlator_t *this)
 {
+	afr_private_t   *priv = NULL;
+	afr_local_t     *local  = NULL;
+	afr_self_heal_t *sh  = NULL;
+	int              active_src = -1;
+
+	priv = this->private;
+	local = frame->local;
+	sh = &local->self_heal;
+
+	sh->offset = 0;
+
+	if (sh->source == -1) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"no active sources for %s to expunge entries",
+			local->loc.path);
+		goto out;
+	}
+
+	active_src = next_active_sink (frame, this, sh->active_source);
+	sh->active_source = active_src;
+
+	if (sh->op_failed) {
+		goto out;
+	}
+
+	if (active_src == -1) {
+		/* completed creating missing files on all subvolumes */
+		goto out;
+	}
+
+	gf_log (this->name, GF_LOG_WARNING,
+		"expunging entries of %s on %s to other sinks",
+		local->loc.path, priv->children[active_src]->name);
+
+	afr_sh_entry_expunge_subvol (frame, this, active_src);
+
+	return 0;
+out:
 	afr_sh_entry_erase_pending (frame, this);
 	return 0;
+
 }
 
 
@@ -629,7 +1185,7 @@ afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
 
 	child_index = (long) cookie;
 
-	if (op_ret != 0) {
+	if (op_ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"readlink of %s on %s failed (%s)",
 			impunge_local->loc.path,
@@ -874,6 +1430,14 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 
 	active_src = sh->active_source;
 
+	if ((strcmp (name, ".") == 0)
+	    || (strcmp (name, "..") == 0)) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"skipping inspection of %s under %s",
+			name, local->loc.path);
+		goto out;
+	}
+
 	gf_log (this->name, GF_LOG_DEBUG,
 		"inspecting existance of %s under %s",
 		name, local->loc.path);
@@ -935,8 +1499,8 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 	ret = 0;
 out:
 	if (ret == -1)
-		afr_sh_entry_impunge_subvol (frame, this, active_src);
-
+		afr_sh_entry_impunge_entry_done (frame, this, active_src);
+	
 	return 0;
 }
 
@@ -962,9 +1526,18 @@ afr_sh_entry_impunge_readdir_cbk (call_frame_t *frame, void *cookie,
 	active_src = sh->active_source;
 
 	if (op_ret <= 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"readdir of %s failed on subvolume %s",
-			local->loc.path, priv->children[active_src]->name);
+		if (op_ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"readdir of %s on subvolume %s failed (%s)",
+				local->loc.path,
+				priv->children[active_src]->name,
+				strerror (op_errno));
+		} else {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"readdir of %s on subvolume %s complete",
+				local->loc.path,
+				priv->children[active_src]->name);
+		}
 
 		afr_sh_entry_impunge_all (frame, this);
 		return 0;
@@ -1011,48 +1584,6 @@ afr_sh_entry_impunge_subvol (call_frame_t *frame, xlator_t *this,
 }
 
 
-static int
-next_active_source (call_frame_t *frame, xlator_t *this,
-		    int current_active_source)
-{
-	afr_private_t   *priv = NULL;
-	afr_local_t     *local  = NULL;
-	afr_self_heal_t *sh  = NULL;
-	int              source = -1;
-	int              next_active_source = -1;
-	int              i = 0;
-
-	priv = this->private;
-	local = frame->local;
-	sh = &local->self_heal;
-
-	source = sh->source;
-
-	if (source != -1) {
-		if (current_active_source != source)
-			next_active_source = source;
-		goto out;
-	}
-
-	/*
-	  the next active sink becomes the source for the
-	  'conservative decision' of merging all entries
-	*/
-
-	for (i = 0; i < priv->child_count; i++) {
-		if ((sh->sources[i] == 0)
-		    && (local->child_up[i] == 1)
-		    && (i > current_active_source)) {
-
-			next_active_source = i;
-			break;
-		}
-	}
-out:
-	return next_active_source;
-}
-
-
 int
 afr_sh_entry_impunge_all (call_frame_t *frame, xlator_t *this)
 {
@@ -1076,6 +1607,7 @@ afr_sh_entry_impunge_all (call_frame_t *frame, xlator_t *this)
 	}
 
 	if (active_src == -1) {
+		/* completed creating missing files on all subvolumes */
 		afr_sh_entry_expunge_all (frame, this);
 		return 0;
 	}
@@ -1240,8 +1772,8 @@ afr_sh_entry_sync_prepare (call_frame_t *frame, xlator_t *this)
 		sh->success[source] = 1;
 
 	if (active_sinks == 0) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"no active sinks for performing self-heal on dir %s",
+		gf_log (this->name, GF_LOG_DEBUG,
+			"no active sinks for self-heal on dir %s",
 			local->loc.path);
 		afr_sh_entry_finish (frame, this);
 		return 0;

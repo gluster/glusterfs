@@ -65,6 +65,10 @@ afr_sh_data_done (call_frame_t *frame, xlator_t *this)
 	   TODO: cleanup sh->* 
 	 */
 
+	gf_log (this->name, GF_LOG_WARNING,
+		"self heal of %s completed",
+		local->loc.path);
+
 	sh->completion_cbk (frame, this);
 
 	return 0;

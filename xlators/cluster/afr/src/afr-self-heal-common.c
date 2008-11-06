@@ -243,6 +243,82 @@ afr_sh_delta_to_xattr (int32_t *delta_matrix[], dict_t *xattr[],
 }
 
 
+int
+afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this)
+{
+	afr_private_t *priv = NULL;
+	int32_t       *pending = NULL;
+	int            i = 0;
+
+	priv = this->private;
+
+	dict_get_ptr (xattr, AFR_METADATA_PENDING, (void **)&pending);
+
+	if (!pending)
+		return 0;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (i == child_count)
+			continue;
+		if (pending[i])
+			return 1;
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this)
+{
+	afr_private_t *priv = NULL;
+	int32_t       *pending = NULL;
+	int            i = 0;
+
+	priv = this->private;
+
+	dict_get_ptr (xattr, AFR_DATA_PENDING, (void **)&pending);
+
+	if (!pending)
+		return 0;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (i == child_count)
+			continue;
+		if (pending[i])
+			return 1;
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_has_entry_pending (dict_t *xattr, int child_count, xlator_t *this)
+{
+	afr_private_t *priv = NULL;
+	int32_t       *pending = NULL;
+	int            i = 0;
+
+	priv = this->private;
+
+	dict_get_ptr (xattr, AFR_ENTRY_PENDING, (void **)&pending);
+
+	if (!pending)
+		return 0;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (i == child_count)
+			continue;
+		if (pending[i])
+			return 1;
+	}
+
+	return 0;
+}
+
+
+
 /**
  * is_matrix_zero - return true if pending matrix is all zeroes
  */
@@ -282,7 +358,7 @@ afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
 	}
 
 	if (local->govinda_gOvinda) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_WARNING,
 			"aborting selfheal of %s",
 			local->loc.path);
 		sh->completion_cbk (frame, this);
@@ -850,6 +926,13 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 	local = frame->local;
 	sh = &local->self_heal;
 	priv = this->private;
+
+	gf_log (this->name, GF_LOG_WARNING,
+		"performing self heal on %s (metadata=%d data=%d entry=%d)",
+		local->loc.path,
+		local->need_metadata_self_heal,
+		local->need_data_self_heal,
+		local->need_entry_self_heal);
 
 	sh->completion_cbk = completion_cbk;
 

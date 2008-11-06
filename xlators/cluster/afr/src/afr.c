@@ -279,16 +279,16 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
 		if (op_ret == 0) {
 			lookup_buf = &local->cont.lookup.buf;
-/*
-			if (afr_sh_has_metadata_pending (xattr, this))
+
+			if (afr_sh_has_metadata_pending (xattr, child_index, this))
 				local->need_metadata_self_heal = 1;
 
-			if (afr_sh_has_entry_pending (xattr, this))
+			if (afr_sh_has_entry_pending (xattr, child_index, this))
 				local->need_entry_self_heal = 1;
 
-			if (afr_sh_has_data_pending (xattr, this))
+			if (afr_sh_has_data_pending (xattr, child_index, this))
 				local->need_data_self_heal = 1;
-*/
+
 			if (local->success_count == 0) {
 				local->op_ret   = op_ret;
 
@@ -317,7 +317,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 					local->need_metadata_self_heal = 1;
 				}
 
-				if (SIZE_DIFFERS (buf, lookup_buf)) {
+				if (SIZE_DIFFERS (buf, lookup_buf)
+				    && S_ISREG (buf->st_mode)) {
 					local->need_data_self_heal = 1;
 				}
 			}

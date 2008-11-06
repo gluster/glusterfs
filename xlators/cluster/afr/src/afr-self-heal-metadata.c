@@ -72,7 +72,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 	}
 
 	if (local->govinda_gOvinda) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_WARNING,
 			"aborting selfheal of %s",
 			local->loc.path);
 		sh->completion_cbk (frame, this);
@@ -82,15 +82,21 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 				"proceeding to data check on %s",
 				local->loc.path);
 			afr_self_heal_data (frame, this);
+			return 0;
 		}
 
 		if (S_ISDIR (local->cont.lookup.buf.st_mode)) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"proceeding to entry check on %s",
 				local->loc.path);
-//			sh->completion_cbk (frame, this);
 			afr_self_heal_entry (frame, this);
+			return 0;
 		}
+		gf_log (this->name, GF_LOG_WARNING,
+			"completed self heal of %s",
+			local->loc.path);
+
+		sh->completion_cbk (frame, this);
 	}
 
 	return 0;
@@ -223,6 +229,15 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 			       priv->child_count, AFR_METADATA_PENDING);
 
 	local->call_count = call_count;
+
+	if (call_count == 0) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"metadata of %s not healed on any subvolume",
+			local->loc.path);
+
+		afr_sh_metadata_finish (frame, this);
+	}
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (!erase_xattr[i])
 			continue;
