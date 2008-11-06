@@ -49,7 +49,7 @@ static lock_inner_t *request_tail = &locks_request;
 static pthread_mutex_t locks_mutex;
 static char locks_mutex_init;
 
-static void
+void
 hold_lock()
 {
   if (!locks_mutex_init) {
@@ -60,7 +60,7 @@ hold_lock()
   pthread_mutex_lock (&locks_mutex);
 }
 
-static void
+void
 give_lock()
 {
   pthread_mutex_unlock (&locks_mutex);

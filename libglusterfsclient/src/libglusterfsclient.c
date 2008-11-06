@@ -85,17 +85,67 @@ typedef struct libglusterfs_client_async_local {
         }fop;
 }libglusterfs_client_async_local_t;
 
-pthread_mutex_t libgf_client_lock;
+/* static pthread_mutex_t libgf_client_lock; */
     
 static inline xlator_t *
 libglusterfs_graph (xlator_t *graph);
 
+/*
+void 
+glusterfs_lock (void)
+{
+	pthread_mutex_lock (&libgf_client_lock);
+}
+
+void 
+glusterfs_unlock (void)
+{
+	pthread_mutex_unlock (&libgf_client_lock);
+}
+*/
+
+static int first_init = 1;
+static int first_fini = 1;
+
 int32_t
-libglusterfsclient_forget (xlator_t *this,
-                           inode_t *inode)
+libgf_client_forget (xlator_t *this,
+		     inode_t *inode)
 {
         return 0;
 }
+
+
+int32_t
+libgf_client_release (xlator_t *this,
+		      fd_t *fd)
+{
+	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
+	data_t *fd_ctx_data = NULL;
+
+        fd_ctx_data = dict_get (fd->ctx, XLATOR_NAME);
+
+        fd_ctx = data_to_ptr (fd_ctx_data);
+	pthread_mutex_destroy (&fd_ctx->lock);
+
+	return 0;
+}
+
+
+int32_t
+libgf_client_releasedir (xlator_t *this,
+			 fd_t *fd)
+{
+	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
+	data_t *fd_ctx_data = NULL;
+
+        fd_ctx_data = dict_get (fd->ctx, XLATOR_NAME);
+
+        fd_ctx = data_to_ptr (fd_ctx_data);
+	pthread_mutex_destroy (&fd_ctx->lock);
+
+	return 0;
+}
+
 
 void *poll_proc (void *ptr)
 {
@@ -295,7 +345,8 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
                 }
         }
 
-        pthread_mutex_lock (&libgf_client_lock);
+/*        pthread_mutex_lock (&libgf_client_lock); */
+	if (first_init)
         {
                 ret = gf_log_init (ctx->gf_ctx.cmd_args.log_file);
                 if (ret == -1) {
@@ -305,13 +356,13 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
                         FREE (ctx->gf_ctx.pool);
                         FREE (ctx->gf_ctx.event_pool);
                         FREE (ctx);
-                        pthread_mutex_unlock (&libgf_client_lock);
+/*                        pthread_mutex_unlock (&libgf_client_lock);*/
                         return NULL;
                 }
 
                 gf_log_set_loglevel (ctx->gf_ctx.cmd_args.log_level);
         }
-        pthread_mutex_unlock (&libgf_client_lock);
+/*        pthread_mutex_unlock (&libgf_client_lock); */
 
         /*  ctx->gf_ctx.specfile = strdup (specfile); */
 
@@ -344,11 +395,11 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
                 ctx->gf_ctx.cmd_args.volume_name = strdup (init_ctx->volume_name);
         }
 
-        pthread_mutex_lock (&libgf_client_lock);
+/*        pthread_mutex_lock (&libgf_client_lock);*/
         {
                 graph = file_to_xlator_tree (&ctx->gf_ctx, specfp);
         }
-        pthread_mutex_unlock (&libgf_client_lock);
+/*        pthread_mutex_unlock (&libgf_client_lock); */
 
         if (!graph) {
                 fprintf (stderr,
@@ -456,8 +507,31 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
         }
         pthread_mutex_unlock (&priv->lock);
 
+	first_init = 0;
+ 
         return ctx;
 }
+
+
+void
+glusterfs_reset (void)
+{
+	first_fini = first_init = 1;
+}
+
+
+void 
+glusterfs_log_lock (void)
+{
+	gf_log_lock ();
+}
+
+
+void glusterfs_log_unlock (void)
+{
+	gf_log_unlock ();
+}
+
 
 int 
 glusterfs_fini (libglusterfs_client_ctx_t *ctx)
@@ -469,6 +543,10 @@ glusterfs_fini (libglusterfs_client_ctx_t *ctx)
         /* TODO: destroy graph */
         /* inode_table_destroy (ctx->itable); */
         FREE (ctx);
+
+	if (first_fini) {
+		gf_log_cleanup ();
+	}
 
         /* FREE (ctx->gf_ctx.specfile); */
 
@@ -2724,7 +2802,9 @@ static struct xlator_mops libgf_client_mops = {
 };
 
 static struct xlator_cbks libgf_client_cbks = {
-        .forget      = libglusterfsclient_forget,
+        .forget      = libgf_client_forget,
+	.release     = libgf_client_release,
+	.releasedir  = libgf_client_releasedir,
 };
 
 static inline xlator_t *
@@ -2760,6 +2840,7 @@ libglusterfs_graph (xlator_t *graph)
         return top;
 }
 
+/*
 void
 __attribute__ ((constructor)) init (void) 
 {
@@ -2771,6 +2852,6 @@ __attribute__ ((destructor)) fini (void)
 {
         pthread_mutex_destroy (&libgf_client_lock);
 }
-
+*/
 
 

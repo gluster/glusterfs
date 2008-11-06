@@ -33,7 +33,7 @@
 #include <libglusterfsclient.h>
 #include <list.h>
 #include <pthread.h>
-#include <asm/fcntl.h> 
+#include <fcntl.h>
 #include <sys/xattr.h>
 #include <string.h>
 #include <assert.h>
@@ -61,10 +61,10 @@ typedef struct _fd fd_t;
 
 
 inline void 
-gf_fd_put (struct _fdtable *fdtable, int32_t fd);
+gf_fd_put (struct _fdtable *fdtable, int64_t fd);
 
 struct _fd *
-gf_fd_fdptr_get (struct _fdtable *fdtable, int32_t fd);
+gf_fd_fdptr_get (struct _fdtable *fdtable, int64_t fd);
 
 struct _fdtable *
 gf_fd_fdtable_alloc (void);
@@ -76,7 +76,7 @@ int32_t
 gf_fd_unused_get (struct _fdtable *fdtable, struct _fd *fdptr);
 
 int32_t 
-gf_fd_unused_get2 (struct _fdtable *fdtable, struct _fd *fdptr, int32_t fd);
+gf_fd_unused_get2 (struct _fdtable *fdtable, struct _fd *fdptr, int64_t fd);
 
 void
 fd_unref (struct _fd *fd);
@@ -91,8 +91,8 @@ ssize_t
 write (int fd, const void *buf, size_t count);
 
 /* open, open64, creat */
-static int (*real_open) (const char *pathname, int flags, mode_t mode);
-static int (*real_open64) (const char *pathname, int flags, mode_t mode);
+static int (*real_open) (const char *pathname, int flags, ...);
+static int (*real_open64) (const char *pathname, int flags, ...);
 static int (*real_creat) (const char *pathname, mode_t mode);
 
 /* read, readv, pread, pread64 */
@@ -344,13 +344,23 @@ do_open (int fd, int flags, mode_t mode)
         return;
 }
 
-
+#ifndef __USE_FILE_OFFSET64
 int
-open (const char *pathname, int flags, mode_t mode)
+open (const char *pathname, int flags, ...)
 {
         int ret;
+	mode_t mode = 0;
+	va_list ap;
 
-        ret = real_open (pathname, flags, mode);
+	if (flags & O_CREAT) {
+		va_start (ap, flags);
+		mode = va_arg (ap, mode_t);
+		va_end (ap);
+
+		ret = real_open (pathname, flags, mode);
+	} else {
+		ret = real_open (pathname, flags);
+	}
 
         if (ret != -1) {
                 flags &= ~ O_CREAT;
@@ -359,13 +369,25 @@ open (const char *pathname, int flags, mode_t mode)
 
         return ret;
 }
+#endif
 
+#if defined (__USE_LARGEFILE64) || !defined (__USE_FILE_OFFSET64)
 int
-open64 (const char *pathname, int flags, mode_t mode)
+open64 (const char *pathname, int flags, ...)
 {
         int ret;
+	mode_t mode = 0;
+	va_list ap;
 
-        ret = real_open64 (pathname, flags, mode);
+	if (flags & O_CREAT) {
+		va_start (ap, flags);
+		mode = va_arg (ap, mode_t);
+		va_end (ap);
+
+		ret = real_open64 (pathname, flags, mode);
+	} else {
+		ret = real_open64 (pathname, flags);
+	}
 
         if (ret != -1) {
                 flags &= ~O_CREAT;
@@ -374,6 +396,7 @@ open64 (const char *pathname, int flags, mode_t mode)
 
         return ret;
 }
+#endif
 
 int
 creat (const char *pathname, mode_t mode)
@@ -811,7 +834,15 @@ booster_cleanup (void)
 	int i;
 	booster_mount_t *mount = NULL, *tmp = NULL;
 	
-	gf_fd_fdtable_destroy (booster_glfs_fdtable);
+	/* gf_fd_fdtable_destroy (booster_glfs_fdtable);*/
+	/*for (i=0; i < booster_glfs_fdtable->max_fds; i++) {
+		if (booster_glfs_fdtable->fds[i]) {
+			fd_t *fd = booster_glfs_fdtable->fds[i];
+			free (fd);			  
+		}
+		}*/
+
+	free (booster_glfs_fdtable);
 	booster_glfs_fdtable = NULL;
 
         pthread_mutex_lock (&booster_mount_table->lock);
@@ -821,6 +852,7 @@ booster_cleanup (void)
 			list_for_each_entry_safe (mount, tmp, 
 						  &booster_mount_table->mounts[i], device_list) {
 				list_del (&mount->device_list);
+				glusterfs_fini (mount->handle);
 				free (mount);
 			}
                 }
@@ -828,9 +860,11 @@ booster_cleanup (void)
         }
         pthread_mutex_unlock (&booster_mount_table->lock);
 
+	glusterfs_reset ();
 	free (booster_mount_table);
 	booster_mount_table = NULL;
 }
+
 
 
 pid_t 
@@ -839,7 +873,11 @@ fork (void)
 	pid_t pid = 0;
 	char child = 0;
 
-	pid = real_fork ();
+	glusterfs_log_lock ();
+	{
+		pid = real_fork ();
+	}
+	glusterfs_log_unlock ();
 
 	child = (pid == 0);
 	if (child) {
@@ -878,6 +916,6 @@ _init (void)
         RESOLVE (dup);
         RESOLVE (dup2);
 
-	RESOLVE (fork);
+	RESOLVE (fork); 
 }
 

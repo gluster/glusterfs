@@ -29,6 +29,7 @@ extern "C" {
         //#include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
+/* #include <logging.h> */
 
 typedef struct {
         int          op_ret;
@@ -76,6 +77,16 @@ glusterfs_init (glusterfs_init_ctx_t *ctx);
 
 int
 glusterfs_fini (libglusterfs_handle_t handle);
+
+/* added for log related initialization for fork implementation in booster */
+void 
+glusterfs_reset (void);
+
+void
+glusterfs_log_lock (void);
+
+void
+glusterfs_log_unlock (void);
 
 /* For smaller files, application can use just glusterfs_lookup/glusterfs_lookup_async to read 
  * the whole content. Limit of the file-sizes to be read in 

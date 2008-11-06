@@ -59,6 +59,12 @@ gf_log_set_loglevel (gf_loglevel_t level)
   gf_log_loglevel = loglevel = level;
 }
 
+void 
+gf_log_fini (void)
+{
+	pthread_mutex_destroy (&logfile_mutex);
+}
+
 int32_t 
 gf_log_init (const char *file)
 {
@@ -84,6 +90,24 @@ gf_log_init (const char *file)
   }
   gf_log_logfile = logfile;
   return 0;
+}
+
+void 
+gf_log_lock (void)
+{
+	pthread_mutex_lock (&logfile_mutex);
+}
+
+void 
+gf_log_unlock (void)
+{
+	pthread_mutex_unlock (&logfile_mutex);
+}
+
+void
+gf_log_cleanup (void)
+{
+	pthread_mutex_destroy (&logfile_mutex);
 }
 
 int32_t 

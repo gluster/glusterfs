@@ -70,6 +70,9 @@ _gf_log (const char *domain,
 int32_t 
 gf_log_init (const char *filename);
 
+void gf_log_lock (void);
+void gf_log_unlock (void);
+
 gf_loglevel_t 
 gf_log_get_loglevel (void);
 void 
