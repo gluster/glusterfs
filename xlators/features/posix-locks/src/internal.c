@@ -566,10 +566,10 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode, transport
 	pl_dir_lock_t *lock;
 	pl_dir_lock_t *tmp;
 
+	pthread_mutex_lock (&pinode->dir_lock_mutex);
+
 	if (list_empty (&pinode->gf_dir_locks)) 
 		return 0;
-
-	pthread_mutex_lock (&pinode->dir_lock_mutex);
 
 	list_for_each_entry_safe (lock, tmp, &pinode->gf_dir_locks, inode_list) {
 		if (lock->trans == trans) {
