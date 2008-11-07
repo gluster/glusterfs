@@ -43,8 +43,8 @@ struct quota_priv {
 	char only_first_time;                /* Used to make sure a call is done only one time */
 	gf_lock_t  lock;                     /* Used while updating variables */
 
-	fsblkcnt_t disk_usage_limit;         /* Used for Disk usage quota */
-	fsblkcnt_t current_disk_usage;       /* Keep the current usage value */
+	uint64_t disk_usage_limit;         /* Used for Disk usage quota */
+	uint64_t current_disk_usage;       /* Keep the current usage value */
 
 	uint32_t min_free_disk_limit;        /* user specified limit, in % */ 
 	uint32_t current_free_disk;          /* current free disk space available, in % */

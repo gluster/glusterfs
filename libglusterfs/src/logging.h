@@ -29,22 +29,43 @@
 #include <stdint.h>
 #include <stdio.h>  
 
+#define GF_PRI_FSBLK       PRId64
+#define GF_PRI_BLKSIZE     "ld"
 #if GF_LINUX_HOST_OS
 
-#if __WORDSIZE == 64
-#  define GF_PRI_SIZET "lu"
-#  define GF_PRI_NLINK "lu"
-#else
-#  define GF_PRI_SIZET "u"
-#  define GF_PRI_NLINK "u"
-#endif /* __WORDSIZE */
+#  if __WORDSIZE == 64
+#    define GF_PRI_SIZET   "lu"
+#    define GF_PRI_NLINK   "lu"
+#  else
+#    define GF_PRI_SIZET   "u"
+#    define GF_PRI_NLINK   "u"
+#  endif /* __WORDSIZE */
 
-#else
+#elif GF_DARWIN_HOST_OS
+
 /* Noticed that size_t and ino_t are different on OSX, need to fix the warnings */
-#  define GF_PRI_SIZET "lu"
-#  define GF_PRI_NLINK "u"
+#  define GF_PRI_SIZET     "lu"
+#  define GF_PRI_NLINK     "u"
+
+#  undef GF_PRI_FSBLK
+#  define GF_PRI_FSBLK     "u"
+ 
+#  undef GF_PRI_BLKSIZE
+#  define GF_PRI_BLKSIZE   "u"
+
+#  if __DARWIN_64_BIT_INO_T == 0
+#    error '64 bit ino_t is must for GlusterFS to work, Compile with "CFLAGS=-D__DARWIN_64_BIT_INO_T"'
+#  endif /* __DARWIN_64_BIT_INO_T */
+
+#else /* !LINUX && !DARWIN */
+
+/* BSD and Solaris : Change as per testing there.. */
+#  define GF_PRI_SIZET     "lu"
+#  define GF_PRI_NLINK     "u"
+
 #endif /* LINUX_OS */
 
+#define GF_PRI_DEV         GF_PRI_FSBLK
 
 /* Replace gf_log with _GF_FORMAT_WARN during compile time and let gcc spit the format specificier warnings. Make sure you replace them back with gf_log call. */
 #define _GF_FORMAT_WARN(domain, loglevel, format, args...)  printf ("__DEBUG__" format, ##args);

@@ -465,8 +465,8 @@ case $host_os in
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
 	LIBTOOL=glibtool
-	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -bundle -undefined suppress -flat_namespace"
-	GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -undefined suppress -flat_namespace"
+	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -bundle -undefined suppress -flat_namespace"
+	GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -undefined suppress -flat_namespace"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	GF_FUSE_LDADD="-liconv"
 	BUILD_MOD_GLUSTERFS=no

@@ -1089,7 +1089,7 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
 	impunge_sh = &impunge_local->self_heal;
 
 	gf_log (this->name, GF_LOG_WARNING,
-		"creating file %s mode=0%o dev=0x%"PRIx64" on %s",
+		"creating file %s mode=0%o dev=0x%"GF_PRI_DEV" on %s",
 		impunge_local->loc.path,
 		stbuf->st_mode, stbuf->st_rdev,
 		priv->children[child_index]->name);

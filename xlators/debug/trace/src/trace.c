@@ -77,10 +77,10 @@ trace_create_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, fd=%p, ino=%"PRId64"), *buf {st_dev=%"PRId64", st_ino=%"PRId64", "
-				"st_mode=%d, st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"PRIx64", "
-				"st_size=%"PRId64", st_blksize=%ld, st_blocks=%"PRId64", st_atime=%s, st_mtime=%s, "
-				"st_ctime=%s})",
+				"(op_ret=%d, fd=%p, ino=%"PRIu64"), *buf {st_dev=%"GF_PRI_DEV", "
+				"st_ino=%"PRIu64", st_mode=%d, st_nlink=%"GF_PRI_NLINK", st_uid=%d, "
+				"st_gid=%d, st_rdev=%"GF_PRI_DEV", st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", "
+				"st_blocks=%"PRId64", st_atime=%s, st_mtime=%s, st_ctime=%s})",
 				op_ret, fd, inode->ino, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, 
 				buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, 
 				buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -134,10 +134,10 @@ trace_stat_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, buf {st_dev=%"PRId64", st_ino=%"PRId64", st_mode=%d, "
-				"st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"PRIx64", "
-				"st_size=%"PRId64", st_blksize=%ld, st_blocks=%"PRId64", st_atime=%s, "
-				"st_mtime=%s, st_ctime=%s})",
+				"(op_ret=%d, buf {st_dev=%"GF_PRI_DEV", st_ino=%"PRIu64", st_mode=%d, "
+				"st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", "
+				"st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64", "
+				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
 				op_ret, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, 
 				buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, 
 				buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -173,9 +173,9 @@ trace_readv_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, *buf {st_dev=%"PRId64", st_ino=%"PRId64", st_mode=%d, "
-				"st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"PRIx64", "
-				"st_size=%"PRId64", st_blksize=%ld, st_blocks=%"PRId64", st_atime=%s, "
+				"(op_ret=%d, *buf {st_dev=%"GF_PRI_DEV", st_ino=%"PRIu64", st_mode=%d, "
+				"st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", "
+				"st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64", st_atime=%s, "
 				"st_mtime=%s, st_ctime=%s})",
 				op_ret, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, 
 				buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, 
@@ -209,7 +209,7 @@ trace_writev_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, *buf {st_ino=%"PRId64", st_size=%"PRId64", st_blocks=%"PRId64", "
+				"(op_ret=%d, *buf {st_ino=%"PRIu64", st_size=%"PRId64", st_blocks=%"PRId64", "
 				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
 				op_ret, buf->st_ino, buf->st_size, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 		} else {
@@ -302,7 +302,7 @@ trace_chown_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, *buf {st_ino=%"PRId64", st_mode=%d, st_uid=%d, st_gid=%d, "
+				"(op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%d, st_uid=%d, st_gid=%d, "
 				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
 				op_ret, buf->st_ino, buf->st_mode, buf->st_uid, buf->st_gid, 
 				atime_buf, mtime_buf, ctime_buf);
@@ -335,7 +335,7 @@ trace_chmod_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, *buf {st_ino=%"PRId64", st_mode=%d, st_atime=%s, "
+				"(op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%d, st_atime=%s, "
 				"st_mtime=%s, st_ctime=%s})",
 				op_ret, buf->st_ino, buf->st_mode, atime_buf, mtime_buf, ctime_buf);
 		} else {
@@ -367,7 +367,7 @@ trace_fchmod_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, *buf {st_ino=%"PRId64", st_mode=%d, st_atime=%s, "
+				"(op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%d, st_atime=%s, "
 				"st_mtime=%s, st_ctime=%s})",
 				op_ret, buf->st_ino, buf->st_mode, atime_buf, mtime_buf, ctime_buf);
 		} else {
@@ -399,7 +399,7 @@ trace_fchown_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, *buf {st_ino=%"PRId64", st_mode=%d, st_uid=%d, st_gid=%d, "
+				"(op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%d, st_uid=%d, st_gid=%d, "
 				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
 				op_ret, buf->st_ino, buf->st_mode, buf->st_uid, buf->st_gid, 
 				atime_buf, mtime_buf, ctime_buf);
@@ -445,7 +445,7 @@ trace_rename_cbk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_RENAME].enabled) {
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(op_ret=%d, op_errno=%d, buf {st_ino=%"PRId64"})",
+			"(op_ret=%d, op_errno=%d, buf {st_ino=%"PRIu64"})",
 			op_ret, op_errno, (buf)?buf->st_ino:0);
 	}
   
@@ -488,9 +488,9 @@ trace_lookup_cbk (call_frame_t *frame,
 	if (trace_fop_names[GF_FOP_LOOKUP].enabled) {
 		if (op_ret >= 0) {
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"%lld (op_ret=%d, ino=%"PRId64", *buf {st_dev=%"PRId64", st_ino=%"PRId64", "
-				"st_mode=%d, st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"PRIx64", "
-				"st_size=%"PRId64", st_blksize=%ld, st_blocks=%"PRId64"})",
+				"%lld (op_ret=%d, ino=%"PRIu64", *buf {st_dev=%"GF_PRI_DEV", st_ino=%"PRIu64", "
+				"st_mode=%d, st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", "
+				"st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64"})",
 				(long long) frame->root->unique, op_ret, inode->ino, buf->st_dev, buf->st_ino, 
 				buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, 
 				buf->st_blksize, buf->st_blocks);
@@ -524,7 +524,7 @@ trace_symlink_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, ino=%"PRId64", *buf {st_ino=%"PRId64", st_mode=%d, "
+				"(op_ret=%d, ino=%"PRIu64", *buf {st_ino=%"PRIu64", st_mode=%d, "
 				"st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_size=%"PRId64", "
 				"st_blocks=%"PRId64", st_atime=%s, st_mtime=%s, st_ctime=%s})",
 				op_ret, inode->ino, buf->st_ino, buf->st_mode, buf->st_nlink, 
@@ -560,9 +560,9 @@ trace_mknod_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, ino=%"PRId64", *buf {st_dev=%"PRId64", st_ino=%"PRId64", "
-				"st_mode=%d, st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"PRIx64", "
-				"st_size=%"PRId64", st_blksize=%ld, st_blocks=%"PRId64", st_atime=%s, "
+				"(op_ret=%d, ino=%"PRIu64", *buf {st_dev=%"GF_PRI_DEV", st_ino=%"PRIu64", "
+				"st_mode=%d, st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", "
+				"st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64", st_atime=%s, "
 				"st_mtime=%s, st_ctime=%s})",
 				op_ret, inode->ino, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, 
 				buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, 
@@ -592,7 +592,7 @@ trace_mkdir_cbk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_MKDIR].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(op_ret=%d, op_errno=%d, inode=%"PRId64"",
+			"(op_ret=%d, op_errno=%d, ino=%"PRIu64"",
 			op_ret, op_errno, (inode)?inode->ino:0);
 	}
 
@@ -614,7 +614,7 @@ trace_link_cbk (call_frame_t *frame,
 	if (trace_fop_names[GF_FOP_LINK].enabled) {
 		if (op_ret >= 0) {
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, inode=%"PRId64", *buf {st_nlink=%"GF_PRI_NLINK"})",
+				"(op_ret=%d, ino=%"PRIu64", *buf {st_nlink=%"GF_PRI_NLINK"})",
 				op_ret, inode->ino, buf->st_nlink);
 		} else {
 			gf_log (this->name, GF_LOG_NORMAL, 
@@ -699,7 +699,7 @@ trace_truncate_cbk (call_frame_t *frame,
 	if (trace_fop_names[GF_FOP_TRUNCATE].enabled) {  
 		if (op_ret >= 0) {
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, *buf {st_size=%"PRId64", st_blksize=%ld, st_blocks=%"PRId64"})",
+				"(op_ret=%d, *buf {st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64"})",
 				op_ret, buf->st_size, buf->st_blksize, buf->st_blocks);
 		} else {
 			gf_log (this->name, GF_LOG_NORMAL, 
@@ -756,9 +756,9 @@ trace_statfs_cbk (call_frame_t *frame,
 	if (trace_fop_names[GF_FOP_STATFS].enabled) {
 		if (op_ret >= 0) {
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"({f_bsize=%lu, f_frsize=%lu, f_blocks=%"PRIu64", f_bfree=%"PRIu64", "
-				"f_bavail=%"PRIu64", f_files=%"PRIu64", f_ffree=%"PRIu64", f_favail=%"PRIu64", "
-				"f_fsid=%lu, f_flag=%lu, f_namemax=%lu}) => ret=%d",
+				"({f_bsize=%lu, f_frsize=%lu, f_blocks=%"GF_PRI_FSBLK", f_bfree=%"GF_PRI_FSBLK", "
+				"f_bavail=%"GF_PRI_FSBLK", f_files=%"GF_PRI_FSBLK", f_ffree=%"GF_PRI_FSBLK", "
+				"f_favail=%"GF_PRI_FSBLK", f_fsid=%lu, f_flag=%lu, f_namemax=%lu}) => ret=%d",
 				buf->f_bsize, buf->f_frsize, buf->f_blocks, buf->f_bfree, buf->f_bavail, 
 				buf->f_files, buf->f_ffree, buf->f_favail, buf->f_fsid, buf->f_flag, 
 				buf->f_namemax, op_ret);
@@ -883,7 +883,7 @@ trace_ftruncate_cbk (call_frame_t *frame,
 	if (trace_fop_names[GF_FOP_FTRUNCATE].enabled) {
 		if (op_ret >= 0) {
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, *buf {st_size=%"PRId64", st_blksize=%ld, st_blocks=%"PRId64"})",
+				"(op_ret=%d, *buf {st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64"})",
 				op_ret, buf->st_size, buf->st_blksize, buf->st_blocks);
 		} else {
 			gf_log (this->name, GF_LOG_NORMAL, 
@@ -914,9 +914,9 @@ trace_fstat_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"(op_ret=%d, *buf {st_dev=%"PRId64", st_ino=%"PRId64", st_mode=%d, "
-				"st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"PRIx64", "
-				"st_size=%"PRId64", st_blksize=%ld, st_blocks=%"PRId64", st_atime=%s, "
+				"(op_ret=%d, *buf {st_dev=%"GF_PRI_DEV", st_ino=%"PRIu64", st_mode=%d, "
+				"st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", "
+				"st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64", st_atime=%s, "
 				"st_mtime=%s, st_ctime=%s})",
 				op_ret, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, 
 				buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, 
@@ -1068,7 +1068,7 @@ trace_entrylk (call_frame_t *frame, xlator_t *this,
 
 	if (trace_fop_names[GF_FOP_ENTRYLK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc= {path=%s, ino=%"PRId64"} basename=%s, cmd=%s, type=%s)",
+			"(loc= {path=%s, ino=%"PRIu64"} basename=%s, cmd=%s, type=%s)",
 			loc->path, loc->inode->ino, basename, 
 			(cmd == GF_DIR_LK_LOCK) ? "GF_DIR_LK_LOCK" : "GF_DIR_LK_UNLOCK", 
 			(type == GF_DIR_LK_RDLCK) ? "GF_DIR_LK_RDLCK" : "GF_DIR_LK_WRLCK");
@@ -1091,7 +1091,7 @@ trace_inodelk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_INODELK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, cmd=%s)",
+			"(loc {path=%s, ino=%"PRIu64"}, cmd=%s)",
 			loc->path, loc->inode->ino, 
 			cmd == F_SETLK ? "F_SETLK" : "unknown");
 	}
@@ -1157,7 +1157,7 @@ trace_xattrop (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_XATTROP].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (path=%s, ino=%"PRId64" flags=%d)",
+			"callid: %lld (path=%s, ino=%"PRIu64" flags=%d)",
 			(long long) frame->root->unique, loc->path, loc->inode->ino, flags);
 			
 	}
@@ -1204,7 +1204,7 @@ trace_lookup (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_LOOKUP].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (loc {path=%s, ino=%"PRId64"} need_xattr=%d)",
+			"callid: %lld (loc {path=%s, ino=%"PRIu64"} need_xattr=%d)",
 			(long long) frame->root->unique, loc->path,
 			loc->inode->ino, need_xattr);
 	}
@@ -1242,7 +1242,7 @@ trace_stat (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_STAT].enabled) {
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld (loc {path=%s, ino=%"PRId64"})",
+			"callid: %lld (loc {path=%s, ino=%"PRIu64"})",
 			(long long) frame->root->unique, loc->path, loc->inode->ino);
 	}
 
@@ -1264,7 +1264,7 @@ trace_readlink (call_frame_t *frame,
 	ERR_EINVAL_NORETURN (!this || !loc || (size < 1));
 	if (trace_fop_names[GF_FOP_READLINK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, size=%"GF_PRI_SIZET")",
+			"(loc {path=%s, ino=%"PRIu64"}, size=%"GF_PRI_SIZET")",
 			loc->path, loc->inode->ino, size);
 	}
 
@@ -1289,7 +1289,7 @@ trace_mknod (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_MKNOD].enabled) {
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, mode=%d, dev=%"PRId64")",
+			"(loc {path=%s, ino=%"PRIu64"}, mode=%d, dev=%"GF_PRI_DEV")",
 			loc->path, loc->inode->ino, mode, dev);
 	}
 
@@ -1314,7 +1314,7 @@ trace_mkdir (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_MKDIR].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(path=%s, ino=%"PRId64", mode=%d)",
+			"(path=%s, ino=%"PRIu64", mode=%d)",
 			loc->path, (loc->inode)?loc->inode->ino:0, mode);
 	}
   
@@ -1336,7 +1336,7 @@ trace_unlink (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_UNLINK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"})",
+			"(loc {path=%s, ino=%"PRIu64"})",
 			loc->path, loc->inode->ino);
 	}
 
@@ -1357,7 +1357,7 @@ trace_rmdir (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_RMDIR].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"})",
+			"(loc {path=%s, ino=%"PRIu64"})",
 			loc->path, loc->inode->ino);
 	}
 
@@ -1381,7 +1381,7 @@ trace_symlink (call_frame_t *frame,
 	if (trace_fop_names[GF_FOP_SYMLINK].enabled) {  
 		gf_log (this->name, 
 			GF_LOG_NORMAL, 
-			"(linkpath=%s, loc {path=%s, ino=%"PRId64"})",
+			"(linkpath=%s, loc {path=%s, ino=%"PRIu64"})",
 			linkpath, loc->path, (loc->inode)?loc->inode->ino:0);
 	}
 
@@ -1405,7 +1405,7 @@ trace_rename (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_RENAME].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(oldloc {path=%s, ino=%"PRId64"}, newloc{path=%s, ino=%"PRId64"})",
+			"(oldloc {path=%s, ino=%"PRIu64"}, newloc{path=%s, ino=%"PRIu64"})",
 			oldloc->path, oldloc->ino, newloc->path, newloc->ino);
 	}
 
@@ -1429,7 +1429,7 @@ trace_link (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_LINK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(oldloc {path=%s, ino=%"PRId64"}, newloc {path=%s, ino=%"PRId64"})",
+			"(oldloc {path=%s, ino=%"PRIu64"}, newloc {path=%s, ino=%"PRIu64"})",
 			oldloc->path, oldloc->inode->ino, newloc->path, newloc->inode->ino);
 	}
 
@@ -1452,7 +1452,7 @@ trace_chmod (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_CHMOD].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, mode=%o)",
+			"(loc {path=%s, ino=%"PRIu64"}, mode=%o)",
 			loc->path, loc->inode->ino, mode);
 	}
 
@@ -1477,7 +1477,7 @@ trace_chown (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_CHOWN].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, uid=%d, gid=%d)",
+			"(loc {path=%s, ino=%"PRIu64"}, uid=%d, gid=%d)",
 			loc->path, loc->inode->ino, uid, gid);
 	}
 
@@ -1502,7 +1502,7 @@ trace_truncate (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_TRUNCATE].enabled) { 
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, offset=%"PRId64")",
+			"(loc {path=%s, ino=%"PRIu64"}, offset=%"PRId64")",
 			loc->path, loc->inode->ino, offset);
 	}
 
@@ -1532,7 +1532,7 @@ trace_utimens (call_frame_t *frame,
 		strftime (modtime_str, 256, "[%b %d %H:%M:%S]", localtime (&tv[1].tv_sec));
 
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, *tv=%p {actime=%s, modtime=%s})",
+			"(loc {path=%s, ino=%"PRIu64"}, *tv=%p {actime=%s, modtime=%s})",
 			loc->path, loc->inode->ino, tv, actime_str, modtime_str);
 	}
 
@@ -1557,7 +1557,7 @@ trace_open (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_OPEN].enabled) {
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, flags=%d, fd=%p)",
+			"(loc {path=%s, ino=%"PRIu64"}, flags=%d, fd=%p)",
 			loc->path, loc->inode->ino, flags, fd);
 	}
 
@@ -1583,7 +1583,7 @@ trace_create (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_CREATE].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, flags=0%o mode=0%o)",
+			"(loc {path=%s, ino=%"PRIu64"}, flags=0%o mode=0%o)",
 			loc->path, loc->inode->ino, flags, mode);
 	}
 
@@ -1659,7 +1659,7 @@ trace_statfs (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_STATFS].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"})",
+			"(loc {path=%s, ino=%"PRIu64"})",
 			loc->path, (loc->inode)?loc->inode->ino:0);
 	}
 
@@ -1724,7 +1724,7 @@ trace_setxattr (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_SETXATTR].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, dict=%p, flags=%d)",
+			"(loc {path=%s, ino=%"PRIu64"}, dict=%p, flags=%d)",
 			loc->path, (loc->inode)?loc->inode->ino:0, dict, flags);
 	}
 
@@ -1748,7 +1748,7 @@ trace_getxattr (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_GETXATTR].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}), name=%s",
+			"(loc {path=%s, ino=%"PRIu64"}), name=%s",
 			loc->path, (loc->inode)?loc->inode->ino:0, name);
 	}
 
@@ -1771,7 +1771,7 @@ trace_removexattr (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_REMOVEXATTR].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(loc {path=%s, ino=%"PRId64"}, name=%s)",
+			"(loc {path=%s, ino=%"PRIu64"}, name=%s)",
 			loc->path, (loc->inode)?loc->inode->ino:0, name);
 	}
 
@@ -1795,7 +1795,7 @@ trace_opendir (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_OPENDIR].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"callid: %lld ( loc {path=%s, ino=%"PRId64"}, fd=%p)",
+			"callid: %lld ( loc {path=%s, ino=%"PRIu64"}, fd=%p)",
 			(long long) frame->root->unique, loc->path, loc->inode->ino, fd);
 	}
 
@@ -1895,7 +1895,7 @@ trace_access (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_ACCESS].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"(*loc {path=%s, ino=%"PRId64"}, mask=0%o)",
+			"(*loc {path=%s, ino=%"PRIu64"}, mask=0%o)",
 			loc->path, (loc->inode)?loc->inode->ino:0, mask);
 	}
 

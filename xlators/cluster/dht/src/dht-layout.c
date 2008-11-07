@@ -59,14 +59,12 @@ out:
 dht_layout_t *
 dht_layout_get (xlator_t *this, inode_t *inode)
 {
-        dht_layout_t *layout = NULL;
-        int           ret = -1;
+        void *layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
+        int  ret = -1;
 
+        ret = dict_get_ptr (inode->ctx, this->name, &layout);
 
-        ret = dict_get_ptr (inode->ctx, this->name,
-			    (void **)(&layout));
-
-        return layout;
+        return (dht_layout_t *)layout;
 }
 
 
@@ -233,8 +231,8 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	int      i     = 0;
 	int      ret   = -1;
 	int      err   = -1;
-	int32_t *disk_layout = 0;
-
+	int32_t *disk_layout = NULL;
+	void    *tmp_disk_layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
 
 	if (op_ret != 0) {
 		err = op_errno;
@@ -251,8 +249,8 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	if (!xattr)
 		goto out;
 
-	ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
-			    (void **)&disk_layout);
+	ret = dict_get_ptr (xattr, "trusted.glusterfs.dht", &tmp_disk_layout);
+
 	if (ret != 0) {
 		err = -1;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -261,6 +259,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 		goto out;
 	}
 
+	disk_layout = tmp_disk_layout;
 	ret = dht_disk_layout_merge (this, layout, i, disk_layout);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR,

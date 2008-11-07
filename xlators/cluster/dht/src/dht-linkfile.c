@@ -136,7 +136,7 @@ dht_linkfile_subvol (xlator_t *this, inode_t *inode, struct stat *stbuf,
 {
 	dht_conf_t *conf = NULL;
 	xlator_t   *subvol = NULL;
-	char       *volname = NULL;
+	void       *volname = NULL;
 	int         i = 0;
 
 
@@ -145,14 +145,13 @@ dht_linkfile_subvol (xlator_t *this, inode_t *inode, struct stat *stbuf,
 	if (!xattr)
 		goto out;
 
-	dict_get_ptr (xattr, "trusted.glusterfs.dht.linkto",
-		      (void **)&volname);
+	dict_get_ptr (xattr, "trusted.glusterfs.dht.linkto", &volname);
 
 	if (!volname)
 		goto out;
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
-		if (strcmp (conf->subvolumes[i]->name, volname) == 0) {
+		if (strcmp (conf->subvolumes[i]->name, (char *)volname) == 0) {
 			subvol = conf->subvolumes[i];
 			break;
 		}

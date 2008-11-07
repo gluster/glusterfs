@@ -2461,7 +2461,7 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int           this_call_cnt = 0;
 	call_frame_t *prev = NULL;
 	dht_layout_t *layout = NULL;
-
+	void         *tmp_layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
 
 	local = frame->local;
 	prev  = cookie;
@@ -2489,8 +2489,9 @@ unlock:
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
 		if (local->need_selfheal) {
-			inode_ctx_get (local->loc.inode, this,
-				       (void **)&layout);
+			inode_ctx_get (local->loc.inode, this, &tmp_layout);
+			layout = tmp_layout;
+
 			/* TODO: neater interface needed below */
 			local->stbuf.st_mode = local->loc.inode->st_mode;
 
@@ -2982,12 +2983,14 @@ int
 dht_forget (xlator_t *this, inode_t *inode)
 {
 	dht_layout_t *layout = NULL;
+	void         *tmp_layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
 
-	inode_ctx_get (inode, this, (void **)&layout);
+	inode_ctx_get (inode, this, &tmp_layout);
 
-	if (!layout)
+	if (!tmp_layout)
 		return 0;
 
+	layout = tmp_layout;
 	if (!layout->preset)
 		FREE (layout);
 
