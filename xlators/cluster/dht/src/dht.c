@@ -2340,7 +2340,7 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int           ret = -1;
 	call_frame_t *prev = NULL;
 	dht_layout_t *layout = NULL;
-
+	void         *tmp_layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
 
 	local = frame->local;
 	prev  = cookie;

@@ -556,6 +556,11 @@ cleanup_and_exit (int signum)
 		fclose (ctx->specfp);
 		ctx->specfp = NULL;
 	}
+
+	if (ctx->specfp) {
+		fclose (ctx->specfp);
+		ctx->specfp = NULL;
+	}
 	
 	if (ctx->cmd_args.pid_file) {
 		unlink (ctx->cmd_args.pid_file);

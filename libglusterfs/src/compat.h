@@ -80,6 +80,8 @@ enum {
 
 #define MAKEDEV(maj, min) makedev(maj, min)
 
+#define MAKEDEV(maj, min) makedev(maj, min)
+
 #ifndef sighandler_t
 #define sighandler_t sig_t
 #endif
@@ -132,6 +134,11 @@ enum {
 #    error '64 bit ino_t is must for GlusterFS to work, Compile with "CFLAGS=-D__DARWIN_64_BIT_INO_T"'
 #endif /* __DARWIN_64_BIT_INO_T */
 
+
+#if __DARWIN_64_BIT_INO_T == 0
+#    error '64 bit ino_t is must for GlusterFS to work, Compile with "CFLAGS=-D__DARWIN_64_BIT_INO_T"'
+#endif /* __DARWIN_64_BIT_INO_T */
+
 #ifndef sighandler_t
 #define sighandler_t sig_t
 #endif
@@ -139,6 +146,8 @@ enum {
 #ifndef EUCLEAN
 #define EUCLEAN 0
 #endif
+
+#define MAKEDEV(maj, min) makedev(maj, min)
 
 #define MAKEDEV(maj, min) makedev(maj, min)
 
