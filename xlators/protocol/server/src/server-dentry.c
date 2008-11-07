@@ -232,12 +232,16 @@ __do_path_resolve_cbk (call_frame_t *frame,
 	if (op_ret == -1) {
 		if (strcmp (state->path, state->loc.path))
 			parent = NULL;
-
+		
 		server_stub_resume (stub, op_ret, op_errno, NULL, parent);
 		goto cleanup;
 	} else {
 		if (inode->ino == 0) {
 			inode_link (inode, state->loc.parent, state->loc.name, stbuf);
+			if (list_empty (&inode->dentry_list))
+				gf_log (this->name, GF_LOG_ERROR,
+					"missing dentry for %"PRId64"/%s", 
+					state->loc.parent->ino, state->loc.name);
 			inode_lookup (inode);
 		}
 
@@ -245,8 +249,8 @@ __do_path_resolve_cbk (call_frame_t *frame,
 			SERVER_DENTRY_UPDATE_STATE(state);
 			STACK_WIND (frame,
 				    __do_path_resolve_cbk,
-				    BOUND_XL (frame),
-				    BOUND_XL (frame)->fops->lookup,
+				    BOUND_XL(frame),
+				    BOUND_XL(frame)->fops->lookup,
 				    &(state->loc),
 				    0);
 
@@ -293,6 +297,12 @@ __do_path_resolve (call_stub_t *stub,
 			GF_LOG_CRITICAL,
 			"failed to get parent inode number");
 		goto panic;
+	} else {
+		gf_log (BOUND_XL(stub->frame)->name,
+			GF_LOG_DEBUG,
+			"resolved path(%s) to %"PRId64"(%s). "
+			"sending lookup for remaining path",
+			loc->path, parent->ino, resolved);
 	}
 	
 	{
@@ -353,6 +363,10 @@ do_path_lookup (call_stub_t *stub,
 		free (pathname);
 	
 	if (inode && parent) {
+		gf_log (BOUND_XL(stub->frame)->name,
+			GF_LOG_DEBUG,
+			"resolved path(%s) to %"PRId64"/%"PRId64"(%s)",
+			loc->path, parent->ino, inode->ino, loc->name);
 		server_stub_resume (stub, 0, 0, inode, parent);
 		inode_unref (inode);
 		inode_unref (parent);

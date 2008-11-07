@@ -105,7 +105,7 @@ struct _server_state {
 	dev_t dev;
 	uid_t uid;
 	gid_t gid;
-	int32_t nr_count;
+	size_t nr_count;
 	int cmd;
 	int type;
 	char *name;
@@ -117,8 +117,8 @@ struct _server_state {
 	ino_t par2;
 	char *path;
 	char *path2;
-	char *basename;
-	char *basename2;
+	char *bname;
+	char *bname2;
 	int mask;
 	char is_revalidate;
 	char need_xattr;

@@ -227,7 +227,7 @@ typedef struct {
 	uint64_t dev;
 	uint32_t mode;
 	char     path[0];     /* NULL terminated */
-	char     basename[0]; /* NULL terminated */
+	char     bname[0]; /* NULL terminated */
 } __attribute__((packed)) gf_fop_mknod_req_t;
 typedef struct {
 	struct gf_stat stat;
@@ -238,7 +238,7 @@ typedef struct {
 	uint64_t par;
 	uint32_t mode;
 	char     path[0];     /* NULL terminated */
-	char     basename[0]; /* NULL terminated */
+	char     bname[0]; /* NULL terminated */
 } __attribute__((packed)) gf_fop_mkdir_req_t;
 typedef struct {
 	struct gf_stat stat;
@@ -248,7 +248,7 @@ typedef struct {
 typedef struct {
 	uint64_t par;
 	char     path[0];     /* NULL terminated */
-	char     basename[0]; /* NULL terminated */
+	char     bname[0]; /* NULL terminated */
 } __attribute__((packed)) gf_fop_unlink_req_t;
 typedef struct {
 } __attribute__((packed)) gf_fop_unlink_rsp_t;
@@ -257,7 +257,7 @@ typedef struct {
 typedef struct {
 	uint64_t par;
 	char     path[0];
-	char     basename[0]; /* NULL terminated */
+	char     bname[0]; /* NULL terminated */
 } __attribute__((packed)) gf_fop_rmdir_req_t;
 typedef struct {
 } __attribute__((packed)) gf_fop_rmdir_rsp_t;
@@ -266,7 +266,7 @@ typedef struct {
 typedef struct {
 	uint64_t par;
 	char     path[0];
-	char     basename[0];
+	char     bname[0];
 	char     linkname[0];
 } __attribute__((packed)) gf_fop_symlink_req_t;
 typedef struct {
@@ -278,9 +278,9 @@ typedef struct {
 	uint64_t   oldpar;
 	uint64_t   newpar;
 	char       oldpath[0];
-	char       oldbasename[0]; /* NULL terminated */
+	char       oldbname[0]; /* NULL terminated */
 	char       newpath[0];
-	char       newbasename[0]; /* NULL terminated */
+	char       newbname[0]; /* NULL terminated */
 } __attribute__((packed)) gf_fop_rename_req_t;
 typedef struct {
 	struct gf_stat stat;
@@ -292,7 +292,7 @@ typedef struct {
 	uint64_t   newpar;
 	char       oldpath[0];
 	char       newpath[0];
-	char       newbasename[0];
+	char       newbname[0];
 }__attribute__((packed)) gf_fop_link_req_t;
 typedef struct {
 	struct gf_stat stat;
@@ -489,7 +489,7 @@ typedef struct {
 	uint32_t flags;
 	uint32_t mode;
 	char     path[0];
-	char     basename[0];
+	char     bname[0];
 } __attribute__((packed)) gf_fop_create_req_t;
 typedef struct {
 	struct gf_stat stat;
@@ -605,7 +605,7 @@ typedef struct {
 	uint64_t par;
 	uint32_t flags;
 	char     path[0];
-	char     basename[0];
+	char     bname[0];
 } __attribute__((packed)) gf_fop_lookup_req_t;
 typedef struct {
 	struct gf_stat stat;
