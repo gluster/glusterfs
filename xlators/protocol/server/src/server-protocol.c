@@ -3466,9 +3466,9 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
 	}
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
-		"READV \'fd=%"PRId64"; offset=%"PRId64"; size=%d",
+		"READV \'fd=%"PRId64"; offset=%"PRId64"; size=%"PRId64,
 		fd_no, state->offset, 
-		state->size);
+		(int64_t)state->size);
 
 	STACK_WIND (frame,
 		    server_readv_cbk,
@@ -3529,9 +3529,9 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 	frame->root->req_refs = dict_ref (refs);
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
-		"WRITEV \'fd=%"PRId64"; offset=%"PRId64"; size=%d",
+		"WRITEV \'fd=%"PRId64"; offset=%"PRId64"; size=%"PRId64,
 		fd_no, state->offset, 
-		buflen);
+		(int64_t)buflen);
 
 	STACK_WIND (frame,
 		    server_writev_cbk,
@@ -4614,8 +4614,8 @@ server_getdents (call_frame_t *frame,
 	}
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
-		"GETDENTS \'fd=%"PRId64"; offset=%"PRId64"; size=%d", 
-		fd_no, state->offset, state->size);
+		"GETDENTS \'fd=%"PRId64"; offset=%"PRId64"; size=%"PRId64, 
+		fd_no, state->offset, (int64_t)state->size);
 
 	STACK_WIND (frame,
 		    server_getdents_cbk,
@@ -4672,8 +4672,8 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 	}
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
-		"READDIR \'fd=%"PRId64"; offset=%"PRId64"; size=%d",
-		fd_no, state->offset, state->size);
+		"READDIR \'fd=%"PRId64"; offset=%"PRId64"; size=%"PRId64,
+		fd_no, state->offset, (int64_t)state->size);
 
 	STACK_WIND (frame,
 		    server_readdir_cbk,
@@ -6095,8 +6095,8 @@ server_setdents (call_frame_t *frame,
 	}
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
-		"SETDENTS \'fd=%"PRId64"; count=%d",
-		fd_no, state->nr_count);
+		"SETDENTS \'fd=%"PRId64"; count=%"PRId64,
+		fd_no, (int64_t)state->nr_count);
 
 	STACK_WIND (frame,
 		    server_setdents_cbk,
