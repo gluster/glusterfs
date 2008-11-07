@@ -84,7 +84,7 @@ ioc_page_destroy (ioc_page_t *page)
     list_del (&page->page_lru);
     
     gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
-	    "destroying page = %p, offset = %lld && inode = %p",
+	    "destroying page = %p, offset = %"PRId64" && inode = %p",
 	    page, page->offset, page->inode);
     
     if (page->vector){
@@ -226,7 +226,7 @@ ioc_wait_on_page (ioc_page_t *page,
   ERR_ABORT (waitq);
   
   gf_log (frame->this->name, GF_LOG_DEBUG,
-	  "frame(%p) waiting on page = %p, offset=%lld, size=%d",
+	  "frame(%p) waiting on page = %p, offset=%"PRId64", size=%"GF_PRI_SIZET"",
 	  frame, page, offset, size);
 
   waitq->data = frame;
@@ -425,7 +425,7 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
   fault_local->inode = ioc_inode;
 
   gf_log (frame->this->name, GF_LOG_DEBUG,
-	  "stack winding page fault for offset = %lld with frame %p",
+	  "stack winding page fault for offset = %"PRId64" with frame %p",
 	  offset, fault_frame);
   
   STACK_WIND (fault_frame, ioc_fault_cbk,
@@ -449,7 +449,7 @@ ioc_frame_fill (ioc_page_t *page,
   ioc_inode_t *ioc_inode = page->inode;
   
   gf_log (frame->this->name, GF_LOG_DEBUG,
-	  "frame (%p) offset = %lld && size = %d && page->size = %d && wait_count = %d", 
+	  "frame (%p) offset = %"PRId64" && size = %"GF_PRI_SIZET" && page->size = %"GF_PRI_SIZET" && wait_count = %d", 
 	  frame, offset, size, page->size, local->wait_count);
 
   /* immediately move this page to the end of the page_lru list */
@@ -478,7 +478,7 @@ ioc_frame_fill (ioc_page_t *page,
     }
     
     gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
-	    "copy_size = %d && src_offset = %lld && dst_offset = %lld",
+	    "copy_size = %"GF_PRI_SIZET" && src_offset = %"PRId64" && dst_offset = %"PRId64"",
 	    copy_size, src_offset, dst_offset);
 
     {
@@ -557,7 +557,7 @@ ioc_frame_unwind (call_frame_t *frame)
 
   if (list_empty (&local->fill_list)) {
     gf_log (frame->this->name, GF_LOG_DEBUG,
-	    "frame(%p) has 0 entries in local->fill_list (offset = %lld && size = %d)",
+	    "frame(%p) has 0 entries in local->fill_list (offset = %"PRId64" && size = %"GF_PRI_SIZET")",
 	    frame, local->offset, local->size);
   }
 

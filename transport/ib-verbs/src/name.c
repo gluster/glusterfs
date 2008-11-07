@@ -246,7 +246,7 @@ af_unix_client_get_remote_sockaddr (transport_t *this,
 
   if (strlen (connect_path) > UNIX_PATH_MAX) {
     gf_log (this->xl->name, GF_LOG_ERROR,
-	    "connect-path value length %d > %d octets", 
+	    "connect-path value length %"GF_PRI_SIZET" > %d octets", 
 	    strlen (connect_path), UNIX_PATH_MAX);
     ret = -1;
     goto err;
@@ -290,7 +290,7 @@ af_unix_server_get_local_sockaddr (transport_t *this,
 
   if (strlen (listen_path) > UNIX_PATH_MAX) {
     gf_log (this->xl->name, GF_LOG_ERROR,
-	    "option listen-path has value length %d > %d",
+	    "option listen-path has value length %"GF_PRI_SIZET" > %d",
 	    strlen (listen_path), UNIX_PATH_MAX);
     ret = -1;
     goto err;

@@ -537,7 +537,7 @@ is_space_left (xlator_t *this,
 		usable_blocks = (stbuf.f_bfree - BDB_ENOSPC_THRESHOLD); 
 		
 		gf_log (this->name, GF_LOG_DEBUG,
-			"requested size: %u\nfree blocks: %"PRIu64"\nblock size: %lu\nfrag size: %lu",
+			"requested size: %"GF_PRI_SIZET"\nfree blocks: %"PRIu64"\nblock size: %lu\nfrag size: %lu",
 			size, stbuf.f_bfree, stbuf.f_bsize, stbuf.f_frsize);
 		
 		if (req_blocks < usable_blocks)
@@ -806,7 +806,7 @@ bdb_writev (call_frame_t *frame,
 	if (!is_space_left (this, total_size)) {
 		gf_log (this->name,
 			GF_LOG_ERROR,
-			"requested storage for %d, ENOSPC", total_size);
+			"requested storage for %"GF_PRI_SIZET", ENOSPC", total_size);
 		op_ret = -1;
 		op_errno = ENOSPC;
 		goto out;
@@ -2877,7 +2877,7 @@ out:
 	frame->root->rsp_refs = NULL;
 	gf_log (this->name,
 		GF_LOG_DEBUG,
-		"read %d bytes for %d entries", filled, count);
+		"read %"GF_PRI_SIZET" bytes for %d entries", filled, count);
 	STACK_UNWIND (frame, count, op_errno, &entries);
 
 	gf_dirent_free (&entries);

@@ -447,7 +447,7 @@ afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	sh = &local->self_heal;
 
 	gf_log (this->name, GF_LOG_DEBUG, 
-		"wrote %d bytes of data from %s to child %d, offset %lld", 
+		"wrote %d bytes of data from %s to child %d, offset %"PRId64"", 
 		op_ret, local->loc.path, child_index, sh->offset - op_ret);
 
 	LOCK (&frame->lock);
@@ -510,7 +510,7 @@ afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
 	local->call_count = call_count;
 
 	gf_log (this->name, GF_LOG_DEBUG, 
-		"read %d bytes of data from %s on child %d, offset %lld",
+		"read %d bytes of data from %s on child %d, offset %"PRId64"",
 		op_ret, local->loc.path, child_index, sh->offset);
 
 	if (op_ret <= 0) {

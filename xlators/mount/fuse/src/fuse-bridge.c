@@ -1364,7 +1364,7 @@ fuse_readv_cbk (call_frame_t *frame,
 
         if (op_ret >= 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                        "%"PRId64": READ => %d/%d,%"PRId64"/%"PRId64, frame->root->unique,
+                        "%"PRId64": READ => %d/%"GF_PRI_SIZET",%"PRId64"/%"PRId64, frame->root->unique,
                         op_ret, state->size, state->off, stbuf->st_size);
 
                 fuse_reply_vec (req, vector, count);
@@ -1399,7 +1399,7 @@ fuse_readv (fuse_req_t req,
         state->fd = fd;
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                "%"PRId64": READ (%p, size=%d, offset=%"PRId64")",
+                "%"PRId64": READ (%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
                 req_callid (req), fd, size, off);
 
         FUSE_FOP (state, fuse_readv_cbk, GF_FOP_READ,
@@ -1421,7 +1421,7 @@ fuse_writev_cbk (call_frame_t *frame,
 
         if (op_ret >= 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                        "%"PRId64": WRITE => %d/%d,%"PRId64"/%"PRId64, frame->root->unique,
+                        "%"PRId64": WRITE => %d/%"GF_PRI_SIZET",%"PRId64"/%"PRId64, frame->root->unique,
                         op_ret, state->size, state->off, stbuf->st_size);
 
                 fuse_reply_write (req, op_ret);
@@ -1461,7 +1461,7 @@ fuse_write (fuse_req_t req,
         vector.iov_len = size;
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                "%"PRId64": WRITE (%p, size=%d, offset=%"PRId64")",
+                "%"PRId64": WRITE (%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
                 req_callid (req), fd, size, off);
 
         FUSE_FOP (state, fuse_writev_cbk, GF_FOP_WRITE,
@@ -1717,7 +1717,7 @@ fuse_readdir_cbk (call_frame_t *frame,
 	}
 
 	gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-		"%"PRId64": READDIR => %d/%d,%"PRId64,
+		"%"PRId64": READDIR => %d/%"GF_PRI_SIZET",%"PRId64,
 		frame->root->unique, op_ret, state->size, state->off);
 
 	list_for_each_entry (entry, &entries->list, list) {
@@ -1771,7 +1771,7 @@ fuse_readdir (fuse_req_t req,
 	state->fd = fd;
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                "%"PRId64": READDIR (%p, size=%d, offset=%"PRId64")",
+                "%"PRId64": READDIR (%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
                 req_callid (req), fd, size, off);
 
         FUSE_FOP (state, fuse_readdir_cbk, GF_FOP_READDIR,

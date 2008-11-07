@@ -931,7 +931,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
                 return NULL;
 
         gf_log (xl->name, GF_LOG_DEBUG,
-                "creating new inode table with lru_limit=%d", lru_limit);
+                "creating new inode table with lru_limit=%"GF_PRI_SIZET"", lru_limit);
 
         new->xl = xl;
 

@@ -887,7 +887,7 @@ dispatch_requests (call_frame_t *frame,
       if (!might_need_validate) {
 	/* fresh enough */
 	gf_log (frame->this->name, GF_LOG_DEBUG,
-		"cache hit for trav_offset=%lld/local_offset=%lld",
+		"cache hit for trav_offset=%"PRId64"/local_offset=%"PRId64"",
 		trav_offset, local_offset);
 	ioc_page_wakeup (trav);
       } else {
@@ -907,7 +907,7 @@ dispatch_requests (call_frame_t *frame,
     if (need_validate) {
       need_validate = 0;
       gf_log (frame->this->name, GF_LOG_DEBUG,
-	      "sending validate request for inode(%"PRId64") at offset=%lld",
+	      "sending validate request for inode(%"PRId64") at offset=%"PRId64"",
 	      fd->inode->ino, trav_offset);
       ioc_cache_validate (frame, ioc_inode, fd, trav);
     }
@@ -985,7 +985,7 @@ ioc_readv (call_frame_t *frame,
 
   gf_log (this->name,
 	  GF_LOG_DEBUG,
-	  "NEW REQ (%p) offset = %lld && size = %d", frame, offset, size);
+	  "NEW REQ (%p) offset = %"PRId64" && size = %"GF_PRI_SIZET"", frame, offset, size);
 
   weight = ioc_inode->weight;
 

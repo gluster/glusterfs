@@ -251,7 +251,7 @@ flush_region (call_frame_t *frame,
 
       if (!trav->ready) {
 	gf_log (frame->this->name, GF_LOG_DEBUG,
-		"killing featus, file=%p, offset=%lld, de=%lld, a=%lld",
+		"killing featus, file=%p, offset=%"PRId64", de=%"PRId64", a=%"PRId64"",
 		file, trav->offset, offset, size);
       }
       ra_page_purge (trav);
@@ -448,7 +448,7 @@ ra_readv (call_frame_t *frame,
 
 
   gf_log (this->name, GF_LOG_DEBUG,
-	  "NEW REQ at offset=%"PRId64" for size=%d",
+	  "NEW REQ at offset=%"PRId64" for size=%"GF_PRI_SIZET"",
 	  offset, size);
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));

@@ -489,14 +489,14 @@ __socket_proto_validate_header (transport_t *this, struct socket_header *header,
   if (size1 <= 0 || size1 > 1048576)
     {
       gf_log (this->xl->name, GF_LOG_ERROR,
-	      "socket header has incorrect size1=%d", size1);
+	      "socket header has incorrect size1=%"GF_PRI_SIZET"", size1);
       return -1;
     }
 
   if (size2 > (1048576 * 4))
     {
       gf_log (this->xl->name, GF_LOG_ERROR,
-	      "socket header has incorrect size2=%d", size2);
+	      "socket header has incorrect size2=%"GF_PRI_SIZET"", size2);
       return -1;
     }
 
@@ -1248,7 +1248,7 @@ socket_init (transport_t *this)
   if (!priv)
     {
       gf_log (this->xl->name, GF_LOG_ERROR,
-	      "calloc (1, %d) returned NULL", sizeof (*priv));
+	      "calloc (1, %"GF_PRI_SIZET") returned NULL", sizeof (*priv));
       return -1;
     }
 

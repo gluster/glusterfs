@@ -29,6 +29,23 @@
 #include <stdint.h>
 #include <stdio.h>  
 
+#if GF_LINUX_HOST_OS
+
+#if __WORDSIZE == 64
+#  define GF_PRI_SIZET "lu"
+#  define GF_PRI_NLINK "lu"
+#else
+#  define GF_PRI_SIZET "u"
+#  define GF_PRI_NLINK "u"
+#endif /* __WORDSIZE */
+
+#else
+/* Noticed that size_t and ino_t are different on OSX, need to fix the warnings */
+#  define GF_PRI_SIZET "lu"
+#  define GF_PRI_NLINK "u"
+#endif /* LINUX_OS */
+
+
 /* Replace gf_log with _GF_FORMAT_WARN during compile time and let gcc spit the format specificier warnings. Make sure you replace them back with gf_log call. */
 #define _GF_FORMAT_WARN(domain, loglevel, format, args...)  printf ("__DEBUG__" format, ##args);
 

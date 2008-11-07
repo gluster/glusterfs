@@ -1959,7 +1959,7 @@ dict_serialized_length (dict_t *this)
 			for (i = 0; i < pair->value->len; i++) {
 				if (pair->value->vec[i].iov_len < 0) {
 					gf_log ("dict", GF_LOG_ERROR,
-						"iov_len (%d) < 0!",
+						"iov_len (%"GF_PRI_SIZET") < 0!",
 						pair->value->vec[i].iov_len);
 					goto out;
 				}

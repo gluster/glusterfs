@@ -423,7 +423,7 @@ sh_missing_entries_finish (call_frame_t *frame, xlator_t *this)
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
 			gf_log (this->name, GF_LOG_DEBUG,
-				"unlocking %lld/%s on subvolume %s",
+				"unlocking %"PRId64"/%s on subvolume %s",
 				sh->parent_loc.inode->ino, local->loc.name,
 				priv->children[i]->name);
 
