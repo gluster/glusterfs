@@ -122,6 +122,7 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 	afr_local_sh_cleanup (local, this);
 
 	FREE (local->child_errno);
+	FREE (local->pending_array);
 
 	loc_wipe (&local->loc);
 	loc_wipe (&local->newloc);
@@ -456,8 +457,8 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 			local->op_errno = op_errno;
 		}
 
-		if (op_ret == 0)
-			local->op_ret = 0;
+		if (op_ret != 0)
+			local->op_ret = op_ret;
 	}
 	UNLOCK (&frame->lock);
 
@@ -955,27 +956,10 @@ init (xlator_t *this)
 		goto out;
 	}
 
-	priv->pending_inc_array = calloc (sizeof (int32_t), child_count);
-	if (!priv->pending_inc_array) {
-		gf_log (this->name, GF_LOG_ERROR,	
-			"out of memory :(");		
-		op_errno = ENOMEM;			
-		goto out;
-	}
-
-	priv->pending_dec_array = calloc (sizeof (int32_t), child_count);
-	if (!priv->pending_dec_array) {
-		gf_log (this->name, GF_LOG_ERROR,	
-			"out of memory :(");		
-		op_errno = ENOMEM;			
-		goto out;
-	}
-
 	trav = this->children;
+	i = 0;
 	while (i < child_count) {
 		priv->children[i] = trav->xlator;
-		priv->pending_inc_array[i] = hton32 (1);
-		priv->pending_dec_array[i] = hton32 (-1);
 
 		trav = trav->next;
 		i++;

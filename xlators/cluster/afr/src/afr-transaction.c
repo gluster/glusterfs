@@ -18,11 +18,51 @@
 */
 
 #include "dict.h"
+#include "byte-order.h"
 
 #include "afr.h"
 #include "afr-transaction.h"
 
 #include <signal.h>
+
+
+static void
+mark_all_pending (int32_t *pending, int child_count)
+{	
+	int i;
+	
+	for (i = 0; i < child_count; i++)
+		pending[i] = hton32 (1);
+}
+
+
+static void
+mark_child_dead (int32_t *pending, int child_count, int child)
+{
+	pending[child] = 0;
+}
+
+
+static void
+mark_down_children (int32_t *pending, int child_count, unsigned char *child_up)
+{
+	int i;
+	
+	for (i = 0; i < child_count; i++)
+		if (!child_up[i])
+			pending[i] = 0;
+}
+
+
+static void
+mark_all_success (int32_t *pending, int child_count)
+{
+	int i;
+	
+	for (i = 0; i < child_count; i++)
+		pending[i] = hton32 (-1);
+}
+
 
 /* {{{ unlock */
 
@@ -183,7 +223,9 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 
-	dict_set_static_bin (xattr, local->transaction.pending, priv->pending_dec_array, 
+	mark_down_children (local->pending_array, priv->child_count, local->child_up);
+
+	dict_set_static_bin (xattr, local->transaction.pending, local->pending_array, 
 			     priv->child_count * sizeof (int32_t));
 
 	call_count = up_children_count (priv->child_count, local->child_up); 
@@ -280,6 +322,7 @@ afr_write_pending_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
+		mark_all_success (local->pending_array, priv->child_count);
 		local->transaction.fop (frame, this);
 	}
 
@@ -315,10 +358,12 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 
 	local->call_count = call_count;		
 
+	mark_all_pending (local->pending_array, priv->child_count);
+
 	for (i = 0; i < priv->child_count; i++) {					
 		if (local->child_up[i]) {
 			dict_set_static_bin (xattr, local->transaction.pending, 
-					     priv->pending_inc_array, 
+					     local->pending_array, 
 					     priv->child_count * sizeof (int32_t));
 
 			switch (local->transaction.type) {
@@ -515,11 +560,7 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 	
 	local = frame->local;
 	
-	if (local->transaction.erase_pending) {
-		afr_write_pending_post_op (frame, this);
-	} else {
-		afr_unlock (frame, this);
-	}
+	afr_write_pending_post_op (frame, this);
 
 	return 0;
 }
@@ -530,12 +571,15 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
  */
 
 void
-afr_transaction_child_died (call_frame_t *frame, xlator_t *this)
+afr_transaction_child_died (call_frame_t *frame, xlator_t *this, int child_index)
 {
-	afr_local_t * local = NULL;
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
 
 	local = frame->local;
-	local->transaction.erase_pending = 0;
+	priv  = this->private;
+
+	mark_child_dead (local->pending_array, priv->child_count, child_index);
 }
 
 

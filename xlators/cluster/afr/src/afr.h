@@ -38,8 +38,6 @@ typedef struct _afr_private {
 	xlator_t **children;
 
 	unsigned char *child_up;
-	int32_t *pending_inc_array;
-	int32_t *pending_dec_array;
 
 	unsigned int read_child;      /* read-subvolume */
 	unsigned int favorite_child;  /* subvolume to be preferred in resolving
@@ -91,6 +89,8 @@ typedef struct _afr_local {
 	unsigned int reval_child_index;
 	int32_t op_ret;
 	int32_t op_errno;
+
+	int32_t *pending_array;
 
 	loc_t loc;
 	loc_t newloc;
@@ -414,6 +414,11 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
 	local->child_errno = malloc (sizeof (*local->child_errno) * priv->child_count);
 	if (!local->child_errno) {
+		return -ENOMEM;
+	}
+
+	local->pending_array = malloc (sizeof (*local->pending_array) * priv->child_count);
+	if (!local->pending_array) {
 		return -ENOMEM;
 	}
 

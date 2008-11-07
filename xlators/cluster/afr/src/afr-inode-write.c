@@ -58,6 +58,7 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t * priv  = NULL;
 
 	int call_count  = -1;
+	int child_index = (long) cookie;
 
 	local = frame->local;
 	priv  = this->private;
@@ -67,7 +68,7 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 
 		if (child_went_down (op_ret, op_errno))
-			afr_transaction_child_died (frame, this);
+			afr_transaction_child_died (frame, this, child_index);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
@@ -204,6 +205,7 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t * priv  = NULL;
  
 	int call_count  = -1;
+	int child_index = (long) cookie;
 
 	local = frame->local;
 	priv = this->private;
@@ -213,7 +215,7 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 
 		if (child_went_down (op_ret, op_errno))
-			afr_transaction_child_died (frame, this);
+			afr_transaction_child_died (frame, this, child_index);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
@@ -353,7 +355,8 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
- 
+
+	int child_index = (long) cookie;
 	int call_count  = -1;
 
 	local = frame->local;
@@ -364,7 +367,7 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 
 		if (child_went_down (op_ret, op_errno))
-			afr_transaction_child_died (frame, this);
+			afr_transaction_child_died (frame, this, child_index);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret   = op_ret;
@@ -520,7 +523,8 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
- 
+
+	int child_index = (long) cookie;
 	int call_count  = -1;
 
 	local = frame->local;
@@ -531,7 +535,7 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 
 		if (child_went_down (op_ret, op_errno))
-			afr_transaction_child_died (frame, this);
+			afr_transaction_child_died (frame, this, child_index);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
@@ -671,6 +675,7 @@ afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
+	int child_index = (long) cookie;
 	int call_count  = -1;
 
 	local = frame->local;
@@ -681,7 +686,7 @@ afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		call_count = --local->call_count;
 		
 		if (child_went_down (op_ret, op_errno))
-			afr_transaction_child_died (frame, this);
+			afr_transaction_child_died (frame, this, child_index);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
