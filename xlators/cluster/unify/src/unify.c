@@ -3318,48 +3318,57 @@ unify_rename_cbk (call_frame_t *frame,
 			/* Rename successful on storage nodes */
 
 			int32_t idx = 0;
+			int16_t *tmp_list = NULL;
 			if (local->loc2.inode && local->loc2.inode->ctx)
 				list = data_to_ptr (dict_get (local->loc2.inode->ctx, this->name));
   
 			if (list) {
+				
+				for (index = 0; list[index] != -1; index++);
+				tmp_list = calloc (1, index * sizeof (int16_t));
+				memcpy (tmp_list, list, index * sizeof (int16_t));
+
 				for (index = 0; list[index] != -1; index++) {
 					/* TODO: Check this logic. */
 					/* If the destination file exists in the same storage node 
 					 * where we sent 'rename' call, no need to send unlink 
 					 */
 					for (idx = 0; local->list[idx] != -1; idx++) {
-						if (list[index] == local->list[idx]) {
-							list[index] = priv->child_count;
+						if (tmp_list[index] == local->list[idx]) {
+							tmp_list[index] = priv->child_count;
 							continue;
 						}
 					}
 	  
-					if (NS(this) != priv->xl_array[list[index]]) {
+					if (NS(this) != priv->xl_array[tmp_list[index]]) {
 						local->call_count++;
 						callcnt++;
 					}
 				}
-      
+
 				if (local->call_count) {
 					if (callcnt > 1)
 						gf_log (this->name, GF_LOG_ERROR, 
 							"%s->%s: more (%d) subvolumes have the newloc entry", 
 							local->loc1.path, local->loc2.path, callcnt);
 
-					for (index=0; list[index] != -1; index++) {
-						if (NS(this) != priv->xl_array[list[index]]) {		    
+					for (index=0; tmp_list[index] != -1; index++) {
+						if (NS(this) != priv->xl_array[tmp_list[index]]) {		    
 							STACK_WIND (frame,
 								    unify_rename_unlink_cbk,
-								    priv->xl_array[list[index]],
-								    priv->xl_array[list[index]]->fops->unlink,
+								    priv->xl_array[tmp_list[index]],
+								    priv->xl_array[tmp_list[index]]->fops->unlink,
 								    &local->loc2);
 							if (!--callcnt)
 								break;
 						}
 					}
 
+					FREE (tmp_list);
 					return 0;
 				}
+				if (tmp_list)
+					FREE (tmp_list);
 			}
 		}
     
@@ -3957,8 +3966,8 @@ void
 fini (xlator_t *this)
 {
 	unify_private_t *priv = this->private;
-	this->private = NULL;
 	priv->sched_ops->fini (this);
+	this->private = NULL;
 	LOCK_DESTROY (&priv->lock);
 	FREE (priv->xl_array);
 	FREE (priv);

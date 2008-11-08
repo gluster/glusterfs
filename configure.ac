@@ -430,6 +430,7 @@ fi
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 GF_BOOSTER_SUBDIR="booster"
+GF_FUSE_LDADD="-lfuse"
 case $host_os in
      linux*)
      dnl	GF_LINUX_HOST_OS=1
@@ -468,7 +469,7 @@ case $host_os in
 	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -bundle -undefined suppress -flat_namespace"
 	GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -undefined suppress -flat_namespace"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
-	GF_FUSE_LDADD="-liconv"
+	GF_FUSE_LDADD="-liconv -lfuse_ino64"
 	BUILD_MOD_GLUSTERFS=no
 	MOD_GLUSTERFS_SUBDIR=""
 	BUILD_LIBGLUSTERFSCLIENT=no

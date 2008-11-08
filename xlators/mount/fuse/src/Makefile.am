@@ -20,7 +20,7 @@ noinst_HEADERS = fuse-extra.h fuse-options.h
 xlator_LTLIBRARIES = fuse.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount
 fuse_la_SOURCES = fuse-bridge.c fuse-extra.c fuse-options.c
-fuse_la_LDFLAGS = -module -avoidversion -shared -nostartfiles -lfuse $(GF_FUSE_LDADD) 
+fuse_la_LDFLAGS = -module -avoidversion -shared -nostartfiles $(GF_FUSE_LDADD) 
 
 fuse_so_CFLAGS = -DFUSE_USE_VERSION=26 -fPIC -Wall -pthread \
 	$(GF_DARWIN_BUNDLE_CFLAGS) -I$(top_srcdir)/libglusterfs/src \
