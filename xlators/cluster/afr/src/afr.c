@@ -457,13 +457,14 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 			local->op_errno = op_errno;
 		}
 
-		if (op_ret != 0)
+		if (op_ret >= 0)
 			local->op_ret = op_ret;
 	}
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+				  local->fd);
 
 	return 0;
 }
@@ -505,6 +506,7 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	call_count   = local->call_count;
 
 	local->cont.open.flags = flags;
+	local->fd = fd_ref (fd);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
