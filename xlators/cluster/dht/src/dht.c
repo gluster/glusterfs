@@ -363,6 +363,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         int           op_errno = -1;
 	dht_layout_t *layout = NULL;
 	int           i = 0;
+	int           call_cnt = 0;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -407,6 +408,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 				  &local->cached_subvol, NULL);
 
 		local->call_cnt = layout->cnt;
+		call_cnt = local->call_cnt;
 
 		for (i = 0; i < layout->cnt; i++) {
 			subvol = layout->list[i].xlator;
@@ -414,6 +416,9 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 			STACK_WIND (frame, dht_revalidate_cbk,
 				    subvol, subvol->fops->lookup,
 				    loc, need_xattr);
+
+			if (!--call_cnt)
+				break;
 		}
         } else {
                 subvol = dht_subvol_get_hashed (this, loc);
