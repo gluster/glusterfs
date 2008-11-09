@@ -3024,11 +3024,12 @@ init (xlator_t *this)
 		return -1;
 	}
 
+	priv->block_size = (128 * GF_UNIT_KB);
 	/* option stripe-pattern *avi:1GB,*pdf:4096 */
 	data = dict_get (this->options, "block-size");
 	if (!data) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"No stripe pattern specified. check \"option block-size <x>\" in spec file");
+		gf_log (this->name, GF_LOG_DEBUG,
+			"No \"option block-size <x>\" given, defaulting to 128KB");
 	} else {
 		char *tmp_str = NULL;
 		char *tmp_str1 = NULL;

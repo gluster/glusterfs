@@ -1852,7 +1852,7 @@ ha_open (call_frame_t *frame,
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
 	dict_t *ctx = NULL;
-	char *statefd = NULL, *stateino = NULL;
+	char *stateino = NULL;
 	xlator_t **children = NULL;
 	int cnt = 0, i, child_count = 0, ret = 0;
 	hafd_t *hafdp = NULL;
@@ -1870,7 +1870,6 @@ ha_open (call_frame_t *frame,
 	local->op_errno = ENOTCONN;
 	local->fd = fd;
 
-	statefd = calloc (1, pvt->child_count);
 	hafdp = calloc (1, sizeof (*hafdp));
 	hafdp->fdsuccess = calloc (1, child_count);
 	hafdp->fdstate = calloc (1, child_count);
@@ -2293,7 +2292,7 @@ ha_opendir (call_frame_t *frame,
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
 	dict_t *ctx = NULL;
-	char *statefd = NULL, *stateino = NULL;
+	char *stateino = NULL;
 	xlator_t **children = NULL;
 	int cnt = 0, i, child_count = 0, ret = 0;
 	hafd_t *hafdp = NULL;
@@ -2311,7 +2310,6 @@ ha_opendir (call_frame_t *frame,
 	local->op_errno = ENOTCONN;
 	local->fd = fd;
 
-	statefd = calloc (1, pvt->child_count);
 	hafdp = calloc (1, sizeof (*hafdp));
 	hafdp->fdsuccess = calloc (1, child_count);
 	hafdp->fdstate = calloc (1, child_count);
