@@ -431,6 +431,10 @@ int32_t
 afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 			int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
+	afr_local_t * local = frame->local;
+
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+			  local->fd);
 	return 0;
 }
 
@@ -441,11 +445,13 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 	      fd_t *fd)
 {
 	afr_local_t *  local = NULL;
+	afr_private_t * priv = NULL;
 
 	int child_index = (long) cookie;
 
 	int call_count = -1;
-
+	
+	priv  = this->private;
 	local = frame->local;
 
 	LOCK (&frame->lock);
@@ -457,14 +463,22 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 			local->op_errno = op_errno;
 		}
 
-		if (op_ret >= 0)
+		if (op_ret >= 0) {
 			local->op_ret = op_ret;
+		}
 	}
 	UNLOCK (&frame->lock);
 
-	if (call_count == 0) 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				  local->fd);
+	if (call_count == 0) {
+		if (local->cont.open.flags & O_TRUNC) {
+			STACK_WIND (frame, afr_open_ftruncate_cbk,
+				    this, this->fops->ftruncate,
+				    fd, 0);
+		} else {
+			AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+					  local->fd);
+		}
+	}
 
 	return 0;
 }
@@ -1000,6 +1014,7 @@ struct xlator_fops fops = {
   .chown       = afr_chown,
   .writev      = afr_writev,
   .truncate    = afr_truncate,
+  .ftruncate   = afr_ftruncate,
   .utimens     = afr_utimens,
   .setxattr    = afr_setxattr,
   .removexattr = afr_removexattr,

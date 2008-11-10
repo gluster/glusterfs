@@ -37,6 +37,10 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, off_t offset);
 
 int32_t
+afr_ftruncate (call_frame_t *frame, xlator_t *this,
+	       fd_t *fd, off_t offset);
+
+int32_t
 afr_utimens (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, struct timespec tv[2]);
 

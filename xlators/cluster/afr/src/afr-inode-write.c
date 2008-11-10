@@ -666,6 +666,155 @@ out:
 
 /* }}} */
 
+/* {{{ ftruncate */
+
+int32_t
+afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+			int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+
+	int child_index = (long) cookie;
+	int call_count  = -1;
+
+	local = frame->local;
+	priv  = this->private;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+
+		if (child_went_down (op_ret, op_errno))
+			afr_transaction_child_died (frame, this, child_index);
+
+		if ((op_ret != -1) && (local->success_count == 0)) {
+			local->op_ret = op_ret;
+
+			if (buf)
+				local->cont.ftruncate.buf = *buf;
+
+			local->success_count++;
+		}
+		local->op_errno = op_errno;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+	}
+	
+	return 0;
+}
+
+
+int32_t
+afr_ftruncate_wind (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t *local = NULL;
+	afr_private_t *priv = NULL;
+	
+	int call_count = -1;
+	int i = 0;
+
+	local = frame->local;
+	priv = this->private;
+
+	local->call_count = up_children_count (priv->child_count, local->child_up);
+
+	for (i = 0; i < priv->child_count; i++) {				
+		if (local->child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_ftruncate_wind_cbk,
+					   (void *) (long) i,	
+					   priv->children[i], 
+					   priv->children[i]->fops->ftruncate,
+					   local->fd, local->cont.ftruncate.offset);
+
+			if (!--call_count)
+				break;
+		}
+	}
+	
+	return 0;
+}
+
+
+int32_t
+afr_ftruncate_done (call_frame_t *frame, xlator_t *this,
+		    int32_t op_ret, int32_t op_errno)
+{
+	afr_local_t *local = NULL;
+
+	local = frame->local;
+
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+	} else {
+		local->cont.ftruncate.buf.st_ino = local->cont.ftruncate.ino;
+
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				  &local->cont.ftruncate.buf);
+	}
+
+	return 0;
+}
+
+
+int32_t
+afr_ftruncate (call_frame_t *frame, xlator_t *this,
+	       fd_t *fd, off_t offset)
+{
+	afr_private_t * priv  = NULL;
+	afr_local_t   * local = NULL;
+
+	int ret = -1;
+
+	int op_ret   = -1;
+	int op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
+	priv = this->private;
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
+
+	frame->local = local;
+
+	local->op_ret = -1;
+
+	local->cont.ftruncate.offset  = offset;
+	local->cont.ftruncate.ino     = fd->inode->ino;
+
+	local->transaction.fop  = afr_ftruncate_wind;
+	local->transaction.done = afr_ftruncate_done;
+
+	local->fd = fd_ref (fd);
+
+	local->transaction.start   = 0;
+	local->transaction.len     = offset;
+	local->transaction.pending = AFR_DATA_PENDING;
+
+	afr_inode_transaction (frame, this);
+
+	op_ret = 0;
+out:
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+	}
+
+	return 0;
+}
+
+/* }}} */
+
 /* {{{ utimens */
 
 int32_t

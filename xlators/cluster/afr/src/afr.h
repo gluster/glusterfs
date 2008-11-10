@@ -226,6 +226,12 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
+			off_t offset;
+			struct stat buf;
+		} ftruncate;
+
+		struct {
+			ino_t ino;
 			struct timespec tv[2];
 			struct stat buf;
 		} utimens;
