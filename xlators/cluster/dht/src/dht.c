@@ -1229,6 +1229,8 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
+	local->call_cnt = 1;
+
 	STACK_WIND (frame, dht_err_cbk,
 		    subvol, subvol->fops->removexattr,
 		    loc, key);
