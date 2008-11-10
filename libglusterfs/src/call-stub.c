@@ -1501,7 +1501,7 @@ fop_getxattr_stub (call_frame_t *frame,
 	loc_copy (&stub->args.getxattr.loc, loc);
 
 	if (name)
-		stub->args.getxattr.name = name;
+	        stub->args.getxattr.name = strdup (name);
 out:
 	return stub;
 }

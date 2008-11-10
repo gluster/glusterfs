@@ -171,6 +171,8 @@ solaris_fgetxattr(int fd,
     }
     close (attrfd);
   } else {
+    if (errno == ENOENT)
+      errno = ENODATA;
     if (errno != ENOENT)
       gf_log ("libglusterfs", GF_LOG_DEBUG, 
 	      "Couldn't read extended attribute for the file %d (%d)", 
@@ -259,7 +261,6 @@ solaris_listxattr(const char *path,
     }
     close (attrdirfd);
   }
-
   return len;
 }
 
@@ -272,6 +273,10 @@ solaris_removexattr(const char *path,
   if (attrfd >= 0) {
     ret = unlinkat (attrfd, key, 0);
     close (attrfd);
+  } else {
+    if (errno == ENOENT)
+      errno = ENODATA;
+    return -1;
   }
 
   return ret;
@@ -297,6 +302,8 @@ solaris_getxattr(const char *path,
     }
     close (attrfd);
   } else {
+    if (errno == ENOENT)
+      errno = ENODATA;
     if (errno != ENOENT)
       gf_log ("libglusterfs", GF_LOG_DEBUG, 
 	      "Couldn't read extended attribute for the file %s (%d)", 
