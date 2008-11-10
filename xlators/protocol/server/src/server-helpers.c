@@ -78,6 +78,7 @@ server_loc_fill (loc_t *loc,
   		if (loc->name)
   			(loc->name)++;
   	}
+	
   	{
   		char *tmp_path = NULL;
   		size_t n = 0;
@@ -93,10 +94,11 @@ server_loc_fill (loc_t *loc,
   		}
 
   		if (tmp_path && (strncmp (tmp_path, path, n))) {
-  			gf_log ("server",
+  			gf_log (state->bound_xl->name,
   				GF_LOG_ERROR,
-  				"paths differ: path (%s) from dentry tree is %s",
-  				path, tmp_path);
+  				"paths differ for inode(%"PRId64"): "
+				"path (%s) from dentry tree is %s",
+  				ino, path, tmp_path);
   		}
 		
 		if (tmp_path)

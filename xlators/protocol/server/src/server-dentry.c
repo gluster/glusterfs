@@ -161,8 +161,9 @@ __server_path_to_parenti (inode_table_t *itable,
 	size_t copied = 0;
 	size_t r_len = 0;
 
-	pathlen = strlen (path);
-	resolved = calloc (1, 1 + pathlen);
+	pathlen = STRLEN_0(path);
+	resolved = calloc (1, pathlen);
+	GF_VALIDATE_OR_GOTO("server-dentry", resolved, out);
 	inode = itable->root;
 	parent = inode;
 	dname = (char *)path;
@@ -193,7 +194,7 @@ __server_path_to_parenti (inode_table_t *itable,
 	} else {
 		free (resolved);
 	}
-
+out:
 	return parent;
 }
 
@@ -238,10 +239,6 @@ __do_path_resolve_cbk (call_frame_t *frame,
 	} else {
 		if (inode->ino == 0) {
 			inode_link (inode, state->loc.parent, state->loc.name, stbuf);
-			if (list_empty (&inode->dentry_list))
-				gf_log (this->name, GF_LOG_ERROR,
-					"missing dentry for %"PRId64"/%s", 
-					state->loc.parent->ino, state->loc.name);
 			inode_lookup (inode);
 		}
 
@@ -325,8 +322,11 @@ __do_path_resolve (call_stub_t *stub,
 			    BOUND_XL(new_frame)->fops->lookup,
 			    &(new_state->loc),
 			    0);
+		goto out;
 	}
 panic:
+	server_stub_resume (stub, -1, ENOENT, NULL, NULL);	
+out:
 	return ret;
 }
 

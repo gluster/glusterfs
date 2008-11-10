@@ -705,7 +705,10 @@ server_mkdir_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		gf_stat_from_stat (&rsp->stat, stbuf);
-
+		if (state->loc.parent == NULL)
+			gf_log (this->name, GF_LOG_ERROR,
+				"state->loc.parent is NULL for path %s",
+				state->loc.path);
 		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 		if (list_empty (&inode->dentry_list))
 			gf_log (this->name, GF_LOG_ERROR,
@@ -758,6 +761,10 @@ server_mknod_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		gf_stat_from_stat (&rsp->stat, stbuf);
+		if (state->loc.parent == NULL)
+			gf_log (this->name, GF_LOG_ERROR,
+				"state->loc.parent is NULL for path %s",
+				state->loc.path);
 
 		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 		if (list_empty (&inode->dentry_list))
@@ -1253,22 +1260,15 @@ server_rename_cbk (call_frame_t *frame,
 
 	if (op_ret == 0) {
 		stbuf->st_ino = state->loc.inode->ino;
-		
-		if ((state->loc.name == NULL) ||
-		    (state->loc2.name == NULL)) {
-			gf_log (this->name,
-				GF_LOG_DEBUG,
-				"undesired input parameters %s ==> %s",
-				state->loc.name, state->loc2.name);
-		}
+		gf_log (state->bound_xl->name, GF_LOG_DEBUG,
+			"RENAME_CBK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s",
+			state->loc.inode->ino, state->loc.parent->ino, state->loc.name,
+			state->loc2.parent->ino, state->loc2.name);
+			
 		inode_rename (state->itable,
 			      state->loc.parent, state->loc.name,
 			      state->loc2.parent, state->loc2.name,
 			      state->loc.inode, stbuf);
-		if (list_empty (&(state->loc.inode->dentry_list)))
-			gf_log (this->name, GF_LOG_ERROR,
-				"missing dentry for %"PRId64"/%s", 
-				state->loc2.parent->ino, state->loc2.name);
 		gf_stat_from_stat (&rsp->stat, stbuf);
 	}
 
@@ -1306,8 +1306,13 @@ server_unlink_cbk (call_frame_t *frame,
 
 	state = CALL_STATE(frame);
 
-	if (op_ret == 0)
+	if (op_ret == 0) {
+		gf_log (state->bound_xl->name,
+			GF_LOG_DEBUG,
+			"UNLINK_CBK %"PRId64"/%s (%"PRId64")",
+			state->loc.parent->ino, state->loc.name, state->loc.inode->ino);
 		inode_unlink (state->loc.inode, state->loc.parent, state->loc.name);
+	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1359,6 +1364,10 @@ server_symlink_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		gf_stat_from_stat (&rsp->stat, stbuf);
+		if (state->loc.parent == NULL)
+			gf_log (this->name, GF_LOG_ERROR,
+				"state->loc.parent is NULL for path %s",
+				state->loc.path);
 
 		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 		if (list_empty (&inode->dentry_list))
@@ -1413,11 +1422,12 @@ server_link_cbk (call_frame_t *frame,
 	if (op_ret == 0) {
 		stbuf->st_ino = state->loc.inode->ino;
 		gf_stat_from_stat (&rsp->stat, stbuf);
+		gf_log (state->bound_xl->name,
+			GF_LOG_DEBUG,
+			"LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s",
+			inode->ino, state->loc2.parent->ino, state->loc2.name,
+			state->loc.parent->ino, state->loc.name);
 		inode_link (inode, state->loc2.parent, state->loc2.name, stbuf);
-		if (list_empty (&inode->dentry_list))
-			gf_log (this->name, GF_LOG_ERROR,
-				"missing dentry for %"PRId64"/%s", 
-				state->loc.parent->ino, state->loc.name);
 	}
 	server_loc_wipe (&(state->loc));
 	server_loc_wipe (&(state->loc2));
@@ -1824,13 +1834,13 @@ server_create_cbk (call_frame_t *frame,
 	state = CALL_STATE(frame);
 
 	if (op_ret >= 0) {
+		gf_log (state->bound_xl->name,
+			GF_LOG_DEBUG,
+			"CREATE %"PRId64"/%s (%"PRId64")",
+			state->loc.parent->ino, state->loc.name, stbuf->st_ino);
 		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
-		if (list_empty (&inode->dentry_list))
-			gf_log (this->name, GF_LOG_ERROR,
-				"missing dentry for %"PRId64"/%s", 
-				state->loc.parent->ino, state->loc.name);
 		inode_lookup (inode);
-
+		
 		fd_bind (fd);
 
 		fd_no = gf_fd_unused_get (CONNECTION_PRIVATE(frame)->fdtable, 
@@ -2074,10 +2084,6 @@ server_lookup_cbk (call_frame_t *frame,
 
 		if (!inode->ino) {
 			inode_link (inode, state->loc.parent, state->loc.name, stbuf);
-			if (list_empty (&inode->dentry_list))
-				gf_log (this->name, GF_LOG_ERROR,
-					"missing dentry for %"PRId64"/%s", 
-					state->loc.parent->ino, state->loc.name);
 			inode_lookup (inode);
 		}
 	}
@@ -2123,7 +2129,7 @@ server_stub_resume (call_stub_t *stub,
 				if (op_ret < 0) {
 					gf_log (stub->frame->this->name,
 						GF_LOG_ERROR,
-						"rename (%s -> %s) on %s returning error: "
+						"RENAME (%s -> %s) on %s returning error: "
 						"%"PRId32" (%"PRId32")",
 						stub->args.rename.old.path,
 						stub->args.rename.new.path,
@@ -2184,7 +2190,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"open (%s) on %s returning error: "
+					"OPEN (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.open.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2253,7 +2259,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"stat (%s) on %s returning error: "
+					"STAT (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.stat.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2286,7 +2292,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"unlink (%s) on %s returning error: "
+					"UNLINK (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.unlink.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2317,7 +2323,7 @@ server_stub_resume (call_stub_t *stub,
 			if ((op_ret < 0) && (parent == NULL)) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"symlink (%s -> %s) on %s returning error: "
+					"SYMLINK (%s -> %s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.symlink.loc.path,
 					stub->args.symlink.linkname,
@@ -2351,7 +2357,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"rmdir (%s) on %s returning error: "
+					"RMDIR (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.rmdir.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2382,7 +2388,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"chmod (%s) on %s returning error: "
+					"CHMOD (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.chmod.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2414,7 +2420,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"chown (%s) on %s returning ENOENT: "
+					"CHOWN (%s) on %s returning ENOENT: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.chown.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2447,7 +2453,7 @@ server_stub_resume (call_stub_t *stub,
 				if (op_ret < 0) {
 					gf_log (stub->frame->this->name,
 						GF_LOG_ERROR,
-						"link (%s -> %s) on %s returning error for oldloc: "
+						"LINK (%s -> %s) on %s returning error for oldloc: "
 						"%"PRId32" (%"PRId32")",
 						stub->args.link.oldloc.path,
 						stub->args.link.newloc.path,
@@ -2483,7 +2489,7 @@ server_stub_resume (call_stub_t *stub,
 				if ((op_ret < 0) && (parent == NULL)) {
 					gf_log (stub->frame->this->name,
 						GF_LOG_ERROR,
-						"link (%s -> %s) on %s returning error for newloc: "
+						"LINK (%s -> %s) on %s returning error for newloc: "
 						"%"PRId32" (%"PRId32")",
 						stub->args.link.oldloc.path,
 						stub->args.link.newloc.path,
@@ -2521,7 +2527,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"truncate (%s) on %s returning error: "
+					"TRUNCATE (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.truncate.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2553,7 +2559,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"statfs (%s) on %s returning ENOENT: "
+					"STATFS (%s) on %s returning ENOENT: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.statfs.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2586,7 +2592,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"setxattr (%s) on %s returning error: "
+					"SETXATTR (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.setxattr.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2618,7 +2624,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"getxattr (%s) on %s for key %s returning error: "
+					"GETXATTR (%s) on %s for key %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.getxattr.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2651,7 +2657,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"removexattr (%s) on %s for key %s returning error: "
+					"REMOVEXATTR (%s) on %s for key %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.removexattr.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2683,7 +2689,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"opendir (%s) on %s returning error: "
+					"OPENDIR (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.opendir.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2715,7 +2721,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"access (%s) on %s returning error: "
+					"ACCESS (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.access.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2747,7 +2753,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"utimens (%s) on %s returning error: "
+					"UTIMENS (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.utimens.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2779,7 +2785,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"readlink (%s) on %s returning error: "
+					"READLINK (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.readlink.loc.path,
 					BOUND_XL(stub->frame)->name,
@@ -2810,7 +2816,7 @@ server_stub_resume (call_stub_t *stub,
 			if ((op_ret < 0) && (parent == NULL)) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"mkdir (%s) on %s returning error: "
+					"MKDIR (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.mkdir.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2844,7 +2850,7 @@ server_stub_resume (call_stub_t *stub,
 			if ((op_ret < 0) && (parent == NULL)) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"create (%s) on %s returning error: "
+					"CREATE (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.create.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2881,7 +2887,7 @@ server_stub_resume (call_stub_t *stub,
 			if ((op_ret < 0) && (parent == NULL)) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"mknod (%s) on %s returning error: "
+					"MKNOD (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.mknod.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2913,7 +2919,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"entrylk (%s) on %s for key %s returning error: "
+					"ENTRYLK (%s) on %s for key %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.entrylk.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -2945,7 +2951,7 @@ server_stub_resume (call_stub_t *stub,
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name,
 					GF_LOG_ERROR,
-					"inodelk (%s) on %s returning error: "
+					"INODELK (%s) on %s returning error: "
 					"%"PRId32" (%"PRId32")",
 					stub->args.inodelk.loc.path,
 					BOUND_XL (stub->frame)->name,
@@ -3112,7 +3118,7 @@ server_forget (call_frame_t *frame, xlator_t *bound_xl,
 	if (inode) {
 		inode_forget (inode, 0);
 		inode_unref (inode);
-	}
+	} 
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
 		"FORGET \'%"PRId64"\'", 
@@ -3456,7 +3462,6 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
 
 
 	if (state->fd == NULL) {
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 
@@ -3512,7 +3517,6 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 
 
 	if (state->fd == NULL)	{
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 
@@ -3627,7 +3631,6 @@ server_fsync (call_frame_t *frame,
 
 
 	if (state->fd == NULL)	{
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 
@@ -3678,7 +3681,6 @@ server_flush (call_frame_t *frame, xlator_t *bound_xl,
 
 
 	if (state->fd == NULL) {
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 
@@ -3733,7 +3735,6 @@ server_ftruncate (call_frame_t *frame,
 
 
 	if (state->fd == NULL)	{
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 
@@ -3787,7 +3788,6 @@ server_fstat (call_frame_t *frame,
 
 
 	if (state->fd == NULL) {
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 
@@ -4603,7 +4603,6 @@ server_getdents (call_frame_t *frame,
 
 
 	if (state->fd == NULL) {
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 
@@ -4661,7 +4660,6 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 
 
 	if (state->fd == NULL) {
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 
@@ -4716,7 +4714,6 @@ server_fsyncdir (call_frame_t *frame,
 	}
 
 	if (state->fd == NULL) {
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 
@@ -5343,7 +5340,6 @@ server_finodelk (call_frame_t *frame,
 	}
 
 	if (state->fd == NULL) {
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 		
@@ -5477,7 +5473,6 @@ server_fentrylk (call_frame_t *frame,
 	}
 
 	if (state->fd == NULL) {
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 		
@@ -5886,7 +5881,6 @@ server_lk (call_frame_t *frame,
 
 
 	if (state->fd == NULL) {
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 
@@ -5972,7 +5966,6 @@ server_setdents (call_frame_t *frame,
 
 
 	if (state->fd == NULL) {
-		fd_no = ntoh64 (req->fd);
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"unresolved fd %"PRId64"", fd_no);
 

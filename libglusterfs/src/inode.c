@@ -261,7 +261,7 @@ __inode_activate (inode_t *inode)
 {
         list_move (&inode->list, &inode->table->active);
         inode->table->active_size++;
-
+	
         gf_log (inode->table->name, GF_LOG_DEBUG,
                 "activating inode(%"PRId64"), lru=%d/%d active=%d purge=%d",
                 inode->ino, inode->table->lru_size, inode->table->lru_limit,
@@ -614,8 +614,11 @@ __inode_link (inode_t *inode,
                 }
 
                 __dentry_hash (dentry);
-        }
-
+        } else if (inode->ino != 1) {
+		gf_log (table->name, GF_LOG_ERROR,
+			"child (%"PRId64") without a parent :O", inode->ino);
+	}
+	
         return inode;
 }
 
