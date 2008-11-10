@@ -316,8 +316,14 @@ afr_write_pending_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		if (op_ret == -1) {
 			local->child_up[child_index] = 0;
-
-			if (!child_went_down (op_ret, op_errno)) {
+			
+			if (op_errno == ENOTSUP) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"xattrop not supported by %s",
+					priv->children[child_index]->name);
+				local->op_ret = -1;
+				local->op_errno = ENOTSUP;
+			} else if (!child_went_down (op_ret, op_errno)) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"xattrop failed on child %s: %s",
 					priv->children[child_index]->name, 
@@ -330,9 +336,14 @@ afr_write_pending_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		mark_all_success (local->pending_array, priv->child_count);
+		if ((local->op_ret == -1) && 
+		    (local->op_errno == ENOTSUP)) {
+			local->transaction.resume (frame, this);
+		} else {
+			mark_all_success (local->pending_array, priv->child_count);
 
-		local->transaction.fop (frame, this);
+			local->transaction.fop (frame, this);
+		}
 	}
 
 	return 0;	
@@ -490,7 +501,8 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 	
 	if (call_count == 0) {
-		if (done) {
+		if ((local->op_ret == -1) &&
+		    (local->op_errno == ENOSYS)) {
 			afr_unlock (frame, this);
 		} else {
 			afr_lock_rec (frame, this, child_index + 1);
