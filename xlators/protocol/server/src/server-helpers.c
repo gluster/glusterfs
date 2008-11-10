@@ -74,7 +74,7 @@ server_loc_fill (loc_t *loc,
 
   	if (path) {
   		loc->path = strdup (path);
-  		loc->name = strrchr (path, '/');
+  		loc->name = strrchr (loc->path, '/');
   		if (loc->name)
   			(loc->name)++;
   	}
