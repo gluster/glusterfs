@@ -2707,6 +2707,6 @@ struct xlator_options options[] = {
 	{ "icon-name", GF_OPTION_TYPE_ANY, 0, 0, 0 },
 	{ "mount-point", GF_OPTION_TYPE_PATH, 0, 0, 0 },
 	{ "attr-timeout", GF_OPTION_TYPE_INT, 0, 0, 3600, },
-	{ "entry-tiemout", GF_OPTION_TYPE_PATH, 0, 0, 3600, },
+	{ "entry-timeout", GF_OPTION_TYPE_PATH, 0, 0, 3600, },
 	{ NULL, 0, 0, 0 },
 };

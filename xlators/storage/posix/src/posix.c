@@ -3484,7 +3484,7 @@ init (xlator_t *this)
         /* Check for Extended attribute support, if not present, log it */
         op_ret = lsetxattr (dir_data->data, "trusted.glusterfs.test", "working", 8, 0);
         if (op_ret < 0) {
-		tmp_data = dict_get (this->options, "starting-without-extendend-attribute");
+		tmp_data = dict_get (this->options, "starting-without-extended-attribute");
 		if (tmp_data) {
 			if (gf_string2boolean (tmp_data->data, &tmp_bool) == -1) {
 				gf_log (this->name, GF_LOG_ERROR,

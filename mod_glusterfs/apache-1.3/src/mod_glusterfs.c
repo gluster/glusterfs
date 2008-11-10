@@ -150,7 +150,7 @@ mod_glusterfs_create_dir_config(pool *p, char *dirspec)
 static void 
 mod_glusterfs_child_init(server_rec *s, pool *p)
 {
-        void **mod_config;
+        void **urls = NULL;
         int n, i;
         core_server_config *mod_core_config = ap_get_module_config (s->module_config,
                                                                     &core_module);
@@ -158,9 +158,9 @@ mod_glusterfs_child_init(server_rec *s, pool *p)
         glusterfs_init_ctx_t ctx;
   
         n = mod_core_config->sec_url->nelts;
-        mod_config = (void **)mod_core_config->sec_url->elts;
+        urls = (void **)mod_core_config->sec_url->elts;
         for (i = 0; i < n; i++) {
-                dir_config = ap_get_module_config (mod_config[i], &glusterfs_module);
+                dir_config = ap_get_module_config (urls[i], &glusterfs_module);
 
                 if (dir_config) {
                         memset (&ctx, 0, sizeof (ctx));
@@ -179,16 +179,16 @@ mod_glusterfs_child_init(server_rec *s, pool *p)
 static void 
 mod_glusterfs_child_exit(server_rec *s, pool *p)
 {
-        void **mod_config;
+        void **urls = NULL;
         int n, i;
         core_server_config *mod_core_config = ap_get_module_config (s->module_config,
                                                                     &core_module);
         glusterfs_dir_config_t *dir_config = NULL;
   
         n = mod_core_config->sec_url->nelts;
-        mod_config = (void **)mod_core_config->sec_url->elts;
+        urls = (void **)mod_core_config->sec_url->elts;
         for (i = 0; i < n; i++) {
-                dir_config = ap_get_module_config (mod_config[i], &glusterfs_module);
+                dir_config = ap_get_module_config (urls[i], &glusterfs_module);
                 if (dir_config && dir_config->handle) {
                         glusterfs_fini (dir_config->handle);
                         dir_config->handle = 0;
