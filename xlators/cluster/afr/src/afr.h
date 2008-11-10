@@ -302,8 +302,8 @@ typedef struct _afr_local {
 	
 	struct {
 		off_t start, len;
+
 		const char *basename;
-		
 		const char *new_basename;
 
 		char *pending;

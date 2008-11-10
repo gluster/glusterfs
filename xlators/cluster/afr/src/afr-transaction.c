@@ -108,8 +108,8 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 		return 0;
 	}
 
-//	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) 
-//		call_count *= 2;
+	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) 
+		call_count *= 2;
 
 	local->call_count = call_count;		
 
@@ -135,14 +135,14 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 				
 				break;
 			case AFR_ENTRY_RENAME_TRANSACTION:
-/*
+				
 				STACK_WIND (frame, afr_unlock_common_cbk,	
 					    priv->children[i], 
 					    priv->children[i]->fops->entrylk, 
 					    &local->transaction.new_parent_loc, 
 					    local->transaction.new_basename,
 					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
-*/
+
 				/* fall through */
 
 			case AFR_ENTRY_TRANSACTION:
@@ -195,15 +195,7 @@ afr_write_pending_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		switch (local->transaction.type) {
-		case AFR_INODE_TRANSACTION:
-			afr_unlock (frame, this);
-			break;
-		case AFR_ENTRY_TRANSACTION:
-		case AFR_ENTRY_RENAME_TRANSACTION:
-			afr_unlock (frame, this);
-			break;
-		}
+		afr_unlock (frame, this);
 	}
 
 	return 0;	
@@ -215,11 +207,11 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 {
 	afr_private_t * priv = this->private;
 
-	int i = 0;				
-	int call_count = 0;		     
-	dict_t *xattr = dict_ref (get_new_dict ());
-
-	afr_local_t *local = NULL;
+	int i          = 0;				
+	int call_count = 0;
+	
+	afr_local_t *  local = NULL;	
+	dict_t *       xattr = dict_ref (get_new_dict ());
 
 	local = frame->local;
 
@@ -229,6 +221,10 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 			     priv->child_count * sizeof (int32_t));
 
 	call_count = up_children_count (priv->child_count, local->child_up); 
+
+	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
+		call_count *= 2;
+	}
 
 	local->call_count = call_count;		
 
@@ -261,7 +257,18 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 			break;
 
 			case AFR_ENTRY_RENAME_TRANSACTION:
-				/* TODO: write pending on new_parent_loc also */
+			{
+				STACK_WIND_COOKIE (frame, afr_write_pending_post_op_cbk,
+						   (void *) (long) i,
+						   priv->children[i],
+						   priv->children[i]->fops->xattrop,
+						   &local->transaction.new_parent_loc,
+						   GF_XATTROP_ADD_ARRAY, xattr);
+				
+				call_count--;
+			}
+
+				/* fall through */
 
 			case AFR_ENTRY_TRANSACTION:
 			{
@@ -280,6 +287,7 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 			}
 			break;
 			}
+
 			if (!--call_count)
 				break;
 		}
@@ -323,6 +331,7 @@ afr_write_pending_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (call_count == 0) {
 		mark_all_success (local->pending_array, priv->child_count);
+
 		local->transaction.fop (frame, this);
 	}
 
@@ -338,6 +347,7 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 	int i = 0;				
 	int call_count = 0;		     
 	dict_t *xattr = NULL;
+
 	afr_local_t *local = NULL;
 
 	local = frame->local;
@@ -345,8 +355,10 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 	dict_ref (xattr);
 
 	call_count = up_children_count (priv->child_count, local->child_up); 
-//	if (local->transaction.type == AFR_DIR_LINK_TRANSACTION)
-//		local->call_count *= 2;
+
+	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
+		call_count *= 2;
+	}
 
 	if (call_count == 0) {
 		/* no child is up */
@@ -370,14 +382,16 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 			case AFR_INODE_TRANSACTION:
 			{
 				if (local->fd)
-					STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk,
+					STACK_WIND_COOKIE (frame, 
+							   afr_write_pending_pre_op_cbk,
 							   (void *) (long) i,
 							   priv->children[i], 
 							   priv->children[i]->fops->fxattrop,
 							   local->fd,
 							   GF_XATTROP_ADD_ARRAY, xattr);
 				else
-					STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk,
+					STACK_WIND_COOKIE (frame, 
+							   afr_write_pending_pre_op_cbk,
 							   (void *) (long) i,
 							   priv->children[i], 
 							   priv->children[i]->fops->xattrop,
@@ -386,28 +400,43 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 			}
 			break;
 				
-			case AFR_ENTRY_RENAME_TRANSACTION:
-				/* TODO: write pending on new_parent */
+			case AFR_ENTRY_RENAME_TRANSACTION: 
+			{
+				STACK_WIND_COOKIE (frame, 
+						   afr_write_pending_pre_op_cbk,
+						   (void *) (long) i,
+						   priv->children[i], 
+						   priv->children[i]->fops->xattrop,
+						   &local->transaction.new_parent_loc, 
+						   GF_XATTROP_ADD_ARRAY, xattr);
 
+				call_count--;
+			}
+				/* fall through */
+				
 			case AFR_ENTRY_TRANSACTION:
 			{
 				if (local->fd)
-					STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk,
+					STACK_WIND_COOKIE (frame, 
+							   afr_write_pending_pre_op_cbk,
 							   (void *) (long) i,
 							   priv->children[i], 
 							   priv->children[i]->fops->fxattrop,
 							   local->fd, 
 							   GF_XATTROP_ADD_ARRAY, xattr);
 				else
-					STACK_WIND_COOKIE (frame, afr_write_pending_pre_op_cbk,
+					STACK_WIND_COOKIE (frame, 
+							   afr_write_pending_pre_op_cbk,
 							   (void *) (long) i,
 							   priv->children[i], 
 							   priv->children[i]->fops->xattrop,
 							   &local->transaction.parent_loc, 
 							   GF_XATTROP_ADD_ARRAY, xattr);
 			}
+
 			break;
 			}
+
 			if (!--call_count)
 				break;
 		}
@@ -433,11 +462,18 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int done = 0;
 	int child_index = (long) cookie;
 
+	int call_count = 0;
+
 	local = frame->local;
 	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
+		if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
+			/* wait for the other lock to return */
+			call_count = --local->call_count;
+		}
+
 		if (op_ret == -1) {
 			if (op_errno == ENOSYS) {
 				/* return ENOTSUP */
@@ -453,13 +489,32 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 	UNLOCK (&frame->lock);
 	
-	if (done) {
-		afr_unlock (frame, this);
-	} else {
-		afr_lock_rec (frame, this, child_index + 1);
+	if (call_count == 0) {
+		if (done) {
+			afr_unlock (frame, this);
+		} else {
+			afr_lock_rec (frame, this, child_index + 1);
+		}
 	}
 
 	return 0;
+}
+
+
+static loc_t *
+lower_path (loc_t *l1, const char *b1, loc_t *l2, const char *b2)
+{
+	int ret = 0;
+
+	ret = strcmp (l1->path, l2->path);
+	
+	if (ret == 0) 
+		ret = strcmp (b1, b2);
+
+	if (ret <= 0)
+		return l1;
+	else
+		return l2;
 }
 
 
@@ -470,6 +525,12 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 	afr_private_t * priv  = NULL;
 
 	struct flock flock;
+
+	loc_t * lower  = NULL;
+	loc_t * higher = NULL;
+
+	const char *lower_name  = NULL;
+	const char *higher_name = NULL;
 
 	local = frame->local;
 	priv  = this->private;
@@ -509,16 +570,45 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 		break;
 		
 	case AFR_ENTRY_RENAME_TRANSACTION:
-/*
-  STACK_WIND_COOKIE (frame, afr_lock_cbk,
-  (void *) (long) child_index,
-  priv->children[child_index], 
-  priv->children[child_index]->fops->entrylk, 
-  &local->transaction.new_parent_loc, 
-  local->transaction.new_basename,
-  GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
-*/
-		/* fall through */
+	{
+		local->call_count = 2;
+
+		lower = lower_path (&local->transaction.parent_loc, 
+				    local->transaction.basename,
+				    &local->transaction.new_parent_loc,
+				    local->transaction.new_basename);
+		
+		lower_name = (lower == &local->transaction.parent_loc ? 
+			      local->transaction.basename :
+			      local->transaction.new_basename);
+
+		higher = (lower == &local->transaction.parent_loc ? 
+			  &local->transaction.new_parent_loc :
+			  &local->transaction.parent_loc);
+
+		higher_name = (higher == &local->transaction.parent_loc ? 
+			       local->transaction.basename :
+			       local->transaction.new_basename);
+
+
+		/* TODO: these locks should be blocking */
+
+		STACK_WIND_COOKIE (frame, afr_lock_cbk,
+				   (void *) (long) child_index,
+				   priv->children[child_index], 
+				   priv->children[child_index]->fops->entrylk, 
+				   lower, lower_name,
+				   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+
+		STACK_WIND_COOKIE (frame, afr_lock_cbk,
+				   (void *) (long) child_index,
+				   priv->children[child_index], 
+				   priv->children[child_index]->fops->entrylk, 
+				   higher, higher_name,
+				   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+
+		break;
+	}
 		
 	case AFR_ENTRY_TRANSACTION:
 		if (local->fd) {
@@ -537,7 +627,8 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 					   &local->transaction.parent_loc, 
 					   local->transaction.basename,
 					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
-			}
+		}
+
 		break;
 	}
 
@@ -592,8 +683,8 @@ afr_inode_transaction (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	local->transaction.resume = afr_transaction_resume;
-	local->transaction.type   = AFR_INODE_TRANSACTION;
+	local->transaction.resume     = afr_transaction_resume;
+	local->transaction.type       = AFR_INODE_TRANSACTION;
 
 	if (up_children_count (priv->child_count, local->child_up) !=
 	    priv->child_count) {
@@ -616,8 +707,8 @@ afr_entry_transaction (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	local->transaction.resume = afr_transaction_resume;
-	local->transaction.type   = AFR_ENTRY_TRANSACTION;
+	local->transaction.resume     = afr_transaction_resume;
+	local->transaction.type       = AFR_ENTRY_TRANSACTION;
 
 	if (up_children_count (priv->child_count, local->child_up) !=
 	    priv->child_count) {
@@ -639,8 +730,8 @@ afr_entry_rename_transaction (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	local->transaction.resume = afr_transaction_resume;
-	local->transaction.type   = AFR_ENTRY_RENAME_TRANSACTION;
+	local->transaction.resume     = afr_transaction_resume;
+	local->transaction.type       = AFR_ENTRY_RENAME_TRANSACTION;
 
 	if (up_children_count (priv->child_count, local->child_up) !=
 	    priv->child_count) {
