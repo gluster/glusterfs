@@ -20,13 +20,6 @@
 #ifndef _BYTE_ORDER_H
 #define _BYTE_ORDER_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-//#include "config.h"
-#endif
-
-#include "compat.h"
-
 #include <inttypes.h>
 
 #define LS1 0x00ffU
@@ -37,6 +30,14 @@
 #define MS4 0xffffffff00000000ULL
 
 
+static uint16_t (*hton16) (uint16_t);
+static uint32_t (*hton32) (uint32_t);
+static uint64_t (*hton64) (uint64_t);
+
+#define ntoh16 hton16
+#define ntoh32 hton32
+#define ntoh64 hton64
+
 #define do_swap2(x) (((x&LS1) << 8)|(((x&MS1) >> 8)))
 #define do_swap4(x) ((do_swap2(x&LS2) << 16)|(do_swap2((x&MS2) >> 16)))
 #define do_swap8(x) ((do_swap4(x&LS4) << 32)|(do_swap4((x&MS4) >> 32)))
@@ -45,37 +46,105 @@
 static inline uint16_t
 __swap16 (uint16_t x)
 {
-  return do_swap2(x);
+	return do_swap2(x);
 }
 
 
-static inline int32_t
-__swap32 (int32_t x)
+static inline uint32_t
+__swap32 (uint32_t x)
 {
-  return do_swap4(x);
+	return do_swap4(x);
 }
 
 
-static inline int64_t
-__swap64 (int64_t x)
+static inline uint64_t
+__swap64 (uint64_t x)
 {
-  return do_swap8(x);
+	return do_swap8(x);
 }
 
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#define hton16(x) __swap16(x)
-#define hton32(x) __swap32(x)
-#define hton64(x) __swap64(x)
-#else
-#define hton16(x) (x)
-#define hton32(x) (x)
-#define hton64(x) (x)
-#endif
+static inline uint16_t
+__noswap16 (uint16_t x)
+{
+	return do_swap2(x);
+}
 
 
-#define ntoh16(x) hton16(x)
-#define ntoh32(x) hton32(x)
-#define ntoh64(x) hton64(x)
+static inline uint32_t
+__noswap32 (uint32_t x)
+{
+	return do_swap4(x);
+}
+
+
+static inline uint64_t
+__noswap64 (uint64_t x)
+{
+	return do_swap8(x);
+}
+
+
+static inline uint16_t
+__byte_order_init16 (uint16_t i)
+{
+	uint32_t num = 1;
+
+	if (((char *)(&num))[0] == 1) {
+		hton16 = __swap16;
+		hton32 = __swap32;
+		hton64 = __swap64;
+	} else {
+		hton16 = __noswap16;
+		hton32 = __noswap32;
+		hton64 = __noswap64;
+	}
+
+	return hton16 (i);
+}
+
+
+static inline uint32_t
+__byte_order_init32 (uint32_t i)
+{
+	uint32_t num = 1;
+
+	if (((char *)(&num))[0] == 1) {
+		hton16 = __swap16;
+		hton32 = __swap32;
+		hton64 = __swap64;
+	} else {
+		hton16 = __noswap16;
+		hton32 = __noswap32;
+		hton64 = __noswap64;
+	}
+
+	return hton32 (i);
+}
+
+
+static inline uint64_t
+__byte_order_init64 (uint64_t i)
+{
+	uint32_t num = 1;
+
+	if (((char *)(&num))[0] == 1) {
+		hton16 = __swap16;
+		hton32 = __swap32;
+		hton64 = __swap64;
+	} else {
+		hton16 = __noswap16;
+		hton32 = __noswap32;
+		hton64 = __noswap64;
+	}
+
+	return hton64 (i);
+}
+
+
+static uint16_t (*hton16) (uint16_t) = __byte_order_init16;
+static uint32_t (*hton32) (uint32_t) = __byte_order_init32;
+static uint64_t (*hton64) (uint64_t) = __byte_order_init64;
+
 
 #endif /* _BYTE_ORDER_H */
