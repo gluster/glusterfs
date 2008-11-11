@@ -39,6 +39,7 @@ typedef struct _afr_private {
 
 	unsigned char *child_up;
 
+	unsigned int self_heal;       /* on/off */
 	unsigned int read_child;      /* read-subvolume */
 	unsigned int favorite_child;  /* subvolume to be preferred in resolving
 					 split-brain cases */

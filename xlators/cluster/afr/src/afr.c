@@ -354,9 +354,10 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			local->need_entry_self_heal = 1;
 		}
 
-		if (local->need_metadata_self_heal
-		    || local->need_data_self_heal
-		    || local->need_entry_self_heal) {
+		if (priv->self_heal && 
+		    (local->need_metadata_self_heal
+		     || local->need_data_self_heal
+		     || local->need_entry_self_heal)) {
 			afr_self_heal (frame, this, afr_self_heal_cbk);
 		} else {
 			AFR_STACK_UNWIND (frame, local->op_ret,
@@ -922,7 +923,9 @@ init (xlator_t *this)
 
 	char * read_subvol = NULL;
 	char * fav_child   = NULL;
+	char * self_heal   = NULL;
 
+	int    sh_ret      = -1;
 	int    read_ret    = -1;
 	int    fav_ret     = -1;
 
@@ -935,6 +938,13 @@ init (xlator_t *this)
 
 	fav_ret = dict_get_str (this->options, "favorite-child", &fav_child);
 	priv->favorite_child = -1;
+
+	sh_ret = dict_get_str (this->options, "self-heal", &self_heal);
+	
+	if ((sh_ret == 0) && !strcasecmp (self_heal, "off"))
+		priv->self_heal = 0;
+	else
+		priv->self_heal = 1;
 
 	trav = this->children;
 	while (trav) {
@@ -1048,5 +1058,6 @@ struct xlator_options options[] = {
 	{ "read-subvolume", GF_OPTION_TYPE_XLATOR, 0, },
 	{ "favorite-child", GF_OPTION_TYPE_XLATOR, 0, },
 	{ "read-only", GF_OPTION_TYPE_BOOL, 0, },
+	{ "self-heal", GF_OPTION_TYPE_BOOL, 0, },
 	{ NULL, 0, },
 };
