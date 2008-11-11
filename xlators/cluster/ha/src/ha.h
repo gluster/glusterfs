@@ -38,7 +38,7 @@ typedef struct {
 typedef struct {
 	char *state;
 	xlator_t **children;
-	int child_count, active;
+	int child_count, active, write_load_balance;
 } ha_private_t;
 
 typedef struct {
@@ -46,6 +46,7 @@ typedef struct {
 	char *fdstate;
 	char *path;
 	gf_lock_t lock;
+	int active;
 } hafd_t;
 
 #define HA_ACTIVE_CHILD(this, local) (((ha_private_t *)this->private)->children[local->active])
