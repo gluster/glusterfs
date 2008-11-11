@@ -340,7 +340,7 @@ grant_blocked_locks (pl_inode_t *pl_inode, gf_lk_domain_t domain)
 				printf ("[UNBLOCKING] "); print_lock (l);
 #endif
 
-				STACK_UNWIND (l->frame, 0, 0, l->user_flock);
+				STACK_UNWIND (l->frame, 0, 0, &l->user_flock);
 			}
 		}
     

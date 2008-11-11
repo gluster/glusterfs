@@ -672,7 +672,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 	if (!pfd) {
 		pthread_mutex_unlock (&priv->mutex);
 		gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
-		STACK_UNWIND (frame, -1, EBADF, nulllock);
+		STACK_UNWIND (frame, -1, EBADF, &nulllock);
 		return 0;
 	}
 
