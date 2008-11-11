@@ -130,14 +130,6 @@ struct xlator_mops {
 };
 
 
-typedef int32_t (*cbk_fop_lookup_t) (call_frame_t *frame,
-				     void *cookie,
-				     xlator_t *this,
-				     int32_t op_ret,
-				     int32_t op_errno,
-				     inode_t *inode,
-				     struct stat *buf);
-
 typedef int32_t (*fop_lookup_cbk_t) (call_frame_t *frame,
 				     void *cookie,
 				     xlator_t *this,
