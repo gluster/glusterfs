@@ -1066,10 +1066,11 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
-			STACK_WIND (frame, afr_unlink_wind_cbk,	
-				    priv->children[i], 
-				    priv->children[i]->fops->unlink,
-				    &local->loc);
+			STACK_WIND_COOKIE (frame, afr_unlink_wind_cbk,	
+					   (void *) (long) i,
+					   priv->children[i], 
+					   priv->children[i]->fops->unlink,
+					   &local->loc);
 			
 			if (!--call_count)
 				break;
@@ -1203,10 +1204,11 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
-			STACK_WIND (frame, afr_rmdir_wind_cbk,	
-				    priv->children[i], 
-				    priv->children[i]->fops->rmdir,
-				    &local->loc);
+			STACK_WIND_COOKIE (frame, afr_rmdir_wind_cbk,	
+					   (void *) (long) i,
+					   priv->children[i], 
+					   priv->children[i]->fops->rmdir,
+					   &local->loc);
 
 			if (!--call_count)
 				break;
@@ -1336,13 +1338,14 @@ afr_setdents_wind (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
-			STACK_WIND (frame, afr_setdents_wind_cbk,	
-				    priv->children[i], 
-				    priv->children[i]->fops->setdents,
-				    local->fd, local->cont.setdents.flags,
-				    local->cont.setdents.entries, 
-				    local->cont.setdents.count);
-		
+			STACK_WIND_COOKIE (frame, afr_setdents_wind_cbk,	
+					   (void *) (long) i,
+					   priv->children[i], 
+					   priv->children[i]->fops->setdents,
+					   local->fd, local->cont.setdents.flags,
+					   local->cont.setdents.entries, 
+					   local->cont.setdents.count);
+			
 			if (!--call_count)
 				break;
 		}

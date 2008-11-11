@@ -946,6 +946,13 @@ init (xlator_t *this)
 	else
 		priv->self_heal = 1;
 
+	sh_ret = dict_get_str (this->options, "self-heal", &self_heal);
+	
+	if ((sh_ret == 0) && !strcasecmp (self_heal, "off"))
+		priv->self_heal = 0;
+	else
+		priv->self_heal = 1;
+
 	trav = this->children;
 	while (trav) {
 		if (read_ret == 0 && !strcmp (read_subvol, trav->xlator->name)) {

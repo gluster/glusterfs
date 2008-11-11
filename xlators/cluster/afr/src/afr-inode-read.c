@@ -88,10 +88,11 @@ afr_access_cbk (call_frame_t *frame, void *cookie,
 
 		unwind = 0;
 
-		STACK_WIND (frame, afr_access_cbk,
-			    children[this_try], 
-			    children[this_try]->fops->access,
-			    &local->loc, local->cont.access.mask);
+		STACK_WIND_COOKIE (frame, afr_access_cbk,
+				   (void *) (long) this_try,
+				   children[this_try], 
+				   children[this_try]->fops->access,
+				   &local->loc, local->cont.access.mask);
 	}
 
 out:
@@ -138,9 +139,10 @@ afr_access (call_frame_t *frame, xlator_t *this,
 	loc_copy (&local->loc, loc);
 	local->cont.access.mask       = mask;
 
-	STACK_WIND (frame, afr_access_cbk,
-		    children[call_child], children[call_child]->fops->access,
-		    loc, mask);
+	STACK_WIND_COOKIE (frame, afr_access_cbk,
+			   (void *) (long) call_child,
+			   children[call_child], children[call_child]->fops->access,
+			   loc, mask);
 
 	op_ret = 0;
 out:
@@ -416,11 +418,12 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 		this_try = ++local->cont.readlink.last_tried;
 
 		unwind = 0;
-		STACK_WIND (frame, afr_readlink_cbk,
-			    children[this_try], 
-			    children[this_try]->fops->readlink,
-			    &local->loc,
-			    local->cont.readlink.size);
+		STACK_WIND_COOKIE (frame, afr_readlink_cbk,
+				   (void *) (long) this_try,
+				   children[this_try], 
+				   children[this_try]->fops->readlink,
+				   &local->loc,
+				   local->cont.readlink.size);
 	}
 
 out:
@@ -469,9 +472,10 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 	loc_copy (&local->loc, loc);
 	local->cont.readlink.size       = size;
 
-	STACK_WIND (frame, afr_readlink_cbk,
-		    children[call_child], children[call_child]->fops->readlink,
-		    loc, size);
+	STACK_WIND_COOKIE (frame, afr_readlink_cbk,
+			   (void *) (long) call_child,
+			   children[call_child], children[call_child]->fops->readlink,
+			   loc, size);
 
 	op_ret = 0;
 out:
@@ -515,11 +519,12 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 		this_try = ++local->cont.getxattr.last_tried;
 
 		unwind = 0;
-		STACK_WIND (frame, afr_getxattr_cbk,
-			    children[this_try], 
-			    children[this_try]->fops->getxattr,
-			    &local->loc,
-			    local->cont.getxattr.name);
+		STACK_WIND_COOKIE (frame, afr_getxattr_cbk,
+				   (void *) (long) this_try,
+				   children[this_try], 
+				   children[this_try]->fops->getxattr,
+				   &local->loc,
+				   local->cont.getxattr.name);
 	}
 
 out:
@@ -568,9 +573,10 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	if (name)
 	  local->cont.getxattr.name       = strdup (name);
 
-	STACK_WIND (frame, afr_getxattr_cbk,
-		    children[call_child], children[call_child]->fops->getxattr,
-		    loc, name);
+	STACK_WIND_COOKIE (frame, afr_getxattr_cbk,
+			   (void *) (long) call_child,
+			   children[call_child], children[call_child]->fops->getxattr,
+			   loc, name);
 
 	op_ret = 0;
 out:
@@ -642,11 +648,12 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 
 		unwind = 0;
 
-		STACK_WIND (frame, afr_readv_cbk,
-			    children[this_try], 
-			    children[this_try]->fops->readv,
-			    local->fd, local->cont.readv.size,
-			    local->cont.readv.offset);
+		STACK_WIND_COOKIE (frame, afr_readv_cbk,
+				   (void *) (long) this_try,
+				   children[this_try], 
+				   children[this_try]->fops->readv,
+				   local->fd, local->cont.readv.size,
+				   local->cont.readv.offset);
 	}
 
 out:
@@ -708,10 +715,11 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 	local->cont.readv.size       = size;
 	local->cont.readv.offset     = offset;
 
-	STACK_WIND (frame, afr_readv_cbk,
-		    children[call_child],
-		    children[call_child]->fops->readv,
-		    fd, size, offset);
+	STACK_WIND_COOKIE (frame, afr_readv_cbk,
+			   (void *) (long) call_child,
+			   children[call_child],
+			   children[call_child]->fops->readv,
+			   fd, size, offset);
 
 	op_ret = 0;
 out:
