@@ -2502,12 +2502,16 @@ client_setdents (call_frame_t *frame,
 	req->count = hton32 (count);
 
 	{
-		data_t *buf_data = get_new_data ();
-		dict_t *reply_dict = get_new_dict ();
-    
+		data_t *buf_data = NULL;
+		dict_t *reply_dict = NULL;
+		
+		buf_data = get_new_data ();
+		GF_VALIDATE_OR_GOTO (this->name, buf_data, unwind);
+		reply_dict = get_new_dict();
+		GF_VALIDATE_OR_GOTO (this->name, reply_dict, unwind);
+
 		buf_data->data = buffer;
 		buf_data->len = buf_len;
-    
 		dict_set (reply_dict, NULL, buf_data);
 		frame->root->rsp_refs = dict_ref (reply_dict);
 		vector[0].iov_base = buffer;
@@ -2546,20 +2550,26 @@ client_forget (xlator_t *this,
 	gf_cbk_forget_req_t *req = NULL;
 	int                  ret = -1;
 
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 	ino = this_ino_get (inode, this);
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
 	req    = gf_param (hdr);
+	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
 
 	req->ino = hton64 (ino);
 
 	fr = create_frame (this, this->ctx->pool);
-  
+  	GF_VALIDATE_OR_GOTO (this->name, fr, out);
+
 	ret = protocol_client_xfer (fr, this,
 				    GF_OP_TYPE_CBK_REQUEST, GF_CBK_FORGET,
 				    hdr, hdrlen, NULL, 0, NULL);
 
+out:
 	return ret;
 }
 
@@ -2584,6 +2594,9 @@ client_releasedir (xlator_t *this,
 	size_t                 hdrlen = 0;
 	gf_cbk_releasedir_req_t *req = NULL;
 
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1){
 		gf_log (this->name,
@@ -2595,13 +2608,17 @@ client_releasedir (xlator_t *this,
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
+
 	req    = gf_param (hdr);
+	GF_VALIDATE_OR_GOTO (this->name, req, out);
 
 	req->fd = hton64 (remote_fd);
 
 	{
 		priv = CLIENT_PRIV (this);
 		sprintf (key, "%p", fd);
+
 		pthread_mutex_lock (&priv->lock);
 		{
 			dict_del (priv->saved_fds, key);
@@ -2610,6 +2627,7 @@ client_releasedir (xlator_t *this,
 	}
 
 	fr = create_frame (this, this->ctx->pool);
+	GF_VALIDATE_OR_GOTO (this->name, fr, out);
 
 	ret = protocol_client_xfer (fr, this,
 				    GF_OP_TYPE_CBK_REQUEST, GF_CBK_RELEASEDIR,
@@ -2638,7 +2656,10 @@ client_release (xlator_t *this,
 	gf_hdr_common_t     *hdr = NULL;
 	size_t               hdrlen = 0;
 	gf_cbk_release_req_t  *req = NULL;
-	
+
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	GF_VALIDATE_OR_GOTO (this->name, fd, out);	
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name,
@@ -2650,13 +2671,16 @@ client_release (xlator_t *this,
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
 	req    = gf_param (hdr);
+	GF_VALIDATE_OR_GOTO (this->name, req, out);
 
 	req->fd = hton64 (remote_fd);
 
 	{
 		priv = CLIENT_PRIV (this);
 		sprintf (key, "%p", fd);
+
 		pthread_mutex_lock (&priv->lock);
 		{
 			dict_del (priv->saved_fds, key);
@@ -2665,7 +2689,8 @@ client_release (xlator_t *this,
 	}
 
 	fr = create_frame (this, this->ctx->pool);
-  
+	GF_VALIDATE_OR_GOTO (this->name, fr, out);
+
 	ret = protocol_client_xfer (fr, this,
 				    GF_OP_TYPE_CBK_REQUEST, GF_CBK_RELEASE,
 				    hdr, hdrlen, NULL, 0, NULL);
@@ -2696,9 +2721,14 @@ client_stats (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int ret = -1;
 
+	GF_VALIDATE_OR_GOTO ("client", this, unwind);
+
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
+	GF_VALIDATE_OR_GOTO (this->name, req, unwind);
 
 	req->flags = hton32 (flags);
 
@@ -2707,6 +2737,9 @@ client_stats (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	STACK_UNWIND (frame, -1, EINVAL, NULL);
+	return 0;
 }
 
 
