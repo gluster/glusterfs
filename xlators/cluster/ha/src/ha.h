@@ -38,7 +38,7 @@ typedef struct {
 typedef struct {
 	char *state;
 	xlator_t **children;
-	int child_count, active, write_load_balance;
+	int child_count, active, load_balance;
 } ha_private_t;
 
 typedef struct {

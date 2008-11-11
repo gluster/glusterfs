@@ -1875,7 +1875,7 @@ ha_open (call_frame_t *frame,
 	hafdp->fdstate = calloc (1, child_count);
 	hafdp->path = strdup (loc->path);
 	hafdp->active = -1;
-	if (pvt->write_load_balance) {
+	if (pvt->load_balance) {
 		hafdp->active = fd->inode->ino % child_count;
 	}
 
@@ -1953,7 +1953,30 @@ ha_readv (call_frame_t *frame,
 	}
 	GF_TRACE (this, "fd=%x size=%d offset=%llu", fd, size, offset);
 
-	HA_CALL_CODE_FD(this, frame, local, hafdp);;
+	if (local == NULL) {
+		int i;
+		ha_private_t *pvt = this->private;
+		int child_count = pvt->child_count;
+		local = frame->local = calloc (1, sizeof (*local));
+		if (pvt->load_balance)
+			local->active = hafdp->active;
+		else
+			local->active = pvt->active;
+		local->state = calloc (1, child_count);
+		LOCK (&hafdp->lock);
+		memcpy (local->state, hafdp->fdstate, child_count);
+		UNLOCK (&hafdp->lock);
+		if (local->active != -1 && local->state[local->active] == 0)
+			local->active = -1;
+		for (i = 0; i < pvt->child_count; i++) {
+			if (local->state[i]) {
+				if (local->active == -1)
+					local->active = i;
+				local->tries++;
+			}
+		}
+	}
+
 	if (local->active == -1) {
 		GF_ERROR (this, "unwind(-1, ENOTCONN), none of the subvols are up");
 		op_errno = ENOTCONN;
@@ -1961,6 +1984,9 @@ ha_readv (call_frame_t *frame,
 	}
 
 	local->stub = fop_readv_stub (frame, ha_readv, fd, size, offset);
+
+	GF_TRACE (this, "read on %s", HA_ACTIVE_CHILD(this, local)->name);
+
 	STACK_WIND (frame,
 		    ha_readv_cbk,
 		    HA_ACTIVE_CHILD(this, local),
@@ -2027,7 +2053,7 @@ ha_writev (call_frame_t *frame,
 		ha_private_t *pvt = this->private;
 		int child_count = pvt->child_count;
 		local = frame->local = calloc (1, sizeof (*local));
-		if (pvt->write_load_balance)
+		if (pvt->load_balance)
 			local->active = hafdp->active;
 		else
 			local->active = pvt->active;
@@ -3636,14 +3662,14 @@ init (xlator_t *this)
 {
 	ha_private_t *pvt = NULL;
 	data_t *debug = NULL;
-	data_t *write_load_balance = NULL;
+	data_t *load_balance = NULL;
 	xlator_list_t *trav = NULL;
 	int count = 0;
 
 	GF_DEBUG (this, "init() of HA");
 
 	debug = dict_get (this->options, "debug");
-	write_load_balance = dict_get (this->options, "write-load-balance");
+	load_balance = dict_get (this->options, "load-balance");
 	trav = this->children;
 	pvt = calloc (1, sizeof (ha_private_t));
 
@@ -3655,9 +3681,9 @@ init (xlator_t *this)
 		this->trace = 1;
 	}
 
-	if (write_load_balance && strcmp (data_to_str(write_load_balance), "on") == 0) {
+	if (load_balance && strcmp (data_to_str(load_balance), "on") == 0) {
 		GF_DEBUG (this, "write-load-balance enabled");
-		pvt->write_load_balance = 1;
+		pvt->load_balance = 1;
 	}
 
 	trav = this->children;
