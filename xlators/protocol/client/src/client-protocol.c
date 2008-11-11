@@ -45,9 +45,6 @@ int protocol_client_interpret (xlator_t *this, transport_t *trans,
                                char *hdr_p, size_t hdrlen,
                                char *buf_p, size_t buflen);
 
-#define CLIENT_PRIVATE(frame) (((transport_t *)(frame->this->private))->xl_private)
-#define CLIENT_PRIV(this) (((transport_t *)(this->private))->xl_private)
-
 typedef int32_t (*gf_op_t) (call_frame_t *frame,
                             gf_hdr_common_t *hdr, size_t hdrlen,
                             char *buf, size_t buflen);
@@ -83,7 +80,7 @@ this_ino_set (inode_t *inode, xlator_t *this, ino_t ino)
 {
 	ino_t old_ino = 0;
 	int32_t ret = -1;
-	
+
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
@@ -109,7 +106,7 @@ static int
 this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
 {
 	int ret = -1;
-	
+
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, file, out);
 	GF_VALIDATE_OR_GOTO (this->name, remote_fd, out);
@@ -130,10 +127,10 @@ this_fd_set (fd_t *file, xlator_t *this, int64_t fd)
 {
 	int64_t old_fd = -1;
 	int32_t ret = -1;
-	
+
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, file, out);
-	
+
 	ret = dict_get_int64 (file->ctx, this->name, &old_fd);
 	if (ret >= 0) {
 		gf_log (this->name, GF_LOG_WARNING,
@@ -163,90 +160,98 @@ out:
 static call_frame_t *
 lookup_frame (transport_t *trans, int64_t callid)
 {
-	char buf[64];
+	char frameid[64] = {0,};
 	call_frame_t *frame = NULL;
-	client_proto_priv_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
+	int32_t ret = -1;
 
-	if (!trans) {
-		gf_log ("", GF_LOG_ERROR, "!trans");
-		return NULL;
-	}
+	GF_VALIDATE_OR_GOTO("client", trans, out);
 
-	snprintf (buf, 64, "%"PRId64, callid);
-	priv = trans->xl_private;
+	snprintf (frameid, 64, "%"PRId64, callid);
+	cprivate = trans->xl_private;
 
-	pthread_mutex_lock (&priv->lock);
+	pthread_mutex_lock (&cprivate->lock);
 	{
-		frame = data_to_bin (dict_get (priv->saved_frames, buf));
-		dict_del (priv->saved_frames, buf);
+		ret = dict_get_ptr (cprivate->saved_frames, frameid, (void **)&frame);
+		if (ret < 0) {
+			gf_log ("client", GF_LOG_ERROR,
+				"failed to look for frame(%s)", frameid);
+			goto unlock;
+		}
+		dict_del (cprivate->saved_frames, frameid);
 	}
-	pthread_mutex_unlock (&priv->lock);
-
+unlock:
+	pthread_mutex_unlock (&cprivate->lock);
+out:
 	return frame;
 }
 
 
 static void
-call_bail (void *trans)
+call_bail (void *data)
 {
-	client_proto_priv_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
 	struct timeval current;
 	int32_t bail_out = 0;
+	transport_t *trans = NULL;
 
-	if (!trans) {
-		gf_log ("", GF_LOG_ERROR, "!trans");
-		return;
-	}
+	GF_VALIDATE_OR_GOTO("client", data, out);
+	trans = data;
 
-	priv = ((transport_t *)trans)->xl_private;
+	cprivate = trans->xl_private;
 
 	gettimeofday (&current, NULL);
-	pthread_mutex_lock (&priv->lock);
+	pthread_mutex_lock (&cprivate->lock);
 	{
 		/* Chaining to get call-always functionality from call-once timer */
-		if (priv->timer) {
+		if (cprivate->timer) {
 			struct timeval timeout = {0,};
-			gf_timer_cbk_t timer_cbk = priv->timer->cbk;
+			gf_timer_cbk_t timer_cbk = cprivate->timer->cbk;
 
 			timeout.tv_sec = 10;
 			timeout.tv_usec = 0;
 
-			gf_timer_call_cancel (((transport_t *) trans)->xl->ctx, priv->timer);
-			priv->timer = gf_timer_call_after (((transport_t *) trans)->xl->ctx,
-							   timeout,
-							   timer_cbk,
-							   trans);
-			if (!priv->timer) {
-				gf_log (((transport_t *)trans)->xl->name, GF_LOG_DEBUG,
+			gf_timer_call_cancel (trans->xl->ctx, cprivate->timer);
+			cprivate->timer = gf_timer_call_after (trans->xl->ctx,
+							       timeout,
+							       timer_cbk,
+							       trans);
+			if (cprivate->timer == NULL) {
+				gf_log (trans->xl->name, GF_LOG_DEBUG,
 					"Cannot create timer");
 			}
 		}
 
-		if ((priv->saved_frames->count > 0)
-		    && (((unsigned long long)priv->last_received.tv_sec + priv->transport_timeout) < current.tv_sec)
-		    && (((unsigned long long)priv->last_sent.tv_sec + priv->transport_timeout ) < current.tv_sec)) {
+		if ((cprivate->saved_frames->count > 0) &&
+		    (RECEIVE_TIMEOUT(cprivate, current)) && 
+		    (SEND_TIMEOUT(cprivate, current))) {
 			struct tm last_sent_tm, last_received_tm;
-			char last_sent[32], last_received[32];
+			char last_sent[32] = {0,}, last_received[32] = {0,};
 
 			bail_out = 1;
-			localtime_r (&priv->last_sent.tv_sec, &last_sent_tm);
-			localtime_r (&priv->last_received.tv_sec, &last_received_tm);
+			
+			localtime_r (&cprivate->last_sent.tv_sec, &last_sent_tm);
+			localtime_r (&cprivate->last_received.tv_sec, &last_received_tm);
+			
 			strftime (last_sent, 32, "%Y-%m-%d %H:%M:%S", &last_sent_tm);
 			strftime (last_received, 32, "%Y-%m-%d %H:%M:%S", &last_received_tm);
-			gf_log (((transport_t *)trans)->xl->name, GF_LOG_ERROR,
+			
+			gf_log (trans->xl->name, GF_LOG_ERROR,
 				"activating bail-out. pending frames = %d. last sent = %s. "
 				"last received = %s. transport-timeout = %d",
-				priv->saved_frames->count, last_sent, last_received,
-				priv->transport_timeout);
+				cprivate->saved_frames->count, last_sent, last_received,
+				cprivate->transport_timeout);
 		}
 	}
-	pthread_mutex_unlock (&priv->lock);
+	pthread_mutex_unlock (&cprivate->lock);
 
 	if (bail_out) {
-		gf_log (((transport_t *)trans)->xl->name, GF_LOG_CRITICAL,
+		gf_log (trans->xl->name, GF_LOG_CRITICAL,
 			"bailing transport");
 		transport_disconnect (trans);
 	}
+out:
+	return;
 }
 
 
@@ -254,34 +259,34 @@ void
 __protocol_client_frame_save (xlator_t *this, call_frame_t *frame,
                               uint64_t callid)
 {
-	client_proto_priv_t *priv           = NULL;
-	transport_t         *trans          = NULL;
-	char                 callid_str[32] = {0,};
-	struct timeval       timeout        = {0, };
-	int32_t              ret            = -1;
+	client_connection_private_t *cprivate = NULL;
+	transport_t   *trans          = NULL;
+	char           callid_str[32] = {0,};
+	struct timeval timeout        = {0, };
+	int32_t        ret            = -1;
 
-	trans = this->private;
-	priv = trans->xl_private;
+	trans    = this->private;
+	cprivate = trans->xl_private;
 
 	snprintf (callid_str, 32, "%"PRId64, callid);
 
-	ret = dict_set_static_ptr (priv->saved_frames, callid_str, frame);
+	ret = dict_set_static_ptr (cprivate->saved_frames, callid_str, frame);
 	if (ret < 0) {
 		gf_log (this->name,
-			GF_LOG_ERROR,
+			GF_LOG_CRITICAL,
 			"failed to save frame(%s:%p)", callid_str, frame);
 	}
 
-	if (priv->timer == NULL) {
+	if (cprivate->timer == NULL) {
 		timeout.tv_sec  = 10;
 		timeout.tv_usec = 0;
-		priv->timer     = gf_timer_call_after (trans->xl->ctx, timeout,
+		cprivate->timer = gf_timer_call_after (trans->xl->ctx, timeout,
 						       call_bail, (void *)trans);
 	}
 }
 
 
-int
+int32_t
 protocol_client_xfer (call_frame_t *frame,
                       xlator_t *this,
                       int type, int op,
@@ -290,24 +295,23 @@ protocol_client_xfer (call_frame_t *frame,
                       dict_t *refs)
 {
 	transport_t *trans = NULL;
-	client_proto_priv_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
 	uint64_t callid = 0;
-	int ret = -1;
+	int32_t ret = -1;
 	gf_hdr_common_t rsphdr = {0, };
 
 	trans = this->private;
-	priv = trans->xl_private;
+	cprivate = trans->xl_private;
 
-	pthread_mutex_lock (&priv->lock);
+	pthread_mutex_lock (&cprivate->lock);
 	{
-		callid = ++priv->callid;
+		callid = ++cprivate->callid;
 
 		hdr->callid = hton64 (callid);
 		hdr->op     = hton32 (op);
 		hdr->type   = hton32 (type);
 
-		if (frame)
-		{
+		if (frame) {
 			hdr->req.uid = hton32 (frame->root->uid);
 			hdr->req.gid = hton32 (frame->root->gid);
 			hdr->req.pid = hton32 (frame->root->pid);
@@ -316,40 +320,35 @@ protocol_client_xfer (call_frame_t *frame,
 			frame->type  = type;
 		}
 
-		if (!priv->connected)
+		if (cprivate->connected == 0)
 			transport_connect (trans);
 
-		if (priv->connected || (type == GF_OP_TYPE_MOP_REQUEST && op == GF_MOP_SETVOLUME)) {
+		if (cprivate->connected ||
+		    ((type == GF_OP_TYPE_MOP_REQUEST) &&
+		     (op == GF_MOP_SETVOLUME))) {
 			ret = transport_submit (trans, (char *)hdr, hdrlen,
 						vector, count, refs);
 		}
 
-		if (ret >= 0 && frame)
-		{
-			gettimeofday (&priv->last_sent, NULL);
+		if ((ret >= 0) && frame) {
+			gettimeofday (&cprivate->last_sent, NULL);
 			__protocol_client_frame_save (this, frame, callid);
 		}
 	}
-	pthread_mutex_unlock (&priv->lock);
+	pthread_mutex_unlock (&cprivate->lock);
 
-	if (frame && ret < 0)
-	{
+	if (frame && (ret < 0)) {
 		rsphdr.op = op;
 		rsphdr.rsp.op_ret   = hton32 (-1);
 		rsphdr.rsp.op_errno = hton32 (ENOTCONN);
 
-		if (frame->type == GF_OP_TYPE_FOP_REQUEST)
-		{
+		if (frame->type == GF_OP_TYPE_FOP_REQUEST) {
 			rsphdr.type = GF_OP_TYPE_FOP_REPLY;
 			gf_fops[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
-		}
-		else if (frame->type == GF_OP_TYPE_MOP_REQUEST) 
-		{
+		} else if (frame->type == GF_OP_TYPE_MOP_REQUEST) {
 			rsphdr.type = GF_OP_TYPE_MOP_REPLY;
 			gf_mops[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
-		}
-		else
-		{
+		} else {
 			rsphdr.type = GF_OP_TYPE_CBK_REPLY;
 			gf_cbks[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
 		}
@@ -378,12 +377,12 @@ client_create (call_frame_t *frame,
                mode_t        mode,
                fd_t         *fd)
 {
-	int              ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_create_req_t *req = NULL;
-	size_t               hdrlen = 0;
+	size_t hdrlen = 0;
 	size_t pathlen = 0;
 	size_t baselen = 0;
+	int32_t ret = -1;
 	ino_t par = 0;
 
 	pathlen = STRLEN_0(loc->path);
@@ -392,6 +391,8 @@ client_create (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->flags   = hton32 (flags);
@@ -406,6 +407,12 @@ client_create (call_frame_t *frame,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CREATE,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, fd, NULL, NULL);
+	return 0;
+
 }
 
 /**
@@ -434,9 +441,11 @@ client_open (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
-	
+
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
@@ -450,6 +459,12 @@ client_open (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, fd);
+	return 0;
+
 }
 
 
@@ -469,15 +484,17 @@ client_stat (call_frame_t *frame,
 	gf_hdr_common_t   *hdr = NULL;
 	gf_fop_stat_req_t *req = NULL;
 	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	ino_t  ino = 0;
+	int32_t ret = -1;
+	size_t  pathlen = 0;
+	ino_t   ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
@@ -488,6 +505,12 @@ client_stat (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 
@@ -518,6 +541,8 @@ client_readlink (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
@@ -529,6 +554,12 @@ client_readlink (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 
@@ -556,13 +587,15 @@ client_mknod (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
-	
+
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
 	par = this_ino_get (loc->parent, this);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->par  = hton64 (par);
@@ -578,6 +611,12 @@ client_mknod (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, loc->inode, NULL);
+	return 0;
+
 }
 
 
@@ -610,8 +649,10 @@ client_mkdir (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
-	
+
 	req->par  = hton64 (par);
 	req->mode = hton32 (mode);
 	strcpy (req->path, loc->path);
@@ -624,6 +665,12 @@ client_mkdir (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, loc->inode, NULL);
+	return 0;
+
 }
 
 
@@ -648,13 +695,15 @@ client_unlink (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
-	
+
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
 	par = this_ino_get (loc->parent, this);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->par  = hton64 (par);
@@ -666,6 +715,12 @@ client_unlink (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
+
 }
 
 /**
@@ -688,13 +743,15 @@ client_rmdir (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
-	
+
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
 	par = this_ino_get (loc->parent, this);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->par  = hton64 (par);
@@ -706,6 +763,12 @@ client_rmdir (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
+
 }
 
 
@@ -743,8 +806,10 @@ client_symlink (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen + newlen);
 	hdr    = gf_hdr_new (req, pathlen + baselen + newlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
-	
+
 	req->par =  hton64 (par);
 	strcpy (req->path, loc->path);
 	strcpy (req->bname + pathlen, loc->name);
@@ -754,6 +819,12 @@ client_symlink (call_frame_t *frame,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SYMLINK,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, loc->inode, NULL);
+	return 0;
+
 }
 
 
@@ -792,6 +863,8 @@ client_rename (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
 	hdr    = gf_hdr_new (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->oldpar = hton64 (oldpar);
@@ -806,6 +879,11 @@ client_rename (call_frame_t *frame,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RENAME,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
 
 }
 
@@ -845,10 +923,12 @@ client_link (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, oldpathlen + newpathlen + newbaselen);
 	hdr    = gf_hdr_new (req, oldpathlen + newpathlen + newbaselen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	strcpy (req->oldpath, oldloc->path);
-	strcpy (req->newpath     + oldpathlen, newloc->path);
+	strcpy (req->newpath  + oldpathlen, newloc->path);
 	strcpy (req->newbname + oldpathlen + newpathlen, newloc->name);
 
 	req->oldino = hton64 (oldino);
@@ -860,6 +940,11 @@ client_link (call_frame_t *frame,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_LINK,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, oldloc->inode, NULL);
+	return 0;
 }
 
 
@@ -888,9 +973,11 @@ client_chmod (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
-	
+
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino     = hton64 (ino);
@@ -902,6 +989,12 @@ client_chmod (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 
@@ -934,6 +1027,8 @@ client_chown (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino = hton64 (ino);
@@ -946,6 +1041,12 @@ client_chown (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 /**
@@ -975,6 +1076,8 @@ client_truncate (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino    = hton64 (ino);
@@ -986,6 +1089,12 @@ client_truncate (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 
@@ -1017,6 +1126,8 @@ client_utimens (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino = hton64 (ino);
@@ -1028,6 +1139,12 @@ client_utimens (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 
@@ -1054,7 +1171,7 @@ client_readv (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-	
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name,
@@ -1067,6 +1184,8 @@ client_readv (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->fd     = hton64 (remote_fd);
@@ -1078,6 +1197,12 @@ client_readv (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return 0;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL, 0, NULL);
+	return 0;
+
 }
 
 
@@ -1105,7 +1230,7 @@ client_writev (call_frame_t *frame,
 	size_t  hdrlen = 0;
 	int64_t remote_fd = -1;
 	int     ret = -1;
-	
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name,
@@ -1118,6 +1243,8 @@ client_writev (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->fd     = hton64 (remote_fd);
@@ -1130,6 +1257,12 @@ client_writev (call_frame_t *frame,
 				    frame->root->req_refs);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 
@@ -1158,6 +1291,8 @@ client_statfs (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino = hton64 (ino);
@@ -1168,6 +1303,12 @@ client_statfs (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 
@@ -1190,7 +1331,7 @@ client_flush (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-	
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name,
@@ -1203,6 +1344,8 @@ client_flush (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->fd = hton64 (remote_fd);
@@ -1212,6 +1355,12 @@ client_flush (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return 0;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
+
 }
 
 
@@ -1238,18 +1387,19 @@ client_fsync (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int32_t ret = -1;
-	
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get remote fd from fd_t(%p). returning EBADFD",
 			fd);
-		STACK_UNWIND (frame, -1, EBADFD);
-		return 0;
+		goto unwind;
 	}
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->fd   = hton64 (remote_fd);
@@ -1260,6 +1410,12 @@ client_fsync (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
+
 }
 
 int32_t
@@ -1273,25 +1429,43 @@ client_xattrop (call_frame_t *frame,
 	gf_fop_xattrop_req_t *req = NULL;
 	size_t  hdrlen = 0;
 	size_t  dict_len = 0;
-	int     ret = -1;
+	int32_t ret = -1;
 	size_t  pathlen = 0;
 	ino_t   ino = 0;
 
-	if (dict)
+	GF_VALIDATE_OR_GOTO("client", this, unwind);
+	GF_VALIDATE_OR_GOTO(this->name, loc, unwind);
+
+	if (dict) {
 		dict_len = dict_serialized_length (dict);
+		if (dict_len < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to get serialized length of dict(%p)",
+				dict);
+			goto unwind;
+		}
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
 
 	hdrlen = gf_hdr_len (req, dict_len + pathlen);
 	hdr    = gf_hdr_new (req, dict_len + pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->flags = hton32 (flags);
 	req->dict_len = hton32 (dict_len);
-	if (dict)
-		dict_serialize (dict, req->dict);
-
+	if (dict) {
+		ret = dict_serialize (dict, req->dict);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to serialize dictionary(%p)",
+				dict);
+			goto unwind;
+		}
+	}
 	req->ino = hton64 (ino);
 	strcpy (req->path + dict_len, loc->path);
 
@@ -1299,64 +1473,39 @@ client_xattrop (call_frame_t *frame,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_XATTROP,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
-}
+unwind:
+	if (hdr)
+		free (hdr);
 
-int32_t
-client_xattrop_cbk (call_frame_t *frame,
-		    gf_hdr_common_t *hdr, size_t hdrlen,
-		    char *buf, size_t buflen)
-{
-	gf_fop_xattrop_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
-	int dict_len = 0;
-	dict_t *dict = NULL;
-
-	rsp = gf_param (hdr);
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	if (op_ret >= 0) {
-		dict_len = ntoh32 (rsp->dict_len);
-
-		if (dict_len > 0) {
-			char *dictbuf = memdup (rsp->dict, dict_len);
-			dict = get_new_dict();
-			dict_unserialize (dictbuf, dict_len, &dict);
-			dict->extra_free = dictbuf;
-			dict_del (dict, "__@@protocol_client@@__key");
-		}
-	}
-
-	if (dict)
-		dict_ref (dict);
-
-	STACK_UNWIND (frame, op_ret, op_errno, dict);
-
-	if (dict)
-		dict_unref (dict);
-
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
 	return 0;
 }
 
+
 int32_t
 client_fxattrop (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
+		 xlator_t *this,
+		 fd_t *fd,
 		 gf_xattrop_flags_t flags,
-		dict_t *dict)
+		 dict_t *dict)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_fxattrop_req_t *req = NULL;
 	size_t  hdrlen = 0;
 	size_t  dict_len = 0;
 	int64_t remote_fd = -1;
-	int     ret = -1;
+	int32_t ret = -1;
 	ino_t   ino = 0;
 
-	if (dict)
+	if (dict) {
 		dict_len = dict_serialized_length (dict);
+		if (dict_len < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to get serialized length of dict(%p)",
+				dict);
+			goto unwind;
+		}
+	}
 
 	if (fd) {
 		ret = this_fd_get (fd, this, &remote_fd);
@@ -1364,21 +1513,28 @@ client_fxattrop (call_frame_t *frame,
 			gf_log (this->name, GF_LOG_ERROR,
 				"failed to get remote fd from fd_t(%p). returning EBADFD",
 				fd);
-			STACK_UNWIND (frame, -1, EBADFD, NULL);
-			return 0;
+			goto unwind;
 		}
 		ino = fd->inode->ino;
-	} 
+	}
 
 	hdrlen = gf_hdr_len (req, dict_len);
 	hdr    = gf_hdr_new (req, dict_len);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->flags = hton32 (flags);
 	req->dict_len = hton32 (dict_len);
-	if (dict)
-		dict_serialize (dict, req->dict);
-
+	if (dict) {
+		ret = dict_serialize (dict, req->dict);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to serialize dictionary(%p)",
+				dict);
+			goto unwind;
+		}
+	}
 	req->fd = hton64 (remote_fd);
 	req->ino = hton64 (ino);
 
@@ -1386,46 +1542,15 @@ client_fxattrop (call_frame_t *frame,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FXATTROP,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
-}
+unwind:
+	if (hdr)
+		free (hdr);
 
-int32_t
-client_fxattrop_cbk (call_frame_t *frame,
-		     gf_hdr_common_t *hdr, size_t hdrlen,
-		     char *buf, size_t buflen)
-{
-	gf_fop_xattrop_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
-	int dict_len = 0;
-	dict_t *dict = NULL;
-
-	rsp = gf_param (hdr);
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	if (op_ret >= 0) {
-		dict_len = ntoh32 (rsp->dict_len);
-
-		if (dict_len > 0) {
-			char *dictbuf = memdup (rsp->dict, dict_len);
-			dict = get_new_dict();
-			dict_unserialize (dictbuf, dict_len, &dict);
-			dict->extra_free = dictbuf;
-			dict_del (dict, "__@@protocol_client@@__key");
-		}
-	}
-
-	if (dict)
-		dict_ref (dict);
-
-	STACK_UNWIND (frame, op_ret, op_errno, dict);
-
-	if (dict)
-		dict_unref (dict);
-
+	STACK_UNWIND (frame, -1, EBADFD, NULL);
 	return 0;
+
 }
+
 
 /**
  * client_setxattr - setxattr function for client protocol
@@ -1453,17 +1578,33 @@ client_setxattr (call_frame_t *frame,
 	ino_t  ino = 0;
 
 	dict_len = dict_serialized_length (dict);
+	if (dict_len < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get serialized length of dict(%p)",
+			dict);
+		goto unwind;
+	}
+
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
-	
+
 	hdrlen = gf_hdr_len (req, dict_len + pathlen);
 	hdr    = gf_hdr_new (req, dict_len + pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
 	req->flags = hton32 (flags);
 	req->dict_len = hton32 (dict_len);
-	dict_serialize (dict, req->dict);
+
+	ret = dict_serialize (dict, req->dict);
+	if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to serialize dictionary(%p)",
+			dict);
+		goto unwind;
+	}
 
 	strcpy (req->path + dict_len, loc->path);
 
@@ -1471,6 +1612,12 @@ client_setxattr (call_frame_t *frame,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETXATTR,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
 }
 
 /**
@@ -1503,6 +1650,8 @@ client_getxattr (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen + namelen);
 	hdr    = gf_hdr_new (req, pathlen + namelen);
+	GF_VALIDATE_OR_GOTO(frame->this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
@@ -1515,6 +1664,12 @@ client_getxattr (call_frame_t *frame,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_GETXATTR,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
 }
 
 /**
@@ -1546,6 +1701,8 @@ client_removexattr (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen + namelen);
 	hdr    = gf_hdr_new (req, pathlen + namelen);
+	GF_VALIDATE_OR_GOTO(frame->this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
@@ -1556,6 +1713,11 @@ client_removexattr (call_frame_t *frame,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_REMOVEXATTR,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
 }
 
 
@@ -1579,12 +1741,14 @@ client_opendir (call_frame_t *frame,
 	int    ret = -1;
 	ino_t  ino = 0;
 	size_t pathlen = 0;
-	
+
 	ino = this_ino_get (loc->inode, this);
 	pathlen = STRLEN_0(loc->path);
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(frame->this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino = hton64 (ino);
@@ -1597,6 +1761,12 @@ client_opendir (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, fd);
+	return 0;
+
 }
 
 
@@ -1621,7 +1791,7 @@ client_getdents (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-	
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name,
@@ -1634,7 +1804,10 @@ client_getdents (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(frame->this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
+	GF_VALIDATE_OR_GOTO(frame->this->name, hdr, unwind);
 
 	req->fd     = hton64 (remote_fd);
 	req->size   = hton32 (size);
@@ -1645,6 +1818,9 @@ client_getdents (call_frame_t *frame,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_GETDENTS,
 				    hdr, hdrlen, NULL, 0, NULL);
 
+	return 0;
+unwind:
+	STACK_UNWIND(frame, -1, EINVAL, NULL, 0);
 	return 0;
 }
 
@@ -1668,19 +1844,21 @@ client_readdir (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-	
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get remote fd from fd_t(%p). returning EBADFD",
 			fd);
-		STACK_UNWIND (frame, -1, EBADFD, NULL);
-		return 0;
+		goto unwind;
 	}
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
 
 	req->fd     = hton64 (remote_fd);
 	req->size   = hton32 (size);
@@ -1691,6 +1869,12 @@ client_readdir (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return 0;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND (frame, -1, EBADFD, NULL);
+	return 0;
+
 }
 
 
@@ -1716,19 +1900,20 @@ client_fsyncdir (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int32_t ret = -1;
-	
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name,
 			GF_LOG_ERROR,
 			"failed to get remote fd from fd_t(%p). returning EBADFD",
 			fd);
-		STACK_UNWIND (frame, -1, EBADFD);
-		return 0;
+		goto unwind;
 	}
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->data = hton32 (flags);
@@ -1739,6 +1924,9 @@ client_fsyncdir (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	STACK_UNWIND (frame, -1, EBADFD);
+	return 0;
 }
 
 
@@ -1769,17 +1957,26 @@ client_access (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
 	req->mask = hton32 (mask);
 	strcpy (req->path, loc->path);
-	
+
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_ACCESS,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
+
 }
 
 
@@ -1817,6 +2014,8 @@ client_ftruncate (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->fd     = hton64 (remote_fd);
@@ -1827,6 +2026,13 @@ client_ftruncate (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 
@@ -1862,6 +2068,8 @@ client_fstat (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->fd = hton64 (remote_fd);
@@ -1871,6 +2079,13 @@ client_fstat (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 
@@ -1905,8 +2120,7 @@ client_lk (call_frame_t *frame,
 			GF_LOG_ERROR,
 			"failed to get remote fd from fd_t(%p). returning EBADFD",
 			fd);
-		STACK_UNWIND (frame, -1, EBADFD, NULL);
-		return 0;
+		goto unwind;
 	}
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
@@ -1916,26 +2130,27 @@ client_lk (call_frame_t *frame,
 	else if (cmd == F_SETLKW || cmd == F_SETLKW64)
 		gf_cmd = GF_LK_SETLKW;
 	else {
-		gf_log (this->name, GF_LOG_ERROR, 
+		gf_log (this->name, GF_LOG_ERROR,
 			"Unknown cmd (%d)!", gf_cmd);
-		STACK_UNWIND (frame, -1, EINVAL, NULL);
-		return 0;
+		goto unwind;
 	}
 
 	switch (flock->l_type) {
-	case F_RDLCK: 
-		gf_type = GF_LK_F_RDLCK; 
+	case F_RDLCK:
+		gf_type = GF_LK_F_RDLCK;
 		break;
-	case F_WRLCK: 
-		gf_type = GF_LK_F_WRLCK; 
+	case F_WRLCK:
+		gf_type = GF_LK_F_WRLCK;
 		break;
-	case F_UNLCK: 
-		gf_type = GF_LK_F_UNLCK; 
+	case F_UNLCK:
+		gf_type = GF_LK_F_UNLCK;
 		break;
 	}
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->fd   = hton64 (remote_fd);
@@ -1948,6 +2163,13 @@ client_lk (call_frame_t *frame,
 				    GF_FOP_LK,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+
 }
 
 
@@ -1962,10 +2184,10 @@ client_lk (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->inodelk
  */
 int32_t
-client_inodelk (call_frame_t *frame, 
+client_inodelk (call_frame_t *frame,
 		xlator_t *this,
-		loc_t *loc, 
-		int32_t cmd, 
+		loc_t *loc,
+		int32_t cmd,
 		struct flock *flock)
 {
 	int ret = -1;
@@ -1989,24 +2211,25 @@ client_inodelk (call_frame_t *frame,
 	else {
 		gf_log (this->name, GF_LOG_ERROR,
 			"Unknown cmd (%d)!", gf_cmd);
-		STACK_UNWIND (frame, -1, EINVAL);
-		return 0;
+		goto unwind;
 	}
 
 	switch (flock->l_type) {
-	case F_RDLCK: 
-		gf_type = GF_LK_F_RDLCK; 
+	case F_RDLCK:
+		gf_type = GF_LK_F_RDLCK;
 		break;
-	case F_WRLCK: 
-		gf_type = GF_LK_F_WRLCK; 
+	case F_WRLCK:
+		gf_type = GF_LK_F_WRLCK;
 		break;
-	case F_UNLCK: 
-		gf_type = GF_LK_F_UNLCK; 
+	case F_UNLCK:
+		gf_type = GF_LK_F_UNLCK;
 		break;
 	}
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	strcpy (req->path, loc->path);
@@ -2023,6 +2246,13 @@ client_inodelk (call_frame_t *frame,
 				    GF_FOP_INODELK,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
+
 }
 
 
@@ -2037,10 +2267,10 @@ client_inodelk (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->finodelk
  */
 int32_t
-client_finodelk (call_frame_t *frame, 
+client_finodelk (call_frame_t *frame,
 		 xlator_t *this,
-		 fd_t *fd, 
-		 int32_t cmd, 
+		 fd_t *fd,
+		 int32_t cmd,
 		 struct flock *flock)
 {
 	int ret = -1;
@@ -2050,15 +2280,14 @@ client_finodelk (call_frame_t *frame,
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 	int64_t remote_fd = -1;
-	
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name,
 			GF_LOG_ERROR,
 			"failed to get remote fd from fd_t(%p). returning EBADFD",
 			fd);
-		STACK_UNWIND (frame, -1, EBADFD, NULL);
-		return 0;
+		goto unwind;
 	}
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
@@ -2068,25 +2297,27 @@ client_finodelk (call_frame_t *frame,
 	else if (cmd == F_SETLKW || cmd == F_SETLKW64)
 		gf_cmd = GF_LK_SETLKW;
 	else {
-		gf_log (this->name, GF_LOG_ERROR, 
+		gf_log (this->name, GF_LOG_ERROR,
 			"Unknown cmd (%d)!", gf_cmd);
-		STACK_UNWIND (frame, -1, EINVAL);
+		goto unwind;
 	}
 
 	switch (flock->l_type) {
-	case F_RDLCK: 
-		gf_type = GF_LK_F_RDLCK; 
+	case F_RDLCK:
+		gf_type = GF_LK_F_RDLCK;
 		break;
-	case F_WRLCK: 
-		gf_type = GF_LK_F_WRLCK; 
+	case F_WRLCK:
+		gf_type = GF_LK_F_WRLCK;
 		break;
-	case F_UNLCK: 
-		gf_type = GF_LK_F_UNLCK; 
+	case F_UNLCK:
+		gf_type = GF_LK_F_UNLCK;
 		break;
 	}
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->fd = hton64 (remote_fd);
@@ -2100,15 +2331,22 @@ client_finodelk (call_frame_t *frame,
 				    GF_FOP_FINODELK,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
+
 }
 
 
 int32_t
-client_entrylk (call_frame_t *frame, 
+client_entrylk (call_frame_t *frame,
 		xlator_t *this,
-		loc_t *loc, 
+		loc_t *loc,
 		const char *name,
-		gf_dir_lk_cmd cmd, 
+		gf_dir_lk_cmd cmd,
 		gf_dir_lk_type type)
 {
 	gf_hdr_common_t *hdr = NULL;
@@ -2127,6 +2365,8 @@ client_entrylk (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, pathlen + namelen);
 	hdr    = gf_hdr_new (req, pathlen + namelen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
@@ -2144,15 +2384,22 @@ client_entrylk (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
+
 }
 
 
 int32_t
-client_fentrylk (call_frame_t *frame, 
+client_fentrylk (call_frame_t *frame,
 		 xlator_t *this,
-		 fd_t *fd, 
+		 fd_t *fd,
 		 const char *name,
-		 gf_dir_lk_cmd cmd, 
+		 gf_dir_lk_cmd cmd,
 		 gf_dir_lk_type type)
 {
 	gf_hdr_common_t *hdr = NULL;
@@ -2161,7 +2408,7 @@ client_fentrylk (call_frame_t *frame,
 	size_t namelen = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
-  
+
 	if (name)
 		namelen = STRLEN_0(name);
 
@@ -2170,17 +2417,18 @@ client_fentrylk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get remote fd from fd_t(%p). returning EBADFD",
 			fd);
-		STACK_UNWIND (frame, -1, EBADFD);
-		return 0;
+		goto unwind;
 	}
-	
+
 	hdrlen = gf_hdr_len (req, namelen);
 	hdr    = gf_hdr_new (req, namelen);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
 	req    = gf_param (hdr);
 
 	req->fd = hton64 (remote_fd);
 	req->namelen = hton64 (namelen);
-	
+
 	if (name)
 		strcpy (req->name, name);
 
@@ -2192,6 +2440,12 @@ client_fentrylk (call_frame_t *frame,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
 }
 
 
@@ -2219,7 +2473,7 @@ client_lookup (call_frame_t *frame,
 	size_t baselen = 0;
 	int32_t op_ret = -1;
 	int32_t op_errno = EINVAL;
-	
+
 	GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 	GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
 
@@ -2239,7 +2493,6 @@ client_lookup (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
-	GF_VALIDATE_OR_GOTO (this->name, req, unwind);
 
 	req->ino   = hton64 (ino);
 	req->par   = hton64 (par);
@@ -2296,7 +2549,6 @@ client_fchmod (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
-	GF_VALIDATE_OR_GOTO (this->name, req, unwind);
 
 	req->fd   = hton64 (remote_fd);
 	req->mode = hton32 (mode);
@@ -2355,8 +2607,7 @@ client_fchown (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
-	GF_VALIDATE_OR_GOTO (this->name, req, unwind);
-	
+
 	req->fd  = hton64 (remote_fd);
 	req->uid = hton32 (uid);
 	req->gid = hton32 (gid);
@@ -2400,7 +2651,7 @@ client_setdents (call_frame_t *frame,
 	struct iovec vector[1];
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
-	
+
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name,
@@ -2495,7 +2746,6 @@ client_setdents (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
-	GF_VALIDATE_OR_GOTO (this->name, req, unwind);
 
 	req->fd    = hton64 (remote_fd);
 	req->flags = hton32 (flags);
@@ -2504,7 +2754,7 @@ client_setdents (call_frame_t *frame,
 	{
 		data_t *buf_data = NULL;
 		dict_t *reply_dict = NULL;
-		
+
 		buf_data = get_new_data ();
 		GF_VALIDATE_OR_GOTO (this->name, buf_data, unwind);
 		reply_dict = get_new_dict();
@@ -2518,14 +2768,14 @@ client_setdents (call_frame_t *frame,
 		vector[0].iov_len = buf_len;
 		vec_count = 1;
 	}
-  
+
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETDENTS,
 				    hdr, hdrlen, vector, vec_count, frame->root->rsp_refs);
 
 	return ret;
 unwind:
-	STACK_UNWIND (frame, op_ret, op_errno, NULL);
+	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -2557,8 +2807,8 @@ client_forget (xlator_t *this,
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
+
 	req    = gf_param (hdr);
-	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
 
 	req->ino = hton64 (ino);
 
@@ -2589,7 +2839,7 @@ client_releasedir (xlator_t *this,
 	int32_t                ret = -1;
 	int64_t                remote_fd = 0;
 	char                   key[32] = {0,};
-	client_proto_priv_t   *priv = NULL;
+	client_connection_private_t   *cprivate = NULL;
 	gf_hdr_common_t       *hdr = NULL;
 	size_t                 hdrlen = 0;
 	gf_cbk_releasedir_req_t *req = NULL;
@@ -2611,19 +2861,18 @@ client_releasedir (xlator_t *this,
 	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
 
 	req    = gf_param (hdr);
-	GF_VALIDATE_OR_GOTO (this->name, req, out);
 
 	req->fd = hton64 (remote_fd);
 
 	{
-		priv = CLIENT_PRIV (this);
+		cprivate = CLIENT_CONNECTION_PRIVATE(this);
 		sprintf (key, "%p", fd);
 
-		pthread_mutex_lock (&priv->lock);
+		pthread_mutex_lock (&cprivate->lock);
 		{
-			dict_del (priv->saved_fds, key);
+			dict_del (cprivate->saved_fds, key);
 		}
-		pthread_mutex_unlock (&priv->lock);
+		pthread_mutex_unlock (&cprivate->lock);
 	}
 
 	fr = create_frame (this, this->ctx->pool);
@@ -2652,13 +2901,13 @@ client_release (xlator_t *this,
 	int32_t              ret = -1;
 	int64_t              remote_fd = 0;
 	char                 key[32] = {0,};
-	client_proto_priv_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
 	gf_hdr_common_t     *hdr = NULL;
 	size_t               hdrlen = 0;
 	gf_cbk_release_req_t  *req = NULL;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
-	GF_VALIDATE_OR_GOTO (this->name, fd, out);	
+	GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -2673,19 +2922,18 @@ client_release (xlator_t *this,
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
 	req    = gf_param (hdr);
-	GF_VALIDATE_OR_GOTO (this->name, req, out);
 
 	req->fd = hton64 (remote_fd);
 
 	{
-		priv = CLIENT_PRIV (this);
+		cprivate = CLIENT_CONNECTION_PRIVATE(this);
 		sprintf (key, "%p", fd);
 
-		pthread_mutex_lock (&priv->lock);
+		pthread_mutex_lock (&cprivate->lock);
 		{
-			dict_del (priv->saved_fds, key);
+			dict_del (cprivate->saved_fds, key);
 		}
-		pthread_mutex_unlock (&priv->lock);
+		pthread_mutex_unlock (&cprivate->lock);
 	}
 
 	fr = create_frame (this, this->ctx->pool);
@@ -2728,7 +2976,6 @@ client_stats (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
-	GF_VALIDATE_OR_GOTO (this->name, req, unwind);
 
 	req->flags = hton32 (flags);
 
@@ -2745,6 +2992,120 @@ unwind:
 
 /* Callbacks */
 
+int32_t
+client_fxattrop_cbk (call_frame_t *frame,
+		     gf_hdr_common_t *hdr, size_t hdrlen,
+		     char *buf, size_t buflen)
+{
+	gf_fop_xattrop_rsp_t *rsp = NULL;
+	int32_t op_ret   = 0;
+	int32_t gf_errno = 0;
+	int32_t op_errno = 0;
+	int32_t dict_len = 0;
+	dict_t *dict = NULL;
+	int32_t ret = -1;
+
+	rsp = gf_param (hdr);
+	GF_VALIDATE_OR_GOTO(frame->this->name, rsp, fail);
+
+	op_ret   = ntoh32 (hdr->rsp.op_ret);
+	gf_errno = ntoh32 (hdr->rsp.op_errno);
+	op_errno = gf_error_to_errno (gf_errno);
+
+	if (op_ret >= 0) {
+		dict_len = ntoh32 (rsp->dict_len);
+
+		if (dict_len > 0) {
+			char *dictbuf = NULL;
+			dictbuf = memdup (rsp->dict, dict_len);
+			GF_VALIDATE_OR_GOTO(frame->this->name, dictbuf, fail);
+
+			dict = get_new_dict();
+			GF_VALIDATE_OR_GOTO(frame->this->name, dict, fail);
+                                                                  /* FIXME: dictbuf leak */
+			dict->extra_free = dictbuf;
+			ret = dict_unserialize (dictbuf, dict_len, &dict);
+			if (ret < 0) {
+				gf_log (frame->this->name, GF_LOG_ERROR,
+					"failed to serialize dictionary(%p)",
+					dict);
+				dict_destroy (dict);
+				dict = NULL;
+				goto fail;
+			}
+			dict_del (dict, "__@@protocol_client@@__key");
+		}
+	}
+
+	if (dict)
+		dict_ref (dict);
+
+fail:
+	STACK_UNWIND (frame, op_ret, op_errno, dict);
+
+	if (dict)
+		dict_unref (dict);
+
+	return 0;
+}
+
+int32_t
+client_xattrop_cbk (call_frame_t *frame,
+		    gf_hdr_common_t *hdr, size_t hdrlen,
+		    char *buf, size_t buflen)
+{
+	gf_fop_xattrop_rsp_t *rsp = NULL;
+	int32_t op_ret   = 0;
+	int32_t gf_errno = 0;
+	int32_t op_errno = 0;
+	int32_t dict_len = 0;
+	dict_t *dict = NULL;
+	int32_t ret = -1;
+
+	rsp = gf_param (hdr);
+	GF_VALIDATE_OR_GOTO(frame->this->name, rsp, fail);
+
+	op_ret   = ntoh32 (hdr->rsp.op_ret);
+	gf_errno = ntoh32 (hdr->rsp.op_errno);
+	op_errno = gf_error_to_errno (gf_errno);
+
+	if (op_ret >= 0) {
+		dict_len = ntoh32 (rsp->dict_len);
+
+		if (dict_len > 0) {
+			char *dictbuf = NULL;
+
+			dictbuf = memdup (rsp->dict, dict_len);
+			GF_VALIDATE_OR_GOTO(frame->this->name, dictbuf, fail);
+
+			dict = get_new_dict();
+			GF_VALIDATE_OR_GOTO(frame->this->name, dict, fail);
+                                                      /* FIXME: dictbuf leak */
+			dict->extra_free = dictbuf;
+			ret = dict_unserialize (dictbuf, dict_len, &dict);
+			if (ret < 0) {
+				gf_log (frame->this->name, GF_LOG_ERROR,
+					"failed to serialize dictionary(%p)",
+					dict);
+				dict_destroy (dict);
+				dict = NULL;
+				goto fail;
+			}
+			dict_del (dict, "__@@protocol_client@@__key");
+		}
+	}
+
+	if (dict)
+		dict_ref (dict);
+fail:
+	STACK_UNWIND (frame, op_ret, op_errno, dict);
+
+	if (dict)
+		dict_unref (dict);
+
+	return 0;
+}
+
 /*
  * client_chown_cbk -
  *
@@ -2760,16 +3121,15 @@ client_fchown_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_fchown_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -2794,16 +3154,15 @@ client_fchmod_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_fchmod_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -2833,7 +3192,7 @@ client_create_cbk (call_frame_t *frame,
 	inode_t             *inode = NULL;
 	struct stat          stbuf = {0, };
 	int64_t              remote_fd = 0;
-	client_proto_priv_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
 	char                 key[32] = {0, };
 	int32_t              ret = -1;
 
@@ -2852,17 +3211,19 @@ client_create_cbk (call_frame_t *frame,
 	}
 
 	if (op_ret >= 0) {
-		priv = CLIENT_PRIVATE (frame);
+		cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
 
 		this_ino_set (inode, frame->this, stbuf.st_ino);
 		this_fd_set (fd, frame->this, remote_fd);
 
 		sprintf (key, "%p", fd);
-		pthread_mutex_lock (&priv->lock);
+
+		pthread_mutex_lock (&cprivate->lock);
 		{
-			ret = dict_set_str (priv->saved_fds, key, "");
+			ret = dict_set_str (cprivate->saved_fds, key, "");
 		}
-		pthread_mutex_unlock (&priv->lock);
+		pthread_mutex_unlock (&cprivate->lock);
+
 		if (ret < 0) {
 			free (key);
 			gf_log (frame->this->name,
@@ -2894,7 +3255,7 @@ client_open_cbk (call_frame_t *frame,
 	fd_t                *fd = NULL;
 	int64_t              remote_fd = 0;
 	gf_fop_open_rsp_t   *rsp = NULL;
-	client_proto_priv_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
 	char                 key[32] = {0,};
 	int32_t              ret = -1;
 
@@ -2911,17 +3272,17 @@ client_open_cbk (call_frame_t *frame,
 	}
 
 	if (op_ret >= 0) {
-		priv = CLIENT_PRIVATE(frame);
+		cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
 
 		this_fd_set (fd, frame->this, remote_fd);
 
 		sprintf (key, "%p", fd);
 
-		pthread_mutex_lock (&priv->lock);
+		pthread_mutex_lock (&cprivate->lock);
 		{
-			ret = dict_set_str (priv->saved_fds, key, "");
+			ret = dict_set_str (cprivate->saved_fds, key, "");
 		}
-		pthread_mutex_unlock (&priv->lock);
+		pthread_mutex_unlock (&cprivate->lock);
 
 		if (ret < 0) {
 			gf_log (frame->this->name,
@@ -2951,16 +3312,15 @@ client_stat_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_stat_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -2984,16 +3344,15 @@ client_utimens_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_utimens_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -3016,16 +3375,15 @@ client_chmod_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_chmod_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -3048,16 +3406,15 @@ client_chown_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_chown_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -3079,8 +3436,8 @@ client_mknod_cbk (call_frame_t *frame,
                   char *buf, size_t buflen)
 {
 	gf_fop_mknod_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 
@@ -3092,8 +3449,7 @@ client_mknod_cbk (call_frame_t *frame,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 		this_ino_set (inode, frame->this, stbuf.st_ino);
 	}
@@ -3116,8 +3472,8 @@ client_symlink_cbk (call_frame_t *frame,
                     char *buf, size_t buflen)
 {
 	gf_fop_symlink_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 
@@ -3129,8 +3485,7 @@ client_symlink_cbk (call_frame_t *frame,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 		this_ino_set (inode, frame->this, stbuf.st_ino);
 	}
@@ -3153,8 +3508,8 @@ client_link_cbk (call_frame_t *frame,
                  char *buf, size_t buflen)
 {
 	gf_fop_link_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 
@@ -3166,8 +3521,7 @@ client_link_cbk (call_frame_t *frame,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -3191,16 +3545,15 @@ client_truncate_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_truncate_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -3223,16 +3576,15 @@ client_fstat_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_fstat_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -3255,16 +3607,15 @@ client_ftruncate_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_ftruncate_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -3286,8 +3637,8 @@ client_readv_cbk (call_frame_t *frame,
                   char *buf, size_t buflen)
 {
 	gf_fop_read_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	struct iovec vector = {0, };
 	struct stat stbuf = {0, };
 	dict_t *refs = NULL;
@@ -3297,8 +3648,7 @@ client_readv_cbk (call_frame_t *frame,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret != -1)
-	{
+	if (op_ret != -1) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 		vector.iov_base = buf;
 		vector.iov_len  = buflen;
@@ -3330,8 +3680,8 @@ client_write_cbk (call_frame_t *frame,
                   char *buf, size_t buflen)
 {
 	gf_fop_write_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	struct stat stbuf = {0, };
 
 	rsp = gf_param (hdr);
@@ -3354,8 +3704,8 @@ client_readdir_cbk (call_frame_t *frame,
                     char *buf, size_t buflen)
 {
 	gf_fop_readdir_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	uint32_t buf_size = 0;
 	gf_dirent_t entries;
 
@@ -3392,8 +3742,8 @@ client_fsync_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_fsync_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -3419,8 +3769,8 @@ client_unlink_cbk (call_frame_t *frame,
                    char *buf, size_t buflen)
 {
 	gf_fop_unlink_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -3446,16 +3796,15 @@ client_rename_cbk (call_frame_t *frame,
 {
 	struct stat stbuf = {0, };
 	gf_fop_rename_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 	}
 
@@ -3479,8 +3828,8 @@ client_readlink_cbk (call_frame_t *frame,
                      char *buf, size_t buflen)
 {
 	gf_fop_readlink_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	char *link = NULL;
 
 	rsp = gf_param (hdr);
@@ -3488,8 +3837,7 @@ client_readlink_cbk (call_frame_t *frame,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret > 0)
-	{
+	if (op_ret > 0) {
 		link = rsp->path;
 	}
 
@@ -3510,8 +3858,8 @@ client_mkdir_cbk (call_frame_t *frame,
                   char *buf, size_t buflen)
 {
 	gf_fop_mkdir_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 
@@ -3523,8 +3871,7 @@ client_mkdir_cbk (call_frame_t *frame,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 		this_ino_set (inode, frame->this, stbuf.st_ino);
 	}
@@ -3548,8 +3895,8 @@ client_flush_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   char *buf, size_t buflen)
 {
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -3577,7 +3924,7 @@ client_opendir_cbk (call_frame_t *frame,
 	fd_t                 *fd       = NULL;
 	int64_t               remote_fd = 0;
 	gf_fop_opendir_rsp_t *rsp  = NULL;
-	client_proto_priv_t  *priv = NULL;
+	client_connection_private_t  *cprivate = NULL;
 	char                  key[32] = {0,};
 	int32_t               ret     = -1;
 
@@ -3594,17 +3941,18 @@ client_opendir_cbk (call_frame_t *frame,
 	}
 
 	if (op_ret >= 0) {
-		priv = CLIENT_PRIVATE(frame);
+		cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
 
 		this_fd_set (fd, frame->this, remote_fd);
 
 		sprintf (key, "%p", fd);
 
-		pthread_mutex_lock (&priv->lock);
+		pthread_mutex_lock (&cprivate->lock);
 		{
-			ret = dict_set_str (priv->saved_fds, key, "");
+			ret = dict_set_str (cprivate->saved_fds, key, "");
 		}
-		pthread_mutex_unlock (&priv->lock);
+		pthread_mutex_unlock (&cprivate->lock);
+
 		if (ret < 0) {
 			free (key);
 			gf_log (frame->this->name,
@@ -3633,8 +3981,8 @@ client_rmdir_cbk (call_frame_t *frame,
                   char *buf, size_t buflen)
 {
 	gf_fop_rmdir_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -3659,8 +4007,8 @@ client_access_cbk (call_frame_t *frame,
                    char *buf, size_t buflen)
 {
 	gf_fop_access_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -3691,9 +4039,10 @@ client_lookup_cbk (call_frame_t *frame,
 	inode_t *inode = NULL;
 	dict_t *xattr = NULL;
 	gf_fop_lookup_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	size_t dict_len = 0;
+	int32_t ret = -1;
 
 	inode = frame->local;
 	frame->local = NULL;
@@ -3710,16 +4059,30 @@ client_lookup_cbk (call_frame_t *frame,
 		dict_len = ntoh32 (rsp->dict_len);
 
 		if (dict_len > 0) {
-			char *dictbuf = memdup (rsp->dict, dict_len);
+			char *dictbuf = NULL;
+
+			dictbuf = memdup (rsp->dict, dict_len);
+			GF_VALIDATE_OR_GOTO(frame->this->name, dictbuf, fail);
+
 			xattr = get_new_dict();
-			dict_unserialize (dictbuf, dict_len, &xattr);
+			GF_VALIDATE_OR_GOTO(frame->this->name, xattr, fail);
+                             			/* FIXME: dictbuf leak */
 			xattr->extra_free = dictbuf;
+			ret = dict_unserialize (dictbuf, dict_len, &xattr);
+			if (ret < 0) {
+				gf_log (frame->this->name, GF_LOG_ERROR,
+					"failed to serialize dictionary(%p)",
+					dictbuf);
+				dict_destroy (xattr);
+				xattr = NULL;
+				goto fail;
+			}
 		}
 	}
 
 	if (xattr)
 		dict_ref (xattr);
-
+fail:
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf, xattr);
 
 	if (xattr)
@@ -3742,8 +4105,8 @@ client_getdents_cbk (call_frame_t *frame,
                      char *buf, size_t buflen)
 {
 	gf_fop_getdents_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	int32_t nr_count = 0;
 	dir_entry_t *entry = NULL;
 	dir_entry_t *trav = NULL, *prev = NULL;
@@ -3754,10 +4117,9 @@ client_getdents_cbk (call_frame_t *frame,
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
 	entry = calloc (1, sizeof (dir_entry_t));
-	ERR_ABORT (entry);
+	GF_VALIDATE_OR_GOTO(frame->this->name, entry, fail);
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		int32_t count, i, bread;
 		char *ender = NULL, *buffer_ptr = NULL;
 		char tmp_buf[512] = {0,};
@@ -3769,14 +4131,14 @@ client_getdents_cbk (call_frame_t *frame,
 		for (i = 0; i < nr_count ; i++) {
 			bread = 0;
 			trav = calloc (1, sizeof (dir_entry_t));
-			ERR_ABORT (trav);
+			GF_VALIDATE_OR_GOTO(frame->this->name, trav, fail);
 
 			ender = strchr (buffer_ptr, '/');
 			if (!ender)
 				break;
 			count = ender - buffer_ptr;
 			trav->name = calloc (1, count + 2);
-			ERR_ABORT (trav->name);
+			GF_VALIDATE_OR_GOTO(frame->this->name, trav->name, fail);
 
 			strncpy (trav->name, buffer_ptr, count);
 			bread = count + 1;
@@ -3789,65 +4151,8 @@ client_getdents_cbk (call_frame_t *frame,
 			strncpy (tmp_buf, buffer_ptr, count);
 			bread = count + 1;
 			buffer_ptr += bread;
-
-			{
-				uint64_t dev;
-				uint64_t ino;
-				uint32_t mode;
-				uint32_t nlink;
-				uint32_t uid;
-				uint32_t gid;
-				uint64_t rdev;
-				uint64_t size;
-				uint32_t blksize;
-				uint64_t blocks;
-				uint32_t atime;
-				uint32_t atime_nsec;
-				uint32_t mtime;
-				uint32_t mtime_nsec;
-				uint32_t ctime;
-				uint32_t ctime_nsec;
-
-				sscanf (tmp_buf, GF_STAT_PRINT_FMT_STR,
-					&dev,
-					&ino,
-					&mode,
-					&nlink,
-					&uid,
-					&gid,
-					&rdev,
-					&size,
-					&blksize,
-					&blocks,
-					&atime,
-					&atime_nsec,
-					&mtime,
-					&mtime_nsec,
-					&ctime,
-					&ctime_nsec);
-
-				trav->buf.st_dev = dev;
-				trav->buf.st_ino = ino;
-				trav->buf.st_mode = mode;
-				trav->buf.st_nlink = nlink;
-				trav->buf.st_uid = uid;
-				trav->buf.st_gid = gid;
-				trav->buf.st_rdev = rdev;
-				trav->buf.st_size = size;
-				trav->buf.st_blksize = blksize;
-				trav->buf.st_blocks = blocks;
-
-				trav->buf.st_atime = atime;
-				trav->buf.st_mtime = mtime;
-				trav->buf.st_ctime = ctime;
-
-#ifdef HAVE_TV_NSEC
-				trav->buf.st_atim.tv_nsec = atime_nsec;
-				trav->buf.st_mtim.tv_nsec = mtime_nsec;
-				trav->buf.st_ctim.tv_nsec = ctime_nsec;
-#endif
-
-			}
+			
+			gf_string_to_stat (tmp_buf, &trav->buf);
 
 			ender = strchr (buffer_ptr, '\n');
 			if (!ender)
@@ -3866,11 +4171,10 @@ client_getdents_cbk (call_frame_t *frame,
 			prev = trav;
 		}
 	}
-
+fail:
 	STACK_UNWIND (frame, op_ret, op_errno, entry, nr_count);
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		/* Free the buffer */
 		FREE (buf);
 
@@ -3907,8 +4211,8 @@ client_statfs_cbk (call_frame_t *frame,
 {
 	struct statvfs stbuf = {0, };
 	gf_fop_statfs_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -3937,8 +4241,8 @@ client_fsyncdir_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
                      char *buf, size_t buflen)
 {
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -3961,8 +4265,8 @@ client_setxattr_cbk (call_frame_t *frame,
                      char *buf, size_t buflen)
 {
 	gf_fop_setxattr_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -3987,33 +4291,50 @@ client_getxattr_cbk (call_frame_t *frame,
                      char *buf, size_t buflen)
 {
 	gf_fop_getxattr_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
-	int dict_len = 0;
+	int32_t op_ret   = 0;
+	int32_t gf_errno = 0;
+	int32_t op_errno = 0;
+	int32_t dict_len = 0;
 	dict_t *dict = NULL;
+	int32_t ret = -1;
 
 	rsp = gf_param (hdr);
+	GF_VALIDATE_OR_GOTO(frame->this->name, rsp, fail);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
+	gf_errno = ntoh32 (hdr->rsp.op_errno);
+	op_errno = gf_error_to_errno (gf_errno);
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		dict_len = ntoh32 (rsp->dict_len);
 
-		if (dict_len > 0)
-		{
-			char *dictbuf = memdup (rsp->dict, dict_len);
+		if (dict_len > 0) {
+			char *dictbuf = NULL;
+
+			dictbuf = memdup (rsp->dict, dict_len);
+			GF_VALIDATE_OR_GOTO(frame->this->name, dictbuf, fail);
+
 			dict = get_new_dict();
-			dict_unserialize (dictbuf, dict_len, &dict);
+			GF_VALIDATE_OR_GOTO(frame->this->name, dict, fail);
+                                                       /* FIXME: dictbuf leak */
 			dict->extra_free = dictbuf;
+
+			ret = dict_unserialize (dictbuf, dict_len, &dict);
+			if (ret < 0) {
+				gf_log (frame->this->name, GF_LOG_ERROR,
+					"failed to serialize dictionary(%p)",
+					dict);
+				dict_destroy (dict);
+				dict = NULL;
+				goto fail;
+			}
 			dict_del (dict, "__@@protocol_client@@__key");
 		}
 	}
 
 	if (dict)
 		dict_ref (dict);
-
+fail:
 	STACK_UNWIND (frame, op_ret, op_errno, dict);
 
 	if (dict)
@@ -4034,8 +4355,8 @@ client_removexattr_cbk (call_frame_t *frame,
                         gf_hdr_common_t *hdr, size_t hdrlen,
                         char *buf, size_t buflen)
 {
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -4059,8 +4380,8 @@ client_lk_common_cbk (call_frame_t *frame,
 {
 	struct flock lock = {0,};
 	gf_fop_lk_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4090,8 +4411,8 @@ client_inodelk_cbk (call_frame_t *frame,
 		    char *buf, size_t buflen)
 {
 	gf_fop_inodelk_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4109,8 +4430,8 @@ client_finodelk_cbk (call_frame_t *frame,
 		     char *buf, size_t buflen)
 {
 	gf_fop_finodelk_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4135,8 +4456,8 @@ client_entrylk_cbk (call_frame_t *frame,
 		    char *buf, size_t buflen)
 {
 	gf_fop_entrylk_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4153,8 +4474,8 @@ client_fentrylk_cbk (call_frame_t *frame,
 		     char *buf, size_t buflen)
 {
 	gf_fop_fentrylk_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4179,8 +4500,8 @@ client_setdents_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
                      char *buf, size_t buflen)
 {
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -4209,8 +4530,8 @@ client_stats_cbk (call_frame_t *frame,
 	struct xlator_stats stats = {0,};
 	gf_mop_stats_rsp_t *rsp = NULL;
 	char *buffer = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4256,12 +4577,18 @@ client_getspec (call_frame_t *frame,
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_GETSPEC,
 				    hdr, hdrlen, NULL, 0, NULL);
 
 	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
 }
 
 
@@ -4281,8 +4608,8 @@ client_getspec_cbk (call_frame_t *frame,
 {
 	gf_mop_getspec_rsp_t *rsp = NULL;
 	char *spec_data = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -4329,8 +4656,8 @@ client_checksum_cbk (call_frame_t *frame,
                      char *buf, size_t buflen)
 {
 	gf_fop_checksum_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 	unsigned char *fchecksum = NULL;
 	unsigned char *dchecksum = NULL;
 
@@ -4363,8 +4690,8 @@ client_setspec_cbk (call_frame_t *frame,
                     gf_hdr_common_t *hdr, size_t hdrlen,
                     char *buf, size_t buflen)
 {
-	int op_ret = 0;
-	int op_errno = 0;
+	int32_t op_ret = 0;
+	int32_t op_errno = 0;
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -4386,41 +4713,57 @@ client_setvolume_cbk (call_frame_t *frame,
                       gf_hdr_common_t *hdr, size_t hdrlen,
                       char *buf, size_t buflen)
 {
+	gf_mop_setvolume_rsp_t *rsp = NULL;
+	client_connection_private_t *cprivate = NULL;
 	xlator_t *this = NULL;
 	transport_t *trans = NULL;
 	dict_t *reply = NULL;
-	gf_mop_setvolume_rsp_t *rsp = NULL;
-	client_proto_priv_t *priv = NULL;
 	char *remote_error = NULL;
-	int32_t remote_errno = ENOTCONN;
 	int32_t ret = -1;
+	int32_t op_ret   = -1;
+	int32_t op_errno = EINVAL;
 	xlator_list_t *parent = NULL;
 
 	this  = frame->this;
 	trans = this->private;
-	priv  = trans->xl_private;
+	cprivate  = trans->xl_private;
 
 	rsp = gf_param (hdr);
 
 	reply = get_new_dict ();
-	dict_unserialize (rsp->buf, ntoh32 (hdr->size), &reply);
+	GF_VALIDATE_OR_GOTO(this->name, reply, out);
 
-	if (dict_get (reply, "RET"))
-		ret = data_to_int32 (dict_get (reply, "RET"));
-	else
-		ret = -2;
-
-	if (dict_get (reply, "ERRNO"))
-		remote_errno = gf_error_to_errno (data_to_int32 (dict_get (reply, "ERRNO")));
-  
-	if (dict_get (reply, "ERROR"))
-		remote_error = data_to_str (dict_get (reply, "ERROR"));
-
+	ret = dict_unserialize (rsp->buf, ntoh32 (hdr->size), &reply);
 	if (ret < 0) {
+		gf_log (frame->this->name, GF_LOG_ERROR,
+			"failed to serialize dictionary(%p)",
+			rsp->buf);
+		dict_destroy (reply);
+		reply = NULL;
+		goto out;
+	}
+
+	ret = dict_get_int32 (reply, "RET", &op_ret);
+	if (ret < 0)
+		op_ret = -2;
+	
+	ret = dict_get_int32 (reply, "ERRNO", &op_errno);
+	if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get ERRNO from reply dictionary");
+	}
+
+	ret = dict_get_str (reply, "ERROR", &remote_error);
+	if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get ERROR string from reply dictionary");
+	}
+
+	if (op_ret < 0) {
 		gf_log (trans->xl->name, GF_LOG_ERROR,
-			"SETVOLUME on remote-host failed: ret=%d error=%s", ret,  
-			remote_error ? remote_error : strerror (remote_errno));
-		errno = remote_errno;
+			"SETVOLUME on remote-host failed: ret=%d error=%s", op_ret,
+			remote_error ? remote_error : strerror (op_errno));
+		errno = op_errno;
 	} else {
 		gf_log (trans->xl->name, GF_LOG_DEBUG,
 			"SETVOLUME on remote-host succeeded");
@@ -4429,12 +4772,12 @@ client_setvolume_cbk (call_frame_t *frame,
 	if (reply)
 		dict_destroy (reply);
 
-	if (!ret) {
-		pthread_mutex_lock (&(priv->lock));
+	if (op_ret == 0) {
+		pthread_mutex_lock (&(cprivate->lock));
 		{
-			priv->connected = 1;
+			cprivate->connected = 1;
 		}
-		pthread_mutex_unlock (&(priv->lock));
+		pthread_mutex_unlock (&(cprivate->lock));
 
 		parent = trans->xl->parents;
 		while (parent) {
@@ -4445,8 +4788,9 @@ client_setvolume_cbk (call_frame_t *frame,
 		}
 	}
 
+out:
 	STACK_DESTROY (frame->root);
-	return ret;
+	return op_ret;
 }
 
 /*
@@ -4468,34 +4812,37 @@ void
 client_protocol_reconnect (void *trans_ptr)
 {
 	transport_t *trans = trans_ptr;
-	client_proto_priv_t *priv = trans->xl_private;
+	client_connection_private_t *cprivate = trans->xl_private;
 	struct timeval tv = {0, 0};
 
-	pthread_mutex_lock (&priv->lock);
+	pthread_mutex_lock (&cprivate->lock);
 	{
-		if (priv->reconnect)
-			gf_timer_call_cancel (trans->xl->ctx, priv->reconnect);
-		priv->reconnect = 0;
+		if (cprivate->reconnect)
+			gf_timer_call_cancel (trans->xl->ctx, cprivate->reconnect);
+		cprivate->reconnect = 0;
 
-		if (!priv->connected) {
-			uint32_t n_plus_1 = priv->n_minus_1 + priv->n;
+		if (cprivate->connected == 0) {
+			uint32_t n_plus_1 = cprivate->n_minus_1 + cprivate->n;
 
-			priv->n_minus_1 = priv->n;
-			priv->n = n_plus_1;
+			cprivate->n_minus_1 = cprivate->n;
+			cprivate->n = n_plus_1;
 			tv.tv_sec = n_plus_1;
 
-			gf_log (trans->xl->name, GF_LOG_DEBUG, "attempting reconnect");
+			gf_log (trans->xl->name, GF_LOG_DEBUG, 
+				"attempting reconnect");
 			transport_connect (trans);
 
-			priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
-							       client_protocol_reconnect, trans);
+			cprivate->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
+								   client_protocol_reconnect, 
+								   trans);
 		} else {
-			gf_log (trans->xl->name, GF_LOG_DEBUG, "breaking reconnect chain");
-			priv->n_minus_1 = 0;
-			priv->n = 1;
+			gf_log (trans->xl->name, GF_LOG_DEBUG, 
+				"breaking reconnect chain");
+			cprivate->n_minus_1 = 0;
+			cprivate->n = 1;
 		}
 	}
-	pthread_mutex_unlock (&priv->lock);
+	pthread_mutex_unlock (&cprivate->lock);
 }
 
 /*
@@ -4506,18 +4853,21 @@ client_protocol_reconnect (void *trans_ptr)
 int
 protocol_client_cleanup (transport_t *trans)
 {
-	client_proto_priv_t *priv = trans->xl_private;
+	client_connection_private_t *cprivate = trans->xl_private;
 	dict_t *saved_frames = NULL;
-
+	dict_t *reply = NULL;
+	data_pair_t *trav = NULL;
+	xlator_t *this = NULL;
+	
 	gf_log (trans->xl->name, GF_LOG_DEBUG,
 		"cleaning up state in transport object %p", trans);
 
-	pthread_mutex_lock (&priv->lock);
+	pthread_mutex_lock (&cprivate->lock);
 	{
-		saved_frames = priv->saved_frames;
-		priv->saved_frames = get_new_dict_full (1024);
-		data_pair_t *trav = priv->saved_fds->members_list;
-		xlator_t *this = trans->xl;
+		saved_frames = cprivate->saved_frames;
+		cprivate->saved_frames = get_new_dict_full (1024);
+		trav = cprivate->saved_fds->members_list;
+		this = trans->xl;
 
 		while (trav) {
 			fd_t *tmp = (fd_t *)(long) strtoul (trav->key, NULL, 0);
@@ -4526,32 +4876,33 @@ protocol_client_cleanup (transport_t *trans)
 			trav = trav->next;
 		}
 
-		dict_destroy (priv->saved_fds);
+		dict_destroy (cprivate->saved_fds);
 
-		priv->saved_fds = get_new_dict_full (64);
-
+		cprivate->saved_fds = get_new_dict_full (64);
 
 		/* bailout logic cleanup */
-		memset (&(priv->last_sent), 0, sizeof (priv->last_sent));
-		memset (&(priv->last_received), 0, sizeof (priv->last_received));
+		memset (&(cprivate->last_sent), 0, sizeof (cprivate->last_sent));
+		memset (&(cprivate->last_received), 0, sizeof (cprivate->last_received));
 
-		if (!priv->timer) {
-			gf_log (trans->xl->name, GF_LOG_DEBUG, 
-				"priv->timer is NULL!!!!");
+		if (cprivate->timer == NULL) {
+			gf_log (trans->xl->name, GF_LOG_DEBUG,
+				"cprivate->timer is NULL!!!!");
 		} else {
-			gf_timer_call_cancel (trans->xl->ctx, priv->timer);
-			priv->timer = NULL;
+			gf_timer_call_cancel (trans->xl->ctx, cprivate->timer);
+			cprivate->timer = NULL;
 		}
 
-		if (!priv->reconnect) {
+		if (cprivate->reconnect == NULL) {
 			/* :O This part is empty.. any thing missing? */
 		}
 	}
-	pthread_mutex_unlock (&priv->lock);
+	pthread_mutex_unlock (&cprivate->lock);
 
 	{
-		data_pair_t *trav = saved_frames->members_list;
-		dict_t *reply = dict_ref (get_new_dict ());
+		trav = saved_frames->members_list;
+		
+		reply = get_new_dict();
+		dict_ref (reply);
 
 		while (trav && trav->next)
 			trav = trav->next;
@@ -4561,21 +4912,22 @@ protocol_client_cleanup (transport_t *trans)
 
 			call_frame_t *tmp = (call_frame_t *) (trav->value->data);
 
-			if ((tmp->type == GF_OP_TYPE_FOP_REQUEST) || 
-			    (tmp->type == GF_OP_TYPE_FOP_REPLY))
+			if ((tmp->type == GF_OP_TYPE_FOP_REQUEST) ||
+			    (tmp->type == GF_OP_TYPE_FOP_REPLY)) {
 				gf_log (trans->xl->name, GF_LOG_ERROR,
 					"forced unwinding frame type(%d) op(%s) reply=@%p",
 					tmp->type, gf_fop_list[tmp->op], reply);
-			else if ((tmp->type == GF_OP_TYPE_MOP_REQUEST) || 
-				 (tmp->type == GF_OP_TYPE_MOP_REPLY))
+			} else if ((tmp->type == GF_OP_TYPE_MOP_REQUEST) ||
+				   (tmp->type == GF_OP_TYPE_MOP_REPLY)) {
 				gf_log (trans->xl->name, GF_LOG_ERROR,
 					"forced unwinding frame type(%d) op(%s) reply=@%p",
 					tmp->type, gf_mop_list[tmp->op], reply);
-			else if ((tmp->type == GF_OP_TYPE_CBK_REQUEST) ||
-				 (tmp->type == GF_OP_TYPE_CBK_REPLY))
+			} else if ((tmp->type == GF_OP_TYPE_CBK_REQUEST) ||
+				   (tmp->type == GF_OP_TYPE_CBK_REPLY)) {
 				gf_log (trans->xl->name, GF_LOG_ERROR,
 					"forced unwinding frame type(%d) op(%s) reply=@%p",
 					tmp->type, gf_cbk_list[tmp->op], reply);
+			}
 
 			tmp->root->rsp_refs = dict_ref (reply);
 
@@ -4584,12 +4936,13 @@ protocol_client_cleanup (transport_t *trans)
 			hdr.rsp.op_ret   = hton32 (-1);
 			hdr.rsp.op_errno = hton32 (ENOTCONN);
 
-			if (tmp->type == GF_OP_TYPE_FOP_REQUEST)
+			if (tmp->type == GF_OP_TYPE_FOP_REQUEST) {
 				gf_fops[tmp->op] (tmp, &hdr, sizeof (hdr), NULL, 0);
-			else if (tmp->type == GF_OP_TYPE_MOP_REQUEST)
+			} else if (tmp->type == GF_OP_TYPE_MOP_REQUEST) {
 				gf_mops[tmp->op] (tmp, &hdr, sizeof (hdr), NULL, 0);
-			else
+			} else {
 				gf_cbks[tmp->op] (tmp, &hdr, sizeof (hdr), NULL, 0);
+			}
 
 			dict_unref (reply);
 			trav = trav->prev;
@@ -4711,42 +5064,40 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 	op   = ntoh32 (hdr->op);
 
 	callid = ntoh64 (hdr->callid);
-	frame = lookup_frame (trans, callid);
-
-	if (!frame)
-	{
+	frame  = lookup_frame (trans, callid);
+	if (frame == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"could not find frame for callid=%"PRId64, callid);
 		return ret;
 	}
 
-	switch (type)
-	{
+	switch (type) {
 	case GF_OP_TYPE_FOP_REPLY:
-		if (op > GF_FOP_MAXVALUE || op < 0) {
+		if ((op > GF_FOP_MAXVALUE) || 
+		    (op < 0)) {
 			gf_log (trans->xl->name, GF_LOG_WARNING,
 				"invalid fop '%d'", op);
-			break;
+		} else {
+			ret = gf_fops[op] (frame, hdr, hdrlen, buf_p, buflen);
 		}
-
-		ret = gf_fops[op] (frame, hdr, hdrlen, buf_p, buflen);
 		break;
 	case GF_OP_TYPE_MOP_REPLY:
-		if (op > GF_MOP_MAXVALUE || op < 0) {
+		if ((op > GF_MOP_MAXVALUE) || 
+		    (op < 0)) {
 			gf_log (trans->xl->name, GF_LOG_WARNING,
 				"invalid fop '%d'", op);
-			break;
+		} else {
+			ret = gf_mops[op] (frame, hdr, hdrlen, buf_p, buflen);
 		}
-
-		ret = gf_mops[op] (frame, hdr, hdrlen, buf_p, buflen);
 		break;
 	case GF_OP_TYPE_CBK_REPLY:
-		if (op > GF_CBK_MAXVALUE || op < 0) {
+		if ((op > GF_CBK_MAXVALUE) || 
+		    (op < 0)) {
 			gf_log (trans->xl->name, GF_LOG_WARNING,
 				"invalid cbk '%d'", op);
-			break;
+		} else {
+			ret = gf_cbks[op] (frame, hdr, hdrlen, buf_p, buflen);
 		}
-		ret = gf_cbks[op] (frame, hdr, hdrlen, buf_p, buflen);
 		break;
 	default:
 		gf_log (trans->xl->name, GF_LOG_ERROR,
@@ -4766,77 +5117,86 @@ int32_t
 init (xlator_t *this)
 {
 	transport_t *trans = NULL;
-	client_proto_priv_t *priv = NULL;
-	data_t *timeout = NULL;
+	client_connection_private_t *cprivate = NULL;
 	int32_t transport_timeout = 0;
-	data_t *max_block_size_data = NULL;
+	char *max_block_size_string = NULL;
+	data_t *remote_subvolume = NULL;
+	int32_t ret = -1;
 
 	if (this->children) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_ERROR,
 			"FATAL: client protocol translator cannot have subvolumes");
-		return -1;
+		goto out;
 	}
-
-	if (!dict_get (this->options, "remote-subvolume")) {
+	
+	remote_subvolume = dict_get (this->options, "remote-subvolume");
+	if (remote_subvolume == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"missing 'option remote-subvolume'.");
-		return -1;
+		goto out;
 	}
 
-	timeout = dict_get (this->options, "transport-timeout");
-	if (timeout) {
-		transport_timeout = data_to_int32 (timeout);
+	ret = dict_get_int32 (this->options, "transport-timeout", &transport_timeout);
+	if (ret >= 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"setting transport-timeout to %d", transport_timeout);
-	}
-	else {
+	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"defaulting transport-timeout to 42");
 		transport_timeout = 42;
 	}
 
 	trans = transport_load (this->options, this);
-
-	if (!trans) {
-		gf_log (this->name, GF_LOG_ERROR, "Failed to load transport");
-		return -1;
+	if (trans == NULL) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"Failed to load transport");
+		ret = -1;
+		goto out;
 	}
-
+	
 	this->private = transport_ref (trans);
-	priv = calloc (1, sizeof (client_proto_priv_t));
-	ERR_ABORT (priv);
+	
+	/* in case, GF_VALIDATE_OR_GOTO() jumps to label */
+	ret = -1;
 
-	priv->saved_frames = get_new_dict_full (1024);
-	priv->saved_fds = get_new_dict_full (64);
-	priv->callid = 1;
-	memset (&(priv->last_sent), 0, sizeof (priv->last_sent));
-	memset (&(priv->last_received), 0, sizeof (priv->last_received));
-	priv->transport_timeout = transport_timeout;
-	pthread_mutex_init (&priv->lock, NULL);
+	cprivate = calloc (1, sizeof (client_connection_private_t));
+	GF_VALIDATE_OR_GOTO(this->name, cprivate, out);
 
-	max_block_size_data = dict_get (this->options, "limits.transaction-size");
+	cprivate->saved_frames = get_new_dict_full (1024);
+	GF_VALIDATE_OR_GOTO(this->name, cprivate->saved_frames, out);
 
-	if (max_block_size_data)
-	{
-		if (gf_string2bytesize (max_block_size_data->data, &priv->max_block_size) != 0)
-		{
-			gf_log ("client-protocol",
-				GF_LOG_ERROR,
-				"invalid number format \"%s\" of \"option limits.transaction-size\"",
-				max_block_size_data->data);
-			return -1;
-		}
-	}
-	else
-	{
+	cprivate->saved_fds = get_new_dict_full (64);
+	GF_VALIDATE_OR_GOTO(this->name, cprivate->saved_fds, out);
+
+	cprivate->callid = 1;
+
+	memset (&(cprivate->last_sent), 0, sizeof (cprivate->last_sent));
+	memset (&(cprivate->last_received), 0, sizeof (cprivate->last_received));
+
+	cprivate->transport_timeout = transport_timeout;
+
+	pthread_mutex_init (&cprivate->lock, NULL);
+
+	ret = dict_get_str (this->options, "limits.transaction-size", 
+			    &max_block_size_string);
+	if (ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"defaulting limits.transaction-size to %d",
 			DEFAULT_BLOCK_SIZE);
-		priv->max_block_size = DEFAULT_BLOCK_SIZE;
+		cprivate->max_block_size = DEFAULT_BLOCK_SIZE;
+	} else {
+		ret = gf_string2bytesize (max_block_size_string, 
+					  &cprivate->max_block_size);
+		if (ret != 0) {
+			gf_log ("client-protocol", GF_LOG_ERROR,
+				"invalid number format \"%s\" of "
+				"\"option limits.transaction-size\"",
+				max_block_size_string);
+			goto out;
+		}
 	}
 
-	trans->xl_private = priv;
+	trans->xl_private = cprivate;
 
 #ifndef GF_DARWIN_HOST_OS
 	{
@@ -4844,28 +5204,31 @@ init (xlator_t *this)
 
 		lim.rlim_cur = 1048576;
 		lim.rlim_max = 1048576;
-
-		if (setrlimit (RLIMIT_NOFILE, &lim) == -1)
-		{
+		
+		ret = setrlimit (RLIMIT_NOFILE, &lim);
+		if (ret == -1) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"WARNING: Failed to set 'ulimit -n 1048576': %s",
 				strerror(errno));
 			lim.rlim_cur = 65536;
 			lim.rlim_max = 65536;
-
-			if (setrlimit (RLIMIT_NOFILE, &lim) == -1)
+			
+			ret = setrlimit (RLIMIT_NOFILE, &lim);
+			if (ret == -1) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"Failed to set max open fd to 64k: %s",
 					strerror(errno));
-			else
+			} else {
 				gf_log (this->name, GF_LOG_ERROR,
 					"max open fd set to 64k");
+			}
 
 		}
 	}
 #endif
-
-	return 0;
+	ret = 0;
+out:
+	return ret;
 }
 
 /*
@@ -4877,11 +5240,11 @@ void
 fini (xlator_t *this)
 {
 	/* TODO: Check if its enough.. how to call transport's fini () */
-	client_proto_priv_t *priv = this->private;
+	client_connection_private_t *cprivate = this->private;
 
-	dict_destroy (priv->saved_frames);
-	dict_destroy (priv->saved_fds);
-	FREE (priv);
+	dict_destroy (cprivate->saved_frames);
+	dict_destroy (cprivate->saved_fds);
+	FREE (cprivate);
 	return;
 }
 
@@ -4908,18 +5271,38 @@ protocol_client_handshake (xlator_t *this,
 	}
 
 	dict_len = dict_serialized_length (options);
+	if (dict_len < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get serialized length of dict(%p)",
+			options);
+		ret = dict_len;
+		goto fail;
+	}
 
 	hdrlen = gf_hdr_len (req, dict_len);
 	hdr    = gf_hdr_new (req, dict_len);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, fail);
+
 	req    = gf_param (hdr);
 
-	dict_serialize (options, req->buf);
+	ret = dict_serialize (options, req->buf);
+	if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to serialize dictionary(%p)",
+			options);
+		goto fail;
+	}
 
 	fr  = create_frame (this, this->ctx->pool);
+	GF_VALIDATE_OR_GOTO(this->name, fr, fail);
+
 	ret = protocol_client_xfer (fr, this,
 				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_SETVOLUME,
 				    hdr, hdrlen, NULL, 0, NULL);
-
+	return ret;
+fail:
+	if (hdr)
+		free (hdr);
 	return ret;
 }
 
@@ -4927,15 +5310,15 @@ protocol_client_handshake (xlator_t *this,
 int
 protocol_client_pollout (xlator_t *this, transport_t *trans)
 {
-	client_proto_priv_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
 
-	priv = trans->xl_private;
+	cprivate = trans->xl_private;
 
-	pthread_mutex_lock (&priv->lock);
+	pthread_mutex_lock (&cprivate->lock);
 	{
-		gettimeofday (&priv->last_sent, NULL);
+		gettimeofday (&cprivate->last_sent, NULL);
 	}
-	pthread_mutex_unlock (&priv->lock);
+	pthread_mutex_unlock (&cprivate->lock);
 
 	return 0;
 }
@@ -4944,7 +5327,7 @@ protocol_client_pollout (xlator_t *this, transport_t *trans)
 int
 protocol_client_pollin (xlator_t *this, transport_t *trans)
 {
-	client_proto_priv_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
 	int ret = -1;
 	char *buf = NULL;
 	size_t buflen = 0;
@@ -4952,14 +5335,14 @@ protocol_client_pollin (xlator_t *this, transport_t *trans)
 	size_t hdrlen = 0;
 	int connected = 0;
 
-	priv = trans->xl_private;
+	cprivate = trans->xl_private;
 
-	pthread_mutex_lock (&priv->lock);
+	pthread_mutex_lock (&cprivate->lock);
 	{
-		gettimeofday (&priv->last_received, NULL);
-		connected = priv->connected;
+		gettimeofday (&cprivate->last_received, NULL);
+		connected = cprivate->connected;
 	}
-	pthread_mutex_unlock (&priv->lock);
+	pthread_mutex_unlock (&cprivate->lock);
 
 	ret = transport_receive (trans, &hdr, &hdrlen, &buf, &buflen);
 
@@ -4992,21 +5375,19 @@ notify (xlator_t *this,
 {
 	int ret = -1;
 	transport_t *trans = NULL;
+	client_connection_private_t *cprivate = NULL;
 
-	switch (event)
-	{
+	trans = data;
+
+	switch (event) {
 	case GF_EVENT_POLLOUT:
 	{
-		trans = data;
-
 		ret = protocol_client_pollout (this, trans);
 
 		break;
 	}
 	case GF_EVENT_POLLIN:
 	{
-		trans = data;
-
 		ret = protocol_client_pollin (this, trans);
 
 		break;
@@ -5014,16 +5395,13 @@ notify (xlator_t *this,
 	/* no break for ret check to happen below */
 	case GF_EVENT_POLLERR:
 	{
-		trans = data;
 		ret = -1;
 		protocol_client_cleanup (trans);
 	}
-	client_proto_priv_t *priv = ((transport_t *)data)->xl_private;
 
-	if (priv->connected) {
-		transport_t *trans = data;
+	cprivate = trans->xl_private;
+	if (cprivate->connected) {
 		struct timeval tv = {0, 0};
-		client_proto_priv_t *priv = trans->xl_private;
 		xlator_list_t *parent = NULL;
 
 		parent = this->parents;
@@ -5034,19 +5412,18 @@ notify (xlator_t *this,
 			parent = parent->next;
 		}
 
-		priv->n_minus_1 = 0;
-		priv->n = 1;
+		cprivate->n_minus_1 = 0;
+		cprivate->n  = 1;
 
-		pthread_mutex_lock (&priv->lock);
+		pthread_mutex_lock (&cprivate->lock);
 		{
-			priv->connected = 0;
-			if (!priv->reconnect)
-				priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
-								       client_protocol_reconnect,
-								       trans);
-
+			cprivate->connected = 0;
+			if (cprivate->reconnect == 0)
+				cprivate->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
+									   client_protocol_reconnect,
+									   trans);
 		}
-		pthread_mutex_unlock (&priv->lock);
+		pthread_mutex_unlock (&cprivate->lock);
 
 	}
 	break;
@@ -5060,20 +5437,19 @@ notify (xlator_t *this,
 				"transport init failed");
 			return -1;
 		}
-		client_proto_priv_t *priv = trans->xl_private;
 		struct timeval tv = {0, 0};
+
+		cprivate = trans->xl_private;
 
 		gf_log (this->name, GF_LOG_DEBUG,
 			"got GF_EVENT_PARENT_UP, attempting connect on transport");
 
-		//      ret = transport_connect (trans);
+		cprivate->n_minus_1 = 0;
+		cprivate->n = 1;
 
-		priv->n_minus_1 = 0;
-		priv->n = 1;
-
-		priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
-						       client_protocol_reconnect,
-						       trans);
+		cprivate->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
+							   client_protocol_reconnect,
+							   trans);
 
 		if (ret) {
 			/* TODO: schedule reconnection with timer */
@@ -5085,8 +5461,7 @@ notify (xlator_t *this,
 		{
 			xlator_list_t *parent = NULL;
 			parent = trans->xl->parents;
-			while (parent) 
-			{
+			while (parent) {
 				parent->xlator->notify (parent->xlator,
 							GF_EVENT_CHILD_CONNECTING,
 							trans->xl);
@@ -5098,24 +5473,23 @@ notify (xlator_t *this,
 
 	case GF_EVENT_CHILD_UP:
 	{
-		transport_t *trans = data;
-		data_t *handshake = dict_get (this->options, "disable-handshake");
+		char *handshake = NULL;
 
-		gf_log (this->name, GF_LOG_DEBUG, "got GF_EVENT_CHILD_UP");
-		if (!handshake ||
-		    (strcasecmp (data_to_str (handshake), "on"))) 
-		{
+		ret = dict_get_str (this->options, "disable-handshake", &handshake);
+		gf_log (this->name, GF_LOG_DEBUG, 
+			"got GF_EVENT_CHILD_UP");
+		if ((ret < 0) ||
+		    (strcasecmp (handshake, "on"))) {
 			ret = protocol_client_handshake (this, trans);
-		} 
-		else 
-		{
-			((client_proto_priv_t *)trans->xl_private)->connected = 1;
+		} else {
+			cprivate = trans->xl_private;
+			cprivate->connected = 1;
 			ret = default_notify (this, event, trans);
 		}
 
-		if (ret) 
+		if (ret)
 			transport_disconnect (trans);
-        
+
 	}
 	break;
 
@@ -5191,21 +5565,21 @@ struct xlator_cbks cbks = {
 struct xlator_options options[] = {
 	/* Authentication module */
  	{ "username", GF_OPTION_TYPE_STR, 0, },
- 	{ "password", GF_OPTION_TYPE_STR, 0, }, 
-  
+ 	{ "password", GF_OPTION_TYPE_STR, 0, },
+
   	/* Transport */
- 	{ "ib-verbs-[work-request-send-size|...]", GF_OPTION_TYPE_ANY, 9, 0, 0 }, 
- 	{ "remote-port", GF_OPTION_TYPE_INT, 0, 1025, 65534 }, 
- 	{ "transport-type", GF_OPTION_TYPE_STR, 0, 0, 0, 
-	  "tcp|socket|ib-verbs|unix|ib-sdp|tcp/client|ib-verbs/client" }, 
- 	{ "address-family", GF_OPTION_TYPE_STR, 0, 0, 0, "inet|inet6|inet/inet6|inet6/inet|unix|ib-sdp" }, 
- 	{ "remote-host", GF_OPTION_TYPE_STR, 0, }, 
+ 	{ "ib-verbs-[work-request-send-size|...]", GF_OPTION_TYPE_ANY, 9, 0, 0 },
+ 	{ "remote-port", GF_OPTION_TYPE_INT, 0, 1025, 65534 },
+ 	{ "transport-type", GF_OPTION_TYPE_STR, 0, 0, 0,
+	  "tcp|socket|ib-verbs|unix|ib-sdp|tcp/client|ib-verbs/client" },
+ 	{ "address-family", GF_OPTION_TYPE_STR, 0, 0, 0, "inet|inet6|inet/inet6|inet6/inet|unix|ib-sdp" },
+ 	{ "remote-host", GF_OPTION_TYPE_STR, 0, },
  	{ "connect-path", GF_OPTION_TYPE_STR, 0, },
- 	{ "non-blocking-io", GF_OPTION_TYPE_BOOL, 0, }, 
-  
+ 	{ "non-blocking-io", GF_OPTION_TYPE_BOOL, 0, },
+
   	/* Client protocol itself */
- 	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB }, 
- 	{ "remote-subvolume", GF_OPTION_TYPE_STR, 0, }, 
+ 	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB },
+ 	{ "remote-subvolume", GF_OPTION_TYPE_STR, 0, },
  	{ "transport-timeout", GF_OPTION_TYPE_TIME, 0, 1, 3600 }, /* More than 10mins? */
 
 	{ NULL, 0, },
