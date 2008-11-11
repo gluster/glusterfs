@@ -51,7 +51,6 @@
 #include "logging.h"
 #include "bdb.h"
 #include "xlator.h"
-#include "lock.h"
 #include "defaults.h"
 #include "common-utils.h"
 
@@ -3296,8 +3295,6 @@ fini (xlator_t *this)
 
 struct xlator_mops mops = {
 	.stats    = bdb_stats,
-	.lock     = mop_lock_impl,
-	.unlock   = mop_unlock_impl,
 };
 
 struct xlator_fops fops = {

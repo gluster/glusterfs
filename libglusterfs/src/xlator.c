@@ -96,9 +96,6 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (fxattrop);
 
 	SET_DEFAULT_MOP (stats);
-	SET_DEFAULT_MOP (lock);
-	SET_DEFAULT_MOP (unlock);
-	SET_DEFAULT_MOP (listlocks);
 
 	SET_DEFAULT_CBK (release);
 	SET_DEFAULT_CBK (releasedir);

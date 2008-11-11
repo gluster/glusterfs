@@ -37,22 +37,6 @@ int32_t default_stats (call_frame_t *frame,
 		       xlator_t *this,
 		       int32_t flags);
 
-int32_t default_fsck (call_frame_t *frame,
-		      xlator_t *this,
-		      int32_t flags);
-
-int32_t default_lock (call_frame_t *frame,
-		      xlator_t *this,
-		      const char *name);
-
-int32_t default_unlock (call_frame_t *frame,
-			xlator_t *this,
-			const char *name);
-
-int32_t default_listlocks (call_frame_t *frame,
-			   xlator_t *this,
-			   const char *pattern);
-
 int32_t default_getspec (call_frame_t *frame,
 			 xlator_t *this,
 			 int32_t flag);

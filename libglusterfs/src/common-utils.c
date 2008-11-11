@@ -334,10 +334,6 @@ gf_global_variable_init()
 	gf_mop_list[GF_MOP_STATS]     = "STATS";
 	gf_mop_list[GF_MOP_SETSPEC]   = "SETSPEC";
 	gf_mop_list[GF_MOP_GETSPEC]   = "GETSPEC";
-	gf_mop_list[GF_MOP_LOCK]      = "LOCK";      /* 5 */
-	gf_mop_list[GF_MOP_UNLOCK]    = "UNLOCK";
-	gf_mop_list[GF_MOP_LISTLOCKS] = "LISTLOCKS";
-	gf_mop_list[GF_MOP_FSCK]      = "FSCK";      /* 8 */
 	
 	gf_cbk_list[GF_CBK_FORGET]     = "FORGET";
 	gf_cbk_list[GF_CBK_RELEASE]    = "RELEASE";

@@ -2743,124 +2743,6 @@ unwind:
 }
 
 
-/**
- * client_fsck - fsck (file system check) function for client protocol
- * @frame: call frame
- * @this: this translator structure
- * @flags:
- *
- * external reference through client_protocol_xlator->mops->fsck
- */
-
-int32_t
-client_fsck (call_frame_t *frame,
-             xlator_t *this,
-             int32_t flags)
-{
-	gf_log (this->name, GF_LOG_ERROR, "Function not implemented");
-	STACK_UNWIND (frame, -1, ENOSYS);
-	return 0;
-}
-
-
-/**
- * client_lock - lock function for client protocol
- * @frame: call frame
- * @this: this translator structure
- * @name: pathname of file to lock
- *
- * external reference through client_protocol_xlator->fops->lock
- */
-
-int32_t
-client_lock (call_frame_t *frame,
-             xlator_t *this,
-             const char *name)
-{
-	gf_hdr_common_t *hdr = NULL;
-	gf_mop_lock_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int ret = -1;
-
-	hdrlen = gf_hdr_len (req, strlen (name) + 1);
-	hdr    = gf_hdr_new (req, strlen (name) + 1);
-	req    = gf_param (hdr);
-
-	strcpy (req->name, name);
-
-	ret = protocol_client_xfer (frame, this,
-				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_LOCK,
-				    hdr, hdrlen, NULL, 0, NULL);
-
-	return ret;
-}
-
-
-/**
- * client_unlock - management function of client protocol to unlock
- * @frame: call frame
- * @this: this translator structure
- * @name: pathname of the file whose lock has to be released
- *
- * external reference through client_protocol_xlator->mops->unlock
- */
-
-int32_t
-client_unlock (call_frame_t *frame,
-               xlator_t *this,
-               const char *name)
-{
-	gf_hdr_common_t *hdr = NULL;
-	gf_mop_unlock_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int ret = -1;
-
-	hdrlen = gf_hdr_len (req, strlen (name) + 1);
-	hdr    = gf_hdr_new (req, strlen (name) + 1);
-	req    = gf_param (hdr);
-
-	strcpy (req->name, name);
-
-	ret = protocol_client_xfer (frame, this,
-				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_UNLOCK,
-				    hdr, hdrlen, NULL, 0, NULL);
-
-	return ret;
-}
-
-
-/**
- * client_listlocks - management function of client protocol to list locks
- * @frame: call frame
- * @this: this translator structure
- * @pattern:
- *
- * external reference through client_protocol_xlator->mops->listlocks
- */
-
-int32_t
-client_listlocks (call_frame_t *frame,
-                  xlator_t *this,
-                  const char *pattern)
-{
-	gf_hdr_common_t *hdr = NULL;
-	gf_mop_listlocks_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int ret = -1;
-
-	hdrlen = gf_hdr_len (req, strlen (pattern) + 1);
-	hdr    = gf_hdr_new (req, strlen (pattern) + 1);
-	req    = gf_param (hdr);
-
-	strcpy (req->pattern, pattern);
-
-	ret = protocol_client_xfer (frame, this,
-				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_LISTLOCKS,
-				    hdr, hdrlen, NULL, 0, NULL);
-
-	return ret;
-}
-
 /* Callbacks */
 
 /*
@@ -4309,81 +4191,6 @@ client_setdents_cbk (call_frame_t *frame,
 }
 
 
-/*
- * client_lock_cbk - lock callback for client protocol
- * @frame: call frame
- * @args: argument dictionary
- *
- * not for external reference
- */
-int32_t
-client_lock_cbk (call_frame_t *frame,
-                 gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
-{
-	int op_ret = 0;
-	int op_errno = 0;
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	STACK_UNWIND (frame, op_ret, op_errno);
-
-	return 0;
-}
-
-/*
- * client_unlock_cbk - unlock callback for client protocol
- *
- * @frame: call frame
- * @args: argument dictionary
- *
- * not for external reference
- */
-int32_t
-client_unlock_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
-{
-	int op_ret = 0;
-	int op_errno = 0;
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	STACK_UNWIND (frame, op_ret, op_errno);
-
-	return 0;
-}
-
-/*
- * client_listlocks_cbk - listlocks callback for client protocol
- *
- * @frame: call frame
- * @args: arguments dictionary
- *
- * not for external reference
- */
-
-int32_t
-client_listlocks_cbk (call_frame_t *frame,
-                      gf_hdr_common_t *hdr, size_t hdrlen,
-                      char *buf, size_t buflen)
-{
-	/*TODO*/
-	gf_mop_listlocks_rsp_t *rsp = NULL;
-	int op_ret = 0;
-	int op_errno = 0;
-
-	rsp = gf_param (hdr);
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	STACK_UNWIND (frame, op_ret, op_errno, "");
-
-	return 0;
-}
 
 /*
  * client_stats_cbk - stats callback for client protocol
@@ -4874,10 +4681,6 @@ static gf_op_t gf_mops[] = {
 	[GF_MOP_STATS]            =  client_stats_cbk,
 	[GF_MOP_SETSPEC]          =  client_setspec_cbk,
 	[GF_MOP_GETSPEC]          =  client_getspec_cbk,
-	[GF_MOP_LOCK]             =  client_lock_cbk,
-	[GF_MOP_UNLOCK]           =  client_unlock_cbk,
-	[GF_MOP_LISTLOCKS]        =  client_listlocks_cbk,
-	[GF_MOP_FSCK]             =  client_enosys_cbk,
 };
 
 static gf_op_t gf_cbks[] = {
@@ -5375,9 +5178,6 @@ struct xlator_fops fops = {
 
 struct xlator_mops mops = {
 	.stats     = client_stats,
-	.lock      = client_lock,
-	.unlock    = client_unlock,
-	.listlocks = client_listlocks,
 	.getspec   = client_getspec,
 };
 

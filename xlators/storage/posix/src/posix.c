@@ -38,7 +38,6 @@
 #include "logging.h"
 #include "posix.h"
 #include "xlator.h"
-#include "lock.h"
 #include "defaults.h"
 #include "common-utils.h"
 #include "compat-errno.h"
@@ -3591,8 +3590,6 @@ fini (xlator_t *this)
 
 struct xlator_mops mops = {
         .stats    = posix_stats,
-        .lock     = mop_lock_impl,
-        .unlock   = mop_unlock_impl,
 };
 
 struct xlator_fops fops = {

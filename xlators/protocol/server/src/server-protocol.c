@@ -32,7 +32,6 @@
 #include "fnmatch.h"
 #include "xlator.h"
 #include "protocol.h"
-#include "lock.h"
 #include "server-protocol.h"
 #include "server-helpers.h"
 #include "call-stub.h"
@@ -6348,157 +6347,6 @@ fail:
 	return 0;
 }
 
-/*
- * server_mop_lock_cbk - lock callback for server management operation
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-int32_t
-server_mop_lock_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno)
-{
-	gf_hdr_common_t *hdr = NULL;
-	gf_mop_lock_rsp_t *rsp = NULL;
-	size_t hdrlen = 0;
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret   = hton32 (op_ret);
-	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
-
-	protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LOCK,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
-
-/*
- * mop_lock - lock management function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params:
- *
- */
-int32_t
-mop_lock (call_frame_t *frame,
-          xlator_t *bound_xl,
-          gf_hdr_common_t *hdr, size_t hdrlen,
-          char *buf, size_t buflen)
-{
-	char *path = NULL;
-	gf_mop_lock_req_t *req = NULL;
-
-	req = gf_param (hdr);
-
-	path = req->name;
-
-	STACK_WIND (frame, server_mop_lock_cbk, frame->this,
-		    frame->this->mops->lock, path);
-
-	return 0;
-}
-
-
-/*
- * server_mop_unlock_cbk - unlock callback for server management operation
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-static int32_t
-mop_unlock_cbk (call_frame_t *frame,
-                void *cookie,
-                xlator_t *this,
-                int32_t op_ret,
-                int32_t op_errno)
-{
-	gf_hdr_common_t *hdr = NULL;
-	gf_mop_unlock_rsp_t *rsp = NULL;
-	size_t hdrlen = 0;
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret   = hton32 (op_ret);
-	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
-
-	protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_UNLOCK,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
-
-/*
- * mop_unlock - unlock management function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- */
-int32_t
-mop_unlock (call_frame_t *frame,
-            xlator_t *bound_xl,
-            gf_hdr_common_t *hdr, size_t hdrlen,
-            char *buf, size_t buflen)
-{
-	char *path = NULL;
-	gf_mop_lock_req_t *req = NULL;
-
-	req = gf_param (hdr);
-
-	path = req->name;
-
-	STACK_WIND (frame, mop_unlock_cbk, frame->this,
-		    frame->this->mops->unlock, path);
-
-	return 0;
-}
-
-/*
- * mop_unlock - unlock management function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- */
-int32_t
-mop_listlocks (call_frame_t *frame,
-               xlator_t *bound_xl,
-               gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
-{
-	gf_hdr_common_t *_hdr = NULL;
-	gf_mop_listlocks_rsp_t *rsp = NULL;
-	size_t _hdrlen = 0;
-
-	_hdrlen = gf_hdr_len (rsp, 0);
-	_hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (_hdr);
-
-	hdr->rsp.op_ret   = hton32 (-1);
-	hdr->rsp.op_errno = hton32 (gf_errno_to_error (ENOSYS));
-
-	protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LISTLOCKS,
-			       _hdr, _hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
-
 
 
 /*
@@ -6795,74 +6643,6 @@ mop_stats (call_frame_t *frame,
 	return 0;
 }
 
-/*
- * server_mop_fsck_cbk - fsck callback for server management operation
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-
-int32_t
-server_mop_fsck_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *xl,
-                     int32_t ret,
-                     int32_t op_errno)
-{
-#if 0
-	gf_hdr_common_t *hdr = NULL;
-	gf_mop_fsck_rsp_t *rsp = NULL;
-	size_t hdrlen = 0;
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret   = hton32 (ret);
-	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
-
-	protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_FSCK,
-			       hdr, hdrlen, NULL, 0, NULL);
-#endif /* if 0 */
-
-	return 0;
-}
-
-
-/*
- * mop_unlock - unlock management function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- */
-int32_t
-mop_fsck (call_frame_t *frame,
-          xlator_t *bound_xl,
-          gf_hdr_common_t *hdr, size_t hdrlen,
-          char *buf, size_t buflen)
-{
-#if 0
-	int flag = 0;
-	gf_mop_fsck_req_t *req = NULL;
-
-	req = gf_param (hdr);
-
-	flag = ntoh32 (req->flag);
-
-	STACK_WIND (frame,
-		    server_mop_fsck_cbk,
-		    bound_xl,
-		    bound_xl->mops->fsck,
-		    flag);
-#endif /* if 0 */
-
-	return 0;
-}
 
 /*
  * unknown_op_cbk - This function is called when a opcode for unknown type is called
@@ -7027,10 +6807,6 @@ static gf_op_t gf_mops[] = {
 	[GF_MOP_STATS]     = mop_stats,
 	[GF_MOP_SETSPEC]   = mop_setspec,
 	[GF_MOP_GETSPEC]   = mop_getspec,
-	[GF_MOP_LOCK]      = mop_lock,
-	[GF_MOP_UNLOCK]    = mop_unlock,
-	[GF_MOP_LISTLOCKS] = mop_listlocks,
-	[GF_MOP_FSCK]      = mop_fsck,
 };
 
 static gf_op_t gf_cbks[] = {
@@ -7533,8 +7309,6 @@ notify (xlator_t *this,
 
 
 struct xlator_mops mops = {
-	.lock = mop_lock_impl,
-	.unlock = mop_unlock_impl
 };
 
 struct xlator_fops fops = {

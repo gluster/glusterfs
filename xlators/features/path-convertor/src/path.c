@@ -1187,76 +1187,7 @@ struct xlator_fops fops = {
 };
 
 
-static int32_t
-path_lock_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno)
-{
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-
-int32_t
-path_lock (call_frame_t *frame,
-	   xlator_t *this,
-	   const char *path)
-{
-	char *tmp_path = path_this_to_that (this, path);
-	if (!tmp_path) {
-		STACK_UNWIND (frame, -1, ENOENT);
-		return 0;
-	}
-	STACK_WIND (frame,
-		    path_lock_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->mops->lock,
-		    tmp_path);
-	if (path != tmp_path)
-		FREE (tmp_path);
-
-	return 0;
-}
-
-
-static int32_t
-path_unlock_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno)
-{
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-
-int32_t
-path_unlock (call_frame_t *frame,
-	     xlator_t *this,
-	     const char *path)
-{
-	char *tmp_path = path_this_to_that (this, path);
-	if (!tmp_path) {
-		STACK_UNWIND (frame, -1, ENOENT);
-		return 0;
-	}
-	STACK_WIND (frame,
-		    path_unlock_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->mops->unlock,
-		    tmp_path);
-	if (path != tmp_path)
-		FREE (tmp_path);
-	return 0;
-}
-
-
 struct xlator_mops mops = {
-	.lock = path_lock,
-	.unlock = path_unlock,
 };
 
 

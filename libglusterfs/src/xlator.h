@@ -89,31 +89,6 @@ typedef int32_t (*mop_stats_cbk_t) (call_frame_t *frame,
 				    int32_t op_errno,
 				    struct xlator_stats *stats);
 
-typedef int32_t (*mop_fsck_cbk_t) (call_frame_t *frame,
-				   void *cookie,
-				   xlator_t *this,
-				   int32_t op_ret,
-				   int32_t op_errno);
-
-typedef int32_t (*mop_lock_cbk_t) (call_frame_t *frame,
-				   void *cookie,
-				   xlator_t *this,
-				   int32_t op_ret,
-				   int32_t op_errno);
-
-typedef int32_t (*mop_unlock_cbk_t) (call_frame_t *frame,
-				     void *cookie,
-				     xlator_t *this,
-				     int32_t op_ret,
-				     int32_t op_errno);
-
-typedef int32_t (*mop_listlocks_cbk_t) (call_frame_t *frame,
-					void *cookie,
-					xlator_t *this,
-					int32_t op_ret,
-					int32_t op_errno,
-					char *locks);
-
 typedef int32_t (*mop_getspec_cbk_t) (call_frame_t *frame,
 				      void *cookie,
 				      xlator_t *this,
@@ -137,22 +112,6 @@ typedef int32_t (*mop_stats_t) (call_frame_t *frame,
 				xlator_t *this,
 				int32_t flags);
 
-typedef int32_t (*mop_fsck_t) (call_frame_t *frame,
-			       xlator_t *this,
-			       int32_t flags);
-
-typedef int32_t (*mop_lock_t) (call_frame_t *frame,
-			       xlator_t *this,
-			       const char *name);
-
-typedef int32_t (*mop_unlock_t) (call_frame_t *frame,
-				 xlator_t *this,
-				 const char *name);
-
-typedef int32_t (*mop_listlocks_t) (call_frame_t *frame,
-				    xlator_t *this,
-				    const char *pattern);
-
 typedef int32_t (*mop_getspec_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  int32_t flag);
@@ -164,17 +123,9 @@ typedef int32_t (*fop_checksum_t) (call_frame_t *frame,
 
 struct xlator_mops {
 	mop_stats_t            stats;
-	mop_fsck_t             fsck;
-	mop_lock_t             lock;
-	mop_unlock_t           unlock;
-	mop_listlocks_t        listlocks;
 	mop_getspec_t          getspec;
 
 	mop_stats_cbk_t        stats_cbk;
-	mop_fsck_cbk_t         fsck_cbk;
-	mop_lock_cbk_t         lock_cbk;
-	mop_unlock_cbk_t       unlock_cbk;
-	mop_listlocks_cbk_t    listlocks_cbk;
 	mop_getspec_cbk_t      getspec_cbk;
 };
 
