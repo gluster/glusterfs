@@ -813,7 +813,7 @@ ioc_need_prune (ioc_table_t *table)
   ioc_table_unlock (table);
 
   if (cache_difference > 0)
-    return ((cache_difference*100/table->cache_size) >= 20);
+    return 1;
   else 
     return 0;
 }
