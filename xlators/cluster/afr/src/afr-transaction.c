@@ -149,6 +149,7 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 				}
 				
 				break;
+
 			case AFR_ENTRY_RENAME_TRANSACTION:
 				
 				STACK_WIND (frame, afr_unlock_common_cbk,	
@@ -157,6 +158,8 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 					    &local->transaction.new_parent_loc, 
 					    local->transaction.new_basename,
 					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+
+				call_count--;
 
 				/* fall through */
 
