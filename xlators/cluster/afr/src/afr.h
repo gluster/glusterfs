@@ -43,6 +43,7 @@ typedef struct _afr_private {
 	unsigned int read_child;      /* read-subvolume */
 	unsigned int favorite_child;  /* subvolume to be preferred in resolving
 					 split-brain cases */
+	unsigned int lock_server_count;
 } afr_private_t;
 
 typedef struct {
@@ -310,6 +311,9 @@ typedef struct _afr_local {
 	struct {
 		off_t start, len;
 
+		unsigned char *locked_nodes;
+		int lock_count;
+
 		const char *basename;
 		const char *new_basename;
 
@@ -419,7 +423,7 @@ AFR_BASENAME (const char *str)
 static inline int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
-	local->child_errno = malloc (sizeof (*local->child_errno) * priv->child_count);
+	local->child_errno = calloc (sizeof (*local->child_errno), priv->child_count);
 	if (!local->child_errno) {
 		return -ENOMEM;
 	}
@@ -436,6 +440,9 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 
 	memcpy (local->child_up, priv->child_up, 
 		sizeof (*local->child_up) * priv->child_count);
+
+	local->transaction.locked_nodes = calloc (sizeof(*local->transaction.locked_nodes),
+						  priv->child_count);
 
 	local->call_count = up_children_count (priv->child_count, local->child_up);
 	if (local->call_count == 0)

@@ -64,6 +64,19 @@ mark_all_success (int32_t *pending, int child_count)
 }
 
 
+static int
+locked_nodes_count (unsigned char *locked_nodes, int child_count)
+{
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < child_count; i++)
+		if (locked_nodes[i])
+			ret++;
+
+	return ret;
+}
+
 /* {{{ unlock */
 
 int32_t
@@ -101,7 +114,9 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 	afr_private_t * priv = this->private;
 
 	local = frame->local;
-	call_count = up_children_count (priv->child_count, local->child_up); 
+	
+	call_count = locked_nodes_count (local->transaction.locked_nodes, 
+					 priv->child_count);
 	
 	if (call_count == 0) {
 		local->transaction.done (frame, this, 0, 0);
@@ -118,7 +133,7 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 		flock.l_len   = local->transaction.len;
 		flock.l_type  = F_UNLCK;			
 
-		if (local->child_up[i]) {
+		if (local->transaction.locked_nodes[i]) {
 			switch (local->transaction.type) {
 			case AFR_INODE_TRANSACTION:
 				if (local->fd) {
@@ -505,6 +520,8 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		    (local->op_errno == ENOSYS)) {
 			afr_unlock (frame, this);
 		} else {
+			local->transaction.locked_nodes[child_index] = 1;
+			local->transaction.lock_count++;
 			afr_lock_rec (frame, this, child_index + 1);
 		}
 	}
@@ -556,7 +573,22 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 	       && !local->child_up[child_index])
 		child_index++;
 
-	if (child_index == priv->child_count) {
+	if ((child_index == priv->child_count) &&
+	    local->transaction.lock_count == 0) {
+
+		gf_log (this->name, GF_LOG_DEBUG,
+			"unable to lock on even one child");
+
+		local->op_ret   = -1;
+		local->op_errno = EAGAIN;
+
+		local->transaction.done (frame, this, 0, 0);
+		
+		return 0;
+
+	}
+
+	if (local->transaction.lock_count == priv->lock_server_count) {
 		/* we're done locking */
 		afr_write_pending_pre_op (frame, this);
 		return 0;

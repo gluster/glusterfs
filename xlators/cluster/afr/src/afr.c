@@ -127,6 +127,8 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 	loc_wipe (&local->loc);
 	loc_wipe (&local->newloc);
 
+	FREE (local->transaction.locked_nodes);
+
 	FREE (local->transaction.basename);
 	FREE (local->transaction.new_basename);
 
@@ -924,10 +926,11 @@ init (xlator_t *this)
 	char * read_subvol = NULL;
 	char * fav_child   = NULL;
 	char * self_heal   = NULL;
+	int32_t lock_server_count = 1;
 
-	int    sh_ret      = -1;
-	int    read_ret    = -1;
-	int    fav_ret     = -1;
+	int    fav_ret       = -1;
+	int    read_ret      = -1;
+	int    dict_ret      = -1;
 
 	ALLOC_OR_GOTO (this->private, afr_private_t, out);
 
@@ -939,23 +942,36 @@ init (xlator_t *this)
 	fav_ret = dict_get_str (this->options, "favorite-child", &fav_child);
 	priv->favorite_child = -1;
 
-	sh_ret = dict_get_str (this->options, "self-heal", &self_heal);
+	dict_ret = dict_get_str (this->options, "self-heal", &self_heal);
 	
-	if ((sh_ret == 0) && !strcasecmp (self_heal, "off"))
-		priv->self_heal = 0;
-	else
-		priv->self_heal = 1;
+	if ((dict_ret == 0) && !strcasecmp (self_heal, "off")) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"self heal turned off");
 
-	sh_ret = dict_get_str (this->options, "self-heal", &self_heal);
-	
-	if ((sh_ret == 0) && !strcasecmp (self_heal, "off"))
 		priv->self_heal = 0;
-	else
+	} else {
 		priv->self_heal = 1;
+	}
+
+	dict_ret = dict_get_int32 (this->options, "lock-server-count", &lock_server_count);
+
+	if (dict_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"setting lock server count to %d",
+			lock_server_count);
+
+		priv->lock_server_count = lock_server_count;
+	} else {
+		priv->lock_server_count = 1;
+	}
 
 	trav = this->children;
 	while (trav) {
 		if (read_ret == 0 && !strcmp (read_subvol, trav->xlator->name)) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"subvolume '%s' specified as read child",
+				trav->xlator->name);
+
 			priv->read_child = child_count;
 		}
 
@@ -1066,5 +1082,6 @@ struct xlator_options options[] = {
 	{ "favorite-child", GF_OPTION_TYPE_XLATOR, 0, },
 	{ "read-only", GF_OPTION_TYPE_BOOL, 0, },
 	{ "self-heal", GF_OPTION_TYPE_BOOL, 0, },
+	{ "lock-server-count", GF_OPTION_TYPE_INT, 0, 1, 65535},
 	{ NULL, 0, },
 };
