@@ -3,7 +3,7 @@
 PortSystem          1.0
 
 name                glusterfs
-version             1.4.0pre6
+version             1.4.0pre10
 categories          fuse
 maintainers         amar@zresearch.com
 description         GlusterFS
@@ -13,7 +13,7 @@ platforms           darwin
 master_sites        http://ftp.zresearch.com/pub/gluster/glusterfs/1.4-pre
 
 configure.args      --disable-bdb
-checksums           md5 8dfc5feec338468412bb4d408f683443
+checksums           md5 33c2d02344d4fab422e80cfb637e0b48
 
 post-destroot {
     file mkdir ${destroot}/Library/LaunchDaemons/

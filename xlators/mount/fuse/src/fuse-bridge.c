@@ -2525,13 +2525,11 @@ init (xlator_t *this_xl)
 	fuse_options_t *fuse_options = NULL;
 
 #ifdef GF_DARWIN_HOST_OS
-	char *volume_name = NULL;;
-        int fuse_argc = 11;
+        int fuse_argc = 9;
 	char *fuse_argv[] = {"glusterfs",
 			     "-o", "allow_other",
 			     "-o", "default_permissions",
 			     "-o", "fsname=glusterfs",
-			     "-o", "volname=GlusterFS",
 			     "-o", "local",
 			     NULL};
 
@@ -2575,15 +2573,6 @@ init (xlator_t *this_xl)
 	}
 
 #ifdef GF_DARWIN_HOST_OS
-
-	if (dict_get (options, "icon-name"))
-		asprintf (&volume_name, "volname=%s",
-			  data_to_str (dict_get (options, "icon-name")));
-	else
-		asprintf (&volume_name, "volname=%s", fuse_options->mount_point);
-	/* There is no way from GUI to know where exactly is this mounted */
-	fuse_argv[8] = volume_name;
-
 	if (dict_get (options, "non-local")) {
 		/* This way, GlusterFS will be detected as 'servers' instead of 'devices' */
 		/* This method is useful if you want to do 'umount <mount_point>' over network, 

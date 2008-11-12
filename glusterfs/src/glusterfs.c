@@ -115,8 +115,6 @@ static struct argp_option gf_options[] = {
 #ifdef GF_DARWIN_HOST_OS
  	{"non-local", ARGP_NON_LOCAL_KEY, 0, 0, 
  	 "Mount the macfuse volume without '-o local' option"},
- 	{"icon-name", ARGP_ICON_NAME_KEY, "ICON-NAME", 0, 
- 	 "This string will appear as icon name on Desktop after mounting"},
 #endif
  	{0, 0, 0, 0, "Miscellaneous Options:"},
  	{0, }
