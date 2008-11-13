@@ -593,7 +593,13 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 
 	if (local->transaction.lock_count == priv->lock_server_count) {
 		/* we're done locking */
-		afr_write_pending_pre_op (frame, this);
+
+		if (priv->self_heal) {
+			afr_write_pending_pre_op (frame, this);
+		} else {
+			local->transaction.fop (frame, this);
+		}
+
 		return 0;
 	}
 
@@ -694,11 +700,17 @@ int32_t afr_lock (call_frame_t *frame, xlator_t *this)
 int32_t
 afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t *local = NULL;
-	
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+
 	local = frame->local;
-	
-	afr_write_pending_post_op (frame, this);
+	priv  = this->private;
+
+	if (priv->self_heal) {
+		afr_write_pending_post_op (frame, this);
+	} else {
+		afr_unlock (frame, this);
+	}
 
 	return 0;
 }
