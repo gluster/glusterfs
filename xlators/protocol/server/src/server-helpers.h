@@ -24,15 +24,18 @@
 
 #define BOUND_XL(frame)     ((xlator_t *) CALL_STATE(frame)->bound_xl)
 
-#define TRANSPORT_OF(frame) ((transport_t *) CALL_STATE(frame)->trans)
+#define TRANSPORT_FROM_FRAME(frame) ((transport_t *) CALL_STATE(frame)->trans)
 
-#define CONNECTION_PRIVATE(frame)  \
-	((connection_private_t *) TRANSPORT_OF(frame)->xl_private)
+#define SERVER_CONNECTION_PRIVATE(frame)  \
+	((server_connection_private_t *) TRANSPORT_FROM_FRAME(frame)->xl_private)
 
-#define __TRANSPORT_OF(this)    ((((server_private_t *)this->private))->trans)
+#define SERVER_PRIVATE(frame) \
+	((server_private_t *)TRANSPORT_FROM_FRAME(frame)->xl->private)
+
+#define TRANSPORT_FROM_XLATOR(this)    ((((server_private_t *)this->private))->trans)
 
 #define INODE_LRU_LIMIT(this)						\
-	(((server_conf_t *)(__TRANSPORT_OF(this)->xl_private))->inode_lru_limit)
+	(((server_conf_t *)(TRANSPORT_FROM_XLATOR(this)->xl_private))->inode_lru_limit)
 
 #define IS_ROOT_INODE(inode) (inode == inode->table->root)
 
@@ -68,4 +71,7 @@ gf_del_locker (struct _lock_table *table,
 	       fd_t *fd,
 	       pid_t pid);
 
+int32_t
+gf_direntry_to_bin (dir_entry_t *head,
+		    char **bufferp);
 #endif /* __SERVER_HELPERS_H__ */

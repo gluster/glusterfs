@@ -78,7 +78,7 @@ struct _lock_table {
 /* private structure per connection (transport object)
  * used as transport_t->xl_private
  */
-struct _connection_priv {
+struct _server_connection_private {
 	pthread_mutex_t lock;
 	char disconnected;    /* represents a disconnected object, if set */
 	fdtable_t *fdtable; 
@@ -133,7 +133,7 @@ typedef struct {
 	transport_t *trans;
 } server_private_t;
 
-typedef struct _connection_priv connection_private_t;
+typedef struct _server_connection_private server_connection_private_t;
 
 
 

@@ -315,3 +315,54 @@ gf_del_locker (struct _lock_table *table,
 
 	return ret;
 }
+
+int32_t
+gf_direntry_to_bin (dir_entry_t *head,
+		    char **bufferp)
+{
+	dir_entry_t *trav = NULL;
+	uint32_t len = 0;
+	uint32_t this_len = 0;
+	char *buffer = NULL;
+	size_t buflen = -1;
+	char *ptr = NULL;
+	char *tmp_buf = NULL;
+
+	trav = head->next;
+	while (trav) {
+		len += strlen (trav->name);
+		len += 1;
+		len += strlen (trav->link);
+		len += 1; /* for '\n' */
+		len += 256; // max possible for statbuf;
+		trav = trav->next;
+	}
+
+	buffer = calloc (1, len);
+	if (buffer == NULL) {
+		gf_log ("server", GF_LOG_ERROR,
+			"failed to allocate memory for buffer");
+		goto out;
+	}
+
+	ptr = buffer;
+	trav = head->next;
+	while (trav) {
+		tmp_buf = stat_to_str (&trav->buf);
+		/* tmp_buf will have \n before \0 */
+
+		this_len = sprintf (ptr, "%s/%s%s\n",
+				    trav->name, tmp_buf,
+				    trav->link);
+
+		FREE (tmp_buf);
+		trav = trav->next;
+		ptr += this_len;
+	}
+	if (bufferp)
+		*bufferp = buffer;
+	buflen = strlen (buffer);
+	
+out:
+	return buflen;
+}
