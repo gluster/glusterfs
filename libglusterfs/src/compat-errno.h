@@ -218,6 +218,11 @@
 
 #define GF_ERROR_CODE_NOATTR		GF_ERROR_CODE_NODATA		/* Attribute not found */
 
+/* Either one of enodata or enoattr will be there in system */
+#ifndef ENOATTR
+#define ENOATTR ENODATA
+#endif /* ENOATTR */
+
 #ifndef ENODATA
 #define ENODATA ENOATTR
 #endif /* ENODATA */

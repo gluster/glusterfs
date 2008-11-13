@@ -690,6 +690,7 @@ int32_t
 posix_mknod (call_frame_t *frame, xlator_t *this,
              loc_t *loc, mode_t mode, dev_t dev)
 {
+	int         tmp_fd    = 0;
         int32_t     op_ret    = -1;
         int32_t     op_errno  = 0;
         char *      real_path = 0;
@@ -708,9 +709,18 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "mknod on %s: %s", loc->path, strerror (op_errno));
-                goto out;
+		if ((op_errno == EINVAL) && S_ISREG (mode)) {
+			/* Over Darwin, mknod with (S_IFREG|mode) doesn't work */
+			tmp_fd = creat (real_path, mode);
+			if (tmp_fd == -1)
+				goto out;
+			close (tmp_fd);
+		} else {
+			
+			gf_log (this->name, GF_LOG_ERROR,
+				"mknod on %s: %s", loc->path, strerror (op_errno));
+			goto out;
+		}
         }
   
 #ifndef HAVE_SET_FSID
@@ -2366,7 +2376,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 		size = lgetxattr (real_path, trav->key, array, trav->value->len);
 
 		op_errno = errno;
-		if ((size == -1) && (op_errno != ENODATA)) {
+		if ((size == -1) && (op_errno != ENODATA) && (op_errno != ENOATTR)) {
 			if (op_errno == ENOTSUP) {
                                 GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
                                                      this->name, GF_LOG_WARNING, 
@@ -2471,7 +2481,7 @@ posix_fxattrop (call_frame_t *frame, xlator_t *this,
 		size = fgetxattr (_fd, trav->key, array, trav->value->len);
 
 		op_errno = errno;
-		if ((size == -1) && (op_errno != ENODATA)) {
+		if ((size == -1) && ((op_errno != ENODATA) && (op_errno != ENOATTR))) {
 			if (op_errno == ENOTSUP) {
                                 GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
                                                      this->name, GF_LOG_WARNING, 

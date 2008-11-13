@@ -161,8 +161,8 @@ enum {
 # endif
 
 #define llistxattr(path,key,size)               listxattr(path,key,size,XATTR_NOFOLLOW)
-#define lgetxattr(path,key,value,size)          getxattr(path,key,value,size,0,XATTR_NOFOLLOW)
-#define lsetxattr(path,key,value,size,flags)    setxattr(path,key,value,size,flags,XATTR_NOFOLLOW)
+#define lgetxattr(path,key,value,size)          getxattrf(path,key,value,size,0,XATTR_NOFOLLOW)
+#define lsetxattr(path,key,value,size,flags)    setxattr(path,key,value,size,0,flags|XATTR_NOFOLLOW)
 #define lremovexattr(path,key)                  removexattr(path,key,XATTR_NOFOLLOW)
 #define fgetxattr(path,key,value,size)          fgetxattr(path,key,value,size,0,0)
 #define fsetxattr(path,key,value,size,flag)     fsetxattr(path,key,value,size,0,flag)
