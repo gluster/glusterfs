@@ -1696,6 +1696,24 @@ err:
 }
 
 int
+dict_set_dynptr (dict_t *this, char *key, void *ptr, size_t len)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_dynptr (ptr, len);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
+	return ret;
+}
+
+int
 dict_get_ptr (dict_t *this, char *key, void **ptr)
 {
 	data_t * data = NULL;
