@@ -294,7 +294,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
 			if (local->success_count == 0) {
 				local->op_ret   = op_ret;
-
+				
 				local->cont.lookup.inode = inode;
 				local->cont.lookup.xattr = dict_ref (xattr);
 
@@ -343,9 +343,11 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		if (op_ret == -1) {
 			if (op_errno == ENOENT)
 				local->enoent_count++;
+			
+			if (op_errno != ENOTCONN)
+				local->op_errno = op_errno;
 		}
 
-		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
 
@@ -411,6 +413,9 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	local->child_up = memdup (priv->child_up, priv->child_count);
 	local->child_count = up_children_count (priv->child_count,
 						local->child_up);
+
+	/* By default assume ENOTCONN. On success it will be set to 0. */
+	local->op_errno = ENOTCONN;
 
 	for (i = 0; i < priv->child_count; i++) {
 		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
