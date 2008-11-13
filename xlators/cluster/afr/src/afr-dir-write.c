@@ -133,6 +133,12 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -294,6 +300,12 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 	priv  = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -450,6 +462,12 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 	priv  = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -604,6 +622,12 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 	priv  = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -761,6 +785,12 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -916,6 +946,12 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -1062,6 +1098,12 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 	priv  = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -1200,6 +1242,12 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 	priv  = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -1334,6 +1382,12 @@ afr_setdents_wind (call_frame_t *frame, xlator_t *this)
 	priv  = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				

@@ -103,6 +103,12 @@ afr_chmod_wind (call_frame_t *frame, xlator_t *this)
 	priv  = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -250,6 +256,12 @@ afr_chown_wind (call_frame_t *frame, xlator_t *this)
 	priv  = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -402,6 +414,11 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
 
 	local->call_count = call_count;
 
@@ -571,6 +588,11 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 
 	local->call_count = up_children_count (priv->child_count, local->child_up);
 
+	if (local->call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_truncate_wind_cbk,
@@ -722,6 +744,11 @@ afr_ftruncate_wind (call_frame_t *frame, xlator_t *this)
 
 	local->call_count = up_children_count (priv->child_count, local->child_up);
 
+	if (local->call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_ftruncate_wind_cbk,
@@ -870,6 +897,12 @@ afr_utimens_wind (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -1017,6 +1050,12 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
@@ -1154,6 +1193,12 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 	call_count = up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				

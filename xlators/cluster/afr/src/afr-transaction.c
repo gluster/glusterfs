@@ -249,8 +249,7 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 	if (call_count == 0) {
 		/* no child is up */
 		dict_unref (xattr);
-
-		local->transaction.done (frame, this, -1, ENOTCONN);
+		afr_unlock (frame, this);
 		return 0;
 	}
 
@@ -392,8 +391,7 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 	if (call_count == 0) {
 		/* no child is up */
 		dict_unref (xattr);
-
-		local->transaction.done (frame, this, -1, ENOTCONN);
+		afr_unlock (frame, this);
 		return 0;
 	}
 
