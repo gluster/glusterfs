@@ -2498,7 +2498,8 @@ client_lookup (call_frame_t *frame,
 	req->par   = hton64 (par);
 	req->flags = hton32 (need_xattr);
 	strcpy (req->path, loc->path);
-	strcpy (req->path + pathlen, loc->name);
+	if (baselen)
+		strcpy (req->path + pathlen, loc->name);
 
 	frame->local = loc->inode;
 
@@ -4091,7 +4092,91 @@ fail:
 	return 0;
 }
 
+static dir_entry_t *
+gf_bin_to_direntry (char *buf, size_t count)
+{
+	int32_t idx = 0, bread = 0;
+	size_t rcount = 0;
+	char *ender = NULL, *buffer = NULL;
+	char tmp_buf[512] = {0,};
+	dir_entry_t *trav = NULL, *prev = NULL;
+	dir_entry_t *thead = NULL, *head = NULL;
 
+	thead = calloc (1, sizeof (dir_entry_t));
+	GF_VALIDATE_OR_GOTO("client-protocol", thead, fail);
+
+	buffer = buf;
+	prev = thead;
+
+	for (idx = 0; idx < count ; idx++) {
+		bread = 0;
+		trav = calloc (1, sizeof (dir_entry_t));
+		GF_VALIDATE_OR_GOTO("client-protocol", trav, fail);
+
+		ender = strchr (buffer, '/');
+		if (!ender)
+			break;
+		rcount = ender - buffer;
+		trav->name = calloc (1, rcount + 2);
+		GF_VALIDATE_OR_GOTO("client-protocol", trav->name, fail);
+
+		strncpy (trav->name, buffer, rcount);
+		bread = rcount + 1;
+		buffer += bread;
+
+		ender = strchr (buffer, '\n');
+		if (!ender)
+			break;
+		rcount = ender - buffer;
+		strncpy (tmp_buf, buffer, rcount);
+		bread = rcount + 1;
+		buffer += bread;
+			
+		gf_string_to_stat (tmp_buf, &trav->buf);
+
+		ender = strchr (buffer, '\n');
+		if (!ender)
+			break;
+		rcount = ender - buffer;
+		*ender = '\0';
+		if (S_ISLNK (trav->buf.st_mode))
+			trav->link = strdup (buffer);
+		else
+			trav->link = "";
+
+		bread = rcount + 1;
+		buffer += bread;
+
+		prev->next = trav;
+		prev = trav;
+	}
+	
+	head = thead;
+fail:
+	return head;
+}
+
+int32_t
+gf_free_direntry(dir_entry_t *head)
+{
+	dir_entry_t *prev = NULL, *trav = NULL;
+
+	prev = head;
+	GF_VALIDATE_OR_GOTO("client-protocol", prev, fail);
+
+	trav = head->next;
+	while (trav) {
+		prev->next = trav->next;
+		FREE (trav->name);
+		if (S_ISLNK (trav->buf.st_mode))
+			FREE (trav->link);
+		FREE (trav);
+		trav = prev->next;
+	}
+	FREE (head);
+fail:
+	return 0;
+}
 /*
  * client_getdents_cbk - readdir callback for client protocol
  * @frame: call frame
@@ -4107,92 +4192,32 @@ client_getdents_cbk (call_frame_t *frame,
 	gf_fop_getdents_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	int32_t gf_errno = 0;
 	int32_t nr_count = 0;
 	dir_entry_t *entry = NULL;
-	dir_entry_t *trav = NULL, *prev = NULL;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	entry = calloc (1, sizeof (dir_entry_t));
-	GF_VALIDATE_OR_GOTO(frame->this->name, entry, fail);
+	gf_errno = ntoh32 (hdr->rsp.op_errno);
+	op_errno = gf_error_to_errno (gf_errno);
 
 	if (op_ret >= 0) {
-		int32_t count, i, bread;
-		char *ender = NULL, *buffer_ptr = NULL;
-		char tmp_buf[512] = {0,};
-
-		nr_count = ntoh32 (rsp->count);
-		buffer_ptr = buf;
-		prev = entry;
-
-		for (i = 0; i < nr_count ; i++) {
-			bread = 0;
-			trav = calloc (1, sizeof (dir_entry_t));
-			GF_VALIDATE_OR_GOTO(frame->this->name, trav, fail);
-
-			ender = strchr (buffer_ptr, '/');
-			if (!ender)
-				break;
-			count = ender - buffer_ptr;
-			trav->name = calloc (1, count + 2);
-			GF_VALIDATE_OR_GOTO(frame->this->name, trav->name, fail);
-
-			strncpy (trav->name, buffer_ptr, count);
-			bread = count + 1;
-			buffer_ptr += bread;
-
-			ender = strchr (buffer_ptr, '\n');
-			if (!ender)
-				break;
-			count = ender - buffer_ptr;
-			strncpy (tmp_buf, buffer_ptr, count);
-			bread = count + 1;
-			buffer_ptr += bread;
-			
-			gf_string_to_stat (tmp_buf, &trav->buf);
-
-			ender = strchr (buffer_ptr, '\n');
-			if (!ender)
-				break;
-			count = ender - buffer_ptr;
-			*ender = '\0';
-			if (S_ISLNK (trav->buf.st_mode))
-				trav->link = strdup (buffer_ptr);
-			else
-				trav->link = "";
-
-			bread = count + 1;
-			buffer_ptr += bread;
-
-			prev->next = trav;
-			prev = trav;
+		nr_count = ntoh32 (rsp->count);		
+		entry = gf_bin_to_direntry(buf, nr_count);
+		if (entry == NULL) {
+			op_ret = -1;
+			op_errno = EINVAL;
 		}
 	}
-fail:
+
 	STACK_UNWIND (frame, op_ret, op_errno, entry, nr_count);
 
 	if (op_ret >= 0) {
 		/* Free the buffer */
 		FREE (buf);
-
-		prev = entry;
-		if (!entry)
-			return 0;
-		trav = entry->next;
-		while (trav) {
-			prev->next = trav->next;
-			FREE (trav->name);
-			if (S_ISLNK (trav->buf.st_mode))
-				FREE (trav->link);
-			FREE (trav);
-			trav = prev->next;
-		}
-		FREE (entry);
+		gf_free_direntry(entry);
       	}
-
 
 	return 0;
 }
