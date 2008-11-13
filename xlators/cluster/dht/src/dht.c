@@ -244,6 +244,11 @@ unlock:
 
 		if (local->op_ret == -1 && local->op_errno == EUCLEAN)
 			trap ();
+
+		gf_log (this->name, GF_LOG_DEBUG,
+			"LOOKUP(): revalidate reply local->inode->ino = %"PRId64" and"
+			"stbuf->st_ino = %"PRId64, local->inode->ino, local->stbuf.st_ino);
+
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr);
 	}
@@ -409,6 +414,10 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
+		
+		gf_log (this->name, GF_LOG_DEBUG,
+			"LOOKUP() revalidating: %s (%"PRId64")",
+			loc->path, loc->inode->ino);
 
 		for (i = 0; i < layout->cnt; i++) {
 			subvol = layout->list[i].xlator;
@@ -430,6 +439,10 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         op_errno = EINVAL;
                         goto err;
                 }
+		
+		gf_log (this->name, GF_LOG_DEBUG,
+			"LOOKUP() fresh: %s (%"PRId64"/%s)",
+			loc->path, (loc->parent? loc->parent->ino : 0), loc->name);
 
                 STACK_WIND (frame, dht_lookup_cbk,
                             subvol, subvol->fops->lookup,

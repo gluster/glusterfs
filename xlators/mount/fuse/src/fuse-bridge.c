@@ -266,16 +266,26 @@ fuse_loc_fill (loc_t *loc,
 static int
 need_fresh_lookup (int op_ret, inode_t *inode, struct stat *buf)
 {
-        /* TODO: log for each case */
-
-        if (op_ret == -1)
+        if (op_ret == -1) {
+		gf_log ("fuse-bridge", GF_LOG_DEBUG,
+			"need fresh lookup for %"PRId64": op_ret == -1",
+			inode->ino);
                 return 1;
+	}
 
         if (inode->ino != buf->st_ino) {
+		gf_log ("fuse-bridge", GF_LOG_DEBUG,
+			"need fresh lookup: inode->ino (%"PRId64") and "
+			"buf->st_ino (%"PRId64") differ",
+			inode->ino, buf->st_ino);
                 return 1;
         }
 
 	if ((inode->st_mode & S_IFMT) ^ (buf->st_mode & S_IFMT)) {
+		gf_log ("fuse-bridge", GF_LOG_DEBUG,
+			"need fresh lookup for %"PRId64": inode->st_mode and "
+			"buf->st_mode differ",
+			inode->ino);
 		return 1;
 	}
 
@@ -316,6 +326,12 @@ fuse_entry_cbk (call_frame_t *frame,
 
         if (state->is_revalidate == 1
 	    && need_fresh_lookup (op_ret, inode, buf)) {
+                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                        "%"PRId64": %s() sending revalidate with fresh inode for "
+			"%s => %"PRId64"(loc->ino:%"PRId64") : %s", frame->root->unique,
+                        gf_fop_list[frame->op], state->loc.path, buf->st_ino, state->loc.ino,
+			strerror (op_errno));
+
                 inode_unref (state->loc.inode);
                 state->loc.inode = inode_new (state->itable);
                 state->is_revalidate = 2;
@@ -330,9 +346,9 @@ fuse_entry_cbk (call_frame_t *frame,
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                        "%"PRId64": %s() %s => %"PRId64, frame->root->unique,
-                        gf_fop_list[frame->op], state->loc.path, buf->st_ino);
-
+                        "%"PRId64": %s() %s => %"PRId64"(loc->ino:%"PRId64")", frame->root->unique,
+                        gf_fop_list[frame->op], state->loc.path, buf->st_ino, state->loc.ino);
+		
 		inode_link (inode, state->loc.parent,
                             state->loc.name, buf);
 

@@ -88,6 +88,10 @@ __dentry_hash (dentry_t *dentry)
 
         list_del_init (&dentry->parent_list);
         list_add (&dentry->parent_list, &dentry->parent->child_list);
+	
+	gf_log (table->name, GF_LOG_DEBUG,
+		"dentry hashed %s (%"PRId64")",
+		dentry->name, dentry->inode->ino);
 }
 
 
@@ -102,6 +106,10 @@ static void
 __dentry_unhash (dentry_t *dentry)
 {
         list_del_init (&dentry->hash);
+	
+	gf_log (dentry->inode->table->name, GF_LOG_DEBUG,
+		"dentry unhashed %s (%"PRId64")",
+		dentry->name, dentry->inode->ino);
 }
 
 
@@ -111,6 +119,10 @@ __dentry_unset (dentry_t *dentry)
         __dentry_unhash (dentry);
 
         list_del_init (&dentry->inode_list);
+
+	gf_log (dentry->inode->table->name, GF_LOG_DEBUG,
+		"unset dentry %s (%"PRId64")",
+		dentry->name, dentry->inode->ino);
 
         if (dentry->name)
                 FREE (dentry->name);
