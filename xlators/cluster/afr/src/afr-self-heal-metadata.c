@@ -366,6 +366,9 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 #endif
 
 	for (i = 0; i < priv->child_count; i++) {
+		if (call_count == 0) {
+			break;
+		}
 		if (sh->sources[i] || !local->child_up[i])
 			continue;
 
@@ -373,7 +376,7 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 			"syncing metadata of %s from %s to %s",
 			local->loc.path, priv->children[source]->name,
 			priv->children[i]->name);
-			
+
 		STACK_WIND_COOKIE (frame, afr_sh_metadata_attr_cbk,
 				   (void *) (long) i,
 				   priv->children[i],
@@ -394,6 +397,8 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 				   priv->children[i]->fops->utimens,
 				   &local->loc, ts);
 
+		call_count = call_count - 3;
+
 		if (!xattr)
 			continue;
 
@@ -402,6 +407,7 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 				   priv->children[i],
 				   priv->children[i]->fops->setxattr,
 				   &local->loc, xattr, 0);
+		call_count--;
 	}
 
 	return 0;

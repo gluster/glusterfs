@@ -1750,6 +1750,10 @@ struct xlator_fops fops = {
 	.checksum    = error_gen_checksum,
 	.xattrop     = error_gen_xattrop,
 	.fxattrop    = error_gen_fxattrop,
+	.inodelk     = error_gen_inodelk,
+	.finodelk    = error_gen_finodelk,
+	.entrylk     = error_gen_entrylk,
+	.fentrylk    = error_gen_fentrylk
 };
 
 struct xlator_mops mops = {
