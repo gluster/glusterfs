@@ -1,6 +1,6 @@
 
-docdir = $(datadir)/doc/$(PACKAGE_NAME)
-EmacsModedir = $(docdir)/examples
+docdir = $(datadir)/doc/glusterfs/
+EmacsModedir = $(docdir)/
 EmacsMode_DATA = glusterfs-mode.el
 
 SUBDIRS = init.d benchmarking

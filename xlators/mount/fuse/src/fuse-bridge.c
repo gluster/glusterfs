@@ -1928,6 +1928,7 @@ fuse_setxattr (fuse_req_t req,
                int flags)
 {
         fuse_state_t *state;
+	char *dict_value = NULL;
 
         state = state_from_req (req);
         state->size = size;
@@ -1944,8 +1945,9 @@ fuse_setxattr (fuse_req_t req,
 
         state->dict = get_new_dict ();
 
+	dict_value = memdup (value, size);
         dict_set (state->dict, (char *)name,
-                  bin_to_data ((void *)value, size));
+                  data_from_dynptr ((void *)dict_value, size));
         dict_ref (state->dict);
 
         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
