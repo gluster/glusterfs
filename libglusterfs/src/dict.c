@@ -93,6 +93,19 @@ get_new_dict (void)
 	return get_new_dict_full (1);
 }
 
+dict_t *
+dict_new (void)
+{
+	dict_t *dict = NULL;
+	
+	dict = get_new_dict_full(1);
+	
+	if (dict)
+		dict_ref (dict);
+	
+	return dict;
+}
+
 
 int32_t 
 is_data_equal (data_t *one,
@@ -1127,6 +1140,26 @@ dict_copy (dict_t *dict,
 
 	return new;
 }
+
+dict_t *
+dict_copy_with_ref (dict_t *dict,
+		    dict_t *new)
+{
+	dict_t *local_new = NULL;
+
+	GF_VALIDATE_OR_GOTO("dict", dict, fail);
+
+	if (new == NULL) {
+		local_new = dict_new ();
+		GF_VALIDATE_OR_GOTO("dict", local_new, fail);
+		new = local_new;
+	}
+
+	dict_foreach (dict, _copy, new);
+fail:
+	return new;
+}
+
 /*
  * !!!!!!! CLEANED UP CODE !!!!!!!
  */

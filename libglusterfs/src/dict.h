@@ -137,6 +137,9 @@ dict_t *dict_copy (dict_t *this,
 		   dict_t *new);
 
 /* CLEANED UP FUNCTIONS DECLARATIONS */
+dict_t *dict_new (void);
+dict_t *dict_copy_with_ref (dict_t *this,
+			    dict_t *new);
 int dict_get_int8 (dict_t *this, char *key, int8_t *val);
 int dict_set_int8 (dict_t *this, char *key, int8_t val);
 
