@@ -3621,8 +3621,8 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 	ret = dict_set_dynptr (refs, NULL, buf, buflen);
 	if (ret < 0) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"failed to dict_set_dynptr (%p:%"PRId32,
-			buf, buflen);
+			"failed to dict_set_dynptr %p:%"PRId64,
+			buf, (int64_t)buflen);
 		dict_destroy (refs);
 		goto fail;
 	}
