@@ -678,9 +678,11 @@ typedef struct {
 
 
 typedef struct {
+	uint32_t dict_len;
 	char buf[0];
 } __attribute__((packed)) gf_mop_setvolume_req_t;
 typedef struct {
+	uint32_t dict_len;
 	char buf[0];
 } __attribute__((packed)) gf_mop_setvolume_rsp_t;
 

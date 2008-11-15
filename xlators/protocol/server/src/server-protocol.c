@@ -874,7 +874,7 @@ server_getdents_cbk (call_frame_t *frame,
 			goto out;
 		}
 		{
-			reply_dict = get_new_dict ();
+			reply_dict = dict_new ();
 			if (reply_dict == NULL) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"failed to get_new_dict");
@@ -891,7 +891,7 @@ server_getdents_cbk (call_frame_t *frame,
 				op_errno = -ret;
 				goto out;
 			}
-			frame->root->rsp_refs = dict_ref (reply_dict);
+			frame->root->rsp_refs = reply_dict;
 			vector[0].iov_base = buffer;
 			vector[0].iov_len = buflen;
 			vec_count = 1;
@@ -1177,26 +1177,40 @@ server_getxattr_cbk (call_frame_t *frame,
 	size_t  hdrlen = 0;
 	int32_t len = 0;
 	int32_t gf_errno = 0;
+	int32_t ret = -1;
 
 	state = CALL_STATE(frame);
 
 	if (op_ret >= 0) {
-		dict_set_str (dict, "__@@protocol_client@@__key", "value");
 		len = dict_serialized_length (dict);
+		if (len < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to get serialized length of reply dict");
+			op_ret   = -1;
+			op_errno = EINVAL;
+			len = 0;
+		}
 	}
 
 	hdrlen = gf_hdr_len (rsp, len + 1);
 	hdr    = gf_hdr_new (rsp, len + 1);
 	rsp    = gf_param (hdr);
 
+	if (op_ret >= 0) {
+		ret = dict_serialize (dict, rsp->dict);
+		if (len < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to serialize reply dict");
+			op_ret = -1;
+			op_errno = -ret;
+		}
+	}
+	rsp->dict_len = hton32 (len);
+
 	hdr->rsp.op_ret = hton32 (op_ret);
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
-	if (op_ret >= 0) {
-		rsp->dict_len = hton32 (len);
-		dict_serialize (dict, rsp->dict);
-	}
 
 	server_loc_wipe (&(state->loc));
 
@@ -2083,6 +2097,7 @@ server_lookup_cbk (call_frame_t *frame,
 	int32_t  dict_len = 0;
 	size_t   hdrlen = 0;
 	int32_t  gf_errno = 0;
+	int32_t  ret = -1;
 
 	state = CALL_STATE(frame);
 	if ((op_errno == ESTALE) && (op_ret == -1)) {
@@ -2107,37 +2122,48 @@ server_lookup_cbk (call_frame_t *frame,
 	}
 
 	if (dict) {
-		dict_set_str (dict, "__@@protocol_client@@__key", "value");
 		dict_len = dict_serialized_length (dict);
+		if (dict_len < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to get serialized length of reply dict");
+			op_ret   = -1;
+			op_errno = EINVAL;
+			dict_len = 0;
+		}
 	}
 
 	hdrlen = gf_hdr_len (rsp, dict_len);
 	hdr    = gf_hdr_new (rsp, dict_len);
 	rsp    = gf_param (hdr);
 
+	if ((op_ret >= 0) && dict) {
+		ret = dict_serialize (dict, rsp->dict);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to serialize reply dict");
+			op_ret = -1;
+			op_errno = -ret;
+			dict_len = 0;
+		} 
+	}
+	rsp->dict_len = hton32 (dict_len);
+
 	hdr->rsp.op_ret = hton32 (op_ret);
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
 	if (op_ret == 0) {
-		rsp->dict_len = hton32 (dict_len);
-		if (dict)
-			dict_serialize (dict, rsp->dict);
-
 		root_inode = BOUND_XL(frame)->itable->root;
 		if (inode == root_inode) {
-			if (state->ino != 1)
-				gf_log (this->name, GF_LOG_ERROR,
-					"something wrong");
 			/* we just looked up root ("/") */
 			stbuf->st_ino = 1;
-			if (!inode->st_mode)
+			if (inode->st_mode == 0)
 				inode->st_mode = stbuf->st_mode;
 		}
 
 		gf_stat_from_stat (&rsp->stat, stbuf);
 
-		if (!inode->ino) {
+		if (inode->ino == 0) {
 			inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 			inode_lookup (inode);
 		}
@@ -2145,6 +2171,118 @@ server_lookup_cbk (call_frame_t *frame,
 
 	server_loc_wipe (&state->loc);
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOOKUP,
+			       hdr, hdrlen, NULL, 0, NULL);
+
+	return 0;
+}
+
+int32_t
+server_xattrop_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    dict_t *dict)
+{
+	gf_hdr_common_t      *hdr = NULL;
+	gf_fop_xattrop_rsp_t *rsp = NULL;
+	server_state_t *state = NULL;
+	size_t  hdrlen = 0;
+	int32_t len = 0;
+	int32_t gf_errno = 0;
+	int32_t ret = -1;
+
+	if ((op_ret >= 0) && dict) {
+		len = dict_serialized_length (dict);
+		if (len < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to get serialized length for reply dict(%p)",
+				dict);
+			op_ret = -1;
+			op_errno = EINVAL;
+			len = 0;
+		}
+	}
+
+	hdrlen = gf_hdr_len (rsp, len + 1);
+	hdr    = gf_hdr_new (rsp, len + 1);
+	rsp    = gf_param (hdr);
+
+	if ((op_ret >= 0) && dict) {
+		ret = dict_serialize (dict, rsp->dict);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to serialize reply dict(%p)", dict);
+			op_ret = -1;
+			op_errno = -ret;
+			len = 0;
+		}
+	}
+	rsp->dict_len = hton32 (len);
+
+	hdr->rsp.op_ret = hton32 (op_ret);
+	gf_errno        = gf_errno_to_error (op_errno);
+	hdr->rsp.op_errno = hton32 (gf_errno);
+	
+	state = CALL_STATE(frame);
+	server_loc_wipe (&(state->loc));
+
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_XATTROP,
+			       hdr, hdrlen, NULL, 0, NULL);
+
+	return 0;
+}
+
+int32_t
+server_fxattrop_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     dict_t *dict)
+{
+	gf_hdr_common_t      *hdr = NULL;
+	gf_fop_xattrop_rsp_t *rsp = NULL;
+	size_t  hdrlen = 0;
+	int32_t len = 0;
+	int32_t gf_errno = 0;
+	int32_t ret = -1;
+
+	if ((op_ret >= 0) && dict) {
+		len = dict_serialized_length (dict);
+		if (len < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to get serialized length for reply dict(%p)",
+				dict);
+			op_ret = -1;
+			op_errno = EINVAL;
+			len = 0;				
+		}
+	}
+
+	hdrlen = gf_hdr_len (rsp, len + 1);
+	hdr    = gf_hdr_new (rsp, len + 1);
+	rsp    = gf_param (hdr);
+
+	if ((op_ret >= 0) && dict) {
+		ret = dict_serialize (dict, rsp->dict);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to serialize reply dict(%p)",
+				dict);
+			op_ret = -1;
+			op_errno = -ret;
+			len = 0;
+		}
+	}
+	rsp->dict_len = hton32 (len);
+
+	hdr->rsp.op_ret = hton32 (op_ret);
+	gf_errno        = gf_errno_to_error (op_errno);
+	hdr->rsp.op_errno = hton32 (gf_errno);
+
+
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FXATTROP,
 			       hdr, hdrlen, NULL, 0, NULL);
 
 	return 0;
@@ -2337,6 +2475,38 @@ server_stub_resume (call_stub_t *stub,
 			if (server_inode && (stub->args.stat.loc.inode == NULL)) {
 				stub->args.stat.loc.inode = inode_ref (server_inode);
 				stub->args.stat.loc.ino = server_inode->ino;
+			}
+			call_resume (stub);
+			break;
+		}
+
+		case GF_FOP_XATTROP:
+		{
+			if (op_ret < 0) {
+				gf_log (stub->frame->this->name,
+					GF_LOG_ERROR,
+					"XATTROP (%s) on %s returning error: "
+					"%"PRId32" (%"PRId32")",
+					stub->args.xattrop.loc.path,
+					BOUND_XL(stub->frame)->name,
+					op_ret, op_errno);
+				server_xattrop_cbk (stub->frame,
+						    NULL,
+						    stub->frame->this,
+						    -1,
+						    ENOENT,
+						    NULL);
+				server_loc_wipe (&stub->args.xattrop.loc);
+				FREE (stub);
+				return 0;
+			}
+
+			if (stub->args.xattrop.loc.parent == NULL)
+				stub->args.xattrop.loc.parent = inode_ref (parent);
+
+			if (server_inode && (stub->args.xattrop.loc.inode == NULL)) {
+				stub->args.xattrop.loc.inode = inode_ref (server_inode);
+				stub->args.xattrop.loc.ino = server_inode->ino;
 			}
 			call_resume (stub);
 			break;
@@ -2658,7 +2828,7 @@ server_stub_resume (call_stub_t *stub,
 						     -1,
 						     ENOENT);
 				server_loc_wipe (&stub->args.setxattr.loc);
-				dict_destroy (dict);
+				dict_unref (dict);
 				FREE (stub);
 				return 0;
 			}
@@ -3615,7 +3785,7 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 	iov.iov_base = buf;
 	iov.iov_len = buflen;
 
-	refs = get_new_dict ();
+	refs = dict_new ();
 	GF_VALIDATE_OR_GOTO(bound_xl->name, refs, fail);
 
 	ret = dict_set_dynptr (refs, NULL, buf, buflen);
@@ -3623,11 +3793,12 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"failed to dict_set_dynptr %p:%"PRId64,
 			buf, (int64_t)buflen);
-		dict_destroy (refs);
 		goto fail;
+	} else {
+		buf = NULL;
 	}
 
-	frame->root->req_refs = dict_ref (refs);
+	frame->root->req_refs = refs;
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
 		"WRITEV \'fd=%"PRId64"; offset=%"PRId64"; size=%"PRId64,
@@ -3639,12 +3810,20 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->writev,
 		    state->fd, &iov, 1, state->offset);
-
-	dict_unref (refs);
+	
+	if (refs)
+		dict_unref (refs);
 	return 0;
 fail:
 	server_writev_cbk (frame, NULL, frame->this,
 			   -1, EINVAL, NULL);
+	
+	if (buf)
+		free (buf);
+
+	if (refs)
+		dict_unref (refs);
+
 	return 0;
 }
 
@@ -4107,6 +4286,7 @@ server_setxattr (call_frame_t *frame,
 	int32_t ret = -1;
 	size_t pathlen = 0;
 	size_t dict_len = 0;
+	char *req_dictbuf = NULL;
 
 	req = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -4125,11 +4305,22 @@ server_setxattr (call_frame_t *frame,
 
 	{
 		/* Unserialize the dictionary */
-		char *buf = memdup (req->dict, dict_len);
-		dict = get_new_dict ();
-		dict_unserialize (buf, dict_len, &dict);
-		dict->extra_free = buf;
-		dict_ref (dict);
+		req_dictbuf = memdup (req->dict, dict_len);
+		GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
+
+		dict = dict_new ();
+		GF_VALIDATE_OR_GOTO(bound_xl->name, dict, fail);
+
+		ret = dict_unserialize (req_dictbuf, dict_len, &dict);
+		if (ret < 0) {
+			gf_log (bound_xl->name, GF_LOG_ERROR,
+				"failed to unserialize request buffer(%p) to dictionary",
+				req->dict);
+			free (req_dictbuf);
+			goto fail;
+		} else{
+			dict->extra_free = req_dictbuf;
+		}
 	}
 
 	setxattr_stub = fop_setxattr_stub (frame,
@@ -4137,6 +4328,7 @@ server_setxattr (call_frame_t *frame,
 					   &(state->loc),
 					   dict,
 					   state->flags);
+	GF_VALIDATE_OR_GOTO(bound_xl->name, setxattr_stub, fail);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
@@ -4149,104 +4341,17 @@ server_setxattr (call_frame_t *frame,
 		dict_unref (dict);
 
 	return 0;
-}
+fail:
+	if (dict)
+		dict_unref (dict);
 
-
-int32_t
-server_xattrop_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    dict_t *dict)
-{
-	gf_hdr_common_t      *hdr = NULL;
-	gf_fop_xattrop_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t len = 0;
-	int32_t gf_errno = 0;
-	int32_t ret = -1;
-
-	if ((op_ret >= 0) && dict) {
-		ret = dict_set_str (dict, "__@@protocol_client@@__key", "value");
-		if (ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"failed to dict_set_str");
-			op_ret = -1;
-			op_errno = -ret;
-		} else {
-			len = dict_serialized_length (dict);
-		}
-	}
-
-	hdrlen = gf_hdr_len (rsp, len + 1);
-	hdr    = gf_hdr_new (rsp, len + 1);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret = hton32 (op_ret);
-	gf_errno        = gf_errno_to_error (op_errno);
-	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	rsp->dict_len = hton32 (len);
-	if ((op_ret >= 0) && dict) {
-		dict_serialize (dict, rsp->dict);
-	}
+	server_setxattr_cbk (frame, NULL, frame->this,
+			     -1, ENOENT);
+	return 0;
 	
-	state = CALL_STATE(frame);
-	server_loc_wipe (&(state->loc));
-
-	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_XATTROP,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
 }
 
-int32_t
-server_fxattrop_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     dict_t *dict)
-{
-	gf_hdr_common_t      *hdr = NULL;
-	gf_fop_xattrop_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t len = 0;
-	int32_t gf_errno = 0;
-	int32_t ret = -1;
 
-	if ((op_ret >= 0) && dict) {
-		ret = dict_set_str (dict, "__@@protocol_client@@__key", "value");
-		if (ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"failed to dict_set_str");
-			op_ret = -1;
-			op_errno = -ret;
-		} else {
-			len = dict_serialized_length (dict);
-		}
-	}
-
-	hdrlen = gf_hdr_len (rsp, len + 1);
-	hdr    = gf_hdr_new (rsp, len + 1);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret = hton32 (op_ret);
-	gf_errno        = gf_errno_to_error (op_errno);
-	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	rsp->dict_len = hton32 (len);
-	if ((op_ret >= 0) && dict) {
-		dict_serialize (dict, rsp->dict);
-	}
-
-	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FXATTROP,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
 
 int32_t
 server_fxattrop (call_frame_t *frame,
@@ -4254,12 +4359,14 @@ server_fxattrop (call_frame_t *frame,
 		gf_hdr_common_t *hdr, size_t hdrlen,
 		char *buf, size_t buflen)
 {
+	server_connection_private_t *cprivate = NULL;
 	gf_fop_fxattrop_req_t *req = NULL;
 	dict_t *dict = NULL;
 	server_state_t *state = NULL;
 	int64_t fd_no = 0;
 	size_t dict_len = 0;
-	server_connection_private_t *cprivate = NULL;
+	char *req_dictbuf = NULL;
+	int32_t ret = -1;
 	
 	cprivate = SERVER_CONNECTION_PRIVATE(frame);
 
@@ -4277,11 +4384,22 @@ server_fxattrop (call_frame_t *frame,
 
 	if (dict_len) {
 		/* Unserialize the dictionary */
-		char *buf = memdup (req->dict, dict_len);
-		dict = get_new_dict ();
-		dict_unserialize (buf, dict_len, &dict);
-		dict->extra_free = buf;
-		dict_ref (dict);
+		req_dictbuf = memdup (req->dict, dict_len);
+		GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
+
+		dict = dict_new ();
+		GF_VALIDATE_OR_GOTO(bound_xl->name, dict, fail);
+
+		ret = dict_unserialize (req_dictbuf, dict_len, &dict);
+		if (ret < 0) {
+			gf_log (bound_xl->name, GF_LOG_ERROR,
+				"failed to unserialize request buffer(%p) to dictionary",
+				req_dictbuf);
+			free (req_dictbuf);
+			goto fail;
+		} else {
+			dict->extra_free = req_dictbuf;
+		}
 	}
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
@@ -4297,6 +4415,13 @@ server_fxattrop (call_frame_t *frame,
 		    dict);
 	if (dict)
 		dict_unref (dict);
+	return 0;
+fail:
+	if (dict)
+		dict_unref (dict);
+
+	server_fxattrop_cbk (frame, NULL, frame->this,
+			     -1, EINVAL, NULL);
 	return 0;
 }
 
@@ -4338,6 +4463,7 @@ server_xattrop (call_frame_t *frame,
 	int32_t ret = -1;
 	size_t pathlen = 0;
 	size_t dict_len = 0;
+	char *req_dictbuf = NULL;
 	
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -4354,17 +4480,28 @@ server_xattrop (call_frame_t *frame,
 	
 	if (dict_len) {
 		/* Unserialize the dictionary */
-		char *buf = memdup (req->dict, dict_len);
-		dict = get_new_dict ();
-		dict_unserialize (buf, dict_len, &dict);
-		dict->extra_free = buf;
-		dict_ref (dict);
+		req_dictbuf = memdup (req->dict, dict_len);
+		GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
+
+		dict = dict_new ();
+		GF_VALIDATE_OR_GOTO(bound_xl->name, dict, fail);
+
+		ret = dict_unserialize (req_dictbuf, dict_len, &dict);
+		if (ret < 0) {
+			gf_log (bound_xl->name, GF_LOG_ERROR,
+				"failed to unserialize request buffer(%p) to dictionary",
+				req_dictbuf);
+			goto fail;
+		} else { 
+			dict->extra_free = req_dictbuf;
+		}
 	}
 	xattrop_stub = fop_xattrop_stub (frame,
 					 server_xattrop_resume,
 					 &(state->loc),
 					 state->flags,
 					 dict);
+	GF_VALIDATE_OR_GOTO(bound_xl->name, xattrop_stub, fail);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
@@ -4375,6 +4512,14 @@ server_xattrop (call_frame_t *frame,
 
 	if (dict)
 		dict_unref (dict);
+	return 0;
+fail:
+	if (dict)
+		dict_unref (dict);
+
+	server_xattrop_cbk (frame, NULL, frame->this,
+			    -1, EINVAL,
+			    NULL);
 	return 0;
 }
 
@@ -6478,31 +6623,40 @@ mop_setvolume (call_frame_t *frame,
                char *req_buf,
                size_t req_buflen)
 {
-	int32_t              ret = -1;
-	int32_t              remote_errno = 0;
-	dict_t              *reply = NULL;
 	server_connection_private_t *cprivate = NULL;
-	server_private_t    *server_private = NULL;
-	char                *name = NULL;
-	char                *version = NULL;
-	xlator_t            *xl = NULL;
-	dict_t              *config_params = NULL;
-	dict_t              *params = NULL;
-	gf_hdr_common_t     *rsp_hdr = NULL;
-	size_t               rsp_hdrlen = -1;
+	server_private_t *server_private = NULL;
+	gf_hdr_common_t        *rsp_hdr = NULL;
 	gf_mop_setvolume_req_t *req = NULL;
 	gf_mop_setvolume_rsp_t *rsp = NULL;
-	size_t       dict_len = -1;
 	peer_info_t *peerinfo = NULL;
+	int32_t ret = -1;
+	int32_t op_ret = -1;
+	int32_t op_errno = EINVAL;
 	int32_t gf_errno = 0;
+	dict_t *reply = NULL;
+	dict_t *config_params = NULL;
+	dict_t *params = NULL;
+	char   *name = NULL;
+	char   *version = NULL;
+	xlator_t    *xl = NULL;
 	transport_t *trans = NULL;
+	size_t rsp_hdrlen = -1;
+	size_t dict_len = -1;
+	size_t req_dictlen = -1;
 
-	params = get_new_dict ();
-	reply  = get_new_dict ();
+	params = dict_new ();
+	reply  = dict_new ();
 	req    = gf_param (req_hdr);
-	config_params = dict_copy (frame->this->options, NULL);
-
-	dict_unserialize (req->buf, ntoh32 (req_hdr->size), &params);
+	config_params = dict_copy_with_ref (frame->this->options, NULL);
+	req_dictlen = ntoh32 (req->dict_len);
+	ret = dict_unserialize (req->buf, req_dictlen, &params);
+	if (ret < 0) {
+		dict_set_str (reply, "ERROR",
+			      "Internal error: failed to unserialize request dictionary");
+		op_ret = -1;
+		op_errno = EINVAL;
+		goto fail;
+	}
 
 	cprivate = SERVER_CONNECTION_PRIVATE(frame);
 
@@ -6510,20 +6664,22 @@ mop_setvolume (call_frame_t *frame,
 
 	ret = dict_get_str (params, "version", &version);
 	if (ret < 0) {
-		remote_errno = EINVAL;
 		dict_set_str (reply, "ERROR",
 			      "No version number specified");
+		op_ret = -1;
+		op_errno = EINVAL;
 		goto fail;
 	}
-
-	if (strcmp (version, PACKAGE_VERSION)) {
+	
+	ret = strcmp (version, PACKAGE_VERSION);
+	if (ret != 0) {
 		char *msg = NULL;
 		asprintf (&msg,
 			  "Version mismatch: client(%s) Vs server (%s)",
 			  version, PACKAGE_VERSION);
-		remote_errno = EINVAL;
-		ret = -1;
 		dict_set_dynstr (reply, "ERROR", msg);
+		op_ret = -1;
+		op_errno = EINVAL;
 		goto fail;
 	}
 
@@ -6531,9 +6687,10 @@ mop_setvolume (call_frame_t *frame,
 	ret = dict_get_str (params,
 			    "remote-subvolume", &name);
 	if (ret < 0) {
-		remote_errno = EINVAL;
 		dict_set_str (reply, "ERROR",
 			      "No remote-subvolume option specified");
+		op_ret = -1;
+		op_errno = EINVAL;
 		goto fail;
 	}
 
@@ -6542,8 +6699,8 @@ mop_setvolume (call_frame_t *frame,
 		char *msg = NULL;
 		asprintf (&msg, "remote-subvolume \"%s\" is not found", name);
 		dict_set_dynstr (reply, "ERROR", msg);
-		ret = -1;
-		remote_errno = ENOENT;
+		op_ret = -1;
+		op_errno = ENOENT;
 		goto fail;
 	}
 	trans = TRANSPORT_FROM_FRAME(frame);
@@ -6561,15 +6718,15 @@ mop_setvolume (call_frame_t *frame,
 		gf_log (trans->xl->name,  GF_LOG_DEBUG,
 			"accepted client from %s",
 			peerinfo->identifier);
-		ret = 0;
+		op_ret = 0;
 		cprivate->bound_xl = xl;
 		dict_set_str (reply, "ERROR", "Success");
 	} else {
 		gf_log (trans->xl->name, GF_LOG_ERROR,
 			"Cannot authenticate client from %s",
 			peerinfo->identifier);
-		ret = -1;
-		remote_errno = EACCES;
+		op_ret = -1;
+		op_errno = EACCES;
 		dict_set_str (reply, "ERROR", "Authentication failed");
 		goto fail;
 	}
@@ -6577,14 +6734,13 @@ mop_setvolume (call_frame_t *frame,
 	if (cprivate->bound_xl == NULL) {
 		dict_set_str (reply, "ERROR",
 			      "Check volume spec file and handshake options");
-		ret = -1;
-		remote_errno = EACCES;
+		op_ret = -1;
+		op_errno = EACCES;
 		goto fail;
 	}
 
-fail:
 	if ((cprivate->bound_xl != NULL) &&
-	    (ret >= 0)               &&
+	    (ret >= 0)                   &&
 	    (cprivate->bound_xl->itable == NULL)) {
 		/* create inode table for this bound_xl, if one doesn't already exist */
 		int32_t lru_limit = 1024;
@@ -6600,26 +6756,41 @@ fail:
 							      cprivate->bound_xl);
 	}
 
-	dict_set_int32 (reply, "RET", ret);
-	gf_errno = gf_errno_to_error (remote_errno);
-	dict_set_int32 (reply, "ERRNO", gf_errno);
-
+fail:
 	dict_len = dict_serialized_length (reply);
-	rsp_hdr = gf_hdr_new (rsp, dict_len);
+	if (dict_len < 0) {
+		gf_log (xl->name, GF_LOG_ERROR,
+			"failed to get serialized length of reply dict");
+		op_ret   = -1;
+		op_errno = EINVAL;
+		dict_len = 0;
+	}
+
+	rsp_hdr    = gf_hdr_new (rsp, dict_len);
 	rsp_hdrlen = gf_hdr_len (rsp, dict_len);
 	rsp = gf_param (rsp_hdr);
-	dict_serialize (reply, rsp->buf);
 
+	if (op_ret >= 0) {
+		ret = dict_serialize (reply, rsp->buf);
+		if (ret < 0) {
+			gf_log (xl->name, GF_LOG_ERROR,
+				"failed to serialize reply dict");
+			op_ret = -1;
+			op_errno = -ret;
+		}
+	}
+	rsp->dict_len = hton32 (dict_len);
 
-	rsp_hdr->rsp.op_ret = hton32 (ret);
-	rsp_hdr->rsp.op_errno = hton32 (gf_errno_to_error (remote_errno));
+	rsp_hdr->rsp.op_ret = hton32 (op_ret);
+	gf_errno = gf_errno_to_error (op_errno);
+	rsp_hdr->rsp.op_errno = hton32 (gf_errno);
 
 	protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETVOLUME,
 			       rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
 
-	dict_destroy (params);
-	dict_destroy (reply);
-	dict_destroy (config_params);
+	dict_unref (params);
+	dict_unref (reply);
+	dict_unref (config_params);
 
 	return 0;
 }
@@ -7196,14 +7367,14 @@ init (xlator_t *this)
 
 	server_private->trans = trans;
 
-	server_private->auth_modules = get_new_dict ();
+	server_private->auth_modules = dict_new ();
 	GF_VALIDATE_OR_GOTO(this->name, server_private->auth_modules, out);
 
 	dict_foreach (this->options, get_auth_types, server_private->auth_modules);
 	error = gf_auth_init (server_private->auth_modules);
 
 	if (error) {
-		dict_destroy (server_private->auth_modules);
+		dict_unref (server_private->auth_modules);
 		return error;
 	}
 
@@ -7332,7 +7503,7 @@ fini (xlator_t *this)
 	GF_VALIDATE_OR_GOTO(this->name, server_private, out);
 
 	if (server_private->auth_modules) {
-		dict_destroy (server_private->auth_modules);
+		dict_unref (server_private->auth_modules);
 	}
 
 	FREE (server_private);
