@@ -92,17 +92,17 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
-		if ((op_ret != -1) && (local->success_count == 0)) {
+		if (op_ret != -1) {
 			local->op_ret = op_ret;
 
-			if (buf) {
+			if ((local->success_count == 0)
+			    || (child_index == priv->read_child)) {
 				local->cont.create.buf        = *buf;
 				local->cont.create.buf.st_ino = 
 					afr_itransform (buf->st_ino,
 							priv->child_count,
 							child_index);
 			}
-
 			local->cont.create.inode = inode;
 
 			local->success_count++;
@@ -261,10 +261,11 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (child_went_down (op_ret, op_errno))
 			local->transaction.failure_count++;
 		
-		if ((op_ret != -1) && (local->success_count == 0)) {
+		if (op_ret != -1) {
 			local->op_ret = op_ret;
 
-			if (buf) {
+			if ((local->success_count == 0)
+			    || (child_index == priv->read_child)) {	
 				local->cont.mknod.buf   = *buf;
 				local->cont.mknod.buf.st_ino = 
 					afr_itransform (buf->st_ino, priv->child_count,
@@ -423,10 +424,11 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
-		if ((op_ret != -1) && (local->success_count == 0)) {
+		if (op_ret != -1) {
 			local->op_ret           = op_ret;
 
-			if (buf) {
+			if ((local->success_count == 0)
+			    || (child_index == priv->read_child)) {
 				local->cont.mkdir.buf   = *buf;
 				local->cont.mkdir.buf.st_ino = 
 					afr_itransform (buf->st_ino, priv->child_count,
@@ -584,17 +586,19 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
-		if ((op_ret != -1) && (local->success_count == 0)) {
+		if (op_ret != -1) {
 			local->op_ret   = op_ret;
 
-			local->cont.link.inode    = inode;
-			if (buf) {
+			if ((local->success_count == 0)
+			    || (child_index == priv->read_child)) {
 				local->cont.link.buf        = *buf;
 				local->cont.link.buf.st_ino = 
 					afr_itransform (buf->st_ino, priv->child_count,
 							child_index);
-				local->success_count++;
 			}
+			local->cont.link.inode    = inode;
+
+			local->success_count++;
 		}
 
 		local->op_errno = op_errno;		
@@ -747,16 +751,18 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 		
-		if ((op_ret != -1) && (local->success_count == 0)) {
+		if (op_ret != -1) {
 			local->op_ret   = op_ret;
 
-			local->cont.symlink.inode    = inode;
-			if (buf) {
+			if ((local->success_count == 0)
+			    || (child_index == priv->read_child)) {
 				local->cont.symlink.buf        = *buf;
 				local->cont.symlink.buf.st_ino = 
 					afr_itransform (buf->st_ino, priv->child_count,
 							child_index);
 			}
+			local->cont.symlink.inode    = inode;
+
 			local->success_count++;
 		}
 
@@ -915,7 +921,6 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					afr_itransform (buf->st_ino, priv->child_count,
 							child_index);
 			}
-
 			local->success_count++;
 		}
 

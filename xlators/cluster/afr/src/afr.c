@@ -236,13 +236,20 @@ out:
 
 
 int
-afr_deitransform (ino64_t ino, int child_count)
+afr_deitransform_orig (ino64_t ino, int child_count)
 {
 	int index = -1;
 
 	index = ino % child_count;
 
 	return index;
+}
+
+
+int
+afr_deitransform (ino64_t ino, int child_count)
+{
+	return 0;
 }
 
 
@@ -328,7 +335,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
 			local->success_count++;
 
-			if (local->reval_child_index == child_index) {
+			if ((local->reval_child_index == child_index)
+			    || (priv->read_child == child_index)) {
 				*lookup_buf = *buf;
 				lookup_buf->st_ino = afr_itransform (buf->st_ino, 
 								     priv->child_count, 
@@ -397,7 +405,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 	loc_copy (&local->loc, loc);
 
-	local->reval_child_index = -1;
+	local->reval_child_index = 0;
 
 	if (loc->inode->ino != 0) {
 		/* revalidate */
@@ -990,6 +998,13 @@ init (xlator_t *this)
 		child_count++;
 		trav = trav->next;
 	}
+
+	/* XXX: return inode numbers from 1st subvolume till
+	   afr supports read-subvolume based on inode->ctx (and not itransform)
+
+	   for this reason afr_deitransform() returns 0 always
+	*/
+	priv->read_child = 0;
 
 	priv->child_count = child_count;
 	LOCK_INIT (&priv->lock);

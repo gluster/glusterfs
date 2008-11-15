@@ -322,8 +322,7 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
-		buf->st_ino = afr_itransform (buf->st_ino, priv->child_count, 
-					      deitransform_child);
+		buf->st_ino = local->cont.fstat.ino;
 
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
@@ -368,7 +367,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 	   all children starting with the first one
 	*/
 	local->cont.fstat.last_tried = -1;
-
+	local->cont.fstat.ino = fd->inode->ino;
 	local->fd = fd_ref (fd);
 
 	STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) (long) call_child,

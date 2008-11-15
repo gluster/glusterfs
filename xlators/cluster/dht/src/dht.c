@@ -226,11 +226,15 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			 * NOTE: dht_stat_merge() transforms local->stbuf.st_ino
 			 *       and local->st_ino will be 1. 
 			 */
+#if 0
 			if ((local->stbuf.st_ino == local->st_ino) ||
 			    (local->st_ino == 1)) {
 				local->op_ret = 0;
 				local->xattr = dict_ref (xattr);
 			} 
+#endif
+			/* succeed revalidate */
+			local->stbuf.st_ino = local->st_ino;
 		}
 	}
 unlock:
