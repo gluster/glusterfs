@@ -69,7 +69,7 @@ build_parent_loc (loc_t *parent, loc_t *child)
 
 /* {{{ create */
 
-int32_t
+int
 afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 		     int32_t op_ret, int32_t op_errno, 
 		     fd_t *fd, inode_t *inode, struct stat *buf)
@@ -120,7 +120,7 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int32_t
+int
 afr_create_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
@@ -160,28 +160,22 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 }
 
 
-int32_t
-afr_create_done (call_frame_t *frame, xlator_t *this,
-		 int32_t op_ret, int32_t op_errno)
+int
+afr_create_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t * local = NULL;
 
 	local = frame->local;
 
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
-	} else {
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				  local->cont.create.fd,
-				  local->cont.create.inode,
-				  &local->cont.create.buf);
-	}
-	
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+			  local->cont.create.fd,
+			  local->cont.create.inode,
+			  &local->cont.create.buf);
 	return 0;
 }
 
 
-int32_t
+int
 afr_create (call_frame_t *frame, xlator_t *this,
 	    loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
@@ -238,7 +232,7 @@ out:
 
 /* {{{ mknod */
 
-int32_t
+int
 afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 		    int32_t op_ret, int32_t op_errno, 
 		    inode_t *inode, struct stat *buf)
@@ -326,21 +320,15 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_mknod_done (call_frame_t *frame, xlator_t *this,
-		int32_t op_ret, int32_t op_errno)
+afr_mknod_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t * local = NULL;
 
 	local = frame->local;
 
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
-	} else {
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-				  local->cont.mknod.inode, 
-				  &local->cont.mknod.buf);
-	}
-	
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+			  local->cont.mknod.inode, 
+			  &local->cont.mknod.buf);
 	return 0;
 }
 
@@ -489,21 +477,15 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_mkdir_done (call_frame_t *frame, xlator_t *this,
-		int32_t op_ret, int32_t op_errno)
+afr_mkdir_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t * local = NULL;
 
 	local = frame->local;
 
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
-	} else {
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-				  local->cont.mkdir.inode, 
-				  &local->cont.mkdir.buf);
-	}
-	
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+			  local->cont.mkdir.inode, 
+			  &local->cont.mkdir.buf);
 	return 0;
 }
 
@@ -652,20 +634,15 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_link_done (call_frame_t *frame, xlator_t *this,
-	       int32_t op_ret, int32_t op_errno)
+afr_link_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t * local = frame->local;
 
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
-	} else {
-		local->cont.link.buf.st_ino = local->cont.link.ino;
+	local->cont.link.buf.st_ino = local->cont.link.ino;
 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-				  local->cont.link.inode,
-				  &local->cont.link.buf);
-	}
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+			  local->cont.link.inode,
+			  &local->cont.link.buf);
 	
 	return 0;
 }
@@ -819,18 +796,13 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_symlink_done (call_frame_t *frame, xlator_t *this,
-		  int32_t op_ret, int32_t op_errno)
+afr_symlink_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t * local = frame->local;
 
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
-	} else {
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-				  local->cont.symlink.inode,
-				  &local->cont.symlink.buf);
-	}
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+			  local->cont.symlink.inode,
+			  &local->cont.symlink.buf);
 	
 	return 0;
 }
@@ -977,19 +949,14 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_rename_done (call_frame_t *frame, xlator_t *this,
-		 int32_t op_ret, int32_t op_errno)
+afr_rename_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t * local = frame->local;
 
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
-	} else {
-		local->cont.rename.buf.st_ino = local->cont.rename.ino;
+	local->cont.rename.buf.st_ino = local->cont.rename.ino;
 
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-				  &local->cont.rename.buf);
-	}
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+			  &local->cont.rename.buf);
 	
 	return 0;
 }
@@ -1129,16 +1096,11 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_unlink_done (call_frame_t *frame, xlator_t *this,
-		 int32_t op_ret, int32_t op_errno)
+afr_unlink_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t * local = frame->local;
 
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
-	} else {
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
-	}
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 	
 	return 0;
 }
@@ -1273,8 +1235,7 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_rmdir_done (call_frame_t *frame, xlator_t *this,
-		int32_t op_ret, int32_t op_errno)
+afr_rmdir_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t * local = frame->local;
 
@@ -1415,8 +1376,7 @@ afr_setdents_wind (call_frame_t *frame, xlator_t *this)
 
 
 int32_t
-afr_setdents_done (call_frame_t *frame, xlator_t *this,
-		   int32_t op_ret, int32_t op_errno)
+afr_setdents_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t * local = frame->local;
 

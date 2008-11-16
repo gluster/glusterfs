@@ -1006,6 +1006,8 @@ init (xlator_t *this)
 	*/
 	priv->read_child = 0;
 
+	priv->wait_count = 1;
+
 	priv->child_count = child_count;
 	LOCK_INIT (&priv->lock);
 

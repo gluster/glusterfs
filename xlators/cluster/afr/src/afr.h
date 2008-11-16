@@ -44,6 +44,7 @@ typedef struct _afr_private {
 	unsigned int favorite_child;  /* subvolume to be preferred in resolving
 					 split-brain cases */
 	unsigned int lock_server_count;
+	unsigned int wait_count;      /* # of servers to wait for success */
 } afr_private_t;
 
 typedef struct {
@@ -334,12 +335,15 @@ typedef struct _afr_local {
 		int last_tried;
 		int32_t child_errno[1024];
 
+		call_frame_t *main_frame;
+
 		int (*fop) (call_frame_t *frame, xlator_t *this);
 
-		int (*done) (call_frame_t *frame, xlator_t *this, 
-			     int32_t op_ret, int32_t op_errno);
+		int (*done) (call_frame_t *frame, xlator_t *this);
 
 		int (*resume) (call_frame_t *frame, xlator_t *this);
+
+		int (*unwind) (call_frame_t *frame, xlator_t *this);
 	} transaction;
 
 	afr_self_heal_t self_heal;

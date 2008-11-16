@@ -95,7 +95,7 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		local->transaction.done (frame, this, 0, 0);
+		local->transaction.done (frame, this);
 	}
 	
 	return 0;
@@ -119,7 +119,7 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 					 priv->child_count);
 	
 	if (call_count == 0) {
-		local->transaction.done (frame, this, 0, 0);
+		local->transaction.done (frame, this);
 		return 0;
 	}
 
@@ -583,7 +583,7 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 		local->op_ret   = -1;
 		local->op_errno = EAGAIN;
 
-		local->transaction.done (frame, this, 0, 0);
+		local->transaction.done (frame, this);
 		
 		return 0;
 
