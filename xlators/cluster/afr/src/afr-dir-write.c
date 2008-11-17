@@ -1325,10 +1325,9 @@ afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 	UNLOCK (&frame->lock);
 
-	if (need_unwind)
+	if (call_count == 0) {
 		local->transaction.unwind (frame, this);
 
-	if (call_count == 0) {
 		local->transaction.resume (frame, this);
 	}
 	
@@ -1513,10 +1512,9 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 	UNLOCK (&frame->lock);
 
-	if (need_unwind)
+	if (call_count == 0) {
 		local->transaction.unwind (frame, this);
 
-	if (call_count == 0) {
 		local->transaction.resume (frame, this);
 	}
 	
