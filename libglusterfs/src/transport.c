@@ -84,7 +84,7 @@ transport_load (dict_t *options,
 	  if ((strcmp (type_data->data, "unix") == 0))
 	    dict_set (options, "address-family", str_to_data ("unix"));
 	  if ((strcmp (type_data->data, "ib-sdp") == 0))
-	    dict_set (options, "address-family", str_to_data ("ib-sdp"));
+	    dict_set (options, "address-family", str_to_data ("inet-sdp"));
 	  dict_set (options, "transport-type", str_to_data ("socket"));
 	}
     }

@@ -22,8 +22,34 @@
 #include "config.h"
 #endif
 
-#include "nufa.h"
 #include <sys/time.h>
+
+#include "scheduler.h"
+#include "common-utils.h"
+
+struct nufa_sched_struct {
+  xlator_t *xl;
+  struct timeval last_stat_fetch;
+  int64_t free_disk;
+  int32_t refresh_interval;
+  unsigned char eligible;
+};
+
+struct nufa_struct {
+  struct nufa_sched_struct *array;
+  struct timeval last_stat_fetch;
+
+  int32_t *local_array; /* Used to keep the index of the local xlators */
+  int32_t local_xl_index; /* index in the above array */
+  int32_t local_xl_count; /* Count of the local subvolumes */
+
+  uint32_t refresh_interval;
+  uint32_t min_free_disk;
+  
+  gf_lock_t nufa_lock;
+  int32_t child_count;
+  int32_t sched_index;  
+};
 
 #define NUFA_LIMITS_MIN_FREE_DISK_DEFAULT    15
 #define NUFA_REFRESH_INTERVAL_DEFAULT        30
