@@ -152,7 +152,7 @@ This package provides the development libraries.
 %exclude %_libdir/*.a
 %exclude %_libdir/*.la
 %exclude /usr/include/libglusterfsclient.h
-%doc /usr/share/doc/glusterfs/examples
+%doc /usr/share/doc/glusterfs
 %config /etc/glusterfs
 %_prefix/sbin/glusterfs
 %_prefix/sbin/glusterfsd
