@@ -7275,6 +7275,8 @@ server_protocol_cleanup (transport_t *trans)
 			free (locker);
 		}
 
+		STACK_DESTROY (frame->root);
+
 		pthread_mutex_lock (&(cprivate->lock));
 		{
 			if (cprivate->fdtable) {

@@ -325,7 +325,7 @@ fuse_entry_cbk (call_frame_t *frame,
         }
 
         if (state->is_revalidate == 1
-	    && need_fresh_lookup (op_ret, inode, buf)) {
+	    && need_fresh_lookup (op_ret, state->loc.inode, buf)) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                         "%"PRId64": %s() sending revalidate with fresh inode for "
 			"%s => %"PRId64"(loc->ino:%"PRId64") : %s", frame->root->unique,

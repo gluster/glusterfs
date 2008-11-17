@@ -234,6 +234,8 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			} 
 #endif
 			/* succeed revalidate */
+			local->op_ret = 0;
+			local->xattr = dict_ref (xattr);
 			local->stbuf.st_ino = local->st_ino;
 		}
 	}

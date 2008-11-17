@@ -799,7 +799,7 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 
 			local->self_heal.buf[child_index] = *buf;
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_WARNING,
 				"path %s on subvolume %s => -1 (%s)",
 				local->loc.path,
 				priv->children[child_index]->name,

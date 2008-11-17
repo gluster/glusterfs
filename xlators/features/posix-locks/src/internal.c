@@ -568,8 +568,11 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode, transport
 
 	pthread_mutex_lock (&pinode->dir_lock_mutex);
 
-	if (list_empty (&pinode->gf_dir_locks)) 
+	if (list_empty (&pinode->gf_dir_locks)) {
+		/* SCREW VIKKU - unlock was missing */
+		pthread_mutex_unlock (&pinode->dir_lock_mutex);
 		return 0;
+	}
 
 	list_for_each_entry_safe (lock, tmp, &pinode->gf_dir_locks, inode_list) {
 		if (lock->trans == trans) {
