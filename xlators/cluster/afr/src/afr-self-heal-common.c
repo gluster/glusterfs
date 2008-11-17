@@ -653,7 +653,7 @@ sh_missing_entries_readlink_cbk (call_frame_t *frame, void *cookie,
 				 int32_t op_ret, int32_t op_errno,
 				 const char *link)
 {
-	if (op_ret == 0)
+	if (op_ret > 0)
 		sh_missing_entries_symlink (frame, this, link);
 	else
 		sh_missing_entries_finish (frame, this);
