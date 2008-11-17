@@ -7316,6 +7316,12 @@ get_auth_types (dict_t *this,
 	ret = strcmp (tmp, "auth");
 	if (ret == 0) {
 		tmp = strtok_r (NULL, ".", &saveptr);
+		if (strcmp (tmp, "ip") == 0) {
+			/* TODO: backword compatibility, remove when newer versions are available */
+			tmp = "addr";
+			gf_log ("server", GF_LOG_WARNING, 
+				"assuming 'auth.ip' to be 'auth.addr'");
+		}
 		ret = dict_set_dynptr (auth_dict, tmp, NULL, 0);
 		if (ret < 0) {
 			gf_log ("server", GF_LOG_ERROR,
@@ -7585,7 +7591,7 @@ struct xlator_options options[] = {
 	  "tcp|ib-verbs|ib-sdp|socket|unix|tcp/server|ib-verbs/server" },
 	{ "address-family",
 	  GF_OPTION_TYPE_STR, 0, 0, 0,
-	  "inet|inet6|inet/inet6|inet6/inet|unix|ib-sdp" },
+	  "inet|inet6|inet/inet6|inet6/inet|unix|inet-sdp" },
 	{ "bind-address",
 	  GF_OPTION_TYPE_STR, 0, },
 	{ "listen-path",
