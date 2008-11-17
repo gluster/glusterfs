@@ -160,6 +160,8 @@ __server_path_to_parenti (inode_table_t *itable,
 
 	size_t copied = 0;
 	size_t r_len = 0;
+	
+	size_t basename = 0;
 
 	pathlen = STRLEN_0(path);
 	resolved = calloc (1, pathlen);
@@ -175,7 +177,8 @@ __server_path_to_parenti (inode_table_t *itable,
 		while (*dname == '/')
 			dname++;
 		dname = strcpy_till (resolved + copied, dname, '/');
-
+		if (dname == NULL)
+			basename = 1;
 		inode = inode_from_path (itable, resolved);
 		if (inode) {
 			if (parent)
@@ -186,7 +189,7 @@ __server_path_to_parenti (inode_table_t *itable,
 		}
 	}
 
-	if (dname) {
+	if (dname || (basename == 1)) {
 		r_len = strlen (resolved);
 		if ((r_len > 1) && (resolved[(r_len - 1)] == '/'))
 			resolved[(r_len - 1)] = '\0';
