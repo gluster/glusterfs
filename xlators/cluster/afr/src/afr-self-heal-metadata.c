@@ -538,7 +538,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 
 	if (nsources == 0) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"Unable to resolve conflicting metadata of %s. Please resolve manually by deleting the file %s from all but the preferred subvolume",
+			"Unable to resolve conflicting metadata of %s. Please resolve manually by fixing the permissions/ownership of %s on your subvolumes",
 			local->loc.path, local->loc.path);
 
 		local->govinda_gOvinda = 1;
