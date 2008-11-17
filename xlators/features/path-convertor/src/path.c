@@ -1017,7 +1017,7 @@ path_checksum (call_frame_t *frame,
 int32_t
 path_entrylk (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, const char *basename,
-	      gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+	      entrylk_cmd cmd, entrylk_type type)
 {
 	char *loc_path = (char *)loc->path;
 	char *tmp_path = NULL;

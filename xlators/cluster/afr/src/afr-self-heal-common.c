@@ -439,7 +439,7 @@ sh_missing_entries_finish (call_frame_t *frame, xlator_t *this)
 				    priv->children[i],
 				    priv->children[i]->fops->entrylk,
 				    &sh->parent_loc, local->loc.name,
-				    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+				    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 
 			if (!--call_count)
 				break;
@@ -911,7 +911,7 @@ afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 				    priv->children[i],
 				    priv->children[i]->fops->entrylk,
 				    &sh->parent_loc, local->loc.name,
-				    GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+				    ENTRYLK_LOCK, ENTRYLK_WRLCK);
 			if (!--call_count)
 				break;
 		}

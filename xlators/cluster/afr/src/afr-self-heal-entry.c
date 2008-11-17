@@ -147,7 +147,7 @@ afr_sh_entry_unlock (call_frame_t *frame, xlator_t *this)
 					   priv->children[i], 
 					   priv->children[i]->fops->entrylk,
 					   &local->loc, NULL,
-					   GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+					   ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 			if (!--call_count)
 				break;
 		}
@@ -1977,7 +1977,7 @@ afr_sh_entry_lock (call_frame_t *frame, xlator_t *this)
 					   priv->children[i], 
 					   priv->children[i]->fops->entrylk,
 					   &local->loc, NULL,
-					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+					   ENTRYLK_LOCK, ENTRYLK_WRLCK);
 			if (!--call_count)
 				break;
 		}

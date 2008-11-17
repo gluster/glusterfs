@@ -1476,7 +1476,7 @@ error_gen_entrylk_cbk (call_frame_t *frame, void *cookie,
 int32_t
 error_gen_entrylk (call_frame_t *frame, xlator_t *this,
 		   loc_t *loc, const char *basename,
-		   gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+		   entrylk_cmd cmd, entrylk_type type)
 {
 	int op_errno = 0;
 	op_errno = error_gen(this);
@@ -1505,7 +1505,7 @@ error_gen_fentrylk_cbk (call_frame_t *frame, void *cookie,
 int32_t
 error_gen_fentrylk (call_frame_t *frame, xlator_t *this,
 		    fd_t *fd, const char *basename,
-		    gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+		    entrylk_cmd cmd, entrylk_type type)
 {
 	int op_errno = 0;
 	op_errno = error_gen(this);

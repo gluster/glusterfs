@@ -601,13 +601,13 @@ typedef int32_t (*fop_finodelk_t) (call_frame_t *frame,
 
 typedef int32_t (*fop_entrylk_t) (call_frame_t *frame,
 				  xlator_t *this, loc_t *loc,
-				  const char *basename, gf_dir_lk_cmd cmd,
-				  gf_dir_lk_type type);
+				  const char *basename, entrylk_cmd cmd,
+				  entrylk_type type);
 
 typedef int32_t (*fop_fentrylk_t) (call_frame_t *frame,
 				   xlator_t *this, fd_t *fd,
-				   const char *basename, gf_dir_lk_cmd cmd,
-				   gf_dir_lk_type type);
+				   const char *basename, entrylk_cmd cmd,
+				   entrylk_type type);
 
 typedef int32_t (*fop_setdents_t) (call_frame_t *frame,
 				   xlator_t *this,

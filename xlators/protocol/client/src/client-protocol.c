@@ -2346,8 +2346,8 @@ client_entrylk (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
 		const char *name,
-		gf_dir_lk_cmd cmd,
-		gf_dir_lk_type type)
+		entrylk_cmd cmd,
+		entrylk_type type)
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_entrylk_req_t *req = NULL;
@@ -2399,8 +2399,8 @@ client_fentrylk (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
 		 const char *name,
-		 gf_dir_lk_cmd cmd,
-		 gf_dir_lk_type type)
+		 entrylk_cmd cmd,
+		 entrylk_type type)
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fentrylk_req_t *req = NULL;
@@ -4474,7 +4474,7 @@ client_finodelk_cbk (call_frame_t *frame,
 
 
 /*
- * client_gf_dir_lk_cbk - gf_dir_lk callback for client protocol
+ * client_entrylk_cbk - entrylk callback for client protocol
  * @frame: call frame
  * @args: argument dictionary
  *

@@ -1182,7 +1182,7 @@ default_entrylk_cbk (call_frame_t *frame, void *cookie,
 int32_t
 default_entrylk (call_frame_t *frame, xlator_t *this,
 		 loc_t *loc, const char *basename,
-		 gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+		 entrylk_cmd cmd, entrylk_type type)
 {
 	STACK_WIND (frame, default_entrylk_cbk,
 		    FIRST_CHILD(this),
@@ -1203,7 +1203,7 @@ default_fentrylk_cbk (call_frame_t *frame, void *cookie,
 int32_t
 default_fentrylk (call_frame_t *frame, xlator_t *this,
 		  fd_t *fd, const char *basename,
-		  gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+		  entrylk_cmd cmd, entrylk_type type)
 {
 	STACK_WIND (frame, default_fentrylk_cbk,
 		    FIRST_CHILD(this),

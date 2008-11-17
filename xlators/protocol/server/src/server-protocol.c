@@ -419,7 +419,7 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie,
  	hdr->rsp.op_errno = hton32 (gf_errno);
 
 	if (op_ret >= 0) {
-		if (state->cmd == GF_DIR_LK_UNLOCK)
+		if (state->cmd == ENTRYLK_UNLOCK)
 			gf_del_locker (cprivate->ltable,
 				       &state->loc, NULL, frame->root->pid);
 		else
@@ -459,7 +459,7 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret >= 0) {
 		state = CALL_STATE(frame);
-		if (state->cmd == GF_DIR_LK_UNLOCK)
+		if (state->cmd == ENTRYLK_UNLOCK)
 			gf_del_locker (cprivate->ltable,
 				       NULL, state->fd, frame->root->pid);
 		else
@@ -5634,7 +5634,7 @@ int32_t
 server_entrylk_resume (call_frame_t *frame,
 		       xlator_t *this,
 		       loc_t *loc, const char *name,
-		       gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+		       entrylk_cmd cmd, entrylk_type type)
 {
 	server_state_t *state = NULL;
 
@@ -5661,7 +5661,7 @@ server_entrylk_resume (call_frame_t *frame,
 }
 
 /*
- * server_gf_dir_lk - gf_dir_lk function for server protocol
+ * server_entrylk - entrylk function for server protocol
  * @frame: call frame
  * @bound_xl:
  * @params: parameter dictionary
@@ -7260,14 +7260,14 @@ server_protocol_cleanup (transport_t *trans)
 					    bound_xl,
 					    bound_xl->fops->fentrylk,
 					    locker->fd, NULL, 
-					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 				fd_unref (locker->fd);
 			} else {
 				STACK_WIND (tmp_frame, server_nop_cbk,
 					    bound_xl,
 					    bound_xl->fops->entrylk,
 					    &(locker->loc), NULL, 
-					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 				loc_wipe (&locker->loc);
 			}
 

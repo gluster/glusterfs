@@ -125,8 +125,8 @@ static posix_lock_t *
 insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domain)
 {
 	posix_lock_t *l, *prev;
-	posix_lock_t **locks_list = (domain == GF_LOCK_POSIX ? &pl_inode->posix_locks
-				     : &pl_inode->gf_file_locks);
+	posix_lock_t **locks_list = (domain == GF_LOCK_POSIX ? &pl_inode->fcntl_locks
+				     : &pl_inode->inodelk_locks);
 
 	if (*locks_list) {
 		prev = *locks_list;
@@ -153,8 +153,9 @@ insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domain)
 posix_lock_t *
 delete_lock (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domain)
 {
-	posix_lock_t **locks_list = (domain == GF_LOCK_POSIX ? &pl_inode->posix_locks
-				     : &pl_inode->gf_file_locks);
+	posix_lock_t **locks_list = (domain == GF_LOCK_POSIX ? &pl_inode->fcntl_locks
+				     : &pl_inode->inodelk_locks);
+
 	if (lock == *locks_list) {
 		*locks_list = lock->next;
 		if (*locks_list)

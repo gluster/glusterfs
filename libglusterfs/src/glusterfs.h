@@ -167,14 +167,14 @@ typedef enum {
 } gf_lk_domain_t;
 
 typedef enum {
-	GF_DIR_LK_LOCK,
-	GF_DIR_LK_UNLOCK
-} gf_dir_lk_cmd;
+	ENTRYLK_LOCK,
+	ENTRYLK_UNLOCK
+} entrylk_cmd;
 
 typedef enum {
-	GF_DIR_LK_RDLCK,
-	GF_DIR_LK_WRLCK
-} gf_dir_lk_type;
+	ENTRYLK_RDLCK,
+	ENTRYLK_WRLCK
+} entrylk_type;
 
 typedef enum {
         GF_GET_ALL = 1,

@@ -3232,8 +3232,8 @@ ha_entrylk (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
 	    const char *basename,
-	    gf_dir_lk_cmd cmd,
-	    gf_dir_lk_type type)
+	    entrylk_cmd cmd,
+	    entrylk_type type)
 {
 	ha_local_t *local = NULL;
 	void *state = NULL;

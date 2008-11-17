@@ -1715,7 +1715,7 @@ fop_finodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
 call_stub_t *
 fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,
 		  loc_t *loc, const char *name,
-		  gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+		  entrylk_cmd cmd, entrylk_type type)
 {
   call_stub_t *stub = NULL;
 
@@ -1761,7 +1761,7 @@ fop_entrylk_cbk_stub (call_frame_t *frame, fop_entrylk_cbk_t fn,
 call_stub_t *
 fop_fentrylk_stub (call_frame_t *frame, fop_fentrylk_t fn,
 		   fd_t *fd, const char *name,
-		   gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+		   entrylk_cmd cmd, entrylk_type type)
 {
   call_stub_t *stub = NULL;
 

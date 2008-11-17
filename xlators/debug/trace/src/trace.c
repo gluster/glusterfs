@@ -1062,7 +1062,7 @@ trace_inodelk_cbk (call_frame_t *frame,
 int32_t
 trace_entrylk (call_frame_t *frame, xlator_t *this,
 	       loc_t *loc, const char *basename,
-	       gf_dir_lk_cmd cmd, gf_dir_lk_type type)
+	       entrylk_cmd cmd, entrylk_type type)
 {
 	ERR_EINVAL_NORETURN (!this || !loc || !basename);
 
@@ -1070,8 +1070,8 @@ trace_entrylk (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_NORMAL, 
 			"(loc= {path=%s, ino=%"PRIu64"} basename=%s, cmd=%s, type=%s)",
 			loc->path, loc->inode->ino, basename, 
-			(cmd == GF_DIR_LK_LOCK) ? "GF_DIR_LK_LOCK" : "GF_DIR_LK_UNLOCK", 
-			(type == GF_DIR_LK_RDLCK) ? "GF_DIR_LK_RDLCK" : "GF_DIR_LK_WRLCK");
+			(cmd == ENTRYLK_LOCK) ? "ENTRYLK_LOCK" : "ENTRYLK_UNLOCK", 
+			(type == ENTRYLK_RDLCK) ? "ENTRYLK_RDLCK" : "ENTRYLK_WRLCK");
 	}
 
 	STACK_WIND (frame, 

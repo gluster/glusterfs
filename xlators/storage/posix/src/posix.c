@@ -3111,8 +3111,8 @@ posix_finodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t 
 posix_entrylk (call_frame_t *frame, xlator_t *this,
-	       loc_t *loc, const char *basename, gf_dir_lk_cmd cmd, 
-	       gf_dir_lk_type type)
+	       loc_t *loc, const char *basename, entrylk_cmd cmd, 
+	       entrylk_type type)
 {
         frame->root->rsp_refs = NULL;
 
@@ -3125,8 +3125,8 @@ posix_entrylk (call_frame_t *frame, xlator_t *this,
 
 int32_t 
 posix_fentrylk (call_frame_t *frame, xlator_t *this,
-		fd_t *fd, const char *basename, gf_dir_lk_cmd cmd, 
-		gf_dir_lk_type type)
+		fd_t *fd, const char *basename, entrylk_cmd cmd, 
+		entrylk_type type)
 {
         frame->root->rsp_refs = NULL;
 

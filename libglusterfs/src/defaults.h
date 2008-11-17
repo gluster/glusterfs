@@ -225,11 +225,11 @@ int32_t default_finodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t default_entrylk (call_frame_t *frame, xlator_t *this,
 			 loc_t *loc, const char *basename,
-			 gf_dir_lk_cmd cmd, gf_dir_lk_type type);
+			 entrylk_cmd cmd, entrylk_type type);
 
 int32_t default_fentrylk (call_frame_t *frame, xlator_t *this,
 			  fd_t *fd, const char *basename,
-			  gf_dir_lk_cmd cmd, gf_dir_lk_type type);
+			  entrylk_cmd cmd, entrylk_type type);
 
 int32_t default_readdir (call_frame_t *frame,
 			  xlator_t *this,

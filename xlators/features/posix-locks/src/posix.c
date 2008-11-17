@@ -118,7 +118,8 @@ truncate_allowed (pl_inode_t *pl_inode,
 	region->transport = transport;
 	region->client_pid = client_pid;
 
-	l = pl_inode->posix_locks;
+	l = pl_inode->fcntl_locks;
+
 	while (l) {
 		if (!l->blocked && locks_overlap (region, l) &&
 		    !same_owner (region, l)) {
@@ -475,7 +476,7 @@ static int
 rw_allowable (pl_inode_t *pl_inode, posix_lock_t *region,
 	      rw_op_t op)
 {
-	posix_lock_t *l = pl_inode->posix_locks;
+	posix_lock_t *l = pl_inode->fcntl_locks;
 	while (l) {
 		if (locks_overlap (l, region) && !same_owner (l, region)) {
 			if ((op == OP_READ) && (l->fl_type != F_WRLCK))
@@ -764,7 +765,7 @@ pl_forget (xlator_t *this,
 			gf_log (this->name, GF_LOG_CRITICAL,
 				"Pending R/W requests found!");
 		}
-		if (pl_inode->posix_locks) {
+		if (pl_inode->fcntl_locks) {
 			gf_log (this->name, GF_LOG_CRITICAL,
 				"Active locks found!");
 		}
@@ -840,12 +841,12 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 int32_t
 pl_entrylk (call_frame_t *frame, xlator_t *this, 
 	    loc_t *loc, const char *basename, 
-	    gf_dir_lk_cmd cmd, gf_dir_lk_type type);
+	    entrylk_cmd cmd, entrylk_type type);
 
 int32_t
 pl_fentrylk (call_frame_t *frame, xlator_t *this, 
 	     fd_t *fd, const char *basename, 
-	     gf_dir_lk_cmd cmd, gf_dir_lk_type type);
+	     entrylk_cmd cmd, entrylk_type type);
 
 struct xlator_fops fops = {
 	.create      = pl_create,

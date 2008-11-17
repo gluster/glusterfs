@@ -36,9 +36,9 @@ struct __posix_lock {
   off_t fl_start;
   off_t fl_end;  
 
-  short blocked;              /* waiting to acquire */
+  short blocked;             /* waiting to acquire */
   struct flock user_flock;   /* the flock supplied by the user */
-  xlator_t *this;             /* required for blocked locks */
+  xlator_t *this;            /* required for blocked locks */
   fd_t *fd;
 
   struct __posix_lock *next;
@@ -48,6 +48,7 @@ struct __posix_lock {
 
   /* These two together serve to uniquely identify each process
      across nodes */
+
   transport_t *transport;     /* to identify client node */
   pid_t client_pid;           /* pid of client process */
 };
@@ -69,30 +70,37 @@ struct __pl_rw_req_t {
 };
 typedef struct __pl_rw_req_t pl_rw_req_t;
 
-struct __dir_lock {
-	struct list_head inode_list;  /* list_head back to pl_inode_t */
+struct __entry_lock {
+	struct list_head inode_list;    /* list_head back to pl_inode_t */
+	struct list_head blocked_locks; /* locks blocked due to this lock */
+
+	call_frame_t *frame;
+	xlator_t *this;
+	int blocked;
+	
 	const char *basename;
-	gf_dir_lk_type type;
-	unsigned int read_count;      /* number of read locks */
+	entrylk_type type;
+	unsigned int read_count;        /* number of read locks */
 	transport_t *trans;
 };
-typedef struct __dir_lock pl_dir_lock_t;
+typedef struct __entry_lock pl_entry_lock_t;
 
 /* The "simulated" inode. This contains a list of all the locks associated 
    with this file */
 
 struct __pl_inode {
-	struct list_head gf_dir_locks;
-	posix_lock_t *posix_locks;      /* list of locks on this inode */
-	posix_lock_t *gf_file_locks;    /* list of internal file locks */
-	pthread_mutex_t dir_lock_mutex;
+	struct list_head entrylk_locks;
+	pthread_mutex_t entrylk_mutex;
+
+	posix_lock_t *fcntl_locks;      /* list of locks on this inode */
+	posix_lock_t *inodelk_locks;    /* list of internal file locks */
 	pl_rw_req_t *rw_reqs;           /* list of waiting r/w requests */
 	int mandatory;                  /* whether mandatory locking is enabled on this inode */
 };
 typedef struct __pl_inode pl_inode_t;
 
-#define LOCKS_FOR_DOMAIN(inode,domain) (domain == GF_LOCK_POSIX ? inode->posix_locks \
-					: inode->gf_file_locks)
+#define LOCKS_FOR_DOMAIN(inode,domain) (domain == GF_LOCK_POSIX ? inode->fcntl_locks \
+					: inode->inodelk_locks)
 
 struct __pl_fd {
   int nonblocking;       /* whether O_NONBLOCK has been set */

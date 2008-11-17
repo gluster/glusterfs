@@ -157,7 +157,7 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 					    priv->children[i]->fops->entrylk, 
 					    &local->transaction.new_parent_loc, 
 					    local->transaction.new_basename,
-					    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 
 				call_count--;
 
@@ -170,14 +170,14 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 						    priv->children[i]->fops->fentrylk, 
 						    local->fd, 
 						    local->transaction.basename,
-						    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+						    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 				} else {
 					STACK_WIND (frame, afr_unlock_common_cbk,	
 						    priv->children[i], 
 						    priv->children[i]->fops->entrylk, 
 						    &local->transaction.parent_loc, 
 						    local->transaction.basename,
-						    GF_DIR_LK_UNLOCK, GF_DIR_LK_WRLCK);
+						    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 
 				}
 				break;
@@ -649,14 +649,14 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 				   priv->children[child_index], 
 				   priv->children[child_index]->fops->entrylk, 
 				   lower, lower_name,
-				   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+				   ENTRYLK_LOCK, ENTRYLK_WRLCK);
 
 		STACK_WIND_COOKIE (frame, afr_lock_cbk,
 				   (void *) (long) child_index,
 				   priv->children[child_index], 
 				   priv->children[child_index]->fops->entrylk, 
 				   higher, higher_name,
-				   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+				   ENTRYLK_LOCK, ENTRYLK_WRLCK);
 
 		break;
 	}
@@ -669,7 +669,7 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 					   priv->children[child_index]->fops->fentrylk, 
 					   local->fd, 
 					   local->transaction.basename,
-					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+					   ENTRYLK_LOCK, ENTRYLK_WRLCK);
 		} else {
 			STACK_WIND_COOKIE (frame, afr_lock_cbk,
 					   (void *) (long) child_index,	
@@ -677,7 +677,7 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 					   priv->children[child_index]->fops->entrylk, 
 					   &local->transaction.parent_loc, 
 					   local->transaction.basename,
-					   GF_DIR_LK_LOCK, GF_DIR_LK_WRLCK);
+					   ENTRYLK_LOCK, ENTRYLK_WRLCK);
 		}
 
 		break;
