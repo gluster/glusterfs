@@ -257,8 +257,18 @@ int
 afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
+	int ret = -1;
 
 	local = frame->local;
+
+	if (local->govinda_gOvinda) {
+		ret = dict_set_str (local->cont.lookup.inode->ctx,
+				    this->name, "govinda");
+		if (ret < 0) {
+			local->op_ret   = -1;
+			local->op_errno = -ret;
+		}
+	}
 
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 			  local->cont.lookup.inode,
@@ -512,6 +522,8 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t *   local = NULL;
 	
+	char *govinda = NULL;
+
 	int32_t call_count = 0;
 	
 	int32_t op_ret   = -1;
@@ -528,6 +540,14 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (loc, out);
 	
 	priv = this->private;
+
+	ret = dict_get_str (loc->inode->ctx, this->name, &govinda);
+	if (ret == 0) {
+		/* if ctx is set it means self-heal failed */
+
+		op_errno = ENOTRECOVERABLE;
+		goto out;
+	}
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	
