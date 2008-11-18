@@ -207,10 +207,23 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
+			mode_t mode;
+			struct stat buf;
+		} fchmod;
+
+		struct {
+			ino_t ino;
 			uid_t uid;
 			gid_t gid;
 			struct stat buf;
 		} chown;
+
+		struct {
+			ino_t ino;
+			uid_t uid;
+			gid_t gid;
+			struct stat buf;
+		} fchown;
 		
 		struct {
 			ino_t ino;
