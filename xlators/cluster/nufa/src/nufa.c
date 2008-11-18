@@ -2141,8 +2141,8 @@ nufa_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *thi
 
 	local->linkfile.xattr = dict_ref (xattr);
 
-	ret = dict_set (xattr, "trusted.glusterfs.nufa.linkto", 
-			data_from_static_ptr (conf->local_volume));
+	ret = dict_set (xattr, "trusted.glusterfs.dht.linkto", 
+			str_to_data (conf->local_volume->name));
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to initialize linkfile data");
@@ -2559,8 +2559,8 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *th
 
 	local->linkfile.xattr = dict_ref (xattr);
 
-	ret = dict_set (xattr, "trusted.glusterfs.nufa.linkto", 
-			data_from_static_ptr (conf->local_volume));
+	ret = dict_set (xattr, "trusted.glusterfs.dht.linkto", 
+			str_to_data (conf->local_volume->name));
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to initialize linkfile data");

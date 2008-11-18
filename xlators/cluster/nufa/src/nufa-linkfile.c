@@ -82,7 +82,7 @@ nufa_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto err;
 	}
 
-	ret = dict_set (xattr, "trusted.glusterfs.nufa.linkto", str_data);
+	ret = dict_set (xattr, "trusted.glusterfs.dht.linkto", str_data);
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to initialize linkfile data");
@@ -139,13 +139,12 @@ nufa_linkfile_subvol (xlator_t *this, inode_t *inode, struct stat *stbuf,
 	void       *volname = NULL;
 	int         i = 0;
 
-
 	conf = this->private;
 
 	if (!xattr)
 		goto out;
 
-	dict_get_ptr (xattr, "trusted.glusterfs.nufa.linkto", &volname);
+	dict_get_ptr (xattr, "trusted.glusterfs.dht.linkto", &volname);
 
 	if (!volname)
 		goto out;
