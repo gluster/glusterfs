@@ -77,6 +77,37 @@ locked_nodes_count (unsigned char *locked_nodes, int child_count)
 	return ret;
 }
 
+
+static int
+xattrop_needed (afr_private_t *priv, int type)
+{
+	int ret = 0;
+
+	switch (type) {
+	case AFR_DATA_TRANSACTION:
+		if (priv->data_self_heal)
+			ret = 1;
+		
+		break;
+
+	case AFR_METADATA_TRANSACTION:
+		if (priv->metadata_self_heal)
+			ret = 1;
+
+		break;
+
+	case AFR_ENTRY_TRANSACTION:
+	case AFR_ENTRY_RENAME_TRANSACTION:
+		if (priv->entry_self_heal)
+			ret = 1;
+
+		break;
+	}
+
+	return ret;
+}
+
+
 /* {{{ unlock */
 
 int32_t
@@ -135,7 +166,8 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 
 		if (local->transaction.locked_nodes[i]) {
 			switch (local->transaction.type) {
-			case AFR_INODE_TRANSACTION:
+			case AFR_DATA_TRANSACTION:
+			case AFR_METADATA_TRANSACTION:
 				if (local->fd) {
 					STACK_WIND (frame, afr_unlock_common_cbk,	
 						    priv->children[i], 
@@ -256,7 +288,8 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 	for (i = 0; i < priv->child_count; i++) {					
 		if (local->child_up[i]) {
 			switch (local->transaction.type) {
-			case AFR_INODE_TRANSACTION:
+			case AFR_DATA_TRANSACTION:
+			case AFR_METADATA_TRANSACTION:
 			{
 				if (local->fd)
 					STACK_WIND (frame, afr_write_pending_post_op_cbk,
@@ -406,7 +439,8 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 					     priv->child_count * sizeof (int32_t));
 
 			switch (local->transaction.type) {
-			case AFR_INODE_TRANSACTION:
+			case AFR_DATA_TRANSACTION:
+			case AFR_METADATA_TRANSACTION:
 			{
 				if (local->fd)
 					STACK_WIND_COOKIE (frame, 
@@ -592,7 +626,7 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 	if (local->transaction.lock_count == priv->lock_server_count) {
 		/* we're done locking */
 
-		if (priv->self_heal) {
+		if (xattrop_needed (priv, local->transaction.type)) {
 			afr_write_pending_pre_op (frame, this);
 		} else {
 			local->transaction.fop (frame, this);
@@ -602,7 +636,8 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 	}
 
 	switch (local->transaction.type) {
-	case AFR_INODE_TRANSACTION:		
+	case AFR_DATA_TRANSACTION:		
+	case AFR_METADATA_TRANSACTION:
 		if (local->fd) {
 			STACK_WIND_COOKIE (frame, afr_lock_cbk,
 					   (void *) (long) child_index,
@@ -704,7 +739,7 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	if (priv->self_heal) {
+	if (xattrop_needed (priv, local->transaction.type)) {
 		afr_write_pending_post_op (frame, this);
 	} else {
 		afr_unlock (frame, this);
@@ -732,7 +767,25 @@ afr_transaction_child_died (call_frame_t *frame, xlator_t *this, int child_index
 
 
 int32_t
-afr_inode_transaction (call_frame_t *frame, xlator_t *this)
+afr_data_transaction (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t *local = NULL;
+	afr_private_t *priv = NULL;
+
+	local = frame->local;
+	priv  = this->private;
+
+	local->transaction.resume  = afr_transaction_resume;
+	local->transaction.type    = AFR_DATA_TRANSACTION;
+
+	afr_lock (frame, this);
+
+	return 0;
+}
+
+
+int32_t
+afr_metadata_transaction (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
@@ -741,12 +794,7 @@ afr_inode_transaction (call_frame_t *frame, xlator_t *this)
 	priv  = this->private;
 
 	local->transaction.resume     = afr_transaction_resume;
-	local->transaction.type       = AFR_INODE_TRANSACTION;
-
-	if (up_children_count (priv->child_count, local->child_up) !=
-	    priv->child_count) {
-		local->transaction.erase_pending = 0;
-	}
+	local->transaction.type       = AFR_METADATA_TRANSACTION;
 
 	afr_lock (frame, this);
 

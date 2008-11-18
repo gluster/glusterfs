@@ -228,7 +228,7 @@ afr_chmod (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = 0;
 	local->transaction.pending = AFR_METADATA_PENDING;
 
-	afr_inode_transaction (transaction_frame, this);
+	afr_metadata_transaction (transaction_frame, this);
 
 	op_ret = 0;
 out:
@@ -426,7 +426,7 @@ afr_chown (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = 0;
 	local->transaction.pending = AFR_METADATA_PENDING;
 
-	afr_inode_transaction (transaction_frame, this);
+	afr_metadata_transaction (transaction_frame, this);
 
 	op_ret = 0;
 out:
@@ -642,7 +642,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	local->transaction.pending = AFR_DATA_PENDING;
 
-	afr_inode_transaction (transaction_frame, this);
+	afr_data_transaction (transaction_frame, this);
 
 	op_ret = 0;
 out:
@@ -838,7 +838,7 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = offset;
 	local->transaction.pending = AFR_DATA_PENDING;
 
-	afr_inode_transaction (transaction_frame, this);
+	afr_data_transaction (transaction_frame, this);
 
 	op_ret = 0;
 out:
@@ -1034,7 +1034,7 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = offset;
 	local->transaction.pending = AFR_DATA_PENDING;
 
-	afr_inode_transaction (transaction_frame, this);
+	afr_data_transaction (transaction_frame, this);
 
 	op_ret = 0;
 out:
@@ -1235,7 +1235,7 @@ afr_utimens (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = 0;
 	local->transaction.pending = AFR_METADATA_PENDING;
 
-	afr_inode_transaction (transaction_frame, this);
+	afr_metadata_transaction (transaction_frame, this);
 
 	op_ret = 0;
 out:
@@ -1425,7 +1425,7 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = 0;
 	local->transaction.pending = AFR_METADATA_PENDING;
 
-	afr_inode_transaction (transaction_frame, this);
+	afr_metadata_transaction (transaction_frame, this);
 
 	op_ret = 0;
 out:
@@ -1614,7 +1614,7 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 	local->transaction.len     = 0;
 	local->transaction.pending = AFR_METADATA_PENDING;
 
-	afr_inode_transaction (transaction_frame, this);
+	afr_metadata_transaction (transaction_frame, this);
 
 	op_ret = 0;
 out:

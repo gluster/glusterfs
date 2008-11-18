@@ -39,7 +39,10 @@ typedef struct _afr_private {
 
 	unsigned char *child_up;
 
-	unsigned int self_heal;       /* on/off */
+	unsigned int data_self_heal;       /* on/off */
+	unsigned int metadata_self_heal;   /* on/off */
+	unsigned int entry_self_heal;      /* on/off */
+
 	unsigned int read_child;      /* read-subvolume */
 	unsigned int favorite_child;  /* subvolume to be preferred in resolving
 					 split-brain cases */
@@ -323,7 +326,8 @@ typedef struct _afr_local {
 		loc_t parent_loc;
 		loc_t new_parent_loc;
 
-		enum {AFR_INODE_TRANSACTION,         /* chmod, write, ... */
+		enum {AFR_DATA_TRANSACTION,          /* chmod, write, ... */
+		      AFR_METADATA_TRANSACTION,
 		      AFR_ENTRY_TRANSACTION,         /* create, rmdir, ... */
 		      AFR_ENTRY_RENAME_TRANSACTION,  /* rename */
 		} type;

@@ -290,13 +290,16 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		if (op_ret == 0) {
 			lookup_buf = &local->cont.lookup.buf;
 
-			if (afr_sh_has_metadata_pending (xattr, child_index, this))
+			if (priv->metadata_self_heal
+			    && afr_sh_has_metadata_pending (xattr, child_index, this))
 				local->need_metadata_self_heal = 1;
 
-			if (afr_sh_has_entry_pending (xattr, child_index, this))
+			if (priv->entry_self_heal
+			    && afr_sh_has_entry_pending (xattr, child_index, this))
 				local->need_entry_self_heal = 1;
 
-			if (afr_sh_has_data_pending (xattr, child_index, this))
+			if (priv->data_self_heal &&
+			    afr_sh_has_data_pending (xattr, child_index, this))
 				local->need_data_self_heal = 1;
 
 			if (local->success_count == 0) {
@@ -317,17 +320,20 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 					local->govinda_gOvinda = 1;
 				}
 
-				if (PERMISSION_DIFFERS (buf, lookup_buf)) {
+				if (priv->metadata_self_heal
+				    && PERMISSION_DIFFERS (buf, lookup_buf)) {
 					/* mismatching permissions */
 					local->need_metadata_self_heal = 1;
 				}
 
-				if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
+				if (priv->metadata_self_heal
+				    && OWNERSHIP_DIFFERS (buf, lookup_buf)) {
 					/* mismatching permissions */
 					local->need_metadata_self_heal = 1;
 				}
 
-				if (SIZE_DIFFERS (buf, lookup_buf)
+				if (priv->data_self_heal
+				    && SIZE_DIFFERS (buf, lookup_buf)
 				    && S_ISREG (buf->st_mode)) {
 					local->need_data_self_heal = 1;
 				}
@@ -366,10 +372,9 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			local->need_entry_self_heal = 1;
 		}
 
-		if (priv->self_heal && 
-		    (local->need_metadata_self_heal
-		     || local->need_data_self_heal
-		     || local->need_entry_self_heal)) {
+		if (local->need_metadata_self_heal
+		    || local->need_data_self_heal
+		    || local->need_entry_self_heal) {
 			afr_self_heal (frame, this, afr_self_heal_cbk);
 		} else {
 			AFR_STACK_UNWIND (frame, local->op_ret,
@@ -955,15 +960,31 @@ init (xlator_t *this)
 	fav_ret = dict_get_str (this->options, "favorite-child", &fav_child);
 	priv->favorite_child = -1;
 
-	dict_ret = dict_get_str (this->options, "self-heal", &self_heal);
-	
+	/* Default values */
+
+	priv->data_self_heal     = 1;
+	priv->metadata_self_heal = 0;
+	priv->entry_self_heal    = 1;
+
+	dict_ret = dict_get_str (this->options, "data-self-heal", &self_heal);
 	if ((dict_ret == 0) && !strcasecmp (self_heal, "off")) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"self heal turned off");
+			"data self heal turned off");
+		priv->data_self_heal = 0;
+	}
 
-		priv->self_heal = 0;
-	} else {
-		priv->self_heal = 1;
+	dict_ret = dict_get_str (this->options, "metadata-self-heal", &self_heal);
+	if ((dict_ret == 0) && !strcasecmp (self_heal, "on")) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"metadata self heal turned on");
+		priv->metadata_self_heal = 1;
+	}
+
+	dict_ret = dict_get_str (this->options, "entry-self-heal", &self_heal);
+	if ((dict_ret == 0) && !strcasecmp (self_heal, "off")) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"entry self heal turned off");
+		priv->entry_self_heal = 0;
 	}
 
 	dict_ret = dict_get_int32 (this->options, "lock-server-count", &lock_server_count);
@@ -1103,7 +1124,9 @@ struct xlator_options options[] = {
 	{ "read-subvolume", GF_OPTION_TYPE_XLATOR, 0, },
 	{ "favorite-child", GF_OPTION_TYPE_XLATOR, 0, },
 	{ "read-only", GF_OPTION_TYPE_BOOL, 0, },
-	{ "self-heal", GF_OPTION_TYPE_BOOL, 0, },
+	{ "data-self-heal", GF_OPTION_TYPE_BOOL, 0, },
+	{ "metadata-self-heal", GF_OPTION_TYPE_BOOL, 0, },
+	{ "entry-self-heal", GF_OPTION_TYPE_BOOL, 0, },
 	{ "lock-server-count", GF_OPTION_TYPE_INT, 0, 1, 65535},
 	{ NULL, 0, },
 };
