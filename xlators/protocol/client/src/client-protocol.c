@@ -4764,6 +4764,21 @@ client_setvolume_cbk (call_frame_t *frame,
 
 	rsp = gf_param (hdr);
 
+	op_ret   = ntoh32 (hdr->rsp.op_ret);
+	gf_errno = ntoh32 (hdr->rsp.op_errno);
+	op_errno = gf_error_to_errno (gf_errno);
+
+	if (op_ret < 0) {
+		gf_log (trans->xl->name, GF_LOG_ERROR,
+			"SETVOLUME on remote-host failed: ret=%d error=%s",
+			op_ret,
+			remote_error ? remote_error : strerror (op_errno));
+		errno = op_errno;
+	} else {
+		gf_log (trans->xl->name, GF_LOG_DEBUG,
+			"SETVOLUME on remote-host succeeded");
+	}
+
 	reply = dict_new ();
 	GF_VALIDATE_OR_GOTO(this->name, reply, out);
 
@@ -4776,24 +4791,11 @@ client_setvolume_cbk (call_frame_t *frame,
 		goto out;
 	}
 	
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	gf_errno = ntoh32 (hdr->rsp.op_errno);
-	op_errno = gf_error_to_errno (gf_errno);
 
 	ret = dict_get_str (reply, "ERROR", &remote_error);
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get ERROR string from reply dictionary");
-	}
-
-	if (op_ret < 0) {
-		gf_log (trans->xl->name, GF_LOG_ERROR,
-			"SETVOLUME on remote-host failed: ret=%d error=%s", op_ret,
-			remote_error ? remote_error : strerror (op_errno));
-		errno = op_errno;
-	} else {
-		gf_log (trans->xl->name, GF_LOG_DEBUG,
-			"SETVOLUME on remote-host succeeded");
 	}
 
 	if (op_ret == 0) {

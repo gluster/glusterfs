@@ -213,12 +213,20 @@ int
 dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int32_t op_ret, int32_t op_errno)
 {
-	dht_local_t *local = NULL;
-	int          this_call_cnt = 0;
+	dht_local_t  *local = NULL;
+	call_frame_t *prev = NULL;
+	int           this_call_cnt = 0;
 
 	local = frame->local;
+	prev  = cookie;
 
 	this_call_cnt = dht_frame_return (frame);
+
+	if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"unlink on %s failed (%s)",
+			prev->this->name, strerror (op_errno));
+	}
 
 	if (is_last_call (this_call_cnt))
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
@@ -262,8 +270,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (src_cached != dst_hashed && src_cached != dst_cached)
 		local->call_cnt++;
 
-	if ((src_cached != src_hashed) &&
-	    (src_hashed != prev->this))
+	if (src_hashed != src_cached && src_hashed != dst_hashed)
 		local->call_cnt++;
 
 	if (dst_cached && dst_cached != dst_hashed && dst_cached != src_cached)
@@ -282,8 +289,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			    &local->loc);
 	}
 
-	if ((src_cached != src_hashed) && 
-	    (prev->this != src_hashed)) {
+	if (src_hashed != src_cached && src_hashed != dst_hashed) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"deleting old src linkfile %s @ %s",
 			local->loc.path, src_hashed->name);

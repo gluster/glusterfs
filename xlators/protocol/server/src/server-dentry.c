@@ -161,8 +161,6 @@ __server_path_to_parenti (inode_table_t *itable,
 	size_t copied = 0;
 	size_t r_len = 0;
 	
-	size_t basename = 0;
-
 	pathlen = STRLEN_0(path);
 	resolved = calloc (1, pathlen);
 	GF_VALIDATE_OR_GOTO("server-dentry", resolved, out);
@@ -177,8 +175,7 @@ __server_path_to_parenti (inode_table_t *itable,
 		while (*dname == '/')
 			dname++;
 		dname = strcpy_till (resolved + copied, dname, '/');
-		if (dname == NULL)
-			basename = 1;
+
 		inode = inode_from_path (itable, resolved);
 		if (inode && (basename == 0)) {
 			if (parent)
@@ -189,7 +186,7 @@ __server_path_to_parenti (inode_table_t *itable,
 		}
 	}
 
-	if (dname || (basename == 1)) {
+	if (dname) {
 		r_len = strlen (resolved);
 		if ((r_len > 1) && (resolved[(r_len - 1)] == '/'))
 			resolved[(r_len - 1)] = '\0';
@@ -305,10 +302,12 @@ __do_path_resolve (call_stub_t *stub,
 			GF_LOG_CRITICAL,
 			"failed to get parent inode number");
 		goto panic;
-	} else {
+	}		
+
+	if (resolved) {
 		gf_log (BOUND_XL(stub->frame)->name,
-			GF_LOG_DEBUG,
-			"resolved path(%s) to %"PRId64"(%s). "
+			GF_LOG_WARNING,
+			"resolved path(%s) till %"PRId64"(%s). "
 			"sending lookup for remaining path",
 			loc->path, parent->ino, resolved);
 	}

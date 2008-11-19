@@ -935,7 +935,7 @@ afr_sh_data_lock (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->inodelk,
-					   &local->loc, F_SETLK, &flock); 
+					   &local->loc, F_SETLKW, &flock); 
 			if (!--call_count)
 				break;
 		}
