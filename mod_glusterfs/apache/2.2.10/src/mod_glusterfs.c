@@ -27,15 +27,15 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <httpd/httpd.h>
-#include <httpd/http_config.h>
-#include <httpd/http_core.h>
-#include <httpd/http_request.h>
-#include <httpd/http_protocol.h>
-#include <httpd/http_log.h>
-#include <httpd/http_main.h>
-#include <httpd/util_script.h>
-#include <httpd/util_filter.h>
+#include <httpd.h>
+#include <http_config.h>
+#include <http_core.h>
+#include <http_request.h>
+#include <http_protocol.h>
+#include <http_log.h>
+#include <http_main.h>
+#include <util_script.h>
+#include <util_filter.h>
 #include <libglusterfsclient.h>
 #include <sys/uio.h>
 #include <pthread.h>
