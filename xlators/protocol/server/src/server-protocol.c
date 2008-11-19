@@ -2192,6 +2192,14 @@ server_xattrop_cbk (call_frame_t *frame,
 	int32_t gf_errno = 0;
 	int32_t ret = -1;
 
+	state = CALL_STATE(frame);
+	
+	if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"failed to do xattrop on %s (%"PRId64")",
+			state->loc.path, state->loc.inode->ino);
+	}
+
 	if ((op_ret >= 0) && dict) {
 		len = dict_serialized_length (dict);
 		if (len < 0) {
@@ -2224,7 +2232,6 @@ server_xattrop_cbk (call_frame_t *frame,
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
 	
-	state = CALL_STATE(frame);
 	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_XATTROP,

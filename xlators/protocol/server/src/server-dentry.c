@@ -180,7 +180,7 @@ __server_path_to_parenti (inode_table_t *itable,
 		if (dname == NULL)
 			basename = 1;
 		inode = inode_from_path (itable, resolved);
-		if (inode) {
+		if (inode && (basename == 0)) {
 			if (parent)
 				inode_unref (parent);
 			parent = inode;
@@ -289,8 +289,16 @@ __do_path_resolve (call_stub_t *stub,
 	inode_t        *parent = NULL;
 	
 	state = CALL_STATE(stub->frame);
+	parent = loc->parent;
+	if (parent) {
+		inode_ref (parent);
+		gf_log (BOUND_XL(stub->frame)->name, GF_LOG_DEBUG,
+			"loc->parent(%"PRId64") already present. sending lookup "
+			"for %"PRId64"/%s", parent->ino, parent->ino, loc->name);
+	} else {
+		parent = __server_path_to_parenti (state->itable, loc->path, &resolved);
+	}
 
-	parent = __server_path_to_parenti (state->itable, loc->path, &resolved);
 	if (parent == NULL) {
 		/* fire in the bush.. run! run!! run!!! */
 		gf_log ("server",
@@ -374,8 +382,20 @@ do_path_lookup (call_stub_t *stub,
 		inode_unref (inode);
 		inode_unref (parent);
 	} else {
-		if (parent)
+		gf_log (BOUND_XL(stub->frame)->name,
+			GF_LOG_DEBUG,
+			"resolved path(%s) to %p(%"PRId64")/%p(%"PRId64")",
+			loc->path, parent, (parent ? parent->ino : 0), 
+			inode, (inode ? inode->ino : 0));
+		if (parent) {
 			inode_unref (parent);
+		} else if (inode) {
+			inode_unref (inode);
+			gf_log (BOUND_XL(stub->frame)->name,
+				GF_LOG_ERROR,
+				"undesired behaviour. inode(%"PRId64") for %s "
+				"exists without parent", inode->ino, loc->path);
+		}
 		__do_path_resolve (stub, loc);
 	}
 
