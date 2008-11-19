@@ -545,7 +545,7 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	if (ret == 0) {
 		/* if ctx is set it means self-heal failed */
 
-		op_errno = ENOTRECOVERABLE;
+		op_errno = EIO;
 		goto out;
 	}
 
@@ -951,6 +951,14 @@ static const char *favorite_child_warning_str = "You have specified subvolume '%
 	"subvolumes. All versions of the file except that on '%s' "
 	"WILL BE LOST.";
 
+static const char *no_lock_servers_warning_str = "You have set lock-server-count = 0. "
+	"This means correctness is NO LONGER GUARANTEED in all cases. If two or more "
+	"applications write to the same region of a file, there is a possibility that "
+	"its copies will be INCONSISTENT. Set it to a value greater than 0 unless you "
+	"are ABSOLUTELY SURE of what you are doing and WILL NOT HOLD GlusterFS "
+	"RESPOSIBLE for inconsistent data. If you are in doubt, set it to a value "
+	"greater than 0.";
+
 int32_t 
 init (xlator_t *this)
 {
@@ -1013,6 +1021,10 @@ init (xlator_t *this)
 		gf_log (this->name, GF_LOG_DEBUG,
 			"setting lock server count to %d",
 			lock_server_count);
+
+		if (lock_server_count == 0) 
+			gf_log (this->name, GF_LOG_WARNING,
+				no_lock_servers_warning_str);
 
 		priv->lock_server_count = lock_server_count;
 	} else {
@@ -1147,6 +1159,6 @@ struct xlator_options options[] = {
 	{ "data-self-heal", GF_OPTION_TYPE_BOOL, 0, },
 	{ "metadata-self-heal", GF_OPTION_TYPE_BOOL, 0, },
 	{ "entry-self-heal", GF_OPTION_TYPE_BOOL, 0, },
-	{ "lock-server-count", GF_OPTION_TYPE_INT, 0, 1, 65535},
+	{ "lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
 	{ NULL, 0, },
 };

@@ -255,7 +255,7 @@ afr_create (call_frame_t *frame, xlator_t *this,
 	local->transaction.basename = AFR_BASENAME (loc->path);
 	local->transaction.pending  = AFR_ENTRY_PENDING;
 
-	afr_entry_transaction (transaction_frame, this);
+	afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
 	op_ret = 0;
 out:
@@ -451,7 +451,7 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 	local->transaction.basename = AFR_BASENAME (loc->path);
 	local->transaction.pending  = AFR_ENTRY_PENDING;
 
-	afr_entry_transaction (transaction_frame, this);
+	afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
 	op_ret = 0;
 out:
@@ -648,7 +648,7 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 	local->transaction.basename = AFR_BASENAME (loc->path);
 	local->transaction.pending  = AFR_ENTRY_PENDING;
 
-	afr_entry_transaction (transaction_frame, this);
+	afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
 	op_ret = 0;
 out:
@@ -851,7 +851,7 @@ afr_link (call_frame_t *frame, xlator_t *this,
 	local->transaction.new_basename = AFR_BASENAME (newloc->path);
 	local->transaction.pending      = AFR_ENTRY_PENDING;
 
-	afr_entry_transaction (transaction_frame, this);
+	afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
 	op_ret = 0;
 out:
@@ -1050,7 +1050,7 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 	local->transaction.basename     = AFR_BASENAME (loc->path);
 	local->transaction.pending      = AFR_ENTRY_PENDING;
 
-	afr_entry_transaction (transaction_frame, this);
+	afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
 	op_ret = 0;
 out:
@@ -1247,7 +1247,7 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 	local->transaction.new_basename = AFR_BASENAME (newloc->path);
 	local->transaction.pending      = AFR_ENTRY_PENDING;
 
-	afr_entry_rename_transaction (transaction_frame, this);
+	afr_transaction (transaction_frame, this, AFR_ENTRY_RENAME_TRANSACTION);
 
 	op_ret = 0;
 out:
@@ -1438,7 +1438,7 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 	local->transaction.basename = AFR_BASENAME (loc->path);
 	local->transaction.pending  = AFR_ENTRY_PENDING;
 
-	afr_entry_transaction (transaction_frame, this);
+	afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
 	op_ret = 0;
 out:
@@ -1625,7 +1625,7 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 	local->transaction.basename = AFR_BASENAME (loc->path);
 	local->transaction.pending  = AFR_ENTRY_PENDING;
 
-	afr_entry_transaction (transaction_frame, this);
+	afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
 	op_ret = 0;
 out:
@@ -1770,7 +1770,7 @@ afr_setdents (call_frame_t *frame, xlator_t *this,
 	local->transaction.basename = NULL;
 	local->transaction.pending  = AFR_ENTRY_PENDING;
 
-	afr_entry_transaction (frame, this);
+	afr_transaction (frame, this, AFR_ENTRY_TRANSACTION);
 
 	op_ret = 0;
 out:

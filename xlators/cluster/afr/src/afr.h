@@ -82,6 +82,13 @@ typedef struct {
 } afr_self_heal_t;
 
 
+typedef enum {
+	AFR_DATA_TRANSACTION,          /* truncate, write, ... */
+	AFR_METADATA_TRANSACTION,      /* chmod, chown, ... */
+	AFR_ENTRY_TRANSACTION,         /* create, rmdir, ... */
+	AFR_ENTRY_RENAME_TRANSACTION,  /* rename */
+} afr_transaction_type;
+
 typedef struct _afr_local {
 	unsigned int call_count;
 	unsigned int success_count;
@@ -339,11 +346,7 @@ typedef struct _afr_local {
 		loc_t parent_loc;
 		loc_t new_parent_loc;
 
-		enum {AFR_DATA_TRANSACTION,          /* chmod, write, ... */
-		      AFR_METADATA_TRANSACTION,
-		      AFR_ENTRY_TRANSACTION,         /* create, rmdir, ... */
-		      AFR_ENTRY_RENAME_TRANSACTION,  /* rename */
-		} type;
+		afr_transaction_type type;
 
 		int success_count;
 		int erase_pending;

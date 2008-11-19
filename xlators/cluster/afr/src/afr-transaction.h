@@ -31,15 +31,6 @@ afr_transaction_child_died (call_frame_t *frame, xlator_t *this,
 			    int child_index);
 
 int32_t
-afr_data_transaction (call_frame_t *frame, xlator_t *this);
-
-int32_t
-afr_metadata_transaction (call_frame_t *frame, xlator_t *this);
-
-int32_t
-afr_entry_transaction (call_frame_t *frame, xlator_t *this);
-
-int32_t
-afr_entry_rename_transaction (call_frame_t *frame, xlator_t *this);
+afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type);
 
 #endif /* __TRANSACTION_H__ */
