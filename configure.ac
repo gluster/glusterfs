@@ -26,10 +26,14 @@ AC_CONFIG_FILES([Makefile
 		libglusterfsclient/Makefile
 		libglusterfsclient/src/Makefile
 		mod_glusterfs/Makefile
-		mod_glusterfs/apache-1.3/Makefile
-		mod_glusterfs/apache-1.3/src/Makefile
-		mod_glusterfs/lighttpd-1.4/Makefile
-		mod_glusterfs/lighttpd-1.5/Makefile
+		mod_glusterfs/apache/Makefile
+		mod_glusterfs/apache/1.3.9/Makefile
+		mod_glusterfs/apache/1.3.9/src/Makefile
+		mod_glusterfs/apache/2.2.10/Makefile
+		mod_glusterfs/apache/2.2.10/src/Makefile
+		mod_glusterfs/lighttpd/Makefile
+		mod_glusterfs/lighttpd/1.4/Makefile
+		mod_glusterfs/lighttpd/1.5/Makefile
 		glusterfs/Makefile
 		glusterfs/src/Makefile
 		booster/Makefile
@@ -192,7 +196,7 @@ AC_SUBST(LIBGLUSTERFSCLIENT_SUBDIR)
 # MOD_GLUSTERFS section
 AC_ARG_ENABLE([mod_glusterfs],
 	      AC_HELP_STRING([--disable-mod_glusterfs],
-			     [Do not build glusterfs module for webserver. Currently supported module is for apache-1.3.x]))
+			     [Do not build glusterfs module for webserver. Currently supported module is for apache/1.3.x]))
 
 if test "x$enable_mod_glusterfs" != "xno"; then
    AC_ARG_WITH([apxs],
@@ -230,13 +234,21 @@ if test "x$enable_mod_glusterfs" = "xyes" -a "x$HAVE_LIBGLUSTERFSCLIENT" = "xno"
 fi
 
 BUILD_MOD_GLUSTERFS=no
+MOD_GLUSTERFS_HTTPD_VERSION=""
+
 if test "x$enable_mod_glusterfs" != "xno" -a "x$HAVE_APXS" = "xyes" -a "x$HAVE_LIBGLUSTERFSCLIENT" = "xyes"; then
    BUILD_MOD_GLUSTERFS="yes";
    MOD_GLUSTERFS_SUBDIR="mod_glusterfs";
 fi
 
+if test "x$BUILD_MOD_GLUSTERFS" = "xyes"; then
+   HTTPD_BIN_DIR=`$APXS -q SBINDIR`
+   MOD_GLUSTERFS_HTTPD_VERSION=`$HTTPD_BIN_DIR/httpd -V | head -1 | awk "{print $3}" | sed 's/[[^0-9.]]//g'`
+fi
+
 AC_SUBST(MOD_GLUSTERFS_SUBDIR)
 AC_SUBST(APXS)
+AC_SUBST(MOD_GLUSTERFS_HTTPD_VERSION)
 # end MOD_GLUSTERFS section
 
 
@@ -505,6 +517,6 @@ echo "Infiniband verbs   : $BUILD_IBVERBS"
 echo "epoll IO multiplex : $BUILD_EPOLL"
 echo "Berkeley-DB        : $BUILD_BDB"
 echo "libglusterfsclient : $BUILD_LIBGLUSTERFSCLIENT"
-echo "mod_glusterfs      : $BUILD_MOD_GLUSTERFS"
+echo "mod_glusterfs      : $BUILD_MOD_GLUSTERFS ($MOD_GLUSTERFS_HTTPD_VERSION)"
 echo "argp-standalone    : $BUILD_ARGP_STANDALONE"
 echo

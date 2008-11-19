@@ -522,7 +522,7 @@ typedef struct {
 		struct {
 			fop_readdir_cbk_t fn;
 			int32_t op_ret, op_errno;
-			gf_dirent_t *entries;
+			gf_dirent_t entries;
 		} readdir_cbk;
 
 		/* checksum */

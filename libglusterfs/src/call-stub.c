@@ -1338,6 +1338,7 @@ fop_getdents_cbk_stub (call_frame_t *frame,
 	stub->args.getdents_cbk.op_errno = op_errno;
 	if (op_ret >= 0) {
 		stub->args.getdents_cbk.entries.next = entries->next;
+		/* FIXME: are entries not needed in the caller after creating stub? */
 		entries->next = NULL;
 	}
 
@@ -1862,6 +1863,7 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 		      gf_dirent_t *entries)
 {
 	call_stub_t *stub = NULL;
+	gf_dirent_t *stub_entry = NULL, *entry = NULL;
 
 	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
@@ -1871,11 +1873,17 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 	stub->args.readdir_cbk.fn = fn;
 	stub->args.readdir_cbk.op_ret = op_ret;
 	stub->args.readdir_cbk.op_errno = op_errno;
+	INIT_LIST_HEAD (&stub->args.readdir_cbk.entries.list);
 
 	if (op_ret > 0) {
-		stub->args.readdir_cbk.entries = calloc (1, op_ret);
-		ERR_ABORT (stub->args.readdir_cbk.entries);
-		memcpy (stub->args.readdir_cbk.entries, entries, op_ret);
+		list_for_each_entry (entry, &entries->list, list) {
+			stub_entry = gf_dirent_for_name (entry->d_name);
+			ERR_ABORT (stub_entry);
+			stub_entry->d_off = entry->d_off;
+			stub_entry->d_ino = entry->d_ino;
+
+			list_add_tail (&stub_entry->list, &stub->args.readdir_cbk.entries.list);
+		}
 	}
 out:
 	return stub;
@@ -1949,24 +1957,45 @@ out:
 
 
 call_stub_t *
-fop_xattrop_stub_cbk_stub (call_frame_t *frame,
-			   fop_xattrop_cbk_t fn,
-			   int32_t op_ret,
-			   int32_t op_errno)
+fop_xattrop_cbk_stub (call_frame_t *frame,
+		      fop_xattrop_cbk_t fn,
+		      int32_t op_ret,
+		      int32_t op_errno)
 {
 	call_stub_t *stub = NULL;
 
-	if (!frame)
-		return NULL;
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 	
 	stub = stub_new (frame, 0, GF_FOP_XATTROP);
-	if (!stub)
-		return NULL;
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
 	stub->args.xattrop_cbk.fn       = fn;
 	stub->args.xattrop_cbk.op_ret   = op_ret;
 	stub->args.xattrop_cbk.op_errno = op_errno;
 
+out:
+	return stub;
+}
+
+
+call_stub_t *
+fop_fxattrop_cbk_stub (call_frame_t *frame,
+		       fop_fxattrop_cbk_t fn,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       dict_t *xattr)
+{
+	call_stub_t *stub = NULL;
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+	stub = stub_new (frame, 1, GF_FOP_FXATTROP);
+	stub->args.fxattrop_cbk.fn = fn;
+	stub->args.fxattrop_cbk.op_ret = op_ret;
+	stub->args.fxattrop_cbk.op_errno = op_errno;
+	if (xattr) 
+		stub->args.fxattrop_cbk.xattr = dict_ref (xattr);
+
+out:
 	return stub;
 }
 
@@ -3266,7 +3295,28 @@ call_resume_unwind (call_stub_t *stub)
 
 		break;
 	}
+
 	case GF_FOP_READDIR:
+	{
+		if (!stub->args.readdir_cbk.fn) 
+			STACK_UNWIND (stub->frame,
+				      stub->args.readdir_cbk.op_ret,
+				      stub->args.readdir_cbk.op_errno,
+				      &stub->args.readdir_cbk.entries);
+		else 
+			stub->args.readdir_cbk.fn (stub->frame,
+						   stub->frame->cookie,
+						   stub->frame->this,
+						   stub->args.readdir_cbk.op_ret,
+						   stub->args.readdir_cbk.op_errno,
+						   &stub->args.readdir_cbk.entries);
+		
+		if (stub->args.readdir_cbk.op_ret > 0) 
+			gf_dirent_free (&stub->args.readdir_cbk.entries);
+
+		break;
+	}
+
 	case GF_FOP_XATTROP:
 	{
 		if (!stub->args.xattrop_cbk.fn)
@@ -3337,11 +3387,9 @@ out:
 }
 
 
-void
-call_stub_destroy (call_stub_t *stub)
+static void
+call_stub_destroy_wind (call_stub_t *stub)
 {
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
 	switch (stub->fop) {
 	case GF_FOP_OPEN:
 	{
@@ -3642,6 +3690,248 @@ call_stub_destroy (call_stub_t *stub)
 	default:
 		break;
 	}
+}
+
+
+static void
+call_stub_destroy_unwind (call_stub_t *stub)
+{
+	switch (stub->fop) {
+	case GF_FOP_OPEN:
+	{
+		if (stub->args.open_cbk.fd) 
+			fd_unref (stub->args.open_cbk.fd);
+	}
+	break;
+
+	case GF_FOP_CREATE:
+	{
+		if (stub->args.create_cbk.fd) 
+			fd_unref (stub->args.create_cbk.fd);
+
+		if (stub->args.create_cbk.inode)
+			inode_unref (stub->args.create_cbk.inode);
+	}
+	break;
+
+	case GF_FOP_STAT:
+		break;
+
+	case GF_FOP_READLINK:
+	{
+		if (stub->args.readlink_cbk.buf) 
+			FREE (stub->args.readlink_cbk.buf);
+	}
+	break;
+  
+	case GF_FOP_MKNOD:
+	{
+		if (stub->args.mknod_cbk.inode)
+			inode_unref (stub->args.mknod_cbk.inode);
+	}
+	break;
+  
+	case GF_FOP_MKDIR:
+	{
+		if (stub->args.mkdir_cbk.inode)
+			inode_unref (stub->args.mkdir_cbk.inode);
+	}
+	break;
+  
+	case GF_FOP_UNLINK:
+		break;
+
+	case GF_FOP_RMDIR:
+		break;
+      
+	case GF_FOP_SYMLINK:
+	{
+		if (stub->args.symlink_cbk.inode) 
+			inode_unref (stub->args.symlink_cbk.inode);
+	}
+	break;
+  
+	case GF_FOP_RENAME:
+		break;
+
+	case GF_FOP_LINK:
+	{
+		if (stub->args.link_cbk.inode)
+			inode_unref (stub->args.link_cbk.inode);
+	}
+	break;
+  
+	case GF_FOP_CHMOD:
+		break;
+
+	case GF_FOP_CHOWN:
+		break;
+
+	case GF_FOP_TRUNCATE:
+		break;
+
+	case GF_FOP_READ:
+	{
+		if (stub->args.readv_cbk.op_ret >= 0) {
+			dict_t *refs = stub->frame->root->rsp_refs;
+			FREE (stub->args.readv_cbk.vector);
+			
+			if (refs) {
+				dict_unref (refs);
+			}
+		}
+	}
+	break;
+
+	case GF_FOP_WRITE:
+		break;
+  
+	case GF_FOP_STATFS:
+		break;
+
+	case GF_FOP_FLUSH:
+		break;
+  
+	case GF_FOP_FSYNC:
+		break;
+
+	case GF_FOP_SETXATTR:
+		break;
+  
+	case GF_FOP_GETXATTR:
+	{
+		if (stub->args.getxattr_cbk.dict)
+			dict_unref (stub->args.getxattr_cbk.dict);
+	}
+	break;
+
+	case GF_FOP_REMOVEXATTR:
+		break;
+  
+	case GF_FOP_OPENDIR:
+	{
+		if (stub->args.opendir_cbk.fd)
+			fd_unref (stub->args.opendir_cbk.fd);
+	}
+	break;
+
+	case GF_FOP_GETDENTS:
+	{
+		dir_entry_t *tmp = NULL, *entries = NULL;
+
+		entries = &stub->args.getdents_cbk.entries;
+		if (stub->args.getdents_cbk.op_ret >= 0) {
+			while (entries->next) {
+				tmp = entries->next;
+				entries->next = entries->next->next;
+				FREE (tmp->name);
+				FREE (tmp);
+			}
+		}
+	}
+	break;
+
+	case GF_FOP_FSYNCDIR:
+		break;
+  
+	case GF_FOP_ACCESS:
+		break;
+  
+	case GF_FOP_FTRUNCATE:
+		break;
+  
+	case GF_FOP_FSTAT:
+		break;
+  
+	case GF_FOP_LK:
+		break;
+
+	case GF_FOP_UTIMENS:
+		break;
+
+	case GF_FOP_FCHMOD:
+		break;
+  
+	case GF_FOP_FCHOWN:
+		break;
+  
+	case GF_FOP_LOOKUP:
+	{
+		if (stub->args.lookup_cbk.inode)
+			inode_unref (stub->args.lookup_cbk.inode);
+
+		if (stub->args.lookup_cbk.dict)
+			dict_unref (stub->args.lookup_cbk.dict);
+	}
+	break;
+
+	case GF_FOP_SETDENTS:
+		break;
+
+	case GF_FOP_CHECKSUM:
+	{
+		if (stub->args.checksum_cbk.op_ret >= 0) {
+			FREE (stub->args.checksum_cbk.file_checksum);
+			FREE (stub->args.checksum_cbk.dir_checksum); 
+		}
+	}
+  	break;
+
+	case GF_FOP_READDIR:
+	{
+		if (stub->args.readdir_cbk.op_ret > 0) {
+			gf_dirent_free (&stub->args.readdir_cbk.entries);
+		}
+	}
+	break;
+
+	case GF_FOP_INODELK:
+		break;
+
+	case GF_FOP_FINODELK:
+		break;
+
+	case GF_FOP_ENTRYLK:
+		break;
+
+	case GF_FOP_FENTRYLK:
+		break;
+
+	case GF_FOP_XATTROP:
+		break;
+
+	case GF_FOP_FXATTROP:
+	{
+		if (stub->args.fxattrop_cbk.xattr) 
+			dict_unref (stub->args.fxattrop_cbk.xattr);
+	}
+	break;
+
+	case GF_FOP_MAXVALUE:
+	{
+		gf_log ("call-stub",
+			GF_LOG_DEBUG,
+			"Invalid value of FOP");
+	}
+	break;
+
+	default:
+		break;
+	}
+}
+
+ 
+void
+call_stub_destroy (call_stub_t *stub)
+{
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+	
+	if (stub->wind) {
+		call_stub_destroy_wind (stub);
+	} else {
+		call_stub_destroy_unwind (stub);
+	}
+
 	FREE (stub);
 out:
 	return;

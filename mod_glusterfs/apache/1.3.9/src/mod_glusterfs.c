@@ -435,7 +435,7 @@ mod_glusterfs_handler(request_rec *r)
         path = r->uri + strlen (dir_config->mount_dir);
         fd = glusterfs_open (dir_config->handle, path , O_RDONLY, 0);
   
-        if (fd == -1) {
+        if (fd == 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, r,
                               "file permissions deny server access: %s", r->filename);
                 return FORBIDDEN;

@@ -1093,7 +1093,7 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
         if ((size_t)sce->st.st_size > size) {
                 ctx->fd = glusterfs_open ((libglusterfs_handle_t ) ((unsigned long)p->conf.handle), ctx->glusterfs_path->ptr, O_RDONLY, 0);
     
-                if (((long)ctx->fd) < 0) {
+                if (((long)ctx->fd) == 0) {
                         con->http_status = 403;
                         free (ctx);
                         con->plugin_ctx[p->id] = NULL;

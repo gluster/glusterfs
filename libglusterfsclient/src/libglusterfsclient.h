@@ -250,7 +250,12 @@ glusterfs_write_async (unsigned long fd,
 int
 glusterfs_readdir (unsigned long fd, 
                    struct dirent *dirp, 
-                   int count);
+                   unsigned int count);
+
+int
+glusterfs_getdents (unsigned long fd,
+		    struct dirent *dirp,
+		    unsigned int count);
 
 ssize_t 
 glusterfs_pread (unsigned long fd, 

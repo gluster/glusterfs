@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <libgen.h>
+#include <stddef.h>
 
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -2226,52 +2227,60 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
                       fd_t *fd, 
                       struct dirent *dirp, 
                       size_t size, 
-                      off_t offset)
+                      off_t *offset,
+		      int32_t num_entries)
 {  
         call_stub_t *stub = NULL;
         int op_ret = -1;
         libgf_client_local_t *local = NULL;
+	gf_dirent_t *entry = NULL;
+	int32_t count = 0; 
+	size_t entry_size = 0;
 
-        LIBGF_CLIENT_FOP (ctx, stub, readdir, local, fd, size, offset);
+        LIBGF_CLIENT_FOP (ctx, stub, readdir, local, fd, size, *offset);
 
         op_ret = stub->args.readdir_cbk.op_ret;
         errno = stub->args.readdir_cbk.op_errno;
 
         if (op_ret > 0) {
-                gf_dirent_t *entry = stub->args.readdir_cbk.entries;
+		list_for_each_entry (entry, &stub->args.readdir_cbk.entries.list, list) {
+			entry_size = offsetof (struct dirent, d_name) + strlen (entry->d_name) + 1;
+			
+			if ((size < entry_size) || (count == num_entries)) {
+				break;
+			}
 
-                dirp->d_ino = entry->d_ino;
-                /*
-                  #ifdef GF_DARWIN_HOST_OS
-                  dirp->d_off = entry->d_seekoff;
-                  #endif
-                  #ifdef GF_LINUX_HOST_OS
-                  dirp->d_off = entry->d_off;
-                  #endif
-                */
+			size -= entry_size;
 
-                dirp->d_off = entry->d_off;
-                /* dirp->d_type = entry->d_type; */
-                dirp->d_reclen = entry->d_len;
-                strncpy (dirp->d_name, entry->d_name, dirp->d_reclen);
-                FREE (stub->args.readdir_cbk.entries);
+			dirp->d_ino = entry->d_ino;
+			/*
+			  #ifdef GF_DARWIN_HOST_OS
+			  dirp->d_off = entry->d_seekoff;
+			  #endif
+			  #ifdef GF_LINUX_HOST_OS
+			  dirp->d_off = entry->d_off;
+			  #endif
+			*/
+			
+			*offset = dirp->d_off = entry->d_off;
+			/* dirp->d_type = entry->d_type; */
+			dirp->d_reclen = entry->d_len;
+			strncpy (dirp->d_name, entry->d_name, dirp->d_reclen);
+			dirp->d_name[dirp->d_reclen] = '\0';
 
-                /*
-                  asprintf (&key, "%s-offset", basename (__FILE__));
-                  dict_set (fd->ctx, key, data_from_int32 (dirp->d_off));
-                  FREE (key);
-                */
+			dirp = (struct dirent *) (((char *) dirp) + entry_size);
+			count++;
+		}
         }
 
-        FREE (stub);
-
+	call_stub_destroy (stub);
         return op_ret;
 }
 
 int
 glusterfs_readdir (unsigned long fd, 
                    struct dirent *dirp, 
-                   int count)
+                   unsigned int count)
 {
         int op_ret = -1;
         libglusterfs_client_ctx_t *ctx = NULL;
@@ -2294,11 +2303,48 @@ glusterfs_readdir (unsigned long fd,
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
-        op_ret = libgf_client_readdir (ctx, (fd_t *)fd, dirp, sizeof (*dirp), offset);
+        op_ret = libgf_client_readdir (ctx, (fd_t *)fd, dirp, sizeof (*dirp), &offset, 1);
 
         if (op_ret > 0) {
-                offset = dirp->d_off;
+                pthread_mutex_lock (&fd_ctx->lock);
+                {
+                        fd_ctx->offset = offset;
+                }
+                pthread_mutex_unlock (&fd_ctx->lock);
+		op_ret = 1;
+        }
 
+        return op_ret;
+}
+
+
+int
+glusterfs_getdents (unsigned long fd, struct dirent *dirp, unsigned int count)
+{
+        int op_ret = -1;
+        libglusterfs_client_ctx_t *ctx = NULL;
+        off_t offset = 0;
+        libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
+        data_t *fd_ctx_data = NULL;
+
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        if (!fd_ctx_data) {
+                errno = EBADF;
+                return -1;
+        }
+
+        fd_ctx = data_to_ptr (fd_ctx_data);
+
+        pthread_mutex_lock (&fd_ctx->lock);
+        {
+                ctx = fd_ctx->ctx;
+                offset = fd_ctx->offset;
+        }
+        pthread_mutex_unlock (&fd_ctx->lock);
+
+        op_ret = libgf_client_readdir (ctx, (fd_t *)fd, dirp, count, &offset, -1);
+
+        if (op_ret > 0) {
                 pthread_mutex_lock (&fd_ctx->lock);
                 {
                         fd_ctx->offset = offset;
@@ -2308,6 +2354,7 @@ glusterfs_readdir (unsigned long fd,
 
         return op_ret;
 }
+
 
 static int32_t
 libglusterfs_readv_async_cbk (call_frame_t *frame,
