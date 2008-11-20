@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #include <dlfcn.h>
@@ -37,115 +37,122 @@ transport_t *
 transport_load (dict_t *options,
 		xlator_t *xl)
 {
-  struct transport *trans = NULL;
-  data_t *type_data = NULL;
-  data_t *addr_family = NULL;
-  char *name = NULL;
-  void *handle = NULL;
-  char *type = NULL;
-  char str[] = "ERROR";
-  
-  if (options == NULL || xl == NULL)
-    {
-      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
-      return NULL;
-    }
-  
-  trans = calloc (1, sizeof (struct transport));
-  trans->xl = xl;
-  type = str;
+	struct transport *trans = NULL, *return_trans = NULL;
+	char *addr_family = NULL;
+	char *name = NULL;
+	void *handle = NULL;
+	char *type = NULL;
+	char str[] = "ERROR";
+	int32_t ret = -1;
+	int8_t is_tcp = 0, is_unix = 0, is_ibsdp = 0;
 
-  /* Backword compatibility */
-  type_data = dict_get (options, "transport-type");
-  addr_family = dict_get (options, "address-family");
-  if (!type_data)
-    {
-      dict_set (options, "transport-type", str_to_data ("socket"));
-      if (!addr_family)
-	dict_set (options, "address-family", str_to_data ("inet"));
+	GF_VALIDATE_OR_GOTO("transport", options, fail);
+	GF_VALIDATE_OR_GOTO("transport", xl, fail);
+  
+	trans = calloc (1, sizeof (struct transport));
+	GF_VALIDATE_OR_GOTO("transport", trans, fail);
 
-      gf_log ("transport", GF_LOG_WARNING,
-	      "missing 'option transport-type'. defaulting to \"socket\" (%s)",
-	      addr_family?addr_family->data:"inet");
-    }
-  else
-    {
-      {
-	char *tmp = strchr (type_data->data, '/');
-	if (tmp)
-	  *tmp = '\0';
-      }
-      if ((strcmp (type_data->data, "tcp") == 0) ||
-	  (strcmp (type_data->data, "unix") == 0) ||
-	  (strcmp (type_data->data, "ib-sdp") == 0))
-	{
-	  if ((strcmp (type_data->data, "tcp") == 0))
-	    dict_set (options, "address-family", str_to_data ("inet"));
-	  if ((strcmp (type_data->data, "unix") == 0))
-	    dict_set (options, "address-family", str_to_data ("unix"));
-	  if ((strcmp (type_data->data, "ib-sdp") == 0))
-	    dict_set (options, "address-family", str_to_data ("inet-sdp"));
-	  dict_set (options, "transport-type", str_to_data ("socket"));
+	trans->xl = xl;
+	type = str;
+
+	/* Backward compatibility */
+	ret = dict_get_str (options, "transport-type", &type);
+	if (ret < 0) {
+		dict_set_str (options, "transport-type", "socket");
+
+		ret = dict_get_str (options, "address-family", &addr_family);
+		if (ret < 0)
+			dict_set_str (options, "address-family", "inet");
+
+		gf_log ("transport", GF_LOG_WARNING,
+			"missing 'option transport-type'. defaulting to \"socket\" (%s)",
+			addr_family?addr_family:"inet");
+	} else {
+		{
+			char *tmp = strchr (type, '/');
+			if (tmp)
+				*tmp = '\0';
+		}
+		
+		is_tcp = strcmp (type, "tcp");
+		is_unix = strcmp (type, "unix");
+		is_ibsdp = strcmp (type, "ib-sdp");
+		if ((is_tcp == 0) ||
+		    (is_unix == 0) ||
+		    (is_ibsdp == 0)) {
+			if (is_tcp == 0)
+				dict_set_str (options, "address-family", "inet");
+			if (is_unix == 0)
+				dict_set_str (options, "address-family", "unix");
+			if (is_ibsdp == 0)
+				dict_set_str (options, "address-family", "inet-sdp");
+
+			dict_set_str (options, "transport-type", "socket");
+		}
 	}
-    }
-  type_data = dict_get (options, "transport-type");
-  if (type_data) {
-    type = data_to_str (type_data);
-  } else {
-    FREE (trans);
-    gf_log ("transport", GF_LOG_ERROR,
-	    "'option transport-type <xxxx>' missing in volume '%s'",
-	    xl->name);
-    return NULL;
-  }
 
-  asprintf (&name, "%s/%s.so", TRANSPORTDIR, type);
-  gf_log ("transport", GF_LOG_DEBUG,
-	  "attempt to load file %s", name);
+	ret = dict_get_str (options, "transport-type", &type);
+	if (ret < 0) {
+		FREE (trans);
+		gf_log ("transport", GF_LOG_ERROR,
+			"'option transport-type <xxxx>' missing in volume '%s'",
+			xl->name);
+		goto fail;
+	}
 
-  handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
-  if (!handle) {
-    gf_log ("transport", GF_LOG_ERROR, "%s", dlerror ());
-    gf_log ("transport", GF_LOG_ERROR,
-	    "volume '%s': transport-type '%s' is not valid or not found on this machine", 
-	    xl->name, type);
-    FREE (name);
-    FREE (trans);
-    return NULL;
-  };
-  FREE (name);
+	asprintf (&name, "%s/%s.so", TRANSPORTDIR, type);
+	gf_log ("transport", GF_LOG_DEBUG,
+		"attempt to load file %s", name);
 
-  if (!(trans->ops = dlsym (handle, "tops"))) {
-    gf_log ("transport", GF_LOG_ERROR,
-	    "dlsym (transport_ops) on %s", dlerror ());
-    FREE (trans);
-    return NULL;
-  }
+	handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
+	if (handle == NULL) {
+		gf_log ("transport", GF_LOG_ERROR, "%s", dlerror ());
+		gf_log ("transport", GF_LOG_ERROR,
+			"volume '%s': transport-type '%s' is not valid or "
+			"not found on this machine", 
+			xl->name, type);
+		FREE (name);
+		FREE (trans);
+		goto fail;
+	}
+	FREE (name);
+	
+	trans->ops = dlsym (handle, "tops");
+	if (trans->ops == NULL) {
+		gf_log ("transport", GF_LOG_ERROR,
+			"dlsym (transport_ops) on %s", dlerror ());
+		FREE (trans);
+		goto fail;
+	}
 
-  if (!(trans->init = dlsym (handle, "init"))) {
-    gf_log ("transport", GF_LOG_ERROR,
-	    "dlsym (gf_transport_init) on %s", dlerror ());
-    FREE (trans);
-    return NULL;
-  }
+	trans->init = dlsym (handle, "init");
+	if (trans->init == NULL) {
+		gf_log ("transport", GF_LOG_ERROR,
+			"dlsym (gf_transport_init) on %s", dlerror ());
+		FREE (trans);
+		goto fail;
+	}
 
-  if (!(trans->fini = dlsym (handle, "fini"))) {
-    gf_log ("transport", GF_LOG_ERROR,
-	    "dlsym (gf_transport_fini) on %s", dlerror ());
-    FREE (trans);
-    return NULL;
-  }
+	trans->fini = dlsym (handle, "fini");
+	if (trans->fini == NULL) {
+		gf_log ("transport", GF_LOG_ERROR,
+			"dlsym (gf_transport_fini) on %s", dlerror ());
+		FREE (trans);
+		goto fail;
+	}
+	
+	ret = trans->init (trans);
+	if (ret != 0) {
+		gf_log ("transport", GF_LOG_ERROR,
+			"'%s' initialization failed", type);
+		FREE (trans);
+		goto fail;
+	}
 
-  if (trans->init (trans) != 0) {
-    gf_log ("transport", GF_LOG_ERROR,
-	    "'%s' initialization failed", type);
-    FREE (trans);
-    return NULL;
-  }
-
-  pthread_mutex_init (&trans->lock, NULL);
-
-  return trans;
+	pthread_mutex_init (&trans->lock, NULL);
+	return_trans = trans;
+fail:
+	return return_trans;
 }
 
 
@@ -153,144 +160,127 @@ int32_t
 transport_submit (transport_t *this, char *buf, int32_t len,
 		  struct iovec *vector, int count, dict_t *refs)
 {
-  if (this == NULL)
-    {
-      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
-      return 0; /* bala: isn't it an error condition ?! */
-    }
-  
-  if (this->ops == NULL)
-    {
-      gf_log ("transport", GF_LOG_ERROR, "this->ops is NULL");
-      return 0; /* bala: isn't it an error condition ?! */
-    }
-  
-  return this->ops->submit (this, buf, len, vector, count, refs);
+	int32_t ret = -1;
+
+	GF_VALIDATE_OR_GOTO("transport", this, fail);
+	GF_VALIDATE_OR_GOTO("transport", this->ops, fail);
+	
+	ret = this->ops->submit (this, buf, len, vector, count, refs);
+fail:
+	return ret;
 }
 
 
 int32_t 
 transport_connect (transport_t *this)
 {
-  int ret = -1;
+	int ret = -1;
+	
+	GF_VALIDATE_OR_GOTO("transport", this, fail);
   
-  if (this == NULL)
-    {
-      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
-      return -1;
-    }
-  
-  ret = this->ops->connect (this);
-
-  return ret;
+	ret = this->ops->connect (this);
+fail:
+	return ret;
 }
 
 
 int32_t
 transport_listen (transport_t *this)
 {
-  int ret = -1;
-
-  if (this == NULL)
-    {
-      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
-      return -1;
-    }
+	int ret = -1;
+	
+	GF_VALIDATE_OR_GOTO("transport", this, fail);
   
-  ret = this->ops->listen (this);
-
-  return ret;
+	ret = this->ops->listen (this);
+fail:
+	return ret;
 }
 
 
 int32_t 
 transport_disconnect (transport_t *this)
 {
-  int ret = -1;
-
-  if (this == NULL)
-    {
-      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
-      return -1;
-    }
+	int32_t ret = -1;
+	
+	GF_VALIDATE_OR_GOTO("transport", this, fail);
   
-  ret = this->ops->disconnect (this);
-
-  return ret;
+	ret = this->ops->disconnect (this);
+fail:
+	return ret;
 }
 
 
 int32_t 
 transport_destroy (transport_t *this)
 {
-  if (this == NULL)
-    {
-      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
-      return -1;
-    }
-  
-  if (this->fini)
-    this->fini (this);
-  pthread_mutex_destroy (&this->lock);
-  FREE (this);
+	int32_t ret = -1;
 
-  return 0;
+	GF_VALIDATE_OR_GOTO("transport", this, fail);
+  
+	if (this->fini)
+		this->fini (this);
+
+	pthread_mutex_destroy (&this->lock);
+	FREE (this);
+fail:
+	return ret;
 }
 
 
 transport_t *
 transport_ref (transport_t *this)
 {
-  if (this == NULL)
-    {
-      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
-      return NULL;
-    }
-  
-  pthread_mutex_lock (&this->lock);
-  this->refcount ++;
-  pthread_mutex_unlock (&this->lock);
+	transport_t *return_this = NULL;
 
-  return this;
+	GF_VALIDATE_OR_GOTO("transport", this, fail);
+	
+	pthread_mutex_lock (&this->lock);
+	{
+		this->refcount ++;
+	}
+	pthread_mutex_unlock (&this->lock);
+	
+	return_this = this;
+fail:
+	return return_this;
 }
 
 
-int
+int32_t
 transport_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
 		   char **buf_p, size_t *buflen_p)
 {
-  int ret = -1;
+	int32_t ret = -1;
 
-  if (this == NULL)
-    {
-      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
-      return -1;
-    }
+	GF_VALIDATE_OR_GOTO("transport", this, fail);
   
-  ret = this->ops->receive (this, hdr_p, hdrlen_p, buf_p, buflen_p);
-
-  return ret;
+	ret = this->ops->receive (this, hdr_p, hdrlen_p, buf_p, buflen_p);
+fail:
+	return ret;
 }
 
 
-void
+int32_t
 transport_unref (transport_t *this)
 {
-  int32_t refcount;
+	int32_t refcount = 0;
+	int32_t ret = -1;
 
-  if (this == NULL)
-    {
-      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
-      return;
-    }
+	GF_VALIDATE_OR_GOTO("transport", this, fail);
   
-  pthread_mutex_lock (&this->lock);
-  refcount = --this->refcount;
-  pthread_mutex_unlock (&this->lock);
+	pthread_mutex_lock (&this->lock);
+	{
+		refcount = --this->refcount;
+	}
+	pthread_mutex_unlock (&this->lock);
 
-  if (!refcount) {
-    this->xl->notify (this->xl, GF_EVENT_TRANSPORT_CLEANUP, this);
-    transport_destroy (this);
-  }
+	if (refcount == 0) {
+		this->xl->notify (this->xl, GF_EVENT_TRANSPORT_CLEANUP, this);
+		transport_destroy (this);
+	}
+	
+	ret = 0;
+fail:
+	return ret;
 }
 
