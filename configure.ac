@@ -221,6 +221,14 @@ if test "x$enable_mod_glusterfs" != "xno"; then
     if test "x$BUILD_LIBGLUSTERFSCLIENT" = "xyes"; then
         HAVE_LIBGLUSTERFSCLIENT="yes";
     fi
+
+    AC_ARG_WITH([apxspath],
+                AC_HELP_STRING([--with-apxspath],
+                                [Path to apxs binary]))
+
+    AC_ARG_WITH([apachepath],
+                AC_HELP_STRING([--with-apachepath],
+                                [Path to apache binary]))       
 fi
 
 if test "x$enable_mod_glusterfs" = "xyes" -a "x$HAVE_APXS" = "xno"; then
@@ -244,6 +252,26 @@ fi
 if test "x$BUILD_MOD_GLUSTERFS" = "xyes"; then
    HTTPD_BIN_DIR=`$APXS -q SBINDIR`
    MOD_GLUSTERFS_HTTPD_VERSION=`$HTTPD_BIN_DIR/httpd -V | head -1 | awk "{print $3}" | sed 's/[[^0-9.]]//g' |        sed 's/\(.*\..*\)\..*/\1/'`
+fi
+
+if test "x$with_apxspath" != "x"; then
+   APXS_MANUAL=$with_apxspath
+fi
+
+if test "x$with_apachepath" != "x"; then
+   HTTPD_MANUAL=$with_apachepath
+fi
+
+if test "x$with_apxspath" != "x" -a "x$with_apachepath" != "x"; then
+   BUILD_MOD_GLUSTERFS="yes";
+   MOD_GLUSTERFS_SUBDIR="mod_glusterfs";
+   APACHE_MANUAL=yes
+fi
+
+if test "x$APACHE_MANUAL" = "xyes"; then
+   HTTPD_BIN_DIR=`$APXS_MANUAL -q SBINDIR`
+   MOD_GLUSTERFS_HTTPD_VERSION=`$HTTPD_MANUAL -V | head -1 | awk "{print $3}" | sed 's/[[^0-9.]]//g' | sed 's/\(.*\..*\)\..*/\1/'`
+   APXS=$APXS_MANUAL
 fi
 
 AC_SUBST(MOD_GLUSTERFS_SUBDIR)
