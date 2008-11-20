@@ -160,7 +160,8 @@ __server_path_to_parenti (inode_table_t *itable,
 
 	size_t copied = 0;
 	size_t r_len = 0;
-	
+	int8_t is_basename = 0;
+
 	pathlen = STRLEN_0(path);
 	resolved = calloc (1, pathlen);
 	GF_VALIDATE_OR_GOTO("server-dentry", resolved, out);
@@ -175,9 +176,11 @@ __server_path_to_parenti (inode_table_t *itable,
 		while (*dname == '/')
 			dname++;
 		dname = strcpy_till (resolved + copied, dname, '/');
+		if (dname == NULL)
+			is_basename = 1;
 
 		inode = inode_from_path (itable, resolved);
-		if (inode && (basename == 0)) {
+		if (inode && (is_basename == 0)) {
 			if (parent)
 				inode_unref (parent);
 			parent = inode;
@@ -186,7 +189,7 @@ __server_path_to_parenti (inode_table_t *itable,
 		}
 	}
 
-	if (dname) {
+	if (dname || (is_basename == 1)) {
 		r_len = strlen (resolved);
 		if ((r_len > 1) && (resolved[(r_len - 1)] == '/'))
 			resolved[(r_len - 1)] = '\0';
@@ -292,6 +295,8 @@ __do_path_resolve (call_stub_t *stub,
 		gf_log (BOUND_XL(stub->frame)->name, GF_LOG_DEBUG,
 			"loc->parent(%"PRId64") already present. sending lookup "
 			"for %"PRId64"/%s", parent->ino, parent->ino, loc->name);
+		resolved = strdup (loc->path);
+		resolved = dirname (resolved);
 	} else {
 		parent = __server_path_to_parenti (state->itable, loc->path, &resolved);
 	}
