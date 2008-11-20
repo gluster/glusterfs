@@ -27,4 +27,4 @@ install-data-local:
 #	cp -fv httpd.conf $(HTTPD_CONF_DIR)
 
 clean:
-	rm -fv *.so *.o
+	-rm -fv *.so *.o mod_glusterfs-build.c

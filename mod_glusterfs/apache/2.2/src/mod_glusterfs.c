@@ -726,6 +726,7 @@ mod_glfs_merge_dir_config(apr_pool_t *p, void *parent_conf,
         new->xattr_file_size = add->xattr_file_size;
         new->cache_timeout = add->cache_timeout;
         new->handle = add->handle;
+	new->buf = add->buf;
 
         /* mod_dir */
         new->index_names = add->index_names ? add->index_names : base->index_names;

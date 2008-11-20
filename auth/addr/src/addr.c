@@ -30,7 +30,7 @@
 #include "dict.h"
 
 #define ADDR_DELIMITER " ,"
-#define PRIVILEGED_PORT_CIELING 1024
+#define PRIVILAGED_PORT_CIELING 1024
 
 #ifndef AF_INET_SDP
 #define AF_INET_SDP 27
@@ -103,11 +103,11 @@ gf_auth (dict_t *input_params, dict_t *config_params)
 	}
 
 	peer_port = atoi (service);
-	if (peer_port >= PRIVILEGED_PORT_CIELING) {
+	if (peer_port >= PRIVILAGED_PORT_CIELING) {
 	  gf_log ("auth/addr",
 		  GF_LOG_ERROR,
 		  "client is bound to port %d which is not privilaged", peer_port);
-	  return AUTH_REJECT;
+	  return AUTH_DONT_CARE;
 	}
 	break;
 
