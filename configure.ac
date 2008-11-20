@@ -27,10 +27,10 @@ AC_CONFIG_FILES([Makefile
 		libglusterfsclient/src/Makefile
 		mod_glusterfs/Makefile
 		mod_glusterfs/apache/Makefile
-		mod_glusterfs/apache/1.3.9/Makefile
-		mod_glusterfs/apache/1.3.9/src/Makefile
-		mod_glusterfs/apache/2.2.10/Makefile
-		mod_glusterfs/apache/2.2.10/src/Makefile
+		mod_glusterfs/apache/1.3/Makefile
+		mod_glusterfs/apache/1.3/src/Makefile
+		mod_glusterfs/apache/2.2/Makefile
+		mod_glusterfs/apache/2.2/src/Makefile
 		mod_glusterfs/lighttpd/Makefile
 		mod_glusterfs/lighttpd/1.4/Makefile
 		mod_glusterfs/lighttpd/1.5/Makefile
@@ -243,7 +243,7 @@ fi
 
 if test "x$BUILD_MOD_GLUSTERFS" = "xyes"; then
    HTTPD_BIN_DIR=`$APXS -q SBINDIR`
-   MOD_GLUSTERFS_HTTPD_VERSION=`$HTTPD_BIN_DIR/httpd -V | head -1 | awk "{print $3}" | sed 's/[[^0-9.]]//g'`
+   MOD_GLUSTERFS_HTTPD_VERSION=`$HTTPD_BIN_DIR/httpd -V | head -1 | awk "{print $3}" | sed 's/[[^0-9.]]//g' |        sed 's/\(.*\..*\)\..*/\1/'`
 fi
 
 AC_SUBST(MOD_GLUSTERFS_SUBDIR)
