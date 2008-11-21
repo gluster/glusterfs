@@ -838,6 +838,60 @@ _gf_string2ulong (const char *str, unsigned long *n, int base)
 }
 
 static int 
+_gf_string2uint (const char *str, unsigned int *n, int base)
+{
+  unsigned long value = 0;
+  char *tail = NULL;
+  int old_errno = 0;
+  const char *s = NULL;
+  
+  if (str == NULL || n == NULL)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  
+  for (s = str; *s != '\0'; s++)
+    {
+      if (isspace (*s))
+	{
+	  continue;
+	}
+      if (*s == '-')
+	{
+	  /* bala: we do not support suffixed (-) sign and 
+	     invalid integer format */
+	  return -1;
+	}
+      break;
+    }
+  
+  old_errno = errno;
+  errno = 0;
+  value = strtoul (str, &tail, base);
+  
+  if (errno == ERANGE || errno == EINVAL)
+    {
+      return -1;
+    }
+  
+  if (errno == 0)
+    {
+      errno = old_errno;
+    }
+  
+  if (tail[0] != '\0')
+    {
+      /* bala: invalid integer format */
+      return -1;
+    }
+  
+  *n = (unsigned int)value;
+  
+  return 0;
+}
+
+static int 
 _gf_string2longlong (const char *str, long long *n, int base)
 {
   long long value = 0;
@@ -950,7 +1004,7 @@ gf_string2int (const char *str, int *n)
 int 
 gf_string2uint (const char *str, unsigned int *n)
 {
-  return _gf_string2ulong (str, (unsigned long *) n, 0);
+  return _gf_string2uint (str, n, 0);
 }
 
 int 
@@ -1134,7 +1188,7 @@ gf_string2ulong_base10 (const char *str, unsigned long *n)
 int 
 gf_string2uint_base10 (const char *str, unsigned int *n)
 {
-  return _gf_string2ulong (str, (unsigned long *) n, 10);
+  return _gf_string2uint (str,  n, 10);
 }
 
 int 
