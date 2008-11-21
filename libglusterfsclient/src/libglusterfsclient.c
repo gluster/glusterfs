@@ -396,12 +396,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
                 ctx->gf_ctx.cmd_args.volume_name = strdup (init_ctx->volume_name);
         }
 
-/*        pthread_mutex_lock (&libgf_client_lock);*/
-        {
-                graph = file_to_xlator_tree (&ctx->gf_ctx, specfp);
-        }
-/*        pthread_mutex_unlock (&libgf_client_lock); */
-
+	graph = file_to_xlator_tree (&ctx->gf_ctx, specfp);
         if (!graph) {
                 fprintf (stderr,
                          "glusterfs: cannot create configuration graph (%s)\n", strerror (errno));
@@ -676,13 +671,7 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
                         *dict = dict_ref (stub->args.lookup_cbk.dict);
         }
 
-        if (stub->args.lookup_cbk.dict)
-                dict_unref (stub->args.lookup_cbk.dict);
-        if (stub->args.lookup_cbk.inode)
-                inode_unref (stub->args.lookup_cbk.inode);
-
-        FREE (stub);
-
+	call_stub_destroy (stub);
         return op_ret;
 }
 
@@ -939,12 +928,8 @@ libgf_client_getxattr (libglusterfs_client_ctx_t *ctx,
                         op_ret = -1;
                 }
         }
-
-        /* FIXME: where are the contents of stub like loc are freed? */
-        if (stub->args.getxattr_cbk.dict)
-                dict_unref (stub->args.getxattr_cbk.dict);
-
-        FREE (stub);
+	
+	call_stub_destroy (stub);
         return op_ret;
 }
 
@@ -1049,9 +1034,7 @@ libgf_client_open (libglusterfs_client_ctx_t *ctx,
         op_ret = stub->args.open_cbk.op_ret;
         errno = stub->args.open_cbk.op_errno;
 
-        fd_unref (stub->args.open_cbk.fd); 
-
-        FREE  (stub);
+	call_stub_destroy (stub);
         return op_ret;
 }
 
@@ -1114,13 +1097,10 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
                 inode_unref (parent);
         }
 
-        inode_unref (stub->args.create_cbk.inode);
-
         op_ret = stub->args.create_cbk.op_ret;
         errno = stub->args.create_cbk.op_errno;
 
-        FREE (stub);
-
+	call_stub_destroy (stub);
         return op_ret;
 }
 
@@ -1157,12 +1137,10 @@ libgf_client_opendir (libglusterfs_client_ctx_t *ctx,
 
         LIBGF_CLIENT_FOP (ctx, stub, opendir, local, loc, fd);
 
-        fd_unref (stub->args.opendir_cbk.fd);
-
         op_ret = stub->args.opendir_cbk.op_ret;
         errno = stub->args.opendir_cbk.op_errno;
 
-        FREE (stub);
+	call_stub_destroy (stub);
         return 0;
 }
 
@@ -1360,8 +1338,7 @@ libgf_client_flush (libglusterfs_client_ctx_t *ctx, fd_t *fd)
         op_ret = stub->args.flush_cbk.op_ret;
         errno = stub->args.flush_cbk.op_errno;
         
-        FREE (stub);
-        
+	call_stub_destroy (stub);        
         return op_ret;
 }
 
@@ -1442,7 +1419,7 @@ libgf_client_setxattr (libglusterfs_client_ctx_t *ctx,
         errno = stub->args.setxattr_cbk.op_errno;
 
         dict_unref (dict);
-        FREE (stub);
+	call_stub_destroy (stub);
         return op_ret;
 }
 
@@ -1564,7 +1541,7 @@ libgf_client_fsetxattr (libglusterfs_client_ctx_t *ctx,
           errno = stub->args.fsetxattr_cbk.op_errno;
 
           dict_unref (dict);
-          FREE (stub);
+	  call_stub_destroy (stub);
           return op_ret;
         */
         return 0;
@@ -1664,11 +1641,7 @@ libgf_client_fgetxattr (libglusterfs_client_ctx_t *ctx,
                 }
         }
 
-        /* FIXME: where are the contents of stub like loc are freed? */
-        if (stub->args.getxattr_cbk.dict)
-                dict_unref (stub->args.getxattr_cbk.dict);
-
-        FREE (stub);
+	call_stub_destroy (stub);
 #endif
         return 0;
 }
@@ -1757,12 +1730,7 @@ libgf_client_readv_cbk (call_frame_t *frame,
         libgf_client_local_t *local = frame->local;
         call_frame_t *read_frame = NULL;
 
-        /* cannot use frame since it is destroyed in LIBGF_CLIENT_FOP, but frame->root->rsp_refs is needed after the 
-           macro to do dict_unref to avoid memory leak */
-        read_frame = copy_frame (frame);
-        read_frame->root->rsp_refs = frame->root->rsp_refs;
-
-        local->reply_stub = fop_readv_cbk_stub (read_frame, NULL, op_ret, op_errno, vector, count, stbuf);
+        local->reply_stub = fop_readv_cbk_stub (frame, NULL, op_ret, op_errno, vector, count, stbuf);
 
         pthread_mutex_lock (&local->lock);
         {
@@ -1805,13 +1773,7 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
                 }
         }
 
-        FREE (stub->args.readv_cbk.vector);
-
-        if (stub->frame->root->rsp_refs && stub->args.readv_cbk.op_ret >= 0)
-                dict_unref (stub->frame->root->rsp_refs);
-
-        STACK_DESTROY (stub->frame->root);
-        FREE (stub);
+	call_stub_destroy (stub);
         return op_ret;
 }
 
@@ -1868,7 +1830,7 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx,
                     int dst_count,
                     off_t offset)
 {
-        call_stub_t *stub;
+        call_stub_t *stub = NULL;
         struct iovec *src_vector;
         int src_count = 0;
         int32_t op_ret = -1;
@@ -1920,14 +1882,7 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx,
                 }
         }
  
-
-        FREE (stub->args.readv_cbk.vector);
-
-        if (stub->frame->root->rsp_refs && stub->args.readv_cbk.op_ret >= 0)
-                dict_unref (stub->frame->root->rsp_refs);
-
-        STACK_DESTROY (stub->frame->root);
-        FREE (stub);
+	call_stub_destroy (stub);
         return op_ret;
 }
 
@@ -2049,7 +2004,7 @@ libgf_client_writev (libglusterfs_client_ctx_t *ctx,
         op_ret = stub->args.writev_cbk.op_ret;
         errno = stub->args.writev_cbk.op_errno;
 
-        FREE (stub);
+	call_stub_destroy (stub);
         return op_ret;
 }
 
@@ -2675,7 +2630,7 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
         }
         pthread_mutex_unlock (&inode_ctx->lock);
 
-        FREE (stub);
+	call_stub_destroy (stub);
         return op_ret;
 }
 
@@ -2819,7 +2774,7 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
         }
         pthread_mutex_unlock (&inode_ctx->lock);
 
-        FREE (stub);
+	call_stub_destroy (stub);
         return op_ret;
 }
 

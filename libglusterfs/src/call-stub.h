@@ -309,6 +309,7 @@ typedef struct {
 			struct iovec *vector;
 			int32_t count;
 			struct stat stbuf;
+			dict_t *rsp_refs;
 		} readv_cbk;
 
 		/* writev */
@@ -318,6 +319,7 @@ typedef struct {
 			struct iovec *vector;
 			int32_t count;
 			off_t off;
+			dict_t *req_refs;
 		} writev;
 		struct {
 			fop_writev_cbk_t fn;

@@ -91,6 +91,13 @@ Miscellaneous points
   Linux gdb runs into errors like: 
   "Error while reading shared library symbols:
    Cannot find new threads: generic error"
+* when used with ib-verbs transport, ib_verbs initialization fails.
+  reason for this is that apache runs as non-privileged user and the amount of memory that can be 
+  locked by default is not sufficient for ib-verbs. to fix this, as root run,
+  
+  # ulimit -l unlimited
+
+  and then start apache.
  
 TODO
 ====

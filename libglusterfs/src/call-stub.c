@@ -1092,7 +1092,7 @@ fop_readv_cbk_stub (call_frame_t *frame,
 		stub->args.readv_cbk.vector = iov_dup (vector, count);
 		stub->args.readv_cbk.count = count;
 		stub->args.readv_cbk.stbuf = *stbuf;
-		dict_ref (frame->root->rsp_refs);
+		stub->args.readv_cbk.rsp_refs = dict_ref (frame->root->rsp_refs);
 	}
 out:
 	return stub;
@@ -1123,7 +1123,7 @@ fop_writev_stub (call_frame_t *frame,
 	stub->args.writev.off = off;
 
 	if (frame->root->req_refs)
-		dict_ref (frame->root->req_refs);
+		stub->args.writev.req_refs = dict_ref (frame->root->req_refs);
 out:
 	return stub;
 }
@@ -2220,7 +2220,7 @@ call_resume_wind (call_stub_t *stub)
   
 	case GF_FOP_WRITE:
 	{
-		dict_t *refs = stub->frame->root->req_refs;
+		dict_t *refs = stub->args.writev.req_refs;
 		stub->args.writev.fn (stub->frame,
 				      stub->frame->this,
 				      stub->args.writev.fd,
@@ -2840,7 +2840,7 @@ call_resume_unwind (call_stub_t *stub)
       
 	case GF_FOP_READ:
 	{
-		dict_t *refs = stub->frame->root->rsp_refs;
+		dict_t *refs = stub->args.readv_cbk.rsp_refs;
 		int32_t ret = stub->args.readv_cbk.op_ret;
 
 		if (!stub->args.readv_cbk.fn)
@@ -3487,7 +3487,7 @@ call_stub_destroy_wind (call_stub_t *stub)
   
 	case GF_FOP_WRITE:
 	{
-		dict_t *refs = stub->frame->root->req_refs;
+		dict_t *refs = stub->args.writev.req_refs;
 		if (stub->args.writev.fd)
 			fd_unref (stub->args.writev.fd);
 		FREE (stub->args.writev.vector);
@@ -3773,7 +3773,7 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	case GF_FOP_READ:
 	{
 		if (stub->args.readv_cbk.op_ret >= 0) {
-			dict_t *refs = stub->frame->root->rsp_refs;
+			dict_t *refs = stub->args.readv_cbk.rsp_refs;
 			FREE (stub->args.readv_cbk.vector);
 			
 			if (refs) {
