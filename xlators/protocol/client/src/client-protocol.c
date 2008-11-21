@@ -70,7 +70,7 @@ this_ino_get (inode_t *inode, xlator_t *this)
 
 	if (inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"failed to do dict get from inode(%p)/%lld",
+			"failed to do dict get from inode(%p)/%"PRId64,
 			inode, inode->ino);
 	}
 
