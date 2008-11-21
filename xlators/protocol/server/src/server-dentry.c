@@ -12,18 +12,18 @@
  * @resolved - component of @loc->path which has been resolved
  *             through dentry cache
  */
-#define SERVER_DENTRY_STATE_PREPARE(_state,loc,parent,resolved) do {	\
+#define SERVER_DENTRY_STATE_PREPARE(_state,_loc,_parent,_resolved) do {	\
 		size_t pathlen = 0;					\
 		size_t resolvedlen = 0;					\
 		char *path = NULL;					\
 		int pad = 0;						\
-		pathlen   = strlen (loc->path) + 1;			\
+		pathlen   = strlen (_loc->path) + 1;			\
 		path = calloc (1, pathlen);				\
-		_state->loc.parent = inode_ref (parent);		\
+		_state->loc.parent = inode_ref (_parent);		\
 		_state->loc.inode  = inode_new (_state->itable);	\
-		if (resolved) {						\
-			resolvedlen = strlen (resolved);		\
-			strncpy (path, resolved, resolvedlen);		\
+		if (_resolved) {						\
+			resolvedlen = strlen (_resolved);		\
+			strncpy (path, _resolved, resolvedlen);		\
 			_state->resolved = memdup (path, pathlen);	\
 			if (resolvedlen == 1) /* only root resolved */	\
 				pad = 0;				\
@@ -33,13 +33,13 @@
 			}						\
 			strcpy_till (path + resolvedlen + pad, loc->path + resolvedlen + pad, '/'); \
 		} else {						\
-			strncpy (path, loc->path, pathlen);		\
+			strncpy (path, _loc->path, pathlen);		\
 		}							\
 		_state->loc.path = path;				\
 		_state->loc.name = strrchr (path, '/');			\
 		if (_state->loc.name)					\
 			_state->loc.name++;				\
-		_state->path = strdup (loc->path);			\
+		_state->path = strdup (_loc->path);			\
 	}while (0);
 
 /* SERVER_DENTRY_UPDATE_STATE - update a server_state_t, to prepare state
@@ -74,13 +74,13 @@
 /* NOTE: should be used only for a state which was created by __do_path_resolve
  *       using any other state will result in double free corruption.
  */
-#define SERVER_STATE_CLEANUP(state) do {	\
-		if (state->resolved)		\
-			free (state->resolved);	\
-		if (state->path)		\
-			free (state->path);	\
-		server_loc_wipe (&state->loc);	\
-		free_state (state);		\
+#define SERVER_STATE_CLEANUP(_state) do {	\
+		if (_state->resolved)		\
+			free (_state->resolved);	\
+		if (_state->path)		\
+			free (_state->path);	\
+		server_loc_wipe (&_state->loc);	\
+		free_state (_state);		\
 	} while (0);
 
 /* strcpy_till - copy @dname to @dest, until 'delim' is encountered in @dest
@@ -91,8 +91,7 @@
  * return - NULL is returned if '0' is encountered in @dname, otherwise returns
  *          a pointer to remaining string begining in @dest.
  */
-static inline __attribute__((always_inline))
-char *
+static char *
 strcpy_till (char *dest, const char *dname, char delim)
 {
 	char *src = NULL;
@@ -115,24 +114,6 @@ strcpy_till (char *dest, const char *dname, char delim)
 	return ret;
 }
 
-static inline __attribute__((always_inline))
-int
-str_rerase_till (char *str,
-		 char delim)
-{
-	char *strend = NULL;
-	size_t idx = strlen (str);
-
-	strend = str;
-	while ((strend[idx] != '/') && idx) {
-		strend[idx] = 0;
-		idx--;
-	}
-
-	return idx;
-}
-
-
 /* __server_path_to_parenti - derive parent inode for @path. if immediate parent is
  *                            not available in the dentry cache, return nearest
  *                            available parent inode and set @reslv to the path of
@@ -147,62 +128,77 @@ str_rerase_till (char *str,
  */
 static inode_t *
 __server_path_to_parenti (inode_table_t *itable,
-			  const char *path,
-			  char **reslv)
+                          const char *path,
+                          char **reslv)
 {
-	char *resolved = NULL;
-	size_t pathlen = 0;
+        char *resolved_till = NULL;
+        char *strtokptr = NULL;
+        char *component = NULL;
+        char *next_component = NULL;
+        char *pathdup = NULL;
+        inode_t *curr = NULL;
+        inode_t *parent = NULL;
+        size_t pathlen = 0;
 
-	char *dname = NULL;
 
-	inode_t *inode = NULL;
-	inode_t *parent = NULL;
+        pathlen = STRLEN_0 (path);
+        resolved_till = calloc (1, pathlen);
 
-	size_t copied = 0;
-	size_t r_len = 0;
-	int8_t is_basename = 0;
+        GF_VALIDATE_OR_GOTO("server-dentry", resolved_till, out);
+        pathdup = strdup (path);
+        GF_VALIDATE_OR_GOTO("server-dentry", pathdup, out);
 
-	pathlen = STRLEN_0(path);
-	resolved = calloc (1, pathlen);
-	GF_VALIDATE_OR_GOTO("server-dentry", resolved, out);
-	inode = itable->root;
-	parent = inode;
-	dname = (char *)path;
+        parent = inode_ref (itable->root);
+        curr = NULL;
 
-	while (dname && inode) {
-		copied = strlen (resolved);
-		resolved[copied] = '/';
-		copied++;
-		while (*dname == '/')
-			dname++;
-		dname = strcpy_till (resolved + copied, dname, '/');
-		if (dname == NULL)
-			is_basename = 1;
+        component = strtok_r (pathdup, "/", &strtokptr);
 
-		inode = inode_from_path (itable, resolved);
-		if (inode && (is_basename == 0)) {
-			if (parent)
-				inode_unref (parent);
-			parent = inode;
-		} else {
-			str_rerase_till (resolved, '/');
-		}
-	}
+        while (component) {
+                curr = inode_search (itable, parent->ino, component);
+                if (!curr) {
+                        /* if current component was the last component
+                           set it to NULL                                                           
+			*/
+                        component = strtok_r (NULL, "/", &strtokptr);
+                        break;
+                }
 
-	if (dname || (is_basename == 1)) {
-		r_len = strlen (resolved);
-		if ((r_len > 1) && (resolved[(r_len - 1)] == '/'))
-			resolved[(r_len - 1)] = '\0';
-		*reslv = resolved;
-	} else {
-		free (resolved);
-	}
+                /* It is OK to append the component even if it is the                               
+                   last component in the path, because, if 'next_component'
+                   returns NULL, @parent will remain the same and
+                   @resolved_till will not be sent back                                             
+		*/
+
+                strcat (resolved_till, "/");
+                strcat (resolved_till, component);
+
+                next_component = strtok_r (NULL, "/", &strtokptr);
+
+                if (next_component) {
+                        inode_unref (parent);
+                        parent = curr;
+                        curr = NULL;
+                } else {
+                        /* will break */
+                        inode_unref (curr);
+                }
+
+                component = next_component;
+        }
+
+        free (pathdup);
+
+        if (component) {
+                *reslv = resolved_till;
+        } else {
+                free (resolved_till);
+        }
 out:
-	return parent;
+        return parent;
 }
 
 
-/* __do_resolve_path_cbk -
+/* __do_path_resolve_cbk -
  *
  * @frame -
  * @cookie -
@@ -241,12 +237,20 @@ __do_path_resolve_cbk (call_frame_t *frame,
 		goto cleanup;
 	} else {
 		if (inode->ino == 0) {
+			gf_log (BOUND_XL(frame)->name, GF_LOG_DEBUG,
+				"looked up for %s (%"PRId64"/%s)",
+				state->loc.path, state->loc.parent->ino, state->loc.name);
 			inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 			inode_lookup (inode);
 		}
 
 		if (state->resolved) {
 			SERVER_DENTRY_UPDATE_STATE(state);
+
+			gf_log (BOUND_XL(frame)->name, GF_LOG_DEBUG,
+				"looking up for %s (%"PRId64"/%s)",
+				state->loc.path, state->loc.parent->ino, state->loc.name);
+
 			STACK_WIND (frame,
 				    __do_path_resolve_cbk,
 				    BOUND_XL(frame),
@@ -374,8 +378,6 @@ do_path_lookup (call_stub_t *stub,
 	pathname  = strdup (loc->path);
 	directory = dirname (pathname);
 	parent = inode_from_path (state->itable, directory);
-	if (pathname)
-		free (pathname);
 	
 	if (inode && parent) {
 		gf_log (BOUND_XL(stub->frame)->name,
@@ -398,10 +400,14 @@ do_path_lookup (call_stub_t *stub,
 			gf_log (BOUND_XL(stub->frame)->name,
 				GF_LOG_ERROR,
 				"undesired behaviour. inode(%"PRId64") for %s "
-				"exists without parent", inode->ino, loc->path);
+				"exists without parent (%s)", 
+				inode->ino, loc->path, directory);
 		}
 		__do_path_resolve (stub, loc);
 	}
+	
+	if (pathname)
+		free (pathname);
 
 	return 0;
 }

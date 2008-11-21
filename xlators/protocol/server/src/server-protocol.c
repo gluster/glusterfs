@@ -2197,7 +2197,7 @@ server_xattrop_cbk (call_frame_t *frame,
 	if (op_ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to do xattrop on %s (%"PRId64")",
-			state->loc.path, state->loc.inode->ino);
+			state->loc.path, state->ino);
 	}
 
 	if ((op_ret >= 0) && dict) {

@@ -998,52 +998,45 @@ inode_from_path (inode_table_t *itable, const char *path)
 	inode_t  *inode = NULL;
 	inode_t  *parent = NULL;
 	inode_t  *root = NULL;
-	inode_t  *trav = NULL;
+	inode_t  *curr = NULL;
 	char     *pathname = NULL;
-	char     *name = NULL;
-	dentry_t *dentry = NULL;
+	char     *component = NULL, *next_component = NULL;
+	char     *strtokptr = NULL;
 
 	/* top-down approach */
 	root = itable->root;
-	trav = root;
-	parent = root;
-	inode = root;
+	parent = inode_ref (root);
 	pathname = strdup (path);
-	name = strtok (pathname, "/");
-	pthread_mutex_lock (&itable->lock);
-	{
-		while (name) {
-			if (list_empty (&trav->child_list)) {
-				/* no child dentries in dircache */
-				inode = NULL;
-				break;
-			}
+	component = strtok_r (pathname, "/", &strtokptr);
 
-			dentry = __dentry_search (itable, parent->ino, name);
+	if (component == NULL)
+		/* root inode */
+		inode = inode_ref (parent);
 
-			if (dentry) {
-				inode = dentry->inode;
-			} else {
-				inode = NULL;
-				break;
-			}
-
-			name = strtok (NULL, "/");
-
-			if (name && inode) {
-				trav = inode;
-				parent = inode;
-				inode = NULL;
-			} else {
-				break;
-			}
+	while (component) {
+		curr = inode_search (itable, parent->ino, component);
+		
+		if (curr == NULL) {
+			component = strtok_r (NULL, "/", &strtokptr);
+			break;
 		}
 
-		if (inode)
-			__inode_ref (inode);
+		next_component = strtok_r (NULL, "/", &strtokptr);
+		
+		if (next_component) {
+			inode_unref (parent);
+			parent = curr;
+			curr = NULL;
+		} else {
+			inode = curr;
+		}
+		
+		component = next_component;
 	}
-	pthread_mutex_unlock (&itable->lock);
 	
+	if (parent)
+		inode_unref (parent);
+
 	if (pathname)
 		free (pathname);
 
