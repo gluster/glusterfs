@@ -61,16 +61,19 @@ this_ino_get (inode_t *inode, xlator_t *this)
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
-	if (inode->ino > 1) {
-		ret = dict_get_uint64 (inode->ctx, this->name, &ino);
-
-		if (ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"failed to do dict get from inode(%p)",
-				inode);
-		}
-	} else if (inode->ino == 1)
+	if (inode->ino == 1) {
 		ino = 1;
+		goto out;
+	}
+
+	ret = dict_get_uint64 (inode->ctx, this->name, &ino);
+
+	if (inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to do dict get from inode(%p)/%lld",
+			inode, inode->ino);
+	}
+
 out:
 	return ino;
 }

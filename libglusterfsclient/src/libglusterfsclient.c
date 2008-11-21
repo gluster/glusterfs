@@ -1728,7 +1728,6 @@ libgf_client_readv_cbk (call_frame_t *frame,
                         struct stat *stbuf)
 {
         libgf_client_local_t *local = frame->local;
-        call_frame_t *read_frame = NULL;
 
         local->reply_stub = fop_readv_cbk_stub (frame, NULL, op_ret, op_errno, vector, count, stbuf);
 
