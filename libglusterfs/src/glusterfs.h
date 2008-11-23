@@ -42,6 +42,7 @@
 #include <sys/poll.h>
 #include <pthread.h>
 
+#include "list.h"
 #include "logging.h"
 
 #define GF_YES 1
@@ -193,31 +194,41 @@ typedef enum {
 #define GF_SET_EPOCH_TIME     0x8 /* used by afr dir lookup selfheal */
 
 
+struct _xlator_cmdline_option {
+	struct list_head cmd_args;
+	char *volume;
+	char *key;
+	char *value;
+};
+typedef struct _xlator_cmdline_option xlator_cmdline_option_t;
+
 struct _cmd_args {
 	/* basic options */
-	char           *specfile_server;
-	char           *volume_specfile;
-	gf_loglevel_t   log_level;
-	char           *log_file;
+	char            *specfile_server;
+	char            *volume_specfile;
+	gf_loglevel_t    log_level;
+	char            *log_file;
 	/* advanced options */
-	unsigned int    specfile_server_port;
-	char           *specfile_server_transport;
-	char           *pid_file;
-	int             no_daemon_mode;
-	char           *run_id;
-	int             debug_mode;
+	unsigned int     specfile_server_port;
+	char            *specfile_server_transport;
+	char            *pid_file;
+	int              no_daemon_mode;
+	char            *run_id;
+	int              debug_mode;
+	struct list_head xlator_options;  /* list of xlator_option_t */
+
 	/* fuse options */
-	int             fuse_direct_io_mode_flag;
-	unsigned int    fuse_directory_entry_timeout;
-	unsigned int    fuse_attribute_timeout;
-	char           *volume_name;
-	int             non_local;         /* Used only by darwin os, used for '-o local' option */
-	char           *icon_name;  /* This string will appear as Desktop icon name when mounted on darwin */
-	int            fuse_nodev;
-	int            fuse_nosuid;
+	int              fuse_direct_io_mode_flag;
+	unsigned int     fuse_directory_entry_timeout;
+	unsigned int     fuse_attribute_timeout;
+	char             *volume_name;
+	int              non_local;         /* Used only by darwin os, used for '-o local' option */
+	char             *icon_name;  /* This string will appear as Desktop icon name when mounted on darwin */
+	int              fuse_nodev;
+	int              fuse_nosuid;
 
 	/* key args */
-	char           *mount_point;
+	char             *mount_point;
 };
 typedef struct _cmd_args cmd_args_t;
 

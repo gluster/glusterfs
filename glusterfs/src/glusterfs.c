@@ -52,6 +52,7 @@
 #include "logging.h"
 #include "dict.h"
 #include "protocol.h"
+#include "list.h"
 #include "timer.h"
 #include "glusterfsd.h"
 #include "stack.h"
@@ -100,7 +101,9 @@ static struct argp_option gf_options[] = {
  	 "Run in debug mode.  This option sets --no-daemon, --log-level to DEBUG and --log-file to console"},
  	{"volume-name", ARGP_VOLUME_NAME_KEY, "VOLUME-NAME", 0,
  	 "Volume name to be used for MOUNT-POINT [default: top most volume in VOLUME-SPECFILE]"},
- 	
+ 	{"xlator-option", ARGP_XLATOR_OPTION_KEY, "VOLUME-NAME.OPTION=VALUE", 0, 
+	 "Override a translator option for a volume with the specified value"},
+	
  	{0, 0, 0, 0, "Fuse options:"},
  	{"disable-direct-io-mode", ARGP_DISABLE_DIRECT_IO_MODE_KEY, 0, 0, 
  	 "Disable direct I/O mode in fuse kernel module"},
@@ -385,6 +388,83 @@ _xlator_graph_init (xlator_t *xl)
 }
 
 
+int
+gf_remember_xlator_option (struct list_head *options, char *arg)
+{
+	glusterfs_ctx_t * ctx = NULL;
+	cmd_args_t *cmd_args  = NULL;
+	xlator_cmdline_option_t *option = NULL;
+	int ret = -1;
+
+	char *dot = NULL, *equals = NULL;
+
+	ctx = get_global_ctx_ptr ();
+	cmd_args = &ctx->cmd_args;
+
+	option = calloc (1, sizeof (xlator_option_t));
+	INIT_LIST_HEAD (&option->cmd_args);
+
+	dot = strchr (arg, '.');
+	if (!dot)
+		goto out;
+
+	option->volume = calloc ((dot - arg), sizeof (char));
+	strncpy (option->volume, arg, (dot - arg));
+
+	equals = strchr (arg, '=');
+	if (!equals)
+		goto out;
+
+	option->key = calloc ((equals - dot), sizeof (char));
+	strncpy (option->key, dot + 1, (equals - dot - 1));
+
+	if (!*(equals + 1))
+		goto out;
+
+	option->value = strdup (equals + 1);
+	
+	list_add (&option->cmd_args, &cmd_args->xlator_options);
+
+	ret = 0;
+out:
+	if (ret == -1) {
+		if (option) {
+			if (option->volume)
+				FREE (option->volume);
+			if (option->key)
+				FREE (option->key);
+			if (option->value)
+				FREE (option->value);
+
+			FREE (option);
+		}
+	}
+
+	return ret;
+}
+
+
+xlator_cmdline_option_t *
+gf_find_overriding_option (char *vol, char *key)
+{
+	glusterfs_ctx_t *ctx = NULL;
+	cmd_args_t *cmd_args = NULL;
+
+	xlator_cmdline_option_t *option = NULL;
+
+	ctx      = get_global_ctx_ptr ();
+	cmd_args = &ctx->cmd_args;
+
+	list_for_each_entry (option, &cmd_args->xlator_options, cmd_args) {
+		if (!strcmp (option->volume, vol) &&
+		    !strcmp (option->key, key))
+			return option;
+	}
+
+	return NULL;
+}
+
+
 error_t 
 parse_opts (int key, char *arg, struct argp_state *state) {
 	cmd_args_t *cmd_args = NULL;
@@ -505,6 +585,10 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		cmd_args->volume_name = strdup (arg);
 		break;
 
+	case ARGP_XLATOR_OPTION_KEY:
+		gf_remember_xlator_option (&cmd_args->xlator_options, arg);
+		break;
+
 #ifdef GF_DARWIN_HOST_OS		
 	case ARGP_NON_LOCAL_KEY:
 		cmd_args->non_local = _gf_true;
@@ -613,6 +697,8 @@ main (int argc, char *argv[])
 	cmd_args->fuse_attribute_timeout = DEFAULT_FUSE_ATTRIBUTE_TIMEOUT;
 	cmd_args->fuse_direct_io_mode_flag = _gf_true;
 	
+	INIT_LIST_HEAD (&cmd_args->xlator_options);
+
 	argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
 	
 	if ((cmd_args->specfile_server == NULL) && 
