@@ -711,14 +711,19 @@ __inode_unlink (inode_t *inode,
                 const char *name)
 {
         dentry_t *dentry = NULL;
+	dentry_t *unlink_dentry = NULL;
 
         dentry = __dentry_search_for_inode (inode, parent->ino, name);
-
-        if (dentry)
-		__dentry_unset (dentry);
+	
+	if (__is_dentry_hashed (dentry)) 
+		unlink_dentry = dentry;
+	else 
+		unlink_dentry = __dentry_search (inode->table, parent->ino, name);
+	
+	__dentry_unset (unlink_dentry);
 }
 
-
+			      
 void
 inode_unlink (inode_t *inode,
               inode_t *parent,
