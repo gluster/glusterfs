@@ -121,16 +121,15 @@ typedef struct nufa_disk_layout nufa_disk_layout_t;
 
 #define is_last_call(cnt) (cnt == 0)
 
-#define check_is_linkfile(i,s,x) (S_ISBLK (s->st_mode)		\
-				  && (major (s->st_rdev) == 0)	\
-				  && (minor (s->st_rdev) == 0))
+#define NUFA_LINKFILE_MODE (S_ISVTX)
+#define check_is_linkfile(i,s,x) ((s->st_mode & ~S_IFMT) == NUFA_LINKFILE_MODE)
 
 #define check_is_dir(i,s,x) (S_ISDIR(s->st_mode))
 
 #define layout_is_sane(layout) ((layout) && (layout->cnt > 0))
 
-#define DHT_STACK_UNWIND(frame, params ...) do {       \
-		nufa_local_t *__local = NULL;           \
+#define NUFA_STACK_UNWIND(frame, params ...) do {       \
+		nufa_local_t *__local = NULL;          \
 		__local = frame->local;                \
 		frame->local = NULL;		       \
 		STACK_UNWIND (frame, params);          \

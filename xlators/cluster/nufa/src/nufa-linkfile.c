@@ -124,7 +124,7 @@ nufa_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 
 	STACK_WIND (frame, nufa_linkfile_create_cbk,
 		    fromvol, fromvol->fops->mknod, loc,
-		    S_IFBLK, makedev (0, 0));
+		    S_IFREG | NUFA_LINKFILE_MODE, 0);
 
 	return 0;
 }

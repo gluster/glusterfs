@@ -58,7 +58,7 @@ nufa_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	this_call_cnt = nufa_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  &local->stbuf);
 	}
 
@@ -93,7 +93,7 @@ nufa_rename_dir_do (call_frame_t *frame, xlator_t *this)
 	return 0;
 
 err:
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 	return 0;
 }
 
@@ -204,7 +204,7 @@ nufa_rename_dir (call_frame_t *frame, xlator_t *this)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 	return 0;
 }
 
@@ -221,7 +221,7 @@ nufa_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	this_call_cnt = nufa_frame_return (frame);
 
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  &local->stbuf);
 
 	return 0;
@@ -305,7 +305,7 @@ nufa_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 
 unwind:
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+	NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 			  &local->stbuf);
 
 	return 0;
@@ -379,7 +379,7 @@ nufa_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 
 unwind:
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+	NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 			  &local->stbuf);
 
 	return 0;
@@ -537,7 +537,7 @@ nufa_rename (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }

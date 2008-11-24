@@ -59,7 +59,7 @@ nufa_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 			local->selfheal.layout = NULL;
 	}
 
-	DHT_STACK_UNWIND (frame, ret, local->op_errno, local->inode,
+	NUFA_STACK_UNWIND (frame, ret, local->op_errno, local->inode,
 			  &local->stbuf, local->xattr);
 
 	return 0;
@@ -126,7 +126,7 @@ unlock:
 			inode_ctx_set (local->inode, this, layout);
 		}
 
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr);
         }
 
@@ -169,7 +169,7 @@ nufa_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 	inode_ctx_set (inode, this, layout);
 
 out:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
+        NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
 
         return 0;
 }
@@ -248,7 +248,7 @@ unlock:
 			"LOOKUP(): revalidate reply local->inode->ino = %"PRId64" and"
 			"stbuf->st_ino = %"PRId64, local->inode->ino, local->stbuf.st_ino);
 
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr);
 	}
 
@@ -352,7 +352,7 @@ nufa_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 out:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
+        NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
         return 0;
 }
 
@@ -459,7 +459,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			"no subvolume in layout for path=%s",
 			local->loc.path);
 		op_errno = EINVAL;
-		DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
+		NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
 		return 0;
 	}
 
@@ -474,7 +474,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 
  err:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
+        NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
 	return 0;
 	
 }
@@ -563,7 +563,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-        DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+        NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -601,7 +601,7 @@ unlock:
 
 	this_call_cnt = nufa_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  &local->stbuf);
 
         return 0;
@@ -656,7 +656,7 @@ nufa_stat (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -707,7 +707,7 @@ nufa_fstat (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -767,7 +767,7 @@ nufa_chmod (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -826,7 +826,7 @@ nufa_chown (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -884,7 +884,7 @@ nufa_fchmod (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -941,7 +941,7 @@ nufa_fchown (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1000,7 +1000,7 @@ nufa_utimens (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1048,7 +1048,7 @@ nufa_truncate (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1094,7 +1094,7 @@ nufa_ftruncate (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1129,7 +1129,7 @@ unlock:
 
 	this_call_cnt = nufa_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
         return 0;
 }
@@ -1176,7 +1176,7 @@ nufa_access (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	NUFA_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
@@ -1186,7 +1186,7 @@ int
 nufa_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, const char *path)
 {
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, path);
+        NUFA_STACK_UNWIND (frame, op_ret, op_errno, path);
 
         return 0;
 }
@@ -1222,7 +1222,7 @@ nufa_readlink (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1232,7 +1232,7 @@ int
 nufa_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, dict_t *xattr)
 {
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, xattr);
+        NUFA_STACK_UNWIND (frame, op_ret, op_errno, xattr);
 
         return 0;
 }
@@ -1268,7 +1268,7 @@ nufa_getxattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1315,7 +1315,7 @@ nufa_setxattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1362,7 +1362,7 @@ nufa_removexattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1397,7 +1397,7 @@ unlock:
 
 	this_call_cnt = nufa_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  local->fd);
 
         return 0;
@@ -1453,7 +1453,7 @@ nufa_open (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1464,7 +1464,7 @@ nufa_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno,
 	       struct iovec *vector, int count, struct stat *stbuf)
 {
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+        NUFA_STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
 
         return 0;
 }
@@ -1498,7 +1498,7 @@ nufa_readv (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
 
 	return 0;
 }
@@ -1508,7 +1508,7 @@ int
 nufa_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int op_ret, int op_errno, struct stat *stbuf)
 {
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+        NUFA_STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
         return 0;
 }
@@ -1542,7 +1542,7 @@ nufa_writev (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, 0);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, 0);
 
 	return 0;
 }
@@ -1586,7 +1586,7 @@ nufa_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	NUFA_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
@@ -1630,7 +1630,7 @@ nufa_fsync (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	NUFA_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
@@ -1640,7 +1640,7 @@ int
 nufa_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	    int op_ret, int op_errno, struct flock *flock)
 {
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, flock);
+        NUFA_STACK_UNWIND (frame, op_ret, op_errno, flock);
 
         return 0;
 }
@@ -1674,7 +1674,7 @@ nufa_lk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1684,7 +1684,7 @@ int
 nufa_gf_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	    int op_ret, int op_errno, struct flock *flock)
 {
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, flock);
+        NUFA_STACK_UNWIND (frame, op_ret, op_errno, flock);
 
         return 0;
 }
@@ -1718,7 +1718,7 @@ nufa_gf_lk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1763,7 +1763,7 @@ unlock:
 
 	this_call_cnt = nufa_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  &local->statvfs);
 
         return 0;
@@ -1800,7 +1800,7 @@ nufa_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1852,7 +1852,7 @@ nufa_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1920,7 +1920,7 @@ done:
 	}
 
 unwind:
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, &entries);
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno, &entries);
 
 	gf_dirent_free (&entries);
 
@@ -1968,7 +1968,7 @@ nufa_readdir (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1996,7 +1996,7 @@ nufa_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	this_call_cnt = nufa_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
         return 0;
 }
@@ -2039,7 +2039,7 @@ nufa_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	NUFA_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
@@ -2083,7 +2083,7 @@ nufa_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
 out:
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 	return 0;
 }
 
@@ -2157,7 +2157,7 @@ nufa_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *thi
 	return 0;
 
 err:
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);	
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);	
 	return 0;
 }
 
@@ -2212,7 +2212,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 		
 		STACK_WIND (frame, nufa_mknod_linkfile_create_cbk,
 			    subvol, subvol->fops->mknod, loc,
-			    S_IFBLK, makedev (0, 0));
+			    S_IFREG | NUFA_LINKFILE_MODE, 0);
 
 		return 0;
 	}
@@ -2225,7 +2225,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -2263,7 +2263,7 @@ nufa_symlink (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -2321,7 +2321,7 @@ nufa_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	NUFA_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
@@ -2355,7 +2355,7 @@ nufa_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	stbuf->st_ino = local->loc.inode->ino;
 
 out:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+        NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
 	return 0;
 }
@@ -2383,7 +2383,7 @@ nufa_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 
 err:
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
 	return 0;
 }
@@ -2459,7 +2459,7 @@ nufa_link (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -2503,7 +2503,7 @@ nufa_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
 out:
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
 	return 0;
 }
 
@@ -2575,7 +2575,7 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *th
 	return 0;
 
 err:
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);	
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);	
 	return 0;
 }
 
@@ -2633,7 +2633,7 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 		
 		STACK_WIND (frame, nufa_create_linkfile_create_cbk,
 			    subvol, subvol->fops->mknod, loc,
-			    S_IFBLK, makedev (0, 0));
+			    S_IFREG | NUFA_LINKFILE_MODE, 0);
 
 		return 0;
 	}
@@ -2646,7 +2646,7 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -2669,7 +2669,7 @@ nufa_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 		local->selfheal.layout = NULL;
 	}
 
-	DHT_STACK_UNWIND (frame, op_ret, op_errno,
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno,
 			  local->inode, &local->stbuf);
 
 	return 0;
@@ -2776,7 +2776,7 @@ nufa_mkdir (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -2791,7 +2791,7 @@ nufa_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 	local->layout = NULL;
 
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
 	return 0;
 }
@@ -2842,7 +2842,7 @@ unlock:
 			nufa_selfheal_restore (frame, nufa_rmdir_selfheal_cbk,
 					      &local->loc, layout);
 		} else {
-			DHT_STACK_UNWIND (frame, local->op_ret,
+			NUFA_STACK_UNWIND (frame, local->op_ret,
 					  local->op_errno);
 		}
 	}
@@ -2876,7 +2876,7 @@ nufa_rmdir_do (call_frame_t *frame, xlator_t *this)
 	return 0;
 
 err:
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 	return 0;
 }
 
@@ -3003,7 +3003,7 @@ nufa_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	NUFA_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
@@ -3017,7 +3017,7 @@ nufa_xattrop_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 dict_t *dict)
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, dict);
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno, dict);
 	return 0;
 }
 
@@ -3066,7 +3066,7 @@ nufa_xattrop (call_frame_t *frame,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -3079,7 +3079,7 @@ nufa_fxattrop_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  dict_t *dict)
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, dict);
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno, dict);
 	return 0;
 }
 
@@ -3114,7 +3114,7 @@ nufa_fxattrop (call_frame_t *frame,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -3125,7 +3125,7 @@ nufa_inodelk_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -3173,7 +3173,7 @@ nufa_inodelk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	NUFA_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
@@ -3184,7 +3184,7 @@ nufa_finodelk_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -3218,7 +3218,7 @@ nufa_finodelk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	NUFA_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
@@ -3229,7 +3229,7 @@ nufa_entrylk_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -3275,7 +3275,7 @@ nufa_entrylk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	NUFA_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
@@ -3285,7 +3285,7 @@ nufa_fentrylk_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -3317,7 +3317,7 @@ nufa_fentrylk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	NUFA_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
