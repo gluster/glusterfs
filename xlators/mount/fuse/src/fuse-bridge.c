@@ -17,6 +17,13 @@
    <http://www.gnu.org/licenses/>.
 */
 
+/*
+ * TODO:
+ * Need to free_state() when fuse_reply_err() + return.
+ * Check loc->path for "" after fuse_loc_fill in all fops
+ * (now being done in getattr, lookup) or better - make 
+ * fuse_loc_fill() and inode_path() return success/failure.
+ */
 
 #include <stdint.h>
 #include <signal.h>
@@ -259,6 +266,7 @@ fuse_loc_fill (loc_t *loc,
 		loc->name = strrchr (loc->path, '/');
 		if (loc->name)
 			loc->name++;
+		else loc->name = "";
 	}
 }
 
@@ -413,6 +421,13 @@ fuse_lookup (fuse_req_t req,
 
         fuse_loc_fill (&state->loc, state, 0, par, name);
 
+	if (strlen(state->loc.path) == 0) {
+		gf_log ("glusterfs-fuse", GF_LOG_ERROR, "path is \"\" for name=%s", name);
+		free_state (state);
+		fuse_reply_err (req, EINVAL);
+		return;
+	}
+
         if (!state->loc.inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                         "%"PRId64": LOOKUP %s", req_callid (req),
@@ -528,6 +543,14 @@ fuse_getattr (fuse_req_t req,
         }
 
         fuse_loc_fill (&state->loc, state, ino, 0, NULL);
+	if (strlen(state->loc.path) == 0) {
+		gf_log ("glusterfs-fuse", GF_LOG_ERROR, "path is \"\" for ino=%"PRId64, (ino_t )ino);
+		free_state (state);
+		fuse_reply_err (req, EINVAL);
+		return;
+	}
+
+
         if (!state->loc.inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRId64": GETATTR %"PRId64" (%s) (fuse_loc_fill() returned NULL inode)", 

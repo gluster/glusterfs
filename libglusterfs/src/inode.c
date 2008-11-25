@@ -881,10 +881,9 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
         }
         pthread_mutex_unlock (&table->lock);
 
-        /* kelsa maaDale :p */
-        if (buf && !strcmp (buf, ""))
+        if (buf && (name == NULL) && (inode->ino == 1)) {
                 strcpy (buf, "/");
-
+	}
         return ret;
 }
 
