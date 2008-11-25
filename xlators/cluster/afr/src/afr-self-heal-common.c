@@ -125,6 +125,8 @@ afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
 	int32_t *pending = NULL;
 	void    *tmp_pending = NULL; /* This is required to remove 'type-punned' warnings from gcc */
 	
+	int ret = -1;
+
 	/* start clean */
 	for (i = 0; i < child_count; i++) {
 		for (j = 0; j < child_count; j++) {
@@ -139,8 +141,8 @@ afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
 		pending = NULL;
 		tmp_pending = NULL;
 
-		dict_get_ptr (xattr[i], (char *) key, &tmp_pending);
-		if (!tmp_pending)
+		ret = dict_get_ptr (xattr[i], (char *) key, &tmp_pending);
+		if (ret != 0)
 			continue;
 
 		pending = tmp_pending;
@@ -226,6 +228,8 @@ afr_sh_delta_to_xattr (int32_t *delta_matrix[], dict_t *xattr[],
 	int i = 0;
 	int j = 0;
 
+	int ret = 0;
+
 	int32_t *pending = 0;
 
 	for (i = 0; i < child_count; i++) {
@@ -237,8 +241,8 @@ afr_sh_delta_to_xattr (int32_t *delta_matrix[], dict_t *xattr[],
 			pending[j] = hton32 (delta_matrix[i][j]);
 		}
 
-		dict_set_bin (xattr[i], (char *) key, pending,
-			      child_count * sizeof (int32_t));
+		ret = dict_set_bin (xattr[i], (char *) key, pending,
+				    child_count * sizeof (int32_t));
 	}
 
 	return 0;
@@ -251,13 +255,15 @@ afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this)
 	afr_private_t *priv = NULL;
 	int32_t       *pending = NULL;
 	void          *tmp_pending = NULL; /* This is required to remove 'type-punned' warnings from gcc */
-	int            i = 0;
+
+	int           ret = -1;
+	int            i  = 0;
 
 	priv = this->private;
 
-	dict_get_ptr (xattr, AFR_METADATA_PENDING, &tmp_pending);
+	ret = dict_get_ptr (xattr, AFR_METADATA_PENDING, &tmp_pending);
 
-	if (!tmp_pending)
+	if (ret != 0)
 		return 0;
 
 	pending = tmp_pending;
@@ -278,13 +284,15 @@ afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this)
 	afr_private_t *priv = NULL;
 	int32_t       *pending = NULL;
 	void          *tmp_pending = NULL; /* This is required to remove 'type-punned' warnings from gcc */
+
+	int          ret = -1;
 	int            i = 0;
 
 	priv = this->private;
 
-	dict_get_ptr (xattr, AFR_DATA_PENDING, &tmp_pending);
+	ret = dict_get_ptr (xattr, AFR_DATA_PENDING, &tmp_pending);
 
-	if (!tmp_pending)
+	if (ret != 0)
 		return 0;
 
 	pending = tmp_pending;
@@ -305,13 +313,15 @@ afr_sh_has_entry_pending (dict_t *xattr, int child_count, xlator_t *this)
 	afr_private_t *priv = NULL;
 	int32_t       *pending = NULL;
 	void          *tmp_pending = NULL; /* This is required to remove 'type-punned' warnings from gcc */
+	
+	int          ret = -1;
 	int            i = 0;
 
 	priv = this->private;
 
-	dict_get_ptr (xattr, AFR_ENTRY_PENDING, &tmp_pending);
+	ret = dict_get_ptr (xattr, AFR_ENTRY_PENDING, &tmp_pending);
 
-	if (!tmp_pending)
+	if (ret != 0)
 		return 0;
 
 	pending = tmp_pending;
