@@ -260,4 +260,6 @@ typedef enum {
   GF_EVENT_TRANSPORT_CONNECTED,
 } glusterfs_event_t;
 
+#define GF_MUST_CHECK __attribute__((warn_unused_result))
+
 #endif /* _GLUSTERFS_H */

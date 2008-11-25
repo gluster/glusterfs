@@ -64,6 +64,7 @@ struct _dict {
   gf_lock_t lock;
 };
 
+
 int32_t is_data_equal (data_t *one, data_t *two);
 void data_destroy (data_t *data);
 
@@ -137,41 +138,42 @@ dict_t *dict_copy (dict_t *this,
 		   dict_t *new);
 
 /* CLEANED UP FUNCTIONS DECLARATIONS */
-dict_t *dict_new (void);
+GF_MUST_CHECK dict_t *dict_new (void);
 dict_t *dict_copy_with_ref (dict_t *this,
 			    dict_t *new);
-int dict_get_int8 (dict_t *this, char *key, int8_t *val);
-int dict_set_int8 (dict_t *this, char *key, int8_t val);
 
-int dict_get_int16 (dict_t *this, char *key, int16_t *val);
-int dict_set_int16 (dict_t *this, char *key, int16_t val);
+GF_MUST_CHECK int dict_get_int8 (dict_t *this, char *key, int8_t *val);
+GF_MUST_CHECK int dict_set_int8 (dict_t *this, char *key, int8_t val);
 
-int dict_get_int32 (dict_t *this, char *key, int32_t *val);
-int dict_set_int32 (dict_t *this, char *key, int32_t val);
+GF_MUST_CHECK int dict_get_int16 (dict_t *this, char *key, int16_t *val);
+GF_MUST_CHECK int dict_set_int16 (dict_t *this, char *key, int16_t val);
 
-int dict_get_int64 (dict_t *this, char *key, int64_t *val);
-int dict_set_int64 (dict_t *this, char *key, int64_t val);
+GF_MUST_CHECK int dict_get_int32 (dict_t *this, char *key, int32_t *val);
+GF_MUST_CHECK int dict_set_int32 (dict_t *this, char *key, int32_t val);
 
-int dict_get_uint16 (dict_t *this, char *key, uint16_t *val);
-int dict_set_uint16 (dict_t *this, char *key, uint16_t val);
+GF_MUST_CHECK int dict_get_int64 (dict_t *this, char *key, int64_t *val);
+GF_MUST_CHECK int dict_set_int64 (dict_t *this, char *key, int64_t val);
 
-int dict_get_uint32 (dict_t *this, char *key, uint32_t *val);
-int dict_set_uint32 (dict_t *this, char *key, uint32_t val);
+GF_MUST_CHECK int dict_get_uint16 (dict_t *this, char *key, uint16_t *val);
+GF_MUST_CHECK int dict_set_uint16 (dict_t *this, char *key, uint16_t val);
 
-int dict_get_uint64 (dict_t *this, char *key, uint64_t *val);
-int dict_set_uint64 (dict_t *this, char *key, uint64_t val);
+GF_MUST_CHECK int dict_get_uint32 (dict_t *this, char *key, uint32_t *val);
+GF_MUST_CHECK int dict_set_uint32 (dict_t *this, char *key, uint32_t val);
 
-int dict_set_static_ptr (dict_t *this, char *key, void *ptr);
-int dict_get_ptr (dict_t *this, char *key, void **ptr);
-int dict_set_ptr (dict_t *this, char *key, void *ptr);
-int dict_set_dynptr (dict_t *this, char *key, void *ptr, size_t size);
+GF_MUST_CHECK int dict_get_uint64 (dict_t *this, char *key, uint64_t *val);
+GF_MUST_CHECK int dict_set_uint64 (dict_t *this, char *key, uint64_t val);
 
-int dict_get_bin (dict_t *this, char *key, void **ptr);
-int dict_set_bin (dict_t *this, char *key, void *ptr, size_t size);
-int dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size);
+GF_MUST_CHECK int dict_set_static_ptr (dict_t *this, char *key, void *ptr);
+GF_MUST_CHECK int dict_get_ptr (dict_t *this, char *key, void **ptr);
+GF_MUST_CHECK int dict_set_ptr (dict_t *this, char *key, void *ptr);
+GF_MUST_CHECK int dict_set_dynptr (dict_t *this, char *key, void *ptr, size_t size);
 
-int dict_set_str (dict_t *this, char *key, char *str);
-int dict_set_dynstr (dict_t *this, char *key, char *str);
-int dict_get_str (dict_t *this, char *key, char **str);
+GF_MUST_CHECK int dict_get_bin (dict_t *this, char *key, void **ptr);
+GF_MUST_CHECK int dict_set_bin (dict_t *this, char *key, void *ptr, size_t size);
+GF_MUST_CHECK int dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size);
+
+GF_MUST_CHECK int dict_set_str (dict_t *this, char *key, char *str);
+GF_MUST_CHECK int dict_set_dynstr (dict_t *this, char *key, char *str);
+GF_MUST_CHECK int dict_get_str (dict_t *this, char *key, char **str);
 
 #endif
