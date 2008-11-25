@@ -664,13 +664,13 @@ inode_lookup (inode_t *inode)
 	inode_t       *lookup_inode = NULL;
 
         table = inode->table;
+	lookup_inode = inode;
 
         pthread_mutex_lock (&table->lock);
         {
-		if (__is_inode_hashed (inode))
-			lookup_inode = inode;
-		else
+		if (!__is_inode_hashed (inode)) {
 			lookup_inode = __inode_search (table, inode->ino);
+		}
 
                 __inode_lookup (lookup_inode);
         }
@@ -687,13 +687,13 @@ inode_forget (inode_t *inode, uint64_t nlookup)
 	inode_t       *forget_inode = NULL;
 
         table = inode->table;
+	forget_inode = inode;
 
         pthread_mutex_lock (&table->lock);
         {
-		if (__is_inode_hashed (inode))
-			forget_inode = inode;
-		else
+		if (!__is_inode_hashed (inode)) {
 			forget_inode = __inode_search (table, inode->ino);
+		}
 
                  __inode_forget (forget_inode, nlookup);
         }
@@ -714,12 +714,7 @@ __inode_unlink (inode_t *inode,
 	dentry_t *unlink_dentry = NULL;
 
         dentry = __dentry_search_for_inode (inode, parent->ino, name);
-	
-	if (__is_dentry_hashed (dentry)) 
-		unlink_dentry = dentry;
-	else 
-		unlink_dentry = __dentry_search (inode->table, parent->ino, name);
-	
+
 	__dentry_unset (unlink_dentry);
 }
 
@@ -730,12 +725,18 @@ inode_unlink (inode_t *inode,
               const char *name)
 {
         inode_table_t *table = NULL;
+	inode_t       *unlink_inode = NULL;
 
         table = inode->table;
+	unlink_inode = inode;
 
         pthread_mutex_lock (&table->lock);
         {
-                __inode_unlink (inode, parent, name);
+		if (!__is_inode_hashed (inode)) {
+			unlink_inode = __inode_search (table, inode->ino);
+		}
+
+                __inode_unlink (unlink_inode, parent, name);
         }
         pthread_mutex_unlock (&table->lock);
 
@@ -752,16 +753,23 @@ inode_rename (inode_table_t *table,
               inode_t *inode,
               struct stat *stbuf)
 {
-	dentry_t *old_dst = NULL;
+	dentry_t      *old_dst = NULL;
+	inode_t       *rename_inode = NULL;
+
+	rename_inode = inode;
 
         pthread_mutex_lock (&table->lock);
         {
+		if (!__is_inode_hashed (inode)) {
+			rename_inode = __inode_search (table, inode->ino);
+		}
+
 		old_dst = __dentry_search (table, dstdir->ino, dstname);
 		if (old_dst)
 			__dentry_unset (old_dst);
 
-                __inode_unlink (inode, srcdir, srcname);
-                __inode_link (inode, dstdir, dstname, stbuf);
+                __inode_unlink (rename_inode, srcdir, srcname);
+                __inode_link (rename_inode, dstdir, dstname, stbuf);
         }
         pthread_mutex_unlock (&table->lock);
 
