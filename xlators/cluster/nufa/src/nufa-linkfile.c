@@ -137,16 +137,16 @@ nufa_linkfile_subvol (xlator_t *this, inode_t *inode, struct stat *stbuf,
 	nufa_conf_t *conf = NULL;
 	xlator_t   *subvol = NULL;
 	void       *volname = NULL;
-	int         i = 0;
+	int         i = 0, ret = 0;
 
 	conf = this->private;
 
 	if (!xattr)
 		goto out;
 
-	dict_get_ptr (xattr, "trusted.glusterfs.dht.linkto", &volname);
+	ret = dict_get_ptr (xattr, "trusted.glusterfs.dht.linkto", &volname);
 
-	if (!volname)
+	if ((-1 == ret) || !volname)
 		goto out;
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {

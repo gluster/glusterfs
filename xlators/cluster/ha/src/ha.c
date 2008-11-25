@@ -3098,14 +3098,16 @@ ha_lk (call_frame_t *frame,
 	ha_private_t *pvt = NULL;
 	hafd_t *hafdp = NULL;
 	char *state = NULL;
-	int child_count = 0, i = 0, cnt = 0;
+	int child_count = 0, i = 0, cnt = 0, ret = 0;
 	xlator_t **children = NULL;
 
 	local = frame->local;
 	pvt = this->private;
 	child_count = pvt->child_count;
 	children = pvt->children;
-	dict_get_ptr (fd->ctx, this->name, (void *)&hafdp);
+	ret = dict_get_ptr (fd->ctx, this->name, (void *)&hafdp);
+	if (ret < 0)
+		gf_log (this->name, GF_LOG_ERROR, "dict_get failed on fd ctx");
 
 	GF_TRACE (this, "fd=%x", fd);
 	if (local == NULL) {
@@ -3293,11 +3295,15 @@ ha_checksum (call_frame_t *frame,
 	     loc_t *loc,
 	     int32_t flag)
 {
+	int ret = 0;
 	ha_local_t *local = NULL;
 	void *state = NULL; 
 
 	local = frame->local;
-	dict_get_ptr (loc->inode->ctx, this->name, &state);
+	ret = dict_get_ptr (loc->inode->ctx, this->name, &state);
+	if (ret < 0)
+		gf_log (this->name, GF_LOG_ERROR, "dict_get failed on loc->inode ctx");
+
 	GF_TRACE (this, "path=%s", loc->path);
 
 	HA_CALL_CODE(frame, local, state);

@@ -58,11 +58,17 @@ transport_load (dict_t *options,
 	/* Backward compatibility */
 	ret = dict_get_str (options, "transport-type", &type);
 	if (ret < 0) {
-		dict_set_str (options, "transport-type", "socket");
-
-		ret = dict_get_str (options, "address-family", &addr_family);
+		ret = dict_set_str (options, "transport-type", "socket");
 		if (ret < 0)
-			dict_set_str (options, "address-family", "inet");
+			gf_log ("dict", GF_LOG_DEBUG,
+				"setting transport-type failed");			
+		ret = dict_get_str (options, "address-family", &addr_family);
+		if (ret < 0) {
+			ret = dict_set_str (options, "address-family", "inet");
+			if (ret < 0)
+				gf_log ("dict", GF_LOG_DEBUG,
+					"setting address-family failed");
+		}
 
 		gf_log ("transport", GF_LOG_WARNING,
 			"missing 'option transport-type'. defaulting to \"socket\" (%s)",
@@ -81,13 +87,20 @@ transport_load (dict_t *options,
 		    (is_unix == 0) ||
 		    (is_ibsdp == 0)) {
 			if (is_tcp == 0)
-				dict_set_str (options, "address-family", "inet");
+				ret = dict_set_str (options, "address-family", "inet");
 			if (is_unix == 0)
-				dict_set_str (options, "address-family", "unix");
+				ret = dict_set_str (options, "address-family", "unix");
 			if (is_ibsdp == 0)
-				dict_set_str (options, "address-family", "inet-sdp");
+				ret = dict_set_str (options, "address-family", "inet-sdp");
 
-			dict_set_str (options, "transport-type", "socket");
+			if (ret < 0)
+				gf_log ("dict", GF_LOG_DEBUG,
+					"setting address-family failed");
+
+			ret = dict_set_str (options, "transport-type", "socket");
+			if (ret < 0)
+				gf_log ("dict", GF_LOG_DEBUG,
+					"setting transport-type failed");
 		}
 	}
 

@@ -44,7 +44,10 @@ struct symlink_cache {
 static int
 inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx)
 {
-	dict_get_ptr (inode->ctx, this->name, ctx);
+	int ret = 0;
+	ret = dict_get_ptr (inode->ctx, this->name, ctx);
+	if (-1 == ret)
+		gf_log (this->name, GF_LOG_ERROR, "dict get failed");
 
 	return 0;
 }
@@ -53,7 +56,10 @@ inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx)
 static int
 inode_ctx_set (inode_t *inode, xlator_t *this, void *ctx)
 {
-	dict_set_static_ptr (inode->ctx, this->name, ctx);
+	int ret = 0;
+	ret = dict_set_static_ptr (inode->ctx, this->name, ctx);
+	if (-1 == ret)
+		gf_log (this->name, GF_LOG_ERROR, "dict set failed");
 
 	return 0;
 }

@@ -106,6 +106,7 @@ update_frame (call_frame_t *frame,
 {
 	int32_t idx = 0;
 	int32_t ret = 0;
+	int32_t dictret = 0;
 	uid_t uid = 0;
 	void *sumne = 0;
 	
@@ -113,8 +114,8 @@ update_frame (call_frame_t *frame,
 		if ((frame->root->uid >= filter->translate_input_uid[idx][0]) &&
 		    (frame->root->uid <= filter->translate_input_uid[idx][1])) {
 			frame->root->uid = filter->translate_output_uid[idx];
-			if (dict_get (inode->ctx, frame->this->name)) {
-				dict_get_ptr (inode->ctx, frame->this->name, &sumne);
+			dictret = dict_get_ptr (inode->ctx, frame->this->name, &sumne);
+			if (dictret == 0) {
 				uid = (uid_t)(long)sumne;
 				if (uid != frame->root->uid)
 					ret = GF_FILTER_MAP_UID;
@@ -148,13 +149,15 @@ update_frame (call_frame_t *frame,
 	if (filter->complete_read_only)
 		return GF_FILTER_RO_FS;
 	
-	if (filter->partial_filter && dict_get (inode->ctx, frame->this->name)) {
-		dict_get_ptr (inode->ctx, frame->this->name, &sumne);
-		uid = (uid_t)(long)sumne;
-		for (idx = 0; idx < filter->filter_num_uid_entries; idx++) {
-			if ((uid >= filter->filter_input_uid[idx][0]) &&
-			    (uid <= filter->filter_input_uid[idx][1])) {
-				return GF_FILTER_FILTER_UID;
+	if (filter->partial_filter) {
+		dictret = dict_get_ptr (inode->ctx, frame->this->name, &sumne);
+		if (dictret != -1) {
+			uid = (uid_t)(long)sumne;
+			for (idx = 0; idx < filter->filter_num_uid_entries; idx++) {
+				if ((uid >= filter->filter_input_uid[idx][0]) &&
+				    (uid <= filter->filter_input_uid[idx][1])) {
+					return GF_FILTER_FILTER_UID;
+				}
 			}
 		}
 	}
@@ -216,9 +219,14 @@ filter_lookup_cbk (call_frame_t *frame,
 		   struct stat *buf,
 		   dict_t *dict)
 {
+	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		if (ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"couldn't set context");
+		}
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
 	return 0;
@@ -621,9 +629,15 @@ filter_mknod_cbk (call_frame_t *frame,
 		  inode_t *inode,
 		  struct stat *buf)
 {
+	int ret = 0;
+
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		if (ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"couldn't set context");
+		}
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -673,9 +687,14 @@ filter_mkdir_cbk (call_frame_t *frame,
 		  inode_t *inode,
 		  struct stat *buf)
 {
+	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		if (ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"couldn't set context");
+		}
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -822,9 +841,14 @@ filter_symlink_cbk (call_frame_t *frame,
 		    inode_t *inode,
 		    struct stat *buf)
 {
+	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		if (ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"couldn't set context");
+		}
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -931,9 +955,14 @@ filter_link_cbk (call_frame_t *frame,
 		 inode_t *inode,
 		 struct stat *buf)
 {
+	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		if (ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"couldn't set context");
+		}
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, inode,	buf);
 	return 0;
@@ -973,9 +1002,14 @@ filter_create_cbk (call_frame_t *frame,
 		   inode_t *inode,
 		   struct stat *buf)
 {
+	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		if (ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"couldn't set context");
+		}
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 	return 0;

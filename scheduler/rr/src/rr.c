@@ -436,7 +436,7 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
 	rr_t *rr = NULL;
 	rr_subvolume_t *subvolume = NULL;
 	xlator_t *subvolume_xl = NULL;
-	int i = 0;
+	int i = 0, ret = 0;
 	call_frame_t *frame = NULL;
 	call_pool_t *pool = NULL;
 	dict_t *xattr = get_new_dict ();
@@ -468,8 +468,11 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
 
 			pool = this_xl->ctx->pool;
 			frame = create_frame (this_xl, pool);
-			dict_set_bin (xattr, "trusted.glusterfs.scheduler.rr",
-				      version, sizeof (int32_t));
+			ret = dict_set_bin (xattr, "trusted.glusterfs.scheduler.rr",
+					    version, sizeof (int32_t));
+			if (-1 == ret) {
+				gf_log (this_xl->name, GF_LOG_ERROR, "rr seed setting failed");
+			}
 			if (xattr)
 				dict_ref (xattr);
 			
@@ -524,7 +527,7 @@ rr_notify_cbk (call_frame_t *frame,
   int32_t ret = -1;
   void *tmp_index_ptr = NULL;
 
-  if (frame == NULL)
+  if (frame == NULL) 
     {
       return -1;
     }
