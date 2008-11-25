@@ -26,7 +26,10 @@ Working
 =======
 * application willing to use booster LD_PRELOADs booster.so which is a wrapper library implementing 
   open, read and write.
-   
+
+* application should specify the path to logfile through the environment variable GLFS_BOOSTER_LOGFILE. If 
+  not specified, logging is done to /dev/stderr.
+
 * open call does,
   * real_open on the file.
   * fgetxattr(fd).

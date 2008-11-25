@@ -301,13 +301,12 @@ do_open (int fd, int flags, mode_t mode)
 		
 		fseek (specfp, 0L, SEEK_SET);
 		
-		asprintf (&ctx.logfile, "/var/log/glusterfs.%d.%d", getpid (), fd);
+		ctx.logfile = getenv ("GLFS_BOOSTER_LOGFILE");
 		ctx.specfp = specfp;
 
 		handle = glusterfs_init (&ctx);
 		
 		free (specfile);
-		free (ctx.logfile);
 		fclose (specfp);
 		
 		if (!handle) {
