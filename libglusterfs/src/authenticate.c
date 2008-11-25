@@ -37,54 +37,55 @@ init (dict_t *this,
       data_t *value,
       void *data)
 {
-  void *handle = NULL;
-  char *auth_file = NULL;
-  auth_handle_t *auth_handle = NULL;
-  auth_fn_t authenticate = NULL;
-  int *error = (int *) data;
+	void *handle = NULL;
+	char *auth_file = NULL;
+	auth_handle_t *auth_handle = NULL;
+	auth_fn_t authenticate = NULL;
+	int *error = (int *) data;
 
-  if (!strncasecmp (key, "ip", strlen ("ip"))) {
-    gf_log ("authenticate", GF_LOG_ERROR,
-	    "AUTHENTICATION MODULE \"IP\" HAS BEEN REPLACED BY \"ADDR\"");
-    dict_set (this, key, data_from_dynptr (NULL, 0));
-    /* TODO: 1.3.x backword compatibility */
-    //*error = -1;
-    return;
-  }
+	if (!strncasecmp (key, "ip", strlen ("ip"))) {
+		gf_log ("authenticate", GF_LOG_ERROR,
+			"AUTHENTICATION MODULE \"IP\" HAS BEEN REPLACED BY \"ADDR\"");
+		dict_set (this, key, data_from_dynptr (NULL, 0));
+		/* TODO: 1.3.x backword compatibility */
+		// *error = -1;
+		// return;
+		key = "addr";
+	}
 
-  asprintf (&auth_file, "%s/%s.so", LIBDIR, key);
-  handle = dlopen (auth_file, RTLD_LAZY);
-  if (!handle) {
-    gf_log ("authenticate", GF_LOG_ERROR, "dlopen(%s): %s\n", 
-	    auth_file, dlerror ());
-    dict_set (this, key, data_from_dynptr (NULL, 0));
-    FREE (auth_file);
-    *error = -1;
-    return;
-  }
-  FREE (auth_file);
+	asprintf (&auth_file, "%s/%s.so", LIBDIR, key);
+	handle = dlopen (auth_file, RTLD_LAZY);
+	if (!handle) {
+		gf_log ("authenticate", GF_LOG_ERROR, "dlopen(%s): %s\n", 
+			auth_file, dlerror ());
+		dict_set (this, key, data_from_dynptr (NULL, 0));
+		FREE (auth_file);
+		*error = -1;
+		return;
+	}
+	FREE (auth_file);
   
-  authenticate = dlsym (handle, "gf_auth");
-  if (!authenticate) {
-    gf_log ("authenticate", GF_LOG_ERROR,
-	    "dlsym(gf_auth) on %s\n", dlerror ());
-    dict_set (this, key, data_from_dynptr (NULL, 0));
-    *error = -1;
-    return;
-  }
+	authenticate = dlsym (handle, "gf_auth");
+	if (!authenticate) {
+		gf_log ("authenticate", GF_LOG_ERROR,
+			"dlsym(gf_auth) on %s\n", dlerror ());
+		dict_set (this, key, data_from_dynptr (NULL, 0));
+		*error = -1;
+		return;
+	}
 
-  auth_handle = calloc (1, sizeof (*auth_handle));
-  if (!auth_handle) {
-    gf_log ("authenticate", GF_LOG_ERROR, "Out of memory");
-    dict_set (this, key, data_from_dynptr (NULL, 0));
-    *error = -1;
-    return;
-  }
+	auth_handle = calloc (1, sizeof (*auth_handle));
+	if (!auth_handle) {
+		gf_log ("authenticate", GF_LOG_ERROR, "Out of memory");
+		dict_set (this, key, data_from_dynptr (NULL, 0));
+		*error = -1;
+		return;
+	}
 
-  auth_handle->authenticate = authenticate;
-  auth_handle->handle = handle;
+	auth_handle->authenticate = authenticate;
+	auth_handle->handle = handle;
 
-  dict_set (this, key, data_from_dynptr (auth_handle, sizeof (*auth_handle)));
+	dict_set (this, key, data_from_dynptr (auth_handle, sizeof (*auth_handle)));
 }
 
 static void
@@ -93,24 +94,24 @@ fini (dict_t *this,
       data_t *value,
       void *data)
 {
-  auth_handle_t *handle = data_to_ptr (value);
-  if (handle) {
-    dlclose (handle->handle);
-  }
+	auth_handle_t *handle = data_to_ptr (value);
+	if (handle) {
+		dlclose (handle->handle);
+	}
 }
 
 int32_t
 gf_auth_init (dict_t *auth_modules)
 {
-  int32_t error = 0;
+	int32_t error = 0;
 
-  dict_foreach (auth_modules, init, &error);
-  if (error) {
-    int32_t dummy;
-    dict_foreach (auth_modules, fini, &dummy);
-  }
+	dict_foreach (auth_modules, init, &error);
+	if (error) {
+		int32_t dummy;
+		dict_foreach (auth_modules, fini, &dummy);
+	}
 
-  return error;
+	return error;
 }
 
 static dict_t *__input_params;
@@ -122,17 +123,17 @@ map (dict_t *this,
      data_t *value,
      void *data)
 {
-  dict_t *res = data;
-  auth_fn_t authenticate;
-  auth_handle_t *handle = NULL;
+	dict_t *res = data;
+	auth_fn_t authenticate;
+	auth_handle_t *handle = NULL;
 
-  if (value && (handle = data_to_ptr (value)) && 
-      (authenticate = handle->authenticate)) {
-    dict_set (res, key, 
-	      int_to_data (authenticate (__input_params, __config_params)));
-  } else {
-    dict_set (res, key, int_to_data (AUTH_DONT_CARE));
-  }
+	if (value && (handle = data_to_ptr (value)) && 
+	    (authenticate = handle->authenticate)) {
+		dict_set (res, key, 
+			  int_to_data (authenticate (__input_params, __config_params)));
+	} else {
+		dict_set (res, key, int_to_data (AUTH_DONT_CARE));
+	}
 }
 
 void 
@@ -141,26 +142,26 @@ reduce (dict_t *this,
 	data_t *value,
 	void *data)
 {
-  int64_t val = 0;
-  int64_t *res = data;
-  if (!data)
-    return;
+	int64_t val = 0;
+	int64_t *res = data;
+	if (!data)
+		return;
 
-  val = data_to_int64 (value);
-  switch (val)
-    {
-    case AUTH_ACCEPT:
-      if (AUTH_DONT_CARE == *res)
-	*res = AUTH_ACCEPT;
-      break;
+	val = data_to_int64 (value);
+	switch (val)
+	{
+	case AUTH_ACCEPT:
+		if (AUTH_DONT_CARE == *res)
+			*res = AUTH_ACCEPT;
+		break;
 
-    case AUTH_REJECT:
-      *res = AUTH_REJECT;
-      break;
+	case AUTH_REJECT:
+		*res = AUTH_REJECT;
+		break;
 
-    case AUTH_DONT_CARE:
-      break;
-    }
+	case AUTH_DONT_CARE:
+		break;
+	}
 }
 
  
@@ -169,38 +170,38 @@ gf_authenticate (dict_t *input_params,
 		 dict_t *config_params, 
 		 dict_t *auth_modules) 
 {
-  dict_t *results = NULL;
-  int64_t result = AUTH_DONT_CARE;
+	dict_t *results = NULL;
+	int64_t result = AUTH_DONT_CARE;
 
-  results = get_new_dict ();
-  __input_params = input_params;
-  __config_params = config_params;
+	results = get_new_dict ();
+	__input_params = input_params;
+	__config_params = config_params;
 
-  dict_foreach (auth_modules, map, results);
+	dict_foreach (auth_modules, map, results);
 
-  dict_foreach (results, reduce, &result);
-  if (AUTH_DONT_CARE == result) {
-    data_t *peerinfo_data = dict_get (input_params, "peer-info");
-    char *name = NULL;
+	dict_foreach (results, reduce, &result);
+	if (AUTH_DONT_CARE == result) {
+		data_t *peerinfo_data = dict_get (input_params, "peer-info");
+		char *name = NULL;
 
-    if (peerinfo_data) {
-      peer_info_t *peerinfo = data_to_ptr (peerinfo_data);
-      name = peerinfo->identifier;
-    }
+		if (peerinfo_data) {
+			peer_info_t *peerinfo = data_to_ptr (peerinfo_data);
+			name = peerinfo->identifier;
+		}
 
-    gf_log ("auth", GF_LOG_ERROR,
-	    "no authentication module is interested in accepting remote-client %s", name);
-    result = AUTH_REJECT;
-  }
+		gf_log ("auth", GF_LOG_ERROR,
+			"no authentication module is interested in accepting remote-client %s", name);
+		result = AUTH_REJECT;
+	}
     
-  dict_destroy (results);
-  return result;
+	dict_destroy (results);
+	return result;
 }
 
 void 
 gf_auth_fini (dict_t *auth_modules)
 {
-  int32_t dummy;
+	int32_t dummy;
 
-  dict_foreach (auth_modules, fini, &dummy);
+	dict_foreach (auth_modules, fini, &dummy);
 }

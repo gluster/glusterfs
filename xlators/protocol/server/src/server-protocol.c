@@ -7323,12 +7323,6 @@ get_auth_types (dict_t *this,
 	ret = strcmp (tmp, "auth");
 	if (ret == 0) {
 		tmp = strtok_r (NULL, ".", &saveptr);
-		if (strcmp (tmp, "ip") == 0) {
-			/* TODO: backword compatibility, remove when newer versions are available */
-			tmp = "addr";
-			gf_log ("server", GF_LOG_WARNING, 
-				"assuming 'auth.ip' to be 'auth.addr'");
-		}
 		ret = dict_set_dynptr (auth_dict, tmp, NULL, 0);
 		if (ret < 0) {
 			gf_log ("server", GF_LOG_ERROR,
@@ -7339,6 +7333,45 @@ get_auth_types (dict_t *this,
 	FREE (key_cpy);
 out:
 	return;
+}
+static int
+validate_auth_options (xlator_t *this, dict_t *dict)
+{
+	int ret = -1;
+	int error = 0;
+	xlator_list_t *trav = NULL;
+	data_pair_t *pair = NULL;
+	char *saveptr = NULL, *tmp = NULL;
+	char *key_cpy = NULL;
+	
+	trav = this->children;
+	while (trav) {
+		error = -1;
+		for (pair = dict->members_list; pair; pair = pair->next) {
+			key_cpy = strdup (pair->key);
+			tmp = strtok_r (key_cpy, ".", &saveptr);
+			ret = strcmp (tmp, "auth");
+			if (ret == 0) {
+				tmp = strtok_r (NULL, ".", &saveptr); /* for module type */
+				tmp = strtok_r (NULL, ".", &saveptr); /* for volume name */				
+			}
+
+			if (strcmp (tmp, trav->xlator->name) == 0) {
+				error = 0;
+				break;
+			}
+		}
+		if (-1 == error) {
+			gf_log (this->name, GF_LOG_ERROR, 
+				"volume '%s' defined as subvolume, but no "
+				"authentication defined for the same",
+				trav->xlator->name);
+			break;
+		}
+		trav = trav->next;
+	}
+
+	return error;
 }
 
 
@@ -7352,7 +7385,6 @@ int32_t
 init (xlator_t *this)
 {
 	int32_t ret = -1;
-	int32_t error = 0;
 	transport_t *trans = NULL;
 	server_conf_t *conf = NULL;
 	server_private_t *server_private = NULL;
@@ -7386,11 +7418,19 @@ init (xlator_t *this)
 	GF_VALIDATE_OR_GOTO(this->name, server_private->auth_modules, out);
 
 	dict_foreach (this->options, get_auth_types, server_private->auth_modules);
-	error = gf_auth_init (server_private->auth_modules);
-
-	if (error) {
+	ret = validate_auth_options (this, this->options);
+	if (ret == -1) {
+		/* Logging already done in above function, don't log again */
+		/* gf_log (this->name, GF_LOG_ERROR,
+			"authentication options validation failed, check volume spec file"); 
+		*/
+		goto out;
+	}
+	
+	ret = gf_auth_init (server_private->auth_modules);
+	if (ret) {
 		dict_unref (server_private->auth_modules);
-		return error;
+		goto out;
 	}
 
 	this->private = server_private;
