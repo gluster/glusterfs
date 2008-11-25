@@ -396,7 +396,7 @@ alu_init (xlator_t *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: = %"PRIu64",%"PRIu64"\n", 
+	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: = %"PRIu64",%"PRIu64"", 
 		alu_sched->entry_limit.nr_files, 
 		alu_sched->exit_limit.nr_files);
 
@@ -409,18 +409,16 @@ alu_init (xlator_t *xl)
 	_threshold_fn->sched_value = get_stats_disk_speed;
 	entry_fn = dict_get (xl->options, "alu.disk-speed-usage.entry-threshold");
 	if (entry_fn) {
-	  gf_log ("alu",
-		  GF_LOG_DEBUG,
-		  "alu_init: entry-threshold is given for disk-speed, \
-which is constant");
+	  gf_log ("alu", GF_LOG_DEBUG,
+		  "alu_init: entry-threshold is given for disk-speed, "
+		  "which is constant");
 	}
 	_threshold_fn->entry_value = NULL;
 	exit_fn = dict_get (xl->options, "alu.disk-speed-usage.exit-threshold");
 	if (exit_fn) {
-	  gf_log ("alu",
-		  GF_LOG_DEBUG,
-		  "alu_init: exit-threshold is given for disk-speed, \
-which is constant");
+	  gf_log ("alu", GF_LOG_DEBUG,
+		  "alu_init: exit-threshold is given for disk-speed, "
+		  "which is constant");
 	}
 	_threshold_fn->exit_value = NULL;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -435,8 +433,7 @@ which is constant");
 	}
 	
       } else {
-	gf_log ("alu",
-		GF_LOG_DEBUG,
+	gf_log ("alu", GF_LOG_DEBUG,
 		"alu_init: %s, unknown option provided to scheduler",
 		order_str);
       }
@@ -463,8 +460,7 @@ which is constant");
 	
 	if (gf_string2percent (limits->data, &min_free_disk) != 0)
 	  {
-	    gf_log ("alu", 
-		    GF_LOG_ERROR, 
+	    gf_log ("alu", GF_LOG_ERROR, 
 		    "invalid number format \"%s\" of \"option alu.limits.min-free-disk\"", 
 		    limits->data);
 	    return -1;
@@ -477,8 +473,7 @@ which is constant");
 	  return -1;
 	}
 	alu_sched->spec_limit.total_disk_size = ALU_LIMITS_TOTAL_DISK_SIZE_DEFAULT; /* Its in % */
-	gf_log ("alu",
-		GF_LOG_DEBUG,
+	gf_log ("alu", GF_LOG_DEBUG,
 		"alu.limit.min-disk-free = %"PRId64"", 
 		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
@@ -496,15 +491,13 @@ which is constant");
 	if (gf_string2uint64_base10 (limits->data, 
 				     &alu_sched->spec_limit.nr_files) != 0)
 	  {
-	    gf_log ("alu", 
-		    GF_LOG_ERROR, 
+	    gf_log ("alu", GF_LOG_ERROR, 
 		    "invalid number format \"%s\" of \"option alu.limits.max-open-files\"", 
 		    limits->data);
 	    return -1;
 	  }
 	
-	gf_log ("alu",
-		GF_LOG_DEBUG,
+	gf_log ("alu", GF_LOG_DEBUG,
 		"alu_init: limit.max-open-files = %"PRId64"",
 		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
@@ -517,8 +510,7 @@ which is constant");
       {
 	if (gf_string2time (stats_refresh->data, &alu_sched->refresh_interval) != 0)
 	  {
-	    gf_log ("alu", 
-		    GF_LOG_ERROR, 
+	    gf_log ("alu", GF_LOG_ERROR, 
 		    "invalid number format \"%s\" of \"option refresh-interval\"", 
 		    stats_refresh->data);
 	    return -1;
@@ -537,8 +529,7 @@ which is constant");
 	if (gf_string2uint_base10 (stats_refresh->data, 
 				   &alu_sched->refresh_create_count) != 0)
 	  {
-	    gf_log ("alu", 
-		    GF_LOG_ERROR, 
+	    gf_log ("alu", GF_LOG_ERROR, 
 		    "invalid number format \"%s\" of \"option alu.stat-refresh.num-file-create\"", 
 		    stats_refresh->data);
 	    return -1;

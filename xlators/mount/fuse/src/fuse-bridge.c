@@ -272,17 +272,18 @@ fuse_loc_fill (loc_t *loc,
 
 
 static int
-need_fresh_lookup (int op_ret, inode_t *inode, struct stat *buf)
+need_fresh_lookup (int32_t op_ret, int32_t op_errno, 
+		   inode_t *inode, struct stat *buf)
 {
         if (op_ret == -1) {
-		gf_log ("fuse-bridge", GF_LOG_DEBUG,
-			"need fresh lookup for %"PRId64": op_ret == -1",
-			inode->ino);
+		gf_log ("fuse-bridge", (op_errno == ENOENT)? GF_LOG_DEBUG: GF_LOG_WARNING,
+			"need fresh lookup for %"PRId64": -1 (%s)",
+			inode->ino, strerror (op_errno));
                 return 1;
 	}
 
         if (inode->ino != buf->st_ino) {
-		gf_log ("fuse-bridge", GF_LOG_DEBUG,
+		gf_log ("fuse-bridge", GF_LOG_WARNING,
 			"need fresh lookup: inode->ino (%"PRId64") and "
 			"buf->st_ino (%"PRId64") differ",
 			inode->ino, buf->st_ino);
@@ -290,7 +291,7 @@ need_fresh_lookup (int op_ret, inode_t *inode, struct stat *buf)
         }
 
 	if ((inode->st_mode & S_IFMT) ^ (buf->st_mode & S_IFMT)) {
-		gf_log ("fuse-bridge", GF_LOG_DEBUG,
+		gf_log ("fuse-bridge", GF_LOG_WARNING,
 			"need fresh lookup for %"PRId64": inode->st_mode and "
 			"buf->st_mode differ",
 			inode->ino);
@@ -333,7 +334,7 @@ fuse_entry_cbk (call_frame_t *frame,
         }
 
         if (state->is_revalidate == 1
-	    && need_fresh_lookup (op_ret, state->loc.inode, buf)) {
+	    && need_fresh_lookup (op_ret, op_errno, state->loc.inode, buf)) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                         "%"PRId64": %s() sending revalidate with fresh inode for "
 			"%s => %"PRId64"(loc->ino:%"PRId64") : %s", frame->root->unique,
@@ -2493,7 +2494,7 @@ fuse_thread_proc (void *data)
 						     GF_FUSE_MOUNT_POINT_OPTION_STRING));
 	if (mount_point) {
 		gf_log (this->name, GF_LOG_WARNING, 
-			"unmounting %s\n", mount_point);
+			"unmounting %s", mount_point);
 		dict_del (this->options, GF_FUSE_MOUNT_POINT_OPTION_STRING);
 	}
 	fuse_session_remove_chan (priv->ch);
@@ -2712,7 +2713,7 @@ fini (xlator_t *this_xl)
 						     GF_FUSE_MOUNT_POINT_OPTION_STRING));
 	if (mount_point != NULL) {
 		gf_log (this_xl->name, GF_LOG_WARNING, 
-			"unmounting %s\n", mount_point);
+			"unmounting '%s'", mount_point);
 		
 		dict_del (this_xl->options, GF_FUSE_MOUNT_POINT_OPTION_STRING);
 		fuse_session_exit (priv->se);

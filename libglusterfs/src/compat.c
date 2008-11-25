@@ -336,7 +336,7 @@ asprintf(char **string_ptr, const char *format, ...)
      * Strictly speaking, GNU asprintf doesn't do this,
      * but the caller isn't checking the return value.
      */
-    gf_log ("libglusterfs", GF_LOG_CRITICAL, "failed to allocate memory\n");
+    gf_log ("libglusterfs", GF_LOG_CRITICAL, "failed to allocate memory");
     return -1;
   }
   rv = vsnprintf(str, size, format, arg);

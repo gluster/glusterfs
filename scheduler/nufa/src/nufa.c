@@ -126,7 +126,7 @@ nufa_init (xlator_t *xl)
   if (!local_name) {
     /* Error */
     gf_log ("nufa", GF_LOG_ERROR, 
-	    "No 'local-volume-name' option given in spec file\n");
+	    "No 'local-volume-name' option given in spec file");
     FREE (nufa_buf->array);
     FREE (nufa_buf->local_array);
     FREE (nufa_buf);
@@ -166,7 +166,7 @@ nufa_init (xlator_t *xl)
       if (!trav_xl) {
 	/* entry for 'local-volume-name' is wrong, not present in subvolumes */
 	gf_log ("nufa", GF_LOG_ERROR, 
-		"option 'nufa.local-volume-name' is wrong\n");
+		"option 'nufa.local-volume-name' is wrong");
 	FREE (nufa_buf->array);
 	FREE (nufa_buf->local_array);
 	FREE (nufa_buf);

@@ -254,7 +254,7 @@ _get_specfp (glusterfs_ctx_t *ctx)
 				 "error in getting volume specfile from server %s\n", 
 				 cmd_args->specfile_server);
 			gf_log ("glusterfs", GF_LOG_ERROR, 
-				"error in getting volume specfile from server %s\n", 
+				"error in getting volume specfile from server %s", 
 				cmd_args->specfile_server);
 		}
 		else {
@@ -269,7 +269,7 @@ _get_specfp (glusterfs_ctx_t *ctx)
 	if (ret == -1) {
 		fprintf (stderr, "%s: %s\n", cmd_args->volume_specfile, strerror (errno));
 		gf_log ("glusterfs", GF_LOG_ERROR, 
-			"%s: %s\n", cmd_args->volume_specfile, strerror (errno));
+			"%s: %s", cmd_args->volume_specfile, strerror (errno));
 		return NULL;		
 	}
 	if (!(S_ISREG (statbuf.st_mode) || S_ISLNK (statbuf.st_mode))) {
@@ -282,7 +282,7 @@ _get_specfp (glusterfs_ctx_t *ctx)
 			 cmd_args->volume_specfile, 
 			 strerror (errno));
 		gf_log ("glusterfs", GF_LOG_ERROR, 
-			"volume specfile %s: %s\n", 
+			"volume specfile %s: %s", 
 			cmd_args->volume_specfile, 
 			strerror (errno));
 		return NULL;
@@ -314,7 +314,7 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 				 "error in parsing volume specfile given by server %s\n", 
 				 cmd_args->specfile_server);
 			gf_log ("glusterfs", GF_LOG_ERROR, 
-				"error in parsing volume specfile given by server %s\n", 
+				"error in parsing volume specfile given by server %s", 
 				cmd_args->specfile_server);
 		}
 		else {
@@ -322,7 +322,7 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 				 "error in parsing volume specfile %s\n", 
 				 cmd_args->volume_specfile);
 			gf_log ("glusterfs", GF_LOG_ERROR, 
-				"error in parsing volume specfile %s\n", 
+				"error in parsing volume specfile %s", 
 				cmd_args->volume_specfile);
 		}
 		return NULL;
@@ -344,7 +344,7 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 					 "volume %s not found in volume specfile given by server %s\n", 
 					 cmd_args->volume_name, cmd_args->specfile_server);
 				gf_log ("glusterfs", GF_LOG_ERROR, 
-					"volume %s not found in volume specfile given by server %s\n", 
+					"volume %s not found in volume specfile given by server %s", 
 					cmd_args->volume_name, cmd_args->specfile_server);
 			}
 			else {
@@ -352,7 +352,7 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 					 "volume %s not found in volume specfile %s\n", 
 					 cmd_args->volume_name, cmd_args->volume_specfile);
 				gf_log ("glusterfs", GF_LOG_ERROR, 
-					"volume %s not found in volume specfile %s\n", 
+					"volume %s not found in volume specfile %s", 
 					cmd_args->volume_name, cmd_args->volume_specfile);
 			}
 			return NULL;
@@ -808,7 +808,7 @@ main (int argc, char *argv[])
 	if ((graph = _parse_specfp (ctx, specfp)) == NULL) {
 		/* _parse_specfp() prints necessary error message */
 		fprintf (stderr, "exiting\n");
-		gf_log ("glusterfs", GF_LOG_ERROR, "exiting\n");
+		gf_log ("glusterfs", GF_LOG_ERROR, "exiting");
 		return -1;
 	}
 	ctx->specfp = specfp;
@@ -840,7 +840,7 @@ main (int argc, char *argv[])
 			if ((graph = _add_fuse_mount (graph)) == NULL) {
 				/* _add_fuse_mount() prints necessary error message */
 				fprintf (stderr, "exiting\n");
-				gf_log ("glusterfs", GF_LOG_ERROR, "exiting\n");
+				gf_log ("glusterfs", GF_LOG_ERROR, "exiting");
 				return -1;
 			}
 		}
@@ -896,19 +896,19 @@ main (int argc, char *argv[])
 	}
 	
 	gf_log ("glusterfs", GF_LOG_DEBUG, 
-		"running in pid %d\n", getpid ());
+		"running in pid %d", getpid ());
 	
 	gf_timer_registry_init (ctx);
 	
 	if (graph->init (graph) != 0) {
-		gf_log ("glusterfs", GF_LOG_ERROR, "translator initialization failed.  exiting\n");
+		gf_log ("glusterfs", GF_LOG_ERROR, "translator initialization failed.  exiting");
 		/* do cleanup and exit ?! */
 		return -1;
 	}
 	graph->ready = 1;
 	ctx->graph = graph;
 	if (_xlator_graph_init (graph) == -1) {
-		gf_log ("glusterfs", GF_LOG_ERROR, "translator initialization failed.  exiting\n");
+		gf_log ("glusterfs", GF_LOG_ERROR, "translator initialization failed.  exiting");
 		graph->fini (graph);
 		/* do cleanup and exit ?! */
 		return -1;

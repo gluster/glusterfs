@@ -6658,8 +6658,11 @@ mop_setvolume (call_frame_t *frame,
 	req_dictlen = ntoh32 (req->dict_len);
 	ret = dict_unserialize (req->buf, req_dictlen, &params);
 	if (ret < 0) {
-		dict_set_str (reply, "ERROR",
-			      "Internal error: failed to unserialize request dictionary");
+		ret = dict_set_str (reply, "ERROR",
+				    "Internal error: failed to unserialize request dictionary");
+		if (ret < 0)
+			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+
 		op_ret = -1;
 		op_errno = EINVAL;
 		goto fail;
@@ -6671,8 +6674,11 @@ mop_setvolume (call_frame_t *frame,
 
 	ret = dict_get_str (params, "version", &version);
 	if (ret < 0) {
-		dict_set_str (reply, "ERROR",
-			      "No version number specified");
+		ret = dict_set_str (reply, "ERROR",
+				    "No version number specified");
+		if (ret < 0)
+			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+
 		op_ret = -1;
 		op_errno = EINVAL;
 		goto fail;
@@ -6684,7 +6690,10 @@ mop_setvolume (call_frame_t *frame,
 		asprintf (&msg,
 			  "Version mismatch: client(%s) Vs server (%s)",
 			  version, PACKAGE_VERSION);
-		dict_set_dynstr (reply, "ERROR", msg);
+		ret = dict_set_dynstr (reply, "ERROR", msg);
+		if (ret < 0)
+			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+
 		op_ret = -1;
 		op_errno = EINVAL;
 		goto fail;
@@ -6694,8 +6703,11 @@ mop_setvolume (call_frame_t *frame,
 	ret = dict_get_str (params,
 			    "remote-subvolume", &name);
 	if (ret < 0) {
-		dict_set_str (reply, "ERROR",
-			      "No remote-subvolume option specified");
+		ret = dict_set_str (reply, "ERROR",
+				    "No remote-subvolume option specified");
+		if (ret < 0)
+			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+
 		op_ret = -1;
 		op_errno = EINVAL;
 		goto fail;
@@ -6705,42 +6717,54 @@ mop_setvolume (call_frame_t *frame,
 	if (xl == NULL) {
 		char *msg = NULL;
 		asprintf (&msg, "remote-subvolume \"%s\" is not found", name);
-		dict_set_dynstr (reply, "ERROR", msg);
+		ret = dict_set_dynstr (reply, "ERROR", msg);
+		if (ret < 0)
+			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+
 		op_ret = -1;
 		op_errno = ENOENT;
 		goto fail;
 	}
 	trans = TRANSPORT_FROM_FRAME(frame);
 	peerinfo = &trans->peerinfo;
-	dict_set_static_ptr (params, "peer-info", peerinfo);
+	ret = dict_set_static_ptr (params, "peer-info", peerinfo);
+	if (ret < 0)
+		gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set peer-info");
 
 	if (server_private->auth_modules == NULL) {
-		gf_log (trans->xl->name,
-			GF_LOG_ERROR,
+		gf_log (trans->xl->name, GF_LOG_ERROR,
 			"Authentication module not initialized");
 	}
 
 	ret = gf_authenticate (params, config_params, server_private->auth_modules);
 	if (ret == AUTH_ACCEPT) {
-		gf_log (trans->xl->name,  GF_LOG_DEBUG,
+		gf_log (trans->xl->name, GF_LOG_DEBUG,
 			"accepted client from %s",
 			peerinfo->identifier);
 		op_ret = 0;
 		cprivate->bound_xl = xl;
-		dict_set_str (reply, "ERROR", "Success");
+		ret = dict_set_str (reply, "ERROR", "Success");
+		if (ret < 0)
+			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
 	} else {
 		gf_log (trans->xl->name, GF_LOG_ERROR,
 			"Cannot authenticate client from %s",
 			peerinfo->identifier);
 		op_ret = -1;
 		op_errno = EACCES;
-		dict_set_str (reply, "ERROR", "Authentication failed");
+		ret = dict_set_str (reply, "ERROR", "Authentication failed");
+		if (ret < 0)
+			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+
 		goto fail;
 	}
 
 	if (cprivate->bound_xl == NULL) {
-		dict_set_str (reply, "ERROR",
-			      "Check volume spec file and handshake options");
+		ret = dict_set_str (reply, "ERROR",
+				    "Check volume spec file and handshake options");
+		if (ret < 0)
+			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+
 		op_ret = -1;
 		op_errno = EACCES;
 		goto fail;
@@ -7323,6 +7347,12 @@ get_auth_types (dict_t *this,
 	ret = strcmp (tmp, "auth");
 	if (ret == 0) {
 		tmp = strtok_r (NULL, ".", &saveptr);
+		if (strcmp (tmp, "ip") == 0) {
+			/* TODO: backword compatibility, remove when newer versions are available */
+			tmp = "addr";
+			gf_log ("server", GF_LOG_WARNING, 
+				"assuming 'auth.ip' to be 'auth.addr'");
+		}
 		ret = dict_set_dynptr (auth_dict, tmp, NULL, 0);
 		if (ret < 0) {
 			gf_log ("server", GF_LOG_ERROR,

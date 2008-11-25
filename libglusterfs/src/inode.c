@@ -711,11 +711,10 @@ __inode_unlink (inode_t *inode,
                 const char *name)
 {
         dentry_t *dentry = NULL;
-	dentry_t *unlink_dentry = NULL;
 
         dentry = __dentry_search_for_inode (inode, parent->ino, name);
 
-	__dentry_unset (unlink_dentry);
+	__dentry_unset (dentry);
 }
 
 			      

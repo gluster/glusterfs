@@ -555,6 +555,9 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	if (ret == 0) {
 		/* if ctx is set it means self-heal failed */
 
+		gf_log (this->name, GF_LOG_WARNING, 
+			//"returning EIO as its 'govinda gooovindaaa!!' case");
+			"returning EIO, file has to be manually corrected in backend");
 		op_errno = EIO;
 		goto out;
 	}
