@@ -514,7 +514,7 @@ afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
 		op_ret, local->loc.path, child_index, sh->offset);
 
 	if (op_ret <= 0) {
-		afr_sh_data_finish (frame, this);
+		afr_sh_data_trim_sinks (frame, this);
 		return 0;
 	}
 
@@ -553,6 +553,10 @@ afr_sh_data_read_write (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 	local = frame->local;
 	sh = &local->self_heal;
+
+	gf_log (this->name, GF_LOG_WARNING,
+		"sourcing file %s from %s to other sinks",
+		local->loc.path, priv->children[sh->source]->name);
 
 	STACK_WIND_COOKIE (frame, afr_sh_data_read_cbk,
 			   (void *) (long) sh->source,

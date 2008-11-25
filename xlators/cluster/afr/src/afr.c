@@ -268,6 +268,9 @@ afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 			local->op_ret   = -1;
 			local->op_errno = -ret;
 		}
+	} else {
+		dict_del (local->cont.lookup.inode->ctx,
+			  this->name);
 	}
 
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
@@ -287,9 +290,10 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 	struct stat *   lookup_buf = NULL;
-	int call_count       = -1;
-	int child_index = (long) cookie;
+	int             call_count = -1;
+	int             child_index = -1;
 
+	child_index = (long) cookie;
 	priv = this->private;
 
 	LOCK (&frame->lock);
@@ -380,6 +384,12 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			local->need_metadata_self_heal = 1;
 			local->need_data_self_heal = 1;
 			local->need_entry_self_heal = 1;
+		}
+
+		if (local->success_count) {
+			if (dict_get (local->cont.lookup.inode->ctx,
+				      this->name))
+				local->need_data_self_heal = 1;
 		}
 
 		if (local->need_metadata_self_heal

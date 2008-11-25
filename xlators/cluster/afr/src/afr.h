@@ -475,6 +475,7 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 	local->transaction.erase_pending = 1;
 
 	local->op_ret = -1;
+	local->op_errno = EUCLEAN;
 
 	return 0;
 }
