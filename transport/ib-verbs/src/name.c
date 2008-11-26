@@ -15,6 +15,7 @@
 #endif
 
 #include "transport.h"
+#include "ib-verbs.h"
 
 int32_t
 gf_resolve_ip6 (const char *hostname, 
@@ -180,10 +181,10 @@ af_inet_client_get_remote_sockaddr (transport_t *this,
   if (remote_port_data == NULL)
     {
       gf_log (this->xl->name, GF_LOG_DEBUG,
-	      "option remote-port missing in volume %s. Defaulting to 6996",
-	      this->xl->name);
+	      "option remote-port missing in volume %s. Defaulting to %d",
+	      this->xl->name, GF_DEFAULT_IBVERBS_LISTEN_PORT);
 
-      remote_port = GF_DEFAULT_LISTEN_PORT;
+      remote_port = GF_DEFAULT_IBVERBS_LISTEN_PORT;
     }
   else
     {
@@ -327,7 +328,7 @@ af_inet_server_get_local_sockaddr (transport_t *this,
     }
 
   if (listen_port == (uint16_t) -1)
-    listen_port = GF_DEFAULT_LISTEN_PORT;
+    listen_port = GF_DEFAULT_IBVERBS_LISTEN_PORT;
 
 
   if (listen_host_data)

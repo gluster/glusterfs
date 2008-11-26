@@ -103,8 +103,8 @@ fetch_init (xlator_t *xl)
 static xlator_t *
 get_shrub (glusterfs_ctx_t *ctx,
 	   const char *remote_host,
-	   const char *remote_port,
-	   const char *transport)
+	   const char *transport,
+	   uint32_t remote_port)
 {
 	xlator_t *top = NULL;
 	xlator_t *trans = NULL;
@@ -148,7 +148,7 @@ get_shrub (glusterfs_ctx_t *ctx,
 
 	if (remote_port)
 		dict_set (trans->options, "remote-port",
-			  str_to_data ((char *)remote_port));
+			  data_from_uint32 (remote_port));
 
 	/* 'option remote-subvolume <x>' is needed here even though its not used */
 	dict_set (trans->options, "remote-subvolume", str_to_data ("brick"));
@@ -178,14 +178,14 @@ get_shrub (glusterfs_ctx_t *ctx,
 
 static int 
 _fetch (glusterfs_ctx_t *ctx,
-       FILE *spec_fp,
-       const char *remote_host,
-       const char *remote_port,
-       const char *transport)
+	FILE *spec_fp,
+	const char *remote_host,
+	const char *transport,
+	uint32_t remote_port)
 {
 	xlator_t *this = NULL;
 	
-	this = get_shrub (ctx, remote_host, remote_port, transport);
+	this = get_shrub (ctx, remote_host, transport, remote_port);
 	if (this == NULL)
 		return -1;
 	
@@ -201,8 +201,8 @@ static int
 _fork_and_fetch (glusterfs_ctx_t *ctx,
 		 FILE *spec_fp,
 		 const char *remote_host,
-		 const char *remote_port,
-		 const char *transport)
+		 const char *transport,
+		 uint32_t remote_port)
 {
 	int ret;
 	
@@ -213,7 +213,7 @@ _fork_and_fetch (glusterfs_ctx_t *ctx,
 		break;
 	case 0:
 		/* child */
-		ret = _fetch (ctx, spec_fp, remote_host, remote_port, transport);
+		ret = _fetch (ctx, spec_fp, remote_host, transport, remote_port);
 		if (ret == -1)
 			exit (ret);
 	default:
@@ -227,9 +227,8 @@ _fork_and_fetch (glusterfs_ctx_t *ctx,
 FILE *
 fetch_spec (glusterfs_ctx_t *ctx)
 {
-	const char *remote_host = NULL;
-	char remote_port[64];
-	const char *transport = NULL;
+	char *remote_host = NULL;
+	char *transport = NULL;
 	FILE *spec_fp;
 	int32_t ret;
 	
@@ -241,10 +240,12 @@ fetch_spec (glusterfs_ctx_t *ctx)
 	}
 	
 	remote_host = ctx->cmd_args.specfile_server;
-	snprintf (remote_port, 64, "%u", ctx->cmd_args.specfile_server_port);
 	transport = ctx->cmd_args.specfile_server_transport;
-	
-	ret = _fork_and_fetch (ctx, spec_fp, remote_host, remote_port, transport);
+	if (!transport)
+		transport = "socket";
+
+	ret = _fork_and_fetch (ctx, spec_fp, remote_host, transport,
+			       ctx->cmd_args.specfile_server_port);
 	
 	if (!ret) {
 		fseek (spec_fp, 0, SEEK_SET);

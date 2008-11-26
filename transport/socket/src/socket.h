@@ -36,6 +36,7 @@
 #define MAX_IOVEC 16
 #endif /* MAX_IOVEC */
 
+#define GF_DEFAULT_SOCKET_LISTEN_PORT 6996
 
 typedef enum {
   SOCKET_PROTO_STATE_NADA = 0,

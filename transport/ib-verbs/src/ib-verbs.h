@@ -38,7 +38,7 @@
 #include <arpa/inet.h>
 #include <infiniband/verbs.h>
 
-#define CLIENT_PORT_CIELING 1023
+#define GF_DEFAULT_IBVERBS_LISTEN_PORT 6997
 
 /* options per transport end point */
 struct _ib_verbs_options {
@@ -232,18 +232,17 @@ typedef struct _ib_verbs_private ib_verbs_private_t;
 //			    int32_t len);
 
 /* Device Init */
-static int32_t ib_verbs_init (transport_t *this);
+//int32_t ib_verbs_init (transport_t *this);
 
 //int32_t ib_verbs_connect (transport_t *priv);
 
 /* Create QP */
 //int32_t ib_verbs_create_qp (transport_t *this);
 
-static int32_t __ib_verbs_teardown (transport_t *this);
-static int32_t ib_verbs_disconnect (transport_t *this);
+//int32_t __ib_verbs_teardown (transport_t *this);
+//int32_t ib_verbs_disconnect (transport_t *this);
 
-static int 
-ib_verbs_event_handler (int fd, int idx, void *data,
-			int poll_in, int poll_out, int poll_err);
+//int ib_verbs_event_handler (int fd, int idx, void *data,
+//			int poll_in, int poll_out, int poll_err);
 /* int32_t ib_verbs_tcp_notify (transport_t *this, int32_t event, void *data); */
 #endif /* _XPORT_IB_VERBS_H */

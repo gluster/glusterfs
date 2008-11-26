@@ -209,7 +209,7 @@ struct _cmd_args {
 	gf_loglevel_t    log_level;
 	char            *log_file;
 	/* advanced options */
-	unsigned int     specfile_server_port;
+	uint32_t         specfile_server_port;
 	char            *specfile_server_transport;
 	char            *pid_file;
 	int              no_daemon_mode;

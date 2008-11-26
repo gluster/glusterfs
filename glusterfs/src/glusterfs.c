@@ -470,7 +470,7 @@ gf_find_overriding_option (char *vol, char *key)
 error_t 
 parse_opts (int key, char *arg, struct argp_state *state) {
 	cmd_args_t *cmd_args = NULL;
-	unsigned int n = 0;
+	uint32_t n = 0;
 	
 	cmd_args = state->input;
 	
@@ -712,10 +712,6 @@ main (int argc, char *argv[])
 		cmd_args->volume_specfile = strdup (DEFAULT_VOLUME_SPECFILE);
 	if (cmd_args->log_file == NULL)
 		asprintf (&cmd_args->log_file, DEFAULT_LOG_FILE_DIRECTORY "/%s.log", basename (base_exec_name));
-	if (cmd_args->specfile_server_port == 0)
-		cmd_args->specfile_server_port = DEFAULT_SPECFILE_SERVER_PORT;
-	if (cmd_args->specfile_server_transport == NULL)
-		cmd_args->specfile_server_transport = strdup (DEFAULT_SPECFILE_SERVER_TRANSPORT);
 	
 	free (base_exec_name);
 	ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);

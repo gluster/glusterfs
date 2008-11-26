@@ -27,8 +27,6 @@
 
 #include <inttypes.h>
 
-#define GF_DEFAULT_LISTEN_PORT 6996
-
 struct transport_ops;
 typedef struct transport transport_t;
 
