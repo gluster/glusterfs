@@ -23,15 +23,18 @@
 posix_lock_t *
 new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid);
 
+pl_inode_t *
+pl_inode_get (xlator_t *this, inode_t *inode);
+
 posix_lock_t *
 pl_getlk (pl_inode_t *inode, posix_lock_t *lock, gf_lk_domain_t domain);
 
 int
-pl_setlk (pl_inode_t *inode, posix_lock_t *lock, int can_block, 
-	  gf_lk_domain_t domain);
+pl_setlk (xlator_t *this, pl_inode_t *inode, posix_lock_t *lock,
+	  int can_block, gf_lk_domain_t domain);
 
 void
-grant_blocked_locks (pl_inode_t *inode, gf_lk_domain_t domain);
+grant_blocked_locks (xlator_t *this, pl_inode_t *inode, gf_lk_domain_t domain);
 
 void
 posix_lock_to_flock (posix_lock_t *lock, struct flock *flock);
@@ -42,9 +45,8 @@ locks_overlap (posix_lock_t *l1, posix_lock_t *l2);
 int
 same_owner (posix_lock_t *l1, posix_lock_t *l2);
 
-posix_lock_t * 
-delete_lock (pl_inode_t *, posix_lock_t *, gf_lk_domain_t);
+void __delete_lock (pl_inode_t *, posix_lock_t *);
 
-void destroy_lock (posix_lock_t *);
+void __destroy_lock (posix_lock_t *);
 
 #endif /* __COMMON_H__ */

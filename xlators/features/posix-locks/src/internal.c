@@ -34,54 +34,17 @@
 #include "common.h"
 
 
-static int
-set_new_pinode (dict_t *ctx, xlator_t *this, void **pinode_ret)
-{
-	pl_inode_t * pinode = NULL;
-	int ret = -1;
-	int op_ret = -1;
-	int op_errno = 0;
-
-	pinode = calloc (sizeof (pl_inode_t), 1);
-	if (!pinode) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
-		op_errno = ENOMEM;
-		goto out;
-	}
-
-	*pinode_ret = pinode;
-
-	pthread_mutex_init (&pinode->entrylk_mutex, NULL);
-	INIT_LIST_HEAD (&pinode->entrylk_locks);
-
-	ret = dict_set_ptr (ctx, this->name, pinode);
-	if (ret < 0) {
-		op_errno = -ret;
-		gf_log (this->name, GF_LOG_ERROR,
-			"dict_set failed: %s", strerror (op_errno));
-		goto out;
-	}
-
-	op_ret = 0;
-out:
-	return op_ret;
-}
-
 
 static int
 delete_locks_of_transport (pl_inode_t *pinode, transport_t *trans)
 {
 	posix_lock_t *tmp = NULL;
-	posix_lock_t *l = LOCKS_FOR_DOMAIN(pinode, GF_LOCK_INTERNAL);
+	posix_lock_t *l = NULL;
 
-	while (l) {
-		tmp = l;
-		l = l->next;
-
-		if (tmp->transport == trans) {
-			delete_lock (pinode, tmp, GF_LOCK_INTERNAL);
-			destroy_lock (tmp);
+	list_for_each_entry_safe (l, tmp, &pinode->dir_list, list) {
+		if (l->transport == trans) {
+			__delete_lock (pinode, tmp);
+			__destroy_lock (tmp);
 		}
 	}
 
@@ -97,21 +60,19 @@ delete_locks_of_transport (pl_inode_t *pinode, transport_t *trans)
  * from those held by applications. This fop is for the use of AFR.
  */
 
-int32_t 
+int
 pl_inodelk (call_frame_t *frame, xlator_t *this,
 	    loc_t *loc, int32_t cmd, struct flock *flock)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 	int     ret      = -1;
-
+	int     can_block = 0;
 	posix_locks_private_t * priv       = NULL;
 	transport_t *           transport  = NULL;
 	pid_t                   client_pid = -1;
 	pl_inode_t *            pinode     = NULL;
 	posix_lock_t *          reqlock    = NULL;
-
-	dict_t *                ctx        = NULL;
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (loc, out);
@@ -119,7 +80,7 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 	
 	if ((flock->l_start < 0) || (flock->l_len < 0)) {
 		op_errno = EINVAL;
-		goto out;
+		goto unwind;
 	}
 
 	transport  = frame->root->trans;
@@ -129,106 +90,97 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 
 	VALIDATE_OR_GOTO (priv, out);
 
-	if (loc && loc->inode && loc->inode->ctx) {
-		ctx = loc->inode->ctx;
-	} else {
-		gf_log (this->name, GF_LOG_CRITICAL,
-			"loc->inode->ctx not found!");
-		op_errno = EINVAL;
-		goto out;
+	pinode = pl_inode_get (this, loc->inode);
+	if (!pinode) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		op_errno = ENOMEM;
+		goto unwind;
 	}
 
-	pthread_mutex_lock (&priv->mutex);
-	{
-		ret = dict_get_ptr (ctx, this->name, (void **) &pinode);
-		if (ret < 0) {
-			ret = set_new_pinode (ctx, this, (void **) &pinode);
-			if (ret < 0) {
-				op_errno = -ret;
-				goto unlock;
-			}
+	if (client_pid == 0) {
+		/* 
+		   special case: this means release all locks 
+		   from this transport
+		*/
+		gf_log (this->name, GF_LOG_DEBUG,
+			"releasing all locks from transport %p", transport);
+
+		delete_locks_of_transport (pinode, transport);
+		goto unwind;
+	}
+
+	reqlock = new_posix_lock (flock, transport, client_pid);
+	if (!reqlock) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		op_ret = -1;
+		op_errno = ENOMEM;
+		goto unwind;
+	}
+
+	switch (cmd) {
+	case F_SETLKW:
+		can_block = 1;
+		reqlock->frame = frame;
+		reqlock->this  = this;
+
+		/* fall through */
+
+	case F_SETLK:
+		memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
+		ret = pl_setlk (this, pinode, reqlock,
+				can_block, GF_LOCK_INTERNAL);
+
+		if (ret == -1) {
+			if (can_block)
+				goto out;
+
+			gf_log (this->name, GF_LOG_DEBUG, "returning EAGAIN");
+			op_errno = EAGAIN;
+			__destroy_lock (reqlock);
+			goto unwind;
 		}
+		break;
 
-		if (client_pid == 0) {
-			/* 
-			   special case: this means release all locks 
-			   from this transport
-			*/
-
-			gf_log (this->name, GF_LOG_DEBUG,
-				"releasing all locks from transport %p", transport);
-
-			delete_locks_of_transport (pinode, transport);
-			goto unlock;
-		}
-
-		reqlock = new_posix_lock (flock, transport, client_pid);
-		switch (cmd) {
-		case F_SETLK:
-			ret = pl_setlk (pinode, reqlock, 0, GF_LOCK_INTERNAL);
-
-			if (ret == -1) {
-				op_errno = EAGAIN;
-				goto unlock;
-			}
-			break;
-		case F_SETLKW:
-			reqlock->frame = frame;
-			reqlock->this  = this;
-
-			memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
-
-			ret = pl_setlk (pinode, reqlock, 1, GF_LOCK_INTERNAL);
-			if (ret == -1) {
-				pthread_mutex_unlock (&priv->mutex);
-				return 0; /* lock has been blocked */
-			}
-
-			break;
-		default:
-			op_errno = ENOTSUP;
-			gf_log (this->name, GF_LOG_ERROR,
-				"lock command F_GETLK not supported for GF_FILE_LK (cmd=%d)", 
-				cmd);
-			goto unlock;
-		}
+	default:
+		op_errno = ENOTSUP;
+		gf_log (this->name, GF_LOG_ERROR,
+			"lock command F_GETLK not supported for GF_FILE_LK (cmd=%d)", 
+			cmd);
+			goto unwind;
 	}
 
 	op_ret = 0;
-unlock:
-	pthread_mutex_unlock (&priv->mutex);
-out:
-	if (op_ret == -1) {
 
-	}
-	
+unwind:	
 	STACK_UNWIND (frame, op_ret, op_errno);
+out:
 	return 0;
 }
 
 
-int32_t 
+int
 pl_finodelk (call_frame_t *frame, xlator_t *this,
 	     fd_t *fd, int32_t cmd, struct flock *flock)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 	int     ret      = -1;
-
+	int     can_block = 0;
 	posix_locks_private_t * priv       = NULL;
 	transport_t *           transport  = NULL;
 	pid_t                   client_pid = -1;
 	pl_inode_t *            pinode     = NULL;
 	posix_lock_t *          reqlock    = NULL;
 
-	dict_t *                ctx        = NULL;
-
 	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (fd, out);
 	VALIDATE_OR_GOTO (flock, out);
 	
 	if ((flock->l_start < 0) || (flock->l_len < 0)) {
 		op_errno = EINVAL;
-		goto out;
+		goto unwind;
 	}
 
 	transport  = frame->root->trans;
@@ -238,83 +190,73 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 
 	VALIDATE_OR_GOTO (priv, out);
 
-	if (fd && fd->inode && fd->inode->ctx) {
-		ctx = fd->inode->ctx;
-	}
-	else {
-		gf_log (this->name, GF_LOG_CRITICAL,
-			"fd->inode->ctx not found!");
-		op_errno = EINVAL;
-		goto out;
+	pinode = pl_inode_get (this, fd->inode);
+	if (!pinode) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		op_errno = ENOMEM;
+		goto unwind;
 	}
 
-	pthread_mutex_lock (&priv->mutex);
-	{
-		ret = dict_get_ptr (ctx, this->name, (void **) &pinode);
-		if (ret < 0) {
-			ret = set_new_pinode (ctx, this, (void **) &pinode);
-			if (ret < 0) {
-				op_errno = -ret;
-				goto unlock;
-			}
+	if (client_pid == 0) {
+		/* 
+		   special case: this means release all locks 
+		   from this transport
+		*/
+		gf_log (this->name, GF_LOG_DEBUG,
+			"releasing all locks from transport %p", transport);
+
+		delete_locks_of_transport (pinode, transport);
+		goto unwind;
+	}
+
+	reqlock = new_posix_lock (flock, transport, client_pid);
+	if (!reqlock) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		op_ret = -1;
+		op_errno = ENOMEM;
+		goto unwind;
+	}
+
+	switch (cmd) {
+	case F_SETLKW:
+		can_block = 1;
+		reqlock->frame = frame;
+		reqlock->this  = this;
+		reqlock->fd    = fd;
+
+		/* fall through */
+
+	case F_SETLK:
+		memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
+		ret = pl_setlk (this, pinode, reqlock,
+				can_block, GF_LOCK_INTERNAL);
+
+		if (ret == -1) {
+			if (can_block)
+				goto out;
+
+			gf_log (this->name, GF_LOG_DEBUG, "returning EAGAIN");
+			op_errno = EAGAIN;
+			__destroy_lock (reqlock);
+			goto unwind;
 		}
+		break;
 
-
-		if (client_pid == 0) {
-			/* 
-			   special case: this means release all locks 
-			   from this transport
-			*/
-
-			gf_log (this->name, GF_LOG_DEBUG,
-				"releasing all locks from transport %p", transport);
-
-			delete_locks_of_transport (pinode, transport);
-			goto unlock;
-		}
-
-		reqlock = new_posix_lock (flock, transport, client_pid);
-		switch (cmd) {
-		case F_SETLK:
-			ret = pl_setlk (pinode, reqlock, 0, GF_LOCK_INTERNAL);
-
-			if (ret == -1) {
-				op_errno = EAGAIN;
-				goto unlock;
-			}
-			break;
-		case F_SETLKW:
-			reqlock->frame = frame;
-			reqlock->this  = this;
-			reqlock->fd    = fd;
-
-			memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
-
-			ret = pl_setlk (pinode, reqlock, 1, GF_LOCK_INTERNAL);
-			if (ret == -1) {
-				pthread_mutex_unlock (&priv->mutex);
-				return 0; /* lock has been blocked */
-			}
-
-			break;
-		default:
-			op_errno = ENOTSUP;
-			gf_log (this->name, GF_LOG_ERROR,
-				"lock command F_GETLK not supported for GF_FILE_LK (cmd=%d)", 
-				cmd);
-			goto unlock;
-		}
+	default:
+		op_errno = ENOTSUP;
+		gf_log (this->name, GF_LOG_ERROR,
+			"lock command F_GETLK not supported for GF_FILE_LK (cmd=%d)", 
+			cmd);
+			goto unwind;
 	}
 
 	op_ret = 0;
-unlock:
-	pthread_mutex_unlock (&priv->mutex);
-out:
-	if (op_ret == -1) {
 
-	}
-	
+unwind:	
 	STACK_UNWIND (frame, op_ret, op_errno);
+out:
 	return 0;
 }
 
@@ -368,13 +310,14 @@ names_equal (const char *n1, const char *n2)
  */
 
 static pl_entry_lock_t *
-lock_grantable (pl_inode_t *pinode, const char *basename, entrylk_type type)
+__lock_grantable (pl_inode_t *pinode, const char *basename, entrylk_type type)
 {
-	pl_entry_lock_t *lock;
-	if (list_empty (&pinode->entrylk_locks))
+	pl_entry_lock_t *lock = NULL;
+
+	if (list_empty (&pinode->dir_list))
 		return NULL;
 
-	list_for_each_entry (lock, &pinode->entrylk_locks, inode_list) {
+	list_for_each_entry (lock, &pinode->dir_list, inode_list) {
 		if (names_conflict (lock->basename, basename) &&
 		    types_conflict (lock->type, type))
 			return lock;
@@ -394,16 +337,16 @@ lock_grantable (pl_inode_t *pinode, const char *basename, entrylk_type type)
  */
 
 static pl_entry_lock_t * 
-find_most_matching_lock (pl_inode_t *pinode, const char *basename)
+__find_most_matching_lock (pl_inode_t *pinode, const char *basename)
 {
 	pl_entry_lock_t *lock;
 	pl_entry_lock_t *all = NULL;
 	pl_entry_lock_t *exact = NULL;
 
-	if (list_empty (&pinode->entrylk_locks)) 
+	if (list_empty (&pinode->dir_list)) 
 		return NULL;
 
-	list_for_each_entry (lock, &pinode->entrylk_locks, inode_list) {
+	list_for_each_entry (lock, &pinode->dir_list, inode_list) {
 		if (all_names (lock->basename))
 			all = lock;
 		else if (names_equal (lock->basename, basename))
@@ -458,17 +401,19 @@ out:
  */
 
 int
-lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
-	   call_frame_t *frame, xlator_t *this)
+__lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
+	     call_frame_t *frame, xlator_t *this)
 {
 	pl_entry_lock_t *lock    = NULL;
 	pl_entry_lock_t *conf    = NULL;
 
-	transport_t *trans = frame->root->trans;
+	transport_t *trans = NULL;
 
 	int ret = -EINVAL;
 
-	conf = lock_grantable (pinode, basename, type);
+	trans = frame->root->trans;
+
+	conf = __lock_grantable (pinode, basename, type);
 	if (conf) {
 		lock = new_entrylk_lock (pinode, basename, type, trans);
 
@@ -493,7 +438,7 @@ lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 		
 	switch (type) {
 	case ENTRYLK_RDLCK:
-		lock = find_most_matching_lock (pinode, basename);
+		lock = __find_most_matching_lock (pinode, basename);
 
 		if (lock && names_equal (lock->basename, basename)) {
 			lock->read_count++;
@@ -505,7 +450,7 @@ lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 				goto out;
 			}
 
-			list_add (&lock->inode_list, &pinode->entrylk_locks);
+			list_add (&lock->inode_list, &pinode->dir_list);
 		}
 		break;
 
@@ -517,7 +462,7 @@ lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 			goto out;
 		}
 
-		list_add (&lock->inode_list, &pinode->entrylk_locks);
+		list_add (&lock->inode_list, &pinode->dir_list);
 		break;
 	}
 
@@ -535,7 +480,7 @@ out:
  */
 
 int
-unlock_name (pl_inode_t *pinode, const char *basename, entrylk_type type)
+__unlock_name (pl_inode_t *pinode, const char *basename, entrylk_type type)
 {
 	pl_entry_lock_t *lock = NULL;
 	pl_entry_lock_t *bl   = NULL;
@@ -544,7 +489,7 @@ unlock_name (pl_inode_t *pinode, const char *basename, entrylk_type type)
 	int ret             = -EINVAL;
 	int bl_ret          = -EAGAIN;
 
-	lock = find_most_matching_lock (pinode, basename);
+	lock = __find_most_matching_lock (pinode, basename);
 	
 	if (!lock) {
 		gf_log ("locks", GF_LOG_DEBUG,
@@ -574,8 +519,9 @@ unlock_name (pl_inode_t *pinode, const char *basename, entrylk_type type)
 					"trying to unblock: {pinode=%p, basename=%s}",
 					pinode, bl->basename);
 					
-				bl_ret = lock_name (pinode, bl->basename, bl->type, 
-						    bl->frame, bl->this);
+				bl_ret = __lock_name (pinode, bl->basename,
+						      bl->type, 
+						      bl->frame, bl->this);
 
 				if (bl_ret == 0) {
 					STACK_UNWIND (bl->frame, 0, 0);
@@ -617,14 +563,14 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode, transport
 	pl_entry_lock_t *lock;
 	pl_entry_lock_t *tmp;
 
-	pthread_mutex_lock (&pinode->entrylk_mutex);
+	pthread_mutex_lock (&pinode->mutex);
 
-	if (list_empty (&pinode->entrylk_locks)) {
-		pthread_mutex_unlock (&pinode->entrylk_mutex);
+	if (list_empty (&pinode->dir_list)) {
+		pthread_mutex_unlock (&pinode->mutex);
 		return 0;
 	}
 
-	list_for_each_entry_safe (lock, tmp, &pinode->entrylk_locks, inode_list) {
+	list_for_each_entry_safe (lock, tmp, &pinode->dir_list, inode_list) {
 		if (lock->trans == trans) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"forcing unlock of %s",
@@ -634,7 +580,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode, transport
 		}
 	}
 
-	pthread_mutex_unlock (&pinode->entrylk_mutex);
+	pthread_mutex_unlock (&pinode->mutex);
 
 	return 0;
 }
@@ -646,7 +592,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode, transport
  * Locking on names (directory entries)
  */
 
-int32_t 
+int
 pl_entrylk (call_frame_t *frame, xlator_t *this,
 	    loc_t *loc, const char *basename, 
 	    entrylk_cmd cmd, entrylk_type type)
@@ -660,28 +606,13 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 	pl_inode_t *       pinode = NULL; 
 	int                ret    = -1;
 
-	LOCK (&loc->inode->lock);
-	ret = dict_get_ptr (loc->inode->ctx, this->name, (void **) &pinode);
-	if (ret < 0) {
-		if (cmd == ENTRYLK_UNLOCK) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"cmd is ENTRYLK_UNLOCK but inode->ctx is not set!");
 
-			UNLOCK (&loc->inode->lock);
-			op_errno = -EINVAL;
-			goto out;
-		}
-
-		ret = set_new_pinode (loc->inode->ctx, this, (void **) &pinode);
-		
-		UNLOCK (&loc->inode->lock);
-
-		if (ret < 0) {
-			op_errno = -ret;
-			goto out;
-		}
-	} else {
-		UNLOCK (&loc->inode->lock);
+	pinode = pl_inode_get (this, loc->inode);
+	if (!pinode) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		op_errno = ENOMEM;
+		goto out;
 	}
 
 	pid       = frame->root->pid;
@@ -702,9 +633,12 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 
 	switch (cmd) {
 	case ENTRYLK_LOCK:
-		pthread_mutex_lock (&pinode->entrylk_mutex);
-		ret = lock_name (pinode, basename, type, frame, this);
-		pthread_mutex_unlock (&pinode->entrylk_mutex);
+		pthread_mutex_lock (&pinode->mutex);
+		{
+			ret = __lock_name (pinode, basename, type,
+					   frame, this);
+		}
+		pthread_mutex_unlock (&pinode->mutex);
 
 		if (ret < 0) {
 			op_errno = -ret;
@@ -713,9 +647,11 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 		break;
 
 	case ENTRYLK_UNLOCK:
-		pthread_mutex_lock (&pinode->entrylk_mutex);
-		ret = unlock_name (pinode, basename, type);
-		pthread_mutex_unlock (&pinode->entrylk_mutex);
+		pthread_mutex_lock (&pinode->mutex);
+		{
+			ret = __unlock_name (pinode, basename, type);
+		}
+		pthread_mutex_unlock (&pinode->mutex);
 
 		if (ret < 0) {
 			op_errno = -ret;
@@ -747,7 +683,7 @@ out:
  * Locking on names (directory entries)
  */
 
-int32_t 
+int
 pl_fentrylk (call_frame_t *frame, xlator_t *this,
 	     fd_t *fd, const char *basename, 
 	     entrylk_cmd cmd, entrylk_type type)
@@ -761,28 +697,11 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 	pl_inode_t *       pinode = NULL; 
 	int                ret    = -1;
 
-	LOCK (&fd->inode->lock);
-	ret = dict_get_ptr (fd->inode->ctx, this->name, (void **) &pinode);
-	if (ret < 0) {
-		if (cmd == ENTRYLK_UNLOCK) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"cmd is ENTRYLK_UNLOCK but inode->ctx is not set!");
-
-			UNLOCK (&fd->inode->lock);
-			op_errno = -EINVAL;
-			goto out;
-		}
-
-		ret = set_new_pinode (fd->inode->ctx, this, (void **) &pinode);
-		
-		UNLOCK (&fd->inode->lock);
-
-		if (ret < 0) {
-			op_errno = -ret;
-			goto out;
-		}
-	} else {
-		UNLOCK (&fd->inode->lock);
+	pinode = pl_inode_get (this, fd->inode);
+	if (!pinode) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		goto out;
 	}
 
 	pid       = frame->root->pid;
@@ -803,9 +722,12 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 
 	switch (cmd) {
 	case ENTRYLK_LOCK:
-		pthread_mutex_lock (&pinode->entrylk_mutex);
-		ret = lock_name (pinode, basename, type, frame, this);
-		pthread_mutex_unlock (&pinode->entrylk_mutex);
+		pthread_mutex_lock (&pinode->mutex);
+		{
+			ret = __lock_name (pinode, basename, type,
+					   frame, this);
+		}
+		pthread_mutex_unlock (&pinode->mutex);
 
 		if (ret < 0) {
 			op_errno = -ret;
@@ -814,9 +736,11 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 		break;
 
 	case ENTRYLK_UNLOCK:
-		pthread_mutex_lock (&pinode->entrylk_mutex);
-		ret = unlock_name (pinode, basename, type);
-		pthread_mutex_unlock (&pinode->entrylk_mutex);
+		pthread_mutex_lock (&pinode->mutex);
+		{
+			ret = __unlock_name (pinode, basename, type);
+		}
+		pthread_mutex_unlock (&pinode->mutex);
 
 		if (ret < 0) {
 			op_errno = -ret;

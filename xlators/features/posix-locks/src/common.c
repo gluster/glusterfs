@@ -37,60 +37,68 @@
 #include "locks.h"
 
 
-#ifdef _POSIX_LOCKS_DEBUG
+static int
+__is_lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock,
+		     gf_lk_domain_t dom);
 static void
-print_lock (posix_lock_t *lock)
-{
-	switch (lock->fl_type) {
-	case F_RDLCK:
-		printf ("READ");
-		break;
-	case F_WRLCK:
-		printf ("WRITE");
-		break;
-	case F_UNLCK:
-		printf ("UNLOCK");
-		break;
-	}
-  
-	printf (" (%u, ", lock->fl_start);
-	printf ("%u), ", lock->fl_end);
-	printf ("pid = %lu\n", lock->client_pid); 
-	fflush (stdout);
-}
+__insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
+		    gf_lk_domain_t dom);
 
-static void
-print_flock (struct flock *lock)
+#define DOMAIN_HEAD(pl_inode, dom) (dom == GF_LOCK_POSIX	\
+				    ? &pl_inode->ext_list	\
+				    : &pl_inode->int_list)
+
+pl_inode_t *
+pl_inode_get (xlator_t *this, inode_t *inode)
 {
-	switch (lock->l_type) {
-	case F_RDLCK:
-		printf ("READ");
-		break;
-	case F_WRLCK:
-		printf ("WRITE");
-		break;
-	case F_UNLCK:
-		printf ("UNLOCK");
-		break;
+	pl_inode_t *pl_inode = NULL;
+	mode_t      st_mode = 0;
+	int         ret = 0;
+
+	ret = dict_get_ptr (inode->ctx, this->name,
+			    (void **)((void *)&pl_inode));
+	if (ret == 0)
+		goto out;
+
+	pl_inode = calloc (1, sizeof (*pl_inode));
+	if (!pl_inode) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		goto out;
 	}
-  
-	printf (" (%u, ", lock->l_start);
-	printf ("%u), ", lock->l_start+lock->l_len);
-	printf ("pid = %lu\n", lock->l_pid); 
-	fflush (stdout);
+
+	st_mode  = inode->st_mode;
+	if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
+		pl_inode->mandatory = 1;
+
+
+	pthread_mutex_init (&pl_inode->mutex, NULL);
+
+	INIT_LIST_HEAD (&pl_inode->dir_list);
+	INIT_LIST_HEAD (&pl_inode->ext_list);
+	INIT_LIST_HEAD (&pl_inode->int_list);
+	INIT_LIST_HEAD (&pl_inode->rw_list);
+
+	ret = dict_set_ptr (inode->ctx, this->name, (void *)(pl_inode));
+
+out:
+	return pl_inode;
 }
-#endif /* _POSIX_LOCKS_DEBUG */
 
 
 /* Create a new posix_lock_t */
 posix_lock_t *
 new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
 {
-	posix_lock_t *lock = (posix_lock_t *)calloc (1, sizeof (posix_lock_t));
-	ERR_ABORT (lock);
+	posix_lock_t *lock = NULL;
+
+	lock = calloc (1, sizeof (posix_lock_t));
+	if (!lock) {
+		return NULL;
+	}
 
 	lock->fl_start = flock->l_start;
-	lock->fl_type = flock->l_type;
+	lock->fl_type  = flock->l_type;
 
 	if (flock->l_len == 0)
 		lock->fl_end = LLONG_MAX;
@@ -99,81 +107,53 @@ new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
 
 	lock->transport  = transport;
 	lock->client_pid = client_pid;
+
+	INIT_LIST_HEAD (&lock->list);
+
 	return lock;
 }
 
+
+/* Delete a lock from the inode's lock list */
+void
+__delete_lock (pl_inode_t *pl_inode, posix_lock_t *lock)
+{
+	list_del_init (&lock->list);
+}
+
+
 /* Destroy a posix_lock */
 void
-destroy_lock (posix_lock_t *lock)
+__destroy_lock (posix_lock_t *lock)
 {
 	free (lock);
 }
+
 
 /* Convert a posix_lock to a struct flock */
 void
 posix_lock_to_flock (posix_lock_t *lock, struct flock *flock)
 {
-	flock->l_start = lock->fl_start;
-	flock->l_type  = lock->fl_type;
-	flock->l_len   = lock->fl_end == LLONG_MAX ? 0 : lock->fl_end - lock->fl_start + 1;
 	flock->l_pid   = lock->client_pid;
+	flock->l_type  = lock->fl_type;
+	flock->l_start = lock->fl_start;
+
+	if (lock->fl_end == 0)
+		flock->l_len = LLONG_MAX;
+	else
+		flock->l_len = lock->fl_end - lock->fl_start + 1;
 }
+
 
 /* Insert the lock into the inode's lock list */
-
-static posix_lock_t *
-insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domain)
+static void
+__insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t dom)
 {
-	posix_lock_t *l, *prev;
-	posix_lock_t **locks_list = (domain == GF_LOCK_POSIX ? &pl_inode->fcntl_locks
-				     : &pl_inode->inodelk_locks);
+	list_add_tail (&lock->list, DOMAIN_HEAD (pl_inode, dom));
 
-	if (*locks_list) {
-		prev = *locks_list;
-		l = prev->next;
-		while (l) {
-			prev = l;
-			l = l->next;
-		}
-
-		prev->next = lock;
-		lock->prev = prev;
-		lock->next = NULL;
-	}
-	else {
-		*locks_list = lock;
-		lock->prev = NULL;
-		lock->next = NULL;
-	}
-
-	return lock;
+	return;
 }
 
-/* Delete a lock from the inode's lock list */
-posix_lock_t *
-delete_lock (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domain)
-{
-	posix_lock_t **locks_list = (domain == GF_LOCK_POSIX ? &pl_inode->fcntl_locks
-				     : &pl_inode->inodelk_locks);
-
-	if (lock == *locks_list) {
-		*locks_list = lock->next;
-		if (*locks_list)
-			(*locks_list)->prev = NULL;
-	}
-	else {
-		posix_lock_t *prev = lock->prev;
-		if (prev)
-			prev->next = lock->next;
-		if (lock->next)
-			lock->next->prev = prev;
-	}
-
-	lock->prev = NULL;
-	lock->next = NULL;
-
-	return lock;
-}
 
 /* Return true if the locks overlap, false otherwise */
 int
@@ -189,6 +169,7 @@ locks_overlap (posix_lock_t *l1, posix_lock_t *l2)
 		(l2->fl_end >= l1->fl_start));
 }
 
+
 /* Return true if the locks have the same owner */
 int
 same_owner (posix_lock_t *l1, posix_lock_t *l2)
@@ -198,31 +179,32 @@ same_owner (posix_lock_t *l1, posix_lock_t *l2)
 }
 
 
-
 /* Delete all F_UNLCK locks */
 void
-delete_unlck_locks (pl_inode_t *pl_inode, gf_lk_domain_t domain)
+__delete_unlck_locks (pl_inode_t *pl_inode, gf_lk_domain_t dom)
 {
-	posix_lock_t *l = LOCKS_FOR_DOMAIN(pl_inode, domain);
-	posix_lock_t *l_tmp = NULL;
+	posix_lock_t *l = NULL;
+	posix_lock_t *tmp = NULL;
 
-	while (l) {
-		l_tmp = l->next;
-
+	list_for_each_entry_safe (l, tmp, DOMAIN_HEAD (pl_inode, dom), list) {
 		if (l->fl_type == F_UNLCK) {
-			delete_lock (pl_inode, l, domain);
-			destroy_lock (l);
+			__delete_lock (pl_inode, l);
+			__destroy_lock (l);
 		}
-		l = l_tmp;
 	}
 }
+
 
 /* Add two locks */
 static posix_lock_t *
 add_locks (posix_lock_t *l1, posix_lock_t *l2)
 {
-	posix_lock_t *sum = calloc (1, sizeof (posix_lock_t));
-	ERR_ABORT (sum);
+	posix_lock_t *sum = NULL;
+
+	sum = calloc (1, sizeof (posix_lock_t));
+	if (!sum)
+		return NULL;
+
 	sum->fl_start = min (l1->fl_start, l2->fl_start);
 	sum->fl_end   = max (l1->fl_end, l2->fl_end);
 
@@ -303,56 +285,271 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
 */
 static posix_lock_t *
 first_overlap (pl_inode_t *pl_inode, posix_lock_t *lock,
-	       posix_lock_t *begin)
+	       gf_lk_domain_t dom)
 {
-	posix_lock_t *l;
-	if (!begin)
-		return NULL;
+	posix_lock_t *l = NULL;
 
-	l = begin;
-	while (l) {
-		if (l->blocked) {
-			l = l->next;
+	list_for_each_entry (l, DOMAIN_HEAD (pl_inode, dom), list) {
+		if (l->blocked)
 			continue;
-		}
 
 		if (locks_overlap (l, lock))
 			return l;
-
-		l = l->next;
 	}
 
 	return NULL;
 }
 
-void
-grant_blocked_locks (pl_inode_t *pl_inode, gf_lk_domain_t domain)
+
+
+/* Return true if lock is grantable */
+static int
+__is_lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock,
+		     gf_lk_domain_t dom)
 {
-	posix_lock_t *l = LOCKS_FOR_DOMAIN(pl_inode, domain);
+	posix_lock_t *l = NULL;
+	int           ret = 1;
 
-	while (l) {
-		if (l->blocked) {
-			posix_lock_t *conf = first_overlap (pl_inode, l, LOCKS_FOR_DOMAIN(pl_inode, domain));
-			if (conf == NULL) {
-				l->blocked = 0;
-				posix_lock_to_flock (l, &l->user_flock);
-
-#ifdef _POSIX_LOCKS_DEBUG
-				printf ("[UNBLOCKING] "); print_lock (l);
-#endif
-
-				STACK_UNWIND (l->frame, 0, 0, &l->user_flock);
+	list_for_each_entry (l, DOMAIN_HEAD (pl_inode, dom), list) {
+		if (!l->blocked && locks_overlap (lock, l)) {
+			if (((l->fl_type == F_WRLCK)
+			     || (lock->fl_type == F_WRLCK))
+			    && (lock->fl_type != F_UNLCK)
+			    && !same_owner (l, lock)) {
+				ret = 0;
+				break;
 			}
 		}
-    
-		l = l->next;
+	}
+	return ret;
+}
+
+
+extern void do_blocked_rw (pl_inode_t *);
+
+
+static void
+__insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
+		    gf_lk_domain_t dom)
+{
+	posix_lock_t  *conf = NULL;
+	posix_lock_t  *t = NULL;
+	posix_lock_t  *sum = NULL;
+	int            i = 0;
+	struct _values v = { .locks = {0, 0, 0} };
+
+	list_for_each_entry_safe (conf, t, DOMAIN_HEAD (pl_inode, dom), list) {
+		if (!locks_overlap (conf, lock))
+			continue;
+
+		if (same_owner (conf, lock)) {
+			if (conf->fl_type == lock->fl_type) {
+				sum = add_locks (lock, conf);
+
+				sum->fl_type    = lock->fl_type;
+				sum->transport  = lock->transport;
+				sum->client_pid = lock->client_pid;
+
+				__delete_lock (pl_inode, conf); 
+				__destroy_lock (conf);
+
+				__destroy_lock (lock);
+				__insert_and_merge (pl_inode, sum, dom);
+
+				return;
+			} else {
+				sum = add_locks (lock, conf);
+
+				sum->fl_type    = conf->fl_type;
+				sum->transport  = conf->transport;
+				sum->client_pid = conf->client_pid;
+
+				v = subtract_locks (sum, lock);
+	
+				__delete_lock (pl_inode, conf);
+				__destroy_lock (conf);
+
+				__delete_lock (pl_inode, lock);
+				__destroy_lock (lock);
+
+				__destroy_lock (sum);
+
+				for (i = 0; i < 3; i++) {
+					if (!v.locks[i])
+						continue;
+
+					if (v.locks[i]->fl_type == F_UNLCK) {
+						__destroy_lock (v.locks[i]);
+						continue;
+					}
+					__insert_and_merge (pl_inode,
+							    v.locks[i], dom);
+				}
+
+				__delete_unlck_locks (pl_inode, dom);
+				return; 
+			}
+		}
+
+		if (lock->fl_type == F_UNLCK) {
+			continue;
+		}
+
+		if ((conf->fl_type == F_RDLCK) && (lock->fl_type == F_RDLCK)) {
+			__insert_lock (pl_inode, lock, dom);
+			return;
+		}
+	}
+
+	/* no conflicts, so just insert */
+	if (lock->fl_type != F_UNLCK) {
+		__insert_lock (pl_inode, lock, dom);
+	} else {
+		__destroy_lock (lock);
 	}
 }
 
-posix_lock_t *
-pl_getlk (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domain)
+
+void
+__grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode,
+		       gf_lk_domain_t dom, struct list_head *granted)
 {
-	posix_lock_t *conf = first_overlap (pl_inode, lock, LOCKS_FOR_DOMAIN(pl_inode, domain));
+	struct list_head  tmp_list;
+	posix_lock_t     *l = NULL;
+	posix_lock_t     *tmp = NULL;
+	posix_lock_t     *conf = NULL;
+
+	INIT_LIST_HEAD (&tmp_list);
+
+	list_for_each_entry_safe (l, tmp, DOMAIN_HEAD (pl_inode, dom), list) {
+		if (l->blocked) {
+			conf = first_overlap (pl_inode, l, dom);
+			if (conf)
+				continue;
+
+			l->blocked = 0;
+			list_move_tail (&l->list, &tmp_list);
+		}
+	}
+
+	list_for_each_entry_safe (l, tmp, &tmp_list, list) {
+		list_del_init (&l->list);
+
+		if (__is_lock_grantable (pl_inode, l, dom)) {
+			conf = calloc (1, sizeof (*conf));
+
+			if (!conf) {
+				l->blocked = 1;
+				__insert_lock (pl_inode, l, dom);
+				continue;
+			}
+
+			conf->frame = l->frame;
+			l->frame = NULL;
+
+			posix_lock_to_flock (l, &conf->user_flock);
+
+			gf_log (this->name, GF_LOG_WARNING,
+				"%s (pid=%d) %"PRId64" - %"PRId64" => Granted",
+				l->fl_type == F_UNLCK ? "Unlock" : "Lock",
+				l->client_pid,
+				l->user_flock.l_start,
+				l->user_flock.l_len);
+
+			__insert_and_merge (pl_inode, l, dom);
+
+			list_add (&conf->list, granted);
+		} else {
+			l->blocked = 1;
+			__insert_lock (pl_inode, l, dom);
+		}
+	}
+}
+
+
+void
+grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode, gf_lk_domain_t dom)
+{
+	struct list_head granted_list;
+	posix_lock_t     *tmp = NULL;
+	posix_lock_t     *lock = NULL;
+
+	INIT_LIST_HEAD (&granted_list);
+
+	pthread_mutex_lock (&pl_inode->mutex);
+	{
+		__grant_blocked_locks (this, pl_inode, dom, &granted_list);
+	}
+	pthread_mutex_unlock (&pl_inode->mutex);
+
+	list_for_each_entry_safe (lock, tmp, &granted_list, list) {
+		list_del_init (&lock->list);
+
+		STACK_UNWIND (lock->frame, 0, 0, &lock->user_flock);
+
+		FREE (lock);
+	}
+
+	return;
+}
+
+
+int
+pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
+	  int can_block,  gf_lk_domain_t dom)
+{
+	int              ret = 0;
+
+	errno = 0;
+
+	pthread_mutex_lock (&pl_inode->mutex);
+	{
+		if (__is_lock_grantable (pl_inode, lock, dom)) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
+				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+				lock->client_pid,
+				lock->user_flock.l_start,
+				lock->user_flock.l_len);
+			__insert_and_merge (pl_inode, lock, dom);
+		} else if (can_block) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
+				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+				lock->client_pid,
+				lock->user_flock.l_start,
+				lock->user_flock.l_len);
+			lock->blocked = 1;
+			__insert_lock (pl_inode, lock, dom);
+			ret = -1;
+		} else {
+			gf_log (this->name, GF_LOG_WARNING,
+				"%s (pid=%d) %"PRId64" - %"PRId64" => NOK",
+				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+				lock->client_pid,
+				lock->user_flock.l_start,
+				lock->user_flock.l_len);
+			errno = EAGAIN;
+			ret = -1;
+		}
+	}
+	pthread_mutex_unlock (&pl_inode->mutex);
+
+	grant_blocked_locks (this, pl_inode, dom);
+
+	do_blocked_rw (pl_inode);
+
+	return ret;
+}
+
+
+posix_lock_t *
+pl_getlk (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t dom)
+{
+	posix_lock_t *conf = NULL;
+
+	conf = first_overlap (pl_inode, lock, dom);
+
 	if (conf == NULL) {
 		lock->fl_type = F_UNLCK;
 		return lock;
@@ -360,124 +557,3 @@ pl_getlk (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domain)
 
 	return conf;
 }
-
-/* Return true if lock is grantable */
-static int
-lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domain)
-{
-	posix_lock_t *l = LOCKS_FOR_DOMAIN(pl_inode, domain);
-	while (l) {
-		if (!l->blocked && locks_overlap (lock, l)) {
-			if (((l->fl_type    == F_WRLCK) || (lock->fl_type == F_WRLCK)) &&
-			    (lock->fl_type != F_UNLCK) && 
-			    !same_owner (l, lock)) {
-				return 0;
-			}
-		}
-		l = l->next;
-	}
-	return 1;
-}
-
-extern void do_blocked_rw (pl_inode_t *);
-
-static void
-insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t domain)
-{
-	posix_lock_t *conf = first_overlap (pl_inode, lock, LOCKS_FOR_DOMAIN(pl_inode, domain));
-	while (conf) {
-		if (same_owner (conf, lock)) {
-			if (conf->fl_type == lock->fl_type) {
-				posix_lock_t *sum = add_locks (lock, conf);
-				sum->fl_type    = lock->fl_type;
-				sum->transport  = lock->transport;
-				sum->client_pid = lock->client_pid;
-
-				delete_lock (pl_inode, conf, domain); 
-				destroy_lock (conf);
-
-				destroy_lock (lock);
-				insert_and_merge (pl_inode, sum, domain);
-
-				return;
-			}
-			else {
-				posix_lock_t *sum = add_locks (lock, conf);
-				int i;
-
-				sum->fl_type    = conf->fl_type;
-				sum->transport  = conf->transport;
-				sum->client_pid = conf->client_pid;
-
-				struct _values v = subtract_locks (sum, lock);
-	
-				delete_lock (pl_inode, conf, domain);
-				destroy_lock (conf);
-
-				delete_lock (pl_inode, lock, domain);
-				destroy_lock (lock);
-
-				destroy_lock (sum);
-
-				for (i = 0; i < 3; i++) {
-					if (v.locks[i]) {
-						if (v.locks[i]->fl_type == F_UNLCK) {
-							destroy_lock (v.locks[i]);
-							continue;
-						}
-						insert_and_merge (pl_inode, v.locks[i], domain);
-					}
-				}
-
-				delete_unlck_locks (pl_inode, domain);
-				do_blocked_rw (pl_inode);
-				grant_blocked_locks (pl_inode, domain);
-				return; 
-			}
-		}
-
-		if (lock->fl_type == F_UNLCK) {
-			conf = first_overlap (pl_inode, lock, conf->next);
-			continue;
-		}
-
-		if ((conf->fl_type == F_RDLCK) && (lock->fl_type == F_RDLCK)) {
-			insert_lock (pl_inode, lock, domain);
-			return;
-		}
-	}
-
-	/* no conflicts, so just insert */
-	if (lock->fl_type != F_UNLCK) {
-		insert_lock (pl_inode, lock, domain);
-	} else {
-		destroy_lock (lock);
-	}
-}
-
-int
-pl_setlk (pl_inode_t *pl_inode, posix_lock_t *lock, int can_block, 
-	  gf_lk_domain_t domain)
-{
-	errno = 0;
-
-	if (lock_grantable (pl_inode, lock, domain)) {
-		insert_and_merge (pl_inode, lock, domain);
-	}
-	else if (can_block) {
-#ifdef _POSIX_LOCKS_DEBUG
-		printf ("[BLOCKING]: "); print_lock (lock);
-#endif
-		lock->blocked = 1;
-		insert_lock (pl_inode, lock, domain);
-		return -1;
-	}
-	else {
-		errno = EAGAIN;
-		return -1;
-	}
-
-	return 0;
-}
-
-

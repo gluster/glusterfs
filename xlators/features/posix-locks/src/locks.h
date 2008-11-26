@@ -28,88 +28,84 @@
 #include "compat-errno.h"
 #include "transport.h"
 #include "stack.h"
+#include "call-stub.h"
 
 struct __pl_fd;
 
 struct __posix_lock {
-  short fl_type;
-  off_t fl_start;
-  off_t fl_end;  
+	struct list_head   list;
 
-  short blocked;             /* waiting to acquire */
-  struct flock user_flock;   /* the flock supplied by the user */
-  xlator_t *this;            /* required for blocked locks */
-  fd_t *fd;
+	short              fl_type;
+	off_t              fl_start;
+	off_t              fl_end;
 
-  struct __posix_lock *next;
-  struct __posix_lock *prev;
+	short              blocked;    /* waiting to acquire */
+	struct flock       user_flock; /* the flock supplied by the user */
+	xlator_t          *this;       /* required for blocked locks */
+	fd_t              *fd;
 
-  call_frame_t *frame;     
+	call_frame_t      *frame;
 
-  /* These two together serve to uniquely identify each process
-     across nodes */
+	/* These two together serve to uniquely identify each process
+	   across nodes */
 
-  transport_t *transport;     /* to identify client node */
-  pid_t client_pid;           /* pid of client process */
+	transport_t       *transport;     /* to identify client node */
+	pid_t              client_pid;    /* pid of client process */
 };
 typedef struct __posix_lock posix_lock_t;
 
-typedef enum {OP_READ, OP_WRITE} rw_op_t;
 struct __pl_rw_req_t {
-  call_frame_t *frame;
-  xlator_t *this;
-  fd_t *fd;
-  rw_op_t op;
-  struct iovec *vector; /* only for writev */
-  int size;             /* for a readv, this is the size of the data we wish to read
-                           for a writev, it is the count of struct iovec's */
-  off_t offset;
-  posix_lock_t *region;  
-  struct __pl_rw_req_t *next;
-  struct __pl_rw_req_t *prev;
+	struct list_head      list;
+	call_stub_t          *stub;
+	posix_lock_t          region;
 };
 typedef struct __pl_rw_req_t pl_rw_req_t;
 
-struct __entry_lock {
-	struct list_head inode_list;    /* list_head back to pl_inode_t */
-	struct list_head blocked_locks; /* locks blocked due to this lock */
 
-	call_frame_t *frame;
-	xlator_t *this;
-	int blocked;
+struct __entry_lock {
+	struct list_head  inode_list;    /* list_head back to pl_inode_t */
+	struct list_head  blocked_locks; /* locks blocked due to this lock */
+
+	call_frame_t     *frame;
+	xlator_t         *this;
+	int               blocked;
 	
-	const char *basename;
-	entrylk_type type;
-	unsigned int read_count;        /* number of read locks */
-	transport_t *trans;
+	const char       *basename;
+	entrylk_type      type;
+	unsigned int      read_count;    /* number of read locks */
+	transport_t      *trans;
 };
 typedef struct __entry_lock pl_entry_lock_t;
+
 
 /* The "simulated" inode. This contains a list of all the locks associated 
    with this file */
 
 struct __pl_inode {
-	struct list_head entrylk_locks;
-	pthread_mutex_t entrylk_mutex;
+	pthread_mutex_t  mutex;
 
-	posix_lock_t *fcntl_locks;      /* list of locks on this inode */
-	posix_lock_t *inodelk_locks;    /* list of internal file locks */
-	pl_rw_req_t *rw_reqs;           /* list of waiting r/w requests */
-	int mandatory;                  /* whether mandatory locking is enabled on this inode */
+	struct list_head dir_list;       /* list of entry locks */
+	struct list_head ext_list;       /* list of fcntl locks */
+	struct list_head int_list;       /* list of internal locks */
+	struct list_head rw_list;        /* list of waiting r/w requests */
+	int              mandatory;      /* if mandatory locking is enabled */
 };
 typedef struct __pl_inode pl_inode_t;
 
-#define LOCKS_FOR_DOMAIN(inode,domain) (domain == GF_LOCK_POSIX ? inode->fcntl_locks \
+
+#define LOCKS_FOR_DOMAIN(inode,domain) (domain == GF_LOCK_POSIX \
+					? inode->fcntl_locks	\
 					: inode->inodelk_locks)
 
 struct __pl_fd {
-  int nonblocking;       /* whether O_NONBLOCK has been set */
+	gf_boolean_t nonblocking;       /* whether O_NONBLOCK has been set */
 };
 typedef struct __pl_fd pl_fd_t;
 
+
 typedef struct {
-  pthread_mutex_t mutex;
-  gf_boolean_t mandatory;         /* true if mandatory locking is enabled */
+	gf_boolean_t    mandatory;      /* if mandatory locking is enabled */
 } posix_locks_private_t;
+
 
 #endif /* __POSIX_LOCKS_H__ */
