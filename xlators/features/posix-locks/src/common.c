@@ -449,7 +449,7 @@ __grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode,
 
 			posix_lock_to_flock (l, &conf->user_flock);
 
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => Granted",
 				l->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				l->client_pid,
@@ -505,7 +505,7 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 	pthread_mutex_lock (&pl_inode->mutex);
 	{
 		if (__is_lock_grantable (pl_inode, lock, dom)) {
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
@@ -513,7 +513,7 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 				lock->user_flock.l_len);
 			__insert_and_merge (pl_inode, lock, dom);
 		} else if (can_block) {
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
@@ -523,7 +523,7 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 			__insert_lock (pl_inode, lock, dom);
 			ret = -1;
 		} else {
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => NOK",
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
