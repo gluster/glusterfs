@@ -1018,9 +1018,10 @@ iot_queue (iot_worker_t *worker,
 	  while (worker->queue_size >= worker->queue_limit)
 	  pthread_cond_wait (&worker->q_cond, &worker->lock);
 	*/
-	while (frame_size && (conf->current_size >= conf->cache_size))
-		pthread_cond_wait (&conf->q_cond, &conf->lock);
-
+	if (conf->cache_size) {
+		while (frame_size && (conf->current_size >= conf->cache_size))
+			pthread_cond_wait (&conf->q_cond, &conf->lock);
+	}
 
 	queue->next = &worker->queue;
 	queue->prev = worker->queue.prev;
@@ -1192,16 +1193,21 @@ init (xlator_t *this)
 		cache_size_string = data_to_str (dict_get (options,
 							   "cache-size"));
 	if (cache_size_string) {
-		if (gf_string2bytesize (cache_size_string, &conf->cache_size) != 0) {
-			gf_log ("io-threads", 
-				GF_LOG_ERROR, 
+		if (gf_string2bytesize (cache_size_string,
+					&conf->cache_size) != 0) {
+			gf_log ("io-threads", GF_LOG_ERROR, 
 				"invalid number format \"%s\" of \"option cache-size\"", 
 				cache_size_string);
 			return -1;
 		}
 		gf_log ("io-threads", GF_LOG_DEBUG,
-			"Using conf->cache_size = %"PRIu64"", conf->cache_size);
+			"Using conf->cache_size = %"PRIu64"",
+			conf->cache_size);
 	}
+
+	/* XXX: currently necessary to avoid deadlocks */
+	conf->cache_size = 0;
+
 	pthread_mutex_init (&conf->lock, NULL);
 	pthread_cond_init (&conf->q_cond, NULL);
 
