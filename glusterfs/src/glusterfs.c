@@ -390,7 +390,7 @@ _xlator_graph_init (xlator_t *xl)
 }
 
 
-int
+static int
 gf_remember_xlator_option (struct list_head *options, char *arg)
 {
 	glusterfs_ctx_t * ctx = NULL;
@@ -446,7 +446,7 @@ out:
 }
 
 
-xlator_cmdline_option_t *
+static xlator_cmdline_option_t *
 gf_find_overriding_option (char *vol, char *key)
 {
 	glusterfs_ctx_t *ctx = NULL;
@@ -464,6 +464,40 @@ gf_find_overriding_option (char *vol, char *key)
 	}
 
 	return NULL;
+}
+
+
+static void
+gf_override_options (xlator_t *graph)
+{
+	xlator_t *    trav = graph;
+	data_pair_t * pair = NULL;
+	xlator_cmdline_option_t *cmd_option = NULL;
+
+	int ret = 0;
+
+	while (trav) {
+		pair = trav->options->members_list; 
+		while (pair) {
+			cmd_option = gf_find_overriding_option (trav->name, pair->key);
+
+			if (cmd_option) {
+				ret = dict_set_str (trav->options, 
+						    pair->key, cmd_option->value);
+				if (ret == 0) {
+					gf_log ("glusterfs", GF_LOG_DEBUG,
+						"overriding option '%s' for volume '%s' with value '%s'", pair->key, trav->name, cmd_option->value);
+				} else {
+					gf_log ("glusterfs", GF_LOG_DEBUG,
+						"dict_set_str failed while overriding option '%s' for volume '%s': %s", pair->key, trav->name, strerror (-ret));
+				}
+			}
+
+			pair = pair->next;
+		}
+
+		trav = trav->next;
+	}
 }
 
 
@@ -901,7 +935,10 @@ main (int argc, char *argv[])
 		"running in pid %d", getpid ());
 	
 	gf_timer_registry_init (ctx);
-	
+
+	/* override xlator options with command line options where applicable */
+	gf_override_options (graph);
+
 	if (graph->init (graph) != 0) {
 		gf_log ("glusterfs", GF_LOG_ERROR, "translator initialization failed.  exiting");
 		/* do cleanup and exit ?! */

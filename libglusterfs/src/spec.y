@@ -248,15 +248,10 @@ section_option_cmd (char *key, char *cmd)
 }
 
 
-/* defined in glusterfs.c */
-xlator_cmdline_option_t *
-gf_find_overriding_option (char *vol, char *key);
-
 static int 
 section_option (char *key, char *value)
 {
         extern int glusterfs_lineno;
-	xlator_cmdline_option_t *override = NULL;
 
         int ret = 0;
 
@@ -266,17 +261,7 @@ section_option (char *key, char *value)
                 return -1;
         }
 
-	override = gf_find_overriding_option (tree->name, key);
-	if (override) {
-		gf_log ("parser", GF_LOG_DEBUG,
-			"option '%s' for volume '%s' overridden on the command line with value '%s'",
-			key, tree->name, override->value);
-
-		ret = dict_set (tree->options, override->key, 
-				str_to_data (override->value));
-	} else {
-		ret = dict_set (tree->options, key, str_to_data (value));
-	}
+	ret = dict_set (tree->options, key, str_to_data (value));
 
         if (ret == 1) {
                 gf_log ("parser", GF_LOG_ERROR, 
