@@ -582,12 +582,14 @@ socket_proto_state_machine (transport_t *this)
 	    ret = __socket_proto_validate_header (this, &priv->incoming.header,
 						  &size1, &size2);
 
-	    if (ret == -1)
-	      {
-		gf_log (this->xl->name, GF_LOG_ERROR,
-			"socket header validation failed");
-		goto unlock;
-	      }
+	    if (ret == -1) {
+		    gf_log (this->xl->name, GF_LOG_ERROR,
+			    "socket header validation failed (%s). "
+			    "possible mis-match of 'transport-type' in server and client "
+			    "volumes, or different versions of glusterfs used",
+			    this->peerinfo.identifier);
+		    goto unlock;
+	    }
 
 	    priv->incoming.hdrlen = size1;
 	    priv->incoming.buflen = size2;
