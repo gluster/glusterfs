@@ -3083,6 +3083,7 @@ client_xattrop_cbk (call_frame_t *frame,
 
 			dict = get_new_dict();
 			GF_VALIDATE_OR_GOTO(frame->this->name, dict, fail);
+			dict_ref (dict);
                                                
 			ret = dict_unserialize (dictbuf, dict_len, &dict);
 			if (ret < 0) {
