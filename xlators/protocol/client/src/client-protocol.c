@@ -4601,16 +4601,27 @@ client_stats_cbk (call_frame_t *frame,
 int32_t
 client_getspec (call_frame_t *frame,
                 xlator_t *this,
+		const char *key,
                 int32_t flag)
 {
 	gf_hdr_common_t *hdr = NULL;
 	gf_mop_getspec_req_t *req = NULL;
 	size_t hdrlen = -1;
+	int keylen = 0;
 	int ret = -1;
 
-	hdrlen = gf_hdr_len (req, 0);
-	hdr    = gf_hdr_new (req, 0);
+	if (key)
+		keylen = STRLEN_0(key);
+
+	hdrlen = gf_hdr_len (req, keylen);
+	hdr    = gf_hdr_new (req, keylen);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
+	req        = gf_param (hdr);
+	req->flags = hton32 (flag);
+	req->keylen = hton32 (keylen);
+	if (keylen)
+		strcpy (req->key, key);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_GETSPEC,

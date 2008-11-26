@@ -114,6 +114,7 @@ typedef int32_t (*mop_stats_t) (call_frame_t *frame,
 
 typedef int32_t (*mop_getspec_t) (call_frame_t *frame,
 				  xlator_t *this,
+				  const char *key,
 				  int32_t flag);
 
 typedef int32_t (*fop_checksum_t) (call_frame_t *frame,

@@ -6428,25 +6428,56 @@ mop_getspec (call_frame_t *frame,
 	size_t  file_len = 0;
 	size_t _hdrlen = 0;
 	char  tmp_filename[GF_FILENAME_MAX] = {0,};
+	char  data_key[256] = {0,};
 	char *filename = NULL;
 	struct stat stbuf = {0,};
 	peer_info_t *peerinfo = NULL;
 	transport_t *trans = NULL;
-	
+
+	gf_mop_getspec_req_t *req = NULL;
+	uint32_t flags  = 0;
+	uint32_t keylen = 0;
+	char *key = NULL;
+
+	req   = gf_param (hdr);
+	flags = ntoh32 (req->flags);
+	keylen = ntoh32 (req->keylen);
+	if (keylen) {
+		key = req->key;
+	}
+
 	trans = TRANSPORT_FROM_FRAME(frame);
 
 	peerinfo = &(trans->peerinfo);
-	ret = dict_get_str (frame->this->options, "client-volume-filename", 
-			    &filename);
-	if (ret < 0) {
-		gf_log (trans->xl->name, GF_LOG_ERROR,
-			"failed to get client volume spec filename. using default %s",
-			GLUSTERFSD_SPEC_PATH);
+	/* Inform users that this option is changed now */
+	ret = dict_get_str (frame->this->options, "client-volume-filename", &filename);
+	if (ret == 0) {
+		gf_log (trans->xl->name, GF_LOG_WARNING,
+			"option 'client-volume-specfile' is changed to 'volume-filename.<key>' "
+			"which now takes 'key' as an option to choose/fetch different files "
+			"from server now. Refer documentation or contact developers for more info. "
+			"Currently defaulting to given file '%s'", filename);
+	}
+	
+	if (key && !filename) {
+		sprintf (data_key, "volume-filename.%s", key);
+		ret = dict_get_str (frame->this->options, data_key, &filename);
+		if (ret < 0) {
+			gf_log (trans->xl->name, GF_LOG_ERROR,
+				"failed to get corresponding volume specfile for the key '%s'. "
+				"using default file %s", key, GLUSTERFSD_SPEC_PATH);
+		} 
+	}
+	if (!filename) {
 		filename = GLUSTERFSD_SPEC_PATH;
-	} 
+		if (!key)
+			gf_log (trans->xl->name, GF_LOG_WARNING,
+				"using default volume file %s", GLUSTERFSD_SPEC_PATH);
+	}
 
 	{
 		sprintf (tmp_filename, "%s.%s", filename, peerinfo->identifier);
+
 		/* Try for ip specific client spec file.
 		 * If not found, then go for, regular client file.
 		 */
@@ -6456,6 +6487,7 @@ mop_getspec (call_frame_t *frame,
 			gf_log (trans->xl->name, GF_LOG_DEBUG,
 				"Unable to open %s (%s)", 
 				tmp_filename, strerror (errno));
+			/* fall back */
 			ret = open (filename, O_RDONLY);
 			spec_fd = ret;
 			if (spec_fd < 0) {
@@ -7669,19 +7701,17 @@ struct xlator_options options[] = {
 	{ "address-family",
 	  GF_OPTION_TYPE_STR, 0, 0, 0,
 	  "inet|inet6|inet/inet6|inet6/inet|unix|inet-sdp" },
-	{ "bind-address",
-	  GF_OPTION_TYPE_STR, 0, },
-	{ "listen-path",
-	  GF_OPTION_TYPE_STR, 0, 0, 0 },
+
+	{ "bind-address", GF_OPTION_TYPE_STR, 0, },
+	{ "listen-path", GF_OPTION_TYPE_STR, 0, 0, 0 },
 
 	/* Server protocol itself */
 	{ "limits.transaction-size",
 	  GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB },
-	{ "client-volume-filename",
-	  GF_OPTION_TYPE_PATH, 0, },
 
-	{ "inode-lru-limit",
-	  GF_OPTION_TYPE_INT, 0, 0, 1048576 },
+	{ "client-volume-filename", GF_OPTION_TYPE_PATH, 0, }, /* Backword compatibility */
+	{ "volume-filename.<key>", GF_OPTION_TYPE_STR, 16, 0, 0 },
+	{ "inode-lru-limit",  GF_OPTION_TYPE_INT, 0, 0, 1048576 },
 
 	{ NULL, 0, 0, 0, 0 },
 };

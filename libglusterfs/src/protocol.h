@@ -671,6 +671,9 @@ typedef struct {
 } __attribute__((packed)) gf_mop_stats_rsp_t;
 
 typedef struct {
+	uint32_t flags;
+	uint32_t keylen;
+	char     key[0];
 } __attribute__((packed)) gf_mop_getspec_req_t;
 typedef struct {
 	char spec[0];

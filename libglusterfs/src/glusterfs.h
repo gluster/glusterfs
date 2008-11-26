@@ -221,14 +221,16 @@ struct _cmd_args {
 	int              fuse_direct_io_mode_flag;
 	unsigned int     fuse_directory_entry_timeout;
 	unsigned int     fuse_attribute_timeout;
-	char             *volume_name;
+	char            *volume_name;
 	int              non_local;         /* Used only by darwin os, used for '-o local' option */
-	char             *icon_name;  /* This string will appear as Desktop icon name when mounted on darwin */
+	char            *icon_name;  /* This string will appear as Desktop icon name when mounted on darwin */
 	int              fuse_nodev;
 	int              fuse_nosuid;
 
 	/* key args */
-	char             *mount_point;
+	char            *mount_point;
+	
+	char            *getspec_key;
 };
 typedef struct _cmd_args cmd_args_t;
 

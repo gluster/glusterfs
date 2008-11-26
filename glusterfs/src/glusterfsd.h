@@ -79,6 +79,7 @@ enum argp_option_keys {
 #endif /* DARWIN */
 	ARGP_FUSE_NODEV_KEY = 141,
 	ARGP_FUSE_NOSUID_KEY = 142,
+	ARGP_SPECFILE_SERVER_GETSPEC_KEY = 143, 
 };
 
 #endif /* __GLUSTERFSD_H__ */

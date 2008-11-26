@@ -3510,6 +3510,7 @@ ha_getspec_cbk (call_frame_t *frame,
 			    ha_getspec_cbk,
 			    children[i],
 			    children[i]->mops->getspec,
+			    local->pattern,
 			    local->flags);
 		return 0;
 	}
@@ -3524,6 +3525,7 @@ ha_getspec_cbk (call_frame_t *frame,
 int32_t
 ha_getspec (call_frame_t *frame,
 	    xlator_t *this,
+	    const char *key,
 	    int32_t flags)
 {
 	ha_local_t *local = NULL;
@@ -3546,12 +3548,13 @@ ha_getspec (call_frame_t *frame,
 		return 0;
 	}
 	local->flags = flags;
+	local->pattern = (char *)key;
 
 	STACK_WIND (frame,
 		    ha_getspec_cbk,
 		    children[i],
 		    children[i]->mops->getspec,
-		    flags);
+		    key, flags);
 	return 0;
 }
 

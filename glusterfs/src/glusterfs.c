@@ -91,6 +91,8 @@ static struct argp_option gf_options[] = {
  	 "Port number of specfile server"},
  	{"specfile-server-transport", ARGP_SPECFILE_SERVER_TRANSPORT_KEY, "TRANSPORT", 0, 
  	 "Transport type to get volume spec file from server [default: socket]"},
+ 	{"server-fetchfile-key", ARGP_SPECFILE_SERVER_GETSPEC_KEY, "KEY", 0, 
+ 	 "'key' of the volume spec to be fetched from server"},
  	{"pid-file", ARGP_PID_FILE_KEY, "PIDFILE", 0, 
  	 "File to use as pid file"},
  	{"no-daemon", ARGP_NO_DAEMON_KEY, 0, 0,
@@ -535,6 +537,10 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		cmd_args->specfile_server_transport = strdup (arg);
 		break;
 		
+	case ARGP_SPECFILE_SERVER_GETSPEC_KEY:
+		cmd_args->getspec_key = strdup (arg);
+		break;
+
 	case ARGP_PID_FILE_KEY:
 		cmd_args->pid_file = strdup (arg);
 		break;

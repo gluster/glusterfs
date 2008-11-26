@@ -1583,6 +1583,7 @@ error_gen_getspec_cbk (call_frame_t *frame,
 int32_t
 error_gen_getspec (call_frame_t *frame,
 		   xlator_t *this,
+		   const char *key,
 		   int32_t flags)
 {
 	int op_errno = 0;
@@ -1597,7 +1598,7 @@ error_gen_getspec (call_frame_t *frame,
 		    error_gen_getspec_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->mops->getspec,
-		    flags);
+		    key, flags);
 	return 0;
 }
 

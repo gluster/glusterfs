@@ -3186,7 +3186,7 @@ init (xlator_t *this)
 	ret = stat (directory->data, &buf);
 	if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
 		gf_log (this->name, GF_LOG_ERROR, 
-			"Specified directory doesn't exists, Exiting");
+			"specified directory '%s' doesn't exists, Exiting", directory->data);
 		FREE (_private);
 		goto out;
 	} else {
