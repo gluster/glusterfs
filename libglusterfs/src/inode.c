@@ -828,26 +828,33 @@ inode_parent (inode_t *inode, ino_t par, const char *name)
 }
 
 
-size_t
+int64_t
 inode_path (inode_t *inode, const char *name, char *buf, size_t size)
 {
         inode_table_t *table = NULL;
         dentry_t      *trav = NULL;
         size_t         i = 0;
-        size_t         ret = 0;
+        int64_t        ret = 0;
         int            len = 0;
 
         table = inode->table;
 
         pthread_mutex_lock (&table->lock);
         {
-                i++; /* '\0' */
-
                 for (trav = __dentry_search_arbit (inode); trav;
                      trav = __dentry_search_arbit (trav->parent)) {
                         i ++; /* "/" */
                         i += strlen (trav->name);
                 }
+		
+		if ((inode->ino != 1) &&
+		    (i == 0)) {
+			gf_log (table->name, GF_LOG_ERROR,
+				"dentry information missing for non-root inode %"PRId64,
+				inode->ino);
+			ret = -1;
+			goto unlock;
+		}
 
                 if (name) {
                         i++;
@@ -855,12 +862,10 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
                 }
 
                 ret = i;
-
+		
                 if (buf && size > i) {
 
-                        buf[i] = 0;
-                        i--;
-                        buf[i] = 0;
+                        buf[size - 1] = 0;
 
                         if (name) {
                                 len = strlen (name);
@@ -878,11 +883,13 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
                         }
                 }
         }
+unlock:
         pthread_mutex_unlock (&table->lock);
 
         if (buf && (name == NULL) && (inode->ino == 1)) {
                 strcpy (buf, "/");
 	}
+
         return ret;
 }
 

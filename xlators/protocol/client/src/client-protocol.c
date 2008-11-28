@@ -4789,6 +4789,8 @@ client_setvolume_cbk (call_frame_t *frame,
 			op_ret,
 			remote_error ? remote_error : strerror (op_errno));
 		errno = op_errno;
+		if (op_errno == ENOTCONN)
+			goto out;
 	} else {
 		gf_log (trans->xl->name, GF_LOG_DEBUG,
 			"SETVOLUME on remote-host succeeded");
