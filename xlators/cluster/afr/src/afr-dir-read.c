@@ -343,29 +343,3 @@ out:
 }
 
 
-int32_t 
-afr_checksum_cbk (call_frame_t *frame, void *cookie,
-		  xlator_t *this, int32_t op_ret, int32_t op_errno,
-		  uint8_t *fchecksum, uint8_t *dchecksum)
-{
-	AFR_STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
-	return 0;
-}
-
-
-int32_t
-afr_checksum (call_frame_t *frame, xlator_t *this,
-	      loc_t *loc, int32_t flags)
-{
-	afr_private_t *priv = NULL;
-
-	priv = this->private;
-
-	STACK_WIND (frame, afr_checksum_cbk,
-		    priv->children[0],
-		    priv->children[0]->fops->checksum,
-		    loc, flags);
-	return 0;
-}
-
-
