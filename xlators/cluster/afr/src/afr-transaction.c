@@ -274,11 +274,6 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 
 	mark_down_children (local->pending_array, priv->child_count, local->child_up);
 
-	ret = dict_set_static_bin (xattr, local->transaction.pending, local->pending_array, 
-				   priv->child_count * sizeof (int32_t));
-	if (ret < 0)
-		gf_log (this->name, GF_LOG_ERROR, "failed to set pending entry");
-
 	call_count = up_children_count (priv->child_count, local->child_up); 
 
 	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
@@ -296,6 +291,14 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {					
 		if (local->child_up[i]) {
+			ret = dict_set_static_bin (xattr, local->transaction.pending, 
+						   local->pending_array, 
+						   priv->child_count * sizeof (int32_t));
+			if (ret < 0)
+				gf_log (this->name, GF_LOG_ERROR, 
+					"failed to set pending entry");
+
+
 			switch (local->transaction.type) {
 			case AFR_DATA_TRANSACTION:
 			case AFR_METADATA_TRANSACTION:
