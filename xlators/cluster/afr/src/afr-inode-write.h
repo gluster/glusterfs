@@ -28,6 +28,14 @@ int32_t
 afr_chown (call_frame_t *frame, xlator_t *this,
 	   loc_t *loc, uid_t uid, gid_t gid);
 
+int
+afr_fchown (call_frame_t *frame, xlator_t *this,
+	    fd_t *fd, uid_t uid, gid_t gid);
+
+int32_t
+afr_fchmod (call_frame_t *frame, xlator_t *this,
+	    fd_t *fd, mode_t mode);
+
 int32_t
 afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, 
 	    struct iovec *vector, int32_t count, off_t offset);
