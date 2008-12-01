@@ -1360,6 +1360,6 @@ struct xlator_cbks cbks = {
 struct xlator_options options[] = {
         { "flush-behind", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
         { "aggregate-size", GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 4 * GF_UNIT_MB },
-        { "window-size", GF_OPTION_TYPE_SIZET, 0, 1 * GF_UNIT_MB, 16 * GF_UNIT_MB },
+        { "window-size", GF_OPTION_TYPE_SIZET, 0, 1 * GF_UNIT_MB, 16 * GF_UNIT_GB },
         { NULL, 0, },
 };
