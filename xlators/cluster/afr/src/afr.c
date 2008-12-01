@@ -1010,6 +1010,332 @@ out:
 
 /* }}} */
 
+
+int32_t
+afr_inodelk_cbk (call_frame_t *frame, void *cookie,
+		 xlator_t *this, int32_t op_ret, int32_t op_errno)
+		
+{
+	afr_local_t *local = NULL;
+	
+	int call_count = -1;
+
+	local = frame->local;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+
+		if (op_ret == 0)
+			local->op_ret = 0;
+
+		local->op_errno = op_errno;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0)
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+
+	return 0;
+}
+
+
+int32_t
+afr_inodelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
+	     int32_t cmd, struct flock *flock)
+{
+	afr_private_t *priv = NULL;
+	afr_local_t *local  = NULL;
+
+	int ret = -1;
+
+	int i = 0;
+	int32_t call_count = 0;
+	int32_t op_ret   = -1;
+	int32_t op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
+	priv = this->private;
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
+
+	call_count = local->call_count;
+	frame->local = local;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->child_up[i]) {
+			STACK_WIND (frame, afr_inodelk_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->inodelk,
+				    loc, cmd, flock);
+
+			if (!--call_count)
+				break;
+		}
+	}
+
+	op_ret = 0;
+out:
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	}
+	return 0;
+}
+
+
+int32_t
+afr_finodelk_cbk (call_frame_t *frame, void *cookie,
+		  xlator_t *this, int32_t op_ret, int32_t op_errno)
+		
+{
+	afr_local_t *local = NULL;
+	
+	int call_count = -1;
+
+	local = frame->local;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+
+		if (op_ret == 0)
+			local->op_ret = 0;
+
+		local->op_errno = op_errno;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0)
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+
+	return 0;
+}
+
+
+int32_t
+afr_finodelk (call_frame_t *frame, xlator_t *this, fd_t *fd,
+	      int32_t cmd, struct flock *flock)
+{
+	afr_private_t *priv = NULL;
+	afr_local_t *local  = NULL;
+
+	int ret = -1;
+
+	int i = 0;
+	int32_t call_count = 0;
+	int32_t op_ret   = -1;
+	int32_t op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
+	priv = this->private;
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
+
+	call_count = local->call_count;
+	frame->local = local;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->child_up[i]) {
+			STACK_WIND (frame, afr_finodelk_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->finodelk,
+				    fd, cmd, flock);
+
+			if (!--call_count)
+				break;
+		}
+	}
+
+	op_ret = 0;
+out:
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	}
+	return 0;
+}
+
+
+int32_t
+afr_entrylk_cbk (call_frame_t *frame, void *cookie,
+		 xlator_t *this, int32_t op_ret, int32_t op_errno)
+		
+{
+	afr_local_t *local = NULL;
+	
+	int call_count = -1;
+
+	local = frame->local;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+
+		if (op_ret == 0)
+			local->op_ret = 0;
+
+		local->op_errno = op_errno;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0)
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+
+	return 0;
+}
+
+
+int32_t
+afr_entrylk (call_frame_t *frame, xlator_t *this, loc_t *loc,
+	     const char *basename, entrylk_cmd cmd, entrylk_type type)
+{
+	afr_private_t *priv = NULL;
+	afr_local_t *local  = NULL;
+
+	int ret = -1;
+
+	int i = 0;
+	int32_t call_count = 0;
+	int32_t op_ret   = -1;
+	int32_t op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
+	priv = this->private;
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
+
+	call_count = local->call_count;
+	frame->local = local;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->child_up[i]) {
+			STACK_WIND (frame, afr_entrylk_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->entrylk,
+				    loc, basename, cmd, type);
+
+			if (!--call_count)
+				break;
+		}
+	}
+
+	op_ret = 0;
+out:
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	}
+	return 0;
+}
+
+
+
+int32_t
+afr_fentrylk_cbk (call_frame_t *frame, void *cookie,
+		 xlator_t *this, int32_t op_ret, int32_t op_errno)
+		
+{
+	afr_local_t *local = NULL;
+	
+	int call_count = -1;
+
+	local = frame->local;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+
+		if (op_ret == 0)
+			local->op_ret = 0;
+
+		local->op_errno = op_errno;
+	}
+	UNLOCK (&frame->lock);
+
+	if (call_count == 0)
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+
+	return 0;
+}
+
+
+int32_t
+afr_fentrylk (call_frame_t *frame, xlator_t *this, fd_t *fd,
+	      const char *basename, entrylk_cmd cmd, entrylk_type type)
+{
+	afr_private_t *priv = NULL;
+	afr_local_t *local  = NULL;
+
+	int ret = -1;
+
+	int i = 0;
+	int32_t call_count = 0;
+	int32_t op_ret   = -1;
+	int32_t op_errno = 0;
+
+	VALIDATE_OR_GOTO (frame, out);
+	VALIDATE_OR_GOTO (this, out);
+	VALIDATE_OR_GOTO (this->private, out);
+
+	priv = this->private;
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = AFR_LOCAL_INIT (local, priv);
+	if (ret < 0) {
+		op_errno = -ret;
+		goto out;
+	}
+
+	call_count = local->call_count;
+	frame->local = local;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->child_up[i]) {
+			STACK_WIND (frame, afr_fentrylk_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->fentrylk,
+				    fd, basename, cmd, type);
+
+			if (!--call_count)
+				break;
+		}
+	}
+
+	op_ret = 0;
+out:
+	if (op_ret == -1) {
+		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+	}
+	return 0;
+}
+
+
 int32_t
 afr_statfs_cbk (call_frame_t *frame, void *cookie,
 		xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -1454,6 +1780,10 @@ struct xlator_fops fops = {
   .fsyncdir    = afr_fsyncdir,
   .xattrop     = afr_xattrop,
   .fxattrop    = afr_fxattrop,
+  .inodelk     = afr_inodelk,
+  .finodelk    = afr_finodelk,
+  .entrylk     = afr_entrylk,
+  .fentrylk    = afr_fentrylk,
 
   /* inode read */
   .access      = afr_access,
