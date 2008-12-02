@@ -788,6 +788,7 @@ struct _xlator {
 	inode_table_t *itable;
 	char ready;
 	char trace;
+	char init_succeeded;
 	void *private;
 };
 
@@ -805,6 +806,9 @@ xlator_t *file_to_xlator_tree (glusterfs_ctx_t *ctx,
 
 
 int32_t xlator_tree_init (xlator_t *xl);
+int32_t xlator_tree_free (xlator_t *xl);
+
+void xlator_tree_fini (xlator_t *xl);
 
 void xlator_foreach (xlator_t *this,
 		     void (*fn) (xlator_t *each,

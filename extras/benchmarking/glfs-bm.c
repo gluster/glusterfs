@@ -523,13 +523,13 @@ int
 do_mode_libglusterfsclient (struct state *state)
 {
         glusterfs_init_ctx_t ctx = {
-                .specfile = state->specfile,
                 .logfile = "/dev/stderr",
                 .loglevel = "error",
                 .lookup_timeout = 60,
                 .stat_timeout = 60,
         };
 
+	ctx.specfile = state->specfile;
         if (state->specfile) {
                 state->libglusterfsclient_context = glusterfs_init (&ctx);
 

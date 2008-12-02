@@ -497,6 +497,8 @@ xlator_init_rec (xlator_t *xl)
 				gf_log ("xlator", GF_LOG_ERROR,
 					"initialization of volume '%s' failed, review your volume spec file again",
 					xl->name);
+			} else {
+				xl->init_succeeded = 1;
 			}
 		} else {
 			gf_log (xl->name, GF_LOG_ERROR, "No init() found");
@@ -532,6 +534,77 @@ xlator_tree_init (xlator_t *xl)
 	}
 
 	return ret;
+}
+
+
+static void
+xlator_fini_rec (xlator_t *xl)
+{
+	xlator_list_t *trav = NULL;
+
+	if (xl == NULL)	{
+		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+		return;
+	}
+
+	trav = xl->children;
+
+	while (trav) {
+		if (!trav->xlator->init_succeeded) {
+			break;
+		}
+
+		xlator_fini_rec (trav->xlator);
+		gf_log (trav->xlator->name, GF_LOG_DEBUG, "fini done");
+		trav = trav->next;
+	}
+
+	if (xl->init_succeeded) {
+		if (xl->fini) {
+			xl->fini (xl);
+		} else {
+			gf_log (xl->name, GF_LOG_ERROR, "No fini() found");
+		}
+		xl->init_succeeded = 0;
+	}
+}
+
+
+void
+xlator_tree_fini (xlator_t *xl)
+{
+	xlator_t *top = NULL;
+
+	if (xl == NULL)	{
+		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+		return;
+	}
+
+	top = xl;
+	xlator_fini_rec (top);
+}
+
+
+int
+xlator_tree_free (xlator_t *tree)
+{
+  xlator_t *trav = tree, *prev = tree;
+
+  if (!tree) {
+    gf_log ("parser", GF_LOG_ERROR, "Translator tree not found");
+    return -1;
+  }
+
+  while (prev) {
+    trav = prev->next;
+    dict_destroy (prev->options);
+    FREE (prev->name);
+    FREE (prev->type);
+    FREE (prev);
+    prev = trav;
+  }
+  
+  return 0;
 }
 
 

@@ -585,8 +585,11 @@ wb_open_cbk (call_frame_t *frame,
                 if (frame->local)
                 {
                         flags = *((int32_t *)frame->local);
-                        if (flags & O_DIRECT)
+                        if (((flags & O_DIRECT) == O_DIRECT) || 
+			    ((flags & O_RDONLY) == O_RDONLY) ||
+			    ((flags & O_SYNC) == O_SYNC)) { 
                                 file->disabled = 1;
+			}
                 }
 
                 LOCK_INIT (&file->lock);

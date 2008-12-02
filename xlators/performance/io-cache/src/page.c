@@ -454,12 +454,13 @@ ioc_frame_fill (ioc_page_t *page,
 
   /* immediately move this page to the end of the page_lru list */
   list_move_tail (&page->page_lru, &ioc_inode->page_lru);
-  /* fill from local->pending_offset to local->pending_size */
+  /* fill local->pending_size bytes from local->pending_offset */
   if (local->op_ret != -1 && page->size) {
     if (offset > page->offset)
       /* offset is offset in file, convert it to offset in 
        * page */
       src_offset = offset - page->offset;
+    /*FIXME: since offset is the offset within page is the else case valid? */
     else
       /* local->pending_offset is in previous page. do not fill until we
        * have filled all previous pages 
