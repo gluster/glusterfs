@@ -1766,21 +1766,47 @@ init (xlator_t *this)
 		priv->entry_self_heal = 0;
 	}
 
-	dict_ret = dict_get_int32 (this->options, "lock-server-count", &lock_server_count);
-
+	dict_ret = dict_get_int32 (this->options, "data-lock-server-count", 
+				   &lock_server_count);
 	if (dict_ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"setting lock server count to %d",
+			"setting data lock server count to %d",
 			lock_server_count);
 
 		if (lock_server_count == 0) 
 			gf_log (this->name, GF_LOG_WARNING,
 				no_lock_servers_warning_str);
 
-		priv->lock_server_count = lock_server_count;
+		priv->data_lock_server_count = lock_server_count;
 	} else {
-		priv->lock_server_count = 1;
+		priv->data_lock_server_count = 1;
 	}
+
+
+	dict_ret = dict_get_int32 (this->options, "metadata-lock-server-count", 
+				   &lock_server_count);
+	if (dict_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"setting metadata lock server count to %d",
+			lock_server_count);
+		priv->metadata_lock_server_count = lock_server_count;
+	} else {
+		priv->metadata_lock_server_count = 0;
+	}
+
+
+	dict_ret = dict_get_int32 (this->options, "entry-lock-server-count", 
+				   &lock_server_count);
+	if (dict_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"setting entry lock server count to %d",
+			lock_server_count);
+
+		priv->entry_lock_server_count = lock_server_count;
+	} else {
+		priv->entry_lock_server_count = 1;
+	}
+
 
 	trav = this->children;
 	while (trav) {
@@ -1921,6 +1947,8 @@ struct xlator_options options[] = {
 	{ "data-self-heal", GF_OPTION_TYPE_BOOL, 0, },
 	{ "metadata-self-heal", GF_OPTION_TYPE_BOOL, 0, },
 	{ "entry-self-heal", GF_OPTION_TYPE_BOOL, 0, },
-	{ "lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
+	{ "data-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
+	{ "metadata-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
+	{ "entry-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
 	{ NULL, 0, },
 };

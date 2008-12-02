@@ -108,6 +108,30 @@ xattrop_needed (afr_private_t *priv, afr_transaction_type type)
 }
 
 
+static int
+afr_lock_server_count (afr_private_t *priv, afr_transaction_type type)
+{
+	int ret = 0;
+
+	switch (type) {
+	case AFR_DATA_TRANSACTION:
+		ret = priv->data_lock_server_count;
+		break;
+
+	case AFR_METADATA_TRANSACTION:
+		ret = priv->metadata_lock_server_count;
+		break;
+
+	case AFR_ENTRY_TRANSACTION:
+	case AFR_ENTRY_RENAME_TRANSACTION:
+		ret = priv->entry_lock_server_count;
+		break;
+	}
+
+	return ret;
+}
+
+
 /* {{{ unlock */
 
 int32_t
@@ -247,7 +271,7 @@ afr_write_pending_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		if (priv->lock_server_count == 0) {
+		if (afr_lock_server_count (priv, local->transaction.type) == 0) {
 			local->transaction.done (frame, this);
 		} else {
 			afr_unlock (frame, this);
@@ -639,7 +663,9 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 
 	}
 
-	if (local->transaction.lock_count == priv->lock_server_count) {
+	if (local->transaction.lock_count == 
+	    afr_lock_server_count (priv, local->transaction.type)) {
+
 		/* we're done locking */
 
 		if (xattrop_needed (priv, local->transaction.type)) {
@@ -760,7 +786,7 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 	if (xattrop_needed (priv, local->transaction.type)) {
 		afr_write_pending_post_op (frame, this);
 	} else {
-		if (priv->lock_server_count == 0) {
+		if (afr_lock_server_count (priv, local->transaction.type) == 0) {
 			local->transaction.done (frame, this);
 		} else {
 			afr_unlock (frame, this);
@@ -800,7 +826,7 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 	local->transaction.resume = afr_transaction_resume;
 	local->transaction.type   = type;
 
-	if (priv->lock_server_count == 0) {
+	if (afr_lock_server_count (priv, local->transaction.type) == 0) {
 		if (xattrop_needed (priv, type)) {
 			afr_write_pending_pre_op (frame, this);
 		} else {

@@ -46,7 +46,11 @@ typedef struct _afr_private {
 	unsigned int read_child;      /* read-subvolume */
 	unsigned int favorite_child;  /* subvolume to be preferred in resolving
 					 split-brain cases */
-	unsigned int lock_server_count;
+
+	unsigned int data_lock_server_count;
+	unsigned int metadata_lock_server_count;
+	unsigned int entry_lock_server_count;
+
 	unsigned int wait_count;      /* # of servers to wait for success */
 } afr_private_t;
 
