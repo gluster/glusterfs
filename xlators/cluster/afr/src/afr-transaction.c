@@ -663,8 +663,9 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 
 	}
 
-	if (local->transaction.lock_count == 
-	    afr_lock_server_count (priv, local->transaction.type)) {
+	if ((child_index == priv->child_count) 
+	    || (local->transaction.lock_count == 
+		afr_lock_server_count (priv, local->transaction.type))) {
 
 		/* we're done locking */
 
