@@ -28,7 +28,7 @@
 #define DEFAULT_VOLUME_SPECFILE               CONFDIR "/specfile.vol"
 #define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"
 #define DEFAULT_LOG_LEVEL                     GF_LOG_WARNING
-#define DEFAULT_FUSE_DIRECTORY_ENTRY_TIMEOUT  1
+#define DEFAULT_FUSE_ENTRY_TIMEOUT            1
 #define DEFAULT_FUSE_ATTRIBUTE_TIMEOUT        1
 
 #define DEFAULT_EVENT_POOL_SIZE            16384
@@ -67,7 +67,7 @@ enum argp_option_keys {
 	ARGP_RUN_ID_KEY = 'r', 
 	ARGP_DEBUG_KEY = 133, 
 	ARGP_DISABLE_DIRECT_IO_MODE_KEY = 134, 
-	ARGP_DIRECTORY_ENTRY_TIMEOUT_KEY = 135, 
+	ARGP_ENTRY_TIMEOUT_KEY = 135, 
 	ARGP_ATTRIBUTE_TIMEOUT_KEY = 136, 
 	ARGP_VOLUME_NAME_KEY = 137,
 	ARGP_XLATOR_OPTION_KEY = 138,
@@ -79,5 +79,9 @@ enum argp_option_keys {
 	ARGP_FUSE_NOSUID_KEY = 142,
 	ARGP_SPECFILE_SERVER_GETSPEC_KEY = 143, 
 };
+
+/* Moved here from fetch-spec.h */
+FILE *fetch_spec (glusterfs_ctx_t *ctx);
+
 
 #endif /* __GLUSTERFSD_H__ */

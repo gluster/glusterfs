@@ -236,7 +236,8 @@ unify_buf_cbk (call_frame_t *frame,
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"child(%s): path(%s): %s", 
-				prev_frame->this->name, (local->loc1.path)?local->loc1.path:"", strerror (op_errno));
+				prev_frame->this->name, 
+				(local->loc1.path)?local->loc1.path:"", strerror (op_errno));
 			local->op_errno = op_errno;
 			if ((op_errno == ENOENT) && priv->optimist) 
 				local->op_ret = 0;
@@ -271,6 +272,7 @@ unify_buf_cbk (call_frame_t *frame,
 	return 0;
 }
 
+#define check_if_dht_linkfile(s) ((s->st_mode & ~S_IFMT) == S_ISVTX)
 
 /**
  * unify_lookup_cbk - 
@@ -314,18 +316,27 @@ unify_lookup_cbk (call_frame_t *frame,
 
 		if (op_ret == 0) {
 			local->op_ret = 0; 
+			
+			if (check_if_dht_linkfile(buf)) {
+				gf_log (this->name, GF_LOG_CRITICAL,
+					"file %s may be DHT link file on %s, make sure the backend "
+					"is not shared between unify and DHT", 
+					local->loc1.path, priv->xl_array[(long)cookie]->name);
+			}
 
 			if (local->stbuf.st_mode && local->stbuf.st_blksize) {
 				/* make sure we already have a stbuf stored in local->stbuf */
 				if (S_ISDIR (local->stbuf.st_mode) && !S_ISDIR (buf->st_mode)) {
 					gf_log (this->name, GF_LOG_CRITICAL, 
-						"[CRITICAL] '%s' is directory on namespace and, non-directory on node '%s', returning EIO",
+						"[CRITICAL] '%s' is directory on namespace and, non-directory "
+						"on node '%s', returning EIO",
 						local->loc1.path, priv->xl_array[(long)cookie]->name);
 					local->return_eio = 1;
 				}
 				if (!S_ISDIR (local->stbuf.st_mode) && S_ISDIR (buf->st_mode)) {
 					gf_log (this->name, GF_LOG_CRITICAL, 
-						"[CRITICAL] '%s' is directory on node '%s', non-directory on namespace, returning EIO",
+						"[CRITICAL] '%s' is directory on node '%s', non-directory on "
+						"namespace, returning EIO",
 						local->loc1.path, priv->xl_array[(long)cookie]->name);
 					local->return_eio = 1;
 				}
@@ -374,7 +385,8 @@ unify_lookup_cbk (call_frame_t *frame,
 		local_dict = local->dict;
 		if (local->return_eio) {
 			gf_log (this->name, GF_LOG_CRITICAL, 
-				"[CRITICAL] Unable to fix the path (%s) with self-heal, try manual verification. returning EIO.",
+				"[CRITICAL] Unable to fix the path (%s) with self-heal, try manual "
+				"verification. returning EIO.",
 				local->loc1.path);
 			unify_local_wipe (local);
 			STACK_UNWIND (frame, -1, EIO, inode, NULL, NULL);
@@ -424,7 +436,8 @@ unify_lookup_cbk (call_frame_t *frame,
 			/* Done revalidate, but it failed */
 			if (op_errno != ENOTCONN) {
 				gf_log (this->name, GF_LOG_ERROR, 
-					"Revalidate failed for path(%s): %s", local->loc1.path, strerror (op_errno));
+					"Revalidate failed for path(%s): %s", 
+					local->loc1.path, strerror (op_errno));
 			}
 			local->op_ret = -1;
 		}
@@ -689,7 +702,8 @@ unify_mkdir_cbk (call_frame_t *frame,
   
 	if (!callcnt) {
 		if (!local->failed) {
-			dict_set (local->loc1.inode->ctx, this->name, data_from_int64 (priv->inode_generation));
+			dict_set (local->loc1.inode->ctx, this->name, 
+				  data_from_int64 (priv->inode_generation));
 		}
 		
 		tmp_inode = local->loc1.inode;
@@ -965,7 +979,8 @@ unify_open_lookup_cbk (call_frame_t *frame,
 		if ((op_ret == -1) && (op_errno != ENOENT)) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"child(%s): path(%s): %s", 
-				priv->xl_array[(long)cookie]->name, local->loc1.path, strerror (op_errno));
+				priv->xl_array[(long)cookie]->name, 
+				local->loc1.path, strerror (op_errno));
 			local->op_errno = op_errno;
 		}
     
@@ -1280,7 +1295,8 @@ unify_create_lookup_cbk (call_frame_t *frame,
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"child(%s): path(%s): %s", 
-				priv->xl_array[(long)cookie]->name, local->loc1.path, strerror (op_errno));
+				priv->xl_array[(long)cookie]->name, 
+				local->loc1.path, strerror (op_errno));
 			local->op_errno = op_errno;
 			local->failed = 1;
 		}

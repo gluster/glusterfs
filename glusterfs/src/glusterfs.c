@@ -25,10 +25,10 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <netdb.h>
+#include <signal.h>
 #include <libgen.h>
 
 #include <stdint.h>
-#include <signal.h>
 #include <pthread.h>
 
 #ifndef _CONFIG_H
@@ -59,7 +59,8 @@
 #include "revision.h"
 #include "common-utils.h"
 #include "event.h"
-#include "fetch-spec.h"
+
+#include <fnmatch.h>
 
 /* using argp for command line parsing */
 static char gf_doc[] = "";
@@ -104,13 +105,13 @@ static struct argp_option gf_options[] = {
  	{"volume-name", ARGP_VOLUME_NAME_KEY, "VOLUME-NAME", 0,
  	 "Volume name to be used for MOUNT-POINT [default: top most volume in VOLUME-SPECFILE]"},
  	{"xlator-option", ARGP_XLATOR_OPTION_KEY, "VOLUME-NAME.OPTION=VALUE", 0, 
-	 "Override a translator option for a volume with the specified value"},
+	 "Add/override a translator option for a volume with the specified value"},
 	
  	{0, 0, 0, 0, "Fuse options:"},
  	{"disable-direct-io-mode", ARGP_DISABLE_DIRECT_IO_MODE_KEY, 0, 0, 
  	 "Disable direct I/O mode in fuse kernel module"},
- 	{"directory-entry-timeout", ARGP_DIRECTORY_ENTRY_TIMEOUT_KEY, "SECONDS", 0, 
- 	 "Set directory entry timeout to SECONDS in fuse kernel module [default: 1]"},
+ 	{"entry-timeout", ARGP_ENTRY_TIMEOUT_KEY, "SECONDS", 0, 
+ 	 "Set entry timeout to SECONDS in fuse kernel module [default: 1]"},
  	{"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0, 
  	 "Set attribute timeout to SECONDS for inodes in fuse kernel module [default: 1]"},
 	{"nodev", ARGP_FUSE_NODEV_KEY, 0, 0, 
@@ -192,7 +193,7 @@ _add_fuse_mount (xlator_t *graph)
 	dict_set (top->options, TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_ATTR_TIMEOUT_STRING, 
 		  data_from_uint32 (cmd_args->fuse_attribute_timeout));
 	dict_set (top->options, TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_ENTRY_TIMEOUT_STRING, 
-		  data_from_uint32 (cmd_args->fuse_directory_entry_timeout));
+		  data_from_uint32 (cmd_args->fuse_entry_timeout));
 
  	if (cmd_args->fuse_nodev)
  		dict_set (top->options, "set-option-nodev", data_from_uint32 (cmd_args->fuse_nodev));
@@ -445,57 +446,28 @@ out:
 	return ret;
 }
 
-
-static xlator_cmdline_option_t *
-gf_find_overriding_option (char *vol, char *key)
-{
-	glusterfs_ctx_t *ctx = NULL;
-	cmd_args_t *cmd_args = NULL;
-
-	xlator_cmdline_option_t *option = NULL;
-
-	ctx      = get_global_ctx_ptr ();
-	cmd_args = &ctx->cmd_args;
-
-	list_for_each_entry (option, &cmd_args->xlator_options, cmd_args) {
-		if (!strcmp (option->volume, vol) &&
-		    !strcmp (option->key, key))
-			return option;
-	}
-
-	return NULL;
-}
-
-
 static void
-gf_override_options (xlator_t *graph)
+gf_add_cmdline_options (xlator_t *graph, cmd_args_t *cmd_args)
 {
-	xlator_t *    trav = graph;
-	data_pair_t * pair = NULL;
+	int ret = 0;
+	xlator_t   *trav = graph;
 	xlator_cmdline_option_t *cmd_option = NULL;
 
-	int ret = 0;
-
 	while (trav) {
-		pair = trav->options->members_list; 
-		while (pair) {
-			cmd_option = gf_find_overriding_option (trav->name, pair->key);
-
-			if (cmd_option) {
-				ret = dict_set_str (trav->options, 
-						    pair->key, cmd_option->value);
+		list_for_each_entry (cmd_option, &cmd_args->xlator_options, cmd_args) {
+			if (!fnmatch (cmd_option->volume, trav->name, FNM_NOESCAPE)) {
+				ret = dict_set_str (trav->options, cmd_option->key, cmd_option->value);
 				if (ret == 0) {
-					gf_log ("glusterfs", GF_LOG_DEBUG,
-						"overriding option '%s' for volume '%s' with value '%s'", pair->key, trav->name, cmd_option->value);
+					gf_log ("glusterfs", GF_LOG_WARNING,
+						"adding option '%s' for volume '%s' with value '%s'", 
+						cmd_option->key, trav->name, cmd_option->value);
 				} else {
-					gf_log ("glusterfs", GF_LOG_DEBUG,
-						"dict_set_str failed while overriding option '%s' for volume '%s': %s", pair->key, trav->name, strerror (-ret));
+					gf_log ("glusterfs", GF_LOG_WARNING,
+						"adding option '%s' for volume '%s' failed: %s", 
+						cmd_option->key, trav->name, strerror (-ret));
 				}
 			}
-
-			pair = pair->next;
 		}
-
 		trav = trav->next;
 	}
 }
@@ -595,16 +567,16 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		cmd_args->fuse_direct_io_mode_flag = _gf_false;
 		break;
 		
-	case ARGP_DIRECTORY_ENTRY_TIMEOUT_KEY:
+	case ARGP_ENTRY_TIMEOUT_KEY:
 	{
 		n = 0;
 		
 		if (gf_string2uint_base10 (arg, &n) == 0) {
-			cmd_args->fuse_directory_entry_timeout = n;
+			cmd_args->fuse_entry_timeout = n;
 			break;
 		}
 		
-		argp_failure (state, -1, 0, "unknown directory entry timeout %s", arg);
+		argp_failure (state, -1, 0, "unknown entry timeout %s", arg);
 		break;
 	}
 	
@@ -733,7 +705,7 @@ main (int argc, char *argv[])
 	
 	/* parsing command line arguments */
 	cmd_args->log_level = DEFAULT_LOG_LEVEL;
-	cmd_args->fuse_directory_entry_timeout = DEFAULT_FUSE_DIRECTORY_ENTRY_TIMEOUT;
+	cmd_args->fuse_entry_timeout = DEFAULT_FUSE_ENTRY_TIMEOUT;
 	cmd_args->fuse_attribute_timeout = DEFAULT_FUSE_ATTRIBUTE_TIMEOUT;
 	cmd_args->fuse_direct_io_mode_flag = _gf_true;
 	
@@ -937,7 +909,7 @@ main (int argc, char *argv[])
 	gf_timer_registry_init (ctx);
 
 	/* override xlator options with command line options where applicable */
-	gf_override_options (graph);
+	gf_add_cmdline_options (graph, cmd_args);
 
 	if (graph->init (graph) != 0) {
 		gf_log ("glusterfs", GF_LOG_ERROR, "translator initialization failed.  exiting");

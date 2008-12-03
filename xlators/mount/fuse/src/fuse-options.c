@@ -91,17 +91,17 @@ _fuse_options_dir_entry_timeout_validate (const char *value_string, uint16_t *n)
 	if (gf_string2uint16_base10 (value_string, &value) != 0) {
 		LOG_ERROR ("invalid number format [%s] of option [%s]",
 			   value_string,
-			   GF_FUSE_DIR_ENTRY_TIMEOUT_OPTION_STRING);
+			   GF_FUSE_ENTRY_TIMEOUT_OPTION_STRING);
 		return -1;
 	}
 	
-	if ((value <= GF_FUSE_DIR_ENTRY_TIMEOUT_VALUE_MIN) ||
-	    (value >= GF_FUSE_DIR_ENTRY_TIMEOUT_VALUE_MAX)) {
+	if ((value <= GF_FUSE_ENTRY_TIMEOUT_VALUE_MIN) ||
+	    (value >= GF_FUSE_ENTRY_TIMEOUT_VALUE_MAX)) {
 		LOG_ERROR ("out of range [%d] of option [%s].  Allowed range is %d to %d.", 
 			   value, 
-			   GF_FUSE_DIR_ENTRY_TIMEOUT_OPTION_STRING, 
-			   GF_FUSE_DIR_ENTRY_TIMEOUT_VALUE_MIN, 
-			   GF_FUSE_DIR_ENTRY_TIMEOUT_VALUE_MAX);
+			   GF_FUSE_ENTRY_TIMEOUT_OPTION_STRING, 
+			   GF_FUSE_ENTRY_TIMEOUT_VALUE_MIN, 
+			   GF_FUSE_ENTRY_TIMEOUT_VALUE_MAX);
 		return -1;
 	}
 	
@@ -160,16 +160,16 @@ fuse_options_validate (const dict_t *options, fuse_options_t *fuse_options)
 		LOG_DEBUG ("using %s = %d [default]", GF_FUSE_ATTRIBUTE_TIMEOUT_OPTION_STRING, fuse_options->attr_timeout);
 	}
 	
-	value_string = data_to_str (dict_get ((dict_t *) options, GF_FUSE_DIR_ENTRY_TIMEOUT_OPTION_STRING));
+	value_string = data_to_str (dict_get ((dict_t *) options, GF_FUSE_ENTRY_TIMEOUT_OPTION_STRING));
 	if (value_string != NULL) {
 		if (_fuse_options_dir_entry_timeout_validate (value_string, &fuse_options->entry_timeout) != 0)
 			return -1;
 		
-		LOG_DEBUG ("using %s = %d", GF_FUSE_DIR_ENTRY_TIMEOUT_OPTION_STRING, fuse_options->entry_timeout);
+		LOG_DEBUG ("using %s = %d", GF_FUSE_ENTRY_TIMEOUT_OPTION_STRING, fuse_options->entry_timeout);
 	}
 	else {
-		fuse_options->entry_timeout = GF_FUSE_DIR_ENTRY_TIMEOUT_VALUE_DEFAULT;
-		LOG_DEBUG ("using %s = %d [default]", GF_FUSE_DIR_ENTRY_TIMEOUT_OPTION_STRING, fuse_options->entry_timeout);
+		fuse_options->entry_timeout = GF_FUSE_ENTRY_TIMEOUT_VALUE_DEFAULT;
+		LOG_DEBUG ("using %s = %d [default]", GF_FUSE_ENTRY_TIMEOUT_OPTION_STRING, fuse_options->entry_timeout);
 	}
 	
 	value_string = data_to_str (dict_get ((dict_t *) options, GF_FUSE_DIRECT_IO_MODE_OPTION_STRING));
