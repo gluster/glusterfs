@@ -925,6 +925,21 @@ wb_enqueue (wb_file_t *file,
 
 
 int32_t
+wb_writev_cbk (call_frame_t *frame,
+               void *cookie,
+               xlator_t *this,
+               int32_t op_ret,
+               int32_t op_errno,
+               struct stat *stbuf)
+{
+	GF_ERROR_IF_NULL (this);
+
+	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+	return 0;
+}
+
+
+int32_t
 wb_writev (call_frame_t *frame,
            xlator_t *this,
            fd_t *fd,
@@ -933,10 +948,13 @@ wb_writev (call_frame_t *frame,
            off_t offset)
 {
         wb_file_t *file = NULL;
-        char offset_expected = 1; 
+        char offset_expected = 1, wb_disabled = 0; 
         call_frame_t *process_frame = NULL;
+	size_t size = 0;
 
-        process_frame = copy_frame (frame);
+	if (vector != NULL) {
+		size = iov_length (vector, count);
+	}
 
         if (!dict_get (fd->ctx, this->name))
         {
@@ -957,10 +975,33 @@ wb_writev (call_frame_t *frame,
 
         LOCK (&file->lock);
         {
+		if (file->disabled || file->disable_till) {
+			if (size > file->disable_till) {
+				file->disable_till = 0;
+			} else {
+				file->disable_till -= size;
+			}
+			wb_disabled = 1;
+		}
+
                 if (file->offset != offset)
                         offset_expected = 0;
         }
         UNLOCK (&file->lock);
+
+	if (wb_disabled) {
+		STACK_WIND (frame,
+			    wb_writev_cbk,
+			    FIRST_CHILD (frame->this),
+			    FIRST_CHILD (frame->this)->fops->writev,
+			    file->fd,
+			    vector,
+			    count,
+			    offset);
+		return 0;
+	}
+
+        process_frame = copy_frame (frame);
 
         if (!offset_expected)
         {
@@ -1125,7 +1166,7 @@ wb_flush (call_frame_t *frame,
                         "request queue is not empty, it has to be synced");
         }
 
-        if (conf->flush_behind && (!file->disabled)) {
+        if (conf->flush_behind && (!file->disabled) && (file->disable_till == 0)) {
                 flush_frame = copy_frame (frame);     
                 STACK_UNWIND (frame, file->op_ret, file->op_errno); // liar! liar! :O
 
@@ -1137,7 +1178,6 @@ wb_flush (call_frame_t *frame,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->flush,
                             fd);
-
         } else {
                 wb_sync_all (frame, file);
 
@@ -1151,6 +1191,7 @@ wb_flush (call_frame_t *frame,
 
         return 0;
 }
+
 
 int32_t
 wb_fsync_cbk (call_frame_t *frame,
