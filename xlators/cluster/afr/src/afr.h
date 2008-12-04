@@ -357,7 +357,7 @@ typedef struct _afr_local {
 		int failure_count;
 
 		int last_tried;
-		int32_t child_errno[1024];
+		int32_t *child_errno;
 
 		call_frame_t *main_frame;
 
@@ -451,17 +451,20 @@ AFR_BASENAME (const char *str)
 static inline int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
-	local->child_errno = calloc (sizeof (*local->child_errno), priv->child_count);
+	local->child_errno = calloc (sizeof (*local->child_errno),
+				     priv->child_count);
 	if (!local->child_errno) {
 		return -ENOMEM;
 	}
 
-	local->pending_array = malloc (sizeof (*local->pending_array) * priv->child_count);
+	local->pending_array = calloc (sizeof (*local->pending_array),
+				       priv->child_count);
 	if (!local->pending_array) {
 		return -ENOMEM;
 	}
 
-	local->child_up = malloc (sizeof (*local->child_up) * priv->child_count);
+	local->child_up = calloc (sizeof (*local->child_up),
+				  priv->child_count);
 	if (!local->child_up) {
 		return -ENOMEM;
 	}
@@ -469,9 +472,11 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 	memcpy (local->child_up, priv->child_up, 
 		sizeof (*local->child_up) * priv->child_count);
 
-	local->transaction.locked_nodes = calloc (sizeof(*local->transaction.locked_nodes),
+	local->transaction.locked_nodes = calloc (sizeof (*local->transaction.locked_nodes),
 						  priv->child_count);
 
+	local->transaction.child_errno = calloc (sizeof (*local->transaction.child_errno),
+						  priv->child_count);
 	local->call_count = up_children_count (priv->child_count, local->child_up);
 	if (local->call_count == 0)
 		return -ENOTCONN;

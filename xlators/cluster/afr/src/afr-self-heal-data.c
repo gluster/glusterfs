@@ -554,10 +554,6 @@ afr_sh_data_read_write (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh = &local->self_heal;
 
-	gf_log (this->name, GF_LOG_WARNING,
-		"sourcing file %s from %s to other sinks",
-		local->loc.path, priv->children[sh->source]->name);
-
 	STACK_WIND_COOKIE (frame, afr_sh_data_read_cbk,
 			   (void *) (long) sh->source,
 			   priv->children[sh->source],
@@ -613,6 +609,11 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"fd for %s opened, commencing sync",
 			local->loc.path);
+
+		gf_log (this->name, GF_LOG_WARNING,
+			"sourcing file %s from %s to other sinks",
+			local->loc.path, priv->children[sh->source]->name);
+
 		afr_sh_data_read_write (frame, this);
 	}
 
@@ -872,21 +873,26 @@ int
 afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		      int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t * local = NULL;
-	int           call_count = 0;
-	int           child_index = (long) cookie;
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	int              call_count = 0;
+	int              child_index = (long) cookie;
 
 	/* TODO: what if lock fails? */
 	
 	local = frame->local;
+	sh = &local->self_heal;
 
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR, 
-				"locking inode of %s on child %d failed: %s",
-				local->loc.path, child_index,
-				strerror (op_errno));
+			sh->op_failed = 1;
+
+			if (op_errno != EAGAIN)
+				gf_log (this->name, GF_LOG_ERROR, 
+					"locking of %s on child %d failed: %s",
+					local->loc.path, child_index,
+					strerror (op_errno));
 		} else {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"inode of %s on child %d locked",
@@ -898,6 +904,11 @@ afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
+		if (sh->op_failed) {
+			afr_sh_data_finish (frame, this);
+			return 0;
+		}
+
 		afr_sh_data_lookup (frame, this);
 	}
 
@@ -939,7 +950,7 @@ afr_sh_data_lock (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->inodelk,
-					   &local->loc, F_SETLKW, &flock); 
+					   &local->loc, F_SETLK, &flock); 
 			if (!--call_count)
 				break;
 		}

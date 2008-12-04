@@ -128,6 +128,7 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 	loc_wipe (&local->newloc);
 
 	FREE (local->transaction.locked_nodes);
+	FREE (local->transaction.child_errno);
 
 	FREE (local->transaction.basename);
 	FREE (local->transaction.new_basename);
