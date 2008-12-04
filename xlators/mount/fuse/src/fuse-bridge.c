@@ -2716,7 +2716,7 @@ init (xlator_t *this_xl)
 			     "-o", "local",
 			     NULL};
 
-#else /* ! DARWIN_OS */
+#elif GF_LINUX_HOST_OS /* ! DARWIN_OS */
         int fuse_argc = 19;
 	
 	char *fuse_argv[] = {"glusterfs",
@@ -2731,7 +2731,22 @@ init (xlator_t *this_xl)
 			     "-o", "suid",
 			     NULL};
 
-#endif /* ! DARWIN_OS */
+#else /* BSD || SOLARIS */
+	/* BSD fuse doesn't support '-o dev' option */
+        int fuse_argc = 17;
+	
+	char *fuse_argv[] = {"glusterfs",
+			     "-o", "nonempty",
+			     "-o", "max_readahead=1048576",
+			     "-o", "max_read=1048576",
+			     "-o", "max_write=1048576",
+			     "-o", "allow_other",
+			     "-o", "default_permissions",
+			     "-o", "fsname=glusterfs",
+			     "-o", "suid",
+			     NULL};
+
+#endif /* ! DARWIN_OS || ! LINUX */
         struct fuse_args args = FUSE_ARGS_INIT (fuse_argc, fuse_argv);
 	
 	if (this_xl == NULL)
@@ -2765,7 +2780,7 @@ init (xlator_t *this_xl)
 		fuse_argv[--args.argc] = NULL;
 		fuse_argv[--args.argc] = NULL;
 	}
-#else /* ! DARWIN */
+#elif GF_LINUX_HOST_OS 
 
 	if (dict_get (options, "set-option-nodev")) {
 		fuse_argv[15] = "-o";
@@ -2777,7 +2792,7 @@ init (xlator_t *this_xl)
 		fuse_argv[18] = "nosuid";
 	}
 
-#endif /* ! DARWIN */
+#endif /* ! DARWIN || ! LINUX */
 
         priv->ch = fuse_mount (fuse_options->mount_point, &args);
         if (priv->ch == NULL) {
