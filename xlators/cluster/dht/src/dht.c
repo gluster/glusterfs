@@ -141,41 +141,6 @@ selfheal:
 
 
 int
-dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
-                         xlator_t *this, int op_ret, int op_errno,
-                         inode_t *inode, struct stat *stbuf, dict_t *xattr)
-{
-        call_frame_t *prev = NULL;
-	dht_layout_t *layout = NULL;
-
-        prev = cookie;
-        /* TODO: assert type is non-dir and non-linkfile */
-
-        if (op_ret == -1)
-                goto out;
-
-        dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
-
-	layout = dht_layout_for_subvol (this, prev->this);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"no pre-set layout for subvolume %s",
-			prev->this->name);
-		op_ret   = -1;
-		op_errno = EINVAL;
-		goto out;
-	}
-
-	inode_ctx_set (inode, this, layout);
-
-out:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
-
-        return 0;
-}
-
-
-int
 dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
                     inode_t *inode, struct stat *stbuf, dict_t *xattr)
@@ -223,8 +188,9 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (prev->this == local->cached_subvol) {
 			/* if the file/dir has not been recreated, the
 			 * scaled subvolumes should match.
-			 * NOTE: dht_stat_merge() transforms local->stbuf.st_ino
-			 *       and local->st_ino will be 1. 
+			 * NOTE: dht_stat_merge() transforms
+			 * local->stbuf.st_ino
+			 * and local->st_ino will be 1. 
 			 */
 #if 0
 			if ((local->stbuf.st_ino == local->st_ino) ||
@@ -251,13 +217,213 @@ unlock:
 		if (local->op_ret == -1 && local->op_errno == EUCLEAN)
 			trap ();
 
-		gf_log (this->name, GF_LOG_DEBUG,
-			"LOOKUP(): revalidate reply local->inode->ino = %"PRId64" and"
-			"stbuf->st_ino = %"PRId64, local->inode->ino, local->stbuf.st_ino);
-
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr);
 	}
+
+        return 0;
+}
+
+
+int
+dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
+				xlator_t *this,
+				int32_t op_ret, int32_t op_errno,
+				inode_t *inode, struct stat *stbuf)
+{
+	dht_local_t  *local = NULL;
+	dht_layout_t *layout = NULL;
+	xlator_t     *cached_subvol = NULL;
+
+	local = frame->local;
+	cached_subvol = local->cached_subvol;
+
+	layout = dht_layout_for_subvol (this, local->cached_subvol);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no pre-set layout for subvolume %s",
+			cached_subvol ? cached_subvol->name : "<nil>");
+		local->op_ret = -1;
+		local->op_errno = EINVAL;
+		goto unwind;
+	}
+
+	inode_ctx_set (local->inode, this, layout);
+	local->op_ret = 0;
+
+unwind:
+	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+			  local->inode, &local->stbuf, local->xattr);
+	return 0;
+}
+
+
+int
+dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			   int32_t op_ret, int32_t op_errno,
+			   inode_t *inode, struct stat *buf, dict_t *xattr)
+{
+	dht_conf_t   *conf          = NULL;
+        dht_local_t  *local         = NULL;
+        int           this_call_cnt = 0;
+        call_frame_t *prev          = NULL;
+	int           is_linkfile   = 0;
+	int           is_dir        = 0;
+	xlator_t     *subvol        = NULL;
+	loc_t        *loc           = NULL;
+	xlator_t     *link_subvol   = NULL;
+	xlator_t     *hashed_subvol = NULL;
+	xlator_t     *cached_subvol = NULL;
+
+	conf   = this->private;
+
+	local  = frame->local;
+	loc    = &local->loc;
+
+	prev   = cookie;
+	subvol = prev->this;
+
+	LOCK (&frame->lock);
+	{
+		if (op_ret == -1) {
+			if (op_errno != ENOENT)
+				local->op_errno = op_errno;
+			goto unlock;
+		}
+
+		is_linkfile = check_is_linkfile (inode, buf, xattr);
+		is_dir = check_is_dir (inode, buf, xattr);
+
+		if (is_linkfile) {
+			link_subvol = dht_linkfile_subvol (this, inode, buf,
+							   xattr);
+			gf_log (this->name, GF_LOG_DEBUG,
+				"found on %s linkfile %s (-> %s)",
+				subvol->name, loc->path,
+				link_subvol ? link_subvol->name : "''");
+			goto unlock;
+		} else {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"found on %s file %s",
+				subvol->name, loc->path);
+		}
+
+		if (!local->cached_subvol) {
+			/* found one file */
+			dht_stat_merge (this, &local->stbuf, buf, subvol);
+			local->xattr = dict_ref (xattr);
+			local->cached_subvol = subvol;
+		} else {
+			gf_log (this->name, GF_LOG_WARNING,
+				"multiple subvolumes (%s and %s atleast) have "
+				"file %s", local->cached_subvol->name,
+				subvol->name, local->loc.path);
+		}
+	}
+unlock:
+	UNLOCK (&frame->lock);
+
+	if (is_linkfile) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"deleting stale linkfile %s on %s",
+			loc->path, subvol->name);
+		dht_linkfile_unlink (frame, this, subvol, loc);
+	}
+
+	this_call_cnt = dht_frame_return (frame);
+	if (is_last_call (this_call_cnt)) {
+		hashed_subvol = local->hashed_subvol;
+		cached_subvol = local->cached_subvol;
+
+		if (!cached_subvol) {
+			DHT_STACK_UNWIND (frame, -1, ENOENT, NULL, NULL, NULL);
+			return 0;
+		}
+
+		gf_log (this->name, GF_LOG_WARNING,
+			"linking file %s existing on %s to %s (hash)",
+			loc->path, cached_subvol->name, hashed_subvol->name);
+
+		dht_linkfile_create (frame, dht_lookup_linkfile_create_cbk,
+				     cached_subvol, hashed_subvol, loc);
+	}
+
+	return 0;
+}
+
+
+int
+dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+	dht_conf_t     *conf = NULL;
+	dht_local_t    *local = NULL;
+	int             i = 0;
+	int             call_cnt = 0;
+
+	conf = this->private;
+	local = frame->local;
+
+	call_cnt = conf->subvolume_cnt;
+	local->call_cnt = call_cnt;
+
+	if (!local->inode)
+		local->inode = inode_ref (loc->inode);
+
+	for (i = 0; i < call_cnt; i++) {
+		STACK_WIND (frame, dht_lookup_everywhere_cbk,
+			    conf->subvolumes[i],
+			    conf->subvolumes[i]->fops->lookup,
+			    loc, 1);
+	}
+
+	return 0;
+}
+
+
+int
+dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
+                         xlator_t *this, int op_ret, int op_errno,
+                         inode_t *inode, struct stat *stbuf, dict_t *xattr)
+{
+        call_frame_t *prev = NULL;
+	dht_local_t  *local = NULL;
+	dht_layout_t *layout = NULL;
+	xlator_t     *subvol = NULL;
+	loc_t        *loc = NULL;
+
+        prev   = cookie;
+	subvol = prev->this;
+
+	local  = frame->local;
+	loc    = &local->loc;
+
+        if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"lookup of %s on %s (following linkfile) failed (%s)",
+			local->loc.path, subvol->name, strerror (op_errno));
+
+		dht_lookup_everywhere (frame, this, loc);
+		return 0;
+	}
+
+        /* TODO: assert type is non-dir and non-linkfile */
+
+        dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+
+	layout = dht_layout_for_subvol (this, prev->this);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no pre-set layout for subvolume %s",
+			prev->this->name);
+		op_ret   = -1;
+		op_errno = EINVAL;
+		goto out;
+	}
+
+	inode_ctx_set (inode, this, layout);
+
+out:
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
 
         return 0;
 }
@@ -285,6 +451,14 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev  = cookie;
         local = frame->local;
         loc   = &local->loc;
+
+	if (ENTRY_MISSING (op_ret, op_errno)) {
+		if (conf->search_unhashed) {
+			local->op_errno = ENOENT;
+			dht_lookup_everywhere (frame, this, loc);
+			return 0;
+		}
+	}
 
         if (op_ret == -1)
                 goto out;
@@ -343,17 +517,16 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
 
                 if (!subvol) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "linkfile not having link subvolume. path=%s",
                                 loc->path);
-                        op_ret   = -1;
-                        op_errno = EINVAL;
-                        goto out;
+			dht_lookup_everywhere (frame, this, loc);
+			return 0;
                 }
 
-                STACK_WIND (frame, dht_lookup_linkfile_cbk,
-                            subvol, subvol->fops->lookup,
-                            &local->loc, 1);
+		STACK_WIND (frame, dht_lookup_linkfile_cbk,
+			    subvol, subvol->fops->lookup,
+			    &local->loc, 1);
         }
 
         return 0;
@@ -421,10 +594,6 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
 		
-		gf_log (this->name, GF_LOG_DEBUG,
-			"LOOKUP() revalidating: %s (%"PRId64")",
-			loc->path, loc->inode->ino);
-
 		for (i = 0; i < layout->cnt; i++) {
 			subvol = layout->list[i].xlator;
 
@@ -437,6 +606,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 		}
         } else {
                 subvol = dht_subvol_get_hashed (this, loc);
+		local->hashed_subvol = subvol;
 
                 if (!subvol) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -445,10 +615,6 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         op_errno = EINVAL;
                         goto err;
                 }
-		
-		gf_log (this->name, GF_LOG_DEBUG,
-			"LOOKUP() fresh: %s (%"PRId64"/%s)",
-			loc->path, (loc->parent? loc->parent->ino : 0), loc->name);
 
                 STACK_WIND (frame, dht_lookup_cbk,
                             subvol, subvol->fops->lookup,
@@ -1824,7 +1990,6 @@ unwind:
 }
 
 
-
 int
 dht_readdir (call_frame_t *frame, xlator_t *this,
 	     fd_t *fd, size_t size, off_t yoff)
@@ -3144,6 +3309,7 @@ int
 init (xlator_t *this)
 {
         dht_conf_t    *conf = NULL;
+	char          *lookup_unhashed_str = NULL;
         int            ret = -1;
         int            i = 0;
 
@@ -3154,6 +3320,14 @@ init (xlator_t *this)
                         "memory allocation failed :(");
                 goto err;
         }
+
+	conf->search_unhashed = 0;
+
+	if (dict_get_str (this->options, "lookup-unhashed",
+			  &lookup_unhashed_str) == 0) {
+		gf_string2boolean (lookup_unhashed_str,
+				   (gf_boolean_t *)&conf->search_unhashed);
+	}
 
         ret = dht_init_subvolumes (this, conf);
         if (ret == -1) {
@@ -3263,6 +3437,6 @@ struct xlator_cbks cbks = {
 
 
 struct xlator_options options[] = {
-        { "algorithm", GF_OPTION_TYPE_STR, 1, 0, 0 },
+        { "lookup-unhashed", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
         { NULL, 0, 0, 0, 0 },
 };

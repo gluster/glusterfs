@@ -28,6 +28,7 @@
 #include "dht.h"
 #include "byte-order.h"
 
+#define VOID(ptr) ((void **) ((void *) ptr))
 
 #define layout_base_size (sizeof (dht_layout_t))
 
@@ -59,12 +60,12 @@ out:
 dht_layout_t *
 dht_layout_get (xlator_t *this, inode_t *inode)
 {
-        void *layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
-        int  ret = -1;
+        dht_layout_t *layout = NULL;
+        int           ret = -1;
 
-        ret = dict_get_ptr (inode->ctx, this->name, &layout);
+        ret = dict_get_ptr (inode->ctx, this->name, VOID(&layout));
 
-        return (dht_layout_t *)layout;
+        return layout;
 }
 
 
@@ -94,7 +95,7 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
 	}
 
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume for hash (value) = %u", hash);
 	}
 
@@ -232,7 +233,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	int      ret   = -1;
 	int      err   = -1;
 	int32_t *disk_layout = NULL;
-	void    *tmp_disk_layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
+
 
 	if (op_ret != 0) {
 		err = op_errno;
@@ -249,7 +250,8 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	if (!xattr)
 		goto out;
 
-	ret = dict_get_ptr (xattr, "trusted.glusterfs.dht", &tmp_disk_layout);
+	ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
+			    VOID(&disk_layout));
 
 	if (ret != 0) {
 		err = -1;
@@ -259,7 +261,6 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 		goto out;
 	}
 
-	disk_layout = tmp_disk_layout;
 	ret = dht_disk_layout_merge (this, layout, i, disk_layout);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -305,11 +306,11 @@ dht_layout_entry_cmp (dht_layout_t *layout, int i, int j)
 {
 	int64_t diff = 0;
 
-
 	if (layout->list[i].err || layout->list[j].err)
 		diff = layout->list[i].err - layout->list[j].err;
 	else
-		diff = (int64_t) layout->list[i].start - (int64_t)layout->list[j].start;
+		diff = (int64_t) layout->list[i].start
+			- (int64_t) layout->list[j].start;
 
 	return diff;
 }

@@ -96,6 +96,7 @@ struct dht_conf {
 	dht_layout_t **file_layouts;
 	dht_layout_t **dir_layouts;
 	dht_layout_t  *default_dir_layout;
+	int            search_unhashed;
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -110,6 +111,7 @@ struct dht_disk_layout {
 };
 typedef struct dht_disk_layout dht_disk_layout_t;
  
+#define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
 #define is_fs_root(loc) (strcmp (loc->path, "/") == 0)
 
@@ -132,6 +134,13 @@ typedef struct dht_disk_layout dht_disk_layout_t;
 		dht_local_wipe (__local);	       \
 	} while (0)
 
+#define DHT_STACK_DESTROY(frame) do {		       \
+		dht_local_t *__local = NULL;           \
+		__local = frame->local;                \
+		frame->local = NULL;		       \
+		STACK_DESTROY (frame->root);	       \
+		dht_local_wipe (__local);	       \
+	} while (0)
 
 dht_layout_t *dht_layout_new (xlator_t *this, int cnt);
 dht_layout_t *dht_layout_get (xlator_t *this, inode_t *inode);
@@ -146,6 +155,8 @@ int dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
 
 xlator_t *dht_linkfile_subvol (xlator_t *this, inode_t *inode,
 			       struct stat *buf, dict_t *xattr);
+int dht_linkfile_unlink (call_frame_t *frame, xlator_t *this,
+			 xlator_t *subvol, loc_t *loc);
 
 int dht_layouts_init (xlator_t *this, dht_conf_t *conf);
 int dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
@@ -176,8 +187,7 @@ int dht_subvol_cnt (xlator_t *this, xlator_t *subvol);
 int dht_hash_compute (int type, const char *name, uint32_t *hash_p);
 
 int dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
-			 xlator_t *srcvol, xlator_t *dstvol, loc_t *loc);
-
+			 xlator_t *tovol, xlator_t *fromvol, loc_t *loc);
 int
 dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
 			loc_t *loc, dht_layout_t *layout);
