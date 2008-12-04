@@ -175,6 +175,23 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 }
 
 
+int
+afr_frame_return (call_frame_t *frame)
+{
+	afr_local_t *local = NULL;
+	int          call_count = 0;
+
+	local = frame->local;
+
+	LOCK (&frame->lock);
+	{
+		call_count = --local->call_count;
+	}
+	UNLOCK (&frame->lock);
+
+	return call_count;
+}
+
 /**
  * first_up_child - return the index of the first child that is up
  */
@@ -283,7 +300,7 @@ afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 }
 
 
-int32_t
+int
 afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		xlator_t *this,	int32_t op_ret,	int32_t op_errno,
 		inode_t *inode,	struct stat *buf, dict_t *xattr)
@@ -300,7 +317,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	LOCK (&frame->lock);
 	{
 		local = frame->local;
-		call_count = --local->call_count;
 
 		if (op_ret == 0) {
 			lookup_buf = &local->cont.lookup.buf;
@@ -379,6 +395,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		if (local->success_count && local->enoent_count) {
@@ -498,8 +516,6 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == -1) {
 			local->child_errno[child_index] = op_errno;
 			local->op_errno = op_errno;
@@ -510,6 +526,8 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 		}
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		if (local->cont.open.flags & O_TRUNC) {
@@ -614,14 +632,14 @@ afr_flush_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0)
 			local->op_ret = 0;
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -695,14 +713,14 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0)
 			local->op_ret = 0;
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -777,14 +795,14 @@ afr_fsyncdir_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0)
 			local->op_ret = 0;
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -860,14 +878,14 @@ afr_xattrop_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0)
 			local->op_ret = 0;
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, xattr);
@@ -943,14 +961,14 @@ afr_fxattrop_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0)
 			local->op_ret = 0;
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, xattr);
@@ -1025,14 +1043,14 @@ afr_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0)
 			local->op_ret = 0;
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -1106,14 +1124,14 @@ afr_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0)
 			local->op_ret = 0;
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -1187,14 +1205,14 @@ afr_entrylk_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0)
 			local->op_ret = 0;
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -1269,14 +1287,14 @@ afr_fentrylk_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0)
 			local->op_ret = 0;
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -1351,14 +1369,14 @@ afr_checksum_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0)
 			local->op_ret = 0;
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
@@ -1432,7 +1450,6 @@ afr_statfs_cbk (call_frame_t *frame, void *cookie,
 	LOCK (&frame->lock);
 	{
 		local = frame->local;
-		call_count = --local->call_count;
 
 		if (op_ret == 0) {
 			local->op_ret   = op_ret;
@@ -1451,6 +1468,8 @@ afr_statfs_cbk (call_frame_t *frame, void *cookie,
 
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 

@@ -115,9 +115,10 @@ afr_sh_metadata_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		afr_sh_metadata_done (frame, this);
@@ -184,9 +185,10 @@ afr_sh_metadata_erase_pending_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		afr_sh_metadata_finish (frame, this);
@@ -286,8 +288,6 @@ afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"setting attributes failed for %s on %s (%s)",
@@ -299,6 +299,8 @@ afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		afr_sh_metadata_erase_pending (frame, this);
@@ -588,8 +590,6 @@ afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"path %s on subvolume %s is of mode 0%o",
@@ -611,6 +611,8 @@ afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		afr_sh_metadata_fix (frame, this);
@@ -668,9 +670,10 @@ afr_sh_metadata_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	/* TODO: handle lock errors */
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		afr_sh_metadata_lookup (frame, this);

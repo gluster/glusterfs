@@ -94,8 +94,6 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
@@ -117,6 +115,8 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (need_unwind)
 		afr_chmod_unwind (frame, this);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -289,8 +289,6 @@ afr_fchmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
@@ -312,6 +310,8 @@ afr_fchmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (need_unwind)
 		afr_fchmod_unwind (frame, this);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -483,8 +483,6 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
@@ -507,6 +505,8 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (need_unwind) {
 		local->transaction.unwind (frame, this);
 	}
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -681,8 +681,6 @@ afr_fchown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
@@ -705,6 +703,8 @@ afr_fchown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (need_unwind) {
 		local->transaction.unwind (frame, this);
 	}
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -878,8 +878,6 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
@@ -898,6 +896,8 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		local->transaction.unwind (frame, this);
@@ -1091,8 +1091,6 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
@@ -1113,6 +1111,8 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (need_unwind)
 		local->transaction.unwind (frame, this);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1288,8 +1288,6 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
@@ -1310,6 +1308,8 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (need_unwind)
 		local->transaction.unwind (frame, this);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1483,8 +1483,6 @@ afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-		
 		if (child_went_down (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
@@ -1506,6 +1504,8 @@ afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (need_unwind)
 		local->transaction.unwind (frame, this);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1681,7 +1681,6 @@ afr_setxattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
 				local->op_ret = op_ret;
@@ -1699,6 +1698,8 @@ afr_setxattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (need_unwind)
 		local->transaction.unwind (frame, this);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1871,7 +1872,6 @@ afr_removexattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
 				local->op_ret = op_ret;
@@ -1889,6 +1889,8 @@ afr_removexattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (need_unwind)
 		local->transaction.unwind (frame, this);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);

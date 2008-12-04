@@ -411,6 +411,9 @@ afr_deitransform (ino64_t ino, int child_count);
 void
 afr_local_cleanup (afr_local_t *local, xlator_t *this);
 
+int
+afr_frame_return (call_frame_t *frame);
+
 #define AFR_STACK_UNWIND(frame, params ...)		\
 	do {						\
 		afr_local_t *__local = NULL;		\

@@ -101,10 +101,10 @@ afr_sh_entry_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				"unlocked inode of %s on child %d",
 				local->loc.path, child_index);
 		}
-
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		if (sh->healing_fd)
@@ -189,9 +189,10 @@ afr_sh_entry_erase_pending_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		afr_sh_entry_finish (frame, this);
@@ -404,9 +405,10 @@ afr_sh_entry_expunge_entry_done (call_frame_t *frame, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		afr_sh_entry_expunge_subvol (frame, this, active_src);
@@ -887,9 +889,10 @@ afr_sh_entry_impunge_entry_done (call_frame_t *frame, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		afr_sh_entry_impunge_subvol (frame, this, active_src);
@@ -1644,8 +1647,6 @@ afr_sh_entry_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-		
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"opendir of %s failed on child %s (%s)",
@@ -1654,9 +1655,10 @@ afr_sh_entry_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				strerror (op_errno));
 			sh->op_failed = 1;
 		}
-
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		if (sh->op_failed) {
@@ -1855,14 +1857,14 @@ afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret != -1) {
 			sh->xattr[child_index] = dict_ref (xattr);
 			sh->buf[child_index] = *buf;
 		}
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		afr_sh_entry_fix (frame, this);
@@ -1934,10 +1936,10 @@ afr_sh_entry_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);
 		}
-
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		afr_sh_entry_lookup (frame, this);

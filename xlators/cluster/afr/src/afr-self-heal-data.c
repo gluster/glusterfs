@@ -90,10 +90,10 @@ afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
 
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		fd_unref (sh->healing_fd);
@@ -185,10 +185,10 @@ afr_sh_data_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);
 		}
-
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		afr_sh_data_close (frame, this);
@@ -275,9 +275,10 @@ afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		afr_sh_data_finish (frame, this);
@@ -367,7 +368,6 @@ afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 		if (op_ret == -1)
 			gf_log (this->name, GF_LOG_ERROR,
 				"ftruncate of %s on subvolume %s failed (%s)",
@@ -381,6 +381,8 @@ afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				priv->children[child_index]->name);
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		afr_sh_data_erase_pending (frame, this);
@@ -452,8 +454,6 @@ afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"write to %s failed on subvolume %s (%s)",
@@ -464,6 +464,8 @@ afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		if (sh->op_failed) {
@@ -587,8 +589,6 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-		
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"open of %s failed on child %s (%s)",
@@ -600,6 +600,8 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		if (sh->op_failed) {
@@ -814,14 +816,14 @@ afr_sh_data_lookup_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret != -1) {
 			sh->xattr[child_index] = dict_ref (xattr);
 			sh->buf[child_index] = *buf;
 		}
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		afr_sh_data_fix (frame, this);
@@ -898,10 +900,10 @@ afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);
 		}
-
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		if (sh->op_failed) {

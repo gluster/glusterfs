@@ -408,9 +408,10 @@ sh_missing_entries_unlck_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		afr_sh_missing_entries_done (frame, this);
@@ -507,9 +508,10 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		sh_missing_entries_finish (frame, this);
@@ -798,8 +800,6 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
-
 		if (op_ret == 0) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"path %s on subvolume %s is of mode 0%o",
@@ -820,6 +820,8 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		sh_missing_entries_create (frame, this);
@@ -879,9 +881,10 @@ sh_missing_entries_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	/* TODO: what if lock fails */
 	LOCK (&frame->lock);
 	{
-		call_count = --local->call_count;
 	}
 	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
 		sh_missing_entries_lookup (frame, this);
