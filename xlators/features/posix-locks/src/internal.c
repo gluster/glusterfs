@@ -479,15 +479,11 @@ out:
  *            if null, unlock the entire directory
  */
 
-int
+pl_entry_lock_t *
 __unlock_name (pl_inode_t *pinode, const char *basename, entrylk_type type)
 {
 	pl_entry_lock_t *lock = NULL;
-	pl_entry_lock_t *bl   = NULL;
-	pl_entry_lock_t *tmp  = NULL;
 
-	int ret             = -EINVAL;
-	int bl_ret          = -EAGAIN;
 
 	lock = __find_most_matching_lock (pinode, basename);
 	
@@ -506,49 +502,82 @@ __unlock_name (pl_inode_t *pinode, const char *basename, entrylk_type type)
 		}
 		if (type == ENTRYLK_WRLCK || lock->read_count == 0) {
 			list_del (&lock->inode_list);
-			
-			list_for_each_entry_safe (bl, tmp, 
-						  &lock->blocked_locks, 
-						  blocked_locks) {
-				
-				list_del (&bl->blocked_locks);
-				
-				/* TODO: error checking */
-
-				gf_log ("locks", GF_LOG_DEBUG,
-					"trying to unblock: {pinode=%p, basename=%s}",
-					pinode, bl->basename);
-					
-				bl_ret = __lock_name (pinode, bl->basename,
-						      bl->type, 
-						      bl->frame, bl->this);
-
-				if (bl_ret == 0) {
-					STACK_UNWIND (bl->frame, 0, 0);
-				}
-				
-				if (bl->basename)
-					FREE (bl->basename);
-				
-				FREE (bl);
-			}
-			
-			if (lock->basename)
-				FREE (lock->basename);
-			
-			FREE (lock);
 		}
-	}
-	else {
+	} else {
 		gf_log ("locks", GF_LOG_ERROR,
 			"unlock for a non-existing lock!");
 		goto out;
 	}
-	
-	ret = 0;
 
 out:
-	return ret;
+	return lock;
+}
+
+
+void
+__grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
+			     pl_entry_lock_t *lock,
+			     struct list_head *granted)
+{
+	int              bl_ret = 0;
+	pl_entry_lock_t *bl   = NULL;
+	pl_entry_lock_t *tmp  = NULL;
+
+	list_for_each_entry_safe (bl, tmp, &lock->blocked_locks, 
+				  blocked_locks) {
+		list_del_init (&bl->blocked_locks);
+
+		/* TODO: error checking */
+
+		gf_log ("locks", GF_LOG_DEBUG,
+			"trying to unblock: {pinode=%p, basename=%s}",
+			pl_inode, bl->basename);
+					
+		bl_ret = __lock_name (pl_inode, bl->basename, bl->type,
+				      bl->frame, bl->this);
+
+		if (bl_ret == 0) {
+			list_add (&bl->blocked_locks, granted);
+		} else {
+			if (bl->basename)
+				FREE (bl->basename);
+			FREE (bl);
+		}
+	}	
+	return;
+}
+
+
+void
+grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
+			   pl_entry_lock_t *unlocked)
+{
+	struct list_head  granted_list;
+	pl_entry_lock_t  *tmp = NULL;
+	pl_entry_lock_t  *lock = NULL;
+
+	INIT_LIST_HEAD (&granted_list);
+
+	pthread_mutex_lock (&pl_inode->mutex);
+	{
+		__grant_blocked_entry_locks (this, pl_inode, unlocked,
+					     &granted_list);
+	}
+	pthread_mutex_unlock (&pl_inode->mutex);
+
+	list_for_each_entry_safe (lock, tmp, &granted_list, blocked_locks) {
+		list_del_init (&lock->blocked_locks);
+
+		STACK_UNWIND (lock->frame, 0, 0);
+
+		FREE (lock->basename);
+		FREE (lock);
+	}
+
+	FREE (unlocked->basename);
+	FREE (unlocked);
+
+	return;
 }
 
 
@@ -577,6 +606,9 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode, transport
 				lock->basename);
 
 			list_del (&lock->inode_list);
+
+			FREE (lock->basename);
+			FREE (lock);
 		}
 	}
 
@@ -605,6 +637,7 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 
 	pl_inode_t *       pinode = NULL; 
 	int                ret    = -1;
+	pl_entry_lock_t   *unlocked = NULL;
 
 
 	pinode = pl_inode_get (this, loc->inode);
@@ -649,14 +682,13 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 	case ENTRYLK_UNLOCK:
 		pthread_mutex_lock (&pinode->mutex);
 		{
-			ret = __unlock_name (pinode, basename, type);
+			unlocked = __unlock_name (pinode, basename, type);
 		}
 		pthread_mutex_unlock (&pinode->mutex);
 
-		if (ret < 0) {
-			op_errno = -ret;
-			goto out;
-		}
+		if (unlocked)
+			grant_blocked_entry_locks (this, pinode, unlocked);
+
 		break;
 
 	default:
@@ -696,6 +728,7 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 
 	pl_inode_t *       pinode = NULL; 
 	int                ret    = -1;
+	pl_entry_lock_t   *unlocked = NULL;
 
 	pinode = pl_inode_get (this, fd->inode);
 	if (!pinode) {
@@ -738,14 +771,12 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 	case ENTRYLK_UNLOCK:
 		pthread_mutex_lock (&pinode->mutex);
 		{
-			ret = __unlock_name (pinode, basename, type);
+			unlocked = __unlock_name (pinode, basename, type);
 		}
 		pthread_mutex_unlock (&pinode->mutex);
 
-		if (ret < 0) {
-			op_errno = -ret;
-			goto out;
-		}
+		if (unlocked)
+			grant_blocked_entry_locks (this, pinode, unlocked);
 		break;
 
 	default:
