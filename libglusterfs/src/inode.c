@@ -886,8 +886,10 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
 unlock:
         pthread_mutex_unlock (&table->lock);
 
-        if (buf && (name == NULL) && (inode->ino == 1)) {
-                strcpy (buf, "/");
+	if (inode->ino == 1 && !name) {
+		ret = 1;
+		if (buf)
+			strcpy (buf, "/");
 	}
 
         return ret;
