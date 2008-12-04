@@ -169,7 +169,7 @@ xlator_validate_given_options (xlator_t *xl)
   				gf_log (xl->name, GF_LOG_ERROR,
   					"option %s %s: '%s' is not an absolute path name",
   					pairs->key, pairs->value->data, pairs->value->data);
-  				return -1;
+  				return 0;
   			}
   			break;
   		case GF_OPTION_TYPE_INT:
@@ -193,7 +193,7 @@ xlator_validate_given_options (xlator_t *xl)
   					"'%lld' in 'option %s %s' is out of range [%"PRId64" - %"PRId64"]",
   					inputll, pairs->key, pairs->value->data,
   					trav->min_value, trav->max_value);
-  				return -1;
+  				return 0;
   			}
   			break;
   		case GF_OPTION_TYPE_SIZET:
@@ -218,7 +218,7 @@ xlator_validate_given_options (xlator_t *xl)
   					"'%"PRId64"' in 'option %s %s' is out of range [%"PRId64" - %"PRId64"]",
   					input_size, pairs->key, pairs->value->data,
   					trav->min_value, trav->max_value);
-  				return -1;
+  				return 0;
   			}
   			break;
   		}
@@ -250,7 +250,7 @@ xlator_validate_given_options (xlator_t *xl)
   				gf_log (xl->name, GF_LOG_ERROR,
   					"option %s %s: '%s' is not a valid volume name",
   					pairs->key, pairs->value->data, pairs->value->data);
-  				return -1;
+  				return 0;
   			}
   			break;
   		}
@@ -292,12 +292,6 @@ xlator_validate_given_options (xlator_t *xl)
   				return -1;
   			}
 
-  			if (trav->min_value == -1) {
-  				gf_log (xl->name, GF_LOG_DEBUG,
-  					"no range check required for 'option %s %s'",
-  					pairs->key, pairs->value->data);
-  				break;
-  			}
   			if ((percent < 0) || (percent > 100)) {
   				gf_log (xl->name, GF_LOG_ERROR,
   					"'%d' in 'option %s %s' is out of range [0 - 100]",
@@ -330,7 +324,7 @@ xlator_validate_given_options (xlator_t *xl)
   					"'%"PRIu32"' in 'option %s %s' is out of range [%"PRId64" - %"PRId64"]",
   					input_time, pairs->key, pairs->value->data,
   					trav->min_value, trav->max_value);
-  				return -1;
+  				return 0;
   			}
   			break;
   		}

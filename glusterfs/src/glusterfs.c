@@ -64,7 +64,7 @@
 
 /* using argp for command line parsing */
 static char gf_doc[] = "";
-static char argp_doc[] = "--server=SERVER [MOUNT-POINT]\n--volume-specfile=VOLUME-SPECFILE [MOUNT-POINT]";
+static char argp_doc[] = "--specfile-server=SERVER [MOUNT-POINT]\n--volume-specfile=VOLUME-SPECFILE [MOUNT-POINT]";
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__ " " __TIME__ " \n" \
                                    "Repository revision: " GLUSTERFS_REPOSITORY_REVISION "\n" \
                                    "Copyright (c) 2006, 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>\n" \
@@ -215,10 +215,6 @@ _add_fuse_mount (xlator_t *graph)
  	if (cmd_args->non_local)
  		dict_set (top->options, "non-local", data_from_uint32 (cmd_args->non_local));
 	
- 	if (cmd_args->icon_name)
- 		dict_set (top->options, "icon-name",
- 			  data_from_static_ptr (cmd_args->icon_name));
-
 #else /* ! DARWIN HOST OS */
 	if (cmd_args->fuse_direct_io_mode_flag == _gf_true) {
 		dict_set (top->options, 
@@ -606,9 +602,6 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		cmd_args->non_local = _gf_true;
 		break;
 
-	case ARGP_ICON_NAME_KEY:
-		cmd_args->icon_name = strdup (arg);
-		break;
 #endif /* DARWIN */
 
 	case ARGP_FUSE_NODEV_KEY:
@@ -712,7 +705,13 @@ main (int argc, char *argv[])
 	INIT_LIST_HEAD (&cmd_args->xlator_options);
 
 	argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
-	
+
+	if (ENABLE_DEBUG_MODE == cmd_args->debug_mode) {
+		cmd_args->log_level = GF_LOG_DEBUG;
+		cmd_args->log_file = "/dev/stdout";
+		cmd_args->no_daemon_mode = ENABLE_NO_DAEMON_MODE;
+	}
+
 	if ((cmd_args->specfile_server == NULL) && 
 	    (cmd_args->volume_specfile == NULL))
 		cmd_args->volume_specfile = strdup (DEFAULT_VOLUME_SPECFILE);
