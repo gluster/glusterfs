@@ -170,7 +170,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		if (S_IFMT & (stbuf->st_mode ^ local->inode->st_mode)) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_WARNING,
 				"mismatching filetypes 0%o v/s 0%o for %s",
 				(stbuf->st_mode & S_IFMT),
 				(local->inode->st_mode & S_IFMT),
@@ -182,28 +182,13 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
 
-		if (prev->this == local->cached_subvol) {
-			/* if the file/dir has not been recreated, the
-			 * scaled subvolumes should match.
-			 * NOTE: dht_stat_merge() transforms
-			 * local->stbuf.st_ino
-			 * and local->st_ino will be 1. 
-			 */
-#if 0
-			if ((local->stbuf.st_ino == local->st_ino) ||
-			    (local->st_ino == 1)) {
-				local->op_ret = 0;
-				local->xattr = dict_ref (xattr);
-			} 
-#endif
-			/* succeed revalidate */
-			local->op_ret = 0;
+		local->op_ret = 0;
+		local->stbuf.st_ino = local->st_ino;
+
+		if (!local->xattr)
 			local->xattr = dict_ref (xattr);
-			local->stbuf.st_ino = local->st_ino;
-		}
 	}
 unlock:
 	UNLOCK (&frame->lock);
@@ -211,12 +196,6 @@ unlock:
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
-		if (local->op_ret == 0)
-			local->stbuf.st_ino = local->st_ino;
-
-		if (local->op_ret == -1 && local->op_errno == EUCLEAN)
-			trap ();
-
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr);
 	}
@@ -586,10 +565,6 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
 		local->inode    = inode_ref (loc->inode);
 		local->st_ino   = loc->inode->ino;
-		/* used to check if the inode number has changed on the
-		   scaled subvolume */
-		dht_deitransform (this, local->inode->ino,
-				  &local->cached_subvol, NULL);
 
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
