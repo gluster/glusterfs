@@ -108,17 +108,19 @@ out:
 static int
 this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
 {
-	int ret = -1;
+	int ret = 0;
+	int dict_ret = -1;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, file, out);
 	GF_VALIDATE_OR_GOTO (this->name, remote_fd, out);
 
-	ret = dict_get_int64 (file->ctx, this->name, remote_fd);
-	if (ret < 0) {
+	dict_ret = dict_get_int64 (file->ctx, this->name, remote_fd);
+	if (dict_ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get remote fd number for fd_t(%p)",
 			file);
+		ret = -1;
 	}
 out:
 	return ret;
@@ -1337,8 +1339,7 @@ client_flush (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get remote fd from fd_t(%p). returning EBADFD",
 			fd);
 		STACK_UNWIND (frame, -1, EBADFD);
@@ -2482,7 +2483,6 @@ client_lookup (call_frame_t *frame,
 
 	if (loc->ino != 1) {
 		par = this_ino_get (loc->parent, this);
-		GF_VALIDATE_OR_GOTO (this->name, par, unwind);
 		GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
 		baselen = STRLEN_0(loc->name);
 	} else {
