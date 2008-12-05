@@ -384,9 +384,9 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			    && S_ISREG (buf->st_mode)) {
 				local->need_data_self_heal = 1;
 			}
-
-			local->success_count++;
 		}
+
+		local->success_count++;
 	}
 unlock:
 	UNLOCK (&frame->lock);
@@ -432,7 +432,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	int            ret = -1;
 	int            i = 0;
 	int32_t        op_errno = 0;
-	int            child_index = -1;
+
 
 	priv = this->private;
 

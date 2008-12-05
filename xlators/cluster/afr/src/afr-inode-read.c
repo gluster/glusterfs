@@ -76,12 +76,10 @@ afr_access_cbk (call_frame_t *frame, void *cookie,
 
 	local = frame->local;
 
-	if (child_went_down (op_ret, op_errno)) {
+	if (op_ret == -1) {
 		last_tried = local->cont.access.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
-			op_ret   = -1;
-			op_errno = ENOTCONN;
 			goto out;
 		}
 		this_try    = ++local->cont.access.last_tried;
@@ -179,13 +177,11 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 
 	local = frame->local;
 
-	if (child_went_down (op_ret, op_errno)) {
+	if (op_ret == -1) {
 	retry:
 		last_tried = local->cont.stat.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
-			op_ret   = -1;
-			op_errno = ENOTCONN;
 			goto out;
 		}
 		this_try = ++local->cont.stat.last_tried;
@@ -291,13 +287,11 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 
 	local = frame->local;
 
-	if (child_went_down (op_ret, op_errno)) {
+	if (op_ret == -1) {
 	retry:
 		last_tried = local->cont.fstat.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
-			op_ret   = -1;
-			op_errno = ENOTCONN;
 			goto out;
 		}
 		this_try   = ++local->cont.fstat.last_tried;
@@ -406,12 +400,10 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 
 	local = frame->local;
 
-	if (child_went_down (op_ret, op_errno)) {
+	if (op_ret == -1) {
 		last_tried = local->cont.readlink.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
-			op_ret   = -1;
-			op_errno = ENOTCONN;
 			goto out;
 		}
 		this_try = ++local->cont.readlink.last_tried;
@@ -507,12 +499,10 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 
 	local = frame->local;
 
-	if (child_went_down (op_ret, op_errno)) {
+	if (op_ret == -1) {
 		last_tried = local->cont.getxattr.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
-			op_ret   = -1;
-			op_errno = ENOTCONN;
 			goto out;
 		}
 		this_try = ++local->cont.getxattr.last_tried;
@@ -626,13 +616,11 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 
 	local = frame->local;
 
-	if (child_went_down (op_ret, op_errno)) {
+	if (op_ret == -1) {
 	retry:
 		last_tried = local->cont.readv.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
-			op_ret   = -1;
-			op_errno = ENOTCONN;
 			goto out;
 		}
 		this_try = ++local->cont.readv.last_tried;
