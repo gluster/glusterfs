@@ -88,6 +88,36 @@ afr_sh_supress_errenous_children (int sources[], int child_errno[],
 }
 
 
+int
+afr_sh_supress_empty_children (int sources[], dict_t *xattr[],
+			       int child_count, const char *key)
+{
+	int      i = 0;
+	int32_t *pending = NULL;
+	int      ret = 0;
+
+	for (i = 0; i < child_count; i++) {
+		if (!xattr[i]) {
+			sources[i] = 0;
+			continue;
+		}
+
+		ret = dict_get_ptr (xattr[i], (char *)key, VOID(&pending));
+		if (ret != 0) {
+			sources[i] = 0;
+			continue;
+		}
+
+		if (!pending) {
+			sources[i] = 0;
+			continue;
+		}
+	}
+
+	return 0;
+}
+
+
 void
 afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 {
@@ -123,8 +153,6 @@ afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
 	int i = 0;
 	int j = 0;
 	int32_t *pending = NULL;
-	void    *tmp_pending = NULL; /* This is required to remove 'type-punned' warnings from gcc */
-	
 	int ret = -1;
 
 	/* start clean */
@@ -139,13 +167,12 @@ afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
 			continue;
 
 		pending = NULL;
-		tmp_pending = NULL;
 
-		ret = dict_get_ptr (xattr[i], (char *) key, &tmp_pending);
+		ret = dict_get_ptr (xattr[i], (char *) key,
+				    VOID(&pending));
 		if (ret != 0)
 			continue;
 
-		pending = tmp_pending;
 		for (j = 0; j < child_count; j++) {
 			pending_matrix[i][j] = ntoh32 (pending[j]);
 		}

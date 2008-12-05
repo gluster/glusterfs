@@ -33,6 +33,10 @@ int
 afr_sh_supress_errenous_children (int sources[], int child_errno[],
 				  int child_count);
 
+int
+afr_sh_supress_empty_children (int sources[], dict_t *xattr[],
+			       int child_count, const char *key);
+
 void
 afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this);
 
