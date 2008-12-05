@@ -531,7 +531,7 @@ fuse_attr_cbk (call_frame_t *frame,
 
                 fuse_reply_attr (req, buf, priv->options.attr_timeout);
         } else {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRId64": %s() %s => -1 (%s)", frame->root->unique, 
                         gf_fop_list[frame->op],
 			state->loc.path ? state->loc.path : "ERR", 
