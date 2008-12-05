@@ -174,7 +174,7 @@ gf_timer_proc (void *ctx)
                         else
                                 break;
                 }
-                usleep (100000);
+                usleep (1000000);
         }
 
         pthread_mutex_lock (&reg->lock);

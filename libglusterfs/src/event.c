@@ -810,7 +810,7 @@ event_dispatch_epoll (struct event_pool *event_pool)
       pthread_mutex_unlock (&event_pool->mutex);
 
       ret = epoll_wait (event_pool->fd, event_pool->evcache,
-			event_pool->evcache_size, 1);
+			event_pool->evcache_size, -1);
 
       if (ret == 0)
 	/* timeout */

@@ -161,8 +161,12 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 	this = frame->this;
 
 	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err == -1)
+		/*		
+		if (layout->list[i].err == -1) 
 			missing_xattr++;
+		*/
+
+		missing_xattr++;
 	}
 
 	gf_log (this->name, GF_LOG_DEBUG,
@@ -172,9 +176,10 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 	local->call_cnt = missing_xattr;
 
 	for (i = 0; i < layout->cnt; i++) {
+		/*		
 		if (layout->list[i].err != -1)
 			continue;
-
+		*/
 		ret = dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i);
 	}
 
@@ -348,18 +353,20 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	local->selfheal.dir_cbk = dir_cbk;
 	local->selfheal.layout = layout;
 
-	if (overlaps) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"not fixing overlaps in %s", loc->path);
-		local->op_errno = EINVAL;
-		ret = -1;
-		goto sorry_no_fix;
-	}
 
 	if (down) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"%d subvolumes down -- not fixing", down);
 		ret = 0;
+		goto sorry_no_fix;
+	}
+
+/*
+	if (overlaps) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"not fixing overlaps in %s", loc->path);
+		local->op_errno = EINVAL;
+		ret = -1;
 		goto sorry_no_fix;
 	}
 
@@ -377,7 +384,7 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 		ret = 0;
 		goto sorry_no_fix;
 	}
-
+*/
 	dht_selfheal_dir_getafix (frame, loc, layout);
 
 	dht_selfheal_dir_mkdir (frame, loc, layout, 0);

@@ -40,7 +40,10 @@ server_loc_fill (loc_t *loc,
 {
   	inode_t *inode = NULL;
   	inode_t *parent = NULL;
-  	int32_t ret = -1;
+  	int32_t  ret = -1;
+	char    *dentry_path = NULL;
+	size_t   dentry_path_len = 0;
+
 
   	GF_VALIDATE_OR_GOTO ("server", loc, out);
   	GF_VALIDATE_OR_GOTO ("server", state, out);
@@ -72,38 +75,35 @@ server_loc_fill (loc_t *loc,
 		loc->parent = parent;
 	}
 
-  	if (path) {
-  		loc->path = strdup (path);
-  		loc->name = strrchr (loc->path, '/');
-  		if (loc->name)
-  			(loc->name)++;
-  	}
-	
-  	{
-  		char *tmp_path = NULL;
-  		size_t n = 0;
+	if (name && parent) {
+		dentry_path_len = inode_path (parent, name, NULL, 0) + 1;
+		dentry_path = calloc (1, dentry_path_len + 1);
+		inode_path (parent, name, dentry_path, dentry_path_len);
+	} else if (inode) {
+		dentry_path_len = inode_path (inode, NULL, NULL, 0) + 1;
+		dentry_path = calloc (1, dentry_path_len + 1);
+		inode_path (inode, NULL, dentry_path, dentry_path_len);
+	}
 
-  		if (name && parent) {
-  			n = inode_path (parent, name, NULL, 0) + 1;
-  			tmp_path = calloc (1, n);
-  			inode_path (parent, name, tmp_path, n);
-  		} else if (inode){
-  			n = inode_path (inode, NULL, NULL, 0) + 1;
-  			tmp_path = calloc (1, n);
-  			inode_path (inode, NULL, tmp_path, n);
-  		}
+	if (dentry_path) {
+		if (strcmp (dentry_path, path)) {
+			gf_log (state->bound_xl->name, GF_LOG_ERROR,
+				"paths differ for inode(%"PRId64"): "
+				"client path = %s. dentry path = %s",
+				ino, path, dentry_path);
+		}
 
-  		if (tmp_path && (strncmp (tmp_path, path, n))) {
-  			gf_log (state->bound_xl->name,
-  				GF_LOG_ERROR,
-  				"paths differ for inode(%"PRId64"): "
-				"path (%s) from dentry tree is %s",
-  				ino, path, tmp_path);
-  		}
-		
-		if (tmp_path)
-			free (tmp_path);
-  	}
+		loc->path = dentry_path;
+		loc->name = strrchr (loc->path, '/');
+		if (loc->name)
+			loc->name++;
+	} else {
+		loc->path = strdup (path);
+		loc->name = strrchr (loc->path, '/');
+		if (loc->name)
+			loc->name++;
+	}
+
 out:
   	return ret;
 }
