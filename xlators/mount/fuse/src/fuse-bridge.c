@@ -399,6 +399,13 @@ fuse_entry_cbk (call_frame_t *frame,
                 e.attr = *buf;
                 e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE; 
   
+		if (!e.ino || !buf->st_ino) {
+			gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+				"%"PRId64": %s() %s returning inode 0",
+				frame->root->unique,
+				gf_fop_list[frame->op], state->loc.path);
+		}
+
                 if (state->loc.parent)
                         fuse_reply_entry (req, &e);
                 else
@@ -520,7 +527,8 @@ fuse_attr_cbk (call_frame_t *frame,
         req = state->req;
 
         if (op_ret == 0) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse",
+			(buf->st_ino ? GF_LOG_DEBUG : GF_LOG_ERROR),
                         "%"PRId64": %s() %s => %"PRId64, frame->root->unique, 
                         gf_fop_list[frame->op],
 			state->loc.path ? state->loc.path : "ERR",
