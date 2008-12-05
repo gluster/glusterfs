@@ -316,7 +316,7 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (child_went_down (op_ret, op_errno))
-			local->transaction.failure_count++;
+			afr_transaction_child_died (frame, this, child_index);
 		
 		if (op_ret != -1) {
 			local->op_ret = op_ret;
@@ -325,7 +325,8 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			    || (child_index == priv->read_child)) {	
 				local->cont.mknod.buf   = *buf;
 				local->cont.mknod.buf.st_ino = 
-					afr_itransform (buf->st_ino, priv->child_count,
+					afr_itransform (buf->st_ino,
+							priv->child_count,
 							child_index);
 			}
 			local->cont.mknod.inode = inode;
