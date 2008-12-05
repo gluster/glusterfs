@@ -4869,11 +4869,7 @@ client_protocol_reconnect (void *trans_ptr)
 		cprivate->reconnect = 0;
 
 		if (cprivate->connected == 0) {
-			uint32_t n_plus_1 = cprivate->n_minus_1 + cprivate->n;
-
-			cprivate->n_minus_1 = cprivate->n;
-			cprivate->n = n_plus_1;
-			tv.tv_sec = n_plus_1;
+			tv.tv_sec = 10;
 
 			gf_log (trans->xl->name, GF_LOG_DEBUG, 
 				"attempting reconnect");
@@ -4885,8 +4881,6 @@ client_protocol_reconnect (void *trans_ptr)
 		} else {
 			gf_log (trans->xl->name, GF_LOG_DEBUG, 
 				"breaking reconnect chain");
-			cprivate->n_minus_1 = 0;
-			cprivate->n = 1;
 		}
 	}
 	pthread_mutex_unlock (&cprivate->lock);
@@ -5459,9 +5453,6 @@ notify (xlator_t *this,
 			parent = parent->next;
 		}
 
-		cprivate->n_minus_1 = 0;
-		cprivate->n  = 1;
-
 		pthread_mutex_lock (&cprivate->lock);
 		{
 			cprivate->connected = 0;
@@ -5490,9 +5481,6 @@ notify (xlator_t *this,
 
 		gf_log (this->name, GF_LOG_DEBUG,
 			"got GF_EVENT_PARENT_UP, attempting connect on transport");
-
-		cprivate->n_minus_1 = 0;
-		cprivate->n = 1;
 
 		cprivate->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
 							   client_protocol_reconnect,
