@@ -318,82 +318,77 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	{
 		local = frame->local;
 
-		if (op_ret == 0) {
-			lookup_buf = &local->cont.lookup.buf;
-
-			if (priv->metadata_self_heal
-			    && afr_sh_has_metadata_pending (xattr, child_index, this))
-				local->need_metadata_self_heal = 1;
-
-			if (priv->entry_self_heal
-			    && afr_sh_has_entry_pending (xattr, child_index, this))
-				local->need_entry_self_heal = 1;
-
-			if (priv->data_self_heal &&
-			    afr_sh_has_data_pending (xattr, child_index, this))
-				local->need_data_self_heal = 1;
-
-			if (local->success_count == 0) {
-				local->op_ret   = op_ret;
-				
-				local->cont.lookup.inode = inode;
-				local->cont.lookup.xattr = dict_ref (xattr);
-
-				*lookup_buf = *buf;
-				lookup_buf->st_ino = afr_itransform (buf->st_ino,
-								     priv->child_count,
-								     child_index);
-			} else {
-				if (FILETYPE_DIFFERS (buf, lookup_buf)) {
-					/* mismatching filetypes with same name
-					   -- Govinda !! GOvinda !!!
-					*/
-					local->govinda_gOvinda = 1;
-				}
-
-				if (priv->metadata_self_heal
-				    && PERMISSION_DIFFERS (buf, lookup_buf)) {
-					/* mismatching permissions */
-					local->need_metadata_self_heal = 1;
-				}
-
-				if (priv->metadata_self_heal
-				    && OWNERSHIP_DIFFERS (buf, lookup_buf)) {
-					/* mismatching permissions */
-					local->need_metadata_self_heal = 1;
-				}
-
-				if (priv->data_self_heal
-				    && SIZE_DIFFERS (buf, lookup_buf)
-				    && S_ISREG (buf->st_mode)) {
-					local->need_data_self_heal = 1;
-				}
-			}
-
-			local->success_count++;
-
-			if ((local->reval_child_index == child_index)
-			    || (priv->read_child == child_index)) {
-				*lookup_buf = *buf;
-				lookup_buf->st_ino = afr_itransform (buf->st_ino, 
-								     priv->child_count, 
-								     child_index);
-
-				gf_log (this->name, GF_LOG_DEBUG,
-					"scaling inode %"PRId64" to %"PRId64,
-					buf->st_ino, lookup_buf->st_ino);
-			}
-		}
-
 		if (op_ret == -1) {
 			if (op_errno == ENOENT)
 				local->enoent_count++;
 			
 			if (op_errno != ENOTCONN)
 				local->op_errno = op_errno;
+
+			goto unlock;
 		}
 
+		lookup_buf = &local->cont.lookup.buf;
+
+		if (priv->metadata_self_heal
+		    && afr_sh_has_metadata_pending (xattr, child_index, this))
+			local->need_metadata_self_heal = 1;
+
+		if (priv->entry_self_heal
+		    && afr_sh_has_entry_pending (xattr, child_index, this))
+			local->need_entry_self_heal = 1;
+
+		if (priv->data_self_heal
+		    && afr_sh_has_data_pending (xattr, child_index, this))
+			local->need_data_self_heal = 1;
+
+		if (local->success_count == 0) {
+			local->op_ret   = op_ret;
+				
+			local->cont.lookup.inode = inode;
+			local->cont.lookup.xattr = dict_ref (xattr);
+
+			*lookup_buf = *buf;
+			lookup_buf->st_ino = afr_itransform (buf->st_ino,
+							     priv->child_count,
+							     child_index);
+
+			/* inodes should retain inode number when subvolumes
+			   go down and up
+			*/
+
+			if (inode->ino)
+				lookup_buf->st_ino = inode->ino;
+		} else {
+			if (FILETYPE_DIFFERS (buf, lookup_buf)) {
+				/* mismatching filetypes with same name
+				   -- Govinda !! GOvinda !!!
+				*/
+				local->govinda_gOvinda = 1;
+			}
+
+			if (priv->metadata_self_heal
+			    && PERMISSION_DIFFERS (buf, lookup_buf)) {
+				/* mismatching permissions */
+				local->need_metadata_self_heal = 1;
+			}
+
+			if (priv->metadata_self_heal
+			    && OWNERSHIP_DIFFERS (buf, lookup_buf)) {
+				/* mismatching permissions */
+				local->need_metadata_self_heal = 1;
+			}
+
+			if (priv->data_self_heal
+			    && SIZE_DIFFERS (buf, lookup_buf)
+			    && S_ISREG (buf->st_mode)) {
+				local->need_data_self_heal = 1;
+			}
+
+			local->success_count++;
+		}
 	}
+unlock:
 	UNLOCK (&frame->lock);
 
 	call_count = afr_frame_return (frame);
@@ -450,15 +445,6 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	loc_copy (&local->loc, loc);
 
 	local->reval_child_index = 0;
-
-	if (loc->inode->ino != 0) {
-		/* revalidate */
-
-		child_index = afr_deitransform (loc->inode->ino,
-						priv->child_count);
-
-		local->reval_child_index = child_index;
-	}
 
 	local->call_count = priv->child_count;
 

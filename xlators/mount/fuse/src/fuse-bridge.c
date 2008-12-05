@@ -378,9 +378,10 @@ fuse_entry_cbk (call_frame_t *frame,
                         "%"PRId64": %s() %s => %"PRId64" (%"PRId64")",
 			frame->root->unique, gf_fop_list[frame->op],
 			state->loc.path, buf->st_ino, state->loc.ino);
-		
-		inode_link (inode, state->loc.parent,
-                            state->loc.name, buf);
+
+		if (state->is_revalidate != 1)
+			inode_link (inode, state->loc.parent,
+				    state->loc.name, buf);
 
 		inode_lookup (inode);
 
