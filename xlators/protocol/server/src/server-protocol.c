@@ -1296,7 +1296,9 @@ server_rename_cbk (call_frame_t *frame,
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
 	if (op_ret == 0) {
-		stbuf->st_ino = state->loc.inode->ino;
+		stbuf->st_ino  = state->loc.inode->ino;
+		stbuf->st_mode = state->loc.inode->st_mode;
+
 		gf_log (state->bound_xl->name, GF_LOG_DEBUG,
 			"RENAME_CBK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s",
 			state->loc.inode->ino, state->loc.parent->ino, state->loc.name,

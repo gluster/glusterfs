@@ -1259,6 +1259,7 @@ fuse_rename_cbk (call_frame_t *frame,
                            rename happens on a new inode
                         */
                         buf->st_ino = state->loc.ino;
+			buf->st_mode = state->loc.inode->st_mode;
                 }
                 inode_rename (state->itable,
                               state->loc.parent, state->loc.name,
