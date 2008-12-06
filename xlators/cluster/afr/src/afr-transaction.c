@@ -408,13 +408,13 @@ afr_write_pending_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					"xattrop not supported by %s",
 					priv->children[child_index]->name);
 				local->op_ret = -1;
-				local->op_errno = ENOTSUP;
 			} else if (!child_went_down (op_ret, op_errno)) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"xattrop failed on child %s: %s",
 					priv->children[child_index]->name, 
 					strerror (op_errno));
 			}
+			local->op_errno = op_errno;
 		}
 
 		call_count = --local->call_count;
@@ -582,10 +582,10 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					"subvolume does not support locking. "
 					"please load features/posix-locks xlator on server");
 				local->op_ret   = op_ret;
-				local->op_errno = op_errno;
 				done = 1;
 			}
 			local->child_up[child_index] = 0;
+			local->op_errno = op_errno;
 		}
 	}
 	UNLOCK (&frame->lock);

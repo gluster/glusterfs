@@ -1357,10 +1357,6 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 
 	local->call_count = call_count;
 
-	if (call_count == 1) {
-		trap();
-	}
-
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_unlink_wind_cbk,	
