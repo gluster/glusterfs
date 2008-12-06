@@ -255,7 +255,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
 	if (ret != 0) {
 		err = -1;
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"missing disk layout on %s. err = %d",
 			subvol->name, err);
 		goto out;
@@ -423,6 +423,9 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 	int          ret   = 0;
 	uint32_t     holes = 0;
 	uint32_t     overlaps = 0;
+	uint32_t     missing = 0;
+	uint32_t     down = 0;
+	uint32_t     misc = 0;
 
 
 	ret = dht_layout_sort (layout);
@@ -434,7 +437,7 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 
 	ret = dht_layout_anomalies (this, loc, layout,
 				    &holes, &overlaps,
-				    NULL, NULL, NULL);
+				    &missing, &down, &misc);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to find anomalies in %s -- not good news",
@@ -443,9 +446,15 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 	}
 
 	if (holes || overlaps) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"found anomalies in %s. holes = %d overlaps = %d",
-			loc->path, holes, overlaps);
+		if (missing == layout->cnt) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"directory %s looked up first time",
+				loc->path);
+		} else {
+			gf_log (this->name, GF_LOG_ERROR,
+				"found anomalies in %s. holes=%d overlaps=%d",
+				loc->path, holes, overlaps);
+		}
 		ret = 1;
 	}
 

@@ -99,8 +99,14 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		ret = dht_layout_merge (this, layout, prev->this,
 					op_ret, op_errno, xattr);
 
-		if (op_ret == -1)
+		if (op_ret == -1) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"lookup of %s on %s returned error (%s)",
+				local->loc.path, prev->this->name,
+				strerror (op_errno));
+
 			goto unlock;
+		}
 
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
         }
@@ -117,8 +123,8 @@ unlock:
 			local->layout = NULL;
 
 			if (ret != 0) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"triggering selfheal on %s",
+				gf_log (this->name, GF_LOG_WARNING,
+					"fixing assignment on %s",
 					local->loc.path);
 				goto selfheal;
 			}
