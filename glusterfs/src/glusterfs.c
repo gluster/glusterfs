@@ -702,11 +702,26 @@ cleanup_and_exit (int signum)
 	}
 }
 
+static char *
+zr_build_unique_str () {
+	char tmp_str[1024] = {0,};
+	char hostname[256] = {0,};
+	
+	if (-1 == gethostname (hostname, 256)) {
+		gf_log ("", GF_LOG_ERROR, 
+			"gethostname: failed %s",
+			strerror (errno));
+	}
+
+	snprintf (tmp_str, 1024, "%s.%d.%ld", 
+		  hostname, getpid(), time (NULL));
+	
+	return strdup (tmp_str);
+}
 
 int 
 main (int argc, char *argv[])
 {
-	int rv;
 	glusterfs_ctx_t *ctx = NULL;
 	cmd_args_t *cmd_args = NULL;
 	call_pool_t *pool = NULL;
@@ -724,10 +739,12 @@ main (int argc, char *argv[])
 	int fuse_volume_found = 0;
 	int server_or_fuse_found = 0;
 	
+	utime = time (NULL);
 	ctx = calloc (1, sizeof (glusterfs_ctx_t));
 	ERR_ABORT (ctx);
 	base_exec_name = strdup (argv[0]);
 	set_global_ctx_ptr (ctx);
+	ctx->unique_str = zr_build_unique_str ();
 	cmd_args = &ctx->cmd_args;
 	
 	/* parsing command line arguments */
@@ -771,8 +788,8 @@ main (int argc, char *argv[])
  			/* do cleanup and exit ?! */
  			return -1;
  		}
- 		rv = gf_lockfd (fileno (ctx->pidfp));
- 		if (rv == -1) {
+ 		ret = gf_lockfd (fileno (ctx->pidfp));
+ 		if (ret == -1) {
  			fprintf (stderr, "unable to lock pid file %s. %s. "
 				 "Is another instance of %s running?!\n"
  				 "exiting\n", cmd_args->pid_file, 
@@ -780,8 +797,8 @@ main (int argc, char *argv[])
  			fclose (ctx->pidfp);
  			return -1;
  		}
- 		rv = ftruncate (fileno (ctx->pidfp), 0);
- 		if (rv == -1) {
+ 		ret = ftruncate (fileno (ctx->pidfp), 0);
+ 		if (ret == -1) {
  			fprintf (stderr, 
 				 "unable to truncate file %s. %s. exiting\n", 
 				 cmd_args->pid_file, strerror (errno));
@@ -801,7 +818,6 @@ main (int argc, char *argv[])
 		     (S_ISREG (stbuf.st_mode) || S_ISLNK (stbuf.st_mode))) || 
 		    (ret == -1)) {
 			/* Have seperate logfile per run */
-			utime = time (NULL);
 			tm = localtime (&utime);
 			strftime (timestr, 256, "%Y%m%d.%H%M%S", tm); 
 			sprintf (tmp_logfile, "%s.%s.%d", 
@@ -869,38 +885,36 @@ main (int argc, char *argv[])
 	 * at same time or not. If not, add argument MOUNT-POINT to graph 
 	 * as top volume if given 
 	 */
-	{
-		trav = graph;
-		fuse_volume_found = 0;
-		
-		while (trav) {
-			if (strcmp (trav->type, ZR_XLATOR_FUSE) == 0) {
-				if (dict_get (trav->options, 
-					      ZR_MOUNTPOINT_OPT) != NULL) {
-					fuse_volume_found = 1;
-					fprintf (stderr, 
-						 "fuse volume and MOUNT-POINT "
-						 "argument given. ignoring "
-						 "MOUNT-POINT argument\n");
-					gf_log ("glusterfs", GF_LOG_WARNING, 
-						"fuse volume and MOUNT-POINT "
-						"argument given. ignoring "
-						"MOUNT-POINT argument");
-					break;
-				}
+	trav = graph;
+	fuse_volume_found = 0;
+	
+	while (trav) {
+		if (strcmp (trav->type, ZR_XLATOR_FUSE) == 0) {
+			if (dict_get (trav->options, 
+				      ZR_MOUNTPOINT_OPT) != NULL) {
+				fuse_volume_found = 1;
+				fprintf (stderr, 
+					 "fuse volume and MOUNT-POINT "
+					 "argument given. ignoring "
+					 "MOUNT-POINT argument\n");
+				gf_log ("glusterfs", GF_LOG_WARNING, 
+					"fuse volume and MOUNT-POINT "
+					"argument given. ignoring "
+					"MOUNT-POINT argument");
+				break;
 			}
-			trav = trav->next;
 		}
-		
-		if (!fuse_volume_found && (cmd_args->mount_point != NULL)) {
-			if ((graph = _add_fuse_mount (graph)) == NULL) {
-				/* _add_fuse_mount() prints necessary 
-				 * error message 
-				 */
-				fprintf (stderr, "exiting\n");
-				gf_log ("glusterfs", GF_LOG_ERROR, "exiting");
-				return -1;
-			}
+		trav = trav->next;
+	}
+	
+	if (!fuse_volume_found && (cmd_args->mount_point != NULL)) {
+		if ((graph = _add_fuse_mount (graph)) == NULL) {
+			/* _add_fuse_mount() prints necessary 
+			 * error message 
+			 */
+			fprintf (stderr, "exiting\n");
+			gf_log ("glusterfs", GF_LOG_ERROR, "exiting");
+			return -1;
 		}
 	}
 	

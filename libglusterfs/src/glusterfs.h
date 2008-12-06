@@ -240,7 +240,7 @@ typedef struct _cmd_args cmd_args_t;
 
 struct _glusterfs_ctx {
 	cmd_args_t         cmd_args;
-	char              *unique_string;
+	char              *unique_str;
 	FILE              *specfp;
 	FILE              *pidfp;
 	char               fin;

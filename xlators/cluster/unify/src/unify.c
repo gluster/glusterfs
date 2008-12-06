@@ -3892,8 +3892,6 @@ init (xlator_t *this)
 	xlator_t *ns_xl = NULL;
 	data_t *scheduler = NULL;
 	data_t *data = NULL;
-	data_t *tmp_data = NULL;
-	gf_boolean_t tmp_bool = 0;
 
 	/* Check for number of child nodes, if there is no child nodes, exit */
 	if (!this->children) {
@@ -3946,78 +3944,6 @@ init (xlator_t *this)
 	
 	gf_log (this->name, GF_LOG_DEBUG, 
 		"namespace node specified as %s", data->data);
-
-	count = 1;
-	tmp_data = dict_get (this->options, "drop-hostname-from-subvolumes");
-	if (tmp_data) {
-		if (gf_string2boolean (tmp_data->data, &tmp_bool) == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"drop-hostname takes only boolean options");
-			return -1;
-		}
-		if (tmp_bool) {
-			/* Well, drop the hostname from the subvolumes */
-			char host_name[256];
-			
-			if (gethostname (host_name, 256) == -1) {
-				gf_log (this->name, GF_LOG_ERROR, 
-					"drop-hostname-from-subvolumes: "
-					"gethostname(): %s", strerror (errno));
-				return -1;
-			} else {
-				int flag = 0;
-				/* Check if the local_volume specified is 
-				   proper subvolume of unify */
-				trav = this->children;
-				if (strcmp (host_name, 
-					    trav->xlator->name) == 0) {
-					/* Well there is a volume with the 
-					   name 'hostname()', hence neglect 
-					   it */
-					this->children = trav->next;
-					gf_log (this->name, GF_LOG_DEBUG, 
-						"drop-hostname-from-subvolume "
-						": skipped volume '%s'", 
-						host_name);
-					flag = 1;
-					count--;
-				}
-				while (trav && trav->next) {
-					if (strcmp (host_name, 
-						    (trav->next)->xlator->name) == 0) {
-						/* Well there is a volume with
-						   the name 'hostname()', hence
-						   neglect it */
-						/* Remove entry about this 
-						   subvolume from the list */
-						trav->next = trav->next->next;
-						flag = 1;
-						count--;
-					}
-					trav = trav->next;
-					count++;
-				}
-				
-				if (!flag) {
-					/* entry for 'local-volume-name' is 
-					   wrong, not present in subvolumes */
-					gf_log (this->name, GF_LOG_ERROR, 
-						"requested to drop hostname "
-						"from subvolumes, but no "
-						"volume by name '%s'", 
-						host_name);
-					return -1;
-				} 
-			}
-		}
-	}
-
-	if (!count) {
-		gf_log (this->name, GF_LOG_ERROR, 
-			"review option 'drop-hostname-from-subvolumes', "
-			"left with no subvolumes");
-		return -1;
-	}
 	
 	_private = calloc (1, sizeof (*_private));
 	ERR_ABORT (_private);
@@ -4213,7 +4139,6 @@ struct xlator_options options[] = {
 	{ "random.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 7, 0, 0 },
 	{ "switch.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 7, 0, 0 },
 	{ "nufa.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 5, 0, 0 },
-	{ "drop-hostname-from-subvolumes", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
 	{ "self-heal", GF_OPTION_TYPE_STR, 0, 0, 0, 
 	  "foreground|background|off" },
 	{ "optimist", GF_OPTION_TYPE_BOOL, 0, 0, 0 },

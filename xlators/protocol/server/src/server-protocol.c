@@ -6712,6 +6712,7 @@ mop_setvolume (call_frame_t *frame,
 {
 	server_connection_private_t *cprivate = NULL;
 	server_private_t *server_private = NULL;
+	glusterfs_ctx_t  *ctx = NULL;
 	gf_hdr_common_t        *rsp_hdr = NULL;
 	gf_mop_setvolume_req_t *req = NULL;
 	gf_mop_setvolume_rsp_t *rsp = NULL;
@@ -6880,6 +6881,9 @@ mop_setvolume (call_frame_t *frame,
 			inode_table_new (lru_limit,
 					 cprivate->bound_xl);
 	}
+
+	ctx = get_global_ctx_ptr ();
+	ret = dict_set_str (reply, "unique-string", ctx->unique_str);
 
 fail:
 	dict_len = dict_serialized_length (reply);

@@ -1132,7 +1132,7 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
 
 
 /**
- * gf_unify_self_heal - 
+ * zr_unify_self_heal - 
  * 
  * @frame: frame used in lookup. get a copy of it, and use that copy.
  * @this: pointer to unify xlator.
@@ -1140,7 +1140,7 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
  *
  */
 int32_t 
-gf_unify_self_heal (call_frame_t *frame,
+zr_unify_self_heal (call_frame_t *frame,
 		    xlator_t *this,
 		    unify_local_t *local)
 {

@@ -48,6 +48,15 @@ struct client_connection_private;
 typedef struct client_connection_private client_connection_private_t;
 
 #include "stack.h"
+#include "xlator.h"
+#include "transport.h"
+
+struct _client_private {
+	transport_t *transport;
+	xlator_t    *child;
+};
+typedef struct _client_private client_private_t;
+
 
 /* This will be stored in transport_t->xl_private */
 struct client_connection_private {

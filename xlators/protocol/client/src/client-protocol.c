@@ -40,6 +40,10 @@
 #include <sys/resource.h>
 #include <inttypes.h>
 
+/* for default_*_cbk functions */
+#include "defaults.c"
+
+
 int protocol_client_cleanup (transport_t *trans);
 int protocol_client_interpret (xlator_t *this, transport_t *trans,
                                char *hdr_p, size_t hdrlen,
@@ -284,12 +288,14 @@ __protocol_client_frame_save (xlator_t *this, call_frame_t *frame,
                               uint64_t callid)
 {
 	client_connection_private_t *cprivate = NULL;
+	client_private_t *priv        = NULL;
 	transport_t   *trans          = NULL;
 	char           callid_str[32] = {0,};
 	struct timeval timeout        = {0, };
 	int32_t        ret            = -1;
 
-	trans    = this->private;
+	priv  = this->private;
+	trans = priv->transport;
 	cprivate = trans->xl_private;
 
 	snprintf (callid_str, 32, "%"PRId64, callid);
@@ -319,12 +325,14 @@ protocol_client_xfer (call_frame_t *frame,
                       dict_t *refs)
 {
 	transport_t *trans = NULL;
+	client_private_t *priv = NULL;
 	client_connection_private_t *cprivate = NULL;
 	uint64_t callid = 0;
 	int32_t ret = -1;
 	gf_hdr_common_t rsphdr = {0, };
 
-	trans = this->private;
+	priv  = this->private;
+	trans = priv->transport;
 	cprivate = trans->xl_private;
 
 	pthread_mutex_lock (&cprivate->lock);
@@ -408,6 +416,17 @@ client_create (call_frame_t *frame,
 	size_t baselen = 0;
 	int32_t ret = -1;
 	ino_t par = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame, default_create_cbk,
+			    priv->child,
+			    priv->child->fops->create,
+			    loc, flags, mode, fd);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
@@ -462,6 +481,18 @@ client_open (call_frame_t *frame,
 	gf_fop_open_req_t *req = NULL;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_open_cbk,
+			    priv->child,
+			    priv->child->fops->open,
+			    loc, flags, fd);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
@@ -511,6 +542,18 @@ client_stat (call_frame_t *frame,
 	int32_t ret = -1;
 	size_t  pathlen = 0;
 	ino_t   ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_stat_cbk,
+			    priv->child,
+			    priv->child->fops->stat,
+			    loc);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
@@ -559,6 +602,19 @@ client_readlink (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_readlink_cbk,
+			    priv->child,
+			    priv->child->fops->readlink,
+			    loc,
+			    size);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
@@ -611,6 +667,18 @@ client_mknod (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_mknod_cbk,
+			    priv->child,
+			    priv->child->fops->mknod,
+			    loc, mode, dev);
+
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
@@ -666,6 +734,18 @@ client_mkdir (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_mkdir_cbk,
+			    priv->child,
+			    priv->child->fops->mkdir,
+			    loc, mode);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
@@ -719,6 +799,18 @@ client_unlink (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_unlink_cbk,
+			    priv->child,
+			    priv->child->fops->unlink,
+			    loc);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
@@ -767,6 +859,18 @@ client_rmdir (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_rmdir_cbk,
+			    priv->child,
+			    priv->child->fops->rmdir,
+			    loc);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
@@ -820,6 +924,18 @@ client_symlink (call_frame_t *frame,
 	size_t newlen  = 0;
 	size_t baselen = 0;
 	ino_t par = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_symlink_cbk,
+			    priv->child,
+			    priv->child->fops->symlink,
+			    linkname, loc);
+		
+		return 0;
+	}
 
 	frame->local = loc->inode;
 
@@ -877,6 +993,18 @@ client_rename (call_frame_t *frame,
 	size_t newbaselen = 0;
 	ino_t  oldpar = 0;
 	ino_t  newpar = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_rename_cbk,
+			    priv->child,
+			    priv->child->fops->rename,
+			    oldloc, newloc);
+		
+		return 0;
+	}
 
 	oldpathlen = STRLEN_0(oldloc->path);
 	oldbaselen = STRLEN_0(oldloc->name);
@@ -942,6 +1070,18 @@ client_link (call_frame_t *frame,
 	size_t newbaselen = 0;
 	ino_t  oldino = 0;
 	ino_t  newpar = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_link_cbk,
+			    priv->child,
+			    priv->child->fops->link,
+			    oldloc, newloc);
+		
+		return 0;
+	}
 
 	oldpathlen = STRLEN_0(oldloc->path);
 	newpathlen = STRLEN_0(newloc->path);
@@ -998,6 +1138,19 @@ client_chmod (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_chmod_cbk,
+			    priv->child,
+			    priv->child->fops->chmod,
+			    loc,
+			    mode);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
@@ -1049,6 +1202,20 @@ client_chown (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_chown_cbk,
+			    priv->child,
+			    priv->child->fops->chown,
+			    loc,
+			    uid,
+			    gid);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
@@ -1098,6 +1265,19 @@ client_truncate (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_truncate_cbk,
+			    priv->child,
+			    priv->child->fops->truncate,
+			    loc,
+			    offset);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
@@ -1148,6 +1328,19 @@ client_utimens (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_utimens_cbk,
+			    priv->child,
+			    priv->child->fops->utimens,
+			    loc,
+			    tvp);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
@@ -1199,6 +1392,20 @@ client_readv (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_readv_cbk,
+			    priv->child,
+			    priv->child->fops->readv,
+			    fd,
+			    size,
+			    offset);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -1260,6 +1467,21 @@ client_writev (call_frame_t *frame,
 	size_t  hdrlen = 0;
 	int64_t remote_fd = -1;
 	int     ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_writev_cbk,
+			    priv->child,
+			    priv->child->fops->writev,
+			    fd,
+			    vector,
+			    count,
+			    offset);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -1317,6 +1539,18 @@ client_statfs (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_statfs_cbk,
+			    priv->child,
+			    priv->child->fops->statfs,
+			    loc);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
@@ -1363,6 +1597,18 @@ client_flush (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_flush_cbk,
+			    priv->child,
+			    priv->child->fops->flush,
+			    fd);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -1420,6 +1666,19 @@ client_fsync (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int32_t ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_fsync_cbk,
+			    priv->child,
+			    priv->child->fops->fsync,
+			    fd,
+			    flags);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -1466,6 +1725,20 @@ client_xattrop (call_frame_t *frame,
 	int32_t ret = -1;
 	size_t  pathlen = 0;
 	ino_t   ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_xattrop_cbk,
+			    priv->child,
+			    priv->child->fops->xattrop,
+			    loc,
+			    flags,
+			    dict);
+		
+		return 0;
+	}
 
 	GF_VALIDATE_OR_GOTO("client", this, unwind);
 	GF_VALIDATE_OR_GOTO(this->name, loc, unwind);
@@ -1530,6 +1803,20 @@ client_fxattrop (call_frame_t *frame,
 	int64_t remote_fd = -1;
 	int32_t ret = -1;
 	ino_t   ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_fxattrop_cbk,
+			    priv->child,
+			    priv->child->fops->fxattrop,
+			    fd,
+			    flags,
+			    dict);
+		
+		return 0;
+	}
 
 	if (dict) {
 		dict_len = dict_serialized_length (dict);
@@ -1611,6 +1898,20 @@ client_setxattr (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_setxattr_cbk,
+			    priv->child,
+			    priv->child->fops->setxattr,
+			    loc,
+			    dict,
+			    flags);
+		
+		return 0;
+	}
 
 	dict_len = dict_serialized_length (dict);
 	if (dict_len < 0) {
@@ -1676,6 +1977,19 @@ client_getxattr (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t namelen = 0;
 	ino_t  ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_getxattr_cbk,
+			    priv->child,
+			    priv->child->fops->getxattr,
+			    loc,
+			    name);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	if (name)
@@ -1729,6 +2043,19 @@ client_removexattr (call_frame_t *frame,
 	size_t namelen = 0;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_removexattr_cbk,
+			    priv->child,
+			    priv->child->fops->removexattr,
+			    loc,
+			    name);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	namelen = STRLEN_0(name);
@@ -1776,6 +2103,18 @@ client_opendir (call_frame_t *frame,
 	int    ret = -1;
 	ino_t  ino = 0;
 	size_t pathlen = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_opendir_cbk,
+			    priv->child,
+			    priv->child->fops->opendir,
+			    loc, fd);
+		
+		return 0;
+	}
 
 	ino = this_ino_get (loc->inode, this);
 	pathlen = STRLEN_0(loc->path);
@@ -1826,6 +2165,21 @@ client_getdents (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_getdents_cbk,
+			    priv->child,
+			    priv->child->fops->getdents,
+			    fd,
+			    size,
+			    offset,
+			    flag);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -1879,6 +2233,18 @@ client_readdir (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_readdir_cbk,
+			    priv->child,
+			    priv->child->fops->readdir,
+			    fd, size, offset);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -1936,6 +2302,19 @@ client_fsyncdir (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int32_t ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_fsyncdir_cbk,
+			    priv->child,
+			    priv->child->fops->fsyncdir,
+			    fd,
+			    flags);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -1987,6 +2366,19 @@ client_access (call_frame_t *frame,
 	int    ret = -1;
 	ino_t  ino = 0;
 	size_t pathlen = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_access_cbk,
+			    priv->child,
+			    priv->child->fops->access,
+			    loc,
+			    mask);
+		
+		return 0;
+	}
 
 	ino = this_ino_get (loc->inode, this);
 	pathlen = STRLEN_0(loc->path);
@@ -2037,6 +2429,19 @@ client_ftruncate (call_frame_t *frame,
 	int64_t remote_fd = -1;
 	size_t hdrlen = -1;
 	int ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_ftruncate_cbk,
+			    priv->child,
+			    priv->child->fops->ftruncate,
+			    fd,
+			    offset);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -2091,6 +2496,18 @@ client_fstat (call_frame_t *frame,
 	int64_t remote_fd = -1;
 	size_t hdrlen = -1;
 	int ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_fstat_cbk,
+			    priv->child,
+			    priv->child->fops->fstat,
+			    fd);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -2150,6 +2567,20 @@ client_lk (call_frame_t *frame,
 	int64_t remote_fd = -1;
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_lk_cbk,
+			    priv->child,
+			    priv->child->fops->lk,
+			    fd,
+			    cmd,
+			    flock);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -2236,6 +2667,18 @@ client_inodelk (call_frame_t *frame,
 	int32_t gf_type = 0;
 	ino_t   ino  = 0;
 	size_t  pathlen = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_inodelk_cbk,
+			    priv->child,
+			    priv->child->fops->inodelk,
+			    loc, cmd, flock);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc->inode, this);
@@ -2318,6 +2761,18 @@ client_finodelk (call_frame_t *frame,
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 	int64_t remote_fd = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_finodelk_cbk,
+			    priv->child,
+			    priv->child->fops->finodelk,
+			    fd, cmd, flock);
+		
+		return 0;
+	}
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -2394,6 +2849,17 @@ client_entrylk (call_frame_t *frame,
 	int ret = -1;
 	ino_t ino = 0;
 	size_t namelen = 0;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame, default_entrylk_cbk,
+			    priv->child,
+			    priv->child->fops->entrylk,
+			    loc, name, cmd, type);
+		
+		return 0;
+	}
 
 	pathlen = STRLEN_0(loc->path);
 	if (name)
@@ -2446,6 +2912,17 @@ client_fentrylk (call_frame_t *frame,
 	size_t namelen = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame, default_fentrylk_cbk,
+			    priv->child,
+			    priv->child->fops->fentrylk,
+			    fd, name, cmd, type);
+		
+		return 0;
+	}
 
 	if (name)
 		namelen = STRLEN_0(name);
@@ -2512,6 +2989,19 @@ client_lookup (call_frame_t *frame,
 	size_t baselen = 0;
 	int32_t op_ret = -1;
 	int32_t op_errno = EINVAL;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_lookup_cbk,
+			    priv->child,
+			    priv->child->fops->lookup,
+			    loc,
+			    need_xattr);
+		
+		return 0;
+	}
 
 	GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 	GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
@@ -2570,6 +3060,19 @@ client_fchmod (call_frame_t *frame,
 	int ret = -1;
 	int32_t op_errno = EINVAL;
 	int32_t op_ret   = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_fchmod_cbk,
+			    priv->child,
+			    priv->child->fops->fchmod,
+			    fd,
+			    mode);
+		
+		return 0;
+	}
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
@@ -2628,6 +3131,20 @@ client_fchown (call_frame_t *frame,
 	int32_t op_ret   = -1;
 	int32_t op_errno = EINVAL;
 	int32_t ret      = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_fchown_cbk,
+			    priv->child,
+			    priv->child->fops->fchown,
+			    fd,
+			    uid,
+			    gid);
+		
+		return 0;
+	}
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
@@ -2690,6 +3207,21 @@ client_setdents (call_frame_t *frame,
 	int32_t  vec_count = 0;
 	size_t   hdrlen = -1;
 	struct iovec vector[1];
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_setdents_cbk,
+			    priv->child,
+			    priv->child->fops->setdents,
+			    fd,
+			    flags,
+			    entries,
+			    count);
+		
+		return 0;
+	}
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
@@ -2838,6 +3370,13 @@ client_forget (xlator_t *this,
 	size_t               hdrlen = 0;
 	gf_cbk_forget_req_t *req = NULL;
 	int                  ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		/* Yenu beda */
+		return 0;
+	}
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
@@ -2882,6 +3421,13 @@ client_releasedir (xlator_t *this,
 	gf_hdr_common_t       *hdr = NULL;
 	size_t                 hdrlen = 0;
 	gf_cbk_releasedir_req_t *req = NULL;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		/* yenu beda */
+		return 0;
+	}
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, fd, out);
@@ -2943,6 +3489,13 @@ client_release (xlator_t *this,
 	gf_hdr_common_t     *hdr = NULL;
 	size_t               hdrlen = 0;
 	gf_cbk_release_req_t  *req = NULL;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		/* yenu beda */
+		return 0;
+	}
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, fd, out);
@@ -3005,6 +3558,18 @@ client_stats (call_frame_t *frame,
 	gf_mop_stats_req_t *req = NULL;
 	size_t hdrlen = -1;
 	int ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_stats_cbk,
+			    priv->child,
+			    priv->child->mops->stats,
+			    flags);
+		
+		return 0;
+	}
 
 	GF_VALIDATE_OR_GOTO ("client", this, unwind);
 
@@ -4713,6 +5278,18 @@ client_checksum (call_frame_t *frame,
 	gf_fop_checksum_req_t *req = NULL;
 	size_t hdrlen = -1;
 	int ret = -1;
+	client_private_t *priv = this->private;
+
+	if (priv->child) {
+		STACK_WIND (frame,
+			    default_checksum_cbk,
+			    priv->child,
+			    priv->child->fops->checksum,
+			    loc,
+			    flag);
+
+		return 0;
+	}
 
 	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
 	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
@@ -4795,39 +5372,29 @@ client_setvolume_cbk (call_frame_t *frame,
 {
 	gf_mop_setvolume_rsp_t *rsp = NULL;
 	client_connection_private_t *cprivate = NULL;
+	client_private_t *priv = NULL;
+	glusterfs_ctx_t *ctx = NULL; 
 	xlator_t *this = NULL;
+	xlator_list_t *parent = NULL;
 	transport_t *trans = NULL;
 	dict_t *reply = NULL;
+	char *remote_subvol = NULL;
 	char *remote_error = NULL;
+	char *unique_str = NULL;
 	int32_t ret = -1;
 	int32_t op_ret   = -1;
 	int32_t op_errno = EINVAL;
-	int32_t gf_errno = 0;
-	xlator_list_t *parent = NULL;
 	int32_t dict_len = 0;
 
 	this  = frame->this;
-	trans = this->private;
+	priv  = this->private;
+	trans = priv->transport;
 	cprivate  = trans->xl_private;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	gf_errno = ntoh32 (hdr->rsp.op_errno);
-	op_errno = gf_error_to_errno (gf_errno);
-
-	if (op_ret < 0) {
-		gf_log (trans->xl->name, GF_LOG_ERROR,
-			"SETVOLUME on remote-host failed: ret=%d error=%s",
-			op_ret,	
-			remote_error ? remote_error : strerror (op_errno));
-		errno = op_errno;
-		if (op_errno == ENOTCONN)
-			goto out;
-	} else {
-		gf_log (trans->xl->name, GF_LOG_DEBUG,
-			"SETVOLUME on remote-host succeeded");
-	}
+	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
 	reply = dict_new ();
 	GF_VALIDATE_OR_GOTO(this->name, reply, out);
@@ -4841,14 +5408,44 @@ client_setvolume_cbk (call_frame_t *frame,
 		goto out;
 	}
 	
-
 	ret = dict_get_str (reply, "ERROR", &remote_error);
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get ERROR string from reply dictionary");
 	}
 
-	if (op_ret == 0) {
+	ret = dict_get_str (reply, "unique-string", &unique_str);
+	if (ret < 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"failed to get 'unique-string' from reply dictionary");
+	}
+
+	if (op_ret < 0) {
+		gf_log (trans->xl->name, GF_LOG_ERROR,
+			"SETVOLUME on remote-host failed: %s",
+			remote_error ? remote_error : strerror (op_errno));
+		errno = op_errno;
+		if (op_errno == ENOTCONN)
+			goto out;
+	} else {
+		ctx = get_global_ctx_ptr ();
+		if (unique_str && !strcmp (ctx->unique_str, unique_str)) {
+			ret = dict_get_str (this->options, "remote-subvolume",
+					    &remote_subvol);
+			if (!remote_subvol) 
+				goto out;
+			
+			gf_log (this->name, GF_LOG_WARNING, 
+				"attaching to the local volume '%s'",
+				remote_subvol);
+
+			/* TODO: */
+			priv->child = xlator_search_by_name (this, 
+							     remote_subvol);
+		}
+		gf_log (trans->xl->name, GF_LOG_DEBUG,
+			"SETVOLUME on remote-host succeeded");
+
 		pthread_mutex_lock (&(cprivate->lock));
 		{
 			cprivate->connected = 1;
@@ -5208,6 +5805,7 @@ int32_t
 init (xlator_t *this)
 {
 	transport_t *trans = NULL;
+	client_private_t *priv = NULL;
 	client_connection_private_t *cprivate = NULL;
 	int32_t transport_timeout = 0;
 	char *max_block_size_string = NULL;
@@ -5246,8 +5844,12 @@ init (xlator_t *this)
 		ret = -1;
 		goto out;
 	}
-	
-	this->private = transport_ref (trans);
+
+	priv = calloc (1, sizeof (client_private_t));
+
+	priv->transport = transport_ref (trans);
+
+	this->private = priv;
 	
 	/* in case, GF_VALIDATE_OR_GOTO() jumps to label */
 	ret = -1;
@@ -5336,11 +5938,23 @@ void
 fini (xlator_t *this)
 {
 	/* TODO: Check if its enough.. how to call transport's fini () */
-	client_connection_private_t *cprivate = this->private;
+	client_private_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
 
-	dict_destroy (cprivate->saved_frames);
-	dict_destroy (cprivate->saved_fds);
-	FREE (cprivate);
+	priv = this->private;
+
+	if (priv) {
+		if (priv->transport && priv->transport->xl_private) {
+			cprivate = priv->transport->xl_private;
+			dict_destroy (cprivate->saved_frames);
+			dict_destroy (cprivate->saved_fds);
+			FREE (cprivate);
+		}
+		if (priv->transport)
+			transport_unref (priv->transport);
+
+		FREE (priv);
+	}
 	return;
 }
 
@@ -5526,7 +6140,9 @@ notify (xlator_t *this,
 	{
 		struct timeval tv = {0, 0};
 		xlator_list_t *parent = NULL;
-		transport_t *trans = this->private;
+		client_private_t *priv = this->private;
+		transport_t *trans = priv->transport;
+
 		if (!trans) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"transport init failed");
