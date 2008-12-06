@@ -93,6 +93,11 @@ extern gf_loglevel_t gf_log_loglevel;
 		}							\
 } while (0)
 
+/* Log once in GF_UNIVERSAL_ANSWER times */
+#define GF_LOG_OCCASIONALLY(var, args...) if (!(var++%GF_UNIVERSAL_ANSWER)) { \
+                gf_log (args);                                                \
+        }
+
 			
 void 
 gf_log_logrotate (int signum);

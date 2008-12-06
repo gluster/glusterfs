@@ -44,16 +44,16 @@
 #define ENABLE_NO_DAEMON_MODE     1
 #define ENABLE_DEBUG_MODE         1
 
-#define TRANSLATOR_TYPE_MOUNT_FUSE_STRING                          "mount/fuse"
-#define TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_MOUNT_POINT_STRING       "mount-point"
-#define TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_ATTR_TIMEOUT_STRING      "attr-timeout"
-#define TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_ENTRY_TIMEOUT_STRING     "entry-timeout"
-#define TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_DIRECT_IO_MODE_STRING    "direct-io-mode"
+#define ZR_XLATOR_FUSE          "mount/fuse"
+#define ZR_MOUNTPOINT_OPT       "mount-point"
+#define ZR_ATTR_TIMEOUT_OPT     "attribute-timeout"
+#define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
+#define ZR_DIRECT_IO_OPT        "direct-io-mode"
 
 
-#define SERVER_TRANSLATOR_TYPE_STRING    "protocol/server"
-#define CLIENT_TRANSLATOR_TYPE_STRING    TRANSLATOR_TYPE_MOUNT_FUSE_STRING
-#define CLIENT_TRANSLATOR_TYPE_MOUNT_POINT_STRING    TRANSLATOR_TYPE_MOUNT_FUSE_OPTION_MOUNT_POINT_STRING
+#define ZR_XLATOR_SERVERPROTO   "protocol/server"
+
+
 
 enum argp_option_keys {
 	ARGP_SPECFILE_SERVER_KEY = 's', 

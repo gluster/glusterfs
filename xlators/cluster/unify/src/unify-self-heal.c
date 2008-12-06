@@ -26,10 +26,10 @@
  *     > a failed node comes back
  *     > a new namespace server is added (ie, an fresh namespace server).
  * 
- *  This functionality of 'unify' will enable glusterfs to support storage system 
- *  failure, and maintain consistancy. This works both ways, ie, when an entry 
- *  (either file or directory) is found on namespace server, and not on storage 
- *  nodes, its created in storage nodes and vica-versa.
+ *  This functionality of 'unify' will enable glusterfs to support storage
+ *  system failure, and maintain consistancy. This works both ways, ie, when
+ *  an entry (either file or directory) is found on namespace server, and not
+ *  on storage nodes, its created in storage nodes and vica-versa.
  * 
  *  The two fops, where it can be implemented are 'getdents ()' and 'lookup ()'
  *
@@ -128,8 +128,8 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 
 	LOCK (&frame->lock);
 	{
-		/* if local->call_count == 0, that means, setdents on storagenodes is 
-		 * still pending.
+		/* if local->call_count == 0, that means, setdents on 
+		 * storagenodes is still pending.
 		 */
 		if (local->call_count)
 			callcnt = --local->call_count;
@@ -138,10 +138,13 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 
 
 	if (!local->flags) {
-		if (local->sh_struct->count_list[0] >= UNIFY_SELF_HEAL_GETDENTS_COUNT) {
-			/* count == size, that means, there are more entries to read from */
+		if (local->sh_struct->count_list[0] >= 
+		    UNIFY_SELF_HEAL_GETDENTS_COUNT) {
+			/* count == size, that means, there are more entries
+			   to read from */
 			//local->call_count = 0;
-			local->sh_struct->offset_list[0] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
+			local->sh_struct->offset_list[0] += 
+				UNIFY_SELF_HEAL_GETDENTS_COUNT;
 			STACK_WIND (frame,
 				    unify_sh_ns_getdents_cbk,
 				    NS(this),
@@ -176,7 +179,8 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 
 		unify_local_wipe (local);
 
-		STACK_UNWIND (frame, local->op_ret, local->op_errno, inode, &local->stbuf, local->dict);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+			      inode, &local->stbuf, local->dict);
 		if (tmp_dict)
 			dict_unref (local->dict);
 	}
@@ -213,9 +217,8 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
 
 	LOCK (&frame->lock);
 	{
-		/* local->call_count will be '0' till now. make it 1 so, it can be 
-		 * UNWIND'ed for the last call. 
-		 */
+		/* local->call_count will be '0' till now. make it 1 so, it 
+		   can be UNWIND'ed for the last call. */
 		local->call_count = priv->child_count;
 		if (final)
 			local->flags = 1;
@@ -267,15 +270,18 @@ unify_sh_ns_setdents_cbk (call_frame_t *frame,
 	}
 	UNLOCK (&frame->lock);
 
-	if (local->sh_struct->count_list[index] < UNIFY_SELF_HEAL_GETDENTS_COUNT) {
+	if (local->sh_struct->count_list[index] < 
+	    UNIFY_SELF_HEAL_GETDENTS_COUNT) {
 		LOCK (&frame->lock);
 		{
 			callcnt = --local->call_count;
 		}
 		UNLOCK (&frame->lock);
 	} else {
-		/* count == size, that means, there are more entries to read from */
-		local->sh_struct->offset_list[index] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
+		/* count == size, that means, there are more entries 
+		   to read from */
+		local->sh_struct->offset_list[index] += 
+			UNIFY_SELF_HEAL_GETDENTS_COUNT;
 		STACK_WIND_COOKIE (frame,
 				   unify_sh_getdents_cbk,
 				   cookie,
@@ -286,7 +292,8 @@ unify_sh_ns_setdents_cbk (call_frame_t *frame,
 				   local->sh_struct->offset_list[index],
 				   GF_GET_ALL);
     
-		gf_log (this->name, GF_LOG_DEBUG, "readdir on (%s) with offset %"PRId64"", 
+		gf_log (this->name, GF_LOG_DEBUG, 
+			"readdir on (%s) with offset %"PRId64"", 
 			priv->xl_array[index]->name, 
 			local->sh_struct->offset_list[index]);
 	}
@@ -296,7 +303,8 @@ unify_sh_ns_setdents_cbk (call_frame_t *frame,
 		 * Now, do getdents from NS and do setdents on storage nodes.
 		 */
     
-		/* sh_struct->offset_list is no longer required for storage nodes now */
+		/* sh_struct->offset_list is no longer required for
+		   storage nodes now */
 		local->sh_struct->offset_list[0] = 0; /* reset */
 
 		STACK_WIND (frame,
@@ -359,8 +367,10 @@ unify_sh_getdents_cbk (call_frame_t *frame,
 		}
 		UNLOCK (&frame->lock);
 	} else {
-		/* count == size, that means, there are more entries to read from */
-		local->sh_struct->offset_list[index] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
+		/* count == size, that means, there are more entries 
+		   to read from */
+		local->sh_struct->offset_list[index] += 
+			UNIFY_SELF_HEAL_GETDENTS_COUNT;
 		STACK_WIND_COOKIE (frame,
 				   unify_sh_getdents_cbk,
 				   cookie,
@@ -371,7 +381,8 @@ unify_sh_getdents_cbk (call_frame_t *frame,
 				   local->sh_struct->offset_list[index],
 				   GF_GET_ALL);
     
-		gf_log (this->name, GF_LOG_DEBUG, "readdir on (%s) with offset %"PRId64"", 
+		gf_log (this->name, GF_LOG_DEBUG, 
+			"readdir on (%s) with offset %"PRId64"", 
 			priv->xl_array[index]->name, 
 			local->sh_struct->offset_list[index]);
 	}
@@ -381,7 +392,8 @@ unify_sh_getdents_cbk (call_frame_t *frame,
 		 * Now, do getdents from NS and do setdents on storage nodes.
 		 */
     
-		/* sh_struct->offset_list is no longer required for storage nodes now */
+		/* sh_struct->offset_list is no longer required for
+		   storage nodes now */
 		local->sh_struct->offset_list[0] = 0; /* reset */
 
 		STACK_WIND (frame,
@@ -434,26 +446,35 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 		local->call_count = priv->child_count + 1;
     
 		if (!local->failed) {
-			/* send getdents() namespace after finishing storage nodes */
+			/* send getdents() namespace after finishing
+			   storage nodes */
 			local->call_count--; 
       
 			fd_bind (fd);
 
 			if (local->call_count) {
-				/* Used as the offset index. This list keeps track of offset
-				 * sent to each node during STACK_WIND.
+				/* Used as the offset index. This list keeps
+				 * track of offset sent to each node during
+				 * STACK_WIND.
 				 */
-				local->sh_struct->offset_list = calloc (priv->child_count, sizeof (off_t));
+				local->sh_struct->offset_list = 
+					calloc (priv->child_count, 
+						sizeof (off_t));
 				ERR_ABORT (local->sh_struct->offset_list);
 	
-				local->sh_struct->entry_list = calloc (priv->child_count, sizeof (dir_entry_t *));
+				local->sh_struct->entry_list = 
+					calloc (priv->child_count, 
+						sizeof (dir_entry_t *));
 				ERR_ABORT (local->sh_struct->entry_list);
 
-				local->sh_struct->count_list = calloc (priv->child_count, sizeof (int));
+				local->sh_struct->count_list = 
+					calloc (priv->child_count, 
+						sizeof (int));
 				ERR_ABORT (local->sh_struct->count_list);
 
 				/* Send getdents on all the fds */
-				for (index = 0; index < priv->child_count; index++) {
+				for (index = 0; 
+				     index < priv->child_count; index++) {
 					STACK_WIND_COOKIE (frame,
 							   unify_sh_getdents_cbk,
 							   (void *)(long)index,
@@ -465,7 +486,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 							   GF_GET_ALL);
 				}
 
-				/* did a stack wind, so no need to unwind here */
+				/* did stack wind, so no need to unwind here */
 				return 0;
 			} /* (local->call_count) */
 		} /* (!local->failed) */
@@ -476,7 +497,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 		tmp_dict = local->dict;
 
 		unify_local_wipe (local);
-		/* Only 'self-heal' did not succeed, lookup() was successful. */
+		/* Only 'self-heal' failed, lookup() was successful. */
 		local->op_ret = 0;
 
 		/* This is lookup_cbk ()'s UNWIND. */
@@ -518,24 +539,32 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 		callcnt = --local->call_count;
 		if (op_ret >= 0) {
 			if (NS(this) == (xlator_t *)cookie) {
-				memcpy (local->sh_struct->ns_file_checksum, file_checksum, GF_FILENAME_MAX);
-				memcpy (local->sh_struct->ns_dir_checksum, dir_checksum, GF_FILENAME_MAX);
+				memcpy (local->sh_struct->ns_file_checksum, 
+					file_checksum, ZR_FILENAME_MAX);
+				memcpy (local->sh_struct->ns_dir_checksum, 
+					dir_checksum, ZR_FILENAME_MAX);
 			} else {
 				if (local->entry_count == 0) {
-					/* Initialize the dir_checksum to be used for comparision 
-					 * with other storage nodes. Should be done for the first 
-					 * successful call *only*. 
+					/* Initialize the dir_checksum to be 
+					 * used for comparision with other
+					 * storage nodes. Should be done for
+					 * the first successful call *only*. 
 					 */
-					local->entry_count = 1; /* Using 'entry_count' as a flag */
-					memcpy (local->sh_struct->dir_checksum, dir_checksum, GF_FILENAME_MAX);
+                                        /* Using 'entry_count' as a flag */
+					local->entry_count = 1;
+					memcpy (local->sh_struct->dir_checksum,
+						dir_checksum, ZR_FILENAME_MAX);
 				}
 
 				/* Reply from the storage nodes */
-				for (index = 0; index < GF_FILENAME_MAX; index++) {
-					/* Files should be present in only one node */
+				for (index = 0; 
+				     index < ZR_FILENAME_MAX; index++) {
+					/* Files should be present in
+					   only one node */
 					local->sh_struct->file_checksum[index] ^= file_checksum[index];
 	  
-					/* directory structure should be same accross */
+					/* directory structure should be
+					   same accross */
 					if (local->sh_struct->dir_checksum[index] != dir_checksum[index])
 						local->failed = 1;
 				}
@@ -545,12 +574,14 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
 
 	if (!callcnt) {
-		for (index = 0; index < GF_FILENAME_MAX ; index++) {
-			if (local->sh_struct->file_checksum[index] != local->sh_struct->ns_file_checksum[index]) {
+		for (index = 0; index < ZR_FILENAME_MAX ; index++) {
+			if (local->sh_struct->file_checksum[index] != 
+			    local->sh_struct->ns_file_checksum[index]) {
 				local->failed = 1;
 				break;
 			}
-			if (local->sh_struct->dir_checksum[index] != local->sh_struct->ns_dir_checksum[index]) {
+			if (local->sh_struct->dir_checksum[index] != 
+			    local->sh_struct->ns_dir_checksum[index]) {
 				local->failed = 1;
 				break;
 			}
@@ -558,18 +589,22 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 	
 		if (local->failed) {
 			/* Log it, it should be a rare event */
-			gf_log (this->name, GF_LOG_WARNING, "Self-heal triggered on directory %s", local->loc1.path);
+			gf_log (this->name, GF_LOG_WARNING, 
+				"Self-heal triggered on directory %s", 
+				local->loc1.path);
 
-			/* Any self heal will be done at the directory level */
+			/* Any self heal will be done at directory level */
 			local->call_count = 0;
 			local->op_ret = -1;
 			local->failed = 0;
       
-			local->fd = fd_create (local->loc1.inode, frame->root->pid);
+			local->fd = fd_create (local->loc1.inode, 
+					       frame->root->pid);
 
 			local->call_count = priv->child_count + 1;
 	
-			for (index = 0; index < (priv->child_count + 1); index++) {
+			for (index = 0; 
+			     index < (priv->child_count + 1); index++) {
 				STACK_WIND_COOKIE (frame,
 						   unify_sh_opendir_cbk,
 						   priv->xl_array[index]->name,
@@ -619,9 +654,8 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
 
 	LOCK (&frame->lock);
 	{
-		/* if local->call_count == 0, that means, setdents on storagenodes is 
-		 * still pending.
-		 */
+		/* if local->call_count == 0, that means, setdents 
+		   on storagenodes is still pending. */
 		if (local->call_count)
 			callcnt = --local->call_count;
 	}
@@ -629,10 +663,13 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
 
 
 	if (!local->flags) {
-		if (local->sh_struct->count_list[0] >= UNIFY_SELF_HEAL_GETDENTS_COUNT) {
-			/* count == size, that means, there are more entries to read from */
+		if (local->sh_struct->count_list[0] >= 
+		    UNIFY_SELF_HEAL_GETDENTS_COUNT) {
+			/* count == size, that means, there are more
+			   entries to read from */
 			//local->call_count = 0;
-			local->sh_struct->offset_list[0] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
+			local->sh_struct->offset_list[0] += 
+				UNIFY_SELF_HEAL_GETDENTS_COUNT;
 			STACK_WIND (frame,
 				    unify_bgsh_ns_getdents_cbk,
 				    NS(this),
@@ -699,9 +736,8 @@ unify_bgsh_ns_getdents_cbk (call_frame_t *frame,
 
 	LOCK (&frame->lock);
 	{
-		/* local->call_count will be '0' till now. make it 1 so, it can be 
-		 * UNWIND'ed for the last call. 
-		 */
+		/* local->call_count will be '0' till now. make it 1 so, 
+		   it can be UNWIND'ed for the last call. */
 		local->call_count = priv->child_count;
 		if (final)
 			local->flags = 1;
@@ -751,15 +787,18 @@ unify_bgsh_ns_setdents_cbk (call_frame_t *frame,
 		FREE (entry);
 	}
 
-	if (local->sh_struct->count_list[index] < UNIFY_SELF_HEAL_GETDENTS_COUNT) {
+	if (local->sh_struct->count_list[index] < 
+	    UNIFY_SELF_HEAL_GETDENTS_COUNT) {
 		LOCK (&frame->lock);
 		{
 			callcnt = --local->call_count;
 		}
 		UNLOCK (&frame->lock);
 	} else {
-		/* count == size, that means, there are more entries to read from */
-		local->sh_struct->offset_list[index] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
+		/* count == size, that means, there are more entries 
+		   to read from */
+		local->sh_struct->offset_list[index] += 
+			UNIFY_SELF_HEAL_GETDENTS_COUNT;
 		STACK_WIND_COOKIE (frame,
 				   unify_bgsh_getdents_cbk,
 				   cookie,
@@ -770,7 +809,8 @@ unify_bgsh_ns_setdents_cbk (call_frame_t *frame,
 				   local->sh_struct->offset_list[index],
 				   GF_GET_ALL);
     
-		gf_log (this->name, GF_LOG_DEBUG, "readdir on (%s) with offset %"PRId64"", 
+		gf_log (this->name, GF_LOG_DEBUG, 
+			"readdir on (%s) with offset %"PRId64"", 
 			priv->xl_array[index]->name, 
 			local->sh_struct->offset_list[index]);
 	}
@@ -780,7 +820,8 @@ unify_bgsh_ns_setdents_cbk (call_frame_t *frame,
 		 * Now, do getdents from NS and do setdents on storage nodes.
 		 */
     
-		/* sh_struct->offset_list is no longer required for storage nodes now */
+		/* sh_struct->offset_list is no longer required for
+		   storage nodes now */
 		local->sh_struct->offset_list[0] = 0; /* reset */
 
 		STACK_WIND (frame,
@@ -844,7 +885,9 @@ unify_bgsh_getdents_cbk (call_frame_t *frame,
 		UNLOCK (&frame->lock);
 	} else {
 		/* count == size, that means, there are more entries to read from */
-		local->sh_struct->offset_list[index] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
+		local->sh_struct->offset_list[index] += 
+			UNIFY_SELF_HEAL_GETDENTS_COUNT;
+
 		STACK_WIND_COOKIE (frame,
 				   unify_bgsh_getdents_cbk,
 				   cookie,
@@ -855,7 +898,8 @@ unify_bgsh_getdents_cbk (call_frame_t *frame,
 				   local->sh_struct->offset_list[index],
 				   GF_GET_ALL);
     
-		gf_log (this->name, GF_LOG_DEBUG, "readdir on (%s) with offset %"PRId64"", 
+		gf_log (this->name, GF_LOG_DEBUG, 
+			"readdir on (%s) with offset %"PRId64"", 
 			priv->xl_array[index]->name, 
 			local->sh_struct->offset_list[index]);
 	}
@@ -865,7 +909,8 @@ unify_bgsh_getdents_cbk (call_frame_t *frame,
 		 * Now, do getdents from NS and do setdents on storage nodes.
 		 */
     
-		/* sh_struct->offset_list is no longer required for storage nodes now */
+		/* sh_struct->offset_list is no longer required for 
+		   storage nodes now */
 		local->sh_struct->offset_list[0] = 0; /* reset */
 
 		STACK_WIND (frame,
@@ -915,27 +960,35 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
 		local->call_count = priv->child_count + 1;
     
 		if (!local->failed) {
-			/* send getdents() namespace after finishing storage nodes */
+			/* send getdents() namespace after finishing 
+			   storage nodes */
 			local->call_count--; 
 			callcnt = local->call_count;
       
 			fd_bind (fd);
 
 			if (local->call_count) {
-				/* Used as the offset index. This list keeps track of offset
-				 * sent to each node during STACK_WIND.
-				 */
-				local->sh_struct->offset_list = calloc (priv->child_count, sizeof (off_t));
+				/* Used as the offset index. This list keeps 
+				   track of offset sent to each node during 
+				   STACK_WIND. */
+				local->sh_struct->offset_list = 
+					calloc (priv->child_count, 
+						sizeof (off_t));
 				ERR_ABORT (local->sh_struct->offset_list);
 	
-				local->sh_struct->entry_list = calloc (priv->child_count, sizeof (dir_entry_t *));
+				local->sh_struct->entry_list = 
+					calloc (priv->child_count, 
+						sizeof (dir_entry_t *));
 				ERR_ABORT (local->sh_struct->entry_list);
 
-				local->sh_struct->count_list = calloc (priv->child_count, sizeof (int));
+				local->sh_struct->count_list = 
+					calloc (priv->child_count, 
+						sizeof (int));
 				ERR_ABORT (local->sh_struct->count_list);
 
 				/* Send getdents on all the fds */
-				for (index = 0; index < priv->child_count; index++) {
+				for (index = 0; 
+				     index < priv->child_count; index++) {
 					STACK_WIND_COOKIE (frame,
 							   unify_bgsh_getdents_cbk,
 							   (void *)(long)index,
@@ -950,7 +1003,6 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
 				return 0;
 			} /* (local->call_count) */
 		} /* (!local->failed) */
-
 
 		/* Opendir failed on one node. 	 */
 		fd_unref (local->fd);
@@ -989,24 +1041,32 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
 		callcnt = --local->call_count;
 		if (op_ret >= 0) {
 			if (NS(this) == (xlator_t *)cookie) {
-				memcpy (local->sh_struct->ns_file_checksum, file_checksum, GF_FILENAME_MAX);
-				memcpy (local->sh_struct->ns_dir_checksum, dir_checksum, GF_FILENAME_MAX);
+				memcpy (local->sh_struct->ns_file_checksum, 
+					file_checksum, ZR_FILENAME_MAX);
+				memcpy (local->sh_struct->ns_dir_checksum, 
+					dir_checksum, ZR_FILENAME_MAX);
 			} else {
 				if (local->entry_count == 0) {
-					/* Initialize the dir_checksum to be used for comparision 
-					 * with other storage nodes. Should be done for the first 
-					 * successful call *only*. 
+					/* Initialize the dir_checksum to be 
+					 * used for comparision with other 
+					 * storage nodes. Should be done for
+					 * the first successful call *only*. 
 					 */
-					local->entry_count = 1; /* Using 'entry_count' as a flag */
-					memcpy (local->sh_struct->dir_checksum, dir_checksum, GF_FILENAME_MAX);
+					/* Using 'entry_count' as a flag */
+					local->entry_count = 1; 
+					memcpy (local->sh_struct->dir_checksum,
+						dir_checksum, ZR_FILENAME_MAX);
 				}
 
 				/* Reply from the storage nodes */
-				for (index = 0; index < GF_FILENAME_MAX; index++) {
-					/* Files should be present in only one node */
+				for (index = 0; 
+				     index < ZR_FILENAME_MAX; index++) {
+					/* Files should be present in only 
+					   one node */
 					local->sh_struct->file_checksum[index] ^= file_checksum[index];
 	  
-					/* directory structure should be same accross */
+					/* directory structure should be same 
+					   accross */
 					if (local->sh_struct->dir_checksum[index] != dir_checksum[index])
 						local->failed = 1;
 				}
@@ -1016,12 +1076,14 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
 
 	if (!callcnt) {
-		for (index = 0; index < GF_FILENAME_MAX ; index++) {
-			if (local->sh_struct->file_checksum[index] != local->sh_struct->ns_file_checksum[index]) {
+		for (index = 0; index < ZR_FILENAME_MAX ; index++) {
+			if (local->sh_struct->file_checksum[index] != 
+			    local->sh_struct->ns_file_checksum[index]) {
 				local->failed = 1;
 				break;
 			}
-			if (local->sh_struct->dir_checksum[index] != local->sh_struct->ns_dir_checksum[index]) {
+			if (local->sh_struct->dir_checksum[index] != 
+			    local->sh_struct->ns_dir_checksum[index]) {
 				local->failed = 1;
 				break;
 			}
@@ -1029,16 +1091,20 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
 	
 		if (local->failed) {
 			/* Log it, it should be a rare event */
-			gf_log (this->name, GF_LOG_WARNING, "Self-heal triggered on directory %s", local->loc1.path);
+			gf_log (this->name, GF_LOG_WARNING, 
+				"Self-heal triggered on directory %s", 
+				local->loc1.path);
 
 			/* Any self heal will be done at the directory level */
 			local->op_ret = -1;
 			local->failed = 0;
       
-			local->fd = fd_create (local->loc1.inode, frame->root->pid);
+			local->fd = fd_create (local->loc1.inode, 
+					       frame->root->pid);
 			local->call_count = priv->child_count + 1;
 	
-			for (index = 0; index < (priv->child_count + 1); index++) {
+			for (index = 0; 
+			     index < (priv->child_count + 1); index++) {
 				STACK_WIND_COOKIE (frame,
 						   unify_bgsh_opendir_cbk,
 						   priv->xl_array[index]->name,
@@ -1087,18 +1153,22 @@ gf_unify_self_heal (call_frame_t *frame,
   
 	if (local->inode_generation < priv->inode_generation) {
 		/* Any self heal will be done at the directory level */
-		/* Update the inode's generation to the current generation value. */
+		/* Update the inode's generation to the current generation
+		   value. */
 		local->inode_generation = priv->inode_generation;
-		dict_set (local->loc1.inode->ctx, this->name, data_from_int64 (local->inode_generation));
+		dict_set (local->loc1.inode->ctx, this->name, 
+			  data_from_int64 (local->inode_generation));
 
-		if (priv->self_heal == GF_UNIFY_FG_SELF_HEAL) {
+		if (priv->self_heal == ZR_UNIFY_FG_SELF_HEAL) {
 			local->op_ret = 0;
 			local->failed = 0;
 			local->call_count = priv->child_count + 1;
-			local->sh_struct = calloc (1, sizeof (struct unify_self_heal_struct));
+			local->sh_struct = 
+				calloc (1, sizeof (struct unify_self_heal_struct));
       
 			/* +1 is for NS */
-			for (index = 0; index < (priv->child_count + 1); index++) {
+			for (index = 0; 
+			     index < (priv->child_count + 1); index++) {
 				STACK_WIND_COOKIE (frame,
 						   unify_sh_checksum_cbk,
 						   priv->xl_array[index],
@@ -1108,7 +1178,8 @@ gf_unify_self_heal (call_frame_t *frame,
 						   0);
 			}
 
-			/* Self-heal in foreground, hence no need to UNWIND here */
+			/* Self-heal in foreground, hence no need 
+			   to UNWIND here */
 			return 0;
 		}
 
@@ -1119,7 +1190,8 @@ gf_unify_self_heal (call_frame_t *frame,
 		bg_local->op_ret = 0;
 		bg_local->failed = 0;
 		bg_local->call_count = priv->child_count + 1;
-		bg_local->sh_struct = calloc (1, sizeof (struct unify_self_heal_struct));
+		bg_local->sh_struct = 
+			calloc (1, sizeof (struct unify_self_heal_struct));
     
 		/* +1 is for NS */
 		for (index = 0; index < (priv->child_count + 1); index++) {
@@ -1133,8 +1205,8 @@ gf_unify_self_heal (call_frame_t *frame,
 		}
 	}
 
-	/* generation number matches, self heal already done or self heal done in background:
-	 * just do STACK_UNWIND 
+	/* generation number matches, self heal already done or
+	 * self heal done in background: just do STACK_UNWIND 
 	 */
 	tmp_inode = local->loc1.inode;
 	tmp_dict = local->dict;

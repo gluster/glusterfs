@@ -1092,7 +1092,8 @@ fop_readv_cbk_stub (call_frame_t *frame,
 		stub->args.readv_cbk.vector = iov_dup (vector, count);
 		stub->args.readv_cbk.count = count;
 		stub->args.readv_cbk.stbuf = *stbuf;
-		stub->args.readv_cbk.rsp_refs = dict_ref (frame->root->rsp_refs);
+		stub->args.readv_cbk.rsp_refs = 
+			dict_ref (frame->root->rsp_refs);
 	}
 out:
 	return stub;
@@ -1338,7 +1339,8 @@ fop_getdents_cbk_stub (call_frame_t *frame,
 	stub->args.getdents_cbk.op_errno = op_errno;
 	if (op_ret >= 0) {
 		stub->args.getdents_cbk.entries.next = entries->next;
-		/* FIXME: are entries not needed in the caller after creating stub? */
+		/* FIXME: are entries not needed in the caller after
+		 * creating stub? */
 		entries->next = NULL;
 	}
 
@@ -1882,7 +1884,8 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 			stub_entry->d_off = entry->d_off;
 			stub_entry->d_ino = entry->d_ino;
 
-			list_add_tail (&stub_entry->list, &stub->args.readdir_cbk.entries.list);
+			list_add_tail (&stub_entry->list, 
+				       &stub->args.readdir_cbk.entries.list);
 		}
 	}
 out:
@@ -1948,8 +1951,11 @@ fop_checksum_cbk_stub (call_frame_t *frame,
 	stub->args.checksum_cbk.op_errno = op_errno;
 	if (op_ret >= 0)
 	{
-		stub->args.checksum_cbk.file_checksum = memdup (file_checksum, GF_FILENAME_MAX);
-		stub->args.checksum_cbk.dir_checksum = memdup (dir_checksum, GF_FILENAME_MAX);
+		stub->args.checksum_cbk.file_checksum = 
+			memdup (file_checksum, ZR_FILENAME_MAX);
+
+		stub->args.checksum_cbk.dir_checksum = 
+			memdup (dir_checksum, ZR_FILENAME_MAX);
 	}
 out:
 	return stub;
@@ -3247,7 +3253,8 @@ call_resume_unwind (call_stub_t *stub)
 						  stub->args.lookup_cbk.op_errno,
 						  stub->args.lookup_cbk.inode,
 						  &stub->args.lookup_cbk.buf, 
-						  stub->args.lookup_cbk.dict); /* FIXME NULL should not be passed */
+						  stub->args.lookup_cbk.dict);
+		/* FIXME NULL should not be passed */
 
 		if (stub->args.lookup_cbk.dict)
 			dict_unref (stub->args.lookup_cbk.dict);

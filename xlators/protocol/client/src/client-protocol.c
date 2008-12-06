@@ -69,9 +69,12 @@ this_ino_get (inode_t *inode, xlator_t *this)
 	ret = dict_get_uint64 (inode->ctx, this->name, &ino);
 
 	if (inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		/* TODO: this log is useless */
+		;
+		/* gf_log (this->name, GF_LOG_ERROR,
 			"failed to do dict get from inode(%p)/%"PRId64,
 			inode, inode->ino);
+		*/
 	}
 
 out:
@@ -90,14 +93,19 @@ this_ino_set (inode_t *inode, xlator_t *this, ino_t ino)
 	ret = dict_get_uint64 (inode->ctx, this->name, &old_ino);
 
 	if (old_ino != ino) {
+		/* TODO: This log doesn't make sense */
 		if (old_ino)
 			gf_log (this->name, GF_LOG_WARNING,
-				"inode number(%"PRId64") changed for inode(%p)",
+				"inode number(%"PRId64") changed for "
+				"inode(%p)",
 				old_ino, inode);
+
 		ret = dict_set_uint64 (inode->ctx, this->name, ino);
 		if (ret < 0) {
+			/* TODO: This log doesn't make sense */
 			gf_log (this->name, GF_LOG_ERROR,
-				"failed to set inode number(%"PRId64") to inode(%p)",
+				"failed to set inode number(%"PRId64") to "
+				"inode(%p)",
 				ino, inode);
 		}
 	}
@@ -116,6 +124,7 @@ this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
 	GF_VALIDATE_OR_GOTO (this->name, remote_fd, out);
 
 	dict_ret = dict_get_int64 (file->ctx, this->name, remote_fd);
+	/* TODO: This log doesn't make sense */
 	if (dict_ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get remote fd number for fd_t(%p)",
@@ -138,6 +147,7 @@ this_fd_set (fd_t *file, xlator_t *this, int64_t fd)
 
 	ret = dict_get_int64 (file->ctx, this->name, &old_fd);
 	if (ret >= 0) {
+		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_WARNING,
 			"duplicate fd_set for fd_t(%p) with old_fd(%"PRId64")",
 			file, old_fd);
@@ -145,6 +155,7 @@ this_fd_set (fd_t *file, xlator_t *this, int64_t fd)
 
 	ret = dict_set_int64 (file->ctx, this->name, fd);
 	if (ret < 0) {
+		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to set remote fd(%"PRId64") to fd_t(%p)",
 			fd, file);
@@ -177,7 +188,8 @@ lookup_frame (transport_t *trans, int64_t callid)
 
 	pthread_mutex_lock (&cprivate->lock);
 	{
-		ret = dict_get_ptr (cprivate->saved_frames, frameid, (void **)&frame);
+		ret = dict_get_ptr (cprivate->saved_frames, frameid, 
+				    (void **)&frame);
 		if (ret < 0) {
 			gf_log ("client", GF_LOG_ERROR,
 				"failed to look for frame(%s)", frameid);
@@ -208,7 +220,8 @@ call_bail (void *data)
 	gettimeofday (&current, NULL);
 	pthread_mutex_lock (&cprivate->lock);
 	{
-		/* Chaining to get call-always functionality from call-once timer */
+		/* Chaining to get call-always functionality from 
+		   call-once timer */
 		if (cprivate->timer) {
 			struct timeval timeout = {0,};
 			gf_timer_cbk_t timer_cbk = cprivate->timer->cbk;
@@ -235,16 +248,22 @@ call_bail (void *data)
 
 			bail_out = 1;
 			
-			localtime_r (&cprivate->last_sent.tv_sec, &last_sent_tm);
-			localtime_r (&cprivate->last_received.tv_sec, &last_received_tm);
+			localtime_r (&cprivate->last_sent.tv_sec, 
+				     &last_sent_tm);
+			localtime_r (&cprivate->last_received.tv_sec, 
+				     &last_received_tm);
 			
-			strftime (last_sent, 32, "%Y-%m-%d %H:%M:%S", &last_sent_tm);
-			strftime (last_received, 32, "%Y-%m-%d %H:%M:%S", &last_received_tm);
+			strftime (last_sent, 32, 
+				  "%Y-%m-%d %H:%M:%S", &last_sent_tm);
+			strftime (last_received, 32, 
+				  "%Y-%m-%d %H:%M:%S", &last_received_tm);
 			
 			gf_log (trans->xl->name, GF_LOG_ERROR,
-				"activating bail-out. pending frames = %d. last sent = %s. "
-				"last received = %s. transport-timeout = %d",
-				cprivate->saved_frames->count, last_sent, last_received,
+				"activating bail-out. pending frames = %d. "
+				"last sent = %s. last received = %s. "
+				"transport-timeout = %d",
+				cprivate->saved_frames->count, last_sent, 
+				last_received,
 				cprivate->transport_timeout);
 		}
 	}
@@ -277,8 +296,7 @@ __protocol_client_frame_save (xlator_t *this, call_frame_t *frame,
 
 	ret = dict_set_static_ptr (cprivate->saved_frames, callid_str, frame);
 	if (ret < 0) {
-		gf_log (this->name,
-			GF_LOG_CRITICAL,
+		gf_log (this->name, GF_LOG_CRITICAL,
 			"failed to save frame(%s:%p)", callid_str, frame);
 	}
 
@@ -286,7 +304,8 @@ __protocol_client_frame_save (xlator_t *this, call_frame_t *frame,
 		timeout.tv_sec  = 10;
 		timeout.tv_usec = 0;
 		cprivate->timer = gf_timer_call_after (trans->xl->ctx, timeout,
-						       call_bail, (void *)trans);
+						       call_bail, 
+						       (void *)trans);
 	}
 }
 
@@ -866,8 +885,11 @@ client_rename (call_frame_t *frame,
 	oldpar = this_ino_get (oldloc->parent, this);
 	newpar = this_ino_get (newloc->parent, this);
 
-	hdrlen = gf_hdr_len (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
-	hdr    = gf_hdr_new (req, oldpathlen + oldbaselen + newpathlen + newbaselen);
+	hdrlen = gf_hdr_len (req, (oldpathlen + oldbaselen + 
+				   newpathlen + newbaselen));
+	hdr    = gf_hdr_new (req, (oldpathlen + oldbaselen + 
+				   newpathlen + newbaselen));
+
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
@@ -877,8 +899,9 @@ client_rename (call_frame_t *frame,
 
 	strcpy (req->oldpath, oldloc->path);
 	strcpy (req->oldbname + oldpathlen, oldloc->name);
-	strcpy (req->newpath     + oldpathlen + oldbaselen, newloc->path);
-	strcpy (req->newbname + oldpathlen + oldbaselen + newpathlen, newloc->name);
+	strcpy (req->newpath  + oldpathlen + oldbaselen, newloc->path);
+	strcpy (req->newbname + oldpathlen + oldbaselen + newpathlen, 
+		newloc->name);
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RENAME,
@@ -1179,9 +1202,11 @@ client_readv (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
+		/* TODO: This log doesn't make sense */
 		gf_log (this->name,
 			GF_LOG_ERROR,
-			"failed to get remote fd for fd_t (%p) returning EBADFD",
+			"failed to get remote fd for fd_t (%p) "
+			"returning EBADFD",
 			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL, 0, NULL);
 		return 0;
@@ -1238,9 +1263,11 @@ client_writev (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
+		/* TODO: This log doesn't make sense */
 		gf_log (this->name,
 			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD",
 			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
@@ -1339,8 +1366,10 @@ client_flush (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
+		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD",
 			fd);
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
@@ -1394,9 +1423,10 @@ client_fsync (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
+		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
-			fd);
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD", fd);
 		goto unwind;
 	}
 
@@ -1514,9 +1544,10 @@ client_fxattrop (call_frame_t *frame,
 	if (fd) {
 		ret = this_fd_get (fd, this, &remote_fd);
 		if (ret == -1) {
+			/* TODO: This log doesn't make sense */
 			gf_log (this->name, GF_LOG_ERROR,
-				"failed to get remote fd from fd_t(%p). returning EBADFD",
-				fd);
+				"failed to get remote fd from fd_t(%p). "
+				"returning EBADFD", fd);
 			goto unwind;
 		}
 		ino = fd->inode->ino;
@@ -1798,10 +1829,10 @@ client_getdents (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
-			fd);
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD", fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -1851,9 +1882,10 @@ client_readdir (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
+		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
-			fd);
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD", fd);
 		goto unwind;
 	}
 
@@ -1907,10 +1939,10 @@ client_fsyncdir (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
-			fd);
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD", fd);
 		goto unwind;
 	}
 
@@ -2008,10 +2040,10 @@ client_ftruncate (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
-			fd);
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD", fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -2062,9 +2094,10 @@ client_fstat (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD",
 			fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
@@ -2120,9 +2153,10 @@ client_lk (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD",
 			fd);
 		goto unwind;
 	}
@@ -2287,10 +2321,10 @@ client_finodelk (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
-			fd);
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD", fd);
 		goto unwind;
 	}
 
@@ -2418,9 +2452,10 @@ client_fentrylk (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
+		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
-			fd);
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD", fd);
 		goto unwind;
 	}
 
@@ -2541,10 +2576,10 @@ client_fchmod (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		op_errno = EBADFD;
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
-			fd);
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD", fd);
 		goto unwind;
 	}
 
@@ -2599,10 +2634,10 @@ client_fchown (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		op_errno = EBADFD;
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
-			fd);
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD", fd);
 		goto unwind;
 	}
 
@@ -2644,6 +2679,8 @@ client_setdents (call_frame_t *frame,
 	int64_t remote_fd = 0;
 	char   *buffer = NULL;
 	char *ptr = NULL;
+	data_t *buf_data = NULL;
+	dict_t *reply_dict = NULL;
 	dir_entry_t *trav = NULL;
 	uint32_t len = 0;
 	int32_t  buf_len = 0;
@@ -2658,10 +2695,10 @@ client_setdents (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p). returning EBADFD",
-			fd);
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p). "
+			"returning EBADFD", fd);
 		op_errno = EBADFD;
 		goto unwind;
 	}
@@ -2756,9 +2793,6 @@ client_setdents (call_frame_t *frame,
 	req->count = hton32 (count);
 
 	{
-		data_t *buf_data = NULL;
-		dict_t *reply_dict = NULL;
-
 		buf_data = get_new_data ();
 		GF_VALIDATE_OR_GOTO (this->name, buf_data, unwind);
 		reply_dict = get_new_dict();
@@ -2775,7 +2809,8 @@ client_setdents (call_frame_t *frame,
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETDENTS,
-				    hdr, hdrlen, vector, vec_count, frame->root->rsp_refs);
+				    hdr, hdrlen, vector, vec_count, 
+				    frame->root->rsp_refs);
 
 	return ret;
 unwind:
@@ -2853,10 +2888,9 @@ client_releasedir (xlator_t *this,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1){
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p).",
-			fd);
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p).", fd);
 		goto out;
 	}
 
@@ -2915,10 +2949,9 @@ client_release (xlator_t *this,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
-			"failed to get remote fd from fd_t(%p).",
-			fd);
+		/* TODO: This log doesn't make sense */
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get remote fd from fd_t(%p).", fd);
 		goto out;
 	}
 
@@ -3233,8 +3266,8 @@ client_create_cbk (call_frame_t *frame,
 
 		if (ret < 0) {
 			free (key);
-			gf_log (frame->this->name,
-				GF_LOG_ERROR,
+			/* TODO: This log doesn't make sense */
+			gf_log (frame->this->name, GF_LOG_ERROR,
 				"failed to save fd(%p)", fd);
 		}
 	}
@@ -3292,8 +3325,7 @@ client_open_cbk (call_frame_t *frame,
 		pthread_mutex_unlock (&cprivate->lock);
 
 		if (ret < 0) {
-			gf_log (frame->this->name,
-				GF_LOG_ERROR,
+			gf_log (frame->this->name, GF_LOG_ERROR,
 				"failed to save fd(%p)", fd);
 			free (key);
 		}
@@ -3962,8 +3994,8 @@ client_opendir_cbk (call_frame_t *frame,
 
 		if (ret < 0) {
 			free (key);
-			gf_log (frame->this->name,
-				GF_LOG_ERROR,
+			/* TODO: This log doesn't make sense */
+			gf_log (frame->this->name, GF_LOG_ERROR,
 				"failed to save fd(%p)", fd);
 		}
 	}
@@ -4352,6 +4384,7 @@ client_getxattr_cbk (call_frame_t *frame,
 
 			ret = dict_unserialize (dictbuf, dict_len, &dict);
 			if (ret < 0) {
+				/* TODO: This log doesn't make sense */
 				gf_log (frame->this->name, GF_LOG_ERROR,
 					"failed to serialize dictionary(%p)",
 					dict);
@@ -4422,8 +4455,7 @@ client_lk_common_cbk (call_frame_t *frame,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret >= 0)
-	{
+	if (op_ret >= 0) {
 		gf_flock_to_flock (&rsp->flock, &lock);
 	}
 
@@ -4576,7 +4608,8 @@ client_stats_cbk (call_frame_t *frame,
 	{
 		buffer = rsp->buf;
 
-		sscanf (buffer, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
+		sscanf (buffer, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64
+			",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
 			&stats.nr_files,
 			&stats.disk_usage,
 			&stats.free_disk,
@@ -4716,7 +4749,7 @@ client_checksum_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		fchecksum = rsp->fchecksum;
-		dchecksum = rsp->dchecksum + GF_FILENAME_MAX;
+		dchecksum = rsp->dchecksum + ZR_FILENAME_MAX;
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
@@ -4786,7 +4819,7 @@ client_setvolume_cbk (call_frame_t *frame,
 	if (op_ret < 0) {
 		gf_log (trans->xl->name, GF_LOG_ERROR,
 			"SETVOLUME on remote-host failed: ret=%d error=%s",
-			op_ret,
+			op_ret,	
 			remote_error ? remote_error : strerror (op_errno));
 		errno = op_errno;
 		if (op_errno == ENOTCONN)
@@ -4865,7 +4898,8 @@ client_protocol_reconnect (void *trans_ptr)
 	pthread_mutex_lock (&cprivate->lock);
 	{
 		if (cprivate->reconnect)
-			gf_timer_call_cancel (trans->xl->ctx, cprivate->reconnect);
+			gf_timer_call_cancel (trans->xl->ctx, 
+					      cprivate->reconnect);
 		cprivate->reconnect = 0;
 
 		if (cprivate->connected == 0) {
@@ -4875,9 +4909,10 @@ client_protocol_reconnect (void *trans_ptr)
 				"attempting reconnect");
 			transport_connect (trans);
 
-			cprivate->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
-								   client_protocol_reconnect, 
-								   trans);
+			cprivate->reconnect = 
+				gf_timer_call_after (trans->xl->ctx, tv,
+						     client_protocol_reconnect,
+						     trans);
 		} else {
 			gf_log (trans->xl->name, GF_LOG_DEBUG, 
 				"breaking reconnect chain");
@@ -4899,7 +4934,9 @@ protocol_client_cleanup (transport_t *trans)
 	dict_t *reply = NULL;
 	data_pair_t *trav = NULL;
 	xlator_t *this = NULL;
-	
+	call_frame_t *tmp = NULL;
+	gf_hdr_common_t hdr = {0, };
+			
 	gf_log (trans->xl->name, GF_LOG_DEBUG,
 		"cleaning up state in transport object %p", trans);
 
@@ -4911,9 +4948,10 @@ protocol_client_cleanup (transport_t *trans)
 		this = trans->xl;
 
 		while (trav) {
-			fd_t *tmp = (fd_t *)(long) strtoul (trav->key, NULL, 0);
-			if (tmp->ctx)
-				dict_del (tmp->ctx, this->name);
+			fd_t *fd_tmp = (fd_t *)(long) strtoul (trav->key, 
+							       NULL, 0);
+			if (fd_tmp->ctx)
+				dict_del (fd_tmp->ctx, this->name);
 			trav = trav->next;
 		}
 
@@ -4922,8 +4960,11 @@ protocol_client_cleanup (transport_t *trans)
 		cprivate->saved_fds = get_new_dict_full (64);
 
 		/* bailout logic cleanup */
-		memset (&(cprivate->last_sent), 0, sizeof (cprivate->last_sent));
-		memset (&(cprivate->last_received), 0, sizeof (cprivate->last_received));
+		memset (&(cprivate->last_sent), 0, 
+			sizeof (cprivate->last_sent));
+
+		memset (&(cprivate->last_received), 0, 
+			sizeof (cprivate->last_received));
 
 		if (cprivate->timer == NULL) {
 			gf_log (trans->xl->name, GF_LOG_DEBUG,
@@ -4949,25 +4990,31 @@ protocol_client_cleanup (transport_t *trans)
 			trav = trav->next;
 
 		while (trav) {
-			gf_hdr_common_t hdr = {0, };
-
-			call_frame_t *tmp = (call_frame_t *) (trav->value->data);
+			tmp = (call_frame_t *) (trav->value->data);
 
 			if ((tmp->type == GF_OP_TYPE_FOP_REQUEST) ||
 			    (tmp->type == GF_OP_TYPE_FOP_REPLY)) {
+
 				gf_log (trans->xl->name, GF_LOG_ERROR,
-					"forced unwinding frame type(%d) op(%s) reply=@%p",
-					tmp->type, gf_fop_list[tmp->op], reply);
+					"forced unwinding frame type(%d) "
+					"op(%s) reply=@%p", tmp->type, 
+					gf_fop_list[tmp->op], reply);
+
 			} else if ((tmp->type == GF_OP_TYPE_MOP_REQUEST) ||
 				   (tmp->type == GF_OP_TYPE_MOP_REPLY)) {
+
 				gf_log (trans->xl->name, GF_LOG_ERROR,
-					"forced unwinding frame type(%d) op(%s) reply=@%p",
-					tmp->type, gf_mop_list[tmp->op], reply);
+					"forced unwinding frame type(%d) "
+					"op(%s) reply=@%p", tmp->type, 
+					gf_mop_list[tmp->op], reply);
+
 			} else if ((tmp->type == GF_OP_TYPE_CBK_REQUEST) ||
 				   (tmp->type == GF_OP_TYPE_CBK_REPLY)) {
+
 				gf_log (trans->xl->name, GF_LOG_ERROR,
-					"forced unwinding frame type(%d) op(%s) reply=@%p",
-					tmp->type, gf_cbk_list[tmp->op], reply);
+					"forced unwinding frame type(%d) "
+					"op(%s) reply=@%p", tmp->type, 
+					gf_cbk_list[tmp->op], reply);
 			}
 
 			tmp->root->rsp_refs = dict_ref (reply);
@@ -4978,11 +5025,14 @@ protocol_client_cleanup (transport_t *trans)
 			hdr.rsp.op_errno = hton32 (ENOTCONN);
 
 			if (tmp->type == GF_OP_TYPE_FOP_REQUEST) {
-				gf_fops[tmp->op] (tmp, &hdr, sizeof (hdr), NULL, 0);
+				gf_fops[tmp->op] (tmp, &hdr, 
+						  sizeof (hdr), NULL, 0);
 			} else if (tmp->type == GF_OP_TYPE_MOP_REQUEST) {
-				gf_mops[tmp->op] (tmp, &hdr, sizeof (hdr), NULL, 0);
+				gf_mops[tmp->op] (tmp, &hdr, 
+						  sizeof (hdr), NULL, 0);
 			} else {
-				gf_cbks[tmp->op] (tmp, &hdr, sizeof (hdr), NULL, 0);
+				gf_cbks[tmp->op] (tmp, &hdr, 
+						  sizeof (hdr), NULL, 0);
 			}
 
 			dict_unref (reply);
@@ -5166,7 +5216,8 @@ init (xlator_t *this)
 
 	if (this->children) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"FATAL: client protocol translator cannot have subvolumes");
+			"FATAL: client protocol translator cannot have "
+			"subvolumes");
 		goto out;
 	}
 	
@@ -5177,7 +5228,8 @@ init (xlator_t *this)
 		goto out;
 	}
 
-	ret = dict_get_int32 (this->options, "transport-timeout", &transport_timeout);
+	ret = dict_get_int32 (this->options, "transport-timeout", 
+			      &transport_timeout);
 	if (ret >= 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"setting transport-timeout to %d", transport_timeout);
@@ -5211,8 +5263,11 @@ init (xlator_t *this)
 
 	cprivate->callid = 1;
 
-	memset (&(cprivate->last_sent), 0, sizeof (cprivate->last_sent));
-	memset (&(cprivate->last_received), 0, sizeof (cprivate->last_received));
+	memset (&(cprivate->last_sent), 0, 
+		sizeof (cprivate->last_sent));
+
+	memset (&(cprivate->last_received), 0, 
+		sizeof (cprivate->last_received));
 
 	cprivate->transport_timeout = transport_timeout;
 
@@ -5249,7 +5304,7 @@ init (xlator_t *this)
 		ret = setrlimit (RLIMIT_NOFILE, &lim);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_WARNING,
-				"WARNING: Failed to set 'ulimit -n 1048576': %s",
+				"WARNING: Failed to set 'ulimit -n 1M': %s",
 				strerror(errno));
 			lim.rlim_cur = 65536;
 			lim.rlim_max = 65536;
@@ -5305,8 +5360,7 @@ protocol_client_handshake (xlator_t *this,
 	options = this->options;
 	ret = dict_set_str (options, "version", PACKAGE_VERSION);
 	if (ret < 0) {
-		gf_log (this->name,
-			GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_ERROR,
 			"failed to set version(%s) in options dictionary",
 			PACKAGE_VERSION);
 	}
@@ -5457,9 +5511,11 @@ notify (xlator_t *this,
 		{
 			cprivate->connected = 0;
 			if (cprivate->reconnect == 0)
-				cprivate->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
-									   client_protocol_reconnect,
-									   trans);
+				cprivate->reconnect = 
+					gf_timer_call_after (trans->xl->ctx, 
+							     tv,
+							     client_protocol_reconnect,
+							     trans);
 		}
 		pthread_mutex_unlock (&cprivate->lock);
 
@@ -5468,40 +5524,40 @@ notify (xlator_t *this,
 
 	case GF_EVENT_PARENT_UP:
 	{
+		struct timeval tv = {0, 0};
+		xlator_list_t *parent = NULL;
 		transport_t *trans = this->private;
 		if (!trans) {
-			gf_log (this->name,
-				GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"transport init failed");
 			return -1;
 		}
-		struct timeval tv = {0, 0};
 
 		cprivate = trans->xl_private;
 
 		gf_log (this->name, GF_LOG_DEBUG,
-			"got GF_EVENT_PARENT_UP, attempting connect on transport");
+			"got GF_EVENT_PARENT_UP, attempting connect "
+			"on transport");
 
-		cprivate->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
-							   client_protocol_reconnect,
-							   trans);
+		cprivate->reconnect = 
+			gf_timer_call_after (trans->xl->ctx, tv,
+					     client_protocol_reconnect,
+					     trans);
 
 		if (ret) {
 			/* TODO: schedule reconnection with timer */
 		}
 
-		/* Let the connection/re-connection happen in background, for now, don't hang here,
+		/* Let the connection/re-connection happen in 
+		 * background, for now, don't hang here,
 		 * tell the parents that i am all ok..
 		 */
-		{
-			xlator_list_t *parent = NULL;
-			parent = trans->xl->parents;
-			while (parent) {
-				parent->xlator->notify (parent->xlator,
-							GF_EVENT_CHILD_CONNECTING,
-							trans->xl);
-				parent = parent->next;
-			}
+		parent = trans->xl->parents;
+		while (parent) {
+			parent->xlator->notify (parent->xlator,
+						GF_EVENT_CHILD_CONNECTING,
+						trans->xl);
+			parent = parent->next;
 		}
 	}
 	break;
@@ -5510,7 +5566,8 @@ notify (xlator_t *this,
 	{
 		char *handshake = NULL;
 
-		ret = dict_get_str (this->options, "disable-handshake", &handshake);
+		ret = dict_get_str (this->options, "disable-handshake", 
+				    &handshake);
 		gf_log (this->name, GF_LOG_DEBUG, 
 			"got GF_EVENT_CHILD_UP");
 		if ((ret < 0) ||
@@ -5603,7 +5660,7 @@ struct xlator_options options[] = {
  	{ "password", GF_OPTION_TYPE_STR, 0, },
 
   	/* Transport */
- 	{ "ib-verbs-[work-request-send-size|...]", GF_OPTION_TYPE_ANY, 9, 0, 0 },
+ 	{ "ib-verbs-[work-request-send-size|...]", GF_OPTION_TYPE_STR, 9, 0 },
  	{ "remote-port", GF_OPTION_TYPE_INT, 0, 1025, 65534 },
  	{ "transport-type", GF_OPTION_TYPE_STR, 0, 0, 0,
 	  "tcp|socket|ib-verbs|unix|ib-sdp|tcp/client|ib-verbs/client" },
@@ -5614,9 +5671,11 @@ struct xlator_options options[] = {
  	{ "non-blocking-io", GF_OPTION_TYPE_BOOL, 0, },
 
   	/* Client protocol itself */
- 	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB },
+ 	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 0, 
+	  128 * GF_UNIT_KB, 8 * GF_UNIT_MB },
  	{ "remote-subvolume", GF_OPTION_TYPE_STR, 0, },
- 	{ "transport-timeout", GF_OPTION_TYPE_TIME, 0, 1, 3600 }, /* More than 10mins? */
+	/* More than 10mins? */
+ 	{ "transport-timeout", GF_OPTION_TYPE_TIME, 0, 1, 3600 }, 
 
 	{ NULL, 0, },
 };

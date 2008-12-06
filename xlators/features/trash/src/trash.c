@@ -33,14 +33,14 @@
 
 struct trash_struct {
 	inode_t *inode;
-	char origpath[GF_PATH_MAX];
-	char newpath[GF_PATH_MAX];
-	char oldpath[GF_PATH_MAX]; // used only in case of rename
+	char origpath[ZR_PATH_MAX];
+	char newpath[ZR_PATH_MAX];
+	char oldpath[ZR_PATH_MAX]; // used only in case of rename
 };
 typedef struct trash_struct trash_local_t;
 
 struct trash_priv {
-	char trash_dir[GF_PATH_MAX];
+	char trash_dir[ZR_PATH_MAX];
 };
 typedef struct trash_priv trash_private_t;
 
@@ -113,12 +113,12 @@ trash_mkdir_cbk (call_frame_t *frame,
 {
 	trash_local_t *local = frame->local;
 	char *tmp_str = strdup (local->newpath);
+	int32_t count = 0;
+	char *tmp_path = NULL;
+	char *tmp_dirname = NULL;
 
 	if (op_ret == -1 && op_errno == ENOENT) {
-		int32_t count = 0;
-		char *tmp_path = NULL;
-		char *tmp_dirname = strchr (tmp_str, '/');
-
+		tmp_dirname = strchr (tmp_str, '/');
 		while (tmp_dirname) {
 			count = tmp_dirname - tmp_str;
 			if (count == 0)
@@ -131,7 +131,7 @@ trash_mkdir_cbk (call_frame_t *frame,
 				.path = tmp_path,
 			};
 
-			/* TODO: create the directory with proper permissions */
+			/* TODO:create the directory with proper permissions */
 			STACK_WIND_COOKIE (frame,
 					   trash_mkdir_cbk,
 					   tmp_path,
@@ -215,7 +215,8 @@ trash_unlink_rename_cbk (call_frame_t *frame,
 	} else if (op_ret == -1 && op_errno == EISDIR) {
 		gf_log (this->name,
 			GF_LOG_WARNING,
-			"Target exists as a directory, cannot keep the copy, deleting");
+			"Target exists as a directory, cannot keep the copy, "
+			"deleting");
 		loc_t tmp_loc = {
 			.inode = local->inode,
 			.path = local->origpath,
@@ -246,7 +247,8 @@ trash_unlink (call_frame_t *frame,
 	trash_private_t *priv = this->private;
 
 	if (strncmp (loc->path, priv->trash_dir, strlen(priv->trash_dir)) == 0) {
-		/* Trying to rename from the trash can dir, do the actual unlink */
+		/* Trying to rename from the trash can dir, do the
+		   actual unlink */
 		STACK_WIND (frame,
 			    trash_common_unwind_cbk,
 			    this->children->xlator,
@@ -310,7 +312,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 				.path = tmp_path,
 			};
 
-			/* TODO: create the directory with proper permissions */
+			/* TODO:create the directory with proper permissions */
 			STACK_WIND_COOKIE (frame,
 					   trash_rename_mkdir_cbk,
 					   tmp_path,
@@ -383,12 +385,14 @@ trash_rename_rename_cbk (call_frame_t *frame,
 	} else if (op_ret == -1 && op_errno == ENOTDIR) {
 		gf_log (this->name,
 			GF_LOG_WARNING,
-			"Target exists, cannot keep the dest entry %s, renaming",
+			"Target exists, cannot keep the dest entry %s, "
+			"renaming",
 			local->origpath);
 	} else if (op_ret == -1 && op_errno == EISDIR) {
 		gf_log (this->name,
 			GF_LOG_WARNING,
-			"Target exists as a directory, cannot keep the copy %s, renaming",
+			"Target exists as a directory, cannot keep the "
+			"copy %s, renaming",
 			local->origpath);
 	}
 	loc_t tmp_loc = {
@@ -472,8 +476,10 @@ trash_rename (call_frame_t *frame,
 {
 	trash_private_t *priv = this->private;
 
-	if (strncmp (oldloc->path, priv->trash_dir, strlen(priv->trash_dir)) == 0) {
-		/* Trying to rename from the trash can dir, do the actual rename */
+	if (strncmp (oldloc->path, priv->trash_dir, 
+		     strlen(priv->trash_dir)) == 0) {
+		/* Trying to rename from the trash can dir, 
+		   do the actual rename */
 		STACK_WIND (frame,
 			    trash_common_unwind_buf_cbk,
 			    this->children->xlator,
@@ -494,7 +500,8 @@ trash_rename (call_frame_t *frame,
 		strcpy (local->origpath, newloc->path);
 		strcpy (local->oldpath, oldloc->path);
 
-		/* Send a lookup call on newloc, to ensure we are not overwriting */
+		/* Send a lookup call on newloc, to ensure we are not 
+		   overwriting */
 		STACK_WIND (frame,
 			    trash_rename_lookup_cbk,
 			    this->children->xlator,
@@ -526,7 +533,7 @@ notify (xlator_t *this,
 				.inode = NULL,
 				.path = priv->trash_dir
 			};
-			/* TODO: create the directory with proper permissions */
+			/* TODO:create the directory with proper permissions */
 			STACK_WIND (frame,
 				    trash_mkdir_bg_cbk,
 				    this->children->xlator,
@@ -551,7 +558,7 @@ init (xlator_t *this)
 	xlator_list_t *trav = NULL;
 	trash_private_t *_priv = NULL;
 
-/* Create .trashcan directory in init */
+	/* Create .trashcan directory in init */
 	if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"not configured with exactly one child. exiting");
@@ -565,7 +572,8 @@ init (xlator_t *this)
 	if (strncmp ("storage/", trav->xlator->type, 8))
 	{
 		gf_log (this->name, GF_LOG_ERROR,
-			"'trash' translator not loaded over storage translator, not a supported setup");
+			"'trash' translator not loaded over storage "
+			"translator, not a supported setup");
 		return -1;
 	}
 
@@ -575,10 +583,12 @@ init (xlator_t *this)
 	trash_dir = dict_get (this->options, "trash-dir");
 	if (!trash_dir) {
 		gf_log (this->name, GF_LOG_WARNING,
-			"no option specified for 'trash-dir', using \"/.trashcan/\"");
+			"no option specified for 'trash-dir', "
+			"using \"/.trashcan/\"");
 		strcpy (_priv->trash_dir, "/.trashcan");
 	} else {
-		/* Need a path with '/' as the first char, if not given, append it */
+		/* Need a path with '/' as the first char, if not 
+		   given, append it */
 		if (trash_dir->data[0] == '/') {
 			strcpy (_priv->trash_dir, trash_dir->data);
 		} else {

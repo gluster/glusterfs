@@ -17,6 +17,8 @@
   <http://www.gnu.org/licenses/>.
 */
 
+/* TODO: add gf_log to all the cases returning errors */
+
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
@@ -49,23 +51,24 @@ static char *
 name_this_to_that (xlator_t *xl, const char *path, const char *name)
 {
 	path_private_t *priv = xl->private;
+	char priv_path[ZR_PATH_MAX] = {0,};
 	char *tmp_name = NULL;
 	int32_t path_len = strlen (path);
-	int32_t name_len = strlen (name) - GF_FILE_CONTENT_STRING_LEN;
+	int32_t name_len = strlen (name) - ZR_FILE_CONTENT_STRLEN;
 	int32_t total_len = path_len + name_len;
+	int32_t i = 0, j = 0;
 
 	if (path_len >= priv->end_off)
 		return (char *)name;
 
 	if (priv->end_off && (total_len > priv->end_off)) {
-		int32_t i,j = priv->start_off;
-		char priv_path[GF_PATH_MAX] = {0,};
-		tmp_name = calloc (1, (total_len + GF_FILE_CONTENT_STRING_LEN));
+		j = priv->start_off;
+		tmp_name = calloc (1, (total_len + ZR_FILE_CONTENT_STRLEN));
 		ERR_ABORT (tmp_name);
 
 		/* Get the complete path for the file first */
 		strcpy (tmp_name, path);
-		strcat (tmp_name, name + GF_FILE_CONTENT_STRING_LEN);
+		strcat (tmp_name, name + ZR_FILE_CONTENT_STRLEN);
 
 		strncpy (priv_path, tmp_name, priv->start_off);
 		for (i = priv->start_off; i < priv->end_off; i++) {
@@ -78,7 +81,7 @@ name_this_to_that (xlator_t *xl, const char *path, const char *name)
 			(total_len - priv->end_off));
 		priv_path[(total_len - (priv->end_off - j))] = '\0';
 
-		strcpy (tmp_name, GF_FILE_CONTENT_STRING);
+		strcpy (tmp_name, ZR_FILE_CONTENT_STR);
 		strcat (tmp_name, priv_path);
 
 		return tmp_name;
@@ -96,16 +99,18 @@ static char *
 path_this_to_that (xlator_t *xl, const char *path)
 {
 	path_private_t *priv = xl->private;
+	char *priv_path = NULL;
 	int32_t path_len = strlen (path);
+	int32_t i = 0, j = 0;
 
 	if (priv->end_off && (path_len > priv->start_off)) {
-		char *priv_path = calloc (1, path_len);
+		priv_path = calloc (1, path_len);
 		ERR_ABORT (priv_path);
 
 		if (priv->start_off && (path_len > priv->start_off))
 			memcpy (priv_path, path, priv->start_off);
 		if (path_len > priv->end_off) {
-			int32_t i,j = priv->start_off;
+			j = priv->start_off;
 			for (i = priv->start_off; i < priv->end_off; i++) {
 				if (path[i] == '/')
 					continue;
@@ -812,7 +817,7 @@ path_setxattr (call_frame_t *frame,
 	}
 	loc->path = tmp_path;
 
-	if (GF_FILE_CONTENT_REQUEST(trav->key)) {
+	if (ZR_FILE_CONTENT_REQUEST(trav->key)) {
 		tmp_name = name_this_to_that (this, loc->path, trav->key);
 		if (tmp_name != trav->key) {
 			trav->key = tmp_name;
@@ -855,7 +860,7 @@ path_getxattr (call_frame_t *frame,
 	}
 	loc->path = tmp_path;
 
-	if (GF_FILE_CONTENT_REQUEST(name)) {
+	if (ZR_FILE_CONTENT_REQUEST(name)) {
 		tmp_name = name_this_to_that (this, loc->path, name);
 	}
 
@@ -892,7 +897,7 @@ path_removexattr (call_frame_t *frame,
 	}
 	loc->path = tmp_path;
 
-	if (GF_FILE_CONTENT_REQUEST(name)) {
+	if (ZR_FILE_CONTENT_REQUEST(name)) {
 		tmp_name = name_this_to_that (this, loc->path, name);
 	}
 
@@ -1113,17 +1118,20 @@ init (xlator_t *this)
     
 	if (this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR, 
-			"path translator does not support more than one sub-volume");
+			"path translator does not support more than "
+			"one sub-volume");
 		return -1;
 	}
   
 	priv = calloc (1, sizeof (*priv));
 	ERR_ABORT (priv);
 	if (dict_get (options, "start-offset")) {
-		priv->start_off = data_to_int32 (dict_get (options, "start-offset"));
+		priv->start_off = data_to_int32 (dict_get (options, 
+							   "start-offset"));
 	}
 	if (dict_get (options, "end-offset")) {
-		priv->end_off = data_to_int32 (dict_get (options, "end-offset"));
+		priv->end_off = data_to_int32 (dict_get (options, 
+							 "end-offset"));
 	}
 
 	if (dict_get (options, "regex")) {
@@ -1140,14 +1148,13 @@ init (xlator_t *this)
 			return -1;
 		}
 		if (dict_get (options, "replace-with")) {
-			priv->that = data_to_str (dict_get (options, "replace-with"));
+			priv->that = data_to_str (dict_get (options, 
+							    "replace-with"));
 		} else {
 			priv->that = "";
 		}
 	}
 
-	/* Set this translator's inode table pointer to child node's pointer. */
-	this->itable = FIRST_CHILD (this)->itable;
 	this->private = priv;
 	return 0;
 }

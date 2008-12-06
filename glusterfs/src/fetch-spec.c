@@ -54,7 +54,8 @@ fetch_cbk (call_frame_t *frame,
 	}
 	else {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"GETSPEC from server returned -1 (%s)", strerror (op_errno));
+			"GETSPEC from server returned -1 (%s)", 
+			strerror (op_errno));
 	}
 	
 	frame->local = NULL;
@@ -106,6 +107,7 @@ get_shrub (glusterfs_ctx_t *ctx,
 	   const char *transport,
 	   uint32_t remote_port)
 {
+	int ret = 0;
 	xlator_t *top = NULL;
 	xlator_t *trans = NULL;
 	xlator_list_t *parent = NULL, *tmp = NULL;
@@ -141,19 +143,23 @@ get_shrub (glusterfs_ctx_t *ctx,
 			tmp = tmp->next;
 		tmp->next = parent;
 	}
-	
+
+	/* TODO: log on failure to set dict */
 	if (remote_host)
-		dict_set (trans->options, "remote-host",
-			  str_to_data ((char *)remote_host));
+		ret = dict_set_static_ptr (trans->options, "remote-host",
+					   (char *)remote_host);
 
 	if (remote_port)
-		dict_set (trans->options, "remote-port",
-			  data_from_uint32 (remote_port));
+		ret = dict_set_uint32 (trans->options, "remote-port", 
+				       remote_port);
 
-	/* 'option remote-subvolume <x>' is needed here even though its not used */
-	dict_set (trans->options, "remote-subvolume", str_to_data ("brick"));
-	dict_set (trans->options, "disable-handshake", str_to_data ("on"));
-	dict_set (trans->options, "non-blocking-io", str_to_data ("off"));
+	/* 'option remote-subvolume <x>' is needed here even though 
+	 * its not used 
+	 */
+	ret = dict_set_static_ptr (trans->options, "remote-subvolume", 
+				   "brick");
+	ret = dict_set_static_ptr (trans->options, "disable-handshake", "on");
+	ret = dict_set_static_ptr (trans->options, "non-blocking-io", "off");
 	
 	if (transport) {
 		char *transport_type = calloc (1, strlen (transport) + 10);
@@ -163,8 +169,8 @@ get_shrub (glusterfs_ctx_t *ctx,
 		if (strchr (transport_type, ':'))
 			*(strchr (transport_type, ':')) = '\0';
 
-		dict_set (trans->options, "transport-type",
-			  str_to_data (transport_type));
+		ret = dict_set_dynstr (trans->options, "transport-type", 
+				       transport_type);
 	}
 	
 	xlator_set_type (trans, "protocol/client");
@@ -213,7 +219,8 @@ _fork_and_fetch (glusterfs_ctx_t *ctx,
 		break;
 	case 0:
 		/* child */
-		ret = _fetch (ctx, spec_fp, remote_host, transport, remote_port);
+		ret = _fetch (ctx, spec_fp, remote_host, 
+			      transport, remote_port);
 		if (ret == -1)
 			exit (ret);
 	default:

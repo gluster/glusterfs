@@ -1372,8 +1372,8 @@ bdb_getdents (call_frame_t *frame,
 
 		tmp->buf.st_ino = -1;
 		if (S_ISLNK(tmp->buf.st_mode)) {
-			char linkpath[GF_PATH_MAX] = {0,};
-			ret = readlink (entry_path, linkpath, GF_PATH_MAX);
+			char linkpath[ZR_PATH_MAX] = {0,};
+			ret = readlink (entry_path, linkpath, ZR_PATH_MAX);
 			if (ret != -1) {
 				linkpath[ret] = '\0';
 				tmp->link = strdup (linkpath);
@@ -2129,7 +2129,7 @@ bdb_setxattr (call_frame_t *frame,
 	}
 
 	while (trav) {
-		if (GF_FILE_CONTENT_REQUEST(trav->key) ) {
+		if (ZR_FILE_CONTENT_REQUEST(trav->key) ) {
 			bctx = bctx_lookup (B_TABLE(this), loc->path);
 			op_errno = EINVAL;
 			GF_VALIDATE_OR_GOTO (this->name, bctx, out);
@@ -2202,7 +2202,7 @@ bdb_setxattr (call_frame_t *frame,
 				}
 				break;
 			}
-		} /* if(GF_FILE_CONTENT_REQUEST())...else */
+		} /* if(ZR_FILE_CONTENT_REQUEST())...else */
 		trav = trav->next;
 	}/* while(trav) */
 out:
@@ -2264,7 +2264,7 @@ bdb_getxattr (call_frame_t *frame,
 		goto out;
 	}
 
-	if (name && GF_FILE_CONTENT_REQUEST(name)) {
+	if (name && ZR_FILE_CONTENT_REQUEST(name)) {
 		bctx = bctx_lookup (B_TABLE(this), loc->path);
 		op_errno = EINVAL;
 		GF_VALIDATE_OR_GOTO (this->name, bctx, out);
@@ -2388,7 +2388,7 @@ bdb_removexattr (call_frame_t *frame,
 		goto out;
 	} 
 
-	if (GF_FILE_CONTENT_REQUEST(name)) {
+	if (ZR_FILE_CONTENT_REQUEST(name)) {
 		bctx = bctx_lookup (B_TABLE(this), loc->path);
 		op_errno = EINVAL;
 		GF_VALIDATE_OR_GOTO (this->name, bctx, out);
@@ -2420,7 +2420,7 @@ bdb_removexattr (call_frame_t *frame,
 					loc->path, strerror (op_errno));
 			}
 		} /* if(op_ret == -1) */
-	} /* if (GF_FILE_CONTENT_REQUEST(name))...else */
+	} /* if (ZR_FILE_CONTENT_REQUEST(name))...else */
 
 out:
 	if (bctx) {
@@ -2591,7 +2591,7 @@ bdb_setdents (call_frame_t *frame,
       
 	trav = entries->next;
 	while (trav) {
-		char pathname[GF_PATH_MAX] = {0,};
+		char pathname[ZR_PATH_MAX] = {0,};
 		strcpy (pathname, entry_path);
 		strcat (pathname, trav->name);
         
@@ -3023,8 +3023,8 @@ bdb_checksum (call_frame_t *frame,
 	char          *real_path = NULL;
 	DIR           *dir       = NULL;
 	struct dirent *dirent    = NULL;
-	uint8_t        file_checksum[GF_FILENAME_MAX] = {0,};
-	uint8_t        dir_checksum[GF_FILENAME_MAX]  = {0,};
+	uint8_t        file_checksum[ZR_FILENAME_MAX] = {0,};
+	uint8_t        dir_checksum[ZR_FILENAME_MAX]  = {0,};
 	int32_t        op_ret   = -1;
 	int32_t        op_errno = EINVAL;
 	int32_t        i = 0, length = 0;

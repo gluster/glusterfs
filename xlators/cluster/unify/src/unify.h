@@ -30,11 +30,12 @@
 
 #define MAX_DIR_ENTRY_STRING     (32 * 1024)
 
-#define GF_UNIFY_SELF_HEAL_OFF 0
-#define GF_UNIFY_FG_SELF_HEAL  1
-#define GF_UNIFY_BG_SELF_HEAL  2
+#define ZR_UNIFY_SELF_HEAL_OFF 0
+#define ZR_UNIFY_FG_SELF_HEAL  1
+#define ZR_UNIFY_BG_SELF_HEAL  2
 
-#define UNIFY_SELF_HEAL_GETDENTS_COUNT 2345 /* Sometimes one should use completely random numbers.. its good :p */
+/* Sometimes one should use completely random numbers.. its good :p */
+#define UNIFY_SELF_HEAL_GETDENTS_COUNT 2345 
 
 #define NS(xl)          (((unify_private_t *)xl->private)->namespace)
 
@@ -72,10 +73,10 @@ struct unify_private {
 typedef struct unify_private unify_private_t;
 
 struct unify_self_heal_struct {
-	uint8_t dir_checksum[GF_FILENAME_MAX];
-	uint8_t ns_dir_checksum[GF_FILENAME_MAX];
-	uint8_t file_checksum[GF_FILENAME_MAX];
-	uint8_t ns_file_checksum[GF_FILENAME_MAX];
+	uint8_t dir_checksum[ZR_FILENAME_MAX];
+	uint8_t ns_dir_checksum[ZR_FILENAME_MAX];
+	uint8_t file_checksum[ZR_FILENAME_MAX];
+	uint8_t ns_file_checksum[ZR_FILENAME_MAX];
 	off_t *offset_list;
 	int   *count_list;
 	dir_entry_t **entry_list;
@@ -111,10 +112,12 @@ struct _unify_local_t {
 	int16_t index;
 
 	int32_t failed;
-	int32_t return_eio;  /* Used in case of different st-mode present for a given path */
+	int32_t return_eio;  /* Used in case of different st-mode 
+				present for a given path */
 
-	int64_t inode_generation; /* used to store the per directory inode_generation. 
-				   * Got from inode->ctx of directory inodes
+	int64_t inode_generation; /* used to store the per directory 
+				   * inode_generation. Got from inode->ctx 
+				   * of directory inodes
 				   */
 
 	struct unify_self_heal_struct *sh_struct;
@@ -122,7 +125,7 @@ struct _unify_local_t {
 };
 typedef struct _unify_local_t unify_local_t;
 
-int32_t gf_unify_self_heal (call_frame_t *frame,
+int32_t zr_unify_self_heal (call_frame_t *frame,
 			    xlator_t *this,
 			    unify_local_t *local);
 

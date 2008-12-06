@@ -63,18 +63,20 @@
 #define O_DIRECTORY 0
 #endif
 
-#define GLUSTERFS_VERSION "trusted.glusterfs.version"
-#define GLUSTERFS_CREATETIME "trusted.glusterfs.createtime"
+#define ZR_FILE_CONTENT_STR     "glusterfs.file."
+#define ZR_FILE_CONTENT_STRLEN 15
 
-#define GF_FILE_CONTENT_STRING     "glusterfs.file."
-#define GF_FILE_CONTENT_STRING_LEN 15
+#define ZR_FILE_CONTENT_REQUEST(key) (!strncmp(key, ZR_FILE_CONTENT_STR, \
+					       ZR_FILE_CONTENT_STRLEN))
 
-#define GF_FILE_CONTENT_REQUEST(key) (!strncmp(key, GF_FILE_CONTENT_STRING, GF_FILE_CONTENT_STRING_LEN))
+/* TODO: Should we use PATH-MAX? On some systems it may save space */
+#define ZR_PATH_MAX 4096    
 
-#define GF_PATH_MAX 4096    /* TODO: Should we use PATH-MAX? On some systems it may save space */
-#define GF_FILENAME_MAX 256 /* This is used as the maximum permitted filename length over FS. If the backend 
-                             * FS supports higher than this, it should be changed. 
-                             */
+/* This is used as the maximum permitted filename length over FS. 
+ * If the backend FS supports higher than this, it should be changed. 
+ */
+#define ZR_FILENAME_MAX 256 
+
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
@@ -222,21 +224,23 @@ struct _cmd_args {
 	unsigned int     fuse_entry_timeout;
 	unsigned int     fuse_attribute_timeout;
 	char            *volume_name;
-	int              non_local;         /* Used only by darwin os, used for '-o local' option */
-	char            *icon_name;  /* This string will appear as Desktop icon name when mounted on darwin */
+	int              non_local;       /* Used only by darwin os, 
+					     used for '-o local' option */
+	char            *icon_name;       /* This string will appear as 
+					     Desktop icon name when mounted
+					     on darwin */
 	int              fuse_nodev;
 	int              fuse_nosuid;
 
 	/* key args */
 	char            *mount_point;
-	
 	char            *getspec_key;
 };
 typedef struct _cmd_args cmd_args_t;
 
 struct _glusterfs_ctx {
 	cmd_args_t         cmd_args;
-	char              *program_invocation_name;
+	char              *unique_string;
 	FILE              *specfp;
 	FILE              *pidfp;
 	char               fin;

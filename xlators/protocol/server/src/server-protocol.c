@@ -677,8 +677,10 @@ server_rmdir_cbk (call_frame_t *frame,
 
 	state = CALL_STATE(frame);
 
-	if (op_ret == 0)
-		inode_unlink (state->loc.inode, state->loc.parent, state->loc.name);
+	if (op_ret == 0) {
+		inode_unlink (state->loc.inode, state->loc.parent, 
+			      state->loc.name);
+	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -868,7 +870,8 @@ server_getdents_cbk (call_frame_t *frame,
 		buflen = gf_direntry_to_bin (entries, &buffer);
 		if (buflen < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"failed to convert entries list to string buffer");
+				"failed to convert entries list to "
+				"string buffer");
 			op_ret = -1;
 			op_errno = EINVAL;
 			goto out;
@@ -883,7 +886,8 @@ server_getdents_cbk (call_frame_t *frame,
 				goto out;
 			}
 		
-			ret = dict_set_dynptr (reply_dict, NULL, buffer, buflen);
+			ret = dict_set_dynptr (reply_dict, NULL, 
+					       buffer, buflen);
 			if (ret < 0) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"failed to dict_set_dynptr");
@@ -913,7 +917,8 @@ out:
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
-			       hdr, hdrlen, vector, vec_count, frame->root->rsp_refs);
+			       hdr, hdrlen, vector, vec_count, 
+			       frame->root->rsp_refs);
 	
 	if (reply_dict)
 		dict_unref (reply_dict);
@@ -1184,8 +1189,10 @@ server_getxattr_cbk (call_frame_t *frame,
 	if (op_ret >= 0) {
 		len = dict_serialized_length (dict);
 		if (len < 0) {
+			/* TODO: This log doesn't make sense */
 			gf_log (this->name, GF_LOG_ERROR,
-				"failed to get serialized length of reply dict");
+				"failed to get serialized length of "
+				"reply dict");
 			op_ret   = -1;
 			op_errno = EINVAL;
 			len = 0;
@@ -1199,6 +1206,7 @@ server_getxattr_cbk (call_frame_t *frame,
 	if (op_ret >= 0) {
 		ret = dict_serialize (dict, rsp->dict);
 		if (len < 0) {
+			/* TODO: This log doesn't make sense */
 			gf_log (this->name, GF_LOG_ERROR,
 				"failed to serialize reply dict");
 			op_ret = -1;
@@ -1301,7 +1309,8 @@ server_rename_cbk (call_frame_t *frame,
 
 		gf_log (state->bound_xl->name, GF_LOG_DEBUG,
 			"RENAME_CBK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s",
-			state->loc.inode->ino, state->loc.parent->ino, state->loc.name,
+			state->loc.inode->ino, state->loc.parent->ino, 
+			state->loc.name,
 			state->loc2.parent->ino, state->loc2.name);
 			
 		inode_rename (state->itable,
@@ -1350,8 +1359,11 @@ server_unlink_cbk (call_frame_t *frame,
 		gf_log (state->bound_xl->name,
 			GF_LOG_DEBUG,
 			"UNLINK_CBK %"PRId64"/%s (%"PRId64")",
-			state->loc.parent->ino, state->loc.name, state->loc.inode->ino);
-		inode_unlink (state->loc.inode, state->loc.parent, state->loc.name);
+			state->loc.parent->ino, state->loc.name, 
+			state->loc.inode->ino);
+
+		inode_unlink (state->loc.inode, state->loc.parent, 
+			      state->loc.name);
 	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -1463,7 +1475,9 @@ server_link_cbk (call_frame_t *frame,
 			"LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s",
 			inode->ino, state->loc2.parent->ino, state->loc2.name,
 			state->loc.parent->ino, state->loc.name);
-		inode_link (inode, state->loc2.parent, state->loc2.name, stbuf);
+
+		inode_link (inode, state->loc2.parent, 
+			    state->loc2.name, stbuf);
 	}
 	server_loc_wipe (&(state->loc));
 	server_loc_wipe (&(state->loc2));
@@ -1792,7 +1806,8 @@ server_readv_cbk (call_frame_t *frame,
 		gf_stat_from_stat (&rsp->stat, stbuf);
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READ,
-			       hdr, hdrlen, vector, count, frame->root->rsp_refs);
+			       hdr, hdrlen, vector, count, 
+			       frame->root->rsp_refs);
 
 	return 0;
 }
@@ -1896,7 +1911,8 @@ server_create_cbk (call_frame_t *frame,
 		gf_log (state->bound_xl->name,
 			GF_LOG_DEBUG,
 			"CREATE %"PRId64"/%s (%"PRId64")",
-			state->loc.parent->ino, state->loc.name, stbuf->st_ino);
+			state->loc.parent->ino, state->loc.name, 
+			stbuf->st_ino);
 
 		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 		inode_lookup (inode);
@@ -2126,8 +2142,10 @@ server_lookup_cbk (call_frame_t *frame,
 	if (dict) {
 		dict_len = dict_serialized_length (dict);
 		if (dict_len < 0) {
+			/* TODO: This log doesn't make sense */
 			gf_log (this->name, GF_LOG_ERROR,
-				"failed to get serialized length of reply dict");
+				"failed to get serialized length of "
+				"reply dict");
 			op_ret   = -1;
 			op_errno = EINVAL;
 			dict_len = 0;
@@ -2166,7 +2184,8 @@ server_lookup_cbk (call_frame_t *frame,
 		gf_stat_from_stat (&rsp->stat, stbuf);
 
 		if (inode->ino == 0) {
-			inode_link (inode, state->loc.parent, state->loc.name, stbuf);
+			inode_link (inode, state->loc.parent, 
+				    state->loc.name, stbuf);
 			inode_lookup (inode);
 		}
 	}
@@ -2206,8 +2225,8 @@ server_xattrop_cbk (call_frame_t *frame,
 		len = dict_serialized_length (dict);
 		if (len < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"failed to get serialized length for reply dict(%p)",
-				dict);
+				"failed to get serialized length for "
+				"reply dict(%p)", dict);
 			op_ret = -1;
 			op_errno = EINVAL;
 			len = 0;
@@ -2261,8 +2280,8 @@ server_fxattrop_cbk (call_frame_t *frame,
 		len = dict_serialized_length (dict);
 		if (len < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"failed to get serialized length for reply dict(%p)",
-				dict);
+				"failed to get serialized length for "
+				"reply dict(%p)", dict);
 			op_ret = -1;
 			op_errno = EINVAL;
 			len = 0;				
@@ -2277,8 +2296,7 @@ server_fxattrop_cbk (call_frame_t *frame,
 		ret = dict_serialize (dict, rsp->dict);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"failed to serialize reply dict(%p)",
-				dict);
+				"failed to serialize reply dict(%p)", dict);
 			op_ret = -1;
 			op_errno = -ret;
 			len = 0;
@@ -2321,899 +2339,916 @@ server_stub_resume (call_stub_t *stub,
 {
 	inode_t *server_inode = inode;
 
-	if (stub) {
-		switch (stub->fop)
-		{
-		case GF_FOP_RENAME:
-			if (stub->args.rename.old.inode == NULL) {
-				loc_t *newloc = NULL;
-				/* now we are called by lookup of oldpath. */
-				if (op_ret < 0) {
-					gf_log (stub->frame->this->name,
-						GF_LOG_ERROR,
-						"RENAME (%s -> %s) on %s returning error: "
-						"%"PRId32" (%"PRId32")",
-						stub->args.rename.old.path,
-						stub->args.rename.new.path,
-						BOUND_XL(stub->frame)->name,
-						op_ret, op_errno);
-
-					/* lookup of oldpath failed, UNWIND to
-					 * server_rename_cbk with ret=-1 and errno=ENOENT */
-					server_rename_cbk (stub->frame,
-							   NULL,
-							   stub->frame->this,
-							   -1,
-							   ENOENT,
-							   NULL);
-					server_loc_wipe (&stub->args.rename.old);
-					server_loc_wipe (&stub->args.rename.new);
-					FREE (stub);
-					return 0;
-				}
-
-				if (stub->args.rename.old.parent == NULL)
-					stub->args.rename.old.parent = inode_ref (parent);
-
-				/* store inode information of oldpath in our stub and search for
-				 * newpath in inode table. */
-				if (server_inode) {
-					stub->args.rename.old.inode = inode_ref (server_inode);
-					stub->args.rename.old.ino = server_inode->ino;
-				}
-
-				/* now lookup for newpath */
-				newloc = &stub->args.rename.new;
-
-				if (newloc->parent == NULL) {
-					/* lookup for newpath */
-					do_path_lookup (stub, newloc);
-					break;
-				} else {
-					/* found newpath in inode cache */
-					call_resume (stub);
-					break;
-				}
-			} else {
-				/* we are called by the lookup of newpath */
-				if (stub->args.rename.new.parent == NULL)
-					stub->args.rename.new.parent = inode_ref (parent);
-			}
-
-			/* after looking up for oldpath as well as newpath,
-			 * we are ready to resume */
-			{
-				call_resume (stub);
-			}
-			break;
-
-		case GF_FOP_OPEN:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"OPEN (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.open.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-
-				server_open_cbk (stub->frame,
-						 NULL,
-						 stub->frame->this,
-						 -1,
-						 ENOENT,
-						 NULL);
-				FREE (stub->args.open.loc.path);
-				FREE (stub);
-				return 0;
-			}
-			if (stub->args.open.loc.parent == NULL)
-				stub->args.open.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.open.loc.inode == NULL)) {
-				stub->args.open.loc.inode = inode_ref (server_inode);
-				stub->args.open.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_LOOKUP:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_DEBUG,
-					"lookup (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.lookup.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-
-				server_lookup_cbk (stub->frame,
-						   NULL,
-						   stub->frame->this,
-						   -1,
-						   ENOENT,
-						   NULL,
-						   NULL,
-						   NULL);
-				server_loc_wipe (&stub->args.lookup.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.lookup.loc.parent == NULL)
-				stub->args.lookup.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.lookup.loc.inode == NULL)) {
-				stub->args.lookup.loc.inode = inode_ref (server_inode);
-				stub->args.lookup.loc.ino = server_inode->ino;
-			}
-
-			call_resume (stub);
-
-			break;
-		}
-
-		case GF_FOP_STAT:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"STAT (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.stat.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_stat_cbk (stub->frame,
-						 NULL,
-						 stub->frame->this,
-						 -1,
-						 ENOENT,
-						 NULL);
-				server_loc_wipe (&stub->args.stat.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			/* TODO: reply from here only, we already have stat structure */
-			if (stub->args.stat.loc.parent == NULL)
-				stub->args.stat.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.stat.loc.inode == NULL)) {
-				stub->args.stat.loc.inode = inode_ref (server_inode);
-				stub->args.stat.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_XATTROP:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"XATTROP (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.xattrop.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_xattrop_cbk (stub->frame,
-						    NULL,
-						    stub->frame->this,
-						    -1,
-						    ENOENT,
-						    NULL);
-				server_loc_wipe (&stub->args.xattrop.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.xattrop.loc.parent == NULL)
-				stub->args.xattrop.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.xattrop.loc.inode == NULL)) {
-				stub->args.xattrop.loc.inode = inode_ref (server_inode);
-				stub->args.xattrop.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_UNLINK:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"UNLINK (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.unlink.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_unlink_cbk (stub->frame,
-						   NULL,
-						   stub->frame->this,
-						   -1,
-						   ENOENT);
-				server_loc_wipe (&stub->args.unlink.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.unlink.loc.parent == NULL)
-				stub->args.unlink.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.unlink.loc.inode == NULL)) {
-				stub->args.unlink.loc.inode = inode_ref (server_inode);
-				stub->args.unlink.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_SYMLINK:
-		{
-			if ((op_ret < 0) && (parent == NULL)) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"SYMLINK (%s -> %s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.symlink.loc.path,
-					stub->args.symlink.linkname,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_symlink_cbk (stub->frame,
-						    NULL,
-						    stub->frame->this,
-						    -1,
-						    ENOENT,
-						    NULL,
-						    NULL);
-				server_loc_wipe (&stub->args.symlink.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.symlink.loc.parent == NULL)
-				stub->args.symlink.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.symlink.loc.inode == NULL)) {
-				stub->args.symlink.loc.inode = inode_ref (server_inode);
-				stub->args.symlink.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_RMDIR:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"RMDIR (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.rmdir.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_rmdir_cbk (stub->frame,
-						  NULL,
-						  stub->frame->this,
-						  -1,
-						  ENOENT);
-				server_loc_wipe (&stub->args.rmdir.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.rmdir.loc.parent == NULL)
-				stub->args.rmdir.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.rmdir.loc.inode == NULL)) {
-				stub->args.rmdir.loc.inode = inode_ref (server_inode);
-				stub->args.rmdir.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_CHMOD:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"CHMOD (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.chmod.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_chmod_cbk (stub->frame,
-						  NULL,
-						  stub->frame->this,
-						  -1,
-						  ENOENT,
-						  NULL);
-				server_loc_wipe (&stub->args.chmod.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.chmod.loc.parent == NULL)
-				stub->args.chmod.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.chmod.loc.inode == NULL)) {
-				stub->args.chmod.loc.inode = inode_ref (server_inode);
-				stub->args.chmod.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_CHOWN:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"CHOWN (%s) on %s returning ENOENT: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.chown.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_chown_cbk (stub->frame,
-						  NULL,
-						  stub->frame->this,
-						  -1,
-						  ENOENT,
-						  NULL);
-				server_loc_wipe (&stub->args.chown.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.chown.loc.parent == NULL)
-				stub->args.chown.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.chown.loc.inode == NULL)) {
-				stub->args.chown.loc.inode = inode_ref (server_inode);
-				stub->args.chown.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_LINK:
-		{
-			if (stub->args.link.oldloc.inode == NULL) {
-				if (op_ret < 0) {
-					gf_log (stub->frame->this->name,
-						GF_LOG_ERROR,
-						"LINK (%s -> %s) on %s returning error for oldloc: "
-						"%"PRId32" (%"PRId32")",
-						stub->args.link.oldloc.path,
-						stub->args.link.newloc.path,
-						BOUND_XL(stub->frame)->name,
-						op_ret, op_errno);
-					server_link_cbk (stub->frame,
-							 NULL,
-							 stub->frame->this,
-							 -1,
-							 ENOENT,
-							 NULL,
-							 NULL);
-					server_loc_wipe (&stub->args.link.oldloc);
-					server_loc_wipe (&stub->args.link.newloc);
-					FREE (stub);
-					return 0;
-				}
-
-				if (stub->args.link.oldloc.parent == NULL)
-					stub->args.link.oldloc.parent = inode_ref (parent);
-
-				if (server_inode && (stub->args.link.oldloc.inode == NULL)) {
-					stub->args.link.oldloc.inode = inode_ref (server_inode);
-					stub->args.link.oldloc.ino = server_inode->ino;
-				}
-
-				if (stub->args.link.newloc.parent == NULL) {
-					do_path_lookup (stub, &(stub->args.link.newloc));
-					break;
-				}
-			} else {
-				/* we are called by the lookup of newpath */
-				if ((op_ret < 0) && (parent == NULL)) {
-					gf_log (stub->frame->this->name,
-						GF_LOG_ERROR,
-						"LINK (%s -> %s) on %s returning error for newloc: "
-						"%"PRId32" (%"PRId32")",
-						stub->args.link.oldloc.path,
-						stub->args.link.newloc.path,
-						BOUND_XL(stub->frame)->name,
-						op_ret, op_errno);
-					server_link_cbk (stub->frame,
-							 NULL,
-							 stub->frame->this,
-							 -1,
-							 ENOENT,
-							 NULL,
-							 NULL);
-					server_loc_wipe (&stub->args.link.oldloc);
-					server_loc_wipe (&stub->args.link.newloc);
-					FREE (stub);
-					break;
-				}
-
-				if (stub->args.link.newloc.parent == NULL)
-					stub->args.link.newloc.parent = inode_ref (parent);
-
-				if (server_inode && (stub->args.link.newloc.inode == NULL)) {
-					/* as new.inode doesn't get forget, it
-					 * needs to be unref'd here */
-					stub->args.link.newloc.inode = inode_ref (server_inode);
-					stub->args.link.newloc.ino = server_inode->ino;
-				}
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_TRUNCATE:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"TRUNCATE (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.truncate.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_truncate_cbk (stub->frame,
-						     NULL,
-						     stub->frame->this,
-						     -1,
-						     ENOENT,
-						     NULL);
-				server_loc_wipe (&stub->args.truncate.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.truncate.loc.parent == NULL)
-				stub->args.truncate.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.truncate.loc.inode == NULL)) {
-				stub->args.truncate.loc.inode = inode_ref (server_inode);
-				stub->args.truncate.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_STATFS:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"STATFS (%s) on %s returning ENOENT: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.statfs.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_statfs_cbk (stub->frame,
-						   NULL,
-						   stub->frame->this,
-						   -1,
-						   ENOENT,
-						   NULL);
-				server_loc_wipe (&stub->args.statfs.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.statfs.loc.parent == NULL)
-				stub->args.statfs.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.statfs.loc.inode == NULL)) {
-				stub->args.statfs.loc.inode = inode_ref (server_inode);
-				stub->args.statfs.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_SETXATTR:
-		{
-			dict_t *dict = stub->args.setxattr.dict;
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"SETXATTR (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.setxattr.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_setxattr_cbk (stub->frame,
-						     NULL,
-						     stub->frame->this,
-						     -1,
-						     ENOENT);
-				server_loc_wipe (&stub->args.setxattr.loc);
-				dict_unref (dict);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.setxattr.loc.parent == NULL)
-				stub->args.setxattr.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.setxattr.loc.inode == NULL)) {
-				stub->args.setxattr.loc.inode = inode_ref (server_inode);
-				stub->args.setxattr.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_GETXATTR:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"GETXATTR (%s) on %s for key %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.getxattr.loc.path,
-					BOUND_XL(stub->frame)->name,
-					stub->args.getxattr.name ? stub->args.getxattr.name : "<nul>",
-					op_ret, op_errno);
-				server_getxattr_cbk (stub->frame,
-						     NULL,
-						     stub->frame->this,
-						     -1,
-						     ENOENT,
-						     NULL);
-				server_loc_wipe (&stub->args.getxattr.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.getxattr.loc.parent == NULL)
-				stub->args.getxattr.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.getxattr.loc.inode == NULL)) {
-				stub->args.getxattr.loc.inode = inode_ref (server_inode);
-				stub->args.getxattr.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_REMOVEXATTR:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"REMOVEXATTR (%s) on %s for key %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.removexattr.loc.path,
-					BOUND_XL(stub->frame)->name,
-					stub->args.removexattr.name,
-					op_ret, op_errno);
-				server_removexattr_cbk (stub->frame,
-							NULL,
-							stub->frame->this,
-							-1,
-							ENOENT);
-				server_loc_wipe (&stub->args.removexattr.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.removexattr.loc.parent == NULL)
-				stub->args.removexattr.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.removexattr.loc.inode == NULL)) {
-				stub->args.removexattr.loc.inode = inode_ref (server_inode);
-				stub->args.removexattr.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_OPENDIR:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"OPENDIR (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.opendir.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_opendir_cbk (stub->frame,
-						    NULL,
-						    stub->frame->this,
-						    -1,
-						    ENOENT,
-						    NULL);
-				server_loc_wipe (&stub->args.opendir.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.opendir.loc.parent == NULL)
-				stub->args.opendir.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.opendir.loc.inode == NULL)) {
-				stub->args.opendir.loc.inode = inode_ref (server_inode);
-				stub->args.opendir.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_ACCESS:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"ACCESS (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.access.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_access_cbk (stub->frame,
-						   NULL,
-						   stub->frame->this,
-						   -1,
-						   ENOENT);
-				server_loc_wipe (&stub->args.access.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.access.loc.parent == NULL)
-				stub->args.access.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.access.loc.inode == NULL)) {
-				stub->args.access.loc.inode = inode_ref (server_inode);
-				stub->args.access.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-
-		case GF_FOP_UTIMENS:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"UTIMENS (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.utimens.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_utimens_cbk (stub->frame,
-						    NULL,
-						    stub->frame->this,
-						    -1,
-						    ENOENT,
-						    NULL);
-				server_loc_wipe (&stub->args.utimens.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.utimens.loc.parent == NULL)
-				stub->args.utimens.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.utimens.loc.inode == NULL)) {
-				stub->args.utimens.loc.inode = inode_ref (server_inode);
-				stub->args.utimens.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_READLINK:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"READLINK (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.readlink.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_readlink_cbk (stub->frame,
-						     NULL,
-						     stub->frame->this,
-						     -1,
-						     ENOENT,
-						     NULL);
-				server_loc_wipe (&stub->args.readlink.loc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.readlink.loc.parent == NULL)
-				stub->args.readlink.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.readlink.loc.inode == NULL)) {
-				stub->args.readlink.loc.inode = inode_ref (server_inode);
-				stub->args.readlink.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-		case GF_FOP_MKDIR:
-		{
-			if ((op_ret < 0) && (parent == NULL)) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"MKDIR (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.mkdir.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_mkdir_cbk (stub->frame,
-						  NULL,
-						  stub->frame->this,
-						  -1,
-						  ENOENT,
-						  NULL,
-						  NULL);
-				server_loc_wipe (&stub->args.mkdir.loc);
-				FREE (stub);
-				break;
-			}
-
-			if (stub->args.mkdir.loc.parent == NULL)
-				stub->args.mkdir.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.mkdir.loc.inode == NULL)) {
-				stub->args.mkdir.loc.inode = inode_ref (server_inode);
-				stub->args.mkdir.loc.ino = server_inode->ino;
-			}
-
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_CREATE:
-		{
-			if ((op_ret < 0) && (parent == NULL)) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"CREATE (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.create.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_create_cbk (stub->frame,
-						   NULL,
-						   stub->frame->this,
-						   -1,
-						   ENOENT,
-						   NULL,
-						   NULL,
-						   NULL);
-				if (stub->args.create.fd)
-					fd_unref (stub->args.create.fd);
-				server_loc_wipe (&stub->args.create.loc);
-				FREE (stub);
-				break;
-			}
-
-			if (stub->args.create.loc.parent == NULL)
-				stub->args.create.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.create.loc.inode == NULL)) {
-				stub->args.create.loc.inode = inode_ref (server_inode);
-				stub->args.create.loc.ino = server_inode->ino;
-			}
-
-			call_resume (stub);
-			break;
-		}
-
-		case GF_FOP_MKNOD:
-		{
-			if ((op_ret < 0) && (parent == NULL)) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"MKNOD (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.mknod.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_mknod_cbk (stub->frame,
-						  NULL,
-						  stub->frame->this,
-						  -1,
-						  ENOENT,
-						  NULL,
-						  NULL);
-				server_loc_wipe (&stub->args.mknod.loc);
-				FREE (stub);
-				break;
-			}
-
-			if (stub->args.mknod.loc.parent == NULL)
-				stub->args.mknod.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.mknod.loc.inode == NULL)) {
-				stub->args.mknod.loc.inode = inode_ref (server_inode);
-				stub->args.mknod.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-		case GF_FOP_ENTRYLK:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"ENTRYLK (%s) on %s for key %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.entrylk.loc.path,
-					BOUND_XL(stub->frame)->name,
-					stub->args.entrylk.name ?
-					stub->args.entrylk.name : "<nul>",
-					op_ret, op_errno);
-				server_entrylk_cbk (stub->frame,
-						    NULL,
-						    stub->frame->this,
-						    -1,
-						    ENOENT);
-				server_loc_wipe (&stub->args.entrylk.loc);
-				FREE (stub);
-				break;
-			}
-
-			if (stub->args.entrylk.loc.parent == NULL)
-				stub->args.entrylk.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.entrylk.loc.inode == NULL)) {
-				stub->args.entrylk.loc.inode = inode_ref (server_inode);
-				stub->args.entrylk.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-		case GF_FOP_INODELK:
-		{
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name,
-					GF_LOG_ERROR,
-					"INODELK (%s) on %s returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->args.inodelk.loc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				server_inodelk_cbk (stub->frame,
-						       NULL,
-						       stub->frame->this,
-						       -1,
-						       ENOENT);
-				server_loc_wipe (&stub->args.inodelk.loc);
-				FREE (stub);
-				break;
-			}
-
-			if (stub->args.inodelk.loc.parent == NULL)
-				stub->args.inodelk.loc.parent = inode_ref (parent);
-
-			if (server_inode && (stub->args.inodelk.loc.inode == NULL)) {
-				stub->args.inodelk.loc.inode = inode_ref (server_inode);
-				stub->args.inodelk.loc.ino = server_inode->ino;
-			}
-			call_resume (stub);
-			break;
-		}
-		default:
-			call_resume (stub);
-		}
+	if (!stub) {
+		return 0;
 	}
+	switch (stub->fop)
+	{
+	case GF_FOP_RENAME:
+		if (stub->args.rename.old.inode == NULL) {
+			loc_t *newloc = NULL;
+			/* now we are called by lookup of oldpath. */
+			if (op_ret < 0) {
+				gf_log (stub->frame->this->name,
+					GF_LOG_ERROR,
+					"RENAME (%s -> %s) on %s "
+					"returning error: "
+					"%"PRId32" (%"PRId32")",
+					stub->args.rename.old.path,
+					stub->args.rename.new.path,
+					BOUND_XL(stub->frame)->name,
+					op_ret, op_errno);
+				
+				/* lookup of oldpath failed, UNWIND to
+				 * server_rename_cbk with ret=-1 and 
+				 * errno=ENOENT 
+				 */
+				server_rename_cbk (stub->frame,
+						   NULL,
+						   stub->frame->this,
+						   -1,
+						   ENOENT,
+						   NULL);
+				server_loc_wipe (&stub->args.rename.old);
+				server_loc_wipe (&stub->args.rename.new);
+				FREE (stub);
+				return 0;
+			}
+			
+			if (stub->args.rename.old.parent == NULL)
+				stub->args.rename.old.parent = 
+					inode_ref (parent);
+			
+			/* store inode information of oldpath in our stub 
+			 * and search for newpath in inode table. 
+			 */
+			if (server_inode) {
+				stub->args.rename.old.inode = 
+					inode_ref (server_inode);
+				
+				stub->args.rename.old.ino =
+					server_inode->ino;
+			}
+
+			/* now lookup for newpath */
+			newloc = &stub->args.rename.new;
+
+			if (newloc->parent == NULL) {
+				/* lookup for newpath */
+				do_path_lookup (stub, newloc);
+				break;
+			} else {
+				/* found newpath in inode cache */
+				call_resume (stub);
+				break;
+			}
+		} else {
+			/* we are called by the lookup of newpath */
+			if (stub->args.rename.new.parent == NULL)
+				stub->args.rename.new.parent = 
+					inode_ref (parent);
+		}
+		
+		/* after looking up for oldpath as well as newpath,
+		 * we are ready to resume */
+		{
+			call_resume (stub);
+		}
+		break;
+		
+	case GF_FOP_OPEN:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"OPEN (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.open.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			
+			server_open_cbk (stub->frame,
+					 NULL,
+					 stub->frame->this,
+					 -1,
+					 ENOENT,
+					 NULL);
+			FREE (stub->args.open.loc.path);
+			FREE (stub);
+			return 0;
+		}
+		if (stub->args.open.loc.parent == NULL)
+			stub->args.open.loc.parent = inode_ref (parent);
+		
+		if (server_inode && (stub->args.open.loc.inode == NULL)) {
+			stub->args.open.loc.inode = inode_ref (server_inode);
+			stub->args.open.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+	
+	case GF_FOP_LOOKUP:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_DEBUG,
+				"lookup (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.lookup.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			
+			server_lookup_cbk (stub->frame,
+					   NULL,
+					   stub->frame->this,
+					   -1,
+					   ENOENT,
+					   NULL,
+					   NULL,
+					   NULL);
+			server_loc_wipe (&stub->args.lookup.loc);
+			FREE (stub);
+			return 0;
+		}
+		
+		if (stub->args.lookup.loc.parent == NULL)
+			stub->args.lookup.loc.parent = inode_ref (parent);
+		
+		if (server_inode && (stub->args.lookup.loc.inode == NULL)) {
+			stub->args.lookup.loc.inode = inode_ref (server_inode);
+			stub->args.lookup.loc.ino = server_inode->ino;
+		}
+		
+		call_resume (stub);
+		
+		break;
+	}
+	
+	case GF_FOP_STAT:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"STAT (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.stat.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_stat_cbk (stub->frame,
+					 NULL,
+					 stub->frame->this,
+					 -1,
+					 ENOENT,
+					 NULL);
+			server_loc_wipe (&stub->args.stat.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		/* TODO:reply from here only, we already have stat structure */
+		if (stub->args.stat.loc.parent == NULL)
+			stub->args.stat.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.stat.loc.inode == NULL)) {
+			stub->args.stat.loc.inode = inode_ref (server_inode);
+			stub->args.stat.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_XATTROP:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"XATTROP (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.xattrop.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_xattrop_cbk (stub->frame,
+					    NULL,
+					    stub->frame->this,
+					    -1,
+					    ENOENT,
+					    NULL);
+			server_loc_wipe (&stub->args.xattrop.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.xattrop.loc.parent == NULL)
+			stub->args.xattrop.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.xattrop.loc.inode == NULL)) {
+			stub->args.xattrop.loc.inode = 
+				inode_ref (server_inode);
+
+			stub->args.xattrop.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_UNLINK:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"UNLINK (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.unlink.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_unlink_cbk (stub->frame, NULL,
+					   stub->frame->this, -1, ENOENT);
+			server_loc_wipe (&stub->args.unlink.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.unlink.loc.parent == NULL)
+			stub->args.unlink.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.unlink.loc.inode == NULL)) {
+			stub->args.unlink.loc.inode = inode_ref (server_inode);
+			stub->args.unlink.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_SYMLINK:
+	{
+		if ((op_ret < 0) && (parent == NULL)) {
+			gf_log (stub->frame->this->name, GF_LOG_ERROR,
+				"SYMLINK (%s -> %s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.symlink.loc.path,
+				stub->args.symlink.linkname,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_symlink_cbk (stub->frame, NULL,
+					    stub->frame->this, -1, ENOENT,
+					    NULL, NULL);
+			server_loc_wipe (&stub->args.symlink.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.symlink.loc.parent == NULL)
+			stub->args.symlink.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.symlink.loc.inode == NULL)) {
+			stub->args.symlink.loc.inode = 
+				inode_ref (server_inode);
+			stub->args.symlink.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_RMDIR:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name, GF_LOG_ERROR,
+				"RMDIR (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.rmdir.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_rmdir_cbk (stub->frame,
+					  NULL,
+					  stub->frame->this,
+					  -1,
+					  ENOENT);
+			server_loc_wipe (&stub->args.rmdir.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.rmdir.loc.parent == NULL)
+			stub->args.rmdir.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.rmdir.loc.inode == NULL)) {
+			stub->args.rmdir.loc.inode = inode_ref (server_inode);
+			stub->args.rmdir.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_CHMOD:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"CHMOD (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.chmod.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_chmod_cbk (stub->frame,
+					  NULL,
+					  stub->frame->this,
+					  -1,
+					  ENOENT,
+					  NULL);
+			server_loc_wipe (&stub->args.chmod.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.chmod.loc.parent == NULL)
+			stub->args.chmod.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.chmod.loc.inode == NULL)) {
+			stub->args.chmod.loc.inode = inode_ref (server_inode);
+			stub->args.chmod.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_CHOWN:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"CHOWN (%s) on %s returning ENOENT: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.chown.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_chown_cbk (stub->frame,
+					  NULL,
+					  stub->frame->this,
+					  -1,
+					  ENOENT,
+					  NULL);
+			server_loc_wipe (&stub->args.chown.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.chown.loc.parent == NULL)
+			stub->args.chown.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.chown.loc.inode == NULL)) {
+			stub->args.chown.loc.inode = inode_ref (server_inode);
+			stub->args.chown.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_LINK:
+	{
+		if (stub->args.link.oldloc.inode == NULL) {
+			if (op_ret < 0) {
+				gf_log (stub->frame->this->name, GF_LOG_ERROR,
+					"LINK (%s -> %s) on %s returning "
+					"error for oldloc: "
+					"%"PRId32" (%"PRId32")",
+					stub->args.link.oldloc.path,
+					stub->args.link.newloc.path,
+					BOUND_XL(stub->frame)->name,
+					op_ret, op_errno);
+				server_link_cbk (stub->frame,
+						 NULL,
+						 stub->frame->this,
+						 -1,
+						 ENOENT,
+						 NULL,
+						 NULL);
+				server_loc_wipe (&stub->args.link.oldloc);
+				server_loc_wipe (&stub->args.link.newloc);
+				FREE (stub);
+				return 0;
+			}
+
+			if (stub->args.link.oldloc.parent == NULL)
+				stub->args.link.oldloc.parent = 
+					inode_ref (parent);
+
+			if (server_inode && 
+			    (stub->args.link.oldloc.inode == NULL)) {
+				stub->args.link.oldloc.inode = 
+					inode_ref (server_inode);
+				stub->args.link.oldloc.ino = server_inode->ino;
+			}
+
+			if (stub->args.link.newloc.parent == NULL) {
+				do_path_lookup (stub, 
+						&(stub->args.link.newloc));
+				break;
+			}
+		} else {
+			/* we are called by the lookup of newpath */
+			if ((op_ret < 0) && (parent == NULL)) {
+				gf_log (stub->frame->this->name, GF_LOG_ERROR,
+					"LINK (%s -> %s) on %s returning "
+					"error for newloc: "
+					"%"PRId32" (%"PRId32")",
+					stub->args.link.oldloc.path,
+					stub->args.link.newloc.path,
+					BOUND_XL(stub->frame)->name,
+					op_ret, op_errno);
+				server_link_cbk (stub->frame, NULL,
+						 stub->frame->this, -1,
+						 ENOENT, NULL, NULL);
+
+				server_loc_wipe (&stub->args.link.oldloc);
+				server_loc_wipe (&stub->args.link.newloc);
+				FREE (stub);
+				break;
+			}
+
+			if (stub->args.link.newloc.parent == NULL) {
+				stub->args.link.newloc.parent = 
+					inode_ref (parent);
+			}
+
+			if (server_inode && 
+			    (stub->args.link.newloc.inode == NULL)) {
+				/* as new.inode doesn't get forget, it
+				 * needs to be unref'd here */
+				stub->args.link.newloc.inode = 
+					inode_ref (server_inode);
+				stub->args.link.newloc.ino = server_inode->ino;
+			}
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_TRUNCATE:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"TRUNCATE (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.truncate.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_truncate_cbk (stub->frame,
+					     NULL,
+					     stub->frame->this,
+					     -1,
+					     ENOENT,
+					     NULL);
+			server_loc_wipe (&stub->args.truncate.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.truncate.loc.parent == NULL)
+			stub->args.truncate.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.truncate.loc.inode == NULL)) {
+			stub->args.truncate.loc.inode = 
+				inode_ref (server_inode);
+			stub->args.truncate.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_STATFS:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"STATFS (%s) on %s returning ENOENT: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.statfs.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_statfs_cbk (stub->frame,
+					   NULL,
+					   stub->frame->this,
+					   -1,
+					   ENOENT,
+					   NULL);
+			server_loc_wipe (&stub->args.statfs.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.statfs.loc.parent == NULL)
+			stub->args.statfs.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.statfs.loc.inode == NULL)) {
+			stub->args.statfs.loc.inode = inode_ref (server_inode);
+			stub->args.statfs.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_SETXATTR:
+	{
+		dict_t *dict = stub->args.setxattr.dict;
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"SETXATTR (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.setxattr.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_setxattr_cbk (stub->frame,
+					     NULL,
+					     stub->frame->this,
+					     -1,
+					     ENOENT);
+			server_loc_wipe (&stub->args.setxattr.loc);
+			dict_unref (dict);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.setxattr.loc.parent == NULL)
+			stub->args.setxattr.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.setxattr.loc.inode == NULL)) {
+			stub->args.setxattr.loc.inode = 
+				inode_ref (server_inode);
+			stub->args.setxattr.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_GETXATTR:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"GETXATTR (%s) on %s for key %s "
+				"returning error: %"PRId32" (%"PRId32")",
+				stub->args.getxattr.loc.path,
+				BOUND_XL(stub->frame)->name,
+				stub->args.getxattr.name ? 
+				stub->args.getxattr.name : "<nul>",
+				op_ret, op_errno);
+			server_getxattr_cbk (stub->frame,
+					     NULL,
+					     stub->frame->this,
+					     -1,
+					     ENOENT,
+					     NULL);
+			server_loc_wipe (&stub->args.getxattr.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.getxattr.loc.parent == NULL)
+			stub->args.getxattr.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.getxattr.loc.inode == NULL)) {
+			stub->args.getxattr.loc.inode = 
+				inode_ref (server_inode);
+			stub->args.getxattr.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_REMOVEXATTR:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name, GF_LOG_ERROR,
+				"REMOVEXATTR (%s) on %s for key %s "
+				"returning error: %"PRId32" (%"PRId32")",
+				stub->args.removexattr.loc.path,
+				BOUND_XL(stub->frame)->name,
+				stub->args.removexattr.name,
+				op_ret, op_errno);
+			server_removexattr_cbk (stub->frame,
+						NULL,
+						stub->frame->this,
+						-1,
+						ENOENT);
+			server_loc_wipe (&stub->args.removexattr.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.removexattr.loc.parent == NULL)
+			stub->args.removexattr.loc.parent = inode_ref (parent);
+
+		if (server_inode && 
+		    (stub->args.removexattr.loc.inode == NULL)) {
+			stub->args.removexattr.loc.inode = 
+				inode_ref (server_inode);
+			stub->args.removexattr.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_OPENDIR:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"OPENDIR (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.opendir.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_opendir_cbk (stub->frame,
+					    NULL,
+					    stub->frame->this,
+					    -1,
+					    ENOENT,
+					    NULL);
+			server_loc_wipe (&stub->args.opendir.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.opendir.loc.parent == NULL)
+			stub->args.opendir.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.opendir.loc.inode == NULL)) {
+			stub->args.opendir.loc.inode = 
+				inode_ref (server_inode);
+			stub->args.opendir.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_ACCESS:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"ACCESS (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.access.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_access_cbk (stub->frame,
+					   NULL,
+					   stub->frame->this,
+					   -1,
+					   ENOENT);
+			server_loc_wipe (&stub->args.access.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.access.loc.parent == NULL)
+			stub->args.access.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.access.loc.inode == NULL)) {
+			stub->args.access.loc.inode = inode_ref (server_inode);
+			stub->args.access.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+
+	case GF_FOP_UTIMENS:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"UTIMENS (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.utimens.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_utimens_cbk (stub->frame,
+					    NULL,
+					    stub->frame->this,
+					    -1,
+					    ENOENT,
+					    NULL);
+			server_loc_wipe (&stub->args.utimens.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.utimens.loc.parent == NULL)
+			stub->args.utimens.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.utimens.loc.inode == NULL)) {
+			stub->args.utimens.loc.inode = 
+				inode_ref (server_inode);
+			stub->args.utimens.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_READLINK:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"READLINK (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.readlink.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_readlink_cbk (stub->frame,
+					     NULL,
+					     stub->frame->this,
+					     -1,
+					     ENOENT,
+					     NULL);
+			server_loc_wipe (&stub->args.readlink.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.readlink.loc.parent == NULL)
+			stub->args.readlink.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.readlink.loc.inode == NULL)) {
+			stub->args.readlink.loc.inode = 
+				inode_ref (server_inode);
+			stub->args.readlink.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+	case GF_FOP_MKDIR:
+	{
+		if ((op_ret < 0) && (parent == NULL)) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"MKDIR (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.mkdir.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_mkdir_cbk (stub->frame,
+					  NULL,
+					  stub->frame->this,
+					  -1,
+					  ENOENT,
+					  NULL,
+					  NULL);
+			server_loc_wipe (&stub->args.mkdir.loc);
+			FREE (stub);
+			break;
+		}
+
+		if (stub->args.mkdir.loc.parent == NULL)
+			stub->args.mkdir.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.mkdir.loc.inode == NULL)) {
+			stub->args.mkdir.loc.inode = inode_ref (server_inode);
+			stub->args.mkdir.loc.ino = server_inode->ino;
+		}
+
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_CREATE:
+	{
+		if ((op_ret < 0) && (parent == NULL)) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"CREATE (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.create.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_create_cbk (stub->frame,
+					   NULL,
+					   stub->frame->this,
+					   -1,
+					   ENOENT,
+					   NULL,
+					   NULL,
+					   NULL);
+			if (stub->args.create.fd)
+				fd_unref (stub->args.create.fd);
+			server_loc_wipe (&stub->args.create.loc);
+			FREE (stub);
+			break;
+		}
+
+		if (stub->args.create.loc.parent == NULL)
+			stub->args.create.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.create.loc.inode == NULL)) {
+			stub->args.create.loc.inode = inode_ref (server_inode);
+			stub->args.create.loc.ino = server_inode->ino;
+		}
+
+		call_resume (stub);
+		break;
+	}
+
+	case GF_FOP_MKNOD:
+	{
+		if ((op_ret < 0) && (parent == NULL)) {
+			gf_log (stub->frame->this->name,
+				GF_LOG_ERROR,
+				"MKNOD (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.mknod.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_mknod_cbk (stub->frame,
+					  NULL,
+					  stub->frame->this,
+					  -1,
+					  ENOENT,
+					  NULL,
+					  NULL);
+			server_loc_wipe (&stub->args.mknod.loc);
+			FREE (stub);
+			break;
+		}
+
+		if (stub->args.mknod.loc.parent == NULL)
+			stub->args.mknod.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.mknod.loc.inode == NULL)) {
+			stub->args.mknod.loc.inode = inode_ref (server_inode);
+			stub->args.mknod.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+	case GF_FOP_ENTRYLK:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name, GF_LOG_ERROR,
+				"ENTRYLK (%s) on %s for key %s returning "
+				"error: %"PRId32" (%"PRId32")",
+				stub->args.entrylk.loc.path,
+				BOUND_XL(stub->frame)->name,
+				stub->args.entrylk.name ?
+				stub->args.entrylk.name : "<nul>",
+				op_ret, op_errno);
+			server_entrylk_cbk (stub->frame,
+					    NULL,
+					    stub->frame->this,
+					    -1,
+					    ENOENT);
+			server_loc_wipe (&stub->args.entrylk.loc);
+			FREE (stub);
+			break;
+		}
+
+		if (stub->args.entrylk.loc.parent == NULL)
+			stub->args.entrylk.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.entrylk.loc.inode == NULL)) {
+			stub->args.entrylk.loc.inode = inode_ref (server_inode);
+			stub->args.entrylk.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+	case GF_FOP_INODELK:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name, GF_LOG_ERROR,
+				"INODELK (%s) on %s returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->args.inodelk.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_inodelk_cbk (stub->frame,
+					    NULL,
+					    stub->frame->this,
+					    -1,
+					    ENOENT);
+			server_loc_wipe (&stub->args.inodelk.loc);
+			FREE (stub);
+			break;
+		}
+
+		if (stub->args.inodelk.loc.parent == NULL)
+			stub->args.inodelk.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.inodelk.loc.inode == NULL)) {
+			stub->args.inodelk.loc.inode = 
+				inode_ref (server_inode);
+			stub->args.inodelk.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+	default:
+		call_resume (stub);
+	}
+
 	return 0;
 }
 
@@ -3600,7 +3635,8 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
 			       state->path);
 
 	create_stub = fop_create_stub (frame, server_create_resume,
-				       &(state->loc), state->flags, state->mode, state->fd);
+				       &(state->loc), state->flags, 
+				       state->mode, state->fd);
 	GF_VALIDATE_OR_GOTO(bound_xl->name, create_stub, fail);
 
 	if (state->loc.parent == NULL) {
@@ -4322,9 +4358,10 @@ server_setxattr (call_frame_t *frame,
 
 		ret = dict_unserialize (req_dictbuf, dict_len, &dict);
 		if (ret < 0) {
+			/* TODO: This log doesn't make sense */
 			gf_log (bound_xl->name, GF_LOG_ERROR,
-				"failed to unserialize request buffer(%p) to dictionary",
-				req->dict);
+				"failed to unserialize request buffer(%p) "
+				"to dictionary", req->dict);
 			free (req_dictbuf);
 			goto fail;
 		} else{
@@ -4401,9 +4438,10 @@ server_fxattrop (call_frame_t *frame,
 
 		ret = dict_unserialize (req_dictbuf, dict_len, &dict);
 		if (ret < 0) {
+			/* TODO: This log doesn't make sense */
 			gf_log (bound_xl->name, GF_LOG_ERROR,
-				"failed to unserialize request buffer(%p) to dictionary",
-				req_dictbuf);
+				"failed to unserialize request buffer(%p) "
+				"to dictionary", req_dictbuf);
 			free (req_dictbuf);
 			goto fail;
 		} else {
@@ -4412,8 +4450,7 @@ server_fxattrop (call_frame_t *frame,
 	}
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
-		"FXATTROP \'fd=%"PRId64"\'", 
-		fd_no);
+		"FXATTROP \'fd=%"PRId64"\'", fd_no);
 
 	STACK_WIND (frame,
 		    server_fxattrop_cbk,
@@ -4497,9 +4534,10 @@ server_xattrop (call_frame_t *frame,
 
 		ret = dict_unserialize (req_dictbuf, dict_len, &dict);
 		if (ret < 0) {
+			/* TODO: This log doesn't make sense */
 			gf_log (bound_xl->name, GF_LOG_ERROR,
-				"failed to unserialize request buffer(%p) to dictionary",
-				req_dictbuf);
+				"failed to unserialize request buffer(%p) "
+				"to dictionary", req_dictbuf);
 			goto fail;
 		} else { 
 			dict->extra_free = req_dictbuf;
@@ -6089,13 +6127,15 @@ server_rename (call_frame_t *frame,
 	{
 		oldpathlen = STRLEN_0(req->oldpath);
 		oldbaselen = STRLEN_0(req->oldbname + oldpathlen);
-		newpathlen = STRLEN_0(req->newpath     + oldpathlen + oldbaselen);
-		newbaselen = STRLEN_0(req->newbname + oldpathlen + oldbaselen + newpathlen);
+		newpathlen = STRLEN_0(req->newpath  + oldpathlen + oldbaselen);
+		newbaselen = STRLEN_0(req->newbname + oldpathlen + 
+				      oldbaselen + newpathlen);
 
 		state->path   = req->oldpath;
 		state->bname  = req->oldbname + oldpathlen;
 		state->path2  = req->newpath  + oldpathlen + oldbaselen;
-		state->bname2 = req->newbname + oldpathlen + oldbaselen + newpathlen;
+		state->bname2 = (req->newbname + oldpathlen + oldbaselen + 
+				 newpathlen);
 
 		state->par   = ntoh64 (req->oldpar);
 		state->par2  = ntoh64 (req->newpar);
@@ -6119,8 +6159,8 @@ server_rename (call_frame_t *frame,
 	} else if ((state->loc2.parent == NULL)){
 		do_path_lookup (rename_stub, &(state->loc2));
 	} else {
-		/* we have found inode for both oldpath and newpath in inode cache.
-		 * we are continue with fops->rename() */
+		/* we have found inode for both oldpath and newpath in
+		 * inode cache. lets continue with fops->rename() */
 		call_resume (rename_stub);
 	}
 
@@ -6204,8 +6244,7 @@ server_lk (call_frame_t *frame,
 	gf_flock_to_flock (&req->flock, &lock);
 
 	gf_log (BOUND_XL(frame)->name, GF_LOG_DEBUG,
-		"LK \'fd=%"PRId64"\'", 
-		fd_no);
+		"LK \'fd=%"PRId64"\'",fd_no);
 
 	STACK_WIND (frame, server_lk_cbk,
 		    BOUND_XL(frame), 
@@ -6429,7 +6468,7 @@ mop_getspec (call_frame_t *frame,
 	int32_t spec_fd = -1;
 	size_t  file_len = 0;
 	size_t _hdrlen = 0;
-	char  tmp_filename[GF_FILENAME_MAX] = {0,};
+	char  tmp_filename[ZR_FILENAME_MAX] = {0,};
 	char  data_key[256] = {0,};
 	char *filename = NULL;
 	struct stat stbuf = {0,};
@@ -6452,13 +6491,16 @@ mop_getspec (call_frame_t *frame,
 
 	peerinfo = &(trans->peerinfo);
 	/* Inform users that this option is changed now */
-	ret = dict_get_str (frame->this->options, "client-volume-filename", &filename);
+	ret = dict_get_str (frame->this->options, "client-volume-filename", 
+			    &filename);
 	if (ret == 0) {
 		gf_log (trans->xl->name, GF_LOG_WARNING,
-			"option 'client-volume-specfile' is changed to 'volume-filename.<key>' "
-			"which now takes 'key' as an option to choose/fetch different files "
-			"from server now. Refer documentation or contact developers for more info. "
-			"Currently defaulting to given file '%s'", filename);
+			"option 'client-volume-specfile' is changed to "
+			"'volume-filename.<key>' which now takes 'key' as an "
+			"option to choose/fetch different files from server. "
+			"Refer documentation or contact developers for more "
+			"info. Currently defaulting to given file '%s'", 
+			filename);
 	}
 	
 	if (key && !filename) {
@@ -6466,19 +6508,22 @@ mop_getspec (call_frame_t *frame,
 		ret = dict_get_str (frame->this->options, data_key, &filename);
 		if (ret < 0) {
 			gf_log (trans->xl->name, GF_LOG_ERROR,
-				"failed to get corresponding volume specfile for the key '%s'. "
-				"using default file %s", key, GLUSTERFSD_SPEC_PATH);
+				"failed to get corresponding volume specfile "
+				"for the key '%s'. using default file %s", 
+				key, GLUSTERFSD_SPEC_PATH);
 		} 
 	}
 	if (!filename) {
 		filename = GLUSTERFSD_SPEC_PATH;
 		if (!key)
 			gf_log (trans->xl->name, GF_LOG_WARNING,
-				"using default volume file %s", GLUSTERFSD_SPEC_PATH);
+				"using default volume file %s", 
+				GLUSTERFSD_SPEC_PATH);
 	}
 
 	{
-		sprintf (tmp_filename, "%s.%s", filename, peerinfo->identifier);
+		sprintf (tmp_filename, "%s.%s", 
+			 filename, peerinfo->identifier);
 
 		/* Try for ip specific client spec file.
 		 * If not found, then go for, regular client file.
@@ -6552,8 +6597,8 @@ server_checksum_cbk (call_frame_t *frame,
 	size_t  hdrlen = 0;
 	int32_t gf_errno = 0;
 
-	hdrlen = gf_hdr_len (rsp, GF_FILENAME_MAX + 1 + GF_FILENAME_MAX + 1);
-	hdr    = gf_hdr_new (rsp, GF_FILENAME_MAX + 1 + GF_FILENAME_MAX + 1);
+	hdrlen = gf_hdr_len (rsp, ZR_FILENAME_MAX + 1 + ZR_FILENAME_MAX + 1);
+	hdr    = gf_hdr_new (rsp, ZR_FILENAME_MAX + 1 + ZR_FILENAME_MAX + 1);
 	rsp    = gf_param (hdr);
 
 	hdr->rsp.op_ret = hton32 (op_ret);
@@ -6561,10 +6606,11 @@ server_checksum_cbk (call_frame_t *frame,
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
 	if (op_ret >= 0) {
-		memcpy (rsp->fchecksum, fchecksum, GF_FILENAME_MAX);
-		rsp->fchecksum[GF_FILENAME_MAX] =  '\0';
-		memcpy (rsp->dchecksum + GF_FILENAME_MAX, dchecksum, GF_FILENAME_MAX);
-		rsp->dchecksum[GF_FILENAME_MAX + GF_FILENAME_MAX] = '\0';
+		memcpy (rsp->fchecksum, fchecksum, ZR_FILENAME_MAX);
+		rsp->fchecksum[ZR_FILENAME_MAX] =  '\0';
+		memcpy (rsp->dchecksum + ZR_FILENAME_MAX, 
+			dchecksum, ZR_FILENAME_MAX);
+		rsp->dchecksum[ZR_FILENAME_MAX + ZR_FILENAME_MAX] = '\0';
 	}
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHECKSUM,
@@ -6693,9 +6739,11 @@ mop_setvolume (call_frame_t *frame,
 	ret = dict_unserialize (req->buf, req_dictlen, &params);
 	if (ret < 0) {
 		ret = dict_set_str (reply, "ERROR",
-				    "Internal error: failed to unserialize request dictionary");
+				    "Internal error: failed to unserialize "
+				    "request dictionary");
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+			gf_log (bound_xl->name, GF_LOG_ERROR, 
+				"failed to set error msg");
 
 		op_ret = -1;
 		op_errno = EINVAL;
@@ -6711,7 +6759,8 @@ mop_setvolume (call_frame_t *frame,
 		ret = dict_set_str (reply, "ERROR",
 				    "No version number specified");
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+			gf_log (bound_xl->name, GF_LOG_ERROR, 
+				"failed to set error msg");
 
 		op_ret = -1;
 		op_errno = EINVAL;
@@ -6726,7 +6775,8 @@ mop_setvolume (call_frame_t *frame,
 			  version, PACKAGE_VERSION);
 		ret = dict_set_dynstr (reply, "ERROR", msg);
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+			gf_log (bound_xl->name, GF_LOG_ERROR, 
+				"failed to set error msg");
 
 		op_ret = -1;
 		op_errno = EINVAL;
@@ -6740,7 +6790,8 @@ mop_setvolume (call_frame_t *frame,
 		ret = dict_set_str (reply, "ERROR",
 				    "No remote-subvolume option specified");
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+			gf_log (bound_xl->name, GF_LOG_ERROR, 
+				"failed to set error msg");
 
 		op_ret = -1;
 		op_errno = EINVAL;
@@ -6753,7 +6804,8 @@ mop_setvolume (call_frame_t *frame,
 		asprintf (&msg, "remote-subvolume \"%s\" is not found", name);
 		ret = dict_set_dynstr (reply, "ERROR", msg);
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+			gf_log (bound_xl->name, GF_LOG_ERROR, 
+				"failed to set error msg");
 
 		op_ret = -1;
 		op_errno = ENOENT;
@@ -6763,14 +6815,16 @@ mop_setvolume (call_frame_t *frame,
 	peerinfo = &trans->peerinfo;
 	ret = dict_set_static_ptr (params, "peer-info", peerinfo);
 	if (ret < 0)
-		gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set peer-info");
+		gf_log (bound_xl->name, GF_LOG_ERROR, 
+			"failed to set peer-info");
 
 	if (server_private->auth_modules == NULL) {
 		gf_log (trans->xl->name, GF_LOG_ERROR,
 			"Authentication module not initialized");
 	}
 
-	ret = gf_authenticate (params, config_params, server_private->auth_modules);
+	ret = gf_authenticate (params, config_params, 
+			       server_private->auth_modules);
 	if (ret == AUTH_ACCEPT) {
 		gf_log (trans->xl->name, GF_LOG_DEBUG,
 			"accepted client from %s",
@@ -6779,7 +6833,8 @@ mop_setvolume (call_frame_t *frame,
 		cprivate->bound_xl = xl;
 		ret = dict_set_str (reply, "ERROR", "Success");
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+			gf_log (bound_xl->name, GF_LOG_ERROR, 
+				"failed to set error msg");
 	} else {
 		gf_log (trans->xl->name, GF_LOG_ERROR,
 			"Cannot authenticate client from %s",
@@ -6788,16 +6843,19 @@ mop_setvolume (call_frame_t *frame,
 		op_errno = EACCES;
 		ret = dict_set_str (reply, "ERROR", "Authentication failed");
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+			gf_log (bound_xl->name, GF_LOG_ERROR, 
+				"failed to set error msg");
 
 		goto fail;
 	}
 
 	if (cprivate->bound_xl == NULL) {
 		ret = dict_set_str (reply, "ERROR",
-				    "Check volume spec file and handshake options");
+				    "Check volume spec file and handshake "
+				    "options in protocol/client");
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, "failed to set error msg");
+			gf_log (bound_xl->name, GF_LOG_ERROR, 
+				"failed to set error msg");
 
 		op_ret = -1;
 		op_errno = EACCES;
@@ -6807,18 +6865,20 @@ mop_setvolume (call_frame_t *frame,
 	if ((cprivate->bound_xl != NULL) &&
 	    (ret >= 0)                   &&
 	    (cprivate->bound_xl->itable == NULL)) {
-		/* create inode table for this bound_xl, if one doesn't already exist */
+		/* create inode table for this bound_xl, if one doesn't 
+		   already exist */
 		int32_t lru_limit = 1024;
 		xlator_t *xl = TRANSPORT_FROM_FRAME(frame)->xl;
 
 		lru_limit = INODE_LRU_LIMIT (frame->this);
 
 		gf_log (xl->name, GF_LOG_DEBUG,
-			"creating inode table with lru_limit=%"PRId32", xlator=%s",
-			lru_limit, cprivate->bound_xl->name);
+			"creating inode table with lru_limit=%"PRId32", "
+			"xlator=%s", lru_limit, cprivate->bound_xl->name);
 
-		cprivate->bound_xl->itable = inode_table_new (lru_limit,
-							      cprivate->bound_xl);
+		cprivate->bound_xl->itable = 
+			inode_table_new (lru_limit,
+					 cprivate->bound_xl);
 	}
 
 fail:
@@ -6954,8 +7014,9 @@ mop_stats (call_frame_t *frame,
 
 
 /*
- * unknown_op_cbk - This function is called when a opcode for unknown type is called
- *                  Helps to keep the backward/forward compatiblity
+ * unknown_op_cbk - This function is called when a opcode for unknown 
+ *                  type is called. Helps to keep the backward/forward
+ *                  compatiblity
  * @frame: call frame
  * @type:
  * @opcode:
@@ -7134,7 +7195,8 @@ static gf_op_t gf_cbks[] = {
 
 int
 protocol_server_interpret (xlator_t *this, transport_t *trans,
-                           char *hdr_p, size_t hdrlen, char *buf, size_t buflen)
+                           char *hdr_p, size_t hdrlen, char *buf, 
+			   size_t buflen)
 {
 	server_connection_private_t *cprivate = NULL;
 	gf_hdr_common_t *hdr = NULL;
@@ -7164,7 +7226,8 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
 		}
 		if (bound_xl == NULL) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"Received fop %"PRId32" before authentication.", op);
+				"Received fop %"PRId32" before "
+				"authentication.", op);
 			break;
 		}
 		frame = get_frame_for_call (trans, hdr);
@@ -7261,8 +7324,9 @@ server_protocol_cleanup (transport_t *trans)
 
 	bound_xl = (xlator_t *) (cprivate->bound_xl);
 	if (bound_xl) {
-		/* trans will have ref_count = 1 after this call, but its ok since this function is
-		   called in GF_EVENT_TRANSPORT_CLEANUP */
+		/* trans will have ref_count = 1 after this call, but its 
+		   ok since this function is called in 
+		   GF_EVENT_TRANSPORT_CLEANUP */
 		frame = get_frame_for_transport (trans);
 
 		pthread_mutex_lock (&(cprivate->lock));
@@ -7279,7 +7343,9 @@ server_protocol_cleanup (transport_t *trans)
 
 		LOCK (&ltable->lock);
 		{
-			list_splice_init (&ltable->file_lockers, &file_lockers);
+			list_splice_init (&ltable->file_lockers, 
+					  &file_lockers);
+
 			list_splice_init (&ltable->dir_lockers, &dir_lockers);
 		}
 		UNLOCK (&ltable->lock);
@@ -7288,7 +7354,8 @@ server_protocol_cleanup (transport_t *trans)
 		flock.l_type  = F_UNLCK;
 		flock.l_start = 0;
 		flock.l_len   = 0;
-		list_for_each_entry_safe (locker, tmp, &file_lockers, lockers) {
+		list_for_each_entry_safe (locker, 
+					  tmp, &file_lockers, lockers) {
 			tmp_frame = server_copy_frame (frame);
 			/* 
 			   pid = 0 is a special case that tells posix-locks
@@ -7382,7 +7449,8 @@ get_auth_types (dict_t *this,
 	if (ret == 0) {
 		tmp = strtok_r (NULL, ".", &saveptr);
 		if (strcmp (tmp, "ip") == 0) {
-			/* TODO: backword compatibility, remove when newer versions are available */
+			/* TODO: backword compatibility, remove when 
+			   newer versions are available */
 			tmp = "addr";
 			gf_log ("server", GF_LOG_WARNING, 
 				"assuming 'auth.ip' to be 'auth.addr'");
@@ -7416,8 +7484,10 @@ validate_auth_options (xlator_t *this, dict_t *dict)
 			tmp = strtok_r (key_cpy, ".", &saveptr);
 			ret = strcmp (tmp, "auth");
 			if (ret == 0) {
-				tmp = strtok_r (NULL, ".", &saveptr); /* for module type */
-				tmp = strtok_r (NULL, ".", &saveptr); /* for volume name */				
+				/* for module type */
+				tmp = strtok_r (NULL, ".", &saveptr); 
+				/* for volume name */
+				tmp = strtok_r (NULL, ".", &saveptr); 
 			}
 
 			if (strcmp (tmp, trav->xlator->name) == 0) {
@@ -7481,12 +7551,14 @@ init (xlator_t *this)
 	server_private->auth_modules = dict_new ();
 	GF_VALIDATE_OR_GOTO(this->name, server_private->auth_modules, out);
 
-	dict_foreach (this->options, get_auth_types, server_private->auth_modules);
+	dict_foreach (this->options, get_auth_types, 
+		      server_private->auth_modules);
 	ret = validate_auth_options (this, this->options);
 	if (ret == -1) {
 		/* Logging already done in above function, don't log again */
 		/* gf_log (this->name, GF_LOG_ERROR,
-			"authentication options validation failed, check volume spec file"); 
+			"authentication options validation failed, "
+			"check volume spec file"); 
 		*/
 		goto out;
 	}
@@ -7526,7 +7598,7 @@ init (xlator_t *this)
 
 		if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
 			gf_log (this->name, GF_LOG_WARNING,
-				"WARNING: Failed to set 'ulimit -n 1048576': %s",
+				"WARNING: Failed to set 'ulimit -n 1M': %s",
 				strerror(errno));
 			lim.rlim_cur = 65536;
 			lim.rlim_max = 65536;
@@ -7598,7 +7670,8 @@ protocol_server_pollin (xlator_t *this, transport_t *trans)
 	ret = transport_receive (trans, &hdr, &hdrlen, &buf, &buflen);
 
 	if (ret == 0)
-		ret = protocol_server_interpret (this, trans, hdr, hdrlen, buf, buflen);
+		ret = protocol_server_interpret (this, trans, hdr, 
+						 hdrlen, buf, buflen);
 
 	/* TODO: use mem-pool */
 	FREE (hdr);
@@ -7710,10 +7783,11 @@ struct xlator_options options[] = {
 	/* Server protocol itself */
 	{ "limits.transaction-size",
 	  GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB },
-
-	{ "client-volume-filename", GF_OPTION_TYPE_PATH, 0, }, /* Backword compatibility */
 	{ "volume-filename.<key>", GF_OPTION_TYPE_STR, 16, 0, 0 },
 	{ "inode-lru-limit",  GF_OPTION_TYPE_INT, 0, 0, 1048576 },
+
+	/* Backword compatibility */
+	{ "client-volume-filename", GF_OPTION_TYPE_PATH, 0, }, 
 
 	{ NULL, 0, 0, 0, 0 },
 };

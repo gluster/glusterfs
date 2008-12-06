@@ -15,11 +15,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-noinst_HEADERS = fuse-extra.h fuse-options.h
+noinst_HEADERS = fuse-extra.h
 
 xlator_LTLIBRARIES = fuse.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount
-fuse_la_SOURCES = fuse-bridge.c fuse-extra.c fuse-options.c
+fuse_la_SOURCES = fuse-bridge.c fuse-extra.c
 fuse_la_LDFLAGS = -module -avoidversion -shared -nostartfiles $(GF_FUSE_LDADD) 
 
 fuse_so_CFLAGS = -DFUSE_USE_VERSION=26 -fPIC -Wall -pthread \

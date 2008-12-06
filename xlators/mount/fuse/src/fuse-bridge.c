@@ -45,13 +45,16 @@
 
 #include "fuse-extra.h"
 #include "list.h"
+#include "dict.h"
 
 #include "compat.h"
 #include "compat-errno.h"
 
-#include "fuse-options.h"
-
+/* TODO: when supporting posix acl, remove this definition */
 #define DISABLE_POSIX_ACL
+
+#define ZR_MOUNTPOINT_OPT   "mount-point"
+#define ZR_DIRECT_IO_OPT    "direct-io-mode"
 
 #define BIG_FUSE_CHANNEL_SIZE 1048576
 
@@ -60,31 +63,18 @@ struct fuse_private {
         struct fuse         *fuse;
         struct fuse_session *se;
         struct fuse_chan    *ch;
-        char *specfile;
-        size_t specfile_size;
+        char                *specfile;
+        size_t               specfile_size;
         char                *mount_point;
         data_t              *buf;
         pthread_t            fuse_thread;
         char                 fuse_thread_started;
         uint32_t             direct_io_mode;
         uint32_t             entry_timeout;
-        uint32_t             attr_timeout;
+        uint32_t             attribute_timeout;
 
 };
-
-struct _fuse_private {
-        int                  fd;
-        struct fuse         *fuse;
-        struct fuse_session *se;
-        struct fuse_chan    *ch;
-        fuse_options_t       options;
-        data_t              *buf;
-        char                      *specfile;
-        size_t                     specfile_size; 
-        pthread_t            fuse_thread;
-        char                 fuse_thread_started;
-};
-typedef struct _fuse_private fuse_private_t;
+typedef struct fuse_private fuse_private_t;
 
 #define _FI_TO_FD(fi) ((fd_t *)((long)fi->fh))
 
@@ -394,8 +384,8 @@ fuse_entry_cbk (call_frame_t *frame,
                 e.generation = buf->st_ctime;
 #endif
 
-                e.entry_timeout = priv->options.entry_timeout;
-                e.attr_timeout = priv->options.attr_timeout;
+                e.entry_timeout = priv->entry_timeout;
+                e.attr_timeout  = priv->attribute_timeout;
                 e.attr = *buf;
                 e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE; 
   
@@ -409,7 +399,7 @@ fuse_entry_cbk (call_frame_t *frame,
                 if (state->loc.parent)
                         fuse_reply_entry (req, &e);
                 else
-                        fuse_reply_attr (req, buf, priv->options.attr_timeout);
+                        fuse_reply_attr (req, buf, priv->attribute_timeout);
         } else {
                 gf_log ("glusterfs-fuse",
 			(op_errno == ENOENT ? GF_LOG_DEBUG : GF_LOG_ERROR),
@@ -538,7 +528,7 @@ fuse_attr_cbk (call_frame_t *frame,
                 /* TODO: what if the inode number has changed by now */ 
                 buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
 
-                fuse_reply_attr (req, buf, priv->options.attr_timeout);
+                fuse_reply_attr (req, buf, priv->attribute_timeout);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRId64": %s() %s => -1 (%s)", frame->root->unique, 
@@ -650,7 +640,7 @@ fuse_fd_cbk (call_frame_t *frame,
                 fi.flags = state->flags;
 
                 if (!S_ISDIR (fd->inode->st_mode)) {
-                        if ((fi.flags & 3) && priv->options.direct_io_mode)
+                        if ((fi.flags & 3) && priv->direct_io_mode)
                                 fi.direct_io = 1;
                 }
 
@@ -1389,7 +1379,7 @@ fuse_create_cbk (call_frame_t *frame,
         if (op_ret >= 0) {
                 fi.fh = (unsigned long) fd;
 
-                if ((fi.flags & 3) && priv->options.direct_io_mode)
+                if ((fi.flags & 3) && priv->direct_io_mode)
                         fi.direct_io = 1;
 
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
@@ -1405,8 +1395,8 @@ fuse_create_cbk (call_frame_t *frame,
                 e.generation = buf->st_ctime;
 #endif
 
-                e.entry_timeout = priv->options.entry_timeout;
-                e.attr_timeout = priv->options.attr_timeout;
+                e.entry_timeout = priv->entry_timeout;
+                e.attr_timeout = priv->attribute_timeout;
                 e.attr = *buf;
                 e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
 
@@ -1742,130 +1732,6 @@ fuse_opendir (fuse_req_t req,
         FUSE_FOP (state, fuse_fd_cbk, GF_FOP_OPENDIR,
                   opendir, &state->loc, fd);
 }
-
-#if 0
-
-void
-fuse_dir_reply (fuse_req_t req,
-                size_t size,
-                off_t off,
-                fd_t *fd)
-{
-        char *buf;
-        size_t size_limited;
-        data_t *buf_data;
-
-        buf_data = dict_get (fd->ctx, "__fuse__getdents__internal__@@!!");
-        buf = buf_data->data;
-        size_limited = size;
-
-        if (size_limited > (buf_data->len - off))
-                size_limited = (buf_data->len - off);
-
-        if (off > buf_data->len) {
-                size_limited = 0;
-                off = 0;
-        }
-
-        fuse_reply_buf (req, buf + off, size_limited);
-}
-
-
-static int
-fuse_getdents_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   dir_entry_t *entries,
-                   int32_t count)
-{
-        fuse_state_t *state = frame->root->state;
-        fuse_req_t req = state->req;
-
-        if (op_ret < 0) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "%"PRId64": READDIR => -1 (%s)",
-                        frame->root->unique, strerror(op_errno));
-
-                fuse_reply_err (state->req, op_errno);
-        } else {
-                dir_entry_t *trav;
-                size_t size = 0;
-                char *buf;
-                data_t *buf_data;
-
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                        "%"PRId64": READDIR => %d entries",
-                        frame->root->unique, count);
-
-                for (trav = entries->next; trav; trav = trav->next) {
-                        size += fuse_add_direntry (req, NULL, 0, trav->name,
-						   NULL, 0);
-                }
-
-                buf = calloc (1, size);
-                ERR_ABORT (buf);
-                buf_data = data_from_dynptr (buf, size);
-                size = 0;
-
-                for (trav = entries->next; trav; trav = trav->next) {
-                        size_t entry_size;
-                        entry_size = fuse_add_direntry (req, NULL, 0,
-							trav->name, NULL, 0);
-                        fuse_add_direntry (req, buf + size, entry_size,
-					   trav->name, &trav->buf,
-					   entry_size + size);
-                        size += entry_size;
-                }
-
-                dict_set (state->fd->ctx,
-                          "__fuse__getdents__internal__@@!!",
-                          buf_data);
-
-                fuse_dir_reply (state->req, state->size, state->off,
-				state->fd);
-        }
-
-        free_state (state);
-        STACK_DESTROY (frame->root);
-
-        return 0;
-}
-
-static void
-fuse_getdents (fuse_req_t req,
-               fuse_ino_t ino,
-               struct fuse_file_info *fi,
-               size_t size,
-               off_t off,
-               int32_t flag)
-{
-        fuse_state_t *state;
-        fd_t *fd = FI_TO_FD (fi);
-
-        gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                "%"PRId64": GETDENTS %p", req_callid (req), fd);
-
-        if (!off)
-                dict_del (fd->ctx, "__fuse__getdents__internal__@@!!");
-
-        if (dict_get (fd->ctx, "__fuse__getdents__internal__@@!!")) {
-                fuse_dir_reply (req, size, off, fd);
-                return;
-        }
-
-        state = state_from_req (req);
-
-        state->size = size;
-        state->off = off;
-        state->fd = fd;
-
-        FUSE_FOP (state, fuse_getdents_cbk, GF_FOP_GETDENTS,
-                  getdents, fd, size, off, 0);
-}
-
-#endif
 
 static int
 fuse_readdir_cbk (call_frame_t *frame,
@@ -2655,13 +2521,13 @@ fuse_thread_proc (void *data)
                         priv->buf = data_ref (data_from_dynptr (NULL, 0));
                 }
         }
-	if (dict_get (this->options, GF_FUSE_MOUNT_POINT_OPTION_STRING))
+	if (dict_get (this->options, ZR_MOUNTPOINT_OPT))
 		mount_point = data_to_str (dict_get (this->options, 
-						     GF_FUSE_MOUNT_POINT_OPTION_STRING));
+						     ZR_MOUNTPOINT_OPT));
 	if (mount_point) {
 		gf_log (this->name, GF_LOG_WARNING, 
 			"unmounting %s", mount_point);
-		dict_del (this->options, GF_FUSE_MOUNT_POINT_OPTION_STRING);
+		dict_del (this->options, ZR_MOUNTPOINT_OPT);
 	}
 	fuse_session_remove_chan (priv->ch);
 	fuse_session_destroy (priv->se);
@@ -2723,14 +2589,14 @@ notify (xlator_t *this, int32_t event,
         return 0;
 }
 
-
 int 
 init (xlator_t *this_xl)
 {
-	int rv = 0;
+	int ret = 0;
 	dict_t *options = NULL;
+	char *value_string = NULL;
 	fuse_private_t *priv = NULL;
-	fuse_options_t *fuse_options = NULL;
+	struct stat stbuf = {0,};
 
 #ifdef GF_DARWIN_HOST_OS
         int fuse_argc = 9;
@@ -2788,20 +2654,17 @@ init (xlator_t *this_xl)
         priv = calloc (1, sizeof (*priv));
         ERR_ABORT (priv);
         this_xl->private = (void *) priv;
-	fuse_options = &priv->options;
-	
-	rv = fuse_options_validate (options, fuse_options);
-	if (rv != 0) {
-		goto cleanup_exit;
-	}
+
 
 #ifdef GF_DARWIN_HOST_OS
 	if (dict_get (options, "non-local")) {
-		/* This way, GlusterFS will be detected as 'servers' instead of 'devices' */
-		/* This method is useful if you want to do 'umount <mount_point>' over network, 
-		   instead of 'eject'ing it from desktop. Works better for servers */
-
-		/* Make the '-o local' in argv as NULL, so that its not in effect */
+		/* This way, GlusterFS will be detected as 'servers' instead
+		 *  of 'devices'. This method is useful if you want to do 
+		 * 'umount <mount_point>' over network,  instead of 'eject'ing
+		 * it from desktop. Works better for servers 
+		 */
+		/* Make the '-o local' in argv as NULL, so that its not 
+		   in effect */
 		fuse_argv[--args.argc] = NULL;
 		fuse_argv[--args.argc] = NULL;
 	}
@@ -2819,42 +2682,99 @@ init (xlator_t *this_xl)
 
 #endif /* ! DARWIN || ! LINUX */
 
-        priv->ch = fuse_mount (fuse_options->mount_point, &args);
+	/* get options from option dictionary */
+	ret = dict_get_str (options, ZR_MOUNTPOINT_OPT, &value_string);
+	if (value_string == NULL) {
+                gf_log ("fuse", GF_LOG_ERROR, 
+			"mandatory option mount-point is not specified");
+		return -1;
+	}
+
+	if (stat (value_string, &stbuf) != 0) {
+		if (errno == ENOENT) {
+			gf_log (this_xl->name, GF_LOG_ERROR ,
+				"%s %s does not exist",
+				ZR_MOUNTPOINT_OPT, value_string);
+		} else if (errno == ENOTCONN) {
+			gf_log (this_xl->name, GF_LOG_ERROR ,
+				"mount-point %s seems to have a stale "
+				"mount, run 'umount %s' and try again",
+				value_string, value_string);
+		} else {
+			gf_log (this_xl->name, GF_LOG_ERROR ,
+				"%s %s : stat returned %s",
+				ZR_MOUNTPOINT_OPT,
+				value_string, strerror (errno));
+		}
+		return -1;
+	}
+	
+	if (S_ISDIR (stbuf.st_mode) == 0) {
+		gf_log (this_xl->name, GF_LOG_ERROR ,
+			"%s %s is not a directory",
+			ZR_MOUNTPOINT_OPT, value_string);
+		return -1;
+	}
+	priv->mount_point = strdup (value_string);
+	
+	ret = dict_get_uint32 (options, "attribute-timeout", 
+			      &priv->attribute_timeout);
+	if (!priv->attribute_timeout)
+		priv->attribute_timeout = 1; /* default */
+	
+	ret = dict_get_uint32 (options, "entry-timeout", 
+			       &priv->entry_timeout);
+	if (!priv->entry_timeout)
+		priv->entry_timeout = 1; /* default */
+	
+
+	priv->direct_io_mode = 1;
+	ret = dict_get_str (options, ZR_DIRECT_IO_OPT, &value_string);
+	if (value_string) {
+		ret = gf_string2boolean (value_string, &priv->direct_io_mode);
+	}
+
+        priv->ch = fuse_mount (priv->mount_point, &args);
         if (priv->ch == NULL) {
                 if (errno == ENOTCONN) {
                         gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                                "A stale mount present on %s.  Unmount %s and run again",
-                                fuse_options->mount_point, fuse_options->mount_point);
-                }
-                else {
+                                "A stale mount present on %s. "
+				"run 'umount %s' and try again",
+                                priv->mount_point, 
+				priv->mount_point);
+                } else {
                         if (errno == ENOENT) {
                                 gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
-                                        "unable to mount on %s.  Load fuse kernel module and run again", 
-                                        fuse_options->mount_point);
-                        }
-                        else {
+                                        "unable to mount on %s. run "
+					"'modprobe fuse' and try again", 
+                                        priv->mount_point);
+                        } else {
                                 gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
-                                        "fuse_mount() failed with error %s on mount point %s", 
-                                        strerror (errno), fuse_options->mount_point);
+                                        "fuse_mount() failed with error %s "
+					"on mount point %s", 
+                                        strerror (errno), 
+					priv->mount_point);
                         }
                 }
                 
                 goto cleanup_exit;
         }
         
-        priv->se = fuse_lowlevel_new (&args, &fuse_ops, sizeof (fuse_ops), this_xl);
+        priv->se = fuse_lowlevel_new (&args, &fuse_ops, 
+				      sizeof (fuse_ops), this_xl);
         if (priv->se == NULL) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "fuse_lowlevel_new() failed with error %s on mount point %s", 
-                        strerror (errno), fuse_options->mount_point);
+                        "fuse_lowlevel_new() failed with error %s on "
+			"mount point %s", 
+                        strerror (errno), priv->mount_point);
                 goto umount_exit;
         }
         
-        rv = fuse_set_signal_handlers (priv->se);
-        if (rv == -1) {
+        ret = fuse_set_signal_handlers (priv->se);
+        if (ret == -1) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
                         "fuse_set_signal_handlers() failed on mount point %s", 
-                        fuse_options->mount_point);
+                        priv->mount_point);
                 goto umount_exit;
         }
         
@@ -2868,10 +2788,10 @@ init (xlator_t *this_xl)
         return 0;
         
 umount_exit: 
-        fuse_unmount (priv->options.mount_point, priv->ch);
+        fuse_unmount (priv->mount_point, priv->ch);
 cleanup_exit:
         fuse_opt_free_args (&args);
-        FREE (priv->options.mount_point);
+        FREE (priv->mount_point);
         FREE (priv);
         return -1;
 }
@@ -2880,7 +2800,7 @@ cleanup_exit:
 void
 fini (xlator_t *this_xl)
 {
-        struct fuse_private *priv = NULL;
+        fuse_private_t *priv = NULL;
 	char *mount_point = NULL;
 	
 	if (this_xl == NULL)
@@ -2889,14 +2809,14 @@ fini (xlator_t *this_xl)
 	if ((priv = this_xl->private) == NULL)
 		return;
 	
-	if (dict_get (this_xl->options, GF_FUSE_MOUNT_POINT_OPTION_STRING))
+	if (dict_get (this_xl->options, ZR_MOUNTPOINT_OPT))
 		mount_point = data_to_str (dict_get (this_xl->options, 
-						     GF_FUSE_MOUNT_POINT_OPTION_STRING));
+						     ZR_MOUNTPOINT_OPT));
 	if (mount_point != NULL) {
 		gf_log (this_xl->name, GF_LOG_WARNING, 
 			"unmounting '%s'", mount_point);
 		
-		dict_del (this_xl->options, GF_FUSE_MOUNT_POINT_OPTION_STRING);
+		dict_del (this_xl->options, ZR_MOUNTPOINT_OPT);
 		fuse_session_exit (priv->se);
 		fuse_unmount (mount_point, priv->ch);
 	}
@@ -2918,7 +2838,7 @@ struct xlator_options options[] = {
 	{ "non-local", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
 	{ "icon-name", GF_OPTION_TYPE_ANY, 0, 0, 0 },
 	{ "mount-point", GF_OPTION_TYPE_PATH, 0, 0, 0 },
-	{ "attr-timeout", GF_OPTION_TYPE_INT, 0, 0, 3600, },
+	{ "attribute-timeout", GF_OPTION_TYPE_INT, 0, 0, 3600, },
 	{ "entry-timeout", GF_OPTION_TYPE_PATH, 0, 0, 3600, },
 	{ NULL, 0, 0, 0 },
 };
