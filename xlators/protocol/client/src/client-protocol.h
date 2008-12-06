@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2006, 2007 Z RESEARCH, Inc. <http://www.zresearch.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2006, 2007 Z RESEARCH, Inc. <http://www.zresearch.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _CLIENT_PROTOCOL_H
@@ -36,11 +36,25 @@
 
 #define CLIENT_CONNECTION_PRIVATE(this) (((transport_t *)(this->private))->xl_private)
 
-#define RECEIVE_TIMEOUT(_cprivate,_current) \
-		((_cprivate->last_received.tv_sec + _cprivate->transport_timeout) < _current.tv_sec)
+#define RECEIVE_TIMEOUT(_cprivate,_current)         \
+		((_cprivate->last_received.tv_sec + \
+                  _cprivate->transport_timeout) <   \
+                  _current.tv_sec)
 
-#define SEND_TIMEOUT(_cprivate,_current) \
-		((_cprivate->last_sent.tv_sec + _cprivate->transport_timeout) < _current.tv_sec)
+#define SEND_TIMEOUT(_cprivate,_current)          \
+		((_cprivate->last_sent.tv_sec +   \
+                  _cprivate->transport_timeout) < \
+                  _current.tv_sec)
+
+#define RECEIVE_TIMEOUT_SLOW(_cprivate,_current)       \
+		((_cprivate->last_received.tv_sec +    \
+                  _cprivate->slow_transport_timeout) < \
+                  _current.tv_sec)
+
+#define SEND_TIMEOUT_SLOW(_cprivate,_current)          \
+		((_cprivate->last_sent.tv_sec +        \
+                  _cprivate->slow_transport_timeout) < \
+                  _current.tv_sec)
 
 struct saved_frame;
 typedef struct saved_frame saved_frame_t;
@@ -60,24 +74,27 @@ typedef struct _client_private client_private_t;
 
 /* This will be stored in transport_t->xl_private */
 struct client_connection_private {
-  pthread_mutex_t lock;
-  dict_t *saved_frames;
-  dict_t *saved_fds;
-  inode_table_t *table;
-  int64_t callid;
-  int32_t transport_timeout;
-  gf_timer_t *reconnect;
-  char connected;
-  uint64_t max_block_size;  /* maximum size of protocol data block that
-			     * this client can recieve, 0 is unlimited */
-  struct timeval last_sent;
-  struct timeval last_received;
-  gf_timer_t *timer;
+	pthread_mutex_t lock;
+	dict_t *saved_frames;
+	dict_t *saved_fds;
+	inode_table_t *table;
+	int64_t callid;
+	int32_t transport_timeout;
+	int32_t slow_transport_timeout;
+	int32_t slow_op_count;       /* if set, gives extra timeout period
+					for calls */
+	gf_timer_t *reconnect;
+	char connected;
+	uint64_t max_block_size;  /* maximum size of protocol data block that
+				   * this client can recieve, 0 is unlimited */
+	struct timeval last_sent;
+	struct timeval last_received;
+	gf_timer_t *timer;
 };
 
 typedef struct {
-  inode_t *inode;
-  fd_t *fd;
+	inode_t *inode;
+	fd_t *fd;
 } client_local_t;
 
 static inline void

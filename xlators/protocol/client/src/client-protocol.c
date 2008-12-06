@@ -240,13 +240,15 @@ call_bail (void *data)
 							       trans);
 			if (cprivate->timer == NULL) {
 				gf_log (trans->xl->name, GF_LOG_DEBUG,
-					"Cannot create timer");
+					"Cannot create bailout timer");
 			}
 		}
 
-		if ((cprivate->saved_frames->count > 0) &&
-		    (RECEIVE_TIMEOUT(cprivate, current)) && 
-		    (SEND_TIMEOUT(cprivate, current))) {
+		if (((cprivate->saved_frames->count > 0) &&
+		     (RECEIVE_TIMEOUT(cprivate, current)) && 
+		     (SEND_TIMEOUT(cprivate, current))) && 
+		    (!cprivate->slow_op_count)) {
+
 			struct tm last_sent_tm, last_received_tm;
 			char last_sent[32] = {0,}, last_received[32] = {0,};
 
@@ -269,6 +271,33 @@ call_bail (void *data)
 				cprivate->saved_frames->count, last_sent, 
 				last_received,
 				cprivate->transport_timeout);
+		}
+		if ((cprivate->slow_op_count) &&
+		    (RECEIVE_TIMEOUT_SLOW(cprivate, current)) && 
+		    (SEND_TIMEOUT_SLOW(cprivate, current))) {
+
+			struct tm last_sent_tm, last_received_tm;
+			char last_sent[32] = {0,}, last_received[32] = {0,};
+
+			bail_out = 1;
+			
+			localtime_r (&cprivate->last_sent.tv_sec, 
+				     &last_sent_tm);
+			localtime_r (&cprivate->last_received.tv_sec, 
+				     &last_received_tm);
+			
+			strftime (last_sent, 32, 
+				  "%Y-%m-%d %H:%M:%S", &last_sent_tm);
+			strftime (last_received, 32, 
+				  "%Y-%m-%d %H:%M:%S", &last_received_tm);
+			
+			gf_log (trans->xl->name, GF_LOG_ERROR,
+				"activating bail-out. pending frames = %d. "
+				"last sent = %s. last received = %s. "
+				"transport-timeout = %d",
+				cprivate->saved_frames->count, last_sent, 
+				last_received,
+				cprivate->slow_transport_timeout);
 		}
 	}
 	pthread_mutex_unlock (&cprivate->lock);
@@ -363,6 +392,18 @@ protocol_client_xfer (call_frame_t *frame,
 		}
 
 		if ((ret >= 0) && frame) {
+			/* TODO: check this logic */
+			/* Let the slow call have be 4 times extra timeout */
+			if ((frame->op == GF_FOP_UNLINK) ||
+			    (frame->op == GF_FOP_LK) ||
+			    (frame->op == GF_FOP_FINODELK) ||
+			    (frame->op == GF_FOP_INODELK) ||
+			    (frame->op == GF_FOP_ENTRYLK) ||
+			    (frame->op == GF_FOP_FENTRYLK) ||
+			    (frame->op == GF_FOP_RMDIR)) {
+				cprivate->slow_op_count++;
+			}
+
 			gettimeofday (&cprivate->last_sent, NULL);
 			__protocol_client_frame_save (this, frame, callid);
 		}
@@ -4375,6 +4416,14 @@ client_unlink_cbk (call_frame_t *frame,
 	gf_fop_unlink_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_private_t *priv = frame->this->private;
+	client_connection_private_t *cprivate = priv->transport->xl_private;
+
+	pthread_mutex_lock (&(cprivate->lock));
+	{
+		cprivate->slow_op_count--;
+	}
+	pthread_mutex_unlock (&(cprivate->lock));
 
 	rsp = gf_param (hdr);
 
@@ -4587,6 +4636,14 @@ client_rmdir_cbk (call_frame_t *frame,
 	gf_fop_rmdir_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_private_t *priv = frame->this->private;
+	client_connection_private_t *cprivate = priv->transport->xl_private;
+
+	pthread_mutex_lock (&(cprivate->lock));
+	{
+		cprivate->slow_op_count--;
+	}
+	pthread_mutex_unlock (&(cprivate->lock));
 
 	rsp = gf_param (hdr);
 
@@ -5014,6 +5071,14 @@ client_lk_common_cbk (call_frame_t *frame,
 	gf_fop_lk_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_private_t *priv = frame->this->private;
+	client_connection_private_t *cprivate = priv->transport->xl_private;
+
+	pthread_mutex_lock (&(cprivate->lock));
+	{
+		cprivate->slow_op_count--;
+	}
+	pthread_mutex_unlock (&(cprivate->lock));
 
 	rsp = gf_param (hdr);
 
@@ -5044,6 +5109,14 @@ client_inodelk_cbk (call_frame_t *frame,
 	gf_fop_inodelk_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_private_t *priv = frame->this->private;
+	client_connection_private_t *cprivate = priv->transport->xl_private;
+
+	pthread_mutex_lock (&(cprivate->lock));
+	{
+		cprivate->slow_op_count--;
+	}
+	pthread_mutex_unlock (&(cprivate->lock));
 
 	rsp = gf_param (hdr);
 
@@ -5063,6 +5136,14 @@ client_finodelk_cbk (call_frame_t *frame,
 	gf_fop_finodelk_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_private_t *priv = frame->this->private;
+	client_connection_private_t *cprivate = priv->transport->xl_private;
+
+	pthread_mutex_lock (&(cprivate->lock));
+	{
+		cprivate->slow_op_count--;
+	}
+	pthread_mutex_unlock (&(cprivate->lock));
 
 	rsp = gf_param (hdr);
 
@@ -5089,6 +5170,14 @@ client_entrylk_cbk (call_frame_t *frame,
 	gf_fop_entrylk_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_private_t *priv = frame->this->private;
+	client_connection_private_t *cprivate = priv->transport->xl_private;
+
+	pthread_mutex_lock (&(cprivate->lock));
+	{
+		cprivate->slow_op_count--;
+	}
+	pthread_mutex_unlock (&(cprivate->lock));
 
 	rsp = gf_param (hdr);
 
@@ -5107,6 +5196,14 @@ client_fentrylk_cbk (call_frame_t *frame,
 	gf_fop_fentrylk_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_private_t *priv = frame->this->private;
+	client_connection_private_t *cprivate = priv->transport->xl_private;
+
+	pthread_mutex_lock (&(cprivate->lock));
+	{
+		cprivate->slow_op_count--;
+	}
+	pthread_mutex_unlock (&(cprivate->lock));
 
 	rsp = gf_param (hdr);
 
@@ -5836,7 +5933,7 @@ init (xlator_t *this)
 			"defaulting transport-timeout to 42");
 		transport_timeout = 42;
 	}
-
+	
 	trans = transport_load (this->options, this);
 	if (trans == NULL) {
 		gf_log (this->name, GF_LOG_ERROR, 
@@ -5872,6 +5969,12 @@ init (xlator_t *this)
 		sizeof (cprivate->last_received));
 
 	cprivate->transport_timeout = transport_timeout;
+
+	/* Set the slow transport timeout to 3 times the original value 
+	   or at least 300seconds */
+	cprivate->slow_transport_timeout = transport_timeout * 3;
+	if (cprivate->slow_transport_timeout < 300)
+		cprivate->slow_transport_timeout = 300;
 
 	pthread_mutex_init (&cprivate->lock, NULL);
 
