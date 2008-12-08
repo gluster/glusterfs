@@ -1141,7 +1141,7 @@ unify_open_readlink_cbk (call_frame_t *frame,
 	} else {
 		char *tmp_str = strdup (local->loc1.path);
 		char *tmp_base = dirname (tmp_str);
-		local->name = calloc (1, GF_PATH_MAX);
+		local->name = calloc (1, ZR_PATH_MAX);
 		strcpy (local->name, tmp_base);
 		strncat (local->name, "/", 1);
 		strcat (local->name, path);
@@ -1225,7 +1225,7 @@ unify_open (call_frame_t *frame,
 			    unify_open_readlink_cbk,
 			    NS(this),
 			    NS(this)->fops->readlink,
-			    loc, GF_PATH_MAX);
+			    loc, ZR_PATH_MAX);
 		return 0;
 	}
 #endif /* GF_DARWIN_HOST_OS */
