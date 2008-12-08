@@ -442,6 +442,11 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 
 		if (lock && names_equal (lock->basename, basename)) {
 			lock->read_count++;
+
+			FREE (lock->basename);
+			FREE (lock);
+
+			lock = NULL;
 		} else {
 			lock = new_entrylk_lock (pinode, basename, type, trans);
 
@@ -483,7 +488,7 @@ pl_entry_lock_t *
 __unlock_name (pl_inode_t *pinode, const char *basename, entrylk_type type)
 {
 	pl_entry_lock_t *lock = NULL;
-
+	pl_entry_lock_t *ret_lock = NULL;
 
 	lock = __find_most_matching_lock (pinode, basename);
 	
@@ -495,13 +500,14 @@ __unlock_name (pl_inode_t *pinode, const char *basename, entrylk_type type)
 		goto out;
 	}
 	
-	if (names_equal (lock->basename, basename) &&
-	    lock->type == type) {
+	if (names_equal (lock->basename, basename)
+	    && lock->type == type) {
 		if (type == ENTRYLK_RDLCK) {
 			lock->read_count--;
 		}
 		if (type == ENTRYLK_WRLCK || lock->read_count == 0) {
 			list_del (&lock->inode_list);
+			ret_lock = lock;
 		}
 	} else {
 		gf_log ("locks", GF_LOG_ERROR,
@@ -510,7 +516,7 @@ __unlock_name (pl_inode_t *pinode, const char *basename, entrylk_type type)
 	}
 
 out:
-	return lock;
+	return ret_lock;
 }
 
 
