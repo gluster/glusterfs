@@ -131,11 +131,10 @@ inode_rename (inode_table_t *table,
 	      struct stat *stbuf);
 
 
-int64_t
+int32_t
 inode_path (inode_t *inode,
 	    const char *name,
-	    char *buf,
-	    size_t size);
+	    char **bufp);
 
 inode_t *
 inode_from_path (inode_table_t *table,

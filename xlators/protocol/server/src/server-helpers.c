@@ -76,13 +76,19 @@ server_loc_fill (loc_t *loc,
 	}
 
 	if (name && parent) {
-		dentry_path_len = inode_path (parent, name, NULL, 0) + 1;
-		dentry_path = calloc (1, dentry_path_len + 1);
-		inode_path (parent, name, dentry_path, dentry_path_len);
+		ret = inode_path (parent, name, &dentry_path);
+		if (ret < 0) {
+			gf_log (state->bound_xl->name, GF_LOG_ERROR,
+				"failed to build path for %"PRId64"/%s: %s",
+				parent->ino, name, strerror (-ret));
+		}
 	} else if (inode) {
-		dentry_path_len = inode_path (inode, NULL, NULL, 0) + 1;
-		dentry_path = calloc (1, dentry_path_len + 1);
-		inode_path (inode, NULL, dentry_path, dentry_path_len);
+		ret = inode_path (inode, NULL, &dentry_path);
+		if (ret < 0) {
+			gf_log (state->bound_xl->name, GF_LOG_ERROR,
+				"failed to build path for %"PRId64": %s",
+				inode->ino, strerror (-ret));
+		}
 	}
 
 	if (dentry_path) {

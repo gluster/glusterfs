@@ -215,9 +215,9 @@ fuse_loc_fill (loc_t *loc,
                ino_t par,
                const char *name)
 {
-        int64_t pathlen = 0;
         inode_t *inode = NULL, *parent = NULL;
 	int32_t ret = -1;
+	char *path = NULL;
 
         /* resistance against multiple invocation of loc_fill not to get
            reference leaks via inode_search() */
@@ -244,28 +244,26 @@ fuse_loc_fill (loc_t *loc,
                 loc->parent = parent;
         }
   
-        if (name) {
-                pathlen = inode_path (parent, name, NULL, 0);
-		if (pathlen < 0) {
+        if (name && parent) {
+		ret = inode_path (parent, name, &path);
+		if (ret <= 0) {
 			gf_log ("glusterfs-fuse", GF_LOG_ERROR,
 				"inode_path failed for %"PRId64"/%s",
 				parent->ino, name);
 			goto fail;
+		} else {
+			loc->path = path;
 		}
-                loc->path = calloc (1, pathlen + 1);
-                ERR_ABORT (loc->path);
-                inode_path (parent, name, (char *)loc->path, pathlen + 1);
         } else 	if (inode) {
-		pathlen = inode_path (inode, NULL, NULL, 0);
-		if (pathlen < 0) {
+		ret = inode_path (inode, NULL, &path);
+		if (ret <= 0) {
 			gf_log ("glusterfs-fuse", GF_LOG_ERROR,
 				"inode_path failed for %"PRId64,
 				inode->ino);
 			goto fail;
+		} else {
+			loc->path = path;
 		}
-		loc->path = calloc (1, pathlen + 1);
-		ERR_ABORT (loc->path);
-		inode_path (inode, NULL, (char *)loc->path, pathlen + 1);
 	}
 	if (loc->path) {
 		loc->name = strrchr (loc->path, '/');

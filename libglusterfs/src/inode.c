@@ -828,15 +828,18 @@ inode_parent (inode_t *inode, ino_t par, const char *name)
 }
 
 
-int64_t
-inode_path (inode_t *inode, const char *name, char *buf, size_t size)
+int32_t
+inode_path (inode_t *inode, 
+	    const char *name, 
+	    char **bufp)
 {
         inode_table_t *table = NULL;
         dentry_t      *trav = NULL;
-        size_t         i = 0;
+        size_t         i = 0, size = 0;
         int64_t        ret = 0;
         int            len = 0;
-
+	char          *buf = NULL;
+	
         table = inode->table;
 
         pthread_mutex_lock (&table->lock);
@@ -852,7 +855,7 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
 			gf_log (table->name, GF_LOG_ERROR,
 				"dentry information missing for non-root inode %"PRId64,
 				inode->ino);
-			ret = -1;
+			ret = -ENOENT;
 			goto unlock;
 		}
 
@@ -862,8 +865,9 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
                 }
 
                 ret = i;
-		
-                if (buf && size > i) {
+		size = i + 1;
+		buf = calloc (size, sizeof (char));
+                if (buf) {
 
                         buf[size - 1] = 0;
 
@@ -881,20 +885,31 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
                                 buf[i-len-1] = '/';
                                 i -= (len + 1);
                         }
-                }
+			*bufp = buf;
+                } else {
+			gf_log (table->name, GF_LOG_ERROR,
+				"out of memory");
+			ret = -ENOMEM;
+		}
         }
 unlock:
         pthread_mutex_unlock (&table->lock);
 
 	if (inode->ino == 1 && !name) {
 		ret = 1;
-		if (buf)
+		buf = calloc (ret + 1, sizeof (char));
+		if (buf) {
 			strcpy (buf, "/");
+			*bufp = buf;
+		} else {
+			gf_log (table->name, GF_LOG_ERROR,
+				"out of memory");
+			ret = -ENOMEM;
+		}
 	}
 
         return ret;
 }
-
 
 static int
 inode_table_prune (inode_table_t *table)

@@ -199,7 +199,9 @@ static int32_t
 libgf_client_loc_fill (loc_t *loc, const char *path, 
 		       ino_t ino, libglusterfs_client_ctx_t *ctx)
 {
-	int32_t pathlen = 0, op_ret = -1;
+	int32_t op_ret = -1;
+	int32_t ret = 0;
+	char *dentry_path = NULL;
 
 	loc->inode = NULL;
 	/* directory structure is flat. All files are immediate children of root */
@@ -221,17 +223,17 @@ libgf_client_loc_fill (loc_t *loc, const char *path,
 			goto out;
 		}
 
-		pathlen = inode_path (loc->inode, NULL, NULL, 0);
-		if (pathlen < 0) {
+		ret = inode_path (loc->inode, NULL, &dentry_path);
+		if (ret <= 0) {
 			gf_log ("libglusterfsclient", GF_LOG_ERROR,
 				"inode_path failed for %"PRId64,
 				loc->inode->ino);
 			inode_unref (loc->inode);
+			op_ret = ret;
 			goto out;
+		} else {
+			loc->path = dentry_path;
 		}
-		loc->path = calloc (1, pathlen + 1);
-		ERR_ABORT (loc->path);
-		inode_path (loc->inode, NULL, (char *)loc->path, pathlen + 1);
 	}
          
 	loc->name = strrchr (loc->path, '/');
