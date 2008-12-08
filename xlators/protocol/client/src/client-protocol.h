@@ -34,7 +34,7 @@
 #define CLIENT_PORT_CIELING 1023
 #define DEFAULT_BLOCK_SIZE     (1048576 * 256)   /* 4MB */
 
-#define CLIENT_CONNECTION_PRIVATE(this) (((transport_t *)(this->private))->xl_private)
+#define CLIENT_CONNECTION_PRIVATE(this) (( (transport_t *) (((client_private_t*)this->private)->transport) )->xl_private)
 
 #define RECEIVE_TIMEOUT(_cprivate,_current)         \
 		((_cprivate->last_received.tv_sec + \
