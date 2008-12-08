@@ -42,7 +42,6 @@ typedef struct {
 } ha_private_t;
 
 typedef struct {
-	char *fdsuccess;
 	char *fdstate;
 	char *path;
 	gf_lock_t lock;
@@ -86,25 +85,23 @@ typedef struct {
 				  prev_frame->this->name, op_ret, strerror (op_errno)); \
 		}							\
 		if (op_ret == -1 && (op_errno == ENOTCONN)) {		\
-			while (1) {					\
-				for (i = 0; i < pvt->child_count; i++){ \
-					if (prev_frame->this == children[i]) \
-						break;			\
-				}					\
-				LOCK(&hafdp->lock);			\
-				hafdp->fdstate[i] = 0;			\
-				UNLOCK(&hafdp->lock);			\
-				local->active = (local->active + 1) % pvt->child_count;	\
-				local->tries--;				\
-				if (local->tries == 0)			\
-					break;				\
-				if (local->state[local->active])	\
-					break;				\
-			}						\
-			if (local->tries != 0) {			\
-				call_resume (local->stub);		\
-				return 0;				\
-			}						\
+			for (i = 0; i < pvt->child_count; i++){         \
+				if (prev_frame->this == children[i])    \
+					break;			        \
+			}					        \
+			LOCK(&hafdp->lock);				\
+			hafdp->fdstate[i] = 0;				\
+			UNLOCK(&hafdp->lock);				\
+                        local->tries--;                                 \
+                        if (local->tries != 0) {                        \
+				while (1) {                             \
+					local->active = (local->active + 1) % pvt->child_count; \
+					if (local->state[local->active])\
+						break;                  \
+				}                                       \
+				call_resume (local->stub);              \
+				return 0;                               \
+			}                                               \
 		}							\
 		FREE (local->state);					\
 		call_stub_destroy (local->stub);			\

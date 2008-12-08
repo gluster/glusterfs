@@ -939,14 +939,17 @@ ha_mknod (call_frame_t *frame,
 	local->op_errno = ENOTCONN;
 	local->state = calloc (1, child_count);
 	memcpy (local->state, pvt->state, child_count);
-	local->active = pvt->active;
+	local->active = -1;
 
 	stateino = calloc (1, child_count);
 	dict_set (loc->inode->ctx, this->name, data_from_dynptr (stateino, child_count));
 
 	for (i = 0; i < child_count; i++) {
-		if (local->state[i])
+		if (local->state[i]) {
 			local->call_count++;
+			if (local->active == -1) 
+				local->active = i;
+		}
 	}
 
 	STACK_WIND (frame,
@@ -1114,14 +1117,17 @@ ha_mkdir (call_frame_t *frame,
 	local->op_errno = ENOTCONN;
 	local->state = calloc (1, child_count);
 	memcpy (local->state, pvt->state, child_count);
-	local->active = pvt->active;
+	local->active = -1;
 
 	stateino = calloc (1, child_count);
 	dict_set (loc->inode->ctx, this->name, data_from_dynptr (stateino, child_count));
 
 	for (i = 0; i < child_count; i++) {
-		if (local->state[i])
+		if (local->state[i]) {
 			local->call_count++;
+			if (local->active == -1)
+				local->active = i;
+		}
 	}
 
 	STACK_WIND (frame,
@@ -1342,7 +1348,8 @@ ha_symlink_cbk (call_frame_t *frame,
 		GF_TRACE (this, "unwind (%d, %s)", op_ret, strerror (op_errno));
 		FREE (local->state);
 		stub = local->stub;
-		STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stub->args.symlink.loc.inode, &local->buf);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+			      local->stub->args.symlink.loc.inode, &local->buf);
 		call_stub_destroy (stub);
 		return 0;
 	}
@@ -1396,14 +1403,18 @@ ha_symlink (call_frame_t *frame,
 	local->op_errno = ENOTCONN;
 	local->state = calloc (1, child_count);
 	memcpy (local->state, pvt->state, child_count);
-	local->active = pvt->active;
+	local->active = -1;
 
 	stateino = calloc (1, child_count);
 	dict_set (loc->inode->ctx, this->name, data_from_dynptr (stateino, child_count));
 
 	for (i = 0; i < child_count; i++) {
-		if (local->state[i])
+		if (local->state[i]) {
 			local->call_count++;
+			if (local->active == -1) {
+				local->active = i;
+			}
+		}
 	}
 
 	STACK_WIND (frame,
@@ -1613,6 +1624,18 @@ ha_link (call_frame_t *frame,
 	ha_private_t *pvt = NULL;
 	int child_count = 0, i = 0;
 	char *stateino = NULL;
+	int32_t ret = 0;
+
+	ret = dict_get_ptr (newloc->inode->ctx, this->name, (void *) &stateino);
+	if (ret != 0) {
+		GF_ERROR (this, "dict_ptr_error()");
+	}
+
+	if (stateino == NULL) {
+		GF_ERROR (this, "newloc->inode->ctx is NULL, returning EINVAL");
+		STACK_UNWIND (frame, -1, EINVAL, oldloc->inode, NULL);
+		return 0;
+	}
 
 	local = frame->local;
 	pvt = this->private;
@@ -1624,14 +1647,14 @@ ha_link (call_frame_t *frame,
 	local->op_errno = ENOTCONN;
 	local->state = calloc (1, child_count);
 	memcpy (local->state, pvt->state, child_count);
-	local->active = pvt->active;
-
-	stateino = calloc (1, child_count);
-	dict_set (newloc->inode->ctx, this->name, data_from_dynptr (stateino, child_count));
+	local->active = -1;
 
 	for (i = 0; i < child_count; i++) {
-		if (local->state[i])
+		if (local->state[i]) {
 			local->call_count++;
+			if (local->active == -1)
+				local->active = i;
+		}
 	}
 
 	STACK_WIND (frame,
@@ -1688,7 +1711,6 @@ ha_create_cbk (call_frame_t *frame,
 	}
 	if (op_ret != -1) {
 		stateino[i] = 1;
-		hafdp->fdsuccess[i] = 1;
 		hafdp->fdstate[i] = 1;
 		if (local->op_ret == -1) {
 			local->op_ret = 0;
@@ -1777,7 +1799,6 @@ ha_create (call_frame_t *frame,
 		/* FIXME handle active -1 */
 		stateino = calloc (1, child_count);
 		hafdp = calloc (1, sizeof (*hafdp));
-		hafdp->fdsuccess = calloc (1, child_count);
 		hafdp->fdstate = calloc (1, child_count);
 		hafdp->path = strdup(loc->path);
 		LOCK_INIT (&hafdp->lock);
@@ -1825,7 +1846,6 @@ ha_open_cbk (call_frame_t *frame,
 			break;
 	LOCK (&frame->lock);
 	if (op_ret != -1) {
-		hafdp->fdsuccess[i] = 1;
 		hafdp->fdstate[i] = 1;
 		local->op_ret = 0;
 	}
@@ -1871,7 +1891,6 @@ ha_open (call_frame_t *frame,
 	local->fd = fd;
 
 	hafdp = calloc (1, sizeof (*hafdp));
-	hafdp->fdsuccess = calloc (1, child_count);
 	hafdp->fdstate = calloc (1, child_count);
 	hafdp->path = strdup (loc->path);
 	hafdp->active = -1;
@@ -2321,7 +2340,6 @@ ha_opendir_cbk (call_frame_t *frame,
 			break;
 	LOCK (&frame->lock);
 	if (op_ret != -1) {
-		hafdp->fdsuccess[i] = 1;
 		hafdp->fdstate[i] = 1;
 		local->op_ret = 0;
 	}
@@ -2366,7 +2384,6 @@ ha_opendir (call_frame_t *frame,
 	local->fd = fd;
 
 	hafdp = calloc (1, sizeof (*hafdp));
-	hafdp->fdsuccess = calloc (1, child_count);
 	hafdp->fdstate = calloc (1, child_count);
 	hafdp->path = strdup (loc->path);
 	LOCK_INIT (&hafdp->lock);
@@ -2635,7 +2652,7 @@ ha_statfs (call_frame_t *frame,
 
 	GF_TRACE (this, "loc->path=%s", loc->path);
 	local = frame->local;
-	op_errno = dict_get_ptr (loc->inode->ctx, this->name, &state);
+	op_errno = dict_get_ptr (loc->inode->ctx, this->name, (void *) &state);
 	if (op_errno != 0) {
 		GF_ERROR (this, "unwind(-1), dict_get_ptr() error");
 		op_errno = -1 * op_errno;
@@ -2692,7 +2709,7 @@ ha_setxattr (call_frame_t *frame,
 
 	GF_TRACE (this, "loc->path=%s", loc->path);
 	local = frame->local;
-	op_errno = dict_get_ptr (loc->inode->ctx, this->name, &state);
+	op_errno = dict_get_ptr (loc->inode->ctx, this->name, (void *)&state);
 	if (op_errno != 0) {
 		GF_ERROR (this, "unwind(-1), dict_get_ptr() error");
 		op_errno = -1 * op_errno;
@@ -3570,7 +3587,6 @@ ha_closedir (xlator_t *this,
 		GF_ERROR (this, "dict_get_ptr() error");
 		return 0;
 	}
-	FREE (hafdp->fdsuccess);
 	FREE (hafdp->fdstate);
 	FREE (hafdp->path);
 	LOCK_DESTROY (&hafdp->lock);
@@ -3590,7 +3606,6 @@ ha_close (xlator_t *this,
 		return 0;
 	}
 
-	FREE (hafdp->fdsuccess);
 	FREE (hafdp->fdstate);
 	FREE (hafdp->path);
 	LOCK_DESTROY (&hafdp->lock);
