@@ -15,7 +15,7 @@ Platform-specific code can be written like this:
 
 * Coding guidelines
 
-In general, avoid gcc extensions. For example, nested functions don't work 
+In general, avoid glibc extensions. For example, nested functions don't work 
 on Mac OS X. It is best to stick to C99.
 
 When using library calls and system calls, pay attention to the
@@ -27,15 +27,19 @@ use of such things.
 Do not pass values of constants such as F_*, O_*, errno values, etc. across
 platforms.
 
+Please refer compat-errno.h for more details about errno handling inside 
+glusterfs for cross platform. 
+
 * Specific issues
 
-- The argp library is available only on Linux. For other platforms use the
-  functions provided by compat.h.
+- The argp library is available only on Linux through glibc, but for other
+  platforms glusterfs has already included argp-standalone library which will
+  statically linked during the glusterfs build. 
 
 - Extended attribute calls (setxattr, listxattr, etc.) have differing prototypes
-  on different platforms. See compat.h for macro definitions to resolve this.
+  on different platforms. See compat.h for macro definitions to resolve this, also
+  read out the specific extended attribute documentation for your platforms.
 
 ------------------------------------------
-Author: Vikas Gorur <vikas@zresearch.com>
 Last revised: Thu Feb 28 13:58:07 IST 2008
 ------------------------------------------

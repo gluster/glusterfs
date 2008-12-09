@@ -1,0 +1,44 @@
+                   Solaris Extended Attributes
+
+In solaris extended attributes are logically supported as files
+within the filesystem.  The file system is therefore augmented 
+with an orthogonal namespace of file attributes. Attribute values
+are accessed by file descriptors obtained through a special attribute
+interface. This type of logical view of "attributes as files" allows 
+the leveraging of existing file system interface functionality to 
+support the construction, deletion and manipulation of attributes. 
+
+But as we have tested through this functionality provided by Solaris
+we have come accross two major issues as written below.
+
+1. Symlink XATTR_NOFOLLOW not present for creating extended attributes 
+   directly on the symlinks like other platforms Linux,MAC-OSX,BSD etc.
+   An implementation is present for O_NOFOLLOW for "openat()" call sets 
+   up errno ELOOP whenever encountered with a symlink and also another 
+   implementation AT_SYMLINK_NOFOLLOW which is not present for calls like
+   "attropen(), openat()"
+
+   a snippet of test code which helped us understand this behaviour
+   --------------------------------------
+    attrfd = attropen (path, key, 
+    flags|AT_SYMLINK_NOFOLLOW|O_CREAT|O_WRONLY|O_NOFOLLOW, 0777);
+    if (attrfd >= 0) {
+      ftruncate (attrfd, 0);
+      ret = write (attrfd, value, size);
+      close (attrfd);
+    } else {
+       fprintf (stderr, "Couldn't set extended attribute for %s (%d)\n", 
+       	        path, errno);
+    }		
+    --------------------------------------
+
+2. Extended attribute support for special files like device files, fifo files
+   is not supported under solaris. 
+
+Apart from these glitches almost everything regarding porting functionality
+for extended attribute calls has been properly implemented in compat.c 
+with writing wrapper around functions over
+"attropen()", "openat()", "unlinkat()"
+
+
+
