@@ -5493,6 +5493,13 @@ client_setvolume_cbk (call_frame_t *frame,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
+	if (op_ret < 0 && op_errno == ENOTCONN) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"setvolume failed (%s)",
+			strerror (op_errno));
+		goto out;
+	}
+
 	reply = dict_new ();
 	GF_VALIDATE_OR_GOTO(this->name, reply, out);
 
