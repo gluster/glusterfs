@@ -1920,6 +1920,12 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev = cookie;
 	local = frame->local;
 
+	if (op_ret >= 0) {
+		/* in case the last subvolme unwinds error, this lets it know not to unwind
+		   the error upwards */
+		local->op_ret = 0;
+	}
+
 	if (op_ret < 0)
 		goto done;
 
@@ -1953,8 +1959,10 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 done:
 	if (count == 0) {
 		next = dht_subvol_next (this, prev->this);
-		if (!next)
+		if (!next) {
+			op_ret = local->op_ret;
 			goto unwind;
+		}
 
 		STACK_WIND (frame, dht_readdir_cbk,
 			    next, next->fops->readdir,
