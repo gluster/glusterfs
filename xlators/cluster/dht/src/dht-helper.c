@@ -174,6 +174,28 @@ basestr (const char *str)
         return basestr;
 }
 
+xlator_t *
+first_up_child (xlator_t *this)
+{
+	dht_conf_t *conf = NULL;
+	xlator_t *child = NULL;
+	int i = 0;
+
+	conf = this->private;
+	
+	LOCK (&conf->subvolume_lock);
+	{
+		for (i = 0; i < conf->subvolume_cnt; i++) {
+			if (conf->subvolume_status[i]) {
+				child = conf->subvolumes[i];
+				break;
+			}
+		}
+	}
+	UNLOCK (&conf->subvolume_lock);
+	
+	return child;
+}
 
 xlator_t *
 dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
@@ -182,8 +204,7 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
         xlator_t     *subvol = NULL;
 
         if (is_fs_root (loc)) {
-                /* TODO: this should be FIRST_UP_CHILD */
-                subvol = FIRST_CHILD (this);
+                subvol = first_up_child (this);
                 goto out;
         }
 
