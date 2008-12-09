@@ -593,32 +593,45 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
  */
 
 static int
-release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode, transport_t *trans)
+release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
+				   transport_t *trans)
 {
-	pl_entry_lock_t *lock;
-	pl_entry_lock_t *tmp;
+	pl_entry_lock_t  *lock;
+	pl_entry_lock_t  *tmp;
+	struct list_head  granted;
+
+	INIT_LIST_HEAD (&granted);
 
 	pthread_mutex_lock (&pinode->mutex);
+	{
+		if (list_empty (&pinode->dir_list)) {
+			goto unlock;
+		}
 
-	if (list_empty (&pinode->dir_list)) {
-		pthread_mutex_unlock (&pinode->mutex);
-		return 0;
-	}
+		list_for_each_entry_safe (lock, tmp, &pinode->dir_list,
+					  inode_list) {
+			if (lock->trans != trans)
+				continue;
 
-	list_for_each_entry_safe (lock, tmp, &pinode->dir_list, inode_list) {
-		if (lock->trans == trans) {
-			gf_log (this->name, GF_LOG_WARNING,
-				"forcing unlock of %s",
-				lock->basename);
-
-			list_del (&lock->inode_list);
+			list_del_init (&lock->inode_list);
+			__grant_blocked_entry_locks (this, pinode, lock,
+						     &granted);
 
 			FREE (lock->basename);
 			FREE (lock);
 		}
 	}
-
+unlock:
 	pthread_mutex_unlock (&pinode->mutex);
+
+	list_for_each_entry_safe (lock, tmp, &granted, blocked_locks) {
+		list_del_init (&lock->blocked_locks);
+
+		STACK_UNWIND (lock->frame, 0, 0);
+
+		FREE (lock->basename);
+		FREE (lock);
+	}
 
 	return 0;
 }
