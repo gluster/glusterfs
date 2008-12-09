@@ -42,7 +42,6 @@ server_loc_fill (loc_t *loc,
   	inode_t *parent = NULL;
   	int32_t  ret = -1;
 	char    *dentry_path = NULL;
-	size_t   dentry_path_len = 0;
 
 
   	GF_VALIDATE_OR_GOTO ("server", loc, out);
