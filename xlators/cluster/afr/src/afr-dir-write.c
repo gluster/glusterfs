@@ -52,7 +52,12 @@ void
 build_parent_loc (loc_t *parent, loc_t *child)
 {
 	char *tmp = NULL;
-	
+
+	if (!child->parent) {
+		loc_copy (parent, child);
+		return;
+	}
+
 	tmp = strdup (child->path);
 	parent->path   = strdup (dirname (tmp));
 	FREE (tmp);
