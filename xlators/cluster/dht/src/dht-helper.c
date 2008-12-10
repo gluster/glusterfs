@@ -241,8 +241,6 @@ dht_subvol_get_cached (xlator_t *this, inode_t *inode)
         layout = dht_layout_get (this, inode);
 
         if (!layout) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "layout missing");
                 goto out;
         }
 

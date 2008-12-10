@@ -202,6 +202,9 @@ unlock:
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
+		if (!S_ISDIR (local->stbuf.st_mode)
+		    && (local->hashed_subvol != local->cached_subvol))
+			local->stbuf.st_mode |= S_ISVTX;
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr);
 	}
@@ -529,6 +532,8 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
             loc_t *loc, int need_xattr)
 {
         xlator_t     *subvol = NULL;
+        xlator_t     *hashed_subvol = NULL;
+        xlator_t     *cached_subvol = NULL;
         dht_local_t  *local  = NULL;
         int           ret    = -1;
         int           op_errno = -1;
@@ -560,6 +565,12 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
+	hashed_subvol = dht_subvol_get_hashed (this, loc);
+	cached_subvol = dht_subvol_get_cached (this, loc->inode);
+
+	local->cached_subvol = cached_subvol;
+	local->hashed_subvol = hashed_subvol;
+
         if (is_revalidate (loc)) {
 		layout = dht_layout_get (this, loc->inode);
 
@@ -588,10 +599,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 				break;
 		}
         } else {
-                subvol = dht_subvol_get_hashed (this, loc);
-		local->hashed_subvol = subvol;
-
-                if (!subvol) {
+                if (!hashed_subvol) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "no subvolume in layout for path=%s",
                                 loc->path);
@@ -600,7 +608,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 }
 
                 STACK_WIND (frame, dht_lookup_cbk,
-                            subvol, subvol->fops->lookup,
+                            hashed_subvol, hashed_subvol->fops->lookup,
                             loc, 1);
         }
 
