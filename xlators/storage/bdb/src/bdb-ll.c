@@ -952,10 +952,10 @@ out:
  *  NOTE: bdb_checkpoint thread shares the DB_ENV handle with the filesystem thread.
  *
  *  db environment checkpointing frequency is controlled by 
- *  'option checkpoint-timeout <time-in-seconds>' in volume spec file.
+ *  'option checkpoint-timeout <time-in-seconds>' in volfile.
  *
  * NOTE: checkpointing thread is started only if 'option transaction on' specified in
- *      volume spec file. checkpointing is not valid for non-transactional environments.
+ *      volfile. checkpointing is not valid for non-transactional environments.
  *
  */
 static void *

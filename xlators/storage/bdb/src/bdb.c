@@ -967,7 +967,7 @@ bdb_lk (call_frame_t *frame,
  *      symlink (st_ino is modified as bdb allocates its own set of inodes of all files). for 
  *      regular files, bdb uses 'struct stat' of the database file in which the @loc is stored 
  *      as templete and modifies st_ino (see bdb_inode_transform for more details), st_mode (can 
- *      be set in volume spec file 'option file-mode <mode>'), st_size (exact size of the @loc
+ *      be set in volfile 'option file-mode <mode>'), st_size (exact size of the @loc
  *      contents), st_blocks (block count on the underlying filesystem to accomodate st_size, 
  *      see BDB_COUNT_BLOCKS in bdb.h for more details).
  */
@@ -3170,7 +3170,7 @@ init (xlator_t *this)
 	directory = dict_get (this->options, "directory");
 	if (!directory) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"export directory not specified in spec file");
+			"export directory not specified in volfile");
 		FREE (_private);
 		goto out;
 	} 

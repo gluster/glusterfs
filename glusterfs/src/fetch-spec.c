@@ -81,7 +81,7 @@ fetch_notify (xlator_t *this_xl, int event, void *data, ...)
 		STACK_WIND (frame, fetch_cbk,
 			    this_xl->children->xlator,
 			    this_xl->children->xlator->mops->getspec,
-			    this_xl->ctx->cmd_args.getspec_key,
+			    this_xl->ctx->cmd_args.volfile_id,
 			    0);
 		break;
 	case GF_EVENT_CHILD_DOWN:
@@ -246,13 +246,13 @@ fetch_spec (glusterfs_ctx_t *ctx)
 		return NULL;
 	}
 	
-	remote_host = ctx->cmd_args.specfile_server;
-	transport = ctx->cmd_args.specfile_server_transport;
+	remote_host = ctx->cmd_args.volfile_server;
+	transport = ctx->cmd_args.volfile_server_transport;
 	if (!transport)
 		transport = "socket";
 
 	ret = _fork_and_fetch (ctx, spec_fp, remote_host, transport,
-			       ctx->cmd_args.specfile_server_port);
+			       ctx->cmd_args.volfile_server_port);
 	
 	if (!ret) {
 		fseek (spec_fp, 0, SEEK_SET);

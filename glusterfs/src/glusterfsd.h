@@ -25,7 +25,7 @@
 #include "config.h"
 #endif
 
-#define DEFAULT_VOLUME_SPECFILE               CONFDIR "/specfile.vol"
+#define DEFAULT_VOLUME_FILE               CONFDIR "/specfile.vol"
 #define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"
 #define DEFAULT_LOG_LEVEL                     GF_LOG_WARNING
 #define DEFAULT_FUSE_ENTRY_TIMEOUT            1
@@ -56,12 +56,12 @@
 
 
 enum argp_option_keys {
-	ARGP_SPECFILE_SERVER_KEY = 's', 
-	ARGP_VOLUME_SPECFILE_KEY = 'f', 
+	ARGP_VOLFILE_SERVER_KEY = 's', 
+	ARGP_VOLUME_FILE_KEY = 'f', 
 	ARGP_LOG_LEVEL_KEY = 'L', 
 	ARGP_LOG_FILE_KEY = 'l', 
-	ARGP_SPECFILE_SERVER_PORT_KEY = 131, 
-	ARGP_SPECFILE_SERVER_TRANSPORT_KEY = 132, 
+	ARGP_VOLFILE_SERVER_PORT_KEY = 131, 
+	ARGP_VOLFILE_SERVER_TRANSPORT_KEY = 132, 
 	ARGP_PID_FILE_KEY = 'p',
 	ARGP_NO_DAEMON_KEY = 'N', 
 	ARGP_RUN_ID_KEY = 'r', 
@@ -74,9 +74,7 @@ enum argp_option_keys {
 #ifdef GF_DARWIN_HOST_OS
 	ARGP_NON_LOCAL_KEY = 139,
 #endif /* DARWIN */
-	ARGP_FUSE_NODEV_KEY = 141,
-	ARGP_FUSE_NOSUID_KEY = 142,
-	ARGP_SPECFILE_SERVER_GETSPEC_KEY = 143, 
+	ARGP_VOLFILE_ID_KEY = 143, 
 };
 
 /* Moved here from fetch-spec.h */

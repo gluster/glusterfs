@@ -6508,7 +6508,7 @@ mop_getspec (call_frame_t *frame,
 		ret = dict_get_str (frame->this->options, data_key, &filename);
 		if (ret < 0) {
 			gf_log (trans->xl->name, GF_LOG_ERROR,
-				"failed to get corresponding volume specfile "
+				"failed to get corresponding volume file "
 				"for the key '%s'. using default file %s", 
 				key, GLUSTERFSD_SPEC_PATH);
 		} 
@@ -6525,7 +6525,7 @@ mop_getspec (call_frame_t *frame,
 		sprintf (tmp_filename, "%s.%s", 
 			 filename, peerinfo->identifier);
 
-		/* Try for ip specific client spec file.
+		/* Try for ip specific client volfile.
 		 * If not found, then go for, regular client file.
 		 */
 		ret = open (tmp_filename, O_RDONLY);
@@ -6852,7 +6852,7 @@ mop_setvolume (call_frame_t *frame,
 
 	if (cprivate->bound_xl == NULL) {
 		ret = dict_set_str (reply, "ERROR",
-				    "Check volume spec file and handshake "
+				    "Check volfile and handshake "
 				    "options in protocol/client");
 		if (ret < 0)
 			gf_log (bound_xl->name, GF_LOG_ERROR, 
@@ -6883,7 +6883,7 @@ mop_setvolume (call_frame_t *frame,
 	}
 
 	ctx = get_global_ctx_ptr ();
-	ret = dict_set_str (reply, "unique-string", ctx->unique_str);
+	ret = dict_set_str (reply, "process-uuid", ctx->process_uuid);
 
 fail:
 	dict_len = dict_serialized_length (reply);
@@ -7562,7 +7562,7 @@ init (xlator_t *this)
 		/* Logging already done in above function, don't log again */
 		/* gf_log (this->name, GF_LOG_ERROR,
 			"authentication options validation failed, "
-			"check volume spec file"); 
+			"check volfile"); 
 		*/
 		goto out;
 	}

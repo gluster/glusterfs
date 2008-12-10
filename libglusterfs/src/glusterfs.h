@@ -206,13 +206,13 @@ typedef struct _xlator_cmdline_option xlator_cmdline_option_t;
 
 struct _cmd_args {
 	/* basic options */
-	char            *specfile_server;
-	char            *volume_specfile;
+	char            *volfile_server;
+	char            *volume_file;
 	gf_loglevel_t    log_level;
 	char            *log_file;
 	/* advanced options */
-	uint32_t         specfile_server_port;
-	char            *specfile_server_transport;
+	uint32_t         volfile_server_port;
+	char            *volfile_server_transport;
 	char            *pid_file;
 	int              no_daemon_mode;
 	char            *run_id;
@@ -234,13 +234,13 @@ struct _cmd_args {
 
 	/* key args */
 	char            *mount_point;
-	char            *getspec_key;
+	char            *volfile_id;
 };
 typedef struct _cmd_args cmd_args_t;
 
 struct _glusterfs_ctx {
 	cmd_args_t         cmd_args;
-	char              *unique_str;
+	char              *process_uuid;
 	FILE              *specfp;
 	FILE              *pidfp;
 	char               fin;

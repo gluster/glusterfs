@@ -3897,7 +3897,7 @@ init (xlator_t *this)
 	if (!this->children) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"No child nodes specified. check \"subvolumes \" "
-			"option in spec file");
+			"option in volfile");
 		return -1;
 	}
   
@@ -3905,7 +3905,7 @@ init (xlator_t *this)
 	scheduler = dict_get (this->options, "scheduler");
 	if (!scheduler) {
 		gf_log (this->name, GF_LOG_ERROR, 
-			"\"option scheduler <x>\" is missing in spec file");
+			"\"option scheduler <x>\" is missing in volfile");
 		return -1;
 	}
 
@@ -3938,7 +3938,7 @@ init (xlator_t *this)
 	}
 	if (!ns_xl) {
 		gf_log (this->name, GF_LOG_CRITICAL, 
-			"namespace node not found in spec file, Exiting");
+			"namespace node not found in volfile, Exiting");
 		return -1;
 	}
 	
@@ -3976,7 +3976,7 @@ init (xlator_t *this)
 				"WARNING: You have defined only one "
 				"\"subvolumes\" for unify volume. It may not "
 				"be the desired config, review your volume "
-				"spec file. If this is how you are testing it,"
+				"volfile. If this is how you are testing it,"
 				" you may hit some performance penalty");
 		}
 		

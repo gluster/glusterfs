@@ -5477,7 +5477,7 @@ client_setvolume_cbk (call_frame_t *frame,
 	dict_t *reply = NULL;
 	char *remote_subvol = NULL;
 	char *remote_error = NULL;
-	char *unique_str = NULL;
+	char *process_uuid = NULL;
 	int32_t ret = -1;
 	int32_t op_ret   = -1;
 	int32_t op_errno = EINVAL;
@@ -5518,10 +5518,10 @@ client_setvolume_cbk (call_frame_t *frame,
 			"failed to get ERROR string from reply dictionary");
 	}
 
-	ret = dict_get_str (reply, "unique-string", &unique_str);
+	ret = dict_get_str (reply, "process-uuid", &process_uuid);
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get 'unique-string' from reply dictionary");
+			"failed to get 'process-uuid' from reply dictionary");
 	}
 
 	if (op_ret < 0) {
@@ -5533,7 +5533,7 @@ client_setvolume_cbk (call_frame_t *frame,
 			goto out;
 	} else {
 		ctx = get_global_ctx_ptr ();
-		if (unique_str && !strcmp (ctx->unique_str, unique_str)) {
+		if (process_uuid && !strcmp (ctx->process_uuid,process_uuid)) {
 			ret = dict_get_str (this->options, "remote-subvolume",
 					    &remote_subvol);
 			if (!remote_subvol) 

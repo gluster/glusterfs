@@ -421,7 +421,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
                 specfp = init_ctx->specfp;
                 if (fseek (specfp, 0L, SEEK_SET)) {
 			fprintf (stderr, 
-				 "libglusterfsclient: %s:%s():%d: fseek on volume specification file stream failed (%s)\n", __FILE__, __PRETTY_FUNCTION__, __LINE__, strerror (errno));
+				 "libglusterfsclient: %s:%s():%d: fseek on volume file stream failed (%s)\n", __FILE__, __PRETTY_FUNCTION__, __LINE__, strerror (errno));
 			FREE (ctx->gf_ctx.cmd_args.log_file);
                         FREE (ctx->gf_ctx.pool);
                         FREE (ctx->gf_ctx.event_pool);
@@ -430,15 +430,15 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
                 }
         } else if (init_ctx->specfile) { 
                 specfp = fopen (init_ctx->specfile, "r");
-                ctx->gf_ctx.cmd_args.volume_specfile = strdup (init_ctx->specfile);
+                ctx->gf_ctx.cmd_args.volume_file = strdup (init_ctx->specfile);
         }
 
         if (!specfp) {
 		fprintf (stderr, 
-			 "libglusterfsclient: %s:%s():%d: could not open specfile: %s\n", 
+			 "libglusterfsclient: %s:%s():%d: could not open volfile: %s\n", 
 			 __FILE__, __PRETTY_FUNCTION__, __LINE__, strerror (errno));
 		FREE (ctx->gf_ctx.cmd_args.log_file);
-                FREE (ctx->gf_ctx.cmd_args.volume_specfile);
+                FREE (ctx->gf_ctx.cmd_args.volume_file);
                 FREE (ctx->gf_ctx.pool);
                 FREE (ctx->gf_ctx.event_pool);
                 FREE (ctx);
@@ -456,7 +456,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 			 __FILE__, __PRETTY_FUNCTION__, __LINE__, strerror (errno));
 
 		FREE (ctx->gf_ctx.cmd_args.log_file);
-                FREE (ctx->gf_ctx.cmd_args.volume_specfile);
+                FREE (ctx->gf_ctx.cmd_args.volume_file);
                 FREE (ctx->gf_ctx.cmd_args.volume_name);
                 FREE (ctx->gf_ctx.pool);
                 FREE (ctx->gf_ctx.event_pool);
@@ -483,7 +483,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 
 		xlator_tree_free (graph);
 		FREE (ctx->gf_ctx.cmd_args.log_file);
-                FREE (ctx->gf_ctx.cmd_args.volume_specfile);
+                FREE (ctx->gf_ctx.cmd_args.volume_file);
                 FREE (ctx->gf_ctx.cmd_args.volume_name);
                 FREE (ctx->gf_ctx.pool);
                 FREE (ctx->gf_ctx.event_pool);
@@ -500,7 +500,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 
 		xlator_tree_free (graph);
 		FREE (ctx->gf_ctx.cmd_args.log_file);
-                FREE (ctx->gf_ctx.cmd_args.volume_specfile);
+                FREE (ctx->gf_ctx.cmd_args.volume_file);
                 FREE (ctx->gf_ctx.cmd_args.volume_name);
                 FREE (ctx->gf_ctx.pool);
                 FREE (ctx->gf_ctx.event_pool);
@@ -521,7 +521,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 			 __FILE__, __PRETTY_FUNCTION__, __LINE__);
 		xlator_tree_free (graph); 
 		FREE (ctx->gf_ctx.cmd_args.log_file);
-                FREE (ctx->gf_ctx.cmd_args.volume_specfile);
+                FREE (ctx->gf_ctx.cmd_args.volume_file);
                 FREE (ctx->gf_ctx.cmd_args.volume_name);
 
                 FREE (ctx->gf_ctx.pool);
@@ -540,7 +540,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 			 __FILE__, __PRETTY_FUNCTION__, __LINE__);
 		xlator_tree_free (graph);
 		FREE (ctx->gf_ctx.cmd_args.log_file);
-                FREE (ctx->gf_ctx.cmd_args.volume_specfile);
+                FREE (ctx->gf_ctx.cmd_args.volume_file);
                 FREE (ctx->gf_ctx.cmd_args.volume_name);
                 FREE (ctx->gf_ctx.pool);
                 FREE (ctx->gf_ctx.event_pool);
@@ -561,7 +561,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 		xlator_graph_fini (graph);
 		xlator_tree_free (graph);
 		FREE (ctx->gf_ctx.cmd_args.log_file);
-                FREE (ctx->gf_ctx.cmd_args.volume_specfile);
+                FREE (ctx->gf_ctx.cmd_args.volume_file);
                 FREE (ctx->gf_ctx.cmd_args.volume_name);
 
                 FREE (ctx->gf_ctx.pool);
@@ -579,7 +579,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 		xlator_graph_fini (graph);
 		xlator_tree_free (graph);
 		FREE (ctx->gf_ctx.cmd_args.log_file);
-                FREE (ctx->gf_ctx.cmd_args.volume_specfile);
+                FREE (ctx->gf_ctx.cmd_args.volume_file);
                 FREE (ctx->gf_ctx.cmd_args.volume_name);
 
                 FREE (ctx->gf_ctx.pool);
@@ -628,7 +628,7 @@ int
 glusterfs_fini (libglusterfs_client_ctx_t *ctx)
 {
 	FREE (ctx->gf_ctx.cmd_args.log_file);
-	FREE (ctx->gf_ctx.cmd_args.volume_specfile);
+	FREE (ctx->gf_ctx.cmd_args.volume_file);
 	FREE (ctx->gf_ctx.cmd_args.volume_name);
 	FREE (ctx->gf_ctx.pool);
         FREE (ctx->gf_ctx.event_pool);

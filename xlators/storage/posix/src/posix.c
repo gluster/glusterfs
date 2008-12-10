@@ -3524,7 +3524,7 @@ init (xlator_t *this)
 
         if (!dir_data) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "export directory not specified in spec file");
+                        "export directory not specified in volfile");
                 ret = -1;
                 goto out;
         }

@@ -63,8 +63,8 @@ struct fuse_private {
         struct fuse         *fuse;
         struct fuse_session *se;
         struct fuse_chan    *ch;
-        char                *specfile;
-        size_t               specfile_size;
+        char                *volfile;
+        size_t               volfile_size;
         char                *mount_point;
         data_t              *buf;
         pthread_t            fuse_thread;
@@ -2059,10 +2059,10 @@ fuse_xattr_cbk (call_frame_t *frame,
                                         /* if callback for getxattr and asks for value length only */
                                         fuse_reply_xattr (req, ret);
                                 } /* if(ret >...)...else if...else */
-                        }  else if (!strcmp (state->name, "user.glusterfs-booster-specfile")) {
+                        }  else if (!strcmp (state->name, "user.glusterfs-booster-volfile")) {
 				fuse_private_t *priv = this->private;
  
-				if (!priv->specfile) {
+				if (!priv->volfile) {
 					glusterfs_ctx_t *ctx = NULL;
 					int32_t fd = -1, ret = -1;
 					struct stat st;
@@ -2079,22 +2079,22 @@ fuse_xattr_cbk (call_frame_t *frame,
                                                  fuse_reply_err (req, ENODATA);
                                          }
 					 
-                                         priv->specfile_size = st.st_size;
-                                         file = priv->specfile = calloc (1, priv->specfile_size);
+                                         priv->volfile_size = st.st_size;
+                                         file = priv->volfile = calloc (1, priv->volfile_size);
                                          ret = lseek (fd, 0, SEEK_SET);
                                          while ((ret = read (fd, file, GF_UNIT_KB)) > 0) {
                                                  file += ret;
                                          }
 				}
  
-				if (priv->specfile_size > GLUSTERFS_XATTR_LEN_MAX) {
+				if (priv->volfile_size > GLUSTERFS_XATTR_LEN_MAX) {
 					fuse_reply_err (req, E2BIG);
 				} else if (state->size) {
 					/* if callback for getxattr and asks for value */
-					fuse_reply_buf (req, priv->specfile, priv->specfile_size);
+					fuse_reply_buf (req, priv->volfile, priv->volfile_size);
 				} else {
 					/* if callback for getxattr and asks for value length only */
-					fuse_reply_xattr (req, priv->specfile_size);
+					fuse_reply_xattr (req, priv->volfile_size);
 				} /* if(ret >...)...else if...else */
 			} else if (!strcmp (state->name, "user.glusterfs-booster-path")) {
 				if (state->size) {
@@ -2666,19 +2666,7 @@ init (xlator_t *this_xl)
 		fuse_argv[--args.argc] = NULL;
 		fuse_argv[--args.argc] = NULL;
 	}
-#elif GF_LINUX_HOST_OS 
-
-	if (dict_get (options, "set-option-nodev")) {
-		fuse_argv[15] = "-o";
-		fuse_argv[16] = "nodev";
-	}
-
-	if (dict_get (options, "set-option-nosuid")) {
-		fuse_argv[17] = "-o";
-		fuse_argv[18] = "nosuid";
-	}
-
-#endif /* ! DARWIN || ! LINUX */
+#endif /* ! DARWIN */
 
 	/* get options from option dictionary */
 	ret = dict_get_str (options, ZR_MOUNTPOINT_OPT, &value_string);
@@ -2831,8 +2819,6 @@ struct xlator_mops mops = {
 
 struct xlator_options options[] = {
 	{ "direct-io-mode", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
-	{ "set-option-nosuid", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
-	{ "set-option-nodev", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
 	{ "non-local", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
 	{ "icon-name", GF_OPTION_TYPE_ANY, 0, 0, 0 },
 	{ "mount-point", GF_OPTION_TYPE_PATH, 0, 0, 0 },

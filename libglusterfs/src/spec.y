@@ -491,8 +491,8 @@ file_to_xlator_tree (glusterfs_ctx_t *ctx,
   
         if (1 == ret) {
                 gf_log ("parser", GF_LOG_DEBUG, 
-			"parsing of volume spec file failed, please "
-			"review it once more");
+			"parsing of volfile failed, please review it "
+			"once more");
                 tree = complete_tree = NULL;
                 return NULL;
         }

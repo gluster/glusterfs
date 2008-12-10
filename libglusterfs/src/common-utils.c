@@ -357,7 +357,7 @@ get_global_ctx_ptr (void)
 }
 
 void 
-gf_log_volume_specfile (FILE *specfp)
+gf_log_volume_file (FILE *specfp)
 {
 	extern FILE *gf_log_logfile;
 	int lcount = 0;
@@ -365,7 +365,7 @@ gf_log_volume_specfile (FILE *specfp)
 	
 	fseek (specfp, 0L, SEEK_SET);
 	
-	fprintf (gf_log_logfile, "given volume specfile\n");
+	fprintf (gf_log_logfile, "given volfile\n");
 	fprintf (gf_log_logfile, "+-----\n");
 	while (!feof (specfp)) {
 		if (fgets (data, GF_UNIT_KB, specfp) == NULL)

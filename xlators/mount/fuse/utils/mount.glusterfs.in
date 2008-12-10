@@ -70,25 +70,29 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
     fi
     
-    if [ -z "$spec_location" ]; then
+    if [ -z "$volfile_loc" ]; then
 	if [ -n "$transport" ]; then 
 	    cmd_line=$(echo "$cmd_line \
---specfile-server=$spec_server_ip \
---specfile-server-port=$spec_server_port \
---specfile-server-transport=$transport");
+--volfile-server=$server_ip \
+--volfile-server-port=$server_port \
+--volfile-server-transport=$transport");
 	else
 	    cmd_line=$(echo "$cmd_line \
---specfile-server=$spec_server_ip \
---specfile-server-port=$spec_server_port");
+--volfile-server=$server_ip \
+--volfile-server-port=$server_port");
 	fi
     else
-	cmd_line=$(echo "$cmd_line --spec-file=$spec_location");
+	cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
     fi
 
     if [ -n "$volume_name" ]; then
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
     
+    if [ -n "$volume_id" ]; then
+        cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
+    fi
+
     cmd_line=$(echo "$cmd_line $mount_point");
     exec $cmd_line;
 }
@@ -109,24 +113,26 @@ main ()
     direct_io_mode=$(echo "$options" | sed -n 's/.*direct-io-mode=\([^,]*\).*/\1/p');
 
     volume_name=$(echo "$options" | sed -n 's/.*volume-name=\([^,]*\).*/\1/p');
+
+    volume_id=$(echo "$options" | sed -n 's/.*volume-id=\([^,]*\).*/\1/p');
     
-    spec_location="$1";
+    volfile_loc="$1";
     
-    [ -r "$spec_location" ] || {
-	spec_server_ip=$(echo "$spec_location" | sed -n 's/\([^\:]*\).*/\1/p');
-	spec_server_port=$(echo "$spec_location" | sed -n 's/.*:\([^ ]*\).*/\1/p');
-	[ -n "$spec_server_port" ] || {
-	    spec_server_port="6996";
+    [ -r "$volfile_location" ] || {
+	server_ip=$(echo "$volfile_loc" | sed -n 's/\([^\:]*\).*/\1/p');
+	server_port=$(echo "$volfile_loc" | sed -n 's/.*:\([^ ]*\).*/\1/p');
+	[ -n "$server_port" ] || {
+	    server_port="6996";
 	}
 
-	spec_location="";
+	volfile_location="";
     }
     new_fs_options=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \
 	                                   -e 's/[,]*log-level=[^,]*//' \
 	                                   -e 's/[,]*volume-name=[^,]*//' \
 	                                   -e 's/[,]*direct-io-mode=[^,]*//' \
 	                                   -e 's/[,]*transport=[^,]*//' \
-	                                   -e 's/[,]*spec=[^,]*//');
+	                                   -e 's/[,]*volume-id=[^,]*//');
     # following line is product of love towards sed
     # $2=$(echo "$@" | sed -n 's/[^ ]* \([^ ]*\).*/\1/p');
     

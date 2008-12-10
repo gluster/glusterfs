@@ -20,7 +20,7 @@
 /**
  * xlators/cluster/stripe:
  *    Stripe translator, stripes the data accross its child nodes, 
- *    as per the options given in the spec file. The striping works 
+ *    as per the options given in the volfile. The striping works 
  *    fairly simple. It writes files at different offset as per 
  *    calculation. So, 'ls -l' output at the real posix level will 
  *    show file size bigger than the actual size. But when one does 
@@ -3059,7 +3059,7 @@ notify (xlator_t *this,
 }
 /**
  * init - This function is called when xlator-graph gets initialized. 
- *     The option given in spec files are parsed here.
+ *     The option given in volfiles are parsed here.
  * @this - 
  */
 int32_t
@@ -3147,7 +3147,7 @@ init (xlator_t *this)
 	if (!data) {
 		gf_log (this->name, GF_LOG_WARNING,
 			"No block-size specified. check "
-			"\"option block-size <x>\" in spec file, "
+			"\"option block-size <x>\" in volfile, "
 			"defaulting to 128KB");
 		priv->block_size = (128 * GF_UNIT_KB);
 	} else {
