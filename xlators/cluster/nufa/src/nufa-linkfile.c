@@ -129,6 +129,64 @@ nufa_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 	return 0;
 }
 
+int
+nufa_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			  int32_t op_ret, int32_t op_errno)
+{
+	nufa_local_t  *local = NULL;
+	call_frame_t  *prev = NULL;
+	xlator_t      *subvol = NULL;
+
+	local = frame->local;
+	prev = cookie;
+	subvol = prev->this;
+
+	if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"unlinking linkfile %s on %s failed (%s)",
+			local->loc.path, subvol->name, strerror (op_errno));
+	}
+
+	NUFA_STACK_DESTROY (frame);
+
+	return 0;
+}
+
+
+int
+nufa_linkfile_unlink (call_frame_t *frame, xlator_t *this,
+		     xlator_t *subvol, loc_t *loc)
+{
+	call_frame_t *unlink_frame = NULL;
+	nufa_local_t *unlink_local = NULL;
+	
+	unlink_frame = copy_frame (frame);
+	if (!unlink_frame) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+		goto err;
+	}
+	
+	unlink_local = nufa_local_init (unlink_frame);
+	if (!unlink_local) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+		goto err;
+	}
+
+	loc_copy (&unlink_local->loc, loc);
+
+	STACK_WIND (unlink_frame, nufa_linkfile_unlink_cbk,
+		    subvol, subvol->fops->unlink,
+		    &unlink_local->loc);
+
+	return 0;
+ err:
+	if (unlink_frame)
+		NUFA_STACK_DESTROY (unlink_frame);
+
+	return -1;
+}
 
 xlator_t *
 nufa_linkfile_subvol (xlator_t *this, inode_t *inode, struct stat *stbuf,

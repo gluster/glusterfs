@@ -99,8 +99,14 @@ nufa_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		ret = nufa_layout_merge (this, layout, prev->this,
 					op_ret, op_errno, xattr);
 
-		if (op_ret == -1)
+		if (op_ret == -1) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"lookup of %s on %s returned error (%s)",
+				local->loc.path, prev->this->name,
+				strerror (op_errno));
+			
 			goto unlock;
+		}
 
 		nufa_stat_merge (this, &local->stbuf, stbuf, prev->this);
         }
@@ -112,13 +118,13 @@ unlock:
 
         if (is_last_call (this_call_cnt)) {
 		if (local->op_ret == 0) {
-			ret = nufa_layout_normalize (this, &local->loc, layout);
+			ret = nufa_layout_normalize (this, &local->loc,layout);
 
 			local->layout = NULL;
 
 			if (ret != 0) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"triggering selfheal on %s",
+				gf_log (this->name, GF_LOG_WARNING,
+					"fixing assignment on %s",
 					local->loc.path);
 				goto selfheal;
 			}
@@ -134,11 +140,10 @@ unlock:
 
 selfheal:
 	ret = nufa_selfheal_directory (frame, nufa_lookup_selfheal_cbk,
-				      &local->loc, layout);
+				       &local->loc, layout);
 
 	return 0;
 }
-
 
 int
 nufa_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
@@ -205,7 +210,7 @@ nufa_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		if (S_IFMT & (stbuf->st_mode ^ local->inode->st_mode)) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_WARNING,
 				"mismatching filetypes 0%o v/s 0%o for %s",
 				(stbuf->st_mode & S_IFMT),
 				(local->inode->st_mode & S_IFMT),
@@ -220,17 +225,13 @@ nufa_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		nufa_stat_merge (this, &local->stbuf, stbuf, prev->this);
 
-		if (prev->this == local->cached_subvol) {
-			/* if the file/dir has not been recreated, the
-			 * scaled subvolumes should match.
-			 * NOTE: nufa_stat_merge() transforms local->stbuf.st_ino
-			 *       and local->st_ino will be 1. 
-			 */
-			/* succeed revalidate */
-			local->op_ret = 0;
+
+		local->op_ret = 0;
+		local->stbuf.st_ino = local->st_ino;
+
+		if (!local->xattr)
 			local->xattr = dict_ref (xattr);
-			local->stbuf.st_ino = local->st_ino;
-		}
+		
 	}
 unlock:
 	UNLOCK (&frame->lock);
@@ -238,18 +239,8 @@ unlock:
         this_call_cnt = nufa_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
-		if (local->op_ret == 0)
-			local->stbuf.st_ino = local->st_ino;
-
-		if (local->op_ret == -1 && local->op_errno == EUCLEAN)
-			trap ();
-
-		gf_log (this->name, GF_LOG_DEBUG,
-			"LOOKUP(): revalidate reply local->inode->ino = %"PRId64" and"
-			"stbuf->st_ino = %"PRId64, local->inode->ino, local->stbuf.st_ino);
-
 		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				  local->inode, &local->stbuf, local->xattr);
+				   local->inode, &local->stbuf, local->xattr);
 	}
 
         return 0;
@@ -336,7 +327,7 @@ nufa_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 subvol = nufa_linkfile_subvol (this, inode, stbuf, xattr);
 
                 if (!subvol) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "linkfile not having link subvolume. path=%s",
                                 loc->path);
                         op_ret   = -1;
@@ -364,6 +355,8 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nufa_local_t  *local  = frame->local;
         call_frame_t *prev   = NULL;
         xlator_t     *subvol = NULL;
+        xlator_t     *hashed_subvol = NULL;
+        xlator_t     *cached_subvol = NULL;
 	nufa_layout_t *layout = NULL;
         nufa_conf_t   *conf   = NULL;
 	int           i = 0;
@@ -375,6 +368,12 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	conf  = this->private;
         local = frame->local;
 
+	hashed_subvol = nufa_subvol_get_hashed (this, &local->loc);
+	cached_subvol = nufa_subvol_get_cached (this, local->loc.inode);
+	
+	local->cached_subvol = cached_subvol;
+	local->hashed_subvol = hashed_subvol;
+
         if (op_ret == -1)
                 goto out;
 
@@ -383,6 +382,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		is_linkfile = check_is_linkfile (inode, stbuf, xattr);
 		is_dir      = check_is_dir (inode, stbuf, xattr);
 
+		
 		if (!is_dir && !is_linkfile) {
 			/* non-directory and not a linkfile */
 
@@ -413,7 +413,8 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			local->op_ret = 0;
 			local->op_errno = 0;
 
-			local->layout = nufa_layout_new (this, conf->subvolume_cnt);
+			local->layout = nufa_layout_new (this, 
+							 conf->subvolume_cnt);
 			if (!local->layout) {
 				op_ret   = -1;
 				op_errno = ENOMEM;
@@ -431,12 +432,13 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 		
 		if (is_linkfile) {
-			subvol = nufa_linkfile_subvol (this, inode, stbuf, xattr);
+			subvol = nufa_linkfile_subvol (this, inode, 
+						       stbuf, xattr);
 			
 			if (!subvol) {
 				gf_log (this->name, GF_LOG_ERROR,
-					"linkfile not having link subvolume. path=%s",
-					local->loc.path);
+					"linkfile not having link subvolume. "
+					"path=%s", local->loc.path);
 				op_ret   = -1;
 				op_errno = EINVAL;
 				goto err;
@@ -451,24 +453,18 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
  out:
-	/* File not found on local volume, op_ret == -1 */
-	subvol = nufa_subvol_get_hashed (this, &local->loc);
-	
-	if (!subvol) {
+	if (!hashed_subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no subvolume in layout for path=%s",
 			local->loc.path);
 		op_errno = EINVAL;
-		NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
+		NUFA_STACK_UNWIND (frame, op_ret, op_errno, 
+				   inode, stbuf, xattr);
 		return 0;
 	}
-
-	gf_log (this->name, GF_LOG_DEBUG,
-		"LOOKUP() fresh: %s (%"PRId64"/%s)",
-		local->loc.path, (local->loc.parent? local->loc.parent->ino : 0), local->loc.name);
 		
 	STACK_WIND (frame, nufa_lookup_cbk,
-		    subvol, subvol->fops->lookup,
+		    hashed_subvol, hashed_subvol->fops->lookup,
 		    &local->loc, 1);
 
 	return 0;
@@ -530,18 +526,10 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 		
 		local->inode    = inode_ref (loc->inode);
 		local->st_ino   = loc->inode->ino;
-		/* used to check if the inode number has changed on the
-		   scaled subvolume */
-		nufa_deitransform (this, local->inode->ino,
-				  &local->cached_subvol, NULL);
-		
+
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
 		
-		gf_log (this->name, GF_LOG_DEBUG,
-			"LOOKUP() revalidating: %s (%"PRId64")",
-			loc->path, loc->inode->ino);
-
 		for (i = 0; i < layout->cnt; i++) {
 			subvol = layout->list[i].xlator;
 
@@ -1877,6 +1865,9 @@ nufa_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev = cookie;
 	local = frame->local;
 
+	if (op_ret >= 0)
+		local->op_ret = 0;
+
 	if (op_ret < 0)
 		goto done;
 
@@ -1910,8 +1901,10 @@ nufa_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 done:
 	if (count == 0) {
 		next = nufa_subvol_next (this, prev->this);
-		if (!next)
+		if (!next) {
+			op_ret = local->op_ret;
 			goto unwind;
+		}
 
 		STACK_WIND (frame, nufa_readdir_cbk,
 			    next, next->fops->readdir,

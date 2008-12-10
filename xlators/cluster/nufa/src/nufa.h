@@ -114,6 +114,7 @@ struct nufa_disk_layout {
 };
 typedef struct nufa_disk_layout nufa_disk_layout_t;
  
+#define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
 #define is_fs_root(loc) (strcmp (loc->path, "/") == 0)
 
@@ -136,6 +137,14 @@ typedef struct nufa_disk_layout nufa_disk_layout_t;
 		nufa_local_wipe (__local);	       \
 	} while (0)
 
+#define NUFA_STACK_DESTROY(frame) do {                 \
+                nufa_local_t *__local = NULL;          \
+                __local = frame->local;                \
+                frame->local = NULL;                   \
+                STACK_DESTROY (frame->root);           \
+                nufa_local_wipe (__local);             \
+        } while (0)
+
 
 nufa_layout_t *nufa_layout_new (xlator_t *this, int cnt);
 nufa_layout_t *nufa_layout_get (xlator_t *this, inode_t *inode);
@@ -150,6 +159,8 @@ int nufa_layout_anomalies (xlator_t *this, loc_t *loc, nufa_layout_t *layout,
 
 xlator_t *nufa_linkfile_subvol (xlator_t *this, inode_t *inode,
 			       struct stat *buf, dict_t *xattr);
+int nufa_linkfile_unlink (call_frame_t *frame, xlator_t *this,
+			  xlator_t *subvol, loc_t *loc);
 
 int nufa_layouts_init (xlator_t *this, nufa_conf_t *conf);
 int nufa_layout_merge (xlator_t *this, nufa_layout_t *layout, xlator_t *subvol,
@@ -180,7 +191,7 @@ int nufa_subvol_cnt (xlator_t *this, xlator_t *subvol);
 int nufa_hash_compute (int type, const char *name, uint32_t *hash_p);
 
 int nufa_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
-			 xlator_t *srcvol, xlator_t *dstvol, loc_t *loc);
+			  xlator_t *tovol, xlator_t *fromvol, loc_t *loc);
 
 int
 nufa_selfheal_directory (call_frame_t *frame, nufa_selfheal_dir_cbk_t cbk,

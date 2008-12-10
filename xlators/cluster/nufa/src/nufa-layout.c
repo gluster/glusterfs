@@ -28,6 +28,7 @@
 #include "nufa.h"
 #include "byte-order.h"
 
+#define VOID(ptr) ((void **) ((void *) ptr))
 
 #define layout_base_size (sizeof (nufa_layout_t))
 
@@ -40,7 +41,6 @@ nufa_layout_t *
 nufa_layout_new (xlator_t *this, int cnt)
 {
 	nufa_layout_t *layout = NULL;
-
 
 	layout = calloc (1, layout_size (cnt));
 	if (!layout) {
@@ -59,12 +59,12 @@ out:
 nufa_layout_t *
 nufa_layout_get (xlator_t *this, inode_t *inode)
 {
-        void *layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
-        int  ret = -1;
+	nufa_layout_t *layout = NULL;
+        int            ret = -1;
 
-        ret = dict_get_ptr (inode->ctx, this->name, &layout);
+        ret = dict_get_ptr (inode->ctx, this->name, VOID (&layout));
 
-        return (nufa_layout_t *)layout;
+        return layout;
 }
 
 
@@ -94,7 +94,7 @@ nufa_layout_search (xlator_t *this, nufa_layout_t *layout, const char *name)
 	}
 
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume for hash (value) = %u", hash);
 	}
 
@@ -109,7 +109,6 @@ nufa_layout_for_subvol (xlator_t *this, xlator_t *subvol)
 	nufa_conf_t   *conf = NULL;
 	nufa_layout_t *layout = NULL;
 	int           i = 0;
-
 
 	conf = this->private;
 
@@ -197,7 +196,6 @@ nufa_disk_layout_merge (xlator_t *this, nufa_layout_t *layout,
 	int      start_off = 0;
 	int      stop_off = 0;
 
-
 	/* TODO: assert disk_layout_ptr is of required length */
 
 	cnt  = ntoh32 (disk_layout[0]);
@@ -232,7 +230,6 @@ nufa_layout_merge (xlator_t *this, nufa_layout_t *layout, xlator_t *subvol,
 	int      ret   = -1;
 	int      err   = -1;
 	int32_t *disk_layout = NULL;
-	void    *tmp_disk_layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
 
 	if (op_ret != 0) {
 		err = op_errno;
@@ -249,17 +246,17 @@ nufa_layout_merge (xlator_t *this, nufa_layout_t *layout, xlator_t *subvol,
 	if (!xattr)
 		goto out;
 
-	ret = dict_get_ptr (xattr, "trusted.glusterfs.nufa", &tmp_disk_layout);
+	ret = dict_get_ptr (xattr, "trusted.glusterfs.dht", 
+			    VOID (&disk_layout));
 
 	if (ret != 0) {
 		err = -1;
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"missing disk layout on %s. err = %d",
 			subvol->name, err);
 		goto out;
 	}
 
-	disk_layout = tmp_disk_layout;
 	ret = nufa_disk_layout_merge (this, layout, i, disk_layout);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -305,11 +302,11 @@ nufa_layout_entry_cmp (nufa_layout_t *layout, int i, int j)
 {
 	int64_t diff = 0;
 
-
 	if (layout->list[i].err || layout->list[j].err)
 		diff = layout->list[i].err - layout->list[j].err;
 	else
-		diff = (int64_t) layout->list[i].start - (int64_t)layout->list[j].start;
+		diff = (int64_t) layout->list[i].start - 
+			(int64_t)layout->list[j].start;
 
 	return diff;
 }
@@ -422,7 +419,9 @@ nufa_layout_normalize (xlator_t *this, loc_t *loc, nufa_layout_t *layout)
 	int          ret   = 0;
 	uint32_t     holes = 0;
 	uint32_t     overlaps = 0;
-
+	uint32_t     missing = 0;
+	uint32_t     down = 0;
+	uint32_t     misc = 0;
 
 	ret = nufa_layout_sort (layout);
 	if (ret == -1) {
@@ -432,8 +431,8 @@ nufa_layout_normalize (xlator_t *this, loc_t *loc, nufa_layout_t *layout)
 	}
 
 	ret = nufa_layout_anomalies (this, loc, layout,
-				    &holes, &overlaps,
-				    NULL, NULL, NULL);
+				     &holes, &overlaps,
+				     &missing, &down, &misc);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to find anomalies in %s -- not good news",
@@ -442,9 +441,15 @@ nufa_layout_normalize (xlator_t *this, loc_t *loc, nufa_layout_t *layout)
 	}
 
 	if (holes || overlaps) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"found anomalies in %s. holes = %d overlaps = %d",
-			loc->path, holes, overlaps);
+		if (missing == layout->cnt) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"directory %s looked up first time",
+				loc->path);
+		} else {
+			gf_log (this->name, GF_LOG_ERROR,
+				"found anomalies in %s. holes=%d overlaps=%d",
+				loc->path, holes, overlaps);
+		}
 		ret = 1;
 	}
 

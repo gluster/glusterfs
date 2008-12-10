@@ -110,7 +110,7 @@ nufa_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
 		goto err;
 	}
 
-	ret = dict_set_bin (xattr, "trusted.glusterfs.nufa",
+	ret = dict_set_bin (xattr, "trusted.glusterfs.dht",
 			    disk_layout, 4 * 4);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -161,8 +161,7 @@ nufa_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, nufa_layout_t *layout)
 	this = frame->this;
 
 	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err == -1)
-			missing_xattr++;
+		missing_xattr++;
 	}
 
 	gf_log (this->name, GF_LOG_DEBUG,
@@ -172,10 +171,8 @@ nufa_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, nufa_layout_t *layout)
 	local->call_cnt = missing_xattr;
 
 	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err != -1)
-			continue;
-
-		ret = nufa_selfheal_dir_xattr_persubvol (frame, loc, layout, i);
+		ret = nufa_selfheal_dir_xattr_persubvol (frame, 
+							 loc, layout, i);
 	}
 
 	if (!missing_xattr)
@@ -348,32 +345,9 @@ nufa_selfheal_directory (call_frame_t *frame, nufa_selfheal_dir_cbk_t dir_cbk,
 	local->selfheal.dir_cbk = dir_cbk;
 	local->selfheal.layout = layout;
 
-	if (overlaps) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"not fixing overlaps in %s", loc->path);
-		local->op_errno = EINVAL;
-		ret = -1;
-		goto sorry_no_fix;
-	}
-
 	if (down) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"%d subvolumes down -- not fixing", down);
-		ret = 0;
-		goto sorry_no_fix;
-	}
-
-	if (misc) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"%d subvolumes have unrecoverable errors", misc);
-		ret = 0;
-		goto sorry_no_fix;
-	}
-
-	if (holes > missing) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"%d holes and %d pigeons -- not fixing",
-			holes, missing);
 		ret = 0;
 		goto sorry_no_fix;
 	}

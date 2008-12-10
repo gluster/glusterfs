@@ -174,6 +174,28 @@ basestr (const char *str)
         return basestr;
 }
 
+xlator_t *
+nufa_first_up_child (xlator_t *this)
+{
+	nufa_conf_t *conf = NULL;
+	xlator_t   *child = NULL;
+	int         i = 0;
+
+	conf = this->private;
+	
+	LOCK (&conf->subvolume_lock);
+	{
+		for (i = 0; i < conf->subvolume_cnt; i++) {
+			if (conf->subvolume_status[i]) {
+				child = conf->subvolumes[i];
+				break;
+			}
+		}
+	}
+	UNLOCK (&conf->subvolume_lock);
+	
+	return child;
+}
 
 xlator_t *
 nufa_subvol_get_hashed (xlator_t *this, loc_t *loc)
@@ -182,8 +204,7 @@ nufa_subvol_get_hashed (xlator_t *this, loc_t *loc)
         xlator_t     *subvol = NULL;
 
         if (is_fs_root (loc)) {
-                /* TODO: this should be FIRST_UP_CHILD */
-                subvol = FIRST_CHILD (this);
+                subvol = nufa_first_up_child (this);
                 goto out;
         }
 
@@ -216,12 +237,9 @@ nufa_subvol_get_cached (xlator_t *this, inode_t *inode)
         nufa_layout_t *layout = NULL;
         xlator_t     *subvol = NULL;
 
-
         layout = nufa_layout_get (this, inode);
 
         if (!layout) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "layout missing");
                 goto out;
         }
 
