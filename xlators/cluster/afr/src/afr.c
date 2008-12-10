@@ -1780,21 +1780,21 @@ init (xlator_t *this)
 	priv->metadata_change_log = 1;
 	priv->entry_change_log    = 1;
 
-	dict_ret = dict_get_str (this->options, "data-self-heal", &change_log);
+	dict_ret = dict_get_str (this->options, "data-change-log", &change_log);
 	if ((dict_ret == 0) && !strcasecmp (change_log, "off")) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"data change log turned off");
 		priv->data_change_log = 0;
 	}
 
-	dict_ret = dict_get_str (this->options, "metadata-self-heal", &change_log);
+	dict_ret = dict_get_str (this->options, "metadata-change-log", &change_log);
 	if ((dict_ret == 0) && !strcasecmp (change_log, "off")) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"metadata change log turned off");
 		priv->metadata_change_log = 0;
 	}
 
-	dict_ret = dict_get_str (this->options, "entry-self-heal", &change_log);
+	dict_ret = dict_get_str (this->options, "entry-change-log", &change_log);
 	if ((dict_ret == 0) && !strcasecmp (change_log, "off")) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"entry change log turned off");
@@ -1985,6 +1985,7 @@ struct xlator_options options[] = {
 	{ "entry-self-heal", GF_OPTION_TYPE_BOOL, 0, },
 	{ "data-change-log", GF_OPTION_TYPE_BOOL, 0, },
 	{ "metadata-change-log", GF_OPTION_TYPE_BOOL, 0,},
+	{ "entry-change-log", GF_OPTION_TYPE_BOOL, 0,},
 	{ "data-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
 	{ "metadata-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
 	{ "entry-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
