@@ -45,6 +45,11 @@ typedef struct _afr_private {
 	unsigned int metadata_self_heal;   /* on/off */
 	unsigned int entry_self_heal;      /* on/off */
 
+
+	unsigned int data_change_log;       /* on/off */
+	unsigned int metadata_change_log;   /* on/off */
+	unsigned int entry_change_log;      /* on/off */
+
 	unsigned int read_child;      /* read-subvolume */
 	unsigned int favorite_child;  /* subvolume to be preferred in resolving
 					 split-brain cases */
@@ -396,13 +401,13 @@ typedef struct _afr_local {
 #define all_tried(i, count)  ((i) == (count) - 1)
 
 void
-build_parent_loc (loc_t *parent, loc_t *child);
+afr_build_parent_loc (loc_t *parent, loc_t *child);
 
 int
-up_children_count (int child_count, unsigned char *child_up);
+afr_up_children_count (int child_count, unsigned char *child_up);
 
 int
-first_up_child (afr_private_t *priv);
+afr_first_up_child (afr_private_t *priv);
 
 ino64_t
 afr_itransform (ino64_t ino, int child_count, int child_index);
@@ -482,7 +487,7 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 
 	local->transaction.child_errno = calloc (sizeof (*local->transaction.child_errno),
 						  priv->child_count);
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = afr_up_children_count (priv->child_count, local->child_up);
 	if (local->call_count == 0)
 		return -ENOTCONN;
 

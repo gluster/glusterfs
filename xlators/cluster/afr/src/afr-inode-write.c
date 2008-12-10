@@ -138,7 +138,7 @@ afr_chmod_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -333,7 +333,7 @@ afr_fchmod_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -528,7 +528,7 @@ afr_chown_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -726,7 +726,7 @@ afr_fchown_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -921,7 +921,7 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1134,7 +1134,7 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (local->call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1331,7 +1331,7 @@ afr_ftruncate_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = up_children_count (priv->child_count, local->child_up);
+	local->call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (local->call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1527,7 +1527,7 @@ afr_utimens_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1721,7 +1721,7 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1912,7 +1912,7 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);

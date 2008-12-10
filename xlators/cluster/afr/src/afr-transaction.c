@@ -85,20 +85,20 @@ xattrop_needed (afr_private_t *priv, afr_transaction_type type)
 
 	switch (type) {
 	case AFR_DATA_TRANSACTION:
-		if (priv->data_self_heal)
+		if (priv->data_change_log)
 			ret = 1;
 		
 		break;
 
 	case AFR_METADATA_TRANSACTION:
-		if (priv->metadata_self_heal)
+		if (priv->metadata_change_log)
 			ret = 1;
 
 		break;
 
 	case AFR_ENTRY_TRANSACTION:
 	case AFR_ENTRY_RENAME_TRANSACTION:
-		if (priv->entry_self_heal)
+		if (priv->entry_change_log)
 			ret = 1;
 
 		break;
@@ -298,7 +298,7 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 
 	mark_down_children (local->pending_array, priv->child_count, local->child_up);
 
-	call_count = up_children_count (priv->child_count, local->child_up); 
+	call_count = afr_up_children_count (priv->child_count, local->child_up); 
 
 	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
 		call_count *= 2;
@@ -452,7 +452,7 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 	xattr = get_new_dict ();
 	dict_ref (xattr);
 
-	call_count = up_children_count (priv->child_count, local->child_up); 
+	call_count = afr_up_children_count (priv->child_count, local->child_up); 
 
 	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
 		call_count *= 2;

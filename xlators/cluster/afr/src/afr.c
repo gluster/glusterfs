@@ -197,7 +197,7 @@ afr_frame_return (call_frame_t *frame)
  */
 
 int
-first_up_child (afr_private_t *priv)
+afr_first_up_child (afr_private_t *priv)
 {
 	xlator_t ** children = NULL;
 	int         ret      = -1;
@@ -224,7 +224,7 @@ first_up_child (afr_private_t *priv)
  */
 
 int
-up_children_count (int child_count, unsigned char *child_up)
+afr_up_children_count (int child_count, unsigned char *child_up)
 {
 	int i   = 0;
 	int ret = 0;
@@ -449,8 +449,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	local->call_count = priv->child_count;
 
 	local->child_up = memdup (priv->child_up, priv->child_count);
-	local->child_count = up_children_count (priv->child_count,
-						local->child_up);
+	local->child_count = afr_up_children_count (priv->child_count,
+						    local->child_up);
 
 	/* By default assume ENOTCONN. On success it will be set to 0. */
 	local->op_errno = ENOTCONN;
@@ -1596,7 +1596,7 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 	local->cont.lk.flock = *flock;
 	local->op_ret = 0;
 
-	i = first_up_child (priv);
+	i = afr_first_up_child (priv);
 
 	STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) (long) i,
 			   priv->children[i],
@@ -1729,6 +1729,8 @@ init (xlator_t *this)
 	char * read_subvol = NULL;
 	char * fav_child   = NULL;
 	char * self_heal   = NULL;
+	char * change_log  = NULL;
+
 	int32_t lock_server_count = 1;
 
 	int    fav_ret       = -1;
@@ -1771,6 +1773,35 @@ init (xlator_t *this)
 			"entry self heal turned off");
 		priv->entry_self_heal = 0;
 	}
+
+	/* Change log options */
+
+	priv->data_change_log     = 1;
+	priv->metadata_change_log = 1;
+	priv->entry_change_log    = 1;
+
+	dict_ret = dict_get_str (this->options, "data-self-heal", &change_log);
+	if ((dict_ret == 0) && !strcasecmp (change_log, "off")) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"data change log turned off");
+		priv->data_change_log = 0;
+	}
+
+	dict_ret = dict_get_str (this->options, "metadata-self-heal", &change_log);
+	if ((dict_ret == 0) && !strcasecmp (change_log, "off")) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"metadata change log turned off");
+		priv->metadata_change_log = 0;
+	}
+
+	dict_ret = dict_get_str (this->options, "entry-self-heal", &change_log);
+	if ((dict_ret == 0) && !strcasecmp (change_log, "off")) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"entry change log turned off");
+		priv->entry_change_log = 0;
+	}
+
+	/* Locking options */
 
 	dict_ret = dict_get_int32 (this->options, "data-lock-server-count", 
 				   &lock_server_count);
@@ -1949,10 +1980,11 @@ struct xlator_cbks cbks = {
 struct xlator_options options[] = {
 	{ "read-subvolume", GF_OPTION_TYPE_XLATOR, 0, },
 	{ "favorite-child", GF_OPTION_TYPE_XLATOR, 0, },
-	{ "read-only", GF_OPTION_TYPE_BOOL, 0, },
 	{ "data-self-heal", GF_OPTION_TYPE_BOOL, 0, },
 	{ "metadata-self-heal", GF_OPTION_TYPE_BOOL, 0, },
 	{ "entry-self-heal", GF_OPTION_TYPE_BOOL, 0, },
+	{ "data-change-log", GF_OPTION_TYPE_BOOL, 0, },
+	{ "metadata-change-log", GF_OPTION_TYPE_BOOL, 0,},
 	{ "data-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
 	{ "metadata-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
 	{ "entry-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},

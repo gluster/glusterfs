@@ -219,7 +219,7 @@ afr_readdir (call_frame_t *frame, xlator_t *this,
 						
 	frame->local = local;
 
-	call_child = first_up_child (priv);
+	call_child = afr_first_up_child (priv);
 	if (call_child == -1) {
 		op_errno = ENOTCONN;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -311,7 +311,7 @@ afr_getdents (call_frame_t *frame, xlator_t *this,
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
-	call_child = first_up_child (priv);
+	call_child = afr_first_up_child (priv);
 	if (call_child == -1) {
 		op_errno = ENOTCONN;
 		gf_log (this->name, GF_LOG_ERROR,

@@ -49,7 +49,7 @@
 
 
 void
-build_parent_loc (loc_t *parent, loc_t *child)
+afr_build_parent_loc (loc_t *parent, loc_t *child)
 {
 	char *tmp = NULL;
 
@@ -165,7 +165,7 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -254,7 +254,7 @@ afr_create (call_frame_t *frame, xlator_t *this,
 	local->transaction.done   = afr_create_done;
 	local->transaction.unwind = afr_create_unwind;
 
-	build_parent_loc (&local->transaction.parent_loc, loc);
+	afr_build_parent_loc (&local->transaction.parent_loc, loc);
 
 	local->transaction.main_frame = frame;
 	local->transaction.basename = AFR_BASENAME (loc->path);
@@ -367,7 +367,7 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -451,7 +451,7 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 	local->transaction.done   = afr_mknod_done;
 	local->transaction.unwind = afr_mknod_unwind;
 
-	build_parent_loc (&local->transaction.parent_loc, loc);
+	afr_build_parent_loc (&local->transaction.parent_loc, loc);
 
 	local->transaction.main_frame = frame;
 	local->transaction.basename = AFR_BASENAME (loc->path);
@@ -564,7 +564,7 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -648,7 +648,7 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 	local->transaction.done   = afr_mkdir_done;
 	local->transaction.unwind = afr_mkdir_unwind;
 
-	build_parent_loc (&local->transaction.parent_loc, loc);
+	afr_build_parent_loc (&local->transaction.parent_loc, loc);
 
 	local->transaction.main_frame = frame;
 	local->transaction.basename = AFR_BASENAME (loc->path);
@@ -766,7 +766,7 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -850,7 +850,7 @@ afr_link (call_frame_t *frame, xlator_t *this,
 	local->transaction.done   = afr_link_done;
 	local->transaction.unwind = afr_link_unwind;
 
-	build_parent_loc (&local->transaction.parent_loc, oldloc);
+	afr_build_parent_loc (&local->transaction.parent_loc, oldloc);
 
 	local->transaction.main_frame   = frame;
 	local->transaction.basename     = AFR_BASENAME (oldloc->path);
@@ -964,7 +964,7 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1050,7 +1050,7 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 	local->transaction.done   = afr_symlink_done;
 	local->transaction.unwind = afr_symlink_unwind;
 
-	build_parent_loc (&local->transaction.parent_loc, loc);
+	afr_build_parent_loc (&local->transaction.parent_loc, loc);
 
 	local->transaction.main_frame   = frame;
 	local->transaction.basename     = AFR_BASENAME (loc->path);
@@ -1161,7 +1161,7 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1245,8 +1245,8 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 	local->transaction.done   = afr_rename_done;
 	local->transaction.unwind = afr_rename_unwind;
 
-	build_parent_loc (&local->transaction.parent_loc, oldloc);
-	build_parent_loc (&local->transaction.new_parent_loc, newloc);
+	afr_build_parent_loc (&local->transaction.parent_loc, oldloc);
+	afr_build_parent_loc (&local->transaction.new_parent_loc, newloc);
 
 	local->transaction.main_frame   = frame;
 	local->transaction.basename     = AFR_BASENAME (oldloc->path);
@@ -1353,7 +1353,7 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1434,7 +1434,7 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 	local->transaction.done   = afr_unlink_done;
 	local->transaction.unwind = afr_unlink_unwind;
 
-	build_parent_loc (&local->transaction.parent_loc, loc);
+	afr_build_parent_loc (&local->transaction.parent_loc, loc);
 
 	local->transaction.main_frame = frame;
 	local->transaction.basename = AFR_BASENAME (loc->path);
@@ -1540,7 +1540,7 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
@@ -1621,7 +1621,7 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 	local->transaction.done   = afr_rmdir_done;
 	local->transaction.unwind = afr_rmdir_unwind;
 
-	build_parent_loc (&local->transaction.parent_loc, loc);
+	afr_build_parent_loc (&local->transaction.parent_loc, loc);
 
 	local->transaction.main_frame = frame;
 	local->transaction.basename = AFR_BASENAME (loc->path);
@@ -1693,7 +1693,7 @@ afr_setdents_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
-	call_count = up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);

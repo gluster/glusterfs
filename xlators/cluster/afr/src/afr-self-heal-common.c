@@ -939,7 +939,7 @@ afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 		"attempting to recreate missing entries for path=%s",
 		local->loc.path);
 
-	build_parent_loc (&sh->parent_loc, &local->loc);
+	afr_build_parent_loc (&sh->parent_loc, &local->loc);
 
 	call_count = local->child_count;
 

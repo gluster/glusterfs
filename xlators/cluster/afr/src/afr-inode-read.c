@@ -125,7 +125,7 @@ afr_access (call_frame_t *frame, xlator_t *this,
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
-	call_child = first_up_child (priv);
+	call_child = afr_first_up_child (priv);
 	if (call_child == -1) {
 		op_errno = ENOTCONN;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -451,7 +451,7 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-	call_child = first_up_child (priv);
+	call_child = afr_first_up_child (priv);
 	if (call_child == -1) {
 		op_errno = ENOTCONN;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -549,7 +549,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
 
-	call_child = first_up_child (priv);
+	call_child = afr_first_up_child (priv);
 	if (call_child == -1) {
 		op_errno = ENOTCONN;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -686,7 +686,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 		*/
 		local->cont.readv.last_tried = -1;
 	} else {
-		call_child = first_up_child (priv);
+		call_child = afr_first_up_child (priv);
 		if (call_child == -1) {
 			op_errno = ENOTCONN;
 			gf_log (this->name, GF_LOG_ERROR,
