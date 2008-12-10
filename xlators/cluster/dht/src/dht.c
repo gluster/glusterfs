@@ -235,6 +235,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
 	inode_ctx_set (local->inode, this, layout);
 	local->op_ret = 0;
+	local->stbuf.st_mode |= S_ISVTX;
 
 unwind:
 	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
@@ -393,6 +394,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 
         /* TODO: assert type is non-dir and non-linkfile */
 
+	stbuf->st_mode |= S_ISVTX;
         dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
 
 	layout = dht_layout_for_subvol (this, prev->this);
