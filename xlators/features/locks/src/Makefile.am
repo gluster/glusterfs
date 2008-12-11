@@ -17,4 +17,4 @@ uninstall-local:
 	rm -f $(xlatordir)/posix-locks.so
 
 install-data-hook:
-	ln -sf $(xlatordir)/locks.so $(xlatordir)/posix-locks.so
+	ln -sf locks.so $(DESTDIR)$(xlatordir)/posix-locks.so
