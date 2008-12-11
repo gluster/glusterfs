@@ -421,13 +421,16 @@ AC_SUBST(BDB_SUBDIR)
 dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
 dnl solution to GCC backtrace functionality
 
-AC_CHECK_HEADERS([execinfo.h], [have_backtrace=yes],
-               AC_CHECK_LIB([execinfo], [backtrace], [have_backtrace=yes]))
-dnl               AC_MSG_ERROR([libexecinfo not found libexecinfo required.])))
+AC_CHECK_HEADERS([execinfo.h], [HAVE_BACKTRACE="yes"], [HAVE_BACKTRACE="no"])
 
-if test "x${have_backtrace}" = "xyes"; then
+if test "x$HAVE_BACKTRACE" = "xyes"; then
+   AC_CHECK_LIB([execinfo], [backtrace], [HAVE_BACKTRACE="yes"], [HAVE_BACKTRACE="no"])
+fi
+
+if test "x$HAVE_BACKTRACE" = "xyes"; then
    AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
 fi
+
 AC_SUBST(HAVE_BACKTRACE)
 
 dnl glusterfs prints memory usage to stderr by sending it SIGUSR1
@@ -444,7 +447,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 		  [have_tv_nsec=yes], [have_tv_nsec=no])
 
 if test "x${have_tv_nsec}" = "xyes"; then
-  AC_DEFINE(HAVE_TV_NSEC, 1, [define if found tv_nsec])
+   AC_DEFINE(HAVE_TV_NSEC, 1, [define if found tv_nsec])
 fi
 AC_SUBST(HAVE_TV_NSEC)
 
@@ -464,12 +467,12 @@ AC_CHECK_HEADER([malloc.h], AC_DEFINE(HAVE_MALLOC_H, 1, [have malloc.h]))
 
 AC_CHECK_FUNC([llistxattr], [have_llistxattr=yes])
 if test "x${have_llistxattr}" = "xyes"; then
-  AC_DEFINE(HAVE_LLISTXATTR, 1, [define if llistxattr exists])
+   AC_DEFINE(HAVE_LLISTXATTR, 1, [define if llistxattr exists])
 fi
 
 AC_CHECK_FUNC([fdatasync], [have_fdatasync=yes])
 if test "x${have_fdatasync}" = "xyes"; then
-  AC_DEFINE(HAVE_FDATASYNC, 1, [define if fdatasync exists])
+   AC_DEFINE(HAVE_FDATASYNC, 1, [define if fdatasync exists])
 fi
 
 GF_HOST_OS=""
@@ -498,6 +501,10 @@ case $host_os in
 	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
+	if test "x$HAVE_BACKTRACE" = "x1"; then
+	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
+	fi				      
+	GF_FUSE_LDADD = "-liconv -lfuse"
 	BUILD_MOD_GLUSTERFS=no
 	MOD_GLUSTERFS_SUBDIR=""
 	BUILD_LIBGLUSTERFSCLIENT=no
