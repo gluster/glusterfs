@@ -65,10 +65,18 @@ gf_auth (dict_t *input_params, dict_t *config_params)
 			  searchstr);
   free (searchstr);
 
+  if (!allow_addr) {
+	  /* TODO: backword compatibility */
+	  asprintf (&searchstr, "auth.ip.%s.allow", name);
+	  allow_addr = dict_get (config_params, searchstr);
+	  free (searchstr);
+  }
+
   if (!(allow_addr || reject_addr)) {
-    gf_log ("auth/addr",
-	    GF_LOG_DEBUG,
-	    "none of the options auth.addr.%s.allow or auth.addr.%s.reject specified, returning auth_dont_care", name, name);
+    gf_log ("auth/addr",  GF_LOG_DEBUG,
+	    "none of the options auth.addr.%s.allow or "
+	    "auth.addr.%s.reject specified, returning auth_dont_care", 
+	    name, name);
     return AUTH_DONT_CARE;
   }
 
@@ -104,9 +112,9 @@ gf_auth (dict_t *input_params, dict_t *config_params)
 
 	peer_port = atoi (service);
 	if (peer_port >= PRIVILAGED_PORT_CIELING) {
-	  gf_log ("auth/addr",
-		  GF_LOG_ERROR,
-		  "client is bound to port %d which is not privilaged", peer_port);
+	  gf_log ("auth/addr", GF_LOG_ERROR,
+		  "client is bound to port %d which is not privilaged", 
+		  peer_port);
 	  return AUTH_DONT_CARE;
 	}
 	break;
