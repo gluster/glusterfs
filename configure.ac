@@ -501,10 +501,10 @@ case $host_os in
 	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
-	if test "x$HAVE_BACKTRACE" = "x1"; then
+	if test "x$HAVE_BACKTRACE" = "xyes"; then
 	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
 	fi				      
-	GF_FUSE_LDADD = "-liconv -lfuse"
+	GF_FUSE_LDADD="-liconv -lfuse"
 	BUILD_MOD_GLUSTERFS=no
 	MOD_GLUSTERFS_SUBDIR=""
 	BUILD_LIBGLUSTERFSCLIENT=no
