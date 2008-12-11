@@ -354,7 +354,21 @@ afr_write_pending_post_op (call_frame_t *frame, xlator_t *this)
 				call_count--;
 			}
 
-				/* fall through */
+			/* 
+			   set it again because previous stack_wind
+			   might have already returned (think of case
+			   where subvolume is posix) and would have
+			   used the dict as placeholder for return
+			   value
+			*/
+			ret = dict_set_static_bin (xattr, local->transaction.pending, 
+						   local->pending_array, 
+						   priv->child_count * sizeof (int32_t));
+			if (ret < 0)
+				gf_log (this->name, GF_LOG_ERROR, 
+					"failed to set pending entry");
+
+			/* fall through */
 
 			case AFR_ENTRY_TRANSACTION:
 			{
@@ -513,7 +527,24 @@ afr_write_pending_pre_op (call_frame_t *frame, xlator_t *this)
 
 				call_count--;
 			}
-				/* fall through */
+
+
+			/* 
+			   set it again because previous stack_wind
+			   might have already returned (think of case
+			   where subvolume is posix) and would have
+			   used the dict as placeholder for return
+			   value
+			*/
+
+			ret = dict_set_static_bin (xattr, local->transaction.pending, 
+						   local->pending_array, 
+						   priv->child_count * sizeof (int32_t));
+			if (ret < 0)
+				gf_log (this->name, GF_LOG_ERROR, 
+					"failed to set pending entry");
+
+			/* fall through */
 				
 			case AFR_ENTRY_TRANSACTION:
 			{
