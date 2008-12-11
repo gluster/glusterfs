@@ -123,6 +123,11 @@ volume afr
 
 \begin_layout Standard
 
+ type cluster/afr
+\end_layout
+
+\begin_layout Standard
+
  # options, see below for description
 \end_layout
 
@@ -169,6 +174,57 @@ extended attributes
 .
  This means that you should choose a backend filesystem that supports extended
  attributes, like XFS, ReiserFS, or Ext3.
+\end_layout
+
+\begin_layout Standard
+The storage volumes used as backend for AFR 
+\emph on
+must
+\emph default
+ have a posix-locks volume loaded above them.
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Standard
+
+
+\backslash
+begin{verbatim}
+\end_layout
+
+\begin_layout Standard
+
+volume brick1
+\end_layout
+
+\begin_layout Standard
+
+ type features/posix-locks
+\end_layout
+
+\begin_layout Standard
+
+ subvolumes brick1-ds
+\end_layout
+
+\begin_layout Standard
+
+end-volume
+\end_layout
+
+\begin_layout Standard
+
+
+\backslash
+end{verbatim}
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section*

@@ -83,8 +83,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/protocol/server/Makefile
 		xlators/protocol/server/src/Makefile
 		xlators/features/Makefile
-		xlators/features/posix-locks/Makefile
-		xlators/features/posix-locks/src/Makefile
+		xlators/features/locks/Makefile
+		xlators/features/locks/src/Makefile
 		xlators/features/path-convertor/Makefile
 		xlators/features/path-convertor/src/Makefile
 		xlators/features/trash/Makefile
