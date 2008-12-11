@@ -7317,6 +7317,7 @@ server_protocol_cleanup (transport_t *trans)
 	peer_info_t       *peerinfo = NULL;
 	xlator_t          *bound_xl = NULL;
 	int32_t            ret = -1;
+	server_state_t    *state = NULL;
 	struct list_head   file_lockers;
 	struct list_head   dir_lockers;
 	struct _lock_table *ltable = NULL;
@@ -7411,6 +7412,8 @@ server_protocol_cleanup (transport_t *trans)
 			free (locker);
 		}
 
+		state = CALL_STATE (frame);
+		free (state);
 		STACK_DESTROY (frame->root);
 
 		pthread_mutex_lock (&(cprivate->lock));

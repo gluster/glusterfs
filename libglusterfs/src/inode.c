@@ -853,7 +853,7 @@ inode_path (inode_t *inode,
 		if ((inode->ino != 1) &&
 		    (i == 0)) {
 			gf_log (table->name, GF_LOG_ERROR,
-				"dentry information missing for non-root inode %"PRId64,
+				"no dentry for non-root inode %"PRId64,
 				inode->ino);
 			ret = -ENOENT;
 			goto unlock;
@@ -897,6 +897,9 @@ unlock:
 
 	if (inode->ino == 1 && !name) {
 		ret = 1;
+		if (buf) {
+			FREE (buf);
+		}
 		buf = calloc (ret + 1, sizeof (char));
 		if (buf) {
 			strcpy (buf, "/");
