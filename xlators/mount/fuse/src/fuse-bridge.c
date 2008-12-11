@@ -2621,11 +2621,10 @@ init (xlator_t *this_xl)
 			     NULL};
 
 #else /* BSD || SOLARIS */
-	/* BSD fuse doesn't support '-o dev' option */
-        int fuse_argc = 17;
+	/* BSD fuse doesn't support '-o dev', '-o nonempty' option */
+        int fuse_argc = 15;
 	
 	char *fuse_argv[] = {"glusterfs",
-			     "-o", "nonempty",
 			     "-o", "max_readahead=1048576",
 			     "-o", "max_read=1048576",
 			     "-o", "max_write=1048576",
