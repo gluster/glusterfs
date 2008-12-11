@@ -14,7 +14,7 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -fno-strict-aliasin
 CLEANFILES = 
 
 uninstall-local:
-	rm -f $(xlatordir)/posix-locks.so
+	rm -f $(DESTDIR)$(xlatordir)/posix-locks.so
 
 install-data-hook:
 	ln -sf locks.so $(DESTDIR)$(xlatordir)/posix-locks.so
