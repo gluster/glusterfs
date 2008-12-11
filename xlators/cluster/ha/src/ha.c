@@ -63,7 +63,7 @@ ha_lookup_cbk (call_frame_t *frame,
 	}
 	GF_TRACE (this, "(child=%s) (op_ret=%d op_errno=%s)", 
 		  children[i]->name, op_ret, strerror (op_errno));
-	if (op_ret == -1) {
+	if ((op_ret == -1) && (op_errno != ENOENT)) {
 		GF_ERROR (this, "(child=%s) (op_ret=%d op_errno=%s)", 
 			  children[i]->name, op_ret, strerror (op_errno));
 	}
@@ -74,7 +74,8 @@ ha_lookup_cbk (call_frame_t *frame,
 	if (local->revalidate == 1) {
 		if ((!op_ret) != state[i]) {
 			local->revalidate_error = 1;
-			GF_DEBUG (this, "revalidate error on %s", pvt->children[i]->name);
+			GF_DEBUG (this, "revalidate error on %s", 
+				  pvt->children[i]->name);
 		}
 	} else {
 		if (op_ret == 0) {
@@ -132,7 +133,8 @@ ha_lookup (call_frame_t *frame,
 	GF_TRACE(this,"loc->path=%s", loc->path);
 
 	if (pvt->active == -1) {
-		GF_ERROR (this, "unwind(-1, ENOTCONN), none of the subvols are up");
+		GF_ERROR (this, 
+			  "unwind(-1, ENOTCONN), none of the subvols are up");
 		STACK_UNWIND (frame,
 			      -1, ENOTCONN, NULL, NULL, NULL);
 		return 0;
@@ -144,7 +146,8 @@ ha_lookup (call_frame_t *frame,
 	state_data = dict_get (loc->inode->ctx, this->name);
 	if (state_data == NULL) {
 		state = calloc (1, child_count);
-		dict_set (loc->inode->ctx, this->name, data_from_dynptr (state, child_count));
+		dict_set (loc->inode->ctx, this->name, 
+			  data_from_dynptr (state, child_count));
 	} else
 		local->revalidate = 1;
 	local->op_ret = -1;
@@ -202,7 +205,8 @@ ha_stat (call_frame_t *frame,
 	HA_CALL_CODE(frame, local, state);
 	if (local->active == -1) {
 		op_errno = ENOTCONN;
-		GF_ERROR (this, "unwind(-1, ENOTCONN), none of the subvols are up");
+		GF_ERROR (this, 
+			  "unwind(-1, ENOTCONN), none of the subvols are up");
 		goto err;
 	}
 	local->stub = fop_stat_stub (frame, ha_stat, loc);
