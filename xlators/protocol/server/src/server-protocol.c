@@ -6899,7 +6899,7 @@ fail:
 	rsp_hdrlen = gf_hdr_len (rsp, dict_len);
 	rsp = gf_param (rsp_hdr);
 
-	if (op_ret >= 0) {
+	if (dict_len) {
 		ret = dict_serialize (reply, rsp->buf);
 		if (ret < 0) {
 			gf_log (xl->name, GF_LOG_ERROR,
