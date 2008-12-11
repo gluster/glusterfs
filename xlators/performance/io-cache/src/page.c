@@ -294,7 +294,7 @@ ioc_fault_cbk (call_frame_t *frame,
   off_t trav_offset = 0;
   size_t payload_size = 0;
   int32_t destroy_size = 0;
-  int32_t idx = 0;
+  size_t page_size = 0;
 
   trav_offset = offset;  
   payload_size = op_ret;
@@ -352,8 +352,9 @@ ioc_fault_cbk (call_frame_t *frame,
 	 * translator returned. earlier op_ret from child translator was used, which 
 	 * gave rise to a bug where reads from io-cached volume were resulting in 0 
 	 * byte replies */
-	for (idx = 0; idx < count; idx++)
-		page->size += vector[idx].iov_len;
+	page_size = iov_length(vector, count);
+	
+	page->size = page_size;
 
 	if (page->waitq) {
 	  /* wake up all the frames waiting on this page, including 
@@ -365,12 +366,10 @@ ioc_fault_cbk (call_frame_t *frame,
   } /* ioc_inode locked region end */
   ioc_inode_unlock (ioc_inode);
 
-  if (page) {
-    if (page->size) {
-      ioc_table_lock (table);
-      table->cache_used += page->size;
-      ioc_table_unlock (table);
-    }
+  if (page_size) {
+	  ioc_table_lock (table);
+	  table->cache_used += page_size;
+	  ioc_table_unlock (table);
   }
 
   if (destroy_size) {
