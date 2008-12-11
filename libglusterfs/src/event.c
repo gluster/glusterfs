@@ -433,6 +433,7 @@ event_dispatch_poll (struct event_pool *event_pool)
   
 	while (1) {
 		size = event_dispatch_poll_resize (event_pool, ufds, size);
+		ufds = event_pool->evcache;
 
 		ret = poll (ufds, size, 1);
 
