@@ -2096,8 +2096,6 @@ nufa_mknod_linkfile_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this
 			"possible inconsistency, linkfile created, extended attribute not written");
 	}
 
-	dict_unref (local->linkfile.xattr);
-
 	STACK_WIND (frame, nufa_newfile_cbk,
 		    conf->local_volume, conf->local_volume->fops->mknod,
 		    &local->loc, local->mode, local->rdev);
