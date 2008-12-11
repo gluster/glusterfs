@@ -246,7 +246,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	xlator_t     *src_cached = NULL;
 	xlator_t     *dst_hashed = NULL;
 	xlator_t     *dst_cached = NULL;
-
+	xlator_t     *rename_subvol = NULL;
 
 	local = frame->local;
 	prev = cookie;
@@ -264,13 +264,23 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->op_errno = op_errno;
 		goto unwind;
 	}
+	
+	/* NOTE: rename_subvol is the same subvolume from which dht_rename_cbk
+	 *       is called. since rename has already happened on rename_subvol,
+	 *       unlink should not be sent for oldpath (either linkfile or cached-file)
+	 *       on rename_subvol. */
+	if (src_cached == dst_cached)
+		rename_subvol = src_cached;
+	else
+		rename_subvol = dst_hashed;
 
 	/* TODO: delete files in background */
 
 	if (src_cached != dst_hashed && src_cached != dst_cached)
 		local->call_cnt++;
 
-	if (src_hashed != src_cached && src_hashed != dst_hashed)
+	if ((rename_subvol != src_hashed) && 
+	    (src_hashed != src_cached))
 		local->call_cnt++;
 
 	if (dst_cached && dst_cached != dst_hashed && dst_cached != src_cached)
@@ -289,7 +299,8 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			    &local->loc);
 	}
 
-	if (src_hashed != src_cached && src_hashed != dst_hashed) {
+	if ((rename_subvol != src_hashed) &&  
+	    (src_hashed != src_cached)) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"deleting old src linkfile %s @ %s",
 			local->loc.path, src_hashed->name);

@@ -238,7 +238,7 @@ nufa_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	xlator_t     *src_cached = NULL;
 	xlator_t     *dst_hashed = NULL;
 	xlator_t     *dst_cached = NULL;
-
+	xlator_t     *renamed_subvol = NULL;
 
 	local = frame->local;
 	prev = cookie;
@@ -257,21 +257,35 @@ nufa_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto unwind;
 	}
 
+	/* NOTE: rename_subvol is the same subvolume from which nufa_rename_cbk
+	 *       is called. since rename has already happened on rename_subvol,
+	 *       unlink should not be sent for oldpath (either linkfile or cached-file)
+	 *       on rename_subvol. */
+	if (src_cached == dst_cached)
+		renamed_subvol = src_cached;
+	else
+		renamed_subvol = dst_hashed;
+
 	/* TODO: delete files in background */
 
-	if (src_cached != dst_hashed && src_cached != dst_cached)
+	if ((src_cached != dst_hashed) && 
+	    (src_cached != dst_cached))
 		local->call_cnt++;
 
-	if (src_cached != src_hashed)
+	if ((renamed_subvol != src_hashed) && 
+	    (src_cached != src_hashed))
 		local->call_cnt++;
 
-	if (dst_cached && dst_cached != dst_hashed && dst_cached != src_cached)
+	if (dst_cached && 
+	    (dst_cached != dst_hashed) && 
+	    (dst_cached != src_cached))
 		local->call_cnt++;
 
 	if (local->call_cnt == 0)
 		goto unwind;
 
-	if (src_cached != dst_hashed && src_cached != dst_cached) {
+	if ((src_cached != dst_hashed) && 
+	    (src_cached != dst_cached)) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"deleting old src datafile %s @ %s",
 			local->loc.path, src_cached->name);
@@ -281,7 +295,8 @@ nufa_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			    &local->loc);
 	}
 
-	if (src_cached != src_hashed) {
+	if ((renamed_subvol != src_hashed) && 
+	    (src_hashed != src_cached)) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"deleting old src linkfile %s @ %s",
 			local->loc.path, src_hashed->name);
@@ -291,9 +306,9 @@ nufa_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			    &local->loc);
 	}
 
-	if (dst_cached
-	    && (dst_cached != dst_hashed)
-	    && (dst_cached != src_cached)) {
+	if (dst_cached &&
+	    (dst_cached != dst_hashed) &&
+	    (dst_cached != src_cached)) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"deleting old dst datafile %s @ %s",
 			local->loc2.path, dst_cached->name);
