@@ -118,14 +118,14 @@ main ()
     
     volfile_loc="$1";
     
-    [ -r "$volfile_location" ] || {
+    [ -r "$volfile_loc" ] || {
 	server_ip=$(echo "$volfile_loc" | sed -n 's/\([^\:]*\).*/\1/p');
 	server_port=$(echo "$volfile_loc" | sed -n 's/.*:\([^ ]*\).*/\1/p');
 	[ -n "$server_port" ] || {
 	    server_port="6996";
 	}
 
-	volfile_location="";
+	volfile_loc="";
     }
     new_fs_options=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \
 	                                   -e 's/[,]*log-level=[^,]*//' \

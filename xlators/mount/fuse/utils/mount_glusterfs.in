@@ -112,17 +112,29 @@ main ()
 	case "$opt" in
 	    o) 
 		options=$(echo $OPTARG | sed -n 's/.*\-o[ ]*\([^ ]*\).*/\1/p');
-		[ -z $new_log_level ] && new_log_level=$(echo "$options" | sed -n 's/.*log-level=\([^,]*\).*/\1/p');
+		[ -z $new_log_level ] && {
+		    new_log_level=$(echo "$options" | sed -n 's/.*log-level=\([^,]*\).*/\1/p');
+		}
 		
-		[ -z $log_file ] && log_file=$(echo "$options" | sed -n 's/.*log-file=\([^,]*\).*/\1/p');
+		[ -z $log_file ] && {
+		    log_file=$(echo "$options" | sed -n 's/.*log-file=\([^,]*\).*/\1/p');
+		}
 		
-		[ -z $transport ] && transport=$(echo "$options" | sed -n 's/.*transport=\([^,]*\).*/\1/p');
+		[ -z $transport ] && {
+		    transport=$(echo "$options" | sed -n 's/.*transport=\([^,]*\).*/\1/p');
+		}
 		
-		[ -z $direct_io_mode ] && direct_io_mode=$(echo "$options" | sed -n 's/.*direct-io-mode=\([^,]*\).*/\1/p');
+		[ -z $direct_io_mode ] && {
+		    direct_io_mode=$(echo "$options" | sed -n 's/.*direct-io-mode=\([^,]*\).*/\1/p');
+		}
 		
-		[ -z $volume_name ] && volume_name=$(echo "$options" | sed -n 's/.*volume-name=\([^,]*\).*/\1/p');
+		[ -z $volume_name ] && {
+		    volume_name=$(echo "$options" | sed -n 's/.*volume-name=\([^,]*\).*/\1/p');
+		}
 
-		[ -z $volume_id ] && volume_id=$(echo "$options" | sed -n 's/.*volume-id=\([^,]*\).*/\1/p');
+		[ -z $volume_id ] && {
+		    volume_id=$(echo "$options" | sed -n 's/.*volume-id=\([^,]*\).*/\1/p');
+		}
 
 		this_option=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \
 		    -e 's/[,]*log-level=[^,]*//' \
@@ -144,7 +156,7 @@ main ()
     while [ "$volfile_loc" == "-o" ] ; do
 	shift ;
 	shift ;
-	spec_location="$1";
+	volfile_loc="$1";
     done
     
     [ -r "$volfile_loc" ] || {
