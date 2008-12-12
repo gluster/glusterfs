@@ -16,8 +16,8 @@ Run ./configure after untaring the package.
  
 The configure summary will tell you what all components will be built with 
 GlusterFS. Other than 'argp-standalone' if something else says 'no', that 
-feature in GlusterFS will not be built. 'argp-standalone' package will not 
-get installed if the system already has a proper argp package installed.
+feature in GlusterFS will not be built. 'argp-standalone' package will only 
+be used if the system doesn't have a proper argp package installed.
 
 Now just run 'make' and later run 'make install' to install the package.
 

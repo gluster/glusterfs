@@ -5,13 +5,13 @@ Introduction
 
 Requirements
 ============
-* fetch specfile from glusterfs.
+* fetch volfile from glusterfs.
 * identify whether multiple files are from the same mount point. If so, use only one context.
 
 Design
 ======
 * for a getxattr, along with other attributes, fuse returns following attributes.
-  * contents of client volume-specfile.
+  * contents of client volume-file.
   * mount point.
 
 * LD_PRELOADed booster.so maintains an hash table storing mount-points and libglusterfsclient handles 
@@ -33,13 +33,13 @@ Working
 * open call does,
   * real_open on the file.
   * fgetxattr(fd).
-  * store the volume-specfile content got in the dictionary to a temparory file.
+  * store the volume-file content got in the dictionary to a temparory file.
   * look in the hashtable for the mount-point, if already present get the libglusterfsclient handle from the 
     hashtable. Otherwise get a new handle from libglusterfsclient (be careful about mount point not present in 
     the hashtable and multiple glusterfs_inits running simultaneously for the same mount-point there by using 
     multiple handles for the same mount point).
   * real_close (fd).
-  * delete temporary volume-specfile.
+  * delete temporary volume-volfile.
   * glusterfs_open (handle, path, mode).
   * store the fd returned by glusterfs_open in the fdtable at the same index as the fd returned by real_open.
   * return the index as fd.
