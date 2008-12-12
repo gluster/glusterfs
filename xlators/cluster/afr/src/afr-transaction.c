@@ -65,20 +65,6 @@ mark_all_success (int32_t *pending, int child_count)
 
 
 static int
-locked_nodes_count (unsigned char *locked_nodes, int child_count)
-{
-	int ret = 0;
-	int i;
-
-	for (i = 0; i < child_count; i++)
-		if (locked_nodes[i])
-			ret++;
-
-	return ret;
-}
-
-
-static int
 xattrop_needed (afr_private_t *priv, afr_transaction_type type)
 {
 	int ret = 0;
@@ -170,8 +156,8 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 	
-	call_count = locked_nodes_count (local->transaction.locked_nodes, 
-					 priv->child_count);
+	call_count = afr_locked_nodes_count (local->transaction.locked_nodes, 
+					     priv->child_count);
 	
 	if (call_count == 0) {
 		local->transaction.done (frame, this);

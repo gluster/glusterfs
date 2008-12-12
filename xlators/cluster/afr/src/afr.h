@@ -152,6 +152,7 @@ typedef struct _afr_local {
 		struct {
 			int32_t cmd;
 			struct flock flock;
+			unsigned char *locked_nodes;
 		} lk;
 
 		struct {
@@ -410,6 +411,9 @@ afr_build_parent_loc (loc_t *parent, loc_t *child);
 
 int
 afr_up_children_count (int child_count, unsigned char *child_up);
+
+int
+afr_locked_nodes_count (unsigned char *locked_nodes, int child_count);
 
 int
 afr_first_up_child (afr_private_t *priv);

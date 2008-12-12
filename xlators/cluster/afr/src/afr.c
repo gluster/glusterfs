@@ -151,6 +151,11 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 			FREE (local->cont.getxattr.name);
 	}
 
+	{ /* lk */
+		if (local->cont.lk.locked_nodes)
+			FREE (local->cont.lk.locked_nodes);
+	}
+
 	{ /* checksum */
 		if (local->cont.checksum.file_checksum)
 			FREE (local->cont.checksum.file_checksum);
@@ -239,6 +244,20 @@ afr_up_children_count (int child_count, unsigned char *child_up)
 	for (i = 0; i < child_count; i++)
 		if (child_up[i])
 			ret++;
+	return ret;
+}
+
+
+int
+afr_locked_nodes_count (unsigned char *locked_nodes, int child_count)
+{
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < child_count; i++)
+		if (locked_nodes[i])
+			ret++;
+
 	return ret;
 }
 
@@ -1536,6 +1555,67 @@ out:
 
 
 int32_t
+afr_lk_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+		   int32_t op_ret, int32_t op_errno, struct flock *lock)
+{
+	afr_local_t * local = NULL;
+
+	int call_count = -1;
+
+	local = frame->local;
+	call_count = afr_frame_return (frame);
+
+	if (call_count == 0)
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+				  lock);
+
+	return 0;
+}
+
+
+int32_t 
+afr_lk_unlock (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t   * local = NULL;
+	afr_private_t * priv  = NULL;
+
+	int i;
+	int call_count = 0;
+
+	local = frame->local;
+	priv  = this->private;
+
+	call_count = afr_locked_nodes_count (local->cont.lk.locked_nodes, 
+					     priv->child_count);
+
+	if (call_count == 0) {
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+				  &local->cont.lk.flock);
+		return 0;
+	}
+
+	local->call_count = call_count;
+
+	local->cont.lk.flock.l_type = F_UNLCK;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->cont.lk.locked_nodes[i]) {
+			STACK_WIND (frame, afr_lk_unlock_cbk,
+				    priv->children[i],
+				    priv->children[i]->fops->lk,
+				    local->fd, F_SETLK, 
+				    &local->cont.lk.flock);
+
+			if (!--call_count)
+				break;
+		}
+	}
+
+	return 0;
+}
+
+
+int32_t
 afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 	    int32_t op_ret, int32_t op_errno, struct flock *lock)
 {
@@ -1553,12 +1633,18 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	call_count = --local->call_count;
 
 	if (!child_went_down (op_ret, op_errno) && (op_ret == -1)) {
-		local->op_ret         = op_ret;
-		local->op_errno       = op_errno;
-		local->cont.lk.flock  = *lock;
-		local->success_count  = -1;
+		local->op_ret   = -1;
+		local->op_errno = op_errno;
 
-		goto out;
+		afr_lk_unlock (frame, this);
+		return 0;
+	}
+
+	if (op_ret == 0) {
+		local->op_ret        = 0;
+		local->op_errno      = 0;
+		local->cont.lk.flock = *lock;
+		local->cont.lk.locked_nodes[child_index] = 1;
 	}
 
 	child_index++;
@@ -1569,12 +1655,16 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				   priv->children[child_index]->fops->lk,
 				   local->fd, local->cont.lk.cmd, 
 				   &local->cont.lk.flock);
+	} else if (local->op_ret == -1) {
+		/* all nodes have gone down */
+		
+		STACK_UNWIND (frame, -1, ENOTCONN, &local->cont.lk.flock);
+	} else {
+		/* locking has succeeded on all nodes that are up */
+		
+		STACK_UNWIND (frame, local->op_ret, local->op_errno,
+			      &local->cont.lk.flock);
 	}
-
-out:
-	if ((call_count == 0) || (local->success_count == -1))
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, &
-				  local->cont.lk.flock);
 
 	return 0;
 }
@@ -1602,21 +1692,22 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	AFR_LOCAL_INIT (local, priv);
 
-	if (local->call_count == 0) {
-		op_errno = ENOTCONN;
+	frame->local  = local;
+
+	local->cont.lk.locked_nodes = calloc (priv->child_count, 
+					      sizeof (*local->cont.lk.locked_nodes));
+	
+	if (!local->cont.lk.locked_nodes) {
+		gf_log (this->name, GF_LOG_ERROR, "out of memory :(");
+		op_errno = ENOMEM;
 		goto out;
 	}
 
-	frame->local      = local;
-
-	local->fd    = fd_ref (fd);
+	local->fd            = fd_ref (fd);
 	local->cont.lk.cmd   = cmd;
 	local->cont.lk.flock = *flock;
-	local->op_ret = 0;
 
-	i = afr_first_up_child (priv);
-
-	STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) (long) i,
+	STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) (long) 0,
 			   priv->children[i],
 			   priv->children[i]->fops->lk,
 			   fd, cmd, flock);
