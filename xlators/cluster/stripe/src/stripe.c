@@ -1507,7 +1507,6 @@ stripe_link (call_frame_t *frame,
 	xlator_list_t *trav = this->children;
   
 	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (oldloc);
-	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (newloc);
 
 	if (priv->first_child_down) {
 		gf_log (this->name, GF_LOG_WARNING, 
