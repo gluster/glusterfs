@@ -279,8 +279,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (src_cached != dst_hashed && src_cached != dst_cached)
 		local->call_cnt++;
 
-	if ((rename_subvol != src_hashed) && 
-	    (src_hashed != src_cached))
+	if (src_hashed != rename_subvol && src_hashed != src_cached)
 		local->call_cnt++;
 
 	if (dst_cached && dst_cached != dst_hashed && dst_cached != src_cached)
@@ -299,8 +298,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			    &local->loc);
 	}
 
-	if ((rename_subvol != src_hashed) &&  
-	    (src_hashed != src_cached)) {
+	if (src_hashed != rename_subvol && src_hashed != src_cached) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"deleting old src linkfile %s @ %s",
 			local->loc.path, src_hashed->name);

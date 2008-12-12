@@ -470,6 +470,32 @@ AFR_BASENAME (const char *str)
 static inline int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
+	local->child_up = calloc (sizeof (*local->child_up),
+				  priv->child_count);
+	if (!local->child_up) {
+		return -ENOMEM;
+	}
+
+	memcpy (local->child_up, priv->child_up, 
+		sizeof (*local->child_up) * priv->child_count);
+
+
+	local->call_count = afr_up_children_count (priv->child_count, local->child_up);
+	if (local->call_count == 0)
+		return -ENOTCONN;
+
+	local->transaction.erase_pending = 1;
+
+	local->op_ret = -1;
+	local->op_errno = EUCLEAN;
+
+	return 0;
+}
+
+
+static inline int
+afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
+{
 	local->child_errno = calloc (sizeof (*local->child_errno),
 				     priv->child_count);
 	if (!local->child_errno) {
@@ -482,28 +508,11 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 		return -ENOMEM;
 	}
 
-	local->child_up = calloc (sizeof (*local->child_up),
-				  priv->child_count);
-	if (!local->child_up) {
-		return -ENOMEM;
-	}
-
-	memcpy (local->child_up, priv->child_up, 
-		sizeof (*local->child_up) * priv->child_count);
-
 	local->transaction.locked_nodes = calloc (sizeof (*local->transaction.locked_nodes),
 						  priv->child_count);
 
 	local->transaction.child_errno = calloc (sizeof (*local->transaction.child_errno),
 						  priv->child_count);
-	local->call_count = afr_up_children_count (priv->child_count, local->child_up);
-	if (local->call_count == 0)
-		return -ENOTCONN;
-
-	local->transaction.erase_pending = 1;
-
-	local->op_ret = -1;
-	local->op_errno = EUCLEAN;
 
 	return 0;
 }

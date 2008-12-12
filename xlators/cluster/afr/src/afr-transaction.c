@@ -841,6 +841,8 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 	local = frame->local;
 	priv  = this->private;
 
+	afr_transaction_local_init (local, priv);
+
 	local->transaction.resume = afr_transaction_resume;
 	local->transaction.type   = type;
 
