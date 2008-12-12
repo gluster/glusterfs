@@ -154,6 +154,11 @@ typedef struct _afr_local {
 			struct flock flock;
 		} lk;
 
+		struct {
+			uint8_t *file_checksum;
+			uint8_t *dir_checksum;
+		} checksum;
+
 		/* inode read */
 
 		struct {

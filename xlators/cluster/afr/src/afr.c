@@ -151,6 +151,13 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 			FREE (local->cont.getxattr.name);
 	}
 
+	{ /* checksum */
+		if (local->cont.checksum.file_checksum)
+			FREE (local->cont.checksum.file_checksum);
+		if (local->cont.checksum.dir_checksum)
+			FREE (local->cont.checksum.dir_checksum);
+	}
+
 	{ /* create */
 		if (local->cont.create.fd)
 			fd_unref (local->cont.create.fd);
@@ -1355,8 +1362,18 @@ afr_checksum_cbk (call_frame_t *frame, void *cookie,
 
 	LOCK (&frame->lock);
 	{
-		if (op_ret == 0)
+		if (op_ret == 0 && (local->op_ret != 0)) {
 			local->op_ret = 0;
+
+			local->cont.checksum.file_checksum = malloc (ZR_FILENAME_MAX);
+			memcpy (local->cont.checksum.file_checksum, file_checksum, 
+				ZR_FILENAME_MAX);
+
+			local->cont.checksum.dir_checksum = malloc (ZR_FILENAME_MAX);
+			memcpy (local->cont.checksum.dir_checksum, dir_checksum, 
+				ZR_FILENAME_MAX);
+
+		}
 
 		local->op_errno = op_errno;
 	}
@@ -1366,7 +1383,8 @@ afr_checksum_cbk (call_frame_t *frame, void *cookie,
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				  file_checksum, dir_checksum);
+				  local->cont.checksum.file_checksum, 
+				  local->cont.checksum.dir_checksum);
 
 	return 0;
 }
