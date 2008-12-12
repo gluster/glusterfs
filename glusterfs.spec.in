@@ -45,6 +45,13 @@
 %define with_apxs_default %{?_without_apxs_default:0}%{?!_without_apxs_default:1}
 %{!?apxs_path: %define apxs_path %{nil}}
 
+# if you wish to compile an rpm with apache binaries at nonstandard path
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without apache_auto -define 'apxs_bin_path /usr/local/apache/bin/apxs'
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without apache_auto -define 'apache_bin_path /usr/local/apache/bin/apache2'
+%define with_apache_auto %{?_without_apache_auto:0}%{?!_without_apache_auto:1}
+%{!?apxs_bin_path: %define apxs_bin_path %{nil}}
+%{!?apache_bin_path: %define apache_bin_path %{nil}}
+
 Summary: GNU Cluster File System
 Name: @PACKAGE_NAME@
 Version: @PACKAGE_VERSION@
@@ -131,8 +138,14 @@ This package provides the development libraries.
 %define apxs_options --with-apxs=%{?apxs_path:%apxs_path}
 %endif
 %endif
+%if "%{with_modglfs}" == "1"
+%if "%{with_apache_auto}" == "0"
+%define apxs_bin_options --with-apxspath=%{?apxs_bin_path:%apxs_bin_path}
+%define apache_bin_options --with-apachepath=%{?apache_bin_path:%apache_bin_path}
+%endif
+%endif
 
-%configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=%_libdir %{?client_options:%client_options} %{?ibverbs_options:%ibverbs_options} %{?bdb_options:%bdb_options} %{?libglfs_options:%libglfs_options} %{?modglfs_options:%modglfs_options} %{?apxs_options:%apxs_options}
+%configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=%_libdir %{?client_options:%client_options} %{?ibverbs_options:%ibverbs_options} %{?bdb_options:%bdb_options} %{?libglfs_options:%libglfs_options} %{?modglfs_options:%modglfs_options} %{?apxs_options:%apxs_options} %{?apxs_bin_options:%apxs_bin_options} %{?apache_bin_options:%apache_bin_options}
 %{__make}
 
 
@@ -170,8 +183,8 @@ This package provides the development libraries.
 %exclude /usr/include/glusterfs/y.tab.h
 
 %post
-%if %with_modglfs
 ldconfig -n %_libdir
+%if %with_modglfs
 %if %with_apxs_default
 %{_sbindir}/apxs -i -a -n glusterfs %{_libdir}/glusterfs/%version/apache-1.3/mod_glusterfs.so
 %else
@@ -187,6 +200,11 @@ ldconfig
 
 
 %changelog
+* Fri Dec 12 2008 Harshavardhana <harsha@gluster.com> - 1.4
+- Added new options with --with-apxspath --with-apachepath
+  new configure options. 
+  %post install command ldconfig moved up by one line. 
+
 * Thu May 08 2008 Harshavardhana <harsha@zresearch.com> - 1.4
 - Added proper checks for apache-1.3 dependency, and enhanced
   post install scripts

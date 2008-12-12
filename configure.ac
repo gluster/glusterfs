@@ -263,7 +263,7 @@ if test "x$with_apachepath" != "x"; then
    HTTPD_MANUAL=$with_apachepath
 fi
 
-if test "x$with_apxspath" != "x" -a "x$with_apachepath" != "x"; then
+if test "x$enable_mod_glusterfs" != "xno" -a "x$with_apxspath" != "x" -a "x$with_apachepath" != "x"; then
    BUILD_MOD_GLUSTERFS="yes";
    MOD_GLUSTERFS_SUBDIR="mod_glusterfs";
    APACHE_MANUAL=yes
