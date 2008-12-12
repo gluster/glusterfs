@@ -274,6 +274,11 @@ unify_buf_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
     
 	if (!callcnt) {
+		/* If the inode number is not filled, operation should
+		   fail */
+		if (!local->st_ino)
+			local->op_ret = -1;
+
 		local->stbuf.st_ino = local->st_ino;
 		unify_local_wipe (local);
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
@@ -310,9 +315,7 @@ unify_lookup_cbk (call_frame_t *frame,
 		callcnt = --local->call_count;
  
 		if (op_ret == -1) {
-			if (!local->revalidate && 
-			    (op_errno != ENOTCONN) && (op_errno != ENOENT)) {
-
+			if ((op_errno != ENOTCONN) && (op_errno != ENOENT)) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"child(%s): path(%s): %s", 
 					priv->xl_array[(long)cookie]->name, 

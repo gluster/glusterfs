@@ -292,11 +292,12 @@ call_bail (void *data)
 				  "%Y-%m-%d %H:%M:%S", &last_received_tm);
 			
 			gf_log (trans->xl->name, GF_LOG_ERROR,
-				"activating bail-out. pending frames = %d. "
-				"last sent = %s. last received = %s. "
-				"transport-timeout = %d",
-				cprivate->saved_frames->count, last_sent, 
-				last_received,
+				"activating bail-out. pending frames = %d "
+				"(%d are slow). last sent = %s. last received "
+				"= %s. transport-timeout = %d",
+				cprivate->saved_frames->count, 
+				cprivate->slow_op_count,
+				last_sent, last_received,
 				cprivate->slow_transport_timeout);
 		}
 	}
@@ -394,18 +395,18 @@ protocol_client_xfer (call_frame_t *frame,
 		if ((ret >= 0) && frame) {
 			/* TODO: check this logic */
 			/* Let the slow call have be 4 times extra timeout */
-			if ((frame->op == GF_FOP_UNLINK) ||
-			    (frame->op == GF_FOP_CHECKSUM) ||
-			    (frame->op == GF_FOP_LK) ||
-			    (frame->op == GF_FOP_FINODELK) ||
-			    (frame->op == GF_FOP_INODELK) ||
-			    (frame->op == GF_FOP_ENTRYLK) ||
-			    (frame->op == GF_FOP_FENTRYLK)) {
-				cprivate->slow_op_count++;
-			}
 
 			gettimeofday (&cprivate->last_sent, NULL);
 			__protocol_client_frame_save (this, frame, callid);
+		}
+		if ((frame->op == GF_FOP_UNLINK) ||
+		    (frame->op == GF_FOP_CHECKSUM) ||
+		    (frame->op == GF_FOP_LK) ||
+		    (frame->op == GF_FOP_FINODELK) ||
+		    (frame->op == GF_FOP_INODELK) ||
+		    (frame->op == GF_FOP_ENTRYLK) ||
+		    (frame->op == GF_FOP_FENTRYLK)) {
+			cprivate->slow_op_count++;
 		}
 	}
 	pthread_mutex_unlock (&cprivate->lock);
@@ -4421,7 +4422,8 @@ client_unlink_cbk (call_frame_t *frame,
 
 	pthread_mutex_lock (&(cprivate->lock));
 	{
-		cprivate->slow_op_count--;
+		if (cprivate->slow_op_count)
+			cprivate->slow_op_count--;
 	}
 	pthread_mutex_unlock (&(cprivate->lock));
 
@@ -5068,7 +5070,8 @@ client_lk_common_cbk (call_frame_t *frame,
 
 	pthread_mutex_lock (&(cprivate->lock));
 	{
-		cprivate->slow_op_count--;
+		if (cprivate->slow_op_count)
+			cprivate->slow_op_count--;
 	}
 	pthread_mutex_unlock (&(cprivate->lock));
 
@@ -5106,7 +5109,8 @@ client_inodelk_cbk (call_frame_t *frame,
 
 	pthread_mutex_lock (&(cprivate->lock));
 	{
-		cprivate->slow_op_count--;
+		if (cprivate->slow_op_count)
+			cprivate->slow_op_count--;
 	}
 	pthread_mutex_unlock (&(cprivate->lock));
 
@@ -5133,7 +5137,8 @@ client_finodelk_cbk (call_frame_t *frame,
 
 	pthread_mutex_lock (&(cprivate->lock));
 	{
-		cprivate->slow_op_count--;
+		if (cprivate->slow_op_count)
+			cprivate->slow_op_count--;
 	}
 	pthread_mutex_unlock (&(cprivate->lock));
 
@@ -5167,7 +5172,8 @@ client_entrylk_cbk (call_frame_t *frame,
 
 	pthread_mutex_lock (&(cprivate->lock));
 	{
-		cprivate->slow_op_count--;
+		if (cprivate->slow_op_count)
+			cprivate->slow_op_count--;
 	}
 	pthread_mutex_unlock (&(cprivate->lock));
 
@@ -5193,7 +5199,8 @@ client_fentrylk_cbk (call_frame_t *frame,
 
 	pthread_mutex_lock (&(cprivate->lock));
 	{
-		cprivate->slow_op_count--;
+		if (cprivate->slow_op_count)
+			cprivate->slow_op_count--;
 	}
 	pthread_mutex_unlock (&(cprivate->lock));
 
@@ -5411,7 +5418,8 @@ client_checksum_cbk (call_frame_t *frame,
 
 	pthread_mutex_lock (&(cprivate->lock));
 	{
-		cprivate->slow_op_count--;
+		if (cprivate->slow_op_count)
+			cprivate->slow_op_count--;
 	}
 	pthread_mutex_unlock (&(cprivate->lock));
 
