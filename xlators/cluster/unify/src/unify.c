@@ -240,7 +240,8 @@ unify_buf_cbk (call_frame_t *frame,
     
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"child(%s): path(%s): %s", 
+				"%s(): child(%s): path(%s): %s", 
+				gf_fop_list[frame->op],			
 				prev_frame->this->name, 
 				(local->loc1.path)?local->loc1.path:"", 
 				strerror (op_errno));
@@ -656,7 +657,7 @@ unify_stat (call_frame_t *frame,
 		STACK_UNWIND (frame, -1, ENOMEM, NULL);
 		return 0;
 	}
-
+	local->st_ino = loc->inode->ino;
 	if (S_ISDIR (loc->inode->st_mode)) {
 		/* Directory */
 		local->call_count = 1;
@@ -1715,6 +1716,9 @@ unify_chmod (call_frame_t *frame,
 	/* Initialization */
 	INIT_LOCAL (frame, local);
 
+	loc_copy (&local->loc1, loc);
+	local->st_ino = loc->inode->ino;
+
 	if (S_ISDIR (loc->inode->st_mode)) {
 		local->call_count = priv->child_count + 1;
       
@@ -1768,6 +1772,8 @@ unify_chown (call_frame_t *frame,
 
 	/* Initialization */
 	INIT_LOCAL (frame, local);
+	loc_copy (&local->loc1, loc);
+	local->st_ino = loc->inode->ino;
 
 	if (S_ISDIR (loc->inode->st_mode)) {
 		local->call_count = priv->child_count + 1;
@@ -1804,7 +1810,7 @@ unify_chown (call_frame_t *frame,
 
 
 /**
- * unify_buf_cbk - 
+ * unify_truncate_cbk - 
  */
 int32_t
 unify_truncate_cbk (call_frame_t *frame,
@@ -1856,7 +1862,10 @@ unify_truncate_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
     
 	if (!callcnt) {
-		local->stbuf.st_ino = local->st_ino;
+		if (local->st_ino)
+			local->stbuf.st_ino = local->st_ino;
+		else
+			local->op_ret = -1;
 		unify_local_wipe (local);
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
 			      &local->stbuf);
@@ -1883,6 +1892,8 @@ unify_truncate (call_frame_t *frame,
 
 	/* Initialization */
 	INIT_LOCAL (frame, local);
+	loc_copy (&local->loc1, loc);
+	local->st_ino = loc->inode->ino;
 
 	if (S_ISDIR (loc->inode->st_mode)) {
 		local->call_count = 1;
@@ -1942,6 +1953,8 @@ unify_utimens (call_frame_t *frame,
 
 	/* Initialization */
 	INIT_LOCAL (frame, local);
+	loc_copy (&local->loc1, loc);
+	local->st_ino = loc->inode->ino;
 
 	if (S_ISDIR (loc->inode->st_mode)) {
 		local->call_count = priv->child_count + 1;
@@ -2252,6 +2265,7 @@ unify_fchmod (call_frame_t *frame,
 
 	/* Initialization */
 	INIT_LOCAL (frame, local);
+	local->st_ino = fd->inode->ino;
 
 	if (dict_get (fd->ctx, this->name)) {
 		/* If its set, then its file */
@@ -2292,6 +2306,7 @@ unify_fchown (call_frame_t *frame,
 
 	/* Initialization */
 	INIT_LOCAL (frame, local);
+	local->st_ino = fd->inode->ino;
 
 	if (dict_get (fd->ctx, this->name)) {
 		/* If its set, then its file */
@@ -2399,6 +2414,7 @@ unify_fstat (call_frame_t *frame,
 	UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
 
 	INIT_LOCAL (frame, local);
+	local->st_ino = fd->inode->ino;
 
 	if (dict_get (fd->ctx, this->name)) {
 		/* If its set, then its file */
