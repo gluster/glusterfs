@@ -315,7 +315,7 @@ __do_path_resolve (call_stub_t *stub,
 
 	if (resolved) {
 		gf_log (BOUND_XL(stub->frame)->name,
-			GF_LOG_WARNING,
+			GF_LOG_DEBUG,
 			"resolved path(%s) till %"PRId64"(%s). "
 			"sending lookup for remaining path",
 			loc->path, parent->ino, resolved);
