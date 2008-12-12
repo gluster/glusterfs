@@ -326,6 +326,8 @@ afr_getdents (call_frame_t *frame, xlator_t *this,
 	local->cont.getdents.size   = size;
 	local->cont.getdents.offset = offset;
 	local->cont.getdents.flag   = flag;
+	
+	frame->local = local;
 
 	STACK_WIND (frame, afr_getdents_cbk,
 		    children[call_child], children[call_child]->fops->getdents,
