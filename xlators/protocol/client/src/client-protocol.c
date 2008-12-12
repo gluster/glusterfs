@@ -395,12 +395,12 @@ protocol_client_xfer (call_frame_t *frame,
 			/* TODO: check this logic */
 			/* Let the slow call have be 4 times extra timeout */
 			if ((frame->op == GF_FOP_UNLINK) ||
+			    (frame->op == GF_FOP_CHECKSUM) ||
 			    (frame->op == GF_FOP_LK) ||
 			    (frame->op == GF_FOP_FINODELK) ||
 			    (frame->op == GF_FOP_INODELK) ||
 			    (frame->op == GF_FOP_ENTRYLK) ||
-			    (frame->op == GF_FOP_FENTRYLK) ||
-			    (frame->op == GF_FOP_RMDIR)) {
+			    (frame->op == GF_FOP_FENTRYLK)) {
 				cprivate->slow_op_count++;
 			}
 
@@ -4636,14 +4636,6 @@ client_rmdir_cbk (call_frame_t *frame,
 	gf_fop_rmdir_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
-	client_private_t *priv = frame->this->private;
-	client_connection_private_t *cprivate = priv->transport->xl_private;
-
-	pthread_mutex_lock (&(cprivate->lock));
-	{
-		cprivate->slow_op_count--;
-	}
-	pthread_mutex_unlock (&(cprivate->lock));
 
 	rsp = gf_param (hdr);
 
@@ -5414,6 +5406,14 @@ client_checksum_cbk (call_frame_t *frame,
 	int32_t gf_errno = 0;
 	unsigned char *fchecksum = NULL;
 	unsigned char *dchecksum = NULL;
+	client_private_t *priv = frame->this->private;
+	client_connection_private_t *cprivate = priv->transport->xl_private;
+
+	pthread_mutex_lock (&(cprivate->lock));
+	{
+		cprivate->slow_op_count--;
+	}
+	pthread_mutex_unlock (&(cprivate->lock));
 
 	rsp = gf_param (hdr);
 

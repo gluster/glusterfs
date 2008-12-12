@@ -35,18 +35,18 @@ for any corresponding short options.
 .PP
 .TP 
 
-\fB\-f, \fB\-\-volume\-specfile=VOLUME-SPECFILE\fR
-File to use as VOLUME-SPECFILE [default:/etc/glusterfs/specfile.vol]
+\fB\-f, \fB\-\-volfile=VOLUME-FILE\fR
+File to use as VOLUME-FILE [default:/etc/glusterfs/glusterfs.vol]
 .TP
 \fB\-l, \fB\-\-log\-file=LOGFILE\fR
 File to use for logging [default:/var/log/glusterfs/glusterfs.log]
 .TP
 \fB\-L, \fB\-\-log\-level=LOGLEVEL\fR   
-Logging severity.  Valid options are TRACE, DEBUG, WARNING, NORMAL,
-ERROR, CRITICAL and NONE [default: WARNING]
+Logging severity.  Valid options are DEBUG, WARNING, ERROR, CRITICAL 
+and NONE [default: WARNING]
 .TP
-\fB\-s, \fB\-\-specfile\-server=SERVER\fR
-Server to get the volume specfile from.  This option overrides \fB\-\-volume\f-specfile option
+\fB\-s, \fB\-\-volfile\-server=SERVER\fR
+Server to get the volume from.  This option overrides \fB\-\-volfile option
 
 .SS "Advanced options"
 .PP
@@ -62,17 +62,18 @@ Run in foreground
 \fB\-p, \fB\-\-pid\-file=PIDFILE\fR
 File to use as pid file
 .TP
-\fB\-\-server\-fetchfile\-key=KEY\fR
-KEY of the volume spec to be fetched from server
+\fB\-\-volfile\-id=KEY\fR
+KEY of the volume file to be fetched from server
 .TP
-\fB\-\-specfile\-server\-port=PORT\fR
-Port number of specfile server
+\fB\-\-volfile\-server\-port=PORT\fR
+Port number of volfile server
 .TP
-\fB\-\-specfile\-server\-transport=TRANSPORT\fR
-Transport type to get volume spec file from server [default: socket]
+\fB\-\-volfile\-server\-transport=TRANSPORT\fR
+Transport type to get volume file from server [default: socket]
 .TP
 \fB\-\-volume\-name=VOLUME\-NAME\fR
-Volume name to be used for MOUNT-POINT [default: top most volume in VOLUME-SPECFILE]
+Volume name to be used for MOUNT-POINT [default: top most volume in 
+VOLUME-FILE]
 .TP
 \fB\-\-xlator\-option=VOLUME\-NAME.OPTION=VALUE\fR
 Add/override a translator option for a volume with the specified value
@@ -91,11 +92,6 @@ Set entry timeout to SECONDS in fuse kernel module [default: 1]
 \fB\-\-disable\-direct\-io\-mode\fR 
 Disable direct I/O mode in fuse kernel module
 .TP
-\fB\-\-nodev\fR
-Mount fuse mountpoint with \fI'-o nodev'\fR option
-.TP
-\fB\-\-nosuid\fR
-Mount fuse mountpoint with \fI'-o nosuid'\fR option
 
 .SS "Miscellaneous Options"
 .PP

@@ -32,10 +32,9 @@
 
 
 /* TODO:
-   - use volumename in xattr instead of "nufa"
+   - use volumename in xattr instead of "dht"
    - use NS locks
    - handle all cases in self heal layout reconstruction
-   - complete linkfile selfheal
 */
 
 
@@ -145,20 +144,188 @@ selfheal:
 	return 0;
 }
 
+
+int
+nufa_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
+				 xlator_t *this,
+				 int32_t op_ret, int32_t op_errno,
+				 inode_t *inode, struct stat *stbuf)
+{
+	nufa_local_t  *local = NULL;
+	nufa_layout_t *layout = NULL;
+	xlator_t     *cached_subvol = NULL;
+
+	local = frame->local;
+	cached_subvol = local->cached_subvol;
+
+	layout = nufa_layout_for_subvol (this, local->cached_subvol);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no pre-set layout for subvolume %s",
+			cached_subvol ? cached_subvol->name : "<nil>");
+		local->op_ret = -1;
+		local->op_errno = EINVAL;
+		goto unwind;
+	}
+
+	inode_ctx_set (local->inode, this, layout);
+	local->op_ret = 0;
+	local->stbuf.st_mode |= S_ISVTX;
+
+unwind:
+	NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+			   local->inode, &local->stbuf, local->xattr);
+	return 0;
+}
+
+
+int
+nufa_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			    int32_t op_ret, int32_t op_errno,
+			    inode_t *inode, struct stat *buf, dict_t *xattr)
+{
+	nufa_conf_t   *conf          = NULL;
+        nufa_local_t  *local         = NULL;
+        int           this_call_cnt = 0;
+        call_frame_t *prev          = NULL;
+	int           is_linkfile   = 0;
+	int           is_dir        = 0;
+	xlator_t     *subvol        = NULL;
+	loc_t        *loc           = NULL;
+	xlator_t     *link_subvol   = NULL;
+	xlator_t     *hashed_subvol = NULL;
+	xlator_t     *cached_subvol = NULL;
+
+	conf   = this->private;
+
+	local  = frame->local;
+	loc    = &local->loc;
+
+	prev   = cookie;
+	subvol = prev->this;
+
+	LOCK (&frame->lock);
+	{
+		if (op_ret == -1) {
+			if (op_errno != ENOENT)
+				local->op_errno = op_errno;
+			goto unlock;
+		}
+
+		is_linkfile = check_is_linkfile (inode, buf, xattr);
+		is_dir = check_is_dir (inode, buf, xattr);
+
+		if (is_linkfile) {
+			link_subvol = nufa_linkfile_subvol (this, inode, buf,
+							   xattr);
+			gf_log (this->name, GF_LOG_DEBUG,
+				"found on %s linkfile %s (-> %s)",
+				subvol->name, loc->path,
+				link_subvol ? link_subvol->name : "''");
+			goto unlock;
+		} else {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"found on %s file %s",
+				subvol->name, loc->path);
+		}
+
+		if (!local->cached_subvol) {
+			/* found one file */
+			nufa_stat_merge (this, &local->stbuf, buf, subvol);
+			local->xattr = dict_ref (xattr);
+			local->cached_subvol = subvol;
+		} else {
+			gf_log (this->name, GF_LOG_WARNING,
+				"multiple subvolumes (%s and %s atleast) have "
+				"file %s", local->cached_subvol->name,
+				subvol->name, local->loc.path);
+		}
+	}
+unlock:
+	UNLOCK (&frame->lock);
+
+	if (is_linkfile) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"deleting stale linkfile %s on %s",
+			loc->path, subvol->name);
+		nufa_linkfile_unlink (frame, this, subvol, loc);
+	}
+
+	this_call_cnt = nufa_frame_return (frame);
+	if (is_last_call (this_call_cnt)) {
+		hashed_subvol = local->hashed_subvol;
+		cached_subvol = local->cached_subvol;
+
+		if (!cached_subvol) {
+			NUFA_STACK_UNWIND (frame, -1, ENOENT, 
+					   NULL, NULL, NULL);
+			return 0;
+		}
+
+		gf_log (this->name, GF_LOG_WARNING,
+			"linking file %s existing on %s to %s (hash)",
+			loc->path, cached_subvol->name, hashed_subvol->name);
+		
+		nufa_linkfile_create (frame, nufa_lookup_linkfile_create_cbk,
+				      cached_subvol, hashed_subvol, loc);
+	}
+
+	return 0;
+}
+
+
+int
+nufa_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+	nufa_conf_t    *conf = NULL;
+	nufa_local_t   *local = NULL;
+	int             i = 0;
+	int             call_cnt = 0;
+
+	conf = this->private;
+	local = frame->local;
+
+	call_cnt = conf->subvolume_cnt;
+	local->call_cnt = call_cnt;
+
+	if (!local->inode)
+		local->inode = inode_ref (loc->inode);
+
+	for (i = 0; i < call_cnt; i++) {
+		STACK_WIND (frame, nufa_lookup_everywhere_cbk,
+			    conf->subvolumes[i],
+			    conf->subvolumes[i]->fops->lookup,
+			    loc, 1);
+	}
+
+	return 0;
+}
+
+
 int
 nufa_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                          xlator_t *this, int op_ret, int op_errno,
                          inode_t *inode, struct stat *stbuf, dict_t *xattr)
 {
-        call_frame_t *prev = NULL;
+        call_frame_t  *prev = NULL;
 	nufa_layout_t *layout = NULL;
+	nufa_local_t  *local = NULL;
 
         prev = cookie;
+	local = frame->local;
+
+        if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"loookup of %s on %s (following linkfile) failed (%s)",
+			local->loc.path, prev->this->name, 
+			strerror (op_errno));
+
+		nufa_lookup_everywhere (frame, this, &local->loc);
+		return 0;
+	}
+
         /* TODO: assert type is non-dir and non-linkfile */
-
-        if (op_ret == -1)
-                goto out;
-
+	stbuf->st_mode |= S_ISVTX;
         nufa_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
 
 	layout = nufa_layout_for_subvol (this, prev->this);
@@ -439,8 +606,8 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				gf_log (this->name, GF_LOG_ERROR,
 					"linkfile not having link subvolume. "
 					"path=%s", local->loc.path);
-				op_ret   = -1;
-				op_errno = EINVAL;
+				nufa_lookup_everywhere (frame, this, 
+							&local->loc);
 				goto err;
 			}
 			
@@ -2081,80 +2248,36 @@ out:
 }
 
 
-int
-nufa_mknod_linkfile_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			      int op_ret, int op_errno)
-{
-	nufa_local_t *local = NULL;
-        nufa_conf_t   *conf  = NULL;
-
-	local = frame->local;
-	conf = this->private;
-
-	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_CRITICAL,
-			"possible inconsistency, linkfile created, extended attribute not written");
-	}
-
-	STACK_WIND (frame, nufa_newfile_cbk,
-		    conf->local_volume, conf->local_volume->fops->mknod,
-		    &local->loc, local->mode, local->rdev);
-
-	return 0;
-}
-
 
 int
-nufa_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			       int op_ret, int op_errno,
-			       inode_t *inode, struct stat *stbuf)
+nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			 int op_ret, int op_errno,
+			 inode_t *inode, struct stat *stbuf)
 {
 	nufa_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
         nufa_conf_t   *conf  = NULL;
-	dict_t       *xattr = NULL;
-	int           ret = -1;
 
 	local = frame->local;
 	prev  = cookie;
 	conf  = this->private;
+	
+	if (op_ret >= 0) {
+		STACK_WIND (frame, nufa_newfile_cbk,
+			    conf->local_volume, 
+			    conf->local_volume->fops->mknod,
+			    &local->loc, local->mode, local->rdev);
 
-	if (op_ret == -1)
-		goto err;
-
-	xattr = get_new_dict ();
-	if (!xattr) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
-		op_errno = ENOMEM;
-		goto err;
+		return 0;
 	}
 
-	local->linkfile.xattr = dict_ref (xattr);
-
-	ret = dict_set (xattr, "trusted.glusterfs.dht.linkto", 
-			str_to_data (conf->local_volume->name));
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"failed to initialize linkfile data");
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	STACK_WIND (frame, nufa_mknod_linkfile_xattr_cbk,
-		    prev->this, prev->this->fops->setxattr,
-		    &local->loc, local->linkfile.xattr, 0);
-
-	return 0;
-
-err:
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);	
+	NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 	return 0;
 }
 
 int
 nufa_mknod (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode, dev_t rdev)
+	    loc_t *loc, mode_t mode, dev_t rdev)
 {
 	xlator_t     *subvol = NULL;
 	nufa_local_t  *local  = NULL;	
@@ -2201,10 +2324,8 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 		local->mode = mode;
 		local->rdev = rdev;
 		
-		STACK_WIND (frame, nufa_mknod_linkfile_create_cbk,
-			    subvol, subvol->fops->mknod, loc,
-			    S_IFREG | NUFA_LINKFILE_MODE, 0);
-
+		nufa_linkfile_create (frame, nufa_mknod_linkfile_cbk,
+				      conf->local_volume, subvol, loc);
 		return 0;
 	}
 
@@ -2500,38 +2621,13 @@ out:
 
 
 int
-nufa_create_linkfile_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			       int op_ret, int op_errno)
-{
-	nufa_local_t *local = NULL;
-        nufa_conf_t   *conf  = NULL;
-
-	local = frame->local;
-	conf = this->private;
-
-	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_CRITICAL,
-			"possible inconsistency, linkfile created, extended attribute not written");
-	}
-
-	STACK_WIND (frame, nufa_create_cbk,
-		    conf->local_volume, conf->local_volume->fops->create,
-		    &local->loc, local->flags, local->mode, local->fd);
-
-	return 0;
-}
-
-
-int
-nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-				int op_ret, int op_errno,
-				inode_t *inode, struct stat *stbuf)
+nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie, 
+				 xlator_t *this, int op_ret, int op_errno,
+				 inode_t *inode, struct stat *stbuf)
 {
 	nufa_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
         nufa_conf_t   *conf  = NULL;
-	dict_t       *xattr = NULL;
-	int           ret = -1;
 
 	local = frame->local;
 	prev  = cookie;
@@ -2540,28 +2636,9 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *th
 	if (op_ret == -1)
 		goto err;
 
-	xattr = get_new_dict ();
-	if (!xattr) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
-		op_errno = ENOMEM;
-		goto err;
-	}
-
-	local->linkfile.xattr = dict_ref (xattr);
-
-	ret = dict_set (xattr, "trusted.glusterfs.dht.linkto", 
-			str_to_data (conf->local_volume->name));
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"failed to initialize linkfile data");
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	STACK_WIND (frame, nufa_create_linkfile_xattr_cbk,
-		    prev->this, prev->this->fops->setxattr,
-		    &local->loc, local->linkfile.xattr, 0);
+	STACK_WIND (frame, nufa_create_cbk,
+		    conf->local_volume, conf->local_volume->fops->create,
+		    &local->loc, local->flags, local->mode, local->fd);
 
 	return 0;
 
@@ -2622,10 +2699,8 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 		local->mode = mode;
 		local->flags = flags;
 		
-		STACK_WIND (frame, nufa_create_linkfile_create_cbk,
-			    subvol, subvol->fops->mknod, loc,
-			    S_IFREG | NUFA_LINKFILE_MODE, 0);
-
+		nufa_linkfile_create (frame, nufa_create_linkfile_create_cbk,
+				      conf->local_volume, subvol, loc);
 		return 0;
 	}
 

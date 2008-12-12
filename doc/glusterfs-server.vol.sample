@@ -1,8 +1,8 @@
-### file: server-volume.spec.sample
+### file: server-volume.vol.sample
 
-##############################################
-###  GlusterFS Server Volume Specification  ##
-##############################################
+#####################################
+###  GlusterFS Server Volume File  ##
+#####################################
 
 #### CONFIG FILE RULES:
 ### "#" is comment character.

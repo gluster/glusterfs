@@ -1,8 +1,8 @@
-### file: client-volume.spec.sample
+### file: client-volume.vol.sample
 
-##############################################
-###  GlusterFS Client Volume Specification  ##
-##############################################
+#####################################
+###  GlusterFS Client Volume File  ##
+#####################################
 
 #### CONFIG FILE RULES:
 ### "#" is comment character.
