@@ -1728,7 +1728,8 @@ client_fsync (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
-		goto unwind;
+		STACK_UNWIND(frame, -1, EBADFD);
+		return 0;
 	}
 
 	hdrlen = gf_hdr_len (req, 0);
@@ -2631,7 +2632,8 @@ client_lk (call_frame_t *frame,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD",
 			fd);
-		goto unwind;
+		STACK_UNWIND(frame, -1, EBADFD, NULL);
+		return 0;
 	}
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
@@ -2680,7 +2682,6 @@ unwind:
 
 	STACK_UNWIND(frame, -1, EINVAL, NULL);
 	return 0;
-
 }
 
 
@@ -2822,7 +2823,8 @@ client_finodelk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
-		goto unwind;
+		STACK_UNWIND(frame, -1, EBADFD);
+		return 0;
 	}
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
@@ -2872,7 +2874,6 @@ unwind:
 
 	STACK_UNWIND(frame, -1, EINVAL);
 	return 0;
-
 }
 
 
@@ -2975,7 +2976,8 @@ client_fentrylk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
-		goto unwind;
+		STACK_UNWIND(frame, -1, EBADFD);
+		return 0;
 	}
 
 	hdrlen = gf_hdr_len (req, namelen);
