@@ -724,7 +724,6 @@ main (int argc, char *argv[])
 	xlator_t *graph = NULL;
 	xlator_t *trav = NULL;
 	int fuse_volume_found = 0;
-	int server_or_fuse_found = 0;
 	
 	utime = time (NULL);
 	ctx = calloc (1, sizeof (glusterfs_ctx_t));
@@ -904,38 +903,7 @@ main (int argc, char *argv[])
 			return -1;
 		}
 	}
-	
-	/* check server or fuse is given */
-	if (cmd_args->mount_point == NULL) {
-		trav = graph;
-		server_or_fuse_found = 0;
 		
-		while (trav) {
-			if (strcmp (trav->type, ZR_XLATOR_SERVERPROTO) == 0) {
-				server_or_fuse_found = 1;
-				break;
-			}
-			if (strcmp (trav->type, ZR_XLATOR_FUSE) == 0) {
-				if (dict_get (trav->options, 
-					      ZR_MOUNTPOINT_OPT) != NULL) {
-					server_or_fuse_found = 1;
-					break;
-				}
-			}
-			trav = trav->next;
-		}
-		
-		if (!server_or_fuse_found) {
-			fprintf (stderr, 
-				 "no server protocol or mount point is given "
-				 "in volume file. exiting\n");
-			gf_log ("glusterfs", GF_LOG_ERROR, 
-				"no server protocol or mount point is given "
-				"in volume file. exiting");
-			return -1;
-		}
-	}
-	
 	/* daemonize now */
 	if (!cmd_args->no_daemon_mode) {
 		if (daemon (0, 0) == -1) {
@@ -979,6 +947,16 @@ main (int argc, char *argv[])
 			"translator initialization failed.  exiting");
 		graph->fini (graph);
 		/* do cleanup and exit ?! */
+		return -1;
+	}
+
+	/* check server or fuse is given */
+	if (ctx->top == NULL) {
+		fprintf (stderr, "no valid translator loaded at the top, or"
+			 "no mount point given. exiting\n");
+		gf_log ("glusterfs", GF_LOG_ERROR, 
+			"no valid translator loaded at the top or "
+			"no mount point given. exiting");
 		return -1;
 	}
 	

@@ -1264,6 +1264,11 @@ init (xlator_t *this)
 		return -1;
 	}
 
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+
 	table = (void *) calloc (1, sizeof (*table));
 	ERR_ABORT (table);
   

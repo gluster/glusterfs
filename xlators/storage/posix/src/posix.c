@@ -3522,6 +3522,11 @@ init (xlator_t *this)
                 goto out;
         }
 
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+
         if (!dir_data) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "export directory not specified in volfile");

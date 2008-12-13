@@ -2069,24 +2069,24 @@ fuse_xattr_cbk (call_frame_t *frame,
 					char *file = NULL;
 					
 					memset (&st, 0, sizeof (st));
-                                         ctx = get_global_ctx_ptr ();
-                                         fd = fileno (ctx->specfp);
-                                         ret = fstat (fd, &st);
-                                         if (ret != 0) {
-                                                 gf_log (this->name,
-                                                         GF_LOG_ERROR,
-                                                         "fstat on fd (%d) failed (%s)", fd, strerror (errno));
-                                                 fuse_reply_err (req, ENODATA);
-                                         }
-					 
-                                         priv->volfile_size = st.st_size;
-                                         file = priv->volfile = calloc (1, priv->volfile_size);
-                                         ret = lseek (fd, 0, SEEK_SET);
-                                         while ((ret = read (fd, file, GF_UNIT_KB)) > 0) {
-                                                 file += ret;
-                                         }
+					ctx = get_global_ctx_ptr ();
+					fd = fileno (ctx->specfp);
+					ret = fstat (fd, &st);
+					if (ret != 0) {
+						gf_log (this->name,
+							GF_LOG_ERROR,
+							"fstat on fd (%d) failed (%s)", fd, strerror (errno));
+						fuse_reply_err (req, ENODATA);
+					}
+					
+					priv->volfile_size = st.st_size;
+					file = priv->volfile = calloc (1, priv->volfile_size);
+					ret = lseek (fd, 0, SEEK_SET);
+					while ((ret = read (fd, file, GF_UNIT_KB)) > 0) {
+						file += ret;
+					}
 				}
- 
+				
 				if (priv->volfile_size > GLUSTERFS_XATTR_LEN_MAX) {
 					fuse_reply_err (req, E2BIG);
 				} else if (state->size) {
@@ -2106,7 +2106,7 @@ fuse_xattr_cbk (call_frame_t *frame,
 				fuse_reply_err (req, ENODATA);
 			} /* if(value_data)...else */
 		} else {
-				/* if callback for listxattr */
+			/* if callback for listxattr */
                         int32_t len = 0;
                         data_pair_t *trav = dict->members_list;
                         while (trav) {
@@ -2595,6 +2595,7 @@ init (xlator_t *this_xl)
 	char *value_string = NULL;
 	fuse_private_t *priv = NULL;
 	struct stat stbuf = {0,};
+	glusterfs_ctx_t *ctx = NULL;
 
 #ifdef GF_DARWIN_HOST_OS
         int fuse_argc = 9;
@@ -2769,7 +2770,9 @@ init (xlator_t *this_xl)
         
         priv->fd = fuse_chan_fd (priv->ch);
         priv->buf = data_ref (data_from_dynptr (NULL, 0));
-        
+
+	ctx = get_global_ctx_ptr ();
+        ctx->top = (void *)this_xl;
         return 0;
         
 umount_exit: 

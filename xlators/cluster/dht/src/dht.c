@@ -3312,6 +3312,16 @@ init (xlator_t *this)
         int            ret = -1;
         int            i = 0;
 
+	if (!this->children) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"DHT needs more than one child defined");
+		return -1;
+	}
+  
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
 
         conf = calloc (1, sizeof (*conf));
         if (!conf) {

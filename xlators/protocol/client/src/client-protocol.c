@@ -5933,6 +5933,11 @@ init (xlator_t *this)
 		goto out;
 	}
 	
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+
 	remote_subvolume = dict_get (this->options, "remote-subvolume");
 	if (remote_subvolume == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,

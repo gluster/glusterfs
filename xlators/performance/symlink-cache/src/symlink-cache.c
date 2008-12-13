@@ -355,6 +355,20 @@ sc_forget (xlator_t *this,
 int32_t 
 init (xlator_t *this)
 {
+	
+        if (!this->children || this->children->next)
+        {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "FATAL: volume (%s) not configured with exactly one "
+			"child", this->name);
+                return -1;
+        }
+
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+
         return 0;
 }
 

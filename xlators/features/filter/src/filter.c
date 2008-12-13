@@ -1432,6 +1432,11 @@ init (xlator_t *this)
 		return -1;
 	}
 	
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+
 	filter = calloc (sizeof (*filter), 1);
 	ERR_ABORT (filter);
 	

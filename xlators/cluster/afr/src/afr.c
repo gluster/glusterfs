@@ -1846,6 +1846,17 @@ init (xlator_t *this)
 	int    read_ret      = -1;
 	int    dict_ret      = -1;
 
+	if (!this->children) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"AFR needs more than one child defined");
+		return -1;
+	}
+  
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+
 	ALLOC_OR_GOTO (this->private, afr_private_t, out);
 
 	priv = this->private;

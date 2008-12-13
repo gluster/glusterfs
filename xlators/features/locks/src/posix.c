@@ -730,18 +730,15 @@ init (xlator_t *this)
 	xlator_list_t         *trav = NULL;
 	data_t                *mandatory = NULL;
 
-	if (!this->children) {
-		gf_log (this->name, 
-			GF_LOG_ERROR, 
+	if (!this->children || this->children->next) {
+		gf_log (this->name, GF_LOG_ERROR, 
 			"FATAL: posix-locks should have exactly one child");
 		return -1;
 	}
 
-	if (this->children->next) {
-		gf_log (this->name, 
-			GF_LOG_ERROR, 
-			"FATAL: posix-locks should have exactly one child");
-		return -1;
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
 	}
 
 	trav = this->children;

@@ -2203,19 +2203,16 @@ init (xlator_t *this)
   if (!this)
     return -1;
 
-  if (!this->children) {
-    gf_log (this->name, 
-	    GF_LOG_ERROR, 
+  if (!this->children || this->children->next) {
+    gf_log (this->name, GF_LOG_ERROR, 
 	    "trace translator requires one subvolume");
     return -1;
   }
-    
-  if (this->children->next) {
-    gf_log (this->name, 
-	    GF_LOG_ERROR, 
-	    "trace translator does not support more than one sub-volume");
-    return -1;
-  }
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+  
 
 //  enable_all_calls (1);
 

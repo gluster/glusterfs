@@ -1698,6 +1698,18 @@ int
 init (xlator_t *this)
 {
 	eg_t *pvt = NULL;
+
+	if (!this->children || this->children->next) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"error-gen not configured with one subvolume");
+		return -1;
+	}
+
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+  
 	pvt = calloc (1, sizeof (eg_t));
 	this->private = pvt;
 	return 0;

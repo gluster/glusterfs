@@ -803,16 +803,15 @@ init (xlator_t *this)
         data_t *data = NULL;
 	struct quota_priv *_private = NULL;
 
-	if (!this->children) {
+	if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR, 
 			"FATAL: quota should have exactly one child");
 		return -1;
 	}
-
-	if (this->children->next) {
-		gf_log (this->name, GF_LOG_ERROR, 
-			"FATAL: quota should have exactly one child");
-		return -1;
+	
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
 	}
 
 	_private = calloc (1, sizeof (struct quota_priv));

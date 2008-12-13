@@ -3167,6 +3167,11 @@ init (xlator_t *this)
 		goto out;;
 	}
 
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+
 	directory = dict_get (this->options, "directory");
 	if (!directory) {
 		gf_log (this->name, GF_LOG_ERROR,

@@ -7529,6 +7529,7 @@ init (xlator_t *this)
 	transport_t *trans = NULL;
 	server_conf_t *conf = NULL;
 	server_private_t *server_private = NULL;
+	glusterfs_ctx_t *ctx = NULL;
 
 	if (this->children == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -7621,7 +7622,9 @@ init (xlator_t *this)
 		}
 	}
 #endif
-	
+	ctx = get_global_ctx_ptr ();
+        ctx->top = (void *)this;
+
 	ret = 0;
 	trans->xl_private = conf;
 out:

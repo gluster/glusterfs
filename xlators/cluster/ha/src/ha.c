@@ -3696,6 +3696,17 @@ init (xlator_t *this)
 
 	GF_DEBUG (this, "init() of HA");
 
+	if (!this->children) {
+		gf_log (this->name,GF_LOG_ERROR, 
+			"FATAL: ha should have one or more child defined");
+		return -1;
+	}
+
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+  
 	debug = dict_get (this->options, "debug");
 	load_balance = dict_get (this->options, "load-balance");
 	trav = this->children;

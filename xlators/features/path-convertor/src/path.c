@@ -1110,17 +1110,15 @@ init (xlator_t *this)
 	dict_t *options = this->options;
 	path_private_t *priv = NULL;
 
-	if (!this->children) {
+	if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR, 
-			"path translator requires atleast one subvolume");
+			"path translator requires exactly one subvolume");
 		return -1;
 	}
     
-	if (this->children->next) {
-		gf_log (this->name, GF_LOG_ERROR, 
-			"path translator does not support more than "
-			"one sub-volume");
-		return -1;
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
 	}
   
 	priv = calloc (1, sizeof (*priv));

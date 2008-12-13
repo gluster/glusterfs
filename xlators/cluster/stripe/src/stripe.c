@@ -3081,6 +3081,12 @@ init (xlator_t *this)
 			"exiting");
 		return -1;
 	}
+
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+  
 	priv = calloc (1, sizeof (stripe_private_t));
 	ERR_ABORT (priv);
 	priv->xl_array = calloc (1, count * sizeof (xlator_t *));

@@ -3919,6 +3919,11 @@ init (xlator_t *this)
 			"option in volfile");
 		return -1;
 	}
+
+  	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
   
 	/* Check for 'scheduler' in volume */
 	scheduler = dict_get (this->options, "scheduler");

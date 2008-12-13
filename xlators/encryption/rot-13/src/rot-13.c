@@ -131,12 +131,17 @@ init (xlator_t *this)
 	data_t *data = NULL;
 	rot_13_private_t *priv = NULL;
 
-	if (!this->children) {
+	if (!this->children || this->children->next) {
 		gf_log ("rot13", GF_LOG_ERROR, 
 			"FATAL: rot13 should have exactly one child");
 		return -1;
 	}
 
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+  
 	priv = calloc (sizeof (rot_13_private_t), 1);
 	ERR_ABORT (priv);
 	priv->decrypt_read = 1;

@@ -50,11 +50,6 @@
 #define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
 #define ZR_DIRECT_IO_OPT        "direct-io-mode"
 
-
-#define ZR_XLATOR_SERVERPROTO   "protocol/server"
-
-
-
 enum argp_option_keys {
 	ARGP_VOLFILE_SERVER_KEY = 's', 
 	ARGP_VOLUME_FILE_KEY = 'f', 
