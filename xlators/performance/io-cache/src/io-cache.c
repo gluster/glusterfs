@@ -844,6 +844,7 @@ dispatch_requests (call_frame_t *frame,
 	int32_t fault = 0;
 	int8_t might_need_validate = 0;  /* if a page exists, do we need to validate it? */
 	int8_t need_validate = 0;
+	ioc_waitq_t *waitq = NULL;
 
 	rounded_offset = floor (offset, table->page_size);
 	rounded_end = roof (offset + size, table->page_size);
@@ -891,7 +892,7 @@ dispatch_requests (call_frame_t *frame,
 				gf_log (frame->this->name, GF_LOG_DEBUG,
 					"cache hit for trav_offset=%"PRId64"/local_offset=%"PRId64"",
 					trav_offset, local_offset);
-				ioc_page_wakeup (trav);
+				waitq = ioc_page_wakeup (trav);
 			} else {
 				/* we need to validate the cache */
 				need_validate = 1;
@@ -900,6 +901,9 @@ dispatch_requests (call_frame_t *frame,
 
 		ioc_inode_unlock (ioc_inode);
     
+		ioc_waitq_return (waitq);
+		waitq = NULL;
+
 		if (fault) {
 			fault = 0;
 			/* new page created, increase the table->cache_used */

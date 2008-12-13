@@ -29,16 +29,16 @@
 #include "read-ahead.h"
 #include <assert.h>
 
-static void
-ra_file_unref_locked (ra_file_t *file);
 
 ra_page_t *
 ra_page_get (ra_file_t *file,
 	     off_t offset)
 {
-	//  ra_conf_t *conf = file->conf;
-	ra_page_t *page = file->pages.next;
-	off_t rounded_offset = floor (offset, file->page_size);
+	ra_page_t *page = NULL;
+	off_t      rounded_offset = 0;
+
+	page = file->pages.next;
+	rounded_offset = floor (offset, file->page_size);
 
 	while (page != &file->pages && page->offset < rounded_offset)
 		page = page->next;
@@ -49,20 +49,24 @@ ra_page_get (ra_file_t *file,
 	return page;
 }
 
+
 ra_page_t *
-ra_page_create (ra_file_t *file,
-		off_t offset)
+ra_page_create (ra_file_t *file, off_t offset)
 {
-	//  ra_conf_t *conf = file->conf;
-	ra_page_t *page = file->pages.next;
-	off_t rounded_offset = floor (offset, file->page_size);
+	ra_page_t *page      = NULL;
+	off_t      rounded_offset = 0;
+	ra_page_t *newpage   = NULL;
+
+	page           = file->pages.next;
+	rounded_offset = floor (offset, file->page_size);
 
 	while (page != &file->pages && page->offset < rounded_offset)
 		page = page->next;
 
 	if (page == &file->pages || page->offset != rounded_offset) {
-		ra_page_t *newpage = calloc (1, sizeof (*newpage));
-		ERR_ABORT (newpage);
+		newpage = calloc (1, sizeof (*newpage));
+		if (!newpage)
+			return NULL;
 
 		newpage->offset = rounded_offset;
 		newpage->prev = page->prev;
@@ -77,139 +81,161 @@ ra_page_create (ra_file_t *file,
 	return page;
 }
 
+
 void
-ra_wait_on_page (ra_page_t *page,
-		 call_frame_t *frame)
+ra_wait_on_page (ra_page_t *page, call_frame_t *frame)
 {
 	ra_waitq_t *waitq = NULL;
-	ra_local_t *local = frame->local;
+	ra_local_t *local = NULL;
 
+
+	local = frame->local;
 	waitq = calloc (1, sizeof (*waitq));
-	ERR_ABORT (waitq);
+	if (!waitq) {
+		gf_log (frame->this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		return;
+	}
 
 	waitq->data = frame;
 	waitq->next = page->waitq;
 	page->waitq = waitq;
 
 	ra_local_lock (local);
-	local->wait_count++;
+	{
+		local->wait_count++;
+	}
 	ra_local_unlock (local);
 }
 
-static int32_t
-fault_cbk (call_frame_t *frame,
-	   void *cookie,
-	   xlator_t *this,
-	   int32_t op_ret,
-	   int32_t op_errno,
-	   struct iovec *vector,
-	   int32_t count,
-	   struct stat *stbuf)
-{
-	ra_local_t *local = frame->local;
-	off_t pending_offset = local->pending_offset;
-	ra_file_t *file = local->file;
-	ra_page_t *page;
-	off_t trav_offset;
-	size_t payload_size;
-	int32_t idx = 0;
-	ra_waitq_t *waitq = NULL, *trav = NULL;
 
-	trav_offset = pending_offset;  
-	payload_size = op_ret;
+void
+ra_waitq_return (ra_waitq_t *waitq)
+{
+	ra_waitq_t   *trav = NULL;
+	ra_waitq_t   *next = NULL;
+	call_frame_t *frame = NULL;
+
+	for (trav = waitq; trav; trav = next) {
+		next = trav->next;
+
+		frame = waitq->data;
+		ra_frame_return (frame);
+		free (trav);
+	}
+}
+
+
+int
+ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+	      int32_t op_ret, int32_t op_errno, struct iovec *vector,
+	      int32_t count, struct stat *stbuf)
+{
+	ra_local_t   *local = NULL;
+	off_t         pending_offset = 0;
+	ra_file_t    *file = NULL;
+	ra_page_t    *page = NULL;
+	off_t         trav_offset = 0;
+	size_t        payload_size = 0;
+	ra_waitq_t   *waitq = NULL;
+	fd_t         *fd = NULL;
+	int           ret = 0;
+
+	local = frame->local;
+	fd  = local->fd;
+
+	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
+
+	pending_offset = local->pending_offset;
+	trav_offset    = pending_offset;  
+	payload_size   = op_ret;
 
 	ra_file_lock (file);
+	{
+		if (op_ret >= 0)
+			file->stbuf = *stbuf;
 
-	if (op_ret >= 0)
-		file->stbuf = *stbuf;
+		if (op_ret < 0) {
+			page = ra_page_get (file, pending_offset);
+			if (page)
+				waitq = ra_page_error (page, op_ret, op_errno);
+			goto unlock;
+		}
 
-	if (op_ret < 0) {
-		page = ra_page_get (file, pending_offset);
-		if (page)
-			ra_page_error (page, op_ret, op_errno);
-	} else {
 		page = ra_page_get (file, pending_offset);
 		if (!page) {
-			/* page was flushed */
-			/* some serious bug ? */
-			//  trav = ra_page_create (file, trav_offset);
 			gf_log (this->name, GF_LOG_DEBUG,
 				"wasted copy: %"PRId64"[+%"PRId64"] file=%p", 
 				pending_offset, file->page_size, file);
-		} else {
-			if (page->vector) {
-				dict_unref (page->ref);
-				free (page->vector);
-			}
-			page->vector = iov_dup (vector, count);
-			page->count = count;
-			page->ref = dict_ref (frame->root->rsp_refs);
-			page->ready = 1;
-
-			/* page->size should indicate exactly how much the readv call to the child
-			 * translator returned. earlier op_ret from child translator was used, which 
-			 * gave rise to a bug where reads from io-cached volume were resulting in 0 
-			 * byte replies */
-			for (idx = 0; idx < count; idx++)
-				page->size += vector[idx].iov_len;
-
-//      page->size = op_ret;
-
-			if (page->waitq) {
-				waitq = ra_page_wakeup (page);
-			}
+			goto unlock;
 		}
-	}
 
+		if (page->vector) {
+			dict_unref (page->ref);
+			free (page->vector);
+		}
+
+		page->vector = iov_dup (vector, count);
+		page->count = count;
+		page->ref = dict_ref (frame->root->rsp_refs);
+		page->ready = 1;
+
+		page->size = iov_length (vector, count);
+
+		waitq = ra_page_wakeup (page);
+	}
+unlock:
 	ra_file_unlock (file);
 
-	trav = waitq;
-	while (waitq) {
-		waitq = trav;
-		frame = waitq->data;
-		ra_frame_return (frame);
-		trav = waitq->next;
-		free (waitq);
-	}
+	ra_waitq_return (waitq);
 
-	ra_file_unref (local->file);
+	fd_unref (local->fd);
+
 	free (frame->local);
 	frame->local = NULL;
+
 	STACK_DESTROY (frame->root);
 	return 0;
 }
+
 
 void
 ra_page_fault (ra_file_t *file,
 	       call_frame_t *frame,
 	       off_t offset)
 {
-	//  ra_conf_t *conf = file->conf;
-	call_frame_t *fault_frame = copy_frame (frame);
-	ra_local_t *fault_local = calloc (1, sizeof (ra_local_t));
-	ERR_ABORT (fault_local);
+	call_frame_t *fault_frame = NULL;
+	ra_local_t   *fault_local = NULL;
     
+	fault_frame = copy_frame (frame);
+	fault_local = calloc (1, sizeof (ra_local_t));
+
 	fault_frame->local = fault_local;
 	fault_local->pending_offset = offset;
 	fault_local->pending_size = file->page_size;
-	fault_local->file = ra_file_ref (file);
 
-	STACK_WIND (fault_frame, fault_cbk,
-		    FIRST_CHILD(fault_frame->this),
-		    FIRST_CHILD(fault_frame->this)->fops->readv,
+	fault_local->fd = fd_ref (file->fd);
+
+	STACK_WIND (fault_frame, ra_fault_cbk,
+		    FIRST_CHILD (fault_frame->this),
+		    FIRST_CHILD (fault_frame->this)->fops->readv,
 		    file->fd, file->page_size, offset);
 	return;
 }
 
 void
-ra_frame_fill (ra_page_t *page,
-	       call_frame_t *frame)
+ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 {
-	ra_local_t *local = frame->local;
-	ra_fill_t *fill = &local->fill;
-	off_t src_offset = 0;
-	off_t dst_offset = 0;
-	ssize_t copy_size;
+	ra_local_t *local = NULL;
+	ra_fill_t  *fill = NULL;
+	off_t       src_offset = 0;
+	off_t       dst_offset = 0;
+	ssize_t     copy_size = 0;
+	ra_fill_t  *new = NULL;
+
+
+	local = frame->local;
+	fill  = &local->fill;
 
 	if (local->op_ret != -1 && page->size) {
 		if (local->offset > page->offset)
@@ -233,45 +259,49 @@ ra_frame_fill (ra_page_t *page,
 			}
 			fill = fill->next;
 		}
-		{
-			ra_fill_t *new = calloc (1, sizeof (*new));
-			ERR_ABORT (new);
-			new->offset = page->offset;
-			new->size = copy_size;
-			new->refs = dict_ref (page->ref);
-			new->count = iov_subset (page->vector,
-						 page->count,
-						 src_offset,
-						 src_offset+copy_size,
-						 NULL);
-			new->vector = calloc (new->count, sizeof (struct iovec));
-			ERR_ABORT (new->vector);
-			new->count = iov_subset (page->vector,
-						 page->count,
-						 src_offset,
-						 src_offset+copy_size,
-						 new->vector);
-			new->next = fill;
-			new->prev = new->next->prev;
-			new->next->prev = new;
-			new->prev->next = new;
-		}
+
+		new = calloc (1, sizeof (*new));
+
+		new->offset = page->offset;
+		new->size = copy_size;
+		new->refs = dict_ref (page->ref);
+		new->count = iov_subset (page->vector, page->count,
+					 src_offset, src_offset+copy_size,
+					 NULL);
+		new->vector = calloc (new->count, sizeof (struct iovec));
+
+		new->count = iov_subset (page->vector, page->count,
+					 src_offset, src_offset+copy_size,
+					 new->vector);
+
+		new->next = fill;
+		new->prev = new->next->prev;
+		new->next->prev = new;
+		new->prev->next = new;
+
 		local->op_ret += copy_size;
 	}
 }
 
 
-static void
+void
 ra_frame_unwind (call_frame_t *frame)
 {
-	ra_local_t *local = frame->local;
-	ra_fill_t *fill = local->fill.next;
-	int32_t count = 0;
+	ra_local_t   *local = NULL;
+	ra_fill_t    *fill = NULL;
+	int32_t       count = 0;
 	struct iovec *vector;
-	int32_t copied = 0;
-	dict_t *refs = NULL;
+	int32_t       copied = 0;
+	dict_t       *refs = NULL;
+	ra_fill_t    *next = NULL;
+	fd_t         *fd = NULL;
+	ra_file_t    *file = NULL;
+	int           ret = 0;
 
-	refs = get_new_dict ();
+	local = frame->local;
+	fill  = local->fill.next;
+
+	refs  = get_new_dict ();
 
 	frame->local = NULL;
 
@@ -281,16 +311,15 @@ ra_frame_unwind (call_frame_t *frame)
 	}
 
 	vector = calloc (count, sizeof (*vector));
-	ERR_ABORT (vector);
 
 	fill = local->fill.next;
 
 	while (fill != &local->fill) {
-		ra_fill_t *next = fill->next;
+		next = fill->next;
 
-		memcpy (((char *)vector) + copied,
-			fill->vector,
+		memcpy (((char *)vector) + copied, fill->vector,
 			fill->count * sizeof (*vector));
+
 		copied += (fill->count * sizeof (*vector));
 		dict_copy (fill->refs, refs);
 
@@ -306,15 +335,14 @@ ra_frame_unwind (call_frame_t *frame)
 
 	frame->root->rsp_refs = dict_ref (refs);
 
-	STACK_UNWIND (frame,
-		      local->op_ret,
-		      local->op_errno,
-		      vector,
-		      count,
-		      &local->file->stbuf);
+	fd = local->fd;
+	ret = dict_get_ptr (fd->ctx, frame->this->name,
+			    (void **)((void *) &file));
+
+	STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		      vector, count, &file->stbuf);
   
 	dict_unref (refs);
-	ra_file_unref_locked (local->file);
 	pthread_mutex_destroy (&local->local_lock);
 	free (local);
 	free (vector);
@@ -330,12 +358,16 @@ ra_frame_unwind (call_frame_t *frame)
 void
 ra_frame_return (call_frame_t *frame)
 {
-	ra_local_t *local = frame->local;
-	int32_t wait_count;
+	ra_local_t *local = NULL;
+	int32_t     wait_count = 0;
+
+	local = frame->local;
 	assert (local->wait_count > 0);
 
 	ra_local_lock (local);
-	wait_count = --local->wait_count;
+	{
+		wait_count = --local->wait_count;
+	}
 	ra_local_unlock (local);
 
 	if (!wait_count)
@@ -392,49 +424,32 @@ ra_page_purge (ra_page_t *page)
  * @op_errno:
  *
  */
-void
-ra_page_error (ra_page_t *page,
-	       int32_t op_ret,
-	       int32_t op_errno)
+ra_waitq_t *
+ra_page_error (ra_page_t *page, int32_t op_ret, int32_t op_errno)
 {
-	ra_waitq_t *waitq, *trav;
-	call_frame_t *frame;
+
+	ra_waitq_t   *waitq = NULL;
+	ra_waitq_t   *trav = NULL;
+	call_frame_t *frame = NULL;
+	ra_local_t   *local = NULL;
 
 	waitq = page->waitq;
 	page->waitq = NULL;
 
+	trav = waitq;
 	for (trav = waitq; trav; trav = trav->next) {
-		ra_local_t *local;
-
 		frame = trav->data;
+
 		local = frame->local;
 		if (local->op_ret != -1) {
-			local->op_ret = op_ret;
+			local->op_ret   = op_ret;
 			local->op_errno = op_errno;
 		}
-		ra_frame_return (frame);
 	}
 
-	for (trav = waitq; trav;) {
-		ra_waitq_t *next = trav->next;
-		free (trav);
-		trav = next;
-	}
 	ra_page_purge (page);
-}
 
-/*
- * ra_file_ref - ra file ref
- * @file:
- *
- */
-ra_file_t *
-ra_file_ref (ra_file_t *file)
-{
-	ra_file_lock (file);
-	file->refcount++;
-	ra_file_unlock (file);
-	return file;
+	return waitq;
 }
 
 /* 
@@ -442,15 +457,19 @@ ra_file_ref (ra_file_t *file)
  * @file:
  *
  */
-static void
+void
 ra_file_destroy (ra_file_t *file)
 {
-	ra_conf_t *conf = file->conf;
-	ra_page_t *trav;
+	ra_conf_t *conf = NULL;
+	ra_page_t *trav = NULL;
+
+	conf = file->conf;
 
 	ra_conf_lock (conf);
-	file->prev->next = file->next;
-	file->next->prev = file->prev;
+	{
+		file->prev->next = file->next;
+		file->next->prev = file->prev;
+	}
 	ra_conf_unlock (conf);
 
 	trav = file->pages.next;
@@ -463,40 +482,3 @@ ra_file_destroy (ra_file_t *file)
 	free (file);
 }
 
-/*
- * ra_file_unref_locked -
- * @file:
- *
- */
-static void
-ra_file_unref_locked (ra_file_t *file)
-{
-	int32_t refcount;
-
-	refcount = --file->refcount;
-
-	if (refcount)
-		return;
-
-	ra_file_destroy (file);
-}
-
-/*
- * ra_file_unref - unref a file
- * @file:
- *
- */
-void
-ra_file_unref (ra_file_t *file)
-{
-	int32_t refcount;
-
-	ra_file_lock (file);
-	refcount = --file->refcount;
-	ra_file_unlock (file);
-
-	if (refcount)
-		return;
-
-	ra_file_destroy (file);
-}

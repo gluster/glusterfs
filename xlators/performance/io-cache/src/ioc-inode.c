@@ -57,6 +57,7 @@ ioc_inode_wakeup (call_frame_t *frame,
 		  struct stat *stbuf)
 {
   ioc_waitq_t *waiter = NULL, *waited = NULL;
+  ioc_waitq_t *page_waitq = NULL;
   int8_t cache_still_valid = 1;
   ioc_local_t *local = frame->local;
   int8_t need_fault = 0;
@@ -78,13 +79,16 @@ ioc_inode_wakeup (call_frame_t *frame,
 
   while (waiter) {
     ioc_page_t *waiter_page = waiter->data;
+    page_waitq = NULL;
     
     if (waiter_page) {
       if (cache_still_valid) {
 	/* cache valid, wake up page */
 	ioc_inode_lock (ioc_inode);
-	ioc_page_wakeup (waiter_page);
+	page_waitq = ioc_page_wakeup (waiter_page);
 	ioc_inode_unlock (ioc_inode);
+	if (page_waitq)
+		ioc_waitq_return (page_waitq);
       } else {
 	/* cache invalid, generate page fault and set page->ready = 0, to avoid double faults  */
 	ioc_inode_lock (ioc_inode);

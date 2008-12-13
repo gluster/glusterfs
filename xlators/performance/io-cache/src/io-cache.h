@@ -195,7 +195,7 @@ ioc_page_wakeup (ioc_page_t *page);
 void
 ioc_page_flush (ioc_page_t *page);
 
-void
+ioc_waitq_t *
 ioc_page_error (ioc_page_t *page,
 		int32_t op_ret,
 		int32_t op_errno);
@@ -204,6 +204,9 @@ ioc_page_purge (ioc_page_t *page);
 
 void
 ioc_frame_return (call_frame_t *frame);
+
+void
+ioc_waitq_return (ioc_waitq_t *waitq);
 
 void
 ioc_frame_fill (ioc_page_t *page,

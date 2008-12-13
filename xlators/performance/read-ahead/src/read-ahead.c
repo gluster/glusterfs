@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 /* 
@@ -43,191 +43,159 @@ read_ahead (call_frame_t *frame,
             ra_file_t *file);
 
 
-int32_t
-ra_open_cbk (call_frame_t *frame,
-             void *cookie,
-             xlator_t *this,
-             int32_t op_ret,
-             int32_t op_errno,
-             fd_t *fd)
+int
+ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+             int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-  ra_local_t *local = frame->local;
-  ra_conf_t *conf = this->private;
+	ra_conf_t  *conf = NULL;
+	ra_file_t  *file = NULL;
+	int         ret = 0;
 
-  if (op_ret != -1) {
-    ra_file_t *file = calloc (1, sizeof (*file));
-    ERR_ABORT (file);
+	conf  = this->private;
 
-    file = ra_file_ref (file);
-    file->fd = fd;
-    dict_set (fd->ctx, this->name,
-              data_from_static_ptr (file));
+	if (op_ret == -1) {
+		goto unwind;
+	}
 
-    /* If mandatory locking has been enabled on this file,
-       we disable caching on it */
+	file = calloc (1, sizeof (*file));
+	if (!file) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		goto unwind;
+	}
 
-    if ((fd->inode->st_mode & S_ISGID) && !(fd->inode->st_mode & S_IXGRP))
-      file->disabled = 1;
+	ret = dict_set_static_ptr (fd->ctx, this->name, file);
 
-    /* If O_DIRECT open, we disable caching on it */
+	/* If mandatory locking has been enabled on this file,
+	   we disable caching on it */
 
-    if ((local->flags & O_DIRECT) || (local->flags & O_WRONLY))
-      file->disabled = 1;
+	if ((fd->inode->st_mode & S_ISGID) && !(fd->inode->st_mode & S_IXGRP))
+		file->disabled = 1;
 
-    file->offset = (unsigned long long) 0;
-    //    file->size = fd->inode->buf.st_size;
-    file->conf = conf;
-    file->pages.next = &file->pages;
-    file->pages.prev = &file->pages;
-    file->pages.offset = (unsigned long long) 0;
-    file->pages.file = file;
+	/* If O_DIRECT open, we disable caching on it */
 
-    ra_conf_lock (conf);
-    {
-      file->next = conf->files.next;
-      conf->files.next = file;
-      file->next->prev = file;
-      file->prev = &conf->files;
-    }
-    ra_conf_unlock (conf);
+	if ((fd->flags & O_DIRECT) || (fd->flags & O_WRONLY))
+		file->disabled = 1;
 
-    file->page_count = conf->page_count;
-    file->page_size = conf->page_size;
-    pthread_mutex_init (&file->file_lock, NULL);
+	file->offset = (unsigned long long) 0;
+	file->conf = conf;
+	file->pages.next = &file->pages;
+	file->pages.prev = &file->pages;
+	file->pages.offset = (unsigned long long) 0;
+	file->pages.file = file;
 
-    if (!file->disabled) {
-      file->page_count = 1;
-      //      read_ahead (frame, file);
-    }
-  }
+	ra_conf_lock (conf);
+	{
+		file->next = conf->files.next;
+		conf->files.next = file;
+		file->next->prev = file;
+		file->prev = &conf->files;
+	}
+	ra_conf_unlock (conf);
 
-  FREE (local->file_loc.path);
-  FREE (local);
-  frame->local = NULL;
+	file->fd = fd;
+	file->page_count = conf->page_count;
+	file->page_size = conf->page_size;
+	pthread_mutex_init (&file->file_lock, NULL);
 
-  STACK_UNWIND (frame, op_ret, op_errno, fd);
+	if (!file->disabled) {
+		file->page_count = 1;
+	}
 
-  return 0;
+unwind:
+	STACK_UNWIND (frame, op_ret, op_errno, fd);
+
+	return 0;
 }
 
-int32_t
-ra_create_cbk (call_frame_t *frame,
-               void *cookie,
-               xlator_t *this,
-               int32_t op_ret,
-               int32_t op_errno,
-               fd_t *fd,
-               inode_t *inode,
-               struct stat *buf)
+
+int
+ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno,
+	       fd_t *fd, inode_t *inode, struct stat *buf)
 {
-  ra_local_t *local = frame->local;
-  ra_conf_t *conf = this->private;
+	ra_conf_t  *conf = NULL;
+	ra_file_t  *file = NULL;
+	int         ret = 0;
 
-  if (op_ret != -1) {
-    ra_file_t *file = calloc (1, sizeof (*file));
-    ERR_ABORT (file);
-    file = ra_file_ref (file);
+	conf  = this->private;
 
-    file->fd = fd;
-    dict_set (fd->ctx, this->name,
-              data_from_static_ptr (file));
+	if (op_ret != -1) {
+		goto unwind;
+	}
 
-    /* If mandatory locking has been enabled on this file,
-       we disable caching on it */
+	file = calloc (1, sizeof (*file));
+	if (!file) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		goto unwind;
+	}
 
-    if ((fd->inode->st_mode & S_ISGID) && !(fd->inode->st_mode & S_IXGRP))
-      file->disabled = 1;
+	ret = dict_set_static_ptr (fd->ctx, this->name, file);
 
-    /* If O_DIRECT open, we disable caching on it */
+	/* If mandatory locking has been enabled on this file,
+	   we disable caching on it */
 
-    if ((local->flags & O_DIRECT) || (local->flags & O_WRONLY))
-      file->disabled = 1;
+	if ((fd->inode->st_mode & S_ISGID) && !(fd->inode->st_mode & S_IXGRP))
+		file->disabled = 1;
 
-    file->offset = (unsigned long long) 0;
-    //file->size = fd->inode->buf.st_size;
-    file->conf = conf;
-    file->pages.next = &file->pages;
-    file->pages.prev = &file->pages;
-    file->pages.offset = (unsigned long long) 0;
-    file->pages.file = file;
+	/* If O_DIRECT open, we disable caching on it */
 
-    ra_conf_lock (conf);
-    {
-      file->next = conf->files.next;
-      conf->files.next = file;
-      file->next->prev = file;
-      file->prev = &conf->files;
-    }
-    ra_conf_unlock (conf);
+	if ((fd->flags & O_DIRECT) || (fd->flags & O_WRONLY))
+			file->disabled = 1;
 
-    file->page_count = conf->page_count;
-    file->page_size = conf->page_size;
-    pthread_mutex_init (&file->file_lock, NULL);
-  }
+	file->offset = (unsigned long long) 0;
+	//file->size = fd->inode->buf.st_size;
+	file->conf = conf;
+	file->pages.next = &file->pages;
+	file->pages.prev = &file->pages;
+	file->pages.offset = (unsigned long long) 0;
+	file->pages.file = file;
 
-  FREE (local->file_loc.path);
-  FREE (local);
-  frame->local = NULL;
+	ra_conf_lock (conf);
+	{
+		file->next = conf->files.next;
+		conf->files.next = file;
+		file->next->prev = file;
+		file->prev = &conf->files;
+	}
+	ra_conf_unlock (conf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+	file->fd = fd;
+	file->page_count = conf->page_count;
+	file->page_size = conf->page_size;
+	pthread_mutex_init (&file->file_lock, NULL);
 
-  return 0;
+unwind:
+	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+
+	return 0;
 }
 
-int32_t
-ra_open (call_frame_t *frame,
-         xlator_t *this,
-         loc_t *loc,
-         int32_t flags,
-	 fd_t *fd)
+
+int
+ra_open (call_frame_t *frame, xlator_t *this,
+         loc_t *loc, int32_t flags, fd_t *fd)
 {
-  ra_local_t *local = calloc (1, sizeof (*local));
-  ERR_ABORT (local);
+	STACK_WIND (frame, ra_open_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->open,
+		    loc, flags, fd);
 
-  local->file_loc.inode = loc->inode;
-  local->file_loc.path = strdup (loc->path);
-
-  local->flags = flags;
-
-  frame->local = local;
-
-  STACK_WIND (frame,
-              ra_open_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->open,
-              loc,
-              flags,
-	      fd);
-
-  return 0;
+	return 0;
 }
 
-int32_t
-ra_create (call_frame_t *frame,
-           xlator_t *this,
-	   loc_t *loc,
-           int32_t flags,
-           mode_t mode,
-	   fd_t *fd)
+int
+ra_create (call_frame_t *frame, xlator_t *this,
+	   loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
-  ra_local_t *local = calloc (1, sizeof (*local));
-  ERR_ABORT (local);
+	STACK_WIND (frame,
+		    ra_create_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->create,
+		    loc, flags, mode, fd);
 
-
-  local->file_loc.inode = loc->inode;
-  local->file_loc.path = strdup (loc->path);
-
-  local->mode = mode;
-  local->flags = 0;
-  frame->local = local;
-
-  STACK_WIND (frame,
-              ra_create_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->create,
-	      loc, flags, mode, fd);
-
-  return 0;
+	return 0;
 }
 
 /* free cache pages between offset and offset+size,
@@ -240,691 +208,636 @@ flush_region (call_frame_t *frame,
               off_t offset,
               off_t size)
 {
-  ra_page_t *trav;
+	ra_page_t *trav = NULL;
+	ra_page_t *next = NULL;
 
-  ra_file_lock (file);
 
-  trav = file->pages.next;
-  while (trav != &file->pages && trav->offset < (offset + size)) {
-    ra_page_t *next = trav->next;
-    if (trav->offset >= offset && !trav->waitq) {
+	ra_file_lock (file);
+	{
+		trav = file->pages.next;
+		while (trav != &file->pages
+		       && trav->offset < (offset + size)) {
 
-      if (!trav->ready) {
-	gf_log (frame->this->name, GF_LOG_DEBUG,
-		"killing featus, file=%p, offset=%"PRId64", de=%"PRId64", a=%"PRId64"",
-		file, trav->offset, offset, size);
-      }
-      ra_page_purge (trav);
-    }
-    trav = next;
-  }
-
-  ra_file_unlock (file);
+			next = trav->next;
+			if (trav->offset >= offset && !trav->waitq) {
+				ra_page_purge (trav);
+			}
+			trav = next;
+		}
+	}
+	ra_file_unlock (file);
 }
 
 
 
-int32_t
+int
 ra_release (xlator_t *this,
 	    fd_t *fd)
 {
-  data_t *file_data = dict_get (fd->ctx, this->name);
-  ra_file_t *file = NULL;
+	ra_file_t *file = NULL;
+	int        ret = 0;
 
-  if (file_data) {
-    file = data_to_ptr (file_data);
-    
-    ra_file_unref (file);
-  }
+	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *)&file));
 
-  return 0;
+	if (file) {
+		ra_file_destroy (file);
+	}
+
+	return 0;
 }
 
 
 void
-read_ahead (call_frame_t *frame,
-            ra_file_t *file)
+read_ahead (call_frame_t *frame, ra_file_t *file)
 {
-  off_t ra_offset;
-  size_t ra_size;
-  off_t trav_offset;
-  ra_page_t *trav = NULL;
-  off_t cap = file->size;
+	off_t      ra_offset = 0;
+	size_t     ra_size = 0;
+	off_t      trav_offset = 0;
+	ra_page_t *trav = NULL;
+	off_t      cap = 0;
+	char       fault = 0;
 
-  if (!file->page_count)
-    return;
+	if (!file->page_count)
+		return;
 
-  ra_size = file->page_size * file->page_count;
-  ra_offset = floor (file->offset, file->page_size);
-  cap = file->size ? file->size : file->offset + ra_size;
+	ra_size   = file->page_size * file->page_count;
+	ra_offset = floor (file->offset, file->page_size);
+	cap       = file->size ? file->size : file->offset + ra_size;
 
-  while (ra_offset < min (file->offset + ra_size, cap)) {
-    ra_file_lock (file);
-    trav = ra_page_get (file, ra_offset);
-    ra_file_unlock (file);
-    if (!trav)
-      break;
-    ra_offset += file->page_size;
-  }
+	while (ra_offset < min (file->offset + ra_size, cap)) {
 
-  if (trav)
-    /* comfortable enough */
-    return;
+		ra_file_lock (file);
+		{
+			trav = ra_page_get (file, ra_offset);
+		}
+		ra_file_unlock (file);
 
-  trav_offset = ra_offset;
+		if (!trav)
+			break;
 
-  trav = file->pages.next;
-  cap = file->size ? file->size : ra_offset + ra_size;
-  while (trav_offset < min(ra_offset + ra_size, cap)) {
-    char fault = 0;
-    ra_file_lock (file);
-    trav = ra_page_get (file, trav_offset);
-    if (!trav) {
-      fault = 1;
-      trav = ra_page_create (file, trav_offset);
-      trav->dirty = 1;
-    }
-    ra_file_unlock (file);
+		ra_offset += file->page_size;
+	}
 
-    if (fault) {
-      gf_log (frame->this->name, GF_LOG_DEBUG,
-	      "RA at offset=%"PRId64, trav_offset);
-      ra_page_fault (file, frame, trav_offset);
-    }
-    trav_offset += file->page_size;
-  }
-  return ;
+	if (trav)
+		/* comfortable enough */
+		return;
+
+	trav_offset = ra_offset;
+
+	trav = file->pages.next;
+	cap  = file->size ? file->size : ra_offset + ra_size;
+
+	while (trav_offset < min(ra_offset + ra_size, cap)) {
+		fault = 0;
+		ra_file_lock (file);
+		{
+			trav = ra_page_get (file, trav_offset);
+			if (!trav) {
+				fault = 1;
+				trav = ra_page_create (file, trav_offset);
+				if (trav) 
+					trav->dirty = 1;
+			}
+		}
+		ra_file_unlock (file);
+
+		if (!trav) {
+			/* OUT OF MEMORY */
+			break;
+		}
+
+		if (fault) {
+			gf_log (frame->this->name, GF_LOG_DEBUG,
+				"RA at offset=%"PRId64, trav_offset);
+			ra_page_fault (file, frame, trav_offset);
+		}
+		trav_offset += file->page_size;
+	}
+
+	return;
 }
 
-int32_t
-ra_need_atime_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   struct iovec *vector,
-                   int32_t count,
-		   struct stat *stbuf)
+
+int
+ra_need_atime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iovec *vector,
+                   int32_t count, struct stat *stbuf)
 {
-  STACK_DESTROY (frame->root);
-  return 0;
+	STACK_DESTROY (frame->root);
+	return 0;
 }
+
 
 static void
 dispatch_requests (call_frame_t *frame,
                    ra_file_t *file)
 {
-  ra_local_t *local = frame->local;
-  ra_conf_t *conf = file->conf;
-  off_t rounded_offset;
-  off_t rounded_end;
-  off_t trav_offset;
-  ra_page_t *trav;
-  call_frame_t *ra_frame;
-  char need_atime_update = 1;
+	ra_local_t   *local = NULL;
+	ra_conf_t    *conf = NULL;
+	off_t         rounded_offset = 0;
+	off_t         rounded_end = 0;
+	off_t         trav_offset = 0;
+	ra_page_t    *trav = NULL;
+	call_frame_t *ra_frame = NULL;
+	char          need_atime_update = 1;
+	char          fault = 0;
 
-  rounded_offset = floor (local->offset, file->page_size);
-  rounded_end = roof (local->offset + local->size, file->page_size);
 
-  trav_offset = rounded_offset;
-  trav = file->pages.next;
+	local = frame->local;
+	conf  = file->conf;
 
-  while (trav_offset < rounded_end) {
-    char fault = 0;
+	rounded_offset = floor (local->offset, file->page_size);
+	rounded_end    = roof (local->offset + local->size, file->page_size);
 
-    ra_file_lock (file);
-    trav = ra_page_get (file, trav_offset);
-    if (!trav) {
-      trav = ra_page_create (file, trav_offset);
-      fault = 1;
-      need_atime_update = 0;
-    } 
+	trav_offset = rounded_offset;
+	trav        = file->pages.next;
 
-    if (trav->ready) {
-      gf_log (frame->this->name, GF_LOG_DEBUG,
-	      "HIT at offset=%"PRId64".",
-	      trav_offset);
-      ra_frame_fill (trav, frame);
-    } else {
-      gf_log (frame->this->name, GF_LOG_DEBUG,
-	      "IN-TRANSIT at offset=%"PRId64".",
-	      trav_offset);
-      ra_wait_on_page (trav, frame);
-      need_atime_update = 0;
-    }
-    ra_file_unlock (file);
+	while (trav_offset < rounded_end) {
+		fault = 0;
 
-    if (fault) {
-      gf_log (frame->this->name, GF_LOG_DEBUG,
-	      "MISS at offset=%"PRId64".",
-	      trav_offset);
-      ra_page_fault (file, frame, trav_offset);
-    }
+		ra_file_lock (file);
+		{
+			trav = ra_page_get (file, trav_offset);
+			if (!trav) {
+				trav = ra_page_create (file, trav_offset);
+				fault = 1;
+				need_atime_update = 0;
+			}
 
-    trav_offset += file->page_size;
-  }
+			if (!trav)
+				goto unlock;
 
-  if (need_atime_update && conf->force_atime_update) {
-    /* TODO: use untimens() since readv() can confuse underlying
-       io-cache and others */
-    ra_frame = copy_frame (frame);
-    STACK_WIND (ra_frame, 
-                ra_need_atime_cbk,
-                FIRST_CHILD (frame->this), 
-                FIRST_CHILD (frame->this)->fops->readv,
-                file->fd, 1, 1);
-  }
+			if (trav->ready) {
+				gf_log (frame->this->name, GF_LOG_DEBUG,
+					"HIT at offset=%"PRId64".",
+					trav_offset);
+				ra_frame_fill (trav, frame);
+			} else {
+				gf_log (frame->this->name, GF_LOG_DEBUG,
+					"IN-TRANSIT at offset=%"PRId64".",
+					trav_offset);
+				ra_wait_on_page (trav, frame);
+				need_atime_update = 0;
+			}
+		}
+	unlock:
+		ra_file_unlock (file);
 
-  return ;
+		if (fault) {
+			gf_log (frame->this->name, GF_LOG_DEBUG,
+				"MISS at offset=%"PRId64".",
+				trav_offset);
+			ra_page_fault (file, frame, trav_offset);
+		}
+
+		trav_offset += file->page_size;
+	}
+
+	if (need_atime_update && conf->force_atime_update) {
+		/* TODO: use untimens() since readv() can confuse underlying
+		   io-cache and others */
+		ra_frame = copy_frame (frame);
+		STACK_WIND (ra_frame, ra_need_atime_cbk,
+			    FIRST_CHILD (frame->this), 
+			    FIRST_CHILD (frame->this)->fops->readv,
+			    file->fd, 1, 1);
+	}
+
+	return ;
 }
 
-int32_t
-ra_readv_disabled_cbk (call_frame_t *frame, 
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno,
-                       struct iovec *vector,
-                       int32_t count,
-		       struct stat *stbuf)
+
+int
+ra_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno,
+		       struct iovec *vector, int32_t count, struct stat *stbuf)
 {
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (vector);
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
-  return 0;
+	return 0;
 }
 
-int32_t
-ra_readv (call_frame_t *frame,
-          xlator_t *this,
-          fd_t *fd,
-          size_t size,
-          off_t offset)
+
+int
+ra_readv (call_frame_t *frame, xlator_t *this,
+	  fd_t *fd, size_t size, off_t offset)
 {
-  ra_file_t *file;
-  ra_local_t *local;
-  ra_conf_t *conf = this->private;
+	ra_file_t    *file = NULL;
+	ra_local_t   *local = NULL;
+	ra_conf_t    *conf = NULL;
+	int           op_errno = 0;
+	int           ret = 0;
 
+	conf = this->private;
 
-  gf_log (this->name, GF_LOG_DEBUG,
-	  "NEW REQ at offset=%"PRId64" for size=%"GF_PRI_SIZET"",
-	  offset, size);
+	gf_log (this->name, GF_LOG_DEBUG,
+		"NEW REQ at offset=%"PRId64" for size=%"GF_PRI_SIZET"",
+		offset, size);
 
-  file = data_to_ptr (dict_get (fd->ctx, this->name));
+	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *)&file));
 
-  if (file->offset != offset) {
-    gf_log (this->name, GF_LOG_DEBUG,
-	    "received unexpected offset (%"PRId64" != %"PRId64"), resetting page_count to 0",
-	    file->offset, offset);
-    file->expected = file->page_count = 0;
-  } else {
-    gf_log (this->name, GF_LOG_DEBUG,
-	    "received expected offset (%"PRId64") when page_count=%d",
-	    offset, file->page_count);
-    if (file->expected < (conf->page_size * conf->page_count)) {
-      file->expected += size;
-      file->page_count = min ((file->expected / file->page_size),
-			      conf->page_count);
-    }
-  }
+	if (file->offset != offset) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"unexpected offset (%"PRId64" != %"PRId64") resetting",
+			file->offset, offset);
 
-  if (file->disabled) {
-    STACK_WIND (frame, 
-		ra_readv_disabled_cbk,
-		FIRST_CHILD (frame->this), 
-		FIRST_CHILD (frame->this)->fops->readv,
-		file->fd, size, offset);
-    return 0;
-  }
+		file->expected = file->page_count = 0;
+	} else {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"expected offset (%"PRId64") when page_count=%d",
+			offset, file->page_count);
 
-  //  if (fd->inode->buf.st_mtime != file->stbuf.st_mtime)
-    /* flush the whole read-ahead cache */
-    //flush_region (frame, file, 0, file->pages.prev->offset + 1);
+		if (file->expected < (conf->page_size * conf->page_count)) {
+			file->expected += size;
+			file->page_count = min ((file->expected / file->page_size),
+						conf->page_count);
+		}
+	}
 
-  call_frame_t *ra_frame = copy_frame (frame);
+	if (file->disabled) {
+		STACK_WIND (frame, ra_readv_disabled_cbk,
+			    FIRST_CHILD (frame->this), 
+			    FIRST_CHILD (frame->this)->fops->readv,
+			    file->fd, size, offset);
+		return 0;
+	}
 
+	local = (void *) calloc (1, sizeof (*local));
+	if (!local) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		op_errno = ENOMEM;
+		goto unwind;
+	}
 
-  local = (void *) calloc (1, sizeof (*local));
-  ERR_ABORT (local);
-  local->offset = offset;
-  local->size = size;
-  local->file = ra_file_ref (file);
-  local->wait_count = 1; /* for synchronous STACK_UNWIND from protocol in case of error */
-  local->fill.next = &local->fill;
-  local->fill.prev = &local->fill;
-  pthread_mutex_init (&local->local_lock, NULL);
+	local->fd         = fd;
+	local->offset     = offset;
+	local->size       = size;
+	local->wait_count = 1;
 
-  frame->local = local;
+	local->fill.next  = &local->fill;
+	local->fill.prev  = &local->fill;
 
-  dispatch_requests (frame, file);
+	pthread_mutex_init (&local->local_lock, NULL);
 
-  flush_region (frame, file, 0, floor (offset, file->page_size));
-  /* read-ahead asynchronously does read_ahead(),
-   * not in any system call's context. fd_ref()ed to 
-   * preserve fd_t */
-  file->fd = fd_ref (file->fd);
+	frame->local = local;
 
-  ra_frame_return (frame);
+	dispatch_requests (frame, file);
 
-  read_ahead (ra_frame, file);
-  
-  /* read-ahead has finised asynchronous work on the fd_t */
-  fd_unref (file->fd);
+	flush_region (frame, file, 0, floor (offset, file->page_size));
 
-  file->offset = offset + size;
+	read_ahead (frame, file);
 
-  STACK_DESTROY (ra_frame->root);
+	ra_frame_return (frame);
 
-  return 0;
+	file->offset = offset + size;
+
+	return 0;
+
+unwind:
+	STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
+
+	return 0;
 }
 
-int32_t
+
+int
 ra_flush_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
               int32_t op_ret,
               int32_t op_errno)
 {
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
 }
 
-int32_t
-ra_flush (call_frame_t *frame,
-          xlator_t *this,
-          fd_t *fd)
+
+int
+ra_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-  data_t *file_data = dict_get (fd->ctx, this->name);
-  ra_file_t *file = NULL;
+	ra_file_t *file = NULL;
+	int        ret = 0;
 
-  if (file_data) {
-    file = data_to_ptr (file_data);
-    
-    flush_region (frame, file, 0, file->pages.prev->offset+1);
-  }
+	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
 
-  STACK_WIND (frame,
-	      ra_flush_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->flush,
-	      fd);
-  return 0;
+	if (file) {
+		flush_region (frame, file, 0, file->pages.prev->offset+1);
+	}
+
+	STACK_WIND (frame, ra_flush_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->flush,
+		    fd);
+	return 0;
 }
 
-int32_t
-ra_fsync (call_frame_t *frame,
-          xlator_t *this,
-          fd_t *fd,
+
+int
+ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
           int32_t datasync)
 {
-  data_t *file_data = dict_get (fd->ctx, this->name);
-  ra_file_t *file = NULL;
+	ra_file_t *file = NULL;
+	int        ret = 0;
 
-  if (file_data) {
-    file = data_to_ptr (file_data);
-    flush_region (frame, file, 0, file->pages.prev->offset+1);
-  }
-  STACK_WIND (frame,
-              ra_flush_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->fsync,
-              fd,
-              datasync);
-  return 0;
-}
+	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
 
-int32_t
-ra_writev_cbk (call_frame_t *frame,
-               void *cookie,
-               xlator_t *this,
-               int32_t op_ret,
-               int32_t op_errno,
-	       struct stat *stbuf)
-{
-  fd_t *fd = frame->local;
-  data_t *file_data = dict_get (fd->ctx, this->name);
-  ra_file_t *file = NULL;
-
-  if (file_data) {
-    file = data_to_ptr (file_data);
-    flush_region (frame, file, 0, file->pages.prev->offset+1);
-  }
-  frame->local = NULL;
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  return 0;
-}
-
-int32_t
-ra_writev (call_frame_t *frame,
-           xlator_t *this,
-           fd_t *fd,
-           struct iovec *vector,
-           int32_t count,
-           off_t offset)
-{
-  data_t *file_data = dict_get (fd->ctx, this->name);
-  ra_file_t *file = NULL;
-
-  frame->local = (void *) fd;
-  if (file_data) {
-    file = data_to_ptr (file_data);    
-    flush_region (frame, file, 0, file->pages.prev->offset+1);
-
-    /* reset the read-ahead counters too */
-    file->expected = file->page_count = 0;
-  }
-
-  STACK_WIND (frame,
-              ra_writev_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->writev,
-              fd, vector, count, offset);
-
-  return 0;
-}
-
-int32_t 
-ra_truncate_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 struct stat *buf)
-{
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
-  return 0;
-}
-
-int32_t 
-ra_truncate (call_frame_t *frame,
-             xlator_t *this,
-             loc_t *loc,
-             off_t offset)
-{
-  ra_file_t *file = NULL;
-  fd_t *iter_fd = NULL;
-
-  if (loc->inode) {
-    LOCK (&(loc->inode->lock));
-    {
-      list_for_each_entry (iter_fd, &(loc->inode->fd_list), inode_list) {
-	if (dict_get (iter_fd->ctx, this->name)) {
-	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-	  flush_region (frame, file, 0, file->pages.prev->offset + 1);
+	if (file) {
+		flush_region (frame, file, 0, file->pages.prev->offset+1);
 	}
-      }
-    }
-    UNLOCK (&(loc->inode->lock));
-  }
 
-  STACK_WIND (frame,
-              ra_truncate_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->truncate,
-              loc, offset);
-  return 0;
+	STACK_WIND (frame, ra_flush_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->fsync,
+		    fd, datasync);
+	return 0;
 }
 
-int32_t 
-ra_ftruncate_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 struct stat *buf)
+
+int
+ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
-  ra_local_t *local;
-  ra_file_t *file;
+	fd_t      *fd = NULL;
+	ra_file_t *file = NULL;
+	int        ret = 0;
 
-  local = frame->local;
-  file = local->file;
+	fd = frame->local;
+	frame->local = fd;
 
-  frame->local = NULL;
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
 
-  ra_file_unref (file);
-  free (local);
-  return 0;
+	if (file) {
+		flush_region (frame, file, 0, file->pages.prev->offset+1);
+	}
+
+	frame->local = NULL;
+	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+	return 0;
 }
 
-int32_t
-ra_fstat_cbk (call_frame_t *frame,
-	      void *cookie,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      struct stat *buf)
+
+int
+ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
+           struct iovec *vector, int32_t count, off_t offset)
 {
-  ra_local_t *local;
-  ra_file_t *file;
+	ra_file_t *file = NULL;
+	int        ret = 0;
 
-  local = frame->local;
-  file = local->file;
+	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
 
-  if ((op_ret == 0) && (file->stbuf.st_mtime != buf->st_mtime))
-    flush_region (frame, file, 0, file->pages.prev->offset + 1);
+	if (file) {
+		flush_region (frame, file, 0, file->pages.prev->offset+1);
 
-  frame->local = NULL;
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+		/* reset the read-ahead counters too */
+		file->expected = file->page_count = 0;
+	}
 
-  if (file)
-    ra_file_unref (file);
-  free (local);
-  return 0;
+	frame->local = fd;
+
+	STACK_WIND (frame, ra_writev_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->writev,
+		    fd, vector, count, offset);
+
+	return 0;
 }
 
-int32_t 
-ra_fstat (call_frame_t *frame,
-	  xlator_t *this,
+
+int
+ra_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+	     int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	return 0;
+}
+
+
+int
+ra_truncate (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, off_t offset)
+{
+	ra_file_t *file = NULL;
+	fd_t      *iter_fd = NULL;
+	inode_t   *inode = NULL;
+	int        ret = 0;
+
+	inode = loc->inode;
+
+	LOCK (&inode->lock);
+	{
+		list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+			ret = dict_get_ptr (iter_fd->ctx, this->name,
+					    (void **) ((void *)&file));
+			if (!file)
+				continue;
+			flush_region (frame, file, 0,
+				      file->pages.prev->offset + 1);
+		}
+	}
+	UNLOCK (&inode->lock);
+
+	STACK_WIND (frame, ra_attr_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->truncate,
+		    loc, offset);
+	return 0;
+}
+
+
+int
+ra_fstat (call_frame_t *frame, xlator_t *this,
 	  fd_t *fd)
 {
-  data_t *file_data = dict_get (fd->ctx, this->name);
-  ra_local_t *local;
-  ra_file_t *file = NULL;
+	ra_file_t *file = NULL;
+	fd_t      *iter_fd = NULL;
+	inode_t   *inode = NULL;
+	int        ret = 0;
 
-  if (file_data) {
-    file = data_to_ptr (file_data);
-  }
+	inode = fd->inode;
 
-  local = calloc (1, sizeof (*local));
-  ERR_ABORT (local);
-  if (file)
-    local->file = ra_file_ref (file);
-  frame->local = local;
+	LOCK (&inode->lock);
+	{
+		list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+			ret = dict_get_ptr (iter_fd->ctx, this->name,
+					    (void **) ((void *)&file));
+			if (!file)
+				continue;
+			flush_region (frame, file, 0,
+				      file->pages.prev->offset + 1);
+		}
+	}
+	UNLOCK (&inode->lock);
 
-  STACK_WIND (frame,
-	      ra_fstat_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->fstat,
-	      fd);
-  return 0;
+	STACK_WIND (frame, ra_attr_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->fstat,
+		    fd);
+	return 0;
 }
 
-int32_t
-ra_fchown_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct stat *buf)
+
+int
+ra_fchown (call_frame_t *frame, xlator_t *this,
+	   fd_t *fd, uid_t uid, gid_t gid)
 {
-  ra_local_t *local;
-  ra_file_t *file;
+	ra_file_t *file = NULL;
+	fd_t      *iter_fd = NULL;
+	inode_t   *inode = NULL;
+	int        ret = 0;
 
-  local = frame->local;
-  file = local->file;
+	inode = fd->inode;
 
-  if ((op_ret == 0) && (file->stbuf.st_mtime != buf->st_mtime))
-    flush_region (frame, file, 0, file->pages.prev->offset + 1);
+	LOCK (&inode->lock);
+	{
+		list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+			ret = dict_get_ptr (iter_fd->ctx, this->name,
+					    (void **) ((void *)&file));
+			if (!file)
+				continue;
+			flush_region (frame, file, 0,
+				      file->pages.prev->offset + 1);
+		}
+	}
+	UNLOCK (&inode->lock);
 
-  frame->local = NULL;
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
-
-  if (file)
-    ra_file_unref (file);
-
-  free (local);
-  return 0;
+	STACK_WIND (frame, ra_attr_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->fchown,
+		    fd, uid, gid);
+	return 0;
 }
 
-int32_t
-ra_fchown (call_frame_t *frame,
-	   xlator_t *this,
-	   fd_t *fd,
-	   uid_t uid,
-	   gid_t gid)
+
+int
+ra_ftruncate (call_frame_t *frame, xlator_t *this,
+              fd_t *fd, off_t offset)
 {
-  data_t *file_data = dict_get (fd->ctx, this->name);
-  ra_local_t *local;
-  ra_file_t *file = NULL;
+	ra_file_t *file = NULL;
+	fd_t      *iter_fd = NULL;
+	inode_t   *inode = NULL;
+	int        ret = 0;
 
-  if (file_data) {
-    file = data_to_ptr (file_data);
-  }
+	inode = fd->inode;
 
-  local = calloc (1, sizeof (*local));
-  ERR_ABORT (local);
+	LOCK (&inode->lock);
+	{
+		list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+			ret = dict_get_ptr (iter_fd->ctx, this->name,
+					    (void **) ((void *)&file));
+			if (!file)
+				continue;
+			flush_region (frame, file, 0,
+				      file->pages.prev->offset + 1);
+		}
+	}
+	UNLOCK (&inode->lock);
 
-  if (file)
-    local->file = ra_file_ref (file);
-
-  frame->local = local;
-
-  STACK_WIND (frame,
-	      ra_fchown_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->fchown,
-	      fd,
-	      uid,
-	      gid);
-  return 0;
+	STACK_WIND (frame, ra_attr_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->ftruncate,
+		    fd, offset);
+	return 0;
 }
 
-int32_t
-ra_ftruncate (call_frame_t *frame,
-              xlator_t *this,
-              fd_t *fd,
-              off_t offset)
-{
-  data_t *file_data = dict_get (fd->ctx, this->name);
-  ra_file_t *file = NULL;
-  ra_local_t *local = calloc (1, sizeof (*local));
-  ERR_ABORT (local);
-  
-  if (file_data) {
-    file = data_to_ptr (file_data);
-    flush_region (frame, file, 0, file->pages.prev->offset + 1);
-  }
 
-  local->file = ra_file_ref (file);
-  frame->local = local;
-  STACK_WIND (frame,
-              ra_ftruncate_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->ftruncate,
-              fd,
-              offset);
-  return 0;
-}
-
-int32_t 
+int
 init (xlator_t *this)
 {
-  ra_conf_t *conf;
-  dict_t *options = this->options;
-  char *page_size_string = NULL;
-  char *page_count_string = NULL;
+	ra_conf_t *conf;
+	dict_t *options = this->options;
+	char *page_size_string = NULL;
+	char *page_count_string = NULL;
 
-  if (!this->children || this->children->next) {
-    gf_log (this->name,  GF_LOG_ERROR,
-	    "FATAL: read-ahead not configured with exactly one child");
-    return -1;
-  }
-
-  conf = (void *) calloc (1, sizeof (*conf));
-  ERR_ABORT (conf);
-  conf->page_size = 256 * 1024;
-  conf->page_count = 2;
-
-  if (dict_get (options, "page-size"))
-    page_size_string = data_to_str (dict_get (options,
-					      "page-size"));
-  if (page_size_string)
-    {
-      if (gf_string2bytesize (page_size_string, &conf->page_size) != 0)
-	{
-	  gf_log ("read-ahead", 
-		  GF_LOG_ERROR, 
-		  "invalid number format \"%s\" of \"option page-size\"", 
-		  page_size_string);
-	  return -1;
+	if (!this->children || this->children->next) {
+		gf_log (this->name,  GF_LOG_ERROR,
+			"FATAL: read-ahead not configured with exactly one child");
+		return -1;
 	}
+
+	conf = (void *) calloc (1, sizeof (*conf));
+	ERR_ABORT (conf);
+	conf->page_size = 256 * 1024;
+	conf->page_count = 2;
+
+	if (dict_get (options, "page-size"))
+		page_size_string = data_to_str (dict_get (options,
+							  "page-size"));
+	if (page_size_string)
+	{
+		if (gf_string2bytesize (page_size_string, &conf->page_size) != 0)
+		{
+			gf_log ("read-ahead", 
+				GF_LOG_ERROR, 
+				"invalid number format \"%s\" of \"option page-size\"", 
+				page_size_string);
+			return -1;
+		}
       
-      gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_size = %"PRIu64"",
-	      conf->page_size);
-    }
-  
-  if (dict_get (options, "page-count"))
-    page_count_string = data_to_str (dict_get (options, 
-					       "page-count"));
-  if (page_count_string)
-    {
-      if (gf_string2uint_base10 (page_count_string, &conf->page_count) != 0)
-	{
-	  gf_log ("read-ahead", 
-		  GF_LOG_ERROR, 
-		  "invalid number format \"%s\" of \"option page-count\"", 
-		  page_count_string);
-	  return -1;
+		gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_size = %"PRIu64"",
+			conf->page_size);
 	}
-      gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_count = %u",
-	      conf->page_count);
-    }
   
-  if (dict_get (options, "force-atime-update")) {
-    char *force_atime_update_str = data_to_str (dict_get (options,
-							  "force-atime-update"));
-    if (gf_string2boolean (force_atime_update_str, &conf->force_atime_update) == -1) {
-	    gf_log (this->name, GF_LOG_ERROR,
-		    "'force-atime-update' takes only boolean options");
-	    return -1;
-    }
-    if (conf->force_atime_update)
-      gf_log (this->name, GF_LOG_DEBUG, "Forcing atime updates on cache hit");
-  }
+	if (dict_get (options, "page-count"))
+		page_count_string = data_to_str (dict_get (options, 
+							   "page-count"));
+	if (page_count_string)
+	{
+		if (gf_string2uint_base10 (page_count_string, &conf->page_count) != 0)
+		{
+			gf_log ("read-ahead", 
+				GF_LOG_ERROR, 
+				"invalid number format \"%s\" of \"option page-count\"", 
+				page_count_string);
+			return -1;
+		}
+		gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_count = %u",
+			conf->page_count);
+	}
+  
+	if (dict_get (options, "force-atime-update")) {
+		char *force_atime_update_str = data_to_str (dict_get (options,
+								      "force-atime-update"));
+		if (gf_string2boolean (force_atime_update_str, &conf->force_atime_update) == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"'force-atime-update' takes only boolean options");
+			return -1;
+		}
+		if (conf->force_atime_update)
+			gf_log (this->name, GF_LOG_DEBUG, "Forcing atime updates on cache hit");
+	}
 
-  conf->files.next = &conf->files;
-  conf->files.prev = &conf->files;
+	conf->files.next = &conf->files;
+	conf->files.prev = &conf->files;
 
-  pthread_mutex_init (&conf->conf_lock, NULL);
-  this->private = conf;
-  return 0;
+	pthread_mutex_init (&conf->conf_lock, NULL);
+	this->private = conf;
+	return 0;
 }
 
 void
 fini (xlator_t *this)
 {
-  ra_conf_t *conf = this->private;
+	ra_conf_t *conf = this->private;
 
-  pthread_mutex_destroy (&conf->conf_lock);
-  FREE (conf);
+	pthread_mutex_destroy (&conf->conf_lock);
+	FREE (conf);
 
-  this->private = NULL;
-  return;
+	this->private = NULL;
+	return;
 }
 
 struct xlator_fops fops = {
-  .open        = ra_open,
-  .create      = ra_create,
-  .readv       = ra_readv,
-  .writev      = ra_writev,
-  .flush       = ra_flush,
-  .fsync       = ra_fsync,
-  .truncate    = ra_truncate,
-  .ftruncate   = ra_ftruncate,
-  .fstat       = ra_fstat,
-  .fchown      = ra_fchown,
+	.open        = ra_open,
+	.create      = ra_create,
+	.readv       = ra_readv,
+	.writev      = ra_writev,
+	.flush       = ra_flush,
+	.fsync       = ra_fsync,
+	.truncate    = ra_truncate,
+	.ftruncate   = ra_ftruncate,
+	.fstat       = ra_fstat,
+	.fchown      = ra_fchown,
 };
 
 struct xlator_mops mops = {

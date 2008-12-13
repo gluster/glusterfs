@@ -277,7 +277,24 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode,
 }
 
 
-static int32_t
+void
+ioc_waitq_return (ioc_waitq_t *waitq)
+{
+	ioc_waitq_t  *trav   = NULL;
+	ioc_waitq_t  *next   = NULL;
+	call_frame_t *frame = NULL;
+
+	for (trav = waitq; trav; trav = next) {
+		next = trav->next;
+
+		frame = trav->data;
+		ioc_frame_return (frame);
+		free (trav);
+	}
+}
+
+
+int
 ioc_fault_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -296,7 +313,7 @@ ioc_fault_cbk (call_frame_t *frame,
 	size_t payload_size = 0;
 	int32_t destroy_size = 0;
 	size_t page_size = 0;
-	ioc_waitq_t *waitq = NULL, *trav = NULL;
+	ioc_waitq_t *waitq = NULL;
 
 	trav_offset = offset;  
 	payload_size = op_ret;
@@ -320,7 +337,7 @@ ioc_fault_cbk (call_frame_t *frame,
 			/* error, readv returned -1 */
 			page = ioc_page_get (ioc_inode, offset);
 			if (page)
-				ioc_page_error (page, op_ret, op_errno);
+				waitq = ioc_page_error (page, op_ret, op_errno);
 		} else {
 			gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
 				"op_ret = %d", op_ret);
@@ -368,14 +385,7 @@ ioc_fault_cbk (call_frame_t *frame,
 	} /* ioc_inode locked region end */
 	ioc_inode_unlock (ioc_inode);
 
-	trav = waitq;
-	while (waitq) {
-		waitq = trav;
-		frame = waitq->data;
-		ioc_frame_return (frame);
-		trav = waitq->next;
-		free (waitq);
-	}
+	ioc_waitq_return (waitq);
 
 	if (page_size) {
 		ioc_table_lock (table);
@@ -679,7 +689,7 @@ ioc_page_wakeup (ioc_page_t *page)
  * @op_errno:
  *
  */
-void
+ioc_waitq_t *
 ioc_page_error (ioc_page_t *page,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -708,13 +718,6 @@ ioc_page_error (ioc_page_t *page,
 			local->op_errno = op_errno;
 		}
 		ioc_local_unlock (local);
-		ioc_frame_return (frame);
-	}
-
-	for (trav = waitq; trav;) {
-		ioc_waitq_t *next = trav->next;
-		free (trav);
-		trav = next;
 	}
 
 	table = page->inode->table;
@@ -723,4 +726,6 @@ ioc_page_error (ioc_page_t *page,
 	if (ret != -1) {
 		table->cache_used -= ret;
 	}
+
+	return waitq;
 }
