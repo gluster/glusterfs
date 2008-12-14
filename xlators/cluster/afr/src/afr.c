@@ -344,6 +344,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	{
 		local = frame->local;
 
+		lookup_buf = &local->cont.lookup.buf;
+
 		if (op_ret == -1) {
 			if (op_errno == ENOENT)
 				local->enoent_count++;
@@ -353,8 +355,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
 			goto unlock;
 		}
-
-		lookup_buf = &local->cont.lookup.buf;
 
 		if (priv->metadata_self_heal
 		    && afr_sh_has_metadata_pending (xattr, child_index, this))
@@ -435,6 +435,13 @@ unlock:
 		if (local->need_metadata_self_heal
 		    || local->need_data_self_heal
 		    || local->need_entry_self_heal) {
+
+			if (!local->cont.lookup.inode->st_mode) {
+				/* fix for RT #602 */
+				local->cont.lookup.inode->st_mode =
+					lookup_buf->st_mode;
+			}
+
 			afr_self_heal (frame, this, afr_self_heal_cbk);
 		} else {
 			AFR_STACK_UNWIND (frame, local->op_ret,
