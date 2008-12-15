@@ -123,6 +123,41 @@ unify_normalize_stats (struct statvfs *buf,
 	}
 }
 
+
+xlator_t *
+unify_loc_subvol (loc_t *loc, xlator_t *this)
+{
+	unify_private_t *priv = NULL;
+	xlator_t        *subvol = NULL;
+	int16_t         *list = NULL;
+	long             index = 0;
+	xlator_t        *subvol_i = NULL;
+	int              ret = 0;
+
+	priv   = this->private;
+	subvol = NS (this);
+
+	if (!S_ISDIR (loc->inode->st_mode)) {
+		ret = dict_get_ptr (loc->inode->ctx, this->name,
+				    (void **) ((void *)&list));
+
+		if (!list)
+			goto out;
+
+		for (index = 0; list[index] != -1; index++) {
+			subvol_i = priv->xl_array[list[index]];
+			if (subvol_i != NS (this)) {
+				subvol = subvol_i;
+				break;
+			}
+		}
+	}
+out:
+	return subvol;
+}
+
+
+
 /**
  * unify_statfs_cbk -
  */
@@ -3814,6 +3849,202 @@ unify_checksum (call_frame_t *frame,
 	return 0;
 }
 
+
+/**
+ * unify_finodelk_cbk - 
+ */
+int
+unify_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		    int32_t op_ret, int32_t op_errno)
+{
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+/**
+ * unify_finodelk
+ */
+int
+unify_finodelk (call_frame_t *frame, xlator_t *this,
+		fd_t *fd, int cmd, struct flock *flock)
+{
+	xlator_t *child = NULL;
+
+	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
+
+	child = data_to_ptr (dict_get (fd->ctx, this->name));
+
+	STACK_WIND (frame, unify_finodelk_cbk,
+		    child, child->fops->finodelk,
+		    fd, cmd, flock);
+
+	return 0;
+}
+
+
+
+/**
+ * unify_fentrylk_cbk - 
+ */
+int
+unify_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		    int32_t op_ret, int32_t op_errno)
+{
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+/**
+ * unify_fentrylk
+ */
+int
+unify_fentrylk (call_frame_t *frame, xlator_t *this,
+		fd_t *fd, const char *basename,
+		entrylk_cmd cmd, entrylk_type type)
+		
+{
+	xlator_t *child = NULL;
+
+	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
+
+	child = data_to_ptr (dict_get (fd->ctx, this->name));
+
+	STACK_WIND (frame, unify_fentrylk_cbk,
+		    child, child->fops->fentrylk,
+		    fd, basename, cmd, type);
+
+	return 0;
+}
+
+
+
+/**
+ * unify_fxattrop_cbk - 
+ */
+int
+unify_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		    int32_t op_ret, int32_t op_errno, dict_t *xattr)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, xattr);
+	return 0;
+}
+
+/**
+ * unify_fxattrop
+ */
+int
+unify_fxattrop (call_frame_t *frame, xlator_t *this,
+		fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
+{
+	xlator_t *child = NULL;
+
+	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
+
+	child = data_to_ptr (dict_get (fd->ctx, this->name));
+
+	STACK_WIND (frame, unify_fxattrop_cbk,
+		    child, child->fops->fxattrop,
+		    fd, optype, xattr);
+
+	return 0;
+}
+
+
+/**
+ * unify_inodelk_cbk - 
+ */
+int
+unify_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		   int32_t op_ret, int32_t op_errno)
+{
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+/**
+ * unify_inodelk
+ */
+int
+unify_inodelk (call_frame_t *frame, xlator_t *this,
+	       loc_t *loc, int cmd, struct flock *flock)
+{
+	xlator_t *child = NULL;
+
+	child = unify_loc_subvol (loc, this);
+
+	STACK_WIND (frame, unify_inodelk_cbk,
+		    child, child->fops->inodelk,
+		    loc, cmd, flock);
+
+	return 0;
+}
+
+
+
+/**
+ * unify_entrylk_cbk - 
+ */
+int
+unify_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		   int32_t op_ret, int32_t op_errno)
+{
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+/**
+ * unify_entrylk
+ */
+int
+unify_entrylk (call_frame_t *frame, xlator_t *this,
+	       loc_t *loc, const char *basename,
+	       entrylk_cmd cmd, entrylk_type type)
+		
+{
+	xlator_t *child = NULL;
+
+	child = unify_loc_subvol (loc, this);
+
+	STACK_WIND (frame, unify_entrylk_cbk,
+		    child, child->fops->entrylk,
+		    loc, basename, cmd, type);
+
+	return 0;
+}
+
+
+
+/**
+ * unify_xattrop_cbk - 
+ */
+int
+unify_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		   int32_t op_ret, int32_t op_errno, dict_t *xattr)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, xattr);
+	return 0;
+}
+
+/**
+ * unify_xattrop
+ */
+int
+unify_xattrop (call_frame_t *frame, xlator_t *this,
+		loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr)
+{
+	xlator_t *child = NULL;
+
+	child = unify_loc_subvol (loc, this);
+
+	STACK_WIND (frame, unify_xattrop_cbk,
+		    child, child->fops->xattrop,
+		    loc, optype, xattr);
+
+	return 0;
+}
+
+
 /**
  * notify
  */
@@ -4146,6 +4377,12 @@ struct xlator_fops fops = {
 	.lookup      = unify_lookup,
 	.getdents    = unify_getdents,
 	.checksum    = unify_checksum,
+	.inodelk     = unify_inodelk,
+	.finodelk    = unify_finodelk,
+	.entrylk     = unify_entrylk,
+	.fentrylk    = unify_fentrylk,
+	.xattrop     = unify_xattrop,
+	.fxattrop    = unify_fxattrop
 };
 
 struct xlator_mops mops = {
