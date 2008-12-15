@@ -2807,24 +2807,45 @@ ha_xattrop_cbk (call_frame_t *frame,
 		int32_t op_errno,
 		dict_t *dict)
 {
+	ha_local_t *local = NULL;
 
-	//HA_CALL_CBK_CODE(this, cookie, local, op_ret, op_errno);
+	local = frame->local;
+
+	HA_CALL_CBK_CODE(this, cookie, local, op_ret, op_errno);
 
 	STACK_UNWIND (frame, op_ret, op_errno, dict);
 	return 0;
 }
-/* FIXME */
+
+
 int32_t
 ha_xattrop (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
-	    int32_t flags,
+	    gf_xattrop_flags_t flags,
 	    dict_t *dict)
 {
-	ha_local_t *local = frame->local;
+	ha_local_t *local = NULL;
+	void *state = NULL; 
+	int op_errno = 0;
 
-	//HA_CALL_CODE(frame, local, state);
-	//local->stub = fop_xattrop_stub (frame, ha_xattrop, fd, path, flags, dict);
+	GF_TRACE (this, "loc->path=%s", loc->path);
+	local = frame->local;
+	op_errno = dict_get_ptr (loc->inode->ctx, this->name, &state);
+	if (op_errno != 0) {
+		GF_ERROR (this, "unwind(-1), dict_get_ptr() error");
+		op_errno = -op_errno;
+		goto err;
+	}
+	HA_CALL_CODE(frame, local, state);
+	if (local->active == -1) {
+		GF_ERROR (this, "unwind(-1, ENOTCONN), none of the subvols are up");
+		op_errno = ENOTCONN;
+		goto err;
+	}
+
+	local->stub = fop_xattrop_stub (frame, ha_xattrop, loc, flags, dict);
+
 	STACK_WIND (frame,
 		    ha_xattrop_cbk,
 		    HA_ACTIVE_CHILD(this, local),
@@ -2832,6 +2853,9 @@ ha_xattrop (call_frame_t *frame,
 		    loc,
 		    flags,
 		    dict);
+	return 0;
+err:
+	STACK_UNWIND (frame, -1, op_errno, dict);
 	return 0;
 }
 
@@ -2843,24 +2867,45 @@ ha_fxattrop_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 dict_t *dict)
 {
+	ha_local_t *local = NULL;
+	
+	local = frame->local;
 
-	//HA_CALL_CBK_CODE(this, cookie, local, op_ret, op_errno);
+	HA_CALL_CBK_CODE(this, cookie, local, op_ret, op_errno);
 
 	STACK_UNWIND (frame, op_ret, op_errno, dict);
 	return 0;
 }
-/* FIXME */
+
 int32_t
 ha_fxattrop (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd,
-	     int32_t flags,
+	     gf_xattrop_flags_t flags,
 	     dict_t *dict)
 {
-	ha_local_t *local = frame->local;
+	ha_local_t *local = NULL;
+	void *state = NULL; 
+	int op_errno = 0;
 
-	//HA_CALL_CODE(frame, local, state);
-	//local->stub = fop_xattrop_stub (frame, ha_xattrop, fd, path, flags, dict);
+	GF_TRACE (this, "fd=%p (ino=%"PRId64")", fd, fd->inode->ino);
+	local = frame->local;
+	op_errno = dict_get_ptr (fd->inode->ctx, this->name, &state);
+	if (op_errno != 0) {
+		GF_ERROR (this, "unwind(-1), dict_get_ptr() error");
+		op_errno = -op_errno;
+		goto err;
+	}
+
+	HA_CALL_CODE(frame, local, state);
+	if (local->active == -1) {
+		GF_ERROR (this, "unwind(-1, ENOTCONN), none of the subvols are up");
+		op_errno = ENOTCONN;
+		goto err;
+	}
+
+	local->stub = fop_fxattrop_stub (frame, ha_fxattrop, fd, flags, dict);
+
 	STACK_WIND (frame,
 		    ha_fxattrop_cbk,
 		    HA_ACTIVE_CHILD(this, local),
@@ -2868,6 +2913,9 @@ ha_fxattrop (call_frame_t *frame,
 		    fd,
 		    flags,
 		    dict);
+	return 0;
+err:
+	STACK_UNWIND (frame, -1, op_errno, dict);
 	return 0;
 }
 
@@ -3795,6 +3843,8 @@ struct xlator_fops fops = {
 	.setdents    = ha_setdents,
 	.lookup_cbk  = ha_lookup_cbk,
 	.checksum    = ha_checksum,
+	.xattrop     = ha_xattrop,
+	.fxattrop    = ha_fxattrop
 };
 
 struct xlator_mops mops = {
