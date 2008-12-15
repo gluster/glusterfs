@@ -266,7 +266,7 @@ afr_create (call_frame_t *frame, xlator_t *this,
 out:
 	if (op_ret == -1) {
 		if (transaction_frame)
-			AFR_STACK_DESTROY (frame);
+			AFR_STACK_DESTROY (transaction_frame);
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 
