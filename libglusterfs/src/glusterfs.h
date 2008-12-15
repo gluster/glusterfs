@@ -171,7 +171,8 @@ typedef enum {
 
 typedef enum {
 	ENTRYLK_LOCK,
-	ENTRYLK_UNLOCK
+	ENTRYLK_UNLOCK,
+	ENTRYLK_LOCK_NB
 } entrylk_cmd;
 
 typedef enum {

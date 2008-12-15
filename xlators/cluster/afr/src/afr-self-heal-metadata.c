@@ -663,19 +663,43 @@ afr_sh_metadata_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	afr_private_t   *priv = NULL;
 	int              call_count = 0;
+	int              child_index = (long) cookie;
 
+	/* TODO: what if lock fails? */
+	
 	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
 
-	/* TODO: handle lock errors */
 	LOCK (&frame->lock);
 	{
+		if (op_ret == -1) {
+			sh->op_failed = 1;
+
+			gf_log (this->name,
+				(op_errno == EAGAIN ? GF_LOG_DEBUG : GF_LOG_ERROR),
+				"locking of %s on child %d failed: %s",
+				local->loc.path, child_index,
+				strerror (op_errno));
+		} else {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"inode of %s on child %d locked",
+				local->loc.path, child_index);
+		}
 	}
 	UNLOCK (&frame->lock);
 
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
+		if (sh->op_failed) {
+			afr_sh_metadata_finish (frame, this);
+			return 0;
+		}
+
 		afr_sh_metadata_lookup (frame, this);
 	}
 
@@ -711,10 +735,11 @@ afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
 				"locking %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
 
-			STACK_WIND (frame, afr_sh_metadata_lk_cbk,
-				    priv->children[i],
-				    priv->children[i]->fops->inodelk,
-				    &local->loc, F_SETLK, &flock);
+			STACK_WIND_COOKIE (frame, afr_sh_metadata_lk_cbk,
+					   (void *) (long) i,
+					   priv->children[i],
+					   priv->children[i]->fops->inodelk,
+					   &local->loc, F_SETLK, &flock);
 
 			if (!--call_count)
 				break;

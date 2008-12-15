@@ -893,11 +893,11 @@ afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret == -1) {
 			sh->op_failed = 1;
 
-			if (op_errno != EAGAIN)
-				gf_log (this->name, GF_LOG_ERROR, 
-					"locking of %s on child %d failed: %s",
-					local->loc.path, child_index,
-					strerror (op_errno));
+			gf_log (this->name,
+				(op_errno == EAGAIN ? GF_LOG_DEBUG : GF_LOG_ERROR),
+				"locking of %s on child %d failed: %s",
+				local->loc.path, child_index,
+				strerror (op_errno));
 		} else {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"inode of %s on child %d locked",

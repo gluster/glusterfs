@@ -402,7 +402,7 @@ out:
 
 int
 __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
-	     call_frame_t *frame, xlator_t *this)
+	     call_frame_t *frame, xlator_t *this, int nonblock)
 {
 	pl_entry_lock_t *lock    = NULL;
 	pl_entry_lock_t *conf    = NULL;
@@ -415,6 +415,10 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 
 	conf = __lock_grantable (pinode, basename, type);
 	if (conf) {
+		ret = -EAGAIN;
+		if (nonblock)
+			goto out;
+
 		lock = new_entrylk_lock (pinode, basename, type, trans);
 
 		if (!lock) {
@@ -432,7 +436,7 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 
 		list_add (&lock->blocked_locks, &conf->blocked_locks);
 
-		ret = -EAGAIN;
+
 		goto out;
 	}
 		
@@ -540,7 +544,7 @@ __grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 			pl_inode, bl->basename);
 					
 		bl_ret = __lock_name (pl_inode, bl->basename, bl->type,
-				      bl->frame, bl->this);
+				      bl->frame, bl->this, 0);
 
 		if (bl_ret == 0) {
 			list_add (&bl->blocked_locks, granted);
@@ -657,6 +661,7 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 	pl_inode_t *       pinode = NULL; 
 	int                ret    = -1;
 	pl_entry_lock_t   *unlocked = NULL;
+	char               unwind = 1;
 
 
 	pinode = pl_inode_get (this, loc->inode);
@@ -680,6 +685,8 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 			"releasing locks for transport %p", transport);
 
 		release_entry_locks_for_transport (this, pinode, transport);
+		op_ret = 0;
+
 		goto out;
 	}
 
@@ -688,7 +695,24 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 		pthread_mutex_lock (&pinode->mutex);
 		{
 			ret = __lock_name (pinode, basename, type,
-					   frame, this);
+					   frame, this, 0);
+		}
+		pthread_mutex_unlock (&pinode->mutex);
+
+		if (ret < 0) {
+			if (ret == -EAGAIN)
+				unwind = 0;
+			op_errno = -ret;
+			goto out;
+		}
+
+		break;
+
+	case ENTRYLK_LOCK_NB:
+		pthread_mutex_lock (&pinode->mutex);
+		{
+			ret = __lock_name (pinode, basename, type,
+					   frame, this, 1);
 		}
 		pthread_mutex_unlock (&pinode->mutex);
 
@@ -696,6 +720,7 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 			op_errno = -ret;
 			goto out;
 		}
+
 		break;
 
 	case ENTRYLK_UNLOCK:
@@ -718,9 +743,7 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 
 	op_ret = 0;
 out:
-	if (op_errno != EAGAIN) {
-		/* EAGAIN means the lock has been blocked */
-		
+	if (unwind) {
 		STACK_UNWIND (frame, op_ret, op_errno);
 	}
 	
@@ -748,6 +771,7 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 	pl_inode_t *       pinode = NULL; 
 	int                ret    = -1;
 	pl_entry_lock_t   *unlocked = NULL;
+	char               unwind = 1;
 
 	pinode = pl_inode_get (this, fd->inode);
 	if (!pinode) {
@@ -769,6 +793,7 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 			"releasing locks for transport %p", transport);
 
 		release_entry_locks_for_transport (this, pinode, transport);
+		op_ret = 0;
 		goto out;
 	}
 
@@ -777,7 +802,23 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 		pthread_mutex_lock (&pinode->mutex);
 		{
 			ret = __lock_name (pinode, basename, type,
-					   frame, this);
+					   frame, this, 0);
+		}
+		pthread_mutex_unlock (&pinode->mutex);
+
+		if (ret < 0) {
+			if (ret == -EAGAIN)
+				unwind = 0;
+			op_errno = -ret;
+			goto out;
+		}
+		break;
+
+	case ENTRYLK_LOCK_NB:
+		pthread_mutex_lock (&pinode->mutex);
+		{
+			ret = __lock_name (pinode, basename, type,
+					   frame, this, 1);
 		}
 		pthread_mutex_unlock (&pinode->mutex);
 
@@ -806,9 +847,7 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 
 	op_ret = 0;
 out:
-	if (op_errno != EAGAIN) {
-		/* EAGAIN means the lock has been blocked */
-		
+	if (unwind) {
 		STACK_UNWIND (frame, op_ret, op_errno);
 	}
 	

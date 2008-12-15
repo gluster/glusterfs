@@ -1916,18 +1916,23 @@ int
 afr_sh_entry_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t * local = NULL;
-	int           call_count = 0;
-	int           child_index = (long) cookie;
+	afr_local_t     *local = NULL;
+	afr_self_heal_t *sh = NULL;
+	int              call_count = 0;
+	int              child_index = (long) cookie;
 
 	/* TODO: what if lock fails? */
 	
 	local = frame->local;
+	sh    = &local->self_heal;
 
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR, 
+			sh->op_failed = 1;
+
+			gf_log (this->name,
+				(op_errno == EAGAIN ? GF_LOG_DEBUG : GF_LOG_ERROR),
 				"locking inode of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
@@ -1942,6 +1947,11 @@ afr_sh_entry_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
+		if (sh->op_failed == 1) {
+			afr_sh_entry_finish (frame, this);
+			return 0;
+		}
+
 		afr_sh_entry_lookup (frame, this);
 	}
 
@@ -1979,7 +1989,7 @@ afr_sh_entry_lock (call_frame_t *frame, xlator_t *this)
 					   priv->children[i], 
 					   priv->children[i]->fops->entrylk,
 					   &local->loc, NULL,
-					   ENTRYLK_LOCK, ENTRYLK_WRLCK);
+					   ENTRYLK_LOCK_NB, ENTRYLK_WRLCK);
 			if (!--call_count)
 				break;
 		}
