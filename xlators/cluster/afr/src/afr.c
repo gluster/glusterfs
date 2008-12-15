@@ -536,7 +536,6 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			local->child_errno[child_index] = op_errno;
 			local->op_errno = op_errno;
 		}
 
@@ -549,7 +548,8 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
-		if (local->cont.open.flags & O_TRUNC) {
+		if ((local->cont.open.flags & O_TRUNC)
+		    && (local->op_ret >= 0)) {
 			STACK_WIND (frame, afr_open_ftruncate_cbk,
 				    this, this->fops->ftruncate,
 				    fd, 0);
