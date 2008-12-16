@@ -421,16 +421,13 @@ AC_SUBST(BDB_SUBDIR)
 dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
 dnl solution to GCC backtrace functionality
 
-AC_CHECK_HEADERS([execinfo.h], [HAVE_BACKTRACE="yes"], [HAVE_BACKTRACE="no"])
+AC_CHECK_HEADERS([execinfo.h], [have_backtrace=yes],
+               AC_CHECK_LIB([execinfo], [backtrace], [have_backtrace=yes]))
+dnl               AC_MSG_ERROR([libexecinfo not found libexecinfo required.])))
 
-if test "x$HAVE_BACKTRACE" = "xyes"; then
-   AC_CHECK_LIB([execinfo], [backtrace], [HAVE_BACKTRACE="yes"], [HAVE_BACKTRACE="no"])
-fi
-
-if test "x$HAVE_BACKTRACE" = "xyes"; then
+if test "x${have_backtrace}" = "xyes"; then
    AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
 fi
-
 AC_SUBST(HAVE_BACKTRACE)
 
 dnl glusterfs prints memory usage to stderr by sending it SIGUSR1

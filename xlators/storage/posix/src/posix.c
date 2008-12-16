@@ -3739,6 +3739,6 @@ struct xlator_options options[] = {
 	{ "o-direct", GF_OPTION_TYPE_BOOL, 0, },
 	{ "directory", GF_OPTION_TYPE_PATH, 0, },
 	{ "export-statfs-size", GF_OPTION_TYPE_BOOL, 0,  },
-	{ "starting-without-extendend-attribute", GF_OPTION_TYPE_BOOL, 0,  },
+	{ "starting-without-extended-attribute", GF_OPTION_TYPE_BOOL, 0,  },
 	{ NULL, 0, }
 };
