@@ -46,20 +46,29 @@
 #include <fnmatch.h>
 #include <signal.h>
 
-#define STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR(_loc) do { \
-  if (!(_loc && _loc->inode)) {                             \
-	  TRAP_ON (!(_loc && _loc->inode))                  \
-    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL);     \
-    return 0;                                               \
-  }                                                         \
+#define STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR(_loc) do {        \
+        if (!(_loc && _loc->inode)) {                              \
+	       TRAP_ON (!(_loc && _loc->inode))                    \
+               STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL); \
+               return 0;                                           \
+        }                                                          \
 } while(0)
 
-struct stripe_local;
+/**
+ * struct stripe_options : This keeps the pattern and the block-size 
+ *     information, which is used for striping on a file.
+ */
+struct stripe_options {
+	struct stripe_options *next;
+	char path_pattern[256];
+	uint64_t block_size;
+};
 
 /**
  * Private structure for stripe translator 
  */
 struct stripe_private {
+	struct stripe_options *pattern;
 	xlator_t **xl_array;
 	uint64_t   block_size;
 	gf_lock_t  lock;
@@ -86,6 +95,8 @@ struct readv_replies {
 /**
  * Local structure to be passed with all the frames in case of STACK_WIND
  */
+struct stripe_local; /* this itself is used inside the structure; */
+
 struct stripe_local {
 	struct stripe_local *next;
 	call_frame_t        *orig_frame; 
@@ -130,6 +141,36 @@ struct stripe_local {
 
 typedef struct stripe_local   stripe_local_t;
 typedef struct stripe_private stripe_private_t;
+
+/**
+ * stripe_get_matching_bs - Get the matching block size for the given path.
+ */
+int32_t 
+stripe_get_matching_bs (const char *path, 
+			struct stripe_options *opts,
+			uint64_t default_bs) 
+{
+	struct stripe_options *trav       = NULL;
+	char                  *pathname   = NULL;
+	uint64_t               block_size = 0;
+
+	block_size = default_bs;
+	pathname   = strdup (path);
+	trav       = opts;
+
+	while (trav) {
+		if (fnmatch (trav->path_pattern, 
+			     pathname, FNM_NOESCAPE) == 0) {
+			block_size = trav->block_size;
+			break;
+		}
+		trav = trav->next;
+	}
+	free (pathname);
+	
+	return block_size;
+}
+
 
 /*
  * stripe_common_cbk -
@@ -1359,6 +1400,8 @@ stripe_mknod (call_frame_t *frame,
 	      dev_t rdev)
 {
 	stripe_private_t *priv = this->private;
+	stripe_local_t *local = NULL;
+	xlator_list_t *trav = NULL;	
   
 	if (priv->first_child_down) {
 		gf_log (this->name, GF_LOG_WARNING, 
@@ -1371,10 +1414,6 @@ stripe_mknod (call_frame_t *frame,
 		/* NOTE: on older kernels (older than 2.6.9), 
 		   creat() fops is sent as mknod() + open(). Hence handling 
 		   S_IFREG files is necessary */
-
-		stripe_local_t *local = NULL;
-		xlator_list_t *trav = NULL;
-		
 		if (priv->nodes_down) {
 			gf_log (this->name, GF_LOG_WARNING, 
 				"Some node down, returning EIO");
@@ -1387,7 +1426,9 @@ stripe_mknod (call_frame_t *frame,
 		ERR_ABORT (local);
 		local->op_ret = -1;
 		local->op_errno = ENOTCONN;
-		local->stripe_size = priv->block_size;
+		local->stripe_size = stripe_get_matching_bs (loc->path,
+							     priv->pattern,
+							     priv->block_size);
 		frame->local = local;
 		local->inode = loc->inode;
 		loc_copy (&local->loc, loc);
@@ -1803,7 +1844,9 @@ stripe_create (call_frame_t *frame,
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
-	local->stripe_size = priv->block_size;
+	local->stripe_size = stripe_get_matching_bs (loc->path,
+						     priv->pattern,
+						     priv->block_size);
 	frame->local = local;
 	local->inode = loc->inode;
 	loc_copy (&local->loc, loc);
@@ -1929,11 +1972,13 @@ stripe_open_getxattr_cbk (call_frame_t *frame,
 			if (stripe_size_data) {
 				local->stripe_size = 
 					data_to_int64 (stripe_size_data);
+				/*
 				if (local->stripe_size != priv->block_size) {
 					gf_log (this->name, GF_LOG_WARNING,
 						"file(%s) is having different "
 						"block-size", local->loc.path);
 				}
+				*/
 			} else {
 				/* if the file was created using earlier 
 				   versions of stripe */
@@ -1996,7 +2041,10 @@ stripe_open (call_frame_t *frame,
 	/* Striped files */
 	local->flags = flags;
 	local->call_count = priv->child_count;
-
+	local->stripe_size = stripe_get_matching_bs (loc->path,
+						     priv->pattern,
+						     priv->block_size);
+	
 	if (priv->xattr_supported) {
 		while (trav) {
 			STACK_WIND (frame,
@@ -2007,7 +2055,6 @@ stripe_open (call_frame_t *frame,
 			trav = trav->next;
 		}
 	} else {
-		local->stripe_size = priv->block_size;
 		while (trav) {
 			STACK_WIND (frame,
 				    stripe_open_cbk,
@@ -2705,8 +2752,11 @@ stripe_readv (call_frame_t *frame,
 	xlator_list_t *trav = this->children;
 	stripe_private_t *priv = this->private;
 
-	//stripe_size = data_to_uint64 (dict_get (fd->ctx, this->name));
-	stripe_size = priv->block_size;
+	stripe_size = data_to_uint64 (dict_get (fd->ctx, this->name));
+	if (!stripe_size) {
+		STACK_UNWIND (frame, -1, EINVAL, NULL, 0, NULL);
+		return 0;
+	}
 
 	/* The file is stripe across the child nodes. Send the read request 
 	 * to the child nodes appropriately after checking which region of 
@@ -2837,8 +2887,11 @@ stripe_writev (call_frame_t *frame,
 	stripe_local_t *local = NULL;
 	xlator_list_t *trav = NULL;
 
-	//stripe_size = data_to_uint64 (dict_get (fd->ctx, this->name));
-	stripe_size = priv->block_size;
+	stripe_size = data_to_uint64 (dict_get (fd->ctx, this->name));
+	if (!stripe_size) {
+		STACK_UNWIND (frame, -1, EINVAL, NULL);
+		return 0;
+	}
 
 	/* File has to be stripped across the child nodes */
 	for (idx = 0; idx< count; idx ++) {
@@ -3122,47 +3175,54 @@ init (xlator_t *this)
 		char *stripe_str = NULL;
 		char *pattern = NULL;
 		char *num = NULL;
+		struct stripe_options *temp_stripeopt = NULL;
+		struct stripe_options *stripe_opt = NULL;    
+
 		/* Get the pattern for striping. 
 		   "option block-size *avi:10MB" etc */
 		stripe_str = strtok_r (data->data, ",", &tmp_str);
 		while (stripe_str) {
 			dup_str = strdup (stripe_str);
+			stripe_opt = calloc (1, 
+					     sizeof (struct stripe_options));
+			ERR_ABORT (stripe_opt);
 			pattern = strtok_r (dup_str, ":", &tmp_str1);
 			num = strtok_r (NULL, ":", &tmp_str1);
 			if (num && 
 			    (gf_string2bytesize (num, 
-						 &priv->block_size) != 0)) {
+						 &stripe_opt->block_size) 
+			     != 0)) {
 				gf_log (this->name, GF_LOG_ERROR, 
 					"invalid number format \"%s\"", 
 					num);
 				return -1;
-			} else if (gf_string2bytesize (
-					   pattern, 
-					   &priv->block_size) != 0) {
+			} else if (!num && (gf_string2bytesize (
+						    pattern, 
+						    &stripe_opt->block_size) 
+					    != 0)) {
 				/* Possible that there is no pattern given */
-				priv->block_size = (128 * GF_UNIT_KB);
+				stripe_opt->block_size = (128 * GF_UNIT_KB);
+				pattern = "*";
+			}
+			memcpy (stripe_opt->path_pattern, 
+				pattern, strlen (pattern));
+			
+			gf_log (this->name, GF_LOG_DEBUG, 
+				"block-size : pattern %s : size %"PRId64, 
+				stripe_opt->path_pattern, 
+				stripe_opt->block_size);
+			
+			if (!priv->pattern) {
+				priv->pattern = stripe_opt;
+			} else {
+				temp_stripeopt = priv->pattern;
+				while (temp_stripeopt->next)
+					temp_stripeopt = temp_stripeopt->next;
+				temp_stripeopt->next = stripe_opt;
 			}
 			stripe_str = strtok_r (NULL, ",", &tmp_str);
 		}
 	}
-
-	/* The below code will be used when its only size as option */
-	/*
-	data = dict_get (this->options, "block-size");
-	if (!data) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"No block-size specified. check "
-			"\"option block-size <x>\" in volfile, "
-			"defaulting to 128KB");
-		priv->block_size = (128 * GF_UNIT_KB);
-	} else {
-		if (gf_string2bytesize (data->data, &priv->block_size) != 0) {
-			gf_log ("stripe", GF_LOG_ERROR, 
-				"invalid number format \"%s\"", data->data);
-			return -1;
-		}
-	}
-	*/
 
 	priv->xattr_supported = 1;
 	priv->xattr_supported_option_given = 0;
@@ -3177,10 +3237,6 @@ init (xlator_t *this)
 		}
 		priv->xattr_supported_option_given = 1;
 	}
-	
-        
-	gf_log (this->name, GF_LOG_DEBUG, 
-		"stripe block size %"PRIu64"", priv->block_size);
 
 	/* notify related */
 	priv->nodes_down = priv->child_count;
@@ -3197,7 +3253,13 @@ void
 fini (xlator_t *this)
 {
 	stripe_private_t *priv = this->private;
-
+	struct stripe_options *prev = NULL;
+	struct stripe_options *trav = priv->pattern;
+	while (trav) {
+		prev = trav;
+		trav = trav->next;
+		FREE (prev);
+	}
 	FREE (priv->xl_array);
 	LOCK_DESTROY (&priv->lock);
 	FREE (priv);
