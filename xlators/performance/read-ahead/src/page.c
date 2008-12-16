@@ -119,7 +119,7 @@ ra_waitq_return (ra_waitq_t *waitq)
 	for (trav = waitq; trav; trav = next) {
 		next = trav->next;
 
-		frame = waitq->data;
+		frame = trav->data;
 		ra_frame_return (frame);
 		free (trav);
 	}
