@@ -583,6 +583,9 @@ __inode_replace (inode_t *oldi, inode_t *newi)
         oldi->generation = 0;
 
         __inode_unhash (oldi);
+
+	if (newi->ino == 1)
+		newi->table->root = newi;
 }
 
 

@@ -120,7 +120,7 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	conf  = this->private;
 
-	if (op_ret != -1) {
+	if (op_ret == -1) {
 		goto unwind;
 	}
 
@@ -189,8 +189,7 @@ int
 ra_create (call_frame_t *frame, xlator_t *this,
 	   loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
-	STACK_WIND (frame,
-		    ra_create_cbk,
+	STACK_WIND (frame, ra_create_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->create,
 		    loc, flags, mode, fd);
@@ -563,7 +562,6 @@ ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int        ret = 0;
 
 	fd = frame->local;
-	frame->local = fd;
 
 	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
 

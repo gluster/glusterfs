@@ -71,15 +71,17 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
                     inode_t *inode, struct stat *stbuf, dict_t *xattr)
 {
+	dht_conf_t   *conf          = NULL;
         dht_local_t  *local         = NULL;
         int           this_call_cnt = 0;
         call_frame_t *prev          = NULL;
 	dht_layout_t *layout        = NULL;
 	int           ret           = 0;
 
-
+	conf  = this->private;
         local = frame->local;
         prev  = cookie;
+
 	layout = local->layout;
 
         LOCK (&frame->lock);
@@ -123,6 +125,8 @@ unlock:
 			local->layout = NULL;
 
 			if (ret != 0) {
+				layout->gen = conf->gen;
+
 				gf_log (this->name, GF_LOG_WARNING,
 					"fixing assignment on %s",
 					local->loc.path);
@@ -535,6 +539,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         xlator_t     *hashed_subvol = NULL;
         xlator_t     *cached_subvol = NULL;
         dht_local_t  *local  = NULL;
+	dht_conf_t   *conf = NULL;
         int           ret    = -1;
         int           op_errno = -1;
 	dht_layout_t *layout = NULL;
@@ -547,6 +552,8 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, err);
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
+
+	conf = this->private;
 
         local = dht_local_init (frame);
 	if (!local) {
@@ -581,6 +588,14 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         op_errno = EINVAL;
                         goto err;
                 }
+
+		if (layout->gen && (layout->gen < conf->gen)) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"incomplete layout failure for path=%s",
+				loc->path);
+			op_errno = EAGAIN;
+			goto err;
+		}
 
 		local->inode    = inode_ref (loc->inode);
 		local->st_ino   = loc->inode->ino;
@@ -1930,12 +1945,6 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev = cookie;
 	local = frame->local;
 
-	if (op_ret >= 0) {
-		/* in case the last subvolme unwinds error, this lets it know not to unwind
-		   the error upwards */
-		local->op_ret = 0;
-	}
-
 	if (op_ret < 0)
 		goto done;
 
@@ -1970,7 +1979,6 @@ done:
 	if (count == 0) {
 		next = dht_subvol_next (this, prev->this);
 		if (!next) {
-			op_ret = local->op_ret;
 			goto unwind;
 		}
 
@@ -1981,6 +1989,9 @@ done:
 	}
 
 unwind:
+	if (op_ret < 0)
+		op_ret = 0;
+
 	DHT_STACK_UNWIND (frame, op_ret, op_errno, &entries);
 
 	gf_dirent_free (&entries);
@@ -3239,6 +3250,8 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 	case GF_EVENT_CHILD_UP:
 		subvol = data;
 
+		conf->gen++;
+
 		for (i = 0; i < conf->subvolume_cnt; i++) {
 			if (subvol == conf->subvolumes[i]) {
 				cnt = i;
@@ -3349,6 +3362,8 @@ init (xlator_t *this)
         }
 
 	LOCK_INIT (&conf->subvolume_lock);
+
+	conf->gen = 1;
 
         this->private = conf;
 

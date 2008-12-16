@@ -34,6 +34,7 @@ typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
 struct dht_layout {
         int               cnt;
 	int               preset;
+        int               gen;
 	int               type;
         struct {
 		int       err;   /* 0 = normal
@@ -97,6 +98,7 @@ struct dht_conf {
 	dht_layout_t **dir_layouts;
 	dht_layout_t  *default_dir_layout;
 	int            search_unhashed;
+	int            gen;
 };
 typedef struct dht_conf dht_conf_t;
 

@@ -343,7 +343,7 @@ fuse_entry_cbk (call_frame_t *frame,
         state = frame->root->state;
         req = state->req;
 
-        if (!op_ret && inode->ino == 1) {
+        if (!op_ret && state->loc.ino == 1) {
                 buf->st_ino = 1;
         }
 
