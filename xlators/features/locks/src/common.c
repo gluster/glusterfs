@@ -60,7 +60,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 	if (ret == 0)
 		goto out;
 
-	pl_inode = calloc (1, sizeof (*pl_inode));
+	pl_inode = CALLOC (1, sizeof (*pl_inode));
 	if (!pl_inode) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory :(");
@@ -92,7 +92,7 @@ new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
 {
 	posix_lock_t *lock = NULL;
 
-	lock = calloc (1, sizeof (posix_lock_t));
+	lock = CALLOC (1, sizeof (posix_lock_t));
 	if (!lock) {
 		return NULL;
 	}
@@ -201,7 +201,7 @@ add_locks (posix_lock_t *l1, posix_lock_t *l2)
 {
 	posix_lock_t *sum = NULL;
 
-	sum = calloc (1, sizeof (posix_lock_t));
+	sum = CALLOC (1, sizeof (posix_lock_t));
 	if (!sum)
 		return NULL;
 
@@ -225,7 +225,7 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
 	if ((big->fl_start == small->fl_start) && 
 	    (big->fl_end   == small->fl_end)) {  
 		/* both edges coincide with big */
-		v.locks[0] = calloc (1, sizeof (posix_lock_t));
+		v.locks[0] = CALLOC (1, sizeof (posix_lock_t));
 		ERR_ABORT (v.locks[0]);
 		memcpy (v.locks[0], big, sizeof (posix_lock_t));
 		v.locks[0]->fl_type = small->fl_type;
@@ -233,11 +233,11 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
 	else if ((small->fl_start > big->fl_start) &&
 		 (small->fl_end   < big->fl_end)) {
 		/* both edges lie inside big */
-		v.locks[0] = calloc (1, sizeof (posix_lock_t));
+		v.locks[0] = CALLOC (1, sizeof (posix_lock_t));
 		ERR_ABORT (v.locks[0]);
-		v.locks[1] = calloc (1, sizeof (posix_lock_t));
+		v.locks[1] = CALLOC (1, sizeof (posix_lock_t));
 		ERR_ABORT (v.locks[1]);
-		v.locks[2] = calloc (1, sizeof (posix_lock_t));
+		v.locks[2] = CALLOC (1, sizeof (posix_lock_t));
 		ERR_ABORT (v.locks[2]);
 
 		memcpy (v.locks[0], big, sizeof (posix_lock_t));
@@ -249,9 +249,9 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
 	}
 	/* one edge coincides with big */
 	else if (small->fl_start == big->fl_start) {
-		v.locks[0] = calloc (1, sizeof (posix_lock_t));
+		v.locks[0] = CALLOC (1, sizeof (posix_lock_t));
 		ERR_ABORT (v.locks[0]);
-		v.locks[1] = calloc (1, sizeof (posix_lock_t));
+		v.locks[1] = CALLOC (1, sizeof (posix_lock_t));
 		ERR_ABORT (v.locks[1]);
     
 		memcpy (v.locks[0], big, sizeof (posix_lock_t));
@@ -260,9 +260,9 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
 		memcpy (v.locks[1], small, sizeof (posix_lock_t));
 	}
 	else if (small->fl_end   == big->fl_end) {
-		v.locks[0] = calloc (1, sizeof (posix_lock_t));
+		v.locks[0] = CALLOC (1, sizeof (posix_lock_t));
 		ERR_ABORT (v.locks[0]);
-		v.locks[1] = calloc (1, sizeof (posix_lock_t));
+		v.locks[1] = CALLOC (1, sizeof (posix_lock_t));
 		ERR_ABORT (v.locks[1]);
 
 		memcpy (v.locks[0], big, sizeof (posix_lock_t));
@@ -436,7 +436,7 @@ __grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode,
 		list_del_init (&l->list);
 
 		if (__is_lock_grantable (pl_inode, l, dom)) {
-			conf = calloc (1, sizeof (*conf));
+			conf = CALLOC (1, sizeof (*conf));
 
 			if (!conf) {
 				l->blocked = 1;

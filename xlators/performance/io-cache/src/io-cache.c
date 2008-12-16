@@ -253,7 +253,7 @@ ioc_lookup_cbk (call_frame_t *frame,
 						page = ioc_page_create (ioc_inode, 0);
 					}
 
-					dst = calloc (1, stbuf->st_size);
+					dst = CALLOC (1, stbuf->st_size);
 					page->ref = dict_ref (get_new_dict ());
 					page_data = data_from_dynptr (dst, stbuf->st_size);
 					dict_set (page->ref, NULL, page_data);
@@ -261,7 +261,7 @@ ioc_lookup_cbk (call_frame_t *frame,
 					src = data_to_ptr (content_data);
 					memcpy (dst, src, stbuf->st_size);
 
-					page->vector = calloc (1, sizeof (*page->vector));
+					page->vector = CALLOC (1, sizeof (*page->vector));
 					page->vector->iov_base = dst;
 					page->vector->iov_len = stbuf->st_size;
 					page->count = 1;
@@ -291,7 +291,7 @@ ioc_lookup_cbk (call_frame_t *frame,
 							    local->need_xattr);
 						return 0;
 					} else {
-						char *buf = calloc (1, stbuf->st_size);
+						char *buf = CALLOC (1, stbuf->st_size);
 						char *tmp = buf;
 						int i;
 						for (i = 0; i < page->count; i++) {
@@ -340,7 +340,7 @@ ioc_lookup (call_frame_t *frame,
 		ioc_inode_t *ioc_inode = NULL;
 		ioc_page_t *page = NULL;
 
-		ioc_local_t *local = calloc (1, sizeof (*local));
+		ioc_local_t *local = CALLOC (1, sizeof (*local));
 		local->need_xattr = need_xattr;
 		local->file_loc.path = loc->path;
 		local->file_loc.inode = loc->inode;
@@ -477,7 +477,7 @@ ioc_wait_on_inode (ioc_inode_t *ioc_inode,
 	}
   
 	if (!page_found) {
-		waiter = calloc (1, sizeof (ioc_waitq_t));
+		waiter = CALLOC (1, sizeof (ioc_waitq_t));
 		ERR_ABORT (waiter);
 		waiter->data = page;
 		waiter->next = ioc_inode->waitq;
@@ -514,7 +514,7 @@ ioc_cache_validate (call_frame_t *frame,
 	ioc_inode_unlock (ioc_inode);
   
 	if (need_validate) {
-		ioc_local_t *validate_local = calloc (1, sizeof (ioc_local_t));
+		ioc_local_t *validate_local = CALLOC (1, sizeof (ioc_local_t));
 		ERR_ABORT (validate_local);
 		validate_frame = copy_frame (frame);
 		validate_local->fd = fd_ref (fd);
@@ -704,7 +704,7 @@ ioc_open (call_frame_t *frame,
 	  fd_t *fd)
 {
   
-	ioc_local_t *local = calloc (1, sizeof (ioc_local_t));
+	ioc_local_t *local = CALLOC (1, sizeof (ioc_local_t));
 	ERR_ABORT (local);
 
 	local->flags = flags;
@@ -742,7 +742,7 @@ ioc_create (call_frame_t *frame,
 	    mode_t mode,
 	    fd_t *fd)
 {
-	ioc_local_t *local = calloc (1, sizeof (ioc_local_t));
+	ioc_local_t *local = CALLOC (1, sizeof (ioc_local_t));
 	ERR_ABORT (local);
 
 	local->flags = flags;
@@ -795,9 +795,6 @@ ioc_readv_disabled_cbk (call_frame_t *frame,
 			int32_t count,
 			struct stat *stbuf)
 {
-	GF_ERROR_IF_NULL (this);
-	GF_ERROR_IF_NULL (vector);
-
 	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
 	return 0;
 }
@@ -978,7 +975,7 @@ ioc_readv (call_frame_t *frame,
 		return 0;
 	}
 
-	local = (ioc_local_t *) calloc (1, sizeof (ioc_local_t));
+	local = (ioc_local_t *) CALLOC (1, sizeof (ioc_local_t));
 	ERR_ABORT (local);
 	INIT_LIST_HEAD (&local->fill_list);
 
@@ -1056,7 +1053,7 @@ ioc_writev (call_frame_t *frame,
 	ioc_local_t *local = NULL;
 	ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
 
-	local = calloc (1, sizeof (ioc_local_t));
+	local = CALLOC (1, sizeof (ioc_local_t));
 	ERR_ABORT (local);
 
 	/* TODO: why is it not fd_ref'ed */
@@ -1216,7 +1213,7 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
 	 *      run-time configuration */
 	stripe_str = strtok_r (string, ",", &tmp_str);
 	while (stripe_str) {
-		curr = calloc (1, sizeof (struct ioc_priority));
+		curr = CALLOC (1, sizeof (struct ioc_priority));
 		ERR_ABORT (curr);
 		list_add_tail (&curr->list, first);
 
@@ -1269,7 +1266,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-	table = (void *) calloc (1, sizeof (*table));
+	table = (void *) CALLOC (1, sizeof (*table));
 	ERR_ABORT (table);
   
 	table->xl = this;
@@ -1336,7 +1333,7 @@ init (xlator_t *this)
 	table->max_pri ++;
 	INIT_LIST_HEAD (&table->inodes);
   
-	table->inode_lru = calloc (table->max_pri, sizeof (struct list_head));
+	table->inode_lru = CALLOC (table->max_pri, sizeof (struct list_head));
 	ERR_ABORT (table->inode_lru);
 	for (index = 0; index < (table->max_pri); index++)
 		INIT_LIST_HEAD (&table->inode_lru[index]);

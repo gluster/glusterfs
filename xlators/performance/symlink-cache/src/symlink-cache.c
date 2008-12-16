@@ -101,7 +101,7 @@ sc_cache_set (xlator_t *this, inode_t *inode, struct stat *buf,
 	inode_ctx_get (inode, this, VOID(&sc));
 	if (!sc) {
 		need_set = 1;
-		sc = calloc (1, sizeof (*sc));
+		sc = CALLOC (1, sizeof (*sc));
 		if (!sc) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"out of memory :(");

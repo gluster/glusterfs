@@ -112,9 +112,9 @@ get_shrub (glusterfs_ctx_t *ctx,
 	xlator_t *trans = NULL;
 	xlator_list_t *parent = NULL, *tmp = NULL;
 	
-	top = calloc (1, sizeof (*top));
+	top = CALLOC (1, sizeof (*top));
 	ERR_ABORT (top);
-	trans = calloc (1, sizeof (*trans));
+	trans = CALLOC (1, sizeof (*trans));
 	ERR_ABORT (trans);
 	
 	top->name = "top";
@@ -122,7 +122,7 @@ get_shrub (glusterfs_ctx_t *ctx,
 	top->next = trans;
 	top->init = fetch_init;
 	top->notify = fetch_notify;
-	top->children = (void *) calloc (1, sizeof (*top->children));
+	top->children = (void *) CALLOC (1, sizeof (*top->children));
 	ERR_ABORT (top->children);
 	top->children->xlator = trans;
 	
@@ -133,7 +133,7 @@ get_shrub (glusterfs_ctx_t *ctx,
 	trans->notify = default_notify;
 	trans->options = get_new_dict ();
 	
-	parent = calloc (1, sizeof(*parent));
+	parent = CALLOC (1, sizeof(*parent));
 	parent->xlator = top;
 	if (trans->parents == NULL)
 		trans->parents = parent;
@@ -162,7 +162,7 @@ get_shrub (glusterfs_ctx_t *ctx,
 	ret = dict_set_static_ptr (trans->options, "non-blocking-io", "off");
 	
 	if (transport) {
-		char *transport_type = calloc (1, strlen (transport) + 10);
+		char *transport_type = CALLOC (1, strlen (transport) + 10);
 		ERR_ABORT (transport_type);
 		strcpy(transport_type, transport);
 

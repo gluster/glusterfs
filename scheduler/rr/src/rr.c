@@ -95,7 +95,7 @@ rr_init (xlator_t *this_xl)
       return -1;
     }
   
-  if ((rr = calloc (1, sizeof (rr_t))) == NULL)
+  if ((rr = CALLOC (1, sizeof (rr_t))) == NULL)
     {
       return -1;
     }
@@ -147,7 +147,7 @@ rr_init (xlator_t *this_xl)
       return -1;
     }
   
-  if ((rr->subvolume_list = calloc (rr->subvolume_count, 
+  if ((rr->subvolume_list = CALLOC (rr->subvolume_count, 
 				    sizeof (rr_subvolume_t))) == NULL)
     {
       _cleanup_rr (rr);

@@ -105,7 +105,7 @@ stat_prefetch_cache_fill (struct sp_cache *cache,
   }
 
   if (trav == cache) {
-    trav = calloc (1, sizeof (*trav));
+    trav = CALLOC (1, sizeof (*trav));
     ERR_ABORT (trav);
     trav->pid = pid;
     trav->dirname = dirname;
@@ -469,7 +469,7 @@ init (struct xlator *this)
     return -1;
   }
 
-  cache = (void *) calloc (1, sizeof (*cache));
+  cache = (void *) CALLOC (1, sizeof (*cache));
   ERR_ABORT (cache);
   cache->next = cache->prev = cache;
 

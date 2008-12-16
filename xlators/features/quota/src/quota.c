@@ -354,7 +354,7 @@ quota_unlink (call_frame_t *frame,
 	struct quota_priv *priv = this->private;
 
 	if (priv->disk_usage_limit) {
-		local = calloc (1, sizeof (struct quota_local));
+		local = CALLOC (1, sizeof (struct quota_local));
 		local->path  = strdup (loc->path);
 		local->inode = inode_ref (loc->inode);
 		frame->local = local;
@@ -435,7 +435,7 @@ quota_rmdir (call_frame_t *frame,
 	struct quota_priv *priv = this->private;
 
 	if (priv->disk_usage_limit) {
-		local = calloc (1, sizeof (struct quota_local));
+		local = CALLOC (1, sizeof (struct quota_local));
 		local->path  = strdup (loc->path);
 		local->inode = inode_ref (loc->inode);
 		frame->local = local;
@@ -649,7 +649,7 @@ quota_writev (call_frame_t *frame,
 	}
 
 	if (priv->disk_usage_limit) {
-		local = calloc (1, sizeof (struct quota_local));
+		local = CALLOC (1, sizeof (struct quota_local));
 		local->fd     = fd_ref (fd);
 		local->refs   = dict_ref (frame->root->req_refs);
 		local->vector = vector;
@@ -814,7 +814,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-	_private = calloc (1, sizeof (struct quota_priv));
+	_private = CALLOC (1, sizeof (struct quota_priv));
         _private->disk_usage_limit = 0;
         data = dict_get (this->options, "disk-usage-limit");
         if (data) {

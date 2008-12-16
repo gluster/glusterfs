@@ -18,7 +18,7 @@
 		char *path = NULL;					\
 		int pad = 0;						\
 		pathlen   = strlen (_loc->path) + 1;			\
-		path = calloc (1, pathlen);				\
+		path = CALLOC (1, pathlen);				\
 		_state->loc.parent = inode_ref (_parent);		\
 		_state->loc.inode  = inode_new (_state->itable);	\
 		if (_resolved) {						\
@@ -142,7 +142,7 @@ __server_path_to_parenti (inode_table_t *itable,
 
 
         pathlen = STRLEN_0 (path);
-        resolved_till = calloc (1, pathlen);
+        resolved_till = CALLOC (1, pathlen);
 
         GF_VALIDATE_OR_GOTO("server-dentry", resolved_till, out);
         pathdup = strdup (path);

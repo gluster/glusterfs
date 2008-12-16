@@ -54,7 +54,7 @@ gf_dirent_for_name (const char *name)
 	gf_dirent_t *gf_dirent = NULL;
 
 	/* TODO: use mem-pool */
-	gf_dirent = calloc (gf_dirent_size (name), 1);
+	gf_dirent = CALLOC (gf_dirent_size (name), 1);
 	if (!gf_dirent)
 		return NULL;
 
@@ -136,7 +136,7 @@ gf_dirent_unserialize (gf_dirent_t *entries, const char *buf, size_t buf_size)
 		}
 
 		entry_len = sizeof (gf_dirent_t) + entry_strlen + 1;
-		entry = calloc (1, entry_len);
+		entry = CALLOC (1, entry_len);
 		if (!entry) {
 			break;
 		}

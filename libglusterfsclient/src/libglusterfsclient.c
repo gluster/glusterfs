@@ -336,7 +336,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
                 return NULL;
         }
 
-        ctx = calloc (1, sizeof (*ctx));
+        ctx = CALLOC (1, sizeof (*ctx));
         if (!ctx) {
 		fprintf (stderr, 
 			 "libglusterfsclient: %s:%s():%d: out of memory\n",
@@ -351,7 +351,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 
         pthread_mutex_init (&ctx->gf_ctx.lock, NULL);
   
-        pool = ctx->gf_ctx.pool = calloc (1, sizeof (call_pool_t));
+        pool = ctx->gf_ctx.pool = CALLOC (1, sizeof (call_pool_t));
         if (!pool) {
                 errno = ENOMEM;
                 FREE (ctx);
@@ -492,7 +492,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
         }
         graph = ctx->gf_ctx.graph;
 
-        priv = calloc (1, sizeof (*priv));
+        priv = CALLOC (1, sizeof (*priv));
         if (!priv) {
 		fprintf (stderr, 
 			 "libglusterfsclient: %s:%s():%d: cannot allocate memory (%s)\n",
@@ -726,7 +726,7 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
         int32_t op_ret;
         libgf_client_local_t *local = NULL;
         
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         if (loc->inode) {
                 local->fop.lookup.is_revalidate = 1;
                 loc->ino = loc->inode->ino;
@@ -749,7 +749,7 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
 
 		inode_ctx_data = dict_get (inode->ctx, XLATOR_NAME);
 		if (!inode_ctx_data) {
-			inode_ctx = calloc (1, sizeof (*inode_ctx));
+			inode_ctx = CALLOC (1, sizeof (*inode_ctx));
 			ERR_ABORT (inode_ctx);
 			pthread_mutex_init (&inode_ctx->lock, NULL);
 		} else {
@@ -862,7 +862,7 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
                 }
 
                 if (!inode_ctx) {
-                        inode_ctx = calloc (1, sizeof (*inode_ctx));
+                        inode_ctx = CALLOC (1, sizeof (*inode_ctx));
                         pthread_mutex_init (&inode_ctx->lock, NULL);
                 }
 
@@ -947,10 +947,10 @@ glusterfs_lookup_async (libglusterfs_handle_t handle,
         libglusterfs_client_async_local_t *local = NULL;
 	int32_t op_ret = 0;
 
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         local->fop.lookup_cbk.is_revalidate = 1;
 
-        loc = calloc (1, sizeof (*loc));
+        loc = CALLOC (1, sizeof (*loc));
         op_ret = libgf_client_loc_fill (loc, path, 0, ctx);
 	if (op_ret < 0) {
 		gf_log ("libglusterfsclient",
@@ -1187,7 +1187,7 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
                 inode_lookup (libgf_inode);
                 inode_unref (parent);
 
-		inode_ctx = calloc (1, sizeof (*inode_ctx));
+		inode_ctx = CALLOC (1, sizeof (*inode_ctx));
 		ERR_ABORT (inode_ctx);
 		pthread_mutex_init (&inode_ctx->lock, NULL);
 		
@@ -1341,7 +1341,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
       
 			ctx_data = dict_get (fd->ctx, XLATOR_NAME);
 			if (!ctx_data) {
-				fd_ctx = calloc (1, sizeof (*fd_ctx));
+				fd_ctx = CALLOC (1, sizeof (*fd_ctx));
 				ERR_ABORT (fd_ctx);
 				pthread_mutex_init (&fd_ctx->lock, NULL);
 			}
@@ -2388,7 +2388,7 @@ libglusterfs_readv_async_cbk (call_frame_t *frame,
         fd_t *__fd = local->fop.readv_cbk.fd;
         glusterfs_readv_cbk_t readv_cbk = local->fop.readv_cbk.cbk;
 
-        buf = calloc (1, sizeof (*buf));
+        buf = CALLOC (1, sizeof (*buf));
         ERR_ABORT (buf);
 
 	if (vector) {
@@ -2449,7 +2449,7 @@ glusterfs_read_async (unsigned long fd,
         data_t *fd_ctx_data = NULL;
 	int32_t op_ret = 0;
 
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
         local->fop.readv_cbk.fd = __fd;
         local->fop.readv_cbk.cbk = readv_cbk;
@@ -2539,7 +2539,7 @@ glusterfs_write_async (unsigned long fd,
         data_t *fd_ctx_data = NULL;
 	int32_t op_ret = 0;
 
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
         local->fop.writev_cbk.fd = __fd;
         local->fop.writev_cbk.cbk = writev_cbk;
@@ -2965,10 +2965,10 @@ libglusterfs_graph (xlator_t *graph)
         xlator_t *top = NULL;
         xlator_list_t *xlchild, *xlparent;
 
-        top = calloc (1, sizeof (*top));
+        top = CALLOC (1, sizeof (*top));
         ERR_ABORT (top);
 
-        xlchild = calloc (1, sizeof(*xlchild));
+        xlchild = CALLOC (1, sizeof(*xlchild));
         ERR_ABORT (xlchild);
         xlchild->xlator = graph;
         top->children = xlchild;
@@ -2976,7 +2976,7 @@ libglusterfs_graph (xlator_t *graph)
         top->next = graph;
         top->name = strdup (XLATOR_NAME);
 
-        xlparent = calloc (1, sizeof(*xlparent));
+        xlparent = CALLOC (1, sizeof(*xlparent));
         xlparent->xlator = top;
         graph->parents = xlparent;
         asprintf (&top->type, XLATOR_NAME);

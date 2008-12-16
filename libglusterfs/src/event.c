@@ -27,6 +27,7 @@
 
 #include "logging.h"
 #include "event.h"
+#include "mem-pool.h"
 
 
 #ifndef _CONFIG_H
@@ -96,13 +97,13 @@ event_pool_new_poll (int count)
 	struct event_pool *event_pool = NULL;
 	int                ret = -1;
 
-	event_pool = calloc (1, sizeof (*event_pool));
+	event_pool = CALLOC (1, sizeof (*event_pool));
 
 	if (!event_pool)
 		return NULL;
 
 	event_pool->count = count;
-	event_pool->reg = calloc (event_pool->count,
+	event_pool->reg = CALLOC (event_pool->count,
 				  sizeof (*event_pool->reg));
 
 	if (!event_pool->reg) {
@@ -397,7 +398,7 @@ event_dispatch_poll_resize (struct event_pool *event_pool,
 
 			event_pool->evcache_size = event_pool->used;
 
-			ufds = calloc (sizeof (struct pollfd),
+			ufds = CALLOC (sizeof (struct pollfd),
 					       event_pool->evcache_size);
 			event_pool->evcache = ufds;
 		}
@@ -477,13 +478,13 @@ event_pool_new_epoll (int count)
 	struct event_pool *event_pool = NULL;
 	int                epfd = -1;
 
-	event_pool = calloc (1, sizeof (*event_pool));
+	event_pool = CALLOC (1, sizeof (*event_pool));
 
 	if (!event_pool)
 		return NULL;
 
 	event_pool->count = count;
-	event_pool->reg = calloc (event_pool->count,
+	event_pool->reg = CALLOC (event_pool->count,
 				  sizeof (*event_pool->reg));
 
 	if (!event_pool->reg) {
@@ -838,7 +839,7 @@ event_dispatch_epoll (struct event_pool *event_pool)
 				event_pool->evcache_size =
 					event_pool->used + 256;
 
-				events = calloc (event_pool->evcache_size,
+				events = CALLOC (event_pool->evcache_size,
 						 sizeof (struct epoll_event));
 
 				event_pool->evcache = events;

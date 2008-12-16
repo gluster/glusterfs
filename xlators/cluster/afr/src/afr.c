@@ -1389,11 +1389,11 @@ afr_checksum_cbk (call_frame_t *frame, void *cookie,
 		if (op_ret == 0 && (local->op_ret != 0)) {
 			local->op_ret = 0;
 
-			local->cont.checksum.file_checksum = malloc (ZR_FILENAME_MAX);
+			local->cont.checksum.file_checksum = MALLOC (ZR_FILENAME_MAX);
 			memcpy (local->cont.checksum.file_checksum, file_checksum, 
 				ZR_FILENAME_MAX);
 
-			local->cont.checksum.dir_checksum = malloc (ZR_FILENAME_MAX);
+			local->cont.checksum.dir_checksum = MALLOC (ZR_FILENAME_MAX);
 			memcpy (local->cont.checksum.dir_checksum, dir_checksum, 
 				ZR_FILENAME_MAX);
 
@@ -1699,7 +1699,7 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 
 	frame->local  = local;
 
-	local->cont.lk.locked_nodes = calloc (priv->child_count, 
+	local->cont.lk.locked_nodes = CALLOC (priv->child_count, 
 					      sizeof (*local->cont.lk.locked_nodes));
 	
 	if (!local->cont.lk.locked_nodes) {
@@ -2003,7 +2003,7 @@ init (xlator_t *this)
 	priv->child_count = child_count;
 	LOCK_INIT (&priv->lock);
 
-	priv->child_up = calloc (sizeof (unsigned char), child_count);
+	priv->child_up = CALLOC (sizeof (unsigned char), child_count);
 	if (!priv->child_up) {
 		gf_log (this->name, GF_LOG_ERROR,	
 			"out of memory :(");		
@@ -2011,7 +2011,7 @@ init (xlator_t *this)
 		goto out;
 	}
 
-	priv->children = calloc (sizeof (xlator_t *), child_count);
+	priv->children = CALLOC (sizeof (xlator_t *), child_count);
 	if (!priv->children) {
 		gf_log (this->name, GF_LOG_ERROR,	
 			"out of memory :(");		

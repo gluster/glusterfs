@@ -1710,7 +1710,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
   
-	pvt = calloc (1, sizeof (eg_t));
+	pvt = CALLOC (1, sizeof (eg_t));
 	this->private = pvt;
 	return 0;
 }

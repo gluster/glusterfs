@@ -72,7 +72,6 @@ __socket_rwv (transport_t *this, struct iovec *vector, int count,
 	      /* done for now */
 	      break;
 	    }
-	  total_bytes_xferd += ret;
 	}
       else
 	{
@@ -83,7 +82,6 @@ __socket_rwv (transport_t *this, struct iovec *vector, int count,
 	      /* done for now */
 	      break;
 	    }
-	  total_bytes_rcvd += ret;
 	}
 
       if (ret == 0)
@@ -290,7 +288,7 @@ __socket_ioq_new (transport_t *this, char *buf, int len,
   priv = this->private;
 
   /* TODO: use mem-pool */
-  entry = calloc (1, sizeof (*entry));
+  entry = CALLOC (1, sizeof (*entry));
 
   assert (count <= (MAX_IOVEC-2));
 
@@ -595,9 +593,9 @@ socket_proto_state_machine (transport_t *this)
 	    priv->incoming.buflen = size2;
 
 	    /* TODO: use mem-pool */
-	    priv->incoming.hdr_p  = malloc (size1);
+	    priv->incoming.hdr_p  = MALLOC (size1);
 	    if (size2)
-	      priv->incoming.buf_p = malloc (size2);
+	      priv->incoming.buf_p = MALLOC (size2);
 
 	    priv->incoming.vector[0].iov_base = priv->incoming.hdr_p;
 	    priv->incoming.vector[0].iov_len  = size1;
@@ -832,7 +830,7 @@ socket_server_event_handler (int fd, int idx, void *data,
 	      }
 	  }
 
-	new_trans = calloc (1, sizeof (*new_trans));
+	new_trans = CALLOC (1, sizeof (*new_trans));
 	new_trans->xl = this->xl;
 	new_trans->fini = this->fini;
 
@@ -1246,7 +1244,7 @@ socket_init (transport_t *this)
       return -1;
     }
 
-  priv = calloc (1, sizeof (*priv));
+  priv = CALLOC (1, sizeof (*priv));
   if (!priv)
     {
       gf_log (this->xl->name, GF_LOG_ERROR,

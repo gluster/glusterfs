@@ -40,7 +40,7 @@ get_new_data_pair ()
 {
 	data_pair_t *data_pair_ptr = NULL;
   
-	data_pair_ptr = (data_pair_t *) calloc (1, sizeof (data_pair_t));
+	data_pair_ptr = (data_pair_t *) CALLOC (1, sizeof (data_pair_t));
 	ERR_ABORT (data_pair_ptr);
   
 	return data_pair_ptr;
@@ -51,7 +51,7 @@ get_new_data ()
 {
 	data_t *data = NULL;
 
-	data = (data_t *) calloc (1, sizeof (data_t));
+	data = (data_t *) CALLOC (1, sizeof (data_t));
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
 			"calloc () returned NULL");
@@ -65,7 +65,7 @@ get_new_data ()
 dict_t *
 get_new_dict_full (int size_hint)
 {
-	dict_t *dict = calloc (1, sizeof (dict_t));
+	dict_t *dict = CALLOC (1, sizeof (dict_t));
 
 	if (!dict) {
 		gf_log ("dict", GF_LOG_CRITICAL,
@@ -74,7 +74,7 @@ get_new_dict_full (int size_hint)
 	}
 
 	dict->hash_size = size_hint;
-	dict->members = calloc (size_hint, sizeof (data_pair_t *));
+	dict->members = CALLOC (size_hint, sizeof (data_pair_t *));
 
 	if (!dict->members) {
 		gf_log ("dict", GF_LOG_CRITICAL,
@@ -157,7 +157,7 @@ data_copy (data_t *old)
 		return NULL;
 	}
 
-	data_t *newdata = (data_t *) calloc (1, sizeof (*newdata));
+	data_t *newdata = (data_t *) CALLOC (1, sizeof (*newdata));
 
 	if (!newdata) {
 		gf_log ("dict", GF_LOG_CRITICAL,
@@ -174,7 +174,7 @@ data_copy (data_t *old)
 								     sizeof (size_t)));
 		if (!old->data && !old->vec) {
 			gf_log ("dict", GF_LOG_CRITICAL,
-				"@newdata->data || @newdata->vec got NULL from calloc()");
+				"@newdata->data || @newdata->vec got NULL from CALLOC()");
 			return NULL;
 		}
 	}
@@ -231,17 +231,17 @@ _dict_set (dict_t *this,
 		/* Indicates duplicate key */
 		return 0;
 	}
-	pair = (data_pair_t *) calloc (1, sizeof (*pair));
+	pair = (data_pair_t *) CALLOC (1, sizeof (*pair));
 	if (!pair) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@pair - NULL returned by calloc");
+			"@pair - NULL returned by CALLOC");
 		return -1;
 	}
 
-	pair->key = (char *) calloc (1, strlen (key) + 1);
+	pair->key = (char *) CALLOC (1, strlen (key) + 1);
 	if (!pair->key) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@pair->key - NULL returned by calloc");
+			"@pair->key - NULL returned by CALLOC");
 		return -1;
 	}
 
@@ -718,7 +718,7 @@ int_to_data (int64_t value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 
@@ -735,7 +735,7 @@ data_from_int64 (int64_t value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 	asprintf (&data->data, "%"PRId64, value);
@@ -751,7 +751,7 @@ data_from_int32 (int32_t value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 	asprintf (&data->data, "%"PRId32, value);
@@ -768,7 +768,7 @@ data_from_int16 (int16_t value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 	asprintf (&data->data, "%"PRId16, value);
@@ -785,7 +785,7 @@ data_from_int8 (int8_t value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 	asprintf (&data->data, "%d", value);
@@ -801,7 +801,7 @@ data_from_uint64 (uint64_t value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 	asprintf (&data->data, "%"PRIu64, value);
@@ -818,7 +818,7 @@ data_from_uint32 (uint32_t value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 	asprintf (&data->data, "%"PRIu32, value);
@@ -835,7 +835,7 @@ data_from_uint16 (uint16_t value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 	asprintf (&data->data, "%"PRIu16, value);
@@ -858,7 +858,7 @@ data_from_ptr (void *value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 
@@ -882,7 +882,7 @@ data_from_static_ptr (void *value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 
@@ -904,7 +904,7 @@ str_to_data (char *value)
 
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data - NULL returned by calloc");
+			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
 	data->len = strlen (value) + 1;

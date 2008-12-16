@@ -1764,7 +1764,7 @@ fuse_readdir_cbk (call_frame_t *frame,
 		size += fuse_dirent_size (strlen (entry->d_name));
 	}
 
-	buf = calloc (1, size);
+	buf = CALLOC (1, size);
 	if (!buf) {
 		gf_log ("glusterfs-fuse", GF_LOG_ERROR,
 			"%"PRId64": READDIR => -1 (%s)", frame->root->unique,
@@ -2080,7 +2080,7 @@ fuse_xattr_cbk (call_frame_t *frame,
 					}
 					
 					priv->volfile_size = st.st_size;
-					file = priv->volfile = calloc (1, priv->volfile_size);
+					file = priv->volfile = CALLOC (1, priv->volfile_size);
 					ret = lseek (fd, 0, SEEK_SET);
 					while ((ret = read (fd, file, GF_UNIT_KB)) > 0) {
 						file += ret;
@@ -2470,7 +2470,7 @@ fuse_thread_proc (void *data)
         data_t *buf = priv->buf;
         int32_t ref = 0;
         size_t chan_size = fuse_chan_bufsize (priv->ch);
-        char *recvbuf = calloc (1, chan_size);
+        char *recvbuf = CALLOC (1, chan_size);
         ERR_ABORT (recvbuf);
 
         while (!fuse_session_exited (priv->se)) {
@@ -2498,7 +2498,7 @@ fuse_thread_proc (void *data)
                                         FREE (buf->data);
                                         buf->data = NULL;
                                 }
-                                buf->data = calloc (1, res);
+                                buf->data = CALLOC (1, res);
                                 ERR_ABORT (buf->data);
                                 buf->len = res;
                         }
@@ -2649,7 +2649,7 @@ init (xlator_t *this_xl)
 	if (this_xl->name == NULL)
 		this_xl->name = strdup ("fuse");
 	
-        priv = calloc (1, sizeof (*priv));
+        priv = CALLOC (1, sizeof (*priv));
         ERR_ABORT (priv);
         this_xl->private = (void *) priv;
 

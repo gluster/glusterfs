@@ -6306,21 +6306,21 @@ server_setdents (call_frame_t *frame,
 		char *ender = NULL, *buffer_ptr = NULL;
 		char tmp_buf[512] = {0,};
 
-		entry = calloc (1, sizeof (dir_entry_t));
+		entry = CALLOC (1, sizeof (dir_entry_t));
 		ERR_ABORT (entry);
 		prev = entry;
 		buffer_ptr = buf;
 
 		for (i = 0; i < state->nr_count ; i++) {
 			bread = 0;
-			trav = calloc (1, sizeof (dir_entry_t));
+			trav = CALLOC (1, sizeof (dir_entry_t));
 			ERR_ABORT (trav);
 
 			ender = strchr (buffer_ptr, '/');
 			if (!ender)
 				break;
 			count = ender - buffer_ptr;
-			trav->name = calloc (1, count + 2);
+			trav->name = CALLOC (1, count + 2);
 			ERR_ABORT (trav->name);
 
 			strncpy (trav->name, buffer_ptr, count);
@@ -6574,7 +6574,7 @@ fail:
 	_hdr->rsp.op_errno = hton32 (gf_errno);
 
 	if (file_len) {
-		gf_full_read (spec_fd, rsp->spec, file_len);
+		read (spec_fd, rsp->spec, file_len);
 		close (spec_fd);
 	}
 	protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_GETSPEC,
@@ -7075,7 +7075,7 @@ get_frame_for_transport (transport_t *trans)
 	frame = create_frame (trans->xl, pool);
 	GF_VALIDATE_OR_GOTO("server", frame, out);
 
-	state = calloc (1, sizeof (*state));
+	state = CALLOC (1, sizeof (*state));
 	GF_VALIDATE_OR_GOTO("server", state, out);
 
 	if (cprivate->bound_xl)
@@ -7551,7 +7551,7 @@ init (xlator_t *this)
 		goto out;
 	}
 
-	server_private = calloc (1, sizeof (*server_private));
+	server_private = CALLOC (1, sizeof (*server_private));
 	GF_VALIDATE_OR_GOTO(this->name, server_private, out);
 
 	server_private->trans = trans;
@@ -7579,7 +7579,7 @@ init (xlator_t *this)
 
 	this->private = server_private;
 
-	conf = calloc (1, sizeof (server_conf_t));
+	conf = CALLOC (1, sizeof (server_conf_t));
 	GF_VALIDATE_OR_GOTO(this->name, conf, out);
 	
 	ret = dict_get_int32 (this->options, "inode-lru-limit", 
@@ -7636,7 +7636,7 @@ gf_lock_table_new (void)
 {
 	struct _lock_table *new = NULL;
 
-	new = calloc (1, sizeof (struct _lock_table));
+	new = CALLOC (1, sizeof (struct _lock_table));
 	if (new == NULL) {
 		gf_log ("server-protocol", GF_LOG_CRITICAL,
 			"failed to allocate memory for new lock table");
@@ -7664,7 +7664,7 @@ protocol_server_pollin (xlator_t *this, transport_t *trans)
 	conf = this->private;
 
 	if (cprivate == NULL) {
-		cprivate = (void *) calloc (1, sizeof (*cprivate));
+		cprivate = (void *) CALLOC (1, sizeof (*cprivate));
 		GF_VALIDATE_OR_GOTO(this->name, cprivate, out);
 
 		trans->xl_private = cprivate;

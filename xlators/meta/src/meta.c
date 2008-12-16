@@ -516,7 +516,7 @@ meta_open (call_frame_t *frame, xlator_t *this,
 
   if (file) {
     if (file->fops && file->fops->open) {
-      struct _open_local *local = calloc (1, sizeof (struct _open_local));
+      struct _open_local *local = CALLOC (1, sizeof (struct _open_local));
       ERR_ABORT (local);
       local->path = strdup (path);
       frame->local = local;
@@ -551,7 +551,7 @@ meta_create (call_frame_t *frame, xlator_t *this,
 
   if (file) {
     if (file->fops && file->fops->create) {
-      struct _open_local *local = calloc (1, sizeof (struct _open_local));
+      struct _open_local *local = CALLOC (1, sizeof (struct _open_local));
       ERR_ABORT (local);
       local->path = strdup (path);
       frame->local = local;
@@ -850,7 +850,7 @@ meta_readdir_cbk (call_frame_t *frame,
   meta_private_t *priv = (meta_private_t *)this->private;
 
   if ((int) cookie == 1) {
-    dir_entry_t *dir = calloc (1, sizeof (dir_entry_t));
+    dir_entry_t *dir = CALLOC (1, sizeof (dir_entry_t));
     ERR_ABORT (dir);
 
     dir->name = strdup (".meta");
@@ -887,7 +887,7 @@ meta_readdir (call_frame_t *frame,
       dir_entry_t *entries = NULL;
 
       while (dir) {
-	dir_entry_t *d = calloc (1, sizeof (dir_entry_t));
+	dir_entry_t *d = CALLOC (1, sizeof (dir_entry_t));
 	ERR_ABORT (d);
 	d->name = dir->name;
 	d->buf  = *dir->stbuf;
@@ -897,7 +897,7 @@ meta_readdir (call_frame_t *frame,
 	dir = dir->next;
       }
 
-      dir_entry_t *header = calloc (1, sizeof (dir_entry_t));
+      dir_entry_t *header = CALLOC (1, sizeof (dir_entry_t));
       ERR_ABORT (header);
       header->next = entries;
       STACK_UNWIND (frame, 0, 0, header, count);
@@ -1194,7 +1194,7 @@ static void
 build_meta_tree (xlator_t *this)
 {
   meta_private_t *priv = (meta_private_t *) this->private;
-  priv->tree = calloc (1, sizeof (meta_dirent_t));
+  priv->tree = CALLOC (1, sizeof (meta_dirent_t));
   ERR_ABORT (priv->tree);
   priv->tree->name = strdup (".meta");
   priv->tree->stbuf = new_stbuf ();
@@ -1222,7 +1222,7 @@ init (xlator_t *this)
     return -1;
   }
   
-  meta_private_t *priv = calloc (1, sizeof (meta_private_t));
+  meta_private_t *priv = CALLOC (1, sizeof (meta_private_t));
   ERR_ABORT (priv);
   
   data_t *directory = dict_get (this->options, "directory");

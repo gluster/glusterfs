@@ -18,159 +18,157 @@
 */
 
 #include "mem-pool.h"
+#include "logging.h"
+#include <stdlib.h>
+
 
 #define GF_MEM_POOL_PAD_BOUNDRY    16
+
 
 struct mem_pool *
 mem_pool_new_fn (unsigned long sizeof_type,
 		 unsigned long count)
 {
-  struct mem_pool *mem_pool = NULL;
-  int pad = 0;
-  unsigned long padded_sizeof_type = 0;
-  void *pool = NULL;
-  int i = 0;
-  struct list_head *list = NULL;
+	struct mem_pool  *mem_pool = NULL;
+	int               pad = 0;
+	unsigned long     padded_sizeof_type = 0;
+	void             *pool = NULL;
+	int               i = 0;
+	struct list_head *list = NULL;
   
-  if (sizeof_type == 0 || count == 0)
-    {
-      gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
-      return NULL;
-    }
+	if (!sizeof_type || !count) {
+		gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+		return NULL;
+	}
   
-  pad = GF_MEM_POOL_PAD_BOUNDRY - (sizeof_type % GF_MEM_POOL_PAD_BOUNDRY);
-  padded_sizeof_type = sizeof_type + pad;
+	pad = GF_MEM_POOL_PAD_BOUNDRY -
+		(sizeof_type % GF_MEM_POOL_PAD_BOUNDRY);
+	padded_sizeof_type = sizeof_type + pad;
   
-  mem_pool = calloc (1, sizeof (*mem_pool));
-  ERR_ABORT (mem_pool);
+	mem_pool = CALLOC (sizeof (*mem_pool), 1);
+	if (!mem_pool)
+		return NULL;
 
-  LOCK_INIT (&mem_pool->lock);
-  INIT_LIST_HEAD (&mem_pool->list);
-  mem_pool->padded_sizeof_type = padded_sizeof_type;
-  mem_pool->cold_count = count;
+	LOCK_INIT (&mem_pool->lock);
+	INIT_LIST_HEAD (&mem_pool->list);
 
-  pool = calloc (count, sizeof_type + pad);
-  if (!pool)
-    return NULL;
+	mem_pool->padded_sizeof_type = padded_sizeof_type;
+	mem_pool->cold_count = count;
 
-  for (i=0; i<count; i++)
-    {
-      list = pool + (i * (sizeof_type + pad));
-      INIT_LIST_HEAD (list);
-      list_add_tail (list, &mem_pool->list);
-    }
+	pool = CALLOC (count, sizeof_type + pad);
+	if (!pool)
+		return NULL;
 
-  mem_pool->pool = pool;
-  mem_pool->pool_end = pool + (count * (sizeof_type + pad));
+	for (i = 0; i < count; i++) {
+		list = pool + (i * (sizeof_type + pad));
+		INIT_LIST_HEAD (list);
+		list_add_tail (list, &mem_pool->list);
+	}
 
-  return mem_pool;
+	mem_pool->pool = pool;
+	mem_pool->pool_end = pool + (count * (sizeof_type + pad));
+
+	return mem_pool;
 }
 
 
 void *
 mem_get (struct mem_pool *mem_pool)
 {
-  struct list_head *list = NULL;
-  void *ptr = NULL;
+	struct list_head *list = NULL;
+	void             *ptr = NULL;
   
-  if (mem_pool == NULL)
-    {
-      gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
-      return NULL;
-    }
-
-  LOCK (&mem_pool->lock);
-  {
-    if (mem_pool->cold_count)
-      {
-	list = mem_pool->list.next;
-	list_del (list);
-
-	mem_pool->hot_count++;
-	mem_pool->cold_count--;
-
-	ptr = list;
-      }
-  }
-  UNLOCK (&mem_pool->lock);
-
-  if (!ptr)
-    {
-      /* TODO: debug log about excess memory usage */
-      ptr = malloc (mem_pool->padded_sizeof_type);
-
-      if (!ptr)
-	{
-	  return NULL;
+	if (!mem_pool) {
+		gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+		return NULL;
 	}
 
-      LOCK (&mem_pool->lock);
-      {
-	mem_pool->hot_count ++;
-      }
-      UNLOCK (&mem_pool->lock);
-    }
+	LOCK (&mem_pool->lock);
+	{
+		if (mem_pool->cold_count) {
+			list = mem_pool->list.next;
+			list_del (list);
 
-  return ptr;
+			mem_pool->hot_count++;
+			mem_pool->cold_count--;
+
+			ptr = list;
+		}
+	}
+	UNLOCK (&mem_pool->lock);
+
+	if (ptr == NULL) {
+		ptr = MALLOC (mem_pool->padded_sizeof_type);
+
+		if (!ptr) {
+			return NULL;
+		}
+
+		LOCK (&mem_pool->lock);
+		{
+			mem_pool->hot_count ++;
+		}
+		UNLOCK (&mem_pool->lock);
+	}
+
+	return ptr;
 }
 
 
 static int
 __is_member (struct mem_pool *pool, void *ptr)
 {
-  if (pool == NULL || ptr == NULL)
-    {
-      gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
-      return -1;
-    }
+	if (!pool || !ptr) {
+		gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+		return -1;
+	}
   
-  if (ptr < pool->pool || ptr >= pool->pool_end)
-    return 0;
+	if (ptr < pool->pool || ptr >= pool->pool_end)
+		return 0;
 
-  if ((ptr - pool->pool) % pool->padded_sizeof_type)
-    return -1;
+	if ((ptr - pool->pool) % pool->padded_sizeof_type)
+		return -1;
 
-  return 1;
+	return 1;
 }
 
 
 void
 mem_put (struct mem_pool *pool, void *ptr)
 {
-  struct list_head *list = NULL;
+	struct list_head *list = NULL;
   
-  if (pool == NULL || ptr == NULL)
-    {
-      gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
-      return;
-    }
+	if (!pool || !ptr) {
+		gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+		return;
+	}
   
-  list = ptr;
+	list = ptr;
   
-  LOCK (&pool->lock);
-  {
-    pool->hot_count--;
+	LOCK (&pool->lock);
+	{
+		pool->hot_count--;
 
-    switch (__is_member (pool, ptr))
-      {
-      case 1:
-	pool->cold_count++;
-	list_add (list, &pool->list);
-	break;
-      case -1:
-	/* log error */
-	abort ();
-	break;
-      case 0:
-	free (ptr);
-	break;
-      default:
-	/* log error */
-	break;
-      }
-  }
-  UNLOCK (&pool->lock);
+		switch (__is_member (pool, ptr))
+		{
+		case 1:
+			pool->cold_count++;
+			list_add (list, &pool->list);
+			break;
+		case -1:
+			/* log error */
+			abort ();
+			break;
+		case 0:
+			free (ptr);
+			break;
+		default:
+			/* log error */
+			break;
+		}
+	}
+	UNLOCK (&pool->lock);
 
-  if (ptr)
-    free (ptr);
+	if (ptr)
+		free (ptr);
 }

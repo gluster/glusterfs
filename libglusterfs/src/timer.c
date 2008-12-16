@@ -52,7 +52,7 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
                 return NULL;
         }
 
-        event = calloc (1, sizeof (*event));
+        event = CALLOC (1, sizeof (*event));
         if (!event) {
                 gf_log ("timer", GF_LOG_CRITICAL, "Not enough memory");
                 return NULL;
@@ -206,7 +206,7 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
         if (!ctx->timer) {
                 gf_timer_registry_t *reg = NULL;
 
-                ctx->timer = reg = calloc (1, sizeof (*reg));
+                ctx->timer = reg = CALLOC (1, sizeof (*reg));
                 ERR_ABORT (reg);
                 pthread_mutex_init (&reg->lock, NULL);
                 reg->active.next = &reg->active;

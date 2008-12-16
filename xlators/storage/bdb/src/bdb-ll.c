@@ -276,7 +276,7 @@ bdb_cache_insert (bctx_t *bctx,
 			ret = 0;
 		} else {
 			/* we will be entering here very rarely */
-			bcache = calloc (1, sizeof (*bcache));    
+			bcache = CALLOC (1, sizeof (*bcache));    
 			GF_VALIDATE_OR_GOTO ("bdb-ll", bcache, unlock);
 			bcache->key = strdup ((char *)(key->data));
 			GF_VALIDATE_OR_GOTO ("bdb-ll", bcache->key, unlock);
@@ -419,7 +419,7 @@ bdb_db_get (bctx_t *bctx,
 	if (bctx->cache && 
 	    ((bcache = bdb_cache_lookup (bctx, key_string)) != NULL)) {
 		if (buf) {
-			*buf = calloc (1, bcache->size);
+			*buf = CALLOC (1, bcache->size);
 			GF_VALIDATE_OR_GOTO ("bdb-ll", buf, out);
 			memcpy (*buf, (bcache->data + offset), bcache->size);
 		}
@@ -478,7 +478,7 @@ bdb_db_get (bctx_t *bctx,
 				/* successfully read data, lets set everything in place
 				 * and return */
 				if (buf) {
-					*buf = calloc (1, value.size);
+					*buf = CALLOC (1, value.size);
 					ERR_ABORT (*buf);
 					memcpy (*buf, value.data, value.size);
 				}
@@ -1053,7 +1053,7 @@ BDB_TABLE_INIT (xlator_t *this,
 	data_t        *lru_limit          = NULL;
 	data_t        *page_size          = NULL;
 	
-	table = calloc (1, sizeof (*table));
+	table = CALLOC (1, sizeof (*table));
 	if (table) {
 		INIT_LIST_HEAD(&(table->b_lru));
 		INIT_LIST_HEAD(&(table->active));
@@ -1116,7 +1116,7 @@ BDB_TABLE_INIT (xlator_t *this,
 		}
       
 		table->hash_size = BDB_DEFAULT_HASH_SIZE;
-		table->b_hash = calloc (BDB_DEFAULT_HASH_SIZE, sizeof (struct list_head));
+		table->b_hash = CALLOC (BDB_DEFAULT_HASH_SIZE, sizeof (struct list_head));
 
 		for (idx = 0; idx < table->hash_size; idx++)
 			INIT_LIST_HEAD(&(table->b_hash[idx]));

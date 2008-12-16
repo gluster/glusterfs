@@ -48,7 +48,6 @@
 
 #define STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR(_loc) do {        \
         if (!(_loc && _loc->inode)) {                              \
-	       TRAP_ON (!(_loc && _loc->inode))                    \
                STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL); \
                return 0;                                           \
         }                                                          \
@@ -504,7 +503,7 @@ stripe_lookup (call_frame_t *frame,
 	}
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -566,7 +565,7 @@ stripe_stat (call_frame_t *frame,
 			    loc);
 	} else {
 		/* Initialization */
-		local = calloc (1, sizeof (stripe_local_t));
+		local = CALLOC (1, sizeof (stripe_local_t));
 		ERR_ABORT (local);
 		local->op_ret = -1;
 		frame->local = local;
@@ -621,7 +620,7 @@ stripe_chmod (call_frame_t *frame,
 			    loc, mode);
 	} else {
 		/* Initialization */
-		local = calloc (1, sizeof (stripe_local_t));
+		local = CALLOC (1, sizeof (stripe_local_t));
 		ERR_ABORT (local);
 		local->op_ret = -1;
 		frame->local = local;
@@ -678,7 +677,7 @@ stripe_chown (call_frame_t *frame,
 			    loc, uid, gid);
 	} else {
 		/* Initialization */
-		local = calloc (1, sizeof (stripe_local_t));
+		local = CALLOC (1, sizeof (stripe_local_t));
 		ERR_ABORT (local);
 		local->op_ret = -1;
 		frame->local = local;
@@ -759,7 +758,7 @@ stripe_statfs (call_frame_t *frame,
 	xlator_list_t *trav = this->children;
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
@@ -814,7 +813,7 @@ stripe_truncate (call_frame_t *frame,
 			    offset);
 	} else {
 		/* Initialization */
-		local = calloc (1, sizeof (stripe_local_t));
+		local = CALLOC (1, sizeof (stripe_local_t));
 		ERR_ABORT (local);
 		local->op_ret = -1;
 		frame->local = local;
@@ -870,7 +869,7 @@ stripe_utimens (call_frame_t *frame,
 			    loc, tv);
 	} else {
 		/* Initialization */
-		local = calloc (1, sizeof (stripe_local_t));
+		local = CALLOC (1, sizeof (stripe_local_t));
 		ERR_ABORT (local);
 		local->op_ret = -1;
 		frame->local = local;
@@ -946,7 +945,7 @@ stripe_rename (call_frame_t *frame,
 	}
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	local->inode = oldloc->inode;
@@ -1068,7 +1067,7 @@ stripe_unlink (call_frame_t *frame,
 			    loc);
 	} else {
 		/* Initialization */
-		local = calloc (1, sizeof (stripe_local_t));
+		local = CALLOC (1, sizeof (stripe_local_t));
 		ERR_ABORT (local);
 		local->op_ret = -1;
 		frame->local = local;
@@ -1141,7 +1140,7 @@ stripe_rmdir (call_frame_t *frame,
 	}
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -1422,7 +1421,7 @@ stripe_mknod (call_frame_t *frame,
 		}
 		
 		/* Initialization */
-		local = calloc (1, sizeof (stripe_local_t));
+		local = CALLOC (1, sizeof (stripe_local_t));
 		ERR_ABORT (local);
 		local->op_ret = -1;
 		local->op_errno = ENOTCONN;
@@ -1484,7 +1483,7 @@ stripe_mkdir (call_frame_t *frame,
 	}
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	local->call_count = priv->child_count;
@@ -1568,7 +1567,7 @@ stripe_link (call_frame_t *frame,
 			    oldloc, newloc);
 	} else {
 		/* Initialization */
-		local = calloc (1, sizeof (stripe_local_t));
+		local = CALLOC (1, sizeof (stripe_local_t));
 		ERR_ABORT (local);
 		local->op_ret = -1;
 		frame->local = local;
@@ -1840,7 +1839,7 @@ stripe_create (call_frame_t *frame,
 	}
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
@@ -2031,7 +2030,7 @@ stripe_open (call_frame_t *frame,
 	}
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->fd = fd;
 	frame->local = local;
@@ -2133,7 +2132,7 @@ stripe_opendir (call_frame_t *frame,
 	}
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	frame->local = local;
 	local->inode = loc->inode;
@@ -2279,7 +2278,7 @@ stripe_lk (call_frame_t *frame,
 
 	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -2316,7 +2315,7 @@ stripe_setdents (call_frame_t *frame,
 	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -2350,7 +2349,7 @@ stripe_flush (call_frame_t *frame,
 	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -2396,7 +2395,7 @@ stripe_fsync (call_frame_t *frame,
 	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -2430,7 +2429,7 @@ stripe_fstat (call_frame_t *frame,
 	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -2466,7 +2465,7 @@ stripe_fchmod (call_frame_t *frame,
 	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -2503,7 +2502,7 @@ stripe_fchown (call_frame_t *frame,
 	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -2539,7 +2538,7 @@ stripe_ftruncate (call_frame_t *frame,
 	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -2586,7 +2585,7 @@ stripe_fsyncdir (call_frame_t *frame,
 	STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
 
 	/* Initialization */
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->op_ret = -1;
 	frame->local = local;
@@ -2694,7 +2693,7 @@ stripe_readv_cbk (call_frame_t *frame,
 			}
 		}
 		if (op_ret != -1) {
-			final_vec = calloc (final_count, 
+			final_vec = CALLOC (final_count, 
 					    sizeof (struct iovec));
 			ERR_ABORT (final_vec);
 			final_count = 0;
@@ -2767,14 +2766,14 @@ stripe_readv (call_frame_t *frame,
 	rounded_end = roof (offset+size, stripe_size);
 	num_stripe = (rounded_end - rounded_start) / stripe_size;
 	
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	local->wind_count = num_stripe;
 	frame->local = local;
 	frame->root->rsp_refs = dict_ref (get_new_dict ());
 	
 	/* This is where all the vectors should be copied. */
-	local->replies = calloc (1, num_stripe * 
+	local->replies = CALLOC (1, num_stripe * 
 				 sizeof (struct readv_replies));
 	ERR_ABORT (local->replies);
 	
@@ -2786,7 +2785,7 @@ stripe_readv (call_frame_t *frame,
     
 	for (index = 0; index < num_stripe; index++) {
 		rframe = copy_frame (frame);
-		rlocal = calloc (1, sizeof (stripe_local_t));
+		rlocal = CALLOC (1, sizeof (stripe_local_t));
 		ERR_ABORT (rlocal);
 		
 		frame_size = min (roof (frame_offset+1, stripe_size),
@@ -2899,7 +2898,7 @@ stripe_writev (call_frame_t *frame,
 	}
 	remaining_size = total_size;
 
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	frame->local = local;
 	local->stripe_size = stripe_size;
@@ -2924,7 +2923,7 @@ stripe_writev (call_frame_t *frame,
 
 		tmp_count = iov_subset (vector, count, offset_offset,
 					offset_offset + fill_size, NULL);
-		tmp_vec = calloc (tmp_count, sizeof (struct iovec));
+		tmp_vec = CALLOC (tmp_count, sizeof (struct iovec));
 		ERR_ABORT (tmp_vec);
 		tmp_count = iov_subset (vector, count, offset_offset,
 					offset_offset + fill_size, tmp_vec);
@@ -3014,7 +3013,7 @@ stripe_stats (call_frame_t *frame,
 	stripe_local_t *local = NULL;
 	xlator_list_t *trav = this->children;
 
-	local = calloc (1, sizeof (stripe_local_t));
+	local = CALLOC (1, sizeof (stripe_local_t));
 	ERR_ABORT (local);
 	frame->local = local;
 	local->op_ret = -2; /* to be used as a flag in _cbk */
@@ -3140,9 +3139,9 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
   
-	priv = calloc (1, sizeof (stripe_private_t));
+	priv = CALLOC (1, sizeof (stripe_private_t));
 	ERR_ABORT (priv);
-	priv->xl_array = calloc (1, count * sizeof (xlator_t *));
+	priv->xl_array = CALLOC (1, count * sizeof (xlator_t *));
 	ERR_ABORT (priv->xl_array);
 	priv->child_count = count;
 	LOCK_INIT (&priv->lock);
@@ -3183,7 +3182,7 @@ init (xlator_t *this)
 		stripe_str = strtok_r (data->data, ",", &tmp_str);
 		while (stripe_str) {
 			dup_str = strdup (stripe_str);
-			stripe_opt = calloc (1, 
+			stripe_opt = CALLOC (1, 
 					     sizeof (struct stripe_options));
 			ERR_ABORT (stripe_opt);
 			pattern = strtok_r (dup_str, ":", &tmp_str1);

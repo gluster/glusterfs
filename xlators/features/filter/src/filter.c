@@ -1437,7 +1437,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-	filter = calloc (sizeof (*filter), 1);
+	filter = CALLOC (sizeof (*filter), 1);
 	ERR_ABORT (filter);
 	
 	if (dict_get (this->options, "complete-read-only")) {

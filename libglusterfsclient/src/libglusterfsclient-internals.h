@@ -81,7 +81,7 @@ typedef struct {
 
 #define LIBGF_CLIENT_SIGNAL(signal_handler_list, signo, handler)        \
         do {                                                            \
-                libgf_client_signal_handler_t *libgf_handler = calloc (1, sizeof (*libgf_handler)); \
+                libgf_client_signal_handler_t *libgf_handler = CALLOC (1, sizeof (*libgf_handler)); \
                 ERR_ABORT (libgf_handler);                              \
                 libgf_handler->signo = signo;                           \
                 libgf_handler->handler = signal (signo, handler);       \
@@ -126,7 +126,7 @@ typedef struct {
                         frame->this->children->xlator : NULL;           \
                 dict_t *refs = frame->root->req_refs;                   \
                 if (!local) {                                           \
-                        local = calloc (1, sizeof (*local));            \
+                        local = CALLOC (1, sizeof (*local));            \
                 }                                                       \
                 ERR_ABORT (local);                                      \
                 frame->local = local;                                   \

@@ -329,7 +329,7 @@ asprintf(char **string_ptr, const char *format, ...)
   size = vsnprintf(NULL, 0, format, arg);
   size++;
   va_start(arg, format);
-  str = malloc(size);
+  str = MALLOC(size);
   if (str == NULL) {
     va_end(arg);
     /*

@@ -142,7 +142,7 @@ STACK_DESTROY (call_stack_t *stack)
 	do {								\
 		call_frame_t *_new = NULL;				\
 		                                                        \
-                _new = calloc (1, sizeof (call_frame_t));	        \
+                _new = CALLOC (1, sizeof (call_frame_t));	        \
 		ERR_ABORT (_new);					\
 		typeof(fn##_cbk) tmp_cbk = rfn;				\
 		_new->root = frame->root;				\
@@ -165,7 +165,7 @@ STACK_DESTROY (call_stack_t *stack)
 /* make a call with a cookie */
 #define STACK_WIND_COOKIE(frame, rfn, cky, obj, fn, params ...)		\
 	do {								\
-		call_frame_t *_new = calloc (1,				\
+		call_frame_t *_new = CALLOC (1,				\
 					     sizeof (call_frame_t));	\
 		ERR_ABORT (_new);					\
 		typeof(fn##_cbk) tmp_cbk = rfn;				\
@@ -207,7 +207,7 @@ copy_frame (call_frame_t *frame)
 		return NULL;
 	}
 
-	newstack = (void *) calloc (1, sizeof (*newstack));
+	newstack = (void *) CALLOC (1, sizeof (*newstack));
 	oldstack = frame->root;
 
 	newstack->uid = oldstack->uid;
@@ -241,7 +241,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 		return NULL;
 	}
 
-	stack = calloc (1, sizeof (*stack));
+	stack = CALLOC (1, sizeof (*stack));
 	if (!stack)
 		return NULL;
 

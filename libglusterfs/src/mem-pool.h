@@ -17,21 +17,31 @@
    <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _MEM_POOL_H
+#ifndef _MEM_POOL_H_
 #define _MEM_POOL_H_
 
 #include "list.h"
-#include "common-utils.h"
+#include "locking.h"
+
+
+#define MALLOC(size) malloc(size)
+#define CALLOC(size,cnt) calloc(size,cnt)
+
+#define FREE(ptr)				\
+	if (ptr != NULL) {			\
+		free ((void *)ptr);		\
+		ptr = (void *)0xeeeeeeee;	\
+	}                      
 
 struct mem_pool {
-  struct list_head list;
-  int hot_count, cold_count;
-  gf_lock_t lock;
-  unsigned long padded_sizeof_type;
-  void *pool;
-  void *pool_end;
+	struct list_head  list;
+	int               hot_count;
+	int               cold_count;
+	gf_lock_t         lock;
+	unsigned long     padded_sizeof_type;
+	void             *pool;
+	void             *pool_end;
 };
-
 
 struct mem_pool *
 mem_pool_new_fn (unsigned long sizeof_type, unsigned long count);

@@ -78,7 +78,7 @@ switch_init (xlator_t *xl)
   xlator_list_t *trav_xl = xl->children;
   struct switch_struct *switch_buf = NULL;
   
-  switch_buf = calloc (1, sizeof (struct switch_struct));
+  switch_buf = CALLOC (1, sizeof (struct switch_struct));
   ERR_ABORT (switch_buf);
 
   while (trav_xl) {
@@ -86,7 +86,7 @@ switch_init (xlator_t *xl)
     trav_xl = trav_xl->next;
   }
   switch_buf->child_count = index;
-  switch_buf->array = calloc (index + 1, sizeof (struct switch_sched_struct));
+  switch_buf->array = CALLOC (index + 1, sizeof (struct switch_sched_struct));
   ERR_ABORT (switch_buf->array);
   trav_xl = xl->children;
   index = 0;
@@ -143,7 +143,7 @@ switch_init (xlator_t *xl)
     switch_str = strtok_r (data->data, ";", &tmp_str);
     while (switch_str) {
       dup_str = strdup (switch_str);
-      switch_opt = calloc (1, sizeof (struct switch_sched_struct));
+      switch_opt = CALLOC (1, sizeof (struct switch_sched_struct));
       ERR_ABORT (switch_opt);
       /* Link it to the main structure */
       if (switch_buf->cond) {
@@ -180,7 +180,7 @@ switch_init (xlator_t *xl)
 	free (dup_childs);
 	child = strtok_r (childs, ",", &tmp1);
 	switch_opt->num_child = idx;
-	switch_opt->array = calloc (1, idx * sizeof (struct switch_sched_array));
+	switch_opt->array = CALLOC (1, idx * sizeof (struct switch_sched_array));
 	ERR_ABORT (switch_opt->array);
 	idx = 0;
 	child = strtok_r (childs, ",", &tmp);
@@ -235,7 +235,7 @@ switch_init (xlator_t *xl)
 	      "No nodes left for pattern '*'. Exiting.");
       return -1;
     }
-    switch_opt = calloc (1, sizeof (struct switch_sched_struct));
+    switch_opt = CALLOC (1, sizeof (struct switch_sched_struct));
     ERR_ABORT (switch_opt);
     if (switch_buf->cond) {
       /* there are already few entries */
@@ -250,7 +250,7 @@ switch_init (xlator_t *xl)
     /* Add the '*' pattern to the array */
     memcpy (switch_opt->path_pattern, "*", 2);
     switch_opt->num_child = flag;
-    switch_opt->array = calloc (1, flag * sizeof (struct switch_sched_array));
+    switch_opt->array = CALLOC (1, flag * sizeof (struct switch_sched_array));
     ERR_ABORT (switch_opt->array);
     flag = 0;
     for (index=0; index < switch_buf->child_count; index++) {

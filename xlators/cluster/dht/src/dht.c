@@ -3200,7 +3200,7 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
         for (subvols = this->children; subvols; subvols = subvols->next)
                 cnt++;
 
-        conf->subvolumes = calloc (cnt, sizeof (xlator_t *));
+        conf->subvolumes = CALLOC (cnt, sizeof (xlator_t *));
         if (!conf->subvolumes) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "memory allocation failed :(");
@@ -3212,7 +3212,7 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
         for (subvols = this->children; subvols; subvols = subvols->next)
                 conf->subvolumes[cnt++] = subvols->xlator;
 
-	conf->subvolume_status = calloc (cnt, sizeof (char));
+	conf->subvolume_status = CALLOC (cnt, sizeof (char));
 	if (!conf->subvolume_status) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"memory allocation failed :(");
@@ -3323,7 +3323,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-        conf = calloc (1, sizeof (*conf));
+        conf = CALLOC (1, sizeof (*conf));
         if (!conf) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "memory allocation failed :(");

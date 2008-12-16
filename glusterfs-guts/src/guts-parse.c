@@ -45,7 +45,7 @@ guts_reply_dump (fuse_req_t req,
   uint8_t *ibuf = NULL;
   uint32_t buf_size = REP_HEADER_FULL_LEN + len;
 
-  ibuf = buf = calloc (1, buf_size);
+  ibuf = buf = CALLOC (1, buf_size);
   
   /* being paranoid, checking for both ibuf and buf.. ;) */
   if (ibuf && buf) {
@@ -76,7 +76,7 @@ guts_req_dump (struct fuse_in_header *in,
   uint8_t *ibuf = NULL;
   uint32_t buf_size = REQ_HEADER_FULL_LEN + len;
 
-  ibuf = buf = calloc (1, buf_size);
+  ibuf = buf = CALLOC (1, buf_size);
   
   if (ibuf && buf) {
     memcpy (ibuf, REQ_BEGIN, strlen (REQ_BEGIN));
@@ -120,11 +120,11 @@ guts_read_entry (guts_replay_ctx_t *ctx)
       }
       
       if (is_request (begin)) {
-	req = calloc (1, sizeof (*req));
+	req = CALLOC (1, sizeof (*req));
 	ERR_ABORT (req);
 	gf_full_read (fd, (char *)req, REQ_HEADER_LEN);
 	
-	req->arg = calloc (1, req->arg_len + 1);
+	req->arg = CALLOC (1, req->arg_len + 1);
 	ERR_ABORT (req->arg);
 	gf_full_read (fd, req->arg, req->arg_len);
 	gf_log ("guts",
@@ -137,11 +137,11 @@ guts_read_entry (guts_replay_ctx_t *ctx)
 	/* whenever a reply is read, we put it to a hash table and we would like to retrieve it whenever
 	 * we get a reply for any call
 	 */
-	reply = calloc (1, sizeof (*reply));
+	reply = CALLOC (1, sizeof (*reply));
 	ERR_ABORT (reply);
 	gf_full_read (fd, (char *)reply, REP_HEADER_LEN);
 	
-	reply->arg = calloc (1, reply->arg_len + 1);
+	reply->arg = CALLOC (1, reply->arg_len + 1);
 	ERR_ABORT (reply->arg);
 	gf_full_read (fd, reply->arg, reply->arg_len);
 	
@@ -176,11 +176,11 @@ guts_read_reply (guts_replay_ctx_t *ctx,
     }
     
     if (is_request (begin)) {
-      req = calloc (1, sizeof (*req));
+      req = CALLOC (1, sizeof (*req));
       ERR_ABORT (req);
       gf_full_read (fd, (char *)req, REQ_HEADER_LEN);
       
-      req->arg = calloc (1, req->arg_len + 1);
+      req->arg = CALLOC (1, req->arg_len + 1);
       ERR_ABORT (req->arg);
       gf_full_read (fd, req->arg, req->arg_len);
       gf_log ("guts",
@@ -194,11 +194,11 @@ guts_read_reply (guts_replay_ctx_t *ctx,
       /* whenever a reply is read, we put it to a hash table and we would like to retrieve it whenever
        * we get a reply for any call
        */
-      reply = calloc (1, sizeof (*reply));
+      reply = CALLOC (1, sizeof (*reply));
       ERR_ABORT (reply);
       gf_full_read (fd, (char *)reply, REP_HEADER_LEN);
       
-      reply->arg = calloc (1, reply->arg_len + 1);
+      reply->arg = CALLOC (1, reply->arg_len + 1);
       ERR_ABORT (reply->arg);
       gf_full_read (fd, reply->arg, reply->arg_len);
       

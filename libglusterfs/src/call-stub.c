@@ -34,7 +34,7 @@ stub_new (call_frame_t *frame,
 
 	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
-	new = calloc (1, sizeof (*new));
+	new = CALLOC (1, sizeof (*new));
 	GF_VALIDATE_OR_GOTO ("call-stub", new, out);
 
 	new->frame = frame;

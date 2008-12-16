@@ -140,12 +140,12 @@ ha_lookup (call_frame_t *frame,
 		return 0;
 	}
 
-	frame->local = local = calloc (1, sizeof (*local));
+	frame->local = local = CALLOC (1, sizeof (*local));
 	child_count = pvt->child_count;
 	local->loc = loc;
 	state_data = dict_get (loc->inode->ctx, this->name);
 	if (state_data == NULL) {
-		state = calloc (1, child_count);
+		state = CALLOC (1, child_count);
 		dict_set (loc->inode->ctx, this->name, 
 			  data_from_dynptr (state, child_count));
 	} else
@@ -937,15 +937,15 @@ ha_mknod (call_frame_t *frame,
 	pvt = this->private;
 	child_count = pvt->child_count;
 
-	frame->local = local = calloc (1, sizeof (*local));
+	frame->local = local = CALLOC (1, sizeof (*local));
 	local->stub = fop_mknod_stub (frame, ha_mknod, loc, mode, rdev);
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
-	local->state = calloc (1, child_count);
+	local->state = CALLOC (1, child_count);
 	memcpy (local->state, pvt->state, child_count);
 	local->active = -1;
 
-	stateino = calloc (1, child_count);
+	stateino = CALLOC (1, child_count);
 	dict_set (loc->inode->ctx, this->name, data_from_dynptr (stateino, child_count));
 
 	for (i = 0; i < child_count; i++) {
@@ -1115,15 +1115,15 @@ ha_mkdir (call_frame_t *frame,
 	pvt = this->private;
 	child_count = pvt->child_count;
 
-	frame->local = local = calloc (1, sizeof (*local));
+	frame->local = local = CALLOC (1, sizeof (*local));
 	local->stub = fop_mkdir_stub (frame, ha_mkdir, loc, mode);
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
-	local->state = calloc (1, child_count);
+	local->state = CALLOC (1, child_count);
 	memcpy (local->state, pvt->state, child_count);
 	local->active = -1;
 
-	stateino = calloc (1, child_count);
+	stateino = CALLOC (1, child_count);
 	dict_set (loc->inode->ctx, this->name, data_from_dynptr (stateino, child_count));
 
 	for (i = 0; i < child_count; i++) {
@@ -1401,15 +1401,15 @@ ha_symlink (call_frame_t *frame,
 	pvt = this->private;
 	child_count = pvt->child_count;
 
-	frame->local = local = calloc (1, sizeof (*local));
+	frame->local = local = CALLOC (1, sizeof (*local));
 	local->stub = fop_symlink_stub (frame, ha_symlink, linkname, loc);
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
-	local->state = calloc (1, child_count);
+	local->state = CALLOC (1, child_count);
 	memcpy (local->state, pvt->state, child_count);
 	local->active = -1;
 
-	stateino = calloc (1, child_count);
+	stateino = CALLOC (1, child_count);
 	dict_set (loc->inode->ctx, this->name, data_from_dynptr (stateino, child_count));
 
 	for (i = 0; i < child_count; i++) {
@@ -1645,11 +1645,11 @@ ha_link (call_frame_t *frame,
 	pvt = this->private;
 	child_count = pvt->child_count;
 
-	frame->local = local = calloc (1, sizeof (*local));
+	frame->local = local = CALLOC (1, sizeof (*local));
 	local->stub = fop_link_stub (frame, ha_link, oldloc, newloc);
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
-	local->state = calloc (1, child_count);
+	local->state = CALLOC (1, child_count);
 	memcpy (local->state, pvt->state, child_count);
 	local->active = -1;
 
@@ -1784,9 +1784,9 @@ ha_create (call_frame_t *frame,
 	GF_TRACE (this, "loc->path=%s", loc->path);
 
 	if (local == NULL) {
-		local = frame->local = calloc (1, sizeof (*local));
+		local = frame->local = CALLOC (1, sizeof (*local));
 		local->stub = fop_create_stub (frame, ha_create, loc, flags, mode, fd);
-		local->state = calloc (1, child_count);
+		local->state = CALLOC (1, child_count);
 		local->active = -1;
 		local->op_ret = -1;
 		local->op_errno = ENOTCONN;
@@ -1801,9 +1801,9 @@ ha_create (call_frame_t *frame,
 		}
 		GF_TRACE (this, "tries=%d active=%d", local->tries, local->active);
 		/* FIXME handle active -1 */
-		stateino = calloc (1, child_count);
-		hafdp = calloc (1, sizeof (*hafdp));
-		hafdp->fdstate = calloc (1, child_count);
+		stateino = CALLOC (1, child_count);
+		hafdp = CALLOC (1, sizeof (*hafdp));
+		hafdp->fdstate = CALLOC (1, child_count);
 		hafdp->path = strdup(loc->path);
 		LOCK_INIT (&hafdp->lock);
 		dict_set (fd->ctx, this->name, data_from_dynptr (hafdp, sizeof (*hafdp)));
@@ -1889,13 +1889,13 @@ ha_open (call_frame_t *frame,
 
 	GF_TRACE (this, "loc->path=%s fd=%x", loc->path, fd);
 
-	local = frame->local = calloc (1, sizeof (*local));
+	local = frame->local = CALLOC (1, sizeof (*local));
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
 	local->fd = fd;
 
-	hafdp = calloc (1, sizeof (*hafdp));
-	hafdp->fdstate = calloc (1, child_count);
+	hafdp = CALLOC (1, sizeof (*hafdp));
+	hafdp->fdstate = CALLOC (1, child_count);
 	hafdp->path = strdup (loc->path);
 	hafdp->active = -1;
 	if (pvt->load_balance) {
@@ -1980,12 +1980,12 @@ ha_readv (call_frame_t *frame,
 		int i;
 		ha_private_t *pvt = this->private;
 		int child_count = pvt->child_count;
-		local = frame->local = calloc (1, sizeof (*local));
+		local = frame->local = CALLOC (1, sizeof (*local));
 		if (pvt->load_balance)
 			local->active = hafdp->active;
 		else
 			local->active = pvt->active;
-		local->state = calloc (1, child_count);
+		local->state = CALLOC (1, child_count);
 		LOCK (&hafdp->lock);
 		memcpy (local->state, hafdp->fdstate, child_count);
 		UNLOCK (&hafdp->lock);
@@ -2075,12 +2075,12 @@ ha_writev (call_frame_t *frame,
 		int i;
 		ha_private_t *pvt = this->private;
 		int child_count = pvt->child_count;
-		local = frame->local = calloc (1, sizeof (*local));
+		local = frame->local = CALLOC (1, sizeof (*local));
 		if (pvt->load_balance)
 			local->active = hafdp->active;
 		else
 			local->active = pvt->active;
-		local->state = calloc (1, child_count);
+		local->state = CALLOC (1, child_count);
 		LOCK (&hafdp->lock);
 		memcpy (local->state, hafdp->fdstate, child_count);
 		UNLOCK (&hafdp->lock);
@@ -2382,13 +2382,13 @@ ha_opendir (call_frame_t *frame,
 
 	GF_TRACE (this, "loc->path=%s fd=%x", loc->path, fd);
 
-	local = frame->local = calloc (1, sizeof (*local));
+	local = frame->local = CALLOC (1, sizeof (*local));
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
 	local->fd = fd;
 
-	hafdp = calloc (1, sizeof (*hafdp));
-	hafdp->fdstate = calloc (1, child_count);
+	hafdp = CALLOC (1, sizeof (*hafdp));
+	hafdp->fdstate = CALLOC (1, child_count);
 	hafdp->path = strdup (loc->path);
 	LOCK_INIT (&hafdp->lock);
 	dict_set (ctx, this->name, data_from_dynptr (hafdp, sizeof (*hafdp)));
@@ -3180,7 +3180,7 @@ ha_lk (call_frame_t *frame,
 
 	GF_TRACE (this, "fd=%x", fd);
 	if (local == NULL) {
-		local = frame->local = calloc (1, sizeof (*local));
+		local = frame->local = CALLOC (1, sizeof (*local));
 		local->active = -1;
 		local->op_ret = -1;
 		local->op_errno = ENOTCONN;
@@ -3192,7 +3192,7 @@ ha_lk (call_frame_t *frame,
 	}
 
 	local->stub = fop_lk_stub (frame, ha_lk, fd, cmd, lock);
-	local->state = calloc (1, child_count);
+	local->state = CALLOC (1, child_count);
 	state = hafdp->fdstate;
 	LOCK (&hafdp->lock);
 	memcpy (local->state, state, child_count);
@@ -3518,7 +3518,7 @@ ha_stats (call_frame_t *frame,
 	xlator_t **children = NULL;
 	int i = 0;
 
-	local = frame->local = calloc (1, sizeof (*local));
+	local = frame->local = CALLOC (1, sizeof (*local));
 	pvt = this->private;
 	children = pvt->children;
 	for (i = 0; i < pvt->child_count; i++) {
@@ -3602,11 +3602,11 @@ ha_getspec (call_frame_t *frame,
 	xlator_t **children = NULL;
 	int i = 0;
 
-	local = frame->local = calloc (1, sizeof (*local));
+	local = frame->local = CALLOC (1, sizeof (*local));
 	pvt = this->private;
 	children = pvt->children;
 
-	local = frame->local = calloc (1, sizeof (*local));
+	local = frame->local = CALLOC (1, sizeof (*local));
 	for (i = 0; i < pvt->child_count; i++) {
 		if (pvt->state[i])
 			break;
@@ -3758,7 +3758,7 @@ init (xlator_t *this)
 	debug = dict_get (this->options, "debug");
 	load_balance = dict_get (this->options, "load-balance");
 	trav = this->children;
-	pvt = calloc (1, sizeof (ha_private_t));
+	pvt = CALLOC (1, sizeof (ha_private_t));
 
 	pvt->active = -1;
 
@@ -3780,7 +3780,7 @@ init (xlator_t *this)
 	}
 
 	pvt->child_count = count;
-	pvt->children = calloc (count, sizeof (xlator_t*));
+	pvt->children = CALLOC (count, sizeof (xlator_t*));
 
 	trav = this->children;
 	count = 0;
@@ -3790,7 +3790,7 @@ init (xlator_t *this)
 		trav = trav->next;
 	}
 
-	pvt->state = calloc (1, count);
+	pvt->state = CALLOC (1, count);
 	this->private = pvt;
 	return 0;
 }

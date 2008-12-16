@@ -208,7 +208,7 @@ server_copy_frame (call_frame_t *frame)
 
 	new_frame = copy_frame (frame);
 
-	new_state = calloc (1, sizeof (server_state_t));
+	new_state = CALLOC (1, sizeof (server_state_t));
 
 	new_frame->root->frames.op   = frame->op;
 	new_frame->root->frames.type = frame->type;
@@ -232,7 +232,7 @@ gf_add_locker (struct _lock_table *table,
 	struct _locker *new = NULL;
 	uint8_t dir = 0;
 
-	new = calloc (1, sizeof (struct _locker));
+	new = CALLOC (1, sizeof (struct _locker));
 	if (new == NULL) {
 		gf_log ("server", GF_LOG_ERROR,
 			"failed to allocate memory for \'struct _locker\'");
@@ -343,7 +343,7 @@ gf_direntry_to_bin (dir_entry_t *head,
 		trav = trav->next;
 	}
 
-	buffer = calloc (1, len);
+	buffer = CALLOC (1, len);
 	if (buffer == NULL) {
 		gf_log ("server", GF_LOG_ERROR,
 			"failed to allocate memory for buffer");

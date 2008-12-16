@@ -64,7 +64,7 @@ iot_open_cbk (call_frame_t *frame,
 	iot_conf_t *conf = this->private;
 
 	if (op_ret >= 0) {
-		iot_file_t *file = calloc (1, sizeof (*file));
+		iot_file_t *file = CALLOC (1, sizeof (*file));
 		ERR_ABORT (file);
 
 		iot_schedule (conf, file, fd->inode->ino);
@@ -116,7 +116,7 @@ iot_create_cbk (call_frame_t *frame,
 	iot_conf_t *conf = this->private;
 
 	if (op_ret >= 0) {
-		iot_file_t *file = calloc (1, sizeof (*file));
+		iot_file_t *file = CALLOC (1, sizeof (*file));
 		ERR_ABORT (file);
 
 		iot_schedule (conf, file, fd->inode->ino);
@@ -215,7 +215,7 @@ iot_readv (call_frame_t *frame,
 	file = data_to_ptr (dict_get (fd->ctx, this->name));
 	worker = file->worker;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	ERR_ABORT (local);
 	frame->local = local;
   
@@ -278,7 +278,7 @@ iot_flush (call_frame_t *frame,
 	file = data_to_ptr (dict_get (fd->ctx, this->name));
 	worker = file->worker;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	ERR_ABORT (local);
 
 	frame->local = local;
@@ -342,7 +342,7 @@ iot_fsync (call_frame_t *frame,
 	file = data_to_ptr (dict_get (fd->ctx, this->name));
 	worker = file->worker;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	ERR_ABORT (local);
 
 	frame->local = local;
@@ -418,7 +418,7 @@ iot_writev (call_frame_t *frame,
 	file = data_to_ptr (dict_get (fd->ctx, this->name));
 	worker = file->worker;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	ERR_ABORT (local);
 
 	if (frame->root->req_refs)
@@ -494,7 +494,7 @@ iot_lk (call_frame_t *frame,
 	file = data_to_ptr (dict_get (fd->ctx, this->name));
 	worker = file->worker;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	ERR_ABORT (local);
 	frame->local = local;
 
@@ -552,7 +552,7 @@ iot_stat (call_frame_t *frame,
 
 	conf = this->private;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	ERR_ABORT (local);
 	frame->local = local;
 
@@ -629,7 +629,7 @@ iot_fstat (call_frame_t *frame,
 	file = data_to_ptr (dict_get (fd->ctx, this->name));
 	worker = file->worker;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	ERR_ABORT (local);
 	frame->local = local;
 	stub = fop_fstat_stub (frame,
@@ -686,7 +686,7 @@ iot_truncate (call_frame_t *frame,
 	fd_t *fd = NULL;
   
 	conf = this->private;
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	ERR_ABORT (local);
 	frame->local = local;
 
@@ -767,7 +767,7 @@ iot_ftruncate (call_frame_t *frame,
 	file = data_to_ptr (dict_get (fd->ctx, this->name));
 	worker = file->worker;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	ERR_ABORT (local);
 	frame->local = local;
 
@@ -827,7 +827,7 @@ iot_utimens (call_frame_t *frame,
   
 	conf = this->private;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	ERR_ABORT (local);
 	frame->local = local;
   
@@ -904,7 +904,7 @@ iot_checksum (call_frame_t *frame,
   
 	conf = this->private;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	frame->local = local;
 
 	worker = iot_schedule (conf, NULL, conf->misc_thread_index++);
@@ -961,7 +961,7 @@ iot_unlink (call_frame_t *frame,
 
 	conf = this->private;
 
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 	frame->local = local;
 
 	worker = iot_schedule (conf, NULL, conf->misc_thread_index++);
@@ -1008,7 +1008,7 @@ iot_queue (iot_worker_t *worker,
 	iot_local_t *local = stub->frame->local;
 	size_t frame_size = local->frame_size;
 
-	queue = calloc (1, sizeof (*queue));
+	queue = CALLOC (1, sizeof (*queue));
 	ERR_ABORT (queue);
 	queue->stub = stub;
 
@@ -1120,7 +1120,7 @@ workers_init (iot_conf_t *conf)
 
 	for (i=0; i<conf->thread_count; i++) {
 
-		iot_worker_t *worker = calloc (1, sizeof (*worker));
+		iot_worker_t *worker = CALLOC (1, sizeof (*worker));
 		ERR_ABORT (worker);
 
 		worker->next = &conf->workers;
@@ -1166,7 +1166,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-	conf = (void *) calloc (1, sizeof (*conf));
+	conf = (void *) CALLOC (1, sizeof (*conf));
 	ERR_ABORT (conf);
 
 	conf->thread_count = 1;

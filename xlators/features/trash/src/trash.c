@@ -123,7 +123,7 @@ trash_mkdir_cbk (call_frame_t *frame,
 			count = tmp_dirname - tmp_str;
 			if (count == 0)
 				count = 1;
-			tmp_path = calloc (1, count + 1);
+			tmp_path = CALLOC (1, count + 1);
 			ERR_ABORT (tmp_path);
 			memcpy (tmp_path, local->newpath, count);
 			loc_t tmp_loc = {
@@ -255,7 +255,7 @@ trash_unlink (call_frame_t *frame,
 			    this->children->xlator->fops->unlink,
 			    loc);
 	} else {
-		trash_local_t *local = calloc (1, sizeof (trash_local_t));
+		trash_local_t *local = CALLOC (1, sizeof (trash_local_t));
 		if (!local) {
 			STACK_UNWIND (frame, -1, ENOMEM);
 			return 0;
@@ -304,7 +304,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 			count = tmp_dirname - tmp_str;
 			if (count == 0)
 				count = 1;
-			tmp_path = calloc (1, count + 1);
+			tmp_path = CALLOC (1, count + 1);
 			ERR_ABORT (tmp_path);
 			memcpy (tmp_path, local->newpath, count);
 			loc_t tmp_loc = {
@@ -488,7 +488,7 @@ trash_rename (call_frame_t *frame,
 			    newloc);
 	} else {
 		/* Trying to rename a regular file from GlusterFS */
-		trash_local_t *local = calloc (1, sizeof (trash_local_t));
+		trash_local_t *local = CALLOC (1, sizeof (trash_local_t));
 		if (!local) {
 			STACK_UNWIND (frame, -1, ENOMEM, NULL);
 			return 0;
@@ -582,7 +582,7 @@ init (xlator_t *this)
 		return -1;
 	}
 
-	_priv = calloc (1, sizeof (*_priv));
+	_priv = CALLOC (1, sizeof (*_priv));
 	ERR_ABORT (_priv);
 
 	trash_dir = dict_get (this->options, "trash-dir");

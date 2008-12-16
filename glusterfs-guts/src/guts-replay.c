@@ -611,7 +611,7 @@ guts_transport_init (transport_t *this,
 		     dict_t *options,
 		     event_notify_fn_t notify)
 {
-  struct fuse_private *priv = calloc (1, sizeof (*priv));
+  struct fuse_private *priv = CALLOC (1, sizeof (*priv));
   ERR_ABORT (priv);
   
   this->notify = NULL;
@@ -680,10 +680,10 @@ fuse_graph (xlator_t *graph)
   xlator_t *top = NULL;
   xlator_list_t *xlchild;
 
-  top = calloc (1, sizeof (*top));
+  top = CALLOC (1, sizeof (*top));
   ERR_ABORT (top);
 
-  xlchild = calloc (1, sizeof(*xlchild));
+  xlchild = CALLOC (1, sizeof(*xlchild));
   ERR_ABORT (xlchild);
   xlchild->xlator = graph;
   top->children = xlchild;
@@ -705,10 +705,10 @@ guts_replay_init (guts_thread_ctx_t *thread)
 	    "failed to open tio_file %s", thread->file);
     return ctx;
   } else {
-    struct fuse_ll *guts_ll = calloc (1, sizeof (*guts_ll));
+    struct fuse_ll *guts_ll = CALLOC (1, sizeof (*guts_ll));
     ERR_ABORT (guts_ll);
     
-    ctx = calloc (1, sizeof (*ctx));
+    ctx = CALLOC (1, sizeof (*ctx));
     ERR_ABORT (ctx);
     
     if (ctx) {
@@ -724,7 +724,7 @@ guts_replay_init (guts_thread_ctx_t *thread)
       
       /* TODO: need to create transport_t object which whole of the glusterfs
        * so desperately depends on */
-      transport_t *guts_trans = calloc (1, sizeof (*guts_trans));
+      transport_t *guts_trans = CALLOC (1, sizeof (*guts_trans));
       
       if (guts_trans) {
 	memcpy (guts_trans, &guts_transport, sizeof (*guts_trans));
@@ -735,7 +735,7 @@ guts_replay_init (guts_thread_ctx_t *thread)
 	return NULL;
       }
       
-      glusterfs_ctx_t *glfs_ctx = calloc (1, sizeof (*glfs_ctx));;
+      glusterfs_ctx_t *glfs_ctx = CALLOC (1, sizeof (*glfs_ctx));;
       if (glfs_ctx) {
 	guts_trans->xl_private = glfs_ctx;
 	guts_trans->xl = fuse_graph (thread->ctx->graph);
@@ -745,7 +745,7 @@ guts_replay_init (guts_thread_ctx_t *thread)
 	return NULL;
       }
       
-      call_pool_t *pool = calloc (1, sizeof (call_pool_t));
+      call_pool_t *pool = CALLOC (1, sizeof (call_pool_t));
       if (pool) {
 	glfs_ctx->pool = pool;
 	LOCK_INIT (&pool->lock);
@@ -795,7 +795,7 @@ guts_replay (guts_thread_ctx_t *thread)
   } else {
     while ((entry = guts_read_entry (ctx))) {
       /* here we go ... execute the request */
-      fuse_req_t req = calloc (1, sizeof (struct fuse_req));
+      fuse_req_t req = CALLOC (1, sizeof (struct fuse_req));
       ino_t ino = entry->header.nodeid;
       void *arg = entry->arg;
 

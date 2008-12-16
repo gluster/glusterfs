@@ -130,7 +130,7 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
 				"trusted.glusterfs.afr.data-pending",
 				data_pending, 0);
 	if (xattr_size != -1) {
-		data_pending = malloc (xattr_size);
+		data_pending = MALLOC (xattr_size);
 		lgetxattr (real_path, "trusted.glusterfs.afr.data-pending",
 			   data_pending, xattr_size);
 		ret = dict_set_bin (xattr, 
@@ -144,7 +144,7 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
 				"trusted.glusterfs.afr.entry-pending",
 				entry_pending, 0);
 	if (xattr_size != -1) {
-		entry_pending = malloc (xattr_size);
+		entry_pending = MALLOC (xattr_size);
 		lgetxattr (real_path, "trusted.glusterfs.afr.entry-pending",
 			   entry_pending, xattr_size);
 		ret = dict_set_bin (xattr, 
@@ -158,7 +158,7 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
 				"trusted.glusterfs.afr.metadata-pending",
 				data_pending, 0);
 	if (xattr_size != -1) {
-		metadata_pending = malloc (xattr_size);
+		metadata_pending = MALLOC (xattr_size);
 		lgetxattr (real_path, "trusted.glusterfs.afr.metadata-pending",
 			   metadata_pending, xattr_size);
 		ret = dict_set_bin (xattr, 
@@ -181,7 +181,7 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
 			goto err;
 		}
       
-		databuf = malloc (buf->st_size);
+		databuf = MALLOC (buf->st_size);
 
 		if (!databuf) {
 			gf_log (this->name, GF_LOG_ERROR, 
@@ -189,7 +189,7 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
 			goto err;
 		}
       
-		ret = gf_full_read (_fd, databuf, buf->st_size);
+		ret = read (_fd, databuf, buf->st_size);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR, 
 				"read on file %s failed: %s", 
@@ -353,7 +353,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 
         op_ret = dirfd (dir);
   
-        pfd = calloc (1, sizeof (*fd));
+        pfd = CALLOC (1, sizeof (*fd));
         if (!pfd) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -454,7 +454,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
         real_path_len = strlen (real_path);
 
         entry_path_len = real_path_len + NAME_MAX;
-        entry_path     = calloc (1, entry_path_len);
+        entry_path     = CALLOC (1, entry_path_len);
 
         if (!entry_path) {
                 op_errno = errno;
@@ -502,7 +502,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
                         continue;
                 }
 
-                tmp = calloc (1, sizeof (*tmp));
+                tmp = CALLOC (1, sizeof (*tmp));
 
                 if (!tmp) {
                         op_errno = errno;
@@ -1330,7 +1330,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        pfd = calloc (1, sizeof (*pfd));
+        pfd = CALLOC (1, sizeof (*pfd));
 
         if (!pfd) {
                 op_errno = errno;
@@ -1393,7 +1393,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
     
-        pfd = calloc (1, sizeof (*pfd));
+        pfd = CALLOC (1, sizeof (*pfd));
 
         if (!pfd) {
                 op_errno = errno;
@@ -1487,7 +1487,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 align = 4096;    /* align to page boundary */
         }
 
-        alloc_buf = malloc (1 * (size + align));
+        alloc_buf = MALLOC (1 * (size + align));
         if (!alloc_buf) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1637,7 +1637,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                                 max_buf_size = vector[idx].iov_len;
                 }
 
-                alloc_buf = malloc (1 * (max_buf_size + align));
+                alloc_buf = MALLOC (1 * (max_buf_size + align));
                 if (!alloc_buf) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2105,7 +2105,7 @@ get_file_contents (xlator_t *this, char *real_path,
                 goto out;
         }
 
-        *contents = calloc (stbuf.st_size + 1, sizeof(char));
+        *contents = CALLOC (stbuf.st_size + 1, sizeof(char));
 
         if (! *contents) {
                 op_ret = -errno;
@@ -2113,7 +2113,7 @@ get_file_contents (xlator_t *this, char *real_path,
                 goto out;
         }
 
-        ret = gf_full_read (file_fd, *contents, stbuf.st_size);
+        ret = read (file_fd, *contents, stbuf.st_size);
         if (ret <= 0) {
                 op_ret = -1;
                 gf_log (this->name, GF_LOG_ERROR, "read on %s failed",
@@ -2234,7 +2234,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 if (op_ret == -1)
                         break;
 
-                value = calloc (op_ret + 1, sizeof(char));
+                value = CALLOC (op_ret + 1, sizeof(char));
                 if (!value) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "out of memory :(");
@@ -2399,7 +2399,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 
 	while (trav) {
 		count = trav->value->len / sizeof (int32_t);
-		array = calloc (count, sizeof (int32_t));
+		array = CALLOC (count, sizeof (int32_t));
 		
 		size = lgetxattr (real_path, trav->key, array, 
 				  trav->value->len);
@@ -2511,7 +2511,7 @@ posix_fxattrop (call_frame_t *frame, xlator_t *this,
 
 	while (trav) {
 		count = trav->value->len / sizeof (int32_t);
-		array = calloc (count, sizeof (int32_t));
+		array = CALLOC (count, sizeof (int32_t));
 		
 		size = fgetxattr (_fd, trav->key, array, trav->value->len);
 
@@ -2986,7 +2986,7 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
 
         real_path_len  = strlen (real_path);
         entry_path_len = real_path_len + 256;
-        entry_path     = calloc (1, entry_path_len);
+        entry_path     = CALLOC (1, entry_path_len);
 
         if (!entry_path) {
                 op_errno = errno;
@@ -3590,7 +3590,7 @@ init (xlator_t *this)
 		}
         }
 
-        _private = calloc (1, sizeof (*_private));
+        _private = CALLOC (1, sizeof (*_private));
         _private->base_path = strdup (dir_data->data);
         if (!_private) {
                 gf_log (this->name, GF_LOG_ERROR, 

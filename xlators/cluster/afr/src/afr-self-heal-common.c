@@ -129,7 +129,7 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 	int i, j;
 
         /* 10 digits per entry + 1 space + '[' and ']' */
-	buf = malloc (priv->child_count * 11 + 8); 
+	buf = MALLOC (priv->child_count * 11 + 8); 
 
 	for (i = 0; i < priv->child_count; i++) {
 		ptr = buf;
@@ -263,7 +263,7 @@ afr_sh_delta_to_xattr (int32_t *delta_matrix[], dict_t *xattr[],
 		if (!xattr[i])
 			continue;
 
-		pending = calloc (sizeof (int32_t), child_count);
+		pending = CALLOC (sizeof (int32_t), child_count);
 		for (j = 0; j < child_count; j++) {
 			pending[j] = hton32 (delta_matrix[i][j]);
 		}
@@ -1006,21 +1006,21 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 
 	sh->completion_cbk = completion_cbk;
 
-	sh->buf = calloc (priv->child_count, sizeof (struct stat));
-	sh->child_errno = calloc (priv->child_count, sizeof (int));
-	sh->success = calloc (priv->child_count, sizeof (int));
-	sh->xattr = calloc (priv->child_count, sizeof (dict_t *));
-	sh->sources = calloc (sizeof (*sh->sources), priv->child_count);
+	sh->buf = CALLOC (priv->child_count, sizeof (struct stat));
+	sh->child_errno = CALLOC (priv->child_count, sizeof (int));
+	sh->success = CALLOC (priv->child_count, sizeof (int));
+	sh->xattr = CALLOC (priv->child_count, sizeof (dict_t *));
+	sh->sources = CALLOC (sizeof (*sh->sources), priv->child_count);
 
-	sh->pending_matrix = calloc (sizeof (int32_t *), priv->child_count);
+	sh->pending_matrix = CALLOC (sizeof (int32_t *), priv->child_count);
 	for (i = 0; i < priv->child_count; i++) {
-		sh->pending_matrix[i] = calloc (sizeof (int32_t),
+		sh->pending_matrix[i] = CALLOC (sizeof (int32_t),
 						priv->child_count);
 	}
 
-	sh->delta_matrix = calloc (sizeof (int32_t *), priv->child_count);
+	sh->delta_matrix = CALLOC (sizeof (int32_t *), priv->child_count);
 	for (i = 0; i < priv->child_count; i++) {
-		sh->delta_matrix[i] = calloc (sizeof (int32_t),
+		sh->delta_matrix[i] = CALLOC (sizeof (int32_t),
 					      priv->child_count);
 	}
 

@@ -258,7 +258,6 @@ afr_sh_data_finish (call_frame_t *frame, xlator_t *this)
 }
 
 
-
 int
 afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
 			       xlator_t *this, int32_t op_ret,
@@ -306,7 +305,7 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
 	afr_sh_pending_to_delta (sh->pending_matrix, sh->delta_matrix,
 				 sh->success, priv->child_count);
 
-	erase_xattr = calloc (sizeof (*erase_xattr), priv->child_count);
+	erase_xattr = CALLOC (sizeof (*erase_xattr), priv->child_count);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->xattr[i]) {
@@ -800,7 +799,6 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 }
 
 
-
 int
 afr_sh_data_lookup_cbk (call_frame_t *frame, void *cookie,
 			xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -836,7 +834,6 @@ afr_sh_data_lookup_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-
 int
 afr_sh_data_lookup (call_frame_t *frame, xlator_t *this)
 {
@@ -858,8 +855,7 @@ afr_sh_data_lookup (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			STACK_WIND_COOKIE (frame,
-					   afr_sh_data_lookup_cbk,
+			STACK_WIND_COOKIE (frame, afr_sh_data_lookup_cbk,
 					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->lookup,
@@ -871,7 +867,6 @@ afr_sh_data_lookup (call_frame_t *frame, xlator_t *this)
 
 	return 0;
 }
-
 
 
 int

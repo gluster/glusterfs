@@ -57,7 +57,7 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto unwind;
 	}
 
-	file = calloc (1, sizeof (*file));
+	file = CALLOC (1, sizeof (*file));
 	if (!file) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory :(");
@@ -124,7 +124,7 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto unwind;
 	}
 
-	file = calloc (1, sizeof (*file));
+	file = CALLOC (1, sizeof (*file));
 	if (!file) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory :(");
@@ -462,7 +462,7 @@ ra_readv (call_frame_t *frame, xlator_t *this,
 		return 0;
 	}
 
-	local = (void *) calloc (1, sizeof (*local));
+	local = (void *) CALLOC (1, sizeof (*local));
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory :(");
@@ -760,7 +760,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
  
-	conf = (void *) calloc (1, sizeof (*conf));
+	conf = (void *) CALLOC (1, sizeof (*conf));
 	ERR_ABORT (conf);
 	conf->page_size = 256 * 1024;
 	conf->page_count = 2;

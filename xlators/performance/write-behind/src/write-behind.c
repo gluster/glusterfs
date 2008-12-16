@@ -115,7 +115,7 @@ wb_file_create (xlator_t *this,
 {
         wb_file_t *file = NULL;
 
-        file = calloc (1, sizeof (*file));
+        file = CALLOC (1, sizeof (*file));
         INIT_LIST_HEAD (&file->request);
 
         /* fd_ref() not required, file should never decide the existance of
@@ -246,10 +246,10 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
   
         list_for_each_entry_safe (request, dummy, winds, winds) {
                 if (!vector) {
-                        vector = malloc (VECTORSIZE (MAX_VECTOR_COUNT));
+                        vector = MALLOC (VECTORSIZE (MAX_VECTOR_COUNT));
                         refs = get_new_dict ();
         
-                        local = calloc (1, sizeof (*local));
+                        local = CALLOC (1, sizeof (*local));
                         INIT_LIST_HEAD (&local->winds);
             
                         first_request = request;
@@ -346,7 +346,7 @@ wb_stat (call_frame_t *frame,
                 }
         }
 
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         local->file = file;
 
         frame->local = local;
@@ -382,7 +382,7 @@ wb_fstat (call_frame_t *frame,
                 wb_sync_all (frame, file);
         }
 
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         local->file = file;
 
         frame->local = local;
@@ -442,7 +442,7 @@ wb_truncate (call_frame_t *frame,
                 }
         }
   
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         local->file = file;
 
         frame->local = local;
@@ -480,7 +480,7 @@ wb_ftruncate (call_frame_t *frame,
                 wb_sync_all (frame, file);
         }
 
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         local->file = file;
 
         if (file)
@@ -546,7 +546,7 @@ wb_utimens (call_frame_t *frame,
                 }
         }
 
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         local->file = file;
 
         frame->local = local;
@@ -607,7 +607,7 @@ wb_open (call_frame_t *frame,
          int32_t flags,
          fd_t *fd)
 {
-        frame->local = calloc (1, sizeof(int32_t));
+        frame->local = CALLOC (1, sizeof(int32_t));
         *((int32_t *)frame->local) = flags;
 
         STACK_WIND (frame,
@@ -894,9 +894,9 @@ wb_enqueue (wb_file_t *file,
             off_t offset)
 {
         wb_write_request_t *request = NULL;
-        wb_local_t *local = calloc (1, sizeof (*local));
+        wb_local_t *local = CALLOC (1, sizeof (*local));
 
-        request = calloc (1, sizeof (*request));
+        request = CALLOC (1, sizeof (*request));
 
         INIT_LIST_HEAD (&request->list);
         INIT_LIST_HEAD (&request->winds);
@@ -932,8 +932,6 @@ wb_writev_cbk (call_frame_t *frame,
                int32_t op_errno,
                struct stat *stbuf)
 {
-	GF_ERROR_IF_NULL (this);
-
 	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 	return 0;
 }
@@ -1060,7 +1058,7 @@ wb_readv (call_frame_t *frame,
                 wb_sync_all (frame, file);
         }
 
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         local->file = file;
 
         frame->local = local;
@@ -1155,7 +1153,7 @@ wb_flush (call_frame_t *frame,
         }
 
         file = data_to_ptr (dict_get (fd->ctx, this->name));
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         local->file = file;
         if (file)
                 fd_ref (file->fd);
@@ -1241,7 +1239,7 @@ wb_fsync (call_frame_t *frame,
                 wb_sync_all (frame, file);
         }
 
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         local->file = file;
 
 
@@ -1292,7 +1290,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-        conf = calloc (1, sizeof (*conf));
+        conf = CALLOC (1, sizeof (*conf));
 
         conf->aggregate_size = 0;
 

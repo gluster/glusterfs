@@ -388,7 +388,7 @@ typedef struct _afr_local {
 
 /* try alloc and if it fails, goto label */
 #define ALLOC_OR_GOTO(var, type, label) do {			\
-		var = calloc (sizeof (type), 1);		\
+		var = CALLOC (sizeof (type), 1);		\
 		if (!var) {					\
 			gf_log (this->name, GF_LOG_ERROR,	\
 				"out of memory :(");		\
@@ -470,7 +470,7 @@ AFR_BASENAME (const char *str)
 static inline int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
-	local->child_up = calloc (sizeof (*local->child_up),
+	local->child_up = CALLOC (sizeof (*local->child_up),
 				  priv->child_count);
 	if (!local->child_up) {
 		return -ENOMEM;
@@ -496,22 +496,22 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 static inline int
 afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
 {
-	local->child_errno = calloc (sizeof (*local->child_errno),
+	local->child_errno = CALLOC (sizeof (*local->child_errno),
 				     priv->child_count);
 	if (!local->child_errno) {
 		return -ENOMEM;
 	}
 
-	local->pending_array = calloc (sizeof (*local->pending_array),
+	local->pending_array = CALLOC (sizeof (*local->pending_array),
 				       priv->child_count);
 	if (!local->pending_array) {
 		return -ENOMEM;
 	}
 
-	local->transaction.locked_nodes = calloc (sizeof (*local->transaction.locked_nodes),
+	local->transaction.locked_nodes = CALLOC (sizeof (*local->transaction.locked_nodes),
 						  priv->child_count);
 
-	local->transaction.child_errno = calloc (sizeof (*local->transaction.child_errno),
+	local->transaction.child_errno = CALLOC (sizeof (*local->transaction.child_errno),
 						  priv->child_count);
 
 	return 0;

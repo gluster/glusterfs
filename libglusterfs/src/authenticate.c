@@ -74,7 +74,7 @@ init (dict_t *this,
 		return;
 	}
 
-	auth_handle = calloc (1, sizeof (*auth_handle));
+	auth_handle = CALLOC (1, sizeof (*auth_handle));
 	if (!auth_handle) {
 		gf_log ("authenticate", GF_LOG_ERROR, "Out of memory");
 		dict_set (this, key, data_from_dynptr (NULL, 0));

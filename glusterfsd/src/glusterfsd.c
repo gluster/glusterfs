@@ -134,17 +134,22 @@ static struct argp_option gf_options[] = {
  	{0, }
 };
 
+
 static struct argp argp = { gf_options, parse_opts, argp_doc, gf_doc };
+
 
 static void 
 _gf_dump_details (int argc, char **argv)
 {
         extern FILE *gf_log_logfile;
-        int i = 0;
-        char timestr[256];
-        time_t utime = time (NULL);
-        struct tm *tm = localtime (&utime);
-        
+        int          i = 0;
+        char         timestr[256];
+        time_t       utime = 0;
+        struct tm   *tm = NULL;
+
+	utime = time (NULL);
+	tm    = localtime (&utime);
+
         /* Which TLA? What time? */
         strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
         fprintf (gf_log_logfile, "\nVersion      : %s %s built on %s %s\n", 
@@ -167,21 +172,20 @@ _gf_dump_details (int argc, char **argv)
 static xlator_t *
 _add_fuse_mount (xlator_t *graph)
 {
-	int ret = 0;
-	cmd_args_t *cmd_args = NULL;
-	xlator_t *top = NULL;
+	int              ret = 0;
+	cmd_args_t      *cmd_args = NULL;
+	xlator_t        *top = NULL;
 	glusterfs_ctx_t *ctx = NULL;
-	xlator_list_t *xlchild = NULL;
+	xlator_list_t   *xlchild = NULL;
 	
 	ctx = graph->ctx;
 	cmd_args = &ctx->cmd_args;
 	
-	xlchild = calloc (1, sizeof (*xlchild));
+	xlchild = CALLOC (sizeof (*xlchild), 1);
 	ERR_ABORT (xlchild);
 	xlchild->xlator = graph;
 	
-	top = calloc (1, sizeof (*top));
-	ERR_ABORT (top);
+	top = CALLOC (1, sizeof (*top));
 	top->name = strdup ("fuse");
 	if (xlator_set_type (top, ZR_XLATOR_FUSE) == -1) {
 		fprintf (stderr, 
@@ -193,9 +197,9 @@ _add_fuse_mount (xlator_t *graph)
 		return NULL;
 	}
 	top->children = xlchild;
-	top->ctx = graph->ctx;
-	top->next = graph;
-	top->options = get_new_dict ();
+	top->ctx      = graph->ctx;
+	top->next     = graph;
+	top->options  = get_new_dict ();
 
 	/* TODO: log on failure */
 	ret = dict_set_static_ptr (top->options, ZR_MOUNTPOINT_OPT,
@@ -226,24 +230,25 @@ _add_fuse_mount (xlator_t *graph)
 					   "enable");
 	} else  {
 		ret = dict_set_static_ptr (top->options, ZR_DIRECT_IO_OPT,
-				     "disable");
+					   "disable");
 	}
 
 #endif /* GF_DARWIN_HOST_OS */
 	
-	graph->parents = calloc (1, sizeof (xlator_list_t));
+	graph->parents = CALLOC (1, sizeof (xlator_list_t));
 	graph->parents->xlator = top;
 	
 	return top;
 }
 
+
 static FILE *
 _get_specfp (glusterfs_ctx_t *ctx)
 {
-	int ret = 0;
-	cmd_args_t *cmd_args = NULL;
-	FILE *specfp = NULL;
-	struct stat statbuf;
+	int          ret = 0;
+	cmd_args_t  *cmd_args = NULL;
+	FILE        *specfp = NULL;
+	struct stat  statbuf;
 
 	cmd_args = &ctx->cmd_args;
 	
@@ -355,8 +360,7 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 					"file given by server %s", 
 					cmd_args->volume_name, 
 					cmd_args->volfile_server);
-			}
-			else {
+			} else {
 				fprintf (stderr, 
 					 "volume %s not found in volume "
 					 "file %s\n", 
@@ -369,10 +373,8 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 			}
 			return NULL;
 		}
-		
 		tree = trav;
 	}
-	
 	return tree;
 }
 
@@ -403,31 +405,31 @@ _xlator_graph_init (xlator_t *xl)
 static int
 gf_remember_xlator_option (struct list_head *options, char *arg)
 {
-	glusterfs_ctx_t * ctx = NULL;
-	cmd_args_t *cmd_args  = NULL;
+	glusterfs_ctx_t         *ctx = NULL;
+	cmd_args_t              *cmd_args  = NULL;
 	xlator_cmdline_option_t *option = NULL;
-	int ret = -1;
-
-	char *dot = NULL, *equals = NULL;
+	int                      ret = -1;
+	char                    *dot = NULL;
+	char                    *equals = NULL;
 
 	ctx = get_global_ctx_ptr ();
 	cmd_args = &ctx->cmd_args;
 
-	option = calloc (1, sizeof (xlator_option_t));
+	option = CALLOC (1, sizeof (xlator_option_t));
 	INIT_LIST_HEAD (&option->cmd_args);
 
 	dot = strchr (arg, '.');
 	if (!dot)
 		goto out;
 
-	option->volume = calloc ((dot - arg), sizeof (char));
+	option->volume = CALLOC ((dot - arg), sizeof (char));
 	strncpy (option->volume, arg, (dot - arg));
 
 	equals = strchr (arg, '=');
 	if (!equals)
 		goto out;
 
-	option->key = calloc ((equals - dot), sizeof (char));
+	option->key = CALLOC ((equals - dot), sizeof (char));
 	strncpy (option->key, dot + 1, (equals - dot - 1));
 
 	if (!*(equals + 1))
@@ -455,11 +457,12 @@ out:
 	return ret;
 }
 
+
 static void
 gf_add_cmdline_options (xlator_t *graph, cmd_args_t *cmd_args)
 {
-	int ret = 0;
-	xlator_t   *trav = graph;
+	int                      ret = 0;
+	xlator_t                *trav = graph;
 	xlator_cmdline_option_t *cmd_option = NULL;
 
 	while (trav) {
@@ -491,9 +494,10 @@ gf_add_cmdline_options (xlator_t *graph, cmd_args_t *cmd_args)
 
 
 error_t 
-parse_opts (int key, char *arg, struct argp_state *state) {
+parse_opts (int key, char *arg, struct argp_state *state)
+{
 	cmd_args_t *cmd_args = NULL;
-	uint32_t n = 0;
+	uint32_t    n = 0;
 	
 	cmd_args = state->input;
 	
@@ -544,7 +548,6 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		break;
 		
 	case ARGP_VOLFILE_SERVER_PORT_KEY:
-	{
 		n = 0;
 		
 		if (gf_string2uint_base10 (arg, &n) == 0) {
@@ -555,7 +558,6 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		argp_failure (state, -1, 0, 
 			      "unknown volfile server port %s", arg);
 		break;
-	}
 	
 	case ARGP_VOLFILE_SERVER_TRANSPORT_KEY:
 		cmd_args->volfile_server_transport = strdup (arg);
@@ -586,7 +588,6 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		break;
 		
 	case ARGP_ENTRY_TIMEOUT_KEY:
-	{
 		n = 0;
 		
 		if (gf_string2uint_base10 (arg, &n) == 0) {
@@ -596,10 +597,8 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		
 		argp_failure (state, -1, 0, "unknown entry timeout %s", arg);
 		break;
-	}
 	
 	case ARGP_ATTRIBUTE_TIMEOUT_KEY:
-	{
 		n = 0;
 		
 		if (gf_string2uint_base10 (arg, &n) == 0) {
@@ -610,7 +609,6 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		argp_failure (state, -1, 0, 
 			      "unknown attribute timeout %s", arg);
 		break;
-	}
 	
 	case ARGP_VOLUME_NAME_KEY:
 		cmd_args->volume_name = strdup (arg);
@@ -637,17 +635,21 @@ parse_opts (int key, char *arg, struct argp_state *state) {
 		cmd_args->mount_point = strdup (arg);
 		break;
 	}
+
 	return 0;
 }
+
 
 void 
 cleanup_and_exit (int signum)
 {
 	glusterfs_ctx_t *ctx = NULL;
-	xlator_t *trav = NULL;
+	xlator_t        *trav = NULL;
+
 	ctx = get_global_ctx_ptr ();
 	
 	gf_log ("glusterfs", GF_LOG_WARNING, "shutting down");
+
 	if (ctx->pidfp) {
 		gf_unlockfd (fileno (ctx->pidfp));
 		fclose (ctx->pidfp);
@@ -682,10 +684,12 @@ cleanup_and_exit (int signum)
 	}
 }
 
+
 static char *
-zr_build_process_uuid () {
-	char tmp_str[1024] = {0,};
-	char hostname[256] = {0,};
+zr_build_process_uuid ()
+{
+	char           tmp_str[1024] = {0,};
+	char           hostname[256] = {0,};
 	struct timeval tv = {0,};
 
 	if (-1 == gettimeofday(&tv, NULL)) {
@@ -706,33 +710,35 @@ zr_build_process_uuid () {
 	return strdup (tmp_str);
 }
 
+
 int 
 main (int argc, char *argv[])
 {
-	glusterfs_ctx_t *ctx = NULL;
-	cmd_args_t *cmd_args = NULL;
-	call_pool_t *pool = NULL;
-	struct stat stbuf;
-	char tmp_logfile[1024] = { 0 };
-	char timestr[256] = { 0 };
-	char *base_exec_name = NULL;
-	time_t utime;
-	struct tm *tm = NULL;
-	int ret = 0;
-	struct rlimit lim;
-	FILE *specfp = NULL;
-	xlator_t *graph = NULL;
-	xlator_t *trav = NULL;
-	int fuse_volume_found = 0;
-	
+	glusterfs_ctx_t  *ctx = NULL;
+	cmd_args_t       *cmd_args = NULL;
+	call_pool_t      *pool = NULL;
+	struct stat       stbuf;
+	char              tmp_logfile[1024] = { 0 };
+	char              timestr[256] = { 0 };
+	char             *base_exec_name = NULL;
+	time_t            utime;
+	struct tm        *tm = NULL;
+	int               ret = 0;
+	struct rlimit     lim;
+	FILE             *specfp = NULL;
+	xlator_t         *graph = NULL;
+	xlator_t         *trav = NULL;
+	int               fuse_volume_found = 0;
+
+
 	utime = time (NULL);
-	ctx = calloc (1, sizeof (glusterfs_ctx_t));
+	ctx = CALLOC (1, sizeof (glusterfs_ctx_t));
 	ERR_ABORT (ctx);
 	base_exec_name = strdup (argv[0]);
 	set_global_ctx_ptr (ctx);
 	ctx->process_uuid = zr_build_process_uuid ();
 	cmd_args = &ctx->cmd_args;
-	
+
 	/* parsing command line arguments */
 	cmd_args->log_level = DEFAULT_LOG_LEVEL;
 	cmd_args->fuse_entry_timeout = DEFAULT_FUSE_ENTRY_TIMEOUT;
@@ -758,9 +764,10 @@ main (int argc, char *argv[])
 			  basename (base_exec_name));
 	
 	free (base_exec_name);
+
 	ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
 	pthread_mutex_init (&(ctx->lock), NULL);
-	pool = ctx->pool = calloc (1, sizeof (call_pool_t));
+	pool = ctx->pool = CALLOC (1, sizeof (call_pool_t));
 	ERR_ABORT (ctx->pool);
 	LOCK_INIT (&pool->lock);
 	INIT_LIST_HEAD (&pool->all_frames);
@@ -807,7 +814,7 @@ main (int argc, char *argv[])
 			tm = localtime (&utime);
 			strftime (timestr, 256, "%Y%m%d.%H%M%S", tm); 
 			sprintf (tmp_logfile, "%s.%s.%d", 
-				 cmd_args->log_file, timestr, getpid());
+				 cmd_args->log_file, timestr, getpid ());
 			
 			/* Create symlink to actual log file */
 			unlink (cmd_args->log_file);

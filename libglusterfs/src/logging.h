@@ -120,28 +120,6 @@ gf_log_get_loglevel (void);
 void 
 gf_log_set_loglevel (gf_loglevel_t level);
 
-/* Check if the condition is true and log and return -1 if it is */
-#define GF_ERROR_IF(cond) \
-do { \
-  if ((cond)) { \
-    gf_log ("ERROR", GF_LOG_ERROR, "%s: %s: (%s) is true", __FILE__, __FUNCTION__, #cond); \
-    errno = EINVAL; \
-    return -1; \
-  } \
-} while (0)
-
-/* Check if the condition is true and log if it is */
-#define GF_ERROR_NO_RETURN_IF(cond) \
-do { \
-  if ((cond)) { \
-    gf_log ("ERROR", GF_LOG_ERROR, "%s: %s: (%s) is true", __FILE__, __FUNCTION__, #cond); \
-  } \
-} while (0)
-
-#define GF_ERROR_IF_NULL(p) GF_ERROR_IF((p) == NULL)
-#define GF_ERROR_NO_RETURN_IF_NULL(p) GF_ERROR_NO_RETURN_IF((p) == NULL)
-#define GF_ERROR_NO_RETURN_IF_FALSE(p) GF_ERROR_NO_RETURN_IF((p) == 0)
-#define GF_BUG_ON(p) GF_ERROR_NO_RETURN_IF(p)
 #define GF_DEBUG(xl, format, args...) gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)
 #define GF_WARNING(xl, format, args...) gf_log ((xl)->name, GF_LOG_WARNING, format, ##args)
 #define GF_ERROR(xl, format, args...) gf_log ((xl)->name, GF_LOG_ERROR, format, ##args)

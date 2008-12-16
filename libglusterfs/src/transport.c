@@ -49,7 +49,7 @@ transport_load (dict_t *options,
 	GF_VALIDATE_OR_GOTO("transport", options, fail);
 	GF_VALIDATE_OR_GOTO("transport", xl, fail);
   
-	trans = calloc (1, sizeof (struct transport));
+	trans = CALLOC (1, sizeof (struct transport));
 	GF_VALIDATE_OR_GOTO("transport", trans, fail);
 
 	trans->xl = xl;

@@ -3291,7 +3291,7 @@ client_setdents (call_frame_t *frame,
 		len += 256; // max possible for statbuf;
 		trav = trav->next;
 	}
-	buffer = calloc (1, len);
+	buffer = CALLOC (1, len);
 	GF_VALIDATE_OR_GOTO (this->name, buffer, unwind);
 
 	ptr = buffer;
@@ -4762,7 +4762,7 @@ gf_bin_to_direntry (char *buf, size_t count)
 	dir_entry_t *trav = NULL, *prev = NULL;
 	dir_entry_t *thead = NULL, *head = NULL;
 
-	thead = calloc (1, sizeof (dir_entry_t));
+	thead = CALLOC (1, sizeof (dir_entry_t));
 	GF_VALIDATE_OR_GOTO("client-protocol", thead, fail);
 
 	buffer = buf;
@@ -4770,14 +4770,14 @@ gf_bin_to_direntry (char *buf, size_t count)
 
 	for (idx = 0; idx < count ; idx++) {
 		bread = 0;
-		trav = calloc (1, sizeof (dir_entry_t));
+		trav = CALLOC (1, sizeof (dir_entry_t));
 		GF_VALIDATE_OR_GOTO("client-protocol", trav, fail);
 
 		ender = strchr (buffer, '/');
 		if (!ender)
 			break;
 		rcount = ender - buffer;
-		trav->name = calloc (1, rcount + 2);
+		trav->name = CALLOC (1, rcount + 2);
 		GF_VALIDATE_OR_GOTO("client-protocol", trav->name, fail);
 
 		strncpy (trav->name, buffer, rcount);
@@ -5964,7 +5964,7 @@ init (xlator_t *this)
 		goto out;
 	}
 
-	priv = calloc (1, sizeof (client_private_t));
+	priv = CALLOC (1, sizeof (client_private_t));
 
 	priv->transport = transport_ref (trans);
 
@@ -5973,7 +5973,7 @@ init (xlator_t *this)
 	/* in case, GF_VALIDATE_OR_GOTO() jumps to label */
 	ret = -1;
 
-	cprivate = calloc (1, sizeof (client_connection_private_t));
+	cprivate = CALLOC (1, sizeof (client_connection_private_t));
 	GF_VALIDATE_OR_GOTO(this->name, cprivate, out);
 
 	cprivate->saved_frames = get_new_dict_full (1024);

@@ -370,7 +370,7 @@ new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
 {
 	pl_entry_lock_t *newlock = NULL;
 
-	newlock = calloc (sizeof (pl_entry_lock_t), 1);
+	newlock = CALLOC (sizeof (pl_entry_lock_t), 1);
 	if (!newlock) {
 		goto out;
 	}

@@ -96,7 +96,7 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
 	oldfds = fdtable->fds;
 	oldmax_fds = fdtable->max_fds;
 
-	fdtable->fds = calloc (nr, sizeof (fd_t *));
+	fdtable->fds = CALLOC (nr, sizeof (fd_t *));
 	ERR_ABORT (fdtable->fds);
 	fdtable->max_fds = nr; 
 
@@ -114,7 +114,7 @@ gf_fd_fdtable_alloc (void)
 {
 	fdtable_t *fdtable = NULL;
 
-	fdtable = calloc (1, sizeof (*fdtable));
+	fdtable = CALLOC (1, sizeof (*fdtable));
 	if (!fdtable) 
 		return NULL;
 
@@ -458,7 +458,7 @@ fd_create (inode_t *inode, pid_t pid)
                 return NULL;
         }
   
-        fd = calloc (1, sizeof (fd_t));
+        fd = CALLOC (1, sizeof (fd_t));
         ERR_ABORT (fd);
   
         fd->ctx = get_new_dict ();

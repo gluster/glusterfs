@@ -156,7 +156,7 @@ init (xlator_t *this)
     return -1;
   }
 
-  python_private_t *priv = calloc (sizeof (python_private_t), 1);
+  python_private_t *priv = CALLOC (sizeof (python_private_t), 1);
   ERR_ABORT (priv);
 
   data_t *scriptname = dict_get (this->options, "scriptname");

@@ -43,7 +43,7 @@ dht_layout_new (xlator_t *this, int cnt)
 	dht_layout_t *layout = NULL;
 
 
-	layout = calloc (1, layout_size (cnt));
+	layout = CALLOC (1, layout_size (cnt));
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"memory allocation failed :(");
@@ -133,7 +133,7 @@ dht_layouts_init (xlator_t *this, dht_conf_t *conf)
 	int           ret = -1;
 	
 
-	conf->file_layouts = calloc (conf->subvolume_cnt,
+	conf->file_layouts = CALLOC (conf->subvolume_cnt,
 				     sizeof (dht_layout_t *));
 	if (!conf->file_layouts) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -168,7 +168,7 @@ dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
 	int      ret = -1;
 	int32_t *disk_layout = NULL;
 
-	disk_layout = calloc (5, sizeof (int));
+	disk_layout = CALLOC (5, sizeof (int));
 	if (!disk_layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"memory allocation failed :(");

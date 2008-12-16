@@ -221,7 +221,7 @@ __create_bctx (bctx_table_t *table,
 	bctx_t *bctx = NULL;
 	char *db_path = NULL;
 
-	bctx = calloc (1, sizeof (*bctx));
+	bctx = CALLOC (1, sizeof (*bctx));
 	GF_VALIDATE_OR_GOTO ("bctx", bctx, out);
 
 	bctx->table = table;

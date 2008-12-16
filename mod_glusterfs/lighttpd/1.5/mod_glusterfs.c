@@ -200,7 +200,7 @@ stat_cache_entry_init(void)
 {
         stat_cache_entry *sce = NULL;
 
-        sce = calloc(1, sizeof(*sce));
+        sce = CALLOC(1, sizeof(*sce));
         /* ERR_ABORT (sce); */
 
         sce->name = buffer_init();
@@ -332,7 +332,7 @@ glusterfs_stat_cache_get_entry_async (server *srv,
 
         /* pass a job to the stat-queue */
 
-        local = calloc (1, sizeof (*local));
+        local = CALLOC (1, sizeof (*local));
         /* ERR_ABORT (local); */
         local->con = con;
         local->srv = srv;
@@ -451,7 +451,7 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
                                 if ((int)glusterfs_chunk->file.length > 0)
                                         glusterfs_chunk->file.length -= local.fop.readv.read_bytes;
 
-                                gf_cq = calloc (1, sizeof (*gf_cq));
+                                gf_cq = CALLOC (1, sizeof (*gf_cq));
                                 /* ERR_ABORT (qf_cq); */
                                 gf_cq->cq = cq;
                                 gf_cq->buf = buf;
@@ -651,7 +651,7 @@ INIT_FUNC(mod_glusterfs_init) {
         plugin_data *p;
 
         UNUSED (srv);
-        p = calloc(1, sizeof(*p));
+        p = CALLOC(1, sizeof(*p));
         /* ERR_ABORT (p); */
         network_backend_write = NULL;
         p->ranges = http_request_range_init();
@@ -714,14 +714,14 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
                 { NULL,                          NULL, T_CONFIG_UNSET, T_CONFIG_SCOPE_UNSET }
         };
   
-        p->config_storage = calloc(1, srv->config_context->used * sizeof(specific_config *));
+        p->config_storage = CALLOC(1, srv->config_context->used * sizeof(specific_config *));
         /* ERR_ABORT (p->config_storage); */
         p->range_buf = buffer_init ();
   
         for (i = 0; i < srv->config_context->used; i++) {
                 plugin_config *s;
 
-                s = calloc(1, sizeof(plugin_config));
+                s = CALLOC(1, sizeof(plugin_config));
                 /* ERR_ABORT (s); */
                 s->logfile = buffer_init ();
                 s->loglevel = buffer_init ();
@@ -1067,7 +1067,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
         if (!con->plugin_ctx[p->id]) {
                 buffer *tmp_buf = buffer_init_buffer (con->physical.basedir);
 
-                plugin_ctx = calloc (1, sizeof (*plugin_ctx));
+                plugin_ctx = CALLOC (1, sizeof (*plugin_ctx));
                 /* ERR_ABORT (plugin_ctx); */
                 con->plugin_ctx[p->id] = plugin_ctx;
     
@@ -1086,7 +1086,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
 
         if (size) 
         {
-                plugin_ctx->buf = malloc (size);
+                plugin_ctx->buf = MALLOC (size);
                 /* ERR_ABORT (plugin_ctx->buf); */
         }
 

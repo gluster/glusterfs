@@ -148,7 +148,7 @@ nufa_local_init (call_frame_t *frame)
 	nufa_local_t *local = NULL;
 
 	/* TODO: use mem-pool */
-	local = calloc (1, sizeof (*local));
+	local = CALLOC (1, sizeof (*local));
 
 	if (!local)
 		return NULL;

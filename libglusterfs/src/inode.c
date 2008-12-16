@@ -410,7 +410,7 @@ __dentry_create (inode_t *inode,
 {
         dentry_t      *newd = NULL;
 
-        newd = (void *) calloc (1, sizeof (*newd));
+        newd = (void *) CALLOC (1, sizeof (*newd));
 
         INIT_LIST_HEAD (&newd->inode_list);
         INIT_LIST_HEAD (&newd->parent_list);
@@ -432,7 +432,7 @@ __inode_create (inode_table_t *table)
 {
         inode_t  *newi = NULL;
 
-        newi = (void *) calloc (1, sizeof (*newi));
+        newi = (void *) CALLOC (1, sizeof (*newi));
         if (!newi)
                 return NULL;
 
@@ -866,7 +866,7 @@ inode_path (inode_t *inode,
 
                 ret = i;
 		size = i + 1;
-		buf = calloc (size, sizeof (char));
+		buf = CALLOC (size, sizeof (char));
                 if (buf) {
 
                         buf[size - 1] = 0;
@@ -900,7 +900,7 @@ unlock:
 		if (buf) {
 			FREE (buf);
 		}
-		buf = calloc (ret + 1, sizeof (char));
+		buf = CALLOC (ret + 1, sizeof (char));
 		if (buf) {
 			strcpy (buf, "/");
 			*bufp = buf;

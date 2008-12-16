@@ -63,7 +63,7 @@ nufa_init (xlator_t *xl)
 	xlator_list_t *trav_xl = xl->children;
 	struct nufa_struct *nufa_buf = NULL;
 
-	nufa_buf = calloc (1, sizeof (struct nufa_struct));
+	nufa_buf = CALLOC (1, sizeof (struct nufa_struct));
 	ERR_ABORT (nufa_buf);
 
 	data = dict_get (xl->options, "nufa.limits.min-free-disk");
@@ -110,9 +110,9 @@ nufa_init (xlator_t *xl)
 	}
 	nufa_buf->child_count = index;
 	nufa_buf->sched_index = 0;
-	nufa_buf->array = calloc (index, sizeof (struct nufa_sched_struct));
+	nufa_buf->array = CALLOC (index, sizeof (struct nufa_sched_struct));
 	ERR_ABORT (nufa_buf->array);
-	nufa_buf->local_array = calloc (index, sizeof (int32_t));
+	nufa_buf->local_array = CALLOC (index, sizeof (int32_t));
 	ERR_ABORT (nufa_buf->array);
 	trav_xl = xl->children;
 	

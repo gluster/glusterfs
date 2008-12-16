@@ -55,9 +55,9 @@ typedef struct {
 			int i;						\
 			ha_private_t *pvt = this->private;		\
 			int child_count = pvt->child_count;		\
-			local = frame->local = calloc (1, sizeof (*local)); \
+			local = frame->local = CALLOC (1, sizeof (*local)); \
 			local->active = pvt->active;			\
-			local->state = calloc (1, child_count);		\
+			local->state = CALLOC (1, child_count);		\
 			LOCK (&hafdp->lock);				\
 			memcpy (local->state, hafdp->fdstate, child_count); \
 			UNLOCK (&hafdp->lock);				\
@@ -112,7 +112,7 @@ typedef struct {
 		if (local == NULL) {					\
 			int i;						\
 			ha_private_t *pvt = this->private;		\
-			local = frame->local = calloc (1, sizeof (*local)); \
+			local = frame->local = CALLOC (1, sizeof (*local)); \
 			local->active = pvt->active;			\
 			local->state = state;				\
 			if (local->active != -1 && local->state[local->active] == 0) \

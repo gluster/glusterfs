@@ -590,7 +590,7 @@ bdb_create (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO (this->name, (op_ret == 0), out);
 	
         /* create successful */
-	bfd = calloc (1, sizeof (*bfd));
+	bfd = CALLOC (1, sizeof (*bfd));
 	op_ret = -1;
 	op_errno = ENOMEM;
 	GF_VALIDATE_OR_GOTO (this->name, bfd, out);
@@ -647,7 +647,7 @@ bdb_open (call_frame_t *frame,
 	op_errno = EBADFD;
 	GF_VALIDATE_OR_GOTO (this->name, bctx, out);
 
-	bfd = calloc (1, sizeof (*bfd));
+	bfd = CALLOC (1, sizeof (*bfd));
 	op_errno = ENOMEM;
 	GF_VALIDATE_OR_GOTO (this->name, bfd, out);
 
@@ -1266,7 +1266,7 @@ bdb_opendir (call_frame_t *frame,
 	op_errno = EBADFD;
 	GF_VALIDATE_OR_GOTO (this->name, bctx, out);
 
-	bfd = calloc (1, sizeof (*bfd));
+	bfd = CALLOC (1, sizeof (*bfd));
 	op_errno = ENOMEM;
 	GF_VALIDATE_OR_GOTO (this->name, bfd, out);
 
@@ -1360,7 +1360,7 @@ bdb_getdents (call_frame_t *frame,
 			continue;
 		}
 
-		tmp = calloc (1, sizeof (*tmp));
+		tmp = CALLOC (1, sizeof (*tmp));
 		op_errno = ENOMEM;
 		GF_VALIDATE_OR_GOTO (this->name, tmp, out);
 
@@ -1434,11 +1434,11 @@ bdb_getdents (call_frame_t *frame,
 				break;
 			}
 			/* successfully read */
-			tmp = calloc (1, sizeof (*tmp));
+			tmp = CALLOC (1, sizeof (*tmp));
 			op_errno = ENOMEM;
 			GF_VALIDATE_OR_GOTO (this->name, tmp, out);
 
-			tmp->name = calloc (1, key.size + 1);
+			tmp->name = CALLOC (1, key.size + 1);
 			op_errno = ENOMEM;
 			GF_VALIDATE_OR_GOTO (this->name, tmp->name, out);
 
@@ -2330,7 +2330,7 @@ bdb_getxattr (call_frame_t *frame,
 				op_ret = lgetxattr (real_path, key, NULL, 0);
 				if (op_ret == -1)
 					break;
-				value = calloc (op_ret + 1, sizeof(char));
+				value = CALLOC (op_ret + 1, sizeof(char));
 				GF_VALIDATE_OR_GOTO (this->name, value, out);
 
 				op_ret = lgetxattr (real_path, key, value, op_ret);
@@ -2583,7 +2583,7 @@ bdb_setdents (call_frame_t *frame,
 
 	real_path_len = strlen (bfd->path);
 	entry_path_len = real_path_len + 256;
-	entry_path = calloc (1, entry_path_len);
+	entry_path = CALLOC (1, entry_path_len);
 	GF_VALIDATE_OR_GOTO (this->name, entry_path, out);
 
 	strcpy (entry_path, bfd->path);
@@ -3156,7 +3156,7 @@ init (xlator_t *this)
 
 	GF_VALIDATE_OR_GOTO ("bdb", this, out);
 
-	_private = calloc (1, sizeof (*_private));
+	_private = CALLOC (1, sizeof (*_private));
 	GF_VALIDATE_OR_GOTO (this->name, _private, out);
 
 	if (this->children) {

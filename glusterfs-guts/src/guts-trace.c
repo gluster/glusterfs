@@ -30,9 +30,9 @@ fuse_graph (xlator_t *graph)
   xlator_t *top = NULL;
   xlator_list_t *xlchild;
 
-  top = calloc (1, sizeof (*top));
+  top = CALLOC (1, sizeof (*top));
   ERR_ABORT (top);
-  xlchild = calloc (1, sizeof(*xlchild));
+  xlchild = CALLOC (1, sizeof(*xlchild));
   ERR_ABORT (xlchild);
   xlchild->xlator = graph;
   top->children = xlchild;
@@ -74,7 +74,7 @@ guts_trace (guts_ctx_t *guts_ctx)
     return -1;
   }
 
-  pool = ctx.pool = calloc (1, sizeof (call_pool_t));
+  pool = ctx.pool = CALLOC (1, sizeof (call_pool_t));
   ERR_ABORT (ctx.pool);
   LOCK_INIT (&pool->lock);
   INIT_LIST_HEAD (&pool->all_frames);

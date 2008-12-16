@@ -173,7 +173,7 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
 {
 	struct _truncate_ops *local = NULL;
 
-	local = calloc (1, sizeof (struct _truncate_ops));
+	local = CALLOC (1, sizeof (struct _truncate_ops));
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory :(");
@@ -204,7 +204,7 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 {
 	struct _truncate_ops *local = NULL;
 
-	local = calloc (1, sizeof (struct _truncate_ops));
+	local = CALLOC (1, sizeof (struct _truncate_ops));
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory :(");
@@ -467,7 +467,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 				goto unlock;
 			}
 
-			rw = calloc (1, sizeof (*rw));
+			rw = CALLOC (1, sizeof (*rw));
 			if (!rw) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"out of memory :(");
@@ -560,7 +560,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 				goto unlock;
 			}
 
-			rw = calloc (1, sizeof (*rw));
+			rw = CALLOC (1, sizeof (*rw));
 			if (!rw) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"out of memory :(");
@@ -751,7 +751,7 @@ init (xlator_t *this)
 		return -1;
 	}
 
-	priv = calloc (1, sizeof (*priv));
+	priv = CALLOC (1, sizeof (*priv));
 
 	mandatory = dict_get (this->options, "mandatory");
 	if (mandatory) {

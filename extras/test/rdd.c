@@ -250,7 +250,7 @@ rdd_read_write (void *arg)
 	long max_ops = 0;
 	char *buf = NULL;
 
-	buf = calloc (1, rdd_config.max_bs);
+	buf = CALLOC (1, rdd_config.max_bs);
 	if (!buf) {
 		fprintf (stderr, "calloc failed (%s)\n", strerror (errno));
 		ret = -1;
@@ -367,7 +367,7 @@ rdd_spawn_threads (void)
 		}
 	}
 
-	rdd_config.threads = calloc (rdd_config.thread_count, sizeof (pthread_t));
+	rdd_config.threads = CALLOC (rdd_config.thread_count, sizeof (pthread_t));
 	if (rdd_config.threads == NULL) {
 		fprintf (stderr, "calloc() failed (%s)\n", strerror (errno));
 

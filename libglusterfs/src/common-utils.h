@@ -42,6 +42,15 @@ void trap (void);
 
 #include "logging.h"
 #include "glusterfs.h"
+#include "locking.h"
+#include "mem-pool.h"
+
+
+#define min(a,b) ((a)<(b)?(a):(b))
+#define max(a,b) ((a)>(b)?(a):(b))
+#define roof(a,b) ((((a)+(b)-1)/((b)?(b):1))*(b))
+#define floor(a,b) (((a)/((b)?(b):1))*(b))
+
 
 #define GF_UNIT_KB    1024ULL
 #define GF_UNIT_MB    1048576ULL
@@ -49,24 +58,17 @@ void trap (void);
 #define GF_UNIT_TB    1099511627776ULL
 #define GF_UNIT_PB    1125899906842624ULL
 
-#define GF_UNIT_KB_STRING    "kb"
-#define GF_UNIT_MB_STRING    "mb"
-#define GF_UNIT_GB_STRING    "gb"
-#define GF_UNIT_TB_STRING    "tb"
-#define GF_UNIT_PB_STRING    "pb"
+#define GF_UNIT_KB_STRING    "KB"
+#define GF_UNIT_MB_STRING    "MB"
+#define GF_UNIT_GB_STRING    "GB"
+#define GF_UNIT_TB_STRING    "TB"
+#define GF_UNIT_PB_STRING    "PB"
 
-#define FREE(ptr)          \
-  if (ptr != NULL)     	   \
-    {		       	   \
-      free ((void *)ptr);  \
-      ptr = (void *)0xeeeeeeee;          \
-    }                      
 
-#define ERR_ABORT(ptr)    \
-  if (ptr == NULL)	  \
-    {			  \
-      abort ();		  \
-    }                     
+#define ERR_ABORT(ptr)				\
+	if (ptr == NULL)  {			\
+		abort ();			\
+	}                     
 
 enum _gf_boolean 
 {
@@ -76,62 +78,27 @@ enum _gf_boolean
 
 typedef enum _gf_boolean gf_boolean_t;
 
-#ifdef DEBUG
-#define TRAP_ON(cond) if (cond) { gf_log ("trapper", GF_LOG_CRITICAL, "condition `%s' asserted", #cond); trap (); }
-
-#else /* DEBUG */
-
-#define TRAP_ON(cond)
-
-#endif /* DEBUG */
-
 void gf_global_variable_init(void);
 void set_global_ctx_ptr (glusterfs_ctx_t *ctx);
 glusterfs_ctx_t *get_global_ctx_ptr (void);
-int32_t gf_full_read (int32_t fd, char *buf, int32_t size);
-int32_t gf_full_write (int32_t fd, const char *buf, int32_t size);
 
-int32_t gf_full_readv (int32_t fd, const struct iovec *vector, int32_t count);
-int32_t gf_full_writev (int32_t fd, const struct iovec *vector, int32_t count);
 in_addr_t gf_resolve_ip (const char *hostname, void **dnscache);
-void gf_print_bytes (void);
 
 void gf_log_volume_file (FILE *specfp);
 void gf_print_trace (int32_t signal);
 
-extern uint64_t total_bytes_xferd;
-extern uint64_t total_bytes_rcvd;
 extern char *gf_fop_list[GF_FOP_MAXVALUE];
 extern char *gf_mop_list[GF_MOP_MAXVALUE];
 extern char *gf_cbk_list[GF_CBK_MAXVALUE];
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 
-#if HAVE_SPINLOCK
-#define LOCK_INIT(x)    pthread_spin_init (x, 0)
-#define LOCK(x)         pthread_spin_lock (x)
-#define TRY_LOCK(x)     pthread_spin_trylock (x)
-#define UNLOCK(x)       pthread_spin_unlock (x)
-#define LOCK_DESTROY(x) pthread_spin_destroy (x)
-//#define LOCK_INITIALIZER PTHREAD_MUTEX_INITIALIZER
-
-typedef pthread_spinlock_t gf_lock_t;
-#else
-#define LOCK_INIT(x)    pthread_mutex_init (x, 0)
-#define LOCK(x)         pthread_mutex_lock (x)
-#define TRY_LOCK(x)     pthread_mutex_trylock (x)
-#define UNLOCK(x)       pthread_mutex_unlock (x)
-#define LOCK_DESTROY(x) pthread_mutex_destroy (x)
-//#define LOCK_INITIALIZER PTHREAD_MUTEX_INITIALIZER
-
-typedef pthread_mutex_t gf_lock_t;
-#endif /* HAVE_SPINLOCK */
-
 #define STRLEN_0(str) (strlen(str) + 1)
 #define VALIDATE_OR_GOTO(arg,label)   do {				\
 		if (!arg) {						\
 			errno = EINVAL;					\
-			gf_log (this ? this->name : "(Govinda! Govinda!)", GF_LOG_ERROR, \
+			gf_log ((this ? this->name : "(Govinda! Govinda!)"), \
+				GF_LOG_ERROR,				\
 				"invalid argument: " #arg);		\
 			goto label;					\
 		}							\
@@ -146,109 +113,126 @@ typedef pthread_mutex_t gf_lock_t;
 		}						\
 	} while (0); 
 
+
 static inline void
-iov_free (struct iovec *vector,
-	  int32_t count)
+iov_free (struct iovec *vector, int count)
 {
-  int i;
+	int i;
 
-  for (i=0; i<count; i++)
-    FREE (vector[i].iov_base);
+	for (i = 0; i < count; i++)
+		FREE (vector[i].iov_base);
 
-  FREE (vector);
+	FREE (vector);
 }
 
-static inline int32_t
-iov_length (const struct iovec *vector,
-	    int32_t count)
+
+static inline int
+iov_length (const struct iovec *vector, int count)
 {
-  int32_t i;
-  size_t size = 0;
+	int     i = 0;
+	size_t  size = 0;
 
-  for (i=0; i<count; i++)
-    size += vector[i].iov_len;
+	for (i = 0; i < count; i++)
+		size += vector[i].iov_len;
 
-  return size;
+	return size;
 }
+
 
 static inline struct iovec *
-iov_dup (struct iovec *vector,
-	 int32_t count)
+iov_dup (struct iovec *vector, int count)
 {
-  int32_t bytecount = (count * sizeof (struct iovec));
-  int32_t i;
-  struct iovec *newvec = malloc (bytecount);
-  ERR_ABORT (newvec);
+	int           bytecount = 0;
+	int           i;
+	struct iovec *newvec = NULL;
 
-  for (i=0;i<count;i++) {
-    newvec[i].iov_len = vector[i].iov_len;
-    newvec[i].iov_base = vector[i].iov_base;
-  }
+	bytecount = (count * sizeof (struct iovec));
+	newvec = MALLOC (bytecount);
+	if (!newvec)
+		return NULL;
 
-  return newvec;
+	for (i = 0; i < count; i++) {
+		newvec[i].iov_len  = vector[i].iov_len;
+		newvec[i].iov_base = vector[i].iov_base;
+	}
+
+	return newvec;
 }
 
-static inline int32_t
-iov_subset (struct iovec *orig,
-	    int32_t orig_count,
-	    off_t src_offset,
-	    off_t dst_offset,
+
+static inline int
+iov_subset (struct iovec *orig, int orig_count,
+	    off_t src_offset, off_t dst_offset,
 	    struct iovec *new)
 {
-  int32_t new_count = 0;
-  int32_t i;
-  off_t offset = 0;
+	int    new_count = 0;
+	int    i;
+	off_t  offset = 0;
+	size_t start_offset = 0;
+	size_t end_offset = 0;
 
-  for (i=0; i<orig_count; i++) {
-    if ((offset + orig[i].iov_len >= src_offset) && 
-	(offset <= dst_offset)) {
-      if (new) {
-	size_t start_offset = 0, end_offset = orig[i].iov_len;
-	if (src_offset >= offset) {
-	  start_offset = (src_offset - offset);
-	}
-	if (dst_offset <= (offset + orig[i].iov_len)) {
-	  end_offset = (dst_offset - offset);
-	}
-	new[new_count].iov_base = orig[i].iov_base + start_offset;
-	new[new_count].iov_len = end_offset - start_offset;
-      }
-      new_count++;
-    }
-    offset += orig[i].iov_len;
-  }
 
-  return new_count;
+	for (i = 0; i < orig_count; i++) {
+		if ((offset + orig[i].iov_len < src_offset)
+		    || (offset > dst_offset)) {
+			goto not_subset;
+		}
+
+		if (!new) {
+			goto count_only;
+		}
+
+		start_offset = 0;
+		end_offset = orig[i].iov_len;
+
+		if (src_offset >= offset) {
+			start_offset = (src_offset - offset);
+		}
+
+		if (dst_offset <= (offset + orig[i].iov_len)) {
+			end_offset = (dst_offset - offset);
+		}
+
+		new[new_count].iov_base = orig[i].iov_base + start_offset;
+		new[new_count].iov_len = end_offset - start_offset;
+
+	count_only:
+		new_count++;
+
+	not_subset:
+		offset += orig[i].iov_len;
+	}
+
+	return new_count;
 }
+
 
 static inline void
-iov_unload (char *buf,
-	    const struct iovec *vector,
-	    int32_t count)
+iov_unload (char *buf, const struct iovec *vector, int count)
 {
-  int32_t i;
-  int32_t copied = 0;
+	int i;
+	int copied = 0;
 
-  for (i=0; i<count; i++) {
-    memcpy (buf + copied, vector[i].iov_base, vector[i].iov_len);
-    copied += vector[i].iov_len;
-  }
+	for (i = 0; i < count; i++) {
+		memcpy (buf + copied, vector[i].iov_base, vector[i].iov_len);
+		copied += vector[i].iov_len;
+	}
 }
-
-#define min(a,b) ((a)<(b)?(a):(b))
-#define max(a,b) ((a)>(b)?(a):(b))
-#define roof(a,b) ((((a)+(b)-1)/((b)?(b):1))*(b))
-#define floor(a,b) (((a)/((b)?(b):1))*(b))
 
 
 static inline void *
 memdup (const void *ptr, size_t size)
 {
-  void *newptr = malloc (size);
-  ERR_ABORT (newptr);
-  memcpy (newptr, ptr, size);
-  return newptr;
+	void *newptr = NULL;
+
+	newptr = MALLOC (size);
+	if (!newptr)
+		return NULL;
+
+	memcpy (newptr, ptr, size);
+	return newptr;
 }
+
 
 char *gf_trim (char *string);
 int gf_strsplit (const char *str, const char *delim, 

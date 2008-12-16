@@ -78,7 +78,7 @@ ib_verbs_new_post (ib_verbs_device_t *device, int32_t len)
 {
   ib_verbs_post_t *post;
 
-  post = (ib_verbs_post_t *) calloc (1, sizeof (*post));
+  post = (ib_verbs_post_t *) CALLOC (1, sizeof (*post));
   if (!post)
     return NULL;
 
@@ -406,7 +406,7 @@ ib_verbs_ioq_new (char *buf, int len, struct iovec *vector,
   ib_verbs_ioq_t *entry = NULL;
 
   /* TODO: use mem-pool */
-  entry = calloc (1, sizeof (*entry));
+  entry = CALLOC (1, sizeof (*entry));
 
   assert (count <= (MAX_IOVEC-2));
 
@@ -511,7 +511,7 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
   copy_from += sizeof (*header);
 
   if (size1) {
-    hdr = calloc (1, size1);
+    hdr = CALLOC (1, size1);
     memcpy (hdr, copy_from, size1);
     copy_from += size1;
     *hdr_p = hdr;
@@ -519,7 +519,7 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
   *hdrlen_p = size1;
 
   if (size2) {
-    buf = calloc (1, size2);
+    buf = CALLOC (1, size2);
     memcpy (buf, copy_from, size2);
     *buf_p = buf;
   }
@@ -625,7 +625,7 @@ ib_verbs_register_peer (ib_verbs_device_t *device,
     pthread_mutex_unlock (&qpreg->lock);
     return;
   }
-  ent = (struct _qpent *) calloc (1, sizeof (*ent));
+  ent = (struct _qpent *) CALLOC (1, sizeof (*ent));
   ERR_ABORT (ent);
   /* TODO: ref reg->peer */
   ent->peer = peer;
@@ -936,8 +936,6 @@ __tcp_rwv (transport_t *this, struct iovec *vector, int count,
 	      /* done for now */
 	      break;
 	    }
-	  if (ret > 0)
-		  total_bytes_xferd += ret;
 	}
       else
 	{
@@ -948,8 +946,6 @@ __tcp_rwv (transport_t *this, struct iovec *vector, int count,
 	      /* done for now */
 	      break;
 	    }
-	  if (ret > 0)
-		  total_bytes_rcvd += ret;
 	}
 
       if (ret == 0)
@@ -1346,7 +1342,7 @@ ib_verbs_get_device (transport_t *this,
       return NULL;
     }
 
-    trav = calloc (1, sizeof (*trav));
+    trav = CALLOC (1, sizeof (*trav));
     ERR_ABORT (trav);
     priv->device = trav;
 
@@ -1610,7 +1606,7 @@ ib_verbs_handshake_pollin (transport_t *this)
 	switch (priv->handshake.incoming.state) 
 	  {
 	  case IB_VERBS_HANDSHAKE_START:
-	    buf = priv->handshake.incoming.buf = calloc (1, 256);
+	    buf = priv->handshake.incoming.buf = CALLOC (1, 256);
 	    ib_verbs_fill_handshake_data (buf, &priv->handshake.incoming, priv);
 	    buf[0] = 0;
 	    priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_RECEIVING_DATA;
@@ -1763,7 +1759,7 @@ ib_verbs_handshake_pollout (transport_t *this)
 	switch (priv->handshake.outgoing.state) 
 	  {
 	  case IB_VERBS_HANDSHAKE_START:
-	    buf = priv->handshake.outgoing.buf = calloc (1, 256);
+	    buf = priv->handshake.outgoing.buf = CALLOC (1, 256);
 	    ib_verbs_fill_handshake_data (buf, &priv->handshake.outgoing, priv);
 	    priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_SENDING_DATA;
 	    break;
@@ -2001,11 +1997,9 @@ __tcp_nonblock (int fd)
 static int32_t
 ib_verbs_connect (struct transport *this)
 {
-  GF_ERROR_IF_NULL (this);
   dict_t *options = this->xl->options;
   
   ib_verbs_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
   
   int32_t ret = 0;
   gf_boolean_t non_blocking = 1;
@@ -2122,9 +2116,9 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
   if (!poll_in)
     return 0;
 
-  this = calloc (1, sizeof (transport_t));
+  this = CALLOC (1, sizeof (transport_t));
   ERR_ABORT (this);
-  priv = calloc (1, sizeof (ib_verbs_private_t));
+  priv = CALLOC (1, sizeof (ib_verbs_private_t));
   ERR_ABORT (priv);
   this->private = priv;
   /* Copy all the ib_verbs related values in priv, from trans_priv as other than QP, 
@@ -2271,7 +2265,7 @@ struct transport_ops tops = {
 int32_t
 init (transport_t *this)
 {
-  ib_verbs_private_t *priv = calloc (1, sizeof (*priv));
+  ib_verbs_private_t *priv = CALLOC (1, sizeof (*priv));
   this->private = priv;
   priv->sock = -1;
 

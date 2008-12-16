@@ -43,7 +43,7 @@ int main (int argc, char **argv)
 	int ret = 1;
 	int r = -1;
 
-	pl_inode_t *pinode = calloc (sizeof (pl_inode_t), 1);
+	pl_inode_t *pinode = CALLOC (sizeof (pl_inode_t), 1);
 	pthread_mutex_init (&pinode->dir_lock_mutex, NULL);
 	INIT_LIST_HEAD (&pinode->gf_dir_locks);
 

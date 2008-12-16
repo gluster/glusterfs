@@ -202,7 +202,7 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
 	unify_private_t *priv = this->private;
 	long index = 0;
 	unsigned long final = 0;
-	dir_entry_t *tmp = calloc (1, sizeof (dir_entry_t));
+	dir_entry_t *tmp = CALLOC (1, sizeof (dir_entry_t));
 	
 	local->sh_struct->entry_list[0] = tmp;
 	local->sh_struct->count_list[0] = count;
@@ -341,7 +341,7 @@ unify_sh_getdents_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0 && count > 0) {
 		/* There is some dentry found, just send the dentry to NS */
-		tmp = calloc (1, sizeof (dir_entry_t));
+		tmp = CALLOC (1, sizeof (dir_entry_t));
 		local->sh_struct->entry_list[index] = tmp;
 		local->sh_struct->count_list[index] = count;
 		if (entry) {
@@ -721,7 +721,7 @@ unify_bgsh_ns_getdents_cbk (call_frame_t *frame,
 	unify_private_t *priv = this->private;
 	long index = 0;
 	unsigned long final = 0;
-	dir_entry_t *tmp = calloc (1, sizeof (dir_entry_t));
+	dir_entry_t *tmp = CALLOC (1, sizeof (dir_entry_t));
 
 	local->sh_struct->entry_list[0] = tmp;
 	local->sh_struct->count_list[0] = count;
@@ -858,7 +858,7 @@ unify_bgsh_getdents_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0 && count > 0) {
 		/* There is some dentry found, just send the dentry to NS */
-		tmp = calloc (1, sizeof (dir_entry_t));
+		tmp = CALLOC (1, sizeof (dir_entry_t));
 		local->sh_struct->entry_list[index] = tmp;
 		local->sh_struct->count_list[index] = count;
 		if (entry) {

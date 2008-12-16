@@ -64,7 +64,7 @@ ra_page_create (ra_file_t *file, off_t offset)
 		page = page->next;
 
 	if (page == &file->pages || page->offset != rounded_offset) {
-		newpage = calloc (1, sizeof (*newpage));
+		newpage = CALLOC (1, sizeof (*newpage));
 		if (!newpage)
 			return NULL;
 
@@ -90,7 +90,7 @@ ra_wait_on_page (ra_page_t *page, call_frame_t *frame)
 
 
 	local = frame->local;
-	waitq = calloc (1, sizeof (*waitq));
+	waitq = CALLOC (1, sizeof (*waitq));
 	if (!waitq) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"out of memory :(");
@@ -208,7 +208,7 @@ ra_page_fault (ra_file_t *file,
 	ra_local_t   *fault_local = NULL;
     
 	fault_frame = copy_frame (frame);
-	fault_local = calloc (1, sizeof (ra_local_t));
+	fault_local = CALLOC (1, sizeof (ra_local_t));
 
 	fault_frame->local = fault_local;
 	fault_local->pending_offset = offset;
@@ -260,7 +260,7 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 			fill = fill->next;
 		}
 
-		new = calloc (1, sizeof (*new));
+		new = CALLOC (1, sizeof (*new));
 
 		new->offset = page->offset;
 		new->size = copy_size;
@@ -268,7 +268,7 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 		new->count = iov_subset (page->vector, page->count,
 					 src_offset, src_offset+copy_size,
 					 NULL);
-		new->vector = calloc (new->count, sizeof (struct iovec));
+		new->vector = CALLOC (new->count, sizeof (struct iovec));
 
 		new->count = iov_subset (page->vector, page->count,
 					 src_offset, src_offset+copy_size,
@@ -310,7 +310,7 @@ ra_frame_unwind (call_frame_t *frame)
 		fill = fill->next;
 	}
 
-	vector = calloc (count, sizeof (*vector));
+	vector = CALLOC (count, sizeof (*vector));
 
 	fill = local->fill.next;
 

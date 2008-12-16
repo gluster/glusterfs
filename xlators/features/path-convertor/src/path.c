@@ -63,7 +63,7 @@ name_this_to_that (xlator_t *xl, const char *path, const char *name)
 
 	if (priv->end_off && (total_len > priv->end_off)) {
 		j = priv->start_off;
-		tmp_name = calloc (1, (total_len + ZR_FILE_CONTENT_STRLEN));
+		tmp_name = CALLOC (1, (total_len + ZR_FILE_CONTENT_STRLEN));
 		ERR_ABORT (tmp_name);
 
 		/* Get the complete path for the file first */
@@ -104,7 +104,7 @@ path_this_to_that (xlator_t *xl, const char *path)
 	int32_t i = 0, j = 0;
 
 	if (priv->end_off && (path_len > priv->start_off)) {
-		priv_path = calloc (1, path_len);
+		priv_path = CALLOC (1, path_len);
 		ERR_ABORT (priv_path);
 
 		if (priv->start_off && (path_len > priv->start_off))
@@ -1121,7 +1121,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
   
-	priv = calloc (1, sizeof (*priv));
+	priv = CALLOC (1, sizeof (*priv));
 	ERR_ABORT (priv);
 	if (dict_get (options, "start-offset")) {
 		priv->start_off = data_to_int32 (dict_get (options, 
@@ -1134,7 +1134,7 @@ init (xlator_t *this)
 
 	if (dict_get (options, "regex")) {
 		int32_t ret = 0;
-		priv->preg = calloc (1, sizeof (regex_t));
+		priv->preg = CALLOC (1, sizeof (regex_t));
 		ERR_ABORT (priv->preg);
 		ret = regcomp (priv->preg, 
 			       data_to_str (dict_get (options, "regex")), 
