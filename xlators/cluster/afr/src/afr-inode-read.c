@@ -201,7 +201,8 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
-		buf->st_ino = local->cont.stat.ino;
+		if (op_ret != -1)
+			buf->st_ino = local->cont.stat.ino;
 
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
@@ -316,7 +317,8 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
-		buf->st_ino = local->cont.fstat.ino;
+		if (op_ret != -1)
+			buf->st_ino = local->cont.fstat.ino;
 
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
