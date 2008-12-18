@@ -65,7 +65,7 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 	   TODO: cleanup sh->* 
 	*/
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_DEBUG,
 		"self heal of %s completed",
 		local->loc.path);
 
@@ -602,7 +602,7 @@ afr_sh_entry_expunge_purge (call_frame_t *expunge_frame, xlator_t *this,
 	priv = this->private;
 	expunge_local = expunge_frame->local;
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_DEBUG,
 		"looking up %s on %s",
 		expunge_local->loc.path, priv->children[active_src]->name);
 	
@@ -835,7 +835,7 @@ afr_sh_entry_expunge_all (call_frame_t *frame, xlator_t *this)
 	sh->offset = 0;
 
 	if (sh->source == -1) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no active sources for %s to expunge entries",
 			local->loc.path);
 		goto out;
@@ -853,7 +853,7 @@ afr_sh_entry_expunge_all (call_frame_t *frame, xlator_t *this)
 		goto out;
 	}
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_DEBUG,
 		"expunging entries of %s on %s to other sinks",
 		local->loc.path, priv->children[active_src]->name);
 
@@ -1615,7 +1615,7 @@ afr_sh_entry_impunge_all (call_frame_t *frame, xlator_t *this)
 		return 0;
 	}
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_DEBUG,
 		"impunging entries of %s on %s to other sinks",
 		local->loc.path, priv->children[active_src]->name);
 
@@ -1791,12 +1791,13 @@ afr_sh_entry_sync_prepare (call_frame_t *frame, xlator_t *this)
 
 	if (source != -1)
 		gf_log (this->name, GF_LOG_DEBUG,
-			"syncing data of %s from subvolume %s to %d active sinks",
+			"syncing %s from subvolume %s to %d active sinks",
 			local->loc.path, priv->children[source]->name,
 			active_sinks);
 	else
-		gf_log (this->name, GF_LOG_WARNING,
-			"no active sources for %s found. merging all entries as a conservative decision",
+		gf_log (this->name, GF_LOG_DEBUG,
+			"no active sources for %s found. "
+			"merging all entries as a conservative decision",
 			local->loc.path);
 
 	afr_sh_entry_open (frame, this);

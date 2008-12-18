@@ -92,7 +92,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 			afr_self_heal_entry (frame, this);
 			return 0;
 		}
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"completed self heal of %s",
 			local->loc.path);
 
@@ -475,7 +475,7 @@ afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
 	sh->success[source] = 1;
 
 	if (active_sinks == 0) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no active sinks for performing self-heal on file %s",
 			local->loc.path);
 		afr_sh_metadata_finish (frame, this);
@@ -540,7 +540,10 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 
 	if (nsources == 0) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"Unable to resolve conflicting metadata of %s. Please resolve manually by fixing the permissions/ownership of %s on your subvolumes",
+			"Unable to resolve conflicting metadata of %s. "
+			"Please resolve manually by fixing the "
+			"permissions/ownership of %s on your subvolumes. "
+			"You can also consider 'option favorite-child <>'",
 			local->loc.path, local->loc.path);
 
 		local->govinda_gOvinda = 1;

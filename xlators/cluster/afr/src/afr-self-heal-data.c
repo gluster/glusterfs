@@ -65,7 +65,7 @@ afr_sh_data_done (call_frame_t *frame, xlator_t *this)
 	   TODO: cleanup sh->* 
 	 */
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_DEBUG,
 		"self heal of %s completed",
 		local->loc.path);
 
@@ -169,7 +169,6 @@ afr_sh_data_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int           call_count = 0;
 	int           child_index = (long) cookie;
 
-	/* TODO: what if lock fails? */
 	
 	local = frame->local;
 
@@ -706,7 +705,7 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
 	sh->success[source] = 1;
 
 	if (active_sinks == 0) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no active sinks for performing self-heal on file %s",
 			local->loc.path);
 		afr_sh_data_finish (frame, this);
@@ -772,7 +771,10 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
 	if (nsources == 0) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"Unable to resolve conflicting data of %s. Please resolve manually by deleting the file %s from all but the preferred subvolume",
+			"Unable to resolve conflicting data of %s. "
+			"Please resolve manually by deleting the file %s "
+			"from all but the preferred subvolume. "
+			"Please consider 'option favorite-child <>'",
 			local->loc.path, local->loc.path);
 
 		local->govinda_gOvinda = 1;

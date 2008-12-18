@@ -997,7 +997,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 
 	frame->root->pid = frame->root->unique;
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_DEBUG,
 		"performing self heal on %s (metadata=%d data=%d entry=%d)",
 		local->loc.path,
 		local->need_metadata_self_heal,
