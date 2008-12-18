@@ -99,7 +99,7 @@ this_ino_set (inode_t *inode, xlator_t *this, ino_t ino)
 	if (old_ino != ino) {
 		/* TODO: This log doesn't make sense */
 		if (old_ino)
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"inode number(%"PRId64") changed for "
 				"inode(%p)",
 				old_ino, inode);
@@ -128,11 +128,8 @@ this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
 	GF_VALIDATE_OR_GOTO (this->name, remote_fd, out);
 
 	dict_ret = dict_get_int64 (file->ctx, this->name, remote_fd);
-	/* TODO: This log doesn't make sense */
+
 	if (dict_ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"failed to get remote fd number for fd_t(%p)",
-			file);
 		ret = -1;
 	}
 out:
@@ -1451,9 +1448,7 @@ client_readv (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
-		gf_log (this->name,
-			GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd for fd_t (%p) "
 			"returning EBADFD",
 			fd);
@@ -1528,8 +1523,7 @@ client_writev (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name,
-			GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD",
 			fd);
@@ -1655,7 +1649,7 @@ client_flush (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD",
 			fd);
@@ -1725,7 +1719,7 @@ client_fsync (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
 		STACK_UNWIND(frame, -1, EBADFD);
@@ -1875,7 +1869,7 @@ client_fxattrop (call_frame_t *frame,
 		ret = this_fd_get (fd, this, &remote_fd);
 		if (ret == -1) {
 			/* TODO: This log doesn't make sense */
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to get remote fd from fd_t(%p). "
 				"returning EBADFD", fd);
 			goto unwind;
@@ -2227,7 +2221,7 @@ client_getdents (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -2292,7 +2286,7 @@ client_readdir (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
 		goto unwind;
@@ -2362,7 +2356,7 @@ client_fsyncdir (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
 		goto unwind;
@@ -2489,7 +2483,7 @@ client_ftruncate (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -2555,7 +2549,7 @@ client_fstat (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD",
 			fd);
@@ -2628,7 +2622,7 @@ client_lk (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD",
 			fd);
@@ -2820,7 +2814,7 @@ client_finodelk (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
 		STACK_UNWIND(frame, -1, EBADFD);
@@ -2973,7 +2967,7 @@ client_fentrylk (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
 		STACK_UNWIND(frame, -1, EBADFD);
@@ -3124,7 +3118,7 @@ client_fchmod (call_frame_t *frame,
 	if (ret == -1) {
 		op_errno = EBADFD;
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
 		goto unwind;
@@ -3196,7 +3190,7 @@ client_fchown (call_frame_t *frame,
 	if (ret == -1) {
 		op_errno = EBADFD;
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
 		goto unwind;
@@ -3272,7 +3266,7 @@ client_setdents (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p). "
 			"returning EBADFD", fd);
 		op_errno = EBADFD;
@@ -3479,7 +3473,7 @@ client_releasedir (xlator_t *this,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1){
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p).", fd);
 		goto out;
 	}
@@ -3547,7 +3541,7 @@ client_release (xlator_t *this,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		/* TODO: This log doesn't make sense */
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get remote fd from fd_t(%p).", fd);
 		goto out;
 	}
