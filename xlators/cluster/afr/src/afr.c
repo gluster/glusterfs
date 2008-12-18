@@ -1875,7 +1875,7 @@ init (xlator_t *this)
 	/* Default values */
 
 	priv->data_self_heal     = 1;
-	priv->metadata_self_heal = 0;
+	priv->metadata_self_heal = 1;
 	priv->entry_self_heal    = 1;
 
 	dict_ret = dict_get_str (this->options, "data-self-heal", &self_heal);
@@ -1902,7 +1902,7 @@ init (xlator_t *this)
 	/* Change log options */
 
 	priv->data_change_log     = 1;
-	priv->metadata_change_log = 1;
+	priv->metadata_change_log = 0;
 	priv->entry_change_log    = 1;
 
 	dict_ret = dict_get_str (this->options, "data-change-log", &change_log);
@@ -1913,10 +1913,10 @@ init (xlator_t *this)
 	}
 
 	dict_ret = dict_get_str (this->options, "metadata-change-log", &change_log);
-	if ((dict_ret == 0) && !strcasecmp (change_log, "off")) {
+	if ((dict_ret == 0) && !strcasecmp (change_log, "on")) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"metadata change log turned off");
-		priv->metadata_change_log = 0;
+		priv->metadata_change_log = 1;
 	}
 
 	dict_ret = dict_get_str (this->options, "entry-change-log", &change_log);
@@ -1927,6 +1927,10 @@ init (xlator_t *this)
 	}
 
 	/* Locking options */
+
+	priv->data_lock_server_count = 1;
+	priv->metadata_lock_server_count = 0;
+	priv->entry_lock_server_count = 1;
 
 	dict_ret = dict_get_int32 (this->options, "data-lock-server-count", 
 				   &lock_server_count);
@@ -1940,8 +1944,6 @@ init (xlator_t *this)
 				no_lock_servers_warning_str);
 
 		priv->data_lock_server_count = lock_server_count;
-	} else {
-		priv->data_lock_server_count = 1;
 	}
 
 
@@ -1952,8 +1954,6 @@ init (xlator_t *this)
 			"setting metadata lock server count to %d",
 			lock_server_count);
 		priv->metadata_lock_server_count = lock_server_count;
-	} else {
-		priv->metadata_lock_server_count = 0;
 	}
 
 
@@ -1965,8 +1965,6 @@ init (xlator_t *this)
 			lock_server_count);
 
 		priv->entry_lock_server_count = lock_server_count;
-	} else {
-		priv->entry_lock_server_count = 1;
 	}
 
 
@@ -2042,56 +2040,56 @@ fini (xlator_t *this)
 
 
 struct xlator_fops fops = {
-  .lookup      = afr_lookup,
-  .open        = afr_open,
-  .lk          = afr_lk,
-  .flush       = afr_flush,
-  .statfs      = afr_statfs,
-  .fsync       = afr_fsync,
-  .fsyncdir    = afr_fsyncdir,
-  .xattrop     = afr_xattrop,
-  .fxattrop    = afr_fxattrop,
-  .inodelk     = afr_inodelk,
-  .finodelk    = afr_finodelk,
-  .entrylk     = afr_entrylk,
-  .fentrylk    = afr_fentrylk,
-  .checksum    = afr_checksum,
+	.lookup      = afr_lookup,
+	.open        = afr_open,
+	.lk          = afr_lk,
+	.flush       = afr_flush,
+	.statfs      = afr_statfs,
+	.fsync       = afr_fsync,
+	.fsyncdir    = afr_fsyncdir,
+	.xattrop     = afr_xattrop,
+	.fxattrop    = afr_fxattrop,
+	.inodelk     = afr_inodelk,
+	.finodelk    = afr_finodelk,
+	.entrylk     = afr_entrylk,
+	.fentrylk    = afr_fentrylk,
+	.checksum    = afr_checksum,
 
-  /* inode read */
-  .access      = afr_access,
-  .stat        = afr_stat,
-  .fstat       = afr_fstat,
-  .readlink    = afr_readlink,
-  .getxattr    = afr_getxattr,
-  .readv       = afr_readv,
+	/* inode read */
+	.access      = afr_access,
+	.stat        = afr_stat,
+	.fstat       = afr_fstat,
+	.readlink    = afr_readlink,
+	.getxattr    = afr_getxattr,
+	.readv       = afr_readv,
 
-  /* inode write */
-  .chmod       = afr_chmod,
-  .chown       = afr_chown,
-  .fchmod      = afr_fchmod,
-  .fchown      = afr_fchown,
-  .writev      = afr_writev,
-  .truncate    = afr_truncate,
-  .ftruncate   = afr_ftruncate,
-  .utimens     = afr_utimens,
-  .setxattr    = afr_setxattr,
-  .removexattr = afr_removexattr,
+	/* inode write */
+	.chmod       = afr_chmod,
+	.chown       = afr_chown,
+	.fchmod      = afr_fchmod,
+	.fchown      = afr_fchown,
+	.writev      = afr_writev,
+	.truncate    = afr_truncate,
+	.ftruncate   = afr_ftruncate,
+	.utimens     = afr_utimens,
+	.setxattr    = afr_setxattr,
+	.removexattr = afr_removexattr,
 
-  /* dir read */
-  .opendir     = afr_opendir,
-  .readdir     = afr_readdir,
-  .getdents    = afr_getdents,
+	/* dir read */
+	.opendir     = afr_opendir,
+	.readdir     = afr_readdir,
+	.getdents    = afr_getdents,
 
-  /* dir write */
-  .create      = afr_create,
-  .mknod       = afr_mknod,
-  .mkdir       = afr_mkdir,
-  .unlink      = afr_unlink,
-  .rmdir       = afr_rmdir,
-  .link        = afr_link,
-  .symlink     = afr_symlink,
-  .rename      = afr_rename,
-  .setdents    = afr_setdents,
+	/* dir write */
+	.create      = afr_create,
+	.mknod       = afr_mknod,
+	.mkdir       = afr_mkdir,
+	.unlink      = afr_unlink,
+	.rmdir       = afr_rmdir,
+	.link        = afr_link,
+	.symlink     = afr_symlink,
+	.rename      = afr_rename,
+	.setdents    = afr_setdents,
 };
 
 
