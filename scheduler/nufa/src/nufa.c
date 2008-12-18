@@ -66,19 +66,19 @@ nufa_init (xlator_t *xl)
 	nufa_buf = CALLOC (1, sizeof (struct nufa_struct));
 	ERR_ABORT (nufa_buf);
 
-	data = dict_get (xl->options, "nufa.limits.min-free-disk");
+	data = dict_get (xl->options, "scheduler.limits.min-free-disk");
 	if (data) {
 		if (gf_string2percent (data->data, 
 				       &nufa_buf->min_free_disk) != 0) {
 			gf_log ("nufa", GF_LOG_ERROR, 
 				"invalid number format \"%s\" of "
-				"\"option nufa.limits.min-free-disk\"", 
+				"\"option scheduler.limits.min-free-disk\"", 
 				data->data);
 			return -1;
 		}
 		if (nufa_buf->min_free_disk >= 100) {
 			gf_log ("nufa", GF_LOG_ERROR,
-				"check the \"option nufa.limits.min-free-disk"
+				"check \"option scheduler.limits.min-free-disk"
 				"\", it should be percentage value");
 			return -1;
 		}
@@ -88,17 +88,17 @@ nufa_init (xlator_t *xl)
 			"defaulting it to 15%%");
 		nufa_buf->min_free_disk = NUFA_LIMITS_MIN_FREE_DISK_DEFAULT;
 	}
-	data = dict_get (xl->options, "nufa.refresh-interval");
+	data = dict_get (xl->options, "scheduler.refresh-interval");
 	if (data && (gf_string2time (data->data, 
 				    &nufa_buf->refresh_interval) != 0)) {
 		gf_log ("nufa", GF_LOG_ERROR, 
 			"invalid number format \"%s\" of "
-			"\"option nufa.refresh-interval\"", 
+			"\"option scheduler.refresh-interval\"", 
 			data->data);
 		return -1;
 	} else {
 		gf_log ("nufa", GF_LOG_WARNING, 
-			"No option for nufa.refresh-interval given, "
+			"No option for scheduler.refresh-interval given, "
 			"defaulting it to 30");
 		nufa_buf->refresh_interval = NUFA_REFRESH_INTERVAL_DEFAULT;
 	}
@@ -116,11 +116,11 @@ nufa_init (xlator_t *xl)
 	ERR_ABORT (nufa_buf->array);
 	trav_xl = xl->children;
 	
-	local_name = dict_get (xl->options, "nufa.local-volume-name");
+	local_name = dict_get (xl->options, "scheduler.local-volume-name");
 	if (!local_name) {
 		/* Error */
 		gf_log ("nufa", GF_LOG_ERROR, 
-			"No 'local-volume-name' option given in spec file");
+			"No 'local-volume-name' option given in volume file");
 		FREE (nufa_buf->array);
 		FREE (nufa_buf->local_array);
 		FREE (nufa_buf);
@@ -164,7 +164,7 @@ nufa_init (xlator_t *xl)
 				/* entry for 'local-volume-name' is wrong, 
 				   not present in subvolumes */
 				gf_log ("nufa", GF_LOG_ERROR, 
-					"option 'nufa.local-volume-name' "
+					"option 'scheduler.local-volume-name' "
 					"%s is wrong", child);
 				FREE (nufa_buf->array);
 				FREE (nufa_buf->local_array);
@@ -386,8 +386,18 @@ struct sched_ops sched = {
 };
 
 struct volume_options options[] = {
-	{ .key   = { "nufa.*" },  
-	  .type  = GF_OPTION_TYPE_ANY 
+	{ .key   = { "scheduler.refresh-interval", 
+		     "nufa.refresh-interval" },  
+	  .type  = GF_OPTION_TYPE_TIME
 	},
+	{ .key   = { "scheduler.limits.min-free-disk", 
+		     "nufa.limits.min-free-disk" },  
+	  .type  = GF_OPTION_TYPE_PERCENT
+	},
+	{ .key   = { "scheduler.local-volume-name",
+		     "nufa.local-volume-name" },
+	  .type  = GF_OPTION_TYPE_XLATOR
+	},	
 	{ .key = {NULL} }
 };
+

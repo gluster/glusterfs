@@ -1312,15 +1312,32 @@ init (transport_t *this)
 }
 
 struct volume_options options[] = {
- 	{ .key   = {"remote-port", "transport.socket.remote-port"}, 
+ 	{ .key   = {"remote-port", 
+		    "transport.remote-port",
+		    "transport.socket.remote-port"}, 
+	  .type  = GF_OPTION_TYPE_INT 
+	},
+ 	{ .key   = {"transport.socket.listen-port", "listen-port"}, 
+	  .type  = GF_OPTION_TYPE_INT 
+	},
+ 	{ .key   = {"transport.socket.bind-address", "bind-address" }, 
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
- 	{ .key   = {"listen-port", "transport.socket.listen-port"}, 
+ 	{ .key   = {"transport.socket.connect-path", "connect-path"}, 
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
-/* 	{ .key   = {"transport.socket.*"}, 
+ 	{ .key   = {"transport.socket.bind-path", "bind-path"}, 
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
-*/
+ 	{ .key   = {"transport.socket.listen-path", "listen-path"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+ 	{ .key   = { "transport.address-family",
+		     "address-family" }, 
+	  .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
+		    "unix", "inet-sdp" },
+	  .type  = GF_OPTION_TYPE_STR 
+	},
+
 	{ .key = {NULL} }
 };

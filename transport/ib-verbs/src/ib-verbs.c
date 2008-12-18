@@ -1233,34 +1233,34 @@ ib_verbs_options_init (transport_t *this)
   options->recv_count = 16;
 
   temp = dict_get (this->xl->options,
-                   "ib-verbs-work-request-send-count");
+                   "transport.ib-verbs.work-request-send-count");
   if (temp)
     options->send_count = data_to_int32 (temp);
 
   temp = dict_get (this->xl->options,
-                   "ib-verbs-work-request-recv-count");
+                   "transport.ib-verbs.work-request-recv-count");
   if (temp)
     options->recv_count = data_to_int32 (temp);
 
   temp = dict_get (this->xl->options,
-                   "ib-verbs-work-request-send-size");
+                   "transport.ib-verbs.work-request-send-size");
   if (temp)
     options->send_size = data_to_int32 (temp);
 
   temp = dict_get (this->xl->options,
-                   "ib-verbs-work-request-recv-size");
+                   "transport.ib-verbs.work-request-recv-size");
   if (temp)
     options->recv_size = data_to_int32 (temp);
 
   options->port = 1;
   temp = dict_get (this->xl->options,
-                   "ib-verbs-port");
+                   "transport.ib-verbs.port");
   if (temp)
     options->port = data_to_uint64 (temp);
 
   options->mtu = mtu = IBV_MTU_2048;
   temp = dict_get (this->xl->options,
-                   "ib-verbs-mtu");
+                   "transport.ib-verbs.mtu");
   if (temp)
     mtu = data_to_int32 (temp);
   switch (mtu) {
@@ -1291,7 +1291,7 @@ ib_verbs_options_init (transport_t *this)
   }
 
   temp = dict_get (this->xl->options,
-                   "ib-verbs-device-name");
+                   "transport.ib-verbs.device-name");
   if (temp)
     options->device_name = strdup (temp->data);
 
@@ -2301,18 +2301,60 @@ fini (struct transport *this)
 
 /* TODO: expand each option */
 struct volume_options options[] = {
- 	{ .key   = {"ib-verbs-*"}, 
+ 	{ .key   = {"transport.ib-verbs.port",
+		    "ib-verbs-port"}, 
+	  .type  = GF_OPTION_TYPE_INT,
+	  .min   = 1,
+	  .max   = 4,
+	  .description = "check the option by 'ibv_devinfo'"
+	},
+ 	{ .key   = {"transport.ib-verbs.mtu",
+		    "ib-verbs-mtu"}, 
+	  .type  = GF_OPTION_TYPE_INT,
+	},
+ 	{ .key   = {"transport.ib-verbs.device-name",
+		    "ib-verbs-device-name"}, 
+	  .type  = GF_OPTION_TYPE_ANY,
+	  .description = "check by 'ibv_devinfo'"
+	},
+ 	{ .key   = {"transport.ib-verbs.work-request-send-size",
+		    "ib-verbs-work-request-send-size"}, 
+	  .type  = GF_OPTION_TYPE_INT,
+	},
+ 	{ .key   = {"transport.ib-verbs.work-request-recv-size",
+		    "ib-verbs-work-request-recv-size"}, 
+	  .type  = GF_OPTION_TYPE_INT,
+	},
+ 	{ .key   = {"transport.ib-verbs.work-request-send-count",
+		    "ib-verbs-work-request-send-count"}, 
+	  .type  = GF_OPTION_TYPE_INT,
+	},
+ 	{ .key   = {"transport.ib-verbs.work-request-recv-count",
+		    "ib-verbs-work-request-recv-count"}, 
+	  .type  = GF_OPTION_TYPE_INT,
+	},
+ 	{ .key   = {"remote-port", 
+		    "transport.remote-port",
+		    "transport.ib-verbs.remote-port"}, 
+	  .type  = GF_OPTION_TYPE_INT 
+	},
+ 	{ .key   = {"transport.ib-verbs.listen-port"}, 
+	  .type  = GF_OPTION_TYPE_INT 
+	},
+ 	{ .key   = {"transport.ib-verbs.connect-path", "connect-path"}, 
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
- 	{ .key   = {"remote-port", "transport.ib-verbs.remote-port"}, 
+ 	{ .key   = {"transport.ib-verbs.bind-path", "bind-path"}, 
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
- 	{ .key   = {"listen-port", "transport.ib-verbs.listen-port"}, 
+ 	{ .key   = {"transport.ib-verbs.listen-path", "listen-path"}, 
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
-/* 	{ .key   = {"transport.ib-verbs.*"}, 
-	  .type  = GF_OPTION_TYPE_ANY 
+ 	{ .key   = {"transport.address-family",
+		    "address-family"}, 
+	  .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
+		    "unix", "inet-sdp" },
+	  .type  = GF_OPTION_TYPE_STR 
 	},
-*/
 	{ .key = {NULL} }
 };

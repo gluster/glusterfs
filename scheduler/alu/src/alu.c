@@ -173,8 +173,8 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 				if (gf_string2bytesize (exit_fn->data, &alu_sched->exit_limit.disk_usage) != 0)	{
 					gf_log (xl->name, GF_LOG_ERROR, 
 						"invalid number format \"%s\" "
-						"of \"option alu.disk-usage."
-						"exit-threshold\"", 
+						"of \"option scheduler.alu."
+						"disk-usage.exit-threshold\"", 
 						exit_fn->data);
 					return -1;
 				}
@@ -203,14 +203,15 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 			ERR_ABORT (_threshold_fn);
 			_threshold_fn->diff_value = get_max_diff_write_usage;
 			_threshold_fn->sched_value = get_stats_write_usage;
-			entry_fn = dict_get (xl->options, "alu.write-usage.entry-threshold");
+			entry_fn = dict_get (xl->options, 
+					     "scheduler.alu.write-usage.entry-threshold");
 			if (entry_fn) {
-				if (gf_string2uint64 (entry_fn->data, 
-						      &alu_sched->entry_limit.write_usage) != 0) {
+				if (gf_string2bytesize (entry_fn->data, 
+							&alu_sched->entry_limit.write_usage) != 0) {
 					gf_log (xl->name, GF_LOG_ERROR, 
 						"invalid number format \"%s\" "
-						"of \"option alu.write-usage."
-						"entry-threshold\"", 
+						"of option scheduler.alu."
+						"write-usage.entry-threshold", 
 						entry_fn->data);
 					return -1;
 				}
@@ -218,14 +219,15 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 				alu_sched->entry_limit.write_usage = ALU_WRITE_USAGE_ENTRY_THRESHOLD_DEFAULT;
 			}
 			_threshold_fn->entry_value = get_stats_write_usage;
-			exit_fn = dict_get (xl->options, "alu.write-usage.exit-threshold");
+			exit_fn = dict_get (xl->options, 
+					    "scheduler.alu.write-usage.exit-threshold");
 			if (exit_fn) {
-				if (gf_string2uint64 (exit_fn->data, 
-						      &alu_sched->exit_limit.write_usage) != 0) {
+				if (gf_string2bytesize (exit_fn->data, 
+							&alu_sched->exit_limit.write_usage) != 0) {
 					gf_log (xl->name, GF_LOG_ERROR, 
 						"invalid number format \"%s\""
-						" of \"option alu.write-usage."
-						"exit-threshold\"", 
+						" of \"option scheduler.alu."
+						"write-usage.exit-threshold\"",
 						exit_fn->data);
 					return -1;
 				}
@@ -254,10 +256,11 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 			ERR_ABORT (_threshold_fn);
 			_threshold_fn->diff_value = get_max_diff_read_usage;
 			_threshold_fn->sched_value = get_stats_read_usage;
-			entry_fn = dict_get (xl->options, "alu.read-usage.entry-threshold");
+			entry_fn = dict_get (xl->options, 
+					     "scheduler.alu.read-usage.entry-threshold");
 			if (entry_fn) {
-				if (gf_string2uint64 (entry_fn->data, 
-						      &alu_sched->entry_limit.read_usage) != 0) {
+				if (gf_string2bytesize (entry_fn->data, 
+							&alu_sched->entry_limit.read_usage) != 0) {
 					gf_log (xl->name, 
 						GF_LOG_ERROR, 
 						"invalid number format \"%s\" "
@@ -270,14 +273,17 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 				alu_sched->entry_limit.read_usage = ALU_READ_USAGE_ENTRY_THRESHOLD_DEFAULT;
 			}
 			_threshold_fn->entry_value = get_stats_read_usage;
-			exit_fn = dict_get (xl->options, "alu.read-usage.exit-threshold");
+			exit_fn = dict_get (xl->options, 
+					    "scheduler.alu.read-usage.exit-threshold");
 			if (exit_fn)
 			{
-				if (gf_string2uint64 (exit_fn->data, 
-						      &alu_sched->exit_limit.read_usage) != 0)
+				if (gf_string2bytesize (exit_fn->data, 
+							&alu_sched->exit_limit.read_usage) != 0)
 				{
 					gf_log ("alu", GF_LOG_ERROR, 
-						"invalid number format \"%s\" of \"option alu.read-usage.exit-threshold\"", 
+						"invalid number format \"%s\" "
+						"of \"option scheduler.alu."
+						"read-usage.exit-threshold\"", 
 						exit_fn->data);
 					return -1;
 				}
@@ -297,8 +303,8 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 				}
 				tmp_threshold->next = _threshold_fn;
 			}
-			gf_log ("alu",
-				GF_LOG_DEBUG, "alu_init: = %"PRId64",%"PRId64"", 
+			gf_log ("alu", GF_LOG_DEBUG, 
+				"alu_init: = %"PRId64",%"PRId64"", 
 				alu_sched->entry_limit.read_usage, 
 				alu_sched->exit_limit.read_usage);
 			
@@ -309,16 +315,17 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 			ERR_ABORT (_threshold_fn);
 			_threshold_fn->diff_value = get_max_diff_file_usage;
 			_threshold_fn->sched_value = get_stats_file_usage;
-			entry_fn = dict_get (xl->options, "alu.open-files-usage.entry-threshold");
-			if (entry_fn)
-			{
+			entry_fn = dict_get (xl->options, 
+					     "scheduler.alu.open-files-usage.entry-threshold");
+			if (entry_fn) {
 				if (gf_string2uint64 (entry_fn->data, 
 						      &alu_sched->entry_limit.nr_files) != 0)
 				{
-					gf_log ("alu", 
-						GF_LOG_ERROR, 
-						"invalid number format \"%s\" of \"option alu.open-files-usage.entry-threshold\"", 
-						entry_fn->data);
+					gf_log ("alu", GF_LOG_ERROR, 
+						"invalid number format \"%s\" "
+						"of \"option scheduler.alu."
+						"open-files-usage.entry-"
+						"threshold\"", entry_fn->data);
 					return -1;
 				}
 			}
@@ -327,16 +334,18 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 				alu_sched->entry_limit.nr_files = ALU_OPEN_FILES_USAGE_ENTRY_THRESHOLD_DEFAULT;
 			}
 			_threshold_fn->entry_value = get_stats_file_usage;
-			exit_fn = dict_get (xl->options, "alu.open-files-usage.exit-threshold");
+			exit_fn = dict_get (xl->options, 
+					    "scheduler.alu.open-files-usage.exit-threshold");
 			if (exit_fn)
 			{
-				if (gf_string2uint64_base10 (exit_fn->data, 
-							     &alu_sched->exit_limit.nr_files) != 0)
+				if (gf_string2uint64 (exit_fn->data, 
+						      &alu_sched->exit_limit.nr_files) != 0)
 				{
-					gf_log ("alu", 
-						GF_LOG_ERROR, 
-						"invalid number format \"%s\" of \"option alu.open-files-usage.exit-threshold\"", 
-						exit_fn->data);
+					gf_log ("alu", GF_LOG_ERROR, 
+						"invalid number format \"%s\" "
+						"of \"option scheduler.alu."
+						"open-files-usage.exit-"
+						"threshold\"", exit_fn->data);
 					return -1;
 				}
 			}
@@ -355,7 +364,8 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 				}
 				tmp_threshold->next = _threshold_fn;
 			}
-			gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: = %"PRIu64",%"PRIu64"", 
+			gf_log ("alu", GF_LOG_DEBUG, 
+				"alu.c->alu_init: = %"PRIu64",%"PRIu64"", 
 				alu_sched->entry_limit.nr_files, 
 				alu_sched->exit_limit.nr_files);
 			
@@ -366,18 +376,20 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 			ERR_ABORT (_threshold_fn);
 			_threshold_fn->diff_value = get_max_diff_disk_speed;
 			_threshold_fn->sched_value = get_stats_disk_speed;
-			entry_fn = dict_get (xl->options, "alu.disk-speed-usage.entry-threshold");
+			entry_fn = dict_get (xl->options, 
+					     "scheduler.alu.disk-speed-usage.entry-threshold");
 			if (entry_fn) {
 				gf_log ("alu", GF_LOG_DEBUG,
-					"alu_init: entry-threshold is given for disk-speed, "
-					"which is constant");
+					"entry-threshold is given, "
+					"value is constant");
 			}
 			_threshold_fn->entry_value = NULL;
-			exit_fn = dict_get (xl->options, "alu.disk-speed-usage.exit-threshold");
+			exit_fn = dict_get (xl->options, 
+					    "scheduler.alu.disk-speed-usage.exit-threshold");
 			if (exit_fn) {
 				gf_log ("alu", GF_LOG_DEBUG,
-					"alu_init: exit-threshold is given for disk-speed, "
-					"which is constant");
+					"exit-threshold is given, "
+					"value is constant");
 			}
 			_threshold_fn->exit_value = NULL;
 			tmp_threshold = alu_sched->threshold_fn;
@@ -393,7 +405,7 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 			
 		} else {
 			gf_log ("alu", GF_LOG_DEBUG,
-				"alu_init: %s, unknown option provided to scheduler",
+				"%s, unknown option provided to scheduler",
 				order_str);
 		}
 		order_str = strtok_r (NULL, ":", &tmp_str);
@@ -406,6 +418,10 @@ static int32_t
 alu_init (xlator_t *xl)
 {
 	struct alu_sched *alu_sched = NULL;
+	struct alu_limits *_limit_fn = NULL;
+	struct alu_limits *tmp_limits = NULL;
+	uint32_t min_free_disk = 0;
+	data_t *limits = NULL;
   
 	alu_sched = CALLOC (1, sizeof (struct alu_sched));
 	ERR_ABORT (alu_sched);
@@ -414,105 +430,101 @@ alu_init (xlator_t *xl)
 		alu_parse_options (xl, alu_sched);
 	}
 
-	{
-		/* Get the limits */
-		struct alu_limits *_limit_fn = NULL;
-		struct alu_limits *tmp_limits = NULL;
-		uint32_t min_free_disk = 0;
-		data_t *limits = NULL;
+	/* Get the limits */
+	
+	limits = dict_get (xl->options, 
+			   "scheduler.limits.min-free-disk");
+	if (limits) {
+		_limit_fn = CALLOC (1, sizeof (struct alu_limits));
+		ERR_ABORT (_limit_fn);
+		_limit_fn->min_value = get_stats_free_disk;
+		_limit_fn->cur_value = get_stats_free_disk;
+		tmp_limits = alu_sched->limits_fn ;
+		_limit_fn->next = tmp_limits;
+		alu_sched->limits_fn = _limit_fn;
 		
-		limits = dict_get (xl->options, 
-				   "scheduler.limits.min-free-disk");
-		if (limits) {
-			_limit_fn = CALLOC (1, sizeof (struct alu_limits));
-			ERR_ABORT (_limit_fn);
-			_limit_fn->min_value = get_stats_free_disk;
-			_limit_fn->cur_value = get_stats_free_disk;
-			tmp_limits = alu_sched->limits_fn ;
-			_limit_fn->next = tmp_limits;
-			alu_sched->limits_fn = _limit_fn;
-	
-			if (gf_string2percent (limits->data, 
-					       &min_free_disk) != 0) {
-				gf_log ("alu", GF_LOG_ERROR, 
-					"invalid number format \"%s\" of \"option alu.limits.min-free-disk\"", 
-					limits->data);
-				return -1;
-			}
-			alu_sched->spec_limit.free_disk = min_free_disk;
-
-			if (alu_sched->spec_limit.free_disk >= 100) {
-				gf_log ("alu", GF_LOG_ERROR,
-					"check the \"option rr.limits.min-free-disk\", it should be percentage value");
-				return -1;
-			}
-			alu_sched->spec_limit.total_disk_size = ALU_LIMITS_TOTAL_DISK_SIZE_DEFAULT; /* Its in % */
-			gf_log ("alu", GF_LOG_DEBUG,
-				"alu.limit.min-disk-free = %"PRId64"", 
-				_limit_fn->cur_value (&(alu_sched->spec_limit)));
+		if (gf_string2percent (limits->data, 
+				       &min_free_disk) != 0) {
+			gf_log ("alu", GF_LOG_ERROR, 
+				"invalid number format \"%s\" "
+				"of \"option scheduler.limits."
+				"min-free-disk\"", limits->data);
+			return -1;
 		}
-
-		limits = dict_get (xl->options, "alu.limits.max-open-files");
-		if (limits) {
-			// Update alu_sched->priority properly
-			_limit_fn = CALLOC (1, sizeof (struct alu_limits));
-			ERR_ABORT (_limit_fn);
-			_limit_fn->max_value = get_stats_file_usage;
-			_limit_fn->cur_value = get_stats_file_usage;
-			tmp_limits = alu_sched->limits_fn ;
-			_limit_fn->next = tmp_limits;
-			alu_sched->limits_fn = _limit_fn;
-			if (gf_string2uint64_base10 (limits->data, 
-						     &alu_sched->spec_limit.nr_files) != 0)
-			{
-				gf_log ("alu", GF_LOG_ERROR, 
-					"invalid number format \"%s\" of \"option alu.limits.max-open-files\"", 
-					limits->data);
-				return -1;
-			}
-	
-			gf_log ("alu", GF_LOG_DEBUG,
-				"alu_init: limit.max-open-files = %"PRId64"",
-				_limit_fn->cur_value (&(alu_sched->spec_limit)));
+		alu_sched->spec_limit.free_disk = min_free_disk;
+		
+		if (alu_sched->spec_limit.free_disk >= 100) {
+			gf_log ("alu", GF_LOG_ERROR,
+				"check the \"option scheduler."
+				"limits.min-free-disk\", it should "
+				"be percentage value");
+			return -1;
 		}
+		alu_sched->spec_limit.total_disk_size = ALU_LIMITS_TOTAL_DISK_SIZE_DEFAULT; /* Its in % */
+		gf_log ("alu", GF_LOG_DEBUG,
+			"alu.limit.min-disk-free = %"PRId64"", 
+			_limit_fn->cur_value (&(alu_sched->spec_limit)));
+	}
+	
+	limits = dict_get (xl->options, 
+			   "scheduler.limits.max-open-files");
+	if (limits) {
+		// Update alu_sched->priority properly
+		_limit_fn = CALLOC (1, sizeof (struct alu_limits));
+		ERR_ABORT (_limit_fn);
+		_limit_fn->max_value = get_stats_file_usage;
+		_limit_fn->cur_value = get_stats_file_usage;
+		tmp_limits = alu_sched->limits_fn ;
+		_limit_fn->next = tmp_limits;
+		alu_sched->limits_fn = _limit_fn;
+		if (gf_string2uint64_base10 (limits->data, 
+					     &alu_sched->spec_limit.nr_files) != 0)
+		{
+			gf_log ("alu", GF_LOG_ERROR, 
+				"invalid number format '%s' of option "
+				"scheduler.limits.max-open-files", 
+				limits->data);
+			return -1;
+		}
+		
+		gf_log ("alu", GF_LOG_DEBUG,
+			"alu_init: limit.max-open-files = %"PRId64"",
+			_limit_fn->cur_value (&(alu_sched->spec_limit)));
 	}
 
-	{
-		/* Stats refresh options */
-		data_t *stats_refresh = dict_get (xl->options, "refresh-interval");
-		if (stats_refresh)
-		{
-			if (gf_string2time (stats_refresh->data, &alu_sched->refresh_interval) != 0)
-			{
-				gf_log ("alu", GF_LOG_ERROR, 
-					"invalid number format \"%s\" of \"option refresh-interval\"", 
-					stats_refresh->data);
-				return -1;
-			}
-		}
-		else
-		{
-			alu_sched->refresh_interval = ALU_REFRESH_INTERVAL_DEFAULT;
-		}
-		gettimeofday (&(alu_sched->last_stat_fetch), NULL);
-    
 
-		stats_refresh = dict_get (xl->options, "alu.stat-refresh.num-file-create");
-		if (stats_refresh)
-		{
-			if (gf_string2uint_base10 (stats_refresh->data, 
-						   &alu_sched->refresh_create_count) != 0)
-			{
-				gf_log ("alu", GF_LOG_ERROR, 
-					"invalid number format \"%s\" of \"option alu.stat-refresh.num-file-create\"", 
-					stats_refresh->data);
-				return -1;
-			}
+	/* Stats refresh options */
+	limits = dict_get (xl->options, 
+			   "scheduler.refresh-interval");
+	if (limits) {
+		if (gf_string2time (limits->data, 
+				    &alu_sched->refresh_interval) != 0)	{
+			gf_log ("alu", GF_LOG_ERROR, 
+				"invalid number format \"%s\" of "
+				"option scheduler.refresh-interval", 
+				limits->data);
+			return -1;
 		}
-		else
+	} else {
+		alu_sched->refresh_interval = ALU_REFRESH_INTERVAL_DEFAULT;
+	}
+	gettimeofday (&(alu_sched->last_stat_fetch), NULL);
+	
+	
+	limits = dict_get (xl->options, 
+			   "scheduler.alu.stat-refresh.num-file-create");
+	if (limits) {
+		if (gf_string2uint32 (limits->data, 
+				      &alu_sched->refresh_create_count) != 0)
 		{
-			alu_sched->refresh_create_count = ALU_REFRESH_CREATE_COUNT_DEFAULT;
+			gf_log ("alu", GF_LOG_ERROR, 
+				"invalid number format \"%s\" of \"option "
+				"alu.stat-refresh.num-file-create\"", 
+				limits->data);
+			return -1;
 		}
+	} else {
+		alu_sched->refresh_create_count = ALU_REFRESH_CREATE_COUNT_DEFAULT;
 	}
 
 	{
@@ -521,7 +533,7 @@ alu_init (xlator_t *xl)
 		xlator_list_t *trav_xl = xl->children;
 		data_t *data = NULL;
 		int32_t index = 0;
-
+		
 		while (trav_xl) {
 			index++;
 			trav_xl = trav_xl->next;
@@ -539,7 +551,8 @@ alu_init (xlator_t *xl)
 		}
 		alu_sched->array = sched_array;
 
-		data = dict_get (xl->options, "alu.read-only-subvolumes");
+		data = dict_get (xl->options, 
+				 "scheduler.read-only-subvolumes");
 		if (data) {
 			char *child = NULL;
 			char *tmp = NULL;
@@ -929,28 +942,51 @@ struct volume_options options[] = {
 	},
 	{ .key   = { "scheduler.alu.disk-usage.entry-threshold", 
 		     "alu.disk-usage.entry-threshold" },  
-	  .type  = GF_OPTION_TYPE_ANY 
+	  .type  = GF_OPTION_TYPE_SIZET
 	},
 	{ .key   = { "scheduler.alu.disk-usage.exit-threshold", 
 		     "alu.disk-usage.exit-threshold" },  
-	  .type  = GF_OPTION_TYPE_ANY 
+	  .type  = GF_OPTION_TYPE_SIZET
 	},
-
-	{ .key   = { "scheduler.alu.disk-usage.entry-threshold", 
-		     "alu.disk-usage.entry-threshold" },  
-	  .type  = GF_OPTION_TYPE_ANY 
+	{ .key   = { "scheduler.alu.write-usage.entry-threshold", 
+		     "alu.write-usage.entry-threshold" },  
+	  .type  = GF_OPTION_TYPE_SIZET
 	},
-	{ .key   = { "scheduler.alu.disk-usage.entry-threshold", 
-		     "alu.disk-usage.entry-threshold" },  
-	  .type  = GF_OPTION_TYPE_ANY 
+	{ .key   = { "scheduler.alu.write-usage.exit-threshold", 
+		     "alu.write-usage.exit-threshold" },  
+	  .type  = GF_OPTION_TYPE_SIZET 
+	},
+	{ .key   = { "scheduler.alu.read-usage.entry-threshold", 
+		     "alu.read-usage.entry-threshold" },  
+	  .type  = GF_OPTION_TYPE_SIZET
+	},
+	{ .key   = { "scheduler.alu.read-usage.exit-threshold", 
+		     "alu.read-usage.exit-threshold" },  
+	  .type  = GF_OPTION_TYPE_SIZET 
+	},
+	{ .key   = { "scheduler.alu.open-files-usage.entry-threshold", 
+		     "alu.open-files-usage.entry-threshold" },  
+	  .type  = GF_OPTION_TYPE_INT
+	},
+	{ .key   = { "scheduler.alu.open-files-usage.exit-threshold", 
+		     "alu.open-files-usage.exit-threshold" },  
+	  .type  = GF_OPTION_TYPE_INT 
 	},
 	{ .key   = { "scheduler.read-only-subvolumes",
 		     "alu.read-only-subvolumes" },  
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
-	/* TODO : */
-	{ .key   = { "alu.*" },  
-	  .type  = GF_OPTION_TYPE_ANY 
+	{ .key   = { "scheduler.refresh-interval", 
+		     "alu.refresh-interval" },  
+	  .type  = GF_OPTION_TYPE_TIME
+	},
+	{ .key   = { "scheduler.limits.min-free-disk", 
+		     "alu.limits.min-free-disk" },  
+	  .type  = GF_OPTION_TYPE_PERCENT
+	},
+	{ .key   = { "scheduler.alu.stat-refresh.num-file-create"
+		     "alu.stat-refresh.num-file-create"},  
+	  .type  = GF_OPTION_TYPE_INT
 	},
 	{ .key  =  {NULL}, }
 };

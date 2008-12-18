@@ -6411,11 +6411,6 @@ struct volume_options options[] = {
 		    "tcp/client", "ib-verbs/client"},
 	  .type  = GF_OPTION_TYPE_STR 
 	},
- 	{ .key   = {"address-family"}, 
-	  .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
-		    "unix", "inet-sdp" },
-	  .type  = GF_OPTION_TYPE_STR 
-	},
  	{ .key   = {"remote-host"}, 
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
