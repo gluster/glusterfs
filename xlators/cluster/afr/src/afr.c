@@ -1663,11 +1663,11 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	} else if (local->op_ret == -1) {
 		/* all nodes have gone down */
 		
-		STACK_UNWIND (frame, -1, ENOTCONN, &local->cont.lk.flock);
+		AFR_STACK_UNWIND (frame, -1, ENOTCONN, &local->cont.lk.flock);
 	} else {
 		/* locking has succeeded on all nodes that are up */
 		
-		STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 			      &local->cont.lk.flock);
 	}
 
