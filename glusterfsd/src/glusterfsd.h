@@ -28,8 +28,6 @@
 #define DEFAULT_VOLUME_FILE                   CONFDIR "/glusterfs.vol"
 #define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"
 #define DEFAULT_LOG_LEVEL                     GF_LOG_WARNING
-#define DEFAULT_FUSE_ENTRY_TIMEOUT            1
-#define DEFAULT_FUSE_ATTRIBUTE_TIMEOUT        1
 
 #define DEFAULT_EVENT_POOL_SIZE            16384
 

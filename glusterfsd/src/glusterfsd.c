@@ -204,10 +204,12 @@ _add_fuse_mount (xlator_t *graph)
 	/* TODO: log on failure */
 	ret = dict_set_static_ptr (top->options, ZR_MOUNTPOINT_OPT,
 				   cmd_args->mount_point);
-	ret = dict_set_uint32 (top->options, ZR_ATTR_TIMEOUT_OPT, 
-			       cmd_args->fuse_attribute_timeout);
-	ret = dict_set_uint32 (top->options, ZR_ENTRY_TIMEOUT_OPT, 
-			       cmd_args->fuse_entry_timeout);
+	if (cmd_args->fuse_attribute_timeout)
+		ret = dict_set_uint32 (top->options, ZR_ATTR_TIMEOUT_OPT, 
+				       cmd_args->fuse_attribute_timeout);
+	if (cmd_args->fuse_entry_timeout)
+		ret = dict_set_uint32 (top->options, ZR_ENTRY_TIMEOUT_OPT, 
+				       cmd_args->fuse_entry_timeout);
 
 #ifdef GF_DARWIN_HOST_OS 
 	/* On Darwin machines, O_APPEND is not handled, 
@@ -221,7 +223,7 @@ _add_fuse_mount (xlator_t *graph)
 	ret = dict_set_static_ptr (top->options, ZR_DIRECT_IO_OPT, "disable");
 
  	if (cmd_args->non_local)
- 		ret = dict_set_uint32 (top->options, "non-local", 
+ 		ret = dict_set_uint32 (top->options, "macfuse-local", 
 				       cmd_args->non_local);
 	
 #else /* ! DARWIN HOST OS */
@@ -378,10 +380,49 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 	return tree;
 }
 
+static int
+_log_if_option_is_invalid (xlator_t *xl, data_pair_t *pair)
+{
+	volume_opt_list_t *vol_opt = NULL;
+	volume_option_t   *opt     = NULL;
+	int i     = 0;
+	int index = 0;
+	int found = 0;
+
+	/* Get the first volume_option */
+	list_for_each_entry (vol_opt, &xl->volume_options, list) {
+		/* Warn for extra option */
+		if (!vol_opt->given_opt)
+			break;
+
+		opt = vol_opt->given_opt;
+		for (index = 0; 
+		     ((index < ZR_OPTION_MAX_ARRAY_SIZE) && 
+		      (opt[index].key && opt[index].key[0]));  index++)
+			for (i = 0; (i < ZR_VOLUME_MAX_NUM_KEY) &&
+				     opt[index].key[i]; i++) {
+				if (fnmatch (opt[index].key[i],
+					     pair->key, 
+					     FNM_NOESCAPE) == 0) {
+					found = 1;
+					break;
+				}
+			}
+	}
+
+	if (!found) {
+		gf_log (xl->name, GF_LOG_WARNING,
+			"option '%s' is not recognized",
+			pair->key);
+	}
+	return 0;
+}
 
 static int 
 _xlator_graph_init (xlator_t *xl)
 {
+	volume_opt_list_t *vol_opt = NULL;
+	data_pair_t *pair = NULL;
 	xlator_t *trav = NULL;
 	int ret = -1;
 	
@@ -389,18 +430,95 @@ _xlator_graph_init (xlator_t *xl)
 	
 	while (trav->prev)
 		trav = trav->prev;
+
+	/* Validate phase */
+	while (trav) {
+		/* Get the first volume_option */
+		list_for_each_entry (vol_opt, 
+				     &trav->volume_options, list) 
+			break;
+		if ((ret = 
+		     validate_xlator_volume_options (trav, 
+				     vol_opt->given_opt)) < 0) {
+			gf_log (trav->name, GF_LOG_ERROR, 
+				"validating translator failed");
+			return ret;
+		}
+		trav = trav->next;
+	}
+
 	
+	trav = xl;
+	while (trav->prev)
+		trav = trav->prev;
+	/* Initialization phase */
 	while (trav) {
 		if (!trav->ready) {
-			if ((ret = xlator_tree_init (trav)) < 0)
-				break;
+			if ((ret = xlator_tree_init (trav)) < 0) {
+				gf_log (trav->name, GF_LOG_ERROR, 
+					"initializing translator failed");
+				return ret;
+			}
 		}
 		trav = trav->next;
 	}
 	
+	/* No error in this phase, just bunch of warning if at all */
+	trav = xl;
+	
+	while (trav->prev)
+		trav = trav->prev;
+	
+	/* Validate again phase */
+	while (trav) {
+		pair = trav->options->members_list;
+		while (pair) {
+			_log_if_option_is_invalid (trav, pair);
+			pair = pair->next;
+		}
+		trav = trav->next;
+	}
+
 	return ret;
 }
 
+int 
+glusterfs_graph_init (xlator_t *graph, int fuse) 
+{ 
+	volume_opt_list_t *vol_opt = NULL;
+
+	if (fuse) {
+		/* FUSE needs to be initialized earlier than the 
+		   other translators */
+		list_for_each_entry (vol_opt, 
+				     &graph->volume_options, list) 
+			break;
+		if (validate_xlator_volume_options (graph, 
+					   vol_opt->given_opt) == -1) {
+			gf_log (graph->name, GF_LOG_ERROR, 
+				"validating translator failed");
+			return -1;
+		}
+		if (graph->init (graph) != 0)
+			return -1;
+		
+		graph->ready = 1;
+	}
+	if (_xlator_graph_init (graph) == -1)
+		return -1;
+
+	/* check server or fuse is given */
+	if (graph->ctx->top == NULL) {
+		fprintf (stderr, "no valid translator loaded at the top, or"
+			 "no mount point given. exiting\n");
+		gf_log ("glusterfs", GF_LOG_ERROR, 
+			"no valid translator loaded at the top or "
+			"no mount point given. exiting");
+		return -1;
+	}
+
+	return 0;
+}
 
 static int
 gf_remember_xlator_option (struct list_head *options, char *arg)
@@ -415,7 +533,7 @@ gf_remember_xlator_option (struct list_head *options, char *arg)
 	ctx = get_global_ctx_ptr ();
 	cmd_args = &ctx->cmd_args;
 
-	option = CALLOC (1, sizeof (xlator_option_t));
+	option = CALLOC (1, sizeof (xlator_cmdline_option_t));
 	INIT_LIST_HEAD (&option->cmd_args);
 
 	dot = strchr (arg, '.');
@@ -675,7 +793,7 @@ cleanup_and_exit (int signum)
 		trav = ctx->graph;
 		ctx->graph = NULL;
 		while (trav) {
-			trav->fini (trav);
+			//trav->fini (trav);
 			trav = trav->next;
 		}
 		exit (0);
@@ -730,7 +848,6 @@ main (int argc, char *argv[])
 	xlator_t         *trav = NULL;
 	int               fuse_volume_found = 0;
 
-
 	utime = time (NULL);
 	ctx = CALLOC (1, sizeof (glusterfs_ctx_t));
 	ERR_ABORT (ctx);
@@ -741,8 +858,6 @@ main (int argc, char *argv[])
 
 	/* parsing command line arguments */
 	cmd_args->log_level = DEFAULT_LOG_LEVEL;
-	cmd_args->fuse_entry_timeout = DEFAULT_FUSE_ENTRY_TIMEOUT;
-	cmd_args->fuse_attribute_timeout = DEFAULT_FUSE_ATTRIBUTE_TIMEOUT;
 	cmd_args->fuse_direct_io_mode_flag = _gf_true;
 	
 	INIT_LIST_HEAD (&cmd_args->xlator_options);
@@ -941,36 +1056,17 @@ main (int argc, char *argv[])
 	 */
 	gf_add_cmdline_options (graph, cmd_args);
 
-	if (graph->init (graph) != 0) {
-		gf_log ("glusterfs", GF_LOG_ERROR, 
-			"translator initialization failed.  exiting");
-		/* do cleanup and exit ?! */
-		return -1;
-	}
-	graph->ready = 1;
 	ctx->graph = graph;
-	if (_xlator_graph_init (graph) == -1) {
+	if (glusterfs_graph_init (graph, fuse_volume_found) != 0) {
 		gf_log ("glusterfs", GF_LOG_ERROR, 
 			"translator initialization failed.  exiting");
-		graph->fini (graph);
-		/* do cleanup and exit ?! */
 		return -1;
 	}
 
-	/* check server or fuse is given */
-	if (ctx->top == NULL) {
-		fprintf (stderr, "no valid translator loaded at the top, or"
-			 "no mount point given. exiting\n");
-		gf_log ("glusterfs", GF_LOG_ERROR, 
-			"no valid translator loaded at the top or "
-			"no mount point given. exiting");
-		return -1;
-	}
-	
 	/* Send PARENT_UP notify to all the translators now */
 	graph->notify (graph, GF_EVENT_PARENT_UP, ctx->graph);
 	
 	event_dispatch (ctx->event_pool);
-	
+
 	return 0;
 }

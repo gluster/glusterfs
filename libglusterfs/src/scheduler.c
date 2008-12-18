@@ -24,39 +24,57 @@
 
 #include <dlfcn.h>
 #include <netdb.h>
+#include "xlator.h"
 #include "scheduler.h"
+#include "list.h"
 
 struct sched_ops *
-get_scheduler (const char *name)
+get_scheduler (xlator_t *xl, const char *name)
 {
-  struct sched_ops *tmp_sched = NULL;
-  char *sched_file = NULL;
-  void *handle = NULL;
+	struct sched_ops  *tmp_sched = NULL;
+	volume_opt_list_t *vol_opt   = NULL;
+	char *sched_file             = NULL;
+	void *handle                 = NULL;
   
-  if (name == NULL)
-    {
-      gf_log ("scheduler", GF_LOG_ERROR, "invalid argument");
-      return NULL;
-    }
+	if (name == NULL) {
+		gf_log ("scheduler", GF_LOG_ERROR, 
+			"'name' not specified, EINVAL");
+		return NULL;
+	}
   
-  asprintf (&sched_file, "%s/%s.so", SCHEDULERDIR, name);
+	asprintf (&sched_file, "%s/%s.so", SCHEDULERDIR, name);
 
-  gf_log ("scheduler", GF_LOG_DEBUG,
-	  "attempt to load file %s.so", name);
+	gf_log ("scheduler", GF_LOG_DEBUG,
+		"attempt to load file %s.so", name);
 
-  handle = dlopen (sched_file, RTLD_LAZY);
-  if (!handle) {
-    gf_log ("scheduler", GF_LOG_ERROR,
-	    "dlopen(%s): %s", sched_file, dlerror ());
-    return NULL;
-  }
+	handle = dlopen (sched_file, RTLD_LAZY);
+	if (!handle) {
+		gf_log ("scheduler", GF_LOG_ERROR,
+			"dlopen(%s): %s", sched_file, dlerror ());
+		return NULL;
+	}
 
-  tmp_sched = dlsym (handle, "sched");
-  if (!tmp_sched) {
-    gf_log ("scheduler", GF_LOG_ERROR,
-	    "dlsym(sched) on %s", dlerror ());
-    return NULL;
-  }
+	tmp_sched = dlsym (handle, "sched");
+	if (!tmp_sched) {
+		gf_log ("scheduler", GF_LOG_ERROR,
+			"dlsym(sched) on %s", dlerror ());
+		return NULL;
+	}
   
-  return tmp_sched;
+	vol_opt = CALLOC (1, sizeof (volume_opt_list_t));
+	vol_opt->given_opt = dlsym (handle, "options");
+	if (vol_opt->given_opt == NULL) {
+		gf_log ("scheduler", GF_LOG_DEBUG,
+			"volume option validation not specified");
+	} else {
+		list_add_tail (&vol_opt->list, &xl->volume_options);
+		if (validate_xlator_volume_options (xl, vol_opt->given_opt)
+		    == -1) {
+			gf_log ("scheduler", GF_LOG_ERROR,
+				"volume option validation failed");
+			return NULL;
+		}
+	}
+	
+	return tmp_sched;
 }

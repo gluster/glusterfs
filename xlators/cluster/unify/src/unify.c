@@ -4131,13 +4131,15 @@ notify (xlator_t *this,
 int32_t 
 init (xlator_t *this)
 {
-	int32_t ret = 0;
-	int32_t count = 0;
-	unify_private_t *_private = NULL; 
-	xlator_list_t *trav = NULL;
-	xlator_t *ns_xl = NULL;
-	data_t *scheduler = NULL;
-	data_t *data = NULL;
+	int32_t          ret       = 0;
+	int32_t          count     = 0;
+	data_t          *scheduler = NULL;
+	data_t          *data      = NULL;
+	xlator_t        *ns_xl     = NULL;
+	xlator_list_t   *trav      = NULL;
+	xlator_list_t   *xlparent  = NULL;
+	xlator_list_t   *parent    = NULL;
+	unify_private_t *_private  = NULL; 
 
 	/* Check for number of child nodes, if there is no child nodes, exit */
 	if (!this->children) {
@@ -4198,13 +4200,15 @@ init (xlator_t *this)
 	
 	_private = CALLOC (1, sizeof (*_private));
 	ERR_ABORT (_private);
-	_private->sched_ops = get_scheduler (scheduler->data);
+	_private->sched_ops = get_scheduler (this, scheduler->data);
 	if (!_private->sched_ops) {
 		gf_log (this->name, GF_LOG_CRITICAL, 
 			"Error while loading scheduler. Exiting");
 		FREE (_private);
 		return -1;
 	}
+	if (!ns_xl->parents)
+		
 	_private->namespace = ns_xl;
 	
 	/* update _private structure */
@@ -4287,31 +4291,29 @@ init (xlator_t *this)
 
 		ret = 0;
 
-		/* Initialize the namespace volume */
-		if (!ns_xl->ready)
-			ret = xlator_tree_init (ns_xl);
-		if (!ret) {
-			/* This section is required because some fops may look 
-			 * for 'xl->parent' variable 
-			 */
-			xlator_list_t *xlparent = NULL;
-			xlator_list_t *parent = NULL;
-
-			xlparent = CALLOC (1, sizeof (*xlparent));
-			xlparent->xlator = this;
-			if (!ns_xl->parents) {
-				ns_xl->parents = xlparent;
-			} else {
-				parent = ns_xl->parents;
-				while (parent->next)
-					parent = parent->next;
-				parent->next = xlparent;
-			}
+		/* This section is required because some fops may look 
+		 * for 'xl->parent' variable 
+		 */
+		xlparent = CALLOC (1, sizeof (*xlparent));
+		xlparent->xlator = this;
+		if (!ns_xl->parents) {
+			ns_xl->parents = xlparent;
 		} else {
-			gf_log (this->name, GF_LOG_CRITICAL, 
-				"initializing namespace node failed, Exiting");
+			parent = ns_xl->parents;
+			while (parent->next)
+				parent = parent->next;
+			parent->next = xlparent;
+		}
+		/* Initialize the namespace volume */
+		if (!ns_xl->ready) {
+			ret = xlator_tree_init (ns_xl);
+			if (ret) {
+				gf_log (this->name, GF_LOG_ERROR, 
+					"initializing namespace node failed, "
+					"Exiting");
 			FREE (_private);
 			return -1;
+			}
 		}
 	}
 
@@ -4387,17 +4389,22 @@ struct xlator_mops mops = {
 struct xlator_cbks cbks = {
 };
 
-struct xlator_options options[] = {
-	{ "namespace", GF_OPTION_TYPE_XLATOR, 0, 0, 0 },
-	{ "scheduler", GF_OPTION_TYPE_STR, 0, 0, 0, 
-	  "alu|rr|random|nufa|switch" },
-	{ "alu.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 4, 0, 0 },
-	{ "rr.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 3, 0, 0 },
-	{ "random.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 7, 0, 0 },
-	{ "switch.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 7, 0, 0 },
-	{ "nufa.<scheduler-specific-option>", GF_OPTION_TYPE_ANY, 5, 0, 0 },
-	{ "self-heal", GF_OPTION_TYPE_STR, 0, 0, 0, 
-	  "foreground|background|off" },
-	{ "optimist", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
-	{ NULL, 0, 0, 0, 0 },
+struct volume_options options[] = {
+	{ .key   = { "namespace" },  
+	  .type  = GF_OPTION_TYPE_XLATOR 
+	},
+	{ .key   = { "scheduler" },  
+	  .value = { "alu", "rr", "random", "nufa", "switch" },
+	  .type  = GF_OPTION_TYPE_STR
+	},
+	{ .key   = {"self-heal"},  
+	  .value = { "foreground", "background", "off" },
+	  .type  = GF_OPTION_TYPE_STR
+	},
+	/* TODO: remove it some time later */
+	{ .key   = {"optimist"},  
+	  .type  = GF_OPTION_TYPE_BOOL 
+	},
+
+	{ .key   = {NULL} },
 };

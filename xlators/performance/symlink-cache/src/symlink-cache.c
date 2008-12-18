@@ -393,6 +393,6 @@ struct xlator_cbks cbks = {
         .forget  = sc_forget,
 };
 
-struct xlator_options options[] = {
-        { NULL, 0, },
+struct volume_options options[] = {
+	{ .key = {NULL} },
 };

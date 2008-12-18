@@ -35,7 +35,7 @@
 #include "common-utils.h"
 #include "dict.h"
 #include "compat.h"
-
+#include "list.h"
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
 
@@ -63,9 +63,9 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this,
 struct _loc {
 	const char *path;
 	const char *name;
-	ino_t ino;
-	inode_t *inode;
-	inode_t *parent;
+	ino_t       ino;
+	inode_t    *inode;
+	inode_t    *parent;
 };
 
 
@@ -731,13 +731,13 @@ typedef int32_t (*cbk_release_t) (xlator_t *this,
 				  fd_t *fd);
 
 struct xlator_cbks {
-	cbk_forget_t     forget;
+	cbk_forget_t    forget;
 	cbk_release_t   release;
 	cbk_release_t   releasedir;
 };
 
 typedef struct xlator_list {
-	xlator_t *xlator;
+	xlator_t           *xlator;
 	struct xlator_list *next;
 } xlator_list_t;
 
@@ -752,54 +752,61 @@ typedef enum {
   	GF_OPTION_TYPE_XLATOR,
   	GF_OPTION_TYPE_PATH,
   	GF_OPTION_TYPE_TIME,
-} xlator_option_type_t;
+} volume_option_type_t;
+
+#define ZR_VOLUME_MAX_NUM_KEY    4
+#define ZR_OPTION_MAX_ARRAY_SIZE 64
 
 /* Each translator should define this structure */
-typedef struct xlator_options {
-  	char *key;
-  	xlator_option_type_t type;
-  	int32_t num_char_to_match;  /* If zero, will match whole str */
-  	int64_t min_value;          /* -1 means no range */
-  	int64_t max_value;
-  	char *str;         /* If specified, will check one of the keys from this list, '|' separated */
-} xlator_option_t;
+typedef struct volume_options {
+  	char                *key[ZR_VOLUME_MAX_NUM_KEY]; 
+	                           /* different key, same meaning */
+  	volume_option_type_t type;       
+  	int64_t              min;  /* -1 means no range */
+  	int64_t              max;  /* -1 means no range */
+  	char                *value[ZR_OPTION_MAX_ARRAY_SIZE];  
+                                   /* If specified, will check for one of 
+				      the value from this array */
+	char                *description; /* about the key */
+} volume_option_t;
 
+typedef struct vol_opt_list {
+	struct list_head  list;
+	volume_option_t  *given_opt;
+} volume_opt_list_t;
 
 struct _xlator {
 	/* Built during parsing */
-	char *name;
-	char *type;
-	xlator_t *next, *prev;
+	char          *name;
+	char          *type;
+	xlator_t      *next;
+	xlator_t      *prev;
 	xlator_list_t *parents;
 	xlator_list_t *children;
-	dict_t *options;
+	dict_t        *options;
 	
 	/* Set after doing dlopen() */
 	struct xlator_fops *fops;
 	struct xlator_mops *mops;
-	xlator_option_t *std_options;
 	struct xlator_cbks *cbks;
-	void (*fini) (xlator_t *this);
-	int32_t (*init) (xlator_t *this);
+	struct list_head   volume_options;  /* list of volume_option_t */
+
+	void              (*fini) (xlator_t *this);
+	int32_t           (*init) (xlator_t *this);
 	event_notify_fn_t notify;
 
 	/* Misc */
-	glusterfs_ctx_t *ctx;
-	inode_table_t *itable;
-	char ready;
-	char trace;
-	char init_succeeded;
-	void *private;
+	glusterfs_ctx_t  *ctx;
+	inode_table_t    *itable;
+	char              ready;
+	char              trace;
+	char              init_succeeded;
+	void             *private;
 };
 
-int32_t xlator_test_given_options (xlator_option_t *std_options,
- 				   dict_t *options);
- 
+int validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt);
 
 int32_t xlator_set_type (xlator_t *xl, const char *type);
-
-int32_t xlator_validate_given_options (xlator_t *xl);
- 
 
 xlator_t *file_to_xlator_tree (glusterfs_ctx_t *ctx,
 			       FILE *fp);
@@ -831,6 +838,5 @@ void loc_wipe (loc_t *loc);
 
 #define GF_STATFS_SCAN_FMT_STR "%"SCNx32",%"SCNx32",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32"\n"
 
-#endif
-
+#endif /* _XLATOR_H */
 

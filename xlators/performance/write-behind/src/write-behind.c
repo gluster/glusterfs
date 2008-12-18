@@ -1404,9 +1404,19 @@ struct xlator_cbks cbks = {
         .release  = wb_release
 };
 
-struct xlator_options options[] = {
-        { "flush-behind", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
-        { "aggregate-size", GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 4 * GF_UNIT_MB },
-        { "window-size", GF_OPTION_TYPE_SIZET, 0, 1 * GF_UNIT_MB, 16 * GF_UNIT_GB },
-        { NULL, 0, },
+struct volume_options options[] = {
+        { .key  = {"flush-behind"}, 
+	  .type = GF_OPTION_TYPE_BOOL
+	},
+        { .key  = {"aggregate-size"}, 
+	  .type = GF_OPTION_TYPE_SIZET, 
+	  .min  = 128 * GF_UNIT_KB, 
+	  .max  = 4 * GF_UNIT_MB 
+	},
+        { .key  = {"window-size"}, 
+	  .type = GF_OPTION_TYPE_SIZET, 
+	  .min  = 512 * GF_UNIT_KB, 
+	  .max  = 1 * GF_UNIT_GB 
+	},
+	{ .key = {NULL} },
 };

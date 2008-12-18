@@ -42,7 +42,7 @@
   option root-filtering on (off by default)
   option translate-uid <uid-range=newuid,uid=newuid>
   option translate-gid <gid-range=newgid,gid=newgid>
-  option complete-read-only <yes|true>
+  option read-only <yes|true>
   option fixed-uid <uid>
   option fixed-gid <gid>
   option filter-uid <uid-range,uid>
@@ -113,7 +113,6 @@ update_frame (call_frame_t *frame,
 	for (idx = 0; idx < filter->translate_num_uid_entries; idx++) {
 		if ((frame->root->uid >= filter->translate_input_uid[idx][0]) &&
 		    (frame->root->uid <= filter->translate_input_uid[idx][1])) {
-			frame->root->uid = filter->translate_output_uid[idx];
 			dictret = dict_get_ptr (inode->ctx, frame->this->name, &sumne);
 			if (dictret == 0) {
 				uid = (uid_t)(long)sumne;
@@ -129,7 +128,6 @@ update_frame (call_frame_t *frame,
 	for (idx = 0; idx < filter->translate_num_gid_entries; idx++) {
 		if ((frame->root->gid >= filter->translate_input_gid[idx][0]) &&
 		    (frame->root->gid <= filter->translate_input_gid[idx][1])) {
-			frame->root->gid = filter->translate_output_gid[idx];
 			if (ret == GF_FILTER_NO_CHANGE) 
 				ret = GF_FILTER_MAP_GID;
 			else 
@@ -138,13 +136,6 @@ update_frame (call_frame_t *frame,
 		}
 	}
 
-	if (filter->fixed_uid_set) {
-		frame->root->uid = filter->fixed_uid;
-	}
-
-	if (filter->fixed_gid_set) {
-		frame->root->gid = filter->fixed_gid;
-	}
 
 	if (filter->complete_read_only)
 		return GF_FILTER_RO_FS;
@@ -161,14 +152,7 @@ update_frame (call_frame_t *frame,
 			}
 		}
 	}
-/*	
-	for (idx = 0; idx < filter->filter_num_gid_entries; idx++) {
-		if ((inode->st_gid >= filter->filter_input_gid[idx][0]) &&
-		    (inode->st_gid <= filter->filter_input_gid[idx][1])) {
-			return GF_FILTER_FILTER_GID;
-		}
-	}
-*/
+
 	return ret;
 }
 
@@ -1440,11 +1424,11 @@ init (xlator_t *this)
 	filter = CALLOC (sizeof (*filter), 1);
 	ERR_ABORT (filter);
 	
-	if (dict_get (this->options, "complete-read-only")) {
-		value = data_to_str (dict_get (this->options, "complete-read-only"));
+	if (dict_get (this->options, "read-only")) {
+		value = data_to_str (dict_get (this->options, "read-only"));
 		if (gf_string2boolean (value, &filter->complete_read_only) == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"wrong value provided for 'complete-read-only'");
+				"wrong value provided for 'read-only'");
 			return -1;
 		}
 	}
@@ -1754,14 +1738,30 @@ struct xlator_mops mops = {
 struct xlator_cbks cbks = {
 };
 
-struct xlator_options options[] = {
-	{ "root-squashing", GF_OPTION_TYPE_BOOL, 0, },
-	{ "complete-read-only", GF_OPTION_TYPE_BOOL, 0, },
-	{ "fixed-uid", GF_OPTION_TYPE_INT, 0, -1,},
-	{ "fixed-gid", GF_OPTION_TYPE_INT, 0, -1,},
-	{ "translate-uid", GF_OPTION_TYPE_STR, 0, },
-	{ "translate-gid", GF_OPTION_TYPE_STR, 0, },
-	{ "filter-uid", GF_OPTION_TYPE_STR, 0, },
-	{ "filter-gid", GF_OPTION_TYPE_STR, 0, },
-	{ NULL, 0, },
+struct volume_options options[] = {
+	{ .key  = { "root-squashing" }, 
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
+	{ .key  = { "read-only" }, 
+	  .type = GF_OPTION_TYPE_BOOL
+	},
+	{ .key  = { "fixed-uid" },  
+	  .type = GF_OPTION_TYPE_INT
+	},
+	{ .key  = { "fixed-gid" },  
+	  .type = GF_OPTION_TYPE_INT
+	},
+	{ .key  = { "translate-uid" },  
+	  .type = GF_OPTION_TYPE_ANY 
+	},
+	{ .key  = { "translate-gid" },  
+	  .type = GF_OPTION_TYPE_ANY
+	},
+	{ .key  = { "filter-uid" },  
+	  .type = GF_OPTION_TYPE_ANY 
+	},
+	{ .key  = { "filter-gid" },  
+	  .type = GF_OPTION_TYPE_ANY 
+	},
+	{ .key = {NULL} },
 };

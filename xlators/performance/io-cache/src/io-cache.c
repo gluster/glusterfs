@@ -80,7 +80,7 @@ ioc_inode_need_revalidate (ioc_inode_t *ioc_inode)
 
 	ret = gettimeofday (&tv, NULL);
 
-	if (time_elapsed (&tv, &ioc_inode->tv) >= table->force_revalidate_timeout)
+	if (time_elapsed (&tv, &ioc_inode->tv) >= table->cache_timeout)
 		need_revalidate = 1;
 
 	return need_revalidate;
@@ -1308,14 +1308,15 @@ init (xlator_t *this)
 			"using cache-size %"PRIu64"", table->cache_size);
 	}
   
-	table->force_revalidate_timeout = 1;
+	table->cache_timeout = 1;
 
-	if (dict_get (options, "force-revalidate-timeout")) {
-		table->force_revalidate_timeout = data_to_uint32 (dict_get (options,
-									    "force-revalidate-timeout"));
+	if (dict_get (options, "cache-timeout")) {
+		table->cache_timeout = 
+			data_to_uint32 (dict_get (options,
+						  "cache-timeout"));
 		gf_log (this->name, GF_LOG_DEBUG,
-			"Using %d seconds to force revalidate cache",
-			table->force_revalidate_timeout);
+			"Using %d seconds to revalidate cache",
+			table->cache_timeout);
 	}
 
 	INIT_LIST_HEAD (&table->priority_list);
@@ -1381,10 +1382,24 @@ struct xlator_cbks cbks = {
   	.release     = ioc_release
 };
 
-struct xlator_options options[] = {
-	{ "priority", GF_OPTION_TYPE_STR, 0, 0, 0 },
-	{ "force-revalidate-timeout", GF_OPTION_TYPE_INT, 0, 0, 1800 }, /* 30mins */
-	{ "page-size", GF_OPTION_TYPE_SIZET, 0, 16 * GF_UNIT_KB, 8 * GF_UNIT_MB },
-	{ "cache-size", GF_OPTION_TYPE_SIZET, 0, 4 * GF_UNIT_MB, 6 * GF_UNIT_GB },
-	{ NULL, 0 },
+struct volume_options options[] = {
+	{ .key  = {"priority"}, 
+	  .type = GF_OPTION_TYPE_ANY 
+	},
+	{ .key  = {"cache-timeout", "force-revalidate-timeout"},
+	  .type = GF_OPTION_TYPE_INT,
+	  .min  = 0, 
+	  .max  = 60 
+	}, 
+	{ .key  = {"page-size"}, 
+	  .type = GF_OPTION_TYPE_SIZET, 
+	  .min  = 16 * GF_UNIT_KB, 
+	  .max  =  4 * GF_UNIT_MB 
+	},
+	{ .key  = {"cache-size"}, 
+	  .type = GF_OPTION_TYPE_SIZET,
+	  .min  = 4 * GF_UNIT_MB, 
+	  .max  = 6 * GF_UNIT_GB 
+	},
+	{ .key = {NULL} },
 };

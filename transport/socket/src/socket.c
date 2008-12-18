@@ -1310,3 +1310,17 @@ init (transport_t *this)
   
   return ret;
 }
+
+struct volume_options options[] = {
+ 	{ .key   = {"remote-port", "transport.socket.remote-port"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+ 	{ .key   = {"listen-port", "transport.socket.listen-port"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+/* 	{ .key   = {"transport.socket.*"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+*/
+	{ .key = {NULL} }
+};

@@ -627,7 +627,9 @@ struct xlator_mops mops = {
 struct xlator_cbks cbks = {
 };
 
-struct xlator_options options[] = {
-	{"trash-dir", GF_OPTION_TYPE_PATH, 0, },
-	{ NULL, 0, },
+struct volume_options options[] = {
+	{ .key  = { "trash-dir" }, 
+	  .type = GF_OPTION_TYPE_PATH 
+	},
+	{ .key  = {NULL} },
 };

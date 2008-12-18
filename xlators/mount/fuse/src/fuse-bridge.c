@@ -2063,14 +2063,12 @@ fuse_xattr_cbk (call_frame_t *frame,
 				fuse_private_t *priv = this->private;
  
 				if (!priv->volfile) {
-					glusterfs_ctx_t *ctx = NULL;
 					int32_t fd = -1, ret = -1;
 					struct stat st;
 					char *file = NULL;
 					
 					memset (&st, 0, sizeof (st));
-					ctx = get_global_ctx_ptr ();
-					fd = fileno (ctx->specfp);
+					fd = fileno (this->ctx->specfp);
 					ret = fstat (fd, &st);
 					if (ret != 0) {
 						gf_log (this->name,
@@ -2595,7 +2593,6 @@ init (xlator_t *this_xl)
 	char *value_string = NULL;
 	fuse_private_t *priv = NULL;
 	struct stat stbuf = {0,};
-	glusterfs_ctx_t *ctx = NULL;
 
 #ifdef GF_DARWIN_HOST_OS
         int fuse_argc = 9;
@@ -2655,7 +2652,7 @@ init (xlator_t *this_xl)
 
 
 #ifdef GF_DARWIN_HOST_OS
-	if (dict_get (options, "non-local")) {
+	if (dict_get (options, "macfuse-local")) {
 		/* This way, GlusterFS will be detected as 'servers' instead
 		 *  of 'devices'. This method is useful if you want to do 
 		 * 'umount <mount_point>' over network,  instead of 'eject'ing
@@ -2703,8 +2700,9 @@ init (xlator_t *this_xl)
 	}
 	priv->mount_point = strdup (value_string);
 	
+	
 	ret = dict_get_uint32 (options, "attribute-timeout", 
-			      &priv->attribute_timeout);
+			       &priv->attribute_timeout);
 	if (!priv->attribute_timeout)
 		priv->attribute_timeout = 1; /* default */
 	
@@ -2719,7 +2717,7 @@ init (xlator_t *this_xl)
 	if (value_string) {
 		ret = gf_string2boolean (value_string, &priv->direct_io_mode);
 	}
-
+	
         priv->ch = fuse_mount (priv->mount_point, &args);
         if (priv->ch == NULL) {
                 if (errno == ENOTCONN) {
@@ -2771,8 +2769,7 @@ init (xlator_t *this_xl)
         priv->fd = fuse_chan_fd (priv->ch);
         priv->buf = data_ref (data_from_dynptr (NULL, 0));
 
-	ctx = get_global_ctx_ptr ();
-        ctx->top = (void *)this_xl;
+        this_xl->ctx->top = this_xl;
         return 0;
         
 umount_exit: 
@@ -2819,12 +2816,25 @@ struct xlator_cbks cbks = {
 struct xlator_mops mops = {
 };
 
-struct xlator_options options[] = {
-	{ "direct-io-mode", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
-	{ "non-local", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
-	{ "icon-name", GF_OPTION_TYPE_ANY, 0, 0, 0 },
-	{ "mount-point", GF_OPTION_TYPE_PATH, 0, 0, 0 },
-	{ "attribute-timeout", GF_OPTION_TYPE_INT, 0, 0, 3600, },
-	{ "entry-timeout", GF_OPTION_TYPE_PATH, 0, 0, 3600, },
-	{ NULL, 0, 0, 0 },
+struct volume_options options[] = {
+	{ .key  = {"direct-io-mode"}, 
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
+	{ .key  = {"macfuse-local"}, 
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
+	{ .key  = {"mount-point", "mountpoint"}, 
+	  .type = GF_OPTION_TYPE_PATH 
+	},
+	{ .key  = {"attribute-timeout"}, 
+	  .type = GF_OPTION_TYPE_TIME, 
+	  .min  = 0, 
+	  .max  = 3600 
+	},
+	{ .key  = {"entry-timeout"}, 
+	  .type = GF_OPTION_TYPE_TIME, 
+	  .min  = 0, 
+	  .max  = 3600 
+	},
+	{ .key = {NULL} },
 };

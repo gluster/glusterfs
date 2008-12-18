@@ -348,3 +348,10 @@ struct sched_ops sched = {
   .schedule = switch_schedule,
   .notify   = switch_notify
 };
+
+struct volume_options options[] = {
+	{ .key   = { "switch.*" },  
+	  .type  = GF_OPTION_TYPE_ANY
+	},
+	{ .key = {NULL} }
+};

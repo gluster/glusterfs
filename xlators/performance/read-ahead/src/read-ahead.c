@@ -850,9 +850,19 @@ struct xlator_cbks cbks = {
 	.release       = ra_release,
 };
 
-struct xlator_options options[] = {
-	{ "force-atime-update", GF_OPTION_TYPE_BOOL, 0, },
-	{ "page-size", GF_OPTION_TYPE_SIZET, 0, 16 * GF_UNIT_KB, 2 * GF_UNIT_MB },
-	{ "page-count", GF_OPTION_TYPE_INT, 0, 1, 16 },
-	{ NULL, 0, },
+struct volume_options options[] = {
+	{ .key  = {"force-atime-update"}, 
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
+	{ .key  = {"page-size"}, 
+	  .type = GF_OPTION_TYPE_SIZET, 
+	  .min  = 64 * GF_UNIT_KB, 
+	  .max  = 2 * GF_UNIT_MB 
+	},
+	{ .key  = {"page-count"}, 
+	  .type = GF_OPTION_TYPE_INT, 
+	  .min  = 1, 
+	  .max  = 16 
+	},
+	{ .key = {NULL} },
 };

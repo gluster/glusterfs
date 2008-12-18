@@ -1199,10 +1199,19 @@ struct xlator_mops mops = {
 struct xlator_cbks cbks = {
 };
 
-struct xlator_options options[] = { 
-	{ "start-offset", GF_OPTION_TYPE_INT, 0, 0, 4096 },
-	{ "end-offset", GF_OPTION_TYPE_INT, 0, 1, 4096 },
-	{ "regex", GF_OPTION_TYPE_STR, 0, },
-	{ "replace-with", GF_OPTION_TYPE_STR, 0, },
-	{ NULL, 0, },
+struct volume_options options[] = { 
+	{ .key  = {"start-offset"}, 
+	  .type = GF_OPTION_TYPE_INT, 
+	  .min  = 0, 
+	  .max  = 4095 
+	},
+	{ .key  = {"end-offset"}, 
+	  .type = GF_OPTION_TYPE_INT, 
+	  .min  = 1, 
+	  .max  = 4096 
+	},
+	{ .key  = {"replace-with"}, 
+	  .type = GF_OPTION_TYPE_ANY 
+	},
+	{ .key  = {NULL} },
 };

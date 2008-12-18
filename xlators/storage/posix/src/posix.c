@@ -3561,13 +3561,13 @@ init (xlator_t *this)
 			    "trusted.glusterfs.test", "working", 8, 0);
         if (op_ret < 0) {
 		tmp_data = dict_get (this->options, 
-				     "starting-without-extended-attribute");
+				     "mandate-xattr");
 		if (tmp_data) {
 			if (gf_string2boolean (tmp_data->data, 
 					       &tmp_bool) == -1) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"wrong option provided for key "
-					"starting-without-extended-attribute");
+					"\"mandate-xattr\"");
 				ret = -1;
 				goto out;
 			}
@@ -3735,10 +3735,14 @@ struct xlator_cbks cbks = {
 	.releasedir  = posix_releasedir
 };
 
-struct xlator_options options[] = {
-	{ "o-direct", GF_OPTION_TYPE_BOOL, 0, },
-	{ "directory", GF_OPTION_TYPE_PATH, 0, },
-	{ "export-statfs-size", GF_OPTION_TYPE_BOOL, 0,  },
-	{ "starting-without-extended-attribute", GF_OPTION_TYPE_BOOL, 0,  },
-	{ NULL, 0, }
+struct volume_options options[] = {
+	{ .key  = {"o-direct"}, 
+	  .type = GF_OPTION_TYPE_BOOL },
+	{ .key  = {"directory"},
+	  .type = GF_OPTION_TYPE_PATH },
+	{ .key  = {"export-statfs-size"}, 
+	  .type = GF_OPTION_TYPE_BOOL },
+	{ .key  = {"mandate-attribute"}, 
+	  .type = GF_OPTION_TYPE_BOOL },
+	{ .key  = {NULL} }
 };

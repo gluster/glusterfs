@@ -189,8 +189,12 @@ struct xlator_mops mops = {
 };
 
 
-struct xlator_options options[] = {
-	{ "encrypt-write", GF_OPTION_TYPE_BOOL, 0,  },
-	{ "decrypt-read", GF_OPTION_TYPE_BOOL, 0,  },
-	{ NULL, 0, },
+struct volume_options options[] = {
+	{ .key  = {"encrypt-write"}, 
+	  .type = GF_OPTION_TYPE_BOOL
+	},
+	{ .key  = {"decrypt-read"}, 
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
+	{ .key  = {NULL} },
 };

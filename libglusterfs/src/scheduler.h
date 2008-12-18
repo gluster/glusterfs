@@ -35,6 +35,6 @@ struct sched_ops {
   void (*notify) (xlator_t *xl, int32_t event, void *data);
 };
 
-extern struct sched_ops *get_scheduler (const char *name);
+extern struct sched_ops *get_scheduler (xlator_t *xl, const char *name);
 
 #endif /* _SCHEDULER_H */

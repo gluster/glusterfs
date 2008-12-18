@@ -562,3 +562,10 @@ struct sched_ops sched = {
 	.schedule = rr_schedule,
 	.notify   = rr_notify
 };
+
+struct volume_options options[] = {
+	{ .key   = { "rr.*" },  
+	  .type  = GF_OPTION_TYPE_ANY
+	},
+	{ .key = {NULL} }
+};

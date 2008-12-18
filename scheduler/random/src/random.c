@@ -254,3 +254,10 @@ struct sched_ops sched = {
   .schedule = random_schedule,
   .notify   = random_notify
 };
+
+struct volume_options options[] = {
+	{ .key   = { "random.*" },  
+	  .type  = GF_OPTION_TYPE_ANY
+	},
+	{ .key = {NULL} }
+};

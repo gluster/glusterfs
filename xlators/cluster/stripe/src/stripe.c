@@ -77,7 +77,6 @@ struct stripe_private {
 	int8_t     state[256];       /* Current state of the child node, 
 					0 for down, 1 for up */
 	gf_boolean_t  xattr_supported;  /* 0 for no, 1 for yes, default yes */
-	uint8_t       xattr_supported_option_given;   /* 0 of no, 1 for yes */
 };
 
 /**
@@ -1233,17 +1232,6 @@ stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame,
 	{
 		callcnt = --local->call_count;
     
-		if ((op_ret == -1) && (op_errno == ENOTSUP)) {
-			if (!priv->xattr_supported_option_given) {
-				priv->xattr_supported = 0;
-				op_ret = 0;
-				gf_log (this->name, GF_LOG_CRITICAL, 
-					"seems like extended attribute not "
-					"supported, falling back to no "
-					"extended attribute mode");
-			}
-		}
-
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_WARNING, 
 				"%s returned error %s",
@@ -1636,17 +1624,6 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
 	{
 		callcnt = --local->call_count;
     
-		if ((op_ret == -1) && (op_errno == ENOTSUP)) {
-			if (!priv->xattr_supported_option_given) {
-				priv->xattr_supported = 0;
-				op_ret = 0;
-				gf_log (this->name, GF_LOG_CRITICAL, 
-					"seems like extended attribute not "
-					"supported, falling back to no "
-					"extended attribute mode");
-			}
-		}
-
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_WARNING, 
 				"%s returned error %s",
@@ -1944,16 +1921,6 @@ stripe_open_getxattr_cbk (call_frame_t *frame,
 			local->op_errno = op_errno;
 			if (op_errno == ENOTCONN)
 				local->failed = 1;
-			if (op_errno == ENOTSUP) {
-				if (!priv->xattr_supported_option_given) {
-					priv->xattr_supported = 0;
-					gf_log (this->name, GF_LOG_CRITICAL, 
-						"seems like extended "
-						"attribute not supported, "
-						"falling back to no extended "
-						"attribute mode");
-				}
-			}
 		}
 	}
 	UNLOCK (&frame->lock);
@@ -3224,8 +3191,7 @@ init (xlator_t *this)
 	}
 
 	priv->xattr_supported = 1;
-	priv->xattr_supported_option_given = 0;
-	data = dict_get (this->options, "extended-attribute-support");
+	data = dict_get (this->options, "use-xattr");
 	if (data) {
 		if (gf_string2boolean (data->data, 
 				       &priv->xattr_supported) == -1) {
@@ -3234,7 +3200,6 @@ init (xlator_t *this)
 				"attribute");
 			//return -1;
 		}
-		priv->xattr_supported_option_given = 1;
 	}
 
 	/* notify related */
@@ -3312,8 +3277,12 @@ struct xlator_cbks cbks = {
 };
 
 
-struct xlator_options options[] = {
-	{ "block-size", GF_OPTION_TYPE_ANY, 0, },
-	{ "extended-attribute-support", GF_OPTION_TYPE_BOOL, 0,  },
-	{ NULL, 0, },
+struct volume_options options[] = {
+	{ .key  = {"block-size"}, 
+	  .type = GF_OPTION_TYPE_ANY 
+	},
+	{ .key  = {"use-xattr"}, 
+	  .type = GF_OPTION_TYPE_BOOL
+	},
+	{ .key  = {NULL} },
 };

@@ -6712,7 +6712,6 @@ mop_setvolume (call_frame_t *frame,
 {
 	server_connection_private_t *cprivate = NULL;
 	server_private_t *server_private = NULL;
-	glusterfs_ctx_t  *ctx = NULL;
 	gf_hdr_common_t        *rsp_hdr = NULL;
 	gf_mop_setvolume_req_t *req = NULL;
 	gf_mop_setvolume_rsp_t *rsp = NULL;
@@ -6882,8 +6881,8 @@ mop_setvolume (call_frame_t *frame,
 					 cprivate->bound_xl);
 	}
 
-	ctx = get_global_ctx_ptr ();
-	ret = dict_set_str (reply, "process-uuid", ctx->process_uuid);
+	ret = dict_set_str (reply, "process-uuid", 
+			    xl->ctx->process_uuid);
 
 fail:
 	dict_len = dict_serialized_length (reply);
@@ -7066,7 +7065,8 @@ get_frame_for_transport (transport_t *trans)
 	
 	GF_VALIDATE_OR_GOTO("server", trans, out);
 
-	pool = trans->xl->ctx->pool;
+	if (trans->xl && trans->xl->ctx)
+		pool = trans->xl->ctx->pool;
 	GF_VALIDATE_OR_GOTO("server", pool, out);
 
 	cprivate = trans->xl_private;
@@ -7529,7 +7529,6 @@ init (xlator_t *this)
 	transport_t *trans = NULL;
 	server_conf_t *conf = NULL;
 	server_private_t *server_private = NULL;
-	glusterfs_ctx_t *ctx = NULL;
 
 	if (this->children == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -7571,7 +7570,7 @@ init (xlator_t *this)
 		goto out;
 	}
 	
-	ret = gf_auth_init (server_private->auth_modules);
+	ret = gf_auth_init (this, server_private->auth_modules);
 	if (ret) {
 		dict_unref (server_private->auth_modules);
 		goto out;
@@ -7622,8 +7621,7 @@ init (xlator_t *this)
 		}
 	}
 #endif
-	ctx = get_global_ctx_ptr ();
-        ctx->top = (void *)this;
+	this->ctx->top = this;
 
 	ret = 0;
 	trans->xl_private = conf;
@@ -7760,44 +7758,32 @@ struct xlator_mops mops = {
 };
 
 struct xlator_fops fops = {
-
 };
 
 struct xlator_cbks cbks = {
 };
 
-struct xlator_options options[] = {
-	/* Authentication module */
-	{ "auth.ip.<volume-name>.allow",
-	  GF_OPTION_TYPE_ANY, 8, 0, 0 }, /* 1.3.x version support */
-	{ "auth.addr.<volume-name>.[allow|reject]",
-	  GF_OPTION_TYPE_ANY, 10, 0, 0 },
-	{ "auth.login.<volume-name>.allow",
-	  GF_OPTION_TYPE_STR, 11, 0, 0 },
-
-	/* Transport */
-	{ "ib-verbs-[port|mtu|device-name|work-request-send-size...]",
-	  GF_OPTION_TYPE_ANY, 9, 0, 0 },
-	{ "listen-port",
-	  GF_OPTION_TYPE_INT, 0, 1025, 65534 },
-	{ "transport-type",
-	  GF_OPTION_TYPE_STR, 0, 0, 0,
-	  "tcp|ib-verbs|ib-sdp|socket|unix|tcp/server|ib-verbs/server" },
-	{ "address-family",
-	  GF_OPTION_TYPE_STR, 0, 0, 0,
-	  "inet|inet6|inet/inet6|inet6/inet|unix|inet-sdp" },
-
-	{ "bind-address", GF_OPTION_TYPE_STR, 0, },
-	{ "listen-path", GF_OPTION_TYPE_STR, 0, 0, 0 },
-
-	/* Server protocol itself */
-	{ "limits.transaction-size",
-	  GF_OPTION_TYPE_SIZET, 0, 128 * GF_UNIT_KB, 8 * GF_UNIT_MB },
-	{ "volume-filename.<key>", GF_OPTION_TYPE_STR, 16, 0, 0 },
-	{ "inode-lru-limit",  GF_OPTION_TYPE_INT, 0, 0, 1048576 },
-
-	/* Backword compatibility */
-	{ "client-volume-filename", GF_OPTION_TYPE_PATH, 0, }, 
-
-	{ NULL, 0, 0, 0, 0 },
+struct volume_options options[] = {
+ 	{ .key   = {"transport-type"}, 
+	  .value = {"tcp", "socket", "ib-verbs", "unix", "ib-sdp", 
+		    "tcp/client", "ib-verbs/client"},
+	  .type  = GF_OPTION_TYPE_STR 
+	},
+ 	{ .key   = {"address-family"}, 
+	  .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
+		    "unix", "inet-sdp" },
+	  .type  = GF_OPTION_TYPE_STR 
+	},
+	{ .key   = {"volume-filename.*"}, 
+	  .type  = GF_OPTION_TYPE_PATH, 
+	},
+	{ .key   = {"inode-lru-limit"},  
+	  .type  = GF_OPTION_TYPE_INT,
+	  .min   = 0, 
+	  .max   = (1 * GF_UNIT_MB)
+	},
+	{ .key   = {"client-volume-filename"}, 
+	  .type  = GF_OPTION_TYPE_PATH
+	}, 
+	{ .key   = {NULL} },
 };

@@ -41,11 +41,15 @@ init (dict_t *this,
 	char *auth_file = NULL;
 	auth_handle_t *auth_handle = NULL;
 	auth_fn_t authenticate = NULL;
-	int *error = (int *) data;
+	int *error = NULL;
+	
+	/* It gets over written */
+	error = data;
 
 	if (!strncasecmp (key, "ip", strlen ("ip"))) {
 		gf_log ("authenticate", GF_LOG_ERROR,
-			"AUTHENTICATION MODULE \"IP\" HAS BEEN REPLACED BY \"ADDR\"");
+			"AUTHENTICATION MODULE \"IP\" HAS BEEN REPLACED "
+			"BY \"ADDR\"");
 		dict_set (this, key, data_from_dynptr (NULL, 0));
 		/* TODO: 1.3.x backword compatibility */
 		// *error = -1;
@@ -81,11 +85,18 @@ init (dict_t *this,
 		*error = -1;
 		return;
 	}
+	auth_handle->vol_opt = CALLOC (1, sizeof (volume_opt_list_t));
+	auth_handle->vol_opt->given_opt = dlsym (handle, "options");
+	if (auth_handle->vol_opt->given_opt == NULL) {
+		gf_log ("authenticate", GF_LOG_DEBUG,
+			"volume option validation not specified");
+	} 
 
 	auth_handle->authenticate = authenticate;
 	auth_handle->handle = handle;
 
-	dict_set (this, key, data_from_dynptr (auth_handle, sizeof (*auth_handle)));
+	dict_set (this, key, 
+		  data_from_dynptr (auth_handle, sizeof (*auth_handle)));
 }
 
 static void
@@ -101,17 +112,37 @@ fini (dict_t *this,
 }
 
 int32_t
-gf_auth_init (dict_t *auth_modules)
+gf_auth_init (xlator_t *xl, dict_t *auth_modules)
 {
-	int32_t error = 0;
-
-	dict_foreach (auth_modules, init, &error);
-	if (error) {
-		int32_t dummy;
-		dict_foreach (auth_modules, fini, &dummy);
+	int ret = 0;
+	auth_handle_t *handle = NULL;
+	data_pair_t *pair = NULL;
+	dict_foreach (auth_modules, init, &ret);
+	if (!ret) {
+		pair = auth_modules->members_list;
+		while (pair) {
+			handle = data_to_ptr (pair->value);
+			if (handle) {
+				list_add_tail (&(handle->vol_opt->list), 
+					       &(xl->volume_options));
+				if (-1 == 
+				    validate_xlator_volume_options (xl, 
+								    handle->vol_opt->given_opt)) {
+					gf_log ("authenticate", GF_LOG_ERROR,
+						"volume option validation "
+						"failed");
+					ret = -1;
+				}
+			}
+			pair = pair->next;
+		}
 	}
-
-	return error;
+	if (ret) {
+		gf_log (xl->name, GF_LOG_ERROR, "authentication init failed");
+		dict_foreach (auth_modules, fini, &ret);
+		ret = -1;
+	}
+	return ret;
 }
 
 static dict_t *__input_params;
@@ -130,7 +161,8 @@ map (dict_t *this,
 	if (value && (handle = data_to_ptr (value)) && 
 	    (authenticate = handle->authenticate)) {
 		dict_set (res, key, 
-			  int_to_data (authenticate (__input_params, __config_params)));
+			  int_to_data (authenticate (__input_params, 
+						     __config_params)));
 	} else {
 		dict_set (res, key, int_to_data (AUTH_DONT_CARE));
 	}
@@ -190,7 +222,8 @@ gf_authenticate (dict_t *input_params,
 		}
 
 		gf_log ("auth", GF_LOG_ERROR,
-			"no authentication module is interested in accepting remote-client %s", name);
+			"no authentication module is interested in "
+			"accepting remote-client %s", name);
 		result = AUTH_REJECT;
 	}
     

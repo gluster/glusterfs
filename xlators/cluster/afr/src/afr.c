@@ -2100,17 +2100,42 @@ struct xlator_mops mops = {
 struct xlator_cbks cbks = {
 };
 
-struct xlator_options options[] = {
-	{ "read-subvolume", GF_OPTION_TYPE_XLATOR, 0, },
-	{ "favorite-child", GF_OPTION_TYPE_XLATOR, 0, },
-	{ "data-self-heal", GF_OPTION_TYPE_BOOL, 0, },
-	{ "metadata-self-heal", GF_OPTION_TYPE_BOOL, 0, },
-	{ "entry-self-heal", GF_OPTION_TYPE_BOOL, 0, },
-	{ "data-change-log", GF_OPTION_TYPE_BOOL, 0, },
-	{ "metadata-change-log", GF_OPTION_TYPE_BOOL, 0,},
-	{ "entry-change-log", GF_OPTION_TYPE_BOOL, 0,},
-	{ "data-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
-	{ "metadata-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
-	{ "entry-lock-server-count", GF_OPTION_TYPE_INT, 0, 0, 65535},
-	{ NULL, 0, },
+struct volume_options options[] = {
+	{ .key  = {"read-subvolume" }, 
+	  .type = GF_OPTION_TYPE_XLATOR
+	},
+	{ .key  = {"favorite-child"}, 
+	  .type = GF_OPTION_TYPE_XLATOR
+	},
+	{ .key  = {"data-self-heal"},  
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
+	{ .key  = {"metadata-self-heal"},  
+	  .type = GF_OPTION_TYPE_BOOL
+	},
+	{ .key  = {"entry-self-heal"},  
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
+	{ .key  = {"data-change-log"},  
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
+	{ .key  = {"metadata-change-log"},  
+	  .type = GF_OPTION_TYPE_BOOL
+	},
+	{ .key  = {"entry-change-log"},  
+	  .type = GF_OPTION_TYPE_BOOL
+	},
+	{ .key  = {"data-lock-server-count"},  
+	  .type = GF_OPTION_TYPE_INT, 
+	  .min  = 0
+	},
+	{ .key  = {"metadata-lock-server-count"},  
+	  .type = GF_OPTION_TYPE_INT, 
+	  .min  = 0
+	},
+	{ .key  = {"entry-lock-server-count"},  
+	  .type = GF_OPTION_TYPE_INT,
+	  .min  = 0
+	},
+	{ .key  = {NULL} },
 };

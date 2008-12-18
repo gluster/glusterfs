@@ -397,6 +397,7 @@ protocol_client_xfer (call_frame_t *frame,
 			__protocol_client_frame_save (this, frame, callid);
 		}
 		if ((frame->op == GF_FOP_UNLINK) ||
+		    (frame->op == GF_FOP_FSYNC) ||
 		    (frame->op == GF_FOP_CHECKSUM) ||
 		    (frame->op == GF_FOP_LK) ||
 		    (frame->op == GF_FOP_FINODELK) ||
@@ -4386,6 +4387,15 @@ client_fsync_cbk (call_frame_t *frame,
 	gf_fop_fsync_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_private_t *priv = frame->this->private;
+	client_connection_private_t *cprivate = priv->transport->xl_private;
+
+	pthread_mutex_lock (&(cprivate->lock));
+	{
+		if (cprivate->slow_op_count)
+			cprivate->slow_op_count--;
+	}
+	pthread_mutex_unlock (&(cprivate->lock));
 
 	rsp = gf_param (hdr);
 
@@ -6389,28 +6399,34 @@ struct xlator_cbks cbks = {
 };
 
 
-struct xlator_options options[] = {
-	/* Authentication module */
- 	{ "username", GF_OPTION_TYPE_STR, 0, },
- 	{ "password", GF_OPTION_TYPE_STR, 0, },
+struct volume_options options[] = {
+ 	{ .key   = {"username"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+ 	{ .key   = {"password"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+ 	{ .key   = {"transport-type"}, 
+	  .value = {"tcp", "socket", "ib-verbs", "unix", "ib-sdp", 
+		    "tcp/client", "ib-verbs/client"},
+	  .type  = GF_OPTION_TYPE_STR 
+	},
+ 	{ .key   = {"address-family"}, 
+	  .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
+		    "unix", "inet-sdp" },
+	  .type  = GF_OPTION_TYPE_STR 
+	},
+ 	{ .key   = {"remote-host"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+ 	{ .key   = {"remote-subvolume"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+ 	{ .key   = {"transport-timeout"}, 
+	  .type  = GF_OPTION_TYPE_TIME, 
+	  .min   = 5, 
+	  .max   = 1013, 
+	}, 
 
-  	/* Transport */
- 	{ "ib-verbs-[work-request-send-size|...]", GF_OPTION_TYPE_STR, 9, 0 },
- 	{ "remote-port", GF_OPTION_TYPE_INT, 0, 1025, 65534 },
- 	{ "transport-type", GF_OPTION_TYPE_STR, 0, 0, 0,
-	  "tcp|socket|ib-verbs|unix|ib-sdp|tcp/client|ib-verbs/client" },
- 	{ "address-family", GF_OPTION_TYPE_STR, 0, 0, 0, 
-	  "inet|inet6|inet/inet6|inet6/inet|unix|inet-sdp" },
- 	{ "remote-host", GF_OPTION_TYPE_STR, 0, },
- 	{ "connect-path", GF_OPTION_TYPE_STR, 0, },
- 	{ "non-blocking-io", GF_OPTION_TYPE_BOOL, 0, },
-
-  	/* Client protocol itself */
- 	{ "limits.transaction-size", GF_OPTION_TYPE_SIZET, 0, 
-	  128 * GF_UNIT_KB, 8 * GF_UNIT_MB },
- 	{ "remote-subvolume", GF_OPTION_TYPE_STR, 0, },
-	/* More than 10mins? */
- 	{ "transport-timeout", GF_OPTION_TYPE_TIME, 0, 1, 3600 }, 
-
-	{ NULL, 0, },
+	{ .key   = {NULL} },
 };

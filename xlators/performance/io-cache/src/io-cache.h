@@ -143,7 +143,7 @@ struct ioc_table {
 	pthread_mutex_t table_lock;
 	xlator_t *xl;
 	uint32_t inode_count;
-	int32_t force_revalidate_timeout;
+	int32_t cache_timeout;
 	int32_t max_pri;
 };
 

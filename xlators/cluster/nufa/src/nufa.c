@@ -3525,9 +3525,10 @@ notify (xlator_t *this, int event, void *data, ...)
 int
 init (xlator_t *this)
 {
+	char          *local_volname = NULL;
 	data_t        *data = NULL;
 	xlator_list_t *trav = NULL;
-        nufa_conf_t    *conf = NULL;
+        nufa_conf_t   *conf = NULL;
         int            ret = -1;
         int            i = 0;
 
@@ -3563,26 +3564,28 @@ init (xlator_t *this)
 
 	data = dict_get (this->options, "local-volume-name");
 	if (data) {
-		trav = this->children;
-		while (trav) {
-			if (strcmp (trav->xlator->name, data->data) == 0)
-				break;
-			trav = trav->next;
-		}
-		if (!trav) {
-			gf_log (this->name, GF_LOG_ERROR, 
-				"'local-volume-name' option not valid, can not continue");
-			goto err;
-		}
-
-		/* The volume specified exists */
-		conf->local_volume = trav->xlator;
+		local_volname = data->data;
 	} else {
 		gf_log (this->name, GF_LOG_ERROR, 
-			"'local-volume-name' option not given, can't continue");
+			"'local-volume-name' option not given, "
+			"assuming '$(hostname)'");
+		local_volname = NULL; /* TODO: get hostname */
+	}
+	trav = this->children;
+	while (trav) {
+		if (strcmp (trav->xlator->name, local_volname) == 0)
+			break;
+		trav = trav->next;
+	}
+	if (!trav) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"'local-volume-name' option not valid, "
+			"can not continue");
 		goto err;
 	}
-
+	/* The volume specified exists */
+	conf->local_volume = trav->xlator;
+	
         this->private = conf;
 
         return 0;
@@ -3678,8 +3681,9 @@ struct xlator_cbks cbks = {
 };
 
 
-struct xlator_options options[] = {
-        { "algorithm", GF_OPTION_TYPE_STR, 0, },
-	{ "local-volume-name", GF_OPTION_TYPE_XLATOR, 0, },
-        { NULL, 0, 0, 0, 0 },
+struct volume_options options[] = {
+	{ .key  = {"local-volume-name"}, 
+	  .type = GF_OPTION_TYPE_XLATOR 
+	},
+	{ .key  = {NULL} },
 };

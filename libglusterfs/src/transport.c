@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/poll.h>
-
+#include <fnmatch.h>
 #include <stdint.h>
 
 #ifndef _CONFIG_H
@@ -32,6 +32,9 @@
 #include "logging.h"
 #include "transport.h"
 #include "glusterfs.h"
+#include "xlator.h"
+#include "list.h"
+
 
 transport_t *
 transport_load (dict_t *options,
@@ -45,6 +48,7 @@ transport_load (dict_t *options,
 	char str[] = "ERROR";
 	int32_t ret = -1;
 	int8_t is_tcp = 0, is_unix = 0, is_ibsdp = 0;
+	volume_opt_list_t *vol_opt = NULL;
 
 	GF_VALIDATE_OR_GOTO("transport", options, fail);
 	GF_VALIDATE_OR_GOTO("transport", xl, fail);
@@ -61,20 +65,24 @@ transport_load (dict_t *options,
 		ret = dict_set_str (options, "transport-type", "socket");
 		if (ret < 0)
 			gf_log ("dict", GF_LOG_DEBUG,
-				"setting transport-type failed");			
+				"setting transport-type failed");
 		ret = dict_get_str (options, "address-family", &addr_family);
 		if (ret < 0) {
 			ret = dict_set_str (options, "address-family", "inet");
-			if (ret < 0)
+			if (ret < 0) {
 				gf_log ("dict", GF_LOG_DEBUG,
 					"setting address-family failed");
+			}
 		}
 
 		gf_log ("transport", GF_LOG_WARNING,
-			"missing 'option transport-type'. defaulting to \"socket\" (%s)",
-			addr_family?addr_family:"inet");
+			"missing 'option transport-type'. defaulting to "
+			"\"socket\" (%s)", addr_family?addr_family:"inet");
 	} else {
 		{
+			/* Backword compatibility to handle * /client,
+			 * * /server. 
+			 */
 			char *tmp = strchr (type, '/');
 			if (tmp)
 				*tmp = '\0';
@@ -87,17 +95,22 @@ transport_load (dict_t *options,
 		    (is_unix == 0) ||
 		    (is_ibsdp == 0)) {
 			if (is_tcp == 0)
-				ret = dict_set_str (options, "address-family", "inet");
+				ret = dict_set_str (options, 
+						    "address-family", "inet");
 			if (is_unix == 0)
-				ret = dict_set_str (options, "address-family", "unix");
+				ret = dict_set_str (options, 
+						    "address-family", "unix");
 			if (is_ibsdp == 0)
-				ret = dict_set_str (options, "address-family", "inet-sdp");
+				ret = dict_set_str (options, 
+						    "address-family", 
+						    "inet-sdp");
 
 			if (ret < 0)
 				gf_log ("dict", GF_LOG_DEBUG,
 					"setting address-family failed");
 
-			ret = dict_set_str (options, "transport-type", "socket");
+			ret = dict_set_str (options, 
+					    "transport-type", "socket");
 			if (ret < 0)
 				gf_log ("dict", GF_LOG_DEBUG,
 					"setting transport-type failed");
@@ -108,7 +121,7 @@ transport_load (dict_t *options,
 	if (ret < 0) {
 		FREE (trans);
 		gf_log ("transport", GF_LOG_ERROR,
-			"'option transport-type <xxxx>' missing in volume '%s'",
+			"'option transport-type <xx>' missing in volume '%s'",
 			xl->name);
 		goto fail;
 	}
@@ -152,6 +165,23 @@ transport_load (dict_t *options,
 			"dlsym (gf_transport_fini) on %s", dlerror ());
 		FREE (trans);
 		goto fail;
+	}
+	
+	vol_opt = CALLOC (1, sizeof (volume_opt_list_t));
+	vol_opt->given_opt = dlsym (handle, "options");
+	if (vol_opt->given_opt == NULL) {
+		gf_log ("transport", GF_LOG_DEBUG,
+			"volume option validation not specified");
+	} else {
+		list_add_tail (&vol_opt->list, &xl->volume_options);
+		if (-1 == 
+		    validate_xlator_volume_options (xl, 
+						    vol_opt->given_opt)) {
+			gf_log ("transport", GF_LOG_ERROR,
+				"volume option validation failed");
+			FREE (trans);
+			goto fail;
+		}
 	}
 	
 	ret = trans->init (trans);

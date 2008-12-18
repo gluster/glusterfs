@@ -2178,8 +2178,8 @@ enable_call (const char *name, int enabled)
 
 
 /* 
-   include = 1 for "include"
-           = 0 for "exclude" 
+   include = 1 for "include-ops"
+           = 0 for "exclude-ops" 
 */
 void
 process_call_list (const char *list, int include)
@@ -2217,13 +2217,14 @@ init (xlator_t *this)
 //  enable_all_calls (1);
 
 #ifndef GF_SOLARIS_HOST_OS
-  includes = data_to_str (dict_get (options, "include"));
-  excludes = data_to_str (dict_get (options, "exclude"));
+  includes = data_to_str (dict_get (options, "include-ops"));
+  excludes = data_to_str (dict_get (options, "exclude-ops"));
 
   {
 	  int i;
 	  for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-		  trace_fop_names[i].name = (gf_fop_list[i])?gf_fop_list[i]:":O";
+		  trace_fop_names[i].name = (gf_fop_list[i] ?
+					     gf_fop_list[i] : ":O");
 		  trace_fop_names[i].enabled = 1;
 	  }
   }
@@ -2231,7 +2232,7 @@ init (xlator_t *this)
   if (includes && excludes) {
     gf_log (this->name, 
 	    GF_LOG_ERROR,
-	    "must specify only one of 'include' and 'exclude'");
+	    "must specify only one of 'include-ops' and 'exclude-ops'");
     return -1;
   }
   if (includes)
@@ -2307,12 +2308,18 @@ struct xlator_mops mops = {
 	.stats    = trace_stats,
 };
 
-
-struct xlator_options options[] = {
-	{ "include", GF_OPTION_TYPE_STR, 0, 0, 0 },
-	{ "exclude", GF_OPTION_TYPE_STR, 0, 0, 0 },
-	{ NULL, 0, 0, 0, 0 },
-};
-
 struct xlator_cbks cbks = {
 };
+
+struct volume_options options[] = {
+	{ .key  = {"include-ops", "include"}, 
+	  .type = GF_OPTION_TYPE_STR,
+	  /*.value = { ""} */
+	},
+	{ .key  = {"exclude-ops", "exclude"}, 
+	  .type = GF_OPTION_TYPE_STR 
+	  /*.value = { ""} */	  
+	},
+	{ .key  = {NULL} },
+};
+

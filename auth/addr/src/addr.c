@@ -192,3 +192,13 @@ gf_auth (dict_t *input_params, dict_t *config_params)
   
   return AUTH_DONT_CARE;
 }
+
+struct volume_options options[] = {
+ 	{ .key   = {"auth.addr.*.allow"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+ 	{ .key   = {"auth.addr.*.reject"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+	{ .key = {NULL} }
+};

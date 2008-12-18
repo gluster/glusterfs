@@ -384,3 +384,10 @@ struct sched_ops sched = {
 	.schedule = nufa_schedule,
 	.notify   = nufa_notify
 };
+
+struct volume_options options[] = {
+	{ .key   = { "nufa.*" },  
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+	{ .key = {NULL} }
+};

@@ -753,12 +753,13 @@ init (xlator_t *this)
 
 	priv = CALLOC (1, sizeof (*priv));
 
-	mandatory = dict_get (this->options, "mandatory");
+	mandatory = dict_get (this->options, "mandatory-locks");
 	if (mandatory) {
 		if (gf_string2boolean (mandatory->data,
 				       &priv->mandatory) == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"'mandatory' takes only boolean options");
+				"'mandatory-locks' takes only boolean "
+				"options");
 			return -1;
 		}
 	}
@@ -823,7 +824,9 @@ struct xlator_cbks cbks = {
 };
 
 
-struct xlator_options options[] = {
-	{ "mandatory", GF_OPTION_TYPE_BOOL, 0, },
-	{ NULL, 0, 0, 0, 0 },
+struct volume_options options[] = {
+	{ .key  = { "mandatory-locks", "mandatory" }, 
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
+	{ .key = {NULL} },
 };

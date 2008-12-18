@@ -88,3 +88,13 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
 
   return result;
 }
+
+struct volume_options options[] = {
+ 	{ .key   = {"auth.login.*.allow"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+ 	{ .key   = {"auth.login.*.password"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+	{ .key = {NULL} }
+};

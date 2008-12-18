@@ -2298,3 +2298,21 @@ fini (struct transport *this)
 	  this);
   return;
 }
+
+/* TODO: expand each option */
+struct volume_options options[] = {
+ 	{ .key   = {"ib-verbs-*"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+ 	{ .key   = {"remote-port", "transport.ib-verbs.remote-port"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+ 	{ .key   = {"listen-port", "transport.ib-verbs.listen-port"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+/* 	{ .key   = {"transport.ib-verbs.*"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
+*/
+	{ .key = {NULL} }
+};

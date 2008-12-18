@@ -3460,7 +3460,9 @@ struct xlator_cbks cbks = {
 };
 
 
-struct xlator_options options[] = {
-        { "lookup-unhashed", GF_OPTION_TYPE_BOOL, 0, 0, 0 },
-        { NULL, 0, 0, 0, 0 },
+struct volume_options options[] = {
+        { .key  = {"lookup-unhashed"}, 
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
+	{ .key  = {NULL} },
 };

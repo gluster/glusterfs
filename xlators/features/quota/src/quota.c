@@ -48,7 +48,7 @@ struct quota_priv {
 
 	uint32_t min_free_disk_limit;        /* user specified limit, in % */ 
 	uint32_t current_free_disk;          /* current free disk space available, in % */
-	uint32_t min_free_disk_refresh;      /* interval in seconds */
+	uint32_t refresh_interval;      /* interval in seconds */
 	uint32_t min_disk_last_updated_time; /* used for interval calculation */	
 };
 
@@ -101,7 +101,7 @@ gf_quota_check_free_disk (xlator_t *this)
 	priv = this->private;
 	if (priv->min_free_disk_limit) {
 		gettimeofday (&tv, NULL);
-		if (tv.tv_sec > (priv->min_free_disk_refresh + 
+		if (tv.tv_sec > (priv->refresh_interval + 
 				 priv->min_disk_last_updated_time)) {
 			priv->min_disk_last_updated_time = tv.tv_sec;
 			gf_quota_update_current_free_disk (this);
@@ -838,12 +838,14 @@ init (xlator_t *this)
 			ret = -1;
 			goto out;
                 }
-		_private->min_free_disk_refresh = 30; /* 30seconds is default */
-		data = dict_get (this->options, "min-free-disk-refresh-interval");
+		_private->refresh_interval = 20; /* 20seconds is default */
+		data = dict_get (this->options, "refresh-interval");
 		if (data) {
-			if (gf_string2time (data->data, &_private->min_free_disk_refresh) != 0) {
+			if (gf_string2time (data->data, 
+					    &_private->refresh_interval)!= 0) {
 				gf_log (this->name, GF_LOG_ERROR, 
-					"invalid time '%s' for min-free-disk refresh interval", data->data);
+					"invalid time '%s' for refresh "
+					"interval", data->data);
 				ret = -1;
 				goto out;
 			}
@@ -907,9 +909,15 @@ struct xlator_mops mops = {
 struct xlator_cbks cbks = {
 };
 
-struct xlator_options options[] = {
-	{ "min-free-disk-limit", GF_OPTION_TYPE_PERCENT, 0,  },
-	{ "min-free-disk-refresh-interval", GF_OPTION_TYPE_TIME, 0,  },
-	{ "disk-usage-limit", GF_OPTION_TYPE_SIZET, 0, -1, },
-	{ NULL, 0,},
+struct volume_options options[] = {
+	{ .key  = {"min-free-disk-limit"}, 
+	  .type = GF_OPTION_TYPE_PERCENT
+	},
+	{ .key  = {"refresh-interval"}, 
+	  .type = GF_OPTION_TYPE_TIME
+	},
+	{ .key  = {"disk-usage-limit"}, 
+	  .type = GF_OPTION_TYPE_SIZET 
+	},
+	{ .key = {NULL} },
 };

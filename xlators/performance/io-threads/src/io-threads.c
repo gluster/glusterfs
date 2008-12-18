@@ -1152,7 +1152,6 @@ init (xlator_t *this)
 {
 	iot_conf_t *conf;
 	dict_t *options = this->options;
-	char *cache_size_string = NULL;
 
 	if (!this->children || this->children->next) {
 		gf_log ("io-threads",
@@ -1179,39 +1178,6 @@ init (xlator_t *this)
 			"Using conf->thread_count = %d",
 			conf->thread_count);
 	}
-
-	/*
-	  conf->queue_limit = 64;
-
-	  if (dict_get (options, "queue-limit")) {
-	  conf->queue_limit = data_to_int (dict_get (options,
-	  "queue-limit"));
-	  gf_log ("io-threads",
-	  GF_LOG_DEBUG,
-	  "Using conf->queue_limit = %d",
-	  conf->queue_limit);
-	  }
-	*/
-
-	conf->cache_size = 1048576 * 64;
-	if (dict_get (options, "cache-size"))
-		cache_size_string = data_to_str (dict_get (options,
-							   "cache-size"));
-	if (cache_size_string) {
-		if (gf_string2bytesize (cache_size_string,
-					&conf->cache_size) != 0) {
-			gf_log ("io-threads", GF_LOG_ERROR, 
-				"invalid number format \"%s\" of \"option cache-size\"", 
-				cache_size_string);
-			return -1;
-		}
-		gf_log ("io-threads", GF_LOG_DEBUG,
-			"Using conf->cache_size = %"PRIu64"",
-			conf->cache_size);
-	}
-
-	/* XXX: currently necessary to avoid deadlocks */
-	conf->cache_size = 0;
 
 	pthread_mutex_init (&conf->lock, NULL);
 	pthread_cond_init (&conf->q_cond, NULL);
@@ -1261,10 +1227,11 @@ struct xlator_cbks cbks = {
 	.release = iot_release,
 };
 
-struct xlator_options options[] = {
-	{"thread-count", GF_OPTION_TYPE_INT, 0, 1, 32},
-	//{"queue-limit", GF_OPTION_TYPE_INT32, 0, 1, 128},
-	{"cache-size", GF_OPTION_TYPE_SIZET, 0, 1 * GF_UNIT_MB, 4 * GF_UNIT_GB},
-	{ NULL, 0, }
+struct volume_options options[] = {
+	{ .key  = {"thread-count"}, 
+	  .type = GF_OPTION_TYPE_INT, 
+	  .min  = 1, 
+	  .max  = 32
+	},
+	{ .key  = {NULL} },
 };
-
