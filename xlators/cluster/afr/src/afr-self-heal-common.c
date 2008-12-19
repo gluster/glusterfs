@@ -1024,7 +1024,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 					      priv->child_count);
 	}
 
-	if (local->success_count && local->enoent_count) {
+	if (local->success_count && local->enoent_count && priv->entry_self_heal) {
 		afr_self_heal_missing_entries (frame, this);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,

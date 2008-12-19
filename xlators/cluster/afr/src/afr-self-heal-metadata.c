@@ -758,12 +758,13 @@ afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t   *local = NULL;
 	afr_self_heal_t *sh = NULL;
+	afr_private_t *priv = this->private;
 
 
 	local = frame->local;
 	sh = &local->self_heal;
 
-	if (local->need_metadata_self_heal) {
+	if (local->need_metadata_self_heal && priv->metadata_self_heal) {
 		afr_sh_metadata_lock (frame, this);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,

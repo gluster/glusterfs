@@ -420,7 +420,11 @@ unlock:
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
-		if (local->success_count && local->enoent_count) {
+		if (local->success_count 
+		    && local->enoent_count 
+		    && priv->metadata_self_heal
+		    && priv->data_self_heal
+		    && priv->entry_self_heal) {
 			local->need_metadata_self_heal = 1;
 			local->need_data_self_heal = 1;
 			local->need_entry_self_heal = 1;
@@ -428,7 +432,8 @@ unlock:
 
 		if (local->success_count) {
 			if (dict_get (local->cont.lookup.inode->ctx,
-				      this->name))
+				      this->name) 
+			    && priv->data_self_heal)
 				local->need_data_self_heal = 1;
 		}
 
