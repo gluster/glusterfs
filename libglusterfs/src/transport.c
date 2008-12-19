@@ -66,11 +66,19 @@ transport_load (dict_t *options,
 		if (ret < 0)
 			gf_log ("dict", GF_LOG_DEBUG,
 				"setting transport-type failed");
-		ret = dict_get_str (options, "address-family", &addr_family);
+		ret = dict_get_str (options, "transport.address-family",
+				    &addr_family);
 		if (ret < 0) {
-			ret = dict_set_str (options, "address-family", "inet");
+			ret = dict_get_str (options, "address-family",
+					    &addr_family);
+		}
+
+		if (ret < 0) {
+			ret = dict_set_str (options,
+					    "transport.address-family",
+					    "inet");
 			if (ret < 0) {
-				gf_log ("dict", GF_LOG_DEBUG,
+				gf_log ("dict", GF_LOG_ERROR,
 					"setting address-family failed");
 			}
 		}
@@ -96,13 +104,15 @@ transport_load (dict_t *options,
 		    (is_ibsdp == 0)) {
 			if (is_tcp == 0)
 				ret = dict_set_str (options, 
-						    "address-family", "inet");
+						    "transport.address-family",
+						    "inet");
 			if (is_unix == 0)
 				ret = dict_set_str (options, 
-						    "address-family", "unix");
+						    "transport.address-family",
+						    "unix");
 			if (is_ibsdp == 0)
 				ret = dict_set_str (options, 
-						    "address-family", 
+						    "transport.address-family",
 						    "inet-sdp");
 
 			if (ret < 0)

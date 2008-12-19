@@ -376,8 +376,8 @@ validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt)
 			if (!ret) {
 				if (i) {
 					gf_log (xl->name, GF_LOG_WARNING,
-						"option '%s' is depricated, "
-						"preffered is '%s', continuing"
+						"option '%s' is deprecated, "
+						"preferred is '%s', continuing"
 						" with correction",
 						trav->key[i], trav->key[0]);
 					/* TODO: some bytes lost */

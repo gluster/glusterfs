@@ -19,7 +19,7 @@
 
 
 %token SECTION_BEGIN SECTION_END OPTION NEWLINE SUBSECTION ID WHITESPACE COMMENT TYPE STRING_TOK CMD_TOK
-%name-prefix="glusterfs_"
+%name-prefix="yy"
 
 %{
 #include <stdio.h>
@@ -41,8 +41,8 @@ static void type_error (void);
 static void option_error (void);
 
 #define YYSTYPE char *
-int glusterfs_error (const char *);
-int glusterfs_lex ();
+int yyerror (const char *);
+int yylex ();
 %}
 
 
@@ -84,44 +84,44 @@ glusterfs_ctx_t *gctx;
 static void
 type_error (void)
 {
-        extern int glusterfs_lineno;
+        extern int yylineno;
 
         fprintf (stderr, "volume %s, before line %d: specify which 'type' "
 		 "you need\n",
-                 complete_tree->name, glusterfs_lineno);
+                 complete_tree->name, yylineno);
         gf_log ("parser", GF_LOG_ERROR, 
                 "volume %s, before line %d: specify which 'type' you need",
-                complete_tree->name, glusterfs_lineno);
+                complete_tree->name, yylineno);
         return;
 }
 
 static void
 sub_error (void)
 {
-        extern int glusterfs_lineno;
+        extern int yylineno;
 
         fprintf (stderr, "volume %s, before line %d: specify what all "
 		 "'subvolumes' you need for volume\n",
-                 complete_tree->name, glusterfs_lineno);
+                 complete_tree->name, yylineno);
         gf_log ("parser", GF_LOG_ERROR, 
                 "volume %s, before line %d: specify what all 'subvolumes' "
 		"you need for volume",
-                complete_tree->name, glusterfs_lineno);
+                complete_tree->name, yylineno);
         return;
 }
 
 static void
 option_error (void)
 {
-        extern int glusterfs_lineno;
+        extern int yylineno;
 
         fprintf (stderr, "volume %s, before line %d: you need to specify "
 		 "<key> <value> pair for 'option' token\n",
-                 complete_tree->name, glusterfs_lineno);
+                 complete_tree->name, yylineno);
         gf_log ("parser", GF_LOG_ERROR, 
                 "volume %s, before line %d: you need to specify <key> "
 		"<value> pair for 'option' token",
-                complete_tree->name, glusterfs_lineno);
+                complete_tree->name, yylineno);
         return;
 }
 
@@ -152,7 +152,7 @@ cut_tree (xlator_t *tree)
 static int
 new_section (char *name)
 {
-        extern int glusterfs_lineno;
+        extern int yylineno;
         xlator_t *trav = complete_tree;
         xlator_t *node = (void *) calloc (1, sizeof (*node));
 
@@ -166,10 +166,10 @@ new_section (char *name)
                 if (!strcmp (name,  trav->name)) {
                         fprintf (stderr, 
 				 "line %d: volume '%s' defined again\n", 
-                                 glusterfs_lineno, name);
+                                 yylineno, name);
                         gf_log ("parser", GF_LOG_ERROR, 
 				"line %d: volume '%s' defined again", 
-                                glusterfs_lineno, name);
+                                yylineno, name);
                         return -1;
                 }
                 trav = trav->next;
@@ -192,7 +192,7 @@ new_section (char *name)
 static int
 section_type (char *type)
 {
-        extern int glusterfs_lineno;
+        extern int yylineno;
         int32_t ret = -1;
         if (!type) {
                 gf_log ("parser", GF_LOG_DEBUG, "invalid argument type");
@@ -203,11 +203,11 @@ section_type (char *type)
         if (ret) {
                 fprintf (stderr, "volume '%s', line %d: type '%s' is not "
 			 "valid or not found on this machine\n", 
-                         complete_tree->name, glusterfs_lineno, type);
+                         complete_tree->name, yylineno, type);
                 gf_log ("parser", GF_LOG_ERROR, 
                         "volume '%s', line %d: type '%s' is not valid or "
 			"not found on this machine", 
-                        complete_tree->name, glusterfs_lineno, type);
+                        complete_tree->name, yylineno, type);
                 return -1;
         }
         gf_log ("parser", GF_LOG_DEBUG, "Type:%s:%s", tree->name, type);
@@ -218,7 +218,7 @@ section_type (char *type)
 static int 
 section_option_cmd (char *key, char *cmd)
 {
-        extern int glusterfs_lineno;
+        extern int yylineno;
         char cmd_output[1024] = {0,};
         FILE *fpp = NULL;
         int ret = 0;
@@ -251,7 +251,7 @@ section_option_cmd (char *key, char *cmd)
                 gf_log ("parser", GF_LOG_ERROR, 
                         "volume '%s', line %d: duplicate entry "
 			"('option %s') present", 
-                        tree->name, glusterfs_lineno, key);
+                        tree->name, yylineno, key);
                 return -1;
         }
 
@@ -265,7 +265,7 @@ section_option_cmd (char *key, char *cmd)
 static int 
 section_option (char *key, char *value)
 {
-        extern int glusterfs_lineno;
+        extern int yylineno;
 
         int ret = 0;
 
@@ -281,7 +281,7 @@ section_option (char *key, char *value)
                 gf_log ("parser", GF_LOG_ERROR, 
                         "volume '%s', line %d: duplicate entry "
 			"('option %s') present", 
-                        tree->name, glusterfs_lineno, key);
+                        tree->name, yylineno, key);
                 return -1;
         }
         gf_log ("parser", GF_LOG_DEBUG, "Option:%s:%s:%s",
@@ -293,7 +293,7 @@ section_option (char *key, char *value)
 static int 
 section_sub (char *sub)
 {
-        extern int glusterfs_lineno;
+        extern int yylineno;
         xlator_t *trav = complete_tree;
         xlator_list_t *xlchild, *tmp, *xlparent;
 
@@ -312,21 +312,21 @@ section_sub (char *sub)
                 fprintf (stderr, 
                          "volume '%s', line %d: subvolume '%s' is not "
 			 "defined prior to usage\n", 
-                         complete_tree->name, glusterfs_lineno, sub);
+                         complete_tree->name, yylineno, sub);
                 gf_log ("parser", GF_LOG_ERROR, 
                         "volume '%s', line %d: subvolume '%s' is not defined "
 			"prior to usage", 
-                        complete_tree->name, glusterfs_lineno, sub);
+                        complete_tree->name, yylineno, sub);
                 return -1;
         }
   
         if (trav == tree) {
                 fprintf (stderr, "volume '%s', line %d: has '%s' itself as "
 			 "subvolume\n", 
-                         complete_tree->name, glusterfs_lineno, sub);
+                         complete_tree->name, yylineno, sub);
                 gf_log ("parser", GF_LOG_ERROR, 
                         "volume '%s', line %d: has '%s' itself as subvolume", 
-                        complete_tree->name, glusterfs_lineno, sub);
+                        complete_tree->name, yylineno, sub);
                 return -1;
         }
   
@@ -376,20 +376,20 @@ section_end (void)
 }
 
 int
-glusterfs_wrap ()
+yywrap ()
 {
         return 1;
 }
 
 int 
-glusterfs_error (const char *str)
+yyerror (const char *str)
 {
-        extern char *glusterfs_text;
-        extern int glusterfs_lineno;
+        extern char *yytext;
+        extern int yylineno;
 
         if (complete_tree && complete_tree->name) 
         {
-                if (!strcmp (glusterfs_text, "volume")) 
+                if (!strcmp (yytext, "volume")) 
                 {
                         fprintf (stderr, 
                                  "'end-volume' not defined for volume '%s'\n",
@@ -398,25 +398,25 @@ glusterfs_error (const char *str)
                                 "'end-volume' not defined for volume '%s'", 
 				complete_tree->name);
                 } 
-                else if (!strcmp (glusterfs_text, "type")) 
+                else if (!strcmp (yytext, "type")) 
                 {
                         fprintf (stderr, "line %d: duplicate 'type' defined "
 				 "for volume '%s'", 
-                                 glusterfs_lineno, complete_tree->name);
+                                 yylineno, complete_tree->name);
                         gf_log ("parser", GF_LOG_ERROR, 
                                 "line %d: duplicate 'type' defined for "
 				"volume '%s'", 
-                                glusterfs_lineno, complete_tree->name);
+                                yylineno, complete_tree->name);
                 } 
-                else if (!strcmp (glusterfs_text, "subvolumes")) 
+                else if (!strcmp (yytext, "subvolumes")) 
                 {
                         fprintf (stderr, "line %d: duplicate 'subvolumes' "
 				 "defined for volume '%s'", 
-                                 glusterfs_lineno, complete_tree->name);
+                                 yylineno, complete_tree->name);
                         gf_log ("parser", GF_LOG_ERROR, 
                                 "line %d: duplicate 'subvolumes' defined for "
 				"volume '%s'", 
-                                glusterfs_lineno, complete_tree->name);
+                                yylineno, complete_tree->name);
                 } 
                 else if (tree) 
                 {
@@ -424,30 +424,30 @@ glusterfs_error (const char *str)
                                  "syntax error: line %d (volume '%s'): \"%s\""
 				 "\nallowed tokens are 'volume', 'type', "
 				 "'subvolumes', 'option', 'end-volume'",
-                                 glusterfs_lineno, complete_tree->name, 
-				 glusterfs_text);
+                                 yylineno, complete_tree->name, 
+				 yytext);
                                  
                         gf_log ("parser", GF_LOG_ERROR,
                                 "syntax error: line %d (volume '%s'): \"%s\""
 				"\nallowed tokens are 'volume', 'type', "
 				"'subvolumes', 'option', 'end-volume'()", 
-                                glusterfs_lineno, complete_tree->name, 
-				glusterfs_text);
+                                yylineno, complete_tree->name, 
+				yytext);
                 } 
                 else 
                 {
                         fprintf (stderr, 
                                  "syntax error: line %d (just after volume "
 				 "'%s'): \"%s\"\n(%s)", 
-                                 glusterfs_lineno, complete_tree->name, 
-				 glusterfs_text,
+                                 yylineno, complete_tree->name, 
+				 yytext,
                                  "allowed tokens are 'volume', 'type', "
 				 "'subvolumes', 'option', 'end-volume'");
                         gf_log ("parser", GF_LOG_ERROR,
                                 "syntax error: line %d (just after volume "
 				"'%s'): \"%s\"\n(%s)", 
-                                glusterfs_lineno, complete_tree->name, 
-				glusterfs_text,
+                                yylineno, complete_tree->name, 
+				yytext,
                                 "allowed tokens are 'volume', 'type', "
 				"'subvolumes', 'option', 'end-volume'");
                 }
@@ -458,12 +458,12 @@ glusterfs_error (const char *str)
                          "syntax error in line %d: \"%s\" \n"
                          "(allowed tokens are 'volume', 'type', "
 			 "'subvolumes', 'option', 'end-volume')\n", 
-                         glusterfs_lineno, glusterfs_text);
+                         yylineno, yytext);
                 gf_log ("parser", GF_LOG_ERROR,
                         "syntax error in line %d: \"%s\" \n"
                         "(allowed tokens are 'volume', 'type', "
 			"'subvolumes', 'option', 'end-volume')\n", 
-                        glusterfs_lineno, glusterfs_text);
+                        yylineno, yytext);
         }
   
         cut_tree (tree);
@@ -471,17 +471,17 @@ glusterfs_error (const char *str)
         return 0;
 }
 
-extern FILE *glusterfs_in;
+extern FILE *yyin;
 xlator_t *
 file_to_xlator_tree (glusterfs_ctx_t *ctx,
                      FILE *fp)
 {
         int32_t ret = 0;
         gctx = ctx;
-        glusterfs_in = fp;
+        yyin = fp;
         xlator_t *tmp_tree = NULL;
 
-        ret = glusterfs_parse ();
+        ret = yyparse ();
   
         if (1 == ret) {
                 gf_log ("parser", GF_LOG_DEBUG, 

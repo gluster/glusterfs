@@ -1256,7 +1256,8 @@ fuse_rename_cbk (call_frame_t *frame,
 
                 fuse_reply_err (req, 0);
         } else {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                gf_log ("glusterfs-fuse",
+			(op_errno == ENOTEMPTY ? GF_LOG_DEBUG : GF_LOG_ERROR),
                         "%"PRId64": %s -> %s => -1 (%s)", frame->root->unique,
                         state->loc.path, state->loc2.path,
 			strerror (op_errno));

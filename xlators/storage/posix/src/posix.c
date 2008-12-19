@@ -969,7 +969,8 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         op_ret = rename (real_oldpath, real_newpath);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name,
+			(op_errno == ENOTEMPTY ? GF_LOG_DEBUG : GF_LOG_ERROR), 
                         "rename of %s to %s failed: %s", 
                         oldloc->path, newloc->path, strerror (op_errno));
                 goto out;
