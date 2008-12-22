@@ -336,6 +336,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	struct stat *   lookup_buf = NULL;
 	int             call_count = -1;
 	int             child_index = -1;
+	ino_t           ino = -1;
 
 	child_index = (long) cookie;
 	priv = this->private;
@@ -368,6 +369,14 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		    && afr_sh_has_data_pending (xattr, child_index, this))
 			local->need_data_self_heal = 1;
 
+		/* in case of revalidate, we need to send stat of the
+		 * child whose stat was sent during the first lookup.
+		 * (so that time stamp does not vary with revalidate.
+		 * in case it is down, stat of the fist success will
+		 * be replied */
+
+		/* inode number should be preserved across revalidates */
+
 		if (local->success_count == 0) {
 			local->op_ret   = op_ret;
 				
@@ -378,14 +387,16 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			lookup_buf->st_ino = afr_itransform (buf->st_ino,
 							     priv->child_count,
 							     child_index);
-
-			/* inodes should retain inode number when subvolumes
-			   go down and up
-			*/
-
 			if (inode->ino)
 				lookup_buf->st_ino = inode->ino;
+
 		} else {
+			ino = afr_itransform (buf->st_ino, priv->child_count,
+					      child_index);
+			if (ino == inode->ino) {
+				*lookup_buf = *buf;
+				lookup_buf->st_ino = ino;
+			}
 			if (FILETYPE_DIFFERS (buf, lookup_buf)) {
 				/* mismatching filetypes with same name
 				   -- Govinda !! GOvinda !!!
