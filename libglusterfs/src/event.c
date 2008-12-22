@@ -257,7 +257,7 @@ event_unregister_poll (struct event_pool *event_pool, int fd, int idx_hint)
 	{
 		idx = __event_getindex (event_pool, fd, idx_hint);
 
-		if (idx != -1) {
+		if (idx == -1) {
 			gf_log ("poll", GF_LOG_ERROR,
 				"index not found for fd=%d (idx_hint=%d)",
 				fd, idx_hint);
