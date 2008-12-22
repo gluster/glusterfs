@@ -977,7 +977,8 @@ struct volume_options options[] = {
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
 	{ .key   = { "scheduler.refresh-interval", 
-		     "alu.refresh-interval" },  
+		     "alu.refresh-interval",
+		     "alu.stat-refresh.interval" },
 	  .type  = GF_OPTION_TYPE_TIME
 	},
 	{ .key   = { "scheduler.limits.min-free-disk", 

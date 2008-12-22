@@ -55,13 +55,16 @@ protocol_server_reply (call_frame_t *frame,
 
 	bound_xl = BOUND_XL(frame);
 	state    = CALL_STATE(frame);
-	trans = state->trans;
+	trans    = state->trans;
 
 	hdr->callid = hton64 (frame->root->unique);
 	hdr->type   = hton32 (type);
 	hdr->op     = hton32 (op);
 
 	transport_submit (trans, (char *)hdr, hdrlen, vector, count, refs);
+	/* TODO: If transport submit fails, there is no reply sent to client, 
+	 * its bailed out as of now.. loggically, only this frame should fail. 
+	 */
 
 	STACK_DESTROY (frame->root);
 
@@ -7499,8 +7502,10 @@ validate_auth_options (xlator_t *this, dict_t *dict)
 
 			if (strcmp (tmp, trav->xlator->name) == 0) {
 				error = 0;
+				free (key_cpy);
 				break;
 			}
+			free (key_cpy);
 		}
 		if (-1 == error) {
 			gf_log (this->name, GF_LOG_ERROR, 
@@ -7766,7 +7771,7 @@ struct xlator_cbks cbks = {
 struct volume_options options[] = {
  	{ .key   = {"transport-type"}, 
 	  .value = {"tcp", "socket", "ib-verbs", "unix", "ib-sdp", 
-		    "tcp/client", "ib-verbs/client"},
+		    "tcp/server", "ib-verbs/server"},
 	  .type  = GF_OPTION_TYPE_STR 
 	},
 	{ .key   = {"volume-filename.*"}, 

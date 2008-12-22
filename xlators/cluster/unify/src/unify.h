@@ -35,7 +35,7 @@
 #define ZR_UNIFY_BG_SELF_HEAL  2
 
 /* Sometimes one should use completely random numbers.. its good :p */
-#define UNIFY_SELF_HEAL_GETDENTS_COUNT 2345 
+#define UNIFY_SELF_HEAL_GETDENTS_COUNT 1024
 
 #define NS(xl)          (((unify_private_t *)xl->private)->namespace)
 
