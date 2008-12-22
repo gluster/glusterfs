@@ -2190,7 +2190,7 @@ ib_verbs_listen (transport_t *this)
   char service[NI_MAXSERV], host[NI_MAXHOST];
 
   memset (&sockaddr, 0, sizeof (sockaddr));
-  ret = server_get_local_sockaddr (this, (struct sockaddr *)&sockaddr, &sockaddr_len);
+  ret = ibverbs_server_get_local_sockaddr (this, (struct sockaddr *)&sockaddr, &sockaddr_len);
   if (ret != 0) {
     gf_log (this->xl->name,
 	    GF_LOG_ERROR,

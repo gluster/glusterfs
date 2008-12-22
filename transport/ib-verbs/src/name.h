@@ -42,9 +42,9 @@ client_get_remote_sockaddr (transport_t *this,
 			    socklen_t *sockaddr_len);
 
 int32_t
-server_get_local_sockaddr (transport_t *this, 
-			   struct sockaddr *addr, 
-			   socklen_t *addr_len);
+ibverbs_server_get_local_sockaddr (transport_t *this, 
+				   struct sockaddr *addr, 
+				   socklen_t *addr_len);
 
 int32_t
 get_transport_identifiers (transport_t *this);

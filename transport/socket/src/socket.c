@@ -1029,7 +1029,7 @@ socket_listen (transport_t *this)
       return ret;
     }
 
-  ret = server_get_local_sockaddr (this, (struct sockaddr *)&sockaddr, &sockaddr_len);
+  ret = socket_server_get_local_sockaddr (this, (struct sockaddr *)&sockaddr, &sockaddr_len);
 
   if (ret == -1) 
     {

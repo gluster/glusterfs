@@ -480,7 +480,9 @@ client_get_remote_sockaddr (transport_t *this,
 }
 
 int32_t
-server_get_local_sockaddr (transport_t *this, struct sockaddr *addr, socklen_t *addr_len)
+socket_server_get_local_sockaddr (transport_t *this, 
+				  struct sockaddr *addr, 
+				  socklen_t *addr_len)
 {
 	data_t *address_family_data = NULL;
 	int32_t ret = 0;
