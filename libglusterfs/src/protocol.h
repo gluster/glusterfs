@@ -708,7 +708,8 @@ typedef struct {
 
 
 typedef struct {
-	uint64_t ino;
+	uint32_t count;
+	uint64_t ino_array[0];
 } __attribute__((packed)) gf_cbk_forget_req_t;
 typedef struct { } __attribute__((packed)) gf_cbk_forget_rsp_t;
 

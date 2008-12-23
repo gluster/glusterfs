@@ -200,5 +200,9 @@ struct volume_options options[] = {
  	{ .key   = {"auth.addr.*.reject"}, 
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
+	/* Backword compatibility */
+ 	{ .key   = {"auth.ip.*.allow"}, 
+	  .type  = GF_OPTION_TYPE_ANY 
+	},
 	{ .key = {NULL} }
 };

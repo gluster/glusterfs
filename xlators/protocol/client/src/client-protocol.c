@@ -49,6 +49,13 @@ int protocol_client_cleanup (transport_t *trans);
 int protocol_client_interpret (xlator_t *this, transport_t *trans,
                                char *hdr_p, size_t hdrlen,
                                char *buf_p, size_t buflen);
+int32_t
+protocol_client_xfer (call_frame_t *frame,
+                      xlator_t *this,
+                      int type, int op,
+                      gf_hdr_common_t *hdr, size_t hdrlen,
+                      struct iovec *vector, int count,
+                      dict_t *refs);
 
 static gf_op_t gf_fops[];
 static gf_op_t gf_mops[];
@@ -318,6 +325,51 @@ save_frame (transport_t *trans, call_frame_t *frame,
 }
 
 
+int32_t 
+client_send_forgets (xlator_t *this) 
+{
+	call_frame_t        *fr = NULL;
+	gf_hdr_common_t     *hdr = NULL;
+	size_t               hdrlen = 0;
+	gf_cbk_forget_req_t *req = NULL;
+	int                  ret = -1;
+	client_private_t    *priv = NULL;
+	int                  count = 0;
+	int                  index = 0;
+
+	priv = this->private;
+
+	if (priv->forget.count > 0) {
+		count = priv->forget.count;
+		
+		hdrlen = gf_hdr_len (req, (count * sizeof (int64_t)));
+		hdr    = gf_hdr_new (req, (count * sizeof (int64_t)));
+		GF_VALIDATE_OR_GOTO (this->name, hdr, out);
+			
+		req    = gf_param (hdr);
+		
+		req->count = hton32 (count);
+		for (index = 0; index < count; index++) {
+			req->ino_array[index] = 
+				hton64 (priv->forget.ino_array[index]);
+		}
+		
+		fr = create_frame (this, this->ctx->pool);
+		GF_VALIDATE_OR_GOTO (this->name, fr, out);
+		
+		ret = protocol_client_xfer (fr, this,
+					    GF_OP_TYPE_CBK_REQUEST, 
+					    GF_CBK_FORGET,
+					    hdr, hdrlen, 
+					    NULL, 0, NULL);
+		
+		priv->forget.count = 0;
+	}
+ out:
+	return ret;
+}
+
+
 int32_t
 protocol_client_xfer (call_frame_t *frame,
                       xlator_t *this,
@@ -336,6 +388,16 @@ protocol_client_xfer (call_frame_t *frame,
 	priv  = this->private;
 	trans = priv->transport;
 	cprivate = trans->xl_private;
+
+	if (!((type == GF_OP_TYPE_CBK_REQUEST) && 
+	      (op == GF_CBK_FORGET))) 
+	{
+		LOCK (&priv->lock);
+		{
+			client_send_forgets (this);
+		}
+		UNLOCK (&priv->lock);
+	}
 
 	pthread_mutex_lock (&cprivate->lock);
 	{
@@ -360,7 +422,7 @@ protocol_client_xfer (call_frame_t *frame,
 			ret = transport_submit (trans, (char *)hdr, hdrlen,
 						vector, count, refs);
 		}
-
+		
 		if ((ret >= 0) && frame) {
 			/* TODO: check this logic */
 			/* Let the slow call have be 4 times extra timeout */
@@ -1735,8 +1797,11 @@ client_xattrop (call_frame_t *frame,
 	int32_t ret = -1;
 	size_t  pathlen = 0;
 	ino_t   ino = 0;
-	client_private_t *priv = this->private;
+	client_private_t *priv = NULL;
 
+	GF_VALIDATE_OR_GOTO("client", this, unwind);
+
+	priv = this->private;
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame,
@@ -1750,7 +1815,6 @@ client_xattrop (call_frame_t *frame,
 		return 0;
 	}
 
-	GF_VALIDATE_OR_GOTO("client", this, unwind);
 	GF_VALIDATE_OR_GOTO(this->name, loc, unwind);
 
 	if (dict) {
@@ -3361,6 +3425,7 @@ unwind:
 	return 0;
 }
 
+
 /*
  * CBKs
  */
@@ -3376,12 +3441,10 @@ client_forget (xlator_t *this,
                inode_t *inode)
 {
 	ino_t                ino = 0;
-	call_frame_t        *fr = NULL;
-	gf_hdr_common_t     *hdr = NULL;
-	size_t               hdrlen = 0;
-	gf_cbk_forget_req_t *req = NULL;
-	int                  ret = -1;
-	client_private_t *priv = this->private;
+	client_private_t    *priv = NULL;
+
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	priv = this->private;
 
 	if (priv->child) {
 		/* */
@@ -3389,27 +3452,21 @@ client_forget (xlator_t *this,
 		return 0;
 	}
 
-	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 	ino = this_ino_get (inode, this);
 
-	hdrlen = gf_hdr_len (req, 0);
-	hdr    = gf_hdr_new (req, 0);
-	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
+	LOCK (&priv->lock);
+	{
+		priv->forget.ino_array[priv->forget.count++] = ino;
 
-	req    = gf_param (hdr);
-
-	req->ino = hton64 (ino);
-
-	fr = create_frame (this, this->ctx->pool);
-  	GF_VALIDATE_OR_GOTO (this->name, fr, out);
-
-	ret = protocol_client_xfer (fr, this,
-				    GF_OP_TYPE_CBK_REQUEST, GF_CBK_FORGET,
-				    hdr, hdrlen, NULL, 0, NULL);
+		if (priv->forget.count >= CLIENT_PROTO_FORGET_LIMIT) {
+			client_send_forgets (this);
+		}
+	}
+	UNLOCK (&priv->lock);
 
 out:
-	return ret;
+	return 0;
 }
 
 /**
@@ -3431,16 +3488,17 @@ client_releasedir (xlator_t *this,
 	client_connection_private_t   *cprivate = NULL;
 	gf_hdr_common_t       *hdr = NULL;
 	size_t                 hdrlen = 0;
-	gf_cbk_releasedir_req_t *req = NULL;
-	client_private_t *priv = this->private;
+	gf_cbk_releasedir_req_t *req  = NULL;
+	client_private_t        *priv = NULL;
+	GF_VALIDATE_OR_GOTO ("client", this, out);
 
+	priv = this->private;
 	if (priv->child) {
 		/* */
 		/* yenu beda */
 		return 0;
 	}
 
-	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
 	ret = this_fd_get (fd, this, &remote_fd);
@@ -3500,7 +3558,10 @@ client_release (xlator_t *this,
 	gf_hdr_common_t     *hdr = NULL;
 	size_t               hdrlen = 0;
 	gf_cbk_release_req_t  *req = NULL;
-	client_private_t *priv = this->private;
+	client_private_t      *priv = NULL;
+
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	priv = this->private;
 
 	if (priv->child) {
 		/* */
@@ -3508,7 +3569,6 @@ client_release (xlator_t *this,
 		return 0;
 	}
 
-	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
 	ret = this_fd_get (fd, this, &remote_fd);
@@ -3569,8 +3629,11 @@ client_stats (call_frame_t *frame,
 	gf_mop_stats_req_t *req = NULL;
 	size_t hdrlen = -1;
 	int ret = -1;
-	client_private_t *priv = this->private;
+	client_private_t *priv = NULL;
 
+	GF_VALIDATE_OR_GOTO ("client", this, unwind);
+
+	priv = this->private;
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame,
@@ -3582,7 +3645,6 @@ client_stats (call_frame_t *frame,
 		return 0;
 	}
 
-	GF_VALIDATE_OR_GOTO ("client", this, unwind);
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
@@ -5841,7 +5903,6 @@ init (xlator_t *this)
 	client_private_t *priv = NULL;
 	client_connection_private_t *cprivate = NULL;
 	int32_t transport_timeout = 0;
-	char *max_block_size_string = NULL;
 	data_t *remote_subvolume = NULL;
 	int32_t ret = -1;
 
@@ -5886,6 +5947,8 @@ init (xlator_t *this)
 	priv = CALLOC (1, sizeof (client_private_t));
 
 	priv->transport = transport_ref (trans);
+	
+	LOCK_INIT (&priv->lock);
 
 	this->private = priv;
 	
@@ -5918,25 +5981,6 @@ init (xlator_t *this)
 		cprivate->slow_transport_timeout = 300;
 
 	pthread_mutex_init (&cprivate->lock, NULL);
-
-	ret = dict_get_str (this->options, "limits.transaction-size", 
-			    &max_block_size_string);
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"defaulting limits.transaction-size to %d",
-			DEFAULT_BLOCK_SIZE);
-		cprivate->max_block_size = DEFAULT_BLOCK_SIZE;
-	} else {
-		ret = gf_string2bytesize (max_block_size_string, 
-					  &cprivate->max_block_size);
-		if (ret != 0) {
-			gf_log ("client-protocol", GF_LOG_ERROR,
-				"invalid number format \"%s\" of "
-				"\"option limits.transaction-size\"",
-				max_block_size_string);
-			goto out;
-		}
-	}
 
 	trans->xl_private = cprivate;
 
@@ -5986,6 +6030,7 @@ fini (xlator_t *this)
 	client_connection_private_t *cprivate = NULL;
 
 	priv = this->private;
+	this->private = NULL;
 
 	if (priv) {
 		if (priv->transport && priv->transport->xl_private) {
@@ -5996,6 +6041,7 @@ fini (xlator_t *this)
 		if (priv->transport)
 			transport_unref (priv->transport);
 
+		LOCK_DESTROY (&priv->lock);
 		FREE (priv);
 	}
 	return;

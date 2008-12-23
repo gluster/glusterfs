@@ -2363,7 +2363,7 @@ struct volume_options options[] = {
 		    "transport.ib-verbs.remote-port"}, 
 	  .type  = GF_OPTION_TYPE_INT 
 	},
- 	{ .key   = {"transport.ib-verbs.listen-port"}, 
+ 	{ .key   = {"transport.ib-verbs.listen-port", "listen-port"}, 
 	  .type  = GF_OPTION_TYPE_INT 
 	},
  	{ .key   = {"transport.ib-verbs.connect-path", "connect-path"}, 

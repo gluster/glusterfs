@@ -3382,27 +3382,37 @@ server_forget (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                char *buf, size_t buflen)
 {
-	gf_cbk_forget_req_t *req = NULL;
+	int index = 0;
 	ino_t ino = 0;
+	int32_t count = 0;
 	inode_t *inode = NULL;
+	gf_cbk_forget_req_t *req = NULL;
 
 	req = gf_param (hdr);
-	ino = ntoh64 (req->ino);
+	count = ntoh32 (req->count);
 
-	inode = inode_search (bound_xl->itable, ino, NULL);
+	for (index = 0; index < count; index++) {
+		
+		ino = ntoh64 (req->ino_array[index]);
+		
+		if (!ino)
+			continue;
 
-	if (inode) {
-		inode_forget (inode, 0);
-		inode_unref (inode);
-	} else {
+		inode = inode_search (bound_xl->itable, ino, NULL);
+
+		if (inode) {
+			inode_forget (inode, 0);
+			inode_unref (inode);
+		} else {
+			gf_log (bound_xl->name, GF_LOG_DEBUG,
+				"FORGET %"PRId64" not found in inode table",
+				ino);
+		}
+		
 		gf_log (bound_xl->name, GF_LOG_DEBUG,
-			"FORGET %"PRId64" not found in inode table",
+			"FORGET \'%"PRId64"\'", 
 			ino);
 	}
-
-	gf_log (bound_xl->name, GF_LOG_DEBUG,
-		"FORGET \'%"PRId64"\'", 
-		ino);
 
 	server_forget_cbk (frame, NULL, bound_xl, 0, 0);
 

@@ -31,10 +31,10 @@
 #include "timer.h"
 #include "byte-order.h"
 
-#define CLIENT_PORT_CIELING 1023
-#define DEFAULT_BLOCK_SIZE     (1048576 * 256)   /* 4MB */
+#define CLIENT_PROTO_FORGET_LIMIT  128
+#define CLIENT_PORT_CIELING        1023
 
-#define CLIENT_TRANSPORT(this) ((transport_t *)((client_private_t *)this->private)->transport)
+#define CLIENT_TRANSPORT(this) (((client_private_t *)this->private)->transport)
 #define CLIENT_CONNECTION_PRIVATE(this) ((client_connection_private_t *)(CLIENT_TRANSPORT(this)->xl_private))
 
 #define RECEIVE_TIMEOUT(_cprivate,_current)         \
@@ -66,11 +66,18 @@ typedef struct client_connection_private client_connection_private_t;
 #include "transport.h"
 
 struct _client_private {
-	transport_t *transport;
-	xlator_t    *child;
+	transport_t          *transport;
+	xlator_t             *child;
+
+	/* enhancement for 'forget', a must required where lot 
+	   of stats happening */
+	gf_lock_t             lock;
+	struct {
+		uint64_t  ino_array[CLIENT_PROTO_FORGET_LIMIT + 4];
+		uint32_t  count;
+	} forget;
 };
 typedef struct _client_private client_private_t;
-
 
 /* This will be stored in transport_t->xl_private */
 struct client_connection_private {
