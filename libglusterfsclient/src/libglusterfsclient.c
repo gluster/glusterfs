@@ -682,12 +682,16 @@ libgf_client_lookup_cbk (call_frame_t *frame,
         } else {
                 if (local->fop.lookup.is_revalidate == 0 && op_errno == ENOENT) {
                         gf_log ("libglusterfsclient", GF_LOG_DEBUG,
-                                "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
-                                frame->op, local->fop.lookup.loc->path, strerror(op_errno));
+                                "%"PRId64": (op_num=%d) %s => -1 (%s)",
+				frame->root->unique, frame->root->op,
+				local->fop.lookup.loc->path,
+				strerror (op_errno));
                 } else {
                         gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
-                                frame->op, local->fop.lookup.loc->path, strerror(op_errno));
+                                "%"PRId64": (op_num=%d) %s => -1 (%s)",
+				frame->root->unique, frame->root->op,
+				local->fop.lookup.loc->path,
+				strerror (op_errno));
                 }
 
                 if (local->fop.lookup.is_revalidate == 1) {
@@ -886,12 +890,16 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
         } else {
                 if (local->fop.lookup_cbk.is_revalidate == 0 && op_errno == ENOENT) {
                         gf_log ("libglusterfsclient", GF_LOG_DEBUG,
-                                "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
-                                frame->op, local->fop.lookup_cbk.loc->path, strerror(op_errno));
+                                "%"PRId64": (op_num=%d) %s => -1 (%s)",
+				frame->root->unique, frame->root->op,
+				local->fop.lookup_cbk.loc->path,
+				strerror (op_errno));
                 } else {
                         gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
-                                frame->op, local->fop.lookup_cbk.loc->path, strerror(op_errno));
+                                "%"PRId64": (op_num=%d) %s => -1 (%s)",
+				frame->root->unique, frame->root->op,
+                                local->fop.lookup_cbk.loc->path,
+				strerror (op_errno));
                 }
 
                 if (local->fop.lookup_cbk.is_revalidate == 1) {

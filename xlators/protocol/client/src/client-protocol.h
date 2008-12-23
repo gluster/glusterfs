@@ -57,8 +57,7 @@
                   _cprivate->slow_transport_timeout) < \
                   _current.tv_sec)
 
-struct saved_frame;
-typedef struct saved_frame saved_frame_t;
+
 struct client_connection_private;
 typedef struct client_connection_private client_connection_private_t;
 
@@ -76,10 +75,10 @@ typedef struct _client_private client_private_t;
 /* This will be stored in transport_t->xl_private */
 struct client_connection_private {
 	pthread_mutex_t lock;
-	dict_t *saved_frames;
+	uint64_t callid;
+	struct saved_frames *saved_frames;
 	dict_t *saved_fds;
 	inode_table_t *table;
-	int64_t callid;
 	int32_t transport_timeout;
 	int32_t slow_transport_timeout;
 	int32_t slow_op_count;       /* if set, gives extra timeout period

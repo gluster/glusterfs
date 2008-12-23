@@ -73,8 +73,6 @@ struct _call_frame_t {
 	int32_t       ref_count;
 	gf_lock_t     lock;
 	void         *cookie;      /* unique cookie */
-	int32_t       op;          /* function signature */
-	int8_t        type;
 };
 
 struct _call_stack_t {
@@ -95,6 +93,9 @@ struct _call_stack_t {
 	call_frame_t                  frames;
 	dict_t                       *req_refs;
 	dict_t                       *rsp_refs;
+
+	int32_t                       op;
+	int8_t                        type;
 };
 
 

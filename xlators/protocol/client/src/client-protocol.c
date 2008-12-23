@@ -42,6 +42,7 @@
 
 /* for default_*_cbk functions */
 #include "defaults.c"
+#include "saved-frames.h"
 
 
 int protocol_client_cleanup (transport_t *trans);
@@ -49,9 +50,6 @@ int protocol_client_interpret (xlator_t *this, transport_t *trans,
                                char *hdr_p, size_t hdrlen,
                                char *buf_p, size_t buflen);
 
-typedef int32_t (*gf_op_t) (call_frame_t *frame,
-                            gf_hdr_common_t *hdr, size_t hdrlen,
-                            char *buf, size_t buflen);
 static gf_op_t gf_fops[];
 static gf_op_t gf_mops[];
 static gf_op_t gf_cbks[];
@@ -175,32 +173,20 @@ out:
  */
 
 static call_frame_t *
-lookup_frame (transport_t *trans, int64_t callid)
+lookup_frame (transport_t *trans, int32_t op, int8_t type, int64_t callid)
 {
-	char frameid[64] = {0,};
-	call_frame_t *frame = NULL;
 	client_connection_private_t *cprivate = NULL;
-	int32_t ret = -1;
+	call_frame_t  *frame = NULL;
 
-	GF_VALIDATE_OR_GOTO("client", trans, out);
-
-	snprintf (frameid, 64, "%"PRId64, callid);
 	cprivate = trans->xl_private;
 
 	pthread_mutex_lock (&cprivate->lock);
 	{
-		ret = dict_get_ptr (cprivate->saved_frames, frameid, 
-				    (void **)&frame);
-		if (ret < 0) {
-			gf_log ("client", GF_LOG_ERROR,
-				"failed to look for frame(%s)", frameid);
-			goto unlock;
-		}
-		dict_del (cprivate->saved_frames, frameid);
+		frame = saved_frames_get (cprivate->saved_frames,
+					  op, type, callid);
 	}
-unlock:
 	pthread_mutex_unlock (&cprivate->lock);
-out:
+
 	return frame;
 }
 
@@ -265,8 +251,8 @@ call_bail (void *data)
 				"activating bail-out. pending frames = %d. "
 				"last sent = %s. last received = %s. "
 				"transport-timeout = %d",
-				cprivate->saved_frames->count, last_sent, 
-				last_received,
+				(int32_t) cprivate->saved_frames->count,
+				last_sent, last_received,
 				cprivate->transport_timeout);
 		}
 		if ((cprivate->slow_op_count) &&
@@ -292,7 +278,7 @@ call_bail (void *data)
 				"activating bail-out. pending frames = %d "
 				"(%d are slow). last sent = %s. last received "
 				"= %s. transport-timeout = %d",
-				cprivate->saved_frames->count, 
+				(int32_t ) cprivate->saved_frames->count, 
 				cprivate->slow_op_count,
 				last_sent, last_received,
 				cprivate->slow_transport_timeout);
@@ -311,35 +297,24 @@ out:
 
 
 void
-__protocol_client_frame_save (xlator_t *this, call_frame_t *frame,
-                              uint64_t callid)
+save_frame (transport_t *trans, call_frame_t *frame,
+	    int32_t op, int8_t type, uint64_t callid)
 {
 	client_connection_private_t *cprivate = NULL;
-	client_private_t *priv        = NULL;
-	transport_t   *trans          = NULL;
-	char           callid_str[32] = {0,};
 	struct timeval timeout        = {0, };
-	int32_t        ret            = -1;
 
-	priv  = this->private;
-	trans = priv->transport;
+
 	cprivate = trans->xl_private;
 
-	snprintf (callid_str, 32, "%"PRId64, callid);
-
-	ret = dict_set_static_ptr (cprivate->saved_frames, callid_str, frame);
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_CRITICAL,
-			"failed to save frame(%s:%p)", callid_str, frame);
-	}
+	saved_frames_put (cprivate->saved_frames, frame, op, type, callid);
 
 	if (cprivate->timer == NULL) {
 		timeout.tv_sec  = 10;
 		timeout.tv_usec = 0;
 		cprivate->timer = gf_timer_call_after (trans->xl->ctx, timeout,
-						       call_bail, 
+						       call_bail,
 						       (void *)trans);
-	}
+       }
 }
 
 
@@ -374,9 +349,6 @@ protocol_client_xfer (call_frame_t *frame,
 			hdr->req.uid = hton32 (frame->root->uid);
 			hdr->req.gid = hton32 (frame->root->gid);
 			hdr->req.pid = hton32 (frame->root->pid);
-
-			frame->op    = op;
-			frame->type  = type;
 		}
 
 		if (cprivate->connected == 0)
@@ -394,16 +366,16 @@ protocol_client_xfer (call_frame_t *frame,
 			/* Let the slow call have be 4 times extra timeout */
 
 			gettimeofday (&cprivate->last_sent, NULL);
-			__protocol_client_frame_save (this, frame, callid);
+			save_frame (trans, frame, op, type, callid);
 		}
-		if ((frame->op == GF_FOP_UNLINK) ||
-		    (frame->op == GF_FOP_FSYNC) ||
-		    (frame->op == GF_FOP_CHECKSUM) ||
-		    (frame->op == GF_FOP_LK) ||
-		    (frame->op == GF_FOP_FINODELK) ||
-		    (frame->op == GF_FOP_INODELK) ||
-		    (frame->op == GF_FOP_ENTRYLK) ||
-		    (frame->op == GF_FOP_FENTRYLK)) {
+		if ((op == GF_FOP_UNLINK) ||
+		    (op == GF_FOP_FSYNC) ||
+		    (op == GF_FOP_CHECKSUM) ||
+		    (op == GF_FOP_LK) ||
+		    (op == GF_FOP_FINODELK) ||
+		    (op == GF_FOP_INODELK) ||
+		    (op == GF_FOP_ENTRYLK) ||
+		    (op == GF_FOP_FENTRYLK)) {
 			cprivate->slow_op_count++;
 		}
 	}
@@ -414,10 +386,10 @@ protocol_client_xfer (call_frame_t *frame,
 		rsphdr.rsp.op_ret   = hton32 (-1);
 		rsphdr.rsp.op_errno = hton32 (ENOTCONN);
 
-		if (frame->type == GF_OP_TYPE_FOP_REQUEST) {
+		if (frame->root->type == GF_OP_TYPE_FOP_REQUEST) {
 			rsphdr.type = GF_OP_TYPE_FOP_REPLY;
 			gf_fops[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
-		} else if (frame->type == GF_OP_TYPE_MOP_REQUEST) {
+		} else if (frame->root->type == GF_OP_TYPE_MOP_REQUEST) {
 			rsphdr.type = GF_OP_TYPE_MOP_REPLY;
 			gf_mops[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
 		} else {
@@ -5644,13 +5616,13 @@ client_protocol_reconnect (void *trans_ptr)
 int
 protocol_client_cleanup (transport_t *trans)
 {
-	client_connection_private_t *cprivate = trans->xl_private;
-	dict_t *saved_frames = NULL;
-	dict_t *reply = NULL;
-	data_pair_t *trav = NULL;
-	xlator_t *this = NULL;
-	call_frame_t *tmp = NULL;
-	gf_hdr_common_t hdr = {0, };
+	client_connection_private_t *cprivate = NULL;
+	struct saved_frames         *saved_frames = NULL;
+	data_pair_t                 *trav = NULL;
+	xlator_t                    *this = NULL;
+
+
+	cprivate = trans->xl_private;
 			
 	gf_log (trans->xl->name, GF_LOG_DEBUG,
 		"cleaning up state in transport object %p", trans);
@@ -5658,7 +5630,8 @@ protocol_client_cleanup (transport_t *trans)
 	pthread_mutex_lock (&cprivate->lock);
 	{
 		saved_frames = cprivate->saved_frames;
-		cprivate->saved_frames = get_new_dict_full (1024);
+		cprivate->saved_frames = saved_frames_new ();
+
 		trav = cprivate->saved_fds->members_list;
 		this = trans->xl;
 
@@ -5681,10 +5654,7 @@ protocol_client_cleanup (transport_t *trans)
 		memset (&(cprivate->last_received), 0, 
 			sizeof (cprivate->last_received));
 
-		if (cprivate->timer == NULL) {
-			gf_log (trans->xl->name, GF_LOG_DEBUG,
-				"cprivate->timer is NULL!!!!");
-		} else {
+		if (cprivate->timer) {
 			gf_timer_call_cancel (trans->xl->ctx, cprivate->timer);
 			cprivate->timer = NULL;
 		}
@@ -5695,71 +5665,12 @@ protocol_client_cleanup (transport_t *trans)
 	}
 	pthread_mutex_unlock (&cprivate->lock);
 
-	{
-		trav = saved_frames->members_list;
-		
-		reply = get_new_dict();
-		dict_ref (reply);
-
-		while (trav && trav->next)
-			trav = trav->next;
-
-		while (trav) {
-			tmp = (call_frame_t *) (trav->value->data);
-
-			if ((tmp->type == GF_OP_TYPE_FOP_REQUEST) ||
-			    (tmp->type == GF_OP_TYPE_FOP_REPLY)) {
-
-				gf_log (trans->xl->name, GF_LOG_ERROR,
-					"forced unwinding frame type(%d) "
-					"op(%s) reply=@%p", tmp->type, 
-					gf_fop_list[tmp->op], reply);
-
-			} else if ((tmp->type == GF_OP_TYPE_MOP_REQUEST) ||
-				   (tmp->type == GF_OP_TYPE_MOP_REPLY)) {
-
-				gf_log (trans->xl->name, GF_LOG_ERROR,
-					"forced unwinding frame type(%d) "
-					"op(%s) reply=@%p", tmp->type, 
-					gf_mop_list[tmp->op], reply);
-
-			} else if ((tmp->type == GF_OP_TYPE_CBK_REQUEST) ||
-				   (tmp->type == GF_OP_TYPE_CBK_REPLY)) {
-
-				gf_log (trans->xl->name, GF_LOG_ERROR,
-					"forced unwinding frame type(%d) "
-					"op(%s) reply=@%p", tmp->type, 
-					gf_cbk_list[tmp->op], reply);
-			}
-
-			tmp->root->rsp_refs = dict_ref (reply);
-
-			hdr.type = hton32 (tmp->type);
-			hdr.op   = hton32 (tmp->op);
-			hdr.rsp.op_ret   = hton32 (-1);
-			hdr.rsp.op_errno = hton32 (ENOTCONN);
-
-			if (tmp->type == GF_OP_TYPE_FOP_REQUEST) {
-				gf_fops[tmp->op] (tmp, &hdr, 
-						  sizeof (hdr), NULL, 0);
-			} else if (tmp->type == GF_OP_TYPE_MOP_REQUEST) {
-				gf_mops[tmp->op] (tmp, &hdr, 
-						  sizeof (hdr), NULL, 0);
-			} else {
-				gf_cbks[tmp->op] (tmp, &hdr, 
-						  sizeof (hdr), NULL, 0);
-			}
-
-			dict_unref (reply);
-			trav = trav->prev;
-		}
-		dict_unref (reply);
-
-		dict_destroy (saved_frames);
-	}
+	saved_frames_destroy (trans->xl, saved_frames,
+			      gf_fops, gf_mops, gf_cbks);
 
 	return 0;
 }
+
 
 /* cbk callbacks */
 int32_t
@@ -5863,18 +5774,22 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 	call_frame_t *frame = NULL;
 	gf_hdr_common_t *hdr = NULL;
 	uint64_t callid = 0;
-	int type = -1, op = -1;
+	int type = -1;
+	int op = -1;
+
 
 	hdr  = (gf_hdr_common_t *)hdr_p;
-	type = ntoh32 (hdr->type);
-	op   = ntoh32 (hdr->op);
 
+	type   = ntoh32 (hdr->type);
+	op     = ntoh32 (hdr->op);
 	callid = ntoh64 (hdr->callid);
-	frame  = lookup_frame (trans, callid);
+
+	frame  = lookup_frame (trans, op, type, callid);
 	if (frame == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"could not find frame for callid=%"PRId64, callid);
-		return ret;
+			"no frame for callid=%"PRId64" type=%d op=%d",
+			callid, type, op);
+		return 0;
 	}
 
 	switch (type) {
@@ -5980,7 +5895,7 @@ init (xlator_t *this)
 	cprivate = CALLOC (1, sizeof (client_connection_private_t));
 	GF_VALIDATE_OR_GOTO(this->name, cprivate, out);
 
-	cprivate->saved_frames = get_new_dict_full (1024);
+	cprivate->saved_frames = saved_frames_new ();
 	GF_VALIDATE_OR_GOTO(this->name, cprivate->saved_frames, out);
 
 	cprivate->saved_fds = get_new_dict_full (64);
@@ -6075,7 +5990,6 @@ fini (xlator_t *this)
 	if (priv) {
 		if (priv->transport && priv->transport->xl_private) {
 			cprivate = priv->transport->xl_private;
-			dict_destroy (cprivate->saved_frames);
 			dict_destroy (cprivate->saved_fds);
 			FREE (cprivate);
 		}

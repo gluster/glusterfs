@@ -272,7 +272,7 @@ unify_buf_cbk (call_frame_t *frame,
 		if (op_ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"%s(): child(%s): path(%s): %s", 
-				gf_fop_list[frame->op],			
+				gf_fop_list[frame->root->op],
 				prev_frame->this->name, 
 				(local->loc1.path)?local->loc1.path:"", 
 				strerror (op_errno));

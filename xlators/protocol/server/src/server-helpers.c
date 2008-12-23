@@ -210,10 +210,10 @@ server_copy_frame (call_frame_t *frame)
 
 	new_state = CALLOC (1, sizeof (server_state_t));
 
-	new_frame->root->frames.op   = frame->op;
-	new_frame->root->frames.type = frame->type;
-	new_frame->root->trans       = state->trans;
-	new_frame->root->state       = new_state;
+	new_frame->root->op    = frame->root->op;
+	new_frame->root->type  = frame->root->type;
+	new_frame->root->trans = state->trans;
+	new_frame->root->state = new_state;
 
 	new_state->bound_xl = state->bound_xl;
 	new_state->trans    = transport_ref (state->trans);

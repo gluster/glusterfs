@@ -364,7 +364,8 @@ gf_print_trace (int32_t signum)
 		struct list_head *trav = ((call_pool_t *)ctx->pool)->all_frames.next;
 		while (trav != (&((call_pool_t *)ctx->pool)->all_frames)) {
 			call_frame_t *tmp = (call_frame_t *)(&((call_stack_t *)trav)->frames);
-			sprintf (msg,"frame : type(%d) op(%d)\n", tmp->type, tmp->op);
+			sprintf (msg,"frame : type(%d) op(%d)\n",
+				 tmp->root->type, tmp->root->op);
 			write (fd, msg, strlen (msg));
 			trav = trav->next;
 		}

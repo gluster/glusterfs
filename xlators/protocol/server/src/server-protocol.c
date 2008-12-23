@@ -7114,8 +7114,8 @@ get_frame_for_call (transport_t *trans, gf_hdr_common_t *hdr)
 
 	frame = get_frame_for_transport (trans);
 
-	frame->op   = ntoh32 (hdr->op);
-	frame->type = ntoh32 (hdr->type);
+	frame->root->op   = ntoh32 (hdr->op);
+	frame->root->type = ntoh32 (hdr->type);
 
 	frame->root->uid         = ntoh32 (hdr->req.uid);
 	frame->root->unique      = ntoh64 (hdr->callid);      /* which call */
