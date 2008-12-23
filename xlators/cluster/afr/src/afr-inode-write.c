@@ -1134,12 +1134,14 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = afr_up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (local->call_count == 0) {
 		local->transaction.resume (frame, this);
 		return 0;
 	}
+
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {
@@ -1331,12 +1333,14 @@ afr_ftruncate_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	local->call_count = afr_up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
 	if (local->call_count == 0) {
 		local->transaction.resume (frame, this);
 		return 0;
 	}
+
+	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {				
 		if (local->child_up[i]) {

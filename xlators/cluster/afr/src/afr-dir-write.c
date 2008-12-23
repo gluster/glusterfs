@@ -1200,7 +1200,7 @@ afr_rename_done (call_frame_t *frame, xlator_t *this)
 }
 
 
-int32_t
+int
 afr_rename (call_frame_t *frame, xlator_t *this,
 	    loc_t *oldloc, loc_t *newloc)
 {
