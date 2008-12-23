@@ -143,10 +143,10 @@ saved_frames_unwind (xlator_t *this, struct saved_frame *head,
 	list_for_each_entry_safe (trav, tmp, &head->list, list) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"forced unwinding frame type(%d) op(%s)",
-			trav->type, gf_op_list[tmp->op]);
+			trav->type, gf_op_list[trav->op]);
 
-		hdr.type = hton32 (tmp->type);
-		hdr.op   = hton32 (tmp->op);
+		hdr.type = hton32 (trav->type);
+		hdr.op   = hton32 (trav->op);
 
 		frame = trav->frame;
 		frame->root->rsp_refs = reply;
