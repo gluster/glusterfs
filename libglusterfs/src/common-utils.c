@@ -364,8 +364,22 @@ gf_print_trace (int32_t signum)
 		struct list_head *trav = ((call_pool_t *)ctx->pool)->all_frames.next;
 		while (trav != (&((call_pool_t *)ctx->pool)->all_frames)) {
 			call_frame_t *tmp = (call_frame_t *)(&((call_stack_t *)trav)->frames);
-			sprintf (msg,"frame : type(%d) op(%d)\n",
-				 tmp->root->type, tmp->root->op);
+			if ((tmp->root->type == GF_OP_TYPE_FOP_REQUEST) ||
+			    (tmp->root->type == GF_OP_TYPE_FOP_REPLY))
+				sprintf (msg,"frame : type(%d) op(%s)\n",
+					 tmp->root->type, 
+					 gf_fop_list[tmp->root->op]);
+			if ((tmp->root->type == GF_OP_TYPE_MOP_REQUEST) ||
+			    (tmp->root->type == GF_OP_TYPE_MOP_REPLY))
+				sprintf (msg,"frame : type(%d) op(%s)\n",
+					 tmp->root->type, 
+					 gf_mop_list[tmp->root->op]);
+			if ((tmp->root->type == GF_OP_TYPE_CBK_REQUEST) ||
+			    (tmp->root->type == GF_OP_TYPE_CBK_REPLY))
+				sprintf (msg,"frame : type(%d) op(%s)\n",
+					 tmp->root->type, 
+					 gf_cbk_list[tmp->root->op]);
+			
 			write (fd, msg, strlen (msg));
 			trav = trav->next;
 		}

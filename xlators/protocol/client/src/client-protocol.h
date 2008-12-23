@@ -71,10 +71,11 @@ struct _client_private {
 
 	/* enhancement for 'forget', a must required where lot 
 	   of stats happening */
-	gf_lock_t             lock;
 	struct {
 		uint64_t  ino_array[CLIENT_PROTO_FORGET_LIMIT + 4];
 		uint32_t  count;
+		uint32_t  frames_in_transit;
+		gf_lock_t lock;
 	} forget;
 };
 typedef struct _client_private client_private_t;

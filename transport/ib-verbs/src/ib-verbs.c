@@ -265,8 +265,14 @@ __ib_verbs_ioq_churn_entry (ib_verbs_peer_t *peer, ib_verbs_ioq_t *entry)
 
 		len = iov_length ((const struct iovec *)&entry->vector, 
 				  entry->count);
-		if  (len >= options->send_size + 2048)
+		if  (len >= (options->send_size + 2048)) {
+			gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
+				"increase value of option 'transport.ib-verbs."
+				"work-request-send-size' (given=> %d) to send "
+				"bigger (%d) messages", 
+				(options->send_size + 2048), len);
 			return -1;
+		}
 
 		iov_unload (post->buf, 
 			    (const struct iovec *)&entry->vector, 
