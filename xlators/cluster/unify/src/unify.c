@@ -2767,7 +2767,7 @@ unify_setxattr (call_frame_t *frame,
 
 	if (S_ISDIR (loc->inode->st_mode)) {
 
-		if (ZR_FILE_CONTENT_REQUEST(trav->key)) {
+		if (trav && trav->key && ZR_FILE_CONTENT_REQUEST(trav->key)) {
 			/* direct the storage xlators to change file 
 			   content only if file exists */
 			local->flags = flags;

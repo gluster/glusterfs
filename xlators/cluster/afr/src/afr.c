@@ -431,9 +431,11 @@ unlock:
 
 	if (call_count == 0) {
 		if (local->op_ret == 0) {
-			/* KLUDGE: assuming DHT will not itransform in revalidate */
-			if (inode->ino)
-				lookup_buf->st_ino = inode->ino;
+			/* KLUDGE: assuming DHT will not itransform in 
+			   revalidate */
+			if (local->cont.lookup.inode->ino)
+				lookup_buf->st_ino = 
+					local->cont.lookup.inode->ino;
 		}
 
 		if (local->success_count 
