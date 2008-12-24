@@ -90,6 +90,7 @@ saved_frames_put (struct saved_frames *frames, call_frame_t *frame,
 //	gettimeofday (&saved_frame->saved_at, NULL);
 
 	list_add (&saved_frame->list, &head_frame->list);
+	frames->count++;
 
 	return 0;
 }
@@ -109,6 +110,7 @@ saved_frames_get (struct saved_frames *frames, int32_t op,
 	list_for_each_entry (tmp, &head_frame->list, list) {
 		if (tmp->callid == callid) {
 			list_del_init (&tmp->list);
+			frames->count--;
 			saved_frame = tmp;
 			break;
 		}
