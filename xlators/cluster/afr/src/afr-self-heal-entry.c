@@ -1053,6 +1053,8 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 		impunge_local->cont.lookup.buf.st_uid,
 		impunge_local->cont.lookup.buf.st_gid);
 
+	inode->st_mode = stbuf->st_mode;
+
 	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_chown_cbk,
 			   (void *) (long) child_index,
 			   priv->children[child_index],
