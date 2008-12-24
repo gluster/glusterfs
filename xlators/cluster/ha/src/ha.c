@@ -54,7 +54,7 @@ ha_lookup_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t) cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 inode, child_idx,
@@ -177,7 +177,7 @@ ha_stat_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno)) {
 		goto unwind;
 	}
-	child_idx = (int32_t) cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.stat.loc.inode, child_idx,
@@ -277,7 +277,7 @@ ha_chmod_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t) cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.chmod.loc.inode, child_idx,
@@ -382,7 +382,7 @@ ha_fchmod_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t) cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.fchmod.fd, child_idx,
@@ -488,7 +488,7 @@ ha_chown_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long)cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.chown.loc.inode, child_idx,
@@ -595,7 +595,7 @@ ha_fchown_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.fchown.fd, child_idx,
@@ -704,7 +704,7 @@ ha_truncate_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.truncate.loc.inode, child_idx,
@@ -807,7 +807,7 @@ ha_ftruncate_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.ftruncate.fd, child_idx,
@@ -913,7 +913,7 @@ ha_utimens_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.utimens.loc.inode, child_idx,
@@ -1018,7 +1018,7 @@ ha_access_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.access.loc.inode, child_idx,
@@ -1124,7 +1124,7 @@ ha_readlink_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.readlink.loc.inode, child_idx,
@@ -1230,7 +1230,7 @@ ha_mknod_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.mknod.loc.inode, child_idx,
@@ -1340,7 +1340,7 @@ ha_mkdir_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.mkdir.loc.inode, child_idx,
@@ -1453,7 +1453,7 @@ ha_unlink_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.unlink.loc.inode, child_idx,
@@ -1552,7 +1552,7 @@ ha_rmdir_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.rmdir.loc.inode, child_idx,
@@ -1655,7 +1655,7 @@ ha_symlink_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.symlink.loc.inode, child_idx,
@@ -1767,7 +1767,7 @@ ha_rename_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.rename.old.inode, child_idx,
@@ -1877,7 +1877,7 @@ ha_link_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.link.oldloc.inode, child_idx,
@@ -1988,7 +1988,7 @@ ha_create_open_cbk (call_frame_t *frame,
 		goto success;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	ha_mark_child_down_for_inode (this, inode, child_idx);
 
@@ -2054,7 +2054,7 @@ ha_create_cbk (call_frame_t *frame,
 	
 	local = frame->local;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	if ((op_ret == 0)
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno)) {
@@ -2222,7 +2222,7 @@ ha_open_cbk (call_frame_t *frame,
 		goto success;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	ha_mark_child_down_for_inode (this, local->args.open.loc.inode, child_idx);
 
@@ -2328,7 +2328,7 @@ ha_readv_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.readv.fd, child_idx,
@@ -2438,7 +2438,7 @@ ha_writev_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.writev.fd, child_idx,
@@ -2562,7 +2562,7 @@ ha_flush_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.flush.fd, child_idx,
@@ -2663,7 +2663,7 @@ ha_fsync_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.fsync.fd, child_idx,
@@ -2768,7 +2768,7 @@ ha_fstat_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.fstat.fd, child_idx,
@@ -2871,7 +2871,7 @@ ha_opendir_cbk (call_frame_t *frame,
 		goto success;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	ha_mark_child_down_for_inode (this, local->args.opendir.loc.inode, child_idx);
 
@@ -2975,7 +2975,7 @@ ha_getdents_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.getdents.fd, child_idx,
@@ -3085,7 +3085,7 @@ ha_setdents_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.setdents.fd, child_idx,
@@ -3198,7 +3198,7 @@ ha_fsyncdir_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.fsyncdir.fd, child_idx,
@@ -3306,7 +3306,7 @@ ha_statfs_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.statfs.loc.inode, child_idx,
@@ -3405,7 +3405,7 @@ ha_setxattr_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.setxattr.loc.inode, child_idx,
@@ -3519,7 +3519,7 @@ ha_getxattr_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.getxattr.loc.inode, child_idx,
@@ -3630,7 +3630,7 @@ ha_xattrop_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.xattrop.loc.inode, child_idx,
@@ -3742,7 +3742,7 @@ ha_fxattrop_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.fxattrop.fd, child_idx,
@@ -3856,7 +3856,7 @@ ha_removexattr_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.removexattr.loc.inode, child_idx,
@@ -3961,7 +3961,7 @@ ha_checksum_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
 						 local->args.checksum.loc.inode, child_idx,
@@ -4066,7 +4066,7 @@ ha_readdir_cbk (call_frame_t *frame,
 	    || HA_NOT_TRANSPORT_ERROR(op_ret, op_errno))
 		goto unwind;
 
-	child_idx = (int32_t)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
 					      local->args.readv.fd, child_idx,
@@ -4175,7 +4175,7 @@ ha_stats_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t) cookie;
+	child_idx = (long) cookie;
 
 	/* forward call to the next child */
 	active_idx = ha_next_active_child_index (this, child_idx);
@@ -4259,7 +4259,7 @@ ha_getspec_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (int32_t) cookie;
+	child_idx = (long) cookie;
 
 	/* forward call to the next child */
 	active_idx = ha_next_active_child_index (this, child_idx);
