@@ -17,140 +17,352 @@
   <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __HA_H_
-#define __HA_H_
+#ifndef __HA_H__
+#define __HA_H__
 
 typedef struct {
-	call_stub_t *stub;
-	int32_t op_ret, op_errno;
-	int32_t active, tries, revalidate, revalidate_error;
-	int32_t call_count;
-	char *state, *pattern;
-	dict_t *dict;
-	loc_t *loc;
-	struct stat buf;
-	fd_t *fd;
-	inode_t *inode;
-	int32_t flags;
-	int32_t first_success;
+	int32_t      op_ret; 
+	int32_t      op_errno;
+	int32_t      call_count;
+	struct stat  stbuf;
+
+	union {
+		/* lookup */
+		struct {
+			loc_t loc;
+			int32_t need_xattr;
+		} lookup;
+
+		/* stat */
+		struct {
+			loc_t loc;
+		} stat;
+
+		/* fstat */
+		struct {
+			fd_t *fd;
+		} fstat;
+
+		/* chmod */
+		struct {
+			loc_t loc;
+			mode_t mode;
+		} chmod;
+
+		/* fchmod */
+		struct {
+			fd_t *fd;
+			mode_t mode;
+		} fchmod;
+
+		/* chown */
+		struct {
+			loc_t loc;
+			uid_t uid;
+			gid_t gid;
+		} chown;
+
+		/* fchown */
+		struct {
+			fd_t *fd;
+			uid_t uid;
+			gid_t gid;
+		} fchown;
+
+		/* truncate */
+		struct {
+			loc_t loc;
+			off_t off;
+		} truncate;
+
+		/* ftruncate */
+		struct {
+			fd_t *fd;
+			off_t off;
+		} ftruncate;
+
+		/* utimens */
+		struct {
+			loc_t loc;
+			struct timespec tv[2];
+		} utimens;
+
+		/* access */
+		struct {
+			loc_t loc;
+			int32_t mask;
+		} access;
+
+		/* readlink */
+		struct {
+			loc_t loc;
+			size_t size;
+		} readlink;
+
+		/* mknod */
+		struct {
+			loc_t loc;
+			mode_t mode;
+			dev_t rdev;
+		} mknod;
+
+		/* mkdir */
+		struct {
+			loc_t loc;
+			mode_t mode;
+		} mkdir;
+
+		/* unlink */
+		struct {
+			loc_t loc;
+		} unlink;
+
+		/* rmdir */
+		struct {
+			loc_t loc;
+		} rmdir;
+
+		/* symlink */
+		struct {
+			const char *linkname;
+			loc_t loc;
+		} symlink;
+
+		/* rename */
+		struct {
+			loc_t old;
+			loc_t new;
+		} rename;
+
+		/* link */
+		struct {
+			loc_t oldloc;
+			loc_t newloc;
+		} link;
+
+		/* create */
+		struct {
+			loc_t loc;
+			int32_t flags;
+			mode_t mode;
+			fd_t *fd;
+		} create;
+
+		/* open */
+		struct {
+			loc_t loc;
+			int32_t flags;
+			fd_t *fd;
+		} open;
+
+		/* readv */
+		struct {
+			fd_t *fd;
+			size_t size;
+			off_t off;
+		} readv;
+
+		/* writev */
+		struct {
+			fd_t *fd;
+			struct iovec *vector;
+			int32_t count;
+			off_t off;
+			dict_t *req_refs;
+		} writev;
+
+		/* flush */
+		struct {
+			fd_t *fd;
+		} flush;
+
+		/* fsync */
+		struct {
+			fd_t *fd;
+			int32_t datasync;
+		} fsync;
+
+		/* opendir */
+		struct {
+			loc_t loc;
+			fd_t *fd;
+		} opendir;
+
+		/* getdents */
+		struct {
+			fd_t *fd;
+			size_t size;
+			off_t off;
+			int32_t flag;
+		} getdents;
+
+		/* setdents */
+		struct {
+			fd_t *fd;
+			int32_t flags;
+			dir_entry_t entries;
+			int32_t count;
+		} setdents;
+
+		/* fsyncdir */
+		struct {
+			fd_t *fd;
+			int32_t datasync;
+		} fsyncdir;
+
+		/* statfs */
+		struct {
+			loc_t loc;
+		} statfs;
+
+		/* setxattr */
+		struct {
+			loc_t loc;
+			dict_t *dict;
+			int32_t flags;
+		} setxattr;
+
+		/* getxattr */
+		struct {
+			loc_t loc;
+			const char *name;
+		} getxattr;
+
+		/* removexattr */
+		struct {
+			loc_t loc;
+			const char *name;
+		} removexattr;
+
+		/* lk */
+		struct {
+			fd_t *fd;
+			int32_t cmd;
+			struct flock lock;
+		} lk;
+
+		/* inodelk */
+		struct {
+			loc_t loc;
+			int32_t cmd;
+			struct flock lock;
+		} inodelk;
+
+		/* finodelk */
+		struct {
+			fd_t *fd;
+			int32_t cmd;
+			struct flock lock;
+		} finodelk;
+
+		/* entrylk */
+		struct {
+			loc_t loc;
+			const char *name;
+			entrylk_cmd cmd;
+			entrylk_type type;
+		} entrylk;
+
+		/* fentrylk */
+		struct {
+			fd_t *fd;
+			const char *name;
+			entrylk_cmd cmd;
+			entrylk_type type;
+		} fentrylk;
+
+		/* readdir */
+		struct {
+			fd_t *fd;
+			size_t size;
+			off_t off;
+		} readdir;
+
+		/* checksum */
+		struct {
+			loc_t loc;
+			int32_t flags;
+		} checksum;
+
+		/* xattrop */
+		struct {
+			loc_t loc;
+			gf_xattrop_flags_t optype;
+			dict_t *xattr;
+		} xattrop;
+
+		/* fxattrop */
+		struct {
+			fd_t *fd;
+			gf_xattrop_flags_t optype;
+			dict_t *xattr;
+		} fxattrop;
+		
+		struct {
+			int32_t flags;
+		} stats;
+		
+		struct {
+			const char *key;
+			int32_t flags;
+		} getspec;
+	} args;
 } ha_local_t;
 
 typedef struct {
-	char *state;
+	char      *state;
 	xlator_t **children;
-	int child_count, active, load_balance;
+	int32_t    child_count;
+	int32_t    active;
+	gf_lock_t  lock;
 } ha_private_t;
 
-typedef struct {
-	char *fdstate;
-	char *path;
-	gf_lock_t lock;
-	int active;
-} hafd_t;
+#define HA_CHILDREN(_this) (((ha_private_t *)_this->private)->children)
 
-#define HA_ACTIVE_CHILD(this, local) (((ha_private_t *)this->private)->children[local->active])
+#define HA_CHILDREN_COUNT(_this) (((ha_private_t *)_this->private)->child_count)
 
-#define HA_CALL_CODE_FD(this, frame, local, hafdp) do {			\
-		if (local == NULL) {					\
-			int i;						\
-			ha_private_t *pvt = this->private;		\
-			int child_count = pvt->child_count;		\
-			local = frame->local = CALLOC (1, sizeof (*local)); \
-			local->active = pvt->active;			\
-			local->state = CALLOC (1, child_count);		\
-			LOCK (&hafdp->lock);				\
-			memcpy (local->state, hafdp->fdstate, child_count); \
-			UNLOCK (&hafdp->lock);				\
-			if (local->active != -1 && local->state[local->active] == 0) \
-				local->active = -1;			\
-			for (i = 0; i < pvt->child_count; i++) {	\
-				if (local->state[i]) {			\
-					if (local->active == -1)	\
-						local->active = i;	\
-					local->tries++;			\
-				}					\
-			}						\
-		}							\
-	} while(0);
+#define HA_NOT_TRANSPORT_ERROR(_op_ret, _op_errno) \
+	((op_ret == -1) && (!((_op_errno == ENOTCONN) || (_op_errno == EBADFD))))
 
-#define HA_CALL_CBK_CODE_FD(this, cookie, op_ret, op_errno, local, hafdp) do { \
-		int i;							\
-		ha_private_t *pvt = this->private;			\
-		xlator_t **children = pvt->children;			\
-		call_frame_t *prev_frame = cookie;			\
-		GF_TRACE (this, "(child=%s) (op_ret=%d op_errno=%s)",	\
-			  prev_frame->this->name, op_ret, strerror (op_errno)); \
-		if (op_ret == -1) {					\
-			GF_ERROR (this, "(child=%s) (op_ret=%d op_errno=%s)", \
-				  prev_frame->this->name, op_ret, strerror (op_errno)); \
-		}							\
-		if (op_ret == -1 && (op_errno == ENOTCONN)) {		\
-			for (i = 0; i < pvt->child_count; i++){         \
-				if (prev_frame->this == children[i])    \
-					break;			        \
-			}					        \
-			LOCK(&hafdp->lock);				\
-			hafdp->fdstate[i] = 0;				\
-			UNLOCK(&hafdp->lock);				\
-                        local->tries--;                                 \
-                        if (local->tries != 0) {                        \
-				while (1) {                             \
-					local->active = (local->active + 1) % pvt->child_count; \
-					if (local->state[local->active])\
-						break;                  \
-				}                                       \
-				call_resume (local->stub);              \
-				return 0;                               \
-			}                                               \
-		}							\
-		FREE (local->state);					\
-		call_stub_destroy (local->stub);			\
-	} while(0);
+#define HA_NONE (-1)
+
+ha_local_t *
+ha_local_init (call_frame_t *frame);
+
+int32_t
+ha_copy_state_to_fd (xlator_t *this,
+		     fd_t *fd,
+		     inode_t *inode);
+
+int32_t
+ha_first_active_child_index (xlator_t *this);
+
+int32_t
+ha_mark_child_down_for_inode (xlator_t *this,
+			      inode_t *inode,
+			      int32_t child_idx);
+
+xlator_t *
+ha_next_active_child_for_inode (xlator_t *this,
+				inode_t *inode,
+				int32_t child_idx,
+				int32_t *ret_active_idx);
+
+xlator_t *
+ha_next_active_child_for_fd (xlator_t *this,
+			     fd_t *fd,
+			     int32_t child_idx,
+			     int32_t *ret_active_idx);
+
+int32_t
+ha_set_state (dict_t *ctx, xlator_t *this);
+
+int32_t
+ha_next_active_child_index (xlator_t *this, 
+			    int32_t discard);
+
+xlator_t *
+ha_child_for_index (xlator_t *this, int32_t idx);
 
 
-#define HA_CALL_CODE(frame, local, state) do {				\
-		if (local == NULL) {					\
-			int i;						\
-			ha_private_t *pvt = this->private;		\
-			local = frame->local = CALLOC (1, sizeof (*local)); \
-			local->active = pvt->active;			\
-			local->state = state;				\
-			if (local->active != -1 && local->state[local->active] == 0) \
-				local->active = -1;			\
-			for (i = 0; i < pvt->child_count; i++) {	\
-				if (local->state[i]) {			\
-					if (local->active == -1)	\
-						local->active = i;	\
-					local->tries++;			\
-				}					\
-			}						\
-		}							\
-	} while(0);
-
-#define HA_CALL_CBK_CODE(this, cookie, local, op_ret, op_errno) do {	\
-		call_frame_t *prev_frame = cookie;			\
-		ha_private_t *pvt = this->private;			\
-		GF_TRACE (this, "(child=%s) (op_ret=%d op_errno=%s)",	\
-			  prev_frame->this->name, op_ret, strerror (op_errno));	\
-		if (op_ret == -1) {					\
-			GF_ERROR (this, "(child=%s) (op_ret=%d op_errno=%s)", \
-				  prev_frame->this->name, op_ret, strerror (op_errno));	\
-		}							\
-		if (op_ret == -1 && (op_errno == ENOTCONN)) {		\
-			while (1) {					\
-				local->active = (local->active + 1) % pvt->child_count;	\
-				local->tries--;				\
-				if (local->tries == 0)			\
-					break;				\
-				if (local->state[local->active])	\
-					break;				\
-			}						\
-			if (local->tries != 0) {			\
-				call_resume (local->stub);		\
-				return 0;				\
-			}						\
-		}							\
-		call_stub_destroy (local->stub);			\
-	} while(0);
-
-#endif
+#endif /* __HA_H__ */

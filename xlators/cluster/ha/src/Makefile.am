@@ -3,7 +3,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
 ha_la_LDFLAGS = -module -avoidversion 
 
-ha_la_SOURCES = ha.c
+ha_la_SOURCES = ha-helpers.c ha.c
 ha_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = ha.h
