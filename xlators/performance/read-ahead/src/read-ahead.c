@@ -426,6 +426,7 @@ ra_readv (call_frame_t *frame, xlator_t *this,
 	ra_conf_t    *conf = NULL;
 	int           op_errno = 0;
 	int           ret = 0;
+	char expected_offset = 1;
 
 	conf = this->private;
 
@@ -440,7 +441,7 @@ ra_readv (call_frame_t *frame, xlator_t *this,
 			"unexpected offset (%"PRId64" != %"PRId64") resetting",
 			file->offset, offset);
 
-		file->expected = file->page_count = 0;
+		expected_offset = file->expected = file->page_count = 0;
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"expected offset (%"PRId64") when page_count=%d",
@@ -451,6 +452,10 @@ ra_readv (call_frame_t *frame, xlator_t *this,
 			file->page_count = min ((file->expected / file->page_size),
 						conf->page_count);
 		}
+	}
+
+	if (!expected_offset) {
+		flush_region (frame, file, 0, file->pages.prev->offset + 1);
 	}
 
 	if (file->disabled) {

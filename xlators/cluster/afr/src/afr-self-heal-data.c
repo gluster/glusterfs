@@ -977,7 +977,7 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 		afr_sh_data_lock (frame, this);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"proceeding to data check on %s",
+			"not doing data self heal on %s",
 			local->loc.path);
 		afr_sh_data_done (frame, this);
 	}
