@@ -11,7 +11,7 @@ mod_glusterfs.so: $(top_srcdir)/mod_glusterfs/apache/2.2/src/mod_glusterfs.c $(t
 	-ln -sf .libs/mod_glusterfs.so mod_glusterfs.so
 
 $(top_builddir)/libglusterfsclient/src/libglusterfsclient.la:
-	make -C $(top_builddir)/libglusterfsclient/src/ all
+	$(MAKE) -C $(top_builddir)/libglusterfsclient/src/ all
 
 install-data-local:
 	@echo ""

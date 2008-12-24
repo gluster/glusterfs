@@ -10,7 +10,7 @@ mod_glusterfs.so: $(top_srcdir)/mod_glusterfs/apache/1.3/src/mod_glusterfs.c $(t
 	$(APXS) -c -Wc,-g3 -Wc,-O0 -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64 -D_GNU_SOURCE -I$(top_srcdir)/libglusterfsclient/src -Wl,-rpath,$(libdir) -Wl,-rpath,$(top_builddir)/libglusterfsclient/src/.libs/ $(top_builddir)/libglusterfsclient/src/.libs/libglusterfsclient.so mod_glusterfs-build.c -o $(top_builddir)/mod_glusterfs/apache/1.3/src/mod_glusterfs.so
 
 $(top_builddir)/libglusterfsclient/src/libglusterfsclient.la:
-	make -C $(top_builddir)/libglusterfsclient/src/ all
+	$(MAKE) -C $(top_builddir)/libglusterfsclient/src/ all
 
 install-data-local:
 	@echo ""

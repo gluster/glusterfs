@@ -26,19 +26,8 @@
 #include <config.h>
 #endif
 
-/* AIX requires this to be the first thing in the file.  */
-#ifndef __GNUC__
-# if HAVE_ALLOCA_H
-#  include <alloca.h>
-# else
-#  ifdef _AIX
- #pragma alloca
-#  else
-#   ifndef alloca /* predefined by HP cc +Olibcalls */
-char *alloca ();
-#   endif
-#  endif
-# endif
+#if HAVE_ALLOCA_H
+#include <alloca.h>
 #endif
 
 #include <stddef.h>
@@ -1736,7 +1725,6 @@ __argp_short_program_name(const struct argp_state *state)
      but currently the value is passed on directly to fputs_unlocked,
      so that requires more changes. */
 # if __GNUC__
-#  warning No reasonable value to return
   return "";
 # endif /* __GNUC__ */
 #endif /* !HAVE_DECL_PROGRAM_INVOCATION_NAME */

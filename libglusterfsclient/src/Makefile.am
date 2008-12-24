@@ -12,5 +12,5 @@ libglusterfsclient_la_LDFLAGS = -shared -nostartfiles
 CLEANFILES = 
 
 $(top_builddir)/libglusterfs/src/libglusterfs.la:
-	make -C $(top_builddir)/libglusterfs/src/ all
+	$(MAKE) -C $(top_builddir)/libglusterfs/src/ all
 

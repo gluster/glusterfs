@@ -2158,22 +2158,21 @@ trace_stats (call_frame_t *frame,
 	return 0;
 }
 
-#ifndef GF_SOLARIS_HOST_OS
 void
 enable_all_calls (int enabled)
 {
-  int i;
-  for (i = 0; i < GF_FOP_MAXVALUE; i++)
-    trace_fop_names[i].enabled = enabled;
+	int i;
+	for (i = 0; i < GF_FOP_MAXVALUE; i++)
+		trace_fop_names[i].enabled = enabled;
 }
 
 void 
 enable_call (const char *name, int enabled)
 {
-  int i;
-  for (i = 0; i < GF_FOP_MAXVALUE; i++)
-    if (!strcasecmp(trace_fop_names[i].name, name))
-      trace_fop_names[i].enabled = enabled;
+	int i;
+	for (i = 0; i < GF_FOP_MAXVALUE; i++)
+		if (!strcasecmp(trace_fop_names[i].name, name))
+			trace_fop_names[i].enabled = enabled;
 }
 
 
@@ -2184,15 +2183,15 @@ enable_call (const char *name, int enabled)
 void
 process_call_list (const char *list, int include)
 {
-  enable_all_calls (include ? 0 : 1);
-
-  char *call = strsep ((char **)&list, ",");
-  while (call) {
-    enable_call (call, include);
-    call = strsep ((char **)&list, ",");
-  }
+	enable_all_calls (include ? 0 : 1);
+	
+	char *call = strsep ((char **)&list, ",");
+	while (call) {
+		enable_call (call, include);
+		call = strsep ((char **)&list, ",");
+	}
 }
-#endif /* GF_SOLARIS_HOST_OS */
+
 
 int32_t 
 init (xlator_t *this)
@@ -2201,25 +2200,22 @@ init (xlator_t *this)
   char *includes = NULL, *excludes = NULL;
   
   if (!this)
-    return -1;
-
-  if (!this->children || this->children->next) {
-    gf_log (this->name, GF_LOG_ERROR, 
-	    "trace translator requires one subvolume");
-    return -1;
-  }
-	if (!this->parents) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
-	}
+	  return -1;
   
-
-//  enable_all_calls (1);
-
-#ifndef GF_SOLARIS_HOST_OS
+  if (!this->children || this->children->next) {
+	  gf_log (this->name, GF_LOG_ERROR, 
+		  "trace translator requires one subvolume");
+	  return -1;
+  }
+  if (!this->parents) {
+	  gf_log (this->name, GF_LOG_WARNING,
+		  "dangling volume. check volfile ");
+  }
+  
+  
   includes = data_to_str (dict_get (options, "include-ops"));
   excludes = data_to_str (dict_get (options, "exclude-ops"));
-
+  
   {
 	  int i;
 	  for (i = 0; i < GF_FOP_MAXVALUE; i++) {
@@ -2230,34 +2226,33 @@ init (xlator_t *this)
   }
   
   if (includes && excludes) {
-    gf_log (this->name, 
-	    GF_LOG_ERROR,
-	    "must specify only one of 'include-ops' and 'exclude-ops'");
-    return -1;
+	  gf_log (this->name, 
+		  GF_LOG_ERROR,
+		  "must specify only one of 'include-ops' and 'exclude-ops'");
+	  return -1;
   }
   if (includes)
-    process_call_list (includes, 1);
+	  process_call_list (includes, 1);
   if (excludes)
-    process_call_list (excludes, 0);
-#endif /* GF_SOLARIS_HOST_OS */
-
+	  process_call_list (excludes, 0);
+  
   gf_log_set_loglevel (GF_LOG_NORMAL);
- 
+  
   /* Set this translator's inode table pointer to child node's pointer. */
   this->itable = FIRST_CHILD (this)->itable;
-
+  
   return 0;
 }
 
 void
 fini (xlator_t *this)
 {
-  if (!this)
-    return;
-
-  gf_log (this->name, GF_LOG_NORMAL, 
-	  "trace translator unloaded");
-  return;
+	if (!this)
+		return;
+	
+	gf_log (this->name, GF_LOG_NORMAL, 
+		"trace translator unloaded");
+	return;
 }
 
 struct xlator_fops fops = {
