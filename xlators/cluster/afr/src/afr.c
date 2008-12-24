@@ -336,7 +336,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	struct stat *   lookup_buf = NULL;
 	int             call_count = -1;
 	int             child_index = -1;
-	ino_t           ino = -1;
+	int             prev_child_index = -1;
 
 	child_index = (long) cookie;
 	priv = this->private;
@@ -387,15 +387,14 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			lookup_buf->st_ino = afr_itransform (buf->st_ino,
 							     priv->child_count,
 							     child_index);
-			if (inode->ino)
-				lookup_buf->st_ino = inode->ino;
-
 		} else {
-			ino = afr_itransform (buf->st_ino, priv->child_count,
-					      child_index);
-			if (ino == inode->ino) {
+			prev_child_index = afr_deitransform_orig (lookup_buf->st_ino, 
+								  priv->child_count);
+			if (child_index < prev_child_index) {
 				*lookup_buf = *buf;
-				lookup_buf->st_ino = ino;
+				lookup_buf->st_ino = afr_itransform (buf->st_ino,
+								     priv->child_count,
+								     child_index);
 			}
 			if (FILETYPE_DIFFERS (buf, lookup_buf)) {
 				/* mismatching filetypes with same name
@@ -431,6 +430,12 @@ unlock:
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
+		if (local->op_ret == 0) {
+			/* KLUDGE: assuming DHT will not itransform in revalidate */
+			if (inode->ino)
+				lookup_buf->st_ino = inode->ino;
+		}
+
 		if (local->success_count 
 		    && local->enoent_count 
 		    && priv->metadata_self_heal
