@@ -326,7 +326,7 @@ save_frame (transport_t *trans, call_frame_t *frame,
 
 
 int32_t 
-client_send_forgets (xlator_t *this) 
+client_get_forgets (xlator_t *this, client_forget_t *forget) 
 {
 	call_frame_t        *fr = NULL;
 	gf_hdr_common_t     *hdr = NULL;
@@ -358,12 +358,13 @@ client_send_forgets (xlator_t *this)
 		GF_VALIDATE_OR_GOTO (this->name, fr, out);
 
 		priv->forget.frames_in_transit++;
-		ret = protocol_client_xfer (fr, this,
-					    GF_OP_TYPE_CBK_REQUEST, 
-					    GF_CBK_FORGET,
-					    hdr, hdrlen, 
-					    NULL, 0, NULL);
+
+		forget->frame = fr;
+		forget->hdr   = hdr;
+		forget->hdrlen = hdrlen;
 		
+		ret = count;
+
 		priv->forget.count = 0;
 	}
  out:
@@ -385,6 +386,8 @@ protocol_client_xfer (call_frame_t *frame,
 	uint64_t callid = 0;
 	int32_t ret = -1;
 	gf_hdr_common_t rsphdr = {0, };
+	client_forget_t forget = {0, };
+	uint8_t send_forget = 0;
 
 	priv  = this->private;
 	trans = priv->transport;
@@ -395,9 +398,22 @@ protocol_client_xfer (call_frame_t *frame,
 	{
 		LOCK (&priv->forget.lock);
 		{
-			client_send_forgets (this);
+			ret = client_get_forgets (this, &forget);
+			if (ret <= 0)
+				send_forget = 0;
+			else
+				send_forget = 1;
 		}
 		UNLOCK (&priv->forget.lock);
+
+		if (send_forget) {
+			ret = protocol_client_xfer (forget.frame, this,
+						    GF_OP_TYPE_CBK_REQUEST, 
+						    GF_CBK_FORGET,
+						    forget.hdr, forget.hdrlen, 
+						    NULL, 0, NULL);
+		}
+
 	}
 
 	pthread_mutex_lock (&cprivate->lock);
@@ -3441,8 +3457,11 @@ int32_t
 client_forget (xlator_t *this,
                inode_t *inode)
 {
-	ino_t                ino = 0;
-	client_private_t    *priv = NULL;
+	ino_t            ino = 0;
+	client_private_t *priv = NULL;
+	client_forget_t  forget = {0,};
+	uint8_t          send_forget = 0;
+	int32_t          ret = -1;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	priv = this->private;
@@ -3462,11 +3481,22 @@ client_forget (xlator_t *this,
 
 		if ((!priv->forget.frames_in_transit) || 
 		    (priv->forget.count >= CLIENT_PROTO_FORGET_LIMIT)) {
-			client_send_forgets (this);
+			ret = client_get_forgets (this, &forget);
+			if (ret <= 0)
+				send_forget = 0;
+			else
+				send_forget = 1;
 		}
 	}
 	UNLOCK (&priv->forget.lock);
-
+	
+	if (send_forget) {
+		ret = protocol_client_xfer (forget.frame, this,
+					    GF_OP_TYPE_CBK_REQUEST, 
+					    GF_CBK_FORGET,
+					    forget.hdr, forget.hdrlen, 
+					    NULL, 0, NULL);
+	}
 out:
 	return 0;
 }
@@ -5761,13 +5791,29 @@ client_forget_cbk (call_frame_t *frame,
                    char *buf, size_t buflen)
 {
 	client_private_t *priv = frame->this->private;
+	client_forget_t  forget = {0, };
+	uint8_t          send_forget = 0;
+	int32_t          ret = -1;
 
 	LOCK (&priv->forget.lock);
 	{
 		priv->forget.frames_in_transit--;
-		client_send_forgets (frame->this);
+
+		ret = client_get_forgets (frame->this, &forget);
+		if (ret <= 0)
+			send_forget = 0;
+		else
+			send_forget = 1;
 	}
 	UNLOCK (&priv->forget.lock);
+
+	if (send_forget) {
+		ret = protocol_client_xfer (forget.frame, frame->this,
+					    GF_OP_TYPE_CBK_REQUEST, 
+					    GF_CBK_FORGET,
+					    forget.hdr, forget.hdrlen, 
+					    NULL, 0, NULL);
+	}
 	
 	STACK_DESTROY (frame->root);
 	return 0;

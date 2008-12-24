@@ -64,6 +64,7 @@ typedef struct client_connection_private client_connection_private_t;
 #include "stack.h"
 #include "xlator.h"
 #include "transport.h"
+#include "protocol.h"
 
 struct _client_private {
 	transport_t          *transport;
@@ -105,6 +106,11 @@ typedef struct {
 	fd_t *fd;
 } client_local_t;
 
+typedef struct {
+	gf_hdr_common_t *hdr;
+	size_t           hdrlen;
+	call_frame_t    *frame;
+} client_forget_t;
 static inline void
 gf_string_to_stat(char *string, struct stat *stbuf)
 {
