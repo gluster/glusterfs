@@ -1136,7 +1136,7 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 
 	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
-	if (local->call_count == 0) {
+	if (call_count == 0) {
 		local->transaction.resume (frame, this);
 		return 0;
 	}
@@ -1335,7 +1335,7 @@ afr_ftruncate_wind (call_frame_t *frame, xlator_t *this)
 
 	call_count = afr_up_children_count (priv->child_count, local->child_up);
 
-	if (local->call_count == 0) {
+	if (call_count == 0) {
 		local->transaction.resume (frame, this);
 		return 0;
 	}
