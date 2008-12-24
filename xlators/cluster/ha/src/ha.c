@@ -29,11 +29,12 @@
 #include "compat-errno.h"
 #include "ha.h"
 
-/***********************************************************************************
- *                                        fops
- ***********************************************************************************/
+/*****************************************************************************
+ *                                   fops
+ *****************************************************************************/
 
-static int32_t
+
+int
 ha_lookup_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -67,13 +68,11 @@ ha_lookup_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_lookup_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->lookup,
-			  &local->args.lookup.loc,
-			  local->args.lookup.need_xattr);
+	STACK_WIND_COOKIE (frame, ha_lookup_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->lookup,
+			   &local->args.lookup.loc,
+			   local->args.lookup.need_xattr);
 
 	return 0;
 
@@ -94,8 +93,7 @@ unwind:
 }
 
 
-
-int32_t
+int
 ha_lookup (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc,
@@ -138,13 +136,10 @@ ha_lookup (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_lookup_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->lookup,
-			  loc,
-			  need_xattr);
+	STACK_WIND_COOKIE (frame, ha_lookup_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->lookup,
+			   loc, need_xattr);
 
 	return 0;
 err:
@@ -159,7 +154,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_stat_cbk (call_frame_t *frame,
 	     void *cookie,
 	     xlator_t *this,
@@ -180,8 +176,8 @@ ha_stat_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.stat.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.stat.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -190,12 +186,10 @@ ha_stat_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_stat_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->stat,
-			  &local->args.stat.loc);
+	STACK_WIND_COOKIE (frame, ha_stat_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->stat,
+			   &local->args.stat.loc);
 
 	return 0;
 unwind:
@@ -212,7 +206,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_stat (call_frame_t *frame,
 	 xlator_t *this,
 	 loc_t *loc)
@@ -239,12 +234,10 @@ ha_stat (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_stat_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->stat,
-			  loc);
+	STACK_WIND_COOKIE (frame, ha_stat_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->stat,
+			   loc);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, op_errno, NULL);
@@ -258,7 +251,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_chmod_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -280,8 +274,8 @@ ha_chmod_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.chmod.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.chmod.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -290,13 +284,11 @@ ha_chmod_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_chmod_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->chmod,
-			  &local->args.chmod.loc,
-			  local->args.chmod.mode);
+	STACK_WIND_COOKIE (frame, ha_chmod_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->chmod,
+			   &local->args.chmod.loc,
+			   local->args.chmod.mode);
 	return 0;
 
 unwind:
@@ -313,7 +305,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_chmod (call_frame_t *frame,
 	  xlator_t *this,
 	  loc_t *loc,
@@ -343,13 +336,10 @@ ha_chmod (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_chmod_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->chmod,
-			  loc,
-			  mode);
+	STACK_WIND_COOKIE(frame, ha_chmod_cbk,
+			  (void *) (long) active_idx,
+			  active, active->fops->chmod,
+			  loc, mode);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, op_errno, NULL);
@@ -364,7 +354,7 @@ err:
 }
 
 
-static int32_t
+int
 ha_fchmod_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -395,13 +385,11 @@ ha_fchmod_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fchmod_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fchmod,
-			  local->args.fchmod.fd,
-			  local->args.fchmod.mode);
+	STACK_WIND_COOKIE (frame, ha_fchmod_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fchmod,
+			   local->args.fchmod.fd,
+			   local->args.fchmod.mode);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -418,7 +406,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_fchmod (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd,
@@ -448,13 +437,10 @@ ha_fchmod (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fchmod_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fchmod,
-			  fd,
-			  mode);
+	STACK_WIND_COOKIE (frame, ha_fchmod_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fchmod,
+			   fd, mode);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -469,7 +455,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_chown_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -488,11 +475,11 @@ ha_chown_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	child_idx = (long)cookie;
+	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.chown.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.chown.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -501,14 +488,12 @@ ha_chown_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_chown_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->chown,
-			  &local->args.chown.loc,
-			  local->args.chown.uid,
-			  local->args.chown.gid);
+	STACK_WIND_COOKIE (frame, ha_chown_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->chown,
+			   &local->args.chown.loc,
+			   local->args.chown.uid,
+			   local->args.chown.gid);
 	return 0;
 
 unwind:
@@ -525,7 +510,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_chown (call_frame_t *frame,
 	  xlator_t *this,
 	  loc_t *loc,
@@ -557,13 +543,10 @@ ha_chown (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_chown_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->chown,
-			  loc,
-			  uid, gid);
+	STACK_WIND_COOKIE (frame, ha_chown_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->chown,
+			   loc, uid, gid);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -577,7 +560,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_fchown_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -608,14 +592,12 @@ ha_fchown_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fchown_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fchown,
-			  local->args.fchown.fd,
-			  local->args.fchown.uid,
-			  local->args.fchown.gid);
+	STACK_WIND_COOKIE (frame, ha_fchown_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fchown,
+			   local->args.fchown.fd,
+			   local->args.fchown.uid,
+			   local->args.fchown.gid);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -632,7 +614,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_fchown (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd,
@@ -664,13 +647,10 @@ ha_fchown (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fchown_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fchown,
-			  fd,
-			  uid, gid);
+	STACK_WIND_COOKIE (frame, ha_fchown_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fchown,
+			   fd, uid, gid);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -685,7 +665,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_truncate_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -707,8 +688,8 @@ ha_truncate_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.truncate.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.truncate.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -717,13 +698,11 @@ ha_truncate_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_truncate_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->truncate,
-			  &local->args.truncate.loc,
-			  local->args.truncate.off);
+	STACK_WIND_COOKIE (frame, ha_truncate_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->truncate,
+			   &local->args.truncate.loc,
+			   local->args.truncate.off);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -739,7 +718,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_truncate (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -769,13 +749,10 @@ ha_truncate (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_truncate_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->truncate,
-			  loc,
-			  offset);
+	STACK_WIND_COOKIE (frame, ha_truncate_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->truncate,
+			   loc, offset);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -789,7 +766,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_ftruncate_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -810,8 +788,8 @@ ha_ftruncate_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
-					      local->args.ftruncate.fd, child_idx,
-					      &active_idx);
+					      local->args.ftruncate.fd,
+					      child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -820,13 +798,11 @@ ha_ftruncate_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_ftruncate_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->ftruncate,
-			  local->args.ftruncate.fd,
-			  local->args.ftruncate.off);
+	STACK_WIND_COOKIE (frame, ha_ftruncate_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->ftruncate,
+			   local->args.ftruncate.fd,
+			   local->args.ftruncate.off);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -843,7 +819,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_ftruncate (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd,
@@ -873,13 +850,10 @@ ha_ftruncate (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_ftruncate_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->ftruncate,
-			  fd,
-			  offset);
+	STACK_WIND_COOKIE (frame, ha_ftruncate_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->ftruncate,
+			   fd, offset);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -894,7 +868,8 @@ err:
 	return 0;
 }
 
-int32_t
+
+int
 ha_utimens_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -916,8 +891,8 @@ ha_utimens_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.utimens.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.utimens.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -926,13 +901,11 @@ ha_utimens_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_utimens_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->utimens,
-			  &local->args.utimens.loc,
-			  local->args.utimens.tv);
+	STACK_WIND_COOKIE (frame, ha_utimens_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->utimens,
+			   &local->args.utimens.loc,
+			   local->args.utimens.tv);
 	return 0;
 
 unwind:
@@ -949,7 +922,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_utimens (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
@@ -980,13 +954,10 @@ ha_utimens (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_utimens_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->utimens,
-			  loc,
-			  tv);
+	STACK_WIND_COOKIE (frame, ha_utimens_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->utimens,
+			   loc, tv);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, op_errno, NULL);
@@ -1000,7 +971,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_access_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -1021,8 +993,8 @@ ha_access_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.access.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.access.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -1031,13 +1003,11 @@ ha_access_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_access_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->access,
-			  &local->args.access.loc,
-			  local->args.access.mask);
+	STACK_WIND_COOKIE (frame, ha_access_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->access,
+			   &local->args.access.loc,
+			   local->args.access.mask);
 	return 0;
 
 unwind:
@@ -1054,7 +1024,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_access (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc,
@@ -1084,13 +1055,10 @@ ha_access (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_access_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->access,
-			  loc,
-			  mask);
+	STACK_WIND_COOKIE (frame, ha_access_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->access,
+			   loc, mask);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno);
@@ -1105,7 +1073,7 @@ err:
 }
 
 
-static int32_t
+int
 ha_readlink_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -1127,8 +1095,8 @@ ha_readlink_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.readlink.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.readlink.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -1137,13 +1105,11 @@ ha_readlink_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_readlink_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->readlink,
-			  &local->args.readlink.loc,
-			  local->args.readlink.size);
+	STACK_WIND_COOKIE (frame, ha_readlink_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->readlink,
+			   &local->args.readlink.loc,
+			   local->args.readlink.size);
 	return 0;
 
 unwind:
@@ -1160,7 +1126,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_readlink (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -1190,13 +1157,10 @@ ha_readlink (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_readlink_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->readlink,
-			  loc,
-			  size);
+	STACK_WIND_COOKIE (frame, ha_readlink_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->readlink,
+			   loc, size);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -1210,7 +1174,8 @@ err:
 	return 0;
 }
 
-int32_t
+
+int
 ha_mknod_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -1233,8 +1198,8 @@ ha_mknod_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.mknod.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.mknod.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -1243,14 +1208,12 @@ ha_mknod_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_mknod_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->mknod,
-			  &local->args.mknod.loc,
-			  local->args.mknod.mode,
-			  local->args.mknod.rdev);
+	STACK_WIND_COOKIE (frame, ha_mknod_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->mknod,
+			   &local->args.mknod.loc,
+			   local->args.mknod.mode,
+			   local->args.mknod.rdev);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -1267,7 +1230,8 @@ unwind:
 
 }
 
-int32_t
+
+int
 ha_mknod (call_frame_t *frame,
 	  xlator_t *this,
 	  loc_t *loc,
@@ -1299,12 +1263,10 @@ ha_mknod (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_mknod_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->mknod,
-			  loc, mode, rdev);
+	STACK_WIND_COOKIE (frame, ha_mknod_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->mknod,
+			   loc, mode, rdev);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, op_errno, NULL, NULL);
@@ -1319,8 +1281,7 @@ err:
 }
 
 
-
-int32_t
+int
 ha_mkdir_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -1343,8 +1304,8 @@ ha_mkdir_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.mkdir.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.mkdir.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -1353,13 +1314,11 @@ ha_mkdir_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_mkdir_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->mkdir,
-			  &local->args.mkdir.loc,
-			  local->args.mkdir.mode);
+	STACK_WIND_COOKIE (frame, ha_mkdir_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->mkdir,
+			   &local->args.mkdir.loc,
+			   local->args.mkdir.mode);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -1376,7 +1335,8 @@ unwind:
 
 }
 
-int32_t
+
+int
 ha_mkdir (call_frame_t *frame,
 	  xlator_t *this,
 	  loc_t *loc,
@@ -1415,12 +1375,10 @@ ha_mkdir (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_mkdir_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->mkdir,
-			  loc, mode);
+	STACK_WIND_COOKIE (frame, ha_mkdir_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->mkdir,
+			   loc, mode);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, op_errno, NULL, NULL);
@@ -1435,7 +1393,8 @@ err:
 
 }
 
-static int32_t
+
+int
 ha_unlink_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -1456,8 +1415,8 @@ ha_unlink_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.unlink.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.unlink.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -1466,12 +1425,10 @@ ha_unlink_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_unlink_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->unlink,
-			  &local->args.unlink.loc);
+	STACK_WIND_COOKIE (frame, ha_unlink_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->unlink,
+			   &local->args.unlink.loc);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -1487,7 +1444,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_unlink (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc)
@@ -1515,12 +1473,10 @@ ha_unlink (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_unlink_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->unlink,
-			  loc);
+	STACK_WIND_COOKIE (frame, ha_unlink_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->unlink,
+			   loc);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno);
@@ -1534,7 +1490,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_rmdir_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -1555,8 +1512,8 @@ ha_rmdir_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.rmdir.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.rmdir.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -1565,12 +1522,10 @@ ha_rmdir_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_rmdir_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->rmdir,
-			  &local->args.rmdir.loc);
+	STACK_WIND_COOKIE (frame, ha_rmdir_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->rmdir,
+			   &local->args.rmdir.loc);
 	return 0;
 
 unwind:
@@ -1587,7 +1542,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_rmdir (call_frame_t *frame,
 	  xlator_t *this,
 	  loc_t *loc)
@@ -1615,12 +1571,10 @@ ha_rmdir (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_rmdir_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->rmdir,
-			  loc);
+	STACK_WIND_COOKIE (frame, ha_rmdir_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->rmdir,
+			   loc);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno);
@@ -1635,7 +1589,7 @@ err:
 }
 
 
-int32_t
+int
 ha_symlink_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -1658,8 +1612,8 @@ ha_symlink_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.symlink.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.symlink.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -1668,13 +1622,11 @@ ha_symlink_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_symlink_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->symlink,
-			  local->args.symlink.linkname,
-			  &local->args.symlink.loc);
+	STACK_WIND_COOKIE (frame, ha_symlink_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->symlink,
+			   local->args.symlink.linkname,
+			   &local->args.symlink.loc);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -1690,7 +1642,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_symlink (call_frame_t *frame,
 	    xlator_t *this,
 	    const char *linkname,
@@ -1729,12 +1682,10 @@ ha_symlink (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_symlink_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->symlink,
-			  linkname, loc);
+	STACK_WIND_COOKIE (frame, ha_symlink_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->symlink,
+			   linkname, loc);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
@@ -1748,7 +1699,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_rename_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -1770,8 +1722,8 @@ ha_rename_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.rename.old.inode, child_idx,
-						 &active_idx);
+						 local->args.rename.old.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -1780,13 +1732,11 @@ ha_rename_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_rename_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->rename,
-			  &local->args.rename.old,
-			  &local->args.rename.new);
+	STACK_WIND_COOKIE (frame, ha_rename_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->rename,
+			   &local->args.rename.old,
+			   &local->args.rename.new);
 	return 0;
 
 unwind:
@@ -1805,7 +1755,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_rename (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *oldloc,
@@ -1835,12 +1786,10 @@ ha_rename (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_rename_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->rename,
-			  oldloc, newloc);
+	STACK_WIND_COOKIE (frame, ha_rename_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->rename,
+			   oldloc, newloc);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -1857,7 +1806,7 @@ err:
 }
 
 
-int32_t
+int
 ha_link_cbk (call_frame_t *frame,
 	     void *cookie,
 	     xlator_t *this,
@@ -1880,8 +1829,8 @@ ha_link_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.link.oldloc.inode, child_idx,
-						 &active_idx);
+						 local->args.link.oldloc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -1890,13 +1839,11 @@ ha_link_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_link_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->link,
-			  &local->args.link.oldloc,
-			  &local->args.link.newloc);
+	STACK_WIND_COOKIE (frame, ha_link_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->link,
+			   &local->args.link.oldloc,
+			   &local->args.link.newloc);
 	return 0;
 
 unwind:
@@ -1915,7 +1862,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_link (call_frame_t *frame,
 	 xlator_t *this,
 	 loc_t *oldloc,
@@ -1945,13 +1893,10 @@ ha_link (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_link_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->link,
-			  oldloc,
-			  newloc);
+	STACK_WIND_COOKIE (frame, ha_link_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->link,
+			   oldloc, newloc);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, ENOTCONN, NULL, NULL);
@@ -1967,7 +1912,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_create_open_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -2020,7 +1966,8 @@ success:
 
 	frame->local = NULL;
 
-	STACK_UNWIND(frame, local->op_ret, local->op_errno, fd, inode, &local->stbuf);
+	STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		      fd, inode, &local->stbuf);
 
 	if (local) {
 		if (local->args.create.fd)
@@ -2035,7 +1982,8 @@ out:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_create_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -2062,8 +2010,8 @@ ha_create_cbk (call_frame_t *frame,
 	}
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.create.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.create.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -2072,15 +2020,13 @@ ha_create_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_create_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->create,
-			  &local->args.create.loc,
-			  local->args.create.flags,
-			  local->args.create.mode,
-			  local->args.create.fd);
+	STACK_WIND_COOKIE (frame, ha_create_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->create,
+			   &local->args.create.loc,
+			   local->args.create.flags,
+			   local->args.create.mode,
+			   local->args.create.fd);
 	return 0;
 cont:
 	if (op_ret == 0) {
@@ -2088,7 +2034,7 @@ cont:
 		local->op_errno = op_errno;
 		local->stbuf  = *stbuf;
 
-		local->args.create.flags = (local->args.create.flags & (~O_EXCL));
+		local->args.create.flags = local->args.create.flags & ~O_EXCL;
 			
 		call_count = HA_CHILDREN_COUNT(this);
 		children   = HA_CHILDREN(this);
@@ -2097,15 +2043,14 @@ cont:
 
 		for (idx = 0; idx <= call_count; idx++) {
 			if (idx != child_idx) {
-				STACK_WIND_COOKIE(frame,
-						  ha_create_open_cbk,
-						  (void *)idx,
-						  children[idx],
-						  children[idx]->fops->create,
-						  &local->args.create.loc, 
-						  local->args.create.flags, 
-						  local->args.create.mode, 
-						  local->args.create.fd);
+				STACK_WIND_COOKIE (frame, ha_create_open_cbk,
+						   (void *) (long) idx,
+						   children[idx],
+						   children[idx]->fops->create,
+						   &local->args.create.loc, 
+						   local->args.create.flags, 
+						   local->args.create.mode, 
+						   local->args.create.fd);
 			}
 		}
 
@@ -2125,7 +2070,7 @@ unwind:
 
 	frame->local = NULL;
 
-	STACK_UNWIND(frame, op_ret, op_errno, fd, inode, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
 
 	if (local) {
 		if (local->args.create.fd)
@@ -2139,7 +2084,8 @@ out:
 	return 0;
 }
 
-int32_t
+
+int
 ha_create (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc,
@@ -2181,12 +2127,10 @@ ha_create (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_create_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->create,
-			  loc, flags, mode, fd);
+	STACK_WIND_COOKIE (frame, ha_create_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->create,
+			   loc, flags, mode, fd);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, op_errno, fd, NULL, NULL);
@@ -2203,7 +2147,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_open_cbk (call_frame_t *frame,
 	     void *cookie,
 	     xlator_t *this,
@@ -2224,7 +2169,8 @@ ha_open_cbk (call_frame_t *frame,
 
 	child_idx = (long) cookie;
 
-	ha_mark_child_down_for_inode (this, local->args.open.loc.inode, child_idx);
+	ha_mark_child_down_for_inode (this, local->args.open.loc.inode,
+				      child_idx);
 
 success:
 	LOCK(&frame->lock);
@@ -2242,7 +2188,8 @@ success:
 	}
 
 	if (local->op_ret == 0) {
-		ret = ha_copy_state_to_fd (this, fd, local->args.open.loc.inode);
+		ret = ha_copy_state_to_fd (this, fd,
+					   local->args.open.loc.inode);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"failed to set state for fd %p(path=%s)",
@@ -2266,7 +2213,8 @@ out:
 	return 0;
 }
 
-int32_t
+
+int
 ha_open (call_frame_t *frame,
 	 xlator_t *this,
 	 loc_t *loc,
@@ -2289,12 +2237,10 @@ ha_open (call_frame_t *frame,
 	frame->local = local;
 
 	for (idx = 0; idx < call_count; idx++)
-		STACK_WIND_COOKIE(frame,
-				  ha_open_cbk,
-				  (void *)idx,
-				  children[idx],
-				  children[idx]->fops->open,
-				  loc, flags, fd);
+		STACK_WIND_COOKIE (frame, ha_open_cbk,
+				   (void *) (long) idx,
+				   children[idx], children[idx]->fops->open,
+				   loc, flags, fd);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, op_errno, fd);
@@ -2308,7 +2254,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_readv_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -2341,14 +2288,12 @@ ha_readv_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_readv_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->readv,
-			  local->args.readv.fd,
-			  local->args.readv.size,
-			  local->args.readv.off);
+	STACK_WIND_COOKIE (frame, ha_readv_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->readv,
+			   local->args.readv.fd,
+			   local->args.readv.size,
+			   local->args.readv.off);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -2367,7 +2312,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_readv (call_frame_t *frame,
 	  xlator_t *this,
 	  fd_t *fd,
@@ -2399,13 +2345,10 @@ ha_readv (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_readv_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->readv,
-			  fd,
-			  size, offset);
+	STACK_WIND_COOKIE (frame, ha_readv_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->readv,
+			   fd, size, offset);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
@@ -2420,7 +2363,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_writev_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -2451,15 +2395,13 @@ ha_writev_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_writev_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->writev,
-			  local->args.writev.fd,
-			  local->args.writev.vector,
-			  local->args.writev.count,
-			  local->args.writev.off);
+	STACK_WIND_COOKIE (frame, ha_writev_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->writev,
+			   local->args.writev.fd,
+			   local->args.writev.vector,
+			   local->args.writev.count,
+			   local->args.writev.off);
 	return 0;
 
 unwind:
@@ -2483,7 +2425,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_writev (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd,
@@ -2518,13 +2461,10 @@ ha_writev (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_writev_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->writev,
-			  fd,
-			  vector, count, off);
+	STACK_WIND_COOKIE (frame, ha_writev_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->writev,
+			   fd, vector, count, off);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -2545,7 +2485,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_flush_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -2575,12 +2516,10 @@ ha_flush_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_flush_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->flush,
-			  local->args.flush.fd);
+	STACK_WIND_COOKIE (frame, ha_flush_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->flush,
+			   local->args.flush.fd);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -2597,7 +2536,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_flush (call_frame_t *frame,
 	  xlator_t *this,
 	  fd_t *fd)
@@ -2625,12 +2565,10 @@ ha_flush (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_flush_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->flush,
-			  fd);
+	STACK_WIND_COOKIE (frame, ha_flush_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->flush,
+			   fd);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno);
@@ -2646,7 +2584,7 @@ err:
 }
 
 
-static int32_t
+int
 ha_fsync_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -2676,13 +2614,11 @@ ha_fsync_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fsync_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fsync,
-			  local->args.fsync.fd,
-			  local->args.fsync.datasync);
+	STACK_WIND_COOKIE (frame, ha_fsync_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fsync,
+			   local->args.fsync.fd,
+			   local->args.fsync.datasync);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -2699,7 +2635,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_fsync (call_frame_t *frame,
 	  xlator_t *this,
 	  fd_t *fd,
@@ -2729,13 +2666,10 @@ ha_fsync (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fsync_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fsync,
-			  fd,
-			  datasync);
+	STACK_WIND_COOKIE (frame, ha_fsync_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fsync,
+			   fd, datasync);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno);
@@ -2750,7 +2684,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_fstat_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -2781,12 +2716,10 @@ ha_fstat_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fstat_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fstat,
-			  local->args.fstat.fd);
+	STACK_WIND_COOKIE (frame, ha_fstat_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fstat,
+			   local->args.fstat.fd);
 	return 0;
 
 unwind:
@@ -2804,7 +2737,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_fstat (call_frame_t *frame,
 	  xlator_t *this,
 	  fd_t *fd)
@@ -2832,12 +2766,10 @@ ha_fstat (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fstat_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fstat,
-			  fd);
+	STACK_WIND_COOKIE (frame, ha_fstat_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fstat,
+			   fd);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -2852,7 +2784,8 @@ err:
 	return 0;
 }
 
-int32_t
+
+int
 ha_opendir_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -2873,7 +2806,8 @@ ha_opendir_cbk (call_frame_t *frame,
 
 	child_idx = (long) cookie;
 
-	ha_mark_child_down_for_inode (this, local->args.opendir.loc.inode, child_idx);
+	ha_mark_child_down_for_inode (this, local->args.opendir.loc.inode,
+				      child_idx);
 
 success:
 	LOCK(&frame->lock);
@@ -2891,7 +2825,8 @@ success:
 	}
 
 	if (local->op_ret == 0) {
-		ret = ha_copy_state_to_fd (this, fd, local->args.opendir.loc.inode);
+		ret = ha_copy_state_to_fd (this, fd,
+					   local->args.opendir.loc.inode);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"failed to set state for fd %p(path=%s)",
@@ -2903,7 +2838,7 @@ success:
 
 	frame->local = NULL;
 
-	STACK_UNWIND(frame, local->op_ret, local->op_errno, fd);
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
 
 	if (local) {
 		loc_wipe (&local->args.opendir.loc);
@@ -2915,7 +2850,8 @@ out:
 	return 0;
 }
 
-int32_t
+
+int
 ha_opendir (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc, fd_t *fd)
@@ -2937,12 +2873,10 @@ ha_opendir (call_frame_t *frame,
 	frame->local = local;
 
 	for (idx = 0; idx < call_count; idx++)
-		STACK_WIND_COOKIE(frame,
-				  ha_opendir_cbk,
-				  (void *)idx,
-				  children[idx],
-				  children[idx]->fops->opendir,
-				  loc, fd);
+		STACK_WIND_COOKIE (frame, ha_opendir_cbk,
+				   (void *) (long) idx,
+				   children[idx], children[idx]->fops->opendir,
+				   loc, fd);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, op_errno, fd);
@@ -2956,7 +2890,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_getdents_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -2978,8 +2913,8 @@ ha_getdents_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
-					      local->args.getdents.fd, child_idx,
-					      &active_idx);
+					      local->args.getdents.fd,
+					      child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -2988,15 +2923,13 @@ ha_getdents_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_getdents_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->getdents,
-			  local->args.getdents.fd,
-			  local->args.getdents.size,
-			  local->args.getdents.off,
-			  local->args.getdents.flag);
+	STACK_WIND_COOKIE (frame, ha_getdents_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->getdents,
+			   local->args.getdents.fd,
+			   local->args.getdents.size,
+			   local->args.getdents.off,
+			   local->args.getdents.flag);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -3013,7 +2946,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_getdents (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd,
@@ -3047,13 +2981,10 @@ ha_getdents (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_getdents_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->getdents,
-			  fd,
-			  size, offset, flag);
+	STACK_WIND_COOKIE (frame, ha_getdents_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->getdents,
+			   fd, size, offset, flag);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL, 0);
@@ -3068,7 +2999,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_setdents_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -3088,8 +3020,8 @@ ha_setdents_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
-					      local->args.setdents.fd, child_idx,
-					      &active_idx);
+					      local->args.setdents.fd,
+					      child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -3098,15 +3030,13 @@ ha_setdents_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_setdents_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->setdents,
-			  local->args.setdents.fd,
-			  local->args.setdents.flags,
-			  &local->args.setdents.entries,
-			  local->args.setdents.count);
+	STACK_WIND_COOKIE (frame, ha_setdents_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->setdents,
+			   local->args.setdents.fd,
+			   local->args.setdents.flags,
+			   &local->args.setdents.entries,
+			   local->args.setdents.count);
 	return 0;
 
 unwind:
@@ -3124,7 +3054,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_setdents (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd,
@@ -3160,13 +3091,10 @@ ha_setdents (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_setdents_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->setdents,
-			  fd,
-			  flags, entries, count);
+	STACK_WIND_COOKIE (frame, ha_setdents_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->setdents,
+			   fd, flags, entries, count);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno);
@@ -3181,7 +3109,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_fsyncdir_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -3211,13 +3140,11 @@ ha_fsyncdir_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fsyncdir_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fsyncdir,
-			  local->args.fsyncdir.fd,
-			  local->args.fsyncdir.datasync);
+	STACK_WIND_COOKIE (frame, ha_fsyncdir_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fsyncdir,
+			   local->args.fsyncdir.fd,
+			   local->args.fsyncdir.datasync);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -3234,7 +3161,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_fsyncdir (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd,
@@ -3264,13 +3192,10 @@ ha_fsyncdir (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fsyncdir_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fsyncdir,
-			  fd,
-			  flags);
+	STACK_WIND_COOKIE (frame, ha_fsyncdir_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fsyncdir,
+			   fd, flags);
 
 	return 0;
 err:
@@ -3287,7 +3212,7 @@ err:
 }
 
 
-static int32_t
+int
 ha_statfs_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -3309,8 +3234,8 @@ ha_statfs_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.statfs.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.statfs.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -3319,12 +3244,10 @@ ha_statfs_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_statfs_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->statfs,
-			  &local->args.statfs.loc);
+	STACK_WIND_COOKIE (frame, ha_statfs_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->statfs,
+			   &local->args.statfs.loc);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -3340,7 +3263,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_statfs (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc)
@@ -3368,12 +3292,10 @@ ha_statfs (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_statfs_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->statfs,
-			  loc);
+	STACK_WIND_COOKIE (frame, ha_statfs_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->statfs,
+			   loc);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -3387,7 +3309,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_setxattr_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -3408,8 +3331,8 @@ ha_setxattr_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.setxattr.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.setxattr.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -3418,14 +3341,12 @@ ha_setxattr_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_setxattr_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->setxattr,
-			  &local->args.setxattr.loc,
-			  local->args.setxattr.dict,
-			  local->args.setxattr.flags);
+	STACK_WIND_COOKIE (frame, ha_setxattr_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->setxattr,
+			   &local->args.setxattr.loc,
+			   local->args.setxattr.dict,
+			   local->args.setxattr.flags);
 	return 0;
 unwind:
 
@@ -3445,7 +3366,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_setxattr (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -3477,13 +3399,10 @@ ha_setxattr (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_setxattr_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->setxattr,
-			  loc,
-			  dict, flags);
+	STACK_WIND_COOKIE (frame, ha_setxattr_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->setxattr,
+			   loc, dict, flags);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno);
@@ -3500,7 +3419,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_getxattr_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -3522,8 +3442,8 @@ ha_getxattr_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.getxattr.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.getxattr.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -3532,13 +3452,11 @@ ha_getxattr_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_getxattr_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->getxattr,
-			  &local->args.getxattr.loc,
-			  local->args.getxattr.name);
+	STACK_WIND_COOKIE (frame, ha_getxattr_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->getxattr,
+			   &local->args.getxattr.loc,
+			   local->args.getxattr.name);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -3557,7 +3475,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_getxattr (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -3588,13 +3507,10 @@ ha_getxattr (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_getxattr_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->getxattr,
-			  loc,
-			  name);
+	STACK_WIND_COOKIE (frame, ha_getxattr_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->getxattr,
+			   loc, name);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -3611,7 +3527,8 @@ err:
 	return 0;
 }
 
-int32_t
+
+int
 ha_xattrop_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -3633,8 +3550,8 @@ ha_xattrop_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.xattrop.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.xattrop.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -3643,14 +3560,12 @@ ha_xattrop_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_xattrop_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->xattrop,
-			  &local->args.xattrop.loc,
-			  local->args.xattrop.optype,
-			  local->args.xattrop.xattr);
+	STACK_WIND_COOKIE (frame, ha_xattrop_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->xattrop,
+			   &local->args.xattrop.loc,
+			   local->args.xattrop.optype,
+			   local->args.xattrop.xattr);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -3670,7 +3585,7 @@ unwind:
 }
 
 
-int32_t
+int
 ha_xattrop (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
@@ -3702,12 +3617,10 @@ ha_xattrop (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_xattrop_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->xattrop,
-			  loc, flags, dict);
+	STACK_WIND_COOKIE (frame, ha_xattrop_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->xattrop,
+			   loc, flags, dict);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, dict);
@@ -3724,7 +3637,8 @@ err:
 	return 0;
 }
 
-int32_t
+
+int
 ha_fxattrop_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -3745,8 +3659,8 @@ ha_fxattrop_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_fd (this,
-					      local->args.fxattrop.fd, child_idx,
-					      &active_idx);
+					      local->args.fxattrop.fd,
+					      child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -3755,14 +3669,12 @@ ha_fxattrop_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fxattrop_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fxattrop,
-			  local->args.fxattrop.fd,
-			  local->args.fxattrop.optype,
-			  local->args.fxattrop.xattr);
+	STACK_WIND_COOKIE (frame, ha_fxattrop_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fxattrop,
+			   local->args.fxattrop.fd,
+			   local->args.fxattrop.optype,
+			   local->args.fxattrop.xattr);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -3782,7 +3694,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_fxattrop (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd,
@@ -3814,13 +3727,10 @@ ha_fxattrop (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_fxattrop_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->fxattrop,
-			  fd,
-			  flags, dict);
+	STACK_WIND_COOKIE (frame, ha_fxattrop_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->fxattrop,
+			   fd, flags, dict);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, op_errno, dict);
@@ -3838,7 +3748,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 ha_removexattr_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -3859,8 +3770,8 @@ ha_removexattr_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.removexattr.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.removexattr.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -3869,13 +3780,11 @@ ha_removexattr_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_removexattr_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->removexattr,
-			  &local->args.removexattr.loc,
-			  local->args.removexattr.name);
+	STACK_WIND_COOKIE (frame, ha_removexattr_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->removexattr,
+			   &local->args.removexattr.loc,
+			   local->args.removexattr.name);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -3891,7 +3800,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_removexattr (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
@@ -3921,12 +3831,10 @@ ha_removexattr (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_removexattr_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->removexattr,
-			  loc, name);
+	STACK_WIND_COOKIE (frame, ha_removexattr_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->removexattr,
+			   loc, name);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno);
@@ -3941,7 +3849,7 @@ err:
 }
 
 
-static int32_t
+int
 ha_checksum_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -3964,8 +3872,8 @@ ha_checksum_cbk (call_frame_t *frame,
 	child_idx = (long) cookie;
 
 	active = ha_next_active_child_for_inode (this,
-						 local->args.checksum.loc.inode, child_idx,
-						 &active_idx);
+						 local->args.checksum.loc.inode,
+						 child_idx, &active_idx);
 	if (active == NULL) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
@@ -3974,13 +3882,11 @@ ha_checksum_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_checksum_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->checksum,
-			  &local->args.checksum.loc,
-			  local->args.checksum.flags);
+	STACK_WIND_COOKIE (frame, ha_checksum_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->checksum,
+			   &local->args.checksum.loc,
+			   local->args.checksum.flags);
 	return 0;
 unwind:
 	frame->local = NULL;
@@ -3997,7 +3903,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_checksum (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -4027,12 +3934,10 @@ ha_checksum (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_checksum_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->checksum,
-			  loc, flag);
+	STACK_WIND_COOKIE (frame, ha_checksum_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->checksum,
+			   loc, flag);
 	return 0;
 err:
 	STACK_UNWIND(frame, -1, op_errno,
@@ -4048,7 +3953,7 @@ err:
 }
 
 
-int32_t
+int
 ha_readdir_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -4079,14 +3984,12 @@ ha_readdir_cbk (call_frame_t *frame,
 		goto unwind;
 	}
 
-	STACK_WIND_COOKIE(frame,
-			  ha_readdir_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->readdir,
-			  local->args.readdir.fd,
-			  local->args.readdir.size,
-			  local->args.readdir.off);
+	STACK_WIND_COOKIE (frame, ha_readdir_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->readdir,
+			   local->args.readdir.fd,
+			   local->args.readdir.size,
+			   local->args.readdir.off);
 	return 0;
 
 unwind:
@@ -4104,7 +4007,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_readdir (call_frame_t *frame,
 	    xlator_t *this,
 	    fd_t *fd,
@@ -4134,12 +4038,10 @@ ha_readdir (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_readdir_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->fops->readdir,
-			  fd, size, off);
+	STACK_WIND_COOKIE (frame, ha_readdir_cbk,
+			   (void *) (long) active_idx,
+			   active, active->fops->readdir,
+			   fd, size, off);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, ENOTCONN, NULL);
@@ -4154,8 +4056,9 @@ err:
 	return 0;
 }
 
+
 /* Management operations */
-static int32_t
+int
 ha_stats_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -4190,19 +4093,18 @@ ha_stats_cbk (call_frame_t *frame,
 
 	active = ha_child_for_index (this, active_idx);
 
-	STACK_WIND_COOKIE(frame,
-			  ha_stats_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->mops->stats,
-			  local->args.stats.flags);
+	STACK_WIND_COOKIE (frame, ha_stats_cbk,
+			   (void *) (long) active_idx,
+			   active, active->mops->stats,
+			   local->args.stats.flags);
 	return 0;
 unwind:
 	STACK_UNWIND (frame, op_ret, op_errno, stats);
 	return 0;
 }
 
-int32_t
+
+int
 ha_stats (call_frame_t *frame,
 	  xlator_t *this,
 	  int32_t flags)
@@ -4228,19 +4130,18 @@ ha_stats (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_stats_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->mops->stats,
-			  flags);
+	STACK_WIND_COOKIE (frame, ha_stats_cbk,
+			   (void *) (long) active_idx,
+			   active, active->mops->stats,
+			   flags);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
 	return 0;
 }
 
-static int32_t
+
+int
 ha_getspec_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -4274,13 +4175,11 @@ ha_getspec_cbk (call_frame_t *frame,
 
 	active = ha_child_for_index (this, active_idx);
 
-	STACK_WIND_COOKIE(frame,
-			  ha_getspec_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->mops->getspec,
-			  local->args.getspec.key, 
-			  local->args.getspec.flags);
+	STACK_WIND_COOKIE (frame, ha_getspec_cbk,
+			   (void *) (long) active_idx,
+			   active, active->mops->getspec,
+			   local->args.getspec.key, 
+			   local->args.getspec.flags);
 	return 0;
 
 unwind:
@@ -4288,7 +4187,8 @@ unwind:
 	return 0;
 }
 
-int32_t
+
+int
 ha_getspec (call_frame_t *frame,
 	    xlator_t *this,
 	    const char *key,
@@ -4315,20 +4215,19 @@ ha_getspec (call_frame_t *frame,
 
 	frame->local = local;
 
-	STACK_WIND_COOKIE(frame,
-			  ha_getspec_cbk,
-			  (void *)active_idx,
-			  active,
-			  active->mops->getspec,
-			  key, flags);
+	STACK_WIND_COOKIE (frame, ha_getspec_cbk,
+			   (void *) (long)active_idx,
+			   active, active->mops->getspec,
+			   key, flags);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
 	return 0;
 }
 
+
 /* notify */
-int32_t
+int
 notify (xlator_t *this,
 	int32_t event,
 	void *data,
@@ -4421,13 +4320,12 @@ notify (xlator_t *this,
 	break;
 
 	default:
-	{
 		default_notify (this, event, data);
-	}
 	}
 
 	return 0;
 }
+
 
 int
 init (xlator_t *this)
@@ -4473,6 +4371,7 @@ init (xlator_t *this)
 	this->private = private;
 	return 0;
 }
+
 
 void
 fini (xlator_t *this)
@@ -4525,10 +4424,12 @@ struct xlator_fops fops = {
 	.fxattrop    = ha_fxattrop
 };
 
+
 struct xlator_mops mops = {
 	.stats = ha_stats,
 	.getspec = ha_getspec,
 };
+
 
 struct xlator_cbks cbks = {
 };
