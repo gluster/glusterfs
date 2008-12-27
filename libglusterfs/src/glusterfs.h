@@ -114,15 +114,15 @@ typedef enum {
         GF_FOP_FCHOWN,
         GF_FOP_LOOKUP,
         GF_FOP_SETDENTS,
-        GF_FOP_READDIR,    /* 35 */
-        GF_FOP_INODELK, 
+        GF_FOP_READDIR,    
+        GF_FOP_INODELK,   /* 35 */
         GF_FOP_FINODELK, 
 	GF_FOP_ENTRYLK,  
 	GF_FOP_FENTRYLK,  
         GF_FOP_CHECKSUM,      
-        GF_FOP_XATTROP,
+        GF_FOP_XATTROP,  /* 40 */
         GF_FOP_FXATTROP,
-        GF_FOP_MAXVALUE,  /* 40 */
+        GF_FOP_MAXVALUE,  
 } glusterfs_fop_t;
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */

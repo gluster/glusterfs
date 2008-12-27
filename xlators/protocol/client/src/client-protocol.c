@@ -465,10 +465,10 @@ protocol_client_xfer (call_frame_t *frame,
 		rsphdr.rsp.op_ret   = hton32 (-1);
 		rsphdr.rsp.op_errno = hton32 (ENOTCONN);
 
-		if (frame->root->type == GF_OP_TYPE_FOP_REQUEST) {
+		if (type == GF_OP_TYPE_FOP_REQUEST) {
 			rsphdr.type = GF_OP_TYPE_FOP_REPLY;
 			gf_fops[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
-		} else if (frame->root->type == GF_OP_TYPE_MOP_REQUEST) {
+		} else if (type == GF_OP_TYPE_MOP_REQUEST) {
 			rsphdr.type = GF_OP_TYPE_MOP_REPLY;
 			gf_mops[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
 		} else {
