@@ -6283,24 +6283,29 @@ server_setdents (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  char *buf, size_t buflen)
 {
-	gf_fop_setdents_req_t *req = NULL;
-	dir_entry_t *entry = NULL;
-	server_state_t *state = NULL;
-	int64_t fd_no = -1;
 	server_connection_private_t *cprivate = NULL;
+	gf_fop_setdents_req_t       *req   = NULL;
+	server_state_t              *state = NULL;
+	dir_entry_t *entry = NULL;
+	dir_entry_t *trav = NULL;
+	dir_entry_t *prev = NULL;
+	int64_t fd_no = -1;
+	int32_t count = 0;
+	int32_t i = 0;
+	int32_t bread = 0;
+	char *ender = NULL;
+	char *buffer_ptr = NULL;
+	char tmp_buf[512] = {0,};
 	
 	cprivate = SERVER_CONNECTION_PRIVATE(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
-	{
-		fd_no = ntoh64 (req->fd);
-		if (fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, fd_no);
-
-		state->nr_count = ntoh32 (req->count);
-	}
-
+	fd_no = ntoh64 (req->fd);
+	if (fd_no >= 0)
+		state->fd = gf_fd_fdptr_get (cprivate->fdtable, fd_no);
+	
+	state->nr_count = ntoh32 (req->count);
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
@@ -6311,123 +6316,126 @@ server_setdents (call_frame_t *frame,
 
 		goto out;
 	}
+	
+	if (!buf) {
+		gf_log (frame->this->name, GF_LOG_ERROR,
+			"received a null buffer, returning EINVAL");
 
+		server_setdents_cbk (frame, NULL, frame->this,
+				     -1, EINVAL);
 
-	{
-		dir_entry_t *trav = NULL, *prev = NULL;
-		int32_t count, i, bread;
-		char *ender = NULL, *buffer_ptr = NULL;
-		char tmp_buf[512] = {0,};
-
-		entry = CALLOC (1, sizeof (dir_entry_t));
-		ERR_ABORT (entry);
-		prev = entry;
-		buffer_ptr = buf;
-
-		for (i = 0; i < state->nr_count ; i++) {
-			bread = 0;
-			trav = CALLOC (1, sizeof (dir_entry_t));
-			ERR_ABORT (trav);
-
-			ender = strchr (buffer_ptr, '/');
-			if (!ender)
-				break;
-			count = ender - buffer_ptr;
-			trav->name = CALLOC (1, count + 2);
-			ERR_ABORT (trav->name);
-
-			strncpy (trav->name, buffer_ptr, count);
-			bread = count + 1;
-			buffer_ptr += bread;
-
-			ender = strchr (buffer_ptr, '\n');
-			if (!ender)
-				break;
-			count = ender - buffer_ptr;
-			strncpy (tmp_buf, buffer_ptr, count);
-			bread = count + 1;
-			buffer_ptr += bread;
-
-			/* TODO: use str_to_stat instead */
-			{
-				uint64_t dev;
-				uint64_t ino;
-				uint32_t mode;
-				uint32_t nlink;
-				uint32_t uid;
-				uint32_t gid;
-				uint64_t rdev;
-				uint64_t size;
-				uint32_t blksize;
-				uint64_t blocks;
-				uint32_t atime;
-				uint32_t atime_nsec;
-				uint32_t mtime;
-				uint32_t mtime_nsec;
-				uint32_t ctime;
-				uint32_t ctime_nsec;
-
-				sscanf (tmp_buf, GF_STAT_PRINT_FMT_STR,
-					&dev,
-					&ino,
-					&mode,
-					&nlink,
-					&uid,
-					&gid,
-					&rdev,
-					&size,
-					&blksize,
-					&blocks,
-					&atime,
-					&atime_nsec,
-					&mtime,
-					&mtime_nsec,
-					&ctime,
-					&ctime_nsec);
-
-				trav->buf.st_dev = dev;
-				trav->buf.st_ino = ino;
-				trav->buf.st_mode = mode;
-				trav->buf.st_nlink = nlink;
-				trav->buf.st_uid = uid;
-				trav->buf.st_gid = gid;
-				trav->buf.st_rdev = rdev;
-				trav->buf.st_size = size;
-				trav->buf.st_blksize = blksize;
-				trav->buf.st_blocks = blocks;
-
-				trav->buf.st_atime = atime;
-				trav->buf.st_mtime = mtime;
-				trav->buf.st_ctime = ctime;
-
-#ifdef HAVE_TV_NSEC
-				trav->buf.st_atim.tv_nsec = atime_nsec;
-				trav->buf.st_mtim.tv_nsec = mtime_nsec;
-				trav->buf.st_ctim.tv_nsec = ctime_nsec;
-#endif
-			}
-
-			ender = strchr (buffer_ptr, '\n');
-			if (!ender)
-				break;
-			count = ender - buffer_ptr;
-			*ender = '\0';
-			if (S_ISLNK (trav->buf.st_mode)) {
-				trav->link = strdup (buffer_ptr);
-			} else
-				trav->link = "";
-			bread = count + 1;
-			buffer_ptr += bread;
-
-			prev->next = trav;
-			prev = trav;
-		}
+		goto out;
 	}
+
+	entry = CALLOC (1, sizeof (dir_entry_t));
+	ERR_ABORT (entry);
+	prev = entry;
+	buffer_ptr = buf;
+
+	for (i = 0; i < state->nr_count ; i++) {
+		bread = 0;
+		trav = CALLOC (1, sizeof (dir_entry_t));
+		ERR_ABORT (trav);
+		
+		ender = strchr (buffer_ptr, '/');
+		if (!ender)
+			break;
+		count = ender - buffer_ptr;
+		trav->name = CALLOC (1, count + 2);
+		ERR_ABORT (trav->name);
+		
+		strncpy (trav->name, buffer_ptr, count);
+		bread = count + 1;
+		buffer_ptr += bread;
+		
+		ender = strchr (buffer_ptr, '\n');
+		if (!ender)
+			break;
+		count = ender - buffer_ptr;
+		strncpy (tmp_buf, buffer_ptr, count);
+		bread = count + 1;
+		buffer_ptr += bread;
+		
+		/* TODO: use str_to_stat instead */
+		{
+			uint64_t dev;
+			uint64_t ino;
+			uint32_t mode;
+			uint32_t nlink;
+			uint32_t uid;
+			uint32_t gid;
+			uint64_t rdev;
+			uint64_t size;
+			uint32_t blksize;
+			uint64_t blocks;
+			uint32_t atime;
+			uint32_t atime_nsec;
+			uint32_t mtime;
+			uint32_t mtime_nsec;
+			uint32_t ctime;
+			uint32_t ctime_nsec;
+			
+			sscanf (tmp_buf, GF_STAT_PRINT_FMT_STR,
+				&dev,
+				&ino,
+				&mode,
+				&nlink,
+				&uid,
+				&gid,
+				&rdev,
+				&size,
+				&blksize,
+				&blocks,
+				&atime,
+				&atime_nsec,
+				&mtime,
+				&mtime_nsec,
+				&ctime,
+				&ctime_nsec);
+			
+			trav->buf.st_dev = dev;
+			trav->buf.st_ino = ino;
+			trav->buf.st_mode = mode;
+			trav->buf.st_nlink = nlink;
+			trav->buf.st_uid = uid;
+			trav->buf.st_gid = gid;
+			trav->buf.st_rdev = rdev;
+			trav->buf.st_size = size;
+			trav->buf.st_blksize = blksize;
+			trav->buf.st_blocks = blocks;
+			
+			trav->buf.st_atime = atime;
+			trav->buf.st_mtime = mtime;
+			trav->buf.st_ctime = ctime;
+			
+#ifdef HAVE_TV_NSEC
+			trav->buf.st_atim.tv_nsec = atime_nsec;
+			trav->buf.st_mtim.tv_nsec = mtime_nsec;
+			trav->buf.st_ctim.tv_nsec = ctime_nsec;
+#endif
+		}
+		
+		ender = strchr (buffer_ptr, '\n');
+		if (!ender)
+			break;
+		count = ender - buffer_ptr;
+		*ender = '\0';
+		if (S_ISLNK (trav->buf.st_mode)) {
+			trav->link = strdup (buffer_ptr);
+		} else
+			trav->link = "";
+		bread = count + 1;
+		buffer_ptr += bread;
+		
+		prev->next = trav;
+		prev = trav;
+	}
+
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
 		"SETDENTS \'fd=%"PRId64"; count=%"PRId64,
 		fd_no, (int64_t)state->nr_count);
-
+	
 	STACK_WIND (frame,
 		    server_setdents_cbk,
 		    BOUND_XL(frame),
@@ -6436,21 +6444,21 @@ server_setdents (call_frame_t *frame,
 		    state->flags,
 		    entry,
 		    state->nr_count);
-
-	{
-		/* Free the variables allocated in this fop here */
-		dir_entry_t *trav = entry->next;
-		dir_entry_t *prev = entry;
-		while (trav) {
-			prev->next = trav->next;
-			FREE (trav->name);
-			if (S_ISLNK (trav->buf.st_mode))
-				FREE (trav->link);
-			FREE (trav);
-			trav = prev->next;
-		}
-		FREE (entry);
+	
+	
+	/* Free the variables allocated in this fop here */
+	trav = entry->next;
+	prev = entry;
+	while (trav) {
+		prev->next = trav->next;
+		FREE (trav->name);
+		if (S_ISLNK (trav->buf.st_mode))
+			FREE (trav->link);
+		FREE (trav);
+		trav = prev->next;
 	}
+	FREE (entry);
+
 out:
 	return 0;
 }

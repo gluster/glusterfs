@@ -1898,7 +1898,7 @@ init (xlator_t *this)
 	/* Default values */
 
 	priv->data_self_heal     = 1;
-	priv->metadata_self_heal = 1;
+	priv->metadata_self_heal = 0;
 	priv->entry_self_heal    = 1;
 
 	dict_ret = dict_get_str (this->options, "data-self-heal", &self_heal);
@@ -1925,7 +1925,7 @@ init (xlator_t *this)
 	/* Change log options */
 
 	priv->data_change_log     = 1;
-	priv->metadata_change_log = 0;
+	priv->metadata_change_log = 1;
 	priv->entry_change_log    = 1;
 
 	dict_ret = dict_get_str (this->options, "data-change-log", &change_log);
