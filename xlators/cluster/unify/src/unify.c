@@ -1329,6 +1329,11 @@ unify_create_open_cbk (call_frame_t *frame,
 				ret = dict_set_static_ptr (fd->ctx, 
 							   this->name, 
 							   cookie);
+			} else {
+				/* NOTE: open successful on namespace.
+				 *       fd->ctx can be used to identify open 
+				 *       failure on storage subvolume. cool ide ;) */
+				local->failed = 0;
 			}
 		} else {
 			gf_log (this->name, GF_LOG_ERROR,
