@@ -4255,7 +4255,7 @@ notify (xlator_t *this,
 				break;
 		}
 
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"GF_EVENT_CHILD_DOWN from %s",
 			private->children[idx]->name);
 
@@ -4272,7 +4272,7 @@ notify (xlator_t *this,
 					}
 				}
 				if (private->active == -1) {
-					gf_log (this->name, GF_LOG_ERROR,
+					gf_log (this->name, GF_LOG_DEBUG,
 						"none of the subvols are up, "
 						"switching \"active\" from %s to -1",
 						private->children[idx]->name);
@@ -4296,7 +4296,7 @@ notify (xlator_t *this,
 				break;
 		}
 
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"GF_EVENT_CHILD_UP from %s",
 			private->children[idx]->name);
 
@@ -4305,7 +4305,7 @@ notify (xlator_t *this,
 			private->state[idx] = 1;
 
 			if (private->active == -1) {
-				gf_log (this->name, GF_LOG_ERROR,
+				gf_log (this->name, GF_LOG_DEBUG,
 					"switching \"active\" from -1 to %s",
 					private->children[idx]->name);
 				private->active = idx;

@@ -254,7 +254,6 @@ _ha_next_active_child_for_ctx (xlator_t *this,
 		errno = ENOTCONN;
 		goto err;
 	}
-	
 
 	if (ret_active_idx)
 		*ret_active_idx = active_idx;
