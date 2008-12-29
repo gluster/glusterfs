@@ -1271,37 +1271,38 @@ wb_release (xlator_t *this,
 int32_t 
 init (xlator_t *this)
 {
-        dict_t *options = this->options;
+        dict_t *options = NULL;
         wb_conf_t *conf = NULL;
         char *aggregate_size_string = NULL;
-        char *window_size_string = NULL;
-        data_t *data = NULL;
+        char *window_size_string    = NULL;
+	char *flush_behind_string   = NULL;
+	int32_t ret = -1;
 
-        if (!this->children || this->children->next)
-        {
+        if ((this->children == NULL)
+	    || this->children->next) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "FATAL: write-behind (%s) not configured with exactly one child",
                         this->name);
                 return -1;
         }
 
-	if (!this->parents) {
+	if (this->parents == NULL) {
 		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
+			"dangling volume. check volfile");
 	}
+	
+	options = this->options;
 
         conf = CALLOC (1, sizeof (*conf));
-
+	
+	/* configure 'options aggregate-size <size>' */
         conf->aggregate_size = 0;
-
-        if (dict_get (options, "aggregate-size"))
-                aggregate_size_string = data_to_str (dict_get (options, 
-                                                               "aggregate-size"));
-
-        if (aggregate_size_string)
-        {
-                if (gf_string2bytesize (aggregate_size_string, &conf->aggregate_size) != 0)
-                {
+	ret = dict_get_str (options, "aggregate-size", 
+			    &aggregate_size_string);
+        if (ret == 0) {
+		ret = gf_string2bytesize (aggregate_size_string, 
+					  &conf->aggregate_size);
+                if (ret != 0) {
                         gf_log ("write-behind", 
                                 GF_LOG_ERROR, 
                                 "invalid number format \"%s\" of \"option aggregate-size\"", 
@@ -1311,17 +1312,17 @@ init (xlator_t *this)
         }
 
         gf_log (this->name, GF_LOG_DEBUG,
-                "using aggregate-size = %"PRIu64"", conf->aggregate_size);
+                "using aggregate-size = %"PRIu64"", 
+		conf->aggregate_size);
   
+	/* configure 'option window-size <size>' */
         conf->window_size = 0;
-
-        if (dict_get (options, "window-size"))
-                window_size_string = data_to_str (dict_get (options, 
-                                                            "window-size"));
-        if (window_size_string)
-        {
-                if (gf_string2bytesize (window_size_string, &conf->window_size) != 0)
-                {
+	ret = dict_get_str (options, "window-size", 
+			    &window_size_string);
+        if (ret == 0) {
+		ret = gf_string2bytesize (window_size_string, 
+					  &conf->window_size);
+                if (ret != 0) {
                         gf_log (this->name, GF_LOG_ERROR, 
                                 "invalid number format \"%s\" of \"option window-size\"", 
                                 window_size_string);
@@ -1330,16 +1331,14 @@ init (xlator_t *this)
                 }
         }
 
-        if (!conf->window_size && conf->aggregate_size)
-        {
+        if (!conf->window_size && conf->aggregate_size) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "setting window-size to be equal to aggregate-size(%"PRIu64")",
                         conf->aggregate_size);
                 conf->window_size = conf->aggregate_size;
         }
 
-        if (conf->window_size < conf->aggregate_size)
-        {
+        if (conf->window_size < conf->aggregate_size) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "aggregate-size(%"PRIu64") cannot be more than window-size"
                         "(%"PRIu64")", conf->window_size, conf->aggregate_size);
@@ -1347,16 +1346,19 @@ init (xlator_t *this)
                 return -1;
         }
 
-
+	/* configure 'option flush-behind <on/off>' */
         conf->flush_behind = 0;
-  
-        if (dict_get (options, "flush-behind")) {
-                data = dict_get (options, "flush-behind");
-                if (gf_string2boolean (data->data, &conf->flush_behind) == -1) {
+	ret = dict_get_str (options, "flush-behind", 
+			    &flush_behind_string);
+        if (ret == 0) {
+		ret = gf_string2boolean (flush_behind_string, 
+					 &conf->flush_behind);
+                if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "'flush-behind' takes only boolean arguments");
                         return -1;
                 }
+
                 if (conf->flush_behind) {
                         if (conf->aggregate_size != 0) {
                                 gf_log (this->name, GF_LOG_WARNING,
