@@ -247,17 +247,23 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 		}
 	}
 
-	if (!xattr)
+	if (op_ret != 0) {
+		ret = 0;
 		goto out;
+	}
 
-	ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
-			    VOID(&disk_layout));
+	if (xattr) {
+		/* during lookup and not mkdir */
+		ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
+				    VOID(&disk_layout));
+	}
 
 	if (ret != 0) {
-		err = -1;
+		layout->list[i].err = -1;
 		gf_log (this->name, GF_LOG_DEBUG,
 			"missing disk layout on %s. err = %d",
 			subvol->name, err);
+		ret = 0;
 		goto out;
 	}
 
@@ -440,7 +446,7 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 				    &missing, &down, &misc);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"failed to find anomalies in %s -- not good news",
+			"error while finding anomalies in %s -- not good news",
 			loc->path);
 		goto out;
 	}
