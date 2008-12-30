@@ -136,27 +136,7 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 	}
 	UNLOCK (&frame->lock);
 
-
-	if (!local->flags) {
-		if (local->sh_struct->count_list[0] >= 
-		    UNIFY_SELF_HEAL_GETDENTS_COUNT) {
-			/* count == size, that means, there are more entries
-			   to read from */
-			//local->call_count = 0;
-			local->sh_struct->offset_list[0] += 
-				UNIFY_SELF_HEAL_GETDENTS_COUNT;
-			STACK_WIND (frame,
-				    unify_sh_ns_getdents_cbk,
-				    NS(this),
-				    NS(this)->fops->getdents,
-				    local->fd,
-				    UNIFY_SELF_HEAL_GETDENTS_COUNT,
-				    local->sh_struct->offset_list[0],
-				    GF_GET_DIR_ONLY);
-		}		
-	}
-
-	if (!callcnt && local->flags) {
+	if (callcnt == 0) {
 		if (local->sh_struct->entry_list[0]) {
 			prev = entry = local->sh_struct->entry_list[0];
 			if (!entry)
@@ -173,16 +153,35 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 			FREE (entry);
 		}
 
-		inode = local->loc1.inode;
-		fd_unref (local->fd);
-		tmp_dict = local->dict;
+		if (!local->flags) {
+			if (local->sh_struct->count_list[0] >= 
+			    UNIFY_SELF_HEAL_GETDENTS_COUNT) {
+				/* count == size, that means, there are more entries
+				   to read from */
+				//local->call_count = 0;
+				local->sh_struct->offset_list[0] += 
+					UNIFY_SELF_HEAL_GETDENTS_COUNT;
+				STACK_WIND (frame,
+					    unify_sh_ns_getdents_cbk,
+					    NS(this),
+					    NS(this)->fops->getdents,
+					    local->fd,
+					    UNIFY_SELF_HEAL_GETDENTS_COUNT,
+					    local->sh_struct->offset_list[0],
+					    GF_GET_DIR_ONLY);
+			}		
+		} else {
+			inode = local->loc1.inode;
+			fd_unref (local->fd);
+			tmp_dict = local->dict;
 
-		unify_local_wipe (local);
-
-		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-			      inode, &local->stbuf, local->dict);
-		if (tmp_dict)
-			dict_unref (local->dict);
+			unify_local_wipe (local);
+			
+			STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+				      inode, &local->stbuf, local->dict);
+			if (tmp_dict)
+				dict_unref (local->dict);
+		}
 	}
   
 	return 0;
@@ -662,32 +661,9 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
 
 
-	if (!local->flags) {
-		if (local->sh_struct->count_list[0] >= 
-		    UNIFY_SELF_HEAL_GETDENTS_COUNT) {
-			/* count == size, that means, there are more
-			   entries to read from */
-			//local->call_count = 0;
-			local->sh_struct->offset_list[0] += 
-				UNIFY_SELF_HEAL_GETDENTS_COUNT;
-			STACK_WIND (frame,
-				    unify_bgsh_ns_getdents_cbk,
-				    NS(this),
-				    NS(this)->fops->getdents,
-				    local->fd,
-				    UNIFY_SELF_HEAL_GETDENTS_COUNT,
-				    local->sh_struct->offset_list[0],
-				    GF_GET_DIR_ONLY);
-		}		
-	}
-
-	if (!callcnt && local->flags) {
-    		fd_unref (local->fd);
-
+	if (callcnt == 0) {
 		if (local->sh_struct->entry_list[0]) {
 			prev = entry = local->sh_struct->entry_list[0];
-			if (!entry)
-				return 0;
 			trav = entry->next;
 			while (trav) {
 				prev->next = trav->next;
@@ -700,10 +676,30 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
 			FREE (entry);
 		}
 
-		unify_local_wipe (local);
-		STACK_DESTROY (frame->root);
+		if (!local->flags) {
+			if (local->sh_struct->count_list[0] >= 
+			    UNIFY_SELF_HEAL_GETDENTS_COUNT) {
+				/* count == size, that means, there are more
+				   entries to read from */
+				//local->call_count = 0;
+				local->sh_struct->offset_list[0] += 
+					UNIFY_SELF_HEAL_GETDENTS_COUNT;
+				STACK_WIND (frame,
+					    unify_bgsh_ns_getdents_cbk,
+					    NS(this),
+					    NS(this)->fops->getdents,
+					    local->fd,
+					    UNIFY_SELF_HEAL_GETDENTS_COUNT,
+					    local->sh_struct->offset_list[0],
+					    GF_GET_DIR_ONLY);
+			}		
+		} else {
+			fd_unref (local->fd);
+			unify_local_wipe (local);
+			STACK_DESTROY (frame->root);
+		}
 	}
-  
+
 	return 0;
 }
 
