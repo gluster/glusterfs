@@ -272,18 +272,6 @@ int solaris_fsetxattr(int fd, const char* key, const char *value,
          }))
 #endif 
 
-#ifndef HAVE_STRNLEN
-static inline size_t 
-strnlen(const char *string, size_t maxlen)                   
-{
-	int len = 0;
-	while ((len < maxlen) && string[len])
-		len++;
-	return len;
-}
-#endif
-
-
 #define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
 
 #include <sys/types.h>

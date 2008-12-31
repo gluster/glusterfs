@@ -370,7 +370,7 @@ char* strsep(char** str, const char* delims)
 }
 
 size_t 
-strnlen(const char *string, size_t maxlen);                   
+strnlen(const char *string, size_t maxlen)                   
 {
 	int len = 0;
 	while ((len < maxlen) && string[len])
