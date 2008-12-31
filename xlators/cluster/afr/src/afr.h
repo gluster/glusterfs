@@ -41,14 +41,14 @@ typedef struct _afr_private {
 
 	unsigned char *child_up;
 
-	unsigned int data_self_heal;       /* on/off */
-	unsigned int metadata_self_heal;   /* on/off */
-	unsigned int entry_self_heal;      /* on/off */
+	gf_boolean_t data_self_heal;       /* on/off */
+	gf_boolean_t metadata_self_heal;   /* on/off */
+	gf_boolean_t entry_self_heal;      /* on/off */
 
 
-	unsigned int data_change_log;       /* on/off */
-	unsigned int metadata_change_log;   /* on/off */
-	unsigned int entry_change_log;      /* on/off */
+	gf_boolean_t data_change_log;       /* on/off */
+	gf_boolean_t metadata_change_log;   /* on/off */
+	gf_boolean_t entry_change_log;      /* on/off */
 
 	unsigned int read_child;      /* read-subvolume */
 	unsigned int favorite_child;  /* subvolume to be preferred in resolving

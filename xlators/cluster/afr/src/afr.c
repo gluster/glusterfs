@@ -1902,24 +1902,39 @@ init (xlator_t *this)
 	priv->entry_self_heal    = 1;
 
 	dict_ret = dict_get_str (this->options, "data-self-heal", &self_heal);
-	if ((dict_ret == 0) && !strcasecmp (self_heal, "off")) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"data self heal turned off");
-		priv->data_self_heal = 0;
+	if (dict_ret == 0) {
+		ret = gf_string2boolean (self_heal, &priv->data_self_heal);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"invalid 'option data-self-heal %s' "
+				"defaulting to data-self-heal as 'on'",
+				self_heal);
+			priv->data_self_heal = 1;
+		} 
 	}
 
 	dict_ret = dict_get_str (this->options, "metadata-self-heal", &self_heal);
-	if ((dict_ret == 0) && !strcasecmp (self_heal, "on")) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"metadata self heal turned on");
-		priv->metadata_self_heal = 1;
+	if (dict_ret == 0) {
+		ret = gf_string2boolean (self_heal, &priv->metadata_self_heal);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"invalid 'option metadata-self-heal %s' "
+				"defaulting to metadata-self-heal as 'off'", 
+				self_heal);
+			priv->metadata_self_heal = 0;
+		} 
 	}
 
 	dict_ret = dict_get_str (this->options, "entry-self-heal", &self_heal);
-	if ((dict_ret == 0) && !strcasecmp (self_heal, "off")) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"entry self heal turned off");
-		priv->entry_self_heal = 0;
+	if (dict_ret == 0) {
+		ret = gf_string2boolean (self_heal, &priv->entry_self_heal);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"invalid 'option entry-self-heal %s' "
+				"defaulting to entry-self-heal as 'on'", 
+				self_heal);
+			priv->entry_self_heal = 1;
+		} 
 	}
 
 	/* Change log options */
@@ -1929,24 +1944,39 @@ init (xlator_t *this)
 	priv->entry_change_log    = 1;
 
 	dict_ret = dict_get_str (this->options, "data-change-log", &change_log);
-	if ((dict_ret == 0) && !strcasecmp (change_log, "off")) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"data change log turned off");
-		priv->data_change_log = 0;
+	if (dict_ret == 0) {
+		ret = gf_string2boolean (change_log, &priv->data_change_log);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"invalid 'option data-change-log %s'. "
+				"defaulting to data-change-log as 'on'", 
+				change_log);
+			priv->data_change_log = 1;
+		} 
 	}
 
 	dict_ret = dict_get_str (this->options, "metadata-change-log", &change_log);
-	if ((dict_ret == 0) && !strcasecmp (change_log, "on")) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"metadata change log turned off");
-		priv->metadata_change_log = 1;
+	if (dict_ret == 0) {
+		ret = gf_string2boolean (change_log, &priv->metadata_change_log);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"invalid 'option metadata-change-log %s'. "
+				"defaulting to metadata-change-log as 'on'", 
+				change_log);
+			priv->metadata_change_log = 1;
+		} 
 	}
 
 	dict_ret = dict_get_str (this->options, "entry-change-log", &change_log);
-	if ((dict_ret == 0) && !strcasecmp (change_log, "off")) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"entry change log turned off");
-		priv->entry_change_log = 0;
+	if (dict_ret == 0) {
+		ret = gf_string2boolean (change_log, &priv->entry_change_log);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"invalid 'option entry-change-log %s'. "
+				"defaulting to entry-change-log as 'on'", 
+				change_log);
+			priv->entry_change_log = 1;
+		} 
 	}
 
 	/* Locking options */
