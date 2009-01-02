@@ -386,7 +386,10 @@ gf_print_trace (int32_t signum)
 		write (fd, "\n", 1);
 	}
 
-	sprintf (msg, "Signal received: %d\n", signum); 
+	sprintf (msg, "patchset: %s\n", GLUSTERFS_REPOSITORY_REVISION); 
+	write (fd, msg, strlen (msg));
+
+	sprintf (msg, "signal received: %d\n", signum); 
 	write (fd, msg, strlen (msg));
 
 	gf_dump_config_flags (fd);
