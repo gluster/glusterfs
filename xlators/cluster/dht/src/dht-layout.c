@@ -25,7 +25,7 @@
 
 #include "glusterfs.h"
 #include "xlator.h"
-#include "dht.h"
+#include "dht-common.h"
 #include "byte-order.h"
 
 #define VOID(ptr) ((void **) ((void *) ptr))

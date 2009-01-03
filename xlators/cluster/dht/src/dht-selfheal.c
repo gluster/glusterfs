@@ -25,7 +25,7 @@
 
 #include "glusterfs.h"
 #include "xlator.h"
-#include "dht.h"
+#include "dht-common.h"
 
 
 int

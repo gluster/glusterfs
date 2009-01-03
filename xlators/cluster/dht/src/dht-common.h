@@ -85,6 +85,11 @@ struct dht_local {
 		dht_selfheal_dir_cbk_t   dir_cbk;
 		dht_layout_t    *layout;
 	} selfheal;
+
+	/* needed by nufa */
+	int32_t flags;
+	mode_t  mode;
+	dev_t   rdev;
 };
 typedef struct dht_local dht_local_t;
 
@@ -93,6 +98,7 @@ struct dht_conf {
 	gf_lock_t      subvolume_lock;
         int            subvolume_cnt;
         xlator_t     **subvolumes;
+	xlator_t      *local_volume;     /* Needed by NUFA */
 	char          *subvolume_status;
 	dht_layout_t **file_layouts;
 	dht_layout_t **dir_layouts;

@@ -25,7 +25,7 @@
 
 #include "glusterfs.h"
 #include "xlator.h"
-#include "dht.h"
+#include "dht-common.h"
 
 
 #define DELTA 0x9E3779B9

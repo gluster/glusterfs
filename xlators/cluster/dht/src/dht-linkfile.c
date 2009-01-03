@@ -26,7 +26,7 @@
 #include "glusterfs.h"
 #include "xlator.h"
 #include "compat.h"
-#include "dht.h"
+#include "dht-common.h"
 
 
 
