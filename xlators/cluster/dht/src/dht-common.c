@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 
 #include "glusterfs.h"
 #include "xlator.h"
-#include "nufa.h"
+#include "dht-common.h"
 #include "defaults.h"
 
 
@@ -35,16 +35,16 @@
    - use volumename in xattr instead of "dht"
    - use NS locks
    - handle all cases in self heal layout reconstruction
+   - complete linkfile selfheal
 */
 
-
 int
-nufa_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
+dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 			 xlator_t *this,
 			 int op_ret, int op_errno)
 {
-	nufa_local_t  *local = NULL;
-	nufa_layout_t *layout = NULL;
+	dht_local_t  *local = NULL;
+	dht_layout_t *layout = NULL;
 	int           ret = 0;
 
 	local = frame->local;
@@ -58,7 +58,7 @@ nufa_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 			local->selfheal.layout = NULL;
 	}
 
-	NUFA_STACK_UNWIND (frame, ret, local->op_errno, local->inode,
+	DHT_STACK_UNWIND (frame, ret, local->op_errno, local->inode,
 			  &local->stbuf, local->xattr);
 
 	return 0;
@@ -66,19 +66,21 @@ nufa_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 
 
 int
-nufa_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
                     inode_t *inode, struct stat *stbuf, dict_t *xattr)
 {
-        nufa_local_t  *local         = NULL;
+	dht_conf_t   *conf          = NULL;
+        dht_local_t  *local         = NULL;
         int           this_call_cnt = 0;
         call_frame_t *prev          = NULL;
-	nufa_layout_t *layout        = NULL;
+	dht_layout_t *layout        = NULL;
 	int           ret           = 0;
 
-
+	conf  = this->private;
         local = frame->local;
         prev  = cookie;
+
 	layout = local->layout;
 
         LOCK (&frame->lock);
@@ -95,7 +97,7 @@ nufa_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		/* TODO: if subvol is down for hashed lookup, try other
 		   subvols in case entry was a directory */
 
-		ret = nufa_layout_merge (this, layout, prev->this,
+		ret = dht_layout_merge (this, layout, prev->this,
 					op_ret, op_errno, xattr);
 
 		if (op_ret == -1) {
@@ -103,25 +105,27 @@ nufa_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				"lookup of %s on %s returned error (%s)",
 				local->loc.path, prev->this->name,
 				strerror (op_errno));
-			
+
 			goto unlock;
 		}
 
-		nufa_stat_merge (this, &local->stbuf, stbuf, prev->this);
+		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
         }
 unlock:
         UNLOCK (&frame->lock);
 
 
-        this_call_cnt = nufa_frame_return (frame);
+        this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
 		if (local->op_ret == 0) {
-			ret = nufa_layout_normalize (this, &local->loc,layout);
+			ret = dht_layout_normalize (this, &local->loc, layout);
 
 			local->layout = NULL;
 
 			if (ret != 0) {
+				layout->gen = conf->gen;
+
 				gf_log (this->name, GF_LOG_WARNING,
 					"fixing assignment on %s",
 					local->loc.path);
@@ -131,231 +135,29 @@ unlock:
 			inode_ctx_set (local->inode, this, layout);
 		}
 
-		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr);
         }
 
 	return 0;
 
 selfheal:
-	ret = nufa_selfheal_directory (frame, nufa_lookup_selfheal_cbk,
-				       &local->loc, layout);
+	ret = dht_selfheal_directory (frame, dht_lookup_selfheal_cbk,
+				      &local->loc, layout);
 
 	return 0;
 }
 
 
 int
-nufa_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
-				 xlator_t *this,
-				 int32_t op_ret, int32_t op_errno,
-				 inode_t *inode, struct stat *stbuf)
-{
-	nufa_local_t  *local = NULL;
-	nufa_layout_t *layout = NULL;
-	xlator_t     *cached_subvol = NULL;
-
-	local = frame->local;
-	cached_subvol = local->cached_subvol;
-
-	layout = nufa_layout_for_subvol (this, local->cached_subvol);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"no pre-set layout for subvolume %s",
-			cached_subvol ? cached_subvol->name : "<nil>");
-		local->op_ret = -1;
-		local->op_errno = EINVAL;
-		goto unwind;
-	}
-
-	inode_ctx_set (local->inode, this, layout);
-	local->op_ret = 0;
-	local->stbuf.st_mode |= S_ISVTX;
-
-unwind:
-	NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-			   local->inode, &local->stbuf, local->xattr);
-	return 0;
-}
-
-
-int
-nufa_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			    int32_t op_ret, int32_t op_errno,
-			    inode_t *inode, struct stat *buf, dict_t *xattr)
-{
-	nufa_conf_t   *conf          = NULL;
-        nufa_local_t  *local         = NULL;
-        int           this_call_cnt = 0;
-        call_frame_t *prev          = NULL;
-	int           is_linkfile   = 0;
-	int           is_dir        = 0;
-	xlator_t     *subvol        = NULL;
-	loc_t        *loc           = NULL;
-	xlator_t     *link_subvol   = NULL;
-	xlator_t     *hashed_subvol = NULL;
-	xlator_t     *cached_subvol = NULL;
-
-	conf   = this->private;
-
-	local  = frame->local;
-	loc    = &local->loc;
-
-	prev   = cookie;
-	subvol = prev->this;
-
-	LOCK (&frame->lock);
-	{
-		if (op_ret == -1) {
-			if (op_errno != ENOENT)
-				local->op_errno = op_errno;
-			goto unlock;
-		}
-
-		is_linkfile = check_is_linkfile (inode, buf, xattr);
-		is_dir = check_is_dir (inode, buf, xattr);
-
-		if (is_linkfile) {
-			link_subvol = nufa_linkfile_subvol (this, inode, buf,
-							   xattr);
-			gf_log (this->name, GF_LOG_DEBUG,
-				"found on %s linkfile %s (-> %s)",
-				subvol->name, loc->path,
-				link_subvol ? link_subvol->name : "''");
-			goto unlock;
-		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"found on %s file %s",
-				subvol->name, loc->path);
-		}
-
-		if (!local->cached_subvol) {
-			/* found one file */
-			nufa_stat_merge (this, &local->stbuf, buf, subvol);
-			local->xattr = dict_ref (xattr);
-			local->cached_subvol = subvol;
-		} else {
-			gf_log (this->name, GF_LOG_WARNING,
-				"multiple subvolumes (%s and %s atleast) have "
-				"file %s", local->cached_subvol->name,
-				subvol->name, local->loc.path);
-		}
-	}
-unlock:
-	UNLOCK (&frame->lock);
-
-	if (is_linkfile) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"deleting stale linkfile %s on %s",
-			loc->path, subvol->name);
-		nufa_linkfile_unlink (frame, this, subvol, loc);
-	}
-
-	this_call_cnt = nufa_frame_return (frame);
-	if (is_last_call (this_call_cnt)) {
-		hashed_subvol = local->hashed_subvol;
-		cached_subvol = local->cached_subvol;
-
-		if (!cached_subvol) {
-			NUFA_STACK_UNWIND (frame, -1, ENOENT, 
-					   NULL, NULL, NULL);
-			return 0;
-		}
-
-		gf_log (this->name, GF_LOG_WARNING,
-			"linking file %s existing on %s to %s (hash)",
-			loc->path, cached_subvol->name, hashed_subvol->name);
-		
-		nufa_linkfile_create (frame, nufa_lookup_linkfile_create_cbk,
-				      cached_subvol, hashed_subvol, loc);
-	}
-
-	return 0;
-}
-
-
-int
-nufa_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
-{
-	nufa_conf_t    *conf = NULL;
-	nufa_local_t   *local = NULL;
-	int             i = 0;
-	int             call_cnt = 0;
-
-	conf = this->private;
-	local = frame->local;
-
-	call_cnt = conf->subvolume_cnt;
-	local->call_cnt = call_cnt;
-
-	if (!local->inode)
-		local->inode = inode_ref (loc->inode);
-
-	for (i = 0; i < call_cnt; i++) {
-		STACK_WIND (frame, nufa_lookup_everywhere_cbk,
-			    conf->subvolumes[i],
-			    conf->subvolumes[i]->fops->lookup,
-			    loc, 1);
-	}
-
-	return 0;
-}
-
-
-int
-nufa_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
-                         xlator_t *this, int op_ret, int op_errno,
-                         inode_t *inode, struct stat *stbuf, dict_t *xattr)
-{
-        call_frame_t  *prev = NULL;
-	nufa_layout_t *layout = NULL;
-	nufa_local_t  *local = NULL;
-
-        prev = cookie;
-	local = frame->local;
-
-        if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"loookup of %s on %s (following linkfile) failed (%s)",
-			local->loc.path, prev->this->name, 
-			strerror (op_errno));
-
-		nufa_lookup_everywhere (frame, this, &local->loc);
-		return 0;
-	}
-
-        /* TODO: assert type is non-dir and non-linkfile */
-	stbuf->st_mode |= S_ISVTX;
-        nufa_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
-
-	layout = nufa_layout_for_subvol (this, prev->this);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"no pre-set layout for subvolume %s",
-			prev->this->name);
-		op_ret   = -1;
-		op_errno = EINVAL;
-		goto out;
-	}
-
-	inode_ctx_set (inode, this, layout);
-
-out:
-        NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
-
-        return 0;
-}
-
-
-int
-nufa_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
                     inode_t *inode, struct stat *stbuf, dict_t *xattr)
 {
-        nufa_local_t  *local         = NULL;
+        dht_local_t  *local         = NULL;
         int           this_call_cnt = 0;
         call_frame_t *prev          = NULL;
-	nufa_layout_t *layout        = NULL;
+	dht_layout_t *layout        = NULL;
 
 
         local = frame->local;
@@ -389,25 +191,26 @@ nufa_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-
-		nufa_stat_merge (this, &local->stbuf, stbuf, prev->this);
-
+		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
 
 		local->op_ret = 0;
 		local->stbuf.st_ino = local->st_ino;
 
 		if (!local->xattr)
 			local->xattr = dict_ref (xattr);
-		
 	}
 unlock:
 	UNLOCK (&frame->lock);
 
-        this_call_cnt = nufa_frame_return (frame);
+        this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
-		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				   local->inode, &local->stbuf, local->xattr);
+		if (!S_ISDIR (local->stbuf.st_mode)
+		    && (local->hashed_subvol != local->cached_subvol)
+		    && (local->stbuf.st_nlink == 1))
+			local->stbuf.st_mode |= S_ISVTX;
+		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+				  local->inode, &local->stbuf, local->xattr);
 	}
 
         return 0;
@@ -415,16 +218,224 @@ unlock:
 
 
 int
-nufa_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
+				xlator_t *this,
+				int32_t op_ret, int32_t op_errno,
+				inode_t *inode, struct stat *stbuf)
+{
+	dht_local_t  *local = NULL;
+	dht_layout_t *layout = NULL;
+	xlator_t     *cached_subvol = NULL;
+
+	local = frame->local;
+	cached_subvol = local->cached_subvol;
+
+	layout = dht_layout_for_subvol (this, local->cached_subvol);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no pre-set layout for subvolume %s",
+			cached_subvol ? cached_subvol->name : "<nil>");
+		local->op_ret = -1;
+		local->op_errno = EINVAL;
+		goto unwind;
+	}
+
+	inode_ctx_set (local->inode, this, layout);
+	local->op_ret = 0;
+	if (local->stbuf.st_nlink == 1)
+		local->stbuf.st_mode |= S_ISVTX;
+
+unwind:
+	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+			  local->inode, &local->stbuf, local->xattr);
+	return 0;
+}
+
+
+int
+dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			   int32_t op_ret, int32_t op_errno,
+			   inode_t *inode, struct stat *buf, dict_t *xattr)
+{
+	dht_conf_t   *conf          = NULL;
+        dht_local_t  *local         = NULL;
+        int           this_call_cnt = 0;
+        call_frame_t *prev          = NULL;
+	int           is_linkfile   = 0;
+	int           is_dir        = 0;
+	xlator_t     *subvol        = NULL;
+	loc_t        *loc           = NULL;
+	xlator_t     *link_subvol   = NULL;
+	xlator_t     *hashed_subvol = NULL;
+	xlator_t     *cached_subvol = NULL;
+
+	conf   = this->private;
+
+	local  = frame->local;
+	loc    = &local->loc;
+
+	prev   = cookie;
+	subvol = prev->this;
+
+	LOCK (&frame->lock);
+	{
+		if (op_ret == -1) {
+			if (op_errno != ENOENT)
+				local->op_errno = op_errno;
+			goto unlock;
+		}
+
+		is_linkfile = check_is_linkfile (inode, buf, xattr);
+		is_dir = check_is_dir (inode, buf, xattr);
+
+		if (is_linkfile) {
+			link_subvol = dht_linkfile_subvol (this, inode, buf,
+							   xattr);
+			gf_log (this->name, GF_LOG_DEBUG,
+				"found on %s linkfile %s (-> %s)",
+				subvol->name, loc->path,
+				link_subvol ? link_subvol->name : "''");
+			goto unlock;
+		} else {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"found on %s file %s",
+				subvol->name, loc->path);
+		}
+
+		if (!local->cached_subvol) {
+			/* found one file */
+			dht_stat_merge (this, &local->stbuf, buf, subvol);
+			local->xattr = dict_ref (xattr);
+			local->cached_subvol = subvol;
+		} else {
+			gf_log (this->name, GF_LOG_WARNING,
+				"multiple subvolumes (%s and %s atleast) have "
+				"file %s", local->cached_subvol->name,
+				subvol->name, local->loc.path);
+		}
+	}
+unlock:
+	UNLOCK (&frame->lock);
+
+	if (is_linkfile) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"deleting stale linkfile %s on %s",
+			loc->path, subvol->name);
+		dht_linkfile_unlink (frame, this, subvol, loc);
+	}
+
+	this_call_cnt = dht_frame_return (frame);
+	if (is_last_call (this_call_cnt)) {
+		hashed_subvol = local->hashed_subvol;
+		cached_subvol = local->cached_subvol;
+
+		if (!cached_subvol) {
+			DHT_STACK_UNWIND (frame, -1, ENOENT, NULL, NULL, NULL);
+			return 0;
+		}
+
+		gf_log (this->name, GF_LOG_WARNING,
+			"linking file %s existing on %s to %s (hash)",
+			loc->path, cached_subvol->name, hashed_subvol->name);
+
+		dht_linkfile_create (frame, dht_lookup_linkfile_create_cbk,
+				     cached_subvol, hashed_subvol, loc);
+	}
+
+	return 0;
+}
+
+
+int
+dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+	dht_conf_t     *conf = NULL;
+	dht_local_t    *local = NULL;
+	int             i = 0;
+	int             call_cnt = 0;
+
+	conf = this->private;
+	local = frame->local;
+
+	call_cnt = conf->subvolume_cnt;
+	local->call_cnt = call_cnt;
+
+	if (!local->inode)
+		local->inode = inode_ref (loc->inode);
+
+	for (i = 0; i < call_cnt; i++) {
+		STACK_WIND (frame, dht_lookup_everywhere_cbk,
+			    conf->subvolumes[i],
+			    conf->subvolumes[i]->fops->lookup,
+			    loc, 1);
+	}
+
+	return 0;
+}
+
+
+int
+dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
+                         xlator_t *this, int op_ret, int op_errno,
+                         inode_t *inode, struct stat *stbuf, dict_t *xattr)
+{
+        call_frame_t *prev = NULL;
+	dht_local_t  *local = NULL;
+	dht_layout_t *layout = NULL;
+	xlator_t     *subvol = NULL;
+	loc_t        *loc = NULL;
+
+        prev   = cookie;
+	subvol = prev->this;
+
+	local  = frame->local;
+	loc    = &local->loc;
+
+        if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"lookup of %s on %s (following linkfile) failed (%s)",
+			local->loc.path, subvol->name, strerror (op_errno));
+
+		dht_lookup_everywhere (frame, this, loc);
+		return 0;
+	}
+
+        /* TODO: assert type is non-dir and non-linkfile */
+
+	if (stbuf->st_nlink == 1)
+		stbuf->st_mode |= S_ISVTX;
+        dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+
+	layout = dht_layout_for_subvol (this, prev->this);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no pre-set layout for subvolume %s",
+			prev->this->name);
+		op_ret   = -1;
+		op_errno = EINVAL;
+		goto out;
+	}
+
+	inode_ctx_set (inode, this, layout);
+
+out:
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
+
+        return 0;
+}
+
+
+int
+dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int op_ret, int op_errno,
                 inode_t *inode, struct stat *stbuf, dict_t *xattr)
 {
-	nufa_layout_t *layout      = NULL;
+	dht_layout_t *layout      = NULL;
         char          is_linkfile = 0;
         char          is_dir      = 0;
         xlator_t     *subvol      = NULL;
-        nufa_conf_t   *conf        = NULL;
-        nufa_local_t  *local       = NULL;
+        dht_conf_t   *conf        = NULL;
+        dht_local_t  *local       = NULL;
         loc_t        *loc         = NULL;
         int           i           = 0;
         call_frame_t *prev        = NULL;
@@ -437,6 +448,14 @@ nufa_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         loc   = &local->loc;
 
+	if (ENTRY_MISSING (op_ret, op_errno)) {
+		if (conf->search_unhashed) {
+			local->op_errno = ENOENT;
+			dht_lookup_everywhere (frame, this, loc);
+			return 0;
+		}
+	}
+
         if (op_ret == -1)
                 goto out;
 
@@ -446,10 +465,10 @@ nufa_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!is_dir && !is_linkfile) {
                 /* non-directory and not a linkfile */
 
-		nufa_itransform (this, prev->this, stbuf->st_ino,
+		dht_itransform (this, prev->this, stbuf->st_ino,
 				&stbuf->st_ino);
 
-		layout = nufa_layout_for_subvol (this, prev->this);
+		layout = dht_layout_for_subvol (this, prev->this);
 		if (!layout) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"no pre-set layout for subvolume %s",
@@ -473,7 +492,7 @@ nufa_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->op_ret = 0;
 		local->op_errno = 0;
 
-		local->layout = nufa_layout_new (this, conf->subvolume_cnt);
+		local->layout = dht_layout_new (this, conf->subvolume_cnt);
 		if (!local->layout) {
 			op_ret   = -1;
 			op_errno = ENOMEM;
@@ -483,7 +502,7 @@ nufa_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
                 for (i = 0; i < call_cnt; i++) {
-                        STACK_WIND (frame, nufa_lookup_dir_cbk,
+                        STACK_WIND (frame, dht_lookup_dir_cbk,
                                     conf->subvolumes[i],
                                     conf->subvolumes[i]->fops->lookup,
                                     &local->loc, 1);
@@ -491,169 +510,44 @@ nufa_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (is_linkfile) {
-                subvol = nufa_linkfile_subvol (this, inode, stbuf, xattr);
+                subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
 
                 if (!subvol) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "linkfile not having link subvolume. path=%s",
                                 loc->path);
-                        op_ret   = -1;
-                        op_errno = EINVAL;
-                        goto out;
+			dht_lookup_everywhere (frame, this, loc);
+			return 0;
                 }
 
-                STACK_WIND (frame, nufa_lookup_linkfile_cbk,
-                            subvol, subvol->fops->lookup,
-                            &local->loc, 1);
+		STACK_WIND (frame, dht_lookup_linkfile_cbk,
+			    subvol, subvol->fops->lookup,
+			    &local->loc, 1);
         }
 
         return 0;
 
 out:
-        NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
         return 0;
 }
 
-int 
-nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		      int op_ret, int op_errno,
-		      inode_t *inode, struct stat *stbuf, dict_t *xattr)
-{
-        nufa_local_t  *local  = frame->local;
-        call_frame_t *prev   = NULL;
-        xlator_t     *subvol = NULL;
-        xlator_t     *hashed_subvol = NULL;
-        xlator_t     *cached_subvol = NULL;
-	nufa_layout_t *layout = NULL;
-        nufa_conf_t   *conf   = NULL;
-	int           i = 0;
-	int           call_cnt = 0;
-        char          is_linkfile = 0;
-        char          is_dir      = 0;
-	
-	prev = cookie;
-	conf  = this->private;
-        local = frame->local;
-
-	hashed_subvol = nufa_subvol_get_hashed (this, &local->loc);
-	cached_subvol = nufa_subvol_get_cached (this, local->loc.inode);
-	
-	local->cached_subvol = cached_subvol;
-	local->hashed_subvol = hashed_subvol;
-
-        if (op_ret == -1)
-                goto out;
-
-	if (op_ret >= 0) {
-
-		is_linkfile = check_is_linkfile (inode, stbuf, xattr);
-		is_dir      = check_is_dir (inode, stbuf, xattr);
-
-		
-		if (!is_dir && !is_linkfile) {
-			/* non-directory and not a linkfile */
-
-			nufa_itransform (this, prev->this, stbuf->st_ino,
-					&stbuf->st_ino);
-		
-			layout = nufa_layout_for_subvol (this, prev->this);
-			if (!layout) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"no pre-set layout for subvolume %s",
-					prev->this->name);
-				op_ret   = -1;
-				op_errno = EINVAL;
-				goto err;
-			}
-
-			inode_ctx_set (inode, this, layout);
-			goto err;
-		}
-	
-		if (is_dir) {
-			call_cnt        = conf->subvolume_cnt;
-			local->call_cnt = call_cnt;
-			
-			local->inode = inode_ref (inode);
-			local->xattr = dict_ref (xattr);
-
-			local->op_ret = 0;
-			local->op_errno = 0;
-
-			local->layout = nufa_layout_new (this, 
-							 conf->subvolume_cnt);
-			if (!local->layout) {
-				op_ret   = -1;
-				op_errno = ENOMEM;
-				gf_log (this->name, GF_LOG_ERROR,
-					"memory allocation failed :(");
-				goto err;
-			}
-
-			for (i = 0; i < call_cnt; i++) {
-				STACK_WIND (frame, nufa_lookup_dir_cbk,
-					    conf->subvolumes[i],
-					    conf->subvolumes[i]->fops->lookup,
-					    &local->loc, 1);
-			}
-		}
-		
-		if (is_linkfile) {
-			subvol = nufa_linkfile_subvol (this, inode, 
-						       stbuf, xattr);
-			
-			if (!subvol) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"linkfile not having link subvolume. "
-					"path=%s", local->loc.path);
-				nufa_lookup_everywhere (frame, this, 
-							&local->loc);
-				goto err;
-			}
-			
-			STACK_WIND (frame, nufa_lookup_linkfile_cbk,
-				    subvol, subvol->fops->lookup,
-				    &local->loc, 1);
-		}
-	
-		return 0;
-	}
-
- out:
-	if (!hashed_subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"no subvolume in layout for path=%s",
-			local->loc.path);
-		op_errno = EINVAL;
-		NUFA_STACK_UNWIND (frame, op_ret, op_errno, 
-				   inode, stbuf, xattr);
-		return 0;
-	}
-		
-	STACK_WIND (frame, nufa_lookup_cbk,
-		    hashed_subvol, hashed_subvol->fops->lookup,
-		    &local->loc, 1);
-
-	return 0;
-
- err:
-        NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
-	return 0;
-	
-}
 
 int
-nufa_lookup (call_frame_t *frame, xlator_t *this,
+dht_lookup (call_frame_t *frame, xlator_t *this,
             loc_t *loc, int need_xattr)
 {
         xlator_t     *subvol = NULL;
-        nufa_local_t  *local  = NULL;
+        xlator_t     *hashed_subvol = NULL;
+        xlator_t     *cached_subvol = NULL;
+        dht_local_t  *local  = NULL;
+	dht_conf_t   *conf = NULL;
         int           ret    = -1;
         int           op_errno = -1;
-	nufa_layout_t *layout = NULL;
-        nufa_conf_t   *conf   = NULL;
+	dht_layout_t *layout = NULL;
 	int           i = 0;
 	int           call_cnt = 0;
+
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -661,9 +555,9 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-        conf  = this->private;
+	conf = this->private;
 
-        local = nufa_local_init (frame);
+        local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -671,7 +565,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-        ret = loc_copy (&local->loc, loc);
+        ret = loc_dup (loc, &local->loc);
         if (ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -680,17 +574,31 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-	if (is_revalidate (loc)) {
-		layout = nufa_layout_get (this, loc->inode);
-		
-		if (!layout) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"revalidate without cache. path=%s",
+	hashed_subvol = dht_subvol_get_hashed (this, loc);
+	cached_subvol = dht_subvol_get_cached (this, loc->inode);
+
+	local->cached_subvol = cached_subvol;
+	local->hashed_subvol = hashed_subvol;
+
+        if (is_revalidate (loc)) {
+		layout = dht_layout_get (this, loc->inode);
+
+                if (!layout) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "revalidate without cache. path=%s",
+                                loc->path);
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
+		if (layout->gen && (layout->gen < conf->gen)) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"incomplete layout failure for path=%s",
 				loc->path);
-			op_errno = EINVAL;
+			op_errno = EAGAIN;
 			goto err;
 		}
-		
+
 		local->inode    = inode_ref (loc->inode);
 		local->st_ino   = loc->inode->ino;
 
@@ -700,34 +608,41 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 		for (i = 0; i < layout->cnt; i++) {
 			subvol = layout->list[i].xlator;
 
-			STACK_WIND (frame, nufa_revalidate_cbk,
+			STACK_WIND (frame, dht_revalidate_cbk,
 				    subvol, subvol->fops->lookup,
 				    loc, need_xattr);
-			
+
 			if (!--call_cnt)
 				break;
 		}
-	} else {
-		/* Send it to only local volume */
-		STACK_WIND (frame, nufa_local_lookup_cbk,
-			    conf->local_volume, conf->local_volume->fops->lookup,
-			    loc, 1);
-	}
+        } else {
+                if (!hashed_subvol) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "no subvolume in layout for path=%s",
+                                loc->path);
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
+                STACK_WIND (frame, dht_lookup_cbk,
+                            hashed_subvol, hashed_subvol->fops->lookup,
+                            loc, 1);
+        }
 
         return 0;
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-        NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+        DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
 
 int
-nufa_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int op_ret, int op_errno, struct stat *stbuf)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
 	call_frame_t *prev = NULL;
 
@@ -745,7 +660,7 @@ nufa_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-		nufa_stat_merge (this, &local->stbuf, stbuf, prev->this);
+		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
 		
 		if (local->inode)
 			local->stbuf.st_ino = local->inode->ino;
@@ -754,9 +669,9 @@ nufa_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unlock:
 	UNLOCK (&frame->lock);
 
-	this_call_cnt = nufa_frame_return (frame);
+	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  &local->stbuf);
 
         return 0;
@@ -764,13 +679,13 @@ unlock:
 
 
 int
-nufa_stat (call_frame_t *frame, xlator_t *this,
+dht_stat (call_frame_t *frame, xlator_t *this,
 	  loc_t *loc)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
-	nufa_layout_t *layout = NULL;
+	dht_local_t  *local = NULL;
+	dht_layout_t *layout = NULL;
 	int           i = 0;
 
 
@@ -780,7 +695,7 @@ nufa_stat (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	layout = nufa_layout_get (this, loc->inode);
+	layout = dht_layout_get (this, loc->inode);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no layout for path=%s", loc->path);
@@ -788,7 +703,7 @@ nufa_stat (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -802,7 +717,7 @@ nufa_stat (call_frame_t *frame, xlator_t *this,
 	for (i = 0; i < layout->cnt; i++) {
 		subvol = layout->list[i].xlator;
 
-		STACK_WIND (frame, nufa_attr_cbk,
+		STACK_WIND (frame, dht_attr_cbk,
 			    subvol, subvol->fops->stat,
 			    loc);
 	}
@@ -811,20 +726,20 @@ nufa_stat (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_fstat (call_frame_t *frame, xlator_t *this,
+dht_fstat (call_frame_t *frame, xlator_t *this,
 	   fd_t *fd)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
-	nufa_layout_t *layout = NULL;
+	dht_local_t  *local = NULL;
+	dht_layout_t *layout = NULL;
 	int           i = 0;
 
 
@@ -832,7 +747,7 @@ nufa_fstat (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	layout = nufa_layout_get (this, fd->inode);
+	layout = dht_layout_get (this, fd->inode);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no layout for fd=%p", fd);
@@ -840,7 +755,7 @@ nufa_fstat (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -853,7 +768,7 @@ nufa_fstat (call_frame_t *frame, xlator_t *this,
 
 	for (i = 0; i < layout->cnt; i++) {
 		subvol = layout->list[i].xlator;
-		STACK_WIND (frame, nufa_attr_cbk,
+		STACK_WIND (frame, dht_attr_cbk,
 			    subvol, subvol->fops->fstat,
 			    fd);
 	}
@@ -862,18 +777,18 @@ nufa_fstat (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_chmod (call_frame_t *frame, xlator_t *this,
+dht_chmod (call_frame_t *frame, xlator_t *this,
 	   loc_t *loc, mode_t mode)
 {
-	nufa_layout_t *layout = NULL;
-	nufa_local_t  *local  = NULL;
+	dht_layout_t *layout = NULL;
+	dht_local_t  *local  = NULL;
         int           op_errno = -1;
 	int           i = -1;
 
@@ -884,7 +799,7 @@ nufa_chmod (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	layout = nufa_layout_get (this, loc->inode);
+	layout = dht_layout_get (this, loc->inode);
 
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -900,7 +815,7 @@ nufa_chmod (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -912,7 +827,7 @@ nufa_chmod (call_frame_t *frame, xlator_t *this,
 	local->call_cnt = layout->cnt;
 
 	for (i = 0; i < layout->cnt; i++) {
-		STACK_WIND (frame, nufa_attr_cbk,
+		STACK_WIND (frame, dht_attr_cbk,
 			    layout->list[i].xlator,
 			    layout->list[i].xlator->fops->chmod,
 			    loc, mode);
@@ -922,18 +837,18 @@ nufa_chmod (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_chown (call_frame_t *frame, xlator_t *this,
+dht_chown (call_frame_t *frame, xlator_t *this,
 	   loc_t *loc, uid_t uid, gid_t gid)
 {
-	nufa_layout_t *layout = NULL;
-	nufa_local_t  *local  = NULL;
+	dht_layout_t *layout = NULL;
+	dht_local_t  *local  = NULL;
         int           op_errno = -1;
 	int           i = -1;
 
@@ -944,7 +859,7 @@ nufa_chown (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	layout = nufa_layout_get (this, loc->inode);
+	layout = dht_layout_get (this, loc->inode);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no layout for path=%s", loc->path);
@@ -959,7 +874,7 @@ nufa_chown (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -971,7 +886,7 @@ nufa_chown (call_frame_t *frame, xlator_t *this,
 	local->call_cnt = layout->cnt;
 
 	for (i = 0; i < layout->cnt; i++) {
-		STACK_WIND (frame, nufa_attr_cbk,
+		STACK_WIND (frame, dht_attr_cbk,
 			    layout->list[i].xlator,
 			    layout->list[i].xlator->fops->chown,
 			    loc, uid, gid);
@@ -981,18 +896,18 @@ nufa_chown (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_fchmod (call_frame_t *frame, xlator_t *this,
+dht_fchmod (call_frame_t *frame, xlator_t *this,
 	    fd_t *fd, mode_t mode)
 {
-	nufa_layout_t *layout = NULL;
-	nufa_local_t  *local  = NULL;
+	dht_layout_t *layout = NULL;
+	dht_local_t  *local  = NULL;
         int           op_errno = -1;
 	int           i = -1;
 
@@ -1002,7 +917,7 @@ nufa_fchmod (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, err);
 
 
-	layout = nufa_layout_get (this, fd->inode);
+	layout = dht_layout_get (this, fd->inode);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no layout for fd=%p", fd);
@@ -1017,7 +932,7 @@ nufa_fchmod (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1029,7 +944,7 @@ nufa_fchmod (call_frame_t *frame, xlator_t *this,
 	local->call_cnt = layout->cnt;
 
 	for (i = 0; i < layout->cnt; i++) {
-		STACK_WIND (frame, nufa_attr_cbk,
+		STACK_WIND (frame, dht_attr_cbk,
 			    layout->list[i].xlator,
 			    layout->list[i].xlator->fops->fchmod,
 			    fd, mode);
@@ -1039,18 +954,18 @@ nufa_fchmod (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_fchown (call_frame_t *frame, xlator_t *this,
+dht_fchown (call_frame_t *frame, xlator_t *this,
 	    fd_t *fd, uid_t uid, gid_t gid)
 {
-	nufa_layout_t *layout = NULL;
-	nufa_local_t  *local  = NULL;
+	dht_layout_t *layout = NULL;
+	dht_local_t  *local  = NULL;
         int           op_errno = -1;
 	int           i = -1;
 
@@ -1059,7 +974,7 @@ nufa_fchown (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	layout = nufa_layout_get (this, fd->inode);
+	layout = dht_layout_get (this, fd->inode);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no layout for fd=%p", fd);
@@ -1074,7 +989,7 @@ nufa_fchown (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1086,7 +1001,7 @@ nufa_fchown (call_frame_t *frame, xlator_t *this,
 	local->call_cnt = layout->cnt;
 
 	for (i = 0; i < layout->cnt; i++) {
-		STACK_WIND (frame, nufa_attr_cbk,
+		STACK_WIND (frame, dht_attr_cbk,
 			    layout->list[i].xlator,
 			    layout->list[i].xlator->fops->fchown,
 			    fd, uid, gid);
@@ -1096,18 +1011,18 @@ nufa_fchown (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_utimens (call_frame_t *frame, xlator_t *this,
+dht_utimens (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, struct timespec tv[2])
 {
-	nufa_layout_t *layout = NULL;
-	nufa_local_t  *local  = NULL;
+	dht_layout_t *layout = NULL;
+	dht_local_t  *local  = NULL;
         int           op_errno = -1;
 	int           i = -1;
 
@@ -1118,7 +1033,7 @@ nufa_utimens (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	layout = nufa_layout_get (this, loc->inode);
+	layout = dht_layout_get (this, loc->inode);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no layout for path=%s", loc->path);
@@ -1133,7 +1048,7 @@ nufa_utimens (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1145,7 +1060,7 @@ nufa_utimens (call_frame_t *frame, xlator_t *this,
 	local->call_cnt = layout->cnt;
 
 	for (i = 0; i < layout->cnt; i++) {
-		STACK_WIND (frame, nufa_attr_cbk,
+		STACK_WIND (frame, dht_attr_cbk,
 			    layout->list[i].xlator,
 			    layout->list[i].xlator->fops->utimens,
 			    loc, tv);
@@ -1155,19 +1070,19 @@ nufa_utimens (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_truncate (call_frame_t *frame, xlator_t *this,
+dht_truncate (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, off_t offset)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -1176,7 +1091,7 @@ nufa_truncate (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = nufa_subvol_get_cached (this, loc->inode);
+	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", loc->path);
@@ -1184,7 +1099,7 @@ nufa_truncate (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1195,7 +1110,7 @@ nufa_truncate (call_frame_t *frame, xlator_t *this,
 	local->inode = inode_ref (loc->inode);
 	local->call_cnt = 1;
 
-	STACK_WIND (frame, nufa_attr_cbk,
+	STACK_WIND (frame, dht_attr_cbk,
 		    subvol, subvol->fops->truncate,
 		    loc, offset);
 
@@ -1203,26 +1118,26 @@ nufa_truncate (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_ftruncate (call_frame_t *frame, xlator_t *this,
+dht_ftruncate (call_frame_t *frame, xlator_t *this,
 	       fd_t *fd, off_t offset)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -1230,7 +1145,7 @@ nufa_ftruncate (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1241,7 +1156,7 @@ nufa_ftruncate (call_frame_t *frame, xlator_t *this,
 	local->inode = inode_ref (fd->inode);
 	local->call_cnt = 1;
 
-	STACK_WIND (frame, nufa_attr_cbk,
+	STACK_WIND (frame, dht_attr_cbk,
 		    subvol, subvol->fops->ftruncate,
 		    fd, offset);
 
@@ -1249,17 +1164,17 @@ nufa_ftruncate (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	     int op_ret, int op_errno)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
 	call_frame_t *prev = NULL;
 
@@ -1282,21 +1197,21 @@ nufa_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unlock:
 	UNLOCK (&frame->lock);
 
-	this_call_cnt = nufa_frame_return (frame);
+	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
         return 0;
 }
 
 
 int
-nufa_access (call_frame_t *frame, xlator_t *this,
+dht_access (call_frame_t *frame, xlator_t *this,
 	    loc_t *loc, int32_t mask)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -1305,7 +1220,7 @@ nufa_access (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = nufa_subvol_get_cached (this, loc->inode);
+	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", loc->path);
@@ -1313,7 +1228,7 @@ nufa_access (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1323,7 +1238,7 @@ nufa_access (call_frame_t *frame, xlator_t *this,
 
 	local->call_cnt = 1;
 
-	STACK_WIND (frame, nufa_err_cbk,
+	STACK_WIND (frame, dht_err_cbk,
 		    subvol, subvol->fops->access,
 		    loc, mask);
 
@@ -1331,24 +1246,24 @@ nufa_access (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
 
 
 int
-nufa_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, const char *path)
 {
-        NUFA_STACK_UNWIND (frame, op_ret, op_errno, path);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, path);
 
         return 0;
 }
 
 
 int
-nufa_readlink (call_frame_t *frame, xlator_t *this,
+dht_readlink (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, size_t size)
 {
 	xlator_t     *subvol = NULL;
@@ -1361,7 +1276,7 @@ nufa_readlink (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = nufa_subvol_get_cached (this, loc->inode);
+	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", loc->path);
@@ -1369,7 +1284,7 @@ nufa_readlink (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	STACK_WIND (frame, nufa_readlink_cbk,
+	STACK_WIND (frame, dht_readlink_cbk,
 		    subvol, subvol->fops->readlink,
 		    loc, size);
 
@@ -1377,24 +1292,24 @@ nufa_readlink (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, dict_t *xattr)
 {
-        NUFA_STACK_UNWIND (frame, op_ret, op_errno, xattr);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, xattr);
 
         return 0;
 }
 
 
 int
-nufa_getxattr (call_frame_t *frame, xlator_t *this,
+dht_getxattr (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, const char *key)
 {
 	xlator_t     *subvol = NULL;
@@ -1407,7 +1322,7 @@ nufa_getxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = nufa_subvol_get_cached (this, loc->inode);
+	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", loc->path);
@@ -1415,7 +1330,7 @@ nufa_getxattr (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	STACK_WIND (frame, nufa_getxattr_cbk,
+	STACK_WIND (frame, dht_getxattr_cbk,
 		    subvol, subvol->fops->getxattr,
 		    loc, key);
 
@@ -1423,19 +1338,19 @@ nufa_getxattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_setxattr (call_frame_t *frame, xlator_t *this,
+dht_setxattr (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, dict_t *xattr, int flags)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -1444,7 +1359,7 @@ nufa_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = nufa_subvol_get_cached (this, loc->inode);
+	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", loc->path);
@@ -1452,7 +1367,7 @@ nufa_setxattr (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1462,7 +1377,7 @@ nufa_setxattr (call_frame_t *frame, xlator_t *this,
 
 	local->call_cnt = 1;
 
-	STACK_WIND (frame, nufa_err_cbk,
+	STACK_WIND (frame, dht_err_cbk,
 		    subvol, subvol->fops->setxattr,
 		    loc, xattr, flags);
 
@@ -1470,19 +1385,19 @@ nufa_setxattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_removexattr (call_frame_t *frame, xlator_t *this,
+dht_removexattr (call_frame_t *frame, xlator_t *this,
 		 loc_t *loc, const char *key)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -1491,7 +1406,7 @@ nufa_removexattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = nufa_subvol_get_cached (this, loc->inode);
+	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", loc->path);
@@ -1499,7 +1414,7 @@ nufa_removexattr (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1509,7 +1424,7 @@ nufa_removexattr (call_frame_t *frame, xlator_t *this,
 
 	local->call_cnt = 1;
 
-	STACK_WIND (frame, nufa_err_cbk,
+	STACK_WIND (frame, dht_err_cbk,
 		    subvol, subvol->fops->removexattr,
 		    loc, key);
 
@@ -1517,17 +1432,17 @@ nufa_removexattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int op_ret, int op_errno, fd_t *fd)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
 	call_frame_t *prev = NULL;
 
@@ -1550,9 +1465,9 @@ nufa_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unlock:
 	UNLOCK (&frame->lock);
 
-	this_call_cnt = nufa_frame_return (frame);
+	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  local->fd);
 
         return 0;
@@ -1560,20 +1475,20 @@ unlock:
 
 
 int
-nufa_open (call_frame_t *frame, xlator_t *this,
+dht_open (call_frame_t *frame, xlator_t *this,
 	  loc_t *loc, int flags, fd_t *fd)
 {
 	xlator_t     *subvol = NULL;
 	int           ret = -1;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -1581,7 +1496,7 @@ nufa_open (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1600,7 +1515,7 @@ nufa_open (call_frame_t *frame, xlator_t *this,
 
 	local->call_cnt = 1;
 
-	STACK_WIND (frame, nufa_fd_cbk,
+	STACK_WIND (frame, dht_fd_cbk,
 		    subvol, subvol->fops->open,
 		    loc, flags, fd);
 
@@ -1608,25 +1523,25 @@ nufa_open (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno,
 	       struct iovec *vector, int count, struct stat *stbuf)
 {
-        NUFA_STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
 
         return 0;
 }
 
 
 int
-nufa_readv (call_frame_t *frame, xlator_t *this,
+dht_readv (call_frame_t *frame, xlator_t *this,
 	   fd_t *fd, size_t size, off_t off)
 {
 	xlator_t     *subvol = NULL;
@@ -1637,7 +1552,7 @@ nufa_readv (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -1645,7 +1560,7 @@ nufa_readv (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	STACK_WIND (frame, nufa_readv_cbk,
+	STACK_WIND (frame, dht_readv_cbk,
 		    subvol, subvol->fops->readv,
 		    fd, size, off);
 
@@ -1653,24 +1568,24 @@ nufa_readv (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int op_ret, int op_errno, struct stat *stbuf)
 {
-        NUFA_STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
         return 0;
 }
 
 
 int
-nufa_writev (call_frame_t *frame, xlator_t *this,
+dht_writev (call_frame_t *frame, xlator_t *this,
 	    fd_t *fd, struct iovec *vector, int count, off_t off)
 {
 	xlator_t     *subvol = NULL;
@@ -1681,7 +1596,7 @@ nufa_writev (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -1689,7 +1604,7 @@ nufa_writev (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	STACK_WIND (frame, nufa_writev_cbk,
+	STACK_WIND (frame, dht_writev_cbk,
 		    subvol, subvol->fops->writev,
 		    fd, vector, count, off);
 
@@ -1697,25 +1612,25 @@ nufa_writev (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, 0);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, 0);
 
 	return 0;
 }
 
 
 int
-nufa_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
+dht_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -1723,7 +1638,7 @@ nufa_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1734,33 +1649,33 @@ nufa_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	local->fd = fd_ref (fd);
 	local->call_cnt = 1;
 
-	STACK_WIND (frame, nufa_err_cbk,
+	STACK_WIND (frame, dht_err_cbk,
 		    subvol, subvol->fops->flush, fd);
 
 	return 0;
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
 
 
 int
-nufa_fsync (call_frame_t *frame, xlator_t *this,
+dht_fsync (call_frame_t *frame, xlator_t *this,
 	   fd_t *fd, int datasync)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -1768,7 +1683,7 @@ nufa_fsync (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1777,7 +1692,7 @@ nufa_fsync (call_frame_t *frame, xlator_t *this,
 	}
 	local->call_cnt = 1;
 
-	STACK_WIND (frame, nufa_err_cbk,
+	STACK_WIND (frame, dht_err_cbk,
 		    subvol, subvol->fops->fsync,
 		    fd, datasync);
 
@@ -1785,24 +1700,24 @@ nufa_fsync (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
 
 
 int
-nufa_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	    int op_ret, int op_errno, struct flock *flock)
 {
-        NUFA_STACK_UNWIND (frame, op_ret, op_errno, flock);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, flock);
 
         return 0;
 }
 
 
 int
-nufa_lk (call_frame_t *frame, xlator_t *this,
+dht_lk (call_frame_t *frame, xlator_t *this,
 	fd_t *fd, int cmd, struct flock *flock)
 {
 	xlator_t     *subvol = NULL;
@@ -1813,7 +1728,7 @@ nufa_lk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -1821,7 +1736,7 @@ nufa_lk (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	STACK_WIND (frame, nufa_lk_cbk,
+	STACK_WIND (frame, dht_lk_cbk,
 		    subvol, subvol->fops->lk,
 		    fd, cmd, flock);
 
@@ -1829,24 +1744,24 @@ nufa_lk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 /* gf_lk no longer exists 
 int
-nufa_gf_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_gf_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	    int op_ret, int op_errno, struct flock *flock)
 {
-        NUFA_STACK_UNWIND (frame, op_ret, op_errno, flock);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, flock);
 
         return 0;
 }
 
 
 int
-nufa_gf_lk (call_frame_t *frame, xlator_t *this,
+dht_gf_lk (call_frame_t *frame, xlator_t *this,
 	   loc_t *loc, int cmd, struct flock *flock)
 {
 	xlator_t     *subvol = NULL;
@@ -1857,7 +1772,7 @@ nufa_gf_lk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -1865,7 +1780,7 @@ nufa_gf_lk (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	STACK_WIND (frame, nufa_gf_lk_cbk,
+	STACK_WIND (frame, dht_gf_lk_cbk,
 		    subvol, subvol->fops->gf_lk,
 		    fd, cmd, flock);
 
@@ -1873,17 +1788,17 @@ nufa_gf_lk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 */
 
 int
-nufa_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int op_ret, int op_errno, struct statvfs *statvfs)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
 
 
@@ -1916,9 +1831,9 @@ unlock:
 	UNLOCK (&frame->lock);
 
 
-	this_call_cnt = nufa_frame_return (frame);
+	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  &local->statvfs);
 
         return 0;
@@ -1926,10 +1841,10 @@ unlock:
 
 
 int
-nufa_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
+dht_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-	nufa_local_t  *local  = NULL;
-	nufa_conf_t   *conf = NULL;
+	dht_local_t  *local  = NULL;
+	dht_conf_t   *conf = NULL;
         int           op_errno = -1;
 	int           i = -1;
 
@@ -1942,11 +1857,11 @@ nufa_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	conf = this->private;
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	local->call_cnt = conf->subvolume_cnt;
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
-		STACK_WIND (frame, nufa_statfs_cbk,
+		STACK_WIND (frame, dht_statfs_cbk,
 			    conf->subvolumes[i],
 			    conf->subvolumes[i]->fops->statfs, loc);
 	}
@@ -1955,17 +1870,17 @@ nufa_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
+dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 {
-	nufa_local_t  *local  = NULL;
-	nufa_conf_t   *conf = NULL;
+	dht_local_t  *local  = NULL;
+	dht_conf_t   *conf = NULL;
 	int           ret = -1;
         int           op_errno = -1;
 	int           i = -1;
@@ -1977,7 +1892,7 @@ nufa_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 
 	conf = this->private;
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1997,7 +1912,7 @@ nufa_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 	local->call_cnt = conf->subvolume_cnt;
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
-		STACK_WIND (frame, nufa_fd_cbk,
+		STACK_WIND (frame, dht_fd_cbk,
 			    conf->subvolumes[i],
 			    conf->subvolumes[i]->fops->opendir,
 			    loc, fd);
@@ -2007,24 +1922,24 @@ nufa_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		 int op_ret, int op_errno, gf_dirent_t *orig_entries)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	gf_dirent_t   entries;
 	gf_dirent_t  *orig_entry = NULL;
 	gf_dirent_t  *entry = NULL;
 	call_frame_t *prev = NULL;
 	xlator_t     *subvol = NULL;
 	xlator_t     *next = NULL;
-	nufa_layout_t *layout = NULL;
+	dht_layout_t *layout = NULL;
 	int           count = 0;
 
 
@@ -2032,16 +1947,13 @@ nufa_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev = cookie;
 	local = frame->local;
 
-	if (op_ret >= 0)
-		local->op_ret = 0;
-
 	if (op_ret < 0)
 		goto done;
 
-	layout = nufa_layout_get (this, local->fd->inode);
+	layout = dht_layout_get (this, local->fd->inode);
 
 	list_for_each_entry (orig_entry, &orig_entries->list, list) {
-		subvol = nufa_layout_search (this, layout, orig_entry->d_name);
+		subvol = dht_layout_search (this, layout, orig_entry->d_name);
 
 		if (!subvol || subvol == prev->this) {
 			entry = gf_dirent_for_name (orig_entry->d_name);
@@ -2051,9 +1963,9 @@ nufa_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				goto unwind;
 			}
 
-			nufa_itransform (this, subvol, orig_entry->d_ino,
+			dht_itransform (this, subvol, orig_entry->d_ino,
 					&entry->d_ino);
-			nufa_itransform (this, subvol, orig_entry->d_off,
+			dht_itransform (this, subvol, orig_entry->d_off,
 					&entry->d_off);
 
 			entry->d_type = orig_entry->d_type;
@@ -2067,20 +1979,22 @@ nufa_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 done:
 	if (count == 0) {
-		next = nufa_subvol_next (this, prev->this);
+		next = dht_subvol_next (this, prev->this);
 		if (!next) {
-			op_ret = local->op_ret;
 			goto unwind;
 		}
 
-		STACK_WIND (frame, nufa_readdir_cbk,
+		STACK_WIND (frame, dht_readdir_cbk,
 			    next, next->fops->readdir,
 			    local->fd, local->size, 0);
 		return 0;
 	}
 
 unwind:
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno, &entries);
+	if (op_ret < 0)
+		op_ret = 0;
+
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, &entries);
 
 	gf_dirent_free (&entries);
 
@@ -2088,13 +2002,12 @@ unwind:
 }
 
 
-
 int
-nufa_readdir (call_frame_t *frame, xlator_t *this,
+dht_readdir (call_frame_t *frame, xlator_t *this,
 	     fd_t *fd, size_t size, off_t yoff)
 {
-	nufa_local_t  *local  = NULL;
-	nufa_conf_t   *conf = NULL;
+	dht_local_t  *local  = NULL;
+	dht_conf_t   *conf = NULL;
         int           op_errno = -1;
 	xlator_t     *xvol = NULL;
 	off_t         xoff = 0;
@@ -2106,7 +2019,7 @@ nufa_readdir (call_frame_t *frame, xlator_t *this,
 
 	conf = this->private;
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"memory allocation failed :(");
@@ -2117,10 +2030,10 @@ nufa_readdir (call_frame_t *frame, xlator_t *this,
 	local->fd = fd_ref (fd);
 	local->size = size;
 
-	nufa_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
+	dht_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
 
 	/* TODO: do proper readdir */
-	STACK_WIND (frame, nufa_readdir_cbk,
+	STACK_WIND (frame, dht_readdir_cbk,
 		    xvol, xvol->fops->readdir,
 		    fd, size, xoff);
 
@@ -2128,17 +2041,17 @@ nufa_readdir (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
 
 
@@ -2154,19 +2067,19 @@ nufa_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 	UNLOCK (&frame->lock);
 
-	this_call_cnt = nufa_frame_return (frame);
+	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
         return 0;
 }
 
 
 int
-nufa_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
+dht_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 {
-	nufa_local_t  *local  = NULL;
-	nufa_conf_t   *conf = NULL;
+	dht_local_t  *local  = NULL;
+	dht_conf_t   *conf = NULL;
         int           op_errno = -1;
 	int           i = -1;
 
@@ -2177,7 +2090,7 @@ nufa_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 
 	conf = this->private;
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -2189,7 +2102,7 @@ nufa_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 	local->call_cnt = conf->subvolume_cnt;
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
-		STACK_WIND (frame, nufa_fsyncdir_cbk,
+		STACK_WIND (frame, dht_fsyncdir_cbk,
 			    conf->subvolumes[i],
 			    conf->subvolumes[i]->fops->fsyncdir,
 			    fd, datasync);
@@ -2199,30 +2112,29 @@ nufa_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
 
 
 int
-nufa_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		 int op_ret, int op_errno,
 		 inode_t *inode, struct stat *stbuf)
 {
 	call_frame_t *prev = NULL;
-	nufa_layout_t *layout = NULL;
+	dht_layout_t *layout = NULL;
 	int           ret = -1;
-	nufa_local_t  *local = NULL;
+
 
 	if (op_ret == -1)
 		goto out;
 
-	prev  = cookie;
-	local = frame->local;
+	prev = cookie;
 
-	nufa_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
-	layout = nufa_layout_for_subvol (this, prev->this);
+	dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+	layout = dht_layout_for_subvol (this, prev->this);
 
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -2243,63 +2155,24 @@ nufa_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
 out:
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 	return 0;
 }
 
 
-
 int
-nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			 int op_ret, int op_errno,
-			 inode_t *inode, struct stat *stbuf)
+dht_mknod (call_frame_t *frame, xlator_t *this,
+	   loc_t *loc, mode_t mode, dev_t rdev)
 {
-	nufa_local_t  *local = NULL;
-	call_frame_t *prev = NULL;
-        nufa_conf_t   *conf  = NULL;
+	xlator_t  *subvol = NULL;
+	int        op_errno = -1;
 
-	local = frame->local;
-	prev  = cookie;
-	conf  = this->private;
-	
-	if (op_ret >= 0) {
-		STACK_WIND (frame, nufa_newfile_cbk,
-			    conf->local_volume, 
-			    conf->local_volume->fops->mknod,
-			    &local->loc, local->mode, local->rdev);
-
-		return 0;
-	}
-
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
-	return 0;
-}
-
-int
-nufa_mknod (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, mode_t mode, dev_t rdev)
-{
-	xlator_t     *subvol = NULL;
-	nufa_local_t  *local  = NULL;	
-        nufa_conf_t   *conf   = NULL;
-	int           op_errno = -1;
-	int           ret    = -1;
 
 	VALIDATE_OR_GOTO (frame, err);
 	VALIDATE_OR_GOTO (this, err);
 	VALIDATE_OR_GOTO (loc, err);
 
-	conf = this->private;
-
-	local = nufa_local_init (frame);
-	if (!local) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
-		op_errno = ENOMEM;
-		goto err;
-	}
-
-	subvol = nufa_subvol_get_hashed (this, loc);
+	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no subvolume in layout for path=%s",
@@ -2311,25 +2184,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 	gf_log (this->name, GF_LOG_DEBUG,
 		"creating %s on %s", loc->path, subvol->name);
 
-	if (conf->local_volume != subvol) {
-		/* Create linkfile first */
-		ret = loc_copy (&local->loc, loc);
-		if (ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"memory allocation failed :(");
-			op_errno = ENOMEM;
-			goto err;
-		}
-
-		local->mode = mode;
-		local->rdev = rdev;
-		
-		nufa_linkfile_create (frame, nufa_mknod_linkfile_cbk,
-				      conf->local_volume, subvol, loc);
-		return 0;
-	}
-
-	STACK_WIND (frame, nufa_newfile_cbk,
+	STACK_WIND (frame, dht_newfile_cbk,
 		    subvol, subvol->fops->mknod,
 		    loc, mode, rdev);
 
@@ -2337,14 +2192,14 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_symlink (call_frame_t *frame, xlator_t *this,
+dht_symlink (call_frame_t *frame, xlator_t *this,
 	     const char *linkname, loc_t *loc)
 {
 	xlator_t  *subvol = NULL;
@@ -2355,7 +2210,7 @@ nufa_symlink (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (this, err);
 	VALIDATE_OR_GOTO (loc, err);
 
-	subvol = nufa_subvol_get_hashed (this, loc);
+	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no subvolume in layout for path=%s",
@@ -2367,7 +2222,7 @@ nufa_symlink (call_frame_t *frame, xlator_t *this,
 	gf_log (this->name, GF_LOG_DEBUG,
 		"creating %s on %s", loc->path, subvol->name);
 
-	STACK_WIND (frame, nufa_newfile_cbk,
+	STACK_WIND (frame, dht_newfile_cbk,
 		    subvol, subvol->fops->symlink,
 		    linkname, loc);
 
@@ -2375,25 +2230,26 @@ nufa_symlink (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
+dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	xlator_t    *cached_subvol = NULL;
 	xlator_t    *hashed_subvol = NULL;
 	int          op_errno = -1;
-	nufa_local_t *local = NULL;
+	dht_local_t *local = NULL;
+
 
 	VALIDATE_OR_GOTO (frame, err);
 	VALIDATE_OR_GOTO (this, err);
 	VALIDATE_OR_GOTO (loc, err);
 
-	cached_subvol = nufa_subvol_get_cached (this, loc->inode);
+	cached_subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!cached_subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", loc->path);
@@ -2401,7 +2257,7 @@ nufa_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 		goto err;
 	}
 
-	hashed_subvol = nufa_subvol_get_hashed (this, loc);
+	hashed_subvol = dht_subvol_get_hashed (this, loc);
 	if (!hashed_subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no subvolume in layout for path=%s",
@@ -2410,7 +2266,7 @@ nufa_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -2422,31 +2278,31 @@ nufa_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	if (hashed_subvol != cached_subvol)
 		local->call_cnt++;
 
-	STACK_WIND (frame, nufa_err_cbk,
+	STACK_WIND (frame, dht_err_cbk,
 		    cached_subvol, cached_subvol->fops->unlink, loc);
 
 	if (hashed_subvol != cached_subvol)
-		STACK_WIND (frame, nufa_err_cbk,
+		STACK_WIND (frame, dht_err_cbk,
 			    hashed_subvol, hashed_subvol->fops->unlink, loc);
 
 	return 0;
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
 
 
 int
-nufa_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int op_ret, int op_errno,
 	      inode_t *inode, struct stat *stbuf)
 {
         call_frame_t *prev = NULL;
-	nufa_layout_t *layout = NULL;
-	nufa_local_t  *local = NULL;
+	dht_layout_t *layout = NULL;
+	dht_local_t  *local = NULL;
 
         prev = cookie;
 	local = frame->local;
@@ -2454,7 +2310,7 @@ nufa_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 goto out;
 
-	layout = nufa_layout_for_subvol (this, prev->this);
+	layout = dht_layout_for_subvol (this, prev->this);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no pre-set layout for subvolume %s",
@@ -2467,18 +2323,18 @@ nufa_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	stbuf->st_ino = local->loc.inode->ino;
 
 out:
-        NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
 	return 0;
 }
 
 
 int
-nufa_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int op_ret, int op_errno,
 		       inode_t *inode, struct stat *stbuf)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	xlator_t     *srcvol = NULL;
 
 
@@ -2488,28 +2344,28 @@ nufa_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 	srcvol = local->linkfile.srcvol;
 
-	STACK_WIND (frame, nufa_link_cbk,
+	STACK_WIND (frame, dht_link_cbk,
 		    srcvol, srcvol->fops->link,
 		    &local->loc, &local->loc2);
 
 	return 0;
 
 err:
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
 	return 0;
 }
 
 
 int
-nufa_link (call_frame_t *frame, xlator_t *this,
+dht_link (call_frame_t *frame, xlator_t *this,
 	  loc_t *oldloc, loc_t *newloc)
 {
 	xlator_t    *cached_subvol = NULL;
 	xlator_t    *hashed_subvol = NULL;
 	int          op_errno = -1;
 	int          ret = -1;
-	nufa_local_t *local = NULL;
+	dht_local_t *local = NULL;
 
 
 	VALIDATE_OR_GOTO (frame, err);
@@ -2517,7 +2373,7 @@ nufa_link (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (oldloc, err);
 	VALIDATE_OR_GOTO (newloc, err);
 
-	cached_subvol = nufa_subvol_get_cached (this, oldloc->inode);
+	cached_subvol = dht_subvol_get_cached (this, oldloc->inode);
 	if (!cached_subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", oldloc->path);
@@ -2525,7 +2381,7 @@ nufa_link (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	hashed_subvol = nufa_subvol_get_hashed (this, newloc);
+	hashed_subvol = dht_subvol_get_hashed (this, newloc);
 	if (!hashed_subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no subvolume in layout for path=%s",
@@ -2534,7 +2390,7 @@ nufa_link (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -2559,10 +2415,10 @@ nufa_link (call_frame_t *frame, xlator_t *this,
 	}
 
 	if (hashed_subvol != cached_subvol) {
-		nufa_linkfile_create (frame, nufa_link_linkfile_cbk,
+		dht_linkfile_create (frame, dht_link_linkfile_cbk,
 				     cached_subvol, hashed_subvol, newloc);
 	} else {
-		STACK_WIND (frame, nufa_link_cbk,
+		STACK_WIND (frame, dht_link_cbk,
 			    cached_subvol, cached_subvol->fops->link,
 			    oldloc, newloc);
 	}
@@ -2571,30 +2427,29 @@ nufa_link (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		 int op_ret, int op_errno,
 		 fd_t *fd, inode_t *inode, struct stat *stbuf)
 {
-	nufa_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
-	nufa_layout_t *layout = NULL;
+	dht_layout_t *layout = NULL;
 	int           ret = -1;
+
 
 	if (op_ret == -1)
 		goto out;
 
 	prev = cookie;
-	local = frame->local;
 
-	nufa_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
-	layout = nufa_layout_for_subvol (this, prev->this);
+	dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+	layout = dht_layout_for_subvol (this, prev->this);
 
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -2615,65 +2470,24 @@ nufa_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
 out:
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
 	return 0;
 }
 
 
 int
-nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie, 
-				 xlator_t *this, int op_ret, int op_errno,
-				 inode_t *inode, struct stat *stbuf)
-{
-	nufa_local_t  *local = NULL;
-	call_frame_t *prev = NULL;
-        nufa_conf_t   *conf  = NULL;
-
-	local = frame->local;
-	prev  = cookie;
-	conf  = this->private;
-
-	if (op_ret == -1)
-		goto err;
-
-	STACK_WIND (frame, nufa_create_cbk,
-		    conf->local_volume, conf->local_volume->fops->create,
-		    &local->loc, local->flags, local->mode, local->fd);
-
-	return 0;
-
-err:
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);	
-	return 0;
-}
-
-
-
-int
-nufa_create (call_frame_t *frame, xlator_t *this,
+dht_create (call_frame_t *frame, xlator_t *this,
 	    loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
-	xlator_t  *subvol   = NULL;
-        nufa_conf_t   *conf  = NULL;
-	nufa_local_t *local  = NULL;
+	xlator_t  *subvol = NULL;
 	int        op_errno = -1;
-	int        ret      = -1;
+
 
 	VALIDATE_OR_GOTO (frame, err);
 	VALIDATE_OR_GOTO (this, err);
 	VALIDATE_OR_GOTO (loc, err);
 
-	conf = this->private;
-
-	local = nufa_local_init (frame);
-	if (!local) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
-		op_errno = ENOMEM;
-		goto err;
-	}
-
-	subvol = nufa_subvol_get_hashed (this, loc);
+	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no subvolume in layout for path=%s",
@@ -2684,27 +2498,8 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"creating %s on %s", loc->path, subvol->name);
-	
-	if (subvol != conf->local_volume) {
-		/* create a link file instead of actual file */
-		ret = loc_copy (&local->loc, loc);
-		if (ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"memory allocation failed :(");
-			op_errno = ENOMEM;
-			goto err;
-		}
 
-		local->fd = fd_ref (fd);
-		local->mode = mode;
-		local->flags = flags;
-		
-		nufa_linkfile_create (frame, nufa_create_linkfile_create_cbk,
-				      conf->local_volume, subvol, loc);
-		return 0;
-	}
-
-	STACK_WIND (frame, nufa_create_cbk,
+	STACK_WIND (frame, dht_create_cbk,
 		    subvol, subvol->fops->create,
 		    loc, flags, mode, fd);
 
@@ -2712,19 +2507,19 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
+dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 			xlator_t *this,
 			int32_t op_ret, int32_t op_errno)
 {
-	nufa_local_t   *local = NULL;
-	nufa_layout_t  *layout = NULL;
+	dht_local_t   *local = NULL;
+	dht_layout_t  *layout = NULL;
 
 
 	local = frame->local;
@@ -2735,7 +2530,7 @@ nufa_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 		local->selfheal.layout = NULL;
 	}
 
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno,
+	DHT_STACK_UNWIND (frame, op_ret, op_errno,
 			  local->inode, &local->stbuf);
 
 	return 0;
@@ -2743,14 +2538,14 @@ nufa_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 
 
 int
-nufa_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno, inode_t *inode, struct stat *stbuf)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
 	int           ret = -1;
 	call_frame_t *prev = NULL;
-	nufa_layout_t *layout = NULL;
+	dht_layout_t *layout = NULL;
 
 	local = frame->local;
 	prev  = cookie;
@@ -2758,7 +2553,7 @@ nufa_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		ret = nufa_layout_merge (this, layout, prev->this,
+		ret = dht_layout_merge (this, layout, prev->this,
 					op_ret, op_errno, NULL);
 
 		if (op_ret == -1) {
@@ -2767,16 +2562,16 @@ nufa_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 		local->op_ret = 0;
 
-		nufa_stat_merge (this, &local->stbuf, stbuf, prev->this);
+		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
 	}
 unlock:
 	UNLOCK (&frame->lock);
 
 
-	this_call_cnt = nufa_frame_return (frame);
+	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
 		local->layout = NULL;
-		nufa_selfheal_directory (frame, nufa_mkdir_selfheal_cbk,
+		dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
 					&local->loc, layout);
 	}
 
@@ -2785,11 +2580,11 @@ unlock:
 
 
 int
-nufa_mkdir (call_frame_t *frame, xlator_t *this,
+dht_mkdir (call_frame_t *frame, xlator_t *this,
 	   loc_t *loc, mode_t mode)
 {
-	nufa_local_t  *local  = NULL;
-	nufa_conf_t   *conf = NULL;
+	dht_local_t  *local  = NULL;
+	dht_conf_t   *conf = NULL;
         int           op_errno = -1;
 	int           i = -1;
 	int           ret = -1;
@@ -2803,7 +2598,7 @@ nufa_mkdir (call_frame_t *frame, xlator_t *this,
 
 	conf = this->private;
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"memory allocation failed :(");
@@ -2823,7 +2618,7 @@ nufa_mkdir (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local->layout = nufa_layout_new (this, conf->subvolume_cnt);
+	local->layout = dht_layout_new (this, conf->subvolume_cnt);
 	if (!local->layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"memory allocation failed :(");
@@ -2832,7 +2627,7 @@ nufa_mkdir (call_frame_t *frame, xlator_t *this,
 	}
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
-		STACK_WIND (frame, nufa_mkdir_cbk,
+		STACK_WIND (frame, dht_mkdir_cbk,
 			    conf->subvolumes[i],
 			    conf->subvolumes[i]->fops->mkdir,
 			    loc, mode);
@@ -2842,35 +2637,35 @@ nufa_mkdir (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
 
 
 int
-nufa_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			int op_ret, int op_errno)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
 	local = frame->local;
 	local->layout = NULL;
 
-	NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
 	return 0;
 }
 
 
 int
-nufa_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
 	call_frame_t *prev = NULL;
-	nufa_layout_t *layout = NULL;
+	dht_layout_t *layout = NULL;
 	void         *tmp_layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
 
 	local = frame->local;
@@ -2896,7 +2691,7 @@ unlock:
 	UNLOCK (&frame->lock);
 
 
-	this_call_cnt = nufa_frame_return (frame);
+	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
 		if (local->need_selfheal) {
 			inode_ctx_get (local->loc.inode, this, &tmp_layout);
@@ -2905,10 +2700,10 @@ unlock:
 			/* TODO: neater interface needed below */
 			local->stbuf.st_mode = local->loc.inode->st_mode;
 
-			nufa_selfheal_restore (frame, nufa_rmdir_selfheal_cbk,
+			dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
 					      &local->loc, layout);
 		} else {
-			NUFA_STACK_UNWIND (frame, local->op_ret,
+			DHT_STACK_UNWIND (frame, local->op_ret,
 					  local->op_errno);
 		}
 	}
@@ -2918,10 +2713,10 @@ unlock:
 
 
 int
-nufa_rmdir_do (call_frame_t *frame, xlator_t *this)
+dht_rmdir_do (call_frame_t *frame, xlator_t *this)
 {
-	nufa_local_t  *local = NULL;
-	nufa_conf_t   *conf = NULL;
+	dht_local_t  *local = NULL;
+	dht_conf_t   *conf = NULL;
 	int           i = 0;
 
 	conf = this->private;
@@ -2933,7 +2728,7 @@ nufa_rmdir_do (call_frame_t *frame, xlator_t *this)
 	local->call_cnt = conf->subvolume_cnt;
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
-		STACK_WIND (frame, nufa_rmdir_cbk,
+		STACK_WIND (frame, dht_rmdir_cbk,
 			    conf->subvolumes[i],
 			    conf->subvolumes[i]->fops->rmdir,
 			    &local->loc);
@@ -2942,16 +2737,16 @@ nufa_rmdir_do (call_frame_t *frame, xlator_t *this)
 	return 0;
 
 err:
-	NUFA_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 	return 0;
 }
 
 
 int
-nufa_rmdir_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_rmdir_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int op_ret, int op_errno, gf_dirent_t *entries)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	int           this_call_cnt = -1;
 	call_frame_t *prev = NULL;
 
@@ -2966,10 +2761,10 @@ nufa_rmdir_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->op_errno = ENOTEMPTY;
 	}
 
-	this_call_cnt = nufa_frame_return (frame);
+	this_call_cnt = dht_frame_return (frame);
 
 	if (is_last_call (this_call_cnt)) {
-		nufa_rmdir_do (frame, this);
+		dht_rmdir_do (frame, this);
 	}
 
 	return 0;
@@ -2977,10 +2772,10 @@ nufa_rmdir_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-nufa_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int op_ret, int op_errno, fd_t *fd)
 {
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 	int           this_call_cnt = -1;
 	call_frame_t *prev = NULL;
 
@@ -2996,17 +2791,17 @@ nufa_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto err;
 	}
 
-	STACK_WIND (frame, nufa_rmdir_readdir_cbk,
+	STACK_WIND (frame, dht_rmdir_readdir_cbk,
 		    prev->this, prev->this->fops->readdir,
 		    local->fd, 4096, 0);
 
 	return 0;
 
 err:
-	this_call_cnt = nufa_frame_return (frame);
+	this_call_cnt = dht_frame_return (frame);
 
 	if (is_last_call (this_call_cnt)) {
-		nufa_rmdir_do (frame, this);
+		dht_rmdir_do (frame, this);
 	}
 
 	return 0;
@@ -3014,10 +2809,10 @@ err:
 
 
 int
-nufa_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-	nufa_local_t  *local  = NULL;
-	nufa_conf_t   *conf = NULL;
+	dht_local_t  *local  = NULL;
+	dht_conf_t   *conf = NULL;
         int           op_errno = -1;
 	int           i = -1;
 	int           ret = -1;
@@ -3031,7 +2826,7 @@ nufa_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	conf = this->private;
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"memory allocation failed :(");
@@ -3059,7 +2854,7 @@ nufa_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	}
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
-		STACK_WIND (frame, nufa_rmdir_opendir_cbk,
+		STACK_WIND (frame, dht_rmdir_opendir_cbk,
 			    conf->subvolumes[i],
 			    conf->subvolumes[i]->fops->opendir,
 			    loc, local->fd);
@@ -3069,26 +2864,26 @@ nufa_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
 
 
 static int32_t
-nufa_xattrop_cbk (call_frame_t *frame,
+dht_xattrop_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 dict_t *dict)
 {
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno, dict);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, dict);
 	return 0;
 }
 
 int32_t
-nufa_xattrop (call_frame_t *frame,
+dht_xattrop (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
 	     gf_xattrop_flags_t flags,
@@ -3096,7 +2891,7 @@ nufa_xattrop (call_frame_t *frame,
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -3104,7 +2899,7 @@ nufa_xattrop (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = nufa_subvol_get_cached (this, loc->inode);
+	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", loc->path);
@@ -3112,7 +2907,7 @@ nufa_xattrop (call_frame_t *frame,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -3124,7 +2919,7 @@ nufa_xattrop (call_frame_t *frame,
 	local->call_cnt = 1;
 
 	STACK_WIND (frame,
-		    nufa_xattrop_cbk,
+		    dht_xattrop_cbk,
 		    subvol, subvol->fops->xattrop,
 		    loc, flags, dict);
 
@@ -3132,25 +2927,25 @@ nufa_xattrop (call_frame_t *frame,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 static int32_t
-nufa_fxattrop_cbk (call_frame_t *frame,
+dht_fxattrop_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  dict_t *dict)
 {
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno, dict);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, dict);
 	return 0;
 }
 
 int32_t
-nufa_fxattrop (call_frame_t *frame,
+dht_fxattrop (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd,
 	      gf_xattrop_flags_t flags,
@@ -3163,7 +2958,7 @@ nufa_fxattrop (call_frame_t *frame,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -3172,7 +2967,7 @@ nufa_fxattrop (call_frame_t *frame,
 	}
 
 	STACK_WIND (frame,
-		    nufa_fxattrop_cbk,
+		    dht_fxattrop_cbk,
 		    subvol, subvol->fops->fxattrop,
 		    fd, flags, dict);
 
@@ -3180,29 +2975,29 @@ nufa_fxattrop (call_frame_t *frame,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
 }
 
 
 static int32_t
-nufa_inodelk_cbk (call_frame_t *frame, void *cookie,
+dht_inodelk_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
 
 int32_t
-nufa_inodelk (call_frame_t *frame, xlator_t *this,
+dht_inodelk (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, int32_t cmd, struct flock *lock)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -3211,7 +3006,7 @@ nufa_inodelk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = nufa_subvol_get_cached (this, loc->inode);
+	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", loc->path);
@@ -3219,7 +3014,7 @@ nufa_inodelk (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -3231,7 +3026,7 @@ nufa_inodelk (call_frame_t *frame, xlator_t *this,
 	local->call_cnt = 1;
 
 	STACK_WIND (frame,
-		    nufa_inodelk_cbk,
+		    dht_inodelk_cbk,
 		    subvol, subvol->fops->inodelk,
 		    loc, cmd, lock);
 
@@ -3239,24 +3034,24 @@ nufa_inodelk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
 
 
 static int32_t
-nufa_finodelk_cbk (call_frame_t *frame, void *cookie,
+dht_finodelk_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
 
 int32_t
-nufa_finodelk (call_frame_t *frame, xlator_t *this,
+dht_finodelk (call_frame_t *frame, xlator_t *this,
 	      fd_t *fd, int32_t cmd, struct flock *lock)
 {
 	xlator_t     *subvol = NULL;
@@ -3266,7 +3061,7 @@ nufa_finodelk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -3276,7 +3071,7 @@ nufa_finodelk (call_frame_t *frame, xlator_t *this,
 
 
 	STACK_WIND (frame,
-		    nufa_finodelk_cbk,
+		    dht_finodelk_cbk,
 		    subvol, subvol->fops->finodelk,
 		    fd, cmd, lock);
 
@@ -3284,29 +3079,29 @@ nufa_finodelk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
 
 
 static int32_t
-nufa_entrylk_cbk (call_frame_t *frame, void *cookie,
+dht_entrylk_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
 int32_t
-nufa_entrylk (call_frame_t *frame, xlator_t *this,
+dht_entrylk (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, const char *basename,
 	     entrylk_cmd cmd, entrylk_type type)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-	nufa_local_t  *local = NULL;
+	dht_local_t  *local = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -3314,7 +3109,7 @@ nufa_entrylk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = nufa_subvol_get_cached (this, loc->inode);
+	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for path=%s", loc->path);
@@ -3322,7 +3117,7 @@ nufa_entrylk (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local = nufa_local_init (frame);
+	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
@@ -3333,7 +3128,7 @@ nufa_entrylk (call_frame_t *frame, xlator_t *this,
 	local->inode = inode_ref (loc->inode);
 	local->call_cnt = 1;
 
-	STACK_WIND (frame, nufa_entrylk_cbk,
+	STACK_WIND (frame, dht_entrylk_cbk,
 		    subvol, subvol->fops->entrylk,
 		    loc, basename, cmd, type);
 
@@ -3341,22 +3136,22 @@ nufa_entrylk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
 
 static int32_t
-nufa_fentrylk_cbk (call_frame_t *frame, void *cookie,
+dht_fentrylk_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	NUFA_STACK_UNWIND (frame, op_ret, op_errno);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
 
 int32_t
-nufa_fentrylk (call_frame_t *frame, xlator_t *this,
+dht_fentrylk (call_frame_t *frame, xlator_t *this,
 	      fd_t *fd, const char *basename,
 	      entrylk_cmd cmd, entrylk_type type)
 {
@@ -3367,7 +3162,7 @@ nufa_fentrylk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	subvol = nufa_subvol_get_cached (this, fd->inode);
+	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"no cached subvolume for fd=%p", fd);
@@ -3375,7 +3170,7 @@ nufa_fentrylk (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	STACK_WIND (frame, nufa_fentrylk_cbk,
+	STACK_WIND (frame, dht_fentrylk_cbk,
 		    subvol, subvol->fops->fentrylk,
 		    fd, basename, cmd, type);
 
@@ -3383,16 +3178,16 @@ nufa_fentrylk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	NUFA_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno);
 
 	return 0;
 }
 
 
 int
-nufa_forget (xlator_t *this, inode_t *inode)
+dht_forget (xlator_t *this, inode_t *inode)
 {
-	nufa_layout_t *layout = NULL;
+	dht_layout_t *layout = NULL;
 	void         *tmp_layout = NULL; /* This is required to remove 'type-punned' warnings from gcc */
 
 	inode_ctx_get (inode, this, &tmp_layout);
@@ -3408,8 +3203,9 @@ nufa_forget (xlator_t *this, inode_t *inode)
 }
 
 
+
 static int
-nufa_init_subvolumes (xlator_t *this, nufa_conf_t *conf)
+dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
 {
         xlator_list_t *subvols = NULL;
         int            cnt = 0;
@@ -3442,12 +3238,12 @@ nufa_init_subvolumes (xlator_t *this, nufa_conf_t *conf)
 
 
 int
-nufa_notify (xlator_t *this, int event, void *data, ...)
+dht_notify (xlator_t *this, int event, void *data, ...)
 {
 	xlator_t   *subvol = NULL;
 	int         cnt    = -1;
 	int         i      = -1;
-	nufa_conf_t *conf   = NULL;
+	dht_conf_t *conf   = NULL;
 	int         ret    = -1;
 
 
@@ -3456,6 +3252,8 @@ nufa_notify (xlator_t *this, int event, void *data, ...)
 	switch (event) {
 	case GF_EVENT_CHILD_UP:
 		subvol = data;
+
+		conf->gen++;
 
 		for (i = 0; i < conf->subvolume_cnt; i++) {
 			if (subvol == conf->subvolumes[i]) {
@@ -3510,180 +3308,3 @@ nufa_notify (xlator_t *this, int event, void *data, ...)
 	return ret;
 }
 
-
-int
-notify (xlator_t *this, int event, void *data, ...)
-{
-	int ret = -1;
-
-	ret = nufa_notify (this, event, data);
-
-	return ret;
-}
-
-
-int
-init (xlator_t *this)
-{
-	char          *local_volname = NULL;
-	data_t        *data = NULL;
-	xlator_list_t *trav = NULL;
-        nufa_conf_t   *conf = NULL;
-        int            ret = -1;
-        int            i = 0;
-
-	if (!this->children) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"Nufa needs more than one child defined");
-		return -1;
-	}
-  
-	if (!this->parents) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
-	}
-  
-        conf = CALLOC (1, sizeof (*conf));
-        if (!conf) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "memory allocation failed :(");
-                goto err;
-        }
-
-        ret = nufa_init_subvolumes (this, conf);
-        if (ret == -1) {
-                goto err;
-        }
-
-        ret = nufa_layouts_init (this, conf);
-        if (ret == -1) {
-                goto err;
-        }
-
-	LOCK_INIT (&conf->subvolume_lock);
-
-	data = dict_get (this->options, "local-volume-name");
-	if (data) {
-		local_volname = data->data;
-	} else {
-		gf_log (this->name, GF_LOG_ERROR, 
-			"'local-volume-name' option not given, "
-			"assuming '$(hostname)'");
-		local_volname = NULL; /* TODO: get hostname */
-	}
-	trav = this->children;
-	while (trav) {
-		if (strcmp (trav->xlator->name, local_volname) == 0)
-			break;
-		trav = trav->next;
-	}
-	if (!trav) {
-		gf_log (this->name, GF_LOG_ERROR, 
-			"'local-volume-name' option not valid, "
-			"can not continue");
-		goto err;
-	}
-	/* The volume specified exists */
-	conf->local_volume = trav->xlator;
-	
-        this->private = conf;
-
-        return 0;
-
-err:
-        if (conf) {
-                if (conf->file_layouts) {
-                        for (i = 0; i < conf->subvolume_cnt; i++) {
-                                FREE (conf->file_layouts[i]);
-                        }
-                        FREE (conf->file_layouts);
-                }
-
-                if (conf->default_dir_layout)
-                        FREE (conf->default_dir_layout);
-
-                if (conf->subvolumes)
-                        FREE (conf->subvolumes);
-
-		if (conf->subvolume_status)
-			FREE (conf->subvolume_status);
-
-                FREE (conf);
-        }
-
-        return -1;
-}
-
-
-void
-fini (xlator_t *this)
-{
-
-}
-
-
-struct xlator_fops fops = {
-	.lookup      = nufa_lookup,
-	.stat        = nufa_stat,
-	.chmod       = nufa_chmod,
-	.chown       = nufa_chown,
-	.fchown      = nufa_fchown,
-	.fchmod      = nufa_fchmod,
-	.fstat       = nufa_fstat,
-	.utimens     = nufa_utimens,
-	.truncate    = nufa_truncate,
-	.ftruncate   = nufa_ftruncate,
-	.access      = nufa_access,
-	.readlink    = nufa_readlink,
-	.setxattr    = nufa_setxattr,
-	.getxattr    = nufa_getxattr,
-	.removexattr = nufa_removexattr,
-	.open        = nufa_open,
-	.readv       = nufa_readv,
-	.writev      = nufa_writev,
-	.flush       = nufa_flush,
-	.fsync       = nufa_fsync,
-	.statfs      = nufa_statfs,
-	.lk          = nufa_lk,
-	.opendir     = nufa_opendir,
-	.readdir     = nufa_readdir,
-	.fsyncdir    = nufa_fsyncdir,
-	.mknod       = nufa_mknod,
-	.symlink     = nufa_symlink,
-	.unlink      = nufa_unlink,
-	.link        = nufa_link,
-	.create      = nufa_create,
-	.mkdir       = nufa_mkdir,
-	.rmdir       = nufa_rmdir,
-	.rename      = nufa_rename,
-	.inodelk     = nufa_inodelk,
-	.finodelk    = nufa_finodelk,
-	.entrylk     = nufa_entrylk,
-	.fentrylk    = nufa_fentrylk,
-	.xattrop     = nufa_xattrop,
-	.fxattrop    = nufa_fxattrop,
-#if 0
-	.setdents    = nufa_setdents,
-	.getdents    = nufa_getdents,
-	.checksum    = nufa_checksum,
-#endif
-};
-
-
-struct xlator_mops mops = {
-};
-
-
-struct xlator_cbks cbks = {
-//	.release    = nufa_release,
-//      .releasedir = nufa_releasedir,
-	.forget     = nufa_forget
-};
-
-
-struct volume_options options[] = {
-	{ .key  = {"local-volume-name"}, 
-	  .type = GF_OPTION_TYPE_XLATOR 
-	},
-	{ .key  = {NULL} },
-};
