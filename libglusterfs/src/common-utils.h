@@ -40,6 +40,9 @@ void trap (void);
 
 #define GF_UNIVERSAL_ANSWER 42    /* :O */
 
+/* To solve type punned error */
+#define VOID(ptr) ((void **) ((void *) ptr))
+
 #include "logging.h"
 #include "glusterfs.h"
 #include "locking.h"

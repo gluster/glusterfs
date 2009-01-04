@@ -31,8 +31,6 @@
 #include "compat-errno.h"
 
 
-#define VOID(ptr) ((void **)((void *)ptr))
-
 typedef struct _afr_private {
 	gf_lock_t lock;               /* to guard access to child_count, etc */
 	unsigned int child_count;     /* total number of children   */

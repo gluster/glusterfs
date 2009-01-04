@@ -455,7 +455,7 @@ _xlator_graph_init (xlator_t *xl)
 	while (trav) {
 		if (!trav->ready) {
 			if ((ret = xlator_tree_init (trav)) < 0) {
-				gf_log (trav->name, GF_LOG_ERROR, 
+				gf_log ("glusterfs", GF_LOG_ERROR, 
 					"initializing translator failed");
 				return ret;
 			}

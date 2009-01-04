@@ -28,8 +28,6 @@
 #include "dht-common.h"
 #include "byte-order.h"
 
-#define VOID(ptr) ((void **) ((void *) ptr))
-
 #define layout_base_size (sizeof (dht_layout_t))
 
 #define layout_entry_size (sizeof ((dht_layout_t *)NULL)->list[0])
