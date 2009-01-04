@@ -3,7 +3,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
 map_la_LDFLAGS = -module -avoidversion 
 
-map_la_SOURCES = map.c
+map_la_SOURCES = map.c map-helper.c
 map_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = map.h
