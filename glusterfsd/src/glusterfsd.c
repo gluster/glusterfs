@@ -84,9 +84,11 @@ static struct argp_option gf_options[] = {
  	 "Server to get the volume file from.  This option overrides "
 	 "--volfile option"},
  	{"volfile", ARGP_VOLUME_FILE_KEY, "VOLFILE", 0, 
- 	 "File to use as VOLUME_FILE [default: "DEFAULT_VOLUME_FILE"]"},
+ 	 "File to use as VOLUME_FILE [default: "DEFAULT_CLIENT_VOLUME_FILE" or "
+	 DEFAULT_SERVER_VOLUME_FILE"]"},
 	{"spec-file", ARGP_VOLUME_FILE_KEY, "VOLFILE", OPTION_HIDDEN, 
-	 "File to use as VOLFILE [default : "DEFAULT_VOLUME_FILE"]"},
+	 "File to use as VOLFILE [default : "DEFAULT_CLIENT_VOLUME_FILE" or "
+	 DEFAULT_SERVER_VOLUME_FILE"]"},
  	{"log-level", ARGP_LOG_LEVEL_KEY, "LOGLEVEL", 0, 
  	 "Logging severity.  Valid options are DEBUG, WARNING, ERROR, "
 	 "CRITICAL and NONE [default: WARNING]"},
@@ -201,9 +203,13 @@ _add_fuse_mount (xlator_t *graph)
 	top->next     = graph;
 	top->options  = get_new_dict ();
 
-	/* TODO: log on failure */
 	ret = dict_set_static_ptr (top->options, ZR_MOUNTPOINT_OPT,
 				   cmd_args->mount_point);
+	if (ret < 0) {
+		gf_log ("glusterfs", GF_LOG_DEBUG,
+			"failed to set mount-point to options dictionary");
+	} 
+
 	if (cmd_args->fuse_attribute_timeout)
 		ret = dict_set_uint32 (top->options, ZR_ATTR_TIMEOUT_OPT, 
 				       cmd_args->fuse_attribute_timeout);
@@ -828,6 +834,28 @@ zr_build_process_uuid ()
 	return strdup (tmp_str);
 }
 
+#define GF_SERVER_PROCESS 0
+#define GF_CLIENT_PROCESS 1
+
+static uint8_t
+gf_get_process_mode (char *exec_name)
+{
+	char *dup_execname = NULL, *base = NULL;
+	uint8_t ret = 0;
+
+	dup_execname = strdup (exec_name);
+	base = basename (dup_execname);
+	
+	if (!strncmp (base, "glusterfsd", 10)) {
+		ret = GF_SERVER_PROCESS;
+	} else {
+		ret = GF_CLIENT_PROCESS;
+	}
+	
+	free (dup_execname);
+
+	return ret;
+}
 
 int 
 main (int argc, char *argv[])
@@ -847,11 +875,13 @@ main (int argc, char *argv[])
 	xlator_t         *graph = NULL;
 	xlator_t         *trav = NULL;
 	int               fuse_volume_found = 0;
+	uint8_t           process_mode = 0;
 
 	utime = time (NULL);
 	ctx = CALLOC (1, sizeof (glusterfs_ctx_t));
 	ERR_ABORT (ctx);
 	base_exec_name = strdup (argv[0]);
+	process_mode = gf_get_process_mode (base_exec_name);
 	set_global_ctx_ptr (ctx);
 	ctx->process_uuid = zr_build_process_uuid ();
 	cmd_args = &ctx->cmd_args;
@@ -870,9 +900,14 @@ main (int argc, char *argv[])
 		cmd_args->no_daemon_mode = ENABLE_NO_DAEMON_MODE;
 	}
 
-	if ((cmd_args->volfile_server == NULL) && 
-	    (cmd_args->volume_file == NULL))
-		cmd_args->volume_file = strdup (DEFAULT_VOLUME_FILE);
+	if ((cmd_args->volfile_server == NULL) 
+	    && (cmd_args->volume_file == NULL)) {
+		if (process_mode == GF_SERVER_PROCESS)
+			cmd_args->volume_file = strdup (DEFAULT_SERVER_VOLUME_FILE);
+		else
+			cmd_args->volume_file = strdup (DEFAULT_CLIENT_VOLUME_FILE);
+	}
+
 	if (cmd_args->log_file == NULL)
 		asprintf (&cmd_args->log_file, 
 			  DEFAULT_LOG_FILE_DIRECTORY "/%s.log", 
