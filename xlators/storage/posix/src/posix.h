@@ -62,9 +62,9 @@ struct posix_fd {
 };
 
 struct posix_private {
-	char *base_path;
+	char   *base_path;
 	int32_t base_path_length;
-
+	dev_t   base_stdev;
         /* Statistics, provides activity of the server */
 	struct xlator_stats stats; 
   

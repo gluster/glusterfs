@@ -241,7 +241,6 @@ enum {
 
 int asprintf(char **string_ptr, const char *format, ...); 
 char* strsep(char** str, const char* delims);
-size_t strnlen(const char *string, size_t maxlen);                   
 int solaris_listxattr(const char *path, char *list, size_t size);
 int solaris_removexattr(const char *path, const char* key);
 int solaris_getxattr(const char *path, const char* key, 
@@ -260,6 +259,10 @@ int solaris_fsetxattr(int fd, const char* key, const char *value,
 #else
 #include <argp.h>
 #endif /* HAVE_ARGP */
+
+#ifndef HAVE_STRNLEN
+size_t strnlen(const char *string, size_t maxlen);                   
+#endif /* STRNLEN */
 
 #ifndef strdupa
 #define strdupa(s)                                                      \

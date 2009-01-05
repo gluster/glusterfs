@@ -369,6 +369,9 @@ char* strsep(char** str, const char* delims)
 	return token;
 }
 
+#endif /* GF_SOLARIS_HOST_OS */
+
+#ifndef HAVE_STRNLEN
 size_t 
 strnlen(const char *string, size_t maxlen)                   
 {
@@ -377,6 +380,4 @@ strnlen(const char *string, size_t maxlen)
 		len++;
 	return len;
 }
-
-#endif /* GF_SOLARIS_HOST_OS */
-
+#endif /* STRNLEN */
