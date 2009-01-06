@@ -29,3 +29,8 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
 
 CLEANFILES = 
 
+uninstall-local:
+	rm -f $(DESTDIR)$(xlatordir)/replicate.so
+
+install-data-hook:
+	ln -sf afr.so $(DESTDIR)$(xlatordir)/replicate.so
