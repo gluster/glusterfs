@@ -76,6 +76,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_frame_t *prev          = NULL;
 	dht_layout_t *layout        = NULL;
 	int           ret           = 0;
+	int           is_dir        = 0;
 
 	conf  = this->private;
         local = frame->local;
@@ -94,9 +95,6 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		/* TODO: always ensure same subvolume is in layout->list[0] */
 
-		/* TODO: if subvol is down for hashed lookup, try other
-		   subvols in case entry was a directory */
-
 		ret = dht_layout_merge (this, layout, prev->this,
 					op_ret, op_errno, xattr);
 
@@ -108,6 +106,14 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 			goto unlock;
 		}
+ 		is_dir = check_is_dir (inode, stbuf, xattr);
+ 		if (!is_dir)
+ 			goto unlock;
+ 		local->op_ret = 0;
+ 		if (local->xattr == NULL)
+ 			local->xattr = dict_ref (xattr);
+ 		if (local->inode == NULL)
+ 			local->inode = inode_ref (inode);
 
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
         }
@@ -455,7 +461,35 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			return 0;
 		}
 	}
-
+ 	if (op_ret == 0) {
+ 		is_dir      = check_is_dir (inode, stbuf, xattr);
+ 		if (is_dir) {
+ 			local->inode = inode_ref (inode);
+ 			local->xattr = dict_ref (xattr);
+ 		}
+ 	}
+ 	if (is_dir || (op_ret == -1 && op_errno == ENOTCONN)) {
+		call_cnt        = conf->subvolume_cnt;
+ 		local->call_cnt = call_cnt;
+		
+ 		local->layout = dht_layout_new (this, conf->subvolume_cnt);
+ 		if (!local->layout) {
+ 			op_ret   = -1;
+ 			op_errno = ENOMEM;
+ 			gf_log (this->name, GF_LOG_ERROR,
+ 				"memory allocation failed :(");
+ 			goto out;
+ 		}
+		
+		for (i = 0; i < call_cnt; i++) {
+			STACK_WIND (frame, dht_lookup_dir_cbk,
+				    conf->subvolumes[i],
+				    conf->subvolumes[i]->fops->lookup,
+				    &local->loc, 1);
+		}
+ 		return 0;
+ 	}
+ 
         if (op_ret == -1)
                 goto out;
 
@@ -480,33 +514,6 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 inode_ctx_set (inode, this, layout);
                 goto out;
-        }
-
-        if (is_dir) {
-                call_cnt        = conf->subvolume_cnt;
-		local->call_cnt = call_cnt;
-
-                local->inode = inode_ref (inode);
-                local->xattr = dict_ref (xattr);
-
-		local->op_ret = 0;
-		local->op_errno = 0;
-
-		local->layout = dht_layout_new (this, conf->subvolume_cnt);
-		if (!local->layout) {
-			op_ret   = -1;
-			op_errno = ENOMEM;
-			gf_log (this->name, GF_LOG_ERROR,
-				"memory allocation failed :(");
-			goto out;
-		}
-
-                for (i = 0; i < call_cnt; i++) {
-                        STACK_WIND (frame, dht_lookup_dir_cbk,
-                                    conf->subvolumes[i],
-                                    conf->subvolumes[i]->fops->lookup,
-                                    &local->loc, 1);
-                }
         }
 
         if (is_linkfile) {
@@ -617,11 +624,28 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 		}
         } else {
                 if (!hashed_subvol) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "no subvolume in layout for path=%s",
-                                loc->path);
-                        op_errno = EINVAL;
-                        goto err;
+			gf_log (this->name, GF_LOG_ERROR,
+				"no subvolume in layout for path=%s, "
+				"checking on all the subvols to see if "
+				"it is a directory", loc->path);
+ 			call_cnt        = conf->subvolume_cnt;
+ 			local->call_cnt = call_cnt;
+ 			
+ 			local->layout = dht_layout_new (this, conf->subvolume_cnt);
+ 			if (!local->layout) {
+ 				op_errno = ENOMEM;
+ 				gf_log (this->name, GF_LOG_ERROR,
+ 					"memory allocation failed :(");
+ 				goto err;
+ 			}
+ 
+ 			for (i = 0; i < call_cnt; i++) {
+ 				STACK_WIND (frame, dht_lookup_dir_cbk,
+ 					    conf->subvolumes[i],
+ 					    conf->subvolumes[i]->fops->lookup,
+ 					    &local->loc, 1);
+ 			}
+ 			return 0;
                 }
 
                 STACK_WIND (frame, dht_lookup_cbk,
