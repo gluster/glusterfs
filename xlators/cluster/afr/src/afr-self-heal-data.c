@@ -649,7 +649,7 @@ afr_sh_data_open (call_frame_t *frame, xlator_t *this)
 	source  = local->self_heal.source;
 	sources = local->self_heal.sources;
 
-	sh->block_size = sh->buf[source].st_blksize;
+	sh->block_size = 131072;
 	sh->file_size  = sh->buf[source].st_size;
 
 	/* open source */
