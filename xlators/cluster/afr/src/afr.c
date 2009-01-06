@@ -385,14 +385,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 							     priv->child_count,
 							     child_index);
 		} else {
-			prev_child_index = afr_deitransform_orig (lookup_buf->st_ino, 
-								  priv->child_count);
-			if (child_index < prev_child_index) {
-				*lookup_buf = *buf;
-				lookup_buf->st_ino = afr_itransform (buf->st_ino,
-								     priv->child_count,
-								     child_index);
-			}
 			if (FILETYPE_DIFFERS (buf, lookup_buf)) {
 				/* mismatching filetypes with same name
 				   -- Govinda !! GOvinda !!!
@@ -413,6 +405,15 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			if (SIZE_DIFFERS (buf, lookup_buf)
 			    && S_ISREG (buf->st_mode)) {
 				local->need_data_self_heal = 1;
+			}
+
+			prev_child_index = afr_deitransform_orig (lookup_buf->st_ino, 
+								  priv->child_count);
+			if (child_index < prev_child_index) {
+				*lookup_buf = *buf;
+				lookup_buf->st_ino = afr_itransform (buf->st_ino,
+								     priv->child_count,
+								     child_index);
 			}
 		}
 
