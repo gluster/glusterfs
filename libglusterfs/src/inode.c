@@ -855,7 +855,7 @@ inode_path (inode_t *inode,
 		
 		if ((inode->ino != 1) &&
 		    (i == 0)) {
-			gf_log (table->name, GF_LOG_ERROR,
+			gf_log (table->name, GF_LOG_DEBUG,
 				"no dentry for non-root inode %"PRId64,
 				inode->ino);
 			ret = -ENOENT;
