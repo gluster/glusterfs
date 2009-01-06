@@ -35,6 +35,7 @@ afr_sh_supress_errenous_children (int sources[], int child_errno[],
 
 int
 afr_sh_supress_empty_children (int sources[], dict_t *xattr[],
+			       struct stat *buf,
 			       int child_count, const char *key);
 
 void

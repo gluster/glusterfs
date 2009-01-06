@@ -357,16 +357,13 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			goto unlock;
 		}
 
-		if (priv->metadata_self_heal
-		    && afr_sh_has_metadata_pending (xattr, child_index, this))
+		if (afr_sh_has_metadata_pending (xattr, child_index, this))
 			local->need_metadata_self_heal = 1;
 
-		if (priv->entry_self_heal
-		    && afr_sh_has_entry_pending (xattr, child_index, this))
+		if (afr_sh_has_entry_pending (xattr, child_index, this))
 			local->need_entry_self_heal = 1;
 
-		if (priv->data_self_heal
-		    && afr_sh_has_data_pending (xattr, child_index, this))
+		if (afr_sh_has_data_pending (xattr, child_index, this))
 			local->need_data_self_heal = 1;
 
 		/* in case of revalidate, we need to send stat of the
@@ -403,20 +400,17 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 				local->govinda_gOvinda = 1;
 			}
 
-			if (priv->metadata_self_heal
-			    && PERMISSION_DIFFERS (buf, lookup_buf)) {
+			if (PERMISSION_DIFFERS (buf, lookup_buf)) {
 				/* mismatching permissions */
 				local->need_metadata_self_heal = 1;
 			}
 
-			if (priv->metadata_self_heal
-			    && OWNERSHIP_DIFFERS (buf, lookup_buf)) {
+			if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
 				/* mismatching permissions */
 				local->need_metadata_self_heal = 1;
 			}
 
-			if (priv->data_self_heal
-			    && SIZE_DIFFERS (buf, lookup_buf)
+			if (SIZE_DIFFERS (buf, lookup_buf)
 			    && S_ISREG (buf->st_mode)) {
 				local->need_data_self_heal = 1;
 			}
@@ -438,20 +432,16 @@ unlock:
 					local->cont.lookup.inode->ino;
 		}
 
-		if (local->success_count 
-		    && local->enoent_count 
-		    && priv->metadata_self_heal
-		    && priv->data_self_heal
-		    && priv->entry_self_heal) {
+		if (local->success_count && local->enoent_count) {
 			local->need_metadata_self_heal = 1;
 			local->need_data_self_heal = 1;
 			local->need_entry_self_heal = 1;
 		}
 
 		if (local->success_count) {
+			/* check for govinda_gOvinda case in previous lookup */
 			if (dict_get (local->cont.lookup.inode->ctx,
-				      this->name) 
-			    && priv->data_self_heal)
+				      this->name))
 				local->need_data_self_heal = 1;
 		}
 
@@ -529,7 +519,7 @@ out:
 
 /* {{{ open */
 
-int32_t
+int
 afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 			int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
@@ -541,7 +531,7 @@ afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int32_t
+int
 afr_open_cbk (call_frame_t *frame, void *cookie,
 	      xlator_t *this, int32_t op_ret, int32_t op_errno,
 	      fd_t *fd)
@@ -575,8 +565,8 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 				    this, this->fops->ftruncate,
 				    fd, 0);
 		} else {
-			AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-					  local->fd);
+			AFR_STACK_UNWIND (frame, local->op_ret,
+					  local->op_errno, local->fd);
 		}
 	}
 
@@ -584,7 +574,7 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-int32_t
+int
 afr_open (call_frame_t *frame, xlator_t *this,
 	  loc_t *loc, int32_t flags, fd_t *fd)
 {
@@ -660,7 +650,7 @@ out:
 
 /* {{{ flush */
 
-int32_t
+int
 afr_flush_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
@@ -688,7 +678,7 @@ afr_flush_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-int32_t
+int
 afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	afr_private_t *priv = NULL;
@@ -741,7 +731,7 @@ out:
 
 /* {{{ fsync */
 
-int32_t
+int
 afr_fsync_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
@@ -769,7 +759,7 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-int32_t
+int
 afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	   int32_t datasync)
 {
@@ -1898,7 +1888,7 @@ init (xlator_t *this)
 	/* Default values */
 
 	priv->data_self_heal     = 1;
-	priv->metadata_self_heal = 0;
+	priv->metadata_self_heal = 1;
 	priv->entry_self_heal    = 1;
 
 	dict_ret = dict_get_str (this->options, "data-self-heal", &self_heal);
@@ -1913,15 +1903,16 @@ init (xlator_t *this)
 		} 
 	}
 
-	dict_ret = dict_get_str (this->options, "metadata-self-heal", &self_heal);
+	dict_ret = dict_get_str (this->options, "metadata-self-heal",
+				 &self_heal);
 	if (dict_ret == 0) {
 		ret = gf_string2boolean (self_heal, &priv->metadata_self_heal);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"invalid 'option metadata-self-heal %s' "
-				"defaulting to metadata-self-heal as 'off'", 
+				"defaulting to metadata-self-heal as 'on'", 
 				self_heal);
-			priv->metadata_self_heal = 0;
+			priv->metadata_self_heal = 1;
 		} 
 	}
 
@@ -1940,10 +1931,11 @@ init (xlator_t *this)
 	/* Change log options */
 
 	priv->data_change_log     = 1;
-	priv->metadata_change_log = 1;
+	priv->metadata_change_log = 0;
 	priv->entry_change_log    = 1;
 
-	dict_ret = dict_get_str (this->options, "data-change-log", &change_log);
+	dict_ret = dict_get_str (this->options, "data-change-log",
+				 &change_log);
 	if (dict_ret == 0) {
 		ret = gf_string2boolean (change_log, &priv->data_change_log);
 		if (ret < 0) {
@@ -1955,19 +1947,22 @@ init (xlator_t *this)
 		} 
 	}
 
-	dict_ret = dict_get_str (this->options, "metadata-change-log", &change_log);
+	dict_ret = dict_get_str (this->options, "metadata-change-log",
+				 &change_log);
 	if (dict_ret == 0) {
-		ret = gf_string2boolean (change_log, &priv->metadata_change_log);
+		ret = gf_string2boolean (change_log,
+					 &priv->metadata_change_log);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"invalid 'option metadata-change-log %s'. "
-				"defaulting to metadata-change-log as 'on'", 
+				"defaulting to metadata-change-log as 'off'",
 				change_log);
-			priv->metadata_change_log = 1;
+			priv->metadata_change_log = 0;
 		} 
 	}
 
-	dict_ret = dict_get_str (this->options, "entry-change-log", &change_log);
+	dict_ret = dict_get_str (this->options, "entry-change-log",
+				 &change_log);
 	if (dict_ret == 0) {
 		ret = gf_string2boolean (change_log, &priv->entry_change_log);
 		if (ret < 0) {
@@ -2000,7 +1995,8 @@ init (xlator_t *this)
 	}
 
 
-	dict_ret = dict_get_int32 (this->options, "metadata-lock-server-count", 
+	dict_ret = dict_get_int32 (this->options,
+				   "metadata-lock-server-count", 
 				   &lock_server_count);
 	if (dict_ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -2023,7 +2019,7 @@ init (xlator_t *this)
 
 	trav = this->children;
 	while (trav) {
-		if (read_ret == 0 && !strcmp (read_subvol, trav->xlator->name)) {
+		if (!read_ret && !strcmp (read_subvol, trav->xlator->name)) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"subvolume '%s' specified as read child",
 				trav->xlator->name);
@@ -2085,7 +2081,7 @@ out:
 }
 
 
-int32_t
+int
 fini (xlator_t *this)
 {
 	return 0;

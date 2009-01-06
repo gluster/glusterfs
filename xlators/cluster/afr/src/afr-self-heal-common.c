@@ -90,11 +90,38 @@ afr_sh_supress_errenous_children (int sources[], int child_errno[],
 
 int
 afr_sh_supress_empty_children (int sources[], dict_t *xattr[],
+			       struct stat *buf,
 			       int child_count, const char *key)
 {
 	int      i = 0;
 	int32_t *pending = NULL;
 	int      ret = 0;
+	int      all_xattr_missing = 1;
+
+	/* if the file was created by afr with xattrs */
+	for (i = 0; i < child_count; i++) {
+		if (!xattr[i])
+			continue;
+
+		ret = dict_get_ptr (xattr[i], (char *)key, VOID(&pending));
+		if (ret != 0) {
+			continue;
+		}
+
+		all_xattr_missing = 0;
+		break;
+	}
+
+	if (all_xattr_missing) {
+		/* supress 0byte files.. this avoids empty file created
+		   by dir selfheal to overwrite the 'good' file */
+		for (i = 0; i < child_count; i++) {
+			if (!buf[i].st_size)
+				sources[i] = 0;
+		}
+		goto out;
+	}
+
 
 	for (i = 0; i < child_count; i++) {
 		if (!xattr[i]) {
@@ -114,6 +141,7 @@ afr_sh_supress_empty_children (int sources[], dict_t *xattr[],
 		}
 	}
 
+out:
 	return 0;
 }
 
@@ -1024,7 +1052,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 					      priv->child_count);
 	}
 
-	if (local->success_count && local->enoent_count && priv->entry_self_heal) {
+	if (local->success_count && local->enoent_count) {
 		afr_self_heal_missing_entries (frame, this);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
