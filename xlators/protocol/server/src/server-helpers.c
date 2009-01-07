@@ -145,6 +145,10 @@ stat_to_str (struct stat *stbuf)
 	uint32_t atime_nsec = stbuf->st_atim.tv_nsec;
 	uint32_t mtime_nsec = stbuf->st_mtim.tv_nsec;
 	uint32_t ctime_nsec = stbuf->st_ctim.tv_nsec;
+#elif HAVE_BSD_NSEC
+	uint32_t atime_nsec = stbuf->st_atimespec.tv_nsec;
+	uint32_t mtime_nsec = stbuf->st_atimespec.tv_nsec;
+	uint32_t ctime_nsec = stbuf->st_atimespec.tv_nsec;
 #else
 	uint32_t atime_nsec = 0;
 	uint32_t mtime_nsec = 0;

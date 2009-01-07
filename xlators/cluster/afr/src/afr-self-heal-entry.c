@@ -986,6 +986,9 @@ afr_sh_entry_impunge_chown_cbk (call_frame_t *impunge_frame, void *cookie,
 #ifdef HAVE_TV_NSEC
 	ts[0] = impunge_local->cont.lookup.buf.st_atim;
 	ts[1] = impunge_local->cont.lookup.buf.st_mtim;
+#elif HAVE_BSD_NSEC
+	ts[0] = impunge_local->cont.lookup.buf.st_atimespec;
+	ts[1] = impunge_local->cont.lookup.buf.st_mtimespec;
 #else
 	ts[0].tv_sec = impunge_local->cont.lookup.buf.st_atime;
 	ts[1].tv_sec = impunge_local->cont.lookup.buf.st_mtime;

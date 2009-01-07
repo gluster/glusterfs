@@ -333,6 +333,11 @@ gf_dump_config_flags (int fd)
 	write (fd, "tv_nsec 1\n", 10);
 #endif
 
+/* define if found tv_nsec bsd */
+#ifdef HAVE_BSD_NSEC
+	write (fd, "tv_nsec bsd 1\n",14);
+#endif
+
 /* Define to the full name and version of this package. */
 #ifdef PACKAGE_STRING 
 	{
