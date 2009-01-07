@@ -3,8 +3,8 @@ xlator_LTLIBRARIES = dht.la nufa.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
 
-dht_common_source = dht-layout.c dht-helper.c dht-hashfn.c dht-linkfile.c \
-		dht-selfheal.c dht-rename.c 
+dht_common_source = dht-layout.c dht-helper.c dht-linkfile.c \
+		dht-selfheal.c dht-rename.c dht-hashfn.c dht-hashfn-tea.c
 
 dht_la_SOURCES = $(dht_common_source) dht.c 
 

@@ -680,7 +680,7 @@ event_unregister_epoll (struct event_pool *event_pool, int fd, int idx_hint)
 		event_pool->reg[idx] = event_pool->reg[lastidx];
 		event_pool->used--;
 	}
- unlock:
+unlock:
 	pthread_mutex_unlock (&event_pool->mutex);
 
 	return ret;
