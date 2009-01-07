@@ -2584,13 +2584,10 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			local->op_errno = op_errno;
 			goto unlock;
 		}
-		local->op_ret = 0;
-
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
 	}
 unlock:
 	UNLOCK (&frame->lock);
-
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
@@ -2602,6 +2599,56 @@ unlock:
         return 0;
 }
 
+int
+dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie, 
+		      xlator_t *this, int op_ret, int op_errno, 
+		      inode_t *inode, struct stat *stbuf)
+{
+	dht_local_t  *local = NULL;
+	int           ret = -1;
+	call_frame_t *prev = NULL;
+	dht_layout_t *layout = NULL;
+	dht_conf_t   *conf = NULL;
+	int           i = 0;
+	xlator_t     *hashed_subvol = NULL;
+
+	local = frame->local;
+	prev  = cookie;
+	layout = local->layout;
+	conf = this->private;
+	hashed_subvol = local->hashed_subvol;
+
+	ret = dht_layout_merge (this, layout, prev->this,
+				op_ret, op_errno, NULL);
+
+	if (op_ret == -1) {
+		local->op_errno = op_errno;
+		goto err;
+	}
+	local->op_ret = 0;
+
+	dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
+
+	local->call_cnt = conf->subvolume_cnt - 1;
+
+	if (local->call_cnt == 0) {
+		local->layout = NULL;
+		dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
+					&local->loc, layout);
+	}
+	for (i = 0; i < conf->subvolume_cnt; i++) {
+		if (conf->subvolumes[i] == hashed_subvol)
+			continue;
+		STACK_WIND (frame, dht_mkdir_cbk,
+			    conf->subvolumes[i],
+			    conf->subvolumes[i]->fops->mkdir,
+			    &local->loc, local->mode);
+	}
+	return 0;
+err:
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
 
 int
 dht_mkdir (call_frame_t *frame, xlator_t *this,
@@ -2610,8 +2657,8 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 	dht_local_t  *local  = NULL;
 	dht_conf_t   *conf = NULL;
         int           op_errno = -1;
-	int           i = -1;
 	int           ret = -1;
+	xlator_t     *hashed_subvol = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -2630,11 +2677,20 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local->call_cnt = conf->subvolume_cnt;
+	hashed_subvol = dht_subvol_get_hashed (this, loc);
 
+	if (hashed_subvol == NULL) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"hashed subvol not found");
+		op_errno = EINVAL;
+		goto err;
+	}
+
+	local->hashed_subvol = hashed_subvol;
 	local->inode = inode_ref (loc->inode);
-
 	ret = loc_copy (&local->loc, loc);
+	local->mode = mode;
+
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"memory allocation failed :(");
@@ -2650,12 +2706,10 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	for (i = 0; i < conf->subvolume_cnt; i++) {
-		STACK_WIND (frame, dht_mkdir_cbk,
-			    conf->subvolumes[i],
-			    conf->subvolumes[i]->fops->mkdir,
-			    loc, mode);
-	}
+	STACK_WIND (frame, dht_mkdir_hashed_cbk,
+		    hashed_subvol,
+		    hashed_subvol->fops->mkdir,
+		    loc, mode);
 
 	return 0;
 
