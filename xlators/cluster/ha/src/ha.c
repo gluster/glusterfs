@@ -3233,17 +3233,16 @@ ha_statfs_cbk (call_frame_t *frame,
 
 	child_idx = (long) cookie;
 
-	active = ha_next_active_child_for_inode (this,
-						 local->args.statfs.loc.inode,
-						 child_idx, &active_idx);
-	if (active == NULL) {
+	active_idx = ha_next_active_child_index (this, child_idx);
+
+	if (active_idx == -1) {
 		op_ret = -1;
 		op_errno = ENOTCONN;
 		gf_log (this->name, GF_LOG_ERROR,
 			"no active subvolume");
 		goto unwind;
 	}
-
+	active = ha_child_for_index (this, active_idx);
 	STACK_WIND_COOKIE (frame, ha_statfs_cbk,
 			   (void *) (long) active_idx,
 			   active, active->fops->statfs,
@@ -3279,18 +3278,17 @@ ha_statfs (call_frame_t *frame,
 
 	loc_copy (&local->args.statfs.loc, loc);
 
-	active = ha_next_active_child_for_inode (this,
-						 loc->inode, HA_NONE,
-						 &active_idx);
+	active_idx = ha_first_active_child_index (this);
 
-	if (active == NULL) {
-		op_errno = ENOTCONN;
+	if (active_idx == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"no active subvolume");
+			"none of the children are connected");
+		op_errno = ENOTCONN;
 		goto err;
 	}
-
 	frame->local = local;
+
+	active = ha_child_for_index (this, active_idx);
 
 	STACK_WIND_COOKIE (frame, ha_statfs_cbk,
 			   (void *) (long) active_idx,
