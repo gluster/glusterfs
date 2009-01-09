@@ -31,6 +31,10 @@
 
 #include <libgen.h>
 
+/* TODO: currently it can work only above posix, no other translators 
+ *       between them. Not a good thing. Try making more reliable methods.
+ */
+
 struct trash_struct {
 	inode_t *inode;
 	char origpath[ZR_PATH_MAX];
@@ -87,20 +91,6 @@ trash_common_unwind_buf_cbk (call_frame_t *frame,
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
 }
-
-int32_t
-trash_mkdir_bg_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    inode_t *inode,
-		    struct stat *stbuf)
-{
-	STACK_DESTROY (frame->root);
-	return 0;
-}
-
 
 int32_t
 trash_mkdir_cbk (call_frame_t *frame,
@@ -245,8 +235,14 @@ trash_unlink (call_frame_t *frame,
 	      loc_t *loc)
 {
 	trash_private_t *priv = this->private;
+	trash_local_t *local = NULL;
+	time_t       utime = 0;
+	struct tm   *tm = NULL;
+	char         timestr[256];
 
-	if (strncmp (loc->path, priv->trash_dir, strlen(priv->trash_dir)) == 0) {
+
+	if (strncmp (loc->path, priv->trash_dir, 
+		     strlen(priv->trash_dir)) == 0) {
 		/* Trying to rename from the trash can dir, do the
 		   actual unlink */
 		STACK_WIND (frame,
@@ -255,7 +251,7 @@ trash_unlink (call_frame_t *frame,
 			    this->children->xlator->fops->unlink,
 			    loc);
 	} else {
-		trash_local_t *local = CALLOC (1, sizeof (trash_local_t));
+		local = CALLOC (1, sizeof (trash_local_t));
 		if (!local) {
 			STACK_UNWIND (frame, -1, ENOMEM);
 			return 0;
@@ -265,6 +261,12 @@ trash_unlink (call_frame_t *frame,
 		strcpy (local->origpath, loc->path);
 		strcpy (local->newpath, priv->trash_dir);
 		strcat (local->newpath, loc->path);
+
+		utime = time (NULL);
+		tm    = localtime (&utime);
+		strftime (timestr, 256, ".%Y%m%d%H%M%S", tm); 
+		strcat (local->newpath, timestr);
+
 		{
 			loc_t new_loc = {
 				.inode = NULL,
@@ -475,6 +477,10 @@ trash_rename (call_frame_t *frame,
 	      loc_t *newloc)
 {
 	trash_private_t *priv = this->private;
+	trash_local_t *local = NULL;
+	time_t       utime = 0;
+	struct tm   *tm = NULL;
+	char         timestr[256];
 
 	if (strncmp (oldloc->path, priv->trash_dir, 
 		     strlen(priv->trash_dir)) == 0) {
@@ -488,17 +494,24 @@ trash_rename (call_frame_t *frame,
 			    newloc);
 	} else {
 		/* Trying to rename a regular file from GlusterFS */
-		trash_local_t *local = CALLOC (1, sizeof (trash_local_t));
+		local = CALLOC (1, sizeof (trash_local_t));
 		if (!local) {
 			STACK_UNWIND (frame, -1, ENOMEM, NULL);
 			return 0;
 		}
 		frame->local = local;
-		local->inode = oldloc->inode;
-		strcpy (local->newpath, priv->trash_dir);
-		strcat (local->newpath, newloc->path);
+		local->inode = inode_ref (oldloc->inode);
 		strcpy (local->origpath, newloc->path);
 		strcpy (local->oldpath, oldloc->path);
+
+		strcpy (local->newpath, priv->trash_dir);
+		strcat (local->newpath, newloc->path);
+
+		utime = time (NULL);
+		tm    = localtime (&utime);
+		strftime (timestr, 256, ".%Y%m%d%H%M%S", tm); 
+		strcat (local->newpath, timestr);
+
 
 		/* Send a lookup call on newloc, to ensure we are not 
 		   overwriting */
@@ -509,42 +522,6 @@ trash_rename (call_frame_t *frame,
 			    newloc,
 			    0);
 	}
-	return 0;
-}
-
-int32_t
-notify (xlator_t *this,
-        int32_t event,
-        void *data,
-        ...)
-{
-	trash_private_t *priv = this->private;
-	call_frame_t    *frame = NULL;
-
-	switch (event)
-	{
-	case GF_EVENT_CHILD_UP:
-	{
-		/* mkdir (priv->trash_dir); */
-		frame = create_frame (this, this->ctx->pool);
-		{
-			loc_t tmp_loc = {
-				.ino = 0,
-				.inode = NULL,
-				.path = priv->trash_dir
-			};
-			/* TODO:create the directory with proper permissions */
-			STACK_WIND (frame,
-				    trash_mkdir_bg_cbk,
-				    this->children->xlator,
-				    this->children->xlator->fops->mkdir,
-				    &tmp_loc,
-				    0777);
-		}
-	}
-	}
-
-	default_notify (this, event, data);
 	return 0;
 }
 
