@@ -328,4 +328,29 @@ gf_compat_listxattr (int len, dict_t *dict, int size)
 }
 
 
+#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
+/* Linux, Solaris, Cygwin */
+#define ST_ATIM_NSEC(stbuf) ((stbuf)->st_atim.tv_nsec)
+#define ST_CTIM_NSEC(stbuf) ((stbuf)->st_ctim.tv_nsec)
+#define ST_MTIM_NSEC(stbuf) ((stbuf)->st_mtim.tv_nsec)
+#define ST_ATIM_NSEC_SET(stbuf, val) ((stbuf)->st_atim.tv_nsec = (val))
+#define ST_MTIM_NSEC_SET(stbuf, val) ((stbuf)->st_mtim.tv_nsec = (val))
+#define ST_CTIM_NSEC_SET(stbuf, val) ((stbuf)->st_ctim.tv_nsec = (val))
+#elif defined(HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC)
+/* FreeBSD, NetBSD */
+#define ST_ATIM_NSEC(stbuf) ((stbuf)->st_atimespec.tv_nsec)
+#define ST_CTIM_NSEC(stbuf) ((stbuf)->st_ctimespec.tv_nsec)
+#define ST_MTIM_NSEC(stbuf) ((stbuf)->st_mtimespec.tv_nsec)
+#define ST_ATIM_NSEC_SET(stbuf, val) ((stbuf)->st_atimespec.tv_nsec = (val))
+#define ST_MTIM_NSEC_SET(stbuf, val) ((stbuf)->st_mtimespec.tv_nsec = (val))
+#define ST_CTIM_NSEC_SET(stbuf, val) ((stbuf)->st_ctimespec.tv_nsec = (val))
+#else
+#define ST_ATIM_NSEC(stbuf) (0)
+#define ST_CTIM_NSEC(stbuf) (0)
+#define ST_MTIM_NSEC(stbuf) (0)
+#define ST_ATIM_NSEC_SET(stbuf, val) do { } while (0);
+#define ST_MTIM_NSEC_SET(stbuf, val) do { } while (0);
+#define ST_CTIM_NSEC_SET(stbuf, val) do { } while (0);
+#endif
+
 #endif /* __COMPAT_H__ */

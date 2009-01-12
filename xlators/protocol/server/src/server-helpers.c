@@ -141,19 +141,10 @@ stat_to_str (struct stat *stbuf)
 	uint32_t mtime = stbuf->st_mtime;
 	uint32_t ctime = stbuf->st_ctime;
 
-#ifdef HAVE_TV_NSEC
-	uint32_t atime_nsec = stbuf->st_atim.tv_nsec;
-	uint32_t mtime_nsec = stbuf->st_mtim.tv_nsec;
-	uint32_t ctime_nsec = stbuf->st_ctim.tv_nsec;
-#elif HAVE_BSD_NSEC
-	uint32_t atime_nsec = stbuf->st_atimespec.tv_nsec;
-	uint32_t mtime_nsec = stbuf->st_atimespec.tv_nsec;
-	uint32_t ctime_nsec = stbuf->st_atimespec.tv_nsec;
-#else
-	uint32_t atime_nsec = 0;
-	uint32_t mtime_nsec = 0;
-	uint32_t ctime_nsec = 0;
-#endif
+	uint32_t atime_nsec = ST_ATIM_NSEC(stbuf);
+	uint32_t mtime_nsec = ST_MTIM_NSEC(stbuf);
+	uint32_t ctime_nsec = ST_CTIM_NSEC(stbuf);
+
 
 	asprintf (&tmp_buf,
 		  GF_STAT_PRINT_FMT_STR,

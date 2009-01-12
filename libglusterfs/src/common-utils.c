@@ -328,14 +328,14 @@ gf_dump_config_flags (int fd)
 	write (fd, "xattr.h 1\n", 10);
 #endif
 
-/* define if found tv_nsec */
-#ifdef HAVE_TV_NSEC 
-	write (fd, "tv_nsec 1\n", 10);
+/* define if found st_atim.tv_nsec */
+#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
+	write (fd, "st_atim.tv_nsec 1\n", 18);
 #endif
 
-/* define if found tv_nsec bsd */
-#ifdef HAVE_BSD_NSEC
-	write (fd, "tv_nsec bsd 1\n",14);
+/* define if found st_atimespec.tv_nsec */
+#ifdef HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
+	write (fd, "st_atimespec.tv_nsec 1\n",23);
 #endif
 
 /* Define to the full name and version of this package. */

@@ -6408,15 +6408,9 @@ server_setdents (call_frame_t *frame,
 			trav->buf.st_mtime = mtime;
 			trav->buf.st_ctime = ctime;
 			
-#ifdef HAVE_TV_NSEC
-			trav->buf.st_atim.tv_nsec = atime_nsec;
-			trav->buf.st_mtim.tv_nsec = mtime_nsec;
-			trav->buf.st_ctim.tv_nsec = ctime_nsec;
-#elif HAVE_BSD_NSEC
-			trav->buf.st_atimespec.tv_nsec = atime_nsec;
-			trav->buf.st_mtimespec.tv_nsec = mtime_nsec;
-			trav->buf.st_ctimespec.tv_nsec = ctime_nsec;
-#endif
+			ST_ATIM_NSEC_SET(&trav->buf, atime_nsec);
+			ST_MTIM_NSEC_SET(&trav->buf, mtime_nsec);
+			ST_CTIM_NSEC_SET(&trav->buf, ctime_nsec);
 
 		}
 		

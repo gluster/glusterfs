@@ -14,7 +14,7 @@ dnl
 dnl You should have received a copy of the GNU General Public License
 dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([glusterfs],[1.4.0tla842],[gluster-users@gluster.org])
+AC_INIT([glusterfs],[1.4.0tla843],[gluster-users@gluster.org])
 
 AM_INIT_AUTOMAKE
 
@@ -435,28 +435,12 @@ if test "x${have_malloc_stats}" = "xyes"; then
 fi
 AC_SUBST(HAVE_MALLOC_STATS)
 
-dnl check for st_atim in struct stat
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
-				     #include <sys/stat.h>]], 
-		  [[struct stat buf; buf.st_atim.tv_nsec = 0;]])],
-		  [have_tv_nsec=yes], [have_tv_nsec=no])
+dnl Linux, Solaris, Cygwin
+AC_CHECK_MEMBERS([struct stat.st_atim.tv_nsec])
+dnl FreeBSD, NetBSD
+AC_CHECK_MEMBERS([struct stat.st_atimespec.tv_nsec])
 
-if test "x${have_tv_nsec}" = "xyes"; then
-   AC_DEFINE(HAVE_TV_NSEC, 1, [define if found tv_nsec])
-fi
-AC_SUBST(HAVE_TV_NSEC)
-
-dnl check for st_atimespec in struct stat
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
-				     #include <sys/stat.h>]], 
-		  [[struct stat buf; buf.st_atimespec.tv_nsec = 0;]])],
-		  [have_bsd_nsec=yes], [have_bsd_nsec=no])
-
-if test "x${have_bsd_nsec}" = "xyes"; then
-   AC_DEFINE(HAVE_BSD_NSEC, 1, [define if found tv_nsec for bsd])
-fi
-AC_SUBST(HAVE_BSD_NSEC)
-
+dnl Check for argp
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
 AC_CONFIG_SUBDIRS(argp-standalone)
 BUILD_ARGP_STANDALONE=no

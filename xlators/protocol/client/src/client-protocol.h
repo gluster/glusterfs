@@ -164,15 +164,10 @@ gf_string_to_stat(char *string, struct stat *stbuf)
 	stbuf->st_mtime = mtime;
 	stbuf->st_ctime = ctime;
 	
-#ifdef HAVE_TV_NSEC							
-	stbuf->st_atim.tv_nsec = atime_nsec;	
-	stbuf->st_mtim.tv_nsec = mtime_nsec;
-	stbuf->st_ctim.tv_nsec = ctime_nsec;
-#elif HAVE_BSD_NSEC
-	stbuf->st_atimespec.tv_nsec = atime_nsec;
-	stbuf->st_mtimespec.tv_nsec = mtime_nsec;
-	stbuf->st_ctimespec.tv_nsec = ctime_nsec;
-#endif		
+	ST_ATIM_NSEC_SET(stbuf, atime_nsec);
+	ST_MTIM_NSEC_SET(stbuf, mtime_nsec);
+	ST_CTIM_NSEC_SET(stbuf, ctime_nsec);
+
 }
 
 #endif

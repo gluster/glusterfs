@@ -827,15 +827,10 @@ do_utimes (fuse_req_t req,
         struct timespec tv[2];
 	int32_t ret = -1;
 
-#ifdef FUSE_STAT_HAS_NANOSEC
-        tv[0] = ST_ATIM(attr);
-        tv[1] = ST_MTIM(attr);
-#else
-        tv[0].tv_sec = attr->st_atime;
-        tv[0].tv_nsec = 0;
+	tv[0].tv_sec = attr->st_atime;
+	tv[0].tv_nsec = ST_ATIM_NSEC(attr);
         tv[1].tv_sec = attr->st_mtime;
-        tv[1].tv_nsec = 0;
-#endif
+        tv[1].tv_nsec = ST_ATIM_NSEC(attr);
 
         state = state_from_req (req);
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);

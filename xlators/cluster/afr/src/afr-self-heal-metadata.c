@@ -359,9 +359,12 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 
 	local->call_count = call_count;
 
-#ifdef HAVE_TV_NSEC
+#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 	ts[0] = sh->buf[source].st_atim;
 	ts[1] = sh->buf[source].st_mtim;
+#elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
+	ts[0] = sh->buf[source].st_atimespec;
+	ts[1] = sh->buf[source].st_mtimespec;
 #else
 	ts[0].tv_sec = sh->buf[source].st_atime;
 	ts[1].tv_sec = sh->buf[source].st_mtime;
