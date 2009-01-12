@@ -367,9 +367,7 @@ fuse_entry_cbk (call_frame_t *frame,
 			frame->root->unique, gf_fop_list[frame->root->op],
 			state->loc.path, buf->st_ino, state->loc.ino);
 
-		if (state->is_revalidate != 1)
-			inode_link (inode, state->loc.parent,
-				    state->loc.name, buf);
+		inode_link (inode, state->loc.parent, state->loc.name, buf);
 
 		inode_lookup (inode);
 

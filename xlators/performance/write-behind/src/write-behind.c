@@ -1303,8 +1303,7 @@ init (xlator_t *this)
 		ret = gf_string2bytesize (aggregate_size_string, 
 					  &conf->aggregate_size);
                 if (ret != 0) {
-                        gf_log ("write-behind", 
-                                GF_LOG_ERROR, 
+                        gf_log (this->name, GF_LOG_ERROR, 
                                 "invalid number format \"%s\" of \"option aggregate-size\"", 
                                 aggregate_size_string);
                         return -1;
@@ -1361,7 +1360,7 @@ init (xlator_t *this)
 
                 if (conf->flush_behind) {
                         if (conf->aggregate_size != 0) {
-                                gf_log (this->name, GF_LOG_WARNING,
+                                gf_log (this->name, GF_LOG_DEBUG,
                                         "aggregate-size is not zero, disabling flush-behind");
                                 conf->flush_behind = 0;
                         } else {
@@ -1410,12 +1409,12 @@ struct volume_options options[] = {
         { .key  = {"flush-behind"}, 
 	  .type = GF_OPTION_TYPE_BOOL
 	},
-        { .key  = {"aggregate-size"}, 
+        { .key  = {"block-size", "aggregate-size"}, 
 	  .type = GF_OPTION_TYPE_SIZET, 
 	  .min  = 128 * GF_UNIT_KB, 
 	  .max  = 4 * GF_UNIT_MB 
 	},
-        { .key  = {"window-size"}, 
+        { .key  = {"cache-size", "window-size"}, 
 	  .type = GF_OPTION_TYPE_SIZET, 
 	  .min  = 512 * GF_UNIT_KB, 
 	  .max  = 1 * GF_UNIT_GB 

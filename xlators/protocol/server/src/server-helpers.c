@@ -77,14 +77,14 @@ server_loc_fill (loc_t *loc,
 	if (name && parent) {
 		ret = inode_path (parent, name, &dentry_path);
 		if (ret < 0) {
-			gf_log (state->bound_xl->name, GF_LOG_ERROR,
+			gf_log (state->bound_xl->name, GF_LOG_DEBUG,
 				"failed to build path for %"PRId64"/%s: %s",
 				parent->ino, name, strerror (-ret));
 		}
 	} else if (inode) {
 		ret = inode_path (inode, NULL, &dentry_path);
 		if (ret < 0) {
-			gf_log (state->bound_xl->name, GF_LOG_ERROR,
+			gf_log (state->bound_xl->name, GF_LOG_DEBUG,
 				"failed to build path for %"PRId64": %s",
 				inode->ino, strerror (-ret));
 
@@ -95,7 +95,7 @@ server_loc_fill (loc_t *loc,
 
 	if (dentry_path) {
 		if (strcmp (dentry_path, path)) {
-			gf_log (state->bound_xl->name, GF_LOG_ERROR,
+			gf_log (state->bound_xl->name, GF_LOG_DEBUG,
 				"paths differ for inode(%"PRId64"): "
 				"client path = %s. dentry path = %s",
 				ino, path, dentry_path);
