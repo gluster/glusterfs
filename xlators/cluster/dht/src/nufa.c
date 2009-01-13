@@ -514,7 +514,7 @@ init (xlator_t *this)
 	if (dict_get_str (this->options, "lookup-unhashed",
 			  &lookup_unhashed_str) == 0) {
 		gf_string2boolean (lookup_unhashed_str,
-				   (gf_boolean_t *)&conf->search_unhashed);
+				   &conf->search_unhashed);
 	}
 
         ret = dht_init_subvolumes (this, conf);

@@ -103,7 +103,7 @@ struct dht_conf {
 	dht_layout_t **file_layouts;
 	dht_layout_t **dir_layouts;
 	dht_layout_t  *default_dir_layout;
-	int            search_unhashed;
+	gf_boolean_t   search_unhashed;
 	int            gen;
 };
 typedef struct dht_conf dht_conf_t;
