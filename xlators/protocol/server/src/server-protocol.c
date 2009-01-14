@@ -6846,7 +6846,7 @@ mop_setvolume (call_frame_t *frame,
 	ret = gf_authenticate (params, config_params, 
 			       server_private->auth_modules);
 	if (ret == AUTH_ACCEPT) {
-		gf_log (trans->xl->name, GF_LOG_DEBUG,
+		gf_log (trans->xl->name, GF_LOG_INFO,
 			"accepted client from %s",
 			peerinfo->identifier);
 		op_ret = 0;
@@ -7756,6 +7756,12 @@ notify (xlator_t *this,
 		break;
 	case GF_EVENT_POLLERR:
 	{
+		peer_info_t *peerinfo = NULL;
+
+		peerinfo = &(trans->peerinfo);
+		gf_log (trans->xl->name, GF_LOG_INFO, "%s disconnected",
+			peerinfo->identifier);
+
 		ret = -1;
 		transport_disconnect (trans);
 	}

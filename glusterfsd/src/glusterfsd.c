@@ -90,7 +90,7 @@ static struct argp_option gf_options[] = {
 	 "File to use as VOLFILE [default : "DEFAULT_CLIENT_VOLUME_FILE" or "
 	 DEFAULT_SERVER_VOLUME_FILE"]"},
  	{"log-level", ARGP_LOG_LEVEL_KEY, "LOGLEVEL", 0, 
- 	 "Logging severity.  Valid options are DEBUG, WARNING, ERROR, "
+ 	 "Logging severity.  Valid options are DEBUG, NORMAL, WARNING, ERROR, "
 	 "CRITICAL and NONE [default: WARNING]"},
  	{"log-file", ARGP_LOG_FILE_KEY, "LOGFILE", 0, 
  	 "File to use for logging [default: " 

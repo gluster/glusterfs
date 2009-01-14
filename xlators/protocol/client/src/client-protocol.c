@@ -5621,8 +5621,8 @@ client_setvolume_cbk (call_frame_t *frame,
 			priv->child = xlator_search_by_name (this, 
 							     remote_subvol);
 		}
-		gf_log (trans->xl->name, GF_LOG_DEBUG,
-			"SETVOLUME on remote-host succeeded");
+		gf_log (trans->xl->name, GF_LOG_INFO,
+			"connection and handshake succeeded");
 
 		pthread_mutex_lock (&(cprivate->lock));
 		{
@@ -5680,7 +5680,7 @@ client_protocol_reconnect (void *trans_ptr)
 		if (cprivate->connected == 0) {
 			tv.tv_sec = 10;
 
-			gf_log (trans->xl->name, GF_LOG_DEBUG, 
+			gf_log (trans->xl->name, GF_LOG_DEBUG,
 				"attempting reconnect");
 			transport_connect (trans);
 
@@ -6252,6 +6252,8 @@ notify (xlator_t *this,
 	if (cprivate->connected) {
 		struct timeval tv = {0, 0};
 		xlator_list_t *parent = NULL;
+
+		gf_log (this->name, GF_LOG_INFO, "disconnected");
 
 		parent = this->parents;
 		while (parent) {

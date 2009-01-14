@@ -67,17 +67,15 @@
 
 #define GF_PRI_DEV         GF_PRI_FSBLK
 
-/* Replace gf_log with _GF_FORMAT_WARN during compile time and let gcc spit the format specificier warnings. Make sure you replace them back with gf_log call. */
-#define _GF_FORMAT_WARN(domain, loglevel, format, args...)  printf ("__DEBUG__" format, ##args);
-
 typedef enum {
-  GF_LOG_NONE,
-  GF_LOG_TRACE,
-  GF_LOG_CRITICAL,   /* fatal errors */
-  GF_LOG_ERROR,      /* major failures (not necessarily fatal) */
-  GF_LOG_WARNING,    /* info about normal operation */
-  GF_LOG_NORMAL,     /* Normal information */
-  GF_LOG_DEBUG,      /* all other junk */
+	GF_LOG_NONE,
+	GF_LOG_TRACE,
+	GF_LOG_CRITICAL,   /* fatal errors */
+	GF_LOG_ERROR,      /* major failures (not necessarily fatal) */
+	GF_LOG_WARNING,    /* info about normal operation */
+	GF_LOG_INFO,       /* Normal information */
+#define GF_LOG_NORMAL GF_LOG_INFO
+	GF_LOG_DEBUG,      /* all other junk */
 } gf_loglevel_t;
 
 #define GF_LOG_MAX GF_LOG_DEBUG
@@ -102,15 +100,11 @@ extern gf_loglevel_t gf_log_loglevel;
 void 
 gf_log_logrotate (int signum);
 
-int32_t 
-_gf_log (const char *domain,
-	 const char *file,
-	 const char *function,
-	 int32_t line,
-	 gf_loglevel_t level,
-	 const char *fmt, ...);
-int32_t 
-gf_log_init (const char *filename);
+int gf_log_init (const char *filename);
+
+int
+_gf_log (const char *domain, const char *file, const char *function,
+	 int32_t line, gf_loglevel_t level, const char *fmt, ...);
 
 void gf_log_lock (void);
 void gf_log_unlock (void);
@@ -120,14 +114,19 @@ gf_log_get_loglevel (void);
 void 
 gf_log_set_loglevel (gf_loglevel_t level);
 
-#define GF_DEBUG(xl, format, args...) gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)
-#define GF_WARNING(xl, format, args...) gf_log ((xl)->name, GF_LOG_WARNING, format, ##args)
-#define GF_ERROR(xl, format, args...) gf_log ((xl)->name, GF_LOG_ERROR, format, ##args)
+#define GF_DEBUG(xl, format, args...) \
+	gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)
+#define GF_INFO(xl, format, args...) \
+	gf_log ((xl)->name, GF_LOG_INFO, format, ##args)
+#define GF_WARNING(xl, format, args...) \
+	gf_log ((xl)->name, GF_LOG_WARNING, format, ##args)
+#define GF_ERROR(xl, format, args...) \
+	gf_log ((xl)->name, GF_LOG_ERROR, format, ##args)
 
-#define GF_TRACE(xl, args...) \
-  do { \
-    if ((xl)->trace) \
-	    _gf_log ((xl)->name, __FILE__, __FUNCTION__, __LINE__, GF_LOG_TRACE, ##args); \
-  } while(0); \
+#define GF_TRACE(xl, args...) do {					\
+		if ((xl)->trace)					\
+			_gf_log ((xl)->name, __FILE__, __FUNCTION__,	\
+				 __LINE__, GF_LOG_TRACE, ##args);	\
+	} while(0);							\
 
 #endif /* __LOGGING_H__ */
