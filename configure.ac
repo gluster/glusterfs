@@ -14,7 +14,7 @@ dnl
 dnl You should have received a copy of the GNU General Public License
 dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([glusterfs],[1.4.0tla848],[gluster-users@gluster.org])
+AC_INIT([glusterfs],[1.4.0tla849],[gluster-users@gluster.org])
 
 AM_INIT_AUTOMAKE
 
@@ -495,7 +495,7 @@ case $host_os in
 	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
-	if test "x$HAVE_BACKTRACE" = "xyes"; then
+	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
 	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
 	fi				      
 	GF_FUSE_LDADD="-liconv -lfuse"
