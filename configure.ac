@@ -14,7 +14,7 @@ dnl
 dnl You should have received a copy of the GNU General Public License
 dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([glusterfs],[1.4.0tla847],[gluster-users@gluster.org])
+AC_INIT([glusterfs],[1.4.0tla848],[gluster-users@gluster.org])
 
 AM_INIT_AUTOMAKE
 
@@ -467,7 +467,11 @@ fi
 
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
-GF_BOOSTER_SUBDIR="booster"
+
+if test "x$HAVE_LIBGLUSTERFSCLIENT" = "xyes"; then
+   GF_BOOSTER_SUBDIR="booster"
+fi
+
 GF_FUSE_LDADD="-lfuse"
 case $host_os in
      linux*)
