@@ -25,15 +25,19 @@ end-volume
 volume server
   type protocol/server
   option transport-type tcp
-# option transport-type ib-sdp
-# option transport-type ib-verbs
 # option transport-type unix
-# option ib-verbs-work-request-send-size  131072
-# option ib-verbs-work-request-send-count 64
-# option ib-verbs-work-request-recv-size  131072
-# option ib-verbs-work-request-recv-count 64
-# option bind-address 192.168.1.10     # Default is to listen on all interfaces
-# option listen-port 6996              # Default is 6996
+# option transport-type ib-sdp
+# option transport.socket.bind-address 192.168.1.10     # Default is to listen on all interfaces
+# option transport.socket.listen-port 6996              # Default is 6996
+
+# option transport-type ib-verbs
+# option transport.ib-verbs.bind-address 192.168.1.10     # Default is to listen on all interfaces
+# option transport.ib-verbs.listen-port 6996              # Default is 6996
+# option transport.ib-verbs.work-request-send-size  131072
+# option transport.ib-verbs.work-request-send-count 64
+# option transport.ib-verbs.work-request-recv-size  131072
+# option transport.ib-verbs.work-request-recv-count 64
+
 # option client-volume-filename /etc/glusterfs/glusterfs-client.vol
   subvolumes brick
 # NOTE: Access to any volume through protocol/server is denied by

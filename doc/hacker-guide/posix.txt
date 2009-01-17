@@ -42,7 +42,7 @@
 
 - xattrop
 
-  This fop is used by AFR to set version numbers on files.
+  This fop is used by replicate to set version numbers on files. 
 
 - getxattr/setxattr hack to read/write files
 

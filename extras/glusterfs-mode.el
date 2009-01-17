@@ -33,7 +33,7 @@
 					; "stroage/posix"
 					; "encryption/rot-13"
 					; "debug/trace"
-    '("\\<\\(cluster/\\(unify\\|afr\\|stripe\\|ha\\|dht\\)\\|\\performance/\\(io-\\(cache\\|threads\\)\\|write-behind\\|read-ahead\\|symlink-cache\\)\\|protocol/\\(server\\|client\\)\\|features/\\(trash\\|posix-locks\\|locks\\|path-converter\\|filter\\)\\|storage/\\(posix\\|bdb\\)\\|encryption/rot-13\\|debug/trace\\)\\>" . font-lock-keyword-face))
+    '("\\<\\(cluster/\\(unify\\|afr\\|replicate\\|stripe\\|ha\\|dht\\|distribute\\)\\|\\performance/\\(io-\\(cache\\|threads\\)\\|write-behind\\|read-ahead\\|symlink-cache\\)\\|protocol/\\(server\\|client\\)\\|features/\\(trash\\|posix-locks\\|locks\\|path-converter\\|filter\\)\\|storage/\\(posix\\|bdb\\)\\|encryption/rot-13\\|debug/trace\\)\\>" . font-lock-keyword-face))
 "Additional Keywords to highlight in GlusterFS mode.")
 
 (defconst glusterfs-font-lock-keywords-2

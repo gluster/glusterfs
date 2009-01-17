@@ -1,14 +1,17 @@
 volume client
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
-# option transport-type ib-verbs/client # for Infiniband verbs transport
-# option ib-verbs-work-request-send-size  1048576
-# option ib-verbs-work-request-send-count 16
-# option ib-verbs-work-request-recv-size  1048576
-# option ib-verbs-work-request-recv-count 16
-# option transport-type ib-sdp/client  # for Infiniband transport
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
   option remote-host 192.168.1.10      # IP address of the remote brick
-# option remote-port 6996              # default server port is 6996
+# option transport.socket.remote-port 6996              # default server port is 6996
+
+# option transport-type ib-verbs # for Infiniband verbs transport
+# option transport.ib-verbs.work-request-send-size  1048576
+# option transport.ib-verbs.work-request-send-count 16
+# option transport.ib-verbs.work-request-recv-size  1048576
+# option transport.ib-verbs.work-request-recv-count 16
+# option transport.ib-verbs.remote-port 6996              # default server port is 6996
+
   option remote-subvolume brick        # name of the remote volume
 # option transport-timeout 30          # default value is 120seconds 
 end-volume

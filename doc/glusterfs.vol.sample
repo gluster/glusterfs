@@ -20,13 +20,16 @@ volume client
   option transport-type tcp
 # option transport-type unix
 # option transport-type ib-sdp
-# option transport-type ib-verbs
-# option ib-verbs-work-request-send-size  1048576
-# option ib-verbs-work-request-send-count 16
-# option ib-verbs-work-request-recv-size  1048576
-# option ib-verbs-work-request-recv-count 16
   option remote-host 127.0.0.1         # IP address of the remote brick
-# option remote-port 6996              # default server port is 6996
+# option transport.socket.remote-port 6996              # default server port is 6996
+
+# option transport-type ib-verbs
+# option transport.ib-verbs.remote-port 6996              # default server port is 6996
+# option transport.ib-verbs.work-request-send-size  1048576
+# option transport.ib-verbs.work-request-send-count 16
+# option transport.ib-verbs.work-request-recv-size  1048576
+# option transport.ib-verbs.work-request-recv-count 16
+
 # option transport-timeout 30          # seconds to wait for a reply
                                        # from server for each request
   option remote-subvolume brick        # name of the remote volume

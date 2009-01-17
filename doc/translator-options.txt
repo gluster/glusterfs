@@ -1,573 +1,219 @@
-auth/addr/src/addr.c:struct volume_options options[] = {
-auth/addr- 	{ .key   = {"auth.addr.*.allow"}, 
-auth/addr-	  .type  = GF_OPTION_TYPE_ANY 
-auth/addr-	},
-auth/addr- 	{ .key   = {"auth.addr.*.reject"}, 
-auth/addr-	  .type  = GF_OPTION_TYPE_ANY 
-auth/addr-	},
-auth/addr-	{ .key = {NULL} }
-auth/addr-};
---
-auth/login/src/login.c:struct volume_options options[] = {
-auth/login- 	{ .key   = {"auth.login.*.allow"}, 
-auth/login-	  .type  = GF_OPTION_TYPE_ANY 
-auth/login-	},
-auth/login- 	{ .key   = {"auth.login.*.password"}, 
-auth/login-	  .type  = GF_OPTION_TYPE_ANY 
-auth/login-	},
-auth/login-	{ .key = {NULL} }
-auth/login-};
---
-scheduler/alu/src/alu.c:struct volume_options options[] = {
-scheduler/alu-	{ .key   = { "scheduler.alu.order", "alu.order" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_ANY 
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.alu.disk-usage.entry-threshold", 
-scheduler/alu-		     "alu.disk-usage.entry-threshold" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_SIZET
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.alu.disk-usage.exit-threshold", 
-scheduler/alu-		     "alu.disk-usage.exit-threshold" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_SIZET
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.alu.write-usage.entry-threshold", 
-scheduler/alu-		     "alu.write-usage.entry-threshold" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_SIZET
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.alu.write-usage.exit-threshold", 
-scheduler/alu-		     "alu.write-usage.exit-threshold" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_SIZET 
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.alu.read-usage.entry-threshold", 
-scheduler/alu-		     "alu.read-usage.entry-threshold" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_SIZET
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.alu.read-usage.exit-threshold", 
-scheduler/alu-		     "alu.read-usage.exit-threshold" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_SIZET 
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.alu.open-files-usage.entry-threshold", 
-scheduler/alu-		     "alu.open-files-usage.entry-threshold" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_INT
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.alu.open-files-usage.exit-threshold", 
-scheduler/alu-		     "alu.open-files-usage.exit-threshold" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_INT 
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.read-only-subvolumes",
-scheduler/alu-		     "alu.read-only-subvolumes" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_ANY 
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.refresh-interval", 
-scheduler/alu-		     "alu.refresh-interval" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_TIME
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.limits.min-free-disk", 
-scheduler/alu-		     "alu.limits.min-free-disk" },  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_PERCENT
-scheduler/alu-	},
-scheduler/alu-	{ .key   = { "scheduler.alu.stat-refresh.num-file-create"
-scheduler/alu-		     "alu.stat-refresh.num-file-create"},  
-scheduler/alu-	  .type  = GF_OPTION_TYPE_INT
-scheduler/alu-	},
-scheduler/alu-	{ .key  =  {NULL}, }
-scheduler/alu-};
---
-scheduler/nufa/src/nufa.c:struct volume_options options[] = {
-scheduler/nufa-	{ .key   = { "scheduler.refresh-interval", 
-scheduler/nufa-		     "nufa.refresh-interval" },  
-scheduler/nufa-	  .type  = GF_OPTION_TYPE_TIME
-scheduler/nufa-	},
-scheduler/nufa-	{ .key   = { "scheduler.limits.min-free-disk", 
-scheduler/nufa-		     "nufa.limits.min-free-disk" },  
-scheduler/nufa-	  .type  = GF_OPTION_TYPE_PERCENT
-scheduler/nufa-	},
-scheduler/nufa-	{ .key   = { "scheduler.local-volume-name",
-scheduler/nufa-		     "nufa.local-volume-name" },
-scheduler/nufa-	  .type  = GF_OPTION_TYPE_XLATOR
-scheduler/nufa-	},	
-scheduler/nufa-	{ .key = {NULL} }
-scheduler/nufa-};
-scheduler/nufa-
---
-scheduler/random/src/random.c:struct volume_options options[] = {
-scheduler/random-	{ .key   = { "scheduler.refresh-interval", 
-scheduler/random-		     "random.refresh-interval" },  
-scheduler/random-	  .type  = GF_OPTION_TYPE_TIME
-scheduler/random-	},
-scheduler/random-	{ .key   = { "scheduler.limits.min-free-disk", 
-scheduler/random-		     "random.limits.min-free-disk" },  
-scheduler/random-	  .type  = GF_OPTION_TYPE_PERCENT
-scheduler/random-	},
-scheduler/random-	{ .key = {NULL} }
-scheduler/random-};
---
-scheduler/rr/src/rr-options.c:struct volume_options options[] = {
-scheduler/rr-	{ .key   = { "scheduler.refresh-interval", 
-scheduler/rr-		     "rr.refresh-interval" },  
-scheduler/rr-	  .type  = GF_OPTION_TYPE_TIME
-scheduler/rr-	},
-scheduler/rr-	{ .key   = { "scheduler.limits.min-free-disk", 
-scheduler/rr-		     "rr.limits.min-free-disk" },  
-scheduler/rr-	  .type  = GF_OPTION_TYPE_PERCENT
-scheduler/rr-	},
-scheduler/rr-	{ .key   = { "scheduler.read-only-subvolumes", 
-scheduler/rr-		     "rr.read-only-subvolumes" },  
-scheduler/rr-	  .type  = GF_OPTION_TYPE_ANY
-scheduler/rr-	},
-scheduler/rr-	{ .key = {NULL} }
-scheduler/rr-};
---
-scheduler/switch/src/switch.c:struct volume_options options[] = {
-scheduler/switch-	{ .key   = { "scheduler.read-only-subvolumes" ,
-scheduler/switch-		     "switch.read-only-subvolumes"},  
-scheduler/switch-	  .type  = GF_OPTION_TYPE_ANY
-scheduler/switch-	},
-scheduler/switch-	{ .key   = { "scheduler.local-volume-name",
-scheduler/switch-		     "switch.nufa.local-volume-name" },
-scheduler/switch-	  .type  = GF_OPTION_TYPE_XLATOR
-scheduler/switch-	},
-scheduler/switch-	{ .key   = { "scheduler.switch.case",
-scheduler/switch-		     "switch.case" },
-scheduler/switch-	  .type  = GF_OPTION_TYPE_ANY
-scheduler/switch-	},
-scheduler/switch-	{ .key = {NULL} }
-scheduler/switch-};
---
-transport/ib-verbs/src/ib-verbs.c:struct volume_options options[] = {
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.port",
-transport/ib-verbs-		    "ib-verbs-port"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_INT,
-transport/ib-verbs-	  .min   = 1,
-transport/ib-verbs-	  .max   = 4,
-transport/ib-verbs-	  .description = "check the option by 'ibv_devinfo'"
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.mtu",
-transport/ib-verbs-		    "ib-verbs-mtu"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_INT,
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.device-name",
-transport/ib-verbs-		    "ib-verbs-device-name"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_ANY,
-transport/ib-verbs-	  .description = "check by 'ibv_devinfo'"
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.work-request-send-size",
-transport/ib-verbs-		    "ib-verbs-work-request-send-size"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_INT,
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.work-request-recv-size",
-transport/ib-verbs-		    "ib-verbs-work-request-recv-size"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_INT,
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.work-request-send-count",
-transport/ib-verbs-		    "ib-verbs-work-request-send-count"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_INT,
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.work-request-recv-count",
-transport/ib-verbs-		    "ib-verbs-work-request-recv-count"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_INT,
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"remote-port", 
-transport/ib-verbs-		    "transport.remote-port",
-transport/ib-verbs-		    "transport.ib-verbs.remote-port"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_INT 
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.listen-port"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_INT 
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.connect-path", "connect-path"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_ANY 
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.bind-path", "bind-path"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_ANY 
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.ib-verbs.listen-path", "listen-path"}, 
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_ANY 
-transport/ib-verbs-	},
-transport/ib-verbs- 	{ .key   = {"transport.address-family",
-transport/ib-verbs-		    "address-family"}, 
-transport/ib-verbs-	  .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
-transport/ib-verbs-		    "unix", "inet-sdp" },
-transport/ib-verbs-	  .type  = GF_OPTION_TYPE_STR 
-transport/ib-verbs-	},
-transport/ib-verbs-	{ .key = {NULL} }
-transport/ib-verbs-};
---
-transport/socket/src/socket.c:struct volume_options options[] = {
-transport/socket- 	{ .key   = {"remote-port", 
-transport/socket-		    "transport.remote-port",
-transport/socket-		    "transport.socket.remote-port"}, 
-transport/socket-	  .type  = GF_OPTION_TYPE_INT 
-transport/socket-	},
-transport/socket- 	{ .key   = {"transport.socket.listen-port", "listen-port"}, 
-transport/socket-	  .type  = GF_OPTION_TYPE_INT 
-transport/socket-	},
-transport/socket- 	{ .key   = {"transport.socket.bind-address", "bind-address" }, 
-transport/socket-	  .type  = GF_OPTION_TYPE_ANY 
-transport/socket-	},
-transport/socket- 	{ .key   = {"transport.socket.connect-path", "connect-path"}, 
-transport/socket-	  .type  = GF_OPTION_TYPE_ANY 
-transport/socket-	},
-transport/socket- 	{ .key   = {"transport.socket.bind-path", "bind-path"}, 
-transport/socket-	  .type  = GF_OPTION_TYPE_ANY 
-transport/socket-	},
-transport/socket- 	{ .key   = {"transport.socket.listen-path", "listen-path"}, 
-transport/socket-	  .type  = GF_OPTION_TYPE_ANY 
-transport/socket-	},
-transport/socket- 	{ .key   = { "transport.address-family",
-transport/socket-		     "address-family" }, 
-transport/socket-	  .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
-transport/socket-		    "unix", "inet-sdp" },
-transport/socket-	  .type  = GF_OPTION_TYPE_STR 
-transport/socket-	},
-transport/socket-
-transport/socket-	{ .key = {NULL} }
-transport/socket-};
---
-xlators/cluster/afr/src/afr.c:struct volume_options options[] = {
-xlators/cluster/afr-	{ .key  = {"read-subvolume" }, 
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_XLATOR
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {"favorite-child"}, 
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_XLATOR
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {"data-self-heal"},  
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_BOOL 
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {"metadata-self-heal"},  
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_BOOL
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {"entry-self-heal"},  
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_BOOL 
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {"data-change-log"},  
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_BOOL 
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {"metadata-change-log"},  
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_BOOL
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {"entry-change-log"},  
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_BOOL
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {"data-lock-server-count"},  
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_INT, 
-xlators/cluster/afr-	  .min  = 0
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {"metadata-lock-server-count"},  
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_INT, 
-xlators/cluster/afr-	  .min  = 0
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {"entry-lock-server-count"},  
-xlators/cluster/afr-	  .type = GF_OPTION_TYPE_INT,
-xlators/cluster/afr-	  .min  = 0
-xlators/cluster/afr-	},
-xlators/cluster/afr-	{ .key  = {NULL} },
-xlators/cluster/afr-};
---
-xlators/cluster/dht/src/dht.c:struct volume_options options[] = {
-xlators/cluster/dht-        { .key  = {"lookup-unhashed"}, 
-xlators/cluster/dht-	  .type = GF_OPTION_TYPE_BOOL 
-xlators/cluster/dht-	},
-xlators/cluster/dht-	{ .key  = {NULL} },
-xlators/cluster/dht-};
---
-xlators/cluster/unify/src/unify.c:struct volume_options options[] = {
-xlators/cluster/unify-	{ .key   = { "namespace" },  
-xlators/cluster/unify-	  .type  = GF_OPTION_TYPE_XLATOR 
-xlators/cluster/unify-	},
-xlators/cluster/unify-	{ .key   = { "scheduler" },  
-xlators/cluster/unify-	  .value = { "alu", "rr", "random", "nufa", "switch" },
-xlators/cluster/unify-	  .type  = GF_OPTION_TYPE_STR
-xlators/cluster/unify-	},
-xlators/cluster/unify-	{ .key   = {"self-heal"},  
-xlators/cluster/unify-	  .value = { "foreground", "background", "off" },
-xlators/cluster/unify-	  .type  = GF_OPTION_TYPE_STR
-xlators/cluster/unify-	},
-xlators/cluster/unify-	/* TODO: remove it some time later */
-xlators/cluster/unify-	{ .key   = {"optimist"},  
-xlators/cluster/unify-	  .type  = GF_OPTION_TYPE_BOOL 
-xlators/cluster/unify-	},
-xlators/cluster/unify-
-xlators/cluster/unify-	{ .key   = {NULL} },
-xlators/cluster/unify-};
---
-xlators/cluster/nufa/src/nufa.c:struct volume_options options[] = {
-xlators/cluster/nufa-	{ .key  = {"local-volume-name"}, 
-xlators/cluster/nufa-	  .type = GF_OPTION_TYPE_XLATOR 
-xlators/cluster/nufa-	},
-xlators/cluster/nufa-	{ .key  = {NULL} },
-xlators/cluster/nufa-};
---
-xlators/cluster/stripe/src/stripe.c:struct volume_options options[] = {
-xlators/cluster/stripe-	{ .key  = {"block-size"}, 
-xlators/cluster/stripe-	  .type = GF_OPTION_TYPE_ANY 
-xlators/cluster/stripe-	},
-xlators/cluster/stripe-	{ .key  = {"use-xattr"}, 
-xlators/cluster/stripe-	  .type = GF_OPTION_TYPE_BOOL
-xlators/cluster/stripe-	},
-xlators/cluster/stripe-	{ .key  = {NULL} },
-xlators/cluster/stripe-};
---
-xlators/debug/trace/src/trace.c:struct volume_options options[] = {
-xlators/debug/trace-	{ .key  = {"include-ops", "include"}, 
-xlators/debug/trace-	  .type = GF_OPTION_TYPE_STR,
-xlators/debug/trace-	  /*.value = { ""} */
-xlators/debug/trace-	},
-xlators/debug/trace-	{ .key  = {"exclude-ops", "exclude"}, 
-xlators/debug/trace-	  .type = GF_OPTION_TYPE_STR 
-xlators/debug/trace-	  /*.value = { ""} */	  
-xlators/debug/trace-	},
-xlators/debug/trace-	{ .key  = {NULL} },
-xlators/debug/trace-};
-xlators/debug/trace-
---
-xlators/encryption/rot-13/src/rot-13.c:struct volume_options options[] = {
-xlators/encryption/rot-13-	{ .key  = {"encrypt-write"}, 
-xlators/encryption/rot-13-	  .type = GF_OPTION_TYPE_BOOL
-xlators/encryption/rot-13-	},
-xlators/encryption/rot-13-	{ .key  = {"decrypt-read"}, 
-xlators/encryption/rot-13-	  .type = GF_OPTION_TYPE_BOOL 
-xlators/encryption/rot-13-	},
-xlators/encryption/rot-13-	{ .key  = {NULL} },
-xlators/encryption/rot-13-};
---
-xlators/features/path-convertor/src/path.c:struct volume_options options[] = { 
-xlators/features/path-convertor-	{ .key  = {"start-offset"}, 
-xlators/features/path-convertor-	  .type = GF_OPTION_TYPE_INT, 
-xlators/features/path-convertor-	  .min  = 0, 
-xlators/features/path-convertor-	  .max  = 4095 
-xlators/features/path-convertor-	},
-xlators/features/path-convertor-	{ .key  = {"end-offset"}, 
-xlators/features/path-convertor-	  .type = GF_OPTION_TYPE_INT, 
-xlators/features/path-convertor-	  .min  = 1, 
-xlators/features/path-convertor-	  .max  = 4096 
-xlators/features/path-convertor-	},
-xlators/features/path-convertor-	{ .key  = {"replace-with"}, 
-xlators/features/path-convertor-	  .type = GF_OPTION_TYPE_ANY 
-xlators/features/path-convertor-	},
-xlators/features/path-convertor-	{ .key  = {NULL} },
-xlators/features/path-convertor-};
---
-xlators/features/trash/src/trash.c:struct volume_options options[] = {
-xlators/features/trash-	{ .key  = { "trash-dir" }, 
-xlators/features/trash-	  .type = GF_OPTION_TYPE_PATH 
-xlators/features/trash-	},
-xlators/features/trash-	{ .key  = {NULL} },
-xlators/features/trash-};
---
-xlators/features/locks/src/posix.c:struct volume_options options[] = {
-xlators/features/locks-	{ .key  = { "mandatory-locks", "mandatory" }, 
-xlators/features/locks-	  .type = GF_OPTION_TYPE_BOOL 
-xlators/features/locks-	},
-xlators/features/locks-	{ .key = {NULL} },
-xlators/features/locks-};
---
-xlators/features/filter/src/filter.c:struct volume_options options[] = {
-xlators/features/filter-	{ .key  = { "root-squashing" }, 
-xlators/features/filter-	  .type = GF_OPTION_TYPE_BOOL 
-xlators/features/filter-	},
-xlators/features/filter-	{ .key  = { "read-only" }, 
-xlators/features/filter-	  .type = GF_OPTION_TYPE_BOOL
-xlators/features/filter-	},
-xlators/features/filter-	{ .key  = { "fixed-uid" },  
-xlators/features/filter-	  .type = GF_OPTION_TYPE_INT
-xlators/features/filter-	},
-xlators/features/filter-	{ .key  = { "fixed-gid" },  
-xlators/features/filter-	  .type = GF_OPTION_TYPE_INT
-xlators/features/filter-	},
-xlators/features/filter-	{ .key  = { "translate-uid" },  
-xlators/features/filter-	  .type = GF_OPTION_TYPE_ANY 
-xlators/features/filter-	},
-xlators/features/filter-	{ .key  = { "translate-gid" },  
-xlators/features/filter-	  .type = GF_OPTION_TYPE_ANY
-xlators/features/filter-	},
-xlators/features/filter-	{ .key  = { "filter-uid" },  
-xlators/features/filter-	  .type = GF_OPTION_TYPE_ANY 
-xlators/features/filter-	},
-xlators/features/filter-	{ .key  = { "filter-gid" },  
-xlators/features/filter-	  .type = GF_OPTION_TYPE_ANY 
-xlators/features/filter-	},
-xlators/features/filter-	{ .key = {NULL} },
-xlators/features/filter-};
---
-xlators/features/quota/src/quota.c:struct volume_options options[] = {
-xlators/features/quota-	{ .key  = {"min-free-disk-limit"}, 
-xlators/features/quota-	  .type = GF_OPTION_TYPE_PERCENT
-xlators/features/quota-	},
-xlators/features/quota-	{ .key  = {"refresh-interval"}, 
-xlators/features/quota-	  .type = GF_OPTION_TYPE_TIME
-xlators/features/quota-	},
-xlators/features/quota-	{ .key  = {"disk-usage-limit"}, 
-xlators/features/quota-	  .type = GF_OPTION_TYPE_SIZET 
-xlators/features/quota-	},
-xlators/features/quota-	{ .key = {NULL} },
-xlators/features/quota-};
---
-xlators/mount/fuse/src/fuse-bridge.c:struct volume_options options[] = {
-xlators/mount/fuse-	{ .key  = {"direct-io-mode"}, 
-xlators/mount/fuse-	  .type = GF_OPTION_TYPE_BOOL 
-xlators/mount/fuse-	},
-xlators/mount/fuse-	{ .key  = {"macfuse-local"}, 
-xlators/mount/fuse-	  .type = GF_OPTION_TYPE_BOOL 
-xlators/mount/fuse-	},
-xlators/mount/fuse-	{ .key  = {"mount-point", "mountpoint"}, 
-xlators/mount/fuse-	  .type = GF_OPTION_TYPE_PATH 
-xlators/mount/fuse-	},
-xlators/mount/fuse-	{ .key  = {"attribute-timeout"}, 
-xlators/mount/fuse-	  .type = GF_OPTION_TYPE_TIME, 
-xlators/mount/fuse-	  .min  = 0, 
-xlators/mount/fuse-	  .max  = 3600 
-xlators/mount/fuse-	},
-xlators/mount/fuse-	{ .key  = {"entry-timeout"}, 
-xlators/mount/fuse-	  .type = GF_OPTION_TYPE_TIME, 
-xlators/mount/fuse-	  .min  = 0, 
-xlators/mount/fuse-	  .max  = 3600 
-xlators/mount/fuse-	},
-xlators/mount/fuse-	{ .key = {NULL} },
-xlators/mount/fuse-};
---
-xlators/performance/read-ahead/src/read-ahead.c:struct volume_options options[] = {
-xlators/performance/read-ahead-	{ .key  = {"force-atime-update"}, 
-xlators/performance/read-ahead-	  .type = GF_OPTION_TYPE_BOOL 
-xlators/performance/read-ahead-	},
-xlators/performance/read-ahead-	{ .key  = {"page-size"}, 
-xlators/performance/read-ahead-	  .type = GF_OPTION_TYPE_SIZET, 
-xlators/performance/read-ahead-	  .min  = 64 * GF_UNIT_KB, 
-xlators/performance/read-ahead-	  .max  = 2 * GF_UNIT_MB 
-xlators/performance/read-ahead-	},
-xlators/performance/read-ahead-	{ .key  = {"page-count"}, 
-xlators/performance/read-ahead-	  .type = GF_OPTION_TYPE_INT, 
-xlators/performance/read-ahead-	  .min  = 1, 
-xlators/performance/read-ahead-	  .max  = 16 
-xlators/performance/read-ahead-	},
-xlators/performance/read-ahead-	{ .key = {NULL} },
-xlators/performance/read-ahead-};
---
-xlators/performance/write-behind/src/write-behind.c:struct volume_options options[] = {
-xlators/performance/write-behind-        { .key  = {"flush-behind"}, 
-xlators/performance/write-behind-	  .type = GF_OPTION_TYPE_BOOL
-xlators/performance/write-behind-	},
-xlators/performance/write-behind-        { .key  = {"aggregate-size"}, 
-xlators/performance/write-behind-	  .type = GF_OPTION_TYPE_SIZET, 
-xlators/performance/write-behind-	  .min  = 128 * GF_UNIT_KB, 
-xlators/performance/write-behind-	  .max  = 4 * GF_UNIT_MB 
-xlators/performance/write-behind-	},
-xlators/performance/write-behind-        { .key  = {"window-size"}, 
-xlators/performance/write-behind-	  .type = GF_OPTION_TYPE_SIZET, 
-xlators/performance/write-behind-	  .min  = 512 * GF_UNIT_KB, 
-xlators/performance/write-behind-	  .max  = 1 * GF_UNIT_GB 
-xlators/performance/write-behind-	},
-xlators/performance/write-behind-	{ .key = {NULL} },
-xlators/performance/write-behind-};
---
-xlators/performance/symlink-cache/src/symlink-cache.c:struct volume_options options[] = {
-xlators/performance/symlink-cache-	{ .key = {NULL} },
-xlators/performance/symlink-cache-};
---
-xlators/performance/io-threads/src/io-threads.c:struct volume_options options[] = {
-xlators/performance/io-threads-	{ .key  = {"thread-count"}, 
-xlators/performance/io-threads-	  .type = GF_OPTION_TYPE_INT, 
-xlators/performance/io-threads-	  .min  = 1, 
-xlators/performance/io-threads-	  .max  = 32
-xlators/performance/io-threads-	},
-xlators/performance/io-threads-	{ .key  = {NULL} },
-xlators/performance/io-threads-};
---
-xlators/performance/io-cache/src/io-cache.c:struct volume_options options[] = {
-xlators/performance/io-cache-	{ .key  = {"priority"}, 
-xlators/performance/io-cache-	  .type = GF_OPTION_TYPE_ANY 
-xlators/performance/io-cache-	},
-xlators/performance/io-cache-	{ .key  = {"cache-timeout", "force-revalidate-timeout"},
-xlators/performance/io-cache-	  .type = GF_OPTION_TYPE_INT,
-xlators/performance/io-cache-	  .min  = 0, 
-xlators/performance/io-cache-	  .max  = 60 
-xlators/performance/io-cache-	}, 
-xlators/performance/io-cache-	{ .key  = {"page-size"}, 
-xlators/performance/io-cache-	  .type = GF_OPTION_TYPE_SIZET, 
-xlators/performance/io-cache-	  .min  = 16 * GF_UNIT_KB, 
-xlators/performance/io-cache-	  .max  =  4 * GF_UNIT_MB 
-xlators/performance/io-cache-	},
-xlators/performance/io-cache-	{ .key  = {"cache-size"}, 
-xlators/performance/io-cache-	  .type = GF_OPTION_TYPE_SIZET,
-xlators/performance/io-cache-	  .min  = 4 * GF_UNIT_MB, 
-xlators/performance/io-cache-	  .max  = 6 * GF_UNIT_GB 
-xlators/performance/io-cache-	},
-xlators/performance/io-cache-	{ .key = {NULL} },
-xlators/performance/io-cache-};
---
-xlators/protocol/server/src/server-protocol.c:struct volume_options options[] = {
-xlators/protocol/server- 	{ .key   = {"transport-type"}, 
-xlators/protocol/server-	  .value = {"tcp", "socket", "ib-verbs", "unix", "ib-sdp", 
-xlators/protocol/server-		    "tcp/client", "ib-verbs/client"},
-xlators/protocol/server-	  .type  = GF_OPTION_TYPE_STR 
-xlators/protocol/server-	},
-xlators/protocol/server-	{ .key   = {"volume-filename.*"}, 
-xlators/protocol/server-	  .type  = GF_OPTION_TYPE_PATH, 
-xlators/protocol/server-	},
-xlators/protocol/server-	{ .key   = {"inode-lru-limit"},  
-xlators/protocol/server-	  .type  = GF_OPTION_TYPE_INT,
-xlators/protocol/server-	  .min   = 0, 
-xlators/protocol/server-	  .max   = (1 * GF_UNIT_MB)
-xlators/protocol/server-	},
-xlators/protocol/server-	{ .key   = {"client-volume-filename"}, 
-xlators/protocol/server-	  .type  = GF_OPTION_TYPE_PATH
-xlators/protocol/server-	}, 
-xlators/protocol/server-	{ .key   = {NULL} },
-xlators/protocol/server-};
---
-xlators/protocol/client/src/client-protocol.c:struct volume_options options[] = {
-xlators/protocol/client- 	{ .key   = {"username"}, 
-xlators/protocol/client-	  .type  = GF_OPTION_TYPE_ANY 
-xlators/protocol/client-	},
-xlators/protocol/client- 	{ .key   = {"password"}, 
-xlators/protocol/client-	  .type  = GF_OPTION_TYPE_ANY 
-xlators/protocol/client-	},
-xlators/protocol/client- 	{ .key   = {"transport-type"}, 
-xlators/protocol/client-	  .value = {"tcp", "socket", "ib-verbs", "unix", "ib-sdp", 
-xlators/protocol/client-		    "tcp/client", "ib-verbs/client"},
-xlators/protocol/client-	  .type  = GF_OPTION_TYPE_STR 
-xlators/protocol/client-	},
-xlators/protocol/client- 	{ .key   = {"remote-host"}, 
-xlators/protocol/client-	  .type  = GF_OPTION_TYPE_ANY 
-xlators/protocol/client-	},
-xlators/protocol/client- 	{ .key   = {"remote-subvolume"}, 
-xlators/protocol/client-	  .type  = GF_OPTION_TYPE_ANY 
-xlators/protocol/client-	},
-xlators/protocol/client- 	{ .key   = {"transport-timeout"}, 
-xlators/protocol/client-	  .type  = GF_OPTION_TYPE_TIME, 
-xlators/protocol/client-	  .min   = 5, 
-xlators/protocol/client-	  .max   = 1013, 
-xlators/protocol/client-	}, 
-xlators/protocol/client-
-xlators/protocol/client-	{ .key   = {NULL} },
-xlators/protocol/client-};
---
-xlators/storage/posix/src/posix.c:struct volume_options options[] = {
-xlators/storage/posix-	{ .key  = {"o-direct"}, 
-xlators/storage/posix-	  .type = GF_OPTION_TYPE_BOOL },
-xlators/storage/posix-	{ .key  = {"directory"},
-xlators/storage/posix-	  .type = GF_OPTION_TYPE_PATH },
-xlators/storage/posix-	{ .key  = {"export-statfs-size"}, 
-xlators/storage/posix-	  .type = GF_OPTION_TYPE_BOOL },
-xlators/storage/posix-	{ .key  = {"mandate-attribute"}, 
-xlators/storage/posix-	  .type = GF_OPTION_TYPE_BOOL },
-xlators/storage/posix-	{ .key  = {NULL} }
-xlators/storage/posix-};
---
-xlators/storage/bdb/src/bdb.c:struct volume_options options[] = {
-xlators/storage/bdb-	{ "directory", GF_OPTION_TYPE_PATH, 0, },
-xlators/storage/bdb-	{ "logdir", GF_OPTION_TYPE_PATH, 0, },
-xlators/storage/bdb-	{ "errfile", GF_OPTION_TYPE_PATH, 0, },
-xlators/storage/bdb-	{ "dir-mode", GF_OPTION_TYPE_ANY, 0, },  // base 8 number 
-xlators/storage/bdb-	{ "file-mode", GF_OPTION_TYPE_ANY, 0, }, // base 8 number
-xlators/storage/bdb-	{ "page-size", GF_OPTION_TYPE_SIZET, -1, },
-xlators/storage/bdb-	{ "lru-limit", GF_OPTION_TYPE_INT, -1, },
-xlators/storage/bdb-	{ "lock-timeout", GF_OPTION_TYPE_TIME, 0, },
-xlators/storage/bdb-	{ "checkpoint-timeout", GF_OPTION_TYPE_TIME, 0, },
-xlators/storage/bdb-	{ "transaction-timeout", GF_OPTION_TYPE_TIME, 0, },
-xlators/storage/bdb-	{ "mode", GF_OPTION_TYPE_BOOL, 0, }, // Should be 'cache' ?? 
-xlators/storage/bdb-	{ "access-mode", GF_OPTION_TYPE_STR, 0, 0, 0, "btree"},
-xlators/storage/bdb-	{ NULL, 0, }
-xlators/storage/bdb-};
-xlators/storage/bdb-
-xlators/storage/bdb-#endif /* #if 0 */
+mount/fuse:
+	* direct-io-mode            GF_OPTION_TYPE_BOOL   on|off|yes|no
+	* macfuse-local             GF_OPTION_TYPE_BOOL   on|off|yes|no
+	* mount-point (mountpoint)  GF_OPTION_TYPE_PATH   <any-posix-valid-path>
+	* attribute-timeout         GF_OPTION_TYPE_TIME   0-3600 
+	* entry-timeout             GF_OPTION_TYPE_TIME   0-3600 
+
+protocol/server:
+ 	* transport-type            GF_OPTION_TYPE_STR    tcp|socket|ib-verbs|unix|ib-sdp|
+	  			    			  tcp/client|ib-verbs/client
+        * volume-filename.*         GF_OPTION_TYPE_PATH
+	* inode-lru-limit           GF_OPTION_TYPE_INT    0-(1 * GF_UNIT_MB)
+	* client-volume-filename    GF_OPTION_TYPE_PATH
+
+protocol/client:
+	* username                  GF_OPTION_TYPE_ANY
+	* password                  GF_OPTION_TYPE_ANY 
+	* transport-type            GF_OPTION_TYPE_STR   tcp|socket|ib-verbs|unix|ib-sdp|
+	  			    			 tcp/client|ib-verbs/client
+	* remote-host               GF_OPTION_TYPE_ANY 
+	* remote-subvolume          GF_OPTION_TYPE_ANY 
+	* transport-timeout         GF_OPTION_TYPE_TIME  5-1013 
+
+cluster/replicate:
+	* read-subvolume	    GF_OPTION_TYPE_XLATOR
+	* favorite-child 	    GF_OPTION_TYPE_XLATOR
+	* data-self-heal 	    GF_OPTION_TYPE_BOOL 
+	* metadata-self-heal 	    GF_OPTION_TYPE_BOOL
+	* entry-self-heal 	    GF_OPTION_TYPE_BOOL 
+	* data-change-log 	    GF_OPTION_TYPE_BOOL 
+	* metadata-change-log 	    GF_OPTION_TYPE_BOOL
+	* entry-change-log 	    GF_OPTION_TYPE_BOOL
+	* data-lock-server-count    GF_OPTION_TYPE_INT    0
+	* metadata-lock-server-count GF_OPTION_TYPE_INT   0
+	* entry-lock-server-count    GF_OPTION_TYPE_INT   0
+
+cluster/distribute:
+	* lookup-unhashed           GF_OPTION_TYPE_BOOL 
+
+cluster/unify:
+	* namespace		    GF_OPTION_TYPE_XLATOR 
+	* scheduler 		    GF_OPTION_TYPE_STR    alu|rr|random|nufa|switch 
+	* self-heal 		    GF_OPTION_TYPE_STR    foreground|background|off
+	* optimist  		    GF_OPTION_TYPE_BOOL 
+
+cluster/nufa:
+	local-volume-name           GF_OPTION_TYPE_XLATOR 
+
+cluster/stripe:
+	* block-size		    GF_OPTION_TYPE_ANY 
+	* use-xattr  		    GF_OPTION_TYPE_BOOL
+
+debug/trace:
+	* include-ops (include)     GF_OPTION_TYPE_STR
+	* exclude-ops (exclude)     GF_OPTION_TYPE_STR 
+
+encryption/rot-13:
+	* encrypt-write             GF_OPTION_TYPE_BOOL
+	* decrypt-read  	    GF_OPTION_TYPE_BOOL 
+
+features/path-convertor:
+	* start-offset              GF_OPTION_TYPE_INT     0-4095 
+	* end-offset 		    GF_OPTION_TYPE_INT	   1-4096 
+	* replace-with		    GF_OPTION_TYPE_ANY
+
+features/trash:
+	* trash-dir	            GF_OPTION_TYPE_PATH 
+
+features/locks:
+	* mandatory-locks (mandatory) GF_OPTION_TYPE_BOOL 
+
+features/filter:
+	* root-squashing	    GF_OPTION_TYPE_BOOL 
+	* read-only                 GF_OPTION_TYPE_BOOL
+	* fixed-uid		    GF_OPTION_TYPE_INT
+	* fixed-gid		    GF_OPTION_TYPE_INT
+	* translate-uid             GF_OPTION_TYPE_ANY 
+	* translate-gid		    GF_OPTION_TYPE_ANY
+	* filter-uid		    GF_OPTION_TYPE_ANY 
+	* filter-gid		    GF_OPTION_TYPE_ANY 
+
+features/quota:
+	* min-free-disk-limit	    GF_OPTION_TYPE_PERCENT
+	* refresh-interval	    GF_OPTION_TYPE_TIME
+	* disk-usage-limit	    GF_OPTION_TYPE_SIZET 
+
+storage/posix:
+	* o-direct		    GF_OPTION_TYPE_BOOL
+	* directory		    GF_OPTION_TYPE_PATH
+	* export-statfs-size	    GF_OPTION_TYPE_BOOL
+	* mandate-attribute	    GF_OPTION_TYPE_BOOL
+
+storage/bdb:
+	* directory                 GF_OPTION_TYPE_PATH
+	* logdir		    GF_OPTION_TYPE_PATH
+	* errfile		    GF_OPTION_TYPE_PATH
+	* dir-mode		    GF_OPTION_TYPE_ANY
+	* file-mode		    GF_OPTION_TYPE_ANY
+	* page-size		    GF_OPTION_TYPE_SIZET
+	* lru-limit		    GF_OPTION_TYPE_INT
+	* lock-timeout		    GF_OPTION_TYPE_TIME
+	* checkpoint-timeout	    GF_OPTION_TYPE_TIME
+	* transaction-timeout	    GF_OPTION_TYPE_TIME
+	* mode			    GF_OPTION_TYPE_BOOL
+	* access-mode		    GF_OPTION_TYPE_STR
+
+performance/read-ahead:
+	* force-atime-update        GF_OPTION_TYPE_BOOL 
+	* page-size		    GF_OPTION_TYPE_SIZET (64 * GF_UNIT_KB)-(2 * GF_UNIT_MB)
+	* page-count		    GF_OPTION_TYPE_INT   1-16 
+
+performance/write-behind:
+	* flush-behind		    GF_OPTION_TYPE_BOOL
+	* aggregate-size	    GF_OPTION_TYPE_SIZET  (128 * GF_UNIT_KB)-(4 * GF_UNIT_MB) 
+	* window-size		    GF_OPTION_TYPE_SIZET  (512 * GF_UNIT_KB)-(1 * GF_UNIT_GB) 
+
+performance/symlink-cache:
+
+performance/io-threads:
+	* thread-count	            GF_OPTION_TYPE_INT    1-32
+
+performance/io-cache:
+	* priority	            GF_OPTION_TYPE_ANY 
+	* cache-timeout (force-revalidate-timeout) GF_OPTION_TYPE_INT 0-60 
+	* page-size	            GF_OPTION_TYPE_SIZET  (16 * GF_UNIT_KB)-(4 * GF_UNIT_MB) 
+	* cache-size		    GF_OPTION_TYPE_SIZET  (4 * GF_UNIT_MB)-(6 * GF_UNIT_GB) 
+
+auth:
+- addr:
+	* auth.addr.*.allow	    GF_OPTION_TYPE_ANY 
+	* auth.addr.*.reject	    GF_OPTION_TYPE_ANY 
+
+- login:
+	* auth.login.*.allow	    GF_OPTION_TYPE_ANY 
+	* auth.login.*.password	    GF_OPTION_TYPE_ANY
+
+scheduler/alu:
+	* scheduler.alu.order (alu.order) 
+	                            GF_OPTION_TYPE_ANY 
+	* scheduler.alu.disk-usage.entry-threshold (alu.disk-usage.entry-threshold)
+	  			    GF_OPTION_TYPE_SIZET
+        * scheduler.alu.disk-usage.exit-threshold (alu.disk-usage.exit-threshold)
+                                    GF_OPTION_TYPE_SIZET
+        * scheduler.alu.write-usage.entry-threshold (alu.write-usage.entry-threshold)
+                                    GF_OPTION_TYPE_SIZET
+        * scheduler.alu.write-usage.exit-threshold (alu.write-usage.exit-threshold)
+                                    GF_OPTION_TYPE_SIZET 
+        * scheduler.alu.read-usage.entry-threshold (alu.read-usage.entry-threshold)
+                                    GF_OPTION_TYPE_SIZET
+        * scheduler.alu.read-usage.exit-threshold (alu.read-usage.exit-threshold)
+                                    GF_OPTION_TYPE_SIZET 
+        * scheduler.alu.open-files-usage.entry-threshold (alu.open-files-usage.entry-threshold)
+                                    GF_OPTION_TYPE_INT
+        * scheduler.alu.open-files-usage.exit-threshold (alu.open-files-usage.exit-threshold)
+                                    GF_OPTION_TYPE_INT 
+        * scheduler.read-only-subvolumes (alu.read-only-subvolumes)
+                                    GF_OPTION_TYPE_ANY 
+        * scheduler.refresh-interval (alu.refresh-interval)
+                                    GF_OPTION_TYPE_TIME
+        * scheduler.limits.min-free-disk (alu.limits.min-free-disk)
+                                    GF_OPTION_TYPE_PERCENT
+        * scheduler.alu.stat-refresh.num-file-create (alu.stat-refresh.num-file-create)
+                                    GF_OPTION_TYPE_INT
+
+scheduler/nufa:
+	* scheduler.refresh-interval (nufa.refresh-interval) 
+	                            GF_OPTION_TYPE_TIME
+	* scheduler.limits.min-free-disk (nufa.limits.min-free-disk) 
+	                            GF_OPTION_TYPE_PERCENT
+	* scheduler.local-volume-name (nufa.local-volume-name) 
+	                            GF_OPTION_TYPE_XLATOR
+
+scheduler/random:
+	* scheduler.refresh-interval (random.refresh-interval) GF_OPTION_TYPE_TIME
+	* scheduler.limits.min-free-disk (random.limits.min-free-disk) GF_OPTION_TYPE_PERCENT
+
+scheduler/rr:
+	* scheduler.refresh-interval (rr.refresh-interval)  GF_OPTION_TYPE_TIME
+	* scheduler.limits.min-free-disk (rr.limits.min-free-disk) GF_OPTION_TYPE_PERCENT
+	* scheduler.read-only-subvolumes (rr.read-only-subvolumes) GF_OPTION_TYPE_ANY
+
+scheduler/switch:
+	* scheduler.read-only-subvolumes (switch.read-only-subvolumes) GF_OPTION_TYPE_ANY
+	* scheduler.local-volume-name (switch.nufa.local-volume-name) GF_OPTION_TYPE_XLATOR
+	* scheduler.switch.case (switch.case) GF_OPTION_TYPE_ANY
+
+transport/ib-verbs:
+	* transport.ib-verbs.port (ib-verbs-port) GF_OPTION_TYPE_INT 1-4
+	                         check the option by 'ibv_devinfo'
+        * transport.ib-verbs.mtu (ib-verbs-mtu) GF_OPTION_TYPE_INT
+	* transport.ib-verbs.device-name (ib-verbs-device-name) GF_OPTION_TYPE_ANY,
+                                 check by 'ibv_devinfo'
+        * transport.ib-verbs.work-request-send-size (ib-verbs-work-request-send-size)
+	                         GF_OPTION_TYPE_INT,
+        * transport.ib-verbs.work-request-recv-size (ib-verbs-work-request-recv-size)
+	                         GF_OPTION_TYPE_INT
+        * transport.ib-verbs.work-request-send-count (ib-verbs-work-request-send-count)
+                                 GF_OPTION_TYPE_INT
+        * transport.ib-verbs.work-request-recv-count (ib-verbs-work-request-recv-count)
+                                 GF_OPTION_TYPE_INT
+        * remote-port (transport.remote-port,transport.ib-verbs.remote-port)
+	                         GF_OPTION_TYPE_INT 
+        * transport.ib-verbs.listen-port  GF_OPTION_TYPE_INT 
+        * transport.ib-verbs.connect-path (connect-path) GF_OPTION_TYPE_ANY 
+        * transport.ib-verbs.bind-path (bind-path) GF_OPTION_TYPE_ANY 
+        * transport.ib-verbs.listen-path (listen-path) GF_OPTION_TYPE_ANY 
+        * transport.address-family (address-family) GF_OPTION_TYPE_STR inet|inet6|inet/inet6|
+                                                                       inet6/inet|unix|inet-sdp
+
+transport/socket:
+	* transport.remote-port (remote-port,transport.socket.remote-port) GF_OPTION_TYPE_INT 
+	* transport.socket.listen-port (listen-port) GF_OPTION_TYPE_INT 
+	* transport.socket.bind-address (bind-address) GF_OPTION_TYPE_ANY 
+	* transport.socket.connect-path (connect-path) GF_OPTION_TYPE_ANY 
+	* transport.socket.bind-path (bind-path)       GF_OPTION_TYPE_ANY 
+	* transport.socket.listen-path (listen-path)   GF_OPTION_TYPE_ANY
+	* transport.address-family (address-family)    GF_OPTION_TYPE_STR  inet|inet6|
+	  			   		       			   inet/inet6|inet6/inet|
+									   unix|inet-sdp

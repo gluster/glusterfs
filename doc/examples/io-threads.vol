@@ -10,13 +10,12 @@ volume iot
   type performance/io-threads
   subvolumes brick
   option thread-count 4 # default value is 1
-  option cache-size 4MB # default is 64MB (This is per thread, so configure it according to your RAM size and thread-count.
 end-volume
 
 volume server
   type protocol/server
   subvolumes iot brick
-  option transport-type tcp/server     # For TCP/IP transport
+  option transport-type tcp     # For TCP/IP transport
   option auth.addr.brick.allow 192.168.* # Allow access to "brick" volume
   option auth.addr.iot.allow 192.168.* # Allow access to "p-locks" volume
 end-volume

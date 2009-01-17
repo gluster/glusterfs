@@ -1,6 +1,6 @@
 volume client
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
+  option transport-type tcp     # for TCP/IP transport
   option remote-host 192.168.1.10      # IP address of the remote brick
   option remote-subvolume brick        # name of the remote volume
 end-volume
@@ -9,7 +9,7 @@ end-volume
 #
 # Definition of other clients
 # 
-# Definition of cluster translator (may be unify, afr, or unify over afr)
+# Definition of cluster translator (may be unify, replicate, or unify over replicate)
 # 
 
 ### 'IO-Cache' translator is best used on client side when a filesystem has file which are not modified frequently but read several times. For example, while compiling a kernel, *.h files are read while compiling every *.c file, in these case, io-cache translator comes very handy, as it keeps the whole file content in the cache, and serves from the cache.

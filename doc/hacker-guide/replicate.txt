@@ -1,8 +1,8 @@
 ---------------
-* cluster/afr
+* cluster/replicate
 ---------------
 
-Before understanding AFR, one must understand two internal FOPs:
+Before understanding replicate, one must understand two internal FOPs:
 
 GF_FILE_LK:
   This is exactly like fcntl(2) locking, except the locks are in a 
@@ -174,11 +174,11 @@ Inode scaling is necessary because if a situation arises where:
     FUSE gets horribly confused (consult a FUSE expert for more details).
 
 To avoid such a situation, we distribute the 64-bit inode space equally
-among all children of AFR.
+among all children of replicate.
 
 To illustrate:
 
-If c1, c2, c3 are children of AFR, they each get 1/3 of the available
+If c1, c2, c3 are children of replicate, they each get 1/3 of the available
 inode space:
 
 Child:        c1   c2   c3   c1   c2   c3   c1   c2   c3   c1   c2 ...
@@ -191,7 +191,7 @@ This way we ensure that there is never a collision of inode numbers from
 two different children.
 
 This reduction of inode space doesn't really reduce the usability of 
-AFR since even if we assume AFR has 1024 children (which would be a
+replicate since even if we assume replicate has 1024 children (which would be a
 highly unusual scenario), each child still has a 54-bit inode space.
 
 2^54 ~ 1.8 * 10^16

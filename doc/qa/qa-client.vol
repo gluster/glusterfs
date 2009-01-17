@@ -4,13 +4,13 @@
 # 1st client
 volume client1
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
-# option transport-type ib-sdp/client  # for Infiniband transport
-# option transport-type ib-verbs/client # for ib-verbs transport 
-# option ib-verbs-work-request-send-size  131072
-# option ib-verbs-work-request-send-count 64
-# option ib-verbs-work-request-recv-size  131072
-# option ib-verbs-work-request-recv-count 64
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
+# option transport.ib-verbs.work-request-send-size  131072
+# option transport.ib-verbs.work-request-send-count 64
+# option transport.ib-verbs.work-request-recv-size  131072
+# option transport.ib-verbs.work-request-recv-count 64
   option remote-host 127.0.0.1 
   option remote-subvolume ra1
 end-volume
@@ -18,9 +18,9 @@ end-volume
 # 2nd client
 volume client2
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
-# option transport-type ib-sdp/client  # for Infiniband transport
-# option transport-type ib-verbs/client # for ib-verbs transport 
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
   option remote-host 127.0.0.1 
   option remote-subvolume ra2
 end-volume
@@ -28,9 +28,9 @@ end-volume
 # 3rd client
 volume client3
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
-# option transport-type ib-sdp/client  # for Infiniband transport
-# option transport-type ib-verbs/client # for ib-verbs transport 
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
   option remote-host 127.0.0.1 
   option remote-subvolume ra3
 end-volume
@@ -38,9 +38,9 @@ end-volume
 # 4th client
 volume client4
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
-# option transport-type ib-sdp/client  # for Infiniband transport
-# option transport-type ib-verbs/client # for ib-verbs transport 
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
   option remote-host 127.0.0.1 
   option remote-subvolume ra4
 end-volume
@@ -48,9 +48,9 @@ end-volume
 # 5th client
 volume client5
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
-# option transport-type ib-sdp/client  # for Infiniband transport
-# option transport-type ib-verbs/client # for ib-verbs transport 
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
   option remote-host 127.0.0.1 
   option remote-subvolume ra5
 end-volume
@@ -58,9 +58,9 @@ end-volume
 # 6th client
 volume client6
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
-# option transport-type ib-sdp/client  # for Infiniband transport
-# option transport-type ib-verbs/client # for ib-verbs transport 
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
   option remote-host 127.0.0.1 
   option remote-subvolume ra6
 end-volume
@@ -68,9 +68,9 @@ end-volume
 # 7th client
 volume client7
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
-# option transport-type ib-sdp/client  # for Infiniband transport
-# option transport-type ib-verbs/client # for ib-verbs transport 
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
   option remote-host 127.0.0.1 
   option remote-subvolume ra7
 end-volume
@@ -78,9 +78,9 @@ end-volume
 # 8th client 
 volume client8
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
-# option transport-type ib-sdp/client  # for Infiniband transport
-# option transport-type ib-verbs/client # for ib-verbs transport 
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
   option remote-host 127.0.0.1 
   option remote-subvolume ra8
 end-volume
@@ -114,21 +114,21 @@ volume stripe4
 end-volume
 
 
-# 1st AFR
-volume afr1
-  type cluster/afr
+# 1st replicate
+volume replicate1
+  type cluster/replicate
   subvolumes stripe1 stripe2
 end-volume
 
-# 2nd AFR
-volume afr2
-  type cluster/afr
+# 2nd replicate
+volume replicate2
+  type cluster/replicate
   subvolumes stripe3 stripe4
 end-volume
 
 volume ns
   type protocol/client
-  option transport-type tcp/client
+  option transport-type tcp
   option remote-host 127.0.0.1
   option remote-subvolume brick-ns
 end-volume
@@ -136,7 +136,7 @@ end-volume
 # Unify
 volume unify0
   type cluster/unify
-  subvolumes afr1 afr2
+  subvolumes replicate1 replicate2
 #  subvolumes stripe1 stripe3
   option namespace ns
   option scheduler rr # random # alu # nufa

@@ -23,8 +23,8 @@ end-volume
 ### Add network serving capability to above brick.
 volume server
   type protocol/server
-  option transport-type tcp/server     # For TCP/IP transport
- option listen-port 6996              # Default is 6996
+  option transport-type tcp     # For TCP/IP transport
+  option transport.socket.listen-port 6996              # Default is 6996
 # option client-volume-filename /etc/glusterfs/glusterfs-client.vol
   subvolumes brick1
   option auth.addr.brick1.allow * 		# access to "brick" volume
@@ -49,8 +49,8 @@ end-volume
 ### Add network serving capability to above brick.
 volume server
   type protocol/server
-  option transport-type tcp/server     # For TCP/IP transport
-  option listen-port 6997              # Default is 6996
+  option transport-type tcp     # For TCP/IP transport
+  option transport.socket.listen-port 6997              # Default is 6996
   subvolumes brick2
   option auth.addr.brick2.allow * # Allow access to "brick" volume
 end-volume
@@ -75,8 +75,8 @@ end-volume
 ### Add network serving capability to above brick.
 volume server
   type protocol/server
-  option transport-type tcp/server     # For TCP/IP transport
-  option listen-port 6998              # Default is 6996
+  option transport-type tcp     # For TCP/IP transport
+  option transport.socket.listen-port 6998              # Default is 6996
   subvolumes brick3
   option auth.addr.brick3.allow * 		# access to "brick" volume
 end-volume
@@ -89,26 +89,26 @@ end-volume
 ### Add client feature and attach to remote subvolume of server1
 volume client1
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
+  option transport-type tcp     # for TCP/IP transport
   option remote-host 127.0.0.1      # IP address of the remote brick
-  option remote-port 6996              # default server port is 6996
+  option transport.socket.remote-port 6996              # default server port is 6996
   option remote-subvolume brick1        # name of the remote volume
 end-volume
 
 ### Add client feature and attach to remote subvolume of server2
 volume client2
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
+  option transport-type tcp     # for TCP/IP transport
   option remote-host 127.0.0.1      # IP address of the remote brick
-  option remote-port 6997              # default server port is 6996
+  option transport.socket.remote-port 6997              # default server port is 6996
   option remote-subvolume brick2        # name of the remote volume
 end-volume
 
 volume client3
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
+  option transport-type tcp     # for TCP/IP transport
   option remote-host 127.0.0.1      # IP address of the remote brick
-  option remote-port 6998              # default server port is 6996
+  option transport.socket.remote-port 6998              # default server port is 6996
   option remote-subvolume brick3        # name of the remote volume
 end-volume
 

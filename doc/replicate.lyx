@@ -32,7 +32,7 @@
 \begin_layout Title
 
 \size larger
-Automatic File Replication (AFR) in GlusterFS
+Automatic File Replication (replicate) in GlusterFS
 \end_layout
 
 \begin_layout Author
@@ -63,12 +63,12 @@ Overview
 \end_layout
 
 \begin_layout Standard
-This document describes the design and usage of the AFR translator in GlusterFS.
+This document describes the design and usage of the replicate translator in GlusterFS.
  This document is valid for the 1.4.x releases, and not earlier ones.
 \end_layout
 
 \begin_layout Standard
-The AFR translator of GlusterFS aims to keep identical copies of a file
+The replicate translator of GlusterFS aims to keep identical copies of a file
  on all its subvolumes, as far as possible.
  It tries to do this by performing all filesystem mutation operations (writing
  data, creating files, changing ownership, etc.) on all its subvolumes in
@@ -102,7 +102,7 @@ Usage
 \end_layout
 
 \begin_layout Standard
-A sample volume declaration for AFR looks like this:
+A sample volume declaration for replicate looks like this:
 \end_layout
 
 \begin_layout Standard
@@ -118,12 +118,12 @@ begin{verbatim}
 
 \begin_layout Standard
 
-volume afr
+volume replicate
 \end_layout
 
 \begin_layout Standard
 
- type cluster/afr
+ type cluster/replicate
 \end_layout
 
 \begin_layout Standard
@@ -166,8 +166,8 @@ end{verbatim}
 \end_layout
 
 \begin_layout Standard
-This defines an AFR volume with two subvolumes, brick1, and brick2.
- For AFR to work properly, it is essential that its subvolumes support 
+This defines an replicate volume with two subvolumes, brick1, and brick2.
+ For replicate to work properly, it is essential that its subvolumes support 
 \series bold
 extended attributes
 \series default
@@ -177,7 +177,7 @@ extended attributes
 \end_layout
 
 \begin_layout Standard
-The storage volumes used as backend for AFR 
+The storage volumes used as backend for replicate 
 \emph on
 must
 \emph default
@@ -242,7 +242,7 @@ All operations that do not modify the file or directory are sent to all
 
 \begin_layout Standard
 The read() system call (reading data from a file) is an exception.
- For read() calls, AFR tries to do load balancing by sending all reads from
+ For read() calls, replicate tries to do load balancing by sending all reads from
  a particular file to a particular server.
 \end_layout
 
@@ -256,7 +256,7 @@ Classes of file operations
 \end_layout
 
 \begin_layout Standard
-AFR divides all filesystem write operations into three classes:
+replicate divides all filesystem write operations into three classes:
 \end_layout
 
 \begin_layout Itemize
@@ -290,16 +290,16 @@ Locking and Change Log
 \end_layout
 
 \begin_layout Standard
-To ensure consistency across subvolumes, AFR holds a lock whenever a modificatio
+To ensure consistency across subvolumes, replicate holds a lock whenever a modificatio
 n is being made to a file or directory.
- By default, AFR considers the first subvolume as the sole lock server.
+ By default, replicate considers the first subvolume as the sole lock server.
  However, the number of lock servers can be increased upto the total number
  of subvolumes.
 \end_layout
 
 \begin_layout Standard
 The change log is a set of extended attributes associated with files and
- directories that AFR maintains.
+ directories that replicate maintains.
  The change log keeps track of the changes made to files and directories
  (data, metadata, entry) so that the self-heal algorithm knows which copy
  of a file or directory is the most recent one.
@@ -343,7 +343,7 @@ Self-Heal
 \end_layout
 
 \begin_layout Standard
-AFR automatically tries to fix any inconsistencies it detects among different
+replicate automatically tries to fix any inconsistencies it detects among different
  copies of a file.
  It uses information in the change log to determine which copy is the 
 \begin_inset Quotes eld
@@ -408,8 +408,8 @@ Split-brain
 \end_layout
 
 \begin_layout Standard
-It may happen that one AFR client can access only some of the servers in
- a cluster and another AFR client can access the remaining servers.
+It may happen that one replicate client can access only some of the servers in
+ a cluster and another replicate client can access the remaining servers.
  Or it may happen that in a cluster of two servers, one server goes down
  and comes back up, but the other goes down immediately.
  Both these scenarios result in a 
@@ -434,13 +434,13 @@ correct
 \end_inset
 
  in some sense.
- AFR without manual intervention has no way of knowing what to do, since
+ replicate without manual intervention has no way of knowing what to do, since
  it cannot consider any single copy as definitive, nor does it know of any
  meaningful way to merge the copies.
 \end_layout
 
 \begin_layout Standard
-If AFR detects that a split-brain has happened on a file, it disallows opening
+If replicate detects that a split-brain has happened on a file, it disallows opening
  of that file.
  You will have to manually resolve the conflict by deleting all but one
  copy of the file.
@@ -453,7 +453,7 @@ Translator Options
 \end_layout
 
 \begin_layout Standard
-AFR accepts the following options:
+replicate accepts the following options:
 \end_layout
 
 \begin_layout Subsection*
@@ -660,7 +660,7 @@ Self-heal of file with more than one link (hard links):
 Consider two servers, A and B.
  Assume A is down, and the user creates a file `new' as a hard link to a
  file `old'.
- When A comes back up, AFR will see that the file `new' does not exist on
+ When A comes back up, replicate will see that the file `new' does not exist on
  A, and self-heal will create the file and copy the contents from B.
  However, now on server A the file `new' is not a link to the file `old'
  but an entirely different file.
@@ -744,7 +744,7 @@ Run the command in all directories which you want to forcibly self-heal.
 
 \begin_layout Subsection*
 2.
- Which backend filesystem should I use for AFR?
+ Which backend filesystem should I use for replicate?
 \end_layout
 
 \begin_layout Standard
@@ -754,7 +754,7 @@ You can use any backend filesystem that supports extended attributes.
 
 \begin_layout Subsection*
 3.
- What can I do to improve AFR performance?
+ What can I do to improve replicate performance?
 \end_layout
 
 \begin_layout Standard
@@ -771,12 +771,12 @@ Try loading performance translators such as io-threads, write-behind, io-cache,
 \end_layout
 
 \begin_layout Standard
-There is no support for selective replication in AFR itself.
+There is no support for selective replication in replicate itself.
  You can achieve selective replication by loading the unify translator over
- AFR, and using the switch scheduler.
- Configure unify with two subvolumes, one of them being AFR.
+ replicate, and using the switch scheduler.
+ Configure unify with two subvolumes, one of them being replicate.
  Using the switch scheduler, schedule all files for which you need replication
- to the AFR subvolume.
+ to the replicate subvolume.
  Consult unify and switch documentation for more details.
 \end_layout
 
@@ -785,7 +785,7 @@ Contact
 \end_layout
 
 \begin_layout Standard
-If you need more assistance on AFR, contact us on the mailing list <gluster-user
+If you need more assistance on replicate, contact us on the mailing list <gluster-user
 s@gluster.org> (visit gluster.org for details on how to subscribe).
 \end_layout
 

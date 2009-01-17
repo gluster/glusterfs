@@ -14,7 +14,7 @@ dnl
 dnl You should have received a copy of the GNU General Public License
 dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([glusterfs],[1.4.0tla849],[gluster-users@gluster.org])
+AC_INIT([glusterfs],[1.4.0tla851],[gluster-users@gluster.org])
 
 AM_INIT_AUTOMAKE
 
@@ -118,6 +118,7 @@ AC_CONFIG_FILES([Makefile
 		doc/Makefile
 		doc/examples/Makefile
 		doc/hacker-guide/Makefile
+		doc/user-guide/Makefile
 		extras/Makefile
 		extras/init.d/Makefile
 		extras/init.d/glusterfs-server.plist

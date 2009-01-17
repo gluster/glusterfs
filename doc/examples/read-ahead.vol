@@ -1,6 +1,6 @@
 volume client
   type protocol/client
-  option transport-type tcp/client     # for TCP/IP transport
+  option transport-type tcp     # for TCP/IP transport
   option remote-host 192.168.1.10      # IP address of the remote brick
   option remote-subvolume brick        # name of the remote volume
 end-volume
@@ -9,7 +9,7 @@ end-volume
 #
 # Definition of other clients
 # 
-# Definition of cluster translator (may be unify, afr, or unify over afr)
+# Definition of cluster translator (may be unify, replicate, or unify over replicate)
 # 
 
 ### 'Read-Ahead' translator is best utilized on client side, as it prefetches the file contents when the first read() call is issued. 

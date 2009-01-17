@@ -267,9 +267,9 @@ end-volume
 volume server8
   type protocol/server
   subvolumes ra8 ra1 ra2 ra3 ra4 ra5 ra6 ra7 brick-ns
-  option transport-type tcp/server     # For TCP/IP transport
-# option transport-type ib-sdp/server  # For Infiniband transport
-# option transport-type ib-verbs/server # For ib-verbs transport
+  option transport-type tcp     # For TCP/IP transport
+# option transport-type ib-sdp  # For Infiniband transport
+# option transport-type ib-verbs # For ib-verbs transport
   option client-volume-filename /examples/qa-client.vol
   option auth.addr.ra1.allow * # Allow access to "stat8" volume
   option auth.addr.ra2.allow * # Allow access to "stat8" volume
