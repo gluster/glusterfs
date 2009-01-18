@@ -45,6 +45,8 @@ struct wb_file;
 struct wb_conf {
         uint64_t aggregate_size;
         uint64_t window_size;
+        uint64_t disable_till;
+        gf_boolean_t enable_O_SYNC;
         gf_boolean_t flush_behind;
 };
 
@@ -78,7 +80,7 @@ typedef struct write_request {
 
 struct wb_file {
         int disabled;
-        int disable_till;
+        uint64_t disable_till;
         off_t offset;
         size_t window_size;
         int32_t refcount;
@@ -114,6 +116,7 @@ wb_file_create (xlator_t *this,
                 fd_t *fd)
 {
         wb_file_t *file = NULL;
+        wb_conf_t *conf = this->private; 
 
         file = CALLOC (1, sizeof (*file));
         INIT_LIST_HEAD (&file->request);
@@ -121,7 +124,7 @@ wb_file_create (xlator_t *this,
         /* fd_ref() not required, file should never decide the existance of
          * an fd */
         file->fd= fd;
-        file->disable_till = 1 * GF_UNIT_MB; /* TODO: Hard coded value?? why? */
+        file->disable_till = conf->disable_till;
         file->this = this;
         file->refcount = 1;
 
@@ -570,6 +573,7 @@ wb_open_cbk (call_frame_t *frame,
 {
         int32_t flags = 0;
         wb_file_t *file = NULL;
+        wb_conf_t *conf = this->private;
 
         if (op_ret != -1)
         {
@@ -586,10 +590,11 @@ wb_open_cbk (call_frame_t *frame,
                 {
                         flags = *((int32_t *)frame->local);
                         if (((flags & O_DIRECT) == O_DIRECT) || 
-			    ((flags & O_RDONLY) == O_RDONLY) ||
-			    ((flags & O_SYNC) == O_SYNC)) { 
+                            ((flags & O_RDONLY) == O_RDONLY) ||
+                            (((flags & O_SYNC) == O_SYNC) &&
+                             conf->enable_O_SYNC == _gf_true)) { 
                                 file->disabled = 1;
-			}
+                        }
                 }
 
                 LOCK_INIT (&file->lock);
@@ -932,8 +937,8 @@ wb_writev_cbk (call_frame_t *frame,
                int32_t op_errno,
                struct stat *stbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-	return 0;
+        STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+        return 0;
 }
 
 
@@ -948,11 +953,11 @@ wb_writev (call_frame_t *frame,
         wb_file_t *file = NULL;
         char offset_expected = 1, wb_disabled = 0; 
         call_frame_t *process_frame = NULL;
-	size_t size = 0;
+        size_t size = 0;
 
-	if (vector != NULL) {
-		size = iov_length (vector, count);
-	}
+        if (vector != NULL) {
+                size = iov_length (vector, count);
+        }
 
         if (!dict_get (fd->ctx, this->name))
         {
@@ -973,31 +978,31 @@ wb_writev (call_frame_t *frame,
 
         LOCK (&file->lock);
         {
-		if (file->disabled || file->disable_till) {
-			if (size > file->disable_till) {
-				file->disable_till = 0;
-			} else {
-				file->disable_till -= size;
-			}
-			wb_disabled = 1;
-		}
+                if (file->disabled || file->disable_till) {
+                        if (size > file->disable_till) {
+                                file->disable_till = 0;
+                        } else {
+                                file->disable_till -= size;
+                        }
+                        wb_disabled = 1;
+                }
 
                 if (file->offset != offset)
                         offset_expected = 0;
         }
         UNLOCK (&file->lock);
 
-	if (wb_disabled) {
-		STACK_WIND (frame,
-			    wb_writev_cbk,
-			    FIRST_CHILD (frame->this),
-			    FIRST_CHILD (frame->this)->fops->writev,
-			    file->fd,
-			    vector,
-			    count,
-			    offset);
-		return 0;
-	}
+        if (wb_disabled) {
+                STACK_WIND (frame,
+                            wb_writev_cbk,
+                            FIRST_CHILD (frame->this),
+                            FIRST_CHILD (frame->this)->fops->writev,
+                            file->fd,
+                            vector,
+                            count,
+                            offset);
+                return 0;
+        }
 
         process_frame = copy_frame (frame);
 
@@ -1275,33 +1280,48 @@ init (xlator_t *this)
         wb_conf_t *conf = NULL;
         char *aggregate_size_string = NULL;
         char *window_size_string    = NULL;
-	char *flush_behind_string   = NULL;
-	int32_t ret = -1;
+        char *flush_behind_string   = NULL;
+        char *disable_till_string = NULL;
+        char *enable_O_SYNC_string = NULL;
+        int32_t ret = -1;
 
         if ((this->children == NULL)
-	    || this->children->next) {
+            || this->children->next) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "FATAL: write-behind (%s) not configured with exactly one child",
                         this->name);
                 return -1;
         }
 
-	if (this->parents == NULL) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile");
-	}
-	
-	options = this->options;
+        if (this->parents == NULL) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "dangling volume. check volfile");
+        }
+        
+        options = this->options;
 
         conf = CALLOC (1, sizeof (*conf));
-	
-	/* configure 'options aggregate-size <size>' */
-        conf->aggregate_size = 0;
-	ret = dict_get_str (options, "aggregate-size", 
-			    &aggregate_size_string);
+        
+        conf->enable_O_SYNC = _gf_false;
+        ret = dict_get_str (options, "enable-O_SYNC",
+                            &enable_O_SYNC_string);
         if (ret == 0) {
-		ret = gf_string2bytesize (aggregate_size_string, 
-					  &conf->aggregate_size);
+                ret = gf_string2boolean (enable_O_SYNC_string,
+                                         &conf->enable_O_SYNC);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "'enable-O_SYNC' takes only boolean arguments");
+                        return -1;
+                }
+        }
+
+        /* configure 'options aggregate-size <size>' */
+        conf->aggregate_size = 0;
+        ret = dict_get_str (options, "aggregate-size", 
+                            &aggregate_size_string);
+        if (ret == 0) {
+                ret = gf_string2bytesize (aggregate_size_string, 
+                                          &conf->aggregate_size);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_ERROR, 
                                 "invalid number format \"%s\" of \"option aggregate-size\"", 
@@ -1312,15 +1332,33 @@ init (xlator_t *this)
 
         gf_log (this->name, GF_LOG_DEBUG,
                 "using aggregate-size = %"PRIu64"", 
-		conf->aggregate_size);
+                conf->aggregate_size);
   
-	/* configure 'option window-size <size>' */
-        conf->window_size = 0;
-	ret = dict_get_str (options, "window-size", 
-			    &window_size_string);
+        conf->disable_till = 1;
+        ret = dict_get_str (options, "disable-for-first-nbytes", 
+                            &disable_till_string);
         if (ret == 0) {
-		ret = gf_string2bytesize (window_size_string, 
-					  &conf->window_size);
+                ret = gf_string2bytesize (disable_till_string, 
+                                          &conf->disable_till);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_ERROR, 
+                                "invalid number format \"%s\" of \"option disable-for-first-nbytes\"", 
+                                disable_till_string);
+                        return -1;
+                }
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "disabling write-behind for first %"PRIu64" bytes", 
+                conf->disable_till);
+  
+        /* configure 'option window-size <size>' */
+        conf->window_size = 0;
+        ret = dict_get_str (options, "window-size", 
+                            &window_size_string);
+        if (ret == 0) {
+                ret = gf_string2bytesize (window_size_string, 
+                                          &conf->window_size);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_ERROR, 
                                 "invalid number format \"%s\" of \"option window-size\"", 
@@ -1345,13 +1383,13 @@ init (xlator_t *this)
                 return -1;
         }
 
-	/* configure 'option flush-behind <on/off>' */
+        /* configure 'option flush-behind <on/off>' */
         conf->flush_behind = 0;
-	ret = dict_get_str (options, "flush-behind", 
-			    &flush_behind_string);
+        ret = dict_get_str (options, "flush-behind", 
+                            &flush_behind_string);
         if (ret == 0) {
-		ret = gf_string2boolean (flush_behind_string, 
-					 &conf->flush_behind);
+                ret = gf_string2boolean (flush_behind_string, 
+                                         &conf->flush_behind);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "'flush-behind' takes only boolean arguments");
@@ -1407,17 +1445,25 @@ struct xlator_cbks cbks = {
 
 struct volume_options options[] = {
         { .key  = {"flush-behind"}, 
-	  .type = GF_OPTION_TYPE_BOOL
-	},
+          .type = GF_OPTION_TYPE_BOOL
+        },
         { .key  = {"block-size", "aggregate-size"}, 
-	  .type = GF_OPTION_TYPE_SIZET, 
-	  .min  = 128 * GF_UNIT_KB, 
-	  .max  = 4 * GF_UNIT_MB 
-	},
+          .type = GF_OPTION_TYPE_SIZET, 
+          .min  = 128 * GF_UNIT_KB, 
+          .max  = 4 * GF_UNIT_MB 
+        },
         { .key  = {"cache-size", "window-size"}, 
-	  .type = GF_OPTION_TYPE_SIZET, 
-	  .min  = 512 * GF_UNIT_KB, 
-	  .max  = 1 * GF_UNIT_GB 
-	},
-	{ .key = {NULL} },
+          .type = GF_OPTION_TYPE_SIZET, 
+          .min  = 512 * GF_UNIT_KB, 
+          .max  = 1 * GF_UNIT_GB 
+        },
+        { .key = {"disable-for-first-nbytes"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .min = 1,
+          .max = 1 * GF_UNIT_MB,
+        },
+        { .key = {"enable-O_SYNC"},
+          .type = GF_OPTION_TYPE_BOOL,
+        }, 
+        { .key = {NULL} },
 };
