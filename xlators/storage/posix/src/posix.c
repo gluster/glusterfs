@@ -2955,7 +2955,8 @@ create_entry (xlator_t *this, int32_t flags,
 
 }
 
-int32_t 
+
+int
 posix_setdents (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, int32_t flags, dir_entry_t *entries,
                 int32_t count)
@@ -3037,14 +3038,16 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
                 /* TODO: handle another flag, GF_SET_OVERWRITE */
 
                 /* Change the mode */
-                ret = chmod (pathname, trav->buf.st_mode);
-                if (ret == -1) {
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR, 
-                                "chmod on %s failed: %s", pathname,
-                                strerror (op_errno));
-                        goto out;
-                }
+		if (!S_ISLINK (trav->buf.st_mode)) {
+			ret = chmod (pathname, trav->buf.st_mode);
+			if (ret == -1) {
+				op_errno = errno;
+				gf_log (this->name, GF_LOG_ERROR, 
+					"chmod on %s failed: %s", pathname,
+					strerror (op_errno));
+				goto out;
+			}
+		}
 
                 /* change the ownership */
                 ret = lchown (pathname, trav->buf.st_uid, trav->buf.st_gid);
