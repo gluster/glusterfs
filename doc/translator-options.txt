@@ -113,6 +113,8 @@ performance/write-behind:
 	* flush-behind		    GF_OPTION_TYPE_BOOL
 	* aggregate-size	    GF_OPTION_TYPE_SIZET  (128 * GF_UNIT_KB)-(4 * GF_UNIT_MB) 
 	* window-size		    GF_OPTION_TYPE_SIZET  (512 * GF_UNIT_KB)-(1 * GF_UNIT_GB) 
+	* enable-O_SYNC		    GF_OPTION_TYPE_BOOL  
+	* disable-for-first-nbytes  GF_OPTION_TYPE_SIZET  1 - (1 * GF_UNIT_MB) 
 
 performance/symlink-cache:
 

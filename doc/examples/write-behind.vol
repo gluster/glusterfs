@@ -21,4 +21,6 @@ volume wb
   option flush-behind on    # default value is 'off'
   option window-size 2MB
   option aggregate-size 1MB # default value is 0
+  option enable_O_SYNC no  # default is no
+  option disable-for-first-nbytes 128KB #default is 1 
 end-volume
