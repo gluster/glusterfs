@@ -1397,14 +1397,8 @@ init (xlator_t *this)
                 }
 
                 if (conf->flush_behind) {
-                        if (conf->aggregate_size != 0) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "aggregate-size is not zero, disabling flush-behind");
-                                conf->flush_behind = 0;
-                        } else {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "enabling flush-behind");
-                        }
+			gf_log (this->name, GF_LOG_DEBUG,
+				"enabling flush-behind");
                 }
         }
         this->private = conf;
