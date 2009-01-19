@@ -34,6 +34,9 @@
 #define CLIENT_PROTO_FORGET_LIMIT  128
 #define CLIENT_PORT_CIELING        1023
 
+#define GF_CLIENT_INODE_SELF   0
+#define GF_CLIENT_INODE_PARENT 1
+
 #define CLIENT_TRANSPORT(this) (((client_private_t *)this->private)->transport)
 #define CLIENT_CONNECTION_PRIVATE(this) ((client_connection_private_t *)(CLIENT_TRANSPORT(this)->xl_private))
 
@@ -102,7 +105,8 @@ struct client_connection_private {
 };
 
 typedef struct {
-	inode_t *inode;
+	loc_t loc;
+	loc_t loc2;
 	fd_t *fd;
 } client_local_t;
 

@@ -62,7 +62,7 @@ static gf_op_t gf_mops[];
 static gf_op_t gf_cbks[];
 
 static ino_t
-this_ino_get (inode_t *inode, xlator_t *this)
+this_ino_get_from_inode (inode_t *inode, xlator_t *this)
 {
 	ino_t ino = 0;
 	int32_t ret = 0;
@@ -78,12 +78,44 @@ this_ino_get (inode_t *inode, xlator_t *this)
 	ret = dict_get_uint64 (inode->ctx, this->name, &ino);
 
 	if (inode->ino && ret < 0) {
-		/* TODO: this log is useless */
-		;
-		/* gf_log (this->name, GF_LOG_ERROR,
-			"failed to do dict get from inode(%p)/%"PRId64,
-			inode, inode->ino);
-		*/
+		gf_log (this->name, GF_LOG_ERROR,
+			"(%"PRId64"): failed to get remote inode number",
+			inode->ino);
+	}
+
+out:
+	return ino;
+}
+
+static ino_t
+this_ino_get (loc_t *loc, xlator_t *this, int32_t which)
+{
+	ino_t ino = 0;
+	int32_t ret = 0;
+	inode_t *inode = NULL;
+
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	
+	if (which == GF_CLIENT_INODE_SELF) {
+		inode = loc->inode;
+	} else if (which == GF_CLIENT_INODE_PARENT) {
+		inode = loc->parent;
+	}
+	GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+	if (inode->ino == 1) {
+		ino = 1;
+		goto out;
+	}
+
+	ret = dict_get_uint64 (inode->ctx, this->name, &ino);
+
+	if (inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"%s (%s - %"PRId64"): failed to get remote inode number",
+			loc->path, 
+			(which == GF_CLIENT_INODE_SELF? "self" : "parent"), 
+			inode->ino);
 	}
 
 out:
@@ -91,31 +123,31 @@ out:
 }
 
 static void
-this_ino_set (inode_t *inode, xlator_t *this, ino_t ino)
+this_ino_set (loc_t *loc, xlator_t *this, ino_t ino)
 {
 	ino_t old_ino = 0;
 	int32_t ret = -1;
+	inode_t *inode = NULL;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
+
+	inode = loc->inode;
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
 	ret = dict_get_uint64 (inode->ctx, this->name, &old_ino);
 
 	if (old_ino != ino) {
-		/* TODO: This log doesn't make sense */
 		if (old_ino)
 			gf_log (this->name, GF_LOG_DEBUG,
-				"inode number(%"PRId64") changed for "
-				"inode(%p)",
-				old_ino, inode);
+				"%s: inode number changed from %"PRId64" to %"PRId64,
+				loc->path, old_ino, ino);
 
 		ret = dict_set_uint64 (inode->ctx, this->name, ino);
 		if (ret < 0) {
-			/* TODO: This log doesn't make sense */
 			gf_log (this->name, GF_LOG_ERROR,
-				"failed to set inode number(%"PRId64") to "
-				"inode(%p)",
-				ino, inode);
+				"%s (%"PRId64"): failed to set remote inode number "
+				"to inode ctx",
+				loc->path, ino);
 		}
 	}
 out:
@@ -143,7 +175,7 @@ out:
 
 
 static void
-this_fd_set (fd_t *file, xlator_t *this, int64_t fd)
+this_fd_set (fd_t *file, xlator_t *this, loc_t *loc, int64_t fd)
 {
 	int64_t old_fd = -1;
 	int32_t ret = -1;
@@ -153,23 +185,36 @@ this_fd_set (fd_t *file, xlator_t *this, int64_t fd)
 
 	ret = dict_get_int64 (file->ctx, this->name, &old_fd);
 	if (ret >= 0) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_WARNING,
-			"duplicate fd_set for fd_t(%p) with old_fd(%"PRId64")",
-			file, old_fd);
+			"%s (%"PRId64"): trying duplicate remote fd set. "
+			"%"PRId64" over-rides %"PRId64,
+			loc->path, loc->inode->ino, fd, old_fd);
 	}
 
 	ret = dict_set_int64 (file->ctx, this->name, fd);
 	if (ret < 0) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_ERROR,
-			"failed to set remote fd(%"PRId64") to fd_t(%p)",
-			fd, file);
+			"%s (%"PRId64"): failed to set remote fd",
+			loc->path, loc->inode->ino);
 	}
 out:
 	return;
 }
 
+static int 
+client_local_wipe (client_local_t *local)
+{
+	if (local) {
+		loc_wipe (&local->loc);
+
+		if (local->fd)
+			fd_unref (local->fd);
+
+		free (local);
+	} 
+	
+	return 0;
+}
 
 /*
  * lookup_frame - lookup call frame corresponding to a given callid
@@ -508,6 +553,15 @@ client_create (call_frame_t *frame,
 	int32_t ret = -1;
 	ino_t par = 0;
 	client_private_t *priv = this->private;
+	client_local_t *local = NULL;
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	local->fd = fd_ref (fd);
+	loc_copy (&local->loc, loc);
+	
+	frame->local = local;
 
 	if (priv->child) {
 		/* */
@@ -521,7 +575,7 @@ client_create (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	par = this_ino_get (loc->parent, this);
+	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
@@ -534,8 +588,6 @@ client_create (call_frame_t *frame,
 	req->par     = hton64 (par);
 	strcpy (req->path, loc->path);
 	strcpy (req->bname + pathlen, loc->name);
-
-	frame->local = fd;
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CREATE,
@@ -573,6 +625,15 @@ client_open (call_frame_t *frame,
 	size_t pathlen = 0;
 	ino_t  ino = 0;
 	client_private_t *priv = this->private;
+	client_local_t *local = NULL;
+	
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	local->fd = fd_ref (fd);
+	loc_copy (&local->loc, loc);	
+
+	frame->local = local;
 
 	if (priv->child) {
 		/* */
@@ -586,7 +647,7 @@ client_open (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -597,9 +658,7 @@ client_open (call_frame_t *frame,
 	req->ino   = hton64 (ino);
 	req->flags = hton32 (flags);
 	strcpy (req->path, loc->path);
-
-	frame->local = fd;
-
+	
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_OPEN,
 				    hdr, hdrlen, NULL, 0, NULL);
@@ -647,7 +706,7 @@ client_stat (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -708,7 +767,7 @@ client_readlink (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -759,6 +818,14 @@ client_mknod (call_frame_t *frame,
 	size_t baselen = 0;
 	ino_t  par = 0;
 	client_private_t *priv = this->private;
+	client_local_t *local = NULL;
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	loc_copy (&local->loc, loc);	
+
+	frame->local = local;
 
 	if (priv->child) {
 		/* */
@@ -773,7 +840,7 @@ client_mknod (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	par = this_ino_get (loc->parent, this);
+	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
@@ -786,8 +853,6 @@ client_mknod (call_frame_t *frame,
 	req->dev  = hton64 (dev);
 	strcpy (req->path, loc->path);
 	strcpy (req->bname + pathlen, loc->name);
-
-	frame->local = loc->inode;
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_MKNOD,
@@ -826,6 +891,14 @@ client_mkdir (call_frame_t *frame,
 	size_t baselen = 0;
 	ino_t  par = 0;
 	client_private_t *priv = this->private;
+	client_local_t *local = NULL;
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+	
+	loc_copy (&local->loc, loc);
+
+	frame->local = local;
 
 	if (priv->child) {
 		/* */
@@ -840,7 +913,7 @@ client_mkdir (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	par = this_ino_get (loc->parent, this);
+	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
@@ -852,9 +925,7 @@ client_mkdir (call_frame_t *frame,
 	req->mode = hton32 (mode);
 	strcpy (req->path, loc->path);
 	strcpy (req->bname + pathlen, loc->name);
-
-	frame->local = loc->inode;
-
+	
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_MKDIR,
 				    hdr, hdrlen, NULL, 0, NULL);
@@ -905,7 +976,7 @@ client_unlink (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	par = this_ino_get (loc->parent, this);
+	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
@@ -965,7 +1036,7 @@ client_rmdir (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	par = this_ino_get (loc->parent, this);
+	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
@@ -1016,6 +1087,14 @@ client_symlink (call_frame_t *frame,
 	size_t baselen = 0;
 	ino_t par = 0;
 	client_private_t *priv = this->private;
+	client_local_t *local = NULL;
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+	
+	loc_copy (&local->loc, loc);
+
+	frame->local = local;
 
 	if (priv->child) {
 		/* */
@@ -1028,12 +1107,10 @@ client_symlink (call_frame_t *frame,
 		return 0;
 	}
 
-	frame->local = loc->inode;
-
 	pathlen = STRLEN_0 (loc->path);
 	baselen = STRLEN_0 (loc->name);
 	newlen = STRLEN_0 (linkname);
-	par = this_ino_get (loc->parent, this);
+	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen + newlen);
 	hdr    = gf_hdr_new (req, pathlen + baselen + newlen);
@@ -1045,7 +1122,7 @@ client_symlink (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 	strcpy (req->bname + pathlen, loc->name);
 	strcpy (req->linkname + pathlen + baselen, linkname);
-
+	
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SYMLINK,
 				    hdr, hdrlen, NULL, 0, NULL);
@@ -1101,8 +1178,8 @@ client_rename (call_frame_t *frame,
 	oldbaselen = STRLEN_0(oldloc->name);
 	newpathlen = STRLEN_0(newloc->path);
 	newbaselen = STRLEN_0(newloc->name);
-	oldpar = this_ino_get (oldloc->parent, this);
-	newpar = this_ino_get (newloc->parent, this);
+	oldpar = this_ino_get (oldloc, this, GF_CLIENT_INODE_PARENT);
+	newpar = this_ino_get (newloc, this, GF_CLIENT_INODE_PARENT);
 
 	hdrlen = gf_hdr_len (req, (oldpathlen + oldbaselen + 
 				   newpathlen + newbaselen));
@@ -1162,6 +1239,14 @@ client_link (call_frame_t *frame,
 	ino_t  oldino = 0;
 	ino_t  newpar = 0;
 	client_private_t *priv = this->private;
+	client_local_t *local = NULL;
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	loc_copy (&local->loc, oldloc);
+
+	frame->local = local;
 
 	if (priv->child) {
 		/* */
@@ -1177,8 +1262,8 @@ client_link (call_frame_t *frame,
 	oldpathlen = STRLEN_0(oldloc->path);
 	newpathlen = STRLEN_0(newloc->path);
 	newbaselen = STRLEN_0(newloc->name);
-	oldino = this_ino_get (oldloc->inode, this);
-	newpar = this_ino_get (newloc->parent, this);
+	oldino = this_ino_get (oldloc, this, GF_CLIENT_INODE_SELF);
+	newpar = this_ino_get (newloc, this, GF_CLIENT_INODE_PARENT);
 
 	hdrlen = gf_hdr_len (req, oldpathlen + newpathlen + newbaselen);
 	hdr    = gf_hdr_new (req, oldpathlen + newpathlen + newbaselen);
@@ -1192,8 +1277,6 @@ client_link (call_frame_t *frame,
 
 	req->oldino = hton64 (oldino);
 	req->newpar = hton64 (newpar);
-
-	frame->local = oldloc->inode;
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_LINK,
@@ -1244,7 +1327,7 @@ client_chmod (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1309,7 +1392,7 @@ client_chown (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1371,7 +1454,7 @@ client_truncate (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1434,7 +1517,7 @@ client_utimens (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1501,9 +1584,8 @@ client_readv (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd for fd_t (%p) "
-			"returning EBADFD",
-			fd);
+			"(%"PRId64"): failed to get remote fd, returning EBADFD",
+			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL, 0, NULL);
 		return 0;
 	}
@@ -1574,11 +1656,9 @@ client_writev (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD",
-			fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD",
+			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -1641,7 +1721,7 @@ client_statfs (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1700,11 +1780,9 @@ client_flush (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD",
-			fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD",
+			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
@@ -1770,10 +1848,9 @@ client_fsync (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD", fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
 		return 0;
 	}
@@ -1845,7 +1922,7 @@ client_xattrop (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, dict_len + pathlen);
 	hdr    = gf_hdr_new (req, dict_len + pathlen);
@@ -1922,10 +1999,9 @@ client_fxattrop (call_frame_t *frame,
 	if (fd) {
 		ret = this_fd_get (fd, this, &remote_fd);
 		if (ret == -1) {
-			/* TODO: This log doesn't make sense */
 			gf_log (this->name, GF_LOG_DEBUG,
-				"failed to get remote fd from fd_t(%p). "
-				"returning EBADFD", fd);
+				"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+				fd->inode->ino);
 			goto unwind;
 		}
 		ino = fd->inode->ino;
@@ -2013,7 +2089,7 @@ client_setxattr (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, dict_len + pathlen);
 	hdr    = gf_hdr_new (req, dict_len + pathlen);
@@ -2086,7 +2162,7 @@ client_getxattr (call_frame_t *frame,
 	if (name)
 		namelen = STRLEN_0(name);
 
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen + namelen);
 	hdr    = gf_hdr_new (req, pathlen + namelen);
@@ -2150,7 +2226,7 @@ client_removexattr (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	namelen = STRLEN_0(name);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen + namelen);
 	hdr    = gf_hdr_new (req, pathlen + namelen);
@@ -2195,7 +2271,16 @@ client_opendir (call_frame_t *frame,
 	ino_t  ino = 0;
 	size_t pathlen = 0;
 	client_private_t *priv = this->private;
+	client_local_t *local = NULL;
 
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	loc_copy (&local->loc, loc);
+	local->fd = fd_ref (fd);
+
+	frame->local = local;
+	
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame,
@@ -2207,7 +2292,7 @@ client_opendir (call_frame_t *frame,
 		return 0;
 	}
 
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 	pathlen = STRLEN_0(loc->path);
 
 	hdrlen = gf_hdr_len (req, pathlen);
@@ -2218,8 +2303,6 @@ client_opendir (call_frame_t *frame,
 
 	req->ino = hton64 (ino);
 	strcpy (req->path, loc->path);
-
-	frame->local = fd;
 
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_OPENDIR,
@@ -2274,10 +2357,9 @@ client_getdents (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD", fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -2339,10 +2421,9 @@ client_readdir (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD", fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			fd->inode->ino);
 		goto unwind;
 	}
 
@@ -2409,10 +2490,9 @@ client_fsyncdir (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD", fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			fd->inode->ino);
 		goto unwind;
 	}
 
@@ -2471,7 +2551,7 @@ client_access (call_frame_t *frame,
 		return 0;
 	}
 
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 	pathlen = STRLEN_0(loc->path);
 
 	hdrlen = gf_hdr_len (req, pathlen);
@@ -2536,10 +2616,9 @@ client_ftruncate (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD", fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -2602,11 +2681,9 @@ client_fstat (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD",
-			fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD",
+			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -2675,11 +2752,9 @@ client_lk (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD",
-			fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD",
+			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD, NULL);
 		return 0;
 	}
@@ -2772,7 +2847,7 @@ client_inodelk (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
 		gf_cmd = GF_LK_GETLK;
@@ -2867,10 +2942,9 @@ client_finodelk (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD", fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
 		return 0;
 	}
@@ -2956,7 +3030,7 @@ client_entrylk (call_frame_t *frame,
 	if (name)
 		namelen = STRLEN_0(name);
 
-	ino = this_ino_get (loc->inode, this);
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	hdrlen = gf_hdr_len (req, pathlen + namelen);
 	hdr    = gf_hdr_new (req, pathlen + namelen);
@@ -3020,10 +3094,9 @@ client_fentrylk (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD", fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
 		return 0;
 	}
@@ -3082,6 +3155,14 @@ client_lookup (call_frame_t *frame,
 	int32_t op_ret = -1;
 	int32_t op_errno = EINVAL;
 	client_private_t *priv = this->private;
+	client_local_t *local = NULL;
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	loc_copy (&local->loc, loc);
+
+	frame->local = local;
 
 	if (priv->child) {
 		/* */
@@ -3099,7 +3180,7 @@ client_lookup (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
 
 	if (loc->ino != 1) {
-		par = this_ino_get (loc->parent, this);
+		par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
 		GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
 		baselen = STRLEN_0(loc->name);
 	} else {
@@ -3120,9 +3201,7 @@ client_lookup (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 	if (baselen)
 		strcpy (req->path + pathlen, loc->name);
-
-	frame->local = loc->inode;
-
+	
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_LOOKUP,
 				    hdr, hdrlen, NULL, 0, NULL);
@@ -3171,10 +3250,9 @@ client_fchmod (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		op_errno = EBADFD;
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD", fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			fd->inode->ino);
 		goto unwind;
 	}
 
@@ -3243,10 +3321,9 @@ client_fchown (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		op_errno = EBADFD;
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD", fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			fd->inode->ino);
 		goto unwind;
 	}
 
@@ -3319,10 +3396,9 @@ client_setdents (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p). "
-			"returning EBADFD", fd);
+			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			fd->inode->ino);
 		op_errno = EBADFD;
 		goto unwind;
 	}
@@ -3467,7 +3543,7 @@ client_forget (xlator_t *this,
 	}
 
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
-	ino = this_ino_get (inode, this);
+	ino = this_ino_get_from_inode (inode, this);
 
 	LOCK (&priv->forget.lock);
 	{
@@ -3529,9 +3605,9 @@ client_releasedir (xlator_t *this,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1){
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p).", fd);
+			"(%"PRId64"): failed to get remote fd.", 
+			fd->inode->ino);
 		goto out;
 	}
 
@@ -3599,9 +3675,9 @@ client_release (xlator_t *this,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		/* TODO: This log doesn't make sense */
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to get remote fd from fd_t(%p).", fd);
+			"(%"PRId64"): failed to get remote fd.", 
+			fd->inode->ino);
 		goto out;
 	}
 
@@ -3899,10 +3975,12 @@ client_create_cbk (call_frame_t *frame,
 	client_connection_private_t *cprivate = NULL;
 	char                 key[32] = {0, };
 	int32_t              ret = -1;
+	client_local_t       *local = NULL;
 
-	fd = frame->local;
+	local = frame->local;
 	frame->local = NULL;
-	inode = fd->inode;
+	fd = local->fd;
+	inode = local->loc.inode;
 
 	rsp = gf_param (hdr);
 
@@ -3917,8 +3995,8 @@ client_create_cbk (call_frame_t *frame,
 	if (op_ret >= 0) {
 		cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
 
-		this_ino_set (inode, frame->this, stbuf.st_ino);
-		this_fd_set (fd, frame->this, remote_fd);
+		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
+		this_fd_set (fd, frame->this, &local->loc, remote_fd);
 
 		sprintf (key, "%p", fd);
 
@@ -3930,13 +4008,15 @@ client_create_cbk (call_frame_t *frame,
 
 		if (ret < 0) {
 			free (key);
-			/* TODO: This log doesn't make sense */
 			gf_log (frame->this->name, GF_LOG_ERROR,
-				"failed to save fd(%p)", fd);
+				"%s (%"PRId64"): failed to save remote fd", 
+				local->loc.path, stbuf.st_ino);
 		}
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);
+	
+	client_local_wipe (local);
 
 	return 0;
 }
@@ -3962,8 +4042,11 @@ client_open_cbk (call_frame_t *frame,
 	client_connection_private_t *cprivate = NULL;
 	char                 key[32] = {0,};
 	int32_t              ret = -1;
+	client_local_t      *local = NULL;
+	
+	local = frame->local;
 
-	fd = frame->local;
+	fd = local->fd;
 	frame->local = NULL;
 
 	rsp = gf_param (hdr);
@@ -3978,7 +4061,7 @@ client_open_cbk (call_frame_t *frame,
 	if (op_ret >= 0) {
 		cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
 
-		this_fd_set (fd, frame->this, remote_fd);
+		this_fd_set (fd, frame->this, &local->loc, remote_fd);
 
 		sprintf (key, "%p", fd);
 
@@ -3990,7 +4073,8 @@ client_open_cbk (call_frame_t *frame,
 
 		if (ret < 0) {
 			gf_log (frame->this->name, GF_LOG_ERROR,
-				"failed to save fd(%p)", fd);
+				"%s (%"PRId64"): failed to save remote fd", 
+				local->loc.path, local->loc.inode->ino);
 			free (key);
 		}
 
@@ -4143,9 +4227,11 @@ client_mknod_cbk (call_frame_t *frame,
 	int32_t op_errno = 0;
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
+	client_local_t *local = NULL;
 
-	inode = frame->local;
+	local = frame->local;
 	frame->local = NULL;
+	inode = local->loc.inode;
 
 	rsp = gf_param (hdr);
 
@@ -4154,10 +4240,12 @@ client_mknod_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		this_ino_set (inode, frame->this, stbuf.st_ino);
+		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+	
+	client_local_wipe (local);
 
 	return 0;
 }
@@ -4179,9 +4267,11 @@ client_symlink_cbk (call_frame_t *frame,
 	int32_t op_errno = 0;
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
+	client_local_t *local = NULL;
 
-	inode = frame->local;
+	local = frame->local;
 	frame->local = NULL;
+	inode = local->loc.inode;
 
 	rsp = gf_param (hdr);
 
@@ -4190,10 +4280,12 @@ client_symlink_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		this_ino_set (inode, frame->this, stbuf.st_ino);
+		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+	
+	client_local_wipe (local);
 
 	return 0;
 }
@@ -4215,9 +4307,11 @@ client_link_cbk (call_frame_t *frame,
 	int32_t op_errno = 0;
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
+	client_local_t *local = NULL;
 
-	inode = frame->local;
+	local = frame->local;
 	frame->local = NULL;
+	inode = local->loc.inode;
 
 	rsp = gf_param (hdr);
 
@@ -4229,6 +4323,8 @@ client_link_cbk (call_frame_t *frame,
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+	
+	client_local_wipe (local);
 
 	return 0;
 }
@@ -4583,8 +4679,10 @@ client_mkdir_cbk (call_frame_t *frame,
 	int32_t op_errno = 0;
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
+	client_local_t *local = NULL;
 
-	inode = frame->local;
+	local = frame->local;
+	inode = local->loc.inode;
 	frame->local = NULL;
 
 	rsp = gf_param (hdr);
@@ -4594,10 +4692,12 @@ client_mkdir_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		this_ino_set (inode, frame->this, stbuf.st_ino);
+		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+	
+	client_local_wipe (local);
 
 	return 0;
 }
@@ -4644,12 +4744,14 @@ client_opendir_cbk (call_frame_t *frame,
 	int32_t               op_errno = ENOTCONN;
 	fd_t                 *fd       = NULL;
 	int64_t               remote_fd = 0;
-	gf_fop_opendir_rsp_t *rsp  = NULL;
+	gf_fop_opendir_rsp_t *rsp       = NULL;
 	client_connection_private_t  *cprivate = NULL;
 	char                  key[32] = {0,};
 	int32_t               ret     = -1;
+	client_local_t       *local = NULL;
 
-	fd = frame->local;
+	local = frame->local;
+	fd = local->fd;
 	frame->local = NULL;
 
 	rsp = gf_param (hdr);
@@ -4664,7 +4766,7 @@ client_opendir_cbk (call_frame_t *frame,
 	if (op_ret >= 0) {
 		cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
 
-		this_fd_set (fd, frame->this, remote_fd);
+		this_fd_set (fd, frame->this, &local->loc, remote_fd);
 
 		sprintf (key, "%p", fd);
 
@@ -4676,13 +4778,15 @@ client_opendir_cbk (call_frame_t *frame,
 
 		if (ret < 0) {
 			free (key);
-			/* TODO: This log doesn't make sense */
 			gf_log (frame->this->name, GF_LOG_ERROR,
-				"failed to save fd(%p)", fd);
+				"%s (%"PRId64"): failed to save remote fd", 
+				local->loc.path, local->loc.inode->ino);
 		}
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd);
+	
+	client_local_wipe (local);
 
 	return 0;
 }
@@ -4766,8 +4870,10 @@ client_lookup_cbk (call_frame_t *frame,
 	char *dictbuf = NULL;
 	int32_t ret = -1;
 	int32_t gf_errno = 0;
+	client_local_t *local = NULL;
 
-	inode = frame->local;
+	local = frame->local; 
+	inode = local->loc.inode;
 	frame->local = NULL;
 
 	rsp = gf_param (hdr);
@@ -4777,7 +4883,7 @@ client_lookup_cbk (call_frame_t *frame,
 	if (op_ret == 0) {
 		op_ret = -1;
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		this_ino_set (inode, frame->this, stbuf.st_ino);
+		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
 
 		dict_len = ntoh32 (rsp->dict_len);
 
@@ -4791,8 +4897,8 @@ client_lookup_cbk (call_frame_t *frame,
 			ret = dict_unserialize (dictbuf, dict_len, &xattr);
 			if (ret < 0) {
 				gf_log (frame->this->name, GF_LOG_ERROR,
-					"failed to serialize dictionary(%p)",
-					dictbuf);
+					"%s (%"PRId64"): failed to unserialize dictionary",
+					local->loc.path, inode->ino);
 				goto fail;
 			} else {
 				xattr->extra_free = dictbuf;
@@ -5047,6 +5153,10 @@ client_getxattr_cbk (call_frame_t *frame,
 	dict_t *dict = NULL;
 	int32_t ret = -1;
 	char *dictbuf = NULL;
+	client_local_t *local = NULL;
+	
+	local = frame->local;
+	frame->local = NULL;
 
 	rsp = gf_param (hdr);
 	GF_VALIDATE_OR_GOTO(frame->this->name, rsp, fail);
@@ -5066,10 +5176,10 @@ client_getxattr_cbk (call_frame_t *frame,
 
 			ret = dict_unserialize (dictbuf, dict_len, &dict);
 			if (ret < 0) {
-				/* TODO: This log doesn't make sense */
 				gf_log (frame->this->name, GF_LOG_ERROR,
-					"failed to serialize dictionary(%p)",
-					dict);
+					"%s (%"PRId64"): failed to "
+					"unserialize xattr dictionary", 
+					local->loc.path, local->loc.inode->ino);
 				goto fail;
 			} else {
 				dict->extra_free = dictbuf;
@@ -5083,6 +5193,8 @@ client_getxattr_cbk (call_frame_t *frame,
 fail:
 	STACK_UNWIND (frame, op_ret, op_errno, dict);
 	
+	client_local_wipe (local);
+
 	if (dictbuf)
 		free (dictbuf);
 
@@ -5441,6 +5553,7 @@ client_checksum (call_frame_t *frame,
 	size_t hdrlen = -1;
 	int ret = -1;
 	client_private_t *priv = this->private;
+	ino_t ino = 0;
 
 	if (priv->child) {
 		STACK_WIND (frame,
@@ -5456,8 +5569,9 @@ client_checksum (call_frame_t *frame,
 	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
 	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
 	req    = gf_param (hdr);
-
-	req->ino  = hton64 (this_ino_get (loc->inode, this));
+	
+	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+	req->ino  = hton64 (ino);
 	req->flag = hton32 (flag);
 	strcpy (req->path, loc->path);
 
