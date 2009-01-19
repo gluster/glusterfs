@@ -3038,7 +3038,7 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
                 /* TODO: handle another flag, GF_SET_OVERWRITE */
 
                 /* Change the mode */
-		if (!S_ISLINK (trav->buf.st_mode)) {
+		if (!S_ISLNK (trav->buf.st_mode)) {
 			ret = chmod (pathname, trav->buf.st_mode);
 			if (ret == -1) {
 				op_errno = errno;

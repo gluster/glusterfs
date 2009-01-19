@@ -465,3 +465,62 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 out:
 	return ret;
 }
+
+int
+dht_layout_mismatch (xlator_t *this,
+		     dht_layout_t *layout,
+		     xlator_t *subvol,
+		     dict_t *xattr)
+{
+	int idx = 0;
+	int pos = -1;
+	int ret = -1;
+	int32_t *disk_layout = NULL;
+	int32_t count = -1;
+	int32_t start_off = -1;
+	int32_t stop_off = -1;
+
+	for (idx = 0; idx < layout->cnt; idx++) {
+		if (layout->list[idx].xlator == subvol) {
+			pos = idx;
+			break;
+		}
+	}
+	
+	if (pos == -1) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to find layout information for subvolume %s",
+			subvol->name);
+		ret = 1;
+		goto out;
+	}
+	
+	if (xattr == NULL) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"xattr dictionary is NULL");
+		ret = -1;
+		goto out;
+	}
+
+	ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
+			    VOID(&disk_layout));
+
+	count  = ntoh32 (disk_layout[0]);
+	if (count != 1) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"disk layout has invalid count %d", count);
+		ret = -1;
+		goto out;
+	}
+
+	start_off = ntoh32 (disk_layout[2]);
+	stop_off  = ntoh32 (disk_layout[3]);
+	
+	if ((layout->list[pos].start != start_off)
+	    || (layout->list[pos].stop != stop_off))
+		ret = 1;
+	else 
+		ret = 0;
+out:
+	return ret;
+}

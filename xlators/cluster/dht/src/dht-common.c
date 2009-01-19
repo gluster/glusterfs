@@ -164,7 +164,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt = 0;
         call_frame_t *prev          = NULL;
 	dht_layout_t *layout        = NULL;
-
+	int           ret  = -1;
 
         local = frame->local;
         prev  = cookie;
@@ -196,9 +196,22 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 			goto unlock;
 		}
+		
+		if (S_ISDIR(stbuf->st_mode)) {
+			ret = dht_layout_mismatch (this, layout, prev->this, xattr);
+			if (ret != 0) {
+				gf_log (this->name, GF_LOG_WARNING,
+					"mismatching layouts for %s", 
+					local->loc.path);
+			
+				local->layout_mismatch = 1;
+
+				goto unlock;
+			}
+		}
 
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
-
+		
 		local->op_ret = 0;
 		local->stbuf.st_ino = local->st_ino;
 
@@ -215,6 +228,12 @@ unlock:
 		    && (local->hashed_subvol != local->cached_subvol)
 		    && (local->stbuf.st_nlink == 1))
 			local->stbuf.st_mode |= S_ISVTX;
+
+		if (local->layout_mismatch) {
+			local->op_ret = -1;
+			local->op_errno = ESTALE;
+		}
+			
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr);
 	}
@@ -608,7 +627,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
 		local->inode    = inode_ref (loc->inode);
 		local->st_ino   = loc->inode->ino;
-
+		
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
 		
