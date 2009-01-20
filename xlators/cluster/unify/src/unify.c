@@ -4212,8 +4212,14 @@ init (xlator_t *this)
 		FREE (_private);
 		return -1;
 	}
-	if (!ns_xl->parents)
-		
+	
+	if (ns_xl->parents) {
+		gf_log (this->name, GF_LOG_CRITICAL,
+			"Namespace node should not be a child of any other node. Exiting");
+		FREE (_private);
+		return -1;
+	}
+
 	_private->namespace = ns_xl;
 	
 	/* update _private structure */
