@@ -109,6 +109,7 @@ struct _server_state {
 	char *name;
 	int name_len;
 	inode_table_t *itable;
+	int64_t fd_no;
 	ino_t ino;
 	ino_t par;
 	ino_t ino2;
