@@ -555,14 +555,6 @@ client_create (call_frame_t *frame,
 	client_private_t *priv = this->private;
 	client_local_t *local = NULL;
 
-	local = calloc (1, sizeof (*local));
-	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
-
-	local->fd = fd_ref (fd);
-	loc_copy (&local->loc, loc);
-	
-	frame->local = local;
-
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame, default_create_cbk,
@@ -572,6 +564,14 @@ client_create (call_frame_t *frame,
 		
 		return 0;
 	}
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	local->fd = fd_ref (fd);
+	loc_copy (&local->loc, loc);
+	
+	frame->local = local;
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
@@ -627,14 +627,6 @@ client_open (call_frame_t *frame,
 	client_private_t *priv = this->private;
 	client_local_t *local = NULL;
 	
-	local = calloc (1, sizeof (*local));
-	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
-
-	local->fd = fd_ref (fd);
-	loc_copy (&local->loc, loc);	
-
-	frame->local = local;
-
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame,
@@ -645,6 +637,14 @@ client_open (call_frame_t *frame,
 		
 		return 0;
 	}
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	local->fd = fd_ref (fd);
+	loc_copy (&local->loc, loc);	
+
+	frame->local = local;
 
 	pathlen = STRLEN_0(loc->path);
 	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
@@ -820,13 +820,6 @@ client_mknod (call_frame_t *frame,
 	client_private_t *priv = this->private;
 	client_local_t *local = NULL;
 
-	local = calloc (1, sizeof (*local));
-	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
-
-	loc_copy (&local->loc, loc);	
-
-	frame->local = local;
-
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame,
@@ -837,6 +830,13 @@ client_mknod (call_frame_t *frame,
 
 		return 0;
 	}
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	loc_copy (&local->loc, loc);	
+
+	frame->local = local;
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
@@ -893,13 +893,6 @@ client_mkdir (call_frame_t *frame,
 	client_private_t *priv = this->private;
 	client_local_t *local = NULL;
 
-	local = calloc (1, sizeof (*local));
-	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
-	
-	loc_copy (&local->loc, loc);
-
-	frame->local = local;
-
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame,
@@ -910,6 +903,13 @@ client_mkdir (call_frame_t *frame,
 		
 		return 0;
 	}
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+	
+	loc_copy (&local->loc, loc);
+
+	frame->local = local;
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
@@ -1089,13 +1089,6 @@ client_symlink (call_frame_t *frame,
 	client_private_t *priv = this->private;
 	client_local_t *local = NULL;
 
-	local = calloc (1, sizeof (*local));
-	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
-	
-	loc_copy (&local->loc, loc);
-
-	frame->local = local;
-
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame,
@@ -1106,6 +1099,13 @@ client_symlink (call_frame_t *frame,
 		
 		return 0;
 	}
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+	
+	loc_copy (&local->loc, loc);
+
+	frame->local = local;
 
 	pathlen = STRLEN_0 (loc->path);
 	baselen = STRLEN_0 (loc->name);
@@ -1241,13 +1241,6 @@ client_link (call_frame_t *frame,
 	client_private_t *priv = this->private;
 	client_local_t *local = NULL;
 
-	local = calloc (1, sizeof (*local));
-	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
-
-	loc_copy (&local->loc, oldloc);
-
-	frame->local = local;
-
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame,
@@ -1258,6 +1251,13 @@ client_link (call_frame_t *frame,
 		
 		return 0;
 	}
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	loc_copy (&local->loc, oldloc);
+
+	frame->local = local;
 
 	oldpathlen = STRLEN_0(oldloc->path);
 	newpathlen = STRLEN_0(newloc->path);
@@ -2273,14 +2273,6 @@ client_opendir (call_frame_t *frame,
 	client_private_t *priv = this->private;
 	client_local_t *local = NULL;
 
-	local = calloc (1, sizeof (*local));
-	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
-
-	loc_copy (&local->loc, loc);
-	local->fd = fd_ref (fd);
-
-	frame->local = local;
-	
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame,
@@ -2292,6 +2284,14 @@ client_opendir (call_frame_t *frame,
 		return 0;
 	}
 
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	loc_copy (&local->loc, loc);
+	local->fd = fd_ref (fd);
+
+	frame->local = local;
+	
 	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 	pathlen = STRLEN_0(loc->path);
 
@@ -3157,13 +3157,6 @@ client_lookup (call_frame_t *frame,
 	client_private_t *priv = this->private;
 	client_local_t *local = NULL;
 
-	local = calloc (1, sizeof (*local));
-	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
-
-	loc_copy (&local->loc, loc);
-
-	frame->local = local;
-
 	if (priv->child) {
 		/* */
 		STACK_WIND (frame,
@@ -3175,6 +3168,13 @@ client_lookup (call_frame_t *frame,
 		
 		return 0;
 	}
+
+	local = calloc (1, sizeof (*local));
+	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
+
+	loc_copy (&local->loc, loc);
+
+	frame->local = local;
 
 	GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 	GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
@@ -4081,6 +4081,8 @@ client_open_cbk (call_frame_t *frame,
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd);
+	
+	client_local_wipe (local);
 
 	return 0;
 }
@@ -4913,6 +4915,8 @@ client_lookup_cbk (call_frame_t *frame,
 fail:
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf, xattr);
 	
+	client_local_wipe (local);
+
 	if (dictbuf)
 		free (dictbuf);
 
