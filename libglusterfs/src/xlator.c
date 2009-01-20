@@ -255,7 +255,16 @@ _volume_option_value_validate (xlator_t *xl,
 				break;
 			}
 		}
-		if (!opt->value[i]) {
+
+		if ((i == ZR_OPTION_MAX_ARRAY_SIZE) 
+		    || ((i < ZR_OPTION_MAX_ARRAY_SIZE) 
+			&& (!opt->value[i]))) {
+			/* enter here only if
+			 * 1. reached end of opt->value array and haven't validated input
+			 *                      OR
+			 * 2. valid input list is less than ZR_OPTION_MAX_ARRAY_SIZE and
+			 *    input has not matched all possible input values.
+			 */
 			char given_array[4096] = {0,};
 			for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
 				     opt->value[i]; i++) {
