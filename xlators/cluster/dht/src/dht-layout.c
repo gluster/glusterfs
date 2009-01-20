@@ -466,19 +466,19 @@ out:
 	return ret;
 }
 
+
 int
-dht_layout_mismatch (xlator_t *this,
-		     dht_layout_t *layout,
-		     xlator_t *subvol,
-		     dict_t *xattr)
+dht_layout_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
+		     loc_t *loc, dict_t *xattr)
 {
-	int idx = 0;
-	int pos = -1;
-	int ret = -1;
-	int32_t *disk_layout = NULL;
-	int32_t count = -1;
-	int32_t start_off = -1;
-	int32_t stop_off = -1;
+	int       idx = 0;
+	int       pos = -1;
+	int       ret = -1;
+	int32_t  *disk_layout = NULL;
+	int32_t   count = -1;
+	int32_t   start_off = -1;
+	int32_t   stop_off = -1;
+
 
 	for (idx = 0; idx < layout->cnt; idx++) {
 		if (layout->list[idx].xlator == subvol) {
@@ -489,15 +489,16 @@ dht_layout_mismatch (xlator_t *this,
 	
 	if (pos == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"failed to find layout information for subvolume %s",
-			subvol->name);
+			"%s - no layout info for subvolume %s",
+			loc->path, subvol->name);
 		ret = 1;
 		goto out;
 	}
 	
 	if (xattr == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"xattr dictionary is NULL");
+			"%s - xattr dictionary is NULL",
+			loc->path);
 		ret = -1;
 		goto out;
 	}
@@ -508,7 +509,8 @@ dht_layout_mismatch (xlator_t *this,
 	count  = ntoh32 (disk_layout[0]);
 	if (count != 1) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"disk layout has invalid count %d", count);
+			"%s - disk layout has invalid count %d",
+			loc->path, count);
 		ret = -1;
 		goto out;
 	}
@@ -521,6 +523,7 @@ dht_layout_mismatch (xlator_t *this,
 		ret = 1;
 	else 
 		ret = 0;
+
 out:
 	return ret;
 }

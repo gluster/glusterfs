@@ -161,9 +161,8 @@ int dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
 			  uint32_t *holes_p, uint32_t *overlaps_p,
 			  uint32_t *missing_p, uint32_t *down_p,
 			  uint32_t *misc_p);
-int dht_layout_mismatch (xlator_t *this, 
-			 dht_layout_t *layout, 
-			 xlator_t *subvol, dict_t *xattr);
+int dht_layout_mismatch (xlator_t *this, dht_layout_t *layout,
+			 xlator_t *subvol, loc_t *loc, dict_t *xattr);
 
 xlator_t *dht_linkfile_subvol (xlator_t *this, inode_t *inode,
 			       struct stat *buf, dict_t *xattr);

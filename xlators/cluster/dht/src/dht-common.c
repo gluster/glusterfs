@@ -168,7 +168,6 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
         prev  = cookie;
-	layout = local->layout;
 
         LOCK (&frame->lock);
         {
@@ -196,9 +195,12 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 			goto unlock;
 		}
+
+		layout = dht_layout_get (this, inode);
 		
-		if (S_ISDIR(stbuf->st_mode)) {
-			ret = dht_layout_mismatch (this, layout, prev->this, xattr);
+		if (S_ISDIR (stbuf->st_mode)) {
+			ret = dht_layout_mismatch (this, layout, prev->this,
+						   &local->loc, xattr);
 			if (ret != 0) {
 				gf_log (this->name, GF_LOG_WARNING,
 					"mismatching layouts for %s", 
@@ -480,6 +482,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			return 0;
 		}
 	}
+
  	if (op_ret == 0) {
  		is_dir      = check_is_dir (inode, stbuf, xattr);
  		if (is_dir) {
@@ -487,6 +490,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  			local->xattr = dict_ref (xattr);
  		}
  	}
+
  	if (is_dir || (op_ret == -1 && op_errno == ENOTCONN)) {
 		call_cnt        = conf->subvolume_cnt;
  		local->call_cnt = call_cnt;
