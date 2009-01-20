@@ -501,32 +501,22 @@ ioc_cache_validate (call_frame_t *frame,
 		    fd_t *fd,
 		    ioc_page_t *page)
 {
-	char need_validate = 0;
 	call_frame_t *validate_frame = NULL;
+	ioc_local_t *validate_local = NULL;
 
-	ioc_inode_lock (ioc_inode);
-	{
-		if (!ioc_inode->waitq) {
-			need_validate = 1;
-		}
-		ioc_wait_on_inode (ioc_inode, page);
-	}
-	ioc_inode_unlock (ioc_inode);
-  
-	if (need_validate) {
-		ioc_local_t *validate_local = CALLOC (1, sizeof (ioc_local_t));
-		ERR_ABORT (validate_local);
-		validate_frame = copy_frame (frame);
-		validate_local->fd = fd_ref (fd);
-		validate_local->inode = ioc_inode;
-		validate_frame->local = validate_local;
+	validate_local = CALLOC (1, sizeof (ioc_local_t));
+	ERR_ABORT (validate_local);
+	validate_frame = copy_frame (frame);
+	validate_local->fd = fd_ref (fd);
+	validate_local->inode = ioc_inode;
+	validate_frame->local = validate_local;
     
-		STACK_WIND (validate_frame,
-			    ioc_cache_validate_cbk,
-			    FIRST_CHILD (frame->this),
-			    FIRST_CHILD (frame->this)->fops->fstat,
-			    fd);
-	}
+	STACK_WIND (validate_frame,
+		    ioc_cache_validate_cbk,
+		    FIRST_CHILD (frame->this),
+		    FIRST_CHILD (frame->this)->fops->fstat,
+		    fd);
+
 	return 0;
 }
 
@@ -891,8 +881,12 @@ dispatch_requests (call_frame_t *frame,
 					trav_offset, local_offset);
 				waitq = ioc_page_wakeup (trav);
 			} else {
-				/* we need to validate the cache */
-				need_validate = 1;
+				/* if waitq already exists, fstat revalidate is
+				   already on the way */
+				if (!ioc_inode->waitq) {
+					need_validate = 1;
+				}
+				ioc_wait_on_inode (ioc_inode, trav);
 			}
 		}
 

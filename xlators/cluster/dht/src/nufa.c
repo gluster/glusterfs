@@ -490,6 +490,7 @@ init (xlator_t *this)
 	char          *lookup_unhashed_str = NULL;
         int            ret = -1;
         int            i = 0;
+	char           my_hostname[256];
 
 	if (!this->children) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -531,25 +532,35 @@ init (xlator_t *this)
 
 	conf->gen = 1;
 
+	local_volname = "localhost";
+	ret = gethostname (my_hostname, 256);
+	if (ret < 0) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"could not find hostname (%s)",
+			strerror (errno));
+	}
+
+	if (ret == 0)
+		local_volname = my_hostname;
+
 	data = dict_get (this->options, "local-volume-name");
 	if (data) {
 		local_volname = data->data;
-	} else {
-		gf_log (this->name, GF_LOG_ERROR, 
-			"'local-volume-name' option not given, "
-			"assuming '$(hostname)'");
-		local_volname = NULL; /* TODO: get hostname */
 	}
+
 	trav = this->children;
 	while (trav) {
 		if (strcmp (trav->xlator->name, local_volname) == 0)
 			break;
 		trav = trav->next;
 	}
+
 	if (!trav) {
 		gf_log (this->name, GF_LOG_ERROR, 
-			"'local-volume-name' option not valid, "
-			"can not continue");
+			"Could not find subvolume named '%s'. "
+			"Please define volume with the name as the hostname "
+			"or override it with 'option local-volume-name'",
+			local_volname);
 		goto err;
 	}
 	/* The volume specified exists */
