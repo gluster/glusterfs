@@ -505,6 +505,12 @@ dht_layout_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
 	ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
 			    VOID(&disk_layout));
+	
+	if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"%s - disk layout missing", loc->path);
+		ret = -1;
+	} 
 
 	count  = ntoh32 (disk_layout[0]);
 	if (count != 1) {

@@ -220,10 +220,13 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
-		
+
+		if (need_xattr == 0)
+			need_xattr = 1;
+
 		for (i = 0; i < layout->cnt; i++) {
 			subvol = layout->list[i].xlator;
-
+			
 			STACK_WIND (frame, dht_revalidate_cbk,
 				    subvol, subvol->fops->lookup,
 				    loc, need_xattr);
