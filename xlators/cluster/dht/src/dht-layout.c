@@ -510,6 +510,7 @@ dht_layout_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 		gf_log (this->name, GF_LOG_ERROR,
 			"%s - disk layout missing", loc->path);
 		ret = -1;
+		goto out;
 	} 
 
 	count  = ntoh32 (disk_layout[0]);
