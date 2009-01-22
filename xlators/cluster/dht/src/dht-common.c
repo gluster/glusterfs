@@ -154,10 +154,6 @@ selfheal:
 	return 0;
 }
 
-/*
- * TODO: revalidate should also check the validity of cached-subvolume for
- *       linkfiles
- */
 int
 dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
@@ -169,6 +165,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	dht_layout_t *layout        = NULL;
 	int           ret  = -1;
 	int           is_dir = 0;
+	int           is_linkfile = 0;
 
         local = frame->local;
         prev  = cookie;
@@ -203,6 +200,17 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		layout = dht_layout_get (this, inode);
 		
 		is_dir = check_is_dir (inode, stbuf, xattr);
+		is_linkfile = check_is_linkfile (inode, stbuf, xattr);
+		
+		if (is_linkfile) {
+			/* generation gap, revalidate should fail */
+			gf_log (this->name, GF_LOG_WARNING,
+				"linkfile found in revalidate for %s",
+				local->loc.path);
+			local->layout_mismatch = 1;
+
+			goto unlock;
+		}
 
 		if (is_dir) {
 			ret = dht_layout_dir_mismatch (this, layout, prev->this,
