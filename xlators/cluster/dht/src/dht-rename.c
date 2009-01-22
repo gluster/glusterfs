@@ -374,12 +374,11 @@ dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
 	int           this_call_cnt  = 0;
-
+	dht_layout_t *layout = NULL;
 
 	local = frame->local;
 	prev = cookie;
 	
-	/* TODO: handle EEXIST */
 	if (op_ret == -1) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"link/file on %s failed (%s)",
@@ -392,6 +391,23 @@ dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (is_last_call (this_call_cnt)) {
 		if (local->op_ret == -1)
 			goto unwind;
+		
+		if (local->loc2.inode) {
+			/* destination file already exists, we need to update the
+			 * inode->ctx for destination 
+			 */
+			layout = dht_layout_for_subvol (this, local->src_cached);
+			if (!layout) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"no pre-set layout for subvolume %s",
+					prev->this->name);
+				local->op_ret   = -1;
+				local->op_errno = EINVAL;
+				goto unwind;
+			}
+			
+			inode_ctx_set (local->loc2.inode, this, layout);
+		}
 
 		dht_do_rename (frame);
 	}

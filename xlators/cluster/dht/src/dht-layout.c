@@ -468,16 +468,16 @@ out:
 
 
 int
-dht_layout_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
-		     loc_t *loc, dict_t *xattr)
+dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
+			 loc_t *loc, dict_t *xattr)
 {
 	int       idx = 0;
 	int       pos = -1;
 	int       ret = -1;
 	int32_t  *disk_layout = NULL;
 	int32_t   count = -1;
-	int32_t   start_off = -1;
-	int32_t   stop_off = -1;
+	uint32_t  start_off = -1;
+	uint32_t  stop_off = -1;
 
 
 	for (idx = 0; idx < layout->cnt; idx++) {
@@ -488,7 +488,7 @@ dht_layout_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	}
 	
 	if (pos == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"%s - no layout info for subvolume %s",
 			loc->path, subvol->name);
 		ret = 1;
@@ -526,11 +526,18 @@ dht_layout_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	stop_off  = ntoh32 (disk_layout[3]);
 	
 	if ((layout->list[pos].start != start_off)
-	    || (layout->list[pos].stop != stop_off))
+	    || (layout->list[pos].stop != stop_off)) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"subvol: %s; inode layout - %"PRId32" - %"PRId32"; "
+			"disk layout - %"PRId32" - %"PRId32,
+			layout->list[pos].xlator->name,
+			layout->list[pos].start, layout->list[pos].stop,
+			start_off, stop_off);
 		ret = 1;
-	else 
+	} else {
 		ret = 0;
-
+	}
 out:
 	return ret;
 }
+

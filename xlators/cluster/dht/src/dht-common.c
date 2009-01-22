@@ -154,7 +154,10 @@ selfheal:
 	return 0;
 }
 
-
+/*
+ * TODO: revalidate should also check the validity of cached-subvolume for
+ *       linkfiles
+ */
 int
 dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
@@ -165,6 +168,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_frame_t *prev          = NULL;
 	dht_layout_t *layout        = NULL;
 	int           ret  = -1;
+	int           is_dir = 0;
 
         local = frame->local;
         prev  = cookie;
@@ -198,9 +202,11 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		layout = dht_layout_get (this, inode);
 		
-		if (S_ISDIR (stbuf->st_mode)) {
-			ret = dht_layout_mismatch (this, layout, prev->this,
-						   &local->loc, xattr);
+		is_dir = check_is_dir (inode, stbuf, xattr);
+
+		if (is_dir) {
+			ret = dht_layout_dir_mismatch (this, layout, prev->this,
+						       &local->loc, xattr);
 			if (ret != 0) {
 				gf_log (this->name, GF_LOG_WARNING,
 					"mismatching layouts for %s", 
@@ -210,7 +216,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 				goto unlock;
 			}
-		}
+		} 
 
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
 		
