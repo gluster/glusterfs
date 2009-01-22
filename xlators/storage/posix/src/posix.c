@@ -2806,16 +2806,13 @@ posix_fchmod (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
+
 static int
 same_file_type (mode_t m1, mode_t m2)
 {
-        return (S_ISREG(m1) && S_ISREG(m2)) 
-                || (S_ISDIR(m1) && S_ISDIR(m2)) 
-                || (S_ISLNK(m1) && S_ISLNK(m2))
-                || (S_ISBLK(m1) && S_ISBLK(m2))
-                || (S_ISCHR(m1) && S_ISCHR(m2))
-                || (S_ISFIFO(m1) && S_ISCHR(m2));
+	return (S_IFMT & (m1 ^ m2));
 }
+
 
 static int 
 ensure_file_type (xlator_t *this, char *pathname, mode_t mode)
@@ -2824,7 +2821,7 @@ ensure_file_type (xlator_t *this, char *pathname, mode_t mode)
         int         op_ret = 0;
         int         ret    = -1;
 
-        ret = stat (pathname, &stbuf);
+        ret = lstat (pathname, &stbuf);
         if (ret == -1) {
                 op_ret = -errno;
                 gf_log (this->name, GF_LOG_CRITICAL,
@@ -2923,7 +2920,8 @@ create_entry (xlator_t *this, int32_t flags,
 
                 } else if (S_ISBLK (entry->buf.st_mode) || 
                            S_ISCHR (entry->buf.st_mode) || 
-                           S_ISFIFO (entry->buf.st_mode)) {
+                           S_ISFIFO (entry->buf.st_mode) ||
+			   S_ISSOCK (entry->buf.st_mode)) {
 
                         ret = mknod (pathname, entry->buf.st_mode, 
                                      entry->buf.st_dev);
@@ -3565,7 +3563,7 @@ init (xlator_t *this)
 	*/
 
         /* Check whether the specified directory exists, if not create it. */
-        op_ret = stat (dir_data->data, &buf);
+        op_ret = lstat (dir_data->data, &buf);
         if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
                 gf_log (this->name, GF_LOG_ERROR, 
                         "directory '%s' doesn't exists, Exiting", 
