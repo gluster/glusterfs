@@ -707,6 +707,50 @@ quota_setxattr_cbk (call_frame_t *frame,
 	return 0;
 }
 
+int
+quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		  int32_t op_ret, int32_t op_errno, struct statvfs *statvfs)
+{
+	struct quota_priv *priv = NULL;
+	uint64_t           f_blocks = 0;
+	int64_t            f_bfree = 0;
+	uint64_t           f_bused = 0;
+
+
+	priv = this->private;
+
+	if (op_ret != 0)
+		goto unwind;
+
+	f_blocks = priv->disk_usage_limit / statvfs->f_frsize;
+	f_bused = priv->current_disk_usage / statvfs->f_frsize;
+
+	if (f_blocks && (f_blocks < statvfs->f_blocks))
+		statvfs->f_blocks = f_blocks;
+
+	f_bfree = (statvfs->f_blocks - f_bused);
+
+	if (f_bfree >= 0)
+		statvfs->f_bfree = statvfs->f_bavail = f_bfree;
+	else
+		statvfs->f_bfree = statvfs->f_bavail = 0;
+
+unwind:
+	STACK_UNWIND (frame, op_ret, op_errno, statvfs);
+	return 0;
+}
+
+
+int
+quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+	STACK_WIND (frame, quota_statfs_cbk,
+		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->statfs, loc);
+
+	return 0;
+}
+
+
 int32_t
 quota_getxattr_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -901,6 +945,7 @@ struct xlator_fops fops = {
 	.mknod       = quota_mknod,
 	.mkdir       = quota_mkdir,
 	.symlink     = quota_symlink,
+	.statfs      = quota_statfs,
 };
 
 struct xlator_mops mops = {

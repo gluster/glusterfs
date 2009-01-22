@@ -53,7 +53,7 @@
 /* TODO: when supporting posix acl, remove this definition */
 #define DISABLE_POSIX_ACL
 
-#define ZR_MOUNTPOINT_OPT   "mount-point"
+#define ZR_MOUNTPOINT_OPT   "mountpoint"
 #define ZR_DIRECT_IO_OPT    "direct-io-mode"
 
 #define BIG_FUSE_CHANNEL_SIZE 1048576
@@ -903,6 +903,10 @@ fuse_err_cbk (call_frame_t *frame,
 						"[ ERROR ] Extended attribute not supported by the backend storage");
 			}
                 } else {
+			if ((frame->root->op == GF_FOP_REMOVEXATTR)
+			    && (op_errno == ENOATTR)) {
+				goto nolog;
+			}
                         gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                                 "%"PRId64": %s() %s => -1 (%s)",
 				frame->root->unique,
@@ -910,6 +914,8 @@ fuse_err_cbk (call_frame_t *frame,
 				state->loc.path ? state->loc.path : "ERR",
                                 strerror (op_errno));
                 }
+	nolog:
+
                 fuse_reply_err (req, op_errno);
         }
 
@@ -2670,7 +2676,7 @@ init (xlator_t *this_xl)
 	ret = dict_get_str (options, ZR_MOUNTPOINT_OPT, &value_string);
 	if (value_string == NULL) {
                 gf_log ("fuse", GF_LOG_ERROR, 
-			"mandatory option mount-point is not specified");
+			"mandatory option mountpoint is not specified");
 		return -1;
 	}
 
@@ -2681,7 +2687,7 @@ init (xlator_t *this_xl)
 				ZR_MOUNTPOINT_OPT, value_string);
 		} else if (errno == ENOTCONN) {
 			gf_log (this_xl->name, GF_LOG_ERROR ,
-				"mount-point %s seems to have a stale "
+				"mountpoint %s seems to have a stale "
 				"mount, run 'umount %s' and try again",
 				value_string, value_string);
 		} else {
@@ -2824,7 +2830,7 @@ struct volume_options options[] = {
 	{ .key  = {"macfuse-local"}, 
 	  .type = GF_OPTION_TYPE_BOOL 
 	},
-	{ .key  = {"mount-point", "mountpoint"}, 
+	{ .key  = {"mountpoint", "mount-point"}, 
 	  .type = GF_OPTION_TYPE_PATH 
 	},
 	{ .key  = {"attribute-timeout"}, 

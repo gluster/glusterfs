@@ -44,7 +44,7 @@
 #define ENABLE_DEBUG_MODE         1
 
 #define ZR_XLATOR_FUSE          "mount/fuse"
-#define ZR_MOUNTPOINT_OPT       "mount-point"
+#define ZR_MOUNTPOINT_OPT       "mountpoint"
 #define ZR_ATTR_TIMEOUT_OPT     "attribute-timeout"
 #define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
 #define ZR_DIRECT_IO_OPT        "direct-io-mode"
