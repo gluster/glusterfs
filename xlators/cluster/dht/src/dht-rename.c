@@ -374,7 +374,7 @@ dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
 	int           this_call_cnt  = 0;
-	dht_layout_t *layout = NULL;
+
 
 	local = frame->local;
 	prev = cookie;

@@ -203,7 +203,6 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		is_linkfile = check_is_linkfile (inode, stbuf, xattr);
 		
 		if (is_linkfile) {
-			/* generation gap, revalidate should fail */
 			gf_log (this->name, GF_LOG_WARNING,
 				"linkfile found in revalidate for %s",
 				local->loc.path);
@@ -213,8 +212,9 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		if (is_dir) {
-			ret = dht_layout_dir_mismatch (this, layout, prev->this,
-						       &local->loc, xattr);
+			ret = dht_layout_dir_mismatch (this, layout,
+						       prev->this, &local->loc,
+						       xattr);
 			if (ret != 0) {
 				gf_log (this->name, GF_LOG_WARNING,
 					"mismatching layouts for %s", 

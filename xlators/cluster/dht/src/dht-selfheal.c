@@ -159,9 +159,10 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 	this = frame->this;
 
 	for (i = 0; i < layout->cnt; i++) {
+		if (layout->list[i].err != -1 || !layout->list[i].stop)
+			continue;
 		/* attr missing and layout present */
-		if (layout->list[i].err == -1 && layout->list[i].stop) 
-			missing_xattr++;
+		missing_xattr++;
 	}
 
 	gf_log (this->name, GF_LOG_DEBUG,
@@ -172,18 +173,21 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 		dht_selfheal_dir_finish (frame, this, 0);
 		return 0;
 	}
+
 	local->call_cnt = missing_xattr;
+
 	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err == -1) {
-			ret = dht_selfheal_dir_xattr_persubvol (frame, 
-								loc, 
-								layout, i);
-			if (--missing_xattr == 0)
-				break;
-		}
+		if (layout->list[i].err != -1 || !layout->list[i].stop)
+			continue;
+
+		ret = dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i);
+
+		if (--missing_xattr == 0)
+			break;
 	}
 	return 0;
 }
+
 
 int
 dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -333,10 +337,12 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
 		dht_selfheal_fix_this_virgin (frame, loc, layout);
 		ret = 0;
 	}
+
 	if (holes <= down) {
 		/* the down subvol might fill up the holes */
 		ret = 0;
 	}
+
 	for (i = 0; i < layout->cnt; i++) {
 		/* directory not present */
 		if (layout->list[i].err == ENOENT) {
