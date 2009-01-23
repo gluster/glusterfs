@@ -99,6 +99,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					op_ret, op_errno, xattr);
 
 		if (op_ret == -1) {
+			local->op_errno = ENOENT;
 			gf_log (this->name, GF_LOG_WARNING,
 				"lookup of %s on %s returned error (%s)",
 				local->loc.path, prev->this->name,
@@ -106,9 +107,11 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 			goto unlock;
 		}
+
  		is_dir = check_is_dir (inode, stbuf, xattr);
- 		if (!is_dir)
+ 		if (!is_dir) 
  			goto unlock;
+
  		local->op_ret = 0;
  		if (local->xattr == NULL)
  			local->xattr = dict_ref (xattr);
@@ -679,8 +682,8 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
  					"memory allocation failed :(");
  				goto err;
  			}
- 
- 			for (i = 0; i < call_cnt; i++) {
+
+			for (i = 0; i < call_cnt; i++) {
  				STACK_WIND (frame, dht_lookup_dir_cbk,
  					    conf->subvolumes[i],
  					    conf->subvolumes[i]->fops->lookup,

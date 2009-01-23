@@ -281,7 +281,7 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
                                 if ((int)glusterfs_chunk->file.length > 0)
                                         glusterfs_chunk->file.length -= local.read_bytes;
 
-                                gf_cq = CALLOC (1, sizeof (*gf_cq));
+                                gf_cq = calloc (1, sizeof (*gf_cq));
                                 /* ERR_ABORT (gf_cq); */
                                 gf_cq->cq = cq;
                                 gf_cq->buf = buf;
@@ -419,7 +419,7 @@ int chunkqueue_append_glusterfs_file (connection *con, long fd, off_t offset, of
 INIT_FUNC(mod_glusterfs_init) {
         plugin_data *p;
 
-        p = CALLOC(1, sizeof(*p));
+        p = calloc(1, sizeof(*p));
         /* ERR_ABORT (p); */
         network_backend_write = NULL;
 
@@ -483,14 +483,14 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
                 { NULL,                          NULL, T_CONFIG_UNSET, T_CONFIG_SCOPE_UNSET }
         };
   
-        p->config_storage = CALLOC(1, srv->config_context->used * sizeof(specific_config *));
+        p->config_storage = calloc(1, srv->config_context->used * sizeof(specific_config *));
         /* ERR_ABORT (p->config_storage);*/
         p->range_buf = buffer_init ();
   
         for (i = 0; i < srv->config_context->used; i++) {
                 plugin_config *s;
 
-                s = CALLOC(1, sizeof(plugin_config));
+                s = calloc(1, sizeof(plugin_config));
                 /* ERR_ABORT (s); */
                 s->logfile = buffer_init ();
                 s->loglevel = buffer_init ();
@@ -875,7 +875,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
 
                 buffer *tmp_buf = buffer_init_buffer (con->physical.basedir);
 
-                plugin_ctx = CALLOC (1, sizeof (*plugin_ctx));
+                plugin_ctx = calloc (1, sizeof (*plugin_ctx));
                 /* ERR_ABORT (plugin_ctx); */
                 con->plugin_ctx[p->id] = plugin_ctx;
     
@@ -1314,7 +1314,7 @@ int mod_glusterfs_plugin_init(plugin *p) {
 static stat_cache_entry * stat_cache_entry_init(void) {
         stat_cache_entry *sce = NULL;
   
-        sce = CALLOC(1, sizeof(*sce));
+        sce = calloc(1, sizeof(*sce));
         /* ERR_ABORT (sce); */
   
         sce->name = buffer_init();
@@ -1328,7 +1328,7 @@ static stat_cache_entry * stat_cache_entry_init(void) {
 static fam_dir_entry * fam_dir_entry_init(void) {
         fam_dir_entry *fam_dir = NULL;
   
-        fam_dir = CALLOC(1, sizeof(*fam_dir));
+        fam_dir = calloc(1, sizeof(*fam_dir));
         /* ERR_ABORT (fam_dir); */
   
         fam_dir->name = buffer_init();
@@ -1639,7 +1639,7 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
 
                         fam_dir->version = 1;
 
-                        fam_dir->req = CALLOC(1, sizeof(FAMRequest));
+                        fam_dir->req = calloc(1, sizeof(FAMRequest));
                         /* ERR_ABORT (fam_dir->req); */
 
                         if (0 != FAMMonitorDirectory(sc->fam, fam_dir->name->ptr,

@@ -217,7 +217,7 @@ static int mod_glusterfs_fixup(request_rec *r)
 
         memset (&r->finfo, 0, sizeof (r->finfo));
 
-        dir_config->buf = CALLOC (1, dir_config->xattr_file_size);
+        dir_config->buf = calloc (1, dir_config->xattr_file_size);
         if (!dir_config->buf) {
                 return HTTP_INTERNAL_SERVER_ERROR;
         }
