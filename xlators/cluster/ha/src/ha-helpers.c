@@ -18,274 +18,168 @@
 */
 
 #include "xlator.h"
+#include "call-stub.h"
+#include "defaults.h"
 #include "dict.h"
+#include "compat-errno.h"
 #include "ha.h"
 
-/**********************************************************************
- *                               helper functions
- *********************************************************************/
-int32_t
-ha_set_state (dict_t *ctx, xlator_t *this)
+int ha_alloc_init_fd (call_frame_t *frame, fd_t *fd)
 {
-	ha_private_t *private = NULL;
-	char *state = NULL;
-	int32_t ret = -1;
-	int32_t child_count = 0;
+	ha_local_t *local = NULL;
+	int i = -1;
+	ha_private_t *pvt = NULL;
+	int child_count = 0;
+	int ret = -1;
+	hafd_t *hafdp = NULL;
+	xlator_t *this = NULL;
 
-	private = this->private;
-	LOCK(&private->lock);
-	{
-		child_count = private->child_count;
+	this = frame->this;
+	local = frame->local;
+	pvt = this->private;
+	child_count = pvt->child_count;
 
-		state = CALLOC(1, child_count);
-		GF_VALIDATE_OR_GOTO(this->name, state, out);
+	if (local == NULL) {
+		ret = dict_get_ptr (fd->ctx, this->name, (void *)&hafdp);
+		if (ret < 0) {
+			goto out;
+		}
+		local = frame->local = CALLOC (1, sizeof (*local));
+		if (local == NULL) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		local->state = CALLOC (1, child_count);
+		if (local->state == NULL) {
+			ret = -ENOMEM;
+			goto out;
+		}
 
-		memcpy (state, private->state, child_count);
-	}
-	UNLOCK(&private->lock);
+		/* take care of the preferred subvolume */
+		if (pvt->pref_subvol == -1)
+			local->active = hafdp->active;
+		else
+			local->active = pvt->pref_subvol;
 
-	ret = dict_set_dynptr (ctx, this->name, state, child_count);
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"failed to set state to context dictionary");
-		goto out;
+		LOCK (&hafdp->lock);
+		memcpy (local->state, hafdp->fdstate, child_count);
+		UNLOCK (&hafdp->lock);
+
+		/* in case the preferred subvolume is down */
+		if ((local->active != -1) && (local->state[local->active] == 0))
+			local->active = -1;
+
+		for (i = 0; i < child_count; i++) {
+			if (local->state[i]) {
+				if (local->active == -1)
+					local->active = i;
+				local->tries++;
+			}
+		}
+		if (local->active == -1) {
+			ret = -ENOTCONN;
+			goto out;
+		}
+		local->fd = fd_ref (fd);
 	}
 	ret = 0;
 out:
 	return ret;
 }
 
-int32_t
-ha_copy_state_to_fd (xlator_t *this,
-		     fd_t *fd,
-		     inode_t *inode)
+int ha_handle_cbk (call_frame_t *frame, void *cookie, int op_ret, int op_errno) 
 {
-	int32_t ret = -1;
-	char *state = NULL, *fdstate = NULL;
+	xlator_t *xl = NULL;
+	ha_private_t *pvt = NULL;
+	xlator_t **children = NULL;
+	int prev_child = -1;
+	hafd_t *hafdp = NULL;
+	int ret = -1;
+	call_stub_t *stub = NULL;
+	ha_local_t *local = NULL;
 
-	ret = dict_get_ptr (inode->ctx, this->name, (void *)&state);
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"failed to get state from inode");
-		goto out;
+	xl = frame->this;
+	pvt = xl->private;
+	children = pvt->children;
+	prev_child = (long) cookie;
+	local = frame->local;
+
+	if (op_ret == -1) {
+		gf_log (xl->name, GF_LOG_ERROR ,"(child=%s) (op_ret=%d op_errno=%s)",
+			children[prev_child]->name, op_ret, strerror (op_errno));
 	}
-
-	fdstate = CALLOC(1, HA_CHILDREN_COUNT(this));
-	memcpy (fdstate, state, HA_CHILDREN_COUNT(this));
-
-	ret = dict_set_dynptr (fd->ctx, this->name,
-			       fdstate, HA_CHILDREN_COUNT(this));
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"failed to set state to context dictionary");
-		goto out;
+	if (op_ret == -1 && (op_errno == ENOTCONN)) {
+		ret = 0;
+		if (local->fd) {
+			ret = dict_get_ptr (local->fd->ctx, xl->name, (void*)&hafdp);
+		}
+		if (ret == 0) {
+			if (local->fd) {
+				LOCK(&hafdp->lock);
+				hafdp->fdstate[prev_child] = 0;
+				UNLOCK(&hafdp->lock);
+			}
+			local->tries--;
+			if (local->tries != 0) {
+				while (1) {
+					local->active = (local->active + 1) % pvt->child_count;
+					if (local->state[local->active])
+						break;
+				}
+				stub = local->stub;
+				local->stub = NULL;
+				call_resume (stub);
+				return -1;
+			}
+		}
 	}
-	ret = 0;
-out:
-	return ret;
-}
-
-static int32_t
-ha_mark_child_down (char *state,
-		    int32_t child_idx)
-{
-	state[child_idx] = 0;
-
+	if (local->stub)
+		call_stub_destroy (local->stub);
+	if (local->fd) {
+		FREE (local->state);
+		fd_unref (local->fd);
+	}
 	return 0;
 }
 
-int32_t
-ha_mark_child_down_for_inode (xlator_t *this,
-			      inode_t *inode,
-			      int32_t child_idx)
+int ha_alloc_init_inode (call_frame_t *frame, inode_t *inode)
 {
-	char *state = NULL;
-	int32_t ret = -1;
-
-	ret = dict_get_ptr (inode->ctx, this->name, (void *)&state);
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"failed to get subvolumes' state from inode");
-		goto out;
-	}
-
-	state[child_idx] = 0;
-out:
-	return ret;
-}
-
-int32_t
-ha_next_active_child_index (xlator_t *this, 
-			    int32_t discard)
-{
-	ha_private_t *private = NULL;
-	int32_t idx = 0, ret = -1;
-	int32_t child_count = 0;
-	int32_t active_idx = 0;
-
-	private = this->private;
-	child_count = private->child_count;
-	
-	LOCK(&private->lock);
-	{
-		if (private->active != discard) {
-			ret = 0;
-			active_idx = private->active;
-			goto unlock;
-		}
-
-		for (idx = 0; idx < child_count; idx++) {
-			if (private->state[idx] 
-			    && (idx != discard)) {
-				ret = idx;
-				break;
-			}
-		}
-	}
-unlock:
-	UNLOCK(&private->lock);
-	
-	return ret;
-}
-
-static int32_t
-ha_next_active_child_for_state (xlator_t *this, char *state)
-{
-	ha_private_t *private = NULL;
-	int32_t idx = 0, ret = -1;
-	int32_t child_count = 0;
-
-	private = this->private;
-	child_count = private->child_count;
-
-	for (idx = 0; idx < child_count; idx++) {
-		if (state[idx]) {
-			ret = idx;
-			break;
-		}
-	}
-
-	if (ret < 0) {
-		/* all the subvolumes have gone down in the course of this
-		 * inode's life. but the distributed subvolume state stored in
-		 * state is not updated by notify(). we need to update state at
-		 * this point */
-		LOCK(&private->lock);
-		{
-			memcpy (state, private->state, child_count);
-		}
-		UNLOCK(&private->lock);
-
-		for (idx = 0; idx < child_count; idx++) {
-			if (state[idx]) {
-				ret = idx;
-				break;
-			}
-		}
-
-	}
-
-	return ret;
-}
-
-int32_t
-ha_first_active_child_index (xlator_t *this)
-{
-	ha_private_t *private = NULL;
-
-	private = this->private;
-
-	return private->active;
-}
-
-ha_local_t *
-ha_local_init (call_frame_t *frame)
-{
+	int i = -1;
+	ha_private_t *pvt = NULL;
+	xlator_t *xl = NULL;
+	int ret = -1;
 	ha_local_t *local = NULL;
 
-	local = calloc (1, sizeof (ha_local_t));
-	GF_VALIDATE_OR_GOTO (frame->this->name, local, out);
+	xl = frame->this;
+	pvt = xl->private;
+	local = frame->local;
 
-	local->op_ret     = -1;
-	local->op_errno   = ENOTCONN;
+	if (local == NULL) {
+		local = frame->local = CALLOC (1, sizeof (*local));
+		if (local == NULL) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		local->active = pvt->pref_subvol;
+		ret = dict_get_ptr (inode->ctx, xl->name,(void *)&local->state);
+		if (ret < 0) {
+			goto out;
+		}
+		if (local->active != -1 && local->state[local->active] == 0)
+			local->active = -1;
+		for (i = 0; i < pvt->child_count; i++) {
+			if (local->state[i]) {
+				if (local->active == -1)
+					local->active = i;
+				local->tries++;
+			}
+		}
+		if (local->active == -1) {
+			ret = -ENOTCONN;
+			goto out;
+		}
+	}
+	ret = 0;
 out:
-	return local;
+	return ret;
 }
-
-xlator_t *
-ha_child_for_index (xlator_t *this, int32_t idx)
-{
-	ha_private_t *private = NULL;
-	xlator_t *active = NULL;
-
-	private = this->private;
-
-	if (idx != -1)
-		active =  private->children[idx];
-
-	return active;
-}
-
-static xlator_t *
-_ha_next_active_child_for_ctx (xlator_t *this,
-			       dict_t *ctx,
-			       int32_t child_idx,
-			       int32_t *ret_active_idx)
-{
-	xlator_t *active = NULL;
-	char *state = NULL;
-	int32_t ret = -1;
-	int32_t active_idx = -1;
-
-	ret = dict_get_ptr (ctx, this->name, (void *)&state);
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"failed to get the state from inode->ctx");
-		goto err;
-	}
-
-	if (child_idx != HA_NONE)
-		ha_mark_child_down (state, child_idx);
-
-	active_idx = ha_next_active_child_for_state (this, state);
-	if (active_idx == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"none of the children are connected");
-		errno = ENOTCONN;
-		goto err;
-	}
-
-	if (ret_active_idx)
-		*ret_active_idx = active_idx;
-
-	active = ha_child_for_index (this, active_idx);
-
-	if (active_idx == child_idx) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"none of the children are connected other than %s",
-			active->name);
-		active = NULL;
-	}
-
-err:
-	return active;
-}
-
-xlator_t *
-ha_next_active_child_for_fd (xlator_t *this,
-			     fd_t *fd,
-			     int32_t child_idx,
-			     int32_t *ret_active_idx)
-{
-	return _ha_next_active_child_for_ctx (this, fd->ctx, child_idx, ret_active_idx);
-}
-
-xlator_t *
-ha_next_active_child_for_inode (xlator_t *this,
-				inode_t *inode,
-				int32_t child_idx,
-				int32_t *ret_active_idx)
-{
-	return _ha_next_active_child_for_ctx (this, inode->ctx, child_idx, ret_active_idx);
-}
-
