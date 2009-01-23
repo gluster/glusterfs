@@ -785,11 +785,6 @@ cleanup_and_exit (int signum)
 		ctx->specfp = NULL;
 	}
 
-	if (ctx->specfp) {
-		fclose (ctx->specfp);
-		ctx->specfp = NULL;
-	}
-	
 	if (ctx->cmd_args.pid_file) {
 		unlink (ctx->cmd_args.pid_file);
 		ctx->cmd_args.pid_file = NULL;
@@ -799,7 +794,7 @@ cleanup_and_exit (int signum)
 		trav = ctx->graph;
 		ctx->graph = NULL;
 		while (trav) {
-			//trav->fini (trav);
+			trav->fini (trav);
 			trav = trav->next;
 		}
 		exit (0);
@@ -1036,6 +1031,7 @@ main (int argc, char *argv[])
 			if (dict_get (trav->options, 
 				      ZR_MOUNTPOINT_OPT) != NULL) {
 				fuse_volume_found = 1;
+/*
 				fprintf (stderr, 
 					 "fuse volume and MOUNT-POINT "
 					 "argument given. ignoring "
@@ -1044,6 +1040,7 @@ main (int argc, char *argv[])
 					"fuse volume and MOUNT-POINT "
 					"argument given. ignoring "
 					"MOUNT-POINT argument");
+*/
 				break;
 			}
 		}
