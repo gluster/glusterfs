@@ -3,29 +3,27 @@ What is mod_glusterfs?
 * mod_glusterfs is a module for apache written for efficient serving of files from glusterfs. 
   mod_glusterfs interfaces with glusterfs using apis provided by libglusterfsclient.
 
-* this README speaks about installation of apache-1.3.x, where x is any minor version.
+* this README speaks about installing mod_glusterfs for httpd-2.2 and higher.
 
 Prerequisites for mod_glusterfs
 ===============================
-Though mod_glusterfs has been written as a module, with an intent of making no changes to the way apache has 
-been built, currently following points have to be taken care of:
+Though mod_glusterfs has been written as a module, with an intent of making no changes to 
+the way apache has been built, currently following points have to be taken care of:
 
-* module "so" has to be enabled, for apache to support modules.
 * since glusterfs is compiled with _FILE_OFFSET_BITS=64 and __USE_FILE_OFFSET64 flags, mod_glusterfs and apache 
   in turn have to be compiled with the above two flags.
  
- $ tar xzvf apache-1.3.9.tar.gz
- $ cd apache-1.3.9/
- $ # add -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64 to EXTRA_CFLAGS in src/Configuration.
- $ ./configure --prefix=/usr --enable-module=so 
- $ cd src
- $ ./Configure 
- $ cd ../
- $ make install  
+ $ tar xzf httpd-2.2.10.tar.gz 
+ $ cd httpd-2.2.10/
+ $ export CFLAGS='-D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64'
+ $ ./configure --prefix=/usr 
+ $ make 
+ $ make install
  $ httpd -l | grep -i mod_so 
    mod_so.c
 
-* if multiple apache installations are present, make sure to pass --with-apxs=/path/to/apxs/of/proper/version to configure script while building glusterfs.
+* if multiple apache installations are present, make sure to pass --with-apxs=/path/to/apxs/of/proper/version 
+  to configure script while building glusterfs.
 
 Build/Install mod_glusterfs
 ===========================
@@ -39,10 +37,10 @@ Build/Install mod_glusterfs
   mod_glusterfs.so to modules directory of proper apache version and modify the appropriate httpd.conf to enable
   mod_glusterfs. 
 
-**********************************************************************************************
+**********************************************************************************
 * TO INSTALL MODGLUSTERFS, PLEASE USE,                                            
-* apxs -n mod_glusterfs -ia /usr/lib/glusterfs/1.4.0pre2/apache-1.3/mod_glusterfs.so               
-**********************************************************************************************
+* apxs -n glusterfs -ia /usr/lib/glusterfs/1.4.0tla872/apache/2.2/mod_glusterfs.so                
+**********************************************************************************
 
 Configuration
 =============
@@ -78,6 +76,10 @@ Configuration
 * With the above configuration all the requests to httpd of the form www.example.org/glusterfs/path/to/file are 
   served from glusterfs.
 
+* mod_glusterfs also implements mod_dir and mod_autoindex behaviour for files under glusterfs mount.
+  Hence it also takes the directives related to both of these modules. For more details, refer the 
+  documentation for both of these modules. 
+
 Miscellaneous points
 ====================
 * httpd by default runs with username "nobody" and group "nogroup". Permissions of logfile and specfile have to 
@@ -89,8 +91,8 @@ Miscellaneous points
 * To copy the data served by httpd into glusterfs mountpoint, glusterfs can be started with the 
   volume-specification file provided to mod_glusterfs. Any tool like cp can then be used.
 
-* To run in gdb, apache has to be compiled with -lpthread, since libglusterfsclient is multithreaded. 
-  If not on Linux gdb runs into errors like: 
+* To run in gdb, apache has to be compiled with -lpthread, since libglusterfsclient is 
+  multithreaded. If not on Linux gdb runs into errors like: 
   "Error while reading shared library symbols:
    Cannot find new threads: generic error"
 
@@ -101,7 +103,3 @@ Miscellaneous points
   # ulimit -l unlimited
 
   and then start apache.
- 
-TODO
-====
-* directory listing for the directories accessed through mod_glusterfs.

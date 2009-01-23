@@ -223,7 +223,7 @@ static int mod_glusterfs_fixup(request_rec *r)
         }
 
         ret = glusterfs_lookup (dir_config->handle, path, dir_config->buf, 
-				dir_config->xattr_file_size, &r->finfo);
+                                dir_config->xattr_file_size, &r->finfo);
 
         if (ret == -1 || r->finfo.st_size > dir_config->xattr_file_size || S_ISDIR (r->finfo.st_mode)) {
                 free (dir_config->buf);
@@ -348,21 +348,21 @@ mod_glusterfs_read_async (request_rec *r, int fd, off_t offset, off_t length)
 
 /* TODO: to read blocks of size "length" from offset "offset" */ 
 /*
-static int 
-mod_glusterfs_read_sync (request_rec *r, int fd, off_t offset, off_t length)
-{ 
-        int error = OK;
-        off_t read_bytes;
-        char buf [GLUSTERFS_CHUNK_SIZE];
+  static int 
+  mod_glusterfs_read_sync (request_rec *r, int fd, off_t offset, off_t length)
+  { 
+  int error = OK;
+  off_t read_bytes;
+  char buf [GLUSTERFS_CHUNK_SIZE];
 
-        while ((read_bytes = glusterfs_read (fd, buf, GLUSTERFS_CHUNK_SIZE)) && read_bytes != -1) {
-                ap_rwrite (buf, read_bytes, r);
-        }
-        if (read_bytes) {
-                error = SERVER_ERROR;
-        }
-        return error;
-}
+  while ((read_bytes = glusterfs_read (fd, buf, GLUSTERFS_CHUNK_SIZE)) && read_bytes != -1) {
+  ap_rwrite (buf, read_bytes, r);
+  }
+  if (read_bytes) {
+  error = SERVER_ERROR;
+  }
+  return error;
+  }
 */
 
 static int 
@@ -442,14 +442,14 @@ mod_glusterfs_handler(request_rec *r)
         }
   
         if (!r->header_only) {
-		if (!rangestatus) {
-			mod_glusterfs_read_async (r, fd, 0, -1);
-		} else {
-			long offset, length;
-			while (ap_each_byterange(r, &offset, &length)) {
-				mod_glusterfs_read_async (r, fd, offset, length);
-			}
-		}
+                if (!rangestatus) {
+                        mod_glusterfs_read_async (r, fd, 0, -1);
+                } else {
+                        long offset, length;
+                        while (ap_each_byterange(r, &offset, &length)) {
+                                mod_glusterfs_read_async (r, fd, offset, length);
+                        }
+                }
         }
   
         glusterfs_close (fd);
