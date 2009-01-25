@@ -118,6 +118,9 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  		if (local->inode == NULL)
  			local->inode = inode_ref (inode);
 
+		if (prev->this == local->hashed_subvol)
+			local->st_ino = stbuf->st_ino;
+
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
         }
 unlock:
@@ -140,8 +143,17 @@ unlock:
 					local->loc.path);
 				goto selfheal;
 			}
-
+			
 			inode_ctx_set (local->inode, this, layout);
+			
+			if (local->st_ino) {
+				dht_itransform (this, local->hashed_subvol, 
+						local->st_ino, &local->stbuf.st_ino);	
+			} else {
+				gf_log (this->name, GF_LOG_WARNING,
+					"could not find hashed subvolume for %s",
+					local->loc.path);
+			}
 		}
 
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
@@ -228,7 +240,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				goto unlock;
 			}
 		} 
-
+		
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
 		
 		local->op_ret = 0;
@@ -247,7 +259,7 @@ unlock:
 		    && (local->hashed_subvol != local->cached_subvol)
 		    && (local->stbuf.st_nlink == 1))
 			local->stbuf.st_mode |= S_ISVTX;
-
+		
 		if (local->layout_mismatch) {
 			local->op_ret = -1;
 			local->op_errno = ESTALE;

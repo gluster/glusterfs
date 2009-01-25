@@ -275,8 +275,8 @@ fuse_loc_fill (loc_t *loc,
 	if ((ino != 1) &&
 	    (parent == NULL)) {
 		gf_log ("fuse-bridge", GF_LOG_ERROR,
-			"failed to search parent for %"PRId64" (%s)",
-			(ino_t)ino, name);
+			"failed to search parent for %"PRId64"/%s (%"PRId64")",
+			(ino_t)par, name, (ino_t)ino);
 		ret = -1;
 		goto fail;
 	}
