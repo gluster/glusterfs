@@ -39,6 +39,7 @@ struct quota_local {
 	dict_t        *refs;
 };
 
+
 struct quota_priv {
 	char       only_first_time;          /* Used to make sure a call is done only one time */
 	gf_lock_t  lock;                     /* Used while updating variables */
@@ -79,7 +80,9 @@ build_root_loc (xlator_t *this, loc_t *loc)
 static void
 gf_quota_usage_subtract (xlator_t *this, size_t size)
 {
-	struct quota_priv *priv = this->private;
+	struct quota_priv *priv = NULL;
+
+	priv = this->private;
 
 	LOCK (&priv->lock);
 	{
@@ -220,12 +223,9 @@ quota_mknod_cbk (call_frame_t *frame,
 		 struct stat *buf)
 {
 	struct quota_priv *priv = this->private;
+
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
-		LOCK (&priv->lock);
-		{
-			priv->current_disk_usage += (buf->st_blocks * 512);
-		}
-		UNLOCK (&priv->lock);
+		gf_quota_usage_add (this, buf->st_blocks * 512);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
@@ -542,26 +542,32 @@ quota_create_cbk (call_frame_t *frame,
 		  struct stat *buf)
 {
 	struct quota_priv *priv = this->private;
+	int                ret = 0;
+
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
 		LOCK (&priv->lock);
 		{
 			priv->current_disk_usage += (buf->st_blocks * 512);
 		}
 		UNLOCK (&priv->lock);
+
+		ret = dict_set_static_ptr (fd->ctx, this->name,
+					   "dummy.to.force.release");
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 	return 0;
 }
 
-int32_t
-quota_create (call_frame_t *frame,
-	      xlator_t *this,
-	      loc_t *loc,
-	      int32_t flags,
-	      mode_t mode, fd_t *fd)
+
+int
+quota_create (call_frame_t *frame, xlator_t *this,
+	      loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
-	struct quota_priv *priv = this->private;
+	struct quota_priv *priv = NULL;
+
+	priv = this->private;
+
 	if (gf_quota_check_free_disk (this) == -1) {
 		gf_log (this->name, GF_LOG_ERROR, 
 			"min-free-disk limit (%u) crossed, current available is %u",
@@ -585,6 +591,32 @@ quota_create (call_frame_t *frame,
 	return 0;
 }
 
+
+int
+quota_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		int32_t op_ret, int32_t op_errno, fd_t *fd)
+{
+	int                ret = 0;
+
+	if (op_ret >= 0)
+		ret = dict_set_static_ptr (fd->ctx, this->name,
+					   "dummy.to.force.release");
+
+	STACK_UNWIND (frame, op_ret, op_errno, fd);
+	return 0;
+}
+
+
+int
+quota_open (call_frame_t *frame, xlator_t *this,
+	    loc_t *loc, int32_t flags, fd_t *fd)
+{
+	STACK_WIND (frame, quota_open_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->open,
+		    loc, flags, fd);
+	return 0;
+}
 
 
 static int32_t
@@ -962,11 +994,9 @@ fini (xlator_t *this)
 {
 	struct quota_priv *_private = this->private;
 
-	this->private = NULL;
-
 	if (_private) {
 		gf_quota_cache_sync (this);
-//		FREE (_private);
+		this->private = NULL;
 	}
 	
 	return ;
@@ -974,6 +1004,7 @@ fini (xlator_t *this)
 
 struct xlator_fops fops = {
 	.create      = quota_create,
+	.open        = quota_open,
 	.truncate    = quota_truncate,
 	.ftruncate   = quota_ftruncate,
 	.writev      = quota_writev,
