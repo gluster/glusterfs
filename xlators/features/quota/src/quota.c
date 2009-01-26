@@ -29,68 +29,101 @@
 #include "common-utils.h"
 
 struct quota_local {
-	struct stat stbuf;
-	inode_t    *inode;
-	char       *path;
-	fd_t       *fd;
-	off_t      offset;
-	int32_t    count;
-	struct iovec *vector;
-	dict_t     *refs;
+	struct stat    stbuf;
+	inode_t       *inode;
+	char          *path;
+	fd_t          *fd;
+	off_t          offset;
+	int32_t        count;
+	struct iovec  *vector;
+	dict_t        *refs;
 };
 
 struct quota_priv {
-	char only_first_time;                /* Used to make sure a call is done only one time */
+	char       only_first_time;          /* Used to make sure a call is done only one time */
 	gf_lock_t  lock;                     /* Used while updating variables */
 
-	uint64_t disk_usage_limit;         /* Used for Disk usage quota */
-	uint64_t current_disk_usage;       /* Keep the current usage value */
+	uint64_t   disk_usage_limit;         /* Used for Disk usage quota */
+	uint64_t   current_disk_usage;       /* Keep the current usage value */
 
-	uint32_t min_free_disk_limit;        /* user specified limit, in % */ 
-	uint32_t current_free_disk;          /* current free disk space available, in % */
-	uint32_t refresh_interval;      /* interval in seconds */
-	uint32_t min_disk_last_updated_time; /* used for interval calculation */	
+	uint32_t   min_free_disk_limit;        /* user specified limit, in %*/
+	uint32_t   current_free_disk;          /* current free disk space available, in % */
+	uint32_t   refresh_interval;           /* interval in seconds */
+	uint32_t   min_disk_last_updated_time; /* used for interval calculation */	
 };
 
-int32_t
-quota_statvfs_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct statvfs *stbuf)
+
+int
+quota_statvfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		   int32_t op_ret, int32_t op_errno, struct statvfs *stbuf)
 {
 	struct quota_priv *priv = this->private;
 	
 	if (op_ret >= 0) {
-		priv->current_free_disk = (stbuf->f_bavail * 100) / stbuf->f_blocks;
+		priv->current_free_disk =
+			(stbuf->f_bavail * 100) / stbuf->f_blocks;
 	}
 
 	STACK_DESTROY (frame->root);
 	return 0;
 }
+
+
+static void
+build_root_loc (xlator_t *this, loc_t *loc)
+{
+	loc->path = "/";
+}
+
+
+static void
+gf_quota_usage_subtract (xlator_t *this, size_t size)
+{
+	struct quota_priv *priv = this->private;
+
+	LOCK (&priv->lock);
+	{
+		if (priv->current_disk_usage < size)
+			priv->current_disk_usage = 0;
+		else
+			priv->current_disk_usage -= size;
+	}
+	UNLOCK (&priv->lock);
+}
+
+
+static void
+gf_quota_usage_add (xlator_t *this, size_t size)
+{
+	struct quota_priv *priv = this->private;
+
+	LOCK (&priv->lock);
+	{
+		priv->current_disk_usage += size;
+	}
+	UNLOCK (&priv->lock);
+}
+
+
 void 
 gf_quota_update_current_free_disk (xlator_t *this)
 {
 	call_frame_t *frame = NULL;
-	call_pool_t *pool = this->ctx->pool;
+	call_pool_t   *pool = NULL;
+	loc_t          loc;
 
+	pool  = this->ctx->pool;
 	frame = create_frame (this, pool);
   
-	{
-		loc_t tmp_loc = {
-			.inode = NULL,
-			.path = "/",
-		};
-		STACK_WIND (frame,
-			    quota_statvfs_cbk,
-			    this->children->xlator,
-			    this->children->xlator->fops->statfs,
-			    &tmp_loc);
-	}
+	build_root_loc (this, &loc);
+
+	STACK_WIND (frame, quota_statvfs_cbk,
+		    this->children->xlator,
+		    this->children->xlator->fops->statfs, &loc);
 
 	return ;
 }
+
 
 static int
 gf_quota_check_free_disk (xlator_t *this) 
@@ -125,11 +158,7 @@ quota_truncate_cbk (call_frame_t *frame,
 	struct quota_priv *priv = this->private;
 
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
-		LOCK (&priv->lock);
-		{
-			priv->current_disk_usage -= (buf->st_blocks * 512);
-		}
-		UNLOCK (&priv->lock);
+		gf_quota_usage_subtract (this, buf->st_blocks * 512);
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
@@ -159,11 +188,7 @@ quota_ftruncate_cbk (call_frame_t *frame,
 {
 	struct quota_priv *priv = this->private;
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
-		LOCK (&priv->lock);
-		{
-			priv->current_disk_usage -= (buf->st_blocks * 512);
-		}
-		UNLOCK (&priv->lock);
+		gf_quota_usage_subtract (this, buf->st_blocks * 512);
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
@@ -215,6 +240,7 @@ quota_mknod (call_frame_t *frame,
 	     dev_t rdev)
 {
 	struct quota_priv *priv = this->private;
+
 	if (gf_quota_check_free_disk (this) == -1) {
 		gf_log (this->name, GF_LOG_ERROR, 
 			"min-free-disk limit (%u) crossed, current available is %u",
@@ -222,6 +248,7 @@ quota_mknod (call_frame_t *frame,
 		STACK_UNWIND (frame, -1, ENOSPC, NULL, NULL);
 		return 0;
 	}
+
         if (priv->current_disk_usage > priv->disk_usage_limit) {
 		gf_log (this->name, GF_LOG_ERROR, 
 			"Disk usage limit (%"PRIu64") crossed, current usage is %"PRIu64"",
@@ -238,6 +265,7 @@ quota_mknod (call_frame_t *frame,
 	return 0;
 }
 
+
 static int32_t
 quota_mkdir_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -248,6 +276,7 @@ quota_mkdir_cbk (call_frame_t *frame,
 		 struct stat *buf)
 {
 	struct quota_priv *priv = this->private;
+
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
 		LOCK (&priv->lock);
 		{
@@ -259,6 +288,7 @@ quota_mkdir_cbk (call_frame_t *frame,
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
 }
+
 
 int32_t
 quota_mkdir (call_frame_t *frame,
@@ -300,15 +330,11 @@ quota_unlink_cbk (call_frame_t *frame,
 		  int32_t op_errno)
 {
 	struct quota_local *local = frame->local;
-	struct quota_priv *priv = this->private;
 
 	if (local) {
 		if (op_ret >= 0) {
-			LOCK (&priv->lock);
-			{
-				priv->current_disk_usage -= (local->stbuf.st_blocks * 512);
-			}
-			UNLOCK (&priv->lock);
+			gf_quota_usage_subtract (this,
+						 local->stbuf.st_blocks * 512);
 		}
 		FREE (local->path);
 		inode_unref (local->inode);
@@ -383,15 +409,10 @@ quota_rmdir_cbk (call_frame_t *frame,
 		 int32_t op_errno)
 {
 	struct quota_local *local = frame->local;
-	struct quota_priv *priv = this->private;
 
 	if (local) {
 		if (op_ret >= 0) {
-			LOCK (&priv->lock);
-			{
-				priv->current_disk_usage -= (local->stbuf.st_blocks * 512);
-			}
-			UNLOCK (&priv->lock);
+			gf_quota_usage_subtract (this, local->stbuf.st_blocks * 512);
 		}
 		FREE (local->path);
 		inode_unref (local->inode);
@@ -565,6 +586,7 @@ quota_create (call_frame_t *frame,
 }
 
 
+
 static int32_t
 quota_writev_cbk (call_frame_t *frame,
 		  void *cookie,
@@ -576,13 +598,11 @@ quota_writev_cbk (call_frame_t *frame,
 	struct quota_priv *priv = this->private;
 	struct quota_local *local = frame->local;
 
+
 	if (priv->disk_usage_limit) {
 		if (op_ret >= 0) { 
-			LOCK (&priv->lock);
-			{
-				priv->current_disk_usage += ((stbuf->st_blocks - local->stbuf.st_blocks) * 512);
-			}
-			UNLOCK (&priv->lock);
+			gf_quota_usage_add (this, (stbuf->st_blocks -
+						   local->stbuf.st_blocks) * 512);
 		}
 		fd_unref (local->fd);
 		dict_unref (local->refs);
@@ -591,6 +611,7 @@ quota_writev_cbk (call_frame_t *frame,
 	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 	return 0;
 }
+
 
 int32_t 
 quota_writev_fstat_cbk (call_frame_t *frame,
@@ -814,6 +835,38 @@ gf_quota_get_disk_usage (xlator_t *this)
 	return ;
 }
 
+void
+gf_quota_cache_sync (xlator_t *this)
+{
+	struct quota_priv *priv = NULL;
+	call_frame_t      *frame = NULL;
+	dict_t            *dict = get_new_dict ();
+	loc_t              loc;
+
+
+	priv = this->private;
+	build_root_loc (this, &loc);
+
+	frame = create_frame (this, this->ctx->pool);
+	dict_set (dict, "trusted.glusterfs-quota-du", 
+		  data_from_uint64 (priv->current_disk_usage));
+
+	STACK_WIND (frame, quota_setxattr_cbk,
+		    this->children->xlator,
+		    this->children->xlator->fops->setxattr,
+		    &loc, dict, 0);
+}
+
+
+int
+quota_release (xlator_t *this, fd_t *fd)
+{
+	gf_quota_cache_sync (this);
+
+	return 0;
+}
+
+
 /* notify */
 int32_t
 notify (xlator_t *this,
@@ -907,30 +960,13 @@ init (xlator_t *this)
 void 
 fini (xlator_t *this)
 {
-	call_frame_t *frame = NULL;
 	struct quota_priv *_private = this->private;
 
 	this->private = NULL;
 
 	if (_private) {
-		dict_t *dict = get_new_dict ();
-		loc_t tmp_loc = {
-			.inode = NULL,
-			.path = "/",
-		};
-		frame = create_frame (this, this->ctx->pool);
-		dict_set (dict, "trusted.glusterfs-quota-du", 
-			  data_from_uint64 (_private->current_disk_usage));
-
-		STACK_WIND (frame,
-			    quota_setxattr_cbk,
-			    this->children->xlator,
-			    this->children->xlator->fops->setxattr,
-			    &tmp_loc,
-			    dict,
-			    0);
-		
-		FREE (_private);
+		gf_quota_cache_sync (this);
+//		FREE (_private);
 	}
 	
 	return ;
@@ -953,6 +989,7 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
+	.release     = quota_release
 };
 
 struct volume_options options[] = {
