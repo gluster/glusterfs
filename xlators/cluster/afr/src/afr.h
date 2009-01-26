@@ -81,6 +81,7 @@ typedef struct {
 	fd_t *healing_fd;
 	int   op_failed;
 
+	int   file_has_holes;
 	blksize_t block_size;
 	off_t file_size;
 	off_t offset;

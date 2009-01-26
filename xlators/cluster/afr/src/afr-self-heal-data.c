@@ -429,7 +429,7 @@ afr_sh_data_trim_sinks (call_frame_t *frame, xlator_t *this)
 
 
 int
-afr_sh_data_read_write (call_frame_t *frame, xlator_t *this);
+afr_sh_data_read_write_iter (call_frame_t *frame, xlator_t *this);
 
 int
 afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
@@ -466,20 +466,7 @@ afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
-		if (sh->op_failed) {
-			afr_sh_data_finish (frame, this);
-			return 0;
-		}
-
-		if (sh->offset < sh->file_size) {
-			afr_sh_data_read_write (frame, this);
-		} else {
-			gf_log (this->name, GF_LOG_DEBUG, 
-				"closing fd's of %s",
-				local->loc.path);
-		
-			afr_sh_data_trim_sinks (frame, this);
-		}
+		afr_sh_data_read_write_iter (frame, this);
 	}
 
 	return 0;
@@ -524,6 +511,17 @@ afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
 
 	frame->root->req_refs = frame->root->rsp_refs;
 
+	if (sh->file_has_holes) {
+		if (iov_0filled (vector, count) == 0) {
+			/* the iter function depends on the
+			   sh->offset already being updated 
+			   above
+			*/
+			afr_sh_data_read_write_iter (frame, this);
+			goto out;
+		}
+	}
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->sources[i] || !local->child_up[i])
 			continue;
@@ -539,6 +537,7 @@ afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
 			break;
 	}
 
+out:
 	return 0;
 }
 
@@ -561,6 +560,38 @@ afr_sh_data_read_write (call_frame_t *frame, xlator_t *this)
 			   sh->healing_fd, sh->block_size,
 			   sh->offset);
 
+	return 0;
+}
+
+
+int
+afr_sh_data_read_write_iter (call_frame_t *frame, xlator_t *this)
+{
+	afr_private_t * priv = NULL;
+	afr_local_t * local  = NULL;
+	afr_self_heal_t *sh  = NULL;
+
+	priv = this->private;
+	local = frame->local;
+	sh = &local->self_heal;
+
+	if (sh->op_failed) {
+		afr_sh_data_finish (frame, this);
+		goto out;
+	}
+
+	if (sh->offset >= sh->file_size) {
+		gf_log (this->name, GF_LOG_DEBUG, 
+			"closing fd's of %s",
+			local->loc.path);
+		afr_sh_data_trim_sinks (frame, this);
+
+		goto out;
+	}
+
+	afr_sh_data_read_write (frame, this);
+
+out:
 	return 0;
 }
 
@@ -649,8 +680,11 @@ afr_sh_data_open (call_frame_t *frame, xlator_t *this)
 	source  = local->self_heal.source;
 	sources = local->self_heal.sources;
 
-	sh->block_size = 131072;
+	sh->block_size = 65536;
 	sh->file_size  = sh->buf[source].st_size;
+
+	if (FILE_HAS_HOLES (&sh->buf[source]))
+		sh->file_has_holes = 1;
 
 	/* open source */
 	STACK_WIND_COOKIE (frame, afr_sh_data_open_cbk,

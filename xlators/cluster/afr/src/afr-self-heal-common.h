@@ -20,6 +20,8 @@
 #ifndef __AFR_SELF_HEAL_COMMON_H__
 #define __AFR_SELF_HEAL_COMMON_H__
 
+#define FILE_HAS_HOLES(buf) (((buf)->st_size) > ((buf)->st_blocks * 512))
+
 int
 afr_sh_select_source (int sources[], int child_count);
 

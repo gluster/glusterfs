@@ -123,6 +123,7 @@ quota_truncate_cbk (call_frame_t *frame,
 		    struct stat *buf)
 {
 	struct quota_priv *priv = this->private;
+
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
 		LOCK (&priv->lock);
 		{
