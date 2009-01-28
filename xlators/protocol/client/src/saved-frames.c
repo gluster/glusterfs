@@ -126,7 +126,8 @@ saved_frames_get (struct saved_frames *frames, int32_t op,
 
 
 void
-saved_frames_unwind (xlator_t *this, struct saved_frame *head,
+saved_frames_unwind (xlator_t *this, struct saved_frames *saved_frames,
+		     struct saved_frame *head,
 		     gf_op_t gf_ops[], char *gf_op_list[])
 {
 	struct saved_frame   *trav = NULL;
@@ -153,6 +154,8 @@ saved_frames_unwind (xlator_t *this, struct saved_frame *head,
 		frame = trav->frame;
 		frame->root->rsp_refs = reply;
 
+		saved_frames->count--;
+
 		gf_ops[trav->op] (frame, &hdr, sizeof (hdr), NULL, 0);
 
 		list_del_init (&trav->list);
@@ -167,9 +170,9 @@ void
 saved_frames_destroy (xlator_t *this, struct saved_frames *frames,
 		      gf_op_t gf_fops[], gf_op_t gf_mops[], gf_op_t gf_cbks[])
 {
-	saved_frames_unwind (this, &frames->fops, gf_fops, gf_fop_list);
-	saved_frames_unwind (this, &frames->mops, gf_mops, gf_mop_list);
-	saved_frames_unwind (this, &frames->cbks, gf_cbks, gf_cbk_list);
+	saved_frames_unwind (this, frames, &frames->fops, gf_fops, gf_fop_list);
+	saved_frames_unwind (this, frames, &frames->mops, gf_mops, gf_mop_list);
+	saved_frames_unwind (this, frames, &frames->cbks, gf_cbks, gf_cbk_list);
 
 	FREE (frames);
 }

@@ -92,10 +92,7 @@ struct client_connection_private {
 	dict_t *saved_fds;
 	inode_table_t *table;
 	int32_t transport_timeout;
-	int32_t slow_transport_timeout;
-	int32_t slow_op_count;       /* if set, gives extra timeout period
-					for calls */
-	int32_t op_count;
+
 	int32_t ping_started;
 	int32_t ping_timeout;
 	gf_timer_t *reconnect;
