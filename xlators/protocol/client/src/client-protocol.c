@@ -336,6 +336,11 @@ call_bail (void *data)
 				cprivate->slow_transport_timeout);
 		}
 	}
+
+	if (bail_out) {
+		cprivate->ping_started = 0;
+	}
+
 	pthread_mutex_unlock (&cprivate->lock);
 
 	if (bail_out) {
@@ -416,6 +421,158 @@ client_get_forgets (xlator_t *this, client_forget_t *forget)
 	return ret;
 }
 
+void 
+client_ping_timer_expired (void *data)
+{
+	xlator_t *this = data;
+	transport_t *trans = NULL;
+	client_private_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
+	
+	priv  = this->private;
+	trans = priv->transport;
+	cprivate = trans->xl_private;
+
+	gf_log (this->name, GF_LOG_ERROR, "ping timer expired! bailing transport");
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		if (cprivate->ping_timer)
+			gf_timer_call_cancel (trans->xl->ctx, 
+					      cprivate->ping_timer);
+
+		cprivate->ping_started = 0;
+		cprivate->ping_timer = NULL;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
+	transport_disconnect (trans);
+}
+
+void
+client_start_ping (void *data)
+{
+	xlator_t *this = NULL;
+	transport_t *trans = NULL;
+	client_private_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
+	uint64_t callid = 0;
+	int32_t ret = -1;
+	gf_hdr_common_t *hdr = NULL;
+	struct timeval timeout        = {0, };
+	call_frame_t *dummy_frame = NULL;
+	size_t hdrlen = -1;
+	gf_fop_create_req_t *req = NULL;
+
+	this = data;
+	priv  = this->private;
+	trans = priv->transport;
+	cprivate = trans->xl_private;
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		if ((!cprivate->slow_op_count) && (!cprivate->op_count)) {
+			cprivate->ping_started = 0;
+			goto unlock;
+		}
+
+		if (cprivate->slow_op_count < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"slow_op_count is %d", cprivate->slow_op_count);
+			cprivate->slow_op_count = 0;
+		}
+
+		if (cprivate->op_count < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"op_count is %d", cprivate->op_count);
+			cprivate->op_count = 0;
+		}
+
+		callid = ++cprivate->callid;
+
+		hdrlen = gf_hdr_len (req, 0);
+		hdr    = gf_hdr_new (req, 0);
+		hdr->callid = hton64 (callid);
+		hdr->op = hton32 (GF_MOP_PING);
+		hdr->type = hton32 (GF_OP_TYPE_MOP_REQUEST);
+
+		ret = transport_submit (trans, (char *)hdr, hdrlen,
+					NULL, 0, NULL);
+
+		if (ret < 0) {
+			free (hdr);
+			gf_log (this->name, GF_LOG_ERROR,
+				"transport_submit() failed");
+			goto unlock;
+		}
+
+		dummy_frame = calloc (1, sizeof (call_frame_t));
+		dummy_frame->this = this;
+		dummy_frame->root = calloc (1, sizeof (call_stack_t));
+		saved_frames_put (cprivate->saved_frames, dummy_frame, 
+				  GF_MOP_PING, GF_OP_TYPE_MOP_REQUEST, 
+				  callid);
+
+		timeout.tv_sec = cprivate->ping_timeout;
+		timeout.tv_usec = 0;
+
+		cprivate->ping_timer = 
+			gf_timer_call_after (trans->xl->ctx, 
+					     timeout,
+					     client_ping_timer_expired,
+					     (void *)this);
+
+		if (cprivate->ping_timer == NULL) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"unable to setup timer");
+		}
+
+		cprivate->ping_started = 1;
+	}
+unlock:
+	pthread_mutex_unlock (&cprivate->lock);
+}
+
+int32_t
+client_ping_cbk (call_frame_t *frame,
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
+{
+	xlator_t *this = NULL;
+	transport_t *trans = NULL;
+	client_private_t *priv = NULL;
+	client_connection_private_t *cprivate = NULL;
+	struct timeval timeout        = {0, };
+
+	this = frame->this;
+	priv  = this->private;
+	trans = priv->transport;
+	cprivate = trans->xl_private;
+	FREE (frame->root);
+	FREE (frame);
+
+	if (hdr->rsp.op_ret == -1) {
+		/* timer expired and transport bailed out */
+		return 0;
+	}
+	timeout.tv_sec  = cprivate->ping_timeout;
+	timeout.tv_usec = 0;
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		gf_timer_call_cancel (trans->xl->ctx, 
+				      cprivate->ping_timer);
+		cprivate->ping_timer = gf_timer_call_after (trans->xl->ctx,
+							    timeout,
+							    client_start_ping,
+							    (void *)this);
+		if (cprivate->ping_timer == NULL)
+			gf_log (this->name, GF_LOG_ERROR,
+				"gf_timer_call_after() returned NULL");
+	}
+	pthread_mutex_unlock (&cprivate->lock);
+	return 0;
+}
+
 
 int32_t
 protocol_client_xfer (call_frame_t *frame,
@@ -430,6 +587,7 @@ protocol_client_xfer (call_frame_t *frame,
 	client_connection_private_t *cprivate = NULL;
 	uint64_t callid = 0;
 	int32_t ret = -1;
+	int start_ping = 0;
 	gf_hdr_common_t rsphdr = {0, };
 	client_forget_t forget = {0, };
 	uint8_t send_forget = 0;
@@ -458,7 +616,6 @@ protocol_client_xfer (call_frame_t *frame,
 						    forget.hdr, forget.hdrlen, 
 						    NULL, 0, NULL);
 		}
-
 	}
 
 	pthread_mutex_lock (&cprivate->lock);
@@ -478,6 +635,8 @@ protocol_client_xfer (call_frame_t *frame,
 		if (cprivate->connected == 0)
 			transport_connect (trans);
 
+		ret = -1;
+
 		if (cprivate->connected ||
 		    ((type == GF_OP_TYPE_MOP_REQUEST) &&
 		     (op == GF_MOP_SETVOLUME))) {
@@ -492,6 +651,7 @@ protocol_client_xfer (call_frame_t *frame,
 			gettimeofday (&cprivate->last_sent, NULL);
 			save_frame (trans, frame, op, type, callid);
 		}
+
 		if ((op == GF_FOP_UNLINK) ||
 		    (op == GF_FOP_FSYNC) ||
 		    (op == GF_FOP_CHECKSUM) ||
@@ -501,9 +661,17 @@ protocol_client_xfer (call_frame_t *frame,
 		    (op == GF_FOP_ENTRYLK) ||
 		    (op == GF_FOP_FENTRYLK)) {
 			cprivate->slow_op_count++;
+		} else {
+			cprivate->op_count++;
+		}
+		if (!cprivate->ping_started && (ret >= 0)) {
+			start_ping = 1;
 		}
 	}
 	pthread_mutex_unlock (&cprivate->lock);
+
+	if (start_ping)
+		client_start_ping ((void *)this);
 
 	if (frame && (ret < 0)) {
 		rsphdr.op = op;
@@ -3782,6 +3950,15 @@ client_fxattrop_cbk (call_frame_t *frame,
 	dict_t *dict = NULL;
 	int32_t ret = -1;
 	char *dictbuf = NULL;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 	GF_VALIDATE_OR_GOTO(frame->this->name, rsp, fail);
@@ -3841,6 +4018,15 @@ client_xattrop_cbk (call_frame_t *frame,
 	dict_t *dict = NULL;
 	int32_t ret = -1;
 	char *dictbuf = NULL;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 	GF_VALIDATE_OR_GOTO(frame->this->name, rsp, fail);
@@ -3903,6 +4089,15 @@ client_fchown_cbk (call_frame_t *frame,
 	gf_fop_fchown_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -3936,6 +4131,15 @@ client_fchmod_cbk (call_frame_t *frame,
 	gf_fop_fchmod_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -3982,6 +4186,14 @@ client_create_cbk (call_frame_t *frame,
 	fd = local->fd;
 	inode = local->loc.inode;
 
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
+
 	rsp = gf_param (hdr);
 
 	op_ret    = ntoh32 (hdr->rsp.op_ret);
@@ -3993,8 +4205,6 @@ client_create_cbk (call_frame_t *frame,
 	}
 
 	if (op_ret >= 0) {
-		cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
-
 		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
 		this_fd_set (fd, frame->this, &local->loc, remote_fd);
 
@@ -4048,6 +4258,14 @@ client_open_cbk (call_frame_t *frame,
 
 	fd = local->fd;
 	frame->local = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4103,6 +4321,15 @@ client_stat_cbk (call_frame_t *frame,
 	gf_fop_stat_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4135,6 +4362,15 @@ client_utimens_cbk (call_frame_t *frame,
 	gf_fop_utimens_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4166,6 +4402,15 @@ client_chmod_cbk (call_frame_t *frame,
 	gf_fop_chmod_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4197,6 +4442,15 @@ client_chown_cbk (call_frame_t *frame,
 	gf_fop_chown_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4230,10 +4484,19 @@ client_mknod_cbk (call_frame_t *frame,
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 	client_local_t *local = NULL;
+	client_connection_private_t *cprivate = NULL;
 
 	local = frame->local;
 	frame->local = NULL;
 	inode = local->loc.inode;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4270,10 +4533,19 @@ client_symlink_cbk (call_frame_t *frame,
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 	client_local_t *local = NULL;
+	client_connection_private_t *cprivate = NULL;
 
 	local = frame->local;
 	frame->local = NULL;
 	inode = local->loc.inode;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4310,10 +4582,19 @@ client_link_cbk (call_frame_t *frame,
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 	client_local_t *local = NULL;
+	client_connection_private_t *cprivate = NULL;
 
 	local = frame->local;
 	frame->local = NULL;
 	inode = local->loc.inode;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4348,6 +4629,15 @@ client_truncate_cbk (call_frame_t *frame,
 	gf_fop_truncate_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4379,6 +4669,15 @@ client_fstat_cbk (call_frame_t *frame,
 	gf_fop_fstat_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4410,6 +4709,15 @@ client_ftruncate_cbk (call_frame_t *frame,
 	gf_fop_ftruncate_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4443,6 +4751,15 @@ client_readv_cbk (call_frame_t *frame,
 	struct iovec vector = {0, };
 	struct stat stbuf = {0, };
 	dict_t *refs = NULL;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4484,6 +4801,15 @@ client_write_cbk (call_frame_t *frame,
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
 	struct stat stbuf = {0, };
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4509,6 +4835,15 @@ client_readdir_cbk (call_frame_t *frame,
 	int32_t op_errno = 0;
 	uint32_t buf_size = 0;
 	gf_dirent_t entries;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4617,6 +4952,15 @@ client_rename_cbk (call_frame_t *frame,
 	gf_fop_rename_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4650,6 +4994,15 @@ client_readlink_cbk (call_frame_t *frame,
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
 	char *link = NULL;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4682,10 +5035,19 @@ client_mkdir_cbk (call_frame_t *frame,
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 	client_local_t *local = NULL;
+	client_connection_private_t *cprivate = NULL;
 
 	local = frame->local;
 	inode = local->loc.inode;
 	frame->local = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4720,6 +5082,15 @@ client_flush_cbk (call_frame_t *frame,
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -4755,6 +5126,14 @@ client_opendir_cbk (call_frame_t *frame,
 	local = frame->local;
 	fd = local->fd;
 	frame->local = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4810,6 +5189,15 @@ client_rmdir_cbk (call_frame_t *frame,
 	gf_fop_rmdir_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4836,6 +5224,15 @@ client_access_cbk (call_frame_t *frame,
 	gf_fop_access_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -4873,10 +5270,19 @@ client_lookup_cbk (call_frame_t *frame,
 	int32_t ret = -1;
 	int32_t gf_errno = 0;
 	client_local_t *local = NULL;
+	client_connection_private_t *cprivate = NULL;
 
 	local = frame->local; 
 	inode = local->loc.inode;
 	frame->local = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -5029,6 +5435,15 @@ client_getdents_cbk (call_frame_t *frame,
 	int32_t gf_errno = 0;
 	int32_t nr_count = 0;
 	dir_entry_t *entry = NULL;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -5072,6 +5487,15 @@ client_statfs_cbk (call_frame_t *frame,
 	gf_fop_statfs_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -5102,6 +5526,15 @@ client_fsyncdir_cbk (call_frame_t *frame,
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -5126,6 +5559,15 @@ client_setxattr_cbk (call_frame_t *frame,
 	gf_fop_setxattr_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -5158,9 +5600,18 @@ client_getxattr_cbk (call_frame_t *frame,
 	int32_t ret = -1;
 	char *dictbuf = NULL;
 	client_local_t *local = NULL;
+	client_connection_private_t *cprivate = NULL;
 	
 	local = frame->local;
 	frame->local = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 	GF_VALIDATE_OR_GOTO(frame->this->name, rsp, fail);
@@ -5222,6 +5673,15 @@ client_removexattr_cbk (call_frame_t *frame,
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -5411,6 +5871,15 @@ client_setdents_cbk (call_frame_t *frame,
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -5441,8 +5910,17 @@ client_stats_cbk (call_frame_t *frame,
 	char *buffer = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
 
 	rsp = gf_param (hdr);
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -5532,6 +6010,15 @@ client_getspec_cbk (call_frame_t *frame,
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
 	int32_t gf_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	gf_errno = ntoh32 (hdr->rsp.op_errno);
@@ -5638,6 +6125,15 @@ client_setspec_cbk (call_frame_t *frame,
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
@@ -5679,6 +6175,14 @@ client_setvolume_cbk (call_frame_t *frame,
 	priv  = this->private;
 	trans = priv->transport;
 	cprivate  = trans->xl_private;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	rsp = gf_param (hdr);
 
@@ -5884,6 +6388,15 @@ client_releasedir_cbk (call_frame_t *frame,
 		       gf_hdr_common_t *hdr, size_t hdrlen,
 		       char *buf, size_t buflen)
 {
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 	STACK_DESTROY (frame->root);
 	return 0;
 }
@@ -5893,6 +6406,15 @@ client_release_cbk (call_frame_t *frame,
 		    gf_hdr_common_t *hdr, size_t hdrlen,
 		    char *buf, size_t buflen)
 {
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 	STACK_DESTROY (frame->root);
 	return 0;
 }
@@ -5906,6 +6428,15 @@ client_forget_cbk (call_frame_t *frame,
 	client_forget_t  forget = {0, };
 	uint8_t          send_forget = 0;
 	int32_t          ret = -1;
+	client_connection_private_t *cprivate = NULL;
+
+	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+
+	pthread_mutex_lock (&cprivate->lock);
+	{
+		cprivate->op_count--;
+	}
+	pthread_mutex_unlock (&cprivate->lock);
 
 	LOCK (&priv->forget.lock);
 	{
@@ -5982,6 +6513,7 @@ static gf_op_t gf_mops[] = {
 	[GF_MOP_STATS]            =  client_stats_cbk,
 	[GF_MOP_SETSPEC]          =  client_setspec_cbk,
 	[GF_MOP_GETSPEC]          =  client_getspec_cbk,
+	[GF_MOP_PING]             =  client_ping_cbk,
 };
 
 static gf_op_t gf_cbks[] = {
@@ -6071,7 +6603,7 @@ init (xlator_t *this)
 	transport_t *trans = NULL;
 	client_private_t *priv = NULL;
 	client_connection_private_t *cprivate = NULL;
-	int32_t transport_timeout = 0;
+	int32_t transport_timeout = 0, ping_timeout = 0;
 	data_t *remote_subvolume = NULL;
 	int32_t ret = -1;
 
@@ -6103,6 +6635,17 @@ init (xlator_t *this)
 		gf_log (this->name, GF_LOG_DEBUG,
 			"defaulting transport-timeout to 42");
 		transport_timeout = 42;
+	}
+	
+	ret = dict_get_int32 (this->options, "ping-timeout", 
+			      &ping_timeout);
+	if (ret >= 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"setting ping-timeout to %d", ping_timeout);
+	} else {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"defaulting ping-timeout to 10");
+		ping_timeout = 10;
 	}
 	
 	trans = transport_load (this->options, this);
@@ -6142,6 +6685,7 @@ init (xlator_t *this)
 		sizeof (cprivate->last_received));
 
 	cprivate->transport_timeout = transport_timeout;
+	cprivate->ping_timeout = ping_timeout;
 
 	/* Set the slow transport timeout to 3 times the original value 
 	   or at least 300seconds */
@@ -6553,6 +7097,10 @@ struct volume_options options[] = {
 	  .min   = 5, 
 	  .max   = 1013, 
 	}, 
-
+	{ .key   = {"ping-timeout"},
+	  .type  = GF_OPTION_TYPE_TIME,
+	  .min   = 5,
+	  .max   = 1013,
+	},
 	{ .key   = {NULL} },
 };

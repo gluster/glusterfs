@@ -7317,7 +7317,25 @@ mop_stats (call_frame_t *frame,
 	return 0;
 }
 
+int32_t
+mop_ping (call_frame_t *frame,
+           xlator_t *bound_xl,
+           gf_hdr_common_t *hdr, size_t hdrlen,
+           char *buf, size_t buflen)
+{
+	gf_hdr_common_t     *rsp_hdr = NULL;
+	gf_cbk_forget_rsp_t *rsp = NULL;
+	size_t  rsp_hdrlen = 0;
 
+	rsp_hdrlen = gf_hdr_len (rsp, 0);
+	rsp_hdr    = gf_hdr_new (rsp, 0);
+	rsp    = gf_param (rsp_hdr);
+
+	protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_PING,
+			       rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
+
+	return 0;
+}
 /*
  * unknown_op_cbk - This function is called when a opcode for unknown 
  *                  type is called. Helps to keep the backward/forward
@@ -7491,6 +7509,7 @@ static gf_op_t gf_mops[] = {
 	[GF_MOP_GETVOLUME] = mop_getvolume,
 	[GF_MOP_STATS]     = mop_stats,
 	[GF_MOP_GETSPEC]   = mop_getspec,
+	[GF_MOP_PING]      = mop_ping,
 };
 
 static gf_op_t gf_cbks[] = {

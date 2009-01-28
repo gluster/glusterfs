@@ -132,6 +132,7 @@ typedef enum {
         GF_MOP_STATS,
         GF_MOP_SETSPEC,
         GF_MOP_GETSPEC,
+	GF_MOP_PING,
         GF_MOP_MAXVALUE   /* 5 */
 } glusterfs_mop_t;
 

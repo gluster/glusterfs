@@ -95,6 +95,9 @@ struct client_connection_private {
 	int32_t slow_transport_timeout;
 	int32_t slow_op_count;       /* if set, gives extra timeout period
 					for calls */
+	int32_t op_count;
+	int32_t ping_started;
+	int32_t ping_timeout;
 	gf_timer_t *reconnect;
 	char connected;
 	uint64_t max_block_size;  /* maximum size of protocol data block that
@@ -102,6 +105,7 @@ struct client_connection_private {
 	struct timeval last_sent;
 	struct timeval last_received;
 	gf_timer_t *timer;
+	gf_timer_t *ping_timer;
 };
 
 typedef struct {
