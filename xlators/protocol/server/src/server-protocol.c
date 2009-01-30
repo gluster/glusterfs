@@ -7324,12 +7324,13 @@ mop_ping (call_frame_t *frame,
            char *buf, size_t buflen)
 {
 	gf_hdr_common_t     *rsp_hdr = NULL;
-	gf_cbk_forget_rsp_t *rsp = NULL;
+	gf_mop_ping_rsp_t   *rsp = NULL;
 	size_t  rsp_hdrlen = 0;
 
 	rsp_hdrlen = gf_hdr_len (rsp, 0);
 	rsp_hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (rsp_hdr);
+
+	hdr->rsp.op_ret = 0;
 
 	protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_PING,
 			       rsp_hdr, rsp_hdrlen, NULL, 0, NULL);

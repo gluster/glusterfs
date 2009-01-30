@@ -404,7 +404,8 @@ client_ping_timer_expired (void *data)
 	trans = priv->transport;
 	cprivate = trans->xl_private;
 
-	gf_log (this->name, GF_LOG_ERROR, "ping timer expired! bailing transport");
+	gf_log (this->name, GF_LOG_ERROR, 
+		"ping timer expired! bailing transport");
 
 	pthread_mutex_lock (&cprivate->lock);
 	{
@@ -426,13 +427,12 @@ client_start_ping (void *data)
 	transport_t *trans = NULL;
 	client_private_t *priv = NULL;
 	client_connection_private_t *cprivate = NULL;
-	uint64_t callid = 0;
 	int32_t ret = -1;
 	gf_hdr_common_t *hdr = NULL;
 	struct timeval timeout        = {0, };
 	call_frame_t *dummy_frame = NULL;
 	size_t hdrlen = -1;
-	gf_fop_create_req_t *req = NULL;
+	gf_mop_ping_req_t *req = NULL;
 
 	this = data;
 	priv  = this->private;
@@ -441,47 +441,31 @@ client_start_ping (void *data)
 
 	pthread_mutex_lock (&cprivate->lock);
 	{
-		if (cprivate->saved_frames->count == 0) {
+		if ((cprivate->saved_frames->count == 0) || 
+		    !cprivate->connected) {
+			/* using goto looked ugly here, 
+			 * hence getting out this way */
+			if (cprivate->ping_timer)
+				gf_timer_call_cancel (trans->xl->ctx, 
+						      cprivate->ping_timer);
+			cprivate->ping_timer = NULL;
 			cprivate->ping_started = 0;
-			goto unlock;
+			/* unlock */
+			pthread_mutex_unlock (&cprivate->lock);
+			return;
 		}
 
 		if (cprivate->saved_frames->count < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"saved_frames->count is %lld", cprivate->saved_frames->count);
+				"saved_frames->count is %lld", 
+				cprivate->saved_frames->count);
 			cprivate->saved_frames->count = 0;
 		}
-
-		callid = ++cprivate->callid;
-
-		hdrlen = gf_hdr_len (req, 0);
-		hdr    = gf_hdr_new (req, 0);
-		hdr->callid = hton64 (callid);
-		hdr->op = hton32 (GF_MOP_PING);
-		hdr->type = hton32 (GF_OP_TYPE_MOP_REQUEST);
-
-		ret = transport_submit (trans, (char *)hdr, hdrlen,
-					NULL, 0, NULL);
-
-		if (ret < 0) {
-			free (hdr);
-			gf_log (this->name, GF_LOG_ERROR,
-				"transport_submit() failed");
-			goto unlock;
-		}
-
-		dummy_frame = calloc (1, sizeof (call_frame_t));
-		dummy_frame->this = this;
-		dummy_frame->root = calloc (1, sizeof (call_stack_t));
-		saved_frames_put (cprivate->saved_frames, dummy_frame, 
-				  GF_MOP_PING, GF_OP_TYPE_MOP_REQUEST, 
-				  callid);
-
 		timeout.tv_sec = cprivate->ping_timeout;
 		timeout.tv_usec = 0;
-
+		
 		cprivate->ping_timer = 
-			gf_timer_call_after (trans->xl->ctx, 
+			gf_timer_call_after (trans->xl->ctx,
 					     timeout,
 					     client_ping_timer_expired,
 					     (void *)this);
@@ -489,12 +473,18 @@ client_start_ping (void *data)
 		if (cprivate->ping_timer == NULL) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"unable to setup timer");
-		}
-
-		cprivate->ping_started = 1;
+		} else
+			cprivate->ping_started = 1;
 	}
-unlock:
 	pthread_mutex_unlock (&cprivate->lock);
+
+	hdrlen = gf_hdr_len (req, 0);
+	hdr    = gf_hdr_new (req, 0);
+
+	dummy_frame = create_frame (this, this->ctx->pool);
+	ret = protocol_client_xfer (dummy_frame, this,
+				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_PING,
+				    hdr, hdrlen, NULL, 0, NULL);
 }
 
 int32_t
@@ -507,23 +497,25 @@ client_ping_cbk (call_frame_t *frame,
 	client_private_t *priv = NULL;
 	client_connection_private_t *cprivate = NULL;
 	struct timeval timeout        = {0, };
+	int op_ret = 0;
 
 	this = frame->this;
 	priv  = this->private;
 	trans = priv->transport;
 	cprivate = trans->xl_private;
-	FREE (frame->root);
-	FREE (frame);
+	op_ret = ntoh32 (hdr->rsp.op_ret);
 
-	if (hdr->rsp.op_ret == -1) {
+	if (op_ret == -1) {
 		/* timer expired and transport bailed out */
-		return 0;
+		gf_log (this->name, GF_LOG_ERROR, "timer must have expired");
+		goto out;
 	}
-	timeout.tv_sec  = cprivate->ping_timeout;
-	timeout.tv_usec = 0;
 
 	pthread_mutex_lock (&cprivate->lock);
 	{
+		timeout.tv_sec  = cprivate->ping_timeout;
+		timeout.tv_usec = 0;
+
 		gf_timer_call_cancel (trans->xl->ctx, 
 				      cprivate->ping_timer);
 		cprivate->ping_timer = gf_timer_call_after (trans->xl->ctx,
@@ -535,6 +527,8 @@ client_ping_cbk (call_frame_t *frame,
 				"gf_timer_call_after() returned NULL");
 	}
 	pthread_mutex_unlock (&cprivate->lock);
+out:
+	STACK_DESTROY (frame->root);
 	return 0;
 }
 

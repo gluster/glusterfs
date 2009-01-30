@@ -690,6 +690,11 @@ typedef struct {
 } __attribute__((packed)) gf_mop_setvolume_rsp_t;
 
 
+typedef struct {
+} __attribute__((packed)) gf_mop_ping_req_t;
+typedef struct {
+} __attribute__((packed)) gf_mop_ping_rsp_t;
+
 
 typedef struct {
 	uint64_t ino;
