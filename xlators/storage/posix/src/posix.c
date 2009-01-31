@@ -2848,6 +2848,7 @@ create_entry (xlator_t *this, int32_t flags,
 {
         int op_ret        = 0;
         int ret           = -1;
+        struct timeval tv[2]     = {{0,0},{0,0}};
 
         if (S_ISDIR (entry->buf.st_mode)) {
                 /* 
@@ -2872,7 +2873,7 @@ create_entry (xlator_t *this, int32_t flags,
                                 goto out;
                         }
                 }
-                        
+
         } else if ((flags & GF_SET_IF_NOT_PRESENT) 
                    || !(flags & GF_SET_DIR_ONLY)) {
 
@@ -2901,7 +2902,7 @@ create_entry (xlator_t *this, int32_t flags,
                                 
                         close (ret);
 
-                } else if (S_ISLNK(entry->buf.st_mode)) {
+                } else if (S_ISLNK (entry->buf.st_mode)) {
                         ret = symlink (entry->link, pathname);
 
                         if (ret == -1) {
@@ -2949,7 +2950,25 @@ create_entry (xlator_t *this, int32_t flags,
 			goto out;
 		}
         }
- out:
+
+	/*
+	 * Preserve atime and mtime
+	 */
+
+	if (!S_ISLNK (entry->buf.st_mode)) {
+		tv[0].tv_sec = entry->buf.st_atim.tv_sec;
+		tv[1].tv_sec = entry->buf.st_mtim.tv_sec;
+		ret = utimes (pathname, tv);
+		if (ret == -1) {
+			op_ret = -errno;
+			gf_log (this->name, GF_LOG_ERROR,
+				"utimes %s failed: %s",
+				pathname, strerror (errno));
+			goto out;
+		}
+	}
+
+out:
         return op_ret;
 
 }
