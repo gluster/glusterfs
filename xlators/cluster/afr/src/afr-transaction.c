@@ -601,6 +601,7 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				local->op_ret   = op_ret;
 				done = 1;
 			}
+
 			local->child_up[child_index] = 0;
 			local->op_errno = op_errno;
 		}
@@ -784,8 +785,6 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 
 int32_t afr_lock (call_frame_t *frame, xlator_t *this)
 {
-	frame->root->pid = (pid_t) ((long)frame->root);
-
 	return afr_lock_rec (frame, this, 0);
 }
 

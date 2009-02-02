@@ -52,6 +52,24 @@ delete_locks_of_transport (pl_inode_t *pinode, transport_t *trans)
 }
 
 
+static posix_lock_t *
+__find_exact_matching_lock (pl_inode_t *pinode, posix_lock_t *lock)
+{
+	posix_lock_t *l     = NULL;
+	posix_lock_t *match = NULL;
+
+	list_for_each_entry (l, DOMAIN_HEAD (pinode, GF_LOCK_INTERNAL), list) {
+		if (same_owner (l, lock)
+		    && (l->fl_start == lock->fl_start)
+		    && (l->fl_end   == lock->fl_end)) {
+			match = l;
+			break;
+		}
+	}
+
+	return match;
+}
+
 /**
  * pl_inodelk: 
  *
@@ -60,22 +78,25 @@ delete_locks_of_transport (pl_inode_t *pinode, transport_t *trans)
  * from those held by applications. This fop is for the use of AFR.
  */
 
-int
-pl_inodelk (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, int32_t cmd, struct flock *flock)
+
+static int
+pl_inodelk_common (call_frame_t *frame, xlator_t *this,
+		   inode_t *inode, int32_t cmd, struct flock *flock)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
-	int     ret      = -1;
 	int     can_block = 0;
+
 	posix_locks_private_t * priv       = NULL;
 	transport_t *           transport  = NULL;
 	pid_t                   client_pid = -1;
 	pl_inode_t *            pinode     = NULL;
+	
 	posix_lock_t *          reqlock    = NULL;
+	posix_lock_t *          matchlock  = NULL;  /* steady, fire! */
 
 	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (loc, out);
+	VALIDATE_OR_GOTO (inode, out);
 	VALIDATE_OR_GOTO (flock, out);
 	
 	if ((flock->l_start < 0) || (flock->l_len < 0)) {
@@ -90,7 +111,7 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 
 	VALIDATE_OR_GOTO (priv, out);
 
-	pinode = pl_inode_get (this, loc->inode);
+	pinode = pl_inode_get (this, inode);
 	if (!pinode) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory :(");
@@ -98,11 +119,14 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 		goto unwind;
 	}
 
+	pthread_mutex_lock (&pinode->mutex);
+
 	if (client_pid == 0) {
 		/* 
 		   special case: this means release all locks 
 		   from this transport
 		*/
+
 		gf_log (this->name, GF_LOG_DEBUG,
 			"releasing all locks from transport %p", transport);
 
@@ -129,34 +153,94 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 
 	case F_SETLK:
 		memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
-		ret = pl_setlk (this, pinode, reqlock,
-				can_block, GF_LOCK_INTERNAL);
+		
+		switch (flock->l_type) {
+			
+		case F_WRLCK:
+			if (!pl_is_lock_grantable (pinode, reqlock, GF_LOCK_INTERNAL)) {
+				if (can_block) {
+					gf_log (this->name, GF_LOG_DEBUG,
+						"%s (pid=%d) %"PRId64" - %"PRId64" => blocked",
+						reqlock->fl_type == F_UNLCK ? "unlock" : "lock",
+						reqlock->client_pid,
+						reqlock->user_flock.l_start,
+						reqlock->user_flock.l_len);
+					pl_insert_lock (pinode, reqlock, GF_LOCK_INTERNAL);
 
-		if (ret == -1) {
-			if (can_block)
-				goto out;
+					goto out;
+				}
+				
+				__destroy_lock (reqlock);
+				
 
-			gf_log (this->name, GF_LOG_DEBUG, "returning EAGAIN");
-			op_errno = EAGAIN;
-			__destroy_lock (reqlock);
+				gf_log (this->name, GF_LOG_DEBUG,
+					"%s (pid=%d) %"PRId64" - %"PRId64" => NOK",
+					reqlock->fl_type == F_UNLCK ? "unlock" : "lock",
+					reqlock->client_pid, reqlock->user_flock.l_start,
+					reqlock->user_flock.l_len);
+				op_errno = EAGAIN;
+
+				goto unwind;
+			}
+
+			gf_log (this->name, GF_LOG_DEBUG,
+				"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
+				reqlock->fl_type == F_UNLCK ? "unlock" : "lock",
+				reqlock->client_pid,
+				reqlock->user_flock.l_start,
+				reqlock->user_flock.l_len);
+			pl_insert_lock (pinode, reqlock, GF_LOCK_INTERNAL);
+
+			break;
+
+		case F_UNLCK:
+			matchlock = __find_exact_matching_lock (pinode, reqlock);
+			
+			if (!matchlock) {
+				op_errno = EINVAL;
+				goto unwind;
+			}
+
+			__delete_lock (pinode, matchlock);
+			__destroy_lock (matchlock);
+			
+			break;
+
+		default:
+			op_errno = ENOTSUP;
+			gf_log (this->name, GF_LOG_ERROR,
+				"lock type %d not supported for [F]INODELK",
+				flock->l_type);
 			goto unwind;
 		}
+
+
 		break;
 
 	default:
 		op_errno = ENOTSUP;
 		gf_log (this->name, GF_LOG_ERROR,
-			"lock command F_GETLK not supported for GF_FILE_LK (cmd=%d)", 
+			"lock command F_GETLK not supported for [F]INODELK (cmd=%d)", 
 			cmd);
-			goto unwind;
+		goto unwind;
 	}
 
 	op_ret = 0;
 
-unwind:	
+unwind:
 	STACK_UNWIND (frame, op_ret, op_errno);
 out:
+	if (pinode)
+		pthread_mutex_unlock (&pinode->mutex);
 	return 0;
+}
+
+
+int
+pl_inodelk (call_frame_t *frame, xlator_t *this,
+	    loc_t *loc, int32_t cmd, struct flock *flock)
+{
+	return pl_inodelk_common (frame, this, loc->inode, cmd, flock);
 }
 
 
@@ -164,100 +248,7 @@ int
 pl_finodelk (call_frame_t *frame, xlator_t *this,
 	     fd_t *fd, int32_t cmd, struct flock *flock)
 {
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
-	int     ret      = -1;
-	int     can_block = 0;
-	posix_locks_private_t * priv       = NULL;
-	transport_t *           transport  = NULL;
-	pid_t                   client_pid = -1;
-	pl_inode_t *            pinode     = NULL;
-	posix_lock_t *          reqlock    = NULL;
-
-	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (fd, out);
-	VALIDATE_OR_GOTO (flock, out);
-	
-	if ((flock->l_start < 0) || (flock->l_len < 0)) {
-		op_errno = EINVAL;
-		goto unwind;
-	}
-
-	transport  = frame->root->trans;
-	client_pid = frame->root->pid;
-
-	priv = (posix_locks_private_t *) this->private;
-
-	VALIDATE_OR_GOTO (priv, out);
-
-	pinode = pl_inode_get (this, fd->inode);
-	if (!pinode) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
-		op_errno = ENOMEM;
-		goto unwind;
-	}
-
-	if (client_pid == 0) {
-		/* 
-		   special case: this means release all locks 
-		   from this transport
-		*/
-		gf_log (this->name, GF_LOG_DEBUG,
-			"releasing all locks from transport %p", transport);
-
-		delete_locks_of_transport (pinode, transport);
-		goto unwind;
-	}
-
-	reqlock = new_posix_lock (flock, transport, client_pid);
-	if (!reqlock) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
-		op_ret = -1;
-		op_errno = ENOMEM;
-		goto unwind;
-	}
-
-	switch (cmd) {
-	case F_SETLKW:
-		can_block = 1;
-		reqlock->frame = frame;
-		reqlock->this  = this;
-		reqlock->fd    = fd;
-
-		/* fall through */
-
-	case F_SETLK:
-		memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
-		ret = pl_setlk (this, pinode, reqlock,
-				can_block, GF_LOCK_INTERNAL);
-
-		if (ret == -1) {
-			if (can_block)
-				goto out;
-
-			gf_log (this->name, GF_LOG_DEBUG, "returning EAGAIN");
-			op_errno = EAGAIN;
-			__destroy_lock (reqlock);
-			goto unwind;
-		}
-		break;
-
-	default:
-		op_errno = ENOTSUP;
-		gf_log (this->name, GF_LOG_ERROR,
-			"lock command F_GETLK not supported for GF_FILE_LK (cmd=%d)", 
-			cmd);
-			goto unwind;
-	}
-
-	op_ret = 0;
-
-unwind:	
-	STACK_UNWIND (frame, op_ret, op_errno);
-out:
-	return 0;
+	return pl_inodelk_common (frame, this, fd->inode, cmd, flock);
 }
 
 

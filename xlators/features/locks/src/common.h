@@ -33,6 +33,13 @@ int
 pl_setlk (xlator_t *this, pl_inode_t *inode, posix_lock_t *lock,
 	  int can_block, gf_lk_domain_t domain);
 
+int
+pl_is_lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock,
+		      gf_lk_domain_t dom);
+
+void
+pl_insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t dom);
+
 void
 grant_blocked_locks (xlator_t *this, pl_inode_t *inode, gf_lk_domain_t domain);
 
