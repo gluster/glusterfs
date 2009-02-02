@@ -1317,7 +1317,7 @@ init (xlator_t *this)
 
         /* configure 'options aggregate-size <size>' */
         conf->aggregate_size = 0;
-        ret = dict_get_str (options, "aggregate-size", 
+        ret = dict_get_str (options, "block-size", 
                             &aggregate_size_string);
         if (ret == 0) {
                 ret = gf_string2bytesize (aggregate_size_string, 
@@ -1354,7 +1354,7 @@ init (xlator_t *this)
   
         /* configure 'option window-size <size>' */
         conf->window_size = 0;
-        ret = dict_get_str (options, "window-size", 
+        ret = dict_get_str (options, "cache-size", 
                             &window_size_string);
         if (ret == 0) {
                 ret = gf_string2bytesize (window_size_string, 

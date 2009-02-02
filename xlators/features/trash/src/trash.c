@@ -37,6 +37,8 @@
 
 struct trash_struct {
 	inode_t *inode;
+	loc_t loc1;
+	loc_t loc2;
 	char origpath[ZR_PATH_MAX];
 	char newpath[ZR_PATH_MAX];
 	char oldpath[ZR_PATH_MAX]; // used only in case of rename
@@ -73,6 +75,14 @@ trash_common_unwind_cbk (call_frame_t *frame,
 			 int32_t op_ret,
 			 int32_t op_errno)
 {
+	trash_local_t *local = frame->local;
+
+	if (local->loc1.path)
+		loc_wipe (&local->loc1);
+	
+	if (local->loc2.path)
+		loc_wipe (&local->loc2);
+
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
@@ -88,6 +98,14 @@ trash_common_unwind_buf_cbk (call_frame_t *frame,
 			     int32_t op_errno,
 			     struct stat *buf)
 {
+	trash_local_t *local = frame->local;
+
+	if (local->loc1.path)
+		loc_wipe (&local->loc1);
+	
+	if (local->loc2.path)
+		loc_wipe (&local->loc2);
+
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
 }
@@ -137,10 +155,6 @@ trash_mkdir_cbk (call_frame_t *frame,
 	}
 	char *dir_name = dirname (tmp_str);
 	if (strcmp((char*)cookie, dir_name) == 0) {
-		loc_t loc = {
-			.inode = NULL,
-			.path = local->origpath,
-		};
 		loc_t new_loc = {
 			.inode = NULL,
 			.path = local->newpath
@@ -149,7 +163,7 @@ trash_mkdir_cbk (call_frame_t *frame,
 			    trash_unlink_rename_cbk,
 			    this->children->xlator,
 			    this->children->xlator->fops->rename,
-			    &loc,
+			    &local->loc2,
 			    &new_loc);
 
 	}
@@ -190,33 +204,22 @@ trash_unlink_rename_cbk (call_frame_t *frame,
 				   0777);
 		free (tmp_str);
 	} else if (op_ret == -1 && op_errno == ENOTDIR) {
-		gf_log (this->name,
-			GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_WARNING,
 			"Target exists, cannot keep the copy, deleting");
-		loc_t tmp_loc = {
-			.inode = local->inode,
-			.path = local->origpath,
-		};
 		STACK_WIND (frame,
 			    trash_common_unwind_cbk,
 			    this->children->xlator,
 			    this->children->xlator->fops->unlink,
-			    &tmp_loc);
+			    &local->loc2);
 	} else if (op_ret == -1 && op_errno == EISDIR) {
-		gf_log (this->name,
-			GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_WARNING,
 			"Target exists as a directory, cannot keep the copy, "
 			"deleting");
-		loc_t tmp_loc = {
-			.inode = local->inode,
-			.path = local->origpath,
-			.ino = local->inode->ino
-		};
 		STACK_WIND (frame,
 			    trash_common_unwind_cbk,
 			    this->children->xlator,
 			    this->children->xlator->fops->unlink,
-			    &tmp_loc);
+			    &local->loc2);
 	} else {
 		/* */
 		STACK_UNWIND (frame, 0, op_errno);
@@ -240,7 +243,6 @@ trash_unlink (call_frame_t *frame,
 	struct tm   *tm = NULL;
 	char         timestr[256];
 
-
 	if (strncmp (loc->path, priv->trash_dir, 
 		     strlen(priv->trash_dir)) == 0) {
 		/* Trying to rename from the trash can dir, do the
@@ -257,8 +259,9 @@ trash_unlink (call_frame_t *frame,
 			return 0;
 		}
 		frame->local = local;
-		local->inode = loc->inode;
-		strcpy (local->origpath, loc->path);
+		
+		loc_copy (&local->loc2, loc);
+
 		strcpy (local->newpath, priv->trash_dir);
 		strcat (local->newpath, loc->path);
 
@@ -270,7 +273,6 @@ trash_unlink (call_frame_t *frame,
 		{
 			loc_t new_loc = {
 				.inode = NULL,
-				.ino = 0,
 				.path = local->newpath
 			};
 			STACK_WIND (frame,
@@ -306,7 +308,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 			count = tmp_dirname - tmp_str;
 			if (count == 0)
 				count = 1;
-			tmp_path = CALLOC (1, count + 1);
+			tmp_path = CALLOC (1, count + 2);
 			ERR_ABORT (tmp_path);
 			memcpy (tmp_path, local->newpath, count);
 			loc_t tmp_loc = {
@@ -330,10 +332,6 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 	}
 	char *dir_name = dirname (tmp_str);
 	if (strcmp((char*)cookie, dir_name) == 0) {
-		loc_t loc = {
-			.inode = NULL,
-			.path = local->origpath,
-		};
 		loc_t new_loc = {
 			.inode = NULL,
 			.path = local->newpath
@@ -342,7 +340,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 			    trash_rename_rename_cbk,
 			    this->children->xlator,
 			    this->children->xlator->fops->rename,
-			    &loc,
+			    &local->loc2,
 			    &new_loc);
 
 	}
@@ -385,31 +383,26 @@ trash_rename_rename_cbk (call_frame_t *frame,
 		free (tmp_str);
 		return 0;
 	} else if (op_ret == -1 && op_errno == ENOTDIR) {
-		gf_log (this->name,
-			GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_WARNING,
 			"Target exists, cannot keep the dest entry %s, "
 			"renaming",
-			local->origpath);
+			local->loc2.path);
 	} else if (op_ret == -1 && op_errno == EISDIR) {
-		gf_log (this->name,
-			GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_WARNING,
 			"Target exists as a directory, cannot keep the "
 			"copy %s, renaming",
-			local->origpath);
+			local->loc2.path);
 	}
-	loc_t tmp_loc = {
-		.inode = local->inode,
-		.path = local->oldpath,
-	};
 	loc_t new_loc = {
 		.inode = NULL,
-		.path = local->origpath
+		.parent = local->loc2.parent,
+		.path = local->loc2.path,
 	};
 	STACK_WIND (frame,
 		    trash_common_unwind_buf_cbk,
 		    this->children->xlator,
 		    this->children->xlator->fops->rename,
-		    &tmp_loc,
+		    &local->loc1,
 		    &new_loc);
 
 	return 0;
@@ -431,26 +424,19 @@ trash_rename_lookup_cbk (call_frame_t *frame,
 	trash_local_t *local = frame->local;
 
 	if (op_ret == -1) {
-		loc_t oldloc = {
-			.inode = local->inode,
-			.path = local->oldpath
-		};
-		loc_t newloc = {
-			.inode = NULL,
-			.path = local->origpath
-		};
 		STACK_WIND (frame,
 			    trash_common_unwind_buf_cbk,
 			    this->children->xlator,
 			    this->children->xlator->fops->rename,
-			    &oldloc,
-			    &newloc);
+			    &local->loc1,
+			    &local->loc2);
 		return 0;
 	}
 
 	loc_t oldloc = {
+		.parent = local->loc2.parent,
 		.inode = inode,
-		.path = local->origpath
+		.path = local->loc2.path,
 	};
 	loc_t newloc = {
 		.inode = NULL,
@@ -500,9 +486,8 @@ trash_rename (call_frame_t *frame,
 			return 0;
 		}
 		frame->local = local;
-		local->inode = inode_ref (oldloc->inode);
-		strcpy (local->origpath, newloc->path);
-		strcpy (local->oldpath, oldloc->path);
+		loc_copy (&local->loc1, oldloc);
+		loc_copy (&local->loc2, newloc);
 
 		strcpy (local->newpath, priv->trash_dir);
 		strcat (local->newpath, newloc->path);
@@ -511,7 +496,6 @@ trash_rename (call_frame_t *frame,
 		tm    = localtime (&utime);
 		strftime (timestr, 256, ".%Y%m%d%H%M%S", tm); 
 		strcat (local->newpath, timestr);
-
 
 		/* Send a lookup call on newloc, to ensure we are not 
 		   overwriting */
