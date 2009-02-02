@@ -244,15 +244,19 @@ gf_log_volume_file (FILE *specfp)
 	
 	fseek (specfp, 0L, SEEK_SET);
 	
-	fprintf (gf_log_logfile, "given volfile\n");
-	fprintf (gf_log_logfile, "+-----\n");
+	fprintf (gf_log_logfile, "Given volfile:\n");
+	fprintf (gf_log_logfile, 
+		 "+---------------------------------------"
+		 "---------------------------------------+\n");
 	while (!feof (specfp)) {
 		if (fgets (data, GF_UNIT_KB, specfp) == NULL)
 			break;
 		lcount++;
 		fprintf (gf_log_logfile, "%3d: %s", lcount, data);
 	}
-	fprintf (gf_log_logfile, "+-----\n");
+	fprintf (gf_log_logfile, 
+		 "\n+---------------------------------------"
+		 "---------------------------------------+\n");
 	fflush (gf_log_logfile);
 	fseek (specfp, 0L, SEEK_SET);
 }

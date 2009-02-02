@@ -28,6 +28,8 @@
 #include <signal.h>
 #include <libgen.h>
 
+#include <sys/utsname.h>
+
 #include <stdint.h>
 #include <pthread.h>
 
@@ -148,22 +150,39 @@ _gf_dump_details (int argc, char **argv)
         char         timestr[256];
         time_t       utime = 0;
         struct tm   *tm = NULL;
+	pid_t        mypid = 0;
+	struct utsname uname_buf = {{0, }, };
+	int            uname_ret = -1;
 
 	utime = time (NULL);
 	tm    = localtime (&utime);
+	mypid = getpid ();
+	uname_ret   = uname (&uname_buf);
 
         /* Which TLA? What time? */
         strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
-        fprintf (gf_log_logfile, "\nVersion      : %s %s built on %s %s\n", 
+	fprintf (gf_log_logfile, 
+		 "========================================"
+		 "========================================\n");
+        fprintf (gf_log_logfile, "Version      : %s %s built on %s %s\n", 
                  PACKAGE_NAME, PACKAGE_VERSION, __DATE__, __TIME__);
         fprintf (gf_log_logfile, "TLA Revision : %s\n", 
                  GLUSTERFS_REPOSITORY_REVISION);
         fprintf (gf_log_logfile, "Starting Time: %s\n", timestr);
         fprintf (gf_log_logfile, "Command line : ");
-
         for (i = 0; i < argc; i++) {
                 fprintf (gf_log_logfile, "%s ", argv[i]);
         }
+
+	fprintf (gf_log_logfile, "\nPID          : %d\n", mypid);
+	
+	if (uname_ret == 0) {
+		fprintf (gf_log_logfile, "System name  : %s\n", uname_buf.sysname);
+		fprintf (gf_log_logfile, "Nodename     : %s\n", uname_buf.nodename);
+		fprintf (gf_log_logfile, "Kernel Release : %s\n", uname_buf.release);
+		fprintf (gf_log_logfile, "Hardware Identifier: %s\n", uname_buf.machine);
+	}
+
 
         fprintf (gf_log_logfile, "\n");
         fflush (gf_log_logfile);
