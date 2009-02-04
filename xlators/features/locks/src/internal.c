@@ -639,9 +639,9 @@ unlock:
  */
 
 int
-pl_entrylk (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, const char *basename, 
-	    entrylk_cmd cmd, entrylk_type type)
+pl_entrylk_common (call_frame_t *frame, xlator_t *this,
+		   inode_t *inode, const char *basename, 
+		   entrylk_cmd cmd, entrylk_type type)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -654,8 +654,7 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 	pl_entry_lock_t   *unlocked = NULL;
 	char               unwind = 1;
 
-
-	pinode = pl_inode_get (this, loc->inode);
+	pinode = pl_inode_get (this, inode);
 	if (!pinode) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory :(");
@@ -742,105 +741,19 @@ out:
 }
 
 
-/**
- * pl_entrylk:
- * 
- * Locking on names (directory entries)
- */
+int
+pl_entrylk (call_frame_t *frame, xlator_t *this,
+	    loc_t *loc, const char *basename, 
+	    entrylk_cmd cmd, entrylk_type type)
+{
+	return pl_entrylk_common (frame, this, loc->inode, basename, cmd, type);
+}
+
 
 int
 pl_fentrylk (call_frame_t *frame, xlator_t *this,
 	     fd_t *fd, const char *basename, 
 	     entrylk_cmd cmd, entrylk_type type)
 {
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
-
-	transport_t * transport = NULL;
-	pid_t pid = -1;
-
-	pl_inode_t *       pinode = NULL; 
-	int                ret    = -1;
-	pl_entry_lock_t   *unlocked = NULL;
-	char               unwind = 1;
-
-	pinode = pl_inode_get (this, fd->inode);
-	if (!pinode) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
-		goto out;
-	}
-
-	pid       = frame->root->pid;
-	transport = frame->root->trans;
-
-	if (pid == 0) {
-		/* 
-		   this is a special case that means release
-		   all locks from this transport 
-		*/
-
-		gf_log (this->name, GF_LOG_DEBUG,
-			"releasing locks for transport %p", transport);
-
-		release_entry_locks_for_transport (this, pinode, transport);
-		op_ret = 0;
-		goto out;
-	}
-
-	switch (cmd) {
-	case ENTRYLK_LOCK:
-		pthread_mutex_lock (&pinode->mutex);
-		{
-			ret = __lock_name (pinode, basename, type,
-					   frame, this, 0);
-		}
-		pthread_mutex_unlock (&pinode->mutex);
-
-		if (ret < 0) {
-			if (ret == -EAGAIN)
-				unwind = 0;
-			op_errno = -ret;
-			goto out;
-		}
-		break;
-
-	case ENTRYLK_LOCK_NB:
-		pthread_mutex_lock (&pinode->mutex);
-		{
-			ret = __lock_name (pinode, basename, type,
-					   frame, this, 1);
-		}
-		pthread_mutex_unlock (&pinode->mutex);
-
-		if (ret < 0) {
-			op_errno = -ret;
-			goto out;
-		}
-		break;
-
-	case ENTRYLK_UNLOCK:
-		pthread_mutex_lock (&pinode->mutex);
-		{
-			unlocked = __unlock_name (pinode, basename, type);
-		}
-		pthread_mutex_unlock (&pinode->mutex);
-
-		if (unlocked)
-			grant_blocked_entry_locks (this, pinode, unlocked);
-		break;
-
-	default:
-		gf_log (this->name, GF_LOG_ERROR,
-			"unexpected case!");
-		goto out;
-	}
-
-	op_ret = 0;
-out:
-	if (unwind) {
-		STACK_UNWIND (frame, op_ret, op_errno);
-	}
-	
-	return 0;
+	return pl_entrylk_common (frame, this, fd->inode, basename, cmd, type);	
 }

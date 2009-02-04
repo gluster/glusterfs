@@ -52,32 +52,35 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 	mode_t      st_mode = 0;
 	int         ret = 0;
 
-	ret = dict_get_ptr (inode->ctx, this->name,
-			    (void **)((void *)&pl_inode));
-	if (ret == 0)
-		goto out;
+	LOCK (&inode->lock);
+	{
+		ret = dict_get_ptr (inode->ctx, this->name,
+				    (void **)((void *)&pl_inode));
+		if (ret == 0)
+			goto out;
 
-	pl_inode = CALLOC (1, sizeof (*pl_inode));
-	if (!pl_inode) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
-		goto out;
+		pl_inode = CALLOC (1, sizeof (*pl_inode));
+		if (!pl_inode) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"out of memory :(");
+			goto out;
+		}
+
+		st_mode  = inode->st_mode;
+		if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
+			pl_inode->mandatory = 1;
+
+
+		pthread_mutex_init (&pl_inode->mutex, NULL);
+		
+		INIT_LIST_HEAD (&pl_inode->dir_list);
+		INIT_LIST_HEAD (&pl_inode->ext_list);
+		INIT_LIST_HEAD (&pl_inode->int_list);
+		INIT_LIST_HEAD (&pl_inode->rw_list);
+
+		ret = dict_set_ptr (inode->ctx, this->name, (void *)(pl_inode));
 	}
-
-	st_mode  = inode->st_mode;
-	if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
-		pl_inode->mandatory = 1;
-
-
-	pthread_mutex_init (&pl_inode->mutex, NULL);
-
-	INIT_LIST_HEAD (&pl_inode->dir_list);
-	INIT_LIST_HEAD (&pl_inode->ext_list);
-	INIT_LIST_HEAD (&pl_inode->int_list);
-	INIT_LIST_HEAD (&pl_inode->rw_list);
-
-	ret = dict_set_ptr (inode->ctx, this->name, (void *)(pl_inode));
-
+	UNLOCK (&inode->lock);
 out:
 	return pl_inode;
 }
