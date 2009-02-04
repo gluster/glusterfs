@@ -23,11 +23,11 @@
 #include <netdb.h>
 #include <string.h>
 
-#ifdef CLIENT_PORT_CIELING
-#undef CLIENT_PORT_CIELING
+#ifdef CLIENT_PORT_CEILING
+#undef CLIENT_PORT_CEILING
 #endif
 
-#define CLIENT_PORT_CIELING 1024
+#define CLIENT_PORT_CEILING 1024
 
 #ifndef AF_INET_SDP
 #define AF_INET_SDP 27
@@ -44,12 +44,12 @@ gf_resolve_ip6 (const char *hostname,
                 struct addrinfo **addr_info);
 
 static int32_t
-af_inet_bind_to_port_lt_cieling (int fd, struct sockaddr *sockaddr, 
-                                 socklen_t sockaddr_len, int cieling)
+af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr, 
+                                 socklen_t sockaddr_len, int ceiling)
 {
         int32_t ret = -1;
         /*  struct sockaddr_in sin = {0, }; */
-        uint16_t port = cieling - 1;
+        uint16_t port = ceiling - 1;
 
         while (port)
         {
@@ -414,14 +414,14 @@ client_bind (transport_t *this,
                 *sockaddr_len = sizeof (struct sockaddr_in);
 
         case AF_INET6:
-                ret = af_inet_bind_to_port_lt_cieling (sock, sockaddr, 
+                ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr, 
                                                        *sockaddr_len, 
-                                                       CLIENT_PORT_CIELING);
+                                                       CLIENT_PORT_CEILING);
                 if (ret == -1) {
                         gf_log (this->xl->name, GF_LOG_ERROR,
                                 "cannot bind inet socket (%d) to port "
                                 "less than %d (%s)", 
-                                sock, CLIENT_PORT_CIELING, strerror (errno));
+                                sock, CLIENT_PORT_CEILING, strerror (errno));
                         ret = 0;
                 }
                 break;

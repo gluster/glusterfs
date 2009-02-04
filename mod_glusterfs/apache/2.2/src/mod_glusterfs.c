@@ -21,6 +21,10 @@
 #define CORE_PRIVATE
 #endif
 
+#ifndef NO_CONTENT_TYPE
+#define NO_CONTENT_TYPE "none"
+#endif
+
 #define BYTERANGE_FMT "%" APR_OFF_T_FMT "-%" APR_OFF_T_FMT "/%" APR_OFF_T_FMT
 
 #include <sys/types.h>
