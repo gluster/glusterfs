@@ -1184,14 +1184,15 @@ dict_get_with_ref (dict_t *this, char *key, data_t **data)
 	}
 
 	LOCK (&this->lock);
+	{
+		pair = _dict_lookup (this, key);
+	}
+	UNLOCK (&this->lock);
 
-	pair = _dict_lookup (this, key);
 	if (pair) {
 		ret = 0;
 		*data = data_ref (pair->value);
 	}
-
-	UNLOCK (&this->lock);
 
 err:  
 	return ret;
