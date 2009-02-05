@@ -95,9 +95,9 @@ pl_inodelk_common (call_frame_t *frame, xlator_t *this,
 	posix_lock_t *          reqlock    = NULL;
 	posix_lock_t *          matchlock  = NULL;  /* steady, fire! */
 
-	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (inode, out);
-	VALIDATE_OR_GOTO (flock, out);
+	VALIDATE_OR_GOTO (frame, unwind);
+	VALIDATE_OR_GOTO (inode, unwind);
+	VALIDATE_OR_GOTO (flock, unwind);
 	
 	if ((flock->l_start < 0) || (flock->l_len < 0)) {
 		op_errno = EINVAL;
@@ -109,7 +109,7 @@ pl_inodelk_common (call_frame_t *frame, xlator_t *this,
 
 	priv = (posix_locks_private_t *) this->private;
 
-	VALIDATE_OR_GOTO (priv, out);
+	VALIDATE_OR_GOTO (priv, unwind);
 
 	pinode = pl_inode_get (this, inode);
 	if (!pinode) {
@@ -118,8 +118,6 @@ pl_inodelk_common (call_frame_t *frame, xlator_t *this,
 		op_errno = ENOMEM;
 		goto unwind;
 	}
-
-	pthread_mutex_lock (&pinode->mutex);
 
 	if (client_pid == 0) {
 		/* 
@@ -143,95 +141,99 @@ pl_inodelk_common (call_frame_t *frame, xlator_t *this,
 		goto unwind;
 	}
 
-	switch (cmd) {
-	case F_SETLKW:
-		can_block = 1;
-		reqlock->frame = frame;
-		reqlock->this  = this;
-
-		/* fall through */
-
-	case F_SETLK:
-		memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
-		
-		switch (flock->l_type) {
+	pthread_mutex_lock (&pinode->mutex);
+	{
+		switch (cmd) {
+		case F_SETLKW:
+			can_block = 1;
+			reqlock->frame = frame;
+			reqlock->this  = this;
 			
-		case F_WRLCK:
-			if (!pl_is_lock_grantable (pinode, reqlock, GF_LOCK_INTERNAL)) {
-				if (can_block) {
+			/* fall through */
+			
+		case F_SETLK:
+			memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
+			
+			switch (flock->l_type) {
+				
+			case F_WRLCK:
+				if (!pl_is_lock_grantable (pinode, reqlock, GF_LOCK_INTERNAL)) {
+					if (can_block) {
+						gf_log (this->name, GF_LOG_DEBUG,
+							"%s (pid=%d) %"PRId64" - %"PRId64" => blocked",
+							reqlock->fl_type == F_UNLCK ? "unlock" : "lock",
+							reqlock->client_pid,
+							reqlock->user_flock.l_start,
+							reqlock->user_flock.l_len);
+						pl_insert_lock (pinode, reqlock, GF_LOCK_INTERNAL);
+						
+						goto unlock;
+					}
+					
+					__destroy_lock (reqlock);
+					
+					
 					gf_log (this->name, GF_LOG_DEBUG,
-						"%s (pid=%d) %"PRId64" - %"PRId64" => blocked",
+						"%s (pid=%d) %"PRId64" - %"PRId64" => NOK",
 						reqlock->fl_type == F_UNLCK ? "unlock" : "lock",
-						reqlock->client_pid,
-						reqlock->user_flock.l_start,
+						reqlock->client_pid, reqlock->user_flock.l_start,
 						reqlock->user_flock.l_len);
-					pl_insert_lock (pinode, reqlock, GF_LOCK_INTERNAL);
-
-					goto out;
+					op_errno = EAGAIN;
+					
+					goto unlock;
 				}
 				
-				__destroy_lock (reqlock);
-				
-
 				gf_log (this->name, GF_LOG_DEBUG,
-					"%s (pid=%d) %"PRId64" - %"PRId64" => NOK",
+					"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
 					reqlock->fl_type == F_UNLCK ? "unlock" : "lock",
-					reqlock->client_pid, reqlock->user_flock.l_start,
+					reqlock->client_pid,
+					reqlock->user_flock.l_start,
 					reqlock->user_flock.l_len);
-				op_errno = EAGAIN;
-
-				goto unwind;
+				pl_insert_lock (pinode, reqlock, GF_LOCK_INTERNAL);
+				
+				break;
+				
+			case F_UNLCK:
+				matchlock = __find_exact_matching_lock (pinode, reqlock);
+				
+				if (!matchlock) {
+					op_errno = EINVAL;
+					goto unlock;
+				}
+				
+				__delete_lock (pinode, matchlock);
+				__destroy_lock (matchlock);
+				
+				break;
+				
+			default:
+				op_errno = ENOTSUP;
+				gf_log (this->name, GF_LOG_ERROR,
+					"lock type %d not supported for [F]INODELK",
+					flock->l_type);
+				goto unlock;
 			}
-
-			gf_log (this->name, GF_LOG_DEBUG,
-				"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
-				reqlock->fl_type == F_UNLCK ? "unlock" : "lock",
-				reqlock->client_pid,
-				reqlock->user_flock.l_start,
-				reqlock->user_flock.l_len);
-			pl_insert_lock (pinode, reqlock, GF_LOCK_INTERNAL);
-
-			break;
-
-		case F_UNLCK:
-			matchlock = __find_exact_matching_lock (pinode, reqlock);
 			
-			if (!matchlock) {
-				op_errno = EINVAL;
-				goto unwind;
-			}
-
-			__delete_lock (pinode, matchlock);
-			__destroy_lock (matchlock);
 			
 			break;
-
+			
 		default:
 			op_errno = ENOTSUP;
 			gf_log (this->name, GF_LOG_ERROR,
-				"lock type %d not supported for [F]INODELK",
-				flock->l_type);
-			goto unwind;
+				"lock command F_GETLK not supported for [F]INODELK (cmd=%d)", 
+				cmd);
+			goto unlock;
 		}
-
-
-		break;
-
-	default:
-		op_errno = ENOTSUP;
-		gf_log (this->name, GF_LOG_ERROR,
-			"lock command F_GETLK not supported for [F]INODELK (cmd=%d)", 
-			cmd);
-		goto unwind;
+		
+		op_ret = 0;
+		
+	unlock:
+		if (pinode)
+			pthread_mutex_unlock (&pinode->mutex);
 	}
-
-	op_ret = 0;
 
 unwind:
 	STACK_UNWIND (frame, op_ret, op_errno);
-out:
-	if (pinode)
-		pthread_mutex_unlock (&pinode->mutex);
 	return 0;
 }
 
