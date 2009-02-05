@@ -2620,7 +2620,7 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 		if (ret != 0) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"key=%s (%s)", 
-				trav->key, strerror (-size));
+				trav->key, strerror (-ret));
 			op_ret = -1;
 			op_errno = EINVAL;
 			goto out;
