@@ -2576,7 +2576,9 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 		      struct xattrop_handle handle, 
 		      gf_xattrop_flags_t optype, dict_t *xattr)
 {
-	int32_t         *array = NULL;
+	int32_t         *array      = NULL;
+	int32_t         *_ret_array = NULL;
+
 	int              ret   = 0;
 	int              count = 0;
 
@@ -2614,6 +2616,14 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 			goto out;
 		}
 
+		_ret_array = calloc (trav->value->len, 1);
+		if (!_ret_array) {
+			op_errno = ENOMEM;
+			goto out;
+		}
+
+		memcpy (_ret_array, array, trav->value->len);
+
 		ret = dict_set_bin (xattr, trav->key, array, 
 				    trav->value->len);
 		
@@ -2627,9 +2637,14 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 		}
 
 		trav = trav->next;
+		
+		_ret_array = NULL;
 	}
 	       
 out:
+	if (_ret_array)
+		FREE (_ret_array);
+
 	STACK_UNWIND (frame, op_ret, op_errno, xattr);
 	return 0;
 }
