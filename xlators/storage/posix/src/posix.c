@@ -2541,8 +2541,8 @@ __xattrop_cache_flush (struct xattrop_handle handle, xlator_t *this)
 	int ret = -1;
 
 	cache = __xattrop_cache_get (handle, this);
+ 
 	trav = cache->members_list;
-
 	while (trav) {
 		ret = __hsetxattr (handle, this, trav->key, trav->value->data, 
 				   trav->value->len, 0);
