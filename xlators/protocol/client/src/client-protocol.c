@@ -518,6 +518,8 @@ client_ping_cbk (call_frame_t *frame,
 
 		gf_timer_call_cancel (trans->xl->ctx, 
 				      cprivate->ping_timer);
+		cprivate->ping_started = 0;
+
 		cprivate->ping_timer = gf_timer_call_after (trans->xl->ctx,
 							    timeout,
 							    client_start_ping,

@@ -52,7 +52,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 	mode_t      st_mode = 0;
 	int         ret = 0;
 
-//	LOCK (&inode->lock);
+	LOCK (&inode->lock);
 	{
 		ret = dict_get_ptr (inode->ctx, this->name,
 				    (void **)((void *)&pl_inode));
@@ -80,8 +80,8 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 
 		ret = dict_set_ptr (inode->ctx, this->name, (void *)(pl_inode));
 	}
-//	UNLOCK (&inode->lock);
 out:
+	UNLOCK (&inode->lock);
 	return pl_inode;
 }
 
