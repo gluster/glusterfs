@@ -2624,7 +2624,7 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 
 		memcpy (_ret_array, array, trav->value->len);
 
-		ret = dict_set_bin (xattr, trav->key, array, 
+		ret = dict_set_bin (xattr, trav->key, _ret_array, 
 				    trav->value->len);
 		
 		if (ret != 0) {
