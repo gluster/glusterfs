@@ -93,7 +93,7 @@ static struct argp_option gf_options[] = {
 	 DEFAULT_SERVER_VOLUME_FILE"]"},
  	{"log-level", ARGP_LOG_LEVEL_KEY, "LOGLEVEL", 0, 
  	 "Logging severity.  Valid options are DEBUG, NORMAL, WARNING, ERROR, "
-	 "CRITICAL and NONE [default: WARNING]"},
+	 "CRITICAL and NONE [default: NORMAL]"},
  	{"log-file", ARGP_LOG_FILE_KEY, "LOGFILE", 0, 
  	 "File to use for logging [default: " 
 	 DEFAULT_LOG_FILE_DIRECTORY "/" PACKAGE_NAME ".log" "]"},
@@ -1116,6 +1116,8 @@ main (int argc, char *argv[])
 
 	/* Send PARENT_UP notify to all the translators now */
 	graph->notify (graph, GF_EVENT_PARENT_UP, ctx->graph);
+
+	gf_log ("glusterfs", GF_LOG_NORMAL, "Successfully started");
 	
 	event_dispatch (ctx->event_pool);
 

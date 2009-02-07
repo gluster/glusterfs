@@ -28,7 +28,7 @@
 #define DEFAULT_CLIENT_VOLUME_FILE            CONFDIR "/glusterfs.vol"
 #define DEFAULT_SERVER_VOLUME_FILE            CONFDIR "/glusterfsd.vol"
 #define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"
-#define DEFAULT_LOG_LEVEL                     GF_LOG_WARNING
+#define DEFAULT_LOG_LEVEL                     GF_LOG_NORMAL
 
 #define DEFAULT_EVENT_POOL_SIZE            16384
 
