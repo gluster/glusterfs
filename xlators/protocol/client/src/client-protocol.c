@@ -457,7 +457,7 @@ client_start_ping (void *data)
 
 		if (cprivate->saved_frames->count < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"saved_frames->count is %lld", 
+				"saved_frames->count is %"PRId64, 
 				cprivate->saved_frames->count);
 			cprivate->saved_frames->count = 0;
 		}
