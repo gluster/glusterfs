@@ -253,6 +253,7 @@ struct _glusterfs_ctx {
 	void              *top; /* either fuse or server protocol */
 	void              *event_pool;
 	pthread_mutex_t    lock;
+	int                xl_count;
 };
 
 typedef struct _glusterfs_ctx glusterfs_ctx_t;

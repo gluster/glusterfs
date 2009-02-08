@@ -64,7 +64,7 @@ int map_deitransform (xlator_t *this, uint64_t y,
 
 
 xlator_t *get_mapping_subvol_from_path (xlator_t *this, const char *path);
-xlator_t *get_mapping_subvol_from_ctx (xlator_t *this, dict_t *ctx);
+xlator_t *get_mapping_subvol_from_ctx (xlator_t *this, inode_t *inode);
 
 int check_multiple_volume_entry (xlator_t *this, xlator_t *subvol);
 int verify_dir_and_assign_subvol (xlator_t *this, 

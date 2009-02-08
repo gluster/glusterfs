@@ -54,8 +54,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 
 	LOCK (&inode->lock);
 	{
-		ret = dict_get_ptr (inode->ctx, this->name,
-				    (void **)((void *)&pl_inode));
+		ret = inode_ctx_get (inode, this, VOID(&pl_inode));
 		if (ret == 0)
 			goto out;
 
@@ -78,7 +77,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 		INIT_LIST_HEAD (&pl_inode->int_list);
 		INIT_LIST_HEAD (&pl_inode->rw_list);
 
-		ret = dict_set_ptr (inode->ctx, this->name, (void *)(pl_inode));
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)pl_inode);
 	}
 out:
 	UNLOCK (&inode->lock);

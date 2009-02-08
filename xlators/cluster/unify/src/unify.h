@@ -116,7 +116,7 @@ struct _unify_local_t {
 				present for a given path */
 
 	int64_t inode_generation; /* used to store the per directory 
-				   * inode_generation. Got from inode->ctx 
+				   * inode_generation. Got from inode's ctx 
 				   * of directory inodes
 				   */
 

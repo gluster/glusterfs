@@ -52,7 +52,7 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 
 	if (ret == 0) {
 		layout = local->selfheal.layout;
-		ret = inode_ctx_set (local->inode, this, layout);
+		ret = inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
 
 		if (ret == 0)
 			local->selfheal.layout = NULL;
@@ -144,7 +144,7 @@ unlock:
 				goto selfheal;
 			}
 			
-			inode_ctx_set (local->inode, this, layout);
+			inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
 			
 			if (local->st_ino) {
 				dht_itransform (this, local->hashed_subvol, 
@@ -296,7 +296,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 		goto unwind;
 	}
 
-	inode_ctx_set (local->inode, this, layout);
+	inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
 	local->op_ret = 0;
 	if (local->stbuf.st_nlink == 1)
 		local->stbuf.st_mode |= S_ISVTX;
@@ -472,7 +472,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 		goto out;
 	}
 
-	inode_ctx_set (inode, this, layout);
+	inode_ctx_put (inode, this, (uint64_t)(long)layout);
 
 out:
         DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
@@ -564,7 +564,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto out;
 		}
 
-                inode_ctx_set (inode, this, layout);
+                inode_ctx_put (inode, this, (uint64_t)(long)layout);
                 goto out;
         }
 
@@ -2225,7 +2225,7 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto out;
 	}
 
-	ret = inode_ctx_set (inode, this, layout);
+	ret = inode_ctx_put (inode, this, (uint64_t)(long)layout);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"could not set inode context");
@@ -2540,7 +2540,7 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto out;
 	}
 
-	ret = inode_ctx_set (inode, this, layout);
+	ret = inode_ctx_put (inode, this, (uint64_t)(long)layout);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"could not set inode context");
@@ -2606,7 +2606,7 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 	layout = local->selfheal.layout;
 
 	if (op_ret == 0) {
-		inode_ctx_set (local->inode, this, layout);
+		inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
 		local->selfheal.layout = NULL;
 	}
 

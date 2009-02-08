@@ -230,6 +230,7 @@ __dentry_search (inode_table_t *table,
 static void
 __inode_destroy (inode_t *inode)
 {
+	int          index = 0;
         data_pair_t *pair = NULL;
         xlator_t    *xl = NULL;
 
@@ -256,6 +257,18 @@ __inode_destroy (inode_t *inode)
         }
         dict_destroy (inode->ctx);
 
+	if (!inode->_ctx)
+		goto noctx;
+
+	for (index = 0; index < inode->table->xl->ctx->xl_count; index++) {
+		if (inode->_ctx[index].key) {
+			xl = inode->_ctx[index].key;
+			if (xl->cbks->forget)
+				xl->cbks->forget (xl, inode);
+		}
+	}	
+
+	FREE (inode->_ctx);
 noctx:
 
         if (inode->ino)
@@ -449,6 +462,9 @@ __inode_create (inode_table_t *table)
 
         list_add (&newi->list, &table->lru);
         table->lru_size++;
+
+	newi->_ctx = CALLOC (1, (sizeof (struct _inode_ctx) * 
+				 table->xl->ctx->xl_count));
 
         newi->ctx = get_new_dict ();
         gf_log (table->name, GF_LOG_DEBUG,
@@ -1084,3 +1100,73 @@ inode_from_path (inode_table_t *itable, const char *path)
 	return inode;
 }
 
+int
+inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value)
+{
+	int index = 0;
+
+	if (!inode || !xlator)
+		return -1;
+
+	for (index = 0; index < xlator->ctx->xl_count; index++) {
+		if (!inode->_ctx[index].key || 
+		    (inode->_ctx[index].key == (uint64_t)(long)xlator))
+			break;
+	}
+	
+	if (index == xlator->ctx->xl_count)
+		return -1;
+
+	inode->_ctx[index].key   = (uint64_t)(long) xlator;
+	inode->_ctx[index].value = value;
+
+	return 0;
+}
+
+int 
+inode_ctx_get (inode_t *inode, xlator_t *xlator, void **value)
+{
+	int index = 0;
+
+	if (!inode || !xlator)
+		return -1;
+
+	for (index = 0; index < xlator->ctx->xl_count; index++) {
+		if (inode->_ctx[index].key == (uint64_t)(long)xlator)
+			break;
+	}
+
+	if (index == xlator->ctx->xl_count)
+		return -1;
+
+	if (value) 
+		*value = inode->_ctx[index].value;
+
+	return 0;
+}
+
+
+int 
+inode_ctx_del (inode_t *inode, xlator_t *xlator, void **value)
+{
+	int index = 0;
+
+	if (!inode || !xlator)
+		return -1;
+
+	for (index = 0; index < xlator->ctx->xl_count; index++) {
+		if (inode->_ctx[index].key == (uint64_t)(long)xlator)
+			break;
+	}
+
+	if (index == xlator->ctx->xl_count)
+		return -1;
+
+	if (value) 
+		*value = inode->_ctx[index].value;		
+
+	inode->_ctx[index].key   = 0;
+	inode->_ctx[index].value = 0;
+
+	return 0;
+}

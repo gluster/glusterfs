@@ -61,7 +61,7 @@ dht_layout_get (xlator_t *this, inode_t *inode)
         dht_layout_t *layout = NULL;
         int           ret = -1;
 
-        ret = dict_get_ptr (inode->ctx, this->name, VOID(&layout));
+        ret = inode_ctx_get (inode, this, VOID(&layout));
 
         return layout;
 }

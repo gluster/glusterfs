@@ -124,7 +124,7 @@ typedef struct dht_disk_layout dht_disk_layout_t;
 
 #define is_fs_root(loc) (strcmp (loc->path, "/") == 0)
 
-#define is_revalidate(loc) (dict_get (loc->inode->ctx, this->name) != NULL)
+#define is_revalidate(loc) (inode_ctx_get (loc->inode, this, NULL) == 0)
 
 #define is_last_call(cnt) (cnt == 0)
 
@@ -205,9 +205,6 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
 int
 dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
 		      loc_t *loc, dht_layout_t *layout);
-
-int inode_ctx_set (inode_t *inode, xlator_t *this, void *ctx);
-int inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx);
 
 int dht_rename (call_frame_t *frame, xlator_t *this,
 		loc_t *oldloc, loc_t *newloc);

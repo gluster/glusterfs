@@ -108,14 +108,13 @@ update_frame (call_frame_t *frame,
 	int32_t ret = 0;
 	int32_t dictret = 0;
 	uid_t uid = 0;
-	void *sumne = 0;
 	
 	for (idx = 0; idx < filter->translate_num_uid_entries; idx++) {
 		if ((frame->root->uid >= filter->translate_input_uid[idx][0]) &&
 		    (frame->root->uid <= filter->translate_input_uid[idx][1])) {
-			dictret = dict_get_ptr (inode->ctx, frame->this->name, &sumne);
+			dictret = inode_ctx_get (inode, frame->this, 
+						 VOID (&uid));
 			if (dictret == 0) {
-				uid = (uid_t)(long)sumne;
 				if (uid != frame->root->uid)
 					ret = GF_FILTER_MAP_UID;
 			} else {
@@ -141,9 +140,8 @@ update_frame (call_frame_t *frame,
 		return GF_FILTER_RO_FS;
 	
 	if (filter->partial_filter) {
-		dictret = dict_get_ptr (inode->ctx, frame->this->name, &sumne);
+		dictret = inode_ctx_get (inode, frame->this, VOID (&uid));
 		if (dictret != -1) {
-			uid = (uid_t)(long)sumne;
 			for (idx = 0; idx < filter->filter_num_uid_entries; idx++) {
 				if ((uid >= filter->filter_input_uid[idx][0]) &&
 				    (uid <= filter->filter_input_uid[idx][1])) {
@@ -206,7 +204,7 @@ filter_lookup_cbk (call_frame_t *frame,
 	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -617,7 +615,7 @@ filter_mknod_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -674,7 +672,7 @@ filter_mkdir_cbk (call_frame_t *frame,
 	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -828,7 +826,7 @@ filter_symlink_cbk (call_frame_t *frame,
 	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -942,7 +940,7 @@ filter_link_cbk (call_frame_t *frame,
 	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -989,7 +987,7 @@ filter_create_cbk (call_frame_t *frame,
 	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = dict_set_static_ptr (inode->ctx, this->name, (void *)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");

@@ -80,6 +80,16 @@ struct xattrop_handle {
 	fd_t *fd;
 };
 
+int 
+posix_forget (xlator_t *this, inode_t *inode)
+{
+	dict_t *cache = NULL;
+	if (!inode_ctx_del (inode, this, VOID (&cache)))
+		dict_destroy (cache);
+
+	return 0;
+}
+
 static int
 __xattrop_cache_flush (struct xattrop_handle handle, xlator_t *this);
 
@@ -140,7 +150,7 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
 				"trusted.glusterfs.afr.data-pending",
 				data_pending, 0);
 	if (xattr_size != -1) {
-		data_pending = MALLOC (xattr_size);
+		data_pending = CALLOC (1, xattr_size);
 		lgetxattr (real_path, "trusted.glusterfs.afr.data-pending",
 			   data_pending, xattr_size);
 		ret = dict_set_bin (xattr, 
@@ -154,11 +164,11 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
 				"trusted.glusterfs.afr.entry-pending",
 				entry_pending, 0);
 	if (xattr_size != -1) {
-		entry_pending = MALLOC (xattr_size);
+		entry_pending = CALLOC (1, xattr_size);
 		lgetxattr (real_path, "trusted.glusterfs.afr.entry-pending",
 			   entry_pending, xattr_size);
 		ret = dict_set_bin (xattr, 
-				    "trusted.glusterfs.afr.entry-pending",
+				    "trusted.glusterfs.afr.entr -pending",
 				    entry_pending, xattr_size);
 		if (ret < 0)
 			gf_log (this->name, GF_LOG_ERROR, "dict set failed");
@@ -168,7 +178,7 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
 				"trusted.glusterfs.afr.metadata-pending",
 				data_pending, 0);
 	if (xattr_size != -1) {
-		metadata_pending = MALLOC (xattr_size);
+		metadata_pending = CALLOC (1, xattr_size);
 		lgetxattr (real_path, "trusted.glusterfs.afr.metadata-pending",
 			   metadata_pending, xattr_size);
 		ret = dict_set_bin (xattr, 
@@ -2477,10 +2487,11 @@ __xattrop_cache_get (struct xattrop_handle handle, xlator_t *this)
 
 	LOCK (&inode->lock);
 	{
-		ret = dict_get_ptr (inode->ctx, this->name, (void **) &cache);
+		ret = inode_ctx_get (inode, this, VOID(&cache));
 		if (ret < 0) {
 			cache = dict_new ();
-			ret = dict_set_ptr (inode->ctx, this->name, cache);
+			ret = inode_ctx_put (inode, this, 
+					     (uint64_t)(long)cache);
 		}
 	}
 	UNLOCK (&inode->lock);
@@ -3851,7 +3862,8 @@ struct xlator_fops fops = {
 
 struct xlator_cbks cbks = {
 	.release     = posix_release,
-	.releasedir  = posix_releasedir
+	.releasedir  = posix_releasedir,
+	.forget      = posix_forget
 };
 
 struct volume_options options[] = {

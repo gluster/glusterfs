@@ -168,7 +168,8 @@ ioc_utimens (call_frame_t *frame,
 	     loc_t *loc,
 	     struct timespec *tv)
 {
-	ioc_inode_t *ioc_inode = ioc_get_inode (loc->inode->ctx, this->name);
+	ioc_inode_t *ioc_inode = NULL;
+	inode_ctx_get (loc->inode, this, VOID (&ioc_inode));
 
 	if (ioc_inode)
 		ioc_inode_flush (ioc_inode);
@@ -198,7 +199,7 @@ ioc_lookup_cbk (call_frame_t *frame,
 	char need_unref = 0;
   
 	if (op_ret == 0) {
-		ioc_inode = ioc_get_inode (inode->ctx, this->name);
+		inode_ctx_get (inode, this, VOID (&ioc_inode));
 
 		if (ioc_inode) {
 			cache_still_valid = ioc_cache_still_valid (ioc_inode, stbuf);
@@ -230,7 +231,8 @@ ioc_lookup_cbk (call_frame_t *frame,
 				uint32_t weight = ioc_get_priority (table, local->file_loc.path);
       
 				ioc_inode = ioc_inode_update (table, inode, weight);
-				dict_set (inode->ctx, this->name, data_from_static_ptr (ioc_inode));
+				inode_ctx_put (inode, this, 
+					       (uint64_t)(long)ioc_inode);
 			}
 
 			ioc_inode_lock (ioc_inode);
@@ -346,7 +348,7 @@ ioc_lookup (call_frame_t *frame,
 		local->file_loc.inode = loc->inode;
 		frame->local = local;
 
-		ioc_inode = ioc_get_inode (loc->inode->ctx, this->name);
+		inode_ctx_get (loc->inode, this, VOID (&ioc_inode));
 
 		if (ioc_inode) {
 			ioc_inode_lock (ioc_inode);
@@ -384,7 +386,7 @@ ioc_forget (xlator_t *this,
 {
 	ioc_inode_t *ioc_inode = NULL;
 
-	ioc_inode = ioc_get_inode (inode->ctx, this->name);
+	inode_ctx_get (inode, this, VOID (&ioc_inode));
 
 	if (ioc_inode)
 		ioc_inode_destroy (ioc_inode);
@@ -578,7 +580,7 @@ ioc_open_cbk (call_frame_t *frame,
 	if (op_ret != -1) {
 		/* look for ioc_inode corresponding to this fd */
 		LOCK (&fd->inode->lock);
-		ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
+		inode_ctx_get (fd->inode, this, VOID (&ioc_inode));
       
 		if (!ioc_inode) {
 			/* this is the first time someone is opening this file */
@@ -586,7 +588,8 @@ ioc_open_cbk (call_frame_t *frame,
 			weight = ioc_get_priority (table, path);
  
 			ioc_inode = ioc_inode_update (table, inode, weight);
-			dict_set (fd->inode->ctx, this->name, data_from_static_ptr (ioc_inode));
+			inode_ctx_put (fd->inode, this, 
+				       (uint64_t)(long)ioc_inode);
 		} else {
 			ioc_table_lock (ioc_inode->table);
 			list_move_tail (&ioc_inode->inode_lru,
@@ -652,7 +655,8 @@ ioc_create_cbk (call_frame_t *frame,
 
 			ioc_inode = ioc_inode_update (table, inode, weight);
 			LOCK (&fd->inode->lock);
-			dict_set (fd->inode->ctx, this->name, data_from_static_ptr (ioc_inode));
+			inode_ctx_put (fd->inode, this, 
+				       (uint64_t)(long)ioc_inode);
 			UNLOCK (&fd->inode->lock);
 		}
 		/* If mandatory locking has been enabled on this file,
@@ -940,11 +944,11 @@ ioc_readv (call_frame_t *frame,
 	   size_t size,
 	   off_t offset)
 {
-	ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
+	ioc_inode_t *ioc_inode = NULL;
 	ioc_local_t *local = NULL;
 	data_t *fd_ctx_data = dict_get (fd->ctx, this->name);
 	uint32_t weight = 0;
-
+	inode_ctx_get (fd->inode, this, VOID (&ioc_inode));
 	if (!ioc_inode) {
 		/* caching disabled, go ahead with normal readv */
 		STACK_WIND (frame, 
@@ -1016,7 +1020,9 @@ ioc_writev_cbk (call_frame_t *frame,
 		struct stat *stbuf)
 {
 	ioc_local_t *local = frame->local;
-	ioc_inode_t *ioc_inode = ioc_get_inode (local->fd->inode->ctx, this->name);
+	ioc_inode_t *ioc_inode = NULL;
+
+	inode_ctx_get (local->fd->inode, this, VOID (&ioc_inode));
   
 	if (ioc_inode)
 		ioc_inode_flush (ioc_inode);
@@ -1045,7 +1051,9 @@ ioc_writev (call_frame_t *frame,
 	    off_t offset)
 {
 	ioc_local_t *local = NULL;
-	ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
+	ioc_inode_t *ioc_inode = NULL;
+	
+	inode_ctx_get (fd->inode, this, VOID (&ioc_inode));
 
 	local = CALLOC (1, sizeof (ioc_local_t));
 	ERR_ABORT (local);
@@ -1108,7 +1116,8 @@ ioc_truncate (call_frame_t *frame,
 	      loc_t *loc,
 	      off_t offset)
 {
-	ioc_inode_t *ioc_inode =  ioc_get_inode (loc->inode->ctx, this->name);
+	ioc_inode_t *ioc_inode = NULL;
+	inode_ctx_get (loc->inode, this, VOID (&ioc_inode));
 
 	if (ioc_inode)
 		ioc_inode_flush (ioc_inode);
@@ -1137,8 +1146,9 @@ ioc_ftruncate (call_frame_t *frame,
 	       fd_t *fd,
 	       off_t offset)
 {
-	ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
-  
+	ioc_inode_t *ioc_inode = NULL;
+	inode_ctx_get (fd->inode, this, VOID (&ioc_inode));
+
 	if (ioc_inode)
 		ioc_inode_flush (ioc_inode);
 
@@ -1170,7 +1180,8 @@ ioc_lk (call_frame_t *frame,
 	int32_t cmd,
 	struct flock *lock)
 {
-	ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
+	ioc_inode_t *ioc_inode = NULL;
+	inode_ctx_get (fd->inode, this, VOID (&ioc_inode));
 
 	if (!ioc_inode) {
 		gf_log (this->name, GF_LOG_ERROR,

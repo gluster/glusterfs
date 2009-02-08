@@ -80,7 +80,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto err;
 		}
 
-                inode_ctx_set (inode, this, layout);
+                inode_ctx_put (inode, this, (uint64_t)(long)layout);
                 goto out;
         }
 

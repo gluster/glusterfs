@@ -1152,8 +1152,8 @@ zr_unify_self_heal (call_frame_t *frame,
 		/* Update the inode's generation to the current generation
 		   value. */
 		local->inode_generation = priv->inode_generation;
-		dict_set (local->loc1.inode->ctx, this->name, 
-			  data_from_int64 (local->inode_generation));
+		inode_ctx_put (local->loc1.inode, this, 
+			  (uint64_t)(long)local->inode_generation);
 
 		if (priv->self_heal == ZR_UNIFY_FG_SELF_HEAL) {
 			local->op_ret = 0;

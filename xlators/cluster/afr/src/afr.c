@@ -306,15 +306,14 @@ afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 
 	if (local->govinda_gOvinda) {
-		ret = dict_set_str (local->cont.lookup.inode->ctx,
-				    this->name, "govinda");
+		ret = inode_ctx_put (local->cont.lookup.inode, this, 1);
+
 		if (ret < 0) {
 			local->op_ret   = -1;
 			local->op_errno = -ret;
 		}
 	} else {
-		dict_del (local->cont.lookup.inode->ctx,
-			  this->name);
+		inode_ctx_del (local->cont.lookup.inode, this, NULL);
 	}
 
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
@@ -441,8 +440,8 @@ unlock:
 
 		if (local->success_count) {
 			/* check for govinda_gOvinda case in previous lookup */
-			if (dict_get (local->cont.lookup.inode->ctx,
-				      this->name))
+			if (!inode_ctx_get (local->cont.lookup.inode, 
+					   this, NULL))
 				local->need_data_self_heal = 1;
 		}
 
@@ -582,17 +581,13 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t *   local = NULL;
 	
-	char *govinda = NULL;
-
-	int32_t call_count = 0;
-	
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
-	
-	int32_t wind_flags = flags & (~O_TRUNC);
-
 	int     i = 0;
 	int   ret = -1;
+
+	int32_t call_count = 0;	
+	int32_t op_ret   = -1;
+	int32_t op_errno = 0;
+	int32_t wind_flags = flags & (~O_TRUNC);
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
@@ -601,12 +596,13 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	
 	priv = this->private;
 
-	ret = dict_get_str (loc->inode->ctx, this->name, &govinda);
+	ret = inode_ctx_get (loc->inode, this, NULL);
 	if (ret == 0) {
 		/* if ctx is set it means self-heal failed */
 
 		gf_log (this->name, GF_LOG_WARNING, 
-			"returning EIO, file has to be manually corrected in backend");
+			"returning EIO, file has to be manually corrected "
+			"in backend");
 		op_errno = EIO;
 		goto out;
 	}
@@ -2040,9 +2036,9 @@ init (xlator_t *this)
 	}
 
 	/* XXX: return inode numbers from 1st subvolume till
-	   afr supports read-subvolume based on inode->ctx (and not itransform)
-
-	   for this reason afr_deitransform() returns 0 always
+	   afr supports read-subvolume based on inode's ctx 
+	   (and not itransform) for this reason afr_deitransform() 
+	   returns 0 always
 	*/
 	priv->read_child = 0;
 

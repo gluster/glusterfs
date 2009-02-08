@@ -69,6 +69,12 @@ struct _dentry {
         inode_t           *parent;       /* directory of the entry */
 };
 
+//#define ZR_INODE_CTX_VALUE_LEN 2
+struct _inode_ctx {
+	uint64_t key;
+	uint64_t value;
+	//uint64_t value[ZR_INODE_CTX_VALUE_LEN];
+};
 
 struct _inode {
         inode_table_t    *table;         /* the table this inode belongs to */
@@ -84,6 +90,8 @@ struct _inode {
         struct list_head  child_list;    /* list of directory entries under this inode */
         struct list_head  hash;          /* hash table pointers */
         struct list_head  list;          /* active/lru/purge */
+
+	struct _inode_ctx *_ctx;    /* replacement for dict_t *(inode->ctx) */
 };
 
 
@@ -139,4 +147,14 @@ inode_path (inode_t *inode,
 inode_t *
 inode_from_path (inode_table_t *table,
 		 const char *path);
+
+int
+inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
+
+int 
+inode_ctx_get (inode_t *inode, xlator_t *xlator, void **value);
+
+int 
+inode_ctx_del (inode_t *inode, xlator_t *xlator, void **value);
+
 #endif /* _INODE_H */

@@ -43,7 +43,7 @@ map_stat (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -78,7 +78,7 @@ map_chmod (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -111,7 +111,7 @@ map_fchmod (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -146,7 +146,7 @@ map_chown (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -181,7 +181,7 @@ map_fchown (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -216,7 +216,7 @@ map_truncate (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -249,7 +249,7 @@ map_ftruncate (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -283,7 +283,7 @@ map_utimens (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -317,7 +317,7 @@ map_access (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -352,7 +352,7 @@ map_readlink (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -385,7 +385,7 @@ map_unlink (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -417,7 +417,7 @@ map_rmdir (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -453,7 +453,7 @@ map_rename (call_frame_t *frame,
         VALIDATE_OR_GOTO (oldloc->path, err);
         VALIDATE_OR_GOTO (newloc, err);
 
-	old_subvol = get_mapping_subvol_from_ctx (this, oldloc->inode->ctx);
+	old_subvol = get_mapping_subvol_from_ctx (this, oldloc->inode);
 	if (!old_subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -498,7 +498,7 @@ map_link (call_frame_t *frame,
         VALIDATE_OR_GOTO (oldloc->path, err);
         VALIDATE_OR_GOTO (newloc, err);
 
-	old_subvol = get_mapping_subvol_from_ctx (this, oldloc->inode->ctx);
+	old_subvol = get_mapping_subvol_from_ctx (this, oldloc->inode);
 	if (!old_subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -541,7 +541,7 @@ map_open (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -574,7 +574,7 @@ map_readv (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -610,7 +610,7 @@ map_writev (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -644,7 +644,7 @@ map_flush (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -677,7 +677,7 @@ map_fsync (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -709,7 +709,7 @@ map_fstat (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -743,7 +743,7 @@ map_getdents (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -780,7 +780,7 @@ map_setdents (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -816,7 +816,7 @@ map_fsyncdir (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -855,7 +855,7 @@ map_setxattr (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -891,7 +891,7 @@ map_getxattr (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -926,7 +926,7 @@ map_xattrop (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -961,7 +961,7 @@ map_fxattrop (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -996,7 +996,7 @@ map_removexattr (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -1030,7 +1030,7 @@ map_lk (call_frame_t *frame,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -1064,7 +1064,7 @@ map_inodelk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -1095,7 +1095,7 @@ map_finodelk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -1127,7 +1127,7 @@ map_entrylk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -1157,7 +1157,7 @@ map_fentrylk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -1189,7 +1189,7 @@ map_checksum (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		op_errno = EINVAL;
 		goto err;
@@ -1250,7 +1250,7 @@ map_mknod (call_frame_t *frame,
 		goto err;
 	}
 	
-	op_errno = dict_set_static_ptr (loc->inode->ctx, this->name, subvol);
+	op_errno = inode_ctx_put (loc->inode, this, (uint64_t)(long)subvol);
 	if (op_errno != 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"%s: failed to set subvolume ptr in inode ctx",
@@ -1290,7 +1290,7 @@ map_mkdir (call_frame_t *frame,
 		goto err;
 	}
 
-	op_errno = dict_set_static_ptr (loc->inode->ctx, this->name, subvol);
+	op_errno = inode_ctx_put (loc->inode, this, (uint64_t)(long)subvol);
 	if (op_errno != 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"%s: failed to set subvolume ptr in inode ctx",
@@ -1331,7 +1331,7 @@ map_symlink (call_frame_t *frame,
 		goto err;
 	}
 	
-	op_errno = dict_set_static_ptr (loc->inode->ctx, this->name, subvol);
+	op_errno = inode_ctx_put (loc->inode, this, (uint64_t)(long)subvol);
 	if (op_errno != 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"%s: failed to set subvolume ptr in inode ctx",
@@ -1391,7 +1391,7 @@ map_create (call_frame_t *frame,
 		goto err;
 	}
 
-	op_errno = dict_set_static_ptr (loc->inode->ctx, this->name, subvol);
+	op_errno = inode_ctx_put (loc->inode, this, (uint64_t)(long)subvol);
 	if (op_errno != 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"%s: failed to set subvolume ptr in inode ctx",
@@ -1500,15 +1500,15 @@ map_lookup (call_frame_t *frame,
 	if (loc->inode->ino == 1)
 		goto root_inode;
 
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		subvol = get_mapping_subvol_from_path (this, loc->path);
 		if (!subvol) {
 			goto err;
 		}
 
-		op_errno = dict_set_static_ptr (loc->inode->ctx, 
-						this->name, subvol);
+		op_errno = inode_ctx_put (loc->inode, this, 
+					  (uint64_t)(long)subvol);
 		if (op_errno != 0) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"%s: failed to set subvolume in inode ctx",
@@ -1658,7 +1658,7 @@ map_statfs (call_frame_t *frame,
 
 	if (loc->inode->ino == 1)
 		goto root_inode;
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
 		goto err;
 	}
@@ -1756,7 +1756,7 @@ map_opendir (call_frame_t *frame,
 	if (loc->inode->ino == 1) 
 		goto root_inode;
 	
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		goto err;
 	}
@@ -1916,7 +1916,7 @@ map_readdir (call_frame_t *frame,
 	if (fd->inode->ino == 1) 
 		goto root_inode;
 
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode->ctx);
+	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
 		goto err;
 	}

@@ -32,9 +32,6 @@
 #include "compat-errno.h"
 #include "common-utils.h"
 
-
-#define VOID(ptr) ((void **) ((void *) ptr))
-
 struct symlink_cache {
 	time_t ctime;
 	char   *readlink;
@@ -42,10 +39,10 @@ struct symlink_cache {
 
 
 static int
-inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx)
+symlink_inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx)
 {
 	int ret = 0;
-	ret = dict_get_ptr (inode->ctx, this->name, ctx);
+	ret = inode_ctx_get (inode, this, ctx);
 	if (-1 == ret)
 		gf_log (this->name, GF_LOG_ERROR, "dict get failed");
 
@@ -54,10 +51,10 @@ inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx)
 
 
 static int
-inode_ctx_set (inode_t *inode, xlator_t *this, void *ctx)
+symlink_inode_ctx_set (inode_t *inode, xlator_t *this, void *ctx)
 {
 	int ret = 0;
-	ret = dict_set_static_ptr (inode->ctx, this->name, ctx);
+	ret = inode_ctx_put (inode, this, (uint64_t)(long) ctx);
 	if (-1 == ret)
 		gf_log (this->name, GF_LOG_ERROR, "dict set failed");
 
@@ -70,7 +67,7 @@ sc_cache_update (xlator_t *this, inode_t *inode, const char *link)
 {
 	struct symlink_cache *sc = NULL;
 
-	inode_ctx_get (inode, this, VOID(&sc));
+	symlink_inode_ctx_get (inode, this, VOID(&sc));
 	if (!sc)
 		return 0;
 
@@ -98,7 +95,7 @@ sc_cache_set (xlator_t *this, inode_t *inode, struct stat *buf,
 	int                   need_set = 0;
 
 
-	inode_ctx_get (inode, this, VOID(&sc));
+	symlink_inode_ctx_get (inode, this, VOID(&sc));
 	if (!sc) {
 		need_set = 1;
 		sc = CALLOC (1, sizeof (*sc));
@@ -132,7 +129,7 @@ sc_cache_set (xlator_t *this, inode_t *inode, struct stat *buf,
 		"setting symlink cache: %s", link);
 
 	if (need_set) {
-		ret = inode_ctx_set (inode, this, sc);
+		ret = symlink_inode_ctx_set (inode, this, sc);
 
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
@@ -161,7 +158,7 @@ sc_cache_flush (xlator_t *this, inode_t *inode)
 {
 	struct symlink_cache *sc = NULL;
 
-	inode_ctx_get (inode, this, VOID(&sc));
+	symlink_inode_ctx_get (inode, this, VOID(&sc));
 	if (!sc)
 		return 0;
 
@@ -190,7 +187,7 @@ sc_cache_validate (xlator_t *this, inode_t *inode, struct stat *buf)
 		return 0;
 	}
 
-	inode_ctx_get (inode, this, VOID(&sc));
+	symlink_inode_ctx_get (inode, this, VOID(&sc));
 
 	if (!sc) {
 		sc_cache_set (this, inode, buf, NULL);
@@ -227,7 +224,7 @@ sc_cache_get (xlator_t *this, inode_t *inode, char **link)
 {
 	struct symlink_cache *sc = NULL;
 
-	inode_ctx_get (inode, this, VOID(&sc));
+	symlink_inode_ctx_get (inode, this, VOID(&sc));
 
 	if (!sc)
 		return 0;

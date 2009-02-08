@@ -889,6 +889,7 @@ main (int argc, char *argv[])
 	xlator_t         *graph = NULL;
 	xlator_t         *trav = NULL;
 	int               fuse_volume_found = 0;
+	int               xl_count = 0;
 	uint8_t           process_mode = 0;
 
 	utime = time (NULL);
@@ -1060,12 +1061,15 @@ main (int argc, char *argv[])
 					"argument given. ignoring "
 					"MOUNT-POINT argument");
 */
-				break;
 			}
 		}
+
+		xl_count++;  /* Getting this value right is very important */
 		trav = trav->next;
 	}
 	
+	ctx->xl_count = xl_count + 1;
+
 	if (!fuse_volume_found && (cmd_args->mount_point != NULL)) {
 		if ((graph = _add_fuse_mount (graph)) == NULL) {
 			/* _add_fuse_mount() prints necessary 
