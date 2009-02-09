@@ -97,6 +97,7 @@ typedef enum {
 	AFR_METADATA_TRANSACTION,      /* chmod, chown, ... */
 	AFR_ENTRY_TRANSACTION,         /* create, rmdir, ... */
 	AFR_ENTRY_RENAME_TRANSACTION,  /* rename */
+	AFR_FLUSH_TRANSACTION,         /* flush */
 } afr_transaction_type;
 
 typedef struct _afr_local {

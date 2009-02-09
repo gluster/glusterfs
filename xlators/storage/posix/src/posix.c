@@ -80,6 +80,11 @@ struct xattrop_handle {
 	fd_t *fd;
 };
 
+
+static int
+__xattrop_cache_flush (struct xattrop_handle handle, xlator_t *this);
+
+
 int 
 posix_forget (xlator_t *this, inode_t *inode)
 {
@@ -89,9 +94,6 @@ posix_forget (xlator_t *this, inode_t *inode)
 
 	return 0;
 }
-
-static int
-__xattrop_cache_flush (struct xattrop_handle handle, xlator_t *this);
 
 
 dict_t *
@@ -259,7 +261,11 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         int32_t     op_ret             = -1;
         int32_t     op_errno           = 0;
         dict_t *    xattr              = NULL;
-        struct posix_private * priv      = NULL;
+        struct posix_private * priv    = NULL;
+
+	int                   ret      = -1;
+	struct xattrop_handle handle   = {0,};
+	dict_t *              cache    = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -282,6 +288,20 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+	/*
+	 * If this is a revalidate, flush the xattrop cache
+	 */
+
+	ret = inode_ctx_get (loc->inode, this, VOID (&cache));
+	if (ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"flushing xattrop cache for %s",
+			loc->path);
+
+		handle.loc = loc;
+		__xattrop_cache_flush (handle, this);
+	}
+	
 	/* Make sure we don't access another mountpoint inside export dir.
 	 * It may cause inode number to repeat from single export point, 
 	 * which leads to severe problems.. 
@@ -297,7 +317,6 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         if (need_xattr && (op_ret == 0)) {
 		xattr = posix_lookup_xattr_fill (this, real_path,
 						 need_xattr, &buf);
-
         }
 	
 	op_ret = 0;

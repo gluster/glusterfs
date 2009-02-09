@@ -644,16 +644,15 @@ out:
 
 /* }}} */
 
-
 /* {{{ flush */
 
 int
-afr_flush_cbk (call_frame_t *frame, void *cookie,
-	       xlator_t *this, int32_t op_ret, int32_t op_errno)
+afr_flush_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+		    int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t *local = NULL;
-	
-	int call_count = -1;
+	afr_local_t *   local = NULL;
+
+	int call_count  = -1;
 
 	local = frame->local;
 
@@ -668,8 +667,60 @@ afr_flush_cbk (call_frame_t *frame, void *cookie,
 
 	call_count = afr_frame_return (frame);
 
-	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+	}
+	
+	return 0;
+}
+
+
+int
+afr_flush_wind (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t *local = NULL;
+	afr_private_t *priv = NULL;
+	
+	int i = 0;
+	int call_count = -1;
+
+	local = frame->local;
+	priv = this->private;
+
+	call_count = afr_up_children_count (priv->child_count, local->child_up);
+
+	if (call_count == 0) {
+		local->transaction.resume (frame, this);
+		return 0;
+	}
+
+	local->call_count = call_count;
+
+	for (i = 0; i < priv->child_count; i++) {				
+		if (local->child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_flush_wind_cbk, 
+					   (void *) (long) i,	
+					   priv->children[i], 
+					   priv->children[i]->fops->flush,
+					   local->fd);
+		
+			if (!--call_count)
+				break;
+		}
+	}
+	
+	return 0;
+}
+
+
+int
+afr_flush_done (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t *local = NULL;
+
+	local = frame->local;
+
+	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
 	return 0;
 }
@@ -678,15 +729,13 @@ afr_flush_cbk (call_frame_t *frame, void *cookie,
 int
 afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-	afr_private_t *priv = NULL;
-	afr_local_t *local = NULL;
+	afr_private_t * priv  = NULL;
+	afr_local_t   * local = NULL;
 
 	int ret = -1;
 
-	int i = 0;
-	int32_t call_count = 0;
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
+	int op_ret   = -1;
+	int op_errno = 0;
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
@@ -702,25 +751,26 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 		goto out;
 	}
 
-	call_count = local->call_count;
 	frame->local = local;
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
-			STACK_WIND (frame, afr_flush_cbk,
-				    priv->children[i],
-				    priv->children[i]->fops->flush,
-				    fd);
-			if (!--call_count)
-				break;
-		}
-	}
+	local->transaction.fop    = afr_flush_wind;
+	local->transaction.done   = afr_flush_done;
+
+	local->fd                 = fd_ref (fd);
+
+	local->transaction.start  = 0;
+	local->transaction.len    = 0;
+
+	local->transaction.pending = AFR_DATA_PENDING;
+
+	afr_transaction (frame, this, AFR_FLUSH_TRANSACTION);
 
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
+
 	return 0;
 }
 
