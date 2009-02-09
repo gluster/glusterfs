@@ -42,7 +42,7 @@ static int
 symlink_inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx)
 {
 	int ret = 0;
-	ret = inode_ctx_get (inode, this, ctx);
+	ret = inode_ctx_get (inode, this, (uint64_t *)ctx);
 	if (-1 == ret)
 		gf_log (this->name, GF_LOG_ERROR, "dict get failed");
 
@@ -191,7 +191,7 @@ sc_cache_validate (xlator_t *this, inode_t *inode, struct stat *buf)
 
 	if (!sc) {
 		sc_cache_set (this, inode, buf, NULL);
-		inode_ctx_get (inode, this, VOID(&sc));
+		inode_ctx_get (inode, this, (uint64_t *)(&sc));
 
 		if (!sc) {
 			gf_log (this->name, GF_LOG_ERROR,

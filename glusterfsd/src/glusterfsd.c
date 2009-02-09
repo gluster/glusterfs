@@ -1051,16 +1051,6 @@ main (int argc, char *argv[])
 			if (dict_get (trav->options, 
 				      ZR_MOUNTPOINT_OPT) != NULL) {
 				fuse_volume_found = 1;
-/*
-				fprintf (stderr, 
-					 "fuse volume and MOUNT-POINT "
-					 "argument given. ignoring "
-					 "MOUNT-POINT argument\n");
-				gf_log ("glusterfs", GF_LOG_WARNING, 
-					"fuse volume and MOUNT-POINT "
-					"argument given. ignoring "
-					"MOUNT-POINT argument");
-*/
 			}
 		}
 

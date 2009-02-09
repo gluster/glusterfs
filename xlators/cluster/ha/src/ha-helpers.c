@@ -161,7 +161,7 @@ int ha_alloc_init_inode (call_frame_t *frame, inode_t *inode)
 			goto out;
 		}
 		local->active = pvt->pref_subvol;
-		ret = inode_ctx_get (inode, xl, VOID (&local->state));
+		ret = inode_ctx_get (inode, xl, (uint64_t *) (&local->state));
 		if (ret < 0) {
 			goto out;
 		}

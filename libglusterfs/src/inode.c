@@ -262,7 +262,7 @@ __inode_destroy (inode_t *inode)
 
 	for (index = 0; index < inode->table->xl->ctx->xl_count; index++) {
 		if (inode->_ctx[index].key) {
-			xl = inode->_ctx[index].key;
+			xl = (xlator_t *)(long)inode->_ctx[index].key;
 			if (xl->cbks->forget)
 				xl->cbks->forget (xl, inode);
 		}
@@ -1124,7 +1124,7 @@ inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value)
 }
 
 int 
-inode_ctx_get (inode_t *inode, xlator_t *xlator, void **value)
+inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value)
 {
 	int index = 0;
 
@@ -1147,7 +1147,7 @@ inode_ctx_get (inode_t *inode, xlator_t *xlator, void **value)
 
 
 int 
-inode_ctx_del (inode_t *inode, xlator_t *xlator, void **value)
+inode_ctx_del (inode_t *inode, xlator_t *xlator, uint64_t *value)
 {
 	int index = 0;
 

@@ -113,7 +113,7 @@ update_frame (call_frame_t *frame,
 		if ((frame->root->uid >= filter->translate_input_uid[idx][0]) &&
 		    (frame->root->uid <= filter->translate_input_uid[idx][1])) {
 			dictret = inode_ctx_get (inode, frame->this, 
-						 VOID (&uid));
+						 (uint64_t *) (&uid));
 			if (dictret == 0) {
 				if (uid != frame->root->uid)
 					ret = GF_FILTER_MAP_UID;
@@ -140,7 +140,7 @@ update_frame (call_frame_t *frame,
 		return GF_FILTER_RO_FS;
 	
 	if (filter->partial_filter) {
-		dictret = inode_ctx_get (inode, frame->this, VOID (&uid));
+		dictret = inode_ctx_get (inode, frame->this, (uint64_t *) (&uid));
 		if (dictret != -1) {
 			for (idx = 0; idx < filter->filter_num_uid_entries; idx++) {
 				if ((uid >= filter->filter_input_uid[idx][0]) &&

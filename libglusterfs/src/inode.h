@@ -152,9 +152,9 @@ int
 inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
 
 int 
-inode_ctx_get (inode_t *inode, xlator_t *xlator, void **value);
+inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value);
 
 int 
-inode_ctx_del (inode_t *inode, xlator_t *xlator, void **value);
+inode_ctx_del (inode_t *inode, xlator_t *xlator, uint64_t *value);
 
 #endif /* _INODE_H */

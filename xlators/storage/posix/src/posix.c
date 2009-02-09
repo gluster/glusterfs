@@ -84,7 +84,7 @@ int
 posix_forget (xlator_t *this, inode_t *inode)
 {
 	dict_t *cache = NULL;
-	if (!inode_ctx_del (inode, this, VOID (&cache)))
+	if (!inode_ctx_del (inode, this, (uint64_t *) (&cache)))
 		dict_destroy (cache);
 
 	return 0;
@@ -2487,7 +2487,7 @@ __xattrop_cache_get (struct xattrop_handle handle, xlator_t *this)
 
 	LOCK (&inode->lock);
 	{
-		ret = inode_ctx_get (inode, this, VOID(&cache));
+		ret = inode_ctx_get (inode, this, (uint64_t *)(&cache));
 		if (ret < 0) {
 			cache = dict_new ();
 			ret = inode_ctx_put (inode, this, 

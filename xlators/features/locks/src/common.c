@@ -54,7 +54,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 
 	LOCK (&inode->lock);
 	{
-		ret = inode_ctx_get (inode, this, VOID(&pl_inode));
+		ret = inode_ctx_get (inode, this, (uint64_t *)(&pl_inode));
 		if (ret == 0)
 			goto out;
 

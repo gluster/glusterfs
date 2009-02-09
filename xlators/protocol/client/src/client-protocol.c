@@ -75,7 +75,7 @@ this_ino_get_from_inode (inode_t *inode, xlator_t *this)
 		goto out;
 	}
 
-	ret = inode_ctx_get (inode, this, VOID (&ino));
+	ret = inode_ctx_get (inode, this,  (&ino));
 
 	if (inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -108,7 +108,7 @@ this_ino_get (loc_t *loc, xlator_t *this, int32_t which)
 		goto out;
 	}
 
-	ret = inode_ctx_get (inode, this, VOID (&ino));
+	ret = inode_ctx_get (inode, this,  (&ino));
 
 	if (inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -134,7 +134,7 @@ this_ino_set (loc_t *loc, xlator_t *this, ino_t ino)
 	inode = loc->inode;
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
-	ret = inode_ctx_get (inode, this, VOID (&old_ino));
+	ret = inode_ctx_get (inode, this,  (&old_ino));
 
 	if (old_ino != ino) {
 		if (old_ino)
