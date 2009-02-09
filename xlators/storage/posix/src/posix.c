@@ -292,7 +292,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 	 * If this is a revalidate, flush the xattrop cache
 	 */
 
-	ret = inode_ctx_get (loc->inode, this, VOID (&cache));
+	ret = inode_ctx_get (loc->inode, this, (uint64_t *) (&cache));
 	if (ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"flushing xattrop cache for %s",

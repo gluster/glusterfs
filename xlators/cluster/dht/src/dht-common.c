@@ -2608,6 +2608,7 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 	if (op_ret == 0) {
 		inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
 		local->selfheal.layout = NULL;
+		local->stbuf.st_ino = local->st_ino;
 	}
 
 	DHT_STACK_UNWIND (frame, op_ret, op_errno,
@@ -2685,8 +2686,10 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 
 	dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
 
-	local->call_cnt = conf->subvolume_cnt - 1;
+	local->st_ino = local->stbuf.st_ino;
 
+	local->call_cnt = conf->subvolume_cnt - 1;
+	
 	if (local->call_cnt == 0) {
 		local->layout = NULL;
 		dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
