@@ -88,9 +88,9 @@ __xattrop_cache_flush (struct xattrop_handle handle, xlator_t *this);
 int 
 posix_forget (xlator_t *this, inode_t *inode)
 {
-	dict_t *cache = NULL;
-	if (!inode_ctx_del (inode, this, (uint64_t *) (&cache)))
-		dict_destroy (cache);
+	uint64_t tmp_cache = 0;
+	if (!inode_ctx_del (inode, this, &tmp_cache))
+		dict_destroy ((dict_t *)(long)tmp_cache);
 
 	return 0;
 }
@@ -170,7 +170,7 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
 		lgetxattr (real_path, "trusted.glusterfs.afr.entry-pending",
 			   entry_pending, xattr_size);
 		ret = dict_set_bin (xattr, 
-				    "trusted.glusterfs.afr.entr -pending",
+				    "trusted.glusterfs.afr.entry-pending",
 				    entry_pending, xattr_size);
 		if (ret < 0)
 			gf_log (this->name, GF_LOG_ERROR, "dict set failed");
@@ -261,11 +261,9 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         int32_t     op_ret             = -1;
         int32_t     op_errno           = 0;
         dict_t *    xattr              = NULL;
-        struct posix_private * priv    = NULL;
-
-	int                   ret      = -1;
+	int         ret                = -1;
+        struct posix_private  *priv    = NULL;
 	struct xattrop_handle handle   = {0,};
-	dict_t *              cache    = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -292,7 +290,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 	 * If this is a revalidate, flush the xattrop cache
 	 */
 
-	ret = inode_ctx_get (loc->inode, this, (uint64_t *) (&cache));
+	ret = inode_ctx_get (loc->inode, this, NULL);
 	if (ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"flushing xattrop cache for %s",
@@ -2494,10 +2492,10 @@ out:
 static dict_t *
 __xattrop_cache_get (struct xattrop_handle handle, xlator_t *this)
 {
-	inode_t *inode = NULL;
-
 	int      ret   = -1;
 	dict_t * cache = NULL;
+	inode_t *inode = NULL;
+	uint64_t tmp_cache = 0;
 
 	if (handle.loc)
 		inode = handle.loc->inode;
@@ -2506,7 +2504,10 @@ __xattrop_cache_get (struct xattrop_handle handle, xlator_t *this)
 
 	LOCK (&inode->lock);
 	{
-		ret = inode_ctx_get (inode, this, (uint64_t *)(&cache));
+		ret = inode_ctx_get (inode, this, &tmp_cache);
+		if (ret == 0)
+			cache = (dict_t *)(long)tmp_cache;
+
 		if (ret < 0) {
 			cache = dict_new ();
 			ret = inode_ctx_put (inode, this, 

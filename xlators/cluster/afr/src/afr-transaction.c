@@ -542,7 +542,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 	xattr = get_new_dict ();
 	dict_ref (xattr);
 
-	call_count = afr_up_children_count (priv->child_count, local->child_up); 
+	call_count = afr_up_children_count (priv->child_count, 
+					    local->child_up); 
 
 	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
 		call_count *= 2;
@@ -559,13 +560,16 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 
 	__mark_all_pending (local->pending_array, priv->child_count);
 
-	for (i = 0; i < priv->child_count; i++) {					
+	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			ret = dict_set_static_bin (xattr, local->transaction.pending, 
+			ret = dict_set_static_bin (xattr, 
+						   local->transaction.pending, 
 						   local->pending_array, 
-						   priv->child_count * sizeof (int32_t));
+						   (priv->child_count * 
+						    sizeof (int32_t)));
 			if (ret < 0)
-				gf_log (this->name, GF_LOG_ERROR, "failed to set pending entry");
+				gf_log (this->name, GF_LOG_ERROR, 
+					"failed to set pending entry");
 
 
 			switch (local->transaction.type) {

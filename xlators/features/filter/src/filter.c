@@ -104,18 +104,19 @@ update_frame (call_frame_t *frame,
 	      inode_t *inode,
 	      struct gf_filter *filter)
 {
-	int32_t idx = 0;
-	int32_t ret = 0;
-	int32_t dictret = 0;
-	uid_t uid = 0;
+	uid_t    uid = 0;
+	int32_t  idx = 0;
+	int32_t  ret = 0;
+	int32_t  dictret = 0;
+	uint64_t tmp_uid = 0;
 	
 	for (idx = 0; idx < filter->translate_num_uid_entries; idx++) {
-		if ((frame->root->uid >= filter->translate_input_uid[idx][0]) &&
-		    (frame->root->uid <= filter->translate_input_uid[idx][1])) {
-			dictret = inode_ctx_get (inode, frame->this, 
-						 (uint64_t *) (&uid));
+		if ((frame->root->uid >=filter->translate_input_uid[idx][0]) &&
+		    (frame->root->uid <=filter->translate_input_uid[idx][1])) {
+			dictret = inode_ctx_get (inode, frame->this, &tmp_uid);
+			uid = (uid_t)tmp_uid;
 			if (dictret == 0) {
-				if (uid != frame->root->uid)
+				if (frame->root->uid != uid)
 					ret = GF_FILTER_MAP_UID;
 			} else {
 				ret = GF_FILTER_MAP_UID;
@@ -125,8 +126,8 @@ update_frame (call_frame_t *frame,
 	}
 	
 	for (idx = 0; idx < filter->translate_num_gid_entries; idx++) {
-		if ((frame->root->gid >= filter->translate_input_gid[idx][0]) &&
-		    (frame->root->gid <= filter->translate_input_gid[idx][1])) {
+		if ((frame->root->gid >=filter->translate_input_gid[idx][0]) &&
+		    (frame->root->gid <=filter->translate_input_gid[idx][1])) {
 			if (ret == GF_FILTER_NO_CHANGE) 
 				ret = GF_FILTER_MAP_GID;
 			else 
@@ -140,11 +141,13 @@ update_frame (call_frame_t *frame,
 		return GF_FILTER_RO_FS;
 	
 	if (filter->partial_filter) {
-		dictret = inode_ctx_get (inode, frame->this, (uint64_t *) (&uid));
+		dictret = inode_ctx_get (inode, frame->this, &tmp_uid);
+		uid = (uid_t)tmp_uid;
 		if (dictret != -1) {
-			for (idx = 0; idx < filter->filter_num_uid_entries; idx++) {
-				if ((uid >= filter->filter_input_uid[idx][0]) &&
-				    (uid <= filter->filter_input_uid[idx][1])) {
+			for (idx = 0; idx < filter->filter_num_uid_entries; 
+			     idx++) {
+				if ((uid >=filter->filter_input_uid[idx][0]) &&
+				    (uid <=filter->filter_input_uid[idx][1])) {
 					return GF_FILTER_FILTER_UID;
 				}
 			}

@@ -162,8 +162,11 @@
  * @bctx:  a 'struct bdb_ctx *'
  * @inode: inode from whose ->ctx, 'struct bdb_ctx *' has to be extracted. 
  */
-#define MAKE_BCTX_FROM_INODE(this,bctx,inode) do{           \
-                inode_ctx_get (inode, this, VOID (&bctx));  \
+#define MAKE_BCTX_FROM_INODE(this,bctx,inode) do{        \
+                uint64_t tmp_bctx = 0;                   \
+                inode_ctx_get (inode, this, &tmp_bctx); \
+                if (ret == 0)                            \
+		        bctx = (void *)(long)tmp_bctx;   \
 	}while (0);
 
 #define BDB_SET_BFD(this,fd,bfd) do{					\

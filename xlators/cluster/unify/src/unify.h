@@ -115,10 +115,10 @@ struct _unify_local_t {
 	int32_t return_eio;  /* Used in case of different st-mode 
 				present for a given path */
 
-	int64_t inode_generation; /* used to store the per directory 
-				   * inode_generation. Got from inode's ctx 
-				   * of directory inodes
-				   */
+	uint64_t inode_generation; /* used to store the per directory 
+				    * inode_generation. Got from inode's ctx 
+				    * of directory inodes
+				    */
 
 	struct unify_self_heal_struct *sh_struct;
 	loc_t loc1, loc2;

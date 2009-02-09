@@ -2552,16 +2552,21 @@ notify (xlator_t *this, int32_t event,
         case GF_EVENT_CHILD_UP:
 
 #ifndef GF_DARWIN_HOST_OS
-                /* This is because macfuse sends statfs() once the fuse thread
-                   gets activated, and by that time if the client is not connected,
-                   it give 'Device not configured' error. Hence, create thread only when 
-                   client sends CHILD_UP (ie, client is connected).
-                */
+		/* 
+		 * This is because macfuse sends statfs() once the fuse thread
+                 * gets activated, and by that time if the client is not 
+		 * connected, it give 'Device not configured' error. Hence, 
+		 * create thread only when client sends CHILD_UP (ie, client 
+		 * is connected).
+		 */
 
-                /* TODO: somehow, try to get the mountpoint active as soon as init()
-                   is complete, so that the hang effect when the server is not not
-                   started is removed. */
-        case GF_EVENT_CHILD_CONNECTING: 
+                /* TODO: somehow, try to get the mountpoint active as soon as 
+		 * init() is complete, so that the hang effect when the 
+		 * server is not not started is removed. 
+		 */
+		
+		/* This code causes problem with 'automount' too */
+		/* case GF_EVENT_CHILD_CONNECTING: */
 #endif /* DARWIN */
 
         {

@@ -151,14 +151,14 @@ get_mapping_subvol_from_path (xlator_t *this, const char *path)
 xlator_t *
 get_mapping_subvol_from_ctx (xlator_t *this, inode_t *inode)
 {
-	xlator_t *subvol = NULL;
-	int       ret    = -1;
+	uint64_t subvol = 0;
+	int      ret    = -1;
 
-	ret = inode_ctx_get (inode, this, (uint64_t *)(&subvol));
+	ret = inode_ctx_get (inode, this, &subvol);
 	if (ret != 0) 
 		return NULL;
 
-	return subvol;
+	return (xlator_t *)(long)subvol;
 }
 
 int

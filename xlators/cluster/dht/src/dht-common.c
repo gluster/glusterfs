@@ -2799,6 +2799,7 @@ int
 dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno)
 {
+	uint64_t      tmp_layout = 0;
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
 	call_frame_t *prev = NULL;
@@ -2831,7 +2832,8 @@ unlock:
 	if (is_last_call (this_call_cnt)) {
 		if (local->need_selfheal) {
 			inode_ctx_get (local->loc.inode, this, 
-				       (uint64_t *)&layout);
+				       &tmp_layout);
+			layout = (dht_layout_t *)(long)tmp_layout;
 
 			/* TODO: neater interface needed below */
 			local->stbuf.st_mode = local->loc.inode->st_mode;
@@ -3323,13 +3325,14 @@ err:
 int
 dht_forget (xlator_t *this, inode_t *inode)
 {
+	uint64_t      tmp_layout = 0;
 	dht_layout_t *layout = NULL;
 
-	inode_ctx_get (inode, this, (uint64_t *)&layout);
+	inode_ctx_get (inode, this, &tmp_layout);
 
 	if (!layout)
 		return 0;
-
+	layout = (dht_layout_t *)(long)tmp_layout;
 	if (!layout->preset)
 		FREE (layout);
 

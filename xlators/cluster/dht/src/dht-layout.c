@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -58,12 +58,12 @@ out:
 dht_layout_t *
 dht_layout_get (xlator_t *this, inode_t *inode)
 {
-        dht_layout_t *layout = NULL;
-        int           ret = -1;
+        uint64_t layout = 0;
+        int      ret    = -1;
 
-        ret = inode_ctx_get (inode, this, (uint64_t *)(&layout));
+        ret = inode_ctx_get (inode, this, &layout);
 
-        return layout;
+        return (dht_layout_t *)(long)layout;
 }
 
 

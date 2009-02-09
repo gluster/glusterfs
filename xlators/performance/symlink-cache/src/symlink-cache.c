@@ -42,9 +42,12 @@ static int
 symlink_inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx)
 {
 	int ret = 0;
-	ret = inode_ctx_get (inode, this, (uint64_t *)ctx);
+	uint64_t tmp_ctx = 0;
+	ret = inode_ctx_get (inode, this, &tmp_ctx);
 	if (-1 == ret)
 		gf_log (this->name, GF_LOG_ERROR, "dict get failed");
+	else
+		*ctx = (void *)(long)tmp_ctx;
 
 	return 0;
 }
@@ -180,7 +183,7 @@ int
 sc_cache_validate (xlator_t *this, inode_t *inode, struct stat *buf)
 {
 	struct symlink_cache *sc = NULL;
-
+	uint64_t tmp_sc = 0;
 
 	if (!S_ISLNK (buf->st_mode)) {
 		sc_cache_flush (this, inode);
@@ -191,13 +194,14 @@ sc_cache_validate (xlator_t *this, inode_t *inode, struct stat *buf)
 
 	if (!sc) {
 		sc_cache_set (this, inode, buf, NULL);
-		inode_ctx_get (inode, this, (uint64_t *)(&sc));
+		inode_ctx_get (inode, this, &tmp_sc);
 
 		if (!sc) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"out of memory :(");
 			return 0;
 		}
+		sc = (struct symlink_cache *)(long)tmp_sc;
 	}
 
 	if (sc->ctime == buf->st_ctime)

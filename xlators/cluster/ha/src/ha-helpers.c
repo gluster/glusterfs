@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -149,6 +149,7 @@ int ha_alloc_init_inode (call_frame_t *frame, inode_t *inode)
 	xlator_t *xl = NULL;
 	int ret = -1;
 	ha_local_t *local = NULL;
+	uint64_t tmp_state = 0;
 
 	xl = frame->this;
 	pvt = xl->private;
@@ -161,10 +162,11 @@ int ha_alloc_init_inode (call_frame_t *frame, inode_t *inode)
 			goto out;
 		}
 		local->active = pvt->pref_subvol;
-		ret = inode_ctx_get (inode, xl, (uint64_t *) (&local->state));
+		ret = inode_ctx_get (inode, xl, &tmp_state);
 		if (ret < 0) {
 			goto out;
 		}
+		local->state = (char *)(long)tmp_state;
 		if (local->active != -1 && local->state[local->active] == 0)
 			local->active = -1;
 		for (i = 0; i < pvt->child_count; i++) {

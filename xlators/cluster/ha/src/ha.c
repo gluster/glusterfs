@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -45,9 +45,12 @@ int
 ha_forget (xlator_t *this,
 	   inode_t *inode)
 {
-	char *stateino = NULL;
-	if (!inode_ctx_del (inode, this, (uint64_t *) (&stateino)))
-		FREE (stateino);
+	uint64_t stateino = 0;
+	char *state = NULL;
+	if (!inode_ctx_del (inode, this, &stateino)) {
+		state =  ((char *)(long)stateino);
+		FREE (state);
+	}
 
 	return 0;
 
@@ -69,6 +72,7 @@ ha_lookup_cbk (call_frame_t *frame,
 	char *state = NULL;
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
+	uint64_t tmp_state = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -84,7 +88,8 @@ ha_lookup_cbk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR, "(child=%s) (op_ret=%d op_errno=%s)", 
 			  children[i]->name, op_ret, strerror (op_errno));
 	}
-	inode_ctx_get (local->inode, this, (uint64_t *) (&state));
+	inode_ctx_get (local->inode, this, &tmp_state);
+	state = (char *)(long)tmp_state;
 
 	LOCK (&frame->lock);
 	if (local->revalidate == 1) {
@@ -701,6 +706,7 @@ ha_mknod_lookup_cbk (call_frame_t *frame,
 	int child_count = 0, i = 0, cnt = 0, ret = 0;
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -718,7 +724,8 @@ ha_mknod_lookup_cbk (call_frame_t *frame,
 			local->stub->args.mknod.loc.path, op_ret, op_errno);
 	}
 	ret = inode_ctx_get (local->stub->args.mknod.loc.inode, 
-			     this, (uint64_t *) (&stateino));
+			     this, &tmp_stateino);
+	stateino = (char *)(long)tmp_stateino;
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR, 
 			"unwind(-1), dict_get_ptr() error");
@@ -761,6 +768,7 @@ ha_mknod_cbk (call_frame_t *frame,
 	int child_count = 0, i = 0, cnt = 0, ret = 0;
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -778,7 +786,9 @@ ha_mknod_cbk (call_frame_t *frame,
 	}
 
 	ret = inode_ctx_get (local->stub->args.mknod.loc.inode, 
-			     this, (uint64_t *) (&stateino));
+			     this, &tmp_stateino);
+	stateino = (char *)(long)tmp_stateino;
+
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR, "dict_get_ptr() error");
 		/* FIXME: handle the case */
@@ -893,6 +903,7 @@ ha_mkdir_lookup_cbk (call_frame_t *frame,
 	int child_count = 0, i = 0, cnt = 0;
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -908,7 +919,9 @@ ha_mkdir_lookup_cbk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR, "(path=%s) (op_ret=%d op_errno=%d)", local->stub->args.mkdir.loc.path, op_ret, op_errno);
 	}
 	inode_ctx_get (local->stub->args.mkdir.loc.inode, 
-		       this, (uint64_t *) (&stateino));  
+		       this, &tmp_stateino);  
+	stateino = (char *)(long)tmp_stateino;
+
 	if (op_ret == 0)
 		stateino[i] = 1;
 
@@ -944,6 +957,7 @@ ha_mkdir_cbk (call_frame_t *frame,
 	int child_count = 0, i = 0, cnt = 0;
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -961,7 +975,9 @@ ha_mkdir_cbk (call_frame_t *frame,
 	}
 
 	inode_ctx_get (local->stub->args.mkdir.loc.inode, 
-		       this, (uint64_t *) (&stateino));
+		       this, &tmp_stateino);
+	stateino = (char *)(long)tmp_stateino;
+
 	if (op_ret == 0) {
 		stateino[i] = 1;
 		local->op_ret = 0;
@@ -1161,6 +1177,7 @@ ha_symlink_lookup_cbk (call_frame_t *frame,
 	int child_count = 0, i = 0, cnt = 0;
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -1176,7 +1193,8 @@ ha_symlink_lookup_cbk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR, "(path=%s) (op_ret=%d op_errno=%d)", local->stub->args.symlink.loc.path, op_ret, op_errno);
 	}
 	inode_ctx_get (local->stub->args.symlink.loc.inode,
-		       this, (uint64_t *) (&stateino));  
+		       this, &tmp_stateino);  
+	stateino = (char *)(long)tmp_stateino;
 
 	if (op_ret == 0)
 		stateino[i] = 1;
@@ -1213,6 +1231,7 @@ ha_symlink_cbk (call_frame_t *frame,
 	int child_count = 0, i = 0, cnt = 0;
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -1229,7 +1248,8 @@ ha_symlink_cbk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR, "(path=%s) (op_ret=%d op_errno=%d)", local->stub->args.symlink.loc.path, op_ret, op_errno);
 	}
 	inode_ctx_get (local->stub->args.symlink.loc.inode, 
-		       this, (uint64_t *) (&stateino));
+		       this, &tmp_stateino);
+	stateino = (char *)(long)tmp_stateino;
 
 	if (op_ret == 0) {
 		stateino[i] = 1;
@@ -1386,13 +1406,13 @@ ha_link_lookup_cbk (call_frame_t *frame,
 	int child_count = 0, i = 0, cnt = 0;
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
 	child_count = pvt->child_count;
 	prev_frame = cookie;
 	children = pvt->children;
-
 
 	for (i = 0; i < child_count; i++)
 		if (prev_frame->this == children[i])
@@ -1402,7 +1422,8 @@ ha_link_lookup_cbk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR, "(path=%s) (op_ret=%d op_errno=%d)", local->stub->args.link.newloc.path, op_ret, op_errno);
 	}
 	inode_ctx_get (local->stub->args.link.newloc.inode, 
-		       this, (uint64_t *) (&stateino));  
+		       this, &tmp_stateino);  
+	stateino = (char *)(long)tmp_stateino;
 
 	if (op_ret == 0)
 		stateino[i] = 1;
@@ -1439,6 +1460,7 @@ ha_link_cbk (call_frame_t *frame,
 	int child_count = 0, i = 0, cnt = 0;
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -1455,7 +1477,8 @@ ha_link_cbk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR, "(path=%s) (op_ret=%d op_errno=%d)", local->stub->args.link.newloc.path, op_ret, op_errno);
 	}
 	inode_ctx_get (local->stub->args.link.newloc.inode, 
-		       this, (uint64_t *) (&stateino));
+		       this, &tmp_stateino);
+	stateino = (char *)(long)tmp_stateino;
 
 	if (op_ret == 0) {
 		stateino[i] = 1;
@@ -1517,11 +1540,13 @@ ha_link (call_frame_t *frame,
 	int child_count = 0, i = 0;
 	char *stateino = NULL;
 	int32_t ret = 0;
+	uint64_t tmp_stateino = 0;
 
-	ret = inode_ctx_get (newloc->inode, this, (uint64_t *) (&stateino));
+	ret = inode_ctx_get (newloc->inode, this, &tmp_stateino);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR, "dict_ptr_error()");
 	}
+	stateino = (char *)(long)tmp_stateino;
 
 	if (stateino == NULL) {
 		gf_log (this->name, GF_LOG_ERROR, 
@@ -1576,6 +1601,7 @@ ha_create_cbk (call_frame_t *frame,
 	hafd_t *hafdp = NULL;
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -1584,7 +1610,9 @@ ha_create_cbk (call_frame_t *frame,
 	children = pvt->children;
 
 	ret = inode_ctx_get (local->stub->args.create.loc.inode, 
-			     this, (uint64_t *) (&stateino));
+			     this, &tmp_stateino);
+	stateino = (char *)(long)tmp_stateino;
+
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR, "dict_to_ptr() error");
 		/* FIXME: handle */
@@ -1767,6 +1795,7 @@ ha_open (call_frame_t *frame,
 	xlator_t **children = NULL;
 	int cnt = 0, i, child_count = 0, ret = 0;
 	hafd_t *hafdp = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -1790,7 +1819,8 @@ ha_open (call_frame_t *frame,
 
 	LOCK_INIT (&hafdp->lock);
 	dict_set (ctx, this->name, data_from_dynptr (hafdp, sizeof (*hafdp)));
-	ret = inode_ctx_get (loc->inode, this, (uint64_t *) (&stateino));
+	ret = inode_ctx_get (loc->inode, this, &tmp_stateino);
+	stateino = (char *)(long)tmp_stateino;
 
 	for (i = 0; i < child_count; i++)
 		if (stateino[i])
@@ -2124,6 +2154,7 @@ ha_opendir (call_frame_t *frame,
 	xlator_t **children = NULL;
 	int cnt = 0, i, child_count = 0, ret = 0;
 	hafd_t *hafdp = NULL;
+	uint64_t tmp_stateino = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -2141,7 +2172,8 @@ ha_opendir (call_frame_t *frame,
 	hafdp->path = strdup (loc->path);
 	LOCK_INIT (&hafdp->lock);
 	dict_set (ctx, this->name, data_from_dynptr (hafdp, sizeof (*hafdp)));
-	ret = inode_ctx_get (loc->inode, this, (uint64_t *) (&stateino));
+	ret = inode_ctx_get (loc->inode, this, &tmp_stateino);
+	stateino = (char *)(long)tmp_stateino;
 	
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR, "dict_get_ptr() error");
