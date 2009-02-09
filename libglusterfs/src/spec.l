@@ -68,7 +68,6 @@ END    [e][n][d]
 SUB    [s][u][b]
 OPTION [o][p][t][i][o][n]
 TYPE   [t][y][p][e]
-%x BKQUOTE
 %%
 \#.*                   ;
 {VOLUME}               return SECTION_BEGIN;
@@ -81,25 +80,14 @@ TYPE   [t][y][p][e]
        [^\n\"\\]* {    append_string (yytext, yyleng); }
        \\.        {    append_string (yytext + 1, yyleng - 1); }
        \"         {
+                       if (0) {
+                              yyunput (0, NULL);
+                       } 
                        BEGIN (INITIAL);
                        yylval = text;
                        return STRING_TOK;
        }
 }
-\`                     BEGIN(BKQUOTE);
-<BKQUOTE>{
-       [^\n\`\\]* {    append_string (yytext, yyleng); }
-       \\.        {    append_string (yytext + 1, yyleng - 1); }
-       \`         {
-                       BEGIN (INITIAL);
-                       yylval = text;
-                       return CMD_TOK;
-
-                       /* ugly  trick to fix warnings */
-                       if (0) unput (0);
-                       if (0) input();
-       }
-}
-[^ \t\r\n\`\"\\]+ {    yylval = strdup (yytext) ; return ID; }
+[^ \t\r\n\"\\]+ {    yylval = strdup (yytext) ; return ID; }
 [ \t\r\n]+             ;
 %%

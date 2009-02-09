@@ -270,7 +270,7 @@ do_open (int fd, int flags, mode_t mode)
 			.stat_timeout = 600,
 		};
       
-		file_size = fgetxattr (fd, "user.glusterfs-booster-specfile", NULL, 0);
+		file_size = fgetxattr (fd, "user.glusterfs-booster-volfile", NULL, 0);
 		if (file_size == -1) {
 			return;
 		}
@@ -281,7 +281,7 @@ do_open (int fd, int flags, mode_t mode)
 			return;
 		}
 
-		ret = fgetxattr (fd, "user.glusterfs-booster-specfile", specfile, file_size);
+		ret = fgetxattr (fd, "user.glusterfs-booster-volfile", specfile, file_size);
 		if (ret == -1) {
 			free (specfile);
 			return ;

@@ -18,7 +18,7 @@
 */
 
 
-%token SECTION_BEGIN SECTION_END OPTION NEWLINE SUBSECTION ID WHITESPACE COMMENT TYPE STRING_TOK CMD_TOK
+%token SECTION_BEGIN SECTION_END OPTION NEWLINE SUBSECTION ID WHITESPACE COMMENT TYPE STRING_TOK 
 %name-prefix="yy"
 
 %{
@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <sys/mman.h>
 	 
 #include "xlator.h"
 #include "logging.h"
@@ -33,7 +34,6 @@
 static int new_section (char *name);
 static int section_type (char *type);
 static int section_option (char *key, char *value);
-static int section_option_cmd (char *key, char *cmd);
 static int section_sub (char *sub);
 static int section_end (void);
 static void sub_error (void);
@@ -41,6 +41,8 @@ static void type_error (void);
 static void option_error (void);
 
 #define YYSTYPE char *
+#define GF_CMD_BUFFER_LEN (32 * GF_UNIT_KB)
+
 int yyerror (const char *);
 int yylex ();
 %}
@@ -68,13 +70,11 @@ SUBSECTION_LINE: SUBSECTION WORDS | SUBSECTION { sub_error (); YYABORT; };
 OPTIONS_LINE: OPTION_LINE | OPTIONS_LINE OPTION_LINE;
 
 OPTION_LINE: OPTION WORD WORD {if(-1 == section_option($2,$3)){YYABORT;} } |
-             OPTION WORD CMD {if(-1 == section_option_cmd ($2,$3)){YYABORT;} } |
 	     OPTION WORD { option_error (); YYABORT; } |
 	     OPTION { option_error (); YYABORT; };
 
 WORDS: WORD {if (-1 == section_sub ($1)) {YYABORT; } } | WORDS WORD { if (-1 == section_sub ($2)) { YYABORT; } };
 WORD: ID | STRING_TOK ;
-CMD: CMD_TOK;
 %%
 
 xlator_t *complete_tree = NULL;
@@ -211,52 +211,6 @@ section_type (char *type)
                 return -1;
         }
         gf_log ("parser", GF_LOG_DEBUG, "Type:%s:%s", tree->name, type);
-
-        return 0;
-}
-
-static int 
-section_option_cmd (char *key, char *cmd)
-{
-        extern int yylineno;
-        char cmd_output[1024] = {0,};
-        FILE *fpp = NULL;
-        int ret = 0;
-
-        if (!key || !cmd){
-                fprintf (stderr, "invalid command specified\n");
-                gf_log ("parser", GF_LOG_ERROR, "invalid command specified");
-                return -1;
-        }
-        fpp = popen (cmd, "r");
-        if (!fpp)
-        {
-                fprintf (stderr, "\"option %s '%s'\" not valid\n", key, cmd);
-                gf_log ("parser", GF_LOG_ERROR, 
-			"\"option %s '%s'\" not valid", key, cmd);
-                return -1;
-        }
-        if (!fgets (cmd_output, 1024, fpp))
-        {
-                fprintf (stderr, "\"option %s '%s'\" not valid\n", key, cmd);
-                gf_log ("parser", GF_LOG_ERROR, 
-			"\"option %s '%s'\" not valid", key, cmd);
-                return -1;
-        }
-        pclose (fpp);
-
-	cmd_output [strlen (cmd_output) - 1] = 0;
-        ret = dict_set_dynstr (tree->options, key, strdup (cmd_output));
-        if (ret == 1) {
-                gf_log ("parser", GF_LOG_ERROR, 
-                        "volume '%s', line %d: duplicate entry "
-			"('option %s') present", 
-                        tree->name, yylineno, key);
-                return -1;
-        }
-
-        gf_log ("parser", GF_LOG_DEBUG, "Option:%s:%s:%s",
-                tree->name, key, cmd_output);
 
         return 0;
 }
@@ -471,18 +425,179 @@ yyerror (const char *str)
         return 0;
 }
 
+static int
+execute_cmd (char *cmd, char *result, int size)
+{
+	FILE *fpp = NULL;
+	int ret = 0;
+
+	fpp = popen (cmd, "r");
+	if (!fpp)
+	{
+		gf_log ("parser", GF_LOG_ERROR, "%s: failed to popen", cmd);
+		return -1;
+	}
+
+	if (!fgets (result, GF_UNIT_KB, fpp))
+	{
+		gf_log ("parser", GF_LOG_ERROR, "failed to read output of cmd (%s)", cmd);
+		pclose (fpp);
+		return -1;
+	}
+
+	ret = strlen (result);
+	result[ret - 1] = '\0';
+	ret--;
+	pclose (fpp);
+
+	return ret;
+}
+
+static int
+find_and_execute_cmds (char *src, char *dst)
+{
+	char escaped = 0;
+	char *cmd = NULL;
+	char in_backtick = 0;
+	int size = 0, ret = 0;
+
+	if (!src || !dst) {
+		ret = -1;
+		goto out;
+	}
+
+	while (*src) {
+		if (*src == '`' && !escaped) {
+			if (in_backtick) {
+				*src = '\0';
+				ret = execute_cmd (cmd, dst, GF_UNIT_KB);
+				if (ret < 0) {
+					ret = -1;
+					size = -1;
+					goto out;
+				}
+
+				dst += ret;
+				size += ret;
+			} else {
+				cmd = src + 1;
+			}
+			
+			in_backtick = !in_backtick;
+		} else if (!in_backtick) {
+			*dst++ = *src;
+			size++;
+		}
+
+		if (*src == '\\') {
+			escaped = !escaped;
+		} else {
+			escaped = 0;
+		}
+
+		src++;
+	}
+
+out:
+	return size;
+}
+		
+
+static int 
+parse_backtick (FILE *srcfp, FILE *dstfp)
+{
+	char srcbuf[8 * GF_UNIT_KB] = {0, };
+	char *dstbuf = NULL;
+	int ret = 0;
+	int size = 0;
+
+	dstbuf = calloc (32 * GF_UNIT_KB, 1);
+
+	fseek (srcfp, 0L, SEEK_SET);
+	fseek (dstfp, 0L, SEEK_SET);
+
+	while (!feof (srcfp)) {
+		if (fgets (srcbuf, 8 * GF_UNIT_KB, srcfp) == NULL) {
+			break;
+		}
+
+		size = find_and_execute_cmds (srcbuf, dstbuf);
+		if (size < 0) {
+			ret = -1;
+			break;
+		}
+		fwrite (dstbuf, size, 1, dstfp);
+	} 
+
+	fseek (srcfp, 0L, SEEK_SET);
+	fseek (dstfp, 0L, SEEK_SET);
+	FREE (dstbuf);
+	return ret;
+}
+
 extern FILE *yyin;
 xlator_t *
 file_to_xlator_tree (glusterfs_ctx_t *ctx,
                      FILE *fp)
 {
         int32_t ret = 0;
-        gctx = ctx;
-        yyin = fp;
         xlator_t *tmp_tree = NULL;
+	FILE *tmp_file = NULL;
+	int fd = -1, tmp_fd = -1;
+	struct stat stbuf = {0, };
+	char *buffer = NULL;
 
+	tmp_file = tmpfile ();
+	if (NULL == tmp_file) {
+		gf_log ("parser", GF_LOG_ERROR,
+			"cannot create temparory file");
+		return NULL;
+	}
+
+	fd = fileno (fp);
+	if (fd == -1) {
+		gf_log ("parser", GF_LOG_ERROR,
+			"cannot get file descriptor from volume specification file stream pointer");
+		fclose (tmp_file);
+		return NULL;
+	}
+
+	ret = fstat (fd, &stbuf);
+	if (ret == -1) {
+		gf_log ("parser", GF_LOG_ERROR,
+			"getting the size of volume specification file failed");
+		fclose (tmp_file);
+		return NULL;
+	}
+
+	buffer = calloc (stbuf.st_size + GF_CMD_BUFFER_LEN, 1);
+
+	tmp_fd = fileno (tmp_file);
+	if (!mmap (buffer, stbuf.st_size + GF_CMD_BUFFER_LEN, 
+		   PROT_NONE, 0, tmp_fd, 0)) {
+		gf_log ("parser", GF_LOG_ERROR,
+			"mmap of volume specification file failed");
+		fclose (tmp_file);
+		FREE (buffer);
+		return NULL;
+	}
+
+	ret = parse_backtick (fp, tmp_file);
+	if (ret < 0) {
+		gf_log ("parser", GF_LOG_ERROR,
+			"parsing of backticks failed");
+		fclose (tmp_file);
+		FREE (buffer);
+		return NULL;
+	}
+
+        gctx = ctx;
+        yyin = tmp_file;
         ret = yyparse ();
   
+	fclose (tmp_file);
+	FREE (buffer);
+
         if (1 == ret) {
                 gf_log ("parser", GF_LOG_DEBUG, 
 			"parsing of volfile failed, please review it "
