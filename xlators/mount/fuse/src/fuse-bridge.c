@@ -1405,16 +1405,18 @@ fuse_create_cbk (call_frame_t *frame,
 
 		inode_link (inode, state->loc.parent,
 			    state->loc.name, buf);
+		
+		inode_lookup (inode);
 
 		fd_ref (fd);
                 if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 				"create() got EINTR");
+			inode_forget (inode, 1);
 			fd_unref (fd);
 			goto out;
                 } 
 
-		inode_lookup (inode);
 		fd_bind (fd);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
