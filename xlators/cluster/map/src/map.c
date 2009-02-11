@@ -1481,7 +1481,7 @@ int32_t
 map_lookup (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
-	    int32_t need_xattr)
+	    dict_t *xattr_req)
 {
 	int32_t op_errno = EINVAL;
 	xlator_t *subvol   = NULL;
@@ -1522,7 +1522,7 @@ map_lookup (call_frame_t *frame,
 		    subvol,
 		    subvol->fops->lookup,
 		    loc,
-		    need_xattr);
+		    xattr_req);
 
 	return 0;
 
@@ -1540,7 +1540,7 @@ map_lookup (call_frame_t *frame,
 			    trav->xlator,
 			    trav->xlator->fops->lookup,
 			    loc,
-			    need_xattr);
+			    xattr_req);
 		trav = trav->next;
 	}
 
