@@ -332,12 +332,12 @@ sc_lookup_cbk (call_frame_t *frame, void *cookie,
 
 int
 sc_lookup (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, int need_xattr)
+	   loc_t *loc, dict_t *xattr_req)
 {
         STACK_WIND (frame, sc_lookup_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup,
-                    loc, need_xattr);
+                    loc, xattr_req);
 
         return 0;
 }

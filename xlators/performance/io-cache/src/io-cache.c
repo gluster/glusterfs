@@ -297,7 +297,7 @@ ioc_lookup_cbk (call_frame_t *frame,
 							    FIRST_CHILD (this),
 							    FIRST_CHILD (this)->fops->lookup,
 							    &local->file_loc,
-							    local->need_xattr);
+							    local->xattr_req);
 						return 0;
 					} else {
 						char *buf = CALLOC (1, stbuf->st_size);
@@ -347,15 +347,17 @@ int32_t
 ioc_lookup (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
-	    int32_t need_xattr)
+	    dict_t *xattr_req)
 {
-	if (need_xattr) {
+	uint64_t content_limit = 0;
+
+	if (GF_FILE_CONTENT_REQUESTED(xattr_req, &content_limit)) {
 		uint64_t     tmp_ioc_inode = 0;
 		ioc_inode_t *ioc_inode = NULL;
 		ioc_page_t  *page = NULL;
 		ioc_local_t *local = CALLOC (1, sizeof (*local));
 
-		local->need_xattr = need_xattr;
+		local->need_xattr = content_limit;
 		local->file_loc.path = loc->path;
 		local->file_loc.inode = loc->inode;
 		frame->local = local;
@@ -367,9 +369,9 @@ ioc_lookup (call_frame_t *frame,
 			ioc_inode_lock (ioc_inode);
 			{
 				page = ioc_page_get (ioc_inode, 0);
-				if (need_xattr <= ioc_inode->table->page_size
+				if (content_limit <= ioc_inode->table->page_size
 				    && page && page->ready) {
-					need_xattr = -1;
+					local->need_xattr = -1;
 				}
 			}
 			ioc_inode_unlock (ioc_inode);
@@ -381,7 +383,7 @@ ioc_lookup (call_frame_t *frame,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->lookup,
 		    loc,
-		    need_xattr);
+		    xattr_req);
 	return 0;
 }
 

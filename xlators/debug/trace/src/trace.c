@@ -1226,21 +1226,22 @@ int32_t
 trace_lookup (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
-	      int32_t need_xattr)
+	      dict_t *xattr_req)
 {
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_LOOKUP].enabled) {  
+		/* TODO: print all the keys mentioned in xattr_req */
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"%"PRId64": (loc {path=%s, ino=%"PRIu64"} need_xattr=%d)",
+			"%"PRId64": (loc {path=%s, ino=%"PRIu64"})",
 			frame->root->unique, loc->path,
-			loc->inode->ino, need_xattr);
+			loc->inode->ino);
 	}
   
 	STACK_WIND (frame, trace_lookup_cbk,
 		    FIRST_CHILD(this), 
 		    FIRST_CHILD(this)->fops->lookup, 
-		    loc, need_xattr);
+		    loc, xattr_req);
 
 	return 0;
 }

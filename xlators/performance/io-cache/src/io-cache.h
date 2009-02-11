@@ -96,6 +96,7 @@ struct ioc_local {
 	void *stub;
 	fd_t *fd;
 	int32_t need_xattr;
+	dict_t *xattr_req;
 };
 
 /*

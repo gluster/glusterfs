@@ -85,7 +85,14 @@ static int
 __xattrop_cache_flush (struct xattrop_handle handle, xlator_t *this);
 
 
-int 
+typedef struct {
+  	xlator_t    *this;
+  	const char  *real_path;
+  	dict_t      *xattr;
+  	struct stat *stbuf;
+} posix_xattr_filler_t;
+
+int
 posix_forget (xlator_t *this, inode_t *inode)
 {
 	uint64_t tmp_cache = 0;
@@ -95,166 +102,117 @@ posix_forget (xlator_t *this, inode_t *inode)
 	return 0;
 }
 
+static void
+_posix_xattr_get_set (dict_t *xattr_req,
+    		      char *key,
+    		      data_t *data,
+    		      void *xattrargs)
+{
+    	posix_xattr_filler_t *filler = xattrargs;
+    	char     *value      = NULL;
+    	ssize_t   xattr_size = 0;
+    	int       ret      = -1;
+    	uint64_t  req_size = 0;
+  	char     *databuf  = NULL;
+  	int       _fd      = -1;
+
+    	req_size = data_to_uint64 (data);
+
+    	value = calloc (1, req_size);
+
+    	xattr_size = lgetxattr (filler->real_path, key, value,
+    				req_size);
+
+    	/* should size be put into the data_t ? */
+    	if (xattr_size != -1) {
+    		value[xattr_size] = '\0';
+    		ret = dict_set_bin (filler->xattr, key,
+    				    value, xattr_size);
+    		if (ret < 0)
+    			gf_log (filler->this->name, GF_LOG_ERROR,
+    				"dict set failed. path: %s, key: %s",
+    				filler->real_path, key);
+    	} else if (!strcmp (key, "glusterfs.content")){
+    		/* file content request */
+    		_fd = open (filler->real_path, O_RDONLY);
+
+    		if (_fd == -1) {
+    			gf_log (filler->this->name, GF_LOG_ERROR,
+    				"opening file %s failed: %s",
+    				filler->real_path, strerror (errno));
+    			goto err;
+    		}
+
+    		databuf = calloc (1, filler->stbuf->st_size);
+
+    		if (!databuf) {
+    			gf_log (filler->this->name, GF_LOG_ERROR,
+    				"out of memory :(");
+    			goto err;
+    		}
+
+    		ret = read (_fd, databuf, filler->stbuf->st_size);
+    		if (ret == -1) {
+    			gf_log (filler->this->name, GF_LOG_ERROR,
+    				"read on file %s failed: %s",
+    				filler->real_path, strerror (errno));
+    			goto err;
+    		}
+
+    		ret = close (_fd);
+    		_fd = -1;
+    		if (ret == -1) {
+    			gf_log (filler->this->name, GF_LOG_ERROR,
+    				"close on file %s failed: %s",
+    				filler->real_path, strerror (errno));
+    			goto err;
+    		}
+
+    		ret = dict_set_bin (filler->xattr, key,
+    				    databuf, filler->stbuf->st_size);
+    		if (ret < 0) {
+    			goto err;
+    		}
+
+    		/* To avoid double free in cleanup below */
+    		databuf = NULL;
+    	err:
+    		if (_fd != -1)
+    			close (_fd);
+    		if (databuf)
+    			FREE (databuf);
+
+    	}
+}
 
 dict_t *
 posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
-			 int need_xattr, struct stat *buf)
+    			 dict_t *xattr_req, struct stat *buf)
 {
-        ssize_t     xattr_size         = 0;
-        char *      databuf            = NULL;
-        const int   val_size           = 64;
-	char        layout[val_size];
-	char        linkto[val_size];
-	char       *layout_p           = NULL;
-	char       *linkto_p           = NULL;
-	char       *data_pending       = NULL;
-	char       *metadata_pending   = NULL;
-	char       *entry_pending      = NULL;
-        int         _fd                = -1;
-	dict_t     *xattr              = NULL;
-	int         ret                = -1;
+    	dict_t     *xattr             = NULL;
+    	posix_xattr_filler_t filler   = {0, };
 
+    	xattr = get_new_dict();
+    	if (!xattr) {
+    		gf_log (this->name, GF_LOG_ERROR,
+    			"memory allocation failed :(");
+    		goto out;
+    	}
 
-	xattr = get_new_dict();
-	if (!xattr) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
-		goto err;
-	}
+    	filler.this = this;
+    	filler.real_path = real_path;
+    	filler.xattr     = xattr;
+    	filler.stbuf     = buf;
 
-	xattr_size = lgetxattr (real_path, "trusted.glusterfs.dht", layout,
-				val_size);
-
-	/* should size be put into the data_t ? */
-	if (xattr_size != -1) {
-		layout[xattr_size] = '\0';
-		layout_p = memdup (layout, xattr_size);
-		ret = dict_set_bin (xattr, "trusted.glusterfs.dht",
-				    layout_p, xattr_size);
-		if (ret < 0)
-			gf_log (this->name, GF_LOG_ERROR, "dict set failed");
-	}
-
-	xattr_size = lgetxattr (real_path, "trusted.glusterfs.dht.linkto",
-				linkto, val_size);
-
-	/* should size be put into the data_t ? */
-	if (xattr_size != -1) {
-		linkto[xattr_size] = '\0';
-		linkto_p = strdup (linkto);
-		ret = dict_set_bin (xattr, "trusted.glusterfs.dht.linkto",
-				    linkto_p, xattr_size);
-		if (ret < 0)
-			gf_log (this->name, GF_LOG_ERROR, "dict set failed");
-	}
-
-	xattr_size = lgetxattr (real_path, 
-				"trusted.glusterfs.afr.data-pending",
-				data_pending, 0);
-	if (xattr_size != -1) {
-		data_pending = CALLOC (1, xattr_size);
-		lgetxattr (real_path, "trusted.glusterfs.afr.data-pending",
-			   data_pending, xattr_size);
-		ret = dict_set_bin (xattr, 
-				    "trusted.glusterfs.afr.data-pending",
-				    data_pending, xattr_size);
-		if (ret < 0)
-			gf_log (this->name, GF_LOG_ERROR, "dict set failed");
-	}
-
-	xattr_size = lgetxattr (real_path, 
-				"trusted.glusterfs.afr.entry-pending",
-				entry_pending, 0);
-	if (xattr_size != -1) {
-		entry_pending = CALLOC (1, xattr_size);
-		lgetxattr (real_path, "trusted.glusterfs.afr.entry-pending",
-			   entry_pending, xattr_size);
-		ret = dict_set_bin (xattr, 
-				    "trusted.glusterfs.afr.entry-pending",
-				    entry_pending, xattr_size);
-		if (ret < 0)
-			gf_log (this->name, GF_LOG_ERROR, "dict set failed");
-	}
-
-	xattr_size = lgetxattr (real_path, 
-				"trusted.glusterfs.afr.metadata-pending",
-				data_pending, 0);
-	if (xattr_size != -1) {
-		metadata_pending = CALLOC (1, xattr_size);
-		lgetxattr (real_path, "trusted.glusterfs.afr.metadata-pending",
-			   metadata_pending, xattr_size);
-		ret = dict_set_bin (xattr, 
-				    "trusted.glusterfs.afr.metadata-pending",
-				    metadata_pending, xattr_size);
-		if (ret < 0)
-			gf_log (this->name, GF_LOG_ERROR, "dict set failed");
-	}
-
-	if ((need_xattr > 0)
-	    && (buf->st_size <= need_xattr)
-	    && S_ISREG (buf->st_mode)) {
-		
-		_fd = open (real_path, O_RDONLY);
-
-		if (_fd == -1) {
-			gf_log (this->name, GF_LOG_ERROR, 
-				"opening file %s failed: %s",
-				real_path, strerror (errno));
-			goto err;
-		}
-      
-		databuf = MALLOC (buf->st_size);
-
-		if (!databuf) {
-			gf_log (this->name, GF_LOG_ERROR, 
-				"out of memory :(");
-			goto err;
-		}
-      
-		ret = read (_fd, databuf, buf->st_size);
-		if (ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR, 
-				"read on file %s failed: %s", 
-				real_path, strerror (errno));
-			goto err;
-		}
-
-		ret = close (_fd);
-		_fd = -1;
-		if (ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR, 
-				"close on file %s failed: %s", 
-				real_path, strerror (errno));
-			goto err;
-		}
-      
-		ret = dict_set_bin (xattr, "glusterfs.content", 
-				    databuf, buf->st_size);
-		if (ret < 0) {
-			goto err;
-		}
-
-		/* To avoid double free in cleanup below */
-		databuf = NULL;
-	}
-
-	return xattr;
-
-err:
-	if (_fd != -1)
-		close (_fd);
-	if (databuf)
-		FREE (databuf);
-	if (xattr)
-		dict_destroy (xattr);
-
-	return NULL;
+    	dict_foreach (xattr_req, _posix_xattr_get_set, &filler);
+out:
+    	return xattr;
 }
 
 
 int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,
-              loc_t *loc, int32_t need_xattr)
+              loc_t *loc, dict_t *xattr_req)
 {
         struct stat buf                = {0, };
         char *      real_path          = NULL;
@@ -279,8 +237,8 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
 		if (op_errno != ENOENT) {
-			gf_log (this->name, GF_LOG_WARNING, 
-				"lstat on %s failed: %s", 
+			gf_log (this->name, GF_LOG_WARNING,
+				"lstat on %s failed: %s",
 				loc->path, strerror (op_errno));
 		}
                 goto out;
@@ -299,24 +257,24 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 		handle.loc = loc;
 		__xattrop_cache_flush (handle, this);
 	}
-	
+
 	/* Make sure we don't access another mountpoint inside export dir.
-	 * It may cause inode number to repeat from single export point, 
-	 * which leads to severe problems.. 
+	 * It may cause inode number to repeat from single export point,
+	 * which leads to severe problems..
 	 */
 	if (priv->base_stdev != buf.st_dev) {
 		op_errno = ENOENT;
-		gf_log (this->name, GF_LOG_WARNING, 
+		gf_log (this->name, GF_LOG_WARNING,
 			"%s: different mountpoint/device, returning "
 			"ENOENT", loc->path);
 		goto out;
 	}
 
-        if (need_xattr && (op_ret == 0)) {
+        if (xattr_req && (op_ret == 0)) {
 		xattr = posix_lookup_xattr_fill (this, real_path,
-						 need_xattr, &buf);
+						 xattr_req, &buf);
         }
-	
+
 	op_ret = 0;
 out:
         frame->root->rsp_refs = NULL;
@@ -356,7 +314,7 @@ posix_stat (call_frame_t *frame,
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "lstat on %s: %s", loc->path, strerror (op_errno));
                 goto out;
         }
@@ -364,14 +322,14 @@ posix_stat (call_frame_t *frame,
         op_ret = 0;
 
  out:
-        SET_TO_OLD_FS_ID();  
+        SET_TO_OLD_FS_ID();
         frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
         return 0;
 }
 
-int32_t 
+int32_t
 posix_opendir (call_frame_t *frame, xlator_t *this,
                loc_t *loc, fd_t *fd)
 {
@@ -382,7 +340,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
         struct posix_fd * pfd       = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
-  
+
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
@@ -396,14 +354,14 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 
         if (dir == NULL) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "opendir failed on %s (%s)", 
+                gf_log (this->name, GF_LOG_ERROR,
+                        "opendir failed on %s (%s)",
 			loc->path, strerror (op_errno));
                 goto out;
         }
 
         op_ret = dirfd (dir);
-  
+
         pfd = CALLOC (1, sizeof (*fd));
         if (!pfd) {
                 op_errno = errno;
@@ -470,7 +428,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
         char              linkpath[ZR_PATH_MAX];
 
         DECLARE_OLD_FS_ID_VAR ;
-  
+
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
@@ -479,7 +437,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
 
         if (!fd->ctx) {
                 op_errno = EBADFD;
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
 			"fd->ctx is NULL (fd=%p)", fd);
                 goto out;
         }
@@ -487,7 +445,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
         ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
         if (ret < 0) {
                 op_errno = -ret;
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
                         "fd %p does not have context in %s",
                         fd, this->name);
                 goto out;
@@ -518,10 +476,10 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
         entry_path[real_path_len] = '/';
 
         dir = pfd->dir;
-  
+
         if (!dir) {
                 op_errno = EBADFD;
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
                         "pfd does not have dir set (possibly file fd, "
 			"fd=%p, path=`%s'",
                         fd, real_path);
@@ -534,21 +492,21 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
                 if (!dirent)
                         break;
 
-                /* This helps in self-heal, when only directories 
+                /* This helps in self-heal, when only directories
                    needs to be replicated */
-    
-                /* This is to reduce the network traffic, in case only 
+
+                /* This is to reduce the network traffic, in case only
                    directory is needed from posix */
 
                 strncpy (tmp_real_path, real_path, ZR_PATH_MAX);
-                strncat (tmp_real_path, "/", 
+                strncat (tmp_real_path, "/",
 			 ZR_PATH_MAX - strlen (tmp_real_path));
 
-                strncat (tmp_real_path, dirent->d_name, 
+                strncat (tmp_real_path, dirent->d_name,
                          ZR_PATH_MAX - strlen (tmp_real_path));
                 ret = lstat (tmp_real_path, &buf);
 
-                if ((flag == GF_GET_DIR_ONLY) 
+                if ((flag == GF_GET_DIR_ONLY)
                     && (ret != -1 && !S_ISDIR(buf.st_mode))) {
                         continue;
                 }
@@ -570,9 +528,9 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
-                if (entry_path_len < 
+                if (entry_path_len <
 		    (real_path_len + 1 + strlen (tmp->name) + 1)) {
-                        entry_path_len = (real_path_len + 
+                        entry_path_len = (real_path_len +
 					  strlen (tmp->name) + 1024);
 
                         entry_path = realloc (entry_path, entry_path_len);
@@ -584,8 +542,8 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
 
                 if (ret == -1) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR, 
-				"lstat on %s failed: %s", 
+                        gf_log (this->name, GF_LOG_ERROR,
+				"lstat on %s failed: %s",
                                 entry_path, strerror (op_errno));
                         goto out;
                 }
@@ -606,7 +564,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
                 tmp->next = entries.next;
                 entries.next = tmp;
 
-                /* if size is 0, count can never be = size, so entire 
+                /* if size is 0, count can never be = size, so entire
 		   dir is read */
                 if (count == size)
                         break;
@@ -640,7 +598,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_releasedir (xlator_t *this,
 		  fd_t *fd)
 {
@@ -657,14 +615,14 @@ posix_releasedir (xlator_t *this,
 
         if (ret < 0) {
                 op_errno = -ret;
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
                         "pfd from fd=%p is NULL", fd);
                 goto out;
         }
 
         if (!pfd->dir) {
                 op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
                         "pfd->dir is NULL for fd=%p path=%s",
                         fd, pfd->path ? pfd->path : "<NULL>");
                 goto out;
@@ -673,15 +631,15 @@ posix_releasedir (xlator_t *this,
         ret = closedir (pfd->dir);
         if (ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
                         "closedir on %p failed", pfd->dir);
                 goto out;
         }
         pfd->dir = NULL;
-  
+
         if (!pfd->path) {
                 op_errno = EBADFD;
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
                         "pfd->path was NULL. fd=%p pfd=%p",
                         fd, pfd);
                 goto out;
@@ -700,7 +658,7 @@ posix_releasedir (xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_readlink (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, size_t size)
 {
@@ -722,7 +680,7 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
         op_ret = readlink (real_path, dest, size);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "readlink on %s: %s", loc->path, strerror (op_errno));
                 goto out;
         }
@@ -732,13 +690,13 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
         frame->root->rsp_refs = NULL;
-  
+
         STACK_UNWIND (frame, op_ret, op_errno, dest);
 
         return 0;
 }
 
-int32_t 
+int32_t
 posix_mknod (call_frame_t *frame, xlator_t *this,
              loc_t *loc, mode_t mode, dev_t dev)
 {
@@ -749,7 +707,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         struct stat stbuf     = { 0, };
 
         DECLARE_OLD_FS_ID_VAR;
-  
+
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
@@ -769,14 +727,14 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 				goto out;
 			close (tmp_fd);
 		} else {
-			
+
 			gf_log (this->name, GF_LOG_ERROR,
-				"mknod on %s: %s", loc->path, 
+				"mknod on %s: %s", loc->path,
 				strerror (op_errno));
 			goto out;
 		}
         }
-  
+
 #ifndef HAVE_SET_FSID
         op_ret = lchown (real_path, frame->root->uid, frame->root->gid);
         if (op_ret == -1) {
@@ -798,16 +756,16 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 
         op_ret = 0;
 
- out:  
+ out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;  
+        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
         return 0;
 }
 
-int32_t 
+int32_t
 posix_mkdir (call_frame_t *frame, xlator_t *this,
              loc_t *loc, mode_t mode)
 {
@@ -817,7 +775,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         struct stat stbuf     = {0, };
 
         DECLARE_OLD_FS_ID_VAR;
-  
+
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
@@ -828,11 +786,11 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         op_ret = mkdir (real_path, mode);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "mkdir of %s: %s", loc->path, strerror (op_errno));
                 goto out;
         }
-  
+
 #ifndef HAVE_SET_FSID
         op_ret = chown (real_path, frame->root->uid, frame->root->gid);
         if (op_ret == -1) {
@@ -853,9 +811,9 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
         op_ret = 0;
 
- out:  
+ out:
         SET_TO_OLD_FS_ID ();
-  
+
         frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
@@ -863,14 +821,14 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_unlink (call_frame_t *frame, xlator_t *this,
               loc_t *loc)
 {
         int32_t op_ret    = -1;
         int32_t op_errno  = 0;
         char *  real_path = NULL;
-  
+
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -879,18 +837,18 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
-  
+
         op_ret = unlink (real_path);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "unlink of %s: %s", loc->path, strerror (op_errno));
                 goto out;
         }
 
         op_ret = 0;
 
- out:  
+ out:
         SET_TO_OLD_FS_ID ();
         frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
@@ -898,7 +856,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t 
+int32_t
 posix_rmdir (call_frame_t *frame, xlator_t *this,
              loc_t *loc)
 {
@@ -911,19 +869,19 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
-  
+
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
-  
+
         op_ret = rmdir (real_path);
         op_errno = errno;
 
 	if (op_errno == EEXIST)
 		/* Solaris sets errno = EEXIST instead of ENOTEMPTY */
 		op_errno = ENOTEMPTY;
-	  
+
         if (op_ret == -1 && op_errno != ENOTEMPTY) {
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "rmdir of %s: %s", loc->path, strerror (op_errno));
                 goto out;
         }
@@ -936,7 +894,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t 
+int32_t
 posix_symlink (call_frame_t *frame, xlator_t *this,
                const char *linkname, loc_t *loc)
 {
@@ -954,23 +912,23 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
-    
+
         op_ret = symlink (linkname, real_path);
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "symlink of %s --> %s: %s", 
+                gf_log (this->name, GF_LOG_WARNING,
+                        "symlink of %s --> %s: %s",
                         loc->path, linkname, strerror (op_errno));
                 goto out;
         }
-  
+
 #ifndef HAVE_SET_FSID
         op_ret = lchown (real_path, frame->root->uid, frame->root->gid);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "lchown failed on %s: %s", 
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lchown failed on %s: %s",
                         loc->path, strerror (op_errno));
                 goto out;
         }
@@ -978,15 +936,15 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         op_ret = lstat (real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "lstat failed on %s: %s", 
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lstat failed on %s: %s",
                         loc->path, strerror (op_errno));
                 goto out;
         }
 
         op_ret = 0;
 
- out:  
+ out:
         SET_TO_OLD_FS_ID ();
 
         frame->root->rsp_refs = NULL;
@@ -1012,26 +970,26 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (oldloc, out);
         VALIDATE_OR_GOTO (newloc, out);
-  
+
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
         MAKE_REAL_PATH (real_newpath, this, newloc->path);
-  
+
         op_ret = rename (real_oldpath, real_newpath);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name,
-			(op_errno == ENOTEMPTY ? GF_LOG_DEBUG : GF_LOG_ERROR), 
-                        "rename of %s to %s failed: %s", 
+			(op_errno == ENOTEMPTY ? GF_LOG_DEBUG : GF_LOG_ERROR),
+                        "rename of %s to %s failed: %s",
                         oldloc->path, newloc->path, strerror (op_errno));
                 goto out;
         }
-    
+
         op_ret = lstat (real_newpath, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "lstat on %s failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lstat on %s failed: %s",
                         real_newpath, strerror (op_errno));
                 goto out;
         }
@@ -1060,12 +1018,12 @@ posix_link (call_frame_t *frame, xlator_t *this,
 
 
         DECLARE_OLD_FS_ID_VAR;
-    
+
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (oldloc, out);
         VALIDATE_OR_GOTO (newloc, out);
-  
+
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
         MAKE_REAL_PATH (real_newpath, this, newloc->path);
@@ -1073,17 +1031,17 @@ posix_link (call_frame_t *frame, xlator_t *this,
         op_ret = link (real_oldpath, real_newpath);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "link %s to %s failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING,
+                        "link %s to %s failed: %s",
                         oldloc->path, newloc->path, strerror (op_errno));
                 goto out;
         }
-    
+
         op_ret = lstat (real_newpath, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "lstat on %s failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lstat on %s failed: %s",
                         real_newpath, strerror (op_errno));
                 goto out;
         }
@@ -1110,21 +1068,21 @@ posix_chmod (call_frame_t *frame, xlator_t *this,
         struct stat stbuf     = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
-  
+
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
-  
+
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
-        
+
         if (S_ISLNK (loc->inode->st_mode)) {
                 /* chmod on a link should always succeed */
                 op_ret = 0;
 		op_ret = lstat (real_path, &stbuf);
 		if (op_ret == -1) {
 			op_errno = errno;
-			gf_log (this->name, GF_LOG_ERROR, 
+			gf_log (this->name, GF_LOG_ERROR,
 				"lstat on %s failed: %s",
 				real_path, strerror (op_errno));
 			goto out;
@@ -1134,7 +1092,7 @@ posix_chmod (call_frame_t *frame, xlator_t *this,
 
         op_ret = lchmod (real_path, mode);
         if ((op_ret == -1) && (errno == ENOSYS)) {
-                gf_log (this->name, GF_LOG_DEBUG, 
+                gf_log (this->name, GF_LOG_DEBUG,
                         "lchmod not implemented, falling back to chmod");
                 op_ret = chmod (real_path, mode);
         }
@@ -1145,7 +1103,7 @@ posix_chmod (call_frame_t *frame, xlator_t *this,
                         loc->path, strerror (op_errno));
                 goto out;
         }
-        
+
         op_ret = lstat (real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -1183,21 +1141,21 @@ posix_chown (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
-    
+
         op_ret = lchown (real_path, uid, gid);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
 			"lchown on %s failed: %s",
                         loc->path, strerror (op_errno));
                 goto out;
         }
-    
+
         op_ret = lstat (real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-			"lstat on %s failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING,
+			"lstat on %s failed: %s",
                         real_path, strerror (op_errno));
                 goto out;
         }
@@ -1206,14 +1164,14 @@ posix_chown (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;  
+        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
 }
 
 
-int32_t 
+int32_t
 posix_truncate (call_frame_t *frame,
                 xlator_t *this,
                 loc_t *loc,
@@ -1236,16 +1194,16 @@ posix_truncate (call_frame_t *frame,
         op_ret = truncate (real_path, offset);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "truncate on %s failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING,
+                        "truncate on %s failed: %s",
                         loc->path, strerror (op_errno));
                 goto out;
         }
-    
+
         lstat (real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, "lstat on %s failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING, "lstat on %s failed: %s",
                         real_path, strerror (op_errno));
                 goto out;
         }
@@ -1273,11 +1231,11 @@ posix_utimens (call_frame_t *frame, xlator_t *this,
         struct timeval tv[2]     = {{0,},{0,}};
 
         DECLARE_OLD_FS_ID_VAR;
-  
+
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
-  
+
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -1293,7 +1251,7 @@ posix_utimens (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "utimes on %s: %s", real_path, strerror (op_errno));
                 goto out;
         }
@@ -1301,7 +1259,7 @@ posix_utimens (call_frame_t *frame, xlator_t *this,
         op_ret = lstat (real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "lstat on %s: %s", real_path, strerror (op_errno));
                 goto out;
         }
@@ -1317,7 +1275,7 @@ posix_utimens (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t 
+int32_t
 posix_create (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int32_t flags, mode_t mode,
               fd_t *fd)
@@ -1343,7 +1301,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
-    
+
         if (!flags) {
                 _flags = O_CREAT | O_RDWR | O_EXCL;
         }
@@ -1351,24 +1309,24 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 _flags = flags | O_CREAT;
         }
 
-        if (priv->o_direct) 
+        if (priv->o_direct)
                 flags |= O_DIRECT;
 
         _fd = open (real_path, _flags, mode);
 
         if (_fd == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "open on %s: %s", loc->path, strerror (op_errno));
                 goto out;
         }
-    
+
 #ifndef HAVE_SET_FSID
         op_ret = chown (real_path, frame->root->uid, frame->root->gid);
         if (_fd == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "chown on %s failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING,
+                        "chown on %s failed: %s",
 			real_path, strerror (op_errno));
                 goto out;
         }
@@ -1377,7 +1335,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         op_ret = fstat (_fd, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "fstat on %d failed: %s", _fd, strerror (op_errno));
                 goto out;
         }
@@ -1410,7 +1368,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t 
+int32_t
 posix_open (call_frame_t *frame, xlator_t *this,
             loc_t *loc, int32_t flags, fd_t *fd)
 {
@@ -1422,7 +1380,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
         struct posix_private * priv      = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
-    
+
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (this->private, out);
@@ -1440,11 +1398,11 @@ posix_open (call_frame_t *frame, xlator_t *this,
         _fd = open (real_path, flags, 0);
         if (_fd == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "open on %s: %s", real_path, strerror (op_errno));
                 goto out;
         }
-    
+
         pfd = CALLOC (1, sizeof (*pfd));
 
         if (!pfd) {
@@ -1466,8 +1424,8 @@ posix_open (call_frame_t *frame, xlator_t *this,
                 op_ret = chown (real_path, frame->root->uid, frame->root->gid);
                 if (op_ret == -1) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_WARNING, 
-                                "chown on %s failed: %s", 
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "chown on %s failed: %s",
 				real_path, strerror (op_errno));
                         goto out;
                 }
@@ -1524,7 +1482,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 
         if (ret < 0) {
                 op_errno = -ret;
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
 			"pfd is NULL from fd=%p", fd);
                 goto out;
         }
@@ -1555,16 +1513,16 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         op_ret = lseek (_fd, offset, SEEK_SET);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, 
-			"lseek(%"PRId64") failed: %s", 
-                        offset, strerror (op_errno)); 
+                gf_log (this->name, GF_LOG_ERROR,
+			"lseek(%"PRId64") failed: %s",
+                        offset, strerror (op_errno));
                 goto out;
         }
-  
+
         op_ret = read (_fd, buf, size);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "read failed: %s", strerror (op_errno));
                 goto out;
         }
@@ -1574,7 +1532,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 
         vec.iov_base = buf;
         vec.iov_len  = op_ret;
-    
+
         reply_dict = get_new_dict ();
         if (!reply_dict) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1591,7 +1549,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        /* 
+        /*
          *  readv successful, and we need to get the stat of the file
          *  we read from
          */
@@ -1599,7 +1557,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         ret = fstat (_fd, &stbuf);
         if (ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "fstat failed: %s", strerror (op_errno));
                 goto out;
         }
@@ -1629,7 +1587,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_writev (call_frame_t *frame, xlator_t *this,
               fd_t *fd, struct iovec *vector, int32_t count, off_t offset)
 {
@@ -1645,7 +1603,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
         int    align        = 4096;
         int    max_buf_size = 0;
         int    retval       = 0;
-        char * buf          = NULL; 
+        char * buf          = NULL;
         char * alloc_buf    = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1654,15 +1612,15 @@ posix_writev (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (vector, out);
         VALIDATE_OR_GOTO (this->private, out);
         VALIDATE_OR_GOTO (fd->ctx, out);
-  
+
         priv = this->private;
-  
+
         VALIDATE_OR_GOTO (priv, out);
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd); 
+        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
 
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
 			"pfd is NULL from fd=%p", fd);
                 op_errno = -ret;
                 goto out;
@@ -1674,8 +1632,8 @@ posix_writev (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, 
-			"lseek(%"PRId64") failed: %s", 
+                gf_log (this->name, GF_LOG_ERROR,
+			"lseek(%"PRId64") failed: %s",
                         offset, strerror (op_errno));
                 goto out;
         }
@@ -1701,17 +1659,17 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                         /* page aligned buffer */
                         buf = ALIGN_BUF (alloc_buf, align);
 
-                        memcpy (buf, vector[idx].iov_base, 
+                        memcpy (buf, vector[idx].iov_base,
 				vector[idx].iov_len);
-      
+
                         /* not sure whether writev works on O_DIRECT'd fd */
                         retval = write (_fd, buf, vector[idx].iov_len);
-      
+
                         if (retval == -1) {
                                 if (op_ret == -1) {
                                         op_errno = errno;
-                                        gf_log (this->name, GF_LOG_WARNING, 
-                                                "O_DIRECT enabled: %s", 
+                                        gf_log (this->name, GF_LOG_WARNING,
+                                                "O_DIRECT enabled: %s",
 						strerror (op_errno));
                                         goto out;
                                 }
@@ -1727,8 +1685,8 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                 op_ret   = writev (_fd, vector, count);
                 if (op_ret == -1) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_WARNING, 
-				"writev failed: %s", 
+                        gf_log (this->name, GF_LOG_WARNING,
+				"writev failed: %s",
                                 strerror (op_errno));
                         goto out;
                 }
@@ -1736,15 +1694,15 @@ posix_writev (call_frame_t *frame, xlator_t *this,
 
         priv->write_value    += op_ret;
         priv->interval_write += op_ret;
-  
+
         if (op_ret >= 0) {
-                /* wiretv successful, we also need to get the stat of 
-                 * the file we wrote to 
+                /* wiretv successful, we also need to get the stat of
+                 * the file we wrote to
                  */
                 ret = fstat (_fd, &stbuf);
                 if (ret == -1) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR, "fstat failed: %s", 
+                        gf_log (this->name, GF_LOG_ERROR, "fstat failed: %s",
                                 strerror (op_errno));
                         goto out;
                 }
@@ -1762,7 +1720,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_statfs (call_frame_t *frame, xlator_t *this,
               loc_t *loc)
 {
@@ -1785,11 +1743,11 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "statvfs failed: %s", 
+                gf_log (this->name, GF_LOG_ERROR, "statvfs failed: %s",
                         strerror (op_errno));
                 goto out;
         }
-  
+
         if (!priv->export_statfs) {
                 buf.f_blocks = 0;
                 buf.f_bfree  = 0;
@@ -1808,7 +1766,7 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_flush (call_frame_t *frame, xlator_t *this,
              fd_t *fd)
 {
@@ -1843,7 +1801,7 @@ posix_flush (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_release (xlator_t *this,
 	       fd_t *fd)
 {
@@ -1880,7 +1838,7 @@ posix_release (xlator_t *this,
 	op_ret = close (_fd);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "close(): %s", strerror (op_errno));
 		goto out;
         }
@@ -1903,7 +1861,7 @@ posix_release (xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_fsync (call_frame_t *frame, xlator_t *this,
              fd_t *fd, int32_t datasync)
 {
@@ -1918,14 +1876,14 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
-  
+
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
 #ifdef GF_DARWIN_HOST_OS
         /* Always return success in case of fsync in MAC OS X */
         op_ret = 0;
         goto out;
-#endif 
+#endif
 
         ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
         if (ret < 0) {
@@ -1945,7 +1903,7 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
                 op_ret = fsync (_fd);
                 if (op_ret == -1) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_WARNING, "fsync: %s", 
+                        gf_log (this->name, GF_LOG_WARNING, "fsync: %s",
                                 strerror (op_errno));
                 }
         }
@@ -1957,14 +1915,14 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         frame->root->rsp_refs = NULL;
 
         STACK_UNWIND (frame, op_ret, op_errno);
-  
+
         return 0;
 }
 
 static int gf_posix_xattr_enotsup_log;
 
 int
-set_file_contents (xlator_t *this, char *real_path, 
+set_file_contents (xlator_t *this, char *real_path,
                    data_pair_t *trav, int flags)
 {
         char *      key                        = NULL;
@@ -1972,41 +1930,41 @@ set_file_contents (xlator_t *this, char *real_path,
         int32_t     file_fd                    = -1;
         int         op_ret                     = 0;
         int         ret                        = -1;
-        
+
         key = &(trav->key[15]);
         sprintf (real_filepath, "%s/%s", real_path, key);
 
         if (flags & XATTR_REPLACE) {
-                /* if file exists, replace it 
+                /* if file exists, replace it
                  * else, error out */
                 file_fd = open (real_filepath, O_TRUNC|O_WRONLY);
 
                 if (file_fd == -1) {
                         goto create;
                 }
-        
+
                 if (trav->value->len) {
-                        ret = write (file_fd, trav->value->data, 
+                        ret = write (file_fd, trav->value->data,
 				     trav->value->len);
                         if (ret == -1) {
                                 op_ret = -errno;
-                                gf_log (this->name, GF_LOG_ERROR, 
+                                gf_log (this->name, GF_LOG_ERROR,
 					"write failed while doing setxattr "
 					"for key %s on path %s: %s",
                                         key, real_filepath, strerror (errno));
                                 goto out;
                         }
-          
+
                         ret = close (file_fd);
                         if (ret == -1) {
                                 op_ret = -errno;
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "close failed on %s: %s", 
+                                        "close failed on %s: %s",
                                         real_filepath, strerror (errno));
                                 goto out;
                         }
                 }
-        
+
         create: /* we know file doesn't exist, create it */
 
                 file_fd = open (real_filepath, O_CREAT|O_WRONLY, 0644);
@@ -2014,17 +1972,17 @@ set_file_contents (xlator_t *this, char *real_path,
                 if (file_fd == -1) {
                         op_ret = -errno;
                         gf_log (this->name, GF_LOG_ERROR,
-                                "failed to open file %s with O_CREAT: %s", 
+                                "failed to open file %s with O_CREAT: %s",
                                 key, strerror (errno));
                         goto out;
                 }
-        
+
                 ret = write (file_fd, trav->value->data, trav->value->len);
                 if (ret == -1) {
                         op_ret = -errno;
                         gf_log (this->name, GF_LOG_ERROR,
                                 "write failed on %s while setxattr with "
-				"key %s: %s", 
+				"key %s: %s",
                                 real_filepath, key, strerror (errno));
                         goto out;
                 }
@@ -2034,7 +1992,7 @@ set_file_contents (xlator_t *this, char *real_path,
                         op_ret = -errno;
                         gf_log (this->name, GF_LOG_ERROR,
                                 "close failed on %s while setxattr with "
-				"key %s: %s", 
+				"key %s: %s",
                                 real_filepath, key, strerror (errno));
                         goto out;
                 }
@@ -2044,8 +2002,8 @@ set_file_contents (xlator_t *this, char *real_path,
         return op_ret;
 }
 
-int 
-handle_pair (xlator_t *this, char *real_path, 
+int
+handle_pair (xlator_t *this, char *real_path,
              data_pair_t *trav, int flags)
 {
         int sys_ret = -1;
@@ -2054,13 +2012,13 @@ handle_pair (xlator_t *this, char *real_path,
         if (ZR_FILE_CONTENT_REQUEST(trav->key)) {
                 ret = set_file_contents (this, real_path, trav, flags);
         } else {
-                sys_ret = lsetxattr (real_path, trav->key, trav->value->data, 
+                sys_ret = lsetxattr (real_path, trav->key, trav->value->data,
                                      trav->value->len, flags);
 
                 if (sys_ret < 0) {
                         if (errno == ENOTSUP) {
                                 GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log,
-						    this->name,GF_LOG_WARNING, 
+						    this->name,GF_LOG_WARNING,
 						    "Extended attributes not "
 						    "supported");
                         } else if (errno == ENOENT) {
@@ -2070,16 +2028,16 @@ handle_pair (xlator_t *this, char *real_path,
                         } else {
 
 #ifdef GF_DARWIN_HOST_OS
-				gf_log (this->name, 
-					((errno == EINVAL) ? 
-					 GF_LOG_DEBUG : GF_LOG_WARNING), 
-					"%s: key:%s error:%s", 
-					real_path, trav->key, 
+				gf_log (this->name,
+					((errno == EINVAL) ?
+					 GF_LOG_DEBUG : GF_LOG_WARNING),
+					"%s: key:%s error:%s",
+					real_path, trav->key,
 					strerror (errno));
 #else /* ! DARWIN */
-                                gf_log (this->name, GF_LOG_WARNING, 
-                                        "%s: key:%s error:%s", 
-                                        real_path, trav->key, 
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "%s: key:%s error:%s",
+                                        real_path, trav->key,
 					strerror (errno));
 #endif /* DARWIN */
                         }
@@ -2092,7 +2050,7 @@ handle_pair (xlator_t *this, char *real_path,
         return ret;
 }
 
-int32_t 
+int32_t
 posix_setxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, dict_t *dict, int flags)
 {
@@ -2134,7 +2092,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 }
 
 int
-get_file_contents (xlator_t *this, char *real_path, 
+get_file_contents (xlator_t *this, char *real_path,
                    const char *name, char **contents)
 {
         char        real_filepath[ZR_PATH_MAX] = {0,};
@@ -2150,7 +2108,7 @@ get_file_contents (xlator_t *this, char *real_path,
         op_ret = lstat (real_filepath, &stbuf);
         if (op_ret == -1) {
                 op_ret = -errno;
-                gf_log (this->name, GF_LOG_ERROR, "lstat failed on %s: %s", 
+                gf_log (this->name, GF_LOG_ERROR, "lstat failed on %s: %s",
                         real_filepath, strerror (errno));
                 goto out;
         }
@@ -2195,7 +2153,7 @@ get_file_contents (xlator_t *this, char *real_path,
         if (op_ret < 0) {
                 if (*contents)
                         FREE (*contents);
-                if (file_fd != -1) 
+                if (file_fd != -1)
                         close (file_fd);
         }
 
@@ -2203,11 +2161,11 @@ get_file_contents (xlator_t *this, char *real_path,
 }
 
 /**
- * posix_getxattr - this function returns a dictionary with all the 
- *                  key:value pair present as xattr. used for 
+ * posix_getxattr - this function returns a dictionary with all the
+ *                  key:value pair present as xattr. used for
  *                  both 'listxattr' and 'getxattr'.
  */
-int32_t 
+int32_t
 posix_getxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, const char *name)
 {
@@ -2233,18 +2191,18 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        if (loc->inode && S_ISDIR(loc->inode->st_mode) && name && 
+        if (loc->inode && S_ISDIR(loc->inode->st_mode) && name &&
 	    ZR_FILE_CONTENT_REQUEST(name)) {
-                ret = get_file_contents (this, real_path, name, 
+                ret = get_file_contents (this, real_path, name,
 					 &file_contents);
                 if (ret < 0) {
                         op_errno = -ret;
-                        gf_log (this->name, GF_LOG_ERROR, 
+                        gf_log (this->name, GF_LOG_ERROR,
 				"getting file contents failed: %s",
                                 strerror (op_errno));
                         goto out;
                 }
-        }  
+        }
 
         /* Get the total size */
         dict = get_new_dict ();
@@ -2258,18 +2216,18 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 if ((errno == ENOTSUP) || (errno == ENOSYS)) {
                         GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
-                                             this->name, GF_LOG_WARNING, 
+                                             this->name, GF_LOG_WARNING,
                                              "Extended attributes not "
 					     "supported.");
                 }
                 else {
                         gf_log (this->name, GF_LOG_ERROR,
-				"listxattr failed on %s: %s", 
+				"listxattr failed on %s: %s",
                                 real_path, strerror (op_errno));
                 }
                 goto out;
         }
-      
+
         if (size == 0)
                 goto done;
 
@@ -2281,7 +2239,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
         size = llistxattr (real_path, list, size);
-    
+
         remaining_size = size;
         list_offset = 0;
         while (remaining_size > 0) {
@@ -2313,23 +2271,23 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 
  done:
         op_ret = size;
-        
+
         if (dict) {
                 dict_ref (dict);
         }
-        
+
  out:
         SET_TO_OLD_FS_ID ();
         frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, dict);
-        
+
         if (dict)
                 dict_unref (dict);
-        
+
         return 0;
 }
-                     
-int32_t 
+
+int32_t
 posix_removexattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, const char *name)
 {
@@ -2340,7 +2298,7 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
         DECLARE_OLD_FS_ID_VAR;
 
         MAKE_REAL_PATH (real_path, this, loc->path);
-  
+
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
         op_ret = lremovexattr (real_path, name);
@@ -2349,7 +2307,7 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
 		if (op_errno != ENOATTR && op_errno != EPERM)
 			gf_log (this->name, GF_LOG_WARNING,
-				"removexattr on %s: %s", loc->path, 
+				"removexattr on %s: %s", loc->path,
                         strerror (op_errno));
                 goto out;
         }
@@ -2357,15 +2315,15 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
-        SET_TO_OLD_FS_ID ();    
+        SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;  
+        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
         return 0;
 }
 
 
-int32_t 
+int32_t
 posix_fsyncdir (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, int datasync)
 {
@@ -2419,7 +2377,7 @@ posix_print_xattr (dict_t *this,
  */
 
 static int
-__hgetxattr (struct xattrop_handle handle, xlator_t *this, 
+__hgetxattr (struct xattrop_handle handle, xlator_t *this,
 	     const char *key, void *array, size_t len)
 {
 	char *            real_path = NULL;
@@ -2441,7 +2399,7 @@ __hgetxattr (struct xattrop_handle handle, xlator_t *this,
                         errno = EBADFD;
 			goto out;
                 }
-		
+
                 _fd = pfd->fd;
 
 		op_ret = fgetxattr (_fd, key, array, len);
@@ -2478,7 +2436,7 @@ __hsetxattr (struct xattrop_handle handle, xlator_t *this,
                         errno = EBADFD;
 			goto out;
                 }
-		
+
                 _fd = pfd->fd;
 
 		op_ret = fsetxattr (_fd, key, array, len, flags);
@@ -2510,7 +2468,7 @@ __xattrop_cache_get (struct xattrop_handle handle, xlator_t *this)
 
 		if (ret < 0) {
 			cache = dict_new ();
-			ret = inode_ctx_put (inode, this, 
+			ret = inode_ctx_put (inode, this,
 					     (uint64_t)(long)cache);
 		}
 	}
@@ -2539,22 +2497,22 @@ __xattrop_cache_read (struct xattrop_handle handle, xlator_t *this,
 		ret      = __hgetxattr (handle, this, key, *array, len);
 		op_errno = errno;
 
-		if ((ret == -1) && (op_errno != ENODATA) && 
+		if ((ret == -1) && (op_errno != ENODATA) &&
 		    (op_errno != ENOATTR)) {
 			if (op_errno == ENOTSUP) {
                                 GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log,
-						    this->name, GF_LOG_WARNING, 
+						    this->name, GF_LOG_WARNING,
 						    "extended attributes not "
 						    "supported by filesystem");
 			} else 	{
 				gf_log (this->name, GF_LOG_ERROR,
-					"%s", strerror (op_errno)); 
+					"%s", strerror (op_errno));
 			}
 
 			goto out;
 		}
 
-		ret = dict_set_bin (cache, key, *array, len);		
+		ret = dict_set_bin (cache, key, *array, len);
 		/* check ret */
 	}
 
@@ -2572,10 +2530,10 @@ __xattrop_cache_flush (struct xattrop_handle handle, xlator_t *this)
 	int ret = -1;
 
 	cache = __xattrop_cache_get (handle, this);
- 
+
 	trav = cache->members_list;
 	while (trav) {
-		ret = __hsetxattr (handle, this, trav->key, trav->value->data, 
+		ret = __hsetxattr (handle, this, trav->key, trav->value->data,
 				   trav->value->len, 0);
 
 		trav = trav->next;
@@ -2604,7 +2562,7 @@ __add_array (int32_t *dest, int32_t *src, int count)
 
 int
 posix_xattrop_common (call_frame_t *frame, xlator_t *this,
-		      struct xattrop_handle handle, 
+		      struct xattrop_handle handle,
 		      gf_xattrop_flags_t optype, dict_t *xattr)
 {
 	int32_t         *array      = NULL;
@@ -2626,14 +2584,14 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 
 	while (trav) {
 		count = trav->value->len / sizeof (int32_t);
-		
-		ret = __xattrop_cache_read (handle, this, trav->key, (int32_t **)&array, 
+
+		ret = __xattrop_cache_read (handle, this, trav->key, (int32_t **)&array,
 					    trav->value->len);
 
 		switch (optype) {
 
 		case GF_XATTROP_ADD_ARRAY:
-			__add_array (array, (int32_t *) trav->value->data, 
+			__add_array (array, (int32_t *) trav->value->data,
 				     trav->value->len / 4);
 			break;
 
@@ -2655,12 +2613,12 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 
 		memcpy (_ret_array, array, trav->value->len);
 
-		ret = dict_set_bin (xattr, trav->key, _ret_array, 
+		ret = dict_set_bin (xattr, trav->key, _ret_array,
 				    trav->value->len);
-		
+
 		if (ret != 0) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"key=%s (%s)", 
+				"key=%s (%s)",
 				trav->key, strerror (-ret));
 			op_ret = -1;
 			op_errno = EINVAL;
@@ -2668,10 +2626,10 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 		}
 
 		trav = trav->next;
-		
+
 		_ret_array = NULL;
 	}
-	       
+
 out:
 	if (_ret_array)
 		FREE (_ret_array);
@@ -2691,7 +2649,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 	handle.loc = loc;
 
 	ret = posix_xattrop_common (frame, this, handle, optype, xattr);
-	
+
 	return ret;
 }
 
@@ -2731,7 +2689,7 @@ posix_access (call_frame_t *frame, xlator_t *this,
         op_ret = access (real_path, mask & 07);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, "access failed on %s: %s", 
+                gf_log (this->name, GF_LOG_WARNING, "access failed on %s: %s",
                         loc->path, strerror (op_errno));
                 goto out;
         }
@@ -2741,13 +2699,13 @@ posix_access (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;  
+        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
         return 0;
 }
 
 
-int32_t 
+int32_t
 posix_ftruncate (call_frame_t *frame, xlator_t *this,
                  fd_t *fd, off_t offset)
 {
@@ -2780,15 +2738,15 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, "ftruncate failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING, "ftruncate failed: %s",
                         strerror (errno));
                 goto out;
         }
-    
+
         op_ret = fstat (_fd, &buf);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, "fstat failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING, "fstat failed: %s",
                         strerror (errno));
                 goto out;
         }
@@ -2804,7 +2762,7 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t 
+int32_t
 posix_fchown (call_frame_t *frame, xlator_t *this,
               fd_t *fd, uid_t uid, gid_t gid)
 {
@@ -2837,7 +2795,7 @@ posix_fchown (call_frame_t *frame, xlator_t *this,
         op_ret = fchown (_fd, uid, gid);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, "fchown failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING, "fchown failed: %s",
                         strerror (op_errno));
                 goto out;
         }
@@ -2845,11 +2803,11 @@ posix_fchown (call_frame_t *frame, xlator_t *this,
         op_ret = fstat (_fd, &buf);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, "fstat failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING, "fstat failed: %s",
                         strerror (op_errno));
                 goto out;
         }
-  
+
         op_ret = 0;
 
  out:
@@ -2861,7 +2819,7 @@ posix_fchown (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_fchmod (call_frame_t *frame, xlator_t *this,
               fd_t *fd, mode_t mode)
 {
@@ -2895,7 +2853,7 @@ posix_fchmod (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
 			"fchmod failed: %s", strerror (errno));
                 goto out;
         }
@@ -2903,17 +2861,17 @@ posix_fchmod (call_frame_t *frame, xlator_t *this,
         op_ret = fstat (_fd, &buf);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
 			"fstat failed: %s", strerror (errno));
                 goto out;
         }
-  
+
         op_ret = 0;
 
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;  
+        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
         return 0;
@@ -2927,7 +2885,7 @@ same_file_type (mode_t m1, mode_t m2)
 }
 
 
-static int 
+static int
 ensure_file_type (xlator_t *this, char *pathname, mode_t mode)
 {
         struct stat stbuf  = {0,};
@@ -2949,12 +2907,12 @@ ensure_file_type (xlator_t *this, char *pathname, mode_t mode)
                         "entry %s is a different type of file "
 			"than expected", pathname);
                 goto out;
-        } 
+        }
  out:
         return op_ret;
 }
 
-static int 
+static int
 create_entry (xlator_t *this, int32_t flags,
               dir_entry_t *entry, char *pathname)
 {
@@ -2963,41 +2921,41 @@ create_entry (xlator_t *this, int32_t flags,
         struct timeval tv[2]     = {{0,0},{0,0}};
 
         if (S_ISDIR (entry->buf.st_mode)) {
-                /* 
+                /*
                  * If the entry is directory, create it by
-                 * calling 'mkdir'. If the entry is already 
-                 * present, check if it is a directory, 
+                 * calling 'mkdir'. If the entry is already
+                 * present, check if it is a directory,
                  * and issue a warning if otherwise.
                  */
 
                 ret = mkdir (pathname, entry->buf.st_mode);
                 if (ret == -1) {
                         if (errno == EEXIST) {
-                                op_ret = ensure_file_type (this, pathname, 
+                                op_ret = ensure_file_type (this, pathname,
                                                            entry->buf.st_mode);
                         }
                         else {
                                 op_ret = -errno;
-                                gf_log (this->name, GF_LOG_DEBUG, 
-                                        "mkdir %s with mode (0%o) failed: %s", 
-                                        pathname, entry->buf.st_mode, 
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "mkdir %s with mode (0%o) failed: %s",
+                                        pathname, entry->buf.st_mode,
                                         strerror (errno));
                                 goto out;
                         }
                 }
 
-        } else if ((flags & GF_SET_IF_NOT_PRESENT) 
+        } else if ((flags & GF_SET_IF_NOT_PRESENT)
                    || !(flags & GF_SET_DIR_ONLY)) {
 
                 /* create a 0-byte file here */
 
                 if (S_ISREG (entry->buf.st_mode)) {
-                        ret = open (pathname, O_CREAT|O_EXCL, 
+                        ret = open (pathname, O_CREAT|O_EXCL,
                                     entry->buf.st_mode);
 
                         if (ret == -1) {
                                 if (errno == EEXIST) {
-                                        op_ret = ensure_file_type (this, 
+                                        op_ret = ensure_file_type (this,
 								   pathname,
                                                                    entry->buf.st_mode);
                                 }
@@ -3006,12 +2964,12 @@ create_entry (xlator_t *this, int32_t flags,
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "Error creating file %s with "
 						"mode (0%o): %s",
-                                                pathname, entry->buf.st_mode, 
+                                                pathname, entry->buf.st_mode,
                                                 strerror (errno));
                                         goto out;
-                                } 
+                                }
                         }
-                                
+
                         close (ret);
 
                 } else if (S_ISLNK (entry->buf.st_mode)) {
@@ -3019,7 +2977,7 @@ create_entry (xlator_t *this, int32_t flags,
 
                         if (ret == -1) {
                                 if (errno == EEXIST) {
-                                        op_ret = ensure_file_type (this, 
+                                        op_ret = ensure_file_type (this,
 								   pathname,
                                                                    entry->buf.st_mode);
                                 }
@@ -3032,17 +2990,17 @@ create_entry (xlator_t *this, int32_t flags,
                                 }
                         }
 
-                } else if (S_ISBLK (entry->buf.st_mode) || 
-                           S_ISCHR (entry->buf.st_mode) || 
+                } else if (S_ISBLK (entry->buf.st_mode) ||
+                           S_ISCHR (entry->buf.st_mode) ||
                            S_ISFIFO (entry->buf.st_mode) ||
 			   S_ISSOCK (entry->buf.st_mode)) {
 
-                        ret = mknod (pathname, entry->buf.st_mode, 
+                        ret = mknod (pathname, entry->buf.st_mode,
                                      entry->buf.st_dev);
 
                         if (ret == -1) {
                                 if (errno == EEXIST) {
-                                        op_ret = ensure_file_type (this, 
+                                        op_ret = ensure_file_type (this,
 								   pathname,
                                                                    entry->buf.st_mode);
                                 } else {
@@ -3115,7 +3073,7 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
         ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
         if (ret < 0) {
                 op_errno = -ret;
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
 			"fd->ctx not found on fd=%p for %s",
                         fd, this->name);
                 goto out;
@@ -3145,13 +3103,13 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
 
         /* fd exists, and everything looks fine */
         /**
-         * create an entry for each one present in '@entries' 
+         * create an entry for each one present in '@entries'
          *  - if flag is set (ie, if its namespace), create both directories
-	 *    and files 
+	 *    and files
          *  - if not set, create only directories.
          *
          *  after the entry is created, change the mode and ownership of the
-	 *  entry according to the stat present in entries->buf.  
+	 *  entry according to the stat present in entries->buf.
          */
 
         trav = entries->next;
@@ -3172,7 +3130,7 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
 			ret = chmod (pathname, trav->buf.st_mode);
 			if (ret == -1) {
 				op_errno = errno;
-				gf_log (this->name, GF_LOG_ERROR, 
+				gf_log (this->name, GF_LOG_ERROR,
 					"chmod on %s failed: %s", pathname,
 					strerror (op_errno));
 				goto out;
@@ -3183,7 +3141,7 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
                 ret = lchown (pathname, trav->buf.st_uid, trav->buf.st_gid);
                 if (ret == -1) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR, 
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "chmod on %s failed: %s", pathname,
                                 strerror (op_errno));
                         goto out;
@@ -3214,7 +3172,7 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t 
+int32_t
 posix_fstat (call_frame_t *frame, xlator_t *this,
              fd_t *fd)
 {
@@ -3247,7 +3205,7 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING, "fstat failed: %s", 
+                gf_log (this->name, GF_LOG_WARNING, "fstat failed: %s",
                         strerror (op_errno));
                 goto out;
         }
@@ -3263,7 +3221,7 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
 
 static int gf_posix_lk_log;
 
-int32_t 
+int32_t
 posix_lk (call_frame_t *frame, xlator_t *this,
           fd_t *fd, int32_t cmd, struct flock *lock)
 {
@@ -3272,7 +3230,7 @@ posix_lk (call_frame_t *frame, xlator_t *this,
 
         gf_posix_lk_log++;
 
-	GF_LOG_OCCASIONALLY (gf_posix_lk_log, this->name, GF_LOG_ERROR, 
+	GF_LOG_OCCASIONALLY (gf_posix_lk_log, this->name, GF_LOG_ERROR,
 			     "\"features/posix-locks\" translator is "
 			     "not loaded, you need to use it");
 
@@ -3280,7 +3238,7 @@ posix_lk (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t 
+int32_t
 posix_inodelk (call_frame_t *frame, xlator_t *this,
 	       loc_t *loc, int32_t cmd, struct flock *lock)
 {
@@ -3294,7 +3252,7 @@ posix_inodelk (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t 
+int32_t
 posix_finodelk (call_frame_t *frame, xlator_t *this,
 		fd_t *fd, int32_t cmd, struct flock *lock)
 {
@@ -3309,9 +3267,9 @@ posix_finodelk (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_entrylk (call_frame_t *frame, xlator_t *this,
-	       loc_t *loc, const char *basename, entrylk_cmd cmd, 
+	       loc_t *loc, const char *basename, entrylk_cmd cmd,
 	       entrylk_type type)
 {
         frame->root->rsp_refs = NULL;
@@ -3324,9 +3282,9 @@ posix_entrylk (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t 
+int32_t
 posix_fentrylk (call_frame_t *frame, xlator_t *this,
-		fd_t *fd, const char *basename, entrylk_cmd cmd, 
+		fd_t *fd, const char *basename, entrylk_cmd cmd,
 		entrylk_type type)
 {
         frame->root->rsp_refs = NULL;
@@ -3397,7 +3355,7 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
                 if (in_case == -1) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR,
-				"telldir failed: %s", 
+				"telldir failed: %s",
                                 strerror (errno));
                         goto out;
                 }
@@ -3409,7 +3367,7 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
                         if (errno == EBADF) {
                                 op_errno = errno;
                                 gf_log (this->name, GF_LOG_ERROR,
-					"readdir failed: %s", 
+					"readdir failed: %s",
                                         strerror (op_errno));
                                 goto out;
                         }
@@ -3453,7 +3411,7 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 posix_stats (call_frame_t *frame, xlator_t *this,
              int32_t flags)
 
@@ -3470,31 +3428,31 @@ posix_stats (call_frame_t *frame, xlator_t *this,
         int64_t avg_read  = 0;
         int64_t avg_write = 0;
         int64_t _time_ms  = 0;
- 
+
         DECLARE_OLD_FS_ID_VAR;
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
-  
+
         stats = &xlstats;
-    
+
         op_ret = statvfs (priv->base_path, &buf);
-    
+
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "statvfs failed: %s", 
+                gf_log (this->name, GF_LOG_ERROR, "statvfs failed: %s",
                         strerror (op_errno));
                 goto out;
         }
 
 	/* client info is maintained at FSd */
-        stats->nr_clients = priv->stats.nr_clients; 
+        stats->nr_clients = priv->stats.nr_clients;
         stats->nr_files   = priv->stats.nr_files;
 
         /* number of free block in the filesystem. */
-        stats->free_disk  = buf.f_bfree * buf.f_bsize; 
+        stats->free_disk  = buf.f_bfree * buf.f_bsize;
 
         stats->total_disk_size = buf.f_blocks  * buf.f_bsize;
         stats->disk_usage      = (buf.f_blocks - buf.f_bavail) * buf.f_bsize;
@@ -3503,18 +3461,18 @@ posix_stats (call_frame_t *frame, xlator_t *this,
         op_ret = gettimeofday (&tv, NULL);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
 			"gettimeofday failed: %s", strerror (errno));
                 goto out;
         }
-  
+
         /* Read */
         _time_ms  = (tv.tv_sec  - priv->init_time.tv_sec)  * 1000 +
                 ((tv.tv_usec - priv->init_time.tv_usec) / 1000);
 
         avg_read  = (_time_ms) ? (priv->read_value  / _time_ms) : 0; /* KBps */
         avg_write = (_time_ms) ? (priv->write_value / _time_ms) : 0; /* KBps */
-  
+
         _time_ms  = (tv.tv_sec  - priv->prev_fetch_time.tv_sec)  * 1000 +
                 ((tv.tv_usec - priv->prev_fetch_time.tv_usec) / 1000);
 
@@ -3522,7 +3480,7 @@ posix_stats (call_frame_t *frame, xlator_t *this,
                 priv->max_read  = (priv->interval_read / _time_ms);
         }
 
-        if (_time_ms && 
+        if (_time_ms &&
 	    ((priv->interval_write / _time_ms) > priv->max_write)) {
                 priv->max_write = priv->interval_write / _time_ms;
         }
@@ -3533,7 +3491,7 @@ posix_stats (call_frame_t *frame, xlator_t *this,
         op_ret = gettimeofday (&(priv->prev_fetch_time), NULL);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "gettimeofday failed: %s", 
+                gf_log (this->name, GF_LOG_ERROR, "gettimeofday failed: %s",
                         strerror (op_errno));
                 goto out;
         }
@@ -3545,13 +3503,13 @@ posix_stats (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-  
+
         frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, stats);
         return 0;
 }
 
-int32_t 
+int32_t
 posix_checksum (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, int32_t flag)
 {
@@ -3572,22 +3530,22 @@ posix_checksum (call_frame_t *frame, xlator_t *this,
         MAKE_REAL_PATH (real_path, this, loc->path);
 
         dir = opendir (real_path);
-  
+
         if (!dir){
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_DEBUG, 
-			"opendir() failed on `%s': %s", 
+                gf_log (this->name, GF_LOG_DEBUG,
+			"opendir() failed on `%s': %s",
                         real_path, strerror (op_errno));
                 goto out;
-        } 
+        }
 
         while ((dirent = readdir (dir))) {
                 errno = 0;
                 if (!dirent) {
                         if (errno != 0) {
                                 op_errno = errno;
-                                gf_log (this->name, GF_LOG_DEBUG, 
-                                        "readdir() failed: %s", 
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "readdir() failed: %s",
 					strerror (errno));
                                 goto out;
                         }
@@ -3648,7 +3606,7 @@ notify (xlator_t *this,
 }
 
 /**
- * init - 
+ * init -
  */
 int
 init (xlator_t *this)
@@ -3685,11 +3643,11 @@ init (xlator_t *this)
         umask (000); // umask `masking' is done at the client side
 
 	/*
-        // * No need to create directory, sys admin should do it himself 
+        // * No need to create directory, sys admin should do it himself
         op_ret = mkdir (dir_data->data, 0777);
         if (op_ret == 0) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "directory '%s' did not exist, created", 
+                        "directory '%s' did not exist, created",
 			dir_data->data);
         }
 	*/
@@ -3697,22 +3655,22 @@ init (xlator_t *this)
         /* Check whether the specified directory exists, if not create it. */
         op_ret = lstat (dir_data->data, &buf);
         if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "directory '%s' doesn't exists, Exiting", 
+                gf_log (this->name, GF_LOG_ERROR,
+                        "directory '%s' doesn't exists, Exiting",
 			dir_data->data);
                 ret = -1;
                 goto out;
         }
 
-	
+
         /* Check for Extended attribute support, if not present, log it */
-        op_ret = lsetxattr (dir_data->data, 
+        op_ret = lsetxattr (dir_data->data,
 			    "trusted.glusterfs.test", "working", 8, 0);
         if (op_ret < 0) {
-		tmp_data = dict_get (this->options, 
+		tmp_data = dict_get (this->options,
 				     "mandate-xattr");
 		if (tmp_data) {
-			if (gf_string2boolean (tmp_data->data, 
+			if (gf_string2boolean (tmp_data->data,
 					       &tmp_bool) == -1) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"wrong option provided for key "
@@ -3725,14 +3683,14 @@ init (xlator_t *this)
 					"Extended attribute not supported, "
 					"starting as per option");
 			} else {
-				gf_log (this->name, GF_LOG_CRITICAL, 
+				gf_log (this->name, GF_LOG_CRITICAL,
 					"Extended attribute not supported, "
 					"exiting");
 				ret = -1;
 				goto out;
 			}
 		} else {
-			gf_log (this->name, GF_LOG_CRITICAL, 
+			gf_log (this->name, GF_LOG_CRITICAL,
 				"Extended attribute not supported, exiting");
 			ret = -1;
 			goto out;
@@ -3741,7 +3699,7 @@ init (xlator_t *this)
 
         _private = CALLOC (1, sizeof (*_private));
         if (!_private) {
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
                         "out of memory :(");
                 ret = -1;
                 goto out;
@@ -3762,7 +3720,7 @@ init (xlator_t *this)
         _private->export_statfs = 1;
         tmp_data = dict_get (this->options, "export-statfs-size");
         if (tmp_data) {
-		if (gf_string2boolean (tmp_data->data, 
+		if (gf_string2boolean (tmp_data->data,
 				       &_private->export_statfs) == -1) {
 			ret = -1;
 			gf_log (this->name, GF_LOG_ERROR,
@@ -3771,21 +3729,21 @@ init (xlator_t *this)
 			goto out;
 		}
                 if (!_private->export_statfs)
-                        gf_log (this->name, GF_LOG_DEBUG, 
+                        gf_log (this->name, GF_LOG_DEBUG,
 				"'statfs()' returns dummy size");
         }
 
         tmp_data = dict_get (this->options, "o-direct");
         if (tmp_data) {
-		if (gf_string2boolean (tmp_data->data, 
+		if (gf_string2boolean (tmp_data->data,
 				       &_private->o_direct) == -1) {
 			ret = -1;
 			gf_log (this->name, GF_LOG_ERROR,
 				"wrong option provided for 'o-direct'");
 			goto out;
 		}
-		if (_private->o_direct) 
-                        gf_log (this->name, GF_LOG_DEBUG, 
+		if (_private->o_direct)
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "o-direct mode is enabled (O_DIRECT "
 				"for every open)");
         }
@@ -3795,21 +3753,21 @@ init (xlator_t *this)
                 struct rlimit lim;
                 lim.rlim_cur = 1048576;
                 lim.rlim_max = 1048576;
-    
+
                 if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-                        gf_log (this->name, GF_LOG_WARNING, 
+                        gf_log (this->name, GF_LOG_WARNING,
 				"WARNING: Failed to set 'ulimit -n "
 				" 1048576': %s", strerror(errno));
                         lim.rlim_cur = 65536;
                         lim.rlim_max = 65536;
-        
+
                         if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-                                gf_log (this->name, GF_LOG_ERROR, 
+                                gf_log (this->name, GF_LOG_ERROR,
 					"Failed to set max open fd to "
 					"64k: %s", strerror(errno));
-                        } 
+                        }
                         else {
-                                gf_log (this->name, GF_LOG_ERROR, 
+                                gf_log (this->name, GF_LOG_ERROR,
 					"max open fd set to 64k");
                         }
                 }
@@ -3887,13 +3845,13 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
-	{ .key  = {"o-direct"}, 
+	{ .key  = {"o-direct"},
 	  .type = GF_OPTION_TYPE_BOOL },
 	{ .key  = {"directory"},
 	  .type = GF_OPTION_TYPE_PATH },
-	{ .key  = {"export-statfs-size"}, 
+	{ .key  = {"export-statfs-size"},
 	  .type = GF_OPTION_TYPE_BOOL },
-	{ .key  = {"mandate-attribute"}, 
+	{ .key  = {"mandate-attribute"},
 	  .type = GF_OPTION_TYPE_BOOL },
 	{ .key  = {NULL} }
 };

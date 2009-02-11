@@ -419,7 +419,7 @@ typedef int32_t (*fop_fxattrop_cbk_t) (call_frame_t *frame,
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *loc,
-				 int32_t need_xattr);
+				 dict_t *xattr_req);
 
 typedef int32_t (*fop_stat_t) (call_frame_t *frame,
 			       xlator_t *this,

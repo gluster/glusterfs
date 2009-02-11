@@ -3257,7 +3257,7 @@ int32_t
 client_lookup (call_frame_t *frame,
                xlator_t *this,
                loc_t *loc,
-               int32_t need_xattr)
+               dict_t *xattr_req)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_lookup_req_t *req = NULL;
@@ -3265,6 +3265,7 @@ client_lookup (call_frame_t *frame,
 	int    ret = -1;
 	ino_t  ino = 0;
 	ino_t  par = 0;
+	size_t dictlen = 0;
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	int32_t op_ret = -1;
@@ -3279,7 +3280,7 @@ client_lookup (call_frame_t *frame,
 			    priv->child,
 			    priv->child->fops->lookup,
 			    loc,
-			    need_xattr);
+			    xattr_req);
 		
 		return 0;
 	}
@@ -3303,19 +3304,41 @@ client_lookup (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
+	
+	if (xattr_req) {
+		dictlen = dict_serialized_length (xattr_req);
+		if (dictlen < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to get serialized length of dict(%p)",
+				xattr_req);
+			ret = dictlen;
+			goto unwind;
+		}
+	}
 
-	hdrlen = gf_hdr_len (req, pathlen + baselen);
-	hdr    = gf_hdr_new (req, pathlen + baselen);
+	hdrlen = gf_hdr_len (req, pathlen + baselen + dictlen);
+	hdr    = gf_hdr_new (req, pathlen + baselen + dictlen);
 	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
 	req->par   = hton64 (par);
-	req->flags = hton32 (need_xattr);
 	strcpy (req->path, loc->path);
 	if (baselen)
 		strcpy (req->path + pathlen, loc->name);
+	
+	if (dictlen) {
+		ret = dict_serialize (xattr_req, req->dict + baselen + pathlen);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to serialize dictionary(%p)",
+				xattr_req);
+			goto unwind;
+		}
+	}
+
+	req->dictlen = hton32 (dictlen);
 	
 	ret = protocol_client_xfer (frame, this,
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_LOOKUP,

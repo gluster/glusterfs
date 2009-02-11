@@ -311,7 +311,7 @@ int32_t
 path_lookup (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
-	     int32_t need_xattr)
+	     dict_t *xattr_req)
 {
 	char *loc_path = (char *)loc->path;
 	char *tmp_path = NULL;
@@ -325,7 +325,7 @@ path_lookup (call_frame_t *frame,
 	STACK_WIND (frame, path_lookup_cbk,
 		    FIRST_CHILD(this), 
 		    FIRST_CHILD(this)->fops->lookup, 
-		    loc, need_xattr);
+		    loc, xattr_req);
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)

@@ -873,13 +873,14 @@ afr_sh_data_lookup_cbk (call_frame_t *frame, void *cookie,
 int
 afr_sh_data_lookup (call_frame_t *frame, xlator_t *this)
 {
-	afr_self_heal_t * sh    = NULL; 
-	afr_local_t    *  local = NULL;
-	afr_private_t  *  priv  = NULL;
+	afr_self_heal_t *sh    = NULL; 
+	afr_local_t     *local = NULL;
+	afr_private_t   *priv  = NULL;
+	dict_t          *xattr_req = NULL;
 
-	int NEED_XATTR_YES = 1;
 	int call_count = 0;
 	int i = 0;
+	int ret = 0;
 
 	priv  = this->private;
 	local = frame->local;
@@ -888,6 +889,11 @@ afr_sh_data_lookup (call_frame_t *frame, xlator_t *this)
 	call_count = local->child_count;
 
 	local->call_count = call_count;
+	
+	xattr_req = dict_new();
+	if (xattr_req)
+		ret = dict_set_uint64 (xattr_req, AFR_DATA_PENDING,
+				       priv->child_count * sizeof(int32_t));
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
@@ -895,11 +901,14 @@ afr_sh_data_lookup (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->lookup,
-					   &local->loc, NEED_XATTR_YES);
+					   &local->loc, xattr_req);
 			if (!--call_count)
 				break;
 		}
 	}
+	
+	if (xattr_req)
+		dict_unref (xattr_req);
 
 	return 0;
 }

@@ -137,6 +137,9 @@ dht_local_wipe (dht_local_t *local)
 		fd_unref (local->fd);
 		local->fd = NULL;
 	}
+	
+	if (local->xattr_req)
+		dict_unref (local->xattr_req);
 
 	FREE (local);
 }

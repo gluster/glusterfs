@@ -221,14 +221,14 @@ int32_t
 filter_lookup (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc,
-	       int32_t need_xattr)
+	       dict_t *xattr_req)
 {
 	STACK_WIND (frame,
 		    filter_lookup_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->lookup,
 		    loc,
-		    need_xattr);
+		    xattr_req);
 	return 0;
 }
 

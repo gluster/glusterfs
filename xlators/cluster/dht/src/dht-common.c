@@ -423,7 +423,7 @@ dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
 		STACK_WIND (frame, dht_lookup_everywhere_cbk,
 			    conf->subvolumes[i],
 			    conf->subvolumes[i]->fops->lookup,
-			    loc, 1);
+			    loc, local->xattr_req);
 	}
 
 	return 0;
@@ -537,7 +537,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			STACK_WIND (frame, dht_lookup_dir_cbk,
 				    conf->subvolumes[i],
 				    conf->subvolumes[i]->fops->lookup,
-				    &local->loc, 1);
+				    &local->loc, local->xattr_req);
 		}
  		return 0;
  	}
@@ -581,7 +581,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		STACK_WIND (frame, dht_lookup_linkfile_cbk,
 			    subvol, subvol->fops->lookup,
-			    &local->loc, 1);
+			    &local->loc, local->xattr_req);
         }
 
         return 0;
@@ -594,7 +594,7 @@ out:
 
 int
 dht_lookup (call_frame_t *frame, xlator_t *this,
-            loc_t *loc, int need_xattr)
+            loc_t *loc, dict_t *xattr_req)
 {
         xlator_t     *subvol = NULL;
         xlator_t     *hashed_subvol = NULL;
@@ -632,6 +632,12 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         loc->path);
                 goto err;
         }
+	
+	if (xattr_req) {
+		local->xattr_req = dict_ref (xattr_req);
+	} else {
+		local->xattr_req = dict_new ();
+	}
 
 	hashed_subvol = dht_subvol_get_hashed (this, loc);
 	cached_subvol = dht_subvol_get_cached (this, loc->inode);
@@ -663,22 +669,31 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 		
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
-
-		if (need_xattr == 0)
-			/* xattr required for validating the layout */
-			need_xattr = 1;
+		
+		/* NOTE: we don't require 'trusted.glusterfs.dht.linkto' attribute,
+		 *       revalidates directly go to the cached-subvolume.
+		 */
+		ret = dict_set_uint32 (local->xattr_req, 
+				       "trusted.glusterfs.dht", 4 * 4);
 
 		for (i = 0; i < layout->cnt; i++) {
 			subvol = layout->list[i].xlator;
 			
 			STACK_WIND (frame, dht_revalidate_cbk,
 				    subvol, subvol->fops->lookup,
-				    loc, need_xattr);
+				    loc, local->xattr_req);
 
 			if (!--call_cnt)
 				break;
 		}
         } else {
+		/* TODO: remove the hard-coding */
+		ret = dict_set_uint32 (local->xattr_req, 
+				       "trusted.glusterfs.dht", 4 * 4);
+
+		ret = dict_set_uint32 (local->xattr_req, 
+				       "trusted.glusterfs.dht.linkto", 256);
+
                 if (!hashed_subvol) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"no subvolume in layout for path=%s, "
@@ -699,14 +714,14 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
  				STACK_WIND (frame, dht_lookup_dir_cbk,
  					    conf->subvolumes[i],
  					    conf->subvolumes[i]->fops->lookup,
- 					    &local->loc, 1);
+ 					    &local->loc, local->xattr_req);
  			}
  			return 0;
                 }
 
                 STACK_WIND (frame, dht_lookup_cbk,
                             hashed_subvol, hashed_subvol->fops->lookup,
-                            loc, 1);
+                            loc, local->xattr_req);
         }
 
         return 0;

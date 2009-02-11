@@ -356,7 +356,7 @@ fuse_entry_cbk (call_frame_t *frame,
                 STACK_WIND (frame, fuse_lookup_cbk,
                             FIRST_CHILD (this),
 			    FIRST_CHILD (this)->fops->lookup,
-                            &state->loc, 0);
+                            &state->loc, state->dict);
 
                 return 0;
         }
@@ -433,7 +433,7 @@ fuse_lookup (fuse_req_t req,
 {
         fuse_state_t *state;
 	int32_t ret = -1;
-
+	
         state = state_from_req (req);
 
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
@@ -461,9 +461,11 @@ fuse_lookup (fuse_req_t req,
                         state->loc.path, state->loc.inode->ino);
                 state->is_revalidate = 1;
         }
+	
+	state->dict = dict_new();
 
         FUSE_FOP (state, fuse_lookup_cbk, GF_FOP_LOOKUP,
-                  lookup, &state->loc, 0);
+                  lookup, &state->loc, state->dict);
 }
 
 
@@ -567,8 +569,11 @@ fuse_getattr (fuse_req_t req,
                         state->is_revalidate = 1;
                 else
                         state->is_revalidate = -1;
+
+		state->dict = dict_new();
+
                 FUSE_FOP (state, fuse_lookup_cbk, GF_FOP_LOOKUP,
-                          lookup, &state->loc, 0);
+                          lookup, &state->loc, state->dict);
                 return;
         }
 

@@ -117,6 +117,9 @@ extern char *gf_cbk_list[GF_CBK_MAXVALUE];
 	} while (0); 
 
 
+#define GF_FILE_CONTENT_REQUESTED(_xattr_req,_content_limit) \
+	(dict_get_uint64 (_xattr_req, "glusterfs.content", _content_limit) == 0)
+
 static inline void
 iov_free (struct iovec *vector, int count)
 {

@@ -2356,7 +2356,7 @@ server_lookup_cbk (call_frame_t *frame,
 			    BOUND_XL(frame),
 			    BOUND_XL(frame)->fops->lookup,
 			    &loc,
-			    state->need_xattr);
+			    state->xattr_req);
 		return 0;
 	}
 
@@ -3508,7 +3508,7 @@ static int
 server_lookup_resume (call_frame_t *frame,
 		      xlator_t *this,
 		      loc_t *loc,
-		      int32_t need_xattr)
+		      dict_t *xattr_req)
 {
 	server_state_t *state = NULL;
 
@@ -3541,7 +3541,7 @@ server_lookup_resume (call_frame_t *frame,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->lookup,
 		    &(state->loc),
-		    need_xattr);
+		    xattr_req);
 	return 0;
 }
 
@@ -3563,7 +3563,10 @@ server_lookup (call_frame_t *frame,
 	server_state_t      *state = NULL;
 	call_stub_t *lookup_stub = NULL;
 	int32_t      ret = -1;
-	size_t pathlen = 0;
+	size_t pathlen = 0, baselen = 0;
+	size_t dictlen = 0;
+	dict_t *xattr_req = NULL;
+	char   *req_dictbuf = NULL;
 
 	req = gf_param (hdr);
 
@@ -3571,8 +3574,7 @@ server_lookup (call_frame_t *frame,
 	{
 
 		pathlen = STRLEN_0 (req->path);
-		
-		state->need_xattr = ntoh32 (req->flags);
+		dictlen = ntoh32 (req->dictlen);
 		
 		/* NOTE: lookup() uses req->ino only to identify if a lookup()
 		 *       is requested for 'root' or not 
@@ -3583,8 +3585,34 @@ server_lookup (call_frame_t *frame,
 
 		state->par    = ntoh64 (req->par);
 		state->path   = req->path;
-		if (IS_NOT_ROOT(pathlen))
+		if (IS_NOT_ROOT(pathlen)) {
 			state->bname = req->bname + pathlen;
+			baselen = STRLEN_0 (state->bname);
+		}
+
+		if (dictlen) {
+			/* Unserialize the dictionary */
+			req_dictbuf = memdup (req->dict + pathlen + baselen, dictlen);
+			GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
+			
+			xattr_req = dict_new ();
+			GF_VALIDATE_OR_GOTO(bound_xl->name, xattr_req, fail);
+
+			ret = dict_unserialize (req_dictbuf, dictlen, &xattr_req);
+			if (ret < 0) {
+				gf_log (bound_xl->name, GF_LOG_ERROR,
+					"%"PRId64": %s (%"PRId64"): failed to "
+					"unserialize request buffer to dictionary", 
+					frame->root->unique, state->loc.path, 
+					state->ino);
+				free (req_dictbuf);
+				goto fail;
+			} else{
+				xattr_req->extra_free = req_dictbuf;
+				state->xattr_req = xattr_req;
+				xattr_req = NULL;
+			}
+		}
 	}
 
 	ret = server_loc_fill (&state->loc, state,
@@ -3600,7 +3628,7 @@ server_lookup (call_frame_t *frame,
 	}
 
 	lookup_stub = fop_lookup_stub (frame, server_lookup_resume,
-				       &(state->loc), state->need_xattr);
+				       &(state->loc), state->xattr_req);
 	GF_VALIDATE_OR_GOTO(bound_xl->name, lookup_stub, fail);
 
 	if ((state->loc.parent == NULL) && 
@@ -3608,12 +3636,15 @@ server_lookup (call_frame_t *frame,
 		do_path_lookup (lookup_stub, &(state->loc));
 	else
 		call_resume (lookup_stub);
-
+	
 	return 0;
 fail:
 	server_lookup_cbk (frame, NULL, frame->this,
 			   -1,EINVAL,
 			   NULL, NULL, NULL);
+	if (xattr_req)
+		dict_unref (xattr_req);
+
 	return 0;
 }
 

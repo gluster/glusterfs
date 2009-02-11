@@ -120,7 +120,7 @@ struct _server_state {
 	char *bname2;
 	int mask;
 	char is_revalidate;
-	char need_xattr;
+	dict_t *xattr_req;
 	struct flock flock;
 	struct timespec tv[2];
 	char *resolved;

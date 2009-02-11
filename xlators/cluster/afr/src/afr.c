@@ -138,6 +138,9 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
 	if (local->fd)
 		fd_unref (local->fd);
+	
+	if (local->xattr_req)
+		dict_unref (local->xattr_req);
 
 	FREE (local->child_up);
 
@@ -471,7 +474,7 @@ unlock:
 
 int
 afr_lookup (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, int32_t need_xattr)
+	    loc_t *loc, dict_t *xattr_req)
 {
 	afr_private_t *priv = NULL;
 	afr_local_t   *local = NULL;
@@ -500,12 +503,35 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 	/* By default assume ENOTCONN. On success it will be set to 0. */
 	local->op_errno = ENOTCONN;
+	
+	if ((xattr_req == NULL)
+	    && (priv->metadata_self_heal
+		|| priv->data_self_heal
+		|| priv->entry_self_heal))
+		local->xattr_req = dict_new ();
+	else
+		local->xattr_req = dict_ref (xattr_req);
 
+	if (priv->metadata_self_heal) {
+		ret = dict_set_uint64 (local->xattr_req, AFR_METADATA_PENDING,
+				       priv->child_count * sizeof(int32_t));
+	}
+	
+	if (priv->data_self_heal) {
+		ret = dict_set_uint64 (local->xattr_req, AFR_DATA_PENDING,
+				       priv->child_count * sizeof(int32_t));
+	}
+	
+	if (priv->entry_self_heal) {
+		ret = dict_set_uint64 (local->xattr_req, AFR_ENTRY_PENDING,
+				       priv->child_count * sizeof(int32_t));
+	}
+	
 	for (i = 0; i < priv->child_count; i++) {
 		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
 				   priv->children[i],
 				   priv->children[i]->fops->lookup,
-				   loc, 1);
+				   loc, local->xattr_req);
 	}
 
 	ret = 0;

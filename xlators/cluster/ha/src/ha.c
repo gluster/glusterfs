@@ -140,7 +140,7 @@ int32_t
 ha_lookup (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc,
-	   int32_t need_xattr)
+	   dict_t *xattr_req)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -175,7 +175,7 @@ ha_lookup (call_frame_t *frame,
 			    children[i],
 			    children[i]->fops->lookup,
 			    loc,
-			    need_xattr);
+			    xattr_req);
 	}
 	return 0;
 }

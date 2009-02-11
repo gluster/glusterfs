@@ -975,7 +975,7 @@ int32_t
 bdb_lookup (call_frame_t *frame,
             xlator_t *this,
             loc_t *loc,
-            int32_t need_xattr)
+            dict_t *xattr_req)
 {
 	struct stat stbuf           = {0, };
 	int32_t op_ret              = -1;
@@ -991,7 +991,8 @@ bdb_lookup (call_frame_t *frame,
 	int32_t entry_size          = 0;
 	char *file_content          = NULL;
 	data_t *file_content_data   = NULL;
-	
+	uint64_t   need_xattr       = 0;
+
 	GF_VALIDATE_OR_GOTO ("bdb", frame, out);
 	GF_VALIDATE_OR_GOTO ("bdb", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, loc, out);
@@ -1074,8 +1075,8 @@ bdb_lookup (call_frame_t *frame,
 		op_ret = -1;
 		op_errno = ENOENT;
 		GF_VALIDATE_OR_GOTO (this->name, bctx, out);
-
-		if (need_xattr) {
+		
+		if (GF_FILE_CONTENT_REQUESTED(xattr_req, &need_xattr)) {
 			entry_size = bdb_db_get (bctx, 
 						 NULL, 
 						 loc->path, 
@@ -1107,9 +1108,9 @@ bdb_lookup (call_frame_t *frame,
 				db_path, strerror (op_errno));		
 			goto out;				
 		}						
-
-		if ((need_xattr >= entry_size) && 
-		    (entry_size) && (file_content)) {
+		
+		if ((need_xattr >= entry_size)
+		    && (entry_size) && (file_content)) {
 			file_content_data = data_from_dynptr (file_content, 
 							      entry_size);
 			xattr = get_new_dict ();

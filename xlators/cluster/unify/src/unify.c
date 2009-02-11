@@ -548,7 +548,7 @@ int32_t
 unify_lookup (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
-	      int32_t need_xattr)
+	      dict_t *xattr_req)
 {
 	unify_local_t *local = NULL;
 	unify_private_t *priv = this->private;
@@ -629,7 +629,7 @@ unify_lookup (call_frame_t *frame,
 					   priv->xl_array [list[index]],
 					   priv->xl_array [list[index]]->fops->lookup,
 					   loc,
-					   need_xattr);
+					   xattr_req);
 			if (need_break)
 				break;
 		}
@@ -651,7 +651,7 @@ unify_lookup (call_frame_t *frame,
 					   priv->xl_array[index],
 					   priv->xl_array[index]->fops->lookup,
 					   loc,
-					   need_xattr);
+					   xattr_req);
 		}
 	}
 
@@ -1195,7 +1195,7 @@ unify_open_readlink_cbk (call_frame_t *frame,
 				   priv->xl_array[index],
 				   priv->xl_array[index]->fops->lookup,
 				   &local->loc1,
-				   0);
+				   NULL);
 	}
 
 	return 0;
@@ -1655,7 +1655,7 @@ unify_ns_create_cbk (call_frame_t *frame,
 					   priv->xl_array[index],
 					   priv->xl_array[index]->fops->lookup,
 					   &local->loc1,
-					   0);
+					   NULL);
 		}
 	}
 	return 0;

@@ -107,7 +107,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         STACK_WIND (frame, dht_lookup_dir_cbk,
                                     conf->subvolumes[i],
                                     conf->subvolumes[i]->fops->lookup,
-                                    &local->loc, 1);
+                                    &local->loc, local->xattr_req);
                 }
         }
 
@@ -124,7 +124,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		STACK_WIND (frame, dht_lookup_linkfile_cbk,
 			    subvol, subvol->fops->lookup,
-			    &local->loc, 1);
+			    &local->loc, local->xattr_req);
         }
 
         return 0;
@@ -140,7 +140,7 @@ out:
 		
 	STACK_WIND (frame, dht_lookup_cbk,
 		    local->hashed_subvol, local->hashed_subvol->fops->lookup,
-		    &local->loc, 1);
+		    &local->loc, local->xattr_req);
 
 	return 0;
 
@@ -151,7 +151,7 @@ out:
 
 int
 nufa_lookup (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, int need_xattr)
+	     loc_t *loc, dict_t *xattr_req)
 {
         xlator_t     *hashed_subvol = NULL;
         xlator_t     *cached_subvol = NULL;
@@ -190,6 +190,12 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
+	if (xattr_req) {
+		local->xattr_req = dict_ref (xattr_req);
+	} else {
+		local->xattr_req = dict_new ();
+	}
+
 	hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
 	cached_subvol = dht_subvol_get_cached (this, local->loc.inode);
 	
@@ -220,26 +226,35 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
-
-		if (need_xattr == 0)
-			need_xattr = 1;
+		
+		/* NOTE: we don't require 'trusted.glusterfs.dht.linkto' attribute,
+		 *       revalidates directly go to the cached-subvolume.
+		 */
+		ret = dict_set_uint32 (local->xattr_req, 
+				       "trusted.glusterfs.dht", 4 * 4);
 
 		for (i = 0; i < layout->cnt; i++) {
 			subvol = layout->list[i].xlator;
 			
 			STACK_WIND (frame, dht_revalidate_cbk,
 				    subvol, subvol->fops->lookup,
-				    loc, need_xattr);
+				    loc, local->xattr_req);
 
 			if (!--call_cnt)
 				break;
 		}
 	} else {
+		ret = dict_set_uint32 (local->xattr_req, 
+				       "trusted.glusterfs.dht", 4 * 4);
+
+		ret = dict_set_uint32 (local->xattr_req, 
+				       "trusted.glusterfs.dht.linkto", 256);
+
 		/* Send it to only local volume */
 		STACK_WIND (frame, nufa_local_lookup_cbk,
 			    conf->local_volume, 
 			    conf->local_volume->fops->lookup,
-			    loc, 1);
+			    loc, local->xattr_req);
 	}
 
         return 0;

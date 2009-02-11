@@ -51,7 +51,7 @@ call_stub_t *
 fop_lookup_stub (call_frame_t *frame,
 		 fop_lookup_t fn,
 		 loc_t *loc,
-		 int32_t need_xattr)
+		 dict_t *xattr_req)
 {
 	call_stub_t *stub = NULL;
 
@@ -62,7 +62,10 @@ fop_lookup_stub (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
 	stub->args.lookup.fn = fn;
-	stub->args.lookup.need_xattr = need_xattr;
+
+	if (xattr_req)
+		stub->args.lookup.xattr_req = dict_ref (xattr_req);
+
 	loc_copy (&stub->args.lookup.loc, loc);
 out:
 	return stub;
@@ -2478,8 +2481,10 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.lookup.fn (stub->frame, 
 				      stub->frame->this,
 				      &stub->args.lookup.loc,
-				      stub->args.lookup.need_xattr);
+				      stub->args.lookup.xattr_req);
 		loc_wipe (&stub->args.lookup.loc);
+		if (stub->args.lookup.xattr_req)
+			dict_unref (stub->args.lookup.xattr_req);
 		break;
 	}
 
@@ -3619,6 +3624,8 @@ call_stub_destroy_wind (call_stub_t *stub)
 	case GF_FOP_LOOKUP:
 	{
 		loc_wipe (&stub->args.lookup.loc);
+		if (stub->args.lookup.xattr_req)
+			dict_unref (stub->args.lookup.xattr_req);
 		break;
 	}
 

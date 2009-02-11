@@ -191,6 +191,9 @@ free_state (server_state_t *state)
 		fd_unref (state->fd);
 
 	transport_unref (trans);
+	
+	if (state->xattr_req)
+		dict_unref (state->xattr_req);
 
 	FREE (state);
 }

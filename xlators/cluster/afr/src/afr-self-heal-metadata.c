@@ -635,7 +635,8 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 	afr_private_t   *priv = NULL;
 	int              i = 0;
 	int              call_count = 0;
-
+	dict_t          *xattr_req = NULL;
+	int              ret = 0;
 
 	local = frame->local;
 	sh = &local->self_heal;
@@ -643,6 +644,12 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 
 	call_count = local->child_count;
 	local->call_count = call_count;
+	
+	xattr_req = dict_new();
+	
+	if (xattr_req)
+		ret = dict_set_uint64 (xattr_req, AFR_METADATA_PENDING,
+				       priv->child_count * sizeof(int32_t));
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
@@ -654,11 +661,14 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->lookup,
-					   &local->loc, 1);
+					   &local->loc, xattr_req);
 			if (!--call_count)
 				break;
 		}
 	}
+	
+	if (xattr_req)
+		dict_unref (xattr_req);
 
 	return 0;
 }

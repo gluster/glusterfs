@@ -61,6 +61,7 @@ struct dht_local {
 	fd_t                    *fd;
 	inode_t                 *inode;
 	dict_t                  *xattr;
+	dict_t                  *xattr_req;
 	dht_layout_t            *layout;
 	size_t                   size;
 	ino_t                    st_ino;
