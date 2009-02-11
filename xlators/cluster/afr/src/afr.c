@@ -674,7 +674,7 @@ out:
 
 int
 afr_flush_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		    int32_t op_ret, int32_t op_errno)
+		      int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t *   local = NULL;
 
@@ -753,12 +753,57 @@ afr_flush_done (call_frame_t *frame, xlator_t *this)
 
 
 int
+afr_simple_flush_cbk (call_frame_t *frame, void *cookie,
+		      xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+        afr_local_t *local = NULL;
+        
+        int call_count = -1;
+	
+        local = frame->local;
+	
+        LOCK (&frame->lock);
+        {
+                if (op_ret == 0)
+                        local->op_ret = 0;
+
+                local->op_errno = op_errno;
+        }
+        UNLOCK (&frame->lock);
+	
+        call_count = afr_frame_return (frame);
+	
+        if (call_count == 0)
+                AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	
+        return 0;
+}
+
+
+static int
+__is_fd_ctx_set (xlator_t *this, fd_t *fd)
+{
+	int cookie = -1;
+	int _ret   = 0;
+	int op_ret = 0;
+
+	_ret = dict_get_int32 (fd->ctx, this->name, &cookie);
+	if (_ret == 0)
+		op_ret = 1;
+
+	return op_ret;
+}
+
+
+int
 afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 
-	int ret = -1;
+	int ret        = -1;
+	int i          = 0;
+	int call_count = 0;
 
 	int op_ret   = -1;
 	int op_errno = 0;
@@ -779,17 +824,38 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 	frame->local = local;
 
-	local->transaction.fop    = afr_flush_wind;
-	local->transaction.done   = afr_flush_done;
+	if (__is_fd_ctx_set (this, fd)) {
+		local->transaction.fop    = afr_flush_wind;
+		local->transaction.done   = afr_flush_done;
+		
+		local->fd                 = fd_ref (fd);
+		
+		local->transaction.start  = 0;
+		local->transaction.len    = 0;
+		
+		local->transaction.pending = AFR_DATA_PENDING;
+		
+		afr_transaction (frame, this, AFR_FLUSH_TRANSACTION);
+	} else {
+		/*
+		 * if fd->ctx is not set, then there is no need
+		 * to erase changelog. So just send the flush
+		 */
 
-	local->fd                 = fd_ref (fd);
+		call_count = local->call_count;
 
-	local->transaction.start  = 0;
-	local->transaction.len    = 0;
+		for (i = 0; i < priv->child_count; i++) {
+			if (local->child_up[i]) {
+				STACK_WIND (frame, afr_simple_flush_cbk,
+					    priv->children[i],
+					    priv->children[i]->fops->flush,
+					    fd);
 
-	local->transaction.pending = AFR_DATA_PENDING;
-
-	afr_transaction (frame, this, AFR_FLUSH_TRANSACTION);
+				if (!--call_count)
+					break;
+			}
+		}
+	}
 
 	op_ret = 0;
 out:

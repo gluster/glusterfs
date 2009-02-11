@@ -67,24 +67,6 @@
 
 #endif
 
-#define MAKE_REAL_PATH(var, this, path) do {                            \
-		var = alloca (strlen (path) + POSIX_BASE_PATH_LEN(this) + 2); \
-                strcpy (var, POSIX_BASE_PATH(this));			\
-                strcpy (&var[POSIX_BASE_PATH_LEN(this)], path);		\
-        } while (0)
-
-
-struct xattrop_handle {
-	/* one of these will be set */
-	loc_t *loc;
-	fd_t *fd;
-};
-
-
-static int
-__xattrop_cache_flush (struct xattrop_handle handle, xlator_t *this);
-
-
 typedef struct {
   	xlator_t    *this;
   	const char  *real_path;
@@ -219,9 +201,8 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         int32_t     op_ret             = -1;
         int32_t     op_errno           = 0;
         dict_t *    xattr              = NULL;
-	int         ret                = -1;
+
         struct posix_private  *priv    = NULL;
-	struct xattrop_handle handle   = {0,};
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -243,20 +224,6 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 		}
                 goto out;
         }
-
-	/*
-	 * If this is a revalidate, flush the xattrop cache
-	 */
-
-	ret = inode_ctx_get (loc->inode, this, NULL);
-	if (ret == 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"flushing xattrop cache for %s",
-			loc->path);
-
-		handle.loc = loc;
-		__xattrop_cache_flush (handle, this);
-	}
 
 	/* Make sure we don't access another mountpoint inside export dir.
 	 * It may cause inode number to repeat from single export point,
@@ -1812,7 +1779,7 @@ posix_release (xlator_t *this,
         struct posix_fd *      pfd      = NULL;
         int                    ret      = -1;
 
-	struct xattrop_handle handle = {0,};
+	xattr_cache_handle_t handle = {{0,},0};
 
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
@@ -1829,9 +1796,8 @@ posix_release (xlator_t *this,
                 goto out;
         }
 
-
 	handle.fd = fd;
-	__xattrop_cache_flush (handle, this);
+	posix_xattr_cache_flush (this, &handle);
 
         _fd = pfd->fd;
 
@@ -2370,180 +2336,6 @@ posix_print_xattr (dict_t *this,
 
 
 /**
- * xattrop - xattr operations - for internal use by GlusterFS
- * @optype: ADD_ARRAY:
- *            dict should contain:
- *               "key" ==> array of 32-bit numbers
- */
-
-static int
-__hgetxattr (struct xattrop_handle handle, xlator_t *this,
-	     const char *key, void *array, size_t len)
-{
-	char *            real_path = NULL;
-	struct posix_fd * pfd = NULL;
-
-	int op_ret = -1;
-	int ret    = -1;
-	int _fd    = -1;
-
-	if (handle.loc) {
-		MAKE_REAL_PATH (real_path, this, handle.loc->path);
-		op_ret = lgetxattr (real_path, key, array, len);
-	} else {
-		ret = dict_get_ptr (handle.fd->ctx, this->name, (void **)&pfd);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "failed to get pfd from fd=%p",
-                                handle.fd);
-                        errno = EBADFD;
-			goto out;
-                }
-
-                _fd = pfd->fd;
-
-		op_ret = fgetxattr (_fd, key, array, len);
-	}
-
-out:
-	return op_ret;
-}
-
-
-static int
-__hsetxattr (struct xattrop_handle handle, xlator_t *this,
-	     const char *key, void *array, size_t len, int flags)
-{
-	char *            real_path = NULL;
-	struct posix_fd * pfd = NULL;
-
-	int op_ret = -1;
-	int ret    = -1;
-	int _fd    = -1;
-
-	if (handle.loc) {
-		if (handle.loc->path)
-			MAKE_REAL_PATH (real_path, this, handle.loc->path);
-
-		op_ret = lsetxattr (real_path, key, array, len, flags);
-	} else {
-		ret = dict_get_ptr (handle.fd->ctx, this->name, (void **)&pfd);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "failed to get pfd from fd=%p",
-                                handle.fd);
-
-                        errno = EBADFD;
-			goto out;
-                }
-
-                _fd = pfd->fd;
-
-		op_ret = fsetxattr (_fd, key, array, len, flags);
-	}
-
-out:
-	return op_ret;
-}
-
-
-static dict_t *
-__xattrop_cache_get (struct xattrop_handle handle, xlator_t *this)
-{
-	int      ret   = -1;
-	dict_t * cache = NULL;
-	inode_t *inode = NULL;
-	uint64_t tmp_cache = 0;
-
-	if (handle.loc)
-		inode = handle.loc->inode;
-	else
-		inode = handle.fd->inode;
-
-	LOCK (&inode->lock);
-	{
-		ret = inode_ctx_get (inode, this, &tmp_cache);
-		if (ret == 0)
-			cache = (dict_t *)(long)tmp_cache;
-
-		if (ret < 0) {
-			cache = dict_new ();
-			ret = inode_ctx_put (inode, this,
-					     (uint64_t)(long)cache);
-		}
-	}
-	UNLOCK (&inode->lock);
-
-	return cache;
-}
-
-
-static int
-__xattrop_cache_read (struct xattrop_handle handle, xlator_t *this,
-		      char *key, int32_t **array, size_t len)
-{
-	dict_t * cache = NULL;
-
-	int       ret      = -1;
-	int32_t   op_errno = 0;
-
-	cache = __xattrop_cache_get (handle, this);
-
-	ret = dict_get_bin (cache, key, (void **) array);
-
-	if (ret < 0) {
-		*array   = calloc (len, 1);
-
-		ret      = __hgetxattr (handle, this, key, *array, len);
-		op_errno = errno;
-
-		if ((ret == -1) && (op_errno != ENODATA) &&
-		    (op_errno != ENOATTR)) {
-			if (op_errno == ENOTSUP) {
-                                GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log,
-						    this->name, GF_LOG_WARNING,
-						    "extended attributes not "
-						    "supported by filesystem");
-			} else 	{
-				gf_log (this->name, GF_LOG_ERROR,
-					"%s", strerror (op_errno));
-			}
-
-			goto out;
-		}
-
-		ret = dict_set_bin (cache, key, *array, len);
-		/* check ret */
-	}
-
-out:
-	return ret;
-}
-
-
-static int
-__xattrop_cache_flush (struct xattrop_handle handle, xlator_t *this)
-{
-	dict_t *      cache = NULL;
-	data_pair_t * trav  = NULL;
-
-	int ret = -1;
-
-	cache = __xattrop_cache_get (handle, this);
-
-	trav = cache->members_list;
-	while (trav) {
-		ret = __hsetxattr (handle, this, trav->key, trav->value->data,
-				   trav->value->len, 0);
-
-		trav = trav->next;
-	}
-
-	return ret;
-}
-
-
-/**
  * add_array - add two arrays of 32-bit numbers (stored in network byte order)
  * dest = dest + src
  * @count: number of 32-bit numbers
@@ -2560,13 +2352,20 @@ __add_array (int32_t *dest, int32_t *src, int count)
 }
 
 
+/**
+ * xattrop - xattr operations - for internal use by GlusterFS
+ * @optype: ADD_ARRAY:
+ *            dict should contain:
+ *               "key" ==> array of 32-bit numbers
+ */
+
+
 int
 posix_xattrop_common (call_frame_t *frame, xlator_t *this,
-		      struct xattrop_handle handle,
+		      xattr_cache_handle_t *handle,
 		      gf_xattrop_flags_t optype, dict_t *xattr)
 {
 	int32_t         *array      = NULL;
-	int32_t         *_ret_array = NULL;
 
 	int              ret   = 0;
 	int              count = 0;
@@ -2584,9 +2383,10 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 
 	while (trav) {
 		count = trav->value->len / sizeof (int32_t);
+		array = CALLOC (count, sizeof (int32_t));
 
-		ret = __xattrop_cache_read (handle, this, trav->key, (int32_t **)&array,
-					    trav->value->len);
+		ret = posix_xattr_cache_read (this, handle, trav->key, 
+					      array, trav->value->len);
 
 		switch (optype) {
 
@@ -2605,15 +2405,10 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 			goto out;
 		}
 
-		_ret_array = calloc (trav->value->len, 1);
-		if (!_ret_array) {
-			op_errno = ENOMEM;
-			goto out;
-		}
+		ret = posix_xattr_cache_write (this, handle, trav->key,
+					       array, trav->value->len);
 
-		memcpy (_ret_array, array, trav->value->len);
-
-		ret = dict_set_bin (xattr, trav->key, _ret_array,
+		ret = dict_set_bin (xattr, trav->key, array,
 				    trav->value->len);
 
 		if (ret != 0) {
@@ -2626,13 +2421,12 @@ posix_xattrop_common (call_frame_t *frame, xlator_t *this,
 		}
 
 		trav = trav->next;
-
-		_ret_array = NULL;
+		array = NULL;
 	}
 
 out:
-	if (_ret_array)
-		FREE (_ret_array);
+	if (array)
+		FREE (array);
 
 	STACK_UNWIND (frame, op_ret, op_errno, xattr);
 	return 0;
@@ -2643,10 +2437,10 @@ int
 posix_xattrop (call_frame_t *frame, xlator_t *this,
 	       loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr)
 {
-	struct xattrop_handle handle = {0,};
+	xattr_cache_handle_t *handle = calloc (1, sizeof (xattr_cache_handle_t));
 	int ret = -1;
 
-	handle.loc = loc;
+	loc_copy (&handle->loc, loc);
 
 	ret = posix_xattrop_common (frame, this, handle, optype, xattr);
 
@@ -2658,10 +2452,10 @@ int
 posix_fxattrop (call_frame_t *frame, xlator_t *this,
 		fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
 {
-	struct xattrop_handle handle = {0,};
 	int ret = -1;
-
-	handle.fd = fd;
+	xattr_cache_handle_t *handle = calloc (1, sizeof (xattr_cache_handle_t));
+	
+	handle->fd = fd;
 
 	ret = posix_xattrop_common (frame, this, handle, optype, xattr);
 
@@ -3642,16 +3436,6 @@ init (xlator_t *this)
 
         umask (000); // umask `masking' is done at the client side
 
-	/*
-        // * No need to create directory, sys admin should do it himself
-        op_ret = mkdir (dir_data->data, 0777);
-        if (op_ret == 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "directory '%s' did not exist, created",
-			dir_data->data);
-        }
-	*/
-
         /* Check whether the specified directory exists, if not create it. */
         op_ret = lstat (dir_data->data, &buf);
         if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
@@ -3708,6 +3492,14 @@ init (xlator_t *this)
         _private->base_path = strdup (dir_data->data);
         _private->base_path_length = strlen (_private->base_path);
 	_private->base_stdev = buf.st_dev;
+
+	_private->xattr_cache = posix_xattr_cache_init (16);
+	if (!_private->xattr_cache) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"out of memory :(");
+		ret = -1;
+		goto out;
+	}
 
         {
                 /* Stats related variables */

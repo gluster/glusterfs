@@ -50,6 +50,8 @@
 #include "inode.h"
 #include "compat.h"
 
+#include "xattr-cache.h"
+
 /**
  * posix_fd - internal structure common to file and directory fd's
  */
@@ -65,6 +67,9 @@ struct posix_private {
 	char   *base_path;
 	int32_t base_path_length;
 	dev_t   base_stdev;
+
+	xattr_cache_t *xattr_cache;
+
         /* Statistics, provides activity of the server */
 	struct xlator_stats stats; 
   
@@ -95,5 +100,11 @@ struct posix_private {
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
 
 #define POSIX_BASE_PATH_LEN(this) (((struct posix_private *)this->private)->base_path_length)
+
+#define MAKE_REAL_PATH(var, this, path) do {                            \
+		var = alloca (strlen (path) + POSIX_BASE_PATH_LEN(this) + 2); \
+                strcpy (var, POSIX_BASE_PATH(this));			\
+                strcpy (&var[POSIX_BASE_PATH_LEN(this)], path);		\
+        } while (0)
 
 #endif /* _POSIX_H */
