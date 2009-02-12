@@ -21,7 +21,7 @@
 		path = CALLOC (1, pathlen);				\
 		_state->loc.parent = inode_ref (_parent);		\
 		_state->loc.inode  = inode_new (_state->itable);	\
-		if (_resolved) {						\
+		if (_resolved) {					\
 			resolvedlen = strlen (_resolved);		\
 			strncpy (path, _resolved, resolvedlen);		\
 			_state->resolved = memdup (path, pathlen);	\

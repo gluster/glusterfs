@@ -26,16 +26,16 @@
 
 #define TRANSPORT_FROM_FRAME(frame) ((transport_t *) CALL_STATE(frame)->trans)
 
-#define SERVER_CONNECTION_PRIVATE(frame)  \
-	((server_connection_private_t *) TRANSPORT_FROM_FRAME(frame)->xl_private)
+#define SERVER_CONNECTION(frame)  \
+	((server_connection_t *) TRANSPORT_FROM_FRAME(frame)->xl_private)
 
-#define SERVER_PRIVATE(frame) \
-	((server_private_t *)TRANSPORT_FROM_FRAME(frame)->xl->private)
+#define SERVER_CONF(frame) \
+	((server_conf_t *)TRANSPORT_FROM_FRAME(frame)->xl->private)
 
-#define TRANSPORT_FROM_XLATOR(this)    ((((server_private_t *)this->private))->trans)
+#define TRANSPORT_FROM_XLATOR(this) ((((server_conf_t *)this->private))->trans)
 
 #define INODE_LRU_LIMIT(this)						\
-	(((server_conf_t *)(TRANSPORT_FROM_XLATOR(this)->xl_private))->inode_lru_limit)
+	(((server_conf_t *)(this->private))->inode_lru_limit)
 
 #define IS_ROOT_INODE(inode) (inode == inode->table->root)
 

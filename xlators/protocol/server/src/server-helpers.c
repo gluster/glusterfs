@@ -23,6 +23,7 @@
 #endif
 
 #include "server-protocol.h"
+#include "server-helpers.h"
 
 
 /* server_loc_fill - derive a loc_t for a given inode number
@@ -30,13 +31,10 @@
  * NOTE: make sure that @loc is empty, because any pointers it holds with reference will
  *       be leaked after returning from here.
  */
-int32_t
-server_loc_fill (loc_t *loc,
-  		 server_state_t *state,
-  		 ino_t ino,
-  		 ino_t par,
-  		 const char *name,
-  		 const char *path)
+int
+server_loc_fill (loc_t *loc, server_state_t *state,
+  		 ino_t ino, ino_t par,
+  		 const char *name, const char *path)
 {
   	inode_t *inode = NULL;
   	inode_t *parent = NULL;
@@ -371,4 +369,218 @@ gf_direntry_to_bin (dir_entry_t *head,
 	
 out:
 	return buflen;
+}
+
+
+static struct _lock_table *
+gf_lock_table_new (void)
+{
+	struct _lock_table *new = NULL;
+
+	new = CALLOC (1, sizeof (struct _lock_table));
+	if (new == NULL) {
+		gf_log ("server-protocol", GF_LOG_CRITICAL,
+			"failed to allocate memory for new lock table");
+		goto out;
+	}
+	INIT_LIST_HEAD (&new->dir_lockers);
+	INIT_LIST_HEAD (&new->file_lockers);
+	LOCK_INIT (&new->lock);
+out:
+	return new;
+}
+
+
+int
+server_connection_destroy (xlator_t *this, server_connection_t *conn)
+{
+
+	call_frame_t      *frame = NULL, *tmp_frame = NULL;
+	xlator_t          *bound_xl = NULL;
+	int32_t            ret = -1;
+	server_state_t    *state = NULL;
+	struct list_head   file_lockers;
+	struct list_head   dir_lockers;
+	struct _lock_table *ltable = NULL;
+	struct _locker     *locker = NULL, *tmp = NULL;
+	struct flock        flock = {0,};
+
+
+	bound_xl = (xlator_t *) (conn->bound_xl);
+
+	if (bound_xl) {
+		/* trans will have ref_count = 1 after this call, but its 
+		   ok since this function is called in 
+		   GF_EVENT_TRANSPORT_CLEANUP */
+		frame = create_frame (this, this->ctx->pool);
+
+		pthread_mutex_lock (&(conn->lock));
+		{
+			if (conn->ltable) {
+				ltable = conn->ltable;
+				conn->ltable = NULL;
+			}
+		}
+		pthread_mutex_unlock (&conn->lock);
+
+		INIT_LIST_HEAD (&file_lockers);
+		INIT_LIST_HEAD (&dir_lockers);
+
+		LOCK (&ltable->lock);
+		{
+			list_splice_init (&ltable->file_lockers, 
+					  &file_lockers);
+
+			list_splice_init (&ltable->dir_lockers, &dir_lockers);
+		}
+		UNLOCK (&ltable->lock);
+		free (ltable);
+
+		flock.l_type  = F_UNLCK;
+		flock.l_start = 0;
+		flock.l_len   = 0;
+		list_for_each_entry_safe (locker, 
+					  tmp, &file_lockers, lockers) {
+			tmp_frame = copy_frame (frame);
+			/* 
+			   pid = 0 is a special case that tells posix-locks
+			   to release all locks from this transport
+			*/
+			tmp_frame->root->pid = 0;
+			tmp_frame->root->trans = conn;
+
+			if (locker->fd) {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->finodelk,
+					    locker->fd, F_SETLK, &flock);
+				fd_unref (locker->fd);
+			} else {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->inodelk,
+					    &(locker->loc), F_SETLK, &flock);
+				loc_wipe (&locker->loc);
+			}
+
+			list_del_init (&locker->lockers);
+			free (locker);
+		}
+
+		tmp = NULL;
+		locker = NULL;
+		list_for_each_entry_safe (locker, tmp, &dir_lockers, lockers) {
+			tmp_frame = copy_frame (frame);
+
+			tmp_frame->root->pid = 0;
+			tmp_frame->root->trans = conn;
+
+			if (locker->fd) {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->fentrylk,
+					    locker->fd, NULL, 
+					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+				fd_unref (locker->fd);
+			} else {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->entrylk,
+					    &(locker->loc), NULL, 
+					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+				loc_wipe (&locker->loc);
+			}
+
+			list_del_init (&locker->lockers);
+			free (locker);
+		}
+
+		state = CALL_STATE (frame);
+		if (state)
+			free (state);
+		STACK_DESTROY (frame->root);
+
+		pthread_mutex_lock (&(conn->lock));
+		{
+			if (conn->fdtable) {
+				gf_fd_fdtable_destroy (conn->fdtable);
+				conn->fdtable = NULL;
+			}
+		}
+		pthread_mutex_unlock (&conn->lock);
+
+	}
+
+	gf_log (this->name, GF_LOG_INFO, "destroyed connection of %s",
+		conn->id);
+
+	FREE (conn->id);
+	FREE (conn);
+
+	return ret;
+}
+
+
+server_connection_t *
+server_connection_get (xlator_t *this, const char *id)
+{
+	server_connection_t *conn = NULL;
+	server_connection_t *trav = NULL;
+	server_conf_t       *conf = NULL;
+
+	conf = this->private;
+
+	pthread_mutex_lock (&conf->mutex);
+	{
+		list_for_each_entry (trav, &conf->conns, list) {
+			if (!strcmp (id, trav->id)) {
+				conn = trav;
+				break;
+			}
+		}
+
+		if (!conn) {
+			conn = (void *) CALLOC (1, sizeof (*conn));
+
+			conn->id = strdup (id);
+			conn->fdtable = gf_fd_fdtable_alloc ();
+			conn->ltable  = gf_lock_table_new ();
+
+			pthread_mutex_init (&conn->lock, NULL);
+
+			list_add (&conn->list, &conf->conns);
+		}
+
+		conn->ref++;
+	}
+	pthread_mutex_unlock (&conf->mutex);
+
+	return conn;
+}
+
+
+void
+server_connection_put (xlator_t *this, server_connection_t *conn)
+{
+	server_conf_t       *conf = NULL;
+	server_connection_t *todel = NULL;
+
+	conf = this->private;
+
+	pthread_mutex_lock (&conf->mutex);
+	{
+		conn->ref--;
+
+		if (!conn->ref) {
+			list_del_init (&conn->list);
+			todel = conn;
+		}
+	}
+	pthread_mutex_unlock (&conf->mutex);
+
+	if (todel) {
+		server_connection_destroy (this, todel);
+	}
+
+	return;
 }

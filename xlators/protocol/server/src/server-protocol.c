@@ -127,18 +127,18 @@ server_fchmod (call_frame_t *frame,
                gf_hdr_common_t *hdr, size_t hdrlen,
                char *buf, size_t buflen)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	gf_fop_fchmod_req_t *req = NULL;
 	server_state_t *state = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->mode   = ntoh32 (req->mode);
@@ -214,18 +214,18 @@ server_fchown (call_frame_t *frame,
                gf_hdr_common_t *hdr, size_t hdrlen,
                char *buf, size_t buflen)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	gf_fop_fchown_req_t *req = NULL;
 	server_state_t *state = NULL;
 
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->uid   = ntoh32 (req->uid);
@@ -341,14 +341,14 @@ int32_t
 server_inodelk_cbk (call_frame_t *frame, void *cookie,
 		    xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
  	gf_hdr_common_t *hdr = NULL;
  	gf_fop_inodelk_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
  	size_t  hdrlen = 0;
 	int32_t gf_errno = 0;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	state = CALL_STATE(frame);
 
@@ -362,10 +362,10 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret >= 0) {
 		if (state->flock.l_type == F_UNLCK)
-			gf_del_locker (cprivate->ltable,
+			gf_del_locker (conn->ltable,
 				       &state->loc, NULL, frame->root->pid);
 		else
-			gf_add_locker (cprivate->ltable,
+			gf_add_locker (conn->ltable,
 				       &state->loc, NULL, frame->root->pid);
 	} else if (op_errno != ENOSYS) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -388,14 +388,14 @@ int32_t
 server_finodelk_cbk (call_frame_t *frame, void *cookie,
 		     xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
  	gf_hdr_common_t *hdr = NULL;
  	gf_fop_finodelk_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
  	size_t  hdrlen = 0;
 	int32_t gf_errno = 0;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
  	hdrlen = gf_hdr_len (rsp, 0);
  	hdr    = gf_hdr_new (rsp, 0);
@@ -409,10 +409,10 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret >= 0) {
 		if (state->flock.l_type == F_UNLCK)
-			gf_del_locker (cprivate->ltable,
+			gf_del_locker (conn->ltable,
 				       NULL, state->fd, frame->root->pid);
 		else
-			gf_add_locker (cprivate->ltable,
+			gf_add_locker (conn->ltable,
 				       NULL, state->fd, frame->root->pid);
 	} else if (op_errno != ENOSYS) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -444,14 +444,14 @@ int32_t
 server_entrylk_cbk (call_frame_t *frame, void *cookie,
 		    xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
  	gf_hdr_common_t      *hdr = NULL;
  	gf_fop_entrylk_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
  	size_t  hdrlen = 0;
 	int32_t gf_errno = 0;
 
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	state = CALL_STATE(frame);
 
@@ -465,10 +465,10 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret >= 0) {
 		if (state->cmd == ENTRYLK_UNLOCK)
-			gf_del_locker (cprivate->ltable,
+			gf_del_locker (conn->ltable,
 				       &state->loc, NULL, frame->root->pid);
 		else
-			gf_add_locker (cprivate->ltable,
+			gf_add_locker (conn->ltable,
 				       &state->loc, NULL, frame->root->pid);
 	} else if (op_errno != ENOSYS) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -491,14 +491,14 @@ int32_t
 server_fentrylk_cbk (call_frame_t *frame, void *cookie,
 		     xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
  	gf_hdr_common_t       *hdr = NULL;
  	gf_fop_fentrylk_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
  	size_t  hdrlen = 0;
 	int32_t gf_errno = 0;
 
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
  	hdrlen = gf_hdr_len (rsp, 0);
  	hdr    = gf_hdr_new (rsp, 0);
@@ -511,10 +511,10 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie,
 	if (op_ret >= 0) {
 		state = CALL_STATE(frame);
 		if (state->cmd == ENTRYLK_UNLOCK)
-			gf_del_locker (cprivate->ltable,
+			gf_del_locker (conn->ltable,
 				       NULL, state->fd, frame->root->pid);
 		else
-			gf_add_locker (cprivate->ltable,
+			gf_add_locker (conn->ltable,
 				       NULL, state->fd, frame->root->pid);
 	} else if (op_errno != ENOSYS) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -1136,21 +1136,21 @@ server_opendir_cbk (call_frame_t *frame,
                     int32_t op_errno,
                     fd_t *fd)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_opendir_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 	size_t   hdrlen = 0;
 	int32_t  gf_errno = 0;
 
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	state = CALL_STATE(frame);
 
 	if (op_ret >= 0) {
 		fd_bind (fd);
 
-		state->fd_no = gf_fd_unused_get (cprivate->fdtable, fd);
+		state->fd_no = gf_fd_unused_get (conn->fdtable, fd);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": OPENDIR %s (%"PRId64") ==> %"PRId32" (%s)",
@@ -2031,21 +2031,21 @@ server_open_cbk (call_frame_t *frame,
                  int32_t op_errno,
                  fd_t *fd)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	gf_hdr_common_t   *hdr = NULL;
 	gf_fop_open_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 	size_t  hdrlen = 0;
 	int32_t gf_errno = 0;
 
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	state = CALL_STATE(frame);
 
 	if (op_ret >= 0) {
 		fd_bind (fd);
 		
-		state->fd_no = gf_fd_unused_get (cprivate->fdtable, fd);
+		state->fd_no = gf_fd_unused_get (conn->fdtable, fd);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": OPEN %s (%"PRId64") ==> %"PRId32" (%s)",
@@ -2099,14 +2099,14 @@ server_create_cbk (call_frame_t *frame,
                    inode_t *inode,
                    struct stat *stbuf)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_create_rsp_t *rsp = NULL;
 	server_state_t *state = NULL;
 	size_t  hdrlen = 0;
 	int32_t gf_errno = 0;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	state = CALL_STATE(frame);
 
@@ -2121,7 +2121,7 @@ server_create_cbk (call_frame_t *frame,
 		
 		fd_bind (fd);
 
-		state->fd_no = gf_fd_unused_get (cprivate->fdtable, fd);
+		state->fd_no = gf_fd_unused_get (conn->fdtable, fd);
 
 		if ((state->fd_no < 0) || (fd == 0)) {
 			op_ret = state->fd_no;
@@ -4049,9 +4049,9 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_read_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req = gf_param (hdr);
   
@@ -4059,7 +4059,7 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->size   = ntoh32 (req->size);
@@ -4100,21 +4100,21 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                char *buf, size_t buflen)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	gf_fop_write_req_t *req = NULL;
 	struct iovec iov = {0, };
 	dict_t *refs = NULL;
 	server_state_t *state = NULL;
 	int32_t ret = -1;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->offset = ntoh64 (req->offset);
@@ -4186,20 +4186,20 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_cbk_release_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req = gf_param (hdr);
 	state = CALL_STATE(frame);
 	
 	state->fd_no = ntoh64 (req->fd);
-	state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+	state->fd = gf_fd_fdptr_get (conn->fdtable, 
 				     state->fd_no);
 	
 	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
 
-	gf_fd_put (cprivate->fdtable, 
+	gf_fd_put (conn->fdtable, 
 		   state->fd_no);
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
@@ -4235,16 +4235,16 @@ server_fsync (call_frame_t *frame,
 {
 	gf_fop_fsync_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->flags = ntoh32 (req->data);
@@ -4285,16 +4285,16 @@ server_flush (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_flush_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 	}
 
@@ -4335,9 +4335,9 @@ server_ftruncate (call_frame_t *frame,
 {
 	gf_fop_ftruncate_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req = gf_param (hdr);
 
@@ -4345,7 +4345,7 @@ server_ftruncate (call_frame_t *frame,
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->offset = ntoh64 (req->offset);
@@ -4390,16 +4390,16 @@ server_fstat (call_frame_t *frame,
 {
 	gf_fop_fstat_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 	}
 
@@ -4707,7 +4707,7 @@ server_fxattrop (call_frame_t *frame,
 		gf_hdr_common_t *hdr, size_t hdrlen,
 		char *buf, size_t buflen)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	gf_fop_fxattrop_req_t *req = NULL;
 	dict_t *dict = NULL;
 	server_state_t *state = NULL;
@@ -4715,14 +4715,14 @@ server_fxattrop (call_frame_t *frame,
 	char *req_dictbuf = NULL;
 	int32_t ret = -1;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		dict_len = ntoh32 (req->dict_len);
@@ -5153,15 +5153,15 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_cbk_releasedir_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req = gf_param (hdr);
 	state = CALL_STATE(frame);
 
 	state->fd_no = ntoh64 (req->fd);
-	state->fd    = gf_fd_fdptr_get (cprivate->fdtable, 
+	state->fd    = gf_fd_fdptr_get (conn->fdtable, 
 					state->fd_no);
 
 	if (state->fd == NULL) {
@@ -5178,7 +5178,7 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 		"%"PRId64": RELEASEDIR \'fd=%"PRId64" (%"PRId64")\'", 
 		frame->root->unique, state->fd_no, state->fd->inode->ino);
 
-	gf_fd_put (cprivate->fdtable, state->fd_no);
+	gf_fd_put (conn->fdtable, state->fd_no);
 
 	server_releasedir_cbk (frame, NULL, frame->this,
 			       0, 0);
@@ -5203,16 +5203,16 @@ server_getdents (call_frame_t *frame,
 {
 	gf_fop_getdents_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->size = ntoh32 (req->size);
@@ -5266,16 +5266,16 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_readdir_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->size   = ntoh32 (req->size);
@@ -5327,16 +5327,16 @@ server_fsyncdir (call_frame_t *frame,
 {
 	gf_fop_fsyncdir_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->flags = ntoh32 (req->data);
@@ -5928,16 +5928,16 @@ server_finodelk (call_frame_t *frame,
 {
  	gf_fop_finodelk_req_t *req = NULL;
  	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
  	req   = gf_param (hdr);
  	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->cmd = ntoh32 (req->cmd);
@@ -6087,16 +6087,16 @@ server_fentrylk (call_frame_t *frame,
  	gf_fop_fentrylk_req_t *req = NULL;
  	server_state_t *state = NULL;
 	size_t  namelen = 0;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
  	req   = gf_param (hdr);
  	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->cmd  = ntoh32 (req->cmd);
@@ -6502,16 +6502,16 @@ server_lk (call_frame_t *frame,
 	struct flock lock = {0, };
 	gf_fop_lk_req_t *req = NULL;
 	server_state_t *state = NULL;
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
 						     state->fd_no);
 
 		state->cmd =  ntoh32 (req->cmd);
@@ -6589,7 +6589,7 @@ server_setdents (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  char *buf, size_t buflen)
 {
-	server_connection_private_t *cprivate = NULL;
+	server_connection_t *conn = NULL;
 	gf_fop_setdents_req_t       *req   = NULL;
 	server_state_t              *state = NULL;
 	dir_entry_t *entry = NULL;
@@ -6602,14 +6602,14 @@ server_setdents (call_frame_t *frame,
 	char *buffer_ptr = NULL;
 	char tmp_buf[512] = {0,};
 	
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 
 	state->fd_no = ntoh64 (req->fd);
 	if (state->fd_no >= 0)
-		state->fd = gf_fd_fdptr_get (cprivate->fdtable, 
+		state->fd = gf_fd_fdptr_get (conn->fdtable, 
 					     state->fd_no);
 	
 	state->nr_count = ntoh32 (req->count);
@@ -7033,41 +7033,44 @@ get_xlator_by_name (xlator_t *some_xl,
  * @params: parameter dictionary
  *
  */
-int32_t
-mop_setvolume (call_frame_t *frame,
-               xlator_t *bound_xl,
-               gf_hdr_common_t *req_hdr,
-               size_t req_hdrlen,
-               char *req_buf,
-               size_t req_buflen)
+int
+mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
+               gf_hdr_common_t *req_hdr, size_t req_hdrlen,
+               char *req_buf, size_t req_buflen)
 {
-	server_connection_private_t *cprivate = NULL;
-	server_private_t *server_private = NULL;
-	gf_hdr_common_t        *rsp_hdr = NULL;
-	gf_mop_setvolume_req_t *req = NULL;
-	gf_mop_setvolume_rsp_t *rsp = NULL;
-	peer_info_t *peerinfo = NULL;
-	int32_t ret = -1;
-	int32_t op_ret = -1;
-	int32_t op_errno = EINVAL;
-	int32_t gf_errno = 0;
-	dict_t *reply = NULL;
-	dict_t *config_params = NULL;
-	dict_t *params = NULL;
-	char   *name = NULL;
-	char   *version = NULL;
-	xlator_t    *xl = NULL;
-	transport_t *trans = NULL;
-	size_t rsp_hdrlen = -1;
-	size_t dict_len = -1;
-	size_t req_dictlen = -1;
+	server_connection_t *conn = NULL;
+	server_conf_t               *conf = NULL;
+	gf_hdr_common_t             *rsp_hdr = NULL;
+	gf_mop_setvolume_req_t      *req = NULL;
+	gf_mop_setvolume_rsp_t      *rsp = NULL;
+	peer_info_t                 *peerinfo = NULL;
+	int32_t                      ret = -1;
+	int32_t                      op_ret = -1;
+	int32_t                      op_errno = EINVAL;
+	int32_t                      gf_errno = 0;
+	dict_t                      *reply = NULL;
+	dict_t                      *config_params = NULL;
+	dict_t                      *params = NULL;
+	char                        *name = NULL;
+	char                        *version = NULL;
+	char                        *process_uuid = NULL;
+	xlator_t                    *xl = NULL;
+	transport_t                 *trans = NULL;
+	size_t                       rsp_hdrlen = -1;
+	size_t                       dict_len = -1;
+	size_t                       req_dictlen = -1;
 
 	params = dict_new ();
 	reply  = dict_new ();
+
 	req    = gf_param (req_hdr);
-	config_params = dict_copy_with_ref (frame->this->options, NULL);
 	req_dictlen = ntoh32 (req->dict_len);
 	ret = dict_unserialize (req->buf, req_dictlen, &params);
+
+	config_params = dict_copy_with_ref (frame->this->options, NULL);
+	trans         = TRANSPORT_FROM_FRAME(frame);
+	conf          = SERVER_CONF(frame);
+
 	if (ret < 0) {
 		ret = dict_set_str (reply, "ERROR",
 				    "Internal error: failed to unserialize "
@@ -7083,9 +7086,23 @@ mop_setvolume (call_frame_t *frame,
 		goto fail;
 	}
 
-	cprivate = SERVER_CONNECTION_PRIVATE(frame);
+	ret = dict_get_str (params, "process-uuid", &process_uuid);
+	if (ret < 0) {
+		ret = dict_set_str (reply, "ERROR",
+				    "UUID not specified");
+		if (ret < 0)
+			gf_log (bound_xl->name, GF_LOG_ERROR, 
+				"failed to set error msg");
 
-	server_private = SERVER_PRIVATE(frame);
+		op_ret = -1;
+		op_errno = EINVAL;
+		goto fail;
+	}
+	
+
+	conn = server_connection_get (frame->this, process_uuid);
+	if (trans->xl_private != conn)
+		trans->xl_private = conn;
 
 	ret = dict_get_str (params, "version", &version);
 	if (ret < 0) {
@@ -7151,19 +7168,19 @@ mop_setvolume (call_frame_t *frame,
 		gf_log (bound_xl->name, GF_LOG_ERROR, 
 			"failed to set peer-info");
 
-	if (server_private->auth_modules == NULL) {
+	if (conf->auth_modules == NULL) {
 		gf_log (trans->xl->name, GF_LOG_ERROR,
 			"Authentication module not initialized");
 	}
 
 	ret = gf_authenticate (params, config_params, 
-			       server_private->auth_modules);
+			       conf->auth_modules);
 	if (ret == AUTH_ACCEPT) {
 		gf_log (trans->xl->name, GF_LOG_INFO,
 			"accepted client from %s",
 			peerinfo->identifier);
 		op_ret = 0;
-		cprivate->bound_xl = xl;
+		conn->bound_xl = xl;
 		ret = dict_set_str (reply, "ERROR", "Success");
 		if (ret < 0)
 			gf_log (bound_xl->name, GF_LOG_ERROR, 
@@ -7182,7 +7199,7 @@ mop_setvolume (call_frame_t *frame,
 		goto fail;
 	}
 
-	if (cprivate->bound_xl == NULL) {
+	if (conn->bound_xl == NULL) {
 		ret = dict_set_str (reply, "ERROR",
 				    "Check volfile and handshake "
 				    "options in protocol/client");
@@ -7195,9 +7212,9 @@ mop_setvolume (call_frame_t *frame,
 		goto fail;
 	}
 
-	if ((cprivate->bound_xl != NULL) &&
+	if ((conn->bound_xl != NULL) &&
 	    (ret >= 0)                   &&
-	    (cprivate->bound_xl->itable == NULL)) {
+	    (conn->bound_xl->itable == NULL)) {
 		/* create inode table for this bound_xl, if one doesn't 
 		   already exist */
 		int32_t lru_limit = 1024;
@@ -7207,11 +7224,11 @@ mop_setvolume (call_frame_t *frame,
 
 		gf_log (xl->name, GF_LOG_DEBUG,
 			"creating inode table with lru_limit=%"PRId32", "
-			"xlator=%s", lru_limit, cprivate->bound_xl->name);
+			"xlator=%s", lru_limit, conn->bound_xl->name);
 
-		cprivate->bound_xl->itable = 
+		conn->bound_xl->itable = 
 			inode_table_new (lru_limit,
-					 cprivate->bound_xl);
+					 conn->bound_xl);
 	}
 
 	ret = dict_set_str (reply, "process-uuid", 
@@ -7410,10 +7427,10 @@ unknown_op_cbk (call_frame_t *frame,
 static call_frame_t *
 get_frame_for_transport (transport_t *trans)
 {
-	call_frame_t *frame = NULL;
-	call_pool_t *pool = NULL;
-	server_connection_private_t *cprivate = NULL;
-	server_state_t *state = NULL;;
+	call_frame_t         *frame = NULL;
+	call_pool_t          *pool = NULL;
+	server_connection_t  *conn = NULL;
+	server_state_t       *state = NULL;;
 	
 	GF_VALIDATE_OR_GOTO("server", trans, out);
 
@@ -7421,22 +7438,22 @@ get_frame_for_transport (transport_t *trans)
 		pool = trans->xl->ctx->pool;
 	GF_VALIDATE_OR_GOTO("server", pool, out);
 
-	cprivate = trans->xl_private;
-	GF_VALIDATE_OR_GOTO("server", cprivate, out);
-
 	frame = create_frame (trans->xl, pool);
 	GF_VALIDATE_OR_GOTO("server", frame, out);
 
 	state = CALLOC (1, sizeof (*state));
 	GF_VALIDATE_OR_GOTO("server", state, out);
 
-	if (cprivate->bound_xl)
-		state->itable = cprivate->bound_xl->itable;
+	conn = trans->xl_private;
+	if (conn) {
+		if (conn->bound_xl)
+			state->itable = conn->bound_xl->itable;
+		state->bound_xl = conn->bound_xl;
+	}
 
-	state->bound_xl = cprivate->bound_xl;
 	state->trans = transport_ref (trans);
 
-	frame->root->trans = trans;
+	frame->root->trans = conn;
 	frame->root->state = state;        /* which socket */
 	frame->root->unique = 0;           /* which call */
 
@@ -7555,21 +7572,22 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
                            char *hdr_p, size_t hdrlen, char *buf, 
 			   size_t buflen)
 {
-	server_connection_private_t *cprivate = NULL;
-	gf_hdr_common_t *hdr = NULL;
-	xlator_t        *bound_xl = NULL;
-	call_frame_t    *frame = NULL;
-	peer_info_t     *peerinfo = NULL;
-	int32_t type = -1;
-	int32_t op = -1;
-	int32_t ret = -1;
+	server_connection_t *conn = NULL;
+	gf_hdr_common_t             *hdr = NULL;
+	xlator_t                    *bound_xl = NULL;
+	call_frame_t                *frame = NULL;
+	peer_info_t                 *peerinfo = NULL;
+	int32_t                      type = -1;
+	int32_t                      op = -1;
+	int32_t                      ret = -1;
 
 	hdr  = (gf_hdr_common_t *)hdr_p;
 	type = ntoh32 (hdr->type);
 	op   = ntoh32 (hdr->op);
 
-	cprivate = trans->xl_private;
-	bound_xl = cprivate->bound_xl;
+	conn = trans->xl_private;
+	if (conn)
+		bound_xl = conn->bound_xl;
 
 	peerinfo = &trans->peerinfo;
 	switch (type) {
@@ -7637,12 +7655,9 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
  *
  * not for external reference
  */
-int32_t
-server_nop_cbk (call_frame_t *frame,
-                void *cookie,
-                xlator_t *this,
-                int32_t op_ret,
-                int32_t op_errno)
+int
+server_nop_cbk (call_frame_t *frame, void *cookie,
+                xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
 	server_state_t *state = NULL;
 	
@@ -7654,141 +7669,6 @@ server_nop_cbk (call_frame_t *frame,
 	return 0;
 }
 
-
-
-/*
- * server_protocol_cleanup - cleanup function for server protocol
- *
- * @trans: transport object
- *
- */
-int32_t
-server_protocol_cleanup (transport_t *trans)
-{
-	server_connection_private_t *cprivate = NULL;
-	call_frame_t      *frame = NULL, *tmp_frame = NULL;
-	peer_info_t       *peerinfo = NULL;
-	xlator_t          *bound_xl = NULL;
-	int32_t            ret = -1;
-	server_state_t    *state = NULL;
-	struct list_head   file_lockers;
-	struct list_head   dir_lockers;
-	struct _lock_table *ltable = NULL;
-	struct _locker     *locker = NULL, *tmp = NULL;
-	struct flock        flock = {0,};
-
-	cprivate = trans->xl_private;
-	GF_VALIDATE_OR_GOTO("server", cprivate, out);
-
-	bound_xl = (xlator_t *) (cprivate->bound_xl);
-	if (bound_xl) {
-		/* trans will have ref_count = 1 after this call, but its 
-		   ok since this function is called in 
-		   GF_EVENT_TRANSPORT_CLEANUP */
-		frame = get_frame_for_transport (trans);
-
-		pthread_mutex_lock (&(cprivate->lock));
-		{
-			if (cprivate->ltable) {
-				ltable = cprivate->ltable;
-				cprivate->ltable = NULL;
-			}
-		}
-		pthread_mutex_unlock (&cprivate->lock);
-
-		INIT_LIST_HEAD (&file_lockers);
-		INIT_LIST_HEAD (&dir_lockers);
-
-		LOCK (&ltable->lock);
-		{
-			list_splice_init (&ltable->file_lockers, 
-					  &file_lockers);
-
-			list_splice_init (&ltable->dir_lockers, &dir_lockers);
-		}
-		UNLOCK (&ltable->lock);
-		free (ltable);
-
-		flock.l_type  = F_UNLCK;
-		flock.l_start = 0;
-		flock.l_len   = 0;
-		list_for_each_entry_safe (locker, 
-					  tmp, &file_lockers, lockers) {
-			tmp_frame = server_copy_frame (frame);
-			/* 
-			   pid = 0 is a special case that tells posix-locks
-			   to release all locks from this transport
-			*/
-			tmp_frame->root->pid = 0;
-
-			if (locker->fd) {
-				STACK_WIND (tmp_frame, server_nop_cbk,
-					    BOUND_XL(frame),
-					    BOUND_XL(frame)->fops->finodelk,
-					    locker->fd, F_SETLK, &flock);
-				fd_unref (locker->fd);
-			} else {
-				STACK_WIND (tmp_frame, server_nop_cbk,
-					    BOUND_XL(frame),
-					    BOUND_XL(frame)->fops->inodelk,
-					    &(locker->loc), F_SETLK, &flock);
-				loc_wipe (&locker->loc);
-			}
-
-			list_del_init (&locker->lockers);
-			free (locker);
-		}
-
-		tmp = NULL;
-		locker = NULL;
-		list_for_each_entry_safe (locker, tmp, &dir_lockers, lockers) {
-			tmp_frame = server_copy_frame (frame);
-			tmp_frame->root->pid = 0;
-
-			if (locker->fd) {
-				STACK_WIND (tmp_frame, server_nop_cbk,
-					    bound_xl,
-					    bound_xl->fops->fentrylk,
-					    locker->fd, NULL, 
-					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
-				fd_unref (locker->fd);
-			} else {
-				STACK_WIND (tmp_frame, server_nop_cbk,
-					    bound_xl,
-					    bound_xl->fops->entrylk,
-					    &(locker->loc), NULL, 
-					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
-				loc_wipe (&locker->loc);
-			}
-
-			list_del_init (&locker->lockers);
-			free (locker);
-		}
-
-		state = CALL_STATE (frame);
-		free (state);
-		STACK_DESTROY (frame->root);
-
-		pthread_mutex_lock (&(cprivate->lock));
-		{
-			if (cprivate->fdtable) {
-				gf_fd_fdtable_destroy (cprivate->fdtable);
-				cprivate->fdtable = NULL;
-			}
-		}
-		pthread_mutex_unlock (&cprivate->lock);
-
-	}
-	FREE (cprivate);
-	trans->xl_private = NULL;
-	peerinfo = &trans->peerinfo;
-	gf_log (trans->xl->name, GF_LOG_DEBUG,
-		"cleaned up transport state for client %s",
-		peerinfo->identifier);
-
-out:
-	return ret;
-}
 
 static void
 get_auth_types (dict_t *this,
@@ -7826,6 +7706,8 @@ get_auth_types (dict_t *this,
 out:
 	return;
 }
+
+
 static int
 validate_auth_options (xlator_t *this, dict_t *dict)
 {
@@ -7877,13 +7759,12 @@ validate_auth_options (xlator_t *this, dict_t *dict)
  * @this:
  *
  */
-int32_t
+int
 init (xlator_t *this)
 {
 	int32_t ret = -1;
 	transport_t *trans = NULL;
 	server_conf_t *conf = NULL;
-	server_private_t *server_private = NULL;
 
 	if (this->children == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -7905,33 +7786,33 @@ init (xlator_t *this)
 		goto out;
 	}
 
-	server_private = CALLOC (1, sizeof (*server_private));
-	GF_VALIDATE_OR_GOTO(this->name, server_private, out);
+	conf = CALLOC (1, sizeof (server_conf_t));
+	GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-	server_private->trans = trans;
+	INIT_LIST_HEAD (&conf->conns);
+	pthread_mutex_init (&conf->mutex, NULL);
 
-	server_private->auth_modules = dict_new ();
-	GF_VALIDATE_OR_GOTO(this->name, server_private->auth_modules, out);
+	conf->trans = trans;
+
+	conf->auth_modules = dict_new ();
+	GF_VALIDATE_OR_GOTO(this->name, conf->auth_modules, out);
 
 	dict_foreach (this->options, get_auth_types, 
-		      server_private->auth_modules);
+		      conf->auth_modules);
 	ret = validate_auth_options (this, this->options);
 	if (ret == -1) {
 		/* logging already done in validate_auth_options function. */
 		goto out;
 	}
 	
-	ret = gf_auth_init (this, server_private->auth_modules);
+	ret = gf_auth_init (this, conf->auth_modules);
 	if (ret) {
-		dict_unref (server_private->auth_modules);
+		dict_unref (conf->auth_modules);
 		goto out;
 	}
 
-	this->private = server_private;
+	this->private = conf;
 
-	conf = CALLOC (1, sizeof (server_conf_t));
-	GF_VALIDATE_OR_GOTO(this->name, conf, out);
-	
 	ret = dict_get_int32 (this->options, "inode-lru-limit", 
 			      &conf->inode_lru_limit);
 	if (ret < 0) {
@@ -7975,56 +7856,21 @@ init (xlator_t *this)
 	this->ctx->top = this;
 
 	ret = 0;
-	trans->xl_private = conf;
 out:
 	return ret;
 }
 
-static struct _lock_table *
-gf_lock_table_new (void)
-{
-	struct _lock_table *new = NULL;
 
-	new = CALLOC (1, sizeof (struct _lock_table));
-	if (new == NULL) {
-		gf_log ("server-protocol", GF_LOG_CRITICAL,
-			"failed to allocate memory for new lock table");
-		goto out;
-	}
-	INIT_LIST_HEAD (&new->dir_lockers);
-	INIT_LIST_HEAD (&new->file_lockers);
-	LOCK_INIT (&new->lock);
-out:
-	return new;
-}
 
 int
 protocol_server_pollin (xlator_t *this, transport_t *trans)
 {
-	char *hdr = NULL;
-	size_t hdrlen = 0;
-	char *buf = NULL;
-	size_t buflen = 0;
-	server_connection_private_t *cprivate = NULL;
-	server_conf_t *conf = NULL;
-	int ret = -1;
+	char                *hdr = NULL;
+	size_t               hdrlen = 0;
+	char                *buf = NULL;
+	size_t               buflen = 0;
+	int                  ret = -1;
 
-	cprivate = trans->xl_private;
-	conf = this->private;
-
-	if (cprivate == NULL) {
-		cprivate = (void *) CALLOC (1, sizeof (*cprivate));
-		GF_VALIDATE_OR_GOTO(this->name, cprivate, out);
-
-		trans->xl_private = cprivate;
-
-		cprivate->fdtable = gf_fd_fdtable_alloc ();
-		GF_VALIDATE_OR_GOTO(this->name, cprivate->fdtable, out);
-
-		cprivate->ltable = gf_lock_table_new ();
-		GF_VALIDATE_OR_GOTO(this->name, cprivate->ltable, out);
-		pthread_mutex_init (&cprivate->lock, NULL);
-	}
 
 	ret = transport_receive (trans, &hdr, &hdrlen, &buf, &buflen);
 
@@ -8034,7 +7880,7 @@ protocol_server_pollin (xlator_t *this, transport_t *trans)
 
 	/* TODO: use mem-pool */
 	FREE (hdr);
-out:
+
 	return ret;
 }
 
@@ -8049,15 +7895,15 @@ out:
 void
 fini (xlator_t *this)
 {
-	server_private_t *server_private = this->private;
+	server_conf_t *conf = this->private;
 	
-	GF_VALIDATE_OR_GOTO(this->name, server_private, out);
+	GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-	if (server_private->auth_modules) {
-		dict_unref (server_private->auth_modules);
+	if (conf->auth_modules) {
+		dict_unref (conf->auth_modules);
 	}
 
-	FREE (server_private);
+	FREE (conf);
 	this->private = NULL;
 out:
 	return;
@@ -8070,13 +7916,10 @@ out:
  * @event:
  *
  */
-int32_t
-notify (xlator_t *this,
-        int32_t event,
-        void *data,
-        ...)
+int
+notify (xlator_t *this, int32_t event, void *data, ...)
 {
-	int ret = 0;
+	int          ret = 0;
 	transport_t *trans = data;
 
 	switch (event) {
@@ -8098,7 +7941,8 @@ notify (xlator_t *this,
 
 	case GF_EVENT_TRANSPORT_CLEANUP:
 	{
-		server_protocol_cleanup (trans);
+		if (trans->xl_private)
+			server_connection_put (this, trans->xl_private);
 	}
 	break;
 

@@ -25,12 +25,12 @@
 #include "config.h"
 #endif
 
+#include <pthread.h>
 
 #include "glusterfs.h"
 #include "xlator.h"
 #include "logging.h"
 #include "call-stub.h"
-#include <pthread.h>
 #include "authenticate.h"
 #include "fd.h"
 #include "byte-order.h"
@@ -40,111 +40,104 @@
 
 typedef struct _server_state server_state_t;
 
-struct _server_reply {
-	struct list_head list;
-	call_frame_t *frame;
-	dict_t *reply;
-	dict_t *refs;
-	int32_t op;
-	int32_t type;
-};
-typedef struct _server_reply server_reply_t;
-
-struct _server_reply_queue {
-	struct list_head list;
-	pthread_t thread;
-	pthread_mutex_t lock;
-	pthread_cond_t cond;
-	uint64_t pending;
-};
-typedef struct _server_reply_queue server_reply_queue_t;
-
 struct _locker {
-	struct list_head lockers;
-	loc_t loc;
-	fd_t *fd;
-	pid_t pid;
+	struct list_head  lockers;
+	loc_t             loc;
+	fd_t             *fd;
+	pid_t             pid;
 };
 
 struct _lock_table {
-	struct list_head file_lockers;
-	struct list_head dir_lockers;
-	gf_lock_t lock;
-	size_t count;
+	struct list_head  file_lockers;
+	struct list_head  dir_lockers;
+	gf_lock_t         lock;
+	size_t            count;
 };
+
 
 /* private structure per connection (transport object)
  * used as transport_t->xl_private
  */
-struct _server_connection_private {
-	pthread_mutex_t lock;
-	char disconnected;    /* represents a disconnected object, if set */
-	fdtable_t *fdtable; 
+struct _server_connection {
+	struct list_head    list;
+	char               *id;
+	int                 ref;
+	pthread_mutex_t     lock;
+	char                disconnected;
+	fdtable_t          *fdtable; 
 	struct _lock_table *ltable;
-	xlator_t *bound_xl;   /* to be set after an authenticated SETVOLUME */
+	xlator_t           *bound_xl;
 };
 
+typedef struct _server_connection server_connection_t;
+
+
+server_connection_t *
+server_connection_get (xlator_t *this, const char *id);
+
+void
+server_connection_put (xlator_t *this, server_connection_t *conn);
+
+int
+server_connection_destroy (xlator_t *this, server_connection_t *conn);
+
+int
+server_nop_cbk (call_frame_t *frame, void *cookie,
+		xlator_t *this, int32_t op_ret, int32_t op_errno);
+
+
 typedef struct {
-	server_reply_queue_t *queue;
-	int32_t max_block_size;
-	int32_t inode_lru_limit;
+	dict_t           *auth_modules;
+	transport_t      *trans;
+	int32_t           max_block_size;
+	int32_t           inode_lru_limit;
+	pthread_mutex_t   mutex;
+	struct list_head  conns;
 } server_conf_t;
 
+
 struct _server_state {
-	transport_t *trans;
-	xlator_t *bound_xl;
-	loc_t loc;
-	loc_t loc2;
-	int flags;
-	fd_t *fd;
-	size_t size;
-	off_t offset;
-	mode_t mode;
-	dev_t dev;
-	uid_t uid;
-	gid_t gid;
-	size_t nr_count;
-	int cmd;
-	int type;
-	char *name;
-	int name_len;
-	inode_table_t *itable;
-	int64_t fd_no;
-	ino_t ino;
-	ino_t par;
-	ino_t ino2;
-	ino_t par2;
-	char *path;
-	char *path2;
-	char *bname;
-	char *bname2;
-	int mask;
-	char is_revalidate;
-	dict_t *xattr_req;
-	struct flock flock;
-	struct timespec tv[2];
-	char *resolved;
+	transport_t      *trans;
+	xlator_t         *bound_xl;
+	loc_t             loc;
+	loc_t             loc2;
+	int               flags;
+	fd_t             *fd;
+	size_t            size;
+	off_t             offset;
+	mode_t            mode;
+	dev_t             dev;
+	uid_t             uid;
+	gid_t             gid;
+	size_t            nr_count;
+	int               cmd;
+	int               type;
+	char             *name;
+	int               name_len;
+	inode_table_t    *itable;
+	int64_t           fd_no;
+	ino_t             ino;
+	ino_t             par;
+	ino_t             ino2;
+	ino_t             par2;
+	char             *path;
+	char             *path2;
+	char             *bname;
+	char             *bname2;
+	int               mask;
+	char              is_revalidate;
+	dict_t           *xattr_req;
+	struct flock      flock;
+	struct timespec   tv[2];
+	char             *resolved;
 };
 
 
-typedef struct {
-	dict_t *auth_modules;
-	transport_t *trans;
-} server_private_t;
+int
+server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
+		    inode_t *inode, inode_t *parent);
 
-typedef struct _server_connection_private server_connection_private_t;
-
-
-
-int32_t
-server_stub_resume (call_stub_t *stub,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    inode_t *inode,
-		    inode_t *parent);
-
-int32_t
-do_path_lookup (call_stub_t *stub,
-		const loc_t *loc);
+int
+do_path_lookup (call_stub_t *stub, const loc_t *loc);
 
 #endif

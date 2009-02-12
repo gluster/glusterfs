@@ -829,6 +829,8 @@ zr_build_process_uuid ()
 	char           tmp_str[1024] = {0,};
 	char           hostname[256] = {0,};
 	struct timeval tv = {0,};
+	struct tm      now = {0, };
+	char           now_str[32];
 
 	if (-1 == gettimeofday(&tv, NULL)) {
 		gf_log ("", GF_LOG_ERROR, 
@@ -842,8 +844,10 @@ zr_build_process_uuid ()
 			strerror (errno));
 	}
 
-	snprintf (tmp_str, 1024, "%s.%d.%ld.%ld", 
-		  hostname, getpid(), tv.tv_sec, tv.tv_usec);
+	localtime_r (&tv.tv_sec, &now);
+	strftime (now_str, 32, "%Y/%m/%d-%H:%M:%S", &now);
+	snprintf (tmp_str, 1024, "%s-%d-%s:%ld", 
+		  hostname, getpid(), now_str, tv.tv_usec);
 	
 	return strdup (tmp_str);
 }

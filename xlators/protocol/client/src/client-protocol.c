@@ -49,9 +49,8 @@ int protocol_client_cleanup (transport_t *trans);
 int protocol_client_interpret (xlator_t *this, transport_t *trans,
                                char *hdr_p, size_t hdrlen,
                                char *buf_p, size_t buflen);
-int32_t
-protocol_client_xfer (call_frame_t *frame,
-                      xlator_t *this,
+int
+protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
                       int type, int op,
                       gf_hdr_common_t *hdr, size_t hdrlen,
                       struct iovec *vector, int count,
@@ -61,10 +60,11 @@ static gf_op_t gf_fops[];
 static gf_op_t gf_mops[];
 static gf_op_t gf_cbks[];
 
+
 static ino_t
 this_ino_get_from_inode (inode_t *inode, xlator_t *this)
 {
-	ino_t ino = 0;
+	ino_t   ino = 0;
 	int32_t ret = 0;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
@@ -87,11 +87,12 @@ out:
 	return ino;
 }
 
+
 static ino_t
 this_ino_get (loc_t *loc, xlator_t *this, int32_t which)
 {
-	ino_t ino = 0;
-	int32_t ret = 0;
+	ino_t    ino = 0;
+	int32_t  ret = 0;
 	inode_t *inode = NULL;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
@@ -122,11 +123,12 @@ out:
 	return ino;
 }
 
+
 static void
 this_ino_set (loc_t *loc, xlator_t *this, ino_t ino)
 {
-	ino_t old_ino = 0;
-	int32_t ret = -1;
+	ino_t    old_ino = 0;
+	int32_t  ret = -1;
 	inode_t *inode = NULL;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
@@ -154,6 +156,7 @@ this_ino_set (loc_t *loc, xlator_t *this, ino_t ino)
 out:
 	return;
 }
+
 
 static int
 this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
@@ -202,6 +205,7 @@ out:
 	return;
 }
 
+
 static int 
 client_local_wipe (client_local_t *local)
 {
@@ -228,17 +232,17 @@ client_local_wipe (client_local_t *local)
 static call_frame_t *
 lookup_frame (transport_t *trans, int32_t op, int8_t type, int64_t callid)
 {
-	client_connection_private_t *cprivate = NULL;
-	call_frame_t  *frame = NULL;
+	client_connection_t *conn = NULL;
+	call_frame_t        *frame = NULL;
 
-	cprivate = trans->xl_private;
+	conn = trans->xl_private;
 
-	pthread_mutex_lock (&cprivate->lock);
+	pthread_mutex_lock (&conn->lock);
 	{
-		frame = saved_frames_get (cprivate->saved_frames,
+		frame = saved_frames_get (conn->saved_frames,
 					  op, type, callid);
 	}
-	pthread_mutex_unlock (&cprivate->lock);
+	pthread_mutex_unlock (&conn->lock);
 
 	return frame;
 }
@@ -247,51 +251,51 @@ lookup_frame (transport_t *trans, int32_t op, int8_t type, int64_t callid)
 static void
 call_bail (void *data)
 {
-	client_connection_private_t *cprivate = NULL;
-	struct timeval current;
-	int32_t bail_out = 0;
-	transport_t *trans = NULL;
+	client_connection_t *conn = NULL;
+	struct timeval       current;
+	int32_t              bail_out = 0;
+	transport_t         *trans = NULL;
 
 	GF_VALIDATE_OR_GOTO("client", data, out);
 	trans = data;
 
-	cprivate = trans->xl_private;
+	conn = trans->xl_private;
 
 	gettimeofday (&current, NULL);
-	pthread_mutex_lock (&cprivate->lock);
+	pthread_mutex_lock (&conn->lock);
 	{
 		/* Chaining to get call-always functionality from 
 		   call-once timer */
-		if (cprivate->timer) {
+		if (conn->timer) {
 			struct timeval timeout = {0,};
-			gf_timer_cbk_t timer_cbk = cprivate->timer->cbk;
+			gf_timer_cbk_t timer_cbk = conn->timer->cbk;
 
 			timeout.tv_sec = 10;
 			timeout.tv_usec = 0;
 
-			gf_timer_call_cancel (trans->xl->ctx, cprivate->timer);
-			cprivate->timer = gf_timer_call_after (trans->xl->ctx,
+			gf_timer_call_cancel (trans->xl->ctx, conn->timer);
+			conn->timer = gf_timer_call_after (trans->xl->ctx,
 							       timeout,
 							       timer_cbk,
 							       trans);
-			if (cprivate->timer == NULL) {
+			if (conn->timer == NULL) {
 				gf_log (trans->xl->name, GF_LOG_DEBUG,
 					"Cannot create bailout timer");
 			}
 		}
 
-		if (((cprivate->saved_frames->count > 0) &&
-		     (RECEIVE_TIMEOUT(cprivate, current)) && 
-		     (SEND_TIMEOUT(cprivate, current)))) {
+		if (((conn->saved_frames->count > 0) &&
+		     (RECEIVE_TIMEOUT(conn, current)) && 
+		     (SEND_TIMEOUT(conn, current)))) {
 
 			struct tm last_sent_tm, last_received_tm;
 			char last_sent[32] = {0,}, last_received[32] = {0,};
 
 			bail_out = 1;
 			
-			localtime_r (&cprivate->last_sent.tv_sec, 
+			localtime_r (&conn->last_sent.tv_sec, 
 				     &last_sent_tm);
-			localtime_r (&cprivate->last_received.tv_sec, 
+			localtime_r (&conn->last_received.tv_sec, 
 				     &last_received_tm);
 			
 			strftime (last_sent, 32, 
@@ -303,17 +307,17 @@ call_bail (void *data)
 				"activating bail-out. pending frames = %d. "
 				"last sent = %s. last received = %s. "
 				"transport-timeout = %d",
-				(int32_t) cprivate->saved_frames->count,
+				(int32_t) conn->saved_frames->count,
 				last_sent, last_received,
-				cprivate->transport_timeout);
+				conn->transport_timeout);
 		}
 	}
 
 	if (bail_out) {
-		cprivate->ping_started = 0;
+		conn->ping_started = 0;
 	}
 
-	pthread_mutex_unlock (&cprivate->lock);
+	pthread_mutex_unlock (&conn->lock);
 
 	if (bail_out) {
 		gf_log (trans->xl->name, GF_LOG_CRITICAL,
@@ -329,25 +333,24 @@ void
 save_frame (transport_t *trans, call_frame_t *frame,
 	    int32_t op, int8_t type, uint64_t callid)
 {
-	client_connection_private_t *cprivate = NULL;
-	struct timeval timeout        = {0, };
+	client_connection_t *conn = NULL;
+	struct timeval       timeout = {0, };
 
 
-	cprivate = trans->xl_private;
+	conn = trans->xl_private;
 
-	saved_frames_put (cprivate->saved_frames, frame, op, type, callid);
+	saved_frames_put (conn->saved_frames, frame, op, type, callid);
 
-	if (cprivate->timer == NULL) {
+	if (conn->timer == NULL) {
 		timeout.tv_sec  = 10;
 		timeout.tv_usec = 0;
-		cprivate->timer = gf_timer_call_after (trans->xl->ctx, timeout,
-						       call_bail,
-						       (void *)trans);
+		conn->timer = gf_timer_call_after (trans->xl->ctx, timeout,
+						   call_bail, (void *) trans);
        }
 }
 
 
-int32_t 
+int
 client_get_forgets (xlator_t *this, client_forget_t *forget) 
 {
 	call_frame_t        *fr = NULL;
@@ -355,14 +358,14 @@ client_get_forgets (xlator_t *this, client_forget_t *forget)
 	size_t               hdrlen = 0;
 	gf_cbk_forget_req_t *req = NULL;
 	int                  ret = -1;
-	client_private_t    *priv = NULL;
+	client_conf_t       *conf = NULL;
 	int                  count = 0;
 	int                  index = 0;
 
-	priv = this->private;
+	conf = this->private;
 
-	if (priv->forget.count > 0) {
-		count = priv->forget.count;
+	if (conf->forget.count > 0) {
+		count = conf->forget.count;
 		
 		hdrlen = gf_hdr_len (req, (count * sizeof (int64_t)));
 		hdr    = gf_hdr_new (req, (count * sizeof (int64_t)));
@@ -373,13 +376,13 @@ client_get_forgets (xlator_t *this, client_forget_t *forget)
 		req->count = hton32 (count);
 		for (index = 0; index < count; index++) {
 			req->ino_array[index] = 
-				hton64 (priv->forget.ino_array[index]);
+				hton64 (conf->forget.ino_array[index]);
 		}
 		
 		fr = create_frame (this, this->ctx->pool);
 		GF_VALIDATE_OR_GOTO (this->name, fr, out);
 
-		priv->forget.frames_in_transit++;
+		conf->forget.frames_in_transit++;
 
 		forget->frame = fr;
 		forget->hdr   = hdr;
@@ -387,123 +390,129 @@ client_get_forgets (xlator_t *this, client_forget_t *forget)
 		
 		ret = count;
 
-		priv->forget.count = 0;
+		conf->forget.count = 0;
 	}
  out:
 	return ret;
 }
 
+
 void 
 client_ping_timer_expired (void *data)
 {
-	xlator_t *this = data;
-	transport_t *trans = NULL;
-	client_private_t *priv = NULL;
-	client_connection_private_t *cprivate = NULL;
-	
-	priv  = this->private;
-	trans = priv->transport;
-	cprivate = trans->xl_private;
+	xlator_t            *this = NULL;
+	transport_t         *trans = NULL;
+	client_conf_t       *conf = NULL;
+	client_connection_t *conn = NULL;
+
+	trans = data;
+	this  = trans->xl;
+	conf  = this->private;
+	conn  = trans->xl_private;
 
 	gf_log (this->name, GF_LOG_ERROR, 
 		"ping timer expired! bailing transport");
 
-	pthread_mutex_lock (&cprivate->lock);
+	pthread_mutex_lock (&conn->lock);
 	{
-		if (cprivate->ping_timer)
+		if (conn->ping_timer)
 			gf_timer_call_cancel (trans->xl->ctx, 
-					      cprivate->ping_timer);
+					      conn->ping_timer);
 
-		cprivate->ping_started = 0;
-		cprivate->ping_timer = NULL;
+		conn->ping_started = 0;
+		conn->ping_timer = NULL;
 	}
-	pthread_mutex_unlock (&cprivate->lock);
+	pthread_mutex_unlock (&conn->lock);
 	transport_disconnect (trans);
 }
+
 
 void
 client_start_ping (void *data)
 {
-	xlator_t *this = NULL;
-	transport_t *trans = NULL;
-	client_private_t *priv = NULL;
-	client_connection_private_t *cprivate = NULL;
-	int32_t ret = -1;
-	gf_hdr_common_t *hdr = NULL;
-	struct timeval timeout        = {0, };
-	call_frame_t *dummy_frame = NULL;
-	size_t hdrlen = -1;
-	gf_mop_ping_req_t *req = NULL;
+	xlator_t            *this = NULL;
+	transport_t         *trans = NULL;
+	client_conf_t       *conf = NULL;
+	client_connection_t *conn = NULL;
+	int32_t              ret = -1;
+	gf_hdr_common_t     *hdr = NULL;
+	struct timeval       timeout = {0, };
+	call_frame_t        *dummy_frame = NULL;
+	size_t               hdrlen = -1;
+	gf_mop_ping_req_t   *req = NULL;
 
-	this = data;
-	priv  = this->private;
-	trans = priv->transport;
-	cprivate = trans->xl_private;
 
-	pthread_mutex_lock (&cprivate->lock);
+	trans = data;
+	this  = trans->xl;
+	conf  = this->private;
+	conn  = trans->xl_private;
+
+	pthread_mutex_lock (&conn->lock);
 	{
-		if ((cprivate->saved_frames->count == 0) || 
-		    !cprivate->connected) {
+		if ((conn->saved_frames->count == 0) || 
+		    !conn->connected) {
 			/* using goto looked ugly here, 
 			 * hence getting out this way */
-			if (cprivate->ping_timer)
+			if (conn->ping_timer)
 				gf_timer_call_cancel (trans->xl->ctx, 
-						      cprivate->ping_timer);
-			cprivate->ping_timer = NULL;
-			cprivate->ping_started = 0;
+						      conn->ping_timer);
+			conn->ping_timer = NULL;
+			conn->ping_started = 0;
 			/* unlock */
-			pthread_mutex_unlock (&cprivate->lock);
+			pthread_mutex_unlock (&conn->lock);
 			return;
 		}
 
-		if (cprivate->saved_frames->count < 0) {
+		if (conn->saved_frames->count < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"saved_frames->count is %"PRId64, 
-				cprivate->saved_frames->count);
-			cprivate->saved_frames->count = 0;
+				conn->saved_frames->count);
+			conn->saved_frames->count = 0;
 		}
-		timeout.tv_sec = cprivate->ping_timeout;
+		timeout.tv_sec = conn->ping_timeout;
 		timeout.tv_usec = 0;
 		
-		cprivate->ping_timer = 
-			gf_timer_call_after (trans->xl->ctx,
-					     timeout,
+		conn->ping_timer = 
+			gf_timer_call_after (trans->xl->ctx, timeout,
 					     client_ping_timer_expired,
-					     (void *)this);
+					     (void *) trans);
 
-		if (cprivate->ping_timer == NULL) {
+		if (conn->ping_timer == NULL) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"unable to setup timer");
 		} else
-			cprivate->ping_started = 1;
+			conn->ping_started = 1;
 	}
-	pthread_mutex_unlock (&cprivate->lock);
+	pthread_mutex_unlock (&conn->lock);
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 
 	dummy_frame = create_frame (this, this->ctx->pool);
-	ret = protocol_client_xfer (dummy_frame, this,
+	dummy_frame->local = trans;
+
+	ret = protocol_client_xfer (dummy_frame, this, trans,
 				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_PING,
 				    hdr, hdrlen, NULL, 0, NULL);
 }
 
-int32_t
-client_ping_cbk (call_frame_t *frame,
-		 gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_ping_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		 char *buf, size_t buflen)
 {
-	xlator_t *this = NULL;
-	transport_t *trans = NULL;
-	client_private_t *priv = NULL;
-	client_connection_private_t *cprivate = NULL;
-	struct timeval timeout        = {0, };
-	int op_ret = 0;
+	xlator_t            *this = NULL;
+	transport_t         *trans = NULL;
+	client_conf_t       *conf = NULL;
+	client_connection_t *conn = NULL;
+	struct timeval       timeout = {0, };
+	int                  op_ret = 0;
 
-	this = frame->this;
-	priv  = this->private;
-	trans = priv->transport;
-	cprivate = trans->xl_private;
+	trans  = frame->local; frame->local = NULL;
+	this   = trans->xl;
+	conf   = this->private;
+	conn   = trans->xl_private;
+
 	op_ret = ntoh32 (hdr->rsp.op_ret);
 
 	if (op_ret == -1) {
@@ -512,55 +521,57 @@ client_ping_cbk (call_frame_t *frame,
 		goto out;
 	}
 
-	pthread_mutex_lock (&cprivate->lock);
+	pthread_mutex_lock (&conn->lock);
 	{
-		timeout.tv_sec  = cprivate->ping_timeout;
+		timeout.tv_sec  = conn->ping_timeout;
 		timeout.tv_usec = 0;
 
 		gf_timer_call_cancel (trans->xl->ctx, 
-				      cprivate->ping_timer);
+				      conn->ping_timer);
 	
-		cprivate->ping_timer = gf_timer_call_after (trans->xl->ctx,
-							    timeout,
-							    client_start_ping,
-							    (void *)this);
-		if (cprivate->ping_timer == NULL)
+		conn->ping_timer = 
+			gf_timer_call_after (trans->xl->ctx, timeout,
+					     client_start_ping, (void *)trans);
+		if (conn->ping_timer == NULL)
 			gf_log (this->name, GF_LOG_ERROR,
 				"gf_timer_call_after() returned NULL");
 	}
-	pthread_mutex_unlock (&cprivate->lock);
+	pthread_mutex_unlock (&conn->lock);
 out:
 	STACK_DESTROY (frame->root);
 	return 0;
 }
 
 
-int32_t
-protocol_client_xfer (call_frame_t *frame,
-                      xlator_t *this,
+int
+protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
                       int type, int op,
                       gf_hdr_common_t *hdr, size_t hdrlen,
                       struct iovec *vector, int count,
                       dict_t *refs)
 {
-	transport_t *trans = NULL;
-	client_private_t *priv = NULL;
-	client_connection_private_t *cprivate = NULL;
-	uint64_t callid = 0;
-	int32_t ret = -1;
-	int start_ping = 0;
-	gf_hdr_common_t rsphdr = {0, };
-	client_forget_t forget = {0, };
-	uint8_t send_forget = 0;
+	client_conf_t        *conf = NULL;
+	client_connection_t  *conn = NULL;
+	uint64_t              callid = 0;
+	int32_t               ret = -1;
+	int                   start_ping = 0;
+	gf_hdr_common_t       rsphdr = {0, };
+	client_forget_t       forget = {0, };
+	uint8_t               send_forget = 0;
 
-	priv  = this->private;
-	trans = priv->transport;
-	cprivate = trans->xl_private;
+
+	conf  = this->private;
+
+	if (!trans) {
+		/* default to bulk op since it is 'safer' */
+		trans = conf->transport[CHANNEL_BULK];
+	}
+	conn  = trans->xl_private;
 
 	if (!((type == GF_OP_TYPE_CBK_REQUEST) && 
 	      (op == GF_CBK_FORGET))) 
 	{
-		LOCK (&priv->forget.lock);
+		LOCK (&conf->forget.lock);
 		{
 			ret = client_get_forgets (this, &forget);
 			if (ret <= 0)
@@ -568,10 +579,10 @@ protocol_client_xfer (call_frame_t *frame,
 			else
 				send_forget = 1;
 		}
-		UNLOCK (&priv->forget.lock);
+		UNLOCK (&conf->forget.lock);
 
 		if (send_forget) {
-			ret = protocol_client_xfer (forget.frame, this,
+			ret = protocol_client_xfer (forget.frame, this, NULL,
 						    GF_OP_TYPE_CBK_REQUEST, 
 						    GF_CBK_FORGET,
 						    forget.hdr, forget.hdrlen, 
@@ -579,9 +590,9 @@ protocol_client_xfer (call_frame_t *frame,
 		}
 	}
 
-	pthread_mutex_lock (&cprivate->lock);
+	pthread_mutex_lock (&conn->lock);
 	{
-		callid = ++cprivate->callid;
+		callid = ++conn->callid;
 
 		hdr->callid = hton64 (callid);
 		hdr->op     = hton32 (op);
@@ -593,12 +604,12 @@ protocol_client_xfer (call_frame_t *frame,
 			hdr->req.pid = hton32 (frame->root->pid);
 		}
 
-		if (cprivate->connected == 0)
+		if (conn->connected == 0)
 			transport_connect (trans);
 
 		ret = -1;
 
-		if (cprivate->connected ||
+		if (conn->connected ||
 		    ((type == GF_OP_TYPE_MOP_REQUEST) &&
 		     (op == GF_MOP_SETVOLUME))) {
 			ret = transport_submit (trans, (char *)hdr, hdrlen,
@@ -607,18 +618,18 @@ protocol_client_xfer (call_frame_t *frame,
 		
 		if ((ret >= 0) && frame) {
 			/* TODO: check this logic */
-			gettimeofday (&cprivate->last_sent, NULL);
+			gettimeofday (&conn->last_sent, NULL);
 			save_frame (trans, frame, op, type, callid);
 		}
 
-		if (!cprivate->ping_started && (ret >= 0)) {
+		if (!conn->ping_started && (ret >= 0)) {
 			start_ping = 1;
 		}
 	}
-	pthread_mutex_unlock (&cprivate->lock);
+	pthread_mutex_unlock (&conn->lock);
 
 	if (start_ping)
-		client_start_ping ((void *)this);
+		client_start_ping ((void *) trans);
 
 	if (frame && (ret < 0)) {
 		rsphdr.op = op;
@@ -652,31 +663,30 @@ protocol_client_xfer (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->create
  */
-int32_t
-client_create (call_frame_t *frame,
-               xlator_t     *this,
-               loc_t        *loc,
-               int32_t       flags,
-               mode_t        mode,
-               fd_t         *fd)
+
+int
+client_create (call_frame_t *frame, xlator_t *this,
+               loc_t *loc, int32_t flags,
+               mode_t mode, fd_t *fd)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_create_req_t *req = NULL;
-	size_t hdrlen = 0;
-	size_t pathlen = 0;
-	size_t baselen = 0;
-	int32_t ret = -1;
-	ino_t par = 0;
-	client_private_t *priv = this->private;
-	client_local_t *local = NULL;
+	size_t               hdrlen = 0;
+	size_t               pathlen = 0;
+	size_t               baselen = 0;
+	int32_t              ret = -1;
+	ino_t                par = 0;
+	client_conf_t       *conf = NULL;
+	client_local_t      *local = NULL;
 
-	if (priv->child) {
-		/* */
+
+	conf = this->private;
+
+	if (conf->child) {
 		STACK_WIND (frame, default_create_cbk,
-			    priv->child,
-			    priv->child->fops->create,
+			    conf->child,
+			    conf->child->fops->create,
 			    loc, flags, mode, fd);
-		
 		return 0;
 	}
 
@@ -705,6 +715,7 @@ client_create (call_frame_t *frame,
 	strcpy (req->bname + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CREATE,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -726,28 +737,25 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->open
  */
-int32_t
-client_open (call_frame_t *frame,
-             xlator_t *this,
-             loc_t *loc,
-             int32_t flags,
-             fd_t *fd)
+int
+client_open (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, int32_t flags, fd_t *fd)
 {
-	int              ret = -1;
-	gf_hdr_common_t *hdr = NULL;
-	size_t           hdrlen = 0;
-	gf_fop_open_req_t *req = NULL;
-	size_t pathlen = 0;
-	ino_t  ino = 0;
-	client_private_t *priv = this->private;
-	client_local_t *local = NULL;
-	
-	if (priv->child) {
+	int                 ret = -1;
+	gf_hdr_common_t    *hdr = NULL;
+	size_t              hdrlen = 0;
+	gf_fop_open_req_t  *req = NULL;
+	size_t              pathlen = 0;
+	ino_t               ino = 0;
+	client_conf_t      *conf = NULL;
+	client_local_t     *local = NULL;
+
+	conf = this->private;
+	if (conf->child) {
 		/* */
-		STACK_WIND (frame,
-			    default_open_cbk,
-			    priv->child,
-			    priv->child->fops->open,
+		STACK_WIND (frame, default_open_cbk,
+			    conf->child,
+			    conf->child->fops->open,
 			    loc, flags, fd);
 		
 		return 0;
@@ -775,6 +783,7 @@ client_open (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 	
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_OPEN,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -807,14 +816,14 @@ client_stat (call_frame_t *frame,
 	int32_t ret = -1;
 	size_t  pathlen = 0;
 	ino_t   ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_stat_cbk,
-			    priv->child,
-			    priv->child->fops->stat,
+			    conf->child,
+			    conf->child->fops->stat,
 			    loc);
 		
 		return 0;
@@ -833,6 +842,7 @@ client_stat (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_STAT,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -867,14 +877,14 @@ client_readlink (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_readlink_cbk,
-			    priv->child,
-			    priv->child->fops->readlink,
+			    conf->child,
+			    conf->child->fops->readlink,
 			    loc,
 			    size);
 		
@@ -895,6 +905,7 @@ client_readlink (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_READLINK,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -932,15 +943,15 @@ client_mknod (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 	client_local_t *local = NULL;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_mknod_cbk,
-			    priv->child,
-			    priv->child->fops->mknod,
+			    conf->child,
+			    conf->child->fops->mknod,
 			    loc, mode, dev);
 
 		return 0;
@@ -970,6 +981,7 @@ client_mknod (call_frame_t *frame,
 	strcpy (req->bname + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_MKNOD,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1005,15 +1017,15 @@ client_mkdir (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 	client_local_t *local = NULL;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_mkdir_cbk,
-			    priv->child,
-			    priv->child->fops->mkdir,
+			    conf->child,
+			    conf->child->fops->mkdir,
 			    loc, mode);
 		
 		return 0;
@@ -1042,6 +1054,7 @@ client_mkdir (call_frame_t *frame,
 	strcpy (req->bname + pathlen, loc->name);
 	
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_MKDIR,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1076,14 +1089,14 @@ client_unlink (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_unlink_cbk,
-			    priv->child,
-			    priv->child->fops->unlink,
+			    conf->child,
+			    conf->child->fops->unlink,
 			    loc);
 		
 		return 0;
@@ -1104,6 +1117,7 @@ client_unlink (call_frame_t *frame,
 	strcpy (req->bname + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_UNLINK,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1136,14 +1150,14 @@ client_rmdir (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t baselen = 0;
 	ino_t  par = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_rmdir_cbk,
-			    priv->child,
-			    priv->child->fops->rmdir,
+			    conf->child,
+			    conf->child->fops->rmdir,
 			    loc);
 		
 		return 0;
@@ -1164,6 +1178,7 @@ client_rmdir (call_frame_t *frame,
 	strcpy (req->bname + pathlen, loc->name);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RMDIR,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1201,15 +1216,15 @@ client_symlink (call_frame_t *frame,
 	size_t newlen  = 0;
 	size_t baselen = 0;
 	ino_t par = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 	client_local_t *local = NULL;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_symlink_cbk,
-			    priv->child,
-			    priv->child->fops->symlink,
+			    conf->child,
+			    conf->child->fops->symlink,
 			    linkname, loc);
 		
 		return 0;
@@ -1239,6 +1254,7 @@ client_symlink (call_frame_t *frame,
 	strcpy (req->linkname + pathlen + baselen, linkname);
 	
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SYMLINK,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -1276,14 +1292,14 @@ client_rename (call_frame_t *frame,
 	size_t newbaselen = 0;
 	ino_t  oldpar = 0;
 	ino_t  newpar = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_rename_cbk,
-			    priv->child,
-			    priv->child->fops->rename,
+			    conf->child,
+			    conf->child->fops->rename,
 			    oldloc, newloc);
 		
 		return 0;
@@ -1315,6 +1331,7 @@ client_rename (call_frame_t *frame,
 		newloc->name);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RENAME,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -1353,15 +1370,15 @@ client_link (call_frame_t *frame,
 	size_t newbaselen = 0;
 	ino_t  oldino = 0;
 	ino_t  newpar = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 	client_local_t *local = NULL;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_link_cbk,
-			    priv->child,
-			    priv->child->fops->link,
+			    conf->child,
+			    conf->child->fops->link,
 			    oldloc, newloc);
 		
 		return 0;
@@ -1394,6 +1411,7 @@ client_link (call_frame_t *frame,
 	req->newpar = hton64 (newpar);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_LINK,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -1427,14 +1445,14 @@ client_chmod (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_chmod_cbk,
-			    priv->child,
-			    priv->child->fops->chmod,
+			    conf->child,
+			    conf->child->fops->chmod,
 			    loc,
 			    mode);
 		
@@ -1455,6 +1473,7 @@ client_chmod (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHMOD,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1491,14 +1510,14 @@ client_chown (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_chown_cbk,
-			    priv->child,
-			    priv->child->fops->chown,
+			    conf->child,
+			    conf->child->fops->chown,
 			    loc,
 			    uid,
 			    gid);
@@ -1521,6 +1540,7 @@ client_chown (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHOWN,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1554,14 +1574,14 @@ client_truncate (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_truncate_cbk,
-			    priv->child,
-			    priv->child->fops->truncate,
+			    conf->child,
+			    conf->child->fops->truncate,
 			    loc,
 			    offset);
 		
@@ -1582,6 +1602,7 @@ client_truncate (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_TRUNCATE,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1617,14 +1638,14 @@ client_utimens (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_utimens_cbk,
-			    priv->child,
-			    priv->child->fops->utimens,
+			    conf->child,
+			    conf->child->fops->utimens,
 			    loc,
 			    tvp);
 		
@@ -1645,6 +1666,7 @@ client_utimens (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_UTIMENS,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1681,14 +1703,14 @@ client_readv (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_readv_cbk,
-			    priv->child,
-			    priv->child->fops->readv,
+			    conf->child,
+			    conf->child->fops->readv,
 			    fd,
 			    size,
 			    offset);
@@ -1716,6 +1738,7 @@ client_readv (call_frame_t *frame,
 	req->offset = hton64 (offset);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_READ,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1753,14 +1776,14 @@ client_writev (call_frame_t *frame,
 	size_t  hdrlen = 0;
 	int64_t remote_fd = -1;
 	int     ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_writev_cbk,
-			    priv->child,
-			    priv->child->fops->writev,
+			    conf->child,
+			    conf->child->fops->writev,
 			    fd,
 			    vector,
 			    count,
@@ -1789,6 +1812,7 @@ client_writev (call_frame_t *frame,
 	req->offset = hton64 (offset);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_WRITE,
 				    hdr, hdrlen, vector, count,
 				    frame->root->req_refs);
@@ -1822,14 +1846,14 @@ client_statfs (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_statfs_cbk,
-			    priv->child,
-			    priv->child->fops->statfs,
+			    conf->child,
+			    conf->child->fops->statfs,
 			    loc);
 		
 		return 0;
@@ -1848,6 +1872,7 @@ client_statfs (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_STATFS,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1880,14 +1905,14 @@ client_flush (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_flush_cbk,
-			    priv->child,
-			    priv->child->fops->flush,
+			    conf->child,
+			    conf->child->fops->flush,
 			    fd);
 		
 		return 0;
@@ -1911,6 +1936,7 @@ client_flush (call_frame_t *frame,
 	req->fd = hton64 (remote_fd);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FLUSH,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -1947,14 +1973,14 @@ client_fsync (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int32_t ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_fsync_cbk,
-			    priv->child,
-			    priv->child->fops->fsync,
+			    conf->child,
+			    conf->child->fops->fsync,
 			    fd,
 			    flags);
 		
@@ -1980,6 +2006,7 @@ client_fsync (call_frame_t *frame,
 	req->data = hton32 (flags);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSYNC,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -2006,17 +2033,17 @@ client_xattrop (call_frame_t *frame,
 	int32_t ret = -1;
 	size_t  pathlen = 0;
 	ino_t   ino = 0;
-	client_private_t *priv = NULL;
+	client_conf_t *conf = NULL;
 
 	GF_VALIDATE_OR_GOTO("client", this, unwind);
 
-	priv = this->private;
-	if (priv->child) {
+	conf = this->private;
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_xattrop_cbk,
-			    priv->child,
-			    priv->child->fops->xattrop,
+			    conf->child,
+			    conf->child->fops->xattrop,
 			    loc,
 			    flags,
 			    dict);
@@ -2060,6 +2087,7 @@ client_xattrop (call_frame_t *frame,
 	strcpy (req->path + dict_len, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_XATTROP,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -2086,14 +2114,14 @@ client_fxattrop (call_frame_t *frame,
 	int64_t remote_fd = -1;
 	int32_t ret = -1;
 	ino_t   ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_fxattrop_cbk,
-			    priv->child,
-			    priv->child->fops->fxattrop,
+			    conf->child,
+			    conf->child->fops->fxattrop,
 			    fd,
 			    flags,
 			    dict);
@@ -2143,6 +2171,7 @@ client_fxattrop (call_frame_t *frame,
 	req->ino = hton64 (ino);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FXATTROP,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -2180,14 +2209,14 @@ client_setxattr (call_frame_t *frame,
 	int    ret = -1;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_setxattr_cbk,
-			    priv->child,
-			    priv->child->fops->setxattr,
+			    conf->child,
+			    conf->child->fops->setxattr,
 			    loc,
 			    dict,
 			    flags);
@@ -2227,6 +2256,7 @@ client_setxattr (call_frame_t *frame,
 	strcpy (req->path + dict_len, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETXATTR,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -2259,14 +2289,14 @@ client_getxattr (call_frame_t *frame,
 	size_t pathlen = 0;
 	size_t namelen = 0;
 	ino_t  ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_getxattr_cbk,
-			    priv->child,
-			    priv->child->fops->getxattr,
+			    conf->child,
+			    conf->child->fops->getxattr,
 			    loc,
 			    name);
 		
@@ -2292,6 +2322,7 @@ client_getxattr (call_frame_t *frame,
 		strcpy (req->name + pathlen, name);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_GETXATTR,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -2325,14 +2356,14 @@ client_removexattr (call_frame_t *frame,
 	size_t namelen = 0;
 	size_t pathlen = 0;
 	ino_t  ino = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_removexattr_cbk,
-			    priv->child,
-			    priv->child->fops->removexattr,
+			    conf->child,
+			    conf->child->fops->removexattr,
 			    loc,
 			    name);
 		
@@ -2354,6 +2385,7 @@ client_removexattr (call_frame_t *frame,
 	strcpy (req->name + pathlen, name);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_REMOVEXATTR,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -2385,15 +2417,15 @@ client_opendir (call_frame_t *frame,
 	int    ret = -1;
 	ino_t  ino = 0;
 	size_t pathlen = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 	client_local_t *local = NULL;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_opendir_cbk,
-			    priv->child,
-			    priv->child->fops->opendir,
+			    conf->child,
+			    conf->child->fops->opendir,
 			    loc, fd);
 		
 		return 0;
@@ -2420,6 +2452,7 @@ client_opendir (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_OPENDIR,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -2454,14 +2487,14 @@ client_getdents (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_getdents_cbk,
-			    priv->child,
-			    priv->child->fops->getdents,
+			    conf->child,
+			    conf->child->fops->getdents,
 			    fd,
 			    size,
 			    offset,
@@ -2492,6 +2525,7 @@ client_getdents (call_frame_t *frame,
 	req->flags  = hton32 (flag);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_GETDENTS,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -2521,14 +2555,14 @@ client_readdir (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_readdir_cbk,
-			    priv->child,
-			    priv->child->fops->readdir,
+			    conf->child,
+			    conf->child->fops->readdir,
 			    fd, size, offset);
 		
 		return 0;
@@ -2554,6 +2588,7 @@ client_readdir (call_frame_t *frame,
 	req->offset = hton64 (offset);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_READDIR,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -2589,14 +2624,14 @@ client_fsyncdir (call_frame_t *frame,
 	size_t hdrlen = 0;
 	int64_t remote_fd = -1;
 	int32_t ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_fsyncdir_cbk,
-			    priv->child,
-			    priv->child->fops->fsyncdir,
+			    conf->child,
+			    conf->child->fops->fsyncdir,
 			    fd,
 			    flags);
 		
@@ -2621,6 +2656,7 @@ client_fsyncdir (call_frame_t *frame,
 	req->fd   = hton64 (remote_fd);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSYNCDIR,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -2652,14 +2688,14 @@ client_access (call_frame_t *frame,
 	int    ret = -1;
 	ino_t  ino = 0;
 	size_t pathlen = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_access_cbk,
-			    priv->child,
-			    priv->child->fops->access,
+			    conf->child,
+			    conf->child->fops->access,
 			    loc,
 			    mask);
 		
@@ -2680,6 +2716,7 @@ client_access (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_ACCESS,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -2715,14 +2752,14 @@ client_ftruncate (call_frame_t *frame,
 	int64_t remote_fd = -1;
 	size_t hdrlen = -1;
 	int ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_ftruncate_cbk,
-			    priv->child,
-			    priv->child->fops->ftruncate,
+			    conf->child,
+			    conf->child->fops->ftruncate,
 			    fd,
 			    offset);
 		
@@ -2748,6 +2785,7 @@ client_ftruncate (call_frame_t *frame,
 	req->offset = hton64 (offset);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FTRUNCATE,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -2781,14 +2819,14 @@ client_fstat (call_frame_t *frame,
 	int64_t remote_fd = -1;
 	size_t hdrlen = -1;
 	int ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_fstat_cbk,
-			    priv->child,
-			    priv->child->fops->fstat,
+			    conf->child,
+			    conf->child->fops->fstat,
 			    fd);
 		
 		return 0;
@@ -2812,6 +2850,7 @@ client_fstat (call_frame_t *frame,
 	req->fd = hton64 (remote_fd);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSTAT,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -2850,14 +2889,14 @@ client_lk (call_frame_t *frame,
 	int64_t remote_fd = -1;
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_lk_cbk,
-			    priv->child,
-			    priv->child->fops->lk,
+			    conf->child,
+			    conf->child->fops->lk,
 			    fd,
 			    cmd,
 			    flock);
@@ -2910,8 +2949,8 @@ client_lk (call_frame_t *frame,
 	gf_flock_from_flock (&req->flock, flock);
 
 	ret = protocol_client_xfer (frame, this,
-				    GF_OP_TYPE_FOP_REQUEST,
-				    GF_FOP_LK,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
+				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_LK,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
 unwind:
@@ -2948,14 +2987,14 @@ client_inodelk (call_frame_t *frame,
 	int32_t gf_type = 0;
 	ino_t   ino  = 0;
 	size_t  pathlen = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_inodelk_cbk,
-			    priv->child,
-			    priv->child->fops->inodelk,
+			    conf->child,
+			    conf->child->fops->inodelk,
 			    loc, cmd, flock);
 		
 		return 0;
@@ -3004,6 +3043,7 @@ client_inodelk (call_frame_t *frame,
 
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST,
 				    GF_FOP_INODELK,
 				    hdr, hdrlen, NULL, 0, NULL);
@@ -3042,14 +3082,14 @@ client_finodelk (call_frame_t *frame,
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 	int64_t remote_fd = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_finodelk_cbk,
-			    priv->child,
-			    priv->child->fops->finodelk,
+			    conf->child,
+			    conf->child->fops->finodelk,
 			    fd, cmd, flock);
 		
 		return 0;
@@ -3101,6 +3141,7 @@ client_finodelk (call_frame_t *frame,
 	gf_flock_from_flock (&req->flock, flock);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST,
 				    GF_FOP_FINODELK,
 				    hdr, hdrlen, NULL, 0, NULL);
@@ -3129,13 +3170,13 @@ client_entrylk (call_frame_t *frame,
 	int ret = -1;
 	ino_t ino = 0;
 	size_t namelen = 0;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame, default_entrylk_cbk,
-			    priv->child,
-			    priv->child->fops->entrylk,
+			    conf->child,
+			    conf->child->fops->entrylk,
 			    loc, name, cmd, type);
 		
 		return 0;
@@ -3164,6 +3205,7 @@ client_entrylk (call_frame_t *frame,
 	req->type = hton32 (type);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_ENTRYLK,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -3192,13 +3234,13 @@ client_fentrylk (call_frame_t *frame,
 	size_t namelen = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame, default_fentrylk_cbk,
-			    priv->child,
-			    priv->child->fops->fentrylk,
+			    conf->child,
+			    conf->child->fops->fentrylk,
 			    fd, name, cmd, type);
 		
 		return 0;
@@ -3232,6 +3274,7 @@ client_fentrylk (call_frame_t *frame,
 	req->type = hton32 (type);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FENTRYLK,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -3270,15 +3313,15 @@ client_lookup (call_frame_t *frame,
 	size_t baselen = 0;
 	int32_t op_ret = -1;
 	int32_t op_errno = EINVAL;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 	client_local_t *local = NULL;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_lookup_cbk,
-			    priv->child,
-			    priv->child->fops->lookup,
+			    conf->child,
+			    conf->child->fops->lookup,
 			    loc,
 			    xattr_req);
 		
@@ -3341,6 +3384,7 @@ client_lookup (call_frame_t *frame,
 	req->dictlen = hton32 (dictlen);
 	
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_LOOKUP,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -3369,14 +3413,14 @@ client_fchmod (call_frame_t *frame,
 	int ret = -1;
 	int32_t op_errno = EINVAL;
 	int32_t op_ret   = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_fchmod_cbk,
-			    priv->child,
-			    priv->child->fops->fchmod,
+			    conf->child,
+			    conf->child->fops->fchmod,
 			    fd,
 			    mode);
 		
@@ -3404,6 +3448,7 @@ client_fchmod (call_frame_t *frame,
 	req->mode = hton32 (mode);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FCHMOD,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -3439,14 +3484,14 @@ client_fchown (call_frame_t *frame,
 	int32_t op_ret   = -1;
 	int32_t op_errno = EINVAL;
 	int32_t ret      = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_fchown_cbk,
-			    priv->child,
-			    priv->child->fops->fchown,
+			    conf->child,
+			    conf->child->fops->fchown,
 			    fd,
 			    uid,
 			    gid);
@@ -3476,6 +3521,7 @@ client_fchown (call_frame_t *frame,
 	req->gid = hton32 (gid);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FCHOWN,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -3514,14 +3560,14 @@ client_setdents (call_frame_t *frame,
 	int32_t  vec_count = 0;
 	size_t   hdrlen = -1;
 	struct iovec vector[1];
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_setdents_cbk,
-			    priv->child,
-			    priv->child->fops->setdents,
+			    conf->child,
+			    conf->child->fops->setdents,
 			    fd,
 			    flags,
 			    entries,
@@ -3640,6 +3686,7 @@ client_setdents (call_frame_t *frame,
 	}
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETDENTS,
 				    hdr, hdrlen, vector, vec_count, 
 				    frame->root->rsp_refs);
@@ -3666,15 +3713,15 @@ client_forget (xlator_t *this,
                inode_t *inode)
 {
 	ino_t            ino = 0;
-	client_private_t *priv = NULL;
+	client_conf_t *conf = NULL;
 	client_forget_t  forget = {0,};
 	uint8_t          send_forget = 0;
 	int32_t          ret = -1;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
-	priv = this->private;
+	conf = this->private;
 
-	if (priv->child) {
+	if (conf->child) {
 		/* */
 		/* Yenu beda */
 		return 0;
@@ -3683,12 +3730,12 @@ client_forget (xlator_t *this,
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
 	ino = this_ino_get_from_inode (inode, this);
 
-	LOCK (&priv->forget.lock);
+	LOCK (&conf->forget.lock);
 	{
-		priv->forget.ino_array[priv->forget.count++] = ino;
+		conf->forget.ino_array[conf->forget.count++] = ino;
 
-		if ((!priv->forget.frames_in_transit) || 
-		    (priv->forget.count >= CLIENT_PROTO_FORGET_LIMIT)) {
+		if ((!conf->forget.frames_in_transit) || 
+		    (conf->forget.count >= CLIENT_PROTO_FORGET_LIMIT)) {
 			ret = client_get_forgets (this, &forget);
 			if (ret <= 0)
 				send_forget = 0;
@@ -3696,10 +3743,11 @@ client_forget (xlator_t *this,
 				send_forget = 1;
 		}
 	}
-	UNLOCK (&priv->forget.lock);
+	UNLOCK (&conf->forget.lock);
 	
 	if (send_forget) {
 		ret = protocol_client_xfer (forget.frame, this,
+					    CLIENT_CHANNEL (this,CHANNEL_BULK),
 					    GF_OP_TYPE_CBK_REQUEST, 
 					    GF_CBK_FORGET,
 					    forget.hdr, forget.hdrlen, 
@@ -3718,28 +3766,25 @@ out:
  */
 
 int32_t
-client_releasedir (xlator_t *this,
-		   fd_t *fd)
+client_releasedir (xlator_t *this, fd_t *fd)
 {
-	call_frame_t          *fr = NULL;
-	int32_t                ret = -1;
-	int64_t                remote_fd = 0;
-	char                   key[32] = {0,};
-	client_connection_private_t   *cprivate = NULL;
-	gf_hdr_common_t       *hdr = NULL;
-	size_t                 hdrlen = 0;
+	call_frame_t            *fr = NULL;
+	int32_t                  ret = -1;
+	int64_t                  remote_fd = 0;
+	char                     key[32] = {0,};
+	gf_hdr_common_t         *hdr = NULL;
+	size_t                   hdrlen = 0;
 	gf_cbk_releasedir_req_t *req  = NULL;
-	client_private_t        *priv = NULL;
-	GF_VALIDATE_OR_GOTO ("client", this, out);
+	client_conf_t           *conf = NULL;
 
-	priv = this->private;
-	if (priv->child) {
-		/* */
-		/* yenu beda */
+
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+	conf = this->private;
+	if (conf->child) {
 		return 0;
 	}
-
-	GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1){
@@ -3758,25 +3803,26 @@ client_releasedir (xlator_t *this,
 	req->fd = hton64 (remote_fd);
 
 	{
-		cprivate = CLIENT_CONNECTION_PRIVATE(this);
 		sprintf (key, "%p", fd);
 
-		pthread_mutex_lock (&cprivate->lock);
+		pthread_mutex_lock (&conf->mutex);
 		{
-			dict_del (cprivate->saved_fds, key);
+			dict_del (conf->saved_fds, key);
 		}
-		pthread_mutex_unlock (&cprivate->lock);
+		pthread_mutex_unlock (&conf->mutex);
 	}
 
 	fr = create_frame (this, this->ctx->pool);
 	GF_VALIDATE_OR_GOTO (this->name, fr, out);
 
 	ret = protocol_client_xfer (fr, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_CBK_REQUEST, GF_CBK_RELEASEDIR,
 				    hdr, hdrlen, NULL, 0, NULL);
 out:
 	return ret;
 }
+
 
 /**
  * client_release - release function for client protocol
@@ -3786,30 +3832,26 @@ out:
  * external reference through client_protocol_xlator->cbks->release
  *
  */
-int32_t
-client_release (xlator_t *this,
-		fd_t *fd)
+int
+client_release (xlator_t *this, fd_t *fd)
 {
-	call_frame_t        *fr = NULL;
-	int32_t              ret = -1;
-	int64_t              remote_fd = 0;
-	char                 key[32] = {0,};
-	client_connection_private_t *cprivate = NULL;
-	gf_hdr_common_t     *hdr = NULL;
-	size_t               hdrlen = 0;
+	call_frame_t          *fr = NULL;
+	int32_t                ret = -1;
+	int64_t                remote_fd = 0;
+	char                   key[32] = {0,};
+	gf_hdr_common_t       *hdr = NULL;
+	size_t                 hdrlen = 0;
 	gf_cbk_release_req_t  *req = NULL;
-	client_private_t      *priv = NULL;
+	client_conf_t         *conf = NULL;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
-	priv = this->private;
+	GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
-	if (priv->child) {
-		/* */
-		/* yenu beda */
+	conf = this->private;
+
+	if (conf->child) {
 		return 0;
 	}
-
-	GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -3827,20 +3869,20 @@ client_release (xlator_t *this,
 	req->fd = hton64 (remote_fd);
 
 	{
-		cprivate = CLIENT_CONNECTION_PRIVATE(this);
 		sprintf (key, "%p", fd);
 
-		pthread_mutex_lock (&cprivate->lock);
+		pthread_mutex_lock (&conf->mutex);
 		{
-			dict_del (cprivate->saved_fds, key);
+			dict_del (conf->saved_fds, key);
 		}
-		pthread_mutex_unlock (&cprivate->lock);
+		pthread_mutex_unlock (&conf->mutex);
 	}
 
 	fr = create_frame (this, this->ctx->pool);
 	GF_VALIDATE_OR_GOTO (this->name, fr, out);
 
 	ret = protocol_client_xfer (fr, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_CBK_REQUEST, GF_CBK_RELEASE,
 				    hdr, hdrlen, NULL, 0, NULL);
 out:
@@ -3869,17 +3911,17 @@ client_stats (call_frame_t *frame,
 	gf_mop_stats_req_t *req = NULL;
 	size_t hdrlen = -1;
 	int ret = -1;
-	client_private_t *priv = NULL;
+	client_conf_t *conf = NULL;
 
 	GF_VALIDATE_OR_GOTO ("client", this, unwind);
 
-	priv = this->private;
-	if (priv->child) {
+	conf = this->private;
+	if (conf->child) {
 		/* */
 		STACK_WIND (frame,
 			    default_stats_cbk,
-			    priv->child,
-			    priv->child->mops->stats,
+			    conf->child,
+			    conf->child->mops->stats,
 			    flags);
 		
 		return 0;
@@ -3895,6 +3937,7 @@ client_stats (call_frame_t *frame,
 	req->flags = hton32 (flags);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_STATS,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -4098,29 +4141,28 @@ client_fchmod_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
+int
 client_create_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
                    char *buf, size_t buflen)
 {
-	gf_fop_create_rsp_t *rsp = NULL;
-	int32_t              op_ret = 0;
-	int32_t              op_errno = 0;
-	fd_t                *fd = NULL;
-	inode_t             *inode = NULL;
-	struct stat          stbuf = {0, };
-	int64_t              remote_fd = 0;
-	client_connection_private_t *cprivate = NULL;
-	char                 key[32] = {0, };
-	int32_t              ret = -1;
+	gf_fop_create_rsp_t  *rsp = NULL;
+	int32_t               op_ret = 0;
+	int32_t               op_errno = 0;
+	fd_t                 *fd = NULL;
+	inode_t              *inode = NULL;
+	struct stat           stbuf = {0, };
+	int64_t               remote_fd = 0;
+	char                  key[32] = {0, };
+	int32_t               ret = -1;
 	client_local_t       *local = NULL;
+	client_conf_t        *conf = NULL;
 
-	local = frame->local;
-	frame->local = NULL;
-	fd = local->fd;
+
+	local = frame->local; frame->local = NULL;
+	conf  = frame->this->private;
+	fd    = local->fd;
 	inode = local->loc.inode;
-
-	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
 
 	rsp = gf_param (hdr);
 
@@ -4138,11 +4180,11 @@ client_create_cbk (call_frame_t *frame,
 
 		sprintf (key, "%p", fd);
 
-		pthread_mutex_lock (&cprivate->lock);
+		pthread_mutex_lock (&conf->mutex);
 		{
-			ret = dict_set_str (cprivate->saved_fds, key, "");
+			ret = dict_set_str (conf->saved_fds, key, "");
 		}
-		pthread_mutex_unlock (&cprivate->lock);
+		pthread_mutex_unlock (&conf->mutex);
 
 		if (ret < 0) {
 			free (key);
@@ -4177,17 +4219,15 @@ client_open_cbk (call_frame_t *frame,
 	fd_t                *fd = NULL;
 	int64_t              remote_fd = 0;
 	gf_fop_open_rsp_t   *rsp = NULL;
-	client_connection_private_t *cprivate = NULL;
 	char                 key[32] = {0,};
 	int32_t              ret = -1;
 	client_local_t      *local = NULL;
+	client_conf_t       *conf = NULL;
 	
-	local = frame->local;
 
-	fd = local->fd;
-	frame->local = NULL;
-
-	cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
+	local = frame->local; frame->local = NULL;
+	conf  = frame->this->private;
+	fd    = local->fd;
 
 	rsp = gf_param (hdr);
 
@@ -4199,17 +4239,15 @@ client_open_cbk (call_frame_t *frame,
 	}
 
 	if (op_ret >= 0) {
-		cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
-
 		this_fd_set (fd, frame->this, &local->loc, remote_fd);
 
 		sprintf (key, "%p", fd);
 
-		pthread_mutex_lock (&cprivate->lock);
+		pthread_mutex_lock (&conf->mutex);
 		{
-			ret = dict_set_str (cprivate->saved_fds, key, "");
+			ret = dict_set_str (conf->saved_fds, key, "");
 		}
-		pthread_mutex_unlock (&cprivate->lock);
+		pthread_mutex_unlock (&conf->mutex);
 
 		if (ret < 0) {
 			gf_log (frame->this->name, GF_LOG_ERROR,
@@ -4234,15 +4272,15 @@ client_open_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
+int
 client_stat_cbk (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  char *buf, size_t buflen)
 {
-	struct stat stbuf = {0, };
+	struct stat        stbuf = {0, };
 	gf_fop_stat_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t            op_ret = 0;
+	int32_t            op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4859,7 +4897,7 @@ client_flush_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
+int
 client_opendir_cbk (call_frame_t *frame,
                     gf_hdr_common_t *hdr, size_t hdrlen,
                     char *buf, size_t buflen)
@@ -4869,14 +4907,15 @@ client_opendir_cbk (call_frame_t *frame,
 	fd_t                 *fd       = NULL;
 	int64_t               remote_fd = 0;
 	gf_fop_opendir_rsp_t *rsp       = NULL;
-	client_connection_private_t  *cprivate = NULL;
 	char                  key[32] = {0,};
 	int32_t               ret     = -1;
 	client_local_t       *local = NULL;
+	client_conf_t        *conf = NULL;
 
-	local = frame->local;
-	fd = local->fd;
-	frame->local = NULL;
+
+	local = frame->local; frame->local = NULL;
+	conf  = frame->this->private;
+	fd    = local->fd;
 
 	rsp = gf_param (hdr);
 
@@ -4888,17 +4927,15 @@ client_opendir_cbk (call_frame_t *frame,
 	}
 
 	if (op_ret >= 0) {
-		cprivate = CLIENT_CONNECTION_PRIVATE(frame->this);
-
 		this_fd_set (fd, frame->this, &local->loc, remote_fd);
 
 		sprintf (key, "%p", fd);
 
-		pthread_mutex_lock (&cprivate->lock);
+		pthread_mutex_lock (&conf->mutex);
 		{
-			ret = dict_set_str (cprivate->saved_fds, key, "");
+			ret = dict_set_str (conf->saved_fds, key, "");
 		}
-		pthread_mutex_unlock (&cprivate->lock);
+		pthread_mutex_unlock (&conf->mutex);
 
 		if (ret < 0) {
 			free (key);
@@ -4924,7 +4961,7 @@ client_opendir_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
+int
 client_rmdir_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   char *buf, size_t buflen)
@@ -5578,6 +5615,7 @@ client_getspec (call_frame_t *frame,
 		strcpy (req->key, key);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_GETSPEC,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -5633,14 +5671,14 @@ client_checksum (call_frame_t *frame,
 	gf_fop_checksum_req_t *req = NULL;
 	size_t hdrlen = -1;
 	int ret = -1;
-	client_private_t *priv = this->private;
+	client_conf_t *conf = this->private;
 	ino_t ino = 0;
 
-	if (priv->child) {
+	if (conf->child) {
 		STACK_WIND (frame,
 			    default_checksum_cbk,
-			    priv->child,
-			    priv->child->fops->checksum,
+			    conf->child,
+			    conf->child->fops->checksum,
 			    loc,
 			    flag);
 
@@ -5657,6 +5695,7 @@ client_checksum (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHECKSUM,
 				    hdr, hdrlen, NULL, 0, NULL);
 
@@ -5722,31 +5761,32 @@ client_setspec_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
+int
 client_setvolume_cbk (call_frame_t *frame,
                       gf_hdr_common_t *hdr, size_t hdrlen,
                       char *buf, size_t buflen)
 {
 	gf_mop_setvolume_rsp_t *rsp = NULL;
-	client_connection_private_t *cprivate = NULL;
-	client_private_t *priv = NULL;
-	glusterfs_ctx_t *ctx = NULL; 
-	xlator_t *this = NULL;
-	xlator_list_t *parent = NULL;
-	transport_t *trans = NULL;
-	dict_t *reply = NULL;
-	char *remote_subvol = NULL;
-	char *remote_error = NULL;
-	char *process_uuid = NULL;
-	int32_t ret = -1;
-	int32_t op_ret   = -1;
-	int32_t op_errno = EINVAL;
-	int32_t dict_len = 0;
+	client_connection_t    *conn = NULL;
+	client_conf_t          *conf = NULL;
+	glusterfs_ctx_t        *ctx = NULL; 
+	xlator_t               *this = NULL;
+	xlator_list_t          *parent = NULL;
+	transport_t            *trans = NULL;
+	dict_t                 *reply = NULL;
+	char                   *remote_subvol = NULL;
+	char                   *remote_error = NULL;
+	char                   *process_uuid = NULL;
+	int32_t                 ret = -1;
+	int32_t                 op_ret   = -1;
+	int32_t                 op_errno = EINVAL;
+	int32_t                 dict_len = 0;
 
+
+	trans = frame->local; frame->local = NULL;
 	this  = frame->this;
-	priv  = this->private;
-	trans = priv->transport;
-	cprivate  = trans->xl_private;
+	conf  = this->private;
+	conn  = trans->xl_private;
 
 	rsp = gf_param (hdr);
 
@@ -5804,17 +5844,17 @@ client_setvolume_cbk (call_frame_t *frame,
 				remote_subvol);
 
 			/* TODO: */
-			priv->child = xlator_search_by_name (this, 
+			conf->child = xlator_search_by_name (this, 
 							     remote_subvol);
 		}
 		gf_log (trans->xl->name, GF_LOG_INFO,
 			"connection and handshake succeeded");
 
-		pthread_mutex_lock (&(cprivate->lock));
+		pthread_mutex_lock (&(conn->lock));
 		{
-			cprivate->connected = 1;
+			conn->connected = 1;
 		}
-		pthread_mutex_unlock (&(cprivate->lock));
+		pthread_mutex_unlock (&(conn->lock));
 
 		parent = trans->xl->parents;
 		while (parent) {
@@ -5840,7 +5880,7 @@ out:
  *
  * not for external reference
  */
-int32_t
+int
 client_enosys_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
                    char *buf, size_t buflen)
@@ -5849,28 +5889,31 @@ client_enosys_cbk (call_frame_t *frame,
 	return 0;
 }
 
+
 void
 client_protocol_reconnect (void *trans_ptr)
 {
-	transport_t *trans = trans_ptr;
-	client_connection_private_t *cprivate = trans->xl_private;
-	struct timeval tv = {0, 0};
+	transport_t         *trans = NULL;
+	client_connection_t *conn = NULL;
+	struct timeval       tv = {0, 0};
 
-	pthread_mutex_lock (&cprivate->lock);
+	trans = trans_ptr;
+	conn  = trans->xl_private;
+	pthread_mutex_lock (&conn->lock);
 	{
-		if (cprivate->reconnect)
+		if (conn->reconnect)
 			gf_timer_call_cancel (trans->xl->ctx, 
-					      cprivate->reconnect);
-		cprivate->reconnect = 0;
+					      conn->reconnect);
+		conn->reconnect = 0;
 
-		if (cprivate->connected == 0) {
+		if (conn->connected == 0) {
 			tv.tv_sec = 10;
 
 			gf_log (trans->xl->name, GF_LOG_DEBUG,
 				"attempting reconnect");
 			transport_connect (trans);
 
-			cprivate->reconnect = 
+			conn->reconnect = 
 				gf_timer_call_after (trans->xl->ctx, tv,
 						     client_protocol_reconnect,
 						     trans);
@@ -5879,7 +5922,7 @@ client_protocol_reconnect (void *trans_ptr)
 				"breaking reconnect chain");
 		}
 	}
-	pthread_mutex_unlock (&cprivate->lock);
+	pthread_mutex_unlock (&conn->lock);
 }
 
 /*
@@ -5890,23 +5933,21 @@ client_protocol_reconnect (void *trans_ptr)
 int
 protocol_client_cleanup (transport_t *trans)
 {
-	client_connection_private_t *cprivate = NULL;
-	struct saved_frames         *saved_frames = NULL;
-	data_pair_t                 *trav = NULL;
-	xlator_t                    *this = NULL;
+	client_connection_t    *conn = NULL;
+	struct saved_frames    *saved_frames = NULL;
 
-
-	cprivate = trans->xl_private;
+	conn = trans->xl_private;
 			
 	gf_log (trans->xl->name, GF_LOG_DEBUG,
 		"cleaning up state in transport object %p", trans);
 
-	pthread_mutex_lock (&cprivate->lock);
+	pthread_mutex_lock (&conn->lock);
 	{
-		saved_frames = cprivate->saved_frames;
-		cprivate->saved_frames = saved_frames_new ();
+		saved_frames = conn->saved_frames;
+		conn->saved_frames = saved_frames_new ();
 
-		trav = cprivate->saved_fds->members_list;
+/*
+		trav = conn->saved_fds->members_list;
 		this = trans->xl;
 
 		while (trav) {
@@ -5917,27 +5958,27 @@ protocol_client_cleanup (transport_t *trans)
 			trav = trav->next;
 		}
 
-		dict_destroy (cprivate->saved_fds);
+		dict_destroy (conn->saved_fds);
 
-		cprivate->saved_fds = get_new_dict_full (64);
-
+		conn->saved_fds = get_new_dict_full (64);
+*/
 		/* bailout logic cleanup */
-		memset (&(cprivate->last_sent), 0, 
-			sizeof (cprivate->last_sent));
+		memset (&(conn->last_sent), 0, 
+			sizeof (conn->last_sent));
 
-		memset (&(cprivate->last_received), 0, 
-			sizeof (cprivate->last_received));
+		memset (&(conn->last_received), 0, 
+			sizeof (conn->last_received));
 
-		if (cprivate->timer) {
-			gf_timer_call_cancel (trans->xl->ctx, cprivate->timer);
-			cprivate->timer = NULL;
+		if (conn->timer) {
+			gf_timer_call_cancel (trans->xl->ctx, conn->timer);
+			conn->timer = NULL;
 		}
 
-		if (cprivate->reconnect == NULL) {
+		if (conn->reconnect == NULL) {
 			/* :O This part is empty.. any thing missing? */
 		}
 	}
-	pthread_mutex_unlock (&cprivate->lock);
+	pthread_mutex_unlock (&conn->lock);
 
 	saved_frames_destroy (trans->xl, saved_frames,
 			      gf_fops, gf_mops, gf_cbks);
@@ -5947,7 +5988,7 @@ protocol_client_cleanup (transport_t *trans)
 
 
 /* cbk callbacks */
-int32_t
+int
 client_releasedir_cbk (call_frame_t *frame,
 		       gf_hdr_common_t *hdr, size_t hdrlen,
 		       char *buf, size_t buflen)
@@ -5956,7 +5997,8 @@ client_releasedir_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
+
+int
 client_release_cbk (call_frame_t *frame,
 		    gf_hdr_common_t *hdr, size_t hdrlen,
 		    char *buf, size_t buflen)
@@ -5965,19 +6007,22 @@ client_release_cbk (call_frame_t *frame,
 	return 0;
 }
 
+
 int
 client_forget_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
                    char *buf, size_t buflen)
 {
-	client_private_t *priv = frame->this->private;
+	client_conf_t   *conf = NULL;
 	client_forget_t  forget = {0, };
 	uint8_t          send_forget = 0;
 	int32_t          ret = -1;
 
-	LOCK (&priv->forget.lock);
+
+	conf = frame->this->private;
+	LOCK (&conf->forget.lock);
 	{
-		priv->forget.frames_in_transit--;
+		conf->forget.frames_in_transit--;
 
 		ret = client_get_forgets (frame->this, &forget);
 		if (ret <= 0)
@@ -5985,10 +6030,11 @@ client_forget_cbk (call_frame_t *frame,
 		else
 			send_forget = 1;
 	}
-	UNLOCK (&priv->forget.lock);
+	UNLOCK (&conf->forget.lock);
 
 	if (send_forget) {
 		ret = protocol_client_xfer (forget.frame, frame->this,
+					    CLIENT_CHANNEL (this,CHANNEL_BULK),
 					    GF_OP_TYPE_CBK_REQUEST, 
 					    GF_CBK_FORGET,
 					    forget.hdr, forget.hdrlen, 
@@ -5998,6 +6044,7 @@ client_forget_cbk (call_frame_t *frame,
 	STACK_DESTROY (frame->root);
 	return 0;
 }
+
 
 static gf_op_t gf_fops[] = {
 	[GF_FOP_STAT]           =  client_stat_cbk,
@@ -6137,12 +6184,14 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 int32_t
 init (xlator_t *this)
 {
-	transport_t *trans = NULL;
-	client_private_t *priv = NULL;
-	client_connection_private_t *cprivate = NULL;
-	int32_t transport_timeout = 0, ping_timeout = 0;
-	data_t *remote_subvolume = NULL;
-	int32_t ret = -1;
+	transport_t               *trans = NULL;
+	client_conf_t             *conf = NULL;
+	client_connection_t       *conn = NULL;
+	int32_t                    transport_timeout = 0;
+	int32_t                    ping_timeout = 0;
+	data_t                    *remote_subvolume = NULL;
+	int32_t                    ret = -1;
+	int                        i = 0;
 
 	if (this->children) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -6185,48 +6234,41 @@ init (xlator_t *this)
 		ping_timeout = 10;
 	}
 	
-	trans = transport_load (this->options, this);
-	if (trans == NULL) {
-		gf_log (this->name, GF_LOG_ERROR, 
-			"Failed to load transport");
-		ret = -1;
-		goto out;
+	conf = CALLOC (1, sizeof (client_conf_t));
+
+	LOCK_INIT (&conf->forget.lock);
+	pthread_mutex_init (&conf->mutex, NULL);
+	conf->saved_fds = get_new_dict_full (64);
+
+	this->private = conf;
+
+	for (i = 0; i < CHANNEL_MAX; i++) {
+		trans = transport_load (this->options, this);
+		if (trans == NULL) {
+			gf_log (this->name, GF_LOG_ERROR, 
+				"Failed to load transport");
+			ret = -1;
+			goto out;
+		}
+
+		conn = CALLOC (1, sizeof (*conn));
+
+		conn->saved_frames = saved_frames_new ();
+
+		conn->callid = 1;
+
+		memset (&(conn->last_sent), 0, sizeof (conn->last_sent));
+		memset (&(conn->last_received), 0,
+			sizeof (conn->last_received));
+
+		conn->transport_timeout = transport_timeout;
+		conn->ping_timeout = ping_timeout;
+
+		pthread_mutex_init (&conn->lock, NULL);
+
+		trans->xl_private = conn;
+		conf->transport[i] = transport_ref (trans);
 	}
-
-	priv = CALLOC (1, sizeof (client_private_t));
-
-	priv->transport = transport_ref (trans);
-	
-	LOCK_INIT (&priv->forget.lock);
-
-	this->private = priv;
-	
-	/* in case, GF_VALIDATE_OR_GOTO() jumps to label */
-	ret = -1;
-
-	cprivate = CALLOC (1, sizeof (client_connection_private_t));
-	GF_VALIDATE_OR_GOTO(this->name, cprivate, out);
-
-	cprivate->saved_frames = saved_frames_new ();
-	GF_VALIDATE_OR_GOTO(this->name, cprivate->saved_frames, out);
-
-	cprivate->saved_fds = get_new_dict_full (64);
-	GF_VALIDATE_OR_GOTO(this->name, cprivate->saved_fds, out);
-
-	cprivate->callid = 1;
-
-	memset (&(cprivate->last_sent), 0, 
-		sizeof (cprivate->last_sent));
-
-	memset (&(cprivate->last_received), 0, 
-		sizeof (cprivate->last_received));
-
-	cprivate->transport_timeout = transport_timeout;
-	cprivate->ping_timeout = ping_timeout;
-
-	pthread_mutex_init (&cprivate->lock, NULL);
-
-	trans->xl_private = cprivate;
 
 #ifndef GF_DARWIN_HOST_OS
 	{
@@ -6270,31 +6312,21 @@ void
 fini (xlator_t *this)
 {
 	/* TODO: Check if its enough.. how to call transport's fini () */
-	client_private_t *priv = NULL;
-	client_connection_private_t *cprivate = NULL;
+	client_conf_t *conf = NULL;
 
-	priv = this->private;
+	conf = this->private;
 	this->private = NULL;
 
-	if (priv) {
-		if (priv->transport && priv->transport->xl_private) {
-			cprivate = priv->transport->xl_private;
-			dict_destroy (cprivate->saved_fds);
-			FREE (cprivate);
-		}
-		if (priv->transport)
-			transport_unref (priv->transport);
-
-		LOCK_DESTROY (&priv->forget.lock);
-		FREE (priv);
+	if (conf) {
+		LOCK_DESTROY (&conf->forget.lock);
+		FREE (conf);
 	}
 	return;
 }
 
 
 int
-protocol_client_handshake (xlator_t *this,
-                           transport_t *trans)
+protocol_client_handshake (xlator_t *this, transport_t *trans)
 {
 	gf_hdr_common_t        *hdr = NULL;
 	gf_mop_setvolume_req_t *req = NULL;
@@ -6303,12 +6335,23 @@ protocol_client_handshake (xlator_t *this,
 	int                     hdrlen = 0;
 	int                     dict_len = 0;
 	call_frame_t           *fr = NULL;
+	char                   *process_uuid_xl;
 
 	options = this->options;
 	ret = dict_set_str (options, "version", PACKAGE_VERSION);
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"failed to set version(%s) in options dictionary",
+			PACKAGE_VERSION);
+	}
+
+	asprintf (&process_uuid_xl, "%s-%s", this->ctx->process_uuid,
+		  this->name);
+	ret = dict_set_dynstr (options, "process-uuid",
+			       process_uuid_xl);
+	if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to set process-uuid(%s) in options dictionary",
 			PACKAGE_VERSION);
 	}
 
@@ -6334,11 +6377,13 @@ protocol_client_handshake (xlator_t *this,
 			options);
 		goto fail;
 	}
+
 	req->dict_len = hton32 (dict_len);
 	fr  = create_frame (this, this->ctx->pool);
 	GF_VALIDATE_OR_GOTO(this->name, fr, fail);
 
-	ret = protocol_client_xfer (fr, this,
+	fr->local = trans;
+	ret = protocol_client_xfer (fr, this, trans,
 				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_SETVOLUME,
 				    hdr, hdrlen, NULL, 0, NULL);
 	return ret;
@@ -6352,15 +6397,15 @@ fail:
 int
 protocol_client_pollout (xlator_t *this, transport_t *trans)
 {
-	client_connection_private_t *cprivate = NULL;
+	client_connection_t *conn = NULL;
 
-	cprivate = trans->xl_private;
+	conn = trans->xl_private;
 
-	pthread_mutex_lock (&cprivate->lock);
+	pthread_mutex_lock (&conn->lock);
 	{
-		gettimeofday (&cprivate->last_sent, NULL);
+		gettimeofday (&conn->last_sent, NULL);
 	}
-	pthread_mutex_unlock (&cprivate->lock);
+	pthread_mutex_unlock (&conn->lock);
 
 	return 0;
 }
@@ -6369,7 +6414,7 @@ protocol_client_pollout (xlator_t *this, transport_t *trans)
 int
 protocol_client_pollin (xlator_t *this, transport_t *trans)
 {
-	client_connection_private_t *cprivate = NULL;
+	client_connection_t *conn = NULL;
 	int ret = -1;
 	char *buf = NULL;
 	size_t buflen = 0;
@@ -6377,14 +6422,14 @@ protocol_client_pollin (xlator_t *this, transport_t *trans)
 	size_t hdrlen = 0;
 	int connected = 0;
 
-	cprivate = trans->xl_private;
+	conn = trans->xl_private;
 
-	pthread_mutex_lock (&cprivate->lock);
+	pthread_mutex_lock (&conn->lock);
 	{
-		gettimeofday (&cprivate->last_received, NULL);
-		connected = cprivate->connected;
+		gettimeofday (&conn->last_received, NULL);
+		connected = conn->connected;
 	}
-	pthread_mutex_unlock (&cprivate->lock);
+	pthread_mutex_unlock (&conn->lock);
 
 	ret = transport_receive (trans, &hdr, &hdrlen, &buf, &buflen);
 
@@ -6417,7 +6462,7 @@ notify (xlator_t *this,
 {
 	int ret = -1;
 	transport_t *trans = NULL;
-	client_connection_private_t *cprivate = NULL;
+	client_connection_t *conn = NULL;
 
 	trans = data;
 
@@ -6441,9 +6486,8 @@ notify (xlator_t *this,
 		protocol_client_cleanup (trans);
 	}
 
-	cprivate = trans->xl_private;
-	if (cprivate->connected) {
-		struct timeval tv = {0, 0};
+	conn = trans->xl_private;
+	if (conn->connected) {
 		xlator_list_t *parent = NULL;
 
 		gf_log (this->name, GF_LOG_INFO, "disconnected");
@@ -6456,47 +6500,35 @@ notify (xlator_t *this,
 			parent = parent->next;
 		}
 
-		pthread_mutex_lock (&cprivate->lock);
-		{
-			cprivate->connected = 0;
-			if (cprivate->reconnect == 0)
-				cprivate->reconnect = 
-					gf_timer_call_after (trans->xl->ctx, 
-							     tv,
-							     client_protocol_reconnect,
-							     trans);
-		}
-		pthread_mutex_unlock (&cprivate->lock);
-
+		conn->connected = 0;
+		if (conn->reconnect == 0)
+			client_protocol_reconnect (trans);
 	}
 	break;
 
 	case GF_EVENT_PARENT_UP:
 	{
-		struct timeval tv = {0, 0};
 		xlator_list_t *parent = NULL;
-		client_private_t *priv = this->private;
-		transport_t *trans = priv->transport;
+		client_conf_t *conf = NULL;
+		int            i = 0;
+		transport_t   *trans = NULL;
 
-		if (!trans) {
+		conf = this->private;
+		for (i = 0; i < CHANNEL_MAX; i++) {
+			trans = conf->transport[i];
+			if (!trans) {
+				gf_log (this->name, GF_LOG_DEBUG,
+					"transport init failed");
+				return -1;
+			}
+
+			conn = trans->xl_private;
+
 			gf_log (this->name, GF_LOG_DEBUG,
-				"transport init failed");
-			return -1;
-		}
+				"got GF_EVENT_PARENT_UP, attempting connect "
+				"on transport");
 
-		cprivate = trans->xl_private;
-
-		gf_log (this->name, GF_LOG_DEBUG,
-			"got GF_EVENT_PARENT_UP, attempting connect "
-			"on transport");
-
-		cprivate->reconnect = 
-			gf_timer_call_after (trans->xl->ctx, tv,
-					     client_protocol_reconnect,
-					     trans);
-
-		if (ret) {
-			/* TODO: schedule reconnection with timer */
+			client_protocol_reconnect (trans);
 		}
 
 		/* Let the connection/re-connection happen in 
@@ -6525,8 +6557,8 @@ notify (xlator_t *this,
 		    (strcasecmp (handshake, "on"))) {
 			ret = protocol_client_handshake (this, trans);
 		} else {
-			cprivate = trans->xl_private;
-			cprivate->connected = 1;
+			conn = trans->xl_private;
+			conn->connected = 1;
 			ret = default_notify (this, event, trans);
 		}
 
