@@ -153,6 +153,22 @@ __free_handle (xattr_cache_handle_t *handle)
 {
 	if (handle->loc.path)
 		loc_wipe (&handle->loc);
+	
+	FREE (handle);
+}
+
+
+static xattr_cache_handle_t *
+__copy_handle (xattr_cache_handle_t *handle)
+{
+	xattr_cache_handle_t *hnew = calloc (1, sizeof (xattr_cache_handle_t));
+	
+	if (handle->loc.path)
+		loc_copy (&hnew->loc, &handle->loc);
+	else
+		hnew->fd = handle->fd;
+
+	return hnew;
 }
 
 
@@ -172,7 +188,7 @@ __cache_populate_entry (xattr_cache_entry_t *entry, xlator_t *this,
 
 	entry->key      = strdup (key);
 	entry->inode    = __inode_for_handle (handle);
-	entry->handle   = handle;
+	entry->handle   = __copy_handle (handle);
 	entry->len      = len;
 	entry->nraccess = 1;
 
@@ -410,7 +426,46 @@ int posix_xattr_cache_flush (xlator_t *this, xattr_cache_handle_t *handle)
 	}
 	pthread_mutex_unlock (&cache->lock);
 
+	op_ret = 0;
 out:
+	return op_ret;
+}
+
+
+int
+posix_xattr_cache_flush_all (xlator_t *this)
+{
+	xattr_cache_t       *cache = NULL;
+	xattr_cache_entry_t *entry = NULL;
+
+	int i;
+	int op_ret = 0;
+
+	cache = ((struct posix_private *) (this->private))->xattr_cache;
+
+	pthread_mutex_lock (&cache->lock);
+	{
+		gf_log (this->name, GF_LOG_DEBUG,
+			"flushing entire xattr cache: ");
+
+		for (i = 0; i < cache->size; i++) {
+			entry = cache->entries[i];
+
+			if (entry->handle->loc.path)
+				gf_log (this->name, GF_LOG_DEBUG,
+					"  force flushing entry for %s",
+					entry->handle->loc.path);
+			
+			else if (cache->entries[i]->handle->fd)
+				gf_log (this->name, GF_LOG_DEBUG,
+					"  force flushing entry for fd=%p", 
+					entry->handle->fd);
+			
+			__cache_flush_entry (entry, this);
+		}
+	}
+	pthread_mutex_unlock (&cache->lock);
+
 	return op_ret;
 }
 

@@ -59,5 +59,7 @@ int posix_xattr_cache_write (xlator_t *this, xattr_cache_handle_t *handle,
 
 int posix_xattr_cache_flush (xlator_t *this, xattr_cache_handle_t *handle);
 
+int posix_xattr_cache_flush_all (xlator_t *this);
+
 
 #endif /* __XATTR_CACHE_H__ */

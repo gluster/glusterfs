@@ -796,6 +796,8 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         int32_t op_errno  = 0;
         char *  real_path = NULL;
 
+	xattr_cache_handle_t handle = {{0,}, 0};
+
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -804,6 +806,12 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+	loc_copy (&handle.loc, loc);
+	{
+		posix_xattr_cache_flush (this, &handle);
+	}
+	loc_wipe (&handle.loc);
 
         op_ret = unlink (real_path);
         if (op_ret == -1) {
@@ -831,6 +839,8 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         int32_t op_errno  = 0;
         char *  real_path = 0;
 
+	xattr_cache_handle_t handle = {{0,}, 0};
+
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -839,6 +849,12 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+	loc_copy (&handle.loc, loc);
+	{
+		posix_xattr_cache_flush (this, &handle);
+	}
+	loc_wipe (&handle.loc);
 
         op_ret = rmdir (real_path);
         op_errno = errno;
@@ -931,6 +947,8 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         char *      real_newpath = NULL;
         struct stat stbuf        = {0, };
 
+	xattr_cache_handle_t handle = {{0,}, 0};
+
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -941,6 +959,12 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
         MAKE_REAL_PATH (real_newpath, this, newloc->path);
+
+	loc_copy (&handle.loc, oldloc);
+	{
+		posix_xattr_cache_flush (this, &handle);
+	}
+	loc_wipe (&handle.loc);
 
         op_ret = rename (real_oldpath, real_newpath);
         if (op_ret == -1) {
@@ -2437,12 +2461,14 @@ int
 posix_xattrop (call_frame_t *frame, xlator_t *this,
 	       loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr)
 {
-	xattr_cache_handle_t *handle = calloc (1, sizeof (xattr_cache_handle_t));
+	xattr_cache_handle_t handle = {{0,}, 0};
 	int ret = -1;
 
-	loc_copy (&handle->loc, loc);
-
-	ret = posix_xattrop_common (frame, this, handle, optype, xattr);
+	loc_copy (&handle.loc, loc);
+	{
+		ret = posix_xattrop_common (frame, this, &handle, optype, xattr);
+	}
+	loc_wipe (&handle.loc);
 
 	return ret;
 }
@@ -2453,11 +2479,11 @@ posix_fxattrop (call_frame_t *frame, xlator_t *this,
 		fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
 {
 	int ret = -1;
-	xattr_cache_handle_t *handle = calloc (1, sizeof (xattr_cache_handle_t));
+	xattr_cache_handle_t handle = {{0,}, 0};
 	
-	handle->fd = fd;
+	handle.fd = fd;
 
-	ret = posix_xattrop_common (frame, this, handle, optype, xattr);
+	ret = posix_xattrop_common (frame, this, &handle, optype, xattr);
 
 	return ret;
 }
@@ -2894,6 +2920,8 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
 
         strcpy (entry_path, real_path);
         entry_path[real_path_len] = '/';
+
+	posix_xattr_cache_flush_all (this);
 
         /* fd exists, and everything looks fine */
         /**
