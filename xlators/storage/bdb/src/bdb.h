@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -147,7 +147,7 @@
  * this will happen either in lookup() or mkdir().
  *
  * @this:  pointer xlator_t of bdb xlator.
- * @inode: inode to whose ->ctx, 'struct bdb_ctx *' has to be stored.
+ * @inode: inode where 'struct bdb_ctx *' has to be stored.
  * @bctx:  a 'struct bdb_ctx *'
  */
 #define BDB_SET_BCTX(this,inode,bctx) do{                         \
@@ -160,17 +160,17 @@
  *
  * @this:  pointer xlator_t of bdb xlator.
  * @bctx:  a 'struct bdb_ctx *'
- * @inode: inode from whose ->ctx, 'struct bdb_ctx *' has to be extracted. 
+ * @inode: inode from where 'struct bdb_ctx *' has to be extracted. 
  */
 #define MAKE_BCTX_FROM_INODE(this,bctx,inode) do{        \
                 uint64_t tmp_bctx = 0;                   \
-                inode_ctx_get (inode, this, &tmp_bctx); \
+                inode_ctx_get (inode, this, &tmp_bctx);  \
                 if (ret == 0)                            \
 		        bctx = (void *)(long)tmp_bctx;   \
 	}while (0);
 
-#define BDB_SET_BFD(this,fd,bfd) do{					\
-		dict_set(fd->ctx, this->name, data_from_static_ptr (bfd)); \
+#define BDB_SET_BFD(this,fd,bfd) do{		            \
+		fd_ctx_set (fd, this, (uint64_t)(long)bfd); \
 	}while (0);
 
 /* maximum number of open dbs that bdb xlator will ever have */
@@ -344,8 +344,7 @@ bdb_txn_commit (DB_TXN *txnid)
 }
 
 inline void *
-bdb_extract_bfd (fd_t *fd,
-		 char *name);
+bdb_extract_bfd (fd_t *fd, xlator_t *this);
 
 
 void *

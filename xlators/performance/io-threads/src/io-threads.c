@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2006, 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -70,9 +70,7 @@ iot_open_cbk (call_frame_t *frame,
 		iot_schedule (conf, file, fd->inode->ino);
 		file->fd = fd;
 
-		dict_set (fd->ctx,
-			  this->name,
-			  data_from_static_ptr (file));
+		fd_ctx_set (fd, this, (uint64_t)(long)file);
 
 		pthread_mutex_lock (&conf->files_lock);
 		file->next = &conf->files;
@@ -122,9 +120,7 @@ iot_create_cbk (call_frame_t *frame,
 		iot_schedule (conf, file, fd->inode->ino);
 		file->fd = fd;
 
-		dict_set (fd->ctx,
-			  this->name,
-			  data_from_static_ptr (file));
+		fd_ctx_set (fd, this, (uint64_t)(long)file);
 
 		pthread_mutex_lock (&conf->files_lock);
 		file->next = &conf->files;
@@ -205,14 +201,16 @@ iot_readv (call_frame_t *frame,
 	iot_local_t *local = NULL;
 	iot_file_t *file = NULL;
 	iot_worker_t *worker = NULL;
+	uint64_t tmp_file = 0;
 
-	if (!dict_get (fd->ctx, this->name)) {
-		gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
+	if (fd_ctx_get (fd, this, &tmp_file)) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"fd context is NULL, returning EBADFD");
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
 
-	file = data_to_ptr (dict_get (fd->ctx, this->name));
+	file = (iot_file_t *)(long)tmp_file;
 	worker = file->worker;
 
 	local = CALLOC (1, sizeof (*local));
@@ -225,7 +223,8 @@ iot_readv (call_frame_t *frame,
 			       size,
 			       offset);
 	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot get readv call stub");
+		gf_log (this->name, GF_LOG_ERROR, 
+			"cannot get readv call stub");
 		STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
 		return 0;
 	}
@@ -268,14 +267,16 @@ iot_flush (call_frame_t *frame,
 	iot_local_t *local = NULL;
 	iot_file_t *file = NULL;
 	iot_worker_t *worker = NULL;
+	uint64_t tmp_file = 0;
 
-	if (!dict_get (fd->ctx, this->name)) {
-		gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
+	if (fd_ctx_get (fd, this, &tmp_file)) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"fd context is NULL, returning EBADFD");
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
 
-	file = data_to_ptr (dict_get (fd->ctx, this->name));
+	file = (iot_file_t *)(long)tmp_file;
 	worker = file->worker;
 
 	local = CALLOC (1, sizeof (*local));
@@ -332,14 +333,16 @@ iot_fsync (call_frame_t *frame,
 	iot_local_t *local = NULL;
 	iot_file_t *file = NULL;
 	iot_worker_t *worker = NULL;
+	uint64_t tmp_file = 0;
 
-	if (!dict_get (fd->ctx, this->name)) {
-		gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
+	if (fd_ctx_get (fd, this, &tmp_file)) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"fd context is NULL, returning EBADFD");
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
 
-	file = data_to_ptr (dict_get (fd->ctx, this->name));
+	file = (iot_file_t *)(long)tmp_file;
 	worker = file->worker;
 
 	local = CALLOC (1, sizeof (*local));
@@ -408,14 +411,16 @@ iot_writev (call_frame_t *frame,
 	iot_local_t *local = NULL;
 	iot_file_t *file = NULL;
 	iot_worker_t *worker = NULL;
+	uint64_t tmp_file = 0;
 
-	if (!dict_get (fd->ctx, this->name)) {
-		gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
+	if (fd_ctx_get (fd, this, &tmp_file)) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"fd context is NULL, returning EBADFD");
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
 
-	file = data_to_ptr (dict_get (fd->ctx, this->name));
+	file = (iot_file_t *)(long)tmp_file;
 	worker = file->worker;
 
 	local = CALLOC (1, sizeof (*local));
@@ -484,14 +489,16 @@ iot_lk (call_frame_t *frame,
 	iot_local_t *local = NULL;
 	iot_file_t *file = NULL;
 	iot_worker_t *worker = NULL;
+	uint64_t tmp_file = 0;
 
-	if (!dict_get (fd->ctx, this->name)) {
-		gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
+	if (fd_ctx_get (fd, this, &tmp_file)) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"fd context is NULL, returning EBADFD");
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
 
-	file = data_to_ptr (dict_get (fd->ctx, this->name));
+	file = (iot_file_t *)(long)tmp_file;
 	worker = file->worker;
 
 	local = CALLOC (1, sizeof (*local));
@@ -619,14 +626,16 @@ iot_fstat (call_frame_t *frame,
 	iot_local_t *local = NULL;
 	iot_file_t *file = NULL;
 	iot_worker_t *worker = NULL;
+	uint64_t tmp_file = 0;
 
-	if (!dict_get (fd->ctx, this->name)) {
-		gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
+	if (fd_ctx_get (fd, this, &tmp_file)) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"fd context is NULL, returning EBADFD");
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
 
-	file = data_to_ptr (dict_get (fd->ctx, this->name));
+	file = (iot_file_t *)(long)tmp_file;
 	worker = file->worker;
 
 	local = CALLOC (1, sizeof (*local));
@@ -757,14 +766,16 @@ iot_ftruncate (call_frame_t *frame,
 	iot_local_t *local = NULL;
 	iot_file_t *file = NULL;
 	iot_worker_t *worker = NULL;
+	uint64_t tmp_file = 0;
 
-	if (!dict_get (fd->ctx, this->name)) {
-		gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
+	if (fd_ctx_get (fd, this, &tmp_file)) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"fd context is NULL, returning EBADFD");
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
 
-	file = data_to_ptr (dict_get (fd->ctx, this->name));
+	file = (iot_file_t *)(long)tmp_file;
 	worker = file->worker;
 
 	local = CALLOC (1, sizeof (*local));
@@ -983,9 +994,15 @@ iot_release (xlator_t *this,
 {
 	iot_file_t *file = NULL;
 	iot_conf_t *conf = NULL;
+	uint64_t tmp_file = 0;
+	int ret = 0;
 
 	conf = this->private;
-	file = data_to_ptr (dict_get (fd->ctx, this->name));
+	ret = fd_ctx_del (fd, this, &tmp_file);
+	if (ret)
+		return 0;
+
+	file = (iot_file_t *)(long)tmp_file;
 
 	pthread_mutex_lock (&conf->files_lock);
 	{

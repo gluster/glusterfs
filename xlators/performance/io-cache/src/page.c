@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -34,10 +34,10 @@ ioc_page_t *
 ioc_page_get (ioc_inode_t *ioc_inode,
 	      off_t offset)
 {
+	int8_t       found = 0;
+	ioc_page_t  *page = NULL;
 	ioc_table_t *table = ioc_inode->table;
-	ioc_page_t *page = NULL;
-	off_t rounded_offset = floor (offset, table->page_size);
-	int8_t found = 0;
+	off_t        rounded_offset = floor (offset, table->page_size);
 
 	if (list_empty (&ioc_inode->pages)) {
 		return NULL;
@@ -85,7 +85,8 @@ ioc_page_destroy (ioc_page_t *page)
 		list_del (&page->page_lru);
     
 		gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
-			"destroying page = %p, offset = %"PRId64" && inode = %p",
+			"destroying page = %p, offset = %"PRId64" "
+			"&& inode = %p",
 			page, page->offset, page->inode);
     
 		if (page->vector){
@@ -128,32 +129,43 @@ ioc_prune (ioc_table_t *table)
 		size_to_prune = table->cache_used - table->cache_size;
 		/* take out the least recently used inode */
 		for (index=0; index < table->max_pri; index++) {
-      
-			list_for_each_entry_safe (curr, next_ioc_inode, &table->inode_lru[index], inode_lru) {
-				/* prune page-by-page for this inode, till we reach the equilibrium */
+			list_for_each_entry_safe (curr, next_ioc_inode, 
+						  &table->inode_lru[index], 
+						  inode_lru) {
+				/* prune page-by-page for this inode, till 
+				 * we reach the equilibrium */
 				ioc_inode_lock (curr);
-				{
-					list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
-						/* done with all pages, and not reached equilibrium yet??
-						 * continue with next inode in lru_list */
-						size_pruned += page->size;
-						ret = ioc_page_destroy (page);
+				/* { */
+
+				list_for_each_entry_safe (page, next, 
+							  &curr->page_lru, 
+							  page_lru) {
+					/* done with all pages, and not 
+					 * reached equilibrium yet??
+					 * continue with next inode in 
+					 * lru_list */
+					size_pruned += page->size;
+					ret = ioc_page_destroy (page);
+
+					if (ret != -1)
+						table->cache_used -= ret;
 	    
-						if (ret != -1)
-							table->cache_used -= ret;
+					gf_log (table->xl->name,
+						GF_LOG_DEBUG,
+						"index = %d && table->cache_"
+						"used = %"PRIu64" && table->"
+						"cache_size = %"PRIu64, 
+						index, table->cache_used, 
+						table->cache_size);
 	    
-						gf_log (table->xl->name,
-							GF_LOG_DEBUG,
-							"index = %d && table->cache_used = %"PRIu64" && table->cache_size = %"PRIu64, 
-							index, table->cache_used, table->cache_size);
-	    
-						if (size_pruned >= size_to_prune)
-							break;
-					} /* list_for_each_entry_safe(page...) */
-					if (list_empty (&curr->pages)) {
-						list_del_init (&curr->inode_lru);
-					}
-				} /* ioc_inode locked region end */
+					if (size_pruned >= size_to_prune)
+						break;
+				} /* list_for_each_entry_safe(page...) */
+				if (list_empty (&curr->pages)) {
+					list_del_init (&curr->inode_lru);
+				}
+
+				/* } */ 
 				ioc_inode_unlock (curr);
 	
 				if (size_pruned >= size_to_prune)
@@ -163,6 +175,7 @@ ioc_prune (ioc_table_t *table)
 			if (size_pruned >= size_to_prune)
 				break;
 		} /* for(index=0;...) */
+
 	} /* ioc_inode_table locked region end */
 	ioc_table_unlock (table);
 
@@ -207,8 +220,9 @@ ioc_page_create (ioc_inode_t *ioc_inode,
 }
 
 /* 
- * ioc_wait_on_page - pause a frame to wait till the arrival of a page. here we need to handle the case
- *                    when the frame who calls wait_on_page himself has caused page_fault 
+ * ioc_wait_on_page - pause a frame to wait till the arrival of a page. 
+ * here we need to handle the case when the frame who calls wait_on_page 
+ * himself has caused page_fault 
  *
  * @page: page to wait on
  * @frame: call frame who is waiting on page
@@ -227,7 +241,8 @@ ioc_wait_on_page (ioc_page_t *page,
 	ERR_ABORT (waitq);
   
 	gf_log (frame->this->name, GF_LOG_DEBUG,
-		"frame(%p) waiting on page = %p, offset=%"PRId64", size=%"GF_PRI_SIZET"",
+		"frame(%p) waiting on page = %p, offset=%"PRId64", "
+		"size=%"GF_PRI_SIZET"",
 		frame, page, offset, size);
 
 	waitq->data = frame;
@@ -238,13 +253,16 @@ ioc_wait_on_page (ioc_page_t *page,
 	/* one frame can wait only once on a given page, 
 	 * local->wait_count is number of pages a frame is waiting on */
 	ioc_local_lock (local);
-	local->wait_count++;
+	{
+		local->wait_count++;
+	}
 	ioc_local_unlock (local);
 }
 
 
 /*
- * ioc_cache_still_valid - see if cached pages ioc_inode are still valid against given stbuf
+ * ioc_cache_still_valid - see if cached pages ioc_inode are still valid 
+ * against given stbuf
  *
  * @ioc_inode:
  * @stbuf:
@@ -260,10 +278,13 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode,
 #if 0
 	if (!stbuf || (stbuf->st_mtime != ioc_inode->mtime) || 
 	    (stbuf->st_mtim.tv_nsec != ioc_inode->stbuf.st_mtim.tv_nsec))
+		cache_still_valid = 0;
+
 #else
-		if (!stbuf || (stbuf->st_mtime != ioc_inode->mtime))
+	if (!stbuf || (stbuf->st_mtime != ioc_inode->mtime))
+		cache_still_valid = 0;
+
 #endif
-			cache_still_valid = 0;
 
 #if 0
 	/* talk with avati@zresearch.com to enable this section */
@@ -321,10 +342,11 @@ ioc_fault_cbk (call_frame_t *frame,
 	ioc_inode_lock (ioc_inode);
 	{
 		if (op_ret == -1 || 
-		    (op_ret >= 0 && !ioc_cache_still_valid(ioc_inode, stbuf))) {
+		    (op_ret >= 0 && 
+		     !ioc_cache_still_valid(ioc_inode, stbuf))) {
 			gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
-				"cache for inode(%p) is invalid. flushing all pages", 
-				ioc_inode);
+				"cache for inode(%p) is invalid. flushing "
+				"all pages", ioc_inode);
 			destroy_size = __ioc_inode_flush (ioc_inode);
 		} 
     
@@ -337,7 +359,8 @@ ioc_fault_cbk (call_frame_t *frame,
 			/* error, readv returned -1 */
 			page = ioc_page_get (ioc_inode, offset);
 			if (page)
-				waitq = ioc_page_error (page, op_ret, op_errno);
+				waitq = ioc_page_error (page, op_ret, 
+							op_errno);
 		} else {
 			gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
 				"op_ret = %d", op_ret);
@@ -346,8 +369,9 @@ ioc_fault_cbk (call_frame_t *frame,
 				/* page was flushed */
 				/* some serious bug ? */
 				gf_log (this->name, GF_LOG_DEBUG,
-					"wasted copy: %"PRId64"[+%"PRId64"] ioc_inode=%p", 
-					offset, table->page_size, ioc_inode);
+					"wasted copy: %"PRId64"[+%"PRId64"] "
+					"ioc_inode=%p", offset, 
+					table->page_size, ioc_inode);
 			} else {
 				if (page->vector) {
 					dict_unref (page->ref);
@@ -359,24 +383,29 @@ ioc_fault_cbk (call_frame_t *frame,
 				page->vector = iov_dup (vector, count);
 				page->count = count;
 				if (frame->root->rsp_refs) {
-					page->ref = dict_ref (frame->root->rsp_refs);
+					dict_ref (frame->root->rsp_refs);
+					page->ref = frame->root->rsp_refs;
 				} else {
-					/* TODO: we have got a response to our request and no data */
-					gf_log (this->name,
-						GF_LOG_CRITICAL,
-						"frame->root->rsp_refs (null)");
+					/* TODO: we have got a response to 
+					 * our request and no data */
+					gf_log (this->name, GF_LOG_CRITICAL,
+						"frame>root>rsp_refs is null");
 				} /* if(frame->root->rsp_refs) */
 	
-				/* page->size should indicate exactly how much the readv call to the child
-				 * translator returned. earlier op_ret from child translator was used, which 
-				 * gave rise to a bug where reads from io-cached volume were resulting in 0 
+				/* page->size should indicate exactly how 
+				 * much the readv call to the child
+				 * translator returned. earlier op_ret 
+				 * from child translator was used, which 
+				 * gave rise to a bug where reads from 
+				 * io-cached volume were resulting in 0 
 				 * byte replies */
 				page_size = iov_length(vector, count);
 	
 				page->size = page_size;
 
 				if (page->waitq) {
-					/* wake up all the frames waiting on this page, including 
+					/* wake up all the frames waiting on 
+					 * this page, including 
 					 * the frame which triggered fault */
 					waitq = ioc_page_wakeup (page);
 				} /* if(page->waitq) */
@@ -389,13 +418,17 @@ ioc_fault_cbk (call_frame_t *frame,
 
 	if (page_size) {
 		ioc_table_lock (table);
-		table->cache_used += page_size;
+		{
+			table->cache_used += page_size;
+		}
 		ioc_table_unlock (table);
 	}
 
 	if (destroy_size) {
 		ioc_table_lock (table);
-		table->cache_used -= destroy_size;
+		{
+			table->cache_used -= destroy_size;
+		}
 		ioc_table_unlock (table);
 	}
 
@@ -432,8 +465,9 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
 	ioc_local_t *fault_local = CALLOC (1, sizeof (ioc_local_t));
 	ERR_ABORT (fault_local);
 
-	/* NOTE: copy_frame() means, the frame the fop whose fd_ref we are using till now
-	 *      won't be valid till we get reply from server. we unref this fd, in fault_cbk */
+	/* NOTE: copy_frame() means, the frame the fop whose fd_ref we 
+	 * are using till now won't be valid till we get reply from server. 
+	 * we unref this fd, in fault_cbk */
 	fault_local->fd = fd_ref (fd);
 
 	fault_frame->local = fault_local;
@@ -445,8 +479,8 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
 	fault_local->inode = ioc_inode;
 
 	gf_log (frame->this->name, GF_LOG_DEBUG,
-		"stack winding page fault for offset = %"PRId64" with frame %p",
-		offset, fault_frame);
+		"stack winding page fault for offset = %"PRId64" with "
+		"frame %p", offset, fault_frame);
   
 	STACK_WIND (fault_frame, ioc_fault_cbk,
 		    FIRST_CHILD(fault_frame->this),
@@ -469,7 +503,8 @@ ioc_frame_fill (ioc_page_t *page,
 	ioc_inode_t *ioc_inode = page->inode;
   
 	gf_log (frame->this->name, GF_LOG_DEBUG,
-		"frame (%p) offset = %"PRId64" && size = %"GF_PRI_SIZET" && page->size = %"GF_PRI_SIZET" && wait_count = %d", 
+		"frame (%p) offset = %"PRId64" && size = %"GF_PRI_SIZET" "
+		"&& page->size = %"GF_PRI_SIZET" && wait_count = %d", 
 		frame, offset, size, page->size, local->wait_count);
 
 	/* immediately move this page to the end of the page_lru list */
@@ -480,15 +515,15 @@ ioc_frame_fill (ioc_page_t *page,
 			/* offset is offset in file, convert it to offset in 
 			 * page */
 			src_offset = offset - page->offset;
-		/*FIXME: since offset is the offset within page is the else case valid? */
+		/*FIXME: since offset is the offset within page is the 
+		 * else case valid? */
 		else
-			/* local->pending_offset is in previous page. do not fill until we
-			 * have filled all previous pages 
-			 */
+			/* local->pending_offset is in previous page. do not
+			 * fill until we have filled all previous pages */
 			dst_offset = page->offset - offset;
 
-		/* we have to copy from offset to either end of this page or till the 
-		 * requested size */
+		/* we have to copy from offset to either end of this page 
+		 * or till the requested size */
 		copy_size = min (page->size - src_offset,
 				 size - dst_offset);
 
@@ -499,7 +534,8 @@ ioc_frame_fill (ioc_page_t *page,
 		}
     
 		gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
-			"copy_size = %"GF_PRI_SIZET" && src_offset = %"PRId64" && dst_offset = %"PRId64"",
+			"copy_size = %"GF_PRI_SIZET" && src_offset = "
+			"%"PRId64" && dst_offset = %"PRId64"",
 			copy_size, src_offset, dst_offset);
 
 		{
@@ -513,7 +549,8 @@ ioc_frame_fill (ioc_page_t *page,
 						 src_offset,
 						 src_offset + copy_size,
 						 NULL);
-			new->vector = CALLOC (new->count, sizeof (struct iovec));
+			new->vector = CALLOC (new->count, 
+					      sizeof (struct iovec));
 			ERR_ABORT (new->vector);
 			new->count = iov_subset (page->vector,
 						 page->count,
@@ -525,14 +562,16 @@ ioc_frame_fill (ioc_page_t *page,
 
 			/* add the ioc_fill to fill_list for this frame */
 			if (list_empty (&local->fill_list)) {
-				/* if list is empty, then this is the first time we are filling 
-				 * frame, add the ioc_fill_t to the end of list */
+				/* if list is empty, then this is the first 
+				 * time we are filling frame, add the 
+				 * ioc_fill_t to the end of list */
 				list_add_tail (&new->list, &local->fill_list);
 			} else {
 				int8_t found = 0;
-				/* list is not empty, we need to look for where this offset fits in 
-				 * list */
-				list_for_each_entry (fill, &local->fill_list, list) {
+				/* list is not empty, we need to look for 
+				 * where this offset fits in list */
+				list_for_each_entry (fill, &local->fill_list, 
+						     list) {
 					if (fill->offset > new->offset) {
 						found = 1;
 						break;
@@ -541,9 +580,11 @@ ioc_frame_fill (ioc_page_t *page,
 
 				if (found) {
 					found = 0;
-					list_add_tail (&new->list, &fill->list);
+					list_add_tail (&new->list, 
+						       &fill->list);
 				} else {
-					list_add_tail (&new->list, &local->fill_list);
+					list_add_tail (&new->list, 
+						       &local->fill_list);
 				}
 			}
 		}
@@ -556,7 +597,8 @@ ioc_frame_fill (ioc_page_t *page,
  *
  * @frame: call frame to unwind
  *
- * to be used only by ioc_frame_return(), when a frame has finished waiting on all pages, required
+ * to be used only by ioc_frame_return(), when a frame has
+ * finished waiting on all pages, required
  *
  */
 static void
@@ -578,7 +620,8 @@ ioc_frame_unwind (call_frame_t *frame)
 
 	if (list_empty (&local->fill_list)) {
 		gf_log (frame->this->name, GF_LOG_DEBUG,
-			"frame(%p) has 0 entries in local->fill_list (offset = %"PRId64" && size = %"GF_PRI_SIZET")",
+			"frame(%p) has 0 entries in local->fill_list "
+			"(offset = %"PRId64" && size = %"GF_PRI_SIZET")",
 			frame, local->offset, local->size);
 	}
 
@@ -642,7 +685,9 @@ ioc_frame_return (call_frame_t *frame)
 	assert (local->wait_count > 0);
 
 	ioc_local_lock (local);
-	wait_count = --local->wait_count;
+	{
+		wait_count = --local->wait_count;
+	}
 	ioc_local_unlock (local);
 
 	if (!wait_count) {
@@ -675,7 +720,8 @@ ioc_page_wakeup (ioc_page_t *page)
   
 	for (trav = waitq; trav; trav = trav->next) {
 		frame = trav->data; 
-		ioc_frame_fill (page, frame, trav->pending_offset, trav->pending_size);
+		ioc_frame_fill (page, frame, trav->pending_offset, 
+				trav->pending_size);
 	}
 	
 	return waitq;
@@ -698,6 +744,7 @@ ioc_page_error (ioc_page_t *page,
 	call_frame_t *frame = NULL;
 	int64_t ret = 0;
 	ioc_table_t *table = NULL;
+	ioc_local_t *local = NULL;
 
 	waitq = page->waitq;
 	page->waitq = NULL;
@@ -706,16 +753,16 @@ ioc_page_error (ioc_page_t *page,
 		"page error for page = %p & waitq = %p", page, waitq);
 
 	for (trav = waitq; trav; trav = trav->next) {
-		ioc_local_t *local = NULL;
 
 		frame = trav->data;
 
 		local = frame->local;
 		ioc_local_lock (local);
-
-		if (local->op_ret != -1) {
-			local->op_ret = op_ret;
-			local->op_errno = op_errno;
+		{
+			if (local->op_ret != -1) {
+				local->op_ret = op_ret;
+				local->op_errno = op_errno;
+			}
 		}
 		ioc_local_unlock (local);
 	}

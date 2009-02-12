@@ -65,15 +65,14 @@
 
 
 #define UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(_fd) do { \
-  if (!(_fd && _fd->ctx &&                             \
-	dict_get (_fd->ctx, this->name))) {            \
+  if (!(_fd && !fd_ctx_get (_fd, this, NULL))) {       \
     STACK_UNWIND (frame, -1, EBADFD, NULL, NULL);      \
     return 0;                                          \
   }                                                    \
 } while(0)
 
 #define UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(_fd) do { \
-  if (!(_fd && _fd->ctx)) {                        \
+  if (!_fd) {                                      \
     STACK_UNWIND (frame, -1, EBADFD, NULL, NULL);  \
     return 0;                                      \
   }                                                \
@@ -1017,8 +1016,7 @@ unify_open_cbk (call_frame_t *frame,
 			if (NS(this) != (xlator_t *)cookie) {
 				/* Store child node's ptr, used in 
 				   all the f*** / FileIO calls */
-				dict_set (fd->ctx, this->name,
-					  data_from_static_ptr (cookie));
+				fd_ctx_set (fd, this, (uint64_t)(long)cookie);
 			}
 		}
 		if (op_ret == -1) {
@@ -1036,7 +1034,7 @@ unify_open_cbk (call_frame_t *frame,
 			local->op_ret = -1;
 			//local->op_errno = EIO; 
       
-			if (dict_get (local->fd->ctx, this->name)) {
+			if (!fd_ctx_get (local->fd, this, NULL)) {
 				gf_log (this->name, GF_LOG_ERROR, 
 					"Open success on child node, "
 					"failed on namespace");
@@ -1321,6 +1319,8 @@ unify_create_open_cbk (call_frame_t *frame,
 	unify_local_t *local = frame->local;
 	inode_t *inode = NULL;
 	xlator_t *child = NULL;
+	uint64_t tmp_value = 0;
+
 	LOCK (&frame->lock);
 	{
 		if (op_ret >= 0) {
@@ -1329,13 +1329,13 @@ unify_create_open_cbk (call_frame_t *frame,
 				/* Store child node's ptr, used in all 
 				   the f*** / FileIO calls */
 				/* TODO: log on failure */
-				ret = dict_set_static_ptr (fd->ctx, 
-							   this->name, 
-							   cookie);
+				ret = fd_ctx_get (fd, this, &tmp_value);
+				cookie = (void *)(long)tmp_value;
 			} else {
 				/* NOTE: open successful on namespace.
-				 *       fd->ctx can be used to identify open 
-				 *       failure on storage subvolume. cool ide ;) */
+				 *       fd's ctx can be used to identify open 
+				 *       failure on storage subvolume. cool 
+				 *       ide ;) */
 				local->failed = 0;
 			}
 		} else {
@@ -1358,9 +1358,9 @@ unify_create_open_cbk (call_frame_t *frame,
 			local->op_errno = EIO;
 			local->fd = fd;
 			local->call_count = 1;
-			if (dict_get (local->fd->ctx, this->name)) {
-				child = data_to_ptr (dict_get (local->fd->ctx,
-							       this->name));
+
+			if (!fd_ctx_get (local->fd, this, &tmp_value)) {
+				child = (xlator_t *)(long)tmp_value;
 
 				gf_log (this->name, GF_LOG_ERROR, 
 					"Create success on child node, "
@@ -1540,8 +1540,7 @@ unify_create_cbk (call_frame_t *frame,
 		local->stbuf.st_ino = local->st_ino;
 
 		/* TODO: log on failure */
-		ret = dict_set_static_ptr (fd->ctx, this->name, 
-					   prev_frame->this);
+		ret = fd_ctx_set (fd, this, (uint64_t)(long)prev_frame->this);
 	}
   
 	tmp_inode = local->loc1.inode;
@@ -2200,11 +2199,12 @@ unify_readv (call_frame_t *frame,
 	     size_t size,
 	     off_t offset)
 {
-	xlator_t *child = NULL;
-
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
+	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
-	child = data_to_ptr (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &tmp_child);
+	child = (xlator_t *)(long)tmp_child;		     
 
 	STACK_WIND (frame,
 		    unify_readv_cbk,
@@ -2244,11 +2244,12 @@ unify_writev (call_frame_t *frame,
 	      int32_t count,
 	      off_t off)
 {
-	xlator_t *child = NULL;
-
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
+	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
-	child = data_to_ptr (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &tmp_child);
+	child = (xlator_t *)(long)tmp_child;		     
 
 	STACK_WIND (frame,
 		    unify_writev_cbk,
@@ -2273,6 +2274,7 @@ unify_ftruncate (call_frame_t *frame,
 {
 	xlator_t *child = NULL;
 	unify_local_t *local = NULL;
+	uint64_t tmp_child = 0;
 
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(fd);
 
@@ -2280,7 +2282,9 @@ unify_ftruncate (call_frame_t *frame,
 	INIT_LOCAL (frame, local);
 	local->op_ret = 0;
 
-	child = data_to_ptr (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &tmp_child);
+	child = (xlator_t *)(long)tmp_child;		     
+
 	local->call_count = 2;
   
 	STACK_WIND (frame, unify_truncate_cbk, 
@@ -2306,6 +2310,7 @@ unify_fchmod (call_frame_t *frame,
 {
 	unify_local_t *local = NULL;
 	xlator_t *child = NULL;	
+	uint64_t tmp_child = 0;
 
 	UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
 
@@ -2313,16 +2318,17 @@ unify_fchmod (call_frame_t *frame,
 	INIT_LOCAL (frame, local);
 	local->st_ino = fd->inode->ino;
 
-	if (dict_get (fd->ctx, this->name)) {
+	if (!fd_ctx_get (fd, this, &tmp_child)) {
 		/* If its set, then its file */
-		child = data_to_ptr (dict_get (fd->ctx, this->name));
+		child = (xlator_t *)(long)tmp_child;		     
+
 		local->call_count = 2;
 
 		STACK_WIND (frame, unify_buf_cbk, child, 
 			    child->fops->fchmod, fd, mode);
 
 		STACK_WIND (frame, unify_buf_cbk, NS(this),	
-			    NS(this)->fops->fchmod,	fd, mode);
+			    NS(this)->fops->fchmod, fd, mode);
 
 	} else {
 		/* this is an directory */
@@ -2347,6 +2353,7 @@ unify_fchown (call_frame_t *frame,
 {
 	unify_local_t *local = NULL;
 	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
 	UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
 
@@ -2354,9 +2361,10 @@ unify_fchown (call_frame_t *frame,
 	INIT_LOCAL (frame, local);
 	local->st_ino = fd->inode->ino;
 
-	if (dict_get (fd->ctx, this->name)) {
+	if (!fd_ctx_get (fd, this, &tmp_child)) {
 		/* If its set, then its file */
-		child = data_to_ptr (dict_get (fd->ctx, this->name));
+		child = (xlator_t *)(long)tmp_child;		     
+
 		local->call_count = 2;
 
 		STACK_WIND (frame, unify_buf_cbk, child,
@@ -2397,11 +2405,12 @@ unify_flush (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd)
 {
+	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
 	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
-	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(fd);
-
-	child = data_to_ptr (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &tmp_child);
+	child = (xlator_t *)(long)tmp_child;		     
 
 	STACK_WIND (frame, unify_flush_cbk, child, 
 		    child->fops->flush, fd);
@@ -2433,11 +2442,12 @@ unify_fsync (call_frame_t *frame,
 	     fd_t *fd,
 	     int32_t flags)
 {
+	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
 	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
-	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(fd);
-
-	child = data_to_ptr (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &tmp_child);
+	child = (xlator_t *)(long)tmp_child;		     
 
 	STACK_WIND (frame, unify_fsync_cbk, child,
 		    child->fops->fsync, fd, flags);
@@ -2456,15 +2466,16 @@ unify_fstat (call_frame_t *frame,
 {
 	unify_local_t *local = NULL;
 	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
 	UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
 
 	INIT_LOCAL (frame, local);
 	local->st_ino = fd->inode->ino;
 
-	if (dict_get (fd->ctx, this->name)) {
+	if (!fd_ctx_get (fd, this, &tmp_child)) {
 		/* If its set, then its file */
-		child = data_to_ptr (dict_get (fd->ctx, this->name));
+		child = (xlator_t *)(long)tmp_child;		     
 		local->call_count = 2;
 
 		STACK_WIND (frame, unify_buf_cbk, child,
@@ -2611,11 +2622,12 @@ unify_lk (call_frame_t *frame,
 	  int32_t cmd,
 	  struct flock *lock)
 {
-	xlator_t *child = NULL;
-
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
+	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
-	child = data_to_ptr (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &tmp_child);
+	child = (xlator_t *)(long)tmp_child;		     
 
 	STACK_WIND (frame, unify_lk_cbk, child,
 		    child->fops->lk, fd, cmd, lock);
@@ -3892,11 +3904,12 @@ int
 unify_finodelk (call_frame_t *frame, xlator_t *this,
 		fd_t *fd, int cmd, struct flock *flock)
 {
-	xlator_t *child = NULL;
-
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
+	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
-	child = data_to_ptr (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &tmp_child);
+	child = (xlator_t *)(long)tmp_child;		     
 
 	STACK_WIND (frame, unify_finodelk_cbk,
 		    child, child->fops->finodelk,
@@ -3927,11 +3940,12 @@ unify_fentrylk (call_frame_t *frame, xlator_t *this,
 		entrylk_cmd cmd, entrylk_type type)
 		
 {
-	xlator_t *child = NULL;
-
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
+	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
-	child = data_to_ptr (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &tmp_child);
+	child = (xlator_t *)(long)tmp_child;		     
 
 	STACK_WIND (frame, unify_fentrylk_cbk,
 		    child, child->fops->fentrylk,
@@ -3960,11 +3974,12 @@ int
 unify_fxattrop (call_frame_t *frame, xlator_t *this,
 		fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
 {
-	xlator_t *child = NULL;
-
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
+	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
-	child = data_to_ptr (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &tmp_child);
+	child = (xlator_t *)(long)tmp_child;		     
 
 	STACK_WIND (frame, unify_fxattrop_cbk,
 		    child, child->fops->fxattrop,

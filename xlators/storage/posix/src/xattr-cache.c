@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -28,7 +28,7 @@ __hgetxattr (xattr_cache_handle_t *handle, xlator_t *this,
 {
 	char *            real_path = NULL;
 	struct posix_fd * pfd = NULL;
-
+	uint64_t          tmp_pfd = 0;
 	int op_ret = -1;
 	int ret    = -1;
 	int _fd    = -1;
@@ -40,7 +40,7 @@ __hgetxattr (xattr_cache_handle_t *handle, xlator_t *this,
 		if (op_ret == -1)
 			op_ret = -errno;
 	} else {
-		ret = dict_get_ptr (handle->fd->ctx, this->name, (void **)&pfd);
+		ret = fd_ctx_get (handle->fd, this, &tmp_pfd);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "failed to get pfd from fd=%p",
@@ -48,7 +48,7 @@ __hgetxattr (xattr_cache_handle_t *handle, xlator_t *this,
                         op_ret = -EBADFD;
 			goto out;
                 }
-		
+		pfd = (struct posix_fd *)(long)tmp_pfd;
                 _fd = pfd->fd;
 
 		op_ret = fgetxattr (_fd, key, value, len);
@@ -67,7 +67,7 @@ __hsetxattr (xattr_cache_handle_t *handle, xlator_t *this,
 {
 	char *            real_path = NULL;
 	struct posix_fd * pfd = NULL;
-
+	uint64_t          tmp_pfd = 0;
 	int op_ret = -1;
 	int ret    = -1;
 	int _fd    = -1;
@@ -79,7 +79,7 @@ __hsetxattr (xattr_cache_handle_t *handle, xlator_t *this,
 		if (op_ret == -1)
 			op_ret = -errno;
 	} else {
-		ret = dict_get_ptr (handle->fd->ctx, this->name, (void **)&pfd);
+		ret = fd_ctx_get (handle->fd, this, &tmp_pfd);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "failed to get pfd from fd=%p",
@@ -88,6 +88,7 @@ __hsetxattr (xattr_cache_handle_t *handle, xlator_t *this,
 			op_ret = -EBADFD;
 			goto out;
                 }
+		pfd = (struct posix_fd *)(long)tmp_pfd;
 		
                 _fd = pfd->fd;
 

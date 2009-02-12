@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -783,11 +783,10 @@ afr_simple_flush_cbk (call_frame_t *frame, void *cookie,
 static int
 __is_fd_ctx_set (xlator_t *this, fd_t *fd)
 {
-	int cookie = -1;
 	int _ret   = 0;
 	int op_ret = 0;
 
-	_ret = dict_get_int32 (fd->ctx, this->name, &cookie);
+	_ret = fd_ctx_get (fd, this, NULL);
 	if (_ret == 0)
 		op_ret = 1;
 
@@ -838,7 +837,7 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 		afr_transaction (frame, this, AFR_FLUSH_TRANSACTION);
 	} else {
 		/*
-		 * if fd->ctx is not set, then there is no need
+		 * if fd's ctx is not set, then there is no need
 		 * to erase changelog. So just send the flush
 		 */
 

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -32,26 +32,32 @@
 
 struct _inode;
 struct _dict;
+struct _fd_ctx {
+	uint64_t key;
+	uint64_t value;
+};
+
 struct _fd {
-        pid_t pid;
-	int32_t flags;
-        struct list_head inode_list;
-        struct _inode *inode;
-        struct _dict *ctx;
-        int32_t refcount;
+        pid_t             pid;
+	int32_t           flags;
+        int32_t           refcount;
+        struct list_head  inode_list;
+        struct _inode    *inode;
+        struct _dict     *ctx;
+	struct _fd_ctx   *_ctx;
 };
 typedef struct _fd fd_t;
 
 struct _fdtable {
-        uint32_t max_fds;
-        fd_t **fds;
-        int refcount;
+        int             refcount;
+        uint32_t        max_fds;
         pthread_mutex_t lock;
+        fd_t          **fds;
 };
 typedef struct _fdtable fdtable_t;
 
 #include "logging.h"
-
+#include "xlator.h"
 
 inline void 
 gf_fd_put (fdtable_t *fdtable, int32_t fd);
@@ -89,4 +95,13 @@ fd_list_empty (struct _inode *inode);
 fd_t *
 fd_bind (fd_t *fd);
 
-#endif
+int
+fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value);
+
+int 
+fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value);
+
+int 
+fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value);
+
+#endif /* _FD_H */

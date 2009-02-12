@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -735,16 +735,16 @@ bdb_dirent_size (DBT *key)
  */
 inline void *
 bdb_extract_bfd (fd_t *fd,
-                 char *name)
+                 xlator_t *this)
 {
-	data_t *bfd_data = NULL;
-	void   *bfd      = NULL;
-	
+	uint64_t tmp_bfd = 0;
+	void    *bfd     = NULL;
+ 	
 	GF_VALIDATE_OR_GOTO ("bdb-ll", fd, out);
-	GF_VALIDATE_OR_GOTO ("bdb-ll", name, out);
+	GF_VALIDATE_OR_GOTO ("bdb-ll", this, out);
 
-	bfd_data = dict_get (fd->ctx, name);
-	bfd = data_to_ptr (bfd_data);
+	fd_ctx_get (fd, this, &tmp_bfd);
+	bfd = (void *)(long)bfd;
 
 out:
 	return bfd;

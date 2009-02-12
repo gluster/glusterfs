@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2006, 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -140,12 +140,14 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	ra_waitq_t   *waitq = NULL;
 	fd_t         *fd = NULL;
 	int           ret = 0;
+	uint64_t      tmp_file = 0;
 
 	local = frame->local;
 	fd  = local->fd;
 
-	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
+	ret = fd_ctx_get (fd, this, &tmp_file);
 
+	file = (ra_file_t *)(long)tmp_file;
 	pending_offset = local->pending_offset;
 	trav_offset    = pending_offset;  
 	payload_size   = op_ret;
@@ -297,6 +299,7 @@ ra_frame_unwind (call_frame_t *frame)
 	fd_t         *fd = NULL;
 	ra_file_t    *file = NULL;
 	int           ret = 0;
+	uint64_t      tmp_file = 0;
 
 	local = frame->local;
 	fill  = local->fill.next;
@@ -336,9 +339,9 @@ ra_frame_unwind (call_frame_t *frame)
 	frame->root->rsp_refs = dict_ref (refs);
 
 	fd = local->fd;
-	ret = dict_get_ptr (fd->ctx, frame->this->name,
-			    (void **)((void *) &file));
-
+	ret = fd_ctx_get (fd, frame->this, &tmp_file);
+	file = (ra_file_t *)(long)tmp_file;
+	
 	STACK_UNWIND (frame, local->op_ret, local->op_errno,
 		      vector, count, &file->stbuf);
   

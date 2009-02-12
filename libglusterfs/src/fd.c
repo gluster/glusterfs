@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -345,6 +345,7 @@ fd_destroy (fd_t *fd)
 {
         data_pair_t *pair = NULL;
         xlator_t    *xl = NULL;
+	int i = 0;
 
         if (fd == NULL){
                 gf_log ("xlator", GF_LOG_ERROR, "invalid arugument");
@@ -355,10 +356,14 @@ fd_destroy (fd_t *fd)
                 gf_log ("xlator", GF_LOG_ERROR, "fd->inode is NULL");
                 goto out;
         }
+	if (!fd->_ctx)
+		goto out;
+
         if (S_ISDIR (fd->inode->st_mode)) {
                 for (pair = fd->ctx->members_list; pair; pair = pair->next) {
                         /* notify all xlators which have a context */
-                        xl = xlator_search_by_name (fd->inode->table->xl, pair->key);
+                        xl = xlator_search_by_name (fd->inode->table->xl, 
+						    pair->key);
           
                         if (!xl) {
                                 gf_log ("fd", GF_LOG_CRITICAL,
@@ -373,11 +378,20 @@ fd_destroy (fd_t *fd)
                                         "xlator(%s) in fd(%p) no RELEASE cbk",
                                         xl->name, fd);
                         }
+
                 }
+		for (i = 0; i < fd->inode->table->xl->ctx->xl_count; i++) {
+			if (fd->_ctx[i].key) {
+				xl = (xlator_t *)(long)fd->_ctx[i].key;
+				if (xl->cbks->releasedir)
+					xl->cbks->releasedir (xl, fd);
+			}
+		}
         } else {
                 for (pair = fd->ctx->members_list; pair; pair = pair->next) {
                         /* notify all xlators which have a context */
-                        xl = xlator_search_by_name (fd->inode->table->xl, pair->key);
+                        xl = xlator_search_by_name (fd->inode->table->xl, 
+						    pair->key);
           
                         if (!xl) {
                                 gf_log ("fd", GF_LOG_CRITICAL,
@@ -393,8 +407,16 @@ fd_destroy (fd_t *fd)
                                         xl->name, fd);
                         }
                 }
+		for (i = 0; i < fd->inode->table->xl->ctx->xl_count; i++) {
+			if (fd->_ctx[i].key) {
+				xl = (xlator_t *)(long)fd->_ctx[i].key;
+				if (xl->cbks->release)
+					xl->cbks->release (xl, fd);
+			}
+		}
         }
 
+	FREE (fd->_ctx);
         inode_unref (fd->inode);
         fd->inode = (inode_t *)0xaaaaaaaa;
         dict_destroy (fd->ctx);
@@ -452,8 +474,7 @@ fd_create (inode_t *inode, pid_t pid)
 {
         fd_t *fd = NULL;
   
-        if (inode == NULL)
-        {
+        if (inode == NULL) {
                 gf_log ("fd", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
@@ -461,6 +482,8 @@ fd_create (inode_t *inode, pid_t pid)
         fd = CALLOC (1, sizeof (fd_t));
         ERR_ABORT (fd);
   
+	fd->_ctx = CALLOC (1, (sizeof (struct _fd_ctx) * 
+			       inode->table->xl->ctx->xl_count));
         fd->ctx = get_new_dict ();
         fd->inode = inode_ref (inode);
         fd->pid = pid;
@@ -514,4 +537,75 @@ fd_list_empty (inode_t *inode)
         UNLOCK (&inode->lock);
         
         return empty;
+}
+
+int
+fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
+{
+	int index = 0;
+
+	if (!fd || !xlator)
+		return -1;
+
+	for (index = 0; index < xlator->ctx->xl_count; index++) {
+		if (!fd->_ctx[index].key || 
+		    (fd->_ctx[index].key == (uint64_t)(long)xlator))
+			break;
+	}
+	
+	if (index == xlator->ctx->xl_count)
+		return -1;
+
+	fd->_ctx[index].key   = (uint64_t)(long) xlator;
+	fd->_ctx[index].value = value;
+
+	return 0;
+}
+
+int 
+fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
+{
+	int index = 0;
+
+	if (!fd || !xlator)
+		return -1;
+
+	for (index = 0; index < xlator->ctx->xl_count; index++) {
+		if (fd->_ctx[index].key == (uint64_t)(long)xlator)
+			break;
+	}
+
+	if (index == xlator->ctx->xl_count)
+		return -1;
+
+	if (value) 
+		*value = fd->_ctx[index].value;
+
+	return 0;
+}
+
+
+int 
+fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
+{
+	int index = 0;
+
+	if (!fd || !xlator)
+		return -1;
+
+	for (index = 0; index < xlator->ctx->xl_count; index++) {
+		if (fd->_ctx[index].key == (uint64_t)(long)xlator)
+			break;
+	}
+
+	if (index == xlator->ctx->xl_count)
+		return -1;
+
+	if (value) 
+		*value = fd->_ctx[index].value;		
+
+	fd->_ctx[index].key   = 0;
+	fd->_ctx[index].value = 0;
+
+	return 0;
 }

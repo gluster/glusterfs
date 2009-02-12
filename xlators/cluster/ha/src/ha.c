@@ -728,7 +728,7 @@ ha_mknod_lookup_cbk (call_frame_t *frame,
 	stateino = (char *)(long)tmp_stateino;
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR, 
-			"unwind(-1), dict_get_ptr() error");
+			"unwind(-1), inode_ctx_get() error");
 		/* It is difficult to handle this error at this stage
 		 * as we still expect more cbks, we can't return as
 		 * of now
@@ -790,7 +790,7 @@ ha_mknod_cbk (call_frame_t *frame,
 	stateino = (char *)(long)tmp_stateino;
 
 	if (ret != 0) {
-		gf_log (this->name, GF_LOG_ERROR, "dict_get_ptr() error");
+		gf_log (this->name, GF_LOG_ERROR, "inode_ctx_get() error");
 		/* FIXME: handle the case */
 	}
 	if (op_ret == 0) {
@@ -1602,6 +1602,7 @@ ha_create_cbk (call_frame_t *frame,
 	call_frame_t *prev_frame = NULL;
 	xlator_t **children = NULL;
 	uint64_t tmp_stateino = 0;
+	uint64_t tmp_hafdp = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -1617,11 +1618,12 @@ ha_create_cbk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR, "dict_to_ptr() error");
 		/* FIXME: handle */
 	}
-	ret = dict_get_ptr (local->stub->args.create.fd->ctx, this->name, (void *) &hafdp);
+	ret = fd_ctx_get (local->stub->args.create.fd, this, &tmp_hafdp);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR, "dict_to_ptr() error");
 		/* FIXME: handle */
 	}
+	hafdp = (hafd_t *)(long)tmp_hafdp;
 
 	for (i = 0; i < child_count; i++) {
 		if (prev_frame->this == children[i])
@@ -1721,7 +1723,7 @@ ha_create (call_frame_t *frame,
 		hafdp->fdstate = CALLOC (1, child_count);
 		hafdp->path = strdup(loc->path);
 		LOCK_INIT (&hafdp->lock);
-		dict_set (fd->ctx, this->name, data_from_dynptr (hafdp, sizeof (*hafdp)));
+		fd_ctx_set (fd, this, (uint64_t)(long)hafdp);
 		inode_ctx_put (loc->inode, this, (uint64_t)(long)stateino);
 	}
 
@@ -1747,6 +1749,7 @@ ha_open_cbk (call_frame_t *frame,
 	int i = 0, child_count = 0, callcnt = 0, ret = 0;
 	call_frame_t *prev_frame = NULL;
 	hafd_t *hafdp = NULL;
+	uint64_t tmp_hafdp = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -1754,11 +1757,11 @@ ha_open_cbk (call_frame_t *frame,
 	child_count = pvt->child_count;
 	prev_frame = cookie;
 
-	ret = dict_get_ptr (local->fd->ctx, this->name, (void *) &hafdp);
-
+	ret = fd_ctx_get (local->fd, this, &tmp_hafdp);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR, "dict_ptr_error()");
 	}
+	hafdp = (hafd_t *)(long)tmp_hafdp;
 
 	for (i = 0; i < child_count; i++)
 		if (children[i] == prev_frame->this)
@@ -1790,7 +1793,6 @@ ha_open (call_frame_t *frame,
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
-	dict_t *ctx = NULL;
 	char *stateino = NULL;
 	xlator_t **children = NULL;
 	int cnt = 0, i, child_count = 0, ret = 0;
@@ -1799,7 +1801,6 @@ ha_open (call_frame_t *frame,
 
 	local = frame->local;
 	pvt = this->private;
-	ctx = fd->ctx;
 	children = pvt->children;
 	child_count = pvt->child_count;
 
@@ -1818,7 +1819,7 @@ ha_open (call_frame_t *frame,
 	}
 
 	LOCK_INIT (&hafdp->lock);
-	dict_set (ctx, this->name, data_from_dynptr (hafdp, sizeof (*hafdp)));
+	fd_ctx_set (fd, this, (uint64_t)(long)hafdp);
 	ret = inode_ctx_get (loc->inode, this, &tmp_stateino);
 	stateino = (char *)(long)tmp_stateino;
 
@@ -2107,6 +2108,7 @@ ha_opendir_cbk (call_frame_t *frame,
 	int i = 0, child_count = 0, callcnt = 0, ret = 0;
 	call_frame_t *prev_frame = NULL;
 	hafd_t *hafdp = NULL;
+	uint64_t tmp_hafdp = 0;
 
 	local = frame->local;
 	pvt = this->private;
@@ -2114,11 +2116,11 @@ ha_opendir_cbk (call_frame_t *frame,
 	child_count = pvt->child_count;
 	prev_frame = cookie;
 
-	ret = dict_get_ptr (local->fd->ctx, this->name, (void *) &hafdp);
-
+	ret = fd_ctx_get (local->fd, this, &tmp_hafdp);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_ERROR, "dict_ptr_error()");
 	}
+	hafdp = (hafd_t *)(long)tmp_hafdp;
 
 	for (i = 0; i < child_count; i++)
 		if (children[i] == prev_frame->this)
@@ -2149,7 +2151,6 @@ ha_opendir (call_frame_t *frame,
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
-	dict_t *ctx = NULL;
 	char *stateino = NULL;
 	xlator_t **children = NULL;
 	int cnt = 0, i, child_count = 0, ret = 0;
@@ -2158,7 +2159,6 @@ ha_opendir (call_frame_t *frame,
 
 	local = frame->local;
 	pvt = this->private;
-	ctx = fd->ctx;
 	children = pvt->children;
 	child_count = pvt->child_count;
 
@@ -2171,12 +2171,12 @@ ha_opendir (call_frame_t *frame,
 	hafdp->fdstate = CALLOC (1, child_count);
 	hafdp->path = strdup (loc->path);
 	LOCK_INIT (&hafdp->lock);
-	dict_set (ctx, this->name, data_from_dynptr (hafdp, sizeof (*hafdp)));
+	fd_ctx_set (fd, this, (uint64_t)(long)hafdp);
 	ret = inode_ctx_get (loc->inode, this, &tmp_stateino);
 	stateino = (char *)(long)tmp_stateino;
 	
 	if (ret != 0) {
-		gf_log (this->name, GF_LOG_ERROR, "dict_get_ptr() error");
+		gf_log (this->name, GF_LOG_ERROR, "inode_ctx_get() error");
 	}
 	for (i = 0; i < child_count; i++)
 		if (stateino[i])
@@ -2838,14 +2838,15 @@ ha_lk (call_frame_t *frame,
 	char *state = NULL;
 	int child_count = 0, i = 0, cnt = 0, ret = 0;
 	xlator_t **children = NULL;
+	uint64_t tmp_hafdp = 0;
 
 	local = frame->local;
 	pvt = this->private;
 	child_count = pvt->child_count;
 	children = pvt->children;
-	ret = dict_get_ptr (fd->ctx, this->name, (void *)&hafdp);
+	ret = fd_ctx_get (fd, this, &tmp_hafdp);
 	if (ret < 0)
-		gf_log (this->name, GF_LOG_ERROR, "dict_get failed on fd ctx");
+		gf_log (this->name, GF_LOG_ERROR, "fd_ctx_get failed");
 
 	if (local == NULL) {
 		local = frame->local = CALLOC (1, sizeof (*local));
@@ -2853,6 +2854,7 @@ ha_lk (call_frame_t *frame,
 		local->op_ret = -1;
 		local->op_errno = ENOTCONN;
 	}
+	hafdp = (hafd_t *)(long)tmp_hafdp;
 
 	if (local->active == -1) {
 		STACK_UNWIND (frame, -1, ENOTCONN, NULL);
@@ -3262,12 +3264,15 @@ ha_closedir (xlator_t *this,
 {
 	hafd_t *hafdp = NULL;
 	int op_errno = 0;
+	uint64_t tmp_hafdp = 0;
 
-	op_errno = dict_get_ptr (fd->ctx, this->name, (void *) &hafdp);
+	op_errno = fd_ctx_del (fd, this, &tmp_hafdp);
 	if (op_errno != 0) {
-		gf_log (this->name, GF_LOG_ERROR, "dict_get_ptr() error");
+		gf_log (this->name, GF_LOG_ERROR, "fd_ctx_del() error");
 		return 0;
 	}
+	hafdp = (hafd_t *)(long)tmp_hafdp;
+
 	FREE (hafdp->fdstate);
 	FREE (hafdp->path);
 	LOCK_DESTROY (&hafdp->lock);
@@ -3280,12 +3285,14 @@ ha_close (xlator_t *this,
 {
 	hafd_t *hafdp = NULL;
 	int op_errno = 0;
+	uint64_t tmp_hafdp = 0;
 
-	op_errno = dict_get_ptr (fd->ctx, this->name, (void *)&hafdp);
+	op_errno = fd_ctx_del (fd, this, &tmp_hafdp);
 	if (op_errno != 0) {
-		gf_log (this->name, GF_LOG_ERROR, "dict_get_ptr() error");
+		gf_log (this->name, GF_LOG_ERROR, "fd_ctx_del() error");
 		return 0;
 	}
+	hafdp = (hafd_t *)(long)tmp_hafdp;
 
 	FREE (hafdp->fdstate);
 	FREE (hafdp->path);
@@ -3380,7 +3387,8 @@ init (xlator_t *this)
 	trav = this->children;
 	pvt = CALLOC (1, sizeof (ha_private_t));
 
-	ret = dict_get_int32 (this->options, "preferred-subvolume", &pvt->pref_subvol);
+	ret = dict_get_int32 (this->options, "preferred-subvolume", 
+			      &pvt->pref_subvol);
 	if (ret < 0) {
 		pvt->pref_subvol = -1;
 	}

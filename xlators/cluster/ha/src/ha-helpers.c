@@ -33,6 +33,7 @@ int ha_alloc_init_fd (call_frame_t *frame, fd_t *fd)
 	int ret = -1;
 	hafd_t *hafdp = NULL;
 	xlator_t *this = NULL;
+	uint64_t tmp_hafdp = 0;
 
 	this = frame->this;
 	local = frame->local;
@@ -40,10 +41,11 @@ int ha_alloc_init_fd (call_frame_t *frame, fd_t *fd)
 	child_count = pvt->child_count;
 
 	if (local == NULL) {
-		ret = dict_get_ptr (fd->ctx, this->name, (void *)&hafdp);
+		ret = fd_ctx_get (fd, this, &tmp_hafdp);
 		if (ret < 0) {
 			goto out;
 		}
+		hafdp = (hafd_t *)(long)tmp_hafdp;
 		local = frame->local = CALLOC (1, sizeof (*local));
 		if (local == NULL) {
 			ret = -ENOMEM;
@@ -97,6 +99,7 @@ int ha_handle_cbk (call_frame_t *frame, void *cookie, int op_ret, int op_errno)
 	int ret = -1;
 	call_stub_t *stub = NULL;
 	ha_local_t *local = NULL;
+	uint64_t tmp_hafdp = 0;
 
 	xl = frame->this;
 	pvt = xl->private;
@@ -111,8 +114,9 @@ int ha_handle_cbk (call_frame_t *frame, void *cookie, int op_ret, int op_errno)
 	if (op_ret == -1 && (op_errno == ENOTCONN)) {
 		ret = 0;
 		if (local->fd) {
-			ret = dict_get_ptr (local->fd->ctx, xl->name, (void*)&hafdp);
+			ret = fd_ctx_get (local->fd, xl, &tmp_hafdp);
 		}
+		hafdp = (hafd_t *)(long)tmp_hafdp;		
 		if (ret == 0) {
 			if (local->fd) {
 				LOCK(&hafdp->lock);

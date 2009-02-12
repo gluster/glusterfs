@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -69,15 +69,14 @@ __is_first_write_on_fd (xlator_t *this, fd_t *fd)
 {
 	int op_ret     = 0;
 	int _ret       = -1;
-	int32_t cookie = 0;
 
-	_ret = dict_get_int32 (fd->ctx, this->name, &cookie);
+	_ret = fd_ctx_get (fd, this, NULL);
 	if (_ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"first writev() on fd=%p, writing changelog",
 			fd);
 
-		_ret = dict_set_int32 (fd->ctx, this->name, 0xaf1);
+		_ret = fd_ctx_set (fd, this, 0xaf1);
 		op_ret = 1;
 	}
 

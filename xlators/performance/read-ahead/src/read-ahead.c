@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2006, 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -64,7 +64,7 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto unwind;
 	}
 
-	ret = dict_set_static_ptr (fd->ctx, this->name, file);
+	ret = fd_ctx_set (fd, this, (uint64_t)(long)file);
 
 	/* If mandatory locking has been enabled on this file,
 	   we disable caching on it */
@@ -131,7 +131,7 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto unwind;
 	}
 
-	ret = dict_set_static_ptr (fd->ctx, this->name, file);
+	ret = fd_ctx_set (fd, this, (uint64_t)(long)file);
 
 	/* If mandatory locking has been enabled on this file,
 	   we disable caching on it */
@@ -233,13 +233,13 @@ int
 ra_release (xlator_t *this,
 	    fd_t *fd)
 {
-	ra_file_t *file = NULL;
-	int        ret = 0;
+	uint64_t tmp_file = 0;
+	int      ret = 0;
 
-	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *)&file));
-
-	if (file) {
-		ra_file_destroy (file);
+	ret = fd_ctx_del (fd, this, &tmp_file);
+	
+	if (!ret) {
+		ra_file_destroy ((ra_file_t *)(long)tmp_file);
 	}
 
 	return 0;
@@ -427,6 +427,7 @@ ra_readv (call_frame_t *frame, xlator_t *this,
 	int           op_errno = 0;
 	int           ret = 0;
 	char expected_offset = 1;
+	uint64_t tmp_file = 0;
 
 	conf = this->private;
 
@@ -434,7 +435,8 @@ ra_readv (call_frame_t *frame, xlator_t *this,
 		"NEW REQ at offset=%"PRId64" for size=%"GF_PRI_SIZET"",
 		offset, size);
 
-	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *)&file));
+	ret = fd_ctx_get (fd, this, &tmp_file);
+	file = (ra_file_t *)(long)tmp_file;
 
 	if (file->offset != offset) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -522,8 +524,10 @@ ra_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	ra_file_t *file = NULL;
 	int        ret = 0;
+	uint64_t tmp_file = 0;
 
-	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
+	ret = fd_ctx_get (fd, this, &tmp_file);
+	file = (ra_file_t *)(long)tmp_file;
 
 	if (file) {
 		flush_region (frame, file, 0, file->pages.prev->offset+1);
@@ -543,8 +547,10 @@ ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
 	ra_file_t *file = NULL;
 	int        ret = 0;
+	uint64_t tmp_file = 0;
 
-	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
+	ret = fd_ctx_get (fd, this, &tmp_file);
+	file = (ra_file_t *)(long)tmp_file;
 
 	if (file) {
 		flush_region (frame, file, 0, file->pages.prev->offset+1);
@@ -565,10 +571,12 @@ ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	fd_t      *fd = NULL;
 	ra_file_t *file = NULL;
 	int        ret = 0;
+	uint64_t tmp_file = 0;
 
 	fd = frame->local;
 
-	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
+	ret = fd_ctx_get (fd, this, &tmp_file);
+	file = (ra_file_t *)(long)tmp_file;
 
 	if (file) {
 		flush_region (frame, file, 0, file->pages.prev->offset+1);
@@ -586,8 +594,10 @@ ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
 	ra_file_t *file = NULL;
 	int        ret = 0;
+	uint64_t tmp_file = 0;
 
-	ret = dict_get_ptr (fd->ctx, this->name, (void **) ((void *) &file));
+	ret = fd_ctx_get (fd, this, &tmp_file);
+	file = (ra_file_t *)(long)tmp_file;
 
 	if (file) {
 		flush_region (frame, file, 0, file->pages.prev->offset+1);
@@ -624,14 +634,16 @@ ra_truncate (call_frame_t *frame, xlator_t *this,
 	fd_t      *iter_fd = NULL;
 	inode_t   *inode = NULL;
 	int        ret = 0;
+	uint64_t tmp_file = 0;
 
 	inode = loc->inode;
 
 	LOCK (&inode->lock);
 	{
 		list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
-			ret = dict_get_ptr (iter_fd->ctx, this->name,
-					    (void **) ((void *)&file));
+			ret = fd_ctx_get (iter_fd, this, &tmp_file);
+			file = (ra_file_t *)(long)tmp_file;
+
 			if (!file)
 				continue;
 			flush_region (frame, file, 0,
@@ -656,14 +668,16 @@ ra_fstat (call_frame_t *frame, xlator_t *this,
 	fd_t      *iter_fd = NULL;
 	inode_t   *inode = NULL;
 	int        ret = 0;
+	uint64_t tmp_file = 0;
 
 	inode = fd->inode;
 
 	LOCK (&inode->lock);
 	{
 		list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
-			ret = dict_get_ptr (iter_fd->ctx, this->name,
-					    (void **) ((void *)&file));
+			ret = fd_ctx_get (iter_fd, this, &tmp_file);
+			file = (ra_file_t *)(long)tmp_file;
+
 			if (!file)
 				continue;
 			flush_region (frame, file, 0,
@@ -688,14 +702,16 @@ ra_fchown (call_frame_t *frame, xlator_t *this,
 	fd_t      *iter_fd = NULL;
 	inode_t   *inode = NULL;
 	int        ret = 0;
+	uint64_t tmp_file = 0;
 
 	inode = fd->inode;
 
 	LOCK (&inode->lock);
 	{
 		list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
-			ret = dict_get_ptr (iter_fd->ctx, this->name,
-					    (void **) ((void *)&file));
+			ret = fd_ctx_get (iter_fd, this, &tmp_file);
+			file = (ra_file_t *)(long)tmp_file;
+
 			if (!file)
 				continue;
 			flush_region (frame, file, 0,
@@ -720,14 +736,15 @@ ra_ftruncate (call_frame_t *frame, xlator_t *this,
 	fd_t      *iter_fd = NULL;
 	inode_t   *inode = NULL;
 	int        ret = 0;
+	uint64_t tmp_file = 0;
 
 	inode = fd->inode;
 
 	LOCK (&inode->lock);
 	{
 		list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
-			ret = dict_get_ptr (iter_fd->ctx, this->name,
-					    (void **) ((void *)&file));
+			ret = fd_ctx_get (iter_fd, this, &tmp_file);
+			file = (ra_file_t *)(long)tmp_file;
 			if (!file)
 				continue;
 			flush_region (frame, file, 0,

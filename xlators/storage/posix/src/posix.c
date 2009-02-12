@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2006, 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -346,7 +346,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
+	fd_ctx_set (fd, this, (uint64_t)(long)pfd);
 
         frame->root->rsp_refs = NULL;
 
@@ -388,7 +388,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
         char *            entry_path     = NULL;
         int               count          = 0;
         struct posix_fd * pfd            = NULL;
-
+	uint64_t          tmp_pfd        = 0;
         struct stat       buf            = {0,};
         int               ret            = -1;
         char              tmp_real_path[ZR_PATH_MAX];
@@ -402,14 +402,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
-        if (!fd->ctx) {
-                op_errno = EBADFD;
-                gf_log (this->name, GF_LOG_ERROR,
-			"fd->ctx is NULL (fd=%p)", fd);
-                goto out;
-        }
-
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -417,7 +410,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
                         fd, this->name);
                 goto out;
         }
-
+	pfd = (struct posix_fd *)(long)tmp_pfd;
         if (!pfd->path) {
                 op_errno = EBADFD;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -572,14 +565,13 @@ posix_releasedir (xlator_t *this,
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
         struct posix_fd * pfd      = NULL;
+	uint64_t          tmp_pfd  = 0;
         int               ret      = 0;
 
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
-        VALIDATE_OR_GOTO (fd->ctx, out);
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
+        ret = fd_ctx_del (fd, this, &tmp_pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -587,6 +579,7 @@ posix_releasedir (xlator_t *this,
                 goto out;
         }
 
+	pfd = (struct posix_fd *)(long)tmp_pfd;
         if (!pfd->dir) {
                 op_errno = EINVAL;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1344,7 +1337,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         pfd->flags = flags;
         pfd->fd    = _fd;
 
-        dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
+	fd_ctx_set (fd, this, (uint64_t)(long)pfd);
 
         ((struct posix_private *)this->private)->stats.nr_files++;
 
@@ -1406,7 +1399,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
         pfd->flags = flags;
         pfd->fd    = _fd;
 
-        dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
+	fd_ctx_set (fd, this, (uint64_t)(long)pfd);
 
         ((struct posix_private *)this->private)->stats.nr_files++;
 
@@ -1448,6 +1441,7 @@ int
 posix_readv (call_frame_t *frame, xlator_t *this,
              fd_t *fd, size_t size, off_t offset)
 {
+	uint64_t               tmp_pfd    = 0;
         int32_t                op_ret     = -1;
         int32_t                op_errno   = 0;
         char *                 buf        = NULL;
@@ -1469,14 +1463,14 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_ERROR,
 			"pfd is NULL from fd=%p", fd);
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         if (!size) {
                 op_errno = EINVAL;
@@ -1596,26 +1590,26 @@ posix_writev (call_frame_t *frame, xlator_t *this,
         int    retval       = 0;
         char * buf          = NULL;
         char * alloc_buf    = NULL;
+	uint64_t  tmp_pfd   = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
         VALIDATE_OR_GOTO (vector, out);
         VALIDATE_OR_GOTO (this->private, out);
-        VALIDATE_OR_GOTO (fd->ctx, out);
 
         priv = this->private;
 
         VALIDATE_OR_GOTO (priv, out);
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
 			"pfd is NULL from fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
@@ -1766,19 +1760,20 @@ posix_flush (call_frame_t *frame, xlator_t *this,
         int               _fd      = -1;
         struct posix_fd * pfd      = NULL;
         int               ret      = -1;
+	uint64_t          tmp_pfd  = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_ERROR,
                         "pfd is NULL on fd=%p", fd);
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
         /* do nothing */
@@ -1802,8 +1797,8 @@ posix_release (xlator_t *this,
         struct posix_private * priv     = NULL;
         struct posix_fd *      pfd      = NULL;
         int                    ret      = -1;
-
-	xattr_cache_handle_t handle = {{0,},0};
+	uint64_t               tmp_pfd  = 0;
+	xattr_cache_handle_t   handle   = {{0,},0};
 
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
@@ -1812,13 +1807,14 @@ posix_release (xlator_t *this,
 
         priv->stats.nr_files--;
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_ERROR,
                         "pfd is NULL from fd=%p", fd);
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
 	handle.fd = fd;
 	posix_xattr_cache_flush (this, &handle);
@@ -1860,6 +1856,7 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         int               _fd      = -1;
         struct posix_fd * pfd      = NULL;
         int               ret      = -1;
+	uint64_t          tmp_pfd  = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1875,12 +1872,13 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         goto out;
 #endif
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 op_errno = -ret;
-                gf_log (this->name, GF_LOG_ERROR, "pfd not found in fd->ctx");
+                gf_log (this->name, GF_LOG_ERROR, "pfd not found in fd's ctx");
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
@@ -2322,19 +2320,20 @@ posix_fsyncdir (call_frame_t *frame, xlator_t *this,
         struct posix_fd * pfd      = NULL;
         int               _fd      = -1;
         int               ret      = -1;
+	uint64_t          tmp_pfd  = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_ERROR,
                         "pfd is NULL, fd=%p", fd);
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
@@ -2535,6 +2534,7 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
         struct stat       buf      = {0,};
         struct posix_fd * pfd      = NULL;
         int               ret      = -1;
+	uint64_t          tmp_pfd  = 0;
 
         DECLARE_OLD_FS_ID_VAR;
         SET_FS_ID (frame->root->uid, frame->root->gid);
@@ -2543,14 +2543,14 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "pfd is NULL, fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
@@ -2592,6 +2592,7 @@ posix_fchown (call_frame_t *frame, xlator_t *this,
         struct stat       buf      = {0,};
         struct posix_fd * pfd      = NULL;
         int               ret      = -1;
+	uint64_t          tmp_pfd  = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2601,14 +2602,14 @@ posix_fchown (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "pfd is NULL, fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
@@ -2649,6 +2650,7 @@ posix_fchmod (call_frame_t *frame, xlator_t *this,
         struct stat       buf      = {0,};
         struct posix_fd * pfd      = NULL;
         int               ret      = -1;
+	uint64_t          tmp_pfd  = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2658,14 +2660,14 @@ posix_fchmod (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "pfd is NULL fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
@@ -2878,7 +2880,7 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
         int32_t           op_errno       = 0;
         struct posix_fd * pfd            = {0, };
         struct timeval    tv[2]          = {{0, }, {0, }};
-
+	uint64_t          tmp_pfd        = 0;
         char              pathname[ZR_PATH_MAX] = {0,};
         dir_entry_t *     trav           = NULL;
 
@@ -2890,14 +2892,15 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
         tv[0].tv_sec = tv[0].tv_usec = 0;
         tv[1].tv_sec = tv[1].tv_usec = 0;
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_ERROR,
-			"fd->ctx not found on fd=%p for %s",
+			"fd's ctx not found on fd=%p for %s",
                         fd, this->name);
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         real_path = pfd->path;
 
@@ -3003,6 +3006,7 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
         int32_t           op_errno = 0;
         struct stat       buf      = {0,};
         struct posix_fd * pfd      = NULL;
+	uint64_t          tmp_pfd  = 0;
         int               ret      = -1;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -3012,14 +3016,14 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "pfd is NULL, fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
@@ -3124,6 +3128,7 @@ int32_t
 posix_readdir (call_frame_t *frame, xlator_t *this,
                fd_t *fd, size_t size, off_t off)
 {
+	uint64_t          tmp_pfd = 0;
         struct posix_fd * pfd    = NULL;
         DIR *             dir    = NULL;
         int               ret    = -1;
@@ -3146,14 +3151,14 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
 
 	INIT_LIST_HEAD (&entries.list);
 
-        ret = dict_get_ptr (fd->ctx, this->name, (void **)&pfd);
-
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "pfd is NULL, fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         dir = pfd->dir;
 

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -1723,8 +1723,7 @@ stripe_create_cbk (call_frame_t *frame,
 			local->op_ret = -1;
 
 		if (local->op_ret >= 0) {
-			dict_set (local->fd->ctx,  this->name, 
-				  data_from_uint64 (local->stripe_size));
+			fd_ctx_set (local->fd, this, local->stripe_size);
 		}
 
 		if ((local->op_ret != -1) && 
@@ -1881,8 +1880,7 @@ stripe_open_cbk (call_frame_t *frame,
 			local->op_ret = -1;
 
 		if (local->op_ret >= 0) {
-			dict_set (local->fd->ctx,  this->name, 
-				  data_from_uint64 (local->stripe_size));
+			fd_ctx_set (local->fd, this, local->stripe_size);
 		}
 		loc_wipe (&local->loc);
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
@@ -2709,7 +2707,7 @@ stripe_readv (call_frame_t *frame,
 	int32_t num_stripe = 0;
 	size_t frame_size = 0;
 	off_t rounded_end = 0;
-	off_t stripe_size = 0;
+	uint64_t stripe_size = 0;
 	off_t rounded_start = 0;
 	off_t frame_offset = offset;
 	stripe_local_t *local = NULL;
@@ -2718,7 +2716,7 @@ stripe_readv (call_frame_t *frame,
 	xlator_list_t *trav = this->children;
 	stripe_private_t *priv = this->private;
 
-	stripe_size = data_to_uint64 (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &stripe_size);
 	if (!stripe_size) {
 		STACK_UNWIND (frame, -1, EINVAL, NULL, 0, NULL);
 		return 0;
@@ -2847,13 +2845,13 @@ stripe_writev (call_frame_t *frame,
 	int32_t remaining_size = 0;
 	int32_t tmp_count = count;
 	off_t fill_size = 0;
-	off_t stripe_size = 0;
+	uint64_t stripe_size = 0;
 	struct iovec *tmp_vec = vector;
 	stripe_private_t *priv = this->private;
 	stripe_local_t *local = NULL;
 	xlator_list_t *trav = NULL;
 
-	stripe_size = data_to_uint64 (dict_get (fd->ctx, this->name));
+	fd_ctx_get (fd, this, &stripe_size);
 	if (!stripe_size) {
 		STACK_UNWIND (frame, -1, EINVAL, NULL);
 		return 0;

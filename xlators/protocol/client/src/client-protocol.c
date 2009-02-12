@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2006, 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -163,16 +163,18 @@ this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
 {
 	int ret = 0;
 	int dict_ret = -1;
+	uint64_t tmp_fd = 0;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, file, out);
 	GF_VALIDATE_OR_GOTO (this->name, remote_fd, out);
 
-	dict_ret = dict_get_int64 (file->ctx, this->name, remote_fd);
+	dict_ret = fd_ctx_get (file, this, &tmp_fd);
 
 	if (dict_ret < 0) {
 		ret = -1;
 	}
+	*remote_fd = (int64_t)tmp_fd;
 out:
 	return ret;
 }
@@ -181,13 +183,13 @@ out:
 static void
 this_fd_set (fd_t *file, xlator_t *this, loc_t *loc, int64_t fd)
 {
-	int64_t old_fd = -1;
+	uint64_t old_fd = 0;
 	int32_t ret = -1;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, file, out);
 
-	ret = dict_get_int64 (file->ctx, this->name, &old_fd);
+	ret = fd_ctx_get (file, this, &old_fd);
 	if (ret >= 0) {
 		gf_log (this->name, GF_LOG_WARNING,
 			"%s (%"PRId64"): trying duplicate remote fd set. "
@@ -195,7 +197,7 @@ this_fd_set (fd_t *file, xlator_t *this, loc_t *loc, int64_t fd)
 			loc->path, loc->inode->ino, fd, old_fd);
 	}
 
-	ret = dict_set_int64 (file->ctx, this->name, fd);
+	ret = fd_ctx_set (file, this, (uint64_t)fd);
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"%s (%"PRId64"): failed to set remote fd",
@@ -5953,8 +5955,7 @@ protocol_client_cleanup (transport_t *trans)
 		while (trav) {
 			fd_t *fd_tmp = (fd_t *)(long) strtoul (trav->key, 
 							       NULL, 0);
-			if (fd_tmp->ctx)
-				dict_del (fd_tmp->ctx, this->name);
+			fd_ctx_del (fd_tmp, this, NULL);
 			trav = trav->next;
 		}
 

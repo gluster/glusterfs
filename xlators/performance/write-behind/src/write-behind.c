@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2006, 2007, 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -128,7 +128,7 @@ wb_file_create (xlator_t *this,
         file->this = this;
         file->refcount = 1;
 
-        dict_set (fd->ctx, this->name, data_from_static_ptr (file));
+        fd_ctx_set (fd, this, (uint64_t)(long)file);
         
         return file;
 }
@@ -332,19 +332,19 @@ wb_stat (call_frame_t *frame,
         wb_file_t *file = NULL;
         fd_t *iter_fd = NULL;
         wb_local_t *local = NULL;
+	uint64_t tmp_file = 0;
 
         if (loc->inode)
         {
                 iter_fd = fd_lookup (loc->inode, frame->root->pid);
                 if (iter_fd) {
-                        if (dict_get (iter_fd->ctx, this->name)) {
-                                file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+                        if (!fd_ctx_get (iter_fd, this, &tmp_file)) {
+				file = (wb_file_t *)(long)tmp_file;
                         } else {
                                 fd_unref (iter_fd);
                         }
                 }
-                if (file)
-                {
+                if (file) {
                         wb_sync_all (frame, file);
                 }
         }
@@ -369,18 +369,16 @@ wb_fstat (call_frame_t *frame,
 {
         wb_file_t *file = NULL;
         wb_local_t *local = NULL;
-  
-        if (!dict_get (fd->ctx, this->name))
-        {
+  	uint64_t tmp_file = 0;
+
+        if (fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
                 STACK_UNWIND (frame, -1, EBADFD, NULL);
                 return 0;
         }
 
-        file = data_to_ptr (dict_get (fd->ctx, this->name));
-
-        if (file)
-        {
+	file = (wb_file_t *)(long)tmp_file;
+        if (file) {
                 fd_ref (file->fd);
                 wb_sync_all (frame, file);
         }
@@ -427,13 +425,14 @@ wb_truncate (call_frame_t *frame,
         wb_file_t *file = NULL;
         fd_t *iter_fd = NULL;
         wb_local_t *local = NULL;
+	uint64_t tmp_file = 0;
 
         if (loc->inode)
         {
                 iter_fd = fd_lookup (loc->inode, frame->root->pid);
                 if (iter_fd) {
-                        if (dict_get (iter_fd->ctx, this->name)){
-                                file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+                        if (!fd_ctx_get (iter_fd, this, &tmp_file)){
+				file = (wb_file_t *)(long)tmp_file;
                         } else {
                                 fd_unref (iter_fd);
                         }
@@ -468,28 +467,23 @@ wb_ftruncate (call_frame_t *frame,
 {
         wb_file_t *file = NULL;
         wb_local_t *local = NULL;
+	uint64_t tmp_file = 0;
 
-        if (!dict_get (fd->ctx, this->name))
-        {
+        if (fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
                 STACK_UNWIND (frame, -1, EBADFD, NULL);
                 return 0;
         }
 
-        file = data_to_ptr (dict_get (fd->ctx, this->name));
-
+	file = (wb_file_t *)(long)tmp_file;
         if (file)
-        {
                 wb_sync_all (frame, file);
-        }
 
         local = CALLOC (1, sizeof (*local));
         local->file = file;
 
         if (file)
-        {
                 fd_ref (file->fd);
-        }
 
         frame->local = local;
 
@@ -531,22 +525,20 @@ wb_utimens (call_frame_t *frame,
         wb_file_t *file = NULL;
         fd_t *iter_fd = NULL;
         wb_local_t *local = NULL;
+	uint64_t tmp_file = 0;
 
-        if (loc->inode)
-        {
+        if (loc->inode) {
                 iter_fd = fd_lookup (loc->inode, frame->root->pid);
                 if (iter_fd) {
-                        if (dict_get (iter_fd->ctx, this->name)) {
-                                file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+                        if (!fd_ctx_get (iter_fd, this, &tmp_file)) {
+				file = (wb_file_t *)(long)tmp_file;
                         } else {
                                 fd_unref (iter_fd);
                         }
                 }
 
                 if (file)
-                {
                         wb_sync_all (frame, file);
-                }
         }
 
         local = CALLOC (1, sizeof (*local));
@@ -954,22 +946,19 @@ wb_writev (call_frame_t *frame,
         char offset_expected = 1, wb_disabled = 0; 
         call_frame_t *process_frame = NULL;
         size_t size = 0;
+	uint64_t tmp_file = 0;
 
-        if (vector != NULL) {
+        if (vector != NULL) 
                 size = iov_length (vector, count);
-        }
 
-        if (!dict_get (fd->ctx, this->name))
-        {
+        if (fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
                 STACK_UNWIND (frame, -1, EBADFD, NULL);
                 return 0;
         }
 
-        file = data_to_ptr (dict_get (fd->ctx, this->name));
-
-        if (!file)
-        {
+	file = (wb_file_t *)(long)tmp_file;
+        if (!file) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "wb_file not found for fd %p", fd);
                 STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -1007,9 +996,7 @@ wb_writev (call_frame_t *frame,
         process_frame = copy_frame (frame);
 
         if (!offset_expected)
-        {
                 wb_process_queue (process_frame, file, 1);
-        }
 
         wb_enqueue (file, frame, vector, count, offset);
         wb_process_queue (process_frame, file, 0);
@@ -1048,20 +1035,17 @@ wb_readv (call_frame_t *frame,
 {
         wb_file_t *file = NULL;
         wb_local_t *local = NULL;
+	uint64_t tmp_file = 0;
 
-        if (!dict_get (fd->ctx, this->name))
-        {
+        if (fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
                 STACK_UNWIND (frame, -1, EBADFD, NULL);
                 return 0;
         }
 
-        file = data_to_ptr (dict_get (fd->ctx, this->name));
-
+	file = (wb_file_t *)(long)tmp_file;
         if (file)
-        {
                 wb_sync_all (frame, file);
-        }
 
         local = CALLOC (1, sizeof (*local));
         local->file = file;
@@ -1147,31 +1131,33 @@ wb_flush (call_frame_t *frame,
         wb_file_t *file = NULL;
         call_frame_t *flush_frame = NULL;
         wb_local_t *local = NULL;
+	uint64_t tmp_file = 0;
 
         conf = this->private;
 
-        if (!dict_get (fd->ctx, this->name))
-        {
+        if (fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
                 STACK_UNWIND (frame, -1, EBADFD);
                 return 0;
         }
 
-        file = data_to_ptr (dict_get (fd->ctx, this->name));
+	file = (wb_file_t *)(long)tmp_file;
+
         local = CALLOC (1, sizeof (*local));
         local->file = file;
         if (file)
                 fd_ref (file->fd);
 
-        if (&file->request != file->request.next)
-        {
+        if (&file->request != file->request.next) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "request queue is not empty, it has to be synced");
         }
 
-        if (conf->flush_behind && (!file->disabled) && (file->disable_till == 0)) {
+        if (conf->flush_behind && 
+	    (!file->disabled) && (file->disable_till == 0)) {
                 flush_frame = copy_frame (frame);     
-                STACK_UNWIND (frame, file->op_ret, file->op_errno); // liar! liar! :O
+                STACK_UNWIND (frame, file->op_ret, 
+			      file->op_errno); // liar! liar! :O
 
                 flush_frame->local = local;
                 wb_sync_all (flush_frame, file);
@@ -1229,24 +1215,20 @@ wb_fsync (call_frame_t *frame,
 {
         wb_file_t *file = NULL;
         wb_local_t *local = NULL;
+	uint64_t tmp_file = 0;
 
-        if (!dict_get (fd->ctx, this->name))
-        {
+        if (fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
                 STACK_UNWIND (frame, -1, EBADFD);
                 return 0;
         }
 
-        file = data_to_ptr (dict_get (fd->ctx, this->name));
-
+	file = (wb_file_t *)(long)tmp_file;
         if (file)
-        {
                 wb_sync_all (frame, file);
-        }
 
         local = CALLOC (1, sizeof (*local));
         local->file = file;
-
 
         frame->local = local;
 
@@ -1263,11 +1245,10 @@ int32_t
 wb_release (xlator_t *this,
             fd_t *fd)
 {
-        wb_file_t *file = NULL;
+        uint64_t file = 0;
 
-        file = data_to_ptr (dict_get (fd->ctx, this->name));
-  
-        wb_file_destroy (file);
+	fd_ctx_get (fd, this, &file);
+  	wb_file_destroy ((wb_file_t *)(long)file);
 
         return 0;
 }

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2008, 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -600,8 +600,7 @@ quota_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
 		gf_quota_usage_add (this, buf->st_blocks * 512);
 
-		ret = dict_set_static_ptr (fd->ctx, this->name,
-					   "dummy.to.force.release");
+		ret = fd_ctx_set (fd, this, 1);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
@@ -648,8 +647,7 @@ quota_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int                ret = 0;
 
 	if (op_ret >= 0)
-		ret = dict_set_static_ptr (fd->ctx, this->name,
-					   "dummy.to.force.release");
+		ret = fd_ctx_set (fd, this, 1);
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd);
 	return 0;
