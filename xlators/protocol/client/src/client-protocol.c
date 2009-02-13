@@ -6035,7 +6035,8 @@ client_forget_cbk (call_frame_t *frame,
 
 	if (send_forget) {
 		ret = protocol_client_xfer (forget.frame, frame->this,
-					    CLIENT_CHANNEL (this,CHANNEL_BULK),
+					    CLIENT_CHANNEL (frame->this,
+							    CHANNEL_BULK),
 					    GF_OP_TYPE_CBK_REQUEST, 
 					    GF_CBK_FORGET,
 					    forget.hdr, forget.hdrlen, 

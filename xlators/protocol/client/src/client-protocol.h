@@ -54,7 +54,8 @@ enum {
 	CHANNEL_LOWLAT = 1,
 	CHANNEL_MAX
 };
-#define CLIENT_CHANNEL(this,id) NULL
+#define CLIENT_CHANNEL(xl,id) \
+	(((client_conf_t *)(xl->private))->transport[id])
 
 struct client_connection;
 typedef struct client_connection client_connection_t;
