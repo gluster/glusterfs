@@ -1005,6 +1005,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	transaction_frame->local = local;
 
+	local->op = GF_FOP_WRITE;
 	local->cont.writev.vector  = iov_dup (vector, count);
 	local->cont.writev.count   = count;
 	local->cont.writev.offset  = offset;

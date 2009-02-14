@@ -130,9 +130,9 @@ __changelog_needed_pre_op (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	
 	if (__changelog_enabled (priv, local->transaction.type)) {
-		switch (local->transaction.type) {
+		switch (local->op) {
 
-		case AFR_DATA_TRANSACTION:
+		case GF_FOP_WRITE:
 			/* 
 			   if it's a data transaction, we write the changelog
 			   only on the first write on an fd 
@@ -144,7 +144,7 @@ __changelog_needed_pre_op (call_frame_t *frame, xlator_t *this)
 
 			break;
 
-		case AFR_FLUSH_TRANSACTION:
+		case GF_FOP_FLUSH:
 			/* only do post-op on flush() */
 
 			op_ret = 0;
@@ -173,7 +173,7 @@ __changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
 	type  = local->transaction.type;
 
 	if (__changelog_enabled (priv, type)
-	    && (type != AFR_DATA_TRANSACTION))
+	    && (local->op != GF_FOP_WRITE))
 		ret = 1;
 	
 	return ret;

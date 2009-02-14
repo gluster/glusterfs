@@ -133,7 +133,8 @@ typedef struct _afr_local {
 	   This struct contains the arguments for the "continuation"
 	   (scheme-like) of fops
 	*/
-	   
+
+	int   op;
 	struct {
 		struct {
 			unsigned char buf_set;

@@ -452,6 +452,9 @@ posix_xattr_cache_flush_all (xlator_t *this)
 		for (i = 0; i < cache->size; i++) {
 			entry = cache->entries[i];
 
+			if (!entry || !entry->handle)
+				continue;
+
 			if (entry->handle->loc.path)
 				gf_log (this->name, GF_LOG_DEBUG,
 					"  force flushing entry for %s",
