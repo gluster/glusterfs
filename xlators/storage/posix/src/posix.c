@@ -72,6 +72,7 @@ typedef struct {
   	const char  *real_path;
   	dict_t      *xattr;
   	struct stat *stbuf;
+	loc_t       *loc;
 } posix_xattr_filler_t;
 
 int
@@ -97,6 +98,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
     	uint64_t  req_size = 0;
   	char     *databuf  = NULL;
   	int       _fd      = -1;
+	loc_t    *loc      = NULL;
 
     	req_size = data_to_uint64 (data);
 
@@ -114,7 +116,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
     			gf_log (filler->this->name, GF_LOG_ERROR,
     				"dict set failed. path: %s, key: %s",
     				filler->real_path, key);
-    	} else if (!strcmp (key, "glusterfs.content")){
+    	} else if (!strcmp (key, "glusterfs.content")) {
     		/* file content request */
     		_fd = open (filler->real_path, O_RDONLY);
 
@@ -164,11 +166,18 @@ _posix_xattr_get_set (dict_t *xattr_req,
     		if (databuf)
     			FREE (databuf);
 
-    	}
+    	} else if (!strcmp (key, GLUSTERFS_OPEN_FD_COUNT)) {
+		loc = filler->loc;
+		if (!list_empty (&loc->inode->fd_list))
+			ret = dict_set_uint32 (filler->xattr, key, 1);
+		else
+			ret = dict_set_uint32 (filler->xattr, key, 0);
+	}
 }
 
+
 dict_t *
-posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
+posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
     			 dict_t *xattr_req, struct stat *buf)
 {
     	dict_t     *xattr             = NULL;
@@ -181,10 +190,11 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path,
     		goto out;
     	}
 
-    	filler.this = this;
+    	filler.this      = this;
     	filler.real_path = real_path;
     	filler.xattr     = xattr;
     	filler.stbuf     = buf;
+	filler.loc       = loc;
 
     	dict_foreach (xattr_req, _posix_xattr_get_set, &filler);
 out:
@@ -238,7 +248,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 	}
 
         if (xattr_req && (op_ret == 0)) {
-		xattr = posix_lookup_xattr_fill (this, real_path,
+		xattr = posix_lookup_xattr_fill (this, real_path, loc,
 						 xattr_req, &buf);
         }
 

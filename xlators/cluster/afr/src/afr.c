@@ -339,6 +339,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	int             call_count = -1;
 	int             child_index = -1;
 	int             prev_child_index = -1;
+	uint32_t        open_fd_count = 0;
+	int             ret = 0;
 
 	child_index = (long) cookie;
 	priv = this->private;
@@ -367,6 +369,10 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
 		if (afr_sh_has_data_pending (xattr, child_index, this))
 			local->need_data_self_heal = 1;
+
+		ret = dict_get_uint32 (xattr, GLUSTERFS_OPEN_FD_COUNT,
+				       &open_fd_count);
+		local->open_fd_count += open_fd_count;
 
 		/* in case of revalidate, we need to send stat of the
 		 * child whose stat was sent during the first lookup.
@@ -448,9 +454,10 @@ unlock:
 				local->need_data_self_heal = 1;
 		}
 
-		if (local->need_metadata_self_heal
-		    || local->need_data_self_heal
-		    || local->need_entry_self_heal) {
+		if ((local->need_metadata_self_heal
+		     || local->need_data_self_heal
+		     || local->need_entry_self_heal)
+		    && (!local->open_fd_count)) {
 
 			if (!local->cont.lookup.inode->st_mode) {
 				/* fix for RT #602 */
@@ -526,7 +533,9 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 		ret = dict_set_uint64 (local->xattr_req, AFR_ENTRY_PENDING,
 				       priv->child_count * sizeof(int32_t));
 	}
-	
+
+	ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_OPEN_FD_COUNT, 0);
+
 	for (i = 0; i < priv->child_count; i++) {
 		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
 				   priv->children[i],

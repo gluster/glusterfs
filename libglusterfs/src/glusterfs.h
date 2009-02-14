@@ -66,6 +66,8 @@
 #define ZR_FILE_CONTENT_STR     "glusterfs.file."
 #define ZR_FILE_CONTENT_STRLEN 15
 
+#define GLUSTERFS_OPEN_FD_COUNT "glusterfs.open-fd-count"
+
 #define ZR_FILE_CONTENT_REQUEST(key) (!strncmp(key, ZR_FILE_CONTENT_STR, \
 					       ZR_FILE_CONTENT_STRLEN))
 
