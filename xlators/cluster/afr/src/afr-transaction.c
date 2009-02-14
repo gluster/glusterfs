@@ -133,6 +133,7 @@ __changelog_needed_pre_op (call_frame_t *frame, xlator_t *this)
 		switch (local->op) {
 
 		case GF_FOP_WRITE:
+		case GF_FOP_FTRUNCATE:
 			/* 
 			   if it's a data transaction, we write the changelog
 			   only on the first write on an fd 
@@ -173,7 +174,8 @@ __changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
 	type  = local->transaction.type;
 
 	if (__changelog_enabled (priv, type)
-	    && (local->op != GF_FOP_WRITE))
+	    && (local->op != GF_FOP_WRITE)
+	    && (local->op != GF_FOP_FTRUNCATE))
 		ret = 1;
 	
 	return ret;

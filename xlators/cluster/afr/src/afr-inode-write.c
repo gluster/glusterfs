@@ -1411,6 +1411,7 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
 
 	transaction_frame->local = local;
 
+	local->op = GF_FOP_FTRUNCATE;
 	local->op_ret = -1;
 
 	local->cont.ftruncate.offset  = offset;
