@@ -1054,6 +1054,7 @@ main (int argc, char *argv[])
 		if (strcmp (trav->type, ZR_XLATOR_FUSE) == 0) {
 			if (dict_get (trav->options, 
 				      ZR_MOUNTPOINT_OPT) != NULL) {
+				trav->ctx = graph->ctx;
 				fuse_volume_found = 1;
 			}
 		}

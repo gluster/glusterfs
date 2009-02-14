@@ -7109,7 +7109,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 		ret = dict_set_str (reply, "ERROR",
 				    "No version number specified");
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, 
+			gf_log (trans->xl->name, GF_LOG_ERROR, 
 				"failed to set error msg");
 
 		op_ret = -1;
@@ -7125,7 +7125,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 			  version, PACKAGE_VERSION);
 		ret = dict_set_dynstr (reply, "ERROR", msg);
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, 
+			gf_log (trans->xl->name, GF_LOG_ERROR, 
 				"failed to set error msg");
 
 		op_ret = -1;
@@ -7140,7 +7140,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 		ret = dict_set_str (reply, "ERROR",
 				    "No remote-subvolume option specified");
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, 
+			gf_log (trans->xl->name, GF_LOG_ERROR, 
 				"failed to set error msg");
 
 		op_ret = -1;
@@ -7154,18 +7154,18 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 		asprintf (&msg, "remote-subvolume \"%s\" is not found", name);
 		ret = dict_set_dynstr (reply, "ERROR", msg);
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, 
+			gf_log (trans->xl->name, GF_LOG_ERROR, 
 				"failed to set error msg");
 
 		op_ret = -1;
 		op_errno = ENOENT;
 		goto fail;
 	}
-	trans = TRANSPORT_FROM_FRAME(frame);
+
 	peerinfo = &trans->peerinfo;
 	ret = dict_set_static_ptr (params, "peer-info", peerinfo);
 	if (ret < 0)
-		gf_log (bound_xl->name, GF_LOG_ERROR, 
+		gf_log (trans->xl->name, GF_LOG_ERROR, 
 			"failed to set peer-info");
 
 	if (conf->auth_modules == NULL) {
@@ -7183,7 +7183,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 		conn->bound_xl = xl;
 		ret = dict_set_str (reply, "ERROR", "Success");
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, 
+			gf_log (trans->xl->name, GF_LOG_ERROR, 
 				"failed to set error msg");
 	} else {
 		gf_log (trans->xl->name, GF_LOG_ERROR,
@@ -7204,7 +7204,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 				    "Check volfile and handshake "
 				    "options in protocol/client");
 		if (ret < 0)
-			gf_log (bound_xl->name, GF_LOG_ERROR, 
+			gf_log (trans->xl->name, GF_LOG_ERROR, 
 				"failed to set error msg");
 
 		op_ret = -1;
@@ -7218,11 +7218,10 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 		/* create inode table for this bound_xl, if one doesn't 
 		   already exist */
 		int32_t lru_limit = 1024;
-		xlator_t *xl = TRANSPORT_FROM_FRAME(frame)->xl;
 
 		lru_limit = INODE_LRU_LIMIT (frame->this);
 
-		gf_log (xl->name, GF_LOG_DEBUG,
+		gf_log (trans->xl->name, GF_LOG_DEBUG,
 			"creating inode table with lru_limit=%"PRId32", "
 			"xlator=%s", lru_limit, conn->bound_xl->name);
 

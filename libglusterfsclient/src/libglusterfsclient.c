@@ -131,6 +131,11 @@ int32_t
 libgf_client_forget (xlator_t *this,
 		     inode_t *inode)
 {
+	libglusterfs_client_inode_ctx_t *ctx = NULL;
+	
+	inode_ctx_del (inode, this, (uint64_t *)ctx);
+	FREE (ctx);
+
         return 0;
 }
 
@@ -371,6 +376,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
         call_pool_t *pool = NULL;
         int32_t ret = 0;
         struct rlimit lim;
+	uint32_t xl_count = 0;
 
         if (!init_ctx || (!init_ctx->specfile && !init_ctx->specfp)) {
                 errno = EINVAL;
@@ -532,6 +538,14 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
                 return NULL;
         }
         graph = ctx->gf_ctx.graph;
+
+	trav = graph;
+	while (trav) {
+		xl_count++;  /* Getting this value right is very important */
+		trav = trav->next;
+	}
+
+	ctx->gf_ctx.xl_count = xl_count + 1;
 
         priv = CALLOC (1, sizeof (*priv));
         if (!priv) {
@@ -797,6 +811,8 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
         call_stub_t  *stub = NULL;
         int32_t op_ret;
         libgf_client_local_t *local = NULL;
+	xlator_t *this = NULL;
+	int32_t ret = -1;
         
         local = CALLOC (1, sizeof (*local));
         if (loc->inode) {
@@ -815,17 +831,18 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
 
         if (!op_ret) {
                 time_t current = 0;
-		data_t *inode_ctx_data = NULL;
                 libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
 		inode_t *inode = stub->args.lookup_cbk.inode;
+		uint64_t ptr = 0;
 
-		inode_ctx_data = dict_get (inode->ctx, XLATOR_NAME);
-		if (!inode_ctx_data) {
+		this = ctx->gf_ctx.graph;
+		ret = inode_ctx_get (inode, this, &ptr);
+		if (ret == -1) {
 			inode_ctx = CALLOC (1, sizeof (*inode_ctx));
 			ERR_ABORT (inode_ctx);
 			pthread_mutex_init (&inode_ctx->lock, NULL);
 		} else {
-			inode_ctx = data_to_ptr (inode_ctx_data);
+			inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
 		}
 
                 current = time (NULL);
@@ -839,9 +856,9 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
 		}
 		pthread_mutex_unlock (&inode_ctx->lock);
 
-		if (!inode_ctx_data) {
-			dict_set (inode->ctx, XLATOR_NAME, 
-				  data_from_dynptr (inode_ctx, sizeof (*inode_ctx)));
+		ret = inode_ctx_get (inode, this, NULL);
+		if (ret == -1) {
+			inode_ctx_put (inode, this, (uint64_t)(long)inode_ctx);
 		}
 
                 if (stbuf)
@@ -934,6 +951,7 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
         glusterfs_lookup_cbk_t lookup_cbk = local->fop.lookup_cbk.cbk;
         libglusterfs_client_ctx_t *ctx = frame->root->state;
 	dict_t *xattr_req = NULL;
+	int32_t ret = 0;
 
         if (op_ret == 0) {
                 time_t current = 0;
@@ -965,9 +983,9 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
                 }
                 pthread_mutex_unlock (&inode_ctx->lock);
 
-		if (!inode_ctx_data) {
-                        dict_set (inode->ctx, XLATOR_NAME, 
-				  data_from_dynptr (inode_ctx, sizeof (*inode_ctx)));
+		ret = inode_ctx_get (inode, this, NULL);
+		if (ret == -1) {
+			inode_ctx_put (inode, this, (uint64_t)(long)inode_ctx);
 		}
 
                 inode_lookup (inode);
@@ -1303,6 +1321,7 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
         call_stub_t *stub = NULL;
         int32_t op_ret = 0;
         libgf_client_local_t *local = NULL;
+	xlator_t *this = NULL;
 
         LIBGF_CLIENT_FOP (ctx, stub, create, local, loc, flags, mode, fd);
   
@@ -1331,8 +1350,8 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
 		memcpy (&inode_ctx->stbuf, &stub->args.lookup_cbk.buf, 
 			sizeof (inode_ctx->stbuf));
 
-		dict_set (libgf_inode->ctx, XLATOR_NAME, 
-			  data_from_dynptr (inode_ctx, sizeof (*inode_ctx)));
+		this = ctx->gf_ctx.graph;
+		inode_ctx_put (libgf_inode, this, (uint64_t)(long)inode_ctx); 
         }
 
         op_ret = stub->args.create_cbk.op_ret;
@@ -1393,11 +1412,15 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
         fd_t *fd = NULL;
         struct stat stbuf; 
 	char lookup_required = 1;
-  
-        if (!ctx || !path) {
+	int32_t ret = -1;
+	xlator_t *this = NULL;
+
+        if (!ctx || !path || path[0] != '/') {
                 errno = EINVAL;
                 return 0;
         }
+
+	this = ctx->gf_ctx.graph;
 
         op_ret = libgf_client_loc_fill (&loc, path, 0, ctx);
 	if (op_ret < 0) {
@@ -1409,29 +1432,26 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
 		goto out;
 	}
 
-        if (loc.inode && loc.inode->ctx) {
-                data_t *inode_ctx_data = NULL;
+        if (loc.inode) {
                 libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
                 time_t current, prev;
- 
-                inode_ctx_data = dict_get (loc.inode->ctx, XLATOR_NAME);
-                if (inode_ctx_data) {
-                        inode_ctx = data_to_ptr (inode_ctx_data);
+		uint64_t ptr = 0;
+		
+		ret = inode_ctx_get (loc.inode, this, &ptr);
+                if (ret == 0) {
+			inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
+			memset (&current, 0, sizeof (current));
 
-                        if (inode_ctx) {
-                                memset (&current, 0, sizeof (current));
+			pthread_mutex_lock (&inode_ctx->lock);
+			{
+				prev = inode_ctx->previous_lookup_time;
+			}
+			pthread_mutex_unlock (&inode_ctx->lock);
 
-                                pthread_mutex_lock (&inode_ctx->lock);
-                                {
-                                        prev = inode_ctx->previous_lookup_time;
-                                }
-                                pthread_mutex_unlock (&inode_ctx->lock);
-
-                                current = time (NULL);
-                                if (prev >= 0 && ctx->lookup_timeout >= (current - prev)) {
-                                        lookup_required = 0;
-                                } 
-                        }
+			current = time (NULL);
+			if (prev >= 0 && ctx->lookup_timeout >= (current - prev)) {
+				lookup_required = 0;
+			} 
                 }
         }
 
@@ -1490,9 +1510,10 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
 			}
 
 			if ((flags & O_TRUNC) && ((flags & O_RDWR) || (flags & O_WRONLY))) {
-				ctx_data = dict_get (fd->inode->ctx, XLATOR_NAME);
-				if (ctx_data) {
-					inode_ctx = data_to_ptr (ctx_data);
+				uint64_t ptr = 0;
+				ret = inode_ctx_get (fd->inode, this, &ptr);
+				if (ret == 0) {
+					inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
 					if (S_ISREG (inode_ctx->stbuf.st_mode)) {
 						inode_ctx->stbuf.st_size = inode_ctx->stbuf.st_blocks = 0;
 					}
@@ -1653,6 +1674,7 @@ glusterfs_setxattr (libglusterfs_client_ctx_t *ctx,
         int32_t op_ret = 0;
         loc_t loc = {0, };
         char lookup_required = 1;
+	xlator_t *this = NULL;
 
         op_ret = libgf_client_loc_fill (&loc, path, 0, ctx);
 	if (op_ret < 0) {
@@ -1663,20 +1685,19 @@ glusterfs_setxattr (libglusterfs_client_ctx_t *ctx,
 		goto out;
 	}
 
-        if (loc.inode && loc.inode->ctx) {
+	this = ctx->gf_ctx.graph;
+        if (loc.inode) {
                 time_t current, prev;
                 libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-                data_t *inode_ctx_data = NULL;
+		uint64_t ptr = 0;
 
-                inode_ctx_data = dict_get (loc.inode->ctx, XLATOR_NAME);
-                if (!inode_ctx_data) {
+		op_ret = inode_ctx_get (loc.inode, this, &ptr);
+                if (op_ret == -1) {
 			errno = EINVAL;
-			op_ret = -1;
 			goto out;
 		}
 
-                inode_ctx = data_to_ptr (inode_ctx_data);
-
+		inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
                 memset (&current, 0, sizeof (current));
                 current = time (NULL);
 
@@ -1686,7 +1707,7 @@ glusterfs_setxattr (libglusterfs_client_ctx_t *ctx,
                 }
                 pthread_mutex_unlock (&inode_ctx->lock);
     
-                if ( (prev >= 0) && ctx->lookup_timeout >= (current - prev)) {
+                if ((prev >= 0) && ctx->lookup_timeout >= (current - prev)) {
                         lookup_required = 0;
                 } 
         }
@@ -1728,6 +1749,7 @@ glusterfs_fsetxattr (unsigned long fd,
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
         data_t *fd_ctx_data = NULL;
 	loc_t loc = {0, };
+	xlator_t *this = NULL;
 
 	__fd = (fd_t *)fd;
         fd_ctx_data = dict_get (__fd->ctx, XLATOR_NAME);
@@ -1749,20 +1771,19 @@ glusterfs_fsetxattr (unsigned long fd,
 		goto out;
 	}
 
-        if (loc.inode && loc.inode->ctx) {
+	this = ctx->gf_ctx.graph;
+        if (loc.inode) { 
                 time_t current, prev;
                 libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-                data_t *inode_ctx_data = NULL;
+		uint64_t ptr = 0;
 
-                inode_ctx_data = dict_get (loc.inode->ctx, XLATOR_NAME);
-                if (!inode_ctx_data) {
+		op_ret = inode_ctx_get (loc.inode, this, &ptr);
+		if (op_ret == -1) {
 			errno = EINVAL;
-			op_ret = -1;
 			goto out;
 		}
 
-                inode_ctx = data_to_ptr (inode_ctx_data);
-
+		inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
                 memset (&current, 0, sizeof (current));
                 current = time (NULL);
 
@@ -2718,10 +2739,11 @@ glusterfs_lseek (unsigned long fd, off_t offset, int whence)
         off_t __offset = 0;
 	int32_t op_ret = -1;
         fd_t *__fd = (fd_t *)fd;
-        data_t *fd_ctx_data = NULL, *inode_ctx_data = NULL;
+        data_t *fd_ctx_data = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 	libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
 	libglusterfs_client_ctx_t *ctx = NULL; 
+	xlator_t *this = NULL;
 
 	fd_ctx_data = dict_get (__fd->ctx, XLATOR_NAME);
         if (!fd_ctx_data) {
@@ -2756,25 +2778,24 @@ glusterfs_lseek (unsigned long fd, off_t offset, int whence)
 		time_t prev, current;
 		loc_t loc = {0, };
 		struct stat stbuf = {0, };
+		int32_t ret = -1;
+		uint64_t ptr = 0;
 
-		inode_ctx_data = dict_get (__fd->inode->ctx, XLATOR_NAME);
-		if (inode_ctx_data != NULL) {
-			inode_ctx = data_to_ptr (inode_ctx_data);
-
-			if (inode_ctx) {
-				memset (&current, 0, sizeof (current));
-				current = time (NULL);
-
-				pthread_mutex_lock (&inode_ctx->lock);
-				{
-					prev = inode_ctx->previous_lookup_time;
-				}
-				pthread_mutex_unlock (&inode_ctx->lock);
-
-				if (prev >= 0 && ctx->lookup_timeout >= (current - prev)) {
-					cache_valid = 1;
-				} 
+		ret = inode_ctx_get (__fd->inode, this, &ptr);
+		if (ret == 0) {
+			inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
+			memset (&current, 0, sizeof (current));
+			current = time (NULL);
+			
+			pthread_mutex_lock (&inode_ctx->lock);
+			{
+				prev = inode_ctx->previous_lookup_time;
 			}
+			pthread_mutex_unlock (&inode_ctx->lock);
+			
+			if (prev >= 0 && ctx->lookup_timeout >= (current - prev)) {
+				cache_valid = 1;
+			} 
 		}
 
 		if (cache_valid) {
@@ -2858,18 +2879,18 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
         int32_t op_ret = 0;
         time_t prev, current;
         libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-        data_t *inode_ctx_data = NULL;
         libgf_client_local_t *local = NULL;
+	xlator_t *this = NULL;
+	uint64_t ptr = 0;
 
-        inode_ctx_data = dict_get (loc->inode->ctx, XLATOR_NAME);
-        if (!inode_ctx_data) {
+	this = ctx->gf_ctx.graph;
+	op_ret = inode_ctx_get (loc->inode, this, &ptr);
+        if (op_ret == -1) {
 		errno = EINVAL;
-		op_ret = -1;
 		goto out;
 	}
 	
-        inode_ctx = data_to_ptr (inode_ctx_data);
-
+	inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
         current = time (NULL);
         pthread_mutex_lock (&inode_ctx->lock);
         {
@@ -2916,6 +2937,7 @@ glusterfs_stat (libglusterfs_handle_t handle,
         loc_t loc = {0, };
         char lookup_required = 1;
         libglusterfs_client_ctx_t *ctx = handle;
+	xlator_t *this = NULL;
 
         op_ret = libgf_client_loc_fill (&loc, path, 0, ctx);
 	if (op_ret < 0) {
@@ -2926,21 +2948,20 @@ glusterfs_stat (libglusterfs_handle_t handle,
 		goto out;
 	}
 
-        if (loc.inode && loc.inode->ctx) {
+	this = ctx->gf_ctx.graph;
+        if (loc.inode) {
                 time_t current, prev;
                 libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-                data_t *inode_ctx_data = NULL;
+		uint64_t ptr = 0;
 
-                inode_ctx_data = dict_get (loc.inode->ctx, XLATOR_NAME);
-                if (!inode_ctx_data) {
+		op_ret = inode_ctx_get (loc.inode, this, &ptr);
+                if (op_ret == -1) {
                         inode_unref (loc.inode);
-			op_ret = -1;
                         errno = EINVAL;
 			goto out;
                 }
-
-                inode_ctx = data_to_ptr (inode_ctx_data);
-
+		
+		inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
                 memset (&current, 0, sizeof (current));
                 current = time (NULL);
 
@@ -3006,19 +3027,18 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
         fd_t *__fd = fd;
         time_t current, prev;
         libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-        data_t *inode_ctx_data = NULL;
         libgf_client_local_t *local = NULL;
+	xlator_t *this = NULL;
+	uint64_t ptr = 0;
 
         current = time (NULL);
-        inode_ctx_data = dict_get (fd->inode->ctx, XLATOR_NAME);
-        if (!inode_ctx_data) {
+	op_ret = inode_ctx_get (fd->inode, this, &ptr);
+	if (op_ret == -1) {
                 errno = EINVAL;
-		op_ret = -1;
 		goto out;
         }
 
-        inode_ctx = data_to_ptr (inode_ctx_data);
-
+	inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
         pthread_mutex_lock (&inode_ctx->lock);
         {
                 prev = inode_ctx->previous_stat_time;
