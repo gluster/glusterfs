@@ -93,30 +93,15 @@ _posix_xattr_get_set (dict_t *xattr_req,
 {
     	posix_xattr_filler_t *filler = xattrargs;
     	char     *value      = NULL;
-    	ssize_t   xattr_size = 0;
+    	ssize_t   xattr_size = -1;
     	int       ret      = -1;
-    	uint64_t  req_size = 0;
   	char     *databuf  = NULL;
   	int       _fd      = -1;
 	loc_t    *loc      = NULL;
 
-    	req_size = data_to_uint64 (data);
-
-    	value = calloc (1, req_size);
-
-    	xattr_size = lgetxattr (filler->real_path, key, value,
-    				req_size);
 
     	/* should size be put into the data_t ? */
-    	if (xattr_size != -1) {
-    		value[xattr_size] = '\0';
-    		ret = dict_set_bin (filler->xattr, key,
-    				    value, xattr_size);
-    		if (ret < 0)
-    			gf_log (filler->this->name, GF_LOG_ERROR,
-    				"dict set failed. path: %s, key: %s",
-    				filler->real_path, key);
-    	} else if (!strcmp (key, "glusterfs.content")) {
+	if (!strcmp (key, "glusterfs.content")) {
     		/* file content request */
     		_fd = open (filler->real_path, O_RDONLY);
 
@@ -168,10 +153,27 @@ _posix_xattr_get_set (dict_t *xattr_req,
 
     	} else if (!strcmp (key, GLUSTERFS_OPEN_FD_COUNT)) {
 		loc = filler->loc;
-		if (!list_empty (&loc->inode->fd_list))
+		if (!list_empty (&loc->inode->fd_list)) {
 			ret = dict_set_uint32 (filler->xattr, key, 1);
-		else
+		} else {
 			ret = dict_set_uint32 (filler->xattr, key, 0);
+		}
+	} else {
+		xattr_size = lgetxattr (filler->real_path, key, NULL, 0);
+
+		if (xattr_size > 0) {
+			value = calloc (1, xattr_size + 1);
+
+			lgetxattr (filler->real_path, key, value, xattr_size);
+
+			value[xattr_size] = '\0';
+			ret = dict_set_bin (filler->xattr, key,
+					    value, xattr_size);
+			if (ret < 0)
+				gf_log (filler->this->name, GF_LOG_ERROR,
+					"dict set failed. path: %s, key: %s",
+					filler->real_path, key);
+		}
 	}
 }
 

@@ -195,7 +195,8 @@ pl_inodelk_common (call_frame_t *frame, xlator_t *this,
 				
 			case F_UNLCK:
 				matchlock = __find_exact_matching_lock (pinode, reqlock);
-				
+
+				__destroy_lock (reqlock);
 				if (!matchlock) {
 					op_errno = EINVAL;
 					goto unlock;

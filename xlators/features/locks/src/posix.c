@@ -719,6 +719,8 @@ pl_forget (xlator_t *this,
 			"Pending entry locks found!");
 	}
 
+	FREE (pl_inode);
+
 	return 0;
 }
 
