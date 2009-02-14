@@ -354,7 +354,7 @@ do_mode_libglusterfsclient_iface_fileio_write (struct state *state)
                 long fd = 0;
                 char filename[512];
 
-                sprintf (filename, "%s.%06ld", state->prefix, i);
+                sprintf (filename, "/%s.%06ld", state->prefix, i);
 
                 fd = glusterfs_open (state->libglusterfsclient_context,
                                      filename, O_CREAT|O_WRONLY, 0);
@@ -388,7 +388,7 @@ do_mode_libglusterfsclient_iface_fileio_read (struct state *state)
                 long fd = 0;
                 char filename[512];
 
-                sprintf (filename, "%s.%06ld", state->prefix, i);
+                sprintf (filename, "/%s.%06ld", state->prefix, i);
 
                 fd = glusterfs_open (state->libglusterfsclient_context,
                                      filename, O_RDONLY, 0);
@@ -433,8 +433,8 @@ do_mode_libglusterfsclient_iface_xattr_write (struct state *state)
         char *dname = NULL, *dirc = NULL;
         char *bname = NULL, *basec = NULL;
 
-        dirc = strdup (state->prefix);
-        basec = strdup (state->prefix);
+        asprintf (&dirc, "/%s", state->prefix);
+        asprintf (&basec, "/%s", state->prefix);
         dname = dirname (dirc);
         bname = basename (basec);
 

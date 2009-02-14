@@ -96,6 +96,37 @@ libglusterfs_graph (xlator_t *graph);
 static int first_init = 1;
 static int first_fini = 1;
 
+
+char *
+zr_build_process_uuid ()
+{
+	char           tmp_str[1024] = {0,};
+	char           hostname[256] = {0,};
+	struct timeval tv = {0,};
+	struct tm      now = {0, };
+	char           now_str[32];
+
+	if (-1 == gettimeofday(&tv, NULL)) {
+		gf_log ("", GF_LOG_ERROR, 
+			"gettimeofday: failed %s",
+			strerror (errno));		
+	}
+
+	if (-1 == gethostname (hostname, 256)) {
+		gf_log ("", GF_LOG_ERROR, 
+			"gethostname: failed %s",
+			strerror (errno));
+	}
+
+	localtime_r (&tv.tv_sec, &now);
+	strftime (now_str, 32, "%Y/%m/%d-%H:%M:%S", &now);
+	snprintf (tmp_str, 1024, "%s-%d-%s:%ld", 
+		  hostname, getpid(), now_str, tv.tv_usec);
+	
+	return strdup (tmp_str);
+}
+
+
 int32_t
 libgf_client_forget (xlator_t *this,
 		     inode_t *inode)
@@ -189,9 +220,19 @@ xlator_graph_fini (xlator_t *xl)
 static void 
 libgf_client_loc_wipe (loc_t *loc)
 {
-        FREE (loc->path);
-        inode_unref (loc->parent);
-	inode_unref (loc->inode);
+	if (loc->path) {
+		FREE (loc->path);
+	}
+
+	if (loc->parent) { 
+		inode_unref (loc->parent);
+		loc->parent = NULL;
+	}
+
+	if (loc->inode) {
+		inode_unref (loc->inode);
+		loc->inode = NULL;
+	}
 }
 
 
@@ -589,6 +630,9 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
                 FREE (ctx);
                 return NULL;
         }
+
+	set_global_ctx_ptr (&ctx->gf_ctx);
+	ctx->gf_ctx.process_uuid = zr_build_process_uuid ();
 
         pthread_mutex_lock (&priv->lock); 
         {
