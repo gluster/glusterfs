@@ -98,59 +98,62 @@ _posix_xattr_get_set (dict_t *xattr_req,
   	char     *databuf  = NULL;
   	int       _fd      = -1;
 	loc_t    *loc      = NULL;
+	ssize_t  req_size  = 0;
 
 
     	/* should size be put into the data_t ? */
 	if (!strcmp (key, "glusterfs.content")) {
     		/* file content request */
-    		_fd = open (filler->real_path, O_RDONLY);
+		req_size = data_to_uint64 (data);
+		if (req_size >= filler->stbuf.st_size) {
+			_fd = open (filler->real_path, O_RDONLY);
 
-    		if (_fd == -1) {
-    			gf_log (filler->this->name, GF_LOG_ERROR,
-    				"opening file %s failed: %s",
-    				filler->real_path, strerror (errno));
-    			goto err;
-    		}
+			if (_fd == -1) {
+				gf_log (filler->this->name, GF_LOG_ERROR,
+					"opening file %s failed: %s",
+					filler->real_path, strerror (errno));
+				goto err;
+			}
 
-    		databuf = calloc (1, filler->stbuf->st_size);
+			databuf = calloc (1, filler->stbuf->st_size);
+			
+			if (!databuf) {
+				gf_log (filler->this->name, GF_LOG_ERROR,
+					"out of memory :(");
+				goto err;
+			}
 
-    		if (!databuf) {
-    			gf_log (filler->this->name, GF_LOG_ERROR,
-    				"out of memory :(");
-    			goto err;
-    		}
+			ret = read (_fd, databuf, filler->stbuf->st_size);
+			if (ret == -1) {
+				gf_log (filler->this->name, GF_LOG_ERROR,
+					"read on file %s failed: %s",
+					filler->real_path, strerror (errno));
+				goto err;
+			}
 
-    		ret = read (_fd, databuf, filler->stbuf->st_size);
-    		if (ret == -1) {
-    			gf_log (filler->this->name, GF_LOG_ERROR,
-    				"read on file %s failed: %s",
-    				filler->real_path, strerror (errno));
-    			goto err;
-    		}
+			ret = close (_fd);
+			_fd = -1;
+			if (ret == -1) {
+				gf_log (filler->this->name, GF_LOG_ERROR,
+					"close on file %s failed: %s",
+					filler->real_path, strerror (errno));
+				goto err;
+			}
 
-    		ret = close (_fd);
-    		_fd = -1;
-    		if (ret == -1) {
-    			gf_log (filler->this->name, GF_LOG_ERROR,
-    				"close on file %s failed: %s",
-    				filler->real_path, strerror (errno));
-    			goto err;
-    		}
+			ret = dict_set_bin (filler->xattr, key,
+					    databuf, filler->stbuf->st_size);
+			if (ret < 0) {
+				goto err;
+			}
 
-    		ret = dict_set_bin (filler->xattr, key,
-    				    databuf, filler->stbuf->st_size);
-    		if (ret < 0) {
-    			goto err;
-    		}
-
-    		/* To avoid double free in cleanup below */
-    		databuf = NULL;
-    	err:
-    		if (_fd != -1)
-    			close (_fd);
-    		if (databuf)
-    			FREE (databuf);
-
+			/* To avoid double free in cleanup below */
+			databuf = NULL;
+		err:
+			if (_fd != -1)
+				close (_fd);
+			if (databuf)
+				FREE (databuf);
+		}
     	} else if (!strcmp (key, GLUSTERFS_OPEN_FD_COUNT)) {
 		loc = filler->loc;
 		if (!list_empty (&loc->inode->fd_list)) {
