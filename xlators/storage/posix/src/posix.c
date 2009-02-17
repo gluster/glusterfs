@@ -105,7 +105,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
 	if (!strcmp (key, "glusterfs.content")) {
     		/* file content request */
 		req_size = data_to_uint64 (data);
-		if (req_size >= filler->stbuf.st_size) {
+		if (req_size >= filler->stbuf->st_size) {
 			_fd = open (filler->real_path, O_RDONLY);
 
 			if (_fd == -1) {

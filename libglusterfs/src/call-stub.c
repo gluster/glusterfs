@@ -2074,9 +2074,6 @@ call_resume_wind (call_stub_t *stub)
 				    stub->frame->this,
 				    &stub->args.open.loc, 
 				    stub->args.open.flags, stub->args.open.fd);
-		loc_wipe (&stub->args.open.loc);
-		if (stub->args.open.fd)
-			fd_unref (stub->args.open.fd);
 		break;
 	}
 	case GF_FOP_CREATE:
@@ -2087,9 +2084,6 @@ call_resume_wind (call_stub_t *stub)
 				      stub->args.create.flags,
 				      stub->args.create.mode,
 				      stub->args.create.fd);
-		loc_wipe (&stub->args.create.loc);
-		if (stub->args.create.fd)
-			fd_unref (stub->args.create.fd);
 		break;
 	}
 	case GF_FOP_STAT:
@@ -2097,7 +2091,6 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.stat.fn (stub->frame,
 				    stub->frame->this,
 				    &stub->args.stat.loc);
-		loc_wipe (&stub->args.stat.loc);
 		break;
 	}
 	case GF_FOP_READLINK:
@@ -2106,7 +2099,6 @@ call_resume_wind (call_stub_t *stub)
 					stub->frame->this,
 					&stub->args.readlink.loc,
 					stub->args.readlink.size);
-		loc_wipe (&stub->args.readlink.loc);
 		break;
 	}
   
@@ -2117,7 +2109,6 @@ call_resume_wind (call_stub_t *stub)
 				     &stub->args.mknod.loc,
 				     stub->args.mknod.mode,
 				     stub->args.mknod.rdev);
-		loc_wipe (&stub->args.mknod.loc);
 	}
 	break;
   
@@ -2127,7 +2118,6 @@ call_resume_wind (call_stub_t *stub)
 				     stub->frame->this,
 				     &stub->args.mkdir.loc,
 				     stub->args.mkdir.mode);
-		loc_wipe (&stub->args.mkdir.loc);
 	}
 	break;
   
@@ -2136,7 +2126,6 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.unlink.fn (stub->frame,
 				      stub->frame->this,
 				      &stub->args.unlink.loc);
-		loc_wipe (&stub->args.unlink.loc);
 	}
 	break;
 
@@ -2145,7 +2134,6 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.rmdir.fn (stub->frame,
 				     stub->frame->this,
 				     &stub->args.rmdir.loc);
-		loc_wipe (&stub->args.rmdir.loc);
 	}
 	break;
       
@@ -2155,8 +2143,6 @@ call_resume_wind (call_stub_t *stub)
 				       stub->frame->this,
 				       stub->args.symlink.linkname,
 				       &stub->args.symlink.loc);
-		FREE (stub->args.symlink.linkname);
-		loc_wipe (&stub->args.symlink.loc);
 	}
 	break;
   
@@ -2166,9 +2152,6 @@ call_resume_wind (call_stub_t *stub)
 				      stub->frame->this,
 				      &stub->args.rename.old,
 				      &stub->args.rename.new);
-
-		loc_wipe (&stub->args.rename.old);
-		loc_wipe (&stub->args.rename.new);
 	}
 	break;
 
@@ -2178,8 +2161,6 @@ call_resume_wind (call_stub_t *stub)
 				    stub->frame->this,
 				    &stub->args.link.oldloc,
 				    &stub->args.link.newloc);
-		loc_wipe (&stub->args.link.oldloc);
-		loc_wipe (&stub->args.link.newloc);
 	}
 	break;
   
@@ -2189,7 +2170,6 @@ call_resume_wind (call_stub_t *stub)
 				     stub->frame->this,
 				     &stub->args.chmod.loc,
 				     stub->args.chmod.mode);
-		loc_wipe (&stub->args.chmod.loc);
 	}
 	break;
 
@@ -2200,8 +2180,6 @@ call_resume_wind (call_stub_t *stub)
 				     &stub->args.chown.loc,
 				     stub->args.chown.uid,
 				     stub->args.chown.gid);
-		loc_wipe (&stub->args.chown.loc);
-      
 		break;
 	}
 	case GF_FOP_TRUNCATE:
@@ -2210,8 +2188,6 @@ call_resume_wind (call_stub_t *stub)
 					stub->frame->this,
 					&stub->args.truncate.loc,
 					stub->args.truncate.off);
-		loc_wipe (&stub->args.truncate.loc);
-      
 		break;
 	}
       
@@ -2222,25 +2198,17 @@ call_resume_wind (call_stub_t *stub)
 				     stub->args.readv.fd,
 				     stub->args.readv.size,
 				     stub->args.readv.off);
-		if (stub->args.readv.fd)
-			fd_unref (stub->args.readv.fd);
 		break;
 	}
   
 	case GF_FOP_WRITE:
 	{
-		dict_t *refs = stub->args.writev.req_refs;
 		stub->args.writev.fn (stub->frame,
 				      stub->frame->this,
 				      stub->args.writev.fd,
 				      stub->args.writev.vector,
 				      stub->args.writev.count,
 				      stub->args.writev.off);
-		if (stub->args.writev.fd)
-			fd_unref (stub->args.writev.fd);
-		FREE (stub->args.writev.vector);
-		if (refs)
-			dict_unref (refs);
 		break;
 	}
   
@@ -2249,7 +2217,6 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.statfs.fn (stub->frame,
 				      stub->frame->this,
 				      &stub->args.statfs.loc);
-		loc_wipe (&stub->args.statfs.loc);
 		break;
 	}
 	case GF_FOP_FLUSH:
@@ -2257,8 +2224,6 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.flush.fn (stub->frame,
 				     stub->frame->this,
 				     stub->args.flush.fd);
-		if (stub->args.flush.fd)
-			fd_unref (stub->args.flush.fd);      
 		break;
 	}
   
@@ -2268,8 +2233,6 @@ call_resume_wind (call_stub_t *stub)
 				     stub->frame->this,
 				     stub->args.fsync.fd,
 				     stub->args.fsync.datasync);
-		if (stub->args.fsync.fd)
-			fd_unref (stub->args.fsync.fd);
 		break;
 	}
 
@@ -2280,9 +2243,6 @@ call_resume_wind (call_stub_t *stub)
 					&stub->args.setxattr.loc,
 					stub->args.setxattr.dict,
 					stub->args.setxattr.flags);
-		loc_wipe (&stub->args.setxattr.loc);
-		if (stub->args.setxattr.dict)
-			dict_unref (stub->args.setxattr.dict);
 		break;
 	}
   
@@ -2292,9 +2252,6 @@ call_resume_wind (call_stub_t *stub)
 					stub->frame->this,
 					&stub->args.getxattr.loc,
 					stub->args.getxattr.name);
-		if (stub->args.getxattr.name)
-			FREE (stub->args.getxattr.name);
-		loc_wipe (&stub->args.getxattr.loc);
 		break;
 	}
 
@@ -2304,8 +2261,6 @@ call_resume_wind (call_stub_t *stub)
 					   stub->frame->this,
 					   &stub->args.removexattr.loc,
 					   stub->args.removexattr.name);
-		loc_wipe (&stub->args.removexattr.loc);
-		FREE (stub->args.removexattr.name);
 		break;
 	}
   
@@ -2315,9 +2270,6 @@ call_resume_wind (call_stub_t *stub)
 				       stub->frame->this,
 				       &stub->args.opendir.loc,
 				       stub->args.opendir.fd);
-		loc_wipe (&stub->args.opendir.loc);
-		if (stub->args.opendir.fd)
-			fd_unref (stub->args.opendir.fd);
 		break;
 	}
 
@@ -2329,8 +2281,6 @@ call_resume_wind (call_stub_t *stub)
 					stub->args.getdents.size,
 					stub->args.getdents.off,
 					stub->args.getdents.flag);
-		if (stub->args.getdents.fd)
-			fd_unref (stub->args.getdents.fd);
 		break;
 	}
 
@@ -2340,8 +2290,6 @@ call_resume_wind (call_stub_t *stub)
 					stub->frame->this,
 					stub->args.fsyncdir.fd,
 					stub->args.fsyncdir.datasync);
-		if (stub->args.fsyncdir.fd)
-			fd_unref (stub->args.fsyncdir.fd);
 		break;
 	}
   
@@ -2351,7 +2299,6 @@ call_resume_wind (call_stub_t *stub)
 				      stub->frame->this,
 				      &stub->args.access.loc,
 				      stub->args.access.mask);
-		loc_wipe (&stub->args.access.loc);
 		break;
 	}
   
@@ -2361,8 +2308,6 @@ call_resume_wind (call_stub_t *stub)
 					 stub->frame->this,
 					 stub->args.ftruncate.fd,
 					 stub->args.ftruncate.off);
-		if (stub->args.ftruncate.fd)
-			fd_unref (stub->args.ftruncate.fd);
 		break;
 	}
   
@@ -2371,8 +2316,6 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.fstat.fn (stub->frame,
 				     stub->frame->this,
 				     stub->args.fstat.fd);
-		if (stub->args.fstat.fd)
-			fd_unref (stub->args.fstat.fd);
 		break;
 	}
   
@@ -2383,8 +2326,6 @@ call_resume_wind (call_stub_t *stub)
 				  stub->args.lk.fd,
 				  stub->args.lk.cmd,
 				  &stub->args.lk.lock);
-		if (stub->args.lk.fd)
-			fd_unref (stub->args.lk.fd);
 		break;
 	}
 
@@ -2395,7 +2336,6 @@ call_resume_wind (call_stub_t *stub)
 				       &stub->args.inodelk.loc,
 				       stub->args.inodelk.cmd,
 				       &stub->args.inodelk.lock);
-		loc_wipe (&stub->args.inodelk.loc);
 		break;
 	}
 
@@ -2406,8 +2346,6 @@ call_resume_wind (call_stub_t *stub)
 					stub->args.finodelk.fd,
 					stub->args.finodelk.cmd,
 					&stub->args.finodelk.lock);
-		if (stub->args.finodelk.fd)
-			fd_unref (stub->args.finodelk.fd);
 		break;
 	}
 
@@ -2419,10 +2357,6 @@ call_resume_wind (call_stub_t *stub)
 				       stub->args.entrylk.name,
 				       stub->args.entrylk.cmd,
 				       stub->args.entrylk.type);
-		
-		if (stub->args.entrylk.name)
-			FREE (stub->args.entrylk.name);
-		loc_wipe (&stub->args.entrylk.loc);
 		break;
 	}
 
@@ -2434,10 +2368,6 @@ call_resume_wind (call_stub_t *stub)
 					stub->args.fentrylk.name,
 					stub->args.fentrylk.cmd,
 					stub->args.fentrylk.type);
-		if (stub->args.fentrylk.name)
-			FREE (stub->args.fentrylk.name);
- 		if (stub->args.fentrylk.fd) 
-			fd_unref (stub->args.fentrylk.fd);
 		break;
 	}
   
@@ -2447,7 +2377,6 @@ call_resume_wind (call_stub_t *stub)
 				       stub->frame->this,
 				       &stub->args.utimens.loc,
 				       stub->args.utimens.tv);
-		loc_wipe (&stub->args.utimens.loc);
 		break;
 	}
   
@@ -2459,8 +2388,6 @@ call_resume_wind (call_stub_t *stub)
 				      stub->frame->this,
 				      stub->args.fchmod.fd,
 				      stub->args.fchmod.mode);
-		if (stub->args.fchmod.fd)
-			fd_unref (stub->args.fchmod.fd);
 		break;
 	}
   
@@ -2471,8 +2398,6 @@ call_resume_wind (call_stub_t *stub)
 				      stub->args.fchown.fd,
 				      stub->args.fchown.uid,
 				      stub->args.fchown.gid);
-		if (stub->args.fchown.fd)
-			fd_unref (stub->args.fchown.fd);
 		break;
 	}
   
@@ -2482,30 +2407,17 @@ call_resume_wind (call_stub_t *stub)
 				      stub->frame->this,
 				      &stub->args.lookup.loc,
 				      stub->args.lookup.xattr_req);
-		loc_wipe (&stub->args.lookup.loc);
-		if (stub->args.lookup.xattr_req)
-			dict_unref (stub->args.lookup.xattr_req);
 		break;
 	}
 
 	case GF_FOP_SETDENTS:
 	{
-		dir_entry_t *entry, *next;
 		stub->args.setdents.fn (stub->frame,
 					stub->frame->this,
 					stub->args.setdents.fd,
 					stub->args.setdents.flags,
 					&stub->args.setdents.entries,
 					stub->args.setdents.count);
-		if (stub->args.setdents.fd)
-			fd_unref (stub->args.setdents.fd);
-		entry = stub->args.setdents.entries.next;
-		while (entry) {
-			next = entry->next;
-			FREE (entry->name);
-			FREE (entry);
-			entry = next;
-		}
 		break;
 	}
 
@@ -2515,7 +2427,6 @@ call_resume_wind (call_stub_t *stub)
 					stub->frame->this,
 					&stub->args.checksum.loc,
 					stub->args.checksum.flags);
-		loc_wipe (&stub->args.checksum.loc);
 		break;
 	}
 	case GF_FOP_READDIR:
@@ -2525,8 +2436,6 @@ call_resume_wind (call_stub_t *stub)
 				       stub->args.readdir.fd,
 				       stub->args.readdir.size,
 				       stub->args.readdir.off);
-		if (stub->args.readdir.fd)
-			fd_unref (stub->args.readdir.fd);
 		break;
 	}
 	case GF_FOP_XATTROP:
@@ -2537,10 +2446,6 @@ call_resume_wind (call_stub_t *stub)
 				       stub->args.xattrop.optype,
 				       stub->args.xattrop.xattr);
 
-		loc_wipe (&stub->args.xattrop.loc);
-
-		dict_unref (stub->args.xattrop.xattr);
-
 		break;
 	}
 	case GF_FOP_FXATTROP:
@@ -2550,10 +2455,6 @@ call_resume_wind (call_stub_t *stub)
 					stub->args.fxattrop.fd,
 					stub->args.fxattrop.optype,
 					stub->args.fxattrop.xattr);
-
-		if (stub->args.fxattrop.fd)
-			fd_unref (stub->args.fxattrop.fd);
-		dict_unref (stub->args.xattrop.xattr);
 
 		break;
 	}
@@ -2591,8 +2492,6 @@ call_resume_unwind (call_stub_t *stub)
 						stub->args.open_cbk.op_ret, 
 						stub->args.open_cbk.op_errno,
 						stub->args.open_cbk.fd);
-		if (stub->args.open_cbk.fd)
-			fd_unref (stub->args.open_cbk.fd);
 		break;
 	}
 
@@ -2615,11 +2514,6 @@ call_resume_unwind (call_stub_t *stub)
 						  stub->args.create_cbk.inode,
 						  &stub->args.create_cbk.buf);
       
-      
-		if (stub->args.create_cbk.inode)
-			inode_unref (stub->args.create_cbk.inode);
-		if (stub->args.create_cbk.fd)
-			fd_unref (stub->args.create_cbk.fd);
 		break;
 	}
 
@@ -2656,7 +2550,6 @@ call_resume_unwind (call_stub_t *stub)
 						    stub->args.readlink_cbk.op_errno,
 						    stub->args.readlink_cbk.buf);
 
-		FREE (stub->args.readlink_cbk.buf);
 		break;
 	}
   
@@ -2676,9 +2569,6 @@ call_resume_unwind (call_stub_t *stub)
 						 stub->args.mknod_cbk.op_errno,
 						 stub->args.mknod_cbk.inode,
 						 &stub->args.mknod_cbk.buf);
-
-		if (stub->args.mknod_cbk.inode)
-			inode_unref (stub->args.mknod_cbk.inode);
 		break;
 	}
 
@@ -2751,9 +2641,6 @@ call_resume_unwind (call_stub_t *stub)
 						   stub->args.symlink_cbk.op_errno,
 						   stub->args.symlink_cbk.inode,
 						   &stub->args.symlink_cbk.buf);
-
-		if (stub->args.symlink_cbk.inode)
-			inode_unref (stub->args.symlink_cbk.inode);
 	}
 	break;
   
@@ -2792,9 +2679,6 @@ call_resume_unwind (call_stub_t *stub)
 						stub->args.link_cbk.op_errno,
 						stub->args.link_cbk.inode,
 						&stub->args.link_cbk.buf);
-
-		if (stub->args.link_cbk.inode)
-			inode_unref (stub->args.link_cbk.inode);
 		break;
 	}
   
@@ -2851,9 +2735,6 @@ call_resume_unwind (call_stub_t *stub)
       
 	case GF_FOP_READ:
 	{
-		dict_t *refs = stub->args.readv_cbk.rsp_refs;
-		int32_t ret = stub->args.readv_cbk.op_ret;
-
 		if (!stub->args.readv_cbk.fn)
 			STACK_UNWIND (stub->frame,
 				      stub->args.readv_cbk.op_ret,
@@ -2870,10 +2751,6 @@ call_resume_unwind (call_stub_t *stub)
 						 stub->args.readv_cbk.vector,
 						 stub->args.readv_cbk.count,
 						 &stub->args.readv_cbk.stbuf);
-		FREE (stub->args.readv_cbk.vector);
-
-		if (refs && ret >= 0)
-			dict_unref (refs);
 	}
 	break;
   
@@ -2973,8 +2850,6 @@ call_resume_unwind (call_stub_t *stub)
 						    stub->args.getxattr_cbk.op_ret,
 						    stub->args.getxattr_cbk.op_errno,
 						    stub->args.getxattr_cbk.dict);
-		if (stub->args.getxattr_cbk.dict)
-			dict_unref (stub->args.getxattr_cbk.dict);
 		break;
 	}
   
@@ -3008,14 +2883,11 @@ call_resume_unwind (call_stub_t *stub)
 						   stub->args.opendir_cbk.op_ret,
 						   stub->args.opendir_cbk.op_errno,
 						   stub->args.opendir_cbk.fd);
-		if  (stub->args.opendir_cbk.fd)
-			fd_unref (stub->args.opendir_cbk.fd);
 		break;
 	}
   
 	case GF_FOP_GETDENTS:
 	{
-		dir_entry_t *entry, *next;
 		if (!stub->args.getdents_cbk.fn)
 			STACK_UNWIND (stub->frame,
 				      stub->args.getdents_cbk.op_ret,
@@ -3030,13 +2902,6 @@ call_resume_unwind (call_stub_t *stub)
 						    stub->args.getdents_cbk.op_errno,
 						    &stub->args.getdents_cbk.entries,
 						    stub->args.getdents_cbk.count);
-		entry = stub->args.getdents_cbk.entries.next;
-		while (entry) {
-			next = entry->next;
-			FREE (entry->name);
-			FREE (entry);
-			entry = next;
-		}
 		break;
 	}
   
@@ -3380,25 +3245,6 @@ out:
 }
 
 
-void
-call_resume (call_stub_t *stub)
-{
-	errno = EINVAL;
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	list_del_init (&stub->list);
-
-	if (stub->wind)
-		call_resume_wind (stub);
-	else
-		call_resume_unwind (stub);
-
-	FREE (stub);
-out:
-	return;
-}
-
-
 static void
 call_stub_destroy_wind (call_stub_t *stub)
 {
@@ -3599,13 +3445,38 @@ call_stub_destroy_wind (call_stub_t *stub)
 		break;
 	}
 
+	case GF_FOP_INODELK:
+	{
+		loc_wipe (&stub->args.inodelk.loc);
+		break;
+	}
+	case GF_FOP_FINODELK:
+	{
+		if (stub->args.finodelk.fd)
+			fd_unref (stub->args.finodelk.fd);
+		break;
+	}
+	case GF_FOP_ENTRYLK:
+	{
+		if (stub->args.entrylk.name)
+			FREE (stub->args.entrylk.name);
+		loc_wipe (&stub->args.entrylk.loc);
+		break;
+	}
+	case GF_FOP_FENTRYLK:
+	{
+		if (stub->args.fentrylk.name)
+			FREE (stub->args.fentrylk.name);
+
+ 		if (stub->args.fentrylk.fd) 
+			fd_unref (stub->args.fentrylk.fd);
+		break;
+	}
 	case GF_FOP_UTIMENS:
 	{
 		loc_wipe (&stub->args.utimens.loc);
 		break;
 	}
-  
-  
 	break;
 	case GF_FOP_FCHMOD:
 	{
@@ -3650,6 +3521,25 @@ call_stub_destroy_wind (call_stub_t *stub)
 		break;
 	}
   	break;
+	case GF_FOP_READDIR:
+	{
+		if (stub->args.readdir.fd)
+			fd_unref (stub->args.readdir.fd);
+		break;
+	}
+	case GF_FOP_XATTROP:
+	{
+		loc_wipe (&stub->args.xattrop.loc);
+		dict_unref (stub->args.xattrop.xattr);
+		break;
+	}
+	case GF_FOP_FXATTROP:
+	{
+		if (stub->args.fxattrop.fd)
+			fd_unref (stub->args.fxattrop.fd);
+		dict_unref (stub->args.xattrop.xattr);
+		break;
+	}
 	case GF_FOP_MAXVALUE:
 	{
 		gf_log ("call-stub",
@@ -3657,50 +3547,6 @@ call_stub_destroy_wind (call_stub_t *stub)
 			"Invalid value of FOP");
 	}
 	break;
-	case GF_FOP_READDIR:
-	{
-		if (stub->args.readdir.fd)
-			fd_unref (stub->args.readdir.fd);
-		break;
-	}
-	case GF_FOP_INODELK:
-	{
-		loc_wipe (&stub->args.inodelk.loc);
-		break;
-	}
-	case GF_FOP_FINODELK:
-	{
-		if (stub->args.finodelk.fd)
-			fd_unref (stub->args.finodelk.fd);
-		break;
-	}
-	case GF_FOP_ENTRYLK:
-	{
-		if (stub->args.entrylk.name)
-			FREE (stub->args.entrylk.name);
-		loc_wipe (&stub->args.entrylk.loc);
-		break;
-	}
-	case GF_FOP_FENTRYLK:
-	{
-		if (stub->args.fentrylk.name)
-			FREE (stub->args.fentrylk.name);
-
- 		if (stub->args.fentrylk.fd) 
-			fd_unref (stub->args.fentrylk.fd);
-		break;
-	}
-	case GF_FOP_XATTROP:
-	{
-		loc_wipe (&stub->args.xattrop.loc);
-		break;
-	}
-	case GF_FOP_FXATTROP:
-	{
-		if (stub->args.fxattrop.fd)
-			fd_unref (stub->args.fxattrop.fd);
-		break;
-	}
 	default:
 		break;
 	}
@@ -3860,6 +3706,18 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	case GF_FOP_LK:
 		break;
 
+	case GF_FOP_INODELK:
+		break;
+
+	case GF_FOP_FINODELK:
+		break;
+
+	case GF_FOP_ENTRYLK:
+		break;
+
+	case GF_FOP_FENTRYLK:
+		break;
+
 	case GF_FOP_UTIMENS:
 		break;
 
@@ -3899,20 +3757,12 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	}
 	break;
 
-	case GF_FOP_INODELK:
-		break;
-
-	case GF_FOP_FINODELK:
-		break;
-
-	case GF_FOP_ENTRYLK:
-		break;
-
-	case GF_FOP_FENTRYLK:
-		break;
-
 	case GF_FOP_XATTROP:
-		break;
+	{
+		if (stub->args.xattrop_cbk.xattr)
+			dict_unref (stub->args.xattrop_cbk.xattr);
+	}
+	break;
 
 	case GF_FOP_FXATTROP:
 	{
@@ -3950,4 +3800,23 @@ call_stub_destroy (call_stub_t *stub)
 out:
 	return;
 }
+
+void
+call_resume (call_stub_t *stub)
+{
+	errno = EINVAL;
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	list_del_init (&stub->list);
+
+	if (stub->wind)
+		call_resume_wind (stub);
+	else
+		call_resume_unwind (stub);
+
+	call_stub_destroy (stub);
+out:
+	return;
+}
+
 
