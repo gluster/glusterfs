@@ -21,6 +21,7 @@
 
 #include "xattr-cache.h"
 #include "posix.h"
+#include "compat-errno.h"
 
 static int
 __hgetxattr (xattr_cache_handle_t *handle, xlator_t *this, 

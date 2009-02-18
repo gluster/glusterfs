@@ -343,6 +343,13 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
         }
 
         op_ret = dirfd (dir);
+	if (op_ret < 0) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "dirfd() failed on %s (%s)",
+			loc->path, strerror (op_errno));
+		goto out;
+	}
 
         pfd = CALLOC (1, sizeof (*fd));
         if (!pfd) {
@@ -1077,7 +1084,6 @@ posix_chmod (call_frame_t *frame, xlator_t *this,
 
         if (S_ISLNK (loc->inode->st_mode)) {
                 /* chmod on a link should always succeed */
-                op_ret = 0;
 		op_ret = lstat (real_path, &stbuf);
 		if (op_ret == -1) {
 			op_errno = errno;
@@ -1086,6 +1092,7 @@ posix_chmod (call_frame_t *frame, xlator_t *this,
 				real_path, strerror (op_errno));
 			goto out;
 		}
+		op_ret = 0;
                 goto out;
         }
 
@@ -1199,7 +1206,7 @@ posix_truncate (call_frame_t *frame,
                 goto out;
         }
 
-        lstat (real_path, &stbuf);
+        op_ret = lstat (real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_WARNING, "lstat on %s failed: %s",
@@ -1322,7 +1329,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
 #ifndef HAVE_SET_FSID
         op_ret = chown (real_path, frame->root->uid, frame->root->gid);
-        if (_fd == -1) {
+        if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_WARNING,
                         "chown on %s failed: %s",
@@ -1339,6 +1346,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+	op_ret = -1;
         pfd = CALLOC (1, sizeof (*pfd));
 
         if (!pfd) {
@@ -1526,6 +1534,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                         "read failed: %s", strerror (op_errno));
                 goto out;
         }
+	op_ret = -1;
 
         priv->read_value    += size;
         priv->interval_read += size;
@@ -1554,14 +1563,15 @@ posix_readv (call_frame_t *frame, xlator_t *this,
          *  we read from
          */
 
-        ret = fstat (_fd, &stbuf);
-        if (ret == -1) {
+        op_ret = fstat (_fd, &stbuf);
+        if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_WARNING,
                         "fstat failed: %s", strerror (op_errno));
                 goto out;
         }
-
+	
+	op_ret = 0;
  out:
         if (op_ret == -1) {
                 frame->root->rsp_refs = NULL;
@@ -1641,7 +1651,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
         /* Check for the O_DIRECT flag during open() */
         if (pfd->flags & O_DIRECT) {
                 /* This is O_DIRECT'd file */
-
+		op_ret = -1;
                 for (idx = 0; idx < count; idx++) {
                         if (max_buf_size < vector[idx].iov_len)
                                 max_buf_size = vector[idx].iov_len;
@@ -1676,13 +1686,15 @@ posix_writev (call_frame_t *frame, xlator_t *this,
 
                                 break;
                         }
+			if (op_ret == -1)
+				op_ret = 0;
                         op_ret += retval;
                 }
 
         } else /* if (O_DIRECT) */ {
 
                 /* This is not O_DIRECT'd fd */
-                op_ret   = writev (_fd, vector, count);
+                op_ret = writev (_fd, vector, count);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_WARNING,
@@ -1701,6 +1713,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                  */
                 ret = fstat (_fd, &stbuf);
                 if (ret == -1) {
+			op_ret = -1;
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "fstat failed: %s",
                                 strerror (op_errno));
@@ -1848,6 +1861,7 @@ posix_release (xlator_t *this,
         }
 
         if (pfd->dir) {
+		op_ret = -1;
                 op_errno = EBADF;
                 gf_log (this->name, GF_LOG_ERROR,
                         "pfd->dir is %p (not NULL) for file fd=%p",
@@ -2721,7 +2735,7 @@ posix_fchmod (call_frame_t *frame, xlator_t *this,
 static int
 same_file_type (mode_t m1, mode_t m2)
 {
-	return (S_IFMT & (m1 ^ m2));
+	return ((S_IFMT & (m1 ^ m2)) == 0);
 }
 
 
@@ -2866,8 +2880,8 @@ create_entry (xlator_t *this, int32_t flags,
 	 */
 
 	if (!S_ISLNK (entry->buf.st_mode)) {
-		tv[0].tv_sec = entry->buf.st_atim.tv_sec;
-		tv[1].tv_sec = entry->buf.st_mtim.tv_sec;
+		tv[0].tv_sec = entry->buf.st_atime;
+		tv[1].tv_sec = entry->buf.st_mtime;
 		ret = utimes (pathname, tv);
 		if (ret == -1) {
 			op_ret = -errno;
@@ -3503,7 +3517,7 @@ init (xlator_t *this)
 			    "trusted.glusterfs.test", "working", 8, 0);
         if (op_ret < 0) {
 		tmp_data = dict_get (this->options,
-				     "mandate-xattr");
+				     "mandate-attribute");
 		if (tmp_data) {
 			if (gf_string2boolean (tmp_data->data,
 					       &tmp_bool) == -1) {
@@ -3513,7 +3527,7 @@ init (xlator_t *this)
 				ret = -1;
 				goto out;
 			}
-			if (tmp_bool) {
+			if (!tmp_bool) {
 				gf_log (this->name, GF_LOG_WARNING,
 					"Extended attribute not supported, "
 					"starting as per option");
