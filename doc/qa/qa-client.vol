@@ -1,0 +1,170 @@
+# This spec file should be used for testing before any release
+# 
+
+# 1st client
+volume client1
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
+# option transport.ib-verbs.work-request-send-size  131072
+# option transport.ib-verbs.work-request-send-count 64
+# option transport.ib-verbs.work-request-recv-size  131072
+# option transport.ib-verbs.work-request-recv-count 64
+  option remote-host 127.0.0.1 
+  option remote-subvolume ra1
+end-volume
+
+# 2nd client
+volume client2
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
+  option remote-host 127.0.0.1 
+  option remote-subvolume ra2
+end-volume
+
+# 3rd client
+volume client3
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
+  option remote-host 127.0.0.1 
+  option remote-subvolume ra3
+end-volume
+
+# 4th client
+volume client4
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
+  option remote-host 127.0.0.1 
+  option remote-subvolume ra4
+end-volume
+
+# 5th client
+volume client5
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
+  option remote-host 127.0.0.1 
+  option remote-subvolume ra5
+end-volume
+
+# 6th client
+volume client6
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
+  option remote-host 127.0.0.1 
+  option remote-subvolume ra6
+end-volume
+
+# 7th client
+volume client7
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
+  option remote-host 127.0.0.1 
+  option remote-subvolume ra7
+end-volume
+
+# 8th client 
+volume client8
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+# option transport-type ib-sdp  # for Infiniband transport
+# option transport-type ib-verbs # for ib-verbs transport 
+  option remote-host 127.0.0.1 
+  option remote-subvolume ra8
+end-volume
+
+# 1st Stripe (client1 client2)
+volume stripe1
+  type cluster/stripe
+  subvolumes client1 client2
+  option block-size 128KB  # all striped in 128kB block
+end-volume
+
+# 2st Stripe (client3 client4)
+volume stripe2
+  type cluster/stripe
+  subvolumes client3 client4
+  option block-size 128KB  # all striped in 128kB block
+end-volume
+
+# 3st Stripe (client5 client6)
+volume stripe3
+  type cluster/stripe
+  subvolumes client5 client6
+  option block-size 128KB  # all striped in 128kB block
+end-volume
+
+# 4st Stripe (client7 client8)
+volume stripe4
+  type cluster/stripe
+  subvolumes client7 client8
+  option block-size 128KB  # all striped in 128kB block
+end-volume
+
+
+# 1st replicate
+volume replicate1
+  type cluster/replicate
+  subvolumes stripe1 stripe2
+end-volume
+
+# 2nd replicate
+volume replicate2
+  type cluster/replicate
+  subvolumes stripe3 stripe4
+end-volume
+
+volume ns
+  type protocol/client
+  option transport-type tcp
+  option remote-host 127.0.0.1
+  option remote-subvolume brick-ns
+end-volume
+
+# Unify
+volume unify0
+  type cluster/unify
+  subvolumes replicate1 replicate2
+#  subvolumes stripe1 stripe3
+  option namespace ns
+  option scheduler rr # random # alu # nufa
+  option rr.limits.min-free-disk 1GB
+# option alu.order x
+# option alu.x.entry-threshold
+# option alu.x.exit-threshold
+end-volume
+
+
+# ==== Performance Translators ====
+# The default options for performance translators should be the best for 90+% of the cases
+volume iot
+  type performance/io-threads
+  subvolumes unify0
+end-volume
+
+volume wb
+  type performance/write-behind
+  subvolumes iot
+end-volume
+
+volume ioc
+ type performance/io-cache
+ subvolumes wb
+end-volume
+
+volume ra
+  type performance/read-ahead
+  subvolumes ioc
+end-volume

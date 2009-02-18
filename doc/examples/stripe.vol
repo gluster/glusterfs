@@ -1,0 +1,121 @@
+
+### 'NOTE'
+# This file has both server spec and client spec to get an understanding of stripe's spec file. Hence can't be used as it is, as a GlusterFS spec file. 
+# One need to seperate out server spec and client spec to get it working.
+
+#=========================================================================
+
+# **** server1 spec file ****
+
+### Export volume "brick" with the contents of "/home/export" directory.
+volume posix1
+  type storage/posix                    # POSIX FS translator
+  option directory /home/export1        # Export this directory
+end-volume
+
+### Add POSIX record locking support to the storage brick
+volume brick1
+  type features/posix-locks
+  option mandatory on          # enables mandatory locking on all files
+  subvolumes posix1
+end-volume
+
+### Add network serving capability to above brick.
+volume server
+  type protocol/server
+  option transport-type tcp     # For TCP/IP transport
+  option transport.socket.listen-port 6996              # Default is 6996
+# option client-volume-filename /etc/glusterfs/glusterfs-client.vol
+  subvolumes brick1
+  option auth.addr.brick1.allow * 		# access to "brick" volume
+end-volume
+
+
+#=========================================================================
+
+# **** server2 spec file ****
+volume posix2
+  type storage/posix                    # POSIX FS translator
+  option directory /home/export2        # Export this directory
+end-volume
+
+### Add POSIX record locking support to the storage brick
+volume brick2
+  type features/posix-locks
+  option mandatory on          # enables mandatory locking on all files
+  subvolumes posix2
+end-volume
+
+### Add network serving capability to above brick.
+volume server
+  type protocol/server
+  option transport-type tcp     # For TCP/IP transport
+  option transport.socket.listen-port 6997              # Default is 6996
+  subvolumes brick2
+  option auth.addr.brick2.allow * # Allow access to "brick" volume
+end-volume
+
+
+#=========================================================================
+
+# **** server3 spec file ****
+
+volume posix3
+  type storage/posix                    # POSIX FS translator
+  option directory /home/export3        # Export this directory
+end-volume
+
+### Add POSIX record locking support to the storage brick
+volume brick3
+  type features/posix-locks
+  option mandatory on          # enables mandatory locking on all files
+  subvolumes posix3
+end-volume
+
+### Add network serving capability to above brick.
+volume server
+  type protocol/server
+  option transport-type tcp     # For TCP/IP transport
+  option transport.socket.listen-port 6998              # Default is 6996
+  subvolumes brick3
+  option auth.addr.brick3.allow * 		# access to "brick" volume
+end-volume
+
+
+#=========================================================================
+
+# **** Clustered Client config file ****
+
+### Add client feature and attach to remote subvolume of server1
+volume client1
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+  option remote-host 127.0.0.1      # IP address of the remote brick
+  option transport.socket.remote-port 6996              # default server port is 6996
+  option remote-subvolume brick1        # name of the remote volume
+end-volume
+
+### Add client feature and attach to remote subvolume of server2
+volume client2
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+  option remote-host 127.0.0.1      # IP address of the remote brick
+  option transport.socket.remote-port 6997              # default server port is 6996
+  option remote-subvolume brick2        # name of the remote volume
+end-volume
+
+volume client3
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+  option remote-host 127.0.0.1      # IP address of the remote brick
+  option transport.socket.remote-port 6998              # default server port is 6996
+  option remote-subvolume brick3        # name of the remote volume
+end-volume
+
+## Add Stripe Feature.
+volume stripe
+  type cluster/stripe
+  subvolumes client1 client2 client3
+  option block-size 1MB
+end-volume
+

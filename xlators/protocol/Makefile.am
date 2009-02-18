@@ -1,0 +1,3 @@
+SUBDIRS = client server
+
+CLEANFILES = 

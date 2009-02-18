@@ -1,0 +1,29 @@
+--- lighttpd-1.4.19/src/Makefile.am	2008-04-16 18:42:18.000000000 +0400
++++ lighttpd-1.4.19.mod/src/Makefile.am	2008-04-16 18:41:11.000000000 +0400
+@@ -1,4 +1,4 @@
+-AM_CFLAGS = $(FAM_CFLAGS)
++AM_CFLAGS = $(FAM_CFLAGS)  -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64
+ 
+ noinst_PROGRAMS=proc_open lemon # simple-fcgi #graphic evalo bench ajp ssl error_test adserver gen-license
+ sbin_PROGRAMS=lighttpd lighttpd-angel
+@@ -241,6 +241,11 @@
+ mod_accesslog_la_LDFLAGS = -module -export-dynamic -avoid-version -no-undefined
+ mod_accesslog_la_LIBADD = $(common_libadd)
+ 
++lib_LTLIBRARIES += mod_glusterfs.la
++mod_glusterfs_la_SOURCES = mod_glusterfs.c
++mod_glusterfs_la_CFLAGS = $(AM_CFLAGS) 
++mod_glusterfs_la_LDFLAGS = -module -export-dynamic -avoid-version -no-undefined -lglusterfsclient -lpthread
++mod_glusterfs_la_LIBADD = $(common_libadd) 
+ 
+ hdr = server.h buffer.h network.h log.h keyvalue.h \
+       response.h request.h fastcgi.h chunk.h \
+@@ -254,7 +259,7 @@
+       configparser.h mod_ssi_exprparser.h \
+       sys-mmap.h sys-socket.h mod_cml.h mod_cml_funcs.h \
+       splaytree.h proc_open.h status_counter.h \
+-      mod_magnet_cache.h
++      mod_magnet_cache.h mod_glusterfs.h
+ 
+ DEFS= @DEFS@ -DLIBRARY_DIR="\"$(libdir)\"" -DSBIN_DIR="\"$(sbindir)\""
+ 

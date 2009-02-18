@@ -1,0 +1,32 @@
+Installation Instructions
+*************************
+
+Run ./configure after untaring the package.
+
+ bash# ./configure
+ GlusterFS configure summary
+ ===========================
+ FUSE client        : yes
+ Infiniband verbs   : yes
+ epoll IO multiplex : yes
+ Berkeley-DB        : yes
+ libglusterfsclient : yes
+ mod_glusterfs      : yes
+ argp-standalone    : no
+ 
+The configure summary will tell you what all components will be built with 
+GlusterFS. Other than 'argp-standalone' if something else says 'no', that 
+feature in GlusterFS will not be built. 'argp-standalone' package will only 
+be used if the system doesn't have a proper argp package installed.
+
+Now just run 'make' and later run 'make install' to install the package.
+
+ bash# make 
+ bash# make install
+
+Installation complete :-)
+
+ bash# glusterfs --version
+
+Make sure your version is the latest from the release, and the one you 
+just installed :-)

@@ -1,0 +1,9 @@
+GlusterFS is a powerful network/cluster filesystem. Posix compliant. You 
+can keep scaling your storage beyond peta bytes as your demand increases. 
+
+GlusterFS natively supports Infiniband verbs calls to do RDMA between remote 
+machine to get the maximum I/O throughput.
+
+It has on the fly replication and striping as inbuilt options.
+
+Please visit http://www.gluster.org/glusterfs.php for more info.

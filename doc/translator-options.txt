@@ -1,0 +1,221 @@
+mount/fuse:
+	* direct-io-mode            GF_OPTION_TYPE_BOOL   on|off|yes|no
+	* macfuse-local             GF_OPTION_TYPE_BOOL   on|off|yes|no
+	* mount-point (mountpoint)  GF_OPTION_TYPE_PATH   <any-posix-valid-path>
+	* attribute-timeout         GF_OPTION_TYPE_TIME   0-3600 
+	* entry-timeout             GF_OPTION_TYPE_TIME   0-3600 
+
+protocol/server:
+ 	* transport-type            GF_OPTION_TYPE_STR    tcp|socket|ib-verbs|unix|ib-sdp|
+	  			    			  tcp/client|ib-verbs/client
+        * volume-filename.*         GF_OPTION_TYPE_PATH
+	* inode-lru-limit           GF_OPTION_TYPE_INT    0-(1 * GF_UNIT_MB)
+	* client-volume-filename    GF_OPTION_TYPE_PATH
+
+protocol/client:
+	* username                  GF_OPTION_TYPE_ANY
+	* password                  GF_OPTION_TYPE_ANY 
+	* transport-type            GF_OPTION_TYPE_STR   tcp|socket|ib-verbs|unix|ib-sdp|
+	  			    			 tcp/client|ib-verbs/client
+	* remote-host               GF_OPTION_TYPE_ANY 
+	* remote-subvolume          GF_OPTION_TYPE_ANY 
+	* transport-timeout         GF_OPTION_TYPE_TIME  5-1013 
+
+cluster/replicate:
+	* read-subvolume	    GF_OPTION_TYPE_XLATOR
+	* favorite-child 	    GF_OPTION_TYPE_XLATOR
+	* data-self-heal 	    GF_OPTION_TYPE_BOOL 
+	* metadata-self-heal 	    GF_OPTION_TYPE_BOOL
+	* entry-self-heal 	    GF_OPTION_TYPE_BOOL 
+	* data-change-log 	    GF_OPTION_TYPE_BOOL 
+	* metadata-change-log 	    GF_OPTION_TYPE_BOOL
+	* entry-change-log 	    GF_OPTION_TYPE_BOOL
+	* data-lock-server-count    GF_OPTION_TYPE_INT    0
+	* metadata-lock-server-count GF_OPTION_TYPE_INT   0
+	* entry-lock-server-count    GF_OPTION_TYPE_INT   0
+
+cluster/distribute:
+	* lookup-unhashed           GF_OPTION_TYPE_BOOL 
+
+cluster/unify:
+	* namespace		    GF_OPTION_TYPE_XLATOR 
+	* scheduler 		    GF_OPTION_TYPE_STR    alu|rr|random|nufa|switch 
+	* self-heal 		    GF_OPTION_TYPE_STR    foreground|background|off
+	* optimist  		    GF_OPTION_TYPE_BOOL 
+
+cluster/nufa:
+	local-volume-name           GF_OPTION_TYPE_XLATOR 
+
+cluster/stripe:
+	* block-size		    GF_OPTION_TYPE_ANY 
+	* use-xattr  		    GF_OPTION_TYPE_BOOL
+
+debug/trace:
+	* include-ops (include)     GF_OPTION_TYPE_STR
+	* exclude-ops (exclude)     GF_OPTION_TYPE_STR 
+
+encryption/rot-13:
+	* encrypt-write             GF_OPTION_TYPE_BOOL
+	* decrypt-read  	    GF_OPTION_TYPE_BOOL 
+
+features/path-convertor:
+	* start-offset              GF_OPTION_TYPE_INT     0-4095 
+	* end-offset 		    GF_OPTION_TYPE_INT	   1-4096 
+	* replace-with		    GF_OPTION_TYPE_ANY
+
+features/trash:
+	* trash-dir	            GF_OPTION_TYPE_PATH 
+
+features/locks:
+	* mandatory-locks (mandatory) GF_OPTION_TYPE_BOOL 
+
+features/filter:
+	* root-squashing	    GF_OPTION_TYPE_BOOL 
+	* read-only                 GF_OPTION_TYPE_BOOL
+	* fixed-uid		    GF_OPTION_TYPE_INT
+	* fixed-gid		    GF_OPTION_TYPE_INT
+	* translate-uid             GF_OPTION_TYPE_ANY 
+	* translate-gid		    GF_OPTION_TYPE_ANY
+	* filter-uid		    GF_OPTION_TYPE_ANY 
+	* filter-gid		    GF_OPTION_TYPE_ANY 
+
+features/quota:
+	* min-free-disk-limit	    GF_OPTION_TYPE_PERCENT
+	* refresh-interval	    GF_OPTION_TYPE_TIME
+	* disk-usage-limit	    GF_OPTION_TYPE_SIZET 
+
+storage/posix:
+	* o-direct		    GF_OPTION_TYPE_BOOL
+	* directory		    GF_OPTION_TYPE_PATH
+	* export-statfs-size	    GF_OPTION_TYPE_BOOL
+	* mandate-attribute	    GF_OPTION_TYPE_BOOL
+
+storage/bdb:
+	* directory                 GF_OPTION_TYPE_PATH
+	* logdir		    GF_OPTION_TYPE_PATH
+	* errfile		    GF_OPTION_TYPE_PATH
+	* dir-mode		    GF_OPTION_TYPE_ANY
+	* file-mode		    GF_OPTION_TYPE_ANY
+	* page-size		    GF_OPTION_TYPE_SIZET
+	* lru-limit		    GF_OPTION_TYPE_INT
+	* lock-timeout		    GF_OPTION_TYPE_TIME
+	* checkpoint-timeout	    GF_OPTION_TYPE_TIME
+	* transaction-timeout	    GF_OPTION_TYPE_TIME
+	* mode			    GF_OPTION_TYPE_BOOL
+	* access-mode		    GF_OPTION_TYPE_STR
+
+performance/read-ahead:
+	* force-atime-update        GF_OPTION_TYPE_BOOL 
+	* page-size		    GF_OPTION_TYPE_SIZET (64 * GF_UNIT_KB)-(2 * GF_UNIT_MB)
+	* page-count		    GF_OPTION_TYPE_INT   1-16 
+
+performance/write-behind:
+	* flush-behind		    GF_OPTION_TYPE_BOOL
+	* aggregate-size	    GF_OPTION_TYPE_SIZET  (128 * GF_UNIT_KB)-(4 * GF_UNIT_MB) 
+	* window-size		    GF_OPTION_TYPE_SIZET  (512 * GF_UNIT_KB)-(1 * GF_UNIT_GB) 
+	* enable-O_SYNC		    GF_OPTION_TYPE_BOOL  
+	* disable-for-first-nbytes  GF_OPTION_TYPE_SIZET  1 - (1 * GF_UNIT_MB) 
+
+performance/symlink-cache:
+
+performance/io-threads:
+	* thread-count	            GF_OPTION_TYPE_INT    1-32
+
+performance/io-cache:
+	* priority	            GF_OPTION_TYPE_ANY 
+	* cache-timeout (force-revalidate-timeout) GF_OPTION_TYPE_INT 0-60 
+	* page-size	            GF_OPTION_TYPE_SIZET  (16 * GF_UNIT_KB)-(4 * GF_UNIT_MB) 
+	* cache-size		    GF_OPTION_TYPE_SIZET  (4 * GF_UNIT_MB)-(6 * GF_UNIT_GB) 
+
+auth:
+- addr:
+	* auth.addr.*.allow	    GF_OPTION_TYPE_ANY 
+	* auth.addr.*.reject	    GF_OPTION_TYPE_ANY 
+
+- login:
+	* auth.login.*.allow	    GF_OPTION_TYPE_ANY 
+	* auth.login.*.password	    GF_OPTION_TYPE_ANY
+
+scheduler/alu:
+	* scheduler.alu.order (alu.order) 
+	                            GF_OPTION_TYPE_ANY 
+	* scheduler.alu.disk-usage.entry-threshold (alu.disk-usage.entry-threshold)
+	  			    GF_OPTION_TYPE_SIZET
+        * scheduler.alu.disk-usage.exit-threshold (alu.disk-usage.exit-threshold)
+                                    GF_OPTION_TYPE_SIZET
+        * scheduler.alu.write-usage.entry-threshold (alu.write-usage.entry-threshold)
+                                    GF_OPTION_TYPE_SIZET
+        * scheduler.alu.write-usage.exit-threshold (alu.write-usage.exit-threshold)
+                                    GF_OPTION_TYPE_SIZET 
+        * scheduler.alu.read-usage.entry-threshold (alu.read-usage.entry-threshold)
+                                    GF_OPTION_TYPE_SIZET
+        * scheduler.alu.read-usage.exit-threshold (alu.read-usage.exit-threshold)
+                                    GF_OPTION_TYPE_SIZET 
+        * scheduler.alu.open-files-usage.entry-threshold (alu.open-files-usage.entry-threshold)
+                                    GF_OPTION_TYPE_INT
+        * scheduler.alu.open-files-usage.exit-threshold (alu.open-files-usage.exit-threshold)
+                                    GF_OPTION_TYPE_INT 
+        * scheduler.read-only-subvolumes (alu.read-only-subvolumes)
+                                    GF_OPTION_TYPE_ANY 
+        * scheduler.refresh-interval (alu.refresh-interval)
+                                    GF_OPTION_TYPE_TIME
+        * scheduler.limits.min-free-disk (alu.limits.min-free-disk)
+                                    GF_OPTION_TYPE_PERCENT
+        * scheduler.alu.stat-refresh.num-file-create (alu.stat-refresh.num-file-create)
+                                    GF_OPTION_TYPE_INT
+
+scheduler/nufa:
+	* scheduler.refresh-interval (nufa.refresh-interval) 
+	                            GF_OPTION_TYPE_TIME
+	* scheduler.limits.min-free-disk (nufa.limits.min-free-disk) 
+	                            GF_OPTION_TYPE_PERCENT
+	* scheduler.local-volume-name (nufa.local-volume-name) 
+	                            GF_OPTION_TYPE_XLATOR
+
+scheduler/random:
+	* scheduler.refresh-interval (random.refresh-interval) GF_OPTION_TYPE_TIME
+	* scheduler.limits.min-free-disk (random.limits.min-free-disk) GF_OPTION_TYPE_PERCENT
+
+scheduler/rr:
+	* scheduler.refresh-interval (rr.refresh-interval)  GF_OPTION_TYPE_TIME
+	* scheduler.limits.min-free-disk (rr.limits.min-free-disk) GF_OPTION_TYPE_PERCENT
+	* scheduler.read-only-subvolumes (rr.read-only-subvolumes) GF_OPTION_TYPE_ANY
+
+scheduler/switch:
+	* scheduler.read-only-subvolumes (switch.read-only-subvolumes) GF_OPTION_TYPE_ANY
+	* scheduler.local-volume-name (switch.nufa.local-volume-name) GF_OPTION_TYPE_XLATOR
+	* scheduler.switch.case (switch.case) GF_OPTION_TYPE_ANY
+
+transport/ib-verbs:
+	* transport.ib-verbs.port (ib-verbs-port) GF_OPTION_TYPE_INT 1-4
+	                         check the option by 'ibv_devinfo'
+        * transport.ib-verbs.mtu (ib-verbs-mtu) GF_OPTION_TYPE_INT
+	* transport.ib-verbs.device-name (ib-verbs-device-name) GF_OPTION_TYPE_ANY,
+                                 check by 'ibv_devinfo'
+        * transport.ib-verbs.work-request-send-size (ib-verbs-work-request-send-size)
+	                         GF_OPTION_TYPE_INT,
+        * transport.ib-verbs.work-request-recv-size (ib-verbs-work-request-recv-size)
+	                         GF_OPTION_TYPE_INT
+        * transport.ib-verbs.work-request-send-count (ib-verbs-work-request-send-count)
+                                 GF_OPTION_TYPE_INT
+        * transport.ib-verbs.work-request-recv-count (ib-verbs-work-request-recv-count)
+                                 GF_OPTION_TYPE_INT
+        * remote-port (transport.remote-port,transport.ib-verbs.remote-port)
+	                         GF_OPTION_TYPE_INT 
+        * transport.ib-verbs.listen-port  GF_OPTION_TYPE_INT 
+        * transport.ib-verbs.connect-path (connect-path) GF_OPTION_TYPE_ANY 
+        * transport.ib-verbs.bind-path (bind-path) GF_OPTION_TYPE_ANY 
+        * transport.ib-verbs.listen-path (listen-path) GF_OPTION_TYPE_ANY 
+        * transport.address-family (address-family) GF_OPTION_TYPE_STR inet|inet6|inet/inet6|
+                                                                       inet6/inet|unix|inet-sdp
+
+transport/socket:
+	* transport.remote-port (remote-port,transport.socket.remote-port) GF_OPTION_TYPE_INT 
+	* transport.socket.listen-port (listen-port) GF_OPTION_TYPE_INT 
+	* transport.socket.bind-address (bind-address) GF_OPTION_TYPE_ANY 
+	* transport.socket.connect-path (connect-path) GF_OPTION_TYPE_ANY 
+	* transport.socket.bind-path (bind-path)       GF_OPTION_TYPE_ANY 
+	* transport.socket.listen-path (listen-path)   GF_OPTION_TYPE_ANY
+	* transport.address-family (address-family)    GF_OPTION_TYPE_STR  inet|inet6|
+	  			   		       			   inet/inet6|inet6/inet|
+									   unix|inet-sdp

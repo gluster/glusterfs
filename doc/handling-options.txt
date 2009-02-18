@@ -1,0 +1,13 @@
+
+How to add a new option to a given volume ?
+===========================================
+
+* Add a entry in 'struct volume_options options[]' with your key, what is 
+  the type of the 'key', etc.
+
+* The 'key' and corresponding 'value' given for the same by user are validated 
+  before calling init() of the translator/transport/scheduler/auth-module.
+
+* Once the complete init() is successful, user will get a warning if he has 
+  given a 'key' which is not defined in these modules.
+

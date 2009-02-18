@@ -1,0 +1,21 @@
+
+This document is intended to briefly explain how the Extended Attributes on 
+Darwin 10.5.x releases works
+----
+
+On Darwin other than all the normal filesystem operations, 'Finder' (like 
+Explorer in Windows but a little more) keeps its information in two extended 
+attributes named 'com.apple.FinderInfo' and 'com.apple.ResourceFork'. If these 
+xattrs are not implemented the filesystem won't be shown on Finder, and if they 
+are not implemented properly there may be issues when some of the file operations 
+are done through GUI of Finder. But when a filesystem is used over mountpoint in a 
+terminal, everything is fine and these xattrs are not required. 
+
+Currently the way these xattrs are implemented is simple. All the xattr calls 
+(getxattr, setxattr, listxattr, removexattr) are passed down to underlaying filesystem,
+most of the cases when exported FS is on MacOS X itself, these keys are supported, hence
+the fops succeed. But in the case of using exports of different OS on Darwin the issue is 
+extended attribute prefix like 'com.apple.' may not be supported, hence the problem with 
+Finder. To solve this issue, GlusterFS returns virtual default values to these keys, which
+works fine on most of the cases.
+

@@ -1,0 +1,797 @@
+#LyX 1.4.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 245
+\begin_document
+\begin_header
+\textclass article
+\language english
+\inputencoding auto
+\fontscheme default
+\graphics default
+\paperfontsize default
+\spacing single
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation skip
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+
+\size larger
+Automatic File Replication (replicate) in GlusterFS
+\end_layout
+
+\begin_layout Author
+Vikas Gorur 
+\family typewriter
+\size larger
+<vikas@zresearch.com>
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Standard
+
+
+\backslash
+hrule
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Overview
+\end_layout
+
+\begin_layout Standard
+This document describes the design and usage of the replicate translator in GlusterFS.
+ This document is valid for the 1.4.x releases, and not earlier ones.
+\end_layout
+
+\begin_layout Standard
+The replicate translator of GlusterFS aims to keep identical copies of a file
+ on all its subvolumes, as far as possible.
+ It tries to do this by performing all filesystem mutation operations (writing
+ data, creating files, changing ownership, etc.) on all its subvolumes in
+ such a way that if an operation succeeds on atleast one subvolume, all
+ other subvolumes can later be brought up to date.
+\end_layout
+
+\begin_layout Standard
+In the rest of the document the terms 
+\begin_inset Quotes eld
+\end_inset
+
+subvolume
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+server
+\begin_inset Quotes erd
+\end_inset
+
+ are used interchangeably, trusting that it will cause no confusion to the
+ reader.
+\end_layout
+
+\begin_layout Section*
+Usage
+\end_layout
+
+\begin_layout Standard
+A sample volume declaration for replicate looks like this:
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Standard
+
+
+\backslash
+begin{verbatim}
+\end_layout
+
+\begin_layout Standard
+
+volume replicate
+\end_layout
+
+\begin_layout Standard
+
+ type cluster/replicate
+\end_layout
+
+\begin_layout Standard
+
+ # options, see below for description
+\end_layout
+
+\begin_layout Standard
+
+ subvolumes brick1 brick2
+\end_layout
+
+\begin_layout Standard
+
+end-volume
+\end_layout
+
+\begin_layout Standard
+
+
+\backslash
+end{verbatim}
+\end_layout
+
+\begin_layout Standard
+
+\end_layout
+
+\begin_layout Standard
+
+\end_layout
+
+\begin_layout Standard
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This defines an replicate volume with two subvolumes, brick1, and brick2.
+ For replicate to work properly, it is essential that its subvolumes support 
+\series bold
+extended attributes
+\series default
+.
+ This means that you should choose a backend filesystem that supports extended
+ attributes, like XFS, ReiserFS, or Ext3.
+\end_layout
+
+\begin_layout Standard
+The storage volumes used as backend for replicate 
+\emph on
+must
+\emph default
+ have a posix-locks volume loaded above them.
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Standard
+
+
+\backslash
+begin{verbatim}
+\end_layout
+
+\begin_layout Standard
+
+volume brick1
+\end_layout
+
+\begin_layout Standard
+
+ type features/posix-locks
+\end_layout
+
+\begin_layout Standard
+
+ subvolumes brick1-ds
+\end_layout
+
+\begin_layout Standard
+
+end-volume
+\end_layout
+
+\begin_layout Standard
+
+
+\backslash
+end{verbatim}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Design
+\end_layout
+
+\begin_layout Subsection*
+Read algorithm
+\end_layout
+
+\begin_layout Standard
+All operations that do not modify the file or directory are sent to all
+ the subvolumes and the first successful reply is returned to the application.
+\end_layout
+
+\begin_layout Standard
+The read() system call (reading data from a file) is an exception.
+ For read() calls, replicate tries to do load balancing by sending all reads from
+ a particular file to a particular server.
+\end_layout
+
+\begin_layout Standard
+The read algorithm is also affected by the option read-subvolume; see below
+ for details.
+\end_layout
+
+\begin_layout Subsection*
+Classes of file operations
+\end_layout
+
+\begin_layout Standard
+replicate divides all filesystem write operations into three classes:
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+data: 
+\series default
+Operations that modify the contents of a file (write, truncate).
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+metadata: 
+\series default
+Operations that modify attributes of a file or directory (permissions, ownership
+, etc.).
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+entry: 
+\series default
+Operations that create or delete directory entries (mkdir, create, rename,
+ rmdir, unlink, etc.).
+\end_layout
+
+\begin_layout Subsection*
+Locking and Change Log
+\end_layout
+
+\begin_layout Standard
+To ensure consistency across subvolumes, replicate holds a lock whenever a modificatio
+n is being made to a file or directory.
+ By default, replicate considers the first subvolume as the sole lock server.
+ However, the number of lock servers can be increased upto the total number
+ of subvolumes.
+\end_layout
+
+\begin_layout Standard
+The change log is a set of extended attributes associated with files and
+ directories that replicate maintains.
+ The change log keeps track of the changes made to files and directories
+ (data, metadata, entry) so that the self-heal algorithm knows which copy
+ of a file or directory is the most recent one.
+\end_layout
+
+\begin_layout Subsection*
+Write algorithm
+\end_layout
+
+\begin_layout Standard
+The algorithm for all write operations (data, metadata, entry) is:
+\end_layout
+
+\begin_layout Enumerate
+Lock the file (or directory) on all of the lock servers (see options below).
+\end_layout
+
+\begin_layout Enumerate
+Write change log entries on all servers.
+\end_layout
+
+\begin_layout Enumerate
+Perform the operation.
+\end_layout
+
+\begin_layout Enumerate
+Erase change log entries.
+\end_layout
+
+\begin_layout Enumerate
+Unlock the file (or directory) on all of the lock servers.
+\end_layout
+
+\begin_layout Standard
+The above algorithm is a simplified version intended for general users.
+ Please refer to the source code for the full details.
+\end_layout
+
+\begin_layout Subsection*
+Self-Heal
+\end_layout
+
+\begin_layout Standard
+replicate automatically tries to fix any inconsistencies it detects among different
+ copies of a file.
+ It uses information in the change log to determine which copy is the 
+\begin_inset Quotes eld
+\end_inset
+
+correct
+\begin_inset Quotes erd
+\end_inset
+
+ version.
+\end_layout
+
+\begin_layout Standard
+Self-heal is triggered when a file or directory is first 
+\begin_inset Quotes eld
+\end_inset
+
+accessed
+\begin_inset Quotes erd
+\end_inset
+
+, that is, the first time any operation is attempted on it.
+ The self-heal algorithm does the following things:
+\end_layout
+
+\begin_layout Standard
+If the entry being accessed is a directory:
+\end_layout
+
+\begin_layout Itemize
+The contents of the 
+\begin_inset Quotes eld
+\end_inset
+
+correct
+\begin_inset Quotes erd
+\end_inset
+
+ version is replicated on all subvolumes, by deleting entries and creating
+ entries as necessary.
+\end_layout
+
+\begin_layout Standard
+If the entry being accessed is a file:
+\end_layout
+
+\begin_layout Itemize
+If the file does not exist on some subvolumes, it is created.
+\end_layout
+
+\begin_layout Itemize
+If there is a mismatch in the size of the file, or ownership, or permission,
+ it is fixed.
+\end_layout
+
+\begin_layout Itemize
+If the change log indicates that some copies need updating, they are updated.
+\end_layout
+
+\begin_layout Subsection*
+Split-brain
+\end_layout
+
+\begin_layout Standard
+It may happen that one replicate client can access only some of the servers in
+ a cluster and another replicate client can access the remaining servers.
+ Or it may happen that in a cluster of two servers, one server goes down
+ and comes back up, but the other goes down immediately.
+ Both these scenarios result in a 
+\begin_inset Quotes eld
+\end_inset
+
+split-brain
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+In a split-brain situation, there will be two or more copies of a file,
+ all of which are 
+\begin_inset Quotes eld
+\end_inset
+
+correct
+\begin_inset Quotes erd
+\end_inset
+
+ in some sense.
+ replicate without manual intervention has no way of knowing what to do, since
+ it cannot consider any single copy as definitive, nor does it know of any
+ meaningful way to merge the copies.
+\end_layout
+
+\begin_layout Standard
+If replicate detects that a split-brain has happened on a file, it disallows opening
+ of that file.
+ You will have to manually resolve the conflict by deleting all but one
+ copy of the file.
+ Alternatively you can set an automatic split-brain resolution policy by
+ using the `favorite-child' option (see below).
+\end_layout
+
+\begin_layout Section*
+Translator Options
+\end_layout
+
+\begin_layout Standard
+replicate accepts the following options:
+\end_layout
+
+\begin_layout Subsection*
+read-subvolume (default: none)
+\end_layout
+
+\begin_layout Standard
+The value of this option must be the name of a subvolume.
+ If given, all read operations are sent to only the specified subvolume,
+ instead of being balanced across all subvolumes.
+\end_layout
+
+\begin_layout Subsection*
+favorite-child (default: none)
+\end_layout
+
+\begin_layout Standard
+The value of this option must be the name of a subvolume.
+ If given, the specified subvolume will be preferentially used in resolving
+ conflicts (
+\begin_inset Quotes eld
+\end_inset
+
+split-brain
+\begin_inset Quotes erd
+\end_inset
+
+).
+ This means if a discrepancy is noticed in the attributes or content of
+ a file, the copy on the `favorite-child' will be considered the definitive
+ version and its contents will 
+\emph on
+overwrite 
+\emph default
+the contents of all other copies.
+ Use this option with caution! It is possible to 
+\emph on
+lose data
+\emph default
+ with this option.
+ If you are in doubt, do not specify this option.
+\end_layout
+
+\begin_layout Subsection*
+Self-heal options
+\end_layout
+
+\begin_layout Standard
+Setting any of these options to 
+\begin_inset Quotes eld
+\end_inset
+
+off
+\begin_inset Quotes erd
+\end_inset
+
+ prevents that kind of self-heal from being done on a file or directory.
+ For example, if metadata self-heal is turned off, permissions and ownership
+ are no longer fixed automatically.
+\end_layout
+
+\begin_layout Subsubsection*
+data-self-heal (default: on)
+\end_layout
+
+\begin_layout Standard
+Enable/disable self-healing of file contents.
+\end_layout
+
+\begin_layout Subsubsection*
+metadata-self-heal (default: off)
+\end_layout
+
+\begin_layout Standard
+Enable/disable self-healing of metadata (permissions, ownership, modification
+ times).
+\end_layout
+
+\begin_layout Subsubsection*
+entry-self-heal (default: on)
+\end_layout
+
+\begin_layout Standard
+Enable/disable self-healing of directory entries.
+\end_layout
+
+\begin_layout Subsection*
+Change Log options
+\end_layout
+
+\begin_layout Standard
+If any of these options is turned off, it disables writing of change log
+ entries for that class of file operations.
+ That is, steps 2 and 4 of the write algorithm (see above) are not done.
+ Note that if the change log is not written, the self-heal algorithm cannot
+ determine the 
+\begin_inset Quotes eld
+\end_inset
+
+correct
+\begin_inset Quotes erd
+\end_inset
+
+ version of a file and hence self-heal will only be able to fix 
+\begin_inset Quotes eld
+\end_inset
+
+obviously
+\begin_inset Quotes erd
+\end_inset
+
+ wrong things (such as a file existing on only one node).
+\end_layout
+
+\begin_layout Subsubsection*
+data-change-log (default: on)
+\end_layout
+
+\begin_layout Standard
+Enable/disable writing of change log for data operations.
+\end_layout
+
+\begin_layout Subsubsection*
+metadata-change-log (default: on)
+\end_layout
+
+\begin_layout Standard
+Enable/disable writing of change log for metadata operations.
+\end_layout
+
+\begin_layout Subsubsection*
+entry-change-log (default: on)
+\end_layout
+
+\begin_layout Standard
+Enable/disable writing of change log for entry operations.
+\end_layout
+
+\begin_layout Subsection*
+Locking options
+\end_layout
+
+\begin_layout Standard
+These options let you specify the number of lock servers to use for each
+ class of file operations.
+ The default values are satisfactory in most cases.
+ If you are extra paranoid, you may want to increase the values.
+ However, be very cautious if you set the data- or entry- lock server counts
+ to zero, since this can result in 
+\emph on
+lost data.
+
+\emph default
+ For example, if you set the data-lock-server-count to zero, and two application
+s write to the same region of a file, there is a possibility that none of
+ your servers will have all the data.
+ In other words, the copies will be 
+\emph on
+inconsistent
+\emph default
+, and 
+\emph on
+incomplete
+\emph default
+.
+ Do not set data- and entry- lock server counts to zero unless you absolutely
+ know what you are doing and agree to not hold GlusterFS responsible for
+ any lost data.
+\end_layout
+
+\begin_layout Subsubsection*
+data-lock-server-count (default: 1)
+\end_layout
+
+\begin_layout Standard
+Number of lock servers to use for data operations.
+\end_layout
+
+\begin_layout Subsubsection*
+metadata-lock-server-count (default: 0)
+\end_layout
+
+\begin_layout Standard
+Number of lock servers to use for metadata operations.
+\end_layout
+
+\begin_layout Subsubsection*
+entry-lock-server-count (default: 1)
+\end_layout
+
+\begin_layout Standard
+Number of lock servers to use for entry operations.
+\end_layout
+
+\begin_layout Section*
+Known Issues
+\end_layout
+
+\begin_layout Subsection*
+Self-heal of file with more than one link (hard links):
+\end_layout
+
+\begin_layout Standard
+Consider two servers, A and B.
+ Assume A is down, and the user creates a file `new' as a hard link to a
+ file `old'.
+ When A comes back up, replicate will see that the file `new' does not exist on
+ A, and self-heal will create the file and copy the contents from B.
+ However, now on server A the file `new' is not a link to the file `old'
+ but an entirely different file.
+\end_layout
+
+\begin_layout Standard
+We know of no easy way to fix this problem, but we will try to fix it in
+ forthcoming releases.
+\end_layout
+
+\begin_layout Subsection*
+File re-opening after a server comes back up:
+\end_layout
+
+\begin_layout Standard
+If a server A goes down and comes back up, any files which were opened while
+ A was down and are still open will not have their writes replicated on
+ A.
+ In other words, data replication only happens on those servers which were
+ alive when the file was opened.
+\end_layout
+
+\begin_layout Standard
+This is a rather tricky issue but we hope to fix it very soon.
+\end_layout
+
+\begin_layout Section*
+Frequently Asked Questions
+\end_layout
+
+\begin_layout Subsection*
+1.
+ How can I force self-heal to happen?
+\end_layout
+
+\begin_layout Standard
+You can force self-heal to happen on your cluster by running a script or
+ a command that accesses every file.
+ A simple way to do it would be:
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Standard
+
+\end_layout
+
+\begin_layout Standard
+
+
+\backslash
+begin{verbatim}
+\end_layout
+
+\begin_layout Standard
+
+$ ls -lR
+\end_layout
+
+\begin_layout Standard
+
+
+\backslash
+end{verbatim}
+\end_layout
+
+\begin_layout Standard
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Run the command in all directories which you want to forcibly self-heal.
+\end_layout
+
+\begin_layout Subsection*
+2.
+ Which backend filesystem should I use for replicate?
+\end_layout
+
+\begin_layout Standard
+You can use any backend filesystem that supports extended attributes.
+ We know of users successfully using XFR, ReiserFS, and Ext3.
+\end_layout
+
+\begin_layout Subsection*
+3.
+ What can I do to improve replicate performance?
+\end_layout
+
+\begin_layout Standard
+Try loading performance translators such as io-threads, write-behind, io-cache,
+ and read-ahead depending on your workload.
+ If you are willing to sacrifice correctness in corner cases, you can experiment
+ with the lock-server-count and the change-log options (see above).
+ As warned earlier, be very careful!
+\end_layout
+
+\begin_layout Subsection*
+4.
+ How can I selectively replicate files?
+\end_layout
+
+\begin_layout Standard
+There is no support for selective replication in replicate itself.
+ You can achieve selective replication by loading the unify translator over
+ replicate, and using the switch scheduler.
+ Configure unify with two subvolumes, one of them being replicate.
+ Using the switch scheduler, schedule all files for which you need replication
+ to the replicate subvolume.
+ Consult unify and switch documentation for more details.
+\end_layout
+
+\begin_layout Section*
+Contact
+\end_layout
+
+\begin_layout Standard
+If you need more assistance on replicate, contact us on the mailing list <gluster-user
+s@gluster.org> (visit gluster.org for details on how to subscribe).
+\end_layout
+
+\begin_layout Standard
+Send you comments and suggestions about this document to <vikas@zresearch.com>.
+\end_layout
+
+\end_body
+\end_document

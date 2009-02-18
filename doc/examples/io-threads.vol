@@ -1,0 +1,21 @@
+
+volume brick
+  type storage/posix                   # POSIX FS translator
+  option directory /home/export        # Export this directory
+end-volume
+
+###  'IO-threads' translator gives a threading behaviour to File I/O calls. All other normal fops are having default behaviour. Loading this on server side helps to reduce the contension of network. (Which is assumed as a GlusterFS hang). 
+# One can load it in client side to reduce the latency involved in case of a slow network, when loaded below write-behind.
+volume iot
+  type performance/io-threads
+  subvolumes brick
+  option thread-count 4 # default value is 1
+end-volume
+
+volume server
+  type protocol/server
+  subvolumes iot brick
+  option transport-type tcp     # For TCP/IP transport
+  option auth.addr.brick.allow 192.168.* # Allow access to "brick" volume
+  option auth.addr.iot.allow 192.168.* # Allow access to "p-locks" volume
+end-volume

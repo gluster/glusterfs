@@ -1,0 +1,70 @@
+
+* How does file translates to key/value pair?
+---------------------------------------------
+
+  in bdb a file is identified by key (obtained by taking basename() of the path of
+the file) and file contents are stored as value corresponding to the key in database
+file (defaults to glusterfs_storage.db under dirname() directory).
+
+* symlinks, directories
+-----------------------
+
+  symlinks and directories are stored as is.
+
+* db (database) files
+---------------------
+
+  every directory, including root directory, contains a database file called
+glusterfs_storage.db. all the regular files contained in the directory are stored
+as key/value pair inside the glusterfs_storage.db.
+
+* internal data cache
+---------------------
+
+  db does not provide a way to find out the size of the value corresponding to a key. 
+so, bdb makes DB->get() call for key and takes the length of the value returned. 
+since DB->get() also returns file contents for key, bdb maintains an internal cache and
+stores the file contents in the cache.
+  every directory maintains a seperate cache.
+  
+* inode number transformation
+-----------------------------
+
+  bdb allocates a inode number to each file and directory on its own. bdb maintains a 
+global counter and increments it after allocating inode number for each file
+(regular, symlink or directory). NOTE: bdb does not guarantee persistent inode numbers.
+
+* checkpoint thread
+-------------------
+
+  bdb creates a checkpoint thread at the time of init(). checkpoint thread does a 
+periodic checkpoint on the DB_ENV. checkpoint is the mechanism, provided by db, to 
+forcefully commit the logged transactions to the storage.
+
+NOTES ABOUT FOPS:
+-----------------
+
+lookup() -
+ 1> do lstat() on the path, if lstat fails, we assume that the file being looked up
+    is either a regular file or doesn't exist.
+ 2> lookup in the DB of parent directory for key corresponding to path. if key exists,
+    return key, with. 
+    NOTE: 'struct stat' stat()ed from DB file is used as a container for 'struct stat'
+           of the regular file. st_ino, st_size, st_blocks are updated with file's values.
+
+readv() -
+ 1> do a lookup in bctx cache. if successful, return the requested data from cache.
+ 2> if cache missed, do a DB->get() the entire file content and insert to cache.
+
+writev():
+ 1> flush any cached content of this file.
+ 2> do a DB->put(), with DB_DBT_PARTIAL flag. 
+    NOTE: DB_DBT_PARTIAL is used to do partial update of a value in DB.
+
+readdir():
+ 1> regular readdir() in a loop, and vomit all DB_ENV log files and DB files that
+    we encounter.
+ 2> if the readdir() buffer still has space, open a DB cursor and do a sequential
+    DBC->get() to fill the reaadir buffer.
+
+

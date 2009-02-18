@@ -1,0 +1,3 @@
+SUBDIRS = socket $(IBVERBS_SUBDIR)
+
+CLEANFILES = 

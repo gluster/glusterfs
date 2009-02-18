@@ -1,0 +1,25 @@
+
+### Export volume "brick" with the contents of "/home/export" directory.
+volume brick
+  type storage/posix                   # POSIX FS translator
+  option directory /home/export        # Export this directory
+end-volume
+
+### Add network serving capability to above brick.
+volume server
+  type protocol/server
+  option transport-type tcp      # For TCP/IP transport
+# option transport.socket.listen-port 6996              # Default is 6996
+
+# option transport-type ib-verbs # For Infiniband Verbs transport
+# option transport.ib-verbs.work-request-send-size  131072
+# option transport.ib-verbs.work-request-send-count 64
+# option transport.ib-verbs.work-request-recv-size  131072
+# option transport.ib-verbs.work-request-recv-count 64
+# option transport.ib-verbs.listen-port 6996              # Default is 6996
+
+# option bind-address 192.168.1.10     # Default is to listen on all interfaces
+# option client-volume-filename /etc/glusterfs/glusterfs-client.vol
+  subvolumes brick 
+  option auth.addr.brick.allow 192.168.* # Allow access to "brick" volume
+end-volume

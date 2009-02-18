@@ -1,0 +1,23 @@
+volume client
+  type protocol/client
+  option transport-type tcp     # for TCP/IP transport
+  option remote-host 192.168.1.10      # IP address of the remote brick
+  option remote-subvolume brick        # name of the remote volume
+end-volume
+
+## In normal clustered storage type, any of the cluster translators can come here.
+#
+# Definition of other clients
+# 
+# Definition of cluster translator (may be unify, afr, or unify over afr)
+# 
+
+### 'Filter' translator is used on client side (or server side according to needs). This traslator makes all the below translators, (or say volumes) as read-only. Hence if one wants a 'read-only' filesystem, using filter as the top most volume will make it really fast as the fops are returned from this level itself.
+
+volume filter-ro
+ type features/filter
+ option root-squashing enable
+# option completely-read-only yes
+# translate-uid 1-99=0
+ subvolumes client
+end-volume

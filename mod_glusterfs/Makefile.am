@@ -1,0 +1,3 @@
+SUBDIRS = apache lighttpd
+
+CLEANFILES = 

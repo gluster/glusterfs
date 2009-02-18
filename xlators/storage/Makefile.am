@@ -1,0 +1,3 @@
+SUBDIRS = posix $(BDB_SUBDIR)
+
+CLEANFILES = 

@@ -1,0 +1,47 @@
+### file: server-volume.vol.sample
+
+#####################################
+###  GlusterFS Server Volume File  ##
+#####################################
+
+#### CONFIG FILE RULES:
+### "#" is comment character.
+### - Config file is case sensitive
+### - Options within a volume block can be in any order.
+### - Spaces or tabs are used as delimitter within a line. 
+### - Multiple values to options will be : delimitted.
+### - Each option should end within a line.
+### - Missing or commented fields will assume default values.
+### - Blank/commented lines are allowed.
+### - Sub-volumes should already be defined above before referring.
+
+### Export volume "brick" with the contents of "/home/export" directory.
+volume brick
+  type storage/posix                   # POSIX FS translator
+  option directory /home/export        # Export this directory
+end-volume
+
+### Add network serving capability to above brick.
+volume server
+  type protocol/server
+  option transport-type tcp
+# option transport-type unix
+# option transport-type ib-sdp
+# option transport.socket.bind-address 192.168.1.10     # Default is to listen on all interfaces
+# option transport.socket.listen-port 6996              # Default is 6996
+
+# option transport-type ib-verbs
+# option transport.ib-verbs.bind-address 192.168.1.10     # Default is to listen on all interfaces
+# option transport.ib-verbs.listen-port 6996              # Default is 6996
+# option transport.ib-verbs.work-request-send-size  131072
+# option transport.ib-verbs.work-request-send-count 64
+# option transport.ib-verbs.work-request-recv-size  131072
+# option transport.ib-verbs.work-request-recv-count 64
+
+# option client-volume-filename /etc/glusterfs/glusterfs-client.vol
+  subvolumes brick
+# NOTE: Access to any volume through protocol/server is denied by
+# default. You need to explicitly grant access through # "auth"
+# option.
+  option auth.addr.brick.allow * # Allow access to "brick" volume
+end-volume

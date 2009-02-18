@@ -1,0 +1,54 @@
+Introduction
+============
+* booster is a LD_PRELOADable library which boosts read/write performance by bypassing fuse for 
+  read() and write() calls.
+
+Requirements
+============
+* fetch volfile from glusterfs.
+* identify whether multiple files are from the same mount point. If so, use only one context.
+
+Design
+======
+* for a getxattr, along with other attributes, fuse returns following attributes.
+  * contents of client volume-file.
+  * mount point.
+
+* LD_PRELOADed booster.so maintains an hash table storing mount-points and libglusterfsclient handles 
+  so that handles are reused for files from same mount point. 
+
+* it also maintains a fdtable. fdtable maps the fd (integer) returned to application to fd (pointer to fd struct)
+  used by libglusterfsclient. application is returned the same fd as the one returned from libc apis.
+
+* During fork, these tables are overwritten to enable creation of fresh glusterfs context in child.
+ 
+Working
+=======
+* application willing to use booster LD_PRELOADs booster.so which is a wrapper library implementing 
+  open, read and write.
+
+* application should specify the path to logfile through the environment variable GLFS_BOOSTER_LOGFILE. If 
+  not specified, logging is done to /dev/stderr.
+
+* open call does,
+  * real_open on the file.
+  * fgetxattr(fd).
+  * store the volume-file content got in the dictionary to a temparory file.
+  * look in the hashtable for the mount-point, if already present get the libglusterfsclient handle from the 
+    hashtable. Otherwise get a new handle from libglusterfsclient (be careful about mount point not present in 
+    the hashtable and multiple glusterfs_inits running simultaneously for the same mount-point there by using 
+    multiple handles for the same mount point).
+  * real_close (fd).
+  * delete temporary volume-volfile.
+  * glusterfs_open (handle, path, mode).
+  * store the fd returned by glusterfs_open in the fdtable at the same index as the fd returned by real_open.
+  * return the index as fd.
+
+* read/write calls do,
+  * get the libglusterfsclient fd from fdtable.
+  * if found use glusterfs_read/glusterfs_write, else use real_read/real_write.
+
+* close call does,
+  * remove the fd from the fdtable.
+
+* other calls use real_calls. 

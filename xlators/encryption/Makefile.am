@@ -1,0 +1,3 @@
+SUBDIRS = rot-13
+
+CLEANFILES = 
