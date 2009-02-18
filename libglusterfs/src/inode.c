@@ -733,7 +733,9 @@ __inode_unlink (inode_t *inode,
 
         dentry = __dentry_search_for_inode (inode, parent->ino, name);
 
-	__dentry_unset (dentry);
+	/* dentry NULL for corrupted backend */
+	if (dentry) 
+		__dentry_unset (dentry);
 }
 
 			      
