@@ -196,7 +196,6 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
 	int      start_off = 0;
 	int      stop_off = 0;
 
-
 	/* TODO: assert disk_layout_ptr is of required length */
 
 	cnt  = ntoh32 (disk_layout[0]);

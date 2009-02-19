@@ -204,6 +204,9 @@ int
 dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
 			loc_t *loc, dht_layout_t *layout);
 int
+dht_selfheal_new_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
+			    dht_layout_t *layout);
+int
 dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
 		      loc_t *loc, dht_layout_t *layout);
 
