@@ -286,6 +286,7 @@ _volume_option_value_validate (xlator_t *xl,
 	{
 		uint32_t percent = 0;
 
+		
 		/* Check if the value is valid percentage */
 		if (gf_string2percent (pair->value->data, 
 				       &percent) != 0) {
@@ -341,13 +342,45 @@ _volume_option_value_validate (xlator_t *xl,
 		ret = 0;
 	}
 	break;
+	case GF_OPTION_TYPE_DOUBLE:
+	{
+		double input_time = 0.0;
+
+		/* Check if the value is valid double */
+		if (gf_string2double (pair->value->data, 
+				      &input_time) != 0) {
+			gf_log (xl->name,
+				GF_LOG_ERROR,
+				"invalid time format \"%s\" in \"option %s\"",
+				pair->value->data, pair->key);
+			goto out;
+		}
+		
+		if (input_time < 0.0) {
+			gf_log (xl->name,
+				GF_LOG_ERROR,
+				"invalid time format \"%s\" in \"option %s\"",
+				pair->value->data, pair->key);
+			goto out;
+		}
+
+		if ((opt->min == 0) && (opt->max == 0)) {
+			gf_log (xl->name, GF_LOG_DEBUG,
+				"no range check required for 'option %s %s'",
+				pair->key, pair->value->data);
+			ret = 0;
+			goto out;
+		}
+		ret = 0;
+	}
+	break;
 	case GF_OPTION_TYPE_ANY:
 		/* NO CHECK */
 		ret = 0;
 		break;
 	}
-
- out:
+	
+out:
 	return ret;
 }
 
