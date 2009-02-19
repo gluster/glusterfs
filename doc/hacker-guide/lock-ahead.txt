@@ -1,0 +1,80 @@
+			Lock-ahead translator
+                        ---------------------
+
+The objective of the lock-ahead translator is to speculatively
+hold locks (inodelk and entrylk) on the universal set (0 - infinity
+in case of inodelk and all basenames in case of entrylk) even
+when a lock is requested only on a subset, in anticipation that
+further locks will be requested within the same universal set.
+
+So, for example, when cluster/replicate locks a region before
+writing to it, lock-ahead would instead lock the entire file.
+On further writes, lock-ahead can immediately return success for 
+the lock requests, since the entire file has been previously locked.
+
+To avoid starvation of other clients/mountpoints, we employ a
+notify mechanism, described below.
+
+typedef struct {
+        struct list_head subset_locks;
+} la_universal_lock_t;
+
+Universal lock structure is stored in the inode context.
+
+typedef struct {
+	enum {LOCK_AHEAD_ENTRYLK, LOCK_AHEAD_FENTRYLK,
+              LOCK_AHEAD_INODELK, LOCK_AHEAD_FINODELK};
+
+        union {
+	      fd_t *fd;
+              loc_t loc;
+	};
+
+	off_t l_start;
+        off_t l_len;
+
+	const char *basename;
+
+	struct list_head universal_lock;
+} la_subset_lock_t;
+
+
+fops implemented:
+
+* inodelk/finodelk/entrylk/fentrylk:
+
+lock:
+  if universal lock held:
+    add subset to it (save loc_t or fd) and return success
+  else:
+    send lock-notify fop
+    hold universal lock and return
+      (set inode context, add subset to it, save loc_t or fd)
+    
+    if this fails:
+      forward the lock request
+
+unlock:
+  if subset exists in universal lock:
+    delete subset lock from list
+  else:
+    forward it
+
+* release:
+    hold subset locks (each subset lock using the saved loc_t or fd)
+    and release universal lock
+
+* lock-notify (on unwind) (new fop)
+    hold subset locks and release universal lock
+
+
+lock-notify in locks translator:
+
+if a subset lock in entrylk/inodelk cannot be satisfied
+because of a universal lock held by someone else:
+    unwind the lock-notify fop
+
+==============================================
+$ Last updated: Tue Feb 17 11:31:18 IST 2009 $
+$ Author: Vikas Gorur <vikas@zresearch.com>  $
+==============================================
