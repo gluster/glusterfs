@@ -1021,27 +1021,24 @@ iot_queue (iot_worker_t *worker,
            call_stub_t *stub)
 {
 	iot_queue_t *queue;
-	iot_conf_t *conf = worker->conf;
 
 	queue = CALLOC (1, sizeof (*queue));
 	ERR_ABORT (queue);
 	queue->stub = stub;
 
-	pthread_mutex_lock (&conf->lock);
+        pthread_mutex_lock (&worker->qlock);
+        queue->next = &worker->queue;
+        queue->prev = worker->queue.prev;
 
-	queue->next = &worker->queue;
-	queue->prev = worker->queue.prev;
+        queue->next->prev = queue;
+        queue->prev->next = queue;
 
-	queue->next->prev = queue;
-	queue->prev->next = queue;
+        /* dq_cond */
+        worker->queue_size++;
+        worker->q++;
 
-	/* dq_cond */
-	worker->queue_size++;
-	worker->q++;
-
-	pthread_cond_broadcast (&worker->dq_cond);
-
-	pthread_mutex_unlock (&conf->lock);
+        pthread_cond_broadcast (&worker->dq_cond);
+	pthread_mutex_unlock (&worker->qlock);
 }
 
 static call_stub_t *
@@ -1049,27 +1046,20 @@ iot_dequeue (iot_worker_t *worker)
 {
 	call_stub_t *stub = NULL;
 	iot_queue_t *queue = NULL;
-	iot_conf_t *conf = worker->conf;
 
+	pthread_mutex_lock (&worker->qlock);
+        while (!worker->queue_size)
+	       pthread_cond_wait (&worker->dq_cond, &worker->qlock);
 
-	pthread_mutex_lock (&conf->lock);
+        queue = worker->queue.next;
+        queue->next->prev = queue->prev;
+        queue->prev->next = queue->next;
 
-	while (!worker->queue_size)
-		pthread_cond_wait (&worker->dq_cond, &conf->lock);
+        stub = queue->stub;
 
-	queue = worker->queue.next;
-
-	queue->next->prev = queue->prev;
-	queue->prev->next = queue->next;
-
-	stub = queue->stub;
-
-	worker->queue_size--;
-	worker->dq++;
-
-	pthread_cond_broadcast (&conf->q_cond);
-
-	pthread_mutex_unlock (&conf->lock);
+        worker->queue_size--;
+        worker->dq++;
+	pthread_mutex_unlock (&worker->qlock);
 
 	FREE (queue);
 
@@ -1110,6 +1100,7 @@ workers_init (iot_conf_t *conf)
 		worker->queue.next = &worker->queue;
 		worker->queue.prev = &worker->queue;
 
+		pthread_mutex_init (&worker->qlock, NULL);
 		pthread_cond_init (&worker->dq_cond, NULL);
 		worker->conf = conf;
 
@@ -1148,9 +1139,6 @@ init (xlator_t *this)
 			"Using conf->thread_count = %d",
 			conf->thread_count);
 	}
-
-	pthread_mutex_init (&conf->lock, NULL);
-	pthread_cond_init (&conf->q_cond, NULL);
 
 	conf->files.next = &conf->files;
 	conf->files.prev = &conf->files;
