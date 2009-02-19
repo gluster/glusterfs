@@ -40,6 +40,24 @@ __hgetxattr (xattr_cache_handle_t *handle, xlator_t *this,
 
 		if (op_ret == -1)
 			op_ret = -errno;
+
+		if (errno == ERANGE) {
+			/* 
+			 * xattr array is bigger than expected.
+			 * This usually happens when user reduces
+			 * the number of AFR's children but continues
+			 * to use the old backend.
+			 */
+
+			gf_log (this->name, GF_LOG_WARNING,
+				"%s: Have you reduced the number of "
+				"cluster/replicate's children but are "
+				"continuing to use the same backend? "
+				"Please populate the backend freshly "
+				"when doing such a migration.", 
+				strerror (errno));
+		}
+
 	} else {
 		ret = fd_ctx_get (handle->fd, this, &tmp_pfd);
                 if (ret < 0) {
