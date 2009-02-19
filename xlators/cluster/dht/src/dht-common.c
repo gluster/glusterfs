@@ -573,8 +573,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
                 inode_ctx_put (inode, this, (uint64_t)(long)layout);
-                goto out;
-        }
+                goto out; 
+	}
 
         if (is_linkfile) {
                 subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
@@ -2640,7 +2640,6 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 	return 0;
 }
 
-
 int
 dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno, inode_t *inode, struct stat *stbuf)
@@ -2672,8 +2671,8 @@ unlock:
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
 		local->layout = NULL;
-		dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
-					&local->loc, layout);
+		dht_selfheal_new_directory (frame, dht_mkdir_selfheal_cbk,
+					    layout);
 	}
 
         return 0;

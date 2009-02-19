@@ -159,9 +159,13 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 	this = frame->this;
 
 	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err != -1 || !layout->list[i].stop)
+		if (layout->list[i].err != -1 || !layout->list[i].stop) {
+			/* err != -1 would mean xattr present on the directory
+			 * or the directory is itself non existant.
+			 * !layout->list[i].stop would mean layout absent
+			 */
 			continue;
-		/* attr missing and layout present */
+		}
 		missing_xattr++;
 	}
 
@@ -267,8 +271,8 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 }
 
 void
-dht_selfheal_fix_this_virgin (call_frame_t *frame, loc_t *loc,
-			      dht_layout_t *layout)
+dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
+				   dht_layout_t *layout)
 {
 	dht_conf_t  *conf = NULL;
 	xlator_t    *this = NULL;
@@ -334,7 +338,7 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
 	holes = local->selfheal.hole_cnt;
 
 	if ((missing + down) == conf->subvolume_cnt) {
-		dht_selfheal_fix_this_virgin (frame, loc, layout);
+		dht_selfheal_layout_new_directory (frame, loc, layout);
 		ret = 0;
 	}
 
@@ -354,6 +358,22 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
 	/* TODO: give a fix to these non-virgins */
 
 	return ret;
+}
+
+int
+dht_selfheal_new_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
+			    dht_layout_t *layout)
+{
+	dht_local_t *local = NULL;
+
+	local = frame->local;
+
+	local->selfheal.dir_cbk = dir_cbk;
+	local->selfheal.layout = layout;
+
+	dht_selfheal_layout_new_directory (frame, &local->loc, layout);	
+	dht_selfheal_dir_xattr (frame, &local->loc, layout);
+	return 0;
 }
 
 
@@ -425,7 +445,7 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"the directory is not a virgin");
+			"not able to form layout for the directory");
 		goto sorry_no_fix;
 	}
 
