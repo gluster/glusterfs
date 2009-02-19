@@ -25,7 +25,7 @@
 
 
 #define MALLOC(size) malloc(size)
-#define CALLOC(size,cnt) calloc(size,cnt)
+#define CALLOC(cnt,size) calloc(cnt,size)
 
 #define FREE(ptr)				\
 	if (ptr != NULL) {			\
