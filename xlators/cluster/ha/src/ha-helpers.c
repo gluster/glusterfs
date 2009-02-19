@@ -24,6 +24,9 @@
 #include "compat-errno.h"
 #include "ha.h"
 
+#define HA_TRANSPORT_NOTCONN(_ret, _errno, _fd) \
+	((_ret == -1) && (_fd ? (_errno == EBADFD):(_errno == ENOTCONN)))
+
 int ha_alloc_init_fd (call_frame_t *frame, fd_t *fd)
 {
 	ha_local_t *local = NULL;
@@ -111,7 +114,8 @@ int ha_handle_cbk (call_frame_t *frame, void *cookie, int op_ret, int op_errno)
 		gf_log (xl->name, GF_LOG_ERROR ,"(child=%s) (op_ret=%d op_errno=%s)",
 			children[prev_child]->name, op_ret, strerror (op_errno));
 	}
-	if (op_ret == -1 && (op_errno == ENOTCONN)) {
+
+	if (HA_TRANSPORT_NOTCONN (op_ret, op_errno, (local->fd))) {
 		ret = 0;
 		if (local->fd) {
 			ret = fd_ctx_get (local->fd, xl, &tmp_hafdp);
