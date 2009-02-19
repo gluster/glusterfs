@@ -281,6 +281,7 @@ int gf_string2long (const char *str, long *n);
 int gf_string2ulong (const char *str, unsigned long *n);
 int gf_string2int (const char *str, int *n);
 int gf_string2uint (const char *str, unsigned int *n);
+int gf_string2double (const char *str, double *n);
 int gf_string2longlong (const char *str, long long *n);
 int gf_string2ulonglong (const char *str, unsigned long long *n);
 
