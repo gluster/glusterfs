@@ -1022,19 +1022,12 @@ iot_queue (iot_worker_t *worker,
 {
 	iot_queue_t *queue;
 	iot_conf_t *conf = worker->conf;
-	iot_local_t *local = stub->frame->local;
-	size_t frame_size = local->frame_size;
 
 	queue = CALLOC (1, sizeof (*queue));
 	ERR_ABORT (queue);
 	queue->stub = stub;
 
 	pthread_mutex_lock (&conf->lock);
-
-	if (conf->cache_size) {
-		while (frame_size && (conf->current_size >= conf->cache_size))
-			pthread_cond_wait (&conf->q_cond, &conf->lock);
-	}
 
 	queue->next = &worker->queue;
 	queue->prev = worker->queue.prev;
@@ -1045,8 +1038,6 @@ iot_queue (iot_worker_t *worker,
 	/* dq_cond */
 	worker->queue_size++;
 	worker->q++;
-
-	conf->current_size += local->frame_size;
 
 	pthread_cond_broadcast (&worker->dq_cond);
 
@@ -1059,7 +1050,6 @@ iot_dequeue (iot_worker_t *worker)
 	call_stub_t *stub = NULL;
 	iot_queue_t *queue = NULL;
 	iot_conf_t *conf = worker->conf;
-	iot_local_t *local = NULL;
 
 
 	pthread_mutex_lock (&conf->lock);
@@ -1073,13 +1063,9 @@ iot_dequeue (iot_worker_t *worker)
 	queue->prev->next = queue->next;
 
 	stub = queue->stub;
-	local = stub->frame->local;
 
 	worker->queue_size--;
 	worker->dq++;
-
-	/* q_cond */
-	conf->current_size -= local->frame_size;
 
 	pthread_cond_broadcast (&conf->q_cond);
 
