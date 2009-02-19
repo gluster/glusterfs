@@ -58,15 +58,8 @@ struct iot_worker {
   struct iot_conf *conf;
   int64_t q,dq;
   pthread_cond_t dq_cond;
-  /*
-    pthread_cond_t q_cond;
-    pthread_mutex_t lock;
-  */
   int32_t fd_count;
   int32_t queue_size;
-  /*
-    int32_t queue_limit;
-  */
   pthread_t thread;
 };
 
