@@ -230,10 +230,10 @@ _add_fuse_mount (xlator_t *graph)
 	} 
 
 	if (cmd_args->fuse_attribute_timeout)
-		ret = dict_set_uint32 (top->options, ZR_ATTR_TIMEOUT_OPT, 
+		ret = dict_set_double (top->options, ZR_ATTR_TIMEOUT_OPT, 
 				       cmd_args->fuse_attribute_timeout);
 	if (cmd_args->fuse_entry_timeout)
-		ret = dict_set_uint32 (top->options, ZR_ENTRY_TIMEOUT_OPT, 
+		ret = dict_set_double (top->options, ZR_ENTRY_TIMEOUT_OPT, 
 				       cmd_args->fuse_entry_timeout);
 
 #ifdef GF_DARWIN_HOST_OS 
@@ -641,7 +641,8 @@ parse_opts (int key, char *arg, struct argp_state *state)
 {
 	cmd_args_t *cmd_args = NULL;
 	uint32_t    n = 0;
-	
+	double      d = 0.0;
+
 	cmd_args = state->input;
 	
 	switch (key) {
@@ -731,10 +732,11 @@ parse_opts (int key, char *arg, struct argp_state *state)
 		break;
 		
 	case ARGP_ENTRY_TIMEOUT_KEY:
-		n = 0;
+		d = 0.0;
 		
-		if (gf_string2uint_base10 (arg, &n) == 0) {
-			cmd_args->fuse_entry_timeout = n;
+		gf_string2double (arg, &d);
+		if (!(d < 0.0)) {
+			cmd_args->fuse_entry_timeout = d;
 			break;
 		}
 		
@@ -742,10 +744,11 @@ parse_opts (int key, char *arg, struct argp_state *state)
 		break;
 	
 	case ARGP_ATTRIBUTE_TIMEOUT_KEY:
-		n = 0;
-		
-		if (gf_string2uint_base10 (arg, &n) == 0) {
-			cmd_args->fuse_attribute_timeout = n;
+		d = 0.0;
+
+		gf_string2double (arg, &d);
+		if (!(d < 0.0)) {
+			cmd_args->fuse_attribute_timeout = d;
 			break;
 		}
 		

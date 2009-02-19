@@ -70,8 +70,8 @@ struct fuse_private {
         pthread_t            fuse_thread;
         char                 fuse_thread_started;
         uint32_t             direct_io_mode;
-        uint32_t             entry_timeout;
-        uint32_t             attribute_timeout;
+        double               entry_timeout;
+        double               attribute_timeout;
 
 };
 typedef struct fuse_private fuse_private_t;
@@ -2720,15 +2720,15 @@ init (xlator_t *this_xl)
 	priv->mount_point = strdup (value_string);
 	
 	
-	ret = dict_get_uint32 (options, "attribute-timeout", 
+	ret = dict_get_double (options, "attribute-timeout", 
 			       &priv->attribute_timeout);
 	if (!priv->attribute_timeout)
-		priv->attribute_timeout = 1; /* default */
+		priv->attribute_timeout = 1.0; /* default */
 	
-	ret = dict_get_uint32 (options, "entry-timeout", 
+	ret = dict_get_double (options, "entry-timeout", 
 			       &priv->entry_timeout);
 	if (!priv->entry_timeout)
-		priv->entry_timeout = 1; /* default */
+		priv->entry_timeout = 1.0; /* default */
 	
 
 	priv->direct_io_mode = 1;
@@ -2846,14 +2846,10 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_PATH 
 	},
 	{ .key  = {"attribute-timeout"}, 
-	  .type = GF_OPTION_TYPE_TIME, 
-	  .min  = 0, 
-	  .max  = 3600 
+	  .type = GF_OPTION_TYPE_DOUBLE
 	},
 	{ .key  = {"entry-timeout"}, 
-	  .type = GF_OPTION_TYPE_TIME, 
-	  .min  = 0, 
-	  .max  = 3600 
+	  .type = GF_OPTION_TYPE_DOUBLE
 	},
 	{ .key = {NULL} },
 };
