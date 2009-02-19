@@ -796,6 +796,39 @@ _gf_string2uint (const char *str, unsigned int *n, int base)
 }
 
 static int 
+_gf_string2double (const char *str, double *n)
+{
+	double value     = 0.0;
+	char   *tail     = NULL;
+	int    old_errno = 0;
+  
+	if (str == NULL || n == NULL) {
+		errno = EINVAL;
+		return -1;
+	}
+  
+	old_errno = errno;
+	errno = 0;
+	value = strtod (str, &tail);
+  
+	if (errno == ERANGE || errno == EINVAL)	{
+		return -1;
+	}
+  
+	if (errno == 0)	{
+		errno = old_errno;
+	}
+  
+	if (tail[0] != '\0') {
+		return -1;
+	}
+  
+	*n = value;
+  
+	return 0;
+}
+
+static int 
 _gf_string2longlong (const char *str, long long *n, int base)
 {
 	long long value = 0;
@@ -909,6 +942,12 @@ int
 gf_string2uint (const char *str, unsigned int *n)
 {
 	return _gf_string2uint (str, n, 0);
+}
+
+int
+gf_string2double (const char *str, double *n)
+{
+	return _gf_string2double (str, n);
 }
 
 int 
