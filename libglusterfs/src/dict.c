@@ -810,6 +810,31 @@ data_from_uint64 (uint64_t value)
 	return data;
 }
 
+static data_t *
+data_from_double (double value)
+{
+	data_t *data = NULL;
+	int     ret  = 0;
+
+	data = get_new_data ();
+
+	if (!data) {
+		gf_log ("dict", GF_LOG_CRITICAL,
+			"@data - NULL returned by CALLOC");
+		return NULL;
+	}
+
+	ret = asprintf (&data->data, "%f", value);
+	if (ret == -1) {
+		gf_log ("dict", GF_LOG_CRITICAL,
+			"@data - allocation failed by ASPRINTF");
+		return NULL;
+	}
+	data->len = strlen (data->data) + 1;
+
+	return data;
+}
+
 
 data_t *
 data_from_uint32 (uint32_t value)
@@ -1410,6 +1435,34 @@ err:
 	return ret;
 }
 
+static int
+_data_to_double (data_t *data, double *val)
+{
+	int    ret = 0;
+	char * str = NULL;
+
+	if (!data || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	str = alloca (data->len + 1);
+	if (!str) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	memcpy (str, data->data, data->len);
+	str[data->len] = '\0';
+
+	errno = 0;
+	*val = strtod (str, NULL);
+	if (errno != 0)
+		ret = -errno;
+
+err:
+	return ret;
+}
+
 int
 dict_get_int8 (dict_t *this, char *key, int8_t *val)
 {
@@ -1650,6 +1703,7 @@ err:
 }
 
 
+
 int
 dict_set_uint32 (dict_t *this, char *key, uint32_t val)
 {
@@ -1700,6 +1754,48 @@ dict_set_uint64 (dict_t *this, char *key, uint64_t val)
 	int      ret  = 0;
 
 	data = data_from_uint64 (val);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
+	return ret;
+}
+
+int
+dict_get_double (dict_t *this, char *key, double *val)
+{
+	data_t *data = NULL;
+	int     ret  = 0;
+
+	if (!this || !key || !val) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_get_with_ref (this, key, &data);
+	if (ret != 0) {
+		goto err;
+	}
+
+	ret = _data_to_double (data, val);
+    
+err:
+	if (data)
+		data_unref (data);
+	return ret;
+}
+
+int
+dict_set_double (dict_t *this, char *key, double val)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_double (val);
 	if (!data) {
 		ret = -EINVAL;
 		goto err;

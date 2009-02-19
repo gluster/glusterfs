@@ -163,6 +163,9 @@ GF_MUST_CHECK int dict_set_uint32 (dict_t *this, char *key, uint32_t val);
 GF_MUST_CHECK int dict_get_uint64 (dict_t *this, char *key, uint64_t *val);
 GF_MUST_CHECK int dict_set_uint64 (dict_t *this, char *key, uint64_t val);
 
+GF_MUST_CHECK int dict_get_double (dict_t *this, char *key, double *val);
+GF_MUST_CHECK int dict_set_double (dict_t *this, char *key, double val);
+
 GF_MUST_CHECK int dict_set_static_ptr (dict_t *this, char *key, void *ptr);
 GF_MUST_CHECK int dict_get_ptr (dict_t *this, char *key, void **ptr);
 GF_MUST_CHECK int dict_set_ptr (dict_t *this, char *key, void *ptr);
