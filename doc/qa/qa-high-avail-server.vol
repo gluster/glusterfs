@@ -215,7 +215,6 @@ end-volume
 volume server2-iot
  type performance/io-threads
  option thread-count 8
- option cache-size 64MB
  subvolumes server2-unify
 end-volume
 
@@ -330,7 +329,6 @@ end-volume
 volume server3-iot
  type performance/io-threads
  option thread-count 8
- option cache-size 64MB
  subvolumes server3-unify
 end-volume
 
