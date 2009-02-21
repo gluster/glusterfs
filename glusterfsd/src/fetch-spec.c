@@ -249,7 +249,7 @@ fetch_spec (glusterfs_ctx_t *ctx)
 	remote_host = ctx->cmd_args.volfile_server;
 	transport = ctx->cmd_args.volfile_server_transport;
 	if (!transport)
-		transport = "socket";
+		transport = "tcp";
 
 	ret = _fork_and_fetch (ctx, spec_fp, remote_host, transport,
 			       ctx->cmd_args.volfile_server_port);
