@@ -125,7 +125,7 @@ performance/io-cache:
 	* priority	            GF_OPTION_TYPE_ANY 
 	* cache-timeout (force-revalidate-timeout) GF_OPTION_TYPE_INT 0-60 
 	* page-size	            GF_OPTION_TYPE_SIZET  (16 * GF_UNIT_KB)-(4 * GF_UNIT_MB) 
-	* cache-size		    GF_OPTION_TYPE_SIZET  (4 * GF_UNIT_MB)-(6 * GF_UNIT_GB) 
+        * cache-size                GF_OPTION_TYPE_SIZET  (4 * GF_UNIT_MB)-(6 * GF_UNIT_GB)
 
 auth:
 - addr:
