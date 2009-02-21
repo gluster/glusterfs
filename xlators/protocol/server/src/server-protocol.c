@@ -6826,7 +6826,7 @@ mop_getspec (call_frame_t *frame,
 			    &filename);
 	if (ret == 0) {
 		gf_log (trans->xl->name, GF_LOG_WARNING,
-			"option 'client-volume-specfile' is changed to "
+			"option 'client-volume-filename' is changed to "
 			"'volume-filename.<key>' which now takes 'key' as an "
 			"option to choose/fetch different files from server. "
 			"Refer documentation or contact developers for more "
@@ -6844,12 +6844,17 @@ mop_getspec (call_frame_t *frame,
 				key, GLUSTERFSD_SPEC_PATH);
 		} 
 	}
+        
 	if (!filename) {
-		filename = GLUSTERFSD_SPEC_PATH;
-		if (!key)
-			gf_log (trans->xl->name, GF_LOG_WARNING,
-				"using default volume file %s", 
-				GLUSTERFSD_SPEC_PATH);
+		ret = dict_get_str (frame->this->options, 
+                                    "volume-filename.default", &filename);
+		if (ret < 0) {
+			gf_log (trans->xl->name, GF_LOG_DEBUG,
+				"no default volume filename given, "
+                                "defaulting to %s", GLUSTERFSD_SPEC_PATH);
+
+                        filename = GLUSTERFSD_SPEC_PATH;
+                }
 	}
 
 	{
