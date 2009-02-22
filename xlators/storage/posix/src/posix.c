@@ -590,6 +590,7 @@ posix_releasedir (xlator_t *this,
         struct posix_fd * pfd      = NULL;
 	uint64_t          tmp_pfd  = 0;
         int               ret      = 0;
+        xattr_cache_handle_t   handle   = {{0,},0};
 
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
@@ -610,6 +611,9 @@ posix_releasedir (xlator_t *this,
                         fd, pfd->path ? pfd->path : "<NULL>");
                 goto out;
         }
+
+        handle.fd = fd;
+        posix_xattr_cache_flush (this, &handle);
 
         ret = closedir (pfd->dir);
         if (ret == -1) {
