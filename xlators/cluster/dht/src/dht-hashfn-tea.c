@@ -104,10 +104,6 @@ dht_hashfn_tea (const char *msg, int len)
 		tearound (PARTROUNDS, &array[0], &h0, &h1);
 	}
 
-	if ((len % 16) == 0) {
-		goto done;
-	}
-
 	for (j = 0; j < 4; j++) {
 		if (full_words) {
 			word     = *intmsg;
@@ -126,7 +122,6 @@ dht_hashfn_tea (const char *msg, int len)
 	}
 	tearound (FULLROUNDS, &array[0], &h0, &h1);
 
-done:
 	return h0 ^ h1;
 }
 
