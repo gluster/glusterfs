@@ -416,6 +416,18 @@ typedef int32_t (*fop_fxattrop_cbk_t) (call_frame_t *frame,
 				       int32_t op_errno,
 				       dict_t *xattr);
 
+typedef int32_t (*fop_lock_notify_cbk_t) (call_frame_t *frame,
+                                          void *cookie,
+                                          xlator_t *this,
+                                          int32_t op_ret,
+                                          int32_t op_errno);
+
+typedef int32_t (*fop_lock_fnotify_cbk_t) (call_frame_t *frame,
+                                           void *cookie,
+                                           xlator_t *this,
+                                           int32_t op_ret,
+                                           int32_t op_errno);
+
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *loc,
@@ -635,6 +647,14 @@ typedef int32_t (*fop_fxattrop_t) (call_frame_t *frame,
 				   gf_xattrop_flags_t optype,
 				   dict_t *xattr);
 
+typedef int32_t (*fop_lock_notify_t) (call_frame_t *frame,
+                                      xlator_t *this, loc_t *loc,
+                                      int32_t timeout);
+
+typedef int32_t (*fop_lock_fnotify_t) (call_frame_t *frame,
+                                       xlator_t *this, fd_t *fd,
+                                       int32_t timeout);
+
 struct xlator_fops {
 	fop_lookup_t         lookup;
 	fop_stat_t           stat;
@@ -677,7 +697,9 @@ struct xlator_fops {
 	fop_getdents_t       getdents;
 	fop_checksum_t       checksum;
 	fop_xattrop_t        xattrop;
-	fop_fxattrop_t        fxattrop;
+	fop_fxattrop_t       fxattrop;
+	fop_lock_notify_t    lock_notify;
+	fop_lock_fnotify_t   lock_fnotify;
 
 	/* these entries are used for a typechecking hack in STACK_WIND _only_ */
 	fop_lookup_cbk_t         lookup_cbk;
@@ -722,6 +744,8 @@ struct xlator_fops {
 	fop_checksum_cbk_t       checksum_cbk;
 	fop_xattrop_cbk_t        xattrop_cbk;
 	fop_fxattrop_cbk_t       fxattrop_cbk;
+	fop_lock_notify_cbk_t    lock_notify_cbk;
+	fop_lock_fnotify_cbk_t   lock_fnotify_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,

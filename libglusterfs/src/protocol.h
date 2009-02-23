@@ -651,6 +651,20 @@ typedef struct {
 
 
 typedef struct {
+	uint64_t  ino;
+	int32_t   timeout;
+} __attribute__((packed)) gf_fop_lock_notify_req_t;
+typedef struct { } __attribute__((packed)) gf_fop_lock_notify_rsp_t;
+
+
+typedef struct {
+	int64_t   fd;
+	int32_t   timeout;
+} __attribute__((packed)) gf_fop_lock_fnotify_req_t;
+typedef struct { } __attribute__((packed)) gf_fop_lock_fnotify_rsp_t;
+
+
+typedef struct {
 	char name[0];
 } __attribute__((packed)) gf_mop_lock_req_t;
 typedef struct {} __attribute__((packed)) gf_mop_lock_rsp_t;

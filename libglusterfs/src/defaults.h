@@ -256,6 +256,15 @@ int32_t default_fxattrop (call_frame_t *frame,
 			  gf_xattrop_flags_t flags,
 			  dict_t *dict);
 
+int32_t
+default_lock_notify (call_frame_t *frame, xlator_t *this,
+                     loc_t *loc, int32_t timeout);
+
+int32_t
+default_lock_fnotify (call_frame_t *frame, xlator_t *this,
+                      fd_t *fd, int32_t timeout);
+
+
 int32_t default_notify (xlator_t *this,
 			int32_t event,
 			void *data,
