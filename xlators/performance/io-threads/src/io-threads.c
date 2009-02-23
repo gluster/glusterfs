@@ -1027,17 +1027,19 @@ iot_queue (iot_worker_t *worker,
 	queue->stub = stub;
 
         pthread_mutex_lock (&worker->qlock);
-        queue->next = &worker->queue;
-        queue->prev = worker->queue.prev;
+        {
+                queue->next = &worker->queue;
+                queue->prev = worker->queue.prev;
 
-        queue->next->prev = queue;
-        queue->prev->next = queue;
+                queue->next->prev = queue;
+                queue->prev->next = queue;
 
-        /* dq_cond */
-        worker->queue_size++;
-        worker->q++;
+                /* dq_cond */
+                worker->queue_size++;
+                worker->q++;
 
-        pthread_cond_broadcast (&worker->dq_cond);
+                pthread_cond_broadcast (&worker->dq_cond);
+        }
 	pthread_mutex_unlock (&worker->qlock);
 }
 
@@ -1048,17 +1050,19 @@ iot_dequeue (iot_worker_t *worker)
 	iot_queue_t *queue = NULL;
 
 	pthread_mutex_lock (&worker->qlock);
-        while (!worker->queue_size)
-	       pthread_cond_wait (&worker->dq_cond, &worker->qlock);
+        {
+                while (!worker->queue_size)
+                        pthread_cond_wait (&worker->dq_cond, &worker->qlock);
 
-        queue = worker->queue.next;
-        queue->next->prev = queue->prev;
-        queue->prev->next = queue->next;
+                queue = worker->queue.next;
+                queue->next->prev = queue->prev;
+                queue->prev->next = queue->next;
 
-        stub = queue->stub;
+                stub = queue->stub;
 
-        worker->queue_size--;
-        worker->dq++;
+                worker->queue_size--;
+                worker->dq++;
+        }
 	pthread_mutex_unlock (&worker->qlock);
 
 	FREE (queue);
