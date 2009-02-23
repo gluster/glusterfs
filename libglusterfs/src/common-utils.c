@@ -207,6 +207,8 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_FENTRYLK]    = "FENTRYLK";   /* 40 */
 	gf_fop_list[GF_FOP_CHECKSUM]    = "CHECKSUM";   /* 41 */   
 	gf_fop_list[GF_FOP_XATTROP]     = "XATTROP";
+	gf_fop_list[GF_FOP_LOCK_NOTIFY] = "LOCK_NOTIFY";
+	gf_fop_list[GF_FOP_LOCK_FNOTIFY]= "LOCK_FNOTIFY";
 
 	gf_mop_list[GF_MOP_SETVOLUME]   = "SETVOLUME"; /* 0 */
 	gf_mop_list[GF_MOP_GETVOLUME]   = "GETVOLUME"; /* 1 */

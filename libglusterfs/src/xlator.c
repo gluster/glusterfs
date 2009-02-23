@@ -95,7 +95,9 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (checksum);
 	SET_DEFAULT_FOP (xattrop);
 	SET_DEFAULT_FOP (fxattrop);
-
+	SET_DEFAULT_FOP (lock_notify);
+	SET_DEFAULT_FOP (lock_fnotify);
+	
 	SET_DEFAULT_MOP (stats);
 
 	SET_DEFAULT_CBK (release);

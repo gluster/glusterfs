@@ -1337,6 +1337,51 @@ default_readdir (call_frame_t *frame,
 	return 0;
 }
 
+
+int32_t
+default_lock_notify_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			 int32_t op_ret, int32_t op_errno)
+{
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t
+default_lock_fnotify_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			  int32_t op_ret, int32_t op_errno)
+{
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t
+default_lock_notify (call_frame_t *frame, xlator_t *this, 
+		     loc_t *loc, int32_t timeout)
+{
+	STACK_WIND (frame, 
+		    default_lock_notify_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->lock_notify,
+		    loc, timeout);
+	return 0;
+}
+
+
+int32_t
+default_lock_fnotify (call_frame_t *frame, xlator_t *this, 
+		      fd_t *fd, int32_t timeout)
+{
+	STACK_WIND (frame, 
+		    default_lock_notify_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->lock_fnotify,
+		    fd, timeout);
+	return 0;
+}
+
+
 /* notify */
 int32_t
 default_notify (xlator_t *this,

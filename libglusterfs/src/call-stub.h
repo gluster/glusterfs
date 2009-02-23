@@ -567,6 +567,29 @@ typedef struct {
 			int32_t op_errno;
 			dict_t *xattr;
 		} fxattrop_cbk;
+
+		struct {
+			fop_lock_notify_t fn;
+			loc_t loc;
+			int32_t timeout;
+		} lock_notify;
+		struct {
+			fop_lock_notify_cbk_t fn;
+			int32_t op_ret;
+			int32_t op_errno;
+		} lock_notify_cbk;
+
+		struct {
+			fop_lock_fnotify_t fn;
+			fd_t *fd;
+			int32_t timeout;
+		} lock_fnotify;
+		struct {
+			fop_lock_fnotify_cbk_t fn;
+			int32_t op_ret;
+			int32_t op_errno;
+		} lock_fnotify_cbk;
+
 	} args;
 } call_stub_t;
 
@@ -1098,6 +1121,30 @@ fop_fxattrop_stub_cbk_stub (call_frame_t *frame,
 			    fop_xattrop_cbk_t fn,
 			    int32_t op_ret,
 			    int32_t op_errno);
+
+call_stub_t *
+fop_lock_notify_stub_cbk_stub (call_frame_t *frame,
+			       fop_lock_notify_cbk_t fn,
+			       int32_t op_ret,
+			       int32_t op_errno);
+
+call_stub_t *
+fop_lock_notify_stub (call_frame_t *frame,
+		      fop_lock_notify_t fn,
+		      loc_t *loc,
+		      int32_t timeout);
+
+call_stub_t *
+fop_lock_fnotify_stub_cbk_stub (call_frame_t *frame,
+				fop_lock_fnotify_cbk_t fn,
+				int32_t op_ret,
+				int32_t op_errno);
+
+call_stub_t *
+fop_lock_fnotify_stub (call_frame_t *frame,
+		       fop_lock_fnotify_t fn,
+		       fd_t *fd,
+		       int32_t timeout);
 
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);

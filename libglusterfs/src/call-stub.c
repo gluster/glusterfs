@@ -2062,6 +2062,91 @@ fop_fxattrop_stub (call_frame_t *frame,
 }
 
 
+call_stub_t *
+fop_lock_notify_cbk_stub (call_frame_t *frame, fop_lock_notify_cbk_t fn,
+                          int32_t op_ret, int32_t op_errno)
+{
+	call_stub_t *stub = NULL;
+
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+	
+	stub = stub_new (frame, 0, GF_FOP_LOCK_NOTIFY);
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	stub->args.lock_notify_cbk.fn       = fn;
+	stub->args.lock_notify_cbk.op_ret   = op_ret;
+	stub->args.lock_notify_cbk.op_errno = op_errno;
+
+out:
+	return stub;
+}
+
+
+call_stub_t *
+fop_lock_notify_stub (call_frame_t *frame, fop_lock_notify_t fn,
+		      loc_t *loc, int32_t timeout)
+{
+	call_stub_t *stub = NULL;
+
+	if (!frame)
+		return NULL;
+
+	stub = stub_new (frame, 1, GF_FOP_LOCK_NOTIFY);
+	if (!stub)
+		return NULL;
+
+	stub->args.lock_notify.fn = fn;
+	
+	loc_copy (&stub->args.lock_notify.loc, loc);
+
+	stub->args.lock_notify.timeout = timeout;
+
+	return stub;
+}
+
+
+call_stub_t *
+fop_lock_fnotify_cbk_stub (call_frame_t *frame, fop_lock_fnotify_cbk_t fn,
+                           int32_t op_ret, int32_t op_errno)
+{
+	call_stub_t *stub = NULL;
+
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+	
+	stub = stub_new (frame, 0, GF_FOP_LOCK_FNOTIFY);
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	stub->args.lock_fnotify_cbk.fn       = fn;
+	stub->args.lock_fnotify_cbk.op_ret   = op_ret;
+	stub->args.lock_fnotify_cbk.op_errno = op_errno;
+
+out:
+	return stub;
+}
+
+
+call_stub_t *
+fop_lock_fnotify_stub (call_frame_t *frame, fop_lock_fnotify_t fn,
+		       fd_t *fd, int32_t timeout)
+{
+	call_stub_t *stub = NULL;
+
+	if (!frame)
+		return NULL;
+
+	stub = stub_new (frame, 1, GF_FOP_LOCK_FNOTIFY);
+	if (!stub)
+		return NULL;
+
+	stub->args.lock_fnotify.fn = fn;
+
+	stub->args.lock_fnotify.fd      = fd_ref (fd);
+	stub->args.lock_fnotify.timeout = timeout;
+
+	return stub;
+}
+
+
 static void
 call_resume_wind (call_stub_t *stub)
 {
@@ -2456,6 +2541,22 @@ call_resume_wind (call_stub_t *stub)
 					stub->args.fxattrop.optype,
 					stub->args.fxattrop.xattr);
 
+		break;
+	}
+	case GF_FOP_LOCK_NOTIFY:
+	{
+		stub->args.lock_notify.fn (stub->frame,
+					   stub->frame->this,
+					   &stub->args.lock_notify.loc,
+					   stub->args.lock_notify.timeout);
+		break;
+	}
+	case GF_FOP_LOCK_FNOTIFY:
+	{
+		stub->args.lock_fnotify.fn (stub->frame,
+					    stub->frame->this,
+					    stub->args.lock_fnotify.fd,
+					    stub->args.lock_fnotify.timeout);
 		break;
 	}
 	default:
@@ -3232,6 +3333,34 @@ call_resume_unwind (call_stub_t *stub)
 
 		break;
 	}
+	case GF_FOP_LOCK_NOTIFY:
+	{
+		if (!stub->args.lock_notify_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.lock_notify_cbk.op_ret,
+				      stub->args.lock_notify_cbk.op_errno);
+		else
+			stub->args.lock_notify_cbk.fn (stub->frame,
+						       stub->frame->cookie,
+						       stub->frame->this,
+						       stub->args.lock_notify_cbk.op_ret,
+						       stub->args.lock_notify_cbk.op_errno);
+		break;
+	}
+	case GF_FOP_LOCK_FNOTIFY:
+	{
+		if (!stub->args.lock_fnotify_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.lock_fnotify_cbk.op_ret,
+				      stub->args.lock_fnotify_cbk.op_errno);
+		else
+			stub->args.lock_fnotify_cbk.fn (stub->frame,
+							stub->frame->cookie,
+							stub->frame->this,
+							stub->args.lock_fnotify_cbk.op_ret,
+							stub->args.lock_fnotify_cbk.op_errno);
+		break;
+	}
 	case GF_FOP_MAXVALUE:
 	{
 		gf_log ("call-stub",
@@ -3538,6 +3667,17 @@ call_stub_destroy_wind (call_stub_t *stub)
 		if (stub->args.fxattrop.fd)
 			fd_unref (stub->args.fxattrop.fd);
 		dict_unref (stub->args.xattrop.xattr);
+		break;
+	}
+	case GF_FOP_LOCK_NOTIFY:
+	{
+		loc_wipe (&stub->args.lock_notify.loc);
+		break;
+	}
+	case GF_FOP_LOCK_FNOTIFY:
+	{
+		if (stub->args.lock_fnotify.fd)
+			fd_unref (stub->args.lock_fnotify.fd);
 		break;
 	}
 	case GF_FOP_MAXVALUE:
