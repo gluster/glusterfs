@@ -50,8 +50,6 @@
 #include "inode.h"
 #include "compat.h"
 
-#include "xattr-cache.h"
-
 /**
  * posix_fd - internal structure common to file and directory fd's
  */
@@ -67,8 +65,6 @@ struct posix_private {
 	char   *base_path;
 	int32_t base_path_length;
 	dev_t   base_stdev;
-
-	xattr_cache_t *xattr_cache;
 
         /* Statistics, provides activity of the server */
 	struct xlator_stats stats; 
