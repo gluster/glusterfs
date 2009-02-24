@@ -455,26 +455,56 @@ client_ping_timer_expired (void *data)
 	transport_t         *trans = NULL;
 	client_conf_t       *conf = NULL;
 	client_connection_t *conn = NULL;
-
+	int                  disconnect = 0;
+	int                  transport_activity = 0;
+	struct timeval       timeout = {0, };
+	struct timeval       current = {0, };
+	
 	trans = data;
 	this  = trans->xl;
 	conf  = this->private;
 	conn  = trans->xl_private;
-
-	gf_log (this->name, GF_LOG_ERROR, 
-		"ping timer expired! bailing transport");
 
 	pthread_mutex_lock (&conn->lock);
 	{
 		if (conn->ping_timer)
 			gf_timer_call_cancel (trans->xl->ctx, 
 					      conn->ping_timer);
+		gettimeofday (&current, NULL);
 
-		conn->ping_started = 0;
-		conn->ping_timer = NULL;
+		if ((current.tv_sec - conn->last_received.tv_sec) < 
+		    conn->ping_timeout) {
+			transport_activity = 1;
+		}
+
+		if (transport_activity) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"ping timer expired but transport activity "
+				"detected - not bailing transport");
+			conn->transport_activity = 0;
+			timeout.tv_sec = conn->ping_timeout;
+			timeout.tv_usec = 0;
+
+			conn->ping_timer = 
+				gf_timer_call_after (trans->xl->ctx, timeout,
+						     client_ping_timer_expired,
+						     (void *) trans);
+			if (conn->ping_timer == NULL) 
+				gf_log (this->name, GF_LOG_ERROR,
+					"unable to setup timer");
+
+		} else {
+			conn->ping_started = 0;
+			conn->ping_timer = NULL;
+			disconnect = 1;
+		}
 	}
 	pthread_mutex_unlock (&conn->lock);
-	transport_disconnect (trans);
+	if (disconnect) {
+		gf_log (this->name, GF_LOG_ERROR, 
+			"ping timer expired! bailing transport");
+		transport_disconnect (trans);
+	}
 }
 
 
@@ -531,8 +561,9 @@ client_start_ping (void *data)
 		if (conn->ping_timer == NULL) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"unable to setup timer");
-		} else
+		} else {
 			conn->ping_started = 1;
+		}
 	}
 	pthread_mutex_unlock (&conn->lock);
 
@@ -6174,7 +6205,9 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 	uint64_t callid = 0;
 	int type = -1;
 	int op = -1;
+	client_connection_t *conn = NULL;
 
+	conn  = trans->xl_private;
 
 	hdr  = (gf_hdr_common_t *)hdr_p;
 

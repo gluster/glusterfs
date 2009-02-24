@@ -90,6 +90,7 @@ struct client_connection {
 	int32_t              transport_timeout;
 	int32_t              ping_started;
 	int32_t              ping_timeout;
+	int32_t              transport_activity;
 	gf_timer_t          *reconnect;
 	char                 connected;
 	uint64_t             max_block_size;
