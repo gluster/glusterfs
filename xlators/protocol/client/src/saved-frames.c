@@ -87,9 +87,9 @@ saved_frames_put (struct saved_frames *frames, call_frame_t *frame,
 	saved_frame->type   = type;
 	saved_frame->callid = callid;
 
-//	gettimeofday (&saved_frame->saved_at, NULL);
+	gettimeofday (&saved_frame->saved_at, NULL);
 
-	list_add (&saved_frame->list, &head_frame->list);
+	list_add_tail (&saved_frame->list, &head_frame->list);
 	frames->count++;
 
 	return 0;
@@ -124,6 +124,26 @@ saved_frames_get (struct saved_frames *frames, int32_t op,
 	return frame;
 }
 
+struct saved_frame *
+saved_frames_get_timedout (struct saved_frames *frames, int8_t type, 
+			   uint32_t timeout, struct timeval *current)
+{
+	struct saved_frame *bailout_frame = NULL, *tmp = NULL;
+	struct saved_frame *head_frame = NULL;
+
+	head_frame = get_head_frame_for_type (frames, type);
+
+	if (!list_empty(&head_frame->list)) {
+		tmp = list_entry (head_frame->list.next, typeof (*tmp), list);
+		if ((tmp->saved_at.tv_sec + timeout) < current->tv_sec) {
+			bailout_frame = tmp;
+			list_del_init (&bailout_frame->list);
+			frames->count--;
+		}
+	}
+
+	return bailout_frame;
+}
 
 void
 saved_frames_unwind (xlator_t *this, struct saved_frames *saved_frames,

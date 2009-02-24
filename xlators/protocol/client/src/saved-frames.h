@@ -67,6 +67,11 @@ int saved_frames_put (struct saved_frames *frames, call_frame_t *frame,
 		      int32_t op, int8_t type, int64_t callid);
 call_frame_t *saved_frames_get (struct saved_frames *frames, int32_t op,
 				int8_t type, int64_t callid);
+
+struct saved_frame *
+saved_frames_get_timedout (struct saved_frames *frames, int8_t type, 
+			   uint32_t timeout, struct timeval *current);
+
 void saved_frames_destroy (xlator_t *this, struct saved_frames *frames,
 			   gf_op_t gf_fops[], gf_op_t gf_mops[],
 			   gf_op_t gf_cbks[]);
