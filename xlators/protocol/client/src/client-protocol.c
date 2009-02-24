@@ -43,7 +43,7 @@
 /* for default_*_cbk functions */
 #include "defaults.c"
 #include "saved-frames.h"
-
+#include "common-utils.h"
 
 int protocol_client_cleanup (transport_t *trans);
 int protocol_client_interpret (xlator_t *this, transport_t *trans,
@@ -255,8 +255,18 @@ call_bail (void *data)
 {
 	client_connection_t *conn = NULL;
 	struct timeval       current;
-	int32_t              bail_out = 0;
 	transport_t         *trans = NULL;
+	struct list_head     list;
+	struct saved_frame  *saved_frame = NULL;
+	struct saved_frame   *trav = NULL;
+	struct saved_frame   *tmp = NULL;
+	call_frame_t         *frame = NULL;
+	gf_hdr_common_t       hdr = {0, };
+	dict_t               *reply = NULL;
+	char                **gf_op_list = NULL;
+	gf_op_t              *gf_ops = NULL;
+	struct tm             frame_sent_tm;
+	char                  frame_sent[32] = {0,};
 
 	GF_VALIDATE_OR_GOTO("client", data, out);
 	trans = data;
@@ -264,6 +274,8 @@ call_bail (void *data)
 	conn = trans->xl_private;
 
 	gettimeofday (&current, NULL);
+	INIT_LIST_HEAD (&list);
+
 	pthread_mutex_lock (&conn->lock);
 	{
 		/* Chaining to get call-always functionality from 
@@ -277,55 +289,93 @@ call_bail (void *data)
 
 			gf_timer_call_cancel (trans->xl->ctx, conn->timer);
 			conn->timer = gf_timer_call_after (trans->xl->ctx,
-							       timeout,
-							       timer_cbk,
-							       trans);
+							   timeout,
+							   timer_cbk,
+							   trans);
 			if (conn->timer == NULL) {
 				gf_log (trans->xl->name, GF_LOG_DEBUG,
 					"Cannot create bailout timer");
 			}
 		}
 
-		if (((conn->saved_frames->count > 0) &&
-		     (RECEIVE_TIMEOUT(conn, current)) && 
-		     (SEND_TIMEOUT(conn, current)))) {
+		/* TODO while(1) is not nice - use splice */
 
-			struct tm last_sent_tm, last_received_tm;
-			char last_sent[32] = {0,}, last_received[32] = {0,};
+		do {
+			saved_frame = 
+			saved_frames_get_timedout (conn->saved_frames,
+						   GF_OP_TYPE_MOP_REQUEST,
+						   conn->transport_timeout,
+						   &current);
+			if (saved_frame)
+				list_add (&saved_frame->list, &list);
+			
+		} while (saved_frame);
 
-			bail_out = 1;
-			
-			localtime_r (&conn->last_sent.tv_sec, 
-				     &last_sent_tm);
-			localtime_r (&conn->last_received.tv_sec, 
-				     &last_received_tm);
-			
-			strftime (last_sent, 32, 
-				  "%Y-%m-%d %H:%M:%S", &last_sent_tm);
-			strftime (last_received, 32, 
-				  "%Y-%m-%d %H:%M:%S", &last_received_tm);
-			
-			gf_log (trans->xl->name, GF_LOG_ERROR,
-				"activating bail-out. pending frames = %d. "
-				"last sent = %s. last received = %s. "
-				"transport-timeout = %d",
-				(int32_t) conn->saved_frames->count,
-				last_sent, last_received,
-				conn->transport_timeout);
-		}
+		do {
+			saved_frame = 
+			saved_frames_get_timedout (conn->saved_frames,
+						   GF_OP_TYPE_FOP_REQUEST,
+						   conn->transport_timeout,
+						   &current);
+			if (saved_frame)
+				list_add (&saved_frame->list, &list);
+		} while (saved_frame);
+
+		do {
+			saved_frame = 
+			saved_frames_get_timedout (conn->saved_frames,
+						   GF_OP_TYPE_CBK_REQUEST,
+						   conn->transport_timeout,
+						   &current);
+			if (saved_frame)
+				list_add (&saved_frame->list, &list);
+		} while (saved_frame);
 	}
-
-	if (bail_out) {
-		conn->ping_started = 0;
-	}
-
 	pthread_mutex_unlock (&conn->lock);
 
-	if (bail_out) {
-		gf_log (trans->xl->name, GF_LOG_CRITICAL,
-			"bailing transport");
-		transport_disconnect (trans);
+	reply = get_new_dict();
+	dict_ref (reply);
+
+	hdr.rsp.op_ret   = hton32 (-1);
+	hdr.rsp.op_errno = hton32 (ENOTCONN);
+
+	list_for_each_entry_safe (trav, tmp, &list, list) {
+		switch (trav->type)
+		{
+		case GF_OP_TYPE_FOP_REQUEST:
+			gf_ops = gf_fops;
+			gf_op_list = gf_fop_list;
+			break;
+		case GF_OP_TYPE_MOP_REQUEST:
+			gf_ops = gf_mops;
+			gf_op_list = gf_mop_list;
+			break;
+		case GF_OP_TYPE_CBK_REQUEST:
+			gf_ops = gf_cbks;
+			gf_op_list = gf_cbk_list;
+			break;
+		}
+
+		localtime_r (&trav->saved_at.tv_sec, &frame_sent_tm);
+		strftime (frame_sent, 32, "%Y-%m-%d %H:%M:%S", &frame_sent_tm);
+
+		gf_log (trans->xl->name, GF_LOG_ERROR,
+			"activating bail-out :"
+			"frame sent = %s. transport-timeout = %d",
+			frame_sent, conn->transport_timeout);
+
+		hdr.type = hton32 (trav->type);
+		hdr.op   = hton32 (trav->op);
+
+		frame = trav->frame;
+		frame->root->rsp_refs = reply;
+
+		gf_ops[trav->op] (frame, &hdr, sizeof (hdr), NULL, 0);
+
+		list_del_init (&trav->list);
+		FREE (trav);
 	}
+	dict_unref (reply);
 out:
 	return;
 }
@@ -397,7 +447,6 @@ client_get_forgets (xlator_t *this, client_forget_t *forget)
  out:
 	return ret;
 }
-
 
 void 
 client_ping_timer_expired (void *data)
