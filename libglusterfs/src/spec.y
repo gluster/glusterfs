@@ -27,6 +27,8 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 	 
 #include "xlator.h"
 #include "logging.h"
@@ -41,7 +43,7 @@ static void type_error (void);
 static void option_error (void);
 
 #define YYSTYPE char *
-#define GF_CMD_BUFFER_LEN (32 * GF_UNIT_KB)
+#define GF_CMD_BUFFER_LEN (8 * GF_UNIT_KB) 
 
 int yyerror (const char *);
 int yylex ();
@@ -426,112 +428,136 @@ yyerror (const char *str)
 }
 
 static int
-execute_cmd (char *cmd, char *result, int size)
+execute_cmd (char *cmd, char **result, size_t size)
 {
 	FILE *fpp = NULL;
-	int ret = 0;
+	int i = 0, status = 0;
+	char character = 0;
+	char *buf = *result;
 
 	fpp = popen (cmd, "r");
-	if (!fpp)
-	{
+	if (!fpp) {
 		gf_log ("parser", GF_LOG_ERROR, "%s: failed to popen", cmd);
 		return -1;
 	}
 
-	if (!fgets (result, GF_UNIT_KB, fpp))
-	{
-		gf_log ("parser", GF_LOG_ERROR, "failed to read output of cmd (%s)", cmd);
-		pclose (fpp);
-		return -1;
+	while ((character = fgetc (fpp)) != EOF) {
+		if (i == size) {
+			size *= 2;
+			buf = *result = realloc (*result, size);
 	}
 
-	ret = strlen (result);
-	result[ret - 1] = '\0';
-	ret--;
-	pclose (fpp);
+		buf[i++] = character;
+	}
 
-	return ret;
+	if (i > 0) {
+		i--;
+		buf[i] = '\0';
+	}
+	
+	status = pclose (fpp);
+	if (status == -1 || !WIFEXITED (status) || 
+	    ((WEXITSTATUS (status)) != 0)) {
+		i = -1;
+		buf[0] = '\0';
+	}
+
+	return i;
 }
 
 static int
-find_and_execute_cmds (char *src, char *dst)
+parse_backtick (FILE *srcfp, FILE *dstfp)
 {
-	char escaped = 0;
-	char *cmd = NULL;
-	char in_backtick = 0;
-	int size = 0, ret = 0;
+	int ret = 0, i = 0;
+	char *cmd = NULL, *result = NULL;
+	size_t cmd_buf_size = GF_CMD_BUFFER_LEN;
+	char escaped = 0, in_backtick = 0, character = 0;
+	int line = 1, column = 0, backtick_line = 0, backtick_column = 0;
 
-	if (!src || !dst) {
-		ret = -1;
-		goto out;
-	}
+	fseek (srcfp, 0L, SEEK_SET);
+	fseek (dstfp, 0L, SEEK_SET);
 
-	while (*src) {
-		if (*src == '`' && !escaped) {
+	cmd = CALLOC (cmd_buf_size, 1);
+        if (cmd == NULL) {
+                return -1;
+        }
+
+	result = CALLOC (cmd_buf_size * 2, 1);
+        if (result == NULL) {
+                return -1;
+        }
+
+	while ((character = fgetc (srcfp)) != EOF) {
+		if ((character == '`') && !escaped) {
 			if (in_backtick) {
-				*src = '\0';
-				ret = execute_cmd (cmd, dst, GF_UNIT_KB);
+				cmd[i] = '\0';
+				result[0] = '\0';
+
+				ret = execute_cmd (cmd, &result,
+                                                   2 * cmd_buf_size);
 				if (ret < 0) {
 					ret = -1;
-					size = -1;
 					goto out;
 				}
-
-				dst += ret;
-				size += ret;
+				fwrite (result, ret, 1, dstfp);
 			} else {
-				cmd = src + 1;
+				i = 0;
+				cmd[i] = '\0';
+				
+				backtick_column = column;
+				backtick_line = line;
 			}
 			
 			in_backtick = !in_backtick;
-		} else if (!in_backtick) {
-			*dst++ = *src;
-			size++;
-		}
+		} else {
+			if (in_backtick) {
+				if (i == cmd_buf_size) {
+					cmd_buf_size *= 2;
+					cmd = realloc (cmd, cmd_buf_size);
+                                        if (cmd == NULL) {
+                                                return -1;
+                                        }
 
-		if (*src == '\\') {
+					result = realloc (result,
+                                                          2 * cmd_buf_size);
+                                        if (result == NULL) {
+                                                return -1;
+                                        }
+                                }
+                                
+				cmd[i++] = character;
+                        } else {
+				fputc (character, dstfp);
+                        }
+                }
+                
+		if (character == '\\') {
 			escaped = !escaped;
 		} else {
 			escaped = 0;
-		}
-
-		src++;
-	}
-
-out:
-	return size;
-}
+                }
 		
-
-static int 
-parse_backtick (FILE *srcfp, FILE *dstfp)
-{
-	char srcbuf[8 * GF_UNIT_KB] = {0, };
-	char *dstbuf = NULL;
-	int ret = 0;
-	int size = 0;
-
-	dstbuf = calloc (32 * GF_UNIT_KB, 1);
-
-	fseek (srcfp, 0L, SEEK_SET);
-	fseek (dstfp, 0L, SEEK_SET);
-
-	while (!feof (srcfp)) {
-		if (fgets (srcbuf, 8 * GF_UNIT_KB, srcfp) == NULL) {
-			break;
+		if (character == '\n') {
+			line++;
+			column = 0;
+		} else {
+			column++;
 		}
-
-		size = find_and_execute_cmds (srcbuf, dstbuf);
-		if (size < 0) {
-			ret = -1;
-			break;
-		}
-		fwrite (dstbuf, size, 1, dstfp);
+        }
+        
+	if (in_backtick) {
+		gf_log ("parser", GF_LOG_ERROR,
+			"Unterminated backtick in volume specfication file at line (%d), column (%d).", 
+			line, column);
+                ret = -1;
 	} 
-
+        
+out:
 	fseek (srcfp, 0L, SEEK_SET);
 	fseek (dstfp, 0L, SEEK_SET);
-	FREE (dstbuf);
+	free (cmd);
+	free (result);
+        
 	return ret;
 }
 
@@ -543,42 +569,12 @@ file_to_xlator_tree (glusterfs_ctx_t *ctx,
         int32_t ret = 0;
         xlator_t *tmp_tree = NULL;
 	FILE *tmp_file = NULL;
-	int fd = -1, tmp_fd = -1;
-	struct stat stbuf = {0, };
 	char *buffer = NULL;
 
 	tmp_file = tmpfile ();
 	if (NULL == tmp_file) {
 		gf_log ("parser", GF_LOG_ERROR,
 			"cannot create temparory file");
-		return NULL;
-	}
-
-	fd = fileno (fp);
-	if (fd == -1) {
-		gf_log ("parser", GF_LOG_ERROR,
-			"cannot get file descriptor from volume specification file stream pointer");
-		fclose (tmp_file);
-		return NULL;
-	}
-
-	ret = fstat (fd, &stbuf);
-	if (ret == -1) {
-		gf_log ("parser", GF_LOG_ERROR,
-			"getting the size of volume specification file failed");
-		fclose (tmp_file);
-		return NULL;
-	}
-
-	buffer = calloc (stbuf.st_size + GF_CMD_BUFFER_LEN, 1);
-
-	tmp_fd = fileno (tmp_file);
-	if (!mmap (buffer, stbuf.st_size + GF_CMD_BUFFER_LEN, 
-		   PROT_NONE, 0, tmp_fd, 0)) {
-		gf_log ("parser", GF_LOG_ERROR,
-			"mmap of volume specification file failed");
-		fclose (tmp_file);
-		FREE (buffer);
 		return NULL;
 	}
 
@@ -590,7 +586,7 @@ file_to_xlator_tree (glusterfs_ctx_t *ctx,
 		FREE (buffer);
 		return NULL;
 	}
-
+	gf_log_volume_file (tmp_file); 
         gctx = ctx;
         yyin = tmp_file;
         ret = yyparse ();

@@ -1036,7 +1036,6 @@ main (int argc, char *argv[])
 		return -1;
 	}
 	_gf_dump_details (argc, argv);
-	gf_log_volume_file (specfp); 
 	if ((graph = _parse_specfp (ctx, specfp)) == NULL) {
 		/* _parse_specfp() prints necessary error message */
 		fprintf (stderr, "exiting\n");
