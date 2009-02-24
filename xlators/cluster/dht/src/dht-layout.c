@@ -425,6 +425,7 @@ int
 dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 {
 	int          ret   = 0;
+	int          i = 0;
 	uint32_t     holes = 0;
 	uint32_t     overlaps = 0;
 	uint32_t     missing = 0;
@@ -460,6 +461,19 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 				loc->path, holes, overlaps);
 		}
 		ret = 1;
+	}
+
+	for (i = 0; i < layout->cnt; i++) {
+	/* TODO During DHT selfheal rewrite (almost) find a better place to 
+	 * detect this - probably in dht_layout_anomalies() 
+	 */
+		if (layout->list[i].err == ENOENT) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"path=%s ENOENT - directory entry"
+				" should be created in selfheal", loc->path);
+			ret = 1;
+			break;
+		}
 	}
 
 out:
