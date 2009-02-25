@@ -1086,7 +1086,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
 
         if (size) 
         {
-                plugin_ctx->buf = MALLOC (size);
+                plugin_ctx->buf = malloc (size);
                 /* ERR_ABORT (plugin_ctx->buf); */
         }
 
