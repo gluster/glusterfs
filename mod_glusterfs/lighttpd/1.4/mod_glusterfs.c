@@ -894,7 +894,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
 
         if (size) 
         {
-                plugin_ctx->buf = MALLOC (size);
+                plugin_ctx->buf = malloc (size);
                 /* ERR_ABORT (plugin_ctx->buf); */
         }
 
@@ -1516,7 +1516,7 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
                 if (ctrl.size == 0) {
                         ctrl.size = 16;
                         ctrl.used = 0;
-                        ctrl.ptr = MALLOC(ctrl.size * sizeof(*ctrl.ptr));
+                        ctrl.ptr = malloc(ctrl.size * sizeof(*ctrl.ptr));
                         /* ERR_ABORT (ctrl.ptr); */
                 } else if (ctrl.size == ctrl.used) {
                         ctrl.size += 16;
