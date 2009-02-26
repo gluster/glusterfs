@@ -887,6 +887,8 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 
 int32_t afr_lock (call_frame_t *frame, xlator_t *this)
 {
+        frame->root->pid = frame->root;
+
 	return afr_lock_rec (frame, this, 0);
 }
 

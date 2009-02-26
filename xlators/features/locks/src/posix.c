@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2006-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -277,6 +277,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	pl_inode = pl_inode_get (this, fd->inode);
+
 	if (!pl_inode) {
 		gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
 		STACK_UNWIND (frame, -1, EBADFD);
@@ -443,7 +444,6 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 
 
 	priv = this->private;
-
 	pl_inode = pl_inode_get (this, fd->inode);
 
 	if (priv->mandatory && pl_inode->mandatory) {
@@ -537,8 +537,8 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 
 	priv = this->private;
-
 	pl_inode = pl_inode_get (this, fd->inode);
+
 	if (priv->mandatory && pl_inode->mandatory) {
 		region.fl_start   = offset;
 		region.fl_end     = offset + iov_length (vector, count) - 1;
@@ -719,7 +719,7 @@ pl_forget (xlator_t *this,
 			"Pending entry locks found!");
 	}
 
-	FREE (pl_inode);
+        FREE (pl_inode);
 
 	return 0;
 }
