@@ -48,6 +48,7 @@
 #define ZR_ATTR_TIMEOUT_OPT     "attribute-timeout"
 #define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
 #define ZR_DIRECT_IO_OPT        "direct-io-mode"
+#define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 
 enum argp_option_keys {
 	ARGP_VOLFILE_SERVER_KEY = 's', 
@@ -69,6 +70,7 @@ enum argp_option_keys {
 	ARGP_NON_LOCAL_KEY = 139,
 #endif /* DARWIN */
 	ARGP_VOLFILE_ID_KEY = 143, 
+        ARGP_VOLFILE_CHECK_KEY = 144,
 };
 
 /* Moved here from fetch-spec.h */

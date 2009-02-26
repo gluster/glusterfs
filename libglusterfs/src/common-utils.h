@@ -310,5 +310,7 @@ int gf_string2time (const char *str, uint32_t *n);
 int gf_lockfd (int fd);
 int gf_unlockfd (int fd);
 
+int get_checksum_for_file (int fd, uint32_t *checksum);
+
 #endif /* _COMMON_UTILS_H */
 

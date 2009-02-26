@@ -130,6 +130,8 @@ static struct argp_option gf_options[] = {
  	{"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0, 
  	 "Set attribute timeout to SECONDS for inodes in fuse kernel module "
 	 "[default: 1]"},
+ 	{"volfile-check", ARGP_VOLFILE_CHECK_KEY, 0, 0, 
+ 	 "enable strict volume file check in fuse notify"},
 #ifdef GF_DARWIN_HOST_OS
  	{"non-local", ARGP_NON_LOCAL_KEY, 0, 0, 
  	 "Mount the macfuse volume without '-o local' option"},
@@ -236,6 +238,10 @@ _add_fuse_mount (xlator_t *graph)
 		ret = dict_set_double (top->options, ZR_ENTRY_TIMEOUT_OPT, 
 				       cmd_args->fuse_entry_timeout);
 
+	if (cmd_args->volfile_check)
+		ret = dict_set_int32 (top->options, ZR_STRICT_VOLFILE_CHECK, 
+                                      cmd_args->volfile_check);
+
 #ifdef GF_DARWIN_HOST_OS 
 	/* On Darwin machines, O_APPEND is not handled, 
 	 * which may corrupt the data 
@@ -335,6 +341,7 @@ static xlator_t *
 _parse_specfp (glusterfs_ctx_t *ctx, 
 	       FILE *specfp)
 {
+        int spec_fd = 0;
 	cmd_args_t *cmd_args = NULL;
 	xlator_t *tree = NULL, *trav = NULL, *new_tree = NULL;
 	
@@ -365,6 +372,9 @@ _parse_specfp (glusterfs_ctx_t *ctx,
 		return NULL;
 	}
 	
+        spec_fd = fileno (specfp);
+        get_checksum_for_file (spec_fd, &ctx->volfile_checksum);
+
 	/* if volume_name is given, then we attach to it */
 	if (cmd_args->volume_name) {
 		while (trav) {
@@ -756,6 +766,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 			      "unknown attribute timeout %s", arg);
 		break;
 	
+	case ARGP_VOLFILE_CHECK_KEY:
+                cmd_args->volfile_check = 1;
+                break;
+
 	case ARGP_VOLUME_NAME_KEY:
 		cmd_args->volume_name = strdup (arg);
 		break;

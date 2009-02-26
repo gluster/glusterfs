@@ -53,8 +53,9 @@
 /* TODO: when supporting posix acl, remove this definition */
 #define DISABLE_POSIX_ACL
 
-#define ZR_MOUNTPOINT_OPT   "mountpoint"
-#define ZR_DIRECT_IO_OPT    "direct-io-mode"
+#define ZR_MOUNTPOINT_OPT       "mountpoint"
+#define ZR_DIRECT_IO_OPT        "direct-io-mode"
+#define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 
 #define BIG_FUSE_CHANNEL_SIZE 1048576
 
@@ -72,7 +73,7 @@ struct fuse_private {
         uint32_t             direct_io_mode;
         double               entry_timeout;
         double               attribute_timeout;
-
+        gf_boolean_t         strict_volfile_check;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -2553,6 +2554,10 @@ int32_t
 notify (xlator_t *this, int32_t event,
         void *data, ...)
 {
+        int32_t         ret     = 0;
+        fuse_private_t *private = NULL;
+
+        private = this->private;
   
         switch (event)
         {
@@ -2577,8 +2582,6 @@ notify (xlator_t *this, int32_t event,
 #endif /* DARWIN */
 
         {
-                fuse_private_t *private = this->private;
-                int32_t ret = 0;
 
                 if (!private->fuse_thread_started)
                 {
@@ -2597,6 +2600,21 @@ notify (xlator_t *this, int32_t event,
         case GF_EVENT_PARENT_UP:
         {
                 default_notify (this, GF_EVENT_PARENT_UP, data);
+                break;
+        }
+        case GF_EVENT_VOLFILE_MODIFIED:
+        {
+                gf_log ("fuse", GF_LOG_CRITICAL, 
+                        "remote volume file changed, try re-mounting");
+                if (private->strict_volfile_check) {
+                        //fuse_session_remove_chan (private->ch);
+                        //fuse_session_destroy (private->se);
+                        //fuse_unmount (private->mount_point, private->ch);
+                        /* TODO: Above code if works, will be a cleaner way, 
+                           but for now, lets just achieve what we want */
+                        raise (SIGTERM);
+                }
+                break;
         }
         default:
                 break;
@@ -2736,7 +2754,14 @@ init (xlator_t *this_xl)
 	if (value_string) {
 		ret = gf_string2boolean (value_string, &priv->direct_io_mode);
 	}
-	
+
+        priv->strict_volfile_check = 0;
+	ret = dict_get_str (options, ZR_STRICT_VOLFILE_CHECK, &value_string);
+	if (value_string) {
+		ret = gf_string2boolean (value_string, 
+                                         &priv->strict_volfile_check);
+	}
+
         priv->ch = fuse_mount (priv->mount_point, &args);
         if (priv->ch == NULL) {
                 if (errno == ENOTCONN) {
@@ -2850,6 +2875,9 @@ struct volume_options options[] = {
 	},
 	{ .key  = {"entry-timeout"}, 
 	  .type = GF_OPTION_TYPE_DOUBLE
+	},
+	{ .key  = {"strict-volfile-check"}, 
+	  .type = GF_OPTION_TYPE_BOOL
 	},
 	{ .key = {NULL} },
 };

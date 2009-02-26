@@ -6777,6 +6777,150 @@ out:
 
 /* xxx_MOPS */
 
+
+int
+_volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
+{
+        server_conf_t       *conf         = NULL;
+        struct _volfile_ctx *temp_volfile = NULL;
+
+        conf         = this->private;
+        temp_volfile = conf->volfile;
+
+        while (temp_volfile) {
+                if ((NULL == key) && (NULL == temp_volfile->key))
+                        break;
+                if ((NULL == key) || (NULL == temp_volfile->key)) {
+                        temp_volfile = temp_volfile->next;
+                        continue;
+                }
+                if (strcmp (temp_volfile->key, key) == 0)
+                        break;
+                temp_volfile = temp_volfile->next;
+        }
+
+        if (!temp_volfile) {
+                temp_volfile = CALLOC (1, sizeof (struct _volfile_ctx));
+
+                temp_volfile->next  = conf->volfile;
+                temp_volfile->key   = (key)? strdup (key): NULL;
+                temp_volfile->checksum = checksum;
+                
+                conf->volfile = temp_volfile;
+                goto out;
+        }
+
+        if (temp_volfile->checksum != checksum) {
+                gf_log (this->name, GF_LOG_CRITICAL, 
+                        "the volume file got modified between earlier access "
+                        "and now, this may lead to inconsistency between "
+                        "clients, advised to remount client");
+                temp_volfile->checksum  = checksum;
+        }
+
+ out:
+        return 0;
+}
+
+
+char *
+build_volfile_path (xlator_t *this, char *key)
+{
+        int   ret = -1;
+        char *filename = NULL;
+	char  data_key[256] = {0,};
+
+	/* Inform users that this option is changed now */
+	ret = dict_get_str (this->options, "client-volume-filename", 
+			    &filename);
+	if (ret == 0) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"option 'client-volume-filename' is changed to "
+			"'volume-filename.<key>' which now takes 'key' as an "
+			"option to choose/fetch different files from server. "
+			"Refer documentation or contact developers for more "
+			"info. Currently defaulting to given file '%s'", 
+			filename);
+	}
+	
+	if (key && !filename) {
+		sprintf (data_key, "volume-filename.%s", key);
+		ret = dict_get_str (this->options, data_key, &filename);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"failed to get corresponding volume file "
+				"for the key '%s'.", key);
+		} 
+	}
+        
+	if (!filename) {
+		ret = dict_get_str (this->options, 
+                                    "volume-filename.default", &filename);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"no default volume filename given, "
+                                "defaulting to %s", DEFAULT_VOLUME_FILE_PATH);
+
+                        filename = DEFAULT_VOLUME_FILE_PATH;
+                }
+	}
+
+        return filename;
+}
+
+int 
+_validate_volfile_checksum (xlator_t *this, char *key,
+                            uint32_t checksum)
+{        
+	char                *filename     = NULL;
+        server_conf_t       *conf         = NULL;
+        struct _volfile_ctx *temp_volfile = NULL;
+        int                  ret          = 0;
+        uint32_t             local_checksum = 0;
+
+        conf         = this->private;
+        temp_volfile = conf->volfile;
+        
+        if (!checksum) 
+                goto out;
+        
+        if (!temp_volfile) {
+                filename = build_volfile_path (this, key);
+                if (NULL == filename)
+                        goto out;
+                ret = open (filename, O_RDONLY);
+                if (-1 == ret) {
+                        ret = 0;
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to open volume file (%s) : %s",
+                                filename, strerror (errno));
+                        goto out;
+                }
+                get_checksum_for_file (ret, &local_checksum);
+                _volfile_update_checksum (this, key, local_checksum);
+                close (ret);
+        }
+
+        temp_volfile = conf->volfile;
+        while (temp_volfile) {
+                if ((NULL == key) && (NULL == temp_volfile->key))
+                        break;
+                if (strcmp (temp_volfile->key, key) == 0)
+                        break;
+                temp_volfile = temp_volfile->next;
+        }
+
+        if (!temp_volfile)
+                goto out;
+
+        if ((temp_volfile->checksum) && 
+            (checksum != temp_volfile->checksum)) 
+                ret = -1;
+
+ out:
+        return ret;
+}
+
 /* Management Calls */
 /*
  * mop_getspec - getspec function for server protocol
@@ -6799,17 +6943,14 @@ mop_getspec (call_frame_t *frame,
 	int32_t spec_fd = -1;
 	size_t  file_len = 0;
 	size_t _hdrlen = 0;
-	char  tmp_filename[ZR_FILENAME_MAX] = {0,};
-	char  data_key[256] = {0,};
 	char *filename = NULL;
 	struct stat stbuf = {0,};
-	peer_info_t *peerinfo = NULL;
-	transport_t *trans = NULL;
 
 	gf_mop_getspec_req_t *req = NULL;
+        uint32_t checksum = 0;
 	uint32_t flags  = 0;
 	uint32_t keylen = 0;
-	char *key = NULL;
+	char    *key    = NULL;
 
 	req   = gf_param (hdr);
 	flags = ntoh32 (req->flags);
@@ -6818,85 +6959,32 @@ mop_getspec (call_frame_t *frame,
 		key = req->key;
 	}
 
-	trans = TRANSPORT_FROM_FRAME(frame);
-
-	peerinfo = &(trans->peerinfo);
-	/* Inform users that this option is changed now */
-	ret = dict_get_str (frame->this->options, "client-volume-filename", 
-			    &filename);
-	if (ret == 0) {
-		gf_log (trans->xl->name, GF_LOG_WARNING,
-			"option 'client-volume-filename' is changed to "
-			"'volume-filename.<key>' which now takes 'key' as an "
-			"option to choose/fetch different files from server. "
-			"Refer documentation or contact developers for more "
-			"info. Currently defaulting to given file '%s'", 
-			filename);
-	}
-	
-	if (key && !filename) {
-		sprintf (data_key, "volume-filename.%s", key);
-		ret = dict_get_str (frame->this->options, data_key, &filename);
-		if (ret < 0) {
-			gf_log (trans->xl->name, GF_LOG_ERROR,
-				"failed to get corresponding volume file "
-				"for the key '%s'. using default file %s", 
-				key, GLUSTERFSD_SPEC_PATH);
-		} 
-	}
-        
-	if (!filename) {
-		ret = dict_get_str (frame->this->options, 
-                                    "volume-filename.default", &filename);
-		if (ret < 0) {
-			gf_log (trans->xl->name, GF_LOG_DEBUG,
-				"no default volume filename given, "
-                                "defaulting to %s", GLUSTERFSD_SPEC_PATH);
-
-                        filename = GLUSTERFSD_SPEC_PATH;
-                }
-	}
-
-	{
-		sprintf (tmp_filename, "%s.%s", 
-			 filename, peerinfo->identifier);
-
-		/* Try for ip specific client volfile.
-		 * If not found, then go for, regular client file.
-		 */
-		ret = open (tmp_filename, O_RDONLY);
-		spec_fd = ret;
-		if (spec_fd < 0) {
-			gf_log (trans->xl->name, GF_LOG_DEBUG,
-				"Unable to open %s (%s)", 
-				tmp_filename, strerror (errno));
-			/* fall back */
-			ret = open (filename, O_RDONLY);
-			spec_fd = ret;
-			if (spec_fd < 0) {
-				gf_log (trans->xl->name, GF_LOG_ERROR,
-					"Unable to open %s (%s)", 
-					filename, strerror (errno));
-				goto fail;
-			}
-		} else {
-			/* Successful */
-			filename = tmp_filename;
-		}
-	}
-
-	/* to allocate the proper buffer to hold the file data */
-	{
+        filename = build_volfile_path (frame->this, key);
+        if (filename) {
+                /* to allocate the proper buffer to hold the file data */
 		ret = stat (filename, &stbuf);
 		if (ret < 0){
-			gf_log (trans->xl->name, GF_LOG_ERROR,
+			gf_log (frame->this->name, GF_LOG_ERROR,
 				"Unable to stat %s (%s)", 
 				filename, strerror (errno));
 			goto fail;
 		}
-
-		file_len = stbuf.st_size;
-	}
+                
+                ret = open (filename, O_RDONLY);
+                spec_fd = ret;
+                if (spec_fd < 0) {
+                        gf_log (frame->this->name, GF_LOG_ERROR,
+                                "Unable to open %s (%s)", 
+                                filename, strerror (errno));
+                        goto fail;
+                }
+                ret = 0;
+                file_len = stbuf.st_size;
+                get_checksum_for_file (spec_fd, &checksum);
+                _volfile_update_checksum (frame->this, key, checksum);
+	} else {
+                errno = ENOENT;
+        }
 
 fail:
 	op_errno = errno;
@@ -6910,7 +6998,7 @@ fail:
 	_hdr->rsp.op_errno = hton32 (gf_errno);
 
 	if (file_len) {
-		read (spec_fd, rsp->spec, file_len);
+		ret = read (spec_fd, rsp->spec, file_len);
 		close (spec_fd);
 	}
 	protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_GETSPEC,
@@ -7043,7 +7131,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *req_hdr, size_t req_hdrlen,
                char *req_buf, size_t req_buflen)
 {
-	server_connection_t *conn = NULL;
+	server_connection_t         *conn = NULL;
 	server_conf_t               *conf = NULL;
 	gf_hdr_common_t             *rsp_hdr = NULL;
 	gf_mop_setvolume_req_t      *req = NULL;
@@ -7064,6 +7152,9 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 	size_t                       rsp_hdrlen = -1;
 	size_t                       dict_len = -1;
 	size_t                       req_dictlen = -1;
+        char                        *msg = NULL;
+        char                        *volfile_key = NULL;
+        uint32_t                     checksum = 0;
 
 	params = dict_new ();
 	reply  = dict_new ();
@@ -7124,7 +7215,6 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 	
 	ret = strcmp (version, PACKAGE_VERSION);
 	if (ret != 0) {
-		char *msg = NULL;
 		asprintf (&msg,
 			  "Version mismatch: client(%s) Vs server (%s)",
 			  version, PACKAGE_VERSION);
@@ -7137,7 +7227,6 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 		op_errno = EINVAL;
 		goto fail;
 	}
-
 
 	ret = dict_get_str (params,
 			    "remote-subvolume", &name);
@@ -7155,7 +7244,6 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 
 	xl = get_xlator_by_name (frame->this, name);
 	if (xl == NULL) {
-		char *msg = NULL;
 		asprintf (&msg, "remote-subvolume \"%s\" is not found", name);
 		ret = dict_set_dynstr (reply, "ERROR", msg);
 		if (ret < 0)
@@ -7166,6 +7254,27 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 		op_errno = ENOENT;
 		goto fail;
 	}
+
+	ret = dict_get_uint32 (params, "volfile-checksum", &checksum);
+	if (ret == 0) {
+                ret = dict_get_str (params, "volfile-key", &volfile_key);
+                
+                ret = _validate_volfile_checksum (trans->xl, volfile_key, 
+                                                  checksum);
+                if (-1 == ret) {
+                        ret = dict_set_str (reply, "ERROR",
+                                            "volume-file checksum varies from "
+                                            "earlier access");
+                        if (ret < 0)
+                                gf_log (trans->xl->name, GF_LOG_ERROR, 
+                                        "failed to set error msg");
+                        
+                        op_ret   = -1;
+                        op_errno = ESTALE;
+                        goto fail;
+                }
+	}
+
 
 	peerinfo = &trans->peerinfo;
 	ret = dict_set_static_ptr (params, "peer-info", peerinfo);

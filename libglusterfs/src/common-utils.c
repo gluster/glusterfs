@@ -1388,3 +1388,54 @@ gf_unlockfd (int fd)
 	return fcntl (fd, F_SETLK, &fl);
 }
   
+static void
+compute_checksum (char *buf, size_t size, uint32_t *checksum)
+{
+        int  ret = -1;
+        char *checksum_buf = NULL;
+
+        checksum_buf = (char *)(checksum);
+
+        if (!(*checksum)) {
+                checksum_buf [0] = 0xba;
+                checksum_buf [1] = 0xbe;
+                checksum_buf [2] = 0xb0;
+                checksum_buf [3] = 0x0b;                
+        }
+
+        for (ret = 0; ret < (size - 4); ret += 4) {
+                checksum_buf[0] ^= (buf[ret]);
+                checksum_buf[1] ^= (buf[ret + 1] << 1) ;
+                checksum_buf[2] ^= (buf[ret + 2] << 2);
+                checksum_buf[3] ^= (buf[ret + 3] << 3);
+        }
+
+        for (ret = 0; ret <= (size % 4); ret++) {
+                checksum_buf[ret] ^= (buf[(size - 4) + ret] << ret);
+        }
+        
+        return;
+}
+
+#define GF_CHECKSUM_BUF_SIZE 1024
+
+int
+get_checksum_for_file (int fd, uint32_t *checksum) 
+{
+        int ret = -1;
+        char buf[GF_CHECKSUM_BUF_SIZE] = {0,};
+
+        /* goto first place */
+        lseek (fd, 0L, SEEK_SET);
+        do {
+                ret = read (fd, &buf, GF_CHECKSUM_BUF_SIZE);
+                if (ret > 0)
+                        compute_checksum (buf, GF_CHECKSUM_BUF_SIZE, 
+                                          checksum);
+        } while (ret > 0);
+
+        /* set it back */
+        lseek (fd, 0L, SEEK_SET);
+
+        return ret;
+}

@@ -35,8 +35,8 @@
 #include "fd.h"
 #include "byte-order.h"
 
-#define DEFAULT_BLOCK_SIZE     4194304   /* 4MB */
-#define GLUSTERFSD_SPEC_PATH   CONFDIR "/glusterfs-client.vol"
+#define DEFAULT_BLOCK_SIZE         4194304   /* 4MB */
+#define DEFAULT_VOLUME_FILE_PATH   CONFDIR "/glusterfs.vol"
 
 typedef struct _server_state server_state_t;
 
@@ -86,7 +86,15 @@ server_nop_cbk (call_frame_t *frame, void *cookie,
 		xlator_t *this, int32_t op_ret, int32_t op_errno);
 
 
+struct _volfile_ctx {
+        struct _volfile_ctx *next;
+        char                *key;
+        uint32_t             checksum;
+};
+
 typedef struct {
+        struct _volfile_ctx *volfile;
+
 	dict_t           *auth_modules;
 	transport_t      *trans;
 	int32_t           max_block_size;
