@@ -816,6 +816,8 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	int op_ret   = -1;
 	int op_errno = 0;
 
+        int transaction_needed = 0;
+
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
 	VALIDATE_OR_GOTO (this->private, out);
@@ -832,9 +834,18 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 	frame->local = local;
 
-	if (__is_fd_ctx_set (this, fd)) {
-               fd_ctx_del (fd, this, NULL);
+        LOCK (&fd->inode->lock);
+        {
+                if (__is_fd_ctx_set (this, fd)) {
+                        transaction_needed = 1;
+                        fd_ctx_del (fd, this, NULL);
+                } else {
+                        transaction_needed = 0;
+                }
+        }
+        UNLOCK (&fd->inode->lock);
 
+        if (transaction_needed) {
 		local->op = GF_FOP_FLUSH;
 		local->transaction.fop    = afr_flush_wind;
 		local->transaction.done   = afr_flush_done;

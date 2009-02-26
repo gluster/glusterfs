@@ -67,20 +67,24 @@ __mark_all_success (int32_t *pending, int child_count)
 static int
 __is_first_write_on_fd (xlator_t *this, fd_t *fd)
 {
-	int op_ret     = 0;
-	int _ret       = -1;
+        int op_ret     = 0;
+        int _ret       = -1;
 
-	_ret = fd_ctx_get (fd, this, NULL);
-	if (_ret < 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"first writev() on fd=%p, writing changelog",
-			fd);
+        LOCK (&fd->inode->lock);
+        {
+                _ret = fd_ctx_get (fd, this, NULL);
+                if (_ret < 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "first writev() on fd=%p, writing changelog",
+                                fd);
 
-		_ret = fd_ctx_set (fd, this, 0xaf1);
-		op_ret = 1;
-	}
+                        _ret = fd_ctx_set (fd, this, 0xaf1);
+                        op_ret = 1;
+                }
+        }
+        UNLOCK (&fd->inode->lock);
 
-	return op_ret;
+        return op_ret;
 }
 
 
