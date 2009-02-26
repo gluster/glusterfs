@@ -833,6 +833,8 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	frame->local = local;
 
 	if (__is_fd_ctx_set (this, fd)) {
+               fd_ctx_del (fd, this, NULL);
+
 		local->op = GF_FOP_FLUSH;
 		local->transaction.fop    = afr_flush_wind;
 		local->transaction.done   = afr_flush_done;
