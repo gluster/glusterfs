@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -92,10 +92,10 @@ struct __pl_inode {
 };
 typedef struct __pl_inode pl_inode_t;
 
-#define DOMAIN_HEAD(pl_inode, dom) (dom == GF_LOCK_POSIX	\
-				    ? &pl_inode->ext_list	\
-				    : &pl_inode->int_list)
 
+#define LOCKS_FOR_DOMAIN(inode,domain) (domain == GF_LOCK_POSIX \
+					? inode->fcntl_locks	\
+					: inode->inodelk_locks)
 
 struct __pl_fd {
 	gf_boolean_t nonblocking;       /* whether O_NONBLOCK has been set */
