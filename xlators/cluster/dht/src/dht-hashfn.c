@@ -26,13 +26,11 @@
 #include "glusterfs.h"
 #include "xlator.h"
 #include "dht-common.h"
-
-
-uint32_t dht_hashfn_tea (const char *name, int len);
+#include "hashfn.h"
 
 
 typedef enum {
-	DHT_HASH_TYPE_TEA,
+	DHT_HASH_TYPE_DM,
 } dht_hashfn_type_t;
 
 
@@ -43,8 +41,8 @@ dht_hash_compute_internal (int type, const char *name, uint32_t *hash_p)
 	uint32_t hash = 0;
 
 	switch (type) {
-	case DHT_HASH_TYPE_TEA:
-		hash = dht_hashfn_tea (name, strlen (name));
+	case DHT_HASH_TYPE_DM:
+		hash = gf_dm_hashfn (name, strlen (name));
 		break;
 	default:
 		ret = -1;
