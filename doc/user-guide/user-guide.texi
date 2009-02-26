@@ -10,7 +10,7 @@
 @copying
 This is the user manual for GlusterFS 2.0.
 
-Copyright @copyright{} 2008,2007 @email{@b{Z}} Research, Inc. Permission is granted to
+Copyright @copyright{} 2007-2009 @email{@b{Z}} Research, Inc. Permission is granted to
 copy, distribute and/or modify this document under the terms of the
 @acronym{GNU} Free Documentation License, Version 1.2 or any later
 version published by the Free Software Foundation; with no Invariant
