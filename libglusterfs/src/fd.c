@@ -415,6 +415,8 @@ fd_destroy (fd_t *fd)
 			}
 		}
         }
+        
+        LOCK_DESTROY (&fd->lock);
 
 	FREE (fd->_ctx);
         inode_unref (fd->inode);
@@ -489,6 +491,8 @@ fd_create (inode_t *inode, pid_t pid)
         fd->pid = pid;
         INIT_LIST_HEAD (&fd->inode_list);
         
+        LOCK_INIT (&fd->lock);
+
         LOCK (&inode->lock);
         fd = _fd_ref (fd);
         UNLOCK (&inode->lock);
@@ -543,45 +547,61 @@ int
 fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 {
 	int index = 0;
+        int ret = 0;
 
 	if (!fd || !xlator)
 		return -1;
-
-	for (index = 0; index < xlator->ctx->xl_count; index++) {
-		if (!fd->_ctx[index].key || 
-		    (fd->_ctx[index].key == (uint64_t)(long)xlator))
-			break;
-	}
+        
+        LOCK (&fd->lock);
+        {
+                for (index = 0; index < xlator->ctx->xl_count; index++) {
+                        if (!fd->_ctx[index].key || 
+                            (fd->_ctx[index].key == (uint64_t)(long)xlator))
+                                break;
+                }
 	
-	if (index == xlator->ctx->xl_count)
-		return -1;
+                if (index == xlator->ctx->xl_count) {
+                        ret = -1;
+                        goto unlock;
+                }
 
-	fd->_ctx[index].key   = (uint64_t)(long) xlator;
-	fd->_ctx[index].value = value;
+                fd->_ctx[index].key   = (uint64_t)(long) xlator;
+                fd->_ctx[index].value = value;
+        }
+unlock:
+        UNLOCK (&fd->lock);
 
-	return 0;
+	return ret;
 }
 
 int 
 fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
 {
 	int index = 0;
+        int ret = 0;
 
 	if (!fd || !xlator)
 		return -1;
+        
+        LOCK (&fd->lock);
+        {
+                for (index = 0; index < xlator->ctx->xl_count; index++) {
+                        if (fd->_ctx[index].key == (uint64_t)(long)xlator)
+                                break;
+                }
 
-	for (index = 0; index < xlator->ctx->xl_count; index++) {
-		if (fd->_ctx[index].key == (uint64_t)(long)xlator)
-			break;
-	}
+                if (index == xlator->ctx->xl_count) {
+                        ret = -1;
+                        goto unlock;
+                }
 
-	if (index == xlator->ctx->xl_count)
-		return -1;
+                if (value) 
+                        *value = fd->_ctx[index].value;
+        }
+unlock:
+        UNLOCK (&fd->lock);
 
-	if (value) 
-		*value = fd->_ctx[index].value;
-
-	return 0;
+	return ret;
 }
 
 
@@ -589,23 +609,31 @@ int
 fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
 {
 	int index = 0;
+        int ret = 0;
 
 	if (!fd || !xlator)
 		return -1;
+        
+        LOCK (&fd->lock);
+        {
+                for (index = 0; index < xlator->ctx->xl_count; index++) {
+                        if (fd->_ctx[index].key == (uint64_t)(long)xlator)
+                                break;
+                }
 
-	for (index = 0; index < xlator->ctx->xl_count; index++) {
-		if (fd->_ctx[index].key == (uint64_t)(long)xlator)
-			break;
-	}
+                if (index == xlator->ctx->xl_count) {
+                        ret = -1;
+                        goto unlock;
+                }
 
-	if (index == xlator->ctx->xl_count)
-		return -1;
+                if (value) 
+                        *value = fd->_ctx[index].value;		
 
-	if (value) 
-		*value = fd->_ctx[index].value;		
+                fd->_ctx[index].key   = 0;
+                fd->_ctx[index].value = 0;
+        }
+unlock:
+        UNLOCK (&fd->lock);
 
-	fd->_ctx[index].key   = 0;
-	fd->_ctx[index].value = 0;
-
-	return 0;
+	return ret;
 }

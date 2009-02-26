@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "glusterfs.h"
+#include "locking.h"
 
 struct _inode;
 struct _dict;
@@ -44,6 +45,8 @@ struct _fd {
         struct list_head  inode_list;
         struct _inode    *inode;
         struct _dict     *ctx;
+        gf_lock_t         lock; /* used ONLY for manipulating
+                                   'struct _fd_ctx' array (_ctx).*/
 	struct _fd_ctx   *_ctx;
 };
 typedef struct _fd fd_t;
