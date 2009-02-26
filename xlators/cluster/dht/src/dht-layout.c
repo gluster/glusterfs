@@ -303,6 +303,12 @@ dht_layout_entry_swap (dht_layout_t *layout, int i, int j)
 	layout->list[j].err    = err_swap;
 }
 
+int64_t
+dht_layout_entry_cmp_volname (dht_layout_t *layout, int i, int j)
+{
+	return (strcmp (layout->list[i].xlator->name, 
+			layout->list[j].xlator->name));
+}
 
 int64_t
 dht_layout_entry_cmp (dht_layout_t *layout, int i, int j)
@@ -331,6 +337,26 @@ dht_layout_sort (dht_layout_t *layout)
 	for (i = 0; i < layout->cnt - 1; i++) {
 		for (j = i + 1; j < layout->cnt; j++) {
 			ret = dht_layout_entry_cmp (layout, i, j);
+			if (ret > 0)
+				dht_layout_entry_swap (layout, i, j);
+		}
+	}
+
+	return 0;
+}
+
+int
+dht_layout_sort_volname (dht_layout_t *layout)
+{
+	int       i = 0;
+	int       j = 0;
+	int64_t   ret = 0;
+
+	/* TODO: O(n^2) -- bad bad */
+
+	for (i = 0; i < layout->cnt - 1; i++) {
+		for (j = i + 1; j < layout->cnt; j++) {
+			ret = dht_layout_entry_cmp_volname (layout, i, j);
 			if (ret > 0)
 				dht_layout_entry_swap (layout, i, j);
 		}

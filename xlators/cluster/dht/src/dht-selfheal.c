@@ -287,7 +287,8 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 
 	for (i = 0; i < layout->cnt; i++) {
 		err = layout->list[i].err;
-		if (err == -1) {
+		if (err == -1 || err == 0) {
+			layout->list[i].err = -1;
 			cnt++;
 		}
 	}
@@ -328,6 +329,7 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
 	int          holes = -1;
 	int          ret = -1;
 	int          i = -1;
+	int          overlaps = -1;
 
 	this = frame->this;
 	conf = this->private;
@@ -336,6 +338,7 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
 	missing = local->selfheal.missing;
 	down = local->selfheal.down;
 	holes = local->selfheal.hole_cnt;
+	overlaps = local->selfheal.overlaps_cnt;
 
 	if ((missing + down) == conf->subvolume_cnt) {
 		dht_selfheal_layout_new_directory (frame, loc, layout);
@@ -344,6 +347,11 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
 
 	if (holes <= down) {
 		/* the down subvol might fill up the holes */
+		ret = 0;
+	}
+
+	if (holes || missing || overlaps) {
+		dht_selfheal_layout_new_directory (frame, loc, layout);
 		ret = 0;
 	}
 
@@ -361,7 +369,8 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
 }
 
 int
-dht_selfheal_new_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
+dht_selfheal_new_directory (call_frame_t *frame, 
+			    dht_selfheal_dir_cbk_t dir_cbk,
 			    dht_layout_t *layout)
 {
 	dht_local_t *local = NULL;
@@ -371,6 +380,7 @@ dht_selfheal_new_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	local->selfheal.dir_cbk = dir_cbk;
 	local->selfheal.layout = layout;
 
+	dht_layout_sort_volname (layout);
 	dht_selfheal_layout_new_directory (frame, &local->loc, layout);	
 	dht_selfheal_dir_xattr (frame, &local->loc, layout);
 	return 0;
@@ -389,7 +399,6 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	uint32_t     misc     = 0;
 	int          ret      = 0;
 	xlator_t    *this     = NULL;
-
 
 	local = frame->local;
 	this = frame->this;
@@ -441,6 +450,7 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 		goto sorry_no_fix;
 	}
 */
+	dht_layout_sort_volname (layout);
 	ret = dht_selfheal_dir_getafix (frame, loc, layout);
 
 	if (ret == -1) {

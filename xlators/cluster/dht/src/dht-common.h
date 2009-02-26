@@ -209,6 +209,8 @@ dht_selfheal_new_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
 int
 dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
 		      loc_t *loc, dht_layout_t *layout);
+int
+dht_layout_sort_volname (dht_layout_t *layout);
 
 int dht_rename (call_frame_t *frame, xlator_t *this,
 		loc_t *oldloc, loc_t *newloc);
