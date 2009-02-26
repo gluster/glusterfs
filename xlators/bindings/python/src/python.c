@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2007 Chris AtLee <chris@atlee.ca>
+   Copyright (c) 2007-2009 Chris AtLee <chris@atlee.ca>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
