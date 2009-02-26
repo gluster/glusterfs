@@ -754,6 +754,8 @@ inode_unlink (inode_t *inode,
         {
 		if (!__is_inode_hashed (inode)) {
 			unlink_inode = __inode_search (table, inode->ino);
+                        if (unlink_inode == NULL)
+                                unlink_inode = inode;
 		}
 
                 __inode_unlink (unlink_inode, parent, name);
