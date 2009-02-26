@@ -1,5 +1,4 @@
-This is ../../../doc/user-guide/user-guide.info, produced by makeinfo
-version 4.9 from ../../../doc/user-guide/user-guide.texi.
+This is ../../../doc/user-guide/user-guide.info, produced by makeinfo version 4.13 from ../../../doc/user-guide/user-guide.texi.
 
 START-INFO-DIR-ENTRY
 * GlusterFS: (user-guide). GlusterFS distributed filesystem user guide
@@ -7,7 +6,7 @@ END-INFO-DIR-ENTRY
 
    This is the user manual for GlusterFS 2.0.
 
-   Copyright (C) 2008,2007 <Z> Research, Inc. Permission is granted to
+   Copyright (C) 2007-2009 <Z> Research, Inc. Permission is granted to
 copy, distribute and/or modify this document under the terms of the GNU
 Free Documentation License, Version 1.2 or any later version published
 by the Free Software Foundation; with no Invariant Sections, no
@@ -22,7 +21,7 @@ GlusterFS 2.0 User Guide
 
 This is the user manual for GlusterFS 2.0.
 
-   Copyright (C) 2008,2007 <Z> Research, Inc. Permission is granted to
+   Copyright (C) 2007-2009 <Z> Research, Inc. Permission is granted to
 copy, distribute and/or modify this document under the terms of the GNU
 Free Documentation License, Version 1.2 or any later version published
 by the Free Software Foundation; with no Invariant Sections, no
@@ -360,7 +359,7 @@ File: user-guide.info,  Node: Server,  Next: Client,  Up: Running GlusterFS
 ------------
 
 The GlusterFS server is necessary to export storage volumes to remote
-clients (See *Note Server protocol:: for more info). This section
+clients (See *note Server protocol:: for more info). This section
 documents the invocation of the GlusterFS server program and all the
 command-line options accepted by it.
 
@@ -826,7 +825,7 @@ File: user-guide.info,  Node: POSIX,  Next: BDB,  Up: Storage Translators
 filesystem that supports extended attributes (EXT3, ReiserFS, XFS,
 ...). Extended attributes are used by some translators to store
 metadata, for example, by the replicate and stripe translators. See
-*Note Replicate:: and *Note Stripe::, respectively for details.
+*note Replicate:: and *note Stripe::, respectively for details.
 
 `directory <path>'
      The directory on the local filesystem which is to be used for
@@ -1043,7 +1042,7 @@ accessible to remote GlusterFS clients.
 `client-volume-filename <path> (<CONFDIR>/glusterfs-client.vol)'
      The volume specification file to use for the client. This is the
      file the client will receive when it is invoked with the
-     `--server' option (*Note Client::).
+     `--server' option (*note Client::).
 
 `transport-type [tcp,ib-verbs,ib-sdp] (tcp)'
      The transport to use. You should use the server versions of all
@@ -1646,7 +1645,7 @@ File: user-guide.info,  Node: Booster,  Prev: IO Cache,  Up: Performance Transla
    The booster translator gives applications a faster path to
 communicate read and write requests to GlusterFS. Normally, all
 requests to GlusterFS from applications go through FUSE, as indicated
-in *Note Filesystems in Userspace::.  Using the booster translator in
+in *note Filesystems in Userspace::.  Using the booster translator in
 conjunction with the GlusterFS booster shared library, an application
 can bypass the FUSE path and send read/write requests directly to the
 GlusterFS client process.
@@ -1775,7 +1774,7 @@ File: user-guide.info,  Node: Trace,  Prev: ROT-13,  Up: Miscellaneous Translato
    The trace translator is intended for debugging purposes. When
 loaded, it logs all the system calls received by the server or client
 (wherever trace is loaded), their arguments, and the results. You must
-use a GlusterFS log level of DEBUG (See *Note Running GlusterFS::) for
+use a GlusterFS log level of DEBUG (See *note Running GlusterFS::) for
 trace to work.
 
    Sample trace output (lines have been wrapped for readability):
@@ -2003,7 +2002,7 @@ concludes with the suggested procedure to report bugs in GlusterFS.
 `/etc/glusterfs/glusterfsd.vol'. The example specification file will be
 installed as `/etc/glusterfs/glusterfsd.vol.sample'. You need to edit
 it and rename it, or provide a different specification file using the
-`--spec-file' command line option (See *Note Server::).
+`--spec-file' command line option (See *note Server::).
 
      gf_log_init: failed to open logfile "/usr/var/log/glusterfs/glusterfsd.log"
                   (Permission denied)
@@ -2011,7 +2010,7 @@ it and rename it, or provide a different specification file using the
    You don't have permission to create files in the
 `/usr/var/log/glusterfs' directory. Make sure you are running GlusterFS
 as root. Alternatively, specify a different path for the log file using
-the `--log-file' option (See *Note Server::).
+the `--log-file' option (See *note Server::).
 
 6.1.2 Client errors
 -------------------
@@ -2052,7 +2051,7 @@ instead.
    You don't have permission to create files in the
 `/usr/var/log/glusterfs' directory. Make sure you are running GlusterFS
 as root. Alternatively, specify a different path for the log file using
-the `--log-file' option (See *Note Client::).
+the `--log-file' option (See *note Client::).
 
 6.2 FUSE error messages
 =======================
@@ -2647,52 +2646,52 @@ Index
 
 
 Tag Table:
-Node: Top703
-Node: Acknowledgements2303
-Node: Introduction3213
-Node: Installation and Invocation4648
-Node: Pre requisites4932
-Node: Getting GlusterFS7022
-Ref: Getting GlusterFS-Footnote-17808
-Node: Building7856
-Node: Running GlusterFS9558
-Node: Server9769
-Node: Client11357
-Node: A Tutorial Introduction13563
-Node: Concepts17100
-Node: Filesystems in Userspace17315
-Node: Translator18456
-Node: Volume specification file21159
-Node: Translators23631
-Node: Storage Translators24200
-Ref: Storage Translators-Footnote-125007
-Node: POSIX25141
-Node: BDB25764
-Node: Client and Server Translators26821
-Node: Transport modules27297
-Node: Client protocol31444
-Node: Server protocol32383
-Node: Clustering Translators33372
-Node: Unify34259
-Ref: Unify-Footnote-143858
-Node: Replicate43950
-Node: Stripe49005
-Node: Performance Translators50163
-Node: Read Ahead50437
-Node: Write Behind52169
-Node: IO Threads53578
-Node: IO Cache54366
-Node: Booster55690
-Node: Features Translators57104
-Node: POSIX Locks57332
-Node: Fixed ID58649
-Node: Miscellaneous Translators59135
-Node: ROT-1359333
-Node: Trace60012
-Node: Usage Scenarios61281
-Ref: Usage Scenarios-Footnote-167214
-Node: Troubleshooting67289
-Node: GNU Free Documentation Licence73637
-Node: Index96086
+Node: Top704
+Node: Acknowledgements2304
+Node: Introduction3214
+Node: Installation and Invocation4649
+Node: Pre requisites4933
+Node: Getting GlusterFS7023
+Ref: Getting GlusterFS-Footnote-17809
+Node: Building7857
+Node: Running GlusterFS9559
+Node: Server9770
+Node: Client11358
+Node: A Tutorial Introduction13564
+Node: Concepts17101
+Node: Filesystems in Userspace17316
+Node: Translator18457
+Node: Volume specification file21160
+Node: Translators23632
+Node: Storage Translators24201
+Ref: Storage Translators-Footnote-125008
+Node: POSIX25142
+Node: BDB25765
+Node: Client and Server Translators26822
+Node: Transport modules27298
+Node: Client protocol31445
+Node: Server protocol32384
+Node: Clustering Translators33373
+Node: Unify34260
+Ref: Unify-Footnote-143859
+Node: Replicate43951
+Node: Stripe49006
+Node: Performance Translators50164
+Node: Read Ahead50438
+Node: Write Behind52170
+Node: IO Threads53579
+Node: IO Cache54367
+Node: Booster55691
+Node: Features Translators57105
+Node: POSIX Locks57333
+Node: Fixed ID58650
+Node: Miscellaneous Translators59136
+Node: ROT-1359334
+Node: Trace60013
+Node: Usage Scenarios61282
+Ref: Usage Scenarios-Footnote-167215
+Node: Troubleshooting67290
+Node: GNU Free Documentation Licence73638
+Node: Index96087
 
 End Tag Table
