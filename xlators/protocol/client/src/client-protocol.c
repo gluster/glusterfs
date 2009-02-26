@@ -5875,7 +5875,7 @@ client_setvolume_cbk (call_frame_t *frame,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret < 0 && op_errno == ENOTCONN) {
+	if ((op_ret < 0) && (op_errno == ENOTCONN)) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"setvolume failed (%s)",
 			strerror (op_errno));
@@ -5911,8 +5911,16 @@ client_setvolume_cbk (call_frame_t *frame,
 			"SETVOLUME on remote-host failed: %s",
 			remote_error ? remote_error : strerror (op_errno));
 		errno = op_errno;
-		if (op_errno == ENOTCONN)
-			goto out;
+                if (op_errno == ESTALE) {
+                        parent = trans->xl->parents;
+                        while (parent) {
+                                parent->xlator->notify (parent->xlator,
+                                                        GF_EVENT_VOLFILE_MODIFIED,
+                                                        trans->xl);
+                                parent = parent->next;
+                        }
+                }
+
 	} else {
 		ctx = get_global_ctx_ptr ();
 		if (process_uuid && !strcmp (ctx->process_uuid,process_uuid)) {
@@ -6438,6 +6446,14 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
 			"failed to set process-uuid(%s) in options dictionary",
 			PACKAGE_VERSION);
 	}
+
+        if (this->ctx->cmd_args.volfile_server) {
+                if (this->ctx->cmd_args.volfile_id)
+                        ret = dict_set_str (options, "volfile-key", 
+                                            this->ctx->cmd_args.volfile_id);
+                ret = dict_set_uint32 (options, "volfile-checksum", 
+                                       this->ctx->volfile_checksum);
+        }
 
 	dict_len = dict_serialized_length (options);
 	if (dict_len < 0) {

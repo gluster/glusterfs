@@ -66,6 +66,10 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --log-file=$log_file");
     fi
 
+    if [ -n "$volfile_check" ]; then
+	cmd_line=$(echo "$cmd_line --volfile-check");
+    fi
+
     if [ -n "$direct_io_mode" ]; then
 	cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
     fi
@@ -115,7 +119,9 @@ main ()
     volume_name=$(echo "$options" | sed -n 's/.*volume-name=\([^,]*\).*/\1/p');
 
     volume_id=$(echo "$options" | sed -n 's/.*volume-id=\([^,]*\).*/\1/p');
-    
+
+    volfile_check=$(echo "$options" | sed -n 's/.*volfile-check=\([^,]*\).*/\1/p');
+
     volfile_loc="$1";
     
     [ -r "$volfile_loc" ] || {
@@ -131,6 +137,7 @@ main ()
 	                                   -e 's/[,]*log-level=[^,]*//' \
 	                                   -e 's/[,]*volume-name=[^,]*//' \
 	                                   -e 's/[,]*direct-io-mode=[^,]*//' \
+	                                   -e 's/[,]*volfile-check=[^,]*//' \
 	                                   -e 's/[,]*transport=[^,]*//' \
 	                                   -e 's/[,]*volume-id=[^,]*//');
     # following line is product of love towards sed

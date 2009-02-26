@@ -66,8 +66,12 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --log-file=$log_file");
     fi
 
+    if [ -n "$volfile_check" ]; then
+	cmd_line=$(echo "$cmd_line --volfile-check");
+    fi
+
     if [ -n "$direct_io_mode" ]; then
-	cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
+	cmd_line=$(echo "$cmd_line --disable-direct-io-mode");
     fi
     
     if [ -z "$volfile_loc" ]; then
@@ -107,6 +111,7 @@ main ()
     direct_io_mode=""
     volume_name=""
     new_fs_options=""
+    volfile_check=""
 
     while getopts o: opt; do
 	case "$opt" in
@@ -128,6 +133,10 @@ main ()
 		    direct_io_mode=$(echo "$options" | sed -n 's/.*direct-io-mode=\([^,]*\).*/\1/p');
 		}
 		
+		[ -z $volfile_check ] && {
+		    volfile_check=$(echo "$options" | sed -n 's/.*volfile-check=\([^,]*\).*/\1/p');
+		}
+		
 		[ -z $volume_name ] && {
 		    volume_name=$(echo "$options" | sed -n 's/.*volume-name=\([^,]*\).*/\1/p');
 		}
@@ -139,6 +148,7 @@ main ()
 		this_option=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \
 		    -e 's/[,]*log-level=[^,]*//' \
 		    -e 's/[,]*volume-name=[^,]*//' \
+		    -e 's/[,]*volfile-check=[^,]*//' \
 		    -e 's/[,]*direct-io-mode=[^,]*//' \
 		    -e 's/[,]*transport=[^,]*//' \
 		    -e 's/[,]*volume-id=[^,]*//');

@@ -227,6 +227,7 @@ struct _cmd_args {
 
 	/* fuse options */
 	int              fuse_direct_io_mode_flag;
+        int              volfile_check;
 	double           fuse_entry_timeout;
 	double           fuse_attribute_timeout;
 	char            *volume_name;
@@ -258,6 +259,7 @@ struct _glusterfs_ctx {
 	void              *event_pool;
 	pthread_mutex_t    lock;
 	int                xl_count;
+        uint32_t           volfile_checksum;
 };
 
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
@@ -272,6 +274,7 @@ typedef enum {
   GF_EVENT_CHILD_CONNECTING,
   GF_EVENT_TRANSPORT_CLEANUP,
   GF_EVENT_TRANSPORT_CONNECTED,
+  GF_EVENT_VOLFILE_MODIFIED,
 } glusterfs_event_t;
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
