@@ -89,6 +89,26 @@ __is_first_write_on_fd (xlator_t *this, fd_t *fd)
 
 
 static int
+__unset_fd_ctx_if_set (xlator_t *this, fd_t *fd)
+{
+        int op_ret = 0;
+        int _ret   = -1;
+
+        LOCK (&fd->inode->lock);
+        {
+                _ret = fd_ctx_get (fd, this, NULL);
+                if (_ret == 0) {
+                        fd_ctx_del (fd, this, NULL);
+                        op_ret = 1;
+                }
+        }
+        UNLOCK (&fd->inode->lock);
+
+        return op_ret;
+}
+
+
+static int
 __changelog_enabled (afr_private_t *priv, afr_transaction_type type)
 {
 	int ret = 0;
@@ -170,19 +190,31 @@ __changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 
-	int ret = 0;
+	int op_ret = 0;
 	afr_transaction_type type = -1;
 
 	priv  = this->private;
 	local = frame->local;
 	type  = local->transaction.type;
 
-	if (__changelog_enabled (priv, type)
-	    && (local->op != GF_FOP_WRITE)
-	    && (local->op != GF_FOP_FTRUNCATE))
-		ret = 1;
-	
-	return ret;
+	if (__changelog_enabled (priv, type)) {
+                switch (local->op) {
+
+                case GF_FOP_WRITE:
+                case GF_FOP_FTRUNCATE:
+                        op_ret = 0;
+                        break;
+
+                case GF_FOP_FLUSH:
+                        op_ret = __unset_fd_ctx_if_set (this, local->fd);
+                        break;
+
+                default:
+                        op_ret = 1;
+                }
+        }
+
+	return op_ret;
 }
 
 
