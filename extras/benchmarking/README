@@ -5,14 +5,28 @@ Parallel DD performance:
 * Copy the local-script.sh in ${mountpoint}/benchmark/ directory
 * Edit it so the blocksize and count are as per the requirements
 
-* Edit the launch-script.sh script to make sure paths, mountpoints etc are alright.
+* Edit the launch-script.sh script to make sure paths, mountpoints etc are 
+  alright.
 
 * run 'lauch-script.sh'
 
-* after the run, you can get the aggregated result by adding all the 3rd entry in output.$(hostname) entries in 'output/' directory.
+* after the run, you can get the aggregated result by adding all the 3rd entry 
+  in output.$(hostname) entries in 'output/' directory.
 
 --------------
 
 iozone:
 
-bash# iozone - +m iozone_cluster.config - t 62 - r ${block_size} - s ${file_size} - +n - i 0 - i 1
+bash# iozone - +m iozone_cluster.config - t 62 - r ${block_size} - s \
+      ${file_size} - +n - i 0 - i 1
+
+--------------
+rdd: random dd - tool to do a sequence of random block-sized continuous 
+     read writes starting at a random offset
+
+gcc -pthread rdd.c -o rdd
+
+--------------
+glfs-bm: tool to benchmark small file performance
+
+gcc glfs-bm.c -lglusterfsclient -o glfs-bm
