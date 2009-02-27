@@ -127,7 +127,6 @@ AC_CONFIG_FILES([Makefile
 		extras/init.d/Makefile
 		extras/init.d/glusterfs-server.plist
 		extras/benchmarking/Makefile
-		extras/test/Makefile
 		glusterfs.spec])
 
 AC_CANONICAL_HOST

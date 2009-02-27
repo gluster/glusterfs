@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -71,7 +71,8 @@ rdd_parse_opts (int key, char *arg,
 		int len = 0;
 		len = strlen (arg);
 		if (len > UNIX_PATH_MAX) {
-			fprintf (stderr, "output file name too long (%s)\n", arg);
+			fprintf (stderr, "output file name too long (%s)\n", 
+                                 arg);
 			return -1;
 		}
 
@@ -84,7 +85,8 @@ rdd_parse_opts (int key, char *arg,
 		int len = 0;
 		len = strlen (arg);
 		if (len > UNIX_PATH_MAX) {
-			fprintf (stderr, "input file name too long (%s)\n", arg);
+			fprintf (stderr, "input file name too long (%s)\n", 
+                                 arg);
 			return -1;
 		}
 
@@ -98,7 +100,8 @@ rdd_parse_opts (int key, char *arg,
 		long bs = 0;
 		bs = strtol (arg, &tmp, 10);
 		if ((bs == LONG_MAX) || (bs == LONG_MIN) || (tmp && *tmp)) {
-			fprintf (stderr, "invalid argument for minimum block size (%s)\n", arg);
+			fprintf (stderr, "invalid argument for minimum block"
+                                 "size (%s)\n", arg);
 			return -1;
 		}
 
@@ -112,7 +115,8 @@ rdd_parse_opts (int key, char *arg,
 		long bs = 0;
 		bs = strtol (arg, &tmp, 10);
 		if ((bs == LONG_MAX) || (bs == LONG_MIN) || (tmp && *tmp)) {
-			fprintf (stderr, "invalid argument for maximum block size (%s)\n", arg);
+			fprintf (stderr, "invalid argument for maximum block"
+                                 "size (%s)\n", arg);
 			return -1;
 		}
 
@@ -125,8 +129,11 @@ rdd_parse_opts (int key, char *arg,
 		char *tmp = NULL;
 		long iters = 0;
 		iters = strtol (arg, &tmp, 10);
-		if ((iters == LONG_MAX) || (iters == LONG_MIN) || (tmp && *tmp)) {
-			fprintf (stderr, "invalid argument for iterations (%s)\n", arg);
+		if ((iters == LONG_MAX) || 
+                    (iters == LONG_MIN) || 
+                    (tmp && *tmp)) {
+			fprintf (stderr, "invalid argument for iterations"
+                                 "(%s)\n", arg);
 			return -1;
 		}
 
@@ -139,8 +146,11 @@ rdd_parse_opts (int key, char *arg,
 		char *tmp = NULL;
 		long max_ops = 0;
 		max_ops = strtol (arg, &tmp, 10);
-		if ((max_ops == LONG_MAX) || (max_ops == LONG_MIN) || (tmp && *tmp)) {
-			fprintf (stderr, "invalid argument for max-ops (%s)\n", arg);
+		if ((max_ops == LONG_MAX) || 
+                    (max_ops == LONG_MIN) || 
+                    (tmp && *tmp)) {
+			fprintf (stderr, "invalid argument for max-ops"
+                                 "(%s)\n", arg);
 			return -1;
 		}
 
@@ -153,8 +163,11 @@ rdd_parse_opts (int key, char *arg,
 		char *tmp = NULL;
 		long threads = 0;
 		threads = strtol (arg, &tmp, 10);
-		if ((threads == LONG_MAX) || (threads == LONG_MIN) || (tmp && *tmp)) {
-			fprintf (stderr, "invalid argument for thread count (%s)\n", arg);
+		if ((threads == LONG_MAX) || 
+                    (threads == LONG_MIN) || 
+                    (tmp && *tmp)) {
+			fprintf (stderr, "invalid argument for thread count"
+                                 "(%s)\n", arg);
 			return -1;
 		}
 
@@ -195,7 +208,8 @@ static struct argp argp = {
   rdd_options,
   rdd_parse_opts,
   "",
-  "random dd - tool to do a sequence of random block-sized continuous read writes starting at a random offset"
+  "random dd - tool to do a sequence of random block-sized continuous"
+  "read writes starting at a random offset"
 };
 
 
@@ -232,7 +246,8 @@ rdd_valid_config (void)
 	}
 
 	if (strlen (rdd_config.out_file.path) == 0) {
-		sprintf (rdd_config.out_file.path, "%s.rddout", rdd_config.in_file.path);
+		sprintf (rdd_config.out_file.path, "%s.rddout", 
+                         rdd_config.in_file.path);
 	}
 
 out:
@@ -250,7 +265,7 @@ rdd_read_write (void *arg)
 	long max_ops = 0;
 	char *buf = NULL;
 
-	buf = CALLOC (1, rdd_config.max_bs);
+	buf = calloc (1, rdd_config.max_bs);
 	if (!buf) {
 		fprintf (stderr, "calloc failed (%s)\n", strerror (errno));
 		ret = -1;
@@ -267,7 +282,10 @@ rdd_read_write (void *arg)
 			if (rdd_config.min_bs == rdd_config.max_bs) {
 				bs = rdd_config.max_bs;
 			} else {
-				bs = rdd_config.min_bs + (rand % (rdd_config.max_bs - rdd_config.min_bs));
+				bs = rdd_config.min_bs + 
+                                        (rand % 
+                                         (rdd_config.max_bs - 
+                                          rdd_config.min_bs));
 			}
 			
 			offset = rand % rdd_config.in_file.st.st_size;
@@ -278,14 +296,16 @@ rdd_read_write (void *arg)
 
 			ret = lseek (rdd_config.in_file.fd, offset, SEEK_SET);
 			if (ret != offset) {
-				fprintf (stderr, "lseek failed (%s)\n", strerror (errno));
+				fprintf (stderr, "lseek failed (%s)\n", 
+                                         strerror (errno));
 				ret = -1;
 				goto unlock;
 			}
 
 			ret = lseek (rdd_config.out_file.fd, offset, SEEK_SET);
 			if (ret != offset) {
-				fprintf (stderr, "lseek failed (%s)\n", strerror (errno));
+				fprintf (stderr, "lseek failed (%s)\n", 
+                                         strerror (errno));
 				ret = -1;
 				goto unlock;
 			}
@@ -298,13 +318,16 @@ rdd_read_write (void *arg)
 				}
 
 				if (bytes == -1) {
-					fprintf (stderr, "read failed (%s)\n", strerror (errno));
+					fprintf (stderr, "read failed (%s)\n", 
+                                                 strerror (errno));
 					ret = -1;
 					goto unlock;
 				}
 
-				if (write (rdd_config.out_file.fd, buf, bytes) != bytes) {
-					fprintf (stderr, "write failed (%s)\n", strerror (errno));
+				if (write (rdd_config.out_file.fd, buf, bytes) 
+                                    != bytes) {
+					fprintf (stderr, "write failed (%s)\n", 
+                                                 strerror (errno));
 					ret = -1;
 					goto unlock;
 				}
@@ -333,24 +356,28 @@ rdd_spawn_threads (void)
 
 	fd = open (rdd_config.in_file.path, O_RDONLY);
 	if (fd < 0) {
-		fprintf (stderr, "cannot open %s (%s)\n", rdd_config.in_file.path, strerror (errno));
+		fprintf (stderr, "cannot open %s (%s)\n", 
+                         rdd_config.in_file.path, strerror (errno));
 		ret = -1;
 		goto out;
 	}
 	ret = fstat (fd, &rdd_config.in_file.st);
 	if (ret != 0) {
 		close (fd);
-		fprintf (stderr, "cannot stat %s (%s)\n", rdd_config.in_file.path, strerror (errno));
+		fprintf (stderr, "cannot stat %s (%s)\n", 
+                         rdd_config.in_file.path, strerror (errno));
 		ret = -1;
 		goto out;
 	}
 	rdd_config.in_file.fd = fd;
 
-	fd = open (rdd_config.out_file.path, O_WRONLY | O_CREAT, S_IRWXU | S_IROTH);
+	fd = open (rdd_config.out_file.path, O_WRONLY | O_CREAT, 
+                   S_IRWXU | S_IROTH);
 	if (fd < 0) {
 		close (rdd_config.in_file.fd);
 		rdd_config.in_file.fd = -1;
-		fprintf (stderr, "cannot open %s (%s)\n", rdd_config.out_file.path, strerror (errno));
+		fprintf (stderr, "cannot open %s (%s)\n", 
+                         rdd_config.out_file.path, strerror (errno));
 		ret = -1;
 		goto out;
 	}
@@ -358,7 +385,8 @@ rdd_spawn_threads (void)
 
 	while ((ret = read (rdd_config.in_file.fd, buf, 4096)) > 0) {
 		if (write (rdd_config.out_file.fd, buf, ret) != ret) {
-			fprintf (stderr, "write failed (%s)\n", strerror (errno));
+			fprintf (stderr, "write failed (%s)\n", 
+                                 strerror (errno));
 			close (rdd_config.in_file.fd);
 			close (rdd_config.out_file.fd);
 			rdd_config.in_file.fd = rdd_config.out_file.fd = -1;
@@ -367,7 +395,8 @@ rdd_spawn_threads (void)
 		}
 	}
 
-	rdd_config.threads = CALLOC (rdd_config.thread_count, sizeof (pthread_t));
+	rdd_config.threads = calloc (rdd_config.thread_count, 
+                                     sizeof (pthread_t));
 	if (rdd_config.threads == NULL) {
 		fprintf (stderr, "calloc() failed (%s)\n", strerror (errno));
 
@@ -378,9 +407,11 @@ rdd_spawn_threads (void)
 		goto out;
 	}
 
-	ret = pthread_barrier_init (&rdd_config.barrier, NULL, rdd_config.thread_count + 1);
+	ret = pthread_barrier_init (&rdd_config.barrier, NULL, 
+                                    rdd_config.thread_count + 1);
 	if (ret != 0) {
-		fprintf (stderr, "pthread_barrier_init() failed (%s)\n", strerror (ret));
+		fprintf (stderr, "pthread_barrier_init() failed (%s)\n", 
+                         strerror (ret));
 
 		free (rdd_config.threads);
 		close (rdd_config.in_file.fd);
@@ -392,7 +423,8 @@ rdd_spawn_threads (void)
 
 	ret = pthread_mutex_init (&rdd_config.lock, NULL);
 	if (ret != 0) {
-		fprintf (stderr, "pthread_mutex_init() failed (%s)\n", strerror (ret));
+		fprintf (stderr, "pthread_mutex_init() failed (%s)\n", 
+                         strerror (ret));
 
 		free (rdd_config.threads);
 		pthread_barrier_destroy (&rdd_config.barrier);
@@ -405,9 +437,11 @@ rdd_spawn_threads (void)
 
 	for (i = 0; i < rdd_config.thread_count; i++)
 	{
-		ret = pthread_create (&rdd_config.threads[i], NULL, rdd_read_write, NULL);
+		ret = pthread_create (&rdd_config.threads[i], NULL, 
+                                      rdd_read_write, NULL);
 		if (ret != 0) {
-			fprintf (stderr, "pthread_create failed (%s)\n", strerror (errno));
+			fprintf (stderr, "pthread_create failed (%s)\n", 
+                                 strerror (errno));
 			exit (1);
 		}
 	}
@@ -440,7 +474,8 @@ main (int argc, char *argv[])
 
 	if (!rdd_valid_config ()) {
 		ret = -1;
-		fprintf (stderr, "%s: configuration validation failed\n", argv[0]);
+		fprintf (stderr, "%s: configuration validation failed\n", 
+                         argv[0]);
 		goto err;
 	}
 
