@@ -73,6 +73,9 @@ struct fuse_private {
         uint32_t             direct_io_mode;
         double               entry_timeout;
         double               attribute_timeout;
+        pthread_cond_t       first_call_cond;
+        pthread_mutex_t      first_call_mutex;
+        char                 first_call;
         gf_boolean_t         strict_volfile_check;
 };
 typedef struct fuse_private fuse_private_t;
@@ -2417,17 +2420,7 @@ fuse_setlk (fuse_req_t req,
 static void 
 fuse_init (void *data, struct fuse_conn_info *conn)
 {
-        xlator_t *this_xl = NULL;
-        
-        if (data == NULL) {
-                return ;
-        }
-        
-        this_xl = data;
-        
-        this_xl->itable = inode_table_new (0, this_xl);
-        
-        return ;
+	return;
 }
 
 static void
@@ -2472,6 +2465,78 @@ static struct fuse_lowlevel_ops fuse_ops = {
         .setlk        = fuse_setlk
 };
 
+int
+fuse_root_lookup_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      inode_t *inode,
+		      struct stat *buf,
+		      dict_t *xattr)
+{
+        fuse_private_t *priv = this->private;
+
+	if (op_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG, 
+			"first lookup on root succeeded.");
+		inode_lookup (inode);
+	} else {
+		gf_log (this->name, GF_LOG_DEBUG, 
+			"first lookup on root failed.");
+	}
+	STACK_DESTROY (frame->root);
+	pthread_mutex_lock (&priv->first_call_mutex);
+	{
+		priv->first_call = 0;
+		pthread_cond_broadcast (&priv->first_call_cond);
+	}
+	pthread_mutex_unlock (&priv->first_call_mutex);
+	return 0;
+}
+
+
+int
+fuse_root_lookup (xlator_t *this)
+{
+	fuse_private_t *priv = NULL;
+	loc_t loc;
+	call_frame_t *frame = NULL;
+	xlator_t *xl = NULL;
+	dict_t *dict = NULL;
+
+	priv = this->private;
+
+	pthread_cond_init (&priv->first_call_cond, NULL);
+	pthread_mutex_init (&priv->first_call_mutex, NULL);
+
+	loc.path = "/";
+	loc.name = "";
+	loc.ino = 1;
+	loc.inode = inode_search (this->itable, 1, NULL);
+	loc.parent = NULL;
+
+	dict = dict_new();
+	frame = create_frame (this, this->ctx->pool);
+	frame->root->type = GF_OP_TYPE_FOP_REQUEST;
+	xl = this->children->xlator;
+
+	STACK_WIND (frame, fuse_root_lookup_cbk, xl, xl->fops->lookup, 
+		    &loc, dict);
+	dict_unref (dict);
+
+	pthread_mutex_lock (&priv->first_call_mutex);
+	{
+		while (priv->first_call) {
+			pthread_cond_wait (&priv->first_call_cond, 
+					   &priv->first_call_mutex);
+		}
+	}
+	pthread_mutex_unlock (&priv->first_call_mutex);
+
+	return 0;
+}
+
 
 static void *
 fuse_thread_proc (void *data)
@@ -2488,10 +2553,13 @@ fuse_thread_proc (void *data)
 
         while (!fuse_session_exited (priv->se)) {
 
-
                 res = fuse_chan_receive (priv->ch,
                                          recvbuf,
                                          chan_size);
+
+		if (priv->first_call) {
+			fuse_root_lookup (this);
+		}
 
                 if (res == -1) {
                         if (errno != EINTR) {
@@ -2814,6 +2882,9 @@ init (xlator_t *this_xl)
         priv->buf = data_ref (data_from_dynptr (NULL, 0));
 
         this_xl->ctx->top = this_xl;
+
+	priv->first_call = 1;
+        this_xl->itable = inode_table_new (0, this_xl);
         return 0;
         
 umount_exit: 
