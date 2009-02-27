@@ -419,19 +419,10 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	local->selfheal.dir_cbk = dir_cbk;
 	local->selfheal.layout = layout;
 
-/*
 	if (down) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"%d subvolumes down -- not fixing", down);
 		ret = 0;
-		goto sorry_no_fix;
-	}
-
-	if (overlaps) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"not fixing overlaps in %s", loc->path);
-		local->op_errno = EINVAL;
-		ret = -1;
 		goto sorry_no_fix;
 	}
 
@@ -442,14 +433,6 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 		goto sorry_no_fix;
 	}
 
-	if (holes > missing) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"%d holes and %d pigeons -- not fixing",
-			holes, missing);
-		ret = 0;
-		goto sorry_no_fix;
-	}
-*/
 	dht_layout_sort_volname (layout);
 	ret = dht_selfheal_dir_getafix (frame, loc, layout);
 
