@@ -5,87 +5,28 @@
 #
 
 # Get function from functions library
-# . /etc/rc.d/init.d/functions
+. /etc/rc.d/init.d/functions
 
 BASE=glusterfsd
-GSERVER="/sbin/$BASE -f /etc/glusterfs/glusterfs-server.vol"
-
-# A function to stop gluster
-killgluster()
-{
-       killlevel="-9"
-       # Find pid.
-       pid=
-       if [ -f /var/run/$BASE.pid ]; then
-               local line p
-               read line < /var/run/$BASE.pid
-               for p in $line ; do
-                       [ -z "${p//[0-9]/}" -a -d "/proc/$p" ] && pid="$pid
-$p"
-               done
-       fi
-       if [ -z "$pid" ]; then
-               pid=`pidof -o $$ -o $PPID -o %PPID -x $1 || \
-                       pidof -o $$ -o $PPID -o %PPID -x $BASE`
-       fi
-       # Kill it.
-       kill $killlevel $pid
-       if [ "$?" = 0 ]
-         then
-            echo "Gluster process $pid has been killed"
-            initlog -n "Kill gluster" -e 1
-         else
-            echo "Failed: Gluster process $pid has not been killed"
-            initlog -n "Kill gluster" -e 2
-       fi
-
-       # Remove pid and lock file if any.
-        if [ -f /var/run/$BASE.pid ]
-           then
-             rm -f /var/run/$BASE.pid && initlog -n "Remove $BASE.pid:" -e
-1
-           else echo "$BASE.pid not found" && initlog -n "Remove
-$BASE.pid:" -e 2
-        fi
-
-        if [ -f /var/lock/subsys/$BASE ]
-           then
-             rm -f /var/lock/subsys/$BASE && initlog -n "Remove $BASE lock
-file:" -e 1
-           else echo "$BASE lock file not found" && initlog -n "Remove
-$BASE lock file:" -e 2
-        fi
-}
+GSERVER="/usr/sbin/$BASE -f /etc/glusterfs/glusterfsd.vol"
+RETVAL=0
 
 # Start the service $BASE
 start()
 {
-       initlog -c "echo -n Starting $BASE:"
-       $GSERVER
-       if [ $? = 0 ]
-        then
-          touch /var/lock/subsys/$BASE
-          initlog -n "Starting $BASE" -e 1
-          echo "  [OK]"
-        else
-          echo "$BASE start failed."
-          initlog -n "$BASE start" -e 2
-       fi
+       echo -n $"Starting $BASE:"
+       daemon $GSERVER
+       RETVAL=$?
+       [ $RETVAL -ne 0 ] && exit $RETVAL
 }
 
 # Stop the service $BASE
 stop()
 {
-       echo "Stopping $BASE:"
-       killgluster
+       echo $"Stopping $BASE:"
+       killproc $BASE 
 }
-status()
-{
-       if test "`lsof |grep -c /sbin/$BASE`" = "0"
-         then echo "$BASE is stopped."
-         else echo "$BASE is running..."
-       fi
-}
+
 
 ### service arguments ###
 case $1 in
@@ -96,14 +37,14 @@ case $1 in
        stop
        ;;
  status)
-       status
+       status $BASE
        ;;
- restart|reload|condrestart)
-       stop
-       start
+ restart)
+       $0 stop
+       $0 start
        ;;
  *)
-       echo $.Usage: $0 {start|stop|restart|reload|status}.
+       echo $"Usage: $0 {start|stop|status|restart}."
        exit 1
 esac
 
