@@ -154,6 +154,7 @@ This package provides the development libraries.
 %_prefix/sbin/glusterfsd
 %_mandir/man8/glusterfs.8.gz
 %_infodir/user-guide.info.gz
+%_sysconfdir/init.d/glusterfsd
 %exclude %_infodir/dir
 
 %if %with_client
@@ -185,6 +186,9 @@ ldconfig
 
 
 %changelog
+* Fri Feb 27 2009 Harshavardhana <harsha@gluster.com> - 2.0
+- Added /etc/init.d/glusterfsd
+
 * Fri Dec 12 2008 Harshavardhana <harsha@gluster.com> - 1.4
 - Added new options with --with-apxspath --with-apachepath
   new configure options. 
