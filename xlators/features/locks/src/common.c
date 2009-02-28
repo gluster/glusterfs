@@ -51,15 +51,17 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 pl_inode_t *
 pl_inode_get (xlator_t *this, inode_t *inode)
 {
+        uint64_t    tmp_pl_inode = 0;
 	pl_inode_t *pl_inode = NULL;
 	mode_t      st_mode = 0;
 	int         ret = 0;
 
 	ret = inode_ctx_get (inode, this,
                              VOID(&pl_inode));
-	if (ret == 0)
+	if (ret == 0) {
+                pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
 		goto out;
-
+        }
 	pl_inode = CALLOC (1, sizeof (*pl_inode));
 	if (!pl_inode) {
 		gf_log (this->name, GF_LOG_ERROR,
