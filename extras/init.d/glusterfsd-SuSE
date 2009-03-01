@@ -1,0 +1,72 @@
+#!/bin/bash
+#
+### BEGIN INIT INFO
+# Provides:       glusterfsd
+# Required-Start: $local_fs $network
+# Required-Stop:
+# Default-Start:  3 5
+# Default-Stop:
+# Short-Description: GlusterFS server daemon
+# Description:    All necessary services for GlusterFS clients
+### END INIT INFO
+
+# Get function from functions library
+
+. /etc/rc.status
+
+BASE=glusterfsd
+GSERVER="/usr/sbin/$BASE -f /etc/glusterfs/glusterfsd.vol"
+RETVAL=0
+
+# Start the service $BASE
+start()
+{
+       echo -n $"Starting $BASE:"
+       startproc $GSERVER 
+       return $?
+}
+
+# Stop the service $BASE
+stop()
+{
+       echo $"Stopping $BASE:"
+       killproc $BASE 
+       return $?
+}
+
+
+### service arguments ###
+case $1 in
+ start)
+       start || {
+	   rc_status -v
+	   rc_exit
+       }
+       rc_status -v
+       ;;
+ stop)
+       stop || {
+	   rc_status -v
+	   rc_exit
+       }
+       rc_status -v
+       ;;
+ status)
+	echo -n " glusterfsd"
+	if ! checkproc $BASE ;then
+	    echo " not running"
+	    rc_failed 3
+	fi
+	rc_status -v
+       ;;
+ restart)
+       $0 stop
+       $0 start
+       rc_status
+       ;;
+ *)
+       echo $"Usage: $0 {start|stop|status|restart}."
+       exit 1
+esac
+
+exit 0
