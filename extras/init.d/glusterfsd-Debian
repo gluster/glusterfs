@@ -17,7 +17,7 @@ NAME=glusterfsd
 SCRIPTNAME=/etc/init.d/$NAME
 DAEMON=/usr/sbin/$NAME
 PIDFILE=/var/run/$NAME.pid
-CONFIGFILE=/etc/glusterfs/server.vol
+CONFIGFILE=/etc/glusterfs/glusterfsd.vol
 GLUSTERFS_OPTS="-f $CONFIGFILE"
 PID=`test -f $PIDFILE && cat $PIDFILE`
 

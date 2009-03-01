@@ -14,7 +14,7 @@ RETVAL=0
 # Start the service $BASE
 start()
 {
-       echo -n $"Starting $BASE:"
+       echo $"Starting $BASE:"
        daemon $GSERVER
        RETVAL=$?
        [ $RETVAL -ne 0 ] && exit $RETVAL

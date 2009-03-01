@@ -61,7 +61,7 @@ Requires: apache >= 1.3
 %endif
 %endif
 BuildRequires: libtool
-BuildRequires: byacc bison flex
+BuildRequires: bison flex
 BuildRequires: gcc
 BuildRequires: make
 URL: ftp://ftp.zresearch.com/pub/gluster/glusterfs/1.4-qa/@PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
@@ -154,7 +154,7 @@ This package provides the development libraries.
 %_prefix/sbin/glusterfsd
 %_mandir/man8/glusterfs.8.gz
 %_infodir/user-guide.info.gz
-%_sysconfdir/init.d/glusterfsd
+%config %_sysconfdir/init.d/glusterfsd
 %exclude %_infodir/dir
 
 %if %with_client

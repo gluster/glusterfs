@@ -490,6 +490,25 @@ if test "x${have_fdatasync}" = "xyes"; then
    AC_DEFINE(HAVE_FDATASYNC, 1, [define if fdatasync exists])
 fi
 
+# Check the distribution where you are compiling glusterfs on 
+
+GF_DISTRIBUTION=
+AC_CHECK_FILE([/etc/debian_version])
+AC_CHECK_FILE([/etc/SuSE-release])
+AC_CHECK_FILE([/etc/redhat-release])
+
+if test "x$ac_cv_file__etc_debian_version" = "xyes"; then
+   GF_DISTRIBUTION=Debian
+fi
+if test "x$ac_cv_file__etc_SuSE_release" = "xyes"; then
+   GF_DISTRIBUTION=SuSE
+fi
+if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
+   GF_DISTRIBUTION=Redhat
+fi
+
+AC_SUBST(GF_DISTRIBUTION)
+
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
