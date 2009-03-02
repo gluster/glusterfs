@@ -2630,27 +2630,8 @@ notify (xlator_t *this, int32_t event,
         switch (event)
         {
         case GF_EVENT_CHILD_UP:
-
-#ifndef GF_DARWIN_HOST_OS
-		/* 
-		 * This is because macfuse sends statfs() once the fuse thread
-                 * gets activated, and by that time if the client is not 
-		 * connected, it give 'Device not configured' error. Hence, 
-		 * create thread only when client sends CHILD_UP (ie, client 
-		 * is connected).
-		 */
-
-                /* TODO: somehow, try to get the mountpoint active as soon as 
-		 * init() is complete, so that the hang effect when the 
-		 * server is not not started is removed. 
-		 */
-		
-		/* This code causes problem with 'automount' too */
-		/* case GF_EVENT_CHILD_CONNECTING: */
-#endif /* DARWIN */
-
+        case GF_EVENT_CHILD_CONNECTING: 
         {
-
                 if (!private->fuse_thread_started)
                 {
                         private->fuse_thread_started = 1;
@@ -2658,10 +2639,15 @@ notify (xlator_t *this, int32_t event,
                         ret = pthread_create (&private->fuse_thread, NULL,
                                               fuse_thread_proc, this);
 
-                        if (ret != 0)
+                        if (ret != 0) {
                                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                                        "pthread_create() failed (%s)", strerror (errno));
-                        assert (ret == 0);
+                                        "pthread_create() failed (%s)", 
+                                        strerror (errno));
+
+                                /* If fuse thread is not started, that means, 
+                                   its hung, we can't use this process. */
+                                raise (SIGTERM);
+                        }
                 }
                 break;
         }
