@@ -5956,6 +5956,20 @@ client_setvolume_cbk (call_frame_t *frame,
 	}
 
 out:
+        if (-1 == op_ret) {
+		/* Let the connection/re-connection happen in 
+		 * background, for now, don't hang here,
+		 * tell the parents that i am all ok..
+		 */
+		parent = trans->xl->parents;
+		while (parent) {
+			parent->xlator->notify (parent->xlator,
+						GF_EVENT_CHILD_CONNECTING,
+						trans->xl);
+			parent = parent->next;
+		}
+        }
+
 	STACK_DESTROY (frame->root);
 
 	if (reply)
@@ -6608,7 +6622,6 @@ notify (xlator_t *this,
 
 	case GF_EVENT_PARENT_UP:
 	{
-		xlator_list_t *parent = NULL;
 		client_conf_t *conf = NULL;
 		int            i = 0;
 		transport_t   *trans = NULL;
@@ -6629,18 +6642,6 @@ notify (xlator_t *this,
 				"on transport");
 
 			client_protocol_reconnect (trans);
-		}
-
-		/* Let the connection/re-connection happen in 
-		 * background, for now, don't hang here,
-		 * tell the parents that i am all ok..
-		 */
-		parent = trans->xl->parents;
-		while (parent) {
-			parent->xlator->notify (parent->xlator,
-						GF_EVENT_CHILD_CONNECTING,
-						trans->xl);
-			parent = parent->next;
 		}
 	}
 	break;
