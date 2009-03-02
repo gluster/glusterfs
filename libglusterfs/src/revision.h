@@ -1,1 +1,1 @@
-#define GLUSTERFS_REPOSITORY_REVISION "glusterfs--mainline--3.0--patch-928"
+#define GLUSTERFS_REPOSITORY_REVISION "git://git.sv.gnu.org/gluster.git"
