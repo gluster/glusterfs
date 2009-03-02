@@ -230,7 +230,7 @@ event_register_poll (struct event_pool *event_pool, int fd,
 			break;
 		default:
 			gf_log ("poll", GF_LOG_ERROR,
-				"invalid poll_out value %d", poll_in);
+				"invalid poll_out value %d", poll_out);
 			break;
 		}
 
