@@ -207,6 +207,17 @@ int32_t default_getxattr (call_frame_t *frame,
 			  loc_t *loc,
 			  const char *name);
 
+int32_t default_fsetxattr (call_frame_t *frame,
+                           xlator_t *this,
+                           fd_t *fd,
+                           dict_t *dict,
+                           int32_t flags);
+
+int32_t default_fgetxattr (call_frame_t *frame,
+                           xlator_t *this,
+                           fd_t *fd,
+                           const char *name);
+
 int32_t default_removexattr (call_frame_t *frame,
 			     xlator_t *this,
 			     loc_t *loc,

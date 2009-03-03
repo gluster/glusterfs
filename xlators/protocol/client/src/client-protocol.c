@@ -2350,6 +2350,97 @@ unwind:
 	return 0;
 }
 
+
+/**
+ * client_fsetxattr - fsetxattr function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: fd
+ * @dict: dictionary which contains key:value to be set.
+ * @flags:
+ *
+ * external reference through client_protocol_xlator->fops->fsetxattr
+ */
+int32_t
+client_fsetxattr (call_frame_t *frame,
+                  xlator_t *this,
+                  fd_t *fd,
+                  dict_t *dict,
+                  int32_t flags)
+{
+	gf_hdr_common_t       *hdr = NULL;
+	gf_fop_fsetxattr_req_t *req = NULL;
+	size_t hdrlen = 0;
+	size_t dict_len = 0;
+        ino_t  ino;
+	int    ret = -1;
+	int64_t remote_fd = -1;
+	client_conf_t *conf = this->private;
+
+	if (conf->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_fsetxattr_cbk,
+			    conf->child,
+			    conf->child->fops->fsetxattr,
+			    fd,
+			    dict,
+			    flags);
+
+		return 0;
+	}
+
+	dict_len = dict_serialized_length (dict);
+	if (dict_len < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to get serialized length of dict(%p)",
+			dict);
+		goto unwind;
+	}
+
+        ret = this_fd_get (fd, this, &remote_fd);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "(%"PRId64"): failed to get remote fd. returning EBADFD",
+                        fd->inode->ino);
+                goto unwind;
+        }
+        ino = fd->inode->ino;
+
+	hdrlen = gf_hdr_len (req, dict_len);
+	hdr    = gf_hdr_new (req, dict_len);
+
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
+	req    = gf_param (hdr);
+
+	req->ino   = hton64 (ino);
+        req->fd    = hton64 (remote_fd);
+	req->flags = hton32 (flags);
+	req->dict_len = hton32 (dict_len);
+
+	ret = dict_serialize (dict, req->dict);
+	if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"failed to serialize dictionary(%p)",
+			dict);
+		goto unwind;
+	}
+
+	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
+				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSETXATTR,
+				    hdr, hdrlen, NULL, 0, NULL);
+	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL);
+	return 0;
+}
+
+
 /**
  * client_getxattr - getxattr function for client protocol
  * @frame: call frame
@@ -2415,6 +2506,83 @@ unwind:
 	STACK_UNWIND(frame, -1, EINVAL, NULL);
 	return 0;
 }
+
+
+/**
+ * client_fgetxattr - fgetxattr function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: fd
+ *
+ * external reference through client_protocol_xlator->fops->fgetxattr
+ */
+
+int32_t
+client_fgetxattr (call_frame_t *frame,
+                  xlator_t *this,
+                  fd_t *fd,
+                  const char *name)
+{
+	int ret = -1;
+	gf_hdr_common_t *hdr = NULL;
+	gf_fop_fgetxattr_req_t *req = NULL;
+	size_t hdrlen = 0;
+        int64_t remote_fd = -1;
+	size_t namelen = 0;
+	ino_t  ino = 0;
+	client_conf_t *conf = this->private;
+
+	if (conf->child) {
+		/* */
+		STACK_WIND (frame,
+			    default_fgetxattr_cbk,
+			    conf->child,
+			    conf->child->fops->fgetxattr,
+			    fd,
+			    name);
+
+		return 0;
+	}
+
+	if (name)
+		namelen = STRLEN_0(name);
+
+        ret = this_fd_get (fd, this, &remote_fd);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "(%"PRId64"): failed to get remote fd. returning EBADFD",
+                        fd->inode->ino);
+                goto unwind;
+        }
+        ino = fd->inode->ino;
+
+	hdrlen = gf_hdr_len (req, namelen);
+	hdr    = gf_hdr_new (req, namelen);
+
+	GF_VALIDATE_OR_GOTO(frame->this->name, hdr, unwind);
+
+	req    = gf_param (hdr);
+
+	req->ino   = hton64 (ino);
+        req->fd    = hton64 (remote_fd);
+	req->namelen = hton32 (namelen);
+
+	if (name)
+		strcpy (req->name, name);
+
+	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
+				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FGETXATTR,
+				    hdr, hdrlen, NULL, 0, NULL);
+	return ret;
+unwind:
+	if (hdr)
+		free (hdr);
+
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+}
+
 
 /**
  * client_removexattr - removexattr function for client protocol
@@ -6703,6 +6871,8 @@ struct xlator_fops fops = {
 	.fsync       = client_fsync,
 	.setxattr    = client_setxattr,
 	.getxattr    = client_getxattr,
+        .fsetxattr   = client_fsetxattr,
+        .fgetxattr   = client_fgetxattr,
 	.removexattr = client_removexattr,
 	.opendir     = client_opendir,
 	.readdir     = client_readdir,

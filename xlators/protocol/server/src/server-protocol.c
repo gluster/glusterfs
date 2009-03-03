@@ -1339,6 +1339,67 @@ server_getxattr_cbk (call_frame_t *frame,
 	return 0;
 }
 
+
+int32_t
+server_fgetxattr_cbk (call_frame_t *frame,
+                      void *cookie,
+                      xlator_t *this,
+                      int32_t op_ret,
+                      int32_t op_errno,
+                      dict_t *dict)
+{
+	gf_hdr_common_t       *hdr  = NULL;
+	gf_fop_fgetxattr_rsp_t *rsp = NULL;
+	server_state_t *state = NULL;
+	size_t  hdrlen = 0;
+	int32_t len = 0;
+	int32_t gf_errno = 0;
+	int32_t ret = -1;
+
+	state = CALL_STATE(frame);
+
+	if (op_ret >= 0) {
+		len = dict_serialized_length (dict);
+		if (len < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"%s (%"PRId64"): failed to get serialized length of "
+				"reply dict",
+				state->loc.path, state->ino);
+			op_ret   = -1;
+			op_errno = EINVAL;
+			len = 0;
+		}
+	}
+
+	hdrlen = gf_hdr_len (rsp, len + 1);
+	hdr    = gf_hdr_new (rsp, len + 1);
+	rsp    = gf_param (hdr);
+
+	if (op_ret >= 0) {
+		ret = dict_serialize (dict, rsp->dict);
+		if (len < 0) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"%s (%"PRId64"): failed to serialize reply dict",
+				state->loc.path, state->ino);
+			op_ret = -1;
+			op_errno = -ret;
+		}
+	}
+	rsp->dict_len = hton32 (len);
+
+	hdr->rsp.op_ret = hton32 (op_ret);
+	gf_errno        = gf_errno_to_error (op_errno);
+	hdr->rsp.op_errno = hton32 (gf_errno);
+
+	fd_unref (state->fd);
+
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FGETXATTR,
+			       hdr, hdrlen, NULL, 0, NULL);
+
+	return 0;
+}
+
+
 /*
  * server_setxattr_cbk - setxattr callback for server protocol
  * @frame: call frame
@@ -1374,6 +1435,35 @@ server_setxattr_cbk (call_frame_t *frame,
 	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETXATTR,
+			       hdr, hdrlen, NULL, 0, NULL);
+
+	return 0;
+}
+
+
+int32_t
+server_fsetxattr_cbk (call_frame_t *frame,
+                      void *cookie,
+                      xlator_t *this,
+                      int32_t op_ret,
+                      int32_t op_errno)
+{
+	gf_hdr_common_t        *hdr = NULL;
+	gf_fop_fsetxattr_rsp_t *rsp = NULL;
+	server_state_t *state = NULL;
+	size_t  hdrlen = 0;
+	int32_t gf_errno = 0;
+	state = CALL_STATE(frame);
+
+	hdrlen = gf_hdr_len (rsp, 0);
+	hdr    = gf_hdr_new (rsp, 0);
+	rsp    = gf_param (hdr);
+
+	hdr->rsp.op_ret = hton32 (op_ret);
+	gf_errno        = gf_errno_to_error (op_errno);
+	hdr->rsp.op_errno = hton32 (gf_errno);
+
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSETXATTR,
 			       hdr, hdrlen, NULL, 0, NULL);
 
 	return 0;
@@ -4696,9 +4786,81 @@ fail:
 	server_setxattr_cbk (frame, NULL, frame->this,
 			     -1, ENOENT);
 	return 0;
-	
+
 }
 
+
+int32_t
+server_fsetxattr (call_frame_t *frame,
+                  xlator_t *bound_xl,
+                  gf_hdr_common_t *hdr, size_t hdrlen,
+                  char *buf, size_t buflen)
+{
+        server_connection_t *conn   = NULL;
+	gf_fop_fsetxattr_req_t *req = NULL;
+
+	dict_t *dict = NULL;
+	server_state_t *state = NULL;
+	int32_t ret = -1;
+	size_t pathlen = 0;
+	size_t dict_len = 0;
+	char *req_dictbuf = NULL;
+
+        conn = SERVER_CONNECTION (frame);
+
+	req = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+                state->fd_no = ntoh64 (req->fd);
+                if (state->fd_no >= 0)
+                        state->fd = gf_fd_fdptr_get (conn->fdtable,
+                                                     state->fd_no);
+		dict_len = ntoh32 (req->dict_len);
+
+		pathlen = STRLEN_0(state->path);
+		state->ino   = ntoh64 (req->ino);
+
+		state->flags = ntoh32 (req->flags);
+	}
+
+        /* Unserialize the dictionary */
+        req_dictbuf = memdup (req->dict, dict_len);
+        GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
+
+        dict = dict_new ();
+        GF_VALIDATE_OR_GOTO(bound_xl->name, dict, fail);
+        
+        ret = dict_unserialize (req_dictbuf, dict_len, &dict);
+        if (ret < 0) {
+                gf_log (bound_xl->name, GF_LOG_ERROR,
+                        "%"PRId64": %s (%"PRId64"): failed to "
+                        "unserialize request buffer to dictionary",
+                        frame->root->unique, state->loc.path,
+                        state->ino);
+                free (req_dictbuf);
+                goto fail;
+        } else{
+                dict->extra_free = req_dictbuf;
+        }
+
+        STACK_WIND (frame, 
+                    server_setxattr_cbk,
+                    BOUND_XL(frame),
+                    BOUND_XL(frame)->fops->fsetxattr,
+                    state->fd, dict, state->flags);
+
+	if (dict)
+		dict_unref (dict);
+
+        return 0;
+fail:
+	if (dict)
+		dict_unref (dict);
+
+	server_fsetxattr_cbk (frame, NULL, frame->this,
+                              -1, ENOENT);
+	return 0;
+}
 
 
 int32_t
@@ -4949,6 +5111,44 @@ server_getxattr (call_frame_t *frame,
 	return 0;
 }
 
+
+int32_t
+server_fgetxattr (call_frame_t *frame,
+                  xlator_t *bound_xl,
+                  gf_hdr_common_t *hdr, size_t hdrlen,
+                  char *buf, size_t buflen)
+{
+        server_connection_t    *conn = NULL;
+	gf_fop_fgetxattr_req_t *req  = NULL;
+	server_state_t *state        = NULL;
+
+	size_t namelen = 0;
+
+        conn = SERVER_CONNECTION (frame);
+
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+                state->fd_no   = ntoh64 (req->fd);
+                if (state->fd_no >= 0)
+                        state->fd = gf_fd_fdptr_get (conn->fdtable,
+                                                     state->fd_no);
+
+		state->ino     = ntoh64 (req->ino);
+
+		namelen = ntoh32 (req->namelen);
+		if (namelen)
+			state->name = (req->name);
+	}
+
+	STACK_WIND (frame,
+		    server_fgetxattr_cbk,
+		    BOUND_XL(frame),
+		    BOUND_XL(frame)->fops->fgetxattr,
+		    state->fd,
+		    state->name);
+	return 0;
+}
 
 
 int32_t
@@ -7640,6 +7840,8 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_FSYNC]        =  server_fsync,
 	[GF_FOP_SETXATTR]     =  server_setxattr,
 	[GF_FOP_GETXATTR]     =  server_getxattr,
+        [GF_FOP_FGETXATTR]    =  server_fgetxattr,
+        [GF_FOP_FSETXATTR]    =  server_fsetxattr,
 	[GF_FOP_REMOVEXATTR]  =  server_removexattr,
 	[GF_FOP_OPENDIR]      =  server_opendir,
 	[GF_FOP_GETDENTS]     =  server_getdents,

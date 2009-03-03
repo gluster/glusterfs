@@ -1537,6 +1537,105 @@ out:
 	return stub;
 }
 
+
+call_stub_t *
+fop_fsetxattr_stub (call_frame_t *frame,
+                    fop_fsetxattr_t fn,
+                    fd_t *fd,
+                    dict_t *dict,
+                    int32_t flags)
+{
+	call_stub_t *stub = NULL;
+
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+	GF_VALIDATE_OR_GOTO ("call-stub", fd, out);
+
+	stub = stub_new (frame, 1, GF_FOP_FSETXATTR);
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	stub->args.fsetxattr.fn = fn;
+	stub->args.fsetxattr.fd = fd_ref (fd);
+
+	/* TODO */
+	if (dict)
+		stub->args.fsetxattr.dict = dict_ref (dict);
+	stub->args.fsetxattr.flags = flags;
+out:
+	return stub;
+}
+
+
+call_stub_t *
+fop_fsetxattr_cbk_stub (call_frame_t *frame,
+                        fop_fsetxattr_cbk_t fn,
+                        int32_t op_ret,
+                        int32_t op_errno)
+{
+	call_stub_t *stub = NULL;
+
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+	stub = stub_new (frame, 0, GF_FOP_FSETXATTR);
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	stub->args.fsetxattr_cbk.fn = fn;
+	stub->args.fsetxattr_cbk.op_ret = op_ret;
+	stub->args.fsetxattr_cbk.op_errno = op_errno;
+out:
+	return stub;
+}
+
+
+call_stub_t *
+fop_fgetxattr_stub (call_frame_t *frame,
+                    fop_fgetxattr_t fn,
+                    fd_t *fd,
+                    const char *name)
+{
+	call_stub_t *stub = NULL;
+
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+	GF_VALIDATE_OR_GOTO ("call-stub", fd, out);
+
+	stub = stub_new (frame, 1, GF_FOP_FGETXATTR);
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	stub->args.fgetxattr.fn = fn;
+	stub->args.fgetxattr.fd = fd_ref (fd);
+
+	if (name)
+	        stub->args.fgetxattr.name = strdup (name);
+out:
+	return stub;
+}
+
+
+call_stub_t *
+fop_fgetxattr_cbk_stub (call_frame_t *frame,
+                        fop_fgetxattr_cbk_t fn,
+                        int32_t op_ret,
+                        int32_t op_errno,
+                        dict_t *dict)
+{
+	call_stub_t *stub = NULL;
+
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+	stub = stub_new (frame, 0, GF_FOP_GETXATTR);
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	stub->args.fgetxattr_cbk.fn = fn;
+	stub->args.fgetxattr_cbk.op_ret = op_ret;
+	stub->args.fgetxattr_cbk.op_errno = op_errno;
+
+	/* TODO */
+	if (dict)
+		stub->args.fgetxattr_cbk.dict = dict_ref (dict);
+out:
+	return stub;
+}
+
+
 call_stub_t *
 fop_removexattr_stub (call_frame_t *frame,
 		      fop_removexattr_t fn,
@@ -2340,6 +2439,25 @@ call_resume_wind (call_stub_t *stub)
 		break;
 	}
 
+	case GF_FOP_FSETXATTR:
+	{
+		stub->args.fsetxattr.fn (stub->frame,
+                                         stub->frame->this,
+                                         stub->args.fsetxattr.fd,
+                                         stub->args.fsetxattr.dict,
+                                         stub->args.fsetxattr.flags);
+		break;
+	}
+
+	case GF_FOP_FGETXATTR:
+	{
+		stub->args.fgetxattr.fn (stub->frame,
+                                         stub->frame->this,
+                                         stub->args.fgetxattr.fd,
+                                         stub->args.fgetxattr.name);
+		break;
+	}
+
 	case GF_FOP_REMOVEXATTR:
 	{
 		stub->args.removexattr.fn (stub->frame,
@@ -2953,7 +3071,41 @@ call_resume_unwind (call_stub_t *stub)
 						    stub->args.getxattr_cbk.dict);
 		break;
 	}
-  
+
+	case GF_FOP_FSETXATTR:
+	{
+		if (!stub->args.fsetxattr_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.fsetxattr_cbk.op_ret,
+				      stub->args.fsetxattr_cbk.op_errno);
+
+		else
+			stub->args.fsetxattr_cbk.fn (stub->frame,
+                                                     stub->frame->cookie,
+                                                     stub->frame->this,
+                                                     stub->args.fsetxattr_cbk.op_ret,
+                                                     stub->args.fsetxattr_cbk.op_errno);
+
+		break;
+	}
+
+	case GF_FOP_FGETXATTR:
+	{
+		if (!stub->args.fgetxattr_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.fgetxattr_cbk.op_ret,
+				      stub->args.fgetxattr_cbk.op_errno,
+				      stub->args.fgetxattr_cbk.dict);
+		else
+			stub->args.fgetxattr_cbk.fn (stub->frame,
+                                                     stub->frame->cookie,
+                                                     stub->frame->this,
+                                                     stub->args.fgetxattr_cbk.op_ret,
+                                                     stub->args.fgetxattr_cbk.op_errno,
+                                                     stub->args.fgetxattr_cbk.dict);
+		break;
+	}
+
 	case GF_FOP_REMOVEXATTR:
 	{
 		if (!stub->args.removexattr_cbk.fn)
@@ -3518,13 +3670,29 @@ call_stub_destroy_wind (call_stub_t *stub)
 		break;
 	}
 
+	case GF_FOP_FSETXATTR:
+	{
+		fd_unref (stub->args.fsetxattr.fd);
+		if (stub->args.fsetxattr.dict)
+			dict_unref (stub->args.fsetxattr.dict);
+		break;
+	}
+
+	case GF_FOP_FGETXATTR:
+	{
+		if (stub->args.fgetxattr.name)
+			FREE (stub->args.fgetxattr.name);
+		fd_unref (stub->args.fgetxattr.fd);
+		break;
+	}
+
 	case GF_FOP_REMOVEXATTR:
 	{
 		loc_wipe (&stub->args.removexattr.loc);
 		FREE (stub->args.removexattr.name);
 		break;
 	}
-  
+
 	case GF_FOP_OPENDIR:
 	{
 		loc_wipe (&stub->args.opendir.loc);
@@ -3805,9 +3973,19 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	}
 	break;
 
+	case GF_FOP_FSETXATTR:
+		break;
+
+	case GF_FOP_FGETXATTR:
+	{
+		if (stub->args.fgetxattr_cbk.dict)
+			dict_unref (stub->args.fgetxattr_cbk.dict);
+	}
+	break;
+
 	case GF_FOP_REMOVEXATTR:
 		break;
-  
+
 	case GF_FOP_OPENDIR:
 	{
 		if (stub->args.opendir_cbk.fd)

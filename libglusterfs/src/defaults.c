@@ -974,13 +974,76 @@ default_setxattr (call_frame_t *frame,
 	return 0;
 }
 
+
+static int32_t
+default_fsetxattr_cbk (call_frame_t *frame,
+                       void *cookie,
+                       xlator_t *this,
+                       int32_t op_ret,
+                       int32_t op_errno)
+{
+	STACK_UNWIND (frame,
+		      op_ret,
+		      op_errno);
+	return 0;
+}
+
+int32_t
+default_fsetxattr (call_frame_t *frame,
+                   xlator_t *this,
+                   fd_t *fd,
+                   dict_t *dict,
+                   int32_t flags)
+{
+	STACK_WIND (frame,
+		    default_fsetxattr_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->fsetxattr,
+		    fd,
+		    dict,
+		    flags);
+	return 0;
+}
+
+
+static int32_t
+default_fgetxattr_cbk (call_frame_t *frame,
+                       void *cookie,
+                       xlator_t *this,
+                       int32_t op_ret,
+                       int32_t op_errno,
+                       dict_t *dict)
+{
+	STACK_UNWIND (frame,
+		      op_ret,
+		      op_errno,
+		      dict);
+	return 0;
+}
+
+
+int32_t
+default_fgetxattr (call_frame_t *frame,
+                   xlator_t *this,
+                   fd_t *fd,
+                   const char *name)
+{
+	STACK_WIND (frame,
+		    default_fgetxattr_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->fgetxattr,
+		    fd,
+		    name);
+	return 0;
+}
+
 static int32_t
 default_getxattr_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      dict_t *dict)
+                      void *cookie,
+                      xlator_t *this,
+                      int32_t op_ret,
+                      int32_t op_errno,
+                      dict_t *dict)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
