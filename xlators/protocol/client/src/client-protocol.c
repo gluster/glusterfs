@@ -6325,8 +6325,8 @@ init (xlator_t *this)
 			"setting transport-timeout to %d", transport_timeout);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"defaulting transport-timeout to 42");
-		transport_timeout = 42;
+			"defaulting transport-timeout to 600");
+		transport_timeout = 600;
 	}
 	
 	ret = dict_get_int32 (this->options, "ping-timeout", 
