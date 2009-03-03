@@ -397,6 +397,17 @@ typedef struct {
 } __attribute__((packed)) gf_fop_setxattr_req_t;
 typedef struct { } __attribute__((packed)) gf_fop_setxattr_rsp_t;
 
+
+typedef struct {
+        uint64_t ino;
+	int64_t  fd;
+	uint32_t flags;
+	uint32_t dict_len;
+	char     dict[0];
+} __attribute__((packed)) gf_fop_fsetxattr_req_t;
+typedef struct { } __attribute__((packed)) gf_fop_fsetxattr_rsp_t;
+
+
 typedef struct {
 	uint64_t ino;
 	uint32_t flags;
@@ -435,6 +446,18 @@ typedef struct {
 	uint32_t dict_len;
 	char     dict[0];
 } __attribute__((packed)) gf_fop_getxattr_rsp_t;
+
+
+typedef struct {
+        uint64_t ino;
+	int64_t  fd;
+        uint32_t namelen;
+	char     name[0];
+} __attribute__((packed)) gf_fop_fgetxattr_req_t;
+typedef struct {
+	uint32_t dict_len;
+	char     dict[0];
+} __attribute__((packed)) gf_fop_fgetxattr_rsp_t;
 
 
 typedef struct {

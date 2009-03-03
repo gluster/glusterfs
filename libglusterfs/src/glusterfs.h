@@ -101,32 +101,34 @@ typedef enum {
         GF_FOP_FLUSH,
         GF_FOP_FSYNC,
         GF_FOP_SETXATTR,
-        GF_FOP_GETXATTR,   
+        GF_FOP_GETXATTR,
         GF_FOP_REMOVEXATTR,/* 20 */
         GF_FOP_OPENDIR,
         GF_FOP_GETDENTS,
-        GF_FOP_FSYNCDIR,   
+        GF_FOP_FSYNCDIR,
         GF_FOP_ACCESS,
         GF_FOP_CREATE,     /* 25 */
         GF_FOP_FTRUNCATE,
         GF_FOP_FSTAT,
-        GF_FOP_LK,         
+        GF_FOP_LK,
         GF_FOP_UTIMENS,
         GF_FOP_FCHMOD,     /* 30 */
         GF_FOP_FCHOWN,
         GF_FOP_LOOKUP,
         GF_FOP_SETDENTS,
-        GF_FOP_READDIR,    
+        GF_FOP_READDIR,
         GF_FOP_INODELK,   /* 35 */
-        GF_FOP_FINODELK, 
-	GF_FOP_ENTRYLK,  
-	GF_FOP_FENTRYLK,  
-        GF_FOP_CHECKSUM,      
+        GF_FOP_FINODELK,
+	GF_FOP_ENTRYLK,
+	GF_FOP_FENTRYLK,
+        GF_FOP_CHECKSUM,
         GF_FOP_XATTROP,  /* 40 */
         GF_FOP_FXATTROP,
         GF_FOP_LOCK_NOTIFY,
         GF_FOP_LOCK_FNOTIFY,
-        GF_FOP_MAXVALUE,  
+        GF_FOP_FGETXATTR,
+        GF_FOP_FSETXATTR,
+        GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */

@@ -202,30 +202,32 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_SETDENTS]    = "SETDENTS";   /* 35 */
 	gf_fop_list[GF_FOP_READDIR]     = "READDIR";
 	gf_fop_list[GF_FOP_INODELK]     = "INODELK";
-	gf_fop_list[GF_FOP_FINODELK]    = "FINODELK";      
+	gf_fop_list[GF_FOP_FINODELK]    = "FINODELK";
 	gf_fop_list[GF_FOP_ENTRYLK]     = "ENTRYLK";
 	gf_fop_list[GF_FOP_FENTRYLK]    = "FENTRYLK";   /* 40 */
-	gf_fop_list[GF_FOP_CHECKSUM]    = "CHECKSUM";   /* 41 */   
+	gf_fop_list[GF_FOP_CHECKSUM]    = "CHECKSUM";   /* 41 */
 	gf_fop_list[GF_FOP_XATTROP]     = "XATTROP";
 	gf_fop_list[GF_FOP_LOCK_NOTIFY] = "LOCK_NOTIFY";
 	gf_fop_list[GF_FOP_LOCK_FNOTIFY]= "LOCK_FNOTIFY";
+	gf_fop_list[GF_FOP_FSETXATTR]   = "FSETXATTR";
+	gf_fop_list[GF_FOP_FGETXATTR]   = "FGETXATTR";
 
 	gf_mop_list[GF_MOP_SETVOLUME]   = "SETVOLUME"; /* 0 */
 	gf_mop_list[GF_MOP_GETVOLUME]   = "GETVOLUME"; /* 1 */
 	gf_mop_list[GF_MOP_STATS]       = "STATS";
 	gf_mop_list[GF_MOP_SETSPEC]     = "SETSPEC";
 	gf_mop_list[GF_MOP_GETSPEC]     = "GETSPEC";
-	
+
 	gf_cbk_list[GF_CBK_FORGET]      = "FORGET";
 	gf_cbk_list[GF_CBK_RELEASE]     = "RELEASE";
 	gf_cbk_list[GF_CBK_RELEASEDIR]  = "RELEASEDIR";
-	/* Are there any more variables to be included? All global 
+	/* Are there any more variables to be included? All global
 	   variables initialization should go here */
 
 	return;
 }
 
-void 
+void
 set_global_ctx_ptr (glusterfs_ctx_t *ctx)
 {
 	gf_global_ctx = ctx;

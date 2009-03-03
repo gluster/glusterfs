@@ -436,6 +436,30 @@ typedef struct {
 			dict_t *dict;
 		} getxattr_cbk;
 
+		/* fsetxattr */
+		struct {
+			fop_fsetxattr_t fn;
+			fd_t *fd;
+			dict_t *dict;
+			int32_t flags;
+		} fsetxattr;
+		struct {
+			fop_fsetxattr_cbk_t fn;
+			int32_t op_ret, op_errno;
+		} fsetxattr_cbk;
+
+		/* fgetxattr */
+		struct {
+			fop_fgetxattr_t fn;
+			fd_t *fd;
+			const char *name;
+		} fgetxattr;
+		struct {
+			fop_fgetxattr_cbk_t fn;
+			int32_t op_ret, op_errno;
+			dict_t *dict;
+		} fgetxattr_cbk;
+
 		/* removexattr */
 		struct {
 			fop_removexattr_t fn;
@@ -1008,6 +1032,32 @@ fop_getxattr_cbk_stub (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno,
 		       dict_t *value);
+
+call_stub_t *
+fop_fsetxattr_stub (call_frame_t *frame,
+                    fop_fsetxattr_t fn,
+                    fd_t *fd,
+                    dict_t *dict,
+                    int32_t flags);
+
+call_stub_t *
+fop_fsetxattr_cbk_stub (call_frame_t *frame,
+                        fop_fsetxattr_cbk_t fn,
+                        int32_t op_ret,
+                        int32_t op_errno);
+
+call_stub_t *
+fop_fgetxattr_stub (call_frame_t *frame,
+                    fop_fgetxattr_t fn,
+                    fd_t *fd,
+                    const char *name);
+
+call_stub_t *
+fop_fgetxattr_cbk_stub (call_frame_t *frame,
+                        fop_fgetxattr_cbk_t fn,
+                        int32_t op_ret,
+                        int32_t op_errno,
+                        dict_t *value);
 
 call_stub_t *
 fop_removexattr_stub (call_frame_t *frame,

@@ -352,6 +352,19 @@ typedef int32_t (*fop_getxattr_cbk_t) (call_frame_t *frame,
 				       int32_t op_errno,
 				       dict_t *dict);
 
+typedef int32_t (*fop_fsetxattr_cbk_t) (call_frame_t *frame,
+                                        void *cookie,
+                                        xlator_t *this,
+                                        int32_t op_ret,
+                                        int32_t op_errno);
+
+typedef int32_t (*fop_fgetxattr_cbk_t) (call_frame_t *frame,
+                                        void *cookie,
+                                        xlator_t *this,
+                                        int32_t op_ret,
+                                        int32_t op_errno,
+                                        dict_t *dict);
+
 typedef int32_t (*fop_removexattr_cbk_t) (call_frame_t *frame,
 					  void *cookie,
 					  xlator_t *this,
@@ -589,6 +602,17 @@ typedef int32_t (*fop_getxattr_t) (call_frame_t *frame,
 				   loc_t *loc,
 				   const char *name);
 
+typedef int32_t (*fop_fsetxattr_t) (call_frame_t *frame,
+                                    xlator_t *this,
+                                    fd_t *fd,
+                                    dict_t *dict,
+                                    int32_t flags);
+
+typedef int32_t (*fop_fgetxattr_t) (call_frame_t *frame,
+                                    xlator_t *this,
+                                    fd_t *fd,
+                                    const char *name);
+
 typedef int32_t (*fop_removexattr_t) (call_frame_t *frame,
 				      xlator_t *this,
 				      loc_t *loc,
@@ -687,6 +711,8 @@ struct xlator_fops {
 	fop_statfs_t         statfs;
 	fop_setxattr_t       setxattr;
 	fop_getxattr_t       getxattr;
+	fop_fsetxattr_t      fsetxattr;
+	fop_fgetxattr_t      fgetxattr;
 	fop_removexattr_t    removexattr;
 	fop_lk_t             lk;
 	fop_inodelk_t        inodelk;
@@ -733,6 +759,8 @@ struct xlator_fops {
 	fop_statfs_cbk_t         statfs_cbk;
 	fop_setxattr_cbk_t       setxattr_cbk;
 	fop_getxattr_cbk_t       getxattr_cbk;
+	fop_fsetxattr_cbk_t      fsetxattr_cbk;
+	fop_fgetxattr_cbk_t      fgetxattr_cbk;
 	fop_removexattr_cbk_t    removexattr_cbk;
 	fop_lk_cbk_t             lk_cbk;
 	fop_inodelk_cbk_t        inodelk_cbk;

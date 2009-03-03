@@ -2279,6 +2279,227 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
+
+int32_t
+posix_fgetxattr (call_frame_t *frame, xlator_t *this,
+                 fd_t *fd, const char *name)
+{
+        int32_t           op_ret         = -1;
+        int32_t           op_errno       = ENOENT;
+        uint64_t          tmp_pfd        = 0;
+        struct posix_fd * pfd            = NULL;
+        int               _fd            = -1;
+        int32_t           list_offset    = 0;
+        size_t            size           = 0;
+        size_t            remaining_size = 0;
+        char              key[1024]      = {0,};
+        char *            value          = NULL;
+        char *            list           = NULL;
+        dict_t *          dict           = NULL;
+        int               ret            = -1;
+
+        DECLARE_OLD_FS_ID_VAR;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        SET_FS_ID (frame->root->uid, frame->root->gid);
+
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        if (ret < 0) {
+                op_errno = -ret;
+                gf_log (this->name, GF_LOG_ERROR,
+			"pfd is NULL from fd=%p", fd);
+                goto out;
+        }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
+
+        _fd = pfd->fd;
+
+        /* Get the total size */
+        dict = get_new_dict ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory :(");
+                goto out;
+        }
+
+        size = flistxattr (_fd, NULL, 0);
+        if (size == -1) {
+                op_errno = errno;
+                if ((errno == ENOTSUP) || (errno == ENOSYS)) {
+                        GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
+                                             this->name, GF_LOG_WARNING,
+                                             "Extended attributes not "
+					     "supported.");
+                }
+                else {
+                        gf_log (this->name, GF_LOG_ERROR,
+				"listxattr failed on %p: %s",
+                                fd, strerror (op_errno));
+                }
+                goto out;
+        }
+
+        if (size == 0)
+                goto done;
+
+        list = alloca (size + 1);
+        if (!list) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR, "out of memory :(");
+                goto out;
+        }
+
+        size = flistxattr (_fd, list, size);
+
+        remaining_size = size;
+        list_offset = 0;
+        while (remaining_size > 0) {
+                if(*(list + list_offset) == '\0')
+                        break;
+
+                strcpy (key, list + list_offset);
+                op_ret = fgetxattr (_fd, key, NULL, 0);
+                if (op_ret == -1)
+                        break;
+
+                value = CALLOC (op_ret + 1, sizeof(char));
+                if (!value) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "out of memory :(");
+                        goto out;
+                }
+
+                op_ret = fgetxattr (_fd, key, value, op_ret);
+                if (op_ret == -1)
+                        break;
+
+                value [op_ret] = '\0';
+                dict_set (dict, key, data_from_dynptr (value, op_ret));
+                remaining_size -= strlen (key) + 1;
+                list_offset += strlen (key) + 1;
+
+        } /* while (remaining_size > 0) */
+
+ done:
+        op_ret = size;
+
+        if (dict) {
+                dict_ref (dict);
+        }
+
+ out:
+        SET_TO_OLD_FS_ID ();
+        frame->root->rsp_refs = NULL;
+        STACK_UNWIND (frame, op_ret, op_errno, dict);
+
+        if (dict)
+                dict_unref (dict);
+
+        return 0;
+}
+
+
+int
+fhandle_pair (xlator_t *this, int fd,
+              data_pair_t *trav, int flags)
+{
+        int sys_ret = -1;
+        int ret     = 0;
+
+        sys_ret = fsetxattr (fd, trav->key, trav->value->data,
+                             trav->value->len, flags);
+        
+        if (sys_ret < 0) {
+                if (errno == ENOTSUP) {
+                        GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log,
+                                            this->name,GF_LOG_WARNING,
+                                            "Extended attributes not "
+                                            "supported");
+                } else if (errno == ENOENT) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "fsetxattr on fd=%d failed: %s", fd,
+                                strerror (errno));
+                } else {
+                        
+#ifdef GF_DARWIN_HOST_OS
+                        gf_log (this->name,
+                                ((errno == EINVAL) ?
+                                 GF_LOG_DEBUG : GF_LOG_WARNING),
+                                "fd=%d: key:%s error:%s",
+                                fd, trav->key,
+                                strerror (errno));
+#else /* ! DARWIN */
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "fd=%d: key:%s error:%s",
+                                fd, trav->key,
+                                strerror (errno));
+#endif /* DARWIN */
+                }
+                
+                ret = -errno;
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+
+int32_t
+posix_fsetxattr (call_frame_t *frame, xlator_t *this,
+                 fd_t *fd, dict_t *dict, int flags)
+{
+        int32_t            op_ret       = -1;
+        int32_t            op_errno     = 0;
+        struct posix_fd *  pfd          = NULL;
+        uint64_t           tmp_pfd      = 0;
+        int                _fd          = -1;
+        data_pair_t * trav              = NULL;
+        int           ret               = -1;
+
+        DECLARE_OLD_FS_ID_VAR;
+        SET_FS_ID (frame->root->uid, frame->root->gid);
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+        VALIDATE_OR_GOTO (dict, out);
+
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        if (ret < 0) {
+                op_errno = -ret;
+                gf_log (this->name, GF_LOG_ERROR,
+			"pfd is NULL from fd=%p", fd);
+                goto out;
+        }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
+        _fd = pfd->fd;
+
+        trav = dict->members_list;
+
+        while (trav) {
+                ret = fhandle_pair (this, _fd, trav, flags);
+                if (ret < 0) {
+                        op_errno = -ret;
+                        goto out;
+                }
+                trav = trav->next;
+        }
+
+        op_ret = 0;
+
+ out:
+        SET_TO_OLD_FS_ID ();
+        frame->root->rsp_refs = NULL;
+
+        STACK_UNWIND (frame, op_ret, op_errno);
+
+        return 0;
+}
+
+
 int32_t
 posix_removexattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, const char *name)
@@ -3739,7 +3960,9 @@ struct xlator_fops fops = {
         .flush       = posix_flush,
         .fsync       = posix_fsync,
         .setxattr    = posix_setxattr,
+        .fsetxattr   = posix_fsetxattr,
         .getxattr    = posix_getxattr,
+        .fgetxattr   = posix_fgetxattr,
         .removexattr = posix_removexattr,
         .fsyncdir    = posix_fsyncdir,
         .access      = posix_access,
