@@ -122,7 +122,6 @@ AC_CONFIG_FILES([Makefile
 		doc/Makefile
 		doc/examples/Makefile
 		doc/hacker-guide/Makefile
-		doc/user-guide/Makefile
 		extras/Makefile
 		extras/init.d/Makefile
 		extras/init.d/glusterfs-server.plist
@@ -133,26 +132,6 @@ AC_CANONICAL_HOST
 
 AC_PROG_CC
 AC_PROG_LIBTOOL
-
-# texinfo check
-AC_CHECK_PROG([INFO], [makeinfo], [yes], [no])
-if test "x$INFO" = "xno"; then
-   AC_MSG_WARN([
-*** Makeinfo is missing. Info documentation will not be built.])
-    BUILD_INFO=
-else
-    BUILD_INFO=user-guide
-    case "$INFO" in
-      */missing\ makeinfo*)
-      BUILD_INFO=
-      AC_MSG_WARN([
-*** Makeinfo is missing. Info documentation will not be built.])
-        ;;
-      *)
-    esac
-fi
-AC_SUBST(INFO)
-AC_SUBST(BUILD_INFO)
 
 # LEX needs a check
 AC_PROG_LEX
