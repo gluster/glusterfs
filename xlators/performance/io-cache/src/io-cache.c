@@ -616,30 +616,29 @@ ioc_open_cbk (call_frame_t *frame,
 	if (op_ret != -1) {
 		/* look for ioc_inode corresponding to this fd */
 		LOCK (&fd->inode->lock);
-		//{
-
-		inode_ctx_get (fd->inode, this, &tmp_ioc_inode);
-		ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
-      
-		if (!ioc_inode) {
-			/* this is the first time someone is opening this 
-			   file, assign weight 
-			*/
-			weight = ioc_get_priority (table, path);
+		{
+                        __inode_ctx_get (fd->inode, this, &tmp_ioc_inode);
+                        ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
+                        
+                        if (!ioc_inode) {
+                                /* this is the first time someone is opening this 
+                                   file, assign weight 
+                                */
+                                weight = ioc_get_priority (table, path);
  
-			ioc_inode = ioc_inode_update (table, inode, weight);
-			inode_ctx_put (fd->inode, this, 
-				       (uint64_t)(long)ioc_inode);
-		} else {
-			ioc_table_lock (ioc_inode->table);
-			//{
-			list_move_tail (&ioc_inode->inode_lru,
-					&table->inode_lru[ioc_inode->weight]);
-			//}
-			ioc_table_unlock (ioc_inode->table);
-		}
+                                ioc_inode = ioc_inode_update (table, inode, weight);
+                                __inode_ctx_put (fd->inode, this, 
+                                                 (uint64_t)(long)ioc_inode);
+                        } else {
+                                ioc_table_lock (ioc_inode->table);
+                                {
+                                        list_move_tail (&ioc_inode->inode_lru,
+                                                        &table->inode_lru[ioc_inode->weight]);
+                                }
+                                ioc_table_unlock (ioc_inode->table);
+                        }
 
-		//}
+		}
 		UNLOCK (&fd->inode->lock);
 
 		/* If mandatory locking has been enabled on this file,
