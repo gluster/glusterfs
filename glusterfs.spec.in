@@ -153,9 +153,7 @@ This package provides the development libraries.
 %_prefix/sbin/glusterfs
 %_prefix/sbin/glusterfsd
 %_mandir/man8/glusterfs.8.gz
-%_infodir/user-guide.info.gz
 %config %_sysconfdir/init.d/glusterfsd
-%exclude %_infodir/dir
 
 %if %with_client
 /sbin/mount.glusterfs
