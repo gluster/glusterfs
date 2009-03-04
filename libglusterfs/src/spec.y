@@ -19,7 +19,6 @@
 
 
 %token SECTION_BEGIN SECTION_END OPTION NEWLINE SUBSECTION ID WHITESPACE COMMENT TYPE STRING_TOK 
-%name-prefix="yy"
 
 %{
 #include <stdio.h>

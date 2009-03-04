@@ -19,7 +19,6 @@
 
 
 %x STRING
-%option prefix="yy"
 %option yylineno
 %option noinput
 %{
