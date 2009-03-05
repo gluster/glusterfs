@@ -700,12 +700,9 @@ ioc_create_cbk (call_frame_t *frame,
 			weight = ioc_get_priority (table, path);
 
 			ioc_inode = ioc_inode_update (table, inode, weight);
-			LOCK (&fd->inode->lock);
-			{
-				inode_ctx_put (fd->inode, this, 
-					       (uint64_t)(long)ioc_inode);
-			}
-			UNLOCK (&fd->inode->lock);
+
+                        inode_ctx_put (fd->inode, this,
+                                       (uint64_t)(long)ioc_inode);
 		}
 		/* If mandatory locking has been enabled on this file,
 		   we disable caching on it */
