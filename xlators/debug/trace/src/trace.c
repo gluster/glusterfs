@@ -70,14 +70,17 @@ trace_create_cbk (call_frame_t *frame,
 
 	if (trace_fop_names[GF_FOP_CREATE].enabled) {
 		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
+			strftime (atime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&buf->st_atime));
+			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&buf->st_mtime));
+			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&buf->st_ctime));
 
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, fd=%p, ino=%"PRIu64"), "
 				"*buf {st_dev=%"GF_PRI_DEV", st_ino=%"PRIu64", "
-				"st_mode=%d, st_nlink=%"GF_PRI_NLINK", st_uid=%d, "
+				"st_mode=%o, st_nlink=%"GF_PRI_NLINK", st_uid=%d, "
 				"st_gid=%d, st_rdev=%"GF_PRI_DEV", st_size=%"PRId64", "
 				"st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64", "
 				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
@@ -137,7 +140,7 @@ trace_stat_cbk (call_frame_t *frame,
 
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, buf {st_dev=%"GF_PRI_DEV", "
-				"st_ino=%"PRIu64", st_mode=%d, st_nlink=%"GF_PRI_NLINK", "
+				"st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
 				"st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", st_size=%"PRId64
 				", st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64", "
 				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
@@ -178,7 +181,7 @@ trace_readv_cbk (call_frame_t *frame,
 
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, *buf {st_dev=%"GF_PRI_DEV", "
-				"st_ino=%"PRIu64", st_mode=%d, st_nlink=%"GF_PRI_NLINK", "
+				"st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
 				"st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", "
 				"st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", "
 				"st_blocks=%"PRId64", st_atime=%s, st_mtime=%s, st_ctime=%s})",
@@ -310,7 +313,7 @@ trace_chown_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%d, "
+				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%o, "
 				"st_uid=%d, st_gid=%d, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 				frame->root->unique, op_ret, buf->st_ino, buf->st_mode, 
 				buf->st_uid, buf->st_gid, atime_buf, mtime_buf, ctime_buf);
@@ -343,7 +346,7 @@ trace_chmod_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%d, "
+				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%o, "
 				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
 				frame->root->unique, op_ret, buf->st_ino, buf->st_mode, 
 				atime_buf, mtime_buf, ctime_buf);
@@ -376,7 +379,7 @@ trace_fchmod_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%d, "
+				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%o, "
 				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
 				frame->root->unique, op_ret, buf->st_ino, buf->st_mode, 
 				atime_buf, mtime_buf, ctime_buf);
@@ -409,7 +412,7 @@ trace_fchown_cbk (call_frame_t *frame,
 			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%d, "
+				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%o, "
 				"st_uid=%d, st_gid=%d, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 				frame->root->unique, op_ret, buf->st_ino, buf->st_mode, 
 				buf->st_uid, buf->st_gid, atime_buf, mtime_buf, ctime_buf);
@@ -500,7 +503,7 @@ trace_lookup_cbk (call_frame_t *frame,
 		if (op_ret >= 0) {
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, ino=%"PRIu64", "
-				"*buf {st_dev=%"GF_PRI_DEV", st_ino=%"PRIu64", st_mode=%d, "
+				"*buf {st_dev=%"GF_PRI_DEV", st_ino=%"PRIu64", st_mode=%o, "
 				"st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, "
 				"st_rdev=%"GF_PRI_DEV", st_size=%"PRId64", "
 				"st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64"})",
@@ -538,7 +541,7 @@ trace_symlink_cbk (call_frame_t *frame,
     
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, ino=%"PRIu64", *buf {st_ino=%"PRIu64", "
-				"st_mode=%d, st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, "
+				"st_mode=%o, st_nlink=%"GF_PRI_NLINK", st_uid=%d, st_gid=%d, "
 				"st_size=%"PRId64", st_blocks=%"PRId64", st_atime=%s, "
 				"st_mtime=%s, st_ctime=%s})",
 				frame->root->unique, op_ret, inode->ino, buf->st_ino, 
@@ -575,7 +578,7 @@ trace_mknod_cbk (call_frame_t *frame,
     
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, ino=%"PRIu64", *buf {st_dev=%"GF_PRI_DEV
-				", st_ino=%"PRIu64", st_mode=%d, st_nlink=%"GF_PRI_NLINK", "
+				", st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
 				"st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", st_size=%"PRId64
 				", st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64", st_atime=%s, "
 				"st_mtime=%s, st_ctime=%s})",
@@ -933,13 +936,16 @@ trace_fstat_cbk (call_frame_t *frame,
   
 	if (trace_fop_names[GF_FOP_FSTAT].enabled) {
 		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
+			strftime (atime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&buf->st_atime));
+			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&buf->st_mtime));
+			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&buf->st_ctime));
     
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, *buf {st_dev=%"GF_PRI_DEV", "
-				"st_ino=%"PRIu64", st_mode=%d, st_nlink=%"GF_PRI_NLINK", "
+				"st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
 				"st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", st_size=%"PRId64", "
 				"st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64", st_atime=%s, "
 				"st_mtime=%s, st_ctime=%s})",
