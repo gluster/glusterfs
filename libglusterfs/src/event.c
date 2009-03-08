@@ -583,7 +583,7 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 			break;
 		default:
 			gf_log ("epoll", GF_LOG_ERROR,
-				"invalid poll_out value %d", poll_in);
+				"invalid poll_out value %d", poll_out);
 			break;
 		}
 
@@ -743,7 +743,7 @@ event_select_on_epoll (struct event_pool *event_pool, int fd, int idx_hint,
 			break;
 		default:
 			gf_log ("epoll", GF_LOG_ERROR,
-				"invalid poll_out value %d", poll_in);
+				"invalid poll_out value %d", poll_out);
 			break;
 		}
 
