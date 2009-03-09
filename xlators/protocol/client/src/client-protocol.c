@@ -61,6 +61,34 @@ static gf_op_t gf_mops[];
 static gf_op_t gf_cbks[];
 
 
+transport_t *
+client_channel (xlator_t *this, int id)
+{
+        transport_t              *trans = NULL;
+        client_conf_t            *conf = NULL;
+        int                       i = 0;
+        struct client_connection *conn = NULL;
+
+        conf = this->private;
+
+        trans = conf->transport[id];
+        conn = trans->xl_private;
+
+        if (conn->connected == 1)
+                goto ret;
+
+        for (i = 0; i < CHANNEL_MAX; i++) {
+                trans = conf->transport[i];
+                conn = trans->xl_private;
+                if (conn->connected == 1)
+                        break;
+        }
+
+ret:
+        return trans;
+}
+
+
 static ino_t
 this_ino_get_from_inode (inode_t *inode, xlator_t *this)
 {
