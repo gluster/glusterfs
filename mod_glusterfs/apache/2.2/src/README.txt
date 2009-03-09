@@ -39,7 +39,7 @@ Build/Install mod_glusterfs
 
 **********************************************************************************
 * TO INSTALL MODGLUSTERFS, PLEASE USE,                                            
-* apxs -n glusterfs -ia /usr/lib/glusterfs/1.4.0tla872/apache/2.2/mod_glusterfs.so                
+* apxs -n glusterfs -ia /usr/lib/glusterfs/2.0.0rc4/apache/2.2/mod_glusterfs.so                
 **********************************************************************************
 
 Configuration

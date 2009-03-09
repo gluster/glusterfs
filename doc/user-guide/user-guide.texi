@@ -266,19 +266,13 @@ the recommended method is to download the latest release tarball.
 Release tarballs are available at: @indicateurl{http://gluster.org/download.php}.
 
 If you want the bleeding edge development source, you can get them
-from the @acronym{GNU}
-Arch@footnote{@indicateurl{http://www.gnu.org/software/gnu-arch/}}
-repository. First you must install @acronym{GNU} Arch itself. Then
-register the GlusterFS archive by doing:
+from the Git
+@footnote{@indicateurl{http://git-scm.com}}
+repository. First you must install Git itself. Then
+you can check out the source
 
 @example
-$ tla register-archive http://arch.sv.gnu.org/archives/gluster
-@end example
-
-Now you can check out the source itself:
-
-@example
-$ tla get -A gluster@@sv.gnu.org glusterfs--mainline--3.0
+$ git clone git://git.sv.gnu.org/gluster.git glusterfs
 @end example
 
 @node Building

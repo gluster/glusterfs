@@ -4,7 +4,7 @@ SUBDIRS = argp-standalone libglusterfs $(LIBGLUSTERFSCLIENT_SUBDIR) xlators sche
 
 CLEANFILES = 
 
-tlaclean: distclean
+gitclean: distclean
 	find . -name Makefile.in -exec rm -f {} \;
 	find . -name Makefile -exec rm -f {} \;
 	find . -name mount.glusterfs -exec rm -f {} \;
