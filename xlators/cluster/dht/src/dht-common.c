@@ -2041,7 +2041,8 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	gf_dirent_t  *entry = NULL;
 	call_frame_t *prev = NULL;
 	xlator_t     *subvol = NULL;
-	xlator_t     *next = NULL;
+	xlator_t     *next_subvol = NULL;
+        off_t         next_offset = 0;
 	dht_layout_t *layout = NULL;
 	int           count = 0;
 
@@ -2077,19 +2078,28 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			list_add_tail (&entry->list, &entries.list);
 			count++;
 		}
+                next_offset = orig_entry->d_off;
 	}
 	op_ret = count;
 
 done:
 	if (count == 0) {
-		next = dht_subvol_next (this, prev->this);
-		if (!next) {
+                /* non-zero next_offset means that
+                   EOF is not yet hit on the current subvol
+                */
+                if (next_offset == 0) {
+                        next_subvol = dht_subvol_next (this, prev->this);
+                } else {
+                        next_subvol = prev->this;
+                }
+
+		if (!next_subvol) {
 			goto unwind;
 		}
 
 		STACK_WIND (frame, dht_readdir_cbk,
-			    next, next->fops->readdir,
-			    local->fd, local->size, 0);
+			    next_subvol, next_subvol->fops->readdir,
+			    local->fd, local->size, next_offset);
 		return 0;
 	}
 
