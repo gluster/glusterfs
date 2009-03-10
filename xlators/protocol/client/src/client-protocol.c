@@ -326,8 +326,6 @@ call_bail (void *data)
 			}
 		}
 
-		/* TODO while(1) is not nice - use splice */
-
 		do {
 			saved_frame = 
 			saved_frames_get_timedout (conn->saved_frames,
@@ -500,8 +498,10 @@ client_ping_timer_expired (void *data)
 					      conn->ping_timer);
 		gettimeofday (&current, NULL);
 
-		if ((current.tv_sec - conn->last_received.tv_sec) < 
-		    conn->ping_timeout) {
+		if (((current.tv_sec - conn->last_received.tv_sec) <
+                     conn->ping_timeout)
+                    || ((current.tv_sec - conn->last_sent.tv_sec) <
+                        conn->ping_timeout)) {
 			transport_activity = 1;
 		}
 
