@@ -64,7 +64,6 @@ struct posix_fd {
 struct posix_private {
 	char   *base_path;
 	int32_t base_path_length;
-	dev_t   base_stdev;
 
         /* Statistics, provides activity of the server */
 	struct xlator_stats stats; 
@@ -91,6 +90,11 @@ struct posix_private {
 	gf_boolean_t    export_statfs;
 
 	gf_boolean_t    o_direct;     /* always open files in O_DIRECT mode */
+
+        gf_boolean_t    span_devices;
+
+        int             num_devices_to_span;
+        dev_t          *st_device;
 };
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)

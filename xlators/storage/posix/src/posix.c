@@ -208,6 +208,35 @@ out:
 }
 
 
+static int 
+posix_scale_st_ino (struct posix_private *priv, struct stat *buf)
+{
+        int   i        = 0;
+        int   ret      = -1;
+        ino_t temp_ino = 0;
+        
+        for (i = 0; i < priv->num_devices_to_span; i++) {
+                if (buf->st_dev == priv->st_device[i])
+                        break;
+                if (priv->st_device[i] == 0) {
+                        priv->st_device[i] = buf->st_dev;
+                        break;
+                }
+        }
+        
+        if (i == priv->num_devices_to_span)
+                goto out;
+                
+        temp_ino = (buf->st_ino * priv->num_devices_to_span) + i;
+
+        buf->st_ino = temp_ino;
+
+        ret = 0;
+ out:
+        return ret;
+}
+
+
 int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,
               loc_t *loc, dict_t *xattr_req)
@@ -245,13 +274,24 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 	 * It may cause inode number to repeat from single export point,
 	 * which leads to severe problems..
 	 */
-	if (priv->base_stdev != buf.st_dev) {
-		op_errno = ENOENT;
-		gf_log (this->name, GF_LOG_WARNING,
-			"%s: different mountpoint/device, returning "
-			"ENOENT", loc->path);
-		goto out;
-	}
+        if (!priv->span_devices) {
+                if (priv->st_device[0] != buf.st_dev) {
+                        op_errno = ENOENT;
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: different mountpoint/device, returning "
+                                "ENOENT", loc->path);
+                        goto out;
+                }
+        } else {
+                op_ret = posix_scale_st_ino (priv, &buf);
+                if (-1 == op_ret) {
+                        op_errno = ENOENT;
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: from different mountpoint",
+                                loc->path);
+                        goto out;
+                }
+        }
 
         if (xattr_req && (op_ret == 0)) {
 		xattr = posix_lookup_xattr_fill (this, real_path, loc,
@@ -3849,7 +3889,6 @@ init (xlator_t *this)
 
         _private->base_path = strdup (dir_data->data);
         _private->base_path_length = strlen (_private->base_path);
-	_private->base_stdev = buf.st_dev;
 
         {
                 /* Stats related variables */
@@ -3889,6 +3928,32 @@ init (xlator_t *this)
                                 "o-direct mode is enabled (O_DIRECT "
 				"for every open)");
         }
+
+        _private->num_devices_to_span = 1;
+
+        tmp_data = dict_get (this->options, "span-devices");
+        if (tmp_data) {
+		if (gf_string2int32 (tmp_data->data,
+                                     &_private->num_devices_to_span) == -1) {
+			ret = -1;
+			gf_log (this->name, GF_LOG_ERROR,
+				"wrong option provided for 'span-devices'");
+			goto out;
+		}
+		if (_private->num_devices_to_span > 1) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "spaning enabled accross %d mounts", 
+                                _private->num_devices_to_span);
+                        _private->span_devices = 1;
+                }
+                if (!_private->num_devices_to_span < 1)
+                        _private->num_devices_to_span = 1;
+        }
+        _private->st_device = CALLOC (1, (sizeof (dev_t) * 
+                                          _private->num_devices_to_span));
+        
+        /* Start with the base */
+        _private->st_device[0] = buf.st_dev;
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -3997,5 +4062,7 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL },
 	{ .key  = {"mandate-attribute"},
 	  .type = GF_OPTION_TYPE_BOOL },
+	{ .key  = {"span-devices"},
+	  .type = GF_OPTION_TYPE_INT },
 	{ .key  = {NULL} }
 };
