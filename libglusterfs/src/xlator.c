@@ -45,6 +45,8 @@
 	} while (0)
 
 
+#define GF_OPTION_LIST_EMPTY(_opt) (_opt->value[0] == NULL)
+
 static void
 fill_defaults (xlator_t *xl)
 {
@@ -246,10 +248,10 @@ _volume_option_value_validate (xlator_t *xl,
 	case GF_OPTION_TYPE_STR:
 	{
 		/* Check if the '*str' is valid */
-		if (!opt->value) {
-			ret = 0;
-			goto out;
-		}
+                if (GF_OPTION_LIST_EMPTY(opt)) {
+                        ret = 0;
+                        goto out;
+                }
 
 		for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
 			     opt->value[i]; i++) {
