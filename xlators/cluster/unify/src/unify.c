@@ -522,6 +522,13 @@ unify_lookup_cbk (call_frame_t *frame,
 			zr_unify_self_heal (frame, this, local);
 			local_dict = NULL;
 		} else {
+                        if (local->failed) {
+                                /* NOTE: directory lookup is sent to all 
+                                 * subvolumes and success from a subvolume
+                                 * might set local->op_ret to 0 (zero) */
+                                local->op_ret = -1;
+                        }
+
 			/* either no self heal, or op_ret == -1 (failure) */
 			tmp_inode = local->loc1.inode;
 			unify_local_wipe (local);
