@@ -4082,6 +4082,23 @@ unify_xattrop (call_frame_t *frame, xlator_t *this,
 	return 0;
 }
 
+int
+unify_forget (xlator_t *this,
+              inode_t *inode)
+{
+        int16_t *list = NULL;
+        uint64_t tmp_list = 0;
+
+        if (!S_ISDIR(inode->st_mode)) {
+                inode_ctx_get (inode, this, &tmp_list);
+                if (tmp_list) {
+                        list = (int16_t *)(long)tmp_list;
+                        FREE (list);
+                }
+        }
+
+        return 0;
+}
 
 /**
  * notify
@@ -4435,6 +4452,7 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
+        .forget  = unify_forget,
 };
 
 struct volume_options options[] = {
