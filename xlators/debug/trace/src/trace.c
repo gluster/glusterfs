@@ -1094,15 +1094,15 @@ trace_inodelk_cbk (call_frame_t *frame,
 
 int32_t
 trace_entrylk (call_frame_t *frame, xlator_t *this,
-	       loc_t *loc, const char *basename,
+	       const char *volume, loc_t *loc, const char *basename,
 	       entrylk_cmd cmd, entrylk_type type)
 {
 	ERR_EINVAL_NORETURN (!this || !loc || !basename);
 
 	if (trace_fop_names[GF_FOP_ENTRYLK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"%"PRId64": (loc= {path=%s, ino=%"PRIu64"} basename=%s, cmd=%s, type=%s)",
-			frame->root->unique, loc->path, loc->inode->ino, basename, 
+			"%"PRId64": volume=%s, (loc= {path=%s, ino=%"PRIu64"} basename=%s, cmd=%s, type=%s)",
+			frame->root->unique, volume, loc->path, loc->inode->ino, basename, 
 			((cmd == ENTRYLK_LOCK) ? "ENTRYLK_LOCK" : "ENTRYLK_UNLOCK"), 
 			((type == ENTRYLK_RDLCK) ? "ENTRYLK_RDLCK" : "ENTRYLK_WRLCK"));
 	}
@@ -1111,21 +1111,21 @@ trace_entrylk (call_frame_t *frame, xlator_t *this,
 		    trace_entrylk_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->entrylk,
-		    loc, basename, cmd, type);
+		    volume, loc, basename, cmd, type);
 	return 0;
 }
 
 int32_t
 trace_inodelk (call_frame_t *frame,
 	       xlator_t *this,
-	       loc_t *loc, int32_t cmd, struct flock *flock)
+	       const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
 {
 	ERR_EINVAL_NORETURN (!this || !loc);
 
 	if (trace_fop_names[GF_FOP_INODELK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"%"PRId64": (loc {path=%s, ino=%"PRIu64"}, cmd=%s)",
-			frame->root->unique, loc->path, loc->inode->ino, 
+			"%"PRId64": volume=%s, (loc {path=%s, ino=%"PRIu64"}, cmd=%s)",
+			frame->root->unique, volume, loc->path, loc->inode->ino, 
 			((cmd == F_SETLK)? "F_SETLK" : "unknown"));
 	}
 
@@ -1133,7 +1133,7 @@ trace_inodelk (call_frame_t *frame,
 		    trace_inodelk_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->inodelk,
-		    loc, cmd, flock);
+		    volume, loc, cmd, flock);
 	return 0;
 }
 
@@ -1160,14 +1160,14 @@ trace_finodelk_cbk (call_frame_t *frame,
 int32_t
 trace_finodelk (call_frame_t *frame,
 		xlator_t *this,
-		fd_t *fd, int32_t cmd, struct flock *flock)
+		const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
 {
 	ERR_EINVAL_NORETURN (!this || !fd);
 
 	if (trace_fop_names[GF_FOP_FINODELK].enabled) {  
 		gf_log (this->name, GF_LOG_NORMAL, 
-			"%"PRId64": (fd=%p, cmd=%s)",
-			frame->root->unique, fd, 
+			"%"PRId64": volume=%s, (fd=%p, cmd=%s)",
+			frame->root->unique, volume, fd, 
 			((cmd == F_SETLK) ? "F_SETLK" : "unknown"));
 	}
 
@@ -1175,7 +1175,7 @@ trace_finodelk (call_frame_t *frame,
 		    trace_finodelk_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->finodelk,
-		    fd, cmd, flock);
+		    volume, fd, cmd, flock);
 	return 0;
 }
 

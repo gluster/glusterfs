@@ -146,6 +146,7 @@ afr_sh_entry_unlock (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->entrylk,
+                                           this->name,
 					   &local->loc, NULL,
 					   ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 			if (!--call_count)
@@ -2001,6 +2002,7 @@ afr_sh_entry_lock (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->entrylk,
+                                           this->name,
 					   &local->loc, NULL,
 					   ENTRYLK_LOCK_NB, ENTRYLK_WRLCK);
 			if (!--call_count)

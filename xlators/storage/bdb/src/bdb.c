@@ -2959,7 +2959,7 @@ out:
 
 int32_t 
 bdb_inodelk (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, int32_t cmd, struct flock *lock)
+	     const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
 {
         frame->root->rsp_refs = NULL;
 
@@ -2973,7 +2973,7 @@ bdb_inodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t 
 bdb_finodelk (call_frame_t *frame, xlator_t *this,
-	      fd_t *fd, int32_t cmd, struct flock *lock)
+	      const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
 {
         frame->root->rsp_refs = NULL;
 
@@ -2987,8 +2987,8 @@ bdb_finodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t 
 bdb_entrylk (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, const char *basename, entrylk_cmd cmd, 
-	     entrylk_type type)
+	     const char *volume, loc_t *loc, const char *basename, 
+             entrylk_cmd cmd, entrylk_type type)
 {
         frame->root->rsp_refs = NULL;
 
@@ -3002,8 +3002,8 @@ bdb_entrylk (call_frame_t *frame, xlator_t *this,
 
 int32_t 
 bdb_fentrylk (call_frame_t *frame, xlator_t *this,
-	      fd_t *fd, const char *basename, entrylk_cmd cmd, 
-	      entrylk_type type)
+	      const char *volume, fd_t *fd, const char *basename, 
+              entrylk_cmd cmd, entrylk_type type)
 {
         frame->root->rsp_refs = NULL;
 

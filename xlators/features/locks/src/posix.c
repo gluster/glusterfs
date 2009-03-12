@@ -785,20 +785,20 @@ fini (xlator_t *this)
 
 int
 pl_inodelk (call_frame_t *frame, xlator_t *this, 
-	    loc_t *loc, int32_t cmd, struct flock *flock);
+	    const char *volume, loc_t *loc, int32_t cmd, struct flock *flock);
 
 int
 pl_finodelk (call_frame_t *frame, xlator_t *this, 
-	     fd_t *fd, int32_t cmd, struct flock *flock);
+	     const char *volume, fd_t *fd, int32_t cmd, struct flock *flock);
 
 int
 pl_entrylk (call_frame_t *frame, xlator_t *this, 
-	    loc_t *loc, const char *basename, 
+	    const char *volume, loc_t *loc, const char *basename, 
 	    entrylk_cmd cmd, entrylk_type type);
 
 int
 pl_fentrylk (call_frame_t *frame, xlator_t *this, 
-	     fd_t *fd, const char *basename, 
+	     const char *volume, fd_t *fd, const char *basename, 
 	     entrylk_cmd cmd, entrylk_type type);
 
 struct xlator_fops fops = {

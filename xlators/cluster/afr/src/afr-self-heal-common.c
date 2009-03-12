@@ -504,6 +504,7 @@ sh_missing_entries_finish (call_frame_t *frame, xlator_t *this)
 			STACK_WIND (frame, sh_missing_entries_unlck_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->entrylk,
+                                    this->name,
 				    &sh->parent_loc, local->loc.name,
 				    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 
@@ -1008,6 +1009,7 @@ afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 			STACK_WIND (frame, sh_missing_entries_lk_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->entrylk,
+                                    this->name,
 				    &sh->parent_loc, local->loc.name,
 				    ENTRYLK_LOCK_NB, ENTRYLK_WRLCK);
 			if (!--call_count)

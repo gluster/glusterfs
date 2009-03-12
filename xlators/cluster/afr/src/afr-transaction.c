@@ -309,12 +309,14 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 					STACK_WIND (frame, afr_unlock_common_cbk,	
 						    priv->children[i], 
 						    priv->children[i]->fops->finodelk, 
-						    local->fd, F_SETLK, &flock); 
+						    this->name, local->fd, 
+                                                    F_SETLK, &flock); 
 				} else {
 					STACK_WIND (frame, afr_unlock_common_cbk,	
 						    priv->children[i], 
 						    priv->children[i]->fops->inodelk, 
-						    &local->loc,  F_SETLK, &flock); 
+						    this->name, &local->loc,
+                                                    F_SETLK, &flock); 
 				}
 				
 				break;
@@ -324,6 +326,7 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 				STACK_WIND (frame, afr_unlock_common_cbk,	
 					    priv->children[i], 
 					    priv->children[i]->fops->entrylk, 
+                                            this->name,
 					    &local->transaction.new_parent_loc, 
 					    local->transaction.new_basename,
 					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
@@ -337,14 +340,15 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 					STACK_WIND (frame, afr_unlock_common_cbk,	
 						    priv->children[i], 
 						    priv->children[i]->fops->fentrylk, 
-						    local->fd, 
+						    this->name, local->fd, 
 						    local->transaction.basename,
 						    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 				} else {
 					STACK_WIND (frame, afr_unlock_common_cbk,	
 						    priv->children[i], 
 						    priv->children[i]->fops->entrylk, 
-						    &local->transaction.parent_loc, 
+						    this->name,
+                                                    &local->transaction.parent_loc, 
 						    local->transaction.basename,
 						    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 
@@ -838,14 +842,16 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 					   (void *) (long) child_index,
 					   priv->children[child_index], 
 					   priv->children[child_index]->fops->finodelk,
-					   local->fd, F_SETLKW, &flock);
+					   this->name, local->fd, 
+                                           F_SETLKW, &flock);
 			
 		} else {
 			STACK_WIND_COOKIE (frame, afr_lock_cbk,
 					   (void *) (long) child_index,
 					   priv->children[child_index], 
 					   priv->children[child_index]->fops->inodelk,
-					   &local->loc, F_SETLKW, &flock);
+					   this->name, &local->loc, 
+                                           F_SETLKW, &flock);
 		}
 		
 		break;
@@ -878,14 +884,14 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 				   (void *) (long) child_index,
 				   priv->children[child_index], 
 				   priv->children[child_index]->fops->entrylk, 
-				   lower, lower_name,
+				   this->name, lower, lower_name,
 				   ENTRYLK_LOCK, ENTRYLK_WRLCK);
 
 		STACK_WIND_COOKIE (frame, afr_lock_cbk,
 				   (void *) (long) child_index,
 				   priv->children[child_index], 
 				   priv->children[child_index]->fops->entrylk, 
-				   higher, higher_name,
+				   this->name, higher, higher_name,
 				   ENTRYLK_LOCK, ENTRYLK_WRLCK);
 
 		break;
@@ -897,7 +903,7 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 					   (void *) (long) child_index,	
 					   priv->children[child_index], 
 					   priv->children[child_index]->fops->fentrylk, 
-					   local->fd, 
+					   this->name, local->fd, 
 					   local->transaction.basename,
 					   ENTRYLK_LOCK, ENTRYLK_WRLCK);
 		} else {
@@ -905,7 +911,8 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 					   (void *) (long) child_index,	
 					   priv->children[child_index], 
 					   priv->children[child_index]->fops->entrylk, 
-					   &local->transaction.parent_loc, 
+					   this->name, 
+                                           &local->transaction.parent_loc, 
 					   local->transaction.basename,
 					   ENTRYLK_LOCK, ENTRYLK_WRLCK);
 		}

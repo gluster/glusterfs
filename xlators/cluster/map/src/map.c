@@ -1053,7 +1053,7 @@ map_lk (call_frame_t *frame,
 
 int32_t
 map_inodelk (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, int32_t cmd, struct flock *lock)
+	     const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
 {
 	int32_t op_errno = 1;
 	xlator_t *subvol   = NULL;
@@ -1074,7 +1074,7 @@ map_inodelk (call_frame_t *frame, xlator_t *this,
 		    default_inodelk_cbk,
 		    subvol,
 		    subvol->fops->inodelk,
-		    loc, cmd, lock);
+		    volume, loc, cmd, lock);
 	return 0;
  err:
 	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
@@ -1085,7 +1085,7 @@ map_inodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t
 map_finodelk (call_frame_t *frame, xlator_t *this,
-	      fd_t *fd, int32_t cmd, struct flock *lock)
+	      const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
 {
 	int32_t op_errno = 1;
 	xlator_t *subvol   = NULL;
@@ -1105,7 +1105,7 @@ map_finodelk (call_frame_t *frame, xlator_t *this,
 		    default_finodelk_cbk,
 		    subvol,
 		    subvol->fops->finodelk,
-		    fd, cmd, lock);
+		    volume, fd, cmd, lock);
 	return 0;
  err:
 	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
@@ -1115,7 +1115,7 @@ map_finodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t
 map_entrylk (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, const char *basename,
+	     const char *volume, loc_t *loc, const char *basename,
 	     entrylk_cmd cmd, entrylk_type type)
 {
 	int32_t op_errno = 1;
@@ -1136,7 +1136,7 @@ map_entrylk (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame, default_entrylk_cbk,
 		    subvol,
 		    subvol->fops->entrylk,
-		    loc, basename, cmd, type);
+		    volume, loc, basename, cmd, type);
 	return 0;
  err:
 	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
@@ -1146,7 +1146,7 @@ map_entrylk (call_frame_t *frame, xlator_t *this,
 
 int32_t
 map_fentrylk (call_frame_t *frame, xlator_t *this,
-	      fd_t *fd, const char *basename,
+	      const char *volume, fd_t *fd, const char *basename,
 	      entrylk_cmd cmd, entrylk_type type)
 {
 	int32_t op_errno = 1;
@@ -1166,7 +1166,7 @@ map_fentrylk (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame, default_fentrylk_cbk,
 		    subvol,
 		    subvol->fops->fentrylk,
-		    fd, basename, cmd, type);
+		    volume, fd, basename, cmd, type);
 	return 0;
  err:
 	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);

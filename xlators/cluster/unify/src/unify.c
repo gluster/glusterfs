@@ -3894,7 +3894,7 @@ unify_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 unify_finodelk (call_frame_t *frame, xlator_t *this,
-		fd_t *fd, int cmd, struct flock *flock)
+		const char *volume, fd_t *fd, int cmd, struct flock *flock)
 {
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
 	xlator_t *child = NULL;
@@ -3905,7 +3905,7 @@ unify_finodelk (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, unify_finodelk_cbk,
 		    child, child->fops->finodelk,
-		    fd, cmd, flock);
+		    volume, fd, cmd, flock);
 
 	return 0;
 }
@@ -3928,7 +3928,7 @@ unify_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 unify_fentrylk (call_frame_t *frame, xlator_t *this,
-		fd_t *fd, const char *basename,
+		const char *volume, fd_t *fd, const char *basename,
 		entrylk_cmd cmd, entrylk_type type)
 		
 {
@@ -3941,7 +3941,7 @@ unify_fentrylk (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, unify_fentrylk_cbk,
 		    child, child->fops->fentrylk,
-		    fd, basename, cmd, type);
+		    volume, fd, basename, cmd, type);
 
 	return 0;
 }
@@ -3998,7 +3998,7 @@ unify_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 unify_inodelk (call_frame_t *frame, xlator_t *this,
-	       loc_t *loc, int cmd, struct flock *flock)
+	       const char *volume, loc_t *loc, int cmd, struct flock *flock)
 {
 	xlator_t *child = NULL;
 
@@ -4006,7 +4006,7 @@ unify_inodelk (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, unify_inodelk_cbk,
 		    child, child->fops->inodelk,
-		    loc, cmd, flock);
+		    volume, loc, cmd, flock);
 
 	return 0;
 }
@@ -4029,7 +4029,7 @@ unify_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 unify_entrylk (call_frame_t *frame, xlator_t *this,
-	       loc_t *loc, const char *basename,
+	       const char *volume, loc_t *loc, const char *basename,
 	       entrylk_cmd cmd, entrylk_type type)
 		
 {
@@ -4039,7 +4039,7 @@ unify_entrylk (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, unify_entrylk_cbk,
 		    child, child->fops->entrylk,
-		    loc, basename, cmd, type);
+		    volume, loc, basename, cmd, type);
 
 	return 0;
 }

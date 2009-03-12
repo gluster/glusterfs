@@ -626,23 +626,27 @@ typedef int32_t (*fop_lk_t) (call_frame_t *frame,
 
 typedef int32_t (*fop_inodelk_t) (call_frame_t *frame,
 				  xlator_t *this,
+                                  const char *volume,
 				  loc_t *loc,
 				  int32_t cmd,
 				  struct flock *flock);
 
 typedef int32_t (*fop_finodelk_t) (call_frame_t *frame,
 				   xlator_t *this,
+                                   const char *volume,
 				   fd_t *fd,
 				   int32_t cmd,
 				   struct flock *flock);
 
 typedef int32_t (*fop_entrylk_t) (call_frame_t *frame,
-				  xlator_t *this, loc_t *loc,
+				  xlator_t *this, 
+                                  const char *volume, loc_t *loc,
 				  const char *basename, entrylk_cmd cmd,
 				  entrylk_type type);
 
 typedef int32_t (*fop_fentrylk_t) (call_frame_t *frame,
-				   xlator_t *this, fd_t *fd,
+				   xlator_t *this, 
+                                   const char *volume, fd_t *fd,
 				   const char *basename, entrylk_cmd cmd,
 				   entrylk_type type);
 

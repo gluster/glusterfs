@@ -62,7 +62,7 @@ delete_locks_of_transport (pl_inode_t *pinode, transport_t *trans)
 
 int
 pl_inodelk (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, int32_t cmd, struct flock *flock)
+	    const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -162,7 +162,7 @@ out:
 
 int
 pl_finodelk (call_frame_t *frame, xlator_t *this,
-	     fd_t *fd, int32_t cmd, struct flock *flock)
+	     const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -649,7 +649,7 @@ unlock:
 
 int
 pl_entrylk (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, const char *basename, 
+	    const char *volume, loc_t *loc, const char *basename, 
 	    entrylk_cmd cmd, entrylk_type type)
 {
 	int32_t op_ret   = -1;
@@ -759,7 +759,7 @@ out:
 
 int
 pl_fentrylk (call_frame_t *frame, xlator_t *this,
-	     fd_t *fd, const char *basename, 
+	     const char *volume, fd_t *fd, const char *basename, 
 	     entrylk_cmd cmd, entrylk_type type)
 {
 	int32_t op_ret   = -1;

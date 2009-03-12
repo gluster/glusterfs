@@ -3163,7 +3163,7 @@ dht_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 dht_inodelk (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, int32_t cmd, struct flock *lock)
+	     const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -3198,7 +3198,7 @@ dht_inodelk (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame,
 		    dht_inodelk_cbk,
 		    subvol, subvol->fops->inodelk,
-		    loc, cmd, lock);
+		    volume, loc, cmd, lock);
 
 	return 0;
 
@@ -3222,7 +3222,7 @@ dht_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 dht_finodelk (call_frame_t *frame, xlator_t *this,
-	      fd_t *fd, int32_t cmd, struct flock *lock)
+	      const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -3243,7 +3243,7 @@ dht_finodelk (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame,
 		    dht_finodelk_cbk,
 		    subvol, subvol->fops->finodelk,
-		    fd, cmd, lock);
+		    this->name, fd, cmd, lock);
 
 	return 0;
 
@@ -3266,7 +3266,7 @@ dht_entrylk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 dht_entrylk (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, const char *basename,
+	     const char *volume, loc_t *loc, const char *basename,
 	     entrylk_cmd cmd, entrylk_type type)
 {
 	xlator_t     *subvol = NULL;
@@ -3300,7 +3300,7 @@ dht_entrylk (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, dht_entrylk_cbk,
 		    subvol, subvol->fops->entrylk,
-		    loc, basename, cmd, type);
+		    volume, loc, basename, cmd, type);
 
 	return 0;
 
@@ -3322,7 +3322,7 @@ dht_fentrylk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 dht_fentrylk (call_frame_t *frame, xlator_t *this,
-	      fd_t *fd, const char *basename,
+	      const char *volume, fd_t *fd, const char *basename,
 	      entrylk_cmd cmd, entrylk_type type)
 {
 	xlator_t     *subvol = NULL;
@@ -3342,7 +3342,7 @@ dht_fentrylk (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, dht_fentrylk_cbk,
 		    subvol, subvol->fops->fentrylk,
-		    fd, basename, cmd, type);
+		    volume, fd, basename, cmd, type);
 
 	return 0;
 
