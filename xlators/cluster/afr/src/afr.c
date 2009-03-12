@@ -1173,8 +1173,8 @@ afr_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 
 int32_t
-afr_inodelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
-	     int32_t cmd, struct flock *flock)
+afr_inodelk (call_frame_t *frame, xlator_t *this, 
+             const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
 {
 	afr_private_t *priv = NULL;
 	afr_local_t *local  = NULL;
@@ -1208,7 +1208,7 @@ afr_inodelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
 			STACK_WIND (frame, afr_inodelk_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->inodelk,
-				    loc, cmd, flock);
+				    volume, loc, cmd, flock);
 
 			if (!--call_count)
 				break;
@@ -1254,8 +1254,8 @@ afr_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 
 int32_t
-afr_finodelk (call_frame_t *frame, xlator_t *this, fd_t *fd,
-	      int32_t cmd, struct flock *flock)
+afr_finodelk (call_frame_t *frame, xlator_t *this, 
+              const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
 {
 	afr_private_t *priv = NULL;
 	afr_local_t *local  = NULL;
@@ -1289,7 +1289,7 @@ afr_finodelk (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			STACK_WIND (frame, afr_finodelk_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->finodelk,
-				    fd, cmd, flock);
+				    volume, fd, cmd, flock);
 
 			if (!--call_count)
 				break;
@@ -1335,7 +1335,8 @@ afr_entrylk_cbk (call_frame_t *frame, void *cookie,
 
 
 int32_t
-afr_entrylk (call_frame_t *frame, xlator_t *this, loc_t *loc,
+afr_entrylk (call_frame_t *frame, xlator_t *this, 
+             const char *volume, loc_t *loc,
 	     const char *basename, entrylk_cmd cmd, entrylk_type type)
 {
 	afr_private_t *priv = NULL;
@@ -1370,7 +1371,7 @@ afr_entrylk (call_frame_t *frame, xlator_t *this, loc_t *loc,
 			STACK_WIND (frame, afr_entrylk_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->entrylk,
-				    loc, basename, cmd, type);
+				    volume, loc, basename, cmd, type);
 
 			if (!--call_count)
 				break;
@@ -1417,7 +1418,8 @@ afr_fentrylk_cbk (call_frame_t *frame, void *cookie,
 
 
 int32_t
-afr_fentrylk (call_frame_t *frame, xlator_t *this, fd_t *fd,
+afr_fentrylk (call_frame_t *frame, xlator_t *this, 
+              const char *volume, fd_t *fd,
 	      const char *basename, entrylk_cmd cmd, entrylk_type type)
 {
 	afr_private_t *priv = NULL;
@@ -1452,7 +1454,7 @@ afr_fentrylk (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			STACK_WIND (frame, afr_fentrylk_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->fentrylk,
-				    fd, basename, cmd, type);
+				    volume, fd, basename, cmd, type);
 
 			if (!--call_count)
 				break;

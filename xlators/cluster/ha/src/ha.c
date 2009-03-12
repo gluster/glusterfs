@@ -2933,6 +2933,7 @@ ha_inode_entry_lk_cbk (call_frame_t *frame,
 int32_t
 ha_inodelk (call_frame_t *frame,
 	    xlator_t *this,
+            const char *volume,
 	    loc_t *loc,
 	    int32_t cmd,
 	    struct flock *lock)
@@ -2946,13 +2947,15 @@ ha_inodelk (call_frame_t *frame,
 		goto err;
 	}
 	local = frame->local;
-	local->stub = fop_inodelk_stub (frame, ha_inodelk, loc, cmd, lock);
+	local->stub = fop_inodelk_stub (frame, ha_inodelk, volume,
+                                        loc, cmd, lock);
 	STACK_WIND_COOKIE (frame,
 			   ha_inode_entry_lk_cbk,
 			   (void *)(long)local->active,
 			   HA_ACTIVE_CHILD(this, local),
 			   HA_ACTIVE_CHILD(this, local)->fops->inodelk,
-			   loc,
+			   volume,
+                           loc,
 			   cmd,
 			   lock);
 	return 0;
@@ -2964,6 +2967,7 @@ err:
 int32_t
 ha_entrylk (call_frame_t *frame,
 	    xlator_t *this,
+            const char *volume,
 	    loc_t *loc,
 	    const char *basename,
 	    entrylk_cmd cmd,
@@ -2978,13 +2982,14 @@ ha_entrylk (call_frame_t *frame,
 		goto err;
 	}
 	local = frame->local;
-	local->stub = fop_entrylk_stub (frame, ha_entrylk, loc, basename, cmd, type);
+	local->stub = fop_entrylk_stub (frame, ha_entrylk, volume,
+                                        loc, basename, cmd, type);
 	STACK_WIND_COOKIE (frame,
 			   ha_inode_entry_lk_cbk,
 			   (void *)(long)local->active,
 			   HA_ACTIVE_CHILD(this, local),
 			   HA_ACTIVE_CHILD(this, local)->fops->entrylk,
-			   loc, basename, cmd, type);
+			   volume, loc, basename, cmd, type);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno);

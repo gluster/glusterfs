@@ -1731,7 +1731,7 @@ out:
 
 call_stub_t *
 fop_inodelk_stub (call_frame_t *frame, fop_inodelk_t fn,
-		  loc_t *loc, int32_t cmd, struct flock *lock)
+		  const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
 {
   call_stub_t *stub = NULL;
 
@@ -1743,6 +1743,9 @@ fop_inodelk_stub (call_frame_t *frame, fop_inodelk_t fn,
     return NULL;
 
   stub->args.inodelk.fn = fn;
+
+  if (volume)
+          stub->args.inodelk.volume = strdup (volume);
 
   loc_copy (&stub->args.inodelk.loc, loc);
   stub->args.inodelk.cmd  = cmd;
@@ -1774,7 +1777,7 @@ fop_inodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
 
 call_stub_t *
 fop_finodelk_stub (call_frame_t *frame, fop_finodelk_t fn,
-		   fd_t *fd, int32_t cmd, struct flock *lock)
+		   const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
 {
   call_stub_t *stub = NULL;
 
@@ -1789,6 +1792,10 @@ fop_finodelk_stub (call_frame_t *frame, fop_finodelk_t fn,
 
   if (fd)
 	  stub->args.finodelk.fd   = fd_ref (fd);
+
+  if (volume)
+          stub->args.finodelk.volume = strdup (volume);
+
   stub->args.finodelk.cmd  = cmd;
   stub->args.finodelk.lock = *lock;
 
@@ -1819,7 +1826,7 @@ fop_finodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
 
 call_stub_t *
 fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,
-		  loc_t *loc, const char *name,
+		  const char *volume, loc_t *loc, const char *name,
 		  entrylk_cmd cmd, entrylk_type type)
 {
   call_stub_t *stub = NULL;
@@ -1832,6 +1839,10 @@ fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,
     return NULL;
 
   stub->args.entrylk.fn = fn;
+
+  if (volume)
+          stub->args.entrylk.volume = strdup (volume);
+
   loc_copy (&stub->args.entrylk.loc, loc);
 
   stub->args.entrylk.cmd = cmd;
@@ -1865,7 +1876,7 @@ fop_entrylk_cbk_stub (call_frame_t *frame, fop_entrylk_cbk_t fn,
 
 call_stub_t *
 fop_fentrylk_stub (call_frame_t *frame, fop_fentrylk_t fn,
-		   fd_t *fd, const char *name,
+		   const char *volume, fd_t *fd, const char *name,
 		   entrylk_cmd cmd, entrylk_type type)
 {
   call_stub_t *stub = NULL;
@@ -1878,7 +1889,10 @@ fop_fentrylk_stub (call_frame_t *frame, fop_fentrylk_t fn,
     return NULL;
 
   stub->args.fentrylk.fn = fn;
-  
+
+  if (volume)
+          stub->args.fentrylk.volume = strdup (volume);
+
   if (fd)
 	  stub->args.fentrylk.fd = fd_ref (fd);
   stub->args.fentrylk.cmd = cmd;
@@ -2536,6 +2550,7 @@ call_resume_wind (call_stub_t *stub)
 	{
 		stub->args.inodelk.fn (stub->frame,
 				       stub->frame->this,
+                                       stub->args.inodelk.volume,
 				       &stub->args.inodelk.loc,
 				       stub->args.inodelk.cmd,
 				       &stub->args.inodelk.lock);
@@ -2546,6 +2561,7 @@ call_resume_wind (call_stub_t *stub)
 	{
 		stub->args.finodelk.fn (stub->frame,
 					stub->frame->this,
+                                        stub->args.finodelk.volume,
 					stub->args.finodelk.fd,
 					stub->args.finodelk.cmd,
 					&stub->args.finodelk.lock);
@@ -2556,6 +2572,7 @@ call_resume_wind (call_stub_t *stub)
 	{
 		stub->args.entrylk.fn (stub->frame,
 				       stub->frame->this,
+                                       stub->args.entrylk.volume,
 				       &stub->args.entrylk.loc,
 				       stub->args.entrylk.name,
 				       stub->args.entrylk.cmd,
@@ -2567,6 +2584,7 @@ call_resume_wind (call_stub_t *stub)
 	{
 		stub->args.fentrylk.fn (stub->frame,
 					stub->frame->this,
+                                        stub->args.fentrylk.volume,
 					stub->args.fentrylk.fd,
 					stub->args.fentrylk.name,
 					stub->args.fentrylk.cmd,
@@ -3744,17 +3762,26 @@ call_stub_destroy_wind (call_stub_t *stub)
 
 	case GF_FOP_INODELK:
 	{
+                if (stub->args.inodelk.volume)
+                        FREE (stub->args.inodelk.volume);
+
 		loc_wipe (&stub->args.inodelk.loc);
 		break;
 	}
 	case GF_FOP_FINODELK:
 	{
+                if (stub->args.finodelk.volume)
+                        FREE (stub->args.finodelk.volume);
+
 		if (stub->args.finodelk.fd)
 			fd_unref (stub->args.finodelk.fd);
 		break;
 	}
 	case GF_FOP_ENTRYLK:
 	{
+                if (stub->args.entrylk.volume)
+                        FREE (stub->args.entrylk.volume);
+
 		if (stub->args.entrylk.name)
 			FREE (stub->args.entrylk.name);
 		loc_wipe (&stub->args.entrylk.loc);
@@ -3762,10 +3789,13 @@ call_stub_destroy_wind (call_stub_t *stub)
 	}
 	case GF_FOP_FENTRYLK:
 	{
+                if (stub->args.fentrylk.volume)
+                        FREE (stub->args.fentrylk.volume);
+
 		if (stub->args.fentrylk.name)
 			FREE (stub->args.fentrylk.name);
 
- 		if (stub->args.fentrylk.fd) 
+ 		if (stub->args.fentrylk.fd)
 			fd_unref (stub->args.fentrylk.fd);
 		break;
 	}

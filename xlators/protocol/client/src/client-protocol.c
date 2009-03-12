@@ -3253,6 +3253,7 @@ unwind:
 int32_t
 client_inodelk (call_frame_t *frame,
 		xlator_t *this,
+                const char *volume,
 		loc_t *loc,
 		int32_t cmd,
 		struct flock *flock)
@@ -3265,6 +3266,7 @@ client_inodelk (call_frame_t *frame,
 	int32_t gf_type = 0;
 	ino_t   ino  = 0;
 	size_t  pathlen = 0;
+        size_t  vollen  = 0;
 	client_conf_t *conf = this->private;
 
 	if (conf->child) {
@@ -3273,12 +3275,14 @@ client_inodelk (call_frame_t *frame,
 			    default_inodelk_cbk,
 			    conf->child,
 			    conf->child->fops->inodelk,
-			    loc, cmd, flock);
+			    volume, loc, cmd, flock);
 		
 		return 0;
 	}
 
 	pathlen = STRLEN_0(loc->path);
+        vollen  = STRLEN_0(volume);
+
 	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
@@ -3305,13 +3309,14 @@ client_inodelk (call_frame_t *frame,
 		break;
 	}
 
-	hdrlen = gf_hdr_len (req, pathlen);
-	hdr    = gf_hdr_new (req, pathlen);
+	hdrlen = gf_hdr_len (req, pathlen + vollen);
+	hdr    = gf_hdr_new (req, pathlen + vollen);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
 
 	strcpy (req->path, loc->path);
+        strcpy (req->path + pathlen, volume);
 
 	req->ino  = hton64 (ino);
 
@@ -3349,6 +3354,7 @@ unwind:
 int32_t
 client_finodelk (call_frame_t *frame,
 		 xlator_t *this,
+                 const char *volume,
 		 fd_t *fd,
 		 int32_t cmd,
 		 struct flock *flock)
@@ -3357,6 +3363,7 @@ client_finodelk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_finodelk_req_t *req = NULL;
 	size_t hdrlen = 0;
+        size_t vollen = 0;
 	int32_t gf_cmd = 0;
 	int32_t gf_type = 0;
 	int64_t remote_fd = -1;
@@ -3368,10 +3375,12 @@ client_finodelk (call_frame_t *frame,
 			    default_finodelk_cbk,
 			    conf->child,
 			    conf->child->fops->finodelk,
-			    fd, cmd, flock);
+			    volume, fd, cmd, flock);
 		
 		return 0;
 	}
+
+        vollen = STRLEN_0(volume);
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -3406,11 +3415,13 @@ client_finodelk (call_frame_t *frame,
 		break;
 	}
 
-	hdrlen = gf_hdr_len (req, 0);
-	hdr    = gf_hdr_new (req, 0);
+	hdrlen = gf_hdr_len (req, vollen);
+	hdr    = gf_hdr_new (req, vollen);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
+
+        strcpy (req->volume, volume);
 
 	req->fd = hton64 (remote_fd);
 
@@ -3436,6 +3447,7 @@ unwind:
 int32_t
 client_entrylk (call_frame_t *frame,
 		xlator_t *this,
+                const char *volume,
 		loc_t *loc,
 		const char *name,
 		entrylk_cmd cmd,
@@ -3444,6 +3456,7 @@ client_entrylk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_entrylk_req_t *req = NULL;
 	size_t pathlen = 0;
+        size_t vollen  = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
 	ino_t ino = 0;
@@ -3455,19 +3468,21 @@ client_entrylk (call_frame_t *frame,
 		STACK_WIND (frame, default_entrylk_cbk,
 			    conf->child,
 			    conf->child->fops->entrylk,
-			    loc, name, cmd, type);
+			    volume, loc, name, cmd, type);
 		
 		return 0;
 	}
 
 	pathlen = STRLEN_0(loc->path);
+        vollen  = STRLEN_0(volume);
+
 	if (name)
 		namelen = STRLEN_0(name);
 
 	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
 
-	hdrlen = gf_hdr_len (req, pathlen + namelen);
-	hdr    = gf_hdr_new (req, pathlen + namelen);
+	hdrlen = gf_hdr_len (req, pathlen + vollen + namelen);
+	hdr    = gf_hdr_new (req, pathlen + vollen + namelen);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
@@ -3478,6 +3493,7 @@ client_entrylk (call_frame_t *frame,
 	strcpy (req->path, loc->path);
 	if (name)
 		strcpy (req->name + pathlen, name);
+        strcpy (req->volume + pathlen + namelen, volume);
 
 	req->cmd  = hton32 (cmd);
 	req->type = hton32 (type);
@@ -3501,6 +3517,7 @@ unwind:
 int32_t
 client_fentrylk (call_frame_t *frame,
 		 xlator_t *this,
+                 const char *volume,
 		 fd_t *fd,
 		 const char *name,
 		 entrylk_cmd cmd,
@@ -3509,6 +3526,7 @@ client_fentrylk (call_frame_t *frame,
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_fentrylk_req_t *req = NULL;
 	int64_t remote_fd = -1;
+        size_t vollen  = 0;
 	size_t namelen = 0;
 	size_t hdrlen = -1;
 	int ret = -1;
@@ -3519,13 +3537,15 @@ client_fentrylk (call_frame_t *frame,
 		STACK_WIND (frame, default_fentrylk_cbk,
 			    conf->child,
 			    conf->child->fops->fentrylk,
-			    fd, name, cmd, type);
+			    volume, fd, name, cmd, type);
 		
 		return 0;
 	}
 
 	if (name)
 		namelen = STRLEN_0(name);
+
+        vollen = STRLEN_0(volume);
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
@@ -3536,8 +3556,8 @@ client_fentrylk (call_frame_t *frame,
 		return 0;
 	}
 
-	hdrlen = gf_hdr_len (req, namelen);
-	hdr    = gf_hdr_new (req, namelen);
+	hdrlen = gf_hdr_len (req, namelen + vollen);
+	hdr    = gf_hdr_new (req, namelen + vollen);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
 
 	req    = gf_param (hdr);
@@ -3547,6 +3567,8 @@ client_fentrylk (call_frame_t *frame,
 
 	if (name)
 		strcpy (req->name, name);
+
+        strcpy (req->volume + namelen, volume);
 
 	req->cmd  = hton32 (cmd);
 	req->type = hton32 (type);

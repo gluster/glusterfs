@@ -230,17 +230,19 @@ int32_t default_lk (call_frame_t *frame,
 		    struct flock *flock);
 
 int32_t default_inodelk (call_frame_t *frame, xlator_t *this,
-			 loc_t *loc, int32_t cmd, struct flock *flock);
+			 const char *volume, loc_t *loc, int32_t cmd, 
+                         struct flock *flock);
 
 int32_t default_finodelk (call_frame_t *frame, xlator_t *this,
-			  fd_t *fd, int32_t cmd, struct flock *flock);
+			  const char *volume, fd_t *fd, int32_t cmd, 
+                          struct flock *flock);
 
 int32_t default_entrylk (call_frame_t *frame, xlator_t *this,
-			 loc_t *loc, const char *basename,
+			 const char *volume, loc_t *loc, const char *basename,
 			 entrylk_cmd cmd, entrylk_type type);
 
 int32_t default_fentrylk (call_frame_t *frame, xlator_t *this,
-			  fd_t *fd, const char *basename,
+			  const char *volume, fd_t *fd, const char *basename,
 			  entrylk_cmd cmd, entrylk_type type);
 
 int32_t default_readdir (call_frame_t *frame,

@@ -158,6 +158,7 @@ afr_sh_metadata_finish (call_frame_t *frame, xlator_t *this)
 			STACK_WIND (frame, afr_sh_metadata_unlck_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->inodelk,
+                                    this->name,
 				    &local->loc, F_SETLK, &flock);
 
 			if (!--call_count)
@@ -755,6 +756,7 @@ afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->inodelk,
+                                           this->name,
 					   &local->loc, F_SETLK, &flock);
 
 			if (!--call_count)

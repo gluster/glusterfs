@@ -223,6 +223,7 @@ server_copy_frame (call_frame_t *frame)
 
 int32_t
 gf_add_locker (struct _lock_table *table,
+               const char *volume,
 	       loc_t *loc,
 	       fd_t *fd,
 	       pid_t pid)
@@ -238,6 +239,8 @@ gf_add_locker (struct _lock_table *table,
 		goto out;
 	}
 	INIT_LIST_HEAD (&new->lockers);
+
+        new->volume = strdup (volume);
 
 	if (fd == NULL) {
 		loc_copy (&new->loc, loc);
@@ -263,6 +266,7 @@ out:
 
 int32_t
 gf_del_locker (struct _lock_table *table,
+               const char *volume,
 	       loc_t *loc,
 	       fd_t *fd,
 	       pid_t pid)
@@ -292,12 +296,14 @@ gf_del_locker (struct _lock_table *table,
 		list_for_each_entry_safe (locker, tmp, head, lockers) {
 			if (locker->fd &&
 			    fd &&
-			    (locker->fd == fd) && (locker->pid == pid)) {
+			    (locker->fd == fd) && (locker->pid == pid)
+                            && !strcmp (locker->volume, volume)) {
 				list_move_tail (&locker->lockers, &del);
 			} else if (locker->loc.inode && 
 				   loc &&
 				   (locker->loc.inode == loc->inode) &&
-				   (locker->pid == pid)) {
+				   (locker->pid == pid) 
+                                   && !strcmp (locker->volume, volume)) {
 				list_move_tail (&locker->lockers, &del);
 			}
 		}
@@ -314,6 +320,7 @@ gf_del_locker (struct _lock_table *table,
 		else
 			loc_wipe (&locker->loc);
 
+                free (locker->volume);
 		free (locker);
 	}
 
@@ -453,15 +460,19 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
 				STACK_WIND (tmp_frame, server_nop_cbk,
 					    bound_xl,
 					    bound_xl->fops->finodelk,
+                                            locker->volume,
 					    locker->fd, F_SETLK, &flock);
 				fd_unref (locker->fd);
 			} else {
 				STACK_WIND (tmp_frame, server_nop_cbk,
 					    bound_xl,
 					    bound_xl->fops->inodelk,
+                                            locker->volume,
 					    &(locker->loc), F_SETLK, &flock);
 				loc_wipe (&locker->loc);
 			}
+
+                        free (locker->volume);
 
 			list_del_init (&locker->lockers);
 			free (locker);
@@ -479,6 +490,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
 				STACK_WIND (tmp_frame, server_nop_cbk,
 					    bound_xl,
 					    bound_xl->fops->fentrylk,
+                                            locker->volume,
 					    locker->fd, NULL, 
 					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 				fd_unref (locker->fd);
@@ -486,10 +498,13 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
 				STACK_WIND (tmp_frame, server_nop_cbk,
 					    bound_xl,
 					    bound_xl->fops->entrylk,
+                                            locker->volume,
 					    &(locker->loc), NULL, 
 					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 				loc_wipe (&locker->loc);
 			}
+
+                        free (locker->volume);
 
 			list_del_init (&locker->lockers);
 			free (locker);

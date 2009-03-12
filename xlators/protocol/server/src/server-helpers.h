@@ -60,13 +60,13 @@ void free_state (server_state_t *state);
 void server_loc_wipe (loc_t *loc);
 
 int32_t
-gf_add_locker (struct _lock_table *table,
+gf_add_locker (struct _lock_table *table, const char *volume,
 	       loc_t *loc,
 	       fd_t *fd,
 	       pid_t pid);
 
 int32_t
-gf_del_locker (struct _lock_table *table,
+gf_del_locker (struct _lock_table *table, const char *volume,
 	       loc_t *loc,
 	       fd_t *fd,
 	       pid_t pid);

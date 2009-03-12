@@ -362,10 +362,10 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret >= 0) {
 		if (state->flock.l_type == F_UNLCK)
-			gf_del_locker (conn->ltable,
+			gf_del_locker (conn->ltable, state->volume,
 				       &state->loc, NULL, frame->root->pid);
 		else
-			gf_add_locker (conn->ltable,
+			gf_add_locker (conn->ltable, state->volume,
 				       &state->loc, NULL, frame->root->pid);
 	} else if (op_errno != ENOSYS) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -409,11 +409,13 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret >= 0) {
 		if (state->flock.l_type == F_UNLCK)
-			gf_del_locker (conn->ltable,
-				       NULL, state->fd, frame->root->pid);
+			gf_del_locker (conn->ltable, state->volume,
+				       NULL, state->fd, 
+                                       frame->root->pid);
 		else
-			gf_add_locker (conn->ltable,
-				       NULL, state->fd, frame->root->pid);
+			gf_add_locker (conn->ltable, state->volume,
+				       NULL, state->fd, 
+                                       frame->root->pid);
 	} else if (op_errno != ENOSYS) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": FINODELK %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
@@ -465,10 +467,10 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret >= 0) {
 		if (state->cmd == ENTRYLK_UNLOCK)
-			gf_del_locker (conn->ltable,
+			gf_del_locker (conn->ltable, state->volume,
 				       &state->loc, NULL, frame->root->pid);
 		else
-			gf_add_locker (conn->ltable,
+			gf_add_locker (conn->ltable, state->volume,
 				       &state->loc, NULL, frame->root->pid);
 	} else if (op_errno != ENOSYS) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -511,10 +513,10 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie,
 	if (op_ret >= 0) {
 		state = CALL_STATE(frame);
 		if (state->cmd == ENTRYLK_UNLOCK)
-			gf_del_locker (conn->ltable,
+			gf_del_locker (conn->ltable, state->volume,
 				       NULL, state->fd, frame->root->pid);
 		else
-			gf_add_locker (conn->ltable,
+			gf_add_locker (conn->ltable, state->volume,
 				       NULL, state->fd, frame->root->pid);
 	} else if (op_errno != ENOSYS) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -6024,7 +6026,7 @@ server_utimens (call_frame_t *frame,
 int32_t
 server_inodelk_resume (call_frame_t *frame,
 		       xlator_t *this,
-		       loc_t *loc, int32_t cmd,
+		       const char *volume, loc_t *loc, int32_t cmd,
 		       struct flock *flock)
 {
 	server_state_t *state = NULL;
@@ -6046,7 +6048,7 @@ server_inodelk_resume (call_frame_t *frame,
  		    server_inodelk_cbk,
  		    BOUND_XL(frame),
  		    BOUND_XL(frame)->fops->inodelk,
- 		    loc, cmd, flock);
+ 		    volume, loc, cmd, flock);
  	return 0;
 
 }
@@ -6062,6 +6064,7 @@ server_inodelk (call_frame_t *frame,
  	gf_fop_inodelk_req_t *req = NULL;
  	server_state_t *state = NULL;
 	size_t pathlen = 0;
+        size_t vollen  = 0;
 
  	req   = gf_param (hdr);
  	state = CALL_STATE(frame);
@@ -6082,8 +6085,10 @@ server_inodelk (call_frame_t *frame,
 		state->type = ntoh32 (req->type);
 
 		pathlen = STRLEN_0(req->path);
+                vollen  = STRLEN_0(req->volume + vollen);
 
 		state->path = req->path;
+                state->volume = req->volume + vollen; 
 		state->ino  = ntoh64 (req->ino);
 
 		gf_flock_to_flock (&req->flock, &state->flock);
@@ -6107,7 +6112,8 @@ server_inodelk (call_frame_t *frame,
 
  	inodelk_stub = fop_inodelk_stub (frame,
 					 server_inodelk_resume,
-					 &state->loc, state->cmd, &state->flock);
+					 state->volume, &state->loc, 
+                                         state->cmd, &state->flock);
 
 	if ((state->loc.parent == NULL) ||
 	    (state->loc.inode == NULL)) {
@@ -6129,12 +6135,14 @@ server_finodelk (call_frame_t *frame,
  	gf_fop_finodelk_req_t *req = NULL;
  	server_state_t *state = NULL;
 	server_connection_t *conn = NULL;
-	
+
 	conn = SERVER_CONNECTION(frame);
 
  	req   = gf_param (hdr);
  	state = CALL_STATE(frame);
 	{
+                state->volume = req->volume;
+
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
 			state->fd = gf_fd_fdptr_get (conn->fdtable, 
@@ -6188,7 +6196,7 @@ server_finodelk (call_frame_t *frame,
 	STACK_WIND (frame, server_finodelk_cbk,
 		    BOUND_XL(frame), 
 		    BOUND_XL(frame)->fops->finodelk,
-		    state->fd, state->cmd, &state->flock);
+		    state->volume, state->fd, state->cmd, &state->flock);
  	return 0;
 }
   
@@ -6196,7 +6204,7 @@ server_finodelk (call_frame_t *frame,
 int32_t
 server_entrylk_resume (call_frame_t *frame,
 		       xlator_t *this,
-		       loc_t *loc, const char *name,
+		       const char *volume, loc_t *loc, const char *name,
 		       entrylk_cmd cmd, entrylk_type type)
 {
 	server_state_t *state = NULL;
@@ -6218,7 +6226,7 @@ server_entrylk_resume (call_frame_t *frame,
  		    server_entrylk_cbk,
  		    BOUND_XL(frame),
  		    BOUND_XL(frame)->fops->entrylk,
- 		    loc, name, cmd, type);
+ 		    volume, loc, name, cmd, type);
  	return 0;
 
 }
@@ -6242,6 +6250,7 @@ server_entrylk (call_frame_t *frame,
  	call_stub_t *entrylk_stub = NULL;
 	size_t pathlen = 0;
 	size_t namelen = 0;
+        size_t vollen  = 0;
 
  	req   = gf_param (hdr);
  	state = CALL_STATE(frame);
@@ -6254,6 +6263,9 @@ server_entrylk (call_frame_t *frame,
 		if (namelen)
 			state->name = req->name + pathlen;
 
+                vollen = STRLEN_0(req->volume + pathlen + namelen);
+                state->volume = req->volume + pathlen + namelen;
+
 		state->cmd  = ntoh32 (req->cmd);
 		state->type = ntoh32 (req->type);
 	}
@@ -6264,6 +6276,7 @@ server_entrylk (call_frame_t *frame,
 
   	entrylk_stub = fop_entrylk_stub (frame,
 					 server_entrylk_resume,
+                                         state->volume,
 					 &state->loc, state->name, state->cmd,
 					 state->type);
 
@@ -6287,6 +6300,7 @@ server_fentrylk (call_frame_t *frame,
  	gf_fop_fentrylk_req_t *req = NULL;
  	server_state_t *state = NULL;
 	size_t  namelen = 0;
+        size_t  vollen  = 0;
 	server_connection_t *conn = NULL;
 	
 	conn = SERVER_CONNECTION(frame);
@@ -6305,6 +6319,9 @@ server_fentrylk (call_frame_t *frame,
 		
 		if (namelen)
 			state->name = req->name;
+                
+                vollen = STRLEN_0(req->volume + namelen);
+                state->volume = req->volume + namelen;
 	}
 
 	if (state->fd == NULL) {
@@ -6324,7 +6341,8 @@ server_fentrylk (call_frame_t *frame,
 	STACK_WIND (frame, server_fentrylk_cbk,
 		    BOUND_XL(frame), 
 		    BOUND_XL(frame)->fops->fentrylk,
-		    state->fd, state->name, state->cmd, state->type);
+		    state->volume, state->fd, state->name, 
+                    state->cmd, state->type);
  	return 0;
 }
 

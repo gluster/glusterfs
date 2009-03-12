@@ -1414,7 +1414,8 @@ error_gen_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 error_gen_inodelk (call_frame_t *frame, xlator_t *this,
-		   loc_t *loc, int32_t cmd, struct flock *lock)
+		   const char *volume, loc_t *loc, int32_t cmd, 
+                   struct flock *lock)
 {
 	int op_errno = 0;
 	op_errno = error_gen(this);
@@ -1428,7 +1429,7 @@ error_gen_inodelk (call_frame_t *frame, xlator_t *this,
 		    error_gen_inodelk_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->inodelk,
-		    loc, cmd, lock);
+		    volume, loc, cmd, lock);
 	return 0;
 }
 
@@ -1445,7 +1446,8 @@ error_gen_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 error_gen_finodelk (call_frame_t *frame, xlator_t *this,
-		    fd_t *fd, int32_t cmd, struct flock *lock)
+		    const char *volume, fd_t *fd, int32_t cmd, 
+                    struct flock *lock)
 {
 	int op_errno = 0;
 	op_errno = error_gen(this);
@@ -1459,7 +1461,7 @@ error_gen_finodelk (call_frame_t *frame, xlator_t *this,
 		    error_gen_finodelk_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->finodelk,
-		    fd, cmd, lock);
+		    volume, fd, cmd, lock);
 	return 0;
 }
 
@@ -1475,7 +1477,7 @@ error_gen_entrylk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 error_gen_entrylk (call_frame_t *frame, xlator_t *this,
-		   loc_t *loc, const char *basename,
+		   const char *volume, loc_t *loc, const char *basename,
 		   entrylk_cmd cmd, entrylk_type type)
 {
 	int op_errno = 0;
@@ -1489,7 +1491,7 @@ error_gen_entrylk (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame, error_gen_entrylk_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->entrylk,
-		    loc, basename, cmd, type);
+		    volume, loc, basename, cmd, type);
 	return 0;
 }
 
@@ -1504,7 +1506,7 @@ error_gen_fentrylk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 error_gen_fentrylk (call_frame_t *frame, xlator_t *this,
-		    fd_t *fd, const char *basename,
+		    const char *volume, fd_t *fd, const char *basename,
 		    entrylk_cmd cmd, entrylk_type type)
 {
 	int op_errno = 0;
@@ -1518,7 +1520,7 @@ error_gen_fentrylk (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame, error_gen_fentrylk_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->fentrylk,
-		    fd, basename, cmd, type);
+		    volume, fd, basename, cmd, type);
 	return 0;
 }
 

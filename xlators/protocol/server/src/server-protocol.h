@@ -42,6 +42,7 @@ typedef struct _server_state server_state_t;
 
 struct _locker {
 	struct list_head  lockers;
+        char             *volume;
 	loc_t             loc;
 	fd_t             *fd;
 	pid_t             pid;
@@ -138,6 +139,7 @@ struct _server_state {
 	struct flock      flock;
 	struct timespec   tv[2];
 	char             *resolved;
+        const char       *volume;
 };
 
 

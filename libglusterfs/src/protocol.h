@@ -557,6 +557,7 @@ typedef struct {
 	uint32_t type;
 	struct gf_flock flock;
 	char     path[0];
+        char     volume[0];
 } __attribute__((packed)) gf_fop_inodelk_req_t;
 typedef struct {
 } __attribute__((packed)) gf_fop_inodelk_rsp_t;
@@ -567,6 +568,7 @@ typedef struct {
 	uint32_t cmd;
 	uint32_t type;
 	struct gf_flock flock;
+        char volume[0];
 } __attribute__((packed)) gf_fop_finodelk_req_t;
 typedef struct {
 } __attribute__((packed)) gf_fop_finodelk_rsp_t;
@@ -578,6 +580,7 @@ typedef struct {
 	uint64_t  namelen;
 	char      path[0];
 	char      name[0];
+        char      volume[0];
 } __attribute__((packed)) gf_fop_entrylk_req_t;
 typedef struct {
 } __attribute__((packed)) gf_fop_entrylk_rsp_t;
@@ -589,6 +592,7 @@ typedef struct {
 	uint32_t  type;
 	uint64_t  namelen;
 	char      name[0];
+        char      volume[0];
 } __attribute__((packed)) gf_fop_fentrylk_req_t;
 typedef struct {
 } __attribute__((packed)) gf_fop_fentrylk_rsp_t;
