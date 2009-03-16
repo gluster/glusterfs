@@ -41,16 +41,16 @@ iot_schedule (iot_conf_t *conf,
               iot_file_t *file,
               ino_t ino)
 {
-	int32_t cnt = (ino % conf->thread_count);
-	iot_worker_t *trav = conf->workers.next;
+        int32_t         idx = 0;
+        iot_worker_t    *selected_worker = NULL;
 
-	for (; cnt; cnt--)
-		trav = trav->next;
-  
+        idx = (ino % conf->thread_count);
+        selected_worker = conf->workers[idx];
+
 	if (file)
-		file->worker = trav;
-	trav->fd_count++;
-	return trav;
+		file->worker = selected_worker;
+
+	return selected_worker;
 }
 
 int32_t
@@ -1078,32 +1078,56 @@ iot_worker (void *arg)
 	}
 }
 
+static iot_worker_t **
+allocate_worker_array (int count)
+{
+        iot_worker_t    ** warr = NULL;
+
+        warr = CALLOC (count, sizeof(iot_worker_t *));
+        ERR_ABORT (warr);
+
+        return warr;
+}
+
+static iot_worker_t *
+allocate_worker (iot_conf_t * conf)
+{
+        iot_worker_t    *wrk = NULL;
+
+        wrk = CALLOC (1, sizeof (iot_worker_t));
+        ERR_ABORT (wrk);
+
+        INIT_LIST_HEAD (&wrk->rqlist);
+        wrk->conf = conf;
+        pthread_cond_init (&wrk->dq_cond, NULL);
+        pthread_mutex_init (&wrk->qlock, NULL);
+
+        return wrk;
+}
+
+static void
+allocate_workers (iot_conf_t *conf,
+                int count,
+                int start_alloc_idx)
+{
+        int     i, end_count;
+
+        end_count = count + start_alloc_idx;
+        for (i = start_alloc_idx; i < end_count; i++) {
+                conf->workers[i] = allocate_worker (conf);
+                pthread_create (&conf->workers[i]->thread, NULL, iot_worker,
+                                conf->workers[i]);
+        }
+}
+
 static void
 workers_init (iot_conf_t *conf)
 {
-	int i;
-
-	conf->workers.next = &conf->workers;
-	conf->workers.prev = &conf->workers;
-
-	for (i=0; i<conf->thread_count; i++) {
-
-		iot_worker_t *worker = CALLOC (1, sizeof (*worker));
-		ERR_ABORT (worker);
-
-		worker->next = &conf->workers;
-		worker->prev = conf->workers.prev;
-		worker->next->prev = worker;
-		worker->prev->next = worker;
-
-                INIT_LIST_HEAD (&worker->rqlist);
-		pthread_mutex_init (&worker->qlock, NULL);
-		pthread_cond_init (&worker->dq_cond, NULL);
-		worker->conf = conf;
-
-		pthread_create (&worker->thread, NULL, iot_worker, worker);
-	}
+        conf->workers = allocate_worker_array (conf->thread_count);
+        allocate_workers (conf, conf->thread_count, 0);
 }
+
+
 
 int32_t 
 init (xlator_t *this)
