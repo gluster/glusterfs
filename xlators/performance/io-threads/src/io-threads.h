@@ -32,13 +32,14 @@
 #include "dict.h"
 #include "xlator.h"
 #include "common-utils.h"
+#include "list.h"
 
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
 
 struct iot_conf;
 struct iot_worker;
-struct iot_queue;
+struct iot_request;
 struct iot_local;
 struct iot_file;
 
@@ -47,14 +48,16 @@ struct iot_local {
   size_t frame_size;
 };
 
-struct iot_queue {
-  struct iot_queue *next, *prev;
+struct iot_request {
+  struct list_head list;        /* Attaches this request to the list of
+                                   requests.
+                                   */
   call_stub_t *stub;
 };
 
 struct iot_worker {
   struct iot_worker *next, *prev;
-  struct iot_queue queue;
+  struct list_head rqlist;      /* List of requests assigned to me. */
   struct iot_conf *conf;
   int64_t q,dq;
   pthread_cond_t dq_cond;
@@ -85,6 +88,6 @@ typedef struct iot_file iot_file_t;
 typedef struct iot_conf iot_conf_t;
 typedef struct iot_local iot_local_t;
 typedef struct iot_worker iot_worker_t;
-typedef struct iot_queue iot_queue_t;
+typedef struct iot_request iot_request_t;
 
 #endif /* __IOT_H */

@@ -1020,19 +1020,15 @@ static void
 iot_queue (iot_worker_t *worker,
            call_stub_t *stub)
 {
-	iot_queue_t *queue;
+	iot_request_t   *req = NULL;
 
-	queue = CALLOC (1, sizeof (*queue));
-	ERR_ABORT (queue);
-	queue->stub = stub;
+        req = CALLOC (1, sizeof (iot_request_t));
+        ERR_ABORT (req);
+        req->stub = stub;
 
         pthread_mutex_lock (&worker->qlock);
         {
-                queue->next = &worker->queue;
-                queue->prev = worker->queue.prev;
-
-                queue->next->prev = queue;
-                queue->prev->next = queue;
+                list_add_tail (&req->list, &worker->rqlist);
 
                 /* dq_cond */
                 worker->queue_size++;
@@ -1047,25 +1043,24 @@ static call_stub_t *
 iot_dequeue (iot_worker_t *worker)
 {
 	call_stub_t *stub = NULL;
-	iot_queue_t *queue = NULL;
+	iot_request_t *req = NULL;
 
 	pthread_mutex_lock (&worker->qlock);
         {
                 while (!worker->queue_size)
                         pthread_cond_wait (&worker->dq_cond, &worker->qlock);
 
-                queue = worker->queue.next;
-                queue->next->prev = queue->prev;
-                queue->prev->next = queue->next;
-
-                stub = queue->stub;
+                list_for_each_entry (req, &worker->rqlist, list)
+                        break;
+                list_del (&req->list);
+                stub = req->stub;
 
                 worker->queue_size--;
                 worker->dq++;
         }
 	pthread_mutex_unlock (&worker->qlock);
 
-	FREE (queue);
+	FREE (req);
 
 	return stub;
 }
@@ -1101,9 +1096,7 @@ workers_init (iot_conf_t *conf)
 		worker->next->prev = worker;
 		worker->prev->next = worker;
 
-		worker->queue.next = &worker->queue;
-		worker->queue.prev = &worker->queue;
-
+                INIT_LIST_HEAD (&worker->rqlist);
 		pthread_mutex_init (&worker->qlock, NULL);
 		pthread_cond_init (&worker->dq_cond, NULL);
 		worker->conf = conf;
