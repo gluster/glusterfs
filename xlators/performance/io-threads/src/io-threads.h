@@ -56,7 +56,6 @@ struct iot_request {
 };
 
 struct iot_worker {
-  struct iot_worker *next, *prev;
   struct list_head rqlist;      /* List of requests assigned to me. */
   struct iot_conf *conf;
   int64_t q,dq;
@@ -77,7 +76,7 @@ struct iot_file {
 struct iot_conf {
   int32_t thread_count;
   int32_t misc_thread_index;  /* Used to schedule the miscellaneous calls like checksum */
-  struct iot_worker workers;
+  struct iot_worker ** workers;
   struct iot_file files;
   pthread_mutex_t files_lock;
 
