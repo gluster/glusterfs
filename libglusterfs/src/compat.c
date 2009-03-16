@@ -264,6 +264,61 @@ solaris_listxattr(const char *path,
 	return len;
 }
 
+
+int
+solaris_flistxattr(int fd,
+                   char *list, 
+                   size_t size)
+{
+	int attrdirfd = -1;
+	ssize_t len = 0;
+	DIR *dirptr = NULL;
+	struct dirent *dent = NULL;
+	int newfd = -1;
+	
+	attrdirfd = openat (fd, ".", O_RDONLY, 0);
+	if (attrdirfd >= 0) {
+		newfd = dup(attrdirfd);
+		dirptr = fdopendir(newfd);
+		if (dirptr) {
+			while ((dent = readdir(dirptr))) {
+				size_t listlen = strlen(dent->d_name);
+				if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) {
+					/* we don't want "." and ".." here */
+					continue;
+				}
+				if (size == 0) {
+					/* return the current size of the list of extended attribute names*/
+					len += listlen + 1;
+				} else {
+					/* check size and copy entrie + nul into list. */
+					if ((len + listlen + 1) > size) {
+						errno = ERANGE;
+						len = -1;
+						break;
+					} else {
+						strncpy(list + len, dent->d_name, listlen);
+						len += listlen;
+						list[len] = '\0';
+						++len;
+					}
+				}
+			}
+			
+			if (closedir(dirptr) == -1) {
+				close (attrdirfd);
+				return -1;
+			}
+		} else {
+			close (attrdirfd);
+			return -1;
+		}
+		close (attrdirfd);
+	}
+	return len;
+}
+
+
 int 
 solaris_removexattr(const char *path, 
 		    const char* key)
