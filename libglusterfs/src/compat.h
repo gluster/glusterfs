@@ -107,14 +107,6 @@ enum {
 #  endif
 # endif
         
-#define lremovexattr(path,key)               extattr_delete_link(path, EXTATTR_NAMESPACE_USER, key)
-#define llistxattr(path,key,size)            extattr_list_link(path, EXTATTR_NAMESPACE_USER, key, size)
-#define lgetxattr(path, key, value, size)    extattr_get_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
-#define lsetxattr(path,key,value,size,flags) extattr_set_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
-#define fgetxattr(fd,key,value,size)         extattr_get_fd(fd, EXTATTR_NAMESPACE_USER, key, value, size)
-#define fsetxattr(fd,key,value,size,flag)    extattr_set_fd(fd, EXTATTR_NAMESPACE_USER, key, value, size)
-
-
 #define F_GETLK64       F_GETLK
 #define F_SETLK64       F_SETLK
 #define F_SETLKW64      F_SETLKW
@@ -167,13 +159,6 @@ enum {
 #   define NAME_MAX 255
 #  endif
 # endif
-
-#define llistxattr(path,key,size)               listxattr(path,key,size,XATTR_NOFOLLOW)
-#define lgetxattr(path,key,value,size)          getxattr(path,key,value,size,0,XATTR_NOFOLLOW)
-#define lsetxattr(path,key,value,size,flags)    setxattr(path,key,value,size,0,flags|XATTR_NOFOLLOW)
-#define lremovexattr(path,key)                  removexattr(path,key,XATTR_NOFOLLOW)
-#define fgetxattr(path,key,value,size)          fgetxattr(path,key,value,size,0,0)
-#define fsetxattr(path,key,value,size,flag)     fsetxattr(path,key,value,size,0,flag)
 
 #define F_GETLK64       F_GETLK
 #define F_SETLK64       F_SETLK
@@ -231,12 +216,6 @@ enum {
 #define s6_addr32       _S6_un._S6_u32
 #endif
 
-#define lremovexattr(path,key)               solaris_removexattr(path,key)
-#define llistxattr(path,key,size)            solaris_listxattr(path,key,size)
-#define lgetxattr(path,key,value,size)       solaris_getxattr(path,key,value,size)
-#define lsetxattr(path,key,value,size,flags) solaris_setxattr(path,key,value,size,flags)
-#define fgetxattr(fd,key,value,size)         solaris_fgetxattr(fd,key,value,size)
-#define fsetxattr(fd,key,value,size,flags)   solaris_fsetxattr(fd,key,value,size,flags)
 #define lutimes(filename,times)              utimes(filename,times)
 
 int asprintf(char **string_ptr, const char *format, ...); 

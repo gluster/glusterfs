@@ -44,6 +44,7 @@
 #include "compat-errno.h"
 #include "compat.h"
 #include "byte-order.h"
+#include "syscall.h"
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -163,12 +164,13 @@ _posix_xattr_get_set (dict_t *xattr_req,
 			ret = dict_set_uint32 (filler->xattr, key, 0);
 		}
 	} else {
-		xattr_size = lgetxattr (filler->real_path, key, NULL, 0);
+		xattr_size = sys_lgetxattr (filler->real_path, key, NULL, 0);
 
 		if (xattr_size > 0) {
 			value = calloc (1, xattr_size + 1);
 
-			lgetxattr (filler->real_path, key, value, xattr_size);
+			sys_lgetxattr (filler->real_path, key, value,
+                                       xattr_size);
 
 			value[xattr_size] = '\0';
 			ret = dict_set_bin (filler->xattr, key,
@@ -2044,8 +2046,9 @@ handle_pair (xlator_t *this, char *real_path,
         if (ZR_FILE_CONTENT_REQUEST(trav->key)) {
                 ret = set_file_contents (this, real_path, trav, flags);
         } else {
-                sys_ret = lsetxattr (real_path, trav->key, trav->value->data,
-                                     trav->value->len, flags);
+                sys_ret = sys_lsetxattr (real_path, trav->key,
+                                         trav->value->data,
+                                         trav->value->len, flags);
 
                 if (sys_ret < 0) {
                         if (errno == ENOTSUP) {
@@ -2243,7 +2246,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        size = llistxattr (real_path, NULL, 0);
+        size = sys_llistxattr (real_path, NULL, 0);
         if (size == -1) {
                 op_errno = errno;
                 if ((errno == ENOTSUP) || (errno == ENOSYS)) {
@@ -2270,7 +2273,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        size = llistxattr (real_path, list, size);
+        size = sys_llistxattr (real_path, list, size);
 
         remaining_size = size;
         list_offset = 0;
@@ -2279,7 +2282,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         break;
 
                 strcpy (key, list + list_offset);
-                op_ret = lgetxattr (real_path, key, NULL, 0);
+                op_ret = sys_lgetxattr (real_path, key, NULL, 0);
                 if (op_ret == -1)
                         break;
 
@@ -2290,7 +2293,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
-                op_ret = lgetxattr (real_path, key, value, op_ret);
+                op_ret = sys_lgetxattr (real_path, key, value, op_ret);
                 if (op_ret == -1)
                         break;
 
@@ -2364,7 +2367,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        size = flistxattr (_fd, NULL, 0);
+        size = sys_flistxattr (_fd, NULL, 0);
         if (size == -1) {
                 op_errno = errno;
                 if ((errno == ENOTSUP) || (errno == ENOSYS)) {
@@ -2391,7 +2394,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        size = flistxattr (_fd, list, size);
+        size = sys_flistxattr (_fd, list, size);
 
         remaining_size = size;
         list_offset = 0;
@@ -2400,7 +2403,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         break;
 
                 strcpy (key, list + list_offset);
-                op_ret = fgetxattr (_fd, key, NULL, 0);
+                op_ret = sys_fgetxattr (_fd, key, NULL, 0);
                 if (op_ret == -1)
                         break;
 
@@ -2411,7 +2414,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
-                op_ret = fgetxattr (_fd, key, value, op_ret);
+                op_ret = sys_fgetxattr (_fd, key, value, op_ret);
                 if (op_ret == -1)
                         break;
 
@@ -2448,8 +2451,8 @@ fhandle_pair (xlator_t *this, int fd,
         int sys_ret = -1;
         int ret     = 0;
 
-        sys_ret = fsetxattr (fd, trav->key, trav->value->data,
-                             trav->value->len, flags);
+        sys_ret = sys_fsetxattr (fd, trav->key, trav->value->data,
+                                 trav->value->len, flags);
         
         if (sys_ret < 0) {
                 if (errno == ENOTSUP) {
@@ -2554,7 +2557,7 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
-        op_ret = lremovexattr (real_path, name);
+        op_ret = sys_lremovexattr (real_path, name);
 
         if (op_ret == -1) {
                 op_errno = errno;
@@ -2674,8 +2677,8 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 		count = trav->value->len / sizeof (int32_t);
 		array = CALLOC (count, sizeof (int32_t));
 		
-		size = lgetxattr (real_path, trav->key, (char *)array, 
-				  trav->value->len);
+		size = sys_lgetxattr (real_path, trav->key, (char *)array, 
+                                      trav->value->len);
 
 		op_errno = errno;
 		if ((size == -1) && (op_errno != ENODATA) && 
@@ -2709,8 +2712,8 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 			goto out;
 		}
 
-		size = lsetxattr (real_path, trav->key, array,
-				  trav->value->len, 0);
+		size = sys_lsetxattr (real_path, trav->key, array,
+                                      trav->value->len, 0);
 
 		op_errno = errno;
 		if (size == -1) {
@@ -2786,7 +2789,8 @@ posix_fxattrop (call_frame_t *frame, xlator_t *this,
 		count = trav->value->len / sizeof (int32_t);
 		array = CALLOC (count, sizeof (int32_t));
 		
-		size = fgetxattr (_fd, trav->key, (char *)array, trav->value->len);
+		size = sys_fgetxattr (_fd, trav->key, (char *)array, 
+                                      trav->value->len);
 
 		op_errno = errno;
 		if ((size == -1) && ((op_errno != ENODATA) && 
@@ -2818,8 +2822,8 @@ posix_fxattrop (call_frame_t *frame, xlator_t *this,
 			goto out;
 		}
 
-		size = fsetxattr (_fd, trav->key, (char *)array,
-				  trav->value->len, 0);
+		size = sys_fsetxattr (_fd, trav->key, (char *)array,
+                                      trav->value->len, 0);
 
 		op_errno = errno;
 		if (size == -1) {
