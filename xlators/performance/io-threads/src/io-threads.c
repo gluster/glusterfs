@@ -159,10 +159,6 @@ iot_readv_cbk (call_frame_t *frame,
                int32_t count,
 	       struct stat *stbuf)
 {
-	iot_local_t *local = frame->local;
-
-	local->frame_size = 0; //iov_length (vector, count);
-
 	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
 
 	return 0;
@@ -193,12 +189,6 @@ iot_readv (call_frame_t *frame,
            off_t offset)
 {
 	call_stub_t *stub;
-	iot_local_t *local = NULL;
-
-        local = CALLOC (1, sizeof (*local));
-	ERR_ABORT (local);
-	frame->local = local;
-  
 	stub = fop_readv_stub (frame, 
 			       iot_readv_wrapper,
 			       fd,
@@ -245,13 +235,6 @@ iot_flush (call_frame_t *frame,
            fd_t *fd)
 {
 	call_stub_t *stub;
-	iot_local_t *local = NULL;
-
-	local = CALLOC (1, sizeof (*local));
-	ERR_ABORT (local);
-
-	frame->local = local;
-  
 	stub = fop_flush_stub (frame,
 			       iot_flush_wrapper,
 			       fd);
@@ -298,13 +281,6 @@ iot_fsync (call_frame_t *frame,
            int32_t datasync)
 {
 	call_stub_t *stub;
-	iot_local_t *local = NULL;
-
-	local = CALLOC (1, sizeof (*local));
-	ERR_ABORT (local);
-
-	frame->local = local;
-  
 	stub = fop_fsync_stub (frame,
 			       iot_fsync_wrapper,
 			       fd,
@@ -327,10 +303,6 @@ iot_writev_cbk (call_frame_t *frame,
                 int32_t op_errno,
 		struct stat *stbuf)
 {
-	iot_local_t *local = frame->local;
-
-	local->frame_size = 0; /* hehe, caught me! */
-
 	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 	return 0;
 }
@@ -363,17 +335,6 @@ iot_writev (call_frame_t *frame,
             off_t offset)
 {
 	call_stub_t *stub;
-	iot_local_t *local = NULL;
-
-	local = CALLOC (1, sizeof (*local));
-	ERR_ABORT (local);
-
-	if (frame->root->req_refs)
-		local->frame_size = dict_serialized_length (frame->root->req_refs);
-	else
-		local->frame_size = iov_length (vector, count);
-	frame->local = local;
-  
 	stub = fop_writev_stub (frame, iot_writev_wrapper,
 				fd, vector, count, offset);
 
@@ -428,12 +389,6 @@ iot_lk (call_frame_t *frame,
 	struct flock *flock)
 {
 	call_stub_t *stub;
-	iot_local_t *local = NULL;
-
-	local = CALLOC (1, sizeof (*local));
-	ERR_ABORT (local);
-	frame->local = local;
-
 	stub = fop_lk_stub (frame, iot_lk_wrapper,
 			    fd, cmd, flock);
 
@@ -480,12 +435,7 @@ iot_stat (call_frame_t *frame,
           loc_t *loc)
 {
 	call_stub_t *stub;
-	iot_local_t *local = NULL;
 	fd_t *fd = NULL;
-
-	local = CALLOC (1, sizeof (*local));
-	ERR_ABORT (local);
-	frame->local = local;
 
 	fd = fd_lookup (loc->inode, frame->root->pid);
 
@@ -545,11 +495,6 @@ iot_fstat (call_frame_t *frame,
            fd_t *fd)
 {
 	call_stub_t *stub;
-	iot_local_t *local = NULL;
-
-	local = CALLOC (1, sizeof (*local));
-	ERR_ABORT (local);
-	frame->local = local;
 	stub = fop_fstat_stub (frame,
 			       iot_fstat_wrapper,
 			       fd);
@@ -598,13 +543,8 @@ iot_truncate (call_frame_t *frame,
               off_t offset)
 {
 	call_stub_t *stub;
-	iot_local_t *local = NULL;
 	fd_t *fd = NULL;
   
-	local = CALLOC (1, sizeof (*local));
-	ERR_ABORT (local);
-	frame->local = local;
-
 	fd = fd_lookup (loc->inode, frame->root->pid);
 
 	if (fd == NULL) {
@@ -667,12 +607,6 @@ iot_ftruncate (call_frame_t *frame,
                off_t offset)
 {
 	call_stub_t *stub;
-	iot_local_t *local = NULL;
-
-	local = CALLOC (1, sizeof (*local));
-	ERR_ABORT (local);
-	frame->local = local;
-
 	stub = fop_ftruncate_stub (frame,
 				   iot_ftruncate_wrapper,
 				   fd,
@@ -722,12 +656,7 @@ iot_utimens (call_frame_t *frame,
              struct timespec tv[2])
 {
 	call_stub_t *stub;
-	iot_local_t *local = NULL;
 	fd_t *fd = NULL;
-  
-	local = CALLOC (1, sizeof (*local));
-	ERR_ABORT (local);
-	frame->local = local;
   
 	fd = fd_lookup (loc->inode, frame->root->pid);
 
@@ -794,10 +723,6 @@ iot_checksum (call_frame_t *frame,
 	      int32_t flags)
 {
 	call_stub_t *stub = NULL;
-	iot_local_t *local = NULL;
-  
-	local = CALLOC (1, sizeof (*local));
-	frame->local = local;
 
 	stub = fop_checksum_stub (frame,
 				  iot_checksum_wrapper,
@@ -845,11 +770,6 @@ iot_unlink (call_frame_t *frame,
 	    loc_t *loc)
 {
 	call_stub_t *stub = NULL;
-	iot_local_t *local = NULL;
-
-	local = CALLOC (1, sizeof (*local));
-	frame->local = local;
-
 	stub = fop_unlink_stub (frame, iot_unlink_wrapper, loc);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot get fop_unlink call stub");
@@ -878,8 +798,6 @@ iot_queue (iot_worker_t *worker,
 
                 /* dq_cond */
                 worker->queue_size++;
-                worker->q++;
-
                 pthread_cond_broadcast (&worker->dq_cond);
         }
 	pthread_mutex_unlock (&worker->qlock);
@@ -902,7 +820,6 @@ iot_dequeue (iot_worker_t *worker)
                 stub = req->stub;
 
                 worker->queue_size--;
-                worker->dq++;
         }
 	pthread_mutex_unlock (&worker->qlock);
 
@@ -1006,10 +923,6 @@ init (xlator_t *this)
 			"Using conf->thread_count = %d",
 			conf->thread_count);
 	}
-
-	conf->files.next = &conf->files;
-	conf->files.prev = &conf->files;
-	pthread_mutex_init (&conf->files_lock, NULL);
 
 	workers_init (conf);
 

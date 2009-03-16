@@ -40,13 +40,6 @@
 struct iot_conf;
 struct iot_worker;
 struct iot_request;
-struct iot_local;
-struct iot_file;
-
-struct iot_local {
-  struct iot_file *file;
-  size_t frame_size;
-};
 
 struct iot_request {
   struct list_head list;        /* Attaches this request to the list of
@@ -61,31 +54,16 @@ struct iot_worker {
   int64_t q,dq;
   pthread_cond_t dq_cond;
   pthread_mutex_t qlock;
-  int32_t fd_count;
   int32_t queue_size;
   pthread_t thread;
 };
 
-struct iot_file {
-  struct iot_file *next, *prev; /* all open files via this xlator */
-  struct iot_worker *worker;
-  fd_t *fd;
-  int32_t pending_ops;
-};
-
 struct iot_conf {
   int32_t thread_count;
-  int32_t misc_thread_index;  /* Used to schedule the miscellaneous calls like checksum */
   struct iot_worker ** workers;
-  struct iot_file files;
-  pthread_mutex_t files_lock;
-
-  pthread_cond_t q_cond;
 };
 
-typedef struct iot_file iot_file_t;
 typedef struct iot_conf iot_conf_t;
-typedef struct iot_local iot_local_t;
 typedef struct iot_worker iot_worker_t;
 typedef struct iot_request iot_request_t;
 
