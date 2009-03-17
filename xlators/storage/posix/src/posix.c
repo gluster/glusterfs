@@ -1554,8 +1554,8 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        priv->read_value    += size;
-        priv->interval_read += size;
+        priv->read_value    += op_ret;
+        priv->interval_read += op_ret;
 
         vec.iov_base = buf;
         vec.iov_len  = op_ret;
@@ -1590,7 +1590,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 	
-	op_ret = 0;
+	op_ret = vec.iov_len;
  out:
         if (op_ret == -1) {
                 frame->root->rsp_refs = NULL;
