@@ -268,8 +268,8 @@ __ib_verbs_ioq_churn_entry (ib_verbs_peer_t *peer, ib_verbs_ioq_t *entry)
                 if  (len >= (options->send_size + 2048)) {
                         gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
                                 "increase value of option 'transport.ib-verbs."
-                                "work-request-send-size' (given=> %d) to send "
-                                "bigger (%d) messages", 
+                                "work-request-send-size' (given=> %"PRId64") "
+                                "to send bigger (%d) messages", 
                                 (options->send_size + 2048), len);
                         return -1;
                 }
@@ -1251,11 +1251,12 @@ ib_verbs_options_init (transport_t *this)
         ib_verbs_options_t *options = &priv->options;
         int32_t mtu;
         data_t *temp;
+        int     ret = 0;
 
         /* TODO: validate arguments from options below */
 
-        options->send_size = 1048576;
-        options->recv_size = 1048576;
+        options->send_size = 1048576; /* 1 MB */
+        options->recv_size = 1048576; /* 1 MB */
         options->send_count = 16;
         options->recv_count = 16;
 
@@ -1271,13 +1272,29 @@ ib_verbs_options_init (transport_t *this)
 
         temp = dict_get (this->xl->options,
                          "transport.ib-verbs.work-request-send-size");
-        if (temp)
-                options->send_size = data_to_int32 (temp);
+        if (temp) {
+                ret = gf_string2bytesize (temp->data, &options->send_size);
+                if (ret != 0) {
+                        gf_log ("ib-verbs", GF_LOG_ERROR, 
+                                "invalid number format \"%s\" of "
+                                "\"option request-send-size\"", 
+                                temp->data);
+                        options->send_size = 1 * GF_UNIT_MB;
+                }
+        }
 
         temp = dict_get (this->xl->options,
                          "transport.ib-verbs.work-request-recv-size");
-        if (temp)
-                options->recv_size = data_to_int32 (temp);
+        if (temp) {
+                ret = gf_string2bytesize (temp->data, &options->recv_size);
+                if (ret != 0) {
+                        gf_log ("ib-verbs", GF_LOG_ERROR, 
+                                "invalid number format \"%s\" of "
+                                "\"option request-recv-size\"", 
+                                temp->data);
+                        options->recv_size = 1 * GF_UNIT_MB;
+                }
+        }
 
         options->port = 1;
         temp = dict_get (this->xl->options,
@@ -2351,11 +2368,11 @@ struct volume_options options[] = {
         },
         { .key   = {"transport.ib-verbs.work-request-send-size",
                     "ib-verbs-work-request-send-size"}, 
-          .type  = GF_OPTION_TYPE_INT,
+          .type  = GF_OPTION_TYPE_SIZET,
         },
         { .key   = {"transport.ib-verbs.work-request-recv-size",
                     "ib-verbs-work-request-recv-size"}, 
-          .type  = GF_OPTION_TYPE_INT,
+          .type  = GF_OPTION_TYPE_SIZET,
         },
         { .key   = {"transport.ib-verbs.work-request-send-count",
                     "ib-verbs-work-request-send-count"}, 
