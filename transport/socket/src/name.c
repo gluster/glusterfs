@@ -87,7 +87,7 @@ af_unix_client_bind (transport_t *this,
 {
         data_t *path_data = NULL;
         struct sockaddr_un *addr = NULL;
-        int32_t ret = -1;
+        int32_t ret = 0;
 
         path_data = dict_get (this->xl->options, "transport.socket.bind-path");
         if (path_data) {
@@ -108,6 +108,10 @@ af_unix_client_bind (transport_t *this,
                                 sock, strerror (errno));
                         goto err;
                 }
+        } else {
+                gf_log (this->xl->name, GF_LOG_DEBUG,
+                        "bind-path not specfied for unix socket, "
+                        "letting connect to assign default value");
         }
 
 err:
