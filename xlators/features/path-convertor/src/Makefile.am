@@ -1,6 +1,6 @@
 
 xlator_LTLIBRARIES = path-converter.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/features
 
 path_converter_la_LDFLAGS = -module -avoidversion 
 

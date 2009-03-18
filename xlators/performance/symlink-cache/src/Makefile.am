@@ -1,5 +1,5 @@
 xlator_LTLIBRARIES = symlink-cache.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/performance
 
 symlink_cache_la_LDFLAGS = -module -avoidversion 
 

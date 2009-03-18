@@ -1,5 +1,5 @@
 xlator_LTLIBRARIES = trash.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/features
 
 trash_la_LDFLAGS = -module -avoidversion 
 

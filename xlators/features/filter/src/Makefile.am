@@ -1,5 +1,5 @@
 xlator_LTLIBRARIES = filter.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/features
 
 filter_la_LDFLAGS = -module -avoidversion
 

@@ -1,5 +1,5 @@
 xlator_LTLIBRARIES = map.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/cluster
 
 map_la_LDFLAGS = -module -avoidversion 
 

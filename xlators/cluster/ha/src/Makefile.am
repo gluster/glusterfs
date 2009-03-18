@@ -1,5 +1,5 @@
 xlator_LTLIBRARIES = ha.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/cluster
 
 ha_la_LDFLAGS = -module -avoidversion 
 
