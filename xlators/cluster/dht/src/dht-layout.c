@@ -512,7 +512,8 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 {
 	int       idx = 0;
 	int       pos = -1;
-	int       ret = -1;
+	int       ret = 0;
+        int       err = 0;
 	int32_t  *disk_layout = NULL;
 	int32_t   count = -1;
 	uint32_t  start_off = -1;
@@ -533,12 +534,16 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 		ret = 1;
 		goto out;
 	}
-	
-	if (xattr == NULL) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"%s - xattr dictionary is NULL",
-			loc->path);
-		ret = -1;
+
+        err = layout->list[pos].err;
+
+	if (!xattr) {
+                if (err == 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s - xattr dictionary is NULL",
+                                loc->path);
+                        ret = -1;
+                }
 		goto out;
 	}
 
@@ -546,9 +551,11 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 			    VOID(&disk_layout));
 	
 	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"%s - disk layout missing", loc->path);
-		ret = -1;
+                if (err == 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s - disk layout missing", loc->path);
+                        ret = -1;
+                }
 		goto out;
 	} 
 
@@ -566,7 +573,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	
 	if ((layout->list[pos].start != start_off)
 	    || (layout->list[pos].stop != stop_off)) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_WARNING,
 			"subvol: %s; inode layout - %"PRId32" - %"PRId32"; "
 			"disk layout - %"PRId32" - %"PRId32,
 			layout->list[pos].xlator->name,
