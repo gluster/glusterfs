@@ -88,6 +88,7 @@ iot_open (call_frame_t *frame,
                 gf_log (this->name, GF_LOG_ERROR,
                                 "cannot get open call stub");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
+                return 0;
         }
 	iot_schedule ((iot_conf_t *)this->private, loc->inode, stub);
 
@@ -144,6 +145,7 @@ iot_create (call_frame_t *frame,
                 gf_log (this->name, GF_LOG_ERROR,
                                 "cannot get create call stub");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
+                return 0;
         }
         iot_schedule ((iot_conf_t *)this->private, loc->inode, stub);
         return 0;
