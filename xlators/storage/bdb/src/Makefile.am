@@ -1,6 +1,6 @@
 
 xlator_LTLIBRARIES = bdb.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/storage
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/storage
 
 bdb_la_LDFLAGS = -module -avoidversion
 
