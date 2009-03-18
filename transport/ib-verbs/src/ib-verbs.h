@@ -45,7 +45,10 @@ struct _ib_verbs_options {
         int32_t port;
         char *device_name;
         enum ibv_mtu mtu;
-        int32_t send_count, send_size, recv_count, recv_size;
+        int32_t  send_count;
+        int32_t  recv_count;
+        uint64_t recv_size;
+        uint64_t send_size;
 };
 typedef struct _ib_verbs_options ib_verbs_options_t;
 
