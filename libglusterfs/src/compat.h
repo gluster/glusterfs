@@ -230,6 +230,7 @@ int solaris_fgetxattr(int fd, const char* key,
                       char *value, size_t size);
 int solaris_fsetxattr(int fd, const char* key, const char *value, 
                       size_t size, int flags);
+int solaris_flistxattr(int fd, char *list, size_t size);
 
 #endif /* GF_SOLARIS_HOST_OS */
 
