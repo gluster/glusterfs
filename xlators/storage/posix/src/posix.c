@@ -3850,7 +3850,7 @@ init (xlator_t *this)
 
 
         /* Check for Extended attribute support, if not present, log it */
-        op_ret = lsetxattr (dir_data->data,
+        op_ret = sys_lsetxattr (dir_data->data,
 			    "trusted.glusterfs.test", "working", 8, 0);
         if (op_ret < 0) {
 		tmp_data = dict_get (this->options,
@@ -3995,7 +3995,7 @@ void
 fini (xlator_t *this)
 {
         struct posix_private *priv = this->private;
-        lremovexattr (priv->base_path, "trusted.glusterfs.test");
+        sys_lremovexattr (priv->base_path, "trusted.glusterfs.test");
         FREE (priv);
         return;
 }

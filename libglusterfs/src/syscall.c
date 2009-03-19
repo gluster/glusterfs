@@ -369,7 +369,7 @@ sys_fsetxattr (int filedes, const char *name, const void *value,
 #endif
         
 #ifdef GF_SOLARIS_HOST_OS
-        solaris_fsetxattr (filedes, name, value, size, flags);
+        return solaris_fsetxattr (filedes, name, value, size, flags);
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
