@@ -2067,9 +2067,9 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				goto unwind;
 			}
 
-			dht_itransform (this, subvol, orig_entry->d_ino,
+			dht_itransform (this, prev->this, orig_entry->d_ino,
 					&entry->d_ino);
-			dht_itransform (this, subvol, orig_entry->d_off,
+			dht_itransform (this, prev->this, orig_entry->d_off,
 					&entry->d_off);
 
 			entry->d_type = orig_entry->d_type;
