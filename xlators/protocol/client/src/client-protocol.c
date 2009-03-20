@@ -6247,6 +6247,34 @@ client_protocol_reconnect (void *trans_ptr)
 	pthread_mutex_unlock (&conn->lock);
 }
 
+int 
+protocol_client_mark_fd_bad (xlator_t *this)
+{
+        client_conf_t            *conf = NULL;
+        data_pair_t              *trav = NULL;
+
+        conf = this->private;
+        
+        trav = conf->saved_fds->members_list;
+        
+        while (trav) {
+                fd_t *fd_tmp = (fd_t *)(long) strtoul (trav->key, 
+                                                       NULL, 0);
+                fd_ctx_del (fd_tmp, this, NULL);
+                trav = trav->next;
+        }
+
+ 	pthread_mutex_lock (&conf->mutex);
+        {
+                dict_destroy (conf->saved_fds);
+                
+                conf->saved_fds = get_new_dict_full (64);
+        }
+	pthread_mutex_unlock (&conf->mutex);
+        
+        return 0;
+}
+
 /*
  * client_protocol_cleanup - cleanup function
  * @trans: transport object
@@ -6268,21 +6296,6 @@ protocol_client_cleanup (transport_t *trans)
 		saved_frames = conn->saved_frames;
 		conn->saved_frames = saved_frames_new ();
 
-/*
-		trav = conn->saved_fds->members_list;
-		this = trans->xl;
-
-		while (trav) {
-			fd_t *fd_tmp = (fd_t *)(long) strtoul (trav->key, 
-							       NULL, 0);
-			fd_ctx_del (fd_tmp, this, NULL);
-			trav = trav->next;
-		}
-
-		dict_destroy (conn->saved_fds);
-
-		conn->saved_fds = get_new_dict_full (64);
-*/
 		/* bailout logic cleanup */
 		memset (&(conn->last_sent), 0, 
 			sizeof (conn->last_sent));
@@ -6792,10 +6805,14 @@ notify (xlator_t *this,
         void *data,
         ...)
 {
-	int ret = -1;
-	transport_t *trans = NULL;
-	client_connection_t *conn = NULL;
+        int                  i          = 0;
+	int                  ret        = -1;
+        int                  child_down = 1;
+	transport_t         *trans      = NULL;
+	client_connection_t *conn       = NULL;
+        client_conf_t       *conf       = NULL;
 
+        conf = this->private;
 	trans = data;
 
 	switch (event) {
@@ -6816,25 +6833,37 @@ notify (xlator_t *this,
 	{
 		ret = -1;
 		protocol_client_cleanup (trans);
-	}
 
-	conn = trans->xl_private;
-	if (conn->connected) {
-		xlator_list_t *parent = NULL;
+                conn = trans->xl_private;
+                if (conn->connected) {
+                        conn->connected = 0;
+                        if (conn->reconnect == 0)
+                                client_protocol_reconnect (trans);
+                }
 
-		gf_log (this->name, GF_LOG_INFO, "disconnected");
+                child_down = 1;
+                for (i = 0; i < CHANNEL_MAX; i++) {
+                        trans = conf->transport[i];
+                        conn = trans->xl_private;
+                        if (conn->connected == 1)
+                                child_down = 0;
+                }
+                
+                if (child_down) {
+                        xlator_list_t *parent = NULL;
+                        
+                        gf_log (this->name, GF_LOG_INFO, "disconnected");
+                        
+                        protocol_client_mark_fd_bad (this);
 
-		parent = this->parents;
-		while (parent) {
-			parent->xlator->notify (parent->xlator,
-						GF_EVENT_CHILD_DOWN,
-						this);
-			parent = parent->next;
-		}
-
-		conn->connected = 0;
-		if (conn->reconnect == 0)
-			client_protocol_reconnect (trans);
+                        parent = this->parents;
+                        while (parent) {
+                                parent->xlator->notify (parent->xlator,
+                                                        GF_EVENT_CHILD_DOWN,
+                                                        this);
+                                parent = parent->next;
+                        }
+                }
 	}
 	break;
 
