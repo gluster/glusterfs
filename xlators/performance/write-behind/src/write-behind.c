@@ -393,7 +393,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                 list_del_init (&request->winds);
                 list_add_tail (&request->winds, &local->winds);
 
-                if (!next
+                if ((!next)
                     || ((count + next->stub->args.writev.count) > MAX_VECTOR_COUNT))
                 {
                         sync_frame = copy_frame (frame);  
@@ -1649,12 +1649,12 @@ wb_flush (call_frame_t *frame,
                 return 0;
         }
 
+        process_frame = copy_frame (frame);
         if (conf->flush_behind
             && (!file->disabled) && (file->disable_till == 0)) {
                 tmp_local = CALLOC (1, sizeof (*local));
                 tmp_local->file = file;
 
-                process_frame = copy_frame (frame);
                 process_frame->local = tmp_local;
         }
 
@@ -1675,6 +1675,7 @@ wb_flush (call_frame_t *frame,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->flush,
                             fd);
+                STACK_DESTROY (process_frame->root);
         }
 
         return 0;
