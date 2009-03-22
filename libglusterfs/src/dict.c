@@ -161,7 +161,7 @@ data_copy (data_t *old)
 
 	if (!newdata) {
 		gf_log ("dict", GF_LOG_CRITICAL,
-			"@old is NULL");
+			"@newdata - NULL returned by CALLOC");
 		return NULL;
 	}
 
