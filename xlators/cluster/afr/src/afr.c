@@ -1925,7 +1925,7 @@ static const char *no_lock_servers_warning_str = "You have set lock-server-count
 	"applications write to the same region of a file, there is a possibility that "
 	"its copies will be INCONSISTENT. Set it to a value greater than 0 unless you "
 	"are ABSOLUTELY SURE of what you are doing and WILL NOT HOLD GlusterFS "
-	"RESPOSIBLE for inconsistent data. If you are in doubt, set it to a value "
+	"RESPONSIBLE for inconsistent data. If you are in doubt, set it to a value "
 	"greater than 0.";
 
 int32_t 
