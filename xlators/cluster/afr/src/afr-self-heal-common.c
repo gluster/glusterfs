@@ -211,43 +211,254 @@ afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
 /**
  * mark_sources: Mark all 'source' nodes and return number of source
  * nodes found
+ *
+ * A node (a row in the pending matrix) belongs to one of
+ * three categories:
+ *
+ * M is the pending matrix.
+ *
+ * 'innocent' - M[i] is all zeroes
+ * 'fool'     - M[i] has i'th element = 1 (self-reference)
+ * 'wise'     - M[i] has i'th element = 0, others are 1 or 0.
+ *
+ * All 'innocent' nodes are sinks. If all nodes are innocent, no self-heal is
+ * needed.
+ *
+ * A 'wise' node can be a source. If two 'wise' nodes conflict, it is 
+ * a split-brain. If one wise node refers to the other but the other doesn't
+ * refer back, the referrer is a source.
+ *
+ * All fools are sinks, unless there are no 'wise' nodes. In that case,
+ * one of the fools is made a source.
  */
 
+typedef enum {
+        AFR_NODE_INNOCENT,
+        AFR_NODE_FOOL,
+        AFR_NODE_WISE
+} afr_node_type;
+
+typedef struct {
+        afr_node_type type;
+        int           wisdom;
+} afr_node_character;
+
+
+static int
+afr_sh_is_innocent (int32_t *array, int child_count)
+{
+        int i   = 0;
+        int ret = 1;   /* innocent until proven guilty */
+
+        for (i = 0; i < child_count; i++) {
+                if (array[i]) {
+                        ret = 0;
+                        break;
+                }
+        }
+
+        return ret;
+}
+
+
+static int
+afr_sh_is_fool (int32_t *array, int i, int child_count)
+{
+        return array[i];   /* fool if accuses itself */
+}
+
+
+static int
+afr_sh_is_wise (int32_t *array, int i, int child_count)
+{
+        return !array[i];  /* wise if does not accuse itself */
+}
+
+
+static int
+afr_sh_all_nodes_innocent (afr_node_character *characters, 
+                           int child_count)
+{
+        int i   = 0;
+        int ret = 1;
+
+        for (i = 0; i < child_count; i++) {
+                if (characters[i].type != AFR_NODE_INNOCENT) {
+                        ret = 0;
+                        break;
+                }
+        }
+
+        return ret;
+}
+
+
+static int
+afr_sh_wise_nodes_exist (afr_node_character *characters, int child_count)
+{
+        int i   = 0;
+        int ret = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (characters[i].type == AFR_NODE_WISE) {
+                        ret = 1;
+                        break;
+                }
+        }
+
+        return ret;
+}
+
+
+/*
+ * The 'wisdom' of a wise node is 0 if any other wise node accuses to it.
+ * It is 1 if no other wise node accuses it. 
+ * Only wise nodes with wisdom 1 are sources.
+ *
+ * If no nodes with wisdom 1 exist, a split-brain has occured.
+ */
+
+static void
+afr_sh_compute_wisdom (int32_t *pending_matrix[],
+                       afr_node_character characters[], int child_count)
+{
+        int i = 0;
+        int j = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (characters[i].type == AFR_NODE_WISE) {
+                        characters[i].wisdom = 1;
+
+                        for (j = 0; j < child_count; j++) {
+                                if ((characters[j].type == AFR_NODE_WISE)
+                                    && pending_matrix[j][i]) {
+                                        
+                                        characters[i].wisdom = 0;
+                                }
+                        }
+                }
+        }
+}
+
+
+static int
+afr_sh_wise_nodes_conflict (afr_node_character *characters, 
+                            int child_count)
+{
+        int i   = 0;
+        int ret = 1;
+
+        for (i = 0; i < child_count; i++) {
+                if ((characters[i].type == AFR_NODE_WISE)
+                    && characters[i].wisdom == 1) {
+
+                        /* There is atleast one bona-fide wise node */
+                        ret = 0;
+                        break;
+                }
+        }
+
+        return ret;
+}
+
+
+static int
+afr_sh_mark_wisest_as_sources (int sources[], 
+                               afr_node_character *characters, 
+                               int child_count)
+{
+        int nsources = 0;
+        
+        int i = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (characters[i].wisdom == 1) {
+                        sources[i] = 1;
+                        nsources++;
+                }
+        }
+
+        return nsources;
+}
+
+        
+static int
+afr_sh_mark_a_fool_as_source (int sources[], afr_node_character *characters, 
+                              int child_count)
+{
+        int i = 0;
+        
+        int nsources = 0;
+        
+        for (i = 0; i < child_count; i++) {
+                if (characters[i].type == AFR_NODE_FOOL) {
+                        sources[i] = 1;
+                        nsources++;
+                        break;
+                }
+        }
+
+        return nsources;
+}
+
+        
 int
 afr_sh_mark_sources (int32_t *pending_matrix[], int sources[], int child_count)
 {
 	int i = 0;
-	int j = 0;
 
 	int nsources = 0;
 
+        /* stores the 'characters' (innocent, fool, wise) of the nodes */
+        afr_node_character *
+                characters = CALLOC (sizeof (afr_node_character), 
+                                     child_count);
 
 	/* start clean */
 	for (i = 0; i < child_count; i++) {
 		sources[i] = 0;
 	}
+        
+        for (i = 0; i < child_count; i++) {
+                if (afr_sh_is_innocent (pending_matrix[i], child_count)) {
+                        characters[i].type = AFR_NODE_INNOCENT;
 
-	/*
-	  Let's 'normalize' the pending matrix first,
-	  by disregarding all pending entries that refer
-	  to themselves
-	*/
-	for (i = 0; i < child_count; i++) {
-		pending_matrix[i][i] = 0;
-	}
+                } else if (afr_sh_is_fool (pending_matrix[i], i, child_count)) {
+                        characters[i].type = AFR_NODE_FOOL;
 
-	for (i = 0; i < child_count; i++) {
-		for (j = 0; j < child_count; j++) {
-			if (pending_matrix[j][i])
-				break;
-		}
+                } else if (afr_sh_is_wise (pending_matrix[i], i, child_count)) {
+                        characters[i].type = AFR_NODE_WISE;
 
-		if (j == child_count) {
-			nsources++;
-			sources[i] = 1;
-		}
-	}
+                } else {
+                        gf_log ("[module:afr]", GF_LOG_ERROR,
+                                "node %d is diabolical! "
+                                "(This message should never appear."
+                                " Please file a bug report.)", i);
+                }
+        }
 
+        if (afr_sh_all_nodes_innocent (characters, child_count)) {
+                /* no self-heal needed */
+                goto out;
+
+        } else if (afr_sh_wise_nodes_exist (characters, child_count)) {
+                afr_sh_compute_wisdom (pending_matrix, characters, child_count);
+
+                if (afr_sh_wise_nodes_conflict (characters, child_count)) {
+                        /* split-brain */
+                        goto out;
+
+                } else {
+                        nsources = afr_sh_mark_wisest_as_sources (sources, 
+                                                                  characters,
+                                                                  child_count);
+                }
+        } else {
+                nsources = afr_sh_mark_a_fool_as_source (sources, characters, 
+                                                         child_count);
+        }
+
+out:
 	return nsources;
 }
 
