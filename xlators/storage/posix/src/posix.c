@@ -853,6 +853,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         int32_t op_ret    = -1;
         int32_t op_errno  = 0;
         char *  real_path = NULL;
+        int32_t fd = -1;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -862,6 +863,15 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        fd = open (real_path, O_RDONLY);
+        if (fd == -1) {
+                op_ret = -1;
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open of %s failed: %s", loc->path, strerror (op_errno));
+                goto out;
+        }
 
         op_ret = unlink (real_path);
         if (op_ret == -1) {
@@ -876,7 +886,12 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
         frame->root->rsp_refs = NULL;
+
         STACK_UNWIND (frame, op_ret, op_errno);
+
+        if (fd != -1) {
+                close (fd);
+        }
 
         return 0;
 }
