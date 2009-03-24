@@ -3362,7 +3362,7 @@ dht_forget (xlator_t *this, inode_t *inode)
 
 	inode_ctx_get (inode, this, &tmp_layout);
 
-	if (!layout)
+	if (!tmp_layout)
 		return 0;
 	layout = (dht_layout_t *)(long)tmp_layout;
 	if (!layout->preset)
