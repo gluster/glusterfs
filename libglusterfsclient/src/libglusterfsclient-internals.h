@@ -141,4 +141,25 @@ typedef struct {
                 STACK_DESTROY (frame->root);                            \
         } while (0)
 
+void
+libgf_client_loc_wipe (loc_t *loc);
+
+int32_t
+libgf_client_loc_fill (loc_t *loc,
+                       libglusterfs_client_ctx_t *ctx,
+                       ino_t ino,
+                       ino_t par,
+                       const char *name);
+
+int32_t
+libgf_client_path_lookup (loc_t *loc,
+                          libglusterfs_client_ctx_t *ctx);
+
+int32_t
+libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
+                     loc_t *loc,
+                     struct stat *stbuf,
+                     dict_t **dict,
+                     dict_t *xattr_req);
+
 #endif

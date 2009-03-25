@@ -148,6 +148,11 @@ inode_t *
 inode_from_path (inode_table_t *table,
 		 const char *path);
 
+dentry_t *
+dentry_search_for_inode (inode_t *inode,
+                         ino_t par,
+                         const char *name);
+
 int
 __inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
 

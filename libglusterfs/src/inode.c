@@ -205,6 +205,22 @@ __dentry_search_for_inode (inode_t *inode,
 }
 
 
+dentry_t *
+dentry_search_for_inode (inode_t *inode,
+                         ino_t par,
+                         const char *name)
+{
+        dentry_t *dentry = NULL;
+        pthread_mutex_lock (&inode->table->lock);
+        {
+                dentry = __dentry_search_for_inode (inode, par, name);
+        }
+        pthread_mutex_unlock (&inode->table->lock);
+        
+        return dentry;
+}
+
+
 static dentry_t *
 __dentry_search (inode_table_t *table,
                  ino_t par,
