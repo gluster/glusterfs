@@ -133,6 +133,12 @@ AC_CANONICAL_HOST
 AC_PROG_CC
 AC_PROG_LIBTOOL
 
+AC_ARG_WITH(mountutildir,
+            [  --with-mountutildir=DIR mount helper utility in DIR @<:@/sbin@:>@],
+            [mountutildir=$withval],
+            [mountutildir='/sbin'])
+AC_SUBST(mountutildir)
+
 # LEX needs a check
 AC_PROG_LEX
 if test  "x${LEX}" != "xflex" -a "x${FLEX}" != "xlex"; then
