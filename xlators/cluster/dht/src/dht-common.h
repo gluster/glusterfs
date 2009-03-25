@@ -70,6 +70,8 @@ struct dht_local {
 	xlator_t                *cached_subvol;
 	xlator_t                *hashed_subvol;
 	char                     need_selfheal;
+        int                      file_count;
+        int                      dir_count;
 	struct {
 		fop_mknod_cbk_t  linkfile_cbk;
 		struct stat      stbuf;
@@ -200,6 +202,8 @@ int dht_hash_compute (int type, const char *name, uint32_t *hash_p);
 
 int dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 			 xlator_t *tovol, xlator_t *fromvol, loc_t *loc);
+int dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc);
+int dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc);
 int
 dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
 			loc_t *loc, dht_layout_t *layout);
