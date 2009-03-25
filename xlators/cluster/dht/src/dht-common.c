@@ -99,10 +99,6 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		   else mkdir/chmod/chown and fix
 		*/
-		/* TODO: assert equal hash type in xattr, local->xattr */
-
-		/* TODO: always ensure same subvolume is in layout->list[0] */
-
 		ret = dht_layout_merge (this, layout, prev->this,
 					op_ret, op_errno, xattr);
 
@@ -117,8 +113,14 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
  		is_dir = check_is_dir (inode, stbuf, xattr);
- 		if (!is_dir) 
+ 		if (!is_dir) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "lookup of %s on %s returned non dir 0%o",
+                                local->loc.path, prev->this->name,
+                                stbuf->st_mode);
+                        local->need_selfheal = 1;
  			goto unlock;
+                }
 
  		local->op_ret = 0;
  		if (local->xattr == NULL)
@@ -139,6 +141,12 @@ unlock:
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
+                if (local->need_selfheal) {
+                        local->need_selfheal = 0;
+                        dht_lookup_everywhere (frame, this, &local->loc);
+                        return 0;
+                }
+
 		if (local->op_ret == 0) {
 			ret = dht_layout_normalize (this, &local->loc, layout);
 
@@ -153,13 +161,14 @@ unlock:
 				goto selfheal;
 			}
 			
-			inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
+			inode_ctx_put (local->inode, this,
+                                       (uint64_t)(long)layout);
 			
 			if (local->st_ino) {
 				local->stbuf.st_ino = local->st_ino;
 			} else {
 				gf_log (this->name, GF_LOG_WARNING,
-					"could not find hashed subvolume for %s",
+					"could not find hashed subvol for %s",
 					local->loc.path);
 			}
 		}
@@ -355,28 +364,38 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (is_linkfile) {
 			link_subvol = dht_linkfile_subvol (this, inode, buf,
 							   xattr);
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_WARNING,
 				"found on %s linkfile %s (-> %s)",
 				subvol->name, loc->path,
 				link_subvol ? link_subvol->name : "''");
 			goto unlock;
-		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"found on %s file %s",
-				subvol->name, loc->path);
 		}
 
-		if (!local->cached_subvol) {
-			/* found one file */
-			dht_stat_merge (this, &local->stbuf, buf, subvol);
-			local->xattr = dict_ref (xattr);
-			local->cached_subvol = subvol;
-		} else {
-			gf_log (this->name, GF_LOG_WARNING,
-				"multiple subvolumes (%s and %s atleast) have "
-				"file %s", local->cached_subvol->name,
-				subvol->name, local->loc.path);
-		}
+                if (is_dir) {
+                        local->dir_count++;
+
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "found on %s directory %s",
+                                subvol->name, loc->path);
+                } else {
+                        local->file_count++;
+
+                        if (!local->cached_subvol) {
+                                /* found one file */
+                                dht_stat_merge (this, &local->stbuf, buf,
+                                                subvol);
+                                local->xattr = dict_ref (xattr);
+                                local->cached_subvol = subvol;
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "found on %s file %s",
+                                        subvol->name, loc->path);
+                        } else {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "multiple subvolumes (%s and %s) have "
+                                        "file %s", local->cached_subvol->name,
+                                        subvol->name, local->loc.path);
+                        }
+                }
 	}
 unlock:
 	UNLOCK (&frame->lock);
@@ -392,6 +411,20 @@ unlock:
 	if (is_last_call (this_call_cnt)) {
 		hashed_subvol = local->hashed_subvol;
 		cached_subvol = local->cached_subvol;
+
+                if (local->file_count && local->dir_count) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "path %s is both file and directory at the " 
+                                "backend. Please fix it manually",
+                                loc->path);
+                        DHT_STACK_UNWIND (frame, -1, EIO, NULL, NULL, NULL);
+                        return 0;
+                }
+
+                if (local->dir_count) {
+                        dht_lookup_directory (frame, this, &local->loc);
+                        return 0;
+                }
 
 		if (!cached_subvol) {
 			DHT_STACK_UNWIND (frame, -1, ENOENT, NULL, NULL, NULL);
@@ -459,12 +492,22 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 		gf_log (this->name, GF_LOG_WARNING,
 			"lookup of %s on %s (following linkfile) failed (%s)",
 			local->loc.path, subvol->name, strerror (op_errno));
-
-		dht_lookup_everywhere (frame, this, loc);
-		return 0;
+                goto err;
 	}
 
-        /* TODO: assert type is non-dir and non-linkfile */
+        if (check_is_dir (inode, stbuf, xattr)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup of %s on %s (following linkfile) reached dir",
+                        local->loc.path, subvol->name);
+                goto err;
+        }
+
+        if (check_is_linkfile (inode, stbuf, xattr)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup of %s on %s (following linkfile) reached link",
+                        local->loc.path, subvol->name);
+                goto err;
+        }
 
 	if (stbuf->st_nlink == 1)
 		stbuf->st_mode |= S_ISVTX;
@@ -486,6 +529,43 @@ out:
         DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
 
         return 0;
+
+err:
+        dht_lookup_everywhere (frame, this, loc);
+
+        return 0;
+}
+
+
+int
+dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+        int           call_cnt = 0;
+        int           i = 0;
+        dht_conf_t   *conf = NULL;
+        dht_local_t  *local = NULL;
+
+        conf = this->private;
+        local = frame->local;
+
+        call_cnt        = conf->subvolume_cnt;
+        local->call_cnt = call_cnt;
+		
+        local->layout = dht_layout_new (this, conf->subvolume_cnt);
+        if (!local->layout) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "memory allocation failed :(");
+                DHT_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
+                return 0;
+        }
+		
+        for (i = 0; i < call_cnt; i++) {
+                STACK_WIND (frame, dht_lookup_dir_cbk,
+                            conf->subvolumes[i],
+                            conf->subvolumes[i]->fops->lookup,
+                            &local->loc, local->xattr_req);
+        }
+        return 0;
 }
 
 
@@ -501,9 +581,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_conf_t   *conf        = NULL;
         dht_local_t  *local       = NULL;
         loc_t        *loc         = NULL;
-        int           i           = 0;
         call_frame_t *prev        = NULL;
-	int           call_cnt    = 0;
 
 
         conf  = this->private;
@@ -529,25 +607,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  	}
 
  	if (is_dir || (op_ret == -1 && op_errno == ENOTCONN)) {
-		call_cnt        = conf->subvolume_cnt;
- 		local->call_cnt = call_cnt;
-		
- 		local->layout = dht_layout_new (this, conf->subvolume_cnt);
- 		if (!local->layout) {
- 			op_ret   = -1;
- 			op_errno = ENOMEM;
- 			gf_log (this->name, GF_LOG_ERROR,
- 				"memory allocation failed :(");
- 			goto out;
- 		}
-		
-		for (i = 0; i < call_cnt; i++) {
-			STACK_WIND (frame, dht_lookup_dir_cbk,
-				    conf->subvolumes[i],
-				    conf->subvolumes[i]->fops->lookup,
-				    &local->loc, local->xattr_req);
-		}
- 		return 0;
+                dht_lookup_directory (frame, this, &local->loc);
+                return 0;
  	}
  
         if (op_ret == -1)

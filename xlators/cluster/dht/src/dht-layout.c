@@ -514,6 +514,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	int       pos = -1;
 	int       ret = 0;
         int       err = 0;
+        int       dict_ret = 0;
 	int32_t  *disk_layout = NULL;
 	int32_t   count = -1;
 	uint32_t  start_off = -1;
@@ -547,10 +548,10 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 		goto out;
 	}
 
-	ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
-			    VOID(&disk_layout));
+	dict_ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
+                                 VOID(&disk_layout));
 	
-	if (ret < 0) {
+	if (dict_ret < 0) {
                 if (err == 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s - disk layout missing", loc->path);
