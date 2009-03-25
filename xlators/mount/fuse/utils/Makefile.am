@@ -1,4 +1,4 @@
-utildir = $(destdir)/sbin
+utildir = @mountutildir@
 
 if GF_DARWIN_HOST_OS
 util_SCRIPTS = mount_glusterfs
