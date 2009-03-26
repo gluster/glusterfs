@@ -864,13 +864,16 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        fd = open (real_path, O_RDONLY);
-        if (fd == -1) {
-                op_ret = -1;
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_WARNING,
-                        "open of %s failed: %s", loc->path, strerror (op_errno));
-                goto out;
+        if (S_ISREG (loc->inode->st_mode)) {
+                fd = open (real_path, O_RDONLY);
+                if (fd == -1) {
+                        op_ret = -1;
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "open of %s failed: %s", loc->path,
+                                strerror (op_errno));
+                        goto out;
+                }
         }
 
         op_ret = unlink (real_path);
