@@ -144,7 +144,7 @@ typedef struct glusterfs_dir_config {
         char *buf;
         size_t xattr_file_size;
         uint32_t cache_timeout;
-        libglusterfs_handle_t handle;
+        glusterfs_handle_t handle;
         
         /* mod_dir options */
         apr_array_header_t *index_names;
@@ -182,7 +182,7 @@ typedef struct glusterfs_async_local {
         char async_read_complete;
         off_t length;
         off_t read_bytes;
-        glusterfs_read_buf_t *buf;
+        glusterfs_iobuf_t *buf;
         request_rec *request;
         pthread_mutex_t lock;
         pthread_cond_t cond;
@@ -675,7 +675,7 @@ mod_glfs_create_dir_config(apr_pool_t *p, char *dirspec)
         dir_config->mount_dir = dirspec;
         dir_config->logfile = dir_config->specfile = (char *)0;
         dir_config->loglevel = "warning";
-        dir_config->handle = (libglusterfs_handle_t) 0;
+        dir_config->handle = (glusterfs_handle_t) 0;
         dir_config->cache_timeout = 0;
         dir_config->buf = NULL;
 
@@ -838,7 +838,7 @@ mod_glfs_child_init(apr_pool_t *p, server_rec *s)
         core_server_config *sconf = NULL;
         ap_conf_vector_t **sec_ent = NULL;
         glusterfs_dir_config_t *dir_config = NULL;
-        glusterfs_init_ctx_t ctx;
+        glusterfs_init_params_t ctx;
         int num_sec = 0;
   
         sconf = (core_server_config *) ap_get_module_config (s->module_config, &core_module);
@@ -876,7 +876,7 @@ mod_glfs_child_exit(server_rec *s, apr_pool_t *p)
                                                          &core_module);
         ap_conf_vector_t **sec_ent = (ap_conf_vector_t **) sconf->sec_url->elts;
         glusterfs_dir_config_t *dir_config = NULL;
-        glusterfs_init_ctx_t ctx;
+        glusterfs_init_params_t ctx;
         int num_sec = sconf->sec_url->nelts;
 
         for (i = 0; i < num_sec; i++) {
@@ -1025,8 +1025,8 @@ mod_glfs_map_to_storage(request_rec *r)
                 return HTTP_INTERNAL_SERVER_ERROR;
         }
                 
-        ret = glusterfs_lookup (dir_config->handle, path, dir_config->buf, 
-                                dir_config->xattr_file_size, &st);
+        ret = glusterfs_get (dir_config->handle, path, dir_config->buf, 
+                             dir_config->xattr_file_size, &st);
 
         if (ret == -1 || st.st_size > dir_config->xattr_file_size || S_ISDIR (st.st_mode)) {
                 free (dir_config->buf);
@@ -1062,8 +1062,8 @@ mod_glfs_map_to_storage(request_rec *r)
 
 
 static int 
-mod_glfs_readv_async_cbk (glusterfs_read_buf_t *buf,
-                          void *cbk_data)
+mod_glfs_readv_async_cbk (int32_t op_ret, int32_t op_errno,
+                          glusterfs_iobuf_t *buf, void *cbk_data)
 {
         glusterfs_async_local_t *local = cbk_data;
 
@@ -1071,6 +1071,8 @@ mod_glfs_readv_async_cbk (glusterfs_read_buf_t *buf,
         {
                 local->async_read_complete = 1;
                 local->buf = buf;
+                local->op_ret = op_ret;
+                local->op_errno = op_errno;
                 pthread_cond_signal (&local->cond);
         }
         pthread_mutex_unlock (&local->lock);
@@ -1080,7 +1082,8 @@ mod_glfs_readv_async_cbk (glusterfs_read_buf_t *buf,
 
 /* use read_async just to avoid memcpy of read buffer in libglusterfsclient */
 static int
-mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb, long fd, apr_off_t offset, apr_off_t length)
+mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb, glusterfs_file_t fd,
+                     apr_off_t offset, apr_off_t length)
 {
         glusterfs_async_local_t local;
         off_t end;
@@ -1104,7 +1107,7 @@ mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb, long fd, apr_off_t 
                 end = offset + length;
 
         do {
-                glusterfs_read_buf_t *buf;
+                glusterfs_iobuf_t *buf;
                 if (length > 0) {
                         nbytes = end - offset;
                         if (nbytes > GLUSTERFS_CHUNK_SIZE)
@@ -1124,17 +1127,15 @@ mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb, long fd, apr_off_t 
                                 pthread_cond_wait (&local.cond, &local.lock);
                         }
 
-                        local.op_ret = local.buf->op_ret;
-                        local.op_errno = local.buf->op_errno;
-
                         local.async_read_complete = 0;
                         buf = local.buf;
 
                         if (length < 0)
-                                complete = (local.buf->op_ret <= 0);
+                                complete = (local.op_ret <= 0);
                         else {
-                                local.read_bytes += local.buf->op_ret;
-                                complete = ((local.read_bytes == length) || (local.buf->op_ret < 0));
+                                local.read_bytes += local.op_ret;
+                                complete = ((local.read_bytes == length) ||
+                                            (local.op_ret < 0));
                         }
                 }
                 pthread_mutex_unlock (&local.lock);
@@ -1328,7 +1329,7 @@ static int ap_set_byterange(request_rec *r)
 
 
 static void
-mod_glfs_handle_byte_ranges (request_rec *r, long fd, int num_ranges)
+mod_glfs_handle_byte_ranges (request_rec *r, glusterfs_file_t fd, int num_ranges)
 {
         conn_rec *c = r->connection;
         char *boundary = NULL, *bound_head = NULL;
@@ -2698,7 +2699,7 @@ mod_glfs_index_directory (request_rec *r,
         char *name = r->filename;
         char *pstring = NULL;
         apr_finfo_t dirent;
-        long fd = -1;
+        glusterfs_file_t fd = -1;
         apr_status_t status;
         int num_ent = 0, x;
         struct ent *head, *p;
@@ -3021,7 +3022,7 @@ mod_glfs_handler (request_rec *r)
         apr_bucket *e;
         core_dir_config *d;
         int errstatus;
-        long fd = -1;
+        glusterfs_file_t fd = -1;
         apr_status_t status;
         glusterfs_dir_config_t *dir_config = NULL;
         char *path = NULL;
