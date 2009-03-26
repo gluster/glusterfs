@@ -1109,20 +1109,28 @@ __inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value)
 {
         int ret = 0;
         int index = 0;
+        int put_idx = -1;
 
         for (index = 0; index < xlator->ctx->xl_count; index++) {
-                if (!inode->_ctx[index].key || 
-                    (inode->_ctx[index].key == (uint64_t)(long)xlator))
+                if (!inode->_ctx[index].key) {
+                        if (put_idx == -1)
+                                put_idx = index;
+                        /* dont break, to check if key already exists
+                           further on */
+                }
+                if (inode->_ctx[index].key == (uint64_t)(long) xlator) {
+                        put_idx = index;
                         break;
+                }
         }
 	
-        if (index == xlator->ctx->xl_count) {
+        if (put_idx == -1) {
                 ret = -1;
                 goto out;;
         }
 
-        inode->_ctx[index].key   = (uint64_t)(long) xlator;
-        inode->_ctx[index].value = value;
+        inode->_ctx[put_idx].key   = (uint64_t)(long) xlator;
+        inode->_ctx[put_idx].value = value;
 out:
         return ret;
 }

@@ -548,6 +548,7 @@ fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 {
 	int index = 0;
         int ret = 0;
+        int set_idx = -1;
 
 	if (!fd || !xlator)
 		return -1;
@@ -555,18 +556,25 @@ fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
         LOCK (&fd->lock);
         {
                 for (index = 0; index < xlator->ctx->xl_count; index++) {
-                        if (!fd->_ctx[index].key || 
-                            (fd->_ctx[index].key == (uint64_t)(long)xlator))
+                        if (!fd->_ctx[index].key) {
+                                if (set_idx == -1)
+                                        set_idx = index;
+                                /* dont break, to check if key already exists
+                                   further on */
+                        }
+                        if (fd->_ctx[index].key == (uint64_t)(long) xlator) {
+                                set_idx = index;
                                 break;
+                        }
                 }
 	
-                if (index == xlator->ctx->xl_count) {
+                if (set_idx == -1) {
                         ret = -1;
                         goto unlock;
                 }
 
-                fd->_ctx[index].key   = (uint64_t)(long) xlator;
-                fd->_ctx[index].value = value;
+                fd->_ctx[set_idx].key   = (uint64_t)(long) xlator;
+                fd->_ctx[set_idx].value = value;
         }
 unlock:
         UNLOCK (&fd->lock);
