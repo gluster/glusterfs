@@ -96,14 +96,14 @@ typedef struct glusterfs_async_local {
         char async_read_complete;
         off_t length;
         size_t read_bytes;
-        glusterfs_read_buf_t *buf;
+        glusterfs_iobuf_t *buf;
         pthread_mutex_t lock;
         pthread_cond_t cond;
 } glusterfs_async_local_t;
 
 
 typedef struct {
-        unsigned long fd;
+        glusterfs_file_t fd;
         void *buf;
         buffer *glusterfs_path;
         /*  off_t response_content_length; */
@@ -125,7 +125,8 @@ typedef struct {
         unsigned long handle;
 } plugin_config;
 
-static int (*network_backend_write)(struct server *srv, connection *con, int fd, chunkqueue *cq);
+static int (*network_backend_write)(struct server *srv, connection *con, int fd,
+                                    chunkqueue *cq);
 
 typedef struct {
         PLUGIN_DATA;
@@ -137,7 +138,7 @@ typedef struct {
 
 typedef struct {
         chunkqueue *cq;
-        glusterfs_read_buf_t *buf;
+        glusterfs_iobuf_t *buf;
         size_t length;
 }mod_glusterfs_chunkqueue;
 
@@ -177,7 +178,8 @@ static fake_keys ctrl;
 #endif
 
 int 
-mod_glusterfs_readv_async_cbk (glusterfs_read_buf_t *buf,
+mod_glusterfs_readv_async_cbk (int op_ret, int op_errno,
+                               glusterfs_iobuf_t *buf,
                                void *cbk_data)
 {
         glusterfs_async_local_t *local = cbk_data;
@@ -185,7 +187,8 @@ mod_glusterfs_readv_async_cbk (glusterfs_read_buf_t *buf,
         {
                 local->async_read_complete = 1;
                 local->buf = buf;
-
+                local->op_ret = op_ret;
+                local->op_errno = op_errno;
                 pthread_cond_signal (&local->cond);
         }
         pthread_mutex_unlock (&local->lock);
@@ -204,7 +207,7 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
         chunk *c = NULL;
         off_t offset = glusterfs_chunk->file.start;
         size_t length = glusterfs_chunk->file.length;
-        long fd = (long)glusterfs_chunk->file.name;
+        glusterfs_file_t fd = glusterfs_chunk->file.name;
 
         pthread_cond_init (&local.cond, NULL);
         pthread_mutex_init (&local.lock, NULL);
@@ -222,7 +225,7 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
         }
 
         do {
-                glusterfs_read_buf_t *buf;
+                glusterfs_iobuf_t *buf;
                 int i;
                 if (length > 0) {
                         nbytes = end - offset;
@@ -243,17 +246,15 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
                                 pthread_cond_wait (&local.cond, &local.lock);
                         }
 
-                        local.op_ret = local.buf->op_ret;
-                        local.op_errno = local.buf->op_errno;
-
                         local.async_read_complete = 0;
                         buf = local.buf;
 
                         if ((int)length < 0)
-                                complete = (local.buf->op_ret <= 0);
+                                complete = (local.op_ret <= 0);
                         else {
-                                local.read_bytes += local.buf->op_ret;
-                                complete = ((local.read_bytes == length) || (local.buf->op_ret <= 0));
+                                local.read_bytes += local.op_ret;
+                                complete = ((local.read_bytes == length)
+                                            || (local.op_ret <= 0));
                         }
                 }
                 pthread_mutex_unlock (&local.lock);
@@ -265,7 +266,7 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
 
                                 check += buf->vector[i].iov_len;        
 
-                                nw_write_buf->used = nw_write_buf->size = buf->vector[i].iov_len + 1;
+                                nw_write_buf->used = nw_write_buf->size = buf->vector[i].iov_len;
                                 nw_write_buf->ptr = buf->vector[i].iov_base;
 
                                 //      buffer_copy_memory (nw_write_buf, buf->vector[i].iov_base, buf->vector[i].iov_len + 1);
@@ -308,7 +309,8 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
         return (local.op_ret < 0 ? HANDLER_FINISHED : HANDLER_GO_ON);
 }
 
-int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int fd, chunkqueue *cq)
+int mod_glusterfs_network_backend_write(struct server *srv, connection *con,
+                                        int fd, chunkqueue *cq)
 {
         chunk *c, *prev, *first;
         int chunks_written = 0;
@@ -338,11 +340,13 @@ int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int
 
                                 network_backend_write (srv, con, fd, gf_cq->cq);
 
-                                if ((size_t)chunkqueue_written (gf_cq->cq) != gf_cq->length) {
+                                if ((size_t)chunkqueue_written (gf_cq->cq) 
+                                    != gf_cq->length) {
                                         cq->first = first;
                                         return chunks_written;
                                 }
-                                for (tmp = gf_cq->cq->first ; tmp; tmp = tmp->next)
+                                for (tmp = gf_cq->cq->first ; tmp;
+                                     tmp = tmp->next)
                                         tmp->mem->ptr = NULL;
 
                                 chunkqueue_free (gf_cq->cq);
@@ -351,9 +355,11 @@ int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int
                                 c->file.mmap.start = NULL;
                         }
       
-                        mod_glusterfs_read_async (srv, con, c); //c->file.fd, c->file.start, -1);//c->file.length);
+                        mod_glusterfs_read_async (srv, con, c);
                         if (c->file.mmap.start) {
-                                /* pending chunkqueue from mod_glusterfs_read_async to be written to network */
+                                /* pending chunkqueue from
+                                   mod_glusterfs_read_async to be written to
+                                   network */
                                 cq->first = first;
                                 return chunks_written;
                         }
@@ -385,7 +391,8 @@ int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int
         return chunks_written;
 }
 
-int chunkqueue_append_glusterfs_file (connection *con, long fd, off_t offset, off_t len)
+int chunkqueue_append_glusterfs_file (connection *con, glusterfs_file_t fd,
+                                      off_t offset, size_t len, size_t buf_size)
 {
         chunk *c = NULL;
         c = chunkqueue_get_append_tempfile (con->write_queue);
@@ -397,12 +404,14 @@ int chunkqueue_append_glusterfs_file (connection *con, long fd, off_t offset, of
 
         c->type = MEM_CHUNK;
 
+        buffer_free (c->mem);
+
         c->mem = buffer_init ();
         c->mem->used = len + 1;
+        c->mem->size = buf_size;
         c->mem->ptr = NULL;
         c->offset = 0;
 
-        /*  buffer_copy_string_buffer (c->file.name, fn); */
         buffer_free (c->file.name);
 
         /* fd returned by libglusterfsclient is a pointer */
@@ -420,7 +429,6 @@ INIT_FUNC(mod_glusterfs_init) {
         plugin_data *p;
 
         p = calloc(1, sizeof(*p));
-        /* ERR_ABORT (p); */
         network_backend_write = NULL;
 
         return p;
@@ -463,24 +471,34 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
         size_t i = 0;
   
         config_values_t cv[] = {
-                { "glusterfs.logfile",              NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },
+                { "glusterfs.logfile",              NULL, T_CONFIG_STRING,
+                  T_CONFIG_SCOPE_CONNECTION },
     
-                { "glusterfs.loglevel",             NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },    
+                { "glusterfs.loglevel",             NULL, T_CONFIG_STRING,
+                  T_CONFIG_SCOPE_CONNECTION },    
 
-                { "glusterfs.volume-specfile",      NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION }, 
+                { "glusterfs.volume-specfile",      NULL, T_CONFIG_STRING,
+                  T_CONFIG_SCOPE_CONNECTION }, 
 
-                { "glusterfs.cache-timeout",        NULL, T_CONFIG_SHORT, T_CONFIG_SCOPE_CONNECTION },
+                { "glusterfs.cache-timeout",        NULL, T_CONFIG_SHORT,
+                  T_CONFIG_SCOPE_CONNECTION },
     
-                { "glusterfs.exclude-extensions",   NULL, T_CONFIG_ARRAY, T_CONFIG_SCOPE_CONNECTION },
+                { "glusterfs.exclude-extensions",   NULL, T_CONFIG_ARRAY,
+                  T_CONFIG_SCOPE_CONNECTION },
     
-                /*TODO: get the prefix from config_conext and remove glusterfs.prefix from conf file */
-                { "glusterfs.prefix",               NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },
+                /*TODO: get the prefix from config_conext and 
+                  remove glusterfs.prefix from conf file */
+                { "glusterfs.prefix",               NULL, T_CONFIG_STRING,
+                  T_CONFIG_SCOPE_CONNECTION },
     
-                { "glusterfs.xattr-interface-size-limit", NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },
+                { "glusterfs.xattr-interface-size-limit", NULL, T_CONFIG_STRING,
+                  T_CONFIG_SCOPE_CONNECTION },
 
-                { "glusterfs.document-root",        NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },
+                { "glusterfs.document-root",        NULL, T_CONFIG_STRING,
+                  T_CONFIG_SCOPE_CONNECTION },
     
-                { NULL,                          NULL, T_CONFIG_UNSET, T_CONFIG_SCOPE_UNSET }
+                { NULL,                          NULL, T_CONFIG_UNSET,
+                  T_CONFIG_SCOPE_UNSET }
         };
   
         p->config_storage = calloc(1, srv->config_context->used * sizeof(specific_config *));
@@ -510,7 +528,9 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
                 cv[7].destination = s->document_root;
                 p->config_storage[i] = s;
     
-                if (0 != config_insert_values_global(srv, ((data_config *)srv->config_context->data[i])->value, cv)) {
+                if (0 != config_insert_values_global(srv,
+                                                     ((data_config *)srv->config_context->data[i])->value,
+                                                     cv)) {
                         return HANDLER_FINISHED;
                 }
         }
@@ -521,7 +541,8 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
 #define PATCH(x)                                \
         p->conf.x = s->x;
 
-static int mod_glusterfs_patch_connection(server *srv, connection *con, plugin_data *p) {
+static int mod_glusterfs_patch_connection(server *srv, connection *con,
+                                          plugin_data *p) {
         size_t i, j;
         plugin_config *s;
 
@@ -547,21 +568,29 @@ static int mod_glusterfs_patch_connection(server *srv, connection *con, plugin_d
                 for (j = 0; j < dc->value->used; j++) {
                         data_unset *du = dc->value->data[j];
       
-                        if (buffer_is_equal_string (du->key, CONST_STR_LEN("glusterfs.logfile"))) {
+                        if (buffer_is_equal_string (du->key,
+                                                    CONST_STR_LEN("glusterfs.logfile"))) {
                                 PATCH (logfile);
-                        } else if (buffer_is_equal_string (du->key, CONST_STR_LEN("glusterfs.loglevel"))) {
+                        } else if (buffer_is_equal_string (du->key,
+                                                           CONST_STR_LEN("glusterfs.loglevel"))) {
                                 PATCH (loglevel);
-                        } else if (buffer_is_equal_string (du->key, CONST_STR_LEN ("glusterfs.volume-specfile"))) {
+                        } else if (buffer_is_equal_string (du->key,
+                                                           CONST_STR_LEN ("glusterfs.volume-specfile"))) {
                                 PATCH (specfile);
-                        } else if (buffer_is_equal_string (du->key, CONST_STR_LEN("glusterfs.cache-timeout"))) {
+                        } else if (buffer_is_equal_string (du->key,
+                                                           CONST_STR_LEN("glusterfs.cache-timeout"))) {
                                 PATCH (cache_timeout);
-                        } else if (buffer_is_equal_string (du->key, CONST_STR_LEN ("glusterfs.exclude-extensions"))) {
+                        } else if (buffer_is_equal_string (du->key,
+                                                           CONST_STR_LEN ("glusterfs.exclude-extensions"))) {
                                 PATCH (exclude_exts);
-                        } else if (buffer_is_equal_string (du->key, CONST_STR_LEN ("glusterfs.prefix"))) {
+                        } else if (buffer_is_equal_string (du->key,
+                                                           CONST_STR_LEN ("glusterfs.prefix"))) {
                                 PATCH (prefix);
-                        } else if (buffer_is_equal_string (du->key, CONST_STR_LEN ("glusterfs.xattr-interface-size-limit"))) {
+                        } else if (buffer_is_equal_string (du->key,
+                                                           CONST_STR_LEN ("glusterfs.xattr-interface-size-limit"))) {
                                 PATCH (xattr_file_size);
-                        } else if (buffer_is_equal_string (du->key, CONST_STR_LEN ("glusterfs.document-root"))) {
+                        } else if (buffer_is_equal_string (du->key,
+                                                           CONST_STR_LEN ("glusterfs.document-root"))) {
                                 PATCH (document_root);
                         }
                 }
@@ -571,7 +600,8 @@ static int mod_glusterfs_patch_connection(server *srv, connection *con, plugin_d
 
 #undef PATCH
 
-static int http_response_parse_range(server *srv, connection *con, plugin_data *p) {
+static int http_response_parse_range(server *srv, connection *con,
+                                     plugin_data *p) {
         int multipart = 0;
         int error;
         off_t start, end;
@@ -587,7 +617,8 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
                 size = atoi (p->conf.xattr_file_size->ptr);
         }
 
-        if (HANDLER_ERROR == stat_cache_get_entry(srv, con, con->physical.path, &sce)) {
+        if (HANDLER_ERROR == stat_cache_get_entry(srv, con, con->physical.path,
+                                                  &sce)) {
                 SEGFAULT();
         }
   
@@ -596,7 +627,8 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
   
         con->response.content_length = 0;
   
-        if (NULL != (ds = (data_string *)array_get_element(con->response.headers, "Content-Type"))) {
+        if (NULL != (ds = (data_string *)array_get_element(con->response.headers,
+                                                           "Content-Type"))) {
                 content_type = ds->value;
         }
   
@@ -743,17 +775,22 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
                           return HANDLER_ERROR;
                         */
                         /*      fn = buffer_init_string (path); */
-                        if ((size_t)sce->st.st_size > size) {
-                                chunkqueue_append_glusterfs_file(con, ctx->fd, start, end - start + 1);
+                        if ((size_t)sce->st.st_size >= size) {
+                                chunkqueue_append_glusterfs_file(con, ctx->fd,
+                                                                 start,
+                                                                 end - start,
+                                                                 size);
                         } else {
                                 if (!start) {
                                         buffer *mem = buffer_init ();
                                         mem->ptr = ctx->buf;
-                                        mem->used = mem->size = sce->st.st_size + 1;
+                                        mem->used = mem->size = sce->st.st_size;
                                         http_chunk_append_buffer (srv, con, mem);
                                         ctx->buf = NULL;
                                 } else {
-                                        chunkqueue_append_mem (con->write_queue, ((char *)ctx->buf) + start, end - start + 1); 
+                                        chunkqueue_append_mem (con->write_queue,
+                                                               ((char *)ctx->buf) + start,
+                                                               end - start + 1);
                                 }
                         }
 
@@ -787,7 +824,8 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
                 buffer_append_string(p->range_buf, boundary);
 
                 /* overwrite content-type */
-                response_header_overwrite(srv, con, CONST_STR_LEN("Content-Type"), CONST_BUF_LEN(p->range_buf));
+                response_header_overwrite(srv, con, CONST_STR_LEN("Content-Type"),
+                                          CONST_BUF_LEN(p->range_buf));
         } else {
                 /* add Content-Range-header */
     
@@ -798,7 +836,8 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
                 buffer_append_string(p->range_buf, "/");
                 buffer_append_off_t(p->range_buf, sce->st.st_size);
     
-                response_header_insert(srv, con, CONST_STR_LEN("Content-Range"), CONST_BUF_LEN(p->range_buf));
+                response_header_insert(srv, con, CONST_STR_LEN("Content-Range"),
+                                       CONST_BUF_LEN(p->range_buf));
         }
         
         /* ok, the file is set-up */
@@ -838,13 +877,14 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
         }
 
         if (!p->conf.document_root || p->conf.document_root->used == 0) {
-                log_error_write(srv, __FILE__, __LINE__, "s", "glusterfs.document-root is not specified");
+                log_error_write(srv, __FILE__, __LINE__, "s",
+                                "glusterfs.document-root is not specified");
                 con->http_status = 500;
                 return HANDLER_FINISHED;
         }
 
         if (p->conf.handle <= 0) {
-                glusterfs_init_ctx_t ctx;
+                glusterfs_init_params_t ctx;
 
                 if (!p->conf.specfile || p->conf.specfile->used == 0) {
                         return HANDLER_GO_ON;
@@ -860,7 +900,10 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
 
                 if (p->conf.handle <= 0) {
                         con->http_status = 500;
-                        log_error_write(srv, __FILE__, __LINE__,  "sbs",  "glusterfs initialization failed, please check your configuration. Glusterfs logfile ", p->conf.logfile, "might contain details");
+                        log_error_write(srv, __FILE__, __LINE__,  "sbs",
+                                        "glusterfs initialization failed, please check your configuration. Glusterfs logfile ",
+                                        p->conf.logfile,
+                                        "might contain details");
                         return HANDLER_FINISHED;
                 }
         }
@@ -899,12 +942,19 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
         }
 
         plugin_ctx->glusterfs_path = buffer_init ();
-        buffer_copy_string_buffer (plugin_ctx->glusterfs_path, p->conf.document_root);
+        buffer_copy_string_buffer (plugin_ctx->glusterfs_path,
+                                   p->conf.document_root);
         buffer_append_string (plugin_ctx->glusterfs_path, "/");
-        buffer_append_string (plugin_ctx->glusterfs_path, con->physical.path->ptr + plugin_ctx->prefix);
-        buffer_path_simplify (plugin_ctx->glusterfs_path, plugin_ctx->glusterfs_path);
+        buffer_append_string (plugin_ctx->glusterfs_path,
+                              con->physical.path->ptr + plugin_ctx->prefix);
+        buffer_path_simplify (plugin_ctx->glusterfs_path,
+                              plugin_ctx->glusterfs_path);
  
-        if (glusterfs_stat_cache_get_entry (srv, con, (libglusterfs_handle_t )p->conf.handle, plugin_ctx->glusterfs_path, con->physical.path, plugin_ctx->buf, size, &sce) == HANDLER_ERROR) {
+        if (glusterfs_stat_cache_get_entry (srv, con,
+                                            (glusterfs_handle_t )p->conf.handle,
+                                            plugin_ctx->glusterfs_path,
+                                            con->physical.path, plugin_ctx->buf,
+                                            size, &sce) == HANDLER_ERROR) {
                 if (errno == ENOENT)
                         con->http_status = 404;
                 else 
@@ -921,7 +971,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
                 return HANDLER_FINISHED;
         }
 
-        if (!(S_ISREG (sce->st.st_mode) && (size_t)sce->st.st_size <= size)) {
+        if (!(S_ISREG (sce->st.st_mode) && (size_t)sce->st.st_size < size)) {
                 free (plugin_ctx->buf);
                 plugin_ctx->buf = NULL;
         }
@@ -946,7 +996,8 @@ static int http_chunk_append_len(server *srv, connection *con, size_t len) {
                 buffer_prepare_copy(b, i + 1);
     
                 for (j = i-1, len = olen; j+1 > 0; j--) {
-                        b->ptr[j] = (len & 0xf) + (((len & 0xf) <= 9) ? '0' : 'a' - 10);
+                        b->ptr[j] = (len & 0xf) + (((len & 0xf) <= 9) ? 
+                                                   '0' : 'a' - 10);
                         len >>= 4;
                 }
                 b->used = i;
@@ -959,7 +1010,9 @@ static int http_chunk_append_len(server *srv, connection *con, size_t len) {
         return 0;
 }
 
-int http_chunk_append_glusterfs_file_chunk(server *srv, connection *con, long fd, off_t offset, off_t len) {
+int http_chunk_append_glusterfs_file_chunk(server *srv, connection *con,
+                                           glusterfs_file_t fd, off_t offset,
+                                           off_t len, size_t buf_size) {
         chunkqueue *cq;
 
         if (!con) return -1;
@@ -970,16 +1023,20 @@ int http_chunk_append_glusterfs_file_chunk(server *srv, connection *con, long fd
                 http_chunk_append_len(srv, con, len);
         }
 
-        chunkqueue_append_glusterfs_file (con, fd, offset, len);
+        chunkqueue_append_glusterfs_file (con, fd, offset, len, buf_size);
 
-        if (con->response.transfer_encoding & HTTP_TRANSFER_ENCODING_CHUNKED && len > 0) {
+        if ((con->response.transfer_encoding & HTTP_TRANSFER_ENCODING_CHUNKED) 
+            && (len > 0)) {
                 chunkqueue_append_mem(cq, "\r\n", 2 + 1);
         }
 
         return 0;
 }
 
-int http_chunk_append_glusterfs_mem(server *srv, connection *con, const char * mem, size_t len) {
+int http_chunk_append_glusterfs_mem(server *srv, connection *con,
+                                    const char * mem, size_t len,
+                                    size_t buf_size) 
+{
         chunkqueue *cq = NULL;
         buffer *buf = NULL;
  
@@ -988,7 +1045,9 @@ int http_chunk_append_glusterfs_mem(server *srv, connection *con, const char * m
         cq = con->write_queue;
   
         if (len == 0) {
-                if (con->response.transfer_encoding & HTTP_TRANSFER_ENCODING_CHUNKED) {
+                free (mem);
+                if (con->response.transfer_encoding 
+                    & HTTP_TRANSFER_ENCODING_CHUNKED) {
                         chunkqueue_append_mem(cq, "0\r\n\r\n", 5 + 1);
                 } else {
                         chunkqueue_append_mem(cq, "", 1);
@@ -1003,6 +1062,7 @@ int http_chunk_append_glusterfs_mem(server *srv, connection *con, const char * m
         buf = buffer_init ();
 
         buf->used = len + 1;
+        buf->size = buf_size
         buf->ptr = (char *)mem;
         chunkqueue_append_buffer_weak (cq, buf);
 
@@ -1065,10 +1125,12 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
         */
 
         if (con->conf.log_request_handling) {
-                log_error_write(srv, __FILE__, __LINE__,  "s",  "-- serving file from glusterfs");
+                log_error_write(srv, __FILE__, __LINE__,  "s",
+                                "-- serving file from glusterfs");
         }
 
-        if (HANDLER_ERROR == stat_cache_get_entry(srv, con, con->physical.path, &sce)) {
+        if (HANDLER_ERROR == stat_cache_get_entry(srv, con, con->physical.path,
+                                                  &sce)) {
                 con->http_status = 403;
                 
                 log_error_write(srv, __FILE__, __LINE__, "sbsb",
@@ -1091,7 +1153,9 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
                 size = atoi (p->conf.xattr_file_size->ptr);
 
         if ((size_t)sce->st.st_size > size) {
-                ctx->fd = glusterfs_open ((libglusterfs_handle_t ) ((unsigned long)p->conf.handle), ctx->glusterfs_path->ptr, O_RDONLY, 0);
+                ctx->fd = glusterfs_open ((glusterfs_handle_t ) ((unsigned long)p->conf.handle),
+                                          ctx->glusterfs_path->ptr, O_RDONLY,
+                                          0);
     
                 if (((long)ctx->fd) == 0) {
                         con->http_status = 403;
@@ -1110,8 +1174,10 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
                 con->http_status = 403;
           
                 if (con->conf.log_request_handling) {
-                        log_error_write(srv, __FILE__, __LINE__,  "s",  "-- access denied due symlink restriction");
-                        log_error_write(srv, __FILE__, __LINE__,  "sb", "Path         :", con->physical.path);
+                        log_error_write(srv, __FILE__, __LINE__,  "s",
+                                        "-- access denied due symlink restriction");
+                        log_error_write(srv, __FILE__, __LINE__,  "sb",
+                                        "Path         :", con->physical.path);
                 }
     
                 buffer_reset(con->physical.path);
@@ -1147,39 +1213,52 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
                          * This should fix the aggressive caching of FF and the script download
                          * seen by the first installations
                          */
-                        response_header_overwrite(srv, con, CONST_STR_LEN("Content-Type"), CONST_STR_LEN("application/octet-stream"));
+                        response_header_overwrite(srv, con,
+                                                  CONST_STR_LEN("Content-Type"),
+                                                  CONST_STR_LEN("application/octet-stream"));
       
                         allow_caching = 0;
                 } else {
-                        response_header_overwrite(srv, con, CONST_STR_LEN("Content-Type"), CONST_BUF_LEN(sce->content_type));
+                        response_header_overwrite(srv, con,
+                                                  CONST_STR_LEN("Content-Type"),
+                                                  CONST_BUF_LEN(sce->content_type));
                 }
         }
   
         if (con->conf.range_requests) {
-                response_header_overwrite(srv, con, CONST_STR_LEN("Accept-Ranges"), CONST_STR_LEN("bytes"));
+                response_header_overwrite(srv, con,
+                                          CONST_STR_LEN("Accept-Ranges"),
+                                          CONST_STR_LEN("bytes"));
         }
 
         /* TODO: Allow Cachable requests */     
 #if 0
         if (allow_caching) {
-                if (p->conf.etags_used && con->etag_flags != 0 && !buffer_is_empty(sce->etag)) {
-                        if (NULL == array_get_element(con->response.headers, "ETag")) {
+                if (p->conf.etags_used && con->etag_flags != 0 
+                    && !buffer_is_empty(sce->etag)) {
+                        if (NULL == array_get_element(con->response.headers,
+                                                      "ETag")) {
                                 /* generate e-tag */
                                 etag_mutate(con->physical.etag, sce->etag);
         
-                                response_header_overwrite(srv, con, CONST_STR_LEN("ETag"), CONST_BUF_LEN(con->physical.etag));
+                                response_header_overwrite(srv, con,
+                                                          CONST_STR_LEN("ETag"),
+                                                          CONST_BUF_LEN(con->physical.etag));
                         }
                 }
     
                 /* prepare header */
-                if (NULL == (ds = (data_string *)array_get_element(con->response.headers, "Last-Modified"))) {
+                if (NULL == (ds = (data_string *)array_get_element(con->response.headers,
+                                                                   "Last-Modified"))) {
                         mtime = strftime_cache_get(srv, sce->st.st_mtime);
-                        response_header_overwrite(srv, con, CONST_STR_LEN("Last-Modified"), CONST_BUF_LEN(mtime));
+                        response_header_overwrite(srv, con, CONST_STR_LEN("Last-Modified"),
+                                                  CONST_BUF_LEN(mtime));
                 } else {
                         mtime = ds->value;
                 }
     
-                if (HANDLER_FINISHED == http_response_handle_cachable(srv, con, mtime)) {
+                if (HANDLER_FINISHED == http_response_handle_cachable(srv, con,
+                                                                      mtime)) {
                         free (ctx);
                         con->plugin_ctx[p->id] = NULL;
                         return HANDLER_FINISHED;
@@ -1195,14 +1274,17 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
                 /* check if we have a conditional GET */
     
                 /* prepare header */
-                if (NULL == (ds = (data_string *)array_get_element(con->response.headers, "Last-Modified"))) {
+                if (NULL == (ds = (data_string *)array_get_element(con->response.headers,
+                                                                   "Last-Modified"))) {
                         mtime = strftime_cache_get(srv, sce->st.st_mtime);
-                        response_header_overwrite(srv, con, CONST_STR_LEN("Last-Modified"), CONST_BUF_LEN(mtime));
+                        response_header_overwrite(srv, con, CONST_STR_LEN("Last-Modified"),
+                                                  CONST_BUF_LEN(mtime));
                 } else {
                         mtime = ds->value;
                 }
 
-                if (NULL != (ds = (data_string *)array_get_element(con->request.headers, "If-Range"))) {
+                if (NULL != (ds = (data_string *)array_get_element(con->request.headers,
+                                                                   "If-Range"))) {
                         /* if the value is the same as our ETag, we do a Range-request,
                          * otherwise a full 200 */
             
@@ -1212,7 +1294,8 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
                                  */
                                 if (!con->physical.etag) {
                                         do_range_request = 0;
-                                } else if (!buffer_is_equal(ds->value, con->physical.etag)) {
+                                } else if (!buffer_is_equal(ds->value,
+                                                            con->physical.etag)) {
                                         do_range_request = 0;
                                 }
                         } else if (!mtime) {
@@ -1251,10 +1334,12 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
         if (p->conf.xattr_file_size && p->conf.xattr_file_size->ptr)
                 size = atoi (p->conf.xattr_file_size->ptr);
 
-        if (size < (size_t)sce->st.st_size) {
-                http_chunk_append_glusterfs_file_chunk (srv, con, ctx->fd, 0, sce->st.st_size);
+        if (size <= (size_t)sce->st.st_size) {
+                http_chunk_append_glusterfs_file_chunk (srv, con, ctx->fd, 0,
+                                                        sce->st.st_size, size);
         } else {
-                http_chunk_append_glusterfs_mem (srv, con, ctx->buf, sce->st.st_size);
+                http_chunk_append_glusterfs_mem (srv, con, ctx->buf,
+                                                 sce->st.st_size, size);
         }
         
         con->http_status = 200;
@@ -1269,7 +1354,7 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
 #if 0
 URIHANDLER_FUNC(mod_glusterfs_request_done)
 {
-        mod_glusterfs_read_buf_t *cur = first, *prev;
+        mod_glusterfs_iobuf_t *cur = first, *prev;
         while (cur) {
                 prev =  cur;
                 glusterfs_free (cur->buf);
@@ -1405,7 +1490,7 @@ static int stat_cache_lstat(server *srv, buffer *dname, struct stat *lst) {
 
 handler_t glusterfs_stat_cache_get_entry(server *srv, 
                                          connection *con, 
-                                         libglusterfs_handle_t handle, 
+                                         glusterfs_handle_t handle, 
                                          buffer *glusterfs_path,
                                          buffer *name, 
                                          void *buf, 
@@ -1464,7 +1549,8 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
                 /* check if the name is the same, we might have a collision */
 
                 if (buffer_is_equal(name, sce->name)) {
-                        if (srv->srvconf.stat_cache_engine == STAT_CACHE_ENGINE_SIMPLE) {
+                        if (srv->srvconf.stat_cache_engine 
+                            == STAT_CACHE_ENGINE_SIMPLE) {
                                 if (sce->stat_ts == srv->cur_ts && !buf) {
                                         *ret_sce = sce;
                                         return HANDLER_GO_ON;
@@ -1486,7 +1572,8 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
         } else {
 #ifdef DEBUG_STAT_CACHE
                 if (i != ctrl.used) {
-                        fprintf(stderr, "%s.%d: %08x was already inserted but not found in cache, %s\n", __FILE__, __LINE__, file_ndx, name->ptr);
+                        fprintf(stderr, "%s.%d: %08x was already inserted but not found in cache, %s\n",
+                                __FILE__, __LINE__, file_ndx, name->ptr);
                 }
                 assert(i == ctrl.used);
 #endif
@@ -1497,7 +1584,7 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
          * - stat() if regular file + open() to see if we can read from it is better
          *
          * */
-        if (-1 == glusterfs_lookup(handle, glusterfs_path->ptr, buf, size, &st)) {
+        if (-1 == glusterfs_get (handle, glusterfs_path->ptr, buf, size, &st)) {
                 return HANDLER_ERROR;
         }
 
@@ -1577,7 +1664,8 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
                                 dname->used = s_cur - dname->ptr + 1;
                                 if (dname->ptr == s_cur) {
 #ifdef DEBUG_STAT_CACHE
-                                        log_error_write(srv, __FILE__, __LINE__, "s", "reached /");
+                                        log_error_write(srv, __FILE__, __LINE__,
+                                                        "s", "reached /");
 #endif
                                         break;
                                 }
@@ -1588,7 +1676,8 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
                                 if (stat_cache_lstat(srv, dname, &lst)  == 0) {
                                         sce->is_symlink = 1;
 #ifdef DEBUG_STAT_CACHE
-                                        log_error_write(srv, __FILE__, __LINE__, "sb",
+                                        log_error_write(srv, __FILE__, __LINE__,
+                                                        "sb",
                                                         "found symlink", dname);
 #endif
                                         break;
@@ -1612,8 +1701,10 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
                         /* check if the right side is the same */
                         if (type->used > name->used) continue;
 
-                        if (0 == strncasecmp(name->ptr + name->used - type->used, type->ptr, type->used - 1)) {
-                                buffer_copy_string_buffer(sce->content_type, ds->value);
+                        if (0 == strncasecmp(name->ptr + name->used - type->used,
+                                             type->ptr, type->used - 1)) {
+                                buffer_copy_string_buffer(sce->content_type,
+                                                          ds->value);
                                 break;
                         }
                 }
@@ -1659,7 +1750,8 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
                                         osize = sc->dirs->size;
                                 }
 
-                                sc->dirs = splaytree_insert(sc->dirs, dir_ndx, fam_dir);
+                                sc->dirs = splaytree_insert(sc->dirs, dir_ndx,
+                                                            fam_dir);
                                 assert(sc->dirs);
                                 assert(sc->dirs->data == fam_dir);
                                 assert(osize == (sc->dirs->size - 1));
@@ -1691,7 +1783,8 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
  * and remove them in a second loop
  */
 
-static int stat_cache_tag_old_entries(server *srv, splay_tree *t, int *keys, size_t *ndx) {
+static int stat_cache_tag_old_entries(server *srv, splay_tree *t, int *keys,
+                                      size_t *ndx) {
         stat_cache_entry *sce;
 
         if (!t) return 0;
