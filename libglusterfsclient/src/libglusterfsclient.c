@@ -3034,6 +3034,7 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
 	uint64_t ptr = 0;
 
         current = time (NULL);
+        this = ctx->gf_ctx.graph;
 	op_ret = inode_ctx_get (fd->inode, this, &ptr);
 	if (op_ret == -1) {
                 errno = EINVAL;
