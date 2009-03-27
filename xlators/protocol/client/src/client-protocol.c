@@ -498,12 +498,16 @@ client_ping_timer_expired (void *data)
 					      conn->ping_timer);
 		gettimeofday (&current, NULL);
 
-		if (((current.tv_sec - conn->last_received.tv_sec) <
-                     conn->ping_timeout)
-                    || ((current.tv_sec - conn->last_sent.tv_sec) <
-                        conn->ping_timeout)) {
-			transport_activity = 1;
-		}
+                pthread_mutex_lock (&conf->mutex);
+                {
+                        if (((current.tv_sec - conf->last_received.tv_sec) <
+                             conn->ping_timeout)
+                            || ((current.tv_sec - conf->last_sent.tv_sec) <
+                                conn->ping_timeout)) {
+                                transport_activity = 1;
+                        }
+                }
+                pthread_mutex_unlock (&conf->mutex);
 
 		if (transport_activity) {
 			gf_log (this->name, GF_LOG_DEBUG,
@@ -531,7 +535,8 @@ client_ping_timer_expired (void *data)
 	if (disconnect) {
 		gf_log (this->name, GF_LOG_ERROR, 
 			"ping timer expired! bailing transport");
-		transport_disconnect (trans);
+		transport_disconnect (conf->transport[0]);
+		transport_disconnect (conf->transport[1]);
 	}
 }
 
@@ -727,8 +732,11 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
 		}
 		
 		if ((ret >= 0) && frame) {
-			/* TODO: check this logic */
-			gettimeofday (&conn->last_sent, NULL);
+                        pthread_mutex_lock (&conf->mutex);
+                        {
+                                gettimeofday (&conf->last_sent, NULL);
+                        }
+                        pthread_mutex_unlock (&conf->mutex);
 			save_frame (trans, frame, op, type, callid);
 		}
 
@@ -6297,12 +6305,6 @@ protocol_client_cleanup (transport_t *trans)
 		conn->saved_frames = saved_frames_new ();
 
 		/* bailout logic cleanup */
-		memset (&(conn->last_sent), 0, 
-			sizeof (conn->last_sent));
-
-		memset (&(conn->last_received), 0, 
-			sizeof (conn->last_received));
-
 		if (conn->timer) {
 			gf_timer_call_cancel (trans->xl->ctx, conn->timer);
 			conn->timer = NULL;
@@ -6594,10 +6596,6 @@ init (xlator_t *this)
 
 		conn->callid = 1;
 
-		memset (&(conn->last_sent), 0, sizeof (conn->last_sent));
-		memset (&(conn->last_received), 0,
-			sizeof (conn->last_received));
-
 		conn->transport_timeout = transport_timeout;
 		conn->ping_timeout = ping_timeout;
 
@@ -6742,15 +6740,15 @@ fail:
 int
 protocol_client_pollout (xlator_t *this, transport_t *trans)
 {
-	client_connection_t *conn = NULL;
+	client_conf_t *conf = NULL;
 
-	conn = trans->xl_private;
+	conf = trans->xl->private;
 
-	pthread_mutex_lock (&conn->lock);
+	pthread_mutex_lock (&conf->mutex);
 	{
-		gettimeofday (&conn->last_sent, NULL);
+		gettimeofday (&conf->last_sent, NULL);
 	}
-	pthread_mutex_unlock (&conn->lock);
+	pthread_mutex_unlock (&conf->mutex);
 
 	return 0;
 }
@@ -6759,22 +6757,20 @@ protocol_client_pollout (xlator_t *this, transport_t *trans)
 int
 protocol_client_pollin (xlator_t *this, transport_t *trans)
 {
-	client_connection_t *conn = NULL;
+	client_conf_t *conf = NULL;
 	int ret = -1;
 	char *buf = NULL;
 	size_t buflen = 0;
 	char *hdr = NULL;
 	size_t hdrlen = 0;
-	int connected = 0;
 
-	conn = trans->xl_private;
+	conf = trans->xl->private;
 
-	pthread_mutex_lock (&conn->lock);
+	pthread_mutex_lock (&conf->mutex);
 	{
-		gettimeofday (&conn->last_received, NULL);
-		connected = conn->connected;
+		gettimeofday (&conf->last_received, NULL);
 	}
-	pthread_mutex_unlock (&conn->lock);
+	pthread_mutex_unlock (&conf->mutex);
 
 	ret = transport_receive (trans, &hdr, &hdrlen, &buf, &buflen);
 

@@ -78,6 +78,8 @@ struct _client_conf {
 		gf_lock_t lock;
 	} forget;
 	dict_t              *saved_fds;
+	struct timeval       last_sent;
+	struct timeval       last_received;
 	pthread_mutex_t      mutex;
 };
 typedef struct _client_conf client_conf_t;
@@ -94,8 +96,6 @@ struct client_connection {
 	gf_timer_t          *reconnect;
 	char                 connected;
 	uint64_t             max_block_size;
-	struct timeval       last_sent;
-	struct timeval       last_received;
 	gf_timer_t          *timer;
 	gf_timer_t          *ping_timer;
 };
