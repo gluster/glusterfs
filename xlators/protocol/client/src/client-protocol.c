@@ -764,6 +764,8 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
 			rsphdr.type = GF_OP_TYPE_CBK_REPLY;
 			gf_cbks[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
 		}
+
+                FREE (hdr);
 	}
 
 	return ret;
