@@ -2558,7 +2558,11 @@ fuse_thread_proc (void *data)
                                          chan_size);
 
 		if (priv->first_call) {
-			fuse_root_lookup (this);
+                        if (priv->first_call > 2) {
+                                priv->first_call--;
+                        } else {
+                                fuse_root_lookup (this);
+                        }
 		}
 
                 if (res == -1) {
@@ -2869,7 +2873,7 @@ init (xlator_t *this_xl)
 
         this_xl->ctx->top = this_xl;
 
-	priv->first_call = 1;
+	priv->first_call = 2;
         this_xl->itable = inode_table_new (0, this_xl);
         return 0;
         
