@@ -269,9 +269,10 @@ libgf_client_loc_fill (loc_t *loc,
                         inode = inode_search (ctx->itable, par, name);
 
                 loc->inode = inode;
-                if (inode)
-                        loc->ino = inode->ino;
         }
+
+        if (inode)
+                loc->ino = inode->ino;
 
         parent = loc->parent;
         if (!parent) {
@@ -926,7 +927,7 @@ glusterfs_get (glusterfs_handle_t handle,
 	}
 
 	loc.path = strdup (path);
-	op_ret = libgf_client_path_lookup (&loc, ctx);
+	op_ret = libgf_client_path_lookup (&loc, ctx, 0);
 	if (op_ret == -1) {
 		gf_log ("libglusterfsclient",
 			GF_LOG_ERROR,
@@ -938,20 +939,18 @@ glusterfs_get (glusterfs_handle_t handle,
 	name = basename (pathname);
 
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, name);
-	if (op_ret < 0) {
-		gf_log ("libglusterfsclient",
-			GF_LOG_ERROR,
-			"libgf_client_loc_fill returned -1, returning EINVAL");
-		errno = EINVAL;
-		goto out;
-	}
+        if (op_ret < 0) {
+                gf_log ("libglusterfsclient",
+                        GF_LOG_ERROR,
+                        "libgf_client_loc_fill returned -1, returning EINVAL");
+                errno = EINVAL;
+                goto out;
+        }
 
-        if (size < 0)
-                size = 0;
-
-        if (size > 0) {
+        if (size) { 
                 xattr_req = dict_new ();
-                op_ret = dict_set (xattr_req, "glusterfs.content", data_from_uint64 (size));
+                op_ret = dict_set (xattr_req, "glusterfs.content",
+                                   data_from_uint64 (size));
                 if (op_ret < 0) {
                         gf_log ("libglusterfsclient",
                                 GF_LOG_ERROR,
@@ -961,17 +960,16 @@ glusterfs_get (glusterfs_handle_t handle,
         }
 
         op_ret = libgf_client_lookup (ctx, &loc, stbuf, &dict, xattr_req);
-
-        if (!op_ret && size && stbuf && stbuf->st_size && dict && buf) {
+        if (!op_ret && stbuf && (stbuf->st_size <= size) && dict && buf) {
                 data_t *mem_data = NULL;
                 void *mem = NULL;
-
+                
                 mem_data = dict_get (dict, "glusterfs.content");
                 if (mem_data) {
                         mem = data_to_ptr (mem_data);
                 }
-
-                if (mem && stbuf->st_size <= size) {
+                        
+                if (mem != NULL) { 
                         memcpy (buf, mem, stbuf->st_size);
                 }
         }
@@ -1160,7 +1158,7 @@ glusterfs_get_async (glusterfs_handle_t handle,
 
         loc = CALLOC (1, sizeof (*loc));
 	loc->path = strdup (path);
-	op_ret = libgf_client_path_lookup (loc, ctx);
+	op_ret = libgf_client_path_lookup (loc, ctx, 1);
 	if (op_ret == -1) {
 		gf_log ("libglusterfsclient",
 			GF_LOG_ERROR,
@@ -1188,9 +1186,6 @@ glusterfs_get_async (glusterfs_handle_t handle,
         local->fop.lookup_cbk.size = size;
         local->fop.lookup_cbk.loc = loc;
         local->cbk_data = cbk_data;
-
-        if (size < 0)
-                size = 0;
 
         if (size > 0) {
                 xattr_req = dict_new ();
@@ -1306,7 +1301,7 @@ glusterfs_getxattr (glusterfs_handle_t handle,
 	}
 
 	loc.path = strdup (path);
-	op_ret = libgf_client_path_lookup (&loc, ctx);
+	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
 		gf_log ("libglusterfsclient",
 			GF_LOG_ERROR,
@@ -1546,7 +1541,7 @@ glusterfs_open (glusterfs_handle_t handle,
 	}
 
 	loc.path = strdup (path);
-	op_ret = libgf_client_path_lookup (&loc, ctx);
+	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
 		gf_log ("libglusterfsclient",
 			GF_LOG_ERROR,
@@ -1825,7 +1820,7 @@ glusterfs_setxattr (glusterfs_handle_t handle,
 	}
 
 	loc.path = strdup (path);
-	op_ret = libgf_client_path_lookup (&loc, ctx);
+	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
 		gf_log ("libglusterfsclient",
 			GF_LOG_ERROR,
@@ -3111,7 +3106,7 @@ glusterfs_stat (glusterfs_handle_t handle,
 	}
 
 	loc.path = strdup (path);
-	op_ret = libgf_client_path_lookup (&loc, ctx);
+	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
 		gf_log ("libglusterfsclient",
 			GF_LOG_ERROR,
@@ -3381,7 +3376,7 @@ glusterfs_mkdir (glusterfs_handle_t handle,
 	}
 
 	loc.path = strdup (path);
-	op_ret = libgf_client_path_lookup (&loc, ctx);
+	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
 		gf_log ("libglusterfsclient",
 			GF_LOG_ERROR,
@@ -3441,7 +3436,7 @@ glusterfs_rmdir (glusterfs_handle_t handle,
 	}
 
 	loc.path = strdup (path);
-	op_ret = libgf_client_path_lookup (&loc, ctx);
+	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
 		gf_log ("libglusterfsclient",
 			GF_LOG_ERROR,
