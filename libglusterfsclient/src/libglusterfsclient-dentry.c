@@ -21,7 +21,8 @@
 #include "libglusterfsclient-internals.h"
 #include <libgen.h>
 
-#define LIBGLUSTERFS_CLIENT_DENTRY_LOC_PREPARE(_new_loc, _loc, _parent, _resolved) do { \
+#define LIBGLUSTERFS_CLIENT_DENTRY_LOC_PREPARE(_new_loc, _loc, _parent, \
+                                               _resolved) do {          \
                 size_t pathlen = 0;                                     \
                 size_t resolvedlen = 0;                                 \
                 char *path = NULL;                                      \
@@ -37,7 +38,8 @@
                         pad = 1;                                        \
                         path[resolvedlen] = '/';                        \
                 }                                                       \
-                strcpy_till (path + resolvedlen + pad, loc->path + resolvedlen + pad, '/'); \
+                strcpy_till (path + resolvedlen + pad,                  \
+                             loc->path + resolvedlen + pad, '/');       \
                 _new_loc.path = path;                                   \
                 _new_loc.name = strrchr (path, '/');                    \
                 if (_new_loc.name)                                      \
@@ -76,8 +78,8 @@ strcpy_till (char *dest, const char *dname, char delim)
         return ret;
 }
 
-/* __libgf_client_path_to_parenti - derive parent inode for @path. if immediate parent is
- *                            not available in the dentry cache, return nearest
+/* __libgf_client_path_to_parenti - derive parent inode for @path. if immediate 
+ *                            parent is not available in the dentry cache, return nearest
  *                            available parent inode and set @reslv to the path of
  *                            the returned directory.
  *
@@ -120,10 +122,10 @@ __libgf_client_path_to_parenti (inode_table_t *itable,
                         break;
                 }
 
-                /* It is OK to append the component even if it is the                               
+                /* It is OK to append the component even if it is the       
                    last component in the path, because, if 'next_component'
                    returns NULL, @parent will remain the same and
-                   @resolved_till will not be sent back                                             
+                   @resolved_till will not be sent back               
                 */
                 strcat (resolved_till, "/");
                 strcat (resolved_till, component);
@@ -214,11 +216,13 @@ __do_path_resolve (loc_t *loc,
                 inode_ref (parent);
                 gf_log ("libglusterfsclient-dentry", GF_LOG_DEBUG,
                         "loc->parent(%"PRId64") already present. sending lookup "
-                        "for %"PRId64"/%s", parent->ino, parent->ino, loc->name);
+                        "for %"PRId64"/%s", parent->ino, parent->ino,
+                        loc->name);
                 resolved = strdup (loc->path);
                 resolved = dirname (resolved);
         } else {
-                parent = __libgf_client_path_to_parenti (ctx->itable, loc->path, &resolved);
+                parent = __libgf_client_path_to_parenti (ctx->itable, loc->path,
+                                                         &resolved);
         }
 
         if (parent == NULL) {
@@ -244,7 +248,8 @@ __do_path_resolve (loc_t *loc,
         {
                 dentry = NULL;
 
-                LIBGLUSTERFS_CLIENT_DENTRY_LOC_PREPARE (new_loc, loc, parent, resolved);
+                LIBGLUSTERFS_CLIENT_DENTRY_LOC_PREPARE (new_loc, loc, parent,
+                                                        resolved);
 
 		if (pathname) {
 			free (pathname);
@@ -256,11 +261,13 @@ __do_path_resolve (loc_t *loc,
 
                 new_loc.inode = inode_search (ctx->itable, parent->ino, file);
                 if (new_loc.inode) {
-                        dentry = dentry_search_for_inode (new_loc.inode, parent->ino, file);
+                        dentry = dentry_search_for_inode (new_loc.inode,
+                                                          parent->ino, file);
                 }
 
                 if (dentry == NULL) {
-                        op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL, 0);
+                        op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL,
+                                                      0);
                         if (op_ret == -1) {
                                 inode_ref (new_loc.parent);
                                 libgf_client_loc_wipe (&new_loc);
@@ -288,8 +295,8 @@ __do_path_resolve (loc_t *loc,
 
                 op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL, 0);
                 if (op_ret == -1) {
-                        /* parent is resolved, file referred by the path may not be 
-                           present on the storage*/
+                        /* parent is resolved, file referred by the path may not
+                           be present on the storage*/
                         if (strcmp (loc->path, "/") != 0) {
                                 op_ret = 0;
                         }

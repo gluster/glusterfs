@@ -71,7 +71,8 @@ typedef struct {
                 pthread_mutex_lock (&local->lock);                      \
                 {                                                       \
                         while (!local->complete) {                      \
-                                pthread_cond_wait (&local->reply_cond, &local->lock); \
+                                pthread_cond_wait (&local->reply_cond,  \
+                                                   &local->lock);       \
                         }                                               \
                 }                                                       \
                 pthread_mutex_unlock (&local->lock);                    \
@@ -81,7 +82,8 @@ typedef struct {
 
 #define LIBGF_CLIENT_SIGNAL(signal_handler_list, signo, handler)        \
         do {                                                            \
-                libgf_client_signal_handler_t *libgf_handler = CALLOC (1, sizeof (*libgf_handler)); \
+                libgf_client_signal_handler_t *libgf_handler = CALLOC (1, \
+                                                    sizeof (*libgf_handler)); \
                 ERR_ABORT (libgf_handler);                              \
                 libgf_handler->signo = signo;                           \
                 libgf_handler->handler = signal (signo, handler);       \
@@ -101,7 +103,8 @@ typedef struct {
 #define LIBGF_RESTORE_SIGNAL_HANDLERS(local)                            \
         do {                                                            \
                 libgf_client_signal_handler_t *ptr = NULL, *tmp = NULL; \
-                list_for_each_entry_safe (ptr, tmp, &local->signal_handlers, next) { \
+                list_for_each_entry_safe (ptr, tmp, &local->signal_handlers,\
+                                          next) {                       \
                         signal (ptr->signo, ptr->handler);              \
                         FREE (ptr);                                     \
                 }                                                       \
@@ -133,7 +136,8 @@ typedef struct {
                 frame->root->state = ctx;                               \
                 pthread_cond_init (&local->reply_cond, NULL);           \
                 pthread_mutex_init (&local->lock, NULL);                \
-                LIBGF_STACK_WIND_AND_WAIT (frame, libgf_client_##op##_cbk, xl, xl->fops->op, args); \
+                LIBGF_STACK_WIND_AND_WAIT (frame, libgf_client_##op##_cbk, xl, \
+                                           xl->fops->op, args);         \
                 dict_unref (refs);                                      \
                 stub = local->reply_stub;                               \
                 FREE (frame->local);                                    \
