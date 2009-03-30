@@ -93,6 +93,7 @@ strcpy_till (char *dest, const char *dname, char delim)
 static inode_t *
 __libgf_client_path_to_parenti (inode_table_t *itable,
                                 const char *path,
+                                time_t lookup_timeout,
                                 char **reslv)
 {
         char *resolved_till = NULL;
@@ -103,6 +104,10 @@ __libgf_client_path_to_parenti (inode_table_t *itable,
         inode_t *curr = NULL;
         inode_t *parent = NULL;
         size_t pathlen = 0;
+        time_t current, prev;
+        libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
+        uint64_t ptr = 0;
+        int32_t op_ret = 0;
 
         pathlen = STRLEN_0 (path);
         resolved_till = CALLOC (1, pathlen);
@@ -119,6 +124,27 @@ __libgf_client_path_to_parenti (inode_table_t *itable,
         while (component) {
                 curr = inode_search (itable, parent->ino, component);
                 if (!curr) {
+                        break;
+                }
+
+                op_ret = inode_ctx_get (curr, itable->xl, &ptr);
+                if (op_ret == -1) {
+                        errno = EINVAL;
+                        break;
+                }
+
+                inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
+                memset (&current, 0, sizeof (current));
+                current = time (NULL);
+
+                pthread_mutex_lock (&inode_ctx->lock);
+                {
+                        prev = inode_ctx->previous_lookup_time;
+                }
+                pthread_mutex_unlock (&inode_ctx->lock);
+    
+                if ((prev < 0) 
+                    || (lookup_timeout < (current - prev))) {
                         break;
                 }
 
@@ -192,16 +218,15 @@ libgf_client_update_resolved (const char *path, char *resolved)
 /* __do_path_resolve - resolve @loc->path into @loc->inode and @loc->parent. also
  *                     update the dentry cache
  *
- * @loc  - loc to resolve. 
- * @ctx  - libglusterfsclient context
+ * @loc   - loc to resolve. 
+ * @ctx   - libglusterfsclient context
  *
  * return - 0 on success
  *         -1 on failure 
  *          
  */
 static int32_t
-__do_path_resolve (loc_t *loc,
-                   libglusterfs_client_ctx_t *ctx)
+__do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx)
 {
         int32_t         op_ret = -1;
         char           *resolved  = NULL;
@@ -210,6 +235,9 @@ __do_path_resolve (loc_t *loc,
         loc_t          new_loc = {0, };
 	char           *pathname = NULL, *directory = NULL;
 	char           *file = NULL;   
+        time_t current, prev;
+        libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
+        uint64_t ptr = 0;
         
         parent = loc->parent;
         if (parent) {
@@ -222,6 +250,7 @@ __do_path_resolve (loc_t *loc,
                 resolved = dirname (resolved);
         } else {
                 parent = __libgf_client_path_to_parenti (ctx->itable, loc->path,
+                                                         ctx->lookup_timeout,
                                                          &resolved);
         }
 
@@ -261,10 +290,29 @@ __do_path_resolve (loc_t *loc,
 
                 new_loc.inode = inode_search (ctx->itable, parent->ino, file);
                 if (new_loc.inode) {
-                        dentry = dentry_search_for_inode (new_loc.inode,
-                                                          parent->ino, file);
+                        op_ret = inode_ctx_get (new_loc.inode, ctx->itable->xl,
+                                                &ptr);
+                        if (op_ret != -1) {
+                                inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
+                                memset (&current, 0, sizeof (current));
+                                current = time (NULL);
+                        
+                                pthread_mutex_lock (&inode_ctx->lock);
+                                {
+                                        prev = inode_ctx->previous_lookup_time;
+                                }
+                                pthread_mutex_unlock (&inode_ctx->lock);
+                
+                                if ((prev >= 0) 
+                                    && (ctx->lookup_timeout 
+                                        >= (current - prev))) {
+                                        dentry = dentry_search_for_inode (new_loc.inode,
+                                                                          parent->ino,
+                                                                          file);
+                                }
+                        }
                 }
-
+                
                 if (dentry == NULL) {
                         op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL,
                                                       0);
@@ -286,22 +334,24 @@ __do_path_resolve (loc_t *loc,
 		pathname = NULL;
 	} 
 
-	pathname = strdup (loc->path);
-	file = basename (pathname);
+        pathname = strdup (loc->path);
+        file = basename (pathname);
 
         inode = inode_search (ctx->itable, parent->ino, file);
         if (!inode) {
-                libgf_client_loc_fill (&new_loc, ctx, 0, parent->ino, file);
+                libgf_client_loc_fill (&new_loc, ctx, 0, parent->ino,
+                                       file);
 
-                op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL, 0);
+                op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL,
+                                              0);
                 if (op_ret == -1) {
-                        /* parent is resolved, file referred by the path may not
-                           be present on the storage*/
+                        /* parent is resolved, file referred by the 
+                           path may not be present on the storage*/
                         if (strcmp (loc->path, "/") != 0) {
                                 op_ret = 0;
                         }
 
-			libgf_client_loc_wipe (&new_loc);
+                        libgf_client_loc_wipe (&new_loc);
                         goto out;
                 }
                 

@@ -65,6 +65,52 @@ typedef struct {
         }fop;
 }libgf_client_local_t;
 
+typedef struct {
+        pthread_cond_t init_con_established;
+        pthread_mutex_t lock;
+        char complete;
+}libglusterfs_client_private_t;
+
+typedef struct {
+        pthread_mutex_t lock;
+        uint32_t previous_lookup_time;
+        uint32_t previous_stat_time;
+        struct stat stbuf;
+} libglusterfs_client_inode_ctx_t;
+
+typedef struct {
+        pthread_mutex_t lock;
+        off_t offset;
+        libglusterfs_client_ctx_t *ctx;
+} libglusterfs_client_fd_ctx_t;
+
+typedef struct libglusterfs_client_async_local {
+        void *cbk_data;
+        union {
+                struct {
+                        fd_t *fd;
+                        glusterfs_readv_cbk_t cbk;
+                }readv_cbk;
+    
+                struct {
+                        fd_t *fd;
+                        glusterfs_write_cbk_t cbk;
+                }write_cbk;
+
+                struct {
+                        fd_t *fd;
+                }close_cbk;
+
+                struct {
+                        void *buf;
+                        size_t size;
+                        loc_t *loc;
+                        char is_revalidate;
+                        glusterfs_get_cbk_t cbk;
+                }lookup_cbk;
+        }fop;
+}libglusterfs_client_async_local_t;
+
 #define LIBGF_STACK_WIND_AND_WAIT(frame, rfn, obj, fn, params ...)      \
         do {                                                            \
                 STACK_WIND (frame, rfn, obj, fn, params);               \
@@ -77,7 +123,6 @@ typedef struct {
                 }                                                       \
                 pthread_mutex_unlock (&local->lock);                    \
         } while (0)
-
 
 
 #define LIBGF_CLIENT_SIGNAL(signal_handler_list, signo, handler)        \
