@@ -153,7 +153,8 @@ libgf_client_loc_fill (loc_t *loc,
 
 int32_t
 libgf_client_path_lookup (loc_t *loc,
-                          libglusterfs_client_ctx_t *ctx);
+                          libglusterfs_client_ctx_t *ctx,
+                          char lookup_basename);
 
 int32_t
 libgf_client_lookup (libglusterfs_client_ctx_t *ctx,

@@ -322,7 +322,8 @@ out:
 /* resolves loc->path to loc->parent and loc->inode */
 int32_t
 libgf_client_path_lookup (loc_t *loc,
-                          libglusterfs_client_ctx_t *ctx)
+                          libglusterfs_client_ctx_t *ctx,
+                          char lookup_basename)
 {
         char       *pathname  = NULL;
         char       *directory = NULL;
@@ -345,19 +346,30 @@ libgf_client_path_lookup (loc_t *loc,
 	}
 	libgf_client_loc_wipe (&new_loc);
 
-        inode = inode_from_path (ctx->itable, loc->path);
         pathname  = strdup (loc->path);
         directory = dirname (pathname);
         parent = inode_from_path (ctx->itable, directory);
-        
-        if (inode && parent) {
-                gf_log ("libglusterfsclient",
-                        GF_LOG_DEBUG,
-                        "resolved path(%s) to %"PRId64"/%"PRId64"(%s)",
-                        loc->path, parent->ino, inode->ino, loc->name);
-                loc->inode = inode;
+
+        if (parent != NULL) {
                 loc->parent = parent;
-                goto out;
+
+                if (!lookup_basename) {
+                        gf_log ("libglusterfsclient",
+                                GF_LOG_DEBUG,
+                                "resolved dirname(%s) to %"PRId64,
+                                loc->path, parent->ino);
+                        goto out;
+                } else {
+                        inode = inode_from_path (ctx->itable, loc->path);
+                        if (inode != NULL) {
+                                gf_log ("libglusterfsclient",
+                                        GF_LOG_DEBUG,
+                                        "resolved path(%s) to %"PRId64"/%"PRId64,
+                                        loc->path, parent->ino, inode->ino);
+                                loc->inode = inode;
+                                goto out;
+                        }
+                }
         } else {
                 gf_log ("libglusterfsclient",
                         GF_LOG_DEBUG,
