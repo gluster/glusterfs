@@ -218,15 +218,17 @@ libgf_client_update_resolved (const char *path, char *resolved)
 /* __do_path_resolve - resolve @loc->path into @loc->inode and @loc->parent. also
  *                     update the dentry cache
  *
- * @loc   - loc to resolve. 
- * @ctx   - libglusterfsclient context
+ * @loc             - loc to resolve. 
+ * @ctx             - libglusterfsclient context
+ * @lookup_basename - flag whether to lookup basename(loc->path)
  *
  * return - 0 on success
  *         -1 on failure 
  *          
  */
 static int32_t
-__do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx)
+__do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx,
+                   char lookup_basename)
 {
         int32_t         op_ret = -1;
         char           *resolved  = NULL;
@@ -334,29 +336,31 @@ __do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx)
 		pathname = NULL;
 	} 
 
-        pathname = strdup (loc->path);
-        file = basename (pathname);
+        if (lookup_basename) {
+                pathname = strdup (loc->path);
+                file = basename (pathname);
 
-        inode = inode_search (ctx->itable, parent->ino, file);
-        if (!inode) {
-                libgf_client_loc_fill (&new_loc, ctx, 0, parent->ino,
-                                       file);
+                inode = inode_search (ctx->itable, parent->ino, file);
+                if (!inode) {
+                        libgf_client_loc_fill (&new_loc, ctx, 0, parent->ino,
+                                               file);
 
-                op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL,
-                                              0);
-                if (op_ret == -1) {
-                        /* parent is resolved, file referred by the 
-                           path may not be present on the storage*/
-                        if (strcmp (loc->path, "/") != 0) {
-                                op_ret = 0;
+                        op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL,
+                                                      0);
+                        if (op_ret == -1) {
+                                /* parent is resolved, file referred by the 
+                                   path may not be present on the storage*/
+                                if (strcmp (loc->path, "/") != 0) {
+                                        op_ret = 0;
+                                }
+
+                                libgf_client_loc_wipe (&new_loc);
+                                goto out;
                         }
-
-                        libgf_client_loc_wipe (&new_loc);
-                        goto out;
-                }
                 
-                inode = inode_ref (new_loc.inode);
-                libgf_client_loc_wipe (&new_loc);
+                        inode = inode_ref (new_loc.inode);
+                        libgf_client_loc_wipe (&new_loc);
+                }
         }
 
 out:
@@ -443,7 +447,7 @@ libgf_client_path_lookup (loc_t *loc,
                                 "exists without parent (%s)", 
                                 inode->ino, loc->path, directory);
                 }
-                op_ret = __do_path_resolve (loc, ctx);
+                op_ret = __do_path_resolve (loc, ctx, lookup_basename);
         }
 
 out:    
