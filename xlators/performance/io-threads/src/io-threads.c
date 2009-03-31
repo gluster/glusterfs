@@ -44,7 +44,8 @@ iot_schedule (iot_conf_t *conf,
         int32_t         idx = 0;
         iot_worker_t    *selected_worker = NULL;
 
-        idx = (inode->ino % conf->thread_count);
+        if (inode)
+                idx = (inode->ino % conf->thread_count);
         selected_worker = conf->workers[idx];
 
         iot_queue (selected_worker, stub);
