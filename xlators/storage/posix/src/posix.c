@@ -3968,7 +3968,7 @@ init (xlator_t *this)
                                 _private->num_devices_to_span);
                         _private->span_devices = 1;
                 }
-                if (!_private->num_devices_to_span < 1)
+                if (_private->num_devices_to_span < 1)
                         _private->num_devices_to_span = 1;
         }
         _private->st_device = CALLOC (1, (sizeof (dev_t) * 
