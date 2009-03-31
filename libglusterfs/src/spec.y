@@ -470,8 +470,9 @@ parse_backtick (FILE *srcfp, FILE *dstfp)
 	int ret = 0, i = 0;
 	char *cmd = NULL, *result = NULL;
 	size_t cmd_buf_size = GF_CMD_BUFFER_LEN;
-	char escaped = 0, in_backtick = 0, character = 0;
+	char escaped = 0, in_backtick = 0;
 	int line = 1, column = 0, backtick_line = 0, backtick_column = 0;
+        int character = 0;
 
 	fseek (srcfp, 0L, SEEK_SET);
 	fseek (dstfp, 0L, SEEK_SET);
@@ -486,7 +487,8 @@ parse_backtick (FILE *srcfp, FILE *dstfp)
                 return -1;
         }
 
-	while ((character = fgetc (srcfp)) != EOF) {
+	while (!feof (srcfp)) {
+                character = fgetc (srcfp);
 		if ((character == '`') && !escaped) {
 			if (in_backtick) {
 				cmd[i] = '\0';
