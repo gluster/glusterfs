@@ -218,6 +218,7 @@ struct _cmd_args {
 	char            *volume_file;
 	gf_loglevel_t    log_level;
 	char            *log_file;
+        int32_t          max_connect_attempts;
 	/* advanced options */
 	uint32_t         volfile_server_port;
 	char            *volfile_server_transport;

@@ -71,6 +71,7 @@ fetch_notify (xlator_t *this_xl, int event, void *data, ...)
 {
 	int ret = 0;
 	call_frame_t *frame = NULL;
+        static int failed_connects = 0;
 	
 	switch (event)
 	{
@@ -85,6 +86,11 @@ fetch_notify (xlator_t *this_xl, int event, void *data, ...)
 			    0);
 		break;
 	case GF_EVENT_CHILD_DOWN:
+                failed_connects++;
+                if (failed_connects
+                    >= this_xl->ctx->cmd_args.max_connect_attempts) {
+                        exit (1);
+                }
 		break;
 	default:
 		ret = default_notify (this_xl, event, data);
