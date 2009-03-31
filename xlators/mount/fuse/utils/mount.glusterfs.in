@@ -25,10 +25,11 @@ _init ()
     LOG_CRITICAL=CRITICAL;
     LOG_ERROR=ERROR;
     LOG_WARNING=WARNING;
+    LOG_NORMAL=NORMAL
     LOG_DEBUG=DEBUG;
 
     # set default log level to ERROR
-    log_level=$LOG_WARNING;
+    log_level=$LOG_NORMAL;
 }
 
 start_glusterfs ()
@@ -42,6 +43,9 @@ start_glusterfs ()
 	    "ERROR")
 		log_level=$LOG_ERROR;
 		;;
+            "NORMAL")
+                log_level=$LOG_NORMAL
+                ;;
 	    "DEBUG")
 		log_level=$LOG_DEBUG;
 		;;
@@ -55,8 +59,8 @@ start_glusterfs ()
 		log_level=$LOG_NONE;
 		;;
 	    *)
-		echo "invalid log level $log_level_str, using ERROR";
-		log_level=$LOG_ERROR;
+		echo "invalid log level $log_level_str, using NORMAL";
+		log_level=$LOG_NORMAL;
 		;;
 	esac
     fi
