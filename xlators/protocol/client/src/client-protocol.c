@@ -6228,6 +6228,7 @@ client_protocol_reconnect (void *trans_ptr)
 	transport_t         *trans = NULL;
 	client_connection_t *conn = NULL;
 	struct timeval       tv = {0, 0};
+        int32_t              ret = 0;
 
 	trans = trans_ptr;
 	conn  = trans->xl_private;
@@ -6243,7 +6244,7 @@ client_protocol_reconnect (void *trans_ptr)
 
 			gf_log (trans->xl->name, GF_LOG_DEBUG,
 				"attempting reconnect");
-			transport_connect (trans);
+			ret = transport_connect (trans);
 
 			conn->reconnect = 
 				gf_timer_call_after (trans->xl->ctx, tv,
@@ -6255,6 +6256,10 @@ client_protocol_reconnect (void *trans_ptr)
 		}
 	}
 	pthread_mutex_unlock (&conn->lock);
+
+        if (ret == -1) {
+                default_notify (trans->xl, GF_EVENT_CHILD_DOWN, NULL);
+        }
 }
 
 int 

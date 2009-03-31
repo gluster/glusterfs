@@ -85,6 +85,10 @@ static struct argp_option gf_options[] = {
  	{"volfile-server", ARGP_VOLFILE_SERVER_KEY, "SERVER", 0, 
  	 "Server to get the volume file from.  This option overrides "
 	 "--volfile option"},
+        {"volfile-max-fetch-attempts", ARGP_VOLFILE_MAX_FETCH_ATTEMPTS,
+         "MAX-ATTEMPTS", 0, "Maximum number of connect attempts to server. "
+         "This option should be provided with --volfile-server option"
+         "[default: 1]"},
  	{"volfile", ARGP_VOLUME_FILE_KEY, "VOLFILE", 0, 
  	 "File to use as VOLUME_FILE [default: "DEFAULT_CLIENT_VOLUME_FILE" or "
 	 DEFAULT_SERVER_VOLUME_FILE"]"},
@@ -659,7 +663,19 @@ parse_opts (int key, char *arg, struct argp_state *state)
 	case ARGP_VOLFILE_SERVER_KEY:
 		cmd_args->volfile_server = strdup (arg);
 		break;
+	
+        case ARGP_VOLFILE_MAX_FETCH_ATTEMPTS:
+		n = 0;
 		
+		if (gf_string2uint_base10 (arg, &n) == 0) {
+			cmd_args->max_connect_attempts = n;
+			break;
+		}
+		
+		argp_failure (state, -1, 0, 
+			      "Invalid limit on connect attempts %s", arg);
+		break;
+
 	case ARGP_VOLUME_FILE_KEY:
 		cmd_args->volume_file = strdup (arg);
 		break;

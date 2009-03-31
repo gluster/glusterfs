@@ -71,6 +71,7 @@ enum argp_option_keys {
 #endif /* DARWIN */
 	ARGP_VOLFILE_ID_KEY = 143, 
         ARGP_VOLFILE_CHECK_KEY = 144,
+        ARGP_VOLFILE_MAX_FETCH_ATTEMPTS = 145,
 };
 
 /* Moved here from fetch-spec.h */
