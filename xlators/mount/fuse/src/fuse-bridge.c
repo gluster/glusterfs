@@ -908,8 +908,11 @@ fuse_err_cbk (call_frame_t *frame,
 			if (op_errno == ENOTSUP) {
 				gf_fuse_xattr_enotsup_log++;
 				if (!(gf_fuse_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
-					gf_log ("glusterfs-fuse", GF_LOG_CRITICAL,
-						"[ ERROR ] Extended attribute not supported by the backend storage");
+					gf_log ("glusterfs-fuse", 
+                                                GF_LOG_CRITICAL,
+						"extended attribute not "
+                                                "supported by the backend "
+                                                "storage");
 			}
                 } else {
 			if ((frame->root->op == GF_FOP_REMOVEXATTR)
@@ -2151,7 +2154,9 @@ fuse_xattr_cbk (call_frame_t *frame,
                                 gf_fuse_xattr_enotsup_log++;
                                 if (!(gf_fuse_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
                                         gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                                                "[ ERROR ] Extended attribute not supported by the backend storage");
+                                                "extended attribute not "
+                                                "supported by the backend "
+                                                "storage");
                         } 
                         else 
                         {
@@ -2312,7 +2317,9 @@ fuse_getlk_cbk (call_frame_t *frame,
                         gf_fuse_lk_enosys_log++;
                         if (!(gf_fuse_lk_enosys_log % GF_UNIVERSAL_ANSWER)) {
 				gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-					"[ ERROR ] loading 'features/posix-locks' on server side may help your application");
+					"GETLK not supported. loading "
+                                        "'features/posix-locks' on server side "
+                                        "will add GETLK support.");
                         }
                 } else {
                         gf_log ("glusterfs-fuse", GF_LOG_ERROR,
@@ -2372,7 +2379,9 @@ fuse_setlk_cbk (call_frame_t *frame,
                         gf_fuse_lk_enosys_log++;
                         if (!(gf_fuse_lk_enosys_log % GF_UNIVERSAL_ANSWER)) {
 				gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                                        "[ ERROR ] loading 'features/posix-locks' on server side may help your application");
+                                        "SETLK not supported. loading "
+                                        "'features/posix-locks' on server side "
+                                        "will add SETLK support.");
                         }
                 } else  {
                         gf_log ("glusterfs-fuse",
