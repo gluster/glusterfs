@@ -6998,7 +6998,7 @@ struct volume_options options[] = {
 	  .type  = GF_OPTION_TYPE_STR 
 	},
  	{ .key   = {"remote-host"}, 
-	  .type  = GF_OPTION_TYPE_ANY 
+	  .type  = GF_OPTION_TYPE_INTERNET_ADDRESS 
 	},
  	{ .key   = {"remote-subvolume"}, 
 	  .type  = GF_OPTION_TYPE_ANY 
