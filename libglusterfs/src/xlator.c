@@ -114,6 +114,124 @@ fill_defaults (xlator_t *xl)
 	return;
 }
 
+/* RFC 1123 & 952 */
+static char 
+valid_host_name (char *address, int length)
+{
+        int i = 0;
+        char ret = 1;
+
+        if ((length > 24) || (length == 1)) {
+                ret = 0;
+                goto out;
+        }
+
+        if (!isalnum (address[length - 1])) {
+                ret = 0;
+                goto out;
+        }
+
+        for (i = 0; i < length; i++) {
+                if (!isalnum (address[i]) && (address[i] != '.')
+                    && (address[i] != '-')) {
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+out:
+        return ret;
+}
+
+static char
+valid_ipv4_address (char *address, int length)
+{
+        int octets = 0;
+        int value = 0;
+        char *tmp = NULL, *ptr = NULL, *prev = NULL, *endptr = NULL;
+        char ret = 1;
+
+        prev = tmp = strdup (address);
+        prev = strtok_r (tmp, ".", &ptr);
+
+        while (prev != NULL) 
+        {
+                octets++;
+                value = strtol (prev, &endptr, 10);
+                if ((value > 255) || (value < 0) || (endptr != NULL)) {
+                        ret = 0;
+                        goto out;
+                }
+   
+                prev = strtok_r (NULL, ".", &ptr);
+        }
+
+        if (octets != 4) {
+                ret = 0;
+        }
+
+out:
+        FREE (tmp);
+        return ret;
+}
+
+static char
+valid_ipv6_address (char *address, int length)
+{
+        int hex_numbers = 0;
+        int value = 0;
+        char *tmp = NULL, *ptr = NULL, *prev = NULL, *endptr = NULL;
+        char ret = 1;
+
+        tmp = strdup (address);
+        prev = strtok_r (tmp, ":", &ptr);
+
+        while (prev != NULL) 
+        {
+                hex_numbers++;
+                value = strtol (prev, &endptr, 16);
+                if ((value > 0xffff) || (value < 0) || (endptr != NULL)) {
+                        ret = 0;
+                        goto out;
+                }
+   
+                prev = strtok_r (NULL, ":", &ptr);
+        }
+        
+        if (hex_numbers > 8) {
+                ret = 0;
+        }
+
+out:
+        FREE (tmp);
+        return ret;
+}
+
+static char
+valid_internet_address (char *address)
+{
+        char ret = 0;
+        int length = 0;
+
+        if (address == NULL) {
+                goto out;
+        }
+
+        length = strlen (address);
+        if (length == 0) {
+                goto out;
+        }
+
+        if (valid_ipv4_address (address, length) 
+            || valid_ipv6_address (address, length)
+            || valid_host_name (address, length)) {
+                ret = 1;
+        }
+
+out:        
+        return ret;
+}
+
 int 
 _volume_option_value_validate (xlator_t *xl, 
 			       data_pair_t *pair, 
@@ -380,6 +498,13 @@ _volume_option_value_validate (xlator_t *xl,
 		ret = 0;
 	}
 	break;
+        case GF_OPTION_TYPE_INTERNET_ADDRESS:
+        {
+                if (valid_internet_address (pair->value->data)) {
+                        ret = 0;
+                }
+	}
+        break;
 	case GF_OPTION_TYPE_ANY:
 		/* NO CHECK */
 		ret = 0;

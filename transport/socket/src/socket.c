@@ -1347,7 +1347,7 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_INT 
         },
         { .key   = {"transport.socket.bind-address", "bind-address" }, 
-          .type  = GF_OPTION_TYPE_ANY 
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS 
         },
         { .key   = {"transport.socket.connect-path", "connect-path"}, 
           .type  = GF_OPTION_TYPE_ANY 

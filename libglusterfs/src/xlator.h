@@ -809,6 +809,7 @@ typedef enum {
   	GF_OPTION_TYPE_PATH,
   	GF_OPTION_TYPE_TIME,
 	GF_OPTION_TYPE_DOUBLE,
+        GF_OPTION_TYPE_INTERNET_ADDRESS,
 } volume_option_type_t;
 
 #define ZR_VOLUME_MAX_NUM_KEY    4

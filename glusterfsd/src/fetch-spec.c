@@ -107,16 +107,21 @@ get_shrub (glusterfs_ctx_t *ctx,
 	   const char *transport,
 	   uint32_t remote_port)
 {
+	volume_opt_list_t *vol_opt = NULL;
+	xlator_t *trav = NULL;
 	int ret = 0;
 	xlator_t *top = NULL;
 	xlator_t *trans = NULL;
 	xlator_list_t *parent = NULL, *tmp = NULL;
-	
+
 	top = CALLOC (1, sizeof (*top));
 	ERR_ABORT (top);
 	trans = CALLOC (1, sizeof (*trans));
 	ERR_ABORT (trans);
 	
+        INIT_LIST_HEAD (&top->volume_options);
+        INIT_LIST_HEAD (&trans->volume_options);
+
 	top->name = "top";
 	top->ctx = ctx;
 	top->next = trans;
@@ -145,9 +150,10 @@ get_shrub (glusterfs_ctx_t *ctx,
 	}
 
 	/* TODO: log on failure to set dict */
-	if (remote_host)
-		ret = dict_set_static_ptr (trans->options, "remote-host",
-					   (char *)remote_host);
+	if (remote_host) {
+                ret = dict_set (trans->options, "remote-host",
+                                str_to_data ((char *)remote_host));
+        }
 
 	if (remote_port)
 		ret = dict_set_uint32 (trans->options, "remote-port", 
@@ -174,7 +180,25 @@ get_shrub (glusterfs_ctx_t *ctx,
 	}
 	
 	xlator_set_type (trans, "protocol/client");
-	
+
+        trav = top;
+	while (trav) {
+		/* Get the first volume_option */
+                if (!list_empty (&trav->volume_options)) {
+                        list_for_each_entry (vol_opt, 
+                                             &trav->volume_options, list) 
+                                break;
+                        if ((ret = 
+                             validate_xlator_volume_options (trav, 
+                                                             vol_opt->given_opt)) < 0) {
+                                gf_log (trav->name, GF_LOG_ERROR, 
+                                        "validating translator failed");
+                                return NULL;
+                        }
+                }
+		trav = trav->next;
+	}
+
 	if (xlator_tree_init (top) != 0)
 		return NULL;
 	
