@@ -534,6 +534,60 @@ iot_symlink (call_frame_t *frame,
 }
 
 int32_t
+iot_rename_cbk (call_frame_t *frame,
+                void * cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno,
+                struct stat *buf)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        return 0;
+}
+
+int32_t
+iot_rename_wrapper (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *oldloc,
+                loc_t *newloc)
+{
+        STACK_WIND (frame, iot_rename_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->rename, oldloc, newloc);
+        return 0;
+}
+
+int32_t
+iot_rename (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *oldloc,
+                loc_t *newloc)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_rename_stub (frame, iot_rename_wrapper, oldloc, newloc);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get rename stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        /* We should order this on the oldloc. rename()
+         * allows the blocks of the newloc to be available till
+         * the last process that might have it open, closes the file.
+         * I suppose this is a trade-off and we weigh in favour of
+         * ordering on oldloc because the client issuing a rename()
+         * would expect the oldloc's contents to be available at the
+         * new location after this request. rename()'s guarantee that
+         * the current
+         * newloc's block will not be released or over-written allows
+         * any othe processes that have the newloc open, to continue
+         * operating.
+         */
+        iot_schedule ((iot_conf_t *)this->private, oldloc->inode, stub);
+        return 0;
+}
+
+int32_t
 iot_open_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -1452,6 +1506,7 @@ struct xlator_fops fops = {
         .mkdir       = iot_mkdir,
         .rmdir       = iot_rmdir,
         .symlink     = iot_symlink,
+        .rename      = iot_rename,
 };
 
 struct xlator_mops mops = {
