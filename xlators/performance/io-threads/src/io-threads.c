@@ -312,6 +312,48 @@ iot_access (call_frame_t *frame,
 }
 
 int32_t
+iot_readlink_cbk (call_frame_t *frame,
+                void * cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno,
+                const char *path)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, path);
+        return 0;
+}
+
+int32_t
+iot_readlink_wrapper (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *loc,
+                size_t size)
+{
+        STACK_WIND (frame, iot_readlink_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->readlink, loc, size);
+        return 0;
+}
+
+int32_t
+iot_readlink (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *loc,
+                size_t size)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_readlink_stub (frame, iot_readlink_wrapper, loc, size);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get readlink stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        iot_schedule ((iot_conf_t *)this->private, loc->inode, stub);
+        return 0;
+}
+
+int32_t
 iot_open_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -1225,6 +1267,7 @@ struct xlator_fops fops = {
         .chown       = iot_chown,
         .fchown      = iot_fchown,
         .access      = iot_access,
+        .readlink    = iot_readlink,
 };
 
 struct xlator_mops mops = {
