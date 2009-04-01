@@ -270,6 +270,48 @@ iot_fchown (call_frame_t *frame,
 }
 
 int32_t
+iot_access_cbk (call_frame_t *frame,
+                void *cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno)
+{
+        STACK_UNWIND (frame, op_ret, op_errno);
+        return 0;
+}
+
+int32_t
+iot_access_wrapper (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *loc,
+                int32_t mask)
+{
+        STACK_WIND (frame, iot_access_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->access, loc, mask);
+        return 0;
+}
+
+int32_t
+iot_access (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *loc,
+                int32_t mask)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_access_stub (frame, iot_access_wrapper, loc, mask);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get access stub");
+                STACK_UNWIND (frame, -1, ENOMEM);
+                return 0;
+        }
+
+        iot_schedule ((iot_conf_t *)this->private, loc->inode, stub);
+
+        return 0;
+}
+
+int32_t
 iot_open_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -1182,6 +1224,7 @@ struct xlator_fops fops = {
         .fchmod      = iot_fchmod,
         .chown       = iot_chown,
         .fchown      = iot_fchown,
+        .access      = iot_access,
 };
 
 struct xlator_mops mops = {
