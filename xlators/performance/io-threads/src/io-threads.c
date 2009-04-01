@@ -41,6 +41,30 @@ void iot_startup_workers (iot_worker_t **workers, int start_idx, int count,
 void * iot_worker_unordered (void *arg);
 void * iot_worker_ordered (void *arg);
 
+int
+iot_unordered_request_balancer (iot_conf_t *conf)
+{
+        long int        rand = 0;
+        int             idx = 0;
+
+        /* Decide which thread will service the request.
+         * FIXME: This should change into some form of load-balancing.
+         * */
+        rand = random ();
+
+        /* If scaling is on, we can choose from any thread
+        * that has been allocated upto, max_o_threads, but
+        * with scaling off, we'll never have threads more
+        * than min_o_threads.
+        */
+        if (iot_unordered_scaling_on (conf))
+                idx = (rand % conf->max_u_threads);
+        else
+                idx = (rand % conf->min_u_threads);
+
+        return idx;
+}
+
 void
 iot_schedule_unordered (iot_conf_t *conf,
                 inode_t *inode,
@@ -50,10 +74,7 @@ iot_schedule_unordered (iot_conf_t *conf,
         iot_worker_t    *selected_worker = NULL;
         iot_request_t   *req = NULL;
 
-        /* First decide which thread will service the request.
-         * FIXME: This should change into some form of load-balancing.
-         * */
-        idx = (random() % conf->max_u_threads);
+        idx = iot_unordered_request_balancer (conf);
         selected_worker = conf->uworkers[idx];
 
         req = iot_init_request (stub);
@@ -73,6 +94,33 @@ iot_schedule_unordered (iot_conf_t *conf,
         pthread_mutex_unlock (&selected_worker->qlock);
 }
 
+/* Assumes inode lock is held. */
+int
+iot_ordered_request_balancer (iot_conf_t *conf,
+                inode_t *inode)
+{
+        int             ctxret = 0;
+        long int        rand = 0;
+        uint64_t        idx = 0;
+
+        ctxret = __inode_ctx_get (inode, conf->this, &idx);
+        if (ctxret < 0) {
+                rand = random ();
+                /* If scaling is on, we can choose from any thread
+                 * that has been allocated upto, max_o_threads, but
+                 * with scaling off, we'll never have threads more
+                 * than min_o_threads.
+                 */
+                if (iot_ordered_scaling_on (conf))
+                        idx = (rand % conf->max_o_threads);
+                else
+                        idx = (rand % conf->min_o_threads);
+                __inode_ctx_put (inode, conf->this, idx);
+        }
+
+        return idx;
+}
+
 void
 iot_schedule_ordered (iot_conf_t *conf,
                 inode_t *inode,
@@ -81,7 +129,6 @@ iot_schedule_ordered (iot_conf_t *conf,
         uint64_t        idx = 0;
         iot_worker_t    *selected_worker = NULL;
         iot_request_t   * req = NULL;
-        int             ctxret = 0;
 
         if (inode == NULL) {
                 gf_log (conf->this->name, GF_LOG_ERROR,
@@ -91,11 +138,7 @@ iot_schedule_ordered (iot_conf_t *conf,
         req = iot_init_request (stub);
         LOCK (&inode->lock);
         {
-                ctxret = __inode_ctx_get (inode, conf->this, &idx);
-                if (ctxret < 0) {
-                        idx = (random () % conf->max_o_threads);
-                        __inode_ctx_put (inode, conf->this, idx);
-                }
+                idx = iot_ordered_request_balancer (conf, inode);
                 /* inode lock once acquired, cannot be left here
                  * because other gluster main threads might be
                  * contending on it to append a request for this file.
@@ -1762,12 +1805,14 @@ init (xlator_t *this)
         conf->max_u_threads = IOT_MAX_THREADS;
         conf->min_u_threads = IOT_MIN_THREADS;
         conf->u_idle_time = IOT_DEFAULT_IDLE;
+        conf->u_scaling = IOT_SCALING_OFF;
 
         /* Init params for ordered workers. */
         pthread_mutex_init (&conf->otlock, NULL);
         conf->max_o_threads = IOT_MAX_THREADS;
         conf->min_o_threads = IOT_MIN_THREADS;
         conf->o_idle_time = IOT_DEFAULT_IDLE;
+        conf->o_scaling = IOT_SCALING_OFF;
 
         conf->this = this;
 	workers_init (conf);
