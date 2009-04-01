@@ -60,8 +60,8 @@ struct iot_request {
 #define IOT_MIN_THREADS         32
 #define IOT_MAX_THREADS         512
 
-#define IOT_SCALING_OFF                 1
-#define IOT_SCALING_ON                  2
+#define IOT_SCALING_OFF                 _gf_false
+#define IOT_SCALING_ON                  _gf_true
 #define iot_ordered_scaling_on(conf)    ((conf)->o_scaling == IOT_SCALING_ON)
 #define iot_unordered_scaling_on(conf)  ((conf)->u_scaling == IOT_SCALING_ON)
 
@@ -103,7 +103,7 @@ struct iot_conf {
   int o_idle_time;              /* in Secs. The idle time after which an
                                    ordered thread exits.
                                    */
-  int o_scaling;                /* Set to IOT_SCALING_OFF if user does not want
+  gf_boolean_t o_scaling;       /* Set to IOT_SCALING_OFF if user does not want
                                    thread scaling on ordered threads.
                                    If scaling is off, io-threads maintains
                                    at least min_o_threads number of threads
@@ -124,7 +124,7 @@ struct iot_conf {
                                    request for this amount of secs, it should
                                    try to die.
                                    */
-  int u_scaling;                /* Set to IOT_SCALING_OFF if user does not want
+  gf_boolean_t u_scaling;       /* Set to IOT_SCALING_OFF if user does not want
                                    thread scaling on unordered threads.
                                    If scaling is off, io-threads maintains
                                    at least min_u_threads number of threads
