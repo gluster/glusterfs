@@ -2567,7 +2567,7 @@ fuse_thread_proc (void *data)
                                          chan_size);
 
 		if (priv->first_call) {
-                        if (priv->first_call > 2) {
+                        if (priv->first_call > 1) {
                                 priv->first_call--;
                         } else {
                                 fuse_root_lookup (this);
