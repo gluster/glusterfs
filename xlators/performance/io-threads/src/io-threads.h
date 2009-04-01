@@ -33,6 +33,7 @@
 #include "xlator.h"
 #include "common-utils.h"
 #include "list.h"
+#include <stdlib.h>
 
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
@@ -48,6 +49,17 @@ struct iot_request {
   call_stub_t *stub;
 };
 
+#define IOT_STATE_ACTIVE        1
+#define IOT_STATE_DEAD          2
+#define iot_worker_active(wrk)  ((wrk)->state == IOT_STATE_ACTIVE)
+
+#define MAX_IDLE_SKEW                   1000    /* usecs */
+#define skew_usec_idle_time(usec)       ((usec) + (random () % MAX_IDLE_SKEW))
+#define IOT_DEFAULT_IDLE                180     /* In secs. */
+
+#define IOT_MIN_THREADS         32
+#define IOT_MAX_THREADS         512
+
 struct iot_worker {
   struct list_head rqlist;      /* List of requests assigned to me. */
   struct iot_conf *conf;
@@ -56,11 +68,32 @@ struct iot_worker {
   pthread_mutex_t qlock;
   int32_t queue_size;
   pthread_t thread;
+  int state;            /* What state is the thread in. */
+  int thread_idx;       /* Thread's index into the worker array. Since this
+                         will be thread local data, for ensuring that number
+                         of threads dont fall below a minimum, we just dont
+                         allow threads with specific indices to exit.
+                         Helps us in eliminating one place where otherwise
+                         a lock would have been required to update centralized
+                         state inside conf.
+                         */
 };
 
 struct iot_conf {
   int32_t thread_count;
   struct iot_worker ** workers;
+
+  pthread_mutex_t utlock;       /* Used for scaling un-ordered threads. */
+  struct iot_worker **uworkers; /* Un-ordered thread pool. */
+  int max_u_threads;            /* Number of unordered threads will not be
+                                   higher than this.
+                                   */
+  int min_u_threads;            /* Number of unordered threads should not
+                                   fall below this value. */
+  int u_idle_time;              /* If an unordered thread does not get a
+                                   request for this amount of secs, it should
+                                   try to die.
+                                   */
 };
 
 typedef struct iot_conf iot_conf_t;
