@@ -1480,33 +1480,40 @@ fini (xlator_t *this)
 	return;
 }
 
+/*
+ * O - Goes to ordered threadpool.
+ * U - Goes to un-ordered threadpool.
+ * V - Variable, depends on whether the file is open.
+ *     If it is, then goes to ordered, otherwise to
+ *     un-ordered.
+ */
 struct xlator_fops fops = {
-	.open        = iot_open,
-	.create      = iot_create,
-	.readv       = iot_readv,
-	.writev      = iot_writev,
-	.flush       = iot_flush,
-	.fsync       = iot_fsync,
-	.lk          = iot_lk,
-	.stat        = iot_stat,
-	.fstat       = iot_fstat,
-	.truncate    = iot_truncate,
-	.ftruncate   = iot_ftruncate,
-	.utimens     = iot_utimens,
-	.checksum    = iot_checksum,
-	.unlink      = iot_unlink,
-        .lookup      = iot_lookup,
-        .chmod       = iot_chmod,
-        .fchmod      = iot_fchmod,
-        .chown       = iot_chown,
-        .fchown      = iot_fchown,
-        .access      = iot_access,
-        .readlink    = iot_readlink,
-        .mknod       = iot_mknod,
-        .mkdir       = iot_mkdir,
-        .rmdir       = iot_rmdir,
-        .symlink     = iot_symlink,
-        .rename      = iot_rename,
+	.open        = iot_open,        /* U */
+	.create      = iot_create,      /* U */
+	.readv       = iot_readv,       /* O */
+	.writev      = iot_writev,      /* O */
+	.flush       = iot_flush,       /* O */
+	.fsync       = iot_fsync,       /* O */
+	.lk          = iot_lk,          /* O */
+	.stat        = iot_stat,        /* V */
+	.fstat       = iot_fstat,       /* O */
+	.truncate    = iot_truncate,    /* V */
+	.ftruncate   = iot_ftruncate,   /* O */
+	.utimens     = iot_utimens,     /* V */
+	.checksum    = iot_checksum,    /* U */
+	.unlink      = iot_unlink,      /* V */
+        .lookup      = iot_lookup,      /* U */
+        .chmod       = iot_chmod,       /* V */
+        .fchmod      = iot_fchmod,      /* O */
+        .chown       = iot_chown,       /* V */
+        .fchown      = iot_fchown,      /* O */
+        .access      = iot_access,      /* V */
+        .readlink    = iot_readlink,    /* U */
+        .mknod       = iot_mknod,       /* U */
+        .mkdir       = iot_mkdir,       /* U */
+        .rmdir       = iot_rmdir,       /* U */
+        .symlink     = iot_symlink,     /* U */
+        .rename      = iot_rename,      /* U */
 };
 
 struct xlator_mops mops = {
