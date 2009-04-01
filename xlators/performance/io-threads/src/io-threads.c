@@ -1777,8 +1777,12 @@ workers_init (iot_conf_t *conf)
 int32_t 
 init (xlator_t *this)
 {
-	iot_conf_t *conf;
-	dict_t *options = this->options;
+        iot_conf_t      *conf = NULL;
+        dict_t          *options = this->options;
+        int             thread_count = IOT_MIN_THREADS;
+        gf_boolean_t    autoscaling = IOT_SCALING_OFF;
+        char            *scalestr = NULL;
+        int             min_threads, max_threads;
 
 	if (!this->children || this->children->next) {
 		gf_log ("io-threads",
@@ -1795,33 +1799,96 @@ init (xlator_t *this)
 	conf = (void *) CALLOC (1, sizeof (*conf));
 	ERR_ABORT (conf);
 
-	conf->thread_count = 1;
+        if ((dict_get_str (options, "autoscaling", &scalestr)) == 0) {
+                if ((gf_string2boolean (scalestr, &autoscaling)) == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                        "'autoscaling' option must be"
+                                        " boolean");
+                        return -1;
+                }
+        }
 
 	if (dict_get (options, "thread-count")) {
-		conf->thread_count = data_to_int32 (dict_get (options,
-							      "thread-count"));
-		gf_log ("io-threads",
-			GF_LOG_DEBUG,
-			"Using conf->thread_count = %d",
-			conf->thread_count);
-	}
+                thread_count = data_to_int32 (dict_get (options,
+                                        "thread-count"));
+                if (scalestr != NULL)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                        "'thread-count' is specified with "
+                                        "'autoscaling' on. Ignoring"
+                                        "'thread-count' option.");
+                if (thread_count < 2)
+                        thread_count = 2;
+        }
 
-        /* Init params for un-ordered workers. These should be got from
-         * the volfile options.
+        min_threads = IOT_MIN_THREADS;
+        max_threads = IOT_MAX_THREADS;
+        if (dict_get (options, "min-threads"))
+                min_threads = data_to_int32 (dict_get (options,
+                                        "min-threads"));
+
+        if (dict_get (options, "max-threads"))
+                max_threads = data_to_int32 (dict_get (options,
+                                        "max-threads"));
+       
+        if (min_threads > max_threads) {
+                gf_log (this->name, GF_LOG_ERROR, " min-threads must be less "
+                                "than max-threads");
+                return -1;
+        }
+
+        /* If autoscaling is off, then adjust the min and max
+         * threads according to thread-count.
+         * This is based on the assumption that despite autoscaling
+         * being off, we still want to have separate pools for data
+         * and meta-data threads.
          */
+        if (!autoscaling)
+                max_threads = min_threads = thread_count;
+
+        /* If user specifies an odd number of threads, increase it by
+         * one. The reason for having an even number of threads is
+         * explained later.
+         */
+        if (max_threads % 2)
+                max_threads++;
+
+        if(min_threads % 2)
+                min_threads++;
+
+        /* If the user wants to have only a single thread for
+        * some strange reason, make sure we set this count to
+        * 2. Explained later.
+        */
+        if (min_threads < 2)
+                min_threads = 2;
+
+        /* Again, have atleast two. Read on. */
+        if (max_threads < 2)
+                max_threads = 2;
+
+        /* This is why we need atleast two threads.
+         * We're dividing the specified thread pool into
+         * 2 halves, equally between ordered and unordered
+         * pools.
+         */
+
+        /* Init params for un-ordered workers. */
         pthread_mutex_init (&conf->utlock, NULL);
-        conf->max_u_threads = IOT_MAX_THREADS;
-        conf->min_u_threads = IOT_MIN_THREADS;
+        conf->max_u_threads = max_threads / 2;
+        conf->min_u_threads = min_threads / 2;
         conf->u_idle_time = IOT_DEFAULT_IDLE;
-        conf->u_scaling = IOT_SCALING_OFF;
+        conf->u_scaling = autoscaling;
 
         /* Init params for ordered workers. */
         pthread_mutex_init (&conf->otlock, NULL);
-        conf->max_o_threads = IOT_MAX_THREADS;
-        conf->min_o_threads = IOT_MIN_THREADS;
+        conf->max_o_threads = max_threads / 2;
+        conf->min_o_threads = min_threads / 2;
         conf->o_idle_time = IOT_DEFAULT_IDLE;
-        conf->o_scaling = IOT_SCALING_OFF;
+        conf->o_scaling = autoscaling;
 
+        gf_log (this->name, GF_LOG_DEBUG, "io-threads: Autoscaling: %s, "
+                        "min_threads: %d, max_threads: %d",
+                        (autoscaling) ? "on":"off", min_threads, max_threads);
         conf->this = this;
 	workers_init (conf);
 
@@ -1885,8 +1952,21 @@ struct xlator_cbks cbks = {
 struct volume_options options[] = {
 	{ .key  = {"thread-count"}, 
 	  .type = GF_OPTION_TYPE_INT, 
-	  .min  = 1, 
-	  .max  = 32
+	  .min  = IOT_MIN_THREADS, 
+	  .max  = IOT_MAX_THREADS
 	},
+        { .key  = {"autoscaling"},
+          .type = GF_OPTION_TYPE_BOOL
+        },
+        { .key  = {"min-threads"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = IOT_MIN_THREADS,
+          .max  = IOT_MAX_THREADS
+        },
+        { .key  = {"max-threads"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = IOT_MIN_THREADS,
+          .max  = IOT_MAX_THREADS
+        },
 	{ .key  = {NULL} },
 };
