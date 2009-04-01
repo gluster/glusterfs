@@ -482,6 +482,58 @@ iot_rmdir (call_frame_t *frame,
 }
 
 int32_t
+iot_symlink_cbk (call_frame_t *frame,
+                void * cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno,
+                inode_t *inode,
+                struct stat *buf)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+        return 0;
+}
+
+int32_t
+iot_symlink_wrapper (call_frame_t *frame,
+                xlator_t *this,
+                const char *linkname,
+                loc_t *loc)
+{
+        STACK_WIND (frame, iot_symlink_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->symlink, linkname, loc);
+        return 0;
+}
+
+int32_t
+iot_symlink (call_frame_t *frame,
+                xlator_t *this,
+                const char *linkname,
+                loc_t *loc)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_symlink_stub (frame, iot_symlink_wrapper, linkname, loc);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get symlink stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+                return 0;
+        }
+
+        /* Passing loc->inode does not make sense right now.
+         * Why? because passing
+         * loc->inode makes the request get ordered on the target
+         * file's thread, while we shouldnt really worry because this
+         * operation will not change the target in loc. For now, know
+         * that this works. Such requests, which operate on a new
+         * file/link, such as that in linkname, will be sent to a pool of
+         * requests meant specifically for meta-data requests.
+         */
+        iot_schedule ((iot_conf_t *)this->private, loc->inode, stub);
+        return 0;
+}
+
+int32_t
 iot_open_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -1399,6 +1451,7 @@ struct xlator_fops fops = {
         .mknod       = iot_mknod,
         .mkdir       = iot_mkdir,
         .rmdir       = iot_rmdir,
+        .symlink     = iot_symlink,
 };
 
 struct xlator_mops mops = {
