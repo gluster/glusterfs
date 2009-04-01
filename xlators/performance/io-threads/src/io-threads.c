@@ -138,6 +138,48 @@ iot_chmod (call_frame_t *frame,
 }
 
 int32_t
+iot_fchmod_cbk (call_frame_t *frame,
+                void *cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno,
+                struct stat *buf)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        return 0;
+}
+
+int32_t
+iot_fchmod_wrapper (call_frame_t *frame,
+                xlator_t *this,
+                fd_t *fd,
+                mode_t mode)
+{
+        STACK_WIND (frame, iot_fchmod_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->fchmod, fd, mode);
+        return 0;
+}
+
+int32_t
+iot_fchmod (call_frame_t *frame,
+                xlator_t *this,
+                fd_t *fd,
+                mode_t mode)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_fchmod_stub (frame, iot_fchmod_wrapper, fd, mode);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get fchmod stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        iot_schedule ((iot_conf_t *)this->private, fd->inode, stub);
+        return 0;
+}
+
+int32_t
 iot_open_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -1047,6 +1089,7 @@ struct xlator_fops fops = {
 	.unlink      = iot_unlink,
         .lookup      = iot_lookup,
         .chmod       = iot_chmod,
+        .fchmod      = iot_fchmod,
 };
 
 struct xlator_mops mops = {
