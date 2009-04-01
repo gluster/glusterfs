@@ -400,6 +400,49 @@ iot_mknod (call_frame_t *frame,
 }
 
 int32_t
+iot_mkdir_cbk (call_frame_t *frame,
+                void * cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno,
+                inode_t *inode,
+                struct stat *buf)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+        return 0;
+}
+
+int32_t
+iot_mkdir_wrapper (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *loc,
+                mode_t mode)
+{
+        STACK_WIND (frame, iot_mkdir_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->mkdir, loc, mode);
+        return 0;
+}
+
+int32_t
+iot_mkdir (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *loc,
+                mode_t mode)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_mkdir_stub (frame, iot_mkdir_wrapper, loc, mode);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get mkdir stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+                return 0;
+        }
+
+        iot_schedule ((iot_conf_t *)this->private, loc->inode, stub);
+        return 0;
+}
+
+int32_t
 iot_open_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -1315,6 +1358,7 @@ struct xlator_fops fops = {
         .access      = iot_access,
         .readlink    = iot_readlink,
         .mknod       = iot_mknod,
+        .mkdir       = iot_mkdir,
 };
 
 struct xlator_mops mops = {
