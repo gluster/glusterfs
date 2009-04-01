@@ -487,8 +487,7 @@ parse_backtick (FILE *srcfp, FILE *dstfp)
                 return -1;
         }
 
-	while (!feof (srcfp)) {
-                character = fgetc (srcfp);
+	while ((character = fgetc (srcfp)) != EOF) {
 		if ((character == '`') && !escaped) {
 			if (in_backtick) {
 				cmd[i] = '\0';
