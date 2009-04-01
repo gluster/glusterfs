@@ -354,6 +354,52 @@ iot_readlink (call_frame_t *frame,
 }
 
 int32_t
+iot_mknod_cbk (call_frame_t *frame,
+                void *cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno,
+                inode_t *inode,
+                struct stat *buf)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+        return 0;
+}
+
+int32_t
+iot_mknod_wrapper (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *loc,
+                mode_t mode,
+                dev_t rdev)
+{
+        STACK_WIND (frame, iot_mknod_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->mknod, loc, mode, rdev);
+        return 0;
+}
+
+int32_t
+iot_mknod (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *loc,
+                mode_t mode,
+                dev_t rdev)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_mknod_stub (frame, iot_mknod_wrapper, loc, mode, rdev);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get mknod stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+                return 0;
+        }
+
+        iot_schedule ((iot_conf_t *)this->private, loc->inode, stub);
+
+        return 0;
+}
+
+int32_t
 iot_open_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -1268,6 +1314,7 @@ struct xlator_fops fops = {
         .fchown      = iot_fchown,
         .access      = iot_access,
         .readlink    = iot_readlink,
+        .mknod       = iot_mknod,
 };
 
 struct xlator_mops mops = {
