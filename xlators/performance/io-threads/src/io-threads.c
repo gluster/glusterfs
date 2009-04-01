@@ -52,6 +52,51 @@ iot_schedule (iot_conf_t *conf,
 }
 
 int32_t
+iot_lookup_cbk (call_frame_t *frame,
+                void * cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno,
+                inode_t *inode,
+                struct stat *buf,
+                dict_t *xattr)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr);
+        return 0;
+}
+
+int32_t
+iot_lookup_wrapper (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *loc,
+                dict_t *xattr_req)
+{
+        STACK_WIND (frame, iot_lookup_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->lookup, loc, xattr_req);
+        return 0;
+}
+
+int32_t
+iot_lookup (call_frame_t *frame,
+        xlator_t *this,
+        loc_t *loc,
+        dict_t *xattr_req)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_lookup_stub (frame, iot_lookup_wrapper, loc, xattr_req);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR,
+                                "cannot get lookup stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
+                return 0;
+        }
+
+        iot_schedule ((iot_conf_t *)this->private, loc->inode, stub);
+        return 0;
+}
+
+int32_t
 iot_open_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -959,6 +1004,7 @@ struct xlator_fops fops = {
 	.utimens     = iot_utimens,
 	.checksum    = iot_checksum,
 	.unlink      = iot_unlink,
+        .lookup      = iot_lookup,
 };
 
 struct xlator_mops mops = {
