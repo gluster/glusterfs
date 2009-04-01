@@ -83,6 +83,26 @@ struct iot_conf {
   int32_t thread_count;
   struct iot_worker ** workers;
 
+  xlator_t *this;
+  /* Config state for ordered threads. */
+  pthread_mutex_t otlock;       /* Used to sync any state that needs to be
+                                   changed by the ordered threads.
+                                   */
+
+  int max_o_threads;            /* Max. number of ordered threads */
+  int min_o_threads;            /* Min. number of ordered threads. Ordered
+                                   thread count never falls below this
+                                   threshold.
+                                   */
+
+  int o_idle_time;              /* in Secs. The idle time after which an
+                                   ordered thread exits.
+                                   */
+
+  struct iot_worker **oworkers; /* Ordered thread pool. */
+
+
+  /* Config state for unordered threads */
   pthread_mutex_t utlock;       /* Used for scaling un-ordered threads. */
   struct iot_worker **uworkers; /* Un-ordered thread pool. */
   int max_u_threads;            /* Number of unordered threads will not be
