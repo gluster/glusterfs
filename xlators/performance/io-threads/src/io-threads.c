@@ -40,6 +40,31 @@ void iot_startup_workers (iot_worker_t **workers, int start_idx, int count,
                 iot_worker_fn workerfunc);
 void * iot_worker_unordered (void *arg);
 void * iot_worker_ordered (void *arg);
+void iot_startup_worker (iot_worker_t *worker, iot_worker_fn workerfunc);
+
+/* I know this function modularizes things a bit too much,
+ * but it is easier on the eyes to read this than see all that locking,
+ * queueing, and thread firing in the same curly block, as was the
+ * case before this function.
+ */
+void
+iot_request_queue_and_thread_fire (iot_worker_t *worker,
+                iot_worker_fn workerfunc,
+                iot_request_t *req)
+{
+        pthread_mutex_lock (&worker->qlock);
+        {
+                if (iot_worker_active (worker))
+                        _iot_queue (worker, req);
+                else {
+                        iot_startup_worker (worker, workerfunc);
+                        _iot_queue (worker, req);
+                }
+        }
+        pthread_mutex_unlock (&worker->qlock);
+}
+
+
 
 int
 iot_unordered_request_balancer (iot_conf_t *conf)
@@ -78,20 +103,8 @@ iot_schedule_unordered (iot_conf_t *conf,
         selected_worker = conf->uworkers[idx];
 
         req = iot_init_request (stub);
-        /* Having decided that, we must check whether the thread is
-         * active at all.
-         */
-        pthread_mutex_lock (&selected_worker->qlock);
-        {
-                if (iot_worker_active (selected_worker))
-                        _iot_queue (selected_worker, req);
-                else {
-                        iot_startup_workers (conf->uworkers, idx, 1,
-                                        iot_worker_unordered);
-                        _iot_queue (selected_worker, req);
-                }
-        }
-        pthread_mutex_unlock (&selected_worker->qlock);
+        iot_request_queue_and_thread_fire (selected_worker,
+                        iot_worker_unordered, req);
 }
 
 /* Assumes inode lock is held. */
@@ -146,17 +159,8 @@ iot_schedule_ordered (iot_conf_t *conf,
                  * added the request to the worker queue.
                  */
                 selected_worker = conf->oworkers[idx];
-                pthread_mutex_lock (&selected_worker->qlock);
-                {
-                        if (iot_worker_active (selected_worker))
-                                _iot_queue (selected_worker, req);
-                        else {
-                                iot_startup_workers (conf->oworkers, idx, 1,
-                                                iot_worker_ordered);
-                                _iot_queue (selected_worker, req);
-                        }
-                }
-                pthread_mutex_unlock (&selected_worker->qlock);
+                iot_request_queue_and_thread_fire (selected_worker,
+                        iot_worker_ordered, req);
         }
         UNLOCK (&inode->lock);
 }
@@ -1731,6 +1735,13 @@ allocate_workers (iot_conf_t *conf,
         }
 }
 
+void
+iot_startup_worker (iot_worker_t *worker, iot_worker_fn workerfunc)
+{
+        worker->state = IOT_STATE_ACTIVE;
+        pthread_create (&worker->thread, NULL, workerfunc, worker);
+}
+
 
 void
 iot_startup_workers (iot_worker_t **workers, int start_idx, int count,
@@ -1740,11 +1751,8 @@ iot_startup_workers (iot_worker_t **workers, int start_idx, int count,
         int     end_idx = 0;
 
         end_idx = start_idx + count;
-        for (i = start_idx; i < end_idx; i++) {
-                workers[i]->state = IOT_STATE_ACTIVE;
-                pthread_create (&workers[i]->thread, NULL, workerfunc,
-                                workers[i]);
-        }
+        for (i = start_idx; i < end_idx; i++)
+                iot_startup_worker (workers[i], workerfunc);
 
 }
 
