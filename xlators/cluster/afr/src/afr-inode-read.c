@@ -49,7 +49,7 @@
 
 /**
  * Common algorithm for inode read calls:
- * 
+ *
  * - Try the fop on the first child that is up
  * - if we have failed due to ENOTCONN:
  *     try the next child
@@ -70,13 +70,17 @@ afr_access_cbk (call_frame_t *frame, void *cookie,
 	int unwind     = 1;
 	int last_tried = -1;
 	int this_try = -1;
+        int read_child = -1;
 
 	priv     = this->private;
 	children = priv->children;
 
 	local = frame->local;
 
+        read_child = (long) cookie;
+
 	if (op_ret == -1) {
+        retry:
 		last_tried = local->cont.access.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
@@ -84,11 +88,15 @@ afr_access_cbk (call_frame_t *frame, void *cookie,
 		}
 		this_try    = ++local->cont.access.last_tried;
 
+                if (this_try == read_child) {
+                        goto retry;
+                }
+
 		unwind = 0;
 
 		STACK_WIND_COOKIE (frame, afr_access_cbk,
-				   (void *) (long) this_try,
-				   children[this_try], 
+				   (void *) (long) read_child,
+				   children[this_try],
 				   children[this_try]->fops->access,
 				   &local->loc, local->cont.access.mask);
 	}
@@ -111,6 +119,10 @@ afr_access (call_frame_t *frame, xlator_t *this,
 	int             call_child = 0;
 	afr_local_t     *local     = NULL;
 
+        afr_inode_ctx_t * inode_ctx = NULL;
+        uint64_t          ctx;
+        int               ret       = 0;
+
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
@@ -125,15 +137,34 @@ afr_access (call_frame_t *frame, xlator_t *this,
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
-	call_child = afr_first_up_child (priv);
-	if (call_child == -1) {
-		op_errno = ENOTCONN;
-		gf_log (this->name, GF_LOG_ERROR,
-			"no child is up :(");
-		goto out;
-	}
+        ret = inode_ctx_get (loc->inode, this,
+                             &ctx);
+        if (ret < 0) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "inode ctx not set!");
+                goto out;
+        }
 
-	local->cont.access.last_tried = call_child;
+        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+        if (inode_ctx->read_child >= 0) {
+                call_child = inode_ctx->read_child;
+
+                local->cont.access.last_tried = -1;
+
+        } else {
+                call_child = afr_first_up_child (priv);
+                if (call_child == -1) {
+                        op_errno = ENOTCONN;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "no child is up :(");
+                        goto out;
+                }
+
+                local->cont.access.last_tried = call_child;
+        }
+
 	loc_copy (&local->loc, loc);
 	local->cont.access.mask       = mask;
 
@@ -164,16 +195,15 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t *   local    = NULL;
 	xlator_t **     children = NULL;
 
-	int deitransform_child = -1;
-
 	int unwind     = 1;
 	int last_tried = -1;
 	int this_try = -1;
+	int read_child = -1;
 
 	priv     = this->private;
 	children = priv->children;
 
-	deitransform_child = (long) cookie;
+	read_child = (long) cookie;
 
 	local = frame->local;
 
@@ -186,15 +216,15 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 		}
 		this_try = ++local->cont.stat.last_tried;
 
-		if (this_try == deitransform_child) {
+		if (this_try == read_child) {
 			goto retry;
 		}
 
 		unwind = 0;
 
 		STACK_WIND_COOKIE (frame, afr_stat_cbk,
-				   (void *) (long) deitransform_child,
-				   children[this_try], 
+				   (void *) (long) read_child,
+				   children[this_try],
 				   children[this_try]->fops->stat,
 				   &local->loc);
 	}
@@ -219,6 +249,10 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 	afr_local_t   * local      = NULL;
 	xlator_t **     children   = NULL;
 
+        afr_inode_ctx_t * inode_ctx = NULL;
+        uint64_t          ctx;
+        int               ret       = 0;
+
 	int             call_child = 0;
 
 	int32_t         op_ret     = -1;
@@ -237,14 +271,36 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-	call_child = afr_deitransform (loc->inode->ino, priv->child_count);
+        ret = inode_ctx_get (loc->inode, this,
+                             &ctx);
+        if (ret < 0) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "inode ctx not set!");
+                goto out;
+        }
+
+        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+        if (inode_ctx->read_child >= 0) {
+                call_child = inode_ctx->read_child;
+
+                local->cont.stat.last_tried = -1;
+
+        } else {
+		call_child = afr_first_up_child (priv);
+		if (call_child == -1) {
+			op_errno = ENOTCONN;
+			gf_log (this->name, GF_LOG_ERROR,
+				"no child is up :(");
+			goto out;
+		}
+
+		local->cont.stat.last_tried = call_child;
+	}
+
 	loc_copy (&local->loc, loc);
 
-	/* 
-	   if stat fails from the deitranform'd child, we try
-	   all children starting with the first one
-	*/
-	local->cont.stat.last_tried = -1;
 	local->cont.stat.ino = loc->inode->ino;
 
 	STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) (long) call_child,
@@ -275,18 +331,17 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t *   local    = NULL;
 	xlator_t **     children = NULL;
 
-	int deitransform_child = -1;
-
 	int unwind     = 1;
 	int last_tried = -1;
 	int this_try = -1;
+        int read_child = -1;
 
 	priv     = this->private;
 	children = priv->children;
 
-	deitransform_child = (long) cookie;
-
 	local = frame->local;
+
+	read_child = (long) cookie;
 
 	if (op_ret == -1) {
 	retry:
@@ -297,20 +352,15 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 		}
 		this_try   = ++local->cont.fstat.last_tried;
 
-		if (this_try == deitransform_child) {
-			/* 
-			   skip the deitransform'd child since if we are here
-			   we must have already tried that child
-			*/
+		if (this_try == read_child) {
 			goto retry;
 		}
-	       
 
 		unwind = 0;
 
 		STACK_WIND_COOKIE (frame, afr_fstat_cbk,
-				   (void *) (long) deitransform_child,
-				   children[this_try], 
+				   (void *) (long) read_child,
+				   children[this_try],
 				   children[this_try]->fops->fstat,
 				   local->fd);
 	}
@@ -337,6 +387,10 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
 	int             call_child = 0;
 
+        afr_inode_ctx_t * inode_ctx = NULL;
+        uint64_t          ctx;
+        int               ret       = 0;
+
 	int32_t         op_ret     = -1;
 	int32_t         op_errno   = 0;
 
@@ -356,13 +410,35 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
 	VALIDATE_OR_GOTO (fd->inode, out);
 
-	call_child = afr_deitransform (fd->inode->ino, priv->child_count);
+        ret = inode_ctx_get (fd->inode, this,
+                             &ctx);
 
-	/* 
-	   if fstat fails from the deitranform'd child, we try
-	   all children starting with the first one
-	*/
-	local->cont.fstat.last_tried = -1;
+        if (ret < 0) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "inode ctx not set!");
+                goto out;
+        }
+
+        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+        if (inode_ctx->read_child >= 0) {
+                call_child = inode_ctx->read_child;
+
+                local->cont.fstat.last_tried = -1;
+        } else {
+                call_child = afr_first_up_child (priv);
+
+                if (call_child == -1) {
+                        op_errno = ENOTCONN;
+                        gf_log (this->name, GF_LOG_ERROR,
+				"no child is up :(");
+			goto out;
+		}
+
+                local->cont.fstat.last_tried = call_child;
+        }
+
 	local->cont.fstat.ino = fd->inode->ino;
 	local->fd = fd_ref (fd);
 
@@ -396,13 +472,17 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 	int unwind     = 1;
 	int last_tried = -1;
 	int this_try = -1;
+        int read_child = -1;
 
 	priv     = this->private;
 	children = priv->children;
 
 	local = frame->local;
 
+        read_child = (long) cookie;
+
 	if (op_ret == -1) {
+        retry:
 		last_tried = local->cont.readlink.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
@@ -410,10 +490,14 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 		}
 		this_try = ++local->cont.readlink.last_tried;
 
+                if (this_try == read_child) {
+                        goto retry;
+                }
+
 		unwind = 0;
 		STACK_WIND_COOKIE (frame, afr_readlink_cbk,
-				   (void *) (long) this_try,
-				   children[this_try], 
+				   (void *) (long) read_child,
+				   children[this_try],
 				   children[this_try]->fops->readlink,
 				   &local->loc,
 				   local->cont.readlink.size);
@@ -437,6 +521,10 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 	int             call_child = 0;
 	afr_local_t     *local     = NULL;
 
+        afr_inode_ctx_t * inode_ctx = NULL;
+        uint64_t          ctx;
+        int               ret       = 0;
+
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
@@ -453,15 +541,35 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-	call_child = afr_first_up_child (priv);
-	if (call_child == -1) {
-		op_errno = ENOTCONN;
-		gf_log (this->name, GF_LOG_ERROR,
-			"no child is up :(");
-		goto out;
-	}
+        ret = inode_ctx_get (loc->inode, this,
+                             &ctx);
+        if (ret < 0) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "inode ctx not set!");
+                goto out;
+        }
 
-	local->cont.readlink.last_tried = call_child;
+        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+        if (inode_ctx->read_child >= 0) {
+                call_child = inode_ctx->read_child;
+
+                local->cont.readlink.last_tried = -1;
+
+        } else {
+                call_child = afr_first_up_child (priv);
+
+                if (call_child == -1) {
+                        op_errno = ENOTCONN;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "no child is up :(");
+                        goto out;
+                }
+
+                local->cont.readlink.last_tried = call_child;
+        }
+
 	loc_copy (&local->loc, loc);
 	local->cont.readlink.size       = size;
 
@@ -495,13 +603,17 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 	int unwind     = 1;
 	int last_tried = -1;
 	int this_try = -1;
+        int read_child = -1;
 
 	priv     = this->private;
 	children = priv->children;
 
 	local = frame->local;
 
+        read_child = (long) cookie;
+
 	if (op_ret == -1) {
+        retry:
 		last_tried = local->cont.getxattr.last_tried;
 
 		if (all_tried (last_tried, priv->child_count)) {
@@ -509,10 +621,14 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 		}
 		this_try = ++local->cont.getxattr.last_tried;
 
+                if (this_try == read_child) {
+                        goto retry;
+                }
+
 		unwind = 0;
 		STACK_WIND_COOKIE (frame, afr_getxattr_cbk,
-				   (void *) (long) this_try,
-				   children[this_try], 
+				   (void *) (long) read_child,
+				   children[this_try],
 				   children[this_try]->fops->getxattr,
 				   &local->loc,
 				   local->cont.getxattr.name);
@@ -536,6 +652,10 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	int               call_child = 0;
 	afr_local_t     * local      = NULL;
 
+        afr_inode_ctx_t * inode_ctx  = NULL;
+        uint64_t          ctx;
+        int               ret        = 0;
+
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
@@ -551,15 +671,34 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
 
-	call_child = afr_first_up_child (priv);
-	if (call_child == -1) {
-		op_errno = ENOTCONN;
-		gf_log (this->name, GF_LOG_ERROR,
-			"no child is up :(");
-		goto out;
-	}
+        ret = inode_ctx_get (loc->inode, this, &ctx);
 
-	local->cont.getxattr.last_tried = call_child;
+        if (ret < 0) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "inode ctx not set!");
+                goto out;
+        }
+
+        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+        if (inode_ctx->read_child >= 0) {
+                call_child = inode_ctx->read_child;
+
+                local->cont.getxattr.last_tried = -1;
+        } else {
+                call_child = afr_first_up_child (priv);
+
+                if (call_child == -1) {
+                        op_errno = ENOTCONN;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "no child is up :(");
+                        goto out;
+                }
+
+                local->cont.getxattr.last_tried = call_child;
+        }
+
 	loc_copy (&local->loc, loc);
 	if (name)
 	  local->cont.getxattr.name       = strdup (name);
@@ -584,7 +723,7 @@ out:
 
 /**
  * read algorithm:
- * 
+ *
  * if the user has specified a read subvolume, use it
  * otherwise -
  *   use the inode number to hash it to one of the subvolumes, and
@@ -593,7 +732,7 @@ out:
  * if any of the above read's fail, try the children in sequence
  * beginning at the beginning
  */
- 
+
 int32_t
 afr_readv_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -605,7 +744,8 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 
 	int unwind     = 1;
 	int last_tried = -1;
-	int this_try = -1;
+	int this_try   = -1;
+        int read_child = -1;
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
@@ -618,6 +758,8 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 
 	local = frame->local;
 
+        read_child = (long) cookie;
+
 	if (op_ret == -1) {
 	retry:
 		last_tried = local->cont.readv.last_tried;
@@ -627,8 +769,8 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 		}
 		this_try = ++local->cont.readv.last_tried;
 
-		if (this_try == priv->read_child) {
-			/* 
+		if (this_try == read_child) {
+			/*
 			   skip the read child since if we are here
 			   we must have already tried that child
 			*/
@@ -638,8 +780,8 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 		unwind = 0;
 
 		STACK_WIND_COOKIE (frame, afr_readv_cbk,
-				   (void *) (long) this_try,
-				   children[this_try], 
+				   (void *) (long) read_child,
+				   children[this_try],
 				   children[this_try]->fops->readv,
 				   local->fd, local->cont.readv.size,
 				   local->cont.readv.offset);
@@ -662,6 +804,10 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 	afr_local_t   * local      = NULL;
 	xlator_t **     children   = NULL;
 
+        afr_inode_ctx_t * inode_ctx = NULL;
+        uint64_t          ctx;
+        int               ret       = 0;
+
 	int             call_child = 0;
 
 	int32_t         op_ret     = -1;
@@ -679,15 +825,28 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-	if (priv->read_child != -1) {
-		call_child = priv->read_child;
+        ret = inode_ctx_get (fd->inode, this,
+                             &ctx);
 
-		/* 
+        if (ret < 0) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "inode ctx not set!");
+                goto out;
+        }
+
+        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+        if (inode_ctx->read_child >= 0) {
+                call_child = inode_ctx->read_child;
+
+		/*
 		   if read fails from the read child, we try
 		   all children starting with the first one
 		*/
-		local->cont.readv.last_tried = -1;
-	} else {
+                local->cont.readv.last_tried = -1;
+
+        } else {
 		call_child = afr_first_up_child (priv);
 		if (call_child == -1) {
 			op_errno = ENOTCONN;

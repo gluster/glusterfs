@@ -72,6 +72,40 @@ afr_build_parent_loc (loc_t *parent, loc_t *child)
 }
 
 
+afr_inode_ctx_t *
+afr_get_inode_ctx (xlator_t *this, inode_t *inode)
+{
+        afr_inode_ctx_t * inode_ctx = NULL;
+        uint64_t          ctx;
+
+        int               ret = 0;
+
+        LOCK (&inode->lock);
+        {
+                ret = __inode_ctx_get (inode, this, &ctx);
+
+                if (ret < 0) {
+                        inode_ctx = CALLOC (1, sizeof (afr_inode_ctx_t));
+                        
+                        ret = __inode_ctx_put (inode, this,
+                                             (uint64_t)(long) inode_ctx);
+
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "could not set inode ctx");
+                                FREE (inode_ctx);
+                                inode_ctx = NULL;
+                        }
+                } else {
+                        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+                }
+        }
+        UNLOCK (&inode->lock);
+
+        return inode_ctx;
+}
+
+
 /* {{{ create */
 
 int
@@ -91,11 +125,13 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
 	}
 	UNLOCK (&frame->lock);
 
-	if (main_frame)
+	if (main_frame) {
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  local->cont.create.fd,
 				  local->cont.create.inode,
 				  &local->cont.create.buf);
+        }
+        
 	return 0;
 }
 
@@ -107,6 +143,8 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
+        
+        afr_inode_ctx_t * inode_ctx = NULL;
 
 	int call_count = -1;
 	int child_index = -1;
@@ -124,14 +162,36 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret != -1) {
 			local->op_ret = op_ret;
 
-			if ((local->success_count == 0)
-			    || (child_index == priv->read_child)) {
+			if (local->success_count == 0) {
 				local->cont.create.buf        = *buf;
 				local->cont.create.buf.st_ino = 
 					afr_itransform (buf->st_ino,
 							priv->child_count,
 							child_index);
+
+                                inode_ctx = afr_get_inode_ctx (this, inode);
+                                
+                                if (inode_ctx) {
+                                        if (priv->read_child >= 0) {
+                                                inode_ctx->read_child = priv->read_child;
+                                        } else {
+                                                inode_ctx->read_child = local->read_child_index;
+                                        }
+                                }
 			}
+                        
+                        if (child_index == local->read_child_index) {
+                                inode_ctx = afr_get_inode_ctx (this, inode);
+                                
+                                if (inode_ctx) {
+                                        if (priv->read_child >= 0) {
+                                                inode_ctx->read_child = priv->read_child;
+                                        } else {
+                                                inode_ctx->read_child = local->read_child_index;
+                                        }
+                                }
+                        }
+
 			local->cont.create.inode = inode;
 
 			local->success_count++;
@@ -246,6 +306,13 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
 	loc_copy (&local->loc, loc);
 
+        LOCK (&priv->read_child_lock);
+        {
+                local->read_child_index = (++priv->read_child_rr) 
+                        % (priv->child_count);
+        }
+        UNLOCK (&priv->read_child_lock);
+
 	local->cont.create.flags = flags;
 	local->cont.create.mode  = mode;
 	local->cont.create.fd    = fd_ref (fd);
@@ -294,10 +361,12 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
 	}
 	UNLOCK (&frame->lock);
 
-	if (main_frame)
+	if (main_frame) {
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  local->cont.mknod.inode,
 				  &local->cont.mknod.buf);
+        }
+
 	return 0;
 }
 
@@ -309,6 +378,8 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
+
+        afr_inode_ctx_t * inode_ctx = NULL;
 
 	int call_count = -1;
 	int child_index = -1;
@@ -326,14 +397,36 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret != -1) {
 			local->op_ret = op_ret;
 
-			if ((local->success_count == 0)
-			    || (child_index == priv->read_child)) {	
+			if (local->success_count == 0){
 				local->cont.mknod.buf   = *buf;
 				local->cont.mknod.buf.st_ino = 
 					afr_itransform (buf->st_ino,
 							priv->child_count,
 							child_index);
+
+                                inode_ctx = afr_get_inode_ctx (this, inode);
+                                
+                                if (inode_ctx) {
+                                        if (priv->read_child >= 0) {
+                                                inode_ctx->read_child = priv->read_child;
+                                        } else {
+                                                inode_ctx->read_child = local->read_child_index;
+                                        }
+                                }
 			}
+
+                        if (child_index == local->read_child_index) {
+                                inode_ctx = afr_get_inode_ctx (this, inode);
+                                
+                                if (inode_ctx) {
+                                        if (priv->read_child >= 0) {
+                                                inode_ctx->read_child = priv->read_child;
+                                        } else {
+                                                inode_ctx->read_child = local->read_child_index;
+                                        }
+                                }
+                        }
+                        
 			local->cont.mknod.inode = inode;
 
 			local->success_count++;
@@ -444,6 +537,13 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 
 	loc_copy (&local->loc, loc);
 
+        LOCK (&priv->read_child_lock);
+        {
+                local->read_child_index = (++priv->read_child_rr) 
+                        % (priv->child_count);
+        }
+        UNLOCK (&priv->read_child_lock);
+
 	local->cont.mknod.mode  = mode;
 	local->cont.mknod.dev   = dev;
 
@@ -492,10 +592,12 @@ afr_mkdir_unwind (call_frame_t *frame, xlator_t *this)
 	}
 	UNLOCK (&frame->lock);
 
-	if (main_frame)
+	if (main_frame) {
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  local->cont.mkdir.inode,
 				  &local->cont.mkdir.buf);
+        }
+
 	return 0;
 }
 
@@ -507,6 +609,8 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
+
+        afr_inode_ctx_t * inode_ctx = NULL;
 
 	int call_count = -1;
 	int child_index = -1;
@@ -524,13 +628,35 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret != -1) {
 			local->op_ret           = op_ret;
 
-			if ((local->success_count == 0)
-			    || (child_index == priv->read_child)) {
+			if (local->success_count == 0) {
 				local->cont.mkdir.buf   = *buf;
 				local->cont.mkdir.buf.st_ino = 
 					afr_itransform (buf->st_ino, priv->child_count,
 							child_index);
+                                
+                                inode_ctx = afr_get_inode_ctx (this, inode);
+                                
+                                if (inode_ctx) {
+                                        if (priv->read_child >= 0) {
+                                                inode_ctx->read_child = priv->read_child;
+                                        } else {
+                                                inode_ctx->read_child = local->read_child_index;
+                                        }
+                                }
 			}
+                        
+                        if (child_index == local->read_child_index) {
+                                inode_ctx = afr_get_inode_ctx (this, inode);
+                                
+                                if (inode_ctx) {
+                                        if (priv->read_child >= 0) {
+                                                inode_ctx->read_child = priv->read_child;
+                                        } else {
+                                                inode_ctx->read_child = local->read_child_index;
+                                        }
+                                }
+                        }
+
 			local->cont.mkdir.inode = inode;
 
 			local->success_count++;
@@ -642,6 +768,13 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 
 	loc_copy (&local->loc, loc);
 
+        LOCK (&priv->read_child_lock);
+        {
+                local->read_child_index = (++priv->read_child_rr) 
+                        % (priv->child_count);
+        }
+        UNLOCK (&priv->read_child_lock);
+
 	local->cont.mkdir.mode  = mode;
 
 	local->transaction.fop    = afr_mkdir_wind;
@@ -710,6 +843,8 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
+        afr_inode_ctx_t * inode_ctx = NULL;
+
 	int call_count = -1;
 	int child_index = -1;
 
@@ -726,13 +861,35 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret != -1) {
 			local->op_ret   = op_ret;
 
-			if ((local->success_count == 0)
-			    || (child_index == priv->read_child)) {
+			if (local->success_count == 0) {
 				local->cont.link.buf        = *buf;
 				local->cont.link.buf.st_ino = 
 					afr_itransform (buf->st_ino, priv->child_count,
 							child_index);
+                                
+                                inode_ctx = afr_get_inode_ctx (this, inode);
+                                
+                                if (inode_ctx) {
+                                        if (priv->read_child >= 0) {
+                                                inode_ctx->read_child = priv->read_child;
+                                        } else {
+                                                inode_ctx->read_child = local->read_child_index;
+                                        }
+                                }
 			}
+                        
+                        if (child_index == local->read_child_index) {
+                                inode_ctx = afr_get_inode_ctx (this, inode);
+                                
+                                if (inode_ctx) {
+                                        if (priv->read_child >= 0) {
+                                                inode_ctx->read_child = priv->read_child;
+                                        } else {
+                                                inode_ctx->read_child = local->read_child_index;
+                                        }
+                                }
+                        }
+
 			local->cont.link.inode    = inode;
 
 			local->success_count++;
@@ -844,6 +1001,13 @@ afr_link (call_frame_t *frame, xlator_t *this,
 	loc_copy (&local->loc,    oldloc);
 	loc_copy (&local->newloc, newloc);
 
+        LOCK (&priv->read_child_lock);
+        {
+                local->read_child_index = (++priv->read_child_rr) 
+                        % (priv->child_count);
+        }
+        UNLOCK (&priv->read_child_lock);
+
 	local->cont.link.ino = oldloc->inode->ino;
 
 	local->transaction.fop    = afr_link_wind;
@@ -892,10 +1056,12 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
 	}
 	UNLOCK (&frame->lock);
 
-	if (main_frame)
+	if (main_frame) {
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  local->cont.symlink.inode,
 				  &local->cont.symlink.buf);
+        }
+
 	return 0;
 }
 
@@ -907,6 +1073,8 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
+
+        afr_inode_ctx_t * inode_ctx = NULL;
 
 	int call_count = -1;
 	int child_index = -1;
@@ -924,13 +1092,35 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret != -1) {
 			local->op_ret   = op_ret;
 
-			if ((local->success_count == 0)
-			    || (child_index == priv->read_child)) {
+			if (local->success_count == 0) {
 				local->cont.symlink.buf        = *buf;
 				local->cont.symlink.buf.st_ino = 
 					afr_itransform (buf->st_ino, priv->child_count,
 							child_index);
+                                
+                                inode_ctx = afr_get_inode_ctx (this, inode);
+                                
+                                if (inode_ctx) {
+                                        if (priv->read_child >= 0) {
+                                                inode_ctx->read_child = priv->read_child;
+                                        } else {
+                                                inode_ctx->read_child = local->read_child_index;
+                                        }
+                                }
 			}
+
+                        if (child_index == local->read_child_index) {
+                                inode_ctx = afr_get_inode_ctx (this, inode);
+                                
+                                if (inode_ctx) {
+                                        if (priv->read_child >= 0) {
+                                                inode_ctx->read_child = priv->read_child;
+                                        } else {
+                                                inode_ctx->read_child = local->read_child_index;
+                                        }
+                                }
+                        }
+
 			local->cont.symlink.inode    = inode;
 
 			local->success_count++;
@@ -1042,6 +1232,13 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 	transaction_frame->local = local;
 	
 	loc_copy (&local->loc, loc);
+
+        LOCK (&priv->read_child_lock);
+        {
+                local->read_child_index = (++priv->read_child_rr) 
+                        % (priv->child_count);
+        }
+        UNLOCK (&priv->read_child_lock);
 
 	local->cont.symlink.ino      = loc->inode->ino;
 	local->cont.symlink.linkpath = strdup (linkpath);
