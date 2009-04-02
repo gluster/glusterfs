@@ -1879,6 +1879,9 @@ notify (xlator_t *this, int32_t event,
 	case GF_EVENT_CHILD_UP:
 		i = find_child_index (this, data);
 
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "subvolume %s came up", ((xlator_t *) data)->name);
+
 		child_up[i] = 1;
 
 		/* 
@@ -1897,6 +1900,9 @@ notify (xlator_t *this, int32_t event,
 
 	case GF_EVENT_CHILD_DOWN:
 		i = find_child_index (this, data);
+
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "subvolume %s went down", ((xlator_t *) data)->name);
 
 		child_up[i] = 0;
 		
