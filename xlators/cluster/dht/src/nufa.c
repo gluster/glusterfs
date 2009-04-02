@@ -214,10 +214,10 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                 }
 
 		if (layout->gen && (layout->gen < conf->gen)) {
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"incomplete layout failure for path=%s",
 				loc->path);
-			op_errno = EAGAIN;
+			op_errno = ESTALE;
 			goto err;
 		}
 
