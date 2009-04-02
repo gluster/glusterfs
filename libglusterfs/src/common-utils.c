@@ -252,9 +252,7 @@ gf_log_volume_file (FILE *specfp)
 	fprintf (gf_log_logfile, 
 		 "+---------------------------------------"
 		 "---------------------------------------+\n");
-	while (!feof (specfp)) {
-		if (fgets (data, GF_UNIT_KB, specfp) == NULL)
-			break;
+	while (fgets (data, GF_UNIT_KB, specfp) != NULL){
 		lcount++;
 		fprintf (gf_log_logfile, "%3d: %s", lcount, data);
 	}
