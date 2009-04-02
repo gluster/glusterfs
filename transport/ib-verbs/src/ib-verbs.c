@@ -963,7 +963,8 @@ __tcp_rwv (transport_t *this, struct iovec *vector, int count,
 
                 if (ret == 0)
                 {
-                        gf_log (this->xl->name, GF_LOG_ERROR, "EOF from peer");
+                        gf_log (this->xl->name, GF_LOG_DEBUG, 
+                                "EOF from peer %s", this->peerinfo.identifier);
                         opcount = -1;
                         errno = ENOTCONN;
                         break;
@@ -2012,7 +2013,7 @@ ib_verbs_event_handler (int fd, int idx, void *data,
                 ret = ib_verbs_handshake_pollin (this);
         }
 
-        if (poll_err) {
+        if (ret < 0 || poll_err) {
                 ret = ib_verbs_handshake_pollerr (this);
         }
 
