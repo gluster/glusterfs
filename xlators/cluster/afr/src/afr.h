@@ -389,6 +389,23 @@ typedef struct _afr_local {
 	afr_self_heal_t self_heal;
 } afr_local_t;
 
+
+typedef struct {
+        /*
+          split-brain situation in which afr
+          can do nothing
+        */
+        gf_boolean_t split_brain;
+
+        /*
+           subvolume from which all reads should
+           happen for this inode
+        */
+        int read_child;
+
+} afr_inode_ctx_t;
+
+
 /* try alloc and if it fails, goto label */
 #define ALLOC_OR_GOTO(var, type, label) do {			\
 		var = CALLOC (sizeof (type), 1);		\
