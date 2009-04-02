@@ -1658,6 +1658,8 @@ wb_flush (call_frame_t *frame,
                 process_frame->local = tmp_local;
         }
 
+        fd_ref (fd);
+
         wb_enqueue (file, stub);
 
         wb_process_queue (process_frame, file, 1); 
@@ -1677,6 +1679,8 @@ wb_flush (call_frame_t *frame,
                             fd);
                 STACK_DESTROY (process_frame->root);
         }
+
+        fd_unref (fd);
 
         return 0;
 }
