@@ -306,17 +306,24 @@ afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	int ret = -1;
 
+        afr_inode_ctx_t * inode_ctx = NULL;
+        uint64_t          ctx;
+
 	local = frame->local;
 
+        ret = inode_ctx_get (local->cont.lookup.inode, this, &ctx);
+
+        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
 	if (local->govinda_gOvinda) {
-		ret = inode_ctx_put (local->cont.lookup.inode, this, 1);
+                inode_ctx->split_brain = 1;
 
 		if (ret < 0) {
 			local->op_ret   = -1;
 			local->op_errno = -ret;
 		}
 	} else {
-		inode_ctx_del (local->cont.lookup.inode, this, NULL);
+                inode_ctx->split_brain = 0;
 	}
 
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
@@ -497,8 +504,11 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	afr_local_t   *local = NULL;
 	int            ret = -1;
 	int            i = 0;
+
 	int32_t        op_errno = 0;
 
+        afr_inode_ctx_t *inode_ctx = NULL;
+        uint64_t         ctx;
 
 	priv = this->private;
 
@@ -509,6 +519,30 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	frame->local = local;
 
 	loc_copy (&local->loc, loc);
+
+        ret       = inode_ctx_get (loc->inode, this, &ctx);
+        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+        if (ret < 0) {
+                inode_ctx = CALLOC (1, sizeof (afr_inode_ctx_t));
+
+                if (!inode_ctx) {
+                        op_errno = ENOMEM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "out of memory :(");
+                        goto out;
+                }
+
+                ret = inode_ctx_put (loc->inode, this,
+                                     (uint64_t)(long) inode_ctx);
+
+                if (ret < 0) {
+                        op_errno = EINVAL;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not set inode ctx");
+                        goto out;
+                }
+        }
 
 	local->reval_child_index = 0;
 
@@ -556,7 +590,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	ret = 0;
 out:
 	if (ret == -1)
-		AFR_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
+		AFR_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -625,7 +659,10 @@ afr_open (call_frame_t *frame, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t *   local = NULL;
-	
+
+        afr_inode_ctx_t * inode_ctx = NULL;
+        uint64_t          ctx;
+
 	int     i = 0;
 	int   ret = -1;
 
@@ -638,22 +675,33 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (this, out);
 	VALIDATE_OR_GOTO (this->private, out);
 	VALIDATE_OR_GOTO (loc, out);
-	
+
 	priv = this->private;
 
-	ret = inode_ctx_get (loc->inode, this, NULL);
-	if (ret == 0) {
-		/* if ctx is set it means self-heal failed */
+	ret = inode_ctx_get (loc->inode, this, &ctx);
 
-		gf_log (this->name, GF_LOG_WARNING, 
+	if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "inode ctx not set!");
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+        if (inode_ctx->split_brain) {
+		/* self-heal failed */
+
+		gf_log (this->name, GF_LOG_WARNING,
 			"returning EIO, file has to be manually corrected "
-			"in backend");
+			"in the backend");
+
 		op_errno = EIO;
 		goto out;
 	}
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
-	
+
 	ret = AFR_LOCAL_INIT (local, priv);
 	if (ret < 0) {
 		op_errno = -ret;
