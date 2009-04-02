@@ -429,8 +429,10 @@ stripe_stack_unwind_inode_lookup_cbk (call_frame_t *frame,
 					"%s returned error %s",
 					((call_frame_t *)cookie)->this->name,
 					strerror (op_errno));
-			local->op_errno = op_errno;
-			if (op_errno == ENOTCONN)
+                        if (local->op_errno != ESTALE)
+                                local->op_errno = op_errno;
+			if ((op_errno == ENOTCONN) 
+                            || (op_errno == ESTALE))
 				local->failed = 1;
 		}
  
