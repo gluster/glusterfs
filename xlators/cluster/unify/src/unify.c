@@ -341,15 +341,29 @@ unify_lookup_cbk (call_frame_t *frame,
 		callcnt = --local->call_count;
  
 		if (op_ret == -1) {
-			if ((op_errno != ENOTCONN) && (op_errno != ENOENT)) {
+                        if (local->revalidate &&
+                            (op_errno == ESTALE)) {
+                                /* ESTALE takes priority */
+                                local->op_errno = op_errno;
+                                local->failed = 1;
+                        }
+
+			if ((op_errno != ENOTCONN) 
+                            && (op_errno != ENOENT)
+                            && (local->op_errno != ESTALE)) {
+                                /* if local->op_errno is already ESTALE, then
+                                 * ESTALE has to propogated to the parent first.
+                                 * do not enter here.
+                                 */
 				gf_log (this->name, GF_LOG_ERROR,
 					"child(%s): path(%s): %s", 
 					priv->xl_array[(long)cookie]->name, 
 					local->loc1.path, strerror (op_errno));
-				local->op_errno = op_errno;
+                                local->op_errno = op_errno;
 				local->failed = 1;
 
 			} else if (local->revalidate && 
+                                   (local->op_errno != ESTALE) &&
 				   !(priv->optimist && (op_errno == ENOENT))) {
 
 				gf_log (this->name, 
@@ -420,7 +434,13 @@ unify_lookup_cbk (call_frame_t *frame,
 				local->list [local->index++] = 
 					(int16_t)(long)cookie;
 			}
-      
+                        
+                        if (!local->revalidate && S_ISDIR (buf->st_mode)) {
+                                /* fresh lookup of a directory */
+                                inode_ctx_put (local->loc1.inode, this, 
+                                               priv->inode_generation);
+                        }
+
 			if ((!local->dict) && dict &&
 			    (priv->xl_array[(long)cookie] != NS(this)))	{
 				local->dict = dict_ref (dict);
@@ -507,7 +527,8 @@ unify_lookup_cbk (call_frame_t *frame,
 		if ((local->op_ret >= 0) && local->failed && 
 		    local->revalidate) {
 			/* Done revalidate, but it failed */
-			if (op_errno != ENOTCONN) {
+			if ((op_errno != ENOTCONN) 
+                            && (local->op_errno != ESTALE)) {
 				gf_log (this->name, GF_LOG_ERROR, 
 					"Revalidate failed for path(%s): %s", 
 					local->loc1.path, strerror (op_errno));
@@ -572,6 +593,11 @@ unify_lookup (call_frame_t *frame,
 		STACK_UNWIND (frame, -1, ENOMEM, loc->inode, NULL, NULL);
 		return 0;
 	}
+        
+        if (inode_ctx_get (loc->inode, this, NULL)
+            && S_ISDIR (loc->inode->st_mode)) {
+                local->revalidate = 1;
+        }
 
 	if (!inode_ctx_get (loc->inode, this, NULL) && 
 	    loc->inode->st_mode && 
