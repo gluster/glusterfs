@@ -207,11 +207,20 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret == -1) {
 			local->op_errno = op_errno;
 
-			if (op_errno != ENOTCONN && op_errno != ENOENT) {
+			if ((op_errno != ENOTCONN) 
+                            && (op_errno != ENOENT)
+                            && (op_errno != ESTALE)) {
 				gf_log (this->name, GF_LOG_WARNING,
 					"subvolume %s returned -1 (%s)",
 					prev->this->name, strerror (op_errno));
 			}
+                        
+                        if (op_errno == ESTALE) {
+                                /* propogate the ESTALE to parent. 
+                                 * setting local->layout_mismatch would send
+                                 * ESTALE to parent. */
+                                local->layout_mismatch = 1;
+                        }
 
 			goto unlock;
 		}
