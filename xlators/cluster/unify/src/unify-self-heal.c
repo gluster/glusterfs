@@ -180,7 +180,7 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 			STACK_UNWIND (frame, local->op_ret, local->op_errno, 
 				      inode, &local->stbuf, local->dict);
 			if (tmp_dict)
-				dict_unref (local->dict);
+				dict_unref (tmp_dict);
 		}
 	}
   
