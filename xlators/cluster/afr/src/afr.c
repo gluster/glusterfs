@@ -355,9 +355,18 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			if (op_errno == ENOENT)
 				local->enoent_count++;
 			
-			if (op_errno != ENOTCONN)
-				local->op_errno = op_errno;
+			if (op_errno != ENOTCONN) {
+                                if (local->op_errno != ESTALE)
+                                        local->op_errno = op_errno;
+                        }
 
+                        if (op_errno == ESTALE) {
+                                /* no matter what other subvolumes return for
+                                 * this call, ESTALE _must_ be sent to parent
+                                 */
+                                local->op_ret = -1;
+                                local->op_errno = ESTALE;
+                        }
 			goto unlock;
 		}
 
@@ -383,7 +392,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		/* inode number should be preserved across revalidates */
 
 		if (local->success_count == 0) {
-			local->op_ret   = op_ret;
+                        if (local->op_errno != ESTALE)
+                                local->op_ret   = op_ret;
 				
 			local->cont.lookup.inode = inode;
 			local->cont.lookup.xattr = dict_ref (xattr);
