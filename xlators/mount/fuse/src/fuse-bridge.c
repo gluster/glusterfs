@@ -96,6 +96,9 @@ typedef struct fuse_private fuse_private_t;
                 dict_unref (refs);                                      \
         } while (0)
 
+#define GF_SELECT_LOG_LEVEL(_errno)                     \
+        (((_errno == ENOENT) || (_errno == ESTALE))?    \
+         GF_LOG_DEBUG : GF_LOG_WARNING)
 
 typedef struct {
         void          *pool;
@@ -296,7 +299,7 @@ need_fresh_lookup (int32_t op_ret, int32_t op_errno,
 {
         if (op_ret == -1) {
 		gf_log ("fuse-bridge",
-			(op_errno == ENOENT)? GF_LOG_DEBUG: GF_LOG_WARNING,
+			GF_SELECT_LOG_LEVEL(op_errno),
 			"revalidate of %s failed (%s)",
 			loc->path, strerror (op_errno));
                 return 1;
