@@ -345,9 +345,12 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	struct stat *   lookup_buf = NULL;
 	int             call_count = -1;
 	int             child_index = -1;
-	int             prev_child_index = -1;
+
 	uint32_t        open_fd_count = 0;
 	int             ret = 0;
+
+        afr_inode_ctx_t * inode_ctx = NULL;
+        uint64_t          ctx;
 
 	child_index = (long) cookie;
 	priv = this->private;
@@ -409,7 +412,52 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			lookup_buf->st_ino = afr_itransform (buf->st_ino,
 							     priv->child_count,
 							     child_index);
+
+                        ret = inode_ctx_get (local->cont.lookup.inode, this,
+                                             &ctx);
+
+                        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+                        if (priv->read_child >= 0) {
+                                inode_ctx->read_child = priv->read_child;
+                        } else {
+                                inode_ctx->read_child = child_index;
+                        }
+
 		} else {
+                        if ((local->op_ret == 0)
+                            && (child_index == local->read_child_index)) {
+                                
+                                /* 
+                                   lookup has succeeded on the read child.
+                                   So use its inode number
+                                */
+
+                                local->op_ret = op_ret;
+
+                                if (local->cont.lookup.xattr)
+                                        dict_unref (local->cont.lookup.xattr);
+                                
+                                local->cont.lookup.inode = inode;
+                                local->cont.lookup.xattr = dict_ref (xattr);
+
+                                *lookup_buf = *buf;
+                                lookup_buf->st_ino = afr_itransform (buf->st_ino,
+                                                                     priv->child_count,
+                                                                     child_index);
+
+                                ret = inode_ctx_get (local->cont.lookup.inode, this,
+                                                     &ctx);
+
+                                inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+                                if (priv->read_child >= 0) {
+                                        inode_ctx->read_child = priv->read_child;
+                                } else {
+                                        inode_ctx->read_child = local->read_child_index;
+                                }
+                        }
+
 			if (FILETYPE_DIFFERS (buf, lookup_buf)) {
 				/* mismatching filetypes with same name
 				   -- Govinda !! GOvinda !!!
@@ -430,15 +478,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			if (SIZE_DIFFERS (buf, lookup_buf)
 			    && S_ISREG (buf->st_mode)) {
 				local->need_data_self_heal = 1;
-			}
-
-			prev_child_index = afr_deitransform_orig (lookup_buf->st_ino, 
-								  priv->child_count);
-			if (child_index < prev_child_index) {
-				*lookup_buf = *buf;
-				lookup_buf->st_ino = afr_itransform (buf->st_ino,
-								     priv->child_count,
-								     child_index);
 			}
 		}
 
@@ -465,9 +504,13 @@ unlock:
 		}
 
 		if (local->success_count) {
-			/* check for govinda_gOvinda case in previous lookup */
-			if (!inode_ctx_get (local->cont.lookup.inode, 
-					   this, NULL))
+			/* check for split-brain case in previous lookup */
+                        ret = inode_ctx_get (local->cont.lookup.inode, this,
+                                             &ctx);
+
+                        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
+
+			if (inode_ctx->split_brain)
 				local->need_data_self_heal = 1;
 		}
 
@@ -544,7 +587,12 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-	local->reval_child_index = 0;
+        LOCK (&priv->read_child_lock);
+        {
+                local->read_child_index = (++priv->read_child_rr) 
+                        % (priv->child_count);
+        }
+        UNLOCK (&priv->read_child_lock);
 
 	local->call_count = priv->child_count;
 
@@ -2187,17 +2235,12 @@ init (xlator_t *this)
 		trav = trav->next;
 	}
 
-	/* XXX: return inode numbers from 1st subvolume till
-	   afr supports read-subvolume based on inode's ctx 
-	   (and not itransform) for this reason afr_deitransform() 
-	   returns 0 always
-	*/
-	priv->read_child = 0;
-
 	priv->wait_count = 1;
 
 	priv->child_count = child_count;
+
 	LOCK_INIT (&priv->lock);
+        LOCK_INIT (&priv->read_child_lock);
 
 	priv->child_up = CALLOC (sizeof (unsigned char), child_count);
 	if (!priv->child_up) {

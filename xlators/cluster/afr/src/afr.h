@@ -35,6 +35,9 @@ typedef struct _afr_private {
 	gf_lock_t lock;               /* to guard access to child_count, etc */
 	unsigned int child_count;     /* total number of children   */
 
+        unsigned int read_child_rr;   /* round-robin index of the read_child */
+        gf_lock_t read_child_lock;    /* lock to protect above */
+        
 	xlator_t **children;
 
 	unsigned char *child_up;
@@ -48,7 +51,7 @@ typedef struct _afr_private {
 	gf_boolean_t metadata_change_log;   /* on/off */
 	gf_boolean_t entry_change_log;      /* on/off */
 
-	unsigned int read_child;      /* read-subvolume */
+	int read_child;               /* read-subvolume */
 	unsigned int favorite_child;  /* subvolume to be preferred in resolving
 					 split-brain cases */
 
@@ -110,7 +113,8 @@ typedef struct _afr_local {
 	unsigned int need_data_self_heal;
 	unsigned int govinda_gOvinda;
 
-	unsigned int reval_child_index;
+	unsigned int read_child_index;
+        
 	int32_t op_ret;
 	int32_t op_errno;
 
