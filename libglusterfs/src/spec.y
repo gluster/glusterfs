@@ -431,7 +431,7 @@ execute_cmd (char *cmd, char **result, size_t size)
 {
 	FILE *fpp = NULL;
 	int i = 0, status = 0;
-	char character = 0;
+	int character = 0;
 	char *buf = *result;
 
 	fpp = popen (cmd, "r");
