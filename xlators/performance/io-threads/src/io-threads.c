@@ -1490,46 +1490,33 @@ iot_destroy_request (iot_request_t * req)
 }
 
 /* Must be called with worker lock held. */
-int
+gf_boolean_t
 iot_can_ordered_exit (iot_worker_t * worker)
 {
-        int             allow_exit = 0;
+        gf_boolean_t    allow_exit = _gf_false;
         iot_conf_t      *conf = NULL;
 
         conf = worker->conf;
-        if (worker->queue_size > 0)
-                goto decided;
-
         /* We dont want this thread to exit if its index is
          * below the min thread count.
          */
         if (worker->thread_idx >= conf->min_o_threads)
-                allow_exit = 1;
+                allow_exit = _gf_true;
 
-decided:
         return allow_exit;
 }
 
-int
+/* Must be called with worker lock held. */
+gf_boolean_t
 iot_ordered_exit (iot_worker_t *worker)
 {
-        int     allow_exit = 0;
+        gf_boolean_t     allow_exit = _gf_false;
 
-        /* It is possible that since the last time we timed out while
-         * waiting for a request, a new request has been added to this
-         * worker's request queue. Before we really exit, we must
-         * check for those requests.
-         */
-        pthread_mutex_lock (&worker->qlock);
-        {
-                allow_exit = iot_can_ordered_exit (worker);
-
-                if (allow_exit) {
-                        worker->state = IOT_STATE_DEAD;
-                        worker->thread = 0;
-                }
-       }
-        pthread_mutex_unlock (&worker->qlock);
+        allow_exit = iot_can_ordered_exit (worker);
+        if (allow_exit) {
+                worker->state = IOT_STATE_DEAD;
+                worker->thread = 0;
+        }
 
         return allow_exit;
 }
@@ -1537,9 +1524,10 @@ iot_ordered_exit (iot_worker_t *worker)
 int
 iot_ordered_request_wait (iot_worker_t * worker)
 {
-        struct timeval tv;
+        struct timeval  tv;
         struct timespec ts;
-        int waitres = 0;
+        int             waitres = 0;
+        int             retstat = 0;
 
         gettimeofday (&tv, NULL);
         ts.tv_sec = tv.tv_sec + worker->conf->o_idle_time;
@@ -1551,9 +1539,10 @@ iot_ordered_request_wait (iot_worker_t * worker)
         waitres = pthread_cond_timedwait (&worker->dq_cond, &worker->qlock,
                         &ts);
         if (waitres == ETIMEDOUT)
-                return -1;
+                if (iot_ordered_exit (worker))
+                        retstat = -1;
 
-        return 0;
+        return retstat;
 }
 
 call_stub_t *
@@ -1568,6 +1557,9 @@ iot_dequeue_ordered (iot_worker_t *worker)
                 while (!worker->queue_size) {
                         waitstat = 0;
                         waitstat = iot_ordered_request_wait (worker);
+                        /* We must've timed out and are now required to
+                         * exit.
+                         */
                         if (waitstat == -1)
                                 goto out;
                 }
@@ -1596,12 +1588,11 @@ iot_worker_ordered (void *arg)
 	while (1) {
 
                 stub = iot_dequeue_ordered (worker);
-                if (stub == NULL) {
-                        if (iot_ordered_exit (worker))
-                                break;
-                        else
-                                continue;
-                }
+                /* If stub is NULL, we must've timed out waiting for a
+                 * request and have now been allowed to exit.
+                 */
+                if (stub == NULL)
+                        break;
 		call_resume (stub);
 	}
 
