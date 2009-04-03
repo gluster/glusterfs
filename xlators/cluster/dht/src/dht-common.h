@@ -97,6 +97,13 @@ struct dht_local {
 };
 typedef struct dht_local dht_local_t;
 
+/* du - disk-usage */
+struct dht_du {
+        double   avail_percent;
+        uint64_t avail_space;
+        uint32_t log;
+};
+typedef struct dht_du dht_du_t;
 
 struct dht_conf {
 	gf_lock_t      subvolume_lock;
@@ -109,6 +116,10 @@ struct dht_conf {
 	dht_layout_t  *default_dir_layout;
 	gf_boolean_t   search_unhashed;
 	int            gen;
+        dht_du_t      *du_stats;
+        uint32_t       min_free_disk;
+        int32_t        refresh_interval;
+	struct timeval last_stat_fetch;
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -218,4 +229,10 @@ dht_layout_sort_volname (dht_layout_t *layout);
 
 int dht_rename (call_frame_t *frame, xlator_t *this,
 		loc_t *oldloc, loc_t *newloc);
+
+int dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc);
+
+int dht_is_subvol_filled (xlator_t *this, xlator_t *subvol);
+xlator_t *dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol);
+
 #endif /* _DHT_H */
