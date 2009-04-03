@@ -260,6 +260,7 @@ struct _glusterfs_ctx {
 	void              *graph;
 	void              *top; /* either fuse or server protocol */
 	void              *event_pool;
+        void              *iobuf_pool;
 	pthread_mutex_t    lock;
 	int                xl_count;
         uint32_t           volfile_checksum;
