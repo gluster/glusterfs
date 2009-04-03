@@ -53,6 +53,100 @@
 #include "afr-self-heal.h"
 
 
+uint64_t
+afr_is_split_brain (xlator_t *this, inode_t *inode)
+{
+        int ret = 0;
+
+        uint64_t ctx         = 0;
+        uint64_t split_brain = 0;
+        
+        LOCK (&inode->lock);
+        {
+                ret = __inode_ctx_get (inode, this, &ctx);
+
+                if (ret < 0)
+                        goto unlock;
+                
+                split_brain = ctx & 0xFFFFFFFF00000000ULL;
+        }
+unlock:
+        UNLOCK (&inode->lock);
+
+        return split_brain;
+}
+
+
+void
+afr_set_split_brain (xlator_t *this, inode_t *inode, int32_t split_brain)
+{
+        uint64_t ctx = 0;
+        int      ret = 0;
+
+        LOCK (&inode->lock);
+        {
+                ret = __inode_ctx_get (inode, this, &ctx);
+
+                if (ret < 0) {
+                        ctx = 0;
+                }
+
+                ctx = (0x00000000FFFFFFFFULL & ctx)
+                        | (split_brain & 0xFFFFFFFF00000000ULL);
+
+                __inode_ctx_put (inode, this, ctx);
+        }
+        UNLOCK (&inode->lock);
+}
+
+
+uint64_t
+afr_read_child (xlator_t *this, inode_t *inode)
+{
+        int ret = 0;
+
+        uint64_t ctx         = 0;
+        uint64_t read_child  = 0;
+        
+        LOCK (&inode->lock);
+        {
+                ret = __inode_ctx_get (inode, this, &ctx);
+
+                if (ret < 0)
+                        goto unlock;
+                
+                read_child = ctx & 0x00000000FFFFFFFFULL;
+        }
+unlock:
+        UNLOCK (&inode->lock);
+
+        return read_child;
+}
+
+
+void
+afr_set_read_child (xlator_t *this, inode_t *inode, int32_t read_child)
+{
+        uint64_t ctx = 0;
+        int      ret = 0;
+
+        LOCK (&inode->lock);
+        {
+                ret = __inode_ctx_get (inode, this, &ctx);
+
+                if (ret < 0) {
+                        ctx = 0;
+                }
+
+                ctx = (0xFFFFFFFF00000000ULL & ctx) 
+                        | (0x00000000FFFFFFFFULL & read_child);
+
+                __inode_ctx_put (inode, this, ctx);
+        }
+        UNLOCK (&inode->lock);
+}
+
+
 /**
  * afr_local_cleanup - cleanup everything in frame->local
  */
@@ -306,24 +400,17 @@ afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	int ret = -1;
 
-        afr_inode_ctx_t * inode_ctx = NULL;
-        uint64_t          ctx;
-
 	local = frame->local;
 
-        ret = inode_ctx_get (local->cont.lookup.inode, this, &ctx);
-
-        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
 	if (local->govinda_gOvinda) {
-                inode_ctx->split_brain = 1;
+                afr_set_split_brain (this, local->cont.lookup.inode, 1);
 
 		if (ret < 0) {
 			local->op_ret   = -1;
 			local->op_errno = -ret;
 		}
 	} else {
-                inode_ctx->split_brain = 0;
+                afr_set_split_brain (this, local->cont.lookup.inode, 0);
 	}
 
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
@@ -348,9 +435,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
 	uint32_t        open_fd_count = 0;
 	int             ret = 0;
-
-        afr_inode_ctx_t * inode_ctx = NULL;
-        uint64_t          ctx;
 
 	child_index = (long) cookie;
 	priv = this->private;
@@ -412,16 +496,15 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			lookup_buf->st_ino = afr_itransform (buf->st_ino,
 							     priv->child_count,
 							     child_index);
-
-                        ret = inode_ctx_get (local->cont.lookup.inode, this,
-                                             &ctx);
-
-                        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
+                        
                         if (priv->read_child >= 0) {
-                                inode_ctx->read_child = priv->read_child;
+                                afr_set_read_child (this,
+                                                    local->cont.lookup.inode, 
+                                                    priv->read_child);
                         } else {
-                                inode_ctx->read_child = child_index;
+                                afr_set_read_child (this,
+                                                    local->cont.lookup.inode, 
+                                                    child_index);
                         }
 
 		} else {
@@ -446,15 +529,14 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
                                                                      priv->child_count,
                                                                      child_index);
 
-                                ret = inode_ctx_get (local->cont.lookup.inode, this,
-                                                     &ctx);
-
-                                inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
                                 if (priv->read_child >= 0) {
-                                        inode_ctx->read_child = priv->read_child;
+                                        afr_set_read_child (this,
+                                                            local->cont.lookup.inode,
+                                                            priv->read_child);
                                 } else {
-                                        inode_ctx->read_child = local->read_child_index;
+                                        afr_set_read_child (this,
+                                                            local->cont.lookup.inode,
+                                                            local->read_child_index);
                                 }
                         }
 
@@ -505,12 +587,8 @@ unlock:
 
 		if (local->success_count) {
 			/* check for split-brain case in previous lookup */
-                        ret = inode_ctx_get (local->cont.lookup.inode, this,
-                                             &ctx);
-
-                        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
-			if (inode_ctx->split_brain)
+			if (afr_is_split_brain (this,
+                                                local->cont.lookup.inode))
 				local->need_data_self_heal = 1;
 		}
 
@@ -550,9 +628,6 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 	int32_t        op_errno = 0;
 
-        afr_inode_ctx_t *inode_ctx = NULL;
-        uint64_t         ctx;
-
 	priv = this->private;
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
@@ -562,30 +637,6 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	frame->local = local;
 
 	loc_copy (&local->loc, loc);
-
-        ret       = inode_ctx_get (loc->inode, this, &ctx);
-        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
-        if (ret < 0) {
-                inode_ctx = CALLOC (1, sizeof (afr_inode_ctx_t));
-
-                if (!inode_ctx) {
-                        op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory :(");
-                        goto out;
-                }
-
-                ret = inode_ctx_put (loc->inode, this,
-                                     (uint64_t)(long) inode_ctx);
-
-                if (ret < 0) {
-                        op_errno = EINVAL;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "could not set inode ctx");
-                        goto out;
-                }
-        }
 
         LOCK (&priv->read_child_lock);
         {
@@ -708,9 +759,6 @@ afr_open (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t *   local = NULL;
 
-        afr_inode_ctx_t * inode_ctx = NULL;
-        uint64_t          ctx;
-
 	int     i = 0;
 	int   ret = -1;
 
@@ -726,18 +774,7 @@ afr_open (call_frame_t *frame, xlator_t *this,
 
 	priv = this->private;
 
-	ret = inode_ctx_get (loc->inode, this, &ctx);
-
-	if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "inode ctx not set!");
-                op_errno = EINVAL;
-                goto out;
-        }
-
-        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
-        if (inode_ctx->split_brain) {
+        if (afr_is_split_brain (this, loc->inode)) {
 		/* self-heal failed */
 
 		gf_log (this->name, GF_LOG_WARNING,
