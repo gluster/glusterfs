@@ -282,7 +282,7 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
  		goto err;
 	
  	STACK_WIND (frame, dht_create_cbk,
- 		    conf->local_volume, conf->local_volume->fops->create,
+ 		    local->cached_subvol, local->cached_subvol->fops->create,
  		    &local->loc, local->flags, local->mode, local->fd);
 	
  	return 0;
@@ -299,6 +299,7 @@ nufa_create (call_frame_t *frame, xlator_t *this,
  	dht_local_t *local = NULL;
 	dht_conf_t  *conf  = NULL;
 	xlator_t    *subvol = NULL;
+        xlator_t    *avail_subvol = NULL;
 	int          op_errno = -1;
 	int          ret = -1;
 
@@ -307,6 +308,8 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (loc, err);
 
  	conf  = this->private; 	
+
+        dht_get_du_info (frame, this, loc);
 
         local = dht_local_init (frame);
 	if (!local) {
@@ -325,33 +328,42 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
- 	if (subvol != conf->local_volume) {
- 		/* create a link file instead of actual file */
- 		ret = loc_copy (&local->loc, loc);
- 		if (ret == -1) {
- 			gf_log (this->name, GF_LOG_ERROR,
- 				"memory allocation failed :(");
- 			op_errno = ENOMEM;
- 			goto err;
- 		}
- 
- 		local->fd = fd_ref (fd);
- 		local->mode = mode;
- 		local->flags = flags;
- 		
- 		dht_linkfile_create (frame, nufa_create_linkfile_create_cbk,
- 				      conf->local_volume, subvol, loc);
- 		return 0;
- 	}
+        avail_subvol = conf->local_volume;
+        if (dht_is_subvol_filled (this, conf->local_volume)) {
+                avail_subvol = 
+                        dht_free_disk_available_subvol (this, 
+                                                        conf->local_volume);
+        }
+                
+        if (subvol != avail_subvol) {
+                /* create a link file instead of actual file */
+                ret = loc_copy (&local->loc, loc);
+                if (ret == -1) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "memory allocation failed :(");
+                                op_errno = ENOMEM;
+                                goto err;
+                }
+                
+                local->fd = fd_ref (fd);
+                local->mode = mode;
+                local->flags = flags;
 
-	gf_log (this->name, GF_LOG_DEBUG,
-		"creating %s on %s", loc->path, subvol->name);
+                local->cached_subvol = avail_subvol;
+                dht_linkfile_create (frame, 
+                                     nufa_create_linkfile_create_cbk,
+                                     avail_subvol, subvol, loc);
+                return 0;
+        }
 
-	STACK_WIND (frame, dht_create_cbk,
-		    subvol, subvol->fops->create,
-		    loc, flags, mode, fd);
-
-	return 0;
+        gf_log (this->name, GF_LOG_DEBUG,
+                "creating %s on %s", loc->path, subvol->name);
+        
+        STACK_WIND (frame, dht_create_cbk,
+                    subvol, subvol->fops->create,
+                    loc, flags, mode, fd);
+        
+        return 0;
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
@@ -375,8 +387,8 @@ nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  	
  	if (op_ret >= 0) {
  		STACK_WIND (frame, dht_newfile_cbk,
- 			    conf->local_volume, 
- 			    conf->local_volume->fops->mknod,
+ 			    local->cached_subvol, 
+ 			    local->cached_subvol->fops->mknod,
  			    &local->loc, local->mode, local->rdev);
 		
  		return 0;
@@ -394,6 +406,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
  	dht_local_t *local = NULL;
 	dht_conf_t  *conf  = NULL;
 	xlator_t    *subvol = NULL;
+        xlator_t    *avail_subvol = NULL;
 	int          op_errno = -1;
 	int          ret = -1;
 
@@ -403,6 +416,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 
  	conf  = this->private; 	
 
+        dht_get_du_info (frame, this, loc);
 
         local = dht_local_init (frame);
 	if (!local) {
@@ -421,8 +435,15 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
+        /* Consider the disksize in consideration */
+        avail_subvol = conf->local_volume;
+        if (dht_is_subvol_filled (this, conf->local_volume)) {
+                avail_subvol = 
+                        dht_free_disk_available_subvol (this, 
+                                                        conf->local_volume);
+        }
 
- 	if (conf->local_volume != subvol) {
+ 	if (avail_subvol != subvol) {
  		/* Create linkfile first */
  		ret = loc_copy (&local->loc, loc);
  		if (ret == -1) {
@@ -434,9 +455,10 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
  
 		local->mode = mode;
  		local->rdev = rdev;
- 		
+ 		local->cached_subvol = avail_subvol;
+
  		dht_linkfile_create (frame, nufa_mknod_linkfile_cbk,
- 				      conf->local_volume, subvol, loc);
+                                     avail_subvol, subvol, loc);
  		return 0;
  	}
 
@@ -584,6 +606,20 @@ init (xlator_t *this)
 	/* The volume specified exists */
 	conf->local_volume = trav->xlator;
 
+        conf->min_free_disk = 10;
+
+	data = dict_get (this->options, "min-free-disk");
+	if (data) {
+		gf_string2percent (data->data, &conf->min_free_disk);
+	}
+
+        conf->du_stats = CALLOC (conf->subvolume_cnt, sizeof (dht_du_t));
+        if (!conf->du_stats) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "memory allocation failed :(");
+                goto err;
+        }
+
         this->private = conf;
 
         return 0;
@@ -605,6 +641,9 @@ err:
 
 		if (conf->subvolume_status)
 			FREE (conf->subvolume_status);
+
+                if (conf->du_stats)
+                        FREE (conf->du_stats);
 
                 FREE (conf);
         }
@@ -680,5 +719,8 @@ struct volume_options options[] = {
         { .key  = {"lookup-unhashed"}, 
 	  .type = GF_OPTION_TYPE_BOOL 
 	},
+        { .key  = {"min-free-disk"},
+          .type = GF_OPTION_TYPE_PERCENT
+        },
 	{ .key  = {NULL} },
 };
