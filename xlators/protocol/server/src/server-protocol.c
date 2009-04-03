@@ -4286,27 +4286,15 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
 	state = CALL_STATE(frame);
 	
 	state->fd_no = ntoh64 (req->fd);
-	state->fd = gf_fd_fdptr_get (conn->fdtable, 
-				     state->fd_no);
-	
-	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
 
 	gf_fd_put (conn->fdtable, 
 		   state->fd_no);
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
-		"%"PRId64": RELEASE \'fd=%"PRId64" (%"PRId64")\'", 
-		frame->root->unique, state->fd_no, state->fd->inode->ino);
+		"%"PRId64": RELEASE \'fd=%"PRId64"\'", 
+		frame->root->unique, state->fd_no);
 
-	STACK_WIND (frame,
-		    server_release_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->flush,
-		    state->fd);
-	return 0;
-fail:
-	server_release_cbk (frame, NULL, frame->this,
-			    -1, EINVAL);
+	server_release_cbk (frame, NULL, frame->this, 0, 0);
 	return 0;
 }
 
@@ -8269,6 +8257,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
 		ret = -1;
 		transport_disconnect (trans);
+                server_connection_cleanup (this, trans->xl_private);
 	}
 	break;
 

@@ -77,6 +77,9 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr);
 int32_t 
 gf_fd_unused_get2 (fdtable_t *fdtable, fd_t *fdptr, int32_t fd);
 
+fd_t **
+gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count);
+
 void 
 gf_fd_fdtable_destroy (fdtable_t *fdtable);
 
