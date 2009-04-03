@@ -30,6 +30,7 @@
 #include "dht-common.h"
 #include "defaults.h"
 
+#include <sys/time.h>
 
 /* TODO:
    - use volumename in xattr instead of "dht"
@@ -37,6 +38,7 @@
    - handle all cases in self heal layout reconstruction
    - complete linkfile selfheal
 */
+
 
 int
 dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
@@ -52,7 +54,8 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 
 	if (ret == 0) {
 		layout = local->selfheal.layout;
-		ret = inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
+		ret = inode_ctx_put (local->inode, this, 
+                                     (uint64_t)(long)layout);
 
 		if (ret == 0)
 			local->selfheal.layout = NULL;
@@ -2342,18 +2345,48 @@ out:
 	return 0;
 }
 
+int
+dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
+                               xlator_t *this,
+                               int32_t op_ret, int32_t op_errno,
+                               inode_t *inode, struct stat *stbuf)
+{
+	dht_local_t  *local = NULL;
+	xlator_t     *cached_subvol = NULL;
+
+        if (op_ret == -1)
+                goto err;
+
+	local = frame->local;
+	cached_subvol = local->cached_subvol;
+
+        STACK_WIND (frame, dht_newfile_cbk,
+                    cached_subvol, cached_subvol->fops->mknod,
+                    &local->loc, local->mode, local->rdev);
+
+        return 0;
+ err:
+ 	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);	
+ 	return 0;
+}
 
 int
 dht_mknod (call_frame_t *frame, xlator_t *this,
 	   loc_t *loc, mode_t mode, dev_t rdev)
 {
-	xlator_t  *subvol = NULL;
-	int        op_errno = -1;
-
+	xlator_t    *subvol = NULL;
+	int          op_errno = -1;
+        xlator_t    *avail_subvol = NULL;
+	dht_conf_t  *conf = NULL;
+	dht_local_t *local = NULL;
 
 	VALIDATE_OR_GOTO (frame, err);
 	VALIDATE_OR_GOTO (this, err);
 	VALIDATE_OR_GOTO (loc, err);
+
+	conf = this->private;
+
+        dht_get_du_info (frame, this, loc);
 
 	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
@@ -2364,12 +2397,31 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
-		"creating %s on %s", loc->path, subvol->name);
-
-	STACK_WIND (frame, dht_newfile_cbk,
-		    subvol, subvol->fops->mknod,
-		    loc, mode, rdev);
+        if (!dht_is_subvol_filled (this, subvol)) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "creating %s on %s", loc->path, subvol->name);
+                
+                STACK_WIND (frame, dht_newfile_cbk,
+                            subvol, subvol->fops->mknod,
+                            loc, mode, rdev);
+        } else {
+                /* Choose the minimum filled volume, and create the 
+                   files there */
+                local = dht_local_init (frame);
+                if (!local) {
+                        op_errno = ENOMEM;
+                        gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+                        goto err;
+                }
+                avail_subvol = dht_free_disk_available_subvol (this, subvol);
+                local->cached_subvol = avail_subvol;
+                local->mode = mode; 
+                local->rdev = rdev;
+                
+		dht_linkfile_create (frame, dht_mknod_linkfile_create_cbk,
+				     avail_subvol, subvol, loc);
+        }
 
 	return 0;
 
@@ -2625,7 +2677,6 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	dht_layout_t *layout = NULL;
 	int           ret = -1;
 
-
 	if (op_ret == -1)
 		goto out;
 
@@ -2659,16 +2710,56 @@ out:
 
 
 int
+dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
+				xlator_t *this,
+				int32_t op_ret, int32_t op_errno,
+				inode_t *inode, struct stat *stbuf)
+{
+	dht_local_t  *local = NULL;
+	xlator_t     *cached_subvol = NULL;
+
+        if (op_ret == -1)
+                goto err;
+
+	local = frame->local;
+	cached_subvol = local->cached_subvol;
+
+        STACK_WIND (frame, dht_create_cbk,
+                    cached_subvol, cached_subvol->fops->create,
+                    &local->loc, local->flags, local->mode, local->fd);
+
+        return 0;
+ err:
+ 	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);	
+ 	return 0;
+}
+
+int
 dht_create (call_frame_t *frame, xlator_t *this,
 	    loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
-	xlator_t  *subvol = NULL;
-	int        op_errno = -1;
-
+	int          op_errno = -1;
+        int          ret = -1;
+	xlator_t    *subvol = NULL;
+	dht_conf_t  *conf = NULL;
+        dht_local_t *local = NULL;
+        xlator_t    *avail_subvol = NULL;
 
 	VALIDATE_OR_GOTO (frame, err);
 	VALIDATE_OR_GOTO (this, err);
 	VALIDATE_OR_GOTO (loc, err);
+
+	conf = this->private;
+
+        dht_get_du_info (frame, this, loc);
+
+	local = dht_local_init (frame);
+	if (!local) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"memory allocation failed :(");
+		op_errno = ENOMEM;
+		goto err;
+	}
 
 	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
@@ -2679,12 +2770,37 @@ dht_create (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
-		"creating %s on %s", loc->path, subvol->name);
+        if (!dht_is_subvol_filled (this, subvol)) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "creating %s on %s", loc->path, subvol->name);
+                STACK_WIND (frame, dht_create_cbk,
+                            subvol, subvol->fops->create,
+                            loc, flags, mode, fd);
+        } else {
+                /* Choose the minimum filled volume, and create the 
+                   files there */
+                /* TODO */
+            	ret = loc_dup (loc, &local->loc);
+                if (ret == -1) {
+                        op_errno = ENOMEM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "memory allocation failed :(");
+                        goto err;
+                }
+                local->fd = fd_ref (fd);
+                local->flags = flags;
+                local->mode = mode;
+                avail_subvol = dht_free_disk_available_subvol (this, subvol);
 
-	STACK_WIND (frame, dht_create_cbk,
-		    subvol, subvol->fops->create,
-		    loc, flags, mode, fd);
+                local->cached_subvol = avail_subvol;
+                local->hashed_subvol = subvol;
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "creating %s on %s (link at %s)", loc->path, 
+                        avail_subvol->name, subvol->name);
+		dht_linkfile_create (frame, dht_create_linkfile_create_cbk,
+                                     avail_subvol, subvol, loc);
+                
+        }
 
 	return 0;
 
@@ -2727,17 +2843,27 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
 	int           ret = -1;
+        int           subvol_filled = 0;
 	call_frame_t *prev = NULL;
 	dht_layout_t *layout = NULL;
+	dht_conf_t   *conf = NULL;
 
+	conf = this->private;
 	local = frame->local;
 	prev  = cookie;
 	layout = local->layout;
 
+        subvol_filled = dht_is_subvol_filled (this, prev->this);
+
 	LOCK (&frame->lock);
 	{
-		ret = dht_layout_merge (this, layout, prev->this,
-					op_ret, op_errno, NULL);
+                if (subvol_filled && (op_ret != -1)) {
+                        ret = dht_layout_merge (this, layout, prev->this,
+                                                -1, ENOTCONN, NULL);
+                } else {
+                        ret = dht_layout_merge (this, layout, prev->this,
+                                                op_ret, op_errno, NULL);
+                }
 
 		if (op_ret == -1) {
 			local->op_errno = op_errno;
@@ -2777,9 +2903,13 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 	conf = this->private;
 	hashed_subvol = local->hashed_subvol;
 
-	ret = dht_layout_merge (this, layout, prev->this,
-				op_ret, op_errno, NULL);
-
+        if (dht_is_subvol_filled (this, hashed_subvol))
+                ret = dht_layout_merge (this, layout, prev->this,
+                                        -1, ENOTCONN, NULL);
+        else
+                ret = dht_layout_merge (this, layout, prev->this,
+                                        op_ret, op_errno, NULL);
+        
 	if (op_ret == -1) {
 		local->op_errno = op_errno;
 		goto err;
@@ -2829,6 +2959,8 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->path, err);
 
 	conf = this->private;
+
+        dht_get_du_info (frame, this, loc);
 
 	local = dht_local_init (frame);
 	if (!local) {

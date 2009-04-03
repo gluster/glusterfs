@@ -110,6 +110,15 @@ init (xlator_t *this)
 		gf_string2boolean (lookup_unhashed_str,
 				   &conf->search_unhashed);
 	}
+        
+        conf->min_free_disk = 10;
+
+	if (dict_get_str (this->options, "min-free-disk",
+			  &lookup_unhashed_str) == 0) {
+		gf_string2percent (lookup_unhashed_str,
+				   &conf->min_free_disk);
+	}
+
 
         ret = dht_init_subvolumes (this, conf);
         if (ret == -1) {
@@ -118,6 +127,13 @@ init (xlator_t *this)
 
         ret = dht_layouts_init (this, conf);
         if (ret == -1) {
+                goto err;
+        }
+
+        conf->du_stats = CALLOC (conf->subvolume_cnt, sizeof (dht_du_t));
+        if (!conf->du_stats) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "memory allocation failed :(");
                 goto err;
         }
 
@@ -146,6 +162,9 @@ err:
 
 		if (conf->subvolume_status)
 			FREE (conf->subvolume_status);
+
+                if (conf->du_stats)
+                        FREE (conf->du_stats);
 
                 FREE (conf);
         }
@@ -218,5 +237,8 @@ struct volume_options options[] = {
         { .key  = {"lookup-unhashed"}, 
 	  .type = GF_OPTION_TYPE_BOOL 
 	},
+        { .key  = {"min-free-disk"},
+          .type = GF_OPTION_TYPE_PERCENT
+        },
 	{ .key  = {NULL} },
 };
