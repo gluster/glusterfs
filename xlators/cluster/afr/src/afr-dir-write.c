@@ -71,41 +71,6 @@ afr_build_parent_loc (loc_t *parent, loc_t *child)
 	parent->ino    = parent->inode->ino;
 }
 
-
-afr_inode_ctx_t *
-afr_get_inode_ctx (xlator_t *this, inode_t *inode)
-{
-        afr_inode_ctx_t * inode_ctx = NULL;
-        uint64_t          ctx;
-
-        int               ret = 0;
-
-        LOCK (&inode->lock);
-        {
-                ret = __inode_ctx_get (inode, this, &ctx);
-
-                if (ret < 0) {
-                        inode_ctx = CALLOC (1, sizeof (afr_inode_ctx_t));
-                        
-                        ret = __inode_ctx_put (inode, this,
-                                             (uint64_t)(long) inode_ctx);
-
-                        if (ret < 0) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "could not set inode ctx");
-                                FREE (inode_ctx);
-                                inode_ctx = NULL;
-                        }
-                } else {
-                        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-                }
-        }
-        UNLOCK (&inode->lock);
-
-        return inode_ctx;
-}
-
-
 /* {{{ create */
 
 int
@@ -144,8 +109,6 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
         
-        afr_inode_ctx_t * inode_ctx = NULL;
-
 	int call_count = -1;
 	int child_index = -1;
 
@@ -169,26 +132,22 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 							priv->child_count,
 							child_index);
 
-                                inode_ctx = afr_get_inode_ctx (this, inode);
-                                
-                                if (inode_ctx) {
-                                        if (priv->read_child >= 0) {
-                                                inode_ctx->read_child = priv->read_child;
-                                        } else {
-                                                inode_ctx->read_child = local->read_child_index;
-                                        }
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this, inode, 
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this, inode, 
+                                                            local->read_child_index);
                                 }
 			}
                         
                         if (child_index == local->read_child_index) {
-                                inode_ctx = afr_get_inode_ctx (this, inode);
-                                
-                                if (inode_ctx) {
-                                        if (priv->read_child >= 0) {
-                                                inode_ctx->read_child = priv->read_child;
-                                        } else {
-                                                inode_ctx->read_child = local->read_child_index;
-                                        }
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this, inode, 
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this, inode,
+                                                            local->read_child_index);
                                 }
                         }
 
@@ -379,8 +338,6 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
-        afr_inode_ctx_t * inode_ctx = NULL;
-
 	int call_count = -1;
 	int child_index = -1;
 
@@ -404,26 +361,22 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 							priv->child_count,
 							child_index);
 
-                                inode_ctx = afr_get_inode_ctx (this, inode);
-                                
-                                if (inode_ctx) {
-                                        if (priv->read_child >= 0) {
-                                                inode_ctx->read_child = priv->read_child;
-                                        } else {
-                                                inode_ctx->read_child = local->read_child_index;
-                                        }
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this, inode,
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this, inode,
+                                                            local->read_child_index);
                                 }
 			}
 
                         if (child_index == local->read_child_index) {
-                                inode_ctx = afr_get_inode_ctx (this, inode);
-                                
-                                if (inode_ctx) {
-                                        if (priv->read_child >= 0) {
-                                                inode_ctx->read_child = priv->read_child;
-                                        } else {
-                                                inode_ctx->read_child = local->read_child_index;
-                                        }
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this, inode,
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this, inode,
+                                                            local->read_child_index);
                                 }
                         }
                         
@@ -610,8 +563,6 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
-        afr_inode_ctx_t * inode_ctx = NULL;
-
 	int call_count = -1;
 	int child_index = -1;
 
@@ -633,27 +584,23 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				local->cont.mkdir.buf.st_ino = 
 					afr_itransform (buf->st_ino, priv->child_count,
 							child_index);
-                                
-                                inode_ctx = afr_get_inode_ctx (this, inode);
-                                
-                                if (inode_ctx) {
-                                        if (priv->read_child >= 0) {
-                                                inode_ctx->read_child = priv->read_child;
-                                        } else {
-                                                inode_ctx->read_child = local->read_child_index;
-                                        }
+
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this, inode,
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this, inode,
+                                                            local->read_child_index);
                                 }
 			}
                         
                         if (child_index == local->read_child_index) {
-                                inode_ctx = afr_get_inode_ctx (this, inode);
-                                
-                                if (inode_ctx) {
-                                        if (priv->read_child >= 0) {
-                                                inode_ctx->read_child = priv->read_child;
-                                        } else {
-                                                inode_ctx->read_child = local->read_child_index;
-                                        }
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this, inode,
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this, inode,
+                                                            local->read_child_index);
                                 }
                         }
 
@@ -843,8 +790,6 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
-        afr_inode_ctx_t * inode_ctx = NULL;
-
 	int call_count = -1;
 	int child_index = -1;
 
@@ -867,26 +812,22 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					afr_itransform (buf->st_ino, priv->child_count,
 							child_index);
                                 
-                                inode_ctx = afr_get_inode_ctx (this, inode);
-                                
-                                if (inode_ctx) {
-                                        if (priv->read_child >= 0) {
-                                                inode_ctx->read_child = priv->read_child;
-                                        } else {
-                                                inode_ctx->read_child = local->read_child_index;
-                                        }
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this, inode,
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this, inode,
+                                                            local->read_child_index);
                                 }
 			}
                         
                         if (child_index == local->read_child_index) {
-                                inode_ctx = afr_get_inode_ctx (this, inode);
-                                
-                                if (inode_ctx) {
-                                        if (priv->read_child >= 0) {
-                                                inode_ctx->read_child = priv->read_child;
-                                        } else {
-                                                inode_ctx->read_child = local->read_child_index;
-                                        }
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this, inode,
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this, inode,
+                                                            local->read_child_index);
                                 }
                         }
 
@@ -1074,8 +1015,6 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
-        afr_inode_ctx_t * inode_ctx = NULL;
-
 	int call_count = -1;
 	int child_index = -1;
 
@@ -1098,26 +1037,22 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					afr_itransform (buf->st_ino, priv->child_count,
 							child_index);
                                 
-                                inode_ctx = afr_get_inode_ctx (this, inode);
-                                
-                                if (inode_ctx) {
-                                        if (priv->read_child >= 0) {
-                                                inode_ctx->read_child = priv->read_child;
-                                        } else {
-                                                inode_ctx->read_child = local->read_child_index;
-                                        }
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this, inode,
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this, inode,
+                                                            local->read_child_index);
                                 }
 			}
 
                         if (child_index == local->read_child_index) {
-                                inode_ctx = afr_get_inode_ctx (this, inode);
-                                
-                                if (inode_ctx) {
-                                        if (priv->read_child >= 0) {
-                                                inode_ctx->read_child = priv->read_child;
-                                        } else {
-                                                inode_ctx->read_child = local->read_child_index;
-                                        }
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this, inode,
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this, inode,
+                                                            local->read_child_index);
                                 }
                         }
 

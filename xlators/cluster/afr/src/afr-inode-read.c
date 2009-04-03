@@ -119,9 +119,8 @@ afr_access (call_frame_t *frame, xlator_t *this,
 	int             call_child = 0;
 	afr_local_t     *local     = NULL;
 
-        afr_inode_ctx_t * inode_ctx = NULL;
-        uint64_t          ctx;
-        int               ret       = 0;
+        int32_t         read_child = -1;
+
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -137,19 +136,10 @@ afr_access (call_frame_t *frame, xlator_t *this,
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
-        ret = inode_ctx_get (loc->inode, this,
-                             &ctx);
-        if (ret < 0) {
-                op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "inode ctx not set!");
-                goto out;
-        }
-
-        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
-        if (inode_ctx->read_child >= 0) {
-                call_child = inode_ctx->read_child;
+        read_child = afr_read_child (this, loc->inode);
+        
+        if (read_child >= 0) {
+                call_child = read_child;
 
                 local->cont.access.last_tried = -1;
 
@@ -249,10 +239,7 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 	afr_local_t   * local      = NULL;
 	xlator_t **     children   = NULL;
 
-        afr_inode_ctx_t * inode_ctx = NULL;
-        uint64_t          ctx;
-        int               ret       = 0;
-
+        int32_t         read_child = -1;
 	int             call_child = 0;
 
 	int32_t         op_ret     = -1;
@@ -271,19 +258,10 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-        ret = inode_ctx_get (loc->inode, this,
-                             &ctx);
-        if (ret < 0) {
-                op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "inode ctx not set!");
-                goto out;
-        }
+        read_child = afr_read_child (this, loc->inode);
 
-        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
-        if (inode_ctx->read_child >= 0) {
-                call_child = inode_ctx->read_child;
+        if (read_child >= 0) {
+                call_child = read_child;
 
                 local->cont.stat.last_tried = -1;
 
@@ -386,10 +364,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 	xlator_t **     children   = NULL;
 
 	int             call_child = 0;
-
-        afr_inode_ctx_t * inode_ctx = NULL;
-        uint64_t          ctx;
-        int               ret       = 0;
+        int32_t         read_child = -1;
 
 	int32_t         op_ret     = -1;
 	int32_t         op_errno   = 0;
@@ -410,20 +385,10 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
 	VALIDATE_OR_GOTO (fd->inode, out);
 
-        ret = inode_ctx_get (fd->inode, this,
-                             &ctx);
+        read_child = afr_read_child (this, fd->inode);
 
-        if (ret < 0) {
-                op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "inode ctx not set!");
-                goto out;
-        }
-
-        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
-        if (inode_ctx->read_child >= 0) {
-                call_child = inode_ctx->read_child;
+        if (read_child >= 0) {
+                call_child = read_child;
 
                 local->cont.fstat.last_tried = -1;
         } else {
@@ -521,9 +486,7 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 	int             call_child = 0;
 	afr_local_t     *local     = NULL;
 
-        afr_inode_ctx_t * inode_ctx = NULL;
-        uint64_t          ctx;
-        int               ret       = 0;
+        int32_t         read_child = -1;
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -541,19 +504,10 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-        ret = inode_ctx_get (loc->inode, this,
-                             &ctx);
-        if (ret < 0) {
-                op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "inode ctx not set!");
-                goto out;
-        }
+        read_child = afr_read_child (this, loc->inode);
 
-        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
-        if (inode_ctx->read_child >= 0) {
-                call_child = inode_ctx->read_child;
+        if (read_child >= 0) {
+                call_child = read_child;
 
                 local->cont.readlink.last_tried = -1;
 
@@ -652,9 +606,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	int               call_child = 0;
 	afr_local_t     * local      = NULL;
 
-        afr_inode_ctx_t * inode_ctx  = NULL;
-        uint64_t          ctx;
-        int               ret        = 0;
+        int               read_child = -1;
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -671,19 +623,10 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
 
-        ret = inode_ctx_get (loc->inode, this, &ctx);
+        read_child = afr_read_child (this, loc->inode);
 
-        if (ret < 0) {
-                op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "inode ctx not set!");
-                goto out;
-        }
-
-        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
-        if (inode_ctx->read_child >= 0) {
-                call_child = inode_ctx->read_child;
+        if (read_child >= 0) {
+                call_child = read_child;
 
                 local->cont.getxattr.last_tried = -1;
         } else {
@@ -804,10 +747,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 	afr_local_t   * local      = NULL;
 	xlator_t **     children   = NULL;
 
-        afr_inode_ctx_t * inode_ctx = NULL;
-        uint64_t          ctx;
-        int               ret       = 0;
-
+        int32_t         read_child = -1;
 	int             call_child = 0;
 
 	int32_t         op_ret     = -1;
@@ -825,20 +765,10 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-        ret = inode_ctx_get (fd->inode, this,
-                             &ctx);
+        read_child = afr_read_child (this, fd->inode);
 
-        if (ret < 0) {
-                op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "inode ctx not set!");
-                goto out;
-        }
-
-        inode_ctx = (afr_inode_ctx_t *)(long) ctx;
-
-        if (inode_ctx->read_child >= 0) {
-                call_child = inode_ctx->read_child;
+        if (read_child >= 0) {
+                call_child = read_child;
 
 		/*
 		   if read fails from the read child, we try
