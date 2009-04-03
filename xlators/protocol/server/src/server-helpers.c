@@ -398,19 +398,192 @@ out:
 }
 
 
-int
-server_connection_destroy (xlator_t *this, server_connection_t *conn)
+static int32_t
+server_connection_cleanup_flush_cbk (call_frame_t *frame,
+                                     void *cookie,
+                                     xlator_t *this,
+                                     int32_t op_ret,
+                                     int32_t op_errno)
 {
+        fd_t *fd = NULL;
+        fd = frame->local;
 
-	call_frame_t      *frame = NULL, *tmp_frame = NULL;
-	xlator_t          *bound_xl = NULL;
-	int32_t            ret = -1;
-	server_state_t    *state = NULL;
-	struct list_head   file_lockers;
-	struct list_head   dir_lockers;
+        fd_unref (fd);
+        frame->local = NULL;
+
+        STACK_DESTROY (frame->root);
+        return 0;
+}
+
+
+int
+server_connection_cleanup (xlator_t *this, server_connection_t *conn)
+{
+	call_frame_t       *frame = NULL, *tmp_frame = NULL;
+	xlator_t           *bound_xl = NULL;
+	server_state_t     *state = NULL;
+	struct list_head    file_lockers;
+	struct list_head    dir_lockers;
 	struct _lock_table *ltable = NULL;
 	struct _locker     *locker = NULL, *tmp = NULL;
 	struct flock        flock = {0,};
+        fd_t               *fd = NULL;
+        uint32_t            fd_count = 0;
+        fd_t              **fds = NULL;
+        int32_t             i = 0;
+ 
+	bound_xl = (xlator_t *) (conn->bound_xl);
+
+	if (bound_xl) {
+		/* trans will have ref_count = 1 after this call, but its 
+		   ok since this function is called in 
+		   GF_EVENT_TRANSPORT_CLEANUP */
+		frame = create_frame (this, this->ctx->pool);
+
+		pthread_mutex_lock (&(conn->lock));
+		{
+			if (conn->ltable) {
+				ltable = conn->ltable;
+				conn->ltable = gf_lock_table_new ();
+			}
+		}
+		pthread_mutex_unlock (&conn->lock);
+
+		INIT_LIST_HEAD (&file_lockers);
+		INIT_LIST_HEAD (&dir_lockers);
+
+		LOCK (&ltable->lock);
+		{
+			list_splice_init (&ltable->file_lockers, 
+					  &file_lockers);
+
+			list_splice_init (&ltable->dir_lockers, &dir_lockers);
+		}
+		UNLOCK (&ltable->lock);
+		free (ltable);
+
+		flock.l_type  = F_UNLCK;
+		flock.l_start = 0;
+		flock.l_len   = 0;
+		list_for_each_entry_safe (locker, 
+					  tmp, &file_lockers, lockers) {
+			tmp_frame = copy_frame (frame);
+			/* 
+			   pid = 0 is a special case that tells posix-locks
+			   to release all locks from this transport
+			*/
+			tmp_frame->root->pid = 0;
+			tmp_frame->root->trans = conn;
+
+			if (locker->fd) {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->finodelk,
+                                            locker->volume,
+					    locker->fd, F_SETLK, &flock);
+				fd_unref (locker->fd);
+			} else {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->inodelk,
+                                            locker->volume,
+					    &(locker->loc), F_SETLK, &flock);
+				loc_wipe (&locker->loc);
+			}
+
+                        free (locker->volume);
+
+			list_del_init (&locker->lockers);
+			free (locker);
+		}
+
+		tmp = NULL;
+		locker = NULL;
+		list_for_each_entry_safe (locker, tmp, &dir_lockers, lockers) {
+			tmp_frame = copy_frame (frame);
+
+			tmp_frame->root->pid = 0;
+			tmp_frame->root->trans = conn;
+
+			if (locker->fd) {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->fentrylk,
+                                            locker->volume,
+					    locker->fd, NULL, 
+					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+				fd_unref (locker->fd);
+			} else {
+				STACK_WIND (tmp_frame, server_nop_cbk,
+					    bound_xl,
+					    bound_xl->fops->entrylk,
+                                            locker->volume,
+					    &(locker->loc), NULL, 
+					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+				loc_wipe (&locker->loc);
+			}
+
+                        free (locker->volume);
+
+			list_del_init (&locker->lockers);
+			free (locker);
+		}
+
+                pthread_mutex_lock (&conn->lock);
+                {
+                        if (conn->fdtable) {
+                                fds = gf_fd_fdtable_get_all_fds (conn->fdtable,
+                                                                 &fd_count);
+                        }
+                }
+                pthread_mutex_unlock (&conn->lock);
+
+                if (fds != NULL) {
+                        for (i = 0;i < fd_count; i++) {
+                                fd = fds[i];
+
+                                if (fd != NULL) {
+                                        tmp_frame = copy_frame (frame);
+                                        tmp_frame->local = fd;
+                                        
+                                        tmp_frame->root->pid = 0;
+                                        tmp_frame->root->trans = conn;
+                                        STACK_WIND (tmp_frame,
+                                                    server_connection_cleanup_flush_cbk,
+                                                    bound_xl,
+                                                    bound_xl->fops->flush,
+                                                    fd);
+                                }
+                        }
+                        FREE (fds);
+                }
+
+		state = CALL_STATE (frame);
+		if (state)
+			free (state);
+		STACK_DESTROY (frame->root);
+        }
+
+        return 0;
+}
+
+
+int
+server_connection_destroy (xlator_t *this, server_connection_t *conn)
+{
+	call_frame_t       *frame = NULL, *tmp_frame = NULL;
+	xlator_t           *bound_xl = NULL;
+	int32_t             ret = -1;
+	server_state_t     *state = NULL;
+	struct list_head    file_lockers;
+	struct list_head    dir_lockers;
+	struct _lock_table *ltable = NULL;
+	struct _locker     *locker = NULL, *tmp = NULL;
+	struct flock        flock = {0,};
+        fd_t               *fd = NULL; 
+        int32_t             i = 0;
+        fd_t              **fds = NULL;
+        uint32_t             fd_count = 0;
 
 
 	bound_xl = (xlator_t *) (conn->bound_xl);
@@ -518,12 +691,30 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
 		pthread_mutex_lock (&(conn->lock));
 		{
 			if (conn->fdtable) {
+                                fds = gf_fd_fdtable_get_all_fds (conn->fdtable,
+                                                                 &fd_count);
 				gf_fd_fdtable_destroy (conn->fdtable);
 				conn->fdtable = NULL;
 			}
 		}
 		pthread_mutex_unlock (&conn->lock);
 
+                if (fds != NULL) {
+                        for (i = 0; i < fd_count; i++) {
+                                fd = fds[i];
+                                if (fd != NULL) {
+                                        tmp_frame = copy_frame (frame);
+                                        tmp_frame->local = fd;
+
+                                        STACK_WIND (tmp_frame,
+                                                    server_connection_cleanup_flush_cbk,
+                                                    bound_xl,
+                                                    bound_xl->fops->flush,
+                                                    fd);
+                                }
+                        }
+                        FREE (fds);
+                }
 	}
 
 	gf_log (this->name, GF_LOG_INFO, "destroyed connection of %s",

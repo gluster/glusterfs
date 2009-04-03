@@ -129,26 +129,68 @@ gf_fd_fdtable_alloc (void)
 	return fdtable;
 }
 
+fd_t **
+__gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
+{
+        fd_t **fds = NULL;
+
+        if (count == NULL) {
+                goto out;
+        }
+
+        fds = fdtable->fds;
+        fdtable->fds = calloc (fdtable->max_fds, sizeof (fd_t *));
+        *count = fdtable->max_fds;
+
+out:
+        return fds;
+}
+
+fd_t **
+gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
+{
+        fd_t **fds = NULL;
+        if (fdtable) {
+                pthread_mutex_lock (&fdtable->lock);
+                {
+                        fds = __gf_fd_fdtable_get_all_fds (fdtable, count);
+                }
+                pthread_mutex_unlock (&fdtable->lock);
+        }
+
+        return fds;
+}
+
 void 
 gf_fd_fdtable_destroy (fdtable_t *fdtable)
 {
-				
-	int32_t i = 0;
+        struct list_head  list = {0, };
+        fd_t             *fd = NULL;
+        fd_t            **fds = NULL;
+        uint32_t          fd_count = 0;
+        int32_t           i = 0; 
+
+        INIT_LIST_HEAD (&list);
 
 	if (fdtable) {
 		pthread_mutex_lock (&fdtable->lock);
 		{
-			for (i=0; i < fdtable->max_fds; i++) {
-				if (fdtable->fds[i]) {
-					fd_t *fd = fdtable->fds[i];
-						  
-					fd_unref (fd);
-				}
-			}
-
+                        fds = __gf_fd_fdtable_get_all_fds (fdtable, &fd_count);
 			FREE (fdtable->fds);
 		}
 		pthread_mutex_unlock (&fdtable->lock);
+
+                if (fds != NULL) {
+                        for (i = 0; i < fd_count; i++) {
+                                fd = fds[i];
+                                if (fd != NULL) {
+                                        fd_unref (fd);
+                                }
+                        }
+
+                        FREE (fds);
+                }
+
 		pthread_mutex_destroy (&fdtable->lock);
 		FREE (fdtable);
 	}

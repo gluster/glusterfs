@@ -83,6 +83,9 @@ int
 server_connection_destroy (xlator_t *this, server_connection_t *conn);
 
 int
+server_connection_cleanup (xlator_t *this, server_connection_t *conn);
+
+int
 server_nop_cbk (call_frame_t *frame, void *cookie,
 		xlator_t *this, int32_t op_ret, int32_t op_errno);
 
