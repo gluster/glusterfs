@@ -519,15 +519,22 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 
 	afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
-	afr_sh_mark_sources (sh->pending_matrix, sh->sources, 
-			     priv->child_count);
+	nsources = afr_sh_mark_sources (sh->pending_matrix, sh->sources,
+                                        priv->child_count);
 
 	afr_sh_supress_errenous_children (sh->sources, sh->child_errno,
 					  priv->child_count);
 
-	nsources = afr_sh_source_count (sh->sources, priv->child_count);
+        if (nsources == 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "No self-heal needed for %s",
+                        local->loc.path);
 
-	if ((nsources == 0)
+                afr_sh_metadata_finish (frame, this);
+                return 0;
+        }
+
+	if ((nsources == -1)
 	    && (priv->favorite_child != -1)
 	    && (sh->child_errno[priv->favorite_child] == 0)) {
 
@@ -542,7 +549,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 						priv->child_count);
 	}
 
-	if (nsources == 0) {
+	if (nsources == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"Unable to resolve conflicting metadata of %s. "
 			"Please resolve manually by fixing the "

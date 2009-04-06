@@ -446,6 +446,8 @@ afr_sh_mark_sources (int32_t *pending_matrix[], int sources[], int child_count)
 
                 if (afr_sh_wise_nodes_conflict (characters, child_count)) {
                         /* split-brain */
+
+                        nsources = -1;
                         goto out;
 
                 } else {
