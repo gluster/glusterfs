@@ -171,6 +171,8 @@ iot_schedule_ordered (iot_conf_t *conf,
         if (inode == NULL) {
                 gf_log (conf->this->name, GF_LOG_ERROR,
                                 "Got NULL inode for ordered request");
+                STACK_UNWIND (stub->frame, -1, EINVAL, NULL);
+                call_stub_destroy (stub);
                 return;
         }
         req = iot_init_request (stub);
@@ -182,6 +184,7 @@ iot_schedule_ordered (iot_conf_t *conf,
                                 "Insane worker index. Unwinding stack");
                         STACK_UNWIND (stub->frame, -1, ECANCELED, NULL);
                         iot_destroy_request (req);
+                        call_stub_destroy (stub);
                         goto unlock_out;
                 }
                 /* inode lock once acquired, cannot be left here
