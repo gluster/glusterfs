@@ -89,7 +89,7 @@ libgf_client_forget (xlator_t *this,
 	libglusterfs_client_inode_ctx_t *ctx = NULL;
 	
 	inode_ctx_del (inode, this, &ptr);
-        ctx = (libglusterfs_client_inode_ctx_t *)ptr;
+        ctx = (libglusterfs_client_inode_ctx_t *)(long) ptr;
 
 	FREE (ctx);
 
