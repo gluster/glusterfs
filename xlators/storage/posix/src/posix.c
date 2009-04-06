@@ -1371,7 +1371,6 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING,
                         "chown on %s failed: %s",
 			real_path, strerror (op_errno));
-                goto out;
         }
 #endif
 
@@ -1390,7 +1389,6 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "out of memory :(");
-                close (_fd);
                 goto out;
         }
 
@@ -1405,6 +1403,9 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
+
+        if ((-1 == op_ret) && (_fd != -1))
+                close (_fd);
 
         frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, fd, loc->inode, &stbuf);
