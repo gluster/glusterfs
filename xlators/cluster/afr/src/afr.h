@@ -411,6 +411,8 @@ typedef struct _afr_local {
 					   ((op_errno == ENOTCONN) || \
 					    (op_errno == EBADFD)))
 
+#define afr_fop_failed(op_ret, op_errno) ((op_ret) == -1)
+
 /* have we tried all children? */
 #define all_tried(i, count)  ((i) == (count) - 1)
 

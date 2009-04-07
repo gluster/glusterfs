@@ -94,7 +94,7 @@ afr_chmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		if (child_went_down (op_ret, op_errno))
+		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
 		if (op_ret != -1) {
@@ -289,7 +289,7 @@ afr_fchmod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		if (child_went_down (op_ret, op_errno))
+		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
 		if (op_ret != -1) {
@@ -483,7 +483,7 @@ afr_chown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		if (child_went_down (op_ret, op_errno))
+		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
 		if (op_ret != -1) {
@@ -681,7 +681,7 @@ afr_fchown_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		if (child_went_down (op_ret, op_errno))
+		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
 		if (op_ret != -1) {
@@ -878,7 +878,7 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		if (child_went_down (op_ret, op_errno))
+		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
 		if (op_ret != -1) {
@@ -1092,7 +1092,7 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		if (child_went_down (op_ret, op_errno))
+		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
 		if (op_ret != -1) {
@@ -1291,7 +1291,7 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		if (child_went_down (op_ret, op_errno))
+		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
 		if (op_ret != -1) {
@@ -1489,7 +1489,7 @@ afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
-		if (child_went_down (op_ret, op_errno))
+		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_child_died (frame, this, child_index);
 
 		if (op_ret != -1) {
