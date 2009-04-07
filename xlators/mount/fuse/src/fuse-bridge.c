@@ -2692,56 +2692,80 @@ notify (xlator_t *this, int32_t event,
         return 0;
 }
 
+static struct fuse_opt subtype_workaround[] = {
+	FUSE_OPT_KEY("subtype=", 0),
+	FUSE_OPT_KEY("fssubtype=", 0),
+	FUSE_OPT_END
+};
+
+static int
+subtype_workaround_optproc(void *data, const char *arg, int key,
+                           struct fuse_args *outargs)
+{
+	return key ? 1 : 0;
+}
+
 int 
 init (xlator_t *this_xl)
 {
 	int ret = 0;
 	dict_t *options = NULL;
 	char *value_string = NULL;
+	char *fsname = NULL, *fsname_opt = NULL;
 	fuse_private_t *priv = NULL;
 	struct stat stbuf = {0,};
+	struct fuse_args args = FUSE_ARGS_INIT(0, NULL);
+	char **p = NULL;
 
 #ifdef GF_DARWIN_HOST_OS
-        int fuse_argc = 9;
 	char *fuse_argv[] = {"glusterfs",
+			     "-o", "XXX",
+			     "-o", "fssubtype=glusterfs",
 			     "-o", "allow_other",
 			     "-o", "default_permissions",
-			     "-o", "fsname=glusterfs",
-			     "-o", "local",
+			     NULL, NULL,
 			     NULL};
 
+	for (p = fuse_argv; *p; p++);
+	if (!dict_get (options, "macfuse-local")) {
+		/* This way, GlusterFS will be detected as 'servers' instead
+		 *  of 'devices'. This method is useful if you want to do
+		 * 'umount <mount_point>' over network,  instead of 'eject'ing
+		 * it from desktop. Works better for servers
+		 */
+		*(p++) = "-o";
+		*(p++) = "local";
+	}
+
 #elif GF_LINUX_HOST_OS /* ! DARWIN_OS */
-        int fuse_argc = 19;
-	
 	char *fuse_argv[] = {"glusterfs",
+			     "-o", "XXX",
+			     "-o", "subtype=glusterfs",
 			     "-o", "nonempty",
 			     "-o", "max_readahead=1048576",
 			     "-o", "max_read=1048576",
 			     "-o", "max_write=1048576",
 			     "-o", "allow_other",
 			     "-o", "default_permissions",
-			     "-o", "fsname=glusterfs",
 			     "-o", "dev",
 			     "-o", "suid",
 			     NULL};
 
 #else /* BSD || SOLARIS */
 	/* BSD fuse doesn't support '-o dev', '-o nonempty' option */
-        int fuse_argc = 15;
-	
 	char *fuse_argv[] = {"glusterfs",
+			     "-o", "XXX",
+			     "-o", "subtype=glusterfs",
 			     "-o", "max_readahead=1048576",
 			     "-o", "max_read=1048576",
 			     "-o", "max_write=1048576",
 			     "-o", "allow_other",
 			     "-o", "default_permissions",
-			     "-o", "fsname=glusterfs",
 			     "-o", "suid",
 			     NULL};
 
 #endif /* ! DARWIN_OS || ! LINUX */
-        struct fuse_args args = FUSE_ARGS_INIT (fuse_argc, fuse_argv);
-	
+
 	if (this_xl == NULL)
 		return -1;
 	
@@ -2750,34 +2774,33 @@ init (xlator_t *this_xl)
 	
 	options = this_xl->options;
 	
-	if (this_xl->name == NULL)
+	if (this_xl->name == NULL) {
 		this_xl->name = strdup ("fuse");
+		ERR_ABORT(this_xl->name);
+	}
+
+	fsname = this_xl->ctx->cmd_args.volume_file;
+	fsname = (fsname ? fsname : this_xl->ctx->cmd_args.volfile_server);
+	fsname = (fsname ? fsname : "glusterfs");
+	ret = asprintf(&fsname_opt, "fsname=%s", fsname);
+	if (ret == -1)
+		ERR_ABORT(NULL);
+	fuse_argv[2] = fsname_opt;
+
+	for (p = fuse_argv; *p; p++);
+	args.argc = p - fuse_argv;
+	args.argv = fuse_argv;
 	
         priv = CALLOC (1, sizeof (*priv));
         ERR_ABORT (priv);
         this_xl->private = (void *) priv;
-
-
-#ifdef GF_DARWIN_HOST_OS
-	if (dict_get (options, "macfuse-local")) {
-		/* This way, GlusterFS will be detected as 'servers' instead
-		 *  of 'devices'. This method is useful if you want to do 
-		 * 'umount <mount_point>' over network,  instead of 'eject'ing
-		 * it from desktop. Works better for servers 
-		 */
-		/* Make the '-o local' in argv as NULL, so that its not 
-		   in effect */
-		fuse_argv[--args.argc] = NULL;
-		fuse_argv[--args.argc] = NULL;
-	}
-#endif /* ! DARWIN */
 
 	/* get options from option dictionary */
 	ret = dict_get_str (options, ZR_MOUNTPOINT_OPT, &value_string);
 	if (value_string == NULL) {
                 gf_log ("fuse", GF_LOG_ERROR, 
 			"mandatory option mountpoint is not specified");
-		return -1;
+		goto cleanup_exit;
 	}
 
 	if (stat (value_string, &stbuf) != 0) {
@@ -2796,17 +2819,17 @@ init (xlator_t *this_xl)
 				ZR_MOUNTPOINT_OPT,
 				value_string, strerror (errno));
 		}
-		return -1;
+		goto cleanup_exit;
 	}
 	
 	if (S_ISDIR (stbuf.st_mode) == 0) {
 		gf_log (this_xl->name, GF_LOG_ERROR ,
 			"%s %s is not a directory",
 			ZR_MOUNTPOINT_OPT, value_string);
-		return -1;
+		goto cleanup_exit;
 	}
 	priv->mount_point = strdup (value_string);
-	
+	ERR_ABORT(priv->mount_point);
 	
 	ret = dict_get_double (options, "attribute-timeout", 
 			       &priv->attribute_timeout);
@@ -2860,6 +2883,27 @@ init (xlator_t *this_xl)
         
         priv->se = fuse_lowlevel_new (&args, &fuse_ops, 
 				      sizeof (fuse_ops), this_xl);
+        if (priv->se == NULL && !errno) {
+        	/*
+        	 * Option parsing misery. Can happen if libfuse is of
+        	 * FUSE < 2.7.0, as then the "-o subtype" option is not
+        	 * handled.
+        	 *
+        	 * Best we can do to is to handle it at runtime -- this is not
+        	 * a binary incompatibility issue (which should dealt with at
+        	 * compile time), but a behavioural incompatibility issue. Ie.
+        	 * we can't tell in advance whether the lib we use supports
+        	 * "-o subtype". So try to be clever now.
+        	 *
+        	 * Delete the subtype option, and try again.
+        	 */
+        	if (fuse_opt_parse(&args, NULL, subtype_workaround,
+        	                   subtype_workaround_optproc) == 0)
+        		priv->se = fuse_lowlevel_new (&args, &fuse_ops,
+        			                      sizeof (fuse_ops),
+        		                              this_xl);
+        }
+
         if (priv->se == NULL) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "fuse_lowlevel_new() failed with error %s on "
@@ -2877,6 +2921,7 @@ init (xlator_t *this_xl)
         }
         
         fuse_opt_free_args (&args);
+        FREE (fsname_opt);
         
         fuse_session_add_chan (priv->se, priv->ch);
         
@@ -2893,7 +2938,9 @@ umount_exit:
         fuse_unmount (priv->mount_point, priv->ch);
 cleanup_exit:
         fuse_opt_free_args (&args);
-        FREE (priv->mount_point);
+        FREE (fsname_opt);
+        if (priv)
+        	FREE (priv->mount_point);
         FREE (priv);
         return -1;
 }
