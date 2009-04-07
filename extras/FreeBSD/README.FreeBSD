@@ -1,0 +1,11 @@
+Steps:
+
+1. Copy glusterfs-2.0.0rc1.tar.gz into /usr/ports/distfiles
+2. cd glusterfs/
+3. make install 
+4. make package
+5. pkg_add glusterfs-2.0.0rc1_1.tbz
+
+To uninstall
+1. make deinstall 
+2. pkg_delete glusterfs-2.0.0rc1_1
