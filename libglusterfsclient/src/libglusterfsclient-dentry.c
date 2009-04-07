@@ -348,12 +348,6 @@ __do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx,
                         op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL,
                                                       0);
                         if (op_ret == -1) {
-                                /* parent is resolved, file referred by the 
-                                   path may not be present on the storage*/
-                                if (strcmp (loc->path, "/") != 0) {
-                                        op_ret = 0;
-                                }
-
                                 libgf_client_loc_wipe (&new_loc);
                                 goto out;
                         }
