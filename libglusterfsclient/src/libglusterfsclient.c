@@ -3403,14 +3403,46 @@ out:
 	return op_ret;
 }
 
-
 static int32_t
-libgf_client_rmdir (libglusterfs_client_ctx_t *ctx,
-		    loc_t *loc)
+libgf_client_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+        int32_t op_ret, int32_t op_errno)
 {
-	return 0;
+        libgf_client_local_t *local = frame->local;
+
+        local->reply_stub = fop_rmdir_cbk_stub (frame, NULL, op_ret, op_errno);
+
+        pthread_mutex_lock (&local->lock);
+        {
+                local->complete = 1;
+                pthread_cond_broadcast (&local->reply_cond);
+        }
+        pthread_mutex_unlock (&local->lock);
+
+        return 0;
 }
 
+static int32_t
+libgf_client_rmdir (libglusterfs_client_ctx_t *ctx, loc_t *loc)
+{
+        int32_t op_ret = -1;
+        call_stub_t *stub = NULL;
+        libgf_client_local_t *local = NULL;
+
+        LIBGF_CLIENT_FOP (ctx, stub, rmdir, local, loc);
+
+        op_ret = stub->args.rmdir_cbk.op_ret;
+        errno = stub->args.rmdir_cbk.op_errno;
+
+        if (stub->args.rmdir_cbk.op_ret != 0)
+                goto out;
+
+        inode_unlink (loc->inode, loc->parent, loc->name);
+
+out:
+	call_stub_destroy (stub);
+
+	return op_ret;
+}
 
 int32_t
 glusterfs_rmdir (glusterfs_handle_t handle,
