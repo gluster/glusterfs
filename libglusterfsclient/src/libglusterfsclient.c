@@ -3387,6 +3387,7 @@ glusterfs_mkdir (glusterfs_handle_t handle,
 		goto out;
 	}
 
+        loc.inode = inode_new (ctx->itable);
 	op_ret = libgf_client_mkdir (ctx, &loc, mode); 
 	if (op_ret == -1) {
 		goto out;
