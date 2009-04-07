@@ -431,25 +431,19 @@ libgf_client_path_lookup (loc_t *loc,
                                 goto out;
                         }
                 }
-        } else {
-                gf_log ("libglusterfsclient",
-                        GF_LOG_DEBUG,
-                        "resolved path(%s) to %p(%"PRId64")/%p(%"PRId64")",
-                        loc->path, parent, (parent ? parent->ino : 0), 
-                        inode, (inode ? inode->ino : 0));
-                if (parent) {
-                        inode_unref (parent);
-                } else if (inode) {
-                        inode_unref (inode);
-                        gf_log ("libglusterfsclient",
-                                GF_LOG_ERROR,
-                                "undesired behaviour. inode(%"PRId64") for %s "
-                                "exists without parent (%s)", 
-                                inode->ino, loc->path, directory);
-                }
-                op_ret = __do_path_resolve (loc, ctx, lookup_basename);
         }
 
+        if (parent) {
+                inode_unref (parent);
+        } else if (inode) {
+                inode_unref (inode);
+                gf_log ("libglusterfsclient",
+                        GF_LOG_ERROR,
+                        "undesired behaviour. inode(%"PRId64") for %s "
+                        "exists without parent (%s)",
+                        inode->ino, loc->path, directory);
+        }
+        op_ret = __do_path_resolve (loc, ctx, lookup_basename);
 out:    
         if (pathname)
                 free (pathname);
