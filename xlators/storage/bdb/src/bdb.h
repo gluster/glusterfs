@@ -54,6 +54,8 @@
 #include "inode.h"
 #include "compat.h"
 #include "compat-errno.h"
+#include "fd.h"
+#include "syscall.h"
 
 #define BDB_STORAGE    "/glusterfs_storage.db"
 
@@ -73,6 +75,8 @@
 #define BDB_EXPORT_PATH_LEN(_private) \
         (((struct bdb_private *)_private)->export_path_length)
 
+#define BDB_KEY_FROM_FREQUEST_KEY(_key) (&(key[15]))
+
 #define BDB_EXPORT_PATH(_private) \
         (((struct bdb_private *)_private)->export_path)
 /* MAKE_REAL_PATH(var,this,path)
@@ -88,6 +92,12 @@
                 strcpy (var, BDB_EXPORT_PATH(this->private));           \
                 strcpy (&var[base_len], path);                          \
         } while (0)
+
+
+#define BDB_TIMED_LOG(_errno,_counter)  \
+        ((_errno == ENOTSUP) && (((++_counter) % GF_UNIVERSAL_ANSWER) == 1))
+
+#define GF_FILE_CONTENT_REQUEST ZR_FILE_CONTENT_REQUEST
 
 /* MAKE_REAL_PATH_TO_STORAGE_DB(var,this,path)
  * make the real path to the storage-database file on file-system
@@ -119,21 +129,6 @@
                 key = basename (tmp);                   \
         }while (0);
 
-/* BDB_DO_LSTAT(path,stbuf,dirent)
- * construct real-path to a dirent and do lstat on the real-path
- *
- * @path:   path to the directory whose readdir is currently in progress
- * @stbuf:  a 'struct stat *'
- * @dirent: a 'struct dirent *'
- */
-#define BDB_DO_LSTAT(path, stbuf, dirent) do {          \
-                char tmp_real_path[GF_PATH_MAX];        \
-                strcpy(tmp_real_path, path);            \
-                strcat (tmp_real_path, "/");            \
-                strcat(tmp_real_path, dirent->d_name);  \
-                ret = lstat (tmp_real_path, stbuf);     \
-        } while(0);
-
 /* IS_BDB_PRIVATE_FILE(name)
  * check if a given 'name' is bdb xlator's internal file name
  *
@@ -152,8 +147,7 @@
 #define IS_DOT_DOTDOT(name) \
         ((!strncmp(name,".", 1)) || (!strncmp(name,"..", 2)))
 
-/* BDB_SET_BCTX(this,inode,bctx)
- * put a stamp on inode. d00d, you are using bdb.. huhaha.
+/* BDB_ICTX_SET(this,inode,bctx)
  * pointer to 'struct bdb_ctx' is stored in inode's ctx of all directories.
  * this will happen either in lookup() or mkdir().
  *
@@ -161,28 +155,34 @@
  * @inode: inode where 'struct bdb_ctx *' has to be stored.
  * @bctx:  a 'struct bdb_ctx *'
  */
-#define BDB_SET_BCTX(this,inode,bctx) do{                               \
-                inode_ctx_put(inode, this, (uint64_t)(long)bctx);       \
+#define BDB_ICTX_SET(_inode,_this,_bctx) do{                            \
+                inode_ctx_put(_inode, _this, (uint64_t)(long)_bctx);    \
         }while (0);
 
-/* MAKE_BCTX_FROM_INODE(this,bctx,inode)
- * extract bdb xlator's 'struct bdb_ctx *' from an inode's ctx.
- * valid only if done for directory inodes, otherwise bctx = NULL.
+#define BDB_ICTX_GET(_inode,_this,_bctxp) do {                  \
+                uint64_t tmp_bctx = 0;                          \
+                inode_ctx_get (_inode, _this, &tmp_bctx);       \
+                *_bctxp = tmp_bctx;                             \
+        }while (0);
+
+/* BDB_FCTX_SET(this,fd,bctx)
+ * pointer to 'struct bdb_ctx' is stored in inode's ctx of all directories.
+ * this will happen either in lookup() or mkdir().
  *
  * @this:  pointer xlator_t of bdb xlator.
+ * @inode: inode where 'struct bdb_ctx *' has to be stored.
  * @bctx:  a 'struct bdb_ctx *'
- * @inode: inode from where 'struct bdb_ctx *' has to be extracted.
  */
-#define MAKE_BCTX_FROM_INODE(this,bctx,inode) do{       \
-                uint64_t tmp_bctx = 0;                  \
-                inode_ctx_get (inode, this, &tmp_bctx); \
-                if (ret == 0)                           \
-                        bctx = (void *)(long)tmp_bctx;  \
+#define BDB_FCTX_SET(_fd,_this,_bfd) do{                        \
+                fd_ctx_set(_fd, _this, (uint64_t)(long)_bfd);   \
         }while (0);
 
-#define BDB_SET_BFD(this,fd,bfd) do{                            \
-                fd_ctx_set (fd, this, (uint64_t)(long)bfd);     \
+#define BDB_FCTX_GET(_fd,_this,_bfdp) do {              \
+                uint64_t tmp_bfd = 0;                   \
+                fd_ctx_get (_fd, _this, &tmp_bfd);      \
+                *_bfdp = (void *)(long)tmp_bfd;         \
         }while (0);
+
 
 /* maximum number of open dbs that bdb xlator will ever have */
 #define BDB_MAX_OPEN_DBS 100
@@ -270,7 +270,8 @@ struct bdb_ctx {
         char              *directory;   /* directory path */
 
         /* pointer to open database, that resides inside this directory */
-        DB                *dbp;
+        DB                *primary;
+        DB                *secondary;
         uint32_t           cache;       /* cache ON or OFF */
 
         /* per directory cache, bdb xlator's internal cache */
@@ -298,8 +299,6 @@ struct bdb_dir {
         /* open directory pointer, as returned by opendir() */
         DIR            *dir;
 
-        /* FIXME: readdir offset, too crude. must go  */
-        char            offset[NAME_MAX];
         char           *path;             /* path to this directory */
 };
 
@@ -386,12 +385,6 @@ struct bdb_private {
          * (option checkpoint-interval <time-in-seconds>) */
         uint32_t             checkpoint_interval;
 
-        /* inode number allocation counter */
-        ino_t               next_ino;
-
-        /* lock to protect 'next_ino' */
-        gf_lock_t           ino_lock;
-
         /* environment log directory (option logdir <directory>) */
         char               *logdir;
 
@@ -436,26 +429,28 @@ bdb_txn_commit (DB_TXN *txnid)
         return txnid->commit (txnid, 0);
 }
 
-inline void *
-bdb_extract_bfd (fd_t *fd, xlator_t *this);
-
-
 void *
 bdb_db_stat (bctx_t *bctx,
              DB_TXN *txnid,
              uint32_t flags);
 
-int32_t
+/*int32_t
 bdb_db_get(struct bdb_ctx *bctx,
            DB_TXN *txnid,
            const char *key_string,
            char **buf,
            size_t size,
            off_t offset);
+*/
+int32_t
+bdb_db_fread (struct bdb_fd *bfd, char **bufp, size_t size, off_t offset);
+
+int32_t
+bdb_db_iread (struct bdb_ctx *bctx, const char *key, char **bufp);
 
 #define BDB_TRUNCATE_RECORD 0xcafebabe
 
-int32_t
+/*int32_t
 bdb_db_put (struct bdb_ctx *bctx,
             DB_TXN *txnid,
             const char *key_string,
@@ -463,16 +458,27 @@ bdb_db_put (struct bdb_ctx *bctx,
             size_t size,
             off_t offset,
             int32_t flags);
+*/
+int32_t
+bdb_db_icreate (struct bdb_ctx *bctx, const char *key);
 
 int32_t
-bdb_db_del (struct bdb_ctx *bctx,
-            DB_TXN *txnid,
-            const char *path);
+bdb_db_fwrite (struct bdb_fd *bfd, char *buf, size_t size, off_t offset);
+
+int32_t
+bdb_db_iwrite (struct bdb_ctx *bctx, const char *key, char *buf, size_t size);
+
+int32_t
+bdb_db_itruncate (struct bdb_ctx *bctx, const char *key);
+
+int32_t
+bdb_db_iremove (struct bdb_ctx *bctx,
+                const char *key);
 
 ino_t
 bdb_inode_transform (ino_t parent,
-                     struct bdb_ctx *bctx);
-
+                     const char *name,
+                     size_t namelen);
 
 int32_t
 bdb_cursor_open (struct bdb_ctx *bctx,
@@ -480,7 +486,7 @@ bdb_cursor_open (struct bdb_ctx *bctx,
 
 int32_t
 bdb_cursor_get (DBC *cursorp,
-                DBT *key,
+                DBT *sec, DBT *pri,
                 DBT *value,
                 int32_t flags);
 

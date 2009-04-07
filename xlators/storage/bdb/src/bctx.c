@@ -75,16 +75,31 @@ bctx_table_prune (bctx_table_t *table)
 
         list_for_each_entry_safe (del, tmp, &purge, list) {
                 list_del_init (&del->list);
-                if (del->dbp) {
-                        ret = del->dbp->close (del->dbp, 0);
+                if (del->primary) {
+                        ret = del->primary->close (del->primary, 0);
                         if (ret != 0) {
-                                gf_log (table->this->name, GF_LOG_ERROR,
-                                        "failed to close db on path (%s): %s",
+                                gf_log (table->this->name, GF_LOG_DEBUG,
+                                        "_BCTX_TABLE_PRUNE %s: %s "
+                                        "(failed to close primary database)",
                                         del->directory, db_strerror (ret));
                         } else {
-                                gf_log (table->this->name, GF_LOG_WARNING,
-                                        "close db for path %s; "
-                                        "table->lru_count = %d",
+                                gf_log (table->this->name, GF_LOG_DEBUG,
+                                        "_BCTX_TABLE_PRUNE %s (lru=%d)"
+                                        "(closed primary database)",
+                                        del->directory, table->lru_size);
+                        }
+                }
+                if (del->secondary) {
+                        ret = del->secondary->close (del->secondary, 0);
+                        if (ret != 0) {
+                                gf_log (table->this->name, GF_LOG_DEBUG,
+                                        "_BCTX_TABLE_PRUNE %s: %s "
+                                        "(failed to close secondary database)",
+                                        del->directory, db_strerror (ret));
+                        } else {
+                                gf_log (table->this->name, GF_LOG_DEBUG,
+                                        "_BCTX_TABLE_PRUNE %s (lru=%d)"
+                                        "(closed secondary database)",
                                         del->directory, table->lru_size);
                         }
                 }
@@ -130,7 +145,7 @@ __hash_bctx (bctx_t *bctx)
 static inline bctx_t *
 __bctx_passivate (bctx_t *bctx)
 {
-        if (bctx->dbp) {
+        if (bctx->primary) {
                 list_move_tail (&bctx->list, &(bctx->table->b_lru));
                 bctx->table->lru_size++;
         } else {
