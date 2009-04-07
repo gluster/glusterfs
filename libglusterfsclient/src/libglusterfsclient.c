@@ -1543,6 +1543,9 @@ glusterfs_open (glusterfs_handle_t handle,
                 goto out;
         }
 
+	pathname = strdup (path);
+	name = basename (pathname);
+
         ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, name);
 	if (ret == -1) {
 		gf_log ("libglusterfsclient",
@@ -1551,9 +1554,6 @@ glusterfs_open (glusterfs_handle_t handle,
 		errno = EINVAL;
 		goto out;
 	}
-
-	pathname = strdup (path);
-	name = basename (pathname);
 
 	this = ctx->gf_ctx.graph;
         fd = fd_create (loc.inode, 0);
