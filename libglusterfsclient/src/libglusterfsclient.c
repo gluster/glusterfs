@@ -3369,6 +3369,12 @@ glusterfs_mkdir (glusterfs_handle_t handle,
 		goto out;
 	}
 
+        op_ret = libgf_client_path_lookup (&loc, ctx, 0);
+        if (op_ret == -1) {
+                errno = ENOENT;
+                goto out;
+        }
+
 	pathname = strdup (path);
 	name = basename (pathname);
 
