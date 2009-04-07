@@ -1,0 +1,17 @@
+
+1. Download GlusterFS.2.0.0rc1.i86pc.Solaris.2.11.pkg.tgz to /tmp
+2. tar xvf GlusterFS.2.0.0rc1.i86pc.Solaris.2.11.pkg.tgz in /tmp
+3. pkgadd -d /tmp GlusterFS
+4. 
+$ pkginfo GlusterFS
+system      GlusterFS GlusterFS 2.0.0rc1
+$ which glusterfs
+/usr/sfw/sbin/glusterfs
+$ glusterfs --version
+glusterfs 2.0.0rc1 built on Jan 16 2009 03:36:59
+Repository revision: glusterfs--mainline--3.0--patch-844
+Copyright (c) 2006, 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>
+GlusterFS comes with ABSOLUTELY NO WARRANTY.
+You may redistribute copies of GlusterFS under the terms of the GNU General Public License.
+
+Thats it you are done! 

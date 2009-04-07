@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+expected_platform="i386"
+#
+release=`uname -r`
+platform=`uname -p`
+#
+if [ ${platform} != ${expected_platform} ]; then
+    echo "\n\n\n\tThis package must be installed on a ${expected_platform} architecture\n"
+    echo "\tAborting installation.\n\n\n"
+    exit 1
+fi
+exit 0

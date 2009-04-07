@@ -1,0 +1,215 @@
+i pkginfo
+i checkinstall
+d none /usr/sfw 0755 root bin
+d none /usr/sfw/var 0755 root root
+d none /usr/sfw/var/log 0755 root root
+d none /usr/sfw/var/log/glusterfs 0755 root root
+d none /usr/sfw/var/run 0755 root root
+d none /usr/sfw/share 0755 root bin
+d none /usr/sfw/share/man 0755 root bin
+d none /usr/sfw/share/man/man8 0755 root bin
+f none /usr/sfw/share/man/man8/glusterfs.8 0644 root root
+d none /usr/sfw/share/doc 0755 root bin
+d none /usr/sfw/share/doc/glusterfs 0755 root root
+d none /usr/sfw/share/doc/glusterfs/examples 0755 root root
+f none /usr/sfw/share/doc/glusterfs/examples/README 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/read-ahead.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/trash.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/unify.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/filter.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/protocol-server.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/io-threads.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/posix-locks.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/trace.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/protocol-client.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/write-behind.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/stripe.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/afr.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/examples/io-cache.vol 0644 root root
+f none /usr/sfw/share/doc/glusterfs/glusterfs-mode.el 0644 root root
+d none /usr/sfw/etc 0755 root root
+d none /usr/sfw/etc/glusterfs 0755 root root
+f none /usr/sfw/etc/glusterfs/glusterfs-client.vol.sample 0644 root root
+f none /usr/sfw/etc/glusterfs/glusterfs-server.vol.sample 0644 root root
+d none /usr/sfw/include 0755 root bin
+f none /usr/sfw/include/libglusterfsclient.h 0644 root root
+d none /usr/sfw/lib 0755 root bin
+s none /usr/sfw/lib/libglusterfsclient.so.0=libglusterfsclient.so.0.0.0
+f none /usr/sfw/lib/libglusterfsclient.so.0.0.0 0755 root root
+f none /usr/sfw/lib/libglusterfsclient.a 0644 root root
+f none /usr/sfw/lib/libglusterfs.a 0644 root root
+f none /usr/sfw/lib/libglusterfs.so.0.0.0 0755 root root
+s none /usr/sfw/lib/libglusterfsclient.so=libglusterfsclient.so.0.0.0
+s none /usr/sfw/lib/libglusterfs.so.0=libglusterfs.so.0.0.0
+s none /usr/sfw/lib/libglusterfs.so=libglusterfs.so.0.0.0
+d none /usr/sfw/lib/glusterfs 0755 root root
+d none /usr/sfw/lib/glusterfs/2.0.0rc1 0755 root root
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/transport 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/transport/socket.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/transport/socket.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/transport/socket.so=socket.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/transport/socket.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/transport/socket.so.0=socket.so.0.0.0
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/auth 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/auth/addr.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/auth/addr.so=addr.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/auth/login.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/auth/login.so=login.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/auth/addr.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/auth/addr.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/auth/addr.so.0=addr.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/auth/login.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/auth/login.so.0=login.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/auth/login.la 0755 root root
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/random.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/nufa.so=nufa.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/random.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/switch.so=switch.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/nufa.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/nufa.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/rr.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/switch.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/nufa.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/alu.so.0=alu.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/alu.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/random.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/rr.so.0=rr.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/alu.so=alu.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/switch.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/random.so.0=random.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/rr.so=rr.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/alu.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/rr.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/alu.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/switch.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/rr.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/nufa.so.0=nufa.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/switch.so.0=switch.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/scheduler/random.so=random.so.0.0.0
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator 0755 root root
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/io-cache.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/read-ahead.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/io-cache.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/symlink-cache.so=symlink-cache.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/io-cache.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/write-behind.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/write-behind.so.0=write-behind.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/symlink-cache.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/write-behind.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/io-threads.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/write-behind.so=write-behind.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/io-cache.so=io-cache.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/symlink-cache.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/read-ahead.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/symlink-cache.so.0=symlink-cache.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/write-behind.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/read-ahead.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/io-threads.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/io-threads.so.0=io-threads.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/symlink-cache.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/read-ahead.so.0=read-ahead.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/io-threads.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/io-threads.so=io-threads.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/read-ahead.so=read-ahead.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/performance/io-cache.so.0=io-cache.so.0.0.0
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/encryption 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/encryption/rot-13.so=rot-13.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/encryption/rot-13.so.0=rot-13.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/encryption/rot-13.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/encryption/rot-13.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/encryption/rot-13.a 0644 root root
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol/server.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol/client.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol/server.so.0=server.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol/client.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol/client.so.0=client.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol/client.so=client.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol/server.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol/server.so=server.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol/server.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/protocol/client.la 0755 root root
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/trash.so=trash.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/quota.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/quota.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/path-converter.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/trash.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/trash.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/filter.so=filter.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/path-converter.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/locks.so.0=locks.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/path-converter.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/locks.so=locks.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/locks.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/filter.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/locks.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/path-converter.so.0=path-converter.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/path-converter.so=path-converter.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/filter.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/quota.so=quota.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/trash.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/filter.so.0=filter.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/quota.so.0.0.0 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/quota.so.0=quota.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/trash.so.0=trash.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/locks.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/posix-locks.so=locks.so
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/features/filter.so.0.0.0 0755 root root
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/nufa.so.0=nufa.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/dht.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/ha.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/stripe.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/unify.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/ha.so=ha.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/nufa.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/stripe.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/afr.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/stripe.so.0=stripe.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/unify.so.0=unify.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/distribute.so=dht.so
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/ha.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/replicate.so=afr.so
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/unify.so=unify.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/afr.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/unify.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/nufa.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/ha.so.0=ha.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/ha.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/stripe.so=stripe.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/nufa.so=nufa.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/afr.so=afr.so.0.0.0
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/dht.so=dht.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/dht.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/unify.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/dht.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/stripe.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/dht.so.0=dht.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/afr.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/nufa.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/cluster/afr.so.0=afr.so.0.0.0
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug/trace.so=trace.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug/error-gen.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug/trace.so.0=trace.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug/trace.la 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug/error-gen.so=error-gen.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug/trace.a 0644 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug/error-gen.so.0.0.0 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug/error-gen.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug/error-gen.so.0=error-gen.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/debug/trace.so.0.0.0 0755 root root
+d none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/storage 0755 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/storage/posix.so=posix.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/storage/posix.la 0755 root root
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/storage/posix.a 0644 root root
+s none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/storage/posix.so.0=posix.so.0.0.0
+f none /usr/sfw/lib/glusterfs/2.0.0rc1/xlator/storage/posix.so.0.0.0 0755 root root
+f none /usr/sfw/lib/libglusterfsclient.la 0755 root root
+f none /usr/sfw/lib/libglusterfs.la 0755 root root
+d none /usr/sfw/sbin 0755 root bin
+s none /usr/sfw/sbin/glusterfs=glusterfsd
+f none /usr/sfw/sbin/glusterfsd 0755 root root
