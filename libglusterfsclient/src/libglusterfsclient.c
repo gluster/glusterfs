@@ -3363,10 +3363,9 @@ glusterfs_mkdir (glusterfs_handle_t handle,
 
 	loc.path = strdup (path);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
-	if (op_ret == -1) {
-		gf_log ("libglusterfsclient",
-			GF_LOG_ERROR,
-			"path lookup failed for (%s)", path);
+	if (op_ret == 0) {
+                op_ret = -1;
+                errno = EEXIST;
 		goto out;
 	}
 
