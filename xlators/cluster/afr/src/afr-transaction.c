@@ -44,6 +44,55 @@ __mark_child_dead (int32_t *pending, int child_count, int child)
 
 
 static void
+__mark_fop_failed_on_fd (fd_t *fd, xlator_t *this,
+                         int child_index)
+{
+        uint64_t       ctx;
+        afr_fd_ctx_t * fd_ctx = NULL;
+
+        int ret = 0;
+
+        ret = fd_ctx_get (fd, this, &ctx);
+
+        if (ret < 0)
+                goto out;
+
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+        fd_ctx->child_failed[child_index] = 1;
+out:
+        return;
+}
+
+
+static void
+__mark_failed_children (int32_t *pending, int child_count, 
+                        xlator_t *this, fd_t *fd)
+{
+        uint64_t       ctx;
+        afr_fd_ctx_t * fd_ctx = NULL;
+
+        int ret = 0;
+        int i   = 0;
+
+        ret = fd_ctx_get (fd, this, &ctx);
+
+        if (ret < 0)
+                goto out;
+
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+        for (i = 0; i < child_count; i++) {
+                if (fd_ctx->child_failed[i])
+                        pending[i] = 0;
+        }
+        
+out:
+        return;
+}
+
+
+static void
 __mark_down_children (int32_t *pending, int child_count, unsigned char *child_up)
 {
 	int i;
@@ -70,39 +119,58 @@ __is_first_write_on_fd (xlator_t *this, fd_t *fd)
         int op_ret     = 0;
         int _ret       = -1;
 
-        LOCK (&fd->inode->lock);
+        uint64_t       ctx;
+        afr_fd_ctx_t * fd_ctx = NULL;
+
+        LOCK (&fd->lock);
         {
-                _ret = fd_ctx_get (fd, this, NULL);
+                _ret = __fd_ctx_get (fd, this, &ctx);
+                
                 if (_ret < 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "first writev() on fd=%p, writing changelog",
+                                "could not get fd ctx on fd=%p",
                                 fd);
+                        goto out;
+                }
 
-                        _ret = fd_ctx_set (fd, this, 0xaf1);
+                fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+                if (fd_ctx->pre_op_done == 0) {
+                        fd_ctx->pre_op_done = 1;
                         op_ret = 1;
                 }
         }
-        UNLOCK (&fd->inode->lock);
+out:
+        UNLOCK (&fd->lock);
 
         return op_ret;
 }
 
 
 static int
-__unset_fd_ctx_if_set (xlator_t *this, fd_t *fd)
+__if_fd_pre_op_done (xlator_t *this, fd_t *fd)
 {
         int op_ret = 0;
         int _ret   = -1;
 
-        LOCK (&fd->inode->lock);
+        uint64_t       ctx;
+        afr_fd_ctx_t * fd_ctx = NULL;
+
+        LOCK (&fd->lock);
         {
-                _ret = fd_ctx_get (fd, this, NULL);
-                if (_ret == 0) {
-                        fd_ctx_del (fd, this, NULL);
-                        op_ret = 1;
+                _ret = __fd_ctx_get (fd, this, &ctx);
+
+                if (_ret < 0) {
+                        goto out;
                 }
+
+                fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+                if (fd_ctx->pre_op_done)
+                        op_ret = 1;
         }
-        UNLOCK (&fd->inode->lock);
+out:
+        UNLOCK (&fd->lock);
 
         return op_ret;
 }
@@ -206,7 +274,7 @@ __changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
                         break;
 
                 case GF_FOP_FLUSH:
-                        op_ret = __unset_fd_ctx_if_set (this, local->fd);
+                        op_ret = __if_fd_pre_op_done (this, local->fd);
                         break;
 
                 default:
@@ -413,8 +481,13 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 
-	__mark_all_success (local->pending_array, priv->child_count);
-	__mark_down_children (local->pending_array, priv->child_count, local->child_up);
+	__mark_down_children (local->pending_array, priv->child_count, 
+                              local->child_up);
+        
+        if (local->op == GF_FOP_FLUSH) {
+                __mark_failed_children (local->pending_array, priv->child_count,
+                                        this, local->fd);
+        }
 
 	call_count = afr_up_children_count (priv->child_count, local->child_up); 
 
@@ -559,6 +632,9 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		    (local->op_errno == ENOTSUP)) {
 			local->transaction.resume (frame, this);
 		} else {
+                        __mark_all_success (local->pending_array,
+                                            priv->child_count);
+                                
 			local->transaction.fop (frame, this);
 		}
 	}
@@ -826,6 +902,9 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 		if (__changelog_needed_pre_op (frame, this)) {
 			afr_changelog_pre_op (frame, this);
 		} else {
+                        __mark_all_success (local->pending_array,
+                                            priv->child_count);
+
 			local->transaction.fop (frame, this);
 		}
 
@@ -958,11 +1037,11 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 
 
 /**
- * afr_transaction_child_died - inform that a child died during an fop
+ * afr_transaction_fop_failed - inform that an fop failed
  */
 
 void
-afr_transaction_child_died (call_frame_t *frame, xlator_t *this, int child_index)
+afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -970,7 +1049,15 @@ afr_transaction_child_died (call_frame_t *frame, xlator_t *this, int child_index
 	local = frame->local;
 	priv  = this->private;
 
-	__mark_child_dead (local->pending_array, priv->child_count, child_index);
+        switch (local->op) {
+        case GF_FOP_WRITE:
+                __mark_fop_failed_on_fd (local->fd, this, child_index);
+                break;
+        default:
+                __mark_child_dead (local->pending_array, priv->child_count,
+                                   child_index);
+                break;
+        }
 }
 
 
@@ -992,6 +1079,9 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 		if (__changelog_needed_pre_op (frame, this)) {
 			afr_changelog_pre_op (frame, this);
 		} else {
+                        __mark_all_success (local->pending_array,
+                                            priv->child_count);
+
 			local->transaction.fop (frame, this);
 		}
 	} else {
