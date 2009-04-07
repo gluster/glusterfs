@@ -27,7 +27,7 @@
 #define AFR_ENTRY_PENDING "trusted.glusterfs.afr.entry-pending"
 
 void
-afr_transaction_child_died (call_frame_t *frame, xlator_t *this,
+afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this,
 			    int child_index);
 
 int32_t

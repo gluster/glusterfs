@@ -108,24 +108,37 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
-        
+
+        int ret = 0;
+
 	int call_count = -1;
 	int child_index = -1;
 
 	local = frame->local;
-	priv = this->private;
+	priv  = this->private;
 
 	child_index = (long) cookie;
 
 	LOCK (&frame->lock);
 	{
 		if (afr_fop_failed (op_ret, op_errno))
-			afr_transaction_child_died (frame, this, child_index);
+			afr_transaction_fop_failed (frame, this, child_index);
+                
+                ret = afr_fd_ctx_set (this, fd);
 
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not set ctx on fd=%p", fd);
+
+                        local->op_ret   = -1;
+                        local->op_errno = -ret;
+                }
+
+		
 		if (op_ret != -1) {
 			local->op_ret = op_ret;
 
-			if (local->success_count == 0) {
+                        if (local->success_count == 0) {
 				local->cont.create.buf        = *buf;
 				local->cont.create.buf.st_ino = 
 					afr_itransform (buf->st_ino,
@@ -349,7 +362,7 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (afr_fop_failed (op_ret, op_errno))
-			afr_transaction_child_died (frame, this, child_index);
+			afr_transaction_fop_failed (frame, this, child_index);
 		
 		if (op_ret != -1) {
 			local->op_ret = op_ret;
@@ -574,7 +587,7 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (afr_fop_failed (op_ret, op_errno))
-			afr_transaction_child_died (frame, this, child_index);
+			afr_transaction_fop_failed (frame, this, child_index);
 
 		if (op_ret != -1) {
 			local->op_ret           = op_ret;
@@ -801,7 +814,7 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (afr_fop_failed (op_ret, op_errno))
-			afr_transaction_child_died (frame, this, child_index);
+			afr_transaction_fop_failed (frame, this, child_index);
 
 		if (op_ret != -1) {
 			local->op_ret   = op_ret;
@@ -1026,7 +1039,7 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (afr_fop_failed (op_ret, op_errno))
-			afr_transaction_child_died (frame, this, child_index);
+			afr_transaction_fop_failed (frame, this, child_index);
 		
 		if (op_ret != -1) {
 			local->op_ret   = op_ret;
@@ -1251,7 +1264,7 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (afr_fop_failed (op_ret, op_errno))
-			afr_transaction_child_died (frame, this, child_index);
+			afr_transaction_fop_failed (frame, this, child_index);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;
@@ -1444,7 +1457,7 @@ afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (afr_fop_failed (op_ret, op_errno))
-			afr_transaction_child_died (frame, this, child_index);
+			afr_transaction_fop_failed (frame, this, child_index);
 
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
@@ -1632,7 +1645,7 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (afr_fop_failed (op_ret, op_errno))
-			afr_transaction_child_died (frame, this, child_index);
+			afr_transaction_fop_failed (frame, this, child_index);
 
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
@@ -1792,7 +1805,7 @@ afr_setdents_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (afr_fop_failed (op_ret, op_errno))
-			afr_transaction_child_died (frame, this, child_index);
+			afr_transaction_fop_failed (frame, this, child_index);
 
 		if ((op_ret != -1) && (local->success_count == 0)) {
 			local->op_ret = op_ret;

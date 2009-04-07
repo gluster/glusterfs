@@ -44,6 +44,8 @@
 #include "compat.h"
 #include "byte-order.h"
 
+#include "fd.h"
+
 #include "afr-inode-read.h"
 #include "afr-inode-write.h"
 #include "afr-dir-read.h"
@@ -698,10 +700,70 @@ out:
 /* {{{ open */
 
 int
+afr_fd_ctx_set (xlator_t *this, fd_t *fd)
+{
+        afr_private_t * priv = NULL;
+
+        int op_ret = 0;
+        int ret    = 0;
+
+        uint64_t       ctx;
+        afr_fd_ctx_t * fd_ctx = NULL;
+
+        priv = this->private;
+
+        LOCK (&fd->lock);
+        {
+                ret = __fd_ctx_get (fd, this, &ctx);
+                
+                if (ret == 0)
+                        goto out;
+
+                fd_ctx = CALLOC (1, sizeof (afr_fd_ctx_t));
+                if (!fd_ctx) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "out of memory :(");
+                        
+                        op_ret = -ENOMEM;
+                        goto out;
+                }
+
+                fd_ctx->child_failed = CALLOC (sizeof (*fd_ctx->child_failed),
+                                               priv->child_count);
+                
+                if (!fd_ctx->child_failed) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "out of memory :(");
+
+                        op_ret = -ENOMEM;
+                        goto out;
+                }
+
+                ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
+                if (ret < 0) {
+                        op_ret = ret;
+                }
+        }
+out:
+        UNLOCK (&fd->lock);
+
+        return ret;
+}
+
+
+int
 afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 			int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
 	afr_local_t * local = frame->local;
+        int ret = 0;
+
+        ret = afr_fd_ctx_set (this, local->fd);
+
+        if (ret < 0) {
+                local->op_ret   =   -1;
+                local->op_errno = -ret;
+        }
 
 	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
 			  local->fd);
@@ -716,6 +778,8 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 {
 	afr_local_t *  local = NULL;
 	afr_private_t * priv = NULL;
+
+        int ret = 0;
 
 	int call_count = -1;
 	
@@ -743,8 +807,15 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 				    this, this->fops->ftruncate,
 				    fd, 0);
 		} else {
-			AFR_STACK_UNWIND (frame, local->op_ret,
-					  local->op_errno, local->fd);
+                        ret = afr_fd_ctx_set (this, fd);
+
+                        if (ret < 0) {
+                                local->op_ret   = -1;
+                                local->op_errno = -ret;
+                                
+                                AFR_STACK_UNWIND (frame, local->op_ret,
+                                                  local->op_errno, local->fd);
+                        }
 		}
 	}
 
@@ -954,6 +1025,34 @@ out:
 }
 
 /* }}} */
+
+
+int
+afr_release (xlator_t *this, fd_t *fd)
+{
+        uint64_t        ctx;
+        afr_fd_ctx_t *  fd_ctx;
+
+        int ret = 0;
+
+        ret = fd_ctx_get (fd, this, &ctx);
+
+        if (ret < 0)
+                goto out;
+
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+        if (fd_ctx) {
+                if (fd_ctx->child_failed)
+                        FREE (fd_ctx->child_failed);
+
+                FREE (fd_ctx);
+        }
+        
+out:
+        return 0;
+}
+
 
 /* {{{ fsync */
 
@@ -2376,7 +2475,9 @@ struct xlator_mops mops = {
 
 
 struct xlator_cbks cbks = {
+        .release     = afr_release,
 };
+
 
 struct volume_options options[] = {
 	{ .key  = {"read-subvolume" }, 

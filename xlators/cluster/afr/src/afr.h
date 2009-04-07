@@ -394,6 +394,12 @@ typedef struct _afr_local {
 } afr_local_t;
 
 
+typedef struct {
+        unsigned char pre_op_done;
+        unsigned char *child_failed;
+} afr_fd_ctx_t;
+
+
 /* try alloc and if it fails, goto label */
 #define ALLOC_OR_GOTO(var, type, label) do {			\
 		var = CALLOC (sizeof (type), 1);		\
@@ -415,6 +421,9 @@ typedef struct _afr_local {
 
 /* have we tried all children? */
 #define all_tried(i, count)  ((i) == (count) - 1)
+
+int
+afr_fd_ctx_set (xlator_t *this, fd_t *fd);
 
 uint64_t
 afr_read_child (xlator_t *this, inode_t *inode);
