@@ -110,4 +110,13 @@ fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value);
 int 
 fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value);
 
+int
+__fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value);
+
+int 
+__fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value);
+
+int 
+__fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value);
+
 #endif /* _FD_H */
