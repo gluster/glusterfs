@@ -586,7 +586,7 @@ fd_list_empty (inode_t *inode)
 }
 
 int
-fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
+__fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 {
 	int index = 0;
         int ret = 0;
@@ -595,39 +595,35 @@ fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 	if (!fd || !xlator)
 		return -1;
         
-        LOCK (&fd->lock);
-        {
-                for (index = 0; index < xlator->ctx->xl_count; index++) {
-                        if (!fd->_ctx[index].key) {
-                                if (set_idx == -1)
-                                        set_idx = index;
-                                /* dont break, to check if key already exists
-                                   further on */
-                        }
-                        if (fd->_ctx[index].key == (uint64_t)(long) xlator) {
+        for (index = 0; index < xlator->ctx->xl_count; index++) {
+                if (!fd->_ctx[index].key) {
+                        if (set_idx == -1)
                                 set_idx = index;
-                                break;
-                        }
+                        /* dont break, to check if key already exists
+                           further on */
                 }
-	
-                if (set_idx == -1) {
-                        ret = -1;
-                        goto unlock;
+                if (fd->_ctx[index].key == (uint64_t)(long) xlator) {
+                        set_idx = index;
+                        break;
                 }
-
-                fd->_ctx[set_idx].key   = (uint64_t)(long) xlator;
-                fd->_ctx[set_idx].value = value;
         }
-unlock:
-        UNLOCK (&fd->lock);
+	
+        if (set_idx == -1) {
+                ret = -1;
+                goto out;
+        }
+        
+        fd->_ctx[set_idx].key   = (uint64_t)(long) xlator;
+        fd->_ctx[set_idx].value = value;
 
+out:
 	return ret;
 }
 
-int 
-fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
+
+int
+fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 {
-	int index = 0;
         int ret = 0;
 
 	if (!fd || !xlator)
@@ -635,22 +631,85 @@ fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
         
         LOCK (&fd->lock);
         {
-                for (index = 0; index < xlator->ctx->xl_count; index++) {
-                        if (fd->_ctx[index].key == (uint64_t)(long)xlator)
-                                break;
-                }
-
-                if (index == xlator->ctx->xl_count) {
-                        ret = -1;
-                        goto unlock;
-                }
-
-                if (value) 
-                        *value = fd->_ctx[index].value;
+                ret = __fd_ctx_set (fd, xlator, value);
         }
-unlock:
         UNLOCK (&fd->lock);
 
+        return ret;
+}
+
+
+int 
+__fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
+{
+	int index = 0;
+        int ret = 0;
+
+	if (!fd || !xlator)
+		return -1;
+        
+        for (index = 0; index < xlator->ctx->xl_count; index++) {
+                if (fd->_ctx[index].key == (uint64_t)(long)xlator)
+                        break;
+        }
+        
+        if (index == xlator->ctx->xl_count) {
+                ret = -1;
+                goto out;
+        }
+
+        if (value) 
+                *value = fd->_ctx[index].value;
+        
+out:
+	return ret;
+}
+
+
+int 
+fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
+{
+        int ret = 0;
+
+	if (!fd || !xlator)
+		return -1;
+
+        LOCK (&fd->lock);
+        {
+                ret = __fd_ctx_get (fd, xlator, value);
+        }
+        UNLOCK (&fd->lock);
+
+        return ret;
+}
+
+
+int 
+__fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
+{
+	int index = 0;
+        int ret = 0;
+
+	if (!fd || !xlator)
+		return -1;
+        
+        for (index = 0; index < xlator->ctx->xl_count; index++) {
+                if (fd->_ctx[index].key == (uint64_t)(long)xlator)
+                        break;
+        }
+        
+        if (index == xlator->ctx->xl_count) {
+                ret = -1;
+                goto out;
+        }
+        
+        if (value) 
+                *value = fd->_ctx[index].value;		
+        
+        fd->_ctx[index].key   = 0;
+        fd->_ctx[index].value = 0;
+
+out:
 	return ret;
 }
 
@@ -658,7 +717,6 @@ unlock:
 int 
 fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
 {
-	int index = 0;
         int ret = 0;
 
 	if (!fd || !xlator)
@@ -666,24 +724,9 @@ fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
         
         LOCK (&fd->lock);
         {
-                for (index = 0; index < xlator->ctx->xl_count; index++) {
-                        if (fd->_ctx[index].key == (uint64_t)(long)xlator)
-                                break;
-                }
-
-                if (index == xlator->ctx->xl_count) {
-                        ret = -1;
-                        goto unlock;
-                }
-
-                if (value) 
-                        *value = fd->_ctx[index].value;		
-
-                fd->_ctx[index].key   = 0;
-                fd->_ctx[index].value = 0;
+                ret = __fd_ctx_del (fd, xlator, value);
         }
-unlock:
         UNLOCK (&fd->lock);
 
-	return ret;
+        return ret;
 }
