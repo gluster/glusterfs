@@ -1543,6 +1543,21 @@ glusterfs_open (glusterfs_handle_t handle,
                 goto out;
         }
 
+        if ((op_ret == -1) && ((flags & O_CREAT) == O_CREAT)) {
+                libgf_client_loc_wipe (&loc);
+                loc.path = strdup (path);
+
+                op_ret = libgf_client_path_lookup (&loc, ctx, 0);
+                if (op_ret == -1) {
+                        gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "path lookup failed for (%s) while trying to"
+                                " create (%s)", dirname ((char *)path), path);
+                        goto out;
+                }
+
+                loc.inode = inode_new (ctx->itable);
+        }
+
 	pathname = strdup (path);
 	name = basename (pathname);
 
