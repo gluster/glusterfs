@@ -810,12 +810,16 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
                         ret = afr_fd_ctx_set (this, fd);
 
                         if (ret < 0) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "could not set fd ctx for fd=%p",
+                                        fd);
+
                                 local->op_ret   = -1;
                                 local->op_errno = -ret;
-                                
-                                AFR_STACK_UNWIND (frame, local->op_ret,
-                                                  local->op_errno, local->fd);
                         }
+
+                        AFR_STACK_UNWIND (frame, local->op_ret,
+                                          local->op_errno, local->fd);
 		}
 	}
 
