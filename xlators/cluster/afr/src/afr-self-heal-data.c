@@ -302,8 +302,9 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 
-	afr_sh_pending_to_delta (sh->pending_matrix, sh->delta_matrix,
-				 sh->success, priv->child_count);
+	afr_sh_pending_to_delta (sh->xattr, AFR_DATA_PENDING,
+                                 sh->delta_matrix, sh->success,
+                                 priv->child_count);
 
 	erase_xattr = CALLOC (sizeof (*erase_xattr), priv->child_count);
 

@@ -466,11 +466,15 @@ out:
 
 
 void
-afr_sh_pending_to_delta (int32_t *pending_matrix[], int32_t *delta_matrix[],
-			 int success[], int child_count)
+afr_sh_pending_to_delta (dict_t **xattr, char *key,
+                         int32_t *delta_matrix[], int success[],
+                         int child_count)
 {
 	int i = 0;
 	int j = 0;
+
+        int32_t * pending = NULL;
+        int       ret     = 0;
 
 	/* start clean */
 	for (i = 0; i < child_count; i++) {
@@ -480,10 +484,20 @@ afr_sh_pending_to_delta (int32_t *pending_matrix[], int32_t *delta_matrix[],
 	}
 
 	for (i = 0; i < child_count; i++) {
+                pending = NULL;
+
+                ret = dict_get_ptr (xattr[i], (char *) key,
+                                    VOID (&pending));
+
 		for (j = 0; j < child_count; j++) {
 			if (!success[j])
 				continue;
-			delta_matrix[i][j] = -pending_matrix[i][j];
+
+                        if (pending) {
+                                delta_matrix[i][j] = -(ntoh32 (pending[j]));
+                        } else {
+                                delta_matrix[i][j] = 0;
+                        }
 		}
 	}
 }
