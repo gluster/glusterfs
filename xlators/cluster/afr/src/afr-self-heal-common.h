@@ -48,7 +48,7 @@ afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
 			     int child_count, const char *key);
 
 void
-afr_sh_pending_to_delta (int32_t *pending_matrix[], int32_t *delta_matrix[],
+afr_sh_pending_to_delta (dict_t **xattr, char *key, int32_t *delta_matrix[],
 			 int32_t success[], int child_count);
 
 int
