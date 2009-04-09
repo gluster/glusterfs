@@ -93,6 +93,14 @@ struct posix_private {
 
         gf_boolean_t    span_devices;
 
+/* 
+   decide whether posix_unlink does open (file), unlink (file), close (fd)
+   instead of just unlink (file). with the former approach there is no lockout
+   of access to parent directory during removal of very large files for the
+   entire duration of freeing of data blocks.
+*/ 
+        gf_boolean_t    background_unlink;
+
         int             num_devices_to_span;
         dev_t          *st_device;
 };

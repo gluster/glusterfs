@@ -850,10 +850,11 @@ int32_t
 posix_unlink (call_frame_t *frame, xlator_t *this,
               loc_t *loc)
 {
-        int32_t op_ret    = -1;
-        int32_t op_errno  = 0;
-        char *  real_path = NULL;
-        int32_t fd = -1;
+        int32_t                  op_ret    = -1;
+        int32_t                  op_errno  = 0;
+        char                    *real_path = NULL;
+        int32_t                  fd = -1;
+        struct posix_private    *priv      = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -864,15 +865,18 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        if (S_ISREG (loc->inode->st_mode)) {
-                fd = open (real_path, O_RDONLY);
-                if (fd == -1) {
-                        op_ret = -1;
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "open of %s failed: %s", loc->path,
-                                strerror (op_errno));
-                        goto out;
+        priv = this->private;
+        if (priv->background_unlink) {
+                if (S_ISREG (loc->inode->st_mode)) {
+                        fd = open (real_path, O_RDONLY);
+                        if (fd == -1) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "open of %s failed: %s", loc->path,
+                                        strerror (op_errno));
+                                goto out;
+                        }
                 }
         }
 
@@ -3937,6 +3941,23 @@ init (xlator_t *this)
 				"'statfs()' returns dummy size");
         }
 
+        _private->background_unlink = 0;
+        tmp_data = dict_get (this->options, "background-unlink");
+        if (tmp_data) {
+		if (gf_string2boolean (tmp_data->data,
+				       &_private->background_unlink) == -1) {
+			ret = -1;
+			gf_log (this->name, GF_LOG_ERROR,
+				"'export-statfs-size' takes only boolean "
+				"options");
+			goto out;
+		}
+
+                if (_private->background_unlink)
+                        gf_log (this->name, GF_LOG_DEBUG,
+				"unlinks will be performed in background");
+        }
+
         tmp_data = dict_get (this->options, "o-direct");
         if (tmp_data) {
 		if (gf_string2boolean (tmp_data->data,
@@ -4087,5 +4108,7 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL },
 	{ .key  = {"span-devices"},
 	  .type = GF_OPTION_TYPE_INT },
+        { .key  = {"background-unlink"},
+          .type = GF_OPTION_TYPE_BOOL }, 
 	{ .key  = {NULL} }
 };
