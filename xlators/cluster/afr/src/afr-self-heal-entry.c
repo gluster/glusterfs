@@ -1830,8 +1830,8 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
 	afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
 
-	afr_sh_mark_sources (sh->pending_matrix, sh->sources, 
-			     priv->child_count);
+	afr_sh_mark_sources (sh, priv->child_count,
+			     AFR_SELF_HEAL_ENTRY);
 
 	afr_sh_supress_errenous_children (sh->sources, sh->child_errno,
 					  priv->child_count);

@@ -27,7 +27,7 @@
 #define OWNERSHIP_DIFFERS(buf1,buf2) ((((struct stat *)buf1)->st_uid) != (((struct stat *)buf2)->st_uid) || (((struct stat *)buf1)->st_gid != (((struct stat *)buf2)->st_gid)))
 #define SIZE_DIFFERS(buf1,buf2) ((((struct stat *)buf1)->st_size) != (((struct stat *)buf2)->st_size))
 
-
+#define SIZE_GREATER(buf1,buf2) ((((struct stat *)buf1)->st_size > (((struct stat *)buf2)->st_size)))
 
 int
 afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this);

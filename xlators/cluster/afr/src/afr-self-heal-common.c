@@ -337,7 +337,7 @@ afr_sh_wise_nodes_exist (afr_node_character *characters, int child_count)
 
 
 /*
- * The 'wisdom' of a wise node is 0 if any other wise node accuses to it.
+ * The 'wisdom' of a wise node is 0 if any other wise node accuses it.
  * It is 1 if no other wise node accuses it. 
  * Only wise nodes with wisdom 1 are sources.
  *
@@ -407,31 +407,96 @@ afr_sh_mark_wisest_as_sources (int sources[],
         return nsources;
 }
 
+
+static int
+afr_sh_mark_if_size_differs (afr_self_heal_t *sh, int child_count)
+{
+        int32_t ** pending_matrix;
+        int i, j;
+
+        int size_differs = 0;
+
+        pending_matrix = sh->pending_matrix;
+
+        for (i = 0; i < child_count; i++) {
+                for (j = 0; j < child_count; j++) {
+                        if (SIZE_DIFFERS (&sh->buf[i], &sh->buf[j])
+                            && (pending_matrix[i][j] == 0)
+                            && (pending_matrix[j][i] == 0)) {
+                                
+                                pending_matrix[i][j] = 1;
+                                pending_matrix[j][i] = 1;
+
+                                size_differs = 1;
+                        }
+                }
+        }
+
+        return size_differs;
+}
+
         
 static int
-afr_sh_mark_a_fool_as_source (int sources[], afr_node_character *characters, 
-                              int child_count)
+afr_sh_mark_biggest_fool_as_source (afr_self_heal_t *sh,
+                                    afr_node_character *characters, 
+                                    int child_count)
 {
         int i = 0;
-        
-        int nsources = 0;
+        int biggest = 0;
         
         for (i = 0; i < child_count; i++) {
                 if (characters[i].type == AFR_NODE_FOOL) {
-                        sources[i] = 1;
-                        nsources++;
+                        biggest = i;
                         break;
                 }
         }
 
-        return nsources;
+        for (i = 0; i < child_count; i++) {
+                if (characters[i].type != AFR_NODE_FOOL)
+                        continue;
+                
+                if (SIZE_GREATER (&sh->buf[i], &sh->buf[biggest])) {
+                        biggest = i;
+                }
+        }
+
+        sh->sources[biggest] = 1;
+
+        return 1;
 }
 
-        
+
+static int
+afr_sh_mark_biggest_as_source (afr_self_heal_t *sh, int child_count)
+{
+        int biggest = 0;
+        int i;
+
+        for (i = 0; i < child_count; i++) {
+                if (SIZE_GREATER (&sh->buf[i], &sh->buf[biggest])) {
+                        biggest = i;
+                }
+        }
+
+        sh->sources[biggest] = 1;
+
+        return 1;
+}
+
+
 int
-afr_sh_mark_sources (int32_t *pending_matrix[], int sources[], int child_count)
+afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
+                     afr_self_heal_type type)
 {
 	int i = 0;
+
+        int32_t ** pending_matrix;
+        int *      sources;
+
+        int size_differs = 0;
+
+        pending_matrix = sh->pending_matrix;
+        sources        = sh->sources;
 
 	int nsources = 0;
 
@@ -463,9 +528,15 @@ afr_sh_mark_sources (int32_t *pending_matrix[], int sources[], int child_count)
                 }
         }
 
+        if (type == AFR_SELF_HEAL_DATA) {
+                size_differs = afr_sh_mark_if_size_differs (sh, child_count);
+        }
+
         if (afr_sh_all_nodes_innocent (characters, child_count)) {
-                /* no self-heal needed */
-                goto out;
+                if (size_differs) {
+                        nsources = afr_sh_mark_biggest_as_source (sh,
+                                                                  child_count);
+                }
 
         } else if (afr_sh_wise_nodes_exist (characters, child_count)) {
                 afr_sh_compute_wisdom (pending_matrix, characters, child_count);
@@ -482,8 +553,8 @@ afr_sh_mark_sources (int32_t *pending_matrix[], int sources[], int child_count)
                                                                   child_count);
                 }
         } else {
-                nsources = afr_sh_mark_a_fool_as_source (sources, characters, 
-                                                         child_count);
+                nsources = afr_sh_mark_biggest_fool_as_source (sh, characters,
+                                                               child_count);
         }
 
 out:

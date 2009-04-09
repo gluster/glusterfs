@@ -22,6 +22,12 @@
 
 #define FILE_HAS_HOLES(buf) (((buf)->st_size) > ((buf)->st_blocks * 512))
 
+typedef enum {
+        AFR_SELF_HEAL_ENTRY,
+        AFR_SELF_HEAL_METADATA,
+        AFR_SELF_HEAL_DATA,
+} afr_self_heal_type;
+
 int
 afr_sh_select_source (int sources[], int child_count);
 
@@ -52,8 +58,8 @@ afr_sh_pending_to_delta (dict_t **xattr, char *key, int32_t *delta_matrix[],
 			 int32_t success[], int child_count);
 
 int
-afr_sh_mark_sources (int32_t *pending_matrix[], int sources[],
-		     int child_count);
+afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
+                     afr_self_heal_type type);
 
 int
 afr_sh_delta_to_xattr (int32_t *delta_matrix[], dict_t *xattr[],

@@ -779,8 +779,8 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 	afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
 
-	nsources = afr_sh_mark_sources (sh->pending_matrix, sh->sources,
-                                        priv->child_count);
+	nsources = afr_sh_mark_sources (sh, priv->child_count,
+                                        AFR_SELF_HEAL_DATA);
 
 	afr_sh_supress_empty_children (sh->sources, sh->xattr, sh->buf,
 				       priv->child_count, AFR_DATA_PENDING);
