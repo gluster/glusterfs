@@ -183,6 +183,10 @@ afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
 	int32_t *pending = NULL;
 	int ret = -1;
 
+        unsigned char *ignorant_subvols = NULL;
+
+        ignorant_subvols = CALLOC (sizeof (*ignorant_subvols), child_count);
+
 	/* start clean */
 	for (i = 0; i < child_count; i++) {
 		for (j = 0; j < child_count; j++) {
@@ -198,13 +202,35 @@ afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
 
 		ret = dict_get_ptr (xattr[i], (char *) key,
 				    VOID(&pending));
-		if (ret != 0)
+		if (ret != 0) {
+                        /*
+                         * There is no xattr present. This means this
+                         * subvolume should be considered an 'ignorant'
+                         * subvolume.
+                         */
+
+                        ignorant_subvols[i] = 1;
 			continue;
+                }
 
 		for (j = 0; j < child_count; j++) {
 			pending_matrix[i][j] = ntoh32 (pending[j]);
 		}
 	}
+
+        /*
+         * Make all non-ignorant subvols point towards the ignorant
+         * subvolumes.
+         */
+
+        for (i = 0; i < child_count; i++) {
+                if (ignorant_subvols[i]) {
+                        for (j = 0; j < child_count; j++) {
+                                if (!ignorant_subvols[j])
+                                        pending_matrix[j][i] += 1;
+                        }
+                }
+        }
 }
 
 
