@@ -2862,7 +2862,9 @@ init (xlator_t *this_xl)
                 
                 goto cleanup_exit;
         }
-        
+
+        errno = 0;
+
         priv->se = fuse_lowlevel_new (&args, &fuse_ops, 
 				      sizeof (fuse_ops), this_xl);
         if (priv->se == NULL && !errno) {
