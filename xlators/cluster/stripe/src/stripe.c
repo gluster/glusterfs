@@ -135,6 +135,7 @@ struct stripe_local {
 	struct flock         lock;
 	fd_t                *fd;
 	void                *value;
+        struct iobref       *iobref;
 };
 
 typedef struct stripe_local   stripe_local_t;
@@ -2584,9 +2585,10 @@ stripe_single_readv_cbk (call_frame_t *frame,
 			 int32_t op_errno,
 			 struct iovec *vector,
 			 int32_t count,
-			 struct stat *stbuf)
+			 struct stat *stbuf,
+                         struct iobref *iobref)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 	return 0;
 }
 
@@ -2602,7 +2604,8 @@ stripe_readv_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct iovec *vector,
 		  int32_t count,
-		  struct stat *stbuf)
+		  struct stat *stbuf,
+                  struct iobref *iobref)
 {
 	int32_t index = 0;
 	int32_t callcnt = 0;
@@ -2624,9 +2627,9 @@ stripe_readv_cbk (call_frame_t *frame,
 			main_local->replies[index].vector = 
 				iov_dup (vector, count);
 
-			if (frame->root->rsp_refs)
-				dict_copy (frame->root->rsp_refs, 
-					   main_frame->root->rsp_refs);
+                        if (!main_local->iobref)
+                                main_local->iobref = iobref_new ();
+                        iobref_merge (main_local->iobref, iobref);
 		}
 		callcnt = ++main_local->call_count;
 	}
@@ -2636,7 +2639,7 @@ stripe_readv_cbk (call_frame_t *frame,
 		int32_t final_count = 0;
 		struct iovec *final_vec = NULL;
 		struct stat tmp_stbuf = {0,};
-		dict_t *refs = main_frame->root->rsp_refs;
+		struct iobref *iobref = NULL;
 
 		op_ret = 0;
 		memcpy (&tmp_stbuf, &main_local->replies[0].stbuf, 
@@ -2682,11 +2685,11 @@ stripe_readv_cbk (call_frame_t *frame,
 		}
 		/* */
 		FREE (main_local->replies);
-		refs = main_frame->root->rsp_refs;
+                iobref = main_local->iobref;
 		STACK_UNWIND (main_frame, op_ret, op_errno, 
-			      final_vec, final_count, &tmp_stbuf);
+			      final_vec, final_count, &tmp_stbuf, iobref);
 
-		dict_unref (refs);
+		iobref_unref (iobref);
 		if (final_vec)
 			free (final_vec);
 	}
@@ -2737,7 +2740,6 @@ stripe_readv (call_frame_t *frame,
 	ERR_ABORT (local);
 	local->wind_count = num_stripe;
 	frame->local = local;
-	frame->root->rsp_refs = dict_ref (get_new_dict ());
 	
 	/* This is where all the vectors should be copied. */
 	local->replies = CALLOC (1, num_stripe * 
@@ -2839,7 +2841,8 @@ stripe_writev (call_frame_t *frame,
 	       fd_t *fd,
 	       struct iovec *vector,
 	       int32_t count,
-	       off_t offset)
+	       off_t offset,
+               struct iobref *iobref)
 {
 	int32_t idx = 0;
 	int32_t total_size = 0;
@@ -2903,7 +2906,8 @@ stripe_writev (call_frame_t *frame,
 			   stripe_writev_cbk,
 			   trav->xlator,
 			   trav->xlator->fops->writev,
-			   fd, tmp_vec, tmp_count, offset + offset_offset);
+			   fd, tmp_vec, tmp_count, offset + offset_offset,
+                           iobref);
 		FREE (tmp_vec);
 		offset_offset += fill_size;
 		if (remaining_size == 0)
