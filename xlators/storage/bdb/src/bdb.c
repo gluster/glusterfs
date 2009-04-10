@@ -142,8 +142,6 @@ out:
                 bctx_unref (bctx);
         }
 
-        frame->root->rsp_refs = NULL;
-
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
         return 0;
 }
@@ -223,7 +221,6 @@ bdb_rename (call_frame_t *frame,
             loc_t *oldloc,
             loc_t *newloc)
 {
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, -1, EXDEV, NULL);
         return 0;
 }
@@ -234,7 +231,6 @@ bdb_link (call_frame_t *frame,
           loc_t *oldloc,
           loc_t *newloc)
 {
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, -1, EXDEV, NULL, NULL);
         return 0;
 }
@@ -360,7 +356,6 @@ bdb_create (call_frame_t *frame,
         op_ret = 0;
         op_errno = 0;
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, fd, loc->inode, &stbuf);
 
         return 0;
@@ -432,7 +427,6 @@ bdb_open (call_frame_t *frame,
         BDB_FCTX_SET (fd, this, bfd);
         op_ret = 0;
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, fd);
 
         return 0;
@@ -450,10 +444,10 @@ bdb_readv (call_frame_t *frame,
         struct iovec   vec        = {0,};
         struct stat    stbuf      = {0,};
         struct bdb_fd *bfd        = NULL;
-        dict_t        *reply_dict = NULL;
-        char          *buf        = NULL;
         char          *db_path    = NULL;
         int32_t        read_size  = 0;
+        struct iobref *iobref     = NULL;
+        struct iobuf  *iobuf      = NULL;
 
         GF_VALIDATE_OR_GOTO ("bdb", frame, out);
         GF_VALIDATE_OR_GOTO ("bdb", this, out);
@@ -481,8 +475,17 @@ bdb_readv (call_frame_t *frame,
                 goto out;
         }
 
+        iobuf = iobuf_get (this->ctx->iobuf_pool);
+        if (!iobuf) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "out of memory :(");
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto out;
+        }
+
         /* we are ready to go */
-        op_ret = bdb_db_fread (bfd, &buf, size, offset);
+        op_ret = bdb_db_fread (bfd, (char **)&iobuf->ptr, size, offset);
         read_size = op_ret;
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -496,12 +499,10 @@ bdb_readv (call_frame_t *frame,
                 goto out;
         }
 
-        reply_dict = dict_new ();
-        if (reply_dict == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "READV %"PRId64" - %"PRId32",%"PRId64": EBADFD"
-                        "(failed to allocate memory for reply dictionary)",
-                        fd->inode->ino, size, offset);
+        iobref = iobref_new ();
+        if (iobref == NULL) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "out of memory :(");
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto out;
@@ -512,15 +513,9 @@ bdb_readv (call_frame_t *frame,
                 read_size = size;
         }
 
-        op_ret = dict_set_dynptr (reply_dict, NULL, buf, op_ret);
-        if (op_ret < 0) {
-                op_ret = -1;
-                op_errno = EINVAL;
-                free (buf);
-                goto out;
-        }
+        iobref_add (iobref, iobuf);
 
-        vec.iov_base = buf;
+        vec.iov_base = iobuf->ptr;
         vec.iov_len = read_size;
 
         stbuf.st_ino = fd->inode->ino;
@@ -528,10 +523,13 @@ bdb_readv (call_frame_t *frame,
         stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
         op_ret = size;
 out:
-        STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf, iobuf);
 
-        if (reply_dict)
-                dict_unref (reply_dict);
+        if (iobref)
+                iobref_unref (iobref);
+
+        if (iobuf)
+                iobuf_unref (iobuf);
 
         return 0;
 }
@@ -543,7 +541,8 @@ bdb_writev (call_frame_t *frame,
             fd_t *fd,
             struct iovec *vector,
             int32_t count,
-            off_t offset)
+            off_t offset,
+            struct iobref *iobref)
 {
         int32_t        op_ret   = -1;
         int32_t        op_errno = EINVAL;
@@ -626,7 +625,6 @@ bdb_writev (call_frame_t *frame,
         op_errno = 0;
 
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
         return 0;
 }
@@ -660,7 +658,6 @@ bdb_flush (call_frame_t *frame,
         op_errno = 0;
 
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
         return 0;
 }
@@ -704,7 +701,6 @@ bdb_fsync (call_frame_t *frame,
            fd_t *fd,
            int32_t datasync)
 {
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, 0, 0);
         return 0;
 }/* bdb_fsync */
@@ -728,7 +724,6 @@ bdb_lk (call_frame_t *frame,
                         fd->inode->ino);
         }
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, -1, ENOTSUP, &nullock);
         return 0;
 }/* bdb_lk */
@@ -975,7 +970,6 @@ out:
         if (xattr)
                 dict_ref (xattr);
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf, xattr);
 
         if (xattr)
@@ -1054,7 +1048,6 @@ out:
                 bctx_unref (bctx);
         }
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -1146,7 +1139,6 @@ bdb_opendir (call_frame_t *frame,
         BDB_FCTX_SET (fd, this, bfd);
         op_ret = 0;
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, fd);
         return 0;
 err:
@@ -1428,8 +1420,6 @@ dir_read:
         op_errno = 0;
 
 out:
-        frame->root->rsp_refs = NULL;
-
         gf_log (this->name, GF_LOG_DEBUG,
                 "GETDENTS %"PRId64" - %"PRId32" (%"PRId32")/%"PRId32","
                 "%"PRId64":"
@@ -1530,7 +1520,6 @@ bdb_readlink (call_frame_t *frame,
                         loc->ino, loc->path, strerror (op_errno));
         }
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, dest);
 
         return 0;
@@ -1619,7 +1608,6 @@ out:
                 bctx_unref (bctx);
         }
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
         return 0;
@@ -1675,7 +1663,6 @@ out:
                 bctx_unref (bctx);
         }
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
 
         return 0;
@@ -1788,7 +1775,6 @@ bdb_rmdir (call_frame_t *frame,
         }
 
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
 
         return 0;
@@ -1867,7 +1853,6 @@ out:
                 bctx_unref (bctx);
         }
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
         return 0;
@@ -1908,7 +1893,6 @@ bdb_chmod (call_frame_t *frame,
         op_errno = errno;
 
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -1950,7 +1934,6 @@ bdb_chown (call_frame_t *frame,
         op_ret = lchown (real_path, uid, gid);
         op_errno = errno;
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -2025,7 +2008,6 @@ out:
                 bctx_unref (bctx);
         }
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -2093,7 +2075,6 @@ bdb_utimens (call_frame_t *frame,
         stbuf.st_ino = loc->inode->ino;
 
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -2119,7 +2100,6 @@ bdb_statfs (call_frame_t *frame,
         op_ret = statvfs (real_path, &buf);
         op_errno = errno;
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
         return 0;
 }/* bdb_statfs */
@@ -2253,8 +2233,6 @@ bdb_setxattr (call_frame_t *frame,
                 trav = trav->next;
         }/* while(trav) */
 out:
-        frame->root->rsp_refs = NULL;
-
         STACK_UNWIND (frame, op_ret, op_errno);
         return 0;
 }/* bdb_setxattr */
@@ -2510,7 +2488,6 @@ out:
                 bctx_unref (bctx);
         }
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
         return 0;
 }/* bdb_removexattr */
@@ -2529,8 +2506,6 @@ bdb_fsyncdir (call_frame_t *frame,
         GF_VALIDATE_OR_GOTO ("bdb", frame, out);
         GF_VALIDATE_OR_GOTO ("bdb", this, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-        frame->root->rsp_refs = NULL;
 
         BDB_FCTX_GET (fd, this, &bfd);
         if (bfd == NULL) {
@@ -2569,7 +2544,6 @@ bdb_access (call_frame_t *frame,
         op_errno = errno;
         /* TODO: implement for db entries */
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
         return 0;
 }/* bdb_access */
@@ -2590,7 +2564,6 @@ bdb_ftruncate (call_frame_t *frame,
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         /* TODO: impelement */
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
         return 0;
@@ -2635,7 +2608,6 @@ bdb_fchmod (call_frame_t *frame,
 
         /* TODO: impelement */
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
         return 0;
@@ -2661,8 +2633,6 @@ bdb_setdents (call_frame_t *frame,
         GF_VALIDATE_OR_GOTO ("bdb", this, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         GF_VALIDATE_OR_GOTO (this->name, entries, out);
-
-        frame->root->rsp_refs = NULL;
 
         BDB_FCTX_GET (fd, this, &bfd);
         if (bfd == NULL) {
@@ -2765,7 +2735,6 @@ bdb_setdents (call_frame_t *frame,
         } /* while(trav) */
 
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
 
         FREE (entry_path);
@@ -2817,8 +2786,6 @@ bdb_fstat (call_frame_t *frame,
         stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
 
 out:
-        frame->root->rsp_refs = NULL;
-
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
         return 0;
 }
@@ -3015,8 +2982,6 @@ dir_read:
         op_errno = 0;
 
 out:
-        frame->root->rsp_refs = NULL;
-
         gf_log (this->name, GF_LOG_DEBUG,
                 "READDIR %"PRId64" - %"PRId32" (%"PRId32")/%"PRId32",%"PRId64":"
                 "(failed to read the next entry from database)",
@@ -3101,7 +3066,6 @@ bdb_stats (call_frame_t *frame,
         private->interval_write = 0;
 
 out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, stats);
         return 0;
 }
@@ -3111,8 +3075,6 @@ int32_t
 bdb_inodelk (call_frame_t *frame, xlator_t *this,
              const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
 {
-        frame->root->rsp_refs = NULL;
-
         gf_log (this->name, GF_LOG_ERROR,
                 "glusterfs internal locking request. please load "
                 "'features/locks' translator to enable glusterfs "
@@ -3127,8 +3089,6 @@ int32_t
 bdb_finodelk (call_frame_t *frame, xlator_t *this,
               const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
 {
-        frame->root->rsp_refs = NULL;
-
         gf_log (this->name, GF_LOG_ERROR,
                 "glusterfs internal locking request. please load "
                 "'features/locks' translator to enable glusterfs "
@@ -3144,8 +3104,6 @@ bdb_entrylk (call_frame_t *frame, xlator_t *this,
              const char *volume, loc_t *loc, const char *basename,
              entrylk_cmd cmd, entrylk_type type)
 {
-        frame->root->rsp_refs = NULL;
-
         gf_log (this->name, GF_LOG_ERROR,
                 "glusterfs internal locking request. please load "
                 "'features/locks' translator to enable glusterfs "
@@ -3161,8 +3119,6 @@ bdb_fentrylk (call_frame_t *frame, xlator_t *this,
               const char *volume, fd_t *fd, const char *basename,
               entrylk_cmd cmd, entrylk_type type)
 {
-        frame->root->rsp_refs = NULL;
-
         gf_log (this->name, GF_LOG_ERROR,
                 "glusterfs internal locking request. please load "
                 "'features/locks' translator to enable glusterfs "
@@ -3278,7 +3234,6 @@ out:
                 bctx_unref (bctx);
         }
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, file_checksum, dir_checksum);
 
         return 0;
