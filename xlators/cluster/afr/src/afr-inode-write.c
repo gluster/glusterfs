@@ -939,7 +939,8 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 					   local->fd, 
 					   local->cont.writev.vector,
 					   local->cont.writev.count, 
-					   local->cont.writev.offset); 
+					   local->cont.writev.offset,
+                                           local->cont.writev.iobref);
 		
 			if (!--call_count)
 				break;
@@ -957,9 +958,8 @@ afr_writev_done (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 
-	if (local->cont.writev.refs)
-		dict_unref (local->cont.writev.refs);
-	local->cont.writev.refs = NULL;
+        iobref_unref (local->cont.writev.iobref);
+	local->cont.writev.iobref = NULL;
 
 	local->transaction.unwind (frame, this);
 
@@ -971,7 +971,8 @@ afr_writev_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, 
-	    struct iovec *vector, int32_t count, off_t offset)
+	    struct iovec *vector, int32_t count, off_t offset,
+            struct iobref *iobref)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
@@ -1010,9 +1011,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	local->cont.writev.count   = count;
 	local->cont.writev.offset  = offset;
 	local->cont.writev.ino     = fd->inode->ino;
-
-	if (frame->root->req_refs)
-		local->cont.writev.refs = dict_ref (frame->root->req_refs);
+        local->cont.writev.iobref  = iobref_ref (iobref);
 
 	local->transaction.fop    = afr_writev_wind;
 	local->transaction.done   = afr_writev_done;

@@ -478,7 +478,8 @@ afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
 		      xlator_t *this, int32_t op_ret, int32_t op_errno,
-		      struct iovec *vector, int32_t count, struct stat *buf)
+		      struct iovec *vector, int32_t count, struct stat *buf,
+                      struct iobref *iobref)
 {
 	afr_private_t * priv = NULL;
 	afr_local_t * local  = NULL;
@@ -511,8 +512,6 @@ afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
 	offset = sh->offset;
 	sh->offset += op_ret;
 
-	frame->root->req_refs = frame->root->rsp_refs;
-
 	if (sh->file_has_holes) {
 		if (iov_0filled (vector, count) == 0) {
 			/* the iter function depends on the
@@ -533,7 +532,8 @@ afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
 				   (void *) (long) i,
 				   priv->children[i],
 				   priv->children[i]->fops->writev,
-				   sh->healing_fd, vector, count, offset);
+				   sh->healing_fd, vector, count, offset,
+                                   iobref);
 
 		if (!--call_count)
 			break;
