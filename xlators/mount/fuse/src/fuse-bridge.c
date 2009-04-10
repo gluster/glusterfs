@@ -57,7 +57,7 @@
 #define ZR_DIRECT_IO_OPT        "direct-io-mode"
 #define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 
-#define BIG_FUSE_CHANNEL_SIZE 1048576
+#define BIG_FUSE_CHANNEL_SIZE 131072
 
 struct fuse_private {
         int                  fd;
@@ -2742,9 +2742,9 @@ init (xlator_t *this_xl)
 			     "-o", "XXX",
 			     "-o", "subtype=glusterfs",
 			     "-o", "nonempty",
-			     "-o", "max_readahead=1048576",
-			     "-o", "max_read=1048576",
-			     "-o", "max_write=1048576",
+			     "-o", "max_readahead=131072",
+			     "-o", "max_read=131072",
+			     "-o", "max_write=131072",
 			     "-o", "allow_other",
 			     "-o", "default_permissions",
 			     "-o", "dev",
@@ -2756,9 +2756,9 @@ init (xlator_t *this_xl)
 	char *fuse_argv[] = {"glusterfs",
 			     "-o", "XXX",
 			     "-o", "subtype=glusterfs",
-			     "-o", "max_readahead=1048576",
-			     "-o", "max_read=1048576",
-			     "-o", "max_write=1048576",
+			     "-o", "max_readahead=131072",
+			     "-o", "max_read=131072",
+			     "-o", "max_write=131072",
 			     "-o", "allow_other",
 			     "-o", "default_permissions",
 			     "-o", "suid",
