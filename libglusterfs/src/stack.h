@@ -91,8 +91,6 @@ struct _call_stack_t {
 	gid_t                         gid;
 	pid_t                         pid;
 	call_frame_t                  frames;
-	dict_t                       *req_refs;
-	dict_t                       *rsp_refs;
 
 	int32_t                       op;
 	int8_t                        type;
