@@ -1849,7 +1849,8 @@ ha_readv_cbk (call_frame_t *frame,
 	      int32_t op_errno,
 	      struct iovec *vector,
 	      int32_t count,
-	      struct stat *stbuf)
+	      struct stat *stbuf,
+              struct iobref *iobref)
 {
 	int ret = 0;
 
@@ -1861,7 +1862,8 @@ ha_readv_cbk (call_frame_t *frame,
 			      op_errno,
 			      vector,
 			      count,
-			      stbuf);
+			      stbuf,
+                              iobref);
 	}
 	return 0;
 }
@@ -1894,7 +1896,7 @@ ha_readv (call_frame_t *frame,
 			   offset);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL, NULL);
 	return 0;
 }
 
@@ -1924,7 +1926,8 @@ ha_writev (call_frame_t *frame,
 	   fd_t *fd,
 	   struct iovec *vector,
 	   int32_t count,
-	   off_t off)
+	   off_t off,
+           struct iobref *iobref)
 {
 	ha_local_t *local = NULL;
 	int op_errno = 0;
@@ -1935,7 +1938,7 @@ ha_writev (call_frame_t *frame,
 		goto err;
 	}
 	local = frame->local;
-	local->stub = fop_writev_stub (frame, ha_writev, fd, vector, count, off);
+	local->stub = fop_writev_stub (frame, ha_writev, fd, vector, count, off, iobref);
 
 	STACK_WIND_COOKIE (frame,
 			   ha_writev_cbk,
@@ -1945,7 +1948,8 @@ ha_writev (call_frame_t *frame,
 			   fd,
 			   vector,
 			   count,
-			   off);
+			   off,
+                           iobref);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
