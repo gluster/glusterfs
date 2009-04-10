@@ -2212,9 +2212,10 @@ unify_readv_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct iovec *vector,
 		 int32_t count,
-		 struct stat *stbuf)
+		 struct stat *stbuf,
+                 struct iobref *iobref)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 	return 0;
 }
 
@@ -2271,7 +2272,8 @@ unify_writev (call_frame_t *frame,
 	      fd_t *fd,
 	      struct iovec *vector,
 	      int32_t count,
-	      off_t off)
+	      off_t off,
+              struct iobref *iobref)
 {
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
 	xlator_t *child = NULL;
@@ -2287,7 +2289,8 @@ unify_writev (call_frame_t *frame,
 		    fd,
 		    vector,
 		    count,
-		    off);
+		    off,
+                    iobref);
 
 	return 0;
 }
