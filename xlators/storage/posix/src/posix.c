@@ -302,8 +302,6 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 
 	op_ret = 0;
 out:
-        frame->root->rsp_refs = NULL;
-
         if (xattr)
                 dict_ref (xattr);
 
@@ -348,7 +346,6 @@ posix_stat (call_frame_t *frame,
 
  out:
         SET_TO_OLD_FS_ID();
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
         return 0;
@@ -412,8 +409,6 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
         }
 
 	fd_ctx_set (fd, this, (uint64_t)(long)pfd);
-
-        frame->root->rsp_refs = NULL;
 
         op_ret = 0;
 
@@ -607,7 +602,6 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
                         FREE (entry_path);
         }
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &entries, count);
 
         if (op_ret == 0) {
@@ -714,7 +708,6 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
 
         STACK_UNWIND (frame, op_ret, op_errno, dest);
 
@@ -784,7 +777,6 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
         return 0;
@@ -839,7 +831,6 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
         return 0;
@@ -892,7 +883,6 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
 
         STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -935,7 +925,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
+
         STACK_UNWIND (frame, op_ret, op_errno);
 
         return 0;
@@ -994,7 +984,6 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
         return 0;
@@ -1046,7 +1035,6 @@ posix_rename (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -1098,7 +1086,6 @@ posix_link (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, oldloc->inode, &stbuf);
 
         return 0;
@@ -1164,7 +1151,6 @@ posix_chmod (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -1211,7 +1197,7 @@ posix_chown (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
+
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -1260,7 +1246,6 @@ posix_truncate (call_frame_t *frame,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -1316,7 +1301,6 @@ posix_utimens (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -1411,7 +1395,6 @@ posix_create (call_frame_t *frame, xlator_t *this,
         if ((-1 == op_ret) && (_fd != -1))
                 close (_fd);
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, fd, loc->inode, &stbuf);
 
         return 0;
@@ -1493,7 +1476,6 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, fd);
 
         return 0;
@@ -1509,17 +1491,15 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 	uint64_t               tmp_pfd    = 0;
         int32_t                op_ret     = -1;
         int32_t                op_errno   = 0;
-        char *                 buf        = NULL;
-        char *                 alloc_buf  = NULL;
         int                    _fd        = -1;
         struct posix_private * priv       = NULL;
-        dict_t *               reply_dict = NULL;
+        struct iobuf         * iobuf      = NULL;
+        struct iobref        * iobref     = NULL;
         struct iovec           vec        = {0,};
         struct posix_fd *      pfd        = NULL;
         struct stat            stbuf      = {0,};
         int                    align      = 1;
         int                    ret        = -1;
-        int                    dict_ret   = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1547,16 +1527,12 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 align = 4096;    /* align to page boundary */
         }
 
-        alloc_buf = MALLOC (1 * (size + align));
-        if (!alloc_buf) {
-                op_errno = errno;
+        iobuf = iobuf_get (this->ctx->iobuf_pool);
+        if (!iobuf) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "out of memory :(");
                 goto out;
         }
-
-        /* page aligned buffer */
-        buf = ALIGN_BUF (alloc_buf, align);
 
         _fd = pfd->fd;
 
@@ -1569,7 +1545,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = read (_fd, buf, size);
+        op_ret = read (_fd, iobuf->ptr, size);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_WARNING,
@@ -1580,25 +1556,13 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         priv->read_value    += op_ret;
         priv->interval_read += op_ret;
 
-        vec.iov_base = buf;
+        vec.iov_base = iobuf->ptr;
         vec.iov_len  = op_ret;
 
 	op_ret = -1;
-        reply_dict = get_new_dict ();
-        if (!reply_dict) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory :(");
-                goto out;
-        }
-        dict_ref (reply_dict);
+        iobref = iobref_new ();
 
-        dict_ret = dict_set_ptr (reply_dict, NULL, alloc_buf);
-        if (dict_ret < 0) {
-                op_errno = -dict_ret;
-                gf_log (this->name, GF_LOG_ERROR, "could not dict_set: (%s)",
-                        strerror (op_errno));
-                goto out;
-        }
+        iobref_add (iobref, iobuf);
 
         /*
          *  readv successful, and we need to get the stat of the file
@@ -1615,25 +1579,13 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 	
 	op_ret = vec.iov_len;
  out:
-        if (op_ret == -1) {
-                frame->root->rsp_refs = NULL;
 
-                if (reply_dict) {
-                        dict_unref (reply_dict);
-                        reply_dict = NULL;
-                }
+        STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf, iobref);
 
-                if ((alloc_buf != NULL) && (dict_ret != -1))
-                        FREE (alloc_buf);
-        }
-
-        if (reply_dict)
-                frame->root->rsp_refs = reply_dict;
-
-        STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf);
-
-        if (reply_dict)
-                dict_unref (reply_dict);
+        if (iobref)
+                iobref_unref (iobref);
+        if (iobuf)
+                iobuf_unref (iobuf);
 
         return 0;
 }
@@ -1641,7 +1593,8 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 
 int32_t
 posix_writev (call_frame_t *frame, xlator_t *this,
-              fd_t *fd, struct iovec *vector, int32_t count, off_t offset)
+              fd_t *fd, struct iovec *vector, int32_t count, off_t offset,
+              struct iobref *iobref)
 {
         int32_t                op_ret   = -1;
         int32_t                op_errno = 0;
@@ -1768,7 +1721,6 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                 FREE (alloc_buf);
         }
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
         return 0;
@@ -1815,7 +1767,6 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
         return 0;
 }
@@ -1852,7 +1803,6 @@ posix_flush (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
 
         return 0;
@@ -1969,7 +1919,6 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
 
         STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -2143,7 +2092,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
+
         STACK_UNWIND (frame, op_ret, op_errno);
 
         return 0;
@@ -2336,7 +2285,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
+
         STACK_UNWIND (frame, op_ret, op_errno, dict);
 
         if (dict)
@@ -2457,7 +2406,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
+
         STACK_UNWIND (frame, op_ret, op_errno, dict);
 
         if (dict)
@@ -2558,7 +2507,6 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
 
         STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -2596,7 +2544,6 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
         return 0;
 }
@@ -2631,7 +2578,6 @@ posix_fsyncdir (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
 
         return 0;
@@ -2912,7 +2858,6 @@ posix_access (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
         return 0;
 }
@@ -2970,7 +2915,6 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
         return 0;
@@ -3027,7 +2971,7 @@ posix_fchown (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
+
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
         return 0;
@@ -3087,7 +3031,6 @@ posix_fchmod (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
         return 0;
@@ -3381,7 +3324,6 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
 
         op_ret = 0;
  out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno);
         if (entry_path)
                 FREE (entry_path);
@@ -3432,7 +3374,7 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
 
  out:
         SET_TO_OLD_FS_ID ();
-        frame->root->rsp_refs = NULL;
+
         STACK_UNWIND (frame, op_ret, op_errno, &buf);
         return 0;
 }
@@ -3444,7 +3386,6 @@ posix_lk (call_frame_t *frame, xlator_t *this,
           fd_t *fd, int32_t cmd, struct flock *lock)
 {
         struct flock nullock = {0, };
-        frame->root->rsp_refs = NULL;
 
         gf_posix_lk_log++;
 
@@ -3460,8 +3401,6 @@ int32_t
 posix_inodelk (call_frame_t *frame, xlator_t *this,
 	       const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
 {
-        frame->root->rsp_refs = NULL;
-
 	gf_log (this->name, GF_LOG_CRITICAL,
 		"\"features/posix-locks\" translator is not loaded. "
 		"You need to use it for proper functioning of GlusterFS");
@@ -3474,8 +3413,6 @@ int32_t
 posix_finodelk (call_frame_t *frame, xlator_t *this,
 		const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
 {
-        frame->root->rsp_refs = NULL;
-
 	gf_log (this->name, GF_LOG_CRITICAL,
 		"\"features/posix-locks\" translator is not loaded. "
 		"You need to use it for proper functioning of GlusterFS");
@@ -3490,8 +3427,6 @@ posix_entrylk (call_frame_t *frame, xlator_t *this,
 	       const char *volume, loc_t *loc, const char *basename, 
                entrylk_cmd cmd, entrylk_type type)
 {
-        frame->root->rsp_refs = NULL;
-
 	gf_log (this->name, GF_LOG_CRITICAL,
 		"\"features/posix-locks\" translator is not loaded. "
 		"You need to use it for proper functioning of GlusterFS");
@@ -3505,8 +3440,6 @@ posix_fentrylk (call_frame_t *frame, xlator_t *this,
 		const char *volume, fd_t *fd, const char *basename, 
                 entrylk_cmd cmd, entrylk_type type)
 {
-        frame->root->rsp_refs = NULL;
-
 	gf_log (this->name, GF_LOG_CRITICAL,
 		"\"features/posix-locks\" translator is not loaded. "
 		" You need to use it for proper functioning of GlusterFS");
@@ -3621,7 +3554,6 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
         op_ret = count;
 
  out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, &entries);
 
 	gf_dirent_free (&entries);
@@ -3723,7 +3655,6 @@ posix_stats (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, stats);
         return 0;
 }
@@ -3794,7 +3725,6 @@ posix_checksum (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
-        frame->root->rsp_refs = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, file_checksum, dir_checksum);
 
         return 0;
