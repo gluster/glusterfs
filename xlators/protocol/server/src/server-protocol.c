@@ -7147,13 +7147,16 @@ mop_getspec (call_frame_t *frame,
 	uint32_t flags  = 0;
 	uint32_t keylen = 0;
 	char    *key    = NULL;
-
+	server_conf_t *conf = NULL;
+        
 	req   = gf_param (hdr);
 	flags = ntoh32 (req->flags);
 	keylen = ntoh32 (req->keylen);
 	if (keylen) {
 		key = req->key;
 	}
+
+        conf = frame->this->private;
 
         filename = build_volfile_path (frame->this, key);
         if (filename) {
@@ -7176,8 +7179,10 @@ mop_getspec (call_frame_t *frame,
                 }
                 ret = 0;
                 file_len = stbuf.st_size;
-                get_checksum_for_file (spec_fd, &checksum);
-                _volfile_update_checksum (frame->this, key, checksum);
+                if (conf->verify_volfile_checksum) {
+                        get_checksum_for_file (spec_fd, &checksum);
+                        _volfile_update_checksum (frame->this, key, checksum);
+                }
 	} else {
                 errno = ENOENT;
         }
@@ -7451,25 +7456,30 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 		goto fail;
 	}
 
-	ret = dict_get_uint32 (params, "volfile-checksum", &checksum);
-	if (ret == 0) {
-                ret = dict_get_str (params, "volfile-key", &volfile_key);
-                
-                ret = _validate_volfile_checksum (trans->xl, volfile_key, 
-                                                  checksum);
-                if (-1 == ret) {
-                        ret = dict_set_str (reply, "ERROR",
-                                            "volume-file checksum varies from "
-                                            "earlier access");
-                        if (ret < 0)
-                                gf_log (trans->xl->name, GF_LOG_ERROR, 
-                                        "failed to set error msg");
+        if (conf->verify_volfile_checksum) {
+                ret = dict_get_uint32 (params, "volfile-checksum", &checksum);
+                if (ret == 0) {
+                        ret = dict_get_str (params, "volfile-key", 
+                                            &volfile_key);
                         
-                        op_ret   = -1;
-                        op_errno = ESTALE;
-                        goto fail;
+                        ret = _validate_volfile_checksum (trans->xl, 
+                                                          volfile_key, 
+                                                          checksum);
+                        if (-1 == ret) {
+                                ret = dict_set_str (reply, "ERROR",
+                                                    "volume-file checksum "
+                                                    "varies from earlier "
+                                                    "access");
+                                if (ret < 0)
+                                        gf_log (trans->xl->name, GF_LOG_ERROR, 
+                                                "failed to set error msg");
+                                
+                                op_ret   = -1;
+                                op_errno = ESTALE;
+                                goto fail;
+                        }
                 }
-	}
+        }
 
 
 	peerinfo = &trans->peerinfo;
@@ -8075,6 +8085,7 @@ init (xlator_t *this)
 	int32_t ret = -1;
 	transport_t *trans = NULL;
 	server_conf_t *conf = NULL;
+        data_t *data = NULL;
 
 	if (this->children == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -8136,6 +8147,18 @@ init (xlator_t *this)
 			"defaulting limits.transaction-size to %d",
 			DEFAULT_BLOCK_SIZE);
 		conf->max_block_size = DEFAULT_BLOCK_SIZE;
+	}
+        
+        conf->verify_volfile_checksum = 1;
+	data = dict_get (this->options, "verify-volfile-checksum");
+	if (data) {
+                ret = gf_string2boolean(data->data, 
+                                        &conf->verify_volfile_checksum);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "wrong value for verify-volfile-checksum");
+                        conf->verify_volfile_checksum = 1;
+                }
 	}
 
 #ifndef GF_DARWIN_HOST_OS
@@ -8290,6 +8313,9 @@ struct volume_options options[] = {
 	},
 	{ .key   = {"client-volume-filename"}, 
 	  .type  = GF_OPTION_TYPE_PATH
+	}, 
+	{ .key   = {"verify-volfile-checksum"}, 
+	  .type  = GF_OPTION_TYPE_BOOL
 	}, 
 	{ .key   = {NULL} },
 };

@@ -105,6 +105,7 @@ typedef struct {
 	int32_t           inode_lru_limit;
 	pthread_mutex_t   mutex;
 	struct list_head  conns;
+        gf_boolean_t      verify_volfile_checksum;
 } server_conf_t;
 
 
