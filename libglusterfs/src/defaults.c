@@ -641,14 +641,16 @@ default_readv_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct iovec *vector,
 		   int32_t count,
-		   struct stat *stbuf)
+		   struct stat *stbuf,
+                   struct iobref *iobref)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
 		      op_errno,
 		      vector,
 		      count,
-		      stbuf);
+		      stbuf,
+                      iobref);
 	return 0;
 }
 
@@ -691,7 +693,8 @@ default_writev (call_frame_t *frame,
 		fd_t *fd,
 		struct iovec *vector,
 		int32_t count,
-		off_t off)
+		off_t off,
+                struct iobref *iobref)
 {
 	STACK_WIND (frame,
 		    default_writev_cbk,
@@ -700,7 +703,8 @@ default_writev (call_frame_t *frame,
 		    fd,
 		    vector,
 		    count,
-		    off);
+		    off,
+                    iobref);
 	return 0;
 }
 

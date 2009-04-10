@@ -1078,7 +1078,8 @@ fop_readv_cbk_stub (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct iovec *vector,
 		    int32_t count,
-		    struct stat *stbuf)
+		    struct stat *stbuf,
+                    struct iobref *iobref)
 
 {
 	call_stub_t *stub = NULL;
@@ -1095,8 +1096,7 @@ fop_readv_cbk_stub (call_frame_t *frame,
 		stub->args.readv_cbk.vector = iov_dup (vector, count);
 		stub->args.readv_cbk.count = count;
 		stub->args.readv_cbk.stbuf = *stbuf;
-		stub->args.readv_cbk.rsp_refs = 
-			dict_ref (frame->root->rsp_refs);
+		stub->args.readv_cbk.iobref = iobref_ref (iobref);
 	}
 out:
 	return stub;
@@ -1109,7 +1109,8 @@ fop_writev_stub (call_frame_t *frame,
 		 fd_t *fd,
 		 struct iovec *vector,
 		 int32_t count,
-		 off_t off)
+		 off_t off,
+                 struct iobref *iobref)
 {
 	call_stub_t *stub = NULL;
 
@@ -1125,9 +1126,7 @@ fop_writev_stub (call_frame_t *frame,
 	stub->args.writev.vector = iov_dup (vector, count);
 	stub->args.writev.count = count;
 	stub->args.writev.off = off;
-
-	if (frame->root->req_refs)
-		stub->args.writev.req_refs = dict_ref (frame->root->req_refs);
+        stub->args.writev.iobref = iobref_ref (iobref);
 out:
 	return stub;
 }
@@ -2406,7 +2405,8 @@ call_resume_wind (call_stub_t *stub)
 				      stub->args.writev.fd,
 				      stub->args.writev.vector,
 				      stub->args.writev.count,
-				      stub->args.writev.off);
+				      stub->args.writev.off,
+                                      stub->args.writev.iobref);
 		break;
 	}
   
@@ -2978,7 +2978,8 @@ call_resume_unwind (call_stub_t *stub)
 				      stub->args.readv_cbk.op_errno,
 				      stub->args.readv_cbk.vector,
 				      stub->args.readv_cbk.count,
-				      &stub->args.readv_cbk.stbuf);
+				      &stub->args.readv_cbk.stbuf,
+                                      stub->args.readv_cbk.iobref);
 		else
 			stub->args.readv_cbk.fn (stub->frame,
 						 stub->frame->cookie,
@@ -2987,7 +2988,8 @@ call_resume_unwind (call_stub_t *stub)
 						 stub->args.readv_cbk.op_errno,
 						 stub->args.readv_cbk.vector,
 						 stub->args.readv_cbk.count,
-						 &stub->args.readv_cbk.stbuf);
+						 &stub->args.readv_cbk.stbuf,
+                                                 stub->args.readv_cbk.iobref);
 	}
 	break;
   
@@ -3644,12 +3646,12 @@ call_stub_destroy_wind (call_stub_t *stub)
   
 	case GF_FOP_WRITE:
 	{
-		dict_t *refs = stub->args.writev.req_refs;
+		struct iobref *iobref = stub->args.writev.iobref;
 		if (stub->args.writev.fd)
 			fd_unref (stub->args.writev.fd);
 		FREE (stub->args.writev.vector);
-		if (refs)
-			dict_unref (refs);
+		if (iobref)
+			iobref_unref (iobref);
 		break;
 	}
   
@@ -3971,11 +3973,11 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	case GF_FOP_READ:
 	{
 		if (stub->args.readv_cbk.op_ret >= 0) {
-			dict_t *refs = stub->args.readv_cbk.rsp_refs;
+			struct iobref *iobref = stub->args.readv_cbk.iobref;
 			FREE (stub->args.readv_cbk.vector);
 			
-			if (refs) {
-				dict_unref (refs);
+			if (iobref) {
+				iobref_unref (iobref);
 			}
 		}
 	}

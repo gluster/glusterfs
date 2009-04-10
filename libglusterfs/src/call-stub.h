@@ -309,7 +309,7 @@ typedef struct {
 			struct iovec *vector;
 			int32_t count;
 			struct stat stbuf;
-			dict_t *rsp_refs;
+			struct iobref *iobref;
 		} readv_cbk;
 
 		/* writev */
@@ -319,7 +319,7 @@ typedef struct {
 			struct iovec *vector;
 			int32_t count;
 			off_t off;
-			dict_t *req_refs;
+			struct iobref *iobref;
 		} writev;
 		struct {
 			fop_writev_cbk_t fn;
@@ -905,7 +905,8 @@ fop_readv_cbk_stub (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct iovec *vector,
 		    int32_t count,
-		    struct stat *stbuf);
+		    struct stat *stbuf,
+                    struct iobref *iobref);
 
 call_stub_t *
 fop_writev_stub (call_frame_t *frame,
@@ -913,7 +914,8 @@ fop_writev_stub (call_frame_t *frame,
 		 fd_t *fd,
 		 struct iovec *vector,
 		 int32_t count,
-		 off_t off);
+		 off_t off,
+                 struct iobref *iobref);
 
 call_stub_t *
 fop_writev_cbk_stub (call_frame_t *frame,

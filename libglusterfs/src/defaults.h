@@ -165,7 +165,8 @@ int32_t default_writev (call_frame_t *frame,
 			fd_t *fd,
 			struct iovec *vector,
 			int32_t count,
-			off_t offset);
+			off_t offset,
+                        struct iobref *iobref);
 
 int32_t default_flush (call_frame_t *frame,
 		       xlator_t *this,
