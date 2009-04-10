@@ -40,8 +40,8 @@ bdb_inode_transform (ino_t parent,
 
         hash = gf_dm_hashfn (name, namelen);
 
-        ino = (((parent << 32) | 0x00000000ffffffff)
-               & (hash | 0xffffffff00000000));
+        ino = (((parent << 32) | 0x00000000ffffffffULL)
+               & (hash | 0xffffffff00000000ULL));
 
         return ino;
 }
