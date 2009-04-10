@@ -1792,11 +1792,7 @@ set_stack_size (iot_conf_t *conf)
         if (err == EINVAL) {
                 gf_log (conf->this->name, GF_LOG_WARNING,
                                 "Using default thread stack size");
-                stacksize = 0;
         }
-
-        pthread_attr_setstacksize (&conf->w_attr, stacksize);
-
 }
 
 static void
