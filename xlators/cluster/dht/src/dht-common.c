@@ -1708,9 +1708,11 @@ err:
 int
 dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno,
-	       struct iovec *vector, int count, struct stat *stbuf)
+	       struct iovec *vector, int count, struct stat *stbuf,
+               struct iobref *iobref)
 {
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf,
+                          iobref);
 
         return 0;
 }
@@ -1744,7 +1746,7 @@ dht_readv (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL, NULL);
 
 	return 0;
 }
@@ -1762,7 +1764,8 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 dht_writev (call_frame_t *frame, xlator_t *this,
-	    fd_t *fd, struct iovec *vector, int count, off_t off)
+	    fd_t *fd, struct iovec *vector, int count, off_t off,
+            struct iobref *iobref)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -1782,7 +1785,7 @@ dht_writev (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, dht_writev_cbk,
 		    subvol, subvol->fops->writev,
-		    fd, vector, count, off);
+		    fd, vector, count, off, iobref);
 
 	return 0;
 
