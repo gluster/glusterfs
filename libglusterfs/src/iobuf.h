@@ -94,4 +94,17 @@ struct iobuf_pool *iobuf_pool_new (size_t arena_size, size_t page_size);
 struct iobuf *iobuf_get (struct iobuf_pool *iobuf_pool);
 void iobuf_unref (struct iobuf *iobuf);
 
+
+struct iobref {
+        gf_lock_t          lock;
+        int                ref;
+        struct iobuf      *iobrefs[8];
+};
+
+struct iobref *iobref_new ();
+struct iobref *iobref_ref (struct iobref *iobref);
+void iobref_unref (struct iobref *iobref);
+int iobref_add (struct iobref *iobref, struct iobuf *iobuf);
+int iobref_merge (struct iobref *to, struct iobref *from);
+
 #endif /* !_IOBUF_H_ */

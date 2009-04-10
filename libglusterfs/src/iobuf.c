@@ -392,3 +392,142 @@ iobuf_ref (struct iobuf *iobuf)
 
         return iobuf;
 }
+
+
+struct iobref *
+iobref_new ()
+{
+        struct iobref *iobref = NULL;
+
+        iobref = CALLOC (sizeof (*iobref), 1);
+        if (!iobref)
+                return NULL;
+
+        LOCK_INIT (&iobref->lock);
+
+        iobref->ref++;
+
+        return iobref;
+}
+
+
+struct iobref *
+iobref_ref (struct iobref *iobref)
+{
+        if (!iobref)
+                return NULL;
+
+        LOCK (&iobref->lock);
+        {
+                iobref->ref++;
+        }
+        UNLOCK (&iobref->lock);
+
+        return iobref;
+}
+
+
+void
+iobref_destroy (struct iobref *iobref)
+{
+        int            i = 0;
+        struct iobuf  *iobuf = NULL;
+
+        if (!iobref)
+                return;
+
+        for (i = 0; i < 8; i++) {
+                iobuf = iobref->iobrefs[i];
+
+                iobref->iobrefs[i] = NULL;
+                if (iobuf)
+                        iobuf_unref (iobuf);
+        }
+
+        FREE (iobref);
+}
+
+
+void
+iobref_unref (struct iobref *iobref)
+{
+        int ref = 0;
+
+        if (!iobref)
+                return;
+
+        LOCK (&iobref->lock);
+        {
+                ref = (--iobref->ref);
+        }
+        UNLOCK (&iobref->lock);
+
+        if (!ref)
+                iobref_destroy (iobref);
+}
+
+
+int
+__iobref_add (struct iobref *iobref, struct iobuf *iobuf)
+{
+        int  i = 0;
+        int  ret = -ENOMEM;
+
+        for (i = 0; i < 8; i++) {
+                if (iobref->iobrefs[i] == NULL) {
+                        iobref->iobrefs[i] = iobuf_ref (iobuf);
+                        ret = 0;
+                        break;
+                }
+        }
+
+        return ret;
+}
+
+
+int
+iobref_add (struct iobref *iobref, struct iobuf *iobuf)
+{
+        int  ret = 0;
+
+        if (!iobref)
+                return -EINVAL;
+
+        if (!iobuf)
+                return -EINVAL;
+
+        LOCK (&iobref->lock);
+        {
+                ret = __iobref_add (iobref, iobuf);
+        }
+        UNLOCK (&iobref->lock);
+
+        return ret;
+}
+
+
+int
+iobref_merge (struct iobref *to, struct iobref *from)
+{
+        int           i = 0;
+        int           ret = 0;
+        struct iobuf *iobuf = NULL;
+
+        LOCK (&from->lock);
+        {
+                for (i = 0; i < 8; i++) {
+                        iobuf = from->iobrefs[i];
+
+                        if (!iobuf)
+                                break;
+
+                        ret = iobref_add (to, iobuf);
+
+                        if (ret < 0)
+                                break;
+                }
+        }
+        UNLOCK (&from->lock);
+
+        return ret;
+}
