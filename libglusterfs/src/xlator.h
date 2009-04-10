@@ -57,6 +57,7 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this,
 #include "list.h"
 #include "gf-dirent.h"
 #include "stack.h"
+#include "iobuf.h"
 #include "inode.h"
 #include "fd.h"
 
@@ -290,7 +291,8 @@ typedef int32_t (*fop_readv_cbk_t) (call_frame_t *frame,
 				    int32_t op_errno,
 				    struct iovec *vector,
 				    int32_t count,
-				    struct stat *stbuf);
+				    struct stat *stbuf,
+                                    struct iobref *iobref);
 
 typedef int32_t (*fop_writev_cbk_t) (call_frame_t *frame,
 				     void *cookie,
@@ -559,7 +561,8 @@ typedef int32_t (*fop_writev_t) (call_frame_t *frame,
 				 fd_t *fd,
 				 struct iovec *vector,
 				 int32_t count,
-				 off_t offset);
+				 off_t offset,
+                                 struct iobref *iobref);
 
 typedef int32_t (*fop_flush_t) (call_frame_t *frame,
 				xlator_t *this,
