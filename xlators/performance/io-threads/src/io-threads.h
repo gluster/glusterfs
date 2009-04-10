@@ -65,6 +65,8 @@ struct iot_request {
 #define iot_ordered_scaling_on(conf)    ((conf)->o_scaling == IOT_SCALING_ON)
 #define iot_unordered_scaling_on(conf)  ((conf)->u_scaling == IOT_SCALING_ON)
 
+#define IOT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
+
 struct iot_worker {
   struct list_head rqlist;      /* List of requests assigned to me. */
   struct iot_conf *conf;
@@ -131,6 +133,10 @@ struct iot_conf {
                                    and never lets any thread exit.
                                    */
 
+  pthread_attr_t w_attr;        /* Used to reduce the stack size of the
+                                   pthread worker down from the default of
+                                   8MiB.
+                                   */
 };
 
 typedef struct iot_conf iot_conf_t;

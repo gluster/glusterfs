@@ -1759,7 +1759,8 @@ void
 iot_startup_worker (iot_worker_t *worker, iot_worker_fn workerfunc)
 {
         worker->state = IOT_STATE_ACTIVE;
-        pthread_create (&worker->thread, NULL, workerfunc, worker);
+        pthread_create (&worker->thread, &worker->conf->w_attr, workerfunc,
+                        worker);
 }
 
 
@@ -1777,6 +1778,24 @@ iot_startup_workers (iot_worker_t **workers, int start_idx, int count,
 }
 
 static void
+set_stack_size (iot_conf_t *conf)
+{
+        int     err = 0;
+        size_t  stacksize = IOT_THREAD_STACK_SIZE;
+
+        pthread_attr_init (&conf->w_attr);
+        err = pthread_attr_setstacksize (&conf->w_attr, stacksize);
+        if (err == EINVAL) {
+                gf_log (conf->this->name, GF_LOG_WARNING,
+                                "Using default thread stack size");
+                stacksize = 0;
+        }
+
+        pthread_attr_setstacksize (&conf->w_attr, stacksize);
+
+}
+
+static void
 workers_init (iot_conf_t *conf)
 {
         /* Initialize un-ordered workers */
@@ -1787,6 +1806,7 @@ workers_init (iot_conf_t *conf)
         conf->oworkers = allocate_worker_array (conf->max_o_threads);
         allocate_workers (conf, conf->oworkers, 0, conf->max_o_threads);
 
+        set_stack_size (conf);
         iot_startup_workers (conf->oworkers, 0, conf->min_o_threads,
                         iot_worker_ordered);
         iot_startup_workers (conf->uworkers, 0, conf->min_u_threads,
