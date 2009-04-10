@@ -267,20 +267,21 @@ map_open_cbk (call_frame_t *frame,
 
 static int32_t
 map_readv_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct iovec *vector,
-		   int32_t count,
-		   struct stat *stbuf)
+               void *cookie,
+               xlator_t *this,
+               int32_t op_ret,
+               int32_t op_errno,
+               struct iovec *vector,
+               int32_t count,
+               struct stat *stbuf,
+               struct iobref *iobref)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
 	map_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
 
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 	return 0;
 }
 
@@ -1405,7 +1406,7 @@ map_readv (call_frame_t *frame,
 
 	return 0;
  err:
-	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL, NULL);
 
 	return 0;
 }
@@ -1416,7 +1417,8 @@ map_writev (call_frame_t *frame,
 	    fd_t *fd,
 	    struct iovec *vector,
 	    int32_t count,
-	    off_t off)
+	    off_t off,
+            struct iobref *iobref)
 {
 	int32_t op_errno = 1;
 	xlator_t *subvol   = NULL;
@@ -1433,7 +1435,7 @@ map_writev (call_frame_t *frame,
 	}
 
 	STACK_WIND (frame, map_writev_cbk, subvol,
-		    subvol->fops->writev, fd, vector, count, off);
+		    subvol->fops->writev, fd, vector, count, off, iobref);
 
 	return 0;
  err:
