@@ -679,7 +679,8 @@ out:
 int32_t
 afr_readv_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int32_t op_ret, int32_t op_errno,
-	       struct iovec *vector, int32_t count, struct stat *buf)
+	       struct iovec *vector, int32_t count, struct stat *buf,
+               struct iobref *iobref)
 {
 	afr_private_t * priv     = NULL;
 	afr_local_t *   local    = NULL;
@@ -732,7 +733,8 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf,
+                                  iobref);
 	}
 
 	return 0;
@@ -802,7 +804,8 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, 0, NULL);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, 0, NULL,
+                                  NULL);
 	}
 	return 0;
 }
