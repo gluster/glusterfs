@@ -845,9 +845,10 @@ iot_readv_cbk (call_frame_t *frame,
                int32_t op_errno,
                struct iovec *vector,
                int32_t count,
-	       struct stat *stbuf)
+	       struct stat *stbuf,
+               struct iobref *iobref)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 
 	return 0;
 }
@@ -1001,7 +1002,8 @@ iot_writev_wrapper (call_frame_t *frame,
                     fd_t *fd,
                     struct iovec *vector,
                     int32_t count,
-                    off_t offset)
+                    off_t offset,
+                    struct iobref *iobref)
 {
 	STACK_WIND (frame,
 		    iot_writev_cbk,
@@ -1010,7 +1012,8 @@ iot_writev_wrapper (call_frame_t *frame,
 		    fd,
 		    vector,
 		    count,
-		    offset);
+		    offset,
+                    iobref);
 	return 0;
 }
 
@@ -1020,11 +1023,12 @@ iot_writev (call_frame_t *frame,
             fd_t *fd,
             struct iovec *vector,
             int32_t count,
-            off_t offset)
+            off_t offset,
+            struct iobref *iobref)
 {
 	call_stub_t *stub;
 	stub = fop_writev_stub (frame, iot_writev_wrapper,
-				fd, vector, count, offset);
+				fd, vector, count, offset, iobref);
 
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot get writev call stub");
