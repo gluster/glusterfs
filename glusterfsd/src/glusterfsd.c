@@ -967,6 +967,7 @@ main (int argc, char *argv[])
 	
 	free (base_exec_name);
 
+        ctx->iobuf_pool = iobuf_pool_new (64 * 1048576, 128 * 1024);
 	ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
 	pthread_mutex_init (&(ctx->lock), NULL);
 	pool = ctx->pool = CALLOC (1, sizeof (call_pool_t));
