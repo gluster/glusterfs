@@ -52,7 +52,7 @@ struct ra_fill {
 	size_t          size;
 	struct iovec   *vector;
 	int32_t         count;
-	dict_t         *refs;
+        struct iobref  *iobref;
 };
 
 
@@ -82,7 +82,7 @@ struct ra_page {
 	off_t             offset;
 	size_t            size;
 	struct ra_waitq  *waitq;
-	dict_t           *ref;
+        struct iobref    *iobref;
 };
 
 

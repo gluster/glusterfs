@@ -320,7 +320,7 @@ read_ahead (call_frame_t *frame, ra_file_t *file)
 int
 ra_need_atime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iovec *vector,
-                   int32_t count, struct stat *stbuf)
+                   int32_t count, struct stat *stbuf, struct iobref *iobref)
 {
 	STACK_DESTROY (frame->root);
 	return 0;
@@ -409,9 +409,10 @@ dispatch_requests (call_frame_t *frame,
 int
 ra_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
-		       struct iovec *vector, int32_t count, struct stat *stbuf)
+		       struct iovec *vector, int32_t count, struct stat *stbuf,
+                       struct iobref *iobref)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 
 	return 0;
 }
@@ -590,7 +591,8 @@ ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
-           struct iovec *vector, int32_t count, off_t offset)
+           struct iovec *vector, int32_t count, off_t offset,
+           struct iobref *iobref)
 {
 	ra_file_t *file = NULL;
 	int        ret = 0;
@@ -611,7 +613,7 @@ ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	STACK_WIND (frame, ra_writev_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->writev,
-		    fd, vector, count, offset);
+		    fd, vector, count, offset, iobref);
 
 	return 0;
 }
