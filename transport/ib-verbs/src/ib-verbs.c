@@ -176,8 +176,8 @@ static void
 __ib_verbs_ioq_entry_free (ib_verbs_ioq_t *entry)
 {
         list_del_init (&entry->list);
-        if (entry->refs)
-                dict_unref (entry->refs);
+        if (entry->iobref)
+                iobref_unref (entry->iobref);
 
         /* TODO: use mem-pool */
         free (entry->buf);
@@ -414,7 +414,7 @@ unlock:
 
 static ib_verbs_ioq_t *
 ib_verbs_ioq_new (char *buf, int len, struct iovec *vector, 
-                  int count, dict_t *refs)
+                  int count, struct iobref *iobref)
 {
         ib_verbs_ioq_t *entry = NULL;
 
@@ -444,8 +444,8 @@ ib_verbs_ioq_new (char *buf, int len, struct iovec *vector,
                 entry->count += count;
         }
 
-        if (refs)
-                entry->refs = dict_ref (refs);
+        if (iobref)
+                entry->iobref = iobref_ref (iobref);
 
         entry->buf = buf;
 
@@ -457,12 +457,12 @@ ib_verbs_ioq_new (char *buf, int len, struct iovec *vector,
 
 static int32_t
 ib_verbs_submit (transport_t *this, char *buf, int32_t len,
-                 struct iovec *vector, int count, dict_t *refs)
+                 struct iovec *vector, int count, struct iobref *iobref)
 {
         int32_t ret = 0;
         ib_verbs_ioq_t *entry = NULL;
   
-        entry = ib_verbs_ioq_new (buf, len, vector, count, refs);
+        entry = ib_verbs_ioq_new (buf, len, vector, count, iobref);
         ret = ib_verbs_writev (this, entry);
 
         if (ret > 0) {
@@ -474,7 +474,7 @@ ib_verbs_submit (transport_t *this, char *buf, int32_t len,
 
 static int
 ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
-                  char **buf_p, size_t *buflen_p)
+                  struct iobuf **iobuf_p)
 {
         ib_verbs_private_t *priv = this->private;
         /* TODO: return error if !priv->connected, check with locks */
@@ -482,7 +482,8 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
         char *copy_from = NULL;
         ib_verbs_header_t *header = NULL;
         uint32_t size1, size2, data_len = 0;
-        char *hdr = NULL, *buf = NULL;
+        char *hdr = NULL;
+        struct iobuf *iobuf = NULL;
         int32_t ret = 0;
 
         pthread_mutex_lock (&priv->recv_mutex);
@@ -531,11 +532,10 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
         *hdrlen_p = size1;
 
         if (size2) {
-                buf = CALLOC (1, size2);
-                memcpy (buf, copy_from, size2);
-                *buf_p = buf;
+                iobuf = iobuf_get (this->xl->ctx->iobuf_pool);
+                memcpy (iobuf->ptr, copy_from, size2);
+                *iobuf_p = iobuf;
         }
-        *buflen_p = size2;
 
 err:
         return ret;
