@@ -90,7 +90,7 @@ ioc_page_destroy (ioc_page_t *page)
 			page, page->offset, page->inode);
     
 		if (page->vector){
-			dict_unref (page->ref);
+			iobref_unref (page->iobref);
 			free (page->vector);
 			page->vector = NULL;
 		}
@@ -323,7 +323,8 @@ ioc_fault_cbk (call_frame_t *frame,
 	       int32_t op_errno,
 	       struct iovec *vector,
 	       int32_t count,
-	       struct stat *stbuf)
+	       struct stat *stbuf,
+               struct iobref *iobref)
 {
 	ioc_local_t *local = frame->local;
 	off_t offset = local->pending_offset;
@@ -374,7 +375,7 @@ ioc_fault_cbk (call_frame_t *frame,
 					table->page_size, ioc_inode);
 			} else {
 				if (page->vector) {
-					dict_unref (page->ref);
+					iobref_unref (page->iobref);
 					free (page->vector);
 					page->vector = NULL;
 				}
@@ -382,9 +383,8 @@ ioc_fault_cbk (call_frame_t *frame,
 				/* keep a copy of the page for our cache */
 				page->vector = iov_dup (vector, count);
 				page->count = count;
-				if (frame->root->rsp_refs) {
-					dict_ref (frame->root->rsp_refs);
-					page->ref = frame->root->rsp_refs;
+				if (iobref) {
+					page->iobref = iobref_ref (iobref);
 				} else {
 					/* TODO: we have got a response to 
 					 * our request and no data */
@@ -543,7 +543,7 @@ ioc_frame_fill (ioc_page_t *page,
 			ERR_ABORT (new);
 			new->offset = page->offset;
 			new->size = copy_size;
-			new->refs = dict_ref (page->ref);
+			new->iobref = iobref_ref (page->iobref);
 			new->count = iov_subset (page->vector,
 						 page->count,
 						 src_offset,
@@ -609,12 +609,12 @@ ioc_frame_unwind (call_frame_t *frame)
 	int32_t count = 0;
 	struct iovec *vector = NULL;
 	int32_t copied = 0;
-	dict_t *refs = NULL;
+	struct iobref *iobref = NULL;
 	struct stat stbuf = {0,};
 	int32_t op_ret = 0;
 
 	//  ioc_local_lock (local);
-	refs = get_new_dict ();
+	iobref = iobref_new ();
 
 	frame->local = NULL;
 
@@ -639,15 +639,13 @@ ioc_frame_unwind (call_frame_t *frame)
     
 		copied += (fill->count * sizeof (*vector));
 
-		dict_copy (fill->refs, refs);
+		iobref_merge (iobref, fill->iobref);
 
 		list_del (&fill->list);
-		dict_unref (fill->refs);
+		iobref_unref (fill->iobref);
 		free (fill->vector);
 		free (fill);
 	}
-  
-	frame->root->rsp_refs = dict_ref (refs);
   
 	op_ret = iov_length (vector, count);
 	gf_log (frame->this->name, GF_LOG_DEBUG,
@@ -660,9 +658,10 @@ ioc_frame_unwind (call_frame_t *frame)
 		      local->op_errno,
 		      vector,
 		      count,
-		      &stbuf);
+		      &stbuf,
+                      iobref);
 
-	dict_unref (refs);
+	iobref_unref (iobref);
     
 	pthread_mutex_destroy (&local->local_lock);
 	free (local);

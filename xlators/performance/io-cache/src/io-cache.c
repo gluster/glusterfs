@@ -200,10 +200,8 @@ ioc_lookup_cbk (call_frame_t *frame,
 	ioc_local_t *local = frame->local;
 	ioc_table_t *table = this->private;
 	ioc_page_t  *page = NULL;
-	data_t      *page_data = NULL;
 	data_t      *content_data = NULL;
 	char        *src = NULL;
-	char        *dst = NULL;
 	char         need_unref = 0;
 	uint8_t      cache_still_valid = 0;
 	uint32_t     weight = 0;
@@ -211,6 +209,8 @@ ioc_lookup_cbk (call_frame_t *frame,
 	char        *buf = NULL;
 	char        *tmp = NULL;
 	int          i;
+        struct iobref *iobref = NULL;
+        struct iobuf  *iobuf = NULL;
 	
 	if (op_ret != 0) 
 		goto out;
@@ -257,7 +257,7 @@ ioc_lookup_cbk (call_frame_t *frame,
 			
 			if (content_data) {
 				if (page) {
-					dict_unref (page->ref);
+					iobref_unref (page->iobref);
 					free (page->vector);
 					page->vector = NULL;
 					
@@ -270,19 +270,18 @@ ioc_lookup_cbk (call_frame_t *frame,
 				} else {
 					page = ioc_page_create (ioc_inode, 0);
 				}
-				
-				dst = CALLOC (1, stbuf->st_size);
-				page->ref = dict_ref (get_new_dict ());
-				page_data = data_from_dynptr (dst, 
-							      stbuf->st_size);
-				dict_set (page->ref, NULL, page_data);
-				
+
 				src = data_to_ptr (content_data);
-				memcpy (dst, src, stbuf->st_size);
+
+                                iobuf = iobuf_get (this->ctx->iobuf_pool);
+				page->iobref = iobref_new ();
+                                iobref_add (page->iobref, iobuf);
+				
+				memcpy (iobuf->ptr, src, stbuf->st_size);
 
 				page->vector = CALLOC (1, 
 						       sizeof (*page->vector));
-				page->vector->iov_base = dst;
+				page->vector->iov_base = iobuf->ptr;
 				page->vector->iov_len = stbuf->st_size;
 				page->count = 1;
       
@@ -350,6 +349,11 @@ ioc_lookup_cbk (call_frame_t *frame,
 	if (need_unref) {
 		dict_unref (dict);
 	}
+
+        if (iobref)
+                iobref_unref (iobref);
+        if (iobuf)
+                iobuf_unref (iobuf);
 
 	return 0;
 }
@@ -834,9 +838,10 @@ ioc_readv_disabled_cbk (call_frame_t *frame,
 			int32_t op_errno,
 			struct iovec *vector,
 			int32_t count,
-			struct stat *stbuf)
+			struct stat *stbuf,
+                        struct iobref *iobref)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 	return 0;
 }
 
@@ -1104,7 +1109,8 @@ ioc_writev (call_frame_t *frame,
 	    fd_t *fd,
 	    struct iovec *vector,
 	    int32_t count,
-	    off_t offset)
+	    off_t offset,
+            struct iobref *iobref)
 {
 	ioc_local_t *local     = NULL;
 	uint64_t     ioc_inode = 0;
@@ -1127,7 +1133,8 @@ ioc_writev (call_frame_t *frame,
 		    fd,
 		    vector,
 		    count,
-		    offset);
+		    offset,
+                    iobref);
 
 	return 0;
 }
