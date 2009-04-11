@@ -34,7 +34,7 @@
 /* UGLY: have common typedef b/w saved-frames.c and protocol-client.c */
 typedef int32_t (*gf_op_t) (call_frame_t *frame,
                             gf_hdr_common_t *hdr, size_t hdrlen,
-                            char *buf, size_t buflen);
+                            struct iobuf *iobuf);
 
 
 struct saved_frame {

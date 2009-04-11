@@ -48,13 +48,13 @@
 int protocol_client_cleanup (transport_t *trans);
 int protocol_client_interpret (xlator_t *this, transport_t *trans,
                                char *hdr_p, size_t hdrlen,
-                               char *buf_p, size_t buflen);
+                               struct iobuf *iobuf);
 int
 protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
                       int type, int op,
                       gf_hdr_common_t *hdr, size_t hdrlen,
                       struct iovec *vector, int count,
-                      dict_t *refs);
+                      struct iobref *iobref);
 
 static gf_op_t gf_fops[];
 static gf_op_t gf_mops[];
@@ -290,7 +290,6 @@ call_bail (void *data)
 	struct saved_frame   *tmp = NULL;
 	call_frame_t         *frame = NULL;
 	gf_hdr_common_t       hdr = {0, };
-	dict_t               *reply = NULL;
 	char                **gf_op_list = NULL;
 	gf_op_t              *gf_ops = NULL;
 	struct tm             frame_sent_tm;
@@ -359,9 +358,6 @@ call_bail (void *data)
 	}
 	pthread_mutex_unlock (&conn->lock);
 
-	reply = get_new_dict();
-	dict_ref (reply);
-
 	hdr.rsp.op_ret   = hton32 (-1);
 	hdr.rsp.op_errno = hton32 (ENOTCONN);
 
@@ -394,14 +390,12 @@ call_bail (void *data)
 		hdr.op   = hton32 (trav->op);
 
 		frame = trav->frame;
-		frame->root->rsp_refs = reply;
 
-		gf_ops[trav->op] (frame, &hdr, sizeof (hdr), NULL, 0);
+		gf_ops[trav->op] (frame, &hdr, sizeof (hdr), NULL);
 
 		list_del_init (&trav->list);
 		FREE (trav);
 	}
-	dict_unref (reply);
 out:
 	return;
 }
@@ -614,7 +608,7 @@ client_start_ping (void *data)
 
 int
 client_ping_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-		 char *buf, size_t buflen)
+		 struct iobuf *iobuf)
 {
 	xlator_t            *this = NULL;
 	transport_t         *trans = NULL;
@@ -663,7 +657,7 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
                       int type, int op,
                       gf_hdr_common_t *hdr, size_t hdrlen,
                       struct iovec *vector, int count,
-                      dict_t *refs)
+                      struct iobref *iobref)
 {
 	client_conf_t        *conf = NULL;
 	client_connection_t  *conn = NULL;
@@ -728,7 +722,7 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
 		    ((type == GF_OP_TYPE_MOP_REQUEST) &&
 		     (op == GF_MOP_SETVOLUME))) {
 			ret = transport_submit (trans, (char *)hdr, hdrlen,
-						vector, count, refs);
+						vector, count, iobref);
 		}
 		
 		if ((ret >= 0) && frame) {
@@ -756,13 +750,13 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
 
 		if (type == GF_OP_TYPE_FOP_REQUEST) {
 			rsphdr.type = GF_OP_TYPE_FOP_REPLY;
-			gf_fops[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
+			gf_fops[op] (frame, &rsphdr, sizeof (rsphdr), NULL);
 		} else if (type == GF_OP_TYPE_MOP_REQUEST) {
 			rsphdr.type = GF_OP_TYPE_MOP_REPLY;
-			gf_mops[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
+			gf_mops[op] (frame, &rsphdr, sizeof (rsphdr), NULL);
 		} else {
 			rsphdr.type = GF_OP_TYPE_CBK_REPLY;
-			gf_cbks[op] (frame, &rsphdr, sizeof (rsphdr), NULL, 0);
+			gf_cbks[op] (frame, &rsphdr, sizeof (rsphdr), NULL);
 		}
 
                 FREE (hdr);
@@ -1889,7 +1883,8 @@ client_writev (call_frame_t *frame,
                fd_t *fd,
                struct iovec *vector,
                int32_t count,
-               off_t offset)
+               off_t offset,
+               struct iobref *iobref)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_write_req_t *req = NULL;
@@ -1907,7 +1902,8 @@ client_writev (call_frame_t *frame,
 			    fd,
 			    vector,
 			    count,
-			    offset);
+			    offset,
+                            iobref);
 		
 		return 0;
 	}
@@ -1934,9 +1930,7 @@ client_writev (call_frame_t *frame,
 	ret = protocol_client_xfer (frame, this,
 				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_WRITE,
-				    hdr, hdrlen, vector, count,
-				    frame->root->req_refs);
-
+				    hdr, hdrlen, vector, count, iobref);
 	return ret;
 unwind:
 	if (hdr)
@@ -3857,10 +3851,7 @@ client_setdents (call_frame_t *frame,
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_setdents_req_t *req = NULL;
 	int64_t remote_fd = 0;
-	char   *buffer = NULL;
 	char *ptr = NULL;
-	data_t *buf_data = NULL;
-	dict_t *reply_dict = NULL;
 	dir_entry_t *trav = NULL;
 	uint32_t len = 0;
 	int32_t  buf_len = 0;
@@ -3871,6 +3862,8 @@ client_setdents (call_frame_t *frame,
 	size_t   hdrlen = -1;
 	struct iovec vector[1];
 	client_conf_t *conf = this->private;
+        struct iobref *iobref = NULL;
+        struct iobuf *iobuf = NULL;
 
 	if (conf->child) {
 		/* */
@@ -3909,10 +3902,10 @@ client_setdents (call_frame_t *frame,
 		len += 256; // max possible for statbuf;
 		trav = trav->next;
 	}
-	buffer = CALLOC (1, len);
-	GF_VALIDATE_OR_GOTO (this->name, buffer, unwind);
+	iobuf = iobuf_get (this->ctx->iobuf_pool);
+	GF_VALIDATE_OR_GOTO (this->name, iobuf, unwind);
 
-	ptr = buffer;
+	ptr = iobuf->ptr;
 
 	trav = entries->next;
 	while (trav) {
@@ -3968,7 +3961,7 @@ client_setdents (call_frame_t *frame,
 		trav = trav->next;
 		ptr += this_len;
 	}
-	buf_len = strlen (buffer);
+	buf_len = strlen (iobuf->ptr);
 
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
@@ -3980,29 +3973,29 @@ client_setdents (call_frame_t *frame,
 	req->flags = hton32 (flags);
 	req->count = hton32 (count);
 
-	{
-		buf_data = get_new_data ();
-		GF_VALIDATE_OR_GOTO (this->name, buf_data, unwind);
-		reply_dict = get_new_dict();
-		GF_VALIDATE_OR_GOTO (this->name, reply_dict, unwind);
-
-		buf_data->data = buffer;
-		buf_data->len = buf_len;
-		dict_set (reply_dict, NULL, buf_data);
-		frame->root->rsp_refs = dict_ref (reply_dict);
-		vector[0].iov_base = buffer;
-		vector[0].iov_len = buf_len;
-		vec_count = 1;
-	}
+        iobref = iobref_new ();
+        iobref_add (iobref, iobuf);
 
 	ret = protocol_client_xfer (frame, this,
 				    CLIENT_CHANNEL (this, CHANNEL_BULK),
 				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETDENTS,
-				    hdr, hdrlen, vector, vec_count, 
-				    frame->root->rsp_refs);
+				    hdr, hdrlen, vector, vec_count, iobref);
+
+        if (iobref)
+                iobref_unref (iobref);
+
+        if (iobuf)
+                iobuf_unref (iobuf);
 
 	return ret;
 unwind:
+
+        if (iobref)
+                iobref_unref (iobref);
+
+        if (iobuf)
+                iobuf_unref (iobuf);
+
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
@@ -4263,7 +4256,7 @@ unwind:
 int32_t
 client_fxattrop_cbk (call_frame_t *frame,
 		     gf_hdr_common_t *hdr, size_t hdrlen,
-		     char *buf, size_t buflen)
+		     struct iobuf *iobuf)
 {
 	gf_fop_xattrop_rsp_t *rsp = NULL;
 	int32_t op_ret   = 0;
@@ -4322,7 +4315,7 @@ fail:
 int32_t
 client_xattrop_cbk (call_frame_t *frame,
 		    gf_hdr_common_t *hdr, size_t hdrlen,
-		    char *buf, size_t buflen)
+		    struct iobuf *iobuf)
 {
 	gf_fop_xattrop_rsp_t *rsp = NULL;
 	int32_t op_ret   = -1;
@@ -4388,7 +4381,7 @@ fail:
 int32_t
 client_fchown_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	gf_fop_fchown_rsp_t *rsp = NULL;
@@ -4421,7 +4414,7 @@ client_fchown_cbk (call_frame_t *frame,
 int32_t
 client_fchmod_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	gf_fop_fchmod_rsp_t *rsp = NULL;
@@ -4454,7 +4447,7 @@ client_fchmod_cbk (call_frame_t *frame,
 int
 client_create_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	gf_fop_create_rsp_t  *rsp = NULL;
 	int32_t               op_ret = 0;
@@ -4522,7 +4515,7 @@ client_create_cbk (call_frame_t *frame,
 int32_t
 client_open_cbk (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	int32_t              op_ret = -1;
 	int32_t              op_errno = ENOTCONN;
@@ -4585,7 +4578,7 @@ client_open_cbk (call_frame_t *frame,
 int
 client_stat_cbk (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	struct stat        stbuf = {0, };
 	gf_fop_stat_rsp_t *rsp = NULL;
@@ -4617,7 +4610,7 @@ client_stat_cbk (call_frame_t *frame,
 int32_t
 client_utimens_cbk (call_frame_t *frame,
                     gf_hdr_common_t *hdr, size_t hdrlen,
-                    char *buf, size_t buflen)
+                    struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	gf_fop_utimens_rsp_t *rsp = NULL;
@@ -4648,7 +4641,7 @@ client_utimens_cbk (call_frame_t *frame,
 int32_t
 client_chmod_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	gf_fop_chmod_rsp_t *rsp = NULL;
@@ -4679,7 +4672,7 @@ client_chmod_cbk (call_frame_t *frame,
 int32_t
 client_chown_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	gf_fop_chown_rsp_t *rsp = NULL;
@@ -4710,7 +4703,7 @@ client_chown_cbk (call_frame_t *frame,
 int32_t
 client_mknod_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	gf_fop_mknod_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -4750,7 +4743,7 @@ client_mknod_cbk (call_frame_t *frame,
 int32_t
 client_symlink_cbk (call_frame_t *frame,
                     gf_hdr_common_t *hdr, size_t hdrlen,
-                    char *buf, size_t buflen)
+                    struct iobuf *iobuf)
 {
 	gf_fop_symlink_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -4790,7 +4783,7 @@ client_symlink_cbk (call_frame_t *frame,
 int32_t
 client_link_cbk (call_frame_t *frame,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	gf_fop_link_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -4830,7 +4823,7 @@ client_link_cbk (call_frame_t *frame,
 int32_t
 client_truncate_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
-                     char *buf, size_t buflen)
+                     struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	gf_fop_truncate_rsp_t *rsp = NULL;
@@ -4861,7 +4854,7 @@ client_truncate_cbk (call_frame_t *frame,
 int32_t
 client_fstat_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	gf_fop_fstat_rsp_t *rsp = NULL;
@@ -4892,7 +4885,7 @@ client_fstat_cbk (call_frame_t *frame,
 int32_t
 client_ftruncate_cbk (call_frame_t *frame,
                       gf_hdr_common_t *hdr, size_t hdrlen,
-                      char *buf, size_t buflen)
+                      struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	gf_fop_ftruncate_rsp_t *rsp = NULL;
@@ -4923,14 +4916,14 @@ client_ftruncate_cbk (call_frame_t *frame,
 int32_t
 client_readv_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	gf_fop_read_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
 	struct iovec vector = {0, };
 	struct stat stbuf = {0, };
-	dict_t *refs = NULL;
+        struct iobref *iobref = NULL;
 
 	rsp = gf_param (hdr);
 
@@ -4939,18 +4932,20 @@ client_readv_cbk (call_frame_t *frame,
 
 	if (op_ret != -1) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		vector.iov_base = buf;
-		vector.iov_len  = buflen;
+		vector.iov_base = iobuf->ptr;
+		vector.iov_len  = op_ret;
 
-		refs = get_new_dict ();
-		dict_set (refs, NULL, data_from_dynptr (buf, 0));
-		frame->root->rsp_refs = dict_ref (refs);
+		iobref = iobref_new ();
+                iobref_add (iobref, iobuf);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, &vector, 1, &stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, &vector, 1, &stbuf, iobref);
 
-	if (refs)
-		dict_unref (refs);
+	if (iobref)
+		iobref_unref (iobref);
+
+        if (iobuf)
+                iobuf_unref (iobuf);
 
 	return 0;
 }
@@ -4966,7 +4961,7 @@ client_readv_cbk (call_frame_t *frame,
 int32_t
 client_write_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	gf_fop_write_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -4990,7 +4985,7 @@ client_write_cbk (call_frame_t *frame,
 int32_t
 client_readdir_cbk (call_frame_t *frame,
                     gf_hdr_common_t *hdr, size_t hdrlen,
-                    char *buf, size_t buflen)
+                    struct iobuf *iobuf)
 {
 	gf_fop_readdir_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5027,7 +5022,7 @@ client_readdir_cbk (call_frame_t *frame,
 int32_t
 client_fsync_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	gf_fop_fsync_rsp_t *rsp = NULL;
@@ -5055,7 +5050,7 @@ client_fsync_cbk (call_frame_t *frame,
 int32_t
 client_unlink_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	gf_fop_unlink_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5081,7 +5076,7 @@ client_unlink_cbk (call_frame_t *frame,
 int32_t
 client_rename_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	gf_fop_rename_rsp_t *rsp = NULL;
@@ -5114,7 +5109,7 @@ client_rename_cbk (call_frame_t *frame,
 int32_t
 client_readlink_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
-                     char *buf, size_t buflen)
+                     struct iobuf *iobuf)
 {
 	gf_fop_readlink_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5144,7 +5139,7 @@ client_readlink_cbk (call_frame_t *frame,
 int32_t
 client_mkdir_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	gf_fop_mkdir_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5186,7 +5181,7 @@ client_mkdir_cbk (call_frame_t *frame,
 int32_t
 client_flush_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
@@ -5210,7 +5205,7 @@ client_flush_cbk (call_frame_t *frame,
 int
 client_opendir_cbk (call_frame_t *frame,
                     gf_hdr_common_t *hdr, size_t hdrlen,
-                    char *buf, size_t buflen)
+                    struct iobuf *iobuf)
 {
 	int32_t               op_ret   = -1;
 	int32_t               op_errno = ENOTCONN;
@@ -5274,7 +5269,7 @@ client_opendir_cbk (call_frame_t *frame,
 int
 client_rmdir_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	gf_fop_rmdir_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5300,7 +5295,7 @@ client_rmdir_cbk (call_frame_t *frame,
 int32_t
 client_access_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	gf_fop_access_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5329,7 +5324,7 @@ client_access_cbk (call_frame_t *frame,
 int32_t
 client_lookup_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
@@ -5490,7 +5485,7 @@ fail:
 int32_t
 client_getdents_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
-                     char *buf, size_t buflen)
+                     struct iobuf *iobuf)
 {
 	gf_fop_getdents_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5507,7 +5502,7 @@ client_getdents_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		nr_count = ntoh32 (rsp->count);		
-		entry = gf_bin_to_direntry(buf, nr_count);
+		entry = gf_bin_to_direntry(iobuf->ptr, nr_count);
 		if (entry == NULL) {
 			op_ret = -1;
 			op_errno = EINVAL;
@@ -5516,11 +5511,10 @@ client_getdents_cbk (call_frame_t *frame,
 
 	STACK_UNWIND (frame, op_ret, op_errno, entry, nr_count);
 
-	if (op_ret >= 0) {
-		/* Free the buffer */
-		FREE (buf);
+        if (iobuf)
+		iobuf_unref (iobuf);
+        if (entry)
 		gf_free_direntry(entry);
-      	}
 
 	return 0;
 }
@@ -5535,7 +5529,7 @@ client_getdents_cbk (call_frame_t *frame,
 int32_t
 client_statfs_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	struct statvfs stbuf = {0, };
 	gf_fop_statfs_rsp_t *rsp = NULL;
@@ -5567,7 +5561,7 @@ client_statfs_cbk (call_frame_t *frame,
 int32_t
 client_fsyncdir_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
-                     char *buf, size_t buflen)
+                     struct iobuf *iobuf)
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
@@ -5590,7 +5584,7 @@ client_fsyncdir_cbk (call_frame_t *frame,
 int32_t
 client_setxattr_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
-                     char *buf, size_t buflen)
+                     struct iobuf *iobuf)
 {
 	gf_fop_setxattr_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5616,7 +5610,7 @@ client_setxattr_cbk (call_frame_t *frame,
 int32_t
 client_getxattr_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
-                     char *buf, size_t buflen)
+                     struct iobuf *iobuf)
 {
 	gf_fop_getxattr_rsp_t *rsp = NULL;
 	int32_t op_ret   = 0;
@@ -5687,7 +5681,7 @@ fail:
 int32_t
 client_removexattr_cbk (call_frame_t *frame,
                         gf_hdr_common_t *hdr, size_t hdrlen,
-                        char *buf, size_t buflen)
+                        struct iobuf *iobuf)
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
@@ -5710,7 +5704,7 @@ client_removexattr_cbk (call_frame_t *frame,
 int32_t
 client_lk_common_cbk (call_frame_t *frame,
 		      gf_hdr_common_t *hdr, size_t hdrlen,
-		      char *buf, size_t buflen)
+		      struct iobuf *iobuf)
 {
 	struct flock lock = {0,};
 	gf_fop_lk_rsp_t *rsp = NULL;
@@ -5741,7 +5735,7 @@ client_lk_common_cbk (call_frame_t *frame,
 int32_t
 client_inodelk_cbk (call_frame_t *frame,
 		    gf_hdr_common_t *hdr, size_t hdrlen,
-		    char *buf, size_t buflen)
+		    struct iobuf *iobuf)
 {
 	gf_fop_inodelk_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5760,7 +5754,7 @@ client_inodelk_cbk (call_frame_t *frame,
 int32_t
 client_finodelk_cbk (call_frame_t *frame,
 		     gf_hdr_common_t *hdr, size_t hdrlen,
-		     char *buf, size_t buflen)
+		     struct iobuf *iobuf)
 {
 	gf_fop_finodelk_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5786,7 +5780,7 @@ client_finodelk_cbk (call_frame_t *frame,
 int32_t
 client_entrylk_cbk (call_frame_t *frame,
 		    gf_hdr_common_t *hdr, size_t hdrlen,
-		    char *buf, size_t buflen)
+		    struct iobuf *iobuf)
 {
 	gf_fop_entrylk_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5804,7 +5798,7 @@ client_entrylk_cbk (call_frame_t *frame,
 int32_t
 client_fentrylk_cbk (call_frame_t *frame,
 		     gf_hdr_common_t *hdr, size_t hdrlen,
-		     char *buf, size_t buflen)
+		     struct iobuf *iobuf)
 {
 	gf_fop_fentrylk_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -5831,7 +5825,7 @@ client_fentrylk_cbk (call_frame_t *frame,
 int32_t
 client_setdents_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
-                     char *buf, size_t buflen)
+                     struct iobuf *iobuf)
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
@@ -5858,7 +5852,7 @@ client_setdents_cbk (call_frame_t *frame,
 int32_t
 client_stats_cbk (call_frame_t *frame,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	struct xlator_stats stats = {0,};
 	gf_mop_stats_rsp_t *rsp = NULL;
@@ -5950,7 +5944,7 @@ unwind:
 int32_t
 client_getspec_cbk (call_frame_t *frame,
                     gf_hdr_common_t *hdr, size_t hdrlen,
-                    char *buf, size_t buflen)
+                    struct iobuf *iobuf)
 {
 	gf_mop_getspec_rsp_t *rsp = NULL;
 	char *spec_data = NULL;
@@ -6015,7 +6009,7 @@ client_checksum (call_frame_t *frame,
 int32_t
 client_checksum_cbk (call_frame_t *frame,
                      gf_hdr_common_t *hdr, size_t hdrlen,
-                     char *buf, size_t buflen)
+                     struct iobuf *iobuf)
 {
 	gf_fop_checksum_rsp_t *rsp = NULL;
 	int32_t op_ret = 0;
@@ -6051,7 +6045,7 @@ client_checksum_cbk (call_frame_t *frame,
 int32_t
 client_setspec_cbk (call_frame_t *frame,
                     gf_hdr_common_t *hdr, size_t hdrlen,
-                    char *buf, size_t buflen)
+                    struct iobuf *iobuf)
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
@@ -6074,7 +6068,7 @@ client_setspec_cbk (call_frame_t *frame,
 int
 client_setvolume_cbk (call_frame_t *frame,
                       gf_hdr_common_t *hdr, size_t hdrlen,
-                      char *buf, size_t buflen)
+                      struct iobuf *iobuf)
 {
 	gf_mop_setvolume_rsp_t *rsp = NULL;
 	client_connection_t    *conn = NULL;
@@ -6215,7 +6209,7 @@ out:
 int
 client_enosys_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	STACK_DESTROY (frame->root);
 	return 0;
@@ -6334,7 +6328,7 @@ protocol_client_cleanup (transport_t *trans)
 int
 client_releasedir_cbk (call_frame_t *frame,
 		       gf_hdr_common_t *hdr, size_t hdrlen,
-		       char *buf, size_t buflen)
+		       struct iobuf *iobuf)
 {
 	STACK_DESTROY (frame->root);
 	return 0;
@@ -6344,7 +6338,7 @@ client_releasedir_cbk (call_frame_t *frame,
 int
 client_release_cbk (call_frame_t *frame,
 		    gf_hdr_common_t *hdr, size_t hdrlen,
-		    char *buf, size_t buflen)
+		    struct iobuf *iobuf)
 {
 	STACK_DESTROY (frame->root);
 	return 0;
@@ -6354,7 +6348,7 @@ client_release_cbk (call_frame_t *frame,
 int
 client_forget_cbk (call_frame_t *frame,
                    gf_hdr_common_t *hdr, size_t hdrlen,
-                   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	client_conf_t   *conf = NULL;
 	client_forget_t  forget = {0, };
@@ -6458,8 +6452,7 @@ static gf_op_t gf_cbks[] = {
  */
 int
 protocol_client_interpret (xlator_t *this, transport_t *trans,
-                           char *hdr_p, size_t hdrlen,
-                           char *buf_p, size_t buflen)
+                           char *hdr_p, size_t hdrlen, struct iobuf *iobuf)
 {
 	int ret = -1;
 	call_frame_t *frame = NULL;
@@ -6492,7 +6485,7 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 			gf_log (trans->xl->name, GF_LOG_WARNING,
 				"invalid fop '%d'", op);
 		} else {
-			ret = gf_fops[op] (frame, hdr, hdrlen, buf_p, buflen);
+			ret = gf_fops[op] (frame, hdr, hdrlen, iobuf);
 		}
 		break;
 	case GF_OP_TYPE_MOP_REPLY:
@@ -6501,7 +6494,7 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 			gf_log (trans->xl->name, GF_LOG_WARNING,
 				"invalid fop '%d'", op);
 		} else {
-			ret = gf_mops[op] (frame, hdr, hdrlen, buf_p, buflen);
+			ret = gf_mops[op] (frame, hdr, hdrlen, iobuf);
 		}
 		break;
 	case GF_OP_TYPE_CBK_REPLY:
@@ -6510,7 +6503,7 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 			gf_log (trans->xl->name, GF_LOG_WARNING,
 				"invalid cbk '%d'", op);
 		} else {
-			ret = gf_cbks[op] (frame, hdr, hdrlen, buf_p, buflen);
+			ret = gf_cbks[op] (frame, hdr, hdrlen, iobuf);
 		}
 		break;
 	default:
@@ -6766,8 +6759,7 @@ protocol_client_pollin (xlator_t *this, transport_t *trans)
 {
 	client_conf_t *conf = NULL;
 	int ret = -1;
-	char *buf = NULL;
-	size_t buflen = 0;
+        struct iobuf *iobuf = NULL;
 	char *hdr = NULL;
 	size_t hdrlen = 0;
 
@@ -6779,12 +6771,12 @@ protocol_client_pollin (xlator_t *this, transport_t *trans)
 	}
 	pthread_mutex_unlock (&conf->mutex);
 
-	ret = transport_receive (trans, &hdr, &hdrlen, &buf, &buflen);
+	ret = transport_receive (trans, &hdr, &hdrlen, &iobuf);
 
 	if (ret == 0)
 	{
 		ret = protocol_client_interpret (this, trans, hdr, hdrlen,
-						 buf, buflen);
+						 iobuf);
 	}
 
 	/* TODO: use mem-pool */

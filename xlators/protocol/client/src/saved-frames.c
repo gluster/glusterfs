@@ -155,10 +155,6 @@ saved_frames_unwind (xlator_t *this, struct saved_frames *saved_frames,
 
 	gf_hdr_common_t       hdr = {0, };
 	call_frame_t         *frame = NULL;
-	dict_t               *reply = NULL;
-
-	reply = get_new_dict();
-	dict_ref (reply);
 
 	hdr.rsp.op_ret   = hton32 (-1);
 	hdr.rsp.op_errno = hton32 (ENOTCONN);
@@ -172,17 +168,14 @@ saved_frames_unwind (xlator_t *this, struct saved_frames *saved_frames,
 		hdr.op   = hton32 (trav->op);
 
 		frame = trav->frame;
-		frame->root->rsp_refs = reply;
 
 		saved_frames->count--;
 
-		gf_ops[trav->op] (frame, &hdr, sizeof (hdr), NULL, 0);
+		gf_ops[trav->op] (frame, &hdr, sizeof (hdr), NULL);
 
 		list_del_init (&trav->list);
 		FREE (trav);
 	}
-
-	dict_unref (reply);
 }
 
 
