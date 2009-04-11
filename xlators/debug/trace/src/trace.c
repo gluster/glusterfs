@@ -167,7 +167,8 @@ trace_readv_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct iovec *vector,
 		 int32_t count,
-		 struct stat *buf)
+		 struct stat *buf,
+                 struct iobref *iobref)
 {
 	char atime_buf[256], mtime_buf[256], ctime_buf[256];
 	ERR_EINVAL_NORETURN (!this);
@@ -196,7 +197,7 @@ trace_readv_cbk (call_frame_t *frame,
 		}    
 	}
   
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf, iobref);
 	return 0;
 }
 
@@ -1657,7 +1658,8 @@ trace_writev (call_frame_t *frame,
 	      fd_t *fd,
 	      struct iovec *vector,
 	      int32_t count,
-	      off_t offset)
+	      off_t offset,
+              struct iobref *iobref)
 {
 	ERR_EINVAL_NORETURN (!this || !fd || !vector || (count < 1));
 
@@ -1674,7 +1676,8 @@ trace_writev (call_frame_t *frame,
 		    fd,
 		    vector,
 		    count,
-		    offset);
+		    offset,
+                    iobref);
 	return 0;
 }
 
