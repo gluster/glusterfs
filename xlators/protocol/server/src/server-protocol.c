@@ -47,7 +47,7 @@ protocol_server_reply (call_frame_t *frame,
                        int type, int op,
                        gf_hdr_common_t *hdr, size_t hdrlen,
                        struct iovec *vector, int count,
-                       dict_t *refs)
+                       struct iobref *iobref)
 {
 	server_state_t *state = NULL;
 	xlator_t *bound_xl = NULL;
@@ -61,7 +61,7 @@ protocol_server_reply (call_frame_t *frame,
 	hdr->type   = hton32 (type);
 	hdr->op     = hton32 (op);
 
-	transport_submit (trans, (char *)hdr, hdrlen, vector, count, refs);
+	transport_submit (trans, (char *)hdr, hdrlen, vector, count, iobref);
 	/* TODO: If transport submit fails, there is no reply sent to client, 
 	 * its bailed out as of now.. loggically, only this frame should fail. 
 	 */
@@ -125,7 +125,7 @@ int32_t
 server_fchmod (call_frame_t *frame,
                xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	server_connection_t *conn = NULL;
 	gf_fop_fchmod_req_t *req = NULL;
@@ -212,7 +212,7 @@ int32_t
 server_fchown (call_frame_t *frame,
                xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	server_connection_t *conn = NULL;
 	gf_fop_fchown_req_t *req = NULL;
@@ -947,9 +947,8 @@ server_getdents_cbk (call_frame_t *frame,
 	size_t  hdrlen = 0;
 	int32_t vec_count = 0;
 	int32_t gf_errno = 0;
-	int32_t ret = -1;
-	dict_t *reply_dict = NULL;
-	char   *buffer = NULL;
+        struct iobref *iobref = NULL;
+        struct iobuf *iobuf = NULL;
 	size_t  buflen = 0;
 	struct iovec vector[1];
 	server_state_t *state = NULL;
@@ -957,7 +956,14 @@ server_getdents_cbk (call_frame_t *frame,
 	state = CALL_STATE(frame);
 
 	if (op_ret >= 0) {
-		buflen = gf_direntry_to_bin (entries, &buffer);
+                iobuf = iobuf_get (this->ctx->iobuf_pool);
+                if (!iobuf) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+
+		buflen = gf_direntry_to_bin (entries, iobuf->ptr);
 		if (buflen < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"fd - %"PRId64" (%"PRId64"): failed to convert "
@@ -968,29 +974,19 @@ server_getdents_cbk (call_frame_t *frame,
 			goto out;
 		}
 
-		reply_dict = dict_new ();
-		if (reply_dict == NULL) {
+		iobref = iobref_new ();
+		if (iobref == NULL) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"fd - %"PRId64" (%"PRId64"): failed to get new dict",
+				"fd - %"PRId64" (%"PRId64"): failed to get iobref",
 				state->fd_no, state->fd->inode->ino);
 			op_ret = -1;
 			op_errno = ENOMEM;
 			goto out;
 		}
 		
-		ret = dict_set_dynptr (reply_dict, NULL, 
-				       buffer, buflen);
-		if (ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"fd - %"PRId64" (%"PRId64"): failed to set read buffer "
-				"to reply dictionary",
-				state->fd_no, state->fd->inode->ino);
-			op_ret = -1;
-			op_errno = -ret;
-			goto out;
-		}
-		frame->root->rsp_refs = reply_dict;
-		vector[0].iov_base = buffer;
+                iobref_add (iobref, iobuf);
+
+		vector[0].iov_base = iobuf->ptr;
 		vector[0].iov_len = buflen;
 		vec_count = 1;
 	} else {
@@ -1016,11 +1012,12 @@ out:
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
-			       hdr, hdrlen, vector, vec_count, 
-			       frame->root->rsp_refs);
-	
-	if (reply_dict)
-		dict_unref (reply_dict);
+			       hdr, hdrlen, vector, vec_count, iobref);
+
+	if (iobref)
+		iobref_unref (iobref);
+        if (iobuf)
+                iobuf_unref (iobuf);
 
 	return 0;
 }
@@ -2068,7 +2065,8 @@ server_readv_cbk (call_frame_t *frame,
                   int32_t op_errno,
                   struct iovec *vector,
                   int32_t count,
-                  struct stat *stbuf)
+                  struct stat *stbuf,
+                  struct iobref *iobref)
 {
 	gf_hdr_common_t   *hdr = NULL;
 	gf_fop_read_rsp_t *rsp = NULL;
@@ -2097,8 +2095,7 @@ server_readv_cbk (call_frame_t *frame,
 	}
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READ,
-			       hdr, hdrlen, vector, count, 
-			       frame->root->rsp_refs);
+			       hdr, hdrlen, vector, count, iobref);
 
 	return 0;
 }
@@ -3649,7 +3646,7 @@ int
 server_lookup (call_frame_t *frame,
                xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	gf_fop_lookup_req_t *req = NULL;
 	server_state_t      *state = NULL;
@@ -3752,7 +3749,7 @@ fail:
 int32_t
 server_forget (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	int index = 0;
 	ino_t ino = 0;
@@ -3827,7 +3824,7 @@ int32_t
 server_stat (call_frame_t *frame,
              xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
-             char *buf, size_t buflen)
+             struct iobuf *iobuf)
 {
 	call_stub_t *stat_stub = NULL;
 	gf_fop_stat_req_t *req = NULL;
@@ -3901,7 +3898,7 @@ int32_t
 server_readlink (call_frame_t *frame,
                  xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	call_stub_t *readlink_stub = NULL;
 	gf_fop_readlink_req_t *req = NULL;
@@ -3994,7 +3991,7 @@ fail:
 int32_t
 server_create (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	gf_fop_create_req_t *req = NULL;
 	server_state_t      *state = NULL;
@@ -4087,7 +4084,7 @@ fail:
 int32_t
 server_open (call_frame_t *frame, xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
-             char *buf, size_t buflen)
+             struct iobuf *iobuf)
 {
 	call_stub_t *open_stub = NULL;
 	gf_fop_open_req_t *req = NULL;
@@ -4137,7 +4134,7 @@ fail:
 int32_t
 server_readv (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
-              char *buf, size_t buflen)
+              struct iobuf *iobuf)
 {
 	gf_fop_read_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -4174,7 +4171,7 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
 	return 0;
 fail:
 	server_readv_cbk (frame, NULL, frame->this,
-			  -1, EINVAL, NULL, 0, NULL);
+			  -1, EINVAL, NULL, 0, NULL, NULL);
 	return 0;
 }
 
@@ -4190,14 +4187,13 @@ fail:
 int32_t
 server_writev (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	server_connection_t *conn = NULL;
 	gf_fop_write_req_t *req = NULL;
 	struct iovec iov = {0, };
-	dict_t *refs = NULL;
+        struct iobref *iobref = NULL;
 	server_state_t *state = NULL;
-	int32_t ret = -1;
 	
 	conn = SERVER_CONNECTION(frame);
 
@@ -4210,53 +4206,45 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 						     state->fd_no);
 
 		state->offset = ntoh64 (req->offset);
+                state->size = ntoh32 (req->size);
 	}
 
 	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
 
-	iov.iov_base = buf;
-	iov.iov_len = buflen;
+	iov.iov_base = iobuf->ptr;
+	iov.iov_len  = state->size;
 
-	refs = dict_new ();
-	GF_VALIDATE_OR_GOTO(bound_xl->name, refs, fail);
+	iobref = iobref_new ();
+	GF_VALIDATE_OR_GOTO(bound_xl->name, iobref, fail);
 
-	ret = dict_set_dynptr (refs, NULL, buf, buflen);
-	if (ret < 0) {
-		gf_log (frame->this->name, GF_LOG_ERROR,
-			"fd - %"PRId64" (%"PRId64"): failed to set buffer entry "
-			"to req_refs",
-			state->fd_no, state->fd->inode->ino);
-		goto fail;
-	} else {
-		buf = NULL;
-	}
-
-	frame->root->req_refs = refs;
+        iobref_add (iobref, iobuf);
 
 	gf_log (bound_xl->name, GF_LOG_DEBUG,
 		"%"PRId64": WRITEV \'fd=%"PRId64" (%"PRId64"); "
-		"offset=%"PRId64"; size=%"PRId64,
+		"offset=%"PRId64"; size=%"PRId32,
 		frame->root->unique, state->fd_no, state->fd->inode->ino, 
-		state->offset, (int64_t)buflen);
+		state->offset, (int32_t)state->size);
 
 	STACK_WIND (frame,
 		    server_writev_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->writev,
-		    state->fd, &iov, 1, state->offset);
+		    state->fd, &iov, 1, state->offset, iobref);
 	
-	if (refs)
-		dict_unref (refs);
+	if (iobref)
+		iobref_unref (iobref);
+        if (iobuf)
+                iobuf_unref (iobuf);
+
 	return 0;
 fail:
 	server_writev_cbk (frame, NULL, frame->this,
 			   -1, EINVAL, NULL);
 	
-	if (buf)
-		free (buf);
-
-	if (refs)
-		dict_unref (refs);
+	if (iobref)
+		iobref_unref (iobref);
+        if (iobuf)
+                iobuf_unref (iobuf);
 
 	return 0;
 }
@@ -4274,7 +4262,7 @@ fail:
 int32_t
 server_release (call_frame_t *frame, xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
-		char *buf, size_t buflen)
+                struct iobuf *iobuf)
 {
 	gf_cbk_release_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -4311,7 +4299,7 @@ int32_t
 server_fsync (call_frame_t *frame,
               xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
-              char *buf, size_t buflen)
+              struct iobuf *iobuf)
 {
 	gf_fop_fsync_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -4361,7 +4349,7 @@ fail:
 int32_t
 server_flush (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
-              char *buf, size_t buflen)
+              struct iobuf *iobuf)
 {
 	gf_fop_flush_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -4411,7 +4399,7 @@ int32_t
 server_ftruncate (call_frame_t *frame,
                   xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
 	gf_fop_ftruncate_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -4466,7 +4454,7 @@ int32_t
 server_fstat (call_frame_t *frame,
               xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
-              char *buf, size_t buflen)
+              struct iobuf *iobuf)
 {
 	gf_fop_fstat_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -4545,7 +4533,7 @@ int32_t
 server_truncate (call_frame_t *frame,
                  xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	call_stub_t *truncate_stub = NULL;
 	gf_fop_truncate_req_t *req = NULL;
@@ -4625,7 +4613,7 @@ int32_t
 server_unlink (call_frame_t *frame,
                xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	call_stub_t *unlink_stub = NULL;
 	gf_fop_unlink_req_t *req = NULL;
@@ -4703,7 +4691,7 @@ int32_t
 server_setxattr (call_frame_t *frame,
                  xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	call_stub_t *setxattr_stub = NULL;
 	gf_fop_setxattr_req_t *req = NULL;
@@ -4784,7 +4772,7 @@ int32_t
 server_fsetxattr (call_frame_t *frame,
                   xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
         server_connection_t *conn   = NULL;
 	gf_fop_fsetxattr_req_t *req = NULL;
@@ -4855,9 +4843,9 @@ fail:
 
 int32_t
 server_fxattrop (call_frame_t *frame,
-		xlator_t *bound_xl,
-		gf_hdr_common_t *hdr, size_t hdrlen,
-		char *buf, size_t buflen)
+                 xlator_t *bound_xl,
+                 gf_hdr_common_t *hdr, size_t hdrlen,
+                 struct iobuf *iobuf)
 {
 	server_connection_t *conn = NULL;
 	gf_fop_fxattrop_req_t *req = NULL;
@@ -4955,7 +4943,7 @@ int32_t
 server_xattrop (call_frame_t *frame,
 		xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
-		char *buf, size_t buflen)
+                struct iobuf *iobuf)
 {
 	gf_fop_xattrop_req_t *req = NULL;
 	dict_t *dict = NULL;
@@ -5061,7 +5049,7 @@ int32_t
 server_getxattr (call_frame_t *frame,
                  xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	gf_fop_getxattr_req_t *req = NULL;
 	call_stub_t *getxattr_stub = NULL;
@@ -5106,7 +5094,7 @@ int32_t
 server_fgetxattr (call_frame_t *frame,
                   xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
-                  char *buf, size_t buflen)
+                  struct iobuf *iobuf)
 {
         server_connection_t    *conn = NULL;
 	gf_fop_fgetxattr_req_t *req  = NULL;
@@ -5176,7 +5164,7 @@ int32_t
 server_removexattr (call_frame_t *frame,
                     xlator_t *bound_xl,
                     gf_hdr_common_t *hdr, size_t hdrlen,
-                    char *buf, size_t buflen)
+                    struct iobuf *iobuf)
 {
 	gf_fop_removexattr_req_t *req = NULL;
 	call_stub_t *removexattr_stub = NULL;
@@ -5226,7 +5214,7 @@ int32_t
 server_statfs (call_frame_t *frame,
                xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	gf_fop_statfs_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -5293,7 +5281,7 @@ server_opendir_resume (call_frame_t *frame,
 int32_t
 server_opendir (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
-                char *buf, size_t buflen)
+                struct iobuf *iobuf)
 {
 	call_stub_t *opendir_stub = NULL;
 	gf_fop_opendir_req_t *req = NULL;
@@ -5339,7 +5327,7 @@ server_opendir (call_frame_t *frame, xlator_t *bound_xl,
 int32_t
 server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 		   gf_hdr_common_t *hdr, size_t hdrlen,
-		   char *buf, size_t buflen)
+                   struct iobuf *iobuf)
 {
 	gf_cbk_releasedir_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -5389,7 +5377,7 @@ int32_t
 server_getdents (call_frame_t *frame,
                  xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	gf_fop_getdents_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -5452,7 +5440,7 @@ out:
 int32_t
 server_readdir (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
-                char *buf, size_t buflen)
+                struct iobuf *iobuf)
 {
 	gf_fop_readdir_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -5513,7 +5501,7 @@ int32_t
 server_fsyncdir (call_frame_t *frame,
                  xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	gf_fop_fsyncdir_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -5596,7 +5584,7 @@ int32_t
 server_mknod (call_frame_t *frame,
               xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
-              char *buf, size_t buflen)
+              struct iobuf *iobuf)
 {
 	gf_fop_mknod_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -5675,7 +5663,7 @@ int32_t
 server_mkdir (call_frame_t *frame,
               xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
-              char *buf, size_t buflen)
+              struct iobuf *iobuf)
 {
 	gf_fop_mkdir_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -5751,7 +5739,7 @@ int32_t
 server_rmdir (call_frame_t *frame,
               xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
-              char *buf, size_t buflen)
+              struct iobuf *iobuf)
 {
 	call_stub_t *rmdir_stub = NULL;
 	gf_fop_rmdir_req_t *req = NULL;
@@ -5824,7 +5812,7 @@ int32_t
 server_chown (call_frame_t *frame,
               xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
-              char *buf, size_t buflen)
+              struct iobuf *iobuf)
 {
 	call_stub_t *chown_stub = NULL;
 	gf_fop_chown_req_t *req = NULL;
@@ -5899,7 +5887,7 @@ int32_t
 server_chmod (call_frame_t *frame,
               xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
-              char *buf, size_t buflen)
+              struct iobuf *iobuf)
 {
 	call_stub_t *chmod_stub = NULL;
 	gf_fop_chmod_req_t *req = NULL;
@@ -5972,7 +5960,7 @@ int32_t
 server_utimens (call_frame_t *frame,
                 xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
-                char *buf, size_t buflen)
+                struct iobuf *iobuf)
 {
 	call_stub_t *utimens_stub = NULL;
 	gf_fop_utimens_req_t *req = NULL;
@@ -6046,7 +6034,7 @@ int32_t
 server_inodelk (call_frame_t *frame,
 		xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
-		char *buf, size_t buflen)
+                struct iobuf *iobuf)
 {
  	call_stub_t *inodelk_stub = NULL;
  	gf_fop_inodelk_req_t *req = NULL;
@@ -6118,7 +6106,7 @@ int32_t
 server_finodelk (call_frame_t *frame,
 		 xlator_t *bound_xl,
 		 gf_hdr_common_t *hdr, size_t hdrlen,
-		 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
  	gf_fop_finodelk_req_t *req = NULL;
  	server_state_t *state = NULL;
@@ -6231,7 +6219,7 @@ int32_t
 server_entrylk (call_frame_t *frame,
 		xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
-		char *buf, size_t buflen)
+                struct iobuf *iobuf)
 {
  	gf_fop_entrylk_req_t *req = NULL;
  	server_state_t *state = NULL;
@@ -6283,7 +6271,7 @@ int32_t
 server_fentrylk (call_frame_t *frame,
 		 xlator_t *bound_xl,
 		 gf_hdr_common_t *hdr, size_t hdrlen,
-		 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
  	gf_fop_fentrylk_req_t *req = NULL;
  	server_state_t *state = NULL;
@@ -6370,7 +6358,7 @@ int32_t
 server_access (call_frame_t *frame,
                xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	call_stub_t *access_stub = NULL;
 	gf_fop_access_req_t *req = NULL;
@@ -6447,7 +6435,7 @@ int32_t
 server_symlink (call_frame_t *frame,
                 xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
-                char *buf, size_t buflen)
+                struct iobuf *iobuf)
 {
 	server_state_t *state = NULL;
 	gf_fop_symlink_req_t *req = NULL;
@@ -6537,7 +6525,7 @@ int32_t
 server_link (call_frame_t *frame,
              xlator_t *this,
              gf_hdr_common_t *hdr, size_t hdrlen,
-             char *buf, size_t buflen)
+             struct iobuf *iobuf)
 {
 	gf_fop_link_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -6632,7 +6620,7 @@ int32_t
 server_rename (call_frame_t *frame,
                xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	gf_fop_rename_req_t *req = NULL;
 	server_state_t *state = NULL;
@@ -6703,7 +6691,7 @@ int32_t
 server_lk (call_frame_t *frame,
            xlator_t *bound_xl,
            gf_hdr_common_t *hdr, size_t hdrlen,
-           char *buf, size_t buflen)
+           struct iobuf *iobuf)
 {
 	struct flock lock = {0, };
 	gf_fop_lk_req_t *req = NULL;
@@ -6793,7 +6781,7 @@ int32_t
 server_setdents (call_frame_t *frame,
                  xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	server_connection_t *conn = NULL;
 	gf_fop_setdents_req_t       *req   = NULL;
@@ -6831,7 +6819,7 @@ server_setdents (call_frame_t *frame,
 		goto out;
 	}
 	
-	if (buf == NULL) {
+	if (iobuf == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64" (%"PRId64"): received a null buffer, "
 			"returning EINVAL",
@@ -6846,7 +6834,7 @@ server_setdents (call_frame_t *frame,
 	entry = CALLOC (1, sizeof (dir_entry_t));
 	ERR_ABORT (entry);
 	prev = entry;
-	buffer_ptr = buf;
+	buffer_ptr = iobuf->ptr;
 
 	for (i = 0; i < state->nr_count ; i++) {
 		bread = 0;
@@ -6976,6 +6964,8 @@ server_setdents (call_frame_t *frame,
 	FREE (entry);
 
 out:
+        if (iobuf)
+                iobuf_unref (iobuf);
 	return 0;
 }
 
@@ -7139,7 +7129,7 @@ int32_t
 mop_getspec (call_frame_t *frame,
              xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
-             char *buf, size_t buflen)
+             struct iobuf *iobuf)
 {
 	gf_hdr_common_t      *_hdr = NULL;
 	gf_mop_getspec_rsp_t *rsp = NULL;
@@ -7253,7 +7243,7 @@ int32_t
 server_checksum (call_frame_t *frame,
                  xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
-                 char *buf, size_t buflen)
+                 struct iobuf *iobuf)
 {
 	loc_t loc = {0,};
 	int32_t flag = 0;
@@ -7292,7 +7282,7 @@ int32_t
 mop_getvolume (call_frame_t *frame,
                xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
-               char *buf, size_t buflen)
+               struct iobuf *iobuf)
 {
 	return 0;
 }
@@ -7335,7 +7325,7 @@ get_xlator_by_name (xlator_t *some_xl,
 int
 mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *req_hdr, size_t req_hdrlen,
-               char *req_buf, size_t req_buflen)
+               struct iobuf *iobuf)
 {
 	server_connection_t         *conn = NULL;
 	server_conf_t               *conf = NULL;
@@ -7666,7 +7656,7 @@ static int32_t
 mop_stats (call_frame_t *frame,
            xlator_t *bound_xl,
            gf_hdr_common_t *hdr, size_t hdrlen,
-           char *buf, size_t buflen)
+           struct iobuf *iobuf)
 {
 	int32_t flag = 0;
 	gf_mop_stats_req_t *req = NULL;
@@ -7686,9 +7676,9 @@ mop_stats (call_frame_t *frame,
 
 int32_t
 mop_ping (call_frame_t *frame,
-           xlator_t *bound_xl,
-           gf_hdr_common_t *hdr, size_t hdrlen,
-           char *buf, size_t buflen)
+          xlator_t *bound_xl,
+          gf_hdr_common_t *hdr, size_t hdrlen,
+          struct iobuf *iobuf)
 {
 	gf_hdr_common_t     *rsp_hdr = NULL;
 	gf_mop_ping_rsp_t   *rsp = NULL;
@@ -7822,7 +7812,7 @@ get_frame_for_call (transport_t *trans, gf_hdr_common_t *hdr)
  */
 typedef int32_t (*gf_op_t) (call_frame_t *frame, xlator_t *bould_xl,
                             gf_hdr_common_t *hdr, size_t hdrlen,
-                            char *buf, size_t buflen);
+                            struct iobuf *iobuf);
 
 
 static gf_op_t gf_fops[] = {
@@ -7890,8 +7880,7 @@ static gf_op_t gf_cbks[] = {
 
 int
 protocol_server_interpret (xlator_t *this, transport_t *trans,
-                           char *hdr_p, size_t hdrlen, char *buf, 
-			   size_t buflen)
+                           char *hdr_p, size_t hdrlen, struct iobuf *iobuf)
 {
 	server_connection_t *conn = NULL;
 	gf_hdr_common_t             *hdr = NULL;
@@ -7927,7 +7916,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
 			break;
 		}
 		frame = get_frame_for_call (trans, hdr);
-		ret = gf_fops[op] (frame, bound_xl, hdr, hdrlen, buf, buflen);
+		ret = gf_fops[op] (frame, bound_xl, hdr, hdrlen, iobuf);
 		break;
 
 	case GF_OP_TYPE_MOP_REQUEST:
@@ -7938,7 +7927,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
 			break;
 		}
 		frame = get_frame_for_call (trans, hdr);
-		ret = gf_mops[op] (frame, bound_xl, hdr, hdrlen, buf, buflen);
+		ret = gf_mops[op] (frame, bound_xl, hdr, hdrlen, iobuf);
 		break;
 
 	case GF_OP_TYPE_CBK_REQUEST:
@@ -7955,7 +7944,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
 		}
 
 		frame = get_frame_for_call (trans, hdr);
-		ret = gf_cbks[op] (frame, bound_xl, hdr, hdrlen, buf, buflen);
+		ret = gf_cbks[op] (frame, bound_xl, hdr, hdrlen, iobuf);
 		break;
 
 	default:
@@ -8188,16 +8177,15 @@ protocol_server_pollin (xlator_t *this, transport_t *trans)
 {
 	char                *hdr = NULL;
 	size_t               hdrlen = 0;
-	char                *buf = NULL;
-	size_t               buflen = 0;
 	int                  ret = -1;
+        struct iobuf        *iobuf = NULL;
 
 
-	ret = transport_receive (trans, &hdr, &hdrlen, &buf, &buflen);
+	ret = transport_receive (trans, &hdr, &hdrlen, &iobuf);
 
 	if (ret == 0)
 		ret = protocol_server_interpret (this, trans, hdr, 
-						 hdrlen, buf, buflen);
+						 hdrlen, iobuf);
 
 	/* TODO: use mem-pool */
 	FREE (hdr);
