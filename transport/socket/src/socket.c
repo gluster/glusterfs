@@ -274,7 +274,7 @@ __socket_reset (transport_t *this)
 
 struct ioq *
 __socket_ioq_new (transport_t *this, char *buf, int len,
-                  struct iovec *vector, int count, dict_t *refs)
+                  struct iovec *vector, int count, struct iobref *iobref)
 {
         socket_private_t *priv = NULL;
         struct ioq       *entry = NULL;
@@ -309,8 +309,8 @@ __socket_ioq_new (transport_t *this, char *buf, int len,
         entry->pending_vector = entry->vector;
         entry->pending_count  = entry->count;
 
-        if (refs)
-                entry->refs = dict_ref (refs);
+        if (iobref)
+                entry->iobref = iobref_ref (iobref);
 
         entry->buf = buf;
 
@@ -324,8 +324,8 @@ void
 __socket_ioq_entry_free (struct ioq *entry)
 {
         list_del_init (&entry->list);
-        if (entry->refs)
-                dict_unref (entry->refs);
+        if (entry->iobref)
+                iobref_unref (entry->iobref);
 
         /* TODO: use mem-pool */
         free (entry->buf);
@@ -481,7 +481,7 @@ __socket_proto_validate_header (transport_t *this,
                 return -1;
         }
 
-        if (size2 > (1048576 * 4)) {
+        if (size2 > (131072)) {
                 gf_log (this->xl->name, GF_LOG_ERROR,
                         "socket header has incorrect size2=%"GF_PRI_SIZET,
 			size2);
@@ -582,36 +582,42 @@ __socket_proto_state_machine (transport_t *this)
 					"or version mismatch",
 					this->peerinfo.identifier);
                                         goto unlock;
-                                }
+                        }
 
-                                priv->incoming.hdrlen = size1;
-                                priv->incoming.buflen = size2;
+                        priv->incoming.hdrlen = size1;
+                        priv->incoming.buflen = size2;
 
-                                /* TODO: use mem-pool */
-                                priv->incoming.hdr_p  = MALLOC (size1);
-                                if (size2)
-                                        priv->incoming.buf_p = MALLOC (size2);
+                        /* TODO: use mem-pool */
+                        priv->incoming.hdr_p  = MALLOC (size1);
+                        if (size2) {
+                                /* TODO: sanity check size2 < page size
+                                 */
+                                priv->incoming.iobuf =
+                                        iobuf_get (this->xl->ctx->iobuf_pool);
+                                priv->incoming.buf_p =
+                                        priv->incoming.iobuf->ptr;
+                        }
 
-                                priv->incoming.vector[0].iov_base =
-					priv->incoming.hdr_p;
+                        priv->incoming.vector[0].iov_base =
+                                priv->incoming.hdr_p;
 
-                                priv->incoming.vector[0].iov_len  = size1;
+                        priv->incoming.vector[0].iov_len  = size1;
 
-                                priv->incoming.vector[1].iov_base =
-					priv->incoming.buf_p;
+                        priv->incoming.vector[1].iov_base =
+                                priv->incoming.buf_p;
 
-                                priv->incoming.vector[1].iov_len  = size2;
-                                priv->incoming.count = size2 ? 2 : 1;
+                        priv->incoming.vector[1].iov_len  = size2;
+                        priv->incoming.count = size2 ? 2 : 1;
 
-                                priv->incoming.pending_vector =
-					priv->incoming.vector;
+                        priv->incoming.pending_vector =
+                                priv->incoming.vector;
 
-                                priv->incoming.pending_count  =
-					priv->incoming.count;
+                        priv->incoming.pending_count  =
+                                priv->incoming.count;
 
-                                priv->incoming.state =
-					SOCKET_PROTO_STATE_DATA_COMING;
-                                break;
+                        priv->incoming.state =
+                                SOCKET_PROTO_STATE_DATA_COMING;
+                        break;
 
 		case SOCKET_PROTO_STATE_DATA_COMING:
 
@@ -1149,7 +1155,7 @@ unlock:
 
 int
 socket_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
-                char **buf_p, size_t *buflen_p)
+                struct iobuf **iobuf_p)
 {
         socket_private_t *priv = NULL;
         int               ret = -1;
@@ -1164,18 +1170,17 @@ socket_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
                         goto unlock;
                 }
 
-                if (!hdr_p || !hdrlen_p || !buf_p || !buflen_p) {
+                if (!hdr_p || !hdrlen_p || !iobuf_p) {
                         gf_log (this->xl->name, GF_LOG_ERROR,
-                                "bad parameters %p %p %p %p",
-                                hdr_p, hdrlen_p, buf_p, buflen_p);
+                                "bad parameters %p %p %p",
+                                hdr_p, hdrlen_p, iobuf_p);
                         goto unlock;
                 }
 
                 if (priv->incoming.state == SOCKET_PROTO_STATE_COMPLETE) {
                         *hdr_p    = priv->incoming.hdr_p;
                         *hdrlen_p = priv->incoming.hdrlen;
-                        *buf_p    = priv->incoming.buf_p;
-                        *buflen_p = priv->incoming.buflen;
+                        *iobuf_p  = priv->incoming.iobuf;
 
                         memset (&priv->incoming, 0, sizeof (priv->incoming));
                         priv->incoming.state = SOCKET_PROTO_STATE_NADA;
@@ -1194,7 +1199,7 @@ unlock:
 int
 socket_submit (transport_t *this, char *buf, int len,
                struct iovec *vector, int count,
-               dict_t *refs)
+               struct iobref *iobref)
 {
         socket_private_t *priv = NULL;
         int               ret = -1;
@@ -1219,7 +1224,7 @@ socket_submit (transport_t *this, char *buf, int len,
                 }
 
                 priv->submit_log = 0;
-                entry = __socket_ioq_new (this, buf, len, vector, count, refs);
+                entry = __socket_ioq_new (this, buf, len, vector, count, iobref);
 
                 if (list_empty (&priv->ioq)) {
                         ret = __socket_ioq_churn_entry (this, entry);
