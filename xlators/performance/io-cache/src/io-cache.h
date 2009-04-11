@@ -75,7 +75,7 @@ struct ioc_fill {
 	size_t size;           
 	struct iovec *vector;  
 	int32_t count;
-	dict_t *refs;
+	struct iobref *iobref;
 };
 
 struct ioc_local {
@@ -115,7 +115,7 @@ struct ioc_page {
 	off_t offset;
 	size_t size;
 	struct ioc_waitq *waitq;
-	dict_t *ref;
+	struct iobref *iobref;
 	pthread_mutex_t page_lock;
 };
 
@@ -169,7 +169,8 @@ ioc_readv_disabled_cbk (call_frame_t *frame,
 			int32_t op_errno,
 			struct iovec *vector,
 			int32_t count,
-			struct stat *stbuf);
+			struct stat *stbuf,
+                        struct iobref *iobref);
 
 ioc_page_t *
 ioc_page_get (ioc_inode_t *ioc_inode,
