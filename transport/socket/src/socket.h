@@ -69,7 +69,7 @@ struct ioq {
         struct iovec      *pending_vector;
         int                pending_count;
         char              *buf;
-        dict_t            *refs;
+        struct iobref     *iobref;
 };
 
 
@@ -92,6 +92,7 @@ typedef struct {
                 struct socket_header header;
                 char                *hdr_p;
                 size_t               hdrlen;
+                struct iobuf        *iobuf;
                 char                *buf_p;
                 size_t               buflen;
                 struct iovec         vector[2];
