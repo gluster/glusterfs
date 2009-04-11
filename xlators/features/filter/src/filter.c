@@ -1098,7 +1098,8 @@ filter_readv_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct iovec *vector,
 		  int32_t count,
-		  struct stat *stbuf)
+		  struct stat *stbuf,
+                  struct iobref *iobref)
 {
 	if (op_ret >= 0) {
 		update_stat (stbuf, this->private);
@@ -1108,7 +1109,8 @@ filter_readv_cbk (call_frame_t *frame,
 		      op_errno,
 		      vector,
 		      count,
-		      stbuf);
+		      stbuf,
+                      iobref);
 	return 0;
 }
 
@@ -1154,7 +1156,8 @@ filter_writev (call_frame_t *frame,
 	       fd_t *fd,
 	       struct iovec *vector,
 	       int32_t count,
-	       off_t off)
+	       off_t off,
+               struct iobref *iobref)
 {
 	int32_t ret = 0;
 	ret = update_frame (frame, fd->inode, this->private);
@@ -1173,7 +1176,8 @@ filter_writev (call_frame_t *frame,
 		    fd,
 		    vector,
 		    count,
-		    off);
+		    off,
+                    iobref);
 	return 0;
 }
 
