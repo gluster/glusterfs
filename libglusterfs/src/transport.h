@@ -59,9 +59,10 @@ struct transport {
 
 struct transport_ops {
 	int32_t (*receive)    (transport_t *this, char **hdr_p, size_t *hdrlen_p,
-			   char **buf_p, size_t *buflen_p);
+                               struct iobuf **iobuf_p);
 	int32_t (*submit)     (transport_t *this, char *buf, int len,
-			   struct iovec *vector, int count, dict_t *refs);
+                               struct iovec *vector, int count,
+                               struct iobref *iobref);
 	int32_t (*connect)    (transport_t *this);
 	int32_t (*listen)     (transport_t *this);
 	int32_t (*disconnect) (transport_t *this);
@@ -73,9 +74,10 @@ int32_t transport_connect    (transport_t *this);
 int32_t transport_disconnect (transport_t *this);
 int32_t transport_notify     (transport_t *this, int event);
 int32_t transport_submit     (transport_t *this, char *buf, int len,
-			  struct iovec *vector, int count, dict_t *refs);
+                              struct iovec *vector, int count,
+                              struct iobref *iobref);
 int32_t transport_receive    (transport_t *this, char **hdr_p, size_t *hdrlen_p,
-			  char **buf_p, size_t *buflen_p);
+                              struct iobuf **iobuf_p);
 int32_t transport_destroy    (transport_t *this);
 
 transport_t *transport_load  (dict_t *options, xlator_t *xl);

@@ -211,14 +211,15 @@ fail:
 
 int32_t 
 transport_submit (transport_t *this, char *buf, int32_t len,
-		  struct iovec *vector, int count, dict_t *refs)
+		  struct iovec *vector, int count,
+                  struct iobref *iobref)
 {
 	int32_t ret = -1;
 
 	GF_VALIDATE_OR_GOTO("transport", this, fail);
 	GF_VALIDATE_OR_GOTO("transport", this->ops, fail);
 	
-	ret = this->ops->submit (this, buf, len, vector, count, refs);
+	ret = this->ops->submit (this, buf, len, vector, count, iobref);
 fail:
 	return ret;
 }
@@ -301,13 +302,13 @@ fail:
 
 int32_t
 transport_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
-		   char **buf_p, size_t *buflen_p)
+		   struct iobuf **iobuf_p)
 {
 	int32_t ret = -1;
 
 	GF_VALIDATE_OR_GOTO("transport", this, fail);
   
-	ret = this->ops->receive (this, hdr_p, hdrlen_p, buf_p, buflen_p);
+	ret = this->ops->receive (this, hdr_p, hdrlen_p, iobuf_p);
 fail:
 	return ret;
 }
