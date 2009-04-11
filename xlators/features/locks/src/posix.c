@@ -350,9 +350,10 @@ pl_create (call_frame_t *frame, xlator_t *this,
 int
 pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int32_t op_ret, int32_t op_errno,
-	      struct iovec *vector, int32_t count, struct stat *stbuf)
+	      struct iovec *vector, int32_t count, struct stat *stbuf,
+              struct iobref *iobref)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 
 	return 0;
 }
@@ -505,7 +506,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 
 unwind:
 	if (op_ret == -1)
-		STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
+		STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL, NULL);
 
 	return 0;
 }
@@ -513,11 +514,12 @@ unwind:
 
 int
 pl_writev_cont (call_frame_t *frame, xlator_t *this, fd_t *fd,
-		struct iovec *vector, int count, off_t offset)
+		struct iovec *vector, int count, off_t offset,
+                struct iobref *iobref)
 {
 	STACK_WIND (frame, pl_writev_cbk,
 		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
-		    fd, vector, count, offset);
+		    fd, vector, count, offset, iobref);
 
 	return 0;
 }
@@ -525,7 +527,8 @@ pl_writev_cont (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 int
 pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
-	   struct iovec *vector, int32_t count, off_t offset)
+	   struct iovec *vector, int32_t count, off_t offset,
+           struct iobref *iobref)
 {
 	posix_locks_private_t *priv = NULL;
 	pl_inode_t            *pl_inode = NULL;
@@ -570,7 +573,8 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			}
 
 			rw->stub = fop_writev_stub (frame, pl_writev_cont,
-						    fd, vector, count, offset);
+						    fd, vector, count, offset,
+                                                    iobref);
 			if (!rw->stub) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"out of memory :(");
@@ -593,7 +597,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	STACK_WIND (frame, pl_writev_cbk, 
 		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
-		    fd, vector, count, offset);
+		    fd, vector, count, offset, iobref);
 	return 0;
 
 unwind:
