@@ -32,7 +32,8 @@ __BEGIN_DECLS
 typedef struct {
         struct iovec *vector;
         int           count;
-        void         *ref;
+        void         *iobref;
+        void         *dictref;
 } glusterfs_iobuf_t;
 
 typedef struct {

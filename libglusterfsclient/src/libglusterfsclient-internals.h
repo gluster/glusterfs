@@ -160,11 +160,9 @@ typedef struct libglusterfs_client_async_local {
                 call_frame_t *frame = get_call_frame_for_req (ctx, 1);  \
                 xlator_t *xl = frame->this->children ?                  \
                         frame->this->children->xlator : NULL;           \
-                dict_t *refs = frame->root->req_refs;                   \
                 frame->root->state = ctx;                               \
                 frame->local = local;                                   \
                 STACK_WIND (frame, ret_fn, xl, xl->fops->op, args);     \
-                dict_unref (refs);                                      \
         } while (0)
 
 #define LIBGF_CLIENT_FOP(ctx, stub, op, local, args ...)                \
@@ -172,7 +170,6 @@ typedef struct libglusterfs_client_async_local {
                 call_frame_t *frame = get_call_frame_for_req (ctx, 1);  \
                 xlator_t *xl = frame->this->children ?                  \
                         frame->this->children->xlator : NULL;           \
-                dict_t *refs = frame->root->req_refs;                   \
                 if (!local) {                                           \
                         local = CALLOC (1, sizeof (*local));            \
                 }                                                       \
@@ -183,7 +180,6 @@ typedef struct libglusterfs_client_async_local {
                 pthread_mutex_init (&local->lock, NULL);                \
                 LIBGF_STACK_WIND_AND_WAIT (frame, libgf_client_##op##_cbk, xl, \
                                            xl->fops->op, args);         \
-                dict_unref (refs);                                      \
                 stub = local->reply_stub;                               \
                 FREE (frame->local);                                    \
                 frame->local = NULL;                                    \

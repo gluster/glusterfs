@@ -297,14 +297,6 @@ get_call_frame_for_req (libglusterfs_client_ctx_t *ctx, char d)
         frame->root->pid = getpid ();
         frame->root->unique = ctx->counter++;
   
-        if (d) {
-                frame->root->req_refs = dict_ref (get_new_dict ());
-                /*
-                  TODO
-                  dict_set (frame->root->req_refs, NULL, priv->buf);
-                */
-        }
-
         return frame;
 }
 
@@ -392,6 +384,7 @@ glusterfs_init (glusterfs_init_params_t *init_ctx)
 
 	/* FIXME: why is count hardcoded to 16384 */
         ctx->gf_ctx.event_pool = event_pool_new (16384);
+        ctx->gf_ctx.iobuf_pool = iobuf_pool_new (64 * 1048576, 128 * 1024);
 
         lim.rlim_cur = RLIM_INFINITY;
         lim.rlim_max = RLIM_INFINITY;
@@ -1093,7 +1086,7 @@ out:
 
 			iobuf->vector = vector;
 			iobuf->count = 1;
-			iobuf->ref = dict_ref (dict);
+			iobuf->dictref = dict_ref (dict);
 		}
 	}
 	
@@ -2098,12 +2091,13 @@ libgf_client_readv_cbk (call_frame_t *frame,
                         int32_t op_errno,
                         struct iovec *vector,
                         int32_t count,
-                        struct stat *stbuf)
+                        struct stat *stbuf,
+                        struct iobref *iobref)
 {
         libgf_client_local_t *local = frame->local;
 
         local->reply_stub = fop_readv_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                vector, count, stbuf);
+                                                vector, count, stbuf, iobref);
 
         pthread_mutex_lock (&local->lock);
         {
@@ -2374,12 +2368,16 @@ libgf_client_writev (libglusterfs_client_ctx_t *ctx,
         call_stub_t *stub = NULL;
         int op_ret = -1;
         libgf_client_local_t *local = NULL;
+        struct iobref *iobref = NULL;
 
-        LIBGF_CLIENT_FOP (ctx, stub, writev, local, fd, vector, count, offset);
+        iobref = iobref_new ();
+        LIBGF_CLIENT_FOP (ctx, stub, writev, local, fd, vector, count, offset,
+                          iobref);
 
         op_ret = stub->args.writev_cbk.op_ret;
         errno = stub->args.writev_cbk.op_errno;
 
+        iobref_unref (iobref);
 	call_stub_destroy (stub);
         return op_ret;
 }
@@ -2707,7 +2705,8 @@ libglusterfs_readv_async_cbk (call_frame_t *frame,
                               int32_t op_errno,
                               struct iovec *vector,
                               int32_t count,
-                              struct stat *stbuf)
+                              struct stat *stbuf,
+                              struct iobref *iobref)
 {
         glusterfs_iobuf_t *buf;
         libglusterfs_client_async_local_t *local = frame->local;
@@ -2723,8 +2722,8 @@ libglusterfs_readv_async_cbk (call_frame_t *frame,
 
         buf->count = count;
 
-	if (frame->root->rsp_refs) {
-		buf->ref = dict_ref (frame->root->rsp_refs);
+	if (iobref) {
+		buf->iobref = iobref_ref (iobref);
 	}
 
         if (op_ret > 0) {
@@ -2755,7 +2754,10 @@ glusterfs_free (glusterfs_iobuf_t *buf)
 {
         //iov_free (buf->vector, buf->count);
         FREE (buf->vector);
-        dict_unref ((dict_t *) buf->ref);
+        if (buf->iobref)
+                iobref_unref ((struct iobref *) buf->iobref);
+        if (buf->dictref)
+                dict_unref ((dict_t *) buf->dictref);
         FREE (buf);
 }
 
@@ -2862,6 +2864,7 @@ glusterfs_write_async (glusterfs_file_t fd,
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
         data_t *fd_ctx_data = NULL;
 	int32_t op_ret = 0;
+        struct iobref *iobref = NULL;
 
         local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
@@ -2890,6 +2893,7 @@ glusterfs_write_async (glusterfs_file_t fd,
                 pthread_mutex_unlock (&fd_ctx->lock);
         }
 
+        iobref = iobref_new ();
         LIBGF_CLIENT_FOP_ASYNC (ctx,
                                 local,
                                 libglusterfs_writev_async_cbk,
@@ -2897,7 +2901,9 @@ glusterfs_write_async (glusterfs_file_t fd,
                                 __fd,
                                 &vector,
                                 1,
-                                __offset);
+                                __offset,
+                                iobref);
+        iobref_unref (iobref);
 
 out:
         return op_ret;
