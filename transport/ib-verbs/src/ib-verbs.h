@@ -73,7 +73,7 @@ struct _ib_verbs_ioq {
         struct iovec       vector[MAX_IOVEC];
         int                count;
         char              *buf;
-        dict_t            *refs;
+        struct iobref     *iobref;
 };
 typedef struct _ib_verbs_ioq ib_verbs_ioq_t;
 
