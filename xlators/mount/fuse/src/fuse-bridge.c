@@ -67,7 +67,7 @@ struct fuse_private {
         char                *volfile;
         size_t               volfile_size;
         char                *mount_point;
-        data_t              *buf;
+        struct iobuf        *iobuf;
         pthread_t            fuse_thread;
         char                 fuse_thread_started;
         uint32_t             direct_io_mode;
@@ -89,11 +89,9 @@ typedef struct fuse_private fuse_private_t;
                 call_frame_t *frame = get_call_frame_for_req (state, 1); \
                 xlator_t *xl = frame->this->children ?                  \
                         frame->this->children->xlator : NULL;           \
-                dict_t *refs = frame->root->req_refs;                   \
                 frame->root->state = state;                             \
                 frame->root->op   = op_num;				\
                 STACK_WIND (frame, ret, xl, xl->fops->fop, args);       \
-                dict_unref (refs);                                      \
         } while (0)
 
 #define GF_SELECT_LOG_LEVEL(_errno)                     \
@@ -202,11 +200,6 @@ get_call_frame_for_req (fuse_state_t *state, char d)
                 frame->root->gid    = ctx->gid;
                 frame->root->pid    = ctx->pid;
                 frame->root->unique = req_callid (req);
-        }
-
-        if (d) {
-                frame->root->req_refs = dict_ref (get_new_dict ());
-                dict_set (frame->root->req_refs, NULL, priv->buf);
         }
 
         frame->root->type = GF_OP_TYPE_FOP_REQUEST;
@@ -1536,7 +1529,8 @@ fuse_readv_cbk (call_frame_t *frame,
                 int32_t op_errno,
                 struct iovec *vector,
                 int32_t count,
-                struct stat *stbuf)
+                struct stat *stbuf,
+                struct iobref *iobref)
 {
         fuse_state_t *state = frame->root->state;
         fuse_req_t req = state->req;
@@ -1632,6 +1626,8 @@ fuse_write (fuse_req_t req,
         fuse_state_t *state;
         struct iovec vector;
 	fd_t *fd = NULL;
+        struct iobref *iobref = NULL;
+        struct iobuf *iobuf = NULL;
 
         state = state_from_req (req);
         state->size = size;
@@ -1645,8 +1641,14 @@ fuse_write (fuse_req_t req,
                 "%"PRId64": WRITE (%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
                 req_callid (req), fd, size, off);
 
+        iobref = iobref_new ();
+        iobuf = ((fuse_private_t *) (state->this->private))->iobuf;
+        iobref_add (iobref, iobuf);
+
         FUSE_FOP (state, fuse_writev_cbk, GF_FOP_WRITE,
-                  writev, fd, &vector, 1, off);
+                  writev, fd, &vector, 1, off, iobref);
+
+        iobref_unref (iobref);
         return;
 }
 
@@ -2557,16 +2559,14 @@ fuse_thread_proc (void *data)
         xlator_t *this = data;
         fuse_private_t *priv = this->private;
         int32_t res = 0;
-        data_t *buf = priv->buf;
-        int32_t ref = 0;
+        struct iobuf *iobuf = NULL;
         size_t chan_size = fuse_chan_bufsize (priv->ch);
-        char *recvbuf = CALLOC (1, chan_size);
-        ERR_ABORT (recvbuf);
 
         while (!fuse_session_exited (priv->se)) {
+                iobuf = iobuf_get (this->ctx->iobuf_pool);
 
                 res = fuse_chan_receive (priv->ch,
-                                         recvbuf,
+                                         iobuf->ptr,
                                          chan_size);
 
 		if (priv->first_call) {
@@ -2587,34 +2587,16 @@ fuse_thread_proc (void *data)
                         continue;
                 }
 
-                buf = priv->buf;
+                priv->iobuf = iobuf;
 
                 if (res && res != -1) {
-                        if (buf->len < (res)) {
-                                if (buf->data) {
-                                        FREE (buf->data);
-                                        buf->data = NULL;
-                                }
-                                buf->data = CALLOC (1, res);
-                                ERR_ABORT (buf->data);
-                                buf->len = res;
-                        }
-                        memcpy (buf->data, recvbuf, res); // evil evil
-
                         fuse_session_process (priv->se,
-                                              buf->data,
+                                              iobuf->ptr,
                                               res,
                                               priv->ch);
                 }
 
-                LOCK (&buf->lock);
-                ref = buf->refcount;
-                UNLOCK (&buf->lock);
-                if (1) {
-                        data_unref (buf);
-
-                        priv->buf = data_ref (data_from_dynptr (NULL, 0));
-                }
+                iobuf_unref (iobuf);
         }
 	if (dict_get (this->options, ZR_MOUNTPOINT_OPT))
 		mount_point = data_to_str (dict_get (this->options, 
@@ -2926,7 +2908,6 @@ init (xlator_t *this_xl)
         fuse_session_add_chan (priv->se, priv->ch);
         
         priv->fd = fuse_chan_fd (priv->ch);
-        priv->buf = data_ref (data_from_dynptr (NULL, 0));
 
         this_xl->ctx->top = this_xl;
 
