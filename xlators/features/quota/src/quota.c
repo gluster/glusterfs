@@ -36,7 +36,7 @@ struct quota_local {
 	off_t          offset;
 	int32_t        count;
 	struct iovec  *vector;
-	dict_t        *refs;
+	struct iobref *iobref;
 	loc_t          loc;
 };
 
@@ -683,7 +683,7 @@ quota_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 						   local->stbuf.st_blocks) * 512);
 		}
 		fd_unref (local->fd);
-		dict_unref (local->refs);
+		iobref_unref (local->iobref);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -709,7 +709,7 @@ quota_writev_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 			if (iovlen > (buf->st_blksize - (buf->st_size % buf->st_blksize))) {
 				fd_unref (local->fd);
-				dict_unref (local->refs);
+				iobref_unref (local->iobref);
 				STACK_UNWIND (frame, -1, ENOSPC, NULL);
 				return 0;
 			}
@@ -720,7 +720,8 @@ quota_writev_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	STACK_WIND (frame, quota_writev_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->writev,
-		    local->fd, local->vector, local->count, local->offset);
+		    local->fd, local->vector, local->count, local->offset,
+                    local->iobref);
 
 	return 0;
 }
@@ -728,7 +729,8 @@ quota_writev_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
-	      struct iovec *vector, int32_t count, off_t off)
+	      struct iovec *vector, int32_t count, off_t off,
+              struct iobref *iobref)
 {
 	struct quota_local *local = NULL;
 	struct quota_priv  *priv = NULL;
@@ -746,7 +748,7 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	if (priv->disk_usage_limit) {
 		local = CALLOC (1, sizeof (struct quota_local));
 		local->fd     = fd_ref (fd);
-		local->refs   = dict_ref (frame->root->req_refs);
+		local->iobref = iobref_ref (iobref);
 		local->vector = vector;
 		local->count  = count;
 		local->offset = off;
@@ -761,7 +763,7 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	STACK_WIND (frame, quota_writev_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->writev,
-		    fd, vector, count, off);
+		    fd, vector, count, off, iobref);
 	return 0;
 }
 
