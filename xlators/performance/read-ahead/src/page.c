@@ -129,7 +129,7 @@ ra_waitq_return (ra_waitq_t *waitq)
 int
 ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int32_t op_ret, int32_t op_errno, struct iovec *vector,
-	      int32_t count, struct stat *stbuf)
+	      int32_t count, struct stat *stbuf, struct iobref *iobref)
 {
 	ra_local_t   *local = NULL;
 	off_t         pending_offset = 0;
@@ -173,13 +173,13 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		if (page->vector) {
-			dict_unref (page->ref);
+			iobref_unref (page->iobref);
 			free (page->vector);
 		}
 
 		page->vector = iov_dup (vector, count);
 		page->count = count;
-		page->ref = dict_ref (frame->root->rsp_refs);
+		page->iobref = iobref_ref (iobref);
 		page->ready = 1;
 
 		page->size = iov_length (vector, count);
@@ -266,7 +266,7 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 
 		new->offset = page->offset;
 		new->size = copy_size;
-		new->refs = dict_ref (page->ref);
+		new->iobref = iobref_ref (page->iobref);
 		new->count = iov_subset (page->vector, page->count,
 					 src_offset, src_offset+copy_size,
 					 NULL);
@@ -294,7 +294,7 @@ ra_frame_unwind (call_frame_t *frame)
 	int32_t       count = 0;
 	struct iovec *vector;
 	int32_t       copied = 0;
-	dict_t       *refs = NULL;
+        struct iobref *iobref = NULL;
 	ra_fill_t    *next = NULL;
 	fd_t         *fd = NULL;
 	ra_file_t    *file = NULL;
@@ -304,7 +304,7 @@ ra_frame_unwind (call_frame_t *frame)
 	local = frame->local;
 	fill  = local->fill.next;
 
-	refs  = get_new_dict ();
+	iobref  = iobref_new ();
 
 	frame->local = NULL;
 
@@ -324,28 +324,26 @@ ra_frame_unwind (call_frame_t *frame)
 			fill->count * sizeof (*vector));
 
 		copied += (fill->count * sizeof (*vector));
-		dict_copy (fill->refs, refs);
+		iobref_merge (iobref, fill->iobref);
 
 		fill->next->prev = fill->prev;
 		fill->prev->next = fill->prev;
 
-		dict_unref (fill->refs);
+		iobref_unref (fill->iobref);
 		free (fill->vector);
 		free (fill);
 
 		fill = next;
 	}
 
-	frame->root->rsp_refs = dict_ref (refs);
-
 	fd = local->fd;
 	ret = fd_ctx_get (fd, frame->this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
 	
 	STACK_UNWIND (frame, local->op_ret, local->op_errno,
-		      vector, count, &file->stbuf);
+		      vector, count, &file->stbuf, iobref);
   
-	dict_unref (refs);
+	iobref_unref (iobref);
 	pthread_mutex_destroy (&local->local_lock);
 	free (local);
 	free (vector);
@@ -413,8 +411,8 @@ ra_page_purge (ra_page_t *page)
 	page->prev->next = page->next;
 	page->next->prev = page->prev;
 
-	if (page->ref) {
-		dict_unref (page->ref);
+	if (page->iobref) {
+		iobref_unref (page->iobref);
 	}
 	free (page->vector);
 	free (page);
