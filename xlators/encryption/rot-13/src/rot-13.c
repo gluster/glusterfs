@@ -67,14 +67,15 @@ rot13_readv_cbk (call_frame_t *frame,
                  int32_t op_errno,
                  struct iovec *vector,
                  int32_t count,
-		 struct stat *stbuf)
+		 struct stat *stbuf,
+                 struct iobref *iobref)
 {
 	rot_13_private_t *priv = (rot_13_private_t *)this->private;
   
 	if (priv->decrypt_read)
 		rot13_iovec (vector, count);
 
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 	return 0;
 }
 
@@ -111,7 +112,8 @@ rot13_writev (call_frame_t *frame,
               fd_t *fd,
               struct iovec *vector,
               int32_t count, 
-              off_t offset)
+              off_t offset,
+              struct iobref *iobref)
 {
 	rot_13_private_t *priv = (rot_13_private_t *)this->private;
 	if (priv->encrypt_write)
@@ -121,7 +123,8 @@ rot13_writev (call_frame_t *frame,
 		    rot13_writev_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->writev,
-		    fd, vector, count, offset);
+		    fd, vector, count, offset,
+                    iobref);
 	return 0;
 }
 
