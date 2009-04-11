@@ -346,7 +346,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         size_t          total_count = 0, count = 0;
         size_t          copied = 0;
         call_frame_t   *sync_frame = NULL;
-        dict_t         *refs = NULL;
+        struct iobref  *iobref = NULL;
         wb_local_t     *local = NULL;
         struct iovec   *vector = NULL;
         size_t          bytes = 0;
@@ -365,7 +365,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         list_for_each_entry_safe (request, dummy, winds, winds) {
                 if (!vector) {
                         vector = MALLOC (VECTORSIZE (MAX_VECTOR_COUNT));
-                        refs = get_new_dict ();
+                        iobref = iobref_new ();
         
                         local = CALLOC (1, sizeof (*local));
                         INIT_LIST_HEAD (&local->winds);
@@ -380,8 +380,9 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         bytecount);
                 copied += bytecount;
       
-                if (request->stub->args.writev.req_refs) {
-                        dict_copy (request->stub->args.writev.req_refs, refs);
+                if (request->stub->args.writev.iobref) {
+                        iobref_merge (iobref,
+                                      request->stub->args.writev.iobref);
                 }
 
                 next = NULL;
@@ -399,7 +400,6 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         sync_frame = copy_frame (frame);  
                         sync_frame->local = local;
                         local->file = file;
-                        sync_frame->root->req_refs = dict_ref (refs);
                         fd_ref (file->fd);
                         STACK_WIND (sync_frame,
                                     wb_sync_cbk,
@@ -407,12 +407,13 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                                     FIRST_CHILD(sync_frame->this)->fops->writev,
                                     file->fd, vector,
                                     count,
-                                    first_request->stub->args.writev.off);
+                                    first_request->stub->args.writev.off,
+                                    iobref);
         
-                        dict_unref (refs);
+                        iobref_unref (iobref);
                         FREE (vector);
                         first_request = NULL;
-                        refs = NULL;
+                        iobref = NULL;
                         vector = NULL;
                         copied = count = 0;
                 }
@@ -1393,7 +1394,8 @@ wb_writev (call_frame_t *frame,
            fd_t *fd,
            struct iovec *vector,
            int32_t count,
-           off_t offset)
+           off_t offset,
+           struct iobref *iobref)
 {
         wb_file_t    *file = NULL;
         char          wb_disabled = 0;
@@ -1434,14 +1436,10 @@ wb_writev (call_frame_t *frame,
         UNLOCK (&file->lock);
 
         if (wb_disabled) {
-                STACK_WIND (frame,
-                            wb_writev_cbk,
+                STACK_WIND (frame, wb_writev_cbk,
                             FIRST_CHILD (frame->this),
                             FIRST_CHILD (frame->this)->fops->writev,
-                            fd,
-                            vector,
-                            count,
-                            offset);
+                            fd, vector, count, offset, iobref);
                 return 0;
         }
 
@@ -1451,7 +1449,8 @@ wb_writev (call_frame_t *frame,
         frame->local = local;
         local->file = file;
 
-        stub = fop_writev_stub (frame, NULL, fd, vector, count, offset);
+        stub = fop_writev_stub (frame, NULL, fd, vector, count, offset,
+                                iobref);
         if (stub == NULL) {
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
@@ -1474,7 +1473,8 @@ wb_readv_cbk (call_frame_t *frame,
               int32_t op_errno,
               struct iovec *vector,
               int32_t count,
-              struct stat *stbuf)
+              struct stat *stbuf,
+              struct iobref *iobref)
 {
         wb_local_t   *local = NULL;
         wb_file_t    *file = NULL;
@@ -1489,7 +1489,7 @@ wb_readv_cbk (call_frame_t *frame,
                 wb_process_queue (frame, file, 0);
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 
         return 0;
 }
