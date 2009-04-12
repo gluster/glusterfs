@@ -70,6 +70,49 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
+dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx)
+{
+	dht_conf_t    *conf         = NULL;
+	call_frame_t  *statfs_frame = NULL;
+	dht_local_t   *statfs_local = NULL;
+        call_pool_t   *pool         = NULL;
+
+	conf = this->private;
+        pool = this->ctx->pool;
+
+        statfs_frame = create_frame (this, pool);
+        if (!statfs_frame) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "memory allocation failed :(");
+                goto err;
+        }
+        
+        statfs_local = dht_local_init (statfs_frame);
+        if (!statfs_local) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "memory allocation failed :(");
+                goto err;
+        }
+        
+        loc_t tmp_loc = { .inode = NULL,
+                          .path = "/",
+        };
+        
+        statfs_local->call_cnt = 1;
+        STACK_WIND (statfs_frame, dht_du_info_cbk,
+                    conf->subvolumes[subvol_idx],
+                    conf->subvolumes[subvol_idx]->fops->statfs,
+                    &tmp_loc);
+
+        return 0;
+ err:
+	if (statfs_frame)
+		DHT_STACK_DESTROY (statfs_frame);
+        
+        return -1;
+}
+
+int
 dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         int            i = 0;
@@ -103,6 +146,7 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
                               .path = "/",
                 };
                 
+                statfs_local->call_cnt = conf->subvolume_cnt;
                 for (i = 0; i < conf->subvolume_cnt; i++) {
                         STACK_WIND (statfs_frame, dht_du_info_cbk,
                                     conf->subvolumes[i],
@@ -148,8 +192,9 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
                 if (!(conf->du_stats[i].log++ % GF_UNIVERSAL_ANSWER)) {
                         gf_log (this->name, GF_LOG_CRITICAL,
                                 "disk space on subvolume '%s' is getting "
-                                "full(%f), consider adding more nodes", 
-                                subvol->name, conf->du_stats[i].avail_percent);
+                                "full (%.2f %%), consider adding more nodes", 
+                                subvol->name, 
+                                (100 - conf->du_stats[i].avail_percent));
                 }
         }
 
@@ -180,7 +225,7 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol)
 
         if (avail_subvol == subvol) {
                 gf_log (this->name, GF_LOG_CRITICAL, 
-                        "no node has enough free space :O");
+                        "no node has enough free space to schedule create");
         }
                 
         return avail_subvol;
