@@ -472,7 +472,7 @@ static int32_t
 bdb_db_get (bctx_t *bctx,
             DB_TXN *txnid,
             const char *path,
-            char **buf,
+            char *buf,
             size_t size,
             off_t offset)
 {
@@ -480,6 +480,7 @@ bdb_db_get (bctx_t *bctx,
         DBT          key        = {0,};
         DBT          value      = {0,};
         int32_t      ret        = -1;
+        size_t       copy_size  = 0;
         char        *key_string = NULL;
         bdb_cache_t *bcache     = NULL;
         int32_t      db_flags   = 0;
@@ -494,104 +495,124 @@ bdb_db_get (bctx_t *bctx,
         if (bctx->cache &&
             ((bcache = bdb_cache_lookup (bctx, key_string)) != NULL)) {
                 if (buf) {
-                        *buf = CALLOC (1, bcache->size);
-                        GF_VALIDATE_OR_GOTO ("bdb-ll", buf, out);
-                        memcpy (*buf, (bcache->data + offset), bcache->size);
-                }
-                ret = bcache->size;
-        } else {
-                LOCK (&bctx->lock);
-                {
-                        if (bctx->primary == NULL) {
-                                ret = bdb_db_open (bctx);
-                                storage = bctx->primary;
-                        } else {
-                                /* we are just fine, lets continue */
-                                storage = bctx->primary;
-                        } /* if(bctx->dbp==NULL)...else */
-                }
-                UNLOCK (&bctx->lock);
+                        copy_size = ((bcache->size - offset) < size)?
+                                (bcache->size - offset) : size;
 
-                GF_VALIDATE_OR_GOTO ("bdb-ll", storage, out);
-
-                key.data = (char *)key_string;
-                key.size = strlen (key_string);
-                key.flags = DB_DBT_USERMEM;
-
-                if (bctx->cache){
-                        /* we are called to return the size of the file */
-                        value.flags = DB_DBT_MALLOC;
+                        memcpy (buf, (bcache->data + offset), copy_size);
+                        ret = copy_size;
                 } else {
-                        if (size) {
-                                value.flags = DB_DBT_MALLOC | DB_DBT_PARTIAL;
-                        } else {
-                                value.flags = DB_DBT_MALLOC;
-                        }
-                        value.dlen = size;
-                        value.doff = offset;
+                        ret = bcache->size;
                 }
+                
+                goto out;
+        } 
 
-                do {
-                        /* TODO: we prefer to give our own buffer to value.data
-                         * and ask bdb to fill in it */
-                        ret = storage->get (storage, txnid, &key, &value,
-                                            db_flags);
-
-                        if (ret == DB_NOTFOUND) {
-                                gf_log ("bdb-ll", GF_LOG_DEBUG,
-                                        "_BDB_DB_GET %s - %s: ENOENT"
-                                        "(specified key not found in database)",
-                                        bctx->directory, key_string);
-                                ret = -1;
-                                need_break = 1;
-                        } else if (ret == DB_LOCK_DEADLOCK) {
-                                retries++;
-                                gf_log ("bdb-ll", GF_LOG_DEBUG,
-                                        "_BDB_DB_GET %s - %s"
-                                        "(deadlock detected, retrying for %d "
-                                        "time)",
-                                        bctx->directory, key_string, retries);
-                        } else if (ret == 0) {
-                                /* successfully read data, lets set everything
-                                 * in place and return */
-                                if (buf) {
-                                        *buf = CALLOC (1, value.size);
-                                        GF_VALIDATE_OR_GOTO ("bdb-ll",
-                                                             *buf, out);
-                                        memcpy (*buf, value.data, value.size);
-                                }
-                                ret = value.size;
-                                if (bctx->cache)
-                                        bdb_cache_insert (bctx, &key, &value);
-                                free (value.data);
-                                need_break = 1;
-                        } else {
-                                gf_log ("bdb-ll", GF_LOG_DEBUG,
-                                        "_BDB_DB_GET %s - %s: %s"
-                                        "(failed to retrieve specified key from"
-                                        " database)",
-                                        bctx->directory, key_string,
-                                        db_strerror (ret));
-                                ret = -1;
-                                need_break = 1;
-                        }
-                } while (!need_break);
+        LOCK (&bctx->lock);
+        {
+                if (bctx->primary == NULL) {
+                        ret = bdb_db_open (bctx);
+                        storage = bctx->primary;
+                } else {
+                        /* we are just fine, lets continue */
+                        storage = bctx->primary;
+                } /* if(bctx->dbp==NULL)...else */
         }
+        UNLOCK (&bctx->lock);
+
+        GF_VALIDATE_OR_GOTO ("bdb-ll", storage, out);
+
+        key.data = (char *)key_string;
+        key.size = strlen (key_string);
+        key.flags = DB_DBT_USERMEM;
+
+        if (bctx->cache){
+                value.flags = DB_DBT_MALLOC;
+        } else {
+                if (size) {
+                        value.flags = DB_DBT_MALLOC | DB_DBT_PARTIAL;
+                } else {
+                        value.flags = DB_DBT_MALLOC;
+                }
+                value.dlen = size;
+                value.doff = offset;
+        }
+
+        do {
+                /* TODO: we prefer to give our own buffer to value.data
+                 * and ask bdb to fill in it */
+                ret = storage->get (storage, txnid, &key, &value,
+                                    db_flags);
+
+                if (ret == DB_NOTFOUND) {
+                        gf_log ("bdb-ll", GF_LOG_DEBUG,
+                                "_BDB_DB_GET %s - %s: ENOENT"
+                                "(specified key not found in database)",
+                                bctx->directory, key_string);
+                        ret = -1;
+                        need_break = 1;
+                } else if (ret == DB_LOCK_DEADLOCK) {
+                        retries++;
+                        gf_log ("bdb-ll", GF_LOG_DEBUG,
+                                "_BDB_DB_GET %s - %s"
+                                "(deadlock detected, retrying for %d "
+                                "time)",
+                                bctx->directory, key_string, retries);
+                } else if (ret == 0) {
+                        /* successfully read data, lets set everything
+                         * in place and return */
+                        if (buf) {
+                                copy_size = ((value.size - offset) < size) ?
+                                        (value.size - offset) : size;
+
+                                memcpy (buf, (value.data + offset), copy_size);
+                                ret = copy_size;
+                        } else {
+                                ret = value.size;
+                        }
+                        if (bctx->cache)
+                                bdb_cache_insert (bctx, &key, &value);
+                        free (value.data);
+                        need_break = 1;
+                } else {
+                        gf_log ("bdb-ll", GF_LOG_DEBUG,
+                                "_BDB_DB_GET %s - %s: %s"
+                                "(failed to retrieve specified key from"
+                                " database)",
+                                bctx->directory, key_string,
+                                db_strerror (ret));
+                        ret = -1;
+                        need_break = 1;
+                }
+        } while (!need_break);
+
 out:
         return ret;
 }/* bdb_db_get */
 
 /* TODO: handle errors here and log. propogate only the errno to caller */
 int32_t
-bdb_db_fread (struct bdb_fd *bfd, char **buf, size_t size, off_t offset)
+bdb_db_fread (struct bdb_fd *bfd, char *buf, size_t size, off_t offset)
 {
         return bdb_db_get (bfd->ctx, NULL, bfd->key, buf, size, offset);
 }
 
 int32_t
-bdb_db_iread (struct bdb_ctx *bctx, const char *key, char **buf)
+bdb_db_iread (struct bdb_ctx *bctx, const char *key, char **bufp)
 {
-        return bdb_db_get (bctx, NULL, key, buf, 0, 0);
+        char *buf = NULL;
+        size_t size = 0;
+        int64_t ret = 0;
+
+        ret = bdb_db_get (bctx, NULL, key, NULL, 0, 0);
+        size = ret;
+
+        if (bufp) {
+                buf = calloc (size, sizeof (char));
+                *bufp = buf;
+                ret = bdb_db_get (bctx, NULL, key, buf, size, 0);
+        }
+
+        return ret; 
 }
 
 /* bdb_storage_put - insert a key/value specified to the corresponding DB.
