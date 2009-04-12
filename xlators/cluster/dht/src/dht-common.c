@@ -3649,6 +3649,9 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 		}
 		UNLOCK (&conf->subvolume_lock);
 
+                /* one of the node came back up, do a stat update */
+                dht_get_du_info_for_subvol (this, cnt);
+
 		break;
 
 	case GF_EVENT_CHILD_DOWN:
