@@ -485,7 +485,7 @@ bdb_readv (call_frame_t *frame,
         }
 
         /* we are ready to go */
-        op_ret = bdb_db_fread (bfd, (char **)&iobuf->ptr, size, offset);
+        op_ret = bdb_db_fread (bfd, iobuf->ptr, size, offset);
         read_size = op_ret;
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG,

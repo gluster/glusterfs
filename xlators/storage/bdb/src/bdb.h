@@ -443,7 +443,7 @@ bdb_db_get(struct bdb_ctx *bctx,
            off_t offset);
 */
 int32_t
-bdb_db_fread (struct bdb_fd *bfd, char **bufp, size_t size, off_t offset);
+bdb_db_fread (struct bdb_fd *bfd, char *bufp, size_t size, off_t offset);
 
 int32_t
 bdb_db_iread (struct bdb_ctx *bctx, const char *key, char **bufp);
