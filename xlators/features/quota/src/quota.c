@@ -74,6 +74,7 @@ quota_statvfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 static void
 build_root_loc (xlator_t *this, loc_t *loc)
 {
+        memset (loc, 0, sizeof (*loc));
 	loc->path = "/";
 }
 
