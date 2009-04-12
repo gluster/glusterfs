@@ -456,7 +456,7 @@ bdb_readv (call_frame_t *frame,
         BDB_FCTX_GET (fd, this, &bfd);
         if (bfd == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "READV %"PRId64" - %"PRId32",%"PRId64": EBADFD"
+                        "READV %"PRId64" - %"GF_PRI_SIZET",%"PRId64": EBADFD"
                         "(internal fd not found through fd)",
                         fd->inode->ino, size, offset);
                 op_errno = EBADFD;
@@ -469,7 +469,7 @@ bdb_readv (call_frame_t *frame,
         if (op_ret != 0) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "READV %"PRId64" - %"PRId32",%"PRId64": EINVAL"
+                        "READV %"PRId64" - %"GF_PRI_SIZET",%"PRId64": EINVAL"
                         "(database file missing)",
                         fd->inode->ino, size, offset);
                 goto out;
@@ -489,7 +489,7 @@ bdb_readv (call_frame_t *frame,
         read_size = op_ret;
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "READV %"PRId64" - %"PRId32",%"PRId64": EBADFD"
+                        "READV %"PRId64" - %"GF_PRI_SIZET",%"PRId64": EBADFD"
                         "(failed to find entry in database)",
                         fd->inode->ino, size, offset);
                 op_ret   = -1;
@@ -586,8 +586,8 @@ bdb_writev (call_frame_t *frame,
 
         if (!is_space_left (this, total_size)) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "WRITEV %"PRId64" - %"PRId32" (%"PRId32"),%"PRId64": "
-                        "ENOSPC "
+                        "WRITEV %"PRId64" - %"PRId32" (%"GF_PRI_SIZET"),%"
+                        PRId64": ENOSPC "
                         "(not enough space after internal measurement)",
                         fd->inode->ino, count, total_size, offset);
                 op_ret = -1;
@@ -1189,7 +1189,8 @@ bdb_getdents (call_frame_t *frame,
         BDB_FCTX_GET (fd, this, &bfd);
         if (bfd == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "GETDENTS %"PRId64" - %"PRId32",%"PRId64" %o: EBADFD "
+                        "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
+                        " %o: EBADFD "
                         "(failed to find internal context in fd)",
                         fd->inode->ino, size, off, flag);
                 op_errno = EBADFD;
@@ -1200,7 +1201,8 @@ bdb_getdents (call_frame_t *frame,
         op_ret = bdb_cursor_open (bfd->ctx, &cursorp);
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "GETDENTS %"PRId64" - %"PRId32",%"PRId64": EBADFD "
+                        "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
+                        ": EBADFD "
                         "(failed to open cursor to database handle)",
                         fd->inode->ino, size, off);
                 op_errno = EBADFD;
@@ -1242,7 +1244,8 @@ bdb_getdents (call_frame_t *frame,
                         break;
                 } else if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "GETDENTS %"PRId64" - %"PRId32",%"PRId64":"
+                                "GETDENTS %"PRId64" - %"GF_PRI_SIZET
+                                ",%"PRId64":"
                                 "(failed to read the next entry from database)",
                                 fd->inode->ino, size, off);
                         op_errno = ENOENT;
@@ -1253,7 +1256,8 @@ bdb_getdents (call_frame_t *frame,
                         /* NOTE: currently ignore when we get key.data == NULL.
                          * FIXME: we should not get key.data = NULL */
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "GETDENTS %"PRId64" - %"PRId32",%"PRId64":"
+                                "GETDENTS %"PRId64" - %"GF_PRI_SIZET
+                                ",%"PRId64":"
                                 "(null key read for entry from database)",
                                 fd->inode->ino, size, off);
                         continue;
@@ -1262,7 +1266,8 @@ bdb_getdents (call_frame_t *frame,
                 this_entry = CALLOC (1, sizeof (*this_entry));
                 if (this_entry == NULL) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "GETDENTS %"PRId64" - %"PRId32",%"PRId64" - %s:"
+                                "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
+                                " - %s:"
                                 "(failed to allocate memory for an entry)",
                                 fd->inode->ino, size, off, strerror (errno));
                         op_errno = ENOMEM;
@@ -1273,7 +1278,8 @@ bdb_getdents (call_frame_t *frame,
                 this_entry->name = CALLOC (pri.size + 1, sizeof (char));
                 if (this_entry->name == NULL) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "GETDENTS %"PRId64" - %"PRId32",%"PRId64" - %s:"
+                                "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
+                                " - %s:"
                                 "(failed to allocate memory for an "
                                 "entry->name)",
                                 fd->inode->ino, size, off, strerror (errno));
@@ -1340,7 +1346,7 @@ dir_read:
                         entry_path = realloc (entry_path, entry_path_len);
                         if (entry_path == NULL) {
                                 gf_log (this->name, GF_LOG_DEBUG,
-                                        "GETDENTS %"PRId64" - %"PRId32","
+                                        "GETDENTS %"PRId64" - %"GF_PRI_SIZET","
                                         "%"PRId64" - %s: (failed to allocate "
                                         "memory for an entry_path)",
                                         fd->inode->ino, size, off,
@@ -1357,7 +1363,8 @@ dir_read:
                 if (op_ret < 0) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "GETDENTS %"PRId64" - %"PRId32",%"PRId64" - %s:"
+                                "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
+                                " - %s:"
                                 " (failed to stat on an entry '%s')",
                                 fd->inode->ino, size, off,
                                 strerror (errno), entry_path);
@@ -1372,7 +1379,8 @@ dir_read:
                 this_entry = CALLOC (1, sizeof (*this_entry));
                 if (this_entry == NULL) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "GETDENTS %"PRId64" - %"PRId32",%"PRId64" - %s:"
+                                "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
+                                " - %s:"
                                 "(failed to allocate memory for an entry)",
                                 fd->inode->ino, size, off, strerror (errno));
                         op_errno = ENOMEM;
@@ -1383,7 +1391,8 @@ dir_read:
                 this_entry->name = strdup (dirent->d_name);
                 if (this_entry->name == NULL) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "GETDENTS %"PRId64" - %"PRId32",%"PRId64" - %s:"
+                                "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
+                                " - %s:"
                                 "(failed to allocate memory for an "
                                 "entry->name)",
                                 fd->inode->ino, size, off, strerror (errno));
@@ -1421,8 +1430,8 @@ dir_read:
 
 out:
         gf_log (this->name, GF_LOG_DEBUG,
-                "GETDENTS %"PRId64" - %"PRId32" (%"PRId32")/%"PRId32","
-                "%"PRId64":"
+                "GETDENTS %"PRId64" - %"GF_PRI_SIZET" (%"PRId32")"
+                "/%"GF_PRI_SIZET",%"PRId64":"
                 "(failed to read the next entry from database)",
                 fd->inode->ino, filled, count, size, off);
 
@@ -2834,7 +2843,7 @@ bdb_readdir (call_frame_t *frame,
         BDB_FCTX_GET (fd, this, &bfd);
         if (bfd == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "READDIR %"PRId64" - %"PRId32",%"PRId64": EBADFD "
+                        "READDIR %"PRId64" - %"GF_PRI_SIZET",%"PRId64": EBADFD "
                         "(failed to find internal context in fd)",
                         fd->inode->ino, size, off);
                 op_errno = EBADFD;
@@ -2845,7 +2854,7 @@ bdb_readdir (call_frame_t *frame,
         op_ret = bdb_cursor_open (bfd->ctx, &cursorp);
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "READDIR %"PRId64" - %"PRId32",%"PRId64": EBADFD "
+                        "READDIR %"PRId64" - %"GF_PRI_SIZET",%"PRId64": EBADFD "
                         "(failed to open cursor to database handle)",
                         fd->inode->ino, size, off);
                 op_errno = EBADFD;
@@ -2887,7 +2896,7 @@ bdb_readdir (call_frame_t *frame,
                         break;
                 } else if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "READDIR %"PRId64" - %"PRId32",%"PRId64":"
+                                "READDIR %"PRId64" - %"GF_PRI_SIZET",%"PRId64":"
                                 "(failed to read the next entry from database)",
                                 fd->inode->ino, size, off);
                         op_errno = ENOENT;
@@ -2898,7 +2907,7 @@ bdb_readdir (call_frame_t *frame,
                         /* NOTE: currently ignore when we get key.data == NULL.
                          * TODO: we should not get key.data = NULL */
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "READDIR %"PRId64" - %"PRId32",%"PRId64":"
+                                "READDIR %"PRId64" - %"GF_PRI_SIZET",%"PRId64":"
                                 "(null key read for entry from database)",
                                 fd->inode->ino, size, off);
                         continue;
@@ -2983,7 +2992,8 @@ dir_read:
 
 out:
         gf_log (this->name, GF_LOG_DEBUG,
-                "READDIR %"PRId64" - %"PRId32" (%"PRId32")/%"PRId32",%"PRId64":"
+                "READDIR %"PRId64" - %"GF_PRI_SIZET" (%"PRId32")"
+                "/%"GF_PRI_SIZET",%"PRId64":"
                 "(failed to read the next entry from database)",
                 fd->inode->ino, filled, count, size, off);
 
