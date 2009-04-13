@@ -264,6 +264,7 @@ struct _glusterfs_ctx {
 	pthread_mutex_t    lock;
 	int                xl_count;
         uint32_t           volfile_checksum;
+        size_t             page_size;
 };
 
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
