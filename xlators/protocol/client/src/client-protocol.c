@@ -4931,12 +4931,14 @@ client_readv_cbk (call_frame_t *frame,
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
 	if (op_ret != -1) {
+		iobref = iobref_new ();
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		vector.iov_base = iobuf->ptr;
 		vector.iov_len  = op_ret;
 
-		iobref = iobref_new ();
-                iobref_add (iobref, iobuf);
+                if (op_ret > 0) {
+                        vector.iov_base = iobuf->ptr;
+                        iobref_add (iobref, iobuf);
+                }
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, &vector, 1, &stbuf, iobref);
