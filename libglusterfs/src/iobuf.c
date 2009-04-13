@@ -106,7 +106,7 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool)
         struct iobuf_arena *iobuf_arena = NULL;
         size_t              arena_size = 0;
 
-        iobuf_arena = CALLOC (sizeof (*iobuf_pool), 1);
+        iobuf_arena = CALLOC (sizeof (*iobuf_arena), 1);
         if (!iobuf_arena)
                 goto err;
 
