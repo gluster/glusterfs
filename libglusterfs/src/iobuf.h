@@ -86,6 +86,7 @@ struct iobuf_pool {
         struct iobuf_arena  arenas;     /* head node arena
                                            (unused by itself) */
         struct iobuf_arena  filled;     /* arenas without  free iobufs */
+        struct iobuf_arena  purge;      /* arenas to be purged right away */
 };
 
 
