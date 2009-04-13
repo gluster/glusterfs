@@ -88,13 +88,17 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
 void
 __iobuf_arena_destroy (struct iobuf_arena *iobuf_arena)
 {
+        struct iobuf_pool *iobuf_pool = NULL;
+
         if (!iobuf_arena)
                 return;
+
+        iobuf_pool = iobuf_arena->iobuf_pool;
 
         __iobuf_arena_destroy_iobufs (iobuf_arena);
 
         if (iobuf_arena->mem_base)
-                FREE (iobuf_arena->mem_base);
+                munmap (iobuf_arena->mem_base, iobuf_pool->arena_size);
 
         FREE (iobuf_arena);
 }
