@@ -628,6 +628,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	int            ret = -1;
 	int            i = 0;
 
+        uint64_t       ctx;
+
 	int32_t        op_errno = 0;
 
 	priv = this->private;
@@ -640,12 +642,19 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 	loc_copy (&local->loc, loc);
 
-        LOCK (&priv->read_child_lock);
-        {
-                local->read_child_index = (++priv->read_child_rr) 
-                        % (priv->child_count);
+        ret = inode_ctx_get (loc->inode, this, &ctx);
+        if (ret == 0) {
+                /* lookup is a revalidate */
+
+                local->read_child_index = afr_read_child (this, loc->inode);
+        } else {
+                LOCK (&priv->read_child_lock);
+                {
+                        local->read_child_index = (++priv->read_child_rr)
+                                % (priv->child_count);
+                }
+                UNLOCK (&priv->read_child_lock);
         }
-        UNLOCK (&priv->read_child_lock);
 
 	local->call_count = priv->child_count;
 
