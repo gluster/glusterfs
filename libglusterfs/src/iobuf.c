@@ -245,11 +245,14 @@ struct iobuf_arena *
 __iobuf_select_arena (struct iobuf_pool *iobuf_pool)
 {
         struct iobuf_arena *iobuf_arena = NULL;
+        struct iobuf_arena *trav = NULL;
 
         /* look for unused iobuf from the head-most arena */
-        list_for_each_entry (iobuf_arena, &iobuf_pool->arenas.list, list) {
-                if (iobuf_arena->passive_cnt)
+        list_for_each_entry (trav, &iobuf_pool->arenas.list, list) {
+                if (trav->passive_cnt) {
+                        iobuf_arena = trav;
                         break;
+                }
         }
 
         if (!iobuf_arena) {
