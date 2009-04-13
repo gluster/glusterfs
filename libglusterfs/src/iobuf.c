@@ -262,7 +262,7 @@ __iobuf_select_arena (struct iobuf_pool *iobuf_pool)
 
         if (!iobuf_arena) {
                 /* all arenas were full */
-                iobuf_arena = iobuf_pool_add_arena (iobuf_pool);
+                iobuf_arena = __iobuf_pool_add_arena (iobuf_pool);
         }
 
         return iobuf_arena;
