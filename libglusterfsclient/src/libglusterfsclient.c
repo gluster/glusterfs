@@ -384,7 +384,9 @@ glusterfs_init (glusterfs_init_params_t *init_ctx)
 
 	/* FIXME: why is count hardcoded to 16384 */
         ctx->gf_ctx.event_pool = event_pool_new (16384);
-        ctx->gf_ctx.iobuf_pool = iobuf_pool_new (64 * 1048576, 128 * 1024);
+        ctx->gf_ctx.page_size  = 128 * 1024;
+        ctx->gf_ctx.iobuf_pool = iobuf_pool_new (8 * 1048576,
+                                                 ctx->gf_ctx.page_size);
 
         lim.rlim_cur = RLIM_INFINITY;
         lim.rlim_max = RLIM_INFINITY;
