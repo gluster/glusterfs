@@ -199,6 +199,7 @@ iobuf_pool_new (size_t arena_size, size_t page_size)
 
         pthread_mutex_init (&iobuf_pool->mutex, NULL);
         INIT_LIST_HEAD (&iobuf_pool->arenas.list);
+        INIT_LIST_HEAD (&iobuf_pool->filled.list);
 
         iobuf_pool->arena_size = arena_size;
         iobuf_pool->page_size  = page_size;
@@ -281,7 +282,10 @@ __iobuf_unref (struct iobuf *iobuf)
 struct iobuf *
 __iobuf_get (struct iobuf_arena *iobuf_arena)
 {
-        struct iobuf *iobuf = NULL;
+        struct iobuf      *iobuf = NULL;
+        struct iobuf_pool *iobuf_pool = NULL;
+
+        iobuf_pool = iobuf_arena->iobuf_pool;
 
         list_for_each_entry (iobuf, &iobuf_arena->passive.list, list)
                 break;
@@ -291,6 +295,11 @@ __iobuf_get (struct iobuf_arena *iobuf_arena)
 
         list_add (&iobuf->list, &iobuf_arena->active.list);
         iobuf_arena->active_cnt++;
+
+        if (iobuf_arena->passive_cnt == 0) {
+                list_del (&iobuf_arena->list);
+                list_add (&iobuf_arena->list, &iobuf_pool->filled.list);
+        }
 
         return iobuf;
 }
@@ -325,6 +334,15 @@ unlock:
 void
 __iobuf_put (struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
 {
+        struct iobuf_pool *iobuf_pool = NULL;
+
+        iobuf_pool = iobuf_arena->iobuf_pool;
+
+        if (iobuf_arena->passive_cnt == 0) {
+                list_del (&iobuf_arena->list);
+                list_add_tail (&iobuf_arena->list, &iobuf_pool->arenas.list);
+        }
+
         list_del_init (&iobuf->list);
         iobuf_arena->active_cnt--;
 

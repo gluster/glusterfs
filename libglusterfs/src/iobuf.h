@@ -85,6 +85,7 @@ struct iobuf_pool {
         int                 arena_cnt;
         struct iobuf_arena  arenas;     /* head node arena
                                            (unused by itself) */
+        struct iobuf_arena  filled;     /* arenas without  free iobufs */
 };
 
 
