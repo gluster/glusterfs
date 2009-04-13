@@ -1807,7 +1807,6 @@ init (xlator_t *this)
 {
         dict_t    *options = NULL;
         wb_conf_t *conf = NULL;
-        char      *aggregate_size_string = NULL;
         char      *window_size_string    = NULL;
         char      *flush_behind_string   = NULL;
         char      *disable_till_string = NULL;
@@ -1846,18 +1845,6 @@ init (xlator_t *this)
 
         /* configure 'options aggregate-size <size>' */
         conf->aggregate_size = 0;
-        ret = dict_get_str (options, "block-size", 
-                            &aggregate_size_string);
-        if (ret == 0) {
-                ret = gf_string2bytesize (aggregate_size_string, 
-                                          &conf->aggregate_size);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR, 
-                                "invalid number format \"%s\" of \"option aggregate-size\"", 
-                                aggregate_size_string);
-                        return -1;
-                }
-        }
 
         gf_log (this->name, GF_LOG_DEBUG,
                 "using aggregate-size = %"PRIu64"", 
@@ -1969,11 +1956,6 @@ struct xlator_cbks cbks = {
 struct volume_options options[] = {
         { .key  = {"flush-behind"}, 
           .type = GF_OPTION_TYPE_BOOL
-        },
-        { .key  = {"block-size", "aggregate-size"}, 
-          .type = GF_OPTION_TYPE_SIZET, 
-          .min  = 128 * GF_UNIT_KB, 
-          .max  = 4 * GF_UNIT_MB 
         },
         { .key  = {"cache-size", "window-size"}, 
           .type = GF_OPTION_TYPE_SIZET, 

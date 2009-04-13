@@ -768,7 +768,6 @@ init (xlator_t *this)
 {
 	ra_conf_t *conf;
 	dict_t *options = this->options;
-	char *page_size_string = NULL;
 	char *page_count_string = NULL;
 
 	if (!this->children || this->children->next) {
@@ -784,27 +783,9 @@ init (xlator_t *this)
  
 	conf = (void *) CALLOC (1, sizeof (*conf));
 	ERR_ABORT (conf);
-	conf->page_size = 256 * 1024;
-	conf->page_count = 2;
+	conf->page_size = this->ctx->page_size;
+	conf->page_count = 4;
 
-	if (dict_get (options, "page-size"))
-		page_size_string = data_to_str (dict_get (options,
-							  "page-size"));
-	if (page_size_string)
-	{
-		if (gf_string2bytesize (page_size_string, &conf->page_size) != 0)
-		{
-			gf_log ("read-ahead", 
-				GF_LOG_ERROR, 
-				"invalid number format \"%s\" of \"option page-size\"", 
-				page_size_string);
-			return -1;
-		}
-      
-		gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_size = %"PRIu64"",
-			conf->page_size);
-	}
-  
 	if (dict_get (options, "page-count"))
 		page_count_string = data_to_str (dict_get (options, 
 							   "page-count"));
@@ -877,11 +858,6 @@ struct xlator_cbks cbks = {
 struct volume_options options[] = {
 	{ .key  = {"force-atime-update"}, 
 	  .type = GF_OPTION_TYPE_BOOL 
-	},
-	{ .key  = {"page-size"}, 
-	  .type = GF_OPTION_TYPE_SIZET, 
-	  .min  = 64 * GF_UNIT_KB, 
-	  .max  = 2 * GF_UNIT_MB 
 	},
 	{ .key  = {"page-count"}, 
 	  .type = GF_OPTION_TYPE_INT, 

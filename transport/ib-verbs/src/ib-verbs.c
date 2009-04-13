@@ -1256,10 +1256,10 @@ ib_verbs_options_init (transport_t *this)
 
         /* TODO: validate arguments from options below */
 
-        options->send_size = 1048576; /* 1 MB */
-        options->recv_size = 1048576; /* 1 MB */
-        options->send_count = 16;
-        options->recv_count = 16;
+        options->send_size = this->xl->ctx->page_size;
+        options->recv_size = this->xl->ctx->page_size;
+        options->send_count = 32;
+        options->recv_count = 32;
 
         temp = dict_get (this->xl->options,
                          "transport.ib-verbs.work-request-send-count");
@@ -1270,32 +1270,6 @@ ib_verbs_options_init (transport_t *this)
                          "transport.ib-verbs.work-request-recv-count");
         if (temp)
                 options->recv_count = data_to_int32 (temp);
-
-        temp = dict_get (this->xl->options,
-                         "transport.ib-verbs.work-request-send-size");
-        if (temp) {
-                ret = gf_string2bytesize (temp->data, &options->send_size);
-                if (ret != 0) {
-                        gf_log ("ib-verbs", GF_LOG_ERROR, 
-                                "invalid number format \"%s\" of "
-                                "\"option request-send-size\"", 
-                                temp->data);
-                        options->send_size = 1 * GF_UNIT_MB;
-                }
-        }
-
-        temp = dict_get (this->xl->options,
-                         "transport.ib-verbs.work-request-recv-size");
-        if (temp) {
-                ret = gf_string2bytesize (temp->data, &options->recv_size);
-                if (ret != 0) {
-                        gf_log ("ib-verbs", GF_LOG_ERROR, 
-                                "invalid number format \"%s\" of "
-                                "\"option request-recv-size\"", 
-                                temp->data);
-                        options->recv_size = 1 * GF_UNIT_MB;
-                }
-        }
 
         options->port = 1;
         temp = dict_get (this->xl->options,
@@ -2366,14 +2340,6 @@ struct volume_options options[] = {
                     "ib-verbs-device-name"}, 
           .type  = GF_OPTION_TYPE_ANY,
           .description = "check by 'ibv_devinfo'"
-        },
-        { .key   = {"transport.ib-verbs.work-request-send-size",
-                    "ib-verbs-work-request-send-size"}, 
-          .type  = GF_OPTION_TYPE_SIZET,
-        },
-        { .key   = {"transport.ib-verbs.work-request-recv-size",
-                    "ib-verbs-work-request-recv-size"}, 
-          .type  = GF_OPTION_TYPE_SIZET,
         },
         { .key   = {"transport.ib-verbs.work-request-send-count",
                     "ib-verbs-work-request-send-count"}, 
