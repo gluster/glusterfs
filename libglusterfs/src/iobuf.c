@@ -118,7 +118,7 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool)
         arena_size = iobuf_pool->arena_size;
         iobuf_arena->mem_base = mmap (NULL, arena_size, PROT_READ|PROT_WRITE,
                                       MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-        if (iobuf_arena->mem_base == ((void *) -1))
+        if (iobuf_arena->mem_base == MAP_FAILED)
                 goto err;
 
         __iobuf_arena_init_iobufs (iobuf_arena);
