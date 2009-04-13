@@ -75,6 +75,26 @@ switch_get_matching_xl (const char *path, struct switch_sched_struct *cond)
 	return NULL;
 }
 
+static int32_t
+gf_unify_valid_child (const char *child, 
+                      xlator_t *xl)
+{
+        xlator_list_t *children = NULL, *prev = NULL;
+        int32_t  ret = 0;
+
+        children = xl->children;
+        do {
+                if (!strcmp (child, children->xlator->name)) {
+                        ret = 1;
+                        break;
+                }
+                
+                prev = children;
+                children = prev->next;
+        } while (children);
+
+        return ret;
+}
 
 static int32_t
 switch_init (xlator_t *xl)
@@ -195,8 +215,19 @@ switch_init (xlator_t *xl)
 				dup_childs = strdup (childs);
 				child = strtok_r (dup_childs, ",", &tmp);
 				while (child) {
-					idx++;
-					child = strtok_r (NULL, ",", &tmp);
+                                        if (gf_unify_valid_child (child, xl)) {
+                                                idx++;
+                                                child = strtok_r (NULL, ",", &tmp);
+                                        } else {
+                                                gf_log ("switch", GF_LOG_ERROR,
+                                                        "%s is not a subvolume "
+                                                        "of %s. pattern can "
+                                                        "only be scheduled only"
+                                                        " to a subvolume of %s",
+                                                        child, xl->name,
+                                                        xl->name);
+                                                return -1;
+                                        }
 				}
 				free (dup_childs);
 				child = strtok_r (childs, ",", &tmp1);
