@@ -82,6 +82,8 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
                 list_del_init (&iobuf->list);
                 iobuf++;
         }
+
+        FREE (iobuf_arena->iobufs);
 }
 
 
