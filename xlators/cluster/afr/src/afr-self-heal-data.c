@@ -301,10 +301,8 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-
-	afr_sh_pending_to_delta (sh->xattr, AFR_DATA_PENDING,
-                                 sh->delta_matrix, sh->success,
-                                 priv->child_count);
+	afr_sh_pending_to_delta (priv, sh->xattr, sh->delta_matrix, sh->success,
+                                 priv->child_count, AFR_DATA_TRANSACTION);
 
 	erase_xattr = CALLOC (sizeof (*erase_xattr), priv->child_count);
 
@@ -317,8 +315,8 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
 		}
 	}
 
-	afr_sh_delta_to_xattr (sh->delta_matrix, erase_xattr,
-			       priv->child_count, AFR_DATA_PENDING);
+	afr_sh_delta_to_xattr (priv, sh->delta_matrix, erase_xattr,
+			       priv->child_count, AFR_DATA_TRANSACTION);
 
 	local->call_count = call_count;
 	for (i = 0; i < priv->child_count; i++) {
@@ -773,17 +771,13 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	afr_sh_build_pending_matrix (sh->pending_matrix, sh->xattr, 
-				     priv->child_count, AFR_DATA_PENDING);
+	afr_sh_build_pending_matrix (priv, sh->pending_matrix, sh->xattr, 
+				     priv->child_count, AFR_DATA_TRANSACTION);
 
 	afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
-
 	nsources = afr_sh_mark_sources (sh, priv->child_count,
                                         AFR_SELF_HEAL_DATA);
-
-	afr_sh_supress_empty_children (sh->sources, sh->xattr, sh->buf,
-				       priv->child_count, AFR_DATA_PENDING);
 
 	afr_sh_supress_errenous_children (sh->sources, sh->child_errno,
 					  priv->child_count);
@@ -900,9 +894,12 @@ afr_sh_data_lookup (call_frame_t *frame, xlator_t *this)
 	local->call_count = call_count;
 	
 	xattr_req = dict_new();
-	if (xattr_req)
-		ret = dict_set_uint64 (xattr_req, AFR_DATA_PENDING,
-				       priv->child_count * sizeof(int32_t));
+	if (xattr_req) {
+                for (i = 0; i < priv->child_count; i++) {
+                        ret = dict_set_uint64 (xattr_req, priv->pending_key[i],
+                                               3 * sizeof(int32_t));
+                }
+        }
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {

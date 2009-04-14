@@ -20,12 +20,6 @@
 #ifndef __TRANSACTION_H__
 #define __TRANSACTION_H__
 
-#define AFR_METADATA_PENDING "trusted.glusterfs.afr.metadata-pending"
-
-#define AFR_DATA_PENDING "trusted.glusterfs.afr.data-pending"
-
-#define AFR_ENTRY_PENDING "trusted.glusterfs.afr.entry-pending"
-
 void
 afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this,
 			    int child_index);

@@ -27,19 +27,28 @@
 
 
 static void
-__mark_all_pending (int32_t *pending, int child_count)
+__mark_all_pending (int32_t *pending[], int child_count,
+                    afr_transaction_type type)
 {	
 	int i;
-	
-	for (i = 0; i < child_count; i++)
-		pending[i] = hton32 (1);
+        int j;
+
+        for (i = 0; i < child_count; i++) {
+                j = afr_index_for_transaction_type (type);
+		pending[i][j] = hton32 (1);
+        }
 }
 
 
 static void
-__mark_child_dead (int32_t *pending, int child_count, int child)
+__mark_child_dead (int32_t *pending[], int child_count, int child,
+                   afr_transaction_type type)
 {
-	pending[child] = 0;
+        int j;
+
+        j = afr_index_for_transaction_type (type);
+        
+	pending[child][j] = 0;
 }
 
 
@@ -66,14 +75,15 @@ out:
 
 
 static void
-__mark_failed_children (int32_t *pending, int child_count, 
-                        xlator_t *this, fd_t *fd)
+__mark_failed_children (int32_t *pending[], int child_count, 
+                        xlator_t *this, fd_t *fd, afr_transaction_type type)
 {
         uint64_t       ctx;
         afr_fd_ctx_t * fd_ctx = NULL;
 
         int ret = 0;
         int i   = 0;
+        int j   = 0;
 
         ret = fd_ctx_get (fd, this, &ctx);
 
@@ -83,8 +93,10 @@ __mark_failed_children (int32_t *pending, int child_count,
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
         for (i = 0; i < child_count; i++) {
+                j = afr_index_for_transaction_type (type);
+
                 if (fd_ctx->child_failed[i])
-                        pending[i] = 0;
+                        pending[i][j] = 0;
         }
         
 out:
@@ -93,23 +105,32 @@ out:
 
 
 static void
-__mark_down_children (int32_t *pending, int child_count, unsigned char *child_up)
+__mark_down_children (int32_t *pending[], int child_count, 
+                      unsigned char *child_up, afr_transaction_type type)
 {
 	int i;
-	
-	for (i = 0; i < child_count; i++)
+	int j;
+
+	for (i = 0; i < child_count; i++) {
+                j = afr_index_for_transaction_type (type);
+
 		if (!child_up[i])
-			pending[i] = 0;
+			pending[i][j] = 0;
+        }
 }
 
 
 static void
-__mark_all_success (int32_t *pending, int child_count)
+__mark_all_success (int32_t *pending[], int child_count,
+                    afr_transaction_type type)
 {
 	int i;
-	
-	for (i = 0; i < child_count; i++)
-		pending[i] = hton32 (-1);
+        int j;
+
+	for (i = 0; i < child_count; i++) {
+                j = afr_index_for_transaction_type (type);
+		pending[i][j] = hton32 (-1);
+        }
 }
 
 
@@ -283,6 +304,26 @@ __changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
         }
 
 	return op_ret;
+}
+
+
+static int
+afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending)
+{
+        int i;
+        int ret = 0;
+
+        for (i = 0; i < priv->child_count; i++) {
+                ret = dict_set_static_bin (xattr, priv->pending_key[i],
+                                           pending[i], 3 * sizeof (int32_t));
+                /* 3 = data+metadata+entry */
+                
+                if (ret < 0)
+                        goto out;
+        }
+
+out:
+        return ret;
 }
 
 
@@ -481,12 +522,13 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 
-	__mark_down_children (local->pending_array, priv->child_count, 
-                              local->child_up);
+	__mark_down_children (local->pending, priv->child_count, 
+                              local->child_up, local->transaction.type);
         
         if (local->op == GF_FOP_FLUSH) {
-                __mark_failed_children (local->pending_array, priv->child_count,
-                                        this, local->fd);
+                __mark_failed_children (local->pending, priv->child_count,
+                                        this, local->fd,
+                                        local->transaction.type);
         }
 
 	call_count = afr_up_children_count (priv->child_count, local->child_up); 
@@ -504,11 +546,11 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 		return 0;
 	}
 
-	for (i = 0; i < priv->child_count; i++) {					
+	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			ret = dict_set_static_bin (xattr, local->transaction.pending, 
-						   local->pending_array, 
-						   priv->child_count * sizeof (int32_t));
+                        ret = afr_set_pending_dict (priv, xattr, 
+                                                    local->pending);
+
 			if (ret < 0)
 				gf_log (this->name, GF_LOG_ERROR, 
 					"failed to set pending entry");
@@ -553,9 +595,10 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 			   used the dict as placeholder for return
 			   value
 			*/
-			ret = dict_set_static_bin (xattr, local->transaction.pending, 
-						   local->pending_array, 
-						   priv->child_count * sizeof (int32_t));
+                        
+			ret = afr_set_pending_dict (priv, xattr, 
+                                                    local->pending);
+
 			if (ret < 0)
 				gf_log (this->name, GF_LOG_ERROR, 
 					"failed to set pending entry");
@@ -632,8 +675,8 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		    (local->op_errno == ENOTSUP)) {
 			local->transaction.resume (frame, this);
 		} else {
-                        __mark_all_success (local->pending_array,
-                                            priv->child_count);
+                        __mark_all_success (local->pending, priv->child_count,
+                                            local->transaction.type);
                                 
 			local->transaction.fop (frame, this);
 		}
@@ -675,15 +718,14 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 
 	local->call_count = call_count;		
 
-	__mark_all_pending (local->pending_array, priv->child_count);
+	__mark_all_pending (local->pending, priv->child_count,
+                            local->transaction.type);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			ret = dict_set_static_bin (xattr, 
-						   local->transaction.pending, 
-						   local->pending_array, 
-						   (priv->child_count * 
-						    sizeof (int32_t)));
+			ret = afr_set_pending_dict (priv, xattr, 
+                                                    local->pending);
+
 			if (ret < 0)
 				gf_log (this->name, GF_LOG_ERROR, 
 					"failed to set pending entry");
@@ -735,9 +777,9 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 			   value
 			*/
 
-			ret = dict_set_static_bin (xattr, local->transaction.pending, 
-						   local->pending_array, 
-						   priv->child_count * sizeof (int32_t));
+			ret = afr_set_pending_dict (priv, xattr, 
+                                                    local->pending);
+
 			if (ret < 0)
 				gf_log (this->name, GF_LOG_ERROR, 
 					"failed to set pending entry");
@@ -902,8 +944,8 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 		if (__changelog_needed_pre_op (frame, this)) {
 			afr_changelog_pre_op (frame, this);
 		} else {
-                        __mark_all_success (local->pending_array,
-                                            priv->child_count);
+                        __mark_all_success (local->pending, priv->child_count,
+                                            local->transaction.type);
 
 			local->transaction.fop (frame, this);
 		}
@@ -1054,8 +1096,8 @@ afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index
                 __mark_fop_failed_on_fd (local->fd, this, child_index);
                 break;
         default:
-                __mark_child_dead (local->pending_array, priv->child_count,
-                                   child_index);
+                __mark_child_dead (local->pending, priv->child_count,
+                                   child_index, local->transaction.type);
                 break;
         }
 }
@@ -1079,8 +1121,8 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 		if (__changelog_needed_pre_op (frame, this)) {
 			afr_changelog_pre_op (frame, this);
 		} else {
-                        __mark_all_success (local->pending_array,
-                                            priv->child_count);
+                        __mark_all_success (local->pending, priv->child_count,
+                                            local->transaction.type);
 
 			local->transaction.fop (frame, this);
 		}

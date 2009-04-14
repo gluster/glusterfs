@@ -30,6 +30,7 @@
 #include "call-stub.h"
 #include "compat-errno.h"
 
+#define AFR_XATTR_PREFIX "trusted.afr"
 
 typedef struct _afr_private {
 	gf_lock_t lock;               /* to guard access to child_count, etc */
@@ -42,10 +43,11 @@ typedef struct _afr_private {
 
 	unsigned char *child_up;
 
+        char **pending_key;
+
 	gf_boolean_t data_self_heal;       /* on/off */
 	gf_boolean_t metadata_self_heal;   /* on/off */
 	gf_boolean_t entry_self_heal;      /* on/off */
-
 
 	gf_boolean_t data_change_log;       /* on/off */
 	gf_boolean_t metadata_change_log;   /* on/off */
@@ -103,6 +105,35 @@ typedef enum {
 	AFR_FLUSH_TRANSACTION,         /* flush */
 } afr_transaction_type;
 
+
+/*
+  xattr format: trusted.afr.volume = [x y z]
+  x - data pending
+  y - metadata pending
+  z - entry pending
+*/
+
+static inline int
+afr_index_for_transaction_type (afr_transaction_type type)
+{
+        switch (type) {
+                
+        case AFR_DATA_TRANSACTION:
+        case AFR_FLUSH_TRANSACTION:
+                return 0;
+
+        case AFR_METADATA_TRANSACTION:
+                return 1;
+
+        case AFR_ENTRY_TRANSACTION:
+        case AFR_ENTRY_RENAME_TRANSACTION:
+                return 2;
+        }
+
+        return -1;  /* make gcc happy */
+}
+
+
 typedef struct _afr_local {
 	unsigned int call_count;
 	unsigned int success_count;
@@ -118,7 +149,7 @@ typedef struct _afr_local {
 	int32_t op_ret;
 	int32_t op_errno;
 
-	int32_t *pending_array;
+	int32_t **pending;
 
 	loc_t loc;
 	loc_t newloc;
@@ -365,8 +396,6 @@ typedef struct _afr_local {
 		const char *basename;
 		const char *new_basename;
 
-		char *pending;
-
 		loc_t parent_loc;
 		loc_t new_parent_loc;
 
@@ -521,18 +550,28 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 static inline int
 afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
 {
+        int i;
+
 	local->child_errno = CALLOC (sizeof (*local->child_errno),
 				     priv->child_count);
 	if (!local->child_errno) {
 		return -ENOMEM;
 	}
 
-	local->pending_array = CALLOC (sizeof (*local->pending_array),
-				       priv->child_count);
-	if (!local->pending_array) {
+	local->pending = CALLOC (sizeof (*local->pending),
+                                 priv->child_count);
+        
+	if (!local->pending) {
 		return -ENOMEM;
 	}
 
+        for (i = 0; i < priv->child_count; i++) {
+                local->pending[i] = CALLOC (sizeof (*local->pending[i]),
+                                            3); /* data + metadata + entry */
+                if (!local->pending[i])
+                        return -ENOMEM;
+        }
+        
 	local->transaction.locked_nodes = CALLOC (sizeof (*local->transaction.locked_nodes),
 						  priv->child_count);
 

@@ -41,29 +41,27 @@ int
 afr_sh_supress_errenous_children (int sources[], int child_errno[],
 				  int child_count);
 
-int
-afr_sh_supress_empty_children (int sources[], dict_t *xattr[],
-			       struct stat *buf,
-			       int child_count, const char *key);
-
 void
 afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this);
 
 void
-afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
-			     int child_count, const char *key);
+afr_sh_build_pending_matrix (afr_private_t *priv,
+                             int32_t *pending_matrix[], dict_t *xattr[],
+			     int child_count, afr_transaction_type type);
 
 void
-afr_sh_pending_to_delta (dict_t **xattr, char *key, int32_t *delta_matrix[],
-			 int32_t success[], int child_count);
+afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
+                         int32_t *delta_matrix[], int success[],
+                         int child_count, afr_transaction_type type);
 
 int
 afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
                      afr_self_heal_type type);
 
 int
-afr_sh_delta_to_xattr (int32_t *delta_matrix[], dict_t *xattr[],
-		       int child_count, const char *key);
+afr_sh_delta_to_xattr (afr_private_t *priv,
+                       int32_t *delta_matrix[], dict_t *xattr[],
+		       int child_count, afr_transaction_type type);
 
 int
 afr_sh_is_matrix_zero (int32_t *pending_matrix[], int child_count);

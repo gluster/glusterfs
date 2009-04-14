@@ -213,10 +213,9 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-
-	afr_sh_pending_to_delta (sh->xattr, AFR_METADATA_PENDING,
-                                 sh->delta_matrix, sh->success,
-                                 priv->child_count);
+	afr_sh_pending_to_delta (priv, sh->xattr, sh->delta_matrix, 
+                                 sh->success, priv->child_count,
+                                 AFR_METADATA_TRANSACTION);
 
 	erase_xattr = CALLOC (sizeof (*erase_xattr), priv->child_count);
 
@@ -229,8 +228,8 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 		}
 	}
 
-	afr_sh_delta_to_xattr (sh->delta_matrix, erase_xattr,
-			       priv->child_count, AFR_METADATA_PENDING);
+	afr_sh_delta_to_xattr (priv, sh->delta_matrix, erase_xattr,
+			       priv->child_count, AFR_METADATA_TRANSACTION);
 
 	local->call_count = call_count;
 
@@ -431,6 +430,8 @@ afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie,
 	afr_private_t   *priv = NULL;
 	int              source = 0;
 
+        int i;
+
 	local = frame->local;
 	sh = &local->self_heal;
 	priv = this->private;
@@ -445,9 +446,10 @@ afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie,
 
 		afr_sh_metadata_sync (frame, this, NULL);
 	} else {
-		dict_del (xattr, AFR_DATA_PENDING);
-		dict_del (xattr, AFR_METADATA_PENDING);
-		dict_del (xattr, AFR_ENTRY_PENDING);
+                for (i = 0; i < priv->child_count; i++) {
+                        dict_del (xattr, priv->pending_key[i]);
+                }
+
 		afr_sh_metadata_sync (frame, this, xattr);
 	}
 
@@ -515,8 +517,9 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	afr_sh_build_pending_matrix (sh->pending_matrix, sh->xattr, 
-				     priv->child_count, AFR_METADATA_PENDING);
+	afr_sh_build_pending_matrix (priv, sh->pending_matrix, sh->xattr, 
+				     priv->child_count, 
+                                     AFR_METADATA_TRANSACTION);
 
 	afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
@@ -656,9 +659,13 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 	
 	xattr_req = dict_new();
 	
-	if (xattr_req)
-		ret = dict_set_uint64 (xattr_req, AFR_METADATA_PENDING,
-				       priv->child_count * sizeof(int32_t));
+	if (xattr_req) {
+                for (i = 0; i < priv->child_count; i++) {
+                        ret = dict_set_uint64 (xattr_req, 
+                                               priv->pending_key[i],
+                                               3 * sizeof(int32_t));
+                }
+        }
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
