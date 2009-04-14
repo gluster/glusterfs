@@ -88,64 +88,6 @@ afr_sh_supress_errenous_children (int sources[], int child_errno[],
 }
 
 
-int
-afr_sh_supress_empty_children (int sources[], dict_t *xattr[],
-			       struct stat *buf,
-			       int child_count, const char *key)
-{
-	int      i = 0;
-	int32_t *pending = NULL;
-	int      ret = 0;
-	int      all_xattr_missing = 1;
-
-	/* if the file was created by afr with xattrs */
-	for (i = 0; i < child_count; i++) {
-		if (!xattr[i])
-			continue;
-
-		ret = dict_get_ptr (xattr[i], (char *)key, VOID(&pending));
-		if (ret != 0) {
-			continue;
-		}
-
-		all_xattr_missing = 0;
-		break;
-	}
-
-	if (all_xattr_missing) {
-		/* supress 0byte files.. this avoids empty file created
-		   by dir selfheal to overwrite the 'good' file */
-		for (i = 0; i < child_count; i++) {
-			if (!buf[i].st_size)
-				sources[i] = 0;
-		}
-		goto out;
-	}
-
-
-	for (i = 0; i < child_count; i++) {
-		if (!xattr[i]) {
-			sources[i] = 0;
-			continue;
-		}
-
-		ret = dict_get_ptr (xattr[i], (char *)key, VOID(&pending));
-		if (ret != 0) {
-			sources[i] = 0;
-			continue;
-		}
-
-		if (!pending) {
-			sources[i] = 0;
-			continue;
-		}
-	}
-
-out:
-	return 0;
-}
-
-
 void
 afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 {
@@ -175,11 +117,12 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 
 
 void
-afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
-			     int child_count, const char *key)
+afr_sh_build_pending_matrix (afr_private_t *priv,
+                             int32_t *pending_matrix[], dict_t *xattr[],
+			     int child_count, afr_transaction_type type)
 {
-	int i = 0;
-	int j = 0;
+	int i, j, k;
+
 	int32_t *pending = NULL;
 	int ret = -1;
 
@@ -200,22 +143,25 @@ afr_sh_build_pending_matrix (int32_t *pending_matrix[], dict_t *xattr[],
 
 		pending = NULL;
 
-		ret = dict_get_ptr (xattr[i], (char *) key,
-				    VOID(&pending));
-		if (ret != 0) {
-                        /*
-                         * There is no xattr present. This means this
-                         * subvolume should be considered an 'ignorant'
-                         * subvolume.
-                         */
+                for (j = 0; j < child_count; j++) {
+                        ret = dict_get_ptr (xattr[i], priv->pending_key[j],
+                                            VOID(&pending));
+                        
+                        if (ret != 0) {
+                                /*
+                                 * There is no xattr present. This means this
+                                 * subvolume should be considered an 'ignorant'
+                                 * subvolume.
+                                 */
 
-                        ignorant_subvols[i] = 1;
-			continue;
+                                ignorant_subvols[i] = 1;
+                                continue;
+                        }
+
+                        k = afr_index_for_transaction_type (type);
+                        
+                        pending_matrix[i][j] = ntoh32 (pending[k]);
                 }
-
-		for (j = 0; j < child_count; j++) {
-			pending_matrix[i][j] = ntoh32 (pending[j]);
-		}
 	}
 
         /*
@@ -563,12 +509,13 @@ out:
 
 
 void
-afr_sh_pending_to_delta (dict_t **xattr, char *key,
+afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
                          int32_t *delta_matrix[], int success[],
-                         int child_count)
+                         int child_count, afr_transaction_type type)
 {
 	int i = 0;
 	int j = 0;
+        int k = 0;
 
         int32_t * pending = NULL;
         int       ret     = 0;
@@ -583,29 +530,34 @@ afr_sh_pending_to_delta (dict_t **xattr, char *key,
 	for (i = 0; i < child_count; i++) {
                 pending = NULL;
 
-                ret = dict_get_ptr (xattr[i], (char *) key,
-                                    VOID (&pending));
+                for (j = 0; j < child_count; j++) {
+                        ret = dict_get_ptr (xattr[i], priv->pending_key[j],
+                                            VOID(&pending));
+                        
+                        if (!success[j])
+                                continue;
 
-		for (j = 0; j < child_count; j++) {
-			if (!success[j])
-				continue;
-
+                        k = afr_index_for_transaction_type (type);
+                        
                         if (pending) {
-                                delta_matrix[i][j] = -(ntoh32 (pending[j]));
+                                delta_matrix[i][j] = -(ntoh32 (pending[k]));
                         } else {
-                                delta_matrix[i][j] = 0;
+                                delta_matrix[i][j]  = 0;
                         }
-		}
+
+                }
 	}
 }
 
 
 int
-afr_sh_delta_to_xattr (int32_t *delta_matrix[], dict_t *xattr[],
-		       int child_count, const char *key)
+afr_sh_delta_to_xattr (afr_private_t *priv,
+                       int32_t *delta_matrix[], dict_t *xattr[],
+		       int child_count, afr_transaction_type type)
 {
 	int i = 0;
 	int j = 0;
+        int k = 0;
 
 	int ret = 0;
 
@@ -615,13 +567,18 @@ afr_sh_delta_to_xattr (int32_t *delta_matrix[], dict_t *xattr[],
 		if (!xattr[i])
 			continue;
 
-		pending = CALLOC (sizeof (int32_t), child_count);
 		for (j = 0; j < child_count; j++) {
-			pending[j] = hton32 (delta_matrix[i][j]);
-		}
+                        pending = CALLOC (sizeof (int32_t), 3);
+                        /* 3 = data+metadata+entry */
 
-		ret = dict_set_bin (xattr[i], (char *) key, pending,
-				    child_count * sizeof (int32_t));
+                        k = afr_index_for_transaction_type (type);
+
+			pending[k] = hton32 (delta_matrix[i][j]);
+
+                        ret = dict_set_bin (xattr[i], priv->pending_key[j], 
+                                            pending,
+                                            3 * sizeof (int32_t));
+		}
 	}
 
 	return 0;
@@ -637,21 +594,24 @@ afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this)
 
 	int           ret = -1;
 	int            i  = 0;
+        int            j  = 0;
 
 	priv = this->private;
 
-	ret = dict_get_ptr (xattr, AFR_METADATA_PENDING, &tmp_pending);
+        for (i = 0; i < priv->child_count; i++) {
+                ret = dict_get_ptr (xattr, priv->pending_key[i],
+                                    &tmp_pending);
 
-	if (ret != 0)
-		return 0;
+                if (ret != 0)
+                        return 0;
+                
+                pending = tmp_pending;
 
-	pending = tmp_pending;
-	for (i = 0; i < priv->child_count; i++) {
-		if (i == child_count)
-			continue;
-		if (pending[i])
-			return 1;
-	}
+                j = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
+
+                if (pending[j])
+                        return 1;
+        }
 
 	return 0;
 }
@@ -664,23 +624,26 @@ afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this)
 	int32_t       *pending = NULL;
 	void          *tmp_pending = NULL; /* This is required to remove 'type-punned' warnings from gcc */
 
-	int          ret = -1;
-	int            i = 0;
+	int           ret = -1;
+	int            i  = 0;
+        int            j  = 0;
 
 	priv = this->private;
 
-	ret = dict_get_ptr (xattr, AFR_DATA_PENDING, &tmp_pending);
+        for (i = 0; i < priv->child_count; i++) {
+                ret = dict_get_ptr (xattr, priv->pending_key[i],
+                                    &tmp_pending);
 
-	if (ret != 0)
-		return 0;
+                if (ret != 0)
+                        return 0;
+                
+                pending = tmp_pending;
 
-	pending = tmp_pending;
-	for (i = 0; i < priv->child_count; i++) {
-		if (i == child_count)
-			continue;
-		if (pending[i])
-			return 1;
-	}
+                j = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
+
+                if (pending[j])
+                        return 1;
+        }
 
 	return 0;
 }
@@ -689,31 +652,33 @@ afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this)
 int
 afr_sh_has_entry_pending (dict_t *xattr, int child_count, xlator_t *this)
 {
-	afr_private_t *priv = NULL;
+        afr_private_t *priv = NULL;
 	int32_t       *pending = NULL;
 	void          *tmp_pending = NULL; /* This is required to remove 'type-punned' warnings from gcc */
-	
-	int          ret = -1;
-	int            i = 0;
+
+	int           ret = -1;
+	int            i  = 0;
+        int            j  = 0;
 
 	priv = this->private;
 
-	ret = dict_get_ptr (xattr, AFR_ENTRY_PENDING, &tmp_pending);
+        for (i = 0; i < priv->child_count; i++) {
+                ret = dict_get_ptr (xattr, priv->pending_key[i],
+                                    &tmp_pending);
 
-	if (ret != 0)
-		return 0;
+                if (ret != 0)
+                        return 0;
+                
+                pending = tmp_pending;
 
-	pending = tmp_pending;
-	for (i = 0; i < priv->child_count; i++) {
-		if (i == child_count)
-			continue;
-		if (pending[i])
-			return 1;
-	}
+                j = afr_index_for_transaction_type (AFR_ENTRY_TRANSACTION);
+
+                if (pending[j])
+                        return 1;
+        }
 
 	return 0;
 }
-
 
 
 /**
@@ -1229,9 +1194,13 @@ sh_missing_entries_lookup (call_frame_t *frame, xlator_t *this)
 	
 	xattr_req = dict_new();
 	
-	if (xattr_req)
-		ret = dict_set_uint64 (xattr_req, AFR_ENTRY_PENDING,
-				       priv->child_count * sizeof(int32_t));
+	if (xattr_req) {
+                for (i = 0; i < priv->child_count; i++) {
+                        ret = dict_set_uint64 (xattr_req, 
+                                               priv->pending_key[i],
+                                               3 * sizeof(int32_t));
+                }
+        }
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {

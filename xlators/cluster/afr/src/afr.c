@@ -212,13 +212,24 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 void 
 afr_local_cleanup (afr_local_t *local, xlator_t *this)
 {
+        int i;
+        afr_private_t * priv = NULL;
+
 	if (!local)
 		return;
 
 	afr_local_sh_cleanup (local, this);
 
 	FREE (local->child_errno);
-	FREE (local->pending_array);
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->pending && local->pending[i])
+                        FREE (local->pending[i]);
+        }
+
+        FREE (local->pending);
 
 	loc_wipe (&local->loc);
 	loc_wipe (&local->newloc);
@@ -665,28 +676,17 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	/* By default assume ENOTCONN. On success it will be set to 0. */
 	local->op_errno = ENOTCONN;
 	
-	if ((xattr_req == NULL)
-	    && (priv->metadata_self_heal
-		|| priv->data_self_heal
-		|| priv->entry_self_heal))
+	if (xattr_req == NULL)
 		local->xattr_req = dict_new ();
 	else
 		local->xattr_req = dict_ref (xattr_req);
 
-	if (priv->metadata_self_heal) {
-		ret = dict_set_uint64 (local->xattr_req, AFR_METADATA_PENDING,
-				       priv->child_count * sizeof(int32_t));
-	}
-	
-	if (priv->data_self_heal) {
-		ret = dict_set_uint64 (local->xattr_req, AFR_DATA_PENDING,
-				       priv->child_count * sizeof(int32_t));
-	}
-	
-	if (priv->entry_self_heal) {
-		ret = dict_set_uint64 (local->xattr_req, AFR_ENTRY_PENDING,
-				       priv->child_count * sizeof(int32_t));
-	}
+        for (i = 0; i < priv->child_count; i++) {
+		ret = dict_set_uint64 (local->xattr_req, priv->pending_key[i],
+				       3 * sizeof(int32_t));
+                
+                /* 3 = data+metadata+entry */
+        }
 
 	ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_OPEN_FD_COUNT, 0);
 
@@ -1023,8 +1023,6 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         local->transaction.start  = 0;
         local->transaction.len    = 0;
-
-        local->transaction.pending = AFR_DATA_PENDING;
 
         afr_transaction (frame, this, AFR_FLUSH_TRANSACTION);
 
@@ -2362,7 +2360,6 @@ init (xlator_t *this)
 		priv->entry_lock_server_count = lock_server_count;
 	}
 
-
 	trav = this->children;
 	while (trav) {
 		if (!read_ret && !strcmp (read_subvol, trav->xlator->name)) {
@@ -2407,10 +2404,21 @@ init (xlator_t *this)
 		goto out;
 	}
 
+        priv->pending_key = CALLOC (sizeof (*priv->pending_key), child_count);
+        if (!priv->pending_key) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "out of memory :(");
+                op_errno = ENOMEM;
+                goto out;
+        }
+
 	trav = this->children;
 	i = 0;
 	while (i < child_count) {
 		priv->children[i] = trav->xlator;
+
+                asprintf (&priv->pending_key[i], "%s.%s", AFR_XATTR_PREFIX,
+                          trav->xlator->name);
 
 		trav = trav->next;
 		i++;
