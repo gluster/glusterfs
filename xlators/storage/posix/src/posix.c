@@ -1341,7 +1341,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         }
 
         if (priv->o_direct)
-                flags |= O_DIRECT;
+                _flags |= O_DIRECT;
 
         _fd = open (real_path, _flags, mode);
 
