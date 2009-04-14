@@ -89,103 +89,6 @@ ret:
 }
 
 
-static ino_t
-this_ino_get_from_inode (inode_t *inode, xlator_t *this)
-{
-	ino_t   ino = 0;
-	int32_t ret = 0;
-
-	GF_VALIDATE_OR_GOTO ("client", this, out);
-	GF_VALIDATE_OR_GOTO (this->name, inode, out);
-
-	if (inode->ino == 1) {
-		ino = 1;
-		goto out;
-	}
-
-	ret = inode_ctx_get (inode, this, &ino);
-
-	if (inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"(%"PRId64"): failed to get remote inode number",
-			inode->ino);
-	}
-
-out:
-	return ino;
-}
-
-
-static ino_t
-this_ino_get (loc_t *loc, xlator_t *this, int32_t which)
-{
-	ino_t    ino = 0;
-	int32_t  ret = 0;
-	inode_t *inode = NULL;
-
-	GF_VALIDATE_OR_GOTO ("client", this, out);
-	
-	if (which == GF_CLIENT_INODE_SELF) {
-		inode = loc->inode;
-	} else if (which == GF_CLIENT_INODE_PARENT) {
-		inode = loc->parent;
-	}
-	GF_VALIDATE_OR_GOTO (this->name, inode, out);
-
-	if (inode->ino == 1) {
-		ino = 1;
-		goto out;
-	}
-
-	ret = inode_ctx_get (inode, this, &ino);
-
-	if (inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"%s(%s - %"PRId64") failed to get remote inode number",
-			loc->path, 
-			(which == GF_CLIENT_INODE_SELF? "self" : "parent"), 
-			inode->ino);
-	}
-
-out:
-	return ino;
-}
-
-
-static void
-this_ino_set (loc_t *loc, xlator_t *this, ino_t ino)
-{
-	ino_t    old_ino = 0;
-	int32_t  ret = -1;
-	inode_t *inode = NULL;
-
-	GF_VALIDATE_OR_GOTO ("client", this, out);
-
-	inode = loc->inode;
-	GF_VALIDATE_OR_GOTO (this->name, inode, out);
-
-	ret = inode_ctx_get (inode, this, &old_ino);
-
-	if (old_ino != ino) {
-		if (old_ino)
-			gf_log (this->name, GF_LOG_DEBUG,
-				"%s: inode number changed from %"PRId64" "
-				"to %"PRId64,
-				loc->path, old_ino, ino);
-
-		ret = inode_ctx_put (inode, this, ino);
-		if (ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"%s (%"PRId64"): failed to set remote "
-				"inode number to inode ctx",
-				loc->path, ino);
-		}
-	}
-out:
-	return;
-}
-
-
 static int
 this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
 {
@@ -814,7 +717,14 @@ client_create (call_frame_t *frame, xlator_t *this,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
+
+	ret = inode_ctx_get (loc->parent, this, &par);
+	if (loc->parent->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"CREATE %"PRId64"/%s (%s): failed to get remote inode "
+                        "number for parent inode", 
+                        loc->parent->ino, loc->name, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
@@ -884,7 +794,14 @@ client_open (call_frame_t *frame, xlator_t *this,
 	frame->local = local;
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"OPEN %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -944,7 +861,14 @@ client_stat (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"STAT %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1006,7 +930,14 @@ client_readlink (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"READLINK %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1080,7 +1011,13 @@ client_mknod (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
+	ret = inode_ctx_get (loc->parent, this, &par);
+	if (loc->parent->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"MKNOD %"PRId64"/%s (%s): failed to get remote inode "
+                        "number for parent", 
+                        loc->parent->ino, loc->name, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
@@ -1154,7 +1091,13 @@ client_mkdir (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
+	ret = inode_ctx_get (loc->parent, this, &par);
+	if (loc->parent->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"MKDIR %"PRId64"/%s (%s): failed to get remote inode "
+                        "number for parent", 
+                        loc->parent->ino, loc->name, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
@@ -1218,7 +1161,13 @@ client_unlink (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
+	ret = inode_ctx_get (loc->parent, this, &par);
+	if (loc->parent->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"UNLINK %"PRId64"/%s (%s): failed to get remote inode "
+                        "number for parent", 
+                        loc->parent->ino, loc->name, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
@@ -1279,7 +1228,13 @@ client_rmdir (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
+	ret = inode_ctx_get (loc->parent, this, &par);
+	if (loc->parent->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"RMDIR %"PRId64"/%s (%s): failed to get remote inode "
+                        "number for parent", 
+                        loc->parent->ino, loc->name, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen);
 	hdr    = gf_hdr_new (req, pathlen + baselen);
@@ -1354,7 +1309,13 @@ client_symlink (call_frame_t *frame,
 	pathlen = STRLEN_0 (loc->path);
 	baselen = STRLEN_0 (loc->name);
 	newlen = STRLEN_0 (linkname);
-	par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
+	ret = inode_ctx_get (loc->parent, this, &par);
+	if (loc->parent->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"SYMLINK %"PRId64"/%s (%s): failed to get remote inode "
+                        "number parent", 
+                        loc->parent->ino, loc->name, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen + baselen + newlen);
 	hdr    = gf_hdr_new (req, pathlen + baselen + newlen);
@@ -1423,8 +1384,21 @@ client_rename (call_frame_t *frame,
 	oldbaselen = STRLEN_0(oldloc->name);
 	newpathlen = STRLEN_0(newloc->path);
 	newbaselen = STRLEN_0(newloc->name);
-	oldpar = this_ino_get (oldloc, this, GF_CLIENT_INODE_PARENT);
-	newpar = this_ino_get (newloc, this, GF_CLIENT_INODE_PARENT);
+	ret = inode_ctx_get (oldloc->parent, this, &oldpar);
+	if (oldloc->parent->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"RENAME %"PRId64"/%s (%s): failed to get remote inode "
+                        "number for source parent", 
+                        oldloc->parent->ino, oldloc->name, oldloc->path);
+	}
+
+	ret = inode_ctx_get (newloc->parent, this, &newpar);
+	if (newloc->parent->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"CREATE %"PRId64"/%s (%s): failed to get remote inode "
+                        "number for destination parent", 
+                        newloc->parent->ino, newloc->name, newloc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, (oldpathlen + oldbaselen + 
 				   newpathlen + newbaselen));
@@ -1508,8 +1482,24 @@ client_link (call_frame_t *frame,
 	oldpathlen = STRLEN_0(oldloc->path);
 	newpathlen = STRLEN_0(newloc->path);
 	newbaselen = STRLEN_0(newloc->name);
-	oldino = this_ino_get (oldloc, this, GF_CLIENT_INODE_SELF);
-	newpar = this_ino_get (newloc, this, GF_CLIENT_INODE_PARENT);
+
+	ret = inode_ctx_get (oldloc->inode, this, &oldino);
+	if (oldloc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"LINK %"PRId64"/%s (%s) ==> %"PRId64" (%s): "
+                        "failed to get remote inode number for source inode",
+			newloc->parent->ino, newloc->name, newloc->path,
+                        oldloc->ino, oldloc->path);
+	}
+
+	ret = inode_ctx_get (newloc->parent, this, &newpar);
+	if (newloc->parent->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"LINK %"PRId64"/%s (%s) ==> %"PRId64" (%s): "
+                        "failed to get remote inode number destination parent", 
+                        newloc->parent->ino, newloc->name, newloc->path,
+                        oldloc->ino, oldloc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, oldpathlen + newpathlen + newbaselen);
 	hdr    = gf_hdr_new (req, oldpathlen + newpathlen + newbaselen);
@@ -1574,7 +1564,14 @@ client_chmod (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"CHMOD %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1640,7 +1637,14 @@ client_chown (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"CHOWN %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1703,7 +1707,13 @@ client_truncate (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"TRUNCATE %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1767,7 +1777,13 @@ client_utimens (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"UTIMENS %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -1974,7 +1990,14 @@ client_statfs (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"STATFS %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
@@ -2178,7 +2201,14 @@ client_xattrop (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"XATTROP %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, dict_len + pathlen);
 	hdr    = gf_hdr_new (req, dict_len + pathlen);
@@ -2347,7 +2377,14 @@ client_setxattr (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"SETXATTR %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, dict_len + pathlen);
 	hdr    = gf_hdr_new (req, dict_len + pathlen);
@@ -2512,7 +2549,13 @@ client_getxattr (call_frame_t *frame,
 	if (name)
 		namelen = STRLEN_0(name);
 
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"GETXATTR %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen + namelen);
 	hdr    = gf_hdr_new (req, pathlen + namelen);
@@ -2654,7 +2697,14 @@ client_removexattr (call_frame_t *frame,
 
 	pathlen = STRLEN_0(loc->path);
 	namelen = STRLEN_0(name);
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"REMOVEXATTR %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen + namelen);
 	hdr    = gf_hdr_new (req, pathlen + namelen);
@@ -2721,7 +2771,14 @@ client_opendir (call_frame_t *frame,
 
 	frame->local = local;
 	
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"OPENDIR %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
+
 	pathlen = STRLEN_0(loc->path);
 
 	hdrlen = gf_hdr_len (req, pathlen);
@@ -2984,7 +3041,14 @@ client_access (call_frame_t *frame,
 		return 0;
 	}
 
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"ACCESS %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
+
 	pathlen = STRLEN_0(loc->path);
 
 	hdrlen = gf_hdr_len (req, pathlen);
@@ -3287,7 +3351,13 @@ client_inodelk (call_frame_t *frame,
 	pathlen = STRLEN_0(loc->path);
         vollen  = STRLEN_0(volume);
 
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"INODELK %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	if (cmd == F_GETLK || cmd == F_GETLK64)
 		gf_cmd = GF_LK_GETLK;
@@ -3483,7 +3553,13 @@ client_entrylk (call_frame_t *frame,
 	if (name)
 		namelen = STRLEN_0(name);
 
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"ENTRYLK %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
 
 	hdrlen = gf_hdr_len (req, pathlen + vollen + namelen);
 	hdr    = gf_hdr_new (req, pathlen + vollen + namelen);
@@ -3643,7 +3719,13 @@ client_lookup (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
 
 	if (loc->ino != 1) {
-		par = this_ino_get (loc, this, GF_CLIENT_INODE_PARENT);
+                ret = inode_ctx_get (loc->parent, this, &par);
+                if (loc->parent->ino && ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "LOOKUP %"PRId64"/%s (%s): failed to get "
+                                "remote inode number for parent", 
+                                loc->parent->ino, loc->name, loc->path);
+                }
 		GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
 		baselen = STRLEN_0(loc->name);
 	} else {
@@ -4031,7 +4113,14 @@ client_forget (xlator_t *this,
 	}
 
 	GF_VALIDATE_OR_GOTO (this->name, inode, out);
-	ino = this_ino_get_from_inode (inode, this);
+
+	ret = inode_ctx_get (inode, this, &ino);
+	if (inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"FORGET %"PRId64": "
+                        "failed to get remote inode number",
+			inode->ino);
+	}
 
 	LOCK (&conf->forget.lock);
 	{
@@ -4461,7 +4550,6 @@ client_create_cbk (call_frame_t *frame,
 	client_local_t       *local = NULL;
 	client_conf_t        *conf = NULL;
 
-
 	local = frame->local; frame->local = NULL;
 	conf  = frame->this->private;
 	fd    = local->fd;
@@ -4478,7 +4566,15 @@ client_create_cbk (call_frame_t *frame,
 	}
 
 	if (op_ret >= 0) {
-		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
+                ret = inode_ctx_put (local->loc.inode, frame->this, stbuf.st_ino);
+                if (ret < 0) {
+                        gf_log (frame->this->name, GF_LOG_ERROR,
+                                "CREATE %"PRId64"/%s (%s): failed to set remote"
+                                " inode number to inode ctx",
+                                local->loc.parent->ino, local->loc.name,
+                                local->loc.path);
+                }
+
 		this_fd_set (fd, frame->this, &local->loc, remote_fd);
 
 		sprintf (key, "%p", fd);
@@ -4711,6 +4807,7 @@ client_mknod_cbk (call_frame_t *frame,
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 	client_local_t *local = NULL;
+        int ret = 0;
 
 	local = frame->local;
 	frame->local = NULL;
@@ -4723,7 +4820,15 @@ client_mknod_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
+
+                ret = inode_ctx_put (local->loc.inode, frame->this, stbuf.st_ino);
+                if (ret < 0) {
+                        gf_log (frame->this->name, GF_LOG_ERROR,
+                                "MKNOD %"PRId64"/%s (%s): failed to set remote"
+                                " inode number to inode ctx",
+                                local->loc.parent->ino, local->loc.name,
+                                local->loc.path);
+                }
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -4751,6 +4856,7 @@ client_symlink_cbk (call_frame_t *frame,
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 	client_local_t *local = NULL;
+        int ret = 0;
 
 	local = frame->local;
 	frame->local = NULL;
@@ -4763,7 +4869,16 @@ client_symlink_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
+
+                ret = inode_ctx_put (inode, frame->this,
+                                     stbuf.st_ino);
+                if (ret < 0) {
+                        gf_log (frame->this->name, GF_LOG_ERROR,
+                                "SYMLINK %"PRId64"/%s (%s): failed to set "
+                                "remote inode number to inode ctx",
+                                local->loc.parent->ino, local->loc.name,
+                                local->loc.path);
+                }
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -5149,6 +5264,7 @@ client_mkdir_cbk (call_frame_t *frame,
 	struct stat stbuf = {0, };
 	inode_t *inode = NULL;
 	client_local_t *local = NULL;
+        int ret = 0;
 
 	local = frame->local;
 	inode = local->loc.inode;
@@ -5161,7 +5277,15 @@ client_mkdir_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
+
+                ret = inode_ctx_put (inode, frame->this, stbuf.st_ino);
+                if (ret < 0) {
+                        gf_log (frame->this->name, GF_LOG_ERROR,
+                                "MKDIR %"PRId64"/%s (%s): failed to set "
+                                "remote inode number to inode ctx",
+                                local->loc.parent->ino, local->loc.name,
+                                local->loc.path);
+                }
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -5339,6 +5463,7 @@ client_lookup_cbk (call_frame_t *frame,
 	int32_t ret = -1;
 	int32_t gf_errno = 0;
 	client_local_t *local = NULL;
+        ino_t oldino = 0;
 
 	local = frame->local; 
 	inode = local->loc.inode;
@@ -5351,7 +5476,33 @@ client_lookup_cbk (call_frame_t *frame,
 	if (op_ret == 0) {
 		op_ret = -1;
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		this_ino_set (&local->loc, frame->this, stbuf.st_ino);
+                
+                if (local->loc.ino != 1) {
+                        ret = inode_ctx_get (inode, frame->this, &oldino);
+                        if (oldino != stbuf.st_ino) {
+                                if (oldino)
+                                        gf_log (frame->this->name, GF_LOG_DEBUG,
+                                                "LOOKUP %"PRId64"/%s (%s): "
+                                                "inode number changed from "
+                                                "%"PRId64" to %"PRId64,
+                                                local->loc.parent->ino, 
+                                                local->loc.name,
+                                                local->loc.path,
+                                                oldino, stbuf.st_ino);
+                                
+                                ret = inode_ctx_put (inode, frame->this,
+                                                     stbuf.st_ino);
+                                if (ret < 0) {
+                                        gf_log (frame->this->name, GF_LOG_ERROR,
+                                                "LOOKUP %"PRId64"/%s (%s) : "
+                                                "failed to set remote inode "
+                                                "number to inode ctx",
+                                                local->loc.parent->ino, 
+                                                local->loc.name,
+                                                local->loc.path);
+                                }
+                        }
+                }
 
 		dict_len = ntoh32 (rsp->dict_len);
 
@@ -5995,7 +6146,14 @@ client_checksum (call_frame_t *frame,
 	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
 	req    = gf_param (hdr);
 	
-	ino = this_ino_get (loc, this, GF_CLIENT_INODE_SELF);
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"CHECKSUM %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
+
 	req->ino  = hton64 (ino);
 	req->flag = hton32 (flag);
 	strcpy (req->path, loc->path);
