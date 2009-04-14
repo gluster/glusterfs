@@ -3834,6 +3834,7 @@ unify_ns_link_cbk (call_frame_t *frame,
 				    priv->xl_array[list[index]]->fops->link,
 				    &local->loc1,
 				    &local->loc2);
+                        break;
 		}
 		if (need_break)
 			break;
