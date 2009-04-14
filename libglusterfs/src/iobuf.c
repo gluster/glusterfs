@@ -99,7 +99,8 @@ __iobuf_arena_destroy (struct iobuf_arena *iobuf_arena)
 
         __iobuf_arena_destroy_iobufs (iobuf_arena);
 
-        if (iobuf_arena->mem_base)
+        if (iobuf_arena->mem_base
+            && iobuf_arena->mem_base != MAP_FAILED)
                 munmap (iobuf_arena->mem_base, iobuf_pool->arena_size);
 
         FREE (iobuf_arena);
