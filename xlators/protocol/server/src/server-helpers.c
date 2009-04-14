@@ -421,7 +421,13 @@ server_connection_cleanup (xlator_t *this, server_connection_t *conn)
         uint32_t            fd_count = 0;
         fd_t              **fds = NULL;
         int32_t             i = 0;
- 
+
+        if (conn == NULL) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "connection is NULL");
+                goto out;
+        }
+
 	bound_xl = (xlator_t *) (conn->bound_xl);
 
 	if (bound_xl) {
@@ -554,6 +560,7 @@ server_connection_cleanup (xlator_t *this, server_connection_t *conn)
 		STACK_DESTROY (frame->root);
         }
 
+out:
         return 0;
 }
 
@@ -574,7 +581,13 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
         int32_t             i = 0;
         fd_t              **fds = NULL;
         uint32_t             fd_count = 0;
-
+        
+        if (conn == NULL) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "connection is NULL");
+                ret = 0;
+                goto out;
+        }
 
 	bound_xl = (xlator_t *) (conn->bound_xl);
 
@@ -713,6 +726,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
 	FREE (conn->id);
 	FREE (conn);
 
+out:
 	return ret;
 }
 
@@ -761,6 +775,12 @@ server_connection_put (xlator_t *this, server_connection_t *conn)
 	server_conf_t       *conf = NULL;
 	server_connection_t *todel = NULL;
 
+        if (conn == NULL) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "connection is NULL");
+                goto out;
+        }
+
 	conf = this->private;
 
 	pthread_mutex_lock (&conf->mutex);
@@ -778,5 +798,6 @@ server_connection_put (xlator_t *this, server_connection_t *conn)
 		server_connection_destroy (this, todel);
 	}
 
+out:
 	return;
 }
