@@ -1252,7 +1252,6 @@ ib_verbs_options_init (transport_t *this)
         ib_verbs_options_t *options = &priv->options;
         int32_t mtu;
         data_t *temp;
-        int     ret = 0;
 
         /* TODO: validate arguments from options below */
 
