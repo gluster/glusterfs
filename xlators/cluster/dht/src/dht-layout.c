@@ -403,6 +403,9 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
 			case ENOTCONN:
 				down++;
 				break;
+			case ENOSPC:
+				down++;
+				break;
 			default:
 				misc++;
 			}

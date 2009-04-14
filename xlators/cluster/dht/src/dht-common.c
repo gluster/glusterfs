@@ -2408,22 +2408,32 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                             subvol, subvol->fops->mknod,
                             loc, mode, rdev);
         } else {
-                /* Choose the minimum filled volume, and create the 
-                   files there */
-                local = dht_local_init (frame);
-                if (!local) {
-                        op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
-                        goto err;
-                }
                 avail_subvol = dht_free_disk_available_subvol (this, subvol);
-                local->cached_subvol = avail_subvol;
-                local->mode = mode; 
-                local->rdev = rdev;
-                
-		dht_linkfile_create (frame, dht_mknod_linkfile_create_cbk,
-				     avail_subvol, subvol, loc);
+                if (avail_subvol != subvol) {
+                        /* Choose the minimum filled volume, and create the 
+                           files there */
+                        local = dht_local_init (frame);
+                        if (!local) {
+                                op_errno = ENOMEM;
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "memory allocation failed :(");
+                                goto err;
+                        }
+                        local->cached_subvol = avail_subvol;
+                        local->mode = mode; 
+                        local->rdev = rdev;
+                        
+                        dht_linkfile_create (frame, 
+                                             dht_mknod_linkfile_create_cbk,
+                                             avail_subvol, subvol, loc);
+                } else {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "creating %s on %s", loc->path, subvol->name);
+                        
+                        STACK_WIND (frame, dht_newfile_cbk,
+                                    subvol, subvol->fops->mknod,
+                                    loc, mode, rdev);
+                }
         }
 
 	return 0;
@@ -2783,26 +2793,36 @@ dht_create (call_frame_t *frame, xlator_t *this,
                 /* Choose the minimum filled volume, and create the 
                    files there */
                 /* TODO */
-            	ret = loc_dup (loc, &local->loc);
-                if (ret == -1) {
-                        op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "memory allocation failed :(");
-                        goto err;
-                }
-                local->fd = fd_ref (fd);
-                local->flags = flags;
-                local->mode = mode;
                 avail_subvol = dht_free_disk_available_subvol (this, subvol);
+                if (avail_subvol != subvol) {
+                        ret = loc_dup (loc, &local->loc);
+                        if (ret == -1) {
+                                op_errno = ENOMEM;
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "memory allocation failed :(");
+                                goto err;
+                        }
 
-                local->cached_subvol = avail_subvol;
-                local->hashed_subvol = subvol;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "creating %s on %s (link at %s)", loc->path, 
-                        avail_subvol->name, subvol->name);
-		dht_linkfile_create (frame, dht_create_linkfile_create_cbk,
-                                     avail_subvol, subvol, loc);
-                
+                        local->fd = fd_ref (fd);
+                        local->flags = flags;
+                        local->mode = mode;
+
+                        local->cached_subvol = avail_subvol;
+                        local->hashed_subvol = subvol;
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "creating %s on %s (link at %s)", loc->path, 
+                                avail_subvol->name, subvol->name);
+                        dht_linkfile_create (frame, 
+                                             dht_create_linkfile_create_cbk,
+                                             avail_subvol, subvol, loc);
+                } else {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "creating %s on %s", loc->path, subvol->name);
+                        STACK_WIND (frame, dht_create_cbk,
+                                    subvol, subvol->fops->create,
+                                    loc, flags, mode, fd);
+                        
+                }
         }
 
 	return 0;
@@ -2862,7 +2882,7 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
                 if (subvol_filled && (op_ret != -1)) {
                         ret = dht_layout_merge (this, layout, prev->this,
-                                                -1, ENOTCONN, NULL);
+                                                -1, ENOSPC, NULL);
                 } else {
                         ret = dht_layout_merge (this, layout, prev->this,
                                                 op_ret, op_errno, NULL);
@@ -2908,7 +2928,7 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 
         if (dht_is_subvol_filled (this, hashed_subvol))
                 ret = dht_layout_merge (this, layout, prev->this,
-                                        -1, ENOTCONN, NULL);
+                                        -1, ENOSPC, NULL);
         else
                 ret = dht_layout_merge (this, layout, prev->this,
                                         op_ret, op_errno, NULL);
