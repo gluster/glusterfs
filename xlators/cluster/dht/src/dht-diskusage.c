@@ -223,6 +223,9 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol)
         }
         UNLOCK (&conf->subvolume_lock);
 
+        if (max_avail < conf->min_free_disk)
+                avail_subvol = subvol;
+
         if (avail_subvol == subvol) {
                 gf_log (this->name, GF_LOG_CRITICAL, 
                         "no node has enough free space to schedule create");

@@ -293,6 +293,17 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 		}
 	}
 
+        /* no subvolume has enough space, but can't stop directory creation */
+        if (!cnt) {
+                for (i = 0; i < layout->cnt; i++) {
+                        err = layout->list[i].err;
+                        if (err == ENOSPC) {
+                                layout->list[i].err = -1;
+                                cnt++;
+                        }
+                }
+        }
+
 	chunk = ((unsigned long) 0xffffffff) / cnt;
 
 	start = 0;
