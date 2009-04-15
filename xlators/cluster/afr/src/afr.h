@@ -145,7 +145,9 @@ typedef struct _afr_local {
 	unsigned int govinda_gOvinda;
 
 	unsigned int read_child_index;
-        
+
+        pid_t saved_pid;
+
 	int32_t op_ret;
 	int32_t op_errno;
 
