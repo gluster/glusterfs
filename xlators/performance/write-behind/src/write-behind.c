@@ -36,6 +36,7 @@
 #include "call-stub.h"
 
 #define MAX_VECTOR_COUNT 8
+#define WB_AGGREGATE_SIZE 131072 /* 128 KB */
  
 typedef struct list_head list_head_t;
 struct wb_conf;
@@ -110,7 +111,8 @@ size_t
 wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds);
 
 size_t
-__wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_size);
+__wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_size,
+                 char wind_all);
 
 
 static void
@@ -351,9 +353,11 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         struct iobref  *iobref = NULL;
         wb_local_t     *local = NULL;
         struct iovec   *vector = NULL;
-        size_t          bytes = 0;
+        size_t          bytes = 0, current_size = 0;
         size_t          bytecount = 0;
+        wb_conf_t      *conf = NULL;
 
+        conf = file->this->private;
         list_for_each_entry (request, winds, winds) {
                 total_count += request->stub->args.writev.count;
                 bytes += iov_length (request->stub->args.writev.vector,
@@ -361,7 +365,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         }
 
         if (!total_count) {
-                return 0;
+                goto out;
         }
   
         list_for_each_entry_safe (request, dummy, winds, winds) {
@@ -373,6 +377,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         INIT_LIST_HEAD (&local->winds);
             
                         first_request = request;
+                        current_size = 0;
                 }
 
                 count += request->stub->args.writev.count;
@@ -382,6 +387,9 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         bytecount);
                 copied += bytecount;
       
+                current_size += iov_length (request->stub->args.writev.vector,
+                                            request->stub->args.writev.count);
+
                 if (request->stub->args.writev.iobref) {
                         iobref_merge (iobref,
                                       request->stub->args.writev.iobref);
@@ -398,7 +406,10 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
 
                 if ((!next)
                     || ((count + next->stub->args.writev.count)
-                        > MAX_VECTOR_COUNT))
+                        > MAX_VECTOR_COUNT)
+                    || ((current_size + iov_length (next->stub->args.writev.vector,
+                                                    next->stub->args.writev.count))
+                        > conf->aggregate_size))
                 {
                         sync_frame = copy_frame (frame);  
                         sync_frame->local = local;
@@ -422,6 +433,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                 }
         }
 
+out:
         return bytes;
 }
 
@@ -1148,7 +1160,57 @@ __wb_get_incomplete_writes (list_head_t *list)
 
 
 size_t
-__wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf)
+__wb_mark_wind_atmost_aggregate_size (list_head_t *list, list_head_t *winds,
+                                      size_t aggregate_conf)
+{
+        wb_request_t *request = NULL;       
+        struct iovec *vector = NULL;
+        int32_t       count = 0;
+        size_t        aggregate_current = 0, size = 0, length = 0;
+
+        list_for_each_entry (request, list, list)
+        {
+                vector = request->stub->args.writev.vector;
+                count = request->stub->args.writev.count;
+                if (!request->flags.write_request.stack_wound) {
+                        length = iov_length (vector, count);
+                        size += length;
+                        aggregate_current += length;
+
+                        if (aggregate_current > aggregate_conf) {
+                                break;
+                        }
+
+                        request->flags.write_request.stack_wound = 1;
+                        list_add_tail (&request->winds, winds);
+                } 
+        }
+
+        return size;
+}
+
+size_t
+__wb_mark_wind_aggregate_size_aware (list_head_t *list, list_head_t *winds,
+                                     size_t aggregate_conf)
+{
+        size_t        size = 0;
+        size_t        aggregate_current = 0;
+
+        aggregate_current = __wb_get_aggregate_size (list, NULL, NULL);
+        while (aggregate_current >= aggregate_conf) {
+                size += __wb_mark_wind_atmost_aggregate_size (list, winds,
+                                                              aggregate_conf);
+                
+                aggregate_current = __wb_get_aggregate_size (list, NULL, NULL);
+        }
+  
+        return size;
+}
+
+
+size_t
+__wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
+                 char wind_all)
 {
         size_t   aggregate_current = 0;
         uint32_t incomplete_writes = 0;
@@ -1160,9 +1222,12 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf)
         aggregate_current = __wb_get_aggregate_size (list, &other_fop_in_queue,
                                                      &non_contiguous_writes);
 
-        if ((incomplete_writes == 0) || (aggregate_current >= aggregate_conf)
-            || other_fop_in_queue || non_contiguous_writes) {
+        if ((incomplete_writes == 0) || (wind_all) || (non_contiguous_writes)
+            || (other_fop_in_queue)) {
                 __wb_mark_wind_all (list, winds);
+        } else if (aggregate_current >= aggregate_conf) {
+                __wb_mark_wind_aggregate_size_aware (list, winds,
+                                                     aggregate_conf);
         }
 
         return aggregate_current;
@@ -1365,14 +1430,15 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all)
                 return -1;
         }
 
-        size = flush_all ? 0 : conf->aggregate_size;
+        size = conf->aggregate_size;
         LOCK (&file->lock);
         {
                 count = __wb_get_other_requests (&file->request,
                                                  &other_requests);
 
                 if (count == 0) {
-                        __wb_mark_winds (&file->request, &winds, size);
+                        __wb_mark_winds (&file->request, &winds, size,
+                                         flush_all);
                 }
 
                 __wb_mark_unwinds (&file->request, &unwinds, conf->window_size);
@@ -1856,12 +1922,7 @@ init (xlator_t *this)
         }
 
         /* configure 'options aggregate-size <size>' */
-        conf->aggregate_size = 0;
-
-        gf_log (this->name, GF_LOG_DEBUG,
-                "using aggregate-size = %"PRIu64"", 
-                conf->aggregate_size);
-  
+        conf->aggregate_size = WB_AGGREGATE_SIZE;
         conf->disable_till = 1;
         ret = dict_get_str (options, "disable-for-first-nbytes", 
                             &disable_till_string);
