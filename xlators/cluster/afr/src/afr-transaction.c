@@ -27,6 +27,28 @@
 
 
 static void
+afr_pid_save (call_frame_t *frame)
+{
+        afr_local_t * local = NULL;
+
+        local = frame->local;
+
+        local->saved_pid = frame->root->pid;
+}
+
+
+static void
+afr_pid_restore (call_frame_t *frame)
+{
+        afr_local_t * local = NULL;
+
+        local = frame->local;
+
+        frame->root->pid = local->saved_pid;
+}
+
+
+static void
 __mark_all_pending (int32_t *pending[], int child_count,
                     afr_transaction_type type)
 {	
@@ -389,7 +411,14 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 	afr_private_t * priv = this->private;
 
 	local = frame->local;
-	
+
+        /*
+          pid has been restored to saved_pid in the fop,
+          so set it back to frame->root 
+        */
+
+        frame->root->pid = (long) frame->root;
+
 	call_count = afr_locked_nodes_count (local->transaction.locked_nodes, 
 					     priv->child_count);
 	
@@ -677,7 +706,9 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		} else {
                         __mark_all_success (local->pending, priv->child_count,
                                             local->transaction.type);
-                                
+
+                        afr_pid_restore (frame);
+
 			local->transaction.fop (frame, this);
 		}
 	}
@@ -947,6 +978,8 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
                         __mark_all_success (local->pending, priv->child_count,
                                             local->transaction.type);
 
+                        afr_pid_restore (frame);
+
 			local->transaction.fop (frame, this);
 		}
 
@@ -1047,6 +1080,8 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 
 int32_t afr_lock (call_frame_t *frame, xlator_t *this)
 {
+        afr_pid_save (frame);
+
         frame->root->pid = (long) frame->root;
 
 	return afr_lock_rec (frame, this, 0);
@@ -1123,6 +1158,8 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 		} else {
                         __mark_all_success (local->pending, priv->child_count,
                                             local->transaction.type);
+
+                        afr_pid_restore (frame);
 
 			local->transaction.fop (frame, this);
 		}
