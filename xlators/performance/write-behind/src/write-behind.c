@@ -254,8 +254,10 @@ wb_file_create (xlator_t *this,
         file = CALLOC (1, sizeof (*file));
         INIT_LIST_HEAD (&file->request);
 
-        /* fd_ref() not required, file should never decide the existance of
-         * an fd */
+        /* 
+           fd_ref() not required, file should never decide the existance of
+           an fd
+        */
         file->fd= fd;
         file->disable_till = conf->disable_till;
         file->this = this;
@@ -395,7 +397,8 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                 list_add_tail (&request->winds, &local->winds);
 
                 if ((!next)
-                    || ((count + next->stub->args.writev.count) > MAX_VECTOR_COUNT))
+                    || ((count + next->stub->args.writev.count)
+                        > MAX_VECTOR_COUNT))
                 {
                         sync_frame = copy_frame (frame);  
                         sync_frame->local = local;
@@ -675,8 +678,10 @@ wb_truncate (call_frame_t *frame,
 
         if (loc->inode)
         {
-                /* FIXME: fd_lookup extends life of fd till the execution of
-                   truncate_cbk */
+                /* 
+                   FIXME: fd_lookup extends life of fd till the execution of
+                   truncate_cbk
+                */
                 iter_fd = fd_lookup (loc->inode, frame->root->pid);
                 if (iter_fd) {
                         if (!fd_ctx_get (iter_fd, this, &tmp_file)){
@@ -874,8 +879,10 @@ wb_utimens (call_frame_t *frame,
         call_stub_t *stub = NULL;
 
         if (loc->inode) {
-                /* FIXME: fd_lookup extends life of fd till the execution
-                   of wb_utimens_cbk */
+                /* 
+                   FIXME: fd_lookup extends life of fd till the execution
+                   of wb_utimens_cbk
+                */
                 iter_fd = fd_lookup (loc->inode, frame->root->pid);
                 if (iter_fd) {
                         if (!fd_ctx_get (iter_fd, this, &tmp_file)) {
@@ -930,8 +937,10 @@ wb_open_cbk (call_frame_t *frame,
         {
                 file = wb_file_create (this, fd);
 
-                /* If mandatory locking has been enabled on this file,
-                   we disable caching on it */
+                /* 
+                   If mandatory locking has been enabled on this file,
+                   we disable caching on it
+                */
 
                 if ((fd->inode->st_mode & S_ISGID)
                     && !(fd->inode->st_mode & S_IXGRP))
@@ -1592,8 +1601,10 @@ wb_ffr_cbk (call_frame_t *frame,
                 unwind = 1;
         } else {
                 local->reply_count++;
-                /* without flush-behind, unwind should wait for replies of
-                   writes queued before and the flush */
+                /* 
+                   without flush-behind, unwind should wait for replies of
+                   writes queued before and the flush 
+                */
                 if (local->reply_count == 2) {
                         unwind = 1;
                 }
@@ -1816,7 +1827,8 @@ init (xlator_t *this)
         if ((this->children == NULL)
             || this->children->next) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "FATAL: write-behind (%s) not configured with exactly one child",
+                        "FATAL: write-behind (%s) not configured with exactly "
+                        "one child",
                         this->name);
                 return -1;
         }
@@ -1858,7 +1870,8 @@ init (xlator_t *this)
                                           &conf->disable_till);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_ERROR, 
-                                "invalid number format \"%s\" of \"option disable-for-first-nbytes\"", 
+                                "invalid number format \"%s\" of \"option "
+                                "disable-for-first-nbytes\"", 
                                 disable_till_string);
                         return -1;
                 }
@@ -1877,7 +1890,8 @@ init (xlator_t *this)
                                           &conf->window_size);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_ERROR, 
-                                "invalid number format \"%s\" of \"option window-size\"", 
+                                "invalid number format \"%s\" of \"option "
+                                "window-size\"", 
                                 window_size_string);
                         FREE (conf);
                         return -1;
@@ -1886,14 +1900,16 @@ init (xlator_t *this)
 
         if (!conf->window_size && conf->aggregate_size) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "setting window-size to be equal to aggregate-size(%"PRIu64")",
+                        "setting window-size to be equal to "
+                        "aggregate-size(%"PRIu64")",
                         conf->aggregate_size);
                 conf->window_size = conf->aggregate_size;
         }
 
         if (conf->window_size < conf->aggregate_size) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "aggregate-size(%"PRIu64") cannot be more than window-size"
+                        "aggregate-size(%"PRIu64") cannot be more than "
+                        "window-size"
                         "(%"PRIu64")", conf->window_size, conf->aggregate_size);
                 FREE (conf);
                 return -1;
