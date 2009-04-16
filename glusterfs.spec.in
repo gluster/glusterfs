@@ -1,32 +1,32 @@
 # if you make changes, the it is advised to increment this number, and provide 
 # a descriptive suffix to identify who owns or what the change represents
 # e.g. release_version 2.MSW
-%define release_version 1
+%define release 1
 
 # if you wish to compile an rpm without ibverbs support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ibverbs
-%define with_ibverbs %{?_without_ibverbs:0}%{?!_without_ibverbs:1}
+%{?_without_ibverbs:%define _without_ibverbs --disable-ibverbs}
 
 # if you wish to compile an rpm without building the client RPMs...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without client
-%define with_client %{?_without_client:0}%{?!_without_client:1}
+%{?_without_client:%define _without_client --disable-fuse-client}
 
 # if you wish to compile an rpm without BDB translator...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without bdb
-%define with_bdb %{?_without_bdb:0}%{?!_without_bdb:1}
+%{?_without_bdb:%define _without_bdb --disable-bdb}
 
 # if you wish to compile an rpm without libglusterfsclient...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without libglfsclient
-%define with_libglfsclient %{?_without_libglfsclient:0}%{?!_without_libglfsclient:1}
+%{?_without_libglfsclient:%define _without_libglfsclient --disable-libglusterclient}
 
 # if you wish to compile an rpm without mod_glusterfs support...
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without modglfs
-%define with_modglfs %{?_without_modglfs:0}%{?!_without_modglfs:1}
+# rpmbuild -ta @PACKAGE_NAME-@PACKAGE_VERSION@.tar.gz --without modglfs
+%{?_without_modglfs:%define _without_modglfs --disable-mod_glusterfs}
 
 # if you wish to compile an rpm with apache at nonstandard location
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without apxs_default --define 'apxs_path /usr/local/apache/bin' 
-%define with_apxs_default %{?_without_apxs_default:0}%{?!_without_apxs_default:1}
 %{!?apxs_path: %define apxs_path %{nil}}
+%{?_without_apxs_default:%define _without_apxs_default --with-apxs=%{?apxs_path:%apxs_path}}
 
 # if you wish to compile an rpm with apache binaries at nonstandard path
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without apache_auto -define 'apxs_bin_path /usr/local/apache/bin/apxs'
@@ -35,37 +35,32 @@
 %{!?apxs_bin_path: %define apxs_bin_path %{nil}}
 %{!?apache_bin_path: %define apache_bin_path %{nil}}
 
-Summary: GNU Cluster File System
+Summary: Cluster File System
 Name: @PACKAGE_NAME@
 Version: @PACKAGE_VERSION@
-Release: %release_version
-License: GPLv3 or later
+Release: %{release}
+License: GPLv3+
 Group: System Environment/Base
 Vendor: Z RESEARCH Inc
 Packager: @PACKAGE_BUGREPORT@
-BuildRoot: %_tmppath/%name-%version-%release-root
-%if %with_ibverbs
-BuildRequires: libibverbs-devel
+URL: http://www.gluster.org/docs/index.php/GlusterFS
+Source0: ftp://ftp.gluster.com/pub/gluster/glusterfs/2.0/@PACKAGE_VERSION@/@PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
+Requires(post): /sbin/chkconfig
+Requires(preun): /sbin/service, /sbin/chkconfig
+Requires(postun): /sbin/service
+
+%{!?_without_ibverbs:BuildRequires: libibverbs-devel}
+%{!?_without_bdb:BuildRequires: db4-devel}
+%{!?_without_client:BuildRequires: fuse-devel}
+
+%if 0%{!?_without_modglfs}
+%if 0%{!?_without_apxs_default}
+BuildRequires: httpd-devel >= 2.2
 %endif
-%if %with_bdb
-BuildRequires: db4-devel
 %endif
-%if %with_client
-BuildRequires: fuse-devel
-%endif
-# Module needs to be fixed. 
-%if %with_modglfs
-%if %with_apxs_default
-BuildRequires: apache-devel >= 1.3
-Requires: apache >= 1.3
-%endif
-%endif
-BuildRequires: libtool
-BuildRequires: bison flex
-BuildRequires: gcc
-BuildRequires: make
-URL: ftp://ftp.zresearch.com/pub/gluster/glusterfs/1.4-qa/@PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
-Source: %name-%version.tar.gz
+BuildRequires: bison flex 
+BuildRequires: gcc make
 
 %description
 GlusterFS is a clustered file-system capable of scaling to several
@@ -76,10 +71,60 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
+%package common
+Summary: GlusterFS common files for both the client and the server 
+Group: System Environment/Libraries
+
+%description common
+GlusterFS is a clustered file-system capable of scaling to several
+peta-bytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file system in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in userspace and easily manageable.
+
+This package includes the glusterfs binary, libglusterfs and glusterfs
+translator modules common to both GlusterFS server and client framework.
+
+%package client
+Summary: GlusterFS Client
+Group: Applications/File
+Requires: fuse
+Requires: %{name}-common = %{version}-%{release}
+
+%description client
+GlusterFS is a clustered file-system capable of scaling to several
+peta-bytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file system in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in userspace and easily manageable.
+
+This package provides the FUSE based GlusterFS client.
+
+
+%package server
+Summary: GlusterFS Server
+Group: System Environment/Daemons
+Requires: %{name}-common = %{version}-%{release}
+
+%description server
+GlusterFS is a clustered file-system capable of scaling to several
+peta-bytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file system in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in userspace and easily manageable.
+
+This package provides the glusterfs server daemon.
+
 %package devel
 Summary: GlusterFS Development Libraries
 Group: Development/Libraries
-Requires: %name = %version
+Requires: %{name}-common = %{version}-%{release}
 
 %description devel
 GlusterFS is a clustered file-system capable of scaling to several
@@ -94,165 +139,106 @@ This package provides the development libraries.
 
 
 %prep
-# then -n argument says that the unzipped version is NOT %name-%version
-#%setup -n %name-%version
-%setup
-
+%setup -q -n %{name}-%{version}
 
 %build
-%if "%{with_client}" == "0"
-%define client_options --disable-fuse-client
-%endif
-%if "%{with_ibverbs}" == "0"
-%define ibverbs_options --disable-ibverbs
-%endif
-%if "%{with_bdb}" == "0"
-%define bdb_options --disable-bdb
-%endif
-%if "%{with_libglfsclient}" == "0"
-%define libglfs_options --disable-libglusterfsclient
-%endif
-# Module needs to be fixed.
-%if "%{with_modglfs}" == "0"
-%define modglfs_options --disable-mod_glusterfs
-%endif
-%if "%{with_modglfs}" == "1"
-%if "%{with_apxs_default}" == "0" 
-%define apxs_options --with-apxs=%{?apxs_path:%apxs_path}
-%endif
-%endif
-%if "%{with_modglfs}" == "1"
+%if 0%{!?_without_modglfs:1}
 %if "%{with_apache_auto}" == "0"
 %define apxs_bin_options --with-apxspath=%{?apxs_bin_path:%apxs_bin_path}
 %define apache_bin_options --with-apachepath=%{?apache_bin_path:%apache_bin_path}
 %endif
 %endif
 
-%configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=%_libdir %{?client_options:%client_options} %{?ibverbs_options:%ibverbs_options} %{?bdb_options:%bdb_options} %{?libglfs_options:%libglfs_options} %{?modglfs_options:%modglfs_options} %{?apxs_options:%apxs_options} %{?apxs_bin_options:%apxs_bin_options} %{?apache_bin_options:%apache_bin_options}
-%{__make}
+%configure %{?_without_ibverbs} %{?_without_bdb} %{?_without_libglfsclient} %{?_without_client} %{?_without_modglfs} %{?_without_apxs_default} %{?apxs_bin_options:%apxs_bin_options} %{?apache_bin_options:%apache_bin_options}
+
+# Remove rpath
+sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
+sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
+%{__make} %{?_smp_mflags}
 
 
 %install
-%{__rm} -rf $RPM_BUILD_ROOT
-%{__make} install DESTDIR=$RPM_BUILD_ROOT
-%{__rm} -rf $RPM_BUILD_ROOT/share/
-%{__mkdir_p} $RPM_BUILD_ROOT/usr/include/glusterfs
-%{__mkdir_p} $RPM_BUILD_ROOT/var/log/glusterfs
-%{__cp} %_builddir/%name-%version/libglusterfs/src/*.h $RPM_BUILD_ROOT/usr/include/glusterfs/
+%{__rm} -rf %{buildroot} 
+%{__make} install DESTDIR=%{buildroot}
+%{__mkdir_p} %{buildroot}%{_includedir}/glusterfs
+%{__mkdir_p} %{buildroot}/var/log/glusterfs
+%{__install} -p -m 0644 libglusterfs/src/*.h \
+    %{buildroot}%{_includedir}/glusterfs/
 
-
-%files 
-%doc AUTHORS ChangeLog COPYING INSTALL NEWS README
-%_libdir
-%dir /var/log/glusterfs
-%exclude %_libdir/*.a
-%exclude %_libdir/*.la
-%exclude /usr/include/libglusterfsclient.h
-%doc /usr/share/doc/glusterfs
-%config /etc/glusterfs
-%_prefix/sbin/glusterfs
-%_prefix/sbin/glusterfsd
-%_mandir/man8/glusterfs.8.gz
-%config %_sysconfdir/init.d/glusterfsd
-
-%if %with_client
-/sbin/mount.glusterfs
-%endif 
-
-%files devel
-%doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
-%_libdir/*.a
-%exclude %_libdir/*.la
-%_prefix/include
-%exclude /usr/include/glusterfs/y.tab.h
-
-%post
-ldconfig -n %_libdir
-%if %with_modglfs
-%if %with_apxs_default
-%{_sbindir}/apxs -i -a -n glusterfs %{_libdir}/glusterfs/%version/apache-1.3/mod_glusterfs.so
-%else
-%{apxs_path}/apxs -i -a -n glusterfs  %{_libdir}/glusterfs/%version/apache-1.3/mod_glusterfs.so
-%endif
-%endif
-
-%postun 
-ldconfig 
+# Remove unwanted files from all the shared libraries
+find %{buildroot}%{_libdir}/glusterfs -name '*.la' | xargs rm -f
 
 %clean
-%{__rm} -rf $RPM_BUILD_ROOT
+%{__rm} -rf %{buildroot}
 
+%post common
+/sbin/ldconfig -n %{_libdir}
+%if 0%{!?_without_modglfs:1}
+%if 0%{!?_without_apxs_default:1}
+%{_sbindir}/apxs -i -a -n glusterfs %{_libdir}/glusterfs/%{version}/apache/2.2/mod_glusterfs.so
+%else
+%{apxs_path}/apxs -i -a -n glusterfs  %{_libdir}/glusterfs/%{version}/apache/2.2/mod_glusterfs.so
+%endif
+%endif
+
+%postun common
+/sbin/ldconfig -n %{_libdir}
+
+%post server 
+/sbin/chkconfig --add glusterfsd
+
+%preun server
+if [ $1 -eq 0 ]; then 
+    /sbin/service glusterfsd stop &>/dev/null || :
+    /sbin/chkconfig --del glusterfsd
+fi
+
+%postun
+if [ $1 -ge 1 ]; then 
+    /sbin/service glusterfsd condrestart &>/dev/null || :
+fi
+
+%files common
+%defattr(-,root,root)
+%doc AUTHORS ChangeLog COPYING INSTALL NEWS README
+%doc /usr/share/doc/glusterfs
+%if 0%{!?_without_client:1}
+%exclude %{_libdir}/glusterfs/%{version}/xlator/mount
+%endif
+%{_libdir}/glusterfs
+%{_libdir}/*.so.*
+%{_sbindir}/glusterfs*
+%{_mandir}/man8/glusterfs.8*
+%dir /var/log/glusterfs
+
+%if 0%{!?_without_client:1}
+%files client
+%defattr(-,root,root)
+/sbin/mount.glusterfs
+%{_libdir}/glusterfs/%{version}/xlator/mount
+%endif 
+
+%files server
+%defattr(-,root,root)
+%config %{_sysconfdir}/glusterfs
+%{_sysconfdir}/init.d/glusterfsd
+
+%files devel
+%defattr(-,root,root,-)
+%{_includedir}/glusterfs
+%{_includedir}/libglusterfsclient.h
+%exclude %{_includedir}/glusterfs/y.tab.h
+%{_libdir}/*.a
+%exclude %{_libdir}/*.la
+%{_libdir}/*.so
 
 %changelog
-* Fri Feb 27 2009 Harshavardhana <harsha@gluster.com> - 2.0
-- Added /etc/init.d/glusterfsd
+* Thu Apr 16 2009 Harshavardhana <harsha@gluster.com> - 2.0
+- Galore of updates including new packages added common,
+  client,server splitting the original package. rpmbuild 
+  fully restructured to adhere to Fedora rpm standards. 
+  Older changelog removed as there were warnings when 
+  tried with 'rpmlint'. 
 
-* Fri Dec 12 2008 Harshavardhana <harsha@gluster.com> - 1.4
-- Added new options with --with-apxspath --with-apachepath
-  new configure options. 
-  %post install command ldconfig moved up by one line. 
 
-* Thu May 08 2008 Harshavardhana <harsha@zresearch.com> - 1.4
-- Added proper checks for apache-1.3 dependency, and enhanced
-  post install scripts
-
-* Wed Apr 23 2008 Harshavardhana <harsha@zresearch.com> - 1.4
-- Removed two new packages due to Excerpts From Amar's reviews. 
-  
-* Mon Apr 21 2008 Harshavardhana <harsha@zresearch.com> - 1.4
-- Fixed some build problems. And changed BuildRequires with httpd 
-  and lighttpd(1.4) version.
-- created libglusterfsclient and modglusterfs new packages. 
-
-* Sat Apr 19 2008 Amar Tumballi <amar@zresearch.com> - 1.3.8pre6
-- Merged common, client and server packages into one package.
-- Added options to disable bdb, mod_glusterfs, libglusterfsclient
-
-* Fri Apr 11 2008 Harshavardhana <harsha@zresearch.com> - 1.3.8pre5
-- Changed many hardcoded variables to standard rpm variables. Removed
-  *.la unnecessary for the release.  Python option removed as it
-  is not present with the coming releases. 
- 
-* Tue Feb 12 2008 Harshavardhana <harsha@zresearch.com> - 1.3.8
-- Replaced configure_options with different names for each configure
-  options as it is observed that configure_options never get appended 
-  with extra options provided. 
-
-* Wed Jan 16 2008 Matt Paine <matt@mattsoftware.com> - 1.3.8
-- Change all /usr/libx directory references to %_libdir
-- Added new switch to enable build without building client RPMS
-
-* Sun Jan 6 2008 Anand V. Avati <avati@zresearch.com> - 1.3.8
-- glusterfs-booster.so back in libdir
-
-* Fri Nov 09 2007 Harshavardhana Ranganath <harsha@zresearch.com> -  1.3.8
-- Bumped to new version fixed problem with build for new glusterfs-booster.so
-  inside /usr/bin
-
-* Sun Oct 18 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.7
-- Bumped to new version
-
-* Sun Oct 18 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.6
-- Bumped to new version
-  
-* Sun Oct 14 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.5
-- Bumped to new version
- 
-* Tue Oct 09 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.4
-- Bumped to new version
- 
-* Tue Oct 02 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.3
-- Bumped to new version
-
-* Tue Oct 02 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.2
-- Bumped to new version 
- 
-* Thu Sep 20 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.1
-- built new rpms with ibverbs seperate
-
-* Sat Aug 4 2007 Matt Paine <matt@mattsoftware.com> - 1.3.pre7
-- Added support to build rpm without ibverbs support (use --without ibverbs switch)
-
-* Sun Jul 15 2007 Matt Paine <matt@mattsoftware.com> - 1.3.pre6
-- Initial spec file
 
