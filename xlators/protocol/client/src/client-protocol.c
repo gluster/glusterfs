@@ -1990,14 +1990,16 @@ client_statfs (call_frame_t *frame,
 	}
 
 	pathlen = STRLEN_0(loc->path);
-
-	ret = inode_ctx_get (loc->inode, this, &ino);
-	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"STATFS %"PRId64" (%s): "
-                        "failed to get remote inode number",
-			loc->inode->ino, loc->path);
-	}
+        
+        if (loc->inode) {
+                ret = inode_ctx_get (loc->inode, this, &ino);
+                if (loc->inode->ino && ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "STATFS %"PRId64" (%s): "
+                                "failed to get remote inode number",
+                                loc->inode->ino, loc->path);
+                }
+        }
 
 	hdrlen = gf_hdr_len (req, pathlen);
 	hdr    = gf_hdr_new (req, pathlen);
