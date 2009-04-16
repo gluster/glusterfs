@@ -423,8 +423,6 @@ server_connection_cleanup (xlator_t *this, server_connection_t *conn)
         int32_t             i = 0;
 
         if (conn == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "connection is NULL");
                 goto out;
         }
 
@@ -583,8 +581,6 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
         uint32_t             fd_count = 0;
         
         if (conn == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "connection is NULL");
                 ret = 0;
                 goto out;
         }
@@ -776,8 +772,6 @@ server_connection_put (xlator_t *this, server_connection_t *conn)
 	server_connection_t *todel = NULL;
 
         if (conn == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "connection is NULL");
                 goto out;
         }
 
