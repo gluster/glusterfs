@@ -8253,6 +8253,13 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 {
 	int          ret = 0;
 	transport_t *trans = data;
+        peer_info_t *peerinfo = NULL;
+        peer_info_t *myinfo = NULL;
+
+        if (trans != NULL) {
+                peerinfo = &(trans->peerinfo);
+                myinfo = &(trans->myinfo);
+        }
 
 	switch (event) {
 	case GF_EVENT_POLLIN:
@@ -8260,22 +8267,32 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 		break;
 	case GF_EVENT_POLLERR:
 	{
-		peer_info_t *peerinfo = NULL;
-
-		peerinfo = &(trans->peerinfo);
 		gf_log (trans->xl->name, GF_LOG_INFO, "%s disconnected",
 			peerinfo->identifier);
 
 		ret = -1;
 		transport_disconnect (trans);
-                server_connection_cleanup (this, trans->xl_private);
+                if (trans->xl_private == NULL) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "POLLERR received on (%s) even before "
+                                "handshake with (%s) is successful",
+                                myinfo->identifier, peerinfo->identifier);
+                } else {
+                        server_connection_cleanup (this, trans->xl_private);
+                }
 	}
 	break;
 
 	case GF_EVENT_TRANSPORT_CLEANUP:
 	{
-		if (trans->xl_private)
+		if (trans->xl_private) {
 			server_connection_put (this, trans->xl_private);
+                } else {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "transport (%s) cleaned up even before "
+                                "handshake with (%s) is successful",
+                                myinfo->identifier, peerinfo->identifier);
+                }
 	}
 	break;
 
