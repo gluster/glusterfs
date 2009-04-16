@@ -75,6 +75,9 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
         page_size  = iobuf_arena->iobuf_pool->page_size;
         iobuf_cnt  = arena_size / page_size;
 
+        if (!iobuf_arena->iobufs)
+                return;
+
         iobuf = iobuf_arena->iobufs;
         for (i = 0; i < iobuf_cnt; i++) {
                 assert (iobuf->ref == 0);
