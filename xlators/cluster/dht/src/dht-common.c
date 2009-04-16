@@ -309,23 +309,22 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 				inode_t *inode, struct stat *stbuf)
 {
 	dht_local_t  *local = NULL;
-	dht_layout_t *layout = NULL;
 	xlator_t     *cached_subvol = NULL;
+        int           ret = -1;
 
 	local = frame->local;
 	cached_subvol = local->cached_subvol;
 
-	layout = dht_layout_for_subvol (this, local->cached_subvol);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"no pre-set layout for subvolume %s",
-			cached_subvol ? cached_subvol->name : "<nil>");
-		local->op_ret = -1;
-		local->op_errno = EINVAL;
-		goto unwind;
-	}
+        ret = dht_layout_inode_set (this, local->cached_subvol, inode);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to set layout for subvolume %s",
+                        cached_subvol ? cached_subvol->name : "<nil>");
+                local->op_ret = -1;
+                local->op_errno = EINVAL;
+                goto unwind;
+        }
 
-	inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
 	local->op_ret = 0;
 	if (local->stbuf.st_nlink == 1)
 		local->stbuf.st_mode |= S_ISVTX;
@@ -353,6 +352,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	xlator_t     *link_subvol   = NULL;
 	xlator_t     *hashed_subvol = NULL;
 	xlator_t     *cached_subvol = NULL;
+        int           ret = -1;
 
 	conf   = this->private;
 
@@ -443,12 +443,40 @@ unlock:
 			return 0;
 		}
 
-		gf_log (this->name, GF_LOG_WARNING,
-			"linking file %s existing on %s to %s (hash)",
-			loc->path, cached_subvol->name, hashed_subvol->name);
+                if (!hashed_subvol) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "cannot create linkfile file for %s on %s: "
+                                "hashed subvolume cannot be found.",
+                                loc->path, cached_subvol->name);
+                        
+                        local->op_ret = 0;
+                        local->op_errno = 0;
 
-		dht_linkfile_create (frame, dht_lookup_linkfile_create_cbk,
-				     cached_subvol, hashed_subvol, loc);
+                        ret = dht_layout_inode_set (frame->this, cached_subvol,
+                                                    local->inode);
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "failed to set layout for subvol %s",
+                                        cached_subvol ? cached_subvol->name :
+                                        "<nil>");
+                                local->op_ret = -1;
+                                local->op_errno = EINVAL;
+                        }
+
+                        DHT_STACK_UNWIND (frame, local->op_ret,
+                                          local->op_errno, local->inode,
+                                          &local->stbuf, local->xattr);
+                        return 0;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "linking file %s existing on %s to %s (hash)",
+                        loc->path, cached_subvol->name,
+                        hashed_subvol->name);
+                        
+                dht_linkfile_create (frame, 
+                                     dht_lookup_linkfile_create_cbk,
+                                     cached_subvol, hashed_subvol, loc);
 	}
 
 	return 0;

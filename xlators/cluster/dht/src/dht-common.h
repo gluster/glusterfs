@@ -236,4 +236,6 @@ int dht_is_subvol_filled (xlator_t *this, xlator_t *subvol);
 xlator_t *dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol);
 int dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx);
 
+int dht_layout_inode_set (xlator_t *this, xlator_t *subvol, inode_t *inode);
+
 #endif /* _DHT_H */

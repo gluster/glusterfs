@@ -591,3 +591,25 @@ out:
 	return ret;
 }
 
+
+int
+dht_layout_inode_set (xlator_t *this, xlator_t *subvol, inode_t *inode)
+{
+        dht_layout_t *layout = NULL;
+        int ret = -1;
+
+	layout = dht_layout_for_subvol (this, subvol);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"no pre-set layout for subvolume %s",
+			subvol ? subvol->name : "<nil>");
+		ret = -1;
+		goto out;
+	}
+
+	inode_ctx_put (inode, this, (uint64_t)(long)layout);
+        
+        ret = 0;
+out:
+        return ret;
+}
