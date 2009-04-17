@@ -1598,7 +1598,6 @@ glusterfs_open (glusterfs_handle_t handle,
         long op_ret = -1;
         fd_t *fd = NULL;
 	int32_t ret = -1;
-	xlator_t *this = NULL;
 	libglusterfs_client_ctx_t *ctx = handle;
 	char *name = NULL, *pathname = NULL;
         libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
@@ -1650,7 +1649,6 @@ glusterfs_open (glusterfs_handle_t handle,
 		goto out;
 	}
 
-	this = ctx->gf_ctx.graph;
         fd = fd_create (loc.inode, 0);
         fd->flags = flags;
 
@@ -1833,7 +1831,6 @@ glusterfs_setxattr (glusterfs_handle_t handle,
 {
         int32_t op_ret = -1;
         loc_t loc = {0, };
-	xlator_t *this = NULL;
 	libglusterfs_client_ctx_t *ctx = handle;
 	char *file = NULL;
 
@@ -1861,7 +1858,6 @@ glusterfs_setxattr (glusterfs_handle_t handle,
 		goto out;
 	}
 
-	this = ctx->gf_ctx.graph;
         if (!op_ret)
                 op_ret = libgf_client_setxattr (ctx, &loc, name, value, size,
                                                 flags);
@@ -3024,9 +3020,7 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
         time_t prev, current;
         libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
         libgf_client_local_t *local = NULL;
-	xlator_t *this = NULL;
 
-	this = ctx->gf_ctx.graph;
         inode_ctx = libgf_get_inode_ctx (loc->inode);
         if (!inode_ctx) {
                 errno = EINVAL;
@@ -3110,7 +3104,6 @@ __glusterfs_stat (glusterfs_handle_t handle, const char *path,
         int32_t op_ret = -1;
         loc_t loc = {0, };
         libglusterfs_client_ctx_t *ctx = handle;
-	xlator_t *this = NULL;
 	char *name = NULL, *pathname = NULL;
         loc_t targetloc = {0, };
         loc_t *real_loc = NULL;
@@ -3159,7 +3152,6 @@ __glusterfs_stat (glusterfs_handle_t handle, const char *path,
 
 lstat_fop:
 
-	this = ctx->gf_ctx.graph;
         if (!op_ret) {
                 op_ret = libgf_client_stat (ctx, real_loc, buf);
         }
@@ -3219,10 +3211,8 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
         time_t current, prev;
         libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
         libgf_client_local_t *local = NULL;
-	xlator_t *this = NULL;
 
         current = time (NULL);
-        this = ctx->gf_ctx.graph;
 
         inode_ctx = libgf_get_inode_ctx (__fd->inode);
         if (!inode_ctx) {
