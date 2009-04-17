@@ -1536,9 +1536,19 @@ glusterfs_open (glusterfs_handle_t handle,
         fd = fd_create (loc.inode, 0);
         fd->flags = flags;
 
-        if ((flags & O_CREAT) == O_CREAT)
+        if ((flags & O_CREAT) == O_CREAT) {
+                /* If we have the st_mode for the basename, check if
+                 * it is a directory here itself, rather than sending
+                 * a network message through libgf_client_creat, and
+                 * then receiving a EISDIR.
+                 */
+                if (S_ISDIR (loc.inode->st_mode)) {
+                        errno = EISDIR;
+                        op_ret = -1;
+                        goto op_over;
+                }
                 op_ret = libgf_client_creat (ctx, &loc, fd, flags, mode);
-        else {
+        } else {
                 if (S_ISDIR (loc.inode->st_mode)) {
                         if (((flags & O_RDONLY) == O_RDONLY) && 
                             ((flags & O_WRONLY) == 0) && 
@@ -1555,6 +1565,7 @@ glusterfs_open (glusterfs_handle_t handle,
                 }
         }
 
+op_over:
         if (op_ret == -1) {
                 fd_unref (fd);
                 fd = NULL;
