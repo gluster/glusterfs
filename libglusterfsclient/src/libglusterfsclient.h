@@ -221,6 +221,10 @@ int
 glusterfs_getdents (glusterfs_dir_t fd, struct dirent *dirp,
 		    unsigned int count);
 
+int
+glusterfs_mknod(glusterfs_handle_t handle, const char *pathname, mode_t mode,
+                dev_t dev);
+
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void

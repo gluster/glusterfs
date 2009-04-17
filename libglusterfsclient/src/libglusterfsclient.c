@@ -4337,6 +4337,98 @@ out:
         return op_ret;
 }
 
+static int32_t
+libgf_client_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                                int32_t op_ret, int32_t op_errno,
+                                inode_t *inode, struct stat *buf)
+{
+        libgf_client_local_t *local = frame->local;
+
+        local->reply_stub = fop_mknod_cbk_stub (frame, NULL, op_ret, op_errno,
+                                                inode, buf);
+
+        LIBGF_REPLY_NOTIFY (local);
+        return 0;
+}
+
+static int32_t
+libgf_client_mknod (libglusterfs_client_ctx_t *ctx, loc_t *loc, mode_t mode,
+                    dev_t rdev)
+{
+        int32_t                 op_ret = -1;
+        call_stub_t             *stub = NULL;
+        libgf_client_local_t    *local = NULL;
+        inode_t                 *inode = NULL;
+
+        LIBGF_CLIENT_FOP (ctx, stub, mknod, local, loc, mode, rdev);
+
+        op_ret = stub->args.mknod_cbk.op_ret;
+        errno = stub->args.mknod_cbk.op_errno;
+        if (op_ret == -1)
+                goto out;
+
+        inode = stub->args.mknod_cbk.inode;
+        inode_link (inode, loc->parent, loc->name, &stub->args.mknod_cbk.buf);
+
+        if (!libgf_alloc_inode_ctx (ctx, inode))
+                libgf_alloc_inode_ctx (ctx, inode);
+
+        libgf_update_iattr_cache (inode, LIBGF_UPDATE_STAT,
+                                        &stub->args.mknod_cbk.buf);
+
+out:
+	call_stub_destroy (stub);
+        return op_ret;
+}
+
+int
+glusterfs_mknod(glusterfs_handle_t handle, const char *path, mode_t mode,
+                dev_t dev)
+{
+        libglusterfs_client_ctx_t       *ctx = handle;
+        loc_t                           loc = {0, };
+        char                            *name = NULL;
+        int32_t                         op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup (path);
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+        if (op_ret == 0) {
+                op_ret = -1;
+                errno = EEXIST;
+                goto out;
+        }
+
+        op_ret = libgf_client_path_lookup (&loc, ctx, 0);
+        if (op_ret == -1) {
+                errno = ENOENT;
+                goto out;
+        }
+
+        name = strdup (path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                                                basename (name));
+	if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "libgf_client_loc_fill returned -1, "
+                                " returning EINVAL");
+                errno = EINVAL;
+                goto out;
+        }
+
+        loc.inode = inode_new (ctx->itable);
+        op_ret = libgf_client_mknod (ctx, &loc, mode, dev);
+
+out:
+	libgf_client_loc_wipe (&loc);
+	if (name)
+                FREE (name);
+
+	return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
