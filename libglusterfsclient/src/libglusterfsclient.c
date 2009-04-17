@@ -96,17 +96,74 @@ libgf_client_forget (xlator_t *this,
         return 0;
 }
 
+xlator_t *
+libgf_fd_to_xlator (fd_t *fd)
+{
+        if (!fd)
+                return NULL;
+
+        if (!fd->inode)
+                return NULL;
+
+        if (!fd->inode->table)
+                return NULL;
+
+        if (!fd->inode->table->xl)
+                return NULL;
+
+        if (!fd->inode->table->xl->ctx)
+                return NULL;
+
+        return fd->inode->table->xl->ctx->top;
+}
+
+libglusterfs_client_fd_ctx_t *
+libgf_get_fd_ctx (fd_t *fd)
+{
+        uint64_t                        ctxaddr = 0;
+        libglusterfs_client_fd_ctx_t    *ctx = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
+
+        if (fd_ctx_get (fd, libgf_fd_to_xlator (fd) , &ctxaddr) == -1)
+                goto out;
+
+        ctx = (libglusterfs_client_fd_ctx_t *)(long)ctxaddr;
+
+out:
+        return ctx;
+}
+
+libglusterfs_client_fd_ctx_t *
+libgf_alloc_fd_ctx (libglusterfs_client_ctx_t *ctx, fd_t *fd)
+{
+        libglusterfs_client_fd_ctx_t    *fdctx = NULL;
+        uint64_t                        ctxaddr = 0;
+
+        fdctx = CALLOC (1, sizeof (*fdctx));
+        if (fdctx == NULL) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR,
+                        "memory allocation failure");
+                fdctx = NULL;
+                goto out;
+        }
+
+        pthread_mutex_init (&fdctx->lock, NULL);
+        fdctx->ctx = ctx;
+        ctxaddr = (uint64_t)fdctx;
+
+        fd_ctx_set (fd, libgf_fd_to_xlator (fd), ctxaddr);
+
+out:
+        return fdctx;
+}
 
 int32_t
 libgf_client_release (xlator_t *this,
 		      fd_t *fd)
 {
 	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-	data_t *fd_ctx_data = NULL;
-
-        fd_ctx_data = dict_get (fd->ctx, LIBGF_XL_NAME);
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
+        fd_ctx = libgf_get_fd_ctx (fd);
 	pthread_mutex_destroy (&fd_ctx->lock);
 
 	return 0;
@@ -118,11 +175,7 @@ libgf_client_releasedir (xlator_t *this,
 			 fd_t *fd)
 {
 	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-	data_t *fd_ctx_data = NULL;
-
-        fd_ctx_data = dict_get (fd->ctx, LIBGF_XL_NAME);
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
+        fd_ctx = libgf_get_fd_ctx (fd);
 	pthread_mutex_destroy (&fd_ctx->lock);
 
 	return 0;
@@ -527,6 +580,7 @@ glusterfs_init (glusterfs_init_params_t *init_ctx)
                 return NULL;
         }
         graph = ctx->gf_ctx.graph;
+        ctx->gf_ctx.top = graph;
 
 	trav = graph;
 	while (trav) {
@@ -1567,27 +1621,15 @@ op_over:
         } else {
                 libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
                 libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-                data_t *ctx_data = NULL;
-      
-                ctx_data = dict_get (fd->ctx, LIBGF_XL_NAME);
-                if (!ctx_data) {
-                        fd_ctx = CALLOC (1, sizeof (*fd_ctx));
-                        ERR_ABORT (fd_ctx);
-                        pthread_mutex_init (&fd_ctx->lock, NULL);
-                }
 
-                pthread_mutex_lock (&fd_ctx->lock);
-                {
-                        fd_ctx->ctx = ctx;
+                fd_ctx = libgf_get_fd_ctx (fd);
+                if (!fd_ctx) {
+                        if (!libgf_alloc_fd_ctx (ctx, fd)) {
+                                errno = EINVAL;
+                                op_ret = -1;
+                                goto out;
+                        }
                 }
-                pthread_mutex_unlock (&fd_ctx->lock);
-
-                if (!ctx_data) {
-                        dict_set (fd->ctx, LIBGF_XL_NAME,
-                                  data_from_dynptr (fd_ctx,
-                                                    sizeof (*fd_ctx)));
-                }
-
                 if ((flags & O_TRUNC) && ((flags & O_RDWR) 
                                           || (flags & O_WRONLY))) {
                         uint64_t ptr = 0;
@@ -1665,7 +1707,6 @@ int
 glusterfs_close (glusterfs_file_t fd)
 {
         int32_t op_ret = -1;
-        data_t *fd_ctx_data = NULL;
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 
@@ -1674,13 +1715,11 @@ glusterfs_close (glusterfs_file_t fd)
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
-		goto out;
+                goto out;
         }
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
         ctx = fd_ctx->ctx;
 
         op_ret = libgf_client_flush (ctx, (fd_t *)fd);
@@ -1854,7 +1893,6 @@ glusterfs_fsetxattr (glusterfs_file_t fd,
 {
 	int32_t op_ret = 0;
         fd_t *__fd = fd;
-        data_t *fd_ctx_data = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
         libglusterfs_client_ctx_t *ctx = NULL;
         
@@ -1867,16 +1905,14 @@ glusterfs_fsetxattr (glusterfs_file_t fd,
                 goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		op_ret = -1;
 		goto out;
         }
 
-        fd_ctx = data_to_ptr (fd_ctx_data);
         ctx = fd_ctx->ctx;
-
         op_ret = libgf_client_fsetxattr (ctx, __fd, name, value, size,
                                          flags);
         
@@ -1966,16 +2002,14 @@ glusterfs_fgetxattr (glusterfs_file_t fd,
         libglusterfs_client_ctx_t *ctx;
         fd_t *__fd = (fd_t *)fd;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 
-        fd_ctx_data = dict_get (__fd->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		op_ret = -1;
 		goto out;
         }
 
-        fd_ctx = data_to_ptr (fd_ctx_data);
         ctx = fd_ctx->ctx;
         op_ret = libgf_client_fgetxattr (ctx, __fd, name, value, size);
 out:
@@ -2096,20 +2130,17 @@ glusterfs_read (glusterfs_file_t fd,
         off_t offset = 0;
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 
         if (fd == 0) {
                 errno = EINVAL;
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		goto out;
         }
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
 
         pthread_mutex_lock (&fd_ctx->lock);
         {
@@ -2207,20 +2238,17 @@ glusterfs_readv (glusterfs_file_t fd, const struct iovec *vec, int count)
         off_t offset = 0;
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 
         if (!fd) {
                 errno = EINVAL;
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		goto out;
         }
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
 
         pthread_mutex_lock (&fd_ctx->lock);
         {
@@ -2254,20 +2282,17 @@ glusterfs_pread (glusterfs_file_t fd,
         int32_t op_ret = -1;
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 
         if (!fd) {
                 errno = EINVAL;
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		goto out;
         }
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
 
         ctx = fd_ctx->ctx;
 
@@ -2330,20 +2355,17 @@ glusterfs_write (glusterfs_file_t fd,
         struct iovec vector;
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 
         if (!fd) {
                 errno = EINVAL;
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		goto out;
         }
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
 
         ctx = fd_ctx->ctx;
 
@@ -2384,21 +2406,17 @@ glusterfs_writev (glusterfs_file_t fd,
         off_t offset = 0;
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 
         if (!fd) {
                 errno = EINVAL;
 		goto out;
         }
 
-
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		goto out;
         }
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
 
         ctx = fd_ctx->ctx;
 
@@ -2439,20 +2457,17 @@ glusterfs_pwrite (glusterfs_file_t fd,
         struct iovec vector;
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 
         if (!fd) {
                 errno = EINVAL;
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		goto out;
         }
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
 
         ctx = fd_ctx->ctx;
 
@@ -2554,15 +2569,12 @@ glusterfs_readdir (glusterfs_dir_t fd,
         libglusterfs_client_ctx_t *ctx = NULL;
         off_t offset = 0;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		goto out;
         }
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
 
         pthread_mutex_lock (&fd_ctx->lock);
         {
@@ -2596,15 +2608,12 @@ glusterfs_getdents (glusterfs_file_t fd, struct dirent *dirp,
         libglusterfs_client_ctx_t *ctx = NULL;
         off_t offset = 0;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		goto out;
         }
-
-        fd_ctx = data_to_ptr (fd_ctx_data);
 
         pthread_mutex_lock (&fd_ctx->lock);
         {
@@ -2660,11 +2669,7 @@ libglusterfs_readv_async_cbk (call_frame_t *frame,
 
         if (op_ret > 0) {
                 libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-                data_t *fd_ctx_data = NULL;
-
-                fd_ctx_data = dict_get (__fd->ctx, LIBGF_XL_NAME);
-
-                fd_ctx = data_to_ptr (fd_ctx_data);
+                fd_ctx = libgf_get_fd_ctx (__fd);
                 pthread_mutex_lock (&fd_ctx->lock);
                 {
                         fd_ctx->offset += op_ret;
@@ -2704,7 +2709,6 @@ glusterfs_read_async (glusterfs_file_t fd,
         fd_t *__fd = (fd_t *)fd;
         libglusterfs_client_async_local_t *local = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 	int32_t op_ret = 0;
 
         local = CALLOC (1, sizeof (*local));
@@ -2713,15 +2717,13 @@ glusterfs_read_async (glusterfs_file_t fd,
         local->fop.readv_cbk.cbk = readv_cbk;
         local->cbk_data = cbk_data;
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		op_ret = -1;
 		goto out;
         }
 
-        fd_ctx = data_to_ptr (fd_ctx_data);
-  
         ctx = fd_ctx->ctx;
 
         if (offset < 0) {
@@ -2761,12 +2763,7 @@ libglusterfs_writev_async_cbk (call_frame_t *frame,
 
         if (op_ret > 0) {
                 libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-                data_t *fd_ctx_data = NULL;
-
-                fd_ctx_data = dict_get (fd->ctx, LIBGF_XL_NAME);
-
-                fd_ctx = data_to_ptr (fd_ctx_data);
-
+                fd_ctx = libgf_get_fd_ctx (fd);
                 pthread_mutex_lock (&fd_ctx->lock);
                 {
                         fd_ctx->offset += op_ret;  
@@ -2794,7 +2791,6 @@ glusterfs_write_async (glusterfs_file_t fd,
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_async_local_t *local = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 	int32_t op_ret = 0;
         struct iobref *iobref = NULL;
 
@@ -2807,14 +2803,13 @@ glusterfs_write_async (glusterfs_file_t fd,
         vector.iov_base = (void *)buf;
         vector.iov_len = nbytes;
   
-        fd_ctx_data = dict_get (__fd->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		op_ret = -1;
 		goto out;
         }
 
-        fd_ctx = data_to_ptr (fd_ctx_data);
         ctx = fd_ctx->ctx;
  
         if (offset < 0) {
@@ -2847,20 +2842,18 @@ glusterfs_lseek (glusterfs_file_t fd, off_t offset, int whence)
         off_t __offset = 0;
 	int32_t op_ret = -1;
         fd_t *__fd = (fd_t *)fd;
-        data_t *fd_ctx_data = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 	libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
 	libglusterfs_client_ctx_t *ctx = NULL; 
 	xlator_t *this = NULL;
 
-	fd_ctx_data = dict_get (__fd->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
-                errno = EBADFD;
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
+                errno = EBADF;
 		__offset = -1;
 		goto out;
         }
 
-        fd_ctx = data_to_ptr (fd_ctx_data);
 	ctx = fd_ctx->ctx;
 
         switch (whence)
@@ -3173,17 +3166,15 @@ glusterfs_fstat (glusterfs_file_t fd, struct stat *buf)
         libglusterfs_client_ctx_t *ctx;
         fd_t *__fd = (fd_t *)fd;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        data_t *fd_ctx_data = NULL;
 	int32_t op_ret = -1;
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
-        if (!fd_ctx_data) {
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
                 errno = EBADF;
 		op_ret = -1;
 		goto out;
         }
 
-        fd_ctx = data_to_ptr (fd_ctx_data);
         ctx = fd_ctx->ctx;
 
 	op_ret = libgf_client_fstat (ctx, __fd, buf);
