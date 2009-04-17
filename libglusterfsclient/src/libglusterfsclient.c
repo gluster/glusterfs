@@ -1459,16 +1459,21 @@ libgf_client_opendir (libglusterfs_client_ctx_t *ctx,
                       fd_t *fd)
 {
         call_stub_t *stub = NULL;
-        int32_t op_ret = 0;
+        int32_t op_ret = -1;
         libgf_client_local_t *local = NULL;
 
+        if ((fd->flags & O_WRONLY) || (fd->flags & O_RDWR)) {
+                errno = EISDIR;
+                goto out;
+        }
         LIBGF_CLIENT_FOP (ctx, stub, opendir, local, loc, fd);
 
         op_ret = stub->args.opendir_cbk.op_ret;
         errno = stub->args.opendir_cbk.op_errno;
 
 	call_stub_destroy (stub);
-        return 0;
+out:
+        return op_ret;
 }
 
 glusterfs_file_t 
@@ -1549,20 +1554,10 @@ glusterfs_open (glusterfs_handle_t handle,
                 }
                 op_ret = libgf_client_creat (ctx, &loc, fd, flags, mode);
         } else {
-                if (S_ISDIR (loc.inode->st_mode)) {
-                        if (((flags & O_RDONLY) == O_RDONLY) && 
-                            ((flags & O_WRONLY) == 0) && 
-                            ((flags & O_RDWR) == 0)) { 
-                                op_ret = libgf_client_opendir (ctx,
-                                                               &loc, fd);
-                        } else {
-                                op_ret = -1;
-                                errno = EISDIR;
-                        }
-                } else {  
-                        op_ret = libgf_client_open (ctx, &loc, fd,
-                                                    flags);
-                }
+                if (S_ISDIR (loc.inode->st_mode))
+                        op_ret = libgf_client_opendir (ctx, &loc, fd);
+                else
+                        op_ret = libgf_client_open (ctx, &loc, fd, flags);
         }
 
 op_over:
