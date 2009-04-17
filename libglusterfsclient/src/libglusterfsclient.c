@@ -4552,6 +4552,122 @@ out:
         return op_ret;
 }
 
+static int32_t
+libgf_client_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                                int32_t op_ret, int32_t op_errno,
+                                inode_t *inode, struct stat *buf)
+{
+        libgf_client_local_t *local = frame->local;
+
+        local->reply_stub = fop_symlink_cbk_stub (frame, NULL, op_ret,
+                                                  op_errno, inode, buf);
+
+        LIBGF_REPLY_NOTIFY (local);
+        return 0;
+}
+
+int32_t
+libgf_client_symlink (libglusterfs_client_ctx_t *ctx, const char *linkpath,
+                      loc_t *loc)
+{
+        int                     op_ret = -1;
+        libgf_client_local_t    *local = NULL;
+        call_stub_t             *stub = NULL;
+        inode_t                 *inode = NULL;
+
+        LIBGF_CLIENT_FOP (ctx, stub, symlink, local, linkpath, loc);
+
+        op_ret = stub->args.symlink_cbk.op_ret;
+        errno = stub->args.symlink_cbk.op_errno;
+        if (op_ret == -1)
+                goto out;
+
+        inode = stub->args.symlink_cbk.inode;
+        inode_link (inode, loc->parent, loc->name,
+                        &stub->args.symlink_cbk.buf);
+
+        if (!libgf_get_inode_ctx (inode))
+                libgf_alloc_inode_ctx (ctx, inode);
+
+        libgf_update_iattr_cache (inode, LIBGF_UPDATE_STAT,
+                                        &stub->args.symlink_cbk.buf);
+out:
+        call_stub_destroy (stub);
+        return op_ret;
+}
+
+int
+glusterfs_symlink (glusterfs_handle_t handle, const char *oldpath,
+                  const char *newpath)
+{
+        int32_t                         op_ret = -1;
+        libglusterfs_client_ctx_t       *ctx = handle;
+        loc_t                           oldloc = {0, };
+        loc_t                           newloc = {0, };
+        char                            *oldname = NULL;
+        char                            *newname = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, newpath, out);
+
+        oldloc.path = strdup (oldpath);
+        op_ret = libgf_client_path_lookup (&oldloc, ctx, 1);
+        if (op_ret == -1) {
+                errno = ENOENT;
+                goto out;
+        }
+
+        oldname = strdup (oldpath);
+        op_ret = libgf_client_loc_fill (&oldloc, ctx, 0, oldloc.parent->ino,
+                                                basename (oldname));
+        if (op_ret == -1) {
+                errno = EINVAL;
+                goto out;
+        }
+
+	newloc.path = strdup (newpath);
+	op_ret = libgf_client_path_lookup (&newloc, ctx, 1);
+	if (op_ret == 0) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "new path (%s) already exists, "
+                                " returning EEXIST", newpath);
+                op_ret = -1;
+                errno = EEXIST;
+                goto out;
+        }
+
+        op_ret = libgf_client_path_lookup (&newloc, ctx, 0);
+        if (op_ret == -1) {
+                errno = ENOENT;
+                goto out;
+        }
+
+        newloc.inode = inode_new (ctx->itable);
+        newname = strdup (newpath);
+        op_ret = libgf_client_loc_fill (&newloc, ctx, 0, newloc.parent->ino,
+                                                basename (newname));
+
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "libgf_client_loc_fill returned -1, "
+                                "returning EINVAL");
+                errno = EINVAL;
+                goto out;
+        }
+
+        op_ret = libgf_client_symlink (ctx, oldpath, &newloc);
+
+out:
+        if (newname)
+                FREE (newname);
+
+        if (oldname)
+                FREE (oldname);
+        libgf_client_loc_wipe (&oldloc);
+        libgf_client_loc_wipe (&newloc);
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
