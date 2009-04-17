@@ -4668,6 +4668,85 @@ out:
         return op_ret;
 }
 
+int32_t
+libgf_client_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                                int32_t op_ret, int32_t op_errno,
+                                const char *path)
+{
+        libgf_client_local_t    *local = frame->local;
+
+        local->reply_stub = fop_readlink_cbk_stub (frame, NULL, op_ret,
+                                                   op_errno, path);
+
+        LIBGF_REPLY_NOTIFY (local);
+        return 0;
+}
+
+int32_t
+libgf_client_readlink (libglusterfs_client_ctx_t *ctx, loc_t *loc, char *buf,
+                       size_t bufsize)
+{
+        int                             op_ret = -1;
+        libgf_client_local_t            *local = NULL;
+        call_stub_t                     *stub = NULL;
+        size_t                           cpy_size = 0;
+
+        LIBGF_CLIENT_FOP (ctx, stub, readlink, local, loc, bufsize);
+
+        op_ret = stub->args.readlink_cbk.op_ret;
+        errno = stub->args.readlink_cbk.op_errno;
+
+        if (op_ret != -1) {
+                cpy_size = ((op_ret <= bufsize) ? op_ret : bufsize);
+                memcpy (buf, stub->args.readlink_cbk.buf, cpy_size);
+                op_ret = cpy_size;
+        }
+
+        call_stub_destroy (stub);
+        return op_ret;
+}
+
+ssize_t
+glusterfs_readlink (glusterfs_handle_t handle, const char *path, char *buf,
+                    size_t bufsize)
+{
+        int32_t                         op_ret = -1;
+        loc_t                           loc = {0, };
+        libglusterfs_client_ctx_t       *ctx = handle;
+        char                            *name = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup (path);
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "path lookup failed for (%s)", path);
+                goto out;
+        }
+
+        name = strdup (path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                                                basename (name));
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "libgf_client_loc_fill returned -1, "
+                                "returning EINVAL");
+                errno = EINVAL;
+                goto out;
+        }
+
+        op_ret = libgf_client_readlink (ctx, &loc, buf, bufsize);
+
+out:
+        if (name)
+                FREE (name);
+
+        libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
