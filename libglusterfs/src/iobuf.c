@@ -570,3 +570,45 @@ iobref_merge (struct iobref *to, struct iobref *from)
 
         return ret;
 }
+
+
+size_t
+iobuf_size (struct iobuf *iobuf)
+{
+        size_t size = 0;
+
+        if (!iobuf)
+                goto out;
+
+        if (!iobuf->iobuf_arena)
+                goto out;
+
+        if (!iobuf->iobuf_arena->iobuf_pool)
+                goto out;
+
+        size = iobuf->iobuf_arena->iobuf_pool->page_size;
+out:
+        return size;
+}
+
+
+size_t
+iobref_size (struct iobref *iobref)
+{
+        size_t size = 0;
+        int    i = 0;
+
+        if (!iobref)
+                goto out;
+
+        LOCK (&iobref->lock);
+        {
+                for (i = 0; i < 8; i++) {
+                        if (iobref->iobrefs[i])
+                                size += iobuf_size (iobref->iobrefs[i]);
+                }
+        }
+        UNLOCK (&iobref->lock);
+out:
+        return size;
+}
