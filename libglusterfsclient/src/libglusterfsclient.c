@@ -3466,6 +3466,75 @@ out:
         return op_ret;
 }
 
+int
+libgf_client_chown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct stat *sbuf)
+{
+        libgf_client_local_t    *local = frame->local;
+
+        local->reply_stub = fop_chown_cbk_stub (frame, NULL, op_ret, op_errno,
+                                                sbuf);
+
+        LIBGF_REPLY_NOTIFY (local);
+        return 0;
+}
+
+int
+libgf_client_chown (libglusterfs_client_ctx_t *ctx, loc_t *loc, uid_t uid,
+                gid_t gid)
+{
+        call_stub_t             *stub = NULL;
+        libgf_client_local_t    *local = NULL;
+        int32_t                 op_ret = -1;
+
+        LIBGF_CLIENT_FOP (ctx, stub, chown, local, loc, uid, gid);
+
+        op_ret = stub->args.chown_cbk.op_ret;
+        errno = stub->args.chown_cbk.op_errno;
+
+        if (op_ret == -1)
+                goto out;
+
+        libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
+                                        &stub->args.chown_cbk.buf);
+out:
+        call_stub_destroy (stub);
+        return op_ret;
+}
+
+int
+glusterfs_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
+                gid_t group)
+{
+        int                             op_ret = -1;
+        libglusterfs_client_ctx_t       *ctx = handle;
+        loc_t                           loc = {0, };
+        char                            *name = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup (path);
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+        if (op_ret == -1)
+                goto out;
+
+        name = strdup (path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                        basename ((char *)name));
+        if (op_ret == -1) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        op_ret = libgf_client_chown (ctx, &loc, owner, group);
+out:
+        if (name)
+                FREE (name);
+        libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
