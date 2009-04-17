@@ -967,7 +967,7 @@ main (int argc, char *argv[])
 	
 	free (base_exec_name);
 
-        ctx->page_size  = 128 * 1024;
+        ctx->page_size  = (128 * 1024) + 4096;
         ctx->iobuf_pool = iobuf_pool_new (8 * 1048576, ctx->page_size);
 	ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
 	pthread_mutex_init (&(ctx->lock), NULL);
