@@ -186,6 +186,17 @@ typedef struct libglusterfs_client_async_local {
                 STACK_DESTROY (frame->root);                            \
         } while (0)
 
+#define LIBGF_REPLY_NOTIFY(local)                                       \
+        do {                                                            \
+                pthread_mutex_lock (&local->lock);                      \
+                {                                                       \
+                        local->complete = 1;                            \
+                        pthread_cond_broadcast (&local->reply_cond);    \
+                }                                                       \
+                pthread_mutex_unlock (&local->lock);                    \
+        } while (0)
+
+
 void
 libgf_client_loc_wipe (loc_t *loc);
 

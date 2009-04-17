@@ -793,13 +793,7 @@ out:
         local->reply_stub = fop_lookup_cbk_stub (frame, NULL, op_ret, op_errno,
                                                  inode, buf, dict);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -1200,13 +1194,7 @@ libgf_client_getxattr_cbk (call_frame_t *frame,
         local->reply_stub = fop_getxattr_cbk_stub (frame, NULL, op_ret,
                                                    op_errno, dict);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -1355,13 +1343,7 @@ libgf_client_open_cbk (call_frame_t *frame,
         local->reply_stub = fop_open_cbk_stub (frame, NULL, op_ret, op_errno,
                                                fd);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -1400,13 +1382,7 @@ libgf_client_create_cbk (call_frame_t *frame,
         local->reply_stub = fop_create_cbk_stub (frame, NULL, op_ret, op_errno,
                                                  fd, inode, buf);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -1473,13 +1449,7 @@ libgf_client_opendir_cbk (call_frame_t *frame,
         local->reply_stub = fop_opendir_cbk_stub (frame, NULL, op_ret, op_errno,
                                                   fd);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -1663,13 +1633,7 @@ libgf_client_flush_cbk (call_frame_t *frame,
         
         local->reply_stub = fop_flush_cbk_stub (frame, NULL, op_ret, op_errno);
         
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-        
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -1733,13 +1697,7 @@ libgf_client_setxattr_cbk (call_frame_t *frame,
         local->reply_stub = fop_setxattr_cbk_stub (frame, NULL, op_ret,
                                                    op_errno);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -1847,13 +1805,7 @@ libgf_client_fsetxattr_cbk (call_frame_t *frame,
         local->reply_stub = fop_fsetxattr_cbk_stub (frame, NULL, op_ret,
                                                     op_errno);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -1950,13 +1902,7 @@ libgf_client_fgetxattr_cbk (call_frame_t *frame,
         local->reply_stub = fop_fgetxattr_cbk_stub (frame, NULL, op_ret,
                                                     op_errno, dict);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -2095,13 +2041,7 @@ libgf_client_readv_cbk (call_frame_t *frame,
         local->reply_stub = fop_readv_cbk_stub (frame, NULL, op_ret, op_errno,
                                                 vector, count, stbuf, iobref);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -2345,12 +2285,7 @@ libgf_client_writev_cbk (call_frame_t *frame,
         local->reply_stub = fop_writev_cbk_stub (frame, NULL, op_ret, op_errno,
                                                  stbuf);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -2542,12 +2477,7 @@ libgf_client_readdir_cbk (call_frame_t *frame,
         local->reply_stub = fop_readdir_cbk_stub (frame, NULL, op_ret, op_errno,
                                                   entries);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -3039,13 +2969,7 @@ libgf_client_stat_cbk (call_frame_t *frame,
                                                op_errno, 
                                                buf);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -3173,13 +3097,7 @@ libgf_client_fstat_cbk (call_frame_t *frame,
                                                 op_errno, 
                                                 buf);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 
 }
@@ -3283,13 +3201,7 @@ libgf_client_mkdir_cbk (call_frame_t *frame,
         local->reply_stub = fop_mkdir_cbk_stub (frame, NULL, op_ret, op_errno,
                                                 inode, buf);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
@@ -3407,13 +3319,7 @@ libgf_client_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->reply_stub = fop_rmdir_cbk_stub (frame, NULL, op_ret, op_errno);
 
-        pthread_mutex_lock (&local->lock);
-        {
-                local->complete = 1;
-                pthread_cond_broadcast (&local->reply_cond);
-        }
-        pthread_mutex_unlock (&local->lock);
-
+        LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
 
