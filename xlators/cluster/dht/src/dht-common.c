@@ -3496,7 +3496,7 @@ dht_finodelk (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame,
 		    dht_finodelk_cbk,
 		    subvol, subvol->fops->finodelk,
-		    this->name, fd, cmd, lock);
+		    volume, fd, cmd, lock);
 
 	return 0;
 
