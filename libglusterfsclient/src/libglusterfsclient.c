@@ -48,6 +48,8 @@
 
 static inline xlator_t *
 libglusterfs_graph (xlator_t *graph);
+int32_t libgf_client_readlink (libglusterfs_client_ctx_t *ctx, loc_t *loc,
+                                        char *buf, size_t bufsize);
 
 static int first_init = 1;
 static int first_fini = 1;
@@ -3060,16 +3062,57 @@ out:
         return op_ret;
 }
 
-int32_t  
-glusterfs_stat (glusterfs_handle_t handle, 
-                const char *path, 
-                struct stat *buf)
+int
+libgf_readlink_loc_fill (libglusterfs_client_ctx_t *ctx, loc_t *linkloc,
+                                loc_t *targetloc)
+{
+        char            targetpath[PATH_MAX];
+        int             op_ret = -1;
+        char            *target = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, linkloc, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, targetloc, out);
+
+        op_ret = libgf_client_readlink (ctx, linkloc, targetpath, PATH_MAX);
+        if (op_ret == -1)
+                goto out;
+
+        targetloc->path = strdup (targetpath);
+        op_ret = libgf_client_path_lookup (targetloc, ctx, 1);
+        if (op_ret == -1)
+                goto out;
+
+        target = strdup (targetpath);
+        op_ret = libgf_client_loc_fill (targetloc, ctx, 0,
+                                               targetloc->parent->ino,
+                                                basename (target));
+        if (op_ret == -1) {
+                errno = EINVAL;
+                goto out;
+        }
+
+out:
+        if (target)
+                FREE (target);
+
+        return op_ret;
+}
+
+#define LIBGF_DO_LSTAT  0x01
+#define LIBGF_DO_STAT   0x02
+
+int
+__glusterfs_stat (glusterfs_handle_t handle, const char *path,
+                        struct stat *buf, int whichstat)
 {
         int32_t op_ret = -1;
         loc_t loc = {0, };
         libglusterfs_client_ctx_t *ctx = handle;
 	xlator_t *this = NULL;
 	char *name = NULL, *pathname = NULL;
+        loc_t targetloc = {0, };
+        loc_t *real_loc = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -3094,10 +3137,30 @@ glusterfs_stat (glusterfs_handle_t handle,
 		errno = EINVAL;
 		goto out;
 	}
+        real_loc = &loc;
+        /* The stat fop in glusterfs calls lstat. So we have to
+         * provide the POSIX compatible stat fop. To do so, we need to ensure
+         * that if the @path is a symlink, we must perform a stat on the
+         * target of that symlink that the symlink itself(..because if
+         * do a stat on the symlink, we're actually doing what lstat
+         * should do.
+         */
+        if (whichstat & LIBGF_DO_LSTAT)
+                goto lstat_fop;
+
+        if (!S_ISLNK (loc.inode->st_mode))
+                goto lstat_fop;
+
+        op_ret = libgf_readlink_loc_fill (ctx, &loc, &targetloc);
+        if (op_ret == -1)
+                goto out;
+        real_loc = &targetloc;
+
+lstat_fop:
 
 	this = ctx->gf_ctx.graph;
         if (!op_ret) {
-                op_ret = libgf_client_stat (ctx, &loc, buf);
+                op_ret = libgf_client_stat (ctx, real_loc, buf);
         }
 
 out:
@@ -3106,9 +3169,22 @@ out:
 	}
 
         libgf_client_loc_wipe (&loc);
+        libgf_client_loc_wipe (&targetloc);
+
         return op_ret;
 }
 
+int
+glusterfs_stat (glusterfs_handle_t handle, const char *path, struct stat *buf)
+{
+        return __glusterfs_stat (handle, path, buf, LIBGF_DO_STAT);
+}
+
+int
+glusterfs_lstat (glusterfs_handle_t handle, const char *path, struct stat *buf)
+{
+        return __glusterfs_stat (handle, path, buf, LIBGF_DO_LSTAT);
+}
 
 static int32_t
 libgf_client_fstat_cbk (call_frame_t *frame,
