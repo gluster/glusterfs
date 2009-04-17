@@ -40,6 +40,7 @@
 #include "libglusterfsclient-internals.h"
 #include "compat.h"
 #include "compat-errno.h"
+#include <sys/vfs.h>
 
 #define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
@@ -3957,6 +3958,104 @@ out:
         return op_ret;
 }
 
+int32_t
+libgf_client_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, struct statvfs *buf)
+{
+        libgf_client_local_t    *local = frame->local;
+
+        local->reply_stub = fop_statfs_cbk_stub (frame, NULL, op_ret, op_errno,
+                                                 buf);
+
+        LIBGF_REPLY_NOTIFY (local);
+        return 0;
+}
+
+int32_t
+libgf_client_statvfs (libglusterfs_client_ctx_t *ctx, loc_t *loc,
+                      struct statvfs *buf)
+{
+        call_stub_t             *stub = NULL;
+        libgf_client_local_t    *local = NULL;
+        int32_t                 op_ret = -1;
+
+        /* statfs fop receives struct statvfs as an argument */
+
+        /* libgf_client_statfs_cbk will be the callback, not
+           libgf_client_statvfs_cbk. see definition of LIBGF_CLIENT_FOP
+        */
+        LIBGF_CLIENT_FOP (ctx, stub, statfs, local, loc);
+
+        op_ret = stub->args.statfs_cbk.op_ret;
+        errno = stub->args.statfs_cbk.op_errno;
+        if (op_ret == -1)
+                goto out;
+
+        if (buf)
+                memcpy (buf, &stub->args.statfs_cbk.buf, sizeof (*buf));
+out:
+        call_stub_destroy (stub);
+        return op_ret;
+}
+
+int
+glusterfs_statfs (glusterfs_handle_t handle, const char *path,
+                        struct statfs *buf)
+{
+        struct statvfs                  stvfs = {0, };
+        int32_t                         op_ret = -1;
+        loc_t                           loc = {0, };
+        libglusterfs_client_ctx_t       *ctx = handle;
+        char                            *name = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup (path);
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "path lookup failed for (%s)", path);
+                goto out;
+        }
+
+        name = strdup (path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                                        basename (name));
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "libgf_client_loc_fill returned -1, "
+                                "returning EINVAL");
+                        errno = EINVAL;
+                goto out;
+        }
+
+        op_ret = libgf_client_statvfs (ctx, &loc, &stvfs);
+        if (op_ret == 0) {
+                buf->f_type = 0;
+                buf->f_bsize = stvfs.f_bsize;
+                buf->f_blocks = stvfs.f_blocks;
+                buf->f_bfree = stvfs.f_bfree;
+                buf->f_bavail = stvfs.f_bavail;
+                buf->f_files = stvfs.f_bavail;
+                buf->f_ffree = stvfs.f_ffree;
+                /* FIXME: buf->f_fsid has either "val" or "__val" as member
+                   based on conditional macro expansion. see definition of
+                   fsid_t - Raghu
+                   It seems have different structure member names on
+                   different archs, so I am stepping down to doing a struct
+                   to struct copy. :Shehjar
+                */
+                memcpy (&buf->f_fsid, &stvfs.f_fsid, sizeof (stvfs.f_fsid));
+                buf->f_namelen = stvfs.f_namemax;
+        }
+
+out:
+        if (name)
+                FREE (name);
+        libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
 
 static struct xlator_fops libgf_client_fops = {
 };
