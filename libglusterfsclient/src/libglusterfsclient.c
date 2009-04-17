@@ -3728,6 +3728,56 @@ out:
         return op_ret;
 }
 
+int
+libgf_client_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *xlator,
+                                int32_t op_ret, int32_t op_errno)
+{
+        libgf_client_local_t    *local = frame->local;
+
+        local->reply_stub = fop_fsync_cbk_stub (frame, NULL, op_ret, op_errno);
+
+        LIBGF_REPLY_NOTIFY (local);
+
+        return 0;
+}
+
+int
+libgf_client_fsync (libglusterfs_client_ctx_t *ctx, fd_t *fd)
+{
+        libgf_client_local_t    *local = NULL;
+        call_stub_t             *stub = NULL;
+        int                     op_ret = -1;
+
+        LIBGF_CLIENT_FOP (ctx, stub, fsync, local, fd, 0);
+
+        op_ret = stub->args.fsync_cbk.op_ret;
+        errno = stub->args.fsync_cbk.op_errno;
+
+        call_stub_destroy (stub);
+
+        return op_ret;
+}
+
+int
+glusterfs_fsync (glusterfs_file_t *fd)
+{
+        libglusterfs_client_fd_ctx_t    *fdctx = NULL;
+        int                             op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
+
+        fdctx = libgf_get_fd_ctx ((fd_t *)fd);
+        if (!fd) {
+                errno = EBADF;
+                goto out;
+        }
+
+        op_ret = libgf_client_fsync (fdctx->ctx, (fd_t *)fd);
+
+out:
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
