@@ -42,6 +42,7 @@
 #include "compat-errno.h"
 #include <sys/vfs.h>
 #include <utime.h>
+#include <sys/param.h>
 
 #define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
@@ -4821,6 +4822,189 @@ out:
 
         libgf_client_loc_wipe (&loc);
         return op_ret;
+}
+
+char *
+glusterfs_realpath (glusterfs_handle_t handle, const char *path,
+                    char *resolved_path)
+{
+        char                            *buf = NULL, *extra_buf = NULL;
+        char                            *rpath = NULL;
+        char                            *start = NULL, *end = NULL;
+        char                            *dest = NULL;
+        libglusterfs_client_ctx_t       *ctx = handle;
+        long int                        path_max = 0;
+        char                            *ptr = NULL;
+        struct stat                     stbuf = {0, };
+        long int                        new_size = 0;
+        char                            *new_rpath = NULL;
+        int                             dest_offset = 0;
+        char                            *rpath_limit = 0;
+        int                             ret = 0, num_links = 0;
+        size_t                          len = 0;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+#ifdef PATH_MAX
+        path_max = PATH_MAX;
+#else
+        path_max = pathconf (path, _PC_PATH_MAX);
+        if (path_max <= 0) {
+                path_max = 1024;
+        }
+#endif
+
+        if (resolved_path == NULL) {
+                rpath = CALLOC (1, path_max);
+                if (rpath == NULL) {
+                        errno = ENOMEM;
+                        goto out;
+                }
+        } else {
+                rpath = resolved_path;
+        }
+
+        rpath_limit = rpath + path_max;
+
+        if (path[0] == '/') {
+                rpath[0] = '/';
+                dest = rpath + 1;
+        } else {
+                /*
+                   FIXME: can $CWD be a valid path on glusterfs server? hence is
+                   it better to handle this case or just return EINVAL for
+                   relative paths?
+                */
+                ptr = getcwd (rpath, path_max);
+                if (ptr == NULL) {
+                        goto err;
+                }
+                dest = rpath + strlen (rpath);
+        }
+
+        for (start = end = (char *)path; *end; start = end) {
+                if (dest[-1] != '/') {
+                        *dest++ = '/';
+                }
+
+                while (*start == '/') {
+                        start++;
+                }
+
+                for (end = start; *end && *end != '/'; end++);
+
+                if ((end - start) == 0) {
+                        break;
+                }
+
+                if ((end - start == 1) && (start[0] == '.')) {
+                        /* do nothing */
+                } else if (((end - start) == 2) && (start[0] == '.')
+                           && (start[1] == '.')) {
+                        if (dest > rpath + 1) {
+                                while (--dest[-1] != '/');
+                        }
+                } else {
+                        if ((dest + (end - start + 1)) >= rpath_limit) {
+                                if (resolved_path == NULL) {
+                                        errno = ENAMETOOLONG;
+                                        if (dest > rpath + 1)
+                                                dest--;
+                                        *dest = '\0';
+                                        goto err;
+                                }
+
+                                dest_offset = dest - rpath;
+                                new_size = rpath_limit - rpath;
+                                if ((end - start + 1) > path_max) {
+                                        new_size = (end - start + 1);
+                                } else {
+                                        new_size = path_max;
+                                }
+
+                                new_rpath = realloc (rpath, new_size);
+                                if (new_rpath == NULL) {
+                                        goto err;
+                                }
+
+
+                                dest = new_rpath + dest_offset;
+                                rpath = new_rpath;
+                                rpath_limit = rpath + new_size;
+                        }
+
+                        memcpy (dest, start, end - start);
+                        dest +=  end - start;
+                        *dest = '\0';
+
+                        /* posix_stat is implemented using lstat */
+                        ret = glusterfs_stat (handle, rpath, &stbuf);
+                        if (ret == -1) {
+                                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                        "glusterfs_stat returned -1 for path"
+                                        " (%s):(%s)", rpath, strerror (errno));
+                                goto err;
+                        }
+
+                        if (S_ISLNK (stbuf.st_mode)) {
+                                buf = alloca (path_max);
+
+                                if (++num_links > MAXSYMLINKS)
+                                {
+                                        errno = ELOOP;
+                                        goto err;
+                                }
+
+                                ret = glusterfs_readlink (handle, rpath, buf,
+                                                          path_max - 1);
+                                if (ret < 0) {
+                                        gf_log ("libglusterfsclient",
+                                                GF_LOG_ERROR,
+                                                "glusterfs_readlink returned %d"
+                                                " for path (%s):(%s)",
+                                                ret, rpath, strerror (errno));
+                                        goto err;
+                                }
+                                buf[ret] = '\0';
+
+                                if (extra_buf == NULL)
+                                        extra_buf = alloca (path_max);
+
+                                len = strlen (end);
+                                if ((long int) (ret + len) >= path_max)
+                                {
+                                        errno = ENAMETOOLONG;
+                                        goto err;
+                                }
+
+                                memmove (&extra_buf[ret], end, len + 1);
+                                path = end = memcpy (extra_buf, buf, ret);
+
+                                if (buf[0] == '/')
+                                        dest = rpath + 1;
+                                else
+                                        if (dest > rpath + 1)
+                                                while ((--dest)[-1] != '/');
+                        } else if (!S_ISDIR (stbuf.st_mode) && *end != '\0') {
+                                errno = ENOTDIR;
+                                goto err;
+                        }
+                }
+        }
+        if (dest > rpath + 1 && dest[-1] == '/')
+                --dest;
+        *dest = '\0';
+
+out:
+        return rpath;
+
+err:
+        if (resolved_path == NULL) {
+                FREE (rpath);
+        }
+
+        return NULL;
 }
 
 static struct xlator_fops libgf_client_fops = {
