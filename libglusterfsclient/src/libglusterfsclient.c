@@ -4205,6 +4205,91 @@ out:
         return op_ret;
 }
 
+int32_t
+libgf_client_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                                int32_t op_ret, int32_t op_errno,
+                                struct stat *buf)
+{
+        libgf_client_local_t *local = frame->local;
+
+        local->reply_stub = fop_utimens_cbk_stub (frame, NULL, op_ret,
+                                                        op_errno, buf);
+
+        LIBGF_REPLY_NOTIFY (local);
+
+        return 0;
+}
+
+int32_t
+libgf_client_utimens (libglusterfs_client_ctx_t *ctx, loc_t *loc,
+                      struct timespec ts[2])
+{
+        int                             op_ret = -1;
+        libgf_client_local_t            *local = NULL;
+        call_stub_t                     *stub = NULL;
+        struct stat                     *stbuf = NULL;
+
+        LIBGF_CLIENT_FOP (ctx, stub, utimens, local, loc, ts);
+
+        op_ret = stub->args.utimens_cbk.op_ret;
+        errno = stub->args.utimens_cbk.op_errno;
+        stbuf = &stub->args.utimens_cbk.buf;
+
+        if (op_ret == -1)
+                goto out;
+
+        libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT, stbuf);
+
+out:
+        call_stub_destroy (stub);
+        return op_ret;
+}
+
+int
+glusterfs_utimes (glusterfs_handle_t handle, const char *path,
+                  const struct timeval times[2])
+{
+        int32_t                         op_ret = -1;
+        loc_t                           loc = {0, };
+        libglusterfs_client_ctx_t       *ctx = handle;
+        struct timespec                 ts[2] = {{0,},{0,}};
+        char                            *name = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup (path);
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "path lookup failed for (%s)", path);
+                goto out;
+        }
+
+        name = strdup (path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                                                basename (name));
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "libgf_client_loc_fill returned -1"
+                                " returning EINVAL");
+                errno = EINVAL;
+                goto out;
+        }
+
+        ts[0].tv_sec = times[0].tv_sec;
+        ts[0].tv_nsec = times[0].tv_usec * 1000;
+        ts[1].tv_sec = times[1].tv_sec;
+        ts[1].tv_nsec = times[1].tv_usec * 1000;
+
+        op_ret = libgf_client_utimens (ctx, &loc, ts);
+out:
+        if (name)
+                FREE (name);
+        libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
