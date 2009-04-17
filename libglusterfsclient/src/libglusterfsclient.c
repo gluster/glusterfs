@@ -881,18 +881,15 @@ glusterfs_get (glusterfs_handle_t handle,
 	       size_t size, 
 	       struct stat *stbuf)
 {
-        int32_t op_ret = 0;
+        int32_t op_ret = -1;
         loc_t loc = {0, };
         libglusterfs_client_ctx_t *ctx = handle;
         dict_t *dict = NULL;
 	dict_t *xattr_req = NULL;
 	char *name = NULL, *pathname = NULL;
 
-	if (!ctx || !path || path[0] != '/') {
-		errno = EINVAL;
-		op_ret = -1;
-		goto out;
-	}
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
 	loc.path = strdup (path);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 0);
@@ -1264,16 +1261,19 @@ glusterfs_getxattr (glusterfs_handle_t handle,
                     void *value, 
                     size_t size)
 {
-        int32_t op_ret = 0;
+        int32_t op_ret = -1;
         loc_t loc = {0, };
 	dict_t *dict = NULL;
 	libglusterfs_client_ctx_t *ctx = handle;
 	char *file = NULL;
 	dict_t *xattr_req = NULL;
 
-	if (!ctx || !path || path[0] != '/' || !name || name[0] == '\0') {
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
+
+        if (name[0] == '\0') {
 		errno = EINVAL;
-		op_ret = -1;
 		goto out;
 	}
 
@@ -1508,18 +1508,15 @@ glusterfs_open (glusterfs_handle_t handle,
                 mode_t mode)
 {
         loc_t loc = {0, };
-        long op_ret = 0;
+        long op_ret = -1;
         fd_t *fd = NULL;
 	int32_t ret = -1;
 	xlator_t *this = NULL;
 	libglusterfs_client_ctx_t *ctx = handle;
 	char *name = NULL, *pathname = NULL;
 
-	if (!ctx || !path || path[0] != '/') {
-		errno = EINVAL;
-		op_ret = -1;
-		goto out;
-	}
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
 	loc.path = strdup (path);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
@@ -1784,17 +1781,14 @@ glusterfs_setxattr (glusterfs_handle_t handle,
                     size_t size, 
                     int flags)
 {
-        int32_t op_ret = 0;
+        int32_t op_ret = -1;
         loc_t loc = {0, };
 	xlator_t *this = NULL;
 	libglusterfs_client_ctx_t *ctx = handle;
 	char *file = NULL;
 
-	if (!ctx || !path || path[0] != '/') {
-		errno = EINVAL;
-		op_ret = -1;
-		goto out;
-	}
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
 	loc.path = strdup (path);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
@@ -3118,17 +3112,14 @@ glusterfs_stat (glusterfs_handle_t handle,
                 const char *path, 
                 struct stat *buf)
 {
-        int32_t op_ret = 0;
+        int32_t op_ret = -1;
         loc_t loc = {0, };
         libglusterfs_client_ctx_t *ctx = handle;
 	xlator_t *this = NULL;
 	char *name = NULL, *pathname = NULL;
 
-	if (!ctx || !path || path[0] != '/') {
-		errno = EINVAL;
-		op_ret = -1;
-		goto out;
-	}
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
 	loc.path = strdup (path);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
@@ -3363,11 +3354,8 @@ glusterfs_mkdir (glusterfs_handle_t handle,
 	char *pathname = NULL, *name = NULL;
 	int32_t op_ret = -1;
 
-	if (!ctx || !path || path[0] != '/') {
-		errno = EINVAL;
-		op_ret = -1;
-		goto out;
-	}
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
 	loc.path = strdup (path);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
@@ -3461,11 +3449,8 @@ glusterfs_rmdir (glusterfs_handle_t handle,
 	char *pathname = NULL, *name = NULL;
 	int32_t op_ret = -1;
 
-	if (!ctx || !path || path[0] != '/') {
-		errno = EINVAL;
-		op_ret = -1;
-		goto out;
-	}
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
 	loc.path = strdup (path);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);

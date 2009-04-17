@@ -116,6 +116,16 @@ extern char *gf_cbk_list[GF_CBK_MAXVALUE];
 		}						\
 	} while (0); 
 
+#define GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO(name,arg,label)       \
+        do {                                                    \
+                GF_VALIDATE_OR_GOTO (name, arg, label);         \
+                if ((arg[0]) != '/') {                          \
+                        errno = EINVAL;                         \
+			gf_log (name, GF_LOG_ERROR,	        \
+				"invalid argument: " #arg);	\
+                        goto label;                             \
+                }                                               \
+	} while (0);
 
 #define GF_FILE_CONTENT_REQUESTED(_xattr_req,_content_limit) \
 	(dict_get_uint64 (_xattr_req, "glusterfs.content", _content_limit) == 0)
