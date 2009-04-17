@@ -482,7 +482,11 @@ client_start_ping (void *data)
 		}
 		timeout.tv_sec = conn->ping_timeout;
 		timeout.tv_usec = 0;
-		
+
+                if (conn->ping_timer)
+                        gf_timer_call_cancel (trans->xl->ctx,
+                                              conn->ping_timer);
+
 		conn->ping_timer = 
 			gf_timer_call_after (trans->xl->ctx, timeout,
 					     client_ping_timer_expired,
