@@ -3535,6 +3535,64 @@ out:
         return op_ret;
 }
 
+glusterfs_dir_t
+glusterfs_opendir (glusterfs_handle_t handle, const char *path)
+{
+        int                             op_ret = -1;
+        libglusterfs_client_ctx_t       *ctx = handle;
+        loc_t                           loc = {0, };
+        fd_t                            *dirfd = NULL;
+        char                            *name = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup (path);
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+
+        if (op_ret == -1)
+                goto out;
+
+        name = strdup (path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                        basename (name));
+        if (op_ret == -1) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        if (!S_ISDIR (loc.inode->st_mode)) {
+                errno = ENOTDIR;
+                op_ret = -1;
+                goto out;
+        }
+
+        dirfd = fd_create (loc.inode, 0);
+        op_ret = libgf_client_opendir (ctx, &loc, dirfd);
+
+        if (op_ret == -1) {
+                fd_unref (dirfd);
+                dirfd = NULL;
+                goto out;
+        }
+
+        if (libgf_get_fd_ctx (dirfd))
+                goto out;
+
+        if (!(libgf_alloc_fd_ctx (ctx, dirfd))) {
+                op_ret = -1;
+                errno = EINVAL;
+                fd_unref (dirfd);
+                dirfd = NULL;
+        }
+
+out:
+        if (name)
+                FREE (name);
+        libgf_client_loc_wipe (&loc);
+        return dirfd;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
