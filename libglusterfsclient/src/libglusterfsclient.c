@@ -3397,6 +3397,75 @@ out:
 	return op_ret;
 }
 
+int
+libgf_client_chmod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+        libgf_client_local_t    *local = frame->local;
+
+        local->reply_stub = fop_chmod_cbk_stub (frame, NULL, op_ret, op_errno,
+                                                        buf);
+
+        LIBGF_REPLY_NOTIFY (local);
+        return 0;
+}
+
+int
+libgf_client_chmod (libglusterfs_client_ctx_t *ctx, loc_t * loc, mode_t mode)
+{
+        int                             op_ret = -1;
+        libgf_client_local_t            *local = NULL;
+        call_stub_t                     *stub = NULL;
+
+        LIBGF_CLIENT_FOP (ctx, stub, chmod, local, loc, mode);
+
+        op_ret = stub->args.chmod_cbk.op_ret;
+        errno = stub->args.chmod_cbk.op_errno;
+
+        if (op_ret == -1)
+                goto out;
+
+        libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
+                                        &stub->args.chmod_cbk.buf);
+out:
+        call_stub_destroy (stub);
+        return op_ret;
+}
+
+int
+glusterfs_chmod (glusterfs_handle_t handle, const char *path, mode_t mode)
+{
+        int                             op_ret = -1;
+        libglusterfs_client_ctx_t       *ctx = handle;
+        loc_t                           loc = {0, };
+        char                            *name = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup(path);
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+        if (op_ret == -1)
+                goto out;
+
+        name = strdup (path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                                                basename (name));
+        if (op_ret == -1) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        op_ret = libgf_client_chmod (ctx, &loc, mode);
+
+out:
+        if (name)
+                FREE (name);
+
+        libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
