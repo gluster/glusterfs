@@ -5479,30 +5479,28 @@ client_lookup_cbk (call_frame_t *frame,
 		op_ret = -1;
 		gf_stat_to_stat (&rsp->stat, &stbuf);
                 
-                if (local->loc.ino != 1) {
-                        ret = inode_ctx_get (inode, frame->this, &oldino);
-                        if (oldino != stbuf.st_ino) {
-                                if (oldino)
-                                        gf_log (frame->this->name, GF_LOG_DEBUG,
-                                                "LOOKUP %"PRId64"/%s (%s): "
-                                                "inode number changed from "
-                                                "%"PRId64" to %"PRId64,
-                                                local->loc.parent->ino, 
-                                                local->loc.name,
-                                                local->loc.path,
-                                                oldino, stbuf.st_ino);
+                ret = inode_ctx_get (inode, frame->this, &oldino);
+                if (oldino != stbuf.st_ino) {
+                        if (oldino)
+                                gf_log (frame->this->name, GF_LOG_DEBUG,
+                                        "LOOKUP %"PRId64"/%s (%s): "
+                                        "inode number changed from "
+                                        "%"PRId64" to %"PRId64,
+                                        local->loc.parent->ino, 
+                                        local->loc.name,
+                                        local->loc.path,
+                                        oldino, stbuf.st_ino);
                                 
-                                ret = inode_ctx_put (inode, frame->this,
-                                                     stbuf.st_ino);
-                                if (ret < 0) {
-                                        gf_log (frame->this->name, GF_LOG_ERROR,
-                                                "LOOKUP %"PRId64"/%s (%s) : "
-                                                "failed to set remote inode "
-                                                "number to inode ctx",
-                                                local->loc.parent->ino, 
-                                                local->loc.name,
-                                                local->loc.path);
-                                }
+                        ret = inode_ctx_put (inode, frame->this,
+                                             stbuf.st_ino);
+                        if (ret < 0) {
+                                gf_log (frame->this->name, GF_LOG_ERROR,
+                                        "LOOKUP %"PRId64"/%s (%s) : "
+                                        "failed to set remote inode "
+                                        "number to inode ctx",
+                                        local->loc.parent->ino, 
+                                        local->loc.name,
+                                        local->loc.path);
                         }
                 }
 
