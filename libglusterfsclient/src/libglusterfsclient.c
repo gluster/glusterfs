@@ -3593,6 +3593,28 @@ out:
         return dirfd;
 }
 
+int
+glusterfs_closedir (glusterfs_dir_t dirfd)
+{
+        int                             op_ret = -1;
+        libglusterfs_client_fd_ctx_t    *fdctx = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, dirfd, out);
+        fdctx = libgf_get_fd_ctx (dirfd);
+
+        if (fdctx == NULL) {
+                errno = EBADF;
+                op_ret = -1;
+                goto out;
+        }
+
+        op_ret = libgf_client_flush (fdctx->ctx, (fd_t *)dirfd);
+        fd_unref ((fd_t *)dirfd);
+
+out:
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
