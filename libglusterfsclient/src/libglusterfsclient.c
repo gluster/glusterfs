@@ -3855,6 +3855,109 @@ out:
         return op_ret;
 }
 
+int
+libgf_client_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                                int32_t op_ret, int32_t op_errno,
+                                inode_t *inode, struct stat *buf)
+{
+        libgf_client_local_t            *local = frame->local;
+
+        local->reply_stub = fop_link_cbk_stub (frame, NULL, op_ret, op_errno,
+                                                inode, buf);
+
+        LIBGF_REPLY_NOTIFY (local);
+
+        return 0;
+}
+
+int
+libgf_client_link (libglusterfs_client_ctx_t *ctx, loc_t *old, loc_t *new)
+{
+        call_stub_t                     *stub = NULL;
+        libgf_client_local_t            *local = NULL;
+        int                             op_ret = -1;
+        inode_t                         *inode = NULL;
+        struct stat                     *sbuf = NULL;
+
+        LIBGF_CLIENT_FOP (ctx, stub, link, local, old, new);
+
+        op_ret = stub->args.link_cbk.op_ret;
+        errno = stub->args.link_cbk.op_errno;
+
+        if (op_ret == -1)
+                goto out;
+
+        inode = stub->args.link_cbk.inode;
+        sbuf = &stub->args.link_cbk.buf;
+        inode_link (inode, new->parent, basename ((char *)new->path), sbuf);
+        libgf_update_iattr_cache (inode, LIBGF_UPDATE_STAT, sbuf);
+
+out:
+        call_stub_destroy (stub);
+        return op_ret;
+}
+
+int
+glusterfs_link (glusterfs_handle_t handle, const char *oldpath,
+                        const char *newpath)
+{
+        libglusterfs_client_ctx_t       *ctx = handle;
+        int                             op_ret = -1;
+        loc_t                           old = {0,};
+        loc_t                           new = {0,};
+        char                            *oldname = NULL;
+        char                            *newname = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, newpath, out);
+
+        old.path = strdup (oldpath);
+        op_ret = libgf_client_path_lookup (&old, ctx, 1);
+        if (op_ret == -1) {
+                errno = ENOENT;
+                goto out;
+        }
+
+        oldname = strdup (oldpath);
+        op_ret = libgf_client_loc_fill (&old, ctx, 0, old.parent->ino,
+                                                basename (oldname));
+        if (op_ret == -1) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        if (S_ISDIR (old.inode->st_mode)) {
+                errno = EPERM;
+                op_ret = -1;
+                goto out;
+        }
+
+        new.path = strdup (newpath);
+        op_ret = libgf_client_path_lookup (&new, ctx, 1);
+        if (op_ret == 0) {
+                errno = EEXIST;
+                op_ret = -1;
+                goto out;
+        }
+
+        newname = strdup (newpath);
+        libgf_client_loc_fill (&new, ctx, 0, new.parent->ino,
+                        basename (newname));
+        op_ret = libgf_client_link (ctx, &old, &new);
+
+out:
+        if (oldname)
+                FREE (oldname);
+        if (newname)
+                FREE (newname);
+        libgf_client_loc_wipe (&old);
+        libgf_client_loc_wipe (&new);
+
+        return op_ret;
+}
+
+
 static struct xlator_fops libgf_client_fops = {
 };
 
