@@ -152,7 +152,7 @@ libgf_alloc_fd_ctx (libglusterfs_client_ctx_t *ctx, fd_t *fd)
 
         pthread_mutex_init (&fdctx->lock, NULL);
         fdctx->ctx = ctx;
-        ctxaddr = (uint64_t)fdctx;
+        ctxaddr = (uint64_t) (long)fdctx;
 
         fd_ctx_set (fd, libgf_inode_to_xlator (fd->inode), ctxaddr);
 
@@ -239,7 +239,7 @@ libgf_alloc_inode_ctx (libglusterfs_client_ctx_t *ctx, inode_t *inode)
         }
 
         pthread_mutex_init (&ictx->lock, NULL);
-        ctxaddr = (uint64_t)ictx;
+        ctxaddr = (uint64_t) (long)ictx;
         if (inode_ctx_put (inode, libgf_inode_to_xlator (inode), ctxaddr) < 0){
                 FREE (ictx);
                 ictx = NULL;
