@@ -41,7 +41,7 @@
 #include "compat.h"
 #include "compat-errno.h"
 
-#define XLATOR_NAME "libglusterfsclient"
+#define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
 
 static inline xlator_t *
@@ -104,7 +104,7 @@ libgf_client_release (xlator_t *this,
 	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 	data_t *fd_ctx_data = NULL;
 
-        fd_ctx_data = dict_get (fd->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (fd->ctx, LIBGF_XL_NAME);
 
         fd_ctx = data_to_ptr (fd_ctx_data);
 	pthread_mutex_destroy (&fd_ctx->lock);
@@ -120,7 +120,7 @@ libgf_client_releasedir (xlator_t *this,
 	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 	data_t *fd_ctx_data = NULL;
 
-        fd_ctx_data = dict_get (fd->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (fd->ctx, LIBGF_XL_NAME);
 
         fd_ctx = data_to_ptr (fd_ctx_data);
 	pthread_mutex_destroy (&fd_ctx->lock);
@@ -986,7 +986,7 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
                 inode_link (inode, parent, local->fop.lookup_cbk.loc->name,
                             stbuf);
                 
-		inode_ctx_data = dict_get (inode->ctx, XLATOR_NAME);
+		inode_ctx_data = dict_get (inode->ctx, LIBGF_XL_NAME);
                 if (inode_ctx_data) {
                         inode_ctx = data_to_ptr (inode_ctx_data);
                 }
@@ -1596,7 +1596,7 @@ glusterfs_open (glusterfs_handle_t handle,
                 libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
                 data_t *ctx_data = NULL;
       
-                ctx_data = dict_get (fd->ctx, XLATOR_NAME);
+                ctx_data = dict_get (fd->ctx, LIBGF_XL_NAME);
                 if (!ctx_data) {
                         fd_ctx = CALLOC (1, sizeof (*fd_ctx));
                         ERR_ABORT (fd_ctx);
@@ -1610,7 +1610,7 @@ glusterfs_open (glusterfs_handle_t handle,
                 pthread_mutex_unlock (&fd_ctx->lock);
 
                 if (!ctx_data) {
-                        dict_set (fd->ctx, XLATOR_NAME,
+                        dict_set (fd->ctx, LIBGF_XL_NAME,
                                   data_from_dynptr (fd_ctx,
                                                     sizeof (*fd_ctx)));
                 }
@@ -1707,7 +1707,7 @@ glusterfs_close (glusterfs_file_t fd)
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		goto out;
@@ -1915,7 +1915,7 @@ glusterfs_fsetxattr (glusterfs_file_t fd,
                 goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		op_ret = -1;
@@ -2022,7 +2022,7 @@ glusterfs_fgetxattr (glusterfs_file_t fd,
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
         data_t *fd_ctx_data = NULL;
 
-        fd_ctx_data = dict_get (__fd->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (__fd->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		op_ret = -1;
@@ -2163,7 +2163,7 @@ glusterfs_read (glusterfs_file_t fd,
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		goto out;
@@ -2274,7 +2274,7 @@ glusterfs_readv (glusterfs_file_t fd, const struct iovec *vec, int count)
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		goto out;
@@ -2321,7 +2321,7 @@ glusterfs_pread (glusterfs_file_t fd,
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		goto out;
@@ -2402,7 +2402,7 @@ glusterfs_write (glusterfs_file_t fd,
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		goto out;
@@ -2457,7 +2457,7 @@ glusterfs_writev (glusterfs_file_t fd,
         }
 
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		goto out;
@@ -2511,7 +2511,7 @@ glusterfs_pwrite (glusterfs_file_t fd,
 		goto out;
         }
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		goto out;
@@ -2626,7 +2626,7 @@ glusterfs_readdir (glusterfs_dir_t fd,
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
         data_t *fd_ctx_data = NULL;
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		goto out;
@@ -2668,7 +2668,7 @@ glusterfs_getdents (glusterfs_file_t fd, struct dirent *dirp,
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
         data_t *fd_ctx_data = NULL;
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		goto out;
@@ -2732,7 +2732,7 @@ libglusterfs_readv_async_cbk (call_frame_t *frame,
                 libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
                 data_t *fd_ctx_data = NULL;
 
-                fd_ctx_data = dict_get (__fd->ctx, XLATOR_NAME);
+                fd_ctx_data = dict_get (__fd->ctx, LIBGF_XL_NAME);
 
                 fd_ctx = data_to_ptr (fd_ctx_data);
                 pthread_mutex_lock (&fd_ctx->lock);
@@ -2783,7 +2783,7 @@ glusterfs_read_async (glusterfs_file_t fd,
         local->fop.readv_cbk.cbk = readv_cbk;
         local->cbk_data = cbk_data;
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		op_ret = -1;
@@ -2833,7 +2833,7 @@ libglusterfs_writev_async_cbk (call_frame_t *frame,
                 libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
                 data_t *fd_ctx_data = NULL;
 
-                fd_ctx_data = dict_get (fd->ctx, XLATOR_NAME);
+                fd_ctx_data = dict_get (fd->ctx, LIBGF_XL_NAME);
 
                 fd_ctx = data_to_ptr (fd_ctx_data);
 
@@ -2877,7 +2877,7 @@ glusterfs_write_async (glusterfs_file_t fd,
         vector.iov_base = (void *)buf;
         vector.iov_len = nbytes;
   
-        fd_ctx_data = dict_get (__fd->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (__fd->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		op_ret = -1;
@@ -2923,7 +2923,7 @@ glusterfs_lseek (glusterfs_file_t fd, off_t offset, int whence)
 	libglusterfs_client_ctx_t *ctx = NULL; 
 	xlator_t *this = NULL;
 
-	fd_ctx_data = dict_get (__fd->ctx, XLATOR_NAME);
+	fd_ctx_data = dict_get (__fd->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADFD;
 		__offset = -1;
@@ -3261,7 +3261,7 @@ glusterfs_fstat (glusterfs_file_t fd, struct stat *buf)
         data_t *fd_ctx_data = NULL;
 	int32_t op_ret = -1;
 
-        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, XLATOR_NAME);
+        fd_ctx_data = dict_get (((fd_t *) fd)->ctx, LIBGF_XL_NAME);
         if (!fd_ctx_data) {
                 errno = EBADF;
 		op_ret = -1;
@@ -3531,12 +3531,12 @@ libglusterfs_graph (xlator_t *graph)
         top->children = xlchild;
         top->ctx = graph->ctx;
         top->next = graph;
-        top->name = strdup (XLATOR_NAME);
+        top->name = strdup (LIBGF_XL_NAME);
 
         xlparent = CALLOC (1, sizeof(*xlparent));
         xlparent->xlator = top;
         graph->parents = xlparent;
-        asprintf (&top->type, XLATOR_NAME);
+        asprintf (&top->type, LIBGF_XL_NAME);
 
         top->init = libgf_client_init;
         top->fops = &libgf_client_fops;
