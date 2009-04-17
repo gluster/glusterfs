@@ -4478,6 +4478,80 @@ out:
         return op_ret;
 }
 
+int32_t
+libgf_client_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                                int32_t op_ret, int32_t op_errno)
+{
+        libgf_client_local_t    *local = frame->local;
+
+        local->reply_stub = fop_unlink_cbk_stub (frame, NULL, op_ret,
+                                                        op_errno);
+
+        LIBGF_REPLY_NOTIFY (local);
+        return 0;
+}
+
+int
+libgf_client_unlink (libglusterfs_client_ctx_t *ctx, loc_t *loc)
+{
+        int                             op_ret = -1;
+        libgf_client_local_t            *local = NULL;
+        call_stub_t                     *stub = NULL;
+
+        LIBGF_CLIENT_FOP (ctx, stub, unlink, local, loc);
+
+        op_ret = stub->args.unlink_cbk.op_ret;
+        errno = stub->args.unlink_cbk.op_errno;
+
+        if (op_ret == -1)
+                goto out;
+
+        inode_unlink (loc->inode, loc->parent, loc->name);
+
+out:
+        call_stub_destroy (stub);
+        return op_ret;
+}
+
+int
+glusterfs_unlink (glusterfs_handle_t handle, const char *path)
+{
+        int32_t                         op_ret = -1;
+        loc_t                           loc = {0, };
+        libglusterfs_client_ctx_t       *ctx = handle;
+        char                            *name = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup (path);
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "path lookup failed for (%s)", path);
+                goto out;
+        }
+
+        name = strdup (path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                                                basename (name));
+	if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "libgf_client_loc_fill returned -1, "
+                                " returning EINVAL");
+                errno = EINVAL;
+                goto out;
+        }
+
+        op_ret = libgf_client_unlink (ctx, &loc);
+
+out:
+        if (name)
+                FREE (name);
+        libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
