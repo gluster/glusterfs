@@ -244,6 +244,54 @@ out:
         return ictx;
 }
 
+#define LIBGF_UPDATE_LOOKUP     0x1
+#define LIBGF_UPDATE_STAT       0x2
+#define LIBGF_UPDATE_ALL        (LIBGF_UPDATE_LOOKUP | LIBGF_UPDATE_STAT)
+
+int
+libgf_update_iattr_cache (inode_t *inode, int flags, struct stat *buf)
+{
+        libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
+        time_t                          current = 0;
+        int                             op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, inode, out);
+
+        inode_ctx = libgf_get_inode_ctx (inode);
+        if (!inode_ctx) {
+                errno = EINVAL;
+                op_ret = -1;
+                goto out;
+        }
+
+        pthread_mutex_lock (&inode_ctx->lock);
+        {
+                /* Take a timestamp only after we've acquired the
+                 * lock.
+                 */
+                current = time (NULL);
+                if (flags & LIBGF_UPDATE_LOOKUP)
+                        inode_ctx->previous_lookup_time = current;
+
+                if (flags & LIBGF_UPDATE_STAT) {
+
+                        /* Update the cached stat struct only if a new
+                         * stat buf is given.
+                         */
+                        if (buf != NULL) {
+                                inode_ctx->previous_stat_time = current;
+                                memcpy (&inode_ctx->stbuf, buf,
+                                                sizeof (inode_ctx->stbuf));
+                        }
+                }
+        }
+        pthread_mutex_unlock (&inode_ctx->lock);
+        op_ret = 0;
+
+out:
+        return op_ret;
+}
+
 int32_t
 libgf_client_releasedir (xlator_t *this,
 			 fd_t *fd)
@@ -938,7 +986,7 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
         call_stub_t  *stub = NULL;
         int32_t op_ret;
         libgf_client_local_t *local = NULL;
-	xlator_t *this = NULL;
+        inode_t *inode = NULL;
         
         local = CALLOC (1, sizeof (*local));
         if (loc->inode) {
@@ -955,34 +1003,16 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
         op_ret = stub->args.lookup_cbk.op_ret;
         errno = stub->args.lookup_cbk.op_errno;
 
-        if (!op_ret) {
-                time_t current = 0;
-                libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-		inode_t *inode = stub->args.lookup_cbk.inode;
+        if (op_ret == -1)
+                goto out;
 
-		this = ctx->gf_ctx.graph;
-                if (!(inode_ctx = libgf_get_inode_ctx (inode)))
-                        inode_ctx = libgf_alloc_inode_ctx (ctx, inode);
+        inode = stub->args.lookup_cbk.inode;
+        if (!(libgf_get_inode_ctx (inode)))
+                libgf_alloc_inode_ctx (ctx, inode);
+        libgf_update_iattr_cache (inode, LIBGF_UPDATE_ALL, stbuf);
 
-                if (!inode_ctx)
-                        goto out;
-
-                current = time (NULL);
-
-		pthread_mutex_lock (&inode_ctx->lock); 
-		{
-			inode_ctx->previous_lookup_time = current;
-			inode_ctx->previous_stat_time = current;
-			memcpy (&inode_ctx->stbuf, &stub->args.lookup_cbk.buf, 
-				sizeof (inode_ctx->stbuf));
-		}
-		pthread_mutex_unlock (&inode_ctx->lock);
-                if (stbuf)
-                        *stbuf = stub->args.lookup_cbk.buf; 
-
-                if (dict)
-                        *dict = dict_ref (stub->args.lookup_cbk.dict);
-        }
+        if (dict)
+                *dict = dict_ref (stub->args.lookup_cbk.dict);
 out:
 	call_stub_destroy (stub);
         return op_ret;
@@ -1085,32 +1115,17 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
         libglusterfs_client_ctx_t *ctx = frame->root->state;
 	glusterfs_iobuf_t *iobuf = NULL;
 	dict_t *xattr_req = NULL;
+        inode_t *parent = NULL;
 
         if (op_ret == 0) {
-                time_t current = 0;
-                libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-		inode_t *parent = NULL;
-
                 parent = local->fop.lookup_cbk.loc->parent;
                 inode_link (inode, parent, local->fop.lookup_cbk.loc->name,
                             stbuf);
                 
-                if (!(inode_ctx = libgf_get_inode_ctx (inode)))
-                        inode_ctx = libgf_alloc_inode_ctx (ctx, inode);
+                if (!(libgf_get_inode_ctx (inode)))
+                        libgf_alloc_inode_ctx (ctx, inode);
 
-                if (!inode_ctx)
-                        goto out;
-                current = time (NULL);
-
-                pthread_mutex_lock (&inode_ctx->lock);
-                {
-                        inode_ctx->previous_lookup_time = current;
-                        inode_ctx->previous_stat_time = current;
-                        memcpy (&inode_ctx->stbuf, stbuf,
-                                sizeof (inode_ctx->stbuf));
-                }
-                pthread_mutex_unlock (&inode_ctx->lock);
-
+                libgf_update_iattr_cache (inode, LIBGF_UPDATE_ALL, stbuf);
                 /* inode_lookup (inode); */
         } else {
                 if ((local->fop.lookup_cbk.is_revalidate == 0) 
@@ -1504,38 +1519,24 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
         call_stub_t *stub = NULL;
         int32_t op_ret = 0;
         libgf_client_local_t *local = NULL;
-	xlator_t *this = NULL;
+        inode_t *libgf_inode = NULL;
 
         LIBGF_CLIENT_FOP (ctx, stub, create, local, loc, flags, mode, fd);
   
         op_ret = stub->args.create_cbk.op_ret;
         errno = stub->args.create_cbk.op_errno;
-        if (op_ret == 0) {
-                inode_t *libgf_inode = NULL;
-                time_t current = 0;
-		libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-                inode_t *parent = NULL;
+        if (op_ret == -1)
+                goto out;
 
-		parent = loc->parent;
+	libgf_inode = stub->args.create_cbk.inode;
+        inode_link (libgf_inode, loc->parent, loc->name,
+                        &stub->args.create_cbk.buf);
 
-		libgf_inode = stub->args.create_cbk.inode;
-                inode_link (libgf_inode, parent,
-                            loc->name, &stub->args.create_cbk.buf);
+        /* inode_lookup (libgf_inode); */
 
-                /* inode_lookup (libgf_inode); */
-
-                if (!(inode_ctx = libgf_alloc_inode_ctx (ctx, libgf_inode)))
-                        goto out;
-                current = time (NULL);
-
-		inode_ctx->previous_lookup_time = current;
-		inode_ctx->previous_stat_time = current;
-		memcpy (&inode_ctx->stbuf, &stub->args.create_cbk.buf, 
-			sizeof (inode_ctx->stbuf));
-
-		this = ctx->gf_ctx.graph;
-		inode_ctx_put (libgf_inode, this, (uint64_t)(long)inode_ctx); 
-        }
+        libgf_alloc_inode_ctx (ctx, libgf_inode);
+        libgf_update_iattr_cache (libgf_inode, LIBGF_UPDATE_ALL,
+                                        &stub->args.create_cbk.buf);
 
 out:
 	call_stub_destroy (stub);
@@ -1595,6 +1596,7 @@ glusterfs_open (glusterfs_handle_t handle,
 	xlator_t *this = NULL;
 	libglusterfs_client_ctx_t *ctx = handle;
 	char *name = NULL, *pathname = NULL;
+        libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -1670,32 +1672,22 @@ op_over:
         if (op_ret == -1) {
                 fd_unref (fd);
                 fd = NULL;
-        } else {
-                libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-                libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
+                goto out;
+        }
 
-                fd_ctx = libgf_get_fd_ctx (fd);
-                if (!fd_ctx) {
-                        if (!libgf_alloc_fd_ctx (ctx, fd)) {
-                                errno = EINVAL;
-                                op_ret = -1;
-                                goto out;
-                        }
+        if (!libgf_get_fd_ctx (fd)) {
+                if (!libgf_alloc_fd_ctx (ctx, fd)) {
+                        errno = EINVAL;
+                        op_ret = -1;
+                        goto out;
                 }
-                if ((flags & O_TRUNC) && ((flags & O_RDWR) 
-                                          || (flags & O_WRONLY))) {
-                        inode_ctx = libgf_get_inode_ctx (fd->inode);
-                        if (inode_ctx) {
-                                if (S_ISREG (inode_ctx->stbuf.st_mode)) {
-                                        inode_ctx->stbuf.st_size = 0;
-                                        inode_ctx->stbuf.st_blocks = 0;
-                                }
-                        } else {
-                                gf_log ("libglusterfsclient",
-                                        GF_LOG_WARNING,
-                                        "inode_ctx is NULL for inode (%p) belonging to fd (%p)", 
-                                        fd->inode, fd);
-                        }
+        }
+
+        if ((flags & O_TRUNC) && ((flags & O_RDWR) || (flags & O_WRONLY))) {
+                inode_ctx = libgf_get_inode_ctx (fd->inode);
+                if (S_ISREG (inode_ctx->stbuf.st_mode)) {
+                                inode_ctx->stbuf.st_size = 0;
+                                inode_ctx->stbuf.st_blocks = 0;
                 }
         }
 
@@ -3059,14 +3051,7 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
         errno = stub->args.stat_cbk.op_errno;
         *stbuf = stub->args.stat_cbk.buf;
 
-        pthread_mutex_lock (&inode_ctx->lock);
-        {
-                memcpy (&inode_ctx->stbuf, stbuf, sizeof (*stbuf));
-                current = time (NULL);
-                inode_ctx->previous_stat_time = current;
-        }
-        pthread_mutex_unlock (&inode_ctx->lock);
-
+        libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT, stbuf);
 	call_stub_destroy (stub);
 
 out:
@@ -3189,14 +3174,7 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
         errno = stub->args.fstat_cbk.op_errno;
         *buf = stub->args.fstat_cbk.buf;
 
-        pthread_mutex_lock (&inode_ctx->lock);
-        {
-                memcpy (&inode_ctx->stbuf, buf, sizeof (*buf));
-                current = time (NULL);
-                inode_ctx->previous_stat_time = current;
-        }
-        pthread_mutex_unlock (&inode_ctx->lock);
-
+        libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT, buf);
 	call_stub_destroy (stub);
 
 out:
@@ -3254,41 +3232,25 @@ libgf_client_mkdir (libglusterfs_client_ctx_t *ctx,
 	int32_t op_ret = -1;
         call_stub_t *stub = NULL;
         libgf_client_local_t *local = NULL;
-	xlator_t *this = NULL;
+        inode_t *libgf_inode = NULL;
 
         LIBGF_CLIENT_FOP (ctx, stub, mkdir, local, loc, mode);
-  
-        if (stub->args.mkdir_cbk.op_ret == 0) {
-                inode_t *libgf_inode = NULL;
-                time_t current = 0;
-		libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-                inode_t *parent = NULL;
-
-		parent = loc->parent;
-
-		libgf_inode = stub->args.mkdir_cbk.inode;
-                inode_link (libgf_inode, parent,
-                            loc->name, &stub->args.mkdir_cbk.buf);
-
-                /* inode_lookup (libgf_inode); */
-
-                inode_ctx = libgf_alloc_inode_ctx (ctx, libgf_inode);
-                if (!inode_ctx) {
-                        op_ret = -1;
-                        goto out;
-                }
-                current = time (NULL);
-
-		inode_ctx->previous_lookup_time = current;
-		inode_ctx->previous_stat_time = current;
-		memcpy (&inode_ctx->stbuf, &stub->args.mkdir_cbk.buf, 
-			sizeof (inode_ctx->stbuf));
-
-		this = ctx->gf_ctx.graph;
-        }
-
         op_ret = stub->args.mkdir_cbk.op_ret;
         errno = stub->args.mkdir_cbk.op_errno;
+
+        if (op_ret == -1)
+                goto out;
+
+	libgf_inode = stub->args.mkdir_cbk.inode;
+        inode_link (libgf_inode, loc->parent, loc->name,
+                        &stub->args.mkdir_cbk.buf);
+
+        /* inode_lookup (libgf_inode); */
+
+        libgf_alloc_inode_ctx (ctx, libgf_inode);
+        libgf_update_iattr_cache (libgf_inode, LIBGF_UPDATE_ALL,
+                                        &stub->args.mkdir_cbk.buf);
+
 out:
 	call_stub_destroy (stub);
 
