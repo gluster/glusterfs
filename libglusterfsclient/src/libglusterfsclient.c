@@ -41,6 +41,7 @@
 #include "compat.h"
 #include "compat-errno.h"
 #include <sys/vfs.h>
+#include <utime.h>
 
 #define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
@@ -4281,6 +4282,52 @@ glusterfs_utimes (glusterfs_handle_t handle, const char *path,
         ts[0].tv_nsec = times[0].tv_usec * 1000;
         ts[1].tv_sec = times[1].tv_sec;
         ts[1].tv_nsec = times[1].tv_usec * 1000;
+
+        op_ret = libgf_client_utimens (ctx, &loc, ts);
+out:
+        if (name)
+                FREE (name);
+        libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
+int
+glusterfs_utime (glusterfs_handle_t handle, const char *path,
+                 const struct utimbuf *buf)
+{
+        int32_t                         op_ret = -1;
+        loc_t                           loc = {0, };
+        libglusterfs_client_ctx_t       *ctx = handle;
+        struct timespec                 ts[2] = {{0,},{0,}};
+        char                            *name = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup (path);
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "path lookup failed for (%s)", path);
+                goto out;
+        }
+
+        name = strdup (path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                                                basename (name));
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "libgf_client_loc_fill returned -1,"
+                                " returning EINVAL");
+                errno = EINVAL;
+                goto out;
+        }
+
+        ts[0].tv_sec = buf->actime;
+        ts[0].tv_nsec = 0;
+
+        ts[1].tv_sec = buf->modtime;
+        ts[1].tv_nsec = 0;
 
         op_ret = libgf_client_utimens (ctx, &loc, ts);
 out:
