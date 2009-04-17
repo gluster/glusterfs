@@ -264,7 +264,7 @@ ioc_lookup_cbk (call_frame_t *frame,
 					ioc_table_lock (table);
 					{
 						table->cache_used -= 
-							page->size;
+							iobref_size (page->iobref);
 					}
 					ioc_table_unlock (table);
 				} else {
@@ -291,7 +291,8 @@ ioc_lookup_cbk (call_frame_t *frame,
 
 				ioc_table_lock (table);
 				{
-					table->cache_used += page->size;
+					table->cache_used +=
+                                                iobref_size (page->iobref);
 				}
 				ioc_table_unlock (table);
 				

@@ -74,7 +74,7 @@ ioc_page_destroy (ioc_page_t *page)
 {
 	int64_t page_size = 0;
 
-	page_size = page->size;
+	page_size = iobref_size (page->iobref);
 
 	if (page->waitq) {
 		/* frames waiting on this page, do not destroy this page */
@@ -336,6 +336,7 @@ ioc_fault_cbk (call_frame_t *frame,
 	int32_t destroy_size = 0;
 	size_t page_size = 0;
 	ioc_waitq_t *waitq = NULL;
+        size_t  iobref_page_size = 0;
 
 	trav_offset = offset;  
 	payload_size = op_ret;
@@ -403,6 +404,8 @@ ioc_fault_cbk (call_frame_t *frame,
 	
 				page->size = page_size;
 
+                                iobref_page_size = iobref_size (page->iobref);
+
 				if (page->waitq) {
 					/* wake up all the frames waiting on 
 					 * this page, including 
@@ -416,10 +419,10 @@ ioc_fault_cbk (call_frame_t *frame,
 
 	ioc_waitq_return (waitq);
 
-	if (page_size) {
+	if (iobref_page_size) {
 		ioc_table_lock (table);
 		{
-			table->cache_used += page_size;
+			table->cache_used += iobref_page_size;
 		}
 		ioc_table_unlock (table);
 	}
