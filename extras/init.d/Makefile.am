@@ -7,7 +7,7 @@ initdir = /etc/init.d
 
 $(GF_DISTRIBUTION): 
 	$(mkdir_p) $(DESTDIR)$(initdir)	
-	$(INSTALL_PROGRAM) $(abs_top_srcdir)/extras/init.d/glusterfsd-$(GF_DISTRIBUTION) $(DESTDIR)$(initdir)/glusterfsd
+	$(INSTALL_PROGRAM) $(top_srcdir)/extras/init.d/glusterfsd-$(GF_DISTRIBUTION) $(DESTDIR)$(initdir)/glusterfsd
 
 install-exec-local: $(GF_DISTRIBUTION)
 
