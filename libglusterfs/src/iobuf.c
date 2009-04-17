@@ -144,11 +144,30 @@ err:
 
 
 struct iobuf_arena *
+__iobuf_arena_unprune (struct iobuf_pool *iobuf_pool)
+{
+        struct iobuf_arena *iobuf_arena = NULL;
+        struct iobuf_arena *tmp = NULL;
+
+        list_for_each_entry (tmp, &iobuf_pool->purge.list, list) {
+                list_del_init (&tmp->list);
+                iobuf_arena = tmp;
+                break;
+        }
+
+        return iobuf_arena;
+}
+
+
+struct iobuf_arena *
 __iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool)
 {
         struct iobuf_arena *iobuf_arena = NULL;
 
-        iobuf_arena = __iobuf_arena_alloc (iobuf_pool);
+        iobuf_arena = __iobuf_arena_unprune (iobuf_pool);
+
+        if (!iobuf_arena)
+                iobuf_arena = __iobuf_arena_alloc (iobuf_pool);
 
         if (!iobuf_arena)
                 return NULL;
@@ -221,12 +240,16 @@ iobuf_pool_new (size_t arena_size, size_t page_size)
 }
 
 
-
 void
 __iobuf_pool_prune (struct iobuf_pool *iobuf_pool)
 {
         struct iobuf_arena *iobuf_arena = NULL;
         struct iobuf_arena *tmp = NULL;
+
+        if (list_empty (&iobuf_pool->arenas.list))
+                /* buffering - preserve this one arena (if at all)
+                   for __iobuf_arena_unprune */
+                return;
 
         list_for_each_entry_safe (iobuf_arena, tmp, &iobuf_pool->purge.list,
                                   list) {
