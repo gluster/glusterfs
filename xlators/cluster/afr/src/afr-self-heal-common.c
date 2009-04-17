@@ -177,6 +177,8 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
                         }
                 }
         }
+
+        FREE (ignorant_subvols);
 }
 
 
@@ -504,6 +506,8 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
         }
 
 out:
+        FREE (characters);
+
 	return nsources;
 }
 
