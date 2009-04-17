@@ -4429,6 +4429,55 @@ out:
 	return op_ret;
 }
 
+int
+glusterfs_mkfifo (glusterfs_handle_t handle, const char *path, mode_t mode)
+{
+
+        libglusterfs_client_ctx_t       *ctx = handle;
+        loc_t                           loc = {0, };
+        char                            *name = NULL;
+        int32_t                         op_ret = -1;
+        dev_t                           dev = 0;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup (path);
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+        if (op_ret == 0) {
+                op_ret = -1;
+                errno = EEXIST;
+                goto out;
+        }
+
+        op_ret = libgf_client_path_lookup (&loc, ctx, 0);
+        if (op_ret == -1) {
+                errno = ENOENT;
+                goto out;
+        }
+
+        name = strdup (path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                                                basename (name));
+        if (op_ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                                "libgf_client_loc_fill returned -1, "
+                                "returning EINVAL");
+                errno = EINVAL;
+                goto out;
+        }
+
+        loc.inode = inode_new (ctx->itable);
+        op_ret = libgf_client_mknod (ctx, &loc, mode | S_IFIFO, dev);
+
+out:
+	libgf_client_loc_wipe (&loc);
+        if (name)
+                free (name);
+
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
