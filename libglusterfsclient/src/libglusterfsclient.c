@@ -3615,6 +3615,62 @@ out:
         return op_ret;
 }
 
+int
+libgf_client_fchmod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                                int32_t op_ret, int32_t op_errno,
+                                struct stat *buf)
+{
+        libgf_client_local_t    *local = frame->local;
+
+        local->reply_stub = fop_fchmod_cbk_stub (frame, NULL, op_ret, op_errno,
+                                                        buf);
+        LIBGF_REPLY_NOTIFY (local);
+
+        return 0;
+}
+
+int
+libgf_client_fchmod (libglusterfs_client_ctx_t *ctx, fd_t *fd, mode_t mode)
+{
+        int                     op_ret = -1;
+        libgf_client_local_t    *local = NULL;
+        call_stub_t             *stub = NULL;
+
+        LIBGF_CLIENT_FOP (ctx, stub, fchmod, local, fd, mode);
+
+        op_ret = stub->args.fchmod_cbk.op_ret;
+        errno = stub->args.fchmod_cbk.op_errno;
+
+        if (op_ret == -1)
+                goto out;
+
+        libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
+                                        &stub->args.fchmod_cbk.buf);
+out:
+        call_stub_destroy (stub);
+        return op_ret;
+}
+
+int
+glusterfs_fchmod (glusterfs_file_t fd, mode_t mode)
+{
+        libglusterfs_client_fd_ctx_t    *fdctx = NULL;
+        int                             op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
+        fdctx = libgf_get_fd_ctx (fd);
+
+        if (!fdctx) {
+                errno = EBADF;
+                goto out;
+        }
+
+        op_ret = libgf_client_fchmod (fdctx->ctx, fd, mode);
+
+out:
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
