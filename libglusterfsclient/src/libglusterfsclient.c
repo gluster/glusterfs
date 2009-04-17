@@ -158,25 +158,47 @@ out:
         return fdctx;
 }
 
+libglusterfs_client_fd_ctx_t *
+libgf_del_fd_ctx (fd_t *fd)
+{
+        uint64_t                        ctxaddr = 0;
+        libglusterfs_client_fd_ctx_t    *ctx = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
+
+        if (fd_ctx_del (fd, libgf_fd_to_xlator (fd) , &ctxaddr) == -1)
+                goto out;
+
+        ctx = (libglusterfs_client_fd_ctx_t *)(long)ctxaddr;
+
+out:
+        return ctx;
+}
+
 int32_t
 libgf_client_release (xlator_t *this,
 		      fd_t *fd)
 {
 	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        fd_ctx = libgf_get_fd_ctx (fd);
-	pthread_mutex_destroy (&fd_ctx->lock);
+        fd_ctx = libgf_del_fd_ctx (fd);
+        if (fd_ctx != NULL) {
+                pthread_mutex_destroy (&fd_ctx->lock);
+                FREE (fd_ctx);
+        }
 
 	return 0;
 }
-
 
 int32_t
 libgf_client_releasedir (xlator_t *this,
 			 fd_t *fd)
 {
 	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        fd_ctx = libgf_get_fd_ctx (fd);
-	pthread_mutex_destroy (&fd_ctx->lock);
+        fd_ctx = libgf_del_fd_ctx (fd);
+        if (fd_ctx != NULL) {
+                pthread_mutex_destroy (&fd_ctx->lock);
+                FREE (fd_ctx);
+        }
 
 	return 0;
 }
