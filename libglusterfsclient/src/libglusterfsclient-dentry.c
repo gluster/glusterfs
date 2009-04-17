@@ -245,9 +245,9 @@ __do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx,
         if (parent) {
                 inode_ref (parent);
                 gf_log ("libglusterfsclient-dentry", GF_LOG_DEBUG,
-                        "loc->parent(%"PRId64") already present. sending lookup "
-                        "for %"PRId64"/%s", parent->ino, parent->ino,
-                        loc->name);
+                        "loc->parent(%"PRId64") already present. sending "
+                        "lookup for %"PRId64"/%s", parent->ino, parent->ino,
+                        loc->path);
                 resolved = strdup (loc->path);
                 resolved = dirname (resolved);
         } else {
