@@ -510,6 +510,7 @@ __socket_proto_state_machine (transport_t *this)
 	size_t                size2 = 0;
         int                   previous_state = -1;
 	struct socket_header *hdr = NULL;
+        struct iobuf         *iobuf = NULL;
 
 
         priv = this->private;
@@ -592,10 +593,17 @@ __socket_proto_state_machine (transport_t *this)
                         if (size2) {
                                 /* TODO: sanity check size2 < page size
                                  */
-                                priv->incoming.iobuf =
-                                        iobuf_get (this->xl->ctx->iobuf_pool);
-                                priv->incoming.buf_p =
-                                        priv->incoming.iobuf->ptr;
+                                iobuf = iobuf_get (this->xl->ctx->iobuf_pool);
+                                if (!iobuf) {
+                                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                                "unable to allocate IO buffer "
+                                                "for peer %s",
+                                                this->peerinfo.identifier);
+                                        ret = -ENOMEM;
+                                        goto unlock;
+                                }
+                                priv->incoming.iobuf = iobuf;
+                                priv->incoming.buf_p = iobuf->ptr;
                         }
 
                         priv->incoming.vector[0].iov_base =

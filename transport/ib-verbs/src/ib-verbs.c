@@ -525,6 +525,13 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
 
         if (size1) {
                 hdr = CALLOC (1, size1);
+                if (!hdr) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "unable to allocate header for peer %s",
+                                this->peerinfo.identifier);
+                        ret = -ENOMEM;
+                        goto err;
+                }
                 memcpy (hdr, copy_from, size1);
                 copy_from += size1;
                 *hdr_p = hdr;
@@ -533,6 +540,13 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
 
         if (size2) {
                 iobuf = iobuf_get (this->xl->ctx->iobuf_pool);
+                if (!iobuf) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "unable to allocate IO buffer for peer %s",
+                                this->peerinfo.identifier);
+                        ret = -ENOMEM;
+                        goto err;
+                }
                 memcpy (iobuf->ptr, copy_from, size2);
                 *iobuf_p = iobuf;
         }
