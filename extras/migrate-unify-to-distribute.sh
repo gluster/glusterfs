@@ -15,9 +15,22 @@
 
 # This is export from old 'cluster/unify' volume's namespace volume.
 namespace_export=/exports/export-ns
+namespace_host=localhost
 
 # This is the new mount point with 'cluster/distribute' volume
 distribute_mount=/mnt/glusterfs
 
-cd ${namespace_export};
-find . -exec stat ${distribute_mount}/{} \;
+function execute_on()
+{
+    local node="$1"
+    local cmd="$2"
+
+    if [ "$node" = "localhost" ]; then
+        $cmd
+    else
+        ssh "$node" sh -c "$cmd"
+    fi
+}
+
+execute_on $namespace_host "cd ${namespace_export} && find ." |
+(cd ${distribute_mount} && xargs -d '\n' stat -c '%n')
