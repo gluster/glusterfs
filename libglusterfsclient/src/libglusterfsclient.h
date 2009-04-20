@@ -115,9 +115,6 @@ glusterfs_file_t
 glusterfs_creat (const char *path, mode_t mode);
 
 int
-glusterfs_rmdir (glusterfs_handle_t handle, const char *path);
-
-int
 glusterfs_close (glusterfs_file_t fd);
 
 int
@@ -236,8 +233,10 @@ int
 glusterfs_mkdir (const char *path, mode_t mode);
 
 int
-glusterfs_rmdir (glusterfs_handle_t handle, const char *path);
+glusterfs_glh_rmdir (glusterfs_handle_t handle, const char *path);
 
+int
+glusterfs_rmdir (const char *path);
 /* FIXME: implement man 3 readdir semantics */
 int
 glusterfs_readdir (glusterfs_dir_t fd, struct dirent *dirp,
