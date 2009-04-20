@@ -91,8 +91,11 @@ glusterfs_fini (glusterfs_handle_t handle);
  */
 
 int
-glusterfs_get (glusterfs_handle_t handle, const char *path, void *buf,
+glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
 	       size_t size, struct stat *stbuf);
+
+int
+glusterfs_get (const char *path, void *buf, size_t size, struct stat *stbuf);
 
 int
 glusterfs_get_async (glusterfs_handle_t handle, const char *path, size_t size,

@@ -1187,11 +1187,8 @@ out:
 }
 
 int 
-glusterfs_get (glusterfs_handle_t handle, 
-	       const char *path, 
-	       void *buf,
-	       size_t size, 
-	       struct stat *stbuf)
+glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
+                        size_t size, struct stat *stbuf)
 {
         int32_t op_ret = -1;
         loc_t loc = {0, };
@@ -1265,6 +1262,30 @@ out:
 	}
 	libgf_client_loc_wipe (&loc);
 
+        return op_ret;
+}
+
+int
+glusterfs_get (const char *path, void *buf, size_t size, struct stat *stbuf)
+{
+        struct vmp_entry        *entry = NULL;
+        int                     op_ret = -1;
+        char                    *vpath = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, stbuf, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        op_ret = glusterfs_glh_get (entry->handle, vpath, buf, size, stbuf);
+
+out:
         return op_ret;
 }
 
