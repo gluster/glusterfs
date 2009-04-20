@@ -263,6 +263,13 @@ glusterfs_glh_chmod (glusterfs_handle_t handle, const char *path, mode_t mode);
 
 int
 glusterfs_chmod (const char *path, mode_t mode);
+
+int
+glusterfs_glh_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
+                        gid_t group);
+
+int
+glusterfs_chown (const char *path, uid_t owner, gid_t group);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
