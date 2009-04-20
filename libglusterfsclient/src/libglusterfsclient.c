@@ -4399,7 +4399,7 @@ out:
 }
 
 int
-glusterfs_link (glusterfs_handle_t handle, const char *oldpath,
+glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
                         const char *newpath)
 {
         libglusterfs_client_ctx_t       *ctx = handle;
@@ -4455,6 +4455,43 @@ out:
         libgf_client_loc_wipe (&old);
         libgf_client_loc_wipe (&new);
 
+        return op_ret;
+}
+
+int
+glusterfs_link (const char *oldpath, const char *newpath)
+{
+        struct vmp_entry        *oldentry = NULL;
+        struct vmp_entry        *newentry = NULL;
+        char                    *oldvpath = NULL;
+        char                    *newvpath = NULL;
+        int                     op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, newpath, out);
+
+        oldentry = libgf_vmp_search_entry ((char *)oldpath);
+        if (!oldentry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        newentry = libgf_vmp_search_entry ((char *)newpath);
+        if (!newentry) {
+                errno =  ENODEV;
+                goto out;
+        }
+
+        /* Cannot hard link across glusterfs mounts. */
+        if (newentry != oldentry) {
+                errno = EXDEV;
+                goto out;
+        }
+
+        newvpath = libgf_vmp_virtual_path (newentry, newpath);
+        oldvpath = libgf_vmp_virtual_path (oldentry, oldpath);
+        op_ret = glusterfs_glh_link (newentry->handle, oldvpath, newvpath);
+out:
         return op_ret;
 }
 

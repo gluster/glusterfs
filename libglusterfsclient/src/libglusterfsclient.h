@@ -277,6 +277,12 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path);
 glusterfs_dir_t
 glusterfs_opendir (const char *path);
 
+int
+glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
+                        const char *newpath);
+
+int
+glusterfs_link (const char *oldpath, const char *newpath);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
