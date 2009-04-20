@@ -4828,8 +4828,8 @@ out:
 }
 
 int
-glusterfs_utimes (glusterfs_handle_t handle, const char *path,
-                  const struct timeval times[2])
+glusterfs_glh_utimes (glusterfs_handle_t handle, const char *path,
+                        const struct timeval times[2])
 {
         int32_t                         op_ret = -1;
         loc_t                           loc = {0, };
@@ -4869,6 +4869,27 @@ out:
         if (name)
                 FREE (name);
         libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
+int
+glusterfs_utimes (const char *path, const struct timeval times[2])
+{
+        struct vmp_entry        *entry = NULL;
+        char                    *vpath = NULL;
+        int                     op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        op_ret = glusterfs_glh_utimes (entry->handle, vpath, times);
+out:
         return op_ret;
 }
 
