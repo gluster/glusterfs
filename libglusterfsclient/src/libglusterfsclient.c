@@ -2237,7 +2237,6 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx,
         if (op_ret > 0) {
                 int src = 0, dst = 0;
                 off_t src_offset = 0, dst_offset = 0;
-                op_ret = 0;
     
                 while ((size != 0) && (dst < dst_count) && (src < src_count)) {
                         int len = 0, src_len, dst_len;
