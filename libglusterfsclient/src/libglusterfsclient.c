@@ -5417,8 +5417,8 @@ libgf_client_readlink (libglusterfs_client_ctx_t *ctx, loc_t *loc, char *buf,
 }
 
 ssize_t
-glusterfs_readlink (glusterfs_handle_t handle, const char *path, char *buf,
-                    size_t bufsize)
+glusterfs_glh_readlink (glusterfs_handle_t handle, const char *path, char *buf,
+                                size_t bufsize)
 {
         int32_t                         op_ret = -1;
         loc_t                           loc = {0, };
@@ -5454,6 +5454,28 @@ out:
                 FREE (name);
 
         libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
+ssize_t
+glusterfs_readlink (const char *path, char *buf, size_t bufsize)
+{
+        struct vmp_entry        *entry = NULL;
+        char                    *vpath = NULL;
+        int                     op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        op_ret = glusterfs_glh_readlink (entry->handle, vpath, buf, bufsize);
+out:
         return op_ret;
 }
 
@@ -5590,8 +5612,9 @@ glusterfs_realpath (glusterfs_handle_t handle, const char *path,
                                         goto err;
                                 }
 
-                                ret = glusterfs_readlink (handle, rpath, buf,
-                                                          path_max - 1);
+                                ret = glusterfs_glh_readlink (handle, rpath,
+                                                                buf,
+                                                                path_max - 1);
                                 if (ret < 0) {
                                         gf_log ("libglusterfsclient",
                                                 GF_LOG_ERROR,
