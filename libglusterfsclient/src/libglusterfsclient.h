@@ -338,6 +338,13 @@ glusterfs_glh_symlink (glusterfs_handle_t handle, const char *oldpath,
 
 int
 glusterfs_symlink (const char *oldpath, const char *newpath);
+
+ssize_t
+glusterfs_glh_readlink (glusterfs_handle_t handle, const char *path, char *buf,
+                                size_t bufsize);
+
+ssize_t
+glusterfs_readlink (const char *path, char *buf, size_t bufsize);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
