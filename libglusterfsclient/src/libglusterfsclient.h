@@ -102,8 +102,11 @@ glusterfs_get_async (glusterfs_handle_t handle, const char *path, size_t size,
 		     glusterfs_get_cbk_t cbk, void *cbk_data);
 
 glusterfs_file_t
-glusterfs_open (glusterfs_handle_t handle, const char *path, int flags,
-		mode_t mode);
+glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,
+                        ...);
+
+glusterfs_file_t
+glusterfs_open (const char *path, int flags, ...);
 
 glusterfs_file_t
 glusterfs_creat (glusterfs_handle_t handle, const char *path, mode_t mode);

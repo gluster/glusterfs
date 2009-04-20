@@ -340,7 +340,7 @@ do_open (int fd, int flags, mode_t mode)
                         return;
                 }
 
-                glfs_fd = glusterfs_open (handle, path, flags, mode);
+                glfs_fd = glusterfs_glh_open (handle, path, flags, mode);
                 if (glfs_fd) {
                         ret = booster_get_unused_fd (booster_glfs_fdtable,
                                                      glfs_fd, fd);
