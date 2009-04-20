@@ -299,6 +299,13 @@ glusterfs_glh_statvfs (glusterfs_handle_t handle, const char *path,
 
 int
 glusterfs_statvfs (const char *path, struct statvfs *buf);
+
+int
+glusterfs_glh_utimes (glusterfs_handle_t handle, const char *path,
+                        const struct timeval times[2]);
+
+int
+glusterfs_utimes (const char *path, const struct timeval times[2]);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
