@@ -209,8 +209,10 @@ __if_fd_pre_op_done (xlator_t *this, fd_t *fd)
 
                 fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
-                if (fd_ctx->pre_op_done)
+                if (fd_ctx->pre_op_done) {
+                        fd_ctx->pre_op_done = 0;
                         op_ret = 1;
+                }
         }
 out:
         UNLOCK (&fd->lock);
