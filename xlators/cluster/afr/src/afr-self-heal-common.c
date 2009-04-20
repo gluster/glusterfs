@@ -29,7 +29,6 @@
 
 /**
  * select_source - select a source and return it
- * TODO: take into account option 'favorite-child'
  */
 
 int
