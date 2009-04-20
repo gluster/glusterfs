@@ -1178,7 +1178,10 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
         inode = stub->args.lookup_cbk.inode;
         if (!(libgf_get_inode_ctx (inode)))
                 libgf_alloc_inode_ctx (ctx, inode);
-        libgf_update_iattr_cache (inode, LIBGF_UPDATE_ALL, stbuf);
+        libgf_update_iattr_cache (inode, LIBGF_UPDATE_ALL,
+                                        &stub->args.lookup_cbk.buf);
+        if (stbuf)
+                *stbuf = stub->args.lookup_cbk.buf;
 
         if (dict)
                 *dict = dict_ref (stub->args.lookup_cbk.dict);
@@ -3326,9 +3329,11 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
  
         op_ret = stub->args.stat_cbk.op_ret;
         errno = stub->args.stat_cbk.op_errno;
-        *stbuf = stub->args.stat_cbk.buf;
+        if (stbuf)
+                *stbuf = stub->args.stat_cbk.buf;
 
-        libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT, stbuf);
+        libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
+                                        &stub->args.stat_cbk.buf);
 	call_stub_destroy (stub);
 
 out:
@@ -3519,9 +3524,11 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
  
         op_ret = stub->args.fstat_cbk.op_ret;
         errno = stub->args.fstat_cbk.op_errno;
-        *buf = stub->args.fstat_cbk.buf;
+        if (buf)
+                *buf = stub->args.fstat_cbk.buf;
 
-        libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT, buf);
+        libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
+                                        &stub->args.fstat_cbk.buf);
 	call_stub_destroy (stub);
 
 out:
