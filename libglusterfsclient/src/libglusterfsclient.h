@@ -115,9 +115,6 @@ glusterfs_file_t
 glusterfs_creat (const char *path, mode_t mode);
 
 int
-glusterfs_mkdir (glusterfs_handle_t handle, const char *path, mode_t mode);
-
-int
 glusterfs_rmdir (glusterfs_handle_t handle, const char *path);
 
 int
@@ -233,7 +230,10 @@ off_t
 glusterfs_lseek (glusterfs_file_t fd, off_t offset, int whence);
 
 int
-glusterfs_mkdir (glusterfs_handle_t handle, const char *path, mode_t mode);
+glusterfs_glh_mkdir (glusterfs_handle_t handle, const char *path, mode_t mode);
+
+int
+glusterfs_mkdir (const char *path, mode_t mode);
 
 int
 glusterfs_rmdir (glusterfs_handle_t handle, const char *path);
