@@ -30,6 +30,8 @@ __BEGIN_DECLS
 #include <dirent.h>
 #include <sys/vfs.h>
 #include <sys/statvfs.h>
+#include <utime.h>
+#include <sys/time.h>
 
 typedef struct {
         struct iovec *vector;
@@ -306,6 +308,13 @@ glusterfs_glh_utimes (glusterfs_handle_t handle, const char *path,
 
 int
 glusterfs_utimes (const char *path, const struct timeval times[2]);
+
+int
+glusterfs_glh_utime (glusterfs_handle_t handle, const char *path,
+                        const struct utimbuf *buf);
+
+int
+glusterfs_utime (const char *path, const struct utimbuf *buf);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
