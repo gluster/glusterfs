@@ -2079,12 +2079,9 @@ libgf_client_setxattr (libglusterfs_client_ctx_t *ctx,
 }
 
 int 
-glusterfs_setxattr (glusterfs_handle_t handle,
-                    const char *path, 
-                    const char *name,
-                    const void *value, 
-                    size_t size, 
-                    int flags)
+glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
+                                const char *name, const void *value,
+                                size_t size, int flags)
 {
         int32_t op_ret = -1;
         loc_t loc = {0, };
@@ -2129,6 +2126,31 @@ out:
 }
 
 int 
+glusterfs_setxattr (const char *path, const char *name, const void *value,
+                        size_t size, int flags)
+{
+        struct vmp_entry        *entry = NULL;
+        int                     op_ret = -1;
+        char                    *vpath = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        op_ret = glusterfs_glh_setxattr (entry->handle, vpath, name, value,
+                                                size, flags);
+out:
+        return op_ret;
+}
+
+int
 glusterfs_lsetxattr (glusterfs_handle_t handle, 
                      const char *path, 
                      const char *name,

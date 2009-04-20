@@ -131,9 +131,13 @@ int
 glusterfs_fstat (glusterfs_file_t fd, struct stat *stbuf);
 
 int
-glusterfs_setxattr (glusterfs_handle_t handle, const char *path,
-		    const char *name, const void *value, size_t size,
-		    int flags);
+glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
+                                const char *name, const void *value,
+                                size_t size, int flags);
+
+int
+glusterfs_setxattr (const char *path, const char *name, const void *value,
+                        size_t size, int flags);
 
 int
 glusterfs_lsetxattr (glusterfs_handle_t handle, const char *path,
