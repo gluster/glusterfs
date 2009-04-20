@@ -270,6 +270,13 @@ glusterfs_glh_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
 
 int
 glusterfs_chown (const char *path, uid_t owner, gid_t group);
+
+glusterfs_dir_t
+glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path);
+
+glusterfs_dir_t
+glusterfs_opendir (const char *path);
+
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
