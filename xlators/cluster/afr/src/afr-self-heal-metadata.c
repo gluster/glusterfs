@@ -568,6 +568,15 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 	}
 
 	source = afr_sh_select_source (sh->sources, priv->child_count);
+
+        if (source == -1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "No active sources found.");
+
+                afr_sh_metadata_finish (frame, this);
+                return 0;
+        }
+
 	sh->source = source;
 
 	/* detect changes not visible through pending flags -- JIC */
