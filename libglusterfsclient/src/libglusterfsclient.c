@@ -4016,7 +4016,7 @@ out:
 }
 
 glusterfs_dir_t
-glusterfs_opendir (glusterfs_handle_t handle, const char *path)
+glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
 {
         int                             op_ret = -1;
         libglusterfs_client_ctx_t       *ctx = handle;
@@ -4071,6 +4071,27 @@ out:
                 FREE (name);
         libgf_client_loc_wipe (&loc);
         return dirfd;
+}
+
+glusterfs_dir_t
+glusterfs_opendir (const char *path)
+{
+        struct vmp_entry        *entry = NULL;
+        char                    *vpath = NULL;
+        glusterfs_dir_t         dir = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        dir = glusterfs_glh_opendir (entry->handle, vpath);
+out:
+        return dir;
 }
 
 int
