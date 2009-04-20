@@ -225,6 +225,9 @@ int
 glusterfs_mknod(glusterfs_handle_t handle, const char *pathname, mode_t mode,
                 dev_t dev);
 
+char *
+glusterfs_realpath (glusterfs_handle_t handle, const char *path,
+                        char *resolved_path);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
