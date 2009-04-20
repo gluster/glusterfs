@@ -219,4 +219,15 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
                      dict_t **dict,
                      dict_t *xattr_req);
 
+/* We're not expecting more than 10-15
+ * VMPs per process so a list is acceptable.
+ */
+struct vmp_entry {
+        struct list_head list;
+        char * vmp;
+        int vmplen;
+        glusterfs_handle_t handle;
+};
+
+
 #endif

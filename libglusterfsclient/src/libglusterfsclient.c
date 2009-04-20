@@ -43,6 +43,7 @@
 #include <sys/vfs.h>
 #include <utime.h>
 #include <sys/param.h>
+#include <list.h>
 
 #define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
@@ -55,6 +56,12 @@ int32_t libgf_client_readlink (libglusterfs_client_ctx_t *ctx, loc_t *loc,
 static int first_init = 1;
 static int first_fini = 1;
 
+/* The global list of virtual mount points. This is only the
+ * head of list so will be empty.*/
+struct vmp_entry vmplist;
+int vmpentries = 0;
+
+#define libgf_vmp_virtual_path(entry, path) ((char *)(path + (entry->vmplen-1)))
 
 char *
 zr_build_process_uuid ()
@@ -839,6 +846,162 @@ glusterfs_init (glusterfs_init_params_t *init_ctx)
         return ctx;
 }
 
+struct vmp_entry *
+libgf_init_vmpentry (char *vmp, glusterfs_handle_t *vmphandle)
+{
+        struct vmp_entry        *entry = NULL;
+        int                     vmplen = 0;
+        int                     appendslash = 0;
+
+        entry = CALLOC (1, sizeof (struct vmp_entry));
+        if (!entry)
+                return NULL;
+
+        vmplen = strlen (vmp);
+        if (vmp[vmplen - 1] != '/') {
+                vmplen++;
+                appendslash = 1;
+        }
+
+        entry->vmp = CALLOC (vmplen, sizeof (char));
+        strcpy (entry->vmp, vmp);
+        if (appendslash)
+                entry->vmp[vmplen-1] = '/';
+        entry->vmplen = vmplen;
+        entry->handle = vmphandle;
+        INIT_LIST_HEAD (&entry->list);
+        return entry;
+}
+
+int
+libgf_vmp_map_ghandle (char *vmp, glusterfs_handle_t *vmphandle)
+{
+        int                     ret = -1;
+        struct vmp_entry        *vmpentry = NULL;
+
+        /* FIXME: We dont check if the given vmp already exists
+         * in the table, but we should add this check later.
+         */
+        vmpentry = libgf_init_vmpentry (vmp, vmphandle);
+        if (!vmpentry)
+                goto out;
+
+        if (vmpentries == 0)
+                INIT_LIST_HEAD (&vmplist.list);
+
+        list_add_tail (&vmpentry->list, &vmplist.list);
+        ++vmpentries;
+        ret = 0;
+out:
+
+        return ret;
+}
+
+/* Returns the number of characters that match between an entry
+ * and the path.
+ */
+int
+libgf_strmatchcount (char *string1, int s1len, char *string2, int s2len)
+{
+        int     i = 0;
+        int     tosearch = 0;
+        int     matchcount = 0;
+
+        s1len = strlen (string1);
+        s2len = strlen (string2);
+
+        if (s1len <= s2len)
+                tosearch = s1len;
+        else
+                tosearch = s2len;
+
+        for (;i < tosearch; i++) {
+                if (string1[i] == string2[i])
+                        matchcount++;
+                else
+                        break;
+        }
+
+        return matchcount;
+}
+
+int
+libgf_vmp_entry_match (struct vmp_entry *entry, char *path)
+{
+        return libgf_strmatchcount (entry->vmp, entry->vmplen, path,
+                                        strlen(path));
+}
+
+struct vmp_entry *
+libgf_vmp_search_entry (char *path)
+{
+        struct vmp_entry        *entry = NULL;
+        int                     matchcount = 0;
+        struct vmp_entry        *maxentry = NULL;
+        int                     maxcount = 0;
+
+        if (!path)
+                goto out;
+
+        if (list_empty (&vmplist.list)) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Virtual Mount Point "
+                                "list is empty.");
+                goto out;
+        }
+
+        list_for_each_entry(entry, &vmplist.list, list) {
+                matchcount = libgf_vmp_entry_match (entry, path);
+                if ((matchcount == entry->vmplen) && (matchcount > maxcount)) {
+                        maxcount = matchcount;
+                        maxentry = entry;
+                }
+        }
+
+out:
+        if (maxentry)
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry found: %s: %s",
+                                path, maxentry->vmp);
+        else
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry not found");
+
+        return maxentry;
+}
+
+/* Path must be validated already. */
+glusterfs_handle_t
+libgf_vmp_get_ghandle (char * path)
+{
+        struct vmp_entry        *entry = NULL;
+
+        entry = libgf_vmp_search_entry (path);
+
+        if (entry == NULL)
+                return NULL;
+
+        return entry->handle;
+}
+
+int
+glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
+{
+        glusterfs_handle_t      vmphandle = NULL;
+        int                     ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, vmp, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ipars, out);
+
+        vmphandle = glusterfs_init (ipars);
+        if (!vmphandle) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        ret = libgf_vmp_map_ghandle (vmp, vmphandle);
+
+out:
+
+        return ret;
+}
 
 void
 glusterfs_reset (void)
