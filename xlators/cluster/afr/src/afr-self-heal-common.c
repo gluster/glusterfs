@@ -138,9 +138,6 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
 	}
 
 	for (i = 0; i < child_count; i++) {
-		if (!xattr[i])
-			continue;
-
 		pending = NULL;
 
                 for (j = 0; j < child_count; j++) {
