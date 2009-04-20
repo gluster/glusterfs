@@ -6415,7 +6415,7 @@ client_protocol_reconnect (void *trans_ptr)
 	}
 	pthread_mutex_unlock (&conn->lock);
 
-        if (ret == -1) {
+        if (ret == -1 && errno != EINPROGRESS) {
                 default_notify (trans->xl, GF_EVENT_CHILD_DOWN, NULL);
         }
 }
