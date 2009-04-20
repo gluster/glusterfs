@@ -44,6 +44,7 @@
 #include <utime.h>
 #include <sys/param.h>
 #include <list.h>
+#include <stdarg.h>
 
 #define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
@@ -1796,10 +1797,7 @@ out:
 }
 
 glusterfs_file_t 
-glusterfs_open (glusterfs_handle_t handle,
-                const char *path, 
-                int flags, 
-                mode_t mode)
+glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
 {
         loc_t loc = {0, };
         long op_ret = -1;
@@ -1808,6 +1806,8 @@ glusterfs_open (glusterfs_handle_t handle,
 	libglusterfs_client_ctx_t *ctx = handle;
 	char *name = NULL, *pathname = NULL;
         libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
+        mode_t mode = 0;
+        va_list ap;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -1870,6 +1870,9 @@ glusterfs_open (glusterfs_handle_t handle,
                         op_ret = -1;
                         goto op_over;
                 }
+                va_start (ap, flags);
+                mode = va_arg (ap, mode_t);
+                va_end (ap);
                 op_ret = libgf_client_creat (ctx, &loc, fd, flags, mode);
         } else {
                 if (S_ISDIR (loc.inode->st_mode))
@@ -1911,13 +1914,41 @@ out:
         return fd;
 }
 
+glusterfs_file_t
+glusterfs_open (const char *path, int flags, ...)
+{
+        struct vmp_entry        *entry = NULL;
+        char                    *vpath = NULL;
+        glusterfs_file_t        fh = NULL;
+        mode_t                  mode = 0;
+        va_list                 ap;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        if (flags & O_CREAT) {
+                va_start (ap, flags);
+                mode = va_arg (ap, mode_t);
+                va_end (ap);
+                fh = glusterfs_glh_open (entry->handle, vpath, flags, mode);
+        } else
+                fh = glusterfs_glh_open (entry->handle, vpath, flags);
+out:
+        return fh;
+}
 
 glusterfs_file_t 
 glusterfs_creat (glusterfs_handle_t handle,
                  const char *path, 
                  mode_t mode)
 {
-	return glusterfs_open (handle, path, 
+	return glusterfs_glh_open (handle, path,
 			       (O_CREAT | O_WRONLY | O_TRUNC), mode);
 }
 
