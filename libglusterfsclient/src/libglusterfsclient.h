@@ -28,6 +28,7 @@ __BEGIN_DECLS
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <sys/vfs.h>
 
 typedef struct {
         struct iovec *vector;
@@ -283,6 +284,13 @@ glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
 
 int
 glusterfs_link (const char *oldpath, const char *newpath);
+
+int
+glusterfs_glh_statfs (glusterfs_handle_t handle, const char *path,
+                        struct statfs *buf);
+
+int
+glusterfs_statfs (const char *path, struct statfs *buf);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void

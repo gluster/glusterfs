@@ -4536,7 +4536,7 @@ out:
 }
 
 int
-glusterfs_statfs (glusterfs_handle_t handle, const char *path,
+glusterfs_glh_statfs (glusterfs_handle_t handle, const char *path,
                         struct statfs *buf)
 {
         struct statvfs                  stvfs = {0, };
@@ -4591,6 +4591,28 @@ out:
         if (name)
                 FREE (name);
         libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
+int
+glusterfs_statfs (const char *path, struct statfs *buf)
+{
+        struct vmp_entry        *entry = NULL;
+        char                    *vpath = NULL;
+        int                     op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        op_ret = glusterfs_glh_statfs (entry->handle, vpath, buf);
+out:
         return op_ret;
 }
 
