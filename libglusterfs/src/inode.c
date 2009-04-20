@@ -705,6 +705,8 @@ inode_lookup (inode_t *inode)
         {
 		if (!__is_inode_hashed (inode)) {
 			lookup_inode = __inode_search (table, inode->ino);
+                        if (lookup_inode == NULL)
+                                lookup_inode = inode;
 		}
 
                 __inode_lookup (lookup_inode);
@@ -728,6 +730,8 @@ inode_forget (inode_t *inode, uint64_t nlookup)
         {
 		if (!__is_inode_hashed (inode)) {
 			forget_inode = __inode_search (table, inode->ino);
+                        if (forget_inode == NULL)
+                                forget_inode = inode;
 		}
 
                  __inode_forget (forget_inode, nlookup);
@@ -800,6 +804,8 @@ inode_rename (inode_table_t *table,
         {
 		if (!__is_inode_hashed (inode)) {
 			rename_inode = __inode_search (table, inode->ino);
+                        if (rename_inode == NULL)
+                                rename_inode = inode;
 		}
 
 		old_dst = __dentry_search (table, dstdir->ino, dstname);
