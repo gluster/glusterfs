@@ -4894,8 +4894,8 @@ out:
 }
 
 int
-glusterfs_utime (glusterfs_handle_t handle, const char *path,
-                 const struct utimbuf *buf)
+glusterfs_glh_utime (glusterfs_handle_t handle, const char *path,
+                        const struct utimbuf *buf)
 {
         int32_t                         op_ret = -1;
         loc_t                           loc = {0, };
@@ -4936,6 +4936,28 @@ out:
         if (name)
                 FREE (name);
         libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
+int
+glusterfs_utime (const char *path, const struct utimbuf *buf)
+{
+        struct vmp_entry        *entry = NULL;
+        char                    *vpath = NULL;
+        int                     op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        op_ret = glusterfs_glh_utime (entry->handle, vpath, buf);
+out:
         return op_ret;
 }
 
