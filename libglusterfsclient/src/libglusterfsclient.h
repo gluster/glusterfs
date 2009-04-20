@@ -109,7 +109,10 @@ glusterfs_file_t
 glusterfs_open (const char *path, int flags, ...);
 
 glusterfs_file_t
-glusterfs_creat (glusterfs_handle_t handle, const char *path, mode_t mode);
+glusterfs_glh_creat (glusterfs_handle_t handle, const char *path, mode_t mode);
+
+glusterfs_file_t
+glusterfs_creat (const char *path, mode_t mode);
 
 int
 glusterfs_mkdir (glusterfs_handle_t handle, const char *path, mode_t mode);

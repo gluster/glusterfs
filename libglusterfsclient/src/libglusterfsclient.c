@@ -1944,14 +1944,33 @@ out:
 }
 
 glusterfs_file_t 
-glusterfs_creat (glusterfs_handle_t handle,
-                 const char *path, 
-                 mode_t mode)
+glusterfs_glh_creat (glusterfs_handle_t handle, const char *path, mode_t mode)
 {
 	return glusterfs_glh_open (handle, path,
 			       (O_CREAT | O_WRONLY | O_TRUNC), mode);
 }
 
+glusterfs_file_t
+glusterfs_creat (const char *path, mode_t mode)
+{
+        struct vmp_entry        *entry = NULL;
+        char                    *vpath = NULL;
+        glusterfs_file_t        fh = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        fh = glusterfs_glh_creat (entry->handle, vpath, mode);
+
+out:
+        return fh;
+}
 
 int32_t
 libgf_client_flush_cbk (call_frame_t *frame,
