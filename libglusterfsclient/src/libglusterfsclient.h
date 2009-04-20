@@ -258,6 +258,11 @@ glusterfs_realpath (glusterfs_handle_t handle, const char *path,
 int
 glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars);
 
+int
+glusterfs_glh_chmod (glusterfs_handle_t handle, const char *path, mode_t mode);
+
+int
+glusterfs_chmod (const char *path, mode_t mode);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
