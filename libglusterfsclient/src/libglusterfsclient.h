@@ -252,8 +252,11 @@ glusterfs_getdents (glusterfs_dir_t fd, struct dirent *dirp,
 		    unsigned int count);
 
 int
-glusterfs_mknod(glusterfs_handle_t handle, const char *pathname, mode_t mode,
-                dev_t dev);
+glusterfs_glh_mknod(glusterfs_handle_t handle, const char *pathname,
+                        mode_t mode, dev_t dev);
+
+int
+glusterfs_mknod(const char *pathname, mode_t mode, dev_t dev);
 
 char *
 glusterfs_realpath (glusterfs_handle_t handle, const char *path,

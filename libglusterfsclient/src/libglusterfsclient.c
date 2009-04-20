@@ -5006,8 +5006,8 @@ out:
 }
 
 int
-glusterfs_mknod(glusterfs_handle_t handle, const char *path, mode_t mode,
-                dev_t dev)
+glusterfs_glh_mknod(glusterfs_handle_t handle, const char *path, mode_t mode,
+                        dev_t dev)
 {
         libglusterfs_client_ctx_t       *ctx = handle;
         loc_t                           loc = {0, };
@@ -5051,6 +5051,27 @@ out:
                 FREE (name);
 
 	return op_ret;
+}
+
+int
+glusterfs_mknod(const char *pathname, mode_t mode, dev_t dev)
+{
+        struct vmp_entry        *entry = NULL;
+        char                    *vpath = NULL;
+        int                     op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, pathname, out);
+
+        entry = libgf_vmp_search_entry ((char *)pathname);
+        if (!entry) {
+                errno = ENODEV;
+               goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, pathname);
+        op_ret = glusterfs_glh_mknod (entry->handle, vpath, mode, dev);
+out:
+        return op_ret;
 }
 
 int
