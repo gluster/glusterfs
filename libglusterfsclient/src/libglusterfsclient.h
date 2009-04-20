@@ -318,6 +318,13 @@ glusterfs_glh_utime (glusterfs_handle_t handle, const char *path,
 
 int
 glusterfs_utime (const char *path, const struct utimbuf *buf);
+
+int
+glusterfs_glh_mkfifo (glusterfs_handle_t handle, const char *path,
+                        mode_t mode);
+
+int
+glusterfs_mkfifo (const char *path, mode_t mode);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
