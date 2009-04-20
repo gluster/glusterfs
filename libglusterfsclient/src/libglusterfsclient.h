@@ -325,6 +325,12 @@ glusterfs_glh_mkfifo (glusterfs_handle_t handle, const char *path,
 
 int
 glusterfs_mkfifo (const char *path, mode_t mode);
+
+int
+glusterfs_glh_unlink (glusterfs_handle_t handle, const char *path);
+
+int
+glusterfs_unlink (const char *path);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
