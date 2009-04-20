@@ -3871,7 +3871,7 @@ out:
 }
 
 int
-glusterfs_chmod (glusterfs_handle_t handle, const char *path, mode_t mode)
+glusterfs_glh_chmod (glusterfs_handle_t handle, const char *path, mode_t mode)
 {
         int                             op_ret = -1;
         libglusterfs_client_ctx_t       *ctx = handle;
@@ -3901,6 +3901,27 @@ out:
                 FREE (name);
 
         libgf_client_loc_wipe (&loc);
+        return op_ret;
+}
+
+int
+glusterfs_chmod (const char *path, mode_t mode)
+{
+        struct vmp_entry        *entry = NULL;
+        int                     op_ret = -1;
+        char                    *vpath = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        op_ret = glusterfs_glh_chmod (entry->handle, vpath, mode);
+out:
         return op_ret;
 }
 
