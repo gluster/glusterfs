@@ -124,8 +124,11 @@ int
 glusterfs_close (glusterfs_file_t fd);
 
 int
-glusterfs_stat (glusterfs_handle_t handle, const char *path,
-		struct stat *stbuf);
+glusterfs_glh_stat (glusterfs_handle_t handle, const char *path,
+                        struct stat *stbuf);
+
+int
+glusterfs_stat (const char *path, struct stat *buf);
 
 int
 glusterfs_fstat (glusterfs_file_t fd, struct stat *stbuf);

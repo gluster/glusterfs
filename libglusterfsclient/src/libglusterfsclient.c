@@ -3451,9 +3451,32 @@ out:
 }
 
 int
-glusterfs_stat (glusterfs_handle_t handle, const char *path, struct stat *buf)
+glusterfs_glh_stat (glusterfs_handle_t handle, const char *path,
+                        struct stat *buf)
 {
         return __glusterfs_stat (handle, path, buf, LIBGF_DO_STAT);
+}
+
+int
+glusterfs_stat (const char *path, struct stat *buf)
+{
+        struct vmp_entry        *entry = NULL;
+        int                     op_ret = -1;
+        char                    *vpath = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        op_ret = glusterfs_glh_stat (entry->handle, vpath, buf);
+out:
+        return op_ret;
 }
 
 int
@@ -5214,11 +5237,12 @@ glusterfs_realpath (glusterfs_handle_t handle, const char *path,
                         *dest = '\0';
 
                         /* posix_stat is implemented using lstat */
-                        ret = glusterfs_stat (handle, rpath, &stbuf);
+                        ret = glusterfs_glh_stat (handle, rpath, &stbuf);
                         if (ret == -1) {
                                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                        "glusterfs_stat returned -1 for path"
-                                        " (%s):(%s)", rpath, strerror (errno));
+                                        "glusterfs_glh_stat returned -1 for"
+                                        " path (%s):(%s)", rpath,
+                                        strerror (errno));
                                 goto err;
                         }
 
