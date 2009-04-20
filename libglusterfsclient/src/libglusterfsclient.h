@@ -259,8 +259,11 @@ int
 glusterfs_mknod(const char *pathname, mode_t mode, dev_t dev);
 
 char *
-glusterfs_realpath (glusterfs_handle_t handle, const char *path,
+glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
                         char *resolved_path);
+
+char *
+glusterfs_realpath (const char *path, char *resolved_path);
 
 int
 glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars);
