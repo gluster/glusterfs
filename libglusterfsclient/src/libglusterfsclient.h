@@ -131,6 +131,13 @@ int
 glusterfs_stat (const char *path, struct stat *buf);
 
 int
+glusterfs_glh_lstat (glusterfs_handle_t handle, const char *path,
+                        struct stat *buf);
+
+int
+glusterfs_lstat (const char *path, struct stat *buf);
+
+int
 glusterfs_fstat (glusterfs_file_t fd, struct stat *stbuf);
 
 int
