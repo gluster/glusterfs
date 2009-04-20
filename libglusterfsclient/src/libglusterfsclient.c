@@ -5480,8 +5480,8 @@ out:
 }
 
 char *
-glusterfs_realpath (glusterfs_handle_t handle, const char *path,
-                    char *resolved_path)
+glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
+                                char *resolved_path)
 {
         char                            *buf = NULL, *extra_buf = NULL;
         char                            *rpath = NULL;
@@ -5662,6 +5662,27 @@ err:
         }
 
         return NULL;
+}
+
+char *
+glusterfs_realpath (const char *path, char *resolved_path)
+{
+        struct vmp_entry        *entry = NULL;
+        char                    *vpath = NULL;
+        char                    *res = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        res = glusterfs_glh_realpath (entry->handle, vpath, resolved_path);
+out:
+        return res;
 }
 
 static struct xlator_fops libgf_client_fops = {
