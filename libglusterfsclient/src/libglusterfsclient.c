@@ -5284,8 +5284,8 @@ out:
 }
 
 int
-glusterfs_symlink (glusterfs_handle_t handle, const char *oldpath,
-                  const char *newpath)
+glusterfs_glh_symlink (glusterfs_handle_t handle, const char *oldpath,
+                                const char *newpath)
 {
         int32_t                         op_ret = -1;
         libglusterfs_client_ctx_t       *ctx = handle;
@@ -5354,6 +5354,29 @@ out:
         libgf_client_loc_wipe (&newloc);
         return op_ret;
 }
+
+int
+glusterfs_symlink (const char *oldpath, const char *newpath)
+{
+        struct vmp_entry        *entry = NULL;
+        char                    *vpath = NULL;
+        int                     op_ret = -1;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, newpath, out);
+
+        entry = libgf_vmp_search_entry ((char *)newpath);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, newpath);
+        op_ret = glusterfs_glh_symlink (entry->handle, oldpath, vpath);
+out:
+        return op_ret;
+}
+
 
 int32_t
 libgf_client_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
