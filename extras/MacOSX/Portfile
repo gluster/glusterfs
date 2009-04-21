@@ -3,7 +3,7 @@
 PortSystem          1.0
 
 name                glusterfs
-version             2.0.0rc1
+version             2.0.0rc8
 categories          fuse
 maintainers         amar@zresearch.com
 description         GlusterFS
