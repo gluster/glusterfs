@@ -1562,10 +1562,42 @@ iot_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
         return 0;
 }
 
+int
+iot_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, struct statvfs *buf)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        return 0;
+}
+
+int
+iot_statfs_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+        STACK_WIND (frame, iot_statfs_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->statfs, loc);
+        return 0;
+}
+
+int
+iot_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_statfs_stub (frame, iot_statfs_wrapper, loc);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get statfs stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        return 0;
+}
+
 /* Must be called with worker lock held */
 void
 _iot_queue (iot_worker_t *worker,
-                iot_request_t *req)
+            iot_request_t *req)
 {
         list_add_tail (&req->list, &worker->rqlist);
 
@@ -2086,6 +2118,7 @@ struct xlator_fops fops = {
         .link        = iot_link,        /* U */
         .opendir     = iot_opendir,     /* U */
         .fsyncdir    = iot_fsyncdir,    /* O */
+        .statfs      = iot_statfs,      /* U */
 };
 
 struct xlator_mops mops = {
