@@ -190,10 +190,16 @@ log:
 		else
 			basename = file;
 
-		fprintf (logfile, "%s %s [%s:%d:%s] %s: ",
-			 timestr, level_strings[level],
-			 basename, line, function,
-			 domain);
+                if (level >= GF_LOG_DEBUG) {
+                        fprintf (logfile, "[%s] %s [%s:%d:%s] %s: ",
+                                 timestr, level_strings[level],
+                                 basename, line, function,
+                                 domain);
+                } else {
+                        fprintf (logfile, "[%s] %s %s: ",
+                                 timestr, level_strings[level],
+                                 domain);
+                }
       
 		vfprintf (logfile, fmt, ap);
 		va_end (ap);
