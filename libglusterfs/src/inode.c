@@ -88,10 +88,6 @@ __dentry_hash (dentry_t *dentry)
 
         list_del_init (&dentry->parent_list);
         list_add (&dentry->parent_list, &dentry->parent->child_list);
-	
-	gf_log (table->name, GF_LOG_DEBUG,
-		"dentry hashed %s (%"PRId64")",
-		dentry->name, dentry->inode->ino);
 }
 
 
@@ -106,10 +102,6 @@ static void
 __dentry_unhash (dentry_t *dentry)
 {
         list_del_init (&dentry->hash);
-	
-	gf_log (dentry->inode->table->name, GF_LOG_DEBUG,
-		"dentry unhashed %s (%"PRId64")",
-		dentry->name, dentry->inode->ino);
 }
 
 
@@ -119,10 +111,6 @@ __dentry_unset (dentry_t *dentry)
         __dentry_unhash (dentry);
 
         list_del_init (&dentry->inode_list);
-
-	gf_log (dentry->inode->table->name, GF_LOG_DEBUG,
-		"unset dentry %s (%"PRId64")",
-		dentry->name, dentry->inode->ino);
 
         if (dentry->name)
                 FREE (dentry->name);
@@ -258,7 +246,7 @@ __inode_destroy (inode_t *inode)
                 xl = xlator_search_by_name (inode->table->xl, pair->key);
 
                 if (!xl) {
-                        gf_log (inode->table->name, GF_LOG_CRITICAL,
+                        gf_log (inode->table->name, GF_LOG_DEBUG,
                                 "inode(%"PRId64")->ctx has invalid key(%s)",
                                 inode->ino, pair->key);
                         continue;
@@ -267,7 +255,7 @@ __inode_destroy (inode_t *inode)
 		if (xl->cbks->forget)
 			xl->cbks->forget (xl, inode);
 		else
-                        gf_log (inode->table->name, GF_LOG_CRITICAL,
+                        gf_log (inode->table->name, GF_LOG_DEBUG,
                                 "xlator(%s) in inode(%"PRId64") no FORGET fop",
                                 xl->name, inode->ino);
         }
@@ -286,11 +274,6 @@ __inode_destroy (inode_t *inode)
 
 	FREE (inode->_ctx);
 noctx:
-
-        if (inode->ino)
-                gf_log (inode->table->name, GF_LOG_DEBUG,
-                        "destroy inode(%"PRId64") [@%p]", inode->ino, inode);
-  
         LOCK_DESTROY (&inode->lock);
         //  memset (inode, 0xb, sizeof (*inode));
         FREE (inode);
@@ -302,11 +285,6 @@ __inode_activate (inode_t *inode)
 {
         list_move (&inode->list, &inode->table->active);
         inode->table->active_size++;
-	
-        gf_log (inode->table->name, GF_LOG_DEBUG,
-                "activating inode(%"PRId64"), lru=%d/%d active=%d purge=%d",
-                inode->ino, inode->table->lru_size, inode->table->lru_limit,
-                inode->table->active_size, inode->table->purge_size);
 }
 
 
@@ -321,11 +299,6 @@ __inode_passivate (inode_t *inode)
 
         list_move_tail (&inode->list, &inode->table->lru);
         inode->table->lru_size++;
-
-        gf_log (table->name, GF_LOG_DEBUG,
-                "passivating inode(%"PRId64") lru=%d/%d active=%d purge=%d",
-                inode->ino, table->lru_size, table->lru_limit,
-                table->active_size, table->purge_size);
 
         list_for_each_entry_safe (dentry, t, &inode->dentry_list, inode_list) {
                 if (!__is_dentry_hashed (dentry))
@@ -345,11 +318,6 @@ __inode_retire (inode_t *inode)
 
         list_move_tail (&inode->list, &inode->table->purge);
         inode->table->purge_size++;
-
-        gf_log (table->name, GF_LOG_DEBUG,
-                "retiring inode(%"PRId64") lru=%d/%d active=%d purge=%d",
-                inode->ino, table->lru_size, table->lru_limit,
-                table->active_size, table->purge_size);
 
         __inode_unhash (inode);
         assert (list_empty (&inode->child_list));
@@ -483,8 +451,6 @@ __inode_create (inode_table_t *table)
 				 table->xl->ctx->xl_count));
 
         newi->ctx = get_new_dict ();
-        gf_log (table->name, GF_LOG_DEBUG,
-                "create inode(%"PRId64")", newi->ino);
 
         return newi;
 }
@@ -662,8 +628,8 @@ __inode_link (inode_t *inode,
 
                 __dentry_hash (dentry);
         } else if (inode->ino != 1) {
-		gf_log (table->name, GF_LOG_ERROR,
-			"child (%"PRId64") without a parent :O", inode->ino);
+		gf_log (table->name, GF_LOG_DEBUG,
+			"child (%"PRId64") without a parent!", inode->ino);
 	}
 	
         return inode;
@@ -1027,9 +993,6 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
         new = (void *)calloc (1, sizeof (*new));
         if (!new)
                 return NULL;
-
-        gf_log (xl->name, GF_LOG_DEBUG,
-                "creating new inode table with lru_limit=%"GF_PRI_SIZET"", lru_limit);
 
         new->xl = xl;
 
