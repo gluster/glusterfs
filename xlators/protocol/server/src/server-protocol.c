@@ -4211,7 +4211,8 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 
 	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
 
-	iov.iov_base = iobuf->ptr;
+        if (iobuf)
+                iov.iov_base = iobuf->ptr;
 	iov.iov_len  = state->size;
 
 	iobref = iobref_new ();
