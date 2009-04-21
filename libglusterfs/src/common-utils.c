@@ -81,13 +81,13 @@ gf_resolve_ip6 (const char *hostname,
 	if (cache->first && !cache->next) {
 		freeaddrinfo(cache->first);
 		cache->first = cache->next = NULL;
-		gf_log ("resolver", GF_LOG_DEBUG,
+		gf_log ("resolver", GF_LOG_TRACE,
 			"flushing DNS cache");
 	}
 
 	if (!cache->first) {
 		char *port_str = NULL;
-		gf_log ("resolver", GF_LOG_DEBUG,
+		gf_log ("resolver", GF_LOG_TRACE,
 			"DNS cache not present, freshly probing hostname: %s",
 			hostname);
 
@@ -124,7 +124,7 @@ gf_resolve_ip6 (const char *hostname,
 			goto err;
 		}
 
-		gf_log ("resolver", GF_LOG_DEBUG,
+		gf_log ("resolver", GF_LOG_TRACE,
 			"returning ip-%s (port-%s) for hostname: %s and port: %d",
 			host, service, hostname, port);
 
@@ -145,7 +145,7 @@ gf_resolve_ip6 (const char *hostname,
 			goto err;
 		}
 
-		gf_log ("resolver", GF_LOG_DEBUG,
+		gf_log ("resolver", GF_LOG_TRACE,
 			"next DNS query will return: ip-%s port-%s", host, service);
 	}
 
