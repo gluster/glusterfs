@@ -72,7 +72,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 	}
 
 	if (local->govinda_gOvinda) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"aborting selfheal of %s",
 			local->loc.path);
 		sh->completion_cbk (frame, this);
@@ -112,11 +112,6 @@ afr_sh_metadata_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 	local = frame->local;
-
-	LOCK (&frame->lock);
-	{
-	}
-	UNLOCK (&frame->lock);
 
 	call_count = afr_frame_return (frame);
 
@@ -290,7 +285,7 @@ afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"setting attributes failed for %s on %s (%s)",
 				local->loc.path,
 				priv->children[child_index]->name,
@@ -439,7 +434,7 @@ afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie,
 	source = sh->source;
 
 	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"getxattr of %s failed on subvolume %s (%s). proceeding without xattr",
 			local->loc.path, priv->children[source]->name,
 			strerror (op_errno));
@@ -555,11 +550,9 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 
 	if (nsources == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"Unable to resolve conflicting metadata of %s. "
-			"Please resolve manually by fixing the "
-			"permissions/ownership of %s on your subvolumes. "
-			"You can also consider 'option favorite-child <>'",
-			local->loc.path, local->loc.path);
+			"Unable to self-heal permissions/ownership of '%s' "
+                        "(possible split-brain). Please fix the file on "
+                        "all backend volumes", local->loc.path);
 
 		local->govinda_gOvinda = 1;
 
@@ -721,7 +714,7 @@ afr_sh_metadata_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			sh->op_failed = 1;
 
 			gf_log (this->name,
-				(op_errno == EAGAIN ? GF_LOG_DEBUG : GF_LOG_ERROR),
+                                GF_LOG_DEBUG,
 				"locking of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));

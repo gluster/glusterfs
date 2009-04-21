@@ -107,7 +107,7 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 			ptr += sprintf (ptr, "%d ", pending_matrix[i][j]);
 		}
 		ptr += sprintf (ptr, "]");
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"pending_matrix: %s", buf);
 	}
 
@@ -465,10 +465,11 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
                         characters[i].type = AFR_NODE_WISE;
 
                 } else {
-                        gf_log ("[module:afr]", GF_LOG_ERROR,
-                                "node %d is diabolical! "
-                                "(This message should never appear."
-                                " Please file a bug report.)", i);
+                        gf_log ("[module:replicate]", GF_LOG_ERROR,
+                                "Could not determine the state of subvolume %d!"
+                                " (This message should never appear."
+                                " Please file a bug report to "
+                                "<gluster-devel@nongnu.org>.)", i);
                 }
         }
 
@@ -720,12 +721,12 @@ afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
 	}
 
 	if (local->govinda_gOvinda) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_TRACE,
 			"aborting selfheal of %s",
 			local->loc.path);
 		sh->completion_cbk (frame, this);
 	} else {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"proceeding to metadata check on %s",
 			local->loc.path);
 		afr_self_heal_metadata (frame, this);
@@ -785,7 +786,7 @@ sh_missing_entries_finish (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"unlocking %"PRId64"/%s on subvolume %s",
 				sh->parent_loc.inode->ino, local->loc.name,
 				priv->children[i]->name);
@@ -839,7 +840,7 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 	if (op_ret == 0) {
 		chown_frame = copy_frame (frame);
 
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"chown %s to %d %d on subvolume %s",
 			local->loc.path, buf->st_uid, buf->st_gid,
 			priv->children[child_index]->name);
@@ -893,7 +894,7 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 	st_mode = sh->buf[sh->source].st_mode;
 	st_dev  = sh->buf[sh->source].st_dev;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"mknod %s mode 0%o on %d subvolumes",
 		local->loc.path, st_mode, enoent_count);
 
@@ -939,7 +940,7 @@ sh_missing_entries_mkdir (call_frame_t *frame, xlator_t *this)
 
 	st_mode = sh->buf[sh->source].st_mode;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"mkdir %s mode 0%o on %d subvolumes",
 		local->loc.path, st_mode, enoent_count);
 
@@ -983,7 +984,7 @@ sh_missing_entries_symlink (call_frame_t *frame, xlator_t *this,
 	call_count = enoent_count;
 	local->call_count = call_count;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"symlink %s -> %s on %d subvolumes",
 		local->loc.path, link, enoent_count);
 
@@ -1146,7 +1147,7 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == 0) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"path %s on subvolume %s is of mode 0%o",
 				local->loc.path,
 				priv->children[child_index]->name,
@@ -1154,7 +1155,7 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 
 			local->self_heal.buf[child_index] = *buf;
 		} else {
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_TRACE,
 				"path %s on subvolume %s => -1 (%s)",
 				local->loc.path,
 				priv->children[child_index]->name,
@@ -1204,7 +1205,7 @@ sh_missing_entries_lookup (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"looking up %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
 
@@ -1246,7 +1247,7 @@ sh_missing_entries_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			sh->op_failed = 1;
 
 			gf_log (this->name,
-				(op_errno == EAGAIN ? GF_LOG_DEBUG : GF_LOG_ERROR),
+                                GF_LOG_DEBUG,
 				"locking inode of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
@@ -1287,7 +1288,7 @@ afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"attempting to recreate missing entries for path=%s",
 		local->loc.path);
 
@@ -1328,7 +1329,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 	sh = &local->self_heal;
 	priv = this->private;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"performing self heal on %s (metadata=%d data=%d entry=%d)",
 		local->loc.path,
 		local->need_metadata_self_heal,
@@ -1358,7 +1359,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 	if (local->success_count && local->enoent_count) {
 		afr_self_heal_missing_entries (frame, this);
 	} else {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"proceeding to metadata check on %s",
 			local->loc.path);
 		afr_sh_missing_entries_done (frame, this);

@@ -725,7 +725,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 fd_ctx = CALLOC (1, sizeof (afr_fd_ctx_t));
                 if (!fd_ctx) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory :(");
+                                "Out of memory");
                         
                         op_ret = -ENOMEM;
                         goto out;
@@ -736,7 +736,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 
                 if (!fd_ctx->child_failed) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory :(");
+                                "Out of memory");
 
                         op_ret = -ENOMEM;
                         goto out;
@@ -813,7 +813,7 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
                         ret = afr_fd_ctx_set (this, fd);
 
                         if (ret < 0) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_log (this->name, GF_LOG_DEBUG,
                                         "could not set fd ctx for fd=%p",
                                         fd);
 
@@ -854,11 +854,6 @@ afr_open (call_frame_t *frame, xlator_t *this,
 
         if (afr_is_split_brain (this, loc->inode)) {
 		/* self-heal failed */
-
-		gf_log (this->name, GF_LOG_WARNING,
-			"returning EIO, file has to be manually corrected "
-			"in the backend");
-
 		op_errno = EIO;
 		goto out;
 	}
@@ -2048,7 +2043,7 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 					      sizeof (*local->cont.lk.locked_nodes));
 	
 	if (!local->cont.lk.locked_nodes) {
-		gf_log (this->name, GF_LOG_ERROR, "out of memory :(");
+		gf_log (this->name, GF_LOG_ERROR, "Out of memory");
 		op_errno = ENOMEM;
 		goto out;
 	}
@@ -2116,9 +2111,6 @@ notify (xlator_t *this, int32_t event,
 	case GF_EVENT_CHILD_UP:
 		i = find_child_index (this, data);
 
-                gf_log (this->name, GF_LOG_NORMAL,
-                        "subvolume %s came up", ((xlator_t *) data)->name);
-
 		child_up[i] = 1;
 
 		/* 
@@ -2130,16 +2122,18 @@ notify (xlator_t *this, int32_t event,
 			if (child_up[i])
 				up_children++;
 
-		if (up_children == 1)
+		if (up_children == 1) {
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "Subvolume '%s' came back up; "
+                                "going online.", ((xlator_t *)data)->name);
+                        
 			default_notify (this, event, data);
+                }
 
 		break;
 
 	case GF_EVENT_CHILD_DOWN:
 		i = find_child_index (this, data);
-
-                gf_log (this->name, GF_LOG_NORMAL,
-                        "subvolume %s went down", ((xlator_t *) data)->name);
 
 		child_up[i] = 0;
 		
@@ -2152,8 +2146,13 @@ notify (xlator_t *this, int32_t event,
 			if (child_up[i])
 				up_children++;
 
-		if (up_children == 0)
+		if (up_children == 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "All subvolumes are down. Going offline "
+                                "until atleast one of them comes back up.");
+
 			default_notify (this, event, data);
+                }
 
 		break;
 
@@ -2204,13 +2203,14 @@ init (xlator_t *this)
 
 	if (!this->children) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"AFR needs more than one child defined");
+			"replicate translator needs more than one "
+                        "subvolume defined.");
 		return -1;
 	}
   
 	if (!this->parents) {
 		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
+			"Volume is dangling.");
 	}
 
 	ALLOC_OR_GOTO (this->private, afr_private_t, out);
@@ -2234,8 +2234,8 @@ init (xlator_t *this)
 		ret = gf_string2boolean (self_heal, &priv->data_self_heal);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
-				"invalid 'option data-self-heal %s' "
-				"defaulting to data-self-heal as 'on'",
+				"Invalid 'option data-self-heal %s'. "
+				"Defaulting to data-self-heal as 'on'",
 				self_heal);
 			priv->data_self_heal = 1;
 		} 
@@ -2247,8 +2247,8 @@ init (xlator_t *this)
 		ret = gf_string2boolean (self_heal, &priv->metadata_self_heal);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
-				"invalid 'option metadata-self-heal %s' "
-				"defaulting to metadata-self-heal as 'on'", 
+				"Invalid 'option metadata-self-heal %s'. "
+				"Defaulting to metadata-self-heal as 'on'.", 
 				self_heal);
 			priv->metadata_self_heal = 1;
 		} 
@@ -2259,8 +2259,8 @@ init (xlator_t *this)
 		ret = gf_string2boolean (self_heal, &priv->entry_self_heal);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
-				"invalid 'option entry-self-heal %s' "
-				"defaulting to entry-self-heal as 'on'", 
+				"Invalid 'option entry-self-heal %s'. "
+				"Defaulting to entry-self-heal as 'on'.", 
 				self_heal);
 			priv->entry_self_heal = 1;
 		} 
@@ -2278,8 +2278,8 @@ init (xlator_t *this)
 		ret = gf_string2boolean (change_log, &priv->data_change_log);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
-				"invalid 'option data-change-log %s'. "
-				"defaulting to data-change-log as 'on'", 
+				"Invalid 'option data-change-log %s'. "
+				"Defaulting to data-change-log as 'on'.", 
 				change_log);
 			priv->data_change_log = 1;
 		} 
@@ -2292,8 +2292,8 @@ init (xlator_t *this)
 					 &priv->metadata_change_log);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
-				"invalid 'option metadata-change-log %s'. "
-				"defaulting to metadata-change-log as 'off'",
+				"Invalid 'option metadata-change-log %s'. "
+				"Defaulting to metadata-change-log as 'off'.",
 				change_log);
 			priv->metadata_change_log = 0;
 		} 
@@ -2305,8 +2305,8 @@ init (xlator_t *this)
 		ret = gf_string2boolean (change_log, &priv->entry_change_log);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
-				"invalid 'option entry-change-log %s'. "
-				"defaulting to entry-change-log as 'on'", 
+				"Invalid 'option entry-change-log %s'. "
+				"Defaulting to entry-change-log as 'on'.", 
 				change_log);
 			priv->entry_change_log = 1;
 		} 
@@ -2322,7 +2322,7 @@ init (xlator_t *this)
 				   &lock_server_count);
 	if (dict_ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"setting data lock server count to %d",
+			"Setting data lock server count to %d.",
 			lock_server_count);
 
 		if (lock_server_count == 0) 
@@ -2338,7 +2338,7 @@ init (xlator_t *this)
 				   &lock_server_count);
 	if (dict_ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"setting metadata lock server count to %d",
+			"Setting metadata lock server count to %d.",
 			lock_server_count);
 		priv->metadata_lock_server_count = lock_server_count;
 	}
@@ -2348,7 +2348,7 @@ init (xlator_t *this)
 				   &lock_server_count);
 	if (dict_ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"setting entry lock server count to %d",
+			"Setting entry lock server count to %d.",
 			lock_server_count);
 
 		priv->entry_lock_server_count = lock_server_count;
@@ -2358,7 +2358,7 @@ init (xlator_t *this)
 	while (trav) {
 		if (!read_ret && !strcmp (read_subvol, trav->xlator->name)) {
 			gf_log (this->name, GF_LOG_DEBUG,
-				"subvolume '%s' specified as read child",
+				"Subvolume '%s' specified as read child.",
 				trav->xlator->name);
 
 			priv->read_child = child_count;
@@ -2385,7 +2385,7 @@ init (xlator_t *this)
 	priv->child_up = CALLOC (sizeof (unsigned char), child_count);
 	if (!priv->child_up) {
 		gf_log (this->name, GF_LOG_ERROR,	
-			"out of memory :(");		
+			"Out of memory.");		
 		op_errno = ENOMEM;			
 		goto out;
 	}
@@ -2393,7 +2393,7 @@ init (xlator_t *this)
 	priv->children = CALLOC (sizeof (xlator_t *), child_count);
 	if (!priv->children) {
 		gf_log (this->name, GF_LOG_ERROR,	
-			"out of memory :(");		
+			"Out of memory.");		
 		op_errno = ENOMEM;			
 		goto out;
 	}
@@ -2401,7 +2401,7 @@ init (xlator_t *this)
         priv->pending_key = CALLOC (sizeof (*priv->pending_key), child_count);
         if (!priv->pending_key) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory :(");
+                        "Out of memory.");
                 op_errno = ENOMEM;
                 goto out;
         }

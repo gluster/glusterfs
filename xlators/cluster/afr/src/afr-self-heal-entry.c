@@ -65,7 +65,7 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 	   TODO: cleanup sh->* 
 	*/
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"self heal of %s completed",
 		local->loc.path);
 
@@ -92,12 +92,12 @@ afr_sh_entry_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR, 
+			gf_log (this->name, GF_LOG_DEBUG,
 				"unlocking inode of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"unlocked inode of %s on child %d",
 				local->loc.path, child_index);
 		}
@@ -138,7 +138,7 @@ afr_sh_entry_unlock (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"unlocking %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
 
@@ -165,7 +165,7 @@ afr_sh_entry_finish (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"finishing entry selfheal of %s", local->loc.path);
 
 	afr_sh_entry_unlock (frame, this);
@@ -239,7 +239,7 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
 		if (!erase_xattr[i])
 			continue;
 
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"erasing pending flags from %s on %s",
 			local->loc.path, priv->children[i]->name);
 
@@ -357,7 +357,7 @@ build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 
 	if (!child->path) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -370,7 +370,7 @@ build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 
 	if (!child->inode) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -437,12 +437,12 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
 	active_src = (long) cookie;
 
 	if (op_ret == 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"removed %s on %s",
 			expunge_local->loc.path,
 			priv->children[active_src]->name);
 	} else {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"removing %s on %s failed (%s)",
 			expunge_local->loc.path,
 			priv->children[active_src]->name,
@@ -466,7 +466,7 @@ afr_sh_entry_expunge_rmdir (call_frame_t *expunge_frame, xlator_t *this,
 	priv = this->private;
 	expunge_local = expunge_frame->local;
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_TRACE,
 		"removing directory %s on %s",
 		expunge_local->loc.path, priv->children[active_src]->name);
 
@@ -490,7 +490,7 @@ afr_sh_entry_expunge_unlink (call_frame_t *expunge_frame, xlator_t *this,
 	priv = this->private;
 	expunge_local = expunge_frame->local;
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_TRACE,
 		"unlinking file %s on %s",
 		expunge_local->loc.path, priv->children[active_src]->name);
 	
@@ -573,7 +573,7 @@ afr_sh_entry_expunge_lookup_cbk (call_frame_t *expunge_frame, void *cookie,
 	active_src = (long) cookie;
 
 	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"lookup of %s on %s failed (%s)",
 			expunge_local->loc.path,
 			priv->children[active_src]->name,
@@ -602,7 +602,7 @@ afr_sh_entry_expunge_purge (call_frame_t *expunge_frame, xlator_t *this,
 	priv = this->private;
 	expunge_local = expunge_frame->local;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"looking up %s on %s",
 		expunge_local->loc.path, priv->children[active_src]->name);
 	
@@ -655,7 +655,7 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 			expunge_local->loc.path,
 			priv->children[source]->name);
 	} else {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"looking up %s under %s failed (%s)",
 			expunge_local->loc.path,
 			priv->children[source]->name,
@@ -693,20 +693,20 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
 
 	if ((strcmp (name, ".") == 0)
 	    || (strcmp (name, "..") == 0)) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"skipping inspection of %s under %s",
 			name, local->loc.path);
 		goto out;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"inspecting existance of %s under %s",
 		name, local->loc.path);
 
 	expunge_frame = copy_frame (frame);
 	if (!expunge_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -722,7 +722,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
 		goto out;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"looking up %s on %s", expunge_local->loc.path,
 		priv->children[source]->name);
 
@@ -764,7 +764,7 @@ afr_sh_entry_expunge_readdir_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret <= 0) {
 		if (op_ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"readdir of %s on subvolume %s failed (%s)",
 				local->loc.path,
 				priv->children[active_src]->name,
@@ -785,7 +785,7 @@ afr_sh_entry_expunge_readdir_cbk (call_frame_t *frame, void *cookie,
 		entry_count++;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"readdir'ed %d entries from %s",
 		entry_count, priv->children[active_src]->name);
 
@@ -853,7 +853,7 @@ afr_sh_entry_expunge_all (call_frame_t *frame, xlator_t *this)
 		goto out;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"expunging entries of %s on %s to other sinks",
 		local->loc.path, priv->children[active_src]->name);
 
@@ -926,12 +926,12 @@ afr_sh_entry_impunge_utimens_cbk (call_frame_t *impunge_frame, void *cookie,
 	child_index = (long) cookie;
 
 	if (op_ret == 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"utimes set for %s on %s",
 			impunge_local->loc.path,
 			priv->children[child_index]->name);
 	} else {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"setting utimes of %s on %s failed (%s)",
 			impunge_local->loc.path,
 			priv->children[child_index]->name,
@@ -980,7 +980,7 @@ afr_sh_entry_impunge_chown_cbk (call_frame_t *impunge_frame, void *cookie,
 			impunge_local->loc.path,
 			priv->children[child_index]->name);
 	} else {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"setting ownership of %s on %s failed (%s)",
 			impunge_local->loc.path,
 			priv->children[child_index]->name,
@@ -1043,7 +1043,7 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 
 	child_index = (long) cookie;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"setting ownership of %s on %s to %d/%d",
 		impunge_local->loc.path,
 		priv->children[child_index]->name,
@@ -1092,7 +1092,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 	child_index = (long) cookie;
 
 	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"creation of %s on %s failed (%s)",
 			impunge_local->loc.path,
 			priv->children[child_index]->name,
@@ -1155,7 +1155,7 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
 	impunge_local = impunge_frame->local;
 	impunge_sh = &impunge_local->self_heal;
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_TRACE,
 		"creating file %s mode=0%o dev=0x%"GF_PRI_DEV" on %s",
 		impunge_local->loc.path,
 		stbuf->st_mode, stbuf->st_rdev,
@@ -1186,7 +1186,7 @@ afr_sh_entry_impunge_mkdir (call_frame_t *impunge_frame, xlator_t *this,
 	impunge_local = impunge_frame->local;
 	impunge_sh = &impunge_local->self_heal;
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_TRACE,
 		"creating directory %s mode=0%o on %s",
 		impunge_local->loc.path,
 		stbuf->st_mode,
@@ -1215,7 +1215,7 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
 	impunge_local = impunge_frame->local;
 	impunge_sh = &impunge_local->self_heal;
 
-	gf_log (this->name, GF_LOG_WARNING,
+	gf_log (this->name, GF_LOG_TRACE,
 		"creating symlink %s -> %s on %s",
 		impunge_local->loc.path, linkname,
 		priv->children[child_index]->name);
@@ -1253,7 +1253,7 @@ afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
 	child_index = (long) cookie;
 
 	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"readlink of %s on %s failed (%s)",
 			impunge_local->loc.path,
 			priv->children[active_src]->name,
@@ -1331,7 +1331,7 @@ afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
 	active_src = impunge_sh->active_source;
 
 	if (op_ret != 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"looking up %s on %s (for %s) failed (%s)",
 			impunge_local->loc.path,
 			priv->children[active_src]->name,
@@ -1453,7 +1453,7 @@ afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
 			impunge_local->loc.path,
 			priv->children[child_index]->name);
 	} else {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"looking up %s under %s failed (%s)",
 			impunge_local->loc.path,
 			priv->children[child_index]->name,
@@ -1512,7 +1512,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 	impunge_frame = copy_frame (frame);
 	if (!impunge_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -1548,7 +1548,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 		if (sh->sources[i] == 1)
 			continue;
 
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"looking up %s on %s", impunge_local->loc.path,
 			priv->children[i]->name);
 
@@ -1594,13 +1594,13 @@ afr_sh_entry_impunge_readdir_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret <= 0) {
 		if (op_ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"readdir of %s on subvolume %s failed (%s)",
 				local->loc.path,
 				priv->children[active_src]->name,
 				strerror (op_errno));
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"readdir of %s on subvolume %s complete",
 				local->loc.path,
 				priv->children[active_src]->name);
@@ -1615,7 +1615,7 @@ afr_sh_entry_impunge_readdir_cbk (call_frame_t *frame, void *cookie,
 		entry_count++;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"readdir'ed %d entries from %s",
 		entry_count, priv->children[active_src]->name);
 
@@ -1679,7 +1679,7 @@ afr_sh_entry_impunge_all (call_frame_t *frame, xlator_t *this)
 		return 0;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"impunging entries of %s on %s to other sinks",
 		local->loc.path, priv->children[active_src]->name);
 
@@ -1712,7 +1712,7 @@ afr_sh_entry_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"opendir of %s failed on child %s (%s)",
 				local->loc.path,
 				priv->children[child_index]->name,
@@ -1729,7 +1729,7 @@ afr_sh_entry_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			afr_sh_entry_finish (frame, this);
 			return 0;
 		}
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"fd for %s opened, commencing sync",
 			local->loc.path);
 
@@ -1776,7 +1776,7 @@ afr_sh_entry_open (call_frame_t *frame, xlator_t *this)
 	sh->healing_fd = fd;
 
 	if (source != -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"opening directory %s on subvolume %s (source)",
 			local->loc.path, priv->children[source]->name);
 
@@ -1794,7 +1794,7 @@ afr_sh_entry_open (call_frame_t *frame, xlator_t *this)
 		if (sources[i] || !local->child_up[i])
 			continue;
 
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"opening directory %s on subvolume %s (sink)",
 			local->loc.path, priv->children[i]->name);
 
@@ -1845,7 +1845,7 @@ afr_sh_entry_sync_prepare (call_frame_t *frame, xlator_t *this)
 		return 0;
 	}
 	if (source == -1 && active_sinks < 2) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"cannot sync with 0 sources and 1 sink on dir %s",
 			local->loc.path);
 		afr_sh_entry_finish (frame, this);
@@ -2008,12 +2008,12 @@ afr_sh_entry_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			sh->op_failed = 1;
 
 			gf_log (this->name,
-				(op_errno == EAGAIN ? GF_LOG_DEBUG : GF_LOG_ERROR),
+                                GF_LOG_DEBUG,
 				"locking inode of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);
 		}
@@ -2056,7 +2056,7 @@ afr_sh_entry_lock (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"locking %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
 
@@ -2091,7 +2091,7 @@ afr_self_heal_entry (call_frame_t *frame, xlator_t *this)
 	if (local->need_entry_self_heal && priv->entry_self_heal) {
 		afr_sh_entry_lock (frame, this);
 	} else {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"proceeding to completion on %s",
 			local->loc.path);
 		afr_sh_entry_done (frame, this);

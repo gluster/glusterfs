@@ -222,8 +222,8 @@ afr_readdir (call_frame_t *frame, xlator_t *this,
 	call_child = afr_first_up_child (priv);
 	if (call_child == -1) {
 		op_errno = ENOTCONN;
-		gf_log (this->name, GF_LOG_ERROR,
-			"no child is up :(");
+		gf_log (this->name, GF_LOG_DEBUG,
+			"no child is up");
 		goto out;
 	}
 
@@ -314,8 +314,8 @@ afr_getdents (call_frame_t *frame, xlator_t *this,
 	call_child = afr_first_up_child (priv);
 	if (call_child == -1) {
 		op_errno = ENOTCONN;
-		gf_log (this->name, GF_LOG_ERROR,
-			"no child is up :(");
+		gf_log (this->name, GF_LOG_DEBUG,
+			"no child is up.");
 		goto out;
 	}
 
