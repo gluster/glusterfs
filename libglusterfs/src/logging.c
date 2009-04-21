@@ -134,13 +134,13 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
 	time_t       utime = 0;
 	struct tm   *tm = NULL;
 	char         timestr[256];
-	static char *level_strings[] = {"N", /* NONE */
-					"T", /* TRACE */
+	static char *level_strings[] = {"",  /* NONE */
 					"C", /* CRITICAL */
 					"E", /* ERROR */
 					"W", /* WARNING */
-					"N", /* TRACE (GF_LOG_NORMAL) */
+					"N", /* NORMAL */
 					"D", /* DEBUG */
+                                        "T", /* TRACE */
 					""};
   
 	if (!domain || !file || !function || !fmt) {

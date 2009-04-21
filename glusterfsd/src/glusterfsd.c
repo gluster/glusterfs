@@ -705,6 +705,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 			cmd_args->log_level = GF_LOG_DEBUG;
 			break;
 		}
+		if (strcasecmp (arg, ARGP_LOG_LEVEL_TRACE_OPTION) == 0) {
+			cmd_args->log_level = GF_LOG_TRACE;
+			break;
+		}
 		
 		argp_failure (state, -1, 0, "unknown log level %s", arg);
 		break;
