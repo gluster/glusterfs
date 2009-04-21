@@ -2565,6 +2565,13 @@ fuse_thread_proc (void *data)
         while (!fuse_session_exited (priv->se)) {
                 iobuf = iobuf_get (this->ctx->iobuf_pool);
 
+                if (!iobuf) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        sleep (10);
+                        continue;
+                }
+
                 res = fuse_chan_receive (priv->ch,
                                          iobuf->ptr,
                                          chan_size);
