@@ -86,20 +86,20 @@ init (xlator_t *this)
         int            i = 0;
 
 	if (!this->children) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"DHT needs more than one child defined");
+		gf_log (this->name, GF_LOG_CRITICAL,
+			"Distribute needs more than one subvolume");
 		return -1;
 	}
   
 	if (!this->parents) {
 		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
+			"dangling volume. check volfile");
 	}
 
         conf = CALLOC (1, sizeof (*conf));
         if (!conf) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "memory allocation failed :(");
+                        "Out of memory");
                 goto err;
         }
 
@@ -141,7 +141,7 @@ init (xlator_t *this)
         conf->du_stats = CALLOC (conf->subvolume_cnt, sizeof (dht_du_t));
         if (!conf->du_stats) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "memory allocation failed :(");
+                        "Out of memory");
                 goto err;
         }
 

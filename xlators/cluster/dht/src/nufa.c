@@ -72,7 +72,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		layout = dht_layout_for_subvol (this, prev->this);
 		if (!layout) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"no pre-set layout for subvolume %s",
 				prev->this->name);
 			op_ret   = -1;
@@ -98,7 +98,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (!local->layout) {
 			op_ret   = -1;
 			op_errno = ENOMEM;
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"memory allocation failed :(");
 			goto err;
 		}
@@ -115,7 +115,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
 
                 if (!subvol) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "linkfile not having link subvolume. path=%s",
                                 loc->path);
 			dht_lookup_everywhere (frame, this, loc);
@@ -131,7 +131,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
 	if (!local->hashed_subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			local->loc.path);
 		op_errno = EINVAL;
@@ -177,14 +177,14 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
         ret = loc_dup (loc, &local->loc);
         if (ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "copying location failed for path=%s",
                         loc->path);
                 goto err;
@@ -206,7 +206,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 		layout = dht_layout_get (this, loc->inode);
 
                 if (!layout) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "revalidate without cache. path=%s",
                                 loc->path);
                         op_errno = EINVAL;
@@ -315,13 +315,13 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
 	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			loc->path);
 		op_errno = ENOENT;
@@ -340,7 +340,7 @@ nufa_create (call_frame_t *frame, xlator_t *this,
                 ret = loc_copy (&local->loc, loc);
                 if (ret == -1) {
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "memory allocation failed :(");
+                                        "Out of memory");
                                 op_errno = ENOMEM;
                                 goto err;
                 }
@@ -356,7 +356,7 @@ nufa_create (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_TRACE,
                 "creating %s on %s", loc->path, subvol->name);
         
         STACK_WIND (frame, dht_create_cbk,
@@ -422,13 +422,13 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
 	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			loc->path);
 		op_errno = ENOENT;
@@ -448,7 +448,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
  		ret = loc_copy (&local->loc, loc);
  		if (ret == -1) {
  			gf_log (this->name, GF_LOG_ERROR,
- 				"memory allocation failed :(");
+ 				"Out of memory");
  			op_errno = ENOMEM;
  			goto err;
  		}
@@ -462,7 +462,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
  		return 0;
  	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"creating %s on %s", loc->path, subvol->name);
 
 	STACK_WIND (frame, dht_newfile_cbk,
@@ -533,20 +533,20 @@ init (xlator_t *this)
 	char           my_hostname[256];
 
 	if (!this->children) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"DHT needs more than one child defined");
+		gf_log (this->name, GF_LOG_CRITICAL,
+			"NUFA needs more than one subvolume");
 		return -1;
 	}
   
 	if (!this->parents) {
 		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
+			"dangling volume. check volfile");
 	}
 
         conf = CALLOC (1, sizeof (*conf));
         if (!conf) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "memory allocation failed :(");
+                        "Out of memory");
                 goto err;
         }
 
@@ -616,7 +616,7 @@ init (xlator_t *this)
         conf->du_stats = CALLOC (conf->subvolume_cnt, sizeof (dht_du_t));
         if (!conf->du_stats) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "memory allocation failed :(");
+                        "Out of memory");
                 goto err;
         }
 

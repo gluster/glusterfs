@@ -44,7 +44,7 @@ dht_layout_new (xlator_t *this, int cnt)
 	layout = CALLOC (1, layout_size (cnt));
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto out;
 	}
 
@@ -78,7 +78,7 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
 
 	ret = dht_hash_compute (layout->type, name, &hash);
 	if (ret != 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"hash computation failed for type=%d name=%s",
 			layout->type, name);
 		goto out;
@@ -135,7 +135,7 @@ dht_layouts_init (xlator_t *this, dht_conf_t *conf)
 				     sizeof (dht_layout_t *));
 	if (!conf->file_layouts) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto out;
 	}
 
@@ -169,7 +169,7 @@ dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
 	disk_layout = CALLOC (5, sizeof (int));
 	if (!disk_layout) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto out;
 	}
 
@@ -200,7 +200,7 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
 
 	cnt  = ntoh32 (disk_layout[0]);
 	if (cnt != 1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"disk layout has invalid count %d", cnt);
 		return -1;
 	}
@@ -213,7 +213,7 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
 	layout->list[pos].start = start_off;
 	layout->list[pos].stop  = stop_off;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"merged to layout: %u - %u (type %d) from %s",
 		start_off, stop_off, type,
 		layout->list[pos].xlator->name);
@@ -266,7 +266,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
 	ret = dht_disk_layout_merge (this, layout, i, disk_layout);
 	if (ret != 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"layout merge from subvolume %s failed",
 			subvol->name);
 		goto out;
@@ -463,7 +463,7 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 
 	ret = dht_layout_sort (layout);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"sort failed?! how the ....");
 		goto out;
 	}
@@ -472,7 +472,7 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 				    &holes, &overlaps,
 				    &missing, &down, &misc);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"error while finding anomalies in %s -- not good news",
 			loc->path);
 		goto out;
@@ -480,11 +480,11 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 
 	if (holes || overlaps) {
 		if (missing == layout->cnt) {
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"directory %s looked up first time",
 				loc->path);
 		} else {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"found anomalies in %s. holes=%d overlaps=%d",
 				loc->path, holes, overlaps);
 		}
@@ -496,7 +496,7 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 	 * detect this - probably in dht_layout_anomalies() 
 	 */
 		if (layout->list[i].err == ENOENT) {
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"path=%s ENOENT - directory entry"
 				" should be created in selfheal", loc->path);
 			ret = 1;
@@ -543,7 +543,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
 	if (!xattr) {
                 if (err == 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "%s - xattr dictionary is NULL",
                                 loc->path);
                         ret = -1;
@@ -556,7 +556,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	
 	if (dict_ret < 0) {
                 if (err == 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "%s - disk layout missing", loc->path);
                         ret = -1;
                 }
@@ -565,7 +565,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
 	count  = ntoh32 (disk_layout[0]);
 	if (count != 1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"%s - disk layout has invalid count %d",
 			loc->path, count);
 		ret = -1;
@@ -577,7 +577,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	
 	if ((layout->list[pos].start != start_off)
 	    || (layout->list[pos].stop != stop_off)) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"subvol: %s; inode layout - %"PRId32" - %"PRId32"; "
 			"disk layout - %"PRId32" - %"PRId32,
 			layout->list[pos].xlator->name,
@@ -600,7 +600,7 @@ dht_layout_inode_set (xlator_t *this, xlator_t *subvol, inode_t *inode)
 
 	layout = dht_layout_for_subvol (this, subvol);
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no pre-set layout for subvolume %s",
 			subvol ? subvol->name : "<nil>");
 		ret = -1;

@@ -66,7 +66,7 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	xattr = get_new_dict ();
 	if (!xattr) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
@@ -77,14 +77,14 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	str_data = str_to_data (local->linkfile.srcvol->name);
 	if (!str_data) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
 
 	ret = dict_set (xattr, "trusted.glusterfs.dht.linkto", str_data);
 	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to initialize linkfile data");
 		op_errno = EINVAL;
 	}
@@ -143,7 +143,7 @@ dht_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	subvol = prev->this;
 
 	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"unlinking linkfile %s on %s failed (%s)",
 			local->loc.path, subvol->name, strerror (op_errno));
 	}
@@ -164,14 +164,14 @@ dht_linkfile_unlink (call_frame_t *frame, xlator_t *this,
 	unlink_frame = copy_frame (frame);
 	if (!unlink_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
 	unlink_local = dht_local_init (unlink_frame);
 	if (!unlink_local) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 

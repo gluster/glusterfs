@@ -63,7 +63,7 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 		if (local->st_ino) {
 			local->stbuf.st_ino = local->st_ino;
 		} else {
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"could not find hashed subvolume for %s",
 				local->loc.path);
 		}
@@ -107,7 +107,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		if (op_ret == -1) {
 			local->op_errno = ENOENT;
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"lookup of %s on %s returned error (%s)",
 				local->loc.path, prev->this->name,
 				strerror (op_errno));
@@ -117,7 +117,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
  		is_dir = check_is_dir (inode, stbuf, xattr);
  		if (!is_dir) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "lookup of %s on %s returned non dir 0%o",
                                 local->loc.path, prev->this->name,
                                 stbuf->st_mode);
@@ -158,7 +158,7 @@ unlock:
 			if (ret != 0) {
 				layout->gen = conf->gen;
 
-				gf_log (this->name, GF_LOG_WARNING,
+				gf_log (this->name, GF_LOG_DEBUG,
 					"fixing assignment on %s",
 					local->loc.path);
 				goto selfheal;
@@ -170,7 +170,7 @@ unlock:
 			if (local->st_ino) {
 				local->stbuf.st_ino = local->st_ino;
 			} else {
-				gf_log (this->name, GF_LOG_WARNING,
+				gf_log (this->name, GF_LOG_DEBUG,
 					"could not find hashed subvol for %s",
 					local->loc.path);
 			}
@@ -215,7 +215,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			if ((op_errno != ENOTCONN) 
                             && (op_errno != ENOENT)
                             && (op_errno != ESTALE)) {
-				gf_log (this->name, GF_LOG_WARNING,
+				gf_log (this->name, GF_LOG_DEBUG,
 					"subvolume %s returned -1 (%s)",
 					prev->this->name, strerror (op_errno));
 			}
@@ -231,7 +231,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		if (S_IFMT & (stbuf->st_mode ^ local->inode->st_mode)) {
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"mismatching filetypes 0%o v/s 0%o for %s",
 				(stbuf->st_mode & S_IFMT),
 				(local->inode->st_mode & S_IFMT),
@@ -249,7 +249,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		is_linkfile = check_is_linkfile (inode, stbuf, xattr);
 		
 		if (is_linkfile) {
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"linkfile found in revalidate for %s",
 				local->loc.path);
 			local->layout_mismatch = 1;
@@ -262,7 +262,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 						       prev->this, &local->loc,
 						       xattr);
 			if (ret != 0) {
-				gf_log (this->name, GF_LOG_WARNING,
+				gf_log (this->name, GF_LOG_DEBUG,
 					"mismatching layouts for %s", 
 					local->loc.path);
 			
@@ -323,7 +323,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         ret = dht_layout_inode_set (this, local->cached_subvol, inode);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "failed to set layout for subvolume %s",
                         cached_subvol ? cached_subvol->name : "<nil>");
                 local->op_ret = -1;
@@ -384,7 +384,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (is_linkfile) {
 			link_subvol = dht_linkfile_subvol (this, inode, buf,
 							   xattr);
-			gf_log (this->name, GF_LOG_WARNING,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"found on %s linkfile %s (-> %s)",
 				subvol->name, loc->path,
 				link_subvol ? link_subvol->name : "''");
@@ -394,7 +394,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (is_dir) {
                         local->dir_count++;
 
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "found on %s directory %s",
                                 subvol->name, loc->path);
                 } else {
@@ -410,7 +410,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         "found on %s file %s",
                                         subvol->name, loc->path);
                         } else {
-                                gf_log (this->name, GF_LOG_WARNING,
+                                gf_log (this->name, GF_LOG_DEBUG,
                                         "multiple subvolumes (%s and %s) have "
                                         "file %s", local->cached_subvol->name,
                                         subvol->name, local->loc.path);
@@ -421,7 +421,7 @@ unlock:
 	UNLOCK (&frame->lock);
 
 	if (is_linkfile) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"deleting stale linkfile %s on %s",
 			loc->path, subvol->name);
 		dht_linkfile_unlink (frame, this, subvol, loc);
@@ -434,8 +434,9 @@ unlock:
 
                 if (local->file_count && local->dir_count) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "path %s is both file and directory at the " 
-                                "backend. Please fix it manually",
+                                "path %s exists as a file on one subvolume " 
+                                "and directory on another. "
+                                "Please fix it manually",
                                 loc->path);
                         DHT_STACK_UNWIND (frame, -1, EIO, NULL, NULL, NULL);
                         return 0;
@@ -463,7 +464,7 @@ unlock:
                         ret = dht_layout_inode_set (frame->this, cached_subvol,
                                                     local->inode);
                         if (ret < 0) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_log (this->name, GF_LOG_DEBUG,
                                         "failed to set layout for subvol %s",
                                         cached_subvol ? cached_subvol->name :
                                         "<nil>");
@@ -477,7 +478,7 @@ unlock:
                         return 0;
                 }
 
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "linking file %s existing on %s to %s (hash)",
                         loc->path, cached_subvol->name,
                         hashed_subvol->name);
@@ -538,21 +539,21 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 	loc    = &local->loc;
 
         if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"lookup of %s on %s (following linkfile) failed (%s)",
 			local->loc.path, subvol->name, strerror (op_errno));
                 goto err;
 	}
 
         if (check_is_dir (inode, stbuf, xattr)) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "lookup of %s on %s (following linkfile) reached dir",
                         local->loc.path, subvol->name);
                 goto err;
         }
 
         if (check_is_linkfile (inode, stbuf, xattr)) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "lookup of %s on %s (following linkfile) reached link",
                         local->loc.path, subvol->name);
                 goto err;
@@ -566,7 +567,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 
 	layout = dht_layout_for_subvol (this, prev->this);
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no pre-set layout for subvolume %s",
 			prev->this->name);
 		op_ret   = -1;
@@ -605,7 +606,7 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
         local->layout = dht_layout_new (this, conf->subvolume_cnt);
         if (!local->layout) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "memory allocation failed :(");
+                        "Out of memory");
                 DHT_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
                 return 0;
         }
@@ -676,7 +677,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		layout = dht_layout_for_subvol (this, prev->this);
 		if (!layout) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"no pre-set layout for subvolume %s",
 				prev->this->name);
 			op_ret   = -1;
@@ -692,7 +693,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
 
                 if (!subvol) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "linkfile not having link subvolume. path=%s",
                                 loc->path);
 			dht_lookup_everywhere (frame, this, loc);
@@ -740,14 +741,14 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
         ret = loc_dup (loc, &local->loc);
         if (ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "copying location failed for path=%s",
                         loc->path);
                 goto err;
@@ -769,7 +770,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 		layout = dht_layout_get (this, loc->inode);
 
                 if (!layout) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "revalidate without cache. path=%s",
                                 loc->path);
                         op_errno = EINVAL;
@@ -777,7 +778,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 }
 
 		if (layout->gen && (layout->gen < conf->gen)) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"incomplete layout failure for path=%s",
 				loc->path);
 			op_errno = ESTALE;
@@ -815,7 +816,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 				       "trusted.glusterfs.dht.linkto", 256);
 
                 if (!hashed_subvol) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"no subvolume in layout for path=%s, "
 				"checking on all the subvols to see if "
 				"it is a directory", loc->path);
@@ -826,7 +827,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
  			if (!local->layout) {
  				op_errno = ENOMEM;
  				gf_log (this->name, GF_LOG_ERROR,
- 					"memory allocation failed :(");
+ 					"Out of memory");
  				goto err;
  			}
 
@@ -869,7 +870,7 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		if (op_ret == -1) {
 			local->op_errno = op_errno;
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"subvolume %s returned -1 (%s)",
 				prev->this->name, strerror (op_errno));
 			goto unlock;
@@ -912,7 +913,7 @@ dht_stat (call_frame_t *frame, xlator_t *this,
 
 	layout = dht_layout_get (this, loc->inode);
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no layout for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -922,7 +923,7 @@ dht_stat (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -964,7 +965,7 @@ dht_fstat (call_frame_t *frame, xlator_t *this,
 
 	layout = dht_layout_get (this, fd->inode);
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no layout for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -974,7 +975,7 @@ dht_fstat (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"local allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1017,14 +1018,14 @@ dht_chmod (call_frame_t *frame, xlator_t *this,
 	layout = dht_layout_get (this, loc->inode);
 
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no layout for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
 	}
 
 	if (!layout_is_sane (layout)) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"layout is not sane for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -1033,7 +1034,7 @@ dht_chmod (call_frame_t *frame, xlator_t *this,
 	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"memory allocation failed :(");
 		goto err;
 	}
@@ -1076,14 +1077,14 @@ dht_chown (call_frame_t *frame, xlator_t *this,
 
 	layout = dht_layout_get (this, loc->inode);
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no layout for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
 	}
 
 	if (!layout_is_sane (layout)) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"layout is not sane for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -1093,7 +1094,7 @@ dht_chown (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1134,14 +1135,14 @@ dht_fchmod (call_frame_t *frame, xlator_t *this,
 
 	layout = dht_layout_get (this, fd->inode);
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no layout for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
 	}
 
 	if (!layout_is_sane (layout)) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"layout is not sane for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -1151,7 +1152,7 @@ dht_fchmod (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1191,14 +1192,14 @@ dht_fchown (call_frame_t *frame, xlator_t *this,
 
 	layout = dht_layout_get (this, fd->inode);
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no layout for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
 	}
 
 	if (!layout_is_sane (layout)) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"layout is not sane for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -1208,7 +1209,7 @@ dht_fchown (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1250,14 +1251,14 @@ dht_utimens (call_frame_t *frame, xlator_t *this,
 
 	layout = dht_layout_get (this, loc->inode);
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no layout for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
 	}
 
 	if (!layout_is_sane (layout)) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"layout is not sane for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -1267,7 +1268,7 @@ dht_utimens (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1308,7 +1309,7 @@ dht_truncate (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -1318,7 +1319,7 @@ dht_truncate (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1354,7 +1355,7 @@ dht_ftruncate (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -1364,7 +1365,7 @@ dht_ftruncate (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1401,7 +1402,7 @@ dht_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		if (op_ret == -1) {
 			local->op_errno = op_errno;
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"subvolume %s returned -1 (%s)",
 				prev->this->name, strerror (op_errno));
 			goto unlock;
@@ -1437,7 +1438,7 @@ dht_access (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -1447,7 +1448,7 @@ dht_access (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1493,7 +1494,7 @@ dht_readlink (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -1539,7 +1540,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -1576,7 +1577,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -1586,7 +1587,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1623,7 +1624,7 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -1633,7 +1634,7 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1669,7 +1670,7 @@ dht_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		if (op_ret == -1) {
 			local->op_errno = op_errno;
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"subvolume %s returned -1 (%s)",
 				prev->this->name, strerror (op_errno));
 			goto unlock;
@@ -1705,7 +1706,7 @@ dht_open (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -1715,7 +1716,7 @@ dht_open (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1724,7 +1725,7 @@ dht_open (call_frame_t *frame, xlator_t *this,
 	if (ret == -1) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1771,7 +1772,7 @@ dht_readv (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -1816,7 +1817,7 @@ dht_writev (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -1850,7 +1851,7 @@ dht_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -1860,7 +1861,7 @@ dht_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -1895,7 +1896,7 @@ dht_fsync (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -1905,7 +1906,7 @@ dht_fsync (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocatoin failed :(");
+			"Out of memory");
 		goto err;
 	}
 	local->call_cnt = 1;
@@ -1948,7 +1949,7 @@ dht_lk (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -1967,50 +1968,6 @@ err:
 	return 0;
 }
 
-/* gf_lk no longer exists 
-int
-dht_gf_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-	    int op_ret, int op_errno, struct flock *flock)
-{
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, flock);
-
-        return 0;
-}
-
-
-int
-dht_gf_lk (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, int cmd, struct flock *flock)
-{
-	xlator_t     *subvol = NULL;
-        int           op_errno = -1;
-
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (fd, err);
-
-	subvol = dht_subvol_get_cached (this, fd->inode);
-	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"no cached subvolume for fd=%p", fd);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	STACK_WIND (frame, dht_gf_lk_cbk,
-		    subvol, subvol->fops->gf_lk,
-		    fd, cmd, flock);
-
-	return 0;
-
-err:
-	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
-
-	return 0;
-}
-*/
 
 int
 dht_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2114,7 +2071,7 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -2123,7 +2080,7 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 	if (ret == -1) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -2178,7 +2135,7 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			entry = gf_dirent_for_name (orig_entry->d_name);
 			if (!entry) {
 				gf_log (this->name, GF_LOG_ERROR,
-					"memory allocation failed :(");
+					"Out of memory");
 				goto unwind;
 			}
 
@@ -2250,7 +2207,7 @@ dht_readdir (call_frame_t *frame, xlator_t *this,
 	local = dht_local_init (frame);
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
@@ -2322,7 +2279,7 @@ dht_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -2365,7 +2322,7 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	layout = dht_layout_for_subvol (this, prev->this);
 
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no pre-set layout for subvolume %s",
 			prev->this->name);
 		op_ret   = -1;
@@ -2375,7 +2332,7 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	ret = inode_ctx_put (inode, this, (uint64_t)(long)layout);
 	if (ret != 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"could not set inode context");
 		op_ret   = -1;
 		op_errno = EINVAL;
@@ -2432,7 +2389,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			loc->path);
 		op_errno = ENOENT;
@@ -2440,7 +2397,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
 	}
 
         if (!dht_is_subvol_filled (this, subvol)) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_TRACE,
                         "creating %s on %s", loc->path, subvol->name);
                 
                 STACK_WIND (frame, dht_newfile_cbk,
@@ -2455,7 +2412,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                         if (!local) {
                                 op_errno = ENOMEM;
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "memory allocation failed :(");
+                                        "Out of memory");
                                 goto err;
                         }
                         local->cached_subvol = avail_subvol;
@@ -2466,7 +2423,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                                              dht_mknod_linkfile_create_cbk,
                                              avail_subvol, subvol, loc);
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_TRACE,
                                 "creating %s on %s", loc->path, subvol->name);
                         
                         STACK_WIND (frame, dht_newfile_cbk,
@@ -2499,14 +2456,14 @@ dht_symlink (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			loc->path);
 		op_errno = ENOENT;
 		goto err;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"creating %s on %s", loc->path, subvol->name);
 
 	STACK_WIND (frame, dht_newfile_cbk,
@@ -2538,7 +2495,7 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	cached_subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!cached_subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -2546,7 +2503,7 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	hashed_subvol = dht_subvol_get_hashed (this, loc);
 	if (!hashed_subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			loc->path);
 		op_errno = EINVAL;
@@ -2557,7 +2514,7 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -2599,7 +2556,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	layout = dht_layout_for_subvol (this, prev->this);
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no pre-set layout for subvolume %s",
 			prev->this->name);
 		op_ret   = -1;
@@ -2662,7 +2619,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
 
 	cached_subvol = dht_subvol_get_cached (this, oldloc->inode);
 	if (!cached_subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", oldloc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -2670,7 +2627,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
 
 	hashed_subvol = dht_subvol_get_hashed (this, newloc);
 	if (!hashed_subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			newloc->path);
 		op_errno = EINVAL;
@@ -2681,7 +2638,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -2689,7 +2646,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
 	if (ret == -1) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -2697,7 +2654,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
 	if (ret == -1) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -2738,7 +2695,7 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	layout = dht_layout_for_subvol (this, prev->this);
 
 	if (!layout) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no pre-set layout for subvolume %s",
 			prev->this->name);
 		op_ret   = -1;
@@ -2748,7 +2705,7 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	ret = inode_ctx_put (inode, this, (uint64_t)(long)layout);
 	if (ret != 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"could not set inode context");
 		op_ret   = -1;
 		op_errno = EINVAL;
@@ -2808,14 +2765,14 @@ dht_create (call_frame_t *frame, xlator_t *this,
 	local = dht_local_init (frame);
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
 
 	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			loc->path);
 		op_errno = ENOENT;
@@ -2823,7 +2780,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
 	}
 
         if (!dht_is_subvol_filled (this, subvol)) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_TRACE,
                         "creating %s on %s", loc->path, subvol->name);
                 STACK_WIND (frame, dht_create_cbk,
                             subvol, subvol->fops->create,
@@ -2838,7 +2795,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
                         if (ret == -1) {
                                 op_errno = ENOMEM;
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "memory allocation failed :(");
+                                        "Out of memory");
                                 goto err;
                         }
 
@@ -2848,14 +2805,14 @@ dht_create (call_frame_t *frame, xlator_t *this,
 
                         local->cached_subvol = avail_subvol;
                         local->hashed_subvol = subvol;
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_TRACE,
                                 "creating %s on %s (link at %s)", loc->path, 
                                 avail_subvol->name, subvol->name);
                         dht_linkfile_create (frame, 
                                              dht_create_linkfile_create_cbk,
                                              avail_subvol, subvol, loc);
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_TRACE,
                                 "creating %s on %s", loc->path, subvol->name);
                         STACK_WIND (frame, dht_create_cbk,
                                     subvol, subvol->fops->create,
@@ -3027,7 +2984,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 	local = dht_local_init (frame);
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
@@ -3035,8 +2992,9 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 	hashed_subvol = dht_subvol_get_hashed (this, loc);
 
 	if (hashed_subvol == NULL) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"hashed subvol not found");
+		gf_log (this->name, GF_LOG_DEBUG,
+			"hashed subvol not found for %s",
+                        loc->path);
 		op_errno = EINVAL;
 		goto err;
 	}
@@ -3048,7 +3006,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
@@ -3056,7 +3014,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 	local->layout = dht_layout_new (this, conf->subvolume_cnt);
 	if (!local->layout) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
@@ -3113,7 +3071,7 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			if (op_errno != ENOENT)
 				local->need_selfheal = 1;
 
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"rmdir on %s for %s failed (%s)",
 				prev->this->name, local->loc.path,
 				strerror (op_errno));
@@ -3188,7 +3146,7 @@ dht_rmdir_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev  = cookie;
 
 	if (op_ret > 2) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"readdir on %s for %s returned %d entries",
 			prev->this->name, local->loc.path, op_ret);
 		local->op_ret = -1;
@@ -3218,7 +3176,7 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev  = cookie;
 
 	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"opendir on %s for %s failed (%s)",
 			prev->this->name, local->loc.path,
 			strerror (op_errno));
@@ -3263,7 +3221,7 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	local = dht_local_init (frame);
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
@@ -3274,7 +3232,7 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	ret = loc_copy (&local->loc, loc);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
@@ -3282,7 +3240,7 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	local->fd = fd_create (local->loc.inode, frame->root->pid);
 	if (!local->fd) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
@@ -3304,24 +3262,18 @@ err:
 }
 
 
-static int32_t
-dht_xattrop_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 dict_t *dict)
+int
+dht_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		 int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
 	DHT_STACK_UNWIND (frame, op_ret, op_errno, dict);
 	return 0;
 }
 
-int32_t
-dht_xattrop (call_frame_t *frame,
-	     xlator_t *this,
-	     loc_t *loc,
-	     gf_xattrop_flags_t flags,
-	     dict_t *dict)
+
+int
+dht_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
+	     gf_xattrop_flags_t flags, dict_t *dict)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -3335,7 +3287,7 @@ dht_xattrop (call_frame_t *frame,
 
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -3345,7 +3297,7 @@ dht_xattrop (call_frame_t *frame,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -3366,24 +3318,19 @@ err:
 	return 0;
 }
 
-static int32_t
-dht_fxattrop_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  dict_t *dict)
+
+int
+dht_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		  int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
 	DHT_STACK_UNWIND (frame, op_ret, op_errno, dict);
 	return 0;
 }
 
-int32_t
-dht_fxattrop (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      gf_xattrop_flags_t flags,
-	      dict_t *dict)
+
+int
+dht_fxattrop (call_frame_t *frame, xlator_t *this,
+	      fd_t *fd, gf_xattrop_flags_t flags, dict_t *dict)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -3394,7 +3341,7 @@ dht_fxattrop (call_frame_t *frame,
 
 	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -3415,7 +3362,7 @@ err:
 }
 
 
-static int32_t
+int
 dht_inodelk_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno)
 
@@ -3442,7 +3389,7 @@ dht_inodelk (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -3452,7 +3399,7 @@ dht_inodelk (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -3474,7 +3421,7 @@ err:
 }
 
 
-static int32_t
+int
 dht_finodelk_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno)
 
@@ -3484,7 +3431,7 @@ dht_finodelk_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-int32_t
+int
 dht_finodelk (call_frame_t *frame, xlator_t *this,
 	      const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
 {
@@ -3497,7 +3444,7 @@ dht_finodelk (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -3519,7 +3466,7 @@ err:
 }
 
 
-static int32_t
+int
 dht_entrylk_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno)
 
@@ -3528,7 +3475,8 @@ dht_entrylk_cbk (call_frame_t *frame, void *cookie,
 	return 0;
 }
 
-int32_t
+
+int
 dht_entrylk (call_frame_t *frame, xlator_t *this,
 	     const char *volume, loc_t *loc, const char *basename,
 	     entrylk_cmd cmd, entrylk_type type)
@@ -3545,7 +3493,7 @@ dht_entrylk (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", loc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -3555,7 +3503,7 @@ dht_entrylk (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -3575,7 +3523,8 @@ err:
 	return 0;
 }
 
-static int32_t
+
+int
 dht_fentrylk_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno)
 
@@ -3584,7 +3533,8 @@ dht_fentrylk_cbk (call_frame_t *frame, void *cookie,
 	return 0;
 }
 
-int32_t
+
+int
 dht_fentrylk (call_frame_t *frame, xlator_t *this,
 	      const char *volume, fd_t *fd, const char *basename,
 	      entrylk_cmd cmd, entrylk_type type)
@@ -3598,7 +3548,7 @@ dht_fentrylk (call_frame_t *frame, xlator_t *this,
 
 	subvol = dht_subvol_get_cached (this, fd->inode);
 	if (!subvol) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for fd=%p", fd);
 		op_errno = EINVAL;
 		goto err;
@@ -3628,6 +3578,7 @@ dht_forget (xlator_t *this, inode_t *inode)
 
 	if (!tmp_layout)
 		return 0;
+
 	layout = (dht_layout_t *)(long)tmp_layout;
 	if (!layout->preset)
 		FREE (layout);
@@ -3637,7 +3588,7 @@ dht_forget (xlator_t *this, inode_t *inode)
 
 
 
-static int
+int
 dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
 {
         xlator_list_t *subvols = NULL;
@@ -3650,7 +3601,7 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
         conf->subvolumes = CALLOC (cnt, sizeof (xlator_t *));
         if (!conf->subvolumes) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "memory allocation failed :(");
+                        "Out of memory");
                 return -1;
         }
         conf->subvolume_cnt = cnt;
@@ -3662,7 +3613,7 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
 	conf->subvolume_status = CALLOC (cnt, sizeof (char));
 	if (!conf->subvolume_status) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		return -1;
 	}
 
@@ -3696,7 +3647,7 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 		}
 
 		if (cnt == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"got GF_EVENT_CHILD_UP bad subvolume %s",
 				subvol->name);
 			break;
@@ -3724,7 +3675,7 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 		}
 
 		if (cnt == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"got GF_EVENT_CHILD_DOWN bad subvolume %s",
 				subvol->name);
 			break;

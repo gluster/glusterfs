@@ -46,7 +46,7 @@ dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (op_ret == -1) {
 		/* TODO: undo the damage */
 
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"rename %s -> %s on %s failed (%s)",
 			local->loc.path, local->loc2.path,
 			prev->this->name, strerror (op_errno));
@@ -112,7 +112,7 @@ dht_rename_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev  = cookie;
 
 	if (op_ret > 2) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"readdir on %s for %s returned %d entries",
 			prev->this->name, local->loc.path, op_ret);
 		local->op_ret = -1;
@@ -142,7 +142,7 @@ dht_rename_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev  = cookie;
 
 	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"opendir on %s for %s failed (%s)",
 			prev->this->name, local->loc.path,
 			strerror (op_errno));
@@ -183,7 +183,7 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
 	local->fd = fd_create (local->loc.inode, frame->root->pid);
 	if (!local->fd) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		op_errno = ENOMEM;
 		goto err;
 	}
@@ -225,7 +225,7 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	this_call_cnt = dht_frame_return (frame);
 
 	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"unlink on %s failed (%s)",
 			prev->this->name, strerror (op_errno));
 	}
@@ -291,7 +291,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto unwind;
 
 	if (src_cached != dst_hashed && src_cached != dst_cached) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"deleting old src datafile %s @ %s",
 			local->loc.path, src_cached->name);
 
@@ -301,7 +301,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
 	if (src_hashed != rename_subvol && src_hashed != src_cached) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"deleting old src linkfile %s @ %s",
 			local->loc.path, src_hashed->name);
 
@@ -313,7 +313,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (dst_cached
 	    && (dst_cached != dst_hashed)
 	    && (dst_cached != src_cached)) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"deleting old dst datafile %s @ %s",
 			local->loc2.path, dst_cached->name);
 
@@ -354,7 +354,7 @@ dht_do_rename (call_frame_t *frame)
 	else
 		rename_subvol = dst_hashed;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"renaming %s => %s (%s)",
 		local->loc.path, local->loc2.path, rename_subvol->name);
 
@@ -437,7 +437,7 @@ dht_rename_create_links (call_frame_t *frame)
 	local->call_cnt = call_cnt;
 
 	if (dst_hashed != src_hashed && dst_hashed != src_cached) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"linkfile %s @ %s => %s",
 			local->loc.path, dst_hashed->name, src_cached->name);
 		dht_linkfile_create (frame, dht_rename_links_cbk,
@@ -445,7 +445,7 @@ dht_rename_create_links (call_frame_t *frame)
 	}
 
 	if (src_cached != dst_hashed) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"link %s => %s (%s)", local->loc.path,
 			local->loc2.path, src_cached->name);
 		STACK_WIND (frame, dht_rename_links_cbk,
@@ -483,7 +483,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 
 	src_hashed = dht_subvol_get_hashed (this, oldloc);
 	if (!src_hashed) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			oldloc->path);
 		op_errno = EINVAL;
@@ -492,7 +492,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 
 	src_cached = dht_subvol_get_cached (this, oldloc->inode);
 	if (!src_cached) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no cached subvolume for path=%s", oldloc->path);
 		op_errno = EINVAL;
 		goto err;
@@ -500,7 +500,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 
 	dst_hashed = dht_subvol_get_hashed (this, newloc);
 	if (!dst_hashed) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			newloc->path);
 		op_errno = EINVAL;
@@ -514,7 +514,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -522,7 +522,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 	if (ret == -1) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -530,7 +530,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 	if (ret == -1) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
@@ -539,7 +539,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 	local->dst_hashed = dst_hashed;
 	local->dst_cached = dst_cached;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"renaming %s (hash=%s/cache=%s) => %s (hash=%s/cache=%s)",
 		oldloc->path, src_hashed->name, src_cached->name,
 		newloc->path, dst_hashed->name,
