@@ -1680,6 +1680,39 @@ iot_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 }
 
+int
+iot_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, dict);
+        return 0;
+}
+
+int
+iot_fgetxattr_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                        const char *name)
+{
+        STACK_WIND (frame, iot_fgetxattr_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->fgetxattr, fd, name);
+        return 0;
+}
+
+int
+iot_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+               const char *name)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_fgetxattr_stub (frame, iot_fgetxattr_wrapper, fd, name);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get fgetxattr stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        return 0;
+}
 
 /* Must be called with worker lock held */
 void
@@ -2208,6 +2241,7 @@ struct xlator_fops fops = {
         .statfs      = iot_statfs,      /* U */
         .setxattr    = iot_setxattr,     /* U */
         .getxattr    = iot_getxattr,    /* U */
+        .fgetxattr   = iot_fgetxattr,   /* O */
 };
 
 struct xlator_mops mops = {
