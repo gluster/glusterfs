@@ -685,10 +685,6 @@ parse_opts (int key, char *arg, struct argp_state *state)
 			cmd_args->log_level = GF_LOG_NONE;
 			break;
 		}
-		if (strcasecmp (arg, ARGP_LOG_LEVEL_TRACE_OPTION) == 0) {
-			cmd_args->log_level = GF_LOG_TRACE;
-			break;
-		}
 		if (strcasecmp (arg, ARGP_LOG_LEVEL_CRITICAL_OPTION) == 0) {
 			cmd_args->log_level = GF_LOG_CRITICAL;
 			break;

@@ -69,7 +69,6 @@
 
 typedef enum {
 	GF_LOG_NONE,
-	GF_LOG_TRACE,
 	GF_LOG_CRITICAL,   /* fatal errors */
 	GF_LOG_ERROR,      /* major failures (not necessarily fatal) */
 	GF_LOG_WARNING,    /* info about normal operation */
@@ -122,11 +121,5 @@ gf_log_set_loglevel (gf_loglevel_t level);
 	gf_log ((xl)->name, GF_LOG_WARNING, format, ##args)
 #define GF_ERROR(xl, format, args...) \
 	gf_log ((xl)->name, GF_LOG_ERROR, format, ##args)
-
-#define GF_TRACE(xl, args...) do {					\
-		if ((xl)->trace)					\
-			_gf_log ((xl)->name, __FILE__, __FUNCTION__,	\
-				 __LINE__, GF_LOG_TRACE, ##args);	\
-	} while(0);							\
 
 #endif /* __LOGGING_H__ */

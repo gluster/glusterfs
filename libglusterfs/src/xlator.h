@@ -860,7 +860,6 @@ struct _xlator {
 	glusterfs_ctx_t  *ctx;
 	inode_table_t    *itable;
 	char              ready;
-	char              trace;
 	char              init_succeeded;
 	void             *private;
 };
