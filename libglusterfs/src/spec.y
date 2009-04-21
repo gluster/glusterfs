@@ -87,11 +87,10 @@ type_error (void)
 {
         extern int yylineno;
 
-        fprintf (stderr, "volume %s, before line %d: specify which 'type' "
-		 "you need\n",
+        fprintf (stderr, "Volume '%s', before line %d: Please specify volume 'type'.",
                  complete_tree->name, yylineno);
         gf_log ("parser", GF_LOG_ERROR, 
-                "volume %s, before line %d: specify which 'type' you need",
+                "Volume '%s', before line %d: Please specify volume 'type'.",
                 complete_tree->name, yylineno);
         return;
 }
@@ -101,12 +100,10 @@ sub_error (void)
 {
         extern int yylineno;
 
-        fprintf (stderr, "volume %s, before line %d: specify what all "
-		 "'subvolumes' you need for volume\n",
+        fprintf (stderr, "Volume %s, before line %d: Please specify subvolumes for the volume. ",
                  complete_tree->name, yylineno);
         gf_log ("parser", GF_LOG_ERROR, 
-                "volume %s, before line %d: specify what all 'subvolumes' "
-		"you need for volume",
+                "Volume %s, before line %d: Please specify subvolumes for the volume. ",
                 complete_tree->name, yylineno);
         return;
 }
@@ -116,12 +113,12 @@ option_error (void)
 {
         extern int yylineno;
 
-        fprintf (stderr, "volume %s, before line %d: you need to specify "
-		 "<key> <value> pair for 'option' token\n",
+        fprintf (stderr, "Volume %s, before line %d: Please specify "
+		 "option <key> <value> \n",
                  complete_tree->name, yylineno);
         gf_log ("parser", GF_LOG_ERROR, 
-                "volume %s, before line %d: you need to specify <key> "
-		"<value> pair for 'option' token",
+                "Volume %s, before line %d: Please specify "
+                "option <key> <value>",
                 complete_tree->name, yylineno);
         return;
 }
@@ -159,17 +156,17 @@ new_section (char *name)
 
         if (!name) {
                 gf_log ("parser", GF_LOG_DEBUG, 
-			"invalid argument name '%s'", name);
+			"Invalid argument name: '%s'", name);
                 return -1;
         }
 
         while (trav) {
                 if (!strcmp (name,  trav->name)) {
                         fprintf (stderr, 
-				 "line %d: volume '%s' defined again\n", 
+				 "Line %d: volume '%s' defined again\n", 
                                  yylineno, name);
                         gf_log ("parser", GF_LOG_ERROR, 
-				"line %d: volume '%s' defined again", 
+				"Line %d: volume '%s' defined again", 
                                 yylineno, name);
                         return -1;
                 }
@@ -185,7 +182,7 @@ new_section (char *name)
         complete_tree = node;
 
         tree = node;
-        gf_log ("parser", GF_LOG_DEBUG, "New node for '%s'", name);
+        gf_log ("parser", GF_LOG_TRACE, "New node for '%s'", name);
 
         return 0;
 }
@@ -196,22 +193,22 @@ section_type (char *type)
         extern int yylineno;
         int32_t ret = -1;
         if (!type) {
-                gf_log ("parser", GF_LOG_DEBUG, "invalid argument type");
+                gf_log ("parser", GF_LOG_DEBUG, "Invalid argument type");
                 return -1;
         }
 
         ret = xlator_set_type (tree, type);
         if (ret) {
-                fprintf (stderr, "volume '%s', line %d: type '%s' is not "
+                fprintf (stderr, "Volume '%s', line %d: type '%s' is not "
 			 "valid or not found on this machine\n", 
                          complete_tree->name, yylineno, type);
                 gf_log ("parser", GF_LOG_ERROR, 
-                        "volume '%s', line %d: type '%s' is not valid or "
+                        "Volume '%s', line %d: type '%s' is not valid or "
 			"not found on this machine", 
                         complete_tree->name, yylineno, type);
                 return -1;
         }
-        gf_log ("parser", GF_LOG_DEBUG, "Type:%s:%s", tree->name, type);
+        gf_log ("parser", GF_LOG_TRACE, "Type:%s:%s", tree->name, type);
 
         return 0;
 }
@@ -225,8 +222,8 @@ section_option (char *key, char *value)
         int ret = 0;
 
         if (!key || !value){
-                fprintf (stderr, "invalid argument\n");
-                gf_log ("parser", GF_LOG_ERROR, "invalid argument");
+                fprintf (stderr, "Invalid argument\n");
+                gf_log ("parser", GF_LOG_ERROR, "Invalid argument");
                 return -1;
         }
 
@@ -234,12 +231,12 @@ section_option (char *key, char *value)
 
         if (ret == 1) {
                 gf_log ("parser", GF_LOG_ERROR, 
-                        "volume '%s', line %d: duplicate entry "
+                        "Volume '%s', line %d: duplicate entry "
 			"('option %s') present", 
                         tree->name, yylineno, key);
                 return -1;
         }
-        gf_log ("parser", GF_LOG_DEBUG, "Option:%s:%s:%s",
+        gf_log ("parser", GF_LOG_TRACE, "Option:%s:%s:%s",
                 tree->name, key, value);
 
         return 0;
@@ -253,8 +250,8 @@ section_sub (char *sub)
         xlator_list_t *xlchild, *tmp, *xlparent;
 
         if (!sub) {
-                fprintf (stderr, "invalid subvolumes argument\n");
-                gf_log ("parser", GF_LOG_ERROR, "invalid subvolumes argument");
+                fprintf (stderr, "Invalid subvolumes argument\n");
+                gf_log ("parser", GF_LOG_ERROR, "Invalid subvolumes argument");
                 return -1;
         }
 
@@ -265,22 +262,22 @@ section_sub (char *sub)
         }
         if (!trav) {
                 fprintf (stderr, 
-                         "volume '%s', line %d: subvolume '%s' is not "
+                         "Volume '%s', line %d: subvolume '%s' is not "
 			 "defined prior to usage\n", 
                          complete_tree->name, yylineno, sub);
                 gf_log ("parser", GF_LOG_ERROR, 
-                        "volume '%s', line %d: subvolume '%s' is not defined "
+                        "Volume '%s', line %d: subvolume '%s' is not defined "
 			"prior to usage", 
                         complete_tree->name, yylineno, sub);
                 return -1;
         }
   
         if (trav == tree) {
-                fprintf (stderr, "volume '%s', line %d: has '%s' itself as "
+                fprintf (stderr, "Volume '%s', line %d: has '%s' itself as "
 			 "subvolume\n", 
                          complete_tree->name, yylineno, sub);
                 gf_log ("parser", GF_LOG_ERROR, 
-                        "volume '%s', line %d: has '%s' itself as subvolume", 
+                        "Volume '%s', line %d: has '%s' itself as subvolume", 
                         complete_tree->name, yylineno, sub);
                 return -1;
         }
@@ -309,7 +306,7 @@ section_sub (char *sub)
                 tmp->next = xlchild;
         }
 
-        gf_log ("parser", GF_LOG_DEBUG, "child:%s->%s", tree->name, sub);
+        gf_log ("parser", GF_LOG_TRACE, "child:%s->%s", tree->name, sub);
 
         return 0;
 }
@@ -324,7 +321,7 @@ section_end (void)
                         "\"type\" not specified for volume %s", tree->name);
                 return -1;
         }
-        gf_log ("parser", GF_LOG_DEBUG, "end:%s", tree->name);
+        gf_log ("parser", GF_LOG_TRACE, "end:%s", tree->name);
 
         tree = NULL;
         return 0;
