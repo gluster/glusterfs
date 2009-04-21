@@ -208,7 +208,7 @@ __ib_verbs_disconnect (transport_t *this)
                 fcntl (priv->sock, F_SETFL, O_NONBLOCK);
                 if (shutdown (priv->sock, SHUT_RDWR) != 0) {
                         gf_log ("transport/ib-verbs",
-                                GF_LOG_ERROR,
+                                GF_LOG_DEBUG,
                                 "shutdown () - error: %s",
                                 strerror (errno));
                         ret = -errno;
@@ -266,7 +266,7 @@ __ib_verbs_ioq_churn_entry (ib_verbs_peer_t *peer, ib_verbs_ioq_t *entry)
                 len = iov_length ((const struct iovec *)&entry->vector, 
                                   entry->count);
                 if  (len >= (options->send_size + 2048)) {
-                        gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
+                        gf_log ("transport/ib-verbs", GF_LOG_ERROR,
                                 "increase value of option 'transport.ib-verbs."
                                 "work-request-send-size' (given=> %"PRId64") "
                                 "to send bigger (%d) messages", 
@@ -283,7 +283,7 @@ __ib_verbs_ioq_churn_entry (ib_verbs_peer_t *peer, ib_verbs_ioq_t *entry)
                         __ib_verbs_ioq_entry_free (entry);
                         ret = len;
                 } else {
-                        gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+                        gf_log ("transport/ib-verbs", GF_LOG_DEBUG,
                                 "ibv_post_send failed with ret = %d", ret);
                         ib_verbs_put_post (&device->sendq, post);
                         __ib_verbs_disconnect (peer->trans);
@@ -387,7 +387,7 @@ ib_verbs_writev (transport_t *this,
         pthread_mutex_lock (&priv->write_mutex);
         {
                 if (!priv->connected) {
-                        gf_log (this->xl->name, GF_LOG_ERROR,
+                        gf_log (this->xl->name, GF_LOG_DEBUG,
                                 "ib-verbs is not connected to post a "
                                 "send request");
                         ret = -1;
@@ -503,7 +503,7 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
 
         header = (ib_verbs_header_t *)copy_from;
         if (strcmp (header->colonO, ":O")) {
-                gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+                gf_log ("transport/ib-verbs", GF_LOG_DEBUG,
                         "%s: corrupt header received", this->xl->name);
                 ret = -1;
                 goto err;
@@ -513,7 +513,7 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
         size2 = ntoh32 (header->size2);
 
         if (data_len != (size1 + size2 + sizeof (*header))) {
-                gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+                gf_log ("transport/ib-verbs", GF_LOG_DEBUG,
                         "%s: sizeof data read from transport is not equal "
                         "to the size specified in the header",
                         this->xl->name);
@@ -989,7 +989,7 @@ __tcp_rwv (transport_t *this, struct iovec *vector, int count,
                         if (errno == EINTR)
                                 continue;
 
-                        gf_log (this->xl->name, GF_LOG_ERROR,
+                        gf_log (this->xl->name, GF_LOG_DEBUG,
                                 "%s failed (%s)", write ? "writev" : "readv",
                                 strerror (errno));
                         if (write && !priv->connected && 
@@ -1149,7 +1149,7 @@ ib_verbs_recv_completion_proc (void *data)
                                 if ((ret = peer->trans->xl->notify (peer->trans->xl, GF_EVENT_POLLIN, 
                                                                     peer->trans, NULL)) == -1) {
                                         gf_log ("transport/ib-verbs",
-                                                GF_LOG_ERROR, 
+                                                GF_LOG_DEBUG, 
                                                 "pollin notification to %s "
                                                 "failed, disconnecting "
                                                 "transport", 
@@ -1235,7 +1235,7 @@ ib_verbs_send_completion_proc (void *data)
                         if (peer) {
                                 int quota_ret = ib_verbs_quota_put (peer);
                                 if (quota_ret < 0) {
-                                        gf_log ("ib-verbs", GF_LOG_WARNING,
+                                        gf_log ("ib-verbs", GF_LOG_DEBUG,
                                                 "failed to send message");
                                         
                                 }
@@ -1308,12 +1308,12 @@ ib_verbs_options_init (transport_t *this)
                 break;
         default:
                 if (temp)
-                        gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+                        gf_log ("transport/ib-verbs", GF_LOG_WARNING,
                                 "%s: unrecognized MTU value '%s', defaulting "
                                 "to '2048'", this->xl->name,
                                 data_to_str (temp));
                 else
-                        gf_log ("transport/ib-verbs", GF_LOG_DEBUG,
+                        gf_log ("transport/ib-verbs", GF_LOG_TRACE,
                                 "%s: defaulting MTU to '2048'",
                                 this->xl->name);
                 options->mtu = IBV_MTU_2048;
@@ -1384,7 +1384,7 @@ ib_verbs_get_device (transport_t *this,
 
                 trav->send_chan = ibv_create_comp_channel (trav->context);
                 if (!trav->send_chan) {
-                        gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
+                        gf_log ("transport/ib-verbs", GF_LOG_ERROR,
                                 "%s: could not create send completion channel",
                                 device_name);
                         /* TODO: cleanup current mess */
@@ -1393,7 +1393,7 @@ ib_verbs_get_device (transport_t *this,
     
                 trav->recv_chan = ibv_create_comp_channel (trav->context);
                 if (!trav->recv_chan) {
-                        gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
+                        gf_log ("transport/ib-verbs", GF_LOG_ERROR,
                                 "could not create recv completion channel");
                         /* TODO: cleanup current mess */
                         return NULL;
@@ -1410,7 +1410,7 @@ ib_verbs_get_device (transport_t *this,
                 trav->pd = ibv_alloc_pd (trav->context);
 
                 if (!trav->pd) {
-                        gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
+                        gf_log ("transport/ib-verbs", GF_LOG_ERROR,
                                 "%s: could not allocate protection domain",
                                 this->xl->name);
                         return NULL;
@@ -1425,7 +1425,7 @@ ib_verbs_get_device (transport_t *this,
                 trav->srq = ibv_create_srq (trav->pd, &attr);
 
                 if (!trav->srq) {
-                        gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
+                        gf_log ("transport/ib-verbs", GF_LOG_ERROR,
                                 "%s: could not create SRQ",
                                 this->xl->name);
                         return NULL;
@@ -1647,7 +1647,7 @@ ib_verbs_handshake_pollin (transport_t *this)
                                 }
 
                                 if (ret > 0) {
-                                        gf_log (this->xl->name, GF_LOG_DEBUG,
+                                        gf_log (this->xl->name, GF_LOG_TRACE,
                                                 "partial header read on NB socket. continue later");
                                         goto unlock;
                                 }
@@ -1683,7 +1683,7 @@ ib_verbs_handshake_pollin (transport_t *this)
                                 if (send_buf_size < priv->peer.send_size)
                                         priv->peer.send_size = send_buf_size;
           
-                                gf_log ("transport/ib-verbs", GF_LOG_DEBUG,
+                                gf_log ("transport/ib-verbs", GF_LOG_TRACE,
                                         "%s: transacted recv_size=%d "
                                         "send_size=%d",
                                         this->xl->name, priv->peer.recv_size,
@@ -1715,7 +1715,7 @@ ib_verbs_handshake_pollin (transport_t *this)
                                 }
 
                                 if (ret > 0) {
-                                        gf_log (this->xl->name, GF_LOG_DEBUG,
+                                        gf_log (this->xl->name, GF_LOG_TRACE,
                                                 "partial header read on NB "
                                                 "socket. continue later");
                                         goto unlock;
@@ -1729,7 +1729,7 @@ ib_verbs_handshake_pollin (transport_t *this)
                         case IB_VERBS_HANDSHAKE_RECEIVED_ACK:
                                 if (strncmp (buf, "DONE", 4)) {
                                         gf_log ("transport/ib-verbs", 
-                                                GF_LOG_ERROR,
+                                                GF_LOG_DEBUG,
                                                 "%s: handshake-3 did not "
                                                 "return 'DONE' (%s)",
                                                 this->xl->name, buf);
@@ -1799,7 +1799,7 @@ ib_verbs_handshake_pollout (transport_t *this)
                                 }
 
                                 if (ret > 0) {
-                                        gf_log (this->xl->name, GF_LOG_DEBUG,
+                                        gf_log (this->xl->name, GF_LOG_TRACE,
                                                 "partial header read on NB socket. continue later");
                                         goto unlock;
                                 }
@@ -1826,7 +1826,7 @@ ib_verbs_handshake_pollout (transport_t *this)
                                 }
 
                                 if (ret > 0) {
-                                        gf_log (this->xl->name, GF_LOG_DEBUG,
+                                        gf_log (this->xl->name, GF_LOG_TRACE,
                                                 "partial header read on NB "
                                                 "socket. continue later");
                                         goto unlock;
@@ -2052,7 +2052,7 @@ ib_verbs_connect (struct transport *this)
         ret = ibverbs_client_get_remote_sockaddr (this, (struct sockaddr *)&sockaddr, 
                                                   &sockaddr_len);
         if (ret != 0) {
-                gf_log (this->xl->name, GF_LOG_ERROR,
+                gf_log (this->xl->name, GF_LOG_DEBUG,
                         "cannot get remote address to connect");
                 return ret;
         }
@@ -2074,7 +2074,7 @@ ib_verbs_connect (struct transport *this)
                         goto unlock;
                 }
 
-                gf_log (this->xl->name, GF_LOG_DEBUG,
+                gf_log (this->xl->name, GF_LOG_TRACE,
                         "socket fd = %d", priv->sock);
 
                 memcpy (&this->peerinfo.sockaddr, &sockaddr, sockaddr_len);
@@ -2234,7 +2234,7 @@ ib_verbs_listen (transport_t *this)
                                                  (struct sockaddr *)&sockaddr,
                                                  &sockaddr_len);
         if (ret != 0) {
-                gf_log (this->xl->name, GF_LOG_ERROR,
+                gf_log (this->xl->name, GF_LOG_DEBUG,
                         "cannot find network address of server to bind to");
                 goto err;
         }
@@ -2270,14 +2270,14 @@ ib_verbs_listen (transport_t *this)
                   (struct sockaddr *)&sockaddr,
                   sockaddr_len) != 0) {
                 ret = -1;
-                gf_log ("ib-verbs/server", GF_LOG_CRITICAL,
+                gf_log ("ib-verbs/server", GF_LOG_ERROR,
                         "init: failed to bind to socket for %s (%s)",
                         this->myinfo.identifier, strerror (errno));
                 goto err;
         }
 
         if (listen (priv->sock, 10) != 0) {
-                gf_log ("ib-verbs/server", GF_LOG_CRITICAL,
+                gf_log ("ib-verbs/server", GF_LOG_ERROR,
                         "init: listen () failed on socket for %s (%s)",
                         this->myinfo.identifier, strerror (errno));
                 ret = -1;
@@ -2329,7 +2329,7 @@ fini (struct transport *this)
         pthread_mutex_destroy (&priv->read_mutex);
         /*  pthread_cond_destroy (&priv->recv_cond); */
 
-        gf_log (this->xl->name, GF_LOG_CRITICAL,
+        gf_log (this->xl->name, GF_LOG_TRACE,
                 "called fini on transport: %p",
                 this);
         free (priv);

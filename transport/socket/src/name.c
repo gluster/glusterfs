@@ -93,7 +93,7 @@ af_unix_client_bind (transport_t *this,
         if (path_data) {
                 char *path = data_to_str (path_data);
                 if (!path || strlen (path) > UNIX_PATH_MAX) {
-                        gf_log (this->xl->name, GF_LOG_DEBUG,
+                        gf_log (this->xl->name, GF_LOG_TRACE,
                                 "bind-path not specfied for unix socket, "
                                 "letting connect to assign default value");
                         goto err;
@@ -109,7 +109,7 @@ af_unix_client_bind (transport_t *this,
                         goto err;
                 }
         } else {
-                gf_log (this->xl->name, GF_LOG_DEBUG,
+                gf_log (this->xl->name, GF_LOG_TRACE,
                         "bind-path not specfied for unix socket, "
                         "letting connect to assign default value");
         }
@@ -213,7 +213,7 @@ af_inet_client_get_remote_sockaddr (transport_t *this,
         remote_port_data = dict_get (options, "remote-port");
         if (remote_port_data == NULL)
         {
-                gf_log (this->xl->name, GF_LOG_DEBUG,
+                gf_log (this->xl->name, GF_LOG_TRACE,
                         "option remote-port missing in volume %s. Defaulting to %d",
                         this->xl->name, GF_DEFAULT_SOCKET_LISTEN_PORT);
 
@@ -286,7 +286,7 @@ af_unix_client_get_remote_sockaddr (transport_t *this,
                 goto err;
         }
 
-        gf_log (this->xl->name, GF_LOG_DEBUG,
+        gf_log (this->xl->name, GF_LOG_TRACE,
                 "using connect-path %s", connect_path);
         sockaddr_un = (struct sockaddr_un *)sockaddr;
         strcpy (sockaddr_un->sun_path, connect_path);
