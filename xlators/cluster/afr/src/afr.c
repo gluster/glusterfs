@@ -521,15 +521,36 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
                         }
 
 		} else {
-                        if ((local->op_ret == 0)
-                            && (child_index == local->read_child_index)) {
+			if (FILETYPE_DIFFERS (buf, lookup_buf)) {
+				/* mismatching filetypes with same name
+				   -- Govinda !! GOvinda !!!
+				*/
+				local->govinda_gOvinda = 1;
+			}
+
+			if (PERMISSION_DIFFERS (buf, lookup_buf)) {
+				/* mismatching permissions */
+				local->need_metadata_self_heal = 1;
+			}
+
+			if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
+				/* mismatching permissions */
+				local->need_metadata_self_heal = 1;
+			}
+
+			if (SIZE_DIFFERS (buf, lookup_buf)
+			    && S_ISREG (buf->st_mode)) {
+				local->need_data_self_heal = 1;
+			}
+
+                        if (child_index == local->read_child_index) {
                                 
                                 /* 
                                    lookup has succeeded on the read child.
                                    So use its inode number
                                 */
-
-                                local->op_ret = op_ret;
+                                if (local->op_errno != ESTALE)
+                                        local->op_ret = op_ret;
 
                                 if (local->cont.lookup.xattr)
                                         dict_unref (local->cont.lookup.xattr);
@@ -553,27 +574,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
                                 }
                         }
 
-			if (FILETYPE_DIFFERS (buf, lookup_buf)) {
-				/* mismatching filetypes with same name
-				   -- Govinda !! GOvinda !!!
-				*/
-				local->govinda_gOvinda = 1;
-			}
-
-			if (PERMISSION_DIFFERS (buf, lookup_buf)) {
-				/* mismatching permissions */
-				local->need_metadata_self_heal = 1;
-			}
-
-			if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
-				/* mismatching permissions */
-				local->need_metadata_self_heal = 1;
-			}
-
-			if (SIZE_DIFFERS (buf, lookup_buf)
-			    && S_ISREG (buf->st_mode)) {
-				local->need_data_self_heal = 1;
-			}
 		}
 
 		local->success_count++;
