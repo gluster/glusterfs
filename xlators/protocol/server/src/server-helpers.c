@@ -193,6 +193,9 @@ free_state (server_state_t *state)
 	if (state->xattr_req)
 		dict_unref (state->xattr_req);
 
+        if (state->volume)
+                FREE (state->volume);
+
 	FREE (state);
 }
 
