@@ -122,7 +122,7 @@ this_fd_set (fd_t *file, xlator_t *this, loc_t *loc, int64_t fd)
 
 	ret = fd_ctx_get (file, this, &old_fd);
 	if (ret >= 0) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"%s (%"PRId64"): trying duplicate remote fd set. "
 			"%"PRId64" over-rides %"PRId64,
 			loc->path, loc->inode->ino, fd, old_fd);
@@ -130,7 +130,7 @@ this_fd_set (fd_t *file, xlator_t *this, loc_t *loc, int64_t fd)
 
 	ret = fd_ctx_set (file, this, (uint64_t)fd);
 	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"%s (%"PRId64"): failed to set remote fd",
 			loc->path, loc->inode->ino);
 	}
@@ -284,7 +284,7 @@ call_bail (void *data)
 		localtime_r (&trav->saved_at.tv_sec, &frame_sent_tm);
 		strftime (frame_sent, 32, "%Y-%m-%d %H:%M:%S", &frame_sent_tm);
 
-		gf_log (trans->xl->name, GF_LOG_ERROR,
+		gf_log (trans->xl->name, GF_LOG_DEBUG,
 			"activating bail-out :"
 			"frame sent = %s. frame-timeout = %d",
 			frame_sent, conn->frame_timeout);
@@ -407,7 +407,7 @@ client_ping_timer_expired (void *data)
                 pthread_mutex_unlock (&conf->mutex);
 
 		if (transport_activity) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"ping timer expired but transport activity "
 				"detected - not bailing transport");
 			conn->transport_activity = 0;
@@ -419,7 +419,7 @@ client_ping_timer_expired (void *data)
 						     client_ping_timer_expired,
 						     (void *) trans);
 			if (conn->ping_timer == NULL) 
-				gf_log (this->name, GF_LOG_ERROR,
+				gf_log (this->name, GF_LOG_DEBUG,
 					"unable to setup timer");
 
 		} else {
@@ -430,8 +430,12 @@ client_ping_timer_expired (void *data)
 	}
 	pthread_mutex_unlock (&conn->lock);
 	if (disconnect) {
-		gf_log (this->name, GF_LOG_ERROR, 
-			"ping timer expired! bailing transport");
+		gf_log (this->name, GF_LOG_ERROR,
+			"Server %s has not responded in the last %d "
+                        "seconds, disconnecting.",
+                        conf->transport[0]->peerinfo.identifier,
+                        conn->ping_timeout);
+                
 		transport_disconnect (conf->transport[0]);
 		transport_disconnect (conf->transport[1]);
 	}
@@ -475,7 +479,7 @@ client_start_ping (void *data)
 		}
 
 		if (conn->saved_frames->count < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"saved_frames->count is %"PRId64, 
 				conn->saved_frames->count);
 			conn->saved_frames->count = 0;
@@ -493,7 +497,7 @@ client_start_ping (void *data)
 					     (void *) trans);
 
 		if (conn->ping_timer == NULL) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"unable to setup timer");
 		} else {
 			conn->ping_started = 1;
@@ -533,7 +537,7 @@ client_ping_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 	if (op_ret == -1) {
 		/* timer expired and transport bailed out */
-		gf_log (this->name, GF_LOG_ERROR, "timer must have expired");
+		gf_log (this->name, GF_LOG_DEBUG, "timer must have expired");
 		goto out;
 	}
 
@@ -549,7 +553,7 @@ client_ping_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 			gf_timer_call_after (trans->xl->ctx, timeout,
 					     client_start_ping, (void *)trans);
 		if (conn->ping_timer == NULL)
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"gf_timer_call_after() returned NULL");
 	}
 	pthread_mutex_unlock (&conn->lock);
@@ -724,7 +728,7 @@ client_create (call_frame_t *frame, xlator_t *this,
 
 	ret = inode_ctx_get (loc->parent, this, &par);
 	if (loc->parent->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"CREATE %"PRId64"/%s (%s): failed to get remote inode "
                         "number for parent inode", 
                         loc->parent->ino, loc->name, loc->path);
@@ -801,7 +805,7 @@ client_open (call_frame_t *frame, xlator_t *this,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"OPEN %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -868,7 +872,7 @@ client_stat (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"STAT %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -937,7 +941,7 @@ client_readlink (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"READLINK %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -1017,7 +1021,7 @@ client_mknod (call_frame_t *frame,
 	baselen = STRLEN_0(loc->name);
 	ret = inode_ctx_get (loc->parent, this, &par);
 	if (loc->parent->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"MKNOD %"PRId64"/%s (%s): failed to get remote inode "
                         "number for parent", 
                         loc->parent->ino, loc->name, loc->path);
@@ -1097,7 +1101,7 @@ client_mkdir (call_frame_t *frame,
 	baselen = STRLEN_0(loc->name);
 	ret = inode_ctx_get (loc->parent, this, &par);
 	if (loc->parent->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"MKDIR %"PRId64"/%s (%s): failed to get remote inode "
                         "number for parent", 
                         loc->parent->ino, loc->name, loc->path);
@@ -1167,7 +1171,7 @@ client_unlink (call_frame_t *frame,
 	baselen = STRLEN_0(loc->name);
 	ret = inode_ctx_get (loc->parent, this, &par);
 	if (loc->parent->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"UNLINK %"PRId64"/%s (%s): failed to get remote inode "
                         "number for parent", 
                         loc->parent->ino, loc->name, loc->path);
@@ -1234,7 +1238,7 @@ client_rmdir (call_frame_t *frame,
 	baselen = STRLEN_0(loc->name);
 	ret = inode_ctx_get (loc->parent, this, &par);
 	if (loc->parent->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"RMDIR %"PRId64"/%s (%s): failed to get remote inode "
                         "number for parent", 
                         loc->parent->ino, loc->name, loc->path);
@@ -1315,7 +1319,7 @@ client_symlink (call_frame_t *frame,
 	newlen = STRLEN_0 (linkname);
 	ret = inode_ctx_get (loc->parent, this, &par);
 	if (loc->parent->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"SYMLINK %"PRId64"/%s (%s): failed to get remote inode "
                         "number parent", 
                         loc->parent->ino, loc->name, loc->path);
@@ -1390,7 +1394,7 @@ client_rename (call_frame_t *frame,
 	newbaselen = STRLEN_0(newloc->name);
 	ret = inode_ctx_get (oldloc->parent, this, &oldpar);
 	if (oldloc->parent->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"RENAME %"PRId64"/%s (%s): failed to get remote inode "
                         "number for source parent", 
                         oldloc->parent->ino, oldloc->name, oldloc->path);
@@ -1398,7 +1402,7 @@ client_rename (call_frame_t *frame,
 
 	ret = inode_ctx_get (newloc->parent, this, &newpar);
 	if (newloc->parent->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"CREATE %"PRId64"/%s (%s): failed to get remote inode "
                         "number for destination parent", 
                         newloc->parent->ino, newloc->name, newloc->path);
@@ -1489,7 +1493,7 @@ client_link (call_frame_t *frame,
 
 	ret = inode_ctx_get (oldloc->inode, this, &oldino);
 	if (oldloc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"LINK %"PRId64"/%s (%s) ==> %"PRId64" (%s): "
                         "failed to get remote inode number for source inode",
 			newloc->parent->ino, newloc->name, newloc->path,
@@ -1498,7 +1502,7 @@ client_link (call_frame_t *frame,
 
 	ret = inode_ctx_get (newloc->parent, this, &newpar);
 	if (newloc->parent->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"LINK %"PRId64"/%s (%s) ==> %"PRId64" (%s): "
                         "failed to get remote inode number destination parent", 
                         newloc->parent->ino, newloc->name, newloc->path,
@@ -1571,7 +1575,7 @@ client_chmod (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"CHMOD %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -1644,7 +1648,7 @@ client_chown (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"CHOWN %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -1713,7 +1717,7 @@ client_truncate (call_frame_t *frame,
 	pathlen = STRLEN_0(loc->path);
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"TRUNCATE %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -1783,7 +1787,7 @@ client_utimens (call_frame_t *frame,
 	pathlen = STRLEN_0(loc->path);
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"UTIMENS %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -1998,7 +2002,7 @@ client_statfs (call_frame_t *frame,
         if (loc->inode) {
                 ret = inode_ctx_get (loc->inode, this, &ino);
                 if (loc->inode->ino && ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "STATFS %"PRId64" (%s): "
                                 "failed to get remote inode number",
                                 loc->inode->ino, loc->path);
@@ -2199,7 +2203,7 @@ client_xattrop (call_frame_t *frame,
 	if (dict) {
 		dict_len = dict_serialized_length (dict);
 		if (dict_len < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to get serialized length of dict(%p)",
 				dict);
 			goto unwind;
@@ -2210,7 +2214,7 @@ client_xattrop (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"XATTROP %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -2227,7 +2231,7 @@ client_xattrop (call_frame_t *frame,
 	if (dict) {
 		ret = dict_serialize (dict, req->dict);
 		if (ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to serialize dictionary(%p)",
 				dict);
 			goto unwind;
@@ -2282,7 +2286,7 @@ client_fxattrop (call_frame_t *frame,
 	if (dict) {
 		dict_len = dict_serialized_length (dict);
 		if (dict_len < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to get serialized length of dict(%p)",
 				dict);
 			goto unwind;
@@ -2311,7 +2315,7 @@ client_fxattrop (call_frame_t *frame,
 	if (dict) {
 		ret = dict_serialize (dict, req->dict);
 		if (ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to serialize dictionary(%p)",
 				dict);
 			goto unwind;
@@ -2376,7 +2380,7 @@ client_setxattr (call_frame_t *frame,
 
 	dict_len = dict_serialized_length (dict);
 	if (dict_len < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get serialized length of dict(%p)",
 			dict);
 		goto unwind;
@@ -2386,7 +2390,7 @@ client_setxattr (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"SETXATTR %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -2404,7 +2408,7 @@ client_setxattr (call_frame_t *frame,
 
 	ret = dict_serialize (dict, req->dict);
 	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to serialize dictionary(%p)",
 			dict);
 		goto unwind;
@@ -2467,7 +2471,7 @@ client_fsetxattr (call_frame_t *frame,
 
 	dict_len = dict_serialized_length (dict);
 	if (dict_len < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get serialized length of dict(%p)",
 			dict);
 		goto unwind;
@@ -2496,7 +2500,7 @@ client_fsetxattr (call_frame_t *frame,
 
 	ret = dict_serialize (dict, req->dict);
 	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to serialize dictionary(%p)",
 			dict);
 		goto unwind;
@@ -2557,7 +2561,7 @@ client_getxattr (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"GETXATTR %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -2706,7 +2710,7 @@ client_removexattr (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"REMOVEXATTR %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -2779,7 +2783,7 @@ client_opendir (call_frame_t *frame,
 	
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"OPENDIR %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -3049,7 +3053,7 @@ client_access (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"ACCESS %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -3272,7 +3276,7 @@ client_lk (call_frame_t *frame,
 	else if (cmd == F_SETLKW || cmd == F_SETLKW64)
 		gf_cmd = GF_LK_SETLKW;
 	else {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"Unknown cmd (%d)!", gf_cmd);
 		goto unwind;
 	}
@@ -3359,7 +3363,7 @@ client_inodelk (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"INODELK %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -3372,7 +3376,7 @@ client_inodelk (call_frame_t *frame,
 	else if (cmd == F_SETLKW || cmd == F_SETLKW64)
 		gf_cmd = GF_LK_SETLKW;
 	else {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"Unknown cmd (%d)!", gf_cmd);
 		goto unwind;
 	}
@@ -3478,7 +3482,7 @@ client_finodelk (call_frame_t *frame,
 	else if (cmd == F_SETLKW || cmd == F_SETLKW64)
 		gf_cmd = GF_LK_SETLKW;
 	else {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"Unknown cmd (%d)!", gf_cmd);
 		goto unwind;
 	}
@@ -3561,7 +3565,7 @@ client_entrylk (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"ENTRYLK %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -3727,7 +3731,7 @@ client_lookup (call_frame_t *frame,
 	if (loc->ino != 1) {
                 ret = inode_ctx_get (loc->parent, this, &par);
                 if (loc->parent->ino && ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "LOOKUP %"PRId64"/%s (%s): failed to get "
                                 "remote inode number for parent", 
                                 loc->parent->ino, loc->name, loc->path);
@@ -3743,7 +3747,7 @@ client_lookup (call_frame_t *frame,
 	if (xattr_req) {
 		dictlen = dict_serialized_length (xattr_req);
 		if (dictlen < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to get serialized length of dict(%p)",
 				xattr_req);
 			ret = dictlen;
@@ -3766,7 +3770,7 @@ client_lookup (call_frame_t *frame,
 	if (dictlen) {
 		ret = dict_serialize (xattr_req, req->dict + baselen + pathlen);
 		if (ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to serialize dictionary(%p)",
 				xattr_req);
 			goto unwind;
@@ -4122,7 +4126,7 @@ client_forget (xlator_t *this,
 
 	ret = inode_ctx_get (inode, this, &ino);
 	if (inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"FORGET %"PRId64": "
                         "failed to get remote inode number",
 			inode->ino);
@@ -4380,7 +4384,7 @@ client_fxattrop_cbk (call_frame_t *frame,
 
 			ret = dict_unserialize (dictbuf, dict_len, &dict);
 			if (ret < 0) {
-				gf_log (frame->this->name, GF_LOG_ERROR,
+				gf_log (frame->this->name, GF_LOG_DEBUG,
 					"failed to serialize dictionary(%p)",
 					dict);
 				op_errno = -ret;
@@ -4439,7 +4443,7 @@ client_xattrop_cbk (call_frame_t *frame,
                                                
 			ret = dict_unserialize (dictbuf, dict_len, &dict);
 			if (ret < 0) {
-				gf_log (frame->this->name, GF_LOG_ERROR,
+				gf_log (frame->this->name, GF_LOG_DEBUG,
 					"failed to serialize dictionary(%p)",
 					dict);
 				goto fail;
@@ -4574,7 +4578,7 @@ client_create_cbk (call_frame_t *frame,
 	if (op_ret >= 0) {
                 ret = inode_ctx_put (local->loc.inode, frame->this, stbuf.st_ino);
                 if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_ERROR,
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "CREATE %"PRId64"/%s (%s): failed to set remote"
                                 " inode number to inode ctx",
                                 local->loc.parent->ino, local->loc.name,
@@ -4593,7 +4597,7 @@ client_create_cbk (call_frame_t *frame,
 
 		if (ret < 0) {
 			free (key);
-			gf_log (frame->this->name, GF_LOG_ERROR,
+			gf_log (frame->this->name, GF_LOG_DEBUG,
 				"%s (%"PRId64"): failed to save remote fd", 
 				local->loc.path, stbuf.st_ino);
 		}
@@ -4655,7 +4659,7 @@ client_open_cbk (call_frame_t *frame,
 		pthread_mutex_unlock (&conf->mutex);
 
 		if (ret < 0) {
-			gf_log (frame->this->name, GF_LOG_ERROR,
+			gf_log (frame->this->name, GF_LOG_DEBUG,
 				"%s (%"PRId64"): failed to save remote fd", 
 				local->loc.path, local->loc.inode->ino);
 			free (key);
@@ -4829,7 +4833,7 @@ client_mknod_cbk (call_frame_t *frame,
 
                 ret = inode_ctx_put (local->loc.inode, frame->this, stbuf.st_ino);
                 if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_ERROR,
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "MKNOD %"PRId64"/%s (%s): failed to set remote"
                                 " inode number to inode ctx",
                                 local->loc.parent->ino, local->loc.name,
@@ -4879,7 +4883,7 @@ client_symlink_cbk (call_frame_t *frame,
                 ret = inode_ctx_put (inode, frame->this,
                                      stbuf.st_ino);
                 if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_ERROR,
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "SYMLINK %"PRId64"/%s (%s): failed to set "
                                 "remote inode number to inode ctx",
                                 local->loc.parent->ino, local->loc.name,
@@ -5286,7 +5290,7 @@ client_mkdir_cbk (call_frame_t *frame,
 
                 ret = inode_ctx_put (inode, frame->this, stbuf.st_ino);
                 if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_ERROR,
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "MKDIR %"PRId64"/%s (%s): failed to set "
                                 "remote inode number to inode ctx",
                                 local->loc.parent->ino, local->loc.name,
@@ -5376,7 +5380,7 @@ client_opendir_cbk (call_frame_t *frame,
 
 		if (ret < 0) {
 			free (key);
-			gf_log (frame->this->name, GF_LOG_ERROR,
+			gf_log (frame->this->name, GF_LOG_DEBUG,
 				"%s (%"PRId64"): failed to save remote fd", 
 				local->loc.path, local->loc.inode->ino);
 		}
@@ -5498,7 +5502,7 @@ client_lookup_cbk (call_frame_t *frame,
                         ret = inode_ctx_put (inode, frame->this,
                                              stbuf.st_ino);
                         if (ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_ERROR,
+                                gf_log (frame->this->name, GF_LOG_DEBUG,
                                         "LOOKUP %"PRId64"/%s (%s) : "
                                         "failed to set remote inode "
                                         "number to inode ctx",
@@ -5519,7 +5523,7 @@ client_lookup_cbk (call_frame_t *frame,
 
 			ret = dict_unserialize (dictbuf, dict_len, &xattr);
 			if (ret < 0) {
-				gf_log (frame->this->name, GF_LOG_ERROR,
+				gf_log (frame->this->name, GF_LOG_DEBUG,
 					"%s (%"PRId64"): failed to unserialize dictionary",
 					local->loc.path, inode->ino);
 				goto fail;
@@ -5800,7 +5804,7 @@ client_getxattr_cbk (call_frame_t *frame,
 
 			ret = dict_unserialize (dictbuf, dict_len, &dict);
 			if (ret < 0) {
-				gf_log (frame->this->name, GF_LOG_ERROR,
+				gf_log (frame->this->name, GF_LOG_DEBUG,
 					"%s (%"PRId64"): failed to "
 					"unserialize xattr dictionary", 
 					local->loc.path, local->loc.inode->ino);
@@ -6152,7 +6156,7 @@ client_checksum (call_frame_t *frame,
 	
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"CHECKSUM %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -6262,7 +6266,7 @@ client_setvolume_cbk (call_frame_t *frame,
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
 	if ((op_ret < 0) && (op_errno == ENOTCONN)) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"setvolume failed (%s)",
 			strerror (op_errno));
 		goto out;
@@ -6274,7 +6278,7 @@ client_setvolume_cbk (call_frame_t *frame,
 	dict_len = ntoh32 (rsp->dict_len);
 	ret = dict_unserialize (rsp->buf, dict_len, &reply);
 	if (ret < 0) {
-		gf_log (frame->this->name, GF_LOG_ERROR,
+		gf_log (frame->this->name, GF_LOG_DEBUG,
 			"failed to unserialize buffer(%p) to dictionary",
 			rsp->buf);
 		goto out;
@@ -6282,7 +6286,7 @@ client_setvolume_cbk (call_frame_t *frame,
 	
 	ret = dict_get_str (reply, "ERROR", &remote_error);
 	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get ERROR string from reply dictionary");
 	}
 
@@ -6293,7 +6297,7 @@ client_setvolume_cbk (call_frame_t *frame,
 	}
 
 	if (op_ret < 0) {
-		gf_log (trans->xl->name, GF_LOG_ERROR,
+		gf_log (trans->xl->name, GF_LOG_DEBUG,
 			"SETVOLUME on remote-host failed: %s",
 			remote_error ? remote_error : strerror (op_errno));
 		errno = op_errno;
@@ -6308,12 +6312,14 @@ client_setvolume_cbk (call_frame_t *frame,
                 }
 
 	} else {
+                ret = dict_get_str (this->options, "remote-subvolume",
+                                    &remote_subvol);
+                if (!remote_subvol) 
+                        goto out;
+
 		ctx = get_global_ctx_ptr ();
+                
 		if (process_uuid && !strcmp (ctx->process_uuid,process_uuid)) {
-			ret = dict_get_str (this->options, "remote-subvolume",
-					    &remote_subvol);
-			if (!remote_subvol) 
-				goto out;
 			
 			gf_log (this->name, GF_LOG_WARNING, 
 				"attaching to the local volume '%s'",
@@ -6323,8 +6329,11 @@ client_setvolume_cbk (call_frame_t *frame,
 			conf->child = xlator_search_by_name (this, 
 							     remote_subvol);
 		}
-		gf_log (trans->xl->name, GF_LOG_INFO,
-			"connection and handshake succeeded");
+		
+                gf_log (trans->xl->name, GF_LOG_NORMAL,
+			"Connected to %s, attached "
+                        "to remote volume '%s'.",
+                        trans->peerinfo.identifier, remote_subvol);
 
 		pthread_mutex_lock (&(conn->lock));
 		{
@@ -6636,7 +6645,7 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 
 	frame  = lookup_frame (trans, op, type, callid);
 	if (frame == NULL) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"no frame for callid=%"PRId64" type=%d op=%d",
 			callid, type, op);
 		return 0;
@@ -6671,7 +6680,7 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 		}
 		break;
 	default:
-		gf_log (trans->xl->name, GF_LOG_ERROR,
+		gf_log (trans->xl->name, GF_LOG_DEBUG,
 			"invalid packet type: %d", type);
 		break;
 	}
@@ -6698,20 +6707,20 @@ init (xlator_t *this)
 
 	if (this->children) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"FATAL: client protocol translator cannot have "
+			"FATAL: client protocol translator cannot have any "
 			"subvolumes");
 		goto out;
 	}
 	
 	if (!this->parents) {
 		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
+			"Volume is dangling. ");
 	}
 
 	remote_subvolume = dict_get (this->options, "remote-subvolume");
 	if (remote_subvolume == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"missing 'option remote-subvolume'.");
+			"Option 'remote-subvolume' is not specified.");
 		goto out;
 	}
 
@@ -6748,7 +6757,7 @@ init (xlator_t *this)
 	for (i = 0; i < CHANNEL_MAX; i++) {
 		trans = transport_load (this->options, this);
 		if (trans == NULL) {
-			gf_log (this->name, GF_LOG_ERROR, 
+			gf_log (this->name, GF_LOG_DEBUG, 
 				"Failed to load transport");
 			ret = -1;
 			goto out;
@@ -6786,11 +6795,11 @@ init (xlator_t *this)
 			
 			ret = setrlimit (RLIMIT_NOFILE, &lim);
 			if (ret == -1) {
-				gf_log (this->name, GF_LOG_ERROR,
+				gf_log (this->name, GF_LOG_DEBUG,
 					"Failed to set max open fd to 64k: %s",
 					strerror(errno));
 			} else {
-				gf_log (this->name, GF_LOG_ERROR,
+				gf_log (this->name, GF_LOG_DEBUG,
 					"max open fd set to 64k");
 			}
 
@@ -6839,7 +6848,7 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
 	options = this->options;
 	ret = dict_set_str (options, "version", PACKAGE_VERSION);
 	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to set version(%s) in options dictionary",
 			PACKAGE_VERSION);
 	}
@@ -6849,7 +6858,7 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
 	ret = dict_set_dynstr (options, "process-uuid",
 			       process_uuid_xl);
 	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to set process-uuid(%s) in options dictionary",
 			PACKAGE_VERSION);
 	}
@@ -6864,7 +6873,7 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
 
 	dict_len = dict_serialized_length (options);
 	if (dict_len < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to get serialized length of dict(%p)",
 			options);
 		ret = dict_len;
@@ -6879,7 +6888,7 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
 
 	ret = dict_serialize (options, req->buf);
 	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to serialize dictionary(%p)",
 			options);
 		goto fail;
