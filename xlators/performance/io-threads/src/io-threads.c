@@ -1594,6 +1594,50 @@ iot_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 }
 
+int
+iot_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND (frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+iot_setxattr_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      dict_t *dict, int32_t flags)
+{
+        STACK_WIND (frame, iot_setxattr_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->setxattr, loc, dict, flags);
+        return 0;
+}
+
+int
+iot_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
+              int32_t flags)
+{
+        call_stub_t     *stub = NULL;
+        fd_t            *fd = NULL;
+
+        stub = fop_setxattr_stub (frame, iot_setxattr_wrapper, loc, dict,
+                                  flags);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get setxattr stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+        fd = fd_lookup (loc->inode, frame->root->pid);
+        if (fd == NULL)
+                iot_schedule_unordered ((iot_conf_t *)this->private,
+                                        loc->inode, stub);
+        else {
+                iot_schedule_ordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+                fd_unref (fd);
+        }
+
+        return 0;
+}
+
 /* Must be called with worker lock held */
 void
 _iot_queue (iot_worker_t *worker,
@@ -2119,6 +2163,7 @@ struct xlator_fops fops = {
         .opendir     = iot_opendir,     /* U */
         .fsyncdir    = iot_fsyncdir,    /* O */
         .statfs      = iot_statfs,      /* U */
+        .setxattr    = iot_setxattr,     /* U */
 };
 
 struct xlator_mops mops = {
