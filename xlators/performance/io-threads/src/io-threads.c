@@ -1792,6 +1792,41 @@ iot_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 }
 
+int
+iot_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno,
+                 gf_dirent_t *entries)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, entries);
+        return 0;
+}
+
+int
+iot_readdir_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                     size_t size, off_t offset)
+{
+        STACK_WIND (frame, iot_readdir_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->readdir, fd, size, offset);
+        return 0;
+}
+
+int
+iot_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t offset)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_readdir_stub (frame, iot_readdir_wrapper, fd, size, offset);
+        if (!stub) {
+                gf_log (this->private, GF_LOG_ERROR,"cannot get readdir stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        return 0;
+}
+
 /* Must be called with worker lock held */
 void
 _iot_queue (iot_worker_t *worker,
@@ -2322,6 +2357,7 @@ struct xlator_fops fops = {
         .fgetxattr   = iot_fgetxattr,   /* O */
         .fsetxattr   = iot_fsetxattr,   /* O */
         .removexattr = iot_removexattr, /* U */
+        .readdir     = iot_readdir,     /* O */
 };
 
 struct xlator_mops mops = {
