@@ -1261,7 +1261,7 @@ fop_opendir_stub (call_frame_t *frame,
 
 	stub->args.opendir.fn = fn;
 	loc_copy (&stub->args.opendir.loc, loc);
-	if (stub->args.opendir.fd)
+	if (fd)
 		stub->args.opendir.fd = fd_ref (fd);
 out:
 	return stub;
