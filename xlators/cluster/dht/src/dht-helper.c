@@ -214,7 +214,7 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
         layout = dht_layout_get (this, loc->parent);
 
         if (!layout) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "layout missing path=%s parent=%"PRId64,
                         loc->path, loc->parent->ino);
                 goto out;
@@ -223,7 +223,7 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
         subvol = dht_layout_search (this, layout, loc->name);
 
         if (!subvol) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "could not find subvolume for path=%s",
                         loc->path);
                 goto out;

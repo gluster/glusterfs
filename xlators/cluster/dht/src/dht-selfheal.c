@@ -98,13 +98,13 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
 	xattr = get_new_dict ();
 	if (!xattr) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"memory allocation failed :(");
+			"Out of memory");
 		goto err;
 	}
 
 	ret = dht_disk_layout_extract (this, layout, i, &disk_layout);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to extract disk layout");
 		goto err;
 	}
@@ -112,13 +112,13 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
 	ret = dict_set_bin (xattr, "trusted.glusterfs.dht",
 			    disk_layout, 4 * 4);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to set xattr dictionary");
 		goto err;
 	}
 	disk_layout = NULL;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"setting hash range %u - %u (type %d) on subvolume %s for %s",
 		layout->list[i].start, layout->list[i].stop,
 		layout->type, subvol->name, loc->path);
@@ -256,7 +256,7 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 	local->call_cnt = missing_dirs;
 	for (i = 0; i < layout->cnt; i++) {
 		if (layout->list[i].err == ENOENT || force) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"creating directory %s on subvol %s",
 				loc->path, layout->list[i].xlator->name);
 
@@ -315,7 +315,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 			
 			start = start + chunk;
 
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"gave fix: %u - %u on %s for %s",
 				layout->list[i].start, layout->list[i].stop,
 				layout->list[i].xlator->name, loc->path);
@@ -431,14 +431,14 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	local->selfheal.layout = layout;
 
 	if (down) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"%d subvolumes down -- not fixing", down);
 		ret = 0;
 		goto sorry_no_fix;
 	}
 
 	if (misc) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"%d subvolumes have unrecoverable errors", misc);
 		ret = 0;
 		goto sorry_no_fix;
@@ -448,7 +448,7 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	ret = dht_selfheal_dir_getafix (frame, loc, layout);
 
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"not able to form layout for the directory");
 		goto sorry_no_fix;
 	}
