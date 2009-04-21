@@ -1460,6 +1460,42 @@ iot_unlink (call_frame_t *frame,
 	return 0;
 }
 
+int
+iot_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, inode_t *inode,
+                struct stat *buf)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+        return 0;
+}
+
+int
+iot_link_wrapper (call_frame_t *frame, xlator_t *this, loc_t *old, loc_t *new)
+{
+        STACK_WIND (frame, iot_link_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->link, old, new);
+
+        return 0;
+}
+
+int
+iot_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_link_stub (frame, iot_link_wrapper, oldloc, newloc);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get link stub");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+                return 0;
+        }
+
+        iot_schedule_unordered ((iot_conf_t *)this->private, oldloc->inode,
+                                        stub);
+
+        return 0;
+}
+
 /* Must be called with worker lock held */
 void
 _iot_queue (iot_worker_t *worker,
@@ -1981,6 +2017,7 @@ struct xlator_fops fops = {
         .rmdir       = iot_rmdir,       /* U */
         .symlink     = iot_symlink,     /* U */
         .rename      = iot_rename,      /* U */
+        .link        = iot_link,        /* U */
 };
 
 struct xlator_mops mops = {
