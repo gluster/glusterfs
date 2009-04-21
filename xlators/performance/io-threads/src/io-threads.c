@@ -1529,6 +1529,39 @@ iot_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         return 0;
 }
 
+int
+iot_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND (frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+iot_fsyncdir_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                        int datasync)
+{
+        STACK_WIND (frame, iot_fsyncdir_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->fsyncdir, fd, datasync);
+        return 0;
+}
+
+int
+iot_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = fop_fsyncdir_stub (frame, iot_fsyncdir_wrapper, fd, datasync);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get fsyncdir stub");
+                STACK_UNWIND (frame, -1, ENOMEM);
+                return 0;
+        }
+
+        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        return 0;
+}
+
 /* Must be called with worker lock held */
 void
 _iot_queue (iot_worker_t *worker,
@@ -2052,6 +2085,7 @@ struct xlator_fops fops = {
         .rename      = iot_rename,      /* U */
         .link        = iot_link,        /* U */
         .opendir     = iot_opendir,     /* U */
+        .fsyncdir    = iot_fsyncdir,    /* O */
 };
 
 struct xlator_mops mops = {
