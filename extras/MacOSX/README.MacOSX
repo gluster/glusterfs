@@ -1,0 +1,84 @@
+
+Mostly the usage is over OS-X.
+
+Important links
+
+GlusterFS
+=========
+* http://www.gluster.org
+* http://gluster.org/docs/index.php/GlusterFS
+* http://gluster.org/docs/index.php/GlusterFS_on_MAC_OS_X
+
+MacFUSE
+=======
+* http://code.google.com/p/macfuse/
+* http://code.google.com/p/macfuse/wiki/FAQ
+
+
+Important steps:
+================
+
+Make sure that there is no previous installation of MacFUSE exists in the 
+system. Run,
+
+  bash# sudo /Library/Filesystems/fusefs.fs/Support/uninstall-macfuse-core.sh
+
+After this, install MacFUSE (mostly through .dmg available in macfuse homepage 
+or if Z Research Inc provides any custom built .dmg)
+
+Make sure the .dmg of glusterfs is built against the installed MacFUSE version
+(if not, any operations over mountpoint gives EIO ie, Input/Output Error). If 
+glusterfs tarball is used then compile it only after the MacFUSE installation 
+is complete.
+
+To make an entry in /etc/fstab for glusterfs mount, use 'vifs' command
+
+   bash# sudo vifs
+
+after the entry is added in /etc/fstab, it can be mounted by 'mount' command.
+
+To start the server process one can use the 'launchd' mechanism. Follow below 
+steps after installation
+
+   bash# launchctl load /Library/LaunchDaemons/com.zresearch.glusterfs.plist
+   
+No need to run the command if the machine reboots, as it will be loaded 
+automatically by launchd process.
+
+Now copy the server volume file in the proper path
+
+   bash# sudo vi /opt/local/etc/glusterfs/server.vol
+
+NOTE: (If glusterfs is installed in different path other than '/opt/local' 
+      update the volume file at the corresponding  path, and  also need to 
+      update the /Library/LaunchDaemons/com.zresearch.glusterfs.plist with 
+      the proper path)
+
+Once the volume file is updated, administrator can start the server process by
+running,
+
+  bash# launchctl start com.zresearch.glusterfs
+
+and stop like
+
+  bash# launchctl stop com.zresearch.glusterfs
+
+NOTE: To start the process by default when the loaded, one need to add the 
+following lines to .plist file
+      -----
+      <key>KeepAlive</key> 
+      <true/>
+      -----
+
+
+
+
+Install using .dmg in Terminal
+=================================
+
+  bash# hdiutil attach <package>.dmg
+  bash# cd /Volumes/<package>/
+  bash# installer -pkg <package>.pkg -installer /
+  bash# cd 
+  bash# hdiutil detach /Volumes/<package>/
+
