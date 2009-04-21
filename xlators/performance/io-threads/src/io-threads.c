@@ -1827,6 +1827,49 @@ iot_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 }
 
+int
+iot_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *xattr)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, xattr);
+        return 0;
+}
+
+int
+iot_xattrop_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                        gf_xattrop_flags_t optype, dict_t *xattr)
+{
+        STACK_WIND (frame, iot_xattrop_cbk, FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->xattrop, loc, optype, xattr);
+        return 0;
+}
+
+int
+iot_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                gf_xattrop_flags_t optype, dict_t *xattr)
+{
+        call_stub_t     *stub = NULL;
+        fd_t            *fd = NULL;
+
+        stub = fop_xattrop_stub (frame, iot_xattrop_wrapper, loc, optype,
+                                        xattr);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot get xattrop stub");
+                STACK_UNWIND (frame, -1, ENOMEM);
+                return 0;
+        }
+
+        fd = fd_lookup (loc->inode, frame->root->pid);
+        if (!fd)
+                iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        else {
+                iot_schedule_ordered ((iot_conf_t *)this->private, loc->inode, stub);
+                fd_unref (fd);
+        }
+
+        return 0;
+}
+
 /* Must be called with worker lock held */
 void
 _iot_queue (iot_worker_t *worker,
@@ -2358,6 +2401,7 @@ struct xlator_fops fops = {
         .fsetxattr   = iot_fsetxattr,   /* O */
         .removexattr = iot_removexattr, /* U */
         .readdir     = iot_readdir,     /* O */
+        .xattrop     = iot_xattrop,     /* U */
 };
 
 struct xlator_mops mops = {
