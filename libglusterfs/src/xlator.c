@@ -51,7 +51,7 @@ static void
 fill_defaults (xlator_t *xl)
 {
 	if (xl == NULL)	{
-		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
 		return;
 	}
 
@@ -583,7 +583,7 @@ xlator_set_type (xlator_t *xl,
 	volume_opt_list_t *vol_opt = NULL;
 
 	if (xl == NULL || type == NULL)	{
-		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
 		return -1;
 	}
 
@@ -591,40 +591,40 @@ xlator_set_type (xlator_t *xl,
 
 	asprintf (&name, "%s/%s.so", XLATORDIR, type);
 
-	gf_log ("xlator", GF_LOG_DEBUG, "attempt to load file %s", name);
+	gf_log ("xlator", GF_LOG_TRACE, "attempt to load file %s", name);
 
 	handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
 	if (!handle) {
-		gf_log ("xlator", GF_LOG_ERROR, "%s", dlerror ());
+		gf_log ("xlator", GF_LOG_DEBUG, "%s", dlerror ());
 		return -1;
 	}
 
 	if (!(xl->fops = dlsym (handle, "fops"))) {
-		gf_log ("xlator", GF_LOG_ERROR, "dlsym(fops) on %s",
+		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(fops) on %s",
 			dlerror ());
 		return -1;
 	}
 
 	if (!(xl->mops = dlsym (handle, "mops"))) {
-		gf_log ("xlator", GF_LOG_ERROR, "dlsym(mops) on %s",
+		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(mops) on %s",
 			dlerror ());
 		return -1;
 	}
 
 	if (!(xl->cbks = dlsym (handle, "cbks"))) {
-		gf_log ("xlator", GF_LOG_ERROR, "dlsym(cbks) on %s",
+		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(cbks) on %s",
 			dlerror ());
 		return -1;
 	}
 
 	if (!(xl->init = dlsym (handle, "init"))) {
-		gf_log ("xlator", GF_LOG_ERROR, "dlsym(init) on %s",
+		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(init) on %s",
 			dlerror ());
 		return -1;
 	}
 
 	if (!(xl->fini = dlsym (handle, "fini"))) {
-		gf_log ("xlator", GF_LOG_ERROR, "dlsym(fini) on %s",
+		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(fini) on %s",
 			dlerror ());
 		return -1;
 	}
@@ -641,7 +641,7 @@ xlator_set_type (xlator_t *xl,
 	if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
 		dlerror ();
 		gf_log (xl->name, GF_LOG_DEBUG,
-			"strict option validation not enforced -- neglecting");
+			"Strict option validation not enforced -- neglecting");
 	}
 	list_add_tail (&vol_opt->list, &xl->volume_options);
 
@@ -661,7 +661,7 @@ xlator_foreach (xlator_t *this,
 	xlator_t *first = NULL;
 
 	if (this == NULL || fn == NULL || data == NULL)	{
-		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
 		return;
 	}
 
@@ -683,7 +683,7 @@ xlator_search_by_name (xlator_t *any, const char *name)
 	xlator_t *search = NULL;
 
 	if (any == NULL || name == NULL) {
-		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
 		return NULL;
 	}
 
@@ -709,7 +709,7 @@ xlator_init_rec (xlator_t *xl)
 	int32_t ret = 0;
 
 	if (xl == NULL)	{
-		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
 		return 0;
 	}
 
@@ -720,7 +720,7 @@ xlator_init_rec (xlator_t *xl)
 		ret = xlator_init_rec (trav->xlator);
 		if (ret != 0)
 			break;
-		gf_log (trav->xlator->name, GF_LOG_DEBUG, 
+		gf_log (trav->xlator->name, GF_LOG_TRACE,
 			"Initialization done");
 		trav = trav->next;
 	}
@@ -731,14 +731,14 @@ xlator_init_rec (xlator_t *xl)
 			ret = xl->init (xl);
 			if (ret) {
 				gf_log ("xlator", GF_LOG_ERROR,
-					"initialization of volume '%s' failed,"
+					"Initialization of volume '%s' failed,"
 					" review your volfile again",
 					xl->name);
 			} else {
 				xl->init_succeeded = 1;
 			}
 		} else {
-			gf_log (xl->name, GF_LOG_ERROR, "No init() found");
+			gf_log (xl->name, GF_LOG_DEBUG, "No init() found");
 		}
 		/* This 'xl' is checked */
 		xl->ready = 1;
@@ -755,7 +755,7 @@ xlator_tree_init (xlator_t *xl)
 	int32_t ret = 0;
 
 	if (xl == NULL)	{
-		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
 		return 0;
 	}
 
@@ -780,7 +780,7 @@ xlator_fini_rec (xlator_t *xl)
 	xlator_list_t *trav = NULL;
 
 	if (xl == NULL)	{
-		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
 		return;
 	}
 
@@ -800,7 +800,7 @@ xlator_fini_rec (xlator_t *xl)
 		if (xl->fini) {
 			xl->fini (xl);
 		} else {
-			gf_log (xl->name, GF_LOG_ERROR, "No fini() found");
+			gf_log (xl->name, GF_LOG_DEBUG, "No fini() found");
 		}
 		xl->init_succeeded = 0;
 	}
@@ -813,7 +813,7 @@ xlator_tree_fini (xlator_t *xl)
 	xlator_t *top = NULL;
 
 	if (xl == NULL)	{
-		gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
 		return;
 	}
 
