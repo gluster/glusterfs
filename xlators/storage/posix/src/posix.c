@@ -357,7 +357,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 {
         char *            real_path = NULL;
         int32_t           op_ret    = -1;
-        int32_t           op_errno  = 0;
+        int32_t           op_errno  = EINVAL;
         DIR *             dir       = NULL;
         struct posix_fd * pfd       = NULL;
 
