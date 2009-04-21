@@ -97,7 +97,7 @@ __socket_rwv (transport_t *this, struct iovec *vector, int count,
                         if (errno == EINTR)
                                 continue;
 
-                        gf_log (this->xl->name, GF_LOG_ERROR,
+                        gf_log (this->xl->name, GF_LOG_DEBUG,
                                 "%s failed (%s)", write ? "writev" : "readv",
                                 strerror (errno));
                         opcount = -1;
@@ -170,7 +170,7 @@ __socket_disconnect (transport_t *this)
         if (priv->sock != -1) {
                 ret = shutdown (priv->sock, SHUT_RDWR);
                 priv->connected = -1;
-                gf_log (this->xl->name, GF_LOG_DEBUG,
+                gf_log (this->xl->name, GF_LOG_TRACE,
                         "shutdown() returned %d. set connection state to -1",
                         ret);
         }
@@ -457,7 +457,7 @@ __socket_proto_validate_header (transport_t *this,
 	size_t size2 = 0;
 
         if (strcmp (header->colonO, ":O")) {
-                gf_log (this->xl->name, GF_LOG_ERROR,
+                gf_log (this->xl->name, GF_LOG_DEBUG,
                         "socket header signature does not match :O (%x.%x.%x)",
                         header->colonO[0], header->colonO[1],
 			header->colonO[2]);
@@ -465,7 +465,7 @@ __socket_proto_validate_header (transport_t *this,
         }
 
         if (header->version != 42) {
-                gf_log (this->xl->name, GF_LOG_ERROR,
+                gf_log (this->xl->name, GF_LOG_DEBUG,
                         "socket header version does not match 42 != %d",
 			header->version);
                 return -1;
@@ -475,14 +475,14 @@ __socket_proto_validate_header (transport_t *this,
         size2 = ntoh32 (header->size2);
 
         if (size1 <= 0 || size1 > 1048576) {
-                gf_log (this->xl->name, GF_LOG_ERROR,
+                gf_log (this->xl->name, GF_LOG_DEBUG,
                         "socket header has incorrect size1=%"GF_PRI_SIZET,
 			size1);
                 return -1;
         }
 
         if (size2 > (131072)) {
-                gf_log (this->xl->name, GF_LOG_ERROR,
+                gf_log (this->xl->name, GF_LOG_DEBUG,
                         "socket header has incorrect size2=%"GF_PRI_SIZET,
 			size2);
                 return -1;
@@ -518,7 +518,7 @@ __socket_proto_state_machine (transport_t *this)
 	while (priv->incoming.state != SOCKET_PROTO_STATE_COMPLETE) {
 		/* debug check against infinite loops */
 		if (previous_state == priv->incoming.state) {
-			gf_log (this->xl->name, GF_LOG_ERROR,
+			gf_log (this->xl->name, GF_LOG_DEBUG,
 				"state did not change! (%d) breaking",
 				previous_state);
 			ret = -1;
@@ -555,7 +555,7 @@ __socket_proto_state_machine (transport_t *this)
 			}
 
 			if (ret == -1) {
-				gf_log (this->xl->name, GF_LOG_ERRNO (errno),
+				gf_log (this->xl->name, GF_LOG_DEBUG,
 					"read (%s) in state %d (%s)",
 					strerror (errno),
 					SOCKET_PROTO_STATE_HEADER_COMING, 
@@ -564,7 +564,7 @@ __socket_proto_state_machine (transport_t *this)
 			}
 
 			if (ret > 0) {
-				gf_log (this->xl->name, GF_LOG_DEBUG,
+				gf_log (this->xl->name, GF_LOG_TRACE,
 					"partial header read on NB socket.");
 				goto unlock;
 			}
@@ -641,7 +641,7 @@ __socket_proto_state_machine (transport_t *this)
 			}
 
 			if (ret == -1) {
-				gf_log (this->xl->name, GF_LOG_ERROR,
+				gf_log (this->xl->name, GF_LOG_DEBUG,
 					"read (%s) in state %d (%s)",
 					strerror (errno),
 					SOCKET_PROTO_STATE_DATA_COMING,
@@ -650,7 +650,7 @@ __socket_proto_state_machine (transport_t *this)
 			}
 
 			if (ret > 0) {
-				gf_log (this->xl->name, GF_LOG_DEBUG,
+				gf_log (this->xl->name, GF_LOG_TRACE,
 					"partial data read on NB socket");
                                         goto unlock;
 			}
@@ -669,7 +669,7 @@ __socket_proto_state_machine (transport_t *this)
 			break;
 
 		default:
-			gf_log (this->xl->name, GF_LOG_ERROR,
+			gf_log (this->xl->name, GF_LOG_DEBUG,
 				"undefined state reached: %d",
 				priv->incoming.state);
                                 goto unlock;
@@ -719,10 +719,10 @@ socket_event_poll_in (transport_t *this)
 int
 socket_connect_finish (transport_t *this)
 {
-        int ret = -1;
+        int               ret = -1;
         socket_private_t *priv = NULL;
-        int event = -1;
-        char notify_xlator = 0;
+        int               event = -1;
+        char              notify_xlator = 0;
 
         priv = this->private;
 
@@ -759,7 +759,7 @@ socket_connect_finish (transport_t *this)
 					   SA (&this->myinfo.sockaddr),
 					   &this->myinfo.sockaddr_len);
 			if (ret == -1) {
-				gf_log (this->xl->name, GF_LOG_ERROR,
+				gf_log (this->xl->name, GF_LOG_DEBUG,
 					"getsockname on (%d) failed (%s)", 
 					priv->sock, strerror (errno));
 				__socket_disconnect (this);
@@ -854,7 +854,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 ret = __socket_nonblock (new_sock);
 
                                 if (ret == -1) {
-                                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                        gf_log (this->xl->name, GF_LOG_DEBUG,
                                                 "NBIO on %d failed (%s)",
                                                 new_sock, strerror (errno));
                                         close (new_sock);
@@ -877,7 +877,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                            SA (&new_trans->myinfo.sockaddr),
                                            &new_trans->myinfo.sockaddr_len);
                         if (ret == -1) {
-                                gf_log (this->xl->name, GF_LOG_ERROR,
+                                gf_log (this->xl->name, GF_LOG_DEBUG,
                                         "getsockname on %d failed (%s)", 
                                         new_sock, strerror (errno));
                                 close (new_sock);
@@ -949,7 +949,7 @@ socket_connect (transport_t *this)
 	ctx = this->xl->ctx;
 
         if (!priv) {
-                gf_log (this->xl->name, GF_LOG_ERROR,
+                gf_log (this->xl->name, GF_LOG_DEBUG,
                         "connect() called on uninitialized transport");
                 goto err;
         }
@@ -977,7 +977,7 @@ socket_connect (transport_t *this)
         pthread_mutex_lock (&priv->lock);
         {
                 if (priv->sock != -1) {
-                        gf_log (this->xl->name, GF_LOG_DEBUG,
+                        gf_log (this->xl->name, GF_LOG_TRACE,
                                 "connect() -- already connected");
                         goto unlock;
                 }
@@ -1072,7 +1072,7 @@ socket_listen (transport_t *this)
         pthread_mutex_unlock (&priv->lock);
 
         if (sock != -1)  {
-                gf_log (this->xl->name, GF_LOG_ERROR, 
+                gf_log (this->xl->name, GF_LOG_DEBUG,
                         "alreading listening");
                 return ret;
         }
@@ -1087,7 +1087,7 @@ socket_listen (transport_t *this)
         pthread_mutex_lock (&priv->lock);
         {
                 if (priv->sock != -1) {
-                        gf_log (this->xl->name, GF_LOG_ERROR,
+                        gf_log (this->xl->name, GF_LOG_DEBUG,
                                 "already listening");
                         goto unlock;
                 }
@@ -1145,7 +1145,7 @@ socket_listen (transport_t *this)
 					    this, 1, 0);
 
                 if (priv->idx == -1) {
-                        gf_log (this->xl->name, GF_LOG_ERROR,
+                        gf_log (this->xl->name, GF_LOG_DEBUG,
                                 "could not register socket %d with events",
 				priv->sock);
                         ret = -1;
@@ -1173,13 +1173,13 @@ socket_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
         pthread_mutex_lock (&priv->lock);
         {
                 if (priv->connected != 1) {
-                        gf_log (this->xl->name, GF_LOG_ERROR,
+                        gf_log (this->xl->name, GF_LOG_DEBUG,
                                 "socket not connected to receive");
                         goto unlock;
                 }
 
                 if (!hdr_p || !hdrlen_p || !iobuf_p) {
-                        gf_log (this->xl->name, GF_LOG_ERROR,
+                        gf_log (this->xl->name, GF_LOG_DEBUG,
                                 "bad parameters %p %p %p",
                                 hdr_p, hdrlen_p, iobuf_p);
                         goto unlock;
@@ -1223,7 +1223,7 @@ socket_submit (transport_t *this, char *buf, int len,
         {
                 if (priv->connected != 1) {
                         if (!priv->submit_log && !priv->connect_finish_log) {
-                                gf_log (this->xl->name, GF_LOG_ERROR,
+                                gf_log (this->xl->name, GF_LOG_DEBUG,
                                         "not connected (priv->connected = %d)",
                                         priv->connected);
                                 priv->submit_log = 1;
@@ -1276,9 +1276,11 @@ int
 socket_init (transport_t *this)
 {
         socket_private_t *priv = NULL;
+        gf_boolean_t      tmp_bool = 0;
+        char             *nb_connect = NULL;
 
         if (this->private) {
-                gf_log (this->xl->name, GF_LOG_ERROR,
+                gf_log (this->xl->name, GF_LOG_DEBUG,
                         "double init attempted");
                 return -1;
         }
@@ -1300,8 +1302,7 @@ socket_init (transport_t *this)
         INIT_LIST_HEAD (&priv->ioq);
 
         if (dict_get (this->xl->options, "non-blocking-io")) {
-                gf_boolean_t tmp_bool = 0;
-                char *nb_connect = data_to_str (dict_get (this->xl->options,
+                nb_connect = data_to_str (dict_get (this->xl->options,
                                                           "non-blocking-io"));
       
                 if (gf_string2boolean (nb_connect, &tmp_bool) == -1) {
@@ -1328,7 +1329,8 @@ void
 fini (transport_t *this)
 {
         socket_private_t *priv = this->private;
-        gf_log (this->xl->name, GF_LOG_DEBUG,
+
+        gf_log (this->xl->name, GF_LOG_TRACE,
                 "transport %p destroyed", this);
 
         pthread_mutex_destroy (&priv->lock);
@@ -1343,9 +1345,8 @@ init (transport_t *this)
 
         ret = socket_init (this);
 
-        if (ret == -1)
-        {
-                gf_log (this->xl->name, GF_LOG_ERROR, "socket_init() failed");
+        if (ret == -1) {
+                gf_log (this->xl->name, GF_LOG_DEBUG, "socket_init() failed");
         }
   
         return ret;
