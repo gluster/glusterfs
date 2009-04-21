@@ -583,7 +583,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                                                     local->pending);
 
 			if (ret < 0)
-				gf_log (this->name, GF_LOG_ERROR, 
+				gf_log (this->name, GF_LOG_DEBUG,
 					"failed to set pending entry");
 
 
@@ -631,7 +631,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                                                     local->pending);
 
 			if (ret < 0)
-				gf_log (this->name, GF_LOG_ERROR, 
+				gf_log (this->name, GF_LOG_DEBUG,
 					"failed to set pending entry");
 
 			/* fall through */
@@ -688,6 +688,7 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					"xattrop not supported by %s",
 					priv->children[child_index]->name);
 				local->op_ret = -1;
+                                
 			} else if (!child_went_down (op_ret, op_errno)) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"xattrop failed on child %s: %s",
@@ -760,7 +761,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                                     local->pending);
 
 			if (ret < 0)
-				gf_log (this->name, GF_LOG_ERROR, 
+				gf_log (this->name, GF_LOG_DEBUG,
 					"failed to set pending entry");
 
 
@@ -814,7 +815,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                                     local->pending);
 
 			if (ret < 0)
-				gf_log (this->name, GF_LOG_ERROR, 
+				gf_log (this->name, GF_LOG_DEBUG,
 					"failed to set pending entry");
 
 			/* fall through */

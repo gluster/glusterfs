@@ -65,7 +65,7 @@ afr_sh_data_done (call_frame_t *frame, xlator_t *this)
 	   TODO: cleanup sh->* 
 	 */
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"self heal of %s completed",
 		local->loc.path);
 
@@ -129,7 +129,7 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 
 
 	/* closed source */
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"closing fd of %s on %s",
 		local->loc.path, priv->children[sh->source]->name);
 
@@ -144,7 +144,7 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 		if (sh->sources[i] || !local->child_up[i])
 			continue;
 
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"closing fd of %s on %s",
 			local->loc.path, priv->children[i]->name);
 
@@ -175,12 +175,12 @@ afr_sh_data_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR, 
+			gf_log (this->name, GF_LOG_DEBUG,
 				"locking inode of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);
 		}
@@ -223,7 +223,7 @@ afr_sh_data_unlock (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"unlocking %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
 
@@ -249,7 +249,7 @@ afr_sh_data_finish (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"finishing data selfheal of %s", local->loc.path);
 
 	afr_sh_data_unlock (frame, this);
@@ -323,7 +323,7 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
 		if (!erase_xattr[i])
 			continue;
 
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"erasing pending flags from %s on %s",
 			local->loc.path, priv->children[i]->name);
 
@@ -367,13 +367,13 @@ afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1)
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"ftruncate of %s on subvolume %s failed (%s)",
 				local->loc.path,
 				priv->children[child_index]->name,
 				strerror (op_errno));
 		else
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"ftruncate of %s on subvolume %s completed",
 				local->loc.path,
 				priv->children[child_index]->name);
@@ -446,14 +446,14 @@ afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 	sh = &local->self_heal;
 
-	gf_log (this->name, GF_LOG_DEBUG, 
+	gf_log (this->name, GF_LOG_TRACE,
 		"wrote %d bytes of data from %s to child %d, offset %"PRId64"", 
 		op_ret, local->loc.path, child_index, sh->offset - op_ret);
 
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"write to %s failed on subvolume %s (%s)",
 				local->loc.path,
 				priv->children[child_index]->name,
@@ -497,7 +497,7 @@ afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
 
 	local->call_count = call_count;
 
-	gf_log (this->name, GF_LOG_DEBUG, 
+	gf_log (this->name, GF_LOG_TRACE,
 		"read %d bytes of data from %s on child %d, offset %"PRId64"",
 		op_ret, local->loc.path, child_index, sh->offset);
 
@@ -581,7 +581,7 @@ afr_sh_data_read_write_iter (call_frame_t *frame, xlator_t *this)
 	}
 
 	if (sh->offset >= sh->file_size) {
-		gf_log (this->name, GF_LOG_DEBUG, 
+		gf_log (this->name, GF_LOG_TRACE,
 			"closing fd's of %s",
 			local->loc.path);
 		afr_sh_data_trim_sinks (frame, this);
@@ -619,7 +619,7 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_log (this->name, GF_LOG_TRACE,
 				"open of %s failed on child %s (%s)",
 				local->loc.path,
 				priv->children[child_index]->name,
@@ -637,11 +637,11 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			afr_sh_data_finish (frame, this);
 			return 0;
 		}
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"fd for %s opened, commencing sync",
 			local->loc.path);
 
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_TRACE,
 			"sourcing file %s from %s to other sinks",
 			local->loc.path, priv->children[sh->source]->name);
 
@@ -747,7 +747,7 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
 	}
 	sh->active_sinks = active_sinks;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"syncing data of %s from subvolume %s to %d active sinks",
 		local->loc.path, priv->children[source]->name, active_sinks);
 
@@ -795,7 +795,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 	    && (priv->favorite_child != -1)
 	    && (sh->child_errno[priv->favorite_child] == 0)) {
 
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"Picking favorite child %s as authentic source to resolve conflicting data of %s",
 			priv->children[priv->favorite_child]->name,
 			local->loc.path);
@@ -808,11 +808,9 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
 	if (nsources == -1) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"Unable to resolve conflicting data of %s. "
-			"Please resolve manually by deleting the file %s "
-			"from all but the preferred subvolume. "
-			"Please consider 'option favorite-child <>'",
-			local->loc.path, local->loc.path);
+			"Unable to self-heal contents of '%s' (possible split-brain). "
+                        "Please delete the file from all but the preferred "
+                        "subvolume.", local->loc.path);
 
 		local->govinda_gOvinda = 1;
 
@@ -949,12 +947,12 @@ afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			sh->op_failed = 1;
 
 			gf_log (this->name,
-				(op_errno == EAGAIN ? GF_LOG_DEBUG : GF_LOG_ERROR),
+                                GF_LOG_DEBUG,
 				"locking of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);
 		}
@@ -1002,7 +1000,7 @@ afr_sh_data_lock (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"locking %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
 
@@ -1035,7 +1033,7 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 	if (local->need_data_self_heal && priv->data_self_heal) {
 		afr_sh_data_lock (frame, this);
 	} else {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"not doing data self heal on %s",
 			local->loc.path);
 		afr_sh_data_done (frame, this);

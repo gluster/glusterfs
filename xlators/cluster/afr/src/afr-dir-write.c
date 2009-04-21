@@ -127,7 +127,7 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ret = afr_fd_ctx_set (this, fd);
 
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "could not set ctx on fd=%p", fd);
 
                         local->op_ret   = -1;
@@ -262,7 +262,7 @@ afr_create (call_frame_t *frame, xlator_t *this,
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -486,7 +486,7 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -710,7 +710,7 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -935,7 +935,7 @@ afr_link (call_frame_t *frame, xlator_t *this,
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -1161,7 +1161,7 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -1362,7 +1362,7 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -1553,7 +1553,7 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -1739,7 +1739,7 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
