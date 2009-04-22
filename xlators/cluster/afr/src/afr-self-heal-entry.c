@@ -911,6 +911,8 @@ afr_sh_entry_impunge_utimens_cbk (call_frame_t *impunge_frame, void *cookie,
 	afr_local_t     *impunge_local = NULL;
 	afr_self_heal_t *impunge_sh = NULL;
 	call_frame_t    *frame = NULL;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
 	int              active_src = 0;
 	int              child_index = 0;
 
@@ -918,6 +920,9 @@ afr_sh_entry_impunge_utimens_cbk (call_frame_t *impunge_frame, void *cookie,
 	impunge_local = impunge_frame->local;
 	impunge_sh = &impunge_local->self_heal;
 	frame = impunge_sh->sh_frame;
+        local = frame->local;
+        sh    = &local->self_heal;
+        active_src = sh->active_source;
 	child_index = (long) cookie;
 
 	if (op_ret == 0) {
