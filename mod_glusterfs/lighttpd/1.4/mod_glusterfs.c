@@ -125,9 +125,7 @@ typedef struct {
         buffer *document_root;
         array *exclude_exts;
         unsigned short cache_timeout;
-
-        /* FIXME: its a pointer, hence cant be short */
-        unsigned long handle;
+        char mounted;
 } plugin_config;
 
 static int (*network_backend_write)(struct server *srv, connection *con, int fd,
@@ -857,6 +855,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
         stat_cache_entry *sce;
         mod_glusterfs_ctx_t *plugin_ctx = NULL;
         size_t size = 0;
+        int ret = 0;
 
         if (con->http_status != 0) return HANDLER_GO_ON;
         if (con->uri.path->used == 0) return HANDLER_GO_ON;
@@ -891,7 +890,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
                 return HANDLER_FINISHED;
         }
 
-        if (p->conf.handle <= 0) {
+        if (!p->conf.mounted) {
                 glusterfs_init_params_t ctx;
 
                 if (!p->conf.specfile || p->conf.specfile->used == 0) {
@@ -904,9 +903,8 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
                 ctx.loglevel = p->conf.loglevel->ptr;
                 ctx.lookup_timeout = ctx.stat_timeout = p->conf.cache_timeout;
 
-                p->conf.handle = (long)glusterfs_init (&ctx);
-
-                if (p->conf.handle <= 0) {
+                ret = glusterfs_mount (p->conf.prefix->ptr, &ctx);
+                if (ret != 0) {
                         con->http_status = 500;
                         log_error_write(srv, __FILE__, __LINE__,  "sbs",
                                         "glusterfs initialization failed, "
@@ -916,6 +914,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
                                         "might contain details");
                         return HANDLER_FINISHED;
                 }
+                p->conf.mounted = 1;
         }
 
         size = 0;
@@ -953,7 +952,9 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
 
         plugin_ctx->glusterfs_path = buffer_init ();
         buffer_copy_string_buffer (plugin_ctx->glusterfs_path,
-                                   p->conf.document_root);
+                                   p->conf.prefix);
+        buffer_append_string (plugin_ctx->glusterfs_path,
+                              p->conf.document_root->ptr);
         buffer_append_string (plugin_ctx->glusterfs_path, "/");
         buffer_append_string (plugin_ctx->glusterfs_path,
                               con->physical.path->ptr + plugin_ctx->prefix);
@@ -961,7 +962,6 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
                               plugin_ctx->glusterfs_path);
  
         if (glusterfs_stat_cache_get_entry (srv, con,
-                                            (glusterfs_handle_t )p->conf.handle,
                                             plugin_ctx->glusterfs_path,
                                             con->physical.path, plugin_ctx->buf,
                                             size, &sce) == HANDLER_ERROR) {
@@ -1044,7 +1044,7 @@ int http_chunk_append_glusterfs_file_chunk(server *srv, connection *con,
 }
 
 int http_chunk_append_glusterfs_mem(server *srv, connection *con,
-                                    const char * mem, size_t len,
+                                    char * mem, size_t len,
                                     size_t buf_size) 
 {
         chunkqueue *cq = NULL;
@@ -1072,7 +1072,7 @@ int http_chunk_append_glusterfs_mem(server *srv, connection *con,
         buf = buffer_init ();
 
         buf->used = len + 1;
-        buf->size = buf_size
+        buf->size = buf_size;
         buf->ptr = (char *)mem;
         chunkqueue_append_buffer_weak (cq, buf);
 
@@ -1164,8 +1164,7 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
                 size = atoi (p->conf.xattr_file_size->ptr);
 
         if ((size_t)sce->st.st_size > size) {
-                ctx->fd = glusterfs_open ((glusterfs_handle_t ) ((unsigned long)p->conf.handle),
-                                          ctx->glusterfs_path->ptr, O_RDONLY,
+                ctx->fd = glusterfs_open (ctx->glusterfs_path->ptr, O_RDONLY,
                                           0);
     
                 if (((long)ctx->fd) == 0) {
@@ -1504,7 +1503,6 @@ static int stat_cache_lstat(server *srv, buffer *dname, struct stat *lst) {
 
 handler_t glusterfs_stat_cache_get_entry(server *srv, 
                                          connection *con, 
-                                         glusterfs_handle_t handle, 
                                          buffer *glusterfs_path,
                                          buffer *name, 
                                          void *buf, 
@@ -1596,10 +1594,11 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
         /*
          * *lol*
          * - open() + fstat() on a named-pipe results in a (intended) hang.
-         * - stat() if regular file + open() to see if we can read from it is better
+         * - stat() if regular file + open() to see if we can read from it is 
+         *   better
          *
          * */
-        if (-1 == glusterfs_get (handle, glusterfs_path->ptr, buf, size, &st)) {
+        if (-1 == glusterfs_get (glusterfs_path->ptr, buf, size, &st)) {
                 return HANDLER_ERROR;
         }
 
