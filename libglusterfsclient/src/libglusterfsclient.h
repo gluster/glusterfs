@@ -269,6 +269,9 @@ int
 glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars);
 
 int
+glusterfs_umount (char *vmp);
+
+int
 glusterfs_glh_chmod (glusterfs_handle_t handle, const char *path, mode_t mode);
 
 int
