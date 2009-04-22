@@ -875,6 +875,13 @@ libgf_init_vmpentry (char *vmp, glusterfs_handle_t *vmphandle)
         return entry;
 }
 
+void
+libgf_free_vmp_entry (struct vmp_entry *entry)
+{
+        FREE (entry->vmp);
+        FREE (entry);
+}
+
 int
 libgf_vmp_map_ghandle (char *vmp, glusterfs_handle_t *vmphandle)
 {
@@ -1002,6 +1009,37 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
 
 out:
 
+        return ret;
+}
+
+int
+glusterfs_umount (char *vmp)
+{ 
+        struct vmp_entry *entry= NULL;
+        int    ret = -1; 
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, vmp, out);
+
+        entry = libgf_vmp_search_entry (vmp);
+        if (entry == NULL) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                        "path (%s) not mounted", vmp);
+                goto out;
+        }
+
+        /* FIXME: make this thread safe */
+        list_del_init (&entry->list);
+
+        if (entry->handle == NULL) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                        "path (%s) has no corresponding glusterfs handle",
+                        vmp);
+                goto out;
+        }
+
+        ret = glusterfs_fini (entry->handle);
+        libgf_free_vmp_entry (entry);
+
+out:
         return ret;
 }
 
