@@ -529,7 +529,9 @@ bdb_db_get (bctx_t *bctx,
                 value.flags = DB_DBT_MALLOC;
         } else {
                 if (size) {
-                        value.flags = DB_DBT_MALLOC | DB_DBT_PARTIAL;
+                        value.data  = buf;
+                        value.ulen  = size;
+                        value.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
                 } else {
                         value.flags = DB_DBT_MALLOC;
                 }
@@ -560,18 +562,24 @@ bdb_db_get (bctx_t *bctx,
                 } else if (ret == 0) {
                         /* successfully read data, lets set everything
                          * in place and return */
-                        if (buf) {
-                                copy_size = ((value.size - offset) < size) ?
-                                        (value.size - offset) : size;
+                        if (bctx->cache) {
+                                if (buf) {
+                                        copy_size = ((value.size - offset) < size) ?
+                                                (value.size - offset) : size;
 
-                                memcpy (buf, (value.data + offset), copy_size);
-                                ret = copy_size;
+                                        memcpy (buf, (value.data + offset),
+                                                copy_size);
+                                        ret = copy_size;
+                                }
+
+                                bdb_cache_insert (bctx, &key, &value);
                         } else {
                                 ret = value.size;
                         }
-                        if (bctx->cache)
-                                bdb_cache_insert (bctx, &key, &value);
-                        free (value.data);
+
+                        if (size == 0)
+                                free (value.data);
+
                         need_break = 1;
                 } else {
                         gf_log ("bdb-ll", GF_LOG_DEBUG,
