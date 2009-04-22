@@ -71,7 +71,9 @@
 #endif
 
 #if 0
-/* enables debug code for testing if all nodes in the stat-cache as accessable */
+/* 
+   enables debug code for testing if all nodes in the stat-cache as accessable
+*/
 #define DEBUG_STAT_CACHE
 #endif
 
@@ -81,7 +83,10 @@
 
 #define GLUSTERFS_FILE_CHUNK (FILE_CHUNK + 1)
 
-/* Keep this value large. Each glusterfs_async_read of GLUSTERFS_CHUNK_SIZE results in a network_backend_write of the read data*/
+/* 
+   Keep this value large. Each glusterfs_async_read of GLUSTERFS_CHUNK_SIZE
+   results in a network_backend_write of the read data
+*/
 
 #define GLUSTERFS_CHUNK_SIZE 8192
 
@@ -163,7 +168,8 @@ typedef struct {
  *
  * - remove entries which are outdated since 30s
  * - remove entries which are fresh but havn't been used since 60s
- * - if we don't have a stat-cache entry for a directory, release it from the monitor
+ * - if we don't have a stat-cache entry for a directory, release it from the 
+ *   monitor
  */
 
 #ifdef DEBUG_STAT_CACHE
@@ -266,12 +272,12 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
 
                                 check += buf->vector[i].iov_len;        
 
-                                nw_write_buf->used = nw_write_buf->size = buf->vector[i].iov_len;
+                                nw_write_buf->used = buf->vector[i].iov_len;
+                                nw_write_buf->size = buf->vector[i].iov_len;
                                 nw_write_buf->ptr = buf->vector[i].iov_base;
 
-                                //      buffer_copy_memory (nw_write_buf, buf->vector[i].iov_base, buf->vector[i].iov_len + 1);
                                 offset += local.op_ret;
-                                chunkqueue_append_buffer_weak (cq, nw_write_buf);
+                                chunkqueue_append_buffer_weak(cq, nw_write_buf);
                         }
   
                         network_backend_write (srv, con, con->fd, cq);
@@ -287,7 +293,7 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
                                 gf_cq->cq = cq;
                                 gf_cq->buf = buf;
                                 gf_cq->length = local.op_ret;
-                                glusterfs_chunk->file.mmap.start = (char *)gf_cq;
+                                glusterfs_chunk->file.mmap.start =(char *)gf_cq;
                                 return local.read_bytes;
                         }
       
@@ -336,7 +342,9 @@ int mod_glusterfs_network_backend_write(struct server *srv, connection *con,
 
                         if (c->file.mmap.start) {
                                 chunk *tmp;
-                                mod_glusterfs_chunkqueue *gf_cq = (mod_glusterfs_chunkqueue *)c->file.mmap.start;
+                                mod_glusterfs_chunkqueue *gf_cq = NULL;
+
+                                gf_cq = (mod_glusterfs_chunkqueue *)c->file.mmap.start;
 
                                 network_backend_write (srv, con, fd, gf_cq->cq);
 
@@ -501,7 +509,9 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
                   T_CONFIG_SCOPE_UNSET }
         };
   
-        p->config_storage = calloc(1, srv->config_context->used * sizeof(specific_config *));
+        p->config_storage = calloc(1,
+                                   srv->config_context->used
+                                   * sizeof(specific_config *));
         /* ERR_ABORT (p->config_storage);*/
         p->range_buf = buffer_init ();
   
@@ -547,7 +557,10 @@ static int mod_glusterfs_patch_connection(server *srv, connection *con,
         plugin_config *s;
 
         /* skip the first, the global context */
-        /* glusterfs related config can only occur inside $HTTP["url"] == "<glusterfs-prefix>" */
+        /* 
+           glusterfs related config can only occur inside 
+           $HTTP["url"] == "<glusterfs-prefix>"
+        */
         p->conf.logfile = NULL;
         p->conf.loglevel = NULL;
         p->conf.specfile = NULL;
@@ -751,7 +764,8 @@ static int http_response_parse_range(server *srv, connection *con,
                                 buffer_append_string(b, boundary);
         
                                 /* write Content-Range */
-                                buffer_append_string(b, "\r\nContent-Range: bytes ");
+                                buffer_append_string(b, "\r\nContent-Range: "
+                                                     "bytes ");
                                 buffer_append_off_t(b, start);
                                 buffer_append_string(b, "-");
                                 buffer_append_off_t(b, end);
@@ -768,13 +782,6 @@ static int http_response_parse_range(server *srv, connection *con,
 
                         }
 
-                        /* path = con->physical.path->ptr + p->conf.prefix->used - 1 + con->physical.doc_root->used - 1;      */
-                        /*
-                          fd = glusterfs_open (p->conf.handle, path, O_RDONLY);
-                          if (fd < 0)
-                          return HANDLER_ERROR;
-                        */
-                        /*      fn = buffer_init_string (path); */
                         if ((size_t)sce->st.st_size >= size) {
                                 chunkqueue_append_glusterfs_file(con, ctx->fd,
                                                                  start,
@@ -789,7 +796,8 @@ static int http_response_parse_range(server *srv, connection *con,
                                         ctx->buf = NULL;
                                 } else {
                                         chunkqueue_append_mem (con->write_queue,
-                                                               ((char *)ctx->buf) + start,
+                                                               ((char *)ctx->buf)
+                                                               + start,
                                                                end - start + 1);
                                 }
                         }
@@ -901,7 +909,9 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
                 if (p->conf.handle <= 0) {
                         con->http_status = 500;
                         log_error_write(srv, __FILE__, __LINE__,  "sbs",
-                                        "glusterfs initialization failed, please check your configuration. Glusterfs logfile ",
+                                        "glusterfs initialization failed, "
+                                        "please check your configuration. "
+                                        "Glusterfs logfile ",
                                         p->conf.logfile,
                                         "might contain details");
                         return HANDLER_FINISHED;
@@ -1115,7 +1125,8 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
           
           if (ds->value->used == 0) continue;
     
-          if (!strncmp (ds->value->ptr, con->uri.path->ptr, strlen (ds->value->ptr)))
+          if (!strncmp (ds->value->ptr, con->uri.path->ptr,
+                        strlen (ds->value->ptr)))
           break;
           }
   
@@ -1175,7 +1186,8 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
           
                 if (con->conf.log_request_handling) {
                         log_error_write(srv, __FILE__, __LINE__,  "s",
-                                        "-- access denied due symlink restriction");
+                                        "-- access denied due symlink "
+                                        "restriction");
                         log_error_write(srv, __FILE__, __LINE__,  "sb",
                                         "Path         :", con->physical.path);
                 }
@@ -1207,15 +1219,16 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   
         if (NULL == array_get_element(con->response.headers, "Content-Type")) {
                 if (buffer_is_empty(sce->content_type)) {
-                        /* we are setting application/octet-stream, but also announce that
-                         * this header field might change in the seconds few requests 
-                         *
-                         * This should fix the aggressive caching of FF and the script download
+                        /* we are setting application/octet-stream, but also "
+                         * announce that this header field might change in "
+                         * the seconds few requests. This should fix the 
+                         * aggressive caching of FF and the script download
                          * seen by the first installations
                          */
                         response_header_overwrite(srv, con,
                                                   CONST_STR_LEN("Content-Type"),
-                                                  CONST_STR_LEN("application/octet-stream"));
+                                                  CONST_STR_LEN("application/"
+                                                                "octet-stream"));
       
                         allow_caching = 0;
                 } else {
@@ -1300,7 +1313,8 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
                                 }
                         } else if (!mtime) {
                                 /**
-                                 * we don't have a Last-Modified and can match the If-Range: 
+                                 * we don't have a Last-Modified and can match 
+                                 * the If-Range: 
                                  *
                                  * sending all
                                  */
@@ -1559,20 +1573,21 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
                 } else {
                         /* oops, a collision,
                          *
-                         * file_node is used by the FAM check below to see if we know this file
-                         * and if we can save a stat().
+                         * file_node is used by the FAM check below to see if 
+                         * we know this file and if we can save a stat().
                          *
-                         * BUT, the sce is not reset here as the entry into the cache is ok, we
-                         * it is just not pointing to our requested file.
-                         *
-                         *  */
+                         * BUT, the sce is not reset here as the entry into 
+                         * the cache is ok, we it is just not pointing to 
+                         * our requested file.
+                         */
 
                         file_node = NULL;
                 }
         } else {
 #ifdef DEBUG_STAT_CACHE
                 if (i != ctrl.used) {
-                        fprintf(stderr, "%s.%d: %08x was already inserted but not found in cache, %s\n",
+                        fprintf(stderr, "%s.%d: %08x was already inserted "
+                                "but not found in cache, %s\n",
                                 __FILE__, __LINE__, file_ndx, name->ptr);
                 }
                 assert(i == ctrl.used);
@@ -1607,7 +1622,8 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
                         /* ERR_ABORT (ctrl.ptr); */
                 } else if (ctrl.size == ctrl.used) {
                         ctrl.size += 16;
-                        ctrl.ptr = realloc(ctrl.ptr, ctrl.size * sizeof(*ctrl.ptr));
+                        ctrl.ptr = realloc(ctrl.ptr,
+                                           ctrl.size * sizeof(*ctrl.ptr));
                         /* ERR_ABORT (ctrl.ptr); */
                 }
 
@@ -1671,7 +1687,8 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
                                 }
 #ifdef DEBUG_STAT_CACHE
                                 log_error_write(srv, __FILE__, __LINE__, "sbs",
-                                                "checking if", dname, "is a symlink");
+                                                "checking if", dname, "is a "
+                                                "symlink");
 #endif
                                 if (stat_cache_lstat(srv, dname, &lst)  == 0) {
                                         sce->is_symlink = 1;
@@ -1693,9 +1710,11 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
                 buffer_reset(sce->content_type);
 
                 for (k = 0; k < con->conf.mimetypes->used; k++) {
-                        data_string *ds = (data_string *)con->conf.mimetypes->data[k];
-                        buffer *type = ds->key;
+                        data_string *ds = NULL;
+                        buffer *type = NULL;
 
+                        ds = (data_string *)con->conf.mimetypes->data[k];
+                        type = ds->key;
                         if (type->used == 0) continue;
 
                         /* check if the right side is the same */
