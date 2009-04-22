@@ -519,7 +519,7 @@ bdb_readv (call_frame_t *frame,
         vec.iov_len = read_size;
 
         stbuf.st_ino = fd->inode->ino;
-        stbuf.st_size = op_ret ;
+        stbuf.st_size = bdb_db_fread (bfd, NULL, 0, 0);
         stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
         op_ret = size;
 out:
