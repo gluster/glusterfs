@@ -135,6 +135,8 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool)
         if (!iobuf_arena->iobufs)
                 goto err;
 
+        iobuf_pool->arena_cnt++;
+
         return iobuf_arena;
 
 err:
@@ -173,7 +175,6 @@ __iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool)
                 return NULL;
 
         list_add_tail (&iobuf_arena->list, &iobuf_pool->arenas.list);
-        iobuf_pool->arena_cnt++;
 
         return iobuf_arena;
 }
