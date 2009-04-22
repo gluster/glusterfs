@@ -147,7 +147,6 @@ typedef struct glusterfs_dir_config {
 
         size_t                  xattr_file_size;
         uint32_t                cache_timeout;
-        glusterfs_handle_t      handle;
         
         /* mod_dir options */
         apr_array_header_t     *index_names;
@@ -690,7 +689,6 @@ mod_glfs_create_dir_config(apr_pool_t *p, char *dirspec)
         dir_config->mount_dir = dirspec;
         dir_config->logfile = dir_config->specfile = (char *)0;
         dir_config->loglevel = "warning";
-        dir_config->handle = (glusterfs_handle_t) 0;
         dir_config->cache_timeout = 0;
         dir_config->buf = NULL;
 
@@ -754,7 +752,6 @@ mod_glfs_merge_dir_config(apr_pool_t *p, void *parent_conf,
 
         new->xattr_file_size = add->xattr_file_size;
         new->cache_timeout = add->cache_timeout;
-        new->handle = add->handle;
         new->buf = add->buf;
 
         /* mod_dir */
@@ -863,7 +860,7 @@ mod_glfs_merge_dir_config(apr_pool_t *p, void *parent_conf,
 static void 
 mod_glfs_child_init(apr_pool_t *p, server_rec *s)
 {
-        int                      i = 0, num_sec = 0;
+        int                      i = 0, num_sec = 0, ret = 0;
         core_server_config      *sconf = NULL;
         ap_conf_vector_t       **sec_ent = NULL;
         glusterfs_dir_config_t  *dir_config = NULL;
@@ -887,8 +884,8 @@ mod_glfs_child_init(apr_pool_t *p, server_rec *s)
                         ctx.stat_timeout = dir_config->cache_timeout;
                         ctx.specfile = dir_config->specfile;
 
-                        dir_config->handle = glusterfs_init (&ctx);
-                        if (!dir_config->handle) {
+                        ret = glusterfs_mount (dir_config->mount_dir, &ctx);
+                        if (ret != 0) {
                                 ap_log_error(APLOG_MARK, APLOG_ERR,
                                              APR_EGENERAL, s, 
                                              "mod_glfs_child_init: "
@@ -919,11 +916,9 @@ mod_glfs_child_exit(server_rec *s, apr_pool_t *p)
         for (i = 0; i < num_sec; i++) {
                 dir_config = ap_get_module_config (sec_ent[i],
                                                    &glusterfs_module);
-                if (dir_config && dir_config->handle) {
-                        glusterfs_fini (dir_config->handle);
-                        dir_config->handle = 0;
+                if (dir_config) {
+                        glusterfs_umount (dir_config->mount_dir);
                 }
-                dir_config = NULL;
         }
 }
 
@@ -1052,8 +1047,7 @@ mod_glfs_map_to_storage(request_rec *r)
                                                   GLUSTERFS_HANDLER)))
                 return DECLINED;
 
-        if (dir_config->mount_dir)
-                path = r->uri + strlen (dir_config->mount_dir);
+        path = r->uri;
 
         memset (&r->finfo, 0, sizeof (r->finfo));
 
@@ -1062,15 +1056,7 @@ mod_glfs_map_to_storage(request_rec *r)
                 return HTTP_INTERNAL_SERVER_ERROR;
         }
 
-        if (!dir_config->handle) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_EGENERAL, r,
-                              "mod_glfs_map_to_storage: glusterfs handle is "
-                              "NULL, check glusterfs logfile %s",
-                              dir_config->logfile);
-                return HTTP_INTERNAL_SERVER_ERROR;
-        }
-                
-        ret = glusterfs_get (dir_config->handle, path, dir_config->buf, 
+        ret = glusterfs_get (path, dir_config->buf, 
                              dir_config->xattr_file_size, &st);
 
         if (ret == -1 || st.st_size > dir_config->xattr_file_size 
@@ -1502,7 +1488,7 @@ static char *find_item(request_rec *r, apr_array_header_t *list, int path_only)
         char                    *path = NULL;
         int                      i = 0;
         struct mod_glfs_ai_item *items = NULL;
-        struct mod_glfs_ai_item *p = NULL
+        struct mod_glfs_ai_item *p = NULL;
 
         content_type = ap_field_noparam(r->pool, r->content_type);
         content_encoding = r->content_encoding;
@@ -1761,7 +1747,6 @@ static void emit_head(request_rec *r, char *header_fname, int suppress_amble,
         int          emit_H1 = 1;
         const char  *r_accept = NULL;
         const char  *r_accept_enc = NULL;
-        ap_filter_t *f = NULL;
 
         /*
          * If there's a header file, send a subrequest to look for it.  If it's
@@ -1792,6 +1777,8 @@ static void emit_head(request_rec *r, char *header_fname, int suppress_amble,
                         if (!strcasecmp(ap_field_noparam(r->pool,
                                                          rr->content_type),
                                         "text/html")) {
+                                ap_filter_t *f = NULL;
+        
                                 /* Hope everything will work... */
                                 emit_amble = 0;
                                 emit_H1 = 0;
@@ -2275,9 +2262,9 @@ static void output_directories(struct ent **ar, int n,
         int            x = 0;
         apr_size_t     rv = APR_SUCCESS;
         char          *name = NULL, *tp = NULL;
-        int            static_columns = 0
+        int            static_columns = 0;
         apr_pool_t    *scratch = NULL;
-        int            name_width = 0, desc_width = 0, t = 0, cols = 0;
+        int            name_width = 0, desc_width = 0, cols = 0;
         char          *name_scratch = NULL, *pad_scratch = NULL, *breakrow = "";
         char          *anchor = NULL, *t = NULL, *t2 = NULL;
         int            nwidth = 0;
@@ -2299,6 +2286,7 @@ static void output_directories(struct ent **ar, int n,
             == FANCY_INDEXING) {
                 if (d->name_adjust == K_ADJUST) {
                         for (x = 0; x < n; x++) {
+                                int t = 0;
                                 t = strlen(ar[x]->name);
                                 if (t > name_width) {
                                         name_width = t;
@@ -2309,6 +2297,7 @@ static void output_directories(struct ent **ar, int n,
                 if (d->desc_adjust == K_ADJUST) {
                         for (x = 0; x < n; x++) {
                                 if (ar[x]->desc != NULL) {
+                                        int t = 0;
                                         t = strlen(ar[x]->desc);
                                         if (t > desc_width) {
                                                 desc_width = t;
@@ -2782,10 +2771,10 @@ mod_glfs_index_directory (request_rec *r,
 {
         char                   *title_name = NULL, *title_endp = NULL;
         char                   *pstring = NULL, *colargs = NULL;
-        char                   *path = NULL, fname = NULL, *charset = NULL;
-        char                   *fullpath = NULL, *name = NULL;
+        char                   *path = NULL, *fname = NULL, *charset = NULL;
+        char                   *fullpath = NULL, *name = NULL, *ctype = NULL;
         apr_finfo_t             dirent;
-        glusterfs_file_t        fd = -1;
+        glusterfs_file_t        fd = NULL;
         apr_status_t            status = APR_SUCCESS;
         int                     num_ent = 0, x;
         struct ent             *head = NULL, *p = NULL;
@@ -2803,21 +2792,12 @@ mod_glfs_index_directory (request_rec *r,
         title_name = ap_escape_html(r->pool, r->uri);
         ctype = "text/html";
         dir_config = mod_glfs_dconfig (r);
-        if (!dir_config || !dir_config->handle) {
+        if (dir_config == NULL)  {
                 return HTTP_INTERNAL_SERVER_ERROR;
         }
 
-        path = r->uri + strlen (dir_config->mount_dir);
-        if (!dir_config->handle) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
-                              "mod_glfs_index_directory: glusterfs handler is "
-                              "NULL, check glusterfs logfile %s for more "
-                              "details", 
-                              dir_config->logfile);
-                return HTTP_INTERNAL_SERVER_ERROR;
-        }
-
-        fd = glusterfs_open (dir_config->handle, path, O_RDONLY, 0);
+        path = r->uri;
+        fd = glusterfs_open (path, O_RDONLY, 0);
         if (fd == 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
                               "file permissions deny server access: %s",
@@ -3021,7 +3001,7 @@ mod_glfs_index_directory (request_rec *r,
 
                 fname = apr_pstrcat (r->pool, path, entry.d_name);
 
-                ret = glusterfs_stat (dir_config->handle, fname, &st);
+                ret = glusterfs_stat (fname, &st);
                 if (ret != 0) {
                         break;
                 }
@@ -3119,7 +3099,7 @@ mod_glfs_handler (request_rec *r)
         apr_bucket             *e;
         core_dir_config        *d;
         int                     errstatus;
-        glusterfs_file_t        fd = -1;
+        glusterfs_file_t        fd = NULL;
         apr_status_t            status;
         glusterfs_dir_config_t *dir_config = NULL;
         char                   *path = NULL;
@@ -3173,12 +3153,6 @@ mod_glfs_handler (request_rec *r)
                                       r->method);
                         return HTTP_METHOD_NOT_ALLOWED;
                 }
-        }
-
-        if (!dir_config->handle) {
-                ap_log_rerror (APLOG_MARK, APLOG_ERR, 0, r,
-                               "glusterfs initialization failed\n");
-                return HTTP_FORBIDDEN;
         }
 
         d = (core_dir_config *)ap_get_module_config(r->per_dir_config,
@@ -3274,18 +3248,10 @@ mod_glfs_handler (request_rec *r)
                 }
         }
         
-        if (!dir_config->handle) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
-                              "mod_glfs_handler: glusterfs handler is NULL, "
-                              "check glusterfs logfile %s for more details", 
-                              dir_config->logfile);
-                return HTTP_INTERNAL_SERVER_ERROR;
-        }
-
         /* do standard open/read/close to fetch content */
-        path = r->uri + strlen (dir_config->mount_dir);
+        path = r->uri;
         
-        fd = glusterfs_open (dir_config->handle, path , O_RDONLY, 0);
+        fd = glusterfs_open (path, O_RDONLY, 0);
         if (fd == 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
                               "file permissions deny server access: %s",
