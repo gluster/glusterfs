@@ -49,7 +49,9 @@
 #include <apr_fnmatch.h>
 #include <apr_lib.h>
 
-#define GLUSTERFS_INVALID_LOGLEVEL "mod_glfs: Unrecognized log-level \"%s\", possible values are \"DEBUG|WARNING|ERROR|CRITICAL|NONE\"\n"
+#define GLUSTERFS_INVALID_LOGLEVEL "mod_glfs: Unrecognized log-level \"%s\", "\
+                                   " possible values are \"DEBUG|WARNING|"\
+                                   "ERROR|CRITICAL|NONE\"\n"
 
 #define GLUSTERFS_HANDLER "glusterfs-handler"
 #define GLUSTERFS_CHUNK_SIZE 131072 
@@ -137,55 +139,56 @@ typedef enum {
 /*TODO: verify error returns to server core */
 
 typedef struct glusterfs_dir_config {
-        char *logfile;
-        char *loglevel;
-        char *specfile;
-        char *mount_dir;
-        char *buf;
-        size_t xattr_file_size;
-        uint32_t cache_timeout;
-        glusterfs_handle_t handle;
+        char                   *logfile;
+        char                   *loglevel;
+        char                   *specfile;
+        char                   *mount_dir;
+        char                   *buf;
+
+        size_t                  xattr_file_size;
+        uint32_t                cache_timeout;
+        glusterfs_handle_t      handle;
         
         /* mod_dir options */
-        apr_array_header_t *index_names;
-        mod_glfs_dir_slash_cfg do_slash;
+        apr_array_header_t     *index_names;
+        mod_glfs_dir_slash_cfg  do_slash;
 
         /* autoindex options */
-        char *default_icon;
-        char *style_sheet;
-        apr_int32_t opts;
-        apr_int32_t incremented_opts;
-        apr_int32_t decremented_opts;
-        int name_width;
-        int name_adjust;
-        int desc_width;
-        int desc_adjust;
-        int icon_width;
-        int icon_height;
-        char default_keyid;
-        char default_direction;
+        char                   *default_icon;
+        char                   *style_sheet;
+        apr_int32_t             opts;
+        apr_int32_t             incremented_opts;
+        apr_int32_t             decremented_opts;
+        int                     name_width;
+        int                     name_adjust;
+        int                     desc_width;
+        int                     desc_adjust;
+        int                     icon_width;
+        int                     icon_height;
+        char                    default_keyid;
+        char                    default_direction;
 
-        apr_array_header_t *icon_list;
-        apr_array_header_t *alt_list;
-        apr_array_header_t *desc_list;
-        apr_array_header_t *ign_list;
-        apr_array_header_t *hdr_list;
-        apr_array_header_t *rdme_list;
+        apr_array_header_t     *icon_list;
+        apr_array_header_t     *alt_list;
+        apr_array_header_t     *desc_list;
+        apr_array_header_t     *ign_list;
+        apr_array_header_t     *hdr_list;
+        apr_array_header_t     *rdme_list;
 
-        char *ctype;
-        char *charset;
+        char                   *ctype;
+        char                   *charset;
 } glusterfs_dir_config_t;
 
 typedef struct glusterfs_async_local {
-        int op_ret;
-        int op_errno;
-        char async_read_complete;
-        off_t length;
-        off_t read_bytes;
+        int                op_ret;
+        int                op_errno;
+        char               async_read_complete;
+        off_t              length;
+        off_t              read_bytes;
         glusterfs_iobuf_t *buf;
-        request_rec *request;
-        pthread_mutex_t lock;
-        pthread_cond_t cond;
+        request_rec       *request;
+        pthread_mutex_t    lock;
+        pthread_cond_t     cond;
 }glusterfs_async_local_t;
 
 #define GLUSTERFS_CMD_PERMS ACCESS_CONF
@@ -196,7 +199,8 @@ mod_glfs_dconfig (request_rec *r)
 {
         glusterfs_dir_config_t *dir_config = NULL;
         if (r->per_dir_config != NULL) {
-                dir_config = ap_get_module_config (r->per_dir_config, &glusterfs_module);
+                dir_config = ap_get_module_config (r->per_dir_config,
+                                                   &glusterfs_module);
         }
 
         return dir_config;
@@ -225,7 +229,7 @@ static const char *
 cmd_set_loglevel (cmd_parms *cmd, void *dummy, const char *arg)
 {
         glusterfs_dir_config_t *dir_config = dummy;
-        char *error = NULL;
+        char                   *error = NULL;
         if (strncasecmp (arg, "DEBUG", strlen ("DEBUG")) 
             && strncasecmp (arg, "WARNING", strlen ("WARNING")) 
             && strncasecmp (arg, "CRITICAL", strlen ("CRITICAL")) 
@@ -264,10 +268,11 @@ static const char *
 cmd_add_desc (cmd_parms *cmd, void *d, const char *desc,
               const char *to)
 {
-        glusterfs_dir_config_t *dcfg = (glusterfs_dir_config_t *) d;
-        mod_glfs_ai_desc_t *desc_entry;
-        char *prefix = "";
+        glusterfs_dir_config_t *dcfg = NULL;
+        mod_glfs_ai_desc_t     *desc_entry = NULL;
+        char                   *prefix = "";
 
+        dcfg = (glusterfs_dir_config_t *) d;
         desc_entry = (mod_glfs_ai_desc_t *) apr_array_push(dcfg->desc_list);
         desc_entry->full_path = (ap_strchr_c(to, '/') == NULL) ? 0 : 1;
         desc_entry->wildcards = (WILDCARDS_REQUIRED
@@ -289,7 +294,9 @@ cmd_add_desc (cmd_parms *cmd, void *d, const char *desc,
 static void push_item(apr_array_header_t *arr, char *type, const char *to,
                       const char *path, const char *data)
 {
-        struct mod_glfs_ai_item *p = (struct mod_glfs_ai_item *) apr_array_push(arr);
+        struct mod_glfs_ai_item *p = NULL;
+
+        p = (struct mod_glfs_ai_item *) apr_array_push(arr);
 
         if (!to) {
                 to = "";
@@ -317,7 +324,8 @@ static void push_item(apr_array_header_t *arr, char *type, const char *to,
 static const char *
 cmd_add_ignore (cmd_parms *cmd, void *d, const char *ext)
 {
-        push_item(((glusterfs_dir_config_t *) d)->ign_list, 0, ext, cmd->path, NULL);
+        push_item(((glusterfs_dir_config_t *) d)->ign_list, 0, ext, cmd->path,
+                  NULL);
         return NULL;
 }
 
@@ -343,12 +351,12 @@ cmd_add_readme (cmd_parms *cmd, void *d, const char *name)
 static const char *
 cmd_add_opts (cmd_parms *cmd, void *d, int argc, char *const argv[])
 {
-        int i;
-        char *w;
-        apr_int32_t opts;
-        apr_int32_t opts_add;
-        apr_int32_t opts_remove;
-        char action;
+        int                     i = 0, option = 0;
+        char                   *w = NULL;
+        apr_int32_t             opts;
+        apr_int32_t             opts_add;
+        apr_int32_t             opts_remove;
+        char                    action = 0;
         glusterfs_dir_config_t *d_cfg = (glusterfs_dir_config_t *) d;
 
         opts = d_cfg->opts;
@@ -356,7 +364,6 @@ cmd_add_opts (cmd_parms *cmd, void *d, int argc, char *const argv[])
         opts_remove = d_cfg->decremented_opts;
 
         for (i = 0; i < argc; i++) {
-                int option = 0;
                 w = argv[i];
 
                 if ((*w == '+') || (*w == '-')) {
@@ -421,7 +428,8 @@ cmd_add_opts (cmd_parms *cmd, void *d, int argc, char *const argv[])
                 }
                 else if (!strcasecmp(w, "None")) {
                         if (action != '\0') {
-                                return "Cannot combine '+' or '-' with 'None' keyword";
+                                return "Cannot combine '+' or '-' with 'None' "
+                                        "keyword";
                         }
                         opts = NO_OPTIONS;
                         opts_add = 0;
@@ -457,7 +465,8 @@ cmd_add_opts (cmd_parms *cmd, void *d, int argc, char *const argv[])
                 }
                 else if (!strcasecmp(w, "NameWidth")) {
                         if (action != '-') {
-                                return "NameWidth with no value may only appear as "
+                                return "NameWidth with no value may only appear"
+                                        " as "
                                         "'-NameWidth'";
                         }
                         d_cfg->name_width = DEFAULT_NAME_WIDTH;
@@ -474,7 +483,8 @@ cmd_add_opts (cmd_parms *cmd, void *d, int argc, char *const argv[])
                                 int width = atoi(&w[10]);
 
                                 if (width && (width < 5)) {
-                                        return "NameWidth value must be greater than 5";
+                                        return "NameWidth value must be greater"
+                                                " than 5";
                                 }
                                 d_cfg->name_width = width;
                                 d_cfg->name_adjust = K_NOADJUST;
@@ -482,7 +492,8 @@ cmd_add_opts (cmd_parms *cmd, void *d, int argc, char *const argv[])
                 }
                 else if (!strcasecmp(w, "DescriptionWidth")) {
                         if (action != '-') {
-                                return "DescriptionWidth with no value may only appear as "
+                                return "DescriptionWidth with no value may only"
+                                        " appear as "
                                         "'-DescriptionWidth'";
                         }
                         d_cfg->desc_width = DEFAULT_DESC_WIDTH;
@@ -490,7 +501,8 @@ cmd_add_opts (cmd_parms *cmd, void *d, int argc, char *const argv[])
                 }
                 else if (!strncasecmp(w, "DescriptionWidth=", 17)) {
                         if (action == '-') {
-                                return "Cannot combine '-' with DescriptionWidth=n";
+                                return "Cannot combine '-' with "
+                                        "DescriptionWidth=n";
                         }
                         if (w[17] == '*') {
                                 d_cfg->desc_adjust = K_ADJUST;
@@ -499,7 +511,8 @@ cmd_add_opts (cmd_parms *cmd, void *d, int argc, char *const argv[])
                                 int width = atoi(&w[17]);
 
                                 if (width && (width < 12)) {
-                                        return "DescriptionWidth value must be greater than 12";
+                                        return "DescriptionWidth value must be "
+                                                "greater than 12";
                                 }
                                 d_cfg->desc_width = width;
                                 d_cfg->desc_adjust = K_NOADJUST;
@@ -606,8 +619,9 @@ static void emit_preamble(request_rec *r, int xhtml, const char *title)
         }
 
         if (d->style_sheet != NULL) {
-                ap_rvputs(r, "  <link rel=\"stylesheet\" href=\"", d->style_sheet,
-                          "\" type=\"text/css\"", xhtml ? " />\n" : ">\n", NULL);
+                ap_rvputs(r, "  <link rel=\"stylesheet\" href=\"",
+                          d->style_sheet, "\" type=\"text/css\"",
+                          xhtml ? " />\n" : ">\n", NULL);
         }
         ap_rvputs(r, " </head>\n <body>\n", NULL);
 }
@@ -636,10 +650,10 @@ static const char *cmd_add_icon(cmd_parms *cmd, void *d, const char *icon,
                                 const char *to)
 {
         char *iconbak = apr_pstrdup(cmd->pool, icon);
+        char *alt = NULL, *cl = NULL, *tmp = NULL;
 
         if (icon[0] == '(') {
-                char *alt;
-                char *cl = strchr(iconbak, ')');
+                cl = strchr(iconbak, ')');
 
                 if (cl == NULL) {
                         return "missing closing paren";
@@ -654,7 +668,7 @@ static const char *cmd_add_icon(cmd_parms *cmd, void *d, const char *icon,
                 }
         }
         if (cmd->info == BY_ENCODING) {
-                char *tmp = apr_pstrdup(cmd->pool, to);
+                tmp = apr_pstrdup(cmd->pool, to);
                 ap_str_tolower(tmp);
                 to = tmp;
         }
@@ -670,7 +684,8 @@ mod_glfs_create_dir_config(apr_pool_t *p, char *dirspec)
 {
         glusterfs_dir_config_t *dir_config = NULL;
 
-        dir_config = (glusterfs_dir_config_t *) apr_pcalloc(p, sizeof(*dir_config));
+        dir_config = (glusterfs_dir_config_t *) apr_pcalloc(p,
+                                                            sizeof(*dir_config));
 
         dir_config->mount_dir = dirspec;
         dir_config->logfile = dir_config->specfile = (char *)0;
@@ -690,12 +705,18 @@ mod_glfs_create_dir_config(apr_pool_t *p, char *dirspec)
         dir_config->name_adjust = K_UNSET;
         dir_config->desc_width = DEFAULT_DESC_WIDTH;
         dir_config->desc_adjust = K_UNSET;
-        dir_config->icon_list = apr_array_make(p, 4, sizeof(struct mod_glfs_ai_item));
-        dir_config->alt_list = apr_array_make(p, 4, sizeof(struct mod_glfs_ai_item));
-        dir_config->desc_list = apr_array_make(p, 4, sizeof(mod_glfs_ai_desc_t));
-        dir_config->ign_list = apr_array_make(p, 4, sizeof(struct mod_glfs_ai_item));
-        dir_config->hdr_list = apr_array_make(p, 4, sizeof(struct mod_glfs_ai_item));
-        dir_config->rdme_list = apr_array_make(p, 4, sizeof(struct mod_glfs_ai_item));
+        dir_config->icon_list = apr_array_make(p, 4,
+                                               sizeof(struct mod_glfs_ai_item));
+        dir_config->alt_list = apr_array_make(p, 4,
+                                              sizeof(struct mod_glfs_ai_item));
+        dir_config->desc_list = apr_array_make(p, 4,
+                                               sizeof(mod_glfs_ai_desc_t));
+        dir_config->ign_list = apr_array_make(p, 4,
+                                              sizeof(struct mod_glfs_ai_item));
+        dir_config->hdr_list = apr_array_make(p, 4,
+                                              sizeof(struct mod_glfs_ai_item));
+        dir_config->rdme_list = apr_array_make(p, 4,
+                                               sizeof(struct mod_glfs_ai_item));
         dir_config->opts = 0;
         dir_config->incremented_opts = 0;
         dir_config->decremented_opts = 0;
@@ -710,10 +731,14 @@ static void *
 mod_glfs_merge_dir_config(apr_pool_t *p, void *parent_conf,
                           void *newloc_conf)
 {
-        glusterfs_dir_config_t *new = (glusterfs_dir_config_t *) 
+        glusterfs_dir_config_t *new = NULL;
+        glusterfs_dir_config_t *add = NULL;
+        glusterfs_dir_config_t *base = NULL;
+
+        new = (glusterfs_dir_config_t *) 
                 apr_pcalloc(p, sizeof(glusterfs_dir_config_t));
-        glusterfs_dir_config_t *add = newloc_conf;
-        glusterfs_dir_config_t *base = parent_conf;
+        add = newloc_conf;
+        base = parent_conf;
 
         if (add->logfile)
                 new->logfile = apr_pstrdup (p, add->logfile);
@@ -733,7 +758,8 @@ mod_glfs_merge_dir_config(apr_pool_t *p, void *parent_conf,
         new->buf = add->buf;
 
         /* mod_dir */
-        new->index_names = add->index_names ? add->index_names : base->index_names;
+        new->index_names = add->index_names ? 
+                add->index_names : base->index_names;
         new->do_slash =
                 (add->do_slash == SLASH_UNSET) ? base->do_slash : add->do_slash;
 
@@ -742,7 +768,8 @@ mod_glfs_merge_dir_config(apr_pool_t *p, void *parent_conf,
                 : base->default_icon;
         new->style_sheet = add->style_sheet ? add->style_sheet
                 : base->style_sheet;
-        new->icon_height = add->icon_height ? add->icon_height : base->icon_height;
+        new->icon_height = add->icon_height ? 
+                add->icon_height : base->icon_height;
         new->icon_width = add->icon_width ? add->icon_width : base->icon_width;
 
         new->ctype = add->ctype ? add->ctype : base->ctype;
@@ -777,15 +804,17 @@ mod_glfs_merge_dir_config(apr_pool_t *p, void *parent_conf,
                         new->decremented_opts = (base->decremented_opts
                                                  | add->decremented_opts);
                         /*
-                         * We may have incremental settings, so make sure we don't
-                         * inadvertently inherit an IndexOptions None from above.
+                         * We may have incremental settings, so make sure we 
+                         * don't inadvertently inherit an IndexOptions None 
+                         * from above.
                          */
                         new->opts = (base->opts & ~NO_OPTIONS);
                 }
                 else {
                         /*
                          * There are local nonincremental settings, which clear
-                         * all inheritance from above.  They *are* the new base settings.
+                         * all inheritance from above.  They *are* the new 
+                         * base settings.
                          */
                         new->opts = add->opts;;
                 }
@@ -798,8 +827,8 @@ mod_glfs_merge_dir_config(apr_pool_t *p, void *parent_conf,
         }
         /*
          * Inherit the NameWidth settings if there aren't any specific to
-         * the new location; otherwise we'll end up using the defaults set in the
-         * config-rec creation routine.
+         * the new location; otherwise we'll end up using the defaults set 
+         * in the config-rec creation routine.
          */
         if (add->name_adjust == K_UNSET) {
                 new->name_width = base->name_width;
@@ -834,32 +863,38 @@ mod_glfs_merge_dir_config(apr_pool_t *p, void *parent_conf,
 static void 
 mod_glfs_child_init(apr_pool_t *p, server_rec *s)
 {
-        int i;
-        core_server_config *sconf = NULL;
-        ap_conf_vector_t **sec_ent = NULL;
-        glusterfs_dir_config_t *dir_config = NULL;
-        glusterfs_init_params_t ctx;
-        int num_sec = 0;
+        int                      i = 0, num_sec = 0;
+        core_server_config      *sconf = NULL;
+        ap_conf_vector_t       **sec_ent = NULL;
+        glusterfs_dir_config_t  *dir_config = NULL;
+        glusterfs_init_params_t  ctx = {0, };
   
-        sconf = (core_server_config *) ap_get_module_config (s->module_config, &core_module);
+        sconf = (core_server_config *) ap_get_module_config (s->module_config,
+                                                             &core_module);
         sec_ent = (ap_conf_vector_t **) sconf->sec_url->elts;
         num_sec = sconf->sec_url->nelts;
 
         for (i = 0; i < num_sec; i++) {
-                dir_config = ap_get_module_config (sec_ent[i], &glusterfs_module);
+                dir_config = ap_get_module_config (sec_ent[i],
+                                                   &glusterfs_module);
 
                 if (dir_config) {
                         memset (&ctx, 0, sizeof (ctx));
 
                         ctx.logfile = dir_config->logfile;
                         ctx.loglevel = dir_config->loglevel;
-                        ctx.lookup_timeout = ctx.stat_timeout = dir_config->cache_timeout;
+                        ctx.lookup_timeout = dir_config->cache_timeout;
+                        ctx.stat_timeout = dir_config->cache_timeout;
                         ctx.specfile = dir_config->specfile;
 
                         dir_config->handle = glusterfs_init (&ctx);
                         if (!dir_config->handle) {
-                                ap_log_error(APLOG_MARK, APLOG_ERR, APR_EGENERAL, s, 
-                                             "mod_glfs_child_init: glusterfs_init failed, check glusterfs logfile %s for more details", 
+                                ap_log_error(APLOG_MARK, APLOG_ERR,
+                                             APR_EGENERAL, s, 
+                                             "mod_glfs_child_init: "
+                                             "glusterfs_init failed, check "
+                                             "glusterfs logfile %s for more "
+                                             "details", 
                                              dir_config->logfile);
                         }
                 }
@@ -871,16 +906,19 @@ mod_glfs_child_init(apr_pool_t *p, server_rec *s)
 static void 
 mod_glfs_child_exit(server_rec *s, apr_pool_t *p)
 {
-        int i;
-        core_server_config *sconf = ap_get_module_config(s->module_config,
-                                                         &core_module);
-        ap_conf_vector_t **sec_ent = (ap_conf_vector_t **) sconf->sec_url->elts;
-        glusterfs_dir_config_t *dir_config = NULL;
-        glusterfs_init_params_t ctx;
-        int num_sec = sconf->sec_url->nelts;
+        int                      i = 0, num_sec = 0;
+        core_server_config      *sconf = NULL;
+        ap_conf_vector_t       **sec_ent = NULL;
+        glusterfs_dir_config_t  *dir_config = NULL;
+        glusterfs_init_params_t  ctx = {0, };
 
+        sconf = ap_get_module_config(s->module_config,
+                                     &core_module);
+        sec_ent = (ap_conf_vector_t **) sconf->sec_url->elts;
+        num_sec = sconf->sec_url->nelts;
         for (i = 0; i < num_sec; i++) {
-                dir_config = ap_get_module_config (sec_ent[i], &glusterfs_module);
+                dir_config = ap_get_module_config (sec_ent[i],
+                                                   &glusterfs_module);
                 if (dir_config && dir_config->handle) {
                         glusterfs_fini (dir_config->handle);
                         dir_config->handle = 0;
@@ -888,7 +926,6 @@ mod_glfs_child_exit(server_rec *s, apr_pool_t *p)
                 dir_config = NULL;
         }
 }
-
 
 static apr_filetype_e filetype_from_mode(mode_t mode)
 {
@@ -978,34 +1015,41 @@ static int
 mod_glfs_map_to_storage(request_rec *r)
 {
         glusterfs_dir_config_t *dir_config = NULL, *tmp = NULL;
-        int access_status;
-        int ret;
-        char *path = NULL;
-        struct stat st = {0, };
-        core_server_config *sconf = NULL;
-        ap_conf_vector_t **sec_ent = NULL;
-        int num_sec = 0, i = 0;
+        int                     access_status = 0, ret = 0;
+        char                   *path = NULL;
+        struct stat             st = {0, };
+        core_server_config     *sconf = NULL;
+        ap_conf_vector_t      **sec_ent = NULL;
+        int                     num_sec = 0, i = 0;
 
-        sconf = (core_server_config *) ap_get_module_config (r->server->module_config, &core_module);
+        sconf = (core_server_config *) ap_get_module_config (r->server->module_config,
+                                                             &core_module);
         sec_ent = (ap_conf_vector_t **) sconf->sec_url->elts;
         num_sec = sconf->sec_url->nelts;
 
         for (i = 0; i < num_sec; i++) {
                 tmp = ap_get_module_config (sec_ent[i], &glusterfs_module);
 
-                if (tmp && !strncmp (tmp->mount_dir, r->uri, strlen (tmp->mount_dir))) {
+                if (tmp && !strncmp (tmp->mount_dir, r->uri,
+                                     strlen (tmp->mount_dir))) {
                         if (!dir_config || 
-                            strlen (tmp->mount_dir) > strlen (dir_config->mount_dir)) {
+                            strlen (tmp->mount_dir) 
+                            > strlen (dir_config->mount_dir)) {
                                 dir_config = tmp;
                         }
                 }
 
         }
 
-        if (dir_config && dir_config->mount_dir && !(strncmp (apr_pstrcat (r->pool, dir_config->mount_dir, "/", NULL), r->uri, strlen (dir_config->mount_dir) + 1) && !r->handler)) 
-                r->handler = GLUSTERFS_HANDLER; //apr_pstrdup (r->pool, GLUSTERFS_HANDLER);
+        if (dir_config && dir_config->mount_dir 
+            && !(strncmp (apr_pstrcat (r->pool, dir_config->mount_dir, "/",
+                                       NULL), r->uri,
+                          strlen (dir_config->mount_dir) + 1)
+                 && !r->handler)) 
+                r->handler = GLUSTERFS_HANDLER;
 
-        if (!r->handler || (r->handler && strcmp (r->handler, GLUSTERFS_HANDLER)))
+        if (!r->handler || (r->handler && strcmp (r->handler,
+                                                  GLUSTERFS_HANDLER)))
                 return DECLINED;
 
         if (dir_config->mount_dir)
@@ -1020,7 +1064,8 @@ mod_glfs_map_to_storage(request_rec *r)
 
         if (!dir_config->handle) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_EGENERAL, r,
-                              "mod_glfs_map_to_storage: glusterfs handle is NULL, check glusterfs logfile %s",
+                              "mod_glfs_map_to_storage: glusterfs handle is "
+                              "NULL, check glusterfs logfile %s",
                               dir_config->logfile);
                 return HTTP_INTERNAL_SERVER_ERROR;
         }
@@ -1028,7 +1073,8 @@ mod_glfs_map_to_storage(request_rec *r)
         ret = glusterfs_get (dir_config->handle, path, dir_config->buf, 
                              dir_config->xattr_file_size, &st);
 
-        if (ret == -1 || st.st_size > dir_config->xattr_file_size || S_ISDIR (st.st_mode)) {
+        if (ret == -1 || st.st_size > dir_config->xattr_file_size 
+            || S_ISDIR (st.st_mode)) {
                 free (dir_config->buf);
                 dir_config->buf = NULL;
 
@@ -1036,12 +1082,16 @@ mod_glfs_map_to_storage(request_rec *r)
                         int error = HTTP_NOT_FOUND;
                         char *emsg = NULL;
                         if (r->path_info == NULL) {
-                                emsg = apr_pstrcat(r->pool, strerror (errno), r->filename, NULL);
+                                emsg = apr_pstrcat(r->pool, strerror (errno),
+                                                   r->filename, NULL);
                         }
                         else {
-                                emsg = apr_pstrcat(r->pool, strerror (errno), r->filename, r->path_info, NULL);
+                                emsg = apr_pstrcat(r->pool, strerror (errno),
+                                                   r->filename, r->path_info,
+                                                   NULL);
                         }
-                        ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_NOERRNO, 0, r, "%s", emsg);
+                        ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_NOERRNO, 0,
+                                      r, "%s", emsg);
                         if (errno != ENOENT) {
                                 error = HTTP_INTERNAL_SERVER_ERROR;
                         }
@@ -1052,10 +1102,9 @@ mod_glfs_map_to_storage(request_rec *r)
         r->finfo.pool = r->pool;
         r->finfo.fname = r->filename;
         fill_out_finfo (&r->finfo, &st, 
-                        APR_FINFO_MIN | APR_FINFO_IDENT | APR_FINFO_NLINK | APR_FINFO_OWNER | APR_FINFO_PROT);
+                        APR_FINFO_MIN | APR_FINFO_IDENT | APR_FINFO_NLINK |
+                        APR_FINFO_OWNER | APR_FINFO_PROT);
                         
-        /* r->filename = apr_pstrcat (r->pool, r->filename, r->path_info, NULL); */
-
         /* allow core module to run directory_walk() and location_walk() */
         return DECLINED;
 }
@@ -1082,17 +1131,18 @@ mod_glfs_readv_async_cbk (int32_t op_ret, int32_t op_errno,
 
 /* use read_async just to avoid memcpy of read buffer in libglusterfsclient */
 static int
-mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb, glusterfs_file_t fd,
+mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb,
+                     glusterfs_file_t fd,
                      apr_off_t offset, apr_off_t length)
 {
-        glusterfs_async_local_t local;
-        off_t end;
-        int nbytes;
-        int complete;
-        conn_rec *c = r->connection;
-        apr_bucket *e = NULL;
-        apr_status_t status;
-
+        glusterfs_async_local_t local = {0, };
+        off_t                   end = 0;
+        int                     nbytes = 0, complete = 0;
+        conn_rec               *c = r->connection;
+        apr_bucket             *e = NULL;
+        apr_status_t            status = APR_SUCCESS;
+        glusterfs_iobuf_t      *buf = NULL;
+                
         if (length == 0) {
                 return 0;
         }
@@ -1107,7 +1157,6 @@ mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb, glusterfs_file_t fd
                 end = offset + length;
 
         do {
-                glusterfs_iobuf_t *buf;
                 if (length > 0) {
                         nbytes = end - offset;
                         if (nbytes > GLUSTERFS_CHUNK_SIZE)
@@ -1145,8 +1194,10 @@ mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb, glusterfs_file_t fd
                 }
                 apr_brigade_writev (bb, NULL, NULL, buf->vector, buf->count);
 
-                /* make sure all the data is written out, since we call glusterfs_free on buf once
-                   ap_pass_brigade returns */
+                /* 
+                 * make sure all the data is written out, since we call 
+                 * glusterfs_free on buf once ap_pass_brigade returns
+                 */
                 e = apr_bucket_flush_create (c->bucket_alloc);
                 APR_BRIGADE_INSERT_TAIL (bb, e);
 
@@ -1154,7 +1205,8 @@ mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb, glusterfs_file_t fd
                 if (status != APR_SUCCESS) {
                         /* no way to know what type of error occurred */
                         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, status, r,
-                                      "mod_glfs_handler: ap_pass_brigade returned %i",
+                                      "mod_glfs_handler: ap_pass_brigade "
+                                      "returned %i",
                                       status);
                         complete = 1;
                         local.op_ret = -1;
@@ -1162,7 +1214,10 @@ mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb, glusterfs_file_t fd
 
                 glusterfs_free (buf);
 
-                /* bb has already been cleaned up by core_output_filter, just being paranoid */
+                /* 
+                 * bb has already been cleaned up by core_output_filter, 
+                 * just being paranoid
+                 */
                 apr_brigade_cleanup (bb);
 
                 offset += nbytes;
@@ -1171,34 +1226,14 @@ mod_glfs_read_async (request_rec *r, apr_bucket_brigade *bb, glusterfs_file_t fd
         return (local.op_ret < 0 ? HTTP_INTERNAL_SERVER_ERROR : OK);
 }
 
-/* TODO: to read blocks of size "length" from offset "offset" */ 
-/*
-  static int 
-  mod_glfs_read_sync (request_rec *r, int fd, off_t offset, off_t length)
-  { 
-  int error = OK;
-  off_t read_bytes;
-  char buf [GLUSTERFS_CHUNK_SIZE];
-
-  while ((read_bytes = glusterfs_read (fd, buf, GLUSTERFS_CHUNK_SIZE)) && read_bytes != -1) {
-  ap_rwrite (buf, read_bytes, r);
-  }
-  if (read_bytes) {
-  error = SERVER_ERROR;
-  }
-  return error;
-  }
-*/
-
-
 static int 
 parse_byterange(char *range, apr_off_t clength,
                 apr_off_t *start, apr_off_t *end)
 {
-        char *dash = strchr(range, '-');
-        char *errp;
-        apr_off_t number;
+        char       *dash = NULL, *errp = NULL;
+        apr_off_t   number;
 
+        dash = strchr(range, '-');
         if (!dash) {
                 return 0;
         }
@@ -1246,7 +1281,7 @@ parse_byterange(char *range, apr_off_t clength,
 
 static int use_range_x(request_rec *r)
 {
-        const char *ua;
+        const char *ua = NULL;
         return (apr_table_get(r->headers_in, "Request-Range")
                 || ((ua = apr_table_get(r->headers_in, "User-Agent"))
                     && ap_strstr_c(ua, "MSIE 3")));
@@ -1255,11 +1290,8 @@ static int use_range_x(request_rec *r)
 
 static int ap_set_byterange(request_rec *r)
 {
-        const char *range;
-        const char *if_range;
-        const char *match;
-        const char *ct;
-        int num_ranges;
+        const char *range = NULL, *if_range = NULL, *match = NULL, *ct = NULL;
+        int         num_ranges = 0;
 
         if (r->assbackwards) {
                 return 0;
@@ -1306,7 +1338,8 @@ static int ap_set_byterange(request_rec *r)
                                 return 0;
                         }
                 }
-                else if (!(match = apr_table_get(r->headers_out, "Last-Modified"))
+                else if (!(match = apr_table_get(r->headers_out,
+                                                 "Last-Modified"))
                          || (strcmp(if_range, match) != 0)) {
                         return 0;
                 }
@@ -1329,24 +1362,26 @@ static int ap_set_byterange(request_rec *r)
 
 
 static void
-mod_glfs_handle_byte_ranges (request_rec *r, glusterfs_file_t fd, int num_ranges)
+mod_glfs_handle_byte_ranges (request_rec *r, glusterfs_file_t fd,
+                             int num_ranges)
 {
-        conn_rec *c = r->connection;
-        char *boundary = NULL, *bound_head = NULL;
-        const char *orig_ct = NULL;
+        conn_rec           *c = r->connection;
+        char               *ts = NULL, *boundary = NULL, *bound_head = NULL;
+        const char         *orig_ct = NULL;
+        char               *current = NULL, *end = NULL;
         apr_bucket_brigade *bsend = NULL;
-        apr_bucket *e = NULL;
-        apr_off_t range_start;
-        apr_off_t range_end;
-        char *current = NULL;
-        apr_status_t rv;
-        char found = 0;
+        apr_bucket         *e = NULL;
+        apr_off_t           range_start, range_end;
+        apr_status_t        rv = APR_SUCCESS;
+        char                found = 0;
+        apr_bucket         *e2 = NULL, *ec = NULL;
 
         orig_ct = ap_make_content_type (r, r->content_type);
 
         if (num_ranges > 1) {
                 boundary = apr_psprintf(r->pool, "%" APR_UINT64_T_HEX_FMT "%lx",
-                                        (apr_uint64_t)r->request_time, (long) getpid());
+                                        (apr_uint64_t)r->request_time,
+                                        (long) getpid());
 
                 ap_set_content_type(r, apr_pstrcat(r->pool, "multipart",
                                                    use_range_x(r) ? "/x-" : "/",
@@ -1368,15 +1403,11 @@ mod_glfs_handle_byte_ranges (request_rec *r, glusterfs_file_t fd, int num_ranges
                                                  CRLF "Content-range: bytes ",
                                                  NULL);
                 }
-//                ap_xlate_proto_to_ascii(bound_head, strlen(bound_head));
         }
 
         while ((current = ap_getword(r->pool, &r->range, ','))
                && (rv = parse_byterange(current, r->finfo.size, &range_start,
                                         &range_end))) {
-                apr_bucket *e2;
-                apr_bucket *ec;
-
                 bsend = NULL;
                 if (rv == -1) {
                         continue;
@@ -1384,31 +1415,35 @@ mod_glfs_handle_byte_ranges (request_rec *r, glusterfs_file_t fd, int num_ranges
 
                 found = 1;
 
-                /* For single range requests, we must produce Content-Range header.
-                 * Otherwise, we need to produce the multipart boundaries.
+                /* For single range requests, we must produce Content-Range 
+                 * header. Otherwise, we need to produce the multipart 
+                 * boundaries.
                  */
                 if (num_ranges == 1) {
                         apr_table_setn(r->headers_out, "Content-Range",
-                                       apr_psprintf(r->pool, "bytes " BYTERANGE_FMT,
-                                                    range_start, range_end, r->finfo.size));
+                                       apr_psprintf(r->pool,
+                                                    "bytes " BYTERANGE_FMT,
+                                                    range_start, range_end,
+                                                    r->finfo.size));
                 }
                 else {
-                        char *ts;
                         /* this brigade holds what we will be sending */
                         bsend = apr_brigade_create(r->pool, c->bucket_alloc);
 
-                        e = apr_bucket_pool_create(bound_head, strlen(bound_head),
+                        e = apr_bucket_pool_create(bound_head,
+                                                   strlen(bound_head),
                                                    r->pool, c->bucket_alloc);
                         APR_BRIGADE_INSERT_TAIL(bsend, e);
 
                         ts = apr_psprintf(r->pool, BYTERANGE_FMT CRLF CRLF,
-                                          range_start, range_end, r->finfo.size);
-//                        ap_xlate_proto_to_ascii(ts, strlen(ts));
+                                          range_start, range_end,
+                                          r->finfo.size);
                         e = apr_bucket_pool_create(ts, strlen(ts), r->pool,
                                                    c->bucket_alloc);
                         APR_BRIGADE_INSERT_TAIL(bsend, e);
                 }
-                mod_glfs_read_async (r, bsend, fd, range_start, (range_end + 1 - range_start));
+                mod_glfs_read_async (r, bsend, fd, range_start,
+                                     (range_end + 1 - range_start));
         }
 
         bsend = apr_brigade_create (r->pool, c->bucket_alloc);
@@ -1426,12 +1461,12 @@ mod_glfs_handle_byte_ranges (request_rec *r, glusterfs_file_t fd, int num_ranges
         }
 
         if (num_ranges > 1) {
-                char *end;
-
                 /* add the final boundary */
-                end = apr_pstrcat(r->pool, CRLF "--", boundary, "--" CRLF, NULL);
+                end = apr_pstrcat(r->pool, CRLF "--", boundary, "--" CRLF,
+                                  NULL);
 //                ap_xlate_proto_to_ascii(end, strlen(end));
-                e = apr_bucket_pool_create(end, strlen(end), r->pool, c->bucket_alloc);
+                e = apr_bucket_pool_create(end, strlen(end), r->pool,
+                                           c->bucket_alloc);
                 APR_BRIGADE_INSERT_TAIL(bsend, e);
         }
 
@@ -1448,32 +1483,37 @@ mod_glfs_handle_byte_ranges (request_rec *r, glusterfs_file_t fd, int num_ranges
 /* Structure used to hold entries when we're actually building an index */
 
 struct ent {
-        char *name;
-        char *icon;
-        char *alt;
-        char *desc;
-        apr_off_t size;
-        apr_time_t lm;
+        char       *name;
+        char       *icon;
+        char       *alt;
+        char       *desc;
+        apr_off_t   size;
+        apr_time_t  lm;
         struct ent *next;
-        int ascending, ignore_case, version_sort;
-        char key;
-        int isdir;
+        int         ascending, ignore_case, version_sort;
+        char        key;
+        int         isdir;
 };
 
 static char *find_item(request_rec *r, apr_array_header_t *list, int path_only)
 {
-        const char *content_type = ap_field_noparam(r->pool, r->content_type);
-        const char *content_encoding = r->content_encoding;
-        char *path = r->filename;
+        const char              *content_type = NULL;
+        const char              *content_encoding = NULL;
+        char                    *path = NULL;
+        int                      i = 0;
+        struct mod_glfs_ai_item *items = NULL;
+        struct mod_glfs_ai_item *p = NULL
 
-        struct mod_glfs_ai_item *items = (struct mod_glfs_ai_item *) list->elts;
-        int i;
+        content_type = ap_field_noparam(r->pool, r->content_type);
+        content_encoding = r->content_encoding;
+        path = r->filename;
+        items = (struct mod_glfs_ai_item *) list->elts;
 
         for (i = 0; i < list->nelts; ++i) {
-                struct mod_glfs_ai_item *p = &items[i];
-
+                p = &items[i];
                 /* Special cased for ^^DIRECTORY^^ and ^^BLANKICON^^ */
-                if ((path[0] == '^') || (!ap_strcmp_match(path, p->apply_path))) {
+                if ((path[0] == '^') || (!ap_strcmp_match(path,
+                                                          p->apply_path))) {
                         if (!*(p->apply_to)) {
                                 return p->data;
                         }
@@ -1542,11 +1582,13 @@ static char *find_default_item(char *bogus_name, apr_array_header_t *list)
 
 static char *find_desc(glusterfs_dir_config_t *dcfg, const char *filename_full)
 {
-        int i;
-        mod_glfs_ai_desc_t *list = (mod_glfs_ai_desc_t *) dcfg->desc_list->elts;
-        const char *filename_only;
-        const char *filename;
+        int                 i = 0;
+        mod_glfs_ai_desc_t *list = NULL;
+        const char         *filename_only = NULL, *filename = NULL;
+        mod_glfs_ai_desc_t *tuple = &list[i];
+        int                 found = 0;
 
+        list = (mod_glfs_ai_desc_t *) dcfg->desc_list->elts;
         /*
          * If the filename includes a path, extract just the name itself
          * for the simple matches.
@@ -1558,9 +1600,6 @@ static char *find_desc(glusterfs_dir_config_t *dcfg, const char *filename_full)
                 filename_only++;
         }
         for (i = 0; i < dcfg->desc_list->nelts; ++i) {
-                mod_glfs_ai_desc_t *tuple = &list[i];
-                int found;
-
                 /*
                  * Only use the full-path filename if the pattern contains '/'s.
                  */
@@ -1570,7 +1609,8 @@ static char *find_desc(glusterfs_dir_config_t *dcfg, const char *filename_full)
                  * wildcard checking if we must.
                  */
                 if (tuple->wildcards) {
-                        found = (apr_fnmatch(tuple->pattern, filename, MATCH_FLAGS) == 0);
+                        found = (apr_fnmatch(tuple->pattern, filename,
+                                             MATCH_FLAGS) == 0);
                 }
                 else {
                         found = (ap_strstr_c(filename, tuple->pattern) != NULL);
@@ -1584,10 +1624,11 @@ static char *find_desc(glusterfs_dir_config_t *dcfg, const char *filename_full)
 
 static int ignore_entry(glusterfs_dir_config_t *d, char *path)
 {
-        apr_array_header_t *list = d->ign_list;
+        apr_array_header_t      *list = d->ign_list;
         struct mod_glfs_ai_item *items = (struct mod_glfs_ai_item *) list->elts;
-        char *tt;
-        int i;
+        char                    *tt = NULL, *ap = NULL;
+        int                      i = 0;
+        struct mod_glfs_ai_item *p = &items[i];
 
         if ((tt = strrchr(path, '/')) == NULL) {
                 tt = path;
@@ -1597,9 +1638,7 @@ static int ignore_entry(glusterfs_dir_config_t *d, char *path)
         }
 
         for (i = 0; i < list->nelts; ++i) {
-                struct mod_glfs_ai_item *p = &items[i];
-                char *ap;
-
+                p = &items[i];
                 if ((ap = strrchr(p->apply_to, '/')) == NULL) {
                         ap = p->apply_to;
                 }
@@ -1661,10 +1700,10 @@ static int ignore_entry(glusterfs_dir_config_t *d, char *path)
  */
 static void do_emit_plain(request_rec *r, apr_file_t *f)
 {
-        char buf[AP_IOBUFSIZE + 1];
-        int ch;
-        apr_size_t i, c, n;
-        apr_status_t rv;
+        char         buf[AP_IOBUFSIZE + 1];
+        int          ch = 0;
+        apr_size_t   i = 0, c = 0, n = 0;
+        apr_status_t rv = APR_SUCCESS;
 
         ap_rputs("<pre>\n", r);
         while (!apr_file_eof(f)) {
@@ -1680,7 +1719,8 @@ static void do_emit_plain(request_rec *r, apr_file_t *f)
                 c = 0;
                 while (c < n) {
                         for (i = c; i < n; i++) {
-                                if (buf[i] == '<' || buf[i] == '>' || buf[i] == '&') {
+                                if (buf[i] == '<' || buf[i] == '>'
+                                    || buf[i] == '&') {
                                         break;
                                 }
                         }
@@ -1715,12 +1755,13 @@ static void emit_head(request_rec *r, char *header_fname, int suppress_amble,
                       int emit_xhtml, char *title)
 {
         apr_table_t *hdrs = r->headers_in;
-        apr_file_t *f = NULL;
+        apr_file_t  *f = NULL;
         request_rec *rr = NULL;
-        int emit_amble = 1;
-        int emit_H1 = 1;
-        const char *r_accept;
-        const char *r_accept_enc;
+        int          emit_amble = 1;
+        int          emit_H1 = 1;
+        const char  *r_accept = NULL;
+        const char  *r_accept_enc = NULL;
+        ap_filter_t *f = NULL;
 
         /*
          * If there's a header file, send a subrequest to look for it.  If it's
@@ -1733,7 +1774,8 @@ static void emit_head(request_rec *r, char *header_fname, int suppress_amble,
 
 
         if ((header_fname != NULL) && r->args) {
-                header_fname = apr_pstrcat(r->pool, header_fname, "?", r->args, NULL);
+                header_fname = apr_pstrcat(r->pool, header_fname, "?", r->args,
+                                           NULL);
         }
 
         if ((header_fname != NULL)
@@ -1747,9 +1789,9 @@ static void emit_head(request_rec *r, char *header_fname, int suppress_amble,
                  * SSIs.
                  */
                 if (rr->content_type != NULL) {
-                        if (!strcasecmp(ap_field_noparam(r->pool, rr->content_type),
+                        if (!strcasecmp(ap_field_noparam(r->pool,
+                                                         rr->content_type),
                                         "text/html")) {
-                                ap_filter_t *f;
                                 /* Hope everything will work... */
                                 emit_amble = 0;
                                 emit_H1 = 0;
@@ -1757,26 +1799,30 @@ static void emit_head(request_rec *r, char *header_fname, int suppress_amble,
                                 if (! suppress_amble) {
                                         emit_preamble(r, emit_xhtml, title);
                                 }
-                                /* This is a hack, but I can't find any better way to do this.
-                                 * The problem is that we have already created the sub-request,
-                                 * but we just inserted the OLD_WRITE filter, and the
-                                 * sub-request needs to pass its data through the OLD_WRITE
-                                 * filter, or things go horribly wrong (missing data, data in
-                                 * the wrong order, etc).  To fix it, if you create a
-                                 * sub-request and then insert the OLD_WRITE filter before you
-                                 * run the request, you need to make sure that the sub-request
-                                 * data goes through the OLD_WRITE filter.  Just steal this
-                                 * code.  The long-term solution is to remove the ap_r*
-                                 * functions.
+                                /* This is a hack, but I can't find any better 
+                                 * way to do this. The problem is that we have 
+                                 * already created the sub-request,
+                                 * but we just inserted the OLD_WRITE filter, 
+                                 * and the sub-request needs to pass its data 
+                                 * through the OLD_WRITE filter, or things go 
+                                 * horribly wrong (missing data, data in
+                                 * the wrong order, etc).  To fix it, if you 
+                                 * create a sub-request and then insert the 
+                                 * OLD_WRITE filter before you run the request, 
+                                 * you need to make sure that the sub-request
+                                 * data goes through the OLD_WRITE filter.  Just
+                                 * steal this code.  The long-term solution is 
+                                 * to remove the ap_r* functions.
                                  */
                                 for (f=rr->output_filters;
-                                     f->frec != ap_subreq_core_filter_handle; f = f->next);
+                                     f->frec != ap_subreq_core_filter_handle;
+                                     f = f->next);
                                 f->next = r->output_filters;
 
                                 /*
-                                 * If there's a problem running the subrequest, display the
-                                 * preamble if we didn't do it before -- the header file
-                                 * didn't get displayed.
+                                 * If there's a problem running the subrequest, 
+                                 * display the preamble if we didn't do it 
+                                 * before -- the header file didn't get displayed.
                                  */
                                 if (ap_run_sub_req(rr) != OK) {
                                         /* It didn't work */
@@ -1786,13 +1832,15 @@ static void emit_head(request_rec *r, char *header_fname, int suppress_amble,
                         }
                         else if (!strncasecmp("text/", rr->content_type, 5)) {
                                 /*
-                                 * If we can open the file, prefix it with the preamble
-                                 * regardless; since we'll be sending a <pre> block around
-                                 * the file's contents, any HTML header it had won't end up
+                                 * If we can open the file, prefix it with the 
+                                 * preamble regardless; since we'll be sending 
+                                 * a <pre> block around the file's contents, 
+                                 * any HTML header it had won't end up
                                  * where it belongs.
                                  */
                                 if (apr_file_open(&f, rr->filename, APR_READ,
-                                                  APR_OS_DEFAULT, r->pool) == APR_SUCCESS) {
+                                                  APR_OS_DEFAULT, r->pool) 
+                                    == APR_SUCCESS) {
                                         emit_preamble(r, emit_xhtml, title);
                                         emit_amble = 0;
                                         do_emit_plain(r, f);
@@ -1837,10 +1885,9 @@ static void emit_head(request_rec *r, char *header_fname, int suppress_amble,
  */
 static void emit_tail(request_rec *r, char *readme_fname, int suppress_amble)
 {
-        apr_file_t *f = NULL;
+        apr_file_t  *f = NULL;
         request_rec *rr = NULL;
-        int suppress_post = 0;
-        int suppress_sig = 0;
+        int          suppress_post = 0, suppress_sig = 0;
 
         /*
          * If there's a readme file, send a subrequest to look for it.  If it's
@@ -1858,11 +1905,13 @@ static void emit_tail(request_rec *r, char *readme_fname, int suppress_amble)
                  * SSIs.
                  */
                 if (rr->content_type != NULL) {
-                        if (!strcasecmp(ap_field_noparam(r->pool, rr->content_type),
+                        if (!strcasecmp(ap_field_noparam(r->pool,
+                                                         rr->content_type),
                                         "text/html")) {
                                 ap_filter_t *f;
                                 for (f=rr->output_filters;
-                                     f->frec != ap_subreq_core_filter_handle; f = f->next);
+                                     f->frec != ap_subreq_core_filter_handle;
+                                     f = f->next);
                                 f->next = r->output_filters;
 
 
@@ -1877,7 +1926,8 @@ static void emit_tail(request_rec *r, char *readme_fname, int suppress_amble)
                                  * If we can open the file, suppress the signature.
                                  */
                                 if (apr_file_open(&f, rr->filename, APR_READ,
-                                                  APR_OS_DEFAULT, r->pool) == APR_SUCCESS) {
+                                                  APR_OS_DEFAULT, r->pool)
+                                    == APR_SUCCESS) {
                                         do_emit_plain(r, f);
                                         apr_file_close(f);
                                         suppress_sig = 1;
@@ -1900,10 +1950,10 @@ static void emit_tail(request_rec *r, char *readme_fname, int suppress_amble)
 
 static char *find_title(request_rec *r)
 {
-        char titlebuf[MAX_STRING_LEN], *find = "<title>";
+        char        titlebuf[MAX_STRING_LEN], *find = "<title>";
         apr_file_t *thefile = NULL;
-        int x, y, p;
-        apr_size_t n;
+        int         x = 0, y = 0, p = 0;
+        apr_size_t  n;
 
         if (r->status != HTTP_OK) {
                 return NULL;
@@ -1927,12 +1977,16 @@ static char *find_title(request_rec *r)
                 for (x = 0, p = 0; titlebuf[x]; x++) {
                         if (apr_tolower(titlebuf[x]) == find[p]) {
                                 if (!find[++p]) {
-                                        if ((p = ap_ind(&titlebuf[++x], '<')) != -1) {
+                                        if ((p = ap_ind(&titlebuf[++x], '<'))
+                                            != -1) {
                                                 titlebuf[x + p] = '\0';
                                         }
-                                        /* Scan for line breaks for Tanmoy's secretary */
+                                        /* Scan for line breaks for Tanmoy's 
+                                           secretary
+                                        */
                                         for (y = x; titlebuf[y]; y++) {
-                                                if ((titlebuf[y] == CR) || (titlebuf[y] == LF)) {
+                                                if ((titlebuf[y] == CR) 
+                                                    || (titlebuf[y] == LF)) {
                                                         if (y == x) {
                                                                 x++;
                                                         }
@@ -1942,7 +1996,8 @@ static char *find_title(request_rec *r)
                                                 }
                                         }
                                         apr_file_close(thefile);
-                                        return apr_pstrdup(r->pool, &titlebuf[x]);
+                                        return apr_pstrdup(r->pool,
+                                                           &titlebuf[x]);
                                 }
                         }
                         else {
@@ -1959,8 +2014,8 @@ static struct ent *make_parent_entry(apr_int32_t autoindex_opts,
                                      request_rec *r, char keyid,
                                      char direction)
 {
-        struct ent *p = (struct ent *) apr_pcalloc(r->pool, sizeof(struct ent));
-        char *testpath;
+        struct ent *p = NULL;
+        char       *testpath = NULL;
         /*
          * p->name is now the true parent URI.
          * testpath is a crafted lie, so that the syntax '/some/..'
@@ -1968,6 +2023,7 @@ static struct ent *make_parent_entry(apr_int32_t autoindex_opts,
          * when processeing IndexIgnore, and Icon|Alt|Desc configs.
          */
 
+        p = (struct ent *) apr_pcalloc(r->pool, sizeof(struct ent));
         /* The output has always been to the parent.  Don't make ourself
          * our own parent (worthless cyclical reference).
          */
@@ -2011,13 +2067,14 @@ static struct ent *make_autoindex_entry(const apr_finfo_t *dirent,
                                         char direction,
                                         const char *pattern)
 {
-        request_rec *rr;
-        struct ent *p;
-        int show_forbidden = 0;
+        request_rec *rr = NULL;
+        struct ent  *p = NULL;
+        int          show_forbidden = 0;
 
         /* Dot is ignored, Parent is handled by make_parent_entry() */
         if ((dirent->name[0] == '.') && (!dirent->name[1]
-                                         || ((dirent->name[1] == '.') && !dirent->name[2])))
+                                         || ((dirent->name[1] == '.')
+                                             && !dirent->name[2])))
                 return (NULL);
 
         /*
@@ -2040,12 +2097,14 @@ static struct ent *make_autoindex_entry(const apr_finfo_t *dirent,
                 return (NULL);
         }
 
-        if (!(rr = ap_sub_req_lookup_dirent(dirent, r, AP_SUBREQ_NO_ARGS, NULL))) {
+        if (!(rr = ap_sub_req_lookup_dirent(dirent, r, AP_SUBREQ_NO_ARGS,
+                                            NULL))) {
                 return (NULL);
         }
 
         if((autoindex_opts & SHOW_FORBIDDEN)
-           && (rr->status == HTTP_UNAUTHORIZED || rr->status == HTTP_FORBIDDEN)) {
+           && (rr->status == HTTP_UNAUTHORIZED
+               || rr->status == HTTP_FORBIDDEN)) {
                 show_forbidden = 1;
         }
 
@@ -2081,7 +2140,8 @@ static struct ent *make_autoindex_entry(const apr_finfo_t *dirent,
                         if (autoindex_opts & FOLDERS_FIRST) {
                                 p->isdir = 1;
                         }
-                        rr->filename = ap_make_dirstr_parent (rr->pool, rr->filename);
+                        rr->filename = ap_make_dirstr_parent (rr->pool,
+                                                              rr->filename);
 
                         /* omit the trailing slash (1.3 compat) */
                         rr->filename[strlen(rr->filename) - 1] = '\0';
@@ -2090,7 +2150,8 @@ static struct ent *make_autoindex_entry(const apr_finfo_t *dirent,
                                 p->icon = find_default_icon(d, "^^DIRECTORY^^");
                         }
                         if (!(p->alt = find_alt(d, rr, 1))) {
-                                if (!(p->alt = find_default_alt(d, "^^DIRECTORY^^"))) {
+                                if (!(p->alt = find_default_alt(d,
+                                                                "^^DIRECTORY^^"))) {
                                         p->alt = "DIR";
                                 }
                         }
@@ -2123,8 +2184,8 @@ static struct ent *make_autoindex_entry(const apr_finfo_t *dirent,
 static char *terminate_description(glusterfs_dir_config_t *d, char *desc,
                                    apr_int32_t autoindex_opts, int desc_width)
 {
-        int maxsize = desc_width;
-        register int x;
+        int          maxsize = desc_width;
+        register int x = 0;
 
         /*
          * If there's no DescriptionWidth in effect, default to the old
@@ -2183,8 +2244,9 @@ static void emit_link(request_rec *r, const char *anchor, char column,
                       char curkey, char curdirection,
                       const char *colargs, int nosort)
 {
+        char qvalue[9];
+
         if (!nosort) {
-                char qvalue[9];
 
                 qvalue[0] = '?';
                 qvalue[1] = 'C';
@@ -2210,18 +2272,21 @@ static void output_directories(struct ent **ar, int n,
                                apr_int32_t autoindex_opts, char keyid,
                                char direction, const char *colargs)
 {
-        int x;
-        apr_size_t rv;
-        char *name = r->uri;
-        char *tp;
-        int static_columns = !!(autoindex_opts & SUPPRESS_COLSORT);
-        apr_pool_t *scratch;
-        int name_width;
-        int desc_width;
-        char *name_scratch;
-        char *pad_scratch;
-        char *breakrow = "";
+        int            x = 0;
+        apr_size_t     rv = APR_SUCCESS;
+        char          *name = NULL, *tp = NULL;
+        int            static_columns = 0
+        apr_pool_t    *scratch = NULL;
+        int            name_width = 0, desc_width = 0, t = 0, cols = 0;
+        char          *name_scratch = NULL, *pad_scratch = NULL, *breakrow = "";
+        char          *anchor = NULL, *t = NULL, *t2 = NULL;
+        int            nwidth = 0;
+        char           time_str[MAX_STRING_LEN];
+        apr_time_exp_t ts = {0, };
+        char           buf[5];
 
+        name = r->uri;
+        static_columns = !!(autoindex_opts & SUPPRESS_COLSORT);
         apr_pool_create(&scratch, r->pool);
         if (name[0] == '\0') {
                 name = "/";
@@ -2234,7 +2299,7 @@ static void output_directories(struct ent **ar, int n,
             == FANCY_INDEXING) {
                 if (d->name_adjust == K_ADJUST) {
                         for (x = 0; x < n; x++) {
-                                int t = strlen(ar[x]->name);
+                                t = strlen(ar[x]->name);
                                 if (t > name_width) {
                                         name_width = t;
                                 }
@@ -2244,7 +2309,7 @@ static void output_directories(struct ent **ar, int n,
                 if (d->desc_adjust == K_ADJUST) {
                         for (x = 0; x < n; x++) {
                                 if (ar[x]->desc != NULL) {
-                                        int t = strlen(ar[x]->desc);
+                                        t = strlen(ar[x]->desc);
                                         if (t > desc_width) {
                                                 desc_width = t;
                                         }
@@ -2258,18 +2323,21 @@ static void output_directories(struct ent **ar, int n,
         pad_scratch[name_width] = '\0';
 
         if (autoindex_opts & TABLE_INDEXING) {
-                int cols = 1;
+                cols = 1;
                 ap_rputs("<table><tr>", r);
                 if (!(autoindex_opts & SUPPRESS_ICON)) {
                         ap_rputs("<th>", r);
                         if ((tp = find_default_icon(d, "^^BLANKICON^^"))) {
-                                ap_rvputs(r, "<img src=\"", ap_escape_html(scratch, tp),
+                                ap_rvputs(r, "<img src=\"",
+                                          ap_escape_html(scratch, tp),
                                           "\" alt=\"[ICO]\"", NULL);
                                 if (d->icon_width) {
-                                        ap_rprintf(r, " width=\"%d\"", d->icon_width);
+                                        ap_rprintf(r, " width=\"%d\"",
+                                                   d->icon_width);
                                 }
                                 if (d->icon_height) {
-                                        ap_rprintf(r, " height=\"%d\"", d->icon_height);
+                                        ap_rprintf(r, " height=\"%d\"",
+                                                   d->icon_height);
                                 }
 
                                 if (autoindex_opts & EMIT_XHTML) {
@@ -2288,8 +2356,8 @@ static void output_directories(struct ent **ar, int n,
                           colargs, static_columns);
                 if (!(autoindex_opts & SUPPRESS_LAST_MOD)) {
                         ap_rputs("</th><th>", r);
-                        emit_link(r, "Last modified", K_LAST_MOD, keyid, direction,
-                                  colargs, static_columns);
+                        emit_link(r, "Last modified", K_LAST_MOD, keyid,
+                                  direction, colargs, static_columns);
                         ++cols;
                 }
                 if (!(autoindex_opts & SUPPRESS_SIZE)) {
@@ -2308,7 +2376,8 @@ static void output_directories(struct ent **ar, int n,
                         breakrow = apr_psprintf(r->pool,
                                                 "<tr><th colspan=\"%d\">"
                                                 "<hr%s></th></tr>\n", cols,
-                                                (autoindex_opts & EMIT_XHTML) ? " /" : "");
+                                                (autoindex_opts & EMIT_XHTML) 
+                                                ? " /" : "");
                 }
                 ap_rvputs(r, "</th></tr>", breakrow, NULL);
         }
@@ -2316,13 +2385,16 @@ static void output_directories(struct ent **ar, int n,
                 ap_rputs("<pre>", r);
                 if (!(autoindex_opts & SUPPRESS_ICON)) {
                         if ((tp = find_default_icon(d, "^^BLANKICON^^"))) {
-                                ap_rvputs(r, "<img src=\"", ap_escape_html(scratch, tp),
+                                ap_rvputs(r, "<img src=\"",
+                                          ap_escape_html(scratch, tp),
                                           "\" alt=\"Icon \"", NULL);
                                 if (d->icon_width) {
-                                        ap_rprintf(r, " width=\"%d\"", d->icon_width);
+                                        ap_rprintf(r, " width=\"%d\"",
+                                                   d->icon_width);
                                 }
                                 if (d->icon_height) {
-                                        ap_rprintf(r, " height=\"%d\"", d->icon_height);
+                                        ap_rprintf(r, " height=\"%d\"",
+                                                   d->icon_height);
                                 }
 
                                 if (autoindex_opts & EMIT_XHTML) {
@@ -2342,8 +2414,8 @@ static void output_directories(struct ent **ar, int n,
                  */
                 ap_rputs(" ", r);
                 if (!(autoindex_opts & SUPPRESS_LAST_MOD)) {
-                        emit_link(r, "Last modified", K_LAST_MOD, keyid, direction,
-                                  colargs, static_columns);
+                        emit_link(r, "Last modified", K_LAST_MOD, keyid,
+                                  direction, colargs, static_columns);
                         ap_rputs("      ", r);
                 }
                 if (!(autoindex_opts & SUPPRESS_SIZE)) {
@@ -2371,13 +2443,11 @@ static void output_directories(struct ent **ar, int n,
         }
 
         for (x = 0; x < n; x++) {
-                char *anchor, *t, *t2;
-                int nwidth;
-
                 apr_pool_clear(scratch);
 
                 t = ar[x]->name;
-                anchor = ap_escape_html(scratch, ap_os_escape_path(scratch, t, 0));
+                anchor = ap_escape_html(scratch, ap_os_escape_path(scratch, t,
+                                                                   0));
 
                 if (!x && t[0] == '/') {
                         t2 = "Parent Directory";
@@ -2391,20 +2461,26 @@ static void output_directories(struct ent **ar, int n,
                         if (!(autoindex_opts & SUPPRESS_ICON)) {
                                 ap_rputs("<td valign=\"top\">", r);
                                 if (autoindex_opts & ICONS_ARE_LINKS) {
-                                        ap_rvputs(r, "<a href=\"", anchor, "\">", NULL);
+                                        ap_rvputs(r, "<a href=\"", anchor,
+                                                  "\">", NULL);
                                 }
                                 if ((ar[x]->icon) || d->default_icon) {
                                         ap_rvputs(r, "<img src=\"",
                                                   ap_escape_html(scratch,
-                                                                 ar[x]->icon ? ar[x]->icon
+                                                                 ar[x]->icon ?
+                                                                 ar[x]->icon
                                                                  : d->default_icon),
-                                                  "\" alt=\"[", (ar[x]->alt ? ar[x]->alt : "   "),
+                                                  "\" alt=\"[",
+                                                  (ar[x]->alt ? 
+                                                   ar[x]->alt : "   "),
                                                   "]\"", NULL);
                                         if (d->icon_width) {
-                                                ap_rprintf(r, " width=\"%d\"", d->icon_width);
+                                                ap_rprintf(r, " width=\"%d\"",
+                                                           d->icon_width);
                                         }
                                         if (d->icon_height) {
-                                                ap_rprintf(r, " height=\"%d\"", d->icon_height);
+                                                ap_rprintf(r, " height=\"%d\"",
+                                                           d->icon_height);
                                         }
 
                                         if (autoindex_opts & EMIT_XHTML) {
@@ -2424,7 +2500,8 @@ static void output_directories(struct ent **ar, int n,
                         }
                         if (d->name_adjust == K_ADJUST) {
                                 ap_rvputs(r, "<td><a href=\"", anchor, "\">",
-                                          ap_escape_html(scratch, t2), "</a>", NULL);
+                                          ap_escape_html(scratch, t2), "</a>",
+                                          NULL);
                         }
                         else {
                                 nwidth = strlen(t2);
@@ -2446,8 +2523,10 @@ static void output_directories(struct ent **ar, int n,
                                         char time_str[MAX_STRING_LEN];
                                         apr_time_exp_t ts;
                                         apr_time_exp_lt(&ts, ar[x]->lm);
-                                        apr_strftime(time_str, &rv, MAX_STRING_LEN,
-                                                     "</td><td align=\"right\">%d-%b-%Y %H:%M  ",
+                                        apr_strftime(time_str, &rv,
+                                                     MAX_STRING_LEN,
+                                                     "</td><td align=\"right\""
+                                                     ">%d-%b-%Y %H:%M  ",
                                                      &ts);
                                         ap_rputs(time_str, r);
                                 }
@@ -2456,14 +2535,14 @@ static void output_directories(struct ent **ar, int n,
                                 }
                         }
                         if (!(autoindex_opts & SUPPRESS_SIZE)) {
-                                char buf[5];
                                 ap_rvputs(r, "</td><td align=\"right\">",
                                           apr_strfsize(ar[x]->size, buf), NULL);
                         }
                         if (!(autoindex_opts & SUPPRESS_DESC)) {
                                 if (ar[x]->desc) {
                                         if (d->desc_adjust == K_ADJUST) {
-                                                ap_rvputs(r, "</td><td>", ar[x]->desc, NULL);
+                                                ap_rvputs(r, "</td><td>",
+                                                          ar[x]->desc, NULL);
                                         }
                                         else {
                                                 ap_rvputs(r, "</td><td>",
@@ -2481,20 +2560,26 @@ static void output_directories(struct ent **ar, int n,
                 else if (autoindex_opts & FANCY_INDEXING) {
                         if (!(autoindex_opts & SUPPRESS_ICON)) {
                                 if (autoindex_opts & ICONS_ARE_LINKS) {
-                                        ap_rvputs(r, "<a href=\"", anchor, "\">", NULL);
+                                        ap_rvputs(r, "<a href=\"", anchor,
+                                                  "\">", NULL);
                                 }
                                 if ((ar[x]->icon) || d->default_icon) {
                                         ap_rvputs(r, "<img src=\"",
                                                   ap_escape_html(scratch,
-                                                                 ar[x]->icon ? ar[x]->icon
+                                                                 ar[x]->icon ?
+                                                                 ar[x]->icon
                                                                  : d->default_icon),
-                                                  "\" alt=\"[", (ar[x]->alt ? ar[x]->alt : "   "),
+                                                  "\" alt=\"[",
+                                                  (ar[x]->alt ? ar[x]->alt 
+                                                   : "   "),
                                                   "]\"", NULL);
                                         if (d->icon_width) {
-                                                ap_rprintf(r, " width=\"%d\"", d->icon_width);
+                                                ap_rprintf(r, " width=\"%d\"",
+                                                           d->icon_width);
                                         }
                                         if (d->icon_height) {
-                                                ap_rprintf(r, " height=\"%d\"", d->icon_height);
+                                                ap_rprintf(r, " height=\"%d\"",
+                                                           d->icon_height);
                                         }
 
                                         if (autoindex_opts & EMIT_XHTML) {
@@ -2526,31 +2611,33 @@ static void output_directories(struct ent **ar, int n,
                                   ap_escape_html(scratch, t2),
                                   "</a>", pad_scratch + nwidth, NULL);
                         /*
-                         * The blank before the storm.. er, before the next field.
+                         * The blank before the storm.. er, before the next
+                         * field.
                          */
                         ap_rputs(" ", r);
                         if (!(autoindex_opts & SUPPRESS_LAST_MOD)) {
                                 if (ar[x]->lm != -1) {
-                                        char time_str[MAX_STRING_LEN];
-                                        apr_time_exp_t ts;
                                         apr_time_exp_lt(&ts, ar[x]->lm);
-                                        apr_strftime(time_str, &rv, MAX_STRING_LEN,
+                                        apr_strftime(time_str, &rv,
+                                                     MAX_STRING_LEN,
                                                      "%d-%b-%Y %H:%M  ", &ts);
                                         ap_rputs(time_str, r);
                                 }
                                 else {
-                                        /*Length="22-Feb-1998 23:42  " (see 4 lines above) */
+                                        /* Length="22-Feb-1998 23:42  " 
+                                         * (see 4 lines above)
+                                         */
                                         ap_rputs("                   ", r);
                                 }
                         }
                         if (!(autoindex_opts & SUPPRESS_SIZE)) {
-                                char buf[5];
                                 ap_rputs(apr_strfsize(ar[x]->size, buf), r);
                                 ap_rputs("  ", r);
                         }
                         if (!(autoindex_opts & SUPPRESS_DESC)) {
                                 if (ar[x]->desc) {
-                                        ap_rputs(terminate_description(d, ar[x]->desc,
+                                        ap_rputs(terminate_description(d,
+                                                                       ar[x]->desc,
                                                                        autoindex_opts,
                                                                        desc_width), r);
                                 }
@@ -2590,9 +2677,8 @@ static void output_directories(struct ent **ar, int n,
 
 static int dsortf(struct ent **e1, struct ent **e2)
 {
-        struct ent *c1;
-        struct ent *c2;
-        int result = 0;
+        struct ent *c1 = NULL, *c2 = NULL;
+        int         result = 0;
 
         /*
          * First, see if either of the entries is for the parent directory.
@@ -2694,32 +2780,28 @@ static int
 mod_glfs_index_directory (request_rec *r,
                           glusterfs_dir_config_t *autoindex_conf)
 {
-        char *title_name = ap_escape_html(r->pool, r->uri);
-        char *title_endp;
-        char *name = r->filename;
-        char *pstring = NULL;
-        apr_finfo_t dirent;
-        glusterfs_file_t fd = -1;
-        apr_status_t status;
-        int num_ent = 0, x;
-        struct ent *head, *p;
-        struct ent **ar = NULL;
-        const char *qstring;
-        apr_int32_t autoindex_opts = autoindex_conf->opts;
-        char keyid;
-        char direction;
-        char *colargs;
-        char *fullpath;
-        apr_size_t dirpathlen;
-        char *ctype = "text/html";
-        char *charset;
+        char                   *title_name = NULL, *title_endp = NULL;
+        char                   *pstring = NULL, *colargs = NULL;
+        char                   *path = NULL, fname = NULL, *charset = NULL;
+        char                   *fullpath = NULL, *name = NULL;
+        apr_finfo_t             dirent;
+        glusterfs_file_t        fd = -1;
+        apr_status_t            status = APR_SUCCESS;
+        int                     num_ent = 0, x;
+        struct ent             *head = NULL, *p = NULL;
+        struct ent            **ar = NULL;
+        const char             *qstring = NULL;
+        apr_int32_t             autoindex_opts = autoindex_conf->opts;
+        char                    keyid, direction;
+        apr_size_t              dirpathlen;
         glusterfs_dir_config_t *dir_config = NULL;
-        int ret = -1;
-        struct dirent entry = {0, };
-        struct stat st = {0, };
-        char *path = NULL;
-        char *fname = NULL;
+        int                     ret = -1;
+        struct dirent           entry = {0, };
+        struct stat             st = {0, };
 
+        name = r->filename;
+        title_name = ap_escape_html(r->pool, r->uri);
+        ctype = "text/html";
         dir_config = mod_glfs_dconfig (r);
         if (!dir_config || !dir_config->handle) {
                 return HTTP_INTERNAL_SERVER_ERROR;
@@ -2728,7 +2810,9 @@ mod_glfs_index_directory (request_rec *r,
         path = r->uri + strlen (dir_config->mount_dir);
         if (!dir_config->handle) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
-                              "mod_glfs_index_directory: glusterfs handler is NULL, check glusterfs logfile %s for more details", 
+                              "mod_glfs_index_directory: glusterfs handler is "
+                              "NULL, check glusterfs logfile %s for more "
+                              "details", 
                               dir_config->logfile);
                 return HTTP_INTERNAL_SERVER_ERROR;
         }
@@ -2736,7 +2820,8 @@ mod_glfs_index_directory (request_rec *r,
         fd = glusterfs_open (dir_config->handle, path, O_RDONLY, 0);
         if (fd == 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                              "file permissions deny server access: %s", r->filename);
+                              "file permissions deny server access: %s",
+                              r->filename);
                 return HTTP_FORBIDDEN;
         }
 
@@ -2812,7 +2897,8 @@ mod_glfs_index_directory (request_rec *r,
                         else if (   qstring[0] == 'O' && qstring[1] == '='
                                     && (   (qstring[2] == D_ASCENDING)
                                            || (qstring[2] == D_DESCENDING))
-                                    && (   qstring[3] == '&' || qstring[3] == ';'
+                                    && (   qstring[3] == '&' 
+                                           || qstring[3] == ';'
                                            || !qstring[3])) {
                                 direction = qstring[2];
                                 qstring += qstring[3] ? 4 : 3;
@@ -2824,14 +2910,17 @@ mod_glfs_index_directory (request_rec *r,
                                     && (   qstring[3] == '&' || qstring[3] == ';'
                                            || !qstring[3])) {
                                 if (qstring[2] == '0') {
-                                        autoindex_opts &= ~(FANCY_INDEXING | TABLE_INDEXING);
+                                        autoindex_opts &= ~(FANCY_INDEXING
+                                                            | TABLE_INDEXING);
                                 }
                                 else if (qstring[2] == '1') {
-                                        autoindex_opts = (autoindex_opts | FANCY_INDEXING)
+                                        autoindex_opts = (autoindex_opts
+                                                          | FANCY_INDEXING)
                                                 & ~TABLE_INDEXING;
                                 }
                                 else if (qstring[2] == '2') {
-                                        autoindex_opts |= FANCY_INDEXING | TABLE_INDEXING;
+                                        autoindex_opts |= FANCY_INDEXING
+                                                | TABLE_INDEXING;
                                 }
                                 strcpy(fval, ";F= ");
                                 fval[3] = qstring[2];
@@ -2866,7 +2955,8 @@ mod_glfs_index_directory (request_rec *r,
                                         pstring = NULL;
                                 }
                                 else {
-                                        pstring = apr_pstrndup(r->pool, qstring, eos - qstring);
+                                        pstring = apr_pstrndup(r->pool, qstring,
+                                                               eos - qstring);
                                         if (ap_unescape_url(pstring) != OK) {
                                                 /* ignore the pattern, if it's bad. */
                                                 pstring = NULL;
@@ -2874,7 +2964,8 @@ mod_glfs_index_directory (request_rec *r,
                                         else {
                                                 ppre = ";P=";
                                                 /* be correct */
-                                                epattern = ap_escape_uri(r->pool, pstring);
+                                                epattern = ap_escape_uri(r->pool,
+                                                                         pstring);
                                         }
                                 }
 
@@ -2891,7 +2982,8 @@ mod_glfs_index_directory (request_rec *r,
                                 qstring = NULL;
                         }
                 }
-                colargs = apr_pstrcat(r->pool, fval, vval, ppre, epattern, NULL);
+                colargs = apr_pstrcat(r->pool, fval, vval, ppre, epattern,
+                                      NULL);
         }
 
         /* Spew HTML preamble */
@@ -2910,7 +3002,8 @@ mod_glfs_index_directory (request_rec *r,
          * linked list and then arrayificate them so qsort can use them.
          */
         head = NULL;
-        p = make_parent_entry(autoindex_opts, autoindex_conf, r, keyid, direction);
+        p = make_parent_entry(autoindex_opts, autoindex_conf, r, keyid,
+                              direction);
         if (p != NULL) {
                 p->next = head;
                 head = p;
@@ -2936,10 +3029,12 @@ mod_glfs_index_directory (request_rec *r,
                 dirent.fname = fname;
                 dirent.name = apr_pstrdup (r->pool, entry.d_name);
                 fill_out_finfo (&dirent, &st, 
-                                APR_FINFO_MIN | APR_FINFO_IDENT | APR_FINFO_NLINK | APR_FINFO_OWNER | 
-                                APR_FINFO_PROT);
+                                APR_FINFO_MIN | APR_FINFO_IDENT
+                                | APR_FINFO_NLINK | APR_FINFO_OWNER
+                                | APR_FINFO_PROT);
 
-                p = make_autoindex_entry(&dirent, autoindex_opts, autoindex_conf, r,
+                p = make_autoindex_entry(&dirent, autoindex_opts,
+                                         autoindex_conf, r,
                                          keyid, direction, pstring);
                 if (p != NULL) {
                         p->next = head;
@@ -2996,13 +3091,15 @@ handle_autoindex(request_rec *r)
                         return errstatus;
                 }
 
-                /* KLUDGE --- make the sub_req lookups happen in the right directory.
-                 * Fixing this in the sub_req_lookup functions themselves is difficult,
-                 * and would probably break virtual includes...
+                /* KLUDGE --- make the sub_req lookups happen in the right 
+                 * directory. Fixing this in the sub_req_lookup functions 
+                 * themselves is difficult, and would probably break 
+                 * virtual includes...
                  */
 
                 if (r->filename[strlen(r->filename) - 1] != '/') {
-                        r->filename = apr_pstrcat(r->pool, r->filename, "/", NULL);
+                        r->filename = apr_pstrcat(r->pool, r->filename, "/",
+                                                  NULL);
                 }
                 return mod_glfs_index_directory(r, dir_config);
         } else {
@@ -3017,20 +3114,21 @@ handle_autoindex(request_rec *r)
 static int 
 mod_glfs_handler (request_rec *r)
 {
-        conn_rec *c = r->connection;
-        apr_bucket_brigade *bb;
-        apr_bucket *e;
-        core_dir_config *d;
-        int errstatus;
-        glusterfs_file_t fd = -1;
-        apr_status_t status;
+        conn_rec               *c = r->connection;
+        apr_bucket_brigade     *bb;
+        apr_bucket             *e;
+        core_dir_config        *d;
+        int                     errstatus;
+        glusterfs_file_t        fd = -1;
+        apr_status_t            status;
         glusterfs_dir_config_t *dir_config = NULL;
-        char *path = NULL;
-        int num_ranges = 0;
-        apr_size_t size = 0;
-        apr_off_t range_start = 0, range_end = 0;
-        char *current = NULL;
-        apr_status_t rv = 0;
+        char                   *path = NULL;
+        int                     num_ranges = 0;
+        apr_size_t              size = 0;
+        apr_off_t               range_start = 0, range_end = 0;
+        char                   *current = NULL;
+        apr_status_t            rv = 0;
+        core_request_config    *req_cfg = NULL;
 
         /* XXX if/when somebody writes a content-md5 filter we either need to
          *     remove this support or coordinate when to use the filter vs.
@@ -3041,7 +3139,8 @@ mod_glfs_handler (request_rec *r)
          */
 
         int bld_content_md5;
-        if (!r->handler || (r->handler && strcmp (r->handler, GLUSTERFS_HANDLER)))
+        if (!r->handler || (r->handler
+                            && strcmp (r->handler, GLUSTERFS_HANDLER)))
                 return DECLINED;
 
         if (r->uri[0] == '\0') {
@@ -3065,13 +3164,12 @@ mod_glfs_handler (request_rec *r)
            method at this point is POST. In the future, we should enable
            script delivery for all methods.  */
         if (r->method_number != M_GET) {
-                core_request_config *req_cfg;
-
                 req_cfg = ap_get_module_config(r->request_config, &core_module);
                 if (!req_cfg->deliver_script) {
                         /* The flag hasn't been set for this request. Punt. */
                         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                                      "This resource does not accept the %s method.",
+                                      "This resource does not accept the %s "
+                                      "method.",
                                       r->method);
                         return HTTP_METHOD_NOT_ALLOWED;
                 }
@@ -3104,7 +3202,8 @@ mod_glfs_handler (request_rec *r)
                 /* default to reject */
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
                               "File does not exist: %s",
-                              apr_pstrcat(r->pool, r->filename, r->path_info, NULL));
+                              apr_pstrcat(r->pool, r->filename, r->path_info,
+                                          NULL));
                 return HTTP_NOT_FOUND;
         }
 
@@ -3119,8 +3218,8 @@ mod_glfs_handler (request_rec *r)
         } else {
                 char *tmp = apr_pstrdup (r->pool, r->range);
                 while ((current = ap_getword(r->pool, (const char **)&tmp, ','))
-                       && (rv = parse_byterange(current, r->finfo.size, &range_start,
-                                                &range_end))) {
+                       && (rv = parse_byterange(current, r->finfo.size,
+                                                &range_start, &range_end))) {
                         size += (range_end - range_start);
                 }
         }
@@ -3131,19 +3230,26 @@ mod_glfs_handler (request_rec *r)
                 r->status = errstatus;
         }
 
-        /* file is small enough to have already got the content in glusterfs_lookup */
+        /* 
+         * file is small enough to have already got the content in 
+         * glusterfs_lookup
+        */
         if (r->finfo.size <= dir_config->xattr_file_size && dir_config->buf) {
                 if (bld_content_md5) {
                         apr_table_setn (r->headers_out, "Content-MD5",
-                                        (const char *)ap_md5_binary(r->pool, dir_config->buf, r->finfo.size));
+                                        (const char *)ap_md5_binary(r->pool,
+                                                                    dir_config->buf
+                                                                    , r->finfo.size));
                 }
 
                 ap_log_rerror (APLOG_MARK, APLOG_NOTICE, 0, r, 
-                               "fetching data from glusterfs through xattr interface\n");
+                               "fetching data from glusterfs through xattr "
+                               "interface\n");
                 
                 bb = apr_brigade_create(r->pool, c->bucket_alloc);
 
-                e = apr_bucket_heap_create (dir_config->buf, r->finfo.size, free, c->bucket_alloc);
+                e = apr_bucket_heap_create (dir_config->buf, r->finfo.size,
+                                            free, c->bucket_alloc);
                 APR_BRIGADE_INSERT_TAIL (bb, e);
                 
                 e = apr_bucket_eos_create(c->bucket_alloc);
@@ -3161,7 +3267,8 @@ mod_glfs_handler (request_rec *r)
                 else {
                         /* no way to know what type of error occurred */
                         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, status, r,
-                                      "mod_glfs_handler: ap_pass_brigade returned %i",
+                                      "mod_glfs_handler: ap_pass_brigade "
+                                      "returned %i",
                                       status);
                         return HTTP_INTERNAL_SERVER_ERROR;
                 }
@@ -3169,7 +3276,8 @@ mod_glfs_handler (request_rec *r)
         
         if (!dir_config->handle) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
-                              "mod_glfs_handler: glusterfs handler is NULL, check glusterfs logfile %s for more details", 
+                              "mod_glfs_handler: glusterfs handler is NULL, "
+                              "check glusterfs logfile %s for more details", 
                               dir_config->logfile);
                 return HTTP_INTERNAL_SERVER_ERROR;
         }
@@ -3180,12 +3288,15 @@ mod_glfs_handler (request_rec *r)
         fd = glusterfs_open (dir_config->handle, path , O_RDONLY, 0);
         if (fd == 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                              "file permissions deny server access: %s", r->filename);
+                              "file permissions deny server access: %s",
+                              r->filename);
                 return HTTP_FORBIDDEN;
         }
 
-        /* byterange_filter cannot handle range requests, since we are not sending the 
-           whole data in a single brigade */
+        /* 
+         * byterange_filter cannot handle range requests, since we are not 
+         * sending the whole data in a single brigade
+         */
 
 
         if (num_ranges == 0) {
@@ -3228,11 +3339,13 @@ mod_glfs_output_filter (ap_filter_t *f,
 static int 
 mod_glfs_fixup_dir(request_rec *r)
 {
-        glusterfs_dir_config_t *d;
-        char *dummy_ptr[1];
-        char **names_ptr;
-        int num_names;
-        int error_notfound = 0;
+        glusterfs_dir_config_t  *d = NULL;
+        char                    *dummy_ptr[1];
+        char                   **names_ptr = NULL, *name_ptr = NULL;
+        int                      num_names;
+        int                      error_notfound = 0;
+        char                    *ifile = NULL;
+        request_rec             *rr = NULL;
 
         /* only handle requests against directories */
         if (r->finfo.filetype != APR_DIR) {
@@ -3254,8 +3367,6 @@ mod_glfs_fixup_dir(request_rec *r)
         /* Redirect requests that are not '/' terminated */
         if (r->uri[0] == '\0' || r->uri[strlen(r->uri) - 1] != '/')
         {
-                char *ifile;
-
                 if (!d->do_slash) {
                         return DECLINED;
                 }
@@ -3270,11 +3381,13 @@ mod_glfs_fixup_dir(request_rec *r)
                 }
 
                 if (r->args != NULL) {
-                        ifile = apr_pstrcat(r->pool, ap_escape_uri(r->pool, r->uri),
+                        ifile = apr_pstrcat(r->pool, ap_escape_uri(r->pool,
+                                                                   r->uri),
                                             "/", "?", r->args, NULL);
                 }
                 else {
-                        ifile = apr_pstrcat(r->pool, ap_escape_uri(r->pool, r->uri),
+                        ifile = apr_pstrcat(r->pool, ap_escape_uri(r->pool,
+                                                                   r->uri),
                                             "/", NULL);
                 }
 
@@ -3295,30 +3408,30 @@ mod_glfs_fixup_dir(request_rec *r)
 
         for (; num_names; ++names_ptr, --num_names) {
                 /* XXX: Is this name_ptr considered escaped yet, or not??? */
-                char *name_ptr = *names_ptr;
-                request_rec *rr;
+                name_ptr = *names_ptr;
 
-                /* Once upon a time args were handled _after_ the successful redirect.
-                 * But that redirect might then _refuse_ the given r->args, creating
-                 * a nasty tangle.  It seems safer to consider the r->args while we
-                 * determine if name_ptr is our viable index, and therefore set them
-                 * up correctly on redirect.
+                /* Once upon a time args were handled _after_ the successful
+                 * redirect. But that redirect might then _refuse_ the 
+                 * given r->args, creating a nasty tangle.  It seems safer to 
+                 * consider the r->args while we determine if name_ptr is our 
+                 * viable index, and therefore set them up correctly on redirect.
                  */
                 if (r->args != NULL) {
-                        name_ptr = apr_pstrcat(r->pool, name_ptr, "?", r->args, NULL);
+                        name_ptr = apr_pstrcat(r->pool, name_ptr, "?", r->args,
+                                               NULL);
                 }
 
                 rr = ap_sub_req_lookup_uri(name_ptr, r, NULL);
 
-                /* The sub request lookup is very liberal, and the core map_to_storage
-                 * handler will almost always result in HTTP_OK as /foo/index.html
-                 * may be /foo with PATH_INFO="/index.html", or even / with
-                 * PATH_INFO="/foo/index.html". To get around this we insist that the
-                 * the index be a regular filetype.
+                /* The sub request lookup is very liberal, and the core 
+                 * map_to_storage handler will almost always result in HTTP_OK 
+                 * as /foo/index.html may be /foo with PATH_INFO="/index.html",
+                 * or even / with PATH_INFO="/foo/index.html". To get around 
+                 * this we insist that the the index be a regular filetype.
                  *
-                 * Another reason is that the core handler also makes the assumption
-                 * that if r->finfo is still NULL by the time it gets called, the
-                 * file does not exist.
+                 * Another reason is that the core handler also makes the 
+                 * assumption that if r->finfo is still NULL by the time it 
+                 * gets called, the file does not exist.
                  */
                 if (rr->status == HTTP_OK
                     && (   (rr->handler && !strcmp(rr->handler, "proxy-server"))
@@ -3327,7 +3440,9 @@ mod_glfs_fixup_dir(request_rec *r)
                         return OK;
                 }
 
-                /* If the request returned a redirect, propagate it to the client */
+                /* If the request returned a redirect, propagate it to the 
+                 * client
+                 */
 
                 if (ap_is_HTTP_REDIRECT(rr->status)
                     || (rr->status == HTTP_NOT_ACCEPTABLE && num_names == 1)
@@ -3335,18 +3450,21 @@ mod_glfs_fixup_dir(request_rec *r)
 
                         apr_pool_join(r->pool, rr->pool);
                         error_notfound = rr->status;
-                        r->notes = apr_table_overlay(r->pool, r->notes, rr->notes);
-                        r->headers_out = apr_table_overlay(r->pool, r->headers_out,
+                        r->notes = apr_table_overlay(r->pool, r->notes,
+                                                     rr->notes);
+                        r->headers_out = apr_table_overlay(r->pool,
+                                                           r->headers_out,
                                                            rr->headers_out);
-                        r->err_headers_out = apr_table_overlay(r->pool, r->err_headers_out,
+                        r->err_headers_out = apr_table_overlay(r->pool,
+                                                               r->err_headers_out,
                                                                rr->err_headers_out);
                         return error_notfound;
                 }
 
                 /* If the request returned something other than 404 (or 200),
                  * it means the module encountered some sort of problem. To be
-                 * secure, we should return the error, rather than allow autoindex
-                 * to create a (possibly unsafe) directory index.
+                 * secure, we should return the error, rather than allow 
+                 * autoindex to create a (possibly unsafe) directory index.
                  *
                  * So we store the error, and if none of the listed files
                  * exist, we return the last error response we got, instead
@@ -3374,7 +3492,8 @@ mod_glfs_register_hooks(apr_pool_t *p)
 {
         ap_hook_child_init (mod_glfs_child_init, NULL, NULL, APR_HOOK_MIDDLE);
         ap_hook_handler (mod_glfs_handler, NULL, NULL, APR_HOOK_REALLY_FIRST);
-        ap_hook_map_to_storage (mod_glfs_map_to_storage, NULL, NULL, APR_HOOK_REALLY_FIRST);
+        ap_hook_map_to_storage (mod_glfs_map_to_storage, NULL, NULL,
+                                APR_HOOK_REALLY_FIRST);
         ap_hook_fixups(mod_glfs_fixup_dir,NULL,NULL,APR_HOOK_LAST);
 
 /*    mod_glfs_output_filter_handle = 
@@ -3421,7 +3540,8 @@ command_rec mod_glfs_cmds[] =
                 cmd_set_loglevel,
                 NULL,
                 ACCESS_CONF,
-                "Glusterfs loglevel:anyone of none, critical, error, warning, debug"
+                "Glusterfs loglevel:anyone of none, critical, error, warning, "
+                "debug"
                 ),
 
         AP_INIT_TAKE1(
@@ -3429,7 +3549,8 @@ command_rec mod_glfs_cmds[] =
                 cmd_set_cache_timeout,
                 NULL,
                 ACCESS_CONF,
-                "Timeout value in seconds for lookup and stat cache of libglusterfsclient"
+                "Timeout value in seconds for lookup and stat cache of "
+                "libglusterfsclient"
                 ),
 
         AP_INIT_TAKE1(
@@ -3437,7 +3558,8 @@ command_rec mod_glfs_cmds[] =
                 cmd_add_volume_specfile,
                 NULL,
                 ACCESS_CONF,
-                "Glusterfs Volume specfication file specifying filesystem under this directory"
+                "Glusterfs Volume specfication file specifying filesystem "
+                "under this directory"
                 ),
 
         AP_INIT_TAKE1(
@@ -3445,7 +3567,8 @@ command_rec mod_glfs_cmds[] =
                 cmd_add_xattr_file_size,
                 NULL,
                 ACCESS_CONF,
-                "Maximum size of the file that can be fetched through extended attribute interface of libglusterfsclient"
+                "Maximum size of the file that can be fetched through "
+                "extended attribute interface of libglusterfsclient"
                 ),
 
         /* mod_dir cmds */
@@ -3477,8 +3600,8 @@ command_rec mod_glfs_cmds[] =
 
         AP_INIT_ITERATE2("AddAltByType", cmd_add_alt, 
                          BY_TYPE, DIR_CMD_PERMS,
-                         "alternate descriptive text followed by one or more MIME "
-                         "types"),
+                         "alternate descriptive text followed by one or more "
+                         "MIME types"),
 
         AP_INIT_ITERATE2("AddAltByEncoding", cmd_add_alt, 
                          BY_ENCODING, DIR_CMD_PERMS,
@@ -3515,7 +3638,8 @@ command_rec mod_glfs_cmds[] =
                          "Use IndexOptions FancyIndexing."),
 
         AP_INIT_TAKE1("DefaultIcon", ap_set_string_slot,
-                      (void *)APR_OFFSETOF(glusterfs_dir_config_t, default_icon),
+                      (void *)APR_OFFSETOF(glusterfs_dir_config_t,
+                                           default_icon),
                       DIR_CMD_PERMS, "an icon URL"),
 
         AP_INIT_TAKE1("IndexStyleSheet", ap_set_string_slot,
