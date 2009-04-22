@@ -34,20 +34,56 @@
 #include "common.h"
 
 
-
 static int
-delete_locks_of_transport (pl_inode_t *pinode, transport_t *trans)
+release_inode_locks_of_transport (xlator_t *this,
+                                  inode_t *inode, transport_t *trans)
 {
 	posix_lock_t *tmp = NULL;
 	posix_lock_t *l = NULL;
 
-	list_for_each_entry_safe (l, tmp, &pinode->dir_list, list) {
-		if (l->transport == trans) {
-			__delete_lock (pinode, tmp);
-			__destroy_lock (tmp);
-		}
-	}
+        pl_inode_t * pinode = NULL;
 
+        struct list_head granted;
+
+        char *path = NULL;
+
+        INIT_LIST_HEAD (&granted);
+
+        pinode = pl_inode_get (this, inode);
+
+        pthread_mutex_lock (&pinode->mutex);
+        {
+                if (list_empty (&pinode->int_list)) {
+                        goto unlock;
+                }
+
+                list_for_each_entry_safe (l, tmp, &pinode->int_list, list) {
+                        if (l->transport != trans)
+                                continue;
+                        
+                        list_del_init (&l->list);
+
+                        __delete_lock (pinode, l);
+
+                        inode_path (inode, NULL, &path);
+
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "releasing lock on %s held by "
+                                "{transport=%p, pid=%"PRId64"}",
+                                path, trans, 
+                                (long long) l->client_pid);
+
+                        if (path)
+                                FREE (path);
+                        
+                        __destroy_lock (l);
+                }
+        }
+unlock:
+        pthread_mutex_unlock (&pinode->mutex);
+
+        grant_blocked_locks (this, pinode, GF_LOCK_INTERNAL);
+        
 	return 0;
 }
 
@@ -106,7 +142,7 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"releasing all locks from transport %p", transport);
 
-		delete_locks_of_transport (pinode, transport);
+		release_inode_locks_of_transport (this, loc->inode, transport);
 		goto unwind;
 	}
 
@@ -206,7 +242,7 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"releasing all locks from transport %p", transport);
 
-		delete_locks_of_transport (pinode, transport);
+		release_inode_locks_of_transport (this, fd->inode, transport);
 		goto unwind;
 	}
 
