@@ -52,7 +52,6 @@ typedef struct glusterfs_dir_config {
         char *buf;
         size_t xattr_file_size;
         uint32_t cache_timeout;
-        glusterfs_handle_t handle;
 } glusterfs_dir_config_t;
 
 typedef struct glusterfs_async_local {
@@ -144,7 +143,6 @@ mod_glusterfs_create_dir_config(pool *p, char *dirspec)
         dir_config->mount_dir = dirspec;
         dir_config->logfile = dir_config->specfile = (char *)0;
         dir_config->loglevel = "warning";
-        dir_config->handle = (glusterfs_handle_t) 0;
         dir_config->cache_timeout = 0;
         dir_config->buf = NULL;
 
@@ -175,7 +173,7 @@ mod_glusterfs_child_init(server_rec *s, pool *p)
                         params.stat_timeout = dir_config->cache_timeout;
                         params.specfile = dir_config->specfile;
 
-                        dir_config->handle = glusterfs_init (&params);
+                        glusterfs_mount (dir_config->mount_dir, &params);
                 }
                 dir_config = NULL;
         }
@@ -194,11 +192,9 @@ mod_glusterfs_child_exit(server_rec *s, pool *p)
         urls = (void **)mod_core_config->sec_url->elts;
         for (i = 0; i < n; i++) {
                 dir_config = ap_get_module_config (urls[i], &glusterfs_module);
-                if (dir_config && dir_config->handle) {
-                        glusterfs_fini (dir_config->handle);
-                        dir_config->handle = 0;
+                if (dir_config) {
+                        glusterfs_umount (dir_config->mount_dir);
                 }
-                dir_config = NULL;
         }
 }
 
@@ -222,8 +218,7 @@ static int mod_glusterfs_fixup(request_rec *r)
                                                   GLUSTERFS_HANDLER)))
                 return DECLINED;
 
-        if (dir_config->mount_dir)
-                path = r->uri + strlen (dir_config->mount_dir);
+        path = r->uri;
 
         memset (&r->finfo, 0, sizeof (r->finfo));
 
@@ -232,7 +227,7 @@ static int mod_glusterfs_fixup(request_rec *r)
                 return HTTP_INTERNAL_SERVER_ERROR;
         }
 
-        ret = glusterfs_get (dir_config->handle, path, dir_config->buf, 
+        ret = glusterfs_get (path, dir_config->buf, 
                              dir_config->xattr_file_size, &r->finfo);
 
         if (ret == -1 || r->finfo.st_size > dir_config->xattr_file_size
@@ -387,12 +382,6 @@ mod_glusterfs_handler(request_rec *r)
                 return METHOD_NOT_ALLOWED;
         }
 
-        if (!dir_config->handle) {
-                ap_log_rerror (APLOG_MARK, APLOG_ERR, r,
-                               "glusterfs initialization failed\n");
-                return FORBIDDEN;
-        }
-
         ap_update_mtime(r, r->finfo.st_mtime);
         ap_set_last_modified(r);
         ap_set_etag(r);
@@ -434,8 +423,8 @@ mod_glusterfs_handler(request_rec *r)
                 return error;
         }
 
-        path = r->uri + strlen (dir_config->mount_dir);
-        fd = glusterfs_open (dir_config->handle, path , O_RDONLY, 0);
+        path = r->uri;
+        fd = glusterfs_open (path , O_RDONLY, 0);
   
         if (fd == 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, r,
@@ -475,7 +464,7 @@ static const command_rec mod_glusterfs_cmds[] =
          "Glusterfs Specfile required to access contents of this directory"},
         {"GlusterfsXattrFileSize", add_xattr_file_size, NULL, 
          GLUSTERFS_CMD_PERMS, TAKE1,
-         "Maximum size of the file to be fetched using xattr interface of "\ 
+         "Maximum size of the file to be fetched using xattr interface of "
          "glusterfs"},
         {NULL}
 };
