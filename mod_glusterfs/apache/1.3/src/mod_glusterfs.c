@@ -33,7 +33,9 @@
 #include <sys/uio.h>
 #include <pthread.h>
 
-#define GLUSTERFS_INVALID_LOGLEVEL "mod_glusterfs: Unrecognized log-level \"%s\", possible values are \"DEBUG|WARNING|ERROR|CRITICAL|NONE\"\n"
+#define GLUSTERFS_INVALID_LOGLEVEL "mod_glusterfs: Unrecognized log-level "\
+                                   "\"%s\", possible values are \"DEBUG|"\
+                                   "WARNING|ERROR|CRITICAL|NONE\"\n"
 
 #define GLUSTERFS_HANDLER "glusterfs-handler"
 #define GLUSTERFS_CHUNK_SIZE 131072 
@@ -72,7 +74,8 @@ mod_glusterfs_dconfig(request_rec *r)
 {
         glusterfs_dir_config_t *dir_config = NULL;
         if (r->per_dir_config != NULL) {
-                dir_config = ap_get_module_config (r->per_dir_config, &glusterfs_module);
+                dir_config = ap_get_module_config (r->per_dir_config,
+                                                   &glusterfs_module);
         }
 
         return dir_config;
@@ -135,7 +138,8 @@ mod_glusterfs_create_dir_config(pool *p, char *dirspec)
 {
         glusterfs_dir_config_t *dir_config = NULL;
 
-        dir_config = (glusterfs_dir_config_t *) ap_pcalloc(p, sizeof(*dir_config));
+        dir_config = (glusterfs_dir_config_t *) ap_pcalloc(p,
+                                                           sizeof(*dir_config));
 
         dir_config->mount_dir = dirspec;
         dir_config->logfile = dir_config->specfile = (char *)0;
@@ -155,7 +159,7 @@ mod_glusterfs_child_init(server_rec *s, pool *p)
         core_server_config *mod_core_config = ap_get_module_config (s->module_config,
                                                                     &core_module);
         glusterfs_dir_config_t *dir_config = NULL;
-        glusterfs_init_params_t params;
+        glusterfs_init_params_t params = {0, };
   
         n = mod_core_config->sec_url->nelts;
         urls = (void **)mod_core_config->sec_url->elts;
@@ -167,7 +171,8 @@ mod_glusterfs_child_init(server_rec *s, pool *p)
 
                         params.logfile = dir_config->logfile;
                         params.loglevel = dir_config->loglevel;
-                        params.lookup_timeout = params.stat_timeout = dir_config->cache_timeout;
+                        params.lookup_timeout = dir_config->cache_timeout;
+                        params.stat_timeout = dir_config->cache_timeout;
                         params.specfile = dir_config->specfile;
 
                         dir_config->handle = glusterfs_init (&params);
@@ -181,10 +186,10 @@ mod_glusterfs_child_exit(server_rec *s, pool *p)
 {
         void **urls = NULL;
         int n, i;
-        core_server_config *mod_core_config = ap_get_module_config (s->module_config,
-                                                                    &core_module);
+        core_server_config *mod_core_config = NULL;
         glusterfs_dir_config_t *dir_config = NULL;
   
+        mod_core_config = ap_get_module_config (s->module_config, &core_module);
         n = mod_core_config->sec_url->nelts;
         urls = (void **)mod_core_config->sec_url->elts;
         for (i = 0; i < n; i++) {
@@ -206,10 +211,15 @@ static int mod_glusterfs_fixup(request_rec *r)
 
         dir_config = mod_glusterfs_dconfig(r);
 
-        if (dir_config && dir_config->mount_dir && !(strncmp (ap_pstrcat (r->pool, dir_config->mount_dir, "/", NULL), r->uri, strlen (dir_config->mount_dir) + 1) && !r->handler)) 
+        if (dir_config && dir_config->mount_dir
+            && !(strncmp (ap_pstrcat (r->pool, dir_config->mount_dir, "/",
+                                      NULL),
+                          r->uri, strlen (dir_config->mount_dir) + 1)
+                 && !r->handler)) 
                 r->handler = ap_pstrdup (r->pool, GLUSTERFS_HANDLER);
 
-        if (!r->handler || (r->handler && strcmp (r->handler, GLUSTERFS_HANDLER)))
+        if (!r->handler || (r->handler && strcmp (r->handler,
+                                                  GLUSTERFS_HANDLER)))
                 return DECLINED;
 
         if (dir_config->mount_dir)
@@ -225,7 +235,8 @@ static int mod_glusterfs_fixup(request_rec *r)
         ret = glusterfs_get (dir_config->handle, path, dir_config->buf, 
                              dir_config->xattr_file_size, &r->finfo);
 
-        if (ret == -1 || r->finfo.st_size > dir_config->xattr_file_size || S_ISDIR (r->finfo.st_mode)) {
+        if (ret == -1 || r->finfo.st_size > dir_config->xattr_file_size
+            || S_ISDIR (r->finfo.st_mode)) {
                 free (dir_config->buf);
                 dir_config->buf = NULL;
 
@@ -233,12 +244,16 @@ static int mod_glusterfs_fixup(request_rec *r)
                         int error = HTTP_NOT_FOUND;
                         char *emsg = NULL;
                         if (r->path_info == NULL) {
-                                emsg = ap_pstrcat(r->pool, strerror (errno), r->filename, NULL);
+                                emsg = ap_pstrcat(r->pool, strerror (errno),
+                                                  r->filename, NULL);
                         }
                         else {
-                                emsg = ap_pstrcat(r->pool, strerror (errno), r->filename, r->path_info, NULL);
+                                emsg = ap_pstrcat(r->pool, strerror (errno),
+                                                  r->filename, r->path_info,
+                                                  NULL);
                         }
-                        ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_NOERRNO, r, "%s", emsg);
+                        ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_NOERRNO, r,
+                                      "%s", emsg);
                         if (errno != ENOENT) {
                                 error = HTTP_INTERNAL_SERVER_ERROR;
                         }
@@ -280,7 +295,8 @@ mod_glusterfs_readv_async_cbk (int32_t op_ret, int32_t op_errno,
 
 /* use read_async just to avoid memcpy of read buffer in libglusterfsclient */
 static int
-mod_glusterfs_read_async (request_rec *r, glusterfs_file_t fd, off_t offset, off_t length)
+mod_glusterfs_read_async (request_rec *r, glusterfs_file_t fd, off_t offset,
+                          off_t length)
 {
         glusterfs_async_local_t local;
         off_t end;
@@ -347,25 +363,6 @@ mod_glusterfs_read_async (request_rec *r, glusterfs_file_t fd, off_t offset, off
         return (local.op_ret < 0 ? SERVER_ERROR : OK);
 }
 
-/* TODO: to read blocks of size "length" from offset "offset" */ 
-/*
-  static int 
-  mod_glusterfs_read_sync (request_rec *r, glusterfs_file_t fd, off_t offset, off_t length)
-  { 
-  int error = OK;
-  off_t read_bytes;
-  char buf [GLUSTERFS_CHUNK_SIZE];
-
-  while ((read_bytes = glusterfs_read (fd, buf, GLUSTERFS_CHUNK_SIZE)) && read_bytes != -1) {
-  ap_rwrite (buf, read_bytes, r);
-  }
-  if (read_bytes) {
-  error = SERVER_ERROR;
-  }
-  return error;
-  }
-*/
-
 static int 
 mod_glusterfs_handler(request_rec *r)
 {
@@ -376,7 +373,8 @@ mod_glusterfs_handler(request_rec *r)
         int errstatus = OK;
         glusterfs_file_t fd;
   
-        if (!r->handler || (r->handler && strcmp (r->handler, GLUSTERFS_HANDLER)))
+        if (!r->handler || (r->handler && strcmp (r->handler,
+                                                  GLUSTERFS_HANDLER)))
                 return DECLINED;
 
         if (r->uri[0] == '\0' || r->uri[strlen(r->uri) - 1] == '/') {
@@ -410,16 +408,19 @@ mod_glusterfs_handler(request_rec *r)
                 if (!r->header_only) {
                         error = OK;
                         ap_log_rerror (APLOG_MARK, APLOG_NOTICE, r, 
-                                       "fetching data from glusterfs through xattr interface\n");
+                                       "fetching data from glusterfs through "
+                                       "xattr interface\n");
       
                         if (!rangestatus) {
-                                if (ap_rwrite (dir_config->buf, r->finfo.st_size, r) < 0) {
+                                if (ap_rwrite (dir_config->buf,
+                                               r->finfo.st_size, r) < 0) {
                                         error = HTTP_INTERNAL_SERVER_ERROR;
                                 }
                         } else {
                                 long offset, length;
                                 while (ap_each_byterange (r, &offset, &length)) {
-                                        if (ap_rwrite (dir_config->buf + offset, length, r) < 0) {
+                                        if (ap_rwrite (dir_config->buf + offset,
+                                                       length, r) < 0) {
                                                 error = HTTP_INTERNAL_SERVER_ERROR;
                                                 break;
                                         }
@@ -438,7 +439,8 @@ mod_glusterfs_handler(request_rec *r)
   
         if (fd == 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, r,
-                              "file permissions deny server access: %s", r->filename);
+                              "file permissions deny server access: %s",
+                              r->filename);
                 return FORBIDDEN;
         }
   
@@ -473,7 +475,8 @@ static const command_rec mod_glusterfs_cmds[] =
          "Glusterfs Specfile required to access contents of this directory"},
         {"GlusterfsXattrFileSize", add_xattr_file_size, NULL, 
          GLUSTERFS_CMD_PERMS, TAKE1,
-         "Maximum size of the file to be fetched using xattr interface of glusterfs"},
+         "Maximum size of the file to be fetched using xattr interface of "\ 
+         "glusterfs"},
         {NULL}
 };
 
