@@ -700,27 +700,67 @@ pl_forget (xlator_t *this,
 	   inode_t *inode)
 {
 	pl_inode_t   *pl_inode = NULL;
+        
+        posix_lock_t *ext_tmp = NULL;
+        posix_lock_t *ext_l   = NULL;
+
+        posix_lock_t *int_tmp = NULL;
+        posix_lock_t *int_l   = NULL;
+
+        pl_rw_req_t *rw_tmp = NULL;
+        pl_rw_req_t *rw_req = NULL;
+
+        pl_entry_lock_t *entry_tmp = NULL;
+        pl_entry_lock_t *entry_l   = NULL;
 
 	pl_inode = pl_inode_get (this, inode);
 
 	if (!list_empty (&pl_inode->rw_list)) {
 		gf_log (this->name, GF_LOG_CRITICAL,
-			"pending R/W requests found!");
+			"pending R/W requests found, releasing.");
+                
+                list_for_each_entry_safe (rw_req, rw_tmp, &pl_inode->rw_list, 
+                                          list) {
+                        
+                        list_del (&rw_req->list);
+                        FREE (rw_req);
+                }
 	}
 
 	if (!list_empty (&pl_inode->ext_list)) {
 		gf_log (this->name, GF_LOG_CRITICAL,
-			"Pending fcntl locks found!");
+			"Pending fcntl locks found, releasing.");
+
+                list_for_each_entry_safe (ext_l, ext_tmp, &pl_inode->ext_list, 
+                                          list) {
+                        
+                        __delete_lock (pl_inode, ext_l);
+                        __destroy_lock (ext_l);
+                }
 	}
 
 	if (!list_empty (&pl_inode->int_list)) {
 		gf_log (this->name, GF_LOG_CRITICAL,
-			"Pending internal locks found!");
+			"Pending inode locks found, releasing.");
+
+                list_for_each_entry_safe (int_l, int_tmp, &pl_inode->int_list, 
+                                          list) {
+                        
+                        __delete_lock (pl_inode, int_l);
+                        __destroy_lock (int_l);
+                }
 	}
 
 	if (!list_empty (&pl_inode->dir_list)) {
 		gf_log (this->name, GF_LOG_CRITICAL,
-			"Pending entry locks found!");
+			"Pending entry locks found, releasing.");
+                
+                list_for_each_entry_safe (entry_l, entry_tmp, 
+                                          &pl_inode->dir_list, inode_list) {
+                        
+                        list_del (&entry_l->inode_list);
+                        FREE (entry_l);
+                }
 	}
 
         FREE (pl_inode);
