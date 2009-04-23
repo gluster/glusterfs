@@ -110,6 +110,14 @@ init (xlator_t *this)
 		gf_string2boolean (lookup_unhashed_str,
 				   &conf->search_unhashed);
 	}
+
+	conf->unhashed_sticky_bit = 0;
+
+	if (dict_get_str (this->options, "unhashed-sticky-bit",
+			  &lookup_unhashed_str) == 0) {
+	        gf_string2boolean (lookup_unhashed_str,
+				   &conf->unhashed_sticky_bit);
+	}
         
         conf->min_free_disk = 10;
 

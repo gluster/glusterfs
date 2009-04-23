@@ -198,12 +198,14 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt = 0;
         call_frame_t *prev          = NULL;
 	dht_layout_t *layout        = NULL;
+	dht_conf_t   *conf          = NULL;
 	int           ret  = -1;
 	int           is_dir = 0;
 	int           is_linkfile = 0;
 
         local = frame->local;
         prev  = cookie;
+	conf = this->private;
 
         LOCK (&frame->lock);
         {
@@ -286,9 +288,11 @@ unlock:
         if (is_last_call (this_call_cnt)) {
 		if (!S_ISDIR (local->stbuf.st_mode)
 		    && (local->hashed_subvol != local->cached_subvol)
-		    && (local->stbuf.st_nlink == 1))
+		    && (local->stbuf.st_nlink == 1)
+		    && (conf->unhashed_sticky_bit)) {
 			local->stbuf.st_mode |= S_ISVTX;
-		
+		}
+
 		if (local->layout_mismatch) {
 			local->op_ret = -1;
 			local->op_errno = ESTALE;
@@ -310,10 +314,12 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 {
 	dht_local_t  *local = NULL;
 	xlator_t     *cached_subvol = NULL;
+	dht_conf_t   *conf = NULL;
         int           ret = -1;
 
 	local = frame->local;
 	cached_subvol = local->cached_subvol;
+	conf = this->private;
 
         ret = dht_layout_inode_set (this, local->cached_subvol, inode);
         if (ret < 0) {
@@ -326,8 +332,10 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         }
 
 	local->op_ret = 0;
-	if (local->stbuf.st_nlink == 1)
+	if ((local->stbuf.st_nlink == 1)
+	    && (conf->unhashed_sticky_bit)) {
 		local->stbuf.st_mode |= S_ISVTX;
+	}
 
 unwind:
 	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
@@ -521,10 +529,11 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 	dht_layout_t *layout = NULL;
 	xlator_t     *subvol = NULL;
 	loc_t        *loc = NULL;
+	dht_conf_t   *conf = NULL;
 
         prev   = cookie;
 	subvol = prev->this;
-
+	conf   = this->private;
 	local  = frame->local;
 	loc    = &local->loc;
 
@@ -549,8 +558,10 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
-	if (stbuf->st_nlink == 1)
+	if ((stbuf->st_nlink == 1)
+	    && (conf->unhashed_sticky_bit)) {
 		stbuf->st_mode |= S_ISVTX;
+	}
         dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
 
 	layout = dht_layout_for_subvol (this, prev->this);
