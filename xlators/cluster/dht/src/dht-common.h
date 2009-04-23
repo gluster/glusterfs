@@ -119,6 +119,7 @@ struct dht_conf {
         dht_du_t      *du_stats;
         uint32_t       min_free_disk;
         int32_t        refresh_interval;
+        gf_boolean_t   unhashed_sticky_bit;
 	struct timeval last_stat_fetch;
 };
 typedef struct dht_conf dht_conf_t;
