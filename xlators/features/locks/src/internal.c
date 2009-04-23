@@ -71,7 +71,7 @@ release_inode_locks_of_transport (xlator_t *this,
                                 "releasing lock on %s held by "
                                 "{transport=%p, pid=%"PRId64"}",
                                 path, trans, 
-                                (long long) l->client_pid);
+                                (uint64_t) l->client_pid);
 
                         if (path)
                                 FREE (path);
