@@ -1024,6 +1024,44 @@ out:
 
 
 int
+afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
+                                  xlator_t *this,
+                                  int32_t op_ret, int32_t op_errno,
+                                  dict_t *xattr)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *impunge_local = NULL;
+	afr_self_heal_t *impunge_sh = NULL;
+	call_frame_t    *frame = NULL;
+	int              child_index = 0;
+
+
+	priv = this->private;
+	impunge_local = impunge_frame->local;
+	impunge_sh = &impunge_local->self_heal;
+	frame = impunge_sh->sh_frame;
+
+	child_index = (long) cookie;
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"setting ownership of %s on %s to %d/%d",
+		impunge_local->loc.path,
+		priv->children[child_index]->name,
+		impunge_local->cont.lookup.buf.st_uid,
+		impunge_local->cont.lookup.buf.st_gid);
+
+	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_chown_cbk,
+			   (void *) (long) child_index,
+			   priv->children[child_index],
+			   priv->children[child_index]->fops->chown,
+			   &impunge_local->loc,
+			   impunge_local->cont.lookup.buf.st_uid,
+			   impunge_local->cont.lookup.buf.st_gid);
+        return 0;
+}
+
+
+int
 afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 				  xlator_t *this,
 				  int32_t op_ret, int32_t op_errno,
@@ -1036,11 +1074,20 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 	call_frame_t    *frame = NULL;
 	int              active_src = 0;
 	int              child_index = 0;
+        int              pending_array[3] = {0, };
+        dict_t          *xattr = NULL;
+        int              ret = 0;
+        int              idx = 0;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
 	impunge_sh = &impunge_local->self_heal;
 	frame = impunge_sh->sh_frame;
+        local = frame->local;
+        sh    = &local->self_heal;
+        active_src = sh->active_source;
 
 	child_index = (long) cookie;
 
@@ -1053,22 +1100,30 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 		goto out;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
-		"setting ownership of %s on %s to %d/%d",
-		impunge_local->loc.path,
-		priv->children[child_index]->name,
-		impunge_local->cont.lookup.buf.st_uid,
-		impunge_local->cont.lookup.buf.st_gid);
-
 	inode->st_mode = stbuf->st_mode;
 
-	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_chown_cbk,
+        xattr = get_new_dict ();
+        dict_ref (xattr);
+
+        idx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
+        pending_array[idx] = hton32 (1);
+        if (S_ISDIR (stbuf->st_mode))
+                idx = afr_index_for_transaction_type (AFR_ENTRY_TRANSACTION);
+        else
+                idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
+        pending_array[idx] = hton32 (1);
+
+        ret = dict_set_static_bin (xattr, priv->pending_key[child_index],
+                                   pending_array, sizeof (pending_array));
+
+	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_xattrop_cbk,
 			   (void *) (long) child_index,
-			   priv->children[child_index],
-			   priv->children[child_index]->fops->chown,
-			   &impunge_local->loc,
-			   impunge_local->cont.lookup.buf.st_uid,
-			   impunge_local->cont.lookup.buf.st_gid);
+			   priv->children[active_src],
+			   priv->children[active_src]->fops->xattrop,
+			   &impunge_local->loc, GF_XATTROP_ADD_ARRAY, xattr);
+
+        dict_unref (xattr);
+
 	return 0;
 
 out:
