@@ -411,17 +411,11 @@ int
 afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
-	int ret = -1;
 
 	local = frame->local;
 
 	if (local->govinda_gOvinda) {
                 afr_set_split_brain (this, local->cont.lookup.inode, 1);
-
-		if (ret < 0) {
-			local->op_ret   = -1;
-			local->op_errno = -ret;
-		}
 	} else {
                 afr_set_split_brain (this, local->cont.lookup.inode, 0);
 	}
