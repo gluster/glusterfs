@@ -232,7 +232,7 @@ call_bail (void *data)
 			saved_frame = 
 			saved_frames_get_timedout (conn->saved_frames,
 						   GF_OP_TYPE_MOP_REQUEST,
-						   conn->transport_timeout,
+						   conn->frame_timeout,
 						   &current);
 			if (saved_frame)
 				list_add (&saved_frame->list, &list);
@@ -243,7 +243,7 @@ call_bail (void *data)
 			saved_frame = 
 			saved_frames_get_timedout (conn->saved_frames,
 						   GF_OP_TYPE_FOP_REQUEST,
-						   conn->transport_timeout,
+						   conn->frame_timeout,
 						   &current);
 			if (saved_frame)
 				list_add (&saved_frame->list, &list);
@@ -253,7 +253,7 @@ call_bail (void *data)
 			saved_frame = 
 			saved_frames_get_timedout (conn->saved_frames,
 						   GF_OP_TYPE_CBK_REQUEST,
-						   conn->transport_timeout,
+						   conn->frame_timeout,
 						   &current);
 			if (saved_frame)
 				list_add (&saved_frame->list, &list);
@@ -286,8 +286,8 @@ call_bail (void *data)
 
 		gf_log (trans->xl->name, GF_LOG_ERROR,
 			"activating bail-out :"
-			"frame sent = %s. transport-timeout = %d",
-			frame_sent, conn->transport_timeout);
+			"frame sent = %s. frame-timeout = %d",
+			frame_sent, conn->frame_timeout);
 
 		hdr.type = hton32 (trav->type);
 		hdr.op   = hton32 (trav->op);
@@ -6690,7 +6690,7 @@ init (xlator_t *this)
 	transport_t               *trans = NULL;
 	client_conf_t             *conf = NULL;
 	client_connection_t       *conn = NULL;
-	int32_t                    transport_timeout = 0;
+	int32_t                    frame_timeout = 0;
 	int32_t                    ping_timeout = 0;
 	data_t                    *remote_subvolume = NULL;
 	int32_t                    ret = -1;
@@ -6715,15 +6715,15 @@ init (xlator_t *this)
 		goto out;
 	}
 
-	ret = dict_get_int32 (this->options, "transport-timeout", 
-			      &transport_timeout);
+	ret = dict_get_int32 (this->options, "frame-timeout", 
+			      &frame_timeout);
 	if (ret >= 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"setting transport-timeout to %d", transport_timeout);
+			"setting frame-timeout to %d", frame_timeout);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"defaulting transport-timeout to 600");
-		transport_timeout = 600;
+			"defaulting frame-timeout to 30mins");
+		frame_timeout = 1800;
 	}
 	
 	ret = dict_get_int32 (this->options, "ping-timeout", 
@@ -6760,7 +6760,7 @@ init (xlator_t *this)
 
 		conn->callid = 1;
 
-		conn->transport_timeout = transport_timeout;
+		conn->frame_timeout = frame_timeout;
 		conn->ping_timeout = ping_timeout;
 
 		pthread_mutex_init (&conn->lock, NULL);
@@ -7164,7 +7164,7 @@ struct volume_options options[] = {
  	{ .key   = {"remote-subvolume"}, 
 	  .type  = GF_OPTION_TYPE_ANY 
 	},
- 	{ .key   = {"transport-timeout"}, 
+ 	{ .key   = {"frame-timeout"}, 
 	  .type  = GF_OPTION_TYPE_TIME, 
 	  .min   = 5, 
 	  .max   = 1013, 
