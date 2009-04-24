@@ -25,6 +25,17 @@
 #include <pthread.h>
 #include <sys/mman.h>
 
+/* Lets try to define the new anonymous mapping
+ * flag, in case the system is still using the
+ * now deprecated MAP_ANON flag.
+ *
+ * Also, this should ideally be in a centralized/common
+ * header which can be used by other source files also.
+ */
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
 /* one allocatable unit for the consumers of the IOBUF API */
 /* each unit hosts @page_size bytes of memory */
 struct iobuf;
