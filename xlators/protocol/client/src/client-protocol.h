@@ -41,12 +41,12 @@
 
 #define RECEIVE_TIMEOUT(_cprivate,_current)         \
 		((_cprivate->last_received.tv_sec + \
-                  _cprivate->transport_timeout) <   \
+                  _cprivate->frame_timeout) <   \
                   _current.tv_sec)
 
 #define SEND_TIMEOUT(_cprivate,_current)          \
 		((_cprivate->last_sent.tv_sec +   \
-                  _cprivate->transport_timeout) < \
+                  _cprivate->frame_timeout) < \
                   _current.tv_sec)
 
 enum {
@@ -89,7 +89,7 @@ struct client_connection {
 	pthread_mutex_t      lock;
 	uint64_t             callid;
 	struct saved_frames *saved_frames;
-	int32_t              transport_timeout;
+	int32_t              frame_timeout;
 	int32_t              ping_started;
 	int32_t              ping_timeout;
 	int32_t              transport_activity;
