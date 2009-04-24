@@ -54,8 +54,8 @@ Requires(postun): /sbin/service
 %{!?_without_bdb:BuildRequires: db4-devel}
 %{!?_without_client:BuildRequires: fuse-devel}
 
-%if 0%{!?_without_modglfs}
-%if 0%{!?_without_apxs_default}
+%if 0%{!?_without_modglfs:1}
+%if 0%{!?_without_apxs_default:1}
 BuildRequires: httpd-devel >= 2.2
 %endif
 %endif
