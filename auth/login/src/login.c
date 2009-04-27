@@ -71,6 +71,8 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
 		    0)) {
 	asprintf (&searchstr, "auth.login.%s.password", username);
 	passwd_data = dict_get (config_params, searchstr);
+        FREE (searchstr);
+
 	if (!passwd_data) {
 	  gf_log ("auth/login",
 		  GF_LOG_DEBUG,
