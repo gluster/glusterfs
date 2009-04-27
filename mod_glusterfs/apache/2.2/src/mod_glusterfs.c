@@ -2999,7 +2999,7 @@ mod_glfs_index_directory (request_rec *r,
                         break;
                 }
 
-                fname = apr_pstrcat (r->pool, path, entry.d_name);
+                fname = apr_pstrcat (r->pool, path, entry.d_name, NULL);
 
                 ret = glusterfs_stat (fname, &st);
                 if (ret != 0) {
