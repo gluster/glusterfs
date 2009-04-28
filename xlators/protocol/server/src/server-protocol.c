@@ -43,18 +43,17 @@
 
 
 static void
-protocol_server_reply (call_frame_t *frame,
-                       int type, int op,
+protocol_server_reply (call_frame_t *frame, int type, int op,
                        gf_hdr_common_t *hdr, size_t hdrlen,
                        struct iovec *vector, int count,
                        struct iobref *iobref)
 {
 	server_state_t *state = NULL;
-	xlator_t *bound_xl = NULL;
-	transport_t *trans = NULL;
+	xlator_t       *bound_xl = NULL;
+	transport_t    *trans = NULL;
 
-	bound_xl = BOUND_XL(frame);
-	state    = CALL_STATE(frame);
+	bound_xl = BOUND_XL (frame);
+	state    = CALL_STATE (frame);
 	trans    = state->trans;
 
 	hdr->callid = hton64 (frame->root->unique);
@@ -77,19 +76,16 @@ protocol_server_reply (call_frame_t *frame,
 /*
  * server_fchmod_cbk
  */
-int32_t
-server_fchmod_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   struct stat *stbuf)
+int
+server_fchmod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_fchmod_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	size_t               hdrlen = 0;
+	int32_t              gf_errno = 0;
+	server_state_t      *state = NULL;
+
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -102,7 +98,7 @@ server_fchmod_cbk (call_frame_t *frame,
 	if (op_ret == 0) {
 		gf_stat_from_stat (&rsp->stat, stbuf);
 	} else {
-		state = CALL_STATE(frame);
+		state = CALL_STATE (frame);
 
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": FCHMOD %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
@@ -121,20 +117,19 @@ server_fchmod_cbk (call_frame_t *frame,
  * server_fchmod
  *
  */
-int32_t
-server_fchmod (call_frame_t *frame,
-               xlator_t *bound_xl,
+int
+server_fchmod (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
-	server_connection_t *conn = NULL;
-	gf_fop_fchmod_req_t *req = NULL;
-	server_state_t *state = NULL;
+	server_connection_t  *conn = NULL;
+	gf_fop_fchmod_req_t  *req = NULL;
+	server_state_t       *state = NULL;
 	
 	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
@@ -146,17 +141,14 @@ server_fchmod (call_frame_t *frame,
 
 	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
 
-	STACK_WIND (frame,
-		    server_fchmod_cbk,
+	STACK_WIND (frame, server_fchmod_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->fchmod,
-		    state->fd,
-		    state->mode);
+		    state->fd, state->mode);
 
 	return 0;
 fail:
-	server_fchmod_cbk (frame, NULL, frame->this,
-			   -1, EINVAL, NULL);
+	server_fchmod_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
 	return 0;
 }
 
@@ -164,19 +156,15 @@ fail:
 /*
  * server_fchown_cbk
  */
-int32_t
-server_fchown_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   struct stat *stbuf)
+int
+server_fchown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_fchown_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	size_t               hdrlen = 0;
+	int32_t              gf_errno = 0;
+	server_state_t      *state = NULL;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -208,15 +196,14 @@ server_fchown_cbk (call_frame_t *frame,
  * server_fchown
  *
  */
-int32_t
-server_fchown (call_frame_t *frame,
-               xlator_t *bound_xl,
+int
+server_fchown (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
-	server_connection_t *conn = NULL;
-	gf_fop_fchown_req_t *req = NULL;
-	server_state_t *state = NULL;
+	server_connection_t  *conn = NULL;
+	gf_fop_fchown_req_t  *req = NULL;
+	server_state_t       *state = NULL;
 
 	conn = SERVER_CONNECTION(frame);
 
@@ -234,18 +221,14 @@ server_fchown (call_frame_t *frame,
 
 	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
 
-	STACK_WIND (frame,
-		    server_fchown_cbk,
+	STACK_WIND (frame, server_fchown_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->fchown,
-		    state->fd,
-		    state->uid,
-		    state->gid);
+		    state->fd, state->uid, state->gid);
 
 	return 0;
 fail:
-	server_fchown_cbk (frame, NULL, frame->this,
-			   -1, EINVAL, NULL);
+	server_fchown_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
 	return 0;
 }
 
@@ -259,17 +242,14 @@ fail:
  *
  * not for external reference
  */
-int32_t
-server_setdents_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno)
+int
+server_setdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno)
 {
-	gf_hdr_common_t       *hdr = NULL;
-	gf_fop_setdents_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	gf_hdr_common_t        *hdr = NULL;
+	gf_fop_setdents_rsp_t  *rsp = NULL;
+	size_t                  hdrlen = 0;
+	int32_t                 gf_errno = 0;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -296,19 +276,15 @@ server_setdents_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_lk_cbk (call_frame_t *frame,
-               void *cookie,
-               xlator_t *this,
-               int32_t op_ret,
-               int32_t op_errno,
-               struct flock *lock)
+int
+server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct flock *lock)
 {
-	gf_hdr_common_t *hdr = NULL;
-	gf_fop_lk_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	gf_hdr_common_t     *hdr = NULL;
+	gf_fop_lk_rsp_t     *rsp = NULL;
+	size_t               hdrlen = 0;
+	int32_t              gf_errno = 0;
+	server_state_t      *state = NULL;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -337,16 +313,16 @@ server_lk_cbk (call_frame_t *frame,
 }
 
 
-int32_t
-server_inodelk_cbk (call_frame_t *frame, void *cookie,
-		    xlator_t *this, int32_t op_ret, int32_t op_errno)
+int
+server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno)
 {
-	server_connection_t *conn = NULL;
- 	gf_hdr_common_t *hdr = NULL;
+	server_connection_t  *conn = NULL;
+ 	gf_hdr_common_t      *hdr = NULL;
  	gf_fop_inodelk_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
- 	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t       *state = NULL;
+ 	size_t                hdrlen = 0;
+	int32_t               gf_errno = 0;
 	
 	conn = SERVER_CONNECTION(frame);
 
@@ -384,16 +360,16 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-int32_t
-server_finodelk_cbk (call_frame_t *frame, void *cookie,
-		     xlator_t *this, int32_t op_ret, int32_t op_errno)
+int
+server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno)
 {
-	server_connection_t *conn = NULL;
- 	gf_hdr_common_t *hdr = NULL;
+	server_connection_t   *conn = NULL;
+ 	gf_hdr_common_t       *hdr = NULL;
  	gf_fop_finodelk_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
- 	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t        *state = NULL;
+ 	size_t                 hdrlen = 0;
+	int32_t                gf_errno = 0;
 	
 	conn = SERVER_CONNECTION(frame);
 
@@ -442,16 +418,16 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie,
  *
  * not for external reference
  */
-int32_t
-server_entrylk_cbk (call_frame_t *frame, void *cookie,
-		    xlator_t *this, int32_t op_ret, int32_t op_errno)
+int
+server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno)
 {
-	server_connection_t *conn = NULL;
+	server_connection_t  *conn = NULL;
  	gf_hdr_common_t      *hdr = NULL;
  	gf_fop_entrylk_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
- 	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t       *state = NULL;
+ 	size_t                hdrlen = 0;
+	int32_t               gf_errno = 0;
 
 	conn = SERVER_CONNECTION(frame);
 
@@ -489,16 +465,16 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-int32_t
-server_fentrylk_cbk (call_frame_t *frame, void *cookie,
-		     xlator_t *this, int32_t op_ret, int32_t op_errno)
+int
+server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno)
 {
-	server_connection_t *conn = NULL;
+	server_connection_t   *conn = NULL;
  	gf_hdr_common_t       *hdr = NULL;
  	gf_fop_fentrylk_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
- 	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t        *state = NULL;
+ 	size_t                 hdrlen = 0;
+	int32_t                gf_errno = 0;
 
 	conn = SERVER_CONNECTION(frame);
 
@@ -543,18 +519,15 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie,
  *
  * not for external reference
  */
-int32_t
-server_access_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno)
+int
+server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_access_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t      *state = NULL;
+	size_t               hdrlen = 0;
+	int32_t              gf_errno = 0;
 
 	state = CALL_STATE(frame);
 
@@ -585,19 +558,17 @@ server_access_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_utimens_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    struct stat *stbuf)
+int
+server_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_utimens_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t       *state = NULL;
+	size_t                hdrlen = 0;
+	int32_t               gf_errno = 0;
+
+
 	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -630,19 +601,15 @@ server_utimens_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_chmod_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno,
-                  struct stat *stbuf)
+int
+server_chmod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
-	gf_hdr_common_t *hdr = NULL;
-	gf_fop_chmod_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	gf_hdr_common_t     *hdr = NULL;
+	gf_fop_chmod_rsp_t  *rsp = NULL;
+	server_state_t      *state = NULL;
+	size_t               hdrlen = 0;
+	int32_t              gf_errno = 0;
 
 	state = CALL_STATE(frame);
 
@@ -676,19 +643,15 @@ server_chmod_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_chown_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno,
-                  struct stat *stbuf)
+int
+server_chown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_chown_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	int32_t gf_errno = 0;
-	size_t  hdrlen = 0;
+	server_state_t     *state = NULL;
+	int32_t             gf_errno = 0;
+	size_t              hdrlen = 0;
 
 	state = CALL_STATE(frame);
 
@@ -721,18 +684,15 @@ server_chown_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_rmdir_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno)
+int
+server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_rmdir_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	int32_t gf_errno = 0;
-	size_t  hdrlen = 0;
+	server_state_t     *state = NULL;
+	int32_t             gf_errno = 0;
+	size_t              hdrlen = 0;
 
 	state = CALL_STATE(frame);
 
@@ -774,20 +734,16 @@ server_rmdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_mkdir_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno,
-                  inode_t *inode,
+int
+server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct stat *stbuf)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_mkdir_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t     *state = NULL;
+	size_t              hdrlen = 0;
+	int32_t             gf_errno = 0;
 
 	state = CALL_STATE(frame);
 
@@ -829,20 +785,16 @@ server_mkdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_mknod_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno,
-                  inode_t *inode,
-                  struct stat *stbuf)
+int
+server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno,
+                  inode_t *inode, struct stat *stbuf)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_mknod_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	int32_t gf_errno = 0;
-	size_t  hdrlen = 0;
+	server_state_t     *state = NULL;
+	int32_t             gf_errno = 0;
+	size_t              hdrlen = 0;
 
 	state = CALL_STATE(frame);
 
@@ -883,18 +835,15 @@ server_mknod_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_fsyncdir_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno)
+int
+server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_fsyncdir_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	size_t                 hdrlen = 0;
+	int32_t                gf_errno = 0;
+	server_state_t        *state = NULL;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -933,26 +882,22 @@ server_fsyncdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_getdents_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     dir_entry_t *entries,
+int
+server_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, dir_entry_t *entries,
                      int32_t count)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_getdents_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t vec_count = 0;
-	int32_t gf_errno = 0;
-        struct iobref *iobref = NULL;
-        struct iobuf *iobuf = NULL;
-	size_t  buflen = 0;
-	struct iovec vector[1];
-	server_state_t *state = NULL;
-	
+	size_t                 hdrlen = 0;
+	int32_t                vec_count = 0;
+	int32_t                gf_errno = 0;
+        struct iobref         *iobref = NULL;
+        struct iobuf          *iobuf = NULL;
+	size_t                 buflen = 0;
+	struct iovec           vector[1];
+	server_state_t        *state = NULL;
+
 	state = CALL_STATE(frame);
 
 	if (op_ret >= 0) {
@@ -1033,20 +978,16 @@ out:
  *
  * not for external reference
  */
-int32_t
-server_readdir_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    gf_dirent_t *entries)
+int
+server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_readdir_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	size_t  buf_size = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	size_t                hdrlen = 0;
+	size_t                buf_size = 0;
+	int32_t               gf_errno = 0;
+	server_state_t       *state = NULL;
 
 	if (op_ret > 0)
 		buf_size = gf_dirent_serialize (entries, NULL, 0);
@@ -1089,17 +1030,14 @@ server_readdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_releasedir_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno)
+int
+server_releasedir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		       int32_t op_ret, int32_t op_errno)
 {
 	gf_hdr_common_t         *hdr = NULL;
 	gf_cbk_releasedir_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	size_t                   hdrlen = 0;
+	int32_t                  gf_errno = 0;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1127,24 +1065,20 @@ server_releasedir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_opendir_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    fd_t *fd)
+int
+server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-	server_connection_t *conn = NULL;
-	gf_hdr_common_t      *hdr = NULL;
-	gf_fop_opendir_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t   hdrlen = 0;
-	int32_t  gf_errno = 0;
+	server_connection_t   *conn = NULL;
+	gf_hdr_common_t       *hdr = NULL;
+	gf_fop_opendir_rsp_t  *rsp = NULL;
+	server_state_t        *state = NULL;
+	size_t                 hdrlen = 0;
+	int32_t                gf_errno = 0;
 
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	if (op_ret >= 0) {
 		fd_bind (fd);
@@ -1190,21 +1124,17 @@ server_opendir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_statfs_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   struct statvfs *buf)
+int
+server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct statvfs *buf)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_statfs_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t      *state = NULL;
+	size_t               hdrlen = 0;
+	int32_t              gf_errno = 0;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1236,20 +1166,17 @@ server_statfs_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_removexattr_cbk (call_frame_t *frame,
-                        void *cookie,
-                        xlator_t *this,
-                        int32_t op_ret,
-                        int32_t op_errno)
+int
+server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno)
 {
 	gf_hdr_common_t          *hdr = NULL;
 	gf_fop_removexattr_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t           *state = NULL;
+	size_t                    hdrlen = 0;
+	int32_t                   gf_errno = 0;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1278,23 +1205,19 @@ server_removexattr_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_getxattr_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     dict_t *dict)
+int
+server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_getxattr_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t len = 0;
-	int32_t gf_errno = 0;
-	int32_t ret = -1;
+	server_state_t        *state = NULL;
+	size_t                 hdrlen = 0;
+	int32_t                len = 0;
+	int32_t                gf_errno = 0;
+	int32_t                ret = -1;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	if (op_ret >= 0) {
 		len = dict_serialized_length (dict);
@@ -1339,23 +1262,19 @@ server_getxattr_cbk (call_frame_t *frame,
 }
 
 
-int32_t
-server_fgetxattr_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno,
-                      dict_t *dict)
+int
+server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-	gf_hdr_common_t       *hdr  = NULL;
+	gf_hdr_common_t        *hdr  = NULL;
 	gf_fop_fgetxattr_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t len = 0;
-	int32_t gf_errno = 0;
-	int32_t ret = -1;
+	server_state_t         *state = NULL;
+	size_t                  hdrlen = 0;
+	int32_t                 len = 0;
+	int32_t                 gf_errno = 0;
+	int32_t                 ret = -1;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	if (op_ret >= 0) {
 		len = dict_serialized_length (dict);
@@ -1409,19 +1328,17 @@ server_fgetxattr_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_setxattr_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno)
+int
+server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno)
 {
-	gf_hdr_common_t       *hdr = NULL;
-	gf_fop_setxattr_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	state = CALL_STATE(frame);
+	gf_hdr_common_t        *hdr = NULL;
+	gf_fop_setxattr_rsp_t  *rsp = NULL;
+	server_state_t         *state = NULL;
+	size_t                  hdrlen = 0;
+	int32_t                 gf_errno = 0;
+
+	state = CALL_STATE (frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1440,18 +1357,16 @@ server_setxattr_cbk (call_frame_t *frame,
 }
 
 
-int32_t
-server_fsetxattr_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno)
+int
+server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno)
 {
 	gf_hdr_common_t        *hdr = NULL;
 	gf_fop_fsetxattr_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t         *state = NULL;
+	size_t                  hdrlen = 0;
+	int32_t                 gf_errno = 0;
+
 	state = CALL_STATE(frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -1479,19 +1394,15 @@ server_fsetxattr_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_rename_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   struct stat *stbuf)
+int
+server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_rename_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t      *state = NULL;
+	size_t               hdrlen = 0;
+	int32_t              gf_errno = 0;
 
 	state = CALL_STATE(frame);
 
@@ -1541,18 +1452,15 @@ server_rename_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_unlink_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno)
+int
+server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno)
 {
-	gf_hdr_common_t     *hdr = NULL;
-	gf_fop_unlink_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	gf_hdr_common_t      *hdr = NULL;
+	gf_fop_unlink_rsp_t  *rsp = NULL;
+	server_state_t       *state = NULL;
+	size_t                hdrlen = 0;
+	int32_t               gf_errno = 0;
 
 	state = CALL_STATE(frame);
 
@@ -1598,20 +1506,16 @@ server_unlink_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_symlink_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    inode_t *inode,
+int
+server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                     struct stat *stbuf)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_symlink_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t       *state = NULL;
+	size_t                hdrlen = 0;
+	int32_t               gf_errno = 0;
 
 	state = CALL_STATE(frame);
 
@@ -1654,20 +1558,16 @@ server_symlink_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_link_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 inode_t *inode,
+int
+server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, inode_t *inode,
                  struct stat *stbuf)
 {
 	gf_hdr_common_t   *hdr = NULL;
 	gf_fop_link_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	int32_t gf_errno = 0;
-	size_t  hdrlen = 0;
+	server_state_t    *state = NULL;
+	int32_t            gf_errno = 0;
+	size_t             hdrlen = 0;
 
 	state = CALL_STATE(frame);
 
@@ -1684,8 +1584,10 @@ server_link_cbk (call_frame_t *frame,
 		gf_stat_from_stat (&rsp->stat, stbuf);
 		gf_log (state->bound_xl->name, GF_LOG_TRACE,
 			"%"PRId64": LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s",
-			frame->root->unique, inode->ino, state->loc2.parent->ino, 
-			state->loc2.name, state->loc.parent->ino, state->loc.name);
+			frame->root->unique, inode->ino,
+                        state->loc2.parent->ino, 
+			state->loc2.name, state->loc.parent->ino,
+                        state->loc.name);
 
 		inode_link (inode, state->loc2.parent, 
 			    state->loc2.name, stbuf);
@@ -1693,8 +1595,10 @@ server_link_cbk (call_frame_t *frame,
 		gf_log (state->bound_xl->name, GF_LOG_DEBUG,
 			"%"PRId64": LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s "
 			" ==> %"PRId32" (%s)",
-			frame->root->unique, inode->ino, state->loc2.parent->ino, 
-			state->loc2.name, state->loc.parent->ino, state->loc.name,
+			frame->root->unique, inode->ino,
+                        state->loc2.parent->ino, 
+			state->loc2.name, state->loc.parent->ino,
+                        state->loc.name,
 			op_ret, strerror (op_errno));
 	}
 
@@ -1719,21 +1623,17 @@ server_link_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_truncate_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     struct stat *stbuf)
+int
+server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_truncate_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t        *state = NULL;
+	size_t                 hdrlen = 0;
+	int32_t                gf_errno = 0;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1772,19 +1672,15 @@ server_truncate_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_fstat_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno,
-                  struct stat *stbuf)
+int
+server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_fstat_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	size_t              hdrlen = 0;
+	int32_t             gf_errno = 0;
+	server_state_t     *state = NULL;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1823,19 +1719,15 @@ server_fstat_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_ftruncate_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno,
-                      struct stat *stbuf)
+int
+server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
 	gf_hdr_common_t        *hdr = NULL;
 	gf_fop_ftruncate_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	size_t                  hdrlen = 0;
+	int32_t                 gf_errno = 0;
+	server_state_t         *state = NULL;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -1848,7 +1740,7 @@ server_ftruncate_cbk (call_frame_t *frame,
 	if (op_ret == 0) {
 		gf_stat_from_stat (&rsp->stat, stbuf);
 	} else {
-		state = CALL_STATE(frame);
+		state = CALL_STATE (frame);
 
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": FTRUNCATE %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
@@ -1874,18 +1766,15 @@ server_ftruncate_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_flush_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno)
+int
+server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_flush_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	size_t              hdrlen = 0;
+	int32_t             gf_errno = 0;
+	server_state_t     *state = NULL;
 
 	if (op_ret < 0) {
 		state = CALL_STATE(frame);
@@ -1920,18 +1809,15 @@ server_flush_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_fsync_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno)
+int
+server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_fsync_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	size_t              hdrlen = 0;
+	int32_t             gf_errno = 0;
+	server_state_t     *state = NULL;
 
 	if (op_ret < 0) {
 		state = CALL_STATE(frame);
@@ -1966,17 +1852,14 @@ server_fsync_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_release_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+int
+server_release_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		    int32_t op_ret, int32_t op_errno)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_cbk_release_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	size_t                hdrlen = 0;
+	int32_t               gf_errno = 0;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2003,19 +1886,15 @@ server_release_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-server_writev_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   struct stat *stbuf)
+int
+server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_write_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	size_t              hdrlen = 0;
+	int32_t             gf_errno = 0;
+	server_state_t     *state = NULL;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2037,8 +1916,7 @@ server_writev_cbk (call_frame_t *frame,
 			strerror (op_errno));
 	}
 
-	protocol_server_reply (frame,
-			       GF_OP_TYPE_FOP_REPLY, GF_FOP_WRITE,
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_WRITE,
 			       hdr, hdrlen, NULL, 0, NULL);
 
 	return 0;
@@ -2057,22 +1935,17 @@ server_writev_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_readv_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno,
-                  struct iovec *vector,
-                  int32_t count,
-                  struct stat *stbuf,
-                  struct iobref *iobref)
+int
+server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno,
+                  struct iovec *vector, int32_t count,
+                  struct stat *stbuf, struct iobref *iobref)
 {
 	gf_hdr_common_t   *hdr = NULL;
 	gf_fop_read_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
-	server_state_t *state = NULL;
+	size_t             hdrlen = 0;
+	int32_t            gf_errno = 0;
+	server_state_t    *state = NULL;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2112,24 +1985,20 @@ server_readv_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_open_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 fd_t *fd)
+int
+server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-	server_connection_t *conn = NULL;
-	gf_hdr_common_t   *hdr = NULL;
-	gf_fop_open_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_connection_t  *conn = NULL;
+	gf_hdr_common_t      *hdr = NULL;
+	gf_fop_open_rsp_t    *rsp = NULL;
+	server_state_t       *state = NULL;
+	size_t                hdrlen = 0;
+	int32_t               gf_errno = 0;
 
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	if (op_ret >= 0) {
 		fd_bind (fd);
@@ -2178,26 +2047,21 @@ server_open_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_create_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   fd_t *fd,
-                   inode_t *inode,
-                   struct stat *stbuf)
+int
+server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno,
+                   fd_t *fd, inode_t *inode, struct stat *stbuf)
 {
 	server_connection_t *conn = NULL;
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_create_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t      *state = NULL;
+	size_t               hdrlen = 0;
+	int32_t              gf_errno = 0;
 	
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	if (op_ret >= 0) {
 		gf_log (state->bound_xl->name, GF_LOG_TRACE,
@@ -2260,20 +2124,16 @@ server_create_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_readlink_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     const char *buf)
+int
+server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, const char *buf)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_readlink_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	size_t  linklen = 0;
-	int32_t gf_errno = 0;
+	server_state_t        *state = NULL;
+	size_t                 hdrlen = 0;
+	size_t                 linklen = 0;
+	int32_t                gf_errno = 0;
 
 	state  = CALL_STATE(frame);
 
@@ -2317,21 +2177,17 @@ server_readlink_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_stat_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 struct stat *stbuf)
+int
+server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
 	gf_hdr_common_t   *hdr = NULL;
 	gf_fop_stat_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	server_state_t    *state = NULL;
+	size_t             hdrlen = 0;
+	int32_t            gf_errno = 0;
 
-	state  = CALL_STATE(frame);
+	state  = CALL_STATE (frame);
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2369,17 +2225,14 @@ server_stat_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_forget_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno)
+int
+server_forget_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_cbk_forget_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	size_t               hdrlen = 0;
+	int32_t              gf_errno = 0;
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
@@ -2408,29 +2261,24 @@ server_forget_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_lookup_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   inode_t *inode,
-                   struct stat *stbuf,
-                   dict_t *dict)
+int
+server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno,
+                   inode_t *inode, struct stat *stbuf, dict_t *dict)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_lookup_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	inode_t *root_inode = NULL;
-	int32_t  dict_len = 0;
-	size_t   hdrlen = 0;
-	int32_t  gf_errno = 0;
-	int32_t  ret = -1;
+	server_state_t      *state = NULL;
+	inode_t             *root_inode = NULL;
+	int32_t              dict_len = 0;
+	size_t               hdrlen = 0;
+	int32_t              gf_errno = 0;
+	int32_t              ret = -1;
+        loc_t                loc = {0,};
 
 	state = CALL_STATE(frame);
 	if ((op_errno == ESTALE) && (op_ret == -1)) {
 		/* Send lookup again with new ctx dictionary */
-		loc_t loc = {0,};
 
 		root_inode = BOUND_XL(frame)->itable->root;
 		if (state->loc.inode != root_inode) {
@@ -2441,6 +2289,7 @@ server_lookup_cbk (call_frame_t *frame,
 		loc.inode = state->loc.inode;
 		loc.path = state->path;
 		state->is_revalidate = 2;
+
 		STACK_WIND (frame, server_lookup_cbk,
 			    BOUND_XL(frame),
 			    BOUND_XL(frame)->fops->lookup,
@@ -2515,23 +2364,19 @@ server_lookup_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-server_xattrop_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    dict_t *dict)
+int
+server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		    int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-	gf_hdr_common_t      *hdr = NULL;
-	gf_fop_xattrop_rsp_t *rsp = NULL;
-	server_state_t *state = NULL;
-	size_t  hdrlen = 0;
-	int32_t len = 0;
-	int32_t gf_errno = 0;
-	int32_t ret = -1;
+	gf_hdr_common_t       *hdr = NULL;
+	gf_fop_xattrop_rsp_t  *rsp = NULL;
+	server_state_t        *state = NULL;
+	size_t                 hdrlen = 0;
+	int32_t                len = 0;
+	int32_t                gf_errno = 0;
+	int32_t                ret = -1;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 	
 	if (op_ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -2583,21 +2428,18 @@ server_xattrop_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-server_fxattrop_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     dict_t *dict)
+
+int
+server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		     int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_xattrop_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t len = 0;
-	int32_t gf_errno = 0;
-	int32_t ret = -1;
-	server_state_t *state = NULL;
+	size_t                hdrlen = 0;
+	int32_t               len = 0;
+	int32_t               gf_errno = 0;
+	int32_t               ret = -1;
+	server_state_t       *state = NULL;
 	
 	state = CALL_STATE(frame);
 	
@@ -2666,23 +2508,24 @@ server_fxattrop_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_stub_resume (call_stub_t *stub,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    inode_t *inode,
-		    inode_t *parent)
+int
+server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
+		    inode_t *inode, inode_t *parent)
 {
-	inode_t *server_inode = inode;
+	inode_t    *server_inode = NULL;
+        loc_t      *newloc = NULL;
+        dict_t     *dict = NULL;
+
+        server_inode = inode;
 
 	if (!stub) {
 		return 0;
 	}
+
 	switch (stub->fop)
 	{
 	case GF_FOP_RENAME:
 		if (stub->args.rename.old.inode == NULL) {
-			loc_t *newloc = NULL;
 			/* now we are called by lookup of oldpath. */
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, GF_LOG_DEBUG,
@@ -2699,12 +2542,9 @@ server_stub_resume (call_stub_t *stub,
 				 * server_rename_cbk with ret=-1 and 
 				 * errno=ENOENT 
 				 */
-				server_rename_cbk (stub->frame,
-						   NULL,
+				server_rename_cbk (stub->frame, NULL,
 						   stub->frame->this,
-						   -1,
-						   ENOENT,
-						   NULL);
+						   -1, ENOENT, NULL);
 				server_loc_wipe (&stub->args.rename.old);
 				server_loc_wipe (&stub->args.rename.new);
 				FREE (stub);
@@ -2763,12 +2603,8 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 			
-			server_open_cbk (stub->frame,
-					 NULL,
-					 stub->frame->this,
-					 -1,
-					 ENOENT,
-					 NULL);
+			server_open_cbk (stub->frame, NULL, stub->frame->this,
+					 -1, ENOENT, NULL);
 			FREE (stub->args.open.loc.path);
 			FREE (stub);
 			return 0;
@@ -2796,12 +2632,9 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 			
-			server_lookup_cbk (stub->frame,
-					   NULL,
-					   stub->frame->this,
-					   -1, ENOENT,
-					   NULL, NULL,
-					   NULL);
+			server_lookup_cbk (stub->frame, NULL,
+                                           stub->frame->this, -1, ENOENT,
+					   NULL, NULL, NULL);
 			server_loc_wipe (&stub->args.lookup.loc);
 			FREE (stub);
 			return 0;
@@ -2830,11 +2663,8 @@ server_stub_resume (call_stub_t *stub,
 				stub->args.stat.loc.path,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
-			server_stat_cbk (stub->frame,
-					 NULL,
-					 stub->frame->this,
-					 -1, ENOENT,
-					 NULL);
+			server_stat_cbk (stub->frame, NULL, stub->frame->this,
+					 -1, ENOENT, NULL);
 			server_loc_wipe (&stub->args.stat.loc);
 			FREE (stub);
 			return 0;
@@ -2862,11 +2692,9 @@ server_stub_resume (call_stub_t *stub,
 				stub->args.xattrop.loc.path,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
-			server_xattrop_cbk (stub->frame,
-					    NULL,
-					    stub->frame->this,
-					    -1, ENOENT,
-					    NULL);
+			server_xattrop_cbk (stub->frame, NULL,
+                                            stub->frame->this, -1, ENOENT,
+                                            NULL);
 			server_loc_wipe (&stub->args.xattrop.loc);
 			FREE (stub);
 			return 0;
@@ -2896,8 +2724,7 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 			server_unlink_cbk (stub->frame, NULL,
-					   stub->frame->this, 
-					   -1, ENOENT);
+                                           stub->frame->this, -1, ENOENT);
 			server_loc_wipe (&stub->args.unlink.loc);
 			FREE (stub);
 			return 0;
@@ -2926,8 +2753,7 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 			server_symlink_cbk (stub->frame, NULL,
-					    stub->frame->this, 
-					    -1, ENOENT,
+                                            stub->frame->this, -1, ENOENT,
 					    NULL, NULL);
 			server_loc_wipe (&stub->args.symlink.loc);
 			FREE (stub);
@@ -2956,11 +2782,8 @@ server_stub_resume (call_stub_t *stub,
 				stub->args.rmdir.loc.path,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
-			server_rmdir_cbk (stub->frame,
-					  NULL,
-					  stub->frame->this,
-					  -1,
-					  ENOENT);
+			server_rmdir_cbk (stub->frame, NULL, stub->frame->this,
+					  -1, ENOENT);
 			server_loc_wipe (&stub->args.rmdir.loc);
 			FREE (stub);
 			return 0;
@@ -2987,12 +2810,8 @@ server_stub_resume (call_stub_t *stub,
 				stub->args.chmod.loc.path,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
-			server_chmod_cbk (stub->frame,
-					  NULL,
-					  stub->frame->this,
-					  -1,
-					  ENOENT,
-					  NULL);
+			server_chmod_cbk (stub->frame, NULL, stub->frame->this,
+					  -1, ENOENT, NULL);
 			server_loc_wipe (&stub->args.chmod.loc);
 			FREE (stub);
 			return 0;
@@ -3019,12 +2838,8 @@ server_stub_resume (call_stub_t *stub,
 				stub->args.chown.loc.path,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
-			server_chown_cbk (stub->frame,
-					  NULL,
-					  stub->frame->this,
-					  -1,
-					  ENOENT,
-					  NULL);
+			server_chown_cbk (stub->frame, NULL, stub->frame->this,
+					  -1, ENOENT, NULL);
 			server_loc_wipe (&stub->args.chown.loc);
 			FREE (stub);
 			return 0;
@@ -3055,10 +2870,8 @@ server_stub_resume (call_stub_t *stub,
 					BOUND_XL(stub->frame)->name,
 					op_ret, op_errno);
 
-				server_link_cbk (stub->frame,
-						 NULL,
-						 stub->frame->this,
-						 -1, ENOENT,
+				server_link_cbk (stub->frame, NULL,
+						 stub->frame->this, -1, ENOENT,
 						 NULL, NULL);
 				server_loc_wipe (&stub->args.link.oldloc);
 				server_loc_wipe (&stub->args.link.newloc);
@@ -3096,9 +2909,8 @@ server_stub_resume (call_stub_t *stub,
 					op_ret, op_errno);
 
 				server_link_cbk (stub->frame, NULL,
-						 stub->frame->this, 
-						 -1, ENOENT, 
-						 NULL, NULL);
+						 stub->frame->this, -1, ENOENT,
+                                                 NULL, NULL);
 
 				server_loc_wipe (&stub->args.link.oldloc);
 				server_loc_wipe (&stub->args.link.newloc);
@@ -3135,10 +2947,8 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_truncate_cbk (stub->frame,
-					     NULL,
-					     stub->frame->this,
-					     -1, ENOENT,
+			server_truncate_cbk (stub->frame, NULL,
+                                             stub->frame->this, -1, ENOENT,
 					     NULL);
 			server_loc_wipe (&stub->args.truncate.loc);
 			FREE (stub);
@@ -3168,11 +2978,9 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_statfs_cbk (stub->frame,
-					   NULL,
-					   stub->frame->this,
-					   -1, ENOENT,
-					   NULL);
+			server_statfs_cbk (stub->frame, NULL,
+                                           stub->frame->this, -1, ENOENT,
+                                           NULL);
 			server_loc_wipe (&stub->args.statfs.loc);
 			FREE (stub);
 			return 0;
@@ -3191,7 +2999,7 @@ server_stub_resume (call_stub_t *stub,
 
 	case GF_FOP_SETXATTR:
 	{
-		dict_t *dict = stub->args.setxattr.dict;
+		dict = stub->args.setxattr.dict;
 		if (op_ret < 0) {
 			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
 				"%"PRId64": SETXATTR (%s) on %s returning error: "
@@ -3201,10 +3009,8 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_setxattr_cbk (stub->frame,
-					     NULL,
-					     stub->frame->this,
-					     -1, ENOENT);
+			server_setxattr_cbk (stub->frame, NULL,
+                                             stub->frame->this, -1, ENOENT);
 
 			server_loc_wipe (&stub->args.setxattr.loc);
 			dict_unref (dict);
@@ -3237,10 +3043,8 @@ server_stub_resume (call_stub_t *stub,
 				stub->args.getxattr.name : "<nul>",
 				op_ret, op_errno);
 
-			server_getxattr_cbk (stub->frame,
-					     NULL,
-					     stub->frame->this,
-					     -1, ENOENT,
+			server_getxattr_cbk (stub->frame, NULL,
+					     stub->frame->this, -1, ENOENT,
 					     NULL);
 			server_loc_wipe (&stub->args.getxattr.loc);
 			FREE (stub);
@@ -3271,10 +3075,8 @@ server_stub_resume (call_stub_t *stub,
 				stub->args.removexattr.name,
 				op_ret, op_errno);
 
-			server_removexattr_cbk (stub->frame,
-						NULL,
-						stub->frame->this,
-						-1,
+			server_removexattr_cbk (stub->frame, NULL,
+						stub->frame->this, -1,
 						ENOENT);
 			server_loc_wipe (&stub->args.removexattr.loc);
 			FREE (stub);
@@ -3305,10 +3107,8 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_opendir_cbk (stub->frame,
-					    NULL,
-					    stub->frame->this,
-					    -1, ENOENT,
+			server_opendir_cbk (stub->frame, NULL,
+					    stub->frame->this, -1, ENOENT,
 					    NULL);
 			server_loc_wipe (&stub->args.opendir.loc);
 			FREE (stub);
@@ -3338,10 +3138,8 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_access_cbk (stub->frame,
-					   NULL,
-					   stub->frame->this,
-					   -1, ENOENT);
+			server_access_cbk (stub->frame, NULL,
+                                           stub->frame->this, -1, ENOENT);
 			server_loc_wipe (&stub->args.access.loc);
 			FREE (stub);
 			return 0;
@@ -3370,10 +3168,8 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_utimens_cbk (stub->frame,
-					    NULL,
-					    stub->frame->this,
-					    -1, ENOENT,
+			server_utimens_cbk (stub->frame, NULL,
+                                            stub->frame->this, -1, ENOENT,
 					    NULL);
 			server_loc_wipe (&stub->args.utimens.loc);
 			FREE (stub);
@@ -3403,10 +3199,8 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_readlink_cbk (stub->frame,
-					     NULL,
-					     stub->frame->this,
-					     -1, ENOENT,
+			server_readlink_cbk (stub->frame, NULL,
+					     stub->frame->this, -1, ENOENT,
 					     NULL);
 			server_loc_wipe (&stub->args.readlink.loc);
 			FREE (stub);
@@ -3435,10 +3229,8 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_mkdir_cbk (stub->frame,
-					  NULL,
-					  stub->frame->this,
-					  -1, ENOENT,
+			server_mkdir_cbk (stub->frame, NULL,
+					  stub->frame->this, -1, ENOENT,
 					  NULL, NULL);
 			server_loc_wipe (&stub->args.mkdir.loc);
 			FREE (stub);
@@ -3468,12 +3260,9 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_create_cbk (stub->frame,
-					   NULL,
-					   stub->frame->this,
-					   -1, ENOENT,
-					   NULL, NULL,
-					   NULL);
+			server_create_cbk (stub->frame, NULL,
+					   stub->frame->this, -1, ENOENT,
+					   NULL, NULL, NULL);
 			if (stub->args.create.fd)
 				fd_unref (stub->args.create.fd);
 			server_loc_wipe (&stub->args.create.loc);
@@ -3504,11 +3293,9 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_mknod_cbk (stub->frame,
-					  NULL,
-					  stub->frame->this,
-					  -1, ENOENT,
-					  NULL, NULL);
+			server_mknod_cbk (stub->frame, NULL,
+					  stub->frame->this, -1, ENOENT, NULL,
+                                          NULL);
 			server_loc_wipe (&stub->args.mknod.loc);
 			FREE (stub);
 			break;
@@ -3537,10 +3324,8 @@ server_stub_resume (call_stub_t *stub,
 				stub->args.entrylk.name : "<nul>",
 				op_ret, op_errno);
 
-			server_entrylk_cbk (stub->frame,
-					    NULL,
-					    stub->frame->this,
-					    -1, ENOENT);
+			server_entrylk_cbk (stub->frame, NULL,
+					    stub->frame->this, -1, ENOENT);
 			server_loc_wipe (&stub->args.entrylk.loc);
 			FREE (stub);
 			break;
@@ -3567,10 +3352,8 @@ server_stub_resume (call_stub_t *stub,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 
-			server_inodelk_cbk (stub->frame,
-					    NULL,
-					    stub->frame->this,
-					    -1, ENOENT);
+			server_inodelk_cbk (stub->frame, NULL,
+                                            stub->frame->this, -1, ENOENT);
 			server_loc_wipe (&stub->args.inodelk.loc);
 			FREE (stub);
 			break;
@@ -3594,10 +3377,8 @@ server_stub_resume (call_stub_t *stub,
 	return 0;
 }
 
-static int
-server_lookup_resume (call_frame_t *frame,
-		      xlator_t *this,
-		      loc_t *loc,
+int
+server_lookup_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
 		      dict_t *xattr_req)
 {
 	server_state_t *state = NULL;
@@ -3626,12 +3407,10 @@ server_lookup_resume (call_frame_t *frame,
 		"%"PRId64": LOOKUP \'%"PRId64"/%s\'", 
 		frame->root->unique, state->par, state->bname);
 
-	STACK_WIND (frame,
-		    server_lookup_cbk,
+	STACK_WIND (frame, server_lookup_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->lookup,
-		    &(state->loc),
-		    xattr_req);
+		    &(state->loc), xattr_req);
 	return 0;
 }
 
@@ -3644,19 +3423,19 @@ server_lookup_resume (call_frame_t *frame,
  * not for external reference
  */
 int
-server_lookup (call_frame_t *frame,
-               xlator_t *bound_xl,
+server_lookup (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
 	gf_fop_lookup_req_t *req = NULL;
 	server_state_t      *state = NULL;
-	call_stub_t *lookup_stub = NULL;
-	int32_t      ret = -1;
-	size_t pathlen = 0, baselen = 0;
-	size_t dictlen = 0;
-	dict_t *xattr_req = NULL;
-	char   *req_dictbuf = NULL;
+	call_stub_t         *lookup_stub = NULL;
+	int32_t              ret = -1;
+	size_t               pathlen = 0;
+        size_t               baselen = 0;
+	size_t               dictlen = 0;
+	dict_t              *xattr_req = NULL;
+	char                *req_dictbuf = NULL;
 
 	req = gf_param (hdr);
 
@@ -3682,13 +3461,15 @@ server_lookup (call_frame_t *frame,
 
 		if (dictlen) {
 			/* Unserialize the dictionary */
-			req_dictbuf = memdup (req->dict + pathlen + baselen, dictlen);
+			req_dictbuf = memdup (req->dict + pathlen + baselen,
+                                              dictlen);
 			GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
 			
 			xattr_req = dict_new ();
 			GF_VALIDATE_OR_GOTO(bound_xl->name, xattr_req, fail);
 
-			ret = dict_unserialize (req_dictbuf, dictlen, &xattr_req);
+			ret = dict_unserialize (req_dictbuf, dictlen,
+                                                &xattr_req);
 			if (ret < 0) {
 				gf_log (bound_xl->name, GF_LOG_ERROR,
 					"%"PRId64": %s (%"PRId64"): failed to "
@@ -3705,9 +3486,8 @@ server_lookup (call_frame_t *frame,
 		}
 	}
 
-	ret = server_loc_fill (&state->loc, state,
-			       state->ino, state->par, state->bname,
-			       state->path);
+	ret = server_loc_fill (&state->loc, state, state->ino, state->par,
+                               state->bname, state->path);
 
  	if (state->loc.inode) {
 		/* revalidate */
@@ -3729,9 +3509,8 @@ server_lookup (call_frame_t *frame,
 	
 	return 0;
 fail:
-	server_lookup_cbk (frame, NULL, frame->this,
-			   -1,EINVAL,
-			   NULL, NULL, NULL);
+	server_lookup_cbk (frame, NULL, frame->this, -1,EINVAL, NULL, NULL,
+                           NULL);
 	if (xattr_req)
 		dict_unref (xattr_req);
 
@@ -3747,15 +3526,15 @@ fail:
  *
  * not for external reference
  */
-int32_t
+int
 server_forget (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
-	int index = 0;
-	ino_t ino = 0;
-	int32_t count = 0;
-	inode_t *inode = NULL;
+	int                  index = 0;
+	ino_t                ino = 0;
+	int32_t              count = 0;
+	inode_t             *inode = NULL;
 	gf_cbk_forget_req_t *req = NULL;
 
 	req = gf_param (hdr);
@@ -3791,11 +3570,8 @@ server_forget (call_frame_t *frame, xlator_t *bound_xl,
 }
 
 
-
-int32_t
-server_stat_resume (call_frame_t *frame,
-                    xlator_t *this,
-                    loc_t *loc)
+int
+server_stat_resume (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	server_state_t *state = NULL;
 	
@@ -3805,8 +3581,7 @@ server_stat_resume (call_frame_t *frame,
 		"%"PRId64": STAT \'%s (%"PRId64")\'", 
 		frame->root->unique, state->loc.path, state->loc.ino);
 
-	STACK_WIND (frame,
-		    server_stat_cbk,
+	STACK_WIND (frame, server_stat_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->stat,
 		    loc);
@@ -3821,17 +3596,16 @@ server_stat_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_stat (call_frame_t *frame,
-             xlator_t *bound_xl,
+int
+server_stat (call_frame_t *frame, xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
              struct iobuf *iobuf)
 {
-	call_stub_t *stat_stub = NULL;
+	call_stub_t       *stat_stub = NULL;
 	gf_fop_stat_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
+	server_state_t    *state = NULL;
+	int32_t            ret = -1;
+	size_t             pathlen = 0;
 
 	req = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -3840,12 +3614,10 @@ server_stat (call_frame_t *frame,
 	state->path = req->path;
 	pathlen = STRLEN_0(state->path);
 
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, state->par, state->bname,
-			       state->path);
+	ret = server_loc_fill (&(state->loc), state, state->ino, state->par,
+                               state->bname, state->path);
 
-	stat_stub = fop_stat_stub (frame,
-				   server_stat_resume,
+	stat_stub = fop_stat_stub (frame, server_stat_resume,
 				   &(state->loc));
 	GF_VALIDATE_OR_GOTO(bound_xl->name, stat_stub, fail);
 
@@ -3857,17 +3629,13 @@ server_stat (call_frame_t *frame,
 	}
 	return 0;
 fail:
-	server_stat_cbk (frame, NULL, frame->this,
-			 -1, EINVAL,
-			 NULL);
+	server_stat_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
 	return 0;
 }
 
 
-int32_t
-server_readlink_resume (call_frame_t *frame,
-                        xlator_t *this,
-                        loc_t *loc,
+int
+server_readlink_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         size_t size)
 {
 	server_state_t *state = NULL;
@@ -3878,12 +3646,10 @@ server_readlink_resume (call_frame_t *frame,
 		"%"PRId64": READLINK \'%s (%"PRId64")\'", 
 		frame->root->unique, state->loc.path, state->loc.ino);
 
-	STACK_WIND (frame,
-		    server_readlink_cbk,
+	STACK_WIND (frame, server_readlink_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->readlink,
-		    loc,
-		    size);
+		    loc, size);
 	return 0;
 }
 
@@ -3895,16 +3661,15 @@ server_readlink_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_readlink (call_frame_t *frame,
-                 xlator_t *bound_xl,
+int
+server_readlink (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	call_stub_t *readlink_stub = NULL;
+	call_stub_t           *readlink_stub = NULL;
 	gf_fop_readlink_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
+	server_state_t        *state = NULL;
+	int32_t                ret = -1;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -3914,13 +3679,11 @@ server_readlink (call_frame_t *frame,
 	state->ino  = ntoh64 (req->ino);
 	state->path = req->path;
 
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
+	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
+                               state->path);
 
-	readlink_stub = fop_readlink_stub (frame,
-					   server_readlink_resume,
-					   &(state->loc),
-					   state->size);
+	readlink_stub = fop_readlink_stub (frame, server_readlink_resume,
+					   &(state->loc), state->size);
 	GF_VALIDATE_OR_GOTO(bound_xl->name, readlink_stub, fail);
 
 	if ((state->loc.parent == NULL) ||
@@ -3931,21 +3694,17 @@ server_readlink (call_frame_t *frame,
 	}
 	return 0;
 fail:
-	server_readlink_cbk (frame, NULL,frame->this,
-			     -1, EINVAL,
-			     NULL);
+	server_readlink_cbk (frame, NULL,frame->this, -1, EINVAL, NULL);
 	return 0;
 }
 
-int32_t
-server_create_resume (call_frame_t *frame,
-		      xlator_t *this,
-		      loc_t *loc,
-		      int32_t flags,
-		      mode_t mode,
-		      fd_t *fd)
+int
+server_create_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
+		      int32_t flags, mode_t mode, fd_t *fd)
 {
-	server_state_t *state = CALL_STATE(frame);
+	server_state_t *state = NULL;
+
+        state = CALL_STATE(frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
@@ -3963,20 +3722,15 @@ server_create_resume (call_frame_t *frame,
 		"%"PRId64": CREATE \'%"PRId64"/%s\'", 
 		frame->root->unique, state->par, state->bname);
 
-	STACK_WIND (frame,
-		    server_create_cbk,
+	STACK_WIND (frame, server_create_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->create,
-		    &(state->loc),
-		    flags,
-		    mode,
-		    state->fd);
+		    &(state->loc), flags, mode, state->fd);
 
 	return 0;
 fail:
-	server_create_cbk (frame, NULL, frame->this,
-			   -1, EINVAL,
-			   NULL, NULL, NULL);
+	server_create_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
+                           NULL);
 	return 0;
 }
 
@@ -3989,7 +3743,7 @@ fail:
  *
  * not for external reference
  */
-int32_t
+int
 server_create (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
@@ -3997,8 +3751,8 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
 	gf_fop_create_req_t *req = NULL;
 	server_state_t      *state = NULL;
 	call_stub_t         *create_stub = NULL;
-	int32_t ret = -1;
-	size_t pathlen = 0;
+	int32_t              ret = -1;
+	size_t               pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -4030,23 +3784,20 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
 	}
 	return 0;
 fail:
-	server_create_cbk (frame, NULL, frame->this,
-			   -1, EINVAL,
-			   NULL, NULL, NULL);
+	server_create_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
+                           NULL);
 	return 0;
 }
 
 
-int32_t
-server_open_resume (call_frame_t *frame,
-                    xlator_t *this,
-                    loc_t *loc,
-                    int32_t flags,
-                    fd_t *fd)
+int
+server_open_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                    int32_t flags, fd_t *fd)
 {
-	server_state_t *state = CALL_STATE(frame);
-	fd_t *new_fd = NULL;
+	server_state_t  *state = NULL;
+	fd_t            *new_fd = NULL;
 
+        state = CALL_STATE(frame);
 	new_fd = fd_create (loc->inode, frame->root->pid);
 	GF_VALIDATE_OR_GOTO(BOUND_XL(frame)->name, new_fd, fail);
 
@@ -4058,19 +3809,14 @@ server_open_resume (call_frame_t *frame,
 		"%"PRId64": OPEN \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_open_cbk,
+	STACK_WIND (frame, server_open_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->open,
-		    loc,
-		    flags,
-		    state->fd);
+		    loc, flags, state->fd);
 
 	return 0;
 fail:
-	server_open_cbk (frame, NULL, frame->this,
-			 -1, EINVAL,
-			 NULL);
+	server_open_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
 	return 0;
 }
 
@@ -4082,19 +3828,19 @@ fail:
  *
  * not for external reference
  */
-int32_t
+int
 server_open (call_frame_t *frame, xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
              struct iobuf *iobuf)
 {
-	call_stub_t *open_stub = NULL;
-	gf_fop_open_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
+	call_stub_t        *open_stub = NULL;
+	gf_fop_open_req_t  *req = NULL;
+	server_state_t     *state = NULL;
+	int32_t             ret = -1;
+	size_t              pathlen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 	{
 		state->ino   = ntoh64 (req->ino);
 		state->path  = req->path;
@@ -4117,9 +3863,7 @@ server_open (call_frame_t *frame, xlator_t *bound_xl,
 	}
 	return 0;
 fail:
-	server_open_cbk (frame, NULL, frame->this,
-			 -1, EINVAL,
-			 NULL);
+	server_open_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
 	return 0;
 }
 
@@ -4132,16 +3876,16 @@ fail:
  *
  * not for external reference
  */
-int32_t
+int
 server_readv (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
-	gf_fop_read_req_t *req = NULL;
-	server_state_t *state = NULL;
+	gf_fop_read_req_t   *req = NULL;
+	server_state_t      *state = NULL;
 	server_connection_t *conn = NULL;
 	
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
 	req = gf_param (hdr);
   
@@ -4164,15 +3908,14 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
 		frame->root->unique, state->fd_no, state->fd->inode->ino, 
 		state->offset, (int64_t)state->size);
 
-	STACK_WIND (frame,
-		    server_readv_cbk,
+	STACK_WIND (frame, server_readv_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->readv,
 		    state->fd, state->size, state->offset);
 	return 0;
 fail:
-	server_readv_cbk (frame, NULL, frame->this,
-			  -1, EINVAL, NULL, 0, NULL, NULL);
+	server_readv_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, 0,
+                          NULL, NULL);
 	return 0;
 }
 
@@ -4185,16 +3928,16 @@ fail:
  *
  * not for external reference
  */
-int32_t
+int
 server_writev (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
 	server_connection_t *conn = NULL;
-	gf_fop_write_req_t *req = NULL;
-	struct iovec iov = {0, };
-        struct iobref *iobref = NULL;
-	server_state_t *state = NULL;
+	gf_fop_write_req_t  *req = NULL;
+	struct iovec         iov = {0, };
+        struct iobref       *iobref = NULL;
+	server_state_t      *state = NULL;
 	
 	conn = SERVER_CONNECTION(frame);
 
@@ -4227,8 +3970,7 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 		frame->root->unique, state->fd_no, state->fd->inode->ino, 
 		state->offset, (int32_t)state->size);
 
-	STACK_WIND (frame,
-		    server_writev_cbk,
+	STACK_WIND (frame, server_writev_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->writev,
 		    state->fd, &iov, 1, state->offset, iobref);
@@ -4240,8 +3982,7 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 
 	return 0;
 fail:
-	server_writev_cbk (frame, NULL, frame->this,
-			   -1, EINVAL, NULL);
+	server_writev_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
 	
 	if (iobref)
 		iobref_unref (iobref);
@@ -4261,14 +4002,14 @@ fail:
  *
  * not for external reference
  */
-int32_t
+int
 server_release (call_frame_t *frame, xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
 {
-	gf_cbk_release_req_t *req = NULL;
-	server_state_t *state = NULL;
-	server_connection_t *conn = NULL;
+	gf_cbk_release_req_t  *req = NULL;
+	server_state_t        *state = NULL;
+	server_connection_t   *conn = NULL;
 	
 	conn = SERVER_CONNECTION(frame);
 
@@ -4277,8 +4018,7 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
 	
 	state->fd_no = ntoh64 (req->fd);
 
-	gf_fd_put (conn->fdtable, 
-		   state->fd_no);
+	gf_fd_put (conn->fdtable, state->fd_no);
 
 	gf_log (bound_xl->name, GF_LOG_TRACE,
 		"%"PRId64": RELEASE \'fd=%"PRId64"\'", 
@@ -4297,14 +4037,13 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
  *
  * not for external reference
  */
-int32_t
-server_fsync (call_frame_t *frame,
-              xlator_t *bound_xl,
+int
+server_fsync (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
-	gf_fop_fsync_req_t *req = NULL;
-	server_state_t *state = NULL;
+	gf_fop_fsync_req_t  *req = NULL;
+	server_state_t      *state = NULL;
 	server_connection_t *conn = NULL;
 	
 	conn = SERVER_CONNECTION(frame);
@@ -4326,15 +4065,13 @@ server_fsync (call_frame_t *frame,
 		"%"PRId64": FSYNC \'fd=%"PRId64" (%"PRId64")\'", 
 		frame->root->unique, state->fd_no, state->fd->inode->ino);
 
-	STACK_WIND (frame,
-		    server_fsync_cbk,
+	STACK_WIND (frame, server_fsync_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->fsync,
 		    state->fd, state->flags);
 	return 0;
 fail:
-	server_fsync_cbk (frame, NULL, frame->this,
-			  -1, EINVAL);
+	server_fsync_cbk (frame, NULL, frame->this, -1, EINVAL);
 
 	return 0;
 }
@@ -4348,16 +4085,16 @@ fail:
  *
  * not for external reference
  */
-int32_t
+int
 server_flush (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
-	gf_fop_flush_req_t *req = NULL;
-	server_state_t *state = NULL;
+	gf_fop_flush_req_t  *req = NULL;
+	server_state_t      *state = NULL;
 	server_connection_t *conn = NULL;
 	
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -4368,22 +4105,20 @@ server_flush (call_frame_t *frame, xlator_t *bound_xl,
 						     state->fd_no);
 	}
 
-	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
+	GF_VALIDATE_OR_GOTO (bound_xl->name, state->fd, fail);
 
 	gf_log (bound_xl->name, GF_LOG_TRACE,
 		"%"PRId64": FLUSH \'fd=%"PRId64" (%"PRId64")\'", 
 		frame->root->unique, state->fd_no, state->fd->inode->ino);
 
-	STACK_WIND (frame,
-		    server_flush_cbk,
+	STACK_WIND (frame, server_flush_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->flush,
 		    state->fd);
 	return 0;
 
 fail:
-	server_flush_cbk (frame, NULL, frame->this,
-			  -1, EINVAL);
+	server_flush_cbk (frame, NULL, frame->this, -1, EINVAL);
 
 	return 0;
 }
@@ -4397,15 +4132,14 @@ fail:
  *
  * not for external reference
  */
-int32_t
-server_ftruncate (call_frame_t *frame,
-                  xlator_t *bound_xl,
+int
+server_ftruncate (call_frame_t *frame, xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-	gf_fop_ftruncate_req_t *req = NULL;
-	server_state_t *state = NULL;
-	server_connection_t *conn = NULL;
+	gf_fop_ftruncate_req_t  *req = NULL;
+	server_state_t          *state = NULL;
+	server_connection_t     *conn = NULL;
 	
 	conn = SERVER_CONNECTION(frame);
 
@@ -4429,16 +4163,13 @@ server_ftruncate (call_frame_t *frame,
 		frame->root->unique, state->fd_no, state->fd->inode->ino, 
 		state->offset);
 
-	STACK_WIND (frame,
-		    server_ftruncate_cbk,
+	STACK_WIND (frame, server_ftruncate_cbk,
 		    bound_xl,
 		    bound_xl->fops->ftruncate,
-		    state->fd,
-		    state->offset);
+		    state->fd, state->offset);
 	return 0;
 fail:
-	server_ftruncate_cbk (frame, NULL, frame->this,
-			      -1, EINVAL, NULL);
+	server_ftruncate_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
 
 	return 0;
 }
@@ -4452,17 +4183,16 @@ fail:
  *
  * not for external reference
  */
-int32_t
-server_fstat (call_frame_t *frame,
-              xlator_t *bound_xl,
+int
+server_fstat (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
-	gf_fop_fstat_req_t *req = NULL;
-	server_state_t *state = NULL;
+	gf_fop_fstat_req_t  *req = NULL;
+	server_state_t      *state = NULL;
 	server_connection_t *conn = NULL;
 	
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -4489,8 +4219,7 @@ server_fstat (call_frame_t *frame,
 		"%"PRId64": FSTAT \'fd=%"PRId64" (%"PRId64")\'", 
 		frame->root->unique, state->fd_no, state->fd->inode->ino);
 
-	STACK_WIND (frame,
-		    server_fstat_cbk,
+	STACK_WIND (frame, server_fstat_cbk,
 		    bound_xl,
 		    bound_xl->fops->fstat,
 		    state->fd);
@@ -4499,10 +4228,8 @@ out:
 }
 
 
-int32_t
-server_truncate_resume (call_frame_t *frame,
-                        xlator_t *this,
-                        loc_t *loc,
+int
+server_truncate_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         off_t offset)
 {
 	server_state_t *state = NULL;
@@ -4513,12 +4240,10 @@ server_truncate_resume (call_frame_t *frame,
 		"%"PRId64": TRUNCATE \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_truncate_cbk,
+	STACK_WIND (frame, server_truncate_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->truncate,
-		    loc,
-		    offset);
+		    loc, offset);
 	return 0;
 }
 
@@ -4531,17 +4256,16 @@ server_truncate_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_truncate (call_frame_t *frame,
-                 xlator_t *bound_xl,
+int
+server_truncate (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	call_stub_t *truncate_stub = NULL;
+	call_stub_t           *truncate_stub = NULL;
 	gf_fop_truncate_req_t *req = NULL;
-	server_state_t *state = NULL;
-  	int32_t ret = -1;
-	size_t pathlen = 0;
+	server_state_t        *state = NULL;
+  	int32_t                ret = -1;
+	size_t                 pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -4557,8 +4281,7 @@ server_truncate (call_frame_t *frame,
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, 0, NULL, state->path);
 
-	truncate_stub = fop_truncate_stub (frame,
-					   server_truncate_resume,
+	truncate_stub = fop_truncate_stub (frame, server_truncate_resume,
 					   &(state->loc),
 					   state->offset);
 	if ((state->loc.parent == NULL) ||
@@ -4572,13 +4295,8 @@ server_truncate (call_frame_t *frame,
 }
 
 
-
-
-
-int32_t
-server_unlink_resume (call_frame_t *frame,
-                      xlator_t *this,
-                      loc_t *loc)
+int
+server_unlink_resume (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	server_state_t *state = NULL;
 
@@ -4595,8 +4313,7 @@ server_unlink_resume (call_frame_t *frame,
 		frame->root->unique, state->par, state->path, 
 		state->loc.inode->ino);
 
-	STACK_WIND (frame,
-		    server_unlink_cbk,
+	STACK_WIND (frame, server_unlink_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->unlink,
 		    loc);
@@ -4611,20 +4328,19 @@ server_unlink_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_unlink (call_frame_t *frame,
-               xlator_t *bound_xl,
+int
+server_unlink (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
-	call_stub_t *unlink_stub = NULL;
+	call_stub_t         *unlink_stub = NULL;
 	gf_fop_unlink_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
+	server_state_t      *state = NULL;
+	int32_t              ret = -1;
+	size_t               pathlen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	pathlen = STRLEN_0(req->path);
 	
@@ -4633,12 +4349,10 @@ server_unlink (call_frame_t *frame,
 	if (IS_NOT_ROOT(pathlen))
 		state->bname = req->bname + pathlen;
 
-	ret = server_loc_fill (&(state->loc), state,
-			       0, state->par, state->bname,
-			       state->path);
+	ret = server_loc_fill (&(state->loc), state, 0, state->par,
+                               state->bname, state->path);
 
-	unlink_stub = fop_unlink_stub (frame,
-				       server_unlink_resume,
+	unlink_stub = fop_unlink_stub (frame, server_unlink_resume,
 				       &(state->loc));
 
 	if ((state->loc.parent == NULL) ||
@@ -4652,15 +4366,9 @@ server_unlink (call_frame_t *frame,
 }
 
 
-
-
-
-int32_t
-server_setxattr_resume (call_frame_t *frame,
-                        xlator_t *this,
-                        loc_t *loc,
-                        dict_t *dict,
-                        int32_t flags)
+int
+server_setxattr_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                        dict_t *dict, int32_t flags)
 {
 	server_state_t *state = NULL;
 	
@@ -4670,13 +4378,10 @@ server_setxattr_resume (call_frame_t *frame,
 		"%"PRId64": SETXATTR \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_setxattr_cbk,
+	STACK_WIND (frame, server_setxattr_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->setxattr,
-		    loc,
-		    dict,
-		    flags);
+		    loc, dict, flags);
 	return 0;
 }
 
@@ -4689,20 +4394,19 @@ server_setxattr_resume (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-server_setxattr (call_frame_t *frame,
-                 xlator_t *bound_xl,
+int
+server_setxattr (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	call_stub_t *setxattr_stub = NULL;
+	call_stub_t           *setxattr_stub = NULL;
 	gf_fop_setxattr_req_t *req = NULL;
-	dict_t *dict = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t pathlen = 0;
-	size_t dict_len = 0;
-	char *req_dictbuf = NULL;
+	dict_t                *dict = NULL;
+	server_state_t        *state = NULL;
+	int32_t                ret = -1;
+	size_t                 pathlen = 0;
+	size_t                 dict_len = 0;
+	char                  *req_dictbuf = NULL;
 
 	req = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -4716,9 +4420,9 @@ server_setxattr (call_frame_t *frame,
 
 		state->flags = ntoh32 (req->flags);
 	}
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
 
+	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
+                               state->path);
 	{
 		/* Unserialize the dictionary */
 		req_dictbuf = memdup (req->dict, dict_len);
@@ -4741,11 +4445,8 @@ server_setxattr (call_frame_t *frame,
 		}
 	}
 
-	setxattr_stub = fop_setxattr_stub (frame,
-					   server_setxattr_resume,
-					   &(state->loc),
-					   dict,
-					   state->flags);
+	setxattr_stub = fop_setxattr_stub (frame, server_setxattr_resume,
+					   &(state->loc), dict, state->flags);
 	GF_VALIDATE_OR_GOTO(bound_xl->name, setxattr_stub, fail);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
@@ -4763,28 +4464,25 @@ fail:
 	if (dict)
 		dict_unref (dict);
 
-	server_setxattr_cbk (frame, NULL, frame->this,
-			     -1, ENOENT);
+	server_setxattr_cbk (frame, NULL, frame->this, -1, ENOENT);
 	return 0;
 
 }
 
 
-int32_t
-server_fsetxattr (call_frame_t *frame,
-                  xlator_t *bound_xl,
+int
+server_fsetxattr (call_frame_t *frame, xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-        server_connection_t *conn   = NULL;
+        server_connection_t    *conn = NULL;
 	gf_fop_fsetxattr_req_t *req = NULL;
-
-	dict_t *dict = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t pathlen = 0;
-	size_t dict_len = 0;
-	char *req_dictbuf = NULL;
+	dict_t                 *dict = NULL;
+	server_state_t         *state = NULL;
+	int32_t                 ret = -1;
+	size_t                  pathlen = 0;
+	size_t                  dict_len = 0;
+	char                   *req_dictbuf = NULL;
 
         conn = SERVER_CONNECTION (frame);
 
@@ -4823,8 +4521,7 @@ server_fsetxattr (call_frame_t *frame,
                 dict->extra_free = req_dictbuf;
         }
 
-        STACK_WIND (frame, 
-                    server_setxattr_cbk,
+        STACK_WIND (frame, server_setxattr_cbk,
                     BOUND_XL(frame),
                     BOUND_XL(frame)->fops->fsetxattr,
                     state->fd, dict, state->flags);
@@ -4843,19 +4540,18 @@ fail:
 }
 
 
-int32_t
-server_fxattrop (call_frame_t *frame,
-                 xlator_t *bound_xl,
+int
+server_fxattrop (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	server_connection_t *conn = NULL;
+	server_connection_t   *conn = NULL;
 	gf_fop_fxattrop_req_t *req = NULL;
-	dict_t *dict = NULL;
-	server_state_t *state = NULL;
-	size_t dict_len = 0;
-	char *req_dictbuf = NULL;
-	int32_t ret = -1;
+	dict_t                *dict = NULL;
+	server_state_t        *state = NULL;
+	size_t                 dict_len = 0;
+	char                  *req_dictbuf = NULL;
+	int32_t                ret = -1;
 	
 	conn = SERVER_CONNECTION(frame);
 
@@ -4897,31 +4593,26 @@ server_fxattrop (call_frame_t *frame,
 		"%"PRId64": FXATTROP \'fd=%"PRId64" (%"PRId64")\'", 
 		frame->root->unique, state->fd_no, state->fd->inode->ino);
 
-	STACK_WIND (frame,
-		    server_fxattrop_cbk,
+	STACK_WIND (frame, server_fxattrop_cbk,
 		    bound_xl,
 		    bound_xl->fops->fxattrop,
-		    state->fd,
-		    state->flags,
-		    dict);
+		    state->fd, state->flags, dict);
 	if (dict)
 		dict_unref (dict);
 	return 0;
+
 fail:
 	if (dict)
 		dict_unref (dict);
 
-	server_fxattrop_cbk (frame, NULL, frame->this,
-			     -1, EINVAL, NULL);
+	server_fxattrop_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
 	return 0;
 }
 
-int32_t
-server_xattrop_resume (call_frame_t *frame,
-		       xlator_t *this,
-		       loc_t *loc,
-		       gf_xattrop_flags_t flags,
-		       dict_t *dict)
+
+int
+server_xattrop_resume (call_frame_t *frame, xlator_t *this,
+		       loc_t *loc, gf_xattrop_flags_t flags, dict_t *dict)
 {
 	server_state_t *state = NULL;
 	
@@ -4931,30 +4622,27 @@ server_xattrop_resume (call_frame_t *frame,
 		"%"PRId64": XATTROP \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_xattrop_cbk,
+	STACK_WIND (frame, server_xattrop_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->xattrop,
-		    loc,
-		    flags,
-		    dict);
+		    loc, flags, dict);
 	return 0;
 }
 
-int32_t
-server_xattrop (call_frame_t *frame,
-		xlator_t *bound_xl,
+
+int
+server_xattrop (call_frame_t *frame, xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
 {
-	gf_fop_xattrop_req_t *req = NULL;
-	dict_t *dict = NULL;
-	server_state_t *state = NULL;
-	call_stub_t *xattrop_stub = NULL;
-	int32_t ret = -1;
-	size_t pathlen = 0;
-	size_t dict_len = 0;
-	char *req_dictbuf = NULL;
+	gf_fop_xattrop_req_t  *req = NULL;
+	dict_t                *dict = NULL;
+	server_state_t        *state = NULL;
+	call_stub_t           *xattrop_stub = NULL;
+	int32_t                ret = -1;
+	size_t                 pathlen = 0;
+	size_t                 dict_len = 0;
+	char                  *req_dictbuf = NULL;
 	
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -4988,11 +4676,8 @@ server_xattrop (call_frame_t *frame,
 			dict->extra_free = req_dictbuf;
 		}
 	}
-	xattrop_stub = fop_xattrop_stub (frame,
-					 server_xattrop_resume,
-					 &(state->loc),
-					 state->flags,
-					 dict);
+	xattrop_stub = fop_xattrop_stub (frame, server_xattrop_resume,
+					 &(state->loc), state->flags, dict);
 	GF_VALIDATE_OR_GOTO(bound_xl->name, xattrop_stub, fail);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
@@ -5009,17 +4694,13 @@ fail:
 	if (dict)
 		dict_unref (dict);
 
-	server_xattrop_cbk (frame, NULL, frame->this,
-			    -1, EINVAL,
-			    NULL);
+	server_xattrop_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
 	return 0;
 }
 
 
-int32_t
-server_getxattr_resume (call_frame_t *frame,
-                        xlator_t *this,
-                        loc_t *loc,
+int
+server_getxattr_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         const char *name)
 {
 	server_state_t *state = NULL;
@@ -5030,12 +4711,10 @@ server_getxattr_resume (call_frame_t *frame,
 		"%"PRId64": GETXATTR \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_getxattr_cbk,
+	STACK_WIND (frame, server_getxattr_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->getxattr,
-		    loc,
-		    name);
+		    loc, name);
 	return 0;
 }
 
@@ -5047,18 +4726,17 @@ server_getxattr_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_getxattr (call_frame_t *frame,
-                 xlator_t *bound_xl,
+int
+server_getxattr (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	gf_fop_getxattr_req_t *req = NULL;
-	call_stub_t *getxattr_stub = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t namelen = 0;
-	size_t pathlen = 0;
+	gf_fop_getxattr_req_t  *req = NULL;
+	call_stub_t            *getxattr_stub = NULL;
+	server_state_t         *state = NULL;
+	int32_t                 ret = -1;
+	size_t                  namelen = 0;
+	size_t                  pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -5076,10 +4754,8 @@ server_getxattr (call_frame_t *frame,
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, 0, NULL, state->path);
 
-	getxattr_stub = fop_getxattr_stub (frame,
-					   server_getxattr_resume,
-					   &(state->loc),
-					   state->name);
+	getxattr_stub = fop_getxattr_stub (frame, server_getxattr_resume,
+					   &(state->loc), state->name);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
@@ -5092,17 +4768,15 @@ server_getxattr (call_frame_t *frame,
 }
 
 
-int32_t
-server_fgetxattr (call_frame_t *frame,
-                  xlator_t *bound_xl,
+int
+server_fgetxattr (call_frame_t *frame, xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
         server_connection_t    *conn = NULL;
 	gf_fop_fgetxattr_req_t *req  = NULL;
-	server_state_t *state        = NULL;
-
-	size_t namelen = 0;
+	server_state_t         *state = NULL;
+	size_t                  namelen = 0;
 
         conn = SERVER_CONNECTION (frame);
 
@@ -5121,36 +4795,30 @@ server_fgetxattr (call_frame_t *frame,
 			state->name = (req->name);
 	}
 
-	STACK_WIND (frame,
-		    server_fgetxattr_cbk,
+	STACK_WIND (frame, server_fgetxattr_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->fgetxattr,
-		    state->fd,
-		    state->name);
+		    state->fd, state->name);
 	return 0;
 }
 
 
-int32_t
-server_removexattr_resume (call_frame_t *frame,
-                           xlator_t *this,
-                           loc_t *loc,
-                           const char *name)
+int
+server_removexattr_resume (call_frame_t *frame, xlator_t *this,
+                           loc_t *loc, const char *name)
 {
 	server_state_t *state = NULL;
 	
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
 		"%"PRId64": REMOVEXATTR \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_removexattr_cbk,
+	STACK_WIND (frame, server_removexattr_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->removexattr,
-		    loc,
-		    name);
+		    loc, name);
 	return 0;
 }
 
@@ -5162,17 +4830,16 @@ server_removexattr_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_removexattr (call_frame_t *frame,
-                    xlator_t *bound_xl,
+int
+server_removexattr (call_frame_t *frame, xlator_t *bound_xl,
                     gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
 {
-	gf_fop_removexattr_req_t *req = NULL;
-	call_stub_t *removexattr_stub = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t pathlen = 0;
+	gf_fop_removexattr_req_t  *req = NULL;
+	call_stub_t               *removexattr_stub = NULL;
+	server_state_t            *state = NULL;
+	int32_t                    ret = -1;
+	size_t                     pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -5189,7 +4856,7 @@ server_removexattr (call_frame_t *frame,
 			       state->ino, 0, NULL, state->path);
 
 	removexattr_stub = fop_removexattr_stub (frame,
-						 server_removexattr_resume,
+                                                 server_removexattr_resume,
 						 &(state->loc),
 						 state->name);
 
@@ -5212,15 +4879,14 @@ server_removexattr (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_statfs (call_frame_t *frame,
-               xlator_t *bound_xl,
+int
+server_statfs (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
 	gf_fop_statfs_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
+	server_state_t      *state = NULL;
+	int32_t              ret = -1;
 
 	req = gf_param (hdr);
 
@@ -5228,15 +4894,14 @@ server_statfs (call_frame_t *frame,
 	state->ino  = ntoh64 (req->ino);
 	state->path = req->path;
 
-	ret = server_loc_fill (&state->loc, state,
-			       state->ino, 0, NULL, state->path);
+	ret = server_loc_fill (&state->loc, state, state->ino, 0, NULL,
+                               state->path);
 
 	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
 		"%"PRId64": STATFS \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_statfs_cbk,
+	STACK_WIND (frame, server_statfs_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->statfs,
 		    &(state->loc));
@@ -5245,16 +4910,14 @@ server_statfs (call_frame_t *frame,
 }
 
 
-
-int32_t
-server_opendir_resume (call_frame_t *frame,
-                       xlator_t *this,
-                       loc_t *loc,
+int
+server_opendir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
                        fd_t *fd)
 {
-	server_state_t *state = CALL_STATE(frame);
-	fd_t *new_fd = NULL;
+	server_state_t  *state = NULL;
+	fd_t            *new_fd = NULL;
 
+        state = CALL_STATE (frame);
 	new_fd = fd_create (loc->inode, frame->root->pid);
 	state->fd = fd_ref (new_fd);
 
@@ -5262,12 +4925,11 @@ server_opendir_resume (call_frame_t *frame,
 		"%"PRId64": OPENDIR \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_opendir_cbk,
+	STACK_WIND (frame, server_opendir_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->opendir,
-		    loc,
-		    state->fd);
+		    loc, state->fd);
+
 	return 0;
 }
 
@@ -5280,16 +4942,16 @@ server_opendir_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
+int
 server_opendir (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
 {
-	call_stub_t *opendir_stub = NULL;
-	gf_fop_opendir_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
+	call_stub_t           *opendir_stub = NULL;
+	gf_fop_opendir_req_t  *req = NULL;
+	server_state_t        *state = NULL;
+	int32_t                ret = -1;
+	size_t                 pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -5299,13 +4961,11 @@ server_opendir (call_frame_t *frame, xlator_t *bound_xl,
 		state->ino   = ntoh64 (req->ino);
 	}
 
-	ret = server_loc_fill (&state->loc, state,
-			       state->ino, 0, NULL, state->path);
+	ret = server_loc_fill (&state->loc, state, state->ino, 0, NULL,
+                               state->path);
 
-	opendir_stub = fop_opendir_stub (frame,
-					 server_opendir_resume,
-					 &(state->loc),
-					 NULL);
+	opendir_stub = fop_opendir_stub (frame, server_opendir_resume,
+					 &(state->loc), NULL);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
@@ -5326,14 +4986,14 @@ server_opendir (call_frame_t *frame, xlator_t *bound_xl,
  *
  * not for external reference
  */
-int32_t
+int
 server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 		   gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
 	gf_cbk_releasedir_req_t *req = NULL;
-	server_state_t *state = NULL;
-	server_connection_t *conn = NULL;
+	server_state_t          *state = NULL;
+	server_connection_t     *conn = NULL;
 	
 	conn = SERVER_CONNECTION(frame);
 
@@ -5341,16 +5001,14 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 	state = CALL_STATE(frame);
 
 	state->fd_no = ntoh64 (req->fd);
-	state->fd    = gf_fd_fdptr_get (conn->fdtable, 
-					state->fd_no);
+	state->fd    = gf_fd_fdptr_get (conn->fdtable, state->fd_no);
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64": unresolved fd", 
 			state->fd_no);
 
-		server_releasedir_cbk (frame, NULL, frame->this,
-				       -1, EBADF);
+		server_releasedir_cbk (frame, NULL, frame->this, -1, EBADF);
 		goto out;
 	}
 
@@ -5360,8 +5018,7 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 
 	gf_fd_put (conn->fdtable, state->fd_no);
 
-	server_releasedir_cbk (frame, NULL, frame->this,
-			       0, 0);
+	server_releasedir_cbk (frame, NULL, frame->this, 0, 0);
 out:
 	return 0;
 }
@@ -5375,17 +5032,16 @@ out:
  *
  * not for external reference
  */
-int32_t
-server_getdents (call_frame_t *frame,
-                 xlator_t *bound_xl,
+int
+server_getdents (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	gf_fop_getdents_req_t *req = NULL;
-	server_state_t *state = NULL;
-	server_connection_t *conn = NULL;
+	gf_fop_getdents_req_t  *req = NULL;
+	server_state_t         *state = NULL;
+	server_connection_t    *conn = NULL;
 	
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -5406,9 +5062,8 @@ server_getdents (call_frame_t *frame,
 			"fd - %"PRId64": unresolved fd", 
 			state->fd_no);
 
-		server_getdents_cbk (frame, NULL, frame->this,
-				     -1, EBADF, NULL, 0);
-
+		server_getdents_cbk (frame, NULL, frame->this, -1, EBADF,
+                                     NULL, 0);
 		goto out;
 	}
 
@@ -5418,14 +5073,10 @@ server_getdents (call_frame_t *frame,
 		frame->root->unique, state->fd_no, state->fd->inode->ino, 
 		state->offset, (int64_t)state->size);
 
-	STACK_WIND (frame,
-		    server_getdents_cbk,
+	STACK_WIND (frame, server_getdents_cbk,
 		    bound_xl,
 		    bound_xl->fops->getdents,
-		    state->fd,
-		    state->size,
-		    state->offset,
-		    state->flags);
+		    state->fd, state->size, state->offset, state->flags);
 out:
 	return 0;
 }
@@ -5439,7 +5090,7 @@ out:
  *
  * not for external reference
  */
-int32_t
+int
 server_readdir (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
@@ -5468,9 +5119,7 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 			"fd - %"PRId64": unresolved fd", 
 			state->fd_no);
 
-		server_readdir_cbk (frame, NULL, frame->this,
-				    -1, EBADF, NULL);
-
+		server_readdir_cbk (frame, NULL, frame->this, -1, EBADF, NULL);
 		goto out;
 	}
 
@@ -5480,8 +5129,7 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 		frame->root->unique, state->fd_no, state->fd->inode->ino, 
 		state->offset, (int64_t)state->size);
 
-	STACK_WIND (frame,
-		    server_readdir_cbk,
+	STACK_WIND (frame, server_readdir_cbk,
 		    bound_xl,
 		    bound_xl->fops->readdir,
 		    state->fd, state->size, state->offset);
@@ -5499,17 +5147,16 @@ out:
  *
  * not for external reference
  */
-int32_t
-server_fsyncdir (call_frame_t *frame,
-                 xlator_t *bound_xl,
+int
+server_fsyncdir (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
 	gf_fop_fsyncdir_req_t *req = NULL;
-	server_state_t *state = NULL;
-	server_connection_t *conn = NULL;
+	server_state_t        *state = NULL;
+	server_connection_t   *conn = NULL;
 	
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -5527,8 +5174,7 @@ server_fsyncdir (call_frame_t *frame,
 			"fd - %"PRId64": unresolved fd", 
 			state->fd_no);
 
-		server_fsyncdir_cbk (frame, NULL, frame->this,
-				     -1, EBADF);
+		server_fsyncdir_cbk (frame, NULL, frame->this, -1, EBADF);
 		goto out;
 	}
 
@@ -5536,8 +5182,7 @@ server_fsyncdir (call_frame_t *frame,
 		"%"PRId64": FSYNCDIR \'fd=%"PRId64" (%"PRId64")\'", 
 		frame->root->unique, state->fd_no, state->fd->inode->ino);
 
-	STACK_WIND (frame,
-		    server_fsyncdir_cbk,
+	STACK_WIND (frame, server_fsyncdir_cbk,
 		    bound_xl,
 		    bound_xl->fops->fsyncdir,
 		    state->fd, state->flags);
@@ -5546,16 +5191,13 @@ out:
 }
 
 
-int32_t
-server_mknod_resume (call_frame_t *frame,
-		     xlator_t *this,
-		     loc_t *loc,
-		     mode_t mode,
-		     dev_t dev)
+int
+server_mknod_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
+		     mode_t mode, dev_t dev)
 {
 	server_state_t *state = NULL;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
@@ -5566,14 +5208,14 @@ server_mknod_resume (call_frame_t *frame,
 		"%"PRId64": MKNOD \'%"PRId64"/%s\'", 
 		frame->root->unique, state->par, state->bname);
 
-	STACK_WIND (frame,
-		    server_mknod_cbk,
+	STACK_WIND (frame, server_mknod_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->mknod,
 		    &(state->loc), mode, dev);
 
 	return 0;
 }
+
 /*
  * server_mknod - mknod function for server protocol
  * @frame: call frame
@@ -5582,20 +5224,19 @@ server_mknod_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_mknod (call_frame_t *frame,
-              xlator_t *bound_xl,
+int
+server_mknod (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
 	gf_fop_mknod_req_t *req = NULL;
-	server_state_t *state = NULL;
-	call_stub_t *mknod_stub = NULL;
-	int32_t ret = -1;
-	size_t pathlen = 0;
+	server_state_t     *state = NULL;
+	call_stub_t        *mknod_stub = NULL;
+	int32_t             ret = -1;
+	size_t              pathlen = 0;
 		
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 	{
 		pathlen = STRLEN_0(req->path);
 		
@@ -5607,9 +5248,8 @@ server_mknod (call_frame_t *frame,
 		state->mode = ntoh32 (req->mode);
 		state->dev  = ntoh64 (req->dev);
 	}
-	ret = server_loc_fill (&(state->loc), state,
-			       0, state->par, state->bname,
-			       state->path);
+	ret = server_loc_fill (&(state->loc), state, 0, state->par,
+                               state->bname, state->path);
 
 	mknod_stub = fop_mknod_stub (frame, server_mknod_resume,
 				     &(state->loc), state->mode, state->dev);
@@ -5623,16 +5263,15 @@ server_mknod (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-server_mkdir_resume (call_frame_t *frame,
-		     xlator_t *this,
-		     loc_t *loc,
+
+int
+server_mkdir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
 		     mode_t mode)
 
 {
 	server_state_t *state = NULL;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
@@ -5643,12 +5282,10 @@ server_mkdir_resume (call_frame_t *frame,
 		"%"PRId64": MKDIR \'%"PRId64"/%s\'", 
 		frame->root->unique, state->par, state->bname);
 
-	STACK_WIND (frame,
-		    server_mkdir_cbk,
+	STACK_WIND (frame, server_mkdir_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->mkdir,
-		    &(state->loc),
-		    state->mode);
+		    &(state->loc), state->mode);
 
 	return 0;
 }
@@ -5661,18 +5298,17 @@ server_mkdir_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_mkdir (call_frame_t *frame,
-              xlator_t *bound_xl,
+int
+server_mkdir (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
 	gf_fop_mkdir_req_t *req = NULL;
-	server_state_t *state = NULL;
-	call_stub_t *mkdir_stub = NULL;
-	int32_t ret = -1;
-	size_t pathlen = 0;
-		
+	server_state_t     *state = NULL;
+	call_stub_t        *mkdir_stub = NULL;
+	int32_t             ret = -1;
+	size_t              pathlen = 0;
+
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
@@ -5685,9 +5321,8 @@ server_mkdir (call_frame_t *frame,
 	}
 
 
-	ret = server_loc_fill (&(state->loc), state,
-			       0, state->par, state->bname,
-			       state->path);
+	ret = server_loc_fill (&(state->loc), state, 0, state->par,
+                               state->bname, state->path);
 
 	mkdir_stub = fop_mkdir_stub (frame, server_mkdir_resume,
 				     &(state->loc), state->mode);
@@ -5702,10 +5337,8 @@ server_mkdir (call_frame_t *frame,
 }
 
 
-int32_t
-server_rmdir_resume (call_frame_t *frame,
-                     xlator_t *this,
-                     loc_t *loc)
+int
+server_rmdir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	server_state_t *state = NULL;
 
@@ -5721,8 +5354,7 @@ server_rmdir_resume (call_frame_t *frame,
 		"%"PRId64": RMDIR \'%"PRId64"/%s\'", 
 		frame->root->unique, state->par, state->bname);
 
-	STACK_WIND (frame,
-		    server_rmdir_cbk,
+	STACK_WIND (frame, server_rmdir_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->rmdir,
 		    loc);
@@ -5737,17 +5369,16 @@ server_rmdir_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_rmdir (call_frame_t *frame,
-              xlator_t *bound_xl,
+int
+server_rmdir (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
-	call_stub_t *rmdir_stub = NULL;
+	call_stub_t        *rmdir_stub = NULL;
 	gf_fop_rmdir_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t pathlen = 0;
+	server_state_t     *state = NULL;
+	int32_t             ret = -1;
+	size_t              pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -5759,12 +5390,10 @@ server_rmdir (call_frame_t *frame,
 	}
 
 
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, state->par, state->bname,
-			       state->path);
+	ret = server_loc_fill (&(state->loc), state, state->ino, state->par,
+                               state->bname, state->path);
 
-	rmdir_stub = fop_rmdir_stub (frame,
-				     server_rmdir_resume,
+	rmdir_stub = fop_rmdir_stub (frame, server_rmdir_resume,
 				     &(state->loc));
 
 	if ((state->loc.parent == NULL) ||
@@ -5778,17 +5407,13 @@ server_rmdir (call_frame_t *frame,
 }
 
 
-
-int32_t
-server_chown_resume (call_frame_t *frame,
-                     xlator_t *this,
-                     loc_t *loc,
-                     uid_t uid,
-                     gid_t gid)
+int
+server_chown_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                     uid_t uid, gid_t gid)
 {
 	server_state_t *state = NULL;
 	
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
 		"%"PRId64": CHOWN \'%s (%"PRId64")\'", 
@@ -5810,17 +5435,16 @@ server_chown_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_chown (call_frame_t *frame,
-              xlator_t *bound_xl,
+int
+server_chown (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
-	call_stub_t *chown_stub = NULL;
+	call_stub_t        *chown_stub = NULL;
 	gf_fop_chown_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
+	server_state_t     *state = NULL;
+	int32_t             ret = -1;
+	size_t              pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -5832,15 +5456,11 @@ server_chown (call_frame_t *frame,
 		state->gid   = ntoh32 (req->gid);
 	}
 
+	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
+                               state->path);
 
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
-
-	chown_stub = fop_chown_stub (frame,
-				     server_chown_resume,
-				     &(state->loc),
-				     state->uid,
-				     state->gid);
+	chown_stub = fop_chown_stub (frame, server_chown_resume,
+				     &(state->loc), state->uid, state->gid);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
@@ -5853,10 +5473,8 @@ server_chown (call_frame_t *frame,
 }
 
 
-int32_t
-server_chmod_resume (call_frame_t *frame,
-                     xlator_t *this,
-                     loc_t *loc,
+int
+server_chmod_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
                      mode_t mode)
 {
 	server_state_t *state = NULL;
@@ -5867,12 +5485,10 @@ server_chmod_resume (call_frame_t *frame,
 		"%"PRId64": CHMOD \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_chmod_cbk,
+	STACK_WIND (frame, server_chmod_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->chmod,
-		    loc,
-		    mode);
+		    loc, mode);
 	return 0;
 
 }
@@ -5885,17 +5501,16 @@ server_chmod_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_chmod (call_frame_t *frame,
-              xlator_t *bound_xl,
+int
+server_chmod (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
-	call_stub_t *chmod_stub = NULL;
+	call_stub_t        *chmod_stub = NULL;
 	gf_fop_chmod_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
+	server_state_t     *state = NULL;
+	int32_t             ret = -1;
+	size_t              pathlen = 0;
 
 	req       = gf_param (hdr);
 
@@ -5908,13 +5523,11 @@ server_chmod (call_frame_t *frame,
 		state->mode = ntoh32 (req->mode);
 	}
 
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
+	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
+                               state->path);
 
-	chmod_stub = fop_chmod_stub (frame,
-				     server_chmod_resume,
-				     &(state->loc),
-				     state->mode);
+	chmod_stub = fop_chmod_stub (frame, server_chmod_resume,
+				     &(state->loc), state->mode);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
@@ -5927,10 +5540,8 @@ server_chmod (call_frame_t *frame,
 }
 
 
-int32_t
-server_utimens_resume (call_frame_t *frame,
-                       xlator_t *this,
-                       loc_t *loc,
+int
+server_utimens_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
                        struct timespec *tv)
 {
 	server_state_t *state = NULL;
@@ -5941,12 +5552,10 @@ server_utimens_resume (call_frame_t *frame,
 		"%"PRId64": UTIMENS \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_utimens_cbk,
+	STACK_WIND (frame, server_utimens_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->utimens,
-		    loc,
-		    tv);
+		    loc, tv);
 	return 0;
 }
 
@@ -5958,17 +5567,16 @@ server_utimens_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_utimens (call_frame_t *frame,
-                xlator_t *bound_xl,
+int
+server_utimens (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
 {
-	call_stub_t *utimens_stub = NULL;
+	call_stub_t          *utimens_stub = NULL;
 	gf_fop_utimens_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
+	server_state_t       *state = NULL;
+	int32_t               ret = -1;
+	size_t                pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -5981,13 +5589,11 @@ server_utimens (call_frame_t *frame,
 	}
 
 
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
+	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
+                               state->path);
 
-	utimens_stub = fop_utimens_stub (frame,
-					 server_utimens_resume,
-					 &(state->loc),
-					 state->tv);
+	utimens_stub = fop_utimens_stub (frame, server_utimens_resume,
+					 &(state->loc), state->tv);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
@@ -6000,10 +5606,8 @@ server_utimens (call_frame_t *frame,
 }
 
 
-
-int32_t
-server_inodelk_resume (call_frame_t *frame,
-		       xlator_t *this,
+int
+server_inodelk_resume (call_frame_t *frame, xlator_t *this,
 		       const char *volume, loc_t *loc, int32_t cmd,
 		       struct flock *flock)
 {
@@ -6022,8 +5626,7 @@ server_inodelk_resume (call_frame_t *frame,
 		"%"PRId64": INODELK \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
- 	STACK_WIND (frame,
- 		    server_inodelk_cbk,
+ 	STACK_WIND (frame, server_inodelk_cbk,
  		    BOUND_XL(frame),
  		    BOUND_XL(frame)->fops->inodelk,
  		    volume, loc, cmd, flock);
@@ -6032,17 +5635,16 @@ server_inodelk_resume (call_frame_t *frame,
 }
 
 
-int32_t
-server_inodelk (call_frame_t *frame,
-		xlator_t *bound_xl,
+int
+server_inodelk (call_frame_t *frame, xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
 {
- 	call_stub_t *inodelk_stub = NULL;
+ 	call_stub_t          *inodelk_stub = NULL;
  	gf_fop_inodelk_req_t *req = NULL;
- 	server_state_t *state = NULL;
-	size_t pathlen = 0;
-        size_t vollen  = 0;
+ 	server_state_t       *state = NULL;
+	size_t                pathlen = 0;
+        size_t                vollen  = 0;
 
  	req   = gf_param (hdr);
  	state = CALL_STATE(frame);
@@ -6085,11 +5687,10 @@ server_inodelk (call_frame_t *frame,
 
 	}
 
-	server_loc_fill (&(state->loc), state, 
-			 state->ino, 0, NULL, state->path);
+	server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
+                         state->path);
 
- 	inodelk_stub = fop_inodelk_stub (frame,
-					 server_inodelk_resume,
+ 	inodelk_stub = fop_inodelk_stub (frame, server_inodelk_resume,
 					 state->volume, &state->loc, 
                                          state->cmd, &state->flock);
 
@@ -6104,15 +5705,14 @@ server_inodelk (call_frame_t *frame,
 }
 
 
-int32_t
-server_finodelk (call_frame_t *frame,
-		 xlator_t *bound_xl,
+int
+server_finodelk (call_frame_t *frame, xlator_t *bound_xl,
 		 gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
- 	gf_fop_finodelk_req_t *req = NULL;
- 	server_state_t *state = NULL;
-	server_connection_t *conn = NULL;
+ 	gf_fop_finodelk_req_t  *req = NULL;
+ 	server_state_t         *state = NULL;
+	server_connection_t    *conn = NULL;
 
 	conn = SERVER_CONNECTION(frame);
 
@@ -6179,9 +5779,8 @@ server_finodelk (call_frame_t *frame,
 }
   
  
-int32_t
-server_entrylk_resume (call_frame_t *frame,
-		       xlator_t *this,
+int
+server_entrylk_resume (call_frame_t *frame, xlator_t *this,
 		       const char *volume, loc_t *loc, const char *name,
 		       entrylk_cmd cmd, entrylk_type type)
 {
@@ -6200,8 +5799,7 @@ server_entrylk_resume (call_frame_t *frame,
 		"%"PRId64": ENTRYLK \'%s (%"PRId64") \'", 
 		frame->root->unique, state->path, state->ino);
 
- 	STACK_WIND (frame,
- 		    server_entrylk_cbk,
+ 	STACK_WIND (frame, server_entrylk_cbk,
  		    BOUND_XL(frame),
  		    BOUND_XL(frame)->fops->entrylk,
  		    volume, loc, name, cmd, type);
@@ -6217,21 +5815,20 @@ server_entrylk_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_entrylk (call_frame_t *frame,
-		xlator_t *bound_xl,
+int
+server_entrylk (call_frame_t *frame, xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
 {
  	gf_fop_entrylk_req_t *req = NULL;
- 	server_state_t *state = NULL;
- 	call_stub_t *entrylk_stub = NULL;
-	size_t pathlen = 0;
-	size_t namelen = 0;
-        size_t vollen  = 0;
+ 	server_state_t       *state = NULL;
+ 	call_stub_t          *entrylk_stub = NULL;
+	size_t                pathlen = 0;
+	size_t                namelen = 0;
+        size_t                vollen  = 0;
 
  	req   = gf_param (hdr);
- 	state = CALL_STATE(frame);
+ 	state = CALL_STATE (frame);
 	{
 		pathlen = STRLEN_0(req->path);
 
@@ -6249,14 +5846,12 @@ server_entrylk (call_frame_t *frame,
 	}
 
 
- 	server_loc_fill (&(state->loc), state, 
-			 state->ino, 0, NULL, state->path);
+ 	server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
+                         state->path);
 
-  	entrylk_stub = fop_entrylk_stub (frame,
-					 server_entrylk_resume,
-                                         state->volume,
-					 &state->loc, state->name, state->cmd,
-					 state->type);
+  	entrylk_stub = fop_entrylk_stub (frame, server_entrylk_resume,
+                                         state->volume, &state->loc,
+                                         state->name, state->cmd, state->type);
 
  	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
@@ -6269,19 +5864,18 @@ server_entrylk (call_frame_t *frame,
 }
 
 
-int32_t
-server_fentrylk (call_frame_t *frame,
-		 xlator_t *bound_xl,
+int
+server_fentrylk (call_frame_t *frame, xlator_t *bound_xl,
 		 gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
  	gf_fop_fentrylk_req_t *req = NULL;
- 	server_state_t *state = NULL;
-	size_t  namelen = 0;
-        size_t  vollen  = 0;
-	server_connection_t *conn = NULL;
+ 	server_state_t        *state = NULL;
+	size_t                 namelen = 0;
+        size_t                 vollen  = 0;
+	server_connection_t   *conn = NULL;
 	
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
  	req   = gf_param (hdr);
  	state = CALL_STATE(frame);
@@ -6307,8 +5901,7 @@ server_fentrylk (call_frame_t *frame,
 			"fd - %"PRId64": unresolved fd", 
 			state->fd_no);
 		
-		server_fentrylk_cbk (frame, NULL, frame->this,
-				     -1, EBADF);
+		server_fentrylk_cbk (frame, NULL, frame->this, -1, EBADF);
 		return -1;
   	} 
 
@@ -6325,26 +5918,22 @@ server_fentrylk (call_frame_t *frame,
 }
 
 
-int32_t
-server_access_resume (call_frame_t *frame,
-                      xlator_t *this,
-                      loc_t *loc,
+int
+server_access_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
                       int32_t mask)
 {
 	server_state_t *state = NULL;
 	
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
 		"%"PRId64": ACCESS \'%s (%"PRId64")\'", 
 		frame->root->unique, state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_access_cbk,
+	STACK_WIND (frame, server_access_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->access,
-		    loc,
-		    mask);
+		    loc, mask);
 	return 0;
 }
 
@@ -6356,17 +5945,16 @@ server_access_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_access (call_frame_t *frame,
-               xlator_t *bound_xl,
+int
+server_access (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
-	call_stub_t *access_stub = NULL;
+	call_stub_t         *access_stub = NULL;
 	gf_fop_access_req_t *req = NULL;
-	server_state_t *state = NULL;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
+	server_state_t      *state = NULL;
+	int32_t              ret = -1;
+	size_t               pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -6377,13 +5965,11 @@ server_access (call_frame_t *frame,
 	state->path = req->path;
 	pathlen = STRLEN_0(state->path);
 
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
+	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
+                               state->path);
 
-	access_stub = fop_access_stub (frame,
-				       server_access_resume,
-				       &(state->loc),
-				       state->mask);
+	access_stub = fop_access_stub (frame, server_access_resume,
+				       &(state->loc), state->mask);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
 	    (state->loc.inode == NULL)) {
@@ -6396,15 +5982,13 @@ server_access (call_frame_t *frame,
 }
 
 
-int32_t
-server_symlink_resume (call_frame_t *frame,
-		       xlator_t *this,
-		       const char *linkname,
-		       loc_t *loc)
+int
+server_symlink_resume (call_frame_t *frame, xlator_t *this,
+		       const char *linkname, loc_t *loc)
 {
 	server_state_t *state = NULL;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (loc->parent);
 
@@ -6414,12 +5998,10 @@ server_symlink_resume (call_frame_t *frame,
 		"%"PRId64": SYMLINK \'%"PRId64"/%s \'", 
 		frame->root->unique, state->par, state->bname);
 
-	STACK_WIND (frame,
-		    server_symlink_cbk,
+	STACK_WIND (frame, server_symlink_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->symlink,
-		    linkname,
-		    &(state->loc));
+		    linkname, &(state->loc));
 
 	return 0;
 }
@@ -6433,18 +6015,17 @@ server_symlink_resume (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-server_symlink (call_frame_t *frame,
-                xlator_t *bound_xl,
+int
+server_symlink (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
 {
-	server_state_t *state = NULL;
+	server_state_t       *state = NULL;
 	gf_fop_symlink_req_t *req = NULL;
-	call_stub_t *symlink_stub = NULL;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
-	size_t  baselen = 0;
+	call_stub_t          *symlink_stub = NULL;
+	int32_t               ret = -1;
+	size_t                pathlen = 0;
+	size_t                baselen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
@@ -6459,9 +6040,8 @@ server_symlink (call_frame_t *frame,
 		state->name = (req->linkname + pathlen + baselen);
 	}
 
-	ret = server_loc_fill (&(state->loc), state,
-			       0, state->par, state->bname,
-			       state->path);
+	ret = server_loc_fill (&(state->loc), state, 0, state->par,
+                               state->bname, state->path);
 
 	symlink_stub = fop_symlink_stub (frame, server_symlink_resume,
 					 state->name, &(state->loc));
@@ -6475,15 +6055,14 @@ server_symlink (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-server_link_resume (call_frame_t *frame,
-                    xlator_t *this,
-                    loc_t *oldloc,
+
+int
+server_link_resume (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 		    loc_t *newloc)
 {
 	server_state_t *state = NULL;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (oldloc->parent);
@@ -6506,12 +6085,10 @@ server_link_resume (call_frame_t *frame,
 		frame->root->unique, state->par2, state->bname2, 
 		state->path, state->ino);
 
-	STACK_WIND (frame,
-		    server_link_cbk,
+	STACK_WIND (frame, server_link_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->link,
-		    &(state->loc),
-		    &(state->loc2));
+		    &(state->loc), &(state->loc2));
 	return 0;
 }
 
@@ -6523,19 +6100,18 @@ server_link_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_link (call_frame_t *frame,
-             xlator_t *this,
+int
+server_link (call_frame_t *frame, xlator_t *this,
              gf_hdr_common_t *hdr, size_t hdrlen,
              struct iobuf *iobuf)
 {
 	gf_fop_link_req_t *req = NULL;
-	server_state_t *state = NULL;
-	call_stub_t    *link_stub = NULL;
-	int32_t ret = -1;
-	size_t  oldpathlen = 0;
-	size_t  newpathlen = 0;
-	size_t  newbaselen = 0;
+	server_state_t    *state = NULL;
+	call_stub_t       *link_stub = NULL;
+	int32_t            ret = -1;
+	size_t             oldpathlen = 0;
+	size_t             newpathlen = 0;
+	size_t             newbaselen = 0;
 
 	req   = gf_param (hdr);
 
@@ -6552,12 +6128,10 @@ server_link (call_frame_t *frame,
 		state->par2  = ntoh64 (req->newpar);
 	}
 
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL,
+	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
 			       state->path);
-	ret = server_loc_fill (&(state->loc2), state,
-			       0, state->par2, state->bname2,
-			       state->path2);
+	ret = server_loc_fill (&(state->loc2), state, 0, state->par2,
+                               state->bname2, state->path2);
 
 	link_stub = fop_link_stub (frame, server_link_resume,
 				   &(state->loc), &(state->loc2));
@@ -6575,15 +6149,13 @@ server_link (call_frame_t *frame,
 }
 
 
-int32_t
-server_rename_resume (call_frame_t *frame,
-                      xlator_t *this,
-                      loc_t *oldloc,
+int
+server_rename_resume (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                       loc_t *newloc)
 {
 	server_state_t *state = NULL;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
 	if (state->loc.parent == NULL)
 		state->loc.parent = inode_ref (oldloc->parent);
@@ -6601,12 +6173,10 @@ server_rename_resume (call_frame_t *frame,
 		frame->root->unique, state->path, state->par, state->bname,
 		state->path2, state->par2, state->bname2);
 
-	STACK_WIND (frame,
-		    server_rename_cbk,
+	STACK_WIND (frame, server_rename_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->rename,
-		    &(state->loc),
-		    &(state->loc2));
+		    &(state->loc), &(state->loc2));
 	return 0;
 }
 
@@ -6618,24 +6188,23 @@ server_rename_resume (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-server_rename (call_frame_t *frame,
-               xlator_t *bound_xl,
+int
+server_rename (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
 	gf_fop_rename_req_t *req = NULL;
-	server_state_t *state = NULL;
-	call_stub_t    *rename_stub = NULL;
-	int32_t ret = -1;
-	size_t  oldpathlen = 0;
-	size_t  oldbaselen = 0;
-	size_t  newpathlen = 0;
-	size_t  newbaselen = 0;
+	server_state_t      *state = NULL;
+	call_stub_t         *rename_stub = NULL;
+	int32_t              ret = -1;
+	size_t               oldpathlen = 0;
+	size_t               oldbaselen = 0;
+	size_t               newpathlen = 0;
+	size_t               newbaselen = 0;
 
 	req = gf_param (hdr);
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 	{
 		oldpathlen = STRLEN_0(req->oldpath);
 		oldbaselen = STRLEN_0(req->oldbname + oldpathlen);
@@ -6653,17 +6222,13 @@ server_rename (call_frame_t *frame,
 		state->par2  = ntoh64 (req->newpar);
 	}
 
-	ret = server_loc_fill (&(state->loc), state,
-			       0, state->par, state->bname,
-			       state->path);
-	ret = server_loc_fill (&(state->loc2), state,
-			       0, state->par2, state->bname2,
-			       state->path2);
+	ret = server_loc_fill (&(state->loc), state, 0, state->par,
+                               state->bname, state->path);
+	ret = server_loc_fill (&(state->loc2), state, 0, state->par2,
+                               state->bname2, state->path2);
 
-	rename_stub = fop_rename_stub (frame,
-				       server_rename_resume,
-				       &(state->loc),
-				       &(state->loc2));
+	rename_stub = fop_rename_stub (frame, server_rename_resume,
+				       &(state->loc), &(state->loc2));
 
 	if ((state->loc.parent == NULL) ||
 	    (state->loc.inode == NULL)){
@@ -6689,21 +6254,20 @@ server_rename (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-server_lk (call_frame_t *frame,
-           xlator_t *bound_xl,
+int
+server_lk (call_frame_t *frame, xlator_t *bound_xl,
            gf_hdr_common_t *hdr, size_t hdrlen,
            struct iobuf *iobuf)
 {
-	struct flock lock = {0, };
-	gf_fop_lk_req_t *req = NULL;
-	server_state_t *state = NULL;
+	struct flock         lock = {0, };
+	gf_fop_lk_req_t     *req = NULL;
+	server_state_t      *state = NULL;
 	server_connection_t *conn = NULL;
 	
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 	{
 		state->fd_no = ntoh64 (req->fd);
 		if (state->fd_no >= 0)
@@ -6720,9 +6284,7 @@ server_lk (call_frame_t *frame,
 			"fd - %"PRId64": unresolved fd", 
 			state->fd_no);
 
-		server_lk_cbk (frame, NULL, frame->this,
-			       -1, EBADF, NULL);
-
+		server_lk_cbk (frame, NULL, frame->this, -1, EBADF, NULL);
 		goto out;
 	}
 
@@ -6765,7 +6327,6 @@ server_lk (call_frame_t *frame,
 		    BOUND_XL(frame), 
 		    BOUND_XL(frame)->fops->lk,
 		    state->fd, state->cmd, &lock);
-
 out:
 	return 0;
 }
@@ -6779,24 +6340,23 @@ out:
  * @params:
  *
  */
-int32_t
-server_setdents (call_frame_t *frame,
-                 xlator_t *bound_xl,
+int
+server_setdents (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	server_connection_t *conn = NULL;
+	server_connection_t         *conn = NULL;
 	gf_fop_setdents_req_t       *req   = NULL;
 	server_state_t              *state = NULL;
-	dir_entry_t *entry = NULL;
-	dir_entry_t *trav = NULL;
-	dir_entry_t *prev = NULL;
-	int32_t count = 0;
-	int32_t i = 0;
-	int32_t bread = 0;
-	char *ender = NULL;
-	char *buffer_ptr = NULL;
-	char tmp_buf[512] = {0,};
+	dir_entry_t                 *entry = NULL;
+	dir_entry_t                 *trav = NULL;
+	dir_entry_t                 *prev = NULL;
+	int32_t                      count = 0;
+	int32_t                      i = 0;
+	int32_t                      bread = 0;
+	char                        *ender = NULL;
+	char                        *buffer_ptr = NULL;
+	char                         tmp_buf[512] = {0,};
 	
 	conn = SERVER_CONNECTION(frame);
 
@@ -6815,8 +6375,7 @@ server_setdents (call_frame_t *frame,
 			"fd - %"PRId64": unresolved fd", 
 			state->fd_no);
 
-		server_setdents_cbk (frame, NULL, frame->this,
-				     -1, EBADF);
+		server_setdents_cbk (frame, NULL, frame->this, -1, EBADF);
 
 		goto out;
 	}
@@ -6827,8 +6386,7 @@ server_setdents (call_frame_t *frame,
 			"returning EINVAL",
 			state->fd_no, state->fd->inode->ino);
 
-		server_setdents_cbk (frame, NULL, frame->this,
-				     -1, EINVAL);
+		server_setdents_cbk (frame, NULL, frame->this, -1, ENOMEM);
 
 		goto out;
 	}
@@ -6882,22 +6440,9 @@ server_setdents (call_frame_t *frame,
 			uint32_t ctime_nsec;
 			
 			sscanf (tmp_buf, GF_STAT_PRINT_FMT_STR,
-				&dev,
-				&ino,
-				&mode,
-				&nlink,
-				&uid,
-				&gid,
-				&rdev,
-				&size,
-				&blksize,
-				&blocks,
-				&atime,
-				&atime_nsec,
-				&mtime,
-				&mtime_nsec,
-				&ctime,
-				&ctime_nsec);
+				&dev, &ino, &mode, &nlink, &uid, &gid, &rdev,
+				&size, &blksize, &blocks, &atime, &atime_nsec,
+				&mtime, &mtime_nsec, &ctime, &ctime_nsec);
 			
 			trav->buf.st_dev = dev;
 			trav->buf.st_ino = ino;
@@ -6936,20 +6481,15 @@ server_setdents (call_frame_t *frame,
 		prev = trav;
 	}
 
-
 	gf_log (bound_xl->name, GF_LOG_TRACE,
 		"%"PRId64": SETDENTS \'fd=%"PRId64" (%"PRId64"); count=%"PRId64,
 		frame->root->unique, state->fd_no, state->fd->inode->ino, 
 		(int64_t)state->nr_count);
 	
-	STACK_WIND (frame,
-		    server_setdents_cbk,
+	STACK_WIND (frame, server_setdents_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->setdents,
-		    state->fd,
-		    state->flags,
-		    entry,
-		    state->nr_count);
+		    state->fd, state->flags, entry, state->nr_count);
 	
 	
 	/* Free the variables allocated in this fop here */
@@ -6974,8 +6514,6 @@ out:
 
 
 /* xxx_MOPS */
-
-
 int
 _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
 {
@@ -7115,7 +6653,7 @@ _validate_volfile_checksum (xlator_t *this, char *key,
             (checksum != temp_volfile->checksum)) 
                 ret = -1;
 
- out:
+out:
         return ret;
 }
 
@@ -7127,29 +6665,27 @@ _validate_volfile_checksum (xlator_t *this, char *key,
  * @params:
  *
  */
-int32_t
-mop_getspec (call_frame_t *frame,
-             xlator_t *bound_xl,
+int
+mop_getspec (call_frame_t *frame, xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
              struct iobuf *iobuf)
 {
 	gf_hdr_common_t      *_hdr = NULL;
 	gf_mop_getspec_rsp_t *rsp = NULL;
-	int32_t ret = -1;
-	int32_t op_errno = ENOENT;
-	int32_t gf_errno = 0;
-	int32_t spec_fd = -1;
-	size_t  file_len = 0;
-	size_t _hdrlen = 0;
-	char *filename = NULL;
-	struct stat stbuf = {0,};
-
+	int32_t               ret = -1;
+	int32_t               op_errno = ENOENT;
+	int32_t               gf_errno = 0;
+	int32_t               spec_fd = -1;
+	size_t                file_len = 0;
+	size_t                _hdrlen = 0;
+	char                 *filename = NULL;
+	struct stat           stbuf = {0,};
 	gf_mop_getspec_req_t *req = NULL;
-        uint32_t checksum = 0;
-	uint32_t flags  = 0;
-	uint32_t keylen = 0;
-	char    *key    = NULL;
-	server_conf_t *conf = NULL;
+        uint32_t              checksum = 0;
+	uint32_t              flags  = 0;
+	uint32_t              keylen = 0;
+	char                 *key = NULL;
+	server_conf_t        *conf = NULL;
         
 	req   = gf_param (hdr);
 	flags = ntoh32 (req->flags);
@@ -7210,19 +6746,16 @@ fail:
 	return 0;
 }
 
-int32_t
-server_checksum_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     uint8_t *fchecksum,
-                     uint8_t *dchecksum)
+
+int
+server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno,
+                     uint8_t *fchecksum, uint8_t *dchecksum)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_checksum_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	size_t                 hdrlen = 0;
+	int32_t                gf_errno = 0;
 
 	hdrlen = gf_hdr_len (rsp, ZR_FILENAME_MAX + 1 + ZR_FILENAME_MAX + 1);
 	hdr    = gf_hdr_new (rsp, ZR_FILENAME_MAX + 1 + ZR_FILENAME_MAX + 1);
@@ -7246,14 +6779,14 @@ server_checksum_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-server_checksum (call_frame_t *frame,
-                 xlator_t *bound_xl,
+
+int
+server_checksum (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	loc_t loc = {0,};
-	int32_t flag = 0;
+	loc_t                  loc = {0,};
+	int32_t                flag = 0;
 	gf_fop_checksum_req_t *req = NULL;
 
 	req = gf_param (hdr);
@@ -7267,13 +6800,10 @@ server_checksum (call_frame_t *frame,
 		"%"PRId64": CHECKSUM \'%s (%"PRId64")\'", 
 		frame->root->unique, loc.path, loc.ino);
 
-	STACK_WIND (frame,
-		    server_checksum_cbk,
+	STACK_WIND (frame, server_checksum_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->checksum,
-		    &loc,
-		    flag);
-
+		    &loc, flag);
 	return 0;
 }
 
@@ -7285,9 +6815,8 @@ server_checksum (call_frame_t *frame,
  * @params: parameter dictionary
  *
  */
-int32_t
-mop_getvolume (call_frame_t *frame,
-               xlator_t *bound_xl,
+int
+mop_getvolume (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
@@ -7299,8 +6828,7 @@ struct __get_xl_struct {
 	xlator_t *reply;
 };
 
-void __check_and_set (xlator_t *each,
-                      void *data)
+void __check_and_set (xlator_t *each, void *data)
 {
 	if (!strcmp (each->name,
 		     ((struct __get_xl_struct *) data)->name))
@@ -7308,8 +6836,7 @@ void __check_and_set (xlator_t *each,
 }
 
 static xlator_t *
-get_xlator_by_name (xlator_t *some_xl,
-                    const char *name)
+get_xlator_by_name (xlator_t *some_xl, const char *name)
 {
 	struct __get_xl_struct get = {
 		.name = name,
@@ -7358,6 +6885,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
         char                        *msg = NULL;
         char                        *volfile_key = NULL;
         uint32_t                     checksum = 0;
+        int32_t                      lru_limit = 1024;
 
 	params = dict_new ();
 	reply  = dict_new ();
@@ -7539,8 +7067,6 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 	    (conn->bound_xl->itable == NULL)) {
 		/* create inode table for this bound_xl, if one doesn't 
 		   already exist */
-		int32_t lru_limit = 1024;
-
 		lru_limit = INODE_LRU_LIMIT (frame->this);
 
 		gf_log (trans->xl->name, GF_LOG_TRACE,
@@ -7606,35 +7132,28 @@ fail:
  * not for external reference
  */
 
-int32_t
-server_mop_stats_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *xl,
-                      int32_t ret,
-                      int32_t op_errno,
+int
+server_mop_stats_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t ret, int32_t op_errno,
                       struct xlator_stats *stats)
 {
 	/* TODO: get this information from somewhere else, not extern */
 	gf_hdr_common_t    *hdr = NULL;
 	gf_mop_stats_rsp_t *rsp = NULL;
-	char buffer[256] = {0,};
-	int64_t glusterfsd_stats_nr_clients = 0;
-	size_t  hdrlen = 0;
-	size_t  buf_len = 0;
-	int32_t gf_errno = 0;
+	char                buffer[256] = {0,};
+	int64_t             glusterfsd_stats_nr_clients = 0;
+	size_t              hdrlen = 0;
+	size_t              buf_len = 0;
+	int32_t             gf_errno = 0;
 
 	if (ret >= 0) {
 		sprintf (buffer,
 			 "%"PRIx64",%"PRIx64",%"PRIx64
 			 ",%"PRIx64",%"PRIx64",%"PRIx64
 			 ",%"PRIx64",%"PRIx64"\n",
-			 stats->nr_files,
-			 stats->disk_usage,
-			 stats->free_disk,
-			 stats->total_disk_size,
-			 stats->read_usage,
-			 stats->write_usage,
-			 stats->disk_speed,
+			 stats->nr_files, stats->disk_usage, stats->free_disk,
+			 stats->total_disk_size, stats->read_usage,
+			 stats->write_usage, stats->disk_speed,
 			 glusterfsd_stats_nr_clients);
 
 		buf_len = strlen (buffer);
@@ -7664,21 +7183,19 @@ server_mop_stats_cbk (call_frame_t *frame,
  * @params: parameter dictionary
  *
  */
-static int32_t
-mop_stats (call_frame_t *frame,
-           xlator_t *bound_xl,
+int
+mop_stats (call_frame_t *frame, xlator_t *bound_xl,
            gf_hdr_common_t *hdr, size_t hdrlen,
            struct iobuf *iobuf)
 {
-	int32_t flag = 0;
+	int32_t             flag = 0;
 	gf_mop_stats_req_t *req = NULL;
 
 	req = gf_param (hdr);
 
 	flag = ntoh32 (req->flags);
 
-	STACK_WIND (frame,
-		    server_mop_stats_cbk,
+	STACK_WIND (frame, server_mop_stats_cbk,
 		    bound_xl,
 		    bound_xl->mops->stats,
 		    flag);
@@ -7686,15 +7203,15 @@ mop_stats (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-mop_ping (call_frame_t *frame,
-          xlator_t *bound_xl,
+
+int
+mop_ping (call_frame_t *frame, xlator_t *bound_xl,
           gf_hdr_common_t *hdr, size_t hdrlen,
           struct iobuf *iobuf)
 {
 	gf_hdr_common_t     *rsp_hdr = NULL;
 	gf_mop_ping_rsp_t   *rsp = NULL;
-	size_t  rsp_hdrlen = 0;
+	size_t               rsp_hdrlen = 0;
 
 	rsp_hdrlen = gf_hdr_len (rsp, 0);
 	rsp_hdr    = gf_hdr_new (rsp, 0);
@@ -7716,15 +7233,14 @@ mop_ping (call_frame_t *frame,
  *
  */
 
-int32_t
-unknown_op_cbk (call_frame_t *frame,
-                int32_t type,
-                int32_t opcode)
+int
+unknown_op_cbk (call_frame_t *frame, int32_t type, int32_t opcode)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_flush_rsp_t *rsp = NULL;
-	size_t  hdrlen = 0;
-	int32_t gf_errno = 0;
+	size_t              hdrlen = 0;
+	int32_t             gf_errno = 0;
+
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
 	rsp    = gf_param (hdr);
@@ -7894,7 +7410,7 @@ int
 protocol_server_interpret (xlator_t *this, transport_t *trans,
                            char *hdr_p, size_t hdrlen, struct iobuf *iobuf)
 {
-	server_connection_t *conn = NULL;
+	server_connection_t         *conn = NULL;
 	gf_hdr_common_t             *hdr = NULL;
 	xlator_t                    *bound_xl = NULL;
 	call_frame_t                *frame = NULL;
@@ -7978,8 +7494,8 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
  * not for external reference
  */
 int
-server_nop_cbk (call_frame_t *frame, void *cookie,
-                xlator_t *this, int32_t op_ret, int32_t op_errno)
+server_nop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno)
 {
 	server_state_t *state = NULL;
 	
@@ -7993,16 +7509,15 @@ server_nop_cbk (call_frame_t *frame, void *cookie,
 
 
 static void
-get_auth_types (dict_t *this,
-                char *key,
-                data_t *value,
-                void *data)
+get_auth_types (dict_t *this, char *key, data_t *value, void *data)
 {
-	dict_t *auth_dict = data;
-	char *saveptr = NULL, *tmp = NULL;
-	char *key_cpy = NULL;
-	int32_t ret = -1;
-	
+	dict_t   *auth_dict = NULL;
+	char     *saveptr = NULL;
+        char     *tmp = NULL;
+	char     *key_cpy = NULL;
+	int32_t   ret = -1;
+
+        auth_dict = data;
 	key_cpy = strdup (key);
 	GF_VALIDATE_OR_GOTO("server", key_cpy, out);
 
@@ -8030,16 +7545,17 @@ out:
 }
 
 
-static int
+int
 validate_auth_options (xlator_t *this, dict_t *dict)
 {
-	int ret = -1;
-	int error = 0;
+	int            ret = -1;
+	int            error = 0;
 	xlator_list_t *trav = NULL;
-	data_pair_t *pair = NULL;
-	char *saveptr = NULL, *tmp = NULL;
-	char *key_cpy = NULL;
-	
+	data_pair_t   *pair = NULL;
+	char          *saveptr = NULL;
+        char          *tmp = NULL;
+	char          *key_cpy = NULL;
+
 	trav = this->children;
 	while (trav) {
 		error = -1;
@@ -8084,10 +7600,10 @@ validate_auth_options (xlator_t *this, dict_t *dict)
 int
 init (xlator_t *this)
 {
-	int32_t ret = -1;
-	transport_t *trans = NULL;
+	int32_t        ret = -1;
+	transport_t   *trans = NULL;
 	server_conf_t *conf = NULL;
-        data_t *data = NULL;
+        data_t        *data = NULL;
 
 	if (this->children == NULL) {
 		gf_log (this->name, GF_LOG_ERROR,
