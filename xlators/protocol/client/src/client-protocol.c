@@ -284,9 +284,10 @@ call_bail (void *data)
 		localtime_r (&trav->saved_at.tv_sec, &frame_sent_tm);
 		strftime (frame_sent, 32, "%Y-%m-%d %H:%M:%S", &frame_sent_tm);
 
-		gf_log (trans->xl->name, GF_LOG_DEBUG,
-			"activating bail-out :"
-			"frame sent = %s. frame-timeout = %d",
+		gf_log (trans->xl->name, GF_LOG_ERROR,
+			"bailing out frame %s(%d) "
+			"frame sent = %s. transport-timeout = %d",
+                        gf_op_list[trav->op], trav->op,
 			frame_sent, conn->frame_timeout);
 
 		hdr.type = hton32 (trav->type);
@@ -872,7 +873,7 @@ client_stat (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"STAT %"PRId64" (%s): "
                         "failed to get remote inode number",
 			loc->inode->ino, loc->path);
@@ -1858,7 +1859,7 @@ client_readv (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd, returning EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL, 0, NULL);
@@ -1934,7 +1935,7 @@ client_writev (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd. returning EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -2067,7 +2068,7 @@ client_flush (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd. returning EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD);
@@ -2136,7 +2137,7 @@ client_fsync (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
@@ -2296,7 +2297,7 @@ client_fxattrop (call_frame_t *frame,
 	if (fd) {
 		ret = this_fd_get (fd, this, &remote_fd);
 		if (ret == -1) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"(%"PRId64"): failed to get remote fd. returning EBADFD", 
 				fd->inode->ino);
 			goto unwind;
@@ -2479,7 +2480,7 @@ client_fsetxattr (call_frame_t *frame,
 
         ret = this_fd_get (fd, this, &remote_fd);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_TRACE,
                         "(%"PRId64"): failed to get remote fd. returning EBADFD",
                         fd->inode->ino);
                 goto unwind;
@@ -2634,7 +2635,7 @@ client_fgetxattr (call_frame_t *frame,
 
         ret = this_fd_get (fd, this, &remote_fd);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_TRACE,
                         "(%"PRId64"): failed to get remote fd. returning EBADFD",
                         fd->inode->ino);
                 goto unwind;
@@ -2854,7 +2855,7 @@ client_getdents (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -2919,7 +2920,7 @@ client_readdir (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
 			fd->inode->ino);
 		goto unwind;
@@ -2989,7 +2990,7 @@ client_fsyncdir (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
 			fd->inode->ino);
 		goto unwind;
@@ -3124,7 +3125,7 @@ client_ftruncate (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -3190,7 +3191,7 @@ client_fstat (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd. returning EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -3262,7 +3263,7 @@ client_lk (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd. returning EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD, NULL);
@@ -3468,7 +3469,7 @@ client_finodelk (call_frame_t *frame,
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
@@ -3731,7 +3732,7 @@ client_lookup (call_frame_t *frame,
 	if (loc->ino != 1) {
                 ret = inode_ctx_get (loc->parent, this, &par);
                 if (loc->parent->ino && ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_TRACE,
                                 "LOOKUP %"PRId64"/%s (%s): failed to get "
                                 "remote inode number for parent", 
                                 loc->parent->ino, loc->name, loc->path);
@@ -6409,7 +6410,7 @@ client_protocol_reconnect (void *trans_ptr)
 		if (conn->connected == 0) {
 			tv.tv_sec = 10;
 
-			gf_log (trans->xl->name, GF_LOG_DEBUG,
+			gf_log (trans->xl->name, GF_LOG_TRACE,
 				"attempting reconnect");
 			ret = transport_connect (trans);
 
@@ -6418,7 +6419,7 @@ client_protocol_reconnect (void *trans_ptr)
 						     client_protocol_reconnect,
 						     trans);
 		} else {
-			gf_log (trans->xl->name, GF_LOG_DEBUG, 
+			gf_log (trans->xl->name, GF_LOG_TRACE, 
 				"breaking reconnect chain");
 		}
 	}
@@ -6470,7 +6471,7 @@ protocol_client_cleanup (transport_t *trans)
 
 	conn = trans->xl_private;
 			
-	gf_log (trans->xl->name, GF_LOG_DEBUG,
+	gf_log (trans->xl->name, GF_LOG_TRACE,
 		"cleaning up state in transport object %p", trans);
 
 	pthread_mutex_lock (&conn->lock);
@@ -6967,18 +6968,18 @@ protocol_client_pollin (xlator_t *this, transport_t *trans)
  *
  */
 
-int32_t
-notify (xlator_t *this,
-        int32_t event,
-        void *data,
-        ...)
+int
+notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int                  i          = 0;
 	int                  ret        = -1;
         int                  child_down = 1;
+        int                  was_not_down = 0;
 	transport_t         *trans      = NULL;
 	client_connection_t *conn       = NULL;
         client_conf_t       *conf       = NULL;
+        xlator_list_t       *parent = NULL;
+                        
 
         conf = this->private;
 	trans = data;
@@ -7002,6 +7003,13 @@ notify (xlator_t *this,
 		ret = -1;
 		protocol_client_cleanup (trans);
 
+                was_not_down = 0;
+                for (i = 0; i < CHANNEL_MAX; i++) {
+                        conn = conf->transport[i]->xl_private;
+                        if (conn->connected == 1)
+                                was_not_down = 1;
+                }
+
                 conn = trans->xl_private;
                 if (conn->connected) {
                         conn->connected = 0;
@@ -7017,9 +7025,7 @@ notify (xlator_t *this,
                                 child_down = 0;
                 }
                 
-                if (child_down) {
-                        xlator_list_t *parent = NULL;
-                        
+                if (child_down && was_not_down) {
                         gf_log (this->name, GF_LOG_INFO, "disconnected");
                         
                         protocol_client_mark_fd_bad (this);
