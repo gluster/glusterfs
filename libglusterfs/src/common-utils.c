@@ -207,6 +207,7 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_FENTRYLK]    = "FENTRYLK";   /* 40 */
 	gf_fop_list[GF_FOP_CHECKSUM]    = "CHECKSUM";   /* 41 */
 	gf_fop_list[GF_FOP_XATTROP]     = "XATTROP";
+	gf_fop_list[GF_FOP_FXATTROP]    = "FXATTROP";
 	gf_fop_list[GF_FOP_LOCK_NOTIFY] = "LOCK_NOTIFY";
 	gf_fop_list[GF_FOP_LOCK_FNOTIFY]= "LOCK_FNOTIFY";
 	gf_fop_list[GF_FOP_FSETXATTR]   = "FSETXATTR";
@@ -217,6 +218,7 @@ gf_global_variable_init()
 	gf_mop_list[GF_MOP_STATS]       = "STATS";
 	gf_mop_list[GF_MOP_SETSPEC]     = "SETSPEC";
 	gf_mop_list[GF_MOP_GETSPEC]     = "GETSPEC";
+	gf_mop_list[GF_MOP_PING]        = "PING";
 
 	gf_cbk_list[GF_CBK_FORGET]      = "FORGET";
 	gf_cbk_list[GF_CBK_RELEASE]     = "RELEASE";
