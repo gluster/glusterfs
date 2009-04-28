@@ -4119,7 +4119,7 @@ unify_forget (xlator_t *this,
         int16_t *list = NULL;
         uint64_t tmp_list = 0;
 
-        if (!S_ISDIR(inode->st_mode)) {
+        if (inode->st_mode && (!S_ISDIR(inode->st_mode))) {
                 inode_ctx_get (inode, this, &tmp_list);
                 if (tmp_list) {
                         list = (int16_t *)(long)tmp_list;
