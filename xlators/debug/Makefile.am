@@ -1,3 +1,3 @@
-SUBDIRS = trace error-gen
+SUBDIRS = trace error-gen io-stats
 
 CLEANFILES = 
