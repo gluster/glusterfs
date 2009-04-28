@@ -156,8 +156,6 @@ unlock:
 			local->layout = NULL;
 
 			if (ret != 0) {
-				layout->gen = conf->gen;
-
 				gf_log (this->name, GF_LOG_DEBUG,
 					"fixing assignment on %s",
 					local->loc.path);
