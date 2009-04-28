@@ -39,7 +39,10 @@ dht_layout_t *
 dht_layout_new (xlator_t *this, int cnt)
 {
 	dht_layout_t *layout = NULL;
+        dht_conf_t   *conf = NULL;
 
+
+        conf = this->private;
 
 	layout = CALLOC (1, layout_size (cnt));
 	if (!layout) {
@@ -49,7 +52,8 @@ dht_layout_new (xlator_t *this, int cnt)
 	}
 
 	layout->cnt = cnt;
-
+        if (conf)
+                layout->gen = conf->gen;
 out:
 	return layout;
 }
@@ -257,7 +261,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
 	if (ret != 0) {
 		layout->list[i].err = -1;
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"missing disk layout on %s. err = %d",
 			subvol->name, err);
 		ret = 0;
@@ -495,12 +499,14 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 	/* TODO During DHT selfheal rewrite (almost) find a better place to 
 	 * detect this - probably in dht_layout_anomalies() 
 	 */
-		if (layout->list[i].err == ENOENT) {
+		if (layout->list[i].err > 0) {
 			gf_log (this->name, GF_LOG_DEBUG,
-				"path=%s ENOENT - directory entry"
-				" should be created in selfheal", loc->path);
-			ret = 1;
-			break;
+				"path=%s err=%s on subvol=%s",
+                                loc->path, strerror (layout->list[i].err),
+                                (layout->list[i].xlator ?
+                                 layout->list[i].xlator->name : "<>"));
+                        if (layout->list[i].err == ENOENT)
+                                ret = 1;
 		}
 	}
 

@@ -169,7 +169,7 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 		missing_xattr++;
 	}
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"%d subvolumes missing xattr for %s",
 		missing_xattr, loc->path);
 
