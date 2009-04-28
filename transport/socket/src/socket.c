@@ -86,7 +86,7 @@ __socket_rwv (transport_t *this, struct iovec *vector, int count,
 
                 if (ret == 0) {
                         /* Mostly due to 'umount' in client */
-                        gf_log (this->xl->name, GF_LOG_DEBUG, 
+                        gf_log (this->xl->name, GF_LOG_TRACE,
                                 "EOF from peer %s", this->peerinfo.identifier);
                         opcount = -1;
                         errno = ENOTCONN;
@@ -97,7 +97,7 @@ __socket_rwv (transport_t *this, struct iovec *vector, int count,
                         if (errno == EINTR)
                                 continue;
 
-                        gf_log (this->xl->name, GF_LOG_DEBUG,
+                        gf_log (this->xl->name, GF_LOG_TRACE,
                                 "%s failed (%s)", write ? "writev" : "readv",
                                 strerror (errno));
                         opcount = -1;
@@ -555,7 +555,7 @@ __socket_proto_state_machine (transport_t *this)
 			}
 
 			if (ret == -1) {
-				gf_log (this->xl->name, GF_LOG_DEBUG,
+				gf_log (this->xl->name, GF_LOG_TRACE,
 					"read (%s) in state %d (%s)",
 					strerror (errno),
 					SOCKET_PROTO_STATE_HEADER_COMING, 
@@ -739,7 +739,8 @@ socket_connect_finish (transport_t *this)
 		if (ret == -1 && errno != EINPROGRESS) {
 			if (!priv->connect_finish_log) {
 				gf_log (this->xl->name, GF_LOG_ERROR,
-					"connection failed (%s)",
+					"connection to %s failed (%s)",
+                                        this->peerinfo.identifier,
 					strerror (errno));
 				priv->connect_finish_log = 1;
 			}
@@ -961,7 +962,7 @@ socket_connect (transport_t *this)
         pthread_mutex_unlock (&priv->lock);
 
         if (sock != -1) {
-                gf_log (this->xl->name, GF_LOG_DEBUG,
+                gf_log (this->xl->name, GF_LOG_TRACE,
                         "connect () called on transport already connected");
                 ret = 0;
                 goto err;
