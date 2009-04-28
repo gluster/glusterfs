@@ -160,7 +160,7 @@ saved_frames_unwind (xlator_t *this, struct saved_frames *saved_frames,
 	hdr.rsp.op_errno = hton32 (ENOTCONN);
 
 	list_for_each_entry_safe (trav, tmp, &head->list, list) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_ERROR,
 			"forced unwinding frame type(%d) op(%s)",
 			trav->type, gf_op_list[trav->op]);
 
