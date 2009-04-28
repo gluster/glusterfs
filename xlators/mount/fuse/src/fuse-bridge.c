@@ -115,9 +115,7 @@ typedef struct {
         char           is_revalidate;
 } fuse_state_t;
 
-int fuse_chan_receive (struct fuse_chan *ch,
-                       char *buf,
-                       int32_t size);
+int fuse_chan_receive (struct fuse_chan *ch, char *buf, int32_t size);
 
 
 static void
@@ -150,13 +148,14 @@ free_state (fuse_state_t *state)
 fuse_state_t *
 state_from_req (fuse_req_t req)
 {
-        fuse_state_t *state;
-        xlator_t *this = NULL;
+        fuse_state_t *state = NULL;
+        xlator_t     *this = NULL;
 
         this = fuse_req_userdata (req);
 
         state = (void *)calloc (1, sizeof (*state));
-        ERR_ABORT (state);
+        if (!state)
+                return NULL;
         state->pool = this->ctx->pool;
         state->itable = this->itable;
         state->req = req;
@@ -165,24 +164,29 @@ state_from_req (fuse_req_t req)
         return state;
 }
 
+
 static pid_t
 get_pid_from_req (fuse_req_t req)
 {
         const struct fuse_ctx *ctx = NULL;
+
         ctx = fuse_req_ctx(req);
         return ctx->pid;
 }
 
+
 static call_frame_t *
 get_call_frame_for_req (fuse_state_t *state, char d)
 {
-        call_pool_t *pool = state->pool;
-        fuse_req_t req = state->req;
+        call_pool_t           *pool = NULL;
+        fuse_req_t             req = NULL;
         const struct fuse_ctx *ctx = NULL;
-	call_frame_t *frame = NULL;
-        xlator_t *this = NULL;
-        fuse_private_t *priv = NULL;
+	call_frame_t          *frame = NULL;
+        xlator_t              *this = NULL;
+        fuse_private_t        *priv = NULL;
 
+        pool = state->pool;
+        req  = state->req;
 
 	if (req) {
 		this = fuse_req_userdata (req);
@@ -209,15 +213,13 @@ get_call_frame_for_req (fuse_state_t *state, char d)
 
 
 GF_MUST_CHECK static int32_t
-fuse_loc_fill (loc_t *loc,
-               fuse_state_t *state,
-               ino_t ino,
-               ino_t par,
-               const char *name)
+fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
+               ino_t par, const char *name)
 {
-        inode_t *inode = NULL, *parent = NULL;
-	int32_t ret = -1;
-	char *path = NULL;
+        inode_t  *inode = NULL;
+        inode_t  *parent = NULL;
+	int32_t   ret = -1;
+	char     *path = NULL;
 
         /* resistance against multiple invocation of loc_fill not to get
            reference leaks via inode_search() */
@@ -291,8 +293,7 @@ need_fresh_lookup (int32_t op_ret, int32_t op_errno,
 		   loc_t *loc, struct stat *buf)
 {
         if (op_ret == -1) {
-		gf_log ("fuse-bridge",
-                        GF_LOG_DEBUG,
+		gf_log ("fuse-bridge", GF_LOG_DEBUG,
 			"revalidate of %s failed (%s)",
 			loc->path, strerror (op_errno));
                 return 1;
@@ -317,29 +318,21 @@ need_fresh_lookup (int32_t op_ret, int32_t op_errno,
 
 
 static int
-fuse_lookup_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 inode_t *inode,
-                 struct stat *stat,
-                 dict_t *dict);
+fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno,
+                 inode_t *inode, struct stat *stat, dict_t *dict);
 
 static int
-fuse_entry_cbk (call_frame_t *frame,
-                void *cookie,
-                xlator_t *this,
-                int32_t op_ret,
-                int32_t op_errno,
-                inode_t *inode,
-                struct stat *buf)
+fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno,
+                inode_t *inode, struct stat *buf)
 {
-        fuse_state_t *state;
-        fuse_req_t req;
-        struct fuse_entry_param e = {0, };
-        fuse_private_t *priv = this->private;
+        fuse_state_t            *state = NULL;
+        fuse_req_t               req = NULL;
+        struct fuse_entry_param  e = {0, };
+        fuse_private_t          *priv = NULL;
 
+        priv = this->private;
         state = frame->root->state;
         req = state->req;
 
@@ -386,7 +379,7 @@ fuse_entry_cbk (call_frame_t *frame,
                 e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE; 
   
 		if (!e.ino || !buf->st_ino) {
-			gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+			gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 				"%"PRId64": %s() %s returning inode 0",
 				frame->root->unique,
 				gf_fop_list[frame->root->op], state->loc.path);
@@ -398,7 +391,7 @@ fuse_entry_cbk (call_frame_t *frame,
                         fuse_reply_attr (req, buf, priv->attribute_timeout);
         } else {
                 gf_log ("glusterfs-fuse",
-                        GF_LOG_TRACE,
+                        (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_WARNING),
                         "%"PRId64": %s() %s => -1 (%s)", frame->root->unique,
                         gf_fop_list[frame->root->op], state->loc.path,
 			strerror (op_errno));
@@ -412,14 +405,9 @@ fuse_entry_cbk (call_frame_t *frame,
 
 
 static int
-fuse_lookup_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 inode_t *inode,
-                 struct stat *stat,
-                 dict_t *dict)
+fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno,
+                 inode_t *inode, struct stat *stat, dict_t *dict)
 {
         fuse_entry_cbk (frame, cookie, this, op_ret, op_errno, inode, stat);
         return 0;
@@ -427,19 +415,17 @@ fuse_lookup_cbk (call_frame_t *frame,
 
 
 static void
-fuse_lookup (fuse_req_t req,
-             fuse_ino_t par,
-             const char *name)
+fuse_lookup (fuse_req_t req, fuse_ino_t par, const char *name)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 	
         state = state_from_req (req);
 
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
 
 	if (ret < 0) {
-		gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+		gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 			"%"PRId64": LOOKUP %"PRId64"/%s (fuse_loc_fill() failed)", 
 			req_callid (req), (ino_t)par, name);
 		free_state (state);
@@ -470,11 +456,9 @@ fuse_lookup (fuse_req_t req,
 
 
 static void
-fuse_forget (fuse_req_t req,
-             fuse_ino_t ino,
-             unsigned long nlookup)
+fuse_forget (fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
 {
-        inode_t *fuse_inode;
+        inode_t      *fuse_inode;
         fuse_state_t *state;
 
         if (ino == 1) {
@@ -485,7 +469,7 @@ fuse_forget (fuse_req_t req,
         state = state_from_req (req);
         fuse_inode = inode_search (state->itable, ino, NULL);
 	if (fuse_inode) {
-		gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+		gf_log ("glusterfs-fuse", GF_LOG_TRACE,
 			"got forget on inode (%lu)", ino);
 		inode_forget (fuse_inode, nlookup);
 		inode_unref (fuse_inode);
@@ -500,23 +484,19 @@ fuse_forget (fuse_req_t req,
 
 
 static int
-fuse_attr_cbk (call_frame_t *frame,
-               void *cookie,
-               xlator_t *this,
-               int32_t op_ret,
-               int32_t op_errno,
-               struct stat *buf)
+fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
-        fuse_state_t *state;
-        fuse_req_t req;
-        fuse_private_t *priv = this->private;
+        fuse_state_t   *state;
+        fuse_req_t      req;
+        fuse_private_t *priv = NULL;
 
+        priv  = this->private;
         state = frame->root->state;
-        req = state->req;
+        req   = state->req;
 
         if (op_ret == 0) {
-                gf_log ("glusterfs-fuse",
-                        GF_LOG_TRACE,
+                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRId64": %s() %s => %"PRId64, frame->root->unique, 
                         gf_fop_list[frame->root->op],
 			state->loc.path ? state->loc.path : "ERR",
@@ -528,7 +508,7 @@ fuse_attr_cbk (call_frame_t *frame,
 
                 fuse_reply_attr (req, buf, priv->attribute_timeout);
         } else {
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": %s() %s => -1 (%s)", frame->root->unique, 
                         gf_fop_list[frame->root->op],
 			state->loc.path ? state->loc.path : "ERR", 
@@ -544,9 +524,7 @@ fuse_attr_cbk (call_frame_t *frame,
 
 
 static void
-fuse_getattr (fuse_req_t req,
-              fuse_ino_t ino,
-              struct fuse_file_info *fi)
+fuse_getattr (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
         fuse_state_t *state;
         fd_t         *fd = NULL;
@@ -557,7 +535,7 @@ fuse_getattr (fuse_req_t req,
         if (ino == 1) {
                 ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
 		if (ret < 0) {
-			gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+			gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 				"%"PRId64": GETATTR %"PRId64" (fuse_loc_fill() failed)",
 				req_callid(req), (ino_t)ino);
 			fuse_reply_err (req, ENOENT);
@@ -580,7 +558,7 @@ fuse_getattr (fuse_req_t req,
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
 
         if (!state->loc.inode) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": GETATTR %"PRId64" (%s) (fuse_loc_fill() returned NULL inode)", 
                         req_callid (req), (int64_t)ino, state->loc.path);
                 fuse_reply_err (req, ENOENT);
@@ -594,7 +572,7 @@ fuse_getattr (fuse_req_t req,
 		   to permit fstat() to happen even when fuse_loc_fill fails
 		*/
 		if (ret < 0) {
-			gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+			gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 				"%"PRId64": GETATTR %"PRId64" (fuse_loc_fill() failed)",
 				req_callid(req), (ino_t)ino);
 			fuse_reply_err (req, ENOENT);
@@ -622,23 +600,19 @@ fuse_getattr (fuse_req_t req,
 
 
 static int
-fuse_fd_cbk (call_frame_t *frame,
-             void *cookie,
-             xlator_t *this,
-             int32_t op_ret,
-             int32_t op_errno,
-             fd_t *fd)
+fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+             int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        fuse_state_t *state;
-        fuse_req_t req;
-        fuse_private_t *priv = this->private;
+        fuse_state_t          *state;
+        fuse_req_t             req;
+        fuse_private_t        *priv = NULL;
+        struct fuse_file_info  fi = {0, };
 
+        priv = this->private;
         state = frame->root->state;
         req = state->req;
 
         if (op_ret >= 0) {
-                struct fuse_file_info fi = {0, };
-                
                 fi.fh = (unsigned long) fd;
                 fi.flags = state->flags;
 
@@ -654,14 +628,14 @@ fuse_fd_cbk (call_frame_t *frame,
 		fd_ref (fd);
                 if (fuse_reply_open (req, &fi) == -ENOENT) {
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-				"open() got EINTR");
+				"open(%s) got EINTR", state->loc.path);
 			fd_unref (fd);
 				goto out;
                 }
 		
 		fd_bind (fd);
         } else {
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": %s() %s => -1 (%s)", frame->root->unique,
                         gf_fop_list[frame->root->op], state->loc.path,
 			strerror (op_errno));
@@ -675,17 +649,15 @@ out:
 }
 
 
-
 static void
-do_chmod (fuse_req_t req,
-          fuse_ino_t ino,
-          struct stat *attr,
+do_chmod (fuse_req_t req, fuse_ino_t ino, struct stat *attr,
           struct fuse_file_info *fi)
 {
-        fuse_state_t *state = state_from_req (req);
-        fd_t *fd = NULL;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+        fd_t         *fd = NULL;
+	int32_t       ret = -1;
 
+        state = state_from_req (req);
         if (fi) {
                 fd = FI_TO_FD (fi);
                 state->fd = fd;
@@ -702,7 +674,7 @@ do_chmod (fuse_req_t req,
 
                 if ((state->loc.inode == NULL) ||
 		    (ret < 0)) {
-                        gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "%"PRId64": CHMOD %"PRId64" (%s) (fuse_loc_fill() failed)", 
                                 req_callid (req), (int64_t)ino,
 				state->loc.path);
@@ -723,18 +695,17 @@ do_chmod (fuse_req_t req,
 
 
 static void
-do_chown (fuse_req_t req,
-          fuse_ino_t ino,
-          struct stat *attr,
-          int valid,
-          struct fuse_file_info *fi)
+do_chown (fuse_req_t req, fuse_ino_t ino, struct stat *attr,
+          int valid, struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-        fd_t *fd = NULL;
-	int32_t ret = -1;
-        uid_t uid = (valid & FUSE_SET_ATTR_UID) ? attr->st_uid : (uid_t) -1;
-        gid_t gid = (valid & FUSE_SET_ATTR_GID) ? attr->st_gid : (gid_t) -1;
+        fuse_state_t *state = NULL;
+        fd_t         *fd = NULL;
+	int32_t       ret = -1;
+        uid_t         uid = 0;
+        gid_t         gid = 0;
 
+        uid = (valid & FUSE_SET_ATTR_UID) ? attr->st_uid : (uid_t) -1;
+        gid = (valid & FUSE_SET_ATTR_GID) ? attr->st_gid : (gid_t) -1;
         state = state_from_req (req);
 
         if (fi) {
@@ -752,7 +723,7 @@ do_chown (fuse_req_t req,
                 ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
                 if ((state->loc.inode == NULL) ||
 		    (ret < 0)) {
-                        gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "%"PRId64": CHOWN %"PRId64" (%s) (fuse_loc_fill() failed)", 
                                 req_callid (req), (int64_t)ino,
 				state->loc.path);
@@ -772,14 +743,12 @@ do_chown (fuse_req_t req,
 
 
 static void 
-do_truncate (fuse_req_t req,
-             fuse_ino_t ino,
-             struct stat *attr,
+do_truncate (fuse_req_t req, fuse_ino_t ino, struct stat *attr,
              struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-        fd_t *fd = NULL;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+        fd_t         *fd = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         
@@ -787,6 +756,7 @@ do_truncate (fuse_req_t req,
                 fd = FI_TO_FD (fi);
                 state->fd = fd;
         }
+
         if (fd) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRId64": FTRUNCATE %p/%"PRId64, req_callid (req),
@@ -798,7 +768,7 @@ do_truncate (fuse_req_t req,
                 ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
                 if ((state->loc.inode == NULL) || 
 		    (ret < 0)) {
-                        gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "%"PRId64": TRUNCATE %s/%"PRId64" (fuse_loc_fill() failed)", 
                                 req_callid (req), state->loc.path,
 				attr->st_size);
@@ -820,26 +790,23 @@ do_truncate (fuse_req_t req,
 }
 
 
-static void 
-do_utimes (fuse_req_t req,
-           fuse_ino_t ino,
-           struct stat *attr)
+static void
+do_utimes (fuse_req_t req, fuse_ino_t ino, struct stat *attr)
 {
-        fuse_state_t *state;
+        fuse_state_t    *state = NULL;
+        struct timespec  tv[2];
+	int32_t          ret = -1;
 
-        struct timespec tv[2];
-	int32_t ret = -1;
-
-	tv[0].tv_sec = attr->st_atime;
+	tv[0].tv_sec  = attr->st_atime;
 	tv[0].tv_nsec = ST_ATIM_NSEC(attr);
-        tv[1].tv_sec = attr->st_mtime;
+        tv[1].tv_sec  = attr->st_mtime;
         tv[1].tv_nsec = ST_ATIM_NSEC(attr);
 
         state = state_from_req (req);
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": UTIMENS %s (fuse_loc_fill() failed)", 
                         req_callid (req), state->loc.path);
                 fuse_reply_err (req, ENOENT);
@@ -857,11 +824,8 @@ do_utimes (fuse_req_t req,
 
 
 static void
-fuse_setattr (fuse_req_t req,
-              fuse_ino_t ino,
-              struct stat *attr,
-              int valid,
-              struct fuse_file_info *fi)
+fuse_setattr (fuse_req_t req, fuse_ino_t ino, struct stat *attr,
+              int valid, struct fuse_file_info *fi)
 {
 
         if (valid & FUSE_SET_ATTR_MODE)
@@ -880,11 +844,8 @@ fuse_setattr (fuse_req_t req,
 static int gf_fuse_xattr_enotsup_log;
 
 static int
-fuse_err_cbk (call_frame_t *frame,
-              void *cookie,
-              xlator_t *this,
-              int32_t op_ret,
-              int32_t op_errno)
+fuse_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+              int32_t op_ret, int32_t op_errno)
 {
         fuse_state_t *state = frame->root->state;
         fuse_req_t req = state->req;
@@ -915,7 +876,7 @@ fuse_err_cbk (call_frame_t *frame,
 			    && (op_errno == ENOATTR)) {
 				goto nolog;
 			}
-                        gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "%"PRId64": %s() %s => -1 (%s)",
 				frame->root->unique,
 				gf_fop_list[frame->root->op],
@@ -934,16 +895,15 @@ fuse_err_cbk (call_frame_t *frame,
 }
 
 
-
 static int
-fuse_unlink_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno)
+fuse_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno)
 {
-        fuse_state_t *state = frame->root->state;
-        fuse_req_t req = state->req;
+        fuse_state_t *state = NULL;
+        fuse_req_t    req = NULL;
+
+        state = frame->root->state;
+        req = state->req;
 
         if (op_ret == 0)
                 inode_unlink (state->loc.inode, state->loc.parent,
@@ -956,8 +916,8 @@ fuse_unlink_cbk (call_frame_t *frame,
 
                 fuse_reply_err (req, 0);
         } else {
-                gf_log ("glusterfs-fuse", 
-                        GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse",
+                        op_errno == ENOTEMPTY ? GF_LOG_DEBUG : GF_LOG_WARNING,
                         "%"PRId64": %s() %s => -1 (%s)", frame->root->unique,
                         gf_fop_list[frame->root->op], state->loc.path,
 			strerror (op_errno));
@@ -973,19 +933,17 @@ fuse_unlink_cbk (call_frame_t *frame,
 
 
 static void
-fuse_access (fuse_req_t req,
-             fuse_ino_t ino,
-             int mask)
+fuse_access (fuse_req_t req, fuse_ino_t ino, int mask)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
 
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) || 
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": ACCESS %"PRId64" (%s) (fuse_loc_fill() failed)", 
                         req_callid (req), (int64_t)ino, state->loc.path);
                 fuse_reply_err (req, ENOENT);
@@ -1005,17 +963,15 @@ fuse_access (fuse_req_t req,
 }
 
 
-
 static int
-fuse_readlink_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   const char *linkname)
+fuse_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, const char *linkname)
 {
-        fuse_state_t *state = frame->root->state;
-        fuse_req_t req = state->req;
+        fuse_state_t *state = NULL;
+        fuse_req_t    req = NULL;
+
+        state = frame->root->state;
+        req = state->req;
 
         if (op_ret > 0) {
                 ((char *)linkname)[op_ret] = '\0';
@@ -1026,7 +982,7 @@ fuse_readlink_cbk (call_frame_t *frame,
 
                 fuse_reply_readlink(req, linkname);
         } else {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": %s => -1 (%s)", frame->root->unique,
                         state->loc.path, strerror(op_errno));
 
@@ -1041,17 +997,16 @@ fuse_readlink_cbk (call_frame_t *frame,
 
 
 static void
-fuse_readlink (fuse_req_t req,
-               fuse_ino_t ino)
+fuse_readlink (fuse_req_t req, fuse_ino_t ino)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64" READLINK %s/%"PRId64" (fuse_loc_fill() returned NULL inode)", 
                         req_callid (req), state->loc.path,
 			state->loc.inode->ino);
@@ -1072,19 +1027,16 @@ fuse_readlink (fuse_req_t req,
 
 
 static void
-fuse_mknod (fuse_req_t req,
-            fuse_ino_t par,
-            const char *name,
-            mode_t mode,
-            dev_t rdev)
+fuse_mknod (fuse_req_t req, fuse_ino_t par, const char *name,
+            mode_t mode, dev_t rdev)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
 	if (ret < 0) {
-		gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64" MKNOD %s (fuse_loc_fill() failed)", 
                         req_callid (req), state->loc.path);
                 fuse_reply_err (req, ENOENT);
@@ -1106,10 +1058,7 @@ fuse_mknod (fuse_req_t req,
 
 
 static void 
-fuse_mkdir (fuse_req_t req,
-            fuse_ino_t par,
-            const char *name,
-            mode_t mode)
+fuse_mkdir (fuse_req_t req, fuse_ino_t par, const char *name, mode_t mode)
 {
         fuse_state_t *state;
 	int32_t ret = -1;
@@ -1117,7 +1066,7 @@ fuse_mkdir (fuse_req_t req,
         state = state_from_req (req);
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
 	if (ret < 0) {
-		gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64" MKDIR %s (fuse_loc_fill() failed)", 
                         req_callid (req), state->loc.path);
                 fuse_reply_err (req, ENOENT);
@@ -1139,12 +1088,10 @@ fuse_mkdir (fuse_req_t req,
 
 
 static void 
-fuse_unlink (fuse_req_t req,
-             fuse_ino_t par,
-             const char *name)
+fuse_unlink (fuse_req_t req, fuse_ino_t par, const char *name)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
 
@@ -1152,7 +1099,7 @@ fuse_unlink (fuse_req_t req,
 
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": UNLINK %s (fuse_loc_fill() returned NULL inode)",
                         req_callid (req), state->loc.path);
                 fuse_reply_err (req, ENOENT);
@@ -1172,18 +1119,16 @@ fuse_unlink (fuse_req_t req,
 
 
 static void 
-fuse_rmdir (fuse_req_t req,
-            fuse_ino_t par,
-            const char *name)
+fuse_rmdir (fuse_req_t req, fuse_ino_t par, const char *name)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": RMDIR %s (fuse_loc_fill() failed)",
                         req_callid (req), state->loc.path);
                 fuse_reply_err (req, ENOENT);
@@ -1203,18 +1148,16 @@ fuse_rmdir (fuse_req_t req,
 
 
 static void
-fuse_symlink (fuse_req_t req,
-              const char *linkname,
-              fuse_ino_t par,
+fuse_symlink (fuse_req_t req, const char *linkname, fuse_ino_t par,
               const char *name)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
 	if (ret < 0) {
-		gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64" SYMLINK %s -> %s (fuse_loc_fill() failed)", 
                         req_callid (req), state->loc.path, linkname);
                 fuse_reply_err (req, ENOENT);
@@ -1236,19 +1179,18 @@ fuse_symlink (fuse_req_t req,
 
 
 int 
-fuse_rename_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 struct stat *buf)
+fuse_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
-        fuse_state_t *state = frame->root->state;
-        fuse_req_t req = state->req;
+        fuse_state_t *state = NULL;
+        fuse_req_t    req = NULL;
+
+        state = frame->root->state;
+        req   = state->req;
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRId64": %s -> %s => 0 (buf->st_ino=%"PRId64" , loc->ino=%"PRId64")", 
+                        "%"PRId64": %s -> %s => 0 (buf->st_ino=%"PRId64" , loc->ino=%"PRId64")",
 			frame->root->unique, state->loc.path, state->loc2.path,
 			buf->st_ino, state->loc.ino);
 
@@ -1266,8 +1208,7 @@ fuse_rename_cbk (call_frame_t *frame,
 
                 fuse_reply_err (req, 0);
         } else {
-                gf_log ("glusterfs-fuse",
-                        GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": %s -> %s => -1 (%s)", frame->root->unique,
                         state->loc.path, state->loc2.path,
 			strerror (op_errno));
@@ -1281,21 +1222,18 @@ fuse_rename_cbk (call_frame_t *frame,
 
 
 static void
-fuse_rename (fuse_req_t req,
-             fuse_ino_t oldpar,
-             const char *oldname,
-             fuse_ino_t newpar,
-             const char *newname)
+fuse_rename (fuse_req_t req, fuse_ino_t oldpar, const char *oldname,
+             fuse_ino_t newpar, const char *newname)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL; 
+	int32_t       ret = -1;
 
         state = state_from_req (req);
 
         ret = fuse_loc_fill (&state->loc, state, 0, oldpar, oldname);
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "for %s %"PRId64": RENAME `%s' -> `%s' (fuse_loc_fill() failed)",
                         state->loc.path, req_callid (req), state->loc.path,
                         state->loc2.path);
@@ -1307,7 +1245,7 @@ fuse_rename (fuse_req_t req,
 
         ret = fuse_loc_fill (&state->loc2, state, 0, newpar, newname);
 	if (ret < 0) {
-		gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+		gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "for %s %"PRId64": RENAME `%s' -> `%s' (fuse_loc_fill() failed)",
                         state->loc.path, req_callid (req), state->loc.path,
                         state->loc2.path);
@@ -1330,13 +1268,10 @@ fuse_rename (fuse_req_t req,
 
 
 static void
-fuse_link (fuse_req_t req,
-           fuse_ino_t ino,
-           fuse_ino_t par,
-           const char *name)
+fuse_link (fuse_req_t req, fuse_ino_t ino, fuse_ino_t par, const char *name)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
 
@@ -1345,7 +1280,7 @@ fuse_link (fuse_req_t req,
 
         if ((state->loc2.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "fuse_loc_fill() failed for %s %"PRId64": LINK %s %s", 
                         state->loc2.path, req_callid (req), 
                         state->loc2.path, state->loc.path);
@@ -1368,23 +1303,21 @@ fuse_link (fuse_req_t req,
 
 
 static int
-fuse_create_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 fd_t *fd,
-                 inode_t *inode,
-                 struct stat *buf)
+fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno,
+                 fd_t *fd, inode_t *inode, struct stat *buf)
 {
-        fuse_state_t *state = frame->root->state;
-        fuse_req_t req = state->req;
-        fuse_private_t *priv = this->private;
+        fuse_state_t            *state = NULL;
+        fuse_req_t               req = NULL;
+        fuse_private_t          *priv = NULL;
+        struct fuse_file_info    fi = {0, };
+        struct fuse_entry_param  e = {0, };
 
-        struct fuse_file_info fi = {0, };
-        struct fuse_entry_param e = {0, };
-
+        state    = frame->root->state;
+        priv     = this->private;
+        req      = state->req;
         fi.flags = state->flags;
+
         if (op_ret >= 0) {
                 fi.fh = (unsigned long) fd;
 
@@ -1419,7 +1352,7 @@ fuse_create_cbk (call_frame_t *frame,
 		fd_ref (fd);
                 if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-				"create() got EINTR");
+				"create(%s) got EINTR", state->loc.path);
 			inode_forget (inode, 1);
 			fd_unref (fd);
 			goto out;
@@ -1427,7 +1360,7 @@ fuse_create_cbk (call_frame_t *frame,
 
 		fd_bind (fd);
         } else {
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": %s => -1 (%s)", req_callid (req),
                         state->loc.path, strerror (op_errno));
                 fuse_reply_err (req, op_errno);
@@ -1441,22 +1374,19 @@ out:
 
 
 static void
-fuse_create (fuse_req_t req,
-             fuse_ino_t par,
-             const char *name,
-             mode_t mode,
-             struct fuse_file_info *fi)
+fuse_create (fuse_req_t req, fuse_ino_t par, const char *name,
+             mode_t mode, struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-        fd_t *fd;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+        fd_t         *fd = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         state->flags = fi->flags;
 
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
 	if (ret < 0) {
-		gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+		gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64" CREATE %s (fuse_loc_fill() failed)", 
                         req_callid (req), state->loc.path);
                 fuse_reply_err (req, ENOENT);
@@ -1482,13 +1412,11 @@ fuse_create (fuse_req_t req,
 
 
 static void
-fuse_open (fuse_req_t req,
-           fuse_ino_t ino,
-           struct fuse_file_info *fi)
+fuse_open (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-        fd_t *fd;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+        fd_t         *fd = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         state->flags = fi->flags;
@@ -1496,7 +1424,7 @@ fuse_open (fuse_req_t req,
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": OPEN %s (fuse_loc_fill() failed)",
                         req_callid (req), state->loc.path);
   
@@ -1504,7 +1432,6 @@ fuse_open (fuse_req_t req,
 		free_state (state);
                 return;
         }
-
 
         fd = fd_create (state->loc.inode, get_pid_from_req (req));
         state->fd = fd;
@@ -1522,18 +1449,16 @@ fuse_open (fuse_req_t req,
 
 
 static int
-fuse_readv_cbk (call_frame_t *frame,
-                void *cookie,
-                xlator_t *this,
-                int32_t op_ret,
-                int32_t op_errno,
-                struct iovec *vector,
-                int32_t count,
-                struct stat *stbuf,
-                struct iobref *iobref)
+fuse_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno,
+                struct iovec *vector, int32_t count,
+                struct stat *stbuf, struct iobref *iobref)
 {
-        fuse_state_t *state = frame->root->state;
-        fuse_req_t req = state->req;
+        fuse_state_t *state = NULL;
+        fuse_req_t    req = NULL;
+
+        state = frame->root->state;
+        req = state->req;
 
         if (op_ret >= 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -1543,28 +1468,27 @@ fuse_readv_cbk (call_frame_t *frame,
 
                 fuse_reply_vec (req, vector, count);
         } else {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": READ => %d (%s)", frame->root->unique, 
                         op_ret, strerror (op_errno));
 
                 fuse_reply_err (req, op_errno);
         }
-        
+
         free_state (state);
         STACK_DESTROY (frame->root);
 
         return 0;
 }
 
+
 static void
-fuse_readv (fuse_req_t req,
-            fuse_ino_t ino,
-            size_t size,
-            off_t off,
+fuse_readv (fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
             struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-        fd_t *fd = NULL;
+        fuse_state_t *state = NULL;
+        fd_t         *fd = NULL;
+
         state = state_from_req (req);
         state->size = size;
         state->off = off;
@@ -1583,15 +1507,15 @@ fuse_readv (fuse_req_t req,
 
 
 static int
-fuse_writev_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
+fuse_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno,
                  struct stat *stbuf)
 {
-        fuse_state_t *state = frame->root->state;
-        fuse_req_t req = state->req;
+        fuse_state_t *state = NULL;
+        fuse_req_t    req = NULL;
+
+        state = frame->root->state;
+        req = state->req;
 
         if (op_ret >= 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -1601,7 +1525,7 @@ fuse_writev_cbk (call_frame_t *frame,
 
                 fuse_reply_write (req, op_ret);
         } else {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": WRITE => -1 (%s)", frame->root->unique, 
                         strerror(op_errno));
 
@@ -1616,26 +1540,23 @@ fuse_writev_cbk (call_frame_t *frame,
 
 
 static void
-fuse_write (fuse_req_t req,
-            fuse_ino_t ino,
-            const char *buf,
-            size_t size,
-            off_t off,
+fuse_write (fuse_req_t req, fuse_ino_t ino, const char *buf,
+            size_t size, off_t off,
             struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-        struct iovec vector;
-	fd_t *fd = NULL;
-        struct iobref *iobref = NULL;
-        struct iobuf *iobuf = NULL;
+        fuse_state_t    *state = NULL;
+        struct iovec     vector;
+	fd_t            *fd = NULL;
+        struct iobref   *iobref = NULL;
+        struct iobuf    *iobuf = NULL;
 
-        state = state_from_req (req);
+        state       = state_from_req (req);
         state->size = size;
-        state->off = off;
-	fd = FI_TO_FD (fi);
-	state->fd = fd;
+        state->off  = off;
+	fd          = FI_TO_FD (fi);
+	state->fd   = fd;
         vector.iov_base = (void *)buf;
-        vector.iov_len = size;
+        vector.iov_len  = size;
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRId64": WRITE (%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
@@ -1654,12 +1575,10 @@ fuse_write (fuse_req_t req,
 
 
 static void
-fuse_flush (fuse_req_t req,
-            fuse_ino_t ino,
-            struct fuse_file_info *fi)
+fuse_flush (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-	fd_t *fd = NULL;
+        fuse_state_t *state = NULL;
+	fd_t         *fd = NULL;
 
         state = state_from_req (req);
 	fd = FI_TO_FD (fi);
@@ -1676,11 +1595,9 @@ fuse_flush (fuse_req_t req,
 
 
 static void 
-fuse_release (fuse_req_t req,
-	      fuse_ino_t ino,
-	      struct fuse_file_info *fi)
+fuse_release (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
+        fuse_state_t *state = NULL;
 
         state = state_from_req (req);
         state->fd = FI_TO_FD (fi);
@@ -1698,13 +1615,11 @@ fuse_release (fuse_req_t req,
 
 
 static void 
-fuse_fsync (fuse_req_t req,
-            fuse_ino_t ino,
-            int datasync,
+fuse_fsync (fuse_req_t req, fuse_ino_t ino, int datasync,
             struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-        fd_t *fd = NULL;
+        fuse_state_t *state = NULL;
+        fd_t         *fd = NULL;
 
         state = state_from_req (req);
         fd = FI_TO_FD (fi);
@@ -1721,19 +1636,17 @@ fuse_fsync (fuse_req_t req,
 
 
 static void
-fuse_opendir (fuse_req_t req,
-              fuse_ino_t ino,
-              struct fuse_file_info *fi)
+fuse_opendir (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-        fd_t *fd;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+        fd_t         *fd = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": OPENDIR %s (fuse_loc_fill() failed)",
                         req_callid (req), state->loc.path);
   
@@ -1753,24 +1666,24 @@ fuse_opendir (fuse_req_t req,
                   opendir, &state->loc, fd);
 }
 
+
 static int
-fuse_readdir_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno,
-                  gf_dirent_t *entries)
+fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
-        fuse_state_t *state = frame->root->state;
-        fuse_req_t    req = state->req;
+        fuse_state_t *state = NULL;
+        fuse_req_t    req = NULL;
 	int           size = 0;
 	int           entry_size = 0;
 	char         *buf = NULL;
 	gf_dirent_t  *entry = NULL;
 	struct stat   stbuf = {0, };
 
+        state = frame->root->state;
+        req   = state->req;
+
         if (op_ret < 0) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": READDIR => -1 (%s)", frame->root->unique, 
                         strerror (op_errno));
 
@@ -1816,15 +1729,13 @@ out:
 
 }
 
+
 static void
-fuse_readdir (fuse_req_t req,
-              fuse_ino_t ino,
-              size_t size,
-              off_t off,
+fuse_readdir (fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
               struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-	fd_t *fd = NULL;
+        fuse_state_t *state = NULL;
+	fd_t         *fd = NULL;
 
         state = state_from_req (req);
         state->size = size;
@@ -1842,11 +1753,9 @@ fuse_readdir (fuse_req_t req,
 
 
 static void 
-fuse_releasedir (fuse_req_t req,
-		 fuse_ino_t ino,
-		 struct fuse_file_info *fi)
+fuse_releasedir (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
+        fuse_state_t *state = NULL;
 
         state = state_from_req (req);
         state->fd = FI_TO_FD (fi);
@@ -1865,13 +1774,11 @@ fuse_releasedir (fuse_req_t req,
 
 
 static void 
-fuse_fsyncdir (fuse_req_t req,
-               fuse_ino_t ino,
-               int datasync,
+fuse_fsyncdir (fuse_req_t req, fuse_ino_t ino, int datasync,
                struct fuse_file_info *fi)
 {
-        fuse_state_t *state;
-	fd_t *fd = NULL;
+        fuse_state_t *state = NULL;
+	fd_t         *fd = NULL;
 	
 	fd = FI_TO_FD (fi);
 
@@ -1886,16 +1793,14 @@ fuse_fsyncdir (fuse_req_t req,
 
 
 static int
-fuse_statfs_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 struct statvfs *buf)
+fuse_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct statvfs *buf)
 {
-        fuse_state_t *state = frame->root->state;
-        fuse_req_t req = state->req;
+        fuse_state_t *state = NULL;
+        fuse_req_t    req = NULL;
 
+        state = frame->root->state;
+        req   = state->req;
         /*
           Filesystems (like ZFS on solaris) reports
           different ->f_frsize and ->f_bsize. Old coreutils
@@ -1927,7 +1832,7 @@ fuse_statfs_cbk (call_frame_t *frame,
                 fuse_reply_statfs (req, buf);
 
         } else {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": ERR => -1 (%s)", frame->root->unique, 
                         strerror(op_errno));
                 fuse_reply_err (req, op_errno);
@@ -1941,17 +1846,16 @@ fuse_statfs_cbk (call_frame_t *frame,
 
 
 static void
-fuse_statfs (fuse_req_t req,
-             fuse_ino_t ino)
+fuse_statfs (fuse_req_t req, fuse_ino_t ino)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         ret = fuse_loc_fill (&state->loc, state, 1, 0, NULL);
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": STATFS (fuse_loc_fill() fail)",
 			req_callid (req));
     
@@ -1969,16 +1873,12 @@ fuse_statfs (fuse_req_t req,
 
 
 static void
-fuse_setxattr (fuse_req_t req,
-               fuse_ino_t ino,
-               const char *name,
-               const char *value,
-               size_t size,
-               int flags)
+fuse_setxattr (fuse_req_t req, fuse_ino_t ino, const char *name,
+               const char *value, size_t size, int flags)
 {
-        fuse_state_t *state;
-	char *dict_value = NULL;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	char         *dict_value = NULL;
+	int32_t       ret = -1;
 
 #ifdef DISABLE_POSIX_ACL
 	if (!strncmp (name, "system.", 7)) {
@@ -1992,7 +1892,7 @@ fuse_setxattr (fuse_req_t req,
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": SETXATTR %s/%"PRId64" (%s) (fuse_loc_fill() failed)", 
                         req_callid (req),
                         state->loc.path, (int64_t)ino, name);
@@ -2021,24 +1921,34 @@ fuse_setxattr (fuse_req_t req,
 
 
 static int
-fuse_xattr_cbk (call_frame_t *frame,
-                void *cookie,
-                xlator_t *this,
-                int32_t op_ret,
-                int32_t op_errno,
-                dict_t *dict)
+fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-	int need_to_free_dict = 0;
-        int32_t ret = op_ret;
-        char *value = "";
-        fuse_state_t *state = frame->root->state;
-        fuse_req_t req = state->req;
+	int             need_to_free_dict = 0;
+        char           *value = "";
+        fuse_state_t   *state = NULL;
+        fuse_req_t      req = NULL;
+	int32_t         dummy_ret = 0;
+        data_t         *value_data = NULL;
+        fuse_private_t *priv = NULL;
+        struct stat     st;
+        char           *file = NULL;
+        int32_t         fd = -1;
+        int             ret = -1;
+        int32_t         len = 0;
+        data_pair_t    *trav = NULL;
+
+        priv  = this->private;
+        ret   = op_ret;
+        state = frame->root->state;
+        req   = state->req;
+        dummy_ret = 0;
 
 #ifdef GF_DARWIN_HOST_OS
 	/* This is needed in MacFuse, where MacOSX Finder needs some specific 
 	 * keys to be supported from FS
 	 */
-	int32_t dummy_ret = 0;
+
 	if (state->name) {
 		if (!dict) {
 			dict = get_new_dict ();
@@ -2066,7 +1976,7 @@ fuse_xattr_cbk (call_frame_t *frame,
                 /* if successful */
                 if (state->name) {
                         /* if callback for getxattr */
-                        data_t *value_data = dict_get (dict, state->name);
+                        value_data = dict_get (dict, state->name);
                         if (value_data) {
                                 ret = value_data->len; /* Don't return the value for '\0' */
                                 value = value_data->data;
@@ -2082,13 +1992,7 @@ fuse_xattr_cbk (call_frame_t *frame,
                                         fuse_reply_xattr (req, ret);
                                 } /* if(ret >...)...else if...else */
                         }  else if (!strcmp (state->name, "user.glusterfs-booster-volfile")) {
-				fuse_private_t *priv = this->private;
- 
 				if (!priv->volfile) {
-					int32_t fd = -1, ret = -1;
-					struct stat st;
-					char *file = NULL;
-					
 					memset (&st, 0, sizeof (st));
 					fd = fileno (this->ctx->specfp);
 					ret = fstat (fd, &st);
@@ -2127,8 +2031,7 @@ fuse_xattr_cbk (call_frame_t *frame,
 			} /* if(value_data)...else */
 		} else {
 			/* if callback for listxattr */
-                        int32_t len = 0;
-                        data_pair_t *trav = dict->members_list;
+                        trav = dict->members_list;
                         while (trav) {
                                 len += strlen (trav->key) + 1;
                                 trav = trav->next;
@@ -2165,14 +2068,14 @@ fuse_xattr_cbk (call_frame_t *frame,
                         } 
                         else 
                         {
-                                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                         "%"PRId64": %s() %s => -1 (%s)",
 					frame->root->unique,
                                         gf_fop_list[frame->root->op],
 					state->loc.path, strerror(op_errno));
                         }
                 } else {
-                        gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "%"PRId64": %s() %s => -1 (%s)",
 				frame->root->unique,
                                 gf_fop_list[frame->root->op], state->loc.path,
@@ -2193,13 +2096,10 @@ fuse_xattr_cbk (call_frame_t *frame,
 
 
 static void
-fuse_getxattr (fuse_req_t req,
-               fuse_ino_t ino,
-               const char *name,
-               size_t size)
+fuse_getxattr (fuse_req_t req, fuse_ino_t ino, const char *name, size_t size)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
 #ifdef DISABLE_POSIX_ACL
 	if (!strncmp (name, "system.", 7)) {
@@ -2215,7 +2115,7 @@ fuse_getxattr (fuse_req_t req,
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": GETXATTR %s/%"PRId64" (%s) (fuse_loc_fill() failed)", 
                         req_callid (req), state->loc.path, (int64_t)ino, name);
 
@@ -2236,20 +2136,18 @@ fuse_getxattr (fuse_req_t req,
 
 
 static void
-fuse_listxattr (fuse_req_t req,
-                fuse_ino_t ino,
-                size_t size)
+fuse_listxattr (fuse_req_t req, fuse_ino_t ino, size_t size)
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         state->size = size;
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
 	    (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                        "%"PRId64": LISTXATTR %s/%"PRId64" (fuse_loc_fill() failed)", 
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRId64": LISTXATTR %s/%"PRId64" (fuse_loc_fill() failed)",
                         req_callid (req), state->loc.path, (int64_t)ino);
 
                 fuse_reply_err (req, ENOENT);
@@ -2269,13 +2167,11 @@ fuse_listxattr (fuse_req_t req,
 
 
 static void
-fuse_removexattr (fuse_req_t req,
-                  fuse_ino_t ino,
-                  const char *name)
+fuse_removexattr (fuse_req_t req, fuse_ino_t ino, const char *name)
 
 {
-        fuse_state_t *state;
-	int32_t ret = -1;
+        fuse_state_t *state = NULL;
+	int32_t       ret = -1;
 
         state = state_from_req (req);
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
@@ -2304,14 +2200,12 @@ fuse_removexattr (fuse_req_t req,
 static int gf_fuse_lk_enosys_log;
 
 static int
-fuse_getlk_cbk (call_frame_t *frame,
-                void *cookie,
-                xlator_t *this,
-                int32_t op_ret,
-                int32_t op_errno,
-                struct flock *lock)
+fuse_getlk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct flock *lock)
 {
-        fuse_state_t *state = frame->root->state;
+        fuse_state_t *state = NULL;
+
+        state = frame->root->state;
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -2327,7 +2221,7 @@ fuse_getlk_cbk (call_frame_t *frame,
                                         "will add GETLK support.");
                         }
                 } else {
-                        gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "%"PRId64": ERR => -1 (%s)",
 				frame->root->unique, strerror (op_errno));
                 }
@@ -2342,14 +2236,12 @@ fuse_getlk_cbk (call_frame_t *frame,
 
 
 static void
-fuse_getlk (fuse_req_t req,
-            fuse_ino_t ino,
-            struct fuse_file_info *fi,
+fuse_getlk (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi,
             struct flock *lock)
 {
-        fuse_state_t *state;
-	fd_t *fd = NULL;
-	
+        fuse_state_t *state = NULL;
+	fd_t         *fd = NULL;
+
 	fd = FI_TO_FD (fi);
         state = state_from_req (req);
         state->req = req;
@@ -2366,14 +2258,12 @@ fuse_getlk (fuse_req_t req,
 
 
 static int
-fuse_setlk_cbk (call_frame_t *frame,
-                void *cookie,
-                xlator_t *this,
-                int32_t op_ret,
-                int32_t op_errno,
-                struct flock *lock)
+fuse_setlk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct flock *lock)
 {
-        fuse_state_t *state = frame->root->state;
+        fuse_state_t *state = NULL;
+
+        state = frame->root->state;
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -2389,8 +2279,7 @@ fuse_setlk_cbk (call_frame_t *frame,
                                         "will add SETLK support.");
                         }
                 } else  {
-                        gf_log ("glusterfs-fuse",
-                                GF_LOG_DEBUG,
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "%"PRId64": ERR => -1 (%s)",
 				frame->root->unique, strerror (op_errno));
                 }
@@ -2406,14 +2295,11 @@ fuse_setlk_cbk (call_frame_t *frame,
 
 
 static void
-fuse_setlk (fuse_req_t req,
-            fuse_ino_t ino,
-            struct fuse_file_info *fi,
-            struct flock *lock,
-            int sleep)
+fuse_setlk (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi,
+            struct flock *lock, int sleep)
 {
-        fuse_state_t *state;
-        fd_t *fd = NULL;
+        fuse_state_t *state = NULL;
+        fd_t         *fd = NULL;
         
         fd = FI_TO_FD (fi);
         state = state_from_req (req);
@@ -2479,17 +2365,15 @@ static struct fuse_lowlevel_ops fuse_ops = {
         .setlk        = fuse_setlk
 };
 
+
 int
-fuse_root_lookup_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      inode_t *inode,
-		      struct stat *buf,
-		      dict_t *xattr)
+fuse_root_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		      int32_t op_ret, int32_t op_errno,
+		      inode_t *inode, struct stat *buf, dict_t *xattr)
 {
-        fuse_private_t *priv = this->private;
+        fuse_private_t *priv = NULL;
+
+        priv = this->private;
 
 	if (op_ret == 0) {
 		gf_log (this->name, GF_LOG_TRACE,
@@ -2514,10 +2398,10 @@ int
 fuse_root_lookup (xlator_t *this)
 {
 	fuse_private_t *priv = NULL;
-	loc_t loc;
-	call_frame_t *frame = NULL;
-	xlator_t *xl = NULL;
-	dict_t *dict = NULL;
+	loc_t           loc;
+	call_frame_t   *frame = NULL;
+	xlator_t       *xl = NULL;
+	dict_t         *dict = NULL;
 
 	priv = this->private;
 
@@ -2555,12 +2439,16 @@ fuse_root_lookup (xlator_t *this)
 static void *
 fuse_thread_proc (void *data)
 {
-	char *mount_point = NULL;
-        xlator_t *this = data;
-        fuse_private_t *priv = this->private;
-        int32_t res = 0;
-        struct iobuf *iobuf = NULL;
-        size_t chan_size = fuse_chan_bufsize (priv->ch);
+	char           *mount_point = NULL;
+        xlator_t       *this = NULL;
+        fuse_private_t *priv = NULL;
+        int32_t         res = 0;
+        struct iobuf   *iobuf = NULL;
+        size_t          chan_size = 0;
+
+        this = data;
+        priv = this->private;
+        chan_size = fuse_chan_bufsize (priv->ch);
 
         while (!fuse_session_exited (priv->se)) {
                 iobuf = iobuf_get (this->ctx->iobuf_pool);
@@ -2572,9 +2460,7 @@ fuse_thread_proc (void *data)
                         continue;
                 }
 
-                res = fuse_chan_receive (priv->ch,
-                                         iobuf->ptr,
-                                         chan_size);
+                res = fuse_chan_receive (priv->ch, iobuf->ptr, chan_size);
 
 		if (priv->first_call) {
                         if (priv->first_call > 1) {
@@ -2586,7 +2472,7 @@ fuse_thread_proc (void *data)
 
                 if (res == -1) {
                         if (errno != EINTR) {
-                                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                         "fuse_chan_receive() returned -1 (%d)", errno);
                         }
                         if (errno == ENODEV)
@@ -2597,14 +2483,13 @@ fuse_thread_proc (void *data)
                 priv->iobuf = iobuf;
 
                 if (res && res != -1) {
-                        fuse_session_process (priv->se,
-                                              iobuf->ptr,
-                                              res,
-                                              priv->ch);
+                        fuse_session_process (priv->se, iobuf->ptr,
+                                              res, priv->ch);
                 }
 
                 iobuf_unref (iobuf);
         }
+
 	if (dict_get (this->options, ZR_MOUNTPOINT_OPT))
 		mount_point = data_to_str (dict_get (this->options, 
 						     ZR_MOUNTPOINT_OPT));
@@ -2613,6 +2498,7 @@ fuse_thread_proc (void *data)
 			"unmounting %s", mount_point);
 		dict_del (this->options, ZR_MOUNTPOINT_OPT);
 	}
+
 	fuse_session_remove_chan (priv->ch);
 	fuse_session_destroy (priv->se);
 	//  fuse_unmount (priv->mount_point, priv->ch);
@@ -2624,8 +2510,7 @@ fuse_thread_proc (void *data)
 
 
 int32_t
-notify (xlator_t *this, int32_t event,
-        void *data, ...)
+notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int32_t         ret     = 0;
         fuse_private_t *private = NULL;
@@ -2656,6 +2541,7 @@ notify (xlator_t *this, int32_t event,
                 }
                 break;
         }
+
         case GF_EVENT_PARENT_UP:
         {
                 default_notify (this, GF_EVENT_PARENT_UP, data);
@@ -2697,14 +2583,15 @@ subtype_workaround_optproc(void *data, const char *arg, int key,
 int 
 init (xlator_t *this_xl)
 {
-	int ret = 0;
-	dict_t *options = NULL;
-	char *value_string = NULL;
-	char *fsname = NULL, *fsname_opt = NULL;
-	fuse_private_t *priv = NULL;
-	struct stat stbuf = {0,};
-	struct fuse_args args = FUSE_ARGS_INIT(0, NULL);
-	char **p = NULL;
+	int                ret = 0;
+	dict_t            *options = NULL;
+	char              *value_string = NULL;
+	char              *fsname = NULL;
+        char              *fsname_opt = NULL;
+	fuse_private_t    *priv = NULL;
+	struct stat        stbuf = {0,};
+	struct fuse_args   args = FUSE_ARGS_INIT(0, NULL);
+	char             **p = NULL;
 
 #ifdef GF_DARWIN_HOST_OS
 	char *fuse_argv[] = {"glusterfs",
