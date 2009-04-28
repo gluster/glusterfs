@@ -78,7 +78,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 		sh->completion_cbk (frame, this);
 	} else {
 		if (S_ISREG (local->cont.lookup.buf.st_mode)) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"proceeding to data check on %s",
 				local->loc.path);
 			afr_self_heal_data (frame, this);
@@ -86,7 +86,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 		}
 
 		if (S_ISDIR (local->cont.lookup.buf.st_mode)) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"proceeding to entry check on %s",
 				local->loc.path);
 			afr_self_heal_entry (frame, this);
@@ -146,7 +146,7 @@ afr_sh_metadata_finish (call_frame_t *frame, xlator_t *this)
 		flock.l_type    = F_UNLCK;
 
 		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"unlocking %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
 
@@ -240,7 +240,7 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 		if (!erase_xattr[i])
 			continue;
 
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"erasing pending flags from %s on %s",
 			local->loc.path, priv->children[i]->name);
 
@@ -374,7 +374,7 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 			continue;
 
 		gf_log (this->name, GF_LOG_DEBUG,
-			"syncing metadata of %s from %s to %s",
+			"self-healing metadata of %s from %s to %s",
 			local->loc.path, priv->children[source]->name,
 			priv->children[i]->name);
 
@@ -485,7 +485,7 @@ afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
 	}
 	sh->active_sinks = active_sinks;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"syncing metadata of %s from subvolume %s to %d active sinks",
 		local->loc.path, priv->children[source]->name, active_sinks);
 
@@ -525,7 +525,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 					  priv->child_count);
 
         if (nsources == 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_TRACE,
                         "No self-heal needed for %s",
                         local->loc.path);
 
@@ -611,7 +611,7 @@ afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == 0) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"path %s on subvolume %s is of mode 0%o",
 				local->loc.path,
 				priv->children[child_index]->name,
@@ -671,7 +671,7 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"looking up %s on %s",
 				local->loc.path, priv->children[i]->name);
 
@@ -713,13 +713,12 @@ afr_sh_metadata_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret == -1) {
 			sh->op_failed = 1;
 
-			gf_log (this->name,
-                                GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_DEBUG,
 				"locking of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);
 		}
@@ -765,7 +764,7 @@ afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
 		flock.l_type    = F_WRLCK;
 
 		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"locking %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
 
@@ -799,9 +798,6 @@ afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 	if (local->need_metadata_self_heal && priv->metadata_self_heal) {
 		afr_sh_metadata_lock (frame, this);
 	} else {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"proceeding to data check on %s",
-			local->loc.path);
 		afr_sh_metadata_done (frame, this);
 	}
 

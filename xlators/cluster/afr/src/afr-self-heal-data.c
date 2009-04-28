@@ -739,7 +739,7 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
 	sh->success[source] = 1;
 
 	if (active_sinks == 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"no active sinks for performing self-heal on file %s",
 			local->loc.path);
 		afr_sh_data_finish (frame, this);
@@ -747,8 +747,8 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
 	}
 	sh->active_sinks = active_sinks;
 
-	gf_log (this->name, GF_LOG_TRACE,
-		"syncing data of %s from subvolume %s to %d active sinks",
+	gf_log (this->name, GF_LOG_DEBUG,
+		"self-healing file %s from subvolume %s to %d other",
 		local->loc.path, priv->children[source]->name, active_sinks);
 
 	afr_sh_data_open (frame, this);
@@ -783,7 +783,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 					  priv->child_count);
 
         if (nsources == 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_TRACE,
                         "No self-heal needed for %s",
                         local->loc.path);
 
