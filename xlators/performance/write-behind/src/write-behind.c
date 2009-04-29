@@ -119,7 +119,7 @@ static void
 __wb_request_unref (wb_request_t *this)
 {
         if (this->refcount <= 0) {
-                gf_log ("wb-request", GF_LOG_ERROR,
+                gf_log ("wb-request", GF_LOG_DEBUG,
                         "refcount(%d) is <= 0", this->refcount);
                 return;
         }
@@ -191,8 +191,7 @@ wb_request_ref (wb_request_t *this)
 
 
 wb_request_t *
-wb_enqueue (wb_file_t *file, 
-            call_stub_t *stub)
+wb_enqueue (wb_file_t *file, call_stub_t *stub)
 {
         wb_request_t *request = NULL;
         call_frame_t *frame = NULL;
@@ -247,8 +246,7 @@ wb_enqueue (wb_file_t *file,
 
 
 wb_file_t *
-wb_file_create (xlator_t *this,
-                fd_t *fd)
+wb_file_create (xlator_t *this, fd_t *fd)
 {
         wb_file_t *file = NULL;
         wb_conf_t *conf = this->private; 
@@ -291,12 +289,8 @@ wb_file_destroy (wb_file_t *file)
 
 
 int32_t
-wb_sync_cbk (call_frame_t *frame,
-             void *cookie,
-             xlator_t *this,
-             int32_t op_ret,
-             int32_t op_errno,
-             struct stat *stbuf)
+wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+             int32_t op_errno, struct stat *stbuf)
 {
         wb_local_t   *local = NULL;
         list_head_t  *winds = NULL;
@@ -439,12 +433,8 @@ out:
 
 
 int32_t 
-wb_stat_cbk (call_frame_t *frame,
-             void *cookie,
-             xlator_t *this,
-             int32_t op_ret,
-             int32_t op_errno,
-             struct stat *buf)
+wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+             int32_t op_errno, struct stat *buf)
 {
         wb_local_t   *local = NULL;
         wb_request_t *request = NULL; 
@@ -476,9 +466,7 @@ wb_stat_cbk (call_frame_t *frame,
 
 
 static int32_t
-wb_stat_helper (call_frame_t *frame,
-                xlator_t *this,
-                loc_t *loc)
+wb_stat_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         STACK_WIND (frame, wb_stat_cbk,
                     FIRST_CHILD(this),
@@ -489,9 +477,7 @@ wb_stat_helper (call_frame_t *frame,
 
 
 int32_t
-wb_stat (call_frame_t *frame,
-         xlator_t *this,
-         loc_t *loc)
+wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         wb_file_t   *file = NULL;
         fd_t        *iter_fd = NULL;
@@ -538,12 +524,8 @@ wb_stat (call_frame_t *frame,
 
 
 int32_t 
-wb_fstat_cbk (call_frame_t *frame,
-              void *cookie,
-              xlator_t *this,
-              int32_t op_ret,
-              int32_t op_errno,
-              struct stat *buf)
+wb_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+              int32_t op_errno, struct stat *buf)
 {
         wb_local_t   *local = NULL;
         wb_request_t *request = NULL; 
@@ -565,9 +547,7 @@ wb_fstat_cbk (call_frame_t *frame,
 
 
 int32_t 
-wb_fstat_helper (call_frame_t *frame,
-                 xlator_t *this,
-                 fd_t *fd)
+wb_fstat_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
         STACK_WIND (frame,
                     wb_fstat_cbk,
@@ -579,9 +559,7 @@ wb_fstat_helper (call_frame_t *frame,
 
 
 int32_t 
-wb_fstat (call_frame_t *frame,
-          xlator_t *this,
-          fd_t *fd)
+wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
         wb_file_t   *file = NULL;
         wb_local_t  *local = NULL;
@@ -589,7 +567,10 @@ wb_fstat (call_frame_t *frame,
         call_stub_t *stub = NULL;
 
         if (fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                        " not stored in context of fd(%p), returning EBADFD",
+                        fd);
+
                 STACK_UNWIND (frame, -1, EBADFD, NULL);
                 return 0;
         }
@@ -623,12 +604,8 @@ wb_fstat (call_frame_t *frame,
 
 
 int32_t
-wb_truncate_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 struct stat *buf)
+wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
         wb_local_t   *local = NULL; 
         wb_request_t *request = NULL;
@@ -660,9 +637,7 @@ wb_truncate_cbk (call_frame_t *frame,
 
 
 static int32_t 
-wb_truncate_helper (call_frame_t *frame,
-                    xlator_t *this,
-                    loc_t *loc,
+wb_truncate_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                     off_t offset)
 {
         STACK_WIND (frame,
@@ -677,10 +652,7 @@ wb_truncate_helper (call_frame_t *frame,
 
 
 int32_t 
-wb_truncate (call_frame_t *frame,
-             xlator_t *this,
-             loc_t *loc,
-             off_t offset)
+wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
         wb_file_t   *file = NULL;
         fd_t        *iter_fd = NULL;
@@ -734,12 +706,8 @@ wb_truncate (call_frame_t *frame,
 
 
 int32_t
-wb_ftruncate_cbk (call_frame_t *frame,
-                  void *cookie,
-                  xlator_t *this,
-                  int32_t op_ret,
-                  int32_t op_errno,
-                  struct stat *buf)
+wb_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
         wb_local_t   *local = NULL; 
         wb_request_t *request = NULL;
@@ -761,9 +729,7 @@ wb_ftruncate_cbk (call_frame_t *frame,
 
 
 static int32_t
-wb_ftruncate_helper (call_frame_t *frame,
-                     xlator_t *this,
-                     fd_t *fd,
+wb_ftruncate_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                      off_t offset)
 {
         STACK_WIND (frame,
@@ -777,10 +743,7 @@ wb_ftruncate_helper (call_frame_t *frame,
 
         
 int32_t
-wb_ftruncate (call_frame_t *frame,
-              xlator_t *this,
-              fd_t *fd,
-              off_t offset)
+wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 {
         wb_file_t   *file = NULL;
         wb_local_t  *local = NULL;
@@ -788,7 +751,10 @@ wb_ftruncate (call_frame_t *frame,
         call_stub_t *stub = NULL;
 
         if (fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                        " not stored in context of fd(%p), returning EBADFD",
+                        fd);
+
                 STACK_UNWIND (frame, -1, EBADFD, NULL);
                 return 0;
         }
@@ -825,12 +791,8 @@ wb_ftruncate (call_frame_t *frame,
 
 
 int32_t 
-wb_utimens_cbk (call_frame_t *frame,
-                void *cookie,
-                xlator_t *this,
-                int32_t op_ret,
-                int32_t op_errno,
-                struct stat *buf)
+wb_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
         wb_local_t   *local = NULL;       
         wb_request_t *request = NULL;
@@ -862,9 +824,7 @@ wb_utimens_cbk (call_frame_t *frame,
 
 
 static int32_t 
-wb_utimens_helper (call_frame_t *frame,
-                   xlator_t *this,
-                   loc_t *loc,
+wb_utimens_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                    struct timespec tv[2])
 {
         STACK_WIND (frame,
@@ -879,9 +839,7 @@ wb_utimens_helper (call_frame_t *frame,
 
 
 int32_t 
-wb_utimens (call_frame_t *frame,
-            xlator_t *this,
-            loc_t *loc,
+wb_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
             struct timespec tv[2])
 {
         wb_file_t   *file = NULL;
@@ -934,12 +892,8 @@ wb_utimens (call_frame_t *frame,
 }
 
 int32_t
-wb_open_cbk (call_frame_t *frame,
-             void *cookie,
-             xlator_t *this,
-             int32_t op_ret,
-             int32_t op_errno,
-             fd_t *fd)
+wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+             int32_t op_errno, fd_t *fd)
 {
         int32_t    flags = 0;
         wb_file_t *file = NULL;
@@ -979,10 +933,7 @@ wb_open_cbk (call_frame_t *frame,
 
 
 int32_t
-wb_open (call_frame_t *frame,
-         xlator_t *this,
-         loc_t *loc,
-         int32_t flags,
+wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd)
 {
         frame->local = CALLOC (1, sizeof(int32_t));
@@ -998,13 +949,8 @@ wb_open (call_frame_t *frame,
 
 
 int32_t
-wb_create_cbk (call_frame_t *frame,
-               void *cookie,
-               xlator_t *this,
-               int32_t op_ret,
-               int32_t op_errno,
-               fd_t *fd,
-               inode_t *inode,
+wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                struct stat *buf)
 {
         wb_file_t *file = NULL;
@@ -1031,12 +977,8 @@ wb_create_cbk (call_frame_t *frame,
 
 
 int32_t
-wb_create (call_frame_t *frame,
-           xlator_t *this,
-           loc_t *loc,
-           int32_t flags,
-           mode_t mode,
-           fd_t *fd)
+wb_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+           mode_t mode, fd_t *fd)
 {
         STACK_WIND (frame,
                     wb_create_cbk,
@@ -1451,12 +1393,8 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all)
 
 
 int32_t
-wb_writev_cbk (call_frame_t *frame,
-               void *cookie,
-               xlator_t *this,
-               int32_t op_ret,
-               int32_t op_errno,
-               struct stat *stbuf)
+wb_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
         STACK_UNWIND (frame, op_ret, op_errno, stbuf);
         return 0;
@@ -1464,13 +1402,8 @@ wb_writev_cbk (call_frame_t *frame,
 
 
 int32_t
-wb_writev (call_frame_t *frame,
-           xlator_t *this,
-           fd_t *fd,
-           struct iovec *vector,
-           int32_t count,
-           off_t offset,
-           struct iobref *iobref)
+wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
+           int32_t count, off_t offset, struct iobref *iobref)
 {
         wb_file_t    *file = NULL;
         char          wb_disabled = 0;
@@ -1484,14 +1417,17 @@ wb_writev (call_frame_t *frame,
                 size = iov_length (vector, count);
 
         if (fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                        " not stored in context of fd(%p), returning EBADFD",
+                        fd);
+
                 STACK_UNWIND (frame, -1, EBADFD, NULL);
                 return 0;
         }
 
 	file = (wb_file_t *)(long)tmp_file;
         if (!file) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "wb_file not found for fd %p", fd);
                 STACK_UNWIND (frame, -1, EBADFD, NULL);
                 return 0;
@@ -1541,15 +1477,9 @@ wb_writev (call_frame_t *frame,
 
 
 int32_t
-wb_readv_cbk (call_frame_t *frame,
-              void *cookie,
-              xlator_t *this,
-              int32_t op_ret,
-              int32_t op_errno,
-              struct iovec *vector,
-              int32_t count,
-              struct stat *stbuf,
-              struct iobref *iobref)
+wb_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+              int32_t op_errno, struct iovec *vector, int32_t count,
+              struct stat *stbuf, struct iobref *iobref)
 {
         wb_local_t   *local = NULL;
         wb_file_t    *file = NULL;
@@ -1571,10 +1501,7 @@ wb_readv_cbk (call_frame_t *frame,
 
 
 static int32_t
-wb_readv_helper (call_frame_t *frame,
-                 xlator_t *this,
-                 fd_t *fd,
-                 size_t size,
+wb_readv_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  off_t offset)
 {
         STACK_WIND (frame,
@@ -1588,10 +1515,7 @@ wb_readv_helper (call_frame_t *frame,
 
 
 int32_t
-wb_readv (call_frame_t *frame,
-          xlator_t *this,
-          fd_t *fd,
-          size_t size,
+wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
           off_t offset)
 {
         wb_file_t   *file = NULL;
@@ -1600,7 +1524,10 @@ wb_readv (call_frame_t *frame,
         call_stub_t *stub = NULL;
 
         if (fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                        " not stored in context of fd(%p), returning EBADFD",
+                        fd);
+
                 STACK_UNWIND (frame, -1, EBADFD, NULL);
                 return 0;
         }
@@ -1635,11 +1562,8 @@ wb_readv (call_frame_t *frame,
 
 
 int32_t
-wb_ffr_bg_cbk (call_frame_t *frame,
-               void *cookie,
-               xlator_t *this,
-               int32_t op_ret,
-               int32_t op_errno)
+wb_ffr_bg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno)
 {
         STACK_DESTROY (frame->root);
         return 0;
@@ -1647,10 +1571,7 @@ wb_ffr_bg_cbk (call_frame_t *frame,
 
 
 int32_t
-wb_ffr_cbk (call_frame_t *frame,
-            void *cookie,
-            xlator_t *this,
-            int32_t op_ret,
+wb_ffr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             int32_t op_errno)
 {
         wb_local_t *local = NULL;
@@ -1694,9 +1615,7 @@ wb_ffr_cbk (call_frame_t *frame,
 
 
 int32_t
-wb_flush (call_frame_t *frame,
-          xlator_t *this,
-          fd_t *fd)
+wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
         wb_conf_t    *conf = NULL;
         wb_file_t    *file = NULL;
@@ -1709,7 +1628,10 @@ wb_flush (call_frame_t *frame,
         conf = this->private;
 
         if (fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                        " not stored in context of fd(%p), returning EBADFD",
+                        fd);
+
                 STACK_UNWIND (frame, -1, EBADFD);
                 return 0;
         }
@@ -1764,10 +1686,7 @@ wb_flush (call_frame_t *frame,
 
 
 static int32_t
-wb_fsync_cbk (call_frame_t *frame,
-              void *cookie,
-              xlator_t *this,
-              int32_t op_ret,
+wb_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno)
 {
         wb_local_t   *local = NULL;
@@ -1797,9 +1716,7 @@ wb_fsync_cbk (call_frame_t *frame,
 
 
 static int32_t
-wb_fsync_helper (call_frame_t *frame,
-                 xlator_t *this,
-                 fd_t *fd,
+wb_fsync_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  int32_t datasync)
 {
         STACK_WIND (frame,
@@ -1812,10 +1729,7 @@ wb_fsync_helper (call_frame_t *frame,
 
 
 int32_t
-wb_fsync (call_frame_t *frame,
-          xlator_t *this,
-          fd_t *fd,
-          int32_t datasync)
+wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 {
         wb_file_t   *file = NULL;
         wb_local_t  *local = NULL;
@@ -1823,7 +1737,10 @@ wb_fsync (call_frame_t *frame,
         call_stub_t *stub = NULL;
 
         if (fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                        " not stored in context of fd(%p), returning EBADFD",
+                        fd);
+
                 STACK_UNWIND (frame, -1, EBADFD);
                 return 0;
         }
@@ -1858,8 +1775,7 @@ wb_fsync (call_frame_t *frame,
 
 
 int32_t
-wb_release (xlator_t *this,
-            fd_t *fd)
+wb_release (xlator_t *this, fd_t *fd)
 {
         uint64_t   file_ptr = 0;
         wb_file_t *file = NULL;
