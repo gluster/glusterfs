@@ -64,7 +64,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 	pl_inode = CALLOC (1, sizeof (*pl_inode));
 	if (!pl_inode) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto out;
 	}
 
@@ -272,8 +272,9 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
 		memcpy (v.locks[1], small, sizeof (posix_lock_t));
 	}
 	else {
-		gf_log ("posix-locks", GF_LOG_DEBUG, 
-			"unexpected case in subtract_locks");
+		gf_log ("posix-locks", GF_LOG_ERROR,
+			"Unexpected case in subtract_locks. Please send "
+                        "a bug report to gluster-devel@nongnu.org");
 	}
 
 	return v;
@@ -450,7 +451,7 @@ __grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode,
 
 			posix_lock_to_flock (l, &conf->user_flock);
 
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => Granted",
 				l->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				l->client_pid,
@@ -506,7 +507,7 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 	pthread_mutex_lock (&pl_inode->mutex);
 	{
 		if (__is_lock_grantable (pl_inode, lock, dom)) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
@@ -514,7 +515,7 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 				lock->user_flock.l_len);
 			__insert_and_merge (pl_inode, lock, dom);
 		} else if (can_block) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
@@ -524,7 +525,7 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 			__insert_lock (pl_inode, lock, dom);
 			ret = -1;
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_TRACE,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => NOK",
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,

@@ -130,7 +130,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	pl_inode = pl_inode_get (this, inode);
 	if (!pl_inode) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"unable to get pl_inode from %p", inode);
+			"Out of memory.");
 		op_errno = ENOMEM;
 		goto unwind;
 	}
@@ -176,7 +176,7 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
 	local = CALLOC (1, sizeof (struct _truncate_ops));
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto unwind;
 	}
 
@@ -207,7 +207,7 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 	local = CALLOC (1, sizeof (struct _truncate_ops));
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		goto unwind;
 	}
 
@@ -279,7 +279,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 	pl_inode = pl_inode_get (this, fd->inode);
 
 	if (!pl_inode) {
-		gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+		gf_log (this->name, GF_LOG_DEBUG, "Could not get inode.");
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
@@ -471,7 +471,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 			rw = CALLOC (1, sizeof (*rw));
 			if (!rw) {
 				gf_log (this->name, GF_LOG_ERROR,
-					"out of memory :(");
+					"Out of memory.");
 				op_errno = ENOMEM;
 				op_ret = -1;
 				goto unlock;
@@ -481,7 +481,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 						   fd, size, offset);
 			if (!rw->stub) {
 				gf_log (this->name, GF_LOG_ERROR,
-					"out of memory :(");
+					"Out of memory.");
 				op_errno = ENOMEM;
 				op_ret = -1;
 				free (rw);
@@ -566,7 +566,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			rw = CALLOC (1, sizeof (*rw));
 			if (!rw) {
 				gf_log (this->name, GF_LOG_ERROR,
-					"out of memory :(");
+					"Out of memory.");
 				op_errno = ENOMEM;
 				op_ret = -1;
 				goto unlock;
@@ -577,7 +577,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                                     iobref);
 			if (!rw->stub) {
 				gf_log (this->name, GF_LOG_ERROR,
-					"out of memory :(");
+					"Out of memory.");
 				op_errno = ENOMEM;
 				op_ret = -1;
 				free (rw);
@@ -630,7 +630,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 	pl_inode = pl_inode_get (this, fd->inode);
 	if (!pl_inode) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		op_ret = -1;
 		op_errno = ENOMEM;
 		goto unwind;
@@ -639,7 +639,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 	reqlock = new_posix_lock (flock, transport, client_pid);
 	if (!reqlock) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"Out of memory.");
 		op_ret = -1;
 		op_errno = ENOMEM;
 		goto unwind;
@@ -716,8 +716,8 @@ pl_forget (xlator_t *this,
 	pl_inode = pl_inode_get (this, inode);
 
 	if (!list_empty (&pl_inode->rw_list)) {
-		gf_log (this->name, GF_LOG_CRITICAL,
-			"pending R/W requests found, releasing.");
+		gf_log (this->name, GF_LOG_WARNING,
+			"Pending R/W requests found, releasing.");
                 
                 list_for_each_entry_safe (rw_req, rw_tmp, &pl_inode->rw_list, 
                                           list) {
@@ -728,7 +728,7 @@ pl_forget (xlator_t *this,
 	}
 
 	if (!list_empty (&pl_inode->ext_list)) {
-		gf_log (this->name, GF_LOG_CRITICAL,
+		gf_log (this->name, GF_LOG_WARNING,
 			"Pending fcntl locks found, releasing.");
 
                 list_for_each_entry_safe (ext_l, ext_tmp, &pl_inode->ext_list, 
@@ -740,7 +740,7 @@ pl_forget (xlator_t *this,
 	}
 
 	if (!list_empty (&pl_inode->int_list)) {
-		gf_log (this->name, GF_LOG_CRITICAL,
+		gf_log (this->name, GF_LOG_WARNING,
 			"Pending inode locks found, releasing.");
 
                 list_for_each_entry_safe (int_l, int_tmp, &pl_inode->int_list, 
@@ -752,7 +752,7 @@ pl_forget (xlator_t *this,
 	}
 
 	if (!list_empty (&pl_inode->dir_list)) {
-		gf_log (this->name, GF_LOG_CRITICAL,
+		gf_log (this->name, GF_LOG_WARNING,
 			"Pending entry locks found, releasing.");
                 
                 list_for_each_entry_safe (entry_l, entry_tmp, 
@@ -777,14 +777,14 @@ init (xlator_t *this)
 	data_t                *mandatory = NULL;
 
 	if (!this->children || this->children->next) {
-		gf_log (this->name, GF_LOG_ERROR, 
+		gf_log (this->name, GF_LOG_CRITICAL, 
 			"FATAL: posix-locks should have exactly one child");
 		return -1;
 	}
 
 	if (!this->parents) {
 		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
+			"Volume is dangling. Please check the volume file.");
 	}
 
 	trav = this->children;
@@ -792,8 +792,9 @@ init (xlator_t *this)
 		trav = trav->xlator->children;
 
 	if (strncmp ("storage/", trav->xlator->type, 8)) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"'posix-locks' not loaded over storage translator");
+		gf_log (this->name, GF_LOG_CRITICAL,
+			"'locks' translator is not loaded over a storage "
+                        "translator");
 		return -1;
 	}
 
@@ -804,8 +805,8 @@ init (xlator_t *this)
 		if (gf_string2boolean (mandatory->data,
 				       &priv->mandatory) == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"'mandatory-locks' takes only boolean "
-				"options");
+				"'mandatory-locks' takes on only boolean "
+                                "values.");
 			return -1;
 		}
 	}
