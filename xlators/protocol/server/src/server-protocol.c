@@ -6641,6 +6641,10 @@ _validate_volfile_checksum (xlator_t *this, char *key,
         while (temp_volfile) {
                 if ((NULL == key) && (NULL == temp_volfile->key))
                         break;
+                if ((NULL == key) || (NULL == temp_volfile->key)) {
+                        temp_volfile = temp_volfile->next;
+                        continue;
+                }
                 if (strcmp (temp_volfile->key, key) == 0)
                         break;
                 temp_volfile = temp_volfile->next;
