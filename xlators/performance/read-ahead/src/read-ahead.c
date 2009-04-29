@@ -37,10 +37,8 @@
 #include <assert.h>
 #include <sys/time.h>
 
-
 static void
-read_ahead (call_frame_t *frame,
-            ra_file_t *file);
+read_ahead (call_frame_t *frame, ra_file_t *file);
 
 
 int
@@ -60,7 +58,7 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	file = CALLOC (1, sizeof (*file));
 	if (!file) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"out of memory");
 		goto unwind;
 	}
 
@@ -111,8 +109,8 @@ unwind:
 
 int
 ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno,
-	       fd_t *fd, inode_t *inode, struct stat *buf)
+               int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
+               struct stat *buf)
 {
 	ra_conf_t  *conf = NULL;
 	ra_file_t  *file = NULL;
@@ -127,7 +125,7 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	file = CALLOC (1, sizeof (*file));
 	if (!file) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"out of memory");
 		goto unwind;
 	}
 
@@ -174,8 +172,8 @@ unwind:
 
 
 int
-ra_open (call_frame_t *frame, xlator_t *this,
-         loc_t *loc, int32_t flags, fd_t *fd)
+ra_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+         fd_t *fd)
 {
 	STACK_WIND (frame, ra_open_cbk,
 		    FIRST_CHILD (this),
@@ -186,8 +184,8 @@ ra_open (call_frame_t *frame, xlator_t *this,
 }
 
 int
-ra_create (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
+ra_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+           mode_t mode, fd_t *fd)
 {
 	STACK_WIND (frame, ra_create_cbk,
 		    FIRST_CHILD(this),
@@ -202,14 +200,10 @@ ra_create (call_frame_t *frame, xlator_t *this,
 */
 
 static void
-flush_region (call_frame_t *frame,
-              ra_file_t *file,
-              off_t offset,
-              off_t size)
+flush_region (call_frame_t *frame, ra_file_t *file, off_t offset, off_t size)
 {
 	ra_page_t *trav = NULL;
 	ra_page_t *next = NULL;
-
 
 	ra_file_lock (file);
 	{
@@ -228,10 +222,8 @@ flush_region (call_frame_t *frame,
 }
 
 
-
 int
-ra_release (xlator_t *this,
-	    fd_t *fd)
+ra_release (xlator_t *this, fd_t *fd)
 {
 	uint64_t tmp_file = 0;
 	int      ret = 0;
@@ -252,7 +244,7 @@ read_ahead (call_frame_t *frame, ra_file_t *file)
 	off_t      ra_offset = 0;
 	size_t     ra_size = 0;
 	off_t      trav_offset = 0;
-	ra_page_t *trav = NULL;
+	ra_page_t  *trav = NULL;
 	off_t      cap = 0;
 	char       fault = 0;
 
@@ -328,19 +320,17 @@ ra_need_atime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 static void
-dispatch_requests (call_frame_t *frame,
-                   ra_file_t *file)
+dispatch_requests (call_frame_t *frame, ra_file_t *file)
 {
-	ra_local_t   *local = NULL;
-	ra_conf_t    *conf = NULL;
+	ra_local_t    *local = NULL;
+	ra_conf_t     *conf = NULL;
 	off_t         rounded_offset = 0;
 	off_t         rounded_end = 0;
 	off_t         trav_offset = 0;
-	ra_page_t    *trav = NULL;
-	call_frame_t *ra_frame = NULL;
+	ra_page_t     *trav = NULL;
+	call_frame_t  *ra_frame = NULL;
 	char          need_atime_update = 1;
 	char          fault = 0;
-
 
 	local = frame->local;
 	conf  = file->conf;
@@ -408,9 +398,8 @@ dispatch_requests (call_frame_t *frame,
 
 int
 ra_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno,
-		       struct iovec *vector, int32_t count, struct stat *stbuf,
-                       struct iobref *iobref)
+                       int32_t op_ret, int32_t op_errno, struct iovec *vector,
+                       int32_t count, struct stat *stbuf, struct iobref *iobref)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 
@@ -419,16 +408,16 @@ ra_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-ra_readv (call_frame_t *frame, xlator_t *this,
-	  fd_t *fd, size_t size, off_t offset)
+ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+          off_t offset)
 {
 	ra_file_t    *file = NULL;
 	ra_local_t   *local = NULL;
 	ra_conf_t    *conf = NULL;
-	int           op_errno = 0;
-	int           ret = 0;
-	char expected_offset = 1;
-	uint64_t tmp_file = 0;
+	int          op_errno = 0;
+	int          ret = 0;
+	char         expected_offset = 1;
+	uint64_t     tmp_file = 0;
 
 	conf = this->private;
 
@@ -472,7 +461,7 @@ ra_readv (call_frame_t *frame, xlator_t *this,
 	local = (void *) CALLOC (1, sizeof (*local));
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory :(");
+			"out of memory");
 		op_errno = ENOMEM;
 		goto unwind;
 	}
@@ -509,10 +498,7 @@ unwind:
 
 
 int
-ra_flush_cbk (call_frame_t *frame,
-              void *cookie,
-              xlator_t *this,
-              int32_t op_ret,
+ra_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno)
 {
 	STACK_UNWIND (frame, op_ret, op_errno);
@@ -524,8 +510,8 @@ int
 ra_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	ra_file_t *file = NULL;
-	int        ret = 0;
-	uint64_t tmp_file = 0;
+	int       ret = 0;
+	uint64_t  tmp_file = 0;
 
 	ret = fd_ctx_get (fd, this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
@@ -543,12 +529,11 @@ ra_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 
 int
-ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
-          int32_t datasync)
+ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 {
 	ra_file_t *file = NULL;
-	int        ret = 0;
-	uint64_t tmp_file = 0;
+	int       ret = 0;
+	uint64_t  tmp_file = 0;
 
 	ret = fd_ctx_get (fd, this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
@@ -571,8 +556,8 @@ ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	fd_t      *fd = NULL;
 	ra_file_t *file = NULL;
-	int        ret = 0;
-	uint64_t tmp_file = 0;
+	int       ret = 0;
+	uint64_t  tmp_file = 0;
 
 	fd = frame->local;
 
@@ -590,13 +575,12 @@ ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
-           struct iovec *vector, int32_t count, off_t offset,
-           struct iobref *iobref)
+ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
+           int32_t count, off_t offset, struct iobref *iobref)
 {
 	ra_file_t *file = NULL;
-	int        ret = 0;
-	uint64_t tmp_file = 0;
+	int       ret = 0;
+	uint64_t  tmp_file = 0;
 
 	ret = fd_ctx_get (fd, this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
@@ -629,14 +613,13 @@ ra_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-ra_truncate (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, off_t offset)
+ra_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
 	ra_file_t *file = NULL;
 	fd_t      *iter_fd = NULL;
 	inode_t   *inode = NULL;
-	int        ret = 0;
-	uint64_t tmp_file = 0;
+	int       ret = 0;
+	uint64_t  tmp_file = 0;
 
 	inode = loc->inode;
 
@@ -663,14 +646,13 @@ ra_truncate (call_frame_t *frame, xlator_t *this,
 
 
 int
-ra_fstat (call_frame_t *frame, xlator_t *this,
-	  fd_t *fd)
+ra_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	ra_file_t *file = NULL;
 	fd_t      *iter_fd = NULL;
 	inode_t   *inode = NULL;
-	int        ret = 0;
-	uint64_t tmp_file = 0;
+	int       ret = 0;
+	uint64_t  tmp_file = 0;
 
 	inode = fd->inode;
 
@@ -697,14 +679,13 @@ ra_fstat (call_frame_t *frame, xlator_t *this,
 
 
 int
-ra_fchown (call_frame_t *frame, xlator_t *this,
-	   fd_t *fd, uid_t uid, gid_t gid)
+ra_fchown (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid, gid_t gid)
 {
 	ra_file_t *file = NULL;
 	fd_t      *iter_fd = NULL;
 	inode_t   *inode = NULL;
-	int        ret = 0;
-	uint64_t tmp_file = 0;
+	int       ret = 0;
+	uint64_t  tmp_file = 0;
 
 	inode = fd->inode;
 
@@ -731,14 +712,13 @@ ra_fchown (call_frame_t *frame, xlator_t *this,
 
 
 int
-ra_ftruncate (call_frame_t *frame, xlator_t *this,
-              fd_t *fd, off_t offset)
+ra_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 {
 	ra_file_t *file = NULL;
 	fd_t      *iter_fd = NULL;
 	inode_t   *inode = NULL;
-	int        ret = 0;
-	uint64_t tmp_file = 0;
+	int       ret = 0;
+	uint64_t  tmp_file = 0;
 
 	inode = fd->inode;
 
@@ -767,12 +747,13 @@ int
 init (xlator_t *this)
 {
 	ra_conf_t *conf;
-	dict_t *options = this->options;
-	char *page_count_string = NULL;
+	dict_t    *options = this->options;
+	char      *page_count_string = NULL;
 
 	if (!this->children || this->children->next) {
 		gf_log (this->name,  GF_LOG_ERROR,
-			"FATAL: read-ahead not configured with exactly one child");
+			"FATAL: read-ahead not configured with exactly one"
+                        " child");
 		return -1;
 	}
 
@@ -791,11 +772,13 @@ init (xlator_t *this)
 							   "page-count"));
 	if (page_count_string)
 	{
-		if (gf_string2uint_base10 (page_count_string, &conf->page_count) != 0)
+		if (gf_string2uint_base10 (page_count_string, &conf->page_count)
+                    != 0)
 		{
 			gf_log ("read-ahead", 
 				GF_LOG_ERROR, 
-				"invalid number format \"%s\" of \"option page-count\"", 
+				"invalid number format \"%s\" of \"option "
+                                "page-count\"", 
 				page_count_string);
 			return -1;
 		}
@@ -806,13 +789,16 @@ init (xlator_t *this)
 	if (dict_get (options, "force-atime-update")) {
 		char *force_atime_update_str = data_to_str (dict_get (options,
 								      "force-atime-update"));
-		if (gf_string2boolean (force_atime_update_str, &conf->force_atime_update) == -1) {
+		if (gf_string2boolean (force_atime_update_str,
+                                       &conf->force_atime_update) == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"'force-atime-update' takes only boolean options");
+				"'force-atime-update' takes only boolean "
+                                "options");
 			return -1;
 		}
 		if (conf->force_atime_update)
-			gf_log (this->name, GF_LOG_DEBUG, "Forcing atime updates on cache hit");
+			gf_log (this->name, GF_LOG_DEBUG, "Forcing atime "
+                                "updates on cache hit");
 	}
 
 	conf->files.next = &conf->files;

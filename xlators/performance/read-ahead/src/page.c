@@ -29,13 +29,11 @@
 #include "read-ahead.h"
 #include <assert.h>
 
-
 ra_page_t *
-ra_page_get (ra_file_t *file,
-	     off_t offset)
+ra_page_get (ra_file_t *file, off_t offset)
 {
 	ra_page_t *page = NULL;
-	off_t      rounded_offset = 0;
+	off_t     rounded_offset = 0;
 
 	page = file->pages.next;
 	rounded_offset = floor (offset, file->page_size);
@@ -53,9 +51,9 @@ ra_page_get (ra_file_t *file,
 ra_page_t *
 ra_page_create (ra_file_t *file, off_t offset)
 {
-	ra_page_t *page      = NULL;
+	ra_page_t  *page      = NULL;
 	off_t      rounded_offset = 0;
-	ra_page_t *newpage   = NULL;
+	ra_page_t  *newpage   = NULL;
 
 	page           = file->pages.next;
 	rounded_offset = floor (offset, file->page_size);
@@ -87,7 +85,6 @@ ra_wait_on_page (ra_page_t *page, call_frame_t *frame)
 {
 	ra_waitq_t *waitq = NULL;
 	ra_local_t *local = NULL;
-
 
 	local = frame->local;
 	waitq = CALLOC (1, sizeof (*waitq));
@@ -132,15 +129,15 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int32_t count, struct stat *stbuf, struct iobref *iobref)
 {
 	ra_local_t   *local = NULL;
-	off_t         pending_offset = 0;
+	off_t        pending_offset = 0;
 	ra_file_t    *file = NULL;
 	ra_page_t    *page = NULL;
-	off_t         trav_offset = 0;
-	size_t        payload_size = 0;
+	off_t        trav_offset = 0;
+	size_t       payload_size = 0;
 	ra_waitq_t   *waitq = NULL;
 	fd_t         *fd = NULL;
-	int           ret = 0;
-	uint64_t      tmp_file = 0;
+	int          ret = 0;
+	uint64_t     tmp_file = 0;
 
 	local = frame->local;
 	fd  = local->fd;
@@ -202,9 +199,7 @@ unlock:
 
 
 void
-ra_page_fault (ra_file_t *file,
-	       call_frame_t *frame,
-	       off_t offset)
+ra_page_fault (ra_file_t *file, call_frame_t *frame, off_t offset)
 {
 	call_frame_t *fault_frame = NULL;
 	ra_local_t   *fault_local = NULL;
@@ -230,11 +225,10 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 {
 	ra_local_t *local = NULL;
 	ra_fill_t  *fill = NULL;
-	off_t       src_offset = 0;
-	off_t       dst_offset = 0;
-	ssize_t     copy_size = 0;
+	off_t      src_offset = 0;
+	off_t      dst_offset = 0;
+	ssize_t    copy_size = 0;
 	ra_fill_t  *new = NULL;
-
 
 	local = frame->local;
 	fill  = &local->fill;
@@ -289,15 +283,15 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 void
 ra_frame_unwind (call_frame_t *frame)
 {
-	ra_local_t   *local = NULL;
-	ra_fill_t    *fill = NULL;
+	ra_local_t    *local = NULL;
+	ra_fill_t     *fill = NULL;
 	int32_t       count = 0;
-	struct iovec *vector;
+	struct iovec  *vector;
 	int32_t       copied = 0;
         struct iobref *iobref = NULL;
-	ra_fill_t    *next = NULL;
-	fd_t         *fd = NULL;
-	ra_file_t    *file = NULL;
+	ra_fill_t     *next = NULL;
+	fd_t          *fd = NULL;
+	ra_file_t     *file = NULL;
 	int           ret = 0;
 	uint64_t      tmp_file = 0;
 
@@ -359,7 +353,7 @@ ra_frame_unwind (call_frame_t *frame)
 void
 ra_frame_return (call_frame_t *frame)
 {
-	ra_local_t *local = NULL;
+	ra_local_t  *local = NULL;
 	int32_t     wait_count = 0;
 
 	local = frame->local;
@@ -482,4 +476,3 @@ ra_file_destroy (ra_file_t *file)
 	pthread_mutex_destroy (&file->file_lock);
 	free (file);
 }
-
