@@ -34,14 +34,27 @@
 
 typedef void *(*iot_worker_fn)(void*);
 
-void _iot_queue (iot_worker_t *worker, iot_request_t *req);
-iot_request_t * iot_init_request (call_stub_t *stub);
-void iot_startup_workers (iot_worker_t **workers, int start_idx, int count,
-                          iot_worker_fn workerfunc);
-void * iot_worker_unordered (void *arg);
-void * iot_worker_ordered (void *arg);
-void iot_startup_worker (iot_worker_t *worker, iot_worker_fn workerfunc);
-void iot_destroy_request (iot_request_t * req);
+void
+_iot_queue (iot_worker_t *worker, iot_request_t *req);
+
+iot_request_t *
+iot_init_request (call_stub_t *stub);
+
+void
+iot_startup_workers (iot_worker_t **workers, int start_idx, int count,
+                     iot_worker_fn workerfunc);
+
+void *
+iot_worker_unordered (void *arg);
+
+void *
+iot_worker_ordered (void *arg);
+
+void
+iot_startup_worker (iot_worker_t *worker, iot_worker_fn workerfunc);
+
+void
+iot_destroy_request (iot_request_t * req);
 
 
 /* I know this function modularizes things a bit too much,
@@ -51,8 +64,7 @@ void iot_destroy_request (iot_request_t * req);
  */
 void
 iot_request_queue_and_thread_fire (iot_worker_t *worker,
-                                   iot_worker_fn workerfunc,
-                                   iot_request_t *req)
+                                   iot_worker_fn workerfunc, iot_request_t *req)
 {
         pthread_mutex_lock (&worker->qlock);
         {
@@ -149,7 +161,7 @@ iot_ordered_request_balancer (iot_conf_t *conf, inode_t *inode, uint64_t *idx)
                 * than 0.
                 */
                 if ((*idx >= (uint64_t)conf->max_o_threads)) {
-                        gf_log (conf->this->name, GF_LOG_ERROR,
+                        gf_log (conf->this->name, GF_LOG_DEBUG,
                                 "inode context returned insane thread index %"
                                 PRIu64, *idx);
                         ret = -1;
@@ -169,7 +181,7 @@ iot_schedule_ordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
         int              balstatus = 0;
 
         if (inode == NULL) {
-                gf_log (conf->this->name, GF_LOG_ERROR,
+                gf_log (conf->this->name, GF_LOG_DEBUG,
                         "Got NULL inode for ordered request");
                 STACK_UNWIND (stub->frame, -1, EINVAL, NULL);
                 call_stub_destroy (stub);
@@ -180,7 +192,7 @@ iot_schedule_ordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
         {
                 balstatus = iot_ordered_request_balancer (conf, inode, &idx);
                 if (balstatus < 0) {
-                        gf_log (conf->this->name, GF_LOG_ERROR,
+                        gf_log (conf->this->name, GF_LOG_DEBUG,
                                 "Insane worker index. Unwinding stack");
                         STACK_UNWIND (stub->frame, -1, ECANCELED, NULL);
                         iot_destroy_request (req);
@@ -232,7 +244,7 @@ iot_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         stub = fop_lookup_stub (frame, iot_lookup_wrapper, loc, xattr_req);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get lookup stub");
+                        "cannot create lookup stub (out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
                 return 0;
         }
@@ -271,7 +283,8 @@ iot_chmod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 
         stub = fop_chmod_stub (frame, iot_chmod_wrapper, loc, mode);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get chmod stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create chmod stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -315,7 +328,8 @@ iot_fchmod (call_frame_t *frame, xlator_t *this, fd_t *fd, mode_t mode)
 
         stub = fop_fchmod_stub (frame, iot_fchmod_wrapper, fd, mode);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get fchmod stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create fchmod stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -335,8 +349,8 @@ iot_chown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-iot_chown_wrapper (call_frame_t *frame, xlator_t *this,
-                   loc_t *loc, uid_t uid, gid_t gid)
+iot_chown_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid,
+                   gid_t gid)
 {
         STACK_WIND (frame, iot_chown_cbk,
                     FIRST_CHILD (this),
@@ -347,15 +361,16 @@ iot_chown_wrapper (call_frame_t *frame, xlator_t *this,
 
 
 int
-iot_chown (call_frame_t *frame, xlator_t *this,
-           loc_t *loc, uid_t uid, gid_t gid)
+iot_chown (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid,
+           gid_t gid)
 {
         call_stub_t     *stub = NULL;
         fd_t            *fd = NULL;
 
         stub = fop_chown_stub (frame, iot_chown_wrapper, loc, uid, gid);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get chown stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create chown stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -394,14 +409,14 @@ iot_fchown_wrapper (call_frame_t *frame, xlator_t *this,
 
 
 int
-iot_fchown (call_frame_t *frame, xlator_t *this,
-            fd_t *fd, uid_t uid, gid_t gid)
+iot_fchown (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid, gid_t gid)
 {
         call_stub_t     *stub = NULL;
 
         stub = fop_fchown_stub (frame, iot_fchown_wrapper, fd, uid, gid);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get fchown stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create fchown stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -422,8 +437,8 @@ iot_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-iot_access_wrapper (call_frame_t *frame, xlator_t *this,
-                    loc_t *loc, int32_t mask)
+iot_access_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                    int32_t mask)
 {
         STACK_WIND (frame, iot_access_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->access, loc, mask);
@@ -438,7 +453,8 @@ iot_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
         stub = fop_access_stub (frame, iot_access_wrapper, loc, mask);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get access stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create access stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM);
                 return 0;
         }
@@ -451,8 +467,7 @@ iot_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
 int
 iot_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno,
-                  const char *path)
+                  int32_t op_ret, int32_t op_errno, const char *path)
 {
         STACK_UNWIND (frame, op_ret, op_errno, path);
         return 0;
@@ -460,8 +475,8 @@ iot_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-iot_readlink_wrapper (call_frame_t *frame, xlator_t *this,
-                      loc_t *loc, size_t size)
+iot_readlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      size_t size)
 {
         STACK_WIND (frame, iot_readlink_cbk,
                     FIRST_CHILD (this),
@@ -478,7 +493,8 @@ iot_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 
         stub = fop_readlink_stub (frame, iot_readlink_wrapper, loc, size);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get readlink stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create readlink stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -490,8 +506,8 @@ iot_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 
 int
 iot_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno,
-               inode_t *inode, struct stat *buf)
+               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               struct stat *buf)
 {
         STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
         return 0;
@@ -499,8 +515,8 @@ iot_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-iot_mknod_wrapper (call_frame_t *frame, xlator_t *this,
-                   loc_t *loc, mode_t mode, dev_t rdev)
+iot_mknod_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+                   dev_t rdev)
 {
         STACK_WIND (frame, iot_mknod_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->mknod, loc, mode, rdev);
@@ -509,14 +525,15 @@ iot_mknod_wrapper (call_frame_t *frame, xlator_t *this,
 
 
 int
-iot_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
-           mode_t mode, dev_t rdev)
+iot_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+           dev_t rdev)
 {
         call_stub_t     *stub = NULL;
 
         stub = fop_mknod_stub (frame, iot_mknod_wrapper, loc, mode, rdev);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get mknod stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create mknod stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
@@ -529,8 +546,8 @@ iot_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 iot_mkdir_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno,
-               inode_t *inode, struct stat *buf)
+               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               struct stat *buf)
 {
         STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
         return 0;
@@ -538,8 +555,7 @@ iot_mkdir_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
 
 
 int
-iot_mkdir_wrapper (call_frame_t *frame, xlator_t *this,
-                   loc_t *loc, mode_t mode)
+iot_mkdir_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 {
         STACK_WIND (frame, iot_mkdir_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->mkdir, loc, mode);
@@ -554,7 +570,8 @@ iot_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 
         stub = fop_mkdir_stub (frame, iot_mkdir_wrapper, loc, mode);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get mkdir stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create mkdir stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
@@ -589,7 +606,8 @@ iot_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         stub = fop_rmdir_stub (frame, iot_rmdir_wrapper, loc);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get rmdir stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create rmdir stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM);
                 return 0;
         }
@@ -601,8 +619,8 @@ iot_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 int
 iot_symlink_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno,
-                inode_t *inode, struct stat *buf)
+                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 struct stat *buf)
 {
         STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
         return 0;
@@ -610,8 +628,8 @@ iot_symlink_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
 
 
 int
-iot_symlink_wrapper (call_frame_t *frame, xlator_t *this,
-                     const char *linkname, loc_t *loc)
+iot_symlink_wrapper (call_frame_t *frame, xlator_t *this, const char *linkname,
+                     loc_t *loc)
 {
         STACK_WIND (frame, iot_symlink_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->symlink, linkname, loc);
@@ -627,7 +645,8 @@ iot_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
 
         stub = fop_symlink_stub (frame, iot_symlink_wrapper, linkname, loc);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get symlink stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create symlink stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
@@ -647,8 +666,8 @@ iot_rename_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
 
 
 int
-iot_rename_wrapper (call_frame_t *frame, xlator_t *this,
-                    loc_t *oldloc, loc_t *newloc)
+iot_rename_wrapper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
+                    loc_t *newloc)
 {
         STACK_WIND (frame, iot_rename_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->rename, oldloc, newloc);
@@ -657,14 +676,14 @@ iot_rename_wrapper (call_frame_t *frame, xlator_t *this,
 
 
 int
-iot_rename (call_frame_t *frame, xlator_t *this,
-            loc_t *oldloc, loc_t *newloc)
+iot_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 {
         call_stub_t     *stub = NULL;
 
         stub = fop_rename_stub (frame, iot_rename_wrapper, oldloc, newloc);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get rename stub");
+                gf_log (this->name, GF_LOG_DEBUG, "cannot create rename stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -676,8 +695,8 @@ iot_rename (call_frame_t *frame, xlator_t *this,
 
 
 int
-iot_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-              int32_t op_ret, int32_t op_errno, fd_t *fd)
+iot_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+              int32_t op_errno, fd_t *fd)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, fd);
 	return 0;
@@ -695,15 +714,16 @@ iot_open_wrapper (call_frame_t * frame, xlator_t * this, loc_t *loc,
 
 
 int
-iot_open (call_frame_t *frame, xlator_t *this,
-          loc_t *loc, int32_t flags, fd_t *fd)
+iot_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+          fd_t *fd)
 {
         call_stub_t	*stub = NULL;
 
         stub = fop_open_stub (frame, iot_open_wrapper, loc, flags, fd);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get open call stub");
+                        "cannot create open call stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
                 return 0;
         }
@@ -715,8 +735,8 @@ iot_open (call_frame_t *frame, xlator_t *this,
 
 int
 iot_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int32_t op_ret, int32_t op_errno,
-		fd_t *fd, inode_t *inode, struct stat *stbuf)
+                int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
+                struct stat *stbuf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
 	return 0;
@@ -736,8 +756,8 @@ iot_create_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 
 int
-iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
-            int32_t flags, mode_t mode, fd_t *fd)
+iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+            mode_t mode, fd_t *fd)
 {
         call_stub_t     *stub = NULL;
 
@@ -745,7 +765,8 @@ iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                 fd);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get create call stub");
+                        "cannot create \"create\" call stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
                 return 0;
         }
@@ -757,9 +778,8 @@ iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 iot_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno,
-               struct iovec *vector, int32_t count,
-	       struct stat *stbuf, struct iobref *iobref)
+               int32_t op_ret, int32_t op_errno, struct iovec *vector,
+               int32_t count, struct stat *stbuf, struct iobref *iobref)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 
@@ -768,8 +788,8 @@ iot_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-iot_readv_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                   size_t size, off_t offset)
+iot_readv_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                   off_t offset)
 {
 	STACK_WIND (frame, iot_readv_cbk,
 		    FIRST_CHILD(this),
@@ -788,7 +808,8 @@ iot_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	stub = fop_readv_stub (frame, iot_readv_wrapper, fd, size, offset);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, 
-			"cannot get readv call stub");
+			"cannot create readv call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
 		return 0;
 	}
@@ -826,7 +847,8 @@ iot_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	stub = fop_flush_stub (frame, iot_flush_wrapper, fd);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get flush_cbk call stub");
+                        "cannot create flush_cbk call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM);
 		return 0;
 	}
@@ -865,7 +887,8 @@ iot_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 	stub = fop_fsync_stub (frame, iot_fsync_wrapper, fd, datasync);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get fsync_cbk call stub");
+                        "cannot create fsync_cbk call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM);
 		return 0;
 	}
@@ -877,8 +900,7 @@ iot_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 
 int
 iot_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno,
-		struct stat *stbuf)
+                int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 	return 0;
@@ -910,7 +932,8 @@ iot_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get writev call stub");
+                        "cannot create writev call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM, NULL);
 		return 0;
 	}
@@ -952,7 +975,8 @@ iot_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get fop_lk call stub");
+                        "cannot create fop_lk call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM, NULL);
 		return 0;
 	}
@@ -991,7 +1015,8 @@ iot_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         stub = fop_stat_stub (frame, iot_stat_wrapper, loc);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get fop_stat call stub");
+                        "cannot create fop_stat call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM, NULL);
 		return 0;
 	}
@@ -1040,7 +1065,8 @@ iot_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	stub = fop_fstat_stub (frame, iot_fstat_wrapper, fd);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get fop_fstat call stub");
+                        "cannot create fop_fstat call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM, NULL);
 		return 0;
 	}
@@ -1082,7 +1108,8 @@ iot_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get fop_stat call stub");
+                        "cannot create fop_stat call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM, NULL);
 		return 0;
 	}
@@ -1111,8 +1138,8 @@ iot_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-iot_ftruncate_wrapper (call_frame_t *frame, xlator_t *this,
-                       fd_t *fd, off_t offset)
+iot_ftruncate_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                       off_t offset)
 {
 	STACK_WIND (frame, iot_ftruncate_cbk,
 		    FIRST_CHILD(this),
@@ -1130,7 +1157,8 @@ iot_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 	stub = fop_ftruncate_stub (frame, iot_ftruncate_wrapper, fd, offset);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get fop_ftruncate call stub");
+                        "cannot create fop_ftruncate call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM, NULL);
 		return 0;
 	}
@@ -1172,7 +1200,8 @@ iot_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	stub = fop_utimens_stub (frame, iot_utimens_wrapper, loc, tv);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get fop_utimens call stub");
+                        "cannot create fop_utimens call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM, NULL);
 		return 0;
 	}
@@ -1193,8 +1222,8 @@ iot_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 iot_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		  int32_t op_ret, int32_t op_errno,
-		  uint8_t *file_checksum, uint8_t *dir_checksum)
+		  int32_t op_ret, int32_t op_errno, uint8_t *file_checksum,
+                  uint8_t *dir_checksum)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, file_checksum, dir_checksum);
 	return 0;
@@ -1202,8 +1231,8 @@ iot_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-iot_checksum_wrapper (call_frame_t *frame, xlator_t *this,
-                      loc_t *loc,  int32_t flags)
+iot_checksum_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      int32_t flags)
 {
 	STACK_WIND (frame, iot_checksum_cbk,
 		    FIRST_CHILD(this),
@@ -1223,7 +1252,8 @@ iot_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags)
 
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get fop_checksum call stub");
+                        "cannot create fop_checksum call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
 		return 0;
 	}
@@ -1261,7 +1291,8 @@ iot_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	stub = fop_unlink_stub (frame, iot_unlink_wrapper, loc);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot get fop_unlink call stub");
+                        "cannot create fop_unlink call stub"
+                        "(out of memory)");
 		STACK_UNWIND (frame, -1, ENOMEM);
 		return 0;
 	}
@@ -1298,7 +1329,8 @@ iot_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
         stub = fop_link_stub (frame, iot_link_wrapper, oldloc, newloc);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get link stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create link stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
@@ -1335,7 +1367,8 @@ iot_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 
         stub = fop_opendir_stub (frame, iot_opendir_wrapper, loc, fd);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get opendir stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create opendir stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -1357,7 +1390,7 @@ iot_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 iot_fsyncdir_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                        int datasync)
+                      int datasync)
 {
         STACK_WIND (frame, iot_fsyncdir_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fsyncdir, fd, datasync);
@@ -1372,7 +1405,8 @@ iot_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 
         stub = fop_fsyncdir_stub (frame, iot_fsyncdir_wrapper, fd, datasync);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get fsyncdir stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create fsyncdir stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM);
                 return 0;
         }
@@ -1407,7 +1441,8 @@ iot_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         stub = fop_statfs_stub (frame, iot_statfs_wrapper, loc);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get statfs stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create statfs stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -1419,7 +1454,7 @@ iot_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 int
 iot_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno)
+                  int32_t op_ret, int32_t op_errno)
 {
         STACK_UNWIND (frame, op_ret, op_errno);
         return 0;
@@ -1446,7 +1481,8 @@ iot_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         stub = fop_setxattr_stub (frame, iot_setxattr_wrapper, loc, dict,
                                   flags);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get setxattr stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create setxattr stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -1466,7 +1502,7 @@ iot_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
 int
 iot_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *dict)
+                  int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         STACK_UNWIND (frame, op_ret, op_errno, dict);
         return 0;
@@ -1475,7 +1511,7 @@ iot_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 iot_getxattr_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                        const char *name)
+                      const char *name)
 {
         STACK_WIND (frame, iot_getxattr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->getxattr, loc, name);
@@ -1492,7 +1528,8 @@ iot_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         stub = fop_getxattr_stub (frame, iot_getxattr_wrapper, loc, name);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get getxattr stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create getxattr stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -1522,7 +1559,7 @@ iot_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 iot_fgetxattr_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                        const char *name)
+                       const char *name)
 {
         STACK_WIND (frame, iot_fgetxattr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fgetxattr, fd, name);
@@ -1538,7 +1575,8 @@ iot_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         stub = fop_fgetxattr_stub (frame, iot_fgetxattr_wrapper, fd, name);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get fgetxattr stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create fgetxattr stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -1559,7 +1597,7 @@ iot_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 iot_fsetxattr_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                        dict_t *dict, int32_t flags)
+                       dict_t *dict, int32_t flags)
 {
         STACK_WIND (frame, iot_fsetxattr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fsetxattr, fd, dict, flags);
@@ -1576,7 +1614,8 @@ iot_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
         stub = fop_fsetxattr_stub (frame, iot_fsetxattr_wrapper, fd, dict,
                                         flags);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get fsetxattr stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create fsetxattr stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM);
                 return 0;
         }
@@ -1615,7 +1654,8 @@ iot_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         stub = fop_removexattr_stub (frame, iot_removexattr_wrapper, loc,
                                      name);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR,"cannot get removexattr fop");
+                gf_log (this->name, GF_LOG_ERROR,"cannot get removexattr fop"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM);
                 return 0;
         }
@@ -1635,8 +1675,7 @@ iot_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 iot_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno,
-                 gf_dirent_t *entries)
+                 int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
         STACK_UNWIND (frame, op_ret, op_errno, entries);
         return 0;
@@ -1661,7 +1700,8 @@ iot_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         stub = fop_readdir_stub (frame, iot_readdir_wrapper, fd, size, offset);
         if (!stub) {
-                gf_log (this->private, GF_LOG_ERROR,"cannot get readdir stub");
+                gf_log (this->private, GF_LOG_ERROR,"cannot get readdir stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -1700,7 +1740,8 @@ iot_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         stub = fop_xattrop_stub (frame, iot_xattrop_wrapper, loc, optype,
                                         xattr);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get xattrop stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create xattrop stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -1721,7 +1762,7 @@ iot_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 iot_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *xattr)
+                  int32_t op_ret, int32_t op_errno, dict_t *xattr)
 {
         STACK_UNWIND (frame, op_ret, op_errno, xattr);
         return 0;
@@ -1745,7 +1786,8 @@ iot_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         stub = fop_fxattrop_stub (frame, iot_fxattrop_wrapper, fd, optype,
                                         xattr);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot get fxattrop stub");
+                gf_log (this->name, GF_LOG_ERROR, "cannot create fxattrop stub"
+                        "(out of memory)");
                 STACK_UNWIND (frame, -1, ENOMEM, NULL);
                 return 0;
         }
@@ -2050,8 +2092,8 @@ allocate_worker (iot_conf_t * conf)
 
 
 void
-allocate_workers (iot_conf_t *conf, iot_worker_t **workers,
-                  int start_alloc_idx, int count)
+allocate_workers (iot_conf_t *conf, iot_worker_t **workers, int start_alloc_idx,
+                  int count)
 {
         int     i;
         int     end_count;
