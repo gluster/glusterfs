@@ -2168,7 +2168,7 @@ init (xlator_t *this)
 {
         iot_conf_t      *conf = NULL;
         dict_t          *options = this->options;
-        int             thread_count = IOT_MIN_THREADS;
+        int             thread_count = IOT_DEFAULT_THREADS;
         gf_boolean_t    autoscaling = IOT_SCALING_OFF;
         char            *scalestr = NULL;
         int             min_threads, max_threads;
@@ -2205,10 +2205,10 @@ init (xlator_t *this)
                                         "'autoscaling' on. Ignoring"
                                         "'thread-count' option.");
                 if (thread_count < 2)
-                        thread_count = 2;
+                        thread_count = IOT_MIN_THREADS;
         }
 
-        min_threads = IOT_MIN_THREADS;
+        min_threads = IOT_DEFAULT_THREADS;
         max_threads = IOT_MAX_THREADS;
         if (dict_get (options, "min-threads"))
                 min_threads = data_to_int32 (dict_get (options,
@@ -2247,12 +2247,12 @@ init (xlator_t *this)
         * some strange reason, make sure we set this count to
         * 2. Explained later.
         */
-        if (min_threads < 2)
-                min_threads = 2;
+        if (min_threads < IOT_MIN_THREADS)
+                min_threads = IOT_MIN_THREADS;
 
         /* Again, have atleast two. Read on. */
-        if (max_threads < 2)
-                max_threads = 2;
+        if (max_threads < IOT_MIN_THREADS)
+                max_threads = IOT_MIN_THREADS;
 
         /* This is why we need atleast two threads.
          * We're dividing the specified thread pool into
@@ -2360,15 +2360,21 @@ struct volume_options options[] = {
         { .key  = {"autoscaling"},
           .type = GF_OPTION_TYPE_BOOL
         },
-        { .key  = {"min-threads"},
-          .type = GF_OPTION_TYPE_INT,
-          .min  = IOT_MIN_THREADS,
-          .max  = IOT_MAX_THREADS
+        { .key          = {"min-threads"},
+          .type         = GF_OPTION_TYPE_INT,
+          .min          = IOT_MIN_THREADS,
+          .max          = IOT_MAX_THREADS,
+          .description  = "Minimum number of threads must be greater than or "
+                          "equal to 2. If the specified value is less than 2 "
+                          "it is adjusted upwards to 2. This is a requirement"
+                          " for the current model of threading in io-threads."
         },
-        { .key  = {"max-threads"},
-          .type = GF_OPTION_TYPE_INT,
-          .min  = IOT_MIN_THREADS,
-          .max  = IOT_MAX_THREADS
+        { .key          = {"max-threads"},
+          .type         = GF_OPTION_TYPE_INT,
+          .min          = IOT_MIN_THREADS,
+          .max          = IOT_MAX_THREADS,
+          .description  = "Maximum number of threads is advisory only so the "
+                          "user specified value will be used."
         },
 	{ .key  = {NULL} },
 };
