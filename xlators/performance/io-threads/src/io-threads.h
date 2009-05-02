@@ -57,7 +57,8 @@ struct iot_request {
 #define skew_usec_idle_time(usec)       ((usec) + (random () % MAX_IDLE_SKEW))
 #define IOT_DEFAULT_IDLE                180     /* In secs. */
 
-#define IOT_MIN_THREADS         16
+#define IOT_MIN_THREADS         2
+#define IOT_DEFAULT_THREADS     16
 #define IOT_MAX_THREADS         256
 
 #define IOT_SCALING_OFF                 _gf_false
