@@ -898,23 +898,67 @@ out:
 /* {{{ flush */
 
 int
-afr_flush_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		      int32_t op_ret, int32_t op_errno)
+afr_flush_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *   local = NULL;
-
-	int call_count  = -1;
+	afr_private_t * priv  = NULL;
+	call_frame_t   *main_frame = NULL;
 
 	local = frame->local;
+	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
-		if (op_ret == 0)
-			local->op_ret = 0;
+		if (local->transaction.main_frame)
+			main_frame = local->transaction.main_frame;
+		local->transaction.main_frame = NULL;
+	}
+	UNLOCK (&frame->lock);
+
+	if (main_frame) {
+		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno);
+	}
+        
+	return 0;
+}
+
+
+int
+afr_flush_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+		      int32_t op_ret, int32_t op_errno)
+{
+        afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+
+	int call_count  = -1;
+	int child_index = (long) cookie;
+	int need_unwind = 0;
+
+	local = frame->local;
+	priv  = this->private;
+
+	LOCK (&frame->lock);
+	{
+		if (afr_fop_failed (op_ret, op_errno))
+			afr_transaction_fop_failed (frame, this, child_index);
+
+		if (op_ret != -1) {
+			if (local->success_count == 0) {
+				local->op_ret = op_ret;
+			}
+			local->success_count++;
+
+			if (local->success_count == priv->wait_count) {
+				need_unwind = 1;
+			}
+		}
 
 		local->op_errno = op_errno;
 	}
 	UNLOCK (&frame->lock);
+
+	if (need_unwind)
+		afr_flush_unwind (frame, this);
 
 	call_count = afr_frame_return (frame);
 
@@ -971,7 +1015,9 @@ afr_flush_done (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	local->transaction.unwind (frame, this);
+
+        AFR_STACK_DESTROY (frame);
 
 	return 0;
 }
@@ -982,6 +1028,8 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
+
+        call_frame_t  * transaction_frame = NULL;
 
 	int ret        = -1;
 
@@ -994,6 +1042,13 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 	priv = this->private;
 
+        transaction_frame = copy_frame (frame);
+        if (!transaction_frame) {
+                gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory.");
+		goto out;
+        }
+
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
 	ret = AFR_LOCAL_INIT (local, priv);
@@ -1002,22 +1057,28 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 		goto out;
 	}
 
-	frame->local = local;
+	transaction_frame->local = local;
 
         local->op = GF_FOP_FLUSH;
+        
         local->transaction.fop    = afr_flush_wind;
         local->transaction.done   = afr_flush_done;
+        local->transaction.unwind = afr_flush_unwind;
 
         local->fd                 = fd_ref (fd);
 
+        local->transaction.main_frame = frame;
         local->transaction.start  = 0;
         local->transaction.len    = 0;
 
-        afr_transaction (frame, this, AFR_FLUSH_TRANSACTION);
+        afr_transaction (transaction_frame, this, AFR_FLUSH_TRANSACTION);
 
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
+                if (transaction_frame)
+                        AFR_STACK_DESTROY (transaction_frame);
+
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
 	}
 
