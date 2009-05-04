@@ -30,15 +30,13 @@
 #include <assert.h>
 #include <sys/time.h>
 
-static uint32_t
-ioc_get_priority (ioc_table_t *table, 
-		  const char *path);
+uint32_t
+ioc_get_priority (ioc_table_t *table, const char *path);
 
-static uint32_t
-ioc_get_priority (ioc_table_t *table, 
-		  const char *path);
+uint32_t
+ioc_get_priority (ioc_table_t *table, const char *path);
 
-static inline ioc_inode_t *
+inline ioc_inode_t *
 ioc_inode_reupdate (ioc_inode_t *ioc_inode)
 {
 	ioc_table_t *table = ioc_inode->table;
@@ -49,12 +47,11 @@ ioc_inode_reupdate (ioc_inode_t *ioc_inode)
 	return ioc_inode;
 }
 
-static inline ioc_inode_t *
-ioc_get_inode (dict_t *dict,
-	       char *name)
+inline ioc_inode_t *
+ioc_get_inode (dict_t *dict, char *name)
 {
 	ioc_inode_t *ioc_inode = NULL;
-	data_t *ioc_inode_data = dict_get (dict, name);
+	data_t      *ioc_inode_data = dict_get (dict, name);
 	ioc_table_t *table = NULL;
 
 	if (ioc_inode_data) {
@@ -76,10 +73,10 @@ ioc_get_inode (dict_t *dict,
 int32_t
 ioc_inode_need_revalidate (ioc_inode_t *ioc_inode)
 {
-	int8_t need_revalidate = 0;
+	int8_t         need_revalidate = 0;
 	struct timeval tv = {0,};
-	int32_t ret = -1;
-	ioc_table_t *table = ioc_inode->table;
+	int32_t        ret = -1;
+	ioc_table_t    *table = ioc_inode->table;
 
 	ret = gettimeofday (&tv, NULL);
 
@@ -100,8 +97,8 @@ int32_t
 __ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
 	ioc_page_t *curr = NULL, *next = NULL;
-	int32_t destroy_size = 0;
-	int32_t ret = 0;
+	int32_t    destroy_size = 0;
+	int32_t    ret = 0;
 
 	list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
 		ret = ioc_page_destroy (curr);
@@ -147,12 +144,8 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
  *
  */
 int32_t
-ioc_utimens_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct stat *stbuf)
+ioc_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 	return 0;
@@ -168,10 +161,8 @@ ioc_utimens_cbk (call_frame_t *frame,
  *
  */
 int32_t
-ioc_utimens (call_frame_t *frame,
-	     xlator_t *this,
-	     loc_t *loc,
-	     struct timespec *tv)
+ioc_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
+             struct timespec *tv)
 {
 	uint64_t ioc_inode = 0;
 	inode_ctx_get (loc->inode, this, &ioc_inode);
@@ -179,36 +170,30 @@ ioc_utimens (call_frame_t *frame,
 	if (ioc_inode)
 		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-	STACK_WIND (frame, ioc_utimens_cbk,
-		    FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->utimens,
-		    loc, tv);
+	STACK_WIND (frame, ioc_utimens_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->utimens, loc, tv);
+
 	return 0;
 }
 
 int32_t
-ioc_lookup_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		inode_t *inode,
-		struct stat *stbuf,
-		dict_t *dict)
+ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		int32_t op_ret,	int32_t op_errno, inode_t *inode,
+		struct stat *stbuf, dict_t *dict)
 {
-	ioc_inode_t *ioc_inode = NULL;
-	ioc_local_t *local = frame->local;
-	ioc_table_t *table = this->private;
-	ioc_page_t  *page = NULL;
-	data_t      *content_data = NULL;
-	char        *src = NULL;
-	char         need_unref = 0;
-	uint8_t      cache_still_valid = 0;
-	uint32_t     weight = 0;
-	uint64_t     tmp_ioc_inode = 0;
-	char        *buf = NULL;
-	char        *tmp = NULL;
-	int          i;
+	ioc_inode_t   *ioc_inode = NULL;
+	ioc_local_t   *local = frame->local;
+	ioc_table_t   *table = this->private;
+	ioc_page_t    *page = NULL;
+	data_t        *content_data = NULL;
+	char          *src = NULL;
+	char          need_unref = 0;
+	uint8_t       cache_still_valid = 0;
+	uint32_t      weight = 0;
+	uint64_t      tmp_ioc_inode = 0;
+	char          *buf = NULL;
+	char          *tmp = NULL;
+	int           i;
         struct iobref *iobref = NULL;
         struct iobuf  *iobuf = NULL;
 	
@@ -302,12 +287,11 @@ ioc_lookup_cbk (call_frame_t *frame,
 						"page not present");
 					
 					ioc_inode_unlock (ioc_inode);
-					STACK_WIND (frame,
-						    ioc_lookup_cbk,
-						    FIRST_CHILD (this),
+					STACK_WIND (frame, ioc_lookup_cbk,
+                                                    FIRST_CHILD (this),
 						    FIRST_CHILD (this)->fops->lookup,
 						    &local->file_loc,
-						    local->xattr_req);
+                                                    local->xattr_req);
 					return 0;
 				} 
 				buf = CALLOC (1, stbuf->st_size);
@@ -344,7 +328,7 @@ ioc_lookup_cbk (call_frame_t *frame,
 		}
 	}
 
- out:
+out:
 	STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, dict);
 
 	if (need_unref) {
@@ -360,19 +344,17 @@ ioc_lookup_cbk (call_frame_t *frame,
 }
 
 int32_t 
-ioc_lookup (call_frame_t *frame,
-	    xlator_t *this,
-	    loc_t *loc,
+ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	    dict_t *xattr_req)
 {
-	uint64_t content_limit = 0;
+	uint64_t    content_limit = 0;
+        uint64_t    tmp_ioc_inode = 0;
+        ioc_inode_t *ioc_inode = NULL;
+        ioc_page_t  *page = NULL;
+        ioc_local_t *local = NULL;
 
 	if (GF_FILE_CONTENT_REQUESTED(xattr_req, &content_limit)) {
-		uint64_t     tmp_ioc_inode = 0;
-		ioc_inode_t *ioc_inode = NULL;
-		ioc_page_t  *page = NULL;
-		ioc_local_t *local = CALLOC (1, sizeof (*local));
-
+                local = CALLOC (1, sizeof (*local));
 		local->need_xattr = content_limit;
 		local->file_loc.path = loc->path;
 		local->file_loc.inode = loc->inode;
@@ -395,12 +377,9 @@ ioc_lookup (call_frame_t *frame,
 		}
 	}
 
-	STACK_WIND (frame,
-		    ioc_lookup_cbk,
-		    FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->lookup,
-		    loc,
-		    xattr_req);
+	STACK_WIND (frame, ioc_lookup_cbk, FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->lookup, loc, xattr_req);
+
 	return 0;
 }
 
@@ -413,8 +392,7 @@ ioc_lookup (call_frame_t *frame,
  *
  */
 int32_t
-ioc_forget (xlator_t *this,
-	    inode_t *inode)
+ioc_forget (xlator_t *this, inode_t *inode)
 {
 	uint64_t ioc_inode = 0;
 
@@ -439,19 +417,17 @@ ioc_forget (xlator_t *this,
  *
  */
 int32_t
-ioc_cache_validate_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno,
-			struct stat *stbuf)
+ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
-	ioc_local_t *local = frame->local;
+	ioc_local_t *local = NULL;
 	ioc_inode_t *ioc_inode = NULL;
-	size_t destroy_size = 0;
-	struct stat *local_stbuf = stbuf;
+	size_t      destroy_size = 0;
+	struct stat *local_stbuf = NULL;
 
+        local = frame->local;
 	ioc_inode = local->inode;
+        local_stbuf = stbuf;
 
 	if ((op_ret == -1) || 
 	    ((op_ret >= 0) && !ioc_cache_still_valid(ioc_inode, stbuf))) {
@@ -501,12 +477,11 @@ ioc_cache_validate_cbk (call_frame_t *frame,
 	return 0;
 }
 
-static int32_t
-ioc_wait_on_inode (ioc_inode_t *ioc_inode, 
-		   ioc_page_t *page)
+int32_t
+ioc_wait_on_inode (ioc_inode_t *ioc_inode, ioc_page_t *page)
 {
 	ioc_waitq_t *waiter = NULL, *trav = NULL;
-	uint32_t page_found = 0;
+	uint32_t    page_found = 0;
 
 	trav = ioc_inode->waitq;
 
@@ -537,14 +512,12 @@ ioc_wait_on_inode (ioc_inode_t *ioc_inode,
  * @fd:
  *
  */
-static int32_t
-ioc_cache_validate (call_frame_t *frame,
-		    ioc_inode_t *ioc_inode,
-		    fd_t *fd,
+int32_t
+ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 		    ioc_page_t *page)
 {
 	call_frame_t *validate_frame = NULL;
-	ioc_local_t *validate_local = NULL;
+	ioc_local_t  *validate_local = NULL;
 
 	validate_local = CALLOC (1, sizeof (ioc_local_t));
 	ERR_ABORT (validate_local);
@@ -553,22 +526,20 @@ ioc_cache_validate (call_frame_t *frame,
 	validate_local->inode = ioc_inode;
 	validate_frame->local = validate_local;
     
-	STACK_WIND (validate_frame,
-		    ioc_cache_validate_cbk,
-		    FIRST_CHILD (frame->this),
-		    FIRST_CHILD (frame->this)->fops->fstat,
-		    fd);
+	STACK_WIND (validate_frame, ioc_cache_validate_cbk,
+                    FIRST_CHILD (frame->this),
+                    FIRST_CHILD (frame->this)->fops->fstat, fd);
 
 	return 0;
 }
 
-static inline uint32_t
-is_match (const char *path,
-	  const char *pattern)
+inline uint32_t
+is_match (const char *path, const char *pattern)
 {
-	char *pathname = strdup (path);
+	char    *pathname = NULL;
 	int32_t ret = 0;
 
+        pathname = strdup (path);
 	ret = fnmatch (pattern, path, FNM_NOESCAPE);
   
 	free (pathname);
@@ -576,11 +547,10 @@ is_match (const char *path,
 	return (ret == 0);
 }
 
-static uint32_t
-ioc_get_priority (ioc_table_t *table, 
-		  const char *path)
+uint32_t
+ioc_get_priority (ioc_table_t *table, const char *path)
 {
-	uint32_t priority = 0;
+	uint32_t            priority = 0;
 	struct ioc_priority *curr = NULL;
   
 	list_for_each_entry (curr, &table->priority_list, list) {
@@ -603,20 +573,21 @@ ioc_get_priority (ioc_table_t *table,
  *
  */
 int32_t
-ioc_open_cbk (call_frame_t *frame,
-	      void *cookie,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      fd_t *fd)
+ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+	      int32_t op_errno, fd_t *fd)
 {
-	uint64_t     tmp_ioc_inode = 0;
-	ioc_local_t *local = frame->local;
-	ioc_table_t *table = this->private;
+	uint64_t    tmp_ioc_inode = 0;
+	ioc_local_t *local = NULL;
+	ioc_table_t *table = NULL;
 	ioc_inode_t *ioc_inode = NULL;
-	inode_t *inode = local->file_loc.inode;
-	uint32_t weight = 0;
-	const char *path = local->file_loc.path;
+	inode_t     *inode = NULL;
+	uint32_t    weight = 0;
+	const char  *path = NULL;
+
+        local = frame->local;
+        table = this->private;
+        inode = local->file_loc.inode;
+        path = local->file_loc.path;
 
 	if (op_ret != -1) {
 		/* look for ioc_inode corresponding to this fd */
@@ -626,12 +597,14 @@ ioc_open_cbk (call_frame_t *frame,
                         ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
                         
                         if (!ioc_inode) {
-                                /* this is the first time someone is opening this 
-                                   file, assign weight 
+                                /*
+                                  this is the first time someone is opening
+                                  this file, assign weight 
                                 */
                                 weight = ioc_get_priority (table, path);
  
-                                ioc_inode = ioc_inode_update (table, inode, weight);
+                                ioc_inode = ioc_inode_update (table, inode,
+                                                              weight);
                                 __inode_ctx_put (fd->inode, this, 
                                                  (uint64_t)(long)ioc_inode);
                         } else {
@@ -648,8 +621,8 @@ ioc_open_cbk (call_frame_t *frame,
 
 		/* If mandatory locking has been enabled on this file,
 		   we disable caching on it */
-		if (((inode->st_mode & S_ISGID) && 
-		     !(inode->st_mode & S_IXGRP))) {
+		if (((inode->st_mode & S_ISGID)
+                     && !(inode->st_mode & S_IXGRP))) {
 			fd_ctx_set (fd, this, 1);
 		}
   
@@ -684,20 +657,19 @@ ioc_open_cbk (call_frame_t *frame,
  *
  */
 int32_t
-ioc_create_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		fd_t *fd,
-		inode_t *inode,
-		struct stat *buf)
+ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret,	int32_t op_errno, fd_t *fd,
+		inode_t *inode,	struct stat *buf)
 {
-	ioc_local_t *local = frame->local;
-	ioc_table_t *table = this->private;
+	ioc_local_t *local = NULL;
+	ioc_table_t *table = NULL;
 	ioc_inode_t *ioc_inode = NULL;
-	uint32_t weight = 0;
-	const char *path = local->file_loc.path;
+	uint32_t    weight = 0;
+	const char  *path = NULL;
+
+        local = frame->local;
+        table = this->private;
+        path = local->file_loc.path;
 
 	if (op_ret != -1) {
 		{
@@ -709,8 +681,10 @@ ioc_create_cbk (call_frame_t *frame,
                         inode_ctx_put (fd->inode, this,
                                        (uint64_t)(long)ioc_inode);
 		}
-		/* If mandatory locking has been enabled on this file,
-		   we disable caching on it */
+		/*
+                 * If mandatory locking has been enabled on this file,
+                 * we disable caching on it
+                 */
 		if ((inode->st_mode & S_ISGID) && 
 		    !(inode->st_mode & S_IXGRP)) {
 			fd_ctx_set (fd, this, 1);
@@ -718,7 +692,8 @@ ioc_create_cbk (call_frame_t *frame,
 
 		/* If O_DIRECT open, we disable caching on it */
 		if (local->flags & O_DIRECT){
-			/* O_DIRECT is only for one fd, not the inode 
+			/*
+                         * O_DIRECT is only for one fd, not the inode 
 			 * as a whole 
 			 */
 			fd_ctx_set (fd, this, 1);
@@ -743,14 +718,13 @@ ioc_create_cbk (call_frame_t *frame,
  *
  */
 int32_t
-ioc_open (call_frame_t *frame,
-	  xlator_t *this,
-	  loc_t *loc,
-	  int32_t flags,
+ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	  fd_t *fd)
 {
   
-	ioc_local_t *local = CALLOC (1, sizeof (ioc_local_t));
+	ioc_local_t *local = NULL;
+
+        local = CALLOC (1, sizeof (ioc_local_t));
 	ERR_ABORT (local);
 
 	local->flags = flags;
@@ -759,13 +733,8 @@ ioc_open (call_frame_t *frame,
   
 	frame->local = local;
   
-	STACK_WIND (frame,
-		    ioc_open_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->open,
-		    loc,
-		    flags,
-		    fd);
+	STACK_WIND (frame, ioc_open_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->open, loc, flags, fd);
 
 	return 0;
 }
@@ -781,24 +750,21 @@ ioc_open (call_frame_t *frame,
  *
  */
 int32_t
-ioc_create (call_frame_t *frame,
-	    xlator_t *this,
-	    loc_t *loc,
-	    int32_t flags,
-	    mode_t mode,
-	    fd_t *fd)
+ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+	    mode_t mode, fd_t *fd)
 {
-	ioc_local_t *local = CALLOC (1, sizeof (ioc_local_t));
+	ioc_local_t *local = NULL;
+        
+        local = CALLOC (1, sizeof (ioc_local_t));
 	ERR_ABORT (local);
 
 	local->flags = flags;
 	local->file_loc.path = loc->path;
 	frame->local = local;
 
-	STACK_WIND (frame, ioc_create_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->create,
-		    loc, flags, mode, fd);
+	STACK_WIND (frame, ioc_create_cbk, FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->create, loc, flags, mode, fd);
+
 	return 0;
 }
 
@@ -814,8 +780,7 @@ ioc_create (call_frame_t *frame,
  *
  */
 int32_t
-ioc_release (xlator_t *this,
-	     fd_t *fd)
+ioc_release (xlator_t *this, fd_t *fd)
 {
 	return 0;
 }
@@ -832,14 +797,9 @@ ioc_release (xlator_t *this,
  *
  */ 
 int32_t
-ioc_readv_disabled_cbk (call_frame_t *frame, 
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno,
-			struct iovec *vector,
-			int32_t count,
-			struct stat *stbuf,
+ioc_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret,	int32_t op_errno, struct iovec *vector,
+			int32_t count, struct stat *stbuf,
                         struct iobref *iobref)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
@@ -865,31 +825,34 @@ ioc_need_prune (ioc_table_t *table)
 }
 
 /*
- * dispatch_requests -
+ * ioc_dispatch_requests -
  * 
  * @frame:
  * @inode:
  *
  * 
  */
-static void
-dispatch_requests (call_frame_t *frame,
-		   ioc_inode_t *ioc_inode,
-		   fd_t *fd,
-		   off_t offset,
-		   size_t size)
+void
+ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
+		   off_t offset, size_t size)
 {
-	ioc_local_t *local = frame->local;
-	ioc_table_t *table = ioc_inode->table;
+	ioc_local_t *local = NULL;
+	ioc_table_t *table = NULL;
 	ioc_page_t  *trav = NULL;
 	ioc_waitq_t *waitq = NULL;
-	off_t   rounded_offset = 0;
-	off_t   rounded_end = 0;
-	off_t   trav_offset = 0;
-	int32_t fault = 0;
-	int8_t  need_validate = 0;
-	int8_t  might_need_validate = 0;  /* if a page exists, do we need 
-					    to validate it? */
+	off_t       rounded_offset = 0;
+	off_t       rounded_end = 0;
+	off_t       trav_offset = 0;
+	int32_t     fault = 0;
+        size_t      trav_size = 0;
+        off_t       local_offset = 0;
+	int8_t      need_validate = 0;
+	int8_t      might_need_validate = 0;  /*
+                                               * if a page exists, do we need 
+                                               * to validate it?
+                                               */
+        local = frame->local;
+        table = ioc_inode->table;
 
 	rounded_offset = floor (offset, table->page_size);
 	rounded_end = roof (offset + size, table->page_size);
@@ -908,9 +871,6 @@ dispatch_requests (call_frame_t *frame,
 	might_need_validate = ioc_inode_need_revalidate (ioc_inode);
 
 	while (trav_offset < rounded_end) {
-		size_t trav_size = 0;
-		off_t local_offset = 0;
-
 		ioc_inode_lock (ioc_inode);
 		//{
 
@@ -927,7 +887,7 @@ dispatch_requests (call_frame_t *frame,
 			fault = 1;
 			if (!trav) {
 				gf_log (frame->this->name, GF_LOG_CRITICAL,
-					"ioc_page_create returned NULL");
+					"out of memory");
 			}
 		} 
 
@@ -997,40 +957,31 @@ dispatch_requests (call_frame_t *frame,
  *
  */
 int32_t
-ioc_readv (call_frame_t *frame,
-	   xlator_t *this,
-	   fd_t *fd,
-	   size_t size,
-	   off_t offset)
+ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
+	   size_t size, off_t offset)
 {
 	uint64_t     tmp_ioc_inode = 0;
-	ioc_inode_t *ioc_inode = NULL;
-	ioc_local_t *local = NULL;
+	ioc_inode_t  *ioc_inode = NULL;
+	ioc_local_t  *local = NULL;
 	uint32_t     weight = 0;
 
 	inode_ctx_get (fd->inode, this, &tmp_ioc_inode);
 	ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
 	if (!ioc_inode) {
 		/* caching disabled, go ahead with normal readv */
-		STACK_WIND (frame, 
-			    ioc_readv_disabled_cbk,
-			    FIRST_CHILD (frame->this), 
-			    FIRST_CHILD (frame->this)->fops->readv,
-			    fd, 
-			    size, 
-			    offset);
+		STACK_WIND (frame, ioc_readv_disabled_cbk,
+                            FIRST_CHILD (frame->this), 
+			    FIRST_CHILD (frame->this)->fops->readv, fd, size,
+                            offset);
 		return 0;
 	}
 
 	if (!fd_ctx_get (fd, this, NULL)) {
 		/* disable caching for this fd, go ahead with normal readv */
-		STACK_WIND (frame, 
-			    ioc_readv_disabled_cbk,
-			    FIRST_CHILD (frame->this), 
-			    FIRST_CHILD (frame->this)->fops->readv,
-			    fd, 
-			    size, 
-			    offset);
+		STACK_WIND (frame, ioc_readv_disabled_cbk,
+                            FIRST_CHILD (frame->this), 
+			    FIRST_CHILD (frame->this)->fops->readv, fd, size,
+                            offset);
 		return 0;
 	}
 
@@ -1058,7 +1009,7 @@ ioc_readv (call_frame_t *frame,
 	}
 	ioc_table_unlock (ioc_inode->table);
 
-	dispatch_requests (frame, ioc_inode, fd, offset, size);
+	ioc_dispatch_requests (frame, ioc_inode, fd, offset, size);
   
 	return 0;
 }
@@ -1074,16 +1025,13 @@ ioc_readv (call_frame_t *frame,
  *
  */
 int32_t
-ioc_writev_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		struct stat *stbuf)
+ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		int32_t op_ret,	int32_t op_errno, struct stat *stbuf)
 {
-	ioc_local_t *local     = frame->local;
-	uint64_t     ioc_inode = 0;
+	ioc_local_t *local     = NULL;
+	uint64_t    ioc_inode = 0;
 
+        local = frame->local;
 	inode_ctx_get (local->fd->inode, this, &ioc_inode);
   
 	if (ioc_inode)
@@ -1105,16 +1053,12 @@ ioc_writev_cbk (call_frame_t *frame,
  *
  */
 int32_t
-ioc_writev (call_frame_t *frame,
-	    xlator_t *this,
-	    fd_t *fd,
-	    struct iovec *vector,
-	    int32_t count,
-	    off_t offset,
+ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
+	    struct iovec *vector, int32_t count, off_t offset,
             struct iobref *iobref)
 {
 	ioc_local_t *local     = NULL;
-	uint64_t     ioc_inode = 0;
+	uint64_t    ioc_inode = 0;
 	
 	local = CALLOC (1, sizeof (ioc_local_t));
 	ERR_ABORT (local);
@@ -1127,14 +1071,8 @@ ioc_writev (call_frame_t *frame,
 	if (ioc_inode)
 		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-	STACK_WIND (frame,
-		    ioc_writev_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->writev,
-		    fd,
-		    vector,
-		    count,
-		    offset,
+	STACK_WIND (frame, ioc_writev_cbk, FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
                     iobref);
 
 	return 0;
@@ -1152,12 +1090,8 @@ ioc_writev (call_frame_t *frame,
  *
  */
 int32_t 
-ioc_truncate_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
+ioc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
 
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -1174,10 +1108,7 @@ ioc_truncate_cbk (call_frame_t *frame,
  *
  */
 int32_t 
-ioc_truncate (call_frame_t *frame,
-	      xlator_t *this,
-	      loc_t *loc,
-	      off_t offset)
+ioc_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
 	uint64_t ioc_inode = 0;
 	inode_ctx_get (loc->inode, this, &ioc_inode);
@@ -1185,12 +1116,8 @@ ioc_truncate (call_frame_t *frame,
 	if (ioc_inode)
 		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-	STACK_WIND (frame,
-		    ioc_truncate_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->truncate,
-		    loc,
-		    offset);
+	STACK_WIND (frame, ioc_truncate_cbk, FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->truncate, loc, offset);
 	return 0;
 }
 
@@ -1204,10 +1131,7 @@ ioc_truncate (call_frame_t *frame,
  *
  */
 int32_t
-ioc_ftruncate (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       off_t offset)
+ioc_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 {
 	uint64_t ioc_inode = 0;
 	inode_ctx_get (fd->inode, this, &ioc_inode);
@@ -1215,41 +1139,30 @@ ioc_ftruncate (call_frame_t *frame,
 	if (ioc_inode)
 		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-	STACK_WIND (frame,
-		    ioc_truncate_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->ftruncate,
-		    fd,
-		    offset);
+	STACK_WIND (frame, ioc_truncate_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->ftruncate, fd, offset);
 	return 0;
 }
 
 int32_t
-ioc_lk_cbk (call_frame_t *frame,
-	    void *cookie,
-	    xlator_t *this,
-	    int32_t op_ret,
-	    int32_t op_errno,
-	    struct flock *lock)
+ioc_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+	    int32_t op_errno, struct flock *lock)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, lock);
 	return 0;
 }
 
 int32_t 
-ioc_lk (call_frame_t *frame,
-	xlator_t *this,
-	fd_t *fd,
-	int32_t cmd,
-	struct flock *lock)
+ioc_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
+        struct flock *lock)
 {
-	ioc_inode_t *ioc_inode = NULL;
+	ioc_inode_t  *ioc_inode = NULL;
 	uint64_t     tmp_inode = 0;
 
 	inode_ctx_get (fd->inode, this, &tmp_inode);
 	ioc_inode = (ioc_inode_t *)(long)tmp_inode;
 	if (!ioc_inode) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"inode context is NULL: returning EBADFD");
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
@@ -1261,26 +1174,27 @@ ioc_lk (call_frame_t *frame,
 	}
 	ioc_inode_unlock (ioc_inode);
 
-	STACK_WIND (frame, ioc_lk_cbk, 
-		    FIRST_CHILD (this),
+	STACK_WIND (frame, ioc_lk_cbk, FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->lk, fd, cmd, lock);
+
 	return 0;
 }
 
 int32_t
 ioc_get_priority_list (const char *opt_str, struct list_head *first)
 {
-	int32_t max_pri = 0;
-	char *tmp_str = NULL;
-	char *tmp_str1 = NULL;
-	char *tmp_str2 = NULL;
-	char *dup_str = NULL;
-	char *stripe_str = NULL;
-	char *pattern = NULL;
-	char *priority = NULL;
-	char *string = strdup (opt_str);
+	int32_t             max_pri = 0;
+	char                *tmp_str = NULL;
+	char                *tmp_str1 = NULL;
+	char                *tmp_str2 = NULL;
+	char                *dup_str = NULL;
+	char                *stripe_str = NULL;
+	char                *pattern = NULL;
+	char                *priority = NULL;
+	char                *string = NULL;
 	struct ioc_priority *curr = NULL;
 
+        string = strdup (opt_str);
 	/* Get the pattern for cache priority. 
 	 * "option priority *.jpg:1,abc*:2" etc 
 	 */
@@ -1326,9 +1240,9 @@ int32_t
 init (xlator_t *this)
 {
 	ioc_table_t *table;
-	dict_t *options = this->options;
-	uint32_t index = 0;
-	char *cache_size_string = NULL;
+	dict_t      *options = this->options;
+	uint32_t    index = 0;
+	char        *cache_size_string = NULL;
 
 	if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR,

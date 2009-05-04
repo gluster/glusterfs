@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2007-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2007-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef __IO_CACHE_H
@@ -47,8 +47,8 @@ struct ioc_inode;
 
 struct ioc_priority {
 	struct list_head list;
-	char *pattern;
-	uint32_t priority;
+	char             *pattern;
+	uint32_t         priority;
 };
 
 /*
@@ -60,9 +60,9 @@ struct ioc_priority {
  */
 struct ioc_waitq {
 	struct ioc_waitq *next;
-	void *data;
-	off_t pending_offset;
-	size_t pending_size;
+	void             *data;
+	off_t            pending_offset;
+	size_t           pending_size;
 };
 
 /*
@@ -71,32 +71,38 @@ struct ioc_waitq {
  */
 struct ioc_fill {
 	struct list_head list;  /* list of ioc_fill structures of a frame */
-	off_t offset;          
-	size_t size;           
-	struct iovec *vector;  
-	int32_t count;
-	struct iobref *iobref;
+	off_t            offset;          
+	size_t           size;           
+	struct iovec     *vector;  
+	int32_t          count;
+	struct iobref    *iobref;
 };
 
 struct ioc_local {
-	mode_t mode;
-	int32_t flags;
-	loc_t file_loc;
-	off_t offset;
-	size_t size;
-	int32_t op_ret;
-	int32_t op_errno;
+	mode_t           mode;
+	int32_t          flags;
+	loc_t            file_loc;
+	off_t            offset;
+	size_t           size;
+	int32_t          op_ret;
+	int32_t          op_errno;
 	struct list_head fill_list;      /* list of ioc_fill structures */
-	off_t pending_offset;            /* offset from this frame should continue */
-	size_t pending_size;             /* size of data this frame is waiting on */
+	off_t            pending_offset; /* 
+                                          * offset from this frame should
+                                          * continue
+                                          */
+	size_t           pending_size;   /* 
+                                          * size of data this frame is waiting
+                                          * on
+                                          */
 	struct ioc_inode *inode;
-	int32_t wait_count;
-	pthread_mutex_t local_lock;
+	int32_t          wait_count;
+	pthread_mutex_t  local_lock;
 	struct ioc_waitq *waitq;
-	void *stub;
-	fd_t *fd;
-	int32_t need_xattr;
-	dict_t *xattr_req;
+	void             *stub;
+	fd_t             *fd;
+	int32_t          need_xattr;
+	dict_t           *xattr_req;
 };
 
 /*
@@ -104,48 +110,59 @@ struct ioc_local {
  *
  */
 struct ioc_page {
-	struct list_head pages;
-	struct list_head page_lru;
-	struct ioc_inode *inode;   /* inode this page belongs to */
+	struct list_head    pages;
+	struct list_head    page_lru;
+	struct ioc_inode    *inode;   /* inode this page belongs to */
 	struct ioc_priority *priority;
-	char dirty;
-	char ready;
-	struct iovec *vector;
-	int32_t count;
-	off_t offset;
-	size_t size;
-	struct ioc_waitq *waitq;
-	struct iobref *iobref;
-	pthread_mutex_t page_lock;
+	char                dirty;
+	char                ready;
+	struct iovec        *vector;
+	int32_t             count;
+	off_t               offset;
+	size_t              size;
+	struct ioc_waitq    *waitq;
+	struct iobref       *iobref;
+	pthread_mutex_t     page_lock;
 };
 
 struct ioc_inode {
 	struct ioc_table *table;
 	struct list_head pages;      /* list of pages of this inode */
-	struct list_head inode_list; /* list of inodes, maintained by io-cache translator */
+	struct list_head inode_list; /*
+                                      * list of inodes, maintained by io-cache
+                                      * translator
+                                      */
 	struct list_head inode_lru;
 	struct list_head page_lru;
 	struct ioc_waitq *waitq;
-	pthread_mutex_t inode_lock;
-	uint32_t weight;             /* weight of the inode, increases on each read */
-	time_t mtime;             /* mtime of the server file when last cached */
-	struct timeval tv;           /* time-stamp at last re-validate */
+	pthread_mutex_t  inode_lock;
+	uint32_t         weight;      /*
+                                       * weight of the inode, increases on each
+                                       * read
+                                       */
+	time_t           mtime;       /*
+                                       * mtime of the server file when last
+                                       * cached
+                                       */
+	struct timeval   tv;          /*
+                                       * time-stamp at last re-validate
+                                       */
 };
 
 struct ioc_table {
-	uint64_t page_size;
-	uint64_t cache_size;
-	uint64_t cache_used;
+	uint64_t         page_size;
+	uint64_t         cache_size;
+	uint64_t         cache_used;
 	struct list_head inodes; /* list of inodes cached */
 	struct list_head active; 
 	struct list_head *inode_lru;
 	struct list_head priority_list;
-	int32_t readv_count;
-	pthread_mutex_t table_lock;
-	xlator_t *xl;
-	uint32_t inode_count;
-	int32_t cache_timeout;
-	int32_t max_pri;
+	int32_t          readv_count;
+	pthread_mutex_t  table_lock;
+	xlator_t         *xl;
+	uint32_t         inode_count;
+	int32_t          cache_timeout;
+	int32_t          max_pri;
 };
 
 typedef struct ioc_table ioc_table_t;
@@ -162,33 +179,22 @@ char *
 ptr_to_str (void *ptr);
 
 int32_t 
-ioc_readv_disabled_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno,
-			struct iovec *vector,
-			int32_t count,
-			struct stat *stbuf,
+ioc_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret,	int32_t op_errno, struct iovec *vector,
+			int32_t count, struct stat *stbuf,
                         struct iobref *iobref);
 
 ioc_page_t *
-ioc_page_get (ioc_inode_t *ioc_inode,
-	      off_t offset);
+ioc_page_get (ioc_inode_t *ioc_inode, off_t offset);
 
 ioc_page_t *
-ioc_page_create (ioc_inode_t *ioc_inode,
-		 off_t offset);
+ioc_page_create (ioc_inode_t *ioc_inode, off_t offset);
 
 void
-ioc_page_fault (ioc_inode_t *ioc_inode,
-		call_frame_t *frame,
-		fd_t *fd,
+ioc_page_fault (ioc_inode_t *ioc_inode,	call_frame_t *frame, fd_t *fd,
 		off_t offset);
 void
-ioc_wait_on_page (ioc_page_t *page,
-		  call_frame_t *frame,
-		  off_t offset,
+ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
 		  size_t size);
 
 ioc_waitq_t *
@@ -198,9 +204,8 @@ void
 ioc_page_flush (ioc_page_t *page);
 
 ioc_waitq_t *
-ioc_page_error (ioc_page_t *page,
-		int32_t op_ret,
-		int32_t op_errno);
+ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno);
+
 void
 ioc_page_purge (ioc_page_t *page);
 
@@ -211,9 +216,7 @@ void
 ioc_waitq_return (ioc_waitq_t *waitq);
 
 void
-ioc_frame_fill (ioc_page_t *page,
-		call_frame_t *frame,
-		off_t offset,
+ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 		size_t size);
 
 #define ioc_inode_lock(ioc_inode)					\
@@ -293,16 +296,13 @@ time_elapsed (struct timeval *now,
 }
 
 ioc_inode_t *
-ioc_inode_search (ioc_table_t *table,
-		  inode_t *inode);
+ioc_inode_search (ioc_table_t *table, inode_t *inode);
 
 void 
 ioc_inode_destroy (ioc_inode_t *ioc_inode);
 
 ioc_inode_t *
-ioc_inode_update (ioc_table_t *table,
-		  inode_t *inode,
-		  uint32_t weight);
+ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight);
 
 int64_t 
 ioc_page_destroy (ioc_page_t *page);
@@ -314,13 +314,11 @@ void
 ioc_inode_flush (ioc_inode_t *ioc_inode);
 
 void
-ioc_inode_wakeup (call_frame_t *frame, 
-		  ioc_inode_t *ioc_inode, 
-		  struct stat *stbuf);
+ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
+                  struct stat *stbuf);
 
 int8_t
-ioc_cache_still_valid (ioc_inode_t *ioc_inode,
-		       struct stat *stbuf);
+ioc_cache_still_valid (ioc_inode_t *ioc_inode, struct stat *stbuf);
 
 int32_t
 ioc_prune (ioc_table_t *table);
@@ -328,4 +326,4 @@ ioc_prune (ioc_table_t *table);
 int32_t
 ioc_need_prune (ioc_table_t *table);
 
-#endif /* __READ_AHEAD_H */
+#endif /* __IO_CACHE_H */
