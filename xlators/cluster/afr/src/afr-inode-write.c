@@ -224,7 +224,7 @@ afr_chmod (call_frame_t *frame, xlator_t *this,
 	loc_copy (&local->loc, loc);
 	
 	local->transaction.main_frame = frame;
-	local->transaction.start   = 0;
+	local->transaction.start   = LLONG_MAX - 1;
 	local->transaction.len     = 0;
 
 	afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
@@ -418,7 +418,7 @@ afr_fchmod (call_frame_t *frame, xlator_t *this,
 	local->fd = fd_ref (fd);
 	
 	local->transaction.main_frame = frame;
-	local->transaction.start   = 0;
+	local->transaction.start   = LLONG_MAX - 1;
 	local->transaction.len     = 0;
 
 	afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
@@ -614,7 +614,7 @@ afr_chown (call_frame_t *frame, xlator_t *this,
 	loc_copy (&local->loc, loc);
 
 	local->transaction.main_frame = frame;
-	local->transaction.start   = 0;
+	local->transaction.start   = LLONG_MAX - 1;
 	local->transaction.len     = 0;
 
 	afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
@@ -811,7 +811,7 @@ afr_fchown (call_frame_t *frame, xlator_t *this,
 	local->fd = fd_ref (fd);
 
 	local->transaction.main_frame = frame;
-	local->transaction.start   = 0;
+	local->transaction.start   = LLONG_MAX - 1;
 	local->transaction.len     = 0;
 
 	afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
@@ -1616,7 +1616,7 @@ afr_utimens (call_frame_t *frame, xlator_t *this,
 	loc_copy (&local->loc, loc);
 	
 	local->transaction.main_frame = frame;
-	local->transaction.start   = 0;
+	local->transaction.start   = LLONG_MAX - 1;
 	local->transaction.len     = 0;
 
 	afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
@@ -1806,7 +1806,7 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 	loc_copy (&local->loc, loc);
 
 	local->transaction.main_frame = frame;
-	local->transaction.start   = 0;
+	local->transaction.start   = LLONG_MAX - 1;
 	local->transaction.len     = 0;
 
 	afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
@@ -1995,7 +1995,7 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 	loc_copy (&local->loc, loc);
 
 	local->transaction.main_frame = frame;
-	local->transaction.start   = 0;
+	local->transaction.start   = LLONG_MAX - 1;
 	local->transaction.len     = 0;
 
 	afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);

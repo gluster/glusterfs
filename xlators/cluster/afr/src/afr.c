@@ -1068,7 +1068,7 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         local->fd                 = fd_ref (fd);
 
         local->transaction.main_frame = frame;
-        local->transaction.start  = 0;
+        local->transaction.start  = LLONG_MAX - 1;
         local->transaction.len    = 0;
 
         afr_transaction (transaction_frame, this, AFR_FLUSH_TRANSACTION);
