@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2007-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2007-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _CONFIG_H
@@ -31,14 +31,16 @@
 #include <sys/time.h>
 
 ioc_page_t *
-ioc_page_get (ioc_inode_t *ioc_inode,
-	      off_t offset)
+ioc_page_get (ioc_inode_t *ioc_inode, off_t offset)
 {
 	int8_t       found = 0;
-	ioc_page_t  *page = NULL;
-	ioc_table_t *table = ioc_inode->table;
-	off_t        rounded_offset = floor (offset, table->page_size);
+	ioc_page_t   *page = NULL;
+	ioc_table_t  *table = NULL;
+	off_t        rounded_offset = 0;
 
+        table = ioc_inode->table;
+        rounded_offset = floor (offset, table->page_size);
+ 
 	if (list_empty (&ioc_inode->pages)) {
 		return NULL;
 	}
@@ -118,11 +120,11 @@ int32_t
 ioc_prune (ioc_table_t *table)
 {
 	ioc_inode_t *curr = NULL, *next_ioc_inode = NULL;
-	ioc_page_t *page = NULL, *next = NULL;
-	int32_t ret = -1;
-	int32_t index = 0;
-	uint64_t size_to_prune = 0;
-	uint64_t size_pruned = 0;
+	ioc_page_t  *page = NULL, *next = NULL;
+	int32_t     ret = -1;
+	int32_t     index = 0;
+	uint64_t    size_to_prune = 0;
+	uint64_t    size_pruned = 0;
 
 	ioc_table_lock (table);
 	{
@@ -190,15 +192,19 @@ ioc_prune (ioc_table_t *table)
  *
  */
 ioc_page_t *
-ioc_page_create (ioc_inode_t *ioc_inode,
-		 off_t offset)
+ioc_page_create (ioc_inode_t *ioc_inode, off_t offset)
 {
-	ioc_table_t *table = ioc_inode->table;
-	ioc_page_t *page = NULL;
-	off_t rounded_offset = floor (offset, table->page_size);
-	ioc_page_t *newpage = CALLOC (1, sizeof (*newpage));
-	ERR_ABORT (newpage);
+	ioc_table_t *table = NULL;
+	ioc_page_t  *page = NULL;
+	off_t       rounded_offset = 0;
+	ioc_page_t  *newpage = NULL;
   
+        table = ioc_inode->table;
+        rounded_offset = floor (offset, table->page_size);
+
+        newpage = CALLOC (1, sizeof (*newpage));
+	ERR_ABORT (newpage);
+
 	if (ioc_inode)
 		table = ioc_inode->table;
 	else {
@@ -229,9 +235,7 @@ ioc_page_create (ioc_inode_t *ioc_inode,
  *
  */
 void
-ioc_wait_on_page (ioc_page_t *page,
-		  call_frame_t *frame,
-		  off_t offset,
+ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
 		  size_t size)
 {
 	ioc_waitq_t *waitq = NULL;
@@ -270,8 +274,7 @@ ioc_wait_on_page (ioc_page_t *page,
  * assumes ioc_inode is locked
  */
 int8_t
-ioc_cache_still_valid (ioc_inode_t *ioc_inode,
-		       struct stat *stbuf)
+ioc_cache_still_valid (ioc_inode_t *ioc_inode, struct stat *stbuf)
 {
 	int8_t cache_still_valid = 1;
   
@@ -316,27 +319,26 @@ ioc_waitq_return (ioc_waitq_t *waitq)
 
 
 int
-ioc_fault_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct iovec *vector,
-	       int32_t count,
-	       struct stat *stbuf,
-               struct iobref *iobref)
+ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct iovec *vector,
+	       int32_t count, struct stat *stbuf, struct iobref *iobref)
 {
-	ioc_local_t *local = frame->local;
-	off_t offset = local->pending_offset;
-	ioc_inode_t *ioc_inode = local->inode;
-	ioc_table_t *table = ioc_inode->table;
-	ioc_page_t *page = NULL;
-	off_t trav_offset = 0;
-	size_t payload_size = 0;
-	int32_t destroy_size = 0;
-	size_t page_size = 0;
+	ioc_local_t *local = NULL;
+	off_t       offset = 0;
+	ioc_inode_t *ioc_inode = NULL;
+	ioc_table_t *table = NULL;
+	ioc_page_t  *page = NULL;
+	off_t       trav_offset = 0;
+	size_t      payload_size = 0;
+	int32_t     destroy_size = 0;
+	size_t      page_size = 0;
 	ioc_waitq_t *waitq = NULL;
-        size_t  iobref_page_size = 0;
+        size_t      iobref_page_size = 0;
+
+        local = frame->local;
+        offset = local->pending_offset;
+        ioc_inode = local->inode;
+        table = ioc_inode->table;
 
 	trav_offset = offset;  
 	payload_size = op_ret;
@@ -458,15 +460,17 @@ ioc_fault_cbk (call_frame_t *frame,
  *
  */
 void
-ioc_page_fault (ioc_inode_t *ioc_inode,
-		call_frame_t *frame,
-		fd_t *fd,
+ioc_page_fault (ioc_inode_t *ioc_inode,	call_frame_t *frame, fd_t *fd,
 		off_t offset)
 {
-	ioc_table_t *table = ioc_inode->table;
-	call_frame_t *fault_frame = copy_frame (frame);
-	ioc_local_t *fault_local = CALLOC (1, sizeof (ioc_local_t));
-	ERR_ABORT (fault_local);
+	ioc_table_t  *table = NULL;
+	call_frame_t *fault_frame = NULL;
+	ioc_local_t  *fault_local = NULL;
+
+        table = ioc_inode->table;
+        fault_frame = copy_frame (frame);
+        fault_local = CALLOC (1, sizeof (ioc_local_t));
+        ERR_ABORT (fault_local);
 
 	/* NOTE: copy_frame() means, the frame the fop whose fd_ref we 
 	 * are using till now won't be valid till we get reply from server. 
@@ -485,26 +489,28 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
 		"stack winding page fault for offset = %"PRId64" with "
 		"frame %p", offset, fault_frame);
   
-	STACK_WIND (fault_frame, ioc_fault_cbk,
-		    FIRST_CHILD(fault_frame->this),
-		    FIRST_CHILD(fault_frame->this)->fops->readv,
-		    fd, table->page_size, offset);
+	STACK_WIND (fault_frame, ioc_fault_cbk, FIRST_CHILD(fault_frame->this),
+		    FIRST_CHILD(fault_frame->this)->fops->readv, fd,
+                    table->page_size, offset);
 	return;
 }
 
 void
-ioc_frame_fill (ioc_page_t *page,
-		call_frame_t *frame,
-		off_t offset,
-		size_t size)
+ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
+                size_t size)
 {
-	ioc_local_t *local = frame->local;
-	ioc_fill_t *fill = NULL;
-	off_t src_offset = 0;
-	off_t dst_offset = 0;
-	ssize_t copy_size = 0;
-	ioc_inode_t *ioc_inode = page->inode;
+	ioc_local_t *local = NULL;
+	ioc_fill_t  *fill = NULL;
+	off_t       src_offset = 0;
+	off_t       dst_offset = 0;
+	ssize_t     copy_size = 0;
+	ioc_inode_t *ioc_inode = NULL;
+        ioc_fill_t  *new = NULL;
+        int8_t      found = 0;
   
+        local = frame->local;
+        ioc_inode = page->inode;
+
 	gf_log (frame->this->name, GF_LOG_DEBUG,
 		"frame (%p) offset = %"PRId64" && size = %"GF_PRI_SIZET" "
 		"&& page->size = %"GF_PRI_SIZET" && wait_count = %d", 
@@ -542,7 +548,7 @@ ioc_frame_fill (ioc_page_t *page,
 			copy_size, src_offset, dst_offset);
 
 		{
-			ioc_fill_t *new = CALLOC (1, sizeof (*new));
+                        new = CALLOC (1, sizeof (*new));
 			ERR_ABORT (new);
 			new->offset = page->offset;
 			new->size = copy_size;
@@ -570,7 +576,7 @@ ioc_frame_fill (ioc_page_t *page,
 				 * ioc_fill_t to the end of list */
 				list_add_tail (&new->list, &local->fill_list);
 			} else {
-				int8_t found = 0;
+                                found = 0;
 				/* list is not empty, we need to look for 
 				 * where this offset fits in list */
 				list_for_each_entry (fill, &local->fill_list, 
@@ -607,15 +613,16 @@ ioc_frame_fill (ioc_page_t *page,
 static void
 ioc_frame_unwind (call_frame_t *frame)
 {
-	ioc_local_t *local = frame->local;
-	ioc_fill_t *fill = NULL, *next = NULL;
-	int32_t count = 0;
-	struct iovec *vector = NULL;
-	int32_t copied = 0;
+	ioc_local_t   *local = NULL;
+	ioc_fill_t    *fill = NULL, *next = NULL;
+	int32_t       count = 0;
+	struct iovec  *vector = NULL;
+	int32_t       copied = 0;
 	struct iobref *iobref = NULL;
-	struct stat stbuf = {0,};
-	int32_t op_ret = 0;
+	struct stat   stbuf = {0,};
+	int32_t       op_ret = 0;
 
+        local = frame->local;
 	//  ioc_local_lock (local);
 	iobref = iobref_new ();
 
@@ -656,13 +663,8 @@ ioc_frame_unwind (call_frame_t *frame)
 
 	//  ioc_local_unlock (local);
 
-	STACK_UNWIND (frame,
-		      op_ret,
-		      local->op_errno,
-		      vector,
-		      count,
-		      &stbuf,
-                      iobref);
+	STACK_UNWIND (frame, op_ret, local->op_errno, vector, count,
+		      &stbuf, iobref);
 
 	iobref_unref (iobref);
     
@@ -682,9 +684,11 @@ ioc_frame_unwind (call_frame_t *frame)
 void
 ioc_frame_return (call_frame_t *frame)
 {
-	ioc_local_t *local = frame->local;
-	int32_t wait_count;
-	assert (local->wait_count > 0);
+	ioc_local_t *local = NULL;
+	int32_t wait_count = 0;
+
+        local = frame->local;
+        assert (local->wait_count > 0);
 
 	ioc_local_lock (local);
 	{
@@ -708,7 +712,7 @@ ioc_frame_return (call_frame_t *frame)
 ioc_waitq_t *
 ioc_page_wakeup (ioc_page_t *page)
 {
-	ioc_waitq_t *waitq = NULL, *trav = NULL;
+	ioc_waitq_t  *waitq = NULL, *trav = NULL;
 	call_frame_t *frame = NULL;
 
 	waitq = page->waitq;
@@ -738,15 +742,13 @@ ioc_page_wakeup (ioc_page_t *page)
  *
  */
 ioc_waitq_t *
-ioc_page_error (ioc_page_t *page,
-		int32_t op_ret,
-		int32_t op_errno)
+ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno)
 {
-	ioc_waitq_t *waitq = NULL, *trav = NULL;
+	ioc_waitq_t  *waitq = NULL, *trav = NULL;
 	call_frame_t *frame = NULL;
-	int64_t ret = 0;
-	ioc_table_t *table = NULL;
-	ioc_local_t *local = NULL;
+	int64_t      ret = 0;
+	ioc_table_t  *table = NULL;
+	ioc_local_t  *local = NULL;
 
 	waitq = page->waitq;
 	page->waitq = NULL;

@@ -33,7 +33,9 @@
 void *
 str_to_ptr (char *string)
 {
-	void *ptr = (void *)strtoul (string, NULL, 16);
+	void *ptr = NULL;
+
+        ptr = (void *)strtoul (string, NULL, 16);
 	return ptr;
 }
 
@@ -46,23 +48,23 @@ str_to_ptr (char *string)
 char *
 ptr_to_str (void *ptr)
 {
-	char *str;
+	char *str = NULL;
 	asprintf (&str, "%p", ptr);
 	return str;
 }
 
 void
-ioc_inode_wakeup (call_frame_t *frame,
-		  ioc_inode_t *ioc_inode, 
-		  struct stat *stbuf)
+ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode, 
+                  struct stat *stbuf)
 {
 	ioc_waitq_t *waiter = NULL, *waited = NULL;
 	ioc_waitq_t *page_waitq = NULL;
-	int8_t cache_still_valid = 1;
-	ioc_local_t *local = frame->local;
-	int8_t need_fault = 0;
-	ioc_page_t *waiter_page = NULL;
+	int8_t      cache_still_valid = 1;
+	ioc_local_t *local = NULL;
+	int8_t      need_fault = 0;
+	ioc_page_t  *waiter_page = NULL;
 
+        local = frame->local;
 	ioc_inode_lock (ioc_inode);
 	{
 		waiter = ioc_inode->waitq;
@@ -143,11 +145,11 @@ ioc_inode_wakeup (call_frame_t *frame,
  * not for external reference
  */
 ioc_inode_t *
-ioc_inode_update (ioc_table_t *table, 
-		  inode_t *inode,
-		  uint32_t weight)
+ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 {
-	ioc_inode_t *ioc_inode = CALLOC (1, sizeof (ioc_inode_t));
+	ioc_inode_t *ioc_inode = NULL;
+        
+        ioc_inode = CALLOC (1, sizeof (ioc_inode_t));
 	ERR_ABORT (ioc_inode);
   
 	ioc_inode->table = table;
@@ -185,7 +187,9 @@ ioc_inode_update (ioc_table_t *table,
 void
 ioc_inode_destroy (ioc_inode_t *ioc_inode)
 {
-	ioc_table_t *table = ioc_inode->table;
+	ioc_table_t *table = NULL;
+
+        table = ioc_inode->table;
 
 	ioc_table_lock (table);
 	table->inode_count--;
@@ -198,4 +202,3 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
 	pthread_mutex_destroy (&ioc_inode->inode_lock);
 	free (ioc_inode);
 }
-
