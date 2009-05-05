@@ -40,6 +40,7 @@
 #include <logging.h>
 #include <utime.h>
 #include <dirent.h>
+#include <sys/statfs.h>
 
 #ifndef GF_UNIT_KB
 #define GF_UNIT_KB 1024
@@ -182,6 +183,8 @@ static int (*real___lxstat) (int ver, const char *path, struct stat *buf);
 static int (*real___lxstat64) (int ver, const char *path, struct stat64 *buf);
 static int (*real_lstat) (const char *path, struct stat *buf);
 static int (*real_lstat64) (const char *path, struct stat64 *buf);
+static int (*real_statfs) (const char *path, struct statfs *buf);
+static int (*real_statfs64) (const char *path, struct statfs64 *buf);
 
 
 #define RESOLVE(sym) do {                                       \
@@ -1881,6 +1884,47 @@ out:
         return ret;
 }
 
+int
+booster_statfs (const char *pathname, struct statfs *buf)
+{
+        int             ret = -1;
+
+        ret = glusterfs_statfs (pathname, buf);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real_statfs == NULL) {
+                ret = -1;
+                errno = ENOSYS;
+                goto out;
+        }
+
+        ret = real_statfs (pathname, buf);
+
+out:
+        return ret;
+}
+
+int
+booster_statfs64 (const char *pathname, struct statfs64 *buf)
+{
+        int             ret = -1;
+
+        ret = glusterfs_statfs (pathname, (struct statfs *)buf);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real_statfs64 == NULL) {
+                ret = -1;
+                errno = ENOSYS;
+                goto out;
+        }
+
+        ret = real_statfs64 (pathname, buf);
+
+out:
+        return ret;
+}
 
 pid_t 
 fork (void)
@@ -1964,6 +2008,8 @@ _init (void)
         RESOLVE (__lxstat64);
         RESOLVE (lstat);
         RESOLVE (lstat64);
+        RESOLVE (statfs);
+        RESOLVE (statfs64);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
