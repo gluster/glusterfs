@@ -5617,7 +5617,7 @@ char *
 glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
                                 char *resolved_path)
 {
-        char                            *buf = NULL, *extra_buf = NULL;
+        char                            *buf = NULL;
         char                            *rpath = NULL;
         char                            *start = NULL, *end = NULL;
         char                            *dest = NULL;
@@ -5630,7 +5630,8 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
         int                             dest_offset = 0;
         char                            *rpath_limit = 0;
         int                             ret = 0, num_links = 0;
-        size_t                          len = 0;
+        struct vmp_entry                *entry = NULL;
+        char                            *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -5727,8 +5728,7 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
                         dest +=  end - start;
                         *dest = '\0';
 
-                        /* posix_stat is implemented using lstat */
-                        ret = glusterfs_glh_stat (handle, rpath, &stbuf);
+                        ret = glusterfs_glh_lstat (handle, rpath, &stbuf);
                         if (ret == -1) {
                                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
                                         "glusterfs_glh_stat returned -1 for"
@@ -5759,24 +5759,10 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
                                 }
                                 buf[ret] = '\0';
 
-                                if (extra_buf == NULL)
-                                        extra_buf = alloca (path_max);
-
-                                len = strlen (end);
-                                if ((long int) (ret + len) >= path_max)
-                                {
-                                        errno = ENAMETOOLONG;
-                                        goto err;
-                                }
-
-                                memmove (&extra_buf[ret], end, len + 1);
-                                path = end = memcpy (extra_buf, buf, ret);
-
-                                if (buf[0] == '/')
-                                        dest = rpath + 1;
-                                else
-                                        if (dest > rpath + 1)
-                                                while ((--dest)[-1] != '/');
+                                entry = libgf_vmp_search_entry (buf);
+                                vpath = libgf_vmp_virtual_path (entry, buf);
+                                glusterfs_glh_realpath (handle, vpath, rpath);
+                                goto out;
                         } else if (!S_ISDIR (stbuf.st_mode) && *end != '\0') {
                                 errno = ENOTDIR;
                                 goto err;
@@ -5788,9 +5774,13 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
         *dest = '\0';
 
 out:
+        if (vpath)
+                FREE (vpath);
         return rpath;
 
 err:
+        if (vpath)
+                FREE (vpath);
         if (resolved_path == NULL) {
                 FREE (rpath);
         }
@@ -5804,6 +5794,7 @@ glusterfs_realpath (const char *path, char *resolved_path)
         struct vmp_entry        *entry = NULL;
         char                    *vpath = NULL;
         char                    *res = NULL;
+        char                    *realp = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
@@ -5813,12 +5804,23 @@ glusterfs_realpath (const char *path, char *resolved_path)
                 goto out;
         }
 
+        realp = CALLOC (PATH_MAX, sizeof (char));
+        if (!realp)
+                goto out;
+
         vpath = libgf_vmp_virtual_path (entry, path);
         res = glusterfs_glh_realpath (entry->handle, vpath, resolved_path);
+        if (!res)
+                goto out;
+
+        strncpy (realp, entry->vmp, entry->vmplen-1);
+        strcat (realp, res);
+        strcpy (resolved_path, realp);
 out:
         if (vpath)
                 free (vpath);
-        return res;
+
+        return realp;
 }
 
 static struct xlator_fops libgf_client_fops = {
