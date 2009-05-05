@@ -303,7 +303,7 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					tmp += page->vector[i].iov_len;
 				}
 				
-				gf_log (this->name, GF_LOG_DEBUG,
+				gf_log (this->name, GF_LOG_TRACE,
 					"serving file %s from cache", 
 					local->file_loc.path);
 				
@@ -897,7 +897,7 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 			/* page found in cache */
 			if (!might_need_validate) {
 				/* fresh enough */
-				gf_log (frame->this->name, GF_LOG_DEBUG,
+				gf_log (frame->this->name, GF_LOG_TRACE,
 					"cache hit for trav_offset=%"PRId64""
 					"/local_offset=%"PRId64"",
 					trav_offset, local_offset);
@@ -926,7 +926,7 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 
 		if (need_validate) {
 			need_validate = 0;
-			gf_log (frame->this->name, GF_LOG_DEBUG,
+			gf_log (frame->this->name, GF_LOG_TRACE,
 				"sending validate request for "
 				"inode(%"PRId64") at offset=%"PRId64"",
 				fd->inode->ino, trav_offset);
@@ -996,7 +996,7 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	local->size = size;
 	local->inode = ioc_inode;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"NEW REQ (%p) offset = %"PRId64" && size = %"GF_PRI_SIZET"", 
 		frame, offset, size);
 
@@ -1214,9 +1214,8 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
 		priority = strtok_r (NULL, ":", &tmp_str1);
 		if (!priority)
 			return -1;
-		gf_log ("io-cache", 
-			GF_LOG_DEBUG, 
-			"ioc priority : pattern %s : priority %s", 
+		gf_log ("io-cache", GF_LOG_TRACE,
+			"ioc priority : pattern %s : priority %s",
 			pattern,
 			priority);
 		curr->pattern = strdup (pattern);
@@ -1276,7 +1275,7 @@ init (xlator_t *this)
 			return -1;
 		}
       
-		gf_log (this->name, GF_LOG_DEBUG, 
+		gf_log (this->name, GF_LOG_TRACE, 
 			"using cache-size %"PRIu64"", table->cache_size);
 	}
   
@@ -1286,7 +1285,7 @@ init (xlator_t *this)
 		table->cache_timeout = 
 			data_to_uint32 (dict_get (options,
 						  "cache-timeout"));
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"Using %d seconds to revalidate cache",
 			table->cache_timeout);
 	}
@@ -1295,7 +1294,7 @@ init (xlator_t *this)
 	if (dict_get (options, "priority")) {
 		char *option_list = data_to_str (dict_get (options, 
 							   "priority"));
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"option path %s", option_list);
 		/* parse the list of pattern:priority */
 		table->max_pri = ioc_get_priority_list (option_list, 
