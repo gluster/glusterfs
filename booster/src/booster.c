@@ -33,7 +33,6 @@
 #include <libglusterfsclient.h>
 #include <list.h>
 #include <pthread.h>
-#include <fcntl.h>
 #include <sys/xattr.h>
 #include <string.h>
 #include <assert.h>
@@ -42,6 +41,28 @@
 
 #ifndef GF_UNIT_KB
 #define GF_UNIT_KB 1024
+#endif
+
+
+/* We define these flags so that we can remove fcntl.h from the include path.
+ * fcntl.h has certain defines and other lines of code that redirect the
+ * application's open and open64 calls to the syscalls defined by
+ * libc, for us, thats not a Good Thing (TM).
+ */
+#ifndef GF_O_CREAT
+#define GF_O_CREAT      0x40
+#endif
+
+#ifndef GF_O_TRUNC
+#define GF_O_TRUNC      0x200
+#endif
+
+#ifndef GF_O_RDWR
+#define GF_O_RDWR       0x2
+#endif
+
+#ifndef GF_O_WRONLY
+#define GF_O_WRONLY     0x1
 #endif
 
 #ifndef UNIX_PATH_MAX
@@ -437,7 +458,6 @@ do_open (int fd, int flags, mode_t mode)
         return;
 }
 
-#ifndef __USE_FILE_OFFSET64
 int
 open (const char *pathname, int flags, ...)
 {
@@ -445,7 +465,7 @@ open (const char *pathname, int flags, ...)
 	mode_t mode = 0;
 	va_list ap;
 
-	if (flags & O_CREAT) {
+	if (flags & GF_O_CREAT) {
 		va_start (ap, flags);
 		mode = va_arg (ap, mode_t);
 		va_end (ap);
@@ -456,13 +476,12 @@ open (const char *pathname, int flags, ...)
 	}
 
         if (ret != -1) {
-                flags &= ~ O_CREAT;
+                flags &= ~ GF_O_CREAT;
                 do_open (ret, flags, mode);
         }
 
         return ret;
 }
-#endif
 
 #if defined (__USE_LARGEFILE64) || !defined (__USE_FILE_OFFSET64)
 int
@@ -472,7 +491,7 @@ open64 (const char *pathname, int flags, ...)
 	mode_t mode = 0;
 	va_list ap;
 
-	if (flags & O_CREAT) {
+	if (flags & GF_O_CREAT) {
 		va_start (ap, flags);
 		mode = va_arg (ap, mode_t);
 		va_end (ap);
@@ -483,7 +502,7 @@ open64 (const char *pathname, int flags, ...)
 	}
 
         if (ret != -1) {
-                flags &= ~O_CREAT;
+                flags &= ~GF_O_CREAT;
                 do_open (ret, flags, mode);
         }
 
@@ -499,7 +518,7 @@ creat (const char *pathname, mode_t mode)
         ret = real_creat (pathname, mode);
 
         if (ret != -1) {
-                do_open (ret, O_WRONLY | O_TRUNC, mode);
+                do_open (ret, GF_O_WRONLY | GF_O_TRUNC, mode);
         }
 
         return ret;
