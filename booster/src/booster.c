@@ -233,6 +233,7 @@ booster_get_process_fd ()
 }
 
 #define DEFAULT_BOOSTER_CONF    "/etc/booster.conf"
+#define BOOSTER_CONF_ENV_VAR    "GLUSTERFS_BOOSTER_CONF"
 
 int
 booster_parse_line (char *buf, char **mount_point,
@@ -473,7 +474,7 @@ do_open (int fd, int flags, mode_t mode)
 		
 		fseek (specfp, 0L, SEEK_SET);
 		
-		ctx.logfile = getenv ("GLFS_BOOSTER_LOGFILE");
+		ctx.logfile = getenv (BOOSTER_CONF_ENV_VAR);
 		ctx.specfp = specfp;
 
 		handle = glusterfs_init (&ctx);
