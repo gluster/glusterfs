@@ -831,17 +831,16 @@ pwrite (int fd, const void *buf, size_t count, unsigned long offset)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
-        assert (real_pwrite != NULL);
-
         glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
 
         if (!glfs_fd) {
-                ret = real_pwrite (fd, buf, count, offset);
+                if (real_pwrite == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                } else
+                        ret = real_pwrite (fd, buf, count, offset);
         } else {
                 ret = glusterfs_pwrite (glfs_fd, buf, count, offset);
-                if (ret == -1) {
-                        ret = real_pwrite (fd, buf, count, offset);
-                }
                 booster_put_glfs_fd (glfs_fd);
         }
 
