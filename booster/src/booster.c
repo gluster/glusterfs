@@ -701,12 +701,13 @@ pread (int fd, void *buf, size_t count, unsigned long offset)
 
         glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
         if (!glfs_fd) { 
-                ret = real_pread (fd, buf, count, offset);
+                if (real_pread == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                } else
+                        ret = real_pread (fd, buf, count, offset);
         } else {
                 ret = glusterfs_pread (glfs_fd, buf, count, offset);
-                if (ret == -1) {
-                        ret = real_pread (fd, buf, count, offset);
-                }
                 booster_put_glfs_fd (glfs_fd);
         }
 
