@@ -1118,6 +1118,31 @@ glusterfs_glh_rename (glusterfs_handle_t handle, const char *oldpath,
  */
 int
 glusterfs_rename (const char *oldpath, const char *newpath);
+
+
+
+/* Remove a file or directory in the given glusterfs context.
+ *
+ * @handle      : Handle identifying the glusterfs context.
+ * @path        : Path of the file or directory to be removed.
+ *
+ *
+ * Returns 0 on success and -1 on error with errno set appropriately.
+ */
+int
+glusterfs_glh_remove (glusterfs_handle_t handle, const char *path);
+
+
+
+/* Remove a file or directory.
+ *
+ * @path        : Path of the file or directory to be removed. The
+ *              path must be pre-fixed with the VMP.
+ *
+ * Returns 0 on success and -1 on error with errno set appropriately.
+ */
+int
+glusterfs_remove (const char *path);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void

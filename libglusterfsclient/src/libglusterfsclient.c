@@ -6140,6 +6140,67 @@ out:
         return realp;
 }
 
+int
+glusterfs_glh_remove (glusterfs_handle_t handle, const char *path)
+{
+        loc_t                           loc = {0, };
+        int                             op_ret = -1;
+        libglusterfs_client_ctx_t       *ctx = handle;
+        char                            *name = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, handle, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
+        op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+        if (op_ret == -1)
+                goto out;
+
+        name = strdup (loc.path);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                                        basename (name));
+        if (op_ret == -1)
+                goto out;
+
+        if (S_ISDIR (loc.inode->st_mode))
+                op_ret = libgf_client_rmdir (ctx, &loc);
+        else
+                op_ret = libgf_client_unlink (ctx, &loc);
+
+out:
+        if (name)
+                FREE (name);
+        return op_ret;
+
+}
+
+int
+glusterfs_remove(const char *pathname)
+{
+        struct vmp_entry        *entry = NULL;
+        int                     op_ret = -1;
+        char                    *vpath = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, pathname, out);
+
+        entry = libgf_vmp_search_entry ((char *)pathname);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, pathname);
+        op_ret = glusterfs_glh_remove (entry->handle, vpath);
+
+out:
+        if (vpath)
+                FREE (vpath);
+        return op_ret;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
