@@ -1136,7 +1136,7 @@ posix_chmod (call_frame_t *frame, xlator_t *this,
 
         op_ret = lchmod (real_path, mode);
         if ((op_ret == -1) && (errno == ENOSYS)) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_TRACE,
                         "lchmod not implemented, falling back to chmod");
                 op_ret = chmod (real_path, mode);
         }
