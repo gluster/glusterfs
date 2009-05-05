@@ -3410,30 +3410,29 @@ out:
 }
 
 int
-libgf_readlink_loc_fill (libglusterfs_client_ctx_t *ctx, loc_t *linkloc,
+libgf_realpath_loc_fill (libglusterfs_client_ctx_t *ctx, char *link,
                                 loc_t *targetloc)
 {
-        char            targetpath[PATH_MAX];
         int             op_ret = -1;
         char            *target = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
-        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, linkloc, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, link, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, targetloc, out);
 
-        op_ret = libgf_client_readlink (ctx, linkloc, targetpath, PATH_MAX);
-        if (op_ret == -1)
+        targetloc->path = glusterfs_glh_realpath (ctx, link, NULL);
+
+        if (targetloc->path == NULL)
                 goto out;
 
-        targetloc->path = strdup (targetpath);
         op_ret = libgf_client_path_lookup (targetloc, ctx, 1);
         if (op_ret == -1)
                 goto out;
 
-        target = strdup (targetpath);
+        target = strdup (targetloc->path);
         op_ret = libgf_client_loc_fill (targetloc, ctx, 0,
                                                targetloc->parent->ino,
-                                                basename (target));
+                                               basename (target));
         if (op_ret == -1) {
                 errno = EINVAL;
                 goto out;
@@ -3487,9 +3486,9 @@ __glusterfs_stat (glusterfs_handle_t handle, const char *path,
         /* The stat fop in glusterfs calls lstat. So we have to
          * provide the POSIX compatible stat fop. To do so, we need to ensure
          * that if the @path is a symlink, we must perform a stat on the
-         * target of that symlink that the symlink itself(..because if
+         * target of that symlink than the symlink itself(..because if
          * do a stat on the symlink, we're actually doing what lstat
-         * should do.
+         * should do. See posix_stat
          */
         if (whichstat & LIBGF_DO_LSTAT)
                 goto lstat_fop;
@@ -3497,7 +3496,7 @@ __glusterfs_stat (glusterfs_handle_t handle, const char *path,
         if (!S_ISLNK (loc.inode->st_mode))
                 goto lstat_fop;
 
-        op_ret = libgf_readlink_loc_fill (ctx, &loc, &targetloc);
+        op_ret = libgf_realpath_loc_fill (ctx, (char *)path, &targetloc);
         if (op_ret == -1)
                 goto out;
         real_loc = &targetloc;
