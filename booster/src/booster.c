@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <logging.h>
+#include <utime.h>
 
 #ifndef GF_UNIT_KB
 #define GF_UNIT_KB 1024
@@ -159,6 +160,7 @@ static int (*real_ftruncate) (int fd, off_t length);
 static int (*real_link) (const char *oldpath, const char *newname);
 static int (*real_rename) (const char *oldpath, const char *newpath);
 static int (*real_utimes) (const char *path, const struct timeval times[2]);
+static int (*real_utime) (const char *path, const struct utimbuf *buf);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1349,6 +1351,25 @@ utimes (const char *path, const struct timeval times[2])
         return ret;
 }
 
+int
+utime (const char *path, const struct utimbuf *buf)
+{
+        int     ret = -1;
+
+        ret = glusterfs_utime (path, buf);
+
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                return ret;
+
+        if (real_utime == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+        } else
+                ret = real_utime (path, buf);
+
+        return ret;
+}
+
 pid_t 
 fork (void)
 {
@@ -1409,6 +1430,7 @@ _init (void)
         RESOLVE (link);
         RESOLVE (rename);
         RESOLVE (utimes);
+        RESOLVE (utime);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
