@@ -631,9 +631,54 @@ open64 (const char *pathname, int flags, ...)
 #endif
 
 int
+vmp_creat (const char *pathname, mode_t mode)
+{
+        int                     fd = -1;
+        glusterfs_file_t        fh = NULL;
+
+        fh = glusterfs_creat (pathname, mode);
+        if (!fh)
+                goto out;
+
+        fd = booster_get_process_fd ();
+        if (fd == -1)
+                goto close_out;
+
+        if ((booster_get_unused_fd (booster_glfs_fdtable, fh, fd)) == -1)
+                goto real_close_out;
+
+        return fd;
+
+real_close_out:
+        real_close (fd);
+        fd = -1;
+
+close_out:
+        glusterfs_close (fh);
+
+out:
+        return -1;
+}
+
+int
 creat (const char *pathname, mode_t mode)
 {
-        int ret;
+        int     ret = -1;
+        if (!pathname) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        ret = vmp_creat (pathname, mode);
+
+        if (((ret == -1) && (errno != ENODEV)) || (ret > 0))
+                goto out;
+
+        if (real_creat == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
 
         ret = real_creat (pathname, mode);
 
@@ -641,6 +686,7 @@ creat (const char *pathname, mode_t mode)
                 do_open (ret, GF_O_WRONLY | GF_O_TRUNC, mode);
         }
 
+out:
         return ret;
 }
 
