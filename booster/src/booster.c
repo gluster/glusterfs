@@ -764,24 +764,13 @@ readv (int fd, const struct iovec *vector, int count)
 
         glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
         if (!glfs_fd) {
-                ret = real_readv (fd, vector, count);
-        } else {
-		uint64_t  offset = 0;
-                offset = real_lseek64 (fd, 0L, SEEK_CUR);
-                if ((int64_t)offset != -1) {
-                        ret = glusterfs_lseek (glfs_fd, offset, SEEK_SET);
-                        if (ret != -1) {
-                                ret = glusterfs_readv (glfs_fd, vector, count);
-                        }
-                } else {
+                if (real_readv == NULL) {
+                        errno = ENOSYS;
                         ret = -1;
-		} 
-
+                } else
+                        ret = real_readv (fd, vector, count);
+        } else {
 		ret = glusterfs_readv (glfs_fd, vector, count);
-                if (ret > 0) {
-                        real_lseek64 (fd, offset + ret, SEEK_SET);
-		} 
-
                 booster_put_glfs_fd (glfs_fd);
         }
 
