@@ -232,7 +232,7 @@ booster_get_process_fd ()
         return real_dup (process_piped_fd);
 }
 
-#define DEFAULT_BOOSTER_CONF    "/etc/booster.conf"
+#define DEFAULT_BOOSTER_CONF    CONFDIR"/booster.conf"
 #define BOOSTER_CONF_ENV_VAR    "GLUSTERFS_BOOSTER_CONF"
 
 int
