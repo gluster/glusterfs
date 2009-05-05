@@ -1407,6 +1407,16 @@ glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        if (size < 0) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        if (size == 0) {
+                op_ret = 0;
+                goto out;
+        }
+
         loc.path = libgf_resolve_path_light ((char *)path);
         if (!loc.path)
                 goto out;
@@ -1639,6 +1649,18 @@ glusterfs_get_async (glusterfs_handle_t handle,
 		op_ret = -1;
 		goto out;
 	}
+
+        if (size < 0) {
+                errno = EINVAL;
+                op_ret = -1;
+                goto out;
+        }
+
+        if (size == 0) {
+                op_ret = 0;
+                goto out;
+        }
+
         local = CALLOC (1, sizeof (*local));
         local->fop.lookup_cbk.is_revalidate = 1;
 
@@ -1789,6 +1811,16 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
 		errno = EINVAL;
 		goto out;
 	}
+
+        if (size == 0) {
+                op_ret = 0;
+                goto out;
+        }
+
+        if (size < 0) {
+                errno = EINVAL;
+                goto out;
+        }
 
         pathres = libgf_resolve_path_light ((char *)path);
         if (!pathres)
@@ -2387,6 +2419,11 @@ __glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        if (size <= 0) {
+                errno = EINVAL;
+                goto out;
+        }
+
         pathres = libgf_resolve_path_light ((char *)path);
         if (!pathres)
                 goto out;
@@ -2576,6 +2613,12 @@ glusterfs_fsetxattr (glusterfs_file_t fd,
                 goto out;
         }
 
+        if (size <= 0) {
+                errno = EINVAL;
+                op_ret = -1;
+                goto out;
+        }
+
         fd_ctx = libgf_get_fd_ctx (fd);
         if (!fd_ctx) {
                 errno = EBADF;
@@ -2663,6 +2706,15 @@ glusterfs_fgetxattr (glusterfs_file_t fd,
         libglusterfs_client_ctx_t *ctx;
         fd_t *__fd = (fd_t *)fd;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
+
+        if (size < 0) {
+                errno = EINVAL;
+                op_ret = -1;
+                goto out;
+        }
+
+        if (size == 0)
+                goto out;
 
         fd_ctx = libgf_get_fd_ctx (fd);
         if (!fd_ctx) {
@@ -2792,6 +2844,16 @@ glusterfs_read (glusterfs_file_t fd,
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 
+        if (nbytes < 0) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        if (nbytes == 0) {
+                op_ret = 0;
+                goto out;
+        }
+
         if (fd == 0) {
                 errno = EINVAL;
 		goto out;
@@ -2899,6 +2961,16 @@ glusterfs_readv (glusterfs_file_t fd, const struct iovec *vec, int count)
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 
+        if (count < 0) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        if (count == 0) {
+                op_ret = 0;
+                goto out;
+        }
+
         if (!fd) {
                 errno = EINVAL;
 		goto out;
@@ -2942,6 +3014,16 @@ glusterfs_pread (glusterfs_file_t fd,
         int32_t op_ret = -1;
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
+
+        if (count < 0) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        if (count == 0) {
+                op_ret = 0;
+                goto out;
+        }
 
         if (!fd) {
                 errno = EINVAL;
@@ -3016,6 +3098,16 @@ glusterfs_write (glusterfs_file_t fd,
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 
+        if (n < 0) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        if (n == 0) {
+                op_ret = 0;
+                goto out;
+        }
+
         if (!fd) {
                 errno = EINVAL;
 		goto out;
@@ -3067,6 +3159,16 @@ glusterfs_writev (glusterfs_file_t fd,
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 
+        if (count < 0) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        if (count == 0) {
+                op_ret = 0;
+                goto out;
+        }
+
         if (!fd) {
                 errno = EINVAL;
 		goto out;
@@ -3117,6 +3219,16 @@ glusterfs_pwrite (glusterfs_file_t fd,
         struct iovec vector;
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
+
+        if (count < 0) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        if (count == 0) {
+                op_ret = 0;
+                goto out;
+        }
 
         if (!fd) {
                 errno = EINVAL;
@@ -3382,6 +3494,17 @@ glusterfs_read_async (glusterfs_file_t fd,
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 	int32_t op_ret = 0;
 
+        if (nbytes < 0) {
+                errno = EINVAL;
+                op_ret = -1;
+                goto out;
+        }
+
+        if (nbytes == 0) {
+                op_ret = 0;
+                goto out;
+        }
+
         local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
         local->fop.readv_cbk.fd = __fd;
@@ -3464,6 +3587,17 @@ glusterfs_write_async (glusterfs_file_t fd,
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 	int32_t op_ret = 0;
         struct iobref *iobref = NULL;
+
+        if (nbytes == 0) {
+                op_ret = 0;
+                goto out;
+        }
+
+        if (nbytes < 0) {
+                op_ret = -1;
+                errno = EINVAL;
+                goto out;
+        }
 
         local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
@@ -5941,6 +6075,16 @@ glusterfs_glh_readlink (glusterfs_handle_t handle, const char *path, char *buf,
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        if (bufsize < 0) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        if (bufsize == 0) {
+                op_ret = 0;
+                goto out;
+        }
 
         loc.path = libgf_resolve_path_light ((char *)path);
         if (!loc.path)
