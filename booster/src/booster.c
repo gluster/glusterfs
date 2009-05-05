@@ -188,7 +188,10 @@ static int (*real_statfs) (const char *path, struct statfs *buf);
 static int (*real_statfs64) (const char *path, struct statfs64 *buf);
 static int (*real_statvfs) (const char *path, struct statvfs *buf);
 static int (*real_statvfs64) (const char *path, struct statvfs64 *buf);
-
+static ssize_t (*real_getxattr) (const char *path, const char *name,
+                                 void *value, size_t size);
+static ssize_t (*real_lgetxattr) (const char *path, const char *name,
+                                  void *value, size_t size);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1971,6 +1974,47 @@ out:
         return ret;
 }
 
+ssize_t
+getxattr (const char *path, const char *name, void *value, size_t size)
+{
+        int     ret = -1;
+
+        ret = glusterfs_getxattr (path, name, value, size);
+        if (((ret == -1) && (ret != ENODEV)) || (ret > 0))
+                return ret;
+
+        if (real_getxattr == NULL) {
+                ret = -1;
+                errno = ENOSYS;
+                goto out;
+        }
+
+        ret = real_getxattr (path, name, value, size);
+out:
+        return ret;
+}
+
+
+ssize_t
+lgetxattr (const char *path, const char *name, void *value, size_t size)
+{
+        int     ret = -1;
+
+        ret = glusterfs_lgetxattr (path, name, value, size);
+        if (((ret == -1) && (ret != ENODEV)) || (ret > 0))
+                return ret;
+
+        if (real_lgetxattr == NULL) {
+                ret = -1;
+                errno = ENOSYS;
+                goto out;
+        }
+
+        ret = real_lgetxattr (path, name, value, size);
+out:
+        return ret;
+}
+
 pid_t 
 fork (void)
 {
@@ -2057,6 +2101,8 @@ _init (void)
         RESOLVE (statfs64);
         RESOLVE (statvfs);
         RESOLVE (statvfs64);
+        RESOLVE (getxattr);
+        RESOLVE (lgetxattr);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
