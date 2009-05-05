@@ -174,6 +174,11 @@ static int (*real___xstat) (int ver, const char *path, struct stat *buf);
 static int (*real___xstat64) (int ver, const char *path, struct stat64 *buf);
 static int (*real_stat) (const char *path, struct stat *buf);
 static int (*real_stat64) (const char *path, struct stat64 *buf);
+static int (*real___fxstat) (int ver, int fd, struct stat *buf);
+static int (*real___fxstat64) (int ver, int fd, struct stat64 *buf);
+static int (*real_fstat) (int fd, struct stat *buf);
+static int (*real_fstat64) (int fd , struct stat64 *buf);
+
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1689,6 +1694,104 @@ out:
         return ret;
 }
 
+int
+booster_fxstat (int ver, int fd, void *buf)
+{
+        struct stat             *sbuf = (struct stat *)buf;
+        int                     ret = -1;
+        glusterfs_file_t        fh = NULL;
+
+        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        if (!fh) {
+                if (real___fxstat == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = real___fxstat (ver, fd, sbuf);
+        } else {
+                ret = glusterfs_fstat (fh, sbuf);
+                booster_put_glfs_fd (fh);
+        }
+
+out:
+        return ret;
+}
+
+int
+booster_fxstat64 (int ver, int fd, void *buf)
+{
+        int                     ret = -1;
+        struct stat64           *sbuf = (struct stat64 *)buf;
+        glusterfs_file_t        fh = NULL;
+
+        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        if (!fh) {
+                if (real___fxstat64 == NULL) {
+                        ret = -1;
+                        errno = ENOSYS;
+                        goto out;
+                }
+                ret = real___fxstat64 (ver, fd, sbuf);
+        } else {
+                ret = glusterfs_fstat (fh, (struct stat *)sbuf);
+                booster_put_glfs_fd (fh);
+        }
+
+out:
+        return ret;
+}
+
+int
+booster_fstat (int fd, void *buf)
+{
+        struct stat             *sbuf = (struct stat *)buf;
+        int                     ret = -1;
+        glusterfs_file_t        fh = NULL;
+
+        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        if (!fh) {
+                if (real_fstat == NULL) {
+                        ret = -1;
+                        errno = ENOSYS;
+                        goto out;
+                }
+
+                ret = real_fstat (fd, sbuf);
+        } else {
+                ret = glusterfs_fstat (fh, sbuf);
+                booster_put_glfs_fd (fh);
+        }
+
+out:
+        return ret;
+}
+
+int
+booster_fstat64 (int fd, void *buf)
+{
+        int                     ret = -1;
+        struct stat64           *sbuf = (struct stat64 *)buf;
+        glusterfs_file_t        fh = NULL;
+
+        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        if (!fh) {
+                if (real_fstat64 == NULL) {
+                        ret = -1;
+                        errno = ENOSYS;
+                        goto out;
+                }
+                ret = real_fstat64 (fd, sbuf);
+        } else {
+                ret = glusterfs_fstat (fh, (struct stat *)sbuf);
+                booster_put_glfs_fd (fh);
+        }
+
+out:
+        return ret;
+}
+
 pid_t 
 fork (void)
 {
@@ -1763,6 +1866,10 @@ _init (void)
         RESOLVE (__xstat64);
         RESOLVE (stat);
         RESOLVE (stat64);
+        RESOLVE (__fxstat);
+        RESOLVE (__fxstat64);
+        RESOLVE (fstat);
+        RESOLVE (fstat64);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
