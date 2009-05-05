@@ -857,12 +857,14 @@ pwrite64 (int fd, const void *buf, size_t count, uint64_t offset)
         glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
   
         if (!glfs_fd) {
-                ret = real_pwrite64 (fd, buf, count, offset);
+                if (real_pwrite64 == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                } else
+                        ret = real_pwrite64 (fd, buf, count, offset);
         } else {
                 ret = glusterfs_pwrite (glfs_fd, buf, count, offset);
-                if (ret == -1) {
-                        ret = real_pwrite64 (fd, buf, count, offset);
-                }
+                booster_put_glfs_fd (glfs_fd);
         }
 
         return ret;
