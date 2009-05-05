@@ -169,6 +169,7 @@ static int (*real_symlink) (const char *oldpath, const char *newpath);
 static int (*real_readlink) (const char *path, char *buf, size_t bufsize);
 static char * (*real_realpath) (const char *path, char *resolved);
 static DIR * (*real_opendir) (const char *path);
+static struct dirent * (*real_readdir) (DIR *dir);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1534,6 +1535,36 @@ out:
         return (DIR *)bh;
 }
 
+struct dirent *
+readdir (DIR *dir)
+{
+        struct booster_dir_handle       *bh = (struct booster_dir_handle *)dir;
+        struct dirent                   *dirp = NULL;
+
+        if (!bh) {
+                errno = EFAULT;
+                goto out;
+        }
+
+        if (bh->type == BOOSTER_GL_DIR)
+                dirp = glusterfs_readdir ((glusterfs_dir_t)bh->dirh);
+        else if (bh->type == BOOSTER_POSIX_DIR) {
+                if (real_readdir == NULL) {
+                        errno = ENOSYS;
+                        dirp = NULL;
+                        goto out;
+                }
+
+                dirp = real_readdir ((DIR *)bh->dirh);
+        } else {
+                dirp = NULL;
+                errno = EINVAL;
+        }
+
+out:
+        return  dirp;
+}
+
 pid_t 
 fork (void)
 {
@@ -1602,6 +1633,7 @@ _init (void)
         RESOLVE (readlink);
         RESOLVE (realpath);
         RESOLVE (opendir);
+        RESOLVE (readdir);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
