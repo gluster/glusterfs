@@ -38,6 +38,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <ctype.h>
 
 #ifndef GF_UNIT_KB
 #define GF_UNIT_KB 1024
@@ -149,6 +150,88 @@ typedef struct booster_mount_table booster_mount_table_t;
 
 static fdtable_t *booster_glfs_fdtable = NULL;
 static booster_mount_table_t *booster_mount_table = NULL;
+
+#define DEFAULT_BOOSTER_CONF    "/etc/booster.conf"
+
+int
+booster_parse_line (char *buf, char **mount_point,
+                    glusterfs_init_params_t *params)
+{
+        /* Structure of each line in booster config:
+         * /virtual/mount/point /volume/specification/file volume-name /log/file loglevel cache-timeout
+         * 0 can be entered for each of volume-name, /log/file, loglevel
+         * to force default values.
+         */
+        char    *inbufptr = NULL;
+
+        if (!buf || !mount_point || !params) {
+                goto out;
+        }
+        memset (params, 0, sizeof (*params));
+        inbufptr = strtok (buf, " ");
+        if (inbufptr == NULL)
+                goto out;
+        *mount_point = strdup (inbufptr);
+
+        inbufptr = strtok (NULL, " ");
+        if (inbufptr == NULL)
+                goto out;
+        params->specfile = strdup (inbufptr);
+
+        inbufptr = strtok (NULL, " ");
+        if (inbufptr == NULL)
+                goto out;
+        params->volume_name = strdup (inbufptr);
+
+        inbufptr = strtok (NULL, " ");
+        if (inbufptr == NULL)
+                goto out;
+        params->logfile = strdup (inbufptr);
+
+        inbufptr = strtok (NULL, " ");
+        if (inbufptr == NULL)
+                goto out;
+        params->loglevel = strdup (inbufptr);
+
+        return 0;
+out:
+        return -1;
+}
+
+int
+booster_configure (char *confpath)
+{
+        FILE                    *fp = NULL;
+        int                      ret = -1;
+        char                     buf[4096];
+        char                    *mount_point = NULL;
+        glusterfs_init_params_t  params = {0, };
+
+        fp = fopen (confpath, "r");
+        if (fp == NULL) {
+                goto out;
+        }
+
+        while (1) {
+                fgets (buf, 4096, fp);
+                if (feof (fp)) {
+                        break;
+                }
+
+                mount_point = NULL;
+                ret = booster_parse_line (buf, &mount_point, &params);
+                if (ret == -1) {
+                        goto out;
+                }
+
+                /* even if this mount fails, lets continue with others */
+                glusterfs_mount (mount_point, &params);
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
 
 static int32_t 
 booster_put_handle (booster_mount_table_t *table,
@@ -786,7 +869,10 @@ dup2 (int oldfd, int newfd)
 static int 
 booster_init (void)
 {
-        int i = 0;
+        int     i = 0;
+        char    *booster_conf_path = NULL;
+        int     ret = -1;
+
         booster_glfs_fdtable = gf_fd_fdtable_alloc ();
         if (!booster_glfs_fdtable) {
                 fprintf (stderr, "cannot allocate fdtable: %s\n",
@@ -815,6 +901,21 @@ booster_init (void)
         {
                 INIT_LIST_HEAD (&booster_mount_table->mounts[i]);
         }
+
+        /* libglusterfsclient based VMPs should be inited only
+         * after the file tables are inited so that if the socket
+         * calls use the fd based syscalls, the fd tables are
+         * correctly initialized to return a NULL handle, on which the
+         * socket calls will fall-back to the real API.
+         */
+        booster_conf_path = getenv ("GLFS_BOOSTER_CONF");
+        if (booster_conf_path == NULL)
+                ret = booster_configure (DEFAULT_BOOSTER_CONF);
+        else
+                ret = booster_configure (booster_conf_path);
+
+        if (ret == -1)
+                goto err;
 
 	return 0;
 
@@ -900,7 +1001,6 @@ fork (void)
 void
 _init (void)
 {
-	booster_init ();
 
         RESOLVE (open);
         RESOLVE (open64);
@@ -925,5 +1025,13 @@ _init (void)
         RESOLVE (dup2);
 
 	RESOLVE (fork); 
+
+        /* This must be called after resolving real functions
+         * above so that the socket based IO calls in libglusterfsclient
+         * can fall back to a non-NULL real_XXX function pointer.
+         * Calling booster_init before resolving the names above
+         * results in seg-faults because the function symbols above are NULL.
+         */
+	booster_init ();
 }
 
