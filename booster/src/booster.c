@@ -157,6 +157,7 @@ static int (*real_fchown) (int fd, uid_t, gid_t gid);
 static int (*real_fsync) (int fd);
 static int (*real_ftruncate) (int fd, off_t length);
 static int (*real_link) (const char *oldpath, const char *newname);
+static int (*real_rename) (const char *oldpath, const char *newpath);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1310,6 +1311,25 @@ link (const char *old, const char *new)
         return ret;
 }
 
+int
+rename (const char *old, const char *new)
+{
+        int             ret = -1;
+
+        ret = glusterfs_rename (old, new);
+
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                return ret;
+
+        if (real_rename == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+        } else
+                ret = real_rename (old, new);
+
+        return ret;
+}
+
 pid_t 
 fork (void)
 {
@@ -1368,6 +1388,7 @@ _init (void)
         RESOLVE (fsync);
         RESOLVE (ftruncate);
         RESOLVE (link);
+        RESOLVE (rename);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
