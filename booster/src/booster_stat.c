@@ -59,6 +59,8 @@ booster_statvfs (const char *path, void *buf);
 extern int
 booster_statvfs64 (const char *path, void *buf);
 
+extern void *
+booster_readdir (void *dir);
 
 int
 stat (const char *path, void *buf)
@@ -156,3 +158,14 @@ statvfs64 (const char *pathname, void *buf)
         return booster_statvfs64 (pathname, buf);
 }
 
+void *
+readdir (void *dir)
+{
+        return booster_readdir (dir);
+}
+
+void *
+readdir64 (void *dir)
+{
+        return booster_readdir (dir);
+}

@@ -1555,7 +1555,7 @@ out:
 }
 
 struct dirent *
-readdir (DIR *dir)
+booster_readdir (DIR *dir)
 {
         struct booster_dir_handle       *bh = (struct booster_dir_handle *)dir;
         struct dirent                   *dirp = NULL;
