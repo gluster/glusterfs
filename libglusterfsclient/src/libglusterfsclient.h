@@ -359,6 +359,11 @@ glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
                                 size_t size, int flags);
 
 int
+glusterfs_glh_lsetxattr (glusterfs_handle_t handle, const char *path,
+                         const char *name, const void *value, size_t size,
+                         int flags);
+
+int
 glusterfs_setxattr (const char *path, const char *name, const void *value,
                         size_t size, int flags);
 
