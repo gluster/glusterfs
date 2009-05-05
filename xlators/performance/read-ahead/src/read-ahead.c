@@ -298,7 +298,7 @@ read_ahead (call_frame_t *frame, ra_file_t *file)
 		}
 
 		if (fault) {
-			gf_log (frame->this->name, GF_LOG_DEBUG,
+			gf_log (frame->this->name, GF_LOG_TRACE,
 				"RA at offset=%"PRId64, trav_offset);
 			ra_page_fault (file, frame, trav_offset);
 		}
@@ -357,12 +357,12 @@ dispatch_requests (call_frame_t *frame, ra_file_t *file)
 				goto unlock;
 
 			if (trav->ready) {
-				gf_log (frame->this->name, GF_LOG_DEBUG,
+				gf_log (frame->this->name, GF_LOG_TRACE,
 					"HIT at offset=%"PRId64".",
 					trav_offset);
 				ra_frame_fill (trav, frame);
 			} else {
-				gf_log (frame->this->name, GF_LOG_DEBUG,
+				gf_log (frame->this->name, GF_LOG_TRACE,
 					"IN-TRANSIT at offset=%"PRId64".",
 					trav_offset);
 				ra_wait_on_page (trav, frame);
@@ -373,7 +373,7 @@ dispatch_requests (call_frame_t *frame, ra_file_t *file)
 		ra_file_unlock (file);
 
 		if (fault) {
-			gf_log (frame->this->name, GF_LOG_DEBUG,
+			gf_log (frame->this->name, GF_LOG_TRACE,
 				"MISS at offset=%"PRId64".",
 				trav_offset);
 			ra_page_fault (file, frame, trav_offset);
@@ -421,7 +421,7 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 	conf = this->private;
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_TRACE,
 		"NEW REQ at offset=%"PRId64" for size=%"GF_PRI_SIZET"",
 		offset, size);
 
@@ -435,7 +435,7 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 		expected_offset = file->expected = file->page_count = 0;
 	} else {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_TRACE,
 			"expected offset (%"PRId64") when page_count=%d",
 			offset, file->page_count);
 
