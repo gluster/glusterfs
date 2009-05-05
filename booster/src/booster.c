@@ -789,26 +789,13 @@ write (int fd, const void *buf, size_t count)
         glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
 
         if (!glfs_fd) {
-                ret = real_write (fd, buf, count);
-        } else {
-		uint64_t offset = 0;
-                offset = real_lseek64 (fd, 0L, SEEK_CUR);
-                if (((int64_t) offset) != -1) {
-                        ret = glusterfs_lseek (glfs_fd, offset, SEEK_SET);
-                        if (ret != -1) {  
-                                ret = glusterfs_write (glfs_fd, buf, count);
-                        }
-                } else {
+                if (real_write == NULL) {
+                        errno = ENOSYS;
                         ret = -1;
-		}
-
-                if (ret == -1) {
+                } else
                         ret = real_write (fd, buf, count);
-                }
-
-                if (ret > 0 && ((int64_t) offset) >= 0) {
-                        real_lseek64 (fd, offset + ret, SEEK_SET);
-		}
+        } else {
+                ret = glusterfs_write (glfs_fd, buf, count);
                 booster_put_glfs_fd (glfs_fd);
         }
  
