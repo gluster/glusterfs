@@ -24,7 +24,6 @@
 
 #include <dlfcn.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/uio.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -171,6 +170,10 @@ static char * (*real_realpath) (const char *path, char *resolved);
 static DIR * (*real_opendir) (const char *path);
 static struct dirent * (*real_readdir) (DIR *dir);
 static int (*real_closedir) (DIR *dh);
+static int (*real___xstat) (int ver, const char *path, struct stat *buf);
+static int (*real___xstat64) (int ver, const char *path, struct stat64 *buf);
+static int (*real_stat) (const char *path, struct stat *buf);
+static int (*real_stat64) (const char *path, struct stat64 *buf);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1597,6 +1600,95 @@ out:
         return ret;
 }
 
+/* The real stat functions reside in booster_stat.c to
+ * prevent clash with the statX prototype and functions
+ * declared from sys/stat.h
+ */
+int
+booster_xstat (int ver, const char *path, void *buf)
+{
+        struct stat     *sbuf = (struct stat *)buf;
+        int             ret = -1;
+
+        ret = glusterfs_stat (path, sbuf);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real___xstat == NULL) {
+                ret = -1;
+                errno = ENOSYS;
+                goto out;
+        }
+
+        ret = real___xstat (ver, path, sbuf);
+out:
+        return ret;
+}
+
+int
+booster_xstat64 (int ver, const char *path, void *buf)
+{
+        int             ret = -1;
+        struct stat64   *sbuf = (struct stat64 *)buf;
+
+        ret = glusterfs_stat (path, (struct stat *)sbuf);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real___xstat64 == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+        ret = real___xstat64 (ver, path, sbuf);
+out:
+        return ret;
+}
+
+int
+booster_stat (const char *path, void *buf)
+{
+        struct stat     *sbuf = (struct stat *)buf;
+        int             ret = -1;
+
+        ret = glusterfs_stat (path, sbuf);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real_stat == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+        ret = real_stat (path, sbuf);
+
+out:
+        return ret;
+}
+
+int
+booster_stat64 (const char *path, void *buf)
+{
+        int             ret = -1;
+        struct stat64   *sbuf = (struct stat64 *)buf;
+
+        ret = glusterfs_stat (path, (struct stat *)sbuf);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real_stat64 == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+        ret = real_stat64 (path, sbuf);
+out:
+        return ret;
+}
+
 pid_t 
 fork (void)
 {
@@ -1667,6 +1759,10 @@ _init (void)
         RESOLVE (opendir);
         RESOLVE (readdir);
         RESOLVE (closedir);
+        RESOLVE (__xstat);
+        RESOLVE (__xstat64);
+        RESOLVE (stat);
+        RESOLVE (stat64);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
