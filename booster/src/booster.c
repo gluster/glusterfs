@@ -178,6 +178,10 @@ static int (*real___fxstat) (int ver, int fd, struct stat *buf);
 static int (*real___fxstat64) (int ver, int fd, struct stat64 *buf);
 static int (*real_fstat) (int fd, struct stat *buf);
 static int (*real_fstat64) (int fd , struct stat64 *buf);
+static int (*real___lxstat) (int ver, const char *path, struct stat *buf);
+static int (*real___lxstat64) (int ver, const char *path, struct stat64 *buf);
+static int (*real_lstat) (const char *path, struct stat *buf);
+static int (*real_lstat64) (const char *path, struct stat64 *buf);
 
 
 #define RESOLVE(sym) do {                                       \
@@ -1792,6 +1796,92 @@ out:
         return ret;
 }
 
+int
+booster_lxstat (int ver, const char *path, void *buf)
+{
+        struct stat     *sbuf = (struct stat *)buf;
+        int             ret = -1;
+
+        ret = glusterfs_lstat (path, sbuf);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real___lxstat == NULL) {
+                ret = -1;
+                errno = ENOSYS;
+                goto out;
+        }
+
+        ret = real___lxstat (ver, path, sbuf);
+out:
+        return ret;
+}
+
+int
+booster_lxstat64 (int ver, const char *path, void *buf)
+{
+        int             ret = -1;
+        struct stat64   *sbuf = (struct stat64 *)buf;
+
+        ret = glusterfs_lstat (path, (struct stat *)sbuf);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real___lxstat64 == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+        ret = real___lxstat64 (ver, path, sbuf);
+out:
+        return ret;
+}
+
+int
+booster_lstat (const char *path, void *buf)
+{
+        struct stat     *sbuf = (struct stat *)buf;
+        int             ret = -1;
+
+        ret = glusterfs_lstat (path, sbuf);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real_lstat == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+        ret = real_lstat (path, sbuf);
+
+out:
+        return ret;
+}
+
+int
+booster_lstat64 (const char *path, void *buf)
+{
+        int             ret = -1;
+        struct stat64   *sbuf = (struct stat64 *)buf;
+
+        ret = glusterfs_lstat (path, (struct stat *)sbuf);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real_lstat64 == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+        ret = real_lstat64 (path, sbuf);
+out:
+        return ret;
+}
+
+
 pid_t 
 fork (void)
 {
@@ -1870,6 +1960,10 @@ _init (void)
         RESOLVE (__fxstat64);
         RESOLVE (fstat);
         RESOLVE (fstat64);
+        RESOLVE (__lxstat);
+        RESOLVE (__lxstat64);
+        RESOLVE (lstat);
+        RESOLVE (lstat64);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
