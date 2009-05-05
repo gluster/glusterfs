@@ -148,6 +148,7 @@ static int (*real_dup) (int fd);
 static int (*real_dup2) (int oldfd, int newfd);
 
 static pid_t (*real_fork) (void);
+static int (*real_mkdir) (const char *pathname, mode_t mode);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1005,6 +1006,25 @@ dup2 (int oldfd, int newfd)
         return ret;
 }
 
+int
+mkdir (const char *pathname, mode_t mode)
+{
+        int     ret = -1;
+
+        ret = glusterfs_mkdir (pathname, mode);
+
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                return ret;
+
+        if (real_mkdir == NULL) {
+                ret = -1;
+                errno = ENOSYS;
+        } else
+                ret = real_mkdir (pathname, mode);
+
+        return ret;
+}
+
 
 #define MOUNT_TABLE_HASH_SIZE 256
 
@@ -1175,6 +1195,7 @@ _init (void)
         RESOLVE (dup2);
 
 	RESOLVE (fork); 
+        RESOLVE (mkdir);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
