@@ -38,12 +38,14 @@
 #include <assert.h>
 #include <errno.h>
 #include <ctype.h>
+#include <logging.h>
 
 #ifndef GF_UNIT_KB
 #define GF_UNIT_KB 1024
 #endif
 
 
+extern int pipe (int filedes[2]);
 /* We define these flags so that we can remove fcntl.h from the include path.
  * fcntl.h has certain defines and other lines of code that redirect the
  * application's open and open64 calls to the syscalls defined by
@@ -171,6 +173,18 @@ typedef struct booster_mount_table booster_mount_table_t;
 
 static fdtable_t *booster_glfs_fdtable = NULL;
 static booster_mount_table_t *booster_mount_table = NULL;
+
+/* This is dup'ed every time VMP open/creat wants a new fd.
+ * This is needed so we occupy an entry in the process' file
+ * table.
+ */
+int process_piped_fd = -1;
+
+static int
+booster_get_process_fd ()
+{
+        return real_dup (process_piped_fd);
+}
 
 #define DEFAULT_BOOSTER_CONF    "/etc/booster.conf"
 
@@ -459,26 +473,137 @@ do_open (int fd, int flags, mode_t mode)
 }
 
 int
-open (const char *pathname, int flags, ...)
+vmp_open (const char *pathname, int flags, ...)
 {
-        int ret;
-	mode_t mode = 0;
-	va_list ap;
+        mode_t                  mode = 0;
+        int                     fd = -1;
+        glusterfs_file_t        fh = NULL;
+        va_list                 ap;
+
+        if (flags & GF_O_CREAT) {
+                va_start (ap, flags);
+                mode = va_arg (ap, mode_t);
+                va_end (ap);
+
+                fh = glusterfs_open (pathname, flags, mode);
+        }
+        else
+                fh = glusterfs_open (pathname, flags);
+
+        if (!fh)
+                goto out;
+
+        fd = booster_get_process_fd ();
+        if (fd == -1)
+                goto fh_close_out;
+
+        if (booster_get_unused_fd (booster_glfs_fdtable, fh, fd) == -1)
+                goto realfd_close_out;
+
+        return fd;
+
+realfd_close_out:
+        real_close (fd);
+        fd = -1;
+
+fh_close_out:
+        glusterfs_close (fh);
+
+out:
+        return fd;
+}
+
+#define BOOSTER_USE_OPEN64          1
+#define BOOSTER_DONT_USE_OPEN64     0
+
+int
+booster_open (const char *pathname, int use64, int flags, ...)
+{
+        int     ret = -1;
+        mode_t  mode = 0;
+        va_list ap;
+        int     (*my_open) (const char *pathname, int flags, ...);
+
+        if (!pathname) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        /* First try opening through the virtual mount point.
+         * The difference lies in the fact that:
+         * 1. We depend on libglusterfsclient library to perform
+         * the translation from the path to handle.
+         * 2. We do not go to the file system for the fd, instead
+         * we use booster_get_process_fd (), which returns a dup'ed
+         * fd of a pipe created in booster_init.
+         */
+        if (flags & GF_O_CREAT) {
+                va_start (ap, flags);
+                mode = va_arg (ap, mode_t);
+                va_end (ap);
+                ret = vmp_open (pathname, flags, mode);
+        }
+        else
+                ret = vmp_open (pathname, flags);
+
+        /* We receive an ENODEV if the VMP does not exist. If we
+         * receive an error other than ENODEV, it means, there
+         * actually was an error performing vmp_open. This must
+         * be returned to the user.
+         */
+        if (((ret < 0) && (errno != ENODEV)) || (ret > 0))
+                goto out;
+
+        if (use64)
+		my_open = real_open64;
+        else
+		my_open = real_open;
+
+        /* It is possible the RESOLVE macro is not able
+         * to resolve the symbol of a function, in that case
+         * we dont want to seg-fault on calling a NULL functor.
+         */
+        if (my_open == NULL) {
+                ret = -1;
+                errno = ENOSYS;
+                goto out;
+        }
 
 	if (flags & GF_O_CREAT) {
 		va_start (ap, flags);
 		mode = va_arg (ap, mode_t);
 		va_end (ap);
 
-		ret = real_open (pathname, flags, mode);
-	} else {
-		ret = real_open (pathname, flags);
-	}
+                ret = my_open (pathname, flags, mode);
+	} else
+                ret = my_open (pathname, flags);
 
         if (ret != -1) {
                 flags &= ~ GF_O_CREAT;
                 do_open (ret, flags, mode);
         }
+
+out:
+        return ret;
+}
+
+int
+open (const char *pathname, int flags, ...)
+{
+        int ret = -1;
+	mode_t mode = 0;
+	va_list ap;
+
+        if (flags & GF_O_CREAT) {
+                va_start (ap, flags);
+                mode = va_arg (ap, mode_t);
+                va_end (ap);
+
+                ret = booster_open (pathname, BOOSTER_DONT_USE_OPEN64,
+                                        flags, mode);
+        }
+        else
+                ret = booster_open (pathname, BOOSTER_DONT_USE_OPEN64, flags);
 
         return ret;
 }
@@ -491,20 +616,15 @@ open64 (const char *pathname, int flags, ...)
 	mode_t mode = 0;
 	va_list ap;
 
-	if (flags & GF_O_CREAT) {
-		va_start (ap, flags);
-		mode = va_arg (ap, mode_t);
-		va_end (ap);
+        if (flags & GF_O_CREAT) {
+                va_start (ap, flags);
+                mode = va_arg (ap, mode_t);
+                va_end (ap);
 
-		ret = real_open64 (pathname, flags, mode);
-	} else {
-		ret = real_open64 (pathname, flags);
-	}
-
-        if (ret != -1) {
-                flags &= ~GF_O_CREAT;
-                do_open (ret, flags, mode);
+                ret = booster_open (pathname, BOOSTER_USE_OPEN64, flags, mode);
         }
+        else
+                ret = booster_open (pathname, BOOSTER_USE_OPEN64, flags);
 
         return ret;
 }
@@ -891,6 +1011,7 @@ booster_init (void)
         int     i = 0;
         char    *booster_conf_path = NULL;
         int     ret = -1;
+        int     pipefd[2];
 
         booster_glfs_fdtable = gf_fd_fdtable_alloc ();
         if (!booster_glfs_fdtable) {
@@ -921,6 +1042,11 @@ booster_init (void)
                 INIT_LIST_HEAD (&booster_mount_table->mounts[i]);
         }
 
+        if (pipe (pipefd) == -1)
+                goto err;
+
+        process_piped_fd = pipefd[0];
+        real_close (pipefd[1]);
         /* libglusterfsclient based VMPs should be inited only
          * after the file tables are inited so that if the socket
          * calls use the fd based syscalls, the fd tables are
