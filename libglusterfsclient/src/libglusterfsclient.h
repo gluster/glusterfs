@@ -732,6 +732,8 @@ glusterfs_chmod (const char *path, mode_t mode);
 
 
 /* Change the owner of a path.
+ * If @path is a symlink, it is dereferenced and the ownership change
+ * happens on the target.
  *
  * @handle      : Handle of the glusterfs context in which the path
  *              resides.
@@ -749,6 +751,8 @@ glusterfs_glh_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
 
 /* Change the owner of a path.
  *
+ * If @path is a symlink, it is dereferenced and the ownership change
+ * happens on the target.
  * @path        : The path whose owner needs to be changed. Path must
  *              be pre-fixed with the VMP that identifies the
  *              glusterfs context in which the path resides.
@@ -1143,6 +1147,39 @@ glusterfs_glh_remove (glusterfs_handle_t handle, const char *path);
  */
 int
 glusterfs_remove (const char *path);
+
+
+
+/* Change the owner of the given path.
+ *
+ * If @path is a symlink, the ownership change happens on the symlink.
+ *
+ * @handle      : Handle identifying the glusterfs client context.
+ * @path        : Path whose owner needs to be changed.
+ * @owner       : New owner ID
+ * @group       : New Group ID
+ *
+ * Returns 0 on success and -1 on error with errno set appropriately.
+ */
+int
+glusterfs_glh_lchown (glusterfs_handle_t handle, const char *path, uid_t owner,
+                      gid_t group);
+
+
+
+/* Change the owner of the given path.
+ *
+ * If @path is a symlink, the ownership change happens on the symlink.
+ *
+ * @path        : Path whose owner needs to be changed.
+ * @owner       : New owner ID
+ * @group       : New Group ID
+ *
+ * Returns 0 on success and -1 on error with errno set appropriately.
+ */
+
+int
+glusterfs_lchown (const char *path, uid_t owner, gid_t group);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void

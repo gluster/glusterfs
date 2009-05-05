@@ -4314,14 +4314,19 @@ out:
         return op_ret;
 }
 
+#define LIBGF_DO_CHOWN  1
+#define LIBGF_DO_LCHOWN 2
+
 int
-glusterfs_glh_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
-                        gid_t group)
+__glusterfs_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
+                   gid_t group, int whichop)
 {
         int                             op_ret = -1;
         libglusterfs_client_ctx_t       *ctx = handle;
         loc_t                           loc = {0, };
         char                            *name = NULL;
+        loc_t                           *oploc = NULL;
+        loc_t                           targetloc = {0, };
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -4342,12 +4347,33 @@ glusterfs_glh_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
                 goto out;
         }
 
-        op_ret = libgf_client_chown (ctx, &loc, owner, group);
+        oploc = &loc;
+        if (whichop == LIBGF_DO_LCHOWN)
+                goto do_lchown;
+
+        if (!S_ISLNK (loc.inode->st_mode))
+                goto do_lchown;
+
+        op_ret = libgf_realpath_loc_fill (ctx, (char *)loc.path, &targetloc);
+        if (op_ret == -1)
+                goto out;
+
+        oploc = &targetloc;
+do_lchown:
+        op_ret = libgf_client_chown (ctx, oploc, owner, group);
 out:
         if (name)
                 FREE (name);
         libgf_client_loc_wipe (&loc);
+        libgf_client_loc_wipe (&targetloc);
         return op_ret;
+}
+
+int
+glusterfs_glh_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
+                     gid_t group)
+{
+        return __glusterfs_chown (handle, path, owner, group, LIBGF_DO_CHOWN);
 }
 
 int
@@ -4367,6 +4393,36 @@ glusterfs_chown (const char *path, uid_t owner, gid_t group)
 
         vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_chown (entry->handle, vpath, owner, group);
+out:
+        if (vpath)
+                free (vpath);
+        return op_ret;
+}
+
+int
+glusterfs_glh_lchown (glusterfs_handle_t handle, const char *path, uid_t owner,
+                     gid_t group)
+{
+        return __glusterfs_chown (handle, path, owner, group, LIBGF_DO_LCHOWN);
+}
+
+int
+glusterfs_lchown (const char *path, uid_t owner, gid_t group)
+{
+        struct vmp_entry        *entry = NULL;
+        int                     op_ret = -1;
+        char                    *vpath = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        op_ret = glusterfs_glh_lchown (entry->handle, vpath, owner, group);
 out:
         if (vpath)
                 free (vpath);
