@@ -607,15 +607,12 @@ glusterfs_rmdir (const char *path);
  *
  * @fd          : The handle of the directory to be read. This handle
  *              is the one returned by opendir.
- * @dirp        : The pointer to the array of directory entries into
- *              which the directory data will be stored.
- * @count       : Number of directory entries to be read.
  *
- * Returns 0 on success and -1 on error with errno set appropriately.
+ * Returns the directory entry on success and NULL pointer on error
+ * with errno set appropriately.
  */
-int
-glusterfs_readdir (glusterfs_dir_t fd, struct dirent *dirp,
-		   unsigned int count);
+struct dirent *
+glusterfs_readdir (glusterfs_dir_t dirfd);
 
 
 

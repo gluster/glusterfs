@@ -49,6 +49,7 @@
 
 #define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
+#define LIBGF_READDIR_BLOCK     1024
 
 static inline xlator_t *
 libglusterfs_graph (xlator_t *graph);
@@ -3212,6 +3213,12 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
 
 			dirp = (struct dirent *) (((char *) dirp) + entry_size);
 			count++;
+                        /* FIXME: Someday, we'll enable processing
+                         * more than one dirent. The reason we should
+                         * break here is that the offset must not be
+                         * updated beyond one entry.
+                         */
+                        break;
 		}
         }
 
@@ -3219,17 +3226,18 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
         return op_ret;
 }
 
-int
-glusterfs_readdir (glusterfs_dir_t fd, 
-                   struct dirent *dirp, 
-                   unsigned int count)
+static struct dirent __libgf_dirent;
+
+struct dirent *
+glusterfs_readdir (glusterfs_dir_t dirfd)
 {
         int op_ret = -1;
         libglusterfs_client_ctx_t *ctx = NULL;
         off_t offset = 0;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
+        struct dirent *dirp = NULL;
 
-        fd_ctx = libgf_get_fd_ctx (fd);
+        fd_ctx = libgf_get_fd_ctx (dirfd);
         if (!fd_ctx) {
                 errno = EBADF;
 		goto out;
@@ -3242,20 +3250,24 @@ glusterfs_readdir (glusterfs_dir_t fd,
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
-        op_ret = libgf_client_readdir (ctx, (fd_t *)fd, dirp, sizeof (*dirp),
-                                       &offset, 1);
+        dirp = &__libgf_dirent;
+        memset (dirp, 0, sizeof (struct dirent));
+        op_ret = libgf_client_readdir (ctx, (fd_t *)dirfd, dirp,
+                                       LIBGF_READDIR_BLOCK, &offset, 1);
 
-        if (op_ret > 0) {
-                pthread_mutex_lock (&fd_ctx->lock);
-                {
-                        fd_ctx->offset = offset;
-                }
-                pthread_mutex_unlock (&fd_ctx->lock);
-		op_ret = 1;
+        if (op_ret <= 0) {
+                dirp = NULL;
+                goto out;
         }
 
+        pthread_mutex_lock (&fd_ctx->lock);
+        {
+                fd_ctx->offset = offset;
+        }
+        pthread_mutex_unlock (&fd_ctx->lock);
+
 out:
-        return op_ret;
+        return dirp;
 }
 
 
