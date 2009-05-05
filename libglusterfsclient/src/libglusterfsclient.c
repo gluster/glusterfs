@@ -958,6 +958,12 @@ libgf_vmp_search_entry (char *path)
                 goto out;
         }
 
+        /* This check is to guard against any calls into booster from
+         * libc without booster_init having been called first.
+         * This has been observed.
+         */
+        if (vmpentries == 0)
+                goto out;
         list_for_each_entry(entry, &vmplist.list, list) {
                 matchcount = libgf_vmp_entry_match (entry, path);
                 if ((matchcount == entry->vmplen) && (matchcount > maxcount)) {
