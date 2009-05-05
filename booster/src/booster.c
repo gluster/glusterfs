@@ -40,6 +40,7 @@
 #include <ctype.h>
 #include <logging.h>
 #include <utime.h>
+#include <dirent.h>
 
 #ifndef GF_UNIT_KB
 #define GF_UNIT_KB 1024
@@ -167,6 +168,7 @@ static int (*real_unlink) (const char *path);
 static int (*real_symlink) (const char *oldpath, const char *newpath);
 static int (*real_readlink) (const char *path, char *buf, size_t bufsize);
 static char * (*real_realpath) (const char *path, char *resolved);
+static DIR * (*real_opendir) (const char *path);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1484,6 +1486,54 @@ realpath (const char *path, char *resolved_path)
         return res;
 }
 
+#define BOOSTER_GL_DIR          1
+#define BOOSTER_POSIX_DIR       2
+
+struct booster_dir_handle {
+        int type;
+        void *dirh;
+};
+
+DIR *
+opendir (const char *path)
+{
+        glusterfs_dir_t                 gdir = NULL;
+        struct booster_dir_handle       *bh = NULL;
+        DIR                             *pdir = NULL;
+
+        bh = calloc (1, sizeof (struct booster_dir_handle));
+        if (!bh) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        gdir = glusterfs_opendir (path);
+        if (gdir) {
+                bh->type = BOOSTER_GL_DIR;
+                bh->dirh = (void *)gdir;
+                goto out;
+        }
+
+        if (real_opendir == NULL) {
+                errno = ENOSYS;
+                goto free_out;
+        }
+
+        pdir = real_opendir (path);
+
+        if (pdir) {
+                bh->type = BOOSTER_POSIX_DIR;
+                bh->dirh = (void *)pdir;
+                goto out;
+        }
+
+free_out:
+        free (bh);
+        bh = NULL;
+out:
+        return (DIR *)bh;
+}
+
 pid_t 
 fork (void)
 {
@@ -1551,6 +1601,7 @@ _init (void)
         RESOLVE (symlink);
         RESOLVE (readlink);
         RESOLVE (realpath);
+        RESOLVE (opendir);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
