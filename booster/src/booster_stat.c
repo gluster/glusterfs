@@ -39,6 +39,16 @@ booster_fstat (int fd, void *buf);
 extern int
 booster_fstat64 (int fd, void *buf);
 
+extern int
+booster_lstat (const char *path, void *buf);
+extern int
+booster_lstat64 (const char *path, void *buf);
+extern int
+booster_lxstat (int ver, const char *path, void *buf);
+extern int
+booster_lxstat64 (int ver, const char *path, void *buf);
+
+
 int
 stat (const char *path, void *buf)
 {
@@ -87,3 +97,26 @@ fstat64 (int fd, void *buf)
         return booster_fstat64 (fd, buf);
 }
 
+int
+lstat (const char *path, void *buf)
+{
+        return booster_lstat (path, buf);
+}
+
+int
+lstat64 (const char *path, void *buf)
+{
+        return booster_lstat64 (path, buf);
+}
+
+int
+__lxstat (int ver, const char *path, void *buf)
+{
+        return booster_lxstat (ver, path, buf);
+}
+
+int
+__lxstat64 (int ver, const char *path, void *buf)
+{
+        return booster_lxstat64 (ver, path, buf);
+}
