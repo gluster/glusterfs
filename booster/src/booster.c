@@ -151,6 +151,7 @@ static pid_t (*real_fork) (void);
 static int (*real_mkdir) (const char *pathname, mode_t mode);
 static int (*real_rmdir) (const char *pathname);
 static int (*real_chmod) (const char *pathname, mode_t mode);
+static int (*real_chown) (const char *pathname, uid_t owner, gid_t group);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1063,6 +1064,25 @@ chmod (const char *pathname, mode_t mode)
         return ret;
 }
 
+int
+chown (const char *pathname, uid_t owner, gid_t group)
+{
+        int     ret = -1;
+
+        ret = glusterfs_chown (pathname, owner, group);
+
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                return ret;
+
+        if (real_chown == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+        } else
+                ret = real_chown (pathname, owner, group);
+
+        return ret;
+}
+
 #define MOUNT_TABLE_HASH_SIZE 256
 
 
@@ -1235,6 +1255,7 @@ _init (void)
         RESOLVE (mkdir);
         RESOLVE (rmdir);
         RESOLVE (chmod);
+        RESOLVE (chown);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
