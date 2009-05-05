@@ -163,6 +163,7 @@ static int (*real_utimes) (const char *path, const struct timeval times[2]);
 static int (*real_utime) (const char *path, const struct utimbuf *buf);
 static int (*real_mknod) (const char *path, mode_t mode, dev_t dev);
 static int (*real_mkfifo) (const char *path, mode_t mode);
+static int (*real_unlink) (const char *path);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1408,6 +1409,24 @@ mkfifo (const  char *path, mode_t mode)
         return ret;
 }
 
+int
+unlink (const char *path)
+{
+        int     ret = -1;
+
+        ret = glusterfs_unlink (path);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                return ret;
+
+        if (real_unlink == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+        } else
+                ret = real_unlink (path);
+
+        return ret;
+}
+
 pid_t 
 fork (void)
 {
@@ -1471,6 +1490,7 @@ _init (void)
         RESOLVE (utime);
         RESOLVE (mknod);
         RESOLVE (mkfifo);
+        RESOLVE (unlink);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
