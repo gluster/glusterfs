@@ -165,6 +165,7 @@ static int (*real_mknod) (const char *path, mode_t mode, dev_t dev);
 static int (*real_mkfifo) (const char *path, mode_t mode);
 static int (*real_unlink) (const char *path);
 static int (*real_symlink) (const char *oldpath, const char *newpath);
+static int (*real_readlink) (const char *path, char *buf, size_t bufsize);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -1446,6 +1447,24 @@ symlink (const char *oldpath, const char *newpath)
         return ret;
 }
 
+int
+readlink (const char *path, char *buf, size_t bufsize)
+{
+        int     ret = -1;
+
+        ret = glusterfs_readlink (path, buf, bufsize);
+        if (((ret == -1) && (errno != ENODEV)) || (ret > 0))
+                return ret;
+
+        if (real_readlink == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+        } else
+                ret = real_readlink (path, buf, bufsize);
+
+        return ret;
+}
+
 pid_t 
 fork (void)
 {
@@ -1511,6 +1530,7 @@ _init (void)
         RESOLVE (mkfifo);
         RESOLVE (unlink);
         RESOLVE (symlink);
+        RESOLVE (readlink);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
