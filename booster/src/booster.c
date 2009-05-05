@@ -897,12 +897,16 @@ lseek (int filedes, unsigned long offset, int whence)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
-        ret = real_lseek (filedes, offset, whence);
-
         glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, filedes);
         if (glfs_fd) {
                 ret = glusterfs_lseek (glfs_fd, offset, whence);
                 booster_put_glfs_fd (glfs_fd);
+        } else {
+                if (real_lseek == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                } else
+                        ret = real_lseek (filedes, offset, whence);
         }
 
         return ret;
