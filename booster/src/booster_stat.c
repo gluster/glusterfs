@@ -49,6 +49,11 @@ extern int
 booster_lxstat64 (int ver, const char *path, void *buf);
 
 
+extern int
+booster_statfs (const char *path, void *buf);
+extern int
+booster_statfs64 (const char *path, void *buf);
+
 int
 stat (const char *path, void *buf)
 {
@@ -120,3 +125,16 @@ __lxstat64 (int ver, const char *path, void *buf)
 {
         return booster_lxstat64 (ver, path, buf);
 }
+
+int
+statfs (const char *pathname, void *buf)
+{
+        return booster_statfs (pathname, buf);
+}
+
+int
+statfs64 (const char *pathname, void *buf)
+{
+        return booster_statfs64 (pathname, buf);
+}
+
