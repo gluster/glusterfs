@@ -54,6 +54,12 @@ booster_statfs (const char *path, void *buf);
 extern int
 booster_statfs64 (const char *path, void *buf);
 
+extern int
+booster_statvfs (const char *path, void *buf);
+extern int
+booster_statvfs64 (const char *path, void *buf);
+
+
 int
 stat (const char *path, void *buf)
 {
@@ -136,5 +142,17 @@ int
 statfs64 (const char *pathname, void *buf)
 {
         return booster_statfs64 (pathname, buf);
+}
+
+int
+statvfs (const char *pathname, void *buf)
+{
+        return booster_statvfs (pathname, buf);
+}
+
+int
+statvfs64 (const char *pathname, void *buf)
+{
+        return booster_statvfs64 (pathname, buf);
 }
 
