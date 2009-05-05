@@ -388,6 +388,130 @@ xlator_graph_fini (xlator_t *xl)
 	}
 }
 
+/* Returns a pointer to the @n'th char matching
+ * @c in string @str, starting the search from right or
+ * end-of-string, rather than starting from left, as rindex
+ * function does.
+ */
+char *
+libgf_rrindex (char *str, int c, int n)
+{
+        int     len = 0;
+        int     occurrence = 0;
+
+        if (str == NULL)
+                return NULL;
+
+        len = strlen (str);
+        /* Point to last character of string. */
+        str += (len - 1);
+        while (len > 0) {
+                if ((int)*str == c) {
+                        ++occurrence;
+                        if (occurrence == n)
+                                break;
+                }
+                --len;
+                --str;
+        }
+
+        return str;
+}
+
+char *
+libgf_trim_to_prev_dir (char * path)
+{
+        char    *idx = NULL;
+
+        if (!path)
+                return NULL;
+
+        /* Check if we're already at root, if yes
+         * then there is no prev dir.
+         */
+        if (strlen (path) == 1)
+                return path;
+
+        idx = libgf_rrindex (path, '/', 1);
+        /* Move to the char after the / */
+        ++idx;
+        *idx = '\0';
+
+        return path;
+}
+
+/* Performs a lightweight path resolution that only
+ * looks for . and  .. and replaces those with the
+ * proper names.
+ *
+ * FIXME: This is a stop-gap measure till we have full
+ * fledge path resolution going in here.
+ * Function returns path strdup'ed so remember to FREE the
+ * string as required.
+ */
+char *
+libgf_resolve_path_light (char *path)
+{
+        char            *respath = NULL;
+        char            *saveptr = NULL;
+        char            *tok = NULL;
+        char            *mypath = NULL;
+        int             len = 0;
+        int             addslash = 0;
+
+        if (!path)
+                goto out;
+
+        /* We dont as yet support relative paths anywhere in
+         * the lib.
+         */
+        if (path[0] != '/')
+                goto out;
+
+        mypath = strdup (path);
+        len = strlen (mypath);
+        respath = calloc (strlen(mypath) + 1, sizeof (char));
+        if (respath == NULL)
+                goto out;
+
+        /* The path only contains a / or a //, so simply add a /
+         * and return.
+         * This needs special handling because the loop below does
+         * not allow us to do so through strtok.
+         */
+        if (((mypath[0] == '/') && (len == 1))
+                        || (strcmp (mypath, "//") == 0)) {
+                strcat (respath, "/");
+                goto out;
+        }
+
+        tok = strtok_r (mypath, "/", &saveptr);
+        addslash = 0;
+        strcat (respath, "/");
+        while (tok) {
+                if (addslash) {
+                        if ((strcmp (tok, ".") != 0)
+                                        && (strcmp (tok, "..") != 0)) {
+                                strcat (respath, "/");
+                        }
+                }
+
+                if ((strcmp (tok, ".") != 0) && (strcmp (tok, "..") != 0)) {
+                        strcat (respath, tok);
+                        addslash = 1;
+                } else if ((strcmp (tok, "..") == 0)) {
+                        libgf_trim_to_prev_dir (respath);
+                        addslash = 0;
+                }
+
+                tok = strtok_r (NULL, "/", &saveptr);
+        }
+
+out:
+        if (mypath)
+                free (mypath);
+        return respath;
+}
 
 void 
 libgf_client_loc_wipe (loc_t *loc)
@@ -1018,9 +1142,14 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
 {
         glusterfs_handle_t      vmphandle = NULL;
         int                     ret = -1;
+        char                    *vmp_resolved = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, vmp, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ipars, out);
+
+        vmp_resolved = libgf_resolve_path_light (vmp);
+        if (!vmp_resolved)
+                goto out;
 
         vmphandle = glusterfs_init (ipars);
         if (!vmphandle) {
@@ -1028,9 +1157,11 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
                 goto out;
         }
 
-        ret = libgf_vmp_map_ghandle (vmp, vmphandle);
+        ret = libgf_vmp_map_ghandle (vmp_resolved, vmphandle);
 
 out:
+        if (vmp_resolved)
+                FREE (vmp_resolved);
 
         return ret;
 }
@@ -1040,12 +1171,18 @@ glusterfs_umount (char *vmp)
 { 
         struct vmp_entry *entry= NULL;
         int    ret = -1; 
+        char *vmp_resolved = NULL;
+
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, vmp, out);
 
-        entry = libgf_vmp_search_entry (vmp);
+        vmp_resolved = libgf_resolve_path_light (vmp);
+        if (!vmp_resolved)
+                goto out;
+
+        entry = libgf_vmp_search_entry (vmp_resolved);
         if (entry == NULL) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                        "path (%s) not mounted", vmp);
+                        "path (%s) not mounted", vmp_resolved);
                 goto out;
         }
 
@@ -1055,7 +1192,7 @@ glusterfs_umount (char *vmp)
         if (entry->handle == NULL) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
                         "path (%s) has no corresponding glusterfs handle",
-                        vmp);
+                        vmp_resolved);
                 goto out;
         }
 
@@ -1063,6 +1200,9 @@ glusterfs_umount (char *vmp)
         libgf_free_vmp_entry (entry);
 
 out:
+        if (vmp_resolved)
+                FREE (vmp_resolved);
+
         return ret;
 }
 
@@ -1266,16 +1406,18 @@ glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-	loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
 	op_ret = libgf_client_path_lookup (&loc, ctx, 0);
 	if (op_ret == -1) {
-		gf_log ("libglusterfsclient",
-			GF_LOG_ERROR,
-			"path lookup failed for (%s)", path);
+		gf_log ("libglusterfsclient", GF_LOG_ERROR,
+			"path lookup failed for (%s)", loc.path);
 		goto out;
 	}
 
-	pathname = strdup (path);
+	pathname = strdup (loc.path);
 	name = basename (pathname);
 
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, name);
@@ -1636,6 +1778,7 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
 	libglusterfs_client_ctx_t *ctx = handle;
 	char *file = NULL;
 	dict_t *xattr_req = NULL;
+        char *pathres = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -1646,16 +1789,19 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
 		goto out;
 	}
 
-	loc.path = strdup (path);
+        pathres = libgf_resolve_path_light ((char *)path);
+        if (!pathres)
+                goto out;
+
+        loc.path = strdup (pathres);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
-		gf_log ("libglusterfsclient",
-			GF_LOG_ERROR,
-			"path lookup failed for (%s)", path);
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+			"path lookup failed for (%s)", loc.path);
 		goto out;
 	}
 
-	file = strdup (path);
+	file = strdup (pathres);
 	file = basename (file);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, file);
 	if (op_ret == -1) {
@@ -1681,7 +1827,7 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
                 goto do_getx;
 
         libgf_client_loc_wipe (&loc);
-        op_ret = libgf_realpath_loc_fill (ctx, (char *)path, &loc);
+        op_ret = libgf_realpath_loc_fill (ctx, (char *)pathres, &loc);
         if (op_ret == -1)
                 goto out;
 
@@ -1717,6 +1863,9 @@ out:
 	if (dict) {
 		dict_unref (dict);
 	}
+
+        if (pathres)
+                FREE (pathres);
 
         libgf_client_loc_wipe (&loc);
 
@@ -1937,17 +2086,21 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
         libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
         mode_t mode = 0;
         va_list ap;
+        char *pathres = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-	loc.path = strdup (path);
+        pathres = libgf_resolve_path_light ((char *)path);
+        if (!pathres)
+                goto out;
+
+	loc.path = strdup (pathres);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 
         if ((op_ret == -1) && ((flags & O_CREAT) != O_CREAT)) {
-		gf_log ("libglusterfsclient",
-			GF_LOG_ERROR,
-			"path lookup failed for (%s)", path);
+		gf_log ("libglusterfsclient", GF_LOG_ERROR,
+			"path lookup failed for (%s)", loc.path);
 		goto out;
 	}
 
@@ -1960,20 +2113,20 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
 
         if ((op_ret == -1) && ((flags & O_CREAT) == O_CREAT)) {
                 libgf_client_loc_wipe (&loc);
-                loc.path = strdup (path);
+                loc.path = strdup (pathres);
 
                 op_ret = libgf_client_path_lookup (&loc, ctx, 0);
                 if (op_ret == -1) {
                         gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "path lookup failed for (%s) while trying to"
-                                " create (%s)", dirname ((char *)path), path);
+                                "path lookup failed for parent while trying to"
+                                " create (%s)", pathres);
                         goto out;
                 }
 
                 loc.inode = inode_new (ctx->itable);
         }
 
-	pathname = strdup (path);
+	pathname = strdup (pathres);
 	name = basename (pathname);
 
         ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, name);
@@ -2039,6 +2192,9 @@ out:
 	if (pathname) {
 		FREE (pathname);
 	}
+
+        if (pathres)
+                FREE (pathres);
 
         return fd;
 }
@@ -2225,20 +2381,24 @@ __glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
 	libglusterfs_client_ctx_t *ctx = handle;
         char *tmppath = NULL;
         loc_t *realloc = NULL;
+        char *pathres = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-	loc.path = strdup (path);
+        pathres = libgf_resolve_path_light ((char *)path);
+        if (!pathres)
+                goto out;
+
+        loc.path = strdup (pathres);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
-		gf_log ("libglusterfsclient",
-			GF_LOG_ERROR,
-			"path lookup failed for (%s)", path);
+		gf_log ("libglusterfsclient", GF_LOG_ERROR,
+			"path lookup failed for (%s)", pathres);
 		goto out;
 	}
 
-        tmppath = strdup (path);
+        tmppath = strdup (pathres);
 
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                                         basename (tmppath));
@@ -2260,7 +2420,7 @@ __glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
 
         libgf_client_loc_wipe (&loc);
         realloc = &loc;
-        libgf_realpath_loc_fill (ctx, (char *)path, realloc);
+        libgf_realpath_loc_fill (ctx, (char *)pathres, realloc);
 
 do_setx:
         if (!op_ret)
@@ -2268,6 +2428,9 @@ do_setx:
                                                 size, flags);
 
 out:
+        if (pathres)
+                FREE (pathres);
+
         libgf_client_loc_wipe (realloc);
         return op_ret;
 }
@@ -3565,16 +3728,18 @@ __glusterfs_stat (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-	loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
-		gf_log ("libglusterfsclient",
-			GF_LOG_ERROR,
-			"path lookup failed for (%s)", path);
+		gf_log ("libglusterfsclient", GF_LOG_ERROR,
+			"path lookup failed for (%s)", loc.path);
 		goto out;
 	}
 
-	pathname = strdup (path);
+	pathname = strdup (loc.path);
 	name = basename (pathname);
 
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, name);
@@ -3599,7 +3764,7 @@ __glusterfs_stat (glusterfs_handle_t handle, const char *path,
         if (!S_ISLNK (loc.inode->st_mode))
                 goto lstat_fop;
 
-        op_ret = libgf_realpath_loc_fill (ctx, (char *)path, &targetloc);
+        op_ret = libgf_realpath_loc_fill (ctx, (char *)loc.path, &targetloc);
         if (op_ret == -1)
                 goto out;
         real_loc = &targetloc;
@@ -3843,7 +4008,10 @@ glusterfs_glh_mkdir (glusterfs_handle_t handle, const char *path, mode_t mode)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-	loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == 0) {
                 op_ret = -1;
@@ -3857,7 +4025,7 @@ glusterfs_glh_mkdir (glusterfs_handle_t handle, const char *path, mode_t mode)
                 goto out;
         }
 
-	pathname = strdup (path);
+	pathname = strdup (loc.path);
 	name = basename (pathname);
 
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, name);
@@ -3954,16 +4122,18 @@ glusterfs_glh_rmdir (glusterfs_handle_t handle, const char *path)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-	loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
-		gf_log ("libglusterfsclient",
-			GF_LOG_ERROR,
-			"path lookup failed for (%s)", path);
+		gf_log ("libglusterfsclient", GF_LOG_ERROR,
+			"path lookup failed for (%s)", loc.path);
 		goto out;
 	}
 
-	pathname = strdup (path);
+	pathname = strdup (loc.path);
 	name = basename (pathname);
 
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, name);
@@ -4060,12 +4230,14 @@ glusterfs_glh_chmod (glusterfs_handle_t handle, const char *path, mode_t mode)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup(path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1)
                 goto out;
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                                                 basename (name));
         if (op_ret == -1) {
@@ -4154,12 +4326,15 @@ glusterfs_glh_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1)
                 goto out;
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                         basename ((char *)name));
         if (op_ret == -1) {
@@ -4210,13 +4385,15 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 
         if (op_ret == -1)
                 goto out;
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                         basename (name));
         if (op_ret == -1) {
@@ -4598,14 +4775,17 @@ glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
-        old.path = strdup (oldpath);
+        old.path = libgf_resolve_path_light ((char *)oldpath);
+        if (!old.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&old, ctx, 1);
         if (op_ret == -1) {
                 errno = ENOENT;
                 goto out;
         }
 
-        oldname = strdup (oldpath);
+        oldname = strdup (old.path);
         op_ret = libgf_client_loc_fill (&old, ctx, 0, old.parent->ino,
                                                 basename (oldname));
         if (op_ret == -1) {
@@ -4619,7 +4799,10 @@ glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
                 goto out;
         }
 
-        new.path = strdup (newpath);
+        new.path = libgf_resolve_path_light ((char *)newpath);
+        if (!new.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&new, ctx, 1);
         if (op_ret == 0) {
                 errno = EEXIST;
@@ -4627,7 +4810,7 @@ glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
                 goto out;
         }
 
-        newname = strdup (newpath);
+        newname = strdup (new.path);
         libgf_client_loc_fill (&new, ctx, 0, new.parent->ino,
                         basename (newname));
         op_ret = libgf_client_link (ctx, &old, &new);
@@ -4737,15 +4920,18 @@ glusterfs_glh_statfs (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "path lookup failed for (%s)", path);
+                        "path lookup failed for (%s)", loc.path);
                 goto out;
         }
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                                         basename (name));
         if (op_ret == -1) {
@@ -4819,15 +5005,17 @@ glusterfs_glh_statvfs (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "path lookup failed for (%s)", path);
+                        "path lookup failed for (%s)", loc.path);
                 goto out;
         }
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                                                 basename (name));
 	if (op_ret == -1) {
@@ -4926,26 +5114,32 @@ glusterfs_glh_rename (glusterfs_handle_t handle, const char *oldpath,
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
-        oldloc.path = strdup (oldpath);
+        oldloc.path = libgf_resolve_path_light ((char *)oldpath);
+        if (!oldloc.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&oldloc, ctx, 1);
         if (op_ret == -1) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "path lookup failed for (%s)", oldpath);
+                        "path lookup failed for (%s)", oldloc.path);
                 goto out;
         }
 
-        newloc.path = strdup (newpath);
+        newloc.path = libgf_resolve_path_light ((char *)newpath);
+        if (!newloc.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&newloc, ctx, 1);
         if (op_ret == 0) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "newpath (%s) already exists, returning"
-                                " EEXIST", newpath);
+                        "newpath (%s) already exists, returning"
+                        " EEXIST", newloc.path);
                 errno = EEXIST;
                 op_ret = -1;
                 goto out;
         }
 
-        oldname = strdup (oldpath);
+        oldname = strdup (oldloc.path);
         op_ret = libgf_client_loc_fill (&oldloc, ctx, 0, oldloc.parent->ino,
                                         basename (oldname));
 	if (op_ret == -1) {
@@ -4956,7 +5150,7 @@ glusterfs_glh_rename (glusterfs_handle_t handle, const char *oldpath,
                 goto out;
         }
 
-        newname = strdup (newpath);
+        newname = strdup (newloc.path);
         op_ret = libgf_client_loc_fill (&newloc, ctx, 0, newloc.parent->ino,
                                         basename (newname));
 	if (op_ret == -1) {
@@ -5074,15 +5268,18 @@ glusterfs_glh_utimes (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "path lookup failed for (%s)", path);
+                        "path lookup failed for (%s)", loc.path);
                 goto out;
         }
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                                                 basename (name));
         if (op_ret == -1) {
@@ -5142,15 +5339,18 @@ glusterfs_glh_utime (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "path lookup failed for (%s)", path);
+                        "path lookup failed for (%s)", loc.path);
                 goto out;
         }
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                                                 basename (name));
         if (op_ret == -1) {
@@ -5255,7 +5455,10 @@ glusterfs_glh_mknod(glusterfs_handle_t handle, const char *path, mode_t mode,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == 0) {
                 op_ret = -1;
@@ -5269,7 +5472,7 @@ glusterfs_glh_mknod(glusterfs_handle_t handle, const char *path, mode_t mode,
                 goto out;
         }
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                                                 basename (name));
 	if (op_ret == -1) {
@@ -5327,7 +5530,10 @@ glusterfs_glh_mkfifo (glusterfs_handle_t handle, const char *path, mode_t mode)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == 0) {
                 op_ret = -1;
@@ -5341,7 +5547,7 @@ glusterfs_glh_mkfifo (glusterfs_handle_t handle, const char *path, mode_t mode)
                 goto out;
         }
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                                                 basename (name));
         if (op_ret == -1) {
@@ -5432,15 +5638,18 @@ glusterfs_glh_unlink (glusterfs_handle_t handle, const char *path)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "path lookup failed for (%s)", path);
+                        "path lookup failed for (%s)", loc.path);
                 goto out;
         }
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                                                 basename (name));
 	if (op_ret == -1) {
@@ -5544,12 +5753,15 @@ glusterfs_glh_symlink (glusterfs_handle_t handle, const char *oldpath,
         /* Old path does not need to be interpreted or looked up */
         oldloc.path = strdup (oldpath);
 
-	newloc.path = strdup (newpath);
+	newloc.path = libgf_resolve_path_light ((char *)newpath);
+        if (!newloc.path)
+                goto out;
+
 	op_ret = libgf_client_path_lookup (&newloc, ctx, 1);
 	if (op_ret == 0) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "new path (%s) already exists, "
-                                " returning EEXIST", newpath);
+                        "new path (%s) already exists, "
+                        " returning EEXIST", newloc.path);
                 op_ret = -1;
                 errno = EEXIST;
                 goto out;
@@ -5562,7 +5774,7 @@ glusterfs_glh_symlink (glusterfs_handle_t handle, const char *oldpath,
         }
 
         newloc.inode = inode_new (ctx->itable);
-        newname = strdup (newpath);
+        newname = strdup (newloc.path);
         op_ret = libgf_client_loc_fill (&newloc, ctx, 0, newloc.parent->ino,
                                                 basename (newname));
 
@@ -5662,15 +5874,18 @@ glusterfs_glh_readlink (glusterfs_handle_t handle, const char *path, char *buf,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = strdup (path);
+        loc.path = libgf_resolve_path_light ((char *)path);
+        if (!loc.path)
+                goto out;
+
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                                "path lookup failed for (%s)", path);
+                        "path lookup failed for (%s)", loc.path);
                 goto out;
         }
 
-        name = strdup (path);
+        name = strdup (loc.path);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
                                                 basename (name));
         if (op_ret == -1) {
