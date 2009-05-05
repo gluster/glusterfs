@@ -1066,6 +1066,7 @@ booster_init (void)
         if (ret == -1)
                 goto err;
 
+        gf_log ("booster", GF_LOG_DEBUG, "booster is inited");
 	return 0;
 
 err:
