@@ -378,15 +378,19 @@ glusterfs_fsetxattr (glusterfs_file_t fd, const char *name, const void *value,
 
 ssize_t
 glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
-		                const char *name, void *value, size_t size);
+		        const char *name, void *value, size_t size);
+
+ssize_t
+glusterfs_glh_lgetxattr (glusterfs_handle_t handle, const char *path,
+		         const char *name, void *value, size_t size);
 
 ssize_t
 glusterfs_getxattr (const char *path, const char *name, void *value,
                         size_t size);
 
 ssize_t
-glusterfs_lgetxattr (glusterfs_handle_t handle, const char *path,
-                     const char *name, void *value, size_t size);
+glusterfs_lgetxattr (const char *path, const char *name, void *value,
+                     size_t size);
 
 ssize_t
 glusterfs_fgetxattr (glusterfs_file_t fd, const char *name, void *value,
