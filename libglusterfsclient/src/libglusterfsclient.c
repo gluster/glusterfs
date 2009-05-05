@@ -5439,20 +5439,8 @@ glusterfs_glh_symlink (glusterfs_handle_t handle, const char *oldpath,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
+        /* Old path does not need to be interpreted or looked up */
         oldloc.path = strdup (oldpath);
-        op_ret = libgf_client_path_lookup (&oldloc, ctx, 1);
-        if (op_ret == -1) {
-                errno = ENOENT;
-                goto out;
-        }
-
-        oldname = strdup (oldpath);
-        op_ret = libgf_client_loc_fill (&oldloc, ctx, 0, oldloc.parent->ino,
-                                                basename (oldname));
-        if (op_ret == -1) {
-                errno = EINVAL;
-                goto out;
-        }
 
 	newloc.path = strdup (newpath);
 	op_ret = libgf_client_path_lookup (&newloc, ctx, 1);
