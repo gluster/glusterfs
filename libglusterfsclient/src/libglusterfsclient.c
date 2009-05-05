@@ -55,6 +55,9 @@ libglusterfs_graph (xlator_t *graph);
 int32_t libgf_client_readlink (libglusterfs_client_ctx_t *ctx, loc_t *loc,
                                         char *buf, size_t bufsize);
 
+int
+libgf_realpath_loc_fill (libglusterfs_client_ctx_t *ctx, char *link,
+                         loc_t *targetloc);
 static int first_init = 1;
 static int first_fini = 1;
 
@@ -2148,15 +2151,20 @@ libgf_client_setxattr (libglusterfs_client_ctx_t *ctx,
         return op_ret;
 }
 
+
+#define LIBGF_DO_SETXATTR       1
+#define LIBGF_DO_LSETXATTR      2
+
 int 
-glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
-                                const char *name, const void *value,
-                                size_t size, int flags)
+__glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
+                          const char *name, const void *value,
+                          size_t size, int flags, int whichop)
 {
         int32_t op_ret = -1;
         loc_t loc = {0, };
 	libglusterfs_client_ctx_t *ctx = handle;
-	char *file = NULL;
+        char *tmppath = NULL;
+        loc_t *realloc = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -2170,10 +2178,11 @@ glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
 		goto out;
 	}
 
-	file = strdup (path);
-	file = basename (file);
+        tmppath = strdup (path);
 
-        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, file);
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino,
+                                        basename (tmppath));
+        FREE (tmppath);
 	if (op_ret == -1) {
 		gf_log ("libglusterfsclient",
 			GF_LOG_ERROR,
@@ -2182,20 +2191,46 @@ glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
 		goto out;
 	}
 
-        if (!op_ret)
-                op_ret = libgf_client_setxattr (ctx, &loc, name, value, size,
-                                                flags);
+        realloc = &loc;
+        if (whichop == LIBGF_DO_LSETXATTR)
+                goto do_setx;
 
-out:
-	if (file) {
-		FREE (file);
-	}
+        if (!S_ISLNK (loc.inode->st_mode))
+                goto do_setx;
 
         libgf_client_loc_wipe (&loc);
+        realloc = &loc;
+        libgf_realpath_loc_fill (ctx, (char *)path, realloc);
+
+do_setx:
+        if (!op_ret)
+                op_ret = libgf_client_setxattr (ctx, realloc, name, value,
+                                                size, flags);
+
+out:
+        libgf_client_loc_wipe (realloc);
         return op_ret;
 }
 
-int 
+int
+glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
+                        const char *name, const void *value, size_t size,
+                        int flags)
+{
+        return __glusterfs_glh_setxattr (handle, path, name, value, size, flags
+                                         , LIBGF_DO_SETXATTR);
+}
+
+int
+glusterfs_glh_lsetxattr (glusterfs_handle_t handle, const char *path,
+                         const char *name, const void *value, size_t size,
+                         int flags)
+{
+        return __glusterfs_glh_setxattr (handle, path, name, value, size, flags
+                                         , LIBGF_DO_LSETXATTR);
+}
+
+int
 glusterfs_setxattr (const char *path, const char *name, const void *value,
                         size_t size, int flags)
 {
@@ -2214,8 +2249,8 @@ glusterfs_setxattr (const char *path, const char *name, const void *value,
         }
 
         vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_setxattr (entry->handle, vpath, name, value,
-                                                size, flags);
+        op_ret = __glusterfs_glh_setxattr (entry->handle, vpath, name, value,
+                                           size, flags, LIBGF_DO_SETXATTR);
 out:
         if (vpath)
                 free (vpath);
@@ -2223,13 +2258,31 @@ out:
 }
 
 int
-glusterfs_lsetxattr (glusterfs_handle_t handle, 
-                     const char *path, 
-                     const char *name,
-                     const void *value, 
-                     size_t size, int flags)
+glusterfs_lsetxattr (glusterfs_handle_t handle, const char *path,
+                     const char *name, const void *value, size_t size,
+                     int flags)
 {
-        return ENOSYS;
+        struct vmp_entry        *entry = NULL;
+        int                     op_ret = -1;
+        char                    *vpath = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
+
+        entry = libgf_vmp_search_entry ((char *)path);
+        if (!entry) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
+        op_ret = __glusterfs_glh_setxattr (entry->handle, vpath, name, value,
+                                           size, flags, LIBGF_DO_LSETXATTR);
+out:
+        if (vpath)
+                free (vpath);
+        return op_ret;
 }
 
 int32_t
