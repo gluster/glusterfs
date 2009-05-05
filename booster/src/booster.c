@@ -193,6 +193,7 @@ static ssize_t (*real_getxattr) (const char *path, const char *name,
 static ssize_t (*real_lgetxattr) (const char *path, const char *name,
                                   void *value, size_t size);
 static int (*real_remove) (const char* path);
+static int (*real_lchown) (const char *path, uid_t owner, gid_t group);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -2036,6 +2037,27 @@ out:
         return ret;
 }
 
+int
+lchown (const char *path, uid_t owner, gid_t group)
+{
+        int     ret = -1;
+
+        ret = glusterfs_lchown (path, owner, group);
+        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+                goto out;
+
+        if (real_lchown == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+        ret = real_lchown (path, owner, group);
+
+out:
+        return ret;
+}
+
 pid_t 
 fork (void)
 {
@@ -2125,6 +2147,7 @@ _init (void)
         RESOLVE (getxattr);
         RESOLVE (lgetxattr);
         RESOLVE (remove);
+        RESOLVE (lchown);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
