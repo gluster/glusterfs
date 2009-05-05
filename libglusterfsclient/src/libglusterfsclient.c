@@ -4759,7 +4759,7 @@ libgf_client_ftruncate (libglusterfs_client_ctx_t *ctx, fd_t *fd,
         {
                 fdctx->offset = stub->args.ftruncate_cbk.buf.st_size;
         }
-        pthread_mutex_lock (&fdctx->lock);
+        pthread_mutex_unlock (&fdctx->lock);
 
 out:
         call_stub_destroy (stub);
