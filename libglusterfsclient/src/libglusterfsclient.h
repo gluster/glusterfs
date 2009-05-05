@@ -246,6 +246,8 @@ int
 glusterfs_readdir (glusterfs_dir_t fd, struct dirent *dirp,
 		   unsigned int count);
 
+int
+glusterfs_closedir (glusterfs_dir_t dirfd);
 /* FIXME: remove getdents */
 int
 glusterfs_getdents (glusterfs_dir_t fd, struct dirent *dirp,
@@ -284,11 +286,23 @@ glusterfs_glh_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
 int
 glusterfs_chown (const char *path, uid_t owner, gid_t group);
 
+int
+glusterfs_fchown (glusterfs_file_t fd, uid_t owner, gid_t group);
+
 glusterfs_dir_t
 glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path);
 
 glusterfs_dir_t
 glusterfs_opendir (const char *path);
+
+int
+glusterfs_fchmod (glusterfs_file_t fd, mode_t mode);
+
+int
+glusterfs_fsync (glusterfs_file_t *fd);
+
+int
+glusterfs_ftruncate (glusterfs_file_t fd, off_t length);
 
 int
 glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
