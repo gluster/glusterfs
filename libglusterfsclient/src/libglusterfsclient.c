@@ -4759,8 +4759,8 @@ out:
 }
 
 int
-glusterfs_rename (glusterfs_handle_t handle, const char *oldpath,
-                  const char *newpath)
+glusterfs_glh_rename (glusterfs_handle_t handle, const char *oldpath,
+                      const char *newpath)
 {
         int32_t                         op_ret = -1;
         loc_t                           oldloc = {0, }, newloc = {0, };
@@ -4822,6 +4822,44 @@ out:
         libgf_client_loc_wipe (&newloc);
         libgf_client_loc_wipe (&oldloc);
 
+        return op_ret;
+}
+
+
+int
+glusterfs_rename (const char *oldpath, const char *newpath)
+{
+        int                     op_ret = -1;
+        struct vmp_entry        *new = NULL;
+        struct vmp_entry        *old = NULL;
+        char                    *oldvpath = NULL;
+        char                    *newvpath = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, newpath, out);
+
+        old = libgf_vmp_search_entry ((char *)oldpath);
+        if (!old) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        new = libgf_vmp_search_entry ((char *)newpath);
+        if (!new) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        if (old != new) {
+                errno = EXDEV;
+                goto out;
+        }
+
+        oldvpath = libgf_vmp_virtual_path (old, oldpath);
+        newvpath = libgf_vmp_virtual_path (new, newpath);
+        op_ret = glusterfs_glh_rename (old->handle, oldvpath, newvpath);
+
+out:
         return op_ret;
 }
 

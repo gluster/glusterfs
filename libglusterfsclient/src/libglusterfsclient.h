@@ -351,6 +351,13 @@ glusterfs_glh_readlink (glusterfs_handle_t handle, const char *path, char *buf,
 
 ssize_t
 glusterfs_readlink (const char *path, char *buf, size_t bufsize);
+
+int
+glusterfs_glh_rename (glusterfs_handle_t handle, const char *oldpath,
+                      const char *newpath);
+
+int
+glusterfs_rename (const char *oldpath, const char *newpath);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
