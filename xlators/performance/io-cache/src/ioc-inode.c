@@ -109,7 +109,7 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
 					need_fault = 1;
 				} else {
 					gf_log (frame->this->name, 
-						GF_LOG_DEBUG,
+						GF_LOG_TRACE,
 						"validate frame(%p) is waiting"
 						"for in-transit page = %p",
 						frame, waiter_page);
@@ -165,7 +165,7 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 	list_add_tail (&ioc_inode->inode_lru, &table->inode_lru[weight]);
 
 	gf_log (table->xl->name,
-		GF_LOG_DEBUG,
+		GF_LOG_TRACE,
 		"adding to inode_lru[%d]", weight);
 
 	ioc_table_unlock (table);
