@@ -152,7 +152,7 @@ static int (*real_mkdir) (const char *pathname, mode_t mode);
 static int (*real_rmdir) (const char *pathname);
 static int (*real_chmod) (const char *pathname, mode_t mode);
 static int (*real_chown) (const char *pathname, uid_t owner, gid_t group);
-
+static int (*real_fchmod) (int fd, mode_t mode);
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
                         real_##sym = dlsym (RTLD_NEXT, #sym);   \
@@ -1201,7 +1201,26 @@ booster_cleanup (void)
 	booster_mount_table = NULL;
 }
 
+int
+fchmod (int fd, mode_t mode)
+{
+        int                     ret = -1;
+        glusterfs_file_t        fh = NULL;
 
+        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        if (!fh) {
+                if (real_fchmod == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                } else
+                        ret = real_fchmod (fd, mode);
+        } else {
+                ret = glusterfs_fchmod (fh, mode);
+                booster_put_glfs_fd (fh);
+        }
+
+        return ret;
+}
 
 pid_t 
 fork (void)
@@ -1256,6 +1275,7 @@ _init (void)
         RESOLVE (rmdir);
         RESOLVE (chmod);
         RESOLVE (chown);
+        RESOLVE (fchmod);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
