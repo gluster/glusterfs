@@ -3302,7 +3302,10 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
                                 + strlen (entry->d_name) + 1;
 			
 			if ((size < entry_size) || (count == num_entries)) {
-				break;
+                                if (*offset == entry->d_off)
+                                        count--;
+                                else
+				        break;
 			}
 
 			size -= entry_size;
@@ -3317,19 +3320,29 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
 			  #endif
 			*/
 			
-			*offset = dirp->d_off = entry->d_off;
 			/* dirp->d_type = entry->d_type; */
 			dirp->d_reclen = entry->d_len;
 			strncpy (dirp->d_name, entry->d_name, dirp->d_reclen);
 			dirp->d_name[dirp->d_reclen] = '\0';
 
 			dirp = (struct dirent *) (((char *) dirp) + entry_size);
-			count++;
                         /* FIXME: Someday, we'll enable processing
                          * more than one dirent. The reason we should
                          * break here is that the offset must not be
                          * updated beyond one entry.
+                         *
+                         * FIXME2: This offset value check is somewhat
+                         * better than not having any support for
+                         * multiple entry extraction. Suppose we're
+                         * reading a large directory.
                          */
+                        if (*offset == entry->d_off)
+                                continue;
+                        else {
+			        *offset = dirp->d_off = entry->d_off;
+                                break;
+                        }
+
                         break;
 		}
         }
