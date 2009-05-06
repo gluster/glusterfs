@@ -6254,6 +6254,8 @@ client_setvolume_cbk (call_frame_t *frame,
 	int32_t                 op_ret   = -1;
 	int32_t                 op_errno = EINVAL;
 	int32_t                 dict_len = 0;
+        transport_t            *peer_trans = NULL;
+        uint64_t                peer_trans_int = 0;
 
 
 	trans = frame->local; frame->local = NULL;
@@ -6321,14 +6323,22 @@ client_setvolume_cbk (call_frame_t *frame,
 		ctx = get_global_ctx_ptr ();
                 
 		if (process_uuid && !strcmp (ctx->process_uuid,process_uuid)) {
+                        ret = dict_get_uint64 (reply, "transport-ptr",
+                                               &peer_trans_int);
+
+                        peer_trans = (void *) (long) (peer_trans_int);
 			
 			gf_log (this->name, GF_LOG_WARNING, 
 				"attaching to the local volume '%s'",
 				remote_subvol);
 
+                        transport_setpeer (trans, peer_trans);
+
 			/* TODO: */
+                        /*
 			conf->child = xlator_search_by_name (this, 
 							     remote_subvol);
+                        */
 		}
 		
                 gf_log (trans->xl->name, GF_LOG_NORMAL,
