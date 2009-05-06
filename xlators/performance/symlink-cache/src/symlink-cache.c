@@ -91,7 +91,7 @@ sc_cache_update (xlator_t *this, inode_t *inode, const char *link)
 
 int
 sc_cache_set (xlator_t *this, inode_t *inode, struct stat *buf,
-	      const char *link)
+              const char *link)
 {
 	struct symlink_cache *sc = NULL;
 	int                   ret = -1;
@@ -268,7 +268,7 @@ sc_readlink (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"cache hit %s -> %s",
 			loc->path, link);
-		STACK_UNWIND (frame, strlen (link) + 1, 0, link);
+		STACK_UNWIND (frame, strlen (link), 0, link);
 		FREE (link);
 		return 0;
 	}
