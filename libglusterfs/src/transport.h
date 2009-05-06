@@ -40,6 +40,13 @@ typedef struct peer_info {
 	char identifier[UNIX_PATH_MAX];
 }peer_info_t;
 
+struct transport_msg {
+        struct list_head  list;
+        char             *hdr;
+        int               hdrlen;
+        struct iobuf     *iobuf;
+};
+
 struct transport {
 	struct transport_ops  *ops;
 	void                  *private;
@@ -55,6 +62,16 @@ struct transport {
 	/*  int                  (*notify) (transport_t *this, int event, void *data); */
 	peer_info_t     peerinfo;
 	peer_info_t     myinfo;
+
+        transport_t    *peer_trans;
+        struct {
+                pthread_mutex_t       mutex;
+                pthread_cond_t        cond;
+                pthread_t             thread;
+                struct list_head      msgs;
+                struct transport_msg *msg;
+        } handover;
+                
 };
 
 struct transport_ops {
@@ -83,5 +100,7 @@ int32_t transport_destroy    (transport_t *this);
 transport_t *transport_load  (dict_t *options, xlator_t *xl);
 transport_t *transport_ref   (transport_t *trans);
 int32_t      transport_unref (transport_t *trans);
+
+int transport_setpeer (transport_t *trans, transport_t *trans_peer);
 
 #endif /* __TRANSPORT_H__ */

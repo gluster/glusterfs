@@ -7085,6 +7085,9 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 	ret = dict_set_str (reply, "process-uuid", 
 			    xl->ctx->process_uuid);
 
+	ret = dict_set_uint64 (reply, "transport-ptr",
+                               ((uint64_t) (long) trans));
+
 fail:
 	dict_len = dict_serialized_length (reply);
 	if (dict_len < 0) {
