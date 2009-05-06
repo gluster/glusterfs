@@ -2120,6 +2120,7 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
         mode_t mode = 0;
         va_list ap;
         char *pathres = NULL;
+        glusterfs_file_t *fh = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -2190,13 +2191,22 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
                 va_end (ap);
                 op_ret = libgf_client_creat (ctx, &loc, fd, flags, mode);
         } else {
-                if (S_ISDIR (loc.inode->st_mode))
-                        op_ret = libgf_client_opendir (ctx, &loc, fd);
-                else
+                if (S_ISDIR (loc.inode->st_mode)) {
+                        /* This could be optimized a bit by finding
+                         * the common functionality between
+                         * glusterfs_glh_open and
+                         * glusterfs_glh_opendir.
+                         */
+                        fh = glusterfs_glh_opendir (ctx, path);
+                        goto out;
+                } else
                         op_ret = libgf_client_open (ctx, &loc, fd, flags);
         }
 
 op_over:
+        /* For a directory all this is done inside
+         * glusterfs_glh_opendir.
+         */
         if (op_ret == -1) {
                 fd_unref (fd);
                 fd = NULL;
@@ -2219,6 +2229,12 @@ op_over:
                 }
         }
 
+        /* This assignment will happen if the pathname to be opened is
+         * a file, otherwise, if it is a directory, we'll jump to out:
+         * right after the call to glusterfs_glh_opendir above.
+         */
+        fh = (glusterfs_file_t)fd;
+
 out:
         libgf_client_loc_wipe (&loc);
 
@@ -2229,7 +2245,7 @@ out:
         if (pathres)
                 FREE (pathres);
 
-        return fd;
+        return fh;
 }
 
 glusterfs_file_t
@@ -3351,8 +3367,6 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
         return op_ret;
 }
 
-static struct dirent __libgf_dirent;
-
 struct dirent *
 glusterfs_readdir (glusterfs_dir_t dirfd)
 {
@@ -3361,8 +3375,9 @@ glusterfs_readdir (glusterfs_dir_t dirfd)
         off_t offset = 0;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
         struct dirent *dirp = NULL;
+        struct libgf_dir_handle *dir = (struct libgf_dir_handle *)dirfd;
 
-        fd_ctx = libgf_get_fd_ctx (dirfd);
+        fd_ctx = libgf_get_fd_ctx (dir->dirfd);
         if (!fd_ctx) {
                 errno = EBADF;
 		goto out;
@@ -3375,9 +3390,9 @@ glusterfs_readdir (glusterfs_dir_t dirfd)
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
-        dirp = &__libgf_dirent;
+        dirp = &dir->dirp;
         memset (dirp, 0, sizeof (struct dirent));
-        op_ret = libgf_client_readdir (ctx, (fd_t *)dirfd, dirp,
+        op_ret = libgf_client_readdir (ctx, dir->dirfd, dirp,
                                        LIBGF_READDIR_BLOCK, &offset, 1);
 
         if (op_ret <= 0) {
@@ -4596,6 +4611,7 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
         loc_t                           loc = {0, };
         fd_t                            *dirfd = NULL;
         char                            *name = NULL;
+        struct libgf_dir_handle         *dir = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -4622,30 +4638,40 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
                 goto out;
         }
 
-        dirfd = fd_create (loc.inode, 0);
-        op_ret = libgf_client_opendir (ctx, &loc, dirfd);
-
-        if (op_ret == -1) {
-                fd_unref (dirfd);
-                dirfd = NULL;
+        dir = CALLOC (1, sizeof (struct libgf_dir_handle));
+        if (!dir) {
+                op_ret = -1;
                 goto out;
         }
 
-        if (libgf_get_fd_ctx (dirfd))
+        dir->dirfd = fd_create (loc.inode, 0);
+        op_ret = libgf_client_opendir (ctx, &loc, dir->dirfd);
+
+        if (op_ret == -1)
                 goto out;
 
-        if (!(libgf_alloc_fd_ctx (ctx, dirfd))) {
+        if (libgf_get_fd_ctx (dir->dirfd))
+                goto out;
+
+        if (!(libgf_alloc_fd_ctx (ctx, dir->dirfd))) {
                 op_ret = -1;
                 errno = EINVAL;
-                fd_unref (dirfd);
-                dirfd = NULL;
+                goto out;
         }
 
+        op_ret = 0;
 out:
         if (name)
                 FREE (name);
+
+        if (op_ret == -1) {
+                FREE (dir);
+                fd_unref (dirfd);
+                dir = NULL;
+        }
+
         libgf_client_loc_wipe (&loc);
-        return dirfd;
+        return (glusterfs_dir_t)dir;
 }
 
 glusterfs_dir_t
@@ -4678,7 +4704,7 @@ glusterfs_closedir (glusterfs_dir_t dirfd)
         libglusterfs_client_fd_ctx_t    *fdctx = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, dirfd, out);
-        fdctx = libgf_get_fd_ctx (dirfd);
+        fdctx = libgf_get_fd_ctx (((struct libgf_dir_handle *)dirfd)->dirfd);
 
         if (fdctx == NULL) {
                 errno = EBADF;
@@ -4686,8 +4712,9 @@ glusterfs_closedir (glusterfs_dir_t dirfd)
                 goto out;
         }
 
-        op_ret = libgf_client_flush (fdctx->ctx, (fd_t *)dirfd);
-        fd_unref ((fd_t *)dirfd);
+        op_ret = libgf_client_flush (fdctx->ctx,
+                                    ((struct libgf_dir_handle *)dirfd)->dirfd);
+        fd_unref (((struct libgf_dir_handle *)dirfd)->dirfd);
 
 out:
         return op_ret;

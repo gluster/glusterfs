@@ -31,6 +31,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <fd.h>
+#include <dirent.h>
 
 typedef void (*sighandler_t) (int);
 typedef struct list_head list_head_t;
@@ -228,6 +229,18 @@ struct vmp_entry {
         int vmplen;
         glusterfs_handle_t handle;
 };
+
+
+/* Internal directory handle inited in opendir.
+ * This is needed in order to store a per-handle
+ * dirent structure.
+ */
+struct libgf_dir_handle {
+        fd_t *dirfd;
+        struct dirent dirp;
+};
+
+
 
 
 #endif
