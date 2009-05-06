@@ -286,7 +286,7 @@ call_bail (void *data)
 
 		gf_log (trans->xl->name, GF_LOG_ERROR,
 			"bailing out frame %s(%d) "
-			"frame sent = %s. transport-timeout = %d",
+			"frame sent = %s. frame-timeout = %d",
                         gf_op_list[trav->op], trav->op,
 			frame_sent, conn->frame_timeout);
 
