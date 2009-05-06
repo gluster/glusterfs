@@ -829,6 +829,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         }
 
 	sh->source = source;
+        local->cont.lookup.buf.st_size = sh->buf[source].st_size;
 
 	/* detect changes not visible through pending flags -- JIC */
 	for (i = 0; i < priv->child_count; i++) {
