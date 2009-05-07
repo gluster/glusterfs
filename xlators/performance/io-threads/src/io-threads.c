@@ -40,7 +40,7 @@ _iot_queue (iot_worker_t *worker, iot_request_t *req);
 iot_request_t *
 iot_init_request (call_stub_t *stub);
 
-void
+int
 iot_startup_workers (iot_worker_t **workers, int start_idx, int count,
                      iot_worker_fn workerfunc);
 
@@ -50,7 +50,7 @@ iot_worker_unordered (void *arg);
 void *
 iot_worker_ordered (void *arg);
 
-void
+int
 iot_startup_worker (iot_worker_t *worker, iot_worker_fn workerfunc);
 
 void
@@ -62,20 +62,28 @@ iot_destroy_request (iot_request_t * req);
  * queueing, and thread firing in the same curly block, as was the
  * case before this function.
  */
-void
+int
 iot_request_queue_and_thread_fire (iot_worker_t *worker,
                                    iot_worker_fn workerfunc, iot_request_t *req)
 {
+        int     ret = -1; 
         pthread_mutex_lock (&worker->qlock);
         {
-                if (iot_worker_active (worker))
+                if (iot_worker_active (worker)) {
                         _iot_queue (worker, req);
-                else {
-                        iot_startup_worker (worker, workerfunc);
+                        ret = 0;
+                }else {
+                        ret = iot_startup_worker (worker, workerfunc);
+                        if (ret < 0) {
+                                goto unlock;
+                        }
                         _iot_queue (worker, req);
                 }
         }
+unlock:
         pthread_mutex_unlock (&worker->qlock);
+
+        return ret;
 }
 
 
@@ -104,19 +112,30 @@ iot_unordered_request_balancer (iot_conf_t *conf)
 }
 
 
-void
+int
 iot_schedule_unordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
 {
         int32_t          idx = 0;
         iot_worker_t    *selected_worker = NULL;
         iot_request_t   *req = NULL;
+        int             ret = -1;
 
         idx = iot_unordered_request_balancer (conf);
         selected_worker = conf->uworkers[idx];
 
         req = iot_init_request (stub);
-        iot_request_queue_and_thread_fire (selected_worker,
-                                           iot_worker_unordered, req);
+        if (req == NULL) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = iot_request_queue_and_thread_fire (selected_worker,
+                                                 iot_worker_unordered, req);
+        if (ret < 0) {
+                iot_destroy_request (req);
+        }
+out:
+        return ret;
 }
 
 
@@ -146,10 +165,10 @@ iot_create_inode_worker_assoc (iot_conf_t * conf, inode_t * inode)
 
 
 /* Assumes inode lock is held. */
-int
+int32_t
 iot_ordered_request_balancer (iot_conf_t *conf, inode_t *inode, uint64_t *idx)
 {
-        int     ret = 0;
+        int ret = -1;
 
         if (__inode_ctx_get (inode, conf->this, idx) < 0)
                 *idx = iot_create_inode_worker_assoc (conf, inode);
@@ -164,39 +183,46 @@ iot_ordered_request_balancer (iot_conf_t *conf, inode_t *inode, uint64_t *idx)
                         gf_log (conf->this->name, GF_LOG_DEBUG,
                                 "inode context returned insane thread index %"
                                 PRIu64, *idx);
-                        ret = -1;
+                        ret = -EINVAL;
+                        goto out;
                 }
         }
-
+        ret = 0;
+out:
         return ret;
 }
 
 
-void
+int
 iot_schedule_ordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
 {
         uint64_t         idx = 0;
         iot_worker_t    *selected_worker = NULL;
         iot_request_t   *req = NULL;
-        int              balstatus = 0;
+        int              balstatus = 0, ret = -1;
 
         if (inode == NULL) {
                 gf_log (conf->this->name, GF_LOG_DEBUG,
                         "Got NULL inode for ordered request");
-                STACK_UNWIND (stub->frame, -1, EINVAL, NULL);
-                call_stub_destroy (stub);
-                return;
+                ret = -EINVAL;
+                goto out;
         }
+
         req = iot_init_request (stub);
+        if (req == NULL) {
+                gf_log (conf->this->name, GF_LOG_ERROR,
+                        "out of memory");
+                ret = -ENOMEM;
+                goto out;
+        }
+
         LOCK (&inode->lock);
         {
                 balstatus = iot_ordered_request_balancer (conf, inode, &idx);
                 if (balstatus < 0) {
                         gf_log (conf->this->name, GF_LOG_DEBUG,
                                 "Insane worker index. Unwinding stack");
-                        STACK_UNWIND (stub->frame, -1, ECANCELED, NULL);
-                        iot_destroy_request (req);
-                        call_stub_destroy (stub);
+                        ret = -ECANCELED;
                         goto unlock_out;
                 }
                 /* inode lock once acquired, cannot be left here
@@ -206,11 +232,20 @@ iot_schedule_ordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
                  * added the request to the worker queue.
                  */
                 selected_worker = conf->oworkers[idx];
-                iot_request_queue_and_thread_fire (selected_worker,
-                        iot_worker_ordered, req);
+                ret = iot_request_queue_and_thread_fire (selected_worker,
+                                                         iot_worker_ordered,
+                                                         req);
         }
 unlock_out:
         UNLOCK (&inode->lock);
+
+out:
+        if (ret < 0) {
+                if (req != NULL) {
+                        iot_destroy_request (req);
+                }
+        }
+        return ret;
 }
 
 
@@ -240,16 +275,27 @@ int
 iot_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
         call_stub_t     *stub = NULL;
+        int              ret = -1;
 
         stub = fop_lookup_stub (frame, iot_lookup_wrapper, loc, xattr_req);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "cannot create lookup stub (out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+
+out:
+        if (ret < 0) {
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+                STACK_UNWIND (frame, -1, -ret, NULL, NULL, NULL);
+        }
+
         return 0;
 }
 
@@ -280,24 +326,35 @@ iot_chmod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 {
         call_stub_t     *stub = NULL;
         fd_t            *fd = NULL;
+        int             ret = -1;
 
         stub = fop_chmod_stub (frame, iot_chmod_wrapper, loc, mode);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create chmod stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
 	fd = fd_lookup (loc->inode, frame->root->pid);
         if (fd == NULL)
-                iot_schedule_unordered ((iot_conf_t *)this->private,
+                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
                                         loc->inode, stub);
         else {
-                iot_schedule_ordered ((iot_conf_t *)this->private, loc->inode,
-                                      stub);
+                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
+                                            loc->inode, stub);
                 fd_unref (fd);
         }
+
+out:
+        if (ret < 0) {
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+                        
+                STACK_UNWIND (frame, -1, -ret, NULL);
+        }
+
         return 0;
 }
 
@@ -325,16 +382,27 @@ int
 iot_fchmod (call_frame_t *frame, xlator_t *this, fd_t *fd, mode_t mode)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_fchmod_stub (frame, iot_fchmod_wrapper, fd, mode);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create fchmod stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -366,25 +434,34 @@ iot_chown (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid,
 {
         call_stub_t     *stub = NULL;
         fd_t            *fd = NULL;
+        int             ret = -1;
 
         stub = fop_chown_stub (frame, iot_chown_wrapper, loc, uid, gid);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create chown stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
         fd = fd_lookup (loc->inode, frame->root->pid);
         if (fd == NULL)
-                iot_schedule_unordered ((iot_conf_t *)this->private,
+                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
                                         loc->inode, stub);
         else {
-                iot_schedule_ordered ((iot_conf_t *)this->private, loc->inode,
-                                      stub);
+                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
+                                            loc->inode, stub);
                 fd_unref (fd);
         }
 
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -412,17 +489,26 @@ int
 iot_fchown (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid, gid_t gid)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_fchown_stub (frame, iot_fchown_wrapper, fd, uid, gid);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create fchown stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
 
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -450,17 +536,26 @@ int
 iot_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_access_stub (frame, iot_access_wrapper, loc, mask);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create access stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret);
 
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -490,16 +585,28 @@ int
 iot_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_readlink_stub (frame, iot_readlink_wrapper, loc, size);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create readlink stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+
         return 0;
 }
 
@@ -529,17 +636,27 @@ iot_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
            dev_t rdev)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_mknod_stub (frame, iot_mknod_wrapper, loc, mode, rdev);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create mknod stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
 
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -567,16 +684,27 @@ int
 iot_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_mkdir_stub (frame, iot_mkdir_wrapper, loc, mode);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create mkdir stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -603,16 +731,26 @@ int
 iot_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_rmdir_stub (frame, iot_rmdir_wrapper, loc);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create rmdir stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret);
+                
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -642,16 +780,28 @@ iot_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
              loc_t *loc)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_symlink_stub (frame, iot_symlink_wrapper, linkname, loc);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create symlink stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+
         return 0;
 }
 
@@ -679,17 +829,28 @@ int
 iot_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_rename_stub (frame, iot_rename_wrapper, oldloc, newloc);
         if (!stub) {
                 gf_log (this->name, GF_LOG_DEBUG, "cannot create rename stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, oldloc->inode,
-                                stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private,
+                                      oldloc->inode, stub);
+
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+                
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+                
         return 0;
 }
 
@@ -718,16 +879,28 @@ iot_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           fd_t *fd)
 {
         call_stub_t	*stub = NULL;
+        int             ret = -1;
 
         stub = fop_open_stub (frame, iot_open_wrapper, loc, flags, fd);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "cannot create open call stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
-	iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+
+	ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL, 0);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }                
 
 	return 0;
 }
@@ -760,6 +933,7 @@ iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
             mode_t mode, fd_t *fd)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_create_stub (frame, iot_create_wrapper, loc, flags, mode,
                                 fd);
@@ -767,11 +941,22 @@ iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 gf_log (this->name, GF_LOG_ERROR,
                         "cannot create \"create\" call stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL, 0);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+
         return 0;
 }
 
@@ -804,17 +989,28 @@ iot_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
            off_t offset)
 {
 	call_stub_t *stub = NULL;
+        int         ret = -1;
 
 	stub = fop_readv_stub (frame, iot_readv_wrapper, fd, size, offset);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, 
 			"cannot create readv call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
-		return 0;
+                ret = -ENOMEM;
+                goto out;
 	}
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret, NULL, 0);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
 	return 0;
 }
 
@@ -843,17 +1039,27 @@ int
 iot_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	call_stub_t *stub = NULL;
+        int         ret = -1;
 
 	stub = fop_flush_stub (frame, iot_flush_wrapper, fd);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create flush_cbk call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM);
-		return 0;
+                ret = -ENOMEM;
+                goto out;
 	}
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
 	return 0;
 }
 
@@ -883,17 +1089,28 @@ int
 iot_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 {
 	call_stub_t *stub = NULL;
+        int         ret = -1;
 
 	stub = fop_fsync_stub (frame, iot_fsync_wrapper, fd, datasync);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create fsync_cbk call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM);
-		return 0;
+                ret = -1;
+                goto out;
 	}
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret);
+                
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
 	return 0;
 }
 
@@ -926,6 +1143,7 @@ iot_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
             struct iobref *iobref)
 {
 	call_stub_t *stub = NULL;
+        int         ret = -1;
 
 	stub = fop_writev_stub (frame, iot_writev_wrapper,
 				fd, vector, count, offset, iobref);
@@ -934,11 +1152,20 @@ iot_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create writev call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM, NULL);
-		return 0;
+                ret = -ENOMEM;
+                goto out;
 	}
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret, NULL);
+                
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
 
 	return 0;
 }
@@ -970,6 +1197,7 @@ iot_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 	struct flock *flock)
 {
 	call_stub_t *stub = NULL;
+        int         ret = -1;
 
 	stub = fop_lk_stub (frame, iot_lk_wrapper, fd, cmd, flock);
 
@@ -977,11 +1205,20 @@ iot_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create fop_lk call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM, NULL);
-		return 0;
+                ret = -ENOMEM;
+                goto out;
 	}
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
 	return 0;
 }
 
@@ -1011,28 +1248,37 @@ iot_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	call_stub_t *stub = NULL;
 	fd_t        *fd = NULL;
+        int         ret = -1;
 
         stub = fop_stat_stub (frame, iot_stat_wrapper, loc);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create fop_stat call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM, NULL);
-		return 0;
+                ret = -1;
+                goto out;
 	}
 
 	fd = fd_lookup (loc->inode, frame->root->pid);
         /* File is not open, so we can send it through unordered pool.
          */
 	if (fd == NULL)
-                iot_schedule_unordered ((iot_conf_t *)this->private,
-                                        loc->inode, stub);
+                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
+                                              loc->inode, stub);
         else {
-                iot_schedule_ordered ((iot_conf_t *)this->private, loc->inode,
-                                      stub);
+                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
+                                            loc->inode, stub);
 	        fd_unref (fd);
         }
 
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
 	return 0;
 }
 
@@ -1061,18 +1307,27 @@ int
 iot_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	call_stub_t *stub = NULL;
+        int         ret = -1;
 
 	stub = fop_fstat_stub (frame, iot_fstat_wrapper, fd);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create fop_fstat call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM, NULL);
-		return 0;
+                ret = -ENOMEM;
+                goto out;
 	}
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret, NULL);
 
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
 	return 0;
 }
 
@@ -1103,6 +1358,7 @@ iot_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
 	call_stub_t *stub;
 	fd_t        *fd = NULL;
+        int         ret = -1;
 
         stub = fop_truncate_stub (frame, iot_truncate_wrapper, loc, offset);
 
@@ -1110,18 +1366,27 @@ iot_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create fop_stat call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM, NULL);
-		return 0;
+                ret = -ENOMEM;
+                goto out;
 	}
 
 	fd = fd_lookup (loc->inode, frame->root->pid);
 	if (fd == NULL)
-                iot_schedule_unordered ((iot_conf_t *)this->private,
-                                        loc->inode, stub);
+                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
+                                              loc->inode, stub);
         else {
-                iot_schedule_ordered ((iot_conf_t *)this->private, loc->inode,
-                                      stub);
+                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
+                                            loc->inode, stub);
 	        fd_unref (fd);
+        }
+
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
         }
 
 	return 0;
@@ -1152,18 +1417,27 @@ iot_ftruncate_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int
 iot_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 {
-	call_stub_t *stub;
+	call_stub_t *stub = NULL;
+        int         ret = -1;
 
 	stub = fop_ftruncate_stub (frame, iot_ftruncate_wrapper, fd, offset);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create fop_ftruncate call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM, NULL);
-		return 0;
+                ret = -ENOMEM;
+                goto out;
 	}
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret, NULL);
 
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
 	return 0;
 }
 
@@ -1196,26 +1470,35 @@ iot_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
 	call_stub_t *stub;
 	fd_t        *fd = NULL;
+        int         ret = -1;
 
 	stub = fop_utimens_stub (frame, iot_utimens_wrapper, loc, tv);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create fop_utimens call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM, NULL);
-		return 0;
+                ret = -ENOMEM;
+                goto out;
 	}
 
         fd = fd_lookup (loc->inode, frame->root->pid);
         if (fd == NULL)
-                iot_schedule_unordered ((iot_conf_t *)this->private,
-                                        loc->inode, stub);
+                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
+                                              loc->inode, stub);
         else {
-                iot_schedule_ordered ((iot_conf_t *)this->private, loc->inode,
-                                      stub);
+                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
+                                            loc->inode, stub);
 	        fd_unref (fd);
         }
 
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
 	return 0;
 }
 
@@ -1247,6 +1530,7 @@ int
 iot_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags)
 {
 	call_stub_t *stub = NULL;
+        int         ret = -1;
 
 	stub = fop_checksum_stub (frame, iot_checksum_wrapper, loc, flags);
 
@@ -1254,11 +1538,19 @@ iot_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags)
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create fop_checksum call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
-		return 0;
+                ret = -ENOMEM;
+                goto out;
 	}
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret, NULL, NULL);
 
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
 	return 0;
 }
 
@@ -1288,15 +1580,28 @@ int
 iot_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	call_stub_t *stub = NULL;
+        int         ret = -1;
+ 
 	stub = fop_unlink_stub (frame, iot_unlink_wrapper, loc);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
                         "cannot create fop_unlink call stub"
                         "(out of memory)");
-		STACK_UNWIND (frame, -1, ENOMEM);
-		return 0;
+                ret = -1;
+                goto out;
 	}
-        iot_schedule_unordered((iot_conf_t *)this->private, loc->inode, stub);
+
+        ret = iot_schedule_unordered((iot_conf_t *)this->private, loc->inode,
+                                     stub);
+
+out:
+        if (ret < 0) {
+		STACK_UNWIND (frame, -1, -ret);
+                
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        } 
 
 	return 0;
 }
@@ -1326,18 +1631,26 @@ int
 iot_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_link_stub (frame, iot_link_wrapper, oldloc, newloc);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create link stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, oldloc->inode,
-                                        stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private,
+                                      oldloc->inode, stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL, NULL);
 
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1364,17 +1677,26 @@ int
 iot_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 {
         call_stub_t     *stub  = NULL;
+        int             ret = -1;
 
         stub = fop_opendir_stub (frame, iot_opendir_wrapper, loc, fd);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create opendir stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
 
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1402,16 +1724,26 @@ int
 iot_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_fsyncdir_stub (frame, iot_fsyncdir_wrapper, fd, datasync);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create fsyncdir stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1438,16 +1770,26 @@ int
 iot_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         call_stub_t     *stub = NULL;
+        int              ret = -1;
 
         stub = fop_statfs_stub (frame, iot_statfs_wrapper, loc);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create statfs stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode, stub);
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
+                                      stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1477,25 +1819,35 @@ iot_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 {
         call_stub_t     *stub = NULL;
         fd_t            *fd = NULL;
+        int              ret = -1;
 
         stub = fop_setxattr_stub (frame, iot_setxattr_wrapper, loc, dict,
                                   flags);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create setxattr stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
+
         fd = fd_lookup (loc->inode, frame->root->pid);
         if (fd == NULL)
-                iot_schedule_unordered ((iot_conf_t *)this->private,
-                                        loc->inode, stub);
+                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
+                                              loc->inode, stub);
         else {
-                iot_schedule_ordered ((iot_conf_t *)this->private, loc->inode,
-                                      stub);
+                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
+                                            loc->inode, stub);
                 fd_unref (fd);
         }
 
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1525,25 +1877,34 @@ iot_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         call_stub_t     *stub = NULL;
         fd_t            *fd = NULL;
+        int             ret = -1;
 
         stub = fop_getxattr_stub (frame, iot_getxattr_wrapper, loc, name);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create getxattr stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
         fd = fd_lookup (loc->inode, frame->root->pid);
         if (!fd)
-                iot_schedule_unordered ((iot_conf_t *)this->private,
-                                        loc->inode, stub);
+                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
+                                              loc->inode, stub);
         else {
-                iot_schedule_ordered ((iot_conf_t *)this->private, loc->inode,
-                                      stub);
+                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
+                                            loc->inode, stub);
                 fd_unref (fd);
         }
 
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1572,16 +1933,26 @@ iot_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                const char *name)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_fgetxattr_stub (frame, iot_fgetxattr_wrapper, fd, name);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create fgetxattr stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1610,17 +1981,27 @@ iot_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                int32_t flags)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_fsetxattr_stub (frame, iot_fsetxattr_wrapper, fd, dict,
                                         flags);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create fsetxattr stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1650,26 +2031,35 @@ iot_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         call_stub_t     *stub = NULL;
         fd_t            *fd = NULL;
+        int             ret = -1;
 
         stub = fop_removexattr_stub (frame, iot_removexattr_wrapper, loc,
                                      name);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR,"cannot get removexattr fop"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
         fd = fd_lookup (loc->inode, frame->root->pid);
         if (!fd)
-                iot_schedule_unordered ((iot_conf_t *)this->private,
-                                        loc->inode, stub);
+                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
+                                              loc->inode, stub);
         else {
-                iot_schedule_ordered ((iot_conf_t *)this->private,
-                                      loc->inode, stub);
+                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
+                                            loc->inode, stub);
                 fd_unref (fd);
         }
 
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret);
+                
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1697,16 +2087,26 @@ iot_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t offset)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_readdir_stub (frame, iot_readdir_wrapper, fd, size, offset);
         if (!stub) {
                 gf_log (this->private, GF_LOG_ERROR,"cannot get readdir stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1736,26 +2136,35 @@ iot_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         call_stub_t     *stub = NULL;
         fd_t            *fd = NULL;
+        int             ret = -1;
 
         stub = fop_xattrop_stub (frame, iot_xattrop_wrapper, loc, optype,
                                         xattr);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create xattrop stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
         fd = fd_lookup (loc->inode, frame->root->pid);
         if (!fd)
-                iot_schedule_unordered ((iot_conf_t *)this->private,
-                                        loc->inode, stub);
+                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
+                                              loc->inode, stub);
         else {
-                iot_schedule_ordered ((iot_conf_t *)this->private,
-                                      loc->inode, stub);
+                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
+                                            loc->inode, stub);
                 fd_unref (fd);
         }
 
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1782,17 +2191,26 @@ iot_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
               gf_xattrop_flags_t optype, dict_t *xattr)
 {
         call_stub_t     *stub = NULL;
+        int             ret = -1;
 
         stub = fop_fxattrop_stub (frame, iot_fxattrop_wrapper, fd, optype,
                                         xattr);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create fxattrop stub"
                         "(out of memory)");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                ret = -ENOMEM;
+                goto out;
         }
 
-        iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode, stub);
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
         return 0;
 }
 
@@ -1815,9 +2233,12 @@ iot_init_request (call_stub_t *stub)
 	iot_request_t   *req = NULL;
 
         req = CALLOC (1, sizeof (iot_request_t));
-        ERR_ABORT (req);
-        req->stub = stub;
+        if (req == NULL) {
+                goto out;
+        }
 
+        req->stub = stub;
+out:
         return req;
 }
 
@@ -1843,7 +2264,7 @@ iot_can_ordered_exit (iot_worker_t * worker)
         /* We dont want this thread to exit if its index is
          * below the min thread count.
          */
-        if (worker->thread_idx >= conf->min_o_threads)
+        if ((worker->thread_idx >= conf->min_o_threads)) 
                 allow_exit = _gf_true;
 
         return allow_exit;
@@ -1938,7 +2359,7 @@ iot_worker_ordered (void *arg)
                 /* If stub is NULL, we must've timed out waiting for a
                  * request and have now been allowed to exit.
                  */
-                if (stub == NULL)
+                if (!stub)
                         break;
 		call_resume (stub);
 	}
@@ -1951,14 +2372,15 @@ iot_worker_ordered (void *arg)
 gf_boolean_t
 iot_can_unordered_exit (iot_worker_t * worker)
 {
-        gf_boolean_t     allow_exit = _gf_false;
+        gf_boolean_t    allow_exit = _gf_false;
         iot_conf_t      *conf = NULL;
 
         conf = worker->conf;
+        
         /* We dont want this thread to exit if its index is
          * below the min thread count.
          */
-        if (worker->thread_idx >= conf->min_u_threads)
+        if ((worker->thread_idx >= conf->min_u_threads)) 
                 allow_exit = _gf_true;
 
         return allow_exit;
@@ -2052,12 +2474,37 @@ iot_worker_unordered (void *arg)
 		stub = iot_dequeue_unordered (worker);
                 /* If no request was received, we must've timed out,
                  * and can exit. */
-                if (stub == NULL)
+                if (!stub)
                         break;
 
 		call_resume (stub);
 	}
+
         return NULL;
+}
+
+
+void
+deallocate_worker_array (iot_worker_t **workers)
+{
+        FREE (workers);
+}
+
+void
+deallocate_workers (iot_worker_t **workers,
+                    int start_alloc_idx, int count)
+{
+        int     i;
+        int     end_count;
+
+        end_count = count + start_alloc_idx;
+        for (i = start_alloc_idx; (i < end_count); i++) {
+                if (workers[i] != NULL) {
+                        free (workers[i]);
+                        workers[i] = NULL;
+                }
+        }
+        
 }
 
 
@@ -2067,7 +2514,6 @@ allocate_worker_array (int count)
         iot_worker_t    **warr = NULL;
 
         warr = CALLOC (count, sizeof (iot_worker_t *));
-        ERR_ABORT (warr);
 
         return warr;
 }
@@ -2079,7 +2525,10 @@ allocate_worker (iot_conf_t * conf)
         iot_worker_t    *wrk = NULL;
 
         wrk = CALLOC (1, sizeof (iot_worker_t));
-        ERR_ABORT (wrk);
+        if (wrk == NULL) {
+                gf_log (conf->this->name, GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
 
         INIT_LIST_HEAD (&wrk->rqlist);
         wrk->conf = conf;
@@ -2087,45 +2536,71 @@ allocate_worker (iot_conf_t * conf)
         pthread_mutex_init (&wrk->qlock, NULL);
         wrk->state = IOT_STATE_DEAD;
 
+out:
         return wrk;
 }
 
 
-void
+int
 allocate_workers (iot_conf_t *conf, iot_worker_t **workers, int start_alloc_idx,
                   int count)
 {
         int     i;
-        int     end_count;
+        int     end_count, ret = -1;
 
         end_count = count + start_alloc_idx;
         for (i = start_alloc_idx; i < end_count; i++) {
                 workers[i] = allocate_worker (conf);
+                if (workers[i] == NULL) {
+                        ret = -ENOMEM;
+                        goto out;
+                }
                 workers[i]->thread_idx = i;
         }
+        ret = 0;
+
+out:
+        return ret;
 }
 
 
-void
+int
 iot_startup_worker (iot_worker_t *worker, iot_worker_fn workerfunc)
 {
-        worker->state = IOT_STATE_ACTIVE;
-        pthread_create (&worker->thread, &worker->conf->w_attr, workerfunc,
-                        worker);
+        int     ret = -1;
+        ret = pthread_create (&worker->thread, &worker->conf->w_attr,
+                              workerfunc, worker);
+        if (ret != 0) {
+                gf_log (worker->conf->this->name, GF_LOG_ERROR,
+                        "cannot start worker (%s)", strerror (errno));
+                ret = -ret;
+        } else {
+                worker->state = IOT_STATE_ACTIVE;
+        }
+
+        return ret;
 }
 
 
-void
+int
 iot_startup_workers (iot_worker_t **workers, int start_idx, int count,
                      iot_worker_fn workerfunc)
 {
         int     i = 0;
         int     end_idx = 0;
+        int     ret = -1; 
 
         end_idx = start_idx + count;
-        for (i = start_idx; i < end_idx; i++)
-                iot_startup_worker (workers[i], workerfunc);
+        for (i = start_idx; i < end_idx; i++) {
+                ret = iot_startup_worker (workers[i], workerfunc);
+                if (ret < 0) {
+                        goto out;
+                }
+        }
 
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -2145,21 +2620,97 @@ set_stack_size (iot_conf_t *conf)
 
 
 void
+iot_cleanup_workers (iot_conf_t *conf)
+{
+        if (conf->uworkers != NULL) {
+                /*
+                  iot_stop_workers (conf->oworkers, 0,
+                  conf->max_u_threads);
+                */
+                    
+                deallocate_workers (conf->uworkers, 0,
+                                    conf->max_u_threads);
+
+                deallocate_worker_array (conf->uworkers);
+        }
+                
+        if (conf->oworkers != NULL) {
+                /*
+                  iot_stop_workers (conf->uworkers, 0,
+                  conf->max_o_threads);
+                */
+                        
+                deallocate_workers (conf->oworkers, 0,
+                                    conf->max_o_threads);
+                        
+                deallocate_worker_array (conf->oworkers);
+        }
+}
+
+
+int
 workers_init (iot_conf_t *conf)
 {
+        int     ret = -1;
+
+        if (conf == NULL) {
+                ret = -EINVAL;
+                goto err;
+        }
+
         /* Initialize un-ordered workers */
         conf->uworkers = allocate_worker_array (conf->max_u_threads);
-        allocate_workers (conf, conf->uworkers, 0, conf->max_u_threads);
+        if (conf->uworkers == NULL) {
+                gf_log (conf->this->name, GF_LOG_ERROR, "out of memory");
+                ret = -ENOMEM;
+                goto err;
+        }
+
+        ret = allocate_workers (conf, conf->uworkers, 0,
+                                conf->max_u_threads);
+        if (ret < 0) {
+                gf_log (conf->this->name, GF_LOG_ERROR, "out of memory");
+                goto err;
+        }
 
         /* Initialize ordered workers */
         conf->oworkers = allocate_worker_array (conf->max_o_threads);
-        allocate_workers (conf, conf->oworkers, 0, conf->max_o_threads);
+        if (conf->oworkers == NULL) {
+                gf_log (conf->this->name, GF_LOG_ERROR, "out of memory");
+                ret = -ENOMEM;
+                goto err;
+        }
+
+        ret = allocate_workers (conf, conf->oworkers, 0,
+                                conf->max_o_threads);
+        if (ret < 0) {
+                gf_log (conf->this->name, GF_LOG_ERROR, "out of memory");
+                goto err;
+        }
 
         set_stack_size (conf);
-        iot_startup_workers (conf->oworkers, 0, conf->min_o_threads,
-                        iot_worker_ordered);
-        iot_startup_workers (conf->uworkers, 0, conf->min_u_threads,
-                        iot_worker_unordered);
+        ret = iot_startup_workers (conf->oworkers, 0, conf->min_o_threads,
+                                   iot_worker_ordered);
+        if (ret == -1) {
+                /* logged inside iot_startup_workers */
+                goto err;
+        }
+
+        ret = iot_startup_workers (conf->uworkers, 0, conf->min_u_threads,
+                                   iot_worker_unordered);
+        if (ret == -1) {
+                /* logged inside iot_startup_workers */
+                goto err;
+        }
+
+        return 0;
+
+err:
+        if (conf != NULL)  {
+                iot_cleanup_workers (conf);
+        }
+
+        return ret;
 }
 
 
@@ -2171,12 +2722,12 @@ init (xlator_t *this)
         int             thread_count = IOT_DEFAULT_THREADS;
         gf_boolean_t    autoscaling = IOT_SCALING_OFF;
         char            *scalestr = NULL;
-        int             min_threads, max_threads;
-
+        int             min_threads, max_threads, ret = -1;
+        
 	if (!this->children || this->children->next) {
 		gf_log ("io-threads", GF_LOG_ERROR,
 			"FATAL: iot not configured with exactly one child");
-		return -1;
+                goto out;
 	}
 
 	if (!this->parents) {
@@ -2185,14 +2736,18 @@ init (xlator_t *this)
 	}
 
 	conf = (void *) CALLOC (1, sizeof (*conf));
-	ERR_ABORT (conf);
+        if (conf == NULL) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "out of memory");
+                goto out;
+        }
 
         if ((dict_get_str (options, "autoscaling", &scalestr)) == 0) {
                 if ((gf_string2boolean (scalestr, &autoscaling)) == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                         "'autoscaling' option must be"
                                         " boolean");
-                        return -1;
+                        goto out;
                 }
         }
 
@@ -2221,7 +2776,7 @@ init (xlator_t *this)
         if (min_threads > max_threads) {
                 gf_log (this->name, GF_LOG_ERROR, " min-threads must be less "
                                 "than max-threads");
-                return -1;
+                goto out;
         }
 
         /* If autoscaling is off, then adjust the min and max
@@ -2280,10 +2835,18 @@ init (xlator_t *this)
                 (autoscaling) ? "on":"off", min_threads, max_threads);
 
         conf->this = this;
-	workers_init (conf);
+	ret = workers_init (conf);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "cannot initialize worker threads, exiting init");
+                FREE (conf);
+                goto out;
+        }
 
 	this->private = conf;
-	return 0;
+        ret = 0;
+out:
+	return ret;
 }
 
 
