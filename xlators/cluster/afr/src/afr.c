@@ -1044,6 +1044,7 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory.");
 		goto out;
