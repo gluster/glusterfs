@@ -92,9 +92,9 @@ ret:
 static int
 this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
 {
-	int ret = 0;
-	int dict_ret = -1;
-	uint64_t tmp_fd = 0;
+	int         ret = 0;
+	int         dict_ret = -1;
+	uint64_t    tmp_fd = 0;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, file, out);
@@ -115,7 +115,7 @@ static void
 this_fd_set (fd_t *file, xlator_t *this, loc_t *loc, int64_t fd)
 {
 	uint64_t old_fd = 0;
-	int32_t ret = -1;
+	int32_t  ret = -1;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, file, out);
@@ -184,11 +184,11 @@ lookup_frame (transport_t *trans, int32_t op, int8_t type, int64_t callid)
 static void
 call_bail (void *data)
 {
-	client_connection_t *conn = NULL;
-	struct timeval       current;
-	transport_t         *trans = NULL;
-	struct list_head     list;
-	struct saved_frame  *saved_frame = NULL;
+	client_connection_t  *conn = NULL;
+	struct timeval        current;
+	transport_t          *trans = NULL;
+	struct list_head      list;
+	struct saved_frame   *saved_frame = NULL;
 	struct saved_frame   *trav = NULL;
 	struct saved_frame   *tmp = NULL;
 	call_frame_t         *frame = NULL;
@@ -197,6 +197,8 @@ call_bail (void *data)
 	gf_op_t              *gf_ops = NULL;
 	struct tm             frame_sent_tm;
 	char                  frame_sent[32] = {0,};
+        struct timeval        timeout = {0,};
+        gf_timer_cbk_t        timer_cbk = NULL;
 
 	GF_VALIDATE_OR_GOTO("client", data, out);
 	trans = data;
@@ -211,8 +213,7 @@ call_bail (void *data)
 		/* Chaining to get call-always functionality from 
 		   call-once timer */
 		if (conn->timer) {
-			struct timeval timeout = {0,};
-			gf_timer_cbk_t timer_cbk = conn->timer->cbk;
+			timer_cbk = conn->timer->cbk;
 
 			timeout.tv_sec = 10;
 			timeout.tv_usec = 0;
@@ -371,6 +372,7 @@ client_get_forgets (xlator_t *this, client_forget_t *forget)
  out:
 	return ret;
 }
+
 
 void 
 client_ping_timer_expired (void *data)
@@ -689,8 +691,7 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
  */
 
 int
-client_create (call_frame_t *frame, xlator_t *this,
-               loc_t *loc, int32_t flags,
+client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                mode_t mode, fd_t *fd)
 {
 	gf_hdr_common_t     *hdr = NULL;
@@ -757,9 +758,10 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->open
  */
+
 int
-client_open (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, int32_t flags, fd_t *fd)
+client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+             fd_t *fd)
 {
 	int                 ret = -1;
 	gf_hdr_common_t    *hdr = NULL;
@@ -820,17 +822,16 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->stat
  */
-int32_t
-client_stat (call_frame_t *frame,
-             xlator_t *this,
-             loc_t *loc)
+
+int
+client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	gf_hdr_common_t   *hdr = NULL;
 	gf_fop_stat_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
-	ino_t   ino = 0;
+	size_t             hdrlen = -1;
+	int32_t            ret = -1;
+	size_t             pathlen = 0;
+	ino_t              ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
 
@@ -860,7 +861,7 @@ client_stat (call_frame_t *frame,
 unwind:
 	if (hdr)
 		free (hdr);
-	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	STACK_UNWIND (frame, -1, EINVAL, NULL);
 	return 0;
 
 }
@@ -875,18 +876,15 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->readlink
  */
-int32_t
-client_readlink (call_frame_t *frame,
-                 xlator_t *this,
-                 loc_t *loc,
-                 size_t size)
+int
+client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_readlink_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	ino_t  ino = 0;
+	size_t                 hdrlen = -1;
+	int                    ret = -1;
+	size_t                 pathlen = 0;
+	ino_t                  ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
 
@@ -933,21 +931,18 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->mknod
  */
-int32_t
-client_mknod (call_frame_t *frame,
-              xlator_t *this,
-              loc_t *loc,
-              mode_t mode,
+int
+client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
               dev_t dev)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_mknod_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	size_t baselen = 0;
-	ino_t  par = 0;
-	client_local_t *local = NULL;
+	size_t              hdrlen = -1;
+	int                 ret = -1;
+	size_t              pathlen = 0;
+	size_t              baselen = 0;
+	ino_t               par = 0;
+	client_local_t     *local = NULL;
 
 	local = calloc (1, sizeof (*local));
 	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
@@ -1002,20 +997,17 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->mkdir
  */
-int32_t
-client_mkdir (call_frame_t *frame,
-              xlator_t *this,
-              loc_t *loc,
-              mode_t mode)
+int
+client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_mkdir_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	size_t baselen = 0;
-	ino_t  par = 0;
-	client_local_t *local = NULL;
+	size_t              hdrlen = -1;
+	int                 ret = -1;
+	size_t              pathlen = 0;
+	size_t              baselen = 0;
+	ino_t               par = 0;
+	client_local_t     *local = NULL;
 
 	local = calloc (1, sizeof (*local));
 	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
@@ -1059,8 +1051,6 @@ unwind:
 
 }
 
-
-
 /**
  * client_unlink - unlink function for client protocol
  * @frame: call frame
@@ -1069,18 +1059,17 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->unlink
  */
-int32_t
-client_unlink (call_frame_t *frame,
-               xlator_t *this,
-               loc_t *loc)
+
+int
+client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_unlink_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	size_t baselen = 0;
-	ino_t  par = 0;
+	size_t               hdrlen = -1;
+	int                  ret = -1;
+	size_t               pathlen = 0;
+	size_t               baselen = 0;
+	ino_t                par = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
@@ -1124,18 +1113,17 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->rmdir
  */
-int32_t
-client_rmdir (call_frame_t *frame,
-              xlator_t *this,
-              loc_t *loc)
+
+int
+client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_rmdir_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	size_t baselen = 0;
-	ino_t  par = 0;
+	size_t              hdrlen = -1;
+	int                 ret = -1;
+	size_t              pathlen = 0;
+	size_t              baselen = 0;
+	ino_t               par = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
@@ -1172,7 +1160,6 @@ unwind:
 }
 
 
-
 /**
  * client_symlink - symlink function for client protocol
  * @frame: call frame
@@ -1182,21 +1169,20 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->symlink
  */
-int32_t
-client_symlink (call_frame_t *frame,
-                xlator_t *this,
-                const char *linkname,
+
+int
+client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
                 loc_t *loc)
 {
-	int ret = -1;
+	int                   ret = -1;
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_symlink_req_t *req = NULL;
-	size_t hdrlen  = 0;
-	size_t pathlen = 0;
-	size_t newlen  = 0;
-	size_t baselen = 0;
-	ino_t par = 0;
-	client_local_t *local = NULL;
+	size_t                hdrlen  = 0;
+	size_t                pathlen = 0;
+	size_t                newlen  = 0;
+	size_t                baselen = 0;
+	ino_t                 par = 0;
+	client_local_t       *local = NULL;
 
 	local = calloc (1, sizeof (*local));
 	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
@@ -1211,8 +1197,8 @@ client_symlink (call_frame_t *frame,
 	ret = inode_ctx_get (loc->parent, this, &par);
 	if (loc->parent->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"SYMLINK %"PRId64"/%s (%s): failed to get remote inode "
-                        "number parent", 
+			"SYMLINK %"PRId64"/%s (%s): failed to get remote inode"
+                        " number parent",
                         loc->parent->ino, loc->name, loc->path);
 	}
 
@@ -1240,7 +1226,6 @@ unwind:
 
 }
 
-
 /**
  * client_rename - rename function for client protocol
  * @frame: call frame
@@ -1250,22 +1235,21 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->rename
  */
-int32_t
-client_rename (call_frame_t *frame,
-               xlator_t *this,
-               loc_t *oldloc,
+
+int
+client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                loc_t *newloc)
 {
-	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	int                  ret = -1;
+	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_rename_req_t *req = NULL;
-	size_t hdrlen = 0;
-	size_t oldpathlen = 0;
-	size_t oldbaselen = 0;
-	size_t newpathlen = 0;
-	size_t newbaselen = 0;
-	ino_t  oldpar = 0;
-	ino_t  newpar = 0;
+	size_t               hdrlen = 0;
+	size_t               oldpathlen = 0;
+	size_t               oldbaselen = 0;
+	size_t               newpathlen = 0;
+	size_t               newbaselen = 0;
+	ino_t                oldpar = 0;
+	ino_t                newpar = 0;
 
 	oldpathlen = STRLEN_0(oldloc->path);
 	oldbaselen = STRLEN_0(oldloc->name);
@@ -1318,8 +1302,6 @@ unwind:
 
 }
 
-
-
 /**
  * client_link - link function for client protocol
  * @frame: call frame
@@ -1330,22 +1312,19 @@ unwind:
  * external reference through client_protocol_xlator->fops->link
  */
 
-int32_t
-client_link (call_frame_t *frame,
-             xlator_t *this,
-             loc_t *oldloc,
-             loc_t *newloc)
+int
+client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 {
-	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	int                ret = -1;
+	gf_hdr_common_t   *hdr = NULL;
 	gf_fop_link_req_t *req = NULL;
-	size_t hdrlen = 0;
-	size_t oldpathlen = 0;
-	size_t newpathlen = 0;
-	size_t newbaselen = 0;
-	ino_t  oldino = 0;
-	ino_t  newpar = 0;
-	client_local_t *local = NULL;
+	size_t             hdrlen = 0;
+	size_t             oldpathlen = 0;
+	size_t             newpathlen = 0;
+	size_t             newbaselen = 0;
+	ino_t              oldino = 0;
+	ino_t              newpar = 0;
+	client_local_t    *local = NULL;
 
 	local = calloc (1, sizeof (*local));
 	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
@@ -1401,8 +1380,6 @@ unwind:
 	return 0;
 }
 
-
-
 /**
  * client_chmod - chmod function for client protocol
  * @frame: call frame
@@ -1412,18 +1389,16 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->chmod
  */
-int32_t
-client_chmod (call_frame_t *frame,
-              xlator_t *this,
-              loc_t *loc,
-              mode_t mode)
+
+int
+client_chmod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_chmod_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	ino_t  ino = 0;
+	size_t              hdrlen = -1;
+	int                 ret = -1;
+	size_t              pathlen = 0;
+	ino_t               ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
 
@@ -1459,7 +1434,6 @@ unwind:
 
 }
 
-
 /**
  * client_chown - chown function for client protocol
  * @frame: call frame
@@ -1470,19 +1444,17 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->chown
  */
-int32_t
-client_chown (call_frame_t *frame,
-              xlator_t *this,
-              loc_t *loc,
-              uid_t uid,
+
+int
+client_chown (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid,
               gid_t gid)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_chown_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	ino_t  ino = 0;
+	size_t              hdrlen = -1;
+	int                 ret = -1;
+	size_t              pathlen = 0;
+	ino_t               ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
 
@@ -1528,18 +1500,16 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->truncate
  */
-int32_t
-client_truncate (call_frame_t *frame,
-                 xlator_t *this,
-                 loc_t *loc,
-                 off_t offset)
+
+int
+client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_truncate_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	ino_t  ino = 0;
+	size_t                 hdrlen = -1;
+	int                    ret = -1;
+	size_t                 pathlen = 0;
+	ino_t                  ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	ret = inode_ctx_get (loc->inode, this, &ino);
@@ -1574,8 +1544,6 @@ unwind:
 
 }
 
-
-
 /**
  * client_utimes - utimes function for client protocol
  * @frame: call frame
@@ -1585,18 +1553,17 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->utimes
  */
-int32_t
-client_utimens (call_frame_t *frame,
-                xlator_t *this,
-                loc_t *loc,
+
+int
+client_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 struct timespec *tvp)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_utimens_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	ino_t  ino = 0;
+	size_t                hdrlen = -1;
+	int                   ret = -1;
+	size_t                pathlen = 0;
+	ino_t                 ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	ret = inode_ctx_get (loc->inode, this, &ino);
@@ -1631,8 +1598,6 @@ unwind:
 
 }
 
-
-
 /**
  * client_readv - readv function for client protocol
  * @frame: call frame
@@ -1643,23 +1608,21 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->readv
  */
-int32_t
-client_readv (call_frame_t *frame,
-              xlator_t *this,
-              fd_t *fd,
-              size_t size,
+
+int
+client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
               off_t offset)
 {
-	gf_hdr_common_t *hdr = NULL;
-	gf_fop_read_req_t *req = NULL;
-	size_t hdrlen = 0;
-	int64_t remote_fd = -1;
-	int ret = -1;
+	gf_hdr_common_t    *hdr = NULL;
+	gf_fop_read_req_t  *req = NULL;
+	size_t              hdrlen = 0;
+	int64_t             remote_fd = -1;
+	int                 ret = -1;
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd, returning EBADFD",
+			"(%"PRId64"): failed to get remote fd, EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL, 0, NULL);
 		return 0;
@@ -1689,7 +1652,6 @@ unwind:
 
 }
 
-
 /**
  * client_writev - writev function for client protocol
  * @frame: call frame
@@ -1701,25 +1663,22 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->writev
  */
-int32_t
-client_writev (call_frame_t *frame,
-               xlator_t *this,
-               fd_t *fd,
-               struct iovec *vector,
-               int32_t count,
-               off_t offset,
+
+int
+client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
+               struct iovec *vector, int32_t count, off_t offset,
                struct iobref *iobref)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_write_req_t *req = NULL;
-	size_t  hdrlen = 0;
-	int64_t remote_fd = -1;
-	int     ret = -1;
+	size_t              hdrlen = 0;
+	int64_t             remote_fd = -1;
+	int                 ret = -1;
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD",
+			"(%"PRId64"): failed to get remote fd. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
@@ -1757,17 +1716,16 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->statfs
  */
-int32_t
-client_statfs (call_frame_t *frame,
-               xlator_t *this,
-               loc_t *loc)
+
+int
+client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_statfs_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	size_t pathlen = 0;
-	ino_t  ino = 0;
+	size_t               hdrlen = -1;
+	int                  ret = -1;
+	size_t               pathlen = 0;
+	ino_t                ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
         
@@ -1814,21 +1772,19 @@ unwind:
  * external reference through client_protocol_xlator->fops->flush
  */
 
-int32_t
-client_flush (call_frame_t *frame,
-              xlator_t *this,
-              fd_t *fd)
+int
+client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-	gf_hdr_common_t *hdr = NULL;
-	gf_fop_flush_req_t *req = NULL;
-	size_t hdrlen = 0;
-	int64_t remote_fd = -1;
-	int ret = -1;
+	gf_hdr_common_t     *hdr = NULL;
+	gf_fop_flush_req_t  *req = NULL;
+	size_t               hdrlen = 0;
+	int64_t              remote_fd = -1;
+	int                  ret = -1;
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD",
+			"(%"PRId64"): failed to get remote fd. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
@@ -1856,9 +1812,6 @@ unwind:
 
 }
 
-
-
-
 /**
  * client_fsync - fsync function for client protocol
  * @frame: call frame
@@ -1869,22 +1822,19 @@ unwind:
  * external reference through client_protocol_xlator->fops->fsync
  */
 
-int32_t
-client_fsync (call_frame_t *frame,
-              xlator_t *this,
-              fd_t *fd,
-              int32_t flags)
+int
+client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_fsync_req_t *req = NULL;
-	size_t hdrlen = 0;
-	int64_t remote_fd = -1;
-	int32_t ret = -1;
+	size_t              hdrlen = 0;
+	int64_t             remote_fd = -1;
+	int32_t             ret = -1;
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			"(%"PRId64"): failed to get remote fd. EBADFD", 
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
 		return 0;
@@ -1913,20 +1863,17 @@ unwind:
 
 }
 
-int32_t
-client_xattrop (call_frame_t *frame,
-		xlator_t *this,
-		loc_t *loc,
-		gf_xattrop_flags_t flags,
-		dict_t *dict)
+int
+client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
+		gf_xattrop_flags_t flags, dict_t *dict)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_xattrop_req_t *req = NULL;
-	size_t  hdrlen = 0;
-	size_t  dict_len = 0;
-	int32_t ret = -1;
-	size_t  pathlen = 0;
-	ino_t   ino = 0;
+	size_t                hdrlen = 0;
+	size_t                dict_len = 0;
+	int32_t               ret = -1;
+	size_t                pathlen = 0;
+	ino_t                 ino = 0;
 
 	GF_VALIDATE_OR_GOTO("client", this, unwind);
 
@@ -1986,20 +1933,17 @@ unwind:
 }
 
 
-int32_t
-client_fxattrop (call_frame_t *frame,
-		 xlator_t *this,
-		 fd_t *fd,
-		 gf_xattrop_flags_t flags,
-		 dict_t *dict)
+int
+client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
+		 gf_xattrop_flags_t flags, dict_t *dict)
 {
-	gf_hdr_common_t      *hdr = NULL;
+	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_fxattrop_req_t *req = NULL;
-	size_t  hdrlen = 0;
-	size_t  dict_len = 0;
-	int64_t remote_fd = -1;
-	int32_t ret = -1;
-	ino_t   ino = 0;
+	size_t                 hdrlen = 0;
+	size_t                 dict_len = 0;
+	int64_t                remote_fd = -1;
+	int32_t                ret = -1;
+	ino_t                  ino = 0;
 
 	if (dict) {
 		dict_len = dict_serialized_length (dict);
@@ -2015,7 +1959,8 @@ client_fxattrop (call_frame_t *frame,
 		ret = this_fd_get (fd, this, &remote_fd);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_TRACE,
-				"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+				"(%"PRId64"): failed to get remote fd. "
+                                "returning EBADFD", 
 				fd->inode->ino);
 			goto unwind;
 		}
@@ -2056,7 +2001,6 @@ unwind:
 
 }
 
-
 /**
  * client_setxattr - setxattr function for client protocol
  * @frame: call frame
@@ -2067,20 +2011,18 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->setxattr
  */
-int32_t
-client_setxattr (call_frame_t *frame,
-                 xlator_t *this,
-                 loc_t *loc,
-                 dict_t *dict,
-                 int32_t flags)
+
+int
+client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                 dict_t *dict, int32_t flags)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_setxattr_req_t *req = NULL;
-	size_t hdrlen = 0;
-	size_t dict_len = 0;
-	int    ret = -1;
-	size_t pathlen = 0;
-	ino_t  ino = 0;
+	size_t                 hdrlen = 0;
+	size_t                 dict_len = 0;
+	int                    ret = -1;
+	size_t                 pathlen = 0;
+	ino_t                  ino = 0;
 
 	dict_len = dict_serialized_length (dict);
 	if (dict_len < 0) {
@@ -2133,7 +2075,6 @@ unwind:
 	return 0;
 }
 
-
 /**
  * client_fsetxattr - fsetxattr function for client protocol
  * @frame: call frame
@@ -2144,20 +2085,18 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->fsetxattr
  */
-int32_t
-client_fsetxattr (call_frame_t *frame,
-                  xlator_t *this,
-                  fd_t *fd,
-                  dict_t *dict,
-                  int32_t flags)
+
+int
+client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                  dict_t *dict, int32_t flags)
 {
-	gf_hdr_common_t       *hdr = NULL;
+	gf_hdr_common_t        *hdr = NULL;
 	gf_fop_fsetxattr_req_t *req = NULL;
-	size_t hdrlen = 0;
-	size_t dict_len = 0;
-        ino_t  ino;
-	int    ret = -1;
-	int64_t remote_fd = -1;
+	size_t                  hdrlen = 0;
+	size_t                  dict_len = 0;
+        ino_t                   ino;
+	int                     ret = -1;
+	int64_t                 remote_fd = -1;
 
 	dict_len = dict_serialized_length (dict);
 	if (dict_len < 0) {
@@ -2170,7 +2109,7 @@ client_fsetxattr (call_frame_t *frame,
         ret = this_fd_get (fd, this, &remote_fd);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE,
-                        "(%"PRId64"): failed to get remote fd. returning EBADFD",
+                        "(%"PRId64"): failed to get remote fd. EBADFD",
                         fd->inode->ino);
                 goto unwind;
         }
@@ -2209,7 +2148,6 @@ unwind:
 	return 0;
 }
 
-
 /**
  * client_getxattr - getxattr function for client protocol
  * @frame: call frame
@@ -2218,19 +2156,18 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->getxattr
  */
-int32_t
-client_getxattr (call_frame_t *frame,
-                 xlator_t *this,
-                 loc_t *loc,
+
+int
+client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                  const char *name)
 {
-	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	int                    ret = -1;
+	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_getxattr_req_t *req = NULL;
-	size_t hdrlen = 0;
-	size_t pathlen = 0;
-	size_t namelen = 0;
-	ino_t  ino = 0;
+	size_t                 hdrlen = 0;
+	size_t                 pathlen = 0;
+	size_t                 namelen = 0;
+	ino_t                  ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	if (name)
@@ -2279,19 +2216,17 @@ unwind:
  * external reference through client_protocol_xlator->fops->fgetxattr
  */
 
-int32_t
-client_fgetxattr (call_frame_t *frame,
-                  xlator_t *this,
-                  fd_t *fd,
+int
+client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   const char *name)
 {
-	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	int                     ret = -1;
+	gf_hdr_common_t        *hdr = NULL;
 	gf_fop_fgetxattr_req_t *req = NULL;
-	size_t hdrlen = 0;
-        int64_t remote_fd = -1;
-	size_t namelen = 0;
-	ino_t  ino = 0;
+	size_t                  hdrlen = 0;
+        int64_t                 remote_fd = -1;
+	size_t                  namelen = 0;
+	ino_t                   ino = 0;
 
 	if (name)
 		namelen = STRLEN_0(name);
@@ -2299,7 +2234,7 @@ client_fgetxattr (call_frame_t *frame,
         ret = this_fd_get (fd, this, &remote_fd);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE,
-                        "(%"PRId64"): failed to get remote fd. returning EBADFD",
+                        "(%"PRId64"): failed to get remote fd. EBADFD",
                         fd->inode->ino);
                 goto unwind;
         }
@@ -2342,19 +2277,18 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->removexattr
  */
-int32_t
-client_removexattr (call_frame_t *frame,
-                    xlator_t *this,
-                    loc_t *loc,
+
+int
+client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                     const char *name)
 {
-	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	int                       ret = -1;
+	gf_hdr_common_t          *hdr = NULL;
 	gf_fop_removexattr_req_t *req = NULL;
-	size_t hdrlen = 0;
-	size_t namelen = 0;
-	size_t pathlen = 0;
-	ino_t  ino = 0;
+	size_t                    hdrlen = 0;
+	size_t                    namelen = 0;
+	size_t                    pathlen = 0;
+	ino_t                     ino = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	namelen = STRLEN_0(name);
@@ -2389,7 +2323,6 @@ unwind:
 	return 0;
 }
 
-
 /**
  * client_opendir - opendir function for client protocol
  * @frame: call frame
@@ -2398,19 +2331,18 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->opendir
  */
-int32_t
-client_opendir (call_frame_t *frame,
-                xlator_t *this,
-                loc_t *loc,
+
+int
+client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 fd_t *fd)
 {
 	gf_fop_opendir_req_t *req = NULL;
 	gf_hdr_common_t      *hdr = NULL;
-	size_t hdrlen = 0;
-	int    ret = -1;
-	ino_t  ino = 0;
-	size_t pathlen = 0;
-	client_local_t *local = NULL;
+	size_t                hdrlen = 0;
+	int                   ret = -1;
+	ino_t                 ino = 0;
+	size_t                pathlen = 0;
+	client_local_t       *local = NULL;
 
 	local = calloc (1, sizeof (*local));
 	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
@@ -2462,24 +2394,20 @@ unwind:
  * external reference through client_protocol_xlator->fops->readdir
  */
 
-int32_t
-client_getdents (call_frame_t *frame,
-                 xlator_t *this,
-                 fd_t *fd,
-                 size_t size,
-                 off_t offset,
-                 int32_t flag)
+int
+client_getdents (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                 size_t size, off_t offset, int32_t flag)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_getdents_req_t *req = NULL;
-	size_t hdrlen = 0;
-	int64_t remote_fd = -1;
-	int ret = -1;
+	size_t                 hdrlen = 0;
+	int64_t                remote_fd = -1;
+	int                    ret = -1;
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			"(%"PRId64"): failed to get remote fd. EBADFD", 
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
@@ -2516,23 +2444,20 @@ unwind:
  * external reference through client_protocol_xlator->fops->readdir
  */
 
-int32_t
-client_readdir (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
-		size_t size,
+int
+client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 		off_t offset)
 {
-	gf_hdr_common_t *hdr = NULL;
-	gf_fop_readdir_req_t *req = NULL;
-	size_t hdrlen = 0;
-	int64_t remote_fd = -1;
-	int ret = -1;
+	gf_hdr_common_t       *hdr = NULL;
+	gf_fop_readdir_req_t  *req = NULL;
+	size_t                 hdrlen = 0;
+	int64_t                remote_fd = -1;
+	int                    ret = -1;
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			"(%"PRId64"): failed to get remote fd. EBADFD", 
 			fd->inode->ino);
 		goto unwind;
 	}
@@ -2562,8 +2487,6 @@ unwind:
 
 }
 
-
-
 /**
  * client_fsyncdir - fsyncdir function for client protocol
  * @frame: call frame
@@ -2574,22 +2497,19 @@ unwind:
  * external reference through client_protocol_xlator->fops->fsyncdir
  */
 
-int32_t
-client_fsyncdir (call_frame_t *frame,
-                 xlator_t *this,
-                 fd_t *fd,
-                 int32_t flags)
+int
+client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_fsyncdir_req_t *req = NULL;
-	size_t hdrlen = 0;
-	int64_t remote_fd = -1;
-	int32_t ret = -1;
+	size_t                 hdrlen = 0;
+	int64_t                remote_fd = -1;
+	int32_t                ret = -1;
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			"(%"PRId64"): failed to get remote fd. EBADFD", 
 			fd->inode->ino);
 		goto unwind;
 	}
@@ -2614,7 +2534,6 @@ unwind:
 	return 0;
 }
 
-
 /**
  * client_access - access function for client protocol
  * @frame: call frame
@@ -2624,18 +2543,16 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->access
  */
-int32_t
-client_access (call_frame_t *frame,
-               xlator_t *this,
-               loc_t *loc,
-               int32_t mask)
+
+int
+client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_access_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	ino_t  ino = 0;
-	size_t pathlen = 0;
+	size_t               hdrlen = -1;
+	int                  ret = -1;
+	ino_t                ino = 0;
+	size_t               pathlen = 0;
 
 	ret = inode_ctx_get (loc->inode, this, &ino);
 	if (loc->inode->ino && ret < 0) {
@@ -2672,7 +2589,6 @@ unwind:
 
 }
 
-
 /**
  * client_ftrucate - ftruncate function for client protocol
  * @frame: call frame
@@ -2683,22 +2599,20 @@ unwind:
  * external reference through client_protocol_xlator->fops->ftruncate
  */
 
-int32_t
-client_ftruncate (call_frame_t *frame,
-                  xlator_t *this,
-                  fd_t *fd,
+int
+client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   off_t offset)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t        *hdr = NULL;
 	gf_fop_ftruncate_req_t *req = NULL;
-	int64_t remote_fd = -1;
-	size_t hdrlen = -1;
-	int ret = -1;
+	int64_t                 remote_fd = -1;
+	size_t                  hdrlen = -1;
+	int                     ret = -1;
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			"(%"PRId64"): failed to get remote fd. EBADFD", 
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
@@ -2728,7 +2642,6 @@ unwind:
 
 }
 
-
 /**
  * client_fstat - fstat function for client protocol
  * @frame: call frame
@@ -2738,21 +2651,19 @@ unwind:
  * external reference through client_protocol_xlator->fops->fstat
  */
 
-int32_t
-client_fstat (call_frame_t *frame,
-              xlator_t *this,
-              fd_t *fd)
+int
+client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_fstat_req_t *req = NULL;
-	int64_t remote_fd = -1;
-	size_t hdrlen = -1;
-	int ret = -1;
+	int64_t             remote_fd = -1;
+	size_t              hdrlen = -1;
+	int                 ret = -1;
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD",
+			"(%"PRId64"): failed to get remote fd. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
@@ -2781,7 +2692,6 @@ unwind:
 
 }
 
-
 /**
  * client_lk - lk function for client protocol
  * @frame: call frame
@@ -2792,25 +2702,23 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->lk
  */
-int32_t
-client_lk (call_frame_t *frame,
-           xlator_t *this,
-           fd_t *fd,
-           int32_t cmd,
+
+int
+client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
            struct flock *flock)
 {
-	int ret = -1;
+	int              ret = -1;
 	gf_hdr_common_t *hdr = NULL;
 	gf_fop_lk_req_t *req = NULL;
-	size_t hdrlen = 0;
-	int64_t remote_fd = -1;
-	int32_t gf_cmd = 0;
-	int32_t gf_type = 0;
+	size_t           hdrlen = 0;
+	int64_t          remote_fd = -1;
+	int32_t          gf_cmd = 0;
+	int32_t          gf_type = 0;
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD",
+			"(%"PRId64"): failed to get remote fd. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD, NULL);
 		return 0;
@@ -2864,7 +2772,6 @@ unwind:
 	return 0;
 }
 
-
 /**
  * client_inodelk - inodelk function for client protocol
  * @frame: call frame
@@ -2875,23 +2782,20 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->inodelk
  */
-int32_t
-client_inodelk (call_frame_t *frame,
-		xlator_t *this,
-                const char *volume,
-		loc_t *loc,
-		int32_t cmd,
-		struct flock *flock)
+
+int
+client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
+		loc_t *loc, int32_t cmd, struct flock *flock)
 {
-	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	int                   ret = -1;
+	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_inodelk_req_t *req = NULL;
-	size_t hdrlen = 0;
-	int32_t gf_cmd = 0;
-	int32_t gf_type = 0;
-	ino_t   ino  = 0;
-	size_t  pathlen = 0;
-        size_t  vollen  = 0;
+	size_t                hdrlen = 0;
+	int32_t               gf_cmd = 0;
+	int32_t               gf_type = 0;
+	ino_t                 ino  = 0;
+	size_t                pathlen = 0;
+        size_t                vollen  = 0;
 
 	pathlen = STRLEN_0(loc->path);
         vollen  = STRLEN_0(volume);
@@ -2970,29 +2874,26 @@ unwind:
  *
  * external reference through client_protocol_xlator->fops->finodelk
  */
-int32_t
-client_finodelk (call_frame_t *frame,
-		 xlator_t *this,
-                 const char *volume,
-		 fd_t *fd,
-		 int32_t cmd,
-		 struct flock *flock)
+
+int
+client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
+		 fd_t *fd, int32_t cmd, struct flock *flock)
 {
-	int ret = -1;
-	gf_hdr_common_t *hdr = NULL;
+	int                    ret = -1;
+	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_finodelk_req_t *req = NULL;
-	size_t hdrlen = 0;
-        size_t vollen = 0;
-	int32_t gf_cmd = 0;
-	int32_t gf_type = 0;
-	int64_t remote_fd = -1;
+	size_t                 hdrlen = 0;
+        size_t                 vollen = 0;
+	int32_t                gf_cmd = 0;
+	int32_t                gf_type = 0;
+	int64_t                remote_fd = -1;
 
         vollen = STRLEN_0(volume);
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			"(%"PRId64"): failed to get remote fd. EBADFD", 
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
 		return 0;
@@ -3051,23 +2952,19 @@ unwind:
 }
 
 
-int32_t
-client_entrylk (call_frame_t *frame,
-		xlator_t *this,
-                const char *volume,
-		loc_t *loc,
-		const char *name,
-		entrylk_cmd cmd,
-		entrylk_type type)
+int
+client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
+		loc_t *loc, const char *name, entrylk_cmd cmd,
+                entrylk_type type)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_entrylk_req_t *req = NULL;
-	size_t pathlen = 0;
-        size_t vollen  = 0;
-	size_t hdrlen = -1;
-	int ret = -1;
-	ino_t ino = 0;
-	size_t namelen = 0;
+	size_t                pathlen = 0;
+        size_t                vollen  = 0;
+	size_t                hdrlen = -1;
+	int                   ret = -1;
+	ino_t                 ino = 0;
+	size_t                namelen = 0;
 
 	pathlen = STRLEN_0(loc->path);
         vollen  = STRLEN_0(volume);
@@ -3116,22 +3013,18 @@ unwind:
 }
 
 
-int32_t
-client_fentrylk (call_frame_t *frame,
-		 xlator_t *this,
-                 const char *volume,
-		 fd_t *fd,
-		 const char *name,
-		 entrylk_cmd cmd,
-		 entrylk_type type)
+int
+client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
+		 fd_t *fd, const char *name, entrylk_cmd cmd,
+                 entrylk_type type)
 {
-	gf_hdr_common_t *hdr = NULL;
-	gf_fop_fentrylk_req_t *req = NULL;
-	int64_t remote_fd = -1;
-        size_t vollen  = 0;
-	size_t namelen = 0;
-	size_t hdrlen = -1;
-	int ret = -1;
+	gf_hdr_common_t        *hdr = NULL;
+	gf_fop_fentrylk_req_t  *req = NULL;
+	int64_t                 remote_fd = -1;
+        size_t                  vollen  = 0;
+	size_t                  namelen = 0;
+	size_t                  hdrlen = -1;
+	int                     ret = -1;
 
 	if (name)
 		namelen = STRLEN_0(name);
@@ -3141,7 +3034,7 @@ client_fentrylk (call_frame_t *frame,
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			"(%"PRId64"): failed to get remote fd. EBADFD", 
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
 		return 0;
@@ -3178,7 +3071,6 @@ unwind:
 	return 0;
 }
 
-
 /*
  * client_lookup - lookup function for client protocol
  * @frame: call frame
@@ -3187,24 +3079,23 @@ unwind:
  *
  * not for external reference
  */
-int32_t
-client_lookup (call_frame_t *frame,
-               xlator_t *this,
-               loc_t *loc,
+
+int
+client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                dict_t *xattr_req)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_lookup_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int    ret = -1;
-	ino_t  ino = 0;
-	ino_t  par = 0;
-	size_t dictlen = 0;
-	size_t pathlen = 0;
-	size_t baselen = 0;
-	int32_t op_ret = -1;
-	int32_t op_errno = EINVAL;
-	client_local_t *local = NULL;
+	size_t               hdrlen = -1;
+	int                  ret = -1;
+	ino_t                ino = 0;
+	ino_t                par = 0;
+	size_t               dictlen = 0;
+	size_t               pathlen = 0;
+	size_t               baselen = 0;
+	int32_t              op_ret = -1;
+	int32_t              op_errno = EINVAL;
+	client_local_t      *local = NULL;
 
 	local = calloc (1, sizeof (*local));
 	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
@@ -3256,7 +3147,8 @@ client_lookup (call_frame_t *frame,
 		strcpy (req->path + pathlen, loc->name);
 	
 	if (dictlen) {
-		ret = dict_serialize (xattr_req, req->dict + baselen + pathlen);
+		ret = dict_serialize (xattr_req,
+                                      req->dict + baselen + pathlen);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to serialize dictionary(%p)",
@@ -3279,24 +3171,16 @@ unwind:
 }
 
 
-
-/*
- * client_fchmod
- *
- */
-int32_t
-client_fchmod (call_frame_t *frame,
-               xlator_t *this,
-               fd_t *fd,
-               mode_t mode)
+int
+client_fchmod (call_frame_t *frame, xlator_t *this, fd_t *fd, mode_t mode)
 {
-	gf_hdr_common_t *hdr = NULL;
-	gf_fop_fchmod_req_t *req = NULL;
-	int64_t remote_fd = -1;
-	size_t hdrlen = -1;
-	int ret = -1;
-	int32_t op_errno = EINVAL;
-	int32_t op_ret   = -1;
+	gf_hdr_common_t      *hdr = NULL;
+	gf_fop_fchmod_req_t  *req = NULL;
+	int64_t               remote_fd = -1;
+	size_t                hdrlen = -1;
+	int                   ret = -1;
+	int32_t               op_errno = EINVAL;
+	int32_t               op_ret   = -1;
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
@@ -3304,7 +3188,7 @@ client_fchmod (call_frame_t *frame,
 	if (ret == -1) {
 		op_errno = EBADFD;
 		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			"(%"PRId64"): failed to get remote fd. EBADFD", 
 			fd->inode->ino);
 		goto unwind;
 	}
@@ -3331,30 +3215,17 @@ unwind:
 }
 
 
-/*
- * client_fchown -
- *
- * @frame:
- * @this:
- * @fd:
- * @uid:
- * @gid:
- *
- */
-int32_t
-client_fchown (call_frame_t *frame,
-               xlator_t *this,
-               fd_t *fd,
-               uid_t uid,
+int
+client_fchown (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid,
                gid_t gid)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_fchown_req_t *req = NULL;
-	int64_t remote_fd = 0;
-	size_t  hdrlen   = -1;
-	int32_t op_ret   = -1;
-	int32_t op_errno = EINVAL;
-	int32_t ret      = -1;
+	int64_t              remote_fd = 0;
+	size_t               hdrlen   = -1;
+	int32_t              op_ret   = -1;
+	int32_t              op_errno = EINVAL;
+	int32_t              ret      = -1;
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
@@ -3362,7 +3233,7 @@ client_fchown (call_frame_t *frame,
 	if (ret == -1) {
 		op_errno = EBADFD;
 		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			"(%"PRId64"): failed to get remote fd. EBADFD", 
 			fd->inode->ino);
 		goto unwind;
 	}
@@ -3390,39 +3261,33 @@ unwind:
 
 }
 
-/**
- * client_setdents -
- */
-int32_t
-client_setdents (call_frame_t *frame,
-                 xlator_t *this,
-                 fd_t *fd,
-                 int32_t flags,
-                 dir_entry_t *entries,
-                 int32_t count)
+
+int
+client_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
+                 dir_entry_t *entries, int32_t count)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_setdents_req_t *req = NULL;
-	int64_t remote_fd = 0;
-	char *ptr = NULL;
-	dir_entry_t *trav = NULL;
-	uint32_t len = 0;
-	int32_t  buf_len = 0;
-	int32_t  ret = -1;
-	int32_t  op_ret = -1;
-	int32_t  op_errno = EINVAL;
-	int32_t  vec_count = 0;
-	size_t   hdrlen = -1;
-	struct iovec vector[1];
-        struct iobref *iobref = NULL;
-        struct iobuf *iobuf = NULL;
+	int64_t                remote_fd = 0;
+	char                  *ptr = NULL;
+	dir_entry_t           *trav = NULL;
+	uint32_t               len = 0;
+	int32_t                buf_len = 0;
+	int32_t                ret = -1;
+	int32_t                op_ret = -1;
+	int32_t                op_errno = EINVAL;
+	int32_t                vec_count = 0;
+	size_t                 hdrlen = -1;
+	struct iovec           vector[1];
+        struct iobref         *iobref = NULL;
+        struct iobuf          *iobuf = NULL;
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
 	ret = this_fd_get (fd, this, &remote_fd);
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get remote fd. returning EBADFD", 
+			"(%"PRId64"): failed to get remote fd. EBADFD", 
 			fd->inode->ino);
 		op_errno = EBADFD;
 		goto unwind;
@@ -3471,29 +3336,14 @@ client_setdents (call_frame_t *frame,
 			uint32_t mtime_nsec = ST_MTIM_NSEC(stbuf);
 			uint32_t ctime_nsec = ST_CTIM_NSEC(stbuf);
 
-			asprintf (&tmp_buf,
-				  GF_STAT_PRINT_FMT_STR,
-				  dev,
-				  ino,
-				  mode,
-				  nlink,
-				  uid,
-				  gid,
-				  rdev,
-				  size,
-				  blksize,
-				  blocks,
-				  atime,
-				  atime_nsec,
-				  mtime,
-				  mtime_nsec,
-				  ctime,
-				  ctime_nsec);
+			asprintf (&tmp_buf, GF_STAT_PRINT_FMT_STR,
+				  dev, ino, mode, nlink, uid, gid,
+				  rdev, size, blksize, blocks,
+				  atime, atime_nsec, mtime, mtime_nsec,
+				  ctime, ctime_nsec);
 		}
 		this_len = sprintf (ptr, "%s/%s%s\n",
-				    trav->name,
-				    tmp_buf,
-				    trav->link);
+				    trav->name, tmp_buf, trav->link);
 
 		FREE (tmp_buf);
 		trav = trav->next;
@@ -3549,15 +3399,14 @@ unwind:
  *
  * not for external reference
  */
-int32_t
-client_forget (xlator_t *this,
-               inode_t *inode)
+int
+client_forget (xlator_t *this, inode_t *inode)
 {
-	ino_t            ino = 0;
-	client_conf_t *conf = NULL;
-	client_forget_t  forget = {0,};
-	uint8_t          send_forget = 0;
-	int32_t          ret = -1;
+	ino_t             ino = 0;
+	client_conf_t    *conf = NULL;
+	client_forget_t   forget = {0,};
+	uint8_t           send_forget = 0;
+	int32_t           ret = -1;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	conf = this->private;
@@ -3607,7 +3456,7 @@ out:
  * external reference through client_protocol_xlator->cbks->releasedir
  */
 
-int32_t
+int
 client_releasedir (xlator_t *this, fd_t *fd)
 {
 	call_frame_t            *fr = NULL;
@@ -3736,15 +3585,13 @@ out:
  * external reference through client_protocol_xlator->mops->stats
  */
 
-int32_t
-client_stats (call_frame_t *frame,
-              xlator_t *this,
-              int32_t flags)
+int
+client_stats (call_frame_t *frame, xlator_t *this, int32_t flags)
 {
-	gf_hdr_common_t *hdr = NULL;
-	gf_mop_stats_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int ret = -1;
+	gf_hdr_common_t     *hdr = NULL;
+	gf_mop_stats_req_t  *req = NULL;
+	size_t               hdrlen = -1;
+	int                  ret = -1;
 
 	GF_VALIDATE_OR_GOTO ("client", this, unwind);
 
@@ -3770,19 +3617,18 @@ unwind:
 
 /* Callbacks */
 
-int32_t
-client_fxattrop_cbk (call_frame_t *frame,
-		     gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_fxattrop_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		     struct iobuf *iobuf)
 {
 	gf_fop_xattrop_rsp_t *rsp = NULL;
-	int32_t op_ret   = 0;
-	int32_t gf_errno = 0;
-	int32_t op_errno = 0;
-	int32_t dict_len = 0;
-	dict_t *dict = NULL;
-	int32_t ret = -1;
-	char *dictbuf = NULL;
+	int32_t               op_ret   = 0;
+	int32_t               gf_errno = 0;
+	int32_t               op_errno = 0;
+	int32_t               dict_len = 0;
+	dict_t               *dict = NULL;
+	int32_t               ret = -1;
+	char                 *dictbuf = NULL;
 
 	rsp = gf_param (hdr);
 	GF_VALIDATE_OR_GOTO(frame->this->name, rsp, fail);
@@ -3829,19 +3675,19 @@ fail:
 	return 0;
 }
 
-int32_t
-client_xattrop_cbk (call_frame_t *frame,
-		    gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_xattrop_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		    struct iobuf *iobuf)
 {
 	gf_fop_xattrop_rsp_t *rsp = NULL;
-	int32_t op_ret   = -1;
-	int32_t gf_errno = EINVAL;
-	int32_t op_errno = 0;
-	int32_t dict_len = 0;
-	dict_t *dict = NULL;
-	int32_t ret = -1;
-	char *dictbuf = NULL;
+	int32_t               op_ret   = -1;
+	int32_t               gf_errno = EINVAL;
+	int32_t               op_errno = 0;
+	int32_t               dict_len = 0;
+	dict_t               *dict = NULL;
+	int32_t               ret = -1;
+	char                 *dictbuf = NULL;
 
 	rsp = gf_param (hdr);
 	GF_VALIDATE_OR_GOTO(frame->this->name, rsp, fail);
@@ -3895,15 +3741,15 @@ fail:
  *
  * not for external reference
  */
-int32_t
-client_fchown_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_fchown_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
+	struct stat          stbuf = {0, };
 	gf_fop_fchown_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t              op_ret = 0;
+	int32_t              op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -3920,23 +3766,14 @@ client_fchown_cbk (call_frame_t *frame,
 }
 
 
-/*
- * client_fchmod_cbk
- *
- * @frame:
- * @args:
- *
- * not for external reference
- */
-int32_t
-client_fchmod_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_fchmod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
+	struct stat          stbuf = {0, };
 	gf_fop_fchmod_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t              op_ret = 0;
+	int32_t              op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -3962,8 +3799,7 @@ client_fchmod_cbk (call_frame_t *frame,
  */
 
 int
-client_create_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
+client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
 	gf_fop_create_rsp_t  *rsp = NULL;
@@ -3994,11 +3830,12 @@ client_create_cbk (call_frame_t *frame,
 	}
 
 	if (op_ret >= 0) {
-                ret = inode_ctx_put (local->loc.inode, frame->this, stbuf.st_ino);
+                ret = inode_ctx_put (local->loc.inode, frame->this,
+                                     stbuf.st_ino);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "CREATE %"PRId64"/%s (%s): failed to set remote"
-                                " inode number to inode ctx",
+                                "CREATE %"PRId64"/%s (%s): failed to set "
+                                "remote inode number to inode ctx",
                                 local->loc.parent->ino, local->loc.name,
                                 local->loc.path);
                 }
@@ -4036,9 +3873,8 @@ client_create_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_open_cbk (call_frame_t *frame,
-                 gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_open_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
 	int32_t              op_ret = -1;
@@ -4099,9 +3935,9 @@ client_open_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
+
 int
-client_stat_cbk (call_frame_t *frame,
-                 gf_hdr_common_t *hdr, size_t hdrlen,
+client_stat_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
 	struct stat        stbuf = {0, };
@@ -4131,15 +3967,14 @@ client_stat_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-client_utimens_cbk (call_frame_t *frame,
-                    gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_utimens_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
+	struct stat           stbuf = {0, };
 	gf_fop_utimens_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t               op_ret = 0;
+	int32_t               op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4162,15 +3997,15 @@ client_utimens_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_chmod_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_chmod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
+	struct stat         stbuf = {0, };
 	gf_fop_chmod_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t             op_ret = 0;
+	int32_t             op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4193,15 +4028,15 @@ client_chmod_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_chown_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_chown_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
+	struct stat         stbuf = {0, };
 	gf_fop_chown_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t             op_ret = 0;
+	int32_t             op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4224,18 +4059,18 @@ client_chown_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_mknod_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_mknod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
 	gf_fop_mknod_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	struct stat stbuf = {0, };
-	inode_t *inode = NULL;
-	client_local_t *local = NULL;
-        int ret = 0;
+	int32_t             op_ret = 0;
+	int32_t             op_errno = 0;
+	struct stat         stbuf = {0, };
+	inode_t            *inode = NULL;
+	client_local_t     *local = NULL;
+        int                 ret = 0;
 
 	local = frame->local;
 	frame->local = NULL;
@@ -4249,7 +4084,8 @@ client_mknod_cbk (call_frame_t *frame,
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 
-                ret = inode_ctx_put (local->loc.inode, frame->this, stbuf.st_ino);
+                ret = inode_ctx_put (local->loc.inode, frame->this,
+                                     stbuf.st_ino);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "MKNOD %"PRId64"/%s (%s): failed to set remote"
@@ -4273,18 +4109,18 @@ client_mknod_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_symlink_cbk (call_frame_t *frame,
-                    gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_symlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
 {
 	gf_fop_symlink_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	struct stat stbuf = {0, };
-	inode_t *inode = NULL;
-	client_local_t *local = NULL;
-        int ret = 0;
+	int32_t               op_ret = 0;
+	int32_t               op_errno = 0;
+	struct stat           stbuf = {0, };
+	inode_t              *inode = NULL;
+	client_local_t       *local = NULL;
+        int                   ret = 0;
 
 	local = frame->local;
 	frame->local = NULL;
@@ -4323,17 +4159,17 @@ client_symlink_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_link_cbk (call_frame_t *frame,
-                 gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_link_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
 	gf_fop_link_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	struct stat stbuf = {0, };
-	inode_t *inode = NULL;
-	client_local_t *local = NULL;
+	int32_t            op_ret = 0;
+	int32_t            op_errno = 0;
+	struct stat        stbuf = {0, };
+	inode_t           *inode = NULL;
+	client_local_t    *local = NULL;
 
 	local = frame->local;
 	frame->local = NULL;
@@ -4363,15 +4199,14 @@ client_link_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-client_truncate_cbk (call_frame_t *frame,
-                     gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_truncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
+	struct stat            stbuf = {0, };
 	gf_fop_truncate_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t                op_ret = 0;
+	int32_t                op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4394,15 +4229,14 @@ client_truncate_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-client_fstat_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_fstat_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
+	struct stat         stbuf = {0, };
 	gf_fop_fstat_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t             op_ret = 0;
+	int32_t             op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4425,15 +4259,14 @@ client_fstat_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_ftruncate_cbk (call_frame_t *frame,
-                      gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_ftruncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                       struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
+	struct stat             stbuf = {0, };
 	gf_fop_ftruncate_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t                 op_ret = 0;
+	int32_t                 op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4449,6 +4282,7 @@ client_ftruncate_cbk (call_frame_t *frame,
 	return 0;
 }
 
+
 /* client_readv_cbk - readv callback for client protocol
  * @frame: call frame
  * @args: argument dictionary
@@ -4456,17 +4290,16 @@ client_ftruncate_cbk (call_frame_t *frame,
  * not for external referece
  */
 
-int32_t
-client_readv_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_readv_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-	gf_fop_read_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	struct iovec vector = {0, };
-	struct stat stbuf = {0, };
-        struct iobref *iobref = NULL;
+	gf_fop_read_rsp_t  *rsp = NULL;
+	int32_t             op_ret = 0;
+	int32_t             op_errno = 0;
+	struct iovec        vector = {0, };
+	struct stat         stbuf = {0, };
+        struct iobref      *iobref = NULL;
 
 	rsp = gf_param (hdr);
 
@@ -4503,15 +4336,14 @@ client_readv_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-client_write_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_write_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
 	gf_fop_write_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	struct stat stbuf = {0, };
+	int32_t             op_ret = 0;
+	int32_t             op_errno = 0;
+	struct stat         stbuf = {0, };
 
 	rsp = gf_param (hdr);
 
@@ -4527,16 +4359,15 @@ client_write_cbk (call_frame_t *frame,
 }
 
 
-int32_t
-client_readdir_cbk (call_frame_t *frame,
-                    gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_readdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
 {
 	gf_fop_readdir_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	uint32_t buf_size = 0;
-	gf_dirent_t entries;
+	int32_t               op_ret = 0;
+	int32_t               op_errno = 0;
+	uint32_t              buf_size = 0;
+	gf_dirent_t           entries;
 
 	rsp = gf_param (hdr);
 
@@ -4564,15 +4395,15 @@ client_readdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_fsync_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_fsync_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
+	struct stat         stbuf = {0, };
 	gf_fop_fsync_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t             op_ret = 0;
+	int32_t             op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4584,7 +4415,6 @@ client_fsync_cbk (call_frame_t *frame,
 	return 0;
 }
 
-
 /*
  * client_unlink_cbk - unlink callback for client protocol
  * @frame: call frame
@@ -4592,14 +4422,14 @@ client_fsync_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_unlink_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_unlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
 	gf_fop_unlink_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t              op_ret = 0;
+	int32_t              op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4618,15 +4448,15 @@ client_unlink_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_rename_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_rename_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
+	struct stat          stbuf = {0, };
 	gf_fop_rename_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t              op_ret = 0;
+	int32_t              op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4651,15 +4481,14 @@ client_rename_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_readlink_cbk (call_frame_t *frame,
-                     gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_readlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
 {
 	gf_fop_readlink_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	char *link = NULL;
+	int32_t                op_ret = 0;
+	int32_t                op_errno = 0;
+	char                  *link = NULL;
 
 	rsp = gf_param (hdr);
 
@@ -4681,18 +4510,18 @@ client_readlink_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_mkdir_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_mkdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
 	gf_fop_mkdir_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	struct stat stbuf = {0, };
-	inode_t *inode = NULL;
-	client_local_t *local = NULL;
-        int ret = 0;
+	int32_t             op_ret = 0;
+	int32_t             op_errno = 0;
+	struct stat         stbuf = {0, };
+	inode_t            *inode = NULL;
+	client_local_t     *local = NULL;
+        int                 ret = 0;
 
 	local = frame->local;
 	inode = local->loc.inode;
@@ -4732,9 +4561,8 @@ client_mkdir_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-client_flush_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_flush_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
 	int32_t op_ret = 0;
@@ -4748,7 +4576,6 @@ client_flush_cbk (call_frame_t *frame,
 	return 0;
 }
 
-
 /*
  * client_opendir_cbk - opendir callback for client protocol
  * @frame: call frame
@@ -4756,9 +4583,9 @@ client_flush_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
+
 int
-client_opendir_cbk (call_frame_t *frame,
-                    gf_hdr_common_t *hdr, size_t hdrlen,
+client_opendir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
 {
 	int32_t               op_ret   = -1;
@@ -4811,7 +4638,6 @@ client_opendir_cbk (call_frame_t *frame,
 	return 0;
 }
 
-
 /*
  * client_rmdir_cbk - rmdir callback for client protocol
  * @frame: call frame
@@ -4821,13 +4647,12 @@ client_opendir_cbk (call_frame_t *frame,
  */
 
 int
-client_rmdir_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+client_rmdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
 	gf_fop_rmdir_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t             op_ret = 0;
+	int32_t             op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4846,14 +4671,14 @@ client_rmdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_access_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_access_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
 	gf_fop_access_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t              op_ret = 0;
+	int32_t              op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -4865,8 +4690,6 @@ client_access_cbk (call_frame_t *frame,
 	return 0;
 }
 
-
-
 /*
  * client_lookup_cbk - lookup callback for client protocol
  *
@@ -4875,23 +4698,23 @@ client_access_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_lookup_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
-	struct stat stbuf = {0, };
-	inode_t *inode = NULL;
-	dict_t *xattr = NULL;
+	struct stat          stbuf = {0, };
+	inode_t             *inode = NULL;
+	dict_t              *xattr = NULL;
 	gf_fop_lookup_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	size_t dict_len = 0;
-	char *dictbuf = NULL;
-	int32_t ret = -1;
-	int32_t gf_errno = 0;
-	client_local_t *local = NULL;
-        ino_t oldino = 0;
+	int32_t              op_ret = 0;
+	int32_t              op_errno = 0;
+	size_t               dict_len = 0;
+	char                *dictbuf = NULL;
+	int32_t              ret = -1;
+	int32_t              gf_errno = 0;
+	client_local_t      *local = NULL;
+        ino_t                oldino = 0;
 
 	local = frame->local; 
 	inode = local->loc.inode;
@@ -4942,7 +4765,8 @@ client_lookup_cbk (call_frame_t *frame,
 			ret = dict_unserialize (dictbuf, dict_len, &xattr);
 			if (ret < 0) {
 				gf_log (frame->this->name, GF_LOG_DEBUG,
-					"%s (%"PRId64"): failed to unserialize dictionary",
+					"%s (%"PRId64"): failed to "
+                                        "unserialize dictionary",
 					local->loc.path, inode->ino);
 				goto fail;
 			} else {
@@ -4972,12 +4796,16 @@ fail:
 static dir_entry_t *
 gf_bin_to_direntry (char *buf, size_t count)
 {
-	int32_t idx = 0, bread = 0;
-	size_t rcount = 0;
-	char *ender = NULL, *buffer = NULL;
-	char tmp_buf[512] = {0,};
-	dir_entry_t *trav = NULL, *prev = NULL;
-	dir_entry_t *thead = NULL, *head = NULL;
+	int           idx = 0;
+        int           bread = 0;
+	size_t        rcount = 0;
+	char         *ender = NULL;
+        char         *buffer = NULL;
+	char          tmp_buf[512] = {0,};
+	dir_entry_t  *trav = NULL;
+        dir_entry_t  *prev = NULL;
+	dir_entry_t  *thead = NULL;
+        dir_entry_t  *head = NULL;
 
 	thead = CALLOC (1, sizeof (dir_entry_t));
 	GF_VALIDATE_OR_GOTO("client-protocol", thead, fail);
@@ -5033,10 +4861,12 @@ fail:
 	return head;
 }
 
-int32_t
-gf_free_direntry(dir_entry_t *head)
+
+int
+gf_free_direntry (dir_entry_t *head)
 {
-	dir_entry_t *prev = NULL, *trav = NULL;
+	dir_entry_t *prev = NULL;
+        dir_entry_t *trav = NULL;
 
 	prev = head;
 	GF_VALIDATE_OR_GOTO("client-protocol", prev, fail);
@@ -5054,6 +4884,7 @@ gf_free_direntry(dir_entry_t *head)
 fail:
 	return 0;
 }
+
 /*
  * client_getdents_cbk - readdir callback for client protocol
  * @frame: call frame
@@ -5061,17 +4892,17 @@ fail:
  *
  * not for external reference
  */
-int32_t
-client_getdents_cbk (call_frame_t *frame,
-                     gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_getdents_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
 {
 	gf_fop_getdents_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	int32_t gf_errno = 0;
-	int32_t nr_count = 0;
-	dir_entry_t *entry = NULL;
+	int32_t                op_ret = 0;
+	int32_t                op_errno = 0;
+	int32_t                gf_errno = 0;
+	int32_t                nr_count = 0;
+	dir_entry_t           *entry = NULL;
 
 	rsp = gf_param (hdr);
 
@@ -5105,23 +4936,22 @@ client_getdents_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_statfs_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_statfs_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
-	struct statvfs stbuf = {0, };
+	struct statvfs       stbuf = {0, };
 	gf_fop_statfs_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t              op_ret = 0;
+	int32_t              op_errno = 0;
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret == 0)
-	{
+	if (op_ret == 0) {
 		gf_statfs_to_statfs (&rsp->statfs, &stbuf);
 	}
 
@@ -5137,9 +4967,9 @@ client_statfs_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_fsyncdir_cbk (call_frame_t *frame,
-                     gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_fsyncdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
 {
 	int32_t op_ret = 0;
@@ -5160,14 +4990,14 @@ client_fsyncdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_setxattr_cbk (call_frame_t *frame,
-                     gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_setxattr_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
 {
 	gf_fop_setxattr_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t                op_ret = 0;
+	int32_t                op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -5186,20 +5016,20 @@ client_setxattr_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_getxattr_cbk (call_frame_t *frame,
-                     gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_getxattr_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
 {
 	gf_fop_getxattr_rsp_t *rsp = NULL;
-	int32_t op_ret   = 0;
-	int32_t gf_errno = 0;
-	int32_t op_errno = 0;
-	int32_t dict_len = 0;
-	dict_t *dict = NULL;
-	int32_t ret = -1;
-	char *dictbuf = NULL;
-	client_local_t *local = NULL;
+	int32_t                op_ret   = 0;
+	int32_t                gf_errno = 0;
+	int32_t                op_errno = 0;
+	int32_t                dict_len = 0;
+	dict_t                *dict = NULL;
+	int32_t                ret = -1;
+	char                  *dictbuf = NULL;
+	client_local_t        *local = NULL;
 	
 	local = frame->local;
 	frame->local = NULL;
@@ -5225,7 +5055,8 @@ client_getxattr_cbk (call_frame_t *frame,
 				gf_log (frame->this->name, GF_LOG_DEBUG,
 					"%s (%"PRId64"): failed to "
 					"unserialize xattr dictionary", 
-					local->loc.path, local->loc.inode->ino);
+					local->loc.path,
+                                        local->loc.inode->ino);
 				goto fail;
 			} else {
 				dict->extra_free = dictbuf;
@@ -5257,10 +5088,10 @@ fail:
  *
  * not for external reference
  */
-int32_t
-client_removexattr_cbk (call_frame_t *frame,
-                        gf_hdr_common_t *hdr, size_t hdrlen,
-                        struct iobuf *iobuf)
+
+int
+client_removexattr_cbk (call_frame_t *frame, gf_hdr_common_t *hdr,
+                        size_t hdrlen, struct iobuf *iobuf)
 {
 	int32_t op_ret = 0;
 	int32_t op_errno = 0;
@@ -5280,15 +5111,15 @@ client_removexattr_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_lk_common_cbk (call_frame_t *frame,
-		      gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_lk_common_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		      struct iobuf *iobuf)
 {
-	struct flock lock = {0,};
+	struct flock     lock = {0,};
 	gf_fop_lk_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t          op_ret = 0;
+	int32_t          op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -5303,7 +5134,6 @@ client_lk_common_cbk (call_frame_t *frame,
 	return 0;
 }
 
-
 /*
  * client_gf_file_lk_cbk - gf_file_lk callback for client protocol
  * @frame: call frame
@@ -5311,14 +5141,14 @@ client_lk_common_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_inodelk_cbk (call_frame_t *frame,
-		    gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_inodelk_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		    struct iobuf *iobuf)
 {
 	gf_fop_inodelk_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t               op_ret = 0;
+	int32_t               op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -5330,14 +5160,13 @@ client_inodelk_cbk (call_frame_t *frame,
 }
 
 
-int32_t
-client_finodelk_cbk (call_frame_t *frame,
-		     gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_finodelk_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		     struct iobuf *iobuf)
 {
 	gf_fop_finodelk_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t                op_ret = 0;
+	int32_t                op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -5347,7 +5176,6 @@ client_finodelk_cbk (call_frame_t *frame,
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
-
 
 /*
  * client_entrylk_cbk - entrylk callback for client protocol
@@ -5356,14 +5184,14 @@ client_finodelk_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_entrylk_cbk (call_frame_t *frame,
-		    gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_entrylk_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		    struct iobuf *iobuf)
 {
 	gf_fop_entrylk_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t               op_ret = 0;
+	int32_t               op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -5374,14 +5202,13 @@ client_entrylk_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-client_fentrylk_cbk (call_frame_t *frame,
-		     gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_fentrylk_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		     struct iobuf *iobuf)
 {
 	gf_fop_fentrylk_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	int32_t                op_ret = 0;
+	int32_t                op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -5391,7 +5218,6 @@ client_fentrylk_cbk (call_frame_t *frame,
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
-
 
 /**
  * client_writedir_cbk -
@@ -5401,9 +5227,9 @@ client_fentrylk_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-int32_t
-client_setdents_cbk (call_frame_t *frame,
-                     gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_setdents_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
 {
 	int32_t op_ret = 0;
@@ -5417,8 +5243,6 @@ client_setdents_cbk (call_frame_t *frame,
 	return 0;
 }
 
-
-
 /*
  * client_stats_cbk - stats callback for client protocol
  *
@@ -5428,16 +5252,15 @@ client_setdents_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-client_stats_cbk (call_frame_t *frame,
-                  gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_stats_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-	struct xlator_stats stats = {0,};
-	gf_mop_stats_rsp_t *rsp = NULL;
-	char *buffer = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
+	struct xlator_stats  stats = {0,};
+	gf_mop_stats_rsp_t  *rsp = NULL;
+	char                *buffer = NULL;
+	int32_t              op_ret = 0;
+	int32_t              op_errno = 0;
 
 	rsp = gf_param (hdr);
 
@@ -5450,14 +5273,10 @@ client_stats_cbk (call_frame_t *frame,
 
 		sscanf (buffer, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64
 			",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
-			&stats.nr_files,
-			&stats.disk_usage,
-			&stats.free_disk,
-			&stats.total_disk_size,
-			&stats.read_usage,
-			&stats.write_usage,
-			&stats.disk_speed,
-			&stats.nr_clients);
+			&stats.nr_files, &stats.disk_usage, &stats.free_disk,
+			&stats.total_disk_size, &stats.read_usage,
+			&stats.write_usage, &stats.disk_speed,
+                        &stats.nr_clients);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, &stats);
@@ -5472,17 +5291,16 @@ client_stats_cbk (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->getspec
  */
-int32_t
-client_getspec (call_frame_t *frame,
-                xlator_t *this,
-		const char *key,
+
+int
+client_getspec (call_frame_t *frame, xlator_t *this, const char *key,
                 int32_t flag)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t      *hdr = NULL;
 	gf_mop_getspec_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int keylen = 0;
-	int ret = -1;
+	size_t                hdrlen = -1;
+	int                   keylen = 0;
+	int                   ret = -1;
 
 	if (key)
 		keylen = STRLEN_0(key);
@@ -5510,7 +5328,6 @@ unwind:
 	return 0;
 }
 
-
 /*
  * client_getspec_cbk - getspec callback for client protocol
  *
@@ -5520,16 +5337,15 @@ unwind:
  * not for external reference
  */
 
-int32_t
-client_getspec_cbk (call_frame_t *frame,
-                    gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_getspec_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
 {
-	gf_mop_getspec_rsp_t *rsp = NULL;
-	char *spec_data = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	int32_t gf_errno = 0;
+	gf_mop_getspec_rsp_t  *rsp = NULL;
+	char                  *spec_data = NULL;
+	int32_t                op_ret = 0;
+	int32_t                op_errno = 0;
+	int32_t                gf_errno = 0;
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	gf_errno = ntoh32 (hdr->rsp.op_errno);
@@ -5544,17 +5360,15 @@ client_getspec_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-client_checksum (call_frame_t *frame,
-                 xlator_t *this,
-                 loc_t *loc,
-                 int32_t flag)
+
+int
+client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
 {
-	gf_hdr_common_t *hdr = NULL;
+	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_checksum_req_t *req = NULL;
-	size_t hdrlen = -1;
-	int ret = -1;
-	ino_t ino = 0;
+	size_t                 hdrlen = -1;
+	int                    ret = -1;
+	ino_t                  ino = 0;
 
 	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
 	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
@@ -5580,17 +5394,17 @@ client_checksum (call_frame_t *frame,
 	return ret;
 }
 
-int32_t
-client_checksum_cbk (call_frame_t *frame,
-                     gf_hdr_common_t *hdr, size_t hdrlen,
+
+int
+client_checksum_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
 {
 	gf_fop_checksum_rsp_t *rsp = NULL;
-	int32_t op_ret = 0;
-	int32_t op_errno = 0;
-	int32_t gf_errno = 0;
-	unsigned char *fchecksum = NULL;
-	unsigned char *dchecksum = NULL;
+	int32_t                op_ret = 0;
+	int32_t                op_errno = 0;
+	int32_t                gf_errno = 0;
+	unsigned char         *fchecksum = NULL;
+	unsigned char         *dchecksum = NULL;
 
 	rsp = gf_param (hdr);
 
@@ -5607,7 +5421,6 @@ client_checksum_cbk (call_frame_t *frame,
 	return 0;
 }
 
-
 /*
  * client_setspec_cbk - setspec callback for client protocol
  * @frame: call frame
@@ -5616,9 +5429,8 @@ client_checksum_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-int32_t
-client_setspec_cbk (call_frame_t *frame,
-                    gf_hdr_common_t *hdr, size_t hdrlen,
+int
+client_setspec_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
 {
 	int32_t op_ret = 0;
@@ -5639,9 +5451,9 @@ client_setspec_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
+
 int
-client_setvolume_cbk (call_frame_t *frame,
-                      gf_hdr_common_t *hdr, size_t hdrlen,
+client_setvolume_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                       struct iobuf *iobuf)
 {
 	gf_mop_setvolume_rsp_t *rsp = NULL;
@@ -5788,9 +5600,9 @@ out:
  *
  * not for external reference
  */
+
 int
-client_enosys_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
+client_enosys_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
 	STACK_DESTROY (frame->root);
@@ -5843,14 +5655,14 @@ protocol_client_mark_fd_bad (xlator_t *this)
 {
         client_conf_t            *conf = NULL;
         data_pair_t              *trav = NULL;
+        fd_t                     *fd_tmp = NULL;
 
         conf = this->private;
         
         trav = conf->saved_fds->members_list;
         
         while (trav) {
-                fd_t *fd_tmp = (fd_t *)(long) strtoul (trav->key, 
-                                                       NULL, 0);
+                fd_tmp = (fd_t *)(long) strtoul (trav->key, NULL, 0);
                 fd_ctx_del (fd_tmp, this, NULL);
                 trav = trav->next;
         }
@@ -5871,6 +5683,7 @@ protocol_client_mark_fd_bad (xlator_t *this)
  * @trans: transport object
  *
  */
+
 int
 protocol_client_cleanup (transport_t *trans)
 {
@@ -5908,9 +5721,8 @@ protocol_client_cleanup (transport_t *trans)
 
 /* cbk callbacks */
 int
-client_releasedir_cbk (call_frame_t *frame,
-		       gf_hdr_common_t *hdr, size_t hdrlen,
-		       struct iobuf *iobuf)
+client_releasedir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr,
+                       size_t hdrlen, struct iobuf *iobuf)
 {
 	STACK_DESTROY (frame->root);
 	return 0;
@@ -5918,8 +5730,7 @@ client_releasedir_cbk (call_frame_t *frame,
 
 
 int
-client_release_cbk (call_frame_t *frame,
-		    gf_hdr_common_t *hdr, size_t hdrlen,
+client_release_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		    struct iobuf *iobuf)
 {
 	STACK_DESTROY (frame->root);
@@ -5928,8 +5739,7 @@ client_release_cbk (call_frame_t *frame,
 
 
 int
-client_forget_cbk (call_frame_t *frame,
-                   gf_hdr_common_t *hdr, size_t hdrlen,
+client_forget_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
 	client_conf_t   *conf = NULL;
@@ -6036,12 +5846,12 @@ int
 protocol_client_interpret (xlator_t *this, transport_t *trans,
                            char *hdr_p, size_t hdrlen, struct iobuf *iobuf)
 {
-	int ret = -1;
-	call_frame_t *frame = NULL;
-	gf_hdr_common_t *hdr = NULL;
-	uint64_t callid = 0;
-	int type = -1;
-	int op = -1;
+	int                  ret = -1;
+	call_frame_t        *frame = NULL;
+	gf_hdr_common_t     *hdr = NULL;
+	uint64_t             callid = 0;
+	int                  type = -1;
+	int                  op = -1;
 	client_connection_t *conn = NULL;
 
 	conn  = trans->xl_private;
@@ -6054,7 +5864,7 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 
 	frame  = lookup_frame (trans, op, type, callid);
 	if (frame == NULL) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_WARNING,
 			"no frame for callid=%"PRId64" type=%d op=%d",
 			callid, type, op);
 		return 0;
@@ -6102,7 +5912,8 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
  * @this:
  *
  */
-int32_t
+
+int
 init (xlator_t *this)
 {
 	transport_t               *trans = NULL;
@@ -6340,10 +6151,10 @@ int
 protocol_client_pollin (xlator_t *this, transport_t *trans)
 {
 	client_conf_t *conf = NULL;
-	int ret = -1;
-        struct iobuf *iobuf = NULL;
-	char *hdr = NULL;
-	size_t hdrlen = 0;
+	int            ret = -1;
+        struct iobuf  *iobuf = NULL;
+	char          *hdr = NULL;
+	size_t         hdrlen = 0;
 
 	conf = trans->xl->private;
 
