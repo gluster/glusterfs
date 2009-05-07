@@ -89,14 +89,16 @@ nufa_init (xlator_t *xl)
 		nufa_buf->min_free_disk = NUFA_LIMITS_MIN_FREE_DISK_DEFAULT;
 	}
 	data = dict_get (xl->options, "scheduler.refresh-interval");
-	if (data && (gf_string2time (data->data, 
-				    &nufa_buf->refresh_interval) != 0)) {
-		gf_log ("nufa", GF_LOG_ERROR, 
-			"invalid number format \"%s\" of "
-			"\"option scheduler.refresh-interval\"", 
-			data->data);
-		return -1;
-	} else {
+	if (data != NULL) {
+                if (gf_string2time (data->data, 
+				    &nufa_buf->refresh_interval) != 0) {
+                        gf_log ("nufa", GF_LOG_ERROR, 
+                                "invalid number format \"%s\" of "
+                                "\"option scheduler.refresh-interval\"", 
+                                data->data);
+                        return -1;
+                }
+        } else {
 		gf_log ("nufa", GF_LOG_WARNING, 
 			"No option for scheduler.refresh-interval given, "
 			"defaulting it to 30");
