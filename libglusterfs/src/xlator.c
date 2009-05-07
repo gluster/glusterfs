@@ -121,7 +121,7 @@ valid_host_name (char *address, int length)
         int i = 0;
         char ret = 1;
 
-        if ((length > 24) || (length == 1)) {
+        if ((length > 75) || (length == 1)) {
                 ret = 0;
                 goto out;
         }
