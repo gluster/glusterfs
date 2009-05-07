@@ -67,7 +67,6 @@ typedef struct client_connection client_connection_t;
 
 struct _client_conf {
 	transport_t          *transport[CHANNEL_MAX];
-	xlator_t             *child;
 
 	/* enhancement for 'forget', a must required where lot 
 	   of stats happening */
