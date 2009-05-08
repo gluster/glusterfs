@@ -233,7 +233,7 @@ booster_get_process_fd ()
 }
 
 #define DEFAULT_BOOSTER_CONF    CONFDIR"/booster.conf"
-#define BOOSTER_CONF_ENV_VAR    "GLUSTERFS_BOOSTER_CONF"
+#define BOOSTER_CONF_ENV_VAR    "GLUSTERFS_BOOSTER_FSTAB"
 
 int
 booster_parse_line (char *buf, char **mount_point,
@@ -1199,7 +1199,7 @@ booster_init (void)
          * correctly initialized to return a NULL handle, on which the
          * socket calls will fall-back to the real API.
          */
-        booster_conf_path = getenv ("GLFS_BOOSTER_CONF");
+        booster_conf_path = getenv (BOOSTER_CONF_ENV_VAR);
         if (booster_conf_path == NULL)
                 ret = booster_configure (DEFAULT_BOOSTER_CONF);
         else
