@@ -42,6 +42,7 @@
 #include <dirent.h>
 #include <sys/statfs.h>
 #include <sys/statvfs.h>
+#include <glusterfs_fstab.h>
 
 #ifndef GF_UNIT_KB
 #define GF_UNIT_KB 1024
@@ -235,81 +236,97 @@ booster_get_process_fd ()
 #define DEFAULT_BOOSTER_CONF    CONFDIR"/booster.conf"
 #define BOOSTER_CONF_ENV_VAR    "GLUSTERFS_BOOSTER_FSTAB"
 
-int
-booster_parse_line (char *buf, char **mount_point,
-                    glusterfs_init_params_t *params)
+void
+clean_init_params (glusterfs_init_params_t *ipars)
 {
-        /* Structure of each line in booster config:
-         * /virtual/mount/point /volume/specification/file volume-name /log/file loglevel cache-timeout
-         * 0 can be entered for each of volume-name, /log/file, loglevel
-         * to force default values.
-         */
-        char    *inbufptr = NULL;
+        if (!ipars)
+                return;
 
-        if (!buf || !mount_point || !params) {
-                goto out;
+        if (ipars->volume_name)
+                free (ipars->volume_name);
+
+        if (ipars->specfile)
+                free (ipars->specfile);
+
+        if (ipars->logfile)
+                free (ipars->logfile);
+
+        if (ipars->loglevel)
+                free (ipars->loglevel);
+
+        return;
+}
+
+char *
+get_option_value (char *opt)
+{
+        char *val = NULL;
+        char *saveptr = NULL;
+        char *copy_opt = NULL;
+        char *nextopt = NULL;
+        char *retval = NULL;
+
+        copy_opt = strdup (opt);
+        val = strtok_r (copy_opt, "=", &saveptr);
+        if (val != NULL) {
+                nextopt = index (val, ',');
+                if (nextopt)
+                        *nextopt = '\0';
+
+                retval = strdup (val);
         }
-        memset (params, 0, sizeof (*params));
-        inbufptr = strtok (buf, " ");
-        if (inbufptr == NULL)
-                goto out;
-        *mount_point = strdup (inbufptr);
+        free (copy_opt);
 
-        inbufptr = strtok (NULL, " ");
-        if (inbufptr == NULL)
-                goto out;
-        params->specfile = strdup (inbufptr);
+        return retval;
+}
 
-        inbufptr = strtok (NULL, " ");
-        if (inbufptr == NULL)
-                goto out;
-        params->volume_name = strdup (inbufptr);
+void
+booster_mount (struct glusterfs_mntent *ent)
+{
+        char                    *opt = NULL;
+        glusterfs_init_params_t ipars;
 
-        inbufptr = strtok (NULL, " ");
-        if (inbufptr == NULL)
-                goto out;
-        params->logfile = strdup (inbufptr);
+        if (!ent)
+                return;
 
-        inbufptr = strtok (NULL, " ");
-        if (inbufptr == NULL)
-                goto out;
-        params->loglevel = strdup (inbufptr);
+        memset (&ipars, 0, sizeof (glusterfs_init_params_t));
+        if (ent->mnt_fsname)
+                ipars.specfile = strdup (ent->mnt_fsname);
 
-        return 0;
-out:
-        return -1;
+        opt = glusterfs_fstab_hasoption (ent, "subvolume");
+        if (opt)
+                ipars.volume_name = get_option_value (opt);
+
+        opt = glusterfs_fstab_hasoption (ent, "logfile");
+        if (opt)
+                ipars.logfile = get_option_value (opt);
+
+        opt = glusterfs_fstab_hasoption (ent, "loglevel");
+        if (opt)
+                ipars.loglevel = get_option_value (opt);
+
+        glusterfs_mount (ent->mnt_dir, &ipars);
+        clean_init_params (&ipars);
 }
 
 int
 booster_configure (char *confpath)
 {
-        FILE                    *fp = NULL;
-        int                      ret = -1;
-        char                     buf[4096];
-        char                    *mount_point = NULL;
-        glusterfs_init_params_t  params = {0, };
+        int                     ret = -1;
+        glusterfs_fstab_t       *handle = NULL;
+        struct glusterfs_mntent *ent = NULL;
 
-        fp = fopen (confpath, "r");
-        if (fp == NULL) {
+        if (!confpath)
                 goto out;
-        }
 
-        while (1) {
-                fgets (buf, 4096, fp);
-                if (feof (fp)) {
-                        break;
-                }
+        handle = glusterfs_fstab_init (confpath, "r");
+        if (!handle)
+                goto out;
 
-                mount_point = NULL;
-                ret = booster_parse_line (buf, &mount_point, &params);
-                if (ret == -1) {
-                        goto out;
-                }
+        while ((ent = glusterfs_fstab_getent (handle)) != NULL)
+                booster_mount (ent);
 
-                /* even if this mount fails, lets continue with others */
-                glusterfs_mount (mount_point, &params);
-        }
-
+        glusterfs_fstab_close (handle);
         ret = 0;
 out:
         return ret;
