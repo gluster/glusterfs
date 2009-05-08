@@ -3079,6 +3079,62 @@ notify (xlator_t *this,
 
 	return 0;
 }
+
+int
+set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
+{
+        int                    ret = -1;
+        char                  *tmp_str = NULL;
+        char                  *tmp_str1 = NULL;
+        char                  *dup_str = NULL;
+        char                  *stripe_str = NULL;
+        char                  *pattern = NULL;
+        char                  *num = NULL;
+        struct stripe_options *temp_stripeopt = NULL;
+        struct stripe_options *stripe_opt = NULL;    
+        
+        /* Get the pattern for striping. 
+           "option block-size *avi:10MB" etc */
+        stripe_str = strtok_r (data, ",", &tmp_str);
+        while (stripe_str) {
+                dup_str = strdup (stripe_str);
+                stripe_opt = CALLOC (1, sizeof (struct stripe_options));
+                if (!stripe_opt)
+                        goto out;
+
+                pattern = strtok_r (dup_str, ":", &tmp_str1);
+                num = strtok_r (NULL, ":", &tmp_str1);
+                if (!num) {
+                        num = pattern;
+                        pattern = "*";
+                }
+                if (gf_string2bytesize (num, &stripe_opt->block_size) != 0) {
+                        gf_log (this->name, GF_LOG_ERROR, 
+                                "invalid number format \"%s\"", num);
+                        goto out;
+                } 
+                memcpy (stripe_opt->path_pattern, pattern, strlen (pattern));
+                
+                gf_log (this->name, GF_LOG_DEBUG, 
+                        "block-size : pattern %s : size %"PRId64, 
+                        stripe_opt->path_pattern, stripe_opt->block_size);
+                
+                if (!priv->pattern) {
+                        priv->pattern = stripe_opt;
+                } else {
+                        temp_stripeopt = priv->pattern;
+                        while (temp_stripeopt->next)
+                                temp_stripeopt = temp_stripeopt->next;
+                        temp_stripeopt->next = stripe_opt;
+                }
+                stripe_str = strtok_r (NULL, ",", &tmp_str);
+        }
+
+        ret = 0;
+ out:
+        return ret;
+}
+
 /**
  * init - This function is called when xlator-graph gets initialized. 
  *     The option given in volfiles are parsed here.
@@ -3091,6 +3147,7 @@ init (xlator_t *this)
 	xlator_list_t *trav = NULL;
 	data_t *data = NULL;
 	int32_t count = 0;
+        int ret = -1;
 
 	trav = this->children;
 	while (trav) {
@@ -3102,7 +3159,7 @@ init (xlator_t *this)
 		gf_log (this->name, GF_LOG_ERROR,
 			"stripe configured without \"subvolumes\" option. "
 			"exiting");
-		return -1;
+                goto out;
 	}
 
 	if (!this->parents) {
@@ -3111,9 +3168,12 @@ init (xlator_t *this)
 	}
   
 	priv = CALLOC (1, sizeof (stripe_private_t));
-	ERR_ABORT (priv);
+        if (!priv)
+                goto out;
 	priv->xl_array = CALLOC (1, count * sizeof (xlator_t *));
-	ERR_ABORT (priv->xl_array);
+        if (!priv->xl_array)
+                goto out;
+
 	priv->child_count = count;
 	LOCK_INIT (&priv->lock);
 
@@ -3128,7 +3188,7 @@ init (xlator_t *this)
 		gf_log (this->name, GF_LOG_ERROR,
 			"maximum number of stripe subvolumes supported "
 			"is 256");
-		return -1;
+		goto out;
 	}
 
 	priv->block_size = (128 * GF_UNIT_KB);
@@ -3139,61 +3199,11 @@ init (xlator_t *this)
 			"No \"option block-size <x>\" given, defaulting "
 			"to 128KB");
 	} else {
-		char *tmp_str = NULL;
-		char *tmp_str1 = NULL;
-		char *dup_str = NULL;
-		char *stripe_str = NULL;
-		char *pattern = NULL;
-		char *num = NULL;
-		struct stripe_options *temp_stripeopt = NULL;
-		struct stripe_options *stripe_opt = NULL;    
-
-		/* Get the pattern for striping. 
-		   "option block-size *avi:10MB" etc */
-		stripe_str = strtok_r (data->data, ",", &tmp_str);
-		while (stripe_str) {
-			dup_str = strdup (stripe_str);
-			stripe_opt = CALLOC (1, 
-					     sizeof (struct stripe_options));
-			ERR_ABORT (stripe_opt);
-			pattern = strtok_r (dup_str, ":", &tmp_str1);
-			num = strtok_r (NULL, ":", &tmp_str1);
-			if (num && 
-			    (gf_string2bytesize (num, 
-						 &stripe_opt->block_size) 
-			     != 0)) {
-				gf_log (this->name, GF_LOG_ERROR, 
-					"invalid number format \"%s\"", 
-					num);
-				return -1;
-			} else if (!num && (gf_string2bytesize (
-						    pattern, 
-						    &stripe_opt->block_size) 
-					    != 0)) {
-				/* Possible that there is no pattern given */
-				stripe_opt->block_size = (128 * GF_UNIT_KB);
-				pattern = "*";
-			}
-			memcpy (stripe_opt->path_pattern, 
-				pattern, strlen (pattern));
-			
-			gf_log (this->name, GF_LOG_DEBUG, 
-				"block-size : pattern %s : size %"PRId64, 
-				stripe_opt->path_pattern, 
-				stripe_opt->block_size);
-			
-			if (!priv->pattern) {
-				priv->pattern = stripe_opt;
-			} else {
-				temp_stripeopt = priv->pattern;
-				while (temp_stripeopt->next)
-					temp_stripeopt = temp_stripeopt->next;
-				temp_stripeopt->next = stripe_opt;
-			}
-			stripe_str = strtok_r (NULL, ",", &tmp_str);
-		}
+                ret = set_stripe_block_size (this, priv, data->data);
+                if (ret)
+                        goto out;
 	}
-
+        
 	priv->xattr_supported = 1;
 	data = dict_get (this->options, "use-xattr");
 	if (data) {
@@ -3210,7 +3220,16 @@ init (xlator_t *this)
 	priv->nodes_down = priv->child_count;
 	this->private = priv;
 
-	return 0;
+        ret = 0;
+ out:
+        if (ret) {
+                if (priv) {
+                        if (priv->xl_array)
+                                FREE (priv->xl_array);
+                        FREE (priv);
+                }
+        }
+	return ret;
 } 
 
 /** 
