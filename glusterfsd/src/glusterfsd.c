@@ -908,6 +908,58 @@ gf_get_process_mode (char *exec_name)
 	return ret;
 }
 
+void 
+set_log_file_path (cmd_args_t *cmd_args)
+{
+        int   i = 0;
+        int   port = 0;
+        char *tmp_ptr = NULL;
+        char  tmp_str[1024] = {0,};
+        
+        if (cmd_args->mount_point) {
+                for (i = 1; i < strlen (cmd_args->mount_point); i++) {
+                        tmp_str[i-1] = cmd_args->mount_point[i];
+                        if (cmd_args->mount_point[i] == '/')
+                                tmp_str[i-1] = '-';
+                }
+                asprintf (&cmd_args->log_file, 
+                          DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
+                          tmp_str);
+
+                goto done;
+        } 
+
+        if (cmd_args->volume_file) {
+                for (i = 0; i < strlen (cmd_args->volume_file); i++) {
+                        tmp_str[i] = cmd_args->volume_file[i];
+                        if (cmd_args->volume_file[i] == '/')
+                                tmp_str[i] = '-';
+                }
+                asprintf (&cmd_args->log_file, 
+                          DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
+                          tmp_str);
+                
+                goto done;
+        }
+        
+        if (cmd_args->volfile_server) {
+                port = 1;
+                tmp_ptr = "default";
+
+                if (cmd_args->volfile_server_port)
+                        port = cmd_args->volfile_server_port;
+                if (cmd_args->volfile_id)
+                        tmp_ptr = cmd_args->volfile_id;
+
+                asprintf (&cmd_args->log_file, 
+                          DEFAULT_LOG_FILE_DIRECTORY "/%s-%s-%d.log",
+                          cmd_args->volfile_server, tmp_ptr, port);
+        }
+
+ done:
+        return;
+}
+
 int 
 main (int argc, char *argv[])
 {
@@ -917,7 +969,6 @@ main (int argc, char *argv[])
 	struct stat       stbuf;
 	char              tmp_logfile[1024] = { 0 };
 	char              timestr[256] = { 0 };
-	char             *base_exec_name = NULL;
 	time_t            utime;
 	struct tm        *tm = NULL;
 	int               ret = 0;
@@ -932,8 +983,7 @@ main (int argc, char *argv[])
 	utime = time (NULL);
 	ctx = CALLOC (1, sizeof (glusterfs_ctx_t));
 	ERR_ABORT (ctx);
-	base_exec_name = strdup (argv[0]);
-	process_mode = gf_get_process_mode (base_exec_name);
+	process_mode = gf_get_process_mode (argv[0]);
 	set_global_ctx_ptr (ctx);
 	ctx->process_uuid = zr_build_process_uuid ();
 	cmd_args = &ctx->cmd_args;
@@ -961,11 +1011,7 @@ main (int argc, char *argv[])
 	}
 
 	if (cmd_args->log_file == NULL)
-		asprintf (&cmd_args->log_file, 
-			  DEFAULT_LOG_FILE_DIRECTORY "/%s.log", 
-			  basename (base_exec_name));
-	
-	free (base_exec_name);
+                set_log_file_path (cmd_args);
 
         ctx->page_size  = 128 * 1024;
         ctx->iobuf_pool = iobuf_pool_new (8 * 1048576, ctx->page_size + 4096);
