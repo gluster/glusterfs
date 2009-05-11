@@ -1204,6 +1204,19 @@ glusterfs_lchown (const char *path, uid_t owner, gid_t group);
  */
 void
 glusterfs_rewinddir (glusterfs_dir_t dirfd);
+
+
+
+/* Seek to the given offset in the directory handle.
+ *
+ * @dirfd       : Directory handle returned by glusterfs_open on
+ *              glusterfs_opendir.
+ * @offset      : The offset to seek to.
+ *
+ * Returns no value.
+ */
+void
+glusterfs_seekdir (glusterfs_dir_t dirfd, off_t offset);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
