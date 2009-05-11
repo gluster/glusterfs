@@ -17,6 +17,7 @@
    <http://www.gnu.org/licenses/>.
 */
 
+#include <sys/types.h>
 
 extern int
 booster_stat (const char *path, void *buf);
@@ -64,6 +65,9 @@ booster_readdir (void *dir);
 
 extern void
 booster_rewinddir (void *dir);
+
+extern void
+booster_seekdir (void *dir, off_t offset);
 
 int
 stat (const char *path, void *buf)
@@ -177,4 +181,10 @@ void
 rewinddir (void *dir)
 {
 	return booster_rewinddir (dir);
+}
+
+void
+seekdir (void *dir, off_t offset)
+{
+	return booster_seekdir (dir, offset);
 }
