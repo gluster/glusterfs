@@ -62,6 +62,9 @@ booster_statvfs64 (const char *path, void *buf);
 extern void *
 booster_readdir (void *dir);
 
+extern void
+booster_rewinddir (void *dir);
+
 int
 stat (const char *path, void *buf)
 {
@@ -168,4 +171,10 @@ void *
 readdir64 (void *dir)
 {
         return booster_readdir (dir);
+}
+
+void
+rewinddir (void *dir)
+{
+	return booster_rewinddir (dir);
 }
