@@ -5342,14 +5342,6 @@ glusterfs_glh_rename (glusterfs_handle_t handle, const char *oldpath,
                 goto out;
 
         op_ret = libgf_client_path_lookup (&newloc, ctx, 1);
-        if (op_ret == 0) {
-                gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                        "newpath (%s) already exists, returning"
-                        " EEXIST", newloc.path);
-                errno = EEXIST;
-                op_ret = -1;
-                goto out;
-        }
 
         oldname = strdup (oldloc.path);
         op_ret = libgf_client_loc_fill (&oldloc, ctx, 0, oldloc.parent->ino,
