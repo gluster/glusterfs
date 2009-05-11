@@ -6468,6 +6468,28 @@ out:
         return;
 }
 
+off_t
+glusterfs_telldir (glusterfs_dir_t dirfd)
+{
+        libglusterfs_client_fd_ctx_t    *fd_ctx = NULL;
+	off_t                           off = -1;
+
+        fd_ctx = libgf_get_fd_ctx ((fd_t *)dirfd);
+        if (!fd_ctx) {
+                errno = EBADF;
+                goto out;
+        }
+
+        pthread_mutex_lock (&fd_ctx->lock);
+        {
+                off = fd_ctx->offset;
+        }
+        pthread_mutex_unlock (&fd_ctx->lock);
+
+out:
+        return off;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
