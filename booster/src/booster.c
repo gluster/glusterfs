@@ -195,6 +195,7 @@ static ssize_t (*real_lgetxattr) (const char *path, const char *name,
                                   void *value, size_t size);
 static int (*real_remove) (const char* path);
 static int (*real_lchown) (const char *path, uid_t owner, gid_t group);
+static void (*real_rewinddir) (DIR *dirp);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -2084,6 +2085,32 @@ out:
         return ret;
 }
 
+void
+booster_rewinddir (DIR *dir)
+{
+        struct booster_dir_handle       *bh = (struct booster_dir_handle *)dir;
+
+        if (!bh) {
+                errno = EFAULT;
+                goto out;
+        }
+
+        if (bh->type == BOOSTER_GL_DIR)
+                glusterfs_rewinddir ((glusterfs_dir_t)bh->dirh);
+        else if (bh->type == BOOSTER_POSIX_DIR) {
+                if (real_rewinddir == NULL) {
+                        errno = ENOSYS;
+                        goto out;
+                }
+
+                real_rewinddir ((DIR *)bh->dirh);
+        } else
+                errno = EINVAL;
+out:
+        return;
+}
+
+
 pid_t 
 fork (void)
 {
@@ -2174,6 +2201,7 @@ _init (void)
         RESOLVE (lgetxattr);
         RESOLVE (remove);
         RESOLVE (lchown);
+	RESOLVE (rewinddir);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
