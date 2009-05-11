@@ -263,18 +263,26 @@ get_option_value (char *opt)
         char *val = NULL;
         char *saveptr = NULL;
         char *copy_opt = NULL;
-        char *nextopt = NULL;
         char *retval = NULL;
 
         copy_opt = strdup (opt);
-        val = strtok_r (copy_opt, "=", &saveptr);
-        if (val != NULL) {
-                nextopt = index (val, ',');
-                if (nextopt)
-                        *nextopt = '\0';
 
+        /* Get the = before the value of the option. */
+        val = index (copy_opt, '=');
+        if (val) {
+                /* Move to start of option */
+                ++val;
+
+                /* Now, to create a '\0' delimited string out of the
+                 * options string, first get the position where the
+                 * next option starts, that would be the next ','.
+                 */
+                saveptr = index (val, ',');
+                if (saveptr)
+                        *saveptr = '\0';
                 retval = strdup (val);
         }
+
         free (copy_opt);
 
         return retval;
