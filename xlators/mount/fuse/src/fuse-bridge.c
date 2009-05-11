@@ -57,8 +57,6 @@
 #define ZR_DIRECT_IO_OPT        "direct-io-mode"
 #define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 
-#define BIG_FUSE_CHANNEL_SIZE 131072
-
 struct fuse_private {
         int                  fd;
         struct fuse         *fuse;
@@ -373,10 +371,10 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 e.generation = buf->st_ctime;
 #endif
 
+                buf->st_blksize = this->ctx->page_size;
                 e.entry_timeout = priv->entry_timeout;
                 e.attr_timeout  = priv->attribute_timeout;
                 e.attr = *buf;
-                e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE; 
   
 		if (!e.ino || !buf->st_ino) {
 			gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -504,7 +502,7 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 /* TODO: make these timeouts configurable via meta */
                 /* TODO: what if the inode number has changed by now */ 
-                buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
+                buf->st_blksize = this->ctx->page_size;
 
                 fuse_reply_attr (req, buf, priv->attribute_timeout);
         } else {
@@ -1201,6 +1199,8 @@ fuse_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         buf->st_ino = state->loc.ino;
 			buf->st_mode = state->loc.inode->st_mode;
                 }
+                buf->st_blksize = this->ctx->page_size;
+
                 inode_rename (state->itable,
                               state->loc.parent, state->loc.name,
                               state->loc2.parent, state->loc2.name,
@@ -1337,10 +1337,10 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 e.generation = buf->st_ctime;
 #endif
 
+                buf->st_blksize = this->ctx->page_size;
                 e.entry_timeout = priv->entry_timeout;
                 e.attr_timeout = priv->attribute_timeout;
                 e.attr = *buf;
-                e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
 
                 fi.keep_cache = 0;
 
@@ -1819,15 +1819,15 @@ fuse_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 #ifndef GF_DARWIN_HOST_OS
                 /* MacFUSE doesn't respect anyof these tweaks */
                 buf->f_blocks *= buf->f_frsize;
-                buf->f_blocks /= BIG_FUSE_CHANNEL_SIZE;
+                buf->f_blocks /= this->ctx->page_size;
 
                 buf->f_bavail *= buf->f_frsize;
-                buf->f_bavail /= BIG_FUSE_CHANNEL_SIZE;
+                buf->f_bavail /= this->ctx->page_size;
 
                 buf->f_bfree *= buf->f_frsize;
-                buf->f_bfree /= BIG_FUSE_CHANNEL_SIZE;
+                buf->f_bfree /= this->ctx->page_size;
 
-                buf->f_frsize = buf->f_bsize = BIG_FUSE_CHANNEL_SIZE;
+                buf->f_frsize = buf->f_bsize =this->ctx->page_size;
 #endif /* GF_DARWIN_HOST_OS */
                 fuse_reply_statfs (req, buf);
 
