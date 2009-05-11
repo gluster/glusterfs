@@ -1192,6 +1192,18 @@ glusterfs_glh_lchown (glusterfs_handle_t handle, const char *path, uid_t owner,
 
 int
 glusterfs_lchown (const char *path, uid_t owner, gid_t group);
+
+
+
+/* Rewind directory stream pointer to beginning of the directory.
+ *
+ * @dirfd       : Directory handle returned by glusterfs_open on
+ *              glusterfs_opendir.
+ *
+ * Returns no value.
+ */
+void
+glusterfs_rewinddir (glusterfs_dir_t dirfd);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
@@ -1207,7 +1219,6 @@ glusterfs_log_unlock (void);
 */
 void
 glusterfs_free (glusterfs_iobuf_t *buf);
-
 
 __END_DECLS
 

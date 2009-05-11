@@ -6428,6 +6428,27 @@ out:
         return op_ret;
 }
 
+void
+glusterfs_rewinddir (glusterfs_dir_t dirfd)
+{
+        libglusterfs_client_fd_ctx_t    *fd_ctx = NULL;
+
+        fd_ctx = libgf_get_fd_ctx ((fd_t *)dirfd);
+        if (!fd_ctx) {
+                errno = EBADF;
+                goto out;
+        }
+
+        pthread_mutex_lock (&fd_ctx->lock);
+        {
+                fd_ctx->offset = 0;
+        }
+        pthread_mutex_unlock (&fd_ctx->lock);
+
+out:
+        return;
+}
+
 static struct xlator_fops libgf_client_fops = {
 };
 
