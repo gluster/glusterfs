@@ -3294,19 +3294,29 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
         op_ret = stub->args.readdir_cbk.op_ret;
         errno = stub->args.readdir_cbk.op_errno;
 
+        /* Someday we'll support caching the multiple entries returned
+         * from the server, till then, the logic below only extracts
+         * one entry depending on the previous offset given above.
+         */
         if (op_ret > 0) {
 		list_for_each_entry (entry, 
                                      &stub->args.readdir_cbk.entries.list,
                                      list) {
 			entry_size = offsetof (struct dirent, d_name) 
                                 + strlen (entry->d_name) + 1;
-			
-			if ((size < entry_size) || (count == num_entries)) {
-                                if (*offset == entry->d_off)
-                                        count--;
-                                else
-				        break;
-			}
+
+                        /* If the offset requested matches the offset of the current
+                         * entry, it means that we need to search
+                         * further for entry with the required offset.
+                         */
+                        if (*offset == entry->d_off)
+                                continue;
+
+                        /* If we cannot fit more data into the given buffer, or
+                         * if we've extracted the requested number of entries, well,
+                         * break. */
+                        if ((size < entry_size) || (count == num_entries))
+                                break;
 
 			size -= entry_size;
 
@@ -3326,24 +3336,8 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
 			dirp->d_name[dirp->d_reclen] = '\0';
 
 			dirp = (struct dirent *) (((char *) dirp) + entry_size);
-                        /* FIXME: Someday, we'll enable processing
-                         * more than one dirent. The reason we should
-                         * break here is that the offset must not be
-                         * updated beyond one entry.
-                         *
-                         * FIXME2: This offset value check is somewhat
-                         * better than not having any support for
-                         * multiple entry extraction. Suppose we're
-                         * reading a large directory.
-                         */
-                        if (*offset == entry->d_off)
-                                continue;
-                        else {
-			        *offset = dirp->d_off = entry->d_off;
-                                break;
-                        }
-
-                        break;
+                        *offset = entry->d_off;
+                        count++;
 		}
         }
 
