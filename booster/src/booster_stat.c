@@ -69,6 +69,9 @@ booster_rewinddir (void *dir);
 extern void
 booster_seekdir (void *dir, off_t offset);
 
+extern off_t
+booster_telldir (void *dir);
+
 int
 stat (const char *path, void *buf)
 {
@@ -187,4 +190,10 @@ void
 seekdir (void *dir, off_t offset)
 {
 	return booster_seekdir (dir, offset);
+}
+
+off_t
+telldir (void *dir)
+{
+	return booster_telldir (dir);
 }
