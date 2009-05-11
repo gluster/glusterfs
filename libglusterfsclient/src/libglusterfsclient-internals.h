@@ -83,6 +83,11 @@ typedef struct {
         pthread_mutex_t lock;
         off_t offset;
         libglusterfs_client_ctx_t *ctx;
+        /* `man readdir` says readdir is non-re-entrant
+         * only if two readdirs are racing on the same
+         * handle.
+         */
+	struct dirent dirp;
 } libglusterfs_client_fd_ctx_t;
 
 typedef struct libglusterfs_client_async_local {
@@ -229,18 +234,6 @@ struct vmp_entry {
         int vmplen;
         glusterfs_handle_t handle;
 };
-
-
-/* Internal directory handle inited in opendir.
- * This is needed in order to store a per-handle
- * dirent structure.
- */
-struct libgf_dir_handle {
-        fd_t *dirfd;
-        struct dirent dirp;
-};
-
-
 
 
 #endif
