@@ -287,7 +287,7 @@ __do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx,
 			pathname = NULL;
 		}
 
-		pathname = strdup (resolved);
+		pathname = strdup (new_loc.path);
 		file = basename (pathname);
 
                 new_loc.inode = inode_search (ctx->itable, parent->ino, file);
