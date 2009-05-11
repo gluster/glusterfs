@@ -532,6 +532,7 @@ libgf_client_loc_wipe (loc_t *loc)
 	}
 
 	loc->path = loc->name = NULL;
+        loc->ino = 0;
 }
 
 
