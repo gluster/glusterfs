@@ -1532,7 +1532,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 
         if (!size) {
                 op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_DEBUG, "size=%d", size);
+                gf_log (this->name, GF_LOG_DEBUG, "size=%"GF_PRI_SIZET, size);
                 goto out;
         }
 
