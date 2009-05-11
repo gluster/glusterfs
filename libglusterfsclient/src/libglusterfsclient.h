@@ -1217,6 +1217,19 @@ glusterfs_rewinddir (glusterfs_dir_t dirfd);
  */
 void
 glusterfs_seekdir (glusterfs_dir_t dirfd, off_t offset);
+
+
+
+/* Return the current offset in a directory stream.
+ *
+ * @dirfd       : Directory handle returned by glusterfs_open on
+ *              glusterfs_opendir.
+ *
+ * Returns the offset in the directory or -1 on error with errno set
+ * appropriately.
+ */
+off_t
+glusterfs_telldir (glusterfs_dir_t dirfd);
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
