@@ -1224,6 +1224,11 @@ ib_verbs_send_completion_proc (void *data)
                                         device->device_name, wc.status, 
                                         wc.vendor_err,
                                         post->buf, wc.byte_len, post->reused);
+                                if (wc.status == IBV_WC_RETRY_EXC_ERR)
+                                        gf_log ("ib-verbs", GF_LOG_ERROR,
+                                                "might be an issue with SM. "
+                                                "retry after running 'opensm' "
+                                                "(Subnet Manager).");
                                 if (peer)
                                         transport_disconnect (peer->trans);
                         }
