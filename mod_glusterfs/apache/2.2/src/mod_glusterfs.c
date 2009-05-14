@@ -2785,7 +2785,7 @@ mod_glfs_index_directory (request_rec *r,
         apr_size_t              dirpathlen;
         glusterfs_dir_config_t *dir_config = NULL;
         int                     ret = -1;
-        struct dirent           entry = {0, };
+        struct dirent          *entry = NULL;
         struct stat             st = {0, };
 
         name = r->filename;
@@ -2994,12 +2994,12 @@ mod_glfs_index_directory (request_rec *r,
         memcpy(fullpath, name, dirpathlen);
 
         do {
-                ret = glusterfs_readdir (fd, &entry, sizeof (entry));
-                if (ret <= 0) {
+                entry = glusterfs_readdir (fd);
+                if (entry == NULL) {
                         break;
                 }
 
-                fname = apr_pstrcat (r->pool, path, entry.d_name, NULL);
+                fname = apr_pstrcat (r->pool, path, entry->d_name, NULL);
 
                 ret = glusterfs_stat (fname, &st);
                 if (ret != 0) {
@@ -3007,7 +3007,7 @@ mod_glfs_index_directory (request_rec *r,
                 }
                 
                 dirent.fname = fname;
-                dirent.name = apr_pstrdup (r->pool, entry.d_name);
+                dirent.name = apr_pstrdup (r->pool, entry->d_name);
                 fill_out_finfo (&dirent, &st, 
                                 APR_FINFO_MIN | APR_FINFO_IDENT
                                 | APR_FINFO_NLINK | APR_FINFO_OWNER
