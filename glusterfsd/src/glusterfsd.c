@@ -135,7 +135,7 @@ static struct argp_option gf_options[] = {
  	 "Set attribute timeout to SECONDS for inodes in fuse kernel module "
 	 "[default: 1]"},
  	{"volfile-check", ARGP_VOLFILE_CHECK_KEY, 0, 0, 
- 	 "enable strict volume file check in fuse notify"},
+ 	 "Enable strict volume file checking"},
 #ifdef GF_DARWIN_HOST_OS
  	{"non-local", ARGP_NON_LOCAL_KEY, 0, 0, 
  	 "Mount the macfuse volume without '-o local' option"},
