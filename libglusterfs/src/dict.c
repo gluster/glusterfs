@@ -2228,75 +2228,18 @@ int
 dict_serialized_length (dict_t *this)
 {
 	int ret            = -EINVAL;
-	int count          = 0;
-	int len            = 0;
-	int i              = 0;
-	data_pair_t * pair = NULL;
 
 	if (!this) {
 		gf_log ("dict", GF_LOG_ERROR, "this is null!");
 		goto out;
 	}
 	
-	len = DICT_HDR_LEN;
-	count = this->count;
+        LOCK (&this->lock);
+        {
+                ret = _dict_serialized_length (this);
+        }
+        UNLOCK (&this->lock);
 
-	if (count < 0) {
-		gf_log ("dict", GF_LOG_ERROR, "count (%d) < 0!", count);
-		goto out;
-	}
-
-	pair = this->members_list;
-
-	while (count) {
-		if (!pair) {
-			gf_log ("dict", GF_LOG_ERROR, 
-				"less than count data pairs found!");
-			goto out;
-		}
-
-		len += DICT_DATA_HDR_KEY_LEN + DICT_DATA_HDR_VAL_LEN;
-
-		if (!pair->key) {
-			gf_log ("dict", GF_LOG_ERROR, "pair->key is null!");
-			goto out;
-		}
-
-		len += strlen (pair->key) + 1  /* for '\0' */;
-
-		if (!pair->value) {
-			gf_log ("dict", GF_LOG_ERROR,
-				"pair->value is null!");
-			goto out;
-		}
-
-		if (pair->value->vec) {
-			for (i = 0; i < pair->value->len; i++) {
-				if (pair->value->vec[i].iov_len < 0) {
-					gf_log ("dict", GF_LOG_ERROR,
-						"iov_len (%"GF_PRI_SIZET") < 0!",
-						pair->value->vec[i].iov_len);
-					goto out;
-				}
-
-				len += pair->value->vec[i].iov_len;
-			}
-		} else {
-			if (pair->value->len < 0) {
-				gf_log ("dict", GF_LOG_ERROR,
-					"value->len (%d) < 0",
-					pair->value->len);
-				goto out;
-			}
-
-			len += pair->value->len;
-		}
-
-		pair = pair->next;
-		count--;
-	}
-	
-	ret = len;
 out:
 	return ret;
 }
@@ -2316,10 +2259,6 @@ int
 dict_serialize (dict_t *this, char *buf)
 {
 	int           ret    = -1;
-	data_pair_t * pair   = NULL;
-	int32_t       count  = 0;
-	int32_t       keylen = 0;
-	int32_t       vallen = 0;
 	
 	if (!this) {
 		gf_log ("dict", GF_LOG_ERROR,
@@ -2331,61 +2270,12 @@ dict_serialize (dict_t *this, char *buf)
 			"buf is null!");
 		goto out;
 	}
-	
-	count = this->count;
-	if (count < 0) {
-		gf_log ("dict", GF_LOG_ERROR, "count (%d) < 0!", count);
-		goto out;
-	}
 
-	*(int32_t *) buf = hton32 (count);
-	buf += DICT_HDR_LEN;
-	pair = this->members_list;
-
-	while (count) {
-		if (!pair) {
-			gf_log ("dict", GF_LOG_ERROR,
-				"less than count data pairs found!");
-			goto out;
-		}
-
-		if (!pair->key) {
-			gf_log ("dict", GF_LOG_ERROR,
-				"pair->key is null!");
-			goto out;
-		}
-
-		keylen  = strlen (pair->key);
-		*(int32_t *) buf = hton32 (keylen);
-		buf += DICT_DATA_HDR_KEY_LEN;
-
-		if (!pair->value) {
-			gf_log ("dict", GF_LOG_ERROR,
-				"pair->value is null!");
-			goto out;
-		}
-
-		vallen  = pair->value->len;
-		*(int32_t *) buf = hton32 (vallen);
-		buf += DICT_DATA_HDR_VAL_LEN;
-
-		memcpy (buf, pair->key, keylen);
-		buf += keylen;
-		*buf++ = '\0';
-
-		if (!pair->value->data) {
-			gf_log ("dict", GF_LOG_ERROR,
-				"pair->value->data is null!");
-			goto out;
-		}
-		memcpy (buf, pair->value->data, vallen);
-		buf += vallen;
-
-		pair = pair->next;
-		count--;
-	}
-
-	ret = 0;
+        LOCK (&this->lock);
+        {
+                ret = _dict_serialize (this, buf);
+        }
+        UNLOCK (&this->lock);
 out:
 	return ret;
 }
