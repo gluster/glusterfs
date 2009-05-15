@@ -76,6 +76,9 @@ int32_t dict_serialized_length (dict_t *dict);
 int32_t dict_serialize (dict_t *dict, char *buf);
 int32_t dict_unserialize (char *buf, int32_t size, dict_t **fill);
 
+int32_t
+dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length);
+
 int32_t dict_iovec_len (dict_t *dict);
 int32_t dict_to_iovec (dict_t *dict, struct iovec *vec, int32_t count);
 			  
