@@ -49,8 +49,11 @@ struct iot_request {
         call_stub_t *stub;
 };
 
-#define IOT_STATE_ACTIVE        1
-#define IOT_STATE_DEAD          2
+typedef enum {
+        IOT_STATE_ACTIVE,
+        IOT_STATE_EXIT_REQUEST,
+        IOT_STATE_DEAD
+}iot_state_t;
 #define iot_worker_active(wrk)  ((wrk)->state == IOT_STATE_ACTIVE)
 
 #define MAX_IDLE_SKEW                   1000    /* usecs */
@@ -76,7 +79,7 @@ struct iot_worker {
         pthread_mutex_t  qlock;
         int32_t          queue_size;
         pthread_t        thread;
-        int              state;            /* What state is the thread in. */
+        iot_state_t      state;            /* What state is the thread in. */
         int              thread_idx;       /* Thread's index into the worker
                                               array. Since this will be thread
                                               local data, for ensuring that
