@@ -2050,6 +2050,173 @@ err:
 #define DICT_DATA_HDR_VAL_LEN      4
 
 /**
+ * _dict_serialized_length - return the length of serialized dict. This
+ *                           procedure has to be called with this->lock held.
+ *
+ * @this  : dict to be serialized
+ * @return: success: len
+ *        : failure: -errno
+ */
+
+int
+_dict_serialized_length (dict_t *this)
+{
+	int ret            = -EINVAL;
+	int count          = 0;
+	int len            = 0;
+	int i              = 0;
+	data_pair_t * pair = NULL;
+
+	len = DICT_HDR_LEN;
+	count = this->count;
+
+	if (count < 0) {
+		gf_log ("dict", GF_LOG_ERROR, "count (%d) < 0!", count);
+		goto out;
+	}
+
+	pair = this->members_list;
+
+	while (count) {
+		if (!pair) {
+			gf_log ("dict", GF_LOG_ERROR, 
+				"less than count data pairs found!");
+			goto out;
+		}
+
+		len += DICT_DATA_HDR_KEY_LEN + DICT_DATA_HDR_VAL_LEN;
+
+		if (!pair->key) {
+			gf_log ("dict", GF_LOG_ERROR, "pair->key is null!");
+			goto out;
+		}
+
+		len += strlen (pair->key) + 1  /* for '\0' */;
+
+		if (!pair->value) {
+			gf_log ("dict", GF_LOG_ERROR,
+				"pair->value is null!");
+			goto out;
+		}
+
+		if (pair->value->vec) {
+			for (i = 0; i < pair->value->len; i++) {
+				if (pair->value->vec[i].iov_len < 0) {
+					gf_log ("dict", GF_LOG_ERROR,
+						"iov_len (%"GF_PRI_SIZET") < 0!",
+						pair->value->vec[i].iov_len);
+					goto out;
+				}
+
+				len += pair->value->vec[i].iov_len;
+			}
+		} else {
+			if (pair->value->len < 0) {
+				gf_log ("dict", GF_LOG_ERROR,
+					"value->len (%d) < 0",
+					pair->value->len);
+				goto out;
+			}
+
+			len += pair->value->len;
+		}
+
+		pair = pair->next;
+		count--;
+	}
+	
+	ret = len;
+out:
+	return ret;
+}
+
+/**
+ * _dict_serialize - serialize a dictionary into a buffer. This procedure has 
+ *                   to be called with this->lock held.
+ *
+ * @this: dict to serialize
+ * @buf:  buffer to serialize into. This must be 
+ *        atleast dict_serialized_length (this) large
+ *
+ * @return: success: 0
+ *          failure: -errno
+ */
+
+int
+_dict_serialize (dict_t *this, char *buf)
+{
+	int           ret    = -1;
+	data_pair_t * pair   = NULL;
+	int32_t       count  = 0;
+	int32_t       keylen = 0;
+	int32_t       vallen = 0;
+	
+	if (!buf) {
+		gf_log ("dict", GF_LOG_ERROR,
+			"buf is null!");
+		goto out;
+	}
+	
+	count = this->count;
+	if (count < 0) {
+		gf_log ("dict", GF_LOG_ERROR, "count (%d) < 0!", count);
+		goto out;
+	}
+
+	*(int32_t *) buf = hton32 (count);
+	buf += DICT_HDR_LEN;
+	pair = this->members_list;
+
+	while (count) {
+		if (!pair) {
+			gf_log ("dict", GF_LOG_ERROR,
+				"less than count data pairs found!");
+			goto out;
+		}
+
+		if (!pair->key) {
+			gf_log ("dict", GF_LOG_ERROR,
+				"pair->key is null!");
+			goto out;
+		}
+
+		keylen  = strlen (pair->key);
+		*(int32_t *) buf = hton32 (keylen);
+		buf += DICT_DATA_HDR_KEY_LEN;
+
+		if (!pair->value) {
+			gf_log ("dict", GF_LOG_ERROR,
+				"pair->value is null!");
+			goto out;
+		}
+
+		vallen  = pair->value->len;
+		*(int32_t *) buf = hton32 (vallen);
+		buf += DICT_DATA_HDR_VAL_LEN;
+
+		memcpy (buf, pair->key, keylen);
+		buf += keylen;
+		*buf++ = '\0';
+
+		if (!pair->value->data) {
+			gf_log ("dict", GF_LOG_ERROR,
+				"pair->value->data is null!");
+			goto out;
+		}
+		memcpy (buf, pair->value->data, vallen);
+		buf += vallen;
+
+		pair = pair->next;
+		count--;
+	}
+
+	ret = 0;
+out:
+	return ret;
+}
+
+
+/**
  * dict_serialized_length - return the length of serialized dict
  *
  * @this:   dict to be serialized
@@ -2337,3 +2504,63 @@ out:
 	return ret;
 }
 
+
+/**
+ * dict_allocate_and_serialize - serialize a dictionary into an allocated buffer
+ *
+ * @this: dict to serialize
+ * @buf:  pointer to pointer to character. The allocated buffer is stored in
+ *        this pointer. The buffer has to be freed by the caller. 
+ *
+ * @return: success: 0
+ *          failure: -errno
+ */
+
+int32_t
+dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length)
+{
+	int           ret    = -EINVAL;
+        ssize_t       len = 0; 
+
+	if (!this) {
+		gf_log ("dict", GF_LOG_DEBUG,
+			"NULL passed as this pointer");
+		goto out;
+	}
+	if (!buf) {
+		gf_log ("dict", GF_LOG_DEBUG,
+			"NULL passed as buf");
+		goto out;
+	}
+	
+        LOCK (&this->lock);
+        { 
+                len = _dict_serialized_length (this);
+                if (len < 0) {
+                        ret = len;
+                        goto unlock;
+                }
+
+                *buf = CALLOC (1, len);
+                if (*buf == NULL) {
+                        ret = -ENOMEM;
+                        gf_log ("dict", GF_LOG_ERROR, "out of memory");
+                        goto unlock;
+                }
+
+                ret = _dict_serialize (this, *buf);
+                if (ret < 0) {
+                        FREE (*buf);
+                        *buf = NULL;
+                        goto unlock;
+                }
+
+                if (length != NULL) {
+                        *length = len;
+                }
+        }
+unlock:
+        UNLOCK (&this->lock);
+out:
+	return ret;
+}
