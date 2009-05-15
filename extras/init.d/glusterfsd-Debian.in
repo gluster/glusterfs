@@ -15,7 +15,7 @@
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 NAME=glusterfsd
 SCRIPTNAME=/etc/init.d/$NAME
-DAEMON=/usr/sbin/$NAME
+DAEMON=@prefix@/sbin/$NAME
 PIDFILE=/var/run/$NAME.pid
 CONFIGFILE=/etc/glusterfs/glusterfsd.vol
 GLUSTERFS_OPTS="-f $CONFIGFILE"
