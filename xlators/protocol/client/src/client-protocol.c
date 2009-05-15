@@ -3096,6 +3096,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	int32_t              op_ret = -1;
 	int32_t              op_errno = EINVAL;
 	client_local_t      *local = NULL;
+        char                *buf = NULL;
 
 	local = calloc (1, sizeof (*local));
 	GF_VALIDATE_OR_GOTO(this->name, local, unwind);
@@ -3124,12 +3125,11 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	pathlen = STRLEN_0(loc->path);
 	
 	if (xattr_req) {
-		dictlen = dict_serialized_length (xattr_req);
-		if (dictlen < 0) {
+		ret = dict_allocate_and_serialize (xattr_req, &buf, &dictlen);
+		if (ret < 0) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to get serialized length of dict(%p)",
 				xattr_req);
-			ret = dictlen;
 			goto unwind;
 		}
 	}
@@ -3146,16 +3146,10 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	if (baselen)
 		strcpy (req->path + pathlen, loc->name);
 	
-	if (dictlen) {
-		ret = dict_serialize (xattr_req,
-                                      req->dict + baselen + pathlen);
-		if (ret < 0) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"failed to serialize dictionary(%p)",
-				xattr_req);
-			goto unwind;
-		}
-	}
+	if (dictlen > 0) {
+                memcpy (req->dict + pathlen + baselen, buf, dictlen);
+                FREE (buf);
+        }
 
 	req->dictlen = hton32 (dictlen);
 	
