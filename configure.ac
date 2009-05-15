@@ -125,6 +125,9 @@ AC_CONFIG_FILES([Makefile
 		extras/Makefile
 		extras/init.d/Makefile
 		extras/init.d/glusterfs-server.plist
+                extras/init.d/glusterfsd-Debian
+                extras/init.d/glusterfsd-Redhat
+                extras/init.d/glusterfsd-SuSE
 		extras/benchmarking/Makefile
 		glusterfs.spec])
 
