@@ -464,9 +464,9 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                         }
 
 			if (fd->flags & O_NONBLOCK) {
-				gf_log (this->name, GF_LOG_DEBUG,
-					"returning EWOULDBLOCK");
-				op_errno = EWOULDBLOCK;
+				gf_log (this->name, GF_LOG_TRACE,
+					"returning EAGAIN as fd is O_NONBLOCK");
+				op_errno = EAGAIN;
 				op_ret = -1;
 				goto unlock;
 			}
@@ -557,9 +557,10 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 				goto unlock;
 
 			if (fd->flags & O_NONBLOCK) {
-				gf_log (this->name, GF_LOG_DEBUG,
-					"returning EWOULDBLOCK");
-				op_errno = EWOULDBLOCK;
+				gf_log (this->name, GF_LOG_TRACE,
+					"returning EAGAIN because fd is "
+                                        "O_NONBLOCK");
+				op_errno = EAGAIN;
 				op_ret = -1;
 				goto unlock;
 			}
