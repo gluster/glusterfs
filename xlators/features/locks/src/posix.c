@@ -131,6 +131,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (!pl_inode) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory.");
+                op_ret   = -1;
 		op_errno = ENOMEM;
 		goto unwind;
 	}
@@ -139,6 +140,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	    && pl_inode->mandatory
 	    && !truncate_allowed (pl_inode, frame->root->trans,
 				  frame->root->pid, local->offset)) {
+                op_ret   = -1;
 		op_errno = EAGAIN;
 		goto unwind;
 	}
@@ -162,7 +164,7 @@ unwind:
 	if (local->op == TRUNCATE)
 		loc_wipe (&local->loc);
 
-	STACK_UNWIND (frame, -1, ENOMEM, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
 }
 
@@ -441,7 +443,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 	posix_lock_t           region = {.list = {0, }, };
 	int                    op_ret = 0;
 	int                    op_errno = 0;
-	char                   allowable = 0;
+	char                   wind_needed = 1;
 
 
 	priv = this->private;
@@ -455,10 +457,11 @@ pl_readv (call_frame_t *frame, xlator_t *this,
     
 		pthread_mutex_lock (&pl_inode->mutex);
 		{
-			allowable = __rw_allowable (pl_inode, &region,
-						    GF_FOP_READ);
-			if (allowable)
+			wind_needed = __rw_allowable (pl_inode, &region,
+                                                      GF_FOP_READ);
+			if (wind_needed) {
 				goto unlock;
+                        }
 
 			if (fd->flags & O_NONBLOCK) {
 				gf_log (this->name, GF_LOG_DEBUG,
@@ -494,17 +497,15 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 		}
 	unlock:
 		pthread_mutex_unlock (&pl_inode->mutex);
-
-		goto unwind;
 	}
 
 
-	STACK_WIND (frame, pl_readv_cbk, 
-		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
-		    fd, size, offset);
-	return 0;
+        if (wind_needed) {
+                STACK_WIND (frame, pl_readv_cbk, 
+                            FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
+                            fd, size, offset);
+        }
 
-unwind:
 	if (op_ret == -1)
 		STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL, NULL);
 
@@ -536,7 +537,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	posix_lock_t           region = {.list = {0, }, };
 	int                    op_ret = 0;
 	int                    op_errno = 0;
-	char                   allowable = 0;
+	char                   wind_needed = 1;
 
 
 	priv = this->private;
@@ -550,9 +551,9 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
     
 		pthread_mutex_lock (&pl_inode->mutex);
 		{
-			allowable = __rw_allowable (pl_inode, &region,
-						    GF_FOP_WRITE);
-			if (allowable)
+			wind_needed = __rw_allowable (pl_inode, &region,
+                                                      GF_FOP_WRITE);
+			if (wind_needed)
 				goto unlock;
 
 			if (fd->flags & O_NONBLOCK) {
@@ -590,17 +591,14 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		}
 	unlock:
 		pthread_mutex_unlock (&pl_inode->mutex);
-
-		goto unwind;
 	}
 
 
-	STACK_WIND (frame, pl_writev_cbk, 
-		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
-		    fd, vector, count, offset, iobref);
-	return 0;
+        if (wind_needed)
+                STACK_WIND (frame, pl_writev_cbk, 
+                            FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
+                            fd, vector, count, offset, iobref);
 
-unwind:
 	if (op_ret == -1)
 		STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
 
