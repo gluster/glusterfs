@@ -34,6 +34,8 @@
 #include "common-utils.h"
 #include "list.h"
 #include <stdlib.h>
+#include "locking.h"
+#include <semaphore.h>
 
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
@@ -88,9 +90,13 @@ typedef enum {
 struct iot_worker {
         struct list_head rqlist;      /* List of requests assigned to me. */
         struct iot_conf  *conf;
+#ifndef HAVE_SPINLOCK
+        pthread_cond_t   notifier;
+#else
+        sem_t            notifier;
+#endif
         int64_t          q,dq;
-        pthread_cond_t   dq_cond;
-        pthread_mutex_t  qlock;
+        gf_lock_t        qlock;
         int32_t          queue_size;
         pthread_t        thread;
         iot_state_t      state;            /* What state is the thread in. */
