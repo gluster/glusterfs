@@ -1696,13 +1696,16 @@ booster_stat (const char *path, void *buf)
         if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
                 goto out;
 
-        if (real_stat == NULL) {
+        if (real_stat != NULL)
+                ret = real_stat (path, sbuf);
+        else if (real___xstat != NULL)
+                ret = real___xstat (0, path, sbuf);
+        else {
                 errno = ENOSYS;
                 ret = -1;
                 goto out;
         }
 
-        ret = real_stat (path, sbuf);
 
 out:
         return ret;
@@ -1718,13 +1721,16 @@ booster_stat64 (const char *path, void *buf)
         if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
                 goto out;
 
-        if (real_stat64 == NULL) {
+        if (real_stat64 != NULL)
+                ret = real_stat64 (path, sbuf);
+        else if (real___xstat64 != NULL)
+                ret = real___xstat64 (0, path, sbuf);
+        else {
                 errno = ENOSYS;
                 ret = -1;
                 goto out;
         }
 
-        ret = real_stat64 (path, sbuf);
 out:
         return ret;
 }
@@ -1787,13 +1793,15 @@ booster_fstat (int fd, void *buf)
 
         fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
         if (!fh) {
-                if (real_fstat == NULL) {
+                if (real_fstat != NULL)
+                        ret = real_fstat (fd, sbuf);
+                else if (real___fxstat != NULL)
+                        ret = real___fxstat (0, fd, sbuf);
+                else {
                         ret = -1;
                         errno = ENOSYS;
                         goto out;
                 }
-
-                ret = real_fstat (fd, sbuf);
         } else {
                 ret = glusterfs_fstat (fh, sbuf);
                 booster_put_glfs_fd (fh);
@@ -1812,12 +1820,21 @@ booster_fstat64 (int fd, void *buf)
 
         fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
         if (!fh) {
-                if (real_fstat64 == NULL) {
+                if (real_fstat64 != NULL)
+                        ret = real_fstat64 (fd, sbuf);
+                else if (real___fxstat64 != NULL)
+                        /* Not sure how portable the use of 0 for
+                         * version number is but it works over glibc.
+                         * We need this because, I've
+                         * observed that all the above real* functors can be
+                         * NULL. In that case, this is our last and only option.
+                         */
+                        ret = real___fxstat64 (0, fd, sbuf);
+                else {
                         ret = -1;
                         errno = ENOSYS;
                         goto out;
                 }
-                ret = real_fstat64 (fd, sbuf);
         } else {
                 ret = glusterfs_fstat (fh, (struct stat *)sbuf);
                 booster_put_glfs_fd (fh);
@@ -1879,13 +1896,16 @@ booster_lstat (const char *path, void *buf)
         if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
                 goto out;
 
-        if (real_lstat == NULL) {
+        if (real_lstat != NULL)
+                ret = real_lstat (path, sbuf);
+        else if (real___lxstat != NULL)
+                ret = real___lxstat (0, path, sbuf);
+        else {
                 errno = ENOSYS;
                 ret = -1;
                 goto out;
         }
 
-        ret = real_lstat (path, sbuf);
 
 out:
         return ret;
@@ -1901,13 +1921,16 @@ booster_lstat64 (const char *path, void *buf)
         if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
                 goto out;
 
-        if (real_lstat64 == NULL) {
+        if (real_lstat64 != NULL)
+                ret = real_lstat64 (path, sbuf);
+        else if (real___lxstat64 != NULL)
+                ret = real___lxstat64 (0, path, sbuf);
+        else {
                 errno = ENOSYS;
                 ret = -1;
                 goto out;
         }
 
-        ret = real_lstat64 (path, sbuf);
 out:
         return ret;
 }
