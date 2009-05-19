@@ -62,7 +62,7 @@ typedef enum {
 
 #define IOT_MIN_THREADS         2
 #define IOT_DEFAULT_THREADS     16
-#define IOT_MAX_THREADS         256
+#define IOT_MAX_THREADS         64
 
 #define IOT_SCALING_OFF                 _gf_false
 #define IOT_SCALING_ON                  _gf_true
