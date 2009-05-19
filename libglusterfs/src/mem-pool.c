@@ -22,7 +22,7 @@
 #include <stdlib.h>
 
 
-#define GF_MEM_POOL_PAD_BOUNDRY    16
+#define GF_MEM_POOL_PAD_BOUNDRY         (sizeof(struct list_head))
 
 
 struct mem_pool *
