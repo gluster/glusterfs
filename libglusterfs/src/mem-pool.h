@@ -41,6 +41,7 @@ struct mem_pool {
 	unsigned long     padded_sizeof_type;
 	void             *pool;
 	void             *pool_end;
+        int               real_sizeof_type;
 };
 
 struct mem_pool *
