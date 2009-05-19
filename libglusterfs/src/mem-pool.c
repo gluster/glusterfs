@@ -22,7 +22,7 @@
 #include <stdlib.h>
 
 
-#define GF_MEM_POOL_PAD_BOUNDRY         (sizeof(struct list_head))
+#define GF_MEM_POOL_PAD_BOUNDARY         (sizeof(struct list_head))
 
 
 struct mem_pool *
@@ -41,8 +41,8 @@ mem_pool_new_fn (unsigned long sizeof_type,
 		return NULL;
 	}
   
-	pad = GF_MEM_POOL_PAD_BOUNDRY -
-		(sizeof_type % GF_MEM_POOL_PAD_BOUNDRY);
+	pad = GF_MEM_POOL_PAD_BOUNDARY -
+		(sizeof_type % GF_MEM_POOL_PAD_BOUNDARY);
 	padded_sizeof_type = sizeof_type + pad;
   
 	mem_pool = CALLOC (sizeof (*mem_pool), 1);
