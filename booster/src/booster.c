@@ -300,6 +300,9 @@ booster_mount (struct glusterfs_mntent *ent)
         if (!ent)
                 return;
 
+        if ((strcmp (ent->mnt_type, "glusterfs") != 0))
+                return;
+
         memset (&ipars, 0, sizeof (glusterfs_init_params_t));
         if (ent->mnt_fsname)
                 ipars.specfile = strdup (ent->mnt_fsname);
