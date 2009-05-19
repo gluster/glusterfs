@@ -2342,7 +2342,7 @@ iot_ordered_exit (int cond_waitres, iot_worker_t *worker)
         gf_boolean_t     allow_exit = _gf_false;
 
         if (worker->state == IOT_STATE_EXIT_REQUEST) {
-                allow_exit = 1;
+                allow_exit = _gf_true;
         } else if (cond_waitres == ETIMEDOUT) {
                 allow_exit = iot_can_ordered_exit (worker);
         }
@@ -2457,7 +2457,7 @@ iot_unordered_exit (int cond_waitres, iot_worker_t *worker)
         gf_boolean_t     allow_exit = _gf_false;
 
         if (worker->state == IOT_STATE_EXIT_REQUEST) {
-                allow_exit = 1;
+                allow_exit = _gf_true;
         } else if (cond_waitres == ETIMEDOUT) {
                 allow_exit = iot_can_unordered_exit (worker);
         }
