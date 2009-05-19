@@ -1236,26 +1236,14 @@ booster_init (void)
         else
                 ret = booster_configure (booster_conf_path);
 
-        if (ret == -1)
-                goto err;
-
-        gf_log ("booster", GF_LOG_DEBUG, "booster is inited");
+        if (ret == 0)
+                gf_log ("booster", GF_LOG_DEBUG, "booster is inited");
 	return 0;
 
 err:
-	if (booster_glfs_fdtable) {
-		gf_fd_fdtable_destroy (booster_glfs_fdtable);
-		booster_glfs_fdtable = NULL;
-	}
-
-	if (booster_mount_table) {
-		if (booster_mount_table->mounts) {
-			free (booster_mount_table->mounts);
-		}
-
-		free (booster_mount_table);
-		booster_mount_table = NULL;
-	}
+        /* Sure we return an error value here
+         * but who cares about booster.
+         */
 	return -1; 
 }
 
