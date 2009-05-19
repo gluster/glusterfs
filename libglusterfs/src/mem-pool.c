@@ -56,8 +56,10 @@ mem_pool_new_fn (unsigned long sizeof_type,
 	mem_pool->cold_count = count;
 
 	pool = CALLOC (count, sizeof_type + pad);
-	if (!pool)
+	if (!pool) {
+                FREE (mem_pool);
 		return NULL;
+        }
 
 	for (i = 0; i < count; i++) {
 		list = pool + (i * (sizeof_type + pad));
