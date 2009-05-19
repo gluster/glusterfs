@@ -27,7 +27,11 @@
 #include <stddef.h>
 
 #include <sys/time.h>
+#include <sys/types.h>
 #include <sys/stat.h>
+#ifdef GF_SOLARIS_HOST_OS
+#include <sys/statfs.h>
+#endif
 #include <unistd.h>
 #include <xlator.h>
 #include <timer.h>
@@ -5156,6 +5160,14 @@ glusterfs_glh_statfs (glusterfs_handle_t handle, const char *path,
 
         op_ret = libgf_client_statvfs (ctx, &loc, &stvfs);
         if (op_ret == 0) {
+#ifdef GF_SOLARIS_HOST_OS
+		buf->f_fstyp = 0;
+                buf->f_bsize = stvfs.f_bsize;
+                buf->f_blocks = stvfs.f_blocks;
+                buf->f_bfree = stvfs.f_bfree;
+		buf->f_files = stvfs.f_bavail;
+                buf->f_ffree = stvfs.f_ffree;
+#else
                 buf->f_type = 0;
                 buf->f_bsize = stvfs.f_bsize;
                 buf->f_blocks = stvfs.f_blocks;
@@ -5172,6 +5184,7 @@ glusterfs_glh_statfs (glusterfs_handle_t handle, const char *path,
                 */
                 memcpy (&buf->f_fsid, &stvfs.f_fsid, sizeof (stvfs.f_fsid));
                 buf->f_namelen = stvfs.f_namemax;
+#endif
         }
 
 out:
