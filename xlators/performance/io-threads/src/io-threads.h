@@ -71,6 +71,20 @@ typedef enum {
 
 #define IOT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
 
+/* This signifies the max number of outstanding request we're expecting
+ * at a point for every worker thread.
+ * For an idea of the memory foot-print, consider at most 16 Bytes per
+ * iot_request_t on a 64-bit system with another 16 bytes per chunk in the
+ * header. For 64 slots in the pool, we'll use up 2 KiB, with 64 threads this
+ * goes up to 128 KiB.
+ *
+ * Note that this size defines the size of the per-worker mem pool. The
+ * advantage is that, we're not only reducing the rate of small iot_request_t
+ * allocations from the heap but also reducing the contention on the libc heap
+ * by having a mem pool, though small, for each worker.
+ */
+#define IOT_REQUEST_MEMPOOL_SIZE        64
+
 struct iot_worker {
         struct list_head rqlist;      /* List of requests assigned to me. */
         struct iot_conf  *conf;
@@ -91,6 +105,7 @@ struct iot_worker {
                                               would have been required to update
                                               centralized state inside conf.
                                            */
+        struct mem_pool  *req_pool;    /* iot_request_t's come from here. */
 };
 
 struct iot_conf {

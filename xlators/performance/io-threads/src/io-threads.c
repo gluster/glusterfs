@@ -44,7 +44,7 @@ void
 _iot_queue (iot_worker_t *worker, iot_request_t *req);
 
 iot_request_t *
-iot_init_request (call_stub_t *stub);
+iot_init_request (iot_worker_t *conf, call_stub_t *stub);
 
 int
 iot_startup_workers (iot_worker_t **workers, int start_idx, int count,
@@ -60,7 +60,7 @@ int
 iot_startup_worker (iot_worker_t *worker, iot_worker_fn workerfunc);
 
 void
-iot_destroy_request (iot_request_t * req);
+iot_destroy_request (iot_worker_t *worker, iot_request_t * req);
 
 
 /* I know this function modularizes things a bit too much,
@@ -129,7 +129,7 @@ iot_schedule_unordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
         idx = iot_unordered_request_balancer (conf);
         selected_worker = conf->uworkers[idx];
 
-        req = iot_init_request (stub);
+        req = iot_init_request (selected_worker, stub);
         if (req == NULL) {
                 ret = -ENOMEM;
                 goto out;
@@ -138,7 +138,7 @@ iot_schedule_unordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
         ret = iot_request_queue_and_thread_fire (selected_worker,
                                                  iot_worker_unordered, req);
         if (ret < 0) {
-                iot_destroy_request (req);
+                iot_destroy_request (selected_worker, req);
         }
 out:
         return ret;
@@ -214,14 +214,6 @@ iot_schedule_ordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
                 goto out;
         }
 
-        req = iot_init_request (stub);
-        if (req == NULL) {
-                gf_log (conf->this->name, GF_LOG_ERROR,
-                        "out of memory");
-                ret = -ENOMEM;
-                goto out;
-        }
-
         LOCK (&inode->lock);
         {
                 balstatus = iot_ordered_request_balancer (conf, inode, &idx);
@@ -238,6 +230,14 @@ iot_schedule_ordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
                  * added the request to the worker queue.
                  */
                 selected_worker = conf->oworkers[idx];
+
+                req = iot_init_request (selected_worker, stub);
+                if (req == NULL) {
+                        gf_log (conf->this->name, GF_LOG_ERROR,"out of memory");
+                        ret = -ENOMEM;
+                        goto unlock_out;
+                }
+
                 ret = iot_request_queue_and_thread_fire (selected_worker,
                                                          iot_worker_ordered,
                                                          req);
@@ -248,7 +248,7 @@ unlock_out:
 out:
         if (ret < 0) {
                 if (req != NULL) {
-                        iot_destroy_request (req);
+                        iot_destroy_request (selected_worker, req);
                 }
         }
         return ret;
@@ -2234,11 +2234,11 @@ _iot_queue (iot_worker_t *worker, iot_request_t *req)
 
 
 iot_request_t *
-iot_init_request (call_stub_t *stub)
+iot_init_request (iot_worker_t *worker, call_stub_t *stub)
 {
 	iot_request_t   *req = NULL;
 
-        req = CALLOC (1, sizeof (iot_request_t));
+        req = mem_get (worker->req_pool);
         if (req == NULL) {
                 goto out;
         }
@@ -2250,12 +2250,12 @@ out:
 
 
 void
-iot_destroy_request (iot_request_t * req)
+iot_destroy_request (iot_worker_t *worker, iot_request_t * req)
 {
-        if (req == NULL)
+        if ((req == NULL) || (worker == NULL))
                 return;
 
-        FREE (req);
+        mem_put (worker->req_pool, req);
 }
 
 
@@ -2356,8 +2356,7 @@ iot_dequeue_ordered (iot_worker_t *worker)
         }
 out:
 	pthread_mutex_unlock (&worker->qlock);
-
-	FREE (req);
+        iot_destroy_request (worker, req);
 
 	return stub;
 }
@@ -2482,8 +2481,7 @@ iot_dequeue_unordered (iot_worker_t *worker)
         }
 out:
 	pthread_mutex_unlock (&worker->qlock);
-
-	FREE (req);
+        iot_destroy_request (worker, req);
 
 	return stub;
 }
@@ -2526,7 +2524,7 @@ deallocate_workers (iot_worker_t **workers,
         end_count = count + start_alloc_idx;
         for (i = start_alloc_idx; (i < end_count); i++) {
                 if (workers[i] != NULL) {
-                        free (workers[i]);
+                        FREE (workers[i]);
                         workers[i] = NULL;
                 }
         }
@@ -2556,6 +2554,10 @@ allocate_worker (iot_conf_t * conf)
                 goto out;
         }
 
+        wrk->req_pool = mem_pool_new (iot_request_t, IOT_REQUEST_MEMPOOL_SIZE);
+        if (wrk->req_pool == NULL)
+                goto free_wrk;
+
         INIT_LIST_HEAD (&wrk->rqlist);
         wrk->conf = conf;
         pthread_cond_init (&wrk->dq_cond, NULL);
@@ -2564,6 +2566,10 @@ allocate_worker (iot_conf_t * conf)
 
 out:
         return wrk;
+
+free_wrk:
+        FREE (wrk);
+        return NULL;
 }
 
 
