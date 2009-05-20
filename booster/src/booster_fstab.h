@@ -19,11 +19,12 @@
 
 #ifndef	GLUSTERFS_FSTAB_MNTENT_H
 #define	GLUSTERFS_FSTAB_MNTENT_H	1
-
-#include <features.h>
-#include <stdio.h>
-#include <paths.h>
-
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+ 
+#include "compat.h"
 
 /* General filesystem types.  */
 #define GF_MNTTYPE_IGNORE	"ignore"	/* Ignore this entry.  */
@@ -42,14 +43,14 @@
 
 /* Structure describing a mount table entry.  */
 struct glusterfs_mntent
-  {
-    char *mnt_fsname;		/* Device or server for filesystem.  */
-    char *mnt_dir;		/* Directory mounted on.  */
-    char *mnt_type;		/* Type of filesystem: ufs, nfs, etc.  */
-    char *mnt_opts;		/* Comma-separated options for fs.  */
-    int mnt_freq;		/* Dump frequency (in days).  */
-    int mnt_passno;		/* Pass number for `fsck'.  */
-  };
+{
+        char *mnt_fsname;		/* Device or server for filesystem.  */
+        char *mnt_dir;		/* Directory mounted on.  */
+        char *mnt_type;		/* Type of filesystem: ufs, nfs, etc.  */
+        char *mnt_opts;		/* Comma-separated options for fs.  */
+        int mnt_freq;		/* Dump frequency (in days).  */
+        int mnt_passno;		/* Pass number for `fsck'.  */
+};
 
 #define GF_MNTENT_BUFSIZE       1024
 typedef struct glusterfs_fstab_handle {
@@ -62,14 +63,14 @@ typedef struct glusterfs_fstab_handle {
 /* Prepare to begin reading and/or writing mount table entries from the
    beginning of FILE.  MODE is as for `fopen'.  */
 extern glusterfs_fstab_t *glusterfs_fstab_init (const char *file,
-                                                const char *mode);
+                const char *mode);
 
 extern struct glusterfs_mntent *glusterfs_fstab_getent (glusterfs_fstab_t *h);
 
 /* Write the mount table entry described by MNT to STREAM.
    Return zero on success, nonzero on failure.  */
 extern int glusterfs_fstab_addent (glusterfs_fstab_t *h,
-		                   const struct glusterfs_mntent *mnt);
+                const struct glusterfs_mntent *mnt);
 
 /* Close a stream opened with `glusterfs_fstab_init'.  */
 extern int glusterfs_fstab_close (glusterfs_fstab_t *h);
@@ -77,6 +78,6 @@ extern int glusterfs_fstab_close (glusterfs_fstab_t *h);
 /* Search MNT->mnt_opts for an option matching OPT.
    Returns the address of the substring, or null if none found.  */
 extern char *glusterfs_fstab_hasoption (const struct glusterfs_mntent *mnt,
-                                        const char *opt);
+                const char *opt);
 
 #endif
