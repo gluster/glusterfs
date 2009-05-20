@@ -42,7 +42,6 @@
 #include <dirent.h>
 #include <sys/statfs.h>
 #include <sys/statvfs.h>
-#include <glusterfs_fstab.h>
 
 #ifndef GF_UNIT_KB
 #define GF_UNIT_KB 1024
@@ -224,6 +223,7 @@ typedef struct booster_mount_table booster_mount_table_t;
 static fdtable_t *booster_glfs_fdtable = NULL;
 static booster_mount_table_t *booster_mount_table = NULL;
 
+extern int booster_configure (char *confpath);
 /* This is dup'ed every time VMP open/creat wants a new fd.
  * This is needed so we occupy an entry in the process' file
  * table.
@@ -238,113 +238,6 @@ booster_get_process_fd ()
 
 #define DEFAULT_BOOSTER_CONF    CONFDIR"/booster.conf"
 #define BOOSTER_CONF_ENV_VAR    "GLUSTERFS_BOOSTER_FSTAB"
-
-void
-clean_init_params (glusterfs_init_params_t *ipars)
-{
-        if (!ipars)
-                return;
-
-        if (ipars->volume_name)
-                free (ipars->volume_name);
-
-        if (ipars->specfile)
-                free (ipars->specfile);
-
-        if (ipars->logfile)
-                free (ipars->logfile);
-
-        if (ipars->loglevel)
-                free (ipars->loglevel);
-
-        return;
-}
-
-char *
-get_option_value (char *opt)
-{
-        char *val = NULL;
-        char *saveptr = NULL;
-        char *copy_opt = NULL;
-        char *retval = NULL;
-
-        copy_opt = strdup (opt);
-
-        /* Get the = before the value of the option. */
-        val = index (copy_opt, '=');
-        if (val) {
-                /* Move to start of option */
-                ++val;
-
-                /* Now, to create a '\0' delimited string out of the
-                 * options string, first get the position where the
-                 * next option starts, that would be the next ','.
-                 */
-                saveptr = index (val, ',');
-                if (saveptr)
-                        *saveptr = '\0';
-                retval = strdup (val);
-        }
-
-        free (copy_opt);
-
-        return retval;
-}
-
-void
-booster_mount (struct glusterfs_mntent *ent)
-{
-        char                    *opt = NULL;
-        glusterfs_init_params_t ipars;
-
-        if (!ent)
-                return;
-
-        if ((strcmp (ent->mnt_type, "glusterfs") != 0))
-                return;
-
-        memset (&ipars, 0, sizeof (glusterfs_init_params_t));
-        if (ent->mnt_fsname)
-                ipars.specfile = strdup (ent->mnt_fsname);
-
-        opt = glusterfs_fstab_hasoption (ent, "subvolume");
-        if (opt)
-                ipars.volume_name = get_option_value (opt);
-
-        opt = glusterfs_fstab_hasoption (ent, "logfile");
-        if (opt)
-                ipars.logfile = get_option_value (opt);
-
-        opt = glusterfs_fstab_hasoption (ent, "loglevel");
-        if (opt)
-                ipars.loglevel = get_option_value (opt);
-
-        glusterfs_mount (ent->mnt_dir, &ipars);
-        clean_init_params (&ipars);
-}
-
-int
-booster_configure (char *confpath)
-{
-        int                     ret = -1;
-        glusterfs_fstab_t       *handle = NULL;
-        struct glusterfs_mntent *ent = NULL;
-
-        if (!confpath)
-                goto out;
-
-        handle = glusterfs_fstab_init (confpath, "r");
-        if (!handle)
-                goto out;
-
-        while ((ent = glusterfs_fstab_getent (handle)) != NULL)
-                booster_mount (ent);
-
-        glusterfs_fstab_close (handle);
-        ret = 0;
-out:
-        return ret;
-}
 
 static int32_t 
 booster_put_handle (booster_mount_table_t *table,
