@@ -1381,6 +1381,9 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_STR 
         },
 
+        { .key   = {"non-blocking-io"}, 
+          .type  = GF_OPTION_TYPE_BOOL
+        },
         { .key = {NULL} }
 };
 
