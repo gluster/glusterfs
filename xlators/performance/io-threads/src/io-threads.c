@@ -2563,6 +2563,7 @@ deallocate_workers (iot_worker_t **workers,
         end_count = count + start_alloc_idx;
         for (i = start_alloc_idx; (i < end_count); i++) {
                 if (workers[i] != NULL) {
+                        mem_pool_destroy (workers[i]->req_pool);
                         FREE (workers[i]);
                         workers[i] = NULL;
                 }
