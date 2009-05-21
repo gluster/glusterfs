@@ -263,8 +263,11 @@ if test "x$enable_mod_glusterfs" != "xno" -a "x$HAVE_APXS" = "xyes" -a "x$HAVE_L
 fi
 
 if test "x$BUILD_MOD_GLUSTERFS" = "xyes"; then
-   HTTPD_BIN_DIR=`$APXS -q SBINDIR`
-   MOD_GLUSTERFS_HTTPD_VERSION=`$HTTPD_BIN_DIR/httpd -V | head -1 | awk "{print $3}" | sed 's/[[^0-9.]]//g' |        sed 's/\(.*\..*\)\..*/\1/'`
+   HTTPD_BIN_DIR=`$APXS -q SBINDIR 2>/dev/null`
+   RET=$?
+   if test "x$RET" = "x0"; then
+      MOD_GLUSTERFS_HTTPD_VERSION=`$HTTPD_BIN_DIR/httpd -V | head -1 | awk "{print $3}" | sed 's/[[^0-9\.]]//g' |        sed 's/\(.*\..*\)\..*/\1/'`
+   fi
 fi
 
 if test "x$with_apxspath" != "x"; then
@@ -282,8 +285,11 @@ if test "x$enable_mod_glusterfs" != "xno" -a "x$with_apxspath" != "x" -a "x$with
 fi
 
 if test "x$APACHE_MANUAL" = "xyes"; then
-   HTTPD_BIN_DIR=`$APXS_MANUAL -q SBINDIR`
-   MOD_GLUSTERFS_HTTPD_VERSION=`$HTTPD_MANUAL -V | head -1 | awk "{print $3}" | sed 's/[[^0-9.]]//g' | sed 's/\(.*\..*\)\..*/\1/'`
+   HTTPD_BIN_DIR=`$APXS_MANUAL -q SBINDIR 2>/dev/null` 
+   RET=$?
+   if test "x$RET" = "x0"; then
+      MOD_GLUSTERFS_HTTPD_VERSION=`$HTTPD_MANUAL -V | head -1 | awk "{print $3}" | sed 's/[[^0-9\.]]//g' | sed 's/\(.*\..*\)\..*/\1/'`
+   fi
    APXS=$APXS_MANUAL
 fi
 
