@@ -807,6 +807,23 @@ xlator_fini_rec (xlator_t *xl)
 }
 
 
+int
+xlator_notify (xlator_t *xl, int event, void *data, ...)
+{
+        xlator_t *old_THIS = NULL;
+        int       ret = 0;
+
+        old_THIS = THIS;
+        THIS = xl;
+
+        ret = xl->notify (xl, event, data);
+
+        THIS = old_THIS;
+
+        return ret;
+}
+
+
 void
 xlator_tree_fini (xlator_t *xl)
 {

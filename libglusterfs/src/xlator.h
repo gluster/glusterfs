@@ -60,6 +60,7 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this,
 #include "iobuf.h"
 #include "inode.h"
 #include "fd.h"
+#include "globals.h"
 
 struct _loc {
 	const char *path;
@@ -871,6 +872,7 @@ int32_t xlator_set_type (xlator_t *xl, const char *type);
 xlator_t *file_to_xlator_tree (glusterfs_ctx_t *ctx,
 			       FILE *fp);
 
+int xlator_notify (xlator_t *this, int32_t event, void *data, ...);
 
 int32_t xlator_tree_init (xlator_t *xl);
 int32_t xlator_tree_free (xlator_t *xl);
