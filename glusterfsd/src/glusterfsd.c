@@ -539,7 +539,7 @@ glusterfs_graph_init (xlator_t *graph, int fuse)
 				"validating translator failed");
 			return -1;
 		}
-		if (graph->init (graph) != 0)
+		if (xlator_init (graph) != 0)
 			return -1;
 		
 		graph->ready = 1;

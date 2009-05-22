@@ -728,7 +728,7 @@ xlator_init_rec (xlator_t *xl)
 	if (!ret && !xl->ready) {
 		ret = -1;
 		if (xl->init) {
-			ret = xl->init (xl);
+			ret = xlator_init (xl);
 			if (ret) {
 				gf_log ("xlator", GF_LOG_ERROR,
 					"Initialization of volume '%s' failed,"
