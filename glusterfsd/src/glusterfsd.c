@@ -61,6 +61,7 @@
 #include "revision.h"
 #include "common-utils.h"
 #include "event.h"
+#include "globals.h"
 
 #include <fnmatch.h>
 
@@ -980,9 +981,12 @@ main (int argc, char *argv[])
 	int               xl_count = 0;
 	uint8_t           process_mode = 0;
 
+        ret = glusterfs_globals_init ();
+        if (ret)
+                return ret;
+
 	utime = time (NULL);
-	ctx = CALLOC (1, sizeof (glusterfs_ctx_t));
-	ERR_ABORT (ctx);
+	ctx = glusterfs_ctx_get ();
 	process_mode = gf_get_process_mode (argv[0]);
 	set_global_ctx_ptr (ctx);
 	ctx->process_uuid = zr_build_process_uuid ();
