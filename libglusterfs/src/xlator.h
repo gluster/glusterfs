@@ -873,6 +873,7 @@ xlator_t *file_to_xlator_tree (glusterfs_ctx_t *ctx,
 			       FILE *fp);
 
 int xlator_notify (xlator_t *this, int32_t event, void *data, ...);
+int xlator_init (xlator_t *this);
 
 int32_t xlator_tree_init (xlator_t *xl);
 int32_t xlator_tree_free (xlator_t *xl);

@@ -824,6 +824,23 @@ xlator_notify (xlator_t *xl, int event, void *data, ...)
 }
 
 
+int
+xlator_init (xlator_t *xl)
+{
+        xlator_t *old_THIS = NULL;
+        int       ret = 0;
+
+        old_THIS = THIS;
+        THIS = xl;
+
+        ret = xl->init (xl);
+
+        THIS = old_THIS;
+
+        return ret;
+}
+
+
 void
 xlator_tree_fini (xlator_t *xl)
 {
