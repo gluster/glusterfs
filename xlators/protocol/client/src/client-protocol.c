@@ -5516,9 +5516,9 @@ client_setvolume_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                 if (op_errno == ESTALE) {
                         parent = trans->xl->parents;
                         while (parent) {
-                                parent->xlator->notify (parent->xlator,
-                                                        GF_EVENT_VOLFILE_MODIFIED,
-                                                        trans->xl);
+                                xlator_notify (parent->xlator,
+                                               GF_EVENT_VOLFILE_MODIFIED,
+                                               trans->xl);
                                 parent = parent->next;
                         }
                 }
@@ -5558,9 +5558,8 @@ client_setvolume_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 		parent = trans->xl->parents;
 		while (parent) {
-			parent->xlator->notify (parent->xlator,
-						GF_EVENT_CHILD_UP,
-						trans->xl);
+			xlator_notify (parent->xlator, GF_EVENT_CHILD_UP,
+                                       trans->xl);
 			parent = parent->next;
 		}
 	}
@@ -5573,9 +5572,8 @@ out:
 		 */
 		parent = trans->xl->parents;
 		while (parent) {
-			parent->xlator->notify (parent->xlator,
-						GF_EVENT_CHILD_CONNECTING,
-						trans->xl);
+			xlator_notify (parent->xlator,
+                                       GF_EVENT_CHILD_CONNECTING, trans->xl);
 			parent = parent->next;
 		}
         }
@@ -6245,9 +6243,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
                         parent = this->parents;
                         while (parent) {
-                                parent->xlator->notify (parent->xlator,
-                                                        GF_EVENT_CHILD_DOWN,
-                                                        this);
+                                xlator_notify (parent->xlator,
+                                               GF_EVENT_CHILD_DOWN, this);
                                 parent = parent->next;
                         }
                 }
