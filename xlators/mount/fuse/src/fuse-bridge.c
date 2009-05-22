@@ -2444,6 +2444,8 @@ fuse_thread_proc (void *data)
         priv = this->private;
         chan_size = fuse_chan_bufsize (priv->ch);
 
+        THIS = this;
+
         while (!fuse_session_exited (priv->se)) {
                 iobuf = iobuf_get (this->ctx->iobuf_pool);
 
