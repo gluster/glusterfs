@@ -416,7 +416,7 @@ socket_event_poll_err (transport_t *this)
         }
         pthread_mutex_unlock (&priv->lock);
 
-        this->xl->notify (this->xl, GF_EVENT_POLLERR, this);
+        xlator_notify (this->xl, GF_EVENT_POLLERR, this);
 
         return ret;
 }
@@ -442,7 +442,7 @@ socket_event_poll_out (transport_t *this)
         }
         pthread_mutex_unlock (&priv->lock);
 
-        this->xl->notify (this->xl, GF_EVENT_POLLOUT, this);
+        xlator_notify (this->xl, GF_EVENT_POLLOUT, this);
 
         return ret;
 }
@@ -710,7 +710,7 @@ socket_event_poll_in (transport_t *this)
            just to keep the last_received timestamp ticking */
 
         if (ret == 0)
-                ret = this->xl->notify (this->xl, GF_EVENT_POLLIN, this);
+                ret = xlator_notify (this->xl, GF_EVENT_POLLIN, this);
 
         return ret;
 }
@@ -778,7 +778,7 @@ unlock:
         pthread_mutex_unlock (&priv->lock);
 
         if (notify_xlator)
-                this->xl->notify (this->xl, event, this);
+                xlator_notify (this->xl, event, this);
 
         return 0;
 }
