@@ -259,8 +259,8 @@ __socket_reset (transport_t *this)
         if (priv->incoming.hdr_p)
                 free (priv->incoming.hdr_p);
 
-        if (priv->incoming.buf_p)
-                free (priv->incoming.buf_p);
+        if (priv->incoming.iobuf)
+                iobuf_unref (priv->incoming.iobuf);
 
         memset (&priv->incoming, 0, sizeof (priv->incoming));
 
