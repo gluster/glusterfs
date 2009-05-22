@@ -41,6 +41,7 @@ typedef struct _call_pool_t call_pool_t;
 #include "dict.h"
 #include "list.h"
 #include "common-utils.h"
+#include "globals.h"
 
 
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
@@ -140,6 +141,7 @@ STACK_DESTROY (call_stack_t *stack)
 #define STACK_WIND(frame, rfn, obj, fn, params ...)			\
 	do {								\
 		call_frame_t *_new = NULL;				\
+                xlator_t     *old_THIS = NULL;                          \
 		                                                        \
                 _new = CALLOC (1, sizeof (call_frame_t));	        \
 		ERR_ABORT (_new);					\
@@ -157,15 +159,20 @@ STACK_DESTROY (call_stack_t *stack)
 		LOCK_INIT (&_new->lock);				\
 		frame->ref_count++;					\
 									\
+                old_THIS = THIS;                                        \
+                THIS = obj;                                             \
 		fn (_new, obj, params);					\
+                THIS = old_THIS;                                        \
 	} while (0)
 
 
 /* make a call with a cookie */
 #define STACK_WIND_COOKIE(frame, rfn, cky, obj, fn, params ...)		\
 	do {								\
-		call_frame_t *_new = CALLOC (1,				\
-					     sizeof (call_frame_t));	\
+                call_frame_t *_new = NULL;                              \
+                xlator_t     *old_THIS = NULL;                          \
+                                                                        \
+                _new = CALLOC (1, sizeof (call_frame_t));               \
 		ERR_ABORT (_new);					\
 		typeof(fn##_cbk) tmp_cbk = rfn;				\
 		_new->root = frame->root;				\
@@ -182,17 +189,27 @@ STACK_DESTROY (call_stack_t *stack)
 		frame->ref_count++;					\
 		fn##_cbk = rfn;						\
 									\
+                old_THIS = THIS;                                        \
+                THIS = obj;                                             \
 		fn (_new, obj, params);					\
+                THIS = old_THIS;                                        \
 	} while (0)
 
 
 /* return from function */
 #define STACK_UNWIND(frame, params ...)					\
 	do {								\
-		ret_fn_t fn = frame->ret;				\
-		call_frame_t *_parent = frame->parent;			\
+		ret_fn_t      fn = NULL;                                \
+		call_frame_t *_parent = NULL;                           \
+                xlator_t     *old_THIS = NULL;                          \
+                                                                        \
+                fn = frame->ret;                                        \
+                _parent = frame->parent;                                \
 		_parent->ref_count--;					\
+                old_THIS = THIS;                                        \
+                THIS = _parent->this;                                   \
 		fn (_parent, frame->cookie, _parent->this, params);	\
+                THIS = old_THIS;                                        \
 	} while (0)
 
 
