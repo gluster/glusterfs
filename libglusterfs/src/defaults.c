@@ -1451,11 +1451,8 @@ default_lock_fnotify (call_frame_t *frame, xlator_t *this,
 
 
 /* notify */
-int32_t
-default_notify (xlator_t *this,
-		int32_t event,
-		void *data,
-		...)
+int
+default_notify (xlator_t *this, int32_t event, void *data, ...)
 {
 	switch (event)
 	{
@@ -1465,7 +1462,7 @@ default_notify (xlator_t *this,
 
 		while (list)
 		{
-			list->xlator->notify (list->xlator, event, this);
+			xlator_notify (list->xlator, event, this);
 			list = list->next;
 		}
 	}
@@ -1476,7 +1473,7 @@ default_notify (xlator_t *this,
 	{
 		xlator_list_t *parent = this->parents;
 		while (parent) {
-			parent->xlator->notify (parent->xlator, event, this, NULL);
+			xlator_notify (parent->xlator, event, this, NULL);
 			parent = parent->next;
 		}
 	}
