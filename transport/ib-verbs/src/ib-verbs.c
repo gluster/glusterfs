@@ -1146,8 +1146,8 @@ ib_verbs_recv_completion_proc (void *data)
                                 }
                                 pthread_mutex_unlock (&priv->recv_mutex);
         
-                                if ((ret = peer->trans->xl->notify (peer->trans->xl, GF_EVENT_POLLIN, 
-                                                                    peer->trans, NULL)) == -1) {
+                                if ((ret = xlator_notify (peer->trans->xl, GF_EVENT_POLLIN, 
+                                                          peer->trans, NULL)) == -1) {
                                         gf_log ("transport/ib-verbs",
                                                 GF_LOG_DEBUG, 
                                                 "pollin notification to %s "
@@ -1764,7 +1764,7 @@ unlock:
         }
 
         if (!ret && priv->connected) {
-                ret = this->xl->notify (this->xl, GF_EVENT_CHILD_UP, this);
+                ret = xlator_notify (this->xl, GF_EVENT_CHILD_UP, this);
         }
 
         return ret;
@@ -1904,7 +1904,7 @@ ib_verbs_handshake_pollerr (transport_t *this)
         }
         pthread_mutex_unlock (&priv->write_mutex);
 
-        this->xl->notify (this->xl, GF_EVENT_POLLERR, this, NULL);
+        xlator_notify (this->xl, GF_EVENT_POLLERR, this, NULL);
 
         if (need_unref)
                 transport_unref (this);
