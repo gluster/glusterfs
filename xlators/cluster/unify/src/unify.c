@@ -4413,7 +4413,7 @@ init (xlator_t *this)
 	}
 
 	/* Tell namespace node that init is done */
-	ns_xl->notify (ns_xl, GF_EVENT_PARENT_UP, this);
+	xlator_notify (ns_xl, GF_EVENT_PARENT_UP, this);
 
 	return 0;
 }
