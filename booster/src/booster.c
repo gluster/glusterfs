@@ -236,8 +236,18 @@ booster_get_process_fd ()
         return real_dup (process_piped_fd);
 }
 
+/* The following two define which file contains
+ * the FSTAB configuration for VMP-based usage.
+ */
 #define DEFAULT_BOOSTER_CONF    CONFDIR"/booster.conf"
 #define BOOSTER_CONF_ENV_VAR    "GLUSTERFS_BOOSTER_FSTAB"
+
+
+/* The following define which log file is used when
+ * using the old mount point bypass approach.
+ */
+#define BOOSTER_DEFAULT_LOG     CONFDIR"/booster.log"
+#define BOOSTER_LOG_ENV_VAR     "GLUSTERFS_BOOSTER_LOG"
 
 static int32_t 
 booster_put_handle (booster_mount_table_t *table,
@@ -398,7 +408,10 @@ do_open (int fd, int flags, mode_t mode)
 		
 		fseek (specfp, 0L, SEEK_SET);
 		
-		ctx.logfile = getenv (BOOSTER_CONF_ENV_VAR);
+                ctx.logfile = getenv (BOOSTER_LOG_ENV_VAR);
+                if (!ctx.logfile)
+                        ctx.logfile = strdup (BOOSTER_DEFAULT_LOG);
+
 		ctx.specfp = specfp;
 
 		handle = glusterfs_init (&ctx);
