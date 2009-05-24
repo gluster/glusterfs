@@ -249,10 +249,10 @@ booster_get_process_fd ()
 #define BOOSTER_DEFAULT_LOG     CONFDIR"/booster.log"
 #define BOOSTER_LOG_ENV_VAR     "GLUSTERFS_BOOSTER_LOG"
 
-static int32_t 
-booster_put_handle (booster_mount_table_t *table,
-                    dev_t st_dev,
-                    glusterfs_handle_t handle)
+
+static int32_t
+__booster_put_handle (booster_mount_table_t *table, dev_t st_dev,
+                      glusterfs_handle_t handle)
 {
         int32_t hash = 0;
         booster_mount_t *mount = NULL, *tmp = NULL;
@@ -269,22 +269,32 @@ booster_put_handle (booster_mount_table_t *table,
         mount->handle = handle;
 
         hash = st_dev % table->hash_size;
+        list_for_each_entry (tmp, &table->mounts[hash], device_list) {
+                if (tmp->st_dev == st_dev) {
+                        ret = -1;
+                        errno = EEXIST;
+                        goto out;
+                }
+        }
 
+        list_add (&mount->device_list, &table->mounts[hash]);
+out:
+        if (ret == -1)
+                free (mount);
+        return ret;
+}
+
+static int32_t
+booster_put_handle (booster_mount_table_t *table,dev_t st_dev,
+                    glusterfs_handle_t handle)
+{
+	int32_t ret = 0;
         pthread_mutex_lock (&table->lock);
         {
-                list_for_each_entry (tmp, &table->mounts[hash], device_list) {
-                        if (tmp->st_dev == st_dev) {
-				ret = -1;
-				errno = EEXIST;
-				goto unlock;
-                        }
-                }
-
-                list_add (&mount->device_list, &table->mounts[hash]);
+                ret = __booster_put_handle (table, st_dev, handle);
         }
-unlock:
         pthread_mutex_unlock (&table->lock);
-  
+
         return ret;
 }
 
@@ -322,23 +332,32 @@ booster_put_fd (fdtable_t *fdtable, int fd)
 }
 
 
-static glusterfs_handle_t 
-booster_get_handle (booster_mount_table_t *table, dev_t st_dev)
+static glusterfs_handle_t
+__booster_get_handle (booster_mount_table_t *table, dev_t st_dev)
 {
         int32_t hash = 0;
         booster_mount_t *mount = NULL;
         glusterfs_handle_t handle = NULL;
 
         hash = st_dev % table->hash_size; 
+        list_for_each_entry (mount, &table->mounts[hash], device_list) {
+                if (mount->st_dev == st_dev) {
+                        handle = mount->handle;
+                        break;
+                }
+        }
+
+        return handle;
+}
+
+static glusterfs_handle_t
+booster_get_handle (booster_mount_table_t *table, dev_t st_dev)
+{
+        glusterfs_handle_t handle = NULL;
 
         pthread_mutex_lock (&table->lock);
         {
-                list_for_each_entry (mount, &table->mounts[hash], device_list) {
-                        if (mount->st_dev == st_dev) {
-                                handle = mount->handle;
-                                break;
-                        }
-                }
+                handle = __booster_get_handle (table, st_dev);
         }
         pthread_mutex_unlock (&table->lock);
   
@@ -346,12 +365,82 @@ booster_get_handle (booster_mount_table_t *table, dev_t st_dev)
 }
 
 
+/* MBP - Mount Point Bypass,
+ * the approach used to bypass the already mounted glusterfs and instead
+ * use libglusterfsclient.
+ */
+glusterfs_handle_t
+mbp_open (int fd, dev_t file_devno)
+{
+        char *specfile = NULL;
+        FILE *specfp = NULL;
+        int32_t file_size = -1;
+        int ret = -1;
+        glusterfs_handle_t handle = NULL;
+
+        glusterfs_init_params_t ctx = {
+                .loglevel = "critical",
+                .lookup_timeout = 600,
+                .stat_timeout = 600,
+        };
+
+        file_size = fgetxattr (fd, "user.glusterfs-booster-volfile", NULL, 0);
+        if (file_size == -1)
+                return NULL;
+
+        specfile = calloc (1, file_size);
+        if (!specfile) {
+                fprintf (stderr, "cannot allocate memory: %s\n",
+                         strerror (errno));
+                goto out;
+        }
+
+        ret = fgetxattr (fd, "user.glusterfs-booster-volfile", specfile,
+                        file_size);
+        if (ret == -1)
+                goto out;
+
+        specfp = tmpfile ();
+        if (!specfp)
+                goto out;
+
+        ret = fwrite (specfile, file_size, 1, specfp);
+        if (ret != 1)
+                goto out;
+
+        fseek (specfp, 0L, SEEK_SET);
+        ctx.logfile = strdup (getenv (BOOSTER_LOG_ENV_VAR));
+        if (!ctx.logfile)
+                ctx.logfile = strdup (BOOSTER_DEFAULT_LOG);
+
+        ctx.specfp = specfp;
+        handle = glusterfs_init (&ctx);
+        if (!handle)
+                goto out;
+
+        ret = __booster_put_handle (booster_mount_table, file_devno, handle);
+        if (ret == -1) {
+                glusterfs_fini (handle);
+                goto out;
+        }
+
+out:
+        if (specfile)
+                free (specfile);
+
+        if (specfp)
+                fclose (specfp);
+
+        if (ctx.logfile)
+                free (ctx.logfile);
+
+        return handle;
+}
+
 void
 do_open (int fd, int flags, mode_t mode)
 {
-        char *specfile = NULL;
         glusterfs_handle_t handle;
-        int32_t file_size;
         struct stat st = {0,};
         int32_t ret = -1;
 
@@ -364,75 +453,27 @@ do_open (int fd, int flags, mode_t mode)
                 return;
         }
 
-	handle = booster_get_handle (booster_mount_table, st.st_dev);
-	if (!handle) {
-		FILE *specfp = NULL;
-		
-		glusterfs_init_params_t ctx = {
-			.loglevel = "critical",
-			.lookup_timeout = 600,
-			.stat_timeout = 600,
-		};
-      
-		file_size = fgetxattr (fd, "user.glusterfs-booster-volfile",
-                                       NULL, 0);
-		if (file_size == -1) {
-			return;
-		}
-		
-		specfile = calloc (1, file_size);
-		if (!specfile) {
-			fprintf (stderr, "cannot allocate memory: %s\n",
-                                 strerror (errno));
-			return;
-		}
 
-		ret = fgetxattr (fd, "user.glusterfs-booster-volfile", specfile,
-                                 file_size);
-		if (ret == -1) {
-			free (specfile);
-			return ;
-		}
-    
-		specfp = tmpfile ();
-		if (!specfp) {
-			free (specfile);
-			return;
-		}
+        /* We need to have this big lock to prevent multiple threads
+         * trying to create glusterfs contexts in parallel. The vol file
+         * parser uses global variables which end up in inconsistent
+         * state when modified by different threads without a sync mech
+         * among them.
+         *
+         * We could reduce the lock granularity by locking only when the
+         * glusterfs_init is called inside mbp_open but that requires a
+         * new global lock, that I am not comfortable with. We're better off
+         * using the mount table lock that fits in with the purpose of
+         * maintaining multiple glusterfs contexts in a single process.
+         */
+        pthread_mutex_lock (&booster_mount_table->lock);
+        {
+                handle = __booster_get_handle (booster_mount_table, st.st_dev);
+                if (!handle)
+                        handle = mbp_open (fd, st.st_dev);
+        }
+        pthread_mutex_unlock (&booster_mount_table->lock);
 
-		ret = fwrite (specfile, file_size, 1, specfp);
-		if (ret != 1) {
-			fclose (specfp);
-			free (specfile);
-		}
-		
-		fseek (specfp, 0L, SEEK_SET);
-		
-                ctx.logfile = getenv (BOOSTER_LOG_ENV_VAR);
-                if (!ctx.logfile)
-                        ctx.logfile = strdup (BOOSTER_DEFAULT_LOG);
-
-		ctx.specfp = specfp;
-
-		handle = glusterfs_init (&ctx);
-		
-		free (specfile);
-		fclose (specfp);
-		
-		if (!handle) {
-			return;
-		}
-
-		ret = booster_put_handle (booster_mount_table, st.st_dev,
-                                          handle);
-		if (ret == -1) {
-			glusterfs_fini (handle);
-			if (errno != EEXIST) {
-				return;
-			}
-		}
-	}
-  
         if (handle) {
                 glusterfs_file_t glfs_fd;
                 char path [UNIX_PATH_MAX];
