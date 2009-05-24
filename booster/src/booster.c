@@ -376,6 +376,7 @@ mbp_open (int fd, dev_t file_devno)
         FILE *specfp = NULL;
         int32_t file_size = -1;
         int ret = -1;
+        char *logfile = NULL;
         glusterfs_handle_t handle = NULL;
 
         glusterfs_init_params_t ctx = {
@@ -409,8 +410,13 @@ mbp_open (int fd, dev_t file_devno)
                 goto out;
 
         fseek (specfp, 0L, SEEK_SET);
-        ctx.logfile = strdup (getenv (BOOSTER_LOG_ENV_VAR));
-        if (!ctx.logfile)
+        logfile = getenv (BOOSTER_LOG_ENV_VAR);
+        if (logfile) {
+                if (strlen (logfile) > 0)
+                        ctx.logfile = strdup (logfile);
+                else
+                        ctx.logfile = strdup (BOOSTER_DEFAULT_LOG);
+        } else
                 ctx.logfile = strdup (BOOSTER_DEFAULT_LOG);
 
         ctx.specfp = specfp;
@@ -1178,10 +1184,13 @@ booster_init (void)
          * socket calls will fall-back to the real API.
          */
         booster_conf_path = getenv (BOOSTER_CONF_ENV_VAR);
-        if (booster_conf_path == NULL)
+        if (booster_conf_path != NULL) {
+                if (strlen (booster_conf_path) > 0)
+                        ret = booster_configure (booster_conf_path);
+                else
+                        ret = booster_configure (DEFAULT_BOOSTER_CONF);
+        } else
                 ret = booster_configure (DEFAULT_BOOSTER_CONF);
-        else
-                ret = booster_configure (booster_conf_path);
 
         if (ret == 0)
                 gf_log ("booster", GF_LOG_DEBUG, "booster is inited");
