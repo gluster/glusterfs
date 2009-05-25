@@ -106,27 +106,55 @@ afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
+afr_sh_data_utimes_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+        afr_sh_data_flush_cbk (frame, cookie, this, op_ret, op_errno);
+
+        return 0;
+}
+
+
+int
 afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t     *local = NULL;
 	afr_private_t   *priv  = NULL;
-	afr_self_heal_t *sh  = NULL;
-	int              i = 0;
-	int              call_count = 0;
+	afr_self_heal_t *sh    = NULL;
+        
+	int  i            = 0;
+	int  call_count   = 0;
+        int  source       = 0;
+        int  active_sinks = 0;
 
+        struct timespec ts[2];
+        
+        local = frame->local;
+        sh    = &local->self_heal;
+        priv  = this->private;
 
-	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
+        source       = sh->source;
+        active_sinks = sh->active_sinks;
+
+#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
+	ts[0] = sh->buf[source].st_atim;
+	ts[1] = sh->buf[source].st_mtim;
+        
+#elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
+	ts[0] = sh->buf[source].st_atimespec;
+	ts[1] = sh->buf[source].st_mtimespec;
+#else
+	ts[0].tv_sec = sh->buf[source].st_atime;
+	ts[1].tv_sec = sh->buf[source].st_mtime;
+#endif
 
 	if (!sh->healing_fd) {
 		afr_sh_data_done (frame, this);
 		return 0;
 	}
 
-	call_count = sh->active_sinks + 1;
+	call_count        = (sh->active_sinks + 1) * 2;
 	local->call_count = call_count;
-
 
 	/* closed source */
 	gf_log (this->name, GF_LOG_TRACE,
@@ -139,6 +167,14 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 			   priv->children[sh->source]->fops->flush,
 			   sh->healing_fd);
 	call_count--;
+
+        STACK_WIND_COOKIE (frame, afr_sh_data_utimes_cbk,
+                           (void *) (long) sh->source,
+                           priv->children[sh->source],
+                           priv->children[sh->source]->fops->utimens,
+                           &local->loc, ts);
+        
+        call_count--;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->sources[i] || !local->child_up[i])
@@ -153,6 +189,13 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 				   priv->children[i],
 				   priv->children[i]->fops->flush,
 				   sh->healing_fd);
+
+                STACK_WIND_COOKIE (frame, afr_sh_data_utimes_cbk,
+				   (void *) (long) i,
+				   priv->children[i],
+				   priv->children[i]->fops->utimens,
+				   &local->loc, ts);
+
 		if (!--call_count)
 			break;
 	}
