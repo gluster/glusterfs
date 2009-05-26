@@ -996,6 +996,27 @@ socket_connect (transport_t *this)
                         goto unlock;
                 }
 
+                /* Cant help if setting socket options fails. We can continue
+                 * working nonetheless.
+                 */
+                if (setsockopt (priv->sock, SOL_SOCKET, SO_RCVBUF,
+                                &priv->windowsize,
+                                sizeof (priv->windowsize)) < 0) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "setting receive window size failed: %d: %d: "
+                                "%s", priv->sock, priv->windowsize,
+                                strerror (errno));
+                }
+
+                if (setsockopt (priv->sock, SOL_SOCKET, SO_SNDBUF,
+                                &priv->windowsize,
+                                sizeof (priv->windowsize)) < 0) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "setting send window size failed: %d: %d: "
+                                "%s", priv->sock, priv->windowsize,
+                                strerror (errno));
+                }
+
                 if (!priv->bio) {
                         ret = __socket_nonblock (priv->sock);
 
@@ -1104,6 +1125,27 @@ socket_listen (transport_t *this)
                                 "socket creation failed (%s)",
 				strerror (errno));
                         goto unlock;
+                }
+
+                /* Cant help if setting socket options fails. We can continue
+                 * working nonetheless.
+                 */
+                if (setsockopt (priv->sock, SOL_SOCKET, SO_RCVBUF,
+                                &priv->windowsize,
+                                sizeof (priv->windowsize)) < 0) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "setting receive window size failed: %d: %d: "
+                                "%s", priv->sock, priv->windowsize,
+                                strerror (errno));
+                }
+
+                if (setsockopt (priv->sock, SOL_SOCKET, SO_SNDBUF,
+                                &priv->windowsize,
+                                sizeof (priv->windowsize)) < 0) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                               "setting send window size failed: %d: %d: "
+                                "%s", priv->sock, priv->windowsize,
+                                strerror (errno));
                 }
 
                 if (!priv->bio) {
@@ -1278,7 +1320,8 @@ socket_init (transport_t *this)
 {
         socket_private_t *priv = NULL;
         gf_boolean_t      tmp_bool = 0;
-        char             *nb_connect = NULL;
+        uint64_t          windowsize = GF_DEFAULT_SOCKET_WINDOW_SIZE;
+        char             *optstr = NULL;
 
         if (this->private) {
                 gf_log (this->xl->name, GF_LOG_DEBUG,
@@ -1303,10 +1346,10 @@ socket_init (transport_t *this)
         INIT_LIST_HEAD (&priv->ioq);
 
         if (dict_get (this->xl->options, "non-blocking-io")) {
-                nb_connect = data_to_str (dict_get (this->xl->options,
+                optstr = data_to_str (dict_get (this->xl->options,
                                                           "non-blocking-io"));
       
-                if (gf_string2boolean (nb_connect, &tmp_bool) == -1) {
+                if (gf_string2boolean (optstr, &tmp_bool) == -1) {
                         gf_log (this->xl->name, GF_LOG_ERROR,
                                 "'non-blocking-io' takes only boolean options,"
 				" not taking any action");
@@ -1320,6 +1363,16 @@ socket_init (transport_t *this)
                 }
         }
 
+        optstr = NULL;
+        if (dict_get_str (this->xl->options, "transport.window-size",
+                          &optstr) == 0) {
+                if (gf_string2bytesize (optstr, &windowsize) != 0) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "invalid number format: %s", optstr);
+                        return -1;
+                }
+        }
+        priv->windowsize = (int)windowsize;
         this->private = priv;
 
         return 0;
@@ -1383,6 +1436,11 @@ struct volume_options options[] = {
 
         { .key   = {"non-blocking-io"}, 
           .type  = GF_OPTION_TYPE_BOOL
+        },
+        { .key   = {"transport.window-size"},
+          .type  = GF_OPTION_TYPE_SIZET,
+          .min   = GF_MIN_SOCKET_WINDOW_SIZE,
+          .max   = GF_MAX_SOCKET_WINDOW_SIZE,
         },
         { .key = {NULL} }
 };
