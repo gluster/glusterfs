@@ -38,6 +38,20 @@
 
 #define GF_DEFAULT_SOCKET_LISTEN_PORT 6996
 
+/* This is the size set through setsockopt for
+ * both the TCP receive window size and the
+ * send buffer size.
+ * Till the time iobuf size becomes configurable, this size is set to include
+ * two iobufs + the GlusterFS protocol headers.
+ * Linux allows us to over-ride the max values for the system.
+ * Should we over-ride them? Because if we set a value larger than the default
+ * setsockopt will fail. Having larger values might be beneficial for
+ * IB links.
+ */
+#define GF_DEFAULT_SOCKET_WINDOW_SIZE   (512 * GF_UNIT_KB)
+#define GF_MAX_SOCKET_WINDOW_SIZE       (1 * GF_UNIT_MB)
+#define GF_MIN_SOCKET_WINDOW_SIZE       (128 * GF_UNIT_KB)
+
 typedef enum {
         SOCKET_PROTO_STATE_NADA = 0,
         SOCKET_PROTO_STATE_HEADER_COMING,
@@ -101,6 +115,7 @@ typedef struct {
                 int                  pending_count;
         } incoming;
         pthread_mutex_t        lock;
+        int                    windowsize;
 } socket_private_t;
 
 
