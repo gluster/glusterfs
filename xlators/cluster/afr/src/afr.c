@@ -437,8 +437,10 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 	struct stat *   lookup_buf = NULL;
-	int             call_count = -1;
-	int             child_index = -1;
+        
+	int             call_count      = -1;
+	int             child_index     = -1;
+        int             first_up_child  = -1;
 
 	uint32_t        open_fd_count = 0;
 	int             ret = 0;
@@ -500,10 +502,11 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 			local->cont.lookup.xattr = dict_ref (xattr);
 
 			*lookup_buf = *buf;
-			lookup_buf->st_ino = afr_itransform (buf->st_ino,
-							     priv->child_count,
-							     child_index);
                         
+                        lookup_buf->st_ino = afr_itransform (buf->st_ino,
+                                                             priv->child_count,
+                                                             child_index);
+
                         if (priv->read_child >= 0) {
                                 afr_set_read_child (this,
                                                     local->cont.lookup.inode, 
@@ -537,6 +540,15 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 				local->need_data_self_heal = 1;
 			}
 
+                        first_up_child = afr_first_up_child (priv);
+
+                        if (child_index == first_up_child) {
+                                local->cont.lookup.buf.st_ino = 
+                                        afr_itransform (buf->st_ino,
+                                                        priv->child_count,
+                                                        first_up_child);
+                        }
+
                         if (child_index == local->read_child_index) {
                                 
                                 /* 
@@ -553,9 +565,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
                                 local->cont.lookup.xattr = dict_ref (xattr);
 
                                 *lookup_buf = *buf;
-                                lookup_buf->st_ino = afr_itransform (buf->st_ino,
-                                                                     priv->child_count,
-                                                                     child_index);
 
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this,
