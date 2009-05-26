@@ -40,6 +40,13 @@
 
 #define GF_DEFAULT_IBVERBS_LISTEN_PORT 6997
 
+/* Perhaps these should be larger for a high
+ * speed link like IB.
+ */
+#define GF_DEFAULT_IBV_WINDOW_SIZE   (512 * GF_UNIT_KB)
+#define GF_MAX_IBV_WINDOW_SIZE       (1 * GF_UNIT_MB)
+#define GF_MIN_IBV_WINDOW_SIZE       (128 * GF_UNIT_KB)
+
 /* options per transport end point */
 struct _ib_verbs_options {
         int32_t port;
@@ -212,6 +219,7 @@ struct _ib_verbs_private {
                 char *buf;
                 size_t size;
         } handshake;
+        int windowsize;
 };
 typedef struct _ib_verbs_private ib_verbs_private_t;
 

@@ -1485,6 +1485,8 @@ ib_verbs_init (transport_t *this)
         struct ibv_device **dev_list;
         struct ibv_device *ib_dev = NULL;
         int32_t i;
+        uint64_t windowsize = GF_DEFAULT_IBV_WINDOW_SIZE;
+        char *wsizestr = NULL;
 
         ib_verbs_options_init (this);
 
@@ -1537,6 +1539,16 @@ ib_verbs_init (transport_t *this)
                         return -1;
                 }
                 ibv_free_device_list (dev_list);
+
+                if (dict_get_str (this->xl->options, "window-size",
+                                  &wsizestr) == 0) {
+                        if (gf_string2bytesize (wsizestr, &windowsize) != 0) {
+                                gf_log (this->xl->name, GF_LOG_ERROR,
+                                        "invalid number format: %s", wsizestr);
+                                return -1;
+                        }
+                }
+                priv->windowsize = windowsize;
         }
 
         priv->peer.trans = this;
@@ -2082,6 +2094,24 @@ ib_verbs_connect (struct transport *this)
                 gf_log (this->xl->name, GF_LOG_TRACE,
                         "socket fd = %d", priv->sock);
 
+                if (setsockopt (priv->sock, SOL_SOCKET, SO_RCVBUF,
+                                &priv->windowsize,
+                                sizeof (priv->windowsize)) < 0) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "setting receive window size failed: %d: %d: "
+                                "%s", priv->sock, priv->windowsize,
+                                strerror (errno));
+                }
+
+                if (setsockopt (priv->sock, SOL_SOCKET, SO_SNDBUF,
+                                &priv->windowsize,
+                                sizeof (priv->windowsize)) < 0) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "setting send window size failed: %d: %d: "
+                                "%s", priv->sock, priv->windowsize,
+                                strerror (errno));
+                }
+
                 memcpy (&this->peerinfo.sockaddr, &sockaddr, sockaddr_len);
                 this->peerinfo.sockaddr_len = sockaddr_len;
 
@@ -2281,6 +2311,20 @@ ib_verbs_listen (transport_t *this)
                 goto err;
         }
 
+        if (setsockopt (priv->sock, SOL_SOCKET, SO_RCVBUF, &priv->windowsize,
+                        sizeof (priv->windowsize)) < 0) {
+                gf_log (this->xl->name, GF_LOG_ERROR,
+                        "setting receive window size failed: %d: %d: %s",
+                        priv->sock, priv->windowsize, strerror (errno));
+        }
+
+        if (setsockopt (priv->sock, SOL_SOCKET, SO_SNDBUF, &priv->windowsize,
+                        sizeof (priv->windowsize)) < 0) {
+                gf_log (this->xl->name, GF_LOG_ERROR,
+                        "setting send window size failed: %d: %d: %s",
+                        priv->sock, priv->windowsize, strerror (errno));
+        }
+
         if (listen (priv->sock, 10) != 0) {
                 gf_log ("ib-verbs/server", GF_LOG_ERROR,
                         "init: listen () failed on socket for %s (%s)",
@@ -2389,6 +2433,11 @@ struct volume_options options[] = {
           .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
                     "unix", "inet-sdp" },
           .type  = GF_OPTION_TYPE_STR 
+        },
+        { .key   = {"transport.window-size"},
+          .type  = GF_OPTION_TYPE_SIZET,
+          .min   = GF_MIN_IBV_WINDOW_SIZE,
+          .max   = GF_MAX_IBV_WINDOW_SIZE,
         },
         { .key = {NULL} }
 };
