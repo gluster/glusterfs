@@ -157,11 +157,14 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 	int unwind     = 1;
 	int last_tried = -1;
 	int this_try = -1;
+        int child_index = -1;
 
 	priv     = this->private;
 	children = priv->children;
 
 	local = frame->local;
+
+        child_index = (long) cookie;
 
 	if (op_ret == -1) {
 		last_tried = local->cont.readdir.last_tried;
@@ -182,6 +185,9 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
+                buf->d_ino = afr_itransform (buf->d_ino, priv->child_count,
+                                             child_index);
+                
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
 	}
 
@@ -233,9 +239,10 @@ afr_readdir (call_frame_t *frame, xlator_t *this,
 	local->cont.readdir.size   = size;
 	local->cont.readdir.offset = offset;
 
-	STACK_WIND (frame, afr_readdir_cbk,
-		    children[call_child], children[call_child]->fops->readdir,
-		    fd, size, offset);
+	STACK_WIND_COOKIE (frame, afr_readdir_cbk, (void *) (long) call_child,
+                           children[call_child], 
+                           children[call_child]->fops->readdir,
+                           fd, size, offset);
 
 	op_ret = 0;
 out:
