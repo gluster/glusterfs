@@ -29,6 +29,7 @@
 #include "xlator.h"
 #include "logging.h"
 #include "defaults.h"
+#include "common-utils.h"
 #include "compat.h"
 #include "compat-errno.h"
 #include <fnmatch.h>
@@ -71,6 +72,14 @@ struct readv_replies {
         struct stat   stbuf;    /* 'stbuf' is also a part of reply */
 };
 
+typedef struct _stripe_fd_ctx {
+        off_t      stripe_size;
+        int        stripe_count;
+        int        static_array;
+        xlator_t **xl_array;        
+} stripe_fd_ctx_t;
+
+
 /**
  * Local structure to be passed with all the frames in case of STACK_WIND
  */
@@ -79,6 +88,8 @@ struct stripe_local; /* this itself is used inside the structure; */
 struct stripe_local {
         struct stripe_local *next;
         call_frame_t        *orig_frame; 
+        
+        stripe_fd_ctx_t     *fctx;
 
         /* Used by _cbk functions */
         struct stat          stbuf;
@@ -91,6 +102,7 @@ struct stripe_local {
         int8_t               failed;
         int8_t               unwind;
 
+        int32_t              entry_count;
         int32_t              node_index;
         int32_t              call_count;
         int32_t              wind_count; /* used instead of child_cound 
@@ -111,6 +123,9 @@ struct stripe_local {
         /* General usage */
         off_t                offset;
         off_t                stripe_size;
+
+        int xattr_self_heal_needed;
+        int entry_self_heal_needed;
 
         int8_t              *list;
         struct flock         lock;
