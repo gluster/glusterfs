@@ -270,7 +270,7 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
 
                                 check += buf->vector[i].iov_len;        
 
-                                nw_write_buf->used = buf->vector[i].iov_len;
+                                nw_write_buf->used = buf->vector[i].iov_len + 1;
                                 nw_write_buf->size = buf->vector[i].iov_len;
                                 nw_write_buf->ptr = buf->vector[i].iov_base;
 
