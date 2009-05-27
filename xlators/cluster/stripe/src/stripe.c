@@ -871,7 +871,8 @@ stripe_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         priv = this->private;
         trav = this->children;
 
-        if (priv->first_child_down) {
+        /* If any one node is down, don't allow rename */
+        if (priv->nodes_down) {
                 op_errno = ENOTCONN;
                 goto err;
         }
@@ -987,13 +988,19 @@ stripe_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto err;
         }
  
-        if (S_ISDIR (loc->inode->st_mode) || S_ISREG (loc->inode->st_mode))
+        if (S_ISREG (loc->inode->st_mode))
                 send_fop_to_all = 1;
 
         if (!send_fop_to_all) {
                 STACK_WIND (frame, stripe_common_cbk, trav->xlator,
                             trav->xlator->fops->unlink, loc);
         } else {
+                /* Don't unlink a file if a node is down */
+                if (priv->nodes_down) {
+                        op_errno = ENOTCONN;
+                        goto err;
+                }
+
                 /* Initialization */
                 local = CALLOC (1, sizeof (stripe_local_t));
                 if (!local) {
@@ -1066,7 +1073,8 @@ stripe_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         priv = this->private;
         trav = this->children;
 
-        if (priv->first_child_down) {
+        /* don't delete a directory if any of the subvolume is down */
+        if (priv->nodes_down) {
                 op_errno = ENOTCONN;
                 goto err;
         }
@@ -1489,11 +1497,11 @@ stripe_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         priv = this->private;
         trav = this->children;
 
-        if (priv->first_child_down) {
+        /* If any one node is down, don't allow link operation */
+        if (priv->nodes_down) {
                 op_errno = ENOTCONN;
                 goto err;
         }
-
 
         if (S_ISREG (oldloc->inode->st_mode))
                 send_fop_to_all = 1;
