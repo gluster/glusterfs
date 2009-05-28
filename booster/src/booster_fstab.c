@@ -26,6 +26,9 @@
 #include <stdlib.h>
 #include <libglusterfsclient.h>
 
+/* The default timeout for inode and stat cache. */
+#define BOOSTER_DEFAULT_ATTR_TIMEO      5 /* In Secs */
+
 /* Prepare to begin reading and/or writing mount table entries from the
    beginning of FILE.  MODE is as for `fopen'.  */
 glusterfs_fstab_t *
@@ -362,6 +365,9 @@ booster_mount (struct glusterfs_mntent *ent)
 {
         char                    *opt = NULL;
         glusterfs_init_params_t ipars;
+        time_t                  timeout = BOOSTER_DEFAULT_ATTR_TIMEO;
+        char                    *timeostr = NULL;
+        char                    *endptr = NULL;
 
         if (!ent)
                 return;
@@ -384,6 +390,17 @@ booster_mount (struct glusterfs_mntent *ent)
         opt = glusterfs_fstab_hasoption (ent, "loglevel");
         if (opt)
                 ipars.loglevel = get_option_value (opt);
+
+        /* Attribute cache timeout */
+        opt = glusterfs_fstab_hasoption (ent, "attr_timeout");
+        if (opt) {
+                 timeostr = get_option_value (opt);
+                 if (timeostr)
+                         timeout = strtol (timeostr, &endptr, 10);
+        }
+
+        ipars.lookup_timeout = timeout;
+        ipars.stat_timeout = timeout;
 
         glusterfs_mount (ent->mnt_dir, &ipars);
         clean_init_params (&ipars);
