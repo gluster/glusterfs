@@ -263,7 +263,7 @@ libgf_alloc_inode_ctx (libglusterfs_client_ctx_t *ctx, inode_t *inode)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, inode, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
-        ictx = CALLOC (1, sizeof (libglusterfs_client_ctx_t));
+        ictx = CALLOC (1, sizeof (*ictx));
         if (ictx == NULL) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR,
                                 "memory allocation failure");
