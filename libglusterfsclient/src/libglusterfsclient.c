@@ -53,7 +53,7 @@
 
 #define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
-#define LIBGF_READDIR_BLOCK     1024
+#define LIBGF_READDIR_BLOCK     4096
 
 static inline xlator_t *
 libglusterfs_graph (xlator_t *graph);
