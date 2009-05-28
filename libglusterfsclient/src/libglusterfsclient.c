@@ -186,8 +186,18 @@ libgf_alloc_fd_ctx (libglusterfs_client_ctx_t *ctx, fd_t *fd)
         fdctx->ctx = ctx;
         ctxaddr = (uint64_t) (long)fdctx;
 
+        if (fd->inode) {
+                if (S_ISDIR (fd->inode->st_mode)) {
+                        fdctx->dcache = CALLOC (1, sizeof (struct direntcache));
+                        if (fdctx->dcache)
+                                INIT_LIST_HEAD (&fdctx->dcache->entries.list);
+                        /* If the calloc fails, we can still continue
+                         * working as the dcache is not required for correct
+                         * operation.
+                         */
+                }
+        }
         fd_ctx_set (fd, libgf_inode_to_xlator (fd->inode), ctxaddr);
-
 out:
         return fdctx;
 }
@@ -209,12 +219,166 @@ out:
         return ctx;
 }
 
+void
+libgf_dcache_invalidate (fd_t *fd)
+{
+        libglusterfs_client_fd_ctx_t    *fd_ctx = NULL;
+
+        if (!fd)
+                return;
+
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
+                errno = EBADF;
+                return;
+        }
+
+        if (!fd_ctx->dcache)
+                return;
+
+        if (!list_empty (&fd_ctx->dcache->entries.list))
+                gf_dirent_free (&fd_ctx->dcache->entries);
+
+        INIT_LIST_HEAD (&fd_ctx->dcache->entries.list);
+
+        fd_ctx->dcache->next = NULL;
+        fd_ctx->dcache->prev_off = 0;
+
+        return;
+}
+
+/* The first entry in the entries is always a placeholder
+ * or the list head. The real entries begin from entries->next.
+ */
+int
+libgf_dcache_update (libglusterfs_client_ctx_t *ctx, fd_t *fd,
+                     gf_dirent_t *entries)
+{
+        libglusterfs_client_fd_ctx_t    *fd_ctx = NULL;
+        int                             op_ret = -1;
+
+        if ((!ctx) || (!fd) || (!entries)) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
+                errno = EBADF;
+		goto out;
+        }
+
+        /* dcache is not enabled. */
+        if (!fd_ctx->dcache) {
+                op_ret = 0;
+                goto out;
+        }
+
+        /* If we're updating, we must begin with invalidating any previous
+         * entries.
+         */
+        libgf_dcache_invalidate (fd);
+
+        fd_ctx->dcache->next = entries->next;
+        /* We still need to store a pointer to the head
+         * so we start free'ing from the head when invalidation
+         * is required.
+         *
+         * Need to delink the entries from the list
+         * given to us by an underlying translators. Most translators will
+         * free this list after this call so we must preserve the dirents in
+         * order to cache them.
+         */
+        list_splice_init (&entries->list, &fd_ctx->dcache->entries.list);
+        op_ret = 0;
+out:
+        return op_ret;
+}
+
+int
+libgf_dcache_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
+                      struct dirent *dirp, off_t *offset)
+{
+        libglusterfs_client_fd_ctx_t    *fd_ctx = NULL;
+        int                             cachevalid = 0;
+
+        if ((!ctx) || (!fd) || (!dirp) || (!offset))
+                return 0;
+
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
+                errno = EBADF;
+                goto out;
+        }
+
+        if (!fd_ctx->dcache)
+                goto out;
+
+        /* We've either run out of entries in the cache
+         * or the cache is empty.
+         */
+        if (!fd_ctx->dcache->next)
+                goto out;
+
+        /* The dirent list is created as a circular linked list
+         * so this check is needed to ensure, we dont start
+         * reading old entries again.
+         * If we're reached this situation, the cache is exhausted
+         * and we'll need to pre-fetch more entries to continue serving.
+         */
+        if (fd_ctx->dcache->next == &fd_ctx->dcache->entries)
+                goto out;
+
+        /* During sequential reading we generally expect that the offset
+         * requested is the same as the offset we served in the previous call
+         * to readdir. But, seekdir, rewinddir and libgf_dcache_invalidate
+         * require special handling because seekdir/rewinddir change the offset
+         * in the fd_ctx and libgf_dcache_invalidate changes the prev_off.
+         */
+        if (*offset != fd_ctx->dcache->prev_off) {
+                /* For all cases of the if branch above, we know that the
+                 * cache is now invalid except for the case below. It handles
+                 * the case where the two offset values above are different
+                 * but different because the previous readdir block was
+                 * exhausted, resulting in a prev_off being set to 0 in
+                 * libgf_dcache_invalidate, while the requested offset is non
+                 * zero because that is what we returned for the last dirent
+                 * of the previous readdir block.
+                 */
+                if ((*offset != 0) && (fd_ctx->dcache->prev_off == 0))
+                        cachevalid = 1;
+        } else
+                cachevalid = 1;
+
+        if (!cachevalid)
+                goto out;
+
+        dirp->d_ino = fd_ctx->dcache->next->d_ino;
+        strncpy (dirp->d_name, fd_ctx->dcache->next->d_name,
+                 fd_ctx->dcache->next->d_len);
+
+        *offset = fd_ctx->dcache->next->d_off;
+        dirp->d_off = *offset;
+        fd_ctx->dcache->prev_off = fd_ctx->dcache->next->d_off;
+        fd_ctx->dcache->next = fd_ctx->dcache->next->next;
+
+out:
+        return cachevalid;
+}
+
+
 int32_t
 libgf_client_release (xlator_t *this,
 		      fd_t *fd)
 {
 	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        fd_ctx = libgf_del_fd_ctx (fd);
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (S_ISDIR (fd->inode->st_mode)) {
+                libgf_dcache_invalidate (fd);
+                FREE (fd_ctx->dcache);
+        }
+
+        libgf_del_fd_ctx (fd);
         if (fd_ctx != NULL) {
                 pthread_mutex_destroy (&fd_ctx->lock);
                 FREE (fd_ctx);
@@ -382,7 +546,13 @@ libgf_client_releasedir (xlator_t *this,
 			 fd_t *fd)
 {
 	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-        fd_ctx = libgf_del_fd_ctx (fd);
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (S_ISDIR (fd->inode->st_mode)) {
+                libgf_dcache_invalidate (fd);
+                FREE (fd_ctx->dcache);
+        }
+
+        libgf_del_fd_ctx (fd);
         if (fd_ctx != NULL) {
                 pthread_mutex_destroy (&fd_ctx->lock);
                 FREE (fd_ctx);
@@ -390,7 +560,6 @@ libgf_client_releasedir (xlator_t *this,
 
 	return 0;
 }
-
 
 void *poll_proc (void *ptr)
 {
@@ -3328,72 +3497,26 @@ libgf_client_readdir_cbk (call_frame_t *frame,
 }
 
 int 
-libgf_client_readdir (libglusterfs_client_ctx_t *ctx, 
-                      fd_t *fd, 
-                      struct dirent *dirp, 
-                      size_t size, 
-                      off_t *offset,
-		      int32_t num_entries)
+libgf_client_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
+                      struct dirent *dirp, off_t *offset)
 {  
         call_stub_t *stub = NULL;
         int op_ret = -1;
         libgf_client_local_t *local = NULL;
-	gf_dirent_t *entry = NULL;
-	int32_t count = 0; 
-	size_t entry_size = 0;
 
-        LIBGF_CLIENT_FOP (ctx, stub, readdir, local, fd, size, *offset);
+        if (libgf_dcache_readdir (ctx, fd, dirp, offset))
+                return 1;
+
+        LIBGF_CLIENT_FOP (ctx, stub, readdir, local, fd,
+                          LIBGF_READDIR_BLOCK, *offset);
 
         op_ret = stub->args.readdir_cbk.op_ret;
         errno = stub->args.readdir_cbk.op_errno;
 
-        /* Someday we'll support caching the multiple entries returned
-         * from the server, till then, the logic below only extracts
-         * one entry depending on the previous offset given above.
-         */
-        if (op_ret > 0) {
-		list_for_each_entry (entry, 
-                                     &stub->args.readdir_cbk.entries.list,
-                                     list) {
-			entry_size = offsetof (struct dirent, d_name) 
-                                + strlen (entry->d_name) + 1;
+        if (op_ret > 0)
+                libgf_dcache_update (ctx, fd, &stub->args.readdir_cbk.entries);
 
-                        /* If the offset requested matches the offset of the current
-                         * entry, it means that we need to search
-                         * further for entry with the required offset.
-                         */
-                        if (*offset == entry->d_off)
-                                continue;
-
-                        /* If we cannot fit more data into the given buffer, or
-                         * if we've extracted the requested number of entries, well,
-                         * break. */
-                        if ((size < entry_size) || (count == num_entries))
-                                break;
-
-			size -= entry_size;
-
-			dirp->d_ino = entry->d_ino;
-			/*
-			  #ifdef GF_DARWIN_HOST_OS
-			  dirp->d_off = entry->d_seekoff;
-			  #endif
-			  #ifdef GF_LINUX_HOST_OS
-			  dirp->d_off = entry->d_off;
-			  #endif
-			*/
-			
-			/* dirp->d_type = entry->d_type; */
-			dirp->d_reclen = entry->d_len;
-			strncpy (dirp->d_name, entry->d_name, dirp->d_reclen);
-			dirp->d_name[dirp->d_reclen] = '\0';
-
-			dirp = (struct dirent *) (((char *) dirp) + entry_size);
-                        *offset = entry->d_off;
-                        count++;
-		}
-        }
-
+        op_ret = libgf_dcache_readdir (ctx, fd, dirp, offset);
 	call_stub_destroy (stub);
         return op_ret;
 }
@@ -3422,8 +3545,7 @@ glusterfs_readdir (glusterfs_dir_t dirfd)
         pthread_mutex_unlock (&fd_ctx->lock);
 
         memset (dirp, 0, sizeof (struct dirent));
-        op_ret = libgf_client_readdir (ctx, (fd_t *)dirfd, dirp,
-                                       LIBGF_READDIR_BLOCK, &offset, 1);
+        op_ret = libgf_client_readdir (ctx, (fd_t *)dirfd, dirp, &offset);
 
         if (op_ret <= 0) {
                 dirp = NULL;
@@ -3463,8 +3585,7 @@ glusterfs_getdents (glusterfs_file_t fd, struct dirent *dirp,
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
-        op_ret = libgf_client_readdir (ctx, (fd_t *)fd, dirp, count, &offset,
-                                       -1);
+        op_ret = libgf_client_readdir (ctx, (fd_t *)fd, dirp, &offset);
 
         if (op_ret > 0) {
                 pthread_mutex_lock (&fd_ctx->lock);
