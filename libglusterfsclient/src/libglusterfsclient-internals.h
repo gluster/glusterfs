@@ -79,6 +79,34 @@ typedef struct {
         struct stat stbuf;
 } libglusterfs_client_inode_ctx_t;
 
+/* Our dirent cache is very simplistic when it comes to directory
+ * reading workloads. It assumes that all directory traversal operations happen
+ * sequentially and that readdir callers dont go jumping around the directory
+ * using seekdir, rewinddir. Thats why you'll notice that seekdir, rewinddir
+ * API in libglusterfsclient only set the offset. The consequence is that when
+ * libgf_dcache_readdir finds that the offset presented to it, is not
+ * the same as the offset of the previous dirent returned by dcache (..stored
+ * in struct direntcache->prev_off..), it realises that a non-sequential
+ * directory read is in progress and returns 0 to signify that the cache is
+ * not valid.
+ * This could be made a bit more intelligent by using a data structure like
+ * a hash-table or a balanced binary tree that allows us to search for the
+ * existence of particular offsets in the cache without performing a list or
+ * array traversal.
+ * Dont use a simple binary search tree because
+ * there is no guarantee that offsets in a sequential reading of the directory
+ * will be just random integers. If for some reason they are sequential, a BST
+ * will end up becoming a list.
+ */
+struct direntcache {
+        gf_dirent_t entries;            /* Head of list of cached dirents. */
+        gf_dirent_t *next;              /* Pointer to the next entry that
+                                         * should be sent by readdir */
+        uint64_t prev_off;              /* Offset where the next read will
+                                         * happen.
+                                         */
+};
+
 typedef struct {
         pthread_mutex_t lock;
         off_t offset;
@@ -88,6 +116,8 @@ typedef struct {
          * handle.
          */
 	struct dirent dirp;
+        struct direntcache *dcache;
+
 } libglusterfs_client_fd_ctx_t;
 
 typedef struct libglusterfs_client_async_local {
