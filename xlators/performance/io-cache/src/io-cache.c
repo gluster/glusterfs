@@ -895,7 +895,7 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 
 		if (trav->ready) {
 			/* page found in cache */
-			if (!might_need_validate) {
+			if (!might_need_validate && !ioc_inode->waitq) {
 				/* fresh enough */
 				gf_log (frame->this->name, GF_LOG_TRACE,
 					"cache hit for trav_offset=%"PRId64""
