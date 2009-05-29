@@ -1363,11 +1363,6 @@ struct volume_options options[] = {
 	  .min  = 0, 
 	  .max  = 60 
 	}, 
-	{ .key  = {"page-size"}, 
-	  .type = GF_OPTION_TYPE_SIZET, 
-	  .min  = 16 * GF_UNIT_KB, 
-	  .max  =  4 * GF_UNIT_MB 
-	},
 	{ .key  = {"cache-size"}, 
 	  .type = GF_OPTION_TYPE_SIZET,
 	  .min  = 4 * GF_UNIT_MB, 
