@@ -1226,9 +1226,16 @@ ib_verbs_send_completion_proc (void *data)
                                         post->buf, wc.byte_len, post->reused);
                                 if (wc.status == IBV_WC_RETRY_EXC_ERR)
                                         gf_log ("ib-verbs", GF_LOG_ERROR,
-                                                "might be an issue with SM. "
-                                                "retry after running 'opensm' "
-                                                "(Subnet Manager).");
+                                                "connection between client and"
+                                                " server not working. check by"
+                                                " running 'ibv_srq_pingpong'. "
+                                                "also make sure subnet manager"
+                                                " is running (eg: 'opensm'), "
+                                                "or check if ib-verbs port is "
+                                                "valid (or active) by running "
+                                                " 'ibv_devinfo'. contact "
+                                                "Gluster Support Team if "
+                                                "the problem persists.");
                                 if (peer)
                                         transport_disconnect (peer->trans);
                         }
