@@ -281,10 +281,6 @@ out:
         return ictx;
 }
 
-#define LIBGF_UPDATE_LOOKUP     0x1
-#define LIBGF_UPDATE_STAT       0x2
-#define LIBGF_UPDATE_ALL        (LIBGF_UPDATE_LOOKUP | LIBGF_UPDATE_STAT)
-
 int
 libgf_update_iattr_cache (inode_t *inode, int flags, struct stat *buf)
 {
@@ -327,6 +323,58 @@ libgf_update_iattr_cache (inode_t *inode, int flags, struct stat *buf)
 
 out:
         return op_ret;
+}
+
+int
+libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
+                            struct stat *sbuf, int flags)
+{
+        time_t                                  current = 0;
+        time_t                                  prev = 0;
+        libglusterfs_client_inode_ctx_t         *inode_ctx = NULL;
+        int                                     cache_valid = 0;
+        time_t                                  timeout = 0;
+
+        if (inode == NULL)
+                return 0;
+
+        inode_ctx = libgf_get_inode_ctx (inode);
+        pthread_mutex_lock (&inode_ctx->lock);
+        {
+                current = time (NULL);
+                if (flags & LIBGF_VALIDATE_LOOKUP) {
+                        prev = inode_ctx->previous_lookup_time;
+                        timeout = ctx->lookup_timeout;
+                } else {
+                        prev = inode_ctx->previous_stat_time;
+                        timeout = ctx->stat_timeout;
+                }
+
+                /* Cache infinely */
+                if (timeout == (time_t)-1) {
+                        cache_valid = 1;
+                        goto iattr_unlock_out;
+                }
+
+                /* Disable caching completely */
+                if (timeout == 0) {
+                        cache_valid = 0;
+                        goto iattr_unlock_out;
+                }
+
+                if ((prev > 0) && (timeout >= (current - prev)))
+                        cache_valid = 1;
+
+                if (flags & LIBGF_VALIDATE_LOOKUP)
+                        goto iattr_unlock_out;
+
+                if ((cache_valid) && (sbuf))
+                        *sbuf = inode_ctx->stbuf;
+        }
+iattr_unlock_out:
+        pthread_mutex_unlock (&inode_ctx->lock);
+
+        return cache_valid;
 }
 
 int32_t
@@ -3658,7 +3706,6 @@ glusterfs_lseek (glusterfs_file_t fd, off_t offset, int whence)
 	int32_t op_ret = -1;
         fd_t *__fd = (fd_t *)fd;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
-	libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
 	libglusterfs_client_ctx_t *ctx = NULL; 
 
         fd_ctx = libgf_get_fd_ctx (fd);
@@ -3690,28 +3737,14 @@ glusterfs_lseek (glusterfs_file_t fd, off_t offset, int whence)
 	{
 		char cache_valid = 0;
 		off_t end = 0;
-		time_t prev, current;
 		loc_t loc = {0, };
 		struct stat stbuf = {0, };
 
-                if ((inode_ctx = libgf_get_inode_ctx (__fd->inode))) {
-			memset (&current, 0, sizeof (current));
-			current = time (NULL);
-			
-			pthread_mutex_lock (&inode_ctx->lock);
-			{
-				prev = inode_ctx->previous_lookup_time;
-			}
-			pthread_mutex_unlock (&inode_ctx->lock);
-			
-			if ((prev >= 0)
-                            && (ctx->lookup_timeout >= (current - prev))) {
-				cache_valid = 1;
-			} 
-		}
-
-		if (cache_valid) {
-			end = inode_ctx->stbuf.st_size;
+                cache_valid = libgf_is_iattr_cache_valid (ctx, __fd->inode,
+                                                          &stbuf,
+                                                          LIBGF_VALIDATE_STAT);
+                if (cache_valid) {
+			end = stbuf.st_size;
 		} else {
 			op_ret = libgf_client_loc_fill (&loc, ctx,
                                                         __fd->inode->ino, 0,
@@ -3789,33 +3822,16 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
 {
         call_stub_t *stub = NULL;
         int32_t op_ret = 0;
-        time_t prev, current;
-        libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
         libgf_client_local_t *local = NULL;
+        struct stat cachedbuf = {0, };
 
-        inode_ctx = libgf_get_inode_ctx (loc->inode);
-        if (!inode_ctx) {
-                errno = EINVAL;
-                op_ret = -1;
+        if (libgf_is_iattr_cache_valid (ctx, loc->inode, &cachedbuf,
+                                        LIBGF_VALIDATE_STAT)) {
+                if (stbuf)
+                        memcpy (stbuf, &cachedbuf, sizeof (struct stat));
                 goto out;
         }
-        current = time (NULL);
-        pthread_mutex_lock (&inode_ctx->lock);
-        {
-                prev = inode_ctx->previous_lookup_time;
-        }
-        pthread_mutex_unlock (&inode_ctx->lock);
 
-        if ((current - prev) <= ctx->stat_timeout) {
-                pthread_mutex_lock (&inode_ctx->lock);
-                {
-                        memcpy (stbuf, &inode_ctx->stbuf, sizeof (*stbuf));
-                }
-                pthread_mutex_unlock (&inode_ctx->lock);
-		op_ret = 0;
-		goto out;
-        }
-    
         LIBGF_CLIENT_FOP (ctx, stub, stat, local, loc);
  
         op_ret = stub->args.stat_cbk.op_ret;
@@ -4031,37 +4047,17 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
 {
         call_stub_t *stub = NULL;
         int32_t op_ret = 0;
-        fd_t *__fd = fd;
-        time_t current, prev;
-        libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
         libgf_client_local_t *local = NULL;
+        struct stat cachedbuf = {0, };
 
-        current = time (NULL);
-
-        inode_ctx = libgf_get_inode_ctx (__fd->inode);
-        if (!inode_ctx) {
-                errno = EINVAL;
-                op_ret = -1;
+        if (libgf_is_iattr_cache_valid (ctx, fd->inode, &cachedbuf,
+                                        LIBGF_VALIDATE_STAT)) {
+                if (buf)
+                        memcpy (buf, &cachedbuf, sizeof (struct stat));
                 goto out;
         }
 
-        pthread_mutex_lock (&inode_ctx->lock);
-        {
-                prev = inode_ctx->previous_stat_time;
-        }
-        pthread_mutex_unlock (&inode_ctx->lock);
-
-        if ((current - prev) <= ctx->stat_timeout) {
-                pthread_mutex_lock (&inode_ctx->lock);
-                {
-                        memcpy (buf, &inode_ctx->stbuf, sizeof (*buf));
-                }
-                pthread_mutex_unlock (&inode_ctx->lock);
-		op_ret = 0;
-		goto out;
-        }
-
-        LIBGF_CLIENT_FOP (ctx, stub, fstat, local, __fd);
+        LIBGF_CLIENT_FOP (ctx, stub, fstat, local, fd);
  
         op_ret = stub->args.fstat_cbk.op_ret;
         errno = stub->args.fstat_cbk.op_errno;
