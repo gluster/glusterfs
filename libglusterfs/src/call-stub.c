@@ -1992,6 +1992,12 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 	stub->args.readdir_cbk.op_errno = op_errno;
 	INIT_LIST_HEAD (&stub->args.readdir_cbk.entries.list);
 
+        /* This check must come after the init of head above
+         * so we're sure the list is empty for list_empty.
+         */
+        if (!entries)
+                goto out;
+
 	if (op_ret > 0) {
 		list_for_each_entry (entry, &entries->list, list) {
 			stub_entry = gf_dirent_for_name (entry->d_name);
