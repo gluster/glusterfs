@@ -190,6 +190,8 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 				   priv->children[i]->fops->flush,
 				   sh->healing_fd);
 
+                call_count--;
+
                 STACK_WIND_COOKIE (frame, afr_sh_data_utimes_cbk,
 				   (void *) (long) i,
 				   priv->children[i],
