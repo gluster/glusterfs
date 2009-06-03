@@ -3489,9 +3489,15 @@ libgf_client_readdir_cbk (call_frame_t *frame,
 {
         libgf_client_local_t *local = frame->local;
 
+        /* Note, we dont let entries reach the stub because there it gets copied
+         * while we can simply delink the entries here and link them into our
+         * dcache, thereby avoiding the need to perform more allocations and
+         * copies.
+         */
         local->reply_stub = fop_readdir_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                  entries);
-
+                                                  NULL);
+        if (op_ret > 0)
+                libgf_dcache_update (frame->root->state, local->dirfd, entries);
         LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
@@ -3506,15 +3512,13 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
 
         if (libgf_dcache_readdir (ctx, fd, dirp, offset))
                 return 1;
-
+        local = CALLOC (1, sizeof (*local));
+        ERR_ABORT (local);
+        local->dirfd = fd;
         LIBGF_CLIENT_FOP (ctx, stub, readdir, local, fd,
                           LIBGF_READDIR_BLOCK, *offset);
 
-        op_ret = stub->args.readdir_cbk.op_ret;
         errno = stub->args.readdir_cbk.op_errno;
-
-        if (op_ret > 0)
-                libgf_dcache_update (ctx, fd, &stub->args.readdir_cbk.entries);
 
         op_ret = libgf_dcache_readdir (ctx, fd, dirp, offset);
 	call_stub_destroy (stub);
