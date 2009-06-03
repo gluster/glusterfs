@@ -7803,6 +7803,10 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                                 "handshake with (%s) is successful",
                                 myinfo->identifier, peerinfo->identifier);
                 } else {
+                        /*
+                         * FIXME: shouldn't we check for return value?
+                         * what should be done if cleanup fails?
+                         */
                         server_connection_cleanup (this, trans->xl_private);
                 }
 	}
