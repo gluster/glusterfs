@@ -235,5 +235,18 @@ struct vmp_entry {
         glusterfs_handle_t handle;
 };
 
+#define LIBGF_UPDATE_LOOKUP     0x1
+#define LIBGF_UPDATE_STAT       0x2
+#define LIBGF_UPDATE_ALL        (LIBGF_UPDATE_LOOKUP | LIBGF_UPDATE_STAT)
+
+#define LIBGF_VALIDATE_LOOKUP  0x1
+#define LIBGF_VALIDATE_STAT     0x2
+
+int
+libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
+                            struct stat *sbuf, int flags);
+
+int
+libgf_update_iattr_cache (inode_t *inode, int flags, struct stat *buf);
 
 #endif

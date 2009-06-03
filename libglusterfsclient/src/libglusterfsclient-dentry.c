@@ -91,9 +91,8 @@ strcpy_till (char *dest, const char *dname, char delim)
  * return - should never return NULL. should at least return '/' inode.
  */
 static inode_t *
-__libgf_client_path_to_parenti (inode_table_t *itable,
-                                const char *path,
-                                time_t lookup_timeout,
+__libgf_client_path_to_parenti (libglusterfs_client_ctx_t *ctx,
+                                inode_table_t *itable, const char *path,
                                 char **reslv)
 {
         char *resolved_till = NULL;
@@ -104,10 +103,6 @@ __libgf_client_path_to_parenti (inode_table_t *itable,
         inode_t *curr = NULL;
         inode_t *parent = NULL;
         size_t pathlen = 0;
-        time_t current, prev;
-        libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-        uint64_t ptr = 0;
-        int32_t op_ret = 0;
 
         pathlen = STRLEN_0 (path);
         resolved_till = CALLOC (1, pathlen);
@@ -126,27 +121,9 @@ __libgf_client_path_to_parenti (inode_table_t *itable,
                 if (!curr) {
                         break;
                 }
-
-                op_ret = inode_ctx_get (curr, itable->xl, &ptr);
-                if (op_ret == -1) {
-                        errno = EINVAL;
+                if (!libgf_is_iattr_cache_valid (ctx, curr, NULL,
+                                                LIBGF_VALIDATE_LOOKUP))
                         break;
-                }
-
-                inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
-                memset (&current, 0, sizeof (current));
-                current = time (NULL);
-
-                pthread_mutex_lock (&inode_ctx->lock);
-                {
-                        prev = inode_ctx->previous_lookup_time;
-                }
-                pthread_mutex_unlock (&inode_ctx->lock);
-    
-                if ((prev < 0) 
-                    || (lookup_timeout < (current - prev))) {
-                        break;
-                }
 
                 /* It is OK to append the component even if it is the       
                    last component in the path, because, if 'next_component'
@@ -237,9 +214,6 @@ __do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx,
         loc_t          new_loc = {0, };
 	char           *pathname = NULL, *directory = NULL;
 	char           *file = NULL;   
-        time_t current, prev;
-        libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-        uint64_t ptr = 0;
         
         parent = loc->parent;
         if (parent) {
@@ -251,9 +225,8 @@ __do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx,
                 resolved = strdup (loc->path);
                 resolved = dirname (resolved);
         } else {
-                parent = __libgf_client_path_to_parenti (ctx->itable, loc->path,
-                                                         ctx->lookup_timeout,
-                                                         &resolved);
+                parent = __libgf_client_path_to_parenti (ctx, ctx->itable,
+                                                         loc->path, &resolved);
         }
 
         if (parent == NULL) {
@@ -292,29 +265,14 @@ __do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx,
 
                 new_loc.inode = inode_search (ctx->itable, parent->ino, file);
                 if (new_loc.inode) {
-                        op_ret = inode_ctx_get (new_loc.inode, ctx->itable->xl,
-                                                &ptr);
-                        if (op_ret != -1) {
-                                inode_ctx = (libglusterfs_client_inode_ctx_t *)(long)ptr;
-                                memset (&current, 0, sizeof (current));
-                                current = time (NULL);
-                        
-                                pthread_mutex_lock (&inode_ctx->lock);
-                                {
-                                        prev = inode_ctx->previous_lookup_time;
-                                }
-                                pthread_mutex_unlock (&inode_ctx->lock);
-                
-                                if ((prev >= 0) 
-                                    && (ctx->lookup_timeout 
-                                        >= (current - prev))) {
-                                        dentry = dentry_search_for_inode (new_loc.inode,
-                                                                          parent->ino,
-                                                                          file);
-                                }
-                        }
+                        if (libgf_is_iattr_cache_valid (ctx, new_loc.inode,
+                                                        NULL,
+                                                        LIBGF_VALIDATE_LOOKUP))
+                                dentry = dentry_search_for_inode (new_loc.inode,
+                                                                  parent->ino,
+                                                                  file);
                 }
-                
+
                 if (dentry == NULL) {
                         op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL,
                                                       0);
