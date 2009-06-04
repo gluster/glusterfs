@@ -57,6 +57,8 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	file = CALLOC (1, sizeof (*file));
 	if (!file) {
+                op_ret = -1;
+                op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory");
 		goto unwind;
@@ -124,6 +126,8 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	file = CALLOC (1, sizeof (*file));
 	if (!file) {
+                op_ret = -1;
+                op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory");
 		goto unwind;
