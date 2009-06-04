@@ -432,6 +432,13 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	ret = fd_ctx_get (fd, this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
 
+        if (file == NULL) {
+                op_errno = EBADF;
+                gf_log (this->name, GF_LOG_DEBUG, "readv received on fd with no"
+                        " file set in its context");
+                goto unwind;
+        }
+
 	if (file->offset != offset) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"unexpected offset (%"PRId64" != %"PRId64") resetting",
@@ -516,19 +523,28 @@ ra_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	ra_file_t *file = NULL;
 	int       ret = 0;
 	uint64_t  tmp_file = 0;
+        int32_t   op_errno = 0;
 
 	ret = fd_ctx_get (fd, this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
+        if (file == NULL) {
+                op_errno = EBADF;
+                gf_log (this->name, GF_LOG_DEBUG, "flush received on fd with no"
+                        " file set in its context");
+                goto unwind;
+        }
 
-	if (file) {
-		flush_region (frame, file, 0, file->pages.prev->offset+1);
-	}
+        flush_region (frame, file, 0, file->pages.prev->offset+1);
 
 	STACK_WIND (frame, ra_flush_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->flush,
 		    fd);
 	return 0;
+
+unwind:
+	STACK_UNWIND (frame, -1, op_errno);
+        return 0;
 }
 
 
@@ -538,9 +554,16 @@ ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 	ra_file_t *file = NULL;
 	int       ret = 0;
 	uint64_t  tmp_file = 0;
+        int32_t   op_errno = 0;
 
 	ret = fd_ctx_get (fd, this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
+        if (file == NULL) {
+                op_errno = EBADF;
+                gf_log (this->name, GF_LOG_DEBUG, "fsync received on fd with no"
+                        " file set in its context");
+                goto unwind;
+        }
 
 	if (file) {
 		flush_region (frame, file, 0, file->pages.prev->offset+1);
@@ -551,6 +574,10 @@ ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 		    FIRST_CHILD (this)->fops->fsync,
 		    fd, datasync);
 	return 0;
+
+unwind:
+	STACK_UNWIND (frame, -1, op_errno);
+        return 0;
 }
 
 
@@ -568,9 +595,7 @@ ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	ret = fd_ctx_get (fd, this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
 
-	if (file) {
-		flush_region (frame, file, 0, file->pages.prev->offset+1);
-	}
+        flush_region (frame, file, 0, file->pages.prev->offset+1);
 
 	frame->local = NULL;
 	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -585,16 +610,21 @@ ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 	ra_file_t *file = NULL;
 	int       ret = 0;
 	uint64_t  tmp_file = 0;
+        int32_t   op_errno = 0;
 
 	ret = fd_ctx_get (fd, this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
+        if (file == NULL) {
+                op_errno = EBADF;
+                gf_log (this->name, GF_LOG_DEBUG, "writev received on fd with"
+                        "no file set in its context");
+                goto unwind;
+        }
 
-	if (file) {
-		flush_region (frame, file, 0, file->pages.prev->offset+1);
+        flush_region (frame, file, 0, file->pages.prev->offset+1);
 
-		/* reset the read-ahead counters too */
-		file->expected = file->page_count = 0;
-	}
+        /* reset the read-ahead counters too */
+        file->expected = file->page_count = 0;
 
 	frame->local = fd;
 
@@ -604,6 +634,10 @@ ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 		    fd, vector, count, offset, iobref);
 
 	return 0;
+
+unwind:
+	STACK_UNWIND (frame, -1, op_errno, NULL);
+        return 0;
 }
 
 
