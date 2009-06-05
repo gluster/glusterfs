@@ -2365,15 +2365,27 @@ ha_statfs_cbk (call_frame_t *frame,
 	       int32_t op_errno,
 	       struct statvfs *buf)
 {
-	int ret = -1;
+        ha_local_t   *local = NULL;
+        ha_private_t *priv  = NULL;
 
-	ret = ha_handle_cbk (frame, cookie, op_ret, op_errno);
-	if (ret == 0) {
-		STACK_UNWIND (frame,
-			      op_ret,
-			      op_errno,
-			      buf);
-	}
+        local = frame->local;
+        if (-1 == op_ret) {
+                local->active = (local->active + 1) % priv->child_count;
+                local->tries--;
+                if (!local->tries)
+                        goto out;
+                
+                STACK_WIND (frame, ha_statfs_cbk,
+                            HA_ACTIVE_CHILD(this, local),
+                            HA_ACTIVE_CHILD(this, local)->fops->statfs, 
+                            &local->loc);
+                return 0;
+        }
+
+ out:
+        loc_wipe (&local->loc);
+        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        
 	return 0;
 }
 
@@ -2382,23 +2394,28 @@ ha_statfs (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc)
 {
-	ha_local_t *local = NULL;
-	int op_errno = 0;
+        ha_private_t *priv = NULL;
+	ha_local_t   *local = NULL;
+	int           op_errno = 0;
 
-	op_errno = ha_alloc_init_inode (frame, loc->inode);
-	if (op_errno < 0) {
-		op_errno = -op_errno;
-		goto err;
-	}
-	local = frame->local;
+        /* The normal way of handling failover doesn't work here
+         * as loc->inode may be null in this case.
+         */
+        local = CALLOC (1, sizeof (*local));
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+        priv = this->private;
+        frame->local  = local;
+        local->active = priv->pref_subvol;
+        if (-1 == local->active)
+                local->active = 0;
+        local->tries  = priv->child_count;
+        loc_copy (&local->loc, loc);
 
-	local->stub = fop_statfs_stub (frame, ha_statfs, loc);
-	STACK_WIND_COOKIE (frame,
-			   ha_statfs_cbk,
-			   (void *)(long)local->active,
-			   HA_ACTIVE_CHILD(this, local),
-			   HA_ACTIVE_CHILD(this, local)->fops->statfs,
-			   loc);
+	STACK_WIND (frame, ha_statfs_cbk, HA_ACTIVE_CHILD(this, local),
+                    HA_ACTIVE_CHILD(this, local)->fops->statfs, loc);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);

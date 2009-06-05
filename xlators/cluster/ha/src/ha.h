@@ -27,7 +27,7 @@ typedef struct {
 	int32_t call_count;
 	char *state, *pattern;
 	dict_t *dict;
-	loc_t *loc;
+	loc_t loc;
 	struct stat buf;
 	fd_t *fd;
 	inode_t *inode;
