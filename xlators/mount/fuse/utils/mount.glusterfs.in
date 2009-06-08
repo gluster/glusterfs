@@ -18,7 +18,7 @@
 
 
 
-_init ()
+function _init ()
 {
     # log level definitions
     LOG_NONE=NONE;
@@ -27,12 +27,13 @@ _init ()
     LOG_WARNING=WARNING;
     LOG_NORMAL=NORMAL
     LOG_DEBUG=DEBUG;
+    LOG_TRACE=TRACE;
 
-    # set default log level to ERROR
+    # set default log level to NORMAL
     log_level=$LOG_NORMAL;
 }
 
-start_glusterfs ()
+function start_glusterfs ()
 {
     prefix="@prefix@";
     exec_prefix=@exec_prefix@;
@@ -54,6 +55,9 @@ start_glusterfs ()
 		;;
 	    "WARNING")
 		log_level=$LOG_WARNING;
+		;;
+	    "TRACE")
+		log_level=$LOG_TRACE;
 		;;
 	    "NONE")
 		log_level=$LOG_NONE;
@@ -106,7 +110,7 @@ start_glusterfs ()
 }
 
 
-main ()
+function main ()
 {
     options=$(echo "$@" | sed -n 's/.*\-o[ ]*\([^ ]*\).*/\1/p');
     new_log_level=$(echo "$options" | sed -n 's/.*log-level=\([^,]*\).*/\1/p');
@@ -150,11 +154,11 @@ main ()
     mount_point="$2";
 
     # Simple check to avoid multiple identical mounts
-    if grep -q " $mount_point fuse.glusterfs " /etc/mtab; then
+    if grep -q "glusterfs.* $mount_point fuse" /etc/mtab; then
         echo "$0: according to mtab, GlusterFS is already mounted on $mount_point"
         exit 1
     fi
-    
+
     fs_options=$(echo "$fs_options,$new_fs_options");
     
     start_glusterfs;
