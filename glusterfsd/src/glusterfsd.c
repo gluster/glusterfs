@@ -1117,7 +1117,7 @@ main (int argc, char *argv[])
 		argp_help (&argp, stderr, ARGP_HELP_SEE, (char *) argv[0]);
 		return -1;
 	}
-	_gf_dump_details (argc, argv);
+
 	if ((graph = _parse_specfp (ctx, specfp)) == NULL) {
 		/* _parse_specfp() prints necessary error message */
 		fprintf (stderr, "exiting\n");
@@ -1171,13 +1171,22 @@ main (int argc, char *argv[])
 		}
 		
 		/* we are daemon now */
+                _gf_dump_details (argc, argv);
+
  		/* update pid file, if given */
  		if (cmd_args->pid_file != NULL) {
  			fprintf (ctx->pidfp, "%d\n", getpid ());
  			fflush (ctx->pidfp);
  			/* we close pid file on exit */
  		}
-	}
+	} else {
+                /*
+                 * Need to have this line twice because PID is different
+                 * in daemon and non-daemon cases.
+                 */
+
+                _gf_dump_details (argc, argv);
+        }
 	
 	gf_log ("glusterfs", GF_LOG_DEBUG, 
 		"running in pid %d", getpid ());
