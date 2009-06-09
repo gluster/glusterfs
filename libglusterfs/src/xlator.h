@@ -98,6 +98,10 @@ typedef int32_t (*mop_getspec_cbk_t) (call_frame_t *frame,
 				      int32_t op_errno,
 				      char *spec_data);
 
+typedef int32_t (*mop_log_cbk_t) (call_frame_t *frame,
+                                  void *cookie, xlator_t *this,
+                                  int32_t op_ret, int32_t op_errno);
+
 typedef int32_t (*fop_checksum_cbk_t) (call_frame_t *frame,
 				       void *cookie,
 				       xlator_t *this,
@@ -119,6 +123,10 @@ typedef int32_t (*mop_getspec_t) (call_frame_t *frame,
 				  const char *key,
 				  int32_t flag);
 
+typedef int32_t (*mop_log_t) (call_frame_t *frame,
+                              xlator_t *this,
+                              const char *msg);
+
 typedef int32_t (*fop_checksum_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   loc_t *loc,
@@ -127,7 +135,9 @@ typedef int32_t (*fop_checksum_t) (call_frame_t *frame,
 struct xlator_mops {
 	mop_stats_t            stats;
 	mop_getspec_t          getspec;
+        mop_log_t              log;
 
+        mop_log_cbk_t          log_cbk;
 	mop_stats_cbk_t        stats_cbk;
 	mop_getspec_cbk_t      getspec_cbk;
 };

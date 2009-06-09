@@ -42,6 +42,11 @@ int32_t default_getspec (call_frame_t *frame,
 			 const char *key,
 			 int32_t flag);
 
+int32_t
+default_log (call_frame_t *frame,
+             xlator_t *this,
+             const char *msg);
+
 int32_t default_checksum (call_frame_t *frame,
 			  xlator_t *this,
 			  loc_t *loc,
