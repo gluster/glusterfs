@@ -5356,6 +5356,66 @@ client_getspec_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 
 int
+client_log (call_frame_t *frame, xlator_t *this, const char *msg)
+{
+	gf_hdr_common_t *     hdr = NULL;
+	gf_mop_log_req_t *    req = NULL;
+	size_t                hdrlen = -1;
+	int                   msglen = 0;
+	int                   ret = -1;
+
+	if (msg)
+		msglen = STRLEN_0(msg);
+
+	hdrlen = gf_hdr_len (req, msglen);
+	hdr    = gf_hdr_new (req, msglen);
+        
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
+	req         = gf_param (hdr);
+	req->msglen = hton32 (msglen);
+        
+	if (msglen)
+		strcpy (req->msg, msg);
+
+	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
+				    GF_OP_TYPE_MOP_REQUEST, GF_MOP_LOG,
+				    hdr, hdrlen, NULL, 0, NULL);
+
+	return ret;
+        
+unwind:
+	if (hdr)
+		free (hdr);
+        
+	STACK_UNWIND(frame, -1, EINVAL, NULL);
+	return 0;
+}
+
+
+int
+client_log_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen)
+{
+	gf_mop_log_rsp_t *     rsp      = NULL;
+        
+	int32_t                op_ret   = 0;
+	int32_t                op_errno = 0;
+	int32_t                gf_errno = 0;
+
+	op_ret   = ntoh32 (hdr->rsp.op_ret);
+	gf_errno = ntoh32 (hdr->rsp.op_errno);
+	op_errno = gf_error_to_errno (gf_errno);
+        
+	rsp = gf_param (hdr);
+
+	STACK_UNWIND (frame, op_ret, op_errno);
+
+	return 0;
+}
+
+
+int
 client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
 {
 	gf_hdr_common_t       *hdr = NULL;
@@ -6362,6 +6422,7 @@ struct xlator_fops fops = {
 struct xlator_mops mops = {
 	.stats     = client_stats,
 	.getspec   = client_getspec,
+        .log       = client_log,
 };
 
 struct xlator_cbks cbks = {
