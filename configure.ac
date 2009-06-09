@@ -573,8 +573,6 @@ AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 
 AC_OUTPUT
 
-exec >&2
-
 echo
 echo "GlusterFS configure summary"
 echo "==========================="
