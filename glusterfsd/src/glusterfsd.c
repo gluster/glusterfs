@@ -65,6 +65,11 @@
 
 #include <fnmatch.h>
 
+extern int
+gf_log_central_init (glusterfs_ctx_t *ctx, const char *remote_host,
+                     const char *transport, uint32_t remote_port);
+
+
 /* using argp for command line parsing */
 static char gf_doc[] = "";
 static char argp_doc[] = "--volfile-server=SERVER [MOUNT-POINT]\n"       \
@@ -1210,6 +1215,11 @@ main (int argc, char *argv[])
 
 	gf_log ("glusterfs", GF_LOG_NORMAL, "Successfully started");
 	
+        if (cmd_args->volfile_server) {
+                gf_log_central_init (ctx, cmd_args->volfile_server,
+                                     "socket", cmd_args->volfile_server_port);
+        }
+
 	event_dispatch (ctx->event_pool);
 
 	return 0;
