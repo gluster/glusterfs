@@ -149,6 +149,61 @@ glusterfs_this_set (xlator_t *this)
 }
 
 
+/* IS_CENTRAL_LOG */
+
+static pthread_key_t central_log_flag_key;
+
+void
+glusterfs_central_log_flag_destroy (void *ptr)
+{
+        if (ptr)
+                FREE (ptr);
+}
+
+
+int
+glusterfs_central_log_flag_init ()
+{
+        int ret = 0;
+
+        ret = pthread_key_create (&central_log_flag_key, 
+                                  glusterfs_central_log_flag_destroy);
+
+        if (ret != 0) {
+                return ret;
+        }
+
+        pthread_setspecific (central_log_flag_key, (void *) 0);
+
+        return ret;
+}
+
+
+void
+glusterfs_central_log_flag_set ()
+{
+        pthread_setspecific (central_log_flag_key, (void *) 1);
+}
+
+
+long
+glusterfs_central_log_flag_get ()
+{
+        long flag = 0;
+
+        flag = (long) pthread_getspecific (central_log_flag_key);
+        
+        return flag;
+}
+
+
+void
+glusterfs_central_log_flag_unset ()
+{
+        pthread_setspecific (central_log_flag_key, (void *) 0);
+}
+
+
 int
 glusterfs_globals_init ()
 {
@@ -159,6 +214,10 @@ glusterfs_globals_init ()
                 goto out;
 
         ret = glusterfs_this_init ();
+        if (ret)
+                goto out;
+
+        ret = glusterfs_central_log_flag_init ();
         if (ret)
                 goto out;
 out:
