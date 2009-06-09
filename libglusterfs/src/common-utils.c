@@ -218,6 +218,7 @@ gf_global_variable_init()
 	gf_mop_list[GF_MOP_STATS]       = "STATS";
 	gf_mop_list[GF_MOP_SETSPEC]     = "SETSPEC";
 	gf_mop_list[GF_MOP_GETSPEC]     = "GETSPEC";
+        gf_mop_list[GF_MOP_LOG]         = "LOG";
 	gf_mop_list[GF_MOP_PING]        = "PING";
 
 	gf_cbk_list[GF_CBK_FORGET]      = "FORGET";

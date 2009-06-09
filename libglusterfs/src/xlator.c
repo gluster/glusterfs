@@ -102,6 +102,7 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (lock_notify);
 	SET_DEFAULT_FOP (lock_fnotify);
 	
+        SET_DEFAULT_MOP (log);
 	SET_DEFAULT_MOP (stats);
 
 	SET_DEFAULT_CBK (release);

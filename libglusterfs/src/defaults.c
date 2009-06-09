@@ -1344,6 +1344,32 @@ default_getspec (call_frame_t *frame,
 
 
 static int32_t
+default_log_cbk (call_frame_t *frame,
+                 void *cookie,
+                 xlator_t *this,
+                 int32_t op_ret,
+                 int32_t op_errno)
+{
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t
+default_log (call_frame_t *frame,
+             xlator_t *this,
+             const char *msg)
+{
+	STACK_WIND (frame,
+		    default_log_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->mops->log,
+		    msg);
+	return 0;
+}
+
+
+static int32_t
 default_checksum_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
