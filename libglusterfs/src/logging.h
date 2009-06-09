@@ -106,6 +106,9 @@ int
 _gf_log (const char *domain, const char *file, const char *function,
 	 int32_t line, gf_loglevel_t level, const char *fmt, ...);
 
+int
+gf_log_from_client (const char *msg, char *identifier);
+
 void gf_log_lock (void);
 void gf_log_unlock (void);
 
