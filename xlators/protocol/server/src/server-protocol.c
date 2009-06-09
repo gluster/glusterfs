@@ -7230,6 +7230,33 @@ mop_ping (call_frame_t *frame, xlator_t *bound_xl,
 
 	return 0;
 }
+
+
+int
+mop_log (call_frame_t *frame, xlator_t *bound_xl,
+         gf_hdr_common_t *hdr, size_t hdrlen,
+         struct iobuf *iobuf)
+{
+        gf_mop_log_req_t *    req = NULL;
+        char *                msg = NULL;
+        uint32_t           msglen = 0;
+
+        transport_t *       trans = NULL;
+
+        trans = TRANSPORT_FROM_FRAME (frame);
+
+        req    = gf_param (hdr);
+        msglen = ntoh32 (req->msglen);
+
+        if (msglen)
+                msg = req->msg;
+
+        gf_log_from_client (msg, trans->peerinfo.identifier);
+
+        return 0;
+}
+
+
 /*
  * unknown_op_cbk - This function is called when a opcode for unknown 
  *                  type is called. Helps to keep the backward/forward
@@ -7405,6 +7432,7 @@ static gf_op_t gf_mops[] = {
 	[GF_MOP_STATS]     = mop_stats,
 	[GF_MOP_GETSPEC]   = mop_getspec,
 	[GF_MOP_PING]      = mop_ping,
+        [GF_MOP_LOG]       = mop_log,
 };
 
 static gf_op_t gf_cbks[] = {
