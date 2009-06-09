@@ -28,6 +28,7 @@
 #include "config.h"
 #endif
 
+#include "glusterfs.h"
 #include "common-utils.h"
 #include "dict.h"
 #include "hashfn.h"
