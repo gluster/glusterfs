@@ -79,16 +79,15 @@ int
 iot_notify_wait (iot_worker_t *worker, int idletime)
 {
         struct timeval  tv;
-        struct timespec ts;
+        struct timespec ts = {0, };
         int             waitres = 0;
 
         gettimeofday (&tv, NULL);
-        ts.tv_sec = tv.tv_sec + idletime;
         /* Slightly skew the idle time for threads so that, we dont
          * have all of them rushing to exit at the same time, if
          * they've been idle.
          */
-        ts.tv_nsec = skew_usec_idle_time (tv.tv_usec) * 1000;
+        ts.tv_sec = skew_sec_idle_time (tv.tv_sec + idletime);
 
 #ifndef HAVE_SPINLOCK
         waitres = pthread_cond_timedwait (&worker->notifier, &worker->qlock,
