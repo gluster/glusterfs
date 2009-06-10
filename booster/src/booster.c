@@ -203,6 +203,11 @@ static void (*real_rewinddir) (DIR *dirp);
 static void (*real_seekdir) (DIR *dirp, off_t offset);
 static off_t (*real_telldir) (DIR *dirp);
 
+static ssize_t (*real_sendfile) (int out_fd, int in_fd, off_t *offset,
+                                 size_t count);
+static ssize_t (*real_sendfile64) (int out_fd, int in_fd, off_t *offset,
+                                   size_t count);
+
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
                         real_##sym = dlsym (RTLD_NEXT, #sym);   \
@@ -2005,6 +2010,57 @@ fork (void)
 	return pid;
 }
 
+ssize_t
+sendfile (int out_fd, int in_fd, off_t *offset, size_t count)
+{
+        glusterfs_file_t            in_fh = NULL;
+        ssize_t                     ret = -1;
+
+        /*
+         * handle sendfile in booster only if in_fd corresponds to a glusterfs
+         * file handle 
+         */
+        in_fh = booster_get_glfs_fd (booster_glfs_fdtable, in_fd);
+        if (!in_fh) {
+                if (real_sendfile == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                } else {
+                        ret = real_sendfile (out_fd, in_fd, offset, count);
+                }
+        } else {
+                ret = glusterfs_sendfile (out_fd, in_fh, offset, count);
+                booster_put_glfs_fd (in_fh);
+        }
+        
+        return ret;
+}
+
+ssize_t
+sendfile64 (int out_fd, int in_fd, off_t *offset, size_t count)
+{
+        glusterfs_file_t            in_fh = NULL;
+        ssize_t                     ret = -1;
+
+        /*
+         * handle sendfile in booster only if in_fd corresponds to a glusterfs
+         * file handle 
+         */
+        in_fh = booster_get_glfs_fd (booster_glfs_fdtable, in_fd);
+        if (!in_fh) {
+                if (real_sendfile64 == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                } else {
+                        ret = real_sendfile64 (out_fd, in_fd, offset, count);
+                }
+        } else {
+                ret = glusterfs_sendfile (out_fd, in_fh, offset, count);
+                booster_put_glfs_fd (in_fh);
+        }
+        
+        return ret;
+}
 
 void
 _init (void)
@@ -2077,6 +2133,8 @@ _init (void)
 	RESOLVE (rewinddir);
 	RESOLVE (seekdir);
 	RESOLVE (telldir);
+        RESOLVE (sendfile);
+        RESOLVE (sendfile64);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
