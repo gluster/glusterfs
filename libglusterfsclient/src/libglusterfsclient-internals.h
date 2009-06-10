@@ -131,6 +131,7 @@ typedef struct libglusterfs_client_async_local {
                 struct {
                         fd_t *fd;
                         glusterfs_readv_cbk_t cbk;
+                        char update_offset;
                 }readv_cbk;
     
                 struct {
