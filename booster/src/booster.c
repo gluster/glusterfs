@@ -42,6 +42,7 @@
 #include <dirent.h>
 #include <sys/statfs.h>
 #include <sys/statvfs.h>
+#include <fcntl.h>
 
 #ifndef GF_UNIT_KB
 #define GF_UNIT_KB 1024
@@ -211,6 +212,7 @@ static ssize_t (*real_sendfile) (int out_fd, int in_fd, off_t *offset,
                                  size_t count);
 static ssize_t (*real_sendfile64) (int out_fd, int in_fd, off_t *offset,
                                    size_t count);
+static int (*real_fcntl) (int fd, int cmd, ...);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -540,7 +542,7 @@ open (const char *pathname, int flags, ...)
         return ret;
 }
 
-#if defined (__USE_LARGEFILE64) || !defined (__USE_FILE_OFFSET64)
+#if !defined (__USE_LARGEFILE64) && !defined (__USE_FILE_OFFSET64)
 int
 open64 (const char *pathname, int flags, ...)
 {
@@ -2133,6 +2135,106 @@ sendfile64 (int out_fd, int in_fd, off_t *offset, size_t count)
         return ret;
 }
 
+
+int
+fcntl (int fd, int cmd, ...)
+{
+        va_list           ap;
+        int               ret = -1;
+        long              arg = 0;
+        struct flock     *lock = NULL;
+        glusterfs_file_t  glfs_fd = 0; 
+
+        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+
+	switch (cmd) {
+	case F_DUPFD:
+	case F_DUPFD_CLOEXEC:
+	case F_GETFD:
+	case F_GETFL:
+	case F_GETOWN:
+	case F_GETSIG:
+	case F_GETLEASE:
+                if (glfs_fd) {
+                        ret = glusterfs_fcntl (glfs_fd, cmd);
+                } else {
+                        if (!real_fcntl) {
+                                errno = ENOSYS;
+                                goto out;
+                        }
+
+                        ret = real_fcntl (fd, cmd);
+                }
+		break;
+
+	case F_SETFD:
+	case F_SETFL:
+	case F_SETOWN:
+	case F_SETSIG:
+	case F_SETLEASE:
+	case F_NOTIFY:
+                va_start (ap, cmd);
+                arg = va_arg (ap, long);
+                va_end (ap);
+
+                if (glfs_fd) {
+                        ret = glusterfs_fcntl (glfs_fd, cmd, arg);
+                } else {
+                        if (!real_fcntl) {
+                                errno = ENOSYS;
+                                goto out;
+                        }
+
+                        ret = real_fcntl (fd, cmd, arg);
+                }
+		break;
+
+	case F_GETLK:
+	case F_SETLK:
+	case F_SETLKW:
+#if F_GETLK != F_GETLK64 
+        case F_GETLK64:
+#endif
+#if F_SETLK != F_SETLK64
+        case F_SETLK64:
+#endif
+#if F_SETLKW != F_SETLKW64
+        case F_SETLKW64:
+#endif
+                va_start (ap, cmd);
+                lock = va_arg (ap, struct flock *);
+                va_end (ap);
+
+                if (lock == NULL) {
+                        errno = EINVAL;
+                        goto out;
+                }
+
+                if (glfs_fd) {
+                        ret = glusterfs_fcntl (glfs_fd, cmd, lock);
+                } else {
+                        if (!real_fcntl) {
+                                errno = ENOSYS;
+                                goto out;
+                        }
+
+                        ret = real_fcntl (fd, cmd, lock);
+                }
+		break;
+
+	default:
+                errno = EINVAL;
+		break;
+	}
+
+out:
+        if (glfs_fd) {
+                booster_put_glfs_fd (glfs_fd);
+        }
+
+        return ret;
+}
+
 void
 _init (void)
 {
@@ -2208,6 +2310,7 @@ _init (void)
         RESOLVE (sendfile64);
         RESOLVE (readdir_r);
         RESOLVE (readdir64_r);
+        RESOLVE (fcntl);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
