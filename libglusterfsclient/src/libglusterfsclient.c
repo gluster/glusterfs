@@ -1418,10 +1418,53 @@ out:
         return ret;
 }
 
+inline int
+_libgf_umount (char *vmp)
+{
+        struct vmp_entry *entry= NULL;
+        int               ret = -1;
+
+        entry = _libgf_vmp_search_entry (vmp);
+        if (entry == NULL) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                        "path (%s) not mounted", vmp);
+                goto out;
+        }
+
+        if (entry->handle == NULL) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR,
+                        "path (%s) has no corresponding glusterfs handle",
+                        vmp);
+                goto out;
+        }
+
+        ret = glusterfs_fini (entry->handle);
+        libgf_free_vmp_entry (entry);
+
+        list_del_init (&entry->list);
+        vmplist.entries--; 
+
+out:
+        return ret;
+}
+
+inline int
+libgf_umount (char *vmp)
+{
+        int ret = -1;
+
+        pthread_mutex_lock (&lock);
+        { 
+                ret = _libgf_umount (vmp);
+        }
+        pthread_mutex_unlock (&lock);
+        
+        return ret;
+}
+
 int
 glusterfs_umount (char *vmp)
 { 
-        struct vmp_entry *entry= NULL;
         int    ret = -1; 
         char *vmp_resolved = NULL;
 
@@ -1431,25 +1474,7 @@ glusterfs_umount (char *vmp)
         if (!vmp_resolved)
                 goto out;
 
-        entry = libgf_vmp_search_entry (vmp_resolved);
-        if (entry == NULL) {
-                gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                        "path (%s) not mounted", vmp_resolved);
-                goto out;
-        }
-
-        /* FIXME: make this thread safe */
-        list_del_init (&entry->list);
-
-        if (entry->handle == NULL) {
-                gf_log ("libglusterfsclient", GF_LOG_ERROR,
-                        "path (%s) has no corresponding glusterfs handle",
-                        vmp_resolved);
-                goto out;
-        }
-
-        ret = glusterfs_fini (entry->handle);
-        libgf_free_vmp_entry (entry);
+        ret = libgf_umount (vmp_resolved);
 
 out:
         if (vmp_resolved)
@@ -1463,7 +1488,6 @@ glusterfs_reset (void)
 {
 	first_fini = first_init = 1;
 }
-
 
 void 
 glusterfs_log_lock (void)
