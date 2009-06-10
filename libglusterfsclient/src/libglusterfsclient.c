@@ -1483,6 +1483,25 @@ out:
         return ret;
 }
 
+int
+glusterfs_umount_all (void)
+{
+        struct vmp_entry *entry = NULL, *tmp = NULL;
+
+        pthread_mutex_lock (&lock);
+        {
+                list_for_each_entry_safe (entry, tmp, &vmplist.list, list) {
+                        /* even if there are errors, continue with other
+                           mounts
+                        */
+                        _libgf_umount (entry->vmp);
+                }
+        }
+        pthread_mutex_unlock (&lock);
+        
+        return 0;
+}
+
 void
 glusterfs_reset (void)
 {
