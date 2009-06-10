@@ -6890,6 +6890,97 @@ glusterfs_sendfile (int out_fd, glusterfs_file_t in_fd, off_t *offset,
         return ret;
 }
 
+
+static int32_t
+libgf_client_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, struct flock *lock)
+{
+        libgf_client_local_t *local = frame->local;
+
+        local->reply_stub = fop_lk_cbk_stub (frame, NULL, op_ret, op_errno,
+                                             lock);
+
+        LIBGF_REPLY_NOTIFY (local);
+
+        return 0;
+}
+
+
+int
+libgf_client_lk (libglusterfs_client_ctx_t *ctx, fd_t *fd, int cmd,
+                 struct flock *lock)
+{
+        call_stub_t          *stub = NULL;
+        int32_t               op_ret;
+        libgf_client_local_t *local = NULL;
+        
+        LIBGF_CLIENT_FOP(ctx, stub, lk, local, fd, cmd, lock);
+
+        op_ret = stub->args.lk_cbk.op_ret;
+        errno = stub->args.lk_cbk.op_errno;
+        if (op_ret == 0) {
+                *lock = stub->args.lk_cbk.lock;
+        }
+
+	call_stub_destroy (stub);
+        return op_ret;
+}
+
+
+int
+glusterfs_fcntl (glusterfs_file_t fd, int cmd, ...)
+{
+        int                           ret = -1;
+        struct flock                 *lock = NULL;
+        va_list                       ap;
+        libglusterfs_client_ctx_t    *ctx = NULL;
+        libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
+
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
+                errno = EBADF;
+		goto out;
+        }
+
+        ctx = fd_ctx->ctx;
+
+        switch (cmd) {
+        case F_SETLK:
+        case F_SETLKW:
+        case F_GETLK:
+#if F_SETLK != F_SETLK64
+        case F_SETLK64:
+#endif
+#if F_SETLKW != F_SETLKW64
+        case F_SETLKW64:
+#endif
+#if F_GETLK != F_GETLK64
+        case F_GETLK64:
+#endif
+                va_start (ap, cmd);
+                lock = va_arg (ap, struct flock *);
+                va_end (ap);
+
+                if (!lock) {
+                        errno = EINVAL;
+                        goto out;
+                }
+
+                ret = libgf_client_lk (ctx, fd, cmd, lock); 
+                break;
+
+        default:
+                errno = EINVAL;
+                break;
+        }
+
+out:
+        return ret;
+}
+
+
 static struct xlator_fops libgf_client_fops = {
 };
 

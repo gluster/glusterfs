@@ -1277,6 +1277,32 @@ ssize_t
 glusterfs_sendfile (int out_fd, glusterfs_file_t in_fd, off_t *offset,
                     size_t count);
 
+/* manipulate file descriptor
+ * This api can have 3 forms similar to fcntl(2).
+ *
+ * int
+ * glusterfs_fcntl (glusterfs_file_t fd, int cmd)
+ *
+ * int
+ * glusterfs_fcntl (glusterfs_file_t fd, int cmd, long arg)
+ *
+ * int
+ * glusterfs_fcntl (glusterfs_file_t fd, int cmd, struct flock *lock)
+ *
+ * @fd   : file handle returned by glusterfs_open or glusterfs_create.
+ * @cmd  : Though the aim is to implement all possible commands supported by
+ *         fcntl(2), currently following commands are supported.
+ *         F_SETLK, F_SETLKW, F_GETLK -  used to acquire, release, and test for
+ *                                       the existence of record locks (also 
+ *                                       known as file-segment or file-region
+ *                                       locks). More detailed explanation is
+ *                                       found in 'man 2 fcntl'
+ */
+   
+int
+glusterfs_fcntl (glusterfs_file_t fd, int cmd, ...);
+
+
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
