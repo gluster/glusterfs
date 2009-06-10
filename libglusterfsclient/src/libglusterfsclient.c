@@ -1506,6 +1506,12 @@ glusterfs_umount_all (void)
 void
 glusterfs_reset (void)
 {
+        INIT_LIST_HEAD (&vmplist.list);
+        vmplist.entries = 0;
+
+        memset (&lock, 0, sizeof (lock));
+        pthread_mutex_init (&lock, NULL);
+
 	first_fini = first_init = 1;
 }
 
