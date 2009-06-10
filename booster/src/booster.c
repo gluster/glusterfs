@@ -1099,10 +1099,16 @@ booster_cleanup (void)
 	free (booster_glfs_fdtable);
 	booster_glfs_fdtable = NULL;
 
-        /* FIXME: there may be issues during execution of fini of individual
-           xlators due to inconsistent lock states.
-        */
-        glusterfs_umount_all ();
+        /*
+         * FIXME: there may be issues during execution of fini of individual
+         * xlators due to inconsistent lock states.
+         */
+        
+        /* 
+         * as above FIXME says, glusterfs_umount_all indeed leads to memory 
+         * corruption, hence commenting out
+         */
+        /* glusterfs_umount_all (); */
 	glusterfs_reset ();
 }
 
