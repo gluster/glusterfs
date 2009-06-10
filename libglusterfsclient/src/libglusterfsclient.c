@@ -3598,6 +3598,61 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
         return op_ret;
 }
 
+
+int
+glusterfs_readdir_r (glusterfs_dir_t dirfd, struct dirent *entry,
+                     struct dirent **result)
+{
+        int                           op_ret = -1;
+        libglusterfs_client_ctx_t    *ctx = NULL;
+        off_t                         offset = 0;
+        libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
+        struct dirent                *dirp = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, entry, out);
+
+        fd_ctx = libgf_get_fd_ctx (dirfd);
+        if (!fd_ctx) {
+                errno = EBADF;
+		goto out;
+        }
+
+        pthread_mutex_lock (&fd_ctx->lock);
+        {
+                ctx = fd_ctx->ctx;
+                offset = fd_ctx->offset;
+                dirp = &fd_ctx->dirp;
+
+                memset (dirp, 0, sizeof (struct dirent));
+                op_ret = libgf_client_readdir (ctx, (fd_t *)dirfd, dirp,
+                                               &offset);
+                if (op_ret <= 0) {
+                        if (result && (op_ret == 0)) {
+                                *result = NULL;
+                        } else if (op_ret < 0){
+                                op_ret = errno;
+                        }
+                        goto unlock;
+                }
+
+                fd_ctx->offset = offset;
+
+                if (result) {
+                        *result = memcpy (entry, dirp, sizeof (*entry));
+                } else {
+                        memcpy (entry, dirp, sizeof (*entry));
+                }
+
+                op_ret = 0;
+        }
+unlock:
+        pthread_mutex_unlock (&fd_ctx->lock);
+
+out:
+        return op_ret;
+}
+
+
 struct dirent *
 glusterfs_readdir (glusterfs_dir_t dirfd)
 {

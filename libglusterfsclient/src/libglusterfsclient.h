@@ -635,6 +635,23 @@ glusterfs_readdir (glusterfs_dir_t dirfd);
 
 
 
+/* re-entrant version of glusterfs_readdir.
+ *
+ * @dirfd       : The handle of directory to be read. This handle is the one
+ *                returned by opendir.
+ * @entry       : Pointer to storage to store a directory entry. The storage
+ *                pointed to by entry shall be large enough for a dirent with 
+ *                an array of char d_name members containing at least
+ *                {NAME_MAX}+1 elements.
+ * @result      : Upon successful return, the pointer returned at *result shall
+ *                have the same value as the argument entry. Upon reaching the
+ *                end of the directory stream, this pointer shall have the
+ *                value NULL.
+ */
+int
+glusterfs_readdir_r (glusterfs_dir_t dirfd, struct dirent *entry,
+                     struct dirent **result);
+
 /* Close a directory handle.
  *
  * @fd          : The directory handle to be closed.
