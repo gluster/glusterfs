@@ -3709,11 +3709,15 @@ libglusterfs_readv_async_cbk (call_frame_t *frame,
         if (op_ret > 0) {
                 libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
                 fd_ctx = libgf_get_fd_ctx (__fd);
-                pthread_mutex_lock (&fd_ctx->lock);
-                {
-                        fd_ctx->offset += op_ret;
+                
+                /* update offset only if we have used offset stored in fd_ctx */
+                if (local->fop.readv_cbk.update_offset) {
+                        pthread_mutex_lock (&fd_ctx->lock);
+                        {
+                                fd_ctx->offset += op_ret;
+                        }
+                        pthread_mutex_unlock (&fd_ctx->lock);
                 }
-                pthread_mutex_unlock (&fd_ctx->lock);
         }
 
         readv_cbk (op_ret, op_errno, buf, local->cbk_data); 
@@ -3780,6 +3784,7 @@ glusterfs_read_async (glusterfs_file_t fd,
                 pthread_mutex_lock (&fd_ctx->lock);
                 {
                         offset = fd_ctx->offset;
+                        local->fop.readv_cbk.update_offset = 1;
                 }
                 pthread_mutex_unlock (&fd_ctx->lock);
         }
