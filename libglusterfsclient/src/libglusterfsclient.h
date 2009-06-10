@@ -199,6 +199,10 @@ int
 glusterfs_umount (char *vmp);
 
 
+/* glusterfs_umount_all unmounts all the mounts */
+int
+glusterfs_umount_all (void);
+
 
 /* For smaller files, application can use just
  * glusterfs_get/glusterfs_get_async
