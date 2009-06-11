@@ -231,6 +231,14 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 						   local->file_loc.path);
 			ioc_inode = ioc_inode_update (table, 
 						      inode, weight);
+                        if (ioc_inode == NULL) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "out of memory");
+                                op_ret = -1;
+                                op_errno = ENOMEM;
+                                goto out;
+                        }
+
 			inode_ctx_put (inode, this, 
 				       (uint64_t)(long)ioc_inode);
 		}
@@ -254,18 +262,49 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					ioc_table_unlock (table);
 				} else {
 					page = ioc_page_create (ioc_inode, 0);
+                                        if (page == NULL) {
+                                                op_ret = -1;
+                                                op_errno = ENOMEM;
+                                                gf_log (this->name,
+                                                        GF_LOG_ERROR,
+                                                        "out of memory");
+                                                goto out;
+                                        }
 				}
 
 				src = data_to_ptr (content_data);
 
                                 iobuf = iobuf_get (this->ctx->iobuf_pool);
 				page->iobref = iobref_new ();
+                                if (page->iobref == NULL) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "out of memory");
+                                        
+                                        ioc_page_destroy (page);
+                                        page = NULL;
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        goto out;
+                                }
+
                                 iobref_add (page->iobref, iobuf);
 				
 				memcpy (iobuf->ptr, src, stbuf->st_size);
 
 				page->vector = CALLOC (1, 
 						       sizeof (*page->vector));
+                                
+                                if (page->vector == NULL) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "out of memory");
+
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        ioc_page_destroy (page);
+                                        page = NULL;
+                                        goto out;
+                                }
+
 				page->vector->iov_base = iobuf->ptr;
 				page->vector->iov_len = stbuf->st_size;
 				page->count = 1;
@@ -295,6 +334,14 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					return 0;
 				} 
 				buf = CALLOC (1, stbuf->st_size);
+                                if (buf == NULL) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "out of memory");
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        goto out;
+                                }
+
 				tmp = buf;
 
 				for (i = 0; i < page->count; i++) {
@@ -308,9 +355,18 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					local->file_loc.path);
 				
 				if (!dict) {
-					need_unref = 1;
-					dict = dict_ref (
-						get_new_dict ());
+                                        dict = get_new_dict ();
+                                        if (dict == NULL) {
+                                                /* logged in get_new_dict() */
+                                                FREE (buf);
+                                                buf = tmp = NULL;
+                                                op_ret = -1;
+                                                op_errno = ENOMEM;
+                                                goto out;
+                                        }
+
+                                        need_unref = 1;
+                                        dict_ref (dict);
 				}
 				dict_set (dict, "glusterfs.content",
 					  data_from_dynptr (buf, 
@@ -337,6 +393,7 @@ out:
 
         if (iobref)
                 iobref_unref (iobref);
+
         if (iobuf)
                 iobuf_unref (iobuf);
 
@@ -355,6 +412,13 @@ ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 	if (GF_FILE_CONTENT_REQUESTED(xattr_req, &content_limit)) {
                 local = CALLOC (1, sizeof (*local));
+                if (local == NULL) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "out of memory");
+                        STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
+                        return 0;
+                }
+
 		local->need_xattr = content_limit;
 		local->file_loc.path = loc->path;
 		local->file_loc.inode = loc->inode;
@@ -482,6 +546,7 @@ ioc_wait_on_inode (ioc_inode_t *ioc_inode, ioc_page_t *page)
 {
 	ioc_waitq_t *waiter = NULL, *trav = NULL;
 	uint32_t    page_found = 0;
+        int32_t     ret = 0;
 
 	trav = ioc_inode->waitq;
 
@@ -495,13 +560,20 @@ ioc_wait_on_inode (ioc_inode_t *ioc_inode, ioc_page_t *page)
   
 	if (!page_found) {
 		waiter = CALLOC (1, sizeof (ioc_waitq_t));
-		ERR_ABORT (waiter);
+                if (waiter == NULL) {
+                        gf_log (ioc_inode->table->xl->name, GF_LOG_ERROR,
+                                "out of memory");
+                        ret = -ENOMEM;
+                        goto out;
+                }
+
 		waiter->data = page;
 		waiter->next = ioc_inode->waitq;
 		ioc_inode->waitq = waiter;
 	}
-  
-	return 0;
+
+out:  
+	return ret;
 }
 
 /*
@@ -518,10 +590,31 @@ ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 {
 	call_frame_t *validate_frame = NULL;
 	ioc_local_t  *validate_local = NULL;
+        ioc_local_t  *local = NULL;
+        int32_t      ret = 0;
 
+        local = frame->local;
 	validate_local = CALLOC (1, sizeof (ioc_local_t));
-	ERR_ABORT (validate_local);
+        if (validate_local == NULL) {
+                ret = -1;
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+                gf_log (ioc_inode->table->xl->name, GF_LOG_ERROR,
+                        "out of memory");
+                goto out;
+        }
+
 	validate_frame = copy_frame (frame);
+        if (validate_frame == NULL) {
+                ret = -1;
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+                FREE (validate_local);
+                gf_log (ioc_inode->table->xl->name, GF_LOG_ERROR,
+                        "out of memory");
+                goto out;
+        }
+
 	validate_local->fd = fd_ref (fd);
 	validate_local->inode = ioc_inode;
 	validate_frame->local = validate_local;
@@ -530,19 +623,16 @@ ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                     FIRST_CHILD (frame->this),
                     FIRST_CHILD (frame->this)->fops->fstat, fd);
 
-	return 0;
+out:
+	return ret;
 }
 
 inline uint32_t
 is_match (const char *path, const char *pattern)
 {
-	char    *pathname = NULL;
 	int32_t ret = 0;
 
-        pathname = strdup (path);
 	ret = fnmatch (pattern, path, FNM_NOESCAPE);
-  
-	free (pathname);
   
 	return (ret == 0);
 }
@@ -725,14 +815,18 @@ ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	ioc_local_t *local = NULL;
 
         local = CALLOC (1, sizeof (ioc_local_t));
-	ERR_ABORT (local);
+        if (local == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                return 0;
+        }
 
 	local->flags = flags;
 	local->file_loc.path = loc->path;
 	local->file_loc.inode = loc->inode;
   
 	frame->local = local;
-  
+        
 	STACK_WIND (frame, ioc_open_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->open, loc, flags, fd);
 
@@ -756,12 +850,16 @@ ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	ioc_local_t *local = NULL;
         
         local = CALLOC (1, sizeof (ioc_local_t));
-	ERR_ABORT (local);
+        if (local == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
+                return 0;
+        }
 
 	local->flags = flags;
 	local->file_loc.path = loc->path;
 	frame->local = local;
-
+        
 	STACK_WIND (frame, ioc_create_cbk, FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->create, loc, flags, mode, fd);
 
@@ -834,7 +932,7 @@ ioc_need_prune (ioc_table_t *table)
  */
 void
 ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
-		   off_t offset, size_t size)
+                       off_t offset, size_t size)
 {
 	ioc_local_t *local = NULL;
 	ioc_table_t *table = NULL;
@@ -846,6 +944,7 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 	int32_t     fault = 0;
         size_t      trav_size = 0;
         off_t       local_offset = 0;
+        int32_t     ret = -1;
 	int8_t      need_validate = 0;
 	int8_t      might_need_validate = 0;  /*
                                                * if a page exists, do we need 
@@ -888,6 +987,9 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 			if (!trav) {
 				gf_log (frame->this->name, GF_LOG_CRITICAL,
 					"out of memory");
+                                local->op_ret = -1;
+                                local->op_errno = ENOMEM;
+                                goto out;
 			}
 		} 
 
@@ -908,7 +1010,20 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 				if (!ioc_inode->waitq) {
 					need_validate = 1;
 				}
-				ioc_wait_on_inode (ioc_inode, trav);
+
+				ret = ioc_wait_on_inode (ioc_inode, trav);
+                                if (ret < 0) {
+                                        local->op_ret = -1;
+                                        local->op_errno = -ret;
+                                        need_validate = 0;
+
+                                        waitq = ioc_page_wakeup (trav);
+                                        ioc_inode_unlock (ioc_inode);
+
+                                        ioc_waitq_return (waitq);
+                                        waitq = NULL;
+                                        goto out;
+                                }
 			}
 		}
 
@@ -930,12 +1045,24 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 				"sending validate request for "
 				"inode(%"PRId64") at offset=%"PRId64"",
 				fd->inode->ino, trav_offset);
-			ioc_cache_validate (frame, ioc_inode, fd, trav);
+			ret = ioc_cache_validate (frame, ioc_inode, fd, trav);
+                        if (ret == -1) {
+                                ioc_inode_lock (ioc_inode);
+                                {
+                                        waitq = ioc_page_wakeup (trav);
+                                }
+                                ioc_inode_unlock (ioc_inode);
+
+                                ioc_waitq_return (waitq);
+                                waitq = NULL;
+                                goto out;
+                        }
 		}
     
 		trav_offset += table->page_size;
 	}
 
+out:
 	ioc_frame_return (frame);
 
 	if (ioc_need_prune (ioc_inode->table)) {
@@ -986,7 +1113,12 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	}
 
 	local = (ioc_local_t *) CALLOC (1, sizeof (ioc_local_t));
-	ERR_ABORT (local);
+        if (local == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                STACK_UNWIND (frame, -1, ENOMEM, NULL, 0, NULL, NULL);
+                return 0;
+        }
+
 	INIT_LIST_HEAD (&local->fill_list);
 
 	frame->local = local;  
@@ -1061,7 +1193,12 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	uint64_t    ioc_inode = 0;
 	
 	local = CALLOC (1, sizeof (ioc_local_t));
-	ERR_ABORT (local);
+        if (local == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+
+                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                return 0;
+        }
 
 	/* TODO: why is it not fd_ref'ed */
 	local->fd = fd;
@@ -1192,9 +1329,14 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
 	char                *pattern = NULL;
 	char                *priority = NULL;
 	char                *string = NULL;
-	struct ioc_priority *curr = NULL;
+	struct ioc_priority *curr = NULL, *tmp = NULL;
 
         string = strdup (opt_str);
+        if (string == NULL) {
+                max_pri = -1;
+                goto out;
+        }
+                
 	/* Get the pattern for cache priority. 
 	 * "option priority *.jpg:1,abc*:2" etc 
 	 */
@@ -1204,28 +1346,71 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
 	stripe_str = strtok_r (string, ",", &tmp_str);
 	while (stripe_str) {
 		curr = CALLOC (1, sizeof (struct ioc_priority));
-		ERR_ABORT (curr);
+                if (curr == NULL) {
+                        max_pri = -1;
+                        goto out;
+                }
+
 		list_add_tail (&curr->list, first);
 
 		dup_str = strdup (stripe_str);
+                if (dup_str == NULL) {
+                        max_pri = -1;
+                        goto out;
+                }
+
 		pattern = strtok_r (dup_str, ":", &tmp_str1);
-		if (!pattern)
-			return -1;
+		if (!pattern) {
+                        max_pri = -1;
+                        goto out;
+                }
+
 		priority = strtok_r (NULL, ":", &tmp_str1);
-		if (!priority)
-			return -1;
+		if (!priority) {
+                        max_pri = -1;
+                        goto out;
+                }
+
 		gf_log ("io-cache", GF_LOG_TRACE,
 			"ioc priority : pattern %s : priority %s",
 			pattern,
 			priority);
+
 		curr->pattern = strdup (pattern);
+                if (curr->pattern == NULL) {
+                        max_pri = -1;
+                        goto out;
+                }
+
 		curr->priority = strtol (priority, &tmp_str2, 0);
-		if (tmp_str2 && (*tmp_str2))
-			return -1;
-		else
-			max_pri = max (max_pri, curr->priority);
+		if (tmp_str2 && (*tmp_str2)) {
+                        max_pri = -1;
+                        goto out;
+                } else {
+ 			max_pri = max (max_pri, curr->priority);
+                }
+
+                free (dup_str);
+                dup_str = NULL;
+
 		stripe_str = strtok_r (NULL, ",", &tmp_str);
 	}
+out:
+        if (string != NULL) {
+                free (string);
+        }
+
+        if (dup_str != NULL) {
+                free (dup_str);
+        }
+
+        if (max_pri == -1) {
+                list_for_each_entry_safe (curr, tmp, first, list) {
+                        list_del_init (&curr->list);
+                        free (curr->pattern);
+                        free (curr);
+                }
+        }
 
 	return max_pri;
 }
@@ -1242,12 +1427,13 @@ init (xlator_t *this)
 	dict_t      *options = this->options;
 	uint32_t    index = 0;
 	char        *cache_size_string = NULL;
+        int32_t     ret = -1;
 
 	if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"FATAL: io-cache not configured with exactly "
 			"one child");
-		return -1;
+                goto out;
 	}
 
 	if (!this->parents) {
@@ -1256,7 +1442,10 @@ init (xlator_t *this)
 	}
 
 	table = (void *) CALLOC (1, sizeof (*table));
-	ERR_ABORT (table);
+        if (table == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
   
 	table->xl = this;
 	table->page_size = this->ctx->page_size;
@@ -1272,7 +1461,7 @@ init (xlator_t *this)
 				"invalid number format \"%s\" of "
 				"\"option cache-size\"", 
 				cache_size_string);
-			return -1;
+                        goto out;
 		}
       
 		gf_log (this->name, GF_LOG_TRACE, 
@@ -1300,20 +1489,34 @@ init (xlator_t *this)
 		table->max_pri = ioc_get_priority_list (option_list, 
 							&table->priority_list);
     
-		if (table->max_pri == -1)
-			return -1;
+		if (table->max_pri == -1) {
+                        goto out;
+                }
 	}
 	table->max_pri ++;
 	INIT_LIST_HEAD (&table->inodes);
   
 	table->inode_lru = CALLOC (table->max_pri, sizeof (struct list_head));
-	ERR_ABORT (table->inode_lru);
+        if (table->inode_lru == NULL) {
+                goto out;
+        }
+
 	for (index = 0; index < (table->max_pri); index++)
 		INIT_LIST_HEAD (&table->inode_lru[index]);
 
 	pthread_mutex_init (&table->table_lock, NULL);
 	this->private = table;
-	return 0;
+        ret = 0;
+
+out:
+        if (ret == -1) {
+                if (table != NULL) {
+                        free (table->inode_lru);
+                        free (table);
+                }
+        }
+
+	return ret;
 }
 
 /*
