@@ -137,7 +137,7 @@ afr_access (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
         read_child = afr_read_child (this, loc->inode);
-        
+
         if (read_child >= 0) {
                 call_child = read_child;
 
@@ -545,6 +545,58 @@ out:
 
 /* {{{ getxattr */
 
+struct _xattr_key {
+        char *key;
+        struct list_head list;
+};
+
+
+void
+__gather_xattr_keys (dict_t *dict, char *key, data_t *value,
+                     void *data)
+{
+        struct list_head *  list  = data;
+        struct _xattr_key * xkey  = NULL;
+
+        if (!strncmp (key, AFR_XATTR_PREFIX,
+                      strlen (AFR_XATTR_PREFIX))) {
+
+                xkey = CALLOC (1, sizeof (*xkey));
+                if (!xkey)
+                        return;
+
+                xkey->key = key;
+                INIT_LIST_HEAD (&xkey->list);
+
+                list_add_tail (&xkey->list, list);
+        }
+}
+
+
+void
+__filter_xattrs (dict_t *dict)
+{
+        struct list_head keys;
+
+        struct _xattr_key *key;
+        struct _xattr_key *tmp;
+
+        INIT_LIST_HEAD (&keys);
+
+        dict_foreach (dict, __gather_xattr_keys,
+                      (void *) &keys);
+
+        list_for_each_entry_safe (key, tmp, &keys, list) {
+                dict_del (dict, key->key);
+
+                list_del_init (&key->list);
+
+                FREE (key);
+        }
+}
+
+
+
 int32_t
 afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -590,6 +642,8 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
+                __filter_xattrs (dict);
+
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, dict);
 	}
 
@@ -622,6 +676,15 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
+
+        if (name) {
+                if (!strncmp (name, AFR_XATTR_PREFIX,
+                              strlen (AFR_XATTR_PREFIX))) {
+
+                        op_errno = ENODATA;
+                        goto out;
+                }
+        }
 
         read_child = afr_read_child (this, loc->inode);
 
