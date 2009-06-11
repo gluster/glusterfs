@@ -203,12 +203,16 @@ ioc_page_create (ioc_inode_t *ioc_inode, off_t offset)
         rounded_offset = floor (offset, table->page_size);
 
         newpage = CALLOC (1, sizeof (*newpage));
-	ERR_ABORT (newpage);
+        if (newpage == NULL) {
+                goto out;
+        }
 
-	if (ioc_inode)
+	if (ioc_inode) {
 		table = ioc_inode->table;
-	else {
-		return NULL;
+        } else {
+                free (newpage);
+                newpage = NULL;
+                goto out;
 	}
    
 	newpage->offset = rounded_offset;
@@ -222,6 +226,8 @@ ioc_page_create (ioc_inode_t *ioc_inode, off_t offset)
 
 	gf_log ("io-cache", GF_LOG_TRACE,
 		"returning new page %p", page);
+
+out:
 	return page;
 }
 
@@ -242,8 +248,13 @@ ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
 	ioc_local_t *local = frame->local;
 
 	waitq = CALLOC (1, sizeof (*waitq));
-	ERR_ABORT (waitq);
-  
+        if (waitq == NULL) {
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+                gf_log (frame->this->name, GF_LOG_ERROR, "out of memory");
+                goto out;
+        } 
+
 	gf_log (frame->this->name, GF_LOG_TRACE,
 		"frame(%p) waiting on page = %p, offset=%"PRId64", "
 		"size=%"GF_PRI_SIZET"",
@@ -261,6 +272,9 @@ ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
 		local->wait_count++;
 	}
 	ioc_local_unlock (local);
+
+out:
+        return;
 }
 
 
@@ -385,6 +399,17 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	
 				/* keep a copy of the page for our cache */
 				page->vector = iov_dup (vector, count);
+                                if (page->vector == NULL) {
+                                        page = ioc_page_get (ioc_inode, offset);
+                                        if (page != NULL)
+                                                waitq = ioc_page_error (page,
+                                                                        -1, 
+                                                                        ENOMEM);
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        goto unlock;
+                                }
+
 				page->count = count;
 				if (iobref) {
 					page->iobref = iobref_ref (iobref);
@@ -417,6 +442,7 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			} /* if(!page)...else */
 		} /* if(op_ret < 0)...else */
 	} /* ioc_inode locked region end */
+unlock:
 	ioc_inode_unlock (ioc_inode);
 
 	ioc_waitq_return (waitq);
@@ -466,11 +492,29 @@ ioc_page_fault (ioc_inode_t *ioc_inode,	call_frame_t *frame, fd_t *fd,
 	ioc_table_t  *table = NULL;
 	call_frame_t *fault_frame = NULL;
 	ioc_local_t  *fault_local = NULL;
+        int32_t      op_ret = -1, op_errno = -1;
+        ioc_waitq_t  *waitq = NULL;
+        ioc_page_t   *page = NULL;
 
         table = ioc_inode->table;
         fault_frame = copy_frame (frame);
+        if (fault_frame == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                gf_log (ioc_inode->table->xl->name, GF_LOG_ERROR,
+                        "out of memory");
+                goto err;
+        }
+
         fault_local = CALLOC (1, sizeof (ioc_local_t));
-        ERR_ABORT (fault_local);
+        if (fault_local == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                STACK_DESTROY (fault_frame->root);
+                gf_log (ioc_inode->table->xl->name, GF_LOG_ERROR,
+                        "out of memory");
+                goto err;
+        }
 
 	/* NOTE: copy_frame() means, the frame the fop whose fd_ref we 
 	 * are using till now won't be valid till we get reply from server. 
@@ -493,9 +537,18 @@ ioc_page_fault (ioc_inode_t *ioc_inode,	call_frame_t *frame, fd_t *fd,
 		    FIRST_CHILD(fault_frame->this)->fops->readv, fd,
                     table->page_size, offset);
 	return;
+
+err:
+        page = ioc_page_get (ioc_inode, offset);
+        if (page != NULL) {
+                waitq = ioc_page_error (page, op_ret, op_errno);
+                if (waitq != NULL) {
+                        ioc_waitq_return (waitq);
+                }
+        }
 }
 
-void
+int32_t
 ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
                 size_t size)
 {
@@ -507,6 +560,7 @@ ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 	ioc_inode_t *ioc_inode = NULL;
         ioc_fill_t  *new = NULL;
         int8_t      found = 0;
+        int32_t     ret = 0;
   
         local = frame->local;
         ioc_inode = page->inode;
@@ -549,7 +603,15 @@ ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 
 		{
                         new = CALLOC (1, sizeof (*new));
-			ERR_ABORT (new);
+                        if (new == NULL) {
+                                local->op_ret = -1;
+                                local->op_errno = ENOMEM;
+                                ret = -1;
+                                gf_log (page->inode->table->xl->name,
+                                        GF_LOG_ERROR, "out of memory");
+                                goto out;
+                        }
+
 			new->offset = page->offset;
 			new->size = copy_size;
 			new->iobref = iobref_ref (page->iobref);
@@ -558,9 +620,22 @@ ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 						 src_offset,
 						 src_offset + copy_size,
 						 NULL);
+
 			new->vector = CALLOC (new->count, 
 					      sizeof (struct iovec));
-			ERR_ABORT (new->vector);
+                        if (new->vector == NULL) {
+                                local->op_ret = -1;
+                                local->op_errno = ENOMEM;
+
+                                iobref_unref (new->iobref);
+                                FREE (new);
+
+                                ret = -1;
+                                gf_log (page->inode->table->xl->name,
+                                        GF_LOG_ERROR, "out of memory");
+                                goto out;
+                        }
+
 			new->count = iov_subset (page->vector,
 						 page->count,
 						 src_offset,
@@ -599,6 +674,9 @@ ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 		}
 		local->op_ret += copy_size;
 	}
+
+out:
+        return ret;
 }
 
 /*
@@ -620,13 +698,17 @@ ioc_frame_unwind (call_frame_t *frame)
 	int32_t       copied = 0;
 	struct iobref *iobref = NULL;
 	struct stat   stbuf = {0,};
-	int32_t       op_ret = 0;
+	int32_t       op_ret = 0, op_errno = 0;
 
         local = frame->local;
 	//  ioc_local_lock (local);
-	iobref = iobref_new ();
-
 	frame->local = NULL;
+	iobref = iobref_new ();
+        if (iobref == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                gf_log (frame->this->name, GF_LOG_ERROR, "out of memory");
+        }
 
 	if (list_empty (&local->fill_list)) {
 		gf_log (frame->this->name, GF_LOG_TRACE,
@@ -640,16 +722,23 @@ ioc_frame_unwind (call_frame_t *frame)
 	}
 
 	vector = CALLOC (count, sizeof (*vector));
-	ERR_ABORT (vector);
+        if (vector == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                
+                gf_log (frame->this->name, GF_LOG_ERROR, "out of memory");
+        }
   
 	list_for_each_entry_safe (fill, next, &local->fill_list, list) {
-		memcpy (((char *)vector) + copied,
-			fill->vector,
-			fill->count * sizeof (*vector));
+                if ((vector != NULL) &&  (iobref != NULL)) { 
+                        memcpy (((char *)vector) + copied,
+                                fill->vector,
+                                fill->count * sizeof (*vector));
     
-		copied += (fill->count * sizeof (*vector));
+                        copied += (fill->count * sizeof (*vector));
 
-		iobref_merge (iobref, fill->iobref);
+                        iobref_merge (iobref, fill->iobref);
+                }
 
 		list_del (&fill->list);
 		iobref_unref (fill->iobref);
@@ -657,7 +746,10 @@ ioc_frame_unwind (call_frame_t *frame)
 		free (fill);
 	}
   
-	op_ret = iov_length (vector, count);
+        if (op_ret != -1) {
+                op_ret = iov_length (vector, count);
+        }
+
 	gf_log (frame->this->name, GF_LOG_TRACE,
 		"frame(%p) unwinding with op_ret=%d", frame, op_ret);
 
@@ -666,13 +758,19 @@ ioc_frame_unwind (call_frame_t *frame)
 	STACK_UNWIND (frame, op_ret, local->op_errno, vector, count,
 		      &stbuf, iobref);
 
-	iobref_unref (iobref);
+        if (iobref != NULL) {
+                iobref_unref (iobref);
+        }
+        
+        if (vector != NULL) {
+                free (vector);
+                vector = NULL;
+        }
     
 	pthread_mutex_destroy (&local->local_lock);
 	free (local);
-	free (vector);
 
-	return;
+        return;
 }
 
 /*
@@ -714,6 +812,7 @@ ioc_page_wakeup (ioc_page_t *page)
 {
 	ioc_waitq_t  *waitq = NULL, *trav = NULL;
 	call_frame_t *frame = NULL;
+        int32_t      ret = -1; 
 
 	waitq = page->waitq;
 	page->waitq = NULL;
@@ -726,8 +825,11 @@ ioc_page_wakeup (ioc_page_t *page)
   
 	for (trav = waitq; trav; trav = trav->next) {
 		frame = trav->data; 
-		ioc_frame_fill (page, frame, trav->pending_offset, 
-				trav->pending_size);
+		ret = ioc_frame_fill (page, frame, trav->pending_offset, 
+                                      trav->pending_size);
+                if (ret == -1) {
+                        break;
+                }
 	}
 	
 	return waitq;

@@ -215,7 +215,7 @@ ioc_frame_return (call_frame_t *frame);
 void
 ioc_waitq_return (ioc_waitq_t *waitq);
 
-void
+int32_t
 ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 		size_t size);
 

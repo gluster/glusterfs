@@ -150,7 +150,9 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 	ioc_inode_t *ioc_inode = NULL;
         
         ioc_inode = CALLOC (1, sizeof (ioc_inode_t));
-	ERR_ABORT (ioc_inode);
+        if (ioc_inode == NULL) {
+                goto out;
+        }
   
 	ioc_inode->table = table;
  
@@ -173,6 +175,7 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 	pthread_mutex_init (&ioc_inode->inode_lock, NULL);
 	ioc_inode->weight = weight;
   
+out:
 	return ioc_inode;
 }
 
