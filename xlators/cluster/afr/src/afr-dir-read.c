@@ -148,11 +148,13 @@ out:
 int32_t
 afr_readdir_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno,
-		 gf_dirent_t *buf)
+		 gf_dirent_t *entries)
 {
 	afr_private_t * priv     = NULL;
 	afr_local_t *   local    = NULL;
 	xlator_t **     children = NULL;
+
+        gf_dirent_t * entry = NULL;
 
 	int unwind     = 1;
 	int last_tried = -1;
@@ -185,10 +187,13 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
-                buf->d_ino = afr_itransform (buf->d_ino, priv->child_count,
-                                             child_index);
+                list_for_each_entry (entry, &entries->list, list) {
+                        entry->d_ino = afr_itransform (entry->d_ino,
+                                                       priv->child_count,
+                                                       child_index);
+                }
                 
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
+		AFR_STACK_UNWIND (frame, op_ret, op_errno, entries);
 	}
 
 	return 0;
