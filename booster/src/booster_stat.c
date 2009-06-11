@@ -57,6 +57,7 @@ booster_statfs64 (const char *path, void *buf);
 
 extern int
 booster_statvfs (const char *path, void *buf);
+
 extern int
 booster_statvfs64 (const char *path, void *buf);
 
