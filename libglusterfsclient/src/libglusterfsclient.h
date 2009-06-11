@@ -1234,6 +1234,32 @@ glusterfs_seekdir (glusterfs_dir_t dirfd, off_t offset);
  */
 off_t
 glusterfs_telldir (glusterfs_dir_t dirfd);
+
+
+/* Write count bytes from in_fd to out_fd, starting at *offset.
+ * glusterfs_sendfile aims at eliminating memory copy at the end of
+ * each read from in_fd, copying the file directly to out_fd from the buffer 
+ * provided by glusterfs.
+ *
+ * @out_fd: file descriptor opened for writing
+ *
+ * @in_fd: glusterfs file handle to the file to be read from.
+ *
+ * @offset: If offset is not NULL, then it points to a variable holding the file
+ *          offset  from  which  glusterfs_sendfile()  will  start reading data
+ *          from in_fd.  When glusterfs_sendfile() returns, this variable will 
+ *          be set to the offset of the byte following the last byte that was 
+ *          read.  If offset is  not  NULL, then glusterfs_sendfile()  does  not
+ *          modify the current file offset of in_fd; otherwise the current file
+ *          offset is adjusted to reflect the number of bytes read from in_fd.
+ *
+ * @count:  number of bytes to copy between the file descriptors.
+ */
+
+ssize_t
+glusterfs_sendfile (int out_fd, glusterfs_file_t in_fd, off_t *offset,
+                    size_t count);
+
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void

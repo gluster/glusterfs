@@ -53,6 +53,7 @@
 
 #define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
+#define LIBGF_SENDFILE_BLOCK_SIZE 4096
 #define LIBGF_READDIR_BLOCK     4096
 
 static inline xlator_t *
@@ -6683,6 +6684,150 @@ glusterfs_telldir (glusterfs_dir_t dirfd)
 
 out:
         return off;
+}
+
+
+struct libgf_client_sendfile_data {
+        int                reads_sent;
+        int                reads_completed;
+        int                out_fd;
+        int32_t            op_ret;
+        int32_t            op_errno;
+        pthread_mutex_t    lock;
+        pthread_cond_t     cond;
+};
+
+int
+libgf_client_sendfile_read_cbk (int op_ret, int op_errno,
+                                glusterfs_iobuf_t *buf, void *cbk_data)
+{
+        struct libgf_client_sendfile_data *sendfile_data = cbk_data;
+        int                                bytes = 0;
+
+        if (op_ret > 0) {
+                bytes = writev (sendfile_data->out_fd, buf->vector, buf->count);
+                if (bytes != op_ret) {
+                        op_ret = -1;
+                        op_errno = errno;
+                }
+
+                glusterfs_free (buf);
+        }
+
+        pthread_mutex_lock (&sendfile_data->lock);
+        {
+                if (sendfile_data->op_ret != -1) {
+                        if (op_ret == -1) {
+                                sendfile_data->op_ret = -1;
+                                sendfile_data->op_errno = op_errno;
+                        } else {
+                                sendfile_data->op_ret += op_ret;
+                        }
+                }
+
+                sendfile_data->reads_completed++;
+
+                if (sendfile_data->reads_completed
+                    == sendfile_data->reads_sent) {
+                        pthread_cond_broadcast (&sendfile_data->cond);
+                } 
+        }
+        pthread_mutex_unlock (&sendfile_data->lock);
+
+        return 0;
+}
+
+
+ssize_t
+glusterfs_sendfile (int out_fd, glusterfs_file_t in_fd, off_t *offset,
+                    size_t count)
+{
+        ssize_t                           ret = -1;
+        struct libgf_client_sendfile_data cbk_data = {0, };
+        off_t                             off = -1;
+        size_t                            size = 0;
+        int                               flags = 0;
+        int                               non_block = 0;
+
+        
+        pthread_mutex_init (&cbk_data.lock, NULL);
+        pthread_cond_init (&cbk_data.cond, NULL);
+        cbk_data.out_fd = out_fd;
+        
+        if (offset) {
+                off = *offset;
+        }
+
+        flags = fcntl (out_fd, F_GETFL);
+
+        if (flags != -1) {
+                non_block = flags & O_NONBLOCK;
+
+                if (non_block) {
+                        ret = fcntl (out_fd, F_SETFL, flags & ~O_NONBLOCK);
+                }
+        }
+
+        while (count != 0) {
+                /* 
+                 * FIXME: what's the optimal size for reads and writes?
+                 */
+                size = (count > LIBGF_SENDFILE_BLOCK_SIZE) ? 
+                        LIBGF_SENDFILE_BLOCK_SIZE : count;
+
+                /* 
+                 * we don't wait for reply to previous read, we just send all
+                 * reads in a single go.
+                 */
+                ret = glusterfs_read_async (in_fd, size, off,
+                                            libgf_client_sendfile_read_cbk,
+                                            &cbk_data);
+                if (ret == -1) {
+                        break;
+                }
+
+                pthread_mutex_lock (&cbk_data.lock);
+                {
+                        cbk_data.reads_sent++;
+                }
+                pthread_mutex_unlock (&cbk_data.lock);
+
+                if (offset) {
+                        off += size;
+                }
+
+                count -= size;
+        }
+
+        pthread_mutex_lock (&cbk_data.lock);
+        {
+                /* 
+                 * if we've not received replies to all the reads we've sent,
+                 * wait for them
+                 */
+                if (cbk_data.reads_sent > cbk_data.reads_completed) {
+                        pthread_cond_wait (&cbk_data.cond,
+                                           &cbk_data.lock);
+                }
+        }
+        pthread_mutex_unlock (&cbk_data.lock);
+
+        if (offset != NULL) {
+                *offset = off;
+        }
+ 
+        /* if we were able to stack_wind all the reads */
+
+        if (ret == 0) {
+                ret = cbk_data.op_ret;
+                errno = cbk_data.op_errno;
+        }
+
+        if (non_block) {
+                fcntl (out_fd, F_SETFL, flags);
+        }
+
+        return ret;
 }
 
 static struct xlator_fops libgf_client_fops = {
