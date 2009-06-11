@@ -90,8 +90,10 @@ ra_wait_on_page (ra_page_t *page, call_frame_t *frame)
 	waitq = CALLOC (1, sizeof (*waitq));
 	if (!waitq) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
-			"out of memory :(");
-		return;
+			"out of memory");
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+                goto out;
 	}
 
 	waitq->data = frame;
@@ -103,6 +105,9 @@ ra_wait_on_page (ra_page_t *page, call_frame_t *frame)
 		local->wait_count++;
 	}
 	ra_local_unlock (local);
+
+out:
+        return;
 }
 
 
@@ -175,6 +180,11 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		page->vector = iov_dup (vector, count);
+                if (page->vector == NULL) {
+                        waitq = ra_page_error (page, -1, ENOMEM);
+                        goto unlock;
+                }
+
 		page->count = count;
 		page->iobref = iobref_ref (iobref);
 		page->ready = 1;
@@ -202,10 +212,26 @@ void
 ra_page_fault (ra_file_t *file, call_frame_t *frame, off_t offset)
 {
 	call_frame_t *fault_frame = NULL;
-	ra_local_t   *fault_local = NULL;
+	ra_local_t   *fault_local = NULL, *local = NULL;
+        ra_page_t    *page = NULL;
+        ra_waitq_t   *waitq = NULL;
+        int32_t      op_ret = -1, op_errno = -1; 
     
+        local = frame->local;
 	fault_frame = copy_frame (frame);
+        if (fault_frame == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto err;
+        }
+
 	fault_local = CALLOC (1, sizeof (ra_local_t));
+        if (fault_local == NULL) {
+                STACK_DESTROY (fault_frame->root);
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto err;
+        }
 
 	fault_frame->local = fault_local;
 	fault_local->pending_offset = offset;
@@ -217,7 +243,22 @@ ra_page_fault (ra_file_t *file, call_frame_t *frame, off_t offset)
 		    FIRST_CHILD (fault_frame->this),
 		    FIRST_CHILD (fault_frame->this)->fops->readv,
 		    file->fd, file->page_size, offset);
+
 	return;
+
+err:
+        ra_file_lock (file);
+        {
+                page = ra_page_get (file, offset);
+                if (page)
+                        waitq = ra_page_error (page, op_ret,
+                                               op_errno);
+        }
+        ra_file_unlock (file);
+        
+        if (waitq != NULL) {
+                ra_waitq_return (waitq);
+        }
 }
 
 void
@@ -257,6 +298,11 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 		}
 
 		new = CALLOC (1, sizeof (*new));
+                if (new == NULL) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                        goto out;
+                }
 
 		new->offset = page->offset;
 		new->size = copy_size;
@@ -265,6 +311,12 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 					 src_offset, src_offset+copy_size,
 					 NULL);
 		new->vector = CALLOC (new->count, sizeof (struct iovec));
+                if (new->vector == NULL) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                        FREE (new);
+                        goto out;
+                }
 
 		new->count = iov_subset (page->vector, page->count,
 					 src_offset, src_offset+copy_size,
@@ -277,6 +329,9 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 
 		local->op_ret += copy_size;
 	}
+
+out:
+        return;
 }
 
 
@@ -299,6 +354,10 @@ ra_frame_unwind (call_frame_t *frame)
 	fill  = local->fill.next;
 
 	iobref  = iobref_new ();
+        if (iobref == NULL) {
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+        }
 
 	frame->local = NULL;
 
@@ -308,17 +367,25 @@ ra_frame_unwind (call_frame_t *frame)
 	}
 
 	vector = CALLOC (count, sizeof (*vector));
+        if (vector == NULL) {
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+                iobref_unref (iobref);
+                iobref = NULL;
+        }
 
 	fill = local->fill.next;
 
 	while (fill != &local->fill) {
 		next = fill->next;
 
-		memcpy (((char *)vector) + copied, fill->vector,
-			fill->count * sizeof (*vector));
-
-		copied += (fill->count * sizeof (*vector));
-		iobref_merge (iobref, fill->iobref);
+                if ((vector != NULL) && (iobref != NULL)) {
+                        memcpy (((char *)vector) + copied, fill->vector,
+                                fill->count * sizeof (*vector));
+                        
+                        copied += (fill->count * sizeof (*vector));
+                        iobref_merge (iobref, fill->iobref);
+                }
 
 		fill->next->prev = fill->prev;
 		fill->prev->next = fill->prev;

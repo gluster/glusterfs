@@ -124,9 +124,11 @@ typedef struct ra_fill ra_fill_t;
 ra_page_t *
 ra_page_get (ra_file_t *file,
 	     off_t offset);
+
 ra_page_t *
 ra_page_create (ra_file_t *file,
 		off_t offset);
+
 void
 ra_page_fault (ra_file_t *file,
 	       call_frame_t *frame,
@@ -134,6 +136,7 @@ ra_page_fault (ra_file_t *file,
 void
 ra_wait_on_page (ra_page_t *page,
 		 call_frame_t *frame);
+
 ra_waitq_t *
 ra_page_wakeup (ra_page_t *page);
 
@@ -149,6 +152,7 @@ ra_page_purge (ra_page_t *page);
 
 void
 ra_frame_return (call_frame_t *frame);
+
 void
 ra_frame_fill (ra_page_t *page,
 	       call_frame_t *frame);

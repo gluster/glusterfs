@@ -357,8 +357,11 @@ dispatch_requests (call_frame_t *frame, ra_file_t *file)
 				need_atime_update = 0;
 			}
 
-			if (!trav)
-				goto unlock;
+			if (!trav) {
+                                local->op_ret = -1;
+                                local->op_errno = ENOMEM;
+ 				goto unlock;
+                        }
 
 			if (trav->ready) {
 				gf_log (frame->this->name, GF_LOG_TRACE,
@@ -390,12 +393,17 @@ dispatch_requests (call_frame_t *frame, ra_file_t *file)
 		/* TODO: use untimens() since readv() can confuse underlying
 		   io-cache and others */
 		ra_frame = copy_frame (frame);
+                if (ra_frame == NULL) {
+                        goto out;
+                }
+
 		STACK_WIND (ra_frame, ra_need_atime_cbk,
 			    FIRST_CHILD (frame->this), 
 			    FIRST_CHILD (frame->this)->fops->readv,
 			    file->fd, 1, 1);
 	}
 
+out:
 	return ;
 }
 
@@ -493,8 +501,8 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 	flush_region (frame, file, 0, floor (offset, file->page_size));
 
-	read_ahead (frame, file);
-
+        read_ahead (frame, file);
+                                 
 	ra_frame_return (frame);
 
 	file->offset = offset + size;
@@ -787,12 +795,13 @@ init (xlator_t *this)
 	ra_conf_t *conf;
 	dict_t    *options = this->options;
 	char      *page_count_string = NULL;
+        int32_t   ret = -1;
 
 	if (!this->children || this->children->next) {
 		gf_log (this->name,  GF_LOG_ERROR,
 			"FATAL: read-ahead not configured with exactly one"
                         " child");
-		return -1;
+                goto out;
 	}
 
 	if (!this->parents) {
@@ -801,7 +810,12 @@ init (xlator_t *this)
 	}
  
 	conf = (void *) CALLOC (1, sizeof (*conf));
-	ERR_ABORT (conf);
+        if (conf == NULL) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "FATAL: Out of memory");
+                goto out;
+        }
+
 	conf->page_size = this->ctx->page_size;
 	conf->page_count = 4;
 
@@ -818,7 +832,7 @@ init (xlator_t *this)
 				"invalid number format \"%s\" of \"option "
                                 "page-count\"", 
 				page_count_string);
-			return -1;
+                        goto out;
 		}
 		gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_count = %u",
 			conf->page_count);
@@ -832,7 +846,7 @@ init (xlator_t *this)
 			gf_log (this->name, GF_LOG_ERROR,
 				"'force-atime-update' takes only boolean "
                                 "options");
-			return -1;
+                        goto out;
 		}
 		if (conf->force_atime_update)
 			gf_log (this->name, GF_LOG_DEBUG, "Forcing atime "
@@ -844,7 +858,16 @@ init (xlator_t *this)
 
 	pthread_mutex_init (&conf->conf_lock, NULL);
 	this->private = conf;
-	return 0;
+        ret = 0;
+
+out:
+        if (ret == -1) {
+                if (conf != NULL) {
+                        FREE (conf);
+                }
+        }
+
+        return ret;
 }
 
 void
