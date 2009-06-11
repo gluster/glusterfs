@@ -176,6 +176,10 @@ static int (*real_readlink) (const char *path, char *buf, size_t bufsize);
 static char * (*real_realpath) (const char *path, char *resolved);
 static DIR * (*real_opendir) (const char *path);
 static struct dirent * (*real_readdir) (DIR *dir);
+static int (*real_readdir_r) (DIR *dir, struct dirent *entry,
+                              struct dirent **result);
+static int (*real_readdir64_r) (DIR *dir, struct dirent64 *entry,
+                                struct dirent64 **result);
 static int (*real_closedir) (DIR *dh);
 static int (*real___xstat) (int ver, const char *path, struct stat *buf);
 static int (*real___xstat64) (int ver, const char *path, struct stat64 *buf);
@@ -1394,6 +1398,69 @@ out:
         return (DIR *)bh;
 }
 
+int
+readdir_r (DIR *dir, struct dirent *entry, struct dirent **result)
+{
+        struct booster_dir_handle       *bh = (struct booster_dir_handle *)dir;
+        int                              ret = 0;  
+
+        if (!bh) {
+                ret = errno = EFAULT;
+                goto out;
+        }
+
+        if (bh->type == BOOSTER_GL_DIR) {
+                ret = glusterfs_readdir_r ((glusterfs_dir_t)bh->dirh, entry,
+                                           result);
+                
+        } else if (bh->type == BOOSTER_POSIX_DIR) {
+                if (real_readdir_r == NULL) {
+                        ret = errno = ENOSYS;
+                        goto out;
+                }
+
+                ret = real_readdir_r ((DIR *)bh->dirh, entry, result);
+        } else {
+                ret = errno = EINVAL;
+        }
+
+out:
+        return  ret;
+}
+
+
+#if !defined (__USE_LARGEFILE64) && !defined (__USE_FILE_OFFSET64)
+int
+readdir64_r (DIR *dir, struct dirent64 *entry, struct dirent64 **result)
+{
+        struct booster_dir_handle       *bh = (struct booster_dir_handle *)dir;
+        int                              ret = 0;  
+
+        if (!bh) {
+                ret = errno = EFAULT;
+                goto out;
+        }
+
+        if (bh->type == BOOSTER_GL_DIR) {
+                ret = glusterfs_readdir_r ((glusterfs_dir_t)bh->dirh,
+                                           (struct dirent *)entry,
+                                           (struct dirent **)result);
+        } else if (bh->type == BOOSTER_POSIX_DIR) {
+                if (real_readdir64_r == NULL) {
+                        ret = errno = ENOSYS;
+                        goto out;
+                }
+
+                ret = real_readdir64_r ((DIR *)bh->dirh, entry, result);
+        } else {
+                ret = errno = EINVAL;
+        }
+
+out:
+        return  ret;
+}
+#endif
+
 struct dirent *
 booster_readdir (DIR *dir)
 {
@@ -2139,6 +2206,8 @@ _init (void)
 	RESOLVE (telldir);
         RESOLVE (sendfile);
         RESOLVE (sendfile64);
+        RESOLVE (readdir_r);
+        RESOLVE (readdir64_r);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
