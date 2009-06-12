@@ -1509,7 +1509,7 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 
 		parent = local->fop.lookup.loc->parent;
                 inode_link (inode, parent, local->fop.lookup.loc->name, buf);
-		/* inode_lookup (inode); */
+		inode_lookup (inode);
         } else {
                 if ((local->fop.lookup.is_revalidate == 0) 
                     && (op_errno == ENOENT)) {
@@ -1758,7 +1758,7 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
                         libgf_alloc_inode_ctx (ctx, inode);
 
                 libgf_update_iattr_cache (inode, LIBGF_UPDATE_ALL, stbuf);
-                /* inode_lookup (inode); */
+                inode_lookup (inode);
         } else {
                 if ((local->fop.lookup_cbk.is_revalidate == 0) 
                     && (op_errno == ENOENT)) {
@@ -2278,7 +2278,7 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
         inode_link (libgf_inode, loc->parent, loc->name,
                         &stub->args.create_cbk.buf);
 
-        /* inode_lookup (libgf_inode); */
+        inode_lookup (libgf_inode);
 
         libgf_alloc_inode_ctx (ctx, libgf_inode);
         libgf_update_iattr_cache (libgf_inode, LIBGF_UPDATE_ALL,
@@ -4261,7 +4261,7 @@ libgf_client_mkdir (libglusterfs_client_ctx_t *ctx,
         inode_link (libgf_inode, loc->parent, loc->name,
                         &stub->args.mkdir_cbk.buf);
 
-        /* inode_lookup (libgf_inode); */
+        inode_lookup (libgf_inode);
 
         libgf_alloc_inode_ctx (ctx, libgf_inode);
         libgf_update_iattr_cache (libgf_inode, LIBGF_UPDATE_ALL,
@@ -5090,6 +5090,7 @@ libgf_client_link (libglusterfs_client_ctx_t *ctx, loc_t *old, loc_t *new)
         inode = stub->args.link_cbk.inode;
         sbuf = &stub->args.link_cbk.buf;
         inode_link (inode, new->parent, basename ((char *)new->path), sbuf);
+        inode_lookup (inode);
         libgf_update_iattr_cache (inode, LIBGF_UPDATE_STAT, sbuf);
 
 out:
@@ -5769,6 +5770,7 @@ libgf_client_mknod (libglusterfs_client_ctx_t *ctx, loc_t *loc, mode_t mode,
 
         inode = stub->args.mknod_cbk.inode;
         inode_link (inode, loc->parent, loc->name, &stub->args.mknod_cbk.buf);
+        inode_lookup (inode);
 
         if (!libgf_alloc_inode_ctx (ctx, inode))
                 libgf_alloc_inode_ctx (ctx, inode);
@@ -6063,7 +6065,7 @@ libgf_client_symlink (libglusterfs_client_ctx_t *ctx, const char *linkpath,
         inode = stub->args.symlink_cbk.inode;
         inode_link (inode, loc->parent, loc->name,
                         &stub->args.symlink_cbk.buf);
-
+        inode_lookup (inode);
         if (!libgf_get_inode_ctx (inode))
                 libgf_alloc_inode_ctx (ctx, inode);
 
