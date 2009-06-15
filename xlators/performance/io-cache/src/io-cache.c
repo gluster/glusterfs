@@ -1423,7 +1423,7 @@ out:
 int32_t 
 init (xlator_t *this)
 {
-	ioc_table_t *table;
+	ioc_table_t *table = NULL;
 	dict_t      *options = this->options;
 	uint32_t    index = 0;
 	char        *cache_size_string = NULL;
