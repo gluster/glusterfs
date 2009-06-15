@@ -2155,7 +2155,13 @@ fcntl (int fd, int cmd, ...)
 
 	switch (cmd) {
 	case F_DUPFD:
-	case F_DUPFD_CLOEXEC:
+                /* 
+                 * FIXME: Consider this case when implementing F_DUPFD, F_GETFD
+                 *        etc flags in libglusterfsclient. Commenting it out for
+                 *        timebeing since it is defined only in linux kernel 
+                 *        versions >= 2.6.24.
+                 */
+                /* case F_DUPFD_CLOEXEC: */
 	case F_GETFD:
 	case F_GETFL:
 	case F_GETOWN:
