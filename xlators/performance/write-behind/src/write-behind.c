@@ -457,6 +457,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         iobref = NULL;
                         vector = NULL;
                         sync_frame = NULL;
+                        local = NULL;
                         copied = count = 0;
                 }
         }
