@@ -792,7 +792,7 @@ ra_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 int
 init (xlator_t *this)
 {
-	ra_conf_t *conf;
+	ra_conf_t *conf = NULL;
 	dict_t    *options = this->options;
 	char      *page_count_string = NULL;
         int32_t   ret = -1;
