@@ -77,10 +77,32 @@ gf_roundup_power_of_two (uint32_t nr)
 	return result;
 }
 
+static int
+gf_fd_chain_fd_entries (fdentry_t *entries, uint32_t startidx,
+                        uint32_t endcount)
+{
+        uint32_t        i = 0;
+
+        if (!entries)
+                return -1;
+
+        /* Chain only till the second to last entry because we want to
+         * ensure that the last entry has GF_FDTABLE_END.
+         */
+        for (i = startidx; i < (endcount - 1); i++)
+                entries[i].next_free = i + 1;
+
+        /* i has already been incremented upto the last entry. */
+        entries[i].next_free = GF_FDTABLE_END;
+
+        return 0;
+}
+
+
 static uint32_t 
 gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
 {
-	fd_t **oldfds = NULL;
+	fdentry_t *oldfds = NULL;
 	uint32_t oldmax_fds = -1;
   
 	if (fdtable == NULL || nr < 0)
@@ -89,22 +111,30 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
 		return EINVAL;
 	}
   
-	nr /= (1024 / sizeof (fd_t *));
+	nr /= (1024 / sizeof (fdentry_t));
 	nr = gf_roundup_power_of_two (nr + 1);
-	nr *= (1024 / sizeof (fd_t *));
+	nr *= (1024 / sizeof (fdentry_t));
 
-	oldfds = fdtable->fds;
+	oldfds = fdtable->fdentries;
 	oldmax_fds = fdtable->max_fds;
 
-	fdtable->fds = CALLOC (nr, sizeof (fd_t *));
-	ERR_ABORT (fdtable->fds);
+	fdtable->fdentries = CALLOC (nr, sizeof (fdentry_t));
+	ERR_ABORT (fdtable->fdentries);
 	fdtable->max_fds = nr; 
 
 	if (oldfds) {
-		uint32_t cpy = oldmax_fds * sizeof (fd_t *);
-		memcpy (fdtable->fds, oldfds, cpy);
+		uint32_t cpy = oldmax_fds * sizeof (fdentry_t);
+		memcpy (fdtable->fdentries, oldfds, cpy);
 	}
 
+        gf_fd_chain_fd_entries (fdtable->fdentries, oldmax_fds,
+                                fdtable->max_fds);
+
+        /* Now that expansion is done, we must update the fd list
+         * head pointer so that the fd allocation functions can continue
+         * using the expanded table.
+         */
+        fdtable->first_free = oldmax_fds;
 	FREE (oldfds);
 	return 0;
 }
@@ -129,36 +159,36 @@ gf_fd_fdtable_alloc (void)
 	return fdtable;
 }
 
-fd_t **
+fdentry_t *
 __gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
 {
-        fd_t **fds = NULL;
+        fdentry_t       *fdentries = NULL;
 
         if (count == NULL) {
                 goto out;
         }
 
-        fds = fdtable->fds;
-        fdtable->fds = calloc (fdtable->max_fds, sizeof (fd_t *));
+        fdentries = fdtable->fdentries;
+        fdtable->fdentries = calloc (fdtable->max_fds, sizeof (fdentry_t));
         *count = fdtable->max_fds;
 
 out:
-        return fds;
+        return fdentries;
 }
 
-fd_t **
+fdentry_t *
 gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
 {
-        fd_t **fds = NULL;
+        fdentry_t       *entries = NULL;
         if (fdtable) {
                 pthread_mutex_lock (&fdtable->lock);
                 {
-                        fds = __gf_fd_fdtable_get_all_fds (fdtable, count);
+                        entries = __gf_fd_fdtable_get_all_fds (fdtable, count);
                 }
                 pthread_mutex_unlock (&fdtable->lock);
         }
 
-        return fds;
+        return entries;
 }
 
 void 
@@ -166,31 +196,31 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
 {
         struct list_head  list = {0, };
         fd_t             *fd = NULL;
-        fd_t            **fds = NULL;
+        fdentry_t        *fdentries = NULL;
         uint32_t          fd_count = 0;
         int32_t           i = 0; 
 
         INIT_LIST_HEAD (&list);
 
-	if (fdtable) {
-		pthread_mutex_lock (&fdtable->lock);
-		{
-                        fds = __gf_fd_fdtable_get_all_fds (fdtable, &fd_count);
-			FREE (fdtable->fds);
-		}
-		pthread_mutex_unlock (&fdtable->lock);
+	if (!fdtable)
+                return;
 
-                if (fds != NULL) {
-                        for (i = 0; i < fd_count; i++) {
-                                fd = fds[i];
-                                if (fd != NULL) {
-                                        fd_unref (fd);
-                                }
+	pthread_mutex_lock (&fdtable->lock);
+	{
+                fdentries = __gf_fd_fdtable_get_all_fds (fdtable, &fd_count);
+		FREE (fdtable->fdentries);
+	}
+	pthread_mutex_unlock (&fdtable->lock);
+
+        if (fdentries != NULL) {
+                for (i = 0; i < fd_count; i++) {
+                        fd = fdentries[i].fd;
+                        if (fd != NULL) {
+                                fd_unref (fd);
                         }
-
-                        FREE (fds);
                 }
 
+                FREE (fdentries);
 		pthread_mutex_destroy (&fdtable->lock);
 		FREE (fdtable);
 	}
@@ -222,19 +252,10 @@ gf_fd_unused_get2 (fdtable_t *fdtable, fd_t *fdptr, int32_t fd)
 			}
 		}
 		
-		if (!fdtable->fds[fd]) 
-		{
-			fdtable->fds[fd] = fdptr;
-			fd_ref (fdptr);
-			ret = fd;
-		} 
-		else 
-		{
-			gf_log ("fd.c",
-				GF_LOG_ERROR,
-				"Cannot allocate fd %d (slot not empty in fdtable)", fd);
-		}
-	}
+		fdtable->fdentries[fd].fd = fdptr;
+		fd_ref (fdptr);
+		ret = fd;
+        }
 err:
 	pthread_mutex_unlock (&fdtable->lock);
 	
@@ -245,7 +266,10 @@ err:
 int32_t 
 gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
 {
-	int32_t fd = -1, i = 0;
+	int32_t         fd = -1;
+        fdentry_t       *fde = NULL;
+	int             error;
+        int             alloc_attempts = 0;
   
 	if (fdtable == NULL || fdptr == NULL)
 	{
@@ -255,28 +279,42 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
   
 	pthread_mutex_lock (&fdtable->lock);
 	{
-		for (i = 0; i<fdtable->max_fds; i++) 
-		{
-			if (!fdtable->fds[i])
-				break;
-		}
-
-		if (i < fdtable->max_fds) {
-			fdtable->fds[i] = fdptr;
-			fd = i;
+fd_alloc_try_again:
+                if (fdtable->first_free != GF_FDTABLE_END) {
+                        fde = &fdtable->fdentries[fdtable->first_free];
+                        fd = fdtable->first_free;
+                        fdtable->first_free = fde->next_free;
+                        fde->next_free = GF_FDENTRY_ALLOCATED;
+                        fde->fd = fdptr;
 		} else {
-			int32_t error;
-			error = gf_fd_fdtable_expand (fdtable, fdtable->max_fds + 1);
+                        /* If this is true, there is something
+                         * seriously wrong with our data structures.
+                         */
+                        if (alloc_attempts >= 2) {
+                                gf_log ("server-protocol.c", GF_LOG_ERROR,
+                                        "Multiple attempts to expand fd table"
+                                        " have failed.");
+                                goto out;
+                        }
+                        error = gf_fd_fdtable_expand (fdtable,
+                                                      fdtable->max_fds + 1);
 			if (error) {
 				gf_log ("server-protocol.c",
 					GF_LOG_ERROR,
 					"Cannot expand fdtable:%s", strerror (error));
-			} else {
-				fdtable->fds[i] = fdptr;
-				fd = i;
+                                goto out;
 			}
+                        ++alloc_attempts;
+                        /* At this point, the table stands expanded
+                         * with the first_free referring to the first
+                         * free entry in the new set of fdentries that
+                         * have just been allocated. That means, the
+                         * above logic should just work.
+                         */
+                        goto fd_alloc_try_again;
 		}
 	}
+out:
 	pthread_mutex_unlock (&fdtable->lock);
 
 	return fd;
@@ -287,6 +325,8 @@ inline void
 gf_fd_put (fdtable_t *fdtable, int32_t fd)
 {
 	fd_t *fdptr = NULL;
+        fdentry_t *fde = NULL;
+
 	if (fdtable == NULL || fd < 0)
 	{
 		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
@@ -301,8 +341,11 @@ gf_fd_put (fdtable_t *fdtable, int32_t fd)
 
 	pthread_mutex_lock (&fdtable->lock);
 	{
-		fdptr = fdtable->fds[fd];
-		fdtable->fds[fd] = NULL;
+                fde = &fdtable->fdentries[fd];
+		fdptr = fde->fd;
+                fde->fd = NULL;
+                fde->next_free = fdtable->first_free;
+                fdtable->first_free = fd;
 	}
 	pthread_mutex_unlock (&fdtable->lock);
 
@@ -333,7 +376,7 @@ gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd)
 
 	pthread_mutex_lock (&fdtable->lock);
 	{
-		fdptr = fdtable->fds[fd];
+		fdptr = fdtable->fdentries[fd].fd;
 		if (fdptr) {
 			fd_ref (fdptr);
 		}

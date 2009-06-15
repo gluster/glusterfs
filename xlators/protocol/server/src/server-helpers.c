@@ -516,7 +516,7 @@ server_connection_cleanup_flush_cbk (call_frame_t *frame,
 
 int
 do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
-               fd_t **fds, int fd_count)
+               fdentry_t *fdentries, int fd_count)
 {
         fd_t               *fd = NULL;
         int                 i = 0, ret = -1;
@@ -525,7 +525,7 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
         
         bound_xl = conn->bound_xl;
         for (i = 0;i < fd_count; i++) {
-                fd = fds[i];
+                fd = fdentries[i].fd;
                 
                 if (fd != NULL) {
                         tmp_frame = copy_frame (frame);
@@ -545,7 +545,7 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
                                     fd);
                 }
         }
-        FREE (fds);
+        FREE (fdentries);
         ret = 0;
 
 out:
@@ -554,7 +554,7 @@ out:
 
 int
 do_connection_cleanup (xlator_t *this, server_connection_t *conn,
-                       struct _lock_table *ltable, fd_t **fds, int fd_count)
+                       struct _lock_table *ltable, fdentry_t *fdentries, int fd_count)
 {
         int32_t       ret = 0, saved_ret = 0;
 	call_frame_t *frame = NULL;
@@ -568,8 +568,8 @@ do_connection_cleanup (xlator_t *this, server_connection_t *conn,
 
         saved_ret = do_lock_table_cleanup (this, conn, frame, ltable);
 
-        if (fds != NULL) {
-                ret = do_fd_cleanup (this, conn, frame, fds, fd_count);
+        if (fdentries != NULL) {
+                ret = do_fd_cleanup (this, conn, frame, fdentries, fd_count);
         }
 
         state = CALL_STATE (frame);
@@ -591,7 +591,7 @@ server_connection_cleanup (xlator_t *this, server_connection_t *conn)
 {
         char                do_cleanup = 0;
 	struct _lock_table *ltable = NULL;
-        fd_t              **fds = NULL;
+        fdentry_t          *fdentries = NULL;
         uint32_t            fd_count = 0;
         int                 ret = 0; 
 
@@ -609,8 +609,8 @@ server_connection_cleanup (xlator_t *this, server_connection_t *conn)
 			}
 
                         if (conn->fdtable) {
-                                fds = gf_fd_fdtable_get_all_fds (conn->fdtable,
-                                                                 &fd_count);
+                                fdentries = gf_fd_fdtable_get_all_fds (conn->fdtable,
+                                                                       &fd_count);
                         }
                         do_cleanup = 1;
                 }
@@ -618,7 +618,7 @@ server_connection_cleanup (xlator_t *this, server_connection_t *conn)
         pthread_mutex_unlock (&conn->lock);
 
         if (do_cleanup && conn->bound_xl)
-                ret = do_connection_cleanup (this, conn, ltable, fds, fd_count);
+                ret = do_connection_cleanup (this, conn, ltable, fdentries, fd_count);
 
 out:
         return ret;
@@ -639,7 +639,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
 	struct flock        flock = {0,};
         fd_t               *fd = NULL; 
         int32_t             i = 0;
-        fd_t              **fds = NULL;
+        fdentry_t          *fdentries = NULL;
         uint32_t             fd_count = 0;
         
         if (conn == NULL) {
@@ -752,17 +752,17 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
 		pthread_mutex_lock (&(conn->lock));
 		{
 			if (conn->fdtable) {
-                                fds = gf_fd_fdtable_get_all_fds (conn->fdtable,
-                                                                 &fd_count);
+                                fdentries = gf_fd_fdtable_get_all_fds (conn->fdtable,
+                                                                       &fd_count);
 				gf_fd_fdtable_destroy (conn->fdtable);
 				conn->fdtable = NULL;
 			}
 		}
 		pthread_mutex_unlock (&conn->lock);
 
-                if (fds != NULL) {
+                if (fdentries != NULL) {
                         for (i = 0; i < fd_count; i++) {
-                                fd = fds[i];
+                                fd = fdentries[i].fd;
                                 if (fd != NULL) {
                                         tmp_frame = copy_frame (frame);
                                         tmp_frame->local = fd;
@@ -774,7 +774,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                                     fd);
                                 }
                         }
-                        FREE (fds);
+                        FREE (fdentries);
                 }
 	}
 
