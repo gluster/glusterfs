@@ -89,46 +89,43 @@ ret:
 }
 
 
-static int
-this_fd_get (fd_t *file, xlator_t *this, int64_t *remote_fd)
+client_fd_ctx_t *
+this_fd_get_ctx (fd_t *file, xlator_t *this)
 {
-	int         ret = 0;
 	int         dict_ret = -1;
-	uint64_t    tmp_fd = 0;
+	uint64_t    ctxaddr = 0;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, file, out);
-	GF_VALIDATE_OR_GOTO (this->name, remote_fd, out);
 
-	dict_ret = fd_ctx_get (file, this, &tmp_fd);
+	dict_ret = fd_ctx_get (file, this, &ctxaddr);
 
 	if (dict_ret < 0) {
-		ret = -1;
+		ctxaddr = 0;
 	}
-	*remote_fd = (int64_t)tmp_fd;
+
 out:
-	return ret;
+	return (client_fd_ctx_t *)ctxaddr;
 }
 
 
 static void
-this_fd_set (fd_t *file, xlator_t *this, loc_t *loc, int64_t fd)
+this_fd_set_ctx (fd_t *file, xlator_t *this, loc_t *loc, client_fd_ctx_t *ctx)
 {
-	uint64_t old_fd = 0;
+	uint64_t oldaddr = 0;
 	int32_t  ret = -1;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, file, out);
 
-	ret = fd_ctx_get (file, this, &old_fd);
+	ret = fd_ctx_get (file, this, &oldaddr);
 	if (ret >= 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"%s (%"PRId64"): trying duplicate remote fd set. "
-			"%"PRId64" over-rides %"PRId64,
-			loc->path, loc->inode->ino, fd, old_fd);
+			"%s (%"PRId64"): trying duplicate remote fd set. ",
+			loc->path, loc->inode->ino);
 	}
 
-	ret = fd_ctx_set (file, this, (uint64_t)fd);
+	ret = fd_ctx_set (file, this, (uint64_t)ctx);
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%s (%"PRId64"): failed to set remote fd",
@@ -1618,16 +1615,17 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	size_t              hdrlen = 0;
 	int64_t             remote_fd = -1;
 	int                 ret = -1;
+        client_fd_ctx_t    *fdctx = NULL;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd, EBADFD",
+			"(%"PRId64"): failed to get fd ctx, EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL, 0, NULL);
 		return 0;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
@@ -1674,16 +1672,17 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	size_t              hdrlen = 0;
 	int64_t             remote_fd = -1;
 	int                 ret = -1;
+        client_fd_ctx_t    *fdctx = NULL;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. EBADFD",
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
@@ -1780,16 +1779,17 @@ client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	size_t               hdrlen = 0;
 	int64_t              remote_fd = -1;
 	int                  ret = -1;
+        client_fd_ctx_t     *fdctx = NULL;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. EBADFD",
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD);
 		return 0;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
@@ -1830,16 +1830,17 @@ client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 	size_t              hdrlen = 0;
 	int64_t             remote_fd = -1;
 	int32_t             ret = -1;
+        client_fd_ctx_t    *fdctx = NULL;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. EBADFD", 
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
 		return 0;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
@@ -1944,6 +1945,7 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int64_t                remote_fd = -1;
 	int32_t                ret = -1;
 	ino_t                  ino = 0;
+        client_fd_ctx_t       *fdctx = NULL;
 
 	if (dict) {
 		dict_len = dict_serialized_length (dict);
@@ -1956,15 +1958,16 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	}
 
 	if (fd) {
-		ret = this_fd_get (fd, this, &remote_fd);
-		if (ret == -1) {
+		fdctx = this_fd_get_ctx (fd, this);
+		if (fdctx == NULL) {
 			gf_log (this->name, GF_LOG_TRACE,
-				"(%"PRId64"): failed to get remote fd. "
+				"(%"PRId64"): failed to get fd ctx. "
                                 "returning EBADFD", 
 				fd->inode->ino);
 			goto unwind;
 		}
 		ino = fd->inode->ino;
+                remote_fd = fdctx->remote_fd;
 	}
 
 	hdrlen = gf_hdr_len (req, dict_len);
@@ -2097,6 +2100,7 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ino_t                   ino;
 	int                     ret = -1;
 	int64_t                 remote_fd = -1;
+        client_fd_ctx_t        *fdctx = NULL;
 
 	dict_len = dict_serialized_length (dict);
 	if (dict_len < 0) {
@@ -2106,14 +2110,15 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		goto unwind;
 	}
 
-        ret = this_fd_get (fd, this, &remote_fd);
-        if (ret == -1) {
+        fdctx = this_fd_get_ctx (fd, this);
+        if (fdctx == NULL) {
                 gf_log (this->name, GF_LOG_TRACE,
-                        "(%"PRId64"): failed to get remote fd. EBADFD",
+                        "(%"PRId64"): failed to get fd ctx. EBADFD",
                         fd->inode->ino);
                 goto unwind;
         }
         ino = fd->inode->ino;
+        remote_fd = fdctx->remote_fd;
 
 	hdrlen = gf_hdr_len (req, dict_len);
 	hdr    = gf_hdr_new (req, dict_len);
@@ -2227,18 +2232,20 @@ client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int64_t                 remote_fd = -1;
 	size_t                  namelen = 0;
 	ino_t                   ino = 0;
+        client_fd_ctx_t        *fdctx = NULL;
 
 	if (name)
 		namelen = STRLEN_0(name);
 
-        ret = this_fd_get (fd, this, &remote_fd);
-        if (ret == -1) {
+        fdctx = this_fd_get_ctx (fd, this);
+        if (fdctx == NULL) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "(%"PRId64"): failed to get remote fd. EBADFD",
                         fd->inode->ino);
                 goto unwind;
         }
         ino = fd->inode->ino;
+        remote_fd = fdctx->remote_fd;
 
 	hdrlen = gf_hdr_len (req, namelen);
 	hdr    = gf_hdr_new (req, namelen);
@@ -2403,16 +2410,17 @@ client_getdents (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	size_t                 hdrlen = 0;
 	int64_t                remote_fd = -1;
 	int                    ret = -1;
+        client_fd_ctx_t       *fdctx = NULL;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. EBADFD", 
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO(frame->this->name, hdr, unwind);
@@ -2453,15 +2461,16 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	size_t                 hdrlen = 0;
 	int64_t                remote_fd = -1;
 	int                    ret = -1;
+        client_fd_ctx_t       *fdctx = NULL;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. EBADFD", 
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		goto unwind;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
@@ -2505,15 +2514,16 @@ client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 	size_t                 hdrlen = 0;
 	int64_t                remote_fd = -1;
 	int32_t                ret = -1;
+        client_fd_ctx_t       *fdctx = NULL;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. EBADFD", 
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		goto unwind;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
@@ -2608,16 +2618,17 @@ client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int64_t                 remote_fd = -1;
 	size_t                  hdrlen = -1;
 	int                     ret = -1;
+        client_fd_ctx_t        *fdctx = NULL;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. EBADFD", 
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
@@ -2659,16 +2670,17 @@ client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	int64_t             remote_fd = -1;
 	size_t              hdrlen = -1;
 	int                 ret = -1;
+        client_fd_ctx_t    *fdctx = NULL;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. EBADFD",
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND (frame, -1, EBADFD, NULL);
 		return 0;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
@@ -2714,16 +2726,17 @@ client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 	int64_t          remote_fd = -1;
 	int32_t          gf_cmd = 0;
 	int32_t          gf_type = 0;
+        client_fd_ctx_t *fdctx = NULL;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. EBADFD",
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD, NULL);
 		return 0;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	if (cmd == F_GETLK || cmd == F_GETLK64)
 		gf_cmd = GF_LK_GETLK;
 	else if (cmd == F_SETLK || cmd == F_SETLK64)
@@ -2887,18 +2900,19 @@ client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
 	int32_t                gf_cmd = 0;
 	int32_t                gf_type = 0;
 	int64_t                remote_fd = -1;
+        client_fd_ctx_t       *fdctx = NULL;
 
         vollen = STRLEN_0(volume);
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"(%"PRId64"): failed to get remote fd. EBADFD", 
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
 		return 0;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	if (cmd == F_GETLK || cmd == F_GETLK64)
 		gf_cmd = GF_LK_GETLK;
 	else if (cmd == F_SETLK || cmd == F_SETLK64)
@@ -3025,21 +3039,22 @@ client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 	size_t                  namelen = 0;
 	size_t                  hdrlen = -1;
 	int                     ret = -1;
+        client_fd_ctx_t        *fdctx = NULL;
 
 	if (name)
 		namelen = STRLEN_0(name);
 
         vollen = STRLEN_0(volume);
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get remote fd. EBADFD", 
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		STACK_UNWIND(frame, -1, EBADFD);
 		return 0;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, namelen + vollen);
 	hdr    = gf_hdr_new (req, namelen + vollen);
 	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
@@ -3175,18 +3190,19 @@ client_fchmod (call_frame_t *frame, xlator_t *this, fd_t *fd, mode_t mode)
 	int                   ret = -1;
 	int32_t               op_errno = EINVAL;
 	int32_t               op_ret   = -1;
+        client_fd_ctx_t      *fdctx = NULL;
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		op_errno = EBADFD;
 		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get remote fd. EBADFD", 
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		goto unwind;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
@@ -3220,18 +3236,19 @@ client_fchown (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid,
 	int32_t              op_ret   = -1;
 	int32_t              op_errno = EINVAL;
 	int32_t              ret      = -1;
+        client_fd_ctx_t     *fdctx = NULL;
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		op_errno = EBADFD;
 		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get remote fd. EBADFD", 
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		goto unwind;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
@@ -3275,18 +3292,19 @@ client_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
 	struct iovec           vector[1];
         struct iobref         *iobref = NULL;
         struct iobuf          *iobuf = NULL;
+        client_fd_ctx_t       *fdctx = NULL;
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get remote fd. EBADFD", 
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
 			fd->inode->ino);
 		op_errno = EBADFD;
 		goto unwind;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	GF_VALIDATE_OR_GOTO (this->name, entries, unwind);
 	GF_VALIDATE_OR_GOTO (this->name, count, unwind);
 
@@ -3456,25 +3474,24 @@ client_releasedir (xlator_t *this, fd_t *fd)
 	call_frame_t            *fr = NULL;
 	int32_t                  ret = -1;
 	int64_t                  remote_fd = 0;
-	char                     key[32] = {0,};
 	gf_hdr_common_t         *hdr = NULL;
 	size_t                   hdrlen = 0;
 	gf_cbk_releasedir_req_t *req  = NULL;
 	client_conf_t           *conf = NULL;
-
+        client_fd_ctx_t         *fdctx = NULL;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
 	conf = this->private;
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1){
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL){
 		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get remote fd.", 
+			"(%"PRId64"): failed to get fd ctx.",
 			fd->inode->ino);
 		goto out;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
@@ -3484,15 +3501,13 @@ client_releasedir (xlator_t *this, fd_t *fd)
 	req->fd = hton64 (remote_fd);
 
 	{
-		sprintf (key, "%p", fd);
-
 		pthread_mutex_lock (&conf->mutex);
 		{
-			dict_del (conf->saved_fds, key);
+                        list_del (&fdctx->sfd_pos);
 		}
 		pthread_mutex_unlock (&conf->mutex);
 	}
-
+        FREE (fdctx);
 	fr = create_frame (this, this->ctx->pool);
 	GF_VALIDATE_OR_GOTO (this->name, fr, out);
 
@@ -3519,25 +3534,25 @@ client_release (xlator_t *this, fd_t *fd)
 	call_frame_t          *fr = NULL;
 	int32_t                ret = -1;
 	int64_t                remote_fd = 0;
-	char                   key[32] = {0,};
 	gf_hdr_common_t       *hdr = NULL;
 	size_t                 hdrlen = 0;
 	gf_cbk_release_req_t  *req = NULL;
 	client_conf_t         *conf = NULL;
+        client_fd_ctx_t       *fdctx = NULL;
 
 	GF_VALIDATE_OR_GOTO ("client", this, out);
 	GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
 	conf = this->private;
 
-	ret = this_fd_get (fd, this, &remote_fd);
-	if (ret == -1) {
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get remote fd.", 
+			"(%"PRId64"): failed to get fd ctx.",
 			fd->inode->ino);
 		goto out;
 	}
-
+        remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
 	GF_VALIDATE_OR_GOTO (this->name, hdr, out);
@@ -3546,14 +3561,13 @@ client_release (xlator_t *this, fd_t *fd)
 	req->fd = hton64 (remote_fd);
 
 	{
-		sprintf (key, "%p", fd);
-
 		pthread_mutex_lock (&conf->mutex);
 		{
-			dict_del (conf->saved_fds, key);
+                        list_del (&fdctx->sfd_pos);
 		}
 		pthread_mutex_unlock (&conf->mutex);
 	}
+        FREE (fdctx);
 
 	fr = create_frame (this, this->ctx->pool);
 	GF_VALIDATE_OR_GOTO (this->name, fr, out);
@@ -3803,10 +3817,10 @@ client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	inode_t              *inode = NULL;
 	struct stat           stbuf = {0, };
 	int64_t               remote_fd = 0;
-	char                  key[32] = {0, };
 	int32_t               ret = -1;
 	client_local_t       *local = NULL;
 	client_conf_t        *conf = NULL;
+        client_fd_ctx_t      *fdctx = NULL;
 
 	local = frame->local; frame->local = NULL;
 	conf  = frame->this->private;
@@ -3834,24 +3848,25 @@ client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.path);
                 }
 
-		this_fd_set (fd, frame->this, &local->loc, remote_fd);
+                fdctx = CALLOC (1, sizeof (*fdctx));
+                if (!fdctx) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto unwind_out;
+                }
 
-		sprintf (key, "%p", fd);
+                fdctx->remote_fd = remote_fd;
+                INIT_LIST_HEAD (&fdctx->sfd_pos);
+                fdctx->fd = fd;
+		this_fd_set_ctx (fd, frame->this, &local->loc, fdctx);
 
 		pthread_mutex_lock (&conf->mutex);
 		{
-			ret = dict_set_str (conf->saved_fds, key, "");
+                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
 		}
 		pthread_mutex_unlock (&conf->mutex);
-
-		if (ret < 0) {
-			free (key);
-			gf_log (frame->this->name, GF_LOG_DEBUG,
-				"%s (%"PRId64"): failed to save remote fd", 
-				local->loc.path, stbuf.st_ino);
-		}
 	}
-
+unwind_out:
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);
 	
 	client_local_wipe (local);
@@ -3876,10 +3891,9 @@ client_open_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	fd_t                *fd = NULL;
 	int64_t              remote_fd = 0;
 	gf_fop_open_rsp_t   *rsp = NULL;
-	char                 key[32] = {0,};
-	int32_t              ret = -1;
 	client_local_t      *local = NULL;
 	client_conf_t       *conf = NULL;
+        client_fd_ctx_t     *fdctx = NULL;
 	
 
 	local = frame->local; frame->local = NULL;
@@ -3896,25 +3910,24 @@ client_open_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	}
 
 	if (op_ret >= 0) {
-		this_fd_set (fd, frame->this, &local->loc, remote_fd);
-
-		sprintf (key, "%p", fd);
+                fdctx = CALLOC (1, sizeof (*fdctx));
+                if (!fdctx) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto unwind_out;
+                }
+                fdctx->remote_fd = remote_fd;
+                INIT_LIST_HEAD (&fdctx->sfd_pos);
+                fdctx->fd = fd;
+		this_fd_set_ctx (fd, frame->this, &local->loc, fdctx);
 
 		pthread_mutex_lock (&conf->mutex);
 		{
-			ret = dict_set_str (conf->saved_fds, key, "");
+                        list_add_tail (&conf->saved_fds, &fdctx->sfd_pos);
 		}
 		pthread_mutex_unlock (&conf->mutex);
-
-		if (ret < 0) {
-			gf_log (frame->this->name, GF_LOG_DEBUG,
-				"%s (%"PRId64"): failed to save remote fd", 
-				local->loc.path, local->loc.inode->ino);
-			free (key);
-		}
-
 	}
-
+unwind_out:
 	STACK_UNWIND (frame, op_ret, op_errno, fd);
 	
 	client_local_wipe (local);
@@ -4587,11 +4600,9 @@ client_opendir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	fd_t                 *fd       = NULL;
 	int64_t               remote_fd = 0;
 	gf_fop_opendir_rsp_t *rsp       = NULL;
-	char                  key[32] = {0,};
-	int32_t               ret     = -1;
 	client_local_t       *local = NULL;
 	client_conf_t        *conf = NULL;
-
+        client_fd_ctx_t      *fdctx = NULL;
 
 	local = frame->local; frame->local = NULL;
 	conf  = frame->this->private;
@@ -4607,24 +4618,24 @@ client_opendir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	}
 
 	if (op_ret >= 0) {
-		this_fd_set (fd, frame->this, &local->loc, remote_fd);
-
-		sprintf (key, "%p", fd);
+                fdctx = CALLOC (1, sizeof (*fdctx));
+                if (!fdctx) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto unwind_out;
+                }
+                fdctx->remote_fd = remote_fd;
+                INIT_LIST_HEAD (&fdctx->sfd_pos);
+                fdctx->fd = fd;
+		this_fd_set_ctx (fd, frame->this, &local->loc, fdctx);
 
 		pthread_mutex_lock (&conf->mutex);
 		{
-			ret = dict_set_str (conf->saved_fds, key, "");
+                        list_add_tail (&conf->saved_fds, &fdctx->sfd_pos);
 		}
 		pthread_mutex_unlock (&conf->mutex);
-
-		if (ret < 0) {
-			free (key);
-			gf_log (frame->this->name, GF_LOG_DEBUG,
-				"%s (%"PRId64"): failed to save remote fd", 
-				local->loc.path, local->loc.inode->ino);
-		}
 	}
-
+unwind_out:
 	STACK_UNWIND (frame, op_ret, op_errno, fd);
 	
 	client_local_wipe (local);
@@ -5706,24 +5717,20 @@ int
 protocol_client_mark_fd_bad (xlator_t *this)
 {
         client_conf_t            *conf = NULL;
-        data_pair_t              *trav = NULL;
-        fd_t                     *fd_tmp = NULL;
+        client_fd_ctx_t          *tmp = NULL;
+        client_fd_ctx_t          *fdctx = NULL;
 
         conf = this->private;
-        
-        trav = conf->saved_fds->members_list;
-        
-        while (trav) {
-                fd_tmp = (fd_t *)(long) strtoul (trav->key, NULL, 0);
-                fd_ctx_del (fd_tmp, this, NULL);
-                trav = trav->next;
+
+        list_for_each_entry_safe (fdctx, tmp, &conf->saved_fds, sfd_pos) {
+                fd_ctx_del (fdctx->fd, this, NULL);
+                list_del (&fdctx->sfd_pos);
+                FREE (fdctx);
         }
 
  	pthread_mutex_lock (&conf->mutex);
         {
-                dict_destroy (conf->saved_fds);
-                
-                conf->saved_fds = get_new_dict_full (64);
+                INIT_LIST_HEAD(&conf->saved_fds);
         }
 	pthread_mutex_unlock (&conf->mutex);
         
@@ -6022,7 +6029,7 @@ init (xlator_t *this)
 
 	LOCK_INIT (&conf->forget.lock);
 	pthread_mutex_init (&conf->mutex, NULL);
-	conf->saved_fds = get_new_dict_full (64);
+	INIT_LIST_HEAD (&conf->saved_fds);
 
 	this->private = conf;
 
