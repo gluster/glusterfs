@@ -65,6 +65,18 @@ typedef struct client_connection client_connection_t;
 #include "transport.h"
 #include "protocol.h"
 
+typedef struct _client_fd_ctx {
+        int remote_fd;
+        struct list_head sfd_pos;      /*  Stores the reference to this
+                                           fd's position in the saved_fds list.
+                                           */
+        fd_t *fd;                       /* Reverse reference to the fd itself.
+                                           This is needed to delete this fdctx
+                                           from the fd's context in
+                                           protocol_client_mark_fd_bad.
+                                           */
+} client_fd_ctx_t;
+
 struct _client_conf {
 	transport_t          *transport[CHANNEL_MAX];
 
@@ -76,7 +88,7 @@ struct _client_conf {
 		uint32_t  frames_in_transit;
 		gf_lock_t lock;
 	} forget;
-	dict_t              *saved_fds;
+	struct list_head     saved_fds;
 	struct timeval       last_sent;
 	struct timeval       last_received;
 	pthread_mutex_t      mutex;
