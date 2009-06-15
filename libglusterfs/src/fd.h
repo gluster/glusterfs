@@ -51,13 +51,29 @@ struct _fd {
 };
 typedef struct _fd fd_t;
 
+struct fd_table_entry {
+        fd_t    *fd;
+        int     next_free;
+};
+typedef struct fd_table_entry fdentry_t;
+
 struct _fdtable {
         int             refcount;
         uint32_t        max_fds;
         pthread_mutex_t lock;
-        fd_t          **fds;
+        fdentry_t       *fdentries;
+        int             first_free;
 };
 typedef struct _fdtable fdtable_t;
+
+/* Signifies no more entries in the fd table. */
+#define GF_FDTABLE_END  -1
+
+/* The value us the same as GF_FDTABLE_END but the
+ * purpose is different here. This is used to invalidated
+ * the next_free value in an fdentry that has been allocated
+ */
+#define GF_FDENTRY_ALLOCATED    -1
 
 #include "logging.h"
 #include "xlator.h"
@@ -77,7 +93,7 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr);
 int32_t 
 gf_fd_unused_get2 (fdtable_t *fdtable, fd_t *fdptr, int32_t fd);
 
-fd_t **
+fdentry_t *
 gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count);
 
 void 
