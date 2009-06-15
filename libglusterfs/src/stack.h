@@ -224,6 +224,10 @@ copy_frame (call_frame_t *frame)
 	}
 
 	newstack = (void *) CALLOC (1, sizeof (*newstack));
+        if (newstack == NULL) {
+                return NULL;
+        }
+
 	oldstack = frame->root;
 
 	newstack->uid = oldstack->uid;
