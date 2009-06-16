@@ -508,7 +508,7 @@ AC_SUBST(GF_DISTRIBUTION)
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
-if test "x$HAVE_LIBGLUSTERFSCLIENT" = "xyes"; then
+if test "x$BUILD_LIBGLUSTERFSCLIENT" = "xyes"; then
    GF_BOOSTER_SUBDIR="booster"
 fi
 
