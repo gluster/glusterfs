@@ -1,7 +1,7 @@
 noinst_HEADERS = ib-verbs.h name.h
 
 transport_LTLIBRARIES = ib-verbs.la
-transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/transport/
+transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/transport
 
 ib_verbs_la_LDFLAGS = -module -avoidversion
 

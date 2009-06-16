@@ -1,7 +1,7 @@
 noinst_HEADERS = socket.h name.h
 
 transport_LTLIBRARIES = socket.la
-transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/transport/
+transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/transport
 
 socket_la_LDFLAGS = -module -avoidversion
 
