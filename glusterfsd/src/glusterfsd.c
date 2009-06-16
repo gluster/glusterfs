@@ -101,6 +101,10 @@ static struct argp_option gf_options[] = {
 	{"spec-file", ARGP_VOLUME_FILE_KEY, "VOLFILE", OPTION_HIDDEN, 
 	 "File to use as VOLFILE [default : "DEFAULT_CLIENT_VOLUME_FILE" or "
 	 DEFAULT_SERVER_VOLUME_FILE"]"},
+        {"log-server", ARGP_LOG_SERVER_KEY, "LOG SERVER", 0, 
+ 	 "Server to use as the central log server."
+	 "--log-server option"},
+
  	{"log-level", ARGP_LOG_LEVEL_KEY, "LOGLEVEL", 0, 
  	 "Logging severity.  Valid options are DEBUG, NORMAL, WARNING, ERROR, "
 	 "CRITICAL and NONE [default: NORMAL]"},
@@ -116,6 +120,8 @@ static struct argp_option gf_options[] = {
  	 "Transport type to get volfile from server [default: socket]"},
  	{"volfile-id", ARGP_VOLFILE_ID_KEY, "KEY", 0, 
  	 "'key' of the volfile to be fetched from server"},
+ 	{"log-server-port", ARGP_LOG_SERVER_PORT_KEY, "PORT", 0, 
+ 	 "Listening port number of log server"},
  	{"pid-file", ARGP_PID_FILE_KEY, "PIDFILE", 0, 
  	 "File to use as pid file"},
  	{"no-daemon", ARGP_NO_DAEMON_KEY, 0, 0,
@@ -667,7 +673,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
 	
 	switch (key) {
 	case ARGP_VOLFILE_SERVER_KEY:
-		cmd_args->volfile_server = strdup (arg);
+ 		cmd_args->volfile_server = strdup (arg);
 		break;
 	
         case ARGP_VOLFILE_MAX_FETCH_ATTEMPTS:
@@ -684,6 +690,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
 	case ARGP_VOLUME_FILE_KEY:
 		cmd_args->volume_file = strdup (arg);
+		break;
+	
+        case ARGP_LOG_SERVER_KEY:
+ 		cmd_args->log_server = strdup (arg);
 		break;
 		
 	case ARGP_LOG_LEVEL_KEY:
@@ -733,6 +743,18 @@ parse_opts (int key, char *arg, struct argp_state *state)
 		
 		argp_failure (state, -1, 0, 
 			      "unknown volfile server port %s", arg);
+		break;
+
+	case ARGP_LOG_SERVER_PORT_KEY:
+		n = 0;
+		
+		if (gf_string2uint_base10 (arg, &n) == 0) {
+			cmd_args->log_server_port = n;
+			break;
+		}
+		
+		argp_failure (state, -1, 0, 
+			      "unknown log server port %s", arg);
 		break;
 	
 	case ARGP_VOLFILE_SERVER_TRANSPORT_KEY:
@@ -1215,7 +1237,10 @@ main (int argc, char *argv[])
 
 	gf_log ("glusterfs", GF_LOG_NORMAL, "Successfully started");
 	
-        if (cmd_args->volfile_server) {
+        if (cmd_args->log_server) {
+                gf_log_central_init (ctx, cmd_args->log_server,
+                                     "socket", cmd_args->log_server_port);
+        } else if (cmd_args->volfile_server) {
                 gf_log_central_init (ctx, cmd_args->volfile_server,
                                      "socket", cmd_args->volfile_server_port);
         }

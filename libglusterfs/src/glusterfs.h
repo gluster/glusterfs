@@ -217,12 +217,14 @@ struct _cmd_args {
 	/* basic options */
 	char            *volfile_server;
 	char            *volume_file;
+        char            *log_server;
 	gf_loglevel_t    log_level;
 	char            *log_file;
         int32_t          max_connect_attempts;
 	/* advanced options */
 	uint32_t         volfile_server_port;
 	char            *volfile_server_transport;
+        uint32_t         log_server_port;
 	char            *pid_file;
 	int              no_daemon_mode;
 	char            *run_id;

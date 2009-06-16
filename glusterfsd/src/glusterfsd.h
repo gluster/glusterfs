@@ -72,6 +72,8 @@ enum argp_option_keys {
 	ARGP_VOLFILE_ID_KEY = 143, 
         ARGP_VOLFILE_CHECK_KEY = 144,
         ARGP_VOLFILE_MAX_FETCH_ATTEMPTS = 145,
+        ARGP_LOG_SERVER_KEY = 146,
+        ARGP_LOG_SERVER_PORT_KEY = 147,
 };
 
 /* Moved here from fetch-spec.h */
