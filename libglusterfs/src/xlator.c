@@ -385,10 +385,12 @@ _volume_option_value_validate (xlator_t *xl,
 		    || ((i < ZR_OPTION_MAX_ARRAY_SIZE) 
 			&& (!opt->value[i]))) {
 			/* enter here only if
-			 * 1. reached end of opt->value array and haven't validated input
+			 * 1. reached end of opt->value array and haven't 
+                         *    validated input
 			 *                      OR
-			 * 2. valid input list is less than ZR_OPTION_MAX_ARRAY_SIZE and
-			 *    input has not matched all possible input values.
+			 * 2. valid input list is less than 
+                         *    ZR_OPTION_MAX_ARRAY_SIZE and input has not 
+                         *    matched all possible input values.
 			 */
 			char given_array[4096] = {0,};
 			for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
@@ -430,6 +432,96 @@ _volume_option_value_validate (xlator_t *xl,
 				pair->value->data);
 		}
 		ret = 0;
+	}
+	break;
+	case GF_OPTION_TYPE_PERCENT_OR_SIZET:
+	{
+		uint32_t percent = 0;
+		uint64_t input_size = 0;
+		
+		/* Check if the value is valid percentage */
+		if (gf_string2percent (pair->value->data,
+				       &percent) == 0) {
+			if (percent > 100) {
+				gf_log (xl->name, GF_LOG_DEBUG,
+					"value given was greater than 100, "
+					"assuming this is actually a size");
+        		        if (gf_string2bytesize (pair->value->data,
+      	        			                &input_size) == 0) {
+			       	        /* Check the range */
+	        			if ((opt->min == 0) && 
+                                            (opt->max == 0)) {
+	       	        		        gf_log (xl->name, GF_LOG_DEBUG,
+        	      	        		        "no range check "
+                                                        "required for "
+                	      		       		"'option %s %s'",
+	               	        	        	pair->key, 
+                                                        pair->value->data);
+						// It is a size
+			                        ret = 0;
+       				                goto out;
+              				}
+	        	        	if ((input_size < opt->min) ||
+	      			            (input_size > opt->max)) {
+        	       			        gf_log (xl->name, GF_LOG_ERROR,
+                	      			        "'%"PRId64"' in "
+                                                        "'option %s %s' is out"
+                       	       				" of range [%"PRId64""
+                                                        "- %"PRId64"]",
+               	        	        		input_size, pair->key,
+	       		                        	pair->value->data,
+	       		        	                opt->min, opt->max);
+		       	        	}
+					// It is a size
+		       			ret = 0;
+					goto out;
+				} else {
+					// It's not a percent or size
+					gf_log (xl->name, GF_LOG_ERROR,
+					"invalid number format \"%s\" "
+					"in \"option %s\"",
+					pair->value->data, pair->key);
+				}
+
+			}
+			// It is a percent
+			ret = 0;
+			goto out;
+		} else {
+       		        if (gf_string2bytesize (pair->value->data,
+     	        			        &input_size) == 0) {
+		       	        /* Check the range */
+        			if ((opt->min == 0) && (opt->max == 0)) {
+       	        		        gf_log (xl->name, GF_LOG_DEBUG,
+       	      	        		        "no range check required for "
+               	      		      		"'option %s %s'",
+               	        	        	pair->key, pair->value->data);
+					// It is a size
+		                        ret = 0;
+      				        goto out;
+             			}
+	        	        if ((input_size < opt->min) ||
+      			            (input_size > opt->max)) {
+       	       				gf_log (xl->name, GF_LOG_ERROR,
+               	      			        "'%"PRId64"' in 'option %s %s'"
+                                                " is out of range [%"PRId64" -"
+                                                " %"PRId64"]",
+              	        	        	input_size, pair->key,
+       		                        	pair->value->data,
+       		        	                opt->min, opt->max);
+				}
+			} else {
+				// It's not a percent or size
+				gf_log (xl->name, GF_LOG_ERROR,
+					"invalid number format \"%s\" "
+					"in \"option %s\"",
+					pair->value->data, pair->key);
+			}
+			//It is a size
+                        ret = 0;
+ 		        goto out;
+		}
+
 	}
 	break;
 	case GF_OPTION_TYPE_TIME:
