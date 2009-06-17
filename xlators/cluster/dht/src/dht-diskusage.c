@@ -191,7 +191,7 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 
         if (subvol_filled) {
                 if (!(conf->du_stats[i].log++ % GF_UNIVERSAL_ANSWER)) {
-                        gf_log (this->name, GF_LOG_CRITICAL,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "disk space on subvolume '%s' is getting "
                                 "full (%.2f %%), consider adding more nodes", 
                                 subvol->name, 
@@ -228,8 +228,8 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol)
                 avail_subvol = subvol;
 
         if (avail_subvol == subvol) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "No subvolume has enough free space to create");
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "no subvolume has enough free space to create");
         }
                 
         return avail_subvol;
