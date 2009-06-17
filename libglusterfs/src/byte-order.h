@@ -67,21 +67,21 @@ __swap64 (uint64_t x)
 static inline uint16_t
 __noswap16 (uint16_t x)
 {
-	return do_swap2(x);
+	return x;
 }
 
 
 static inline uint32_t
 __noswap32 (uint32_t x)
 {
-	return do_swap4(x);
+	return x;
 }
 
 
 static inline uint64_t
 __noswap64 (uint64_t x)
 {
-	return do_swap8(x);
+	return x;
 }
 
 
