@@ -2373,6 +2373,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
 {
 	xlator_t    *subvol = NULL;
 	int          op_errno = -1;
+        int          ret = -1;
         xlator_t    *avail_subvol = NULL;
 	dht_conf_t  *conf = NULL;
 	dht_local_t *local = NULL;
@@ -2413,6 +2414,14 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                                         "Out of memory");
                                 goto err;
                         }
+                        ret = loc_dup (loc, &local->loc);
+                        if (ret == -1) {
+                                op_errno = ENOMEM;
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Out of memory");
+                                goto err;
+                        }
+
                         local->cached_subvol = avail_subvol;
                         local->mode = mode; 
                         local->rdev = rdev;
