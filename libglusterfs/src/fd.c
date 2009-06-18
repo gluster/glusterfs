@@ -343,11 +343,21 @@ gf_fd_put (fdtable_t *fdtable, int32_t fd)
 	pthread_mutex_lock (&fdtable->lock);
 	{
                 fde = &fdtable->fdentries[fd];
-		fdptr = fde->fd;
+                /* If the entry is not allocated, put operation must return
+                 * without doing anything.
+                 * This has the potential of masking out any bugs in a user of
+                 * fd that ends up calling gf_fd_put twice for the same fd or
+                 * for an unallocated fd, but thats a price we have to pay for
+                 * ensuring sanity of our fd-table.
+                 */
+                if (fde->next_free != GF_FDENTRY_ALLOCATED)
+                        goto unlock_out;
+                fdptr = fde->fd;
                 fde->fd = NULL;
                 fde->next_free = fdtable->first_free;
                 fdtable->first_free = fd;
 	}
+unlock_out:
 	pthread_mutex_unlock (&fdtable->lock);
 
 	if (fdptr) {
