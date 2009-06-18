@@ -170,6 +170,7 @@ __gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
 
         fdentries = fdtable->fdentries;
         fdtable->fdentries = calloc (fdtable->max_fds, sizeof (fdentry_t));
+        gf_fd_chain_fd_entries (fdtable->fdentries, 0, fdtable->max_fds);
         *count = fdtable->max_fds;
 
 out:
