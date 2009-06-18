@@ -81,9 +81,10 @@ int
 init (xlator_t *this)
 {
         dht_conf_t    *conf = NULL;
-	char          *lookup_unhashed_str = NULL;
+	char          *temp_str = NULL;
         int            ret = -1;
         int            i = 0;
+        uint32_t       temp_free_disk = 0;
 
 	if (!this->children) {
 		gf_log (this->name, GF_LOG_CRITICAL,
@@ -105,26 +106,33 @@ init (xlator_t *this)
 
 	conf->search_unhashed = 0;
 
-	if (dict_get_str (this->options, "lookup-unhashed",
-			  &lookup_unhashed_str) == 0) {
-		gf_string2boolean (lookup_unhashed_str,
-				   &conf->search_unhashed);
+	if (dict_get_str (this->options, "lookup-unhashed", &temp_str) == 0) {
+		gf_string2boolean (temp_str, &conf->search_unhashed);
 	}
 
 	conf->unhashed_sticky_bit = 0;
 
-	if (dict_get_str (this->options, "unhashed-sticky-bit",
-			  &lookup_unhashed_str) == 0) {
-	        gf_string2boolean (lookup_unhashed_str,
-				   &conf->unhashed_sticky_bit);
+	if (dict_get_str (this->options, "unhashed-sticky-bit", 
+                          &temp_str) == 0) {
+	        gf_string2boolean (temp_str, &conf->unhashed_sticky_bit);
 	}
         
+        conf->disk_unit = 'p';
         conf->min_free_disk = 10;
 
-	if (dict_get_str (this->options, "min-free-disk",
-			  &lookup_unhashed_str) == 0) {
-		gf_string2percent (lookup_unhashed_str,
-				   &conf->min_free_disk);
+	if (dict_get_str (this->options, "min-free-disk", &temp_str) == 0) {
+		if (gf_string2percent (temp_str, &temp_free_disk) == 0) {
+                        if (temp_free_disk > 100) {
+                                gf_string2bytesize (temp_str, 
+                                                    &conf->min_free_disk);
+                                conf->disk_unit = 'b';
+                        } else {
+                                conf->min_free_disk = (uint64_t)temp_free_disk;
+                        }
+                } else {
+                        gf_string2bytesize (temp_str, &conf->min_free_disk);
+                        conf->disk_unit = 'b';
+                }
 	}
 
 
@@ -246,7 +254,7 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL 
 	},
         { .key  = {"min-free-disk"},
-          .type = GF_OPTION_TYPE_PERCENT
+          .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
         },
 	{ .key  = {NULL} },
 };

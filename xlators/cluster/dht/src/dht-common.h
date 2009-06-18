@@ -117,7 +117,8 @@ struct dht_conf {
 	gf_boolean_t   search_unhashed;
 	int            gen;
         dht_du_t      *du_stats;
-        uint32_t       min_free_disk;
+        uint64_t       min_free_disk;
+        char           disk_unit;
         int32_t        refresh_interval;
         gf_boolean_t   unhashed_sticky_bit;
 	struct timeval last_stat_fetch;

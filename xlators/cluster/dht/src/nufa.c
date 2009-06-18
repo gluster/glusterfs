@@ -527,10 +527,11 @@ init (xlator_t *this)
 	xlator_list_t *trav = NULL;
 	data_t        *data = NULL;
 	char          *local_volname = NULL;
-	char          *lookup_unhashed_str = NULL;
+	char          *temp_str = NULL;
         int            ret = -1;
         int            i = 0;
 	char           my_hostname[256];
+	uint32_t       temp_free_disk = 0;
 
 	if (!this->children) {
 		gf_log (this->name, GF_LOG_CRITICAL,
@@ -553,9 +554,9 @@ init (xlator_t *this)
 	conf->search_unhashed = 0;
 
 	if (dict_get_str (this->options, "lookup-unhashed",
-			  &lookup_unhashed_str) == 0) {
-		gf_string2boolean (lookup_unhashed_str,
-				   &conf->search_unhashed);
+			  &temp_str) == 0) {
+		gf_string2boolean (temp_str,
+ 				   &conf->search_unhashed);
 	}
 
         ret = dht_init_subvolumes (this, conf);
@@ -607,11 +608,26 @@ init (xlator_t *this)
 	conf->local_volume = trav->xlator;
 
         conf->min_free_disk = 10;
+        conf->disk_unit = 'p';
 
-	data = dict_get (this->options, "min-free-disk");
-	if (data) {
-		gf_string2percent (data->data, &conf->min_free_disk);
-	}
+        if (dict_get_str (this->options, "min-free-disk",
+                          &temp_str) == 0) {
+                if (gf_string2percent (temp_str,
+                                       &temp_free_disk) == 0) {
+                        if (temp_free_disk > 100) {
+                                gf_string2bytesize (temp_str,
+                                                        &conf->min_free_disk);
+                                conf->disk_unit = 'b';
+                        } else {
+                                conf->min_free_disk = (uint64_t)temp_free_disk;
+                                conf->disk_unit = 'p';
+                        }
+                } else {
+                        gf_string2bytesize (temp_str,
+                                                &conf->min_free_disk);
+                        conf->disk_unit = 'b';
+                }
+        }
 
         conf->du_stats = CALLOC (conf->subvolume_cnt, sizeof (dht_du_t));
         if (!conf->du_stats) {
@@ -720,7 +736,7 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL 
 	},
         { .key  = {"min-free-disk"},
-          .type = GF_OPTION_TYPE_PERCENT
+          .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
         },
 	{ .key  = {NULL} },
 };
