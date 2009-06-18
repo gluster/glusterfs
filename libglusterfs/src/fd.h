@@ -69,11 +69,10 @@ typedef struct _fdtable fdtable_t;
 /* Signifies no more entries in the fd table. */
 #define GF_FDTABLE_END  -1
 
-/* The value us the same as GF_FDTABLE_END but the
- * purpose is different here. This is used to invalidated
+/* This is used to invalidated
  * the next_free value in an fdentry that has been allocated
  */
-#define GF_FDENTRY_ALLOCATED    -1
+#define GF_FDENTRY_ALLOCATED    -2
 
 #include "logging.h"
 #include "xlator.h"
