@@ -43,6 +43,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int            this_call_cnt = 0;
         int            i = 0;
         double         percent = 0;
+        uint64_t       bytes = 0;
 
 	local = frame->local;
         conf = this->private;
@@ -51,14 +52,24 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1) 
                 goto out;
 
-        if (statvfs && statvfs->f_blocks)
+        if (statvfs && statvfs->f_blocks) {
                 percent = (statvfs->f_bfree * 100) / statvfs->f_blocks;
+                bytes = (statvfs->f_bfree * statvfs->f_bsize);
+        }
         
         LOCK (&conf->subvolume_lock);
         {
                 for (i = 0; i < conf->subvolume_cnt; i++)
-                        if (prev->this == conf->subvolumes[i])
+                        if (prev->this == conf->subvolumes[i]) {
                                 conf->du_stats[i].avail_percent = percent;
+                                conf->du_stats[i].avail_space   = bytes;
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "on subvolume '%s': avail_percent is: "
+                                        "%.2f and avail_space is: %"PRIu64"",
+                                        prev->this->name, 
+                                        conf->du_stats[i].avail_percent,
+                                        conf->du_stats[i].avail_space);
+                        }
         }
         UNLOCK (&conf->subvolume_lock);
 
@@ -175,15 +186,24 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 
         conf = this->private;
 
-        /* Check for values above 90% free disk */
+        /* Check for values above specified percent or free disk */
         LOCK (&conf->subvolume_lock);
         {
                 for (i = 0; i < conf->subvolume_cnt; i++) {
-                        if ((subvol == conf->subvolumes[i]) &&
-                            (conf->du_stats[i].avail_percent < 
-                             conf->min_free_disk)) {
-                                subvol_filled = 1;
-                                break;
+                        if (subvol == conf->subvolumes[i]) {
+                                if (conf->disk_unit == 'p') {
+                                        if (conf->du_stats[i].avail_percent <
+                                            conf->min_free_disk) {
+                                                subvol_filled = 1;
+                                                break;
+                                        }
+                                } else {
+                                        if (conf->du_stats[i].avail_space <
+                                            conf->min_free_disk) {
+                                                subvol_filled = 1;
+                                                break;
+                                        }
+                                }
                         }
                 }
         }
@@ -206,7 +226,7 @@ xlator_t *
 dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol) 
 {
         int         i = 0;
-        double      max_avail = 0;
+        double      max= 0;
         xlator_t   *avail_subvol = NULL;
 	dht_conf_t *conf = NULL;
 
@@ -216,15 +236,22 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol)
         LOCK (&conf->subvolume_lock);
         {
                 for (i = 0; i < conf->subvolume_cnt; i++) {
-                        if (conf->du_stats[i].avail_percent > max_avail) {
-                                max_avail  = conf->du_stats[i].avail_percent;
-                                avail_subvol = conf->subvolumes[i];
+                        if (conf->disk_unit == 'p') {
+                                if (conf->du_stats[i].avail_percent > max) {
+                                        max = conf->du_stats[i].avail_percent;
+                                        avail_subvol = conf->subvolumes[i];
+                                }
+                        } else {
+                                if (conf->du_stats[i].avail_space > max) {
+                                        max = conf->du_stats[i].avail_space;
+                                        avail_subvol = conf->subvolumes[i];
+                                }
                         }
                 }
         }
         UNLOCK (&conf->subvolume_lock);
 
-        if (max_avail < conf->min_free_disk)
+        if (max < conf->min_free_disk)
                 avail_subvol = subvol;
 
         if (avail_subvol == subvol) {
