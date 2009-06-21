@@ -77,12 +77,16 @@ trash_common_unwind_cbk (call_frame_t *frame,
 {
 	trash_local_t *local = frame->local;
 
+        if (!local)
+                goto out;
+
 	if (local->loc1.path)
 		loc_wipe (&local->loc1);
 	
 	if (local->loc2.path)
 		loc_wipe (&local->loc2);
 
+ out:
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
@@ -100,12 +104,16 @@ trash_common_unwind_buf_cbk (call_frame_t *frame,
 {
 	trash_local_t *local = frame->local;
 
+        if (!local)
+                goto out;
+
 	if (local->loc1.path)
 		loc_wipe (&local->loc1);
 	
 	if (local->loc2.path)
 		loc_wipe (&local->loc2);
 
+ out:
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
 }
