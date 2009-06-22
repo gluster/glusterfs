@@ -154,9 +154,9 @@ function main ()
     mount_point="$2";
 
     # Simple check to avoid multiple identical mounts
-    if grep -q "glusterfs.* $mount_point fuse" /etc/mtab; then
+    if grep -q " $mount_point fuse" /etc/mtab; then
         echo "$0: according to mtab, GlusterFS is already mounted on $mount_point"
-        exit 1
+        exit 0
     fi
 
     fs_options=$(echo "$fs_options,$new_fs_options");
