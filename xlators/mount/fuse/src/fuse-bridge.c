@@ -2585,56 +2585,6 @@ init (xlator_t *this_xl)
 	fuse_private_t    *priv = NULL;
 	struct stat        stbuf = {0,};
 	struct fuse_args   args = FUSE_ARGS_INIT(0, NULL);
-	char             **p = NULL;
-
-#ifdef GF_DARWIN_HOST_OS
-	char *fuse_argv[] = {"glusterfs",
-			     "-o", "XXX",
-			     "-o", "fssubtype=glusterfs",
-			     "-o", "allow_other",
-			     "-o", "default_permissions",
-			     NULL, NULL,
-			     NULL};
-
-	for (p = fuse_argv; *p; p++);
-	if (!dict_get (options, "macfuse-local")) {
-		/* This way, GlusterFS will be detected as 'servers' instead
-		 *  of 'devices'. This method is useful if you want to do
-		 * 'umount <mount_point>' over network,  instead of 'eject'ing
-		 * it from desktop. Works better for servers
-		 */
-		*(p++) = "-o";
-		*(p++) = "local";
-	}
-
-#elif GF_LINUX_HOST_OS /* ! DARWIN_OS */
-	char *fuse_argv[] = {"glusterfs",
-			     "-o", "XXX",
-			     "-o", "subtype=glusterfs",
-			     "-o", "nonempty",
-			     "-o", "max_readahead=131072",
-			     "-o", "max_read=131072",
-			     "-o", "max_write=131072",
-			     "-o", "allow_other",
-			     "-o", "default_permissions",
-			     "-o", "dev",
-			     "-o", "suid",
-			     NULL};
-
-#else /* BSD || SOLARIS */
-	/* BSD fuse doesn't support '-o dev', '-o nonempty' option */
-	char *fuse_argv[] = {"glusterfs",
-			     "-o", "XXX",
-			     "-o", "subtype=glusterfs",
-			     "-o", "max_readahead=131072",
-			     "-o", "max_read=131072",
-			     "-o", "max_write=131072",
-			     "-o", "allow_other",
-			     "-o", "default_permissions",
-			     "-o", "suid",
-			     NULL};
-
-#endif /* ! DARWIN_OS || ! LINUX */
 
 	if (this_xl == NULL)
 		return -1;
@@ -2652,14 +2602,48 @@ init (xlator_t *this_xl)
 	fsname = this_xl->ctx->cmd_args.volume_file;
 	fsname = (fsname ? fsname : this_xl->ctx->cmd_args.volfile_server);
 	fsname = (fsname ? fsname : "glusterfs");
-	ret = asprintf(&fsname_opt, "fsname=%s", fsname);
+	ret = asprintf(&fsname_opt, "-ofsname=%s", fsname);
+
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "glusterfs");
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, fsname_opt);
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "-oallow_other");
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "-odefault_permissions");
+#ifdef GF_DARWIN_HOST_OS
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "-ofssubtype=glusterfs");
+	if (ret != -1 && !dict_get (options, "macfuse-local"))
+		/* This way, GlusterFS will be detected as 'servers' instead
+		 *  of 'devices'. This method is useful if you want to do
+		 * 'umount <mount_point>' over network,  instead of 'eject'ing
+		 * it from desktop. Works better for servers
+		 */
+		ret = fuse_opt_add_arg(&args, "-olocal");
+#else /* ! DARWIN_OS */
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "-osubtype=glusterfs");
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "-omax_readahead=131072");
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "-omax_read=13107");
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "-omax_write=131072");
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "-osuid");
+#if GF_LINUX_HOST_OS /* ! LINUX */
+	/* '-o dev', '-o nonempty' is supported only on Linux */
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "-ononempty");
+	if (ret != -1)
+		ret = fuse_opt_add_arg(&args, "-odev");
+#endif /* LINUX */
+#endif /* ! DARWIN_OS */
+
 	if (ret == -1)
 		ERR_ABORT(NULL);
-	fuse_argv[2] = fsname_opt;
-
-	for (p = fuse_argv; *p; p++);
-	args.argc = p - fuse_argv;
-	args.argv = fuse_argv;
 	
         priv = CALLOC (1, sizeof (*priv));
         ERR_ABORT (priv);
