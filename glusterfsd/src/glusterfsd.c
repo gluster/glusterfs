@@ -194,7 +194,22 @@ _gf_dump_details (int argc, char **argv)
         fflush (gf_log_logfile);
 }
 
-
+static xlator_t *
+gf_get_first_xlator (xlator_t *list)
+{
+        xlator_t *trav = NULL, *head = NULL;
+        
+        trav = list;
+        do {
+                if (trav->prev == NULL) {
+                        head = trav;
+                }
+                
+                trav = trav->prev;
+        } while (trav != NULL);
+        
+        return head;
+}
 
 static xlator_t *
 _add_fuse_mount (xlator_t *graph)
@@ -225,7 +240,7 @@ _add_fuse_mount (xlator_t *graph)
 	}
 	top->children = xlchild;
 	top->ctx      = graph->ctx;
-	top->next     = graph;
+	top->next     = gf_get_first_xlator (graph);
 	top->options  = get_new_dict ();
 
 	ret = dict_set_static_ptr (top->options, ZR_MOUNTPOINT_OPT,
