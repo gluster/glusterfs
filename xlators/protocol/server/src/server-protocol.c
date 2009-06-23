@@ -7457,8 +7457,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
 	peerinfo = &trans->peerinfo;
 	switch (type) {
 	case GF_OP_TYPE_FOP_REQUEST:
-		if ((op < 0) || 
-		    (op > GF_FOP_MAXVALUE)) {
+		if ((op < 0) || (op >= GF_FOP_MAXVALUE)) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"invalid fop %"PRId32" from client %s",
 				op, peerinfo->identifier);
@@ -7475,7 +7474,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
 		break;
 
 	case GF_OP_TYPE_MOP_REQUEST:
-		if (op < 0 || op > GF_MOP_MAXVALUE) {
+		if ((op < 0) || (op >= GF_MOP_MAXVALUE)) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"invalid mop %"PRId32" from client %s",
 				op, peerinfo->identifier);
@@ -7486,7 +7485,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
 		break;
 
 	case GF_OP_TYPE_CBK_REQUEST:
-		if (op < 0 || op > GF_CBK_MAXVALUE) {
+		if ((op < 0) || (op >= GF_CBK_MAXVALUE)) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"invalid cbk %"PRId32" from client %s",
 				op, peerinfo->identifier);
