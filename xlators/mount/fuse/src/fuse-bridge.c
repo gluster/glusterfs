@@ -2628,12 +2628,12 @@ init (xlator_t *this_xl)
 	if (ret != -1)
 		ret = fuse_opt_add_arg(&args, "-omax_readahead=131072");
 	if (ret != -1)
-		ret = fuse_opt_add_arg(&args, "-omax_read=13107");
+		ret = fuse_opt_add_arg(&args, "-omax_read=131072");
 	if (ret != -1)
 		ret = fuse_opt_add_arg(&args, "-omax_write=131072");
 	if (ret != -1)
 		ret = fuse_opt_add_arg(&args, "-osuid");
-#if GF_LINUX_HOST_OS /* ! LINUX */
+#if GF_LINUX_HOST_OS /* LINUX */
 	/* '-o dev', '-o nonempty' is supported only on Linux */
 	if (ret != -1)
 		ret = fuse_opt_add_arg(&args, "-ononempty");
