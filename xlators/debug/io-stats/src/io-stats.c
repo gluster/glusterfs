@@ -43,6 +43,22 @@ do {                                                            \
         UNLOCK (&((io_stats_private_t *)this->private)->lock);  \
  } while (0)
 
+struct io_stats_io_count {
+        size_t  size;
+        int64_t hits;        
+};
+typedef enum {
+        GF_IO_STAT_BLK_SIZE_1K,
+        GF_IO_STAT_BLK_SIZE_2K,
+        GF_IO_STAT_BLK_SIZE_4K,
+        GF_IO_STAT_BLK_SIZE_8K,
+        GF_IO_STAT_BLK_SIZE_16K,
+        GF_IO_STAT_BLK_SIZE_32K,
+        GF_IO_STAT_BLK_SIZE_64K,
+        GF_IO_STAT_BLK_SIZE_128K,
+        GF_IO_STAT_BLK_SIZE_MAX,
+} gf_io_stat_blk_t;
+
 struct io_stats_private {
         gf_lock_t lock;
         struct {
@@ -50,6 +66,8 @@ struct io_stats_private {
                 int enabled;
                 uint32_t hits;
         } fop_records[GF_FOP_MAXVALUE];
+        struct io_stats_io_count read[GF_IO_STAT_BLK_SIZE_MAX + 1];
+        struct io_stats_io_count write[GF_IO_STAT_BLK_SIZE_MAX + 1];        
 };
 typedef struct io_stats_private io_stats_private_t;
 
@@ -102,6 +120,20 @@ io_stats_readv_cbk (call_frame_t *frame,
                     struct stat *buf,
                     struct iobref *iobref)
 {
+        int i = 0;
+        io_stats_private_t *priv = NULL;
+
+        priv = this->private;
+
+        if (op_ret > 0) {
+                for (i=0; i < GF_IO_STAT_BLK_SIZE_MAX; i++) {
+                        if (priv->read[i].size > iov_length (vector, count)) {
+                                break;
+                        }
+                }
+                priv->read[i].hits++;
+        }
+
         STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf, iobref);
         return 0;
 }
@@ -966,7 +998,19 @@ io_stats_writev (call_frame_t *frame,
                  off_t offset,
                  struct iobref *iobref)
 {
+        int i = 0;
+        io_stats_private_t *priv = NULL;
+
+        priv = this->private;
+
         BUMP_HIT(WRITE);
+
+        for (i=0; i < GF_IO_STAT_BLK_SIZE_MAX; i++) {
+                if (priv->write[i].size > iov_length (vector, count)) {
+                        break;
+                }
+        }
+        priv->write[i].hits++;
 
         STACK_WIND (frame,
                     io_stats_writev_cbk,
@@ -1386,6 +1430,8 @@ init (xlator_t *this)
         dict_t *options = this->options;
         char *includes = NULL, *excludes = NULL;
         io_stats_private_t *priv = NULL;
+        size_t size = 0;
+        int i = 0;
 
         if (!this)
                 return -1;
@@ -1406,18 +1452,15 @@ init (xlator_t *this)
         includes = data_to_str (dict_get (options, "include-ops"));
         excludes = data_to_str (dict_get (options, "exclude-ops"));
 
-        {
-                int i;
-                for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-                        priv->fop_records[i].name = gf_fop_list[i];
-                        priv->fop_records[i].enabled = 1;
-                }
+        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+                priv->fop_records[i].name = gf_fop_list[i];
+                priv->fop_records[i].enabled = 1;
         }
 
         if (includes && excludes) {
-                gf_log (this->name,
-                        GF_LOG_ERROR,
-                        "must specify only one of 'include-ops' and 'exclude-ops'");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "must specify only one of 'include-ops' and "
+                        "'exclude-ops'");
                 return -1;
         }
         if (includes)
@@ -1428,6 +1471,13 @@ init (xlator_t *this)
         LOCK_INIT (&priv->lock);
 
         /* Set this translator's inode table pointer to child node's pointer. */
+        size = GF_UNIT_KB;
+        for (i=0; i < GF_IO_STAT_BLK_SIZE_MAX; i++) {
+                priv->read[i].size = size;
+                priv->write[i].size = size;
+                size *= 2;
+        }
+
         this->itable = FIRST_CHILD (this)->itable;
         this->private = priv;
 
