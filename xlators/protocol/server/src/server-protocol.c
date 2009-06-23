@@ -6559,10 +6559,12 @@ _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
 }
 
 
-char *
-build_volfile_path (xlator_t *this, char *key)
+size_t 
+build_volfile_path (xlator_t *this, const char *key, char *path, 
+                    size_t path_len)
 {
         int   ret = -1;
+        int   free_filename = 0;
         char *filename = NULL;
 	char  data_key[256] = {0,};
 
@@ -6583,9 +6585,17 @@ build_volfile_path (xlator_t *this, char *key)
 		sprintf (data_key, "volume-filename.%s", key);
 		ret = dict_get_str (this->options, data_key, &filename);
 		if (ret < 0) {
-			gf_log (this->name, GF_LOG_WARNING,
-				"failed to get corresponding volume file "
-				"for the key '%s'.", key);
+                        /* Make sure that key doesn't contain 
+                         * "../" in path 
+                         */
+                        if (!strstr (key, "../")) {
+                                asprintf (&filename, "%s/%s.vol", 
+                                          CONFDIR, key);
+                                free_filename = 1;
+                        } else {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "%s: invalid key", key);
+                        }
 		} 
 	}
         
@@ -6601,14 +6611,23 @@ build_volfile_path (xlator_t *this, char *key)
                 }
 	}
 
-        return filename;
+        ret = -1;
+        if ((filename) && (path_len > strlen (filename))) {
+                strcpy (path, filename);
+                ret = strlen (filename);
+        }
+
+        if (free_filename)
+                free (filename);
+
+        return ret;
 }
 
 int 
 _validate_volfile_checksum (xlator_t *this, char *key,
                             uint32_t checksum)
 {        
-	char                *filename     = NULL;
+	char                 filename[ZR_PATH_MAX] = {0,};
         server_conf_t       *conf         = NULL;
         struct _volfile_ctx *temp_volfile = NULL;
         int                  ret          = 0;
@@ -6621,8 +6640,9 @@ _validate_volfile_checksum (xlator_t *this, char *key,
                 goto out;
         
         if (!temp_volfile) {
-                filename = build_volfile_path (this, key);
-                if (NULL == filename)
+                ret = build_volfile_path (this, key, filename, 
+                                          sizeof (filename));
+                if (ret <= 0)
                         goto out;
                 ret = open (filename, O_RDONLY);
                 if (-1 == ret) {
@@ -6682,7 +6702,7 @@ mop_getspec (call_frame_t *frame, xlator_t *bound_xl,
 	int32_t               spec_fd = -1;
 	size_t                file_len = 0;
 	size_t                _hdrlen = 0;
-	char                 *filename = NULL;
+	char                  filename[ZR_PATH_MAX] = {0,};
 	struct stat           stbuf = {0,};
 	gf_mop_getspec_req_t *req = NULL;
         uint32_t              checksum = 0;
@@ -6700,8 +6720,9 @@ mop_getspec (call_frame_t *frame, xlator_t *bound_xl,
 
         conf = frame->this->private;
 
-        filename = build_volfile_path (frame->this, key);
-        if (filename) {
+        ret = build_volfile_path (frame->this, key, filename, 
+                                  sizeof (filename));
+        if (ret > 0) {
                 /* to allocate the proper buffer to hold the file data */
 		ret = stat (filename, &stbuf);
 		if (ret < 0){
@@ -6711,8 +6732,7 @@ mop_getspec (call_frame_t *frame, xlator_t *bound_xl,
 			goto fail;
 		}
                 
-                ret = open (filename, O_RDONLY);
-                spec_fd = ret;
+                spec_fd = open (filename, O_RDONLY);
                 if (spec_fd < 0) {
                         gf_log (frame->this->name, GF_LOG_ERROR,
                                 "Unable to open %s (%s)", 
