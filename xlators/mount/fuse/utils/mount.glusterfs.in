@@ -93,6 +93,9 @@ function start_glusterfs ()
 --volfile-server=$server_ip \
 --volfile-server-port=$server_port");
 	fi
+        if [ -n "$volume_id" ]; then
+            cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
+        fi
     else
 	cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
     fi
@@ -101,9 +104,6 @@ function start_glusterfs ()
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
     
-    if [ -n "$volume_id" ]; then
-        cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
-    fi
 
     cmd_line=$(echo "$cmd_line $mount_point");
     exec $cmd_line;
@@ -126,28 +126,41 @@ function main ()
 
     volume_name=$(echo "$options" | sed -n 's/.*volume-name=\([^,]*\).*/\1/p');
 
-    volume_id=$(echo "$options" | sed -n 's/.*volume-id=\([^,]*\).*/\1/p');
+    volume_id=$(echo "$options" | sed -n 's/.*volume_id=\([^,]*\).*/\1/p');
 
     volfile_check=$(echo "$options" | sed -n 's/.*volfile-check=\([^,]*\).*/\1/p');
+
+    server_port=$(echo "$options" | sed -n 's/.*server-port=\([^,]*\).*/\1/p');
 
     volfile_loc="$1";
     
     [ -r "$volfile_loc" ] || {
 	server_ip=$(echo "$volfile_loc" | sed -n 's/\([^\:]*\).*/\1/p');
-	server_port=$(echo "$volfile_loc" | sed -n 's/.*:\([^ ]*\).*/\1/p');
-	[ -n "$server_port" ] || {
-	    server_port="6996";
-	}
-
+        test_str=$(echo "$volfile_loc" | sed -n 's/.*:\([^ ]*\).*/\1/p');
+        [ -n "$test_str" ] && {
+            # Backward compatibility
+            test_str1=$(echo "$test_str" | sed -e 's/[0-9]//g');
+            [ -n "$test_str1" ] && {
+                volume_id="$test_str";
+            } || {
+                server_port=$test_str;
+            }
+        } 
 	volfile_loc="";
     }
+
+    [ -n "$server_port" ] || {
+        server_port="6996";
+    }
+
     new_fs_options=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \
-	                                   -e 's/[,]*log-level=[^,]*//' \
-	                                   -e 's/[,]*volume-name=[^,]*//' \
-	                                   -e 's/[,]*direct-io-mode=[^,]*//' \
-	                                   -e 's/[,]*volfile-check=[^,]*//' \
-	                                   -e 's/[,]*transport=[^,]*//' \
-	                                   -e 's/[,]*volume-id=[^,]*//');
+        -e 's/[,]*log-level=[^,]*//' \
+        -e 's/[,]*volume-name=[^,]*//' \
+        -e 's/[,]*direct-io-mode=[^,]*//' \
+        -e 's/[,]*volfile-check=[^,]*//' \
+        -e 's/[,]*transport=[^,]*//' \
+        -e 's/[,]*server-port=[^,]*//' \
+        -e 's/[,]*volume-id=[^,]*//');
     # following line is product of love towards sed
     # $2=$(echo "$@" | sed -n 's/[^ ]* \([^ ]*\).*/\1/p');
     
@@ -155,13 +168,17 @@ function main ()
 
     # Simple check to avoid multiple identical mounts
     if grep -q " $mount_point fuse" /etc/mtab; then
-        echo "$0: according to mtab, GlusterFS is already mounted on $mount_point"
-        exit 0
+        echo -n "$0: according to mtab, GlusterFS is already mounted on "
+        echo "$mount_point"
+        sleep 1;
+        exit 0;
     fi
 
     fs_options=$(echo "$fs_options,$new_fs_options");
     
     start_glusterfs;
+
+    sleep 3;
 }
 
 _init "$@" && main "$@";
