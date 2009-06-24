@@ -2110,10 +2110,8 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	gf_dirent_t  *orig_entry = NULL;
 	gf_dirent_t  *entry = NULL;
 	call_frame_t *prev = NULL;
-	xlator_t     *subvol = NULL;
 	xlator_t     *next_subvol = NULL;
         off_t         next_offset = 0;
-	dht_layout_t *layout = NULL;
 	int           count = 0;
 
 
@@ -2124,31 +2122,32 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (op_ret < 0)
 		goto done;
 
-	layout = dht_layout_get (this, local->fd->inode);
-
-	list_for_each_entry (orig_entry, &orig_entries->list, list) {
-		subvol = dht_layout_search (this, layout, orig_entry->d_name);
-
-		if (!subvol || subvol == prev->this) {
-			entry = gf_dirent_for_name (orig_entry->d_name);
-			if (!entry) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"Out of memory");
-				goto unwind;
-			}
-
-			dht_itransform (this, prev->this, orig_entry->d_ino,
-					&entry->d_ino);
-			dht_itransform (this, prev->this, orig_entry->d_off,
-					&entry->d_off);
-
-			entry->d_type = orig_entry->d_type;
-			entry->d_len  = orig_entry->d_len;
-
-			list_add_tail (&entry->list, &entries.list);
-			count++;
-		}
+	list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
+
+                if (check_is_linkfile (NULL, (&orig_entry->d_stat), NULL)
+                    || (check_is_dir (NULL, (&orig_entry->d_stat), NULL)
+                        && (prev->this != dht_first_up_subvol (this)))) {
+                        continue;
+                }
+
+                entry = gf_dirent_for_name (orig_entry->d_name);
+                if (!entry) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        goto unwind;
+                }
+
+                dht_itransform (this, prev->this, orig_entry->d_ino,
+                                &entry->d_ino);
+                dht_itransform (this, prev->this, orig_entry->d_off,
+                                &entry->d_off);
+
+                entry->d_type = orig_entry->d_type;
+                entry->d_len  = orig_entry->d_len;
+
+                list_add_tail (&entry->list, &entries.list);
+                count++;
 	}
 	op_ret = count;
 
