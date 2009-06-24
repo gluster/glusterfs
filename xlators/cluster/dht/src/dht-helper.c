@@ -178,7 +178,7 @@ basestr (const char *str)
 }
 
 xlator_t *
-dht_first_up_child (xlator_t *this)
+dht_first_up_subvol (xlator_t *this)
 {
 	dht_conf_t *conf = NULL;
 	xlator_t   *child = NULL;
@@ -207,7 +207,7 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
         xlator_t     *subvol = NULL;
 
         if (is_fs_root (loc)) {
-                subvol = dht_first_up_child (this);
+                subvol = dht_first_up_subvol (this);
                 goto out;
         }
 
