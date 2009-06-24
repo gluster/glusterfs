@@ -30,14 +30,16 @@
 #include "compat.h"
 #include "xlator.h"
 #include "byte-order.h"
+#include "protocol.h"
 
 
 struct gf_dirent_nb {
-	uint64_t    d_ino;
-	uint64_t    d_off;
-	uint32_t    d_len;
-	uint32_t    d_type;
-	char        d_name[0];
+	uint64_t       d_ino;
+	uint64_t       d_off;
+	uint32_t       d_len;
+	uint32_t       d_type;
+        struct gf_stat d_stat;
+	char           d_name[0];
 } __attribute__((packed));
 
 
@@ -109,6 +111,8 @@ gf_dirent_serialize (gf_dirent_t *entries, char *buf, size_t buf_size)
 			entry_nb->d_len  = hton32 (entry->d_len);
 			entry_nb->d_type = hton32 (entry->d_type);
 
+                        gf_stat_from_stat (&entry_nb->d_stat, &entry->d_stat);
+
 			strcpy (entry_nb->d_name, entry->d_name);
 		}
 		size += entry_size;
@@ -151,6 +155,9 @@ gf_dirent_unserialize (gf_dirent_t *entries, const char *buf, size_t buf_size)
 		entry->d_off  = ntoh64 (entry_nb->d_off);
 		entry->d_len  = ntoh32 (entry_nb->d_len);
 		entry->d_type = ntoh32 (entry_nb->d_type);
+
+                gf_stat_to_stat (&entry_nb->d_stat, &entry->d_stat);
+
 		strcpy (entry->d_name, entry_nb->d_name);
 
 		list_add_tail (&entry->list, &entries->list);

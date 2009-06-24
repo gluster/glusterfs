@@ -48,6 +48,7 @@ struct _gf_dirent_t {
 	uint64_t                             d_off;
 	uint32_t                             d_len;
 	uint32_t                             d_type;
+        struct stat                          d_stat;
 	char                                 d_name[0];
 };
 
