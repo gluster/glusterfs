@@ -3500,6 +3500,10 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
         off_t             in_case    = -1;
         int32_t           this_size  = -1;
 
+        char *            real_path      = NULL;
+        int               real_path_len  = -1;
+        char *            entry_path     = NULL;
+        int               entry_path_len = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -3515,6 +3519,22 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 	pfd = (struct posix_fd *)(long)tmp_pfd;
+
+        real_path     = pfd->path;
+        real_path_len = strlen (real_path);
+
+        entry_path_len = real_path_len + NAME_MAX;
+        entry_path     = alloca (entry_path_len);
+
+        if (!entry_path) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory.");
+                goto out;
+        }
+
+        strncpy (entry_path, real_path, entry_path_len);
+        entry_path[real_path_len] = '/';
 
         dir = pfd->dir;
 
@@ -3580,6 +3600,9 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
 
                 filled += this_size;
 		count ++;
+
+                strcpy (entry_path + real_path_len + 1, this_entry->d_name);
+                lstat (entry_path, &this_entry->d_stat);
         }
 
         op_ret = count;
