@@ -103,7 +103,7 @@ init (xlator_t *this)
                 goto err;
         }
 
-	conf->search_unhashed = 0;
+	conf->search_unhashed = 1;
 
 	if (dict_get_str (this->options, "lookup-unhashed",
 			  &lookup_unhashed_str) == 0) {
