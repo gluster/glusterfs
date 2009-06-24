@@ -34,6 +34,7 @@
 #include "compat-errno.h"
 
 #include <fcntl.h>
+#include <netinet/tcp.h>
 #include <errno.h>
 
 
@@ -945,6 +946,7 @@ socket_connect (transport_t *this)
         struct sockaddr_storage  sockaddr = {0, };
         socklen_t                sockaddr_len = 0;
 	glusterfs_ctx_t         *ctx = NULL;
+        int                      on = 1;
 
         priv = this->private;
 	ctx = this->xl->ctx;
@@ -1017,6 +1019,18 @@ socket_connect (transport_t *this)
                                 strerror (errno));
                 }
 
+	
+                if (priv->nodelay) {
+                        ret = setsockopt(priv->sock, IPPROTO_TCP, 
+                                         TCP_NODELAY, &on, sizeof(on));
+                        if (ret == -1) {
+                                gf_log (this->xl->name, GF_LOG_ERROR,
+                                        "setsockopt() failed for NODELAY (%s)",
+                                        strerror (errno));
+                        }
+                }
+
+
                 if (!priv->bio) {
                         ret = __socket_nonblock (priv->sock);
 
@@ -1082,6 +1096,7 @@ socket_listen (transport_t *this)
         socklen_t                sockaddr_len;
         peer_info_t             *myinfo = NULL;
 	glusterfs_ctx_t         *ctx = NULL;
+        int                      on = 1;
 
 	priv   = this->private;
 	myinfo = &this->myinfo;
@@ -1146,6 +1161,18 @@ socket_listen (transport_t *this)
                                 "setting send window size failed: %d: %d: "
                                 "%s", priv->sock, priv->windowsize,
                                 strerror (errno));
+                }
+
+
+                if (priv->nodelay) {
+                        ret = setsockopt(priv->sock, IPPROTO_TCP, 
+                                         TCP_NODELAY, &on, sizeof(on));
+
+                        if (ret == -1) {
+                                gf_log (this->xl->name, GF_LOG_ERROR,
+                                        "setsockopt() failed for NODELAY (%s)",
+                                        strerror (errno));
+                        }
                 }
 
                 if (!priv->bio) {
@@ -1321,6 +1348,7 @@ socket_init (transport_t *this)
         socket_private_t *priv = NULL;
         gf_boolean_t      tmp_bool = 0;
         char             *nb_connect = NULL;
+        char             *optstr     = NULL;
         uint64_t          windowsize = GF_DEFAULT_SOCKET_WINDOW_SIZE;
         char             *wsizestr = NULL;
 
@@ -1364,6 +1392,25 @@ socket_init (transport_t *this)
                 }
         }
 
+        if (dict_get (this->xl->options, "transport.socket.nodelay")) {
+                optstr = data_to_str (dict_get (this->xl->options,
+                                                "transport.socket.nodelay"));
+       
+                if (gf_string2boolean (optstr, &tmp_bool) == -1) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "'transport.socket.nodelay' takes only "
+                                 "boolean options, not taking any action");
+                        tmp_bool = 0;
+                }
+                // By default we do not enable NODELAY
+                priv->nodelay = 0;
+                if (tmp_bool) {
+                        priv->nodelay = 1;
+                        gf_log (this->xl->name, GF_LOG_DEBUG,
+                                "enabling nodelay");
+                }
+        }
+ 
         if (dict_get_str (this->xl->options, "window-size", &wsizestr) == 0) {
                 if (gf_string2bytesize (wsizestr, &windowsize) != 0) {
                         gf_log (this->xl->name, GF_LOG_ERROR,
@@ -1436,6 +1483,9 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_SIZET,
           .min   = GF_MIN_SOCKET_WINDOW_SIZE,
           .max   = GF_MAX_SOCKET_WINDOW_SIZE,
+        },
+        { .key   = {"transport.socket.nodelay"}, 
+          .type  = GF_OPTION_TYPE_BOOL
         },
 
         { .key = {NULL} }

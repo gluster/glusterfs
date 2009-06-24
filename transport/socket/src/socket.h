@@ -94,6 +94,7 @@ typedef struct {
         char                   bio;
         char                   connect_finish_log;
         char                   submit_log;
+        char                   nodelay;
         union {
                 struct list_head     ioq;
                 struct {
