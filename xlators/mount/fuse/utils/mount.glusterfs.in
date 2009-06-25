@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # (C) 2006, 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>
 # 
 # This program is free software; you can redistribute it and/or
@@ -100,6 +100,14 @@ function start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
     fi
 
+    if [ -n "$log_server" ]; then
+        if [ -n "$log_server_port" ]; then
+            cmd_line=$(echo "$cmd_line \
+--log-server=$log_server \
+--log-server-port=$log_server_port");
+        fi
+    fi
+
     if [ -n "$volume_name" ]; then
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
@@ -132,6 +140,10 @@ function main ()
 
     server_port=$(echo "$options" | sed -n 's/.*server-port=\([^,]*\).*/\1/p');
 
+    log_server=$(echo "$options" | sed -n 's/.*log-server=\([^,]*\).*/\1/p');
+    
+    log_server_port=$(echo "$options" | sed -n 's/.*log-server-port=\([^,]*\).*/\1/p');
+
     volfile_loc="$1";
     
     [ -r "$volfile_loc" ] || {
@@ -160,7 +172,9 @@ function main ()
         -e 's/[,]*volfile-check=[^,]*//' \
         -e 's/[,]*transport=[^,]*//' \
         -e 's/[,]*server-port=[^,]*//' \
-        -e 's/[,]*volume-id=[^,]*//');
+        -e 's/[,]*volume-id=[^,]*//' \
+        -e 's/[,]*log-server=[^,]*//' \
+        -e 's/[,]*log-server-port=[^,]*//');
     # following line is product of love towards sed
     # $2=$(echo "$@" | sed -n 's/[^ ]* \([^ ]*\).*/\1/p');
     
