@@ -6955,7 +6955,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 	if (trans->xl_private != conn)
 		trans->xl_private = conn;
 
-	ret = dict_get_str (params, "version", &version);
+	ret = dict_get_str (params, "protocol-version", &version);
 	if (ret < 0) {
 		ret = dict_set_str (reply, "ERROR",
 				    "No version number specified");
@@ -6968,11 +6968,11 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 		goto fail;
 	}
 	
-	ret = strcmp (version, PACKAGE_VERSION);
+	ret = strcmp (version, GF_PROTOCOL_VERSION);
 	if (ret != 0) {
 		asprintf (&msg,
-			  "Version mismatch: client(%s) Vs server (%s)",
-			  version, PACKAGE_VERSION);
+			  "protocol version mismatch: client(%s) - server(%s)",
+			  version, GF_PROTOCOL_VERSION);
 		ret = dict_set_dynstr (reply, "ERROR", msg);
 		if (ret < 0)
 			gf_log (trans->xl->name, GF_LOG_DEBUG,
