@@ -457,20 +457,29 @@ out:
         return ret;
 }
 
+/* This is done to over-write existing definitions of open and open64 inside
+ * libc with our own copies. __REDIRECT is provided by libc.
+ *
+ * XXX: This will not work anywhere other than libc based systems.
+ */
+int __REDIRECT (booster_false_open, (__const char *__file, int __oflag, ...),
+                open) __nonnull ((1));
+int __REDIRECT (booster_false_open64, (__const char *__file, int __oflag, ...),
+                open64) __nonnull ((1));
 int
-open (const char *pathname, int flags, ...)
+booster_false_open (const char *pathname, int flags, ...)
 {
-        int ret = -1;
-	mode_t mode = 0;
-	va_list ap;
+        int     ret;
+        mode_t  mode = 0;
+        va_list ap;
 
         if (flags & GF_O_CREAT) {
                 va_start (ap, flags);
                 mode = va_arg (ap, mode_t);
                 va_end (ap);
 
-                ret = booster_open (pathname, BOOSTER_DONT_USE_OPEN64,
-                                        flags, mode);
+                ret = booster_open (pathname, BOOSTER_DONT_USE_OPEN64, flags,
+                                    mode);
         }
         else
                 ret = booster_open (pathname, BOOSTER_DONT_USE_OPEN64, flags);
@@ -478,13 +487,12 @@ open (const char *pathname, int flags, ...)
         return ret;
 }
 
-#if !defined (__USE_LARGEFILE64) && !defined (__USE_FILE_OFFSET64)
 int
-open64 (const char *pathname, int flags, ...)
+booster_false_open64 (const char *pathname, int flags, ...)
 {
-        int ret;
-	mode_t mode = 0;
-	va_list ap;
+        int     ret;
+        mode_t  mode = 0;
+        va_list ap;
 
         if (flags & GF_O_CREAT) {
                 va_start (ap, flags);
@@ -498,7 +506,6 @@ open64 (const char *pathname, int flags, ...)
 
         return ret;
 }
-#endif
 
 int
 vmp_creat (const char *pathname, mode_t mode)
@@ -1342,8 +1349,13 @@ out:
         return (DIR *)bh;
 }
 
+int __REDIRECT (booster_false_readdir_r, (DIR *dir, struct dirent *entry,
+                struct dirent **result), readdir_r) __nonnull ((1));
+int __REDIRECT (booster_false_readdir64_r, (DIR *dir, struct dirent64 *entry,
+                struct dirent64 **result), readdir64_r) __nonnull ((1));
+
 int
-readdir_r (DIR *dir, struct dirent *entry, struct dirent **result)
+booster_false_readdir_r (DIR *dir, struct dirent *entry, struct dirent **result)
 {
         struct booster_dir_handle       *bh = (struct booster_dir_handle *)dir;
         int                              ret = 0;  
@@ -1372,10 +1384,9 @@ out:
         return  ret;
 }
 
-
-#if !defined (__USE_LARGEFILE64) && !defined (__USE_FILE_OFFSET64)
 int
-readdir64_r (DIR *dir, struct dirent64 *entry, struct dirent64 **result)
+booster_false_readdir64_r (DIR *dir, struct dirent64 *entry,
+                           struct dirent64 **result)
 {
         struct booster_dir_handle       *bh = (struct booster_dir_handle *)dir;
         int                              ret = 0;  
@@ -1403,7 +1414,6 @@ readdir64_r (DIR *dir, struct dirent64 *entry, struct dirent64 **result)
 out:
         return  ret;
 }
-#endif
 
 struct dirent *
 booster_readdir (DIR *dir)
