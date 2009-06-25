@@ -227,43 +227,6 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
 	}
 }
 
-int32_t
-gf_fd_unused_get2 (fdtable_t *fdtable, fd_t *fdptr, int32_t fd)
-{
-	int32_t ret = -1;
-	
-	if (fdtable == NULL || fdptr == NULL || fd < 0)
-	{
-		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
-		errno = EINVAL;
-		return -1;
-	}
- 
-	pthread_mutex_lock (&fdtable->lock);
-	{
-		while (fdtable->max_fds < fd) {
-			int error = 0;
-			error = gf_fd_fdtable_expand (fdtable, fdtable->max_fds + 1);
-			if (error) 
-			{
-				gf_log ("fd.c",
-					GF_LOG_ERROR,
-					"Cannot expand fdtable:%s", strerror (error));
-				goto err;
-			}
-		}
-		
-		fdtable->fdentries[fd].fd = fdptr;
-		fd_ref (fdptr);
-		ret = fd;
-        }
-err:
-	pthread_mutex_unlock (&fdtable->lock);
-	
-	return ret;
-}
-
-  
 int32_t 
 gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
 {
