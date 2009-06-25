@@ -2,8 +2,8 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
 ldpreload_PROGRAMS = glusterfs-booster.so
 ldpreloaddir = $(libdir)/glusterfs/
-noinst_HEADERS = booster_fstab.h
-glusterfs_booster_so_SOURCES = booster.c booster_stat.c booster_fstab.c
+noinst_HEADERS = booster_fstab.h booster-fd.h
+glusterfs_booster_so_SOURCES = booster.c booster_stat.c booster_fstab.c booster-fd.c
 glusterfs_booster_so_CFLAGS = -I$(top_srcdir)/libglusterfsclient/src/ -D_GNU_SOURCE -D$(GF_HOST_OS) -fPIC -Wall \
 	-pthread $(GF_BOOSTER_CFLAGS)
 glusterfs_booster_so_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  \

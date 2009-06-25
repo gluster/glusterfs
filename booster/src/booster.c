@@ -43,11 +43,18 @@
 #include <sys/statfs.h>
 #include <sys/statvfs.h>
 #include <fcntl.h>
+#include "booster-fd.h"
 
 #ifndef GF_UNIT_KB
 #define GF_UNIT_KB 1024
 #endif
 
+
+extern fd_t *
+fd_ref (fd_t *fd);
+
+extern void
+fd_unref (fd_t *fd);
 
 extern int pipe (int filedes[2]);
 /* We define these flags so that we can remove fcntl.h from the include path.
@@ -82,44 +89,6 @@ typedef enum {
 
 struct _inode;
 struct _dict;
-struct _fd {
-        pid_t pid;
-        struct list_head inode_list;
-        struct _inode *inode;
-        struct _dict *ctx;
-        int32_t refcount;
-};
-
-typedef struct _fdtable fdtable_t;
-typedef struct _fd fd_t;
-
-
-inline void 
-gf_fd_put (struct _fdtable *fdtable, int64_t fd);
-
-struct _fd *
-gf_fd_fdptr_get (struct _fdtable *fdtable, int64_t fd);
-
-struct _fdtable *
-gf_fd_fdtable_alloc (void);
-
-void
-gf_fd_fdtable_destroy (struct _fdtable *);
-
-int32_t 
-gf_fd_unused_get (struct _fdtable *fdtable, struct _fd *fdptr);
-
-int32_t 
-gf_fd_unused_get2 (struct _fdtable *fdtable, struct _fd *fdptr, int64_t fd);
-
-void
-fd_unref (struct _fd *fd);
-
-fd_t *
-fd_ref (struct _fd *fd);
-
-pid_t
-getpid (void);
 
 ssize_t
 write (int fd, const void *buf, size_t count);
@@ -229,7 +198,7 @@ struct booster_mount {
 };
 typedef struct booster_mount booster_mount_t;
 
-static fdtable_t *booster_glfs_fdtable = NULL;
+static booster_fdtable_t *booster_fdtable = NULL;
 
 extern int booster_configure (char *confpath);
 /* This is dup'ed every time VMP open/creat wants a new fd.
@@ -256,39 +225,6 @@ booster_get_process_fd ()
  */
 #define BOOSTER_DEFAULT_LOG     CONFDIR"/booster.log"
 #define BOOSTER_LOG_ENV_VAR     "GLUSTERFS_BOOSTER_LOG"
-
-
-static inline glusterfs_file_t
-booster_get_glfs_fd (fdtable_t *fdtable, int fd)
-{
-        fd_t *glfs_fd = NULL;
-
-        glfs_fd = gf_fd_fdptr_get (fdtable, fd);
-        return glfs_fd;
-}
-
-
-static inline void
-booster_put_glfs_fd (glusterfs_file_t glfs_fd)
-{
-        fd_unref ((fd_t *)glfs_fd);
-}
-
-
-static inline int32_t
-booster_get_unused_fd (fdtable_t *fdtable, glusterfs_file_t glfs_fd, int fd)
-{
-        int32_t ret = -1;
-        ret = gf_fd_unused_get2 (fdtable, (fd_t *)glfs_fd, fd);
-        return ret;
-}
-
-
-static inline void
-booster_put_fd (fdtable_t *fdtable, int fd)
-{
-        gf_fd_put (fdtable, fd);
-}
 
 void
 do_open (int fd, const char *pathname, int flags, mode_t mode, booster_op_t op)
@@ -382,7 +318,7 @@ do_open (int fd, const char *pathname, int flags, mode_t mode, booster_op_t op)
                 goto out;
         }
 
-        if (booster_get_unused_fd (booster_glfs_fdtable, fh, fd) == -1) {
+        if (booster_fd_unused_get (booster_fdtable, fh, fd) == -1) {
                 goto out;
         }
         fh = NULL;
@@ -432,7 +368,7 @@ vmp_open (const char *pathname, int flags, ...)
         if (fd == -1)
                 goto fh_close_out;
 
-        if (booster_get_unused_fd (booster_glfs_fdtable, fh, fd) == -1)
+        if (booster_fd_unused_get (booster_fdtable, fh, fd) == -1)
                 goto realfd_close_out;
 
         return fd;
@@ -578,7 +514,7 @@ vmp_creat (const char *pathname, mode_t mode)
         if (fd == -1)
                 goto close_out;
 
-        if ((booster_get_unused_fd (booster_glfs_fdtable, fh, fd)) == -1)
+        if ((booster_fd_unused_get (booster_fdtable, fh, fd)) == -1)
                 goto real_close_out;
 
         return fd;
@@ -634,7 +570,7 @@ pread (int fd, void *buf, size_t count, unsigned long offset)
         ssize_t ret;
         glusterfs_file_t glfs_fd = 0;
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        glfs_fd = booster_fdptr_get (booster_fdtable, fd);
         if (!glfs_fd) { 
                 if (real_pread == NULL) {
                         errno = ENOSYS;
@@ -643,7 +579,7 @@ pread (int fd, void *buf, size_t count, unsigned long offset)
                         ret = real_pread (fd, buf, count, offset);
         } else {
                 ret = glusterfs_pread (glfs_fd, buf, count, offset);
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         }
 
         return ret;
@@ -656,7 +592,7 @@ pread64 (int fd, void *buf, size_t count, uint64_t offset)
         ssize_t ret;
         glusterfs_file_t glfs_fd = 0;
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        glfs_fd = booster_fdptr_get (booster_fdtable, fd);
         if (!glfs_fd) { 
                 if (real_pread64 == NULL) {
                         errno = ENOSYS;
@@ -677,7 +613,7 @@ read (int fd, void *buf, size_t count)
         int ret;
         glusterfs_file_t glfs_fd;
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        glfs_fd = booster_fdptr_get (booster_fdtable, fd);
         if (!glfs_fd) {
                 if (real_read == NULL) {
                         errno = ENOSYS;
@@ -686,7 +622,7 @@ read (int fd, void *buf, size_t count)
                         ret = real_read (fd, buf, count);
         } else {
                 ret = glusterfs_read (glfs_fd, buf, count);
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         }
 
         return ret;
@@ -699,7 +635,7 @@ readv (int fd, const struct iovec *vector, int count)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        glfs_fd = booster_fdptr_get (booster_fdtable, fd);
         if (!glfs_fd) {
                 if (real_readv == NULL) {
                         errno = ENOSYS;
@@ -708,7 +644,7 @@ readv (int fd, const struct iovec *vector, int count)
                         ret = real_readv (fd, vector, count);
         } else {
 		ret = glusterfs_readv (glfs_fd, vector, count);
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         }
 
         return ret;
@@ -721,7 +657,7 @@ write (int fd, const void *buf, size_t count)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        glfs_fd = booster_fdptr_get (booster_fdtable, fd);
 
         if (!glfs_fd) {
                 if (real_write == NULL) {
@@ -731,7 +667,7 @@ write (int fd, const void *buf, size_t count)
                         ret = real_write (fd, buf, count);
         } else {
                 ret = glusterfs_write (glfs_fd, buf, count);
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         }
  
         return ret;
@@ -743,7 +679,7 @@ writev (int fd, const struct iovec *vector, int count)
         int ret = 0;
         glusterfs_file_t glfs_fd = 0; 
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        glfs_fd = booster_fdptr_get (booster_fdtable, fd);
 
         if (!glfs_fd) {
                 if (real_writev == NULL) {
@@ -753,7 +689,7 @@ writev (int fd, const struct iovec *vector, int count)
                         ret = real_writev (fd, vector, count);
         } else {
                 ret = glusterfs_writev (glfs_fd, vector, count);
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         }
 
         return ret;
@@ -766,7 +702,7 @@ pwrite (int fd, const void *buf, size_t count, unsigned long offset)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        glfs_fd = booster_fdptr_get (booster_fdtable, fd);
 
         if (!glfs_fd) {
                 if (real_pwrite == NULL) {
@@ -776,7 +712,7 @@ pwrite (int fd, const void *buf, size_t count, unsigned long offset)
                         ret = real_pwrite (fd, buf, count, offset);
         } else {
                 ret = glusterfs_pwrite (glfs_fd, buf, count, offset);
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         }
 
         return ret;
@@ -789,7 +725,7 @@ pwrite64 (int fd, const void *buf, size_t count, uint64_t offset)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        glfs_fd = booster_fdptr_get (booster_fdtable, fd);
   
         if (!glfs_fd) {
                 if (real_pwrite64 == NULL) {
@@ -799,7 +735,7 @@ pwrite64 (int fd, const void *buf, size_t count, uint64_t offset)
                         ret = real_pwrite64 (fd, buf, count, offset);
         } else {
                 ret = glusterfs_pwrite (glfs_fd, buf, count, offset);
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         }
 
         return ret;
@@ -812,12 +748,12 @@ close (int fd)
         int ret = -1;
         glusterfs_file_t glfs_fd = 0;
 
-	glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+	glfs_fd = booster_fdptr_get (booster_fdtable, fd);
     
 	if (glfs_fd) {
-		booster_put_fd (booster_glfs_fdtable, fd);
+		booster_fd_put (booster_fdtable, fd);
 		ret = glusterfs_close (glfs_fd);
-		booster_put_glfs_fd (glfs_fd);
+		booster_fdptr_put (glfs_fd);
 	}
 
         ret = real_close (fd);
@@ -833,10 +769,10 @@ lseek (int filedes, unsigned long offset, int whence)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, filedes);
+        glfs_fd = booster_fdptr_get (booster_fdtable, filedes);
         if (glfs_fd) {
                 ret = glusterfs_lseek (glfs_fd, offset, whence);
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         } else {
                 if (real_lseek == NULL) {
                         errno = ENOSYS;
@@ -856,10 +792,10 @@ lseek64 (int filedes, uint64_t offset, int whence)
         glusterfs_file_t glfs_fd = 0;
 
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, filedes);
+        glfs_fd = booster_fdptr_get (booster_fdtable, filedes);
         if (glfs_fd) {
                 ret = glusterfs_lseek (glfs_fd, offset, whence);
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         } else {
                 if (real_lseek64 == NULL) {
                         errno = ENOSYS;
@@ -877,11 +813,11 @@ dup (int oldfd)
         int ret = -1, new_fd = -1;
         glusterfs_file_t glfs_fd = 0;
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, oldfd);
+        glfs_fd = booster_fdptr_get (booster_fdtable, oldfd);
         new_fd = real_dup (oldfd);
 
         if (new_fd >=0 && glfs_fd) {
-                ret = booster_get_unused_fd (booster_glfs_fdtable, glfs_fd,
+                ret = booster_fd_unused_get (booster_fdtable, glfs_fd,
                                              new_fd);
                 fd_ref ((fd_t *)glfs_fd);
                 if (ret == -1) {
@@ -890,7 +826,7 @@ dup (int oldfd)
         }
 
         if (glfs_fd) {
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         }
 
         return new_fd;
@@ -907,20 +843,20 @@ dup2 (int oldfd, int newfd)
                 return newfd;
         }
 
-        old_glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, oldfd);
-        new_glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, newfd);
+        old_glfs_fd = booster_fdptr_get (booster_fdtable, oldfd);
+        new_glfs_fd = booster_fdptr_get (booster_fdtable, newfd);
  
         ret = real_dup2 (oldfd, newfd); 
         if (ret >= 0) {
                 if (new_glfs_fd) {
                         glusterfs_close (new_glfs_fd);
-                        booster_put_glfs_fd (new_glfs_fd);
-                        booster_put_fd (booster_glfs_fdtable, newfd);
+                        booster_fdptr_put (new_glfs_fd);
+                        booster_fd_put (booster_fdtable, newfd);
                         new_glfs_fd = 0;
                 }
 
                 if (old_glfs_fd) {
-                        ret = booster_get_unused_fd (booster_glfs_fdtable,
+                        ret = booster_fd_unused_get (booster_fdtable,
                                                      old_glfs_fd, newfd);
                         fd_ref ((fd_t *)old_glfs_fd);
                         if (ret == -1) {
@@ -930,11 +866,11 @@ dup2 (int oldfd, int newfd)
         } 
 
         if (old_glfs_fd) {
-                booster_put_glfs_fd (old_glfs_fd);
+                booster_fdptr_put (old_glfs_fd);
         }
 
         if (new_glfs_fd) {
-                booster_put_glfs_fd (new_glfs_fd);
+                booster_fdptr_put (new_glfs_fd);
         }
 
         return ret;
@@ -1020,7 +956,7 @@ fchown (int fd, uid_t owner, gid_t group)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
-        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
                 if (real_fchown == NULL) {
                         errno = ENOSYS;
@@ -1029,7 +965,7 @@ fchown (int fd, uid_t owner, gid_t group)
                         ret = real_fchown (fd, owner, group);
         } else {
                 ret = glusterfs_fchown (fh, owner, group);
-                booster_put_glfs_fd (fh);
+                booster_fdptr_put (fh);
         }
 
         return ret;
@@ -1046,8 +982,8 @@ booster_init (void)
         int     ret = -1;
         int     pipefd[2];
 
-        booster_glfs_fdtable = gf_fd_fdtable_alloc ();
-        if (!booster_glfs_fdtable) {
+        booster_fdtable = booster_fdtable_alloc ();
+        if (!booster_fdtable) {
                 fprintf (stderr, "cannot allocate fdtable: %s\n",
                          strerror (errno));
 		goto err;
@@ -1088,16 +1024,16 @@ err:
 static void
 booster_cleanup (void)
 {
-	/* gf_fd_fdtable_destroy (booster_glfs_fdtable);*/
-	/*for (i=0; i < booster_glfs_fdtable->max_fds; i++) {
-		if (booster_glfs_fdtable->fds[i]) {
-			fd_t *fd = booster_glfs_fdtable->fds[i];
+	/* gf_fd_fdtable_destroy (booster_fdtable);*/
+	/*for (i=0; i < booster_fdtable->max_fds; i++) {
+		if (booster_fdtable->fds[i]) {
+			fd_t *fd = booster_fdtable->fds[i];
 			free (fd);			  
 		}
 		}*/
 
-	free (booster_glfs_fdtable);
-	booster_glfs_fdtable = NULL;
+	free (booster_fdtable);
+	booster_fdtable = NULL;
 
         /*
          * FIXME: there may be issues during execution of fini of individual
@@ -1118,7 +1054,7 @@ fchmod (int fd, mode_t mode)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
-        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
                 if (real_fchmod == NULL) {
                         errno = ENOSYS;
@@ -1127,7 +1063,7 @@ fchmod (int fd, mode_t mode)
                         ret = real_fchmod (fd, mode);
         } else {
                 ret = glusterfs_fchmod (fh, mode);
-                booster_put_glfs_fd (fh);
+                booster_fdptr_put (fh);
         }
 
         return ret;
@@ -1139,7 +1075,7 @@ fsync (int fd)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
-        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
                 if (real_fsync == NULL) {
                         errno = ENOSYS;
@@ -1148,7 +1084,7 @@ fsync (int fd)
                         ret = real_fsync (fd);
         } else {
                 ret = glusterfs_fsync (fh);
-                booster_put_glfs_fd (fh);
+                booster_fdptr_put (fh);
         }
 
         return ret;
@@ -1160,7 +1096,7 @@ ftruncate (int fd, off_t length)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
-        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
                 if (real_ftruncate == NULL) {
                         errno = ENOSYS;
@@ -1169,7 +1105,7 @@ ftruncate (int fd, off_t length)
                         ret = real_ftruncate (fd, length);
         } else {
                 ret = glusterfs_ftruncate (fh, length);
-                booster_put_glfs_fd (fh);
+                booster_fdptr_put (fh);
         }
 
         return ret;
@@ -1632,7 +1568,7 @@ booster_fxstat (int ver, int fd, void *buf)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
-        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
                 if (real___fxstat == NULL) {
                         errno = ENOSYS;
@@ -1643,7 +1579,7 @@ booster_fxstat (int ver, int fd, void *buf)
                 ret = real___fxstat (ver, fd, sbuf);
         } else {
                 ret = glusterfs_fstat (fh, sbuf);
-                booster_put_glfs_fd (fh);
+                booster_fdptr_put (fh);
         }
 
 out:
@@ -1657,7 +1593,7 @@ booster_fxstat64 (int ver, int fd, void *buf)
         struct stat64           *sbuf = (struct stat64 *)buf;
         glusterfs_file_t        fh = NULL;
 
-        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
                 if (real___fxstat64 == NULL) {
                         ret = -1;
@@ -1667,7 +1603,7 @@ booster_fxstat64 (int ver, int fd, void *buf)
                 ret = real___fxstat64 (ver, fd, sbuf);
         } else {
                 ret = glusterfs_fstat (fh, (struct stat *)sbuf);
-                booster_put_glfs_fd (fh);
+                booster_fdptr_put (fh);
         }
 
 out:
@@ -1681,7 +1617,7 @@ booster_fstat (int fd, void *buf)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
-        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
                 if (real_fstat != NULL)
                         ret = real_fstat (fd, sbuf);
@@ -1694,7 +1630,7 @@ booster_fstat (int fd, void *buf)
                 }
         } else {
                 ret = glusterfs_fstat (fh, sbuf);
-                booster_put_glfs_fd (fh);
+                booster_fdptr_put (fh);
         }
 
 out:
@@ -1708,7 +1644,7 @@ booster_fstat64 (int fd, void *buf)
         struct stat64           *sbuf = (struct stat64 *)buf;
         glusterfs_file_t        fh = NULL;
 
-        fh = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
                 if (real_fstat64 != NULL)
                         ret = real_fstat64 (fd, sbuf);
@@ -1727,7 +1663,7 @@ booster_fstat64 (int fd, void *buf)
                 }
         } else {
                 ret = glusterfs_fstat (fh, (struct stat *)sbuf);
-                booster_put_glfs_fd (fh);
+                booster_fdptr_put (fh);
         }
 
 out:
@@ -2099,7 +2035,7 @@ sendfile (int out_fd, int in_fd, off_t *offset, size_t count)
          * handle sendfile in booster only if in_fd corresponds to a glusterfs
          * file handle 
          */
-        in_fh = booster_get_glfs_fd (booster_glfs_fdtable, in_fd);
+        in_fh = booster_fdptr_get (booster_fdtable, in_fd);
         if (!in_fh) {
                 if (real_sendfile == NULL) {
                         errno = ENOSYS;
@@ -2109,7 +2045,7 @@ sendfile (int out_fd, int in_fd, off_t *offset, size_t count)
                 }
         } else {
                 ret = glusterfs_sendfile (out_fd, in_fh, offset, count);
-                booster_put_glfs_fd (in_fh);
+                booster_fdptr_put (in_fh);
         }
         
         return ret;
@@ -2125,7 +2061,7 @@ sendfile64 (int out_fd, int in_fd, off_t *offset, size_t count)
          * handle sendfile in booster only if in_fd corresponds to a glusterfs
          * file handle 
          */
-        in_fh = booster_get_glfs_fd (booster_glfs_fdtable, in_fd);
+        in_fh = booster_fdptr_get (booster_fdtable, in_fd);
         if (!in_fh) {
                 if (real_sendfile64 == NULL) {
                         errno = ENOSYS;
@@ -2135,7 +2071,7 @@ sendfile64 (int out_fd, int in_fd, off_t *offset, size_t count)
                 }
         } else {
                 ret = glusterfs_sendfile (out_fd, in_fh, offset, count);
-                booster_put_glfs_fd (in_fh);
+                booster_fdptr_put (in_fh);
         }
         
         return ret;
@@ -2151,7 +2087,7 @@ fcntl (int fd, int cmd, ...)
         struct flock     *lock = NULL;
         glusterfs_file_t  glfs_fd = 0; 
 
-        glfs_fd = booster_get_glfs_fd (booster_glfs_fdtable, fd);
+        glfs_fd = booster_fdptr_get (booster_fdtable, fd);
 
 	switch (cmd) {
 	case F_DUPFD:
@@ -2241,7 +2177,7 @@ fcntl (int fd, int cmd, ...)
 
 out:
         if (glfs_fd) {
-                booster_put_glfs_fd (glfs_fd);
+                booster_fdptr_put (glfs_fd);
         }
 
         return ret;
