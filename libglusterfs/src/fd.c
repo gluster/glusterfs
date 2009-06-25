@@ -42,39 +42,19 @@ _fd_ref (fd_t *fd);
 static inline uint32_t 
 gf_roundup_power_of_two (uint32_t nr)
 {
-	uint32_t result = nr;
+        uint32_t result = 1;
 
-	if (nr < 0) {
-		gf_log ("server-protocol/fd",
-			GF_LOG_ERROR,
-			"Negative number passed");
-		return -1;
-	}
+        if (nr < 0) {
+                gf_log ("server-protocol/fd",
+                                GF_LOG_ERROR,
+                                "Negative number passed");
+                return -1;
+        }
 
-	switch (nr) {
-	case 0:
-	case 1: 
-		result = 1;
-		break;
+        while (result <= nr)
+                result *= 2;
 
-	default:
-	{
-		uint32_t cnt = 0, tmp = nr;
-		uint8_t remainder = 0;
-		while (tmp != 1){
-			if (tmp % 2)
-				remainder = 1;
-			tmp /= 2;
-			cnt++;
-		}
-
-		if (remainder)
-			result = 0x1 << (cnt + 1);
-		break;
-	}
-	}
-
-	return result;
+        return result;
 }
 
 static int
