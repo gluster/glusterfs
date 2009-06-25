@@ -6125,11 +6125,11 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
 	char                   *process_uuid_xl;
 
 	options = this->options;
-	ret = dict_set_str (options, "version", PACKAGE_VERSION);
+	ret = dict_set_str (options, "protocol-version", GF_PROTOCOL_VERSION);
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to set version(%s) in options dictionary",
-			PACKAGE_VERSION);
+			"failed to set protocol version(%s) in handshake msg",
+			GF_PROTOCOL_VERSION);
 	}
 
 	asprintf (&process_uuid_xl, "%s-%s", this->ctx->process_uuid,
@@ -6138,8 +6138,8 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
 			       process_uuid_xl);
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to set process-uuid(%s) in options dictionary",
-			PACKAGE_VERSION);
+			"failed to set process-uuid(%s) in handshake msg",
+			process_uuid_xl);
 	}
 
         if (this->ctx->cmd_args.volfile_server) {
