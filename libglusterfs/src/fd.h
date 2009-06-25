@@ -38,6 +38,10 @@ struct _fd_ctx {
 	uint64_t value;
 };
 
+/* If this structure changes, please have mercy on the booster maintainer
+ * and update the fd_t struct in booster/src/booster-fd.h.
+ * See the comment there to know why.
+ */
 struct _fd {
         pid_t             pid;
 	int32_t           flags;
@@ -88,9 +92,6 @@ gf_fd_fdtable_alloc (void);
 
 int32_t 
 gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr);
-
-int32_t 
-gf_fd_unused_get2 (fdtable_t *fdtable, fd_t *fdptr, int32_t fd);
 
 fdentry_t *
 gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count);
