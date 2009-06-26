@@ -32,7 +32,7 @@
 #include "byte-order.h"
 
 #define CLIENT_PROTO_FORGET_LIMIT  128
-#define CLIENT_PORT_CIELING        1023
+#define CLIENT_PORT_CEILING        1023
 
 #define GF_CLIENT_INODE_SELF   0
 #define GF_CLIENT_INODE_PARENT 1
