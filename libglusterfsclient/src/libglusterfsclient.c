@@ -73,7 +73,16 @@ struct {
         int              entries;
 }vmplist;
 
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+/* Protects the VMP list above. */
+pthread_mutex_t vmplock = PTHREAD_MUTEX_INITIALIZER;
+
+/* Ensures only one thread is ever calling glusterfs_mount.
+ * Since that function internally calls routines which
+ * use the yacc parser code using global vars, this process
+ * needs to be syncronised.
+ */
+pthread_mutex_t mountlock = PTHREAD_MUTEX_INITIALIZER;
 
 char *
 libgf_vmp_virtual_path(struct vmp_entry *entry, const char *path)
@@ -1319,11 +1328,11 @@ libgf_vmp_search_entry (char *path)
         if (!path)
                 goto out;
 
-        pthread_mutex_lock (&lock);
+        pthread_mutex_lock (&vmplock);
         {
                 entry = _libgf_vmp_search_entry (path);
         }
-        pthread_mutex_unlock (&lock);
+        pthread_mutex_unlock (&vmplock);
 
 out:
         if (entry)
@@ -1390,7 +1399,7 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
         if (!vmp_resolved)
                 goto out;
 
-        pthread_mutex_lock (&lock);
+        pthread_mutex_lock (&mountlock);
         {
                 vmp_entry = _libgf_vmp_search_entry (vmp);
                 if (vmp_entry) {
@@ -1410,7 +1419,7 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
                 }
         }
 unlock:
-        pthread_mutex_unlock (&lock);
+        pthread_mutex_unlock (&mountlock);
 
 out:
         if (vmp_resolved)
@@ -1454,11 +1463,11 @@ libgf_umount (char *vmp)
 {
         int ret = -1;
 
-        pthread_mutex_lock (&lock);
+        pthread_mutex_lock (&vmplock);
         { 
                 ret = _libgf_umount (vmp);
         }
-        pthread_mutex_unlock (&lock);
+        pthread_mutex_unlock (&vmplock);
         
         return ret;
 }
@@ -1489,7 +1498,7 @@ glusterfs_umount_all (void)
 {
         struct vmp_entry *entry = NULL, *tmp = NULL;
 
-        pthread_mutex_lock (&lock);
+        pthread_mutex_lock (&vmplock);
         {
                 list_for_each_entry_safe (entry, tmp, &vmplist.list, list) {
                         /* even if there are errors, continue with other
@@ -1498,7 +1507,7 @@ glusterfs_umount_all (void)
                         _libgf_umount (entry->vmp);
                 }
         }
-        pthread_mutex_unlock (&lock);
+        pthread_mutex_unlock (&vmplock);
         
         return 0;
 }
@@ -1509,8 +1518,8 @@ glusterfs_reset (void)
         INIT_LIST_HEAD (&vmplist.list);
         vmplist.entries = 0;
 
-        memset (&lock, 0, sizeof (lock));
-        pthread_mutex_init (&lock, NULL);
+        memset (&vmplock, 0, sizeof (vmplock));
+        pthread_mutex_init (&vmplock, NULL);
 
 	first_fini = first_init = 1;
 }
