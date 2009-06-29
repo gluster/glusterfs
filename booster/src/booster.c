@@ -49,6 +49,11 @@
 #define GF_UNIT_KB 1024
 #endif
 
+/* attr constructor registers this function with libc's
+ * _init function as a function that must be called before
+ * the main() of the program.
+ */
+static void booster_lib_init (void) __attribute__((constructor));
 
 extern fd_t *
 fd_ref (fd_t *fd);
@@ -2194,7 +2199,7 @@ out:
 }
 
 void
-_init (void)
+booster_lib_init (void)
 {
 
         RESOLVE (open);
