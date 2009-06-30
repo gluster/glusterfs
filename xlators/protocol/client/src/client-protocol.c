@@ -1875,14 +1875,15 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	int32_t               ret = -1;
 	size_t                pathlen = 0;
 	ino_t                 ino = 0;
+        char                 *buf = NULL;
 
 	GF_VALIDATE_OR_GOTO("client", this, unwind);
 
 	GF_VALIDATE_OR_GOTO(this->name, loc, unwind);
 
 	if (dict) {
-		dict_len = dict_serialized_length (dict);
-		if (dict_len < 0) {
+		ret = dict_allocate_and_serialize (dict, &buf, &dict_len);
+		if (ret < 0) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to get serialized length of dict(%p)",
 				dict);
@@ -1909,14 +1910,10 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	req->flags = hton32 (flags);
 	req->dict_len = hton32 (dict_len);
 	if (dict) {
-		ret = dict_serialize (dict, req->dict);
-		if (ret < 0) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"failed to serialize dictionary(%p)",
-				dict);
-			goto unwind;
-		}
-	}
+                memcpy (req->dict, buf, dict_len);
+                FREE (buf);
+        }
+
 	req->ino = hton64 (ino);
 	strcpy (req->path + dict_len, loc->path);
 
