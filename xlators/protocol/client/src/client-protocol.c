@@ -105,7 +105,7 @@ this_fd_get_ctx (fd_t *file, xlator_t *this)
 	}
 
 out:
-	return (client_fd_ctx_t *)ctxaddr;
+	return (client_fd_ctx_t *)(unsigned long)ctxaddr;
 }
 
 
@@ -125,7 +125,7 @@ this_fd_set_ctx (fd_t *file, xlator_t *this, loc_t *loc, client_fd_ctx_t *ctx)
 			loc->path, loc->inode->ino);
 	}
 
-	ret = fd_ctx_set (file, this, (uint64_t)ctx);
+	ret = fd_ctx_set (file, this, (uint64_t)(unsigned long)ctx);
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%s (%"PRId64"): failed to set remote fd",
