@@ -37,6 +37,7 @@
 
 #define MAX_VECTOR_COUNT 8
 #define WB_AGGREGATE_SIZE 131072 /* 128 KB */
+#define WB_WINDOW_SIZE 1048576 /* 1MB */
  
 typedef struct list_head list_head_t;
 struct wb_conf;
@@ -1872,7 +1873,7 @@ init (xlator_t *this)
                 conf->disable_till);
   
         /* configure 'option window-size <size>' */
-        conf->window_size = 0;
+        conf->window_size = WB_WINDOW_SIZE; 
         ret = dict_get_str (options, "cache-size", 
                             &window_size_string);
         if (ret == 0) {
