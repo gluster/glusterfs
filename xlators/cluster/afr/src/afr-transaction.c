@@ -24,6 +24,7 @@
 #include "afr-transaction.h"
 
 #include <signal.h>
+#include <alloca.h>
 
 
 static void
@@ -549,7 +550,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 	int call_count = 0;
 	
 	afr_local_t *  local = NULL;	
-	dict_t *       xattr = dict_ref (get_new_dict ());
+	dict_t        **xattr = NULL;
 
 	local = frame->local;
 
@@ -562,6 +563,13 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                                         local->transaction.type);
         }
 
+        xattr = alloca (priv->child_count * sizeof (*xattr));
+        memset (xattr, 0, (priv->child_count * sizeof (*xattr)));
+	for (i = 0; i < priv->child_count; i++) {
+                xattr[i] = get_new_dict ();
+                dict_ref (xattr[i]);
+        }
+
 	call_count = afr_up_children_count (priv->child_count, local->child_up); 
 
 	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
@@ -572,14 +580,17 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
 	if (call_count == 0) {
 		/* no child is up */
-		dict_unref (xattr);
+                for (i = 0; i < priv->child_count; i++) {
+                        dict_unref (xattr[i]);
+                }
+                
 		afr_unlock (frame, this);
 		return 0;
 	}
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-                        ret = afr_set_pending_dict (priv, xattr, 
+                        ret = afr_set_pending_dict (priv, xattr[i], 
                                                     local->pending);
 
 			if (ret < 0)
@@ -597,13 +608,13 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 						    priv->children[i], 
 						    priv->children[i]->fops->fxattrop,
 						    local->fd, 
-						    GF_XATTROP_ADD_ARRAY, xattr);
+						    GF_XATTROP_ADD_ARRAY, xattr[i]);
 				else 
 					STACK_WIND (frame, afr_changelog_post_op_cbk,
 						    priv->children[i], 
 						    priv->children[i]->fops->xattrop,
 						    &local->loc, 
-						    GF_XATTROP_ADD_ARRAY, xattr);
+						    GF_XATTROP_ADD_ARRAY, xattr[i]);
 			}
 			break;
 
@@ -614,7 +625,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 						   priv->children[i],
 						   priv->children[i]->fops->xattrop,
 						   &local->transaction.new_parent_loc,
-						   GF_XATTROP_ADD_ARRAY, xattr);
+						   GF_XATTROP_ADD_ARRAY, xattr[i]);
 				
 				call_count--;
 			}
@@ -627,7 +638,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 			   value
 			*/
                         
-			ret = afr_set_pending_dict (priv, xattr, 
+			ret = afr_set_pending_dict (priv, xattr[i], 
                                                     local->pending);
 
 			if (ret < 0)
@@ -643,13 +654,13 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 						    priv->children[i], 
 						    priv->children[i]->fops->fxattrop,
 						    local->fd, 
-						    GF_XATTROP_ADD_ARRAY, xattr);
+						    GF_XATTROP_ADD_ARRAY, xattr[i]);
 				else 
 					STACK_WIND (frame, afr_changelog_post_op_cbk,
 						    priv->children[i], 
 						    priv->children[i]->fops->xattrop,
 						    &local->transaction.parent_loc, 
-						    GF_XATTROP_ADD_ARRAY, xattr);
+						    GF_XATTROP_ADD_ARRAY, xattr[i]);
 			}
 			break;
 			}
@@ -658,8 +669,11 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 				break;
 		}
 	}
-	
-	dict_unref (xattr);
+
+        for (i = 0; i < priv->child_count; i++) {
+                dict_unref (xattr[i]);
+        }
+
 	return 0;
 }
 
@@ -728,13 +742,19 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 	int i = 0;				
 	int ret = 0;
 	int call_count = 0;		     
-	dict_t *xattr = NULL;
+	dict_t **xattr = NULL;
 
 	afr_local_t *local = NULL;
 
 	local = frame->local;
-	xattr = get_new_dict ();
-	dict_ref (xattr);
+        
+        xattr = alloca (priv->child_count * sizeof (*xattr));
+        memset (xattr, 0, (priv->child_count * sizeof (*xattr)));
+
+	for (i = 0; i < priv->child_count; i++) {
+                xattr[i] = get_new_dict ();
+                dict_ref (xattr[i]);
+        }
 
 	call_count = afr_up_children_count (priv->child_count, 
 					    local->child_up); 
@@ -745,7 +765,10 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 
 	if (call_count == 0) {
 		/* no child is up */
-		dict_unref (xattr);
+                for (i = 0; i < priv->child_count; i++) {
+                        dict_unref (xattr[i]);
+                }
+                
 		afr_unlock (frame, this);
 		return 0;
 	}
@@ -757,7 +780,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			ret = afr_set_pending_dict (priv, xattr, 
+			ret = afr_set_pending_dict (priv, xattr[i], 
                                                     local->pending);
 
 			if (ret < 0)
@@ -777,7 +800,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 							   priv->children[i], 
 							   priv->children[i]->fops->fxattrop,
 							   local->fd,
-							   GF_XATTROP_ADD_ARRAY, xattr);
+							   GF_XATTROP_ADD_ARRAY, xattr[i]);
 				else
 					STACK_WIND_COOKIE (frame, 
 							   afr_changelog_pre_op_cbk,
@@ -785,7 +808,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 							   priv->children[i], 
 							   priv->children[i]->fops->xattrop,
 							   &(local->loc), 
-							   GF_XATTROP_ADD_ARRAY, xattr);
+							   GF_XATTROP_ADD_ARRAY, xattr[i]);
 			}
 			break;
 				
@@ -797,7 +820,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 						   priv->children[i], 
 						   priv->children[i]->fops->xattrop,
 						   &local->transaction.new_parent_loc, 
-						   GF_XATTROP_ADD_ARRAY, xattr);
+						   GF_XATTROP_ADD_ARRAY, xattr[i]);
 
 				call_count--;
 			}
@@ -811,7 +834,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 			   value
 			*/
 
-			ret = afr_set_pending_dict (priv, xattr, 
+			ret = afr_set_pending_dict (priv, xattr[i], 
                                                     local->pending);
 
 			if (ret < 0)
@@ -829,7 +852,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 							   priv->children[i], 
 							   priv->children[i]->fops->fxattrop,
 							   local->fd, 
-							   GF_XATTROP_ADD_ARRAY, xattr);
+							   GF_XATTROP_ADD_ARRAY, xattr[i]);
 				else
 					STACK_WIND_COOKIE (frame, 
 							   afr_changelog_pre_op_cbk,
@@ -837,7 +860,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 							   priv->children[i], 
 							   priv->children[i]->fops->xattrop,
 							   &local->transaction.parent_loc, 
-							   GF_XATTROP_ADD_ARRAY, xattr);
+							   GF_XATTROP_ADD_ARRAY, xattr[i]);
 			}
 
 			break;
@@ -847,8 +870,11 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 				break;
 		}
 	}
-
-	dict_unref (xattr);
+        
+        for (i = 0; i < priv->child_count; i++) {
+                dict_unref (xattr[i]);
+        }
+        
 	return 0;
 }
 
