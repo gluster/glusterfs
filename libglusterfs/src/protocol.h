@@ -38,8 +38,8 @@
 /* Any changes in the protocol structure or adding new '[f,m]ops' needs to 
  * bump the protocol version by "0.1" 
  */
-/* Protocol version 1.0 was ASCII based dictionary protocol */
-#define GF_PROTOCOL_VERSION "2.0"
+
+#define GF_PROTOCOL_VERSION "2.1"
 
 struct gf_stat {
 	uint64_t ino;
