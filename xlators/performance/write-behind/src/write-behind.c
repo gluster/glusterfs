@@ -1103,12 +1103,11 @@ int32_t
 wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, fd_t *fd)
 {
-        int32_t    flags = 0;
+        long       flags = 0;
         wb_file_t *file = NULL;
         wb_conf_t *conf = this->private;
 
-        if (op_ret != -1)
-        {
+        if (op_ret != -1) {
                 file = wb_file_create (this, fd);
                 if (file == NULL) {
                         STACK_UNWIND (frame, -1, ENOMEM, fd);
@@ -1125,14 +1124,13 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                         file->disabled = 1;
 
                 /* If O_DIRECT then, we disable chaching */
-                if (frame->local)
-                {
-                        flags = *((int32_t *)frame->local);
+                if (frame->local) {
+                        flags = (long)frame->local;
                         if (((flags & O_DIRECT) == O_DIRECT)
                             || ((flags & O_RDONLY) == O_RDONLY)
                             || (((flags & O_SYNC) == O_SYNC)
-                            && conf->enable_O_SYNC == _gf_true)) { 
-                                file->disabled = 1;
+                                && conf->enable_O_SYNC == _gf_true)) { 
+                                file->window_size = 0;
                         }
                 }
 
@@ -1148,13 +1146,7 @@ int32_t
 wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd)
 {
-        frame->local = CALLOC (1, sizeof(int32_t));
-        if (frame->local == NULL) {
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
-        }
-
-        *((int32_t *)frame->local) = flags;
+        frame->local = (void *)(long)flags;
 
         STACK_WIND (frame,
                     wb_open_cbk,
@@ -1170,10 +1162,11 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                struct stat *buf)
 {
+        long       flags = 0;
         wb_file_t *file = NULL;
+        wb_conf_t *conf = this->private;
 
-        if (op_ret != -1)
-        {
+        if (op_ret != -1) {
                 file = wb_file_create (this, fd);
                 if (file == NULL) {
                         STACK_UNWIND (frame, -1, ENOMEM, fd, inode, buf);
@@ -1185,8 +1178,17 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  */
                 if ((fd->inode->st_mode & S_ISGID)
                     && !(fd->inode->st_mode & S_IXGRP))
-                {
                         file->disabled = 1;
+
+                /* If O_DIRECT then, we disable chaching */
+                if (frame->local) {
+                        flags = (long)frame->local;
+                        if (((flags & O_DIRECT) == O_DIRECT)
+                            || ((flags & O_RDONLY) == O_RDONLY)
+                            || (((flags & O_SYNC) == O_SYNC)
+                                && (conf->enable_O_SYNC == _gf_true))) { 
+                                file->window_size = 0;
+                        }
                 }
 
                 LOCK_INIT (&file->lock);
@@ -1201,6 +1203,8 @@ int32_t
 wb_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            mode_t mode, fd_t *fd)
 {
+        frame->local = (void *)(long)flags;
+
         STACK_WIND (frame,
                     wb_create_cbk,
                     FIRST_CHILD(this),
