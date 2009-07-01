@@ -324,52 +324,6 @@ save_frame (transport_t *trans, call_frame_t *frame,
 }
 
 
-int
-client_get_forgets (xlator_t *this, client_forget_t *forget) 
-{
-	call_frame_t        *fr = NULL;
-	gf_hdr_common_t     *hdr = NULL;
-	size_t               hdrlen = 0;
-	gf_cbk_forget_req_t *req = NULL;
-	int                  ret = -1;
-	client_conf_t       *conf = NULL;
-	int                  count = 0;
-	int                  index = 0;
-
-	conf = this->private;
-
-	if (conf->forget.count > 0) {
-		count = conf->forget.count;
-		
-		hdrlen = gf_hdr_len (req, (count * sizeof (int64_t)));
-		hdr    = gf_hdr_new (req, (count * sizeof (int64_t)));
-		GF_VALIDATE_OR_GOTO (this->name, hdr, out);
-			
-		req    = gf_param (hdr);
-		
-		req->count = hton32 (count);
-		for (index = 0; index < count; index++) {
-			req->ino_array[index] = 
-				hton64 (conf->forget.ino_array[index]);
-		}
-		
-		fr = create_frame (this, this->ctx->pool);
-		GF_VALIDATE_OR_GOTO (this->name, fr, out);
-
-		conf->forget.frames_in_transit++;
-
-		forget->frame = fr;
-		forget->hdr   = hdr;
-		forget->hdrlen = hdrlen;
-		
-		ret = count;
-
-		conf->forget.count = 0;
-	}
- out:
-	return ret;
-}
-
 
 void 
 client_ping_timer_expired (void *data)
@@ -574,9 +528,6 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
 	int32_t               ret = -1;
 	int                   start_ping = 0;
 	gf_hdr_common_t       rsphdr = {0, };
-	client_forget_t       forget = {0, };
-	uint8_t               send_forget = 0;
-
 
 	conf  = this->private;
 
@@ -585,28 +536,6 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
 		trans = conf->transport[CHANNEL_BULK];
 	}
 	conn  = trans->xl_private;
-
-	if (!((type == GF_OP_TYPE_CBK_REQUEST) && 
-	      (op == GF_CBK_FORGET))) 
-	{
-		LOCK (&conf->forget.lock);
-		{
-			ret = client_get_forgets (this, &forget);
-			if (ret <= 0)
-				send_forget = 0;
-			else
-				send_forget = 1;
-		}
-		UNLOCK (&conf->forget.lock);
-
-		if (send_forget) {
-			ret = protocol_client_xfer (forget.frame, this, NULL,
-						    GF_OP_TYPE_CBK_REQUEST, 
-						    GF_CBK_FORGET,
-						    forget.hdr, forget.hdrlen, 
-						    NULL, 0, NULL);
-		}
-	}
 
 	pthread_mutex_lock (&conn->lock);
 	{
@@ -3398,65 +3327,6 @@ unwind:
 }
 
 
-/*
- * CBKs
- */
-/*
- * client_forget - forget function for client protocol
- * @this:
- * @inode:
- *
- * not for external reference
- */
-int
-client_forget (xlator_t *this, inode_t *inode)
-{
-	ino_t             ino = 0;
-	client_conf_t    *conf = NULL;
-	client_forget_t   forget = {0,};
-	uint8_t           send_forget = 0;
-	int32_t           ret = -1;
-
-	GF_VALIDATE_OR_GOTO ("client", this, out);
-	conf = this->private;
-
-	GF_VALIDATE_OR_GOTO (this->name, inode, out);
-
-	ret = inode_ctx_get (inode, this, &ino);
-	if (inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"FORGET %"PRId64": "
-                        "failed to get remote inode number",
-			inode->ino);
-	}
-
-	LOCK (&conf->forget.lock);
-	{
-		conf->forget.ino_array[conf->forget.count++] = ino;
-
-		if ((!conf->forget.frames_in_transit) || 
-		    (conf->forget.count >= CLIENT_PROTO_FORGET_LIMIT)) {
-			ret = client_get_forgets (this, &forget);
-			if (ret <= 0)
-				send_forget = 0;
-			else
-				send_forget = 1;
-		}
-	}
-	UNLOCK (&conf->forget.lock);
-	
-	if (send_forget) {
-		ret = protocol_client_xfer (forget.frame, this,
-					    CLIENT_CHANNEL (this,CHANNEL_BULK),
-					    GF_OP_TYPE_CBK_REQUEST, 
-					    GF_CBK_FORGET,
-					    forget.hdr, forget.hdrlen, 
-					    NULL, 0, NULL);
-	}
-out:
-	return 0;
-}
-
 /**
  * client_releasedir - releasedir function for client protocol
  * @this: this translator structure
@@ -5798,36 +5668,7 @@ int
 client_forget_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
-	client_conf_t   *conf = NULL;
-	client_forget_t  forget = {0, };
-	uint8_t          send_forget = 0;
-	int32_t          ret = -1;
-
-
-	conf = frame->this->private;
-	LOCK (&conf->forget.lock);
-	{
-		conf->forget.frames_in_transit--;
-
-		ret = client_get_forgets (frame->this, &forget);
-		if (ret <= 0)
-			send_forget = 0;
-		else
-			send_forget = 1;
-	}
-	UNLOCK (&conf->forget.lock);
-
-	if (send_forget) {
-		ret = protocol_client_xfer (forget.frame, frame->this,
-					    CLIENT_CHANNEL (frame->this,
-							    CHANNEL_BULK),
-					    GF_OP_TYPE_CBK_REQUEST, 
-					    GF_CBK_FORGET,
-					    forget.hdr, forget.hdrlen, 
-					    NULL, 0, NULL);
-	}
-	
-	STACK_DESTROY (frame->root);
+        gf_log ("", GF_LOG_CRITICAL, "fop not implemented");
 	return 0;
 }
 
@@ -6024,7 +5865,6 @@ init (xlator_t *this)
 	
 	conf = CALLOC (1, sizeof (client_conf_t));
 
-	LOCK_INIT (&conf->forget.lock);
 	pthread_mutex_init (&conf->mutex, NULL);
 	INIT_LIST_HEAD (&conf->saved_fds);
 
@@ -6102,7 +5942,6 @@ fini (xlator_t *this)
 	this->private = NULL;
 
 	if (conf) {
-		LOCK_DESTROY (&conf->forget.lock);
 		FREE (conf);
 	}
 	return;
@@ -6430,7 +6269,6 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
-	.forget     = client_forget,
 	.release    = client_release,
 	.releasedir = client_releasedir
 };

@@ -31,7 +31,6 @@
 #include "timer.h"
 #include "byte-order.h"
 
-#define CLIENT_PROTO_FORGET_LIMIT  128
 #define CLIENT_PORT_CEILING        1023
 
 #define GF_CLIENT_INODE_SELF   0
@@ -78,16 +77,7 @@ typedef struct _client_fd_ctx {
 } client_fd_ctx_t;
 
 struct _client_conf {
-	transport_t          *transport[CHANNEL_MAX];
-
-	/* enhancement for 'forget', a must required where lot 
-	   of stats happening */
-	struct {
-		uint64_t  ino_array[CLIENT_PROTO_FORGET_LIMIT + 4];
-		uint32_t  count;
-		uint32_t  frames_in_transit;
-		gf_lock_t lock;
-	} forget;
+	transport_t         *transport[CHANNEL_MAX];
 	struct list_head     saved_fds;
 	struct timeval       last_sent;
 	struct timeval       last_received;
@@ -117,11 +107,6 @@ typedef struct {
 	fd_t *fd;
 } client_local_t;
 
-typedef struct {
-	gf_hdr_common_t *hdr;
-	size_t           hdrlen;
-	call_frame_t    *frame;
-} client_forget_t;
 
 static inline void
 gf_string_to_stat(char *string, struct stat *stbuf)
