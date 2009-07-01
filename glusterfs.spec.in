@@ -1,7 +1,7 @@
 # if you make changes, the it is advised to increment this number, and provide 
 # a descriptive suffix to identify who owns or what the change represents
 # e.g. release_version 2.MSW
-%define release 1
+%define release 1%{?dist}
 
 # if you wish to compile an rpm without ibverbs support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ibverbs
@@ -19,21 +19,9 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without libglfsclient
 %{?_without_libglfsclient:%define _without_libglfsclient --disable-libglusterclient}
 
-# if you wish to compile an rpm without mod_glusterfs support...
-# rpmbuild -ta @PACKAGE_NAME-@PACKAGE_VERSION@.tar.gz --without modglfs
-%{?_without_modglfs:%define _without_modglfs --disable-mod_glusterfs}
-
-# if you wish to compile an rpm with apache at nonstandard location
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without apxs_default --define 'apxs_path /usr/local/apache/bin' 
-%{!?apxs_path: %define apxs_path %{nil}}
-%{?_without_apxs_default:%define _without_apxs_default --with-apxs=%{?apxs_path:%apxs_path}}
-
-# if you wish to compile an rpm with apache binaries at nonstandard path
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without apache_auto -define 'apxs_bin_path /usr/local/apache/bin/apxs'
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without apache_auto -define 'apache_bin_path /usr/local/apache/bin/apache2'
-%define with_apache_auto %{?_without_apache_auto:0}%{?!_without_apache_auto:1}
-%{!?apxs_bin_path: %define apxs_bin_path %{nil}}
-%{!?apache_bin_path: %define apache_bin_path %{nil}}
+# if you wish to compile an rpm without libglusterfsclient...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without epoll
+%{?_without_epoll:%define _without_epoll --disable-epoll}
 
 Summary: Cluster File System
 Name: @PACKAGE_NAME@
@@ -54,11 +42,6 @@ Requires(postun): /sbin/service
 %{!?_without_bdb:BuildRequires: db4-devel}
 %{!?_without_client:BuildRequires: fuse-devel}
 
-%if 0%{!?_without_modglfs:1}
-%if 0%{!?_without_apxs_default:1}
-BuildRequires: httpd-devel >= 2.2
-%endif
-%endif
 BuildRequires: bison flex 
 BuildRequires: gcc make
 
@@ -74,6 +57,8 @@ is in userspace and easily manageable.
 %package common
 Summary: GlusterFS common files for both the client and the server 
 Group: System Environment/Libraries
+Obsoletes: glusterfs-libs <= 2.0.0
+Provides: glusterfs-libs = %{version}-%{release}
 
 %description common
 GlusterFS is a clustered file-system capable of scaling to several
@@ -142,14 +127,8 @@ This package provides the development libraries.
 %setup -q -n %{name}-%{version}
 
 %build
-%if 0%{!?_without_modglfs:1}
-%if "%{with_apache_auto}" == "0"
-%define apxs_bin_options --with-apxspath=%{?apxs_bin_path:%apxs_bin_path}
-%define apache_bin_options --with-apachepath=%{?apache_bin_path:%apache_bin_path}
-%endif
-%endif
 
-%configure %{?_without_ibverbs} %{?_without_bdb} %{?_without_libglfsclient} %{?_without_client} %{?_without_modglfs} %{?_without_apxs_default} %{?apxs_bin_options:%apxs_bin_options} %{?apache_bin_options:%apache_bin_options}
+%configure %{?_without_ibverbs} %{?_without_bdb} %{?_without_libglfsclient} %{?_without_client} %{?_without_epoll}
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -173,13 +152,6 @@ find %{buildroot}%{_libdir}/glusterfs -name '*.la' | xargs rm -f
 
 %post common
 /sbin/ldconfig -n %{_libdir}
-%if 0%{!?_without_modglfs:1}
-%if 0%{!?_without_apxs_default:1}
-%{_sbindir}/apxs -i -a -n glusterfs %{_libdir}/glusterfs/%{version}/apache/2.2/mod_glusterfs.so
-%else
-%{apxs_path}/apxs -i -a -n glusterfs  %{_libdir}/glusterfs/%{version}/apache/2.2/mod_glusterfs.so
-%endif
-%endif
 
 %postun common
 /sbin/ldconfig -n %{_libdir}
@@ -191,11 +163,6 @@ find %{buildroot}%{_libdir}/glusterfs -name '*.la' | xargs rm -f
 if [ $1 -eq 0 ]; then 
     /sbin/service glusterfsd stop &>/dev/null || :
     /sbin/chkconfig --del glusterfsd
-fi
-
-%postun
-if [ $1 -ge 1 ]; then 
-    /sbin/service glusterfsd condrestart &>/dev/null || :
 fi
 
 %files common
@@ -233,6 +200,10 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Wed Jul 01 2009 Harshavardhana <harsha@gluster.com> - 2.1
+- Removed mod_glusterfs.so and added new --without epoll build
+  option. 
+
 * Thu Apr 16 2009 Harshavardhana <harsha@gluster.com> - 2.0
 - Galore of updates including new packages added common,
   client,server splitting the original package. rpmbuild 
