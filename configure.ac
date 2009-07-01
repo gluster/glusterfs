@@ -292,7 +292,6 @@ AC_SUBST(MOD_GLUSTERFS_HTTPD_VERSION)
 
 
 # FUSE section
-# TODO: make a clean version check of libfuse
 AC_ARG_ENABLE([fuse-client],
 	      AC_HELP_STRING([--disable-fuse-client],
 			     [Do not build the fuse client. NOTE: you cannot mount glusterfs without the client]))
@@ -302,6 +301,24 @@ if test "x$enable_fuse_client" != "xno"; then
                  [fuse_req_interrupt_func],
 	         [HAVE_LIBFUSE="yes"],
 	         [HAVE_LIBFUSE="no"])
+
+   if test "x$HAVE_LIBFUSE" = "xyes"; then
+      AC_TRY_COMPILE([#define FUSE_USE_VERSION 26 
+                      #define _FILE_OFFSET_BITS 64 
+                      #include <fuse.h>],
+		      #define _GLFS_FUSE_VERSION_28 28
+       	 	      #if (FUSE_VERSION < _GLFS_FUSE_VERSION_28)
+                      #error "fuse version 2.8 not found" 
+		      #endif
+		      ,
+		     [HAVE_FUSE_VERSION_28="yes"],
+		     [HAVE_FUSE_VERSION_28="no"])
+   fi     
+fi
+
+
+if test "x$HAVE_LIBFUSE" = "xyes" -a "x$HAVE_FUSE_VERSION_28" = "xyes"; then
+   AC_DEFINE(HAVE_FUSE_VERSION_28, 1, [found fuse 2.8 version])
 fi
 
 if test "x$enable_fuse_client" = "xyes" -a "x$HAVE_LIBFUSE" = "xno"; then
