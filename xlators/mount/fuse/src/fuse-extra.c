@@ -54,6 +54,23 @@ struct fuse_req {
     struct fuse_req *prev;
 };
 
+#ifdef HAVE_FUSE_VERSION_28
+struct fuse_ll {
+    int debug;
+    int allow_root;
+    int atomic_o_trunc;
+    int big_writes;
+    struct fuse_lowlevel_ops op;
+    int got_init;
+    void *userdata;
+    uid_t owner;
+    struct fuse_conn_info conn;
+    struct fuse_req list;
+    struct fuse_req interrupts;
+    pthread_mutex_t lock;
+    int got_destroy;
+};
+#else 
 struct fuse_ll {
     int debug;
     int allow_root;
@@ -67,6 +84,7 @@ struct fuse_ll {
     pthread_mutex_t lock;
     int got_destroy;
 };
+#endif /* FUSE 2.8 */
 
 struct fuse_out_header {
   uint32_t   len;
