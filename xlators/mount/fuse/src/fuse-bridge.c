@@ -2641,6 +2641,11 @@ init (xlator_t *this_xl)
 		ret = fuse_opt_add_arg(&args, "-ononempty");
 	if (ret != -1)
 		ret = fuse_opt_add_arg(&args, "-odev");
+#ifdef HAVE_FUSE_VERSION_28
+	if (ret != -1)
+	        ret = fuse_opt_add_arg(&args, "-obig_writes");
+#endif /* FUSE 2.8 */
+
 #endif /* LINUX */
 #endif /* ! DARWIN_OS */
 
