@@ -699,6 +699,7 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (op_ret == 0) {
 		inode_unlink (state->loc.inode, state->loc.parent, 
 			      state->loc.name);
+                inode_forget (state->loc.inode, 0);
 	} else {
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": RMDIR %s (%"PRId64") ==> %"PRId32" (%s)",
@@ -1472,6 +1473,8 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		inode_unlink (state->loc.inode, state->loc.parent, 
 			      state->loc.name);
+
+                inode_forget (state->loc.inode, 0);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": UNLINK %s (%"PRId64") ==> %"PRId32" (%s)",
@@ -2210,39 +2213,6 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_STAT,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
-
-/*
- * server_forget_cbk - forget callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-int
-server_forget_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno)
-{
-	gf_hdr_common_t     *hdr = NULL;
-	gf_cbk_forget_rsp_t *rsp = NULL;
-	size_t               hdrlen = 0;
-	int32_t              gf_errno = 0;
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret = hton32 (op_ret);
-	gf_errno        = gf_errno_to_error (op_errno);
-	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	protocol_server_reply (frame, GF_OP_TYPE_CBK_REPLY, GF_CBK_FORGET,
 			       hdr, hdrlen, NULL, 0, NULL);
 
 	return 0;
@@ -3520,9 +3490,6 @@ fail:
 
 /*
  * server_forget - forget function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
  *
  * not for external reference
  */
@@ -3531,41 +3498,7 @@ server_forget (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
-	int                  index = 0;
-	ino_t                ino = 0;
-	int32_t              count = 0;
-	inode_t             *inode = NULL;
-	gf_cbk_forget_req_t *req = NULL;
-
-	req = gf_param (hdr);
-	count = ntoh32 (req->count);
-
-	for (index = 0; index < count; index++) {
-		
-		ino = ntoh64 (req->ino_array[index]);
-		
-		if (!ino)
-			continue;
-
-		inode = inode_search (bound_xl->itable, ino, NULL);
-
-		if (inode) {
-			inode_forget (inode, 0);
-			inode_unref (inode);
-		} else {
-			gf_log (bound_xl->name, GF_LOG_DEBUG,
-				"%"PRId64": FORGET %"PRId64" not found "
-				"in inode table",
-				frame->root->unique, ino);
-		}
-		
-		gf_log (bound_xl->name, GF_LOG_TRACE,
-			"%"PRId64": FORGET \'%"PRId64"\'", 
-			frame->root->unique, ino);
-	}
-
-	server_forget_cbk (frame, NULL, bound_xl, 0, 0);
-
+        gf_log ("forget", GF_LOG_CRITICAL, "function not implemented");
 	return 0;
 }
 
