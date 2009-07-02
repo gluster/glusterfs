@@ -1136,6 +1136,8 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
                 LOCK_INIT (&file->lock);
         }
+        
+        frame->local = NULL;
 
         STACK_UNWIND (frame, op_ret, op_errno, fd);
         return 0;
@@ -1193,7 +1195,9 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 LOCK_INIT (&file->lock);
         }
-
+        
+        frame->local = NULL;
+        
         STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
         return 0;
 }
