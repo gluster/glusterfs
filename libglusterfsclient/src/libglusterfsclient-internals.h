@@ -64,10 +64,12 @@ typedef struct {
                         int32_t size;
                 } lookup;
         }fop;
-        fd_t *dirfd;       /* Needed here because we need a ref to the dir
+        fd_t *fd;          /* Needed here because we need a ref to the dir
                               fd in the libgf_client_readdir_cbk in order
                               to process the dirents received, without
                               having them added to the reply stub.
+                              Also used in updating iattr cache. See
+                              readv_cbk for eg.
                               */
 }libgf_client_local_t;
 
