@@ -3105,7 +3105,7 @@ libgf_client_readv_cbk (call_frame_t *frame,
 
         local->reply_stub = fop_readv_cbk_stub (frame, NULL, op_ret, op_errno,
                                                 vector, count, stbuf, iobref);
-
+        libgf_update_iattr_cache (local->fd->inode, LIBGF_UPDATE_STAT, stbuf);
         LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
@@ -3123,6 +3123,9 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
         int count = 0;
         libgf_client_local_t *local = NULL;
 
+        local = CALLOC (1, sizeof (*local));
+        ERR_ABORT (local);
+        local->fd = fd;
         LIBGF_CLIENT_FOP (ctx, stub, readv, local, fd, size, offset);
 
         op_ret = stub->args.readv_cbk.op_ret;
@@ -3220,6 +3223,9 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx,
                 size += dst_vector[i].iov_len;
         }
 
+        local = CALLOC (1, sizeof (*local));
+        ERR_ABORT (local);
+        local->fd = fd;
         LIBGF_CLIENT_FOP (ctx, stub, readv, local, fd, size, offset);
 
         op_ret = stub->args.readv_cbk.op_ret;
@@ -3369,7 +3375,7 @@ libgf_client_writev_cbk (call_frame_t *frame,
 
         local->reply_stub = fop_writev_cbk_stub (frame, NULL, op_ret, op_errno,
                                                  stbuf);
-
+        libgf_update_iattr_cache (local->fd->inode, LIBGF_UPDATE_STAT, stbuf);
         LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
@@ -3387,6 +3393,9 @@ libgf_client_writev (libglusterfs_client_ctx_t *ctx,
         struct iobref *iobref = NULL;
 
         iobref = iobref_new ();
+        local = CALLOC (1, sizeof (*local));
+        ERR_ABORT (local);
+        local->fd = fd;
         LIBGF_CLIENT_FOP (ctx, stub, writev, local, fd, vector, count, offset,
                           iobref);
 
@@ -3587,7 +3596,7 @@ libgf_client_readdir_cbk (call_frame_t *frame,
         local->reply_stub = fop_readdir_cbk_stub (frame, NULL, op_ret, op_errno,
                                                   NULL);
         if (op_ret > 0)
-                libgf_dcache_update (frame->root->state, local->dirfd, entries);
+                libgf_dcache_update (frame->root->state, local->fd, entries);
         LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
@@ -3604,7 +3613,7 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
                 return 1;
         local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
-        local->dirfd = fd;
+        local->fd = fd;
         LIBGF_CLIENT_FOP (ctx, stub, readdir, local, fd,
                           LIBGF_READDIR_BLOCK, *offset);
 
