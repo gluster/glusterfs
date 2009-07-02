@@ -1229,7 +1229,9 @@ main (int argc, char *argv[])
 
                 _gf_dump_details (argc, argv);
         }
-	
+
+        gf_log_volume_file (ctx->specfp);
+
 	gf_log ("glusterfs", GF_LOG_DEBUG, 
 		"running in pid %d", getpid ());
 	

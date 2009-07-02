@@ -583,7 +583,7 @@ file_to_xlator_tree (glusterfs_ctx_t *ctx,
 		FREE (buffer);
 		return NULL;
 	}
-	gf_log_volume_file (tmp_file); 
+
         gctx = ctx;
         yyin = tmp_file;
         ret = yyparse ();
