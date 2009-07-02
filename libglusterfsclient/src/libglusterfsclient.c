@@ -2403,7 +2403,8 @@ libgf_client_opendir (libglusterfs_client_ctx_t *ctx,
         int32_t op_ret = -1;
         libgf_client_local_t *local = NULL;
 
-        if ((fd->flags & O_WRONLY) || (fd->flags & O_RDWR)) {
+        if (((fd->flags & O_ACCMODE) == O_WRONLY)
+                || ((fd->flags & O_ACCMODE) == O_RDWR)) {
                 errno = EISDIR;
                 goto out;
         }
@@ -2521,7 +2522,8 @@ op_over:
                 }
         }
 
-        if ((flags & O_TRUNC) && ((flags & O_RDWR) || (flags & O_WRONLY))) {
+        if ((flags & O_TRUNC) && (((flags & O_ACCMODE) == O_RDWR)
+                        || ((flags & O_ACCMODE) == O_WRONLY))) {
                 inode_ctx = libgf_get_inode_ctx (fd->inode);
                 if (S_ISREG (inode_ctx->stbuf.st_mode)) {
                                 inode_ctx->stbuf.st_size = 0;
@@ -5150,7 +5152,8 @@ libgf_client_ftruncate (libglusterfs_client_ctx_t *ctx, fd_t *fd,
         int                             op_ret = -1;
         libglusterfs_client_fd_ctx_t    *fdctx = NULL;
 
-        if (!(fd->flags & O_RDWR) && (!(fd->flags & O_WRONLY))) {
+        if ((!(fd->flags & O_ACCMODE) ==  O_RDWR)
+                        && (!((fd->flags & O_ACCMODE) == O_WRONLY))) {
                 errno = EBADF;
                 goto out;
         }
