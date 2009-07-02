@@ -1,5 +1,5 @@
 ldpreload_LTLIBRARIES = libglusterfs-booster.la
-ldpreloaddir = $(libdir)/glusterfs/
+ldpreloaddir = $(libdir)/glusterfs
 noinst_HEADERS = booster_fstab.h booster-fd.h
 libglusterfs_booster_la_SOURCES = booster.c booster_stat.c booster_fstab.c booster-fd.c
 libglusterfs_booster_la_CFLAGS = -I$(top_srcdir)/libglusterfsclient/src/ -D_GNU_SOURCE -D$(GF_HOST_OS) -fPIC -Wall \
