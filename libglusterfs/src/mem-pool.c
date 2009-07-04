@@ -118,8 +118,12 @@ mem_get (struct mem_pool *mem_pool)
                  * allocator is coming RSN.
                  */
 		ptr = MALLOC (mem_pool->real_sizeof_type);
-                if (!ptr)
-                        goto unlocked_out;
+
+                /* Memory coming from the heap need not be transformed from a
+                 * chunkhead to a usable pointer since it is not coming from
+                 * the pool.
+                 */
+                goto unlocked_out;
 	}
 fwd_addr_out:
         ptr = mem_pool_chunkhead2ptr (ptr);
