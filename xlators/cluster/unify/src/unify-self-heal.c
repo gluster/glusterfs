@@ -539,9 +539,9 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 		if (op_ret >= 0) {
 			if (NS(this) == (xlator_t *)cookie) {
 				memcpy (local->sh_struct->ns_file_checksum, 
-					file_checksum, ZR_FILENAME_MAX);
+					file_checksum, NAME_MAX);
 				memcpy (local->sh_struct->ns_dir_checksum, 
-					dir_checksum, ZR_FILENAME_MAX);
+					dir_checksum, NAME_MAX);
 			} else {
 				if (local->entry_count == 0) {
 					/* Initialize the dir_checksum to be 
@@ -552,12 +552,12 @@ unify_sh_checksum_cbk (call_frame_t *frame,
                                         /* Using 'entry_count' as a flag */
 					local->entry_count = 1;
 					memcpy (local->sh_struct->dir_checksum,
-						dir_checksum, ZR_FILENAME_MAX);
+						dir_checksum, NAME_MAX);
 				}
 
 				/* Reply from the storage nodes */
 				for (index = 0; 
-				     index < ZR_FILENAME_MAX; index++) {
+				     index < NAME_MAX; index++) {
 					/* Files should be present in
 					   only one node */
 					local->sh_struct->file_checksum[index] ^= file_checksum[index];
@@ -573,7 +573,7 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
 
 	if (!callcnt) {
-		for (index = 0; index < ZR_FILENAME_MAX ; index++) {
+		for (index = 0; index < NAME_MAX ; index++) {
 			if (local->sh_struct->file_checksum[index] != 
 			    local->sh_struct->ns_file_checksum[index]) {
 				local->failed = 1;
@@ -1038,9 +1038,9 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
 		if (op_ret >= 0) {
 			if (NS(this) == (xlator_t *)cookie) {
 				memcpy (local->sh_struct->ns_file_checksum, 
-					file_checksum, ZR_FILENAME_MAX);
+					file_checksum, NAME_MAX);
 				memcpy (local->sh_struct->ns_dir_checksum, 
-					dir_checksum, ZR_FILENAME_MAX);
+					dir_checksum, NAME_MAX);
 			} else {
 				if (local->entry_count == 0) {
 					/* Initialize the dir_checksum to be 
@@ -1051,12 +1051,12 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
 					/* Using 'entry_count' as a flag */
 					local->entry_count = 1; 
 					memcpy (local->sh_struct->dir_checksum,
-						dir_checksum, ZR_FILENAME_MAX);
+						dir_checksum, NAME_MAX);
 				}
 
 				/* Reply from the storage nodes */
 				for (index = 0; 
-				     index < ZR_FILENAME_MAX; index++) {
+				     index < NAME_MAX; index++) {
 					/* Files should be present in only 
 					   one node */
 					local->sh_struct->file_checksum[index] ^= file_checksum[index];
@@ -1072,7 +1072,7 @@ unify_bgsh_checksum_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
 
 	if (!callcnt) {
-		for (index = 0; index < ZR_FILENAME_MAX ; index++) {
+		for (index = 0; index < NAME_MAX ; index++) {
 			if (local->sh_struct->file_checksum[index] != 
 			    local->sh_struct->ns_file_checksum[index]) {
 				local->failed = 1;

@@ -73,10 +73,10 @@ struct unify_private {
 typedef struct unify_private unify_private_t;
 
 struct unify_self_heal_struct {
-	uint8_t dir_checksum[ZR_FILENAME_MAX];
-	uint8_t ns_dir_checksum[ZR_FILENAME_MAX];
-	uint8_t file_checksum[ZR_FILENAME_MAX];
-	uint8_t ns_file_checksum[ZR_FILENAME_MAX];
+	uint8_t dir_checksum[NAME_MAX];
+	uint8_t ns_dir_checksum[NAME_MAX];
+	uint8_t file_checksum[NAME_MAX];
+	uint8_t ns_file_checksum[NAME_MAX];
 	off_t *offset_list;
 	int   *count_list;
 	dir_entry_t **entry_list;
