@@ -1800,13 +1800,13 @@ afr_checksum_cbk (call_frame_t *frame, void *cookie,
 		if (op_ret == 0 && (local->op_ret != 0)) {
 			local->op_ret = 0;
 
-			local->cont.checksum.file_checksum = MALLOC (ZR_FILENAME_MAX);
+			local->cont.checksum.file_checksum = MALLOC (NAME_MAX);
 			memcpy (local->cont.checksum.file_checksum, file_checksum, 
-				ZR_FILENAME_MAX);
+				NAME_MAX);
 
-			local->cont.checksum.dir_checksum = MALLOC (ZR_FILENAME_MAX);
+			local->cont.checksum.dir_checksum = MALLOC (NAME_MAX);
 			memcpy (local->cont.checksum.dir_checksum, dir_checksum, 
-				ZR_FILENAME_MAX);
+				NAME_MAX);
 
 		}
 
