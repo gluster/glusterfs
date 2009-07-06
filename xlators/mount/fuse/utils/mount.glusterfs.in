@@ -16,8 +16,6 @@
 # Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-
-
 function _init ()
 {
     # log level definitions
@@ -31,14 +29,13 @@ function _init ()
 
     # set default log level to NORMAL
     log_level=$LOG_NORMAL;
+    prefix="@prefix@";
+    exec_prefix=@exec_prefix@;
+    cmd_line=$(echo "@sbindir@/glusterfs");
 }
 
 function start_glusterfs ()
 {
-    prefix="@prefix@";
-    exec_prefix=@exec_prefix@;
-    cmd_line=$(echo "@sbindir@/glusterfs");
-    
     if [ -n "$log_level_str" ]; then
 	case "$log_level_str" in
 	    "ERROR")
@@ -83,21 +80,23 @@ function start_glusterfs ()
     fi
     
     if [ -z "$volfile_loc" ]; then
-	if [ -n "$transport" ]; then 
-	    cmd_line=$(echo "$cmd_line \
+        if  [ -n "$server_ip" ]; then
+	    if [ -n "$transport" ]; then 
+	        cmd_line=$(echo "$cmd_line \
 --volfile-server=$server_ip \
 --volfile-server-port=$server_port \
 --volfile-server-transport=$transport");
-	else
-	    cmd_line=$(echo "$cmd_line \
+	    else
+	        cmd_line=$(echo "$cmd_line \
 --volfile-server=$server_ip \
 --volfile-server-port=$server_port");
-	fi
-        if [ -n "$volume_id" ]; then
-            cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
+	    fi
+            if [ -n "$volume_id" ]; then
+                cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
+            fi
         fi
     else
-	cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
+        cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
     fi
 
     if [ -n "$log_server" ]; then
@@ -112,20 +111,34 @@ function start_glusterfs ()
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
     
-
     cmd_line=$(echo "$cmd_line $mount_point");
     exec $cmd_line;
 }
 
+function usage ()
+{
+
+echo "Usage:  mount.glusterfs <volumeserver>:<volumeid/volumeport> -o <options> <mountpoint> 
+Options: 
+man 8 mount.glusterfs 
+
+To display the version number of the mount helper: 
+mount.glusterfs --version"
+
+}
 
 function main ()
 {
+    helper=$(echo "$@" | sed -n 's/.*\--[ ]*\([^ ]*\).*/\1/p');
+
     options=$(echo "$@" | sed -n 's/.*\-o[ ]*\([^ ]*\).*/\1/p');
+
     new_log_level=$(echo "$options" | sed -n 's/.*log-level=\([^,]*\).*/\1/p');
     
     [ -n "$new_log_level" ] && {
 	log_level_str="$new_log_level";
     }
+
     log_file=$(echo "$options" | sed -n 's/.*log-file=\([^,]*\).*/\1/p');
 
     transport=$(echo "$options" | sed -n 's/.*transport=\([^,]*\).*/\1/p');
@@ -143,7 +156,7 @@ function main ()
     log_server=$(echo "$options" | sed -n 's/.*log-server=\([^,]*\).*/\1/p');
     
     log_server_port=$(echo "$options" | sed -n 's/.*log-server-port=\([^,]*\).*/\1/p');
-
+   
     volfile_loc="$1";
     
     [ -r "$volfile_loc" ] || {
@@ -175,10 +188,24 @@ function main ()
         -e 's/[,]*volume-id=[^,]*//' \
         -e 's/[,]*log-server=[^,]*//' \
         -e 's/[,]*log-server-port=[^,]*//');
-    # following line is product of love towards sed
-    # $2=$(echo "$@" | sed -n 's/[^ ]* \([^ ]*\).*/\1/p');
-    
-    mount_point="$2";
+
+    # 
+    [ -n "$helper" ] && {
+        cmd_line=$(echo "$cmd_line --$helper");
+        exec $cmd_line;
+        exit 0;
+    }
+
+    mount_provided=$(echo "$@" | cut -f2 -d'/');
+
+    [ -n "$mount_provided" ] && {
+        mount_point="/$mount_provided";
+    }
+
+    [ -z "$mount_point" ] && {
+        usage;
+        exit 0;
+    }
 
     # Simple check to avoid multiple identical mounts
     if grep -q " $mount_point fuse" /etc/mtab; then
