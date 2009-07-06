@@ -15,9 +15,9 @@
 .\"  long with this program.  If not, see
 .\"  <http://www.gnu.org/licenses/>.
 .\"
-.\" :O
 .\" 
-.TH GlusterFS 8 ":O Cluster Filesystem" "07 December 2008" "Z Research Inc."
+.\" 
+.TH GlusterFS 8 "Cluster Filesystem" "07 December 2008" "Z Research Inc."
 .SH NAME
 GlusterFS \- Clustered Filesystem.
 .SH SYNOPSYS
@@ -47,6 +47,9 @@ and NONE [default: WARNING]
 .TP
 \fB\-s, \fB\-\-volfile\-server=SERVER\fR
 Server to get the volume from.  This option overrides \fB\-\-volfile option
+.TP
+\fB\-\-log\-server=LOG\-SERVER\fR
+Server to use as the central log server.
 
 .SS "Advanced options"
 .PP
@@ -77,7 +80,9 @@ VOLUME-FILE]
 .TP
 \fB\-\-xlator\-option=VOLUME\-NAME.OPTION=VALUE\fR
 Add/override a translator option for a volume with the specified value
-
+.TP
+\fB\-\-log\-server\-port=PORT\fR
+Listening port number of log server
 
 .SS "Fuse options"
 .PP
@@ -91,7 +96,6 @@ Set entry timeout to SECONDS in fuse kernel module [default: 1]
 .TP
 \fB\-\-disable\-direct\-io\-mode\fR 
 Disable direct I/O mode in fuse kernel module
-.TP
 
 .SS "Miscellaneous Options"
 .PP
@@ -120,11 +124,6 @@ should give you access to complete documentation.
 .nf
 \fBbison\fR(1) \fBflex\fR(1) \fBfusermount\fR(1) 
 \fBhttp://www.glusterfs.org/ <URL:http://www.glusterfs.org/>
-\fR
-.fi
-.SH SUPPORT
-.nf
-\fBhttp://support.gluster.com/ <URL:http://support.gluster.com/>
 \fR
 .fi
 .SH AUTHORS
