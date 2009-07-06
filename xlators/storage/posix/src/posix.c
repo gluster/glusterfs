@@ -3720,8 +3720,8 @@ posix_checksum (call_frame_t *frame, xlator_t *this,
         char *          real_path                      = NULL;
         DIR *           dir                            = NULL;
         struct dirent * dirent                         = NULL;
-        uint8_t         file_checksum[ZR_FILENAME_MAX] = {0,};
-        uint8_t         dir_checksum[ZR_FILENAME_MAX]  = {0,};
+        uint8_t         file_checksum[NAME_MAX] = {0,};
+        uint8_t         dir_checksum[NAME_MAX]  = {0,};
         int32_t         op_ret                         = -1;
         int32_t         op_errno                       = 0;
         int             i                              = 0;
