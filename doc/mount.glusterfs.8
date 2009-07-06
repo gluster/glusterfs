@@ -1,0 +1,86 @@
+.\"  Copyright (c) 2008-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+.\"  This file is part of GlusterFS.
+.\"
+.\"  GlusterFS is free software; you can redistribute it and/or modify
+.\"  it under the terms of the GNU General Public License as published
+.\"  by the Free Software Foundation; either version 3 of the License,
+.\"  or (at your option) any later version.
+.\"
+.\"  GlusterFS is distributed in the hope that it will be useful, but
+.\"  WITHOUT ANY WARRANTY; without even the implied warranty of
+.\"  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+.\"  General Public License for more details.
+.\"
+.\"  You should have received a copy of the GNU General Public License
+.\"  long with this program.  If not, see
+.\"  <http://www.gnu.org/licenses/>.
+.\"
+.\" 
+.\" 
+.TH GlusterFS 8 "Cluster Filesystem" "07 December 2008" "Z Research Inc."
+.SH NAME
+GlusterFS \- Clustered Filesystem.
+.SH SYNOPSYS
+.B mount.glusterfs
+.I <volumeserver>:<volumeid/volumeport> -o <options> <mountpoint>
+.PP
+.SH DESCRIPTION
+This tool is part of \fBglusterfs\fR(8)
+.SH OPTIONS
+.PP
+.SS "Basic options"
+.PP
+.TP 
+
+\fBlog\-file=\fRvalue
+File to use for logging [default:/var/log/glusterfs/glusterfs.log]
+.TP
+\fBlog\-level=\fRvalue
+Logging severity.  Valid options are TRACE, DEBUG, WARNING, ERROR, CRITICAL 
+NORMAL and NONE [default: NORMAL]
+.TP
+\fBlog\-server=\fRvalue
+Server to use as the central log server.
+
+.SS "Advanced options"
+.PP
+.TP
+
+\fBvolfile\-id=\fRvalue
+Volume key or name of the volume file to be fetched from server
+.TP
+\fBserver\-port=\fRvalue
+Port number of volfile server [default: 6996]
+.TP
+\fBtransport=\fRvalue
+Transport type to get volume file from server [default: socket]
+.TP
+\fBvolume\-name=\fRvalue
+Volume name to be used for MOUNT-POINT [default: top most volume in 
+VOLUME-FILE]
+.TP
+\fBlog\-server\-port=\fRvalue
+Listening port number of log server
+.TP
+\fBdirect\-io\-mode=\fRvalue
+Disable direct I/O mode in fuse kernel module
+.TP
+
+.PP
+.SH FILES
+.TP 
+.I /etc/fstab
+file system table
+.TP
+.I /etc/mtab
+table of mounted file systems
+
+.SH SEE ALSO
+.BR glusterfs(8), 
+.BR mount(8)
+
+.SH AUTHORS
+.BR http://www.gluster.org/core-team.php <URL:http://www.gluster.org/core-team.php>
+
+.SH COPYRIGHT
+.BR Copyright(c)2006-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
