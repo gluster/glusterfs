@@ -2073,10 +2073,10 @@ fop_checksum_cbk_stub (call_frame_t *frame,
 	if (op_ret >= 0)
 	{
 		stub->args.checksum_cbk.file_checksum = 
-			memdup (file_checksum, ZR_FILENAME_MAX);
+			memdup (file_checksum, NAME_MAX);
 
 		stub->args.checksum_cbk.dir_checksum = 
-			memdup (dir_checksum, ZR_FILENAME_MAX);
+			memdup (dir_checksum, NAME_MAX);
 	}
 out:
 	return stub;
