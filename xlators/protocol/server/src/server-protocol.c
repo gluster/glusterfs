@@ -6714,8 +6714,8 @@ server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	size_t                 hdrlen = 0;
 	int32_t                gf_errno = 0;
 
-	hdrlen = gf_hdr_len (rsp, ZR_FILENAME_MAX + 1 + ZR_FILENAME_MAX + 1);
-	hdr    = gf_hdr_new (rsp, ZR_FILENAME_MAX + 1 + ZR_FILENAME_MAX + 1);
+	hdrlen = gf_hdr_len (rsp, NAME_MAX + 1 + NAME_MAX + 1);
+	hdr    = gf_hdr_new (rsp, NAME_MAX + 1 + NAME_MAX + 1);
 	rsp    = gf_param (hdr);
 
 	hdr->rsp.op_ret = hton32 (op_ret);
@@ -6723,11 +6723,11 @@ server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
 	if (op_ret >= 0) {
-		memcpy (rsp->fchecksum, fchecksum, ZR_FILENAME_MAX);
-		rsp->fchecksum[ZR_FILENAME_MAX] =  '\0';
-		memcpy (rsp->dchecksum + ZR_FILENAME_MAX, 
-			dchecksum, ZR_FILENAME_MAX);
-		rsp->dchecksum[ZR_FILENAME_MAX + ZR_FILENAME_MAX] = '\0';
+		memcpy (rsp->fchecksum, fchecksum, NAME_MAX);
+		rsp->fchecksum[NAME_MAX] =  '\0';
+		memcpy (rsp->dchecksum + NAME_MAX, 
+			dchecksum, NAME_MAX);
+		rsp->dchecksum[NAME_MAX + NAME_MAX] = '\0';
 	} 
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHECKSUM,
