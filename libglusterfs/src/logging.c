@@ -517,6 +517,8 @@ log:
                 }
                 glusterfs_central_log_flag_unset ();
         }
+        
+        FREE (msg);
 
         FREE (str1);
         FREE (str2);
