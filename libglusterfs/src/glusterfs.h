@@ -74,11 +74,6 @@
 /* TODO: Should we use PATH-MAX? On some systems it may save space */
 #define ZR_PATH_MAX 4096    
 
-/* This is used as the maximum permitted filename length over FS. 
- * If the backend FS supports higher than this, it should be changed. 
- */
-#define ZR_FILENAME_MAX 256 
-
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
