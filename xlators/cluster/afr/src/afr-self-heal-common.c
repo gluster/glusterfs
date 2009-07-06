@@ -810,7 +810,18 @@ static int
 sh_destroy_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int32_t op_ret, int op_errno, struct stat *stbuf)
 {
-	STACK_DESTROY (frame->root);
+        afr_local_t *local = NULL;
+
+        int call_count = 0;
+
+        local = frame->local;
+
+        call_count = afr_frame_return (frame);
+        
+        if (call_count == 0) {
+                STACK_DESTROY (frame->root);
+        }
+        
 	return 0;
 }
 
@@ -829,16 +840,33 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 	int              child_index = 0;
 	struct stat     *buf = NULL;
 
+        struct timespec ts[2];
 
 	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
+	sh    = &local->self_heal;
+	priv  = this->private;
 
 	buf = &sh->buf[sh->source];
 	child_index = (long) cookie;
 
+#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
+	ts[0] = sh->buf[sh->source].st_atim;
+	ts[1] = sh->buf[sh->source].st_mtim;
+        
+#elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
+	ts[0] = sh->buf[sh->source].st_atimespec;
+	ts[1] = sh->buf[sh->source].st_mtimespec;
+#else
+	ts[0].tv_sec = sh->buf[sh->source].st_atime;
+	ts[1].tv_sec = sh->buf[sh->source].st_mtime;
+#endif
+
 	if (op_ret == 0) {
 		chown_frame = copy_frame (frame);
+                
+                chown_frame->local = CALLOC (1, sizeof (afr_local_t));
+
+                ((afr_local_t *)chown_frame->local)->call_count = 2;
 
 		gf_log (this->name, GF_LOG_TRACE,
 			"chown %s to %d %d on subvolume %s",
@@ -850,6 +878,12 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 			    priv->children[child_index]->fops->chown,
 			    &local->loc,
 			    buf->st_uid, buf->st_gid);
+                
+                STACK_WIND (chown_frame, sh_destroy_cbk,
+                            priv->children[child_index],
+                            priv->children[child_index]->fops->utimens,
+                            &local->loc, ts);
+                            
 	}
 
 	LOCK (&frame->lock);
