@@ -5346,7 +5346,7 @@ client_checksum_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 	if (op_ret >= 0) {
 		fchecksum = rsp->fchecksum;
-		dchecksum = rsp->dchecksum + ZR_FILENAME_MAX;
+		dchecksum = rsp->dchecksum + NAME_MAX;
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
