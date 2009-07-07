@@ -1466,7 +1466,11 @@ fuse_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			frame->root->unique,
                         op_ret, state->size, state->off, stbuf->st_size);
 
+#ifdef HAVE_FUSE_REPLY_IOV
+                fuse_reply_iov (req, vector, count);
+#else
                 fuse_reply_vec (req, vector, count);
+#endif
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRId64": READ => %d (%s)", frame->root->unique, 
