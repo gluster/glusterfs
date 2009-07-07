@@ -1059,13 +1059,15 @@ filter_open (call_frame_t *frame,
 	case GF_FILTER_MAP_UID:
 		if (loc->inode->st_mode & S_IWGRP)
 			break;
-		if (!((flags & O_WRONLY) || (flags & O_RDWR)) 
+		if (!(((flags & O_ACCMODE) == O_WRONLY)
+                      || ((flags & O_ACCMODE) == O_RDWR))
 		    && (loc->inode->st_mode & S_IRGRP))
 			break;
 	case GF_FILTER_MAP_BOTH:
 		if (loc->inode->st_mode & S_IWOTH)
 				break;
-		if (!((flags & O_WRONLY) || (flags & O_RDWR))
+		if (!(((flags & O_ACCMODE) == O_WRONLY)
+                      || ((flags & O_ACCMODE) == O_RDWR))
 		    && (loc->inode->st_mode & S_IROTH))
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, 
@@ -1076,7 +1078,8 @@ filter_open (call_frame_t *frame,
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		if (!((flags & O_WRONLY) || (flags & O_RDWR)))
+		if (!(((flags & O_ACCMODE) == O_WRONLY)
+                      || ((flags & O_ACCMODE) == O_RDWR)))
 			break;
 		STACK_UNWIND (frame, -1, EROFS, NULL);
 		return 0;
