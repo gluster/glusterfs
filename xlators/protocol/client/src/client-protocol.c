@@ -726,7 +726,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
 	req    = gf_param (hdr);
 
-	req->flags   = hton32 (flags);
+	req->flags   = hton32 (gf_flags_from_flags (flags));
 	req->mode    = hton32 (mode);
 	req->par     = hton64 (par);
 	strcpy (req->path, loc->path);
@@ -793,7 +793,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
-	req->flags = hton32 (flags);
+	req->flags = hton32 (gf_flags_from_flags (flags));
 	strcpy (req->path, loc->path);
 	
 	ret = protocol_client_xfer (frame, this,
