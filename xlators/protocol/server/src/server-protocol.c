@@ -3698,7 +3698,7 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
 			state->bname = req->bname + pathlen;
 
 		state->mode  = ntoh32 (req->mode);
-		state->flags = ntoh32 (req->flags);
+		state->flags = gf_flags_to_flags (ntoh32 (req->flags));
 	}
 
 	ret = server_loc_fill (&(state->loc), state,
@@ -3778,7 +3778,7 @@ server_open (call_frame_t *frame, xlator_t *bound_xl,
 		state->ino   = ntoh64 (req->ino);
 		state->path  = req->path;
 		pathlen = STRLEN_0(state->path);
-		state->flags = ntoh32 (req->flags);
+		state->flags = gf_flags_to_flags (ntoh32 (req->flags));
 	}
 	ret = server_loc_fill (&(state->loc), state,
 			       state->ino, 0, NULL, state->path);
