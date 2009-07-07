@@ -74,7 +74,7 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	/* If O_DIRECT open, we disable caching on it */
 
-	if ((fd->flags & O_DIRECT) || (fd->flags & O_WRONLY))
+	if ((fd->flags & O_DIRECT) || ((fd->flags & O_ACCMODE) == O_WRONLY))
 		file->disabled = 1;
 
 	file->offset = (unsigned long long) 0;
@@ -143,7 +143,7 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	/* If O_DIRECT open, we disable caching on it */
 
-	if ((fd->flags & O_DIRECT) || (fd->flags & O_WRONLY))
+	if ((fd->flags & O_DIRECT) || ((fd->flags & O_ACCMODE) == O_WRONLY))
 			file->disabled = 1;
 
 	file->offset = (unsigned long long) 0;
