@@ -1127,7 +1127,7 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 if (frame->local) {
                         flags = (long)frame->local;
                         if (((flags & O_DIRECT) == O_DIRECT)
-                            || ((flags & O_RDONLY) == O_RDONLY)
+                            || ((flags & O_ACCMODE) == O_RDONLY)
                             || (((flags & O_SYNC) == O_SYNC)
                                 && conf->enable_O_SYNC == _gf_true)) { 
                                 file->window_size = 0;
@@ -1186,7 +1186,7 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (frame->local) {
                         flags = (long)frame->local;
                         if (((flags & O_DIRECT) == O_DIRECT)
-                            || ((flags & O_RDONLY) == O_RDONLY)
+                            || ((flags & O_ACCMODE) == O_RDONLY)
                             || (((flags & O_SYNC) == O_SYNC)
                                 && (conf->enable_O_SYNC == _gf_true))) { 
                                 file->window_size = 0;
