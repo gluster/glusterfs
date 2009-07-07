@@ -321,9 +321,18 @@ if test "x$enable_fuse_client" != "xno"; then
 		      ,
 		     [HAVE_FUSE_VERSION_28="yes"],
 		     [HAVE_FUSE_VERSION_28="no"])
+
+      AC_CHECK_LIB([fuse],
+                    [fuse_reply_iov],
+	            [HAVE_FUSE_REPLY_IOV="yes"],
+	            [HAVE_FUSE_REPLY_IOV="no"])
+
    fi     
 fi
 
+if test "x$HAVE_FUSE_REPLY_IOV" = "xyes"; then
+   AC_DEFINE(HAVE_FUSE_REPLY_IOV, 1, [found fuse_reply_iov])
+fi
 
 if test "x$HAVE_LIBFUSE" = "xyes" -a "x$HAVE_FUSE_VERSION_28" = "xyes"; then
    AC_DEFINE(HAVE_FUSE_VERSION_28, 1, [found fuse 2.8 version])
