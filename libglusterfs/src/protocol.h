@@ -208,6 +208,114 @@ gf_timespec_from_timespec (struct gf_timespec *gf_ts, struct timespec *ts)
 }
 
 
+#define GF_O_ACCMODE           003
+#define GF_O_RDONLY             00
+#define GF_O_WRONLY             01
+#define GF_O_RDWR               02
+#define GF_O_CREAT            0100
+#define GF_O_EXCL             0200
+#define GF_O_NOCTTY           0400
+#define GF_O_TRUNC           01000
+#define GF_O_APPEND          02000
+#define GF_O_NONBLOCK        04000
+#define GF_O_SYNC           010000
+#define GF_O_ASYNC          020000
+
+#define GF_O_DIRECT         040000
+#define GF_O_DIRECTORY     0200000
+#define GF_O_NOFOLLOW      0400000
+#define GF_O_NOATIME      01000000
+#define GF_O_CLOEXEC      02000000
+
+#define GF_O_LARGEFILE     0100000
+
+#define XLATE_BIT(from, to, bit)    do {                \
+                if (from & bit)                         \
+                        to = to | GF_##bit;             \
+        } while (0)
+
+#define UNXLATE_BIT(from, to, bit)  do {                \
+                if (from & GF_##bit)                    \
+                        to = to | bit;                  \
+        } while (0)
+
+#define XLATE_ACCESSMODE(from, to) do {                 \
+                switch (from & O_ACCMODE) {             \
+                case O_RDONLY: to |= GF_O_RDONLY;       \
+                        break;                          \
+                case O_WRONLY: to |= GF_O_WRONLY;       \
+                        break;                          \
+                case O_RDWR: to |= GF_O_RDWR;           \
+                        break;                          \
+                }                                       \
+        } while (0)
+
+#define UNXLATE_ACCESSMODE(from, to) do {               \
+                switch (from & GF_O_ACCMODE) {          \
+                case GF_O_RDONLY: to |= O_RDONLY;       \
+                        break;                          \
+                case GF_O_WRONLY: to |= O_WRONLY;       \
+                        break;                          \
+                case GF_O_RDWR: to |= O_RDWR;           \
+                        break;                          \
+                }                                       \
+        } while (0)
+
+static inline uint32_t
+gf_flags_from_flags (uint32_t flags)
+{
+        uint32_t gf_flags = 0;
+
+        XLATE_ACCESSMODE (flags, gf_flags);
+
+        XLATE_BIT (flags, gf_flags, O_CREAT);
+        XLATE_BIT (flags, gf_flags, O_EXCL);
+        XLATE_BIT (flags, gf_flags, O_NOCTTY);
+        XLATE_BIT (flags, gf_flags, O_TRUNC);
+        XLATE_BIT (flags, gf_flags, O_APPEND);
+        XLATE_BIT (flags, gf_flags, O_NONBLOCK);
+        XLATE_BIT (flags, gf_flags, O_SYNC);
+        XLATE_BIT (flags, gf_flags, O_ASYNC);
+
+        XLATE_BIT (flags, gf_flags, O_DIRECT);
+        XLATE_BIT (flags, gf_flags, O_DIRECTORY);
+        XLATE_BIT (flags, gf_flags, O_NOFOLLOW);
+        XLATE_BIT (flags, gf_flags, O_NOATIME);
+        XLATE_BIT (flags, gf_flags, O_CLOEXEC);
+
+        XLATE_BIT (flags, gf_flags, O_LARGEFILE);
+
+        return gf_flags;
+}
+
+static inline uint32_t
+gf_flags_to_flags (uint32_t gf_flags)
+{
+        uint32_t flags = 0;
+
+        UNXLATE_ACCESSMODE (gf_flags, flags);
+
+        UNXLATE_BIT (gf_flags, flags, O_CREAT);
+        UNXLATE_BIT (gf_flags, flags, O_EXCL);
+        UNXLATE_BIT (gf_flags, flags, O_NOCTTY);
+        UNXLATE_BIT (gf_flags, flags, O_TRUNC);
+        UNXLATE_BIT (gf_flags, flags, O_APPEND);
+        UNXLATE_BIT (gf_flags, flags, O_NONBLOCK);
+        UNXLATE_BIT (gf_flags, flags, O_SYNC);
+        UNXLATE_BIT (gf_flags, flags, O_ASYNC);
+
+        UNXLATE_BIT (gf_flags, flags, O_DIRECT);
+        UNXLATE_BIT (gf_flags, flags, O_DIRECTORY);
+        UNXLATE_BIT (gf_flags, flags, O_NOFOLLOW);
+        UNXLATE_BIT (gf_flags, flags, O_NOATIME);
+        UNXLATE_BIT (gf_flags, flags, O_CLOEXEC);
+
+        UNXLATE_BIT (gf_flags, flags, O_LARGEFILE);
+
+        return flags;
+}
+
+
 typedef struct {
 	uint64_t ino;
 	char     path[0];     /* NULL terminated */
