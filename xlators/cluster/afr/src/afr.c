@@ -486,6 +486,16 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 				       &open_fd_count);
 		local->open_fd_count += open_fd_count;
 
+
+                first_up_child = afr_first_up_child (priv);
+
+                if (child_index == first_up_child) {
+                        local->cont.lookup.ino = 
+                                afr_itransform (buf->st_ino,
+                                                priv->child_count,
+                                                first_up_child);
+                }
+
 		/* in case of revalidate, we need to send stat of the
 		 * child whose stat was sent during the first lookup.
 		 * (so that time stamp does not vary with revalidate.
@@ -540,15 +550,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 				local->need_data_self_heal = 1;
 			}
 
-                        first_up_child = afr_first_up_child (priv);
-
-                        if (child_index == first_up_child) {
-                                local->cont.lookup.buf.st_ino = 
-                                        afr_itransform (buf->st_ino,
-                                                        priv->child_count,
-                                                        first_up_child);
-                        }
-
                         if (child_index == local->read_child_index) {
                                 
                                 /* 
@@ -587,11 +588,15 @@ unlock:
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
+                if (local->cont.lookup.ino) {
+                        local->cont.lookup.buf.st_ino = local->cont.lookup.ino;
+                }
+
 		if (local->op_ret == 0) {
 			/* KLUDGE: assuming DHT will not itransform in 
 			   revalidate */
 			if (local->cont.lookup.inode->ino)
-				lookup_buf->st_ino = 
+				local->cont.lookup.buf.st_ino = 
 					local->cont.lookup.inode->ino;
 		}
 
