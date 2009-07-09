@@ -43,6 +43,24 @@
 
 #define GLUSTERFS_CONTENT_KEY "glusterfs.content"
 
+struct qr_fd_ctx {
+        char              opened;
+        char              open_in_transit;
+        char             *path;
+        int               flags;
+        struct list_head  waiting_ops;
+        gf_lock_t         lock;
+};
+typedef struct qr_fd_ctx qr_fd_ctx_t;
+
+struct qr_local {
+        char         is_open;
+        fd_t        *fd;
+        int          open_flags;
+        call_stub_t *stub;
+};
+typedef struct qr_local qr_local_t;
+
 struct qr_file {
         dict_t           *xattr;
         struct stat       stbuf;
