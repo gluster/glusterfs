@@ -41,6 +41,16 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#define GLUSTERFS_CONTENT_KEY "glusterfs.content"
+
+struct qr_file {
+        dict_t           *xattr;
+        struct stat       stbuf;
+        struct timeval    tv;
+        gf_lock_t         lock;
+};
+typedef struct qr_file qr_file_t;
+
 struct qr_conf {
         uint64_t  max_file_size;
         int32_t   cache_timeout;
