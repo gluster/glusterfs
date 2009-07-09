@@ -1474,6 +1474,79 @@ out:
 }
 
 
+int32_t
+qr_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+              int32_t op_errno)
+{
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t
+qr_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
+{
+        STACK_WIND (frame, qr_flush_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->flush, fd);
+        return 0; 
+}
+
+
+int32_t
+qr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
+{
+        uint64_t     value = 0;
+        call_stub_t *stub = NULL;  
+        qr_fd_ctx_t *qr_fd_ctx = NULL;
+        int32_t      ret = -1, op_ret = -1, op_errno = -1;
+        char         can_wind = 0, need_unwind = 0;
+
+        ret = fd_ctx_get (fd, this, &value);
+        if (ret == 0) {
+                qr_fd_ctx = (qr_fd_ctx_t *)(long)value;
+        }
+
+        if (qr_fd_ctx) {
+                LOCK (&qr_fd_ctx->lock);
+                {
+                        if (qr_fd_ctx->opened) {
+                                can_wind = 1;
+                        } else if (qr_fd_ctx->open_in_transit) {
+                                stub = fop_flush_stub (frame, qr_flush_helper,
+                                                       fd);
+                                if (stub == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
+                                list_add_tail (&stub->list,
+                                               &qr_fd_ctx->waiting_ops);
+                        } else {
+                                op_ret = 0;
+                                need_unwind = 1;
+                        }
+                }
+        unlock:
+                UNLOCK (&qr_fd_ctx->lock);
+        } else {
+                op_ret = 0;
+                need_unwind = 1;
+        }
+
+        if (need_unwind) {
+                STACK_UNWIND (frame, op_ret, op_errno);
+        } else if (can_wind) {
+                STACK_WIND (frame, qr_flush_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->flush, fd);
+        }
+
+        return 0;
+}
+
+
 int32_t 
 init (xlator_t *this)
 {
@@ -1555,6 +1628,7 @@ struct xlator_fops fops = {
         .fchmod      = qr_fchmod,
         .fsetxattr   = qr_fsetxattr,
         .fgetxattr   = qr_fgetxattr,
+        .flush       = qr_flush,
 };
 
 
