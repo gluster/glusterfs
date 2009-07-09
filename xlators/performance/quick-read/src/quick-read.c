@@ -19,6 +19,115 @@
 
 #include "quick-read.h"
 
+int32_t
+qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+          off_t offset);
+
+
+static void
+qr_loc_wipe (loc_t *loc)
+{
+        if (loc == NULL) {
+                goto out;
+        }
+
+        if (loc->path) {
+                FREE (loc->path);
+                loc->path = NULL;
+        }
+
+        if (loc->inode) {
+                inode_unref (loc->inode);
+                loc->inode = NULL;
+        }
+
+        if (loc->parent) {
+                inode_unref (loc->parent);
+                loc->parent = NULL;
+        }
+
+out:
+        return;
+}
+
+
+static int32_t
+qr_loc_fill (loc_t *loc, inode_t *inode, char *path)
+{
+        int32_t  ret = -1;
+        char    *parent = NULL;
+
+        if ((loc == NULL) || (inode == NULL) || (path == NULL)) {
+                ret = -1;
+                errno = EINVAL;
+                goto out;
+        }
+
+        loc->inode = inode_ref (inode);
+        loc->path = strdup (path);
+        loc->ino = inode->ino;
+
+        parent = strdup (path);
+        if (parent == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        parent = dirname (parent);
+
+        loc->parent = inode_from_path (inode->table, parent);
+        if (loc->parent == NULL) {
+                ret = -1;
+                errno = EINVAL;
+                goto out;
+        }
+
+        loc->name = strrchr (loc->path, '/');
+        ret = 0;
+out:
+        if (ret == -1) {
+                qr_loc_wipe (loc);
+
+        }
+
+        if (parent) {
+                FREE (parent);
+        }
+        
+        return ret;
+}
+
+
+void
+qr_resume_pending_ops (qr_fd_ctx_t *qr_fd_ctx)
+{
+        struct list_head  waiting_ops;
+        call_stub_t      *stub = NULL, *tmp = NULL;  
+        
+        if (qr_fd_ctx == NULL) {
+                goto out;
+        }
+
+        INIT_LIST_HEAD (&waiting_ops);
+
+        LOCK (&qr_fd_ctx->lock);
+        {
+                list_splice_init (&qr_fd_ctx->waiting_ops,
+                                  &waiting_ops);
+        }
+        UNLOCK (&qr_fd_ctx->lock);
+
+        if (!list_empty (&waiting_ops)) {
+                list_for_each_entry_safe (stub, tmp, &waiting_ops, list) {
+                        list_del_init (&stub->list);
+                        call_resume (stub);
+                }
+        }
+
+out:
+        return;
+}
+
 
 static void
 qr_fd_ctx_free (qr_fd_ctx_t *qr_fd_ctx)
@@ -356,6 +465,421 @@ wind:
 }
 
 
+static inline char
+qr_time_elapsed (struct timeval *now, struct timeval *then)
+{
+        return now->tv_sec - then->tv_sec;
+}
+
+
+static inline char
+qr_need_validation (qr_conf_t *conf, qr_file_t *file)
+{
+        struct timeval now = {0, };
+        char           need_validation = 0;
+        
+        gettimeofday (&now, NULL);
+
+        if (qr_time_elapsed (&now, &file->tv) >= conf->cache_timeout)
+                need_validation = 1;
+
+        return need_validation;
+}
+
+
+static int32_t
+qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+        qr_file_t  *qr_file = NULL;
+        qr_local_t *local = NULL;
+        uint64_t    value = 0;
+        int32_t     ret = 0;
+
+        if (op_ret == -1) {
+                goto unwind;
+        }
+
+        local = frame->local; 
+        if ((local == NULL) || ((local->fd) == NULL)) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto unwind;
+        }
+         
+        ret = inode_ctx_get (local->fd->inode, this, &value);
+        if (ret == -1) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto unwind;
+        }
+
+        qr_file = (qr_file_t *)(long) value;
+        if (qr_file == NULL) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto unwind;
+        }
+
+        LOCK (&qr_file->lock);
+        {
+                if (qr_file->stbuf.st_mtime != buf->st_mtime) {
+                        dict_unref (qr_file->xattr);
+                        qr_file->xattr = NULL;
+                }
+
+                gettimeofday (&qr_file->tv, NULL);
+        }
+        UNLOCK (&qr_file->lock);
+
+        frame->local = NULL;
+
+        call_resume (local->stub);
+        
+        FREE (local);
+        return 0;
+
+unwind:
+        /* this is actually unwind of readv */
+        STACK_UNWIND (frame, op_ret, op_errno, NULL, -1, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+qr_validate_cache_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
+{
+        STACK_WIND (frame, qr_validate_cache_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->fstat, fd);
+        return 0;
+}
+
+
+int
+qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                   call_stub_t *stub)
+{
+        int          ret = -1;
+        int          flags = 0;
+        uint64_t     value = 0; 
+        loc_t        loc = {0, };
+        char        *path = NULL;
+        qr_local_t  *local = NULL;
+        qr_fd_ctx_t *qr_fd_ctx = NULL;
+        call_stub_t *validate_stub = NULL;
+        char         need_open = 0, can_wind = 0;
+
+        local = CALLOC (1, sizeof (*local));
+        if (local == NULL) {
+                goto out;
+        }
+
+        local->fd = fd;
+        local->stub = stub;
+        frame->local = local;
+
+        ret = fd_ctx_get (fd, this, &value);
+        if (ret == 0) {
+                qr_fd_ctx = (qr_fd_ctx_t *)(long) value;
+        }
+
+        if (qr_fd_ctx) {
+                LOCK (&qr_fd_ctx->lock);
+                {
+                        path = qr_fd_ctx->path;
+                        flags = qr_fd_ctx->flags;
+
+                        if (!(qr_fd_ctx->opened
+                              || qr_fd_ctx->open_in_transit)) {
+                                need_open = 1;
+                                qr_fd_ctx->open_in_transit = 1;
+                        } 
+
+                        if (qr_fd_ctx->opened) {
+                                can_wind = 1;
+                        } else {
+                                validate_stub = fop_fstat_stub (frame,
+                                                                qr_validate_cache_helper,
+                                                                fd);
+                                if (validate_stub == NULL) {
+                                        ret = -1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+                                
+                                list_add_tail (&validate_stub->list,
+                                               &qr_fd_ctx->waiting_ops);
+                        } 
+                }
+        unlock:
+                UNLOCK (&qr_fd_ctx->lock);
+
+                if (ret == -1) {
+                        goto out;
+                }
+        } else {
+                can_wind = 1;
+        }
+
+        if (need_open) {
+                ret = qr_loc_fill (&loc, fd->inode, path);
+                if (ret == -1) {
+                        qr_resume_pending_ops (qr_fd_ctx);
+                        goto out;
+                }
+
+                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->open,
+                            &loc, flags, fd);
+                        
+                qr_loc_wipe (&loc);
+        } else if (can_wind) {
+                STACK_WIND (frame, qr_validate_cache_cbk,
+                            FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->fstat, fd);
+        }
+
+        ret = 0;
+out:
+        return ret; 
+}
+
+
+int32_t
+qr_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+              int32_t op_errno, struct iovec *vector, int32_t count,
+              struct stat *stbuf, struct iobref *iobref)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
+	return 0;
+}
+
+
+int32_t
+qr_readv_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                 off_t offset)
+{
+        STACK_WIND (frame, qr_readv_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->readv, fd, size, offset);
+        return 0;
+}
+
+
+int32_t
+qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+          off_t offset)
+{
+        qr_file_t       *file = NULL;
+        int32_t          ret = -1, op_ret = -1, op_errno = -1;
+        uint64_t         value = 0;
+        int              count = -1, flags = 0, i = 0;
+        char             content_cached = 0, need_validation = 0;
+        char             need_open = 0, can_wind = 0, need_unwind = 0;
+        struct iobuf    *iobuf = NULL;
+        struct iobref   *iobref = NULL; 
+        struct stat      stbuf = {0, }; 
+        data_t          *content = NULL;
+        qr_fd_ctx_t     *qr_fd_ctx = NULL; 
+        call_stub_t     *stub = NULL;
+        loc_t            loc = {0, };
+        qr_conf_t       *conf = NULL;
+        struct iovec    *vector = NULL;
+        char            *path = NULL;
+        glusterfs_ctx_t *ctx = NULL;
+        off_t            start = 0, end = 0;
+        size_t           len = 0;
+
+        op_ret = 0;
+        conf = this->private;
+
+        ret = fd_ctx_get (fd, this, &value);
+        if (ret == 0) {
+                qr_fd_ctx = (qr_fd_ctx_t *)(long) value;
+        }
+
+        ret = inode_ctx_get (fd->inode, this, &value);
+        if (ret == 0) {
+                file = (qr_file_t *)(long)value;
+                if (file) {
+                        LOCK (&file->lock);
+                        {
+                                if (file->xattr){
+                                        if (qr_need_validation (conf,file)) {
+                                                need_validation = 1;
+                                                goto unlock;
+                                        }
+
+                                        content = dict_get (file->xattr,
+                                                            GLUSTERFS_CONTENT_KEY);
+
+                                        content_cached = 1;
+                                        if (offset > content->len) {
+                                                op_ret = 0;
+                                                end = content->len;
+                                        } else {
+                                                if ((offset + size)
+                                                    > content->len) {
+                                                        op_ret = content->len - offset;
+                                                        end = content->len;
+                                                } else {
+                                                        op_ret = size;
+                                                        end =  offset + size;
+                                                }
+                                        }
+
+                                        ctx = glusterfs_ctx_get ();
+                                        count = (op_ret / ctx->page_size) + 1; 
+                                        vector = CALLOC (count,
+                                                         sizeof (*vector));
+                                        if (vector == NULL) {
+                                                op_ret = -1;
+                                                op_errno = ENOMEM;
+                                                need_unwind = 1;
+                                                goto unlock;
+                                        }
+
+                                        iobref = iobref_new ();
+                                        if (iobref == NULL) {
+                                                op_ret = -1;
+                                                op_errno = ENOMEM;
+                                                need_unwind = 1;
+                                                goto unlock;
+                                        }
+
+                                        for (i = 0; i < count; i++) {
+                                                iobuf = iobuf_get (this->ctx->iobuf_pool);
+                                                if (iobuf == NULL) {
+                                                        op_ret = -1;
+                                                        op_errno = ENOMEM;
+                                                        need_unwind = 1;
+                                                        goto unlock;
+                                                }
+                                        
+                                                start = offset + ctx->page_size * i;
+                                                if (start > end) {
+                                                        len = 0;
+                                                } else {
+                                                        len = (ctx->page_size
+                                                               > (end - start))
+                                                                ? (end - start)
+                                                                : ctx->page_size;
+
+                                                        memcpy (iobuf->ptr,
+                                                                content->data + start,
+                                                                len);
+                                                }
+
+                                                iobref_add (iobref, iobuf);
+                                                iobuf_unref (iobuf);
+
+                                                vector[i].iov_base = iobuf->ptr;
+                                                vector[i].iov_len = len;
+                                        }
+                                        
+                                        stbuf = file->stbuf;
+                                }
+                        }
+                unlock:
+                        UNLOCK (&file->lock);
+                }
+        }
+
+out:
+        if (content_cached || need_unwind) {
+                STACK_UNWIND (frame, op_ret, op_errno, vector, count, &stbuf,
+                              iobref);
+
+        } else if (need_validation) {
+                stub = fop_readv_stub (frame, qr_readv, fd, size, offset);
+                if (stub == NULL) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+
+                op_ret = qr_validate_cache (frame, this, fd, stub);
+                if (op_ret == -1) {
+                        need_unwind = 1;
+                        op_errno = errno;
+                        call_stub_destroy (stub);
+                        goto out;
+                }
+        } else {
+                if (qr_fd_ctx) {
+                        LOCK (&qr_fd_ctx->lock);
+                        {
+                                path = qr_fd_ctx->path;
+                                flags = qr_fd_ctx->flags;
+
+                                if (!(qr_fd_ctx->opened
+                                      || qr_fd_ctx->open_in_transit)) {
+                                        need_open = 1;
+                                        qr_fd_ctx->open_in_transit = 1;
+                                } 
+
+                                if (qr_fd_ctx->opened) {
+                                        can_wind = 1;
+                                } else {
+                                        stub = fop_readv_stub (frame,
+                                                               qr_readv_helper,
+                                                               fd, size,
+                                                               offset);
+                                        if (stub == NULL) {
+                                                op_ret = -1;
+                                                op_errno = ENOMEM;
+                                                need_unwind = 1;
+                                                qr_fd_ctx->open_in_transit = 0;
+                                                goto fdctx_unlock;
+                                        }
+                                
+                                        list_add_tail (&stub->list,
+                                                       &qr_fd_ctx->waiting_ops);
+                                } 
+                        }
+                fdctx_unlock:
+                        UNLOCK (&qr_fd_ctx->lock);
+                        
+                        if (op_ret == -1) {
+                                need_unwind = 1;
+                                goto out;
+                        }
+                } else {
+                        can_wind = 1;
+                }
+
+                if (need_open) {
+                        op_ret = qr_loc_fill (&loc, fd->inode, path);
+                        if (op_ret == -1) {
+                                qr_resume_pending_ops (qr_fd_ctx);
+                                goto out;
+                        }
+
+                        STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->open,
+                                    &loc, flags, fd);
+                        
+                        qr_loc_wipe (&loc);
+                } else if (can_wind) {
+                        STACK_WIND (frame, qr_readv_cbk,
+                                    FIRST_CHILD (this),
+                                    FIRST_CHILD (this)->fops->readv, fd, size,
+                                    offset);
+                }
+
+        }
+
+        if (vector) {
+                FREE (vector);
+        }
+
+        if (iobref) {
+                iobref_unref (iobref);
+        }
+
+        return 0;
+}
+
+
 int32_t 
 init (xlator_t *this)
 {
@@ -430,6 +954,7 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
 	.lookup      = qr_lookup,
         .open        = qr_open,
+        .readv       = qr_readv,
 };
 
 
