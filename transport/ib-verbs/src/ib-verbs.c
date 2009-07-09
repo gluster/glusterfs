@@ -397,7 +397,7 @@ ib_verbs_writev (transport_t *this,
                 peer = &priv->peer;
                 if (list_empty (&peer->ioq)) {
                         ret = __ib_verbs_ioq_churn_entry (peer, entry);
-                        if (ret > 0) {
+                        if (ret != 0) {
                                 need_append = 0;
                         }
                 }
