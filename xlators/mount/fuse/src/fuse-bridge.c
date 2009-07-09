@@ -96,6 +96,17 @@ typedef struct fuse_private fuse_private_t;
         (((_errno == ENOENT) || (_errno == ESTALE))?    \
          GF_LOG_DEBUG)
 
+#define STATE_FROM_REQ(req, state)                    \
+        do {                                          \
+                state = state_from_req (req);         \
+                if (!state) {                         \
+                        fuse_reply_err (req, ENOMEM); \
+                                                      \
+                        return;                       \
+                }                                     \
+        } while (0)
+
+
 typedef struct {
         void          *pool;
         xlator_t      *this;
@@ -418,7 +429,7 @@ fuse_lookup (fuse_req_t req, fuse_ino_t par, const char *name)
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
 
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
 
@@ -465,6 +476,8 @@ fuse_forget (fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
         }
 
         state = state_from_req (req);
+        if (!state)
+                return;
         fuse_inode = inode_search (state->itable, ino, NULL);
         if (fuse_inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -528,7 +541,7 @@ fuse_getattr (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
         fd_t         *fd = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
 
         if (ino == 1) {
                 ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
@@ -655,7 +668,7 @@ do_chmod (fuse_req_t req, fuse_ino_t ino, struct stat *attr,
         fd_t         *fd = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         if (fi) {
                 fd = FI_TO_FD (fi);
                 state->fd = fd;
@@ -704,7 +717,7 @@ do_chown (fuse_req_t req, fuse_ino_t ino, struct stat *attr,
 
         uid = (valid & FUSE_SET_ATTR_UID) ? attr->st_uid : (uid_t) -1;
         gid = (valid & FUSE_SET_ATTR_GID) ? attr->st_gid : (gid_t) -1;
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
 
         if (fi) {
                 fd = FI_TO_FD (fi);
@@ -748,7 +761,7 @@ do_truncate (fuse_req_t req, fuse_ino_t ino, struct stat *attr,
         fd_t         *fd = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
 
         if (fi) {
                 fd = FI_TO_FD (fi);
@@ -800,7 +813,7 @@ do_utimes (fuse_req_t req, fuse_ino_t ino, struct stat *attr)
         tv[1].tv_sec  = attr->st_mtime;
         tv[1].tv_nsec = ST_ATIM_NSEC (attr);
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
             (ret < 0)) {
@@ -936,7 +949,7 @@ fuse_access (fuse_req_t req, fuse_ino_t ino, int mask)
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
 
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
@@ -1000,7 +1013,7 @@ fuse_readlink (fuse_req_t req, fuse_ino_t ino)
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
             (ret < 0)) {
@@ -1031,7 +1044,7 @@ fuse_mknod (fuse_req_t req, fuse_ino_t par, const char *name,
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
         if (ret < 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -1061,7 +1074,7 @@ fuse_mkdir (fuse_req_t req, fuse_ino_t par, const char *name, mode_t mode)
         fuse_state_t *state;
         int32_t ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
         if (ret < 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -1091,7 +1104,7 @@ fuse_unlink (fuse_req_t req, fuse_ino_t par, const char *name)
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
 
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
 
@@ -1122,7 +1135,7 @@ fuse_rmdir (fuse_req_t req, fuse_ino_t par, const char *name)
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
         if ((state->loc.inode == NULL) ||
             (ret < 0)) {
@@ -1152,7 +1165,7 @@ fuse_symlink (fuse_req_t req, const char *linkname, fuse_ino_t par,
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
         if (ret < 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -1228,7 +1241,7 @@ fuse_rename (fuse_req_t req, fuse_ino_t oldpar, const char *oldname,
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
 
         ret = fuse_loc_fill (&state->loc, state, 0, oldpar, oldname);
         if ((state->loc.inode == NULL) ||
@@ -1273,7 +1286,7 @@ fuse_link (fuse_req_t req, fuse_ino_t ino, fuse_ino_t par, const char *name)
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
 
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
         ret = fuse_loc_fill (&state->loc2, state, ino, 0, NULL);
@@ -1381,7 +1394,7 @@ fuse_create (fuse_req_t req, fuse_ino_t par, const char *name,
         fd_t         *fd = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->flags = fi->flags;
 
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
@@ -1418,7 +1431,7 @@ fuse_open (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
         fd_t         *fd = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->flags = fi->flags;
 
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
@@ -1493,7 +1506,7 @@ fuse_readv (fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
         fuse_state_t *state = NULL;
         fd_t         *fd = NULL;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->size = size;
         state->off = off;
 
@@ -1554,7 +1567,7 @@ fuse_write (fuse_req_t req, fuse_ino_t ino, const char *buf,
         struct iobref   *iobref = NULL;
         struct iobuf    *iobuf = NULL;
 
-        state       = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->size = size;
         state->off  = off;
         fd          = FI_TO_FD (fi);
@@ -1584,7 +1597,7 @@ fuse_flush (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
         fuse_state_t *state = NULL;
         fd_t         *fd = NULL;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         fd = FI_TO_FD (fi);
         state->fd = fd;
 
@@ -1603,7 +1616,7 @@ fuse_release (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
         fuse_state_t *state = NULL;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->fd = FI_TO_FD (fi);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -1625,7 +1638,7 @@ fuse_fsync (fuse_req_t req, fuse_ino_t ino, int datasync,
         fuse_state_t *state = NULL;
         fd_t         *fd = NULL;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         fd = FI_TO_FD (fi);
         state->fd = fd;
 
@@ -1646,7 +1659,7 @@ fuse_opendir (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
         fd_t         *fd = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
             (ret < 0)) {
@@ -1741,7 +1754,7 @@ fuse_readdir (fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
         fuse_state_t *state = NULL;
         fd_t         *fd = NULL;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->size = size;
         state->off = off;
         fd = FI_TO_FD (fi);
@@ -1761,7 +1774,7 @@ fuse_releasedir (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
         fuse_state_t *state = NULL;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->fd = FI_TO_FD (fi);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -1786,7 +1799,7 @@ fuse_fsyncdir (fuse_req_t req, fuse_ino_t ino, int datasync,
 
         fd = FI_TO_FD (fi);
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->fd = fd;
 
         FUSE_FOP (state, fuse_err_cbk, GF_FOP_FSYNCDIR,
@@ -1855,7 +1868,7 @@ fuse_statfs (fuse_req_t req, fuse_ino_t ino)
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         ret = fuse_loc_fill (&state->loc, state, 1, 0, NULL);
         if ((state->loc.inode == NULL) ||
             (ret < 0)) {
@@ -1891,7 +1904,7 @@ fuse_setxattr (fuse_req_t req, fuse_ino_t ino, const char *name,
         }
 #endif
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->size = size;
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
@@ -2106,7 +2119,7 @@ fuse_getxattr (fuse_req_t req, fuse_ino_t ino, const char *name, size_t size)
         }
 #endif
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->size = size;
         state->name = strdup (name);
 
@@ -2139,7 +2152,7 @@ fuse_listxattr (fuse_req_t req, fuse_ino_t ino, size_t size)
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->size = size;
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
@@ -2171,7 +2184,7 @@ fuse_removexattr (fuse_req_t req, fuse_ino_t ino, const char *name)
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
 
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         ret = fuse_loc_fill (&state->loc, state, ino, 0, NULL);
         if ((state->loc.inode == NULL) ||
             (ret < 0)) {
@@ -2241,7 +2254,7 @@ fuse_getlk (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi,
         fd_t         *fd = NULL;
 
         fd = FI_TO_FD (fi);
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->req = req;
         state->fd = fd;
 
@@ -2300,7 +2313,7 @@ fuse_setlk (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi,
         fd_t         *fd = NULL;
 
         fd = FI_TO_FD (fi);
-        state = state_from_req (req);
+        STATE_FROM_REQ (req, state);
         state->req = req;
         state->fd = fd;
 
