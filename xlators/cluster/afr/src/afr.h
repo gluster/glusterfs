@@ -182,6 +182,7 @@ typedef struct _afr_local {
 		struct {
 			inode_t *inode;
 			struct stat buf;
+                        ino_t ino;
 			dict_t *xattr;
 		} lookup;
 
