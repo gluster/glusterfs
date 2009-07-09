@@ -62,7 +62,9 @@ afr_is_split_brain (xlator_t *this, inode_t *inode)
 
         uint64_t ctx         = 0;
         uint64_t split_brain = 0;
-        
+
+        VALIDATE_OR_GOTO (inode, out);
+
         LOCK (&inode->lock);
         {
                 ret = __inode_ctx_get (inode, this, &ctx);
@@ -75,6 +77,7 @@ afr_is_split_brain (xlator_t *this, inode_t *inode)
 unlock:
         UNLOCK (&inode->lock);
 
+out:
         return split_brain;
 }
 
@@ -84,6 +87,8 @@ afr_set_split_brain (xlator_t *this, inode_t *inode, int32_t split_brain)
 {
         uint64_t ctx = 0;
         int      ret = 0;
+
+        VALIDATE_OR_GOTO (inode, out);
 
         LOCK (&inode->lock);
         {
@@ -99,6 +104,8 @@ afr_set_split_brain (xlator_t *this, inode_t *inode, int32_t split_brain)
                 __inode_ctx_put (inode, this, ctx);
         }
         UNLOCK (&inode->lock);
+out:
+        return;
 }
 
 
@@ -109,7 +116,9 @@ afr_read_child (xlator_t *this, inode_t *inode)
 
         uint64_t ctx         = 0;
         uint64_t read_child  = 0;
-        
+
+        VALIDATE_OR_GOTO (inode, out);
+
         LOCK (&inode->lock);
         {
                 ret = __inode_ctx_get (inode, this, &ctx);
@@ -122,6 +131,7 @@ afr_read_child (xlator_t *this, inode_t *inode)
 unlock:
         UNLOCK (&inode->lock);
 
+out:
         return read_child;
 }
 
@@ -131,6 +141,8 @@ afr_set_read_child (xlator_t *this, inode_t *inode, int32_t read_child)
 {
         uint64_t ctx = 0;
         int      ret = 0;
+
+        VALIDATE_OR_GOTO (inode, out);
 
         LOCK (&inode->lock);
         {
@@ -146,6 +158,9 @@ afr_set_read_child (xlator_t *this, inode_t *inode, int32_t read_child)
                 __inode_ctx_put (inode, this, ctx);
         }
         UNLOCK (&inode->lock);
+        
+out:
+        return;
 }
 
 
@@ -727,6 +742,9 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
         uint64_t       ctx;
         afr_fd_ctx_t * fd_ctx = NULL;
 
+        VALIDATE_OR_GOTO (this->private, out);
+        VALIDATE_OR_GOTO (fd, out);
+
         priv = this->private;
 
         LOCK (&fd->lock);
@@ -734,7 +752,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 ret = __fd_ctx_get (fd, this, &ctx);
                 
                 if (ret == 0)
-                        goto out;
+                        goto unlock;
 
                 fd_ctx = CALLOC (1, sizeof (afr_fd_ctx_t));
                 if (!fd_ctx) {
@@ -742,7 +760,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                                 "Out of memory");
                         
                         op_ret = -ENOMEM;
-                        goto out;
+                        goto unlock;
                 }
 
                 fd_ctx->child_failed = CALLOC (sizeof (*fd_ctx->child_failed),
@@ -753,7 +771,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                                 "Out of memory");
 
                         op_ret = -ENOMEM;
-                        goto out;
+                        goto unlock;
                 }
 
                 ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
@@ -761,9 +779,9 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         op_ret = ret;
                 }
         }
-out:
+unlock:
         UNLOCK (&fd->lock);
-
+out:
         return ret;
 }
 
