@@ -219,13 +219,10 @@ gf_timespec_from_timespec (struct gf_timespec *gf_ts, struct timespec *ts)
 #define GF_O_APPEND          02000
 #define GF_O_NONBLOCK        04000
 #define GF_O_SYNC           010000
-#define GF_O_ASYNC          020000
 
 #define GF_O_DIRECT         040000
 #define GF_O_DIRECTORY     0200000
 #define GF_O_NOFOLLOW      0400000
-#define GF_O_NOATIME      01000000
-#define GF_O_CLOEXEC      02000000
 
 #define GF_O_LARGEFILE     0100000
 
@@ -275,13 +272,10 @@ gf_flags_from_flags (uint32_t flags)
         XLATE_BIT (flags, gf_flags, O_APPEND);
         XLATE_BIT (flags, gf_flags, O_NONBLOCK);
         XLATE_BIT (flags, gf_flags, O_SYNC);
-        XLATE_BIT (flags, gf_flags, O_ASYNC);
 
         XLATE_BIT (flags, gf_flags, O_DIRECT);
         XLATE_BIT (flags, gf_flags, O_DIRECTORY);
         XLATE_BIT (flags, gf_flags, O_NOFOLLOW);
-        XLATE_BIT (flags, gf_flags, O_NOATIME);
-        XLATE_BIT (flags, gf_flags, O_CLOEXEC);
 
         XLATE_BIT (flags, gf_flags, O_LARGEFILE);
 
@@ -302,13 +296,10 @@ gf_flags_to_flags (uint32_t gf_flags)
         UNXLATE_BIT (gf_flags, flags, O_APPEND);
         UNXLATE_BIT (gf_flags, flags, O_NONBLOCK);
         UNXLATE_BIT (gf_flags, flags, O_SYNC);
-        UNXLATE_BIT (gf_flags, flags, O_ASYNC);
 
         UNXLATE_BIT (gf_flags, flags, O_DIRECT);
         UNXLATE_BIT (gf_flags, flags, O_DIRECTORY);
         UNXLATE_BIT (gf_flags, flags, O_NOFOLLOW);
-        UNXLATE_BIT (gf_flags, flags, O_NOATIME);
-        UNXLATE_BIT (gf_flags, flags, O_CLOEXEC);
 
         UNXLATE_BIT (gf_flags, flags, O_LARGEFILE);
 
