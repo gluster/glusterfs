@@ -2075,6 +2075,53 @@ out:
 }
 
 
+int32_t
+qr_release (xlator_t *this, fd_t *fd)
+{
+        qr_fd_ctx_t *qr_fd_ctx = NULL;
+        int32_t      ret = 0;
+        uint64_t     value = 0;
+
+        ret = fd_ctx_del (fd, this, &value);
+        if (ret == 0) {
+                qr_fd_ctx = (qr_fd_ctx_t *)(long) value;
+                if (qr_fd_ctx) {
+                        qr_fd_ctx_free (qr_fd_ctx);
+                }
+        }
+
+        return 0;
+}
+
+
+int32_t
+qr_forget (xlator_t *this, inode_t *inode)
+{
+        qr_file_t *qr_file = NULL;
+        uint64_t   value = 0;
+        int32_t    ret = -1;
+
+        ret = inode_ctx_del (inode, this, &value);
+        if (ret == 0) {
+                qr_file = (qr_file_t *)(long) value;
+                if (qr_file) {
+                        LOCK (&qr_file->lock);
+                        {
+                                if (qr_file->xattr) {
+                                        dict_unref (qr_file->xattr);
+                                        qr_file->xattr = NULL;
+                                }
+                        }
+                        UNLOCK (&qr_file->lock);
+                }
+                
+                FREE (qr_file);
+        }
+
+        return 0;
+}
+
+
 int32_t 
 init (xlator_t *this)
 {
@@ -2170,6 +2217,8 @@ struct xlator_mops mops = {
 
 
 struct xlator_cbks cbks = {
+        .forget  = qr_forget,
+        .release = qr_release, 
 };
 
 struct volume_options options[] = {
