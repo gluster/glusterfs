@@ -880,6 +880,123 @@ out:
 }
 
 
+int32_t
+qr_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+               int32_t op_errno, struct stat *stbuf)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+	return 0;
+}
+
+
+int32_t
+qr_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                  struct iovec *vector, int32_t count, off_t off,
+                  struct iobref *iobref)
+{
+        STACK_WIND (frame, qr_writev_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->writev, fd, vector, count, off,
+                    iobref);
+        return 0;
+}
+
+
+int32_t
+qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
+           int32_t count, off_t off, struct iobref *iobref)
+{
+        uint64_t     value = 0;
+        int          flags = 0;
+        call_stub_t *stub = NULL; 
+        char        *path = NULL;
+        loc_t        loc = {0, };
+        qr_file_t   *qr_file = NULL;
+        qr_fd_ctx_t *qr_fd_ctx = NULL;
+        int32_t      op_ret = -1, op_errno = -1, ret = -1;
+        char         can_wind = 0, need_unwind = 0, need_open = 0; 
+        
+        ret = fd_ctx_get (fd, this, &value);
+
+        if (ret == 0) {
+                qr_fd_ctx = (qr_fd_ctx_t *)(long) value;
+        }
+
+        ret = inode_ctx_get (fd->inode, this, &value);
+        if (ret == 0) {
+                qr_file = (qr_file_t *)(long)value;
+        }
+
+        if (qr_file) {
+                LOCK (&qr_file->lock);
+                {
+                        if (qr_file->xattr) {
+                                dict_unref (qr_file->xattr);
+                                qr_file->xattr = NULL;
+                        }
+                }
+                UNLOCK (&qr_file->lock);
+        }
+            
+        if (qr_fd_ctx) {
+                LOCK (&qr_fd_ctx->lock);
+                {
+                        path = qr_fd_ctx->path;
+                        flags = qr_fd_ctx->flags;
+                
+                        if (!(qr_fd_ctx->opened
+                              || qr_fd_ctx->open_in_transit)) {
+                                need_open = 1;
+                                qr_fd_ctx->open_in_transit = 1;
+                        }
+
+                        if (qr_fd_ctx->opened) {
+                                can_wind = 1;
+                        } else {
+                                stub = fop_writev_stub (frame, qr_writev_helper,
+                                                        fd, vector, count, off,
+                                                        iobref);
+                                if (stub == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
+                                list_add_tail (&stub->list,
+                                               &qr_fd_ctx->waiting_ops);
+                        }
+                }
+        unlock:
+                UNLOCK (&qr_fd_ctx->lock);
+        } else {
+                can_wind = 1;
+        }
+
+out:
+        if (need_unwind) {
+                STACK_UNWIND (frame, op_ret, op_errno, NULL);
+        } else if (can_wind) {
+                STACK_WIND (frame, qr_writev_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->writev, fd, vector, count,
+                            off, iobref);
+        } else if (need_open) { 
+                op_ret = qr_loc_fill (&loc, fd->inode, path);
+                if (op_ret == -1) {
+                        qr_resume_pending_ops (qr_fd_ctx);
+                        goto out;
+                }
+
+                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd);
+
+                qr_loc_wipe (&loc);
+        }
+
+        return 0;
+}
+
+
 int32_t 
 init (xlator_t *this)
 {
@@ -955,6 +1072,7 @@ struct xlator_fops fops = {
 	.lookup      = qr_lookup,
         .open        = qr_open,
         .readv       = qr_readv,
+        .writev      = qr_writev,
 };
 
 
