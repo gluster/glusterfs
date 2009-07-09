@@ -19,6 +19,23 @@
 
 #include "quick-read.h"
 
+
+static void
+qr_fd_ctx_free (qr_fd_ctx_t *qr_fd_ctx)
+{
+        if (qr_fd_ctx == NULL) {
+                goto out;
+        }
+
+        assert (list_empty (&qr_fd_ctx->waiting_ops));
+
+        FREE (qr_fd_ctx->path);
+        FREE (qr_fd_ctx);
+
+out:
+        return;
+}
+
         
 int32_t
 qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -156,6 +173,189 @@ unwind:
 }
 
 
+int32_t
+qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+             int32_t op_errno, fd_t *fd)
+{
+        uint64_t         value = 0;
+        int32_t          ret = -1;
+        struct list_head waiting_ops;
+        qr_local_t      *local = NULL;
+        qr_file_t       *qr_file = NULL;
+        qr_fd_ctx_t     *qr_fd_ctx = NULL;
+        call_stub_t     *stub = NULL, *tmp = NULL;
+
+        local = frame->local;
+        INIT_LIST_HEAD (&waiting_ops);
+
+        ret = fd_ctx_get (fd, this, &value);
+        if ((ret == -1) && (op_ret != -1)) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        if (value) {
+                qr_fd_ctx = (qr_fd_ctx_t *) (long)value;
+        }
+
+        if (qr_fd_ctx) {
+                LOCK (&qr_fd_ctx->lock);
+                {
+                        qr_fd_ctx->open_in_transit = 0;
+
+                        if (op_ret == 0) {
+                                qr_fd_ctx->opened = 1;
+                        }
+                        list_splice_init (&qr_fd_ctx->waiting_ops,
+                                          &waiting_ops);
+                }
+                UNLOCK (&qr_fd_ctx->lock);
+
+                if (local && local->is_open
+                    && ((local->open_flags & O_TRUNC) == O_TRUNC)) { 
+                        ret = inode_ctx_get (fd->inode, this, &value);
+                        if (ret == 0) {
+                                qr_file = (qr_file_t *)(long) value;
+
+                                if (qr_file) {
+                                        LOCK (&qr_file->lock);
+                                        {
+                                                dict_unref (qr_file->xattr);
+                                                qr_file->xattr = NULL;
+                                        }
+                                        UNLOCK (&qr_file->lock);
+                                }
+                        }
+                }
+
+                if (!list_empty (&waiting_ops)) {
+                        list_for_each_entry_safe (stub, tmp, &waiting_ops,
+                                                  list) {
+                                list_del_init (&stub->list);
+                                call_resume (stub);
+                        }
+                }
+        }
+out: 
+        if (local && local->is_open) { 
+                STACK_UNWIND (frame, op_ret, op_errno, fd);
+        }
+
+        return 0;
+}
+
+
+int32_t
+qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+         fd_t *fd)
+{
+        qr_file_t   *qr_file = NULL;
+        int32_t      ret = -1;
+        uint64_t     filep = 0;
+        char         content_cached = 0;
+        qr_fd_ctx_t *qr_fd_ctx = NULL;
+        int32_t      op_ret = -1, op_errno = -1;
+        qr_local_t  *local = NULL;
+        qr_conf_t   *conf = NULL;
+
+        conf = this->private;
+
+        qr_fd_ctx = CALLOC (1, sizeof (*qr_fd_ctx));
+        if (qr_fd_ctx == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        LOCK_INIT (&qr_fd_ctx->lock);
+        INIT_LIST_HEAD (&qr_fd_ctx->waiting_ops);
+
+        qr_fd_ctx->path = strdup (loc->path);
+        qr_fd_ctx->flags = flags;
+
+        ret = fd_ctx_set (fd, this, (uint64_t)(long)qr_fd_ctx);
+        if (ret == -1) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto unwind;
+        }
+
+        local = CALLOC (1, sizeof (*local));
+        if (local == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        local->is_open = 1;
+        local->open_flags = flags; 
+        frame->local = local;
+        local = NULL;
+
+        ret = inode_ctx_get (fd->inode, this, &filep);
+        if (ret == 0) {
+                qr_file = (qr_file_t *)(long) filep;
+                if (qr_file) {
+                        LOCK (&qr_file->lock);
+                        {
+                                if (qr_file->xattr) {
+                                        content_cached = 1;
+                                }
+                        }
+                        UNLOCK (&qr_file->lock);
+                }
+        }
+
+        if (content_cached && ((flags & O_DIRECTORY) == O_DIRECTORY)) {
+                op_ret = -1;
+                op_errno = ENOTDIR;
+                qr_fd_ctx = NULL;
+                goto unwind;
+        }
+
+        if (!content_cached || ((flags & O_WRONLY) == O_WRONLY) 
+            || ((flags & O_TRUNC) == O_TRUNC)) {
+                LOCK (&qr_fd_ctx->lock);
+                {
+                        /*
+                         * we need not set this flag, since open is not yet 
+                         * unwounded.
+                         */
+                           
+                        qr_fd_ctx->open_in_transit = 1;
+                }
+                UNLOCK (&qr_fd_ctx->lock);
+                goto wind;
+        } else {
+                op_ret = 0;
+                op_errno = 0;
+                goto unwind;
+        }
+
+unwind:
+        if (op_ret == -1) {
+                if (qr_fd_ctx != NULL) {
+                        qr_fd_ctx_free (qr_fd_ctx);
+                }
+
+                if (local != NULL) {
+                        FREE (local);
+                }
+        }
+
+        STACK_UNWIND (frame, op_ret, op_errno, fd);
+        return 0;
+
+wind:
+        STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->open, loc, flags, fd);
+        return 0;
+}
+
+
 int32_t 
 init (xlator_t *this)
 {
@@ -229,6 +429,7 @@ fini (xlator_t *this)
 
 struct xlator_fops fops = {
 	.lookup      = qr_lookup,
+        .open        = qr_open,
 };
 
 
