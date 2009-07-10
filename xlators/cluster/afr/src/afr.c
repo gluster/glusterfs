@@ -2494,6 +2494,9 @@ init (xlator_t *this)
 		i++;
 	}
 
+	/* Randomly pick the starting read child */
+	priv->read_child_rr = random() % priv->child_count;
+
 	ret = 0;
 out:
 	return ret;
