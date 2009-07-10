@@ -235,31 +235,7 @@ static void
 __inode_destroy (inode_t *inode)
 {
 	int          index = 0;
-        data_pair_t *pair = NULL;
         xlator_t    *xl = NULL;
-
-        if (!inode->ctx) {
-                goto noctx;
-        }
-        for (pair = inode->ctx->members_list; pair; pair = pair->next) {
-                /* notify all xlators which have a context */
-                xl = xlator_search_by_name (inode->table->xl, pair->key);
-
-                if (!xl) {
-                        gf_log (inode->table->name, GF_LOG_DEBUG,
-                                "inode(%"PRId64")->ctx has invalid key(%s)",
-                                inode->ino, pair->key);
-                        continue;
-                }
-
-		if (xl->cbks->forget)
-			xl->cbks->forget (xl, inode);
-		else
-                        gf_log (inode->table->name, GF_LOG_DEBUG,
-                                "xlator(%s) in inode(%"PRId64") no FORGET fop",
-                                xl->name, inode->ino);
-        }
-        dict_destroy (inode->ctx);
 
 	if (!inode->_ctx)
 		goto noctx;
@@ -449,8 +425,6 @@ __inode_create (inode_table_t *table)
 
 	newi->_ctx = CALLOC (1, (sizeof (struct _inode_ctx) * 
 				 table->xl->ctx->xl_count));
-
-        newi->ctx = get_new_dict ();
 
         return newi;
 }

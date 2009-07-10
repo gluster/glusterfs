@@ -48,7 +48,6 @@ struct _fd {
         int32_t           refcount;
         struct list_head  inode_list;
         struct _inode    *inode;
-        struct _dict     *ctx;
         gf_lock_t         lock; /* used ONLY for manipulating
                                    'struct _fd_ctx' array (_ctx).*/
 	struct _fd_ctx   *_ctx;

@@ -382,7 +382,6 @@ _fd_unref (fd_t *fd)
 static void
 fd_destroy (fd_t *fd)
 {
-        data_pair_t *pair = NULL;
         xlator_t    *xl = NULL;
 	int i = 0;
 
@@ -399,26 +398,6 @@ fd_destroy (fd_t *fd)
 		goto out;
 
         if (S_ISDIR (fd->inode->st_mode)) {
-                for (pair = fd->ctx->members_list; pair; pair = pair->next) {
-                        /* notify all xlators which have a context */
-                        xl = xlator_search_by_name (fd->inode->table->xl, 
-						    pair->key);
-          
-                        if (!xl) {
-                                gf_log ("fd", GF_LOG_CRITICAL,
-                                        "fd(%p)->ctx has invalid key(%s)",
-                                        fd, pair->key);
-                                continue;
-                        }
-                        if (xl->cbks->releasedir) {
-                                xl->cbks->releasedir (xl, fd);
-                        } else {
-                                gf_log ("fd", GF_LOG_CRITICAL,
-                                        "xlator(%s) in fd(%p) no RELEASE cbk",
-                                        xl->name, fd);
-                        }
-
-                }
 		for (i = 0; i < fd->inode->table->xl->ctx->xl_count; i++) {
 			if (fd->_ctx[i].key) {
 				xl = (xlator_t *)(long)fd->_ctx[i].key;
@@ -427,25 +406,6 @@ fd_destroy (fd_t *fd)
 			}
 		}
         } else {
-                for (pair = fd->ctx->members_list; pair; pair = pair->next) {
-                        /* notify all xlators which have a context */
-                        xl = xlator_search_by_name (fd->inode->table->xl, 
-						    pair->key);
-          
-                        if (!xl) {
-                                gf_log ("fd", GF_LOG_CRITICAL,
-                                        "fd(%p)->ctx has invalid key(%s)",
-                                        fd, pair->key);
-                                continue;
-                        }
-                        if (xl->cbks->release) {
-                                xl->cbks->release (xl, fd);
-                        } else {
-                                gf_log ("fd", GF_LOG_CRITICAL,
-                                        "xlator(%s) in fd(%p) no RELEASE cbk",
-                                        xl->name, fd);
-                        }
-                }
 		for (i = 0; i < fd->inode->table->xl->ctx->xl_count; i++) {
 			if (fd->_ctx[i].key) {
 				xl = (xlator_t *)(long)fd->_ctx[i].key;
@@ -460,7 +420,6 @@ fd_destroy (fd_t *fd)
 	FREE (fd->_ctx);
         inode_unref (fd->inode);
         fd->inode = (inode_t *)0xaaaaaaaa;
-        dict_destroy (fd->ctx);
         FREE (fd);
         
 out:
@@ -525,7 +484,6 @@ fd_create (inode_t *inode, pid_t pid)
   
 	fd->_ctx = CALLOC (1, (sizeof (struct _fd_ctx) * 
 			       inode->table->xl->ctx->xl_count));
-        fd->ctx = get_new_dict ();
         fd->inode = inode_ref (inode);
         fd->pid = pid;
         INIT_LIST_HEAD (&fd->inode_list);

@@ -83,7 +83,6 @@ struct _inode {
         uint64_t          generation;
         uint32_t          ref;           /* reference count on this inode */
         ino_t             ino;           /* inode number in the storage (persistent) */
-        dict_t           *ctx;           /* per xlator private */
         mode_t            st_mode;       /* what kind of file */
         struct list_head  fd_list;       /* list of open files on this inode */
         struct list_head  dentry_list;   /* list of directory entries for this inode */
