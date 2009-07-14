@@ -2649,6 +2649,7 @@ init (xlator_t *this_xl)
         fuse_private_t    *priv = NULL;
         struct stat        stbuf = {0,};
         struct fuse_args   args = FUSE_ARGS_INIT (0, NULL);
+        int                xl_name_allocated = 0;
 
         if (this_xl == NULL)
                 return -1;
@@ -2660,7 +2661,13 @@ init (xlator_t *this_xl)
 
         if (this_xl->name == NULL) {
                 this_xl->name = strdup ("fuse");
-                ERR_ABORT (this_xl->name);
+                if (!this_xl->name) {
+                        gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                               "Out of memory");
+
+                        goto cleanup_exit;
+                }
+                xl_name_allocated = 1;
         }
 
         fsname = this_xl->ctx->cmd_args.volume_file;
@@ -2711,12 +2718,22 @@ init (xlator_t *this_xl)
 #endif /* LINUX */
 #endif /* ! DARWIN_OS */
 
-        if (ret == -1)
-                ERR_ABORT (NULL);
+        if (ret == -1) {
+                gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                       "Out of memory");
+
+                goto cleanup_exit;
+        }
 
         priv = CALLOC (1, sizeof (*priv));
-        ERR_ABORT (priv);
+        if (!priv) {
+                gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                       "Out of memory");
+
+                goto cleanup_exit;
+        }
         this_xl->private = (void *) priv;
+        priv->mount_point = NULL;
 
         /* get options from option dictionary */
         ret = dict_get_str (options, ZR_MOUNTPOINT_OPT, &value_string);
@@ -2752,7 +2769,12 @@ init (xlator_t *this_xl)
                 goto cleanup_exit;
         }
         priv->mount_point = strdup (value_string);
-        ERR_ABORT (priv->mount_point);
+        if (!priv->mount_point) {
+                gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                       "Out of memory");
+
+                goto cleanup_exit;
+        }
 
         ret = dict_get_double (options, "attribute-timeout",
                                &priv->attribute_timeout);
@@ -2776,6 +2798,14 @@ init (xlator_t *this_xl)
         if (value_string) {
                 ret = gf_string2boolean (value_string,
                                          &priv->strict_volfile_check);
+        }
+
+        this_xl->itable = inode_table_new (0, this_xl);
+        if (!this_xl->itable) {
+                gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                       "Out of memory");
+
+                goto cleanup_exit;
         }
 
         priv->ch = fuse_mount (priv->mount_point, &args);
@@ -2855,12 +2885,13 @@ init (xlator_t *this_xl)
         this_xl->ctx->top = this_xl;
 
         priv->first_call = 2;
-        this_xl->itable = inode_table_new (0, this_xl);
         return 0;
 
 umount_exit:
         fuse_unmount (priv->mount_point, priv->ch);
 cleanup_exit:
+        if (xl_name_allocated)
+                FREE (this_xl->name);
         fuse_opt_free_args (&args);
         FREE (fsname_opt);
         if (priv)
