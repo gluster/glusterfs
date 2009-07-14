@@ -2030,6 +2030,9 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         } else if (!strcmp (state->name, "user.glusterfs-booster-path")) {
                                 fuse_reply_xattr_buf (state, req, state->loc.path,
                                                       strlen (state->loc.path) + 1);
+                        } else if (!strcmp (state->name, "user.glusterfs-booster-mount")) {
+                                fuse_reply_xattr_buf (state, req, priv->mount_point,
+                                                      strlen(priv->mount_point) + 1);
                         } else {
                                 fuse_reply_err (req, ENODATA);
                         } /* if(value_data)...else */
