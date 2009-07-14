@@ -16,7 +16,7 @@
 # Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-function _init ()
+_init ()
 {
     # log level definitions
     LOG_NONE=NONE;
@@ -34,7 +34,7 @@ function _init ()
     cmd_line=$(echo "@sbindir@/glusterfs");
 }
 
-function start_glusterfs ()
+start_glusterfs ()
 {
     if [ -n "$log_level_str" ]; then
 	case "$log_level_str" in
@@ -115,7 +115,7 @@ function start_glusterfs ()
     exec $cmd_line;
 }
 
-function usage ()
+usage ()
 {
 
 echo "Usage:  mount.glusterfs <volumeserver>:<volumeid/volumeport> -o <options> <mountpoint> 
@@ -127,7 +127,7 @@ mount.glusterfs --version"
 
 }
 
-function main ()
+main ()
 {
     helper=$(echo "$@" | sed -n 's/.*\--[ ]*\([^ ]*\).*/\1/p');
 
