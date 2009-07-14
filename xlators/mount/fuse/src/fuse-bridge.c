@@ -84,11 +84,29 @@ typedef struct fuse_private fuse_private_t;
 
 #define FUSE_FOP(state, ret, op_num, fop, args ...)                     \
         do {                                                            \
-                call_frame_t *frame = get_call_frame_for_req (state, 1); \
-                xlator_t *xl = frame->this->children ?                  \
+                call_frame_t *frame = NULL;                             \
+                xlator_t *xl = NULL;                                    \
+                                                                        \
+                frame = get_call_frame_for_req (state, 1);              \
+                if (!frame) {                                           \
+                         /* This is not completely clean, as some       \
+                          * earlier allocations might remain unfreed    \
+                          * if we return at this point, but still       \
+                          * better than trying to go on with a NULL     \
+                          * frame ...                                   \
+                          */                                            \
+                        gf_log ("glusterfs-fuse",                       \
+                                GF_LOG_ERROR,                           \
+                                "FUSE message unique %"PRId64":"        \
+                                " frame allocation failed",             \
+                                req_callid (state->req));               \
+                        free_state (state);                             \
+                        return;                                         \
+                }                                                       \
+                xl = frame->this->children ?                            \
                         frame->this->children->xlator : NULL;           \
                 frame->root->state = state;                             \
-                frame->root->op   = op_num;                                \
+                frame->root->op    = op_num;                            \
                 STACK_WIND (frame, ret, xl, xl->fops->fop, args);       \
         } while (0)
 
@@ -96,14 +114,20 @@ typedef struct fuse_private fuse_private_t;
         (((_errno == ENOENT) || (_errno == ESTALE))?    \
          GF_LOG_DEBUG)
 
-#define STATE_FROM_REQ(req, state)                    \
-        do {                                          \
-                state = state_from_req (req);         \
-                if (!state) {                         \
-                        fuse_reply_err (req, ENOMEM); \
-                                                      \
-                        return;                       \
-                }                                     \
+#define STATE_FROM_REQ(req, state)                               \
+        do {                                                     \
+                state = state_from_req (req);                    \
+                if (!state) {                                    \
+                        gf_log ("glusterfs-fuse",                \
+                                GF_LOG_ERROR,                    \
+                                "FUSE message unique %"PRId64":" \
+                                " state allocation failed",      \
+                                req_callid (req));               \
+                                                                 \
+                        fuse_reply_err (req, ENOMEM);            \
+                                                                 \
+                        return;                                  \
+                }                                                \
         } while (0)
 
 
@@ -205,6 +229,8 @@ get_call_frame_for_req (fuse_state_t *state, char d)
         priv = this->private;
 
         frame = create_frame (this, pool);
+        if (!frame)
+                return NULL;
 
         if (req) {
                 ctx = fuse_req_ctx (req);
@@ -468,17 +494,16 @@ static void
 fuse_forget (fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
 {
         inode_t      *fuse_inode;
-        fuse_state_t *state;
+        xlator_t *this = NULL;
+
+        this = fuse_req_userdata (req);
 
         if (ino == 1) {
                 fuse_reply_none (req);
                 return;
         }
 
-        state = state_from_req (req);
-        if (!state)
-                return;
-        fuse_inode = inode_search (state->itable, ino, NULL);
+        fuse_inode = inode_search (this->itable, ino, NULL);
         if (fuse_inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "got forget on inode (%lu)", ino);
@@ -489,7 +514,6 @@ fuse_forget (fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
                         "got forget, but inode (%lu) not found", ino);
         }
 
-        free_state (state);
         fuse_reply_none (req);
 }
 
@@ -1289,7 +1313,8 @@ fuse_link (fuse_req_t req, fuse_ino_t ino, fuse_ino_t par, const char *name)
         STATE_FROM_REQ (req, state);
 
         ret = fuse_loc_fill (&state->loc, state, 0, par, name);
-        ret = fuse_loc_fill (&state->loc2, state, ino, 0, NULL);
+        if (ret == 0)
+                ret = fuse_loc_fill (&state->loc2, state, ino, 0, NULL);
 
         if ((state->loc2.inode == NULL) ||
             (ret < 0)) {
@@ -1580,6 +1605,14 @@ fuse_write (fuse_req_t req, fuse_ino_t ino, const char *buf,
                 req_callid (req), fd, size, off);
 
         iobref = iobref_new ();
+        if (!iobref) {
+                gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                       "%"PRId64": WRITE iobref allocation failed",
+                       req_callid (req));
+
+                free_state (state);
+                return;
+        }
         iobuf = ((fuse_private_t *) (state->this->private))->iobuf;
         iobref_add (iobref, iobuf);
 
@@ -1721,7 +1754,7 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                         "%"PRId64": READDIR => -1 (%s)", frame->root->unique,
                         strerror (ENOMEM));
-                fuse_reply_err (req, -ENOMEM);
+                fuse_reply_err (req, ENOMEM);
                 goto out;
         }
 
@@ -1920,6 +1953,14 @@ fuse_setxattr (fuse_req_t req, fuse_ino_t ino, const char *name,
         }
 
         state->dict = get_new_dict ();
+        if (!state->dict) {
+                gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                       "%"PRId64": SETXATTR dict allocation failed",
+                       req_callid (req));
+
+                free_state (state);
+                return;
+        }
 
         dict_value = memdup (value, size);
         dict_set (state->dict, (char *)name,
@@ -2488,8 +2529,10 @@ fuse_thread_proc (void *data)
                                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                         "fuse_chan_receive() returned -1 (%d)", errno);
                         }
-                        if (errno == ENODEV)
+                        if (errno == ENODEV) {
+                                iobuf_unref (iobuf);
                                 break;
+                        }
                         continue;
                 }
 
