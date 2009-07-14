@@ -145,6 +145,7 @@ typedef struct _afr_local {
 	unsigned int govinda_gOvinda;
 
 	unsigned int read_child_index;
+        unsigned char read_child_returned;
 
         pid_t saved_pid;
 
@@ -182,6 +183,7 @@ typedef struct _afr_local {
 		struct {
 			inode_t *inode;
 			struct stat buf;
+                        struct stat read_child_buf;
                         ino_t ino;
 			dict_t *xattr;
 		} lookup;
@@ -268,12 +270,14 @@ typedef struct _afr_local {
 			ino_t ino;
 			mode_t mode;
 			struct stat buf;
+			struct stat read_child_buf;
 		} chmod;
 
 		struct {
 			ino_t ino;
 			mode_t mode;
 			struct stat buf;
+                        struct stat read_child_buf;
 		} fchmod;
 
 		struct {
@@ -281,6 +285,7 @@ typedef struct _afr_local {
 			uid_t uid;
 			gid_t gid;
 			struct stat buf;
+                        struct stat read_child_buf;
 		} chown;
 
 		struct {
@@ -288,11 +293,13 @@ typedef struct _afr_local {
 			uid_t uid;
 			gid_t gid;
 			struct stat buf;
+                        struct stat read_child_buf;
 		} fchown;
 		
 		struct {
 			ino_t ino;
 			struct stat buf;
+			struct stat read_child_buf;
 
 			int32_t op_ret;
 
@@ -306,18 +313,21 @@ typedef struct _afr_local {
 			ino_t ino;
 			off_t offset;
 			struct stat buf;
+                        struct stat read_child_buf;
 		} truncate;
 
 		struct {
 			ino_t ino;
 			off_t offset;
 			struct stat buf;
+                        struct stat read_child_buf;
 		} ftruncate;
 
 		struct {
 			ino_t ino;
 			struct timespec tv[2];
 			struct stat buf;
+                        struct stat read_child_buf;
 		} utimens;
 
 		struct {
