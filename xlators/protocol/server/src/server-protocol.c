@@ -5627,8 +5627,7 @@ server_inodelk (call_frame_t *frame, xlator_t *bound_xl,
 					 state->volume, &state->loc, 
                                          state->cmd, &state->flock);
 
-	if ((state->loc.parent == NULL) ||
-	    (state->loc.inode == NULL)) {
+	if (state->loc.inode == NULL) {
 		do_path_lookup (inodelk_stub, &(state->loc));
 	} else {
 		call_resume (inodelk_stub);
@@ -5786,8 +5785,7 @@ server_entrylk (call_frame_t *frame, xlator_t *bound_xl,
                                          state->volume, &state->loc,
                                          state->name, state->cmd, state->type);
 
- 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
+ 	if (state->loc.inode == NULL) {
  		do_path_lookup (entrylk_stub, &(state->loc));
  	} else {
  		call_resume (entrylk_stub);
