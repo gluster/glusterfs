@@ -59,7 +59,7 @@
 #define ZR_DIRECT_IO_OPT        "direct-io-mode"
 #define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 
-#define FUSE_711_OP_HIGH (FUSE_POLL + 1)
+#define FUSE_712_OP_HIGH (FUSE_POLL + 1)
 #define OFFSET_MAX 0x7fffffffffffffffLL
 #define GLUSTERFS_XATTR_LEN_MAX  65536
 
@@ -69,6 +69,7 @@ typedef void (fuse_handler_t) (xlator_t *this, fuse_in_header_t *finh,
 
 struct fuse_private {
         int                  fd;
+        uint32_t             proto_minor;
         char                *volfile;
         size_t               volfile_size;
         char                *mount_point;
@@ -525,7 +526,10 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         feo.attr_valid_nsec =
                           calc_timeout_nsec (priv->attribute_timeout);
 
-                        send_fuse_obj (this, finh, &feo);
+                        priv->proto_minor >= 9 ?
+                        send_fuse_obj (this, finh, &feo) :
+                        send_fuse_data (this, finh, &feo,
+                                        FUSE_COMPAT_ENTRY_OUT_SIZE);
                 } else {
                         /* Refurbish the entry_out as attr_out. Too hacky?... */
                         fao = (struct fuse_attr_out *)
@@ -537,7 +541,10 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         fao->attr_valid_nsec =
                           calc_timeout_nsec (priv->attribute_timeout);
 
-                        send_fuse_obj (this, finh, fao);
+                        priv->proto_minor >= 9 ?
+                        send_fuse_obj (this, finh, fao) :
+                        send_fuse_data (this, finh, fao,
+                                        FUSE_COMPAT_ATTR_OUT_SIZE);
                 }
         } else {
                 gf_log ("glusterfs-fuse",
@@ -1194,8 +1201,13 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
         struct fuse_mknod_in *fmi = msg;
         char         *name = (char *)(fmi + 1);
 
-        fuse_state_t *state = NULL;
-        int32_t       ret = -1;
+        fuse_state_t   *state = NULL;
+        fuse_private_t *priv = NULL;
+        int32_t         ret = -1;
+
+        priv = this->private;
+        if (priv->proto_minor < 12)
+                name = (char *)msg + FUSE_COMPAT_MKNOD_IN_SIZE;
 
         GET_STATE (this, finh, state);
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
@@ -1542,7 +1554,9 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fouh.error = 0;
                 iov_out[0].iov_base = &fouh;
                 iov_out[1].iov_base = &feo;
-                iov_out[1].iov_len = sizeof (feo);
+                iov_out[1].iov_len = priv->proto_minor >= 9 ?
+                                     sizeof (feo) :
+                                     FUSE_COMPAT_ENTRY_OUT_SIZE;
                 iov_out[2].iov_base = &foo;
                 iov_out[2].iov_len = sizeof (foo);
                 if (send_fuse_iov (this, finh, iov_out, 3) == ENOENT) {
@@ -1571,15 +1585,20 @@ out:
 static void
 fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
-        struct fuse_open_in *foi = msg;
-        char         *name = (char *)(foi + 1);
+        struct fuse_create_in *fci = msg;
+        char         *name = (char *)(fci + 1);
 
+        fuse_private_t        *priv = NULL;
         fuse_state_t *state = NULL;
         fd_t         *fd = NULL;
         int32_t       ret = -1;
 
+        priv = this->private;
+        if (priv->proto_minor < 12)
+                name = (char *)((struct fuse_open_in *)msg + 1);
+
         GET_STATE (this, finh, state);
-        state->flags = foi->flags;
+        state->flags = fci->flags;
 
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
         if (ret < 0) {
@@ -1602,7 +1621,7 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 state->loc.path);
 
         FUSE_FOP (state, fuse_create_cbk, GF_FOP_CREATE,
-                  create, &state->loc, state->flags, foi->mode, fd);
+                  create, &state->loc, state->flags, fci->mode, fd);
 
         return;
 }
@@ -1757,11 +1776,16 @@ fuse_write (xlator_t *this, fuse_in_header_t *finh, void *msg)
         struct fuse_write_in *fwi = msg;
         char            *buf = (char *)(fwi + 1);
 
+        fuse_private_t  *priv = NULL;
         fuse_state_t    *state = NULL;
         struct iovec     vector;
         fd_t            *fd = NULL;
         struct iobref   *iobref = NULL;
         struct iobuf    *iobuf = NULL;
+
+        priv = this->private;
+        if (priv->proto_minor < 9)
+                buf = (char *)msg + FUSE_COMPAT_WRITE_IN_SIZE;
 
         GET_STATE (this, finh, state);
         state->size = fwi->size;
@@ -2034,9 +2058,11 @@ fuse_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         fuse_state_t *state = NULL;
         fuse_in_header_t *finh = NULL;
+        fuse_private_t   *priv = NULL;
         struct fuse_statfs_out fso = {{0, }, };
 
         state = frame->root->state;
+        priv  = this->private;
         finh  = state->finh;
         /*
           Filesystems (like ZFS on solaris) reports
@@ -2075,8 +2101,9 @@ fuse_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fso.st.ffree   = buf->f_ffree;
                 fso.st.namelen = buf->f_namemax;
 
-                send_fuse_obj (this, finh, &fso);
-
+                priv->proto_minor >= 4 ?
+                send_fuse_obj (this, finh, &fso) :
+                send_fuse_data (this, finh, &fso, FUSE_COMPAT_STATFS_SIZE);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": ERR => -1 (%s)", frame->root->unique,
@@ -2634,8 +2661,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 goto out;
         }
 
-        if (fini->major != FUSE_KERNEL_VERSION ||
-            fini->minor < 9) {
+        if (fini->major != FUSE_KERNEL_VERSION) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "unsupported FUSE protocol version %d.%d",
                         fini->major, fini->minor);
@@ -2643,6 +2669,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 close (priv->fd);
                 goto out;
         }
+        priv->proto_minor = fini->minor;
 
         fino.major = FUSE_KERNEL_VERSION;
         fino.minor = FUSE_KERNEL_MINOR_VERSION;
@@ -2684,7 +2711,7 @@ fuse_discard (xlator_t *this, fuse_in_header_t *finh, void *msg)
         FREE (finh);
 }
 
-static fuse_handler_t *fuse_ops[FUSE_711_OP_HIGH];
+static fuse_handler_t *fuse_ops[FUSE_712_OP_HIGH];
 
 int
 fuse_root_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -3048,6 +3075,12 @@ init (xlator_t *this_xl)
         }
         ret = mount (fsname, priv->mount_point, "fuse.glusterfs", 0,
                      mount_param);
+        if (ret == -1 && errno == ENODEV)
+                /* fs subtype support was added by 79c0b2df aka
+                   v2.6.21-3159-g79c0b2d. Probably we have an
+                   older kernel ... */
+                ret = mount (fsname, priv->mount_point, "fuse", 0,
+                             mount_param);
         if (ret == -1) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "mount failed (%s)", strerror (errno));
@@ -3061,7 +3094,7 @@ init (xlator_t *this_xl)
 
         priv->first_call = 2;
 
-        for (i = 0; i < FUSE_711_OP_HIGH; i++)
+        for (i = 0; i < FUSE_712_OP_HIGH; i++)
                 fuse_ops[i] = fuse_enosys;
         fuse_ops[FUSE_INIT]        = fuse_init;
         fuse_ops[FUSE_DESTROY]     = fuse_discard;
