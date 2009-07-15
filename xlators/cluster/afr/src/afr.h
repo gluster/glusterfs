@@ -348,6 +348,7 @@ typedef struct _afr_local {
 			mode_t mode;
 			inode_t *inode;
 			struct stat buf;
+                        struct stat read_child_buf;
 		} create;
 
 		struct {
@@ -356,6 +357,7 @@ typedef struct _afr_local {
 			mode_t mode;
 			inode_t *inode;
 			struct stat buf;
+                        struct stat read_child_buf;
 		} mknod;
 
 		struct {
@@ -363,6 +365,7 @@ typedef struct _afr_local {
 			int32_t mode;
 			inode_t *inode;
 			struct stat buf;
+                        struct stat read_child_buf;
 		} mkdir;
 
 		struct {
@@ -378,18 +381,21 @@ typedef struct _afr_local {
 		struct {
 			ino_t ino;
 			struct stat buf;
+                        struct stat read_child_buf;
 		} rename;
 
 		struct {
 			ino_t ino;
 			inode_t *inode;
 			struct stat buf;
+                        struct stat read_child_buf;
 		} link;
 
 		struct {
 			ino_t ino;
 			inode_t *inode;
 			struct stat buf;
+                        struct stat read_child_buf;
 			char *linkpath;
 		} symlink;
 
