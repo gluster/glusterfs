@@ -247,7 +247,15 @@ _volume_option_value_validate (xlator_t *xl,
 	switch (opt->type) {
 	case GF_OPTION_TYPE_PATH:
 	{
-  			/* Make sure the given path is valid */
+                if (strstr (pair->value->data, "../")) {
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "invalid path given '%s'",
+                                pair->value->data);
+                        ret = -1;
+                        goto out;
+                }
+
+                /* Make sure the given path is valid */
 		if (pair->value->data[0] != '/') {
 			gf_log (xl->name, GF_LOG_WARNING,
 				"option %s %s: '%s' is not an "
