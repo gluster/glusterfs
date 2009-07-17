@@ -7067,6 +7067,7 @@ static struct xlator_cbks libgf_client_cbks = {
 static inline xlator_t *
 libglusterfs_graph (xlator_t *graph)
 {
+        int       ret = 0;
         xlator_t *top = NULL;
         xlator_list_t *xlchild, *xlparent;
 
@@ -7084,7 +7085,10 @@ libglusterfs_graph (xlator_t *graph)
         xlparent = CALLOC (1, sizeof(*xlparent));
         xlparent->xlator = top;
         graph->parents = xlparent;
-        asprintf (&top->type, LIBGF_XL_NAME);
+        ret = asprintf (&top->type, LIBGF_XL_NAME);
+        if (-1 == ret) {
+                fprintf (stderr, "failed to set the top xl's type");
+        }
 
         top->init = libgf_client_init;
         top->fops = &libgf_client_fops;
