@@ -502,6 +502,34 @@ out:
         return op_ret;
 }
 
+
+int
+libgf_invalidate_iattr_cache (inode_t *inode, int flags)
+{
+        libglusterfs_client_inode_ctx_t         *ictx = NULL;
+
+        if (!inode)
+                return -1;
+
+        ictx = libgf_get_inode_ctx (inode);
+        if (!ictx)
+                return -1;
+
+        pthread_mutex_lock (&ictx->lock);
+        {
+                if (flags & LIBGF_INVALIDATE_LOOKUP)
+                        ictx->previous_lookup_time = 0;
+
+                if (flags & LIBGF_INVALIDATE_STAT)
+                        ictx->previous_stat_time = 0;
+
+        }
+        pthread_mutex_unlock (&ictx->lock);
+
+        return 0;
+}
+
+
 int
 libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
                             struct stat *sbuf, int flags)
@@ -527,7 +555,19 @@ libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
                         timeout = ctx->stat_timeout;
                 }
 
-                /* Cache infinely */
+                /* Even if the timeout is set to -1 to cache
+                 * infinitely, fops like write must invalidate the
+                 * stat cache because writev_cbk cannot update
+                 * the cache using the stat returned to it. This is
+                 * because write-behind can return a stat bufs filled
+                 * with zeroes.
+                 */
+                if (prev == 0) {
+                        cache_valid = 0;
+                        goto iattr_unlock_out;
+                }
+
+                /* Cache infinitely */
                 if (timeout == (time_t)-1) {
                         cache_valid = 1;
                         goto iattr_unlock_out;
@@ -3375,7 +3415,11 @@ libgf_client_writev_cbk (call_frame_t *frame,
 
         local->reply_stub = fop_writev_cbk_stub (frame, NULL, op_ret, op_errno,
                                                  stbuf);
-        libgf_update_iattr_cache (local->fd->inode, LIBGF_UPDATE_STAT, stbuf);
+
+        /* We need to invalidate because it is possible that write-behind
+         * is a translator below us and returns a stat filled with zeroes.
+         */
+        libgf_invalidate_iattr_cache (local->fd->inode, LIBGF_UPDATE_STAT);
         LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
