@@ -123,6 +123,7 @@ out:
 char *
 stat_to_str (struct stat *stbuf)
 {
+        int   ret = 0;
 	char *tmp_buf = NULL;
 
 	uint64_t dev = stbuf->st_dev;
@@ -144,25 +145,29 @@ stat_to_str (struct stat *stbuf)
 	uint32_t ctime_nsec = ST_CTIM_NSEC(stbuf);
 
 
-	asprintf (&tmp_buf,
-		  GF_STAT_PRINT_FMT_STR,
-		  dev,
-		  ino,
-		  mode,
-		  nlink,
-		  uid,
-		  gid,
-		  rdev,
-		  size,
-		  blksize,
-		  blocks,
-		  atime,
-		  atime_nsec,
-		  mtime,
-		  mtime_nsec,
-		  ctime,
-		  ctime_nsec);
-
+	ret = asprintf (&tmp_buf,
+                        GF_STAT_PRINT_FMT_STR,
+                        dev,
+                        ino,
+                        mode,
+                        nlink,
+                        uid,
+                        gid,
+                        rdev,
+                        size,
+                        blksize,
+                        blocks,
+                        atime,
+                        atime_nsec,
+                        mtime,
+                        mtime_nsec,
+                        ctime,
+                        ctime_nsec);
+        if (-1 == ret) {
+                gf_log ("protocol/server", GF_LOG_DEBUG, 
+                        "asprintf failed while setting up stat buffer string");
+                return NULL;
+        }
 	return tmp_buf;
 }
 

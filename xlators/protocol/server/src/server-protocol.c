@@ -6520,9 +6520,15 @@ build_volfile_path (xlator_t *this, const char *key, char *path,
                          * "../" in path 
                          */
                         if (!strstr (key, "../")) {
-                                asprintf (&filename, "%s/%s.vol", 
-                                          CONFDIR, key);
-                                free_filename = 1;
+                                ret = asprintf (&filename, "%s/%s.vol", 
+                                                CONFDIR, key);
+                                if (-1 == ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "asprintf failed to get "
+                                                "volume file path");
+                                } else {
+                                        free_filename = 1;
+                                }
                         } else {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "%s: invalid key", key);
@@ -6901,9 +6907,13 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 	
 	ret = strcmp (version, GF_PROTOCOL_VERSION);
 	if (ret != 0) {
-		asprintf (&msg,
-			  "protocol version mismatch: client(%s) - server(%s)",
-			  version, GF_PROTOCOL_VERSION);
+		ret = asprintf (&msg, "protocol version mismatch: client(%s) "
+                                "- server(%s)", version, GF_PROTOCOL_VERSION);
+                if (-1 == ret) {
+                        gf_log (trans->xl->name, GF_LOG_ERROR,
+                                "asprintf failed while setting up error msg");
+                        goto fail;
+                }
 		ret = dict_set_dynstr (reply, "ERROR", msg);
 		if (ret < 0)
 			gf_log (trans->xl->name, GF_LOG_DEBUG,
@@ -6930,7 +6940,13 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 
 	xl = get_xlator_by_name (frame->this, name);
 	if (xl == NULL) {
-		asprintf (&msg, "remote-subvolume \"%s\" is not found", name);
+		ret = asprintf (&msg, "remote-subvolume \"%s\" is not found", 
+                                name);
+                if (-1 == ret) {
+                        gf_log (trans->xl->name, GF_LOG_ERROR,
+                                "asprintf failed while setting error msg");
+                        goto fail;
+                }
 		ret = dict_set_dynstr (reply, "ERROR", msg);
 		if (ret < 0)
 			gf_log (trans->xl->name, GF_LOG_DEBUG,
