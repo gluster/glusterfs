@@ -96,7 +96,11 @@ gf_resolve_ip6 (const char *hostname,
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_flags    = AI_ADDRCONFIG;
 
-		asprintf (&port_str, "%d", port);
+		ret = asprintf (&port_str, "%d", port);
+                if (-1 == ret) {
+                        gf_log ("resolver", GF_LOG_ERROR, "asprintf failed");
+                        return -1;
+                }
 		if ((ret = getaddrinfo(hostname, port_str, &hints, &cache->first)) != 0) {
 			gf_log ("resolver", GF_LOG_ERROR,
 				"getaddrinfo failed (%s)", gai_strerror (ret));
@@ -269,82 +273,84 @@ gf_log_volume_file (FILE *specfp)
 static void 
 gf_dump_config_flags (int fd)
 {
+        int ret = 0;
+        /* TODO: 'ret' is not checked properly, add this later */
 
-	write (fd, "configuration details:\n", 22);
+	ret = write (fd, "configuration details:\n", 22);
 
 /* have argp */
 #ifdef HAVE_ARGP
-	write (fd, "argp 1\n", 7);
+	ret = write (fd, "argp 1\n", 7);
 #endif
 
 /* ifdef if found backtrace */
 #ifdef HAVE_BACKTRACE 
-	write (fd, "backtrace 1\n", 12);
+	ret = write (fd, "backtrace 1\n", 12);
 #endif
 
 /* Berkeley-DB version has cursor->get() */
 #ifdef HAVE_BDB_CURSOR_GET 
-	write (fd, "bdb->cursor->get 1\n", 19);
+	ret = write (fd, "bdb->cursor->get 1\n", 19);
 #endif
 
 /* Define to 1 if you have the <db.h> header file. */
 #ifdef HAVE_DB_H 
-	write (fd, "db.h 1\n", 7);
+	ret = write (fd, "db.h 1\n", 7);
 #endif
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #ifdef HAVE_DLFCN_H 
-	write (fd, "dlfcn 1\n", 8);
+	ret = write (fd, "dlfcn 1\n", 8);
 #endif
 
 /* define if fdatasync exists */
 #ifdef HAVE_FDATASYNC 
-	write (fd, "fdatasync 1\n", 12);
+	ret = write (fd, "fdatasync 1\n", 12);
 #endif
 
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 #ifdef HAVE_LIBPTHREAD 
-	write (fd, "libpthread 1\n", 13);
+	ret = write (fd, "libpthread 1\n", 13);
 #endif
 
 /* define if llistxattr exists */
 #ifdef HAVE_LLISTXATTR 
-	write (fd, "llistxattr 1\n", 13);
+	ret = write (fd, "llistxattr 1\n", 13);
 #endif
 
 /* define if found setfsuid setfsgid */
 #ifdef HAVE_SET_FSID 
-	write (fd, "setfsid 1\n", 10);
+	ret = write (fd, "setfsid 1\n", 10);
 #endif
 
 /* define if found spinlock */
 #ifdef HAVE_SPINLOCK 
-	write (fd, "spinlock 1\n", 11);
+	ret = write (fd, "spinlock 1\n", 11);
 #endif
 
 /* Define to 1 if you have the <sys/epoll.h> header file. */
 #ifdef HAVE_SYS_EPOLL_H 
-	write (fd, "epoll.h 1\n", 10);
+	ret = write (fd, "epoll.h 1\n", 10);
 #endif
 
 /* Define to 1 if you have the <sys/extattr.h> header file. */
 #ifdef HAVE_SYS_EXTATTR_H 
-	write (fd, "extattr.h 1\n", 12);
+	ret = write (fd, "extattr.h 1\n", 12);
 #endif
 
 /* Define to 1 if you have the <sys/xattr.h> header file. */
 #ifdef HAVE_SYS_XATTR_H 
-	write (fd, "xattr.h 1\n", 10);
+	ret = write (fd, "xattr.h 1\n", 10);
 #endif
 
 /* define if found st_atim.tv_nsec */
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
-	write (fd, "st_atim.tv_nsec 1\n", 18);
+	ret = write (fd, "st_atim.tv_nsec 1\n", 18);
 #endif
 
 /* define if found st_atimespec.tv_nsec */
 #ifdef HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
-	write (fd, "st_atimespec.tv_nsec 1\n",23);
+	ret = write (fd, "st_atimespec.tv_nsec 1\n",23);
 #endif
 
 /* Define to the full name and version of this package. */
@@ -352,7 +358,7 @@ gf_dump_config_flags (int fd)
 	{
 		char msg[128];
 		sprintf (msg, "package-string: %s\n", PACKAGE_STRING); 
-		write (fd, msg, strlen (msg));
+		ret = write (fd, msg, strlen (msg));
 	}
 #endif
 
@@ -366,12 +372,12 @@ void
 gf_print_trace (int32_t signum)
 {
 	extern FILE *gf_log_logfile;
-	int fd = fileno (gf_log_logfile);
-	char msg[1024];
-
+	char msg[1024] = {0,};
+	int  fd = fileno (gf_log_logfile);
+        int  ret = 0;
 
 	/* Pending frames, (if any), list them in order */
-	write (fd, "pending frames:\n", 16);
+	ret = write (fd, "pending frames:\n", 16);
 	{
 		extern glusterfs_ctx_t *gf_global_ctx;
 		glusterfs_ctx_t *ctx = gf_global_ctx;
@@ -394,17 +400,17 @@ gf_print_trace (int32_t signum)
 					 tmp->root->type, 
 					 gf_cbk_list[tmp->root->op]);
 			
-			write (fd, msg, strlen (msg));
+			ret = write (fd, msg, strlen (msg));
 			trav = trav->next;
 		}
-		write (fd, "\n", 1);
+		ret = write (fd, "\n", 1);
 	}
 
 	sprintf (msg, "patchset: %s\n", GLUSTERFS_REPOSITORY_REVISION); 
-	write (fd, msg, strlen (msg));
+	ret = write (fd, msg, strlen (msg));
 
 	sprintf (msg, "signal received: %d\n", signum); 
-	write (fd, msg, strlen (msg));
+	ret = write (fd, msg, strlen (msg));
 
 	gf_dump_config_flags (fd);
 #if HAVE_BACKTRACE
@@ -416,7 +422,7 @@ gf_print_trace (int32_t signum)
 		size = backtrace (array, 200);
 		backtrace_symbols_fd (&array[1], size-1, fd);
 		sprintf (msg, "---------\n");
-		write (fd, msg, strlen (msg));
+		ret = write (fd, msg, strlen (msg));
 	}
 #endif /* HAVE_BACKTRACE */
   

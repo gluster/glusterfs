@@ -35,14 +35,19 @@ get_scheduler (xlator_t *xl, const char *name)
 	volume_opt_list_t *vol_opt   = NULL;
 	char *sched_file             = NULL;
 	void *handle                 = NULL;
-  
+        int   ret                    = 0;
+
 	if (name == NULL) {
 		gf_log ("scheduler", GF_LOG_ERROR, 
 			"'name' not specified, EINVAL");
 		return NULL;
 	}
   
-	asprintf (&sched_file, "%s/%s.so", SCHEDULERDIR, name);
+	ret = asprintf (&sched_file, "%s/%s.so", SCHEDULERDIR, name);
+        if (-1 == ret) {
+                gf_log ("scheduler", GF_LOG_ERROR, "asprintf failed");
+                return NULL;
+        }
 
 	gf_log ("scheduler", GF_LOG_DEBUG,
 		"attempt to load file %s.so", name);

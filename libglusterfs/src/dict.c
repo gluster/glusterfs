@@ -213,9 +213,14 @@ _dict_set (dict_t *this,
 	data_pair_t *pair;
 	char key_free = 0;
 	int tmp = 0;
+        int ret = 0;
 
 	if (!key) {
-		asprintf (&key, "ref:%p", value);
+		ret = asprintf (&key, "ref:%p", value);
+                if (-1 == ret) {
+                        gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                        return -1;
+                }
 		key_free = 1;
 	}
 
@@ -715,6 +720,7 @@ dict_to_iovec (dict_t *this,
 data_t *
 int_to_data (int64_t value)
 {
+        int     ret = 0;
 	data_t *data = get_new_data ();
 
 	if (!data) {
@@ -723,7 +729,11 @@ int_to_data (int64_t value)
 		return NULL;
 	}
 
-	asprintf (&data->data, "%"PRId64, value);
+	ret = asprintf (&data->data, "%"PRId64, value);
+        if (-1 == ret) {
+                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                return NULL;
+        }
 	data->len = strlen (data->data) + 1;
 
 	return data;
@@ -732,6 +742,7 @@ int_to_data (int64_t value)
 data_t *
 data_from_int64 (int64_t value)
 {
+        int     ret = 0;
 	data_t *data = get_new_data ();
 
 	if (!data) {
@@ -739,7 +750,11 @@ data_from_int64 (int64_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	asprintf (&data->data, "%"PRId64, value);
+	ret = asprintf (&data->data, "%"PRId64, value);
+        if (-1 == ret) {
+                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                return NULL;
+        }
 	data->len = strlen (data->data) + 1;
 
 	return data;
@@ -748,6 +763,7 @@ data_from_int64 (int64_t value)
 data_t *
 data_from_int32 (int32_t value)
 {
+        int     ret = 0;
 	data_t *data = get_new_data ();
 
 	if (!data) {
@@ -755,7 +771,12 @@ data_from_int32 (int32_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	asprintf (&data->data, "%"PRId32, value);
+	ret = asprintf (&data->data, "%"PRId32, value);
+        if (-1 == ret) {
+                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                return NULL;
+        }
+
 	data->len = strlen (data->data) + 1;
 
 	return data;
@@ -764,7 +785,7 @@ data_from_int32 (int32_t value)
 data_t *
 data_from_int16 (int16_t value)
 {
-
+        int     ret = 0;
 	data_t *data = get_new_data ();
 
 	if (!data) {
@@ -772,7 +793,12 @@ data_from_int16 (int16_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	asprintf (&data->data, "%"PRId16, value);
+	ret = asprintf (&data->data, "%"PRId16, value);
+        if (-1 == ret) {
+                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                return NULL;
+        }
+
 	data->len = strlen (data->data) + 1;
 
 	return data;
@@ -781,7 +807,7 @@ data_from_int16 (int16_t value)
 data_t *
 data_from_int8 (int8_t value)
 {
-
+        int     ret = 0;
 	data_t *data = get_new_data ();
 
 	if (!data) {
@@ -789,7 +815,12 @@ data_from_int8 (int8_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	asprintf (&data->data, "%d", value);
+	ret = asprintf (&data->data, "%d", value);
+        if (-1 == ret) {
+                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                return NULL;
+        }
+
 	data->len = strlen (data->data) + 1;
 
 	return data;
@@ -798,6 +829,7 @@ data_from_int8 (int8_t value)
 data_t *
 data_from_uint64 (uint64_t value)
 {
+        int     ret = 0;
 	data_t *data = get_new_data ();
 
 	if (!data) {
@@ -805,7 +837,12 @@ data_from_uint64 (uint64_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	asprintf (&data->data, "%"PRIu64, value);
+	ret = asprintf (&data->data, "%"PRIu64, value);
+        if (-1 == ret) {
+                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                return NULL;
+        }
+
 	data->len = strlen (data->data) + 1;
 
 	return data;
@@ -840,6 +877,7 @@ data_from_double (double value)
 data_t *
 data_from_uint32 (uint32_t value)
 {
+        int     ret = 0;
 	data_t *data = get_new_data ();
 
 	if (!data) {
@@ -847,7 +885,12 @@ data_from_uint32 (uint32_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	asprintf (&data->data, "%"PRIu32, value);
+	ret = asprintf (&data->data, "%"PRIu32, value);
+        if (-1 == ret) {
+                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                return NULL;
+        }
+
 	data->len = strlen (data->data) + 1;
 
 	return data;
@@ -857,6 +900,7 @@ data_from_uint32 (uint32_t value)
 data_t *
 data_from_uint16 (uint16_t value)
 {
+        int     ret = 0;
 	data_t *data = get_new_data ();
 
 	if (!data) {
@@ -864,7 +908,12 @@ data_from_uint16 (uint16_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	asprintf (&data->data, "%"PRIu16, value);
+	ret = asprintf (&data->data, "%"PRIu16, value);
+        if (-1 == ret) {
+                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                return NULL;
+        }
+
 	data->len = strlen (data->data) + 1;
 
 	return data;

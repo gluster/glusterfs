@@ -430,7 +430,8 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
 	char         timestr[256];
 
         char        *str1, *str2, *msg;
-        size_t      len = 0;
+        size_t       len = 0;
+        int          ret = 0;
 
 	static char *level_strings[] = {"",  /* NONE */
 					"C", /* CRITICAL */
@@ -488,12 +489,18 @@ log:
 		else
 			basename = file;
 
-                asprintf (&str1, "[%s] %s [%s:%d:%s] %s: ",
-                          timestr, level_strings[level],
-                          basename, line, function,
-                          domain);
+                ret = asprintf (&str1, "[%s] %s [%s:%d:%s] %s: ",
+                                timestr, level_strings[level],
+                                basename, line, function,
+                                domain);
+                if (-1 == ret) {
+                        goto out;
+                }
 
-                vasprintf (&str2, fmt, ap);
+                ret = vasprintf (&str2, fmt, ap);
+                if (-1 == ret) {
+                        goto out;
+                }
 
 		va_end (ap);
 
@@ -540,11 +547,15 @@ struct _client_log *client_logs = NULL;
 static void
 client_log_init (struct _client_log *cl, char *identifier)
 {
+        int   ret = 0;
         char *path = NULL;
 
         cl->identifier = identifier;
 
-        asprintf (&path, "%s.client-%s", filename, identifier);
+        ret = asprintf (&path, "%s.client-%s", filename, identifier);
+        if (-1 == ret) {
+                return;
+        }
         cl->file = fopen (path, "a");
         FREE (path);
         

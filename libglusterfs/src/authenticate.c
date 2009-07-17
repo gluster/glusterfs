@@ -42,7 +42,8 @@ init (dict_t *this,
 	auth_handle_t *auth_handle = NULL;
 	auth_fn_t authenticate = NULL;
 	int *error = NULL;
-	
+        int  ret = 0;
+
 	/* It gets over written */
 	error = data;
 
@@ -57,7 +58,14 @@ init (dict_t *this,
 		key = "addr";
 	}
 
-	asprintf (&auth_file, "%s/%s.so", LIBDIR, key);
+	ret = asprintf (&auth_file, "%s/%s.so", LIBDIR, key);
+        if (-1 == ret) {
+                gf_log ("authenticate", GF_LOG_ERROR, "asprintf failed");
+                dict_set (this, key, data_from_dynptr (NULL, 0));
+                *error = -1;
+                return;
+        }
+
 	handle = dlopen (auth_file, RTLD_LAZY);
 	if (!handle) {
 		gf_log ("authenticate", GF_LOG_ERROR, "dlopen(%s): %s\n", 
