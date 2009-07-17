@@ -2420,8 +2420,8 @@ init (xlator_t *this)
 			lock_server_count);
 
 		if (lock_server_count == 0) 
-			gf_log (this->name, GF_LOG_WARNING,
-				no_lock_servers_warning_str);
+			gf_log (this->name, GF_LOG_WARNING, "%s",
+                                no_lock_servers_warning_str);
 
 		priv->data_lock_server_count = lock_server_count;
 	}
@@ -2505,8 +2505,14 @@ init (xlator_t *this)
 	while (i < child_count) {
 		priv->children[i] = trav->xlator;
 
-                asprintf (&priv->pending_key[i], "%s.%s", AFR_XATTR_PREFIX,
-                          trav->xlator->name);
+                ret = asprintf (&priv->pending_key[i], "%s.%s", AFR_XATTR_PREFIX,
+                                trav->xlator->name);
+                if (-1 == ret) {
+                        gf_log (this->name, GF_LOG_ERROR, 
+                                "asprintf failed to set pending key");
+                        op_errno = ENOMEM;
+                        goto out;
+                }
 
 		trav = trav->next;
 		i++;

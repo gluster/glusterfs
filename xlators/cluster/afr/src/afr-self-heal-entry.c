@@ -351,9 +351,15 @@ build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 	}
 
 	if (strcmp (parent->path, "/") == 0)
-		asprintf ((char **)&child->path, "/%s", name);
+		ret = asprintf ((char **)&child->path, "/%s", name);
 	else
-		asprintf ((char **)&child->path, "%s/%s", parent->path, name);
+		ret = asprintf ((char **)&child->path, "%s/%s", parent->path, 
+                                name);
+
+        if (-1 == ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "asprintf failed while setting child path");
+        }
 
 	if (!child->path) {
 		gf_log (this->name, GF_LOG_ERROR,
