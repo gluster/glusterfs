@@ -65,6 +65,7 @@ struct posix_private {
 	char   *base_path;
 	int32_t base_path_length;
 
+        char   hostname[256];
         /* Statistics, provides activity of the server */
 	struct xlator_stats stats; 
   
