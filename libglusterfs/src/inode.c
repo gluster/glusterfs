@@ -968,8 +968,8 @@ inode_table_t *
 inode_table_new (size_t lru_limit, xlator_t *xl)
 {
         inode_table_t *new = NULL;
+        int            ret = 0;
         int            i = 0;
-
 
         new = (void *)calloc (1, sizeof (*new));
         if (!new)
@@ -1009,7 +1009,11 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
         INIT_LIST_HEAD (&new->lru);
         INIT_LIST_HEAD (&new->purge);
 
-        asprintf (&new->name, "%s/inode", xl->name);
+        ret = asprintf (&new->name, "%s/inode", xl->name);
+        if (-1 == ret) {
+                /* TODO: This should be ok to continue, check with avati */
+                ;
+        }
 
 	__inode_table_init_root (new);
 

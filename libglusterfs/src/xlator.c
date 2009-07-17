@@ -679,6 +679,7 @@ int32_t
 xlator_set_type (xlator_t *xl,
 		 const char *type)
 {
+        int   ret = 0;
 	char *name = NULL;
 	void *handle = NULL;
 	volume_opt_list_t *vol_opt = NULL;
@@ -690,7 +691,11 @@ xlator_set_type (xlator_t *xl,
 
 	xl->type = strdup (type);
 
-	asprintf (&name, "%s/%s.so", XLATORDIR, type);
+	ret = asprintf (&name, "%s/%s.so", XLATORDIR, type);
+        if (-1 == ret) {
+                gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
+                return -1;
+        }
 
 	gf_log ("xlator", GF_LOG_TRACE, "attempt to load file %s", name);
 

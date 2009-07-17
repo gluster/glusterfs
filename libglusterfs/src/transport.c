@@ -136,7 +136,11 @@ transport_load (dict_t *options,
 		goto fail;
 	}
 
-	asprintf (&name, "%s/%s.so", TRANSPORTDIR, type);
+	ret = asprintf (&name, "%s/%s.so", TRANSPORTDIR, type);
+        if (-1 == ret) {
+                gf_log ("transport", GF_LOG_ERROR, "asprintf failed");
+                goto fail;
+        }
 	gf_log ("transport", GF_LOG_DEBUG,
 		"attempt to load file %s", name);
 
