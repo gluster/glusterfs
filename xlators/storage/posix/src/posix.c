@@ -2195,6 +2195,7 @@ int32_t
 posix_getxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, const char *name)
 {
+        struct posix_private *priv  = NULL;
         int32_t  op_ret         = -1;
         int32_t  op_errno       = ENOENT;
         int32_t  list_offset    = 0;
@@ -2217,6 +2218,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
+        priv = this->private;
+
         if (loc->inode && S_ISDIR(loc->inode->st_mode) && name &&
 	    ZR_FILE_CONTENT_REQUEST(name)) {
                 ret = get_file_contents (this, real_path, name,
@@ -2236,6 +2239,20 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_ERROR, "Out of memory.");
                 goto out;
         }
+
+	if (loc->inode && S_ISREG (loc->inode->st_mode) && name &&
+	    (strcmp (name, "trusted.glusterfs.location") == 0)) {
+                ret = dict_set_static_ptr (dict, 
+                                           "trusted.glusterfs.location", 
+                                           priv->hostname);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "could not set hostname (%s) in dictionary",
+                                priv->hostname);
+                }
+                goto done;
+	}
+        
 
         size = sys_llistxattr (real_path, NULL, 0);
         if (size == -1) {
@@ -3900,6 +3917,12 @@ init (xlator_t *this)
 
         _private->base_path = strdup (dir_data->data);
         _private->base_path_length = strlen (_private->base_path);
+
+        ret = gethostname (_private->hostname, 256);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, 
+                        "could not find hostname (%s)", strerror (errno));
+        }
 
         {
                 /* Stats related variables */
