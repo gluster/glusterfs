@@ -859,6 +859,13 @@ inode_path (inode_t *inode,
                      trav = __dentry_search_arbit (trav->parent)) {
                         i ++; /* "/" */
                         i += strlen (trav->name);
+                        if (i >= PATH_MAX) {
+                                gf_log ("inode", GF_LOG_CRITICAL, 
+                                        "possible infinite loop detected, "
+                                        "forcing break. name=(%s)", name);
+                                ret = -ENOENT;
+                                goto unlock;
+                        }
                 }
 		
 		if ((inode->ino != 1) &&
