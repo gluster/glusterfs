@@ -280,6 +280,8 @@ struct vmp_entry {
 #define LIBGF_VALIDATE_LOOKUP  0x1
 #define LIBGF_VALIDATE_STAT     0x2
 
+#define LIBGF_INVALIDATE_LOOKUP  0x1
+#define LIBGF_INVALIDATE_STAT     0x2
 int
 libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
                             struct stat *sbuf, int flags);
