@@ -951,10 +951,11 @@ gf_get_process_mode (char *exec_name)
 	return ret;
 }
 
-void 
+int 
 set_log_file_path (cmd_args_t *cmd_args)
 {
         int   i = 0;
+        int   ret = 0;
         int   port = 0;
         char *tmp_ptr = NULL;
         char  tmp_str[1024] = {0,};
@@ -965,10 +966,13 @@ set_log_file_path (cmd_args_t *cmd_args)
                         if (cmd_args->mount_point[i] == '/')
                                 tmp_str[i-1] = '-';
                 }
-                asprintf (&cmd_args->log_file, 
-                          DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
-                          tmp_str);
-
+                ret = asprintf (&cmd_args->log_file, 
+                                DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
+                                tmp_str);
+                if (-1 == ret) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "asprintf failed while setting up log-file");
+                }
                 goto done;
         } 
 
@@ -978,10 +982,13 @@ set_log_file_path (cmd_args_t *cmd_args)
                         if (cmd_args->volume_file[i] == '/')
                                 tmp_str[i] = '-';
                 }
-                asprintf (&cmd_args->log_file, 
-                          DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
-                          tmp_str);
-                
+                ret = asprintf (&cmd_args->log_file, 
+                                DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
+                                tmp_str);
+                if (-1 == ret) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR, 
+                                "asprintf failed while setting up log-file");
+                }
                 goto done;
         }
         
@@ -994,13 +1001,16 @@ set_log_file_path (cmd_args_t *cmd_args)
                 if (cmd_args->volfile_id)
                         tmp_ptr = cmd_args->volfile_id;
 
-                asprintf (&cmd_args->log_file, 
-                          DEFAULT_LOG_FILE_DIRECTORY "/%s-%s-%d.log",
-                          cmd_args->volfile_server, tmp_ptr, port);
+                ret = asprintf (&cmd_args->log_file, 
+                                DEFAULT_LOG_FILE_DIRECTORY "/%s-%s-%d.log",
+                                cmd_args->volfile_server, tmp_ptr, port);
+                if (-1 == ret) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR, 
+                                "asprintf failed while setting up log-file");
+                }
         }
-
  done:
-        return;
+        return ret;
 }
 
 int 
@@ -1056,11 +1066,17 @@ main (int argc, char *argv[])
 			cmd_args->volume_file = strdup (DEFAULT_CLIENT_VOLUME_FILE);
 	}
 
-	if (cmd_args->log_file == NULL)
-                set_log_file_path (cmd_args);
+	if (cmd_args->log_file == NULL) {
+                ret = set_log_file_path (cmd_args);
+                if (-1 == ret) {
+                        fprintf (stderr, "failed to set the log file path.. "
+                                 "exiting\n");
+                        return -1;
+                }
+        }
 
-        ctx->page_size  = 128 * 1024;
-        ctx->iobuf_pool = iobuf_pool_new (8 * 1048576, ctx->page_size + 4096);
+        ctx->page_size  = 128 * GF_UNIT_KB;
+        ctx->iobuf_pool = iobuf_pool_new (8 * GF_UNIT_MB, ctx->page_size + 4096);
 	ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
 	pthread_mutex_init (&(ctx->lock), NULL);
 	pool = ctx->pool = CALLOC (1, sizeof (call_pool_t));
@@ -1114,10 +1130,13 @@ main (int argc, char *argv[])
 			
 			/* Create symlink to actual log file */
 			unlink (cmd_args->log_file);
-			symlink (tmp_logfile, cmd_args->log_file);
-			
-			FREE (cmd_args->log_file);
-			cmd_args->log_file = strdup (tmp_logfile);
+			ret = symlink (tmp_logfile, cmd_args->log_file);
+                        if (-1 == ret) {
+                                fprintf (stderr, "symlink of logfile failed");
+                        } else {
+                                FREE (cmd_args->log_file);
+                                cmd_args->log_file = strdup (tmp_logfile);
+                        }
 		}
 	}
 	
