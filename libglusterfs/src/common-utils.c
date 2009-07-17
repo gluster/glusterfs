@@ -269,7 +269,7 @@ static void
 gf_dump_config_flags (int fd)
 {
 
-	write (fd, "configuration details:\n", 22);
+	write (fd, "configuration details:\n", 23);
 
 /* have argp */
 #ifdef HAVE_ARGP
@@ -364,10 +364,15 @@ gf_dump_config_flags (int fd)
 void
 gf_print_trace (int32_t signum)
 {
-	extern FILE *gf_log_logfile;
-	int fd = fileno (gf_log_logfile);
-	char msg[1024];
+	extern FILE *gf_log_logfile; /* don't reset/initialize it, its 
+                                        an extern */
+	int          fd = 0;
+	char         msg[1024] = {0,};
+	time_t       utime = 0;
+	struct tm   *tm = NULL;
+	char         timestr[256] = {0,};
 
+        fd = fileno (gf_log_logfile);
 
 	/* Pending frames, (if any), list them in order */
 	write (fd, "pending frames:\n", 16);
@@ -404,6 +409,16 @@ gf_print_trace (int32_t signum)
 
 	sprintf (msg, "signal received: %d\n", signum); 
 	write (fd, msg, strlen (msg));
+
+        {
+                /* Dump the timestamp of the crash too, so the previous logs 
+                   can be related */
+                utime = time (NULL);
+                tm    = localtime (&utime);
+                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S\n", tm); 
+                write (fd, "time of crash: ", 15);
+                write (fd, timestr, strlen (timestr));
+        }
 
 	gf_dump_config_flags (fd);
 #if HAVE_BACKTRACE
