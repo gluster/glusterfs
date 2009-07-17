@@ -148,50 +148,34 @@ out:
 int32_t
 afr_readdir_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno,
-		 gf_dirent_t *buf)
+		 gf_dirent_t *entries)
 {
-	afr_private_t * priv     = NULL;
-	afr_local_t *   local    = NULL;
-	xlator_t **     children = NULL;
+        afr_private_t * priv     = NULL;
+        afr_local_t *   local    = NULL;
+        xlator_t **     children = NULL;
 
-	int unwind     = 1;
-	int last_tried = -1;
-	int this_try = -1;
+        gf_dirent_t * entry = NULL;
+
         int child_index = -1;
 
-	priv     = this->private;
-	children = priv->children;
+        priv     = this->private;
+        children = priv->children;
 
-	local = frame->local;
+        local = frame->local;
 
         child_index = (long) cookie;
 
-	if (op_ret == -1) {
-		last_tried = local->cont.readdir.last_tried;
+        if (op_ret != -1) {
+                list_for_each_entry (entry, &entries->list, list) {
+                        entry->d_ino = afr_itransform (entry->d_ino,
+                                                       priv->child_count,
+                                                       child_index);
+                }
+        }
 
-		if (all_tried (last_tried, priv->child_count)) {
-			goto out;
-		}
+        AFR_STACK_UNWIND (frame, op_ret, op_errno, entries);
 
-		this_try = ++local->cont.readdir.last_tried;
-		unwind = 0;
-
-		STACK_WIND (frame, afr_readdir_cbk,
-			    children[this_try],
-			    children[this_try]->fops->readdir,
-			    local->fd, local->cont.readdir.size,
-			    local->cont.readdir.offset);
-	}
-
-out:
-	if (unwind) {
-                buf->d_ino = afr_itransform (buf->d_ino, priv->child_count,
-                                             child_index);
-                
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
-	}
-
-	return 0;
+        return 0;
 }
 
 
