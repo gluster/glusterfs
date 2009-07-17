@@ -39,6 +39,7 @@
 auth_result_t 
 gf_auth (dict_t *input_params, dict_t *config_params)
 {
+  int   ret = 0;
   char *name = NULL;
   char *searchstr = NULL;
   char peer_addr[UNIX_PATH_MAX];
@@ -55,19 +56,34 @@ gf_auth (dict_t *input_params, dict_t *config_params)
     return AUTH_DONT_CARE;
   }
   
-  asprintf (&searchstr, "auth.addr.%s.allow", name);
+  ret = asprintf (&searchstr, "auth.addr.%s.allow", name);
+  if (-1 == ret) {
+          gf_log ("auth/addr", GF_LOG_ERROR,
+                  "asprintf failed while setting search string");
+          return AUTH_DONT_CARE;
+  }
   allow_addr = dict_get (config_params,
 			 searchstr);
   free (searchstr);
 
-  asprintf (&searchstr, "auth.addr.%s.reject", name);
+  ret = asprintf (&searchstr, "auth.addr.%s.reject", name);
+  if (-1 == ret) {
+          gf_log ("auth/addr", GF_LOG_ERROR,
+                  "asprintf failed while setting search string");
+          return AUTH_DONT_CARE;
+  }
   reject_addr = dict_get (config_params,
 			  searchstr);
   free (searchstr);
 
   if (!allow_addr) {
 	  /* TODO: backword compatibility */
-	  asprintf (&searchstr, "auth.ip.%s.allow", name);
+	  ret = asprintf (&searchstr, "auth.ip.%s.allow", name);
+          if (-1 == ret) {
+                  gf_log ("auth/addr", GF_LOG_ERROR,
+                          "asprintf failed while setting search string");
+                  return AUTH_DONT_CARE;
+          }
 	  allow_addr = dict_get (config_params, searchstr);
 	  free (searchstr);
   }
