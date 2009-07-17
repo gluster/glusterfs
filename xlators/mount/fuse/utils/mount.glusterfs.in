@@ -18,7 +18,7 @@
 
 
 
-function _init ()
+_init ()
 {
     # log level definitions
     LOG_NONE=NONE;
@@ -33,7 +33,7 @@ function _init ()
     log_level=$LOG_NORMAL;
 }
 
-function start_glusterfs ()
+start_glusterfs ()
 {
     prefix="@prefix@";
     exec_prefix=@exec_prefix@;
@@ -110,7 +110,7 @@ function start_glusterfs ()
 }
 
 
-function main ()
+main ()
 {
     options=$(echo "$@" | sed -n 's/.*\-o[ ]*\([^ ]*\).*/\1/p');
     new_log_level=$(echo "$options" | sed -n 's/.*log-level=\([^,]*\).*/\1/p');
