@@ -27,6 +27,7 @@
 
 auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
 {
+  int ret = 0;
   char *username = NULL, *password = NULL;
   data_t *allow_user = NULL, *username_data = NULL, *password_data = NULL;
   int32_t result = AUTH_DONT_CARE;
@@ -52,7 +53,13 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
     return AUTH_REJECT;
   }
 
-  asprintf (&searchstr, "auth.login.%s.allow", brick_name);
+  ret = asprintf (&searchstr, "auth.login.%s.allow", brick_name);
+  if (-1 == ret) {
+          gf_log ("auth/login", GF_LOG_ERROR,
+                  "asprintf failed while setting search string");
+          return AUTH_DONT_CARE;
+  }
+
   allow_user = dict_get (config_params,
 			 searchstr);
   free (searchstr);
@@ -69,7 +76,12 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
       if (!fnmatch (username_str,
 		    username,
 		    0)) {
-	asprintf (&searchstr, "auth.login.%s.password", username);
+        ret = asprintf (&searchstr, "auth.login.%s.password", username);
+        if (-1 == ret) {
+          gf_log ("auth/login", GF_LOG_ERROR,
+                  "asprintf failed while setting search string");
+          return AUTH_DONT_CARE;
+        }
 	passwd_data = dict_get (config_params, searchstr);
         FREE (searchstr);
 
