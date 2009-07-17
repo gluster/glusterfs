@@ -48,8 +48,14 @@ str_to_ptr (char *string)
 char *
 ptr_to_str (void *ptr)
 {
+        int   ret = 0;
 	char *str = NULL;
-	asprintf (&str, "%p", ptr);
+	ret = asprintf (&str, "%p", ptr);
+        if (-1 == ret) {
+                gf_log ("ioc", GF_LOG_ERROR, 
+                        "asprintf failed while converting ptr to str");
+                return NULL;
+        }
 	return str;
 }
 
