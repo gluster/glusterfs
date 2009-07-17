@@ -3274,11 +3274,18 @@ client_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
 			uint32_t mtime_nsec = ST_MTIM_NSEC(stbuf);
 			uint32_t ctime_nsec = ST_CTIM_NSEC(stbuf);
 
-			asprintf (&tmp_buf, GF_STAT_PRINT_FMT_STR,
-				  dev, ino, mode, nlink, uid, gid,
-				  rdev, size, blksize, blocks,
-				  atime, atime_nsec, mtime, mtime_nsec,
-				  ctime, ctime_nsec);
+			ret = asprintf (&tmp_buf, GF_STAT_PRINT_FMT_STR,
+                                        dev, ino, mode, nlink, uid, gid,
+                                        rdev, size, blksize, blocks,
+                                        atime, atime_nsec, mtime, mtime_nsec,
+                                        ctime, ctime_nsec);
+                        if (-1 == ret) {
+                                gf_log (this->name, GF_LOG_ERROR, 
+                                        "asprintf failed while setting stat "
+                                        "buf to string");
+                                STACK_UNWIND (frame, -1, ENOMEM);
+                                return 0;
+                        }
 		}
 		this_len = sprintf (ptr, "%s/%s%s\n",
 				    trav->name, tmp_buf, trav->link);
@@ -5968,8 +5975,13 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
 			GF_PROTOCOL_VERSION);
 	}
 
-	asprintf (&process_uuid_xl, "%s-%s", this->ctx->process_uuid,
-		  this->name);
+	ret = asprintf (&process_uuid_xl, "%s-%s", this->ctx->process_uuid,
+                        this->name);
+        if (-1 == ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "asprintf failed while setting process_uuid");
+                goto fail;
+        }
 	ret = dict_set_dynstr (options, "process-uuid",
 			       process_uuid_xl);
 	if (ret < 0) {
