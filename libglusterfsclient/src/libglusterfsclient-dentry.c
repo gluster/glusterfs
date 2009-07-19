@@ -343,21 +343,6 @@ libgf_client_path_lookup (loc_t *loc,
         inode_t    *inode = NULL;
         inode_t    *parent = NULL;
         int32_t     op_ret = 0;
-	loc_t       new_loc = {0, };
-
-	/* workaround for xlators like dht which require lookup to be sent 
-	   on / */
-
-	libgf_client_loc_fill (&new_loc, ctx, 1, 0, "/");
-
-	op_ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL, NULL);
-	if (op_ret == -1) {
-		gf_log ("libglusterfsclient-dentry",
-			GF_LOG_ERROR,
-			"lookup of / failed");
-		goto out;
-	}
-	libgf_client_loc_wipe (&new_loc);
 
         pathname  = strdup (loc->path);
         directory = dirname (pathname);

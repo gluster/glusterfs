@@ -961,6 +961,7 @@ glusterfs_init (glusterfs_init_params_t *init_ctx)
         int32_t ret = 0;
         struct rlimit lim;
 	uint32_t xl_count = 0;
+        loc_t       new_loc = {0, };
 
         if (!init_ctx || (!init_ctx->specfile && !init_ctx->specfp)) {
                 errno = EINVAL;
@@ -1260,6 +1261,17 @@ glusterfs_init (glusterfs_init_params_t *init_ctx)
                 }
         }
         pthread_mutex_unlock (&priv->lock);
+
+        /* workaround for xlators like dht which require lookup to be sent
+         * on / */
+        libgf_client_loc_fill (&new_loc, ctx, 1, 0, "/");
+        ret = libgf_client_lookup (ctx, &new_loc, NULL, NULL, NULL);
+        if (ret == -1) {
+                gf_log ("libglusterfsclient", GF_LOG_ERROR, "lookup of /"
+                        " failed");
+                return NULL;
+        }
+        libgf_client_loc_wipe (&new_loc);
 
 	first_init = 0;
  
