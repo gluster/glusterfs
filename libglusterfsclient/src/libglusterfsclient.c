@@ -50,6 +50,7 @@
 #include <list.h>
 #include <stdarg.h>
 #include <sys/statvfs.h>
+#include "hashfn.h"
 
 #define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
@@ -456,6 +457,17 @@ libgf_alloc_inode_ctx (libglusterfs_client_ctx_t *ctx, inode_t *inode)
 
 out:
         return ictx;
+}
+
+int
+libgf_transform_devnum (libglusterfs_client_ctx_t *libctx, struct stat *buf)
+{
+
+        if ((!libctx) || (!buf))
+                return -1;
+
+        buf->st_dev = libctx->fake_fsid;
+        return 0;
 }
 
 int
@@ -951,7 +963,7 @@ libgf_client_init (xlator_t *this)
 }
 
 glusterfs_handle_t 
-glusterfs_init (glusterfs_init_params_t *init_ctx)
+glusterfs_init (glusterfs_init_params_t *init_ctx, uint32_t fakefsid)
 {
         libglusterfs_client_ctx_t *ctx = NULL;
         libglusterfs_client_private_t *priv = NULL;
@@ -980,7 +992,7 @@ glusterfs_init (glusterfs_init_params_t *init_ctx)
 
         ctx->lookup_timeout = init_ctx->lookup_timeout;
         ctx->stat_timeout = init_ctx->stat_timeout;
-
+        ctx->fake_fsid = fakefsid;
         pthread_mutex_init (&ctx->gf_ctx.lock, NULL);
   
         pool = ctx->gf_ctx.pool = CALLOC (1, sizeof (call_pool_t));
@@ -1443,6 +1455,7 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
         int                     ret = -1;
         char                    *vmp_resolved = NULL;
         struct vmp_entry        *vmp_entry = NULL;
+        uint32_t                vmphash = 0;
         
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, vmp, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ipars, out);
@@ -1451,6 +1464,7 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
         if (!vmp_resolved)
                 goto out;
 
+        vmphash = (dev_t)ReallySimpleHash (vmp, strlen (vmp));
         pthread_mutex_lock (&mountlock);
         {
                 vmp_entry = _libgf_vmp_search_entry (vmp);
@@ -1459,7 +1473,7 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
                         goto unlock;
                 }
 
-                vmphandle = glusterfs_init (ipars);
+                vmphandle = glusterfs_init (ipars, vmphash);
                 if (!vmphandle) {
                         errno = EINVAL;
                         goto unlock;
@@ -1648,6 +1662,7 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 		}
 
 		parent = local->fop.lookup.loc->parent;
+                libgf_transform_devnum (ctx, buf);
                 inode_link (inode, parent, local->fop.lookup.loc->name, buf);
 		inode_lookup (inode);
         } else {
@@ -1743,6 +1758,7 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
         inode = stub->args.lookup_cbk.inode;
         if (!(libgf_get_inode_ctx (inode)))
                 libgf_alloc_inode_ctx (ctx, inode);
+        libgf_transform_devnum (ctx, &stub->args.lookup_cbk.buf);
         libgf_update_iattr_cache (inode, LIBGF_UPDATE_ALL,
                                         &stub->args.lookup_cbk.buf);
         if (stbuf)
@@ -1891,12 +1907,12 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
 
         if (op_ret == 0) {
                 parent = local->fop.lookup_cbk.loc->parent;
+                libgf_transform_devnum (ctx, stbuf);
                 inode_link (inode, parent, local->fop.lookup_cbk.loc->name,
                             stbuf);
                 
                 if (!(libgf_get_inode_ctx (inode)))
                         libgf_alloc_inode_ctx (ctx, inode);
-
                 libgf_update_iattr_cache (inode, LIBGF_UPDATE_ALL, stbuf);
                 inode_lookup (inode);
         } else {
@@ -2415,6 +2431,7 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
                 goto out;
 
 	libgf_inode = stub->args.create_cbk.inode;
+        libgf_transform_devnum (ctx, &stub->args.create_cbk.buf);
         inode_link (libgf_inode, loc->parent, loc->name,
                         &stub->args.create_cbk.buf);
 
@@ -3157,7 +3174,6 @@ libgf_client_readv_cbk (call_frame_t *frame,
 
         local->reply_stub = fop_readv_cbk_stub (frame, NULL, op_ret, op_errno,
                                                 vector, count, stbuf, iobref);
-        libgf_update_iattr_cache (local->fd->inode, LIBGF_UPDATE_STAT, stbuf);
         LIBGF_REPLY_NOTIFY (local);
         return 0;
 }
@@ -3174,6 +3190,7 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
         int32_t op_ret = -1;
         int count = 0;
         libgf_client_local_t *local = NULL;
+        struct stat     *stbuf = NULL;
 
         local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
@@ -3195,6 +3212,10 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
                         size -= len;
                         op_ret += len;
                 }
+                stbuf = &stub->args.readv_cbk.stbuf;
+                libgf_transform_devnum (ctx, stbuf);
+                libgf_update_iattr_cache (local->fd->inode, LIBGF_UPDATE_STAT,
+                                          stbuf);
         }
 
 	call_stub_destroy (stub);
@@ -3269,6 +3290,7 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx,
         libgf_client_local_t *local = NULL;
         size_t size = 0;
         int32_t i = 0;
+        struct stat     *stbuf = NULL;
 
         for (i = 0; i < dst_count; i++)
         {
@@ -3316,6 +3338,11 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx,
                                 dst++;
                         }
                 }
+
+                stbuf = &stub->args.readv_cbk.stbuf;
+                libgf_transform_devnum (ctx, stbuf);
+                libgf_update_iattr_cache (local->fd->inode, LIBGF_UPDATE_STAT,
+                                          stbuf);
         }
  
 	call_stub_destroy (stub);
@@ -4176,6 +4203,7 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
  
         op_ret = stub->args.stat_cbk.op_ret;
         errno = stub->args.stat_cbk.op_errno;
+        libgf_transform_devnum (ctx, &stub->args.stat_cbk.buf);
         if (stbuf)
                 *stbuf = stub->args.stat_cbk.buf;
 
@@ -4401,6 +4429,7 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
  
         op_ret = stub->args.fstat_cbk.op_ret;
         errno = stub->args.fstat_cbk.op_errno;
+        libgf_transform_devnum (ctx, &stub->args.fstat_cbk.buf);
         if (buf)
                 *buf = stub->args.fstat_cbk.buf;
 
@@ -4473,6 +4502,7 @@ libgf_client_mkdir (libglusterfs_client_ctx_t *ctx,
                 goto out;
 
 	libgf_inode = stub->args.mkdir_cbk.inode;
+        libgf_transform_devnum (ctx, &stub->args.mkdir_cbk.buf);
         inode_link (libgf_inode, loc->parent, loc->name,
                         &stub->args.mkdir_cbk.buf);
 
@@ -4704,6 +4734,7 @@ libgf_client_chmod (libglusterfs_client_ctx_t *ctx, loc_t * loc, mode_t mode)
         if (op_ret == -1)
                 goto out;
 
+        libgf_transform_devnum (ctx, &stub->args.chmod_cbk.buf);
         libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
                                         &stub->args.chmod_cbk.buf);
 out:
@@ -4799,6 +4830,7 @@ libgf_client_chown (libglusterfs_client_ctx_t *ctx, loc_t *loc, uid_t uid,
         if (op_ret == -1)
                 goto out;
 
+        libgf_transform_devnum (ctx, &stub->args.chown_cbk.buf);
         libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
                                         &stub->args.chown_cbk.buf);
 out:
@@ -5059,6 +5091,7 @@ libgf_client_fchmod (libglusterfs_client_ctx_t *ctx, fd_t *fd, mode_t mode)
         if (op_ret == -1)
                 goto out;
 
+        libgf_transform_devnum (ctx, &stub->args.fchmod_cbk.buf);
         libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
                                         &stub->args.fchmod_cbk.buf);
 out:
@@ -5116,6 +5149,7 @@ libgf_client_fchown (libglusterfs_client_ctx_t *ctx, fd_t *fd, uid_t uid,
         if (op_ret == -1)
                 goto out;
 
+        libgf_transform_devnum (ctx, &stub->args.fchown_cbk.buf);
         libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
                                         &stub->args.fchown_cbk.buf);
 out:
@@ -5230,6 +5264,8 @@ libgf_client_ftruncate (libglusterfs_client_ctx_t *ctx, fd_t *fd,
 
         if (op_ret == -1)
                 goto out;
+
+        libgf_transform_devnum (ctx, &stub->args.ftruncate_cbk.buf);
         libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
                                         &stub->args.ftruncate_cbk.buf);
 
@@ -5305,6 +5341,7 @@ libgf_client_link (libglusterfs_client_ctx_t *ctx, loc_t *old, loc_t *new)
 
         inode = stub->args.link_cbk.inode;
         sbuf = &stub->args.link_cbk.buf;
+        libgf_transform_devnum (ctx, sbuf);
         inode_link (inode, new->parent, basename ((char *)new->path), sbuf);
         inode_lookup (inode);
         libgf_update_iattr_cache (inode, LIBGF_UPDATE_STAT, sbuf);
@@ -5590,6 +5627,12 @@ glusterfs_glh_statvfs (glusterfs_handle_t handle, const char *path,
 	}
 
         op_ret = libgf_client_statvfs (ctx, &loc, buf);
+        if (op_ret != -1)
+                /* Should've been a call to libgf_transform_devnum but
+                 * that only handles struct stat
+                 */
+                buf->f_fsid = (unsigned long)ctx->fake_fsid;
+
 out:
         if (name)
                 FREE (name);
@@ -5654,6 +5697,7 @@ libgf_client_rename (libglusterfs_client_ctx_t *ctx, loc_t *oldloc,
         if (!libgf_get_inode_ctx (newloc->inode))
                 libgf_alloc_inode_ctx (ctx, newloc->inode);
 
+        libgf_transform_devnum (ctx, &stub->args.rename_cbk.buf);
         libgf_update_iattr_cache (newloc->inode, LIBGF_UPDATE_STAT,
                                         &stub->args.rename_cbk.buf);
 
@@ -5803,6 +5847,7 @@ libgf_client_utimens (libglusterfs_client_ctx_t *ctx, loc_t *loc,
         if (op_ret == -1)
                 goto out;
 
+        libgf_transform_devnum (ctx, stbuf);
         libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT, stbuf);
 
 out:
@@ -5985,6 +6030,7 @@ libgf_client_mknod (libglusterfs_client_ctx_t *ctx, loc_t *loc, mode_t mode,
                 goto out;
 
         inode = stub->args.mknod_cbk.inode;
+        libgf_transform_devnum (ctx, &stub->args.mknod_cbk.buf);
         inode_link (inode, loc->parent, loc->name, &stub->args.mknod_cbk.buf);
         inode_lookup (inode);
 
@@ -6279,6 +6325,7 @@ libgf_client_symlink (libglusterfs_client_ctx_t *ctx, const char *linkpath,
                 goto out;
 
         inode = stub->args.symlink_cbk.inode;
+        libgf_transform_devnum (ctx, &stub->args.symlink_cbk.buf);
         inode_link (inode, loc->parent, loc->name,
                         &stub->args.symlink_cbk.buf);
         inode_lookup (inode);

@@ -133,13 +133,15 @@ typedef void * glusterfs_dir_t;
 /* Function Call Interface */
 /* libglusterfsclient initialization function.
  * @ctx : the structure described above filled with required values.
+ * @fakefsid: User generated fsid to be used to identify this
+ * volume.
  *
  * Returns NULL on failure and the non-NULL pointer on success.
  * On failure, the error description might be present in the logfile
  * depending on the log level.
  */
 glusterfs_handle_t
-glusterfs_init (glusterfs_init_params_t *ctx);
+glusterfs_init (glusterfs_init_params_t *ctx, u_int32_t fakefsid);
 
 
 
