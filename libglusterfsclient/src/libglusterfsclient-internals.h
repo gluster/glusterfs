@@ -44,6 +44,10 @@ typedef struct libglusterfs_client_ctx {
         uint32_t counter;
         time_t lookup_timeout;
         time_t stat_timeout;
+        /* We generate a fake fsid for the subvolume being
+         * accessed through this context.
+         */
+        dev_t fake_fsid;
 }libglusterfs_client_ctx_t;
 
 typedef struct signal_handler {
