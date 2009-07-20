@@ -32,4 +32,6 @@ uint32_t SuperFastHash (const char * data, int32_t len);
 
 uint32_t gf_dm_hashfn (const char *msg, int len);
 
+uint32_t
+ReallySimpleHash (char *path, int len);
 #endif /* __HASHFN_H__ */

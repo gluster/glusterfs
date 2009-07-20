@@ -33,6 +33,17 @@
 #define DM_FULLROUNDS 10        /* 32 is overkill, 16 is strong crypto */
 #define DM_PARTROUNDS 6	        /* 6 gets complete mixing */
 
+
+uint32_t
+ReallySimpleHash (char *path, int len)
+{
+        uint32_t        hash = 0;
+        for (;len > 0; len--)
+                hash ^= (char)path[len];
+
+        return hash;
+}
+
 /*
   This is apparently the "fastest hash function for strings".
   Written by Paul Hsieh <http://www.azillionmonkeys.com/qed/hash.html>
