@@ -188,7 +188,7 @@ AC_ARG_ENABLE([libglusterfsclient],
 	      AC_HELP_STRING([--disable-libglusterfsclient],
 			     [Do not build libglusterfsclient]))
 
-BUILD_LIBGLUSTERFSCLIENT="no"
+BUILD_LIBGLUSTERFSCLIENT="yes"
 
 if test "x$enable_libglusterfsclient" != "xno"; then
    LIBGLUSTERFSCLIENT_SUBDIR="libglusterfsclient"
