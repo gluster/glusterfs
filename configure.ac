@@ -184,7 +184,7 @@ AC_ARG_ENABLE([libglusterfsclient],
 	      AC_HELP_STRING([--disable-libglusterfsclient],
 			     [Do not build libglusterfsclient]))
 
-BUILD_LIBGLUSTERFSCLIENT="no"
+BUILD_LIBGLUSTERFSCLIENT="yes"
 
 if test "x$enable_libglusterfsclient" != "xno"; then
    LIBGLUSTERFSCLIENT_SUBDIR="libglusterfsclient"
@@ -429,7 +429,7 @@ AC_SUBST(GF_DISTRIBUTION)
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
-if test "x$HAVE_LIBGLUSTERFSCLIENT" = "xyes"; then
+if test "x$BUILD_LIBGLUSTERFSCLIENT" = "xyes"; then
    GF_BOOSTER_SUBDIR="booster"
 fi
 
