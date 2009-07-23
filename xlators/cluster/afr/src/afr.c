@@ -2064,7 +2064,6 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (op_ret == 0) {
 		local->op_ret        = 0;
 		local->op_errno      = 0;
-		local->cont.lk.flock = *lock;
 		local->cont.lk.locked_nodes[child_index] = 1;
 	}
 
