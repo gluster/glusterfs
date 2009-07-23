@@ -5402,6 +5402,7 @@ glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
         }
 
         newname = strdup (new.path);
+        new.inode = inode_ref (old.inode);
         libgf_client_loc_fill (&new, ctx, 0, new.parent->ino,
                         basename (newname));
         op_ret = libgf_client_link (ctx, &old, &new);
