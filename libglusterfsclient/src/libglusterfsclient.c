@@ -841,14 +841,19 @@ libgf_client_loc_fill (loc_t *loc,
         if (!inode) {
                 if (ino)
                         inode = inode_search (ctx->itable, ino, NULL);
+
+                if (inode)
+                        goto inode_found;
+
                 if (par && name)
                         inode = inode_search (ctx->itable, par, name);
-
-                loc->inode = inode;
         }
 
-        if (inode)
+inode_found:
+        if (inode) {
                 loc->ino = inode->ino;
+                loc->inode = inode;
+        }
 
         parent = loc->parent;
         if (!parent) {
