@@ -3331,7 +3331,8 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 			break;
 		}
 
-		if (stub->args.entrylk.loc.parent == NULL)
+		if ((stub->args.entrylk.loc.parent == NULL)
+                    && (parent))
 			stub->args.entrylk.loc.parent = inode_ref (parent);
 
 		if (server_inode && (stub->args.entrylk.loc.inode == NULL)) {
@@ -3359,7 +3360,8 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 			break;
 		}
 
-		if (stub->args.inodelk.loc.parent == NULL)
+		if ((stub->args.inodelk.loc.parent == NULL)
+                    && (parent))
 			stub->args.inodelk.loc.parent = inode_ref (parent);
 
 		if (server_inode && (stub->args.inodelk.loc.inode == NULL)) {
@@ -5618,7 +5620,8 @@ server_inodelk_resume (call_frame_t *frame, xlator_t *this,
 		state->loc.inode = inode_ref (loc->inode);
 	}
 
-	if (state->loc.parent == NULL) {
+	if ((state->loc.parent == NULL)
+            && (loc->parent)) {
 		state->loc.parent = inode_ref (loc->parent);
 	}
 
