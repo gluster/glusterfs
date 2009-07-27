@@ -72,13 +72,13 @@ afr_chmod_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		local->cont.chmod.buf.st_ino = local->cont.chmod.ino;
-
                 if (local->cont.chmod.read_child_buf.st_ino) {
                         unwind_buf = &local->cont.chmod.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.chmod.buf;
                 }
+
+                unwind_buf->st_ino = local->cont.chmod.ino;
 
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  unwind_buf);
@@ -287,14 +287,14 @@ afr_fchmod_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		local->cont.fchmod.buf.st_ino = local->cont.fchmod.ino;
-
                 if (local->cont.fchmod.read_child_buf.st_ino) {
                         unwind_buf = &local->cont.fchmod.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.fchmod.buf;
                 }
-                
+
+                unwind_buf->st_ino = local->cont.fchmod.ino;
+
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  unwind_buf);
 	}
@@ -502,13 +502,13 @@ afr_chown_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		local->cont.chown.buf.st_ino = local->cont.chown.ino;
-
                 if (local->cont.chown.read_child_buf.st_ino) {
                         unwind_buf = &local->cont.chown.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.chown.buf;
                 }
+
+                unwind_buf->st_ino = local->cont.chown.ino;
 
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  unwind_buf);
@@ -721,13 +721,13 @@ afr_fchown_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		local->cont.fchown.buf.st_ino = local->cont.fchown.ino;
-
                 if (local->cont.fchown.read_child_buf.st_ino) {
                         unwind_buf = &local->cont.fchown.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.fchown.buf;
                 }
+
+                unwind_buf->st_ino = local->cont.fchown.ino;
 
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  unwind_buf);
@@ -939,13 +939,13 @@ afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		local->cont.writev.buf.st_ino = local->cont.writev.ino;
-                
                 if (local->cont.writev.read_child_buf.st_ino) {
                         unwind_buf = &local->cont.writev.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.writev.buf;
                 }
+
+                unwind_buf->st_ino = local->cont.writev.ino;
 
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  unwind_buf);
@@ -1172,13 +1172,13 @@ afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		local->cont.truncate.buf.st_ino = local->cont.truncate.ino;
-                
                 if (local->cont.truncate.read_child_buf.st_ino) {
                         unwind_buf = &local->cont.truncate.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.truncate.buf;
                 }
+
+                unwind_buf->st_ino = local->cont.truncate.ino;
 
                 AFR_STACK_UNWIND (main_frame, local->op_ret,
                                   local->op_errno,
@@ -1394,13 +1394,13 @@ afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		local->cont.ftruncate.buf.st_ino = local->cont.ftruncate.ino;
-
                 if (local->cont.ftruncate.read_child_buf.st_ino) {
                         unwind_buf = &local->cont.ftruncate.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.ftruncate.buf;
                 }
+
+                unwind_buf->st_ino = local->cont.ftruncate.ino;
 
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  unwind_buf);
@@ -1613,13 +1613,13 @@ afr_utimens_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		local->cont.utimens.buf.st_ino = local->cont.utimens.ino;
-
                 if (local->cont.utimens.read_child_buf.st_ino) {
                         unwind_buf = &local->cont.utimens.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.utimens.buf;
                 }
+
+                unwind_buf->st_ino = local->cont.utimens.ino;
 
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  unwind_buf);
