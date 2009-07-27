@@ -231,6 +231,7 @@ typedef struct _afr_local {
 		} getxattr;
 
 		struct {
+                        ino_t ino;
 			size_t size;
 			off_t offset;
 			int last_tried;

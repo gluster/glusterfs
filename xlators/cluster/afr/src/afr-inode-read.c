@@ -796,6 +796,8 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
+                buf->st_ino = local->cont.readv.ino;
+
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf,
                                   iobref);
 	}
@@ -855,6 +857,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 
 	local->fd                    = fd_ref (fd);
 
+        local->cont.readv.ino        = fd->inode->ino;
 	local->cont.readv.size       = size;
 	local->cont.readv.offset     = offset;
 
