@@ -85,9 +85,6 @@ server_loc_fill (loc_t *loc, server_state_t *state,
 			gf_log (state->bound_xl->name, GF_LOG_DEBUG,
 				"failed to build path for %"PRId64": %s",
 				inode->ino, strerror (-ret));
-
-			inode_unref (loc->inode);
-			loc->inode = NULL;
 		}
 	}
 
