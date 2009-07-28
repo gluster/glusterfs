@@ -43,10 +43,11 @@ __BEGIN_DECLS
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <sys/vfs.h>
+#include <sys/statfs.h>
 #include <sys/statvfs.h>
 #include <utime.h>
 #include <sys/time.h>
+#include <stdint.h>
 
 typedef struct {
         struct iovec *vector;
@@ -141,7 +142,7 @@ typedef void * glusterfs_dir_t;
  * depending on the log level.
  */
 glusterfs_handle_t
-glusterfs_init (glusterfs_init_params_t *ctx, u_int32_t fakefsid);
+glusterfs_init (glusterfs_init_params_t *ctx, uint32_t fakefsid);
 
 
 
