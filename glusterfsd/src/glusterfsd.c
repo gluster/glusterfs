@@ -1021,6 +1021,8 @@ main (int argc, char *argv[])
 	call_pool_t      *pool = NULL;
 	struct stat       stbuf;
 	char              tmp_logfile[1024] = { 0 };
+	char              *tmp_logfile_dyn = NULL;
+        char              *tmp_logfilebase = NULL;
 	char              timestr[256] = { 0 };
 	time_t            utime;
 	struct tm        *tm = NULL;
@@ -1130,13 +1132,18 @@ main (int argc, char *argv[])
 			
 			/* Create symlink to actual log file */
 			unlink (cmd_args->log_file);
-			ret = symlink (tmp_logfile, cmd_args->log_file);
+
+                        tmp_logfile_dyn = strdup (tmp_logfile);
+                        tmp_logfilebase = basename (tmp_logfile_dyn);
+			ret = symlink (tmp_logfilebase, cmd_args->log_file);
                         if (-1 == ret) {
                                 fprintf (stderr, "symlink of logfile failed");
                         } else {
                                 FREE (cmd_args->log_file);
                                 cmd_args->log_file = strdup (tmp_logfile);
                         }
+
+                        FREE (tmp_logfile_dyn);
 		}
 	}
 	
