@@ -286,6 +286,6 @@ booster_fdptr_get (booster_fdtable_t *fdtable, int fd)
 void
 booster_fdptr_put (fd_t *booster_fd)
 {
-        if (!booster_fd)
+        if (booster_fd)
                 fd_unref (booster_fd);
 }
