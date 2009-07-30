@@ -33,6 +33,7 @@
 #include <fd.h>
 #include <dirent.h>
 
+#define LIBGF_IOBUF_SIZE        (128 *GF_UNIT_KB)
 typedef void (*sighandler_t) (int);
 typedef struct list_head list_head_t;
 
