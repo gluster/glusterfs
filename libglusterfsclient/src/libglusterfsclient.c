@@ -1012,7 +1012,7 @@ glusterfs_init (glusterfs_init_params_t *init_ctx, uint32_t fakefsid)
 
 	/* FIXME: why is count hardcoded to 16384 */
         ctx->gf_ctx.event_pool = event_pool_new (16384);
-        ctx->gf_ctx.page_size  = 128 * 1024;
+        ctx->gf_ctx.page_size  = LIBGF_IOBUF_SIZE;
         ctx->gf_ctx.iobuf_pool = iobuf_pool_new (8 * 1048576,
                                                  ctx->gf_ctx.page_size);
 
@@ -3460,12 +3460,66 @@ libgf_client_writev_cbk (call_frame_t *frame,
         local->reply_stub = fop_writev_cbk_stub (frame, NULL, op_ret, op_errno,
                                                  stbuf);
 
+        LIBGF_REPLY_NOTIFY (local);
+        return 0;
+}
+
+
+int
+libgf_client_iobuf_write (libglusterfs_client_ctx_t *ctx, fd_t *fd, char *addr,
+                          size_t size, off_t offset)
+{
+        struct iobref        *ioref = NULL;
+        struct iobuf         *iob = NULL;
+        int                   op_ret = -1;
+        struct iovec          iov = {0, };
+        call_stub_t          *stub = NULL;
+        libgf_client_local_t *local = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, addr, out);
+
+        ioref = iobref_new ();
+        if (!ioref) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Out of memory");
+                goto out;
+        }
+
+        iob = iobuf_get (ctx->gf_ctx.iobuf_pool);
+        if (!iob) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Out of memory");
+                goto out;
+        }
+
+        memcpy (iob->ptr, addr, size);
+        iobref_add (ioref, iob);
+
+        iov.iov_base = iob->ptr;
+        iov.iov_len = size;
+
+        LIBGF_CLIENT_FOP (ctx, stub, writev, local, fd, &iov,
+                          1, offset, ioref);
+
+        op_ret = stub->args.writev_cbk.op_ret;
+        errno = stub->args.writev_cbk.op_errno;
+
         /* We need to invalidate because it is possible that write-behind
          * is a translator below us and returns a stat filled with zeroes.
          */
-        libgf_invalidate_iattr_cache (local->fd->inode, LIBGF_UPDATE_STAT);
-        LIBGF_REPLY_NOTIFY (local);
-        return 0;
+        libgf_invalidate_iattr_cache (fd->inode, LIBGF_INVALIDATE_STAT);
+
+out:
+        if (iob) {
+                iobuf_unref (iob);
+        }
+
+        if (ioref) {
+                iobref_unref (ioref);
+        }
+
+        call_stub_destroy (stub);
+        return op_ret;
 }
 
 int
@@ -3475,23 +3529,35 @@ libgf_client_writev (libglusterfs_client_ctx_t *ctx,
                      int count, 
                      off_t offset)
 {
-        call_stub_t *stub = NULL;
-        int op_ret = -1;
-        libgf_client_local_t *local = NULL;
-        struct iobref *iobref = NULL;
+        int                     op_ret = 0;
+        int                     written = 0;
+        int                     writesize = 0;
+        int                     size = 0;
+        char                   *base = NULL;
+        int                     i = 0;
 
-        iobref = iobref_new ();
-        local = CALLOC (1, sizeof (*local));
-        ERR_ABORT (local);
-        local->fd = fd;
-        LIBGF_CLIENT_FOP (ctx, stub, writev, local, fd, vector, count, offset,
-                          iobref);
+        for (i = 0; i < count; i++) {
+                size = vector[i].iov_len;
+                base = vector[i].iov_base;
 
-        op_ret = stub->args.writev_cbk.op_ret;
-        errno = stub->args.writev_cbk.op_errno;
+                while (size > 0) {
+                        writesize = (size > LIBGF_IOBUF_SIZE) ?
+                                LIBGF_IOBUF_SIZE : size;
 
-        iobref_unref (iobref);
-	call_stub_destroy (stub);
+                        written = libgf_client_iobuf_write (ctx, fd, base,
+                                                            writesize, offset);
+
+                        if (written == -1)
+                                goto out;
+
+                        op_ret += written;
+                        base += written;
+                        size -= written;
+                        offset += written;
+                }
+        }
+
+out:
         return op_ret;
 }
 
