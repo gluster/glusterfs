@@ -418,7 +418,7 @@ client_bind (transport_t *this,
                                                        *sockaddr_len, 
                                                        CLIENT_PORT_CEILING);
                 if (ret == -1) {
-                        gf_log (this->xl->name, GF_LOG_ERROR,
+                        gf_log (this->xl->name, GF_LOG_WARNING,
                                 "cannot bind inet socket (%d) to port "
                                 "less than %d (%s)", 
                                 sock, CLIENT_PORT_CEILING, strerror (errno));
