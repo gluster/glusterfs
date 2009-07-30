@@ -1637,7 +1637,7 @@ afr_utimens_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	int child_index = (long) cookie;
 	int call_count  = -1;
-	int need_unwind = 1;
+	int need_unwind = 0;
         int read_child  = 0;
 
 	local = frame->local;
