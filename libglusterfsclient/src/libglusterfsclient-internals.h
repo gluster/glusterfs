@@ -49,6 +49,7 @@ typedef struct libglusterfs_client_ctx {
          * accessed through this context.
          */
         dev_t fake_fsid;
+        pid_t pid;
 }libglusterfs_client_ctx_t;
 
 typedef struct signal_handler {
