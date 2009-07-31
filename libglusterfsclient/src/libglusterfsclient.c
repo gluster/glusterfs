@@ -921,7 +921,7 @@ get_call_frame_for_req (libglusterfs_client_ctx_t *ctx, char d)
 
         frame->root->uid = geteuid ();
         frame->root->gid = getegid ();
-        frame->root->pid = getpid ();
+        frame->root->pid = ctx->pid;
         frame->root->unique = ctx->counter++;
   
         return frame;
@@ -998,6 +998,7 @@ glusterfs_init (glusterfs_init_params_t *init_ctx, uint32_t fakefsid)
         ctx->lookup_timeout = init_ctx->lookup_timeout;
         ctx->stat_timeout = init_ctx->stat_timeout;
         ctx->fake_fsid = fakefsid;
+        ctx->pid = getpid ();
         pthread_mutex_init (&ctx->gf_ctx.lock, NULL);
   
         pool = ctx->gf_ctx.pool = CALLOC (1, sizeof (call_pool_t));
@@ -2393,6 +2394,8 @@ libgf_client_open (libglusterfs_client_ctx_t *ctx,
         op_ret = stub->args.open_cbk.op_ret;
         errno = stub->args.open_cbk.op_errno;
 
+        if (op_ret != -1)
+                fd_bind (fd);
 	call_stub_destroy (stub);
         return op_ret;
 }
@@ -2486,6 +2489,8 @@ libgf_client_opendir (libglusterfs_client_ctx_t *ctx,
 
         op_ret = stub->args.opendir_cbk.op_ret;
         errno = stub->args.opendir_cbk.op_errno;
+        if (op_ret != -1)
+                fd_bind (fd);
 
 	call_stub_destroy (stub);
 out:
@@ -2556,7 +2561,7 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
 		goto out;
 	}
 
-        fd = fd_create (loc.inode, 0);
+        fd = fd_create (loc.inode, ctx->pid);
         fd->flags = flags;
 
         if ((flags & O_CREAT) == O_CREAT) {
@@ -5056,7 +5061,7 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
                 goto out;
         }
 
-        dirfd = fd_create (loc.inode, 0);
+        dirfd = fd_create (loc.inode, ctx->pid);
         op_ret = libgf_client_opendir (ctx, &loc, dirfd);
 
         if (op_ret == -1) {
