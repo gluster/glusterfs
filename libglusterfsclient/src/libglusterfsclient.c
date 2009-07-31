@@ -3219,8 +3219,7 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
                 }
                 stbuf = &stub->args.readv_cbk.stbuf;
                 libgf_transform_devnum (ctx, stbuf);
-                libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
-                                          stbuf);
+                libgf_invalidate_iattr_cache (fd->inode, LIBGF_INVALIDATE_STAT);
         }
 
 	call_stub_destroy (stub);
@@ -3346,8 +3345,7 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx,
 
                 stbuf = &stub->args.readv_cbk.stbuf;
                 libgf_transform_devnum (ctx, stbuf);
-                libgf_update_iattr_cache (local->fd->inode, LIBGF_UPDATE_STAT,
-                                          stbuf);
+                libgf_invalidate_iattr_cache (fd->inode, LIBGF_UPDATE_STAT);
         }
  
 	call_stub_destroy (stub);
