@@ -1281,8 +1281,8 @@ ib_verbs_options_init (transport_t *this)
 
         /* TODO: validate arguments from options below */
 
-        options->send_size = this->xl->ctx->page_size;
-        options->recv_size = this->xl->ctx->page_size;
+        options->send_size = this->xl->ctx->page_size * 4; /* 512 KB */
+        options->recv_size = this->xl->ctx->page_size * 4; /* 512 KB */
         options->send_count = 32;
         options->recv_count = 32;
 
