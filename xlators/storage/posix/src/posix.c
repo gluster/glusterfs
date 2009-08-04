@@ -3536,6 +3536,13 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 	pfd = (struct posix_fd *)(long)tmp_pfd;
+        if (!pfd->path) {
+                op_errno = EBADFD;
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "pfd does not have path set (possibly file "
+			"fd, fd=%p)", fd);
+                goto out;
+        }
 
         real_path     = pfd->path;
         real_path_len = strlen (real_path);
