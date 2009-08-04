@@ -82,31 +82,40 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --disable-direct-io-mode");
     fi
     
-    if [ -z "$volfile_loc" ]; then
-	if [ -n "$transport" ]; then 
-	    cmd_line=$(echo "$cmd_line \
---volfile-server=$server_ip \
---volfile-server-port=$server_port \
---volfile-server-transport=$transport");
-	else
-	    cmd_line=$(echo "$cmd_line \
---volfile-server=$server_ip \
---volfile-server-port=$server_port");
-	fi
-        if [ -n "$volume_id" ]; then
-            cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
-        fi
-    else
-	cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
-    fi
-
     if [ -n "$volume_name" ]; then
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
     
+    if [ -z "$volfile_loc" ]; then
+        cmd_line=$(echo "$cmd_line --volfile-server-port=$server_port");
+
+	if [ -n "$transport" ]; then 
+	    cmd_line=$(echo "$cmd_line --volfile-server-transport=$transport");
+	fi
+
+        if [ -n "$volume_id" ]; then
+            cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
+        fi
+
+        if [ -n "$backupvolfile_server" ]; then
+            cmd_line1=$(echo "$cmd_line --volfile-server=$backupvolfile_server");
+        fi
+
+	cmd_line=$(echo "$cmd_line --volfile-server=$server_ip");
+    else
+	cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
+    fi
+
 
     cmd_line=$(echo "$cmd_line $mount_point");
-    exec $cmd_line;
+    $cmd_line;
+    # retry the failover 
+    if [ $? != "0" ]; then
+        if [ -n "$cmd_line1" ]; then
+            cmd_line1=$(echo "$cmd_line1 $mount_point");
+            $cmd_line1
+        fi
+    fi
 }
 
 
@@ -131,6 +140,7 @@ main ()
     volfile_check=$(echo "$options" | sed -n 's/.*volfile-check=\([^,]*\).*/\1/p');
 
     server_port=$(echo "$options" | sed -n 's/.*server-port=\([^,]*\).*/\1/p');
+    backupvolfile_server=$(echo "$options" | sed -n 's/.*backupvolfile-server=\([^,]*\).*/\1/p');
 
     volfile_loc="$1";
     
@@ -159,6 +169,7 @@ main ()
         -e 's/[,]*direct-io-mode=[^,]*//' \
         -e 's/[,]*volfile-check=[^,]*//' \
         -e 's/[,]*transport=[^,]*//' \
+        -e 's/[,]*backupvolfile-server=[^,]*//' \
         -e 's/[,]*server-port=[^,]*//' \
         -e 's/[,]*volume-id=[^,]*//');
     # following line is product of love towards sed
@@ -182,3 +193,4 @@ main ()
 }
 
 _init "$@" && main "$@";
+
