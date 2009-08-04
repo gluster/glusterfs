@@ -51,6 +51,7 @@ protocol_server_reply (call_frame_t *frame, int type, int op,
 	server_state_t *state = NULL;
 	xlator_t       *bound_xl = NULL;
 	transport_t    *trans = NULL;
+        int             ret = 0;
 
 	bound_xl = BOUND_XL (frame);
 	state    = CALL_STATE (frame);
@@ -60,10 +61,13 @@ protocol_server_reply (call_frame_t *frame, int type, int op,
 	hdr->type   = hton32 (type);
 	hdr->op     = hton32 (op);
 
-	transport_submit (trans, (char *)hdr, hdrlen, vector, count, iobref);
-	/* TODO: If transport submit fails, there is no reply sent to client, 
-	 * its bailed out as of now.. loggically, only this frame should fail. 
-	 */
+	ret = transport_submit (trans, (char *)hdr, hdrlen, vector, 
+                                count, iobref);
+        if (ret < 0) {
+                gf_log ("protocol/server", GF_LOG_ERROR,
+                        "frame %"PRId64": failed to submit. op= %d, type= %d",
+                        frame->root->unique, op, type);
+        }
 
 	STACK_DESTROY (frame->root);
 
