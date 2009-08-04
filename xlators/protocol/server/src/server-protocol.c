@@ -3442,9 +3442,10 @@ server_lookup (call_frame_t *frame, xlator_t *bound_xl,
                                                 &xattr_req);
 			if (ret < 0) {
 				gf_log (bound_xl->name, GF_LOG_ERROR,
-					"%"PRId64": failed to unserialize "
-                                        "request buffer to dictionary", 
-					frame->root->unique);
+					"%"PRId64": %s (%"PRId64"): failed to " 
+                                        "unserialize req-buffer to dictionary",
+					frame->root->unique, state->path, 
+                                        state->ino);
 				free (req_dictbuf);
 				goto fail;
 			} else{
