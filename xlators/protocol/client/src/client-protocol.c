@@ -3920,7 +3920,7 @@ client_open_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 		pthread_mutex_lock (&conf->mutex);
 		{
-                        list_add_tail (&conf->saved_fds, &fdctx->sfd_pos);
+			list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
 		}
 		pthread_mutex_unlock (&conf->mutex);
 	}
@@ -4628,7 +4628,7 @@ client_opendir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 		pthread_mutex_lock (&conf->mutex);
 		{
-                        list_add_tail (&conf->saved_fds, &fdctx->sfd_pos);
+                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
 		}
 		pthread_mutex_unlock (&conf->mutex);
 	}
