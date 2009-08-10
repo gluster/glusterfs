@@ -165,14 +165,14 @@ _gf_dump_details (int argc, char **argv)
 	mypid = getpid ();
 	uname_ret   = uname (&uname_buf);
 
-        /* Which TLA? What time? */
+        /* Which git? What time? */
         strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
 	fprintf (gf_log_logfile, 
 		 "========================================"
 		 "========================================\n");
-        fprintf (gf_log_logfile, "Version      : %s %s built on %s %s\n", 
+        fprintf (gf_log_logfile, "Version      : %s %s built on %s %s\n",
                  PACKAGE_NAME, PACKAGE_VERSION, __DATE__, __TIME__);
-        fprintf (gf_log_logfile, "TLA Revision : %s\n", 
+        fprintf (gf_log_logfile, "git: %s\n",
                  GLUSTERFS_REPOSITORY_REVISION);
         fprintf (gf_log_logfile, "Starting Time: %s\n", timestr);
         fprintf (gf_log_logfile, "Command line : ");
