@@ -207,11 +207,12 @@ main ()
         exit 0;
     }
 
-    mount_provided=$(echo "$@" | cut -f2 -d'/');
-
-    [ -n "$mount_provided" ] && {
-        mount_point="/$mount_provided";
-    }
+    mount_point=""
+    for arg in "$@"; do
+        [ -d "$arg" ] && {
+            mount_point=$arg
+        }
+    done
 
     [ -z "$mount_point" ] && {
         usage;
