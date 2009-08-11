@@ -40,12 +40,12 @@
 #include "glusterfs.h"
 #include "logging.h"
 #include "xlator.h"
-#include "glusterfs.h"
 #include "defaults.h"
 #include "common-utils.h"
 
 #include "fuse_kernel.h"
 #include "fuse-misc.h"
+#include "fuse-mount.h"
 
 #include "list.h"
 #include "dict.h"
@@ -2791,14 +2791,23 @@ fuse_thread_proc (void *data)
                 }
 
                 if (res == -1) {
+                        if (errno == ENODEV || errno == EBADF) {
+                                gf_log ("glusterfs-fuse", GF_LOG_NORMAL,
+                                        "terminating upon getting %s when "
+                                        "reading /dev/fuse",
+                                        errno == ENODEV ? "ENODEV" : "EBADF");
+
+                                break;
+                        }
                         if (errno != EINTR) {
                                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                        "read from /dev/fuse returned -1 (%d)", errno);
+                                        "read from /dev/fuse returned -1 (%s)",
+                                        strerror (errno));
                         }
-                        if (errno == ENODEV || errno == EBADF)
-                                break;
+
                         iobuf_unref (iobuf);
                         FREE (iov_in[0].iov_base);
+
                         continue;
                 }
                 if (res < sizeof (finh)) {
@@ -2903,7 +2912,6 @@ init (xlator_t *this_xl)
         dict_t            *options = NULL;
         char              *value_string = NULL;
         char              *fsname = NULL;
-        char              *mount_param = NULL;
         fuse_private_t    *priv = NULL;
         struct stat        stbuf = {0,};
         int                i = 0;
@@ -3016,39 +3024,11 @@ init (xlator_t *this_xl)
                 goto cleanup_exit;
         }
 
-        priv->fd = open ("/dev/fuse", O_RDWR);
-        if (priv->fd == -1) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "cannot open /dev/fuse (%s)", strerror (errno));
-
+        priv->fd = gf_fuse_mount (priv->mount_point, fsname,
+                                  "allow_other,default_permissions,"
+                                  "max_read=131072");
+        if (priv->fd == -1)
                 goto cleanup_exit;
-        }
-        ret = asprintf (&mount_param,
-                        "allow_other,default_permissions,max_read=131072,"
-                        "fd=%i,rootmode=%o,user_id=%i,group_id=%i",
-                        priv->fd, stbuf.st_mode & S_IFMT, getuid (), getgid ());
-        if (ret == -1) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "Out of memory");
-
-                goto cleanup_exit;
-        }
-        ret = mount (fsname, priv->mount_point, "fuse.glusterfs", 0,
-                     mount_param);
-        if (ret == -1 && errno == ENODEV)
-                /* fs subtype support was added by 79c0b2df aka
-                   v2.6.21-3159-g79c0b2d. Probably we have an
-                   older kernel ... */
-                ret = mount (fsname, priv->mount_point, "fuse", 0,
-                             mount_param);
-        if (ret == -1) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "mount failed (%s)", strerror (errno));
-
-                goto cleanup_exit;
-        }
-
-        FREE (mount_param);
 
         this_xl->ctx->top = this_xl;
 
@@ -3096,7 +3076,6 @@ init (xlator_t *this_xl)
 cleanup_exit:
         if (xl_name_allocated)
                 FREE (this_xl->name);
-        FREE (mount_param);
         if (priv) {
                 FREE (priv->mount_point);
                 close (priv->fd);
@@ -3118,8 +3097,6 @@ fini (xlator_t *this_xl)
         if ((priv = this_xl->private) == NULL)
                 return;
 
-        close (priv->fd);
-
         if (dict_get (this_xl->options, ZR_MOUNTPOINT_OPT))
                 mount_point = data_to_str (dict_get (this_xl->options,
                                                      ZR_MOUNTPOINT_OPT));
@@ -3128,7 +3105,7 @@ fini (xlator_t *this_xl)
                         "Unmounting '%s'.", mount_point);
 
                 dict_del (this_xl->options, ZR_MOUNTPOINT_OPT);
-                umount (mount_point);
+                gf_fuse_unmount (mount_point, priv->fd);
         }
 }
 
