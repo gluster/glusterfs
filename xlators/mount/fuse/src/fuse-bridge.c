@@ -2279,8 +2279,8 @@ fuse_setlk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         "'features/posix-locks' on server side "
                                         "will add SETLK support.");
                         }
-                } else  {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                } else  if (op_errno != EAGAIN) {
+                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                                 "%"PRId64": ERR => -1 (%s)",
                                 frame->root->unique, strerror (op_errno));
                 }
