@@ -139,8 +139,8 @@ posix_lock_to_flock (posix_lock_t *lock, struct flock *flock)
 	flock->l_type  = lock->fl_type;
 	flock->l_start = lock->fl_start;
 
-	if (lock->fl_end == 0)
-		flock->l_len = LLONG_MAX;
+	if (lock->fl_end == LLONG_MAX)
+		flock->l_len = 0;
 	else
 		flock->l_len = lock->fl_end - lock->fl_start + 1;
 }
