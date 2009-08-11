@@ -181,9 +181,9 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 
 	default:
 		op_errno = ENOTSUP;
-		gf_log (this->name, GF_LOG_DEBUG,
-			"Lock command F_GETLK not supported for [f]inodelk "
-                        "(cmd=%d)", 
+		gf_log (this->name, GF_LOG_ERROR,
+			"Unexpected case in inodelk (cmd=%d). "
+                        "Please file a bug report at http://bugs.gluster.com",
 			cmd);
 			goto unwind;
 	}
@@ -284,8 +284,8 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 	default:
 		op_errno = ENOTSUP;
 		gf_log (this->name, GF_LOG_ERROR,
-			"Lock command F_GETLK not supported for [f]inodelk "
-                        "(cmd=%d)", 
+			"Unexpected case in finodelk (cmd=%d). "
+                        "Please file a bug report at http://bugs.gluster.com", 
 			cmd);
 			goto unwind;
 	}
@@ -775,8 +775,8 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 
 	default:
 		gf_log (this->name, GF_LOG_ERROR,
-			"Unexpected case in entrylk (cmd=%d). Please send"
-                        "a bug report to gluster-devel@nongnu.org", cmd);
+			"Unexpected case in entrylk (cmd=%d). Please file"
+                        "a bug report at http://bugs.gluster.com", cmd);
 		goto out;
 	}
 
@@ -879,9 +879,9 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 		break;
 
 	default:
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_ERROR,
 			"Unexpected case in fentrylk (cmd=%d). "
-                        "Please send a bug report to gluster-devel@nongnu.org", 
+                        "Please file a bug report at http://bugs.gluster.com", 
                         cmd);
 		goto out;
 	}
