@@ -715,7 +715,7 @@ pl_forget (xlator_t *this,
 	pl_inode = pl_inode_get (this, inode);
 
 	if (!list_empty (&pl_inode->rw_list)) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"Pending R/W requests found, releasing.");
                 
                 list_for_each_entry_safe (rw_req, rw_tmp, &pl_inode->rw_list, 
@@ -727,7 +727,7 @@ pl_forget (xlator_t *this,
 	}
 
 	if (!list_empty (&pl_inode->ext_list)) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"Pending fcntl locks found, releasing.");
 
                 list_for_each_entry_safe (ext_l, ext_tmp, &pl_inode->ext_list, 
@@ -739,7 +739,7 @@ pl_forget (xlator_t *this,
 	}
 
 	if (!list_empty (&pl_inode->int_list)) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"Pending inode locks found, releasing.");
 
                 list_for_each_entry_safe (int_l, int_tmp, &pl_inode->int_list, 
@@ -751,7 +751,7 @@ pl_forget (xlator_t *this,
 	}
 
 	if (!list_empty (&pl_inode->dir_list)) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_DEBUG,
 			"Pending entry locks found, releasing.");
                 
                 list_for_each_entry_safe (entry_l, entry_tmp, 
