@@ -45,6 +45,7 @@
 #include "common-utils.h"
 
 #include "fuse_kernel.h"
+#include "fuse-misc.h"
 
 #include "list.h"
 #include "dict.h"
@@ -60,7 +61,6 @@
 #define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 
 #define FUSE_712_OP_HIGH (FUSE_POLL + 1)
-#define OFFSET_MAX 0x7fffffffffffffffLL
 #define GLUSTERFS_XATTR_LEN_MAX  65536
 
 typedef struct fuse_in_header fuse_in_header_t;
@@ -403,7 +403,7 @@ need_fresh_lookup (int32_t op_ret, int32_t op_errno,
         return 0;
 }
 
-/* courtesy of folly/fuse */
+/* courtesy of folly */
 static void
 stat2attr (struct stat *st, struct fuse_attr *fa)
 {
@@ -422,31 +422,6 @@ stat2attr (struct stat *st, struct fuse_attr *fa)
         fa->gid        = st->st_gid;
         fa->rdev       = st->st_rdev;
         fa->blksize    = st->st_blksize;
-}
-
-/* courtesy of fuse */
-static unsigned long
-calc_timeout_sec (double t)
-{
-        if (t > (double) ULONG_MAX)
-                return ULONG_MAX;
-        else if (t < 0.0)
-                return 0;
-        else
-                return (unsigned long) t;
-}
-
-/* courtesy of fuse */
-static unsigned int
-calc_timeout_nsec (double t)
-{
-        double f = t - (double) calc_timeout_sec (t);
-        if (f < 0.0)
-                return 0;
-        else if (f >= 0.999999999)
-                return 999999999;
-        else
-                return (unsigned int) (f * 1.0e9);
 }
 
 static int
@@ -2538,21 +2513,6 @@ fuse_getlk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-
-/* courtesy of fuse */
-static void
-convert_fuse_file_lock (struct fuse_file_lock *fl, struct flock *flock)
-{
-        memset (flock, 0, sizeof (struct flock));
-        flock->l_type = fl->type;
-        flock->l_whence = SEEK_SET;
-        flock->l_start = fl->start;
-        if (fl->end == OFFSET_MAX)
-                flock->l_len = 0;
-        else
-                flock->l_len = fl->end - fl->start + 1;
-        flock->l_pid = fl->pid;
-}
 
 static void
 fuse_getlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
