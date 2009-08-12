@@ -124,6 +124,8 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterfsd-Redhat
                 extras/init.d/glusterfsd-SuSE
 		extras/benchmarking/Makefile
+		contrib/Makefile
+		contrib/fuse-util/Makefile
 		glusterfs.spec])
 
 AC_CANONICAL_HOST
@@ -214,6 +216,24 @@ fi
 
 AC_SUBST(FUSE_CLIENT_SUBDIR)
 # end FUSE section
+
+
+# FUSERMOUNT section
+AC_ARG_ENABLE([fusermount],
+              AC_HELP_STRING([--enable-fusermount],
+                             [Build fusermount]),
+              [], [enable_fusermount=no])
+
+BUILD_FUSERMOUNT="no"
+
+if test "x$enable_fusermount" != "xno"; then
+  FUSERMOUNT_SUBDIR="contrib"
+  BUILD_FUSERMOUNT="yes"
+  AC_DEFINE(GF_FUSERMOUNT, 1, [Use our own fusermount])
+fi
+
+AC_SUBST(FUSERMOUNT_SUBDIR)
+#end FUSERMOUNT section
 
 
 # EPOLL section
@@ -454,6 +474,9 @@ AC_SUBST(GF_LDADD)
 AC_SUBST(GF_FUSE_LDADD)
 AC_SUBST(GF_BOOSTER_SUBDIR)
 
+CONTRIBDIR='$(top_srcdir)/contrib'
+AC_SUBST(CONTRIBDIR)
+
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")	
 
 AC_OUTPUT
@@ -467,4 +490,5 @@ echo "epoll IO multiplex : $BUILD_EPOLL"
 echo "Berkeley-DB        : $BUILD_BDB"
 echo "libglusterfsclient : $BUILD_LIBGLUSTERFSCLIENT"
 echo "argp-standalone    : $BUILD_ARGP_STANDALONE"
+echo "fusermount         : $BUILD_FUSERMOUNT"
 echo

@@ -7,28 +7,46 @@
   See the file COPYING.LIB.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stddef.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <dirent.h>
 #include <mntent.h>
+#include <sys/stat.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <sys/mount.h>
 
+#ifdef FUSE_UTIL
+#define MALLOC(size) malloc (size)
+#define FREE(ptr) free (ptr)
+#define GFFUSE_LOGERR(...) fprintf (stderr, ## __VA_ARGS__)
+#else /* FUSE_UTIL */
 #include "glusterfs.h"
 #include "logging.h"
 #include "common-utils.h"
 
+#ifdef GF_FUSERMOUNT
+#define FUSERMOUNT_PROG FUSERMOUNT_DIR "/fusermount-glusterfs"
+#else
 #define FUSERMOUNT_PROG "fusermount"
+#endif
 #define FUSE_COMMFD_ENV "_FUSE_COMMFD"
 
 #define GFFUSE_LOGERR(...) \
         gf_log ("glusterfs-fuse", GF_LOG_ERROR, ## __VA_ARGS__)
+#endif /* !FUSE_UTIL */
 
 /*
  * Functions below, until following note, were taken from libfuse
@@ -74,7 +92,10 @@ mtab_needs_update (const char *mnt)
         return 1;
 }
 
-static int
+#ifndef FUSE_UTIL
+static
+#endif
+int
 fuse_mnt_add_mount (const char *progname, const char *fsname,
                     const char *mnt, const char *type, const char *opts)
 {
@@ -141,7 +162,10 @@ fuse_mnt_add_mount (const char *progname, const char *fsname,
         return res;
 }
 
-static char
+#ifndef FUSE_UTIL
+static
+#endif
+char
 *fuse_mnt_resolve_path (const char *progname, const char *orig)
 {
         char buf[PATH_MAX];
@@ -208,6 +232,7 @@ static char
         return dst;
 }
 
+#ifndef FUSE_UTIL
 /* return value:
  * >= 0         => fd
  * -1         => error
@@ -305,8 +330,12 @@ fuse_mount_fusermount (const char *mountpoint, const char *opts)
 
         return rv;
 }
+#endif
 
-static int
+#ifndef FUSE_UTIL
+static
+#endif
+int
 fuse_mnt_umount (const char *progname, const char *mnt, int lazy)
 {
         int res;
@@ -357,6 +386,62 @@ fuse_mnt_umount (const char *progname, const char *mnt, int lazy)
         return res;
 }
 
+#ifdef FUSE_UTIL
+int
+fuse_mnt_check_empty (const char *progname, const char *mnt,
+                      mode_t rootmode, off_t rootsize)
+{
+        int isempty = 1;
+
+        if (S_ISDIR (rootmode)) {
+                struct dirent *ent;
+                DIR *dp = opendir (mnt);
+                if (dp == NULL) {
+                        fprintf (stderr,
+                                 "%s: failed to open mountpoint for reading: %s\n",
+                                 progname, strerror (errno));
+                        return -1;
+                }
+                while ((ent = readdir (dp)) != NULL) {
+                        if (strcmp (ent->d_name, ".") != 0 &&
+                            strcmp (ent->d_name, "..") != 0) {
+                                isempty = 0;
+                                break;
+                        }
+                }
+                closedir (dp);
+        } else if (rootsize)
+                isempty = 0;
+
+        if (!isempty) {
+                fprintf (stderr, "%s: mountpoint is not empty\n", progname);
+                fprintf (stderr, "%s: if you are sure this is safe, "
+                         "use the 'nonempty' mount option\n", progname);
+                return -1;
+        }
+        return 0;
+}
+
+int
+fuse_mnt_check_fuseblk (void)
+{
+        char buf[256];
+        FILE *f = fopen ("/proc/filesystems", "r");
+        if (!f)
+                return 1;
+
+        while (fgets (buf, sizeof (buf), f))
+                if (strstr (buf, "fuseblk\n")) {
+                        fclose (f);
+                        return 1;
+                }
+
+        fclose (f);
+        return 0;
+}
+#endif
+
+#ifndef FUSE_UTIL
 void
 gf_fuse_unmount (const char *mountpoint, int fd)
 {
@@ -404,11 +489,13 @@ gf_fuse_unmount (const char *mountpoint, int fd)
         }
         waitpid (pid, NULL, 0);
 }
+#endif
 
 /*
  * Functions below are loosely modelled after similar functions of libfuse
  */
 
+#ifndef FUSE_UTIL
 static int
 fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param)
 {
@@ -526,3 +613,4 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param)
 
         return fd;
 }
+#endif

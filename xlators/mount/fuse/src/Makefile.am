@@ -1,6 +1,3 @@
-
-CONTRIBDIR =  $(top_srcdir)/contrib
-
 noinst_HEADERS = $(CONTRIBDIR)/fuse-include/fuse_kernel.h
 
 xlator_LTLIBRARIES = fuse.la
@@ -11,7 +8,7 @@ fuse_la_LDFLAGS = -module -avoidversion -shared -nostartfiles
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src -I$(CONTRIBDIR)/fuse-include \
-	$(GF_CFLAGS) -DFUSE_USE_VERSION=26
+	$(GF_CFLAGS) -DFUSERMOUNT_DIR=\"$(bindir)\"
 
 
 CLEANFILES = 
