@@ -212,16 +212,39 @@ Before installing GlusterFS make sure you have the
 following components installed.
 
 @subsection @acronym{FUSE}
-You'll need @acronym{FUSE} version 2.6.0 or higher to
-use GlusterFS. You can omit installing @acronym{FUSE} if you want to
-build @emph{only} the server. Note that you won't be able to mount
-a GlusterFS filesystem on a machine that does not have @acronym{FUSE}
-installed.
+GlusterFS has now built-in support for the @acronym{FUSE} protocol.
+You need a kernel with @acronym{FUSE} support to mount GlusterFS.
+You do not need the @acronym{FUSE} package (library and utilities),
+but be aware of the following issues:
 
-@acronym{FUSE} can be downloaded from: @indicateurl{http://fuse.sourceforge.net/}
+@itemize
+@item If you want unprivileged users to be able to mount GlusterFS filesystems,
+you need a recent version of the @command{fusermount} utility. You already have
+it if you have @acronym{FUSE} version 2.7.0 or higher installed; if that's not
+the case, one will be compiled along with GlusterFS if you pass
+@command{--enable-fusermount} to the @command{configure} script.  @item You
+need to ensure @acronym{FUSE} support is configured properly on your system. In
+details:
+@itemize
+@item If your kernel has @acronym{FUSE} as a loadable module, make sure it's
+loaded.
+@item Create @command{/dev/fuse} (major 10, minor 229) either by means of udev
+rules or by hand.
+@item Optionally, if you want runtime control over your @acronym{FUSE} mounts,
+mount the fusectl auxiliary filesystem:
 
-To get the best performance from GlusterFS, however, it is recommended that you use
-our patched version of @acronym{FUSE}. See Patched FUSE for details.
+@example
+# mount -t fusectl none /sys/fs/fuse/connections
+@end example
+@end itemize
+
+The @acronym{FUSE} packages shipped by the various distributions usually take care
+about these things, so the easiest way to get the above tasks handled is still
+installing the @acronym{FUSE} package(s).
+@end itemize
+
+To get the best performance from GlusterFS,it is recommended that you use
+our patched version of the @acronym{FUSE} kernel module. See Patched FUSE for details.
 
 @subsection Patched FUSE
 
@@ -322,6 +345,9 @@ Use poll instead of epoll.
 
 @item --disable-libglusterfsclient
 Disable building of libglusterfsclient
+
+@item --enable-fusermount
+Build fusermount
 
 @end table
 @end cartouche
