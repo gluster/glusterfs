@@ -1514,16 +1514,16 @@ libgf_vmp_map_ghandle (char *vmp, glusterfs_handle_t *vmphandle)
         if (!vmpentry)
                 goto out;
 
-        /* 
-           FIXME: this is not thread-safe, but I couldn't find other place to
-           do initialization.
-        */ 
-        if (vmplist.entries == 0) {
-                INIT_LIST_HEAD (&vmplist.list);
-        }
+        pthread_mutex_lock (&vmplock);
+        {
+                if (vmplist.entries == 0) {
+                        INIT_LIST_HEAD (&vmplist.list);
+                }
 
-        list_add_tail (&vmpentry->list, &vmplist.list);
-        ++vmplist.entries;
+                list_add_tail (&vmpentry->list, &vmplist.list);
+                ++vmplist.entries;
+        }
+        pthread_mutex_unlock (&vmplock);
         ret = 0;
 
 out:
