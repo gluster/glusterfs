@@ -1467,10 +1467,11 @@ libgf_vmp_search_exact_entry (char *path)
 
 out:
         if (entry)
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry found: %s: %s",
-                        path, entry->vmp);
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry found: path :%s"
+                        " vmp: %s", path, entry->vmp);
         else
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry not found");
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry not found: path"
+                        ": %s", path);
 
         return entry;
 }
@@ -1494,10 +1495,11 @@ libgf_vmp_search_entry (char *path)
 
 out:
         if (entry)
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry found: %s: %s",
-                        path, entry->vmp);
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry found: path :%s"
+                        " vmp: %s", path, entry->vmp);
         else
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry not found");
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry not found: path"
+                        ": %s", path);
 
         return entry;
 }
