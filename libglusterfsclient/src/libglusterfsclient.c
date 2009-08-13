@@ -1330,46 +1330,96 @@ libgf_free_vmp_entry (struct vmp_entry *entry)
         FREE (entry);
 }
 
-/* Returns the number of characters that match between an entry
- * and the path. Assumes string1 is vmp entry.
+int
+libgf_count_path_components (char *path)
+{
+        int     compos = 0;
+        char    *pathdup = NULL;
+        int     len = 0;
+
+        if (!path)
+                return -1;
+
+        pathdup = strdup (path);
+        if (!pathdup)
+                return -1;
+
+        len = strlen (pathdup);
+        if (pathdup[len - 1] == '/')
+                pathdup[len - 1] = '\0';
+
+        path = pathdup;
+        while ((path = strchr (path, '/'))) {
+                compos++;
+                ++path;
+        }
+
+        free (pathdup);
+        return compos;
+}
+
+/* Returns the number of components that match between
+ * the VMP and the path. Assumes string1 is vmp entry.
  * Assumes both are absolute paths.
  */
 int
-libgf_strmatchcount (char *string1, int s1len, char *string2, int s2len)
+libgf_strmatchcount (char *string1, char *string2)
 {
-        int     i = 0;
-        int     tosearch = 0;
         int     matchcount = 0;
+        char    *s1dup = NULL, *s2dup = NULL;
+        char    *tok1 = NULL, *saveptr1 = NULL;
+        char    *tok2 = NULL, *saveptr2 = NULL;
 
-        if (s1len <= s2len)
-                tosearch = s1len;
-        else
-                tosearch = s2len;
+        if ((!string1) || (!string2))
+                return 0;
 
-        for (;i < tosearch; i++) {
-                if (string1[i] == string2[i])
-                        matchcount++;
-                else
+        s1dup = strdup (string1);
+        if (!s1dup)
+                return 0;
+
+        s2dup  = strdup (string2);
+        if (!s2dup)
+                goto free_s1;
+
+        string1 = s1dup;
+        string2 = s2dup;
+
+        tok1 = strtok_r(string1, "/", &saveptr1);
+        tok2 = strtok_r (string2, "/", &saveptr2);
+        while (tok1) {
+                if (!tok2)
                         break;
+
+                if (strcmp (tok1, tok2) != 0)
+                        break;
+
+                matchcount++;
+                tok1 = strtok_r(NULL, "/", &saveptr1);
+                tok2 = strtok_r (NULL, "/", &saveptr2);
         }
 
+        free (s2dup);
+free_s1:
+        free (s1dup);
         return matchcount;
 }
 
 int
 libgf_vmp_entry_match (struct vmp_entry *entry, char *path)
 {
-        return libgf_strmatchcount (entry->vmp, (entry->vmplen - 1), path,
-                                        strlen(path));
+        return libgf_strmatchcount (entry->vmp, path);
 }
 
+#define LIBGF_VMP_EXACT          1
+#define LIBGF_VMP_LONGESTPREFIX  0
 struct vmp_entry *
-_libgf_vmp_search_entry (char *path)
+_libgf_vmp_search_entry (char *path, int searchtype)
 {
         struct vmp_entry        *entry = NULL;
         int                     matchcount = 0;
         struct vmp_entry        *maxentry = NULL;
         int                     maxcount = 0;
+        int                     vmpcompcount = 0;
 
         if (vmplist.entries == 0) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Virtual Mount Point "
@@ -1379,17 +1429,55 @@ _libgf_vmp_search_entry (char *path)
 
         list_for_each_entry(entry, &vmplist.list, list) {
                 matchcount = libgf_vmp_entry_match (entry, path);
-                if ((matchcount == (entry->vmplen - 1)) &&
-                                        (matchcount > maxcount)) {
+                if (matchcount > maxcount) {
                         maxcount = matchcount;
                         maxentry = entry;
                 }
+        }
+
+        /* To ensure that the longest prefix matched entry is also an exact
+         * match, this is used to check whether duplicate entries are present
+         * in the vmplist.
+         */
+        if ((searchtype == LIBGF_VMP_EXACT) && (maxentry)) {
+                vmpcompcount = libgf_count_path_components (maxentry->vmp);
+                if (vmpcompcount != matchcount)
+                        maxentry = NULL;
         }
 
 out:        
         return maxentry;
 } 
 
+/* Used to search for a exactly matching VMP entry.
+ */
+struct vmp_entry *
+libgf_vmp_search_exact_entry (char *path)
+{
+        struct vmp_entry        *entry = NULL;
+
+        if (!path)
+                goto out;
+
+        pthread_mutex_lock (&vmplock);
+        {
+                entry = _libgf_vmp_search_entry (path, LIBGF_VMP_EXACT);
+        }
+        pthread_mutex_unlock (&vmplock);
+
+out:
+        if (entry)
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry found: %s: %s",
+                        path, entry->vmp);
+        else
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Entry not found");
+
+        return entry;
+}
+
+
+/* Used to search for a longest prefix matching VMP entry.
+ */
 struct vmp_entry *
 libgf_vmp_search_entry (char *path)
 {
@@ -1400,7 +1488,7 @@ libgf_vmp_search_entry (char *path)
 
         pthread_mutex_lock (&vmplock);
         {
-                entry = _libgf_vmp_search_entry (path);
+                entry = _libgf_vmp_search_entry (path, LIBGF_VMP_LONGESTPREFIX);
         }
         pthread_mutex_unlock (&vmplock);
 
@@ -1473,7 +1561,7 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
         vmphash = (dev_t)ReallySimpleHash (vmp, strlen (vmp));
         pthread_mutex_lock (&mountlock);
         {
-                vmp_entry = _libgf_vmp_search_entry (vmp);
+                vmp_entry = libgf_vmp_search_exact_entry (vmp);
                 if (vmp_entry) {
                         ret = 0;
                         goto unlock;
@@ -1506,7 +1594,7 @@ _libgf_umount (char *vmp)
         struct vmp_entry *entry= NULL;
         int               ret = -1;
 
-        entry = _libgf_vmp_search_entry (vmp);
+        entry = libgf_vmp_search_exact_entry (vmp);
         if (entry == NULL) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
                         "path (%s) not mounted", vmp);
