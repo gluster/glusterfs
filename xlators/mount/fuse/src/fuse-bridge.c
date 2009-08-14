@@ -2635,7 +2635,13 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fino.minor = FUSE_KERNEL_MINOR_VERSION;
         fino.max_readahead = 1 << 17;
         fino.max_write = 1 << 17;
-        fino.flags = FUSE_ASYNC_READ | FUSE_POSIX_LOCKS | FUSE_BIG_WRITES;
+        fino.flags = FUSE_ASYNC_READ | FUSE_POSIX_LOCKS;
+        if (fini->minor >= 6 /* fuse_init_in has flags */ &&
+            fini->flags & FUSE_BIG_WRITES) {
+                /* no need for direct I/O mode if big writes are supported */
+                priv->direct_io_mode = 0;
+                fino.flags |= FUSE_BIG_WRITES;
+        }
 
         ret = send_fuse_obj (this, finh, &fino);
         if (ret == 0)

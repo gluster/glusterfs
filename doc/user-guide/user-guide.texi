@@ -509,7 +509,8 @@ Advanced Options
        Attribute timeout for inodes in the kernel, in seconds. Defaults to 1 second.
 
 @item  --disable-direct-io-mode
-       Disable direct @acronym{I/O} mode in @acronym{FUSE} kernel module.
+       Disable direct @acronym{I/O} mode in @acronym{FUSE} kernel module. This is set
+       automatically if kernel supports big writes (>= 2.6.26).
 
 @item  -e, --entry-timeout=<n>
        Entry timeout for directory entries in the kernel, in seconds. 
