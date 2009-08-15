@@ -36,6 +36,7 @@
 
 #include "locks.h"
 #include "common.h"
+#include "statedump.h"
 
 #ifndef LLONG_MAX
 #define LLONG_MAX LONG_LONG_MAX /* compat with old gcc */
@@ -768,6 +769,57 @@ pl_forget (xlator_t *this,
 }
 
 
+void
+pl_dump_inode_priv (inode_t *inode)
+{
+
+        int ret = -1;
+        uint64_t   tmp_pl_inode = 0;
+        pl_inode_t *pl_inode = NULL;
+        char key[GF_DUMP_MAX_BUF_LEN];
+
+        if (!inode)
+                return;
+
+	ret = inode_ctx_get (inode, inode->table->xl, &tmp_pl_inode);
+
+	if (ret != 0) 
+                return;
+                
+        pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
+
+        if (!pl_inode) 
+                return;
+
+        gf_proc_dump_build_key(key, 
+                               "xlator.feature.locks.inode",
+                               "%ld.%s",inode->ino, "mandatory");
+        gf_proc_dump_write(key, "%d", pl_inode->mandatory);
+}
+
+
+
+/*
+ * pl_dump_inode - inode dump function for posix locks
+ *
+ */
+int
+pl_dump_inode (xlator_t *this)
+{
+
+        assert(this);
+        
+        if (this->itable) {
+                inode_table_dump(this->itable,
+                                 "xlator.features.locks.inode_table",
+                                  pl_dump_inode_priv);
+        }
+
+	return 0;
+}
+
+
+
 int
 init (xlator_t *this)
 {
@@ -864,6 +916,9 @@ struct xlator_fops fops = {
 struct xlator_mops mops = {
 };
 
+struct xlator_dumpops dumpops = {
+        .inode      = pl_dump_inode,
+};
 
 struct xlator_cbks cbks = {
 	.forget      = pl_forget,

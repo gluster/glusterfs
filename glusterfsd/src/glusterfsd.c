@@ -62,6 +62,7 @@
 #include "common-utils.h"
 #include "event.h"
 #include "globals.h"
+#include "statedump.h"
 
 #include <fnmatch.h>
 
@@ -1157,6 +1158,7 @@ main (int argc, char *argv[])
 		return -1;
 	}
 	gf_log_set_loglevel (cmd_args->log_level);
+        gf_proc_dump_init();
 	
 	/* setting up environment  */
 	lim.rlim_cur = RLIM_INFINITY;
@@ -1169,7 +1171,7 @@ main (int argc, char *argv[])
 #ifdef DEBUG
 	mtrace ();
 #endif
-	signal (SIGUSR1, (sighandler_t) malloc_stats);
+	signal (SIGUSR1, (sighandler_t) gf_proc_dump_info);
 #endif
 	signal (SIGSEGV, gf_print_trace);
 	signal (SIGABRT, gf_print_trace);

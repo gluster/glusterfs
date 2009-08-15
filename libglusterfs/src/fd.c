@@ -21,6 +21,7 @@
 #include "glusterfs.h"
 #include "inode.h"
 #include "dict.h"
+#include "statedump.h"
 
 
 #ifndef _CONFIG_H
@@ -685,3 +686,69 @@ fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
 
         return ret;
 }
+
+
+void
+fd_dump (fd_t *fd, char *prefix)
+{
+        char        key[GF_DUMP_MAX_BUF_LEN];
+        inode_t     *inode = NULL;
+
+        if (!fd)
+                return;
+    
+        memset(key, 0, sizeof(key));
+        gf_proc_dump_build_key(key, prefix, "pid");
+        gf_proc_dump_write(key, "%d", fd->pid);
+        gf_proc_dump_build_key(key, prefix, "refcount");
+        gf_proc_dump_write(key, "%d", fd->refcount);
+        gf_proc_dump_build_key(key, prefix, "flags");
+        gf_proc_dump_write(key, "%d", fd->flags);
+        gf_proc_dump_build_key(key, prefix, "inode");
+        gf_proc_dump_add_section(key);
+        inode_dump(inode, key, NULL);
+}
+
+
+void
+fdentry_dump (fdentry_t *fdentry, char *prefix)
+{
+        if (!fdentry)
+                return;
+
+        if (GF_FDENTRY_ALLOCATED != fdentry->next_free)
+                return;
+
+        if (fdentry->fd) 
+                fd_dump(fdentry->fd, prefix);
+}
+
+void
+fdtable_dump (fdtable_t *fdtable, char *prefix)
+{
+        char        key[GF_DUMP_MAX_BUF_LEN];
+        int         i = 0;
+
+        if (!fdtable)
+                return;
+    
+        memset(key, 0, sizeof(key));
+        gf_proc_dump_build_key(key, prefix, "refcount");
+        gf_proc_dump_write(key, "%d", fdtable->refcount);
+        gf_proc_dump_build_key(key, prefix, "maxfds");
+        gf_proc_dump_write(key, "%d", fdtable->max_fds);
+        gf_proc_dump_build_key(key, prefix, "first_free");
+        gf_proc_dump_write(key, "%d", fdtable->first_free);
+        gf_proc_dump_build_key(key, prefix, "lock");
+        gf_proc_dump_write(key, "%d", fdtable->lock);
+
+        for ( i = 0 ; i < fdtable->max_fds; i++) {
+                if (GF_FDENTRY_ALLOCATED == 
+                                fdtable->fdentries[i].next_free) {
+                        gf_proc_dump_build_key(key, prefix, "fdentry[%d]", i);
+                        gf_proc_dump_add_section(key);
+                        fdentry_dump(&fdtable->fdentries[i], key);
+                }
+        }
+}
+

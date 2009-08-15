@@ -740,6 +740,11 @@ xlator_set_type (xlator_t *xl,
 			"dlsym(notify) on %s -- neglecting", dlerror ());
 	}
 
+	if (!(xl->dumpops = dlsym (handle, "dumpops"))) {
+		gf_log ("xlator", GF_LOG_DEBUG,
+			"dlsym(dumpops) on %s -- neglecting", dlerror ());
+	}
+
 	INIT_LIST_HEAD (&xl->volume_options);
 
 	vol_opt = CALLOC (1, sizeof (volume_opt_list_t));

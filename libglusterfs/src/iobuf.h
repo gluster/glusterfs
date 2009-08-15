@@ -123,5 +123,6 @@ int iobref_merge (struct iobref *to, struct iobref *from);
 
 size_t iobuf_size (struct iobuf *iobuf);
 size_t iobref_size (struct iobref *iobref);
+void   iobuf_stats_dump (struct iobuf_pool *iobuf_pool);
 
 #endif /* !_IOBUF_H_ */
