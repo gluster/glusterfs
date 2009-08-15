@@ -1,4 +1,4 @@
-/*
+/* 
   Copyright (c) 2006-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
   This file is part of GlusterFS.
 
@@ -74,6 +74,7 @@ struct _call_frame_t {
 	int32_t       ref_count;
 	gf_lock_t     lock;
 	void         *cookie;      /* unique cookie */
+	gf_boolean_t  complete;
 };
 
 struct _call_stack_t {
@@ -208,6 +209,7 @@ STACK_DESTROY (call_stack_t *stack)
 		_parent->ref_count--;					\
                 old_THIS = THIS;                                        \
                 THIS = _parent->this;                                   \
+                frame->complete = _gf_true;                             \
 		fn (_parent, frame->cookie, _parent->this, params);	\
                 THIS = old_THIS;                                        \
 	} while (0)
@@ -281,5 +283,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 	return &stack->frames;
 }
 
+void
+gf_proc_dump_pending_frames(call_pool_t *call_pool);
 
 #endif /* _STACK_H */

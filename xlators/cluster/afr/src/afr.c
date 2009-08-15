@@ -43,6 +43,7 @@
 #include "compat-errno.h"
 #include "compat.h"
 #include "byte-order.h"
+#include "statedump.h"
 
 #include "fd.h"
 
@@ -2158,6 +2159,60 @@ out:
 	return 0;
 }
 
+int
+afr_priv_dump (xlator_t *this)
+{
+	afr_private_t *priv = NULL;
+        char  key_prefix[GF_DUMP_MAX_BUF_LEN];
+        char  key[GF_DUMP_MAX_BUF_LEN];
+        int   i = 0;
+
+
+        assert(this);
+	priv = this->private;
+
+        assert(priv);
+        snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
+        gf_proc_dump_add_section(key_prefix);
+        gf_proc_dump_build_key(key, key_prefix, "child_count");
+        gf_proc_dump_write(key, "%u", priv->child_count);
+        gf_proc_dump_build_key(key, key_prefix, "read_child_rr");
+        gf_proc_dump_write(key, "%u", priv->read_child_rr);
+	for (i = 0; i < priv->child_count; i++) {
+                gf_proc_dump_build_key(key, key_prefix, "child_up[%d]", i);
+                gf_proc_dump_write(key, "%d", priv->child_up[i]);
+                gf_proc_dump_build_key(key, key_prefix, 
+                                        "pending_key[%d]", i);
+                gf_proc_dump_write(key, "%s", priv->pending_key[i]);
+        }
+        gf_proc_dump_build_key(key, key_prefix, "data_self_heal");
+        gf_proc_dump_write(key, "%d", priv->data_self_heal);
+        gf_proc_dump_build_key(key, key_prefix, "metadata_self_heal");
+        gf_proc_dump_write(key, "%d", priv->metadata_self_heal);
+        gf_proc_dump_build_key(key, key_prefix, "entry_self_heal");
+        gf_proc_dump_write(key, "%d", priv->entry_self_heal);
+        gf_proc_dump_build_key(key, key_prefix, "data_change_log");
+        gf_proc_dump_write(key, "%d", priv->data_change_log);
+        gf_proc_dump_build_key(key, key_prefix, "metadata_change_log");
+        gf_proc_dump_write(key, "%d", priv->metadata_change_log);
+        gf_proc_dump_build_key(key, key_prefix, "entry_change_log");
+        gf_proc_dump_write(key, "%d", priv->entry_change_log);
+        gf_proc_dump_build_key(key, key_prefix, "read_child");
+        gf_proc_dump_write(key, "%d", priv->read_child);
+        gf_proc_dump_build_key(key, key_prefix, "favorite_child");
+        gf_proc_dump_write(key, "%u", priv->favorite_child);
+        gf_proc_dump_build_key(key, key_prefix, "data_lock_server_count");
+        gf_proc_dump_write(key, "%u", priv->data_lock_server_count);
+        gf_proc_dump_build_key(key, key_prefix, "metadata_lock_server_count");
+        gf_proc_dump_write(key, "%u", priv->metadata_lock_server_count);
+        gf_proc_dump_build_key(key, key_prefix, "entry_lock_server_count");
+        gf_proc_dump_write(key, "%u", priv->entry_lock_server_count);
+        gf_proc_dump_build_key(key, key_prefix, "wait_count");
+        gf_proc_dump_write(key, "%u", priv->wait_count);
+
+        return 0;
+}
+
 
 /**
  * find_child_index - find the child's index in the array of subvolumes
@@ -2585,6 +2640,10 @@ struct xlator_fops fops = {
 
 
 struct xlator_mops mops = {
+};
+
+struct xlator_dumpops dumpops = {
+        .priv       = afr_priv_dump,
 };
 
 

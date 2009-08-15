@@ -45,6 +45,7 @@
 #include "compat.h"
 #include "byte-order.h"
 #include "syscall.h"
+#include "statedump.h"
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -3808,6 +3809,45 @@ posix_checksum (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
+int32_t
+posix_priv (xlator_t *this)
+{
+        struct posix_private *priv = NULL;
+        char  key_prefix[GF_DUMP_MAX_BUF_LEN];
+        char  key[GF_DUMP_MAX_BUF_LEN];
+
+        snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, 
+                       this->name);
+        gf_proc_dump_add_section(key_prefix);
+
+        if (!this) 
+                return 0;
+
+        priv = this->private;
+
+        if (!priv) 
+                return 0;
+
+        gf_proc_dump_build_key(key, key_prefix, "base_path");
+        gf_proc_dump_write(key,"%s", priv->base_path);
+        gf_proc_dump_build_key(key, key_prefix, "base_path_length");
+        gf_proc_dump_write(key,"%d", priv->base_path_length);
+        gf_proc_dump_build_key(key, key_prefix, "max_read");
+        gf_proc_dump_write(key,"%d", priv->max_read);
+        gf_proc_dump_build_key(key, key_prefix, "max_write");
+        gf_proc_dump_write(key,"%d", priv->max_write);
+        gf_proc_dump_build_key(key, key_prefix, "stats.nr_files");
+        gf_proc_dump_write(key,"%ld", priv->stats.nr_files);
+
+        return 0;
+}
+
+int32_t
+posix_inode (xlator_t *this)
+{
+        return 0;
+}
+
 /**
  * notify - when parent sends PARENT_UP, send CHILD_UP event from here
  */
@@ -4055,6 +4095,11 @@ fini (xlator_t *this)
         FREE (priv);
         return;
 }
+
+struct xlator_dumpops dumpops = {
+        .priv    = posix_priv,
+        .inode   = posix_inode,
+};
 
 struct xlator_mops mops = {
         .stats    = posix_stats,

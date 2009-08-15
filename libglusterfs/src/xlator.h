@@ -806,6 +806,19 @@ struct xlator_cbks {
 	cbk_release_t   releasedir;
 };
 
+typedef int32_t (*dumpop_priv_t) (xlator_t *this);
+
+typedef int32_t (*dumpop_inode_t) (xlator_t *this);
+
+typedef int32_t (*dumpop_fd_t)  (xlator_t   *this);
+
+                              
+struct xlator_dumpops {
+	dumpop_priv_t            priv;
+	dumpop_inode_t           inode;
+        dumpop_fd_t              fd;
+};
+
 typedef struct xlator_list {
 	xlator_t           *xlator;
 	struct xlator_list *next;
@@ -859,10 +872,11 @@ struct _xlator {
 	dict_t        *options;
 	
 	/* Set after doing dlopen() */
-	struct xlator_fops *fops;
-	struct xlator_mops *mops;
-	struct xlator_cbks *cbks;
-	struct list_head   volume_options;  /* list of volume_option_t */
+	struct xlator_fops    *fops;
+	struct xlator_mops    *mops;
+	struct xlator_cbks    *cbks;
+	struct xlator_dumpops *dumpops;
+	struct list_head      volume_options;  /* list of volume_option_t */
 
 	void              (*fini) (xlator_t *this);
 	int32_t           (*init) (xlator_t *this);

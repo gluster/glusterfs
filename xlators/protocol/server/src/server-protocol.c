@@ -40,6 +40,7 @@
 #include "dict.h"
 #include "compat.h"
 #include "compat-errno.h"
+#include "statedump.h"
 
 
 static void
@@ -7512,7 +7513,80 @@ server_nop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 }
 
+/*
+ * server_fd - fdtable dump function for server protocol
+ * @this:
+ *
+ */
+int
+server_fd (xlator_t *this)
+{
+         server_conf_t        *conf = NULL;
+ 	 server_connection_t  *trav = NULL;
+         char                 key[GF_DUMP_MAX_BUF_LEN];
+         int                  i = 1;
+         int                  ret = -1;
+ 	
+         if (!this)
+                 return -1;
+ 	
+         conf = this->private;
+         if (!conf) {
+ 		gf_log (this->name, GF_LOG_WARNING,
+ 			"conf null in xlator");
+                return -1;
+         }
+ 
+         gf_proc_dump_add_section("xlator.protocol.server.conn");
+         
+         ret = pthread_mutex_trylock (&conf->mutex);
+         if (ret) { 
+                gf_log("", GF_LOG_WARNING, "Unable to dump fdtable"
+                " errno: %d", errno);
+                return -1;
+        }
+ 	
+         list_for_each_entry (trav, &conf->conns, list) {
+                 if (trav->id) {
+                         gf_proc_dump_build_key(key, 
+                                          "xlator.protocol.server.conn", 
+                                          "%d.id", i);
+                         gf_proc_dump_write(key, "%s", trav->id);
+                 }
+                         
+                 gf_proc_dump_build_key(key,"xlator.protocol.server.conn",
+                                        "%d.ref",i) 
+                 gf_proc_dump_write(key, "%d", trav->ref);
+                 if (trav->bound_xl) {
+                         gf_proc_dump_build_key(key, 
+                                          "xlator.protocol.server.conn", 
+                                          "%d.bound_xl", i);
+                         gf_proc_dump_write(key, "%s", trav->bound_xl->name);
+                 }
+                         
+                 gf_proc_dump_build_key(key, 
+                                        "xlator.protocol.server.conn", 
+                                         "%d.id", i);
+                 fdtable_dump(trav->fdtable,key);
+                 i++;
+         }
+ 	pthread_mutex_unlock (&conf->mutex);
+ 
+ 
+ 	return 0;
+ }
 
+int
+server_priv (xlator_t *this) 
+{
+        return 0;
+}
+
+int
+server_inode (xlator_t *this)
+{
+        return 0;
+}
 static void
 get_auth_types (dict_t *this, char *key, data_t *value, void *data)
 {
@@ -7840,6 +7914,13 @@ struct xlator_fops fops = {
 
 struct xlator_cbks cbks = {
 };
+
+struct xlator_dumpops dumpops = {
+        .inode = server_inode,
+        .priv  = server_priv,
+        .fd    = server_fd,
+};
+
 
 struct volume_options options[] = {
  	{ .key   = {"transport-type"}, 
