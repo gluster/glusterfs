@@ -77,6 +77,7 @@ struct fuse_private {
         pthread_t            fuse_thread;
         char                 fuse_thread_started;
         uint32_t             direct_io_mode;
+        size_t              *msg0_len_p;
         double               entry_timeout;
         double               attribute_timeout;
         pthread_cond_t       first_call_cond;
@@ -1748,8 +1749,11 @@ fuse_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 static void
 fuse_write (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
-        struct fuse_write_in *fwi = msg;
-        char            *buf = (char *)(fwi + 1);
+        /* WRITE is special, metadata is attached to in_header,
+         * and msg is the payload as-is.
+         */
+        struct fuse_write_in *fwi = (struct fuse_write_in *)
+                                      (finh + 1);
 
         fuse_private_t  *priv = NULL;
         fuse_state_t    *state = NULL;
@@ -1759,15 +1763,13 @@ fuse_write (xlator_t *this, fuse_in_header_t *finh, void *msg)
         struct iobuf    *iobuf = NULL;
 
         priv = this->private;
-        if (priv->proto_minor < 9)
-                buf = (char *)msg + FUSE_COMPAT_WRITE_IN_SIZE;
 
         GET_STATE (this, finh, state);
         state->size = fwi->size;
         state->off  = fwi->offset;
         fd          = FH_TO_FD (fwi->fh);
         state->fd   = fd;
-        vector.iov_base = (void *)buf;
+        vector.iov_base = msg;
         vector.iov_len  = fwi->size;
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -2642,6 +2644,8 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 priv->direct_io_mode = 0;
                 fino.flags |= FUSE_BIG_WRITES;
         }
+        if (fini->minor < 9)
+                *priv->msg0_len_p = sizeof(*finh) + FUSE_COMPAT_WRITE_IN_SIZE;
 
         ret = send_fuse_obj (this, finh, &fino);
         if (ret == 0)
@@ -2760,19 +2764,29 @@ fuse_thread_proc (void *data)
         struct iobuf   *iobuf = NULL;
         fuse_in_header_t *finh;
         struct iovec iov_in[2];
+        void *msg = NULL;
+        const size_t msg0_size = sizeof (*finh) + 128;
 
         this = data;
         priv = this->private;
 
         THIS = this;
 
-        iov_in[0].iov_len = sizeof (fuse_in_header_t);
+        iov_in[0].iov_len = sizeof (*finh) + sizeof (struct fuse_write_in);
         iov_in[1].iov_len = ((struct iobuf_pool *)this->ctx->iobuf_pool)
                               ->page_size;
+        priv->msg0_len_p = &iov_in[0].iov_len;
 
         for (;;) {
                 iobuf = iobuf_get (this->ctx->iobuf_pool);
-                iov_in[0].iov_base = CALLOC (1, sizeof (*finh));
+                /* Add extra 128 byte to the first iov so that it can
+                 * accomodate "ordinary" non-write requests. It's not
+                 * guaranteed to be big enough, as SETXATTR and namespace
+                 * operations with very long names may grow behind it,
+                 * but it's good enough in most cases (and we can handle
+                 * rest via realloc).
+                 */
+                iov_in[0].iov_base = CALLOC (1, msg0_size);
 
                 if (!iobuf || !iov_in[0].iov_base) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2811,10 +2825,7 @@ fuse_thread_proc (void *data)
                                         strerror (errno));
                         }
 
-                        iobuf_unref (iobuf);
-                        FREE (iov_in[0].iov_base);
-
-                        continue;
+                        goto cont_err;
                 }
                 if (res < sizeof (finh)) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING, "short read on /dev/fuse");
@@ -2829,9 +2840,39 @@ fuse_thread_proc (void *data)
 
                 priv->iobuf = iobuf;
 
-                fuse_ops[finh->opcode] (this, finh, iov_in[1].iov_base);
+                if (finh->opcode == FUSE_WRITE)
+                        msg = iov_in[1].iov_base;
+                else {
+                        if (res > msg0_size) {
+                                iov_in[0].iov_base =
+                                  realloc (iov_in[0].iov_base, res);
+                                if (iov_in[0].iov_base)
+                                        finh = (fuse_in_header_t *)
+                                                 iov_in[0].iov_base;
+                                else {
+                                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                                                "Out of memory");
+                                        send_fuse_err (this, finh, ENOMEM);
+
+                                        goto cont_err;
+                                }
+                        }
+
+                        if (res > iov_in[0].iov_len)
+                                memcpy (iov_in[0].iov_base + iov_in[0].iov_len,
+                                        iov_in[1].iov_base,
+                                        res - iov_in[0].iov_len);
+
+                        msg = finh + 1;
+                }
+                fuse_ops[finh->opcode] (this, finh, msg);
 
                 iobuf_unref (iobuf);
+                continue;
+
+ cont_err:
+                iobuf_unref (iobuf);
+                FREE (iov_in[0].iov_base);
         }
 
         iobuf_unref (iobuf);
