@@ -2500,32 +2500,36 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 	switch (stub->fop)
 	{
 	case GF_FOP_RENAME:
+                if ((op_ret < 0 && stub->args.rename.old.inode == NULL) ||
+		    (op_ret < 0 && parent == NULL)) {
+			/* Either oldloc lookup failed OR newloc lookup 
+			 * failed and parent was not found
+			 */
+			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
+				"%"PRId64": RENAME (%s -> %s) on %s "
+				"returning error: "
+				"%"PRId32" (%"PRId32")",
+				stub->frame->root->unique,
+				stub->args.rename.old.path,
+				stub->args.rename.new.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+				
+			/* lookup of oldpath failed, UNWIND to
+			 * server_rename_cbk with ret=-1 and 
+			 * errno=ENOENT 
+			 */
+			server_rename_cbk (stub->frame, NULL,
+					   stub->frame->this,
+					   -1, ENOENT, NULL);
+			server_loc_wipe (&stub->args.rename.old);
+			server_loc_wipe (&stub->args.rename.new);
+			FREE (stub);
+			return 0;
+		}
+
 		if (stub->args.rename.old.inode == NULL) {
 			/* now we are called by lookup of oldpath. */
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-					"%"PRId64": RENAME (%s -> %s) on %s "
-					"returning error: "
-					"%"PRId32" (%"PRId32")",
-					stub->frame->root->unique,
-					stub->args.rename.old.path,
-					stub->args.rename.new.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-				
-				/* lookup of oldpath failed, UNWIND to
-				 * server_rename_cbk with ret=-1 and 
-				 * errno=ENOENT 
-				 */
-				server_rename_cbk (stub->frame, NULL,
-						   stub->frame->this,
-						   -1, ENOENT, NULL);
-				server_loc_wipe (&stub->args.rename.old);
-				server_loc_wipe (&stub->args.rename.new);
-				FREE (stub);
-				return 0;
-			}
-			
 			if (stub->args.rename.old.parent == NULL)
 				stub->args.rename.old.parent = 
 					inode_ref (parent);
