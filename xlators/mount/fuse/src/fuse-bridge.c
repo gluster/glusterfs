@@ -647,7 +647,10 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fao.attr_valid_nsec =
                   calc_timeout_nsec (priv->attribute_timeout);
 
-                send_fuse_obj (this, finh, &fao);
+                priv->proto_minor >= 9 ?
+                send_fuse_obj (this, finh, &fao) :
+                send_fuse_data (this, finh, &fao,
+                                FUSE_COMPAT_ATTR_OUT_SIZE);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": %s() %s => -1 (%s)", frame->root->unique,
