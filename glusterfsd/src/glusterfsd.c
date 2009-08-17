@@ -140,7 +140,8 @@ static struct argp_option gf_options[] = {
 	
  	{0, 0, 0, 0, "Fuse options:"},
  	{"disable-direct-io-mode", ARGP_DISABLE_DIRECT_IO_MODE_KEY, 0, 0, 
- 	 "Disable direct I/O mode in fuse kernel module"},
+ 	 "Disable direct I/O mode in fuse kernel module"
+	 " [default if big writes are supported]"},
  	{"entry-timeout", ARGP_ENTRY_TIMEOUT_KEY, "SECONDS", 0, 
  	 "Set entry timeout to SECONDS in fuse kernel module [default: 1]"},
  	{"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0, 

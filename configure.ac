@@ -124,6 +124,8 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterfsd-Redhat
                 extras/init.d/glusterfsd-SuSE
 		extras/benchmarking/Makefile
+		contrib/Makefile
+		contrib/fuse-util/Makefile
 		glusterfs.spec])
 
 AC_CANONICAL_HOST
@@ -206,53 +208,32 @@ AC_ARG_ENABLE([fuse-client],
 	      AC_HELP_STRING([--disable-fuse-client],
 			     [Do not build the fuse client. NOTE: you cannot mount glusterfs without the client]))
 
-if test "x$enable_fuse_client" != "xno"; then
-   AC_CHECK_LIB([fuse],
-                 [fuse_req_interrupt_func],
-	         [HAVE_LIBFUSE="yes"],
-	         [HAVE_LIBFUSE="no"])
-
-   if test "x$HAVE_LIBFUSE" = "xyes"; then
-      AC_TRY_COMPILE([#define FUSE_USE_VERSION 26 
-                      #define _FILE_OFFSET_BITS 64 
-                      #include <fuse.h>],
-		      #define _GLFS_FUSE_VERSION_28 28
-       	 	      #if (FUSE_VERSION < _GLFS_FUSE_VERSION_28)
-                      #error "fuse version 2.8 not found" 
-		      #endif
-		      ,
-		     [HAVE_FUSE_VERSION_28="yes"],
-		     [HAVE_FUSE_VERSION_28="no"])
-
-      AC_CHECK_LIB([fuse],
-                    [fuse_reply_iov],
-	            [HAVE_FUSE_REPLY_IOV="yes"],
-	            [HAVE_FUSE_REPLY_IOV="no"])
-
-   fi     
-fi
-
-if test "x$HAVE_FUSE_REPLY_IOV" = "xyes"; then
-   AC_DEFINE(HAVE_FUSE_REPLY_IOV, 1, [found fuse_reply_iov])
-fi
-
-if test "x$HAVE_LIBFUSE" = "xyes" -a "x$HAVE_FUSE_VERSION_28" = "xyes"; then
-   AC_DEFINE(HAVE_FUSE_VERSION_28, 1, [found fuse 2.8 version])
-fi
-
-if test "x$enable_fuse_client" = "xyes" -a "x$HAVE_LIBFUSE" = "xno"; then
-   echo "FUSE requested but not found."
-   exit 1
-fi
-
 BUILD_FUSE_CLIENT=no
-if test "x$enable_fuse_client" != "xno" -a "x$HAVE_LIBFUSE" = "xyes"; then
+if test "x$enable_fuse_client" != "xno"; then
    FUSE_CLIENT_SUBDIR=fuse
    BUILD_FUSE_CLIENT="yes"
 fi
 
 AC_SUBST(FUSE_CLIENT_SUBDIR)
 # end FUSE section
+
+
+# FUSERMOUNT section
+AC_ARG_ENABLE([fusermount],
+              AC_HELP_STRING([--enable-fusermount],
+                             [Build fusermount]),
+              [], [enable_fusermount=no])
+
+BUILD_FUSERMOUNT="no"
+
+if test "x$enable_fusermount" != "xno"; then
+  FUSERMOUNT_SUBDIR="contrib"
+  BUILD_FUSERMOUNT="yes"
+  AC_DEFINE(GF_FUSERMOUNT, 1, [Use our own fusermount])
+fi
+
+AC_SUBST(FUSERMOUNT_SUBDIR)
+#end FUSERMOUNT section
 
 
 # EPOLL section
@@ -493,6 +474,9 @@ AC_SUBST(GF_LDADD)
 AC_SUBST(GF_FUSE_LDADD)
 AC_SUBST(GF_BOOSTER_SUBDIR)
 
+CONTRIBDIR='$(top_srcdir)/contrib'
+AC_SUBST(CONTRIBDIR)
+
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")	
 
 AC_OUTPUT
@@ -506,4 +490,5 @@ echo "epoll IO multiplex : $BUILD_EPOLL"
 echo "Berkeley-DB        : $BUILD_BDB"
 echo "libglusterfsclient : $BUILD_LIBGLUSTERFSCLIENT"
 echo "argp-standalone    : $BUILD_ARGP_STANDALONE"
+echo "fusermount         : $BUILD_FUSERMOUNT"
 echo

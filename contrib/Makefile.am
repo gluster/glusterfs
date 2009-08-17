@@ -1,0 +1,3 @@
+SUBDIRS = fuse-util
+
+CLEANFILES =
