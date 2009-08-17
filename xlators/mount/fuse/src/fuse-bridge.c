@@ -2737,9 +2737,10 @@ init (xlator_t *this_xl)
                                         priv->mount_point);
                         } else {
                                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                                        "fuse_mount() failed with error %s "
+                                        "fuse_mount() failed%s%s "
                                         "on mount point %s",
-                                        strerror (errno),
+                                        errno ? " with error " : "",
+                                        errno ? strerror (errno) : "",
                                         priv->mount_point);
                         }
                 }
