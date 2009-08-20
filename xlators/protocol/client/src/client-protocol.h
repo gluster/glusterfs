@@ -92,6 +92,7 @@ struct _client_conf {
 	struct timeval       last_sent;
 	struct timeval       last_received;
 	pthread_mutex_t      mutex;
+        int                  connecting;
 };
 typedef struct _client_conf client_conf_t;
 

@@ -5458,6 +5458,7 @@ int
 client_setvolume_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                       struct iobuf *iobuf)
 {
+        client_conf_t          *conf = NULL;
 	gf_mop_setvolume_rsp_t *rsp = NULL;
 	client_connection_t    *conn = NULL;
 	glusterfs_ctx_t        *ctx = NULL; 
@@ -5475,10 +5476,10 @@ client_setvolume_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         transport_t            *peer_trans = NULL;
         uint64_t                peer_trans_int = 0;
 
-
 	trans = frame->local; frame->local = NULL;
 	this  = frame->this;
 	conn  = trans->xl_private;
+        conf  = this->private;
 
 	rsp = gf_param (hdr);
 
@@ -5573,7 +5574,9 @@ client_setvolume_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		}
 	}
 
+        conf->connecting = 0;
 out:
+
         if (-1 == op_ret) {
 		/* Let the connection/re-connection happen in 
 		 * background, for now, don't hang here,
@@ -5586,6 +5589,7 @@ out:
 						trans->xl);
 			parent = parent->next;
 		}
+                conf->connecting= 1;
         }
 
 	STACK_DESTROY (frame->root);
@@ -6196,7 +6200,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 	client_connection_t *conn       = NULL;
         client_conf_t       *conf       = NULL;
         xlator_list_t       *parent = NULL;
-                        
 
         conf = this->private;
 	trans = data;
@@ -6220,6 +6223,21 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 		ret = -1;
 		protocol_client_cleanup (trans);
 
+                if (conf->connecting == 0) {
+                        /* Let the connection/re-connection happen in 
+                         * background, for now, don't hang here,
+                         * tell the parents that i am all ok..
+                         */
+                        parent = trans->xl->parents;
+                        while (parent) {
+                                parent->xlator->notify (parent->xlator,
+                                                        GF_EVENT_CHILD_CONNECTING,
+                                                        trans->xl);
+                                parent = parent->next;
+                        }
+                        conf->connecting = 1;
+                }
+
                 was_not_down = 0;
                 for (i = 0; i < CHANNEL_MAX; i++) {
                         conn = conf->transport[i]->xl_private;
@@ -6241,10 +6259,10 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                         if (conn->connected == 1)
                                 child_down = 0;
                 }
-                
+
                 if (child_down && was_not_down) {
                         gf_log (this->name, GF_LOG_INFO, "disconnected");
-                        
+
                         protocol_client_mark_fd_bad (this);
 
                         parent = this->parents;
