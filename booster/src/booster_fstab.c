@@ -383,11 +383,11 @@ booster_mount (struct glusterfs_mntent *ent)
         if (opt)
                 ipars.volume_name = get_option_value (opt);
 
-        opt = glusterfs_fstab_hasoption (ent, "logfile");
+        opt = glusterfs_fstab_hasoption (ent, "log-file");
         if (opt)
                 ipars.logfile = get_option_value (opt);
 
-        opt = glusterfs_fstab_hasoption (ent, "loglevel");
+        opt = glusterfs_fstab_hasoption (ent, "log-level");
         if (opt)
                 ipars.loglevel = get_option_value (opt);
 
