@@ -842,6 +842,44 @@ unwind:
 
 
 int32_t
+sp_new_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  struct stat *buf)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+	return 0;
+}
+
+
+int32_t
+sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+{
+        int32_t     ret = 0;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+
+        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+	STACK_WIND (frame, sp_new_entry_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->mkdir, loc, mode);
+
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, loc->inode, NULL);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -889,6 +927,7 @@ struct xlator_fops fops = {
         .open      = sp_open, 
         .create    = sp_create,
         .opendir   = sp_opendir,
+        .mkdir     = sp_mkdir,
 };
 
 struct xlator_mops mops = {
