@@ -630,6 +630,8 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 {
         sp_cache_t *cache    = NULL;
         sp_local_t *local    = NULL;
+        char       *path     = NULL;
+        int32_t     ret      = -1;
 
         cache = sp_get_cache_fd (this, fd);
         if (cache) {
@@ -641,6 +643,17 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 }
         }
 
+        ret = inode_path (fd->inode, NULL, &path);
+        if (ret == -1) {
+                goto unwind;
+        }
+  
+        ret = sp_cache_remove_parent_entry (frame, this, path);
+        if (ret < 0) {
+                errno = -ret;
+                goto unwind;
+        }
+
         local = CALLOC (1, sizeof (*local));
         if (local) {
                 local->fd = fd;
@@ -650,6 +663,10 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	STACK_WIND (frame, sp_readdir_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readdir, fd, size, off);
 
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, NULL);
         return 0;
 }
 
