@@ -129,10 +129,8 @@ fops to be implemented:
   fds opened on parent inode, since st_atime is changed during this call.
 
 * xattrop/fxattrop
-  These calls modify various times of stat structure, hence appropriate entries
-  have to be removed from the cache. I am leaving these calls unimplemented in 
-  stat-prefetch for timebeing. Once we have a working translator, these five fops
-  will be implemented.
+  Delete the entry corresponding to basename from cache stored in context of fds
+  opened on parent inode, since these calls modify st_ctime of file.
 
 callbacks to be implemented:
 =======================
