@@ -1555,6 +1555,87 @@ unwind:
 
 
 int32_t
+sp_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, dir_entry_t *entries,
+                 int32_t count)
+{
+        dir_entry_t *trav  = NULL;
+        sp_local_t  *local = NULL;
+        sp_cache_t  *cache = NULL;
+        
+        if (op_ret == -1) {
+                goto out;
+        }
+
+        local = frame->local;
+        if ((local == NULL) || (local->fd == NULL)) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        cache = sp_get_cache_fd (this, local->fd);
+        if (cache) {
+                for (trav = entries->next; trav; trav = trav->next) {
+                        if (S_ISLNK (trav->buf.st_mode)) {
+                                sp_cache_remove_entry (cache, trav->name, 0);
+                        }
+                }
+        }
+        
+out: 
+	SP_STACK_UNWIND (frame, op_ret, op_errno, entries, count);
+	return 0;
+}
+
+
+int32_t
+sp_getdents (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t offset, int32_t flags)
+{
+        sp_fd_ctx_t *fd_ctx = NULL;
+        sp_cache_t  *cache  = NULL;
+        uint64_t     value  = 0;
+        int32_t      ret    = 0; 
+        inode_t     *parent = NULL;
+        char        *name   = NULL; 
+        sp_local_t  *local  = NULL;
+
+        ret = fd_ctx_get (fd, this, &value);
+        if (ret == -1) {
+                errno = EINVAL;
+                goto unwind;
+        }
+
+        fd_ctx = (void *)(long)value;
+        name   = fd_ctx->name;
+        parent = fd_ctx->parent_inode;
+
+        cache = sp_get_cache_inode (this, parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, name, 0);
+        }
+
+        local = CALLOC (1, sizeof (*local));
+        if (local == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        local->fd = fd;
+        frame->local = local;
+
+	STACK_WIND (frame, sp_getdents_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->getdents, fd, size, offset, flags);
+	return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, NULL, -1);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -1622,6 +1703,7 @@ struct xlator_fops fops = {
         .setxattr    = sp_setxattr,
         .removexattr = sp_removexattr,
         .setdents    = sp_setdents,
+        .getdents    = sp_getdents
 };
 
 struct xlator_mops mops = {
