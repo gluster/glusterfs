@@ -118,7 +118,13 @@ fops to be implemented:
   2. for each of the entry in the direntry list, delete from cache stored in 
      context of fd, the entry corresponding to basename of path being passed.
 
-* getdents/checksum/xattrop/fxattrop
+* getdents
+  1. remove entry corresponding to basename of path on which fd is opened from
+     cache stored in parent, since getdents changes st_atime. 
+  2. remove entries corresponding to symbolic links from cache, since readlink 
+     would've changed st_atime.
+
+* checksum/xattrop/fxattrop
   These calls modify various times of stat structure, hence appropriate entries
   have to be removed from the cache. I am leaving these calls unimplemented in 
   stat-prefetch for timebeing. Once we have a working translator, these five fops
