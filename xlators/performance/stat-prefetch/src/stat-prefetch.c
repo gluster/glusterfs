@@ -448,6 +448,39 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 
 int32_t
+sp_stbuf_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+              int32_t op_errno, struct stat *buf)
+{
+	SP_STACK_UNWIND (frame, op_ret, op_errno, buf);
+	return 0;
+}
+
+
+int32_t
+sp_chmod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+{
+        sp_cache_t *cache = NULL;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+
+        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, (char *)loc->name, 0);
+        }
+
+	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->chmod, loc, mode);
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -491,6 +524,7 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
         .lookup    = sp_lookup,
         .readdir   = sp_readdir,
+        .chmod     = sp_chmod,
 };
 
 struct xlator_mops mops = {
