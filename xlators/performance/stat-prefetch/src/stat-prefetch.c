@@ -602,6 +602,63 @@ unwind:
 
 
 int32_t
+sp_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+           int32_t op_errno, fd_t *fd)
+{
+        sp_local_t  *local = NULL;
+        sp_fd_ctx_t *fd_ctx = NULL;
+
+        if (op_ret == -1) {
+                goto out;
+        }
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, EINVAL);
+
+        fd_ctx = sp_fd_ctx_new (this, local->loc.parent,
+                                (char *)local->loc.name, NULL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd_ctx, out, ENOMEM);
+
+        op_ret = fd_ctx_set (fd, this, (long)(void *)fd_ctx);
+        if (op_ret == -1) {
+                sp_fd_ctx_free (fd_ctx);
+                op_errno = ENOMEM;
+        }
+
+out:
+        SP_STACK_UNWIND (frame, op_ret, op_errno, fd);
+        return 0;
+}
+
+
+int32_t
+sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+         fd_t *fd)
+{
+        sp_local_t *local = NULL;
+        int32_t     ret   = -1;
+
+        local = CALLOC (1, sizeof (*local));
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind, ENOMEM);
+
+        frame->local = local;
+
+        ret = loc_copy (&local->loc, loc);
+        if (ret == -1) {
+                goto unwind;
+        }
+
+	STACK_WIND (frame, sp_fd_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->open, loc, flags, fd);
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, fd);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -646,6 +703,7 @@ struct xlator_fops fops = {
         .lookup    = sp_lookup,
         .readdir   = sp_readdir,
         .chmod     = sp_chmod,
+        .open      = sp_open, 
 };
 
 struct xlator_mops mops = {
