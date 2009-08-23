@@ -19,6 +19,8 @@
 
 #include "stat-prefetch.h"
 #include "locking.h"
+#include "inode.h"
+#include <libgen.h>
 
 
 sp_cache_t *
@@ -428,6 +430,90 @@ out:
 
 
 int32_t
+sp_get_ancestors (char *path, char **parent, char **grand_parent)
+{
+        int32_t  ret = -1, i = 0;
+        char    *cpy = NULL;
+
+        if (!path || !parent || !grand_parent) {
+                ret = 0;
+                goto out;
+        }
+
+        for (i = 0; i < 2; i++) {
+                if (!strcmp (path, "/")) {
+                        break;
+                }
+
+                cpy = strdup (path);
+                if (cpy == NULL) {
+                        goto out;
+                }
+
+                path = dirname (cpy);
+                switch (i)
+                {
+                case 0:
+                        *parent = path;
+                        break;
+                case 1:
+                        *grand_parent = path;
+                        break;
+                }
+        }
+out:
+        return ret; 
+}
+
+
+int32_t
+sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this, char *path)
+{
+        char       *parent    = NULL, *grand_parent = NULL, *cpy = NULL;
+        inode_t    *inode_gp  = NULL;
+        sp_cache_t *cache_gp  = NULL;
+        int32_t     ret       = -1;
+
+        ret = sp_get_ancestors (path, &parent, &grand_parent);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
+
+        if (grand_parent && strcmp (grand_parent, "/")) {
+                inode_gp = inode_from_path (frame->root->frames.this->itable,
+                                             grand_parent);
+                if (inode_gp) {
+                        cache_gp = sp_get_cache_inode (this, inode_gp,
+                                                       frame->root->pid);
+                        if (cache_gp) {
+                                cpy = strdup (parent);
+                                GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name,
+                                                                cpy, out,
+                                                                ENOMEM);
+                                path = basename (cpy);
+                                sp_cache_remove_entry (cache_gp, path, 0);
+                                FREE (cpy);
+                        }
+                        inode_unref (inode_gp);
+                }
+        }
+
+        ret = 0;
+out:
+        if (parent) {
+                FREE (parent);
+        }
+
+        if (grand_parent) {
+                FREE (grand_parent);
+        }
+
+        return ret;
+}
+
+
+int32_t
 sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
         sp_local_t   *local      = NULL;
@@ -658,6 +744,77 @@ unwind:
 }
 
 
+static int32_t
+sp_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
+               struct stat *buf)
+{
+        sp_local_t  *local = NULL;
+        sp_fd_ctx_t *fd_ctx = NULL;
+
+        if (op_ret == -1) {
+                goto out;
+        }
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, EINVAL);
+
+        fd_ctx = sp_fd_ctx_new (this, local->loc.parent,
+                                (char *)local->loc.name, NULL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd_ctx, out, ENOMEM);
+
+        op_ret = fd_ctx_set (fd, this, (long)(void *)fd_ctx);
+        if (op_ret == -1) {
+                sp_fd_ctx_free (fd_ctx);
+                op_errno = ENOMEM;
+        }
+
+out:
+        SP_STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+        return 0;
+}
+
+
+int32_t
+sp_create (call_frame_t *frame,	xlator_t *this,	loc_t *loc, int32_t flags,
+           mode_t mode, fd_t *fd)
+{
+        sp_local_t *local     = NULL;
+        int32_t     ret       = -1;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+
+        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        local = CALLOC (1, sizeof (*local));
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind, ENOMEM);
+
+        frame->local = local;
+
+        ret = loc_copy (&local->loc, loc);
+        if (ret == -1) {
+                goto unwind;
+        }
+
+	STACK_WIND (frame, sp_create_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->create, loc, flags, mode, fd);
+
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, fd);
+        return 0;
+}
+
+
 int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
@@ -704,6 +861,7 @@ struct xlator_fops fops = {
         .readdir   = sp_readdir,
         .chmod     = sp_chmod,
         .open      = sp_open, 
+        .create    = sp_create,
 };
 
 struct xlator_mops mops = {
