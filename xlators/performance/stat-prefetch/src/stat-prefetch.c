@@ -1468,6 +1468,31 @@ unwind:
 
 
 int32_t
+sp_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                const char *name)
+{
+        sp_cache_t *cache = NULL;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+
+        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, (char *)loc->name, 0);
+        }
+
+	STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->removexattr, loc, name);
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -1509,30 +1534,31 @@ fini (xlator_t *this)
 
 
 struct xlator_fops fops = {
-        .lookup    = sp_lookup,
-        .readdir   = sp_readdir,
-        .chmod     = sp_chmod,
-        .open      = sp_open, 
-        .create    = sp_create,
-        .opendir   = sp_opendir,
-        .mkdir     = sp_mkdir,
-        .mknod     = sp_mknod,
-        .symlink   = sp_symlink,
-        .link      = sp_link,
-        .fchmod    = sp_fchmod,
-        .chown     = sp_chown,
-        .fchown    = sp_fchown,
-        .truncate  = sp_truncate,
-        .ftruncate = sp_ftruncate,
-        .utimens   = sp_utimens,
-        .readlink  = sp_readlink,
-        .unlink    = sp_unlink,
-        .rmdir     = sp_rmdir,
-        .readv     = sp_readv,
-        .writev    = sp_writev, 
-        .fsync     = sp_fsync,
-        .rename    = sp_rename,
-        .setxattr  = sp_setxattr,
+        .lookup      = sp_lookup,
+        .readdir     = sp_readdir,
+        .chmod       = sp_chmod,
+        .open        = sp_open, 
+        .create      = sp_create,
+        .opendir     = sp_opendir,
+        .mkdir       = sp_mkdir,
+        .mknod       = sp_mknod,
+        .symlink     = sp_symlink,
+        .link        = sp_link,
+        .fchmod      = sp_fchmod,
+        .chown       = sp_chown,
+        .fchown      = sp_fchown,
+        .truncate    = sp_truncate,
+        .ftruncate   = sp_ftruncate,
+        .utimens     = sp_utimens,
+        .readlink    = sp_readlink,
+        .unlink      = sp_unlink,
+        .rmdir       = sp_rmdir,
+        .readv       = sp_readv,
+        .writev      = sp_writev, 
+        .fsync       = sp_fsync,
+        .rename      = sp_rename,
+        .setxattr    = sp_setxattr,
+        .removexattr = sp_removexattr,
 };
 
 struct xlator_mops mops = {
