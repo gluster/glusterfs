@@ -1419,9 +1419,6 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
 
         GF_VALIDATE_OR_GOTO (this->name, newloc, unwind);
         GF_VALIDATE_OR_GOTO (this->name, newloc->path, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, newloc->name, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, newloc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, newloc->inode, unwind);
 
         cache = sp_get_cache_inode (this, oldloc->parent, frame->root->pid);
         if (cache) {
