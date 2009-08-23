@@ -1443,6 +1443,31 @@ unwind:
 
 
 int32_t
+sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
+             int32_t flags)
+{
+        sp_cache_t *cache = NULL;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+
+        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, (char *)loc->name, 0);
+        }
+
+	STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->setxattr, loc, dict, flags);
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -1507,6 +1532,7 @@ struct xlator_fops fops = {
         .writev    = sp_writev, 
         .fsync     = sp_fsync,
         .rename    = sp_rename,
+        .setxattr  = sp_setxattr,
 };
 
 struct xlator_mops mops = {
