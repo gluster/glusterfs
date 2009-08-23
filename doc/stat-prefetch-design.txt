@@ -89,9 +89,16 @@ fops to be implemented:
  
 * rename
   1. remove entry corresponding to oldname from cache stored in fd contexts of 
-     old parent directory.
-  2. remove entry corresponding to new parent directory from cache stored in
-     fd contexts of its parent directory.
+     oldparent.
+  2. remove entry corresponding to newname from cache stored in fd contexts of
+     newparent. 
+  3. remove entry corresponding to oldparent from cache stored in 
+     old-grand-parent.
+  4. remove entry corresponding to newparent from cache stored in 
+     new-grand-parent.
+  5. if oldname happens to be a directory, remove entire cache from all fds 
+     opened on it.
+
 
 * create/mknod/mkdir/symlink/link
   Delete entry corresponding to basename of directory in which these operations 

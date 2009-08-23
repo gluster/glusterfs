@@ -1389,6 +1389,60 @@ unwind:
 
 
 int32_t
+sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
+{
+        sp_cache_t *cache = NULL;
+        int32_t     ret   = -1;
+
+        GF_VALIDATE_OR_GOTO (this->name, oldloc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc->path, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc->name, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc->inode, unwind);
+
+        GF_VALIDATE_OR_GOTO (this->name, newloc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, newloc->path, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, newloc->name, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, newloc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, newloc->inode, unwind);
+
+        cache = sp_get_cache_inode (this, oldloc->parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, (char *)oldloc->name, 0);
+        }
+
+        cache = sp_get_cache_inode (this, newloc->parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, (char *)newloc->name, 0);
+        }
+
+        ret = sp_cache_remove_parent_entry (frame, this, (char *)oldloc->path);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        ret = sp_cache_remove_parent_entry (frame, this, (char *)newloc->path);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        if (S_ISDIR (oldloc->inode->st_mode)) {
+                sp_remove_caches_from_all_fds_opened (this, oldloc->inode);
+        }
+
+        STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->rename, oldloc, newloc);
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, NULL);
+	return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -1452,6 +1506,7 @@ struct xlator_fops fops = {
         .readv     = sp_readv,
         .writev    = sp_writev, 
         .fsync     = sp_fsync,
+        .rename    = sp_rename,
 };
 
 struct xlator_mops mops = {
