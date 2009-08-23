@@ -880,6 +880,35 @@ unwind:
 
 
 int32_t
+sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+          dev_t rdev)
+{
+        int32_t     ret = 0;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+
+        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+	STACK_WIND (frame, sp_new_entry_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->mknod, loc, mode, rdev);
+
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, loc->inode, NULL);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -928,6 +957,7 @@ struct xlator_fops fops = {
         .create    = sp_create,
         .opendir   = sp_opendir,
         .mkdir     = sp_mkdir,
+        .mknod     = sp_mknod,
 };
 
 struct xlator_mops mops = {
