@@ -1001,6 +1001,30 @@ unwind:
 
 
 int32_t
+sp_chown (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid, gid_t gid)
+{
+        sp_cache_t *cache = NULL;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+
+        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, (char *)loc->name, 0);
+        }
+
+	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->chown, loc, uid, gid);
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -1053,6 +1077,7 @@ struct xlator_fops fops = {
         .symlink   = sp_symlink,
         .link      = sp_link,
         .fchmod    = sp_fchmod,
+        .chown     = sp_chown,
 };
 
 struct xlator_mops mops = {
