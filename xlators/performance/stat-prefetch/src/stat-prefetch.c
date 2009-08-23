@@ -1271,6 +1271,52 @@ unwind:
 
 
 int32_t
+sp_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+              int32_t op_errno, struct iovec *vector, int32_t count,
+              struct stat *stbuf, struct iobref *iobref)
+{
+	SP_STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
+	return 0;
+}
+
+
+int32_t
+sp_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+          off_t offset)
+{
+        sp_fd_ctx_t *fd_ctx = NULL;
+        sp_cache_t  *cache  = NULL;
+        uint64_t     value  = 0;
+        int32_t      ret    = 0; 
+        inode_t     *parent = NULL;
+        char        *name   = NULL; 
+
+        ret = fd_ctx_get (fd, this, &value);
+        if (ret == -1) {
+                errno = EINVAL;
+                goto unwind;
+        }
+
+        fd_ctx = (void *)(long)value;
+        name   = fd_ctx->name;
+        parent = fd_ctx->parent_inode;
+
+        cache = sp_get_cache_inode (this, parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, name, 0);
+        }
+
+	STACK_WIND (frame, sp_readv_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readv, fd, size, offset);
+        return 0;
+
+unwind:
+	SP_STACK_UNWIND (frame, -1, errno, NULL, -1, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -1331,6 +1377,7 @@ struct xlator_fops fops = {
         .readlink  = sp_readlink,
         .unlink    = sp_unlink,
         .rmdir     = sp_rmdir,
+        .readv     = sp_readv,
 };
 
 struct xlator_mops mops = {
