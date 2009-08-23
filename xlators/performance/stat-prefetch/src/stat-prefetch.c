@@ -41,8 +41,10 @@ sp_cache_init (void)
 void
 sp_local_free (sp_local_t *local)
 {
-        loc_wipe (&local->loc);
-        FREE (local);
+        if (local) {
+                loc_wipe (&local->loc);
+                FREE (local);
+        }
 }
 
 
@@ -51,7 +53,6 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
 {
         int32_t      ret   = -1;
         gf_dirent_t *entry = NULL, *tmp = NULL;
-        char         found = 0;
 
         if ((cache == NULL) || ((name == NULL) && !remove_all)) {
                 goto out;
@@ -63,7 +64,7 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
                                           list) {
                         if (remove_all || (!strcmp (name, entry->d_name))) {
                                 list_del_init (&entry->list);
-                                found = 1;
+                                FREE (entry);
                                 ret = 0;
 
                                 if (!remove_all) {
@@ -74,9 +75,6 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
         }
         UNLOCK (&cache->lock);
 
-        if (found) {
-                FREE (entry);
-        }
 out:
         return ret;    
 }
@@ -461,6 +459,8 @@ sp_get_ancestors (char *path, char **parent, char **grand_parent)
                         break;
                 }
         }
+
+        ret = 0;
 out:
         return ret; 
 }
@@ -525,11 +525,11 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         call_frame_t *wind_frame = NULL;
         char          lookup_behind = 0;
 
-        if ((loc == NULL) || (loc->parent == NULL) || (loc->name == NULL)) {
+        if (loc == NULL) {
                 goto unwind;
         }
 
-        if (xattr_req) {
+        if (xattr_req || (loc->parent == NULL) || (loc->name == NULL)) {
                 goto wind;
         }
 
