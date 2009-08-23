@@ -1636,6 +1636,40 @@ unwind:
 
 
 int32_t
+sp_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, uint8_t *file_checksum,
+                 uint8_t *dir_checksum)
+{
+	SP_STACK_UNWIND (frame, op_ret, op_errno, file_checksum, dir_checksum);
+	return 0;
+}
+
+
+int32_t
+sp_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
+{
+        sp_cache_t *cache = NULL;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+
+        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, (char *)loc->name, 0);
+        }
+
+	STACK_WIND (frame, sp_checksum_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->checksum, loc, flag);
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -1703,7 +1737,8 @@ struct xlator_fops fops = {
         .setxattr    = sp_setxattr,
         .removexattr = sp_removexattr,
         .setdents    = sp_setdents,
-        .getdents    = sp_getdents
+        .getdents    = sp_getdents,
+        .checksum    = sp_checksum,
 };
 
 struct xlator_mops mops = {
