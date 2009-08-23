@@ -816,6 +816,32 @@ unwind:
 
 
 int32_t
+sp_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
+{
+        sp_local_t *local = NULL;
+        int32_t     ret   = -1;
+
+        local = CALLOC (1, sizeof (*local));
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind, ENOMEM);
+
+        frame->local = local;
+
+        ret = loc_copy (&local->loc, loc);
+        if (ret == -1) {
+                goto unwind;
+        }
+
+	STACK_WIND (frame, sp_fd_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->opendir, loc, fd);
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, fd);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -862,6 +888,7 @@ struct xlator_fops fops = {
         .chmod     = sp_chmod,
         .open      = sp_open, 
         .create    = sp_create,
+        .opendir   = sp_opendir,
 };
 
 struct xlator_mops mops = {
