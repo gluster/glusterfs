@@ -66,6 +66,8 @@ fops to be implemented:
      fds opened on parent inode.
   2. Remove the entire cache from all fds opened on inode corresponding to 
      directory being removed.
+  3. Delete the entry correspondig to basename of parent from cache stored in
+     grand-parent.
 
 * readv
   Delete the entry corresponding to basename from cache stored in context of fds

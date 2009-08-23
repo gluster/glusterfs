@@ -1216,6 +1216,60 @@ unwind:
 }
 
 
+void
+sp_remove_caches_from_all_fds_opened (xlator_t *this, inode_t *inode)
+{
+        fd_t       *fd    = NULL;
+        sp_cache_t *cache = NULL;
+
+        LOCK (&inode->lock);
+        {
+                list_for_each_entry (fd, &inode->fd_list, inode_list) {
+                        cache = sp_get_cache_fd (this, fd);
+                        if (cache) {
+                                sp_cache_remove_entry (cache, NULL, 1);
+                        }
+                }
+        }
+        UNLOCK (&inode->lock);
+}
+ 
+
+int32_t
+sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+        sp_cache_t *cache = NULL;
+        int32_t     ret   = -1;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+
+        sp_remove_caches_from_all_fds_opened (this, loc->inode);
+
+        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, (char *)loc->name, 0);
+        }
+
+        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->rmdir, loc);
+        return 0;
+
+unwind:
+        STACK_UNWIND (frame, -1, errno);
+        return 0;
+}
+
+
 int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
@@ -1276,6 +1330,7 @@ struct xlator_fops fops = {
         .utimens   = sp_utimens,
         .readlink  = sp_readlink,
         .unlink    = sp_unlink,
+        .rmdir     = sp_rmdir,
 };
 
 struct xlator_mops mops = {
