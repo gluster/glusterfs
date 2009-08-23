@@ -1493,6 +1493,51 @@ unwind:
 
 
 int32_t
+sp_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
+             dir_entry_t *entries, int32_t count)
+{
+        sp_fd_ctx_t *fd_ctx = NULL;
+        sp_cache_t  *cache  = NULL;
+        uint64_t     value  = 0;
+        int32_t      ret    = 0; 
+        inode_t     *parent = NULL;
+        char        *name   = NULL; 
+        dir_entry_t *trav   = NULL;
+
+        ret = fd_ctx_get (fd, this, &value);
+        if (ret == -1) {
+                errno = EINVAL;
+                goto unwind;
+        }
+
+        fd_ctx = (void *)(long)value;
+        name   = fd_ctx->name;
+        parent = fd_ctx->parent_inode;
+
+        cache = sp_get_cache_inode (this, parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, name, 0);
+        }
+
+        cache = sp_get_cache_fd (this, fd);
+        if (cache) {
+                for (trav = entries->next; trav; trav = trav->next) {
+                        sp_cache_remove_entry (cache, trav->name, 0);
+                }
+        }
+
+	STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->setdents, fd, flags, entries,
+                    count);
+	return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -1559,6 +1604,7 @@ struct xlator_fops fops = {
         .rename      = sp_rename,
         .setxattr    = sp_setxattr,
         .removexattr = sp_removexattr,
+        .setdents    = sp_setdents,
 };
 
 struct xlator_mops mops = {
