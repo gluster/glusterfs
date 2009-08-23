@@ -482,7 +482,7 @@ sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this, char *path)
 
         if (grand_parent && strcmp (grand_parent, "/")) {
                 inode_gp = inode_from_path (frame->root->frames.this->itable,
-                                             grand_parent);
+                                            grand_parent);
                 if (inode_gp) {
                         cache_gp = sp_get_cache_inode (this, inode_gp,
                                                        frame->root->pid);
@@ -1177,6 +1177,46 @@ unwind:
 
 
 int32_t
+sp_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+            int32_t op_ret, int32_t op_errno)
+{
+	SP_STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+
+int32_t
+sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+        sp_cache_t *cache = NULL;
+        int32_t     ret   = 0;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+
+        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, (char *)loc->name, 0);
+        }
+
+        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+	STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->unlink, loc);
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -1235,6 +1275,7 @@ struct xlator_fops fops = {
         .ftruncate = sp_ftruncate,
         .utimens   = sp_utimens,
         .readlink  = sp_readlink,
+        .unlink    = sp_unlink,
 };
 
 struct xlator_mops mops = {
