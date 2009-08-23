@@ -1317,6 +1317,43 @@ unwind:
 
 
 int32_t
+sp_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
+           int32_t count, off_t off, struct iobref *iobref)
+{
+        sp_fd_ctx_t *fd_ctx = NULL;
+        sp_cache_t  *cache  = NULL;
+        uint64_t     value  = 0;
+        int32_t      ret    = 0; 
+        inode_t     *parent = NULL;
+        char        *name   = NULL; 
+
+        ret = fd_ctx_get (fd, this, &value);
+        if (ret == -1) {
+                errno = EINVAL;
+                goto unwind;
+        }
+
+        fd_ctx = (void *)(long)value;
+        name   = fd_ctx->name;
+        parent = fd_ctx->parent_inode;
+
+        cache = sp_get_cache_inode (this, parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, name, 0);
+        }
+
+	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->writev, fd, vector, count, off,
+                    iobref);
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        return 0;
+}
+
+
+int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
         struct stat *buf   = NULL;
@@ -1378,6 +1415,7 @@ struct xlator_fops fops = {
         .unlink    = sp_unlink,
         .rmdir     = sp_rmdir,
         .readv     = sp_readv,
+        .writev    = sp_writev, 
 };
 
 struct xlator_mops mops = {
