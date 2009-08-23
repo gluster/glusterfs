@@ -3502,32 +3502,33 @@ int32_t
 posix_readdir (call_frame_t *frame, xlator_t *this,
                fd_t *fd, size_t size, off_t off)
 {
-	uint64_t          tmp_pfd = 0;
-        struct posix_fd * pfd    = NULL;
-        DIR *             dir    = NULL;
-        int               ret    = -1;
-        size_t            filled = 0;
-	int               count = 0;
-
-        int32_t           op_ret   = -1;
-        int32_t           op_errno = 0;
-
-        gf_dirent_t *     this_entry = NULL;
-	gf_dirent_t       entries;
-        struct dirent *   entry      = NULL;
-        off_t             in_case    = -1;
-        int32_t           this_size  = -1;
-
-        char *            real_path      = NULL;
-        int               real_path_len  = -1;
-        char *            entry_path     = NULL;
-        int               entry_path_len = -1;
+	uint64_t              tmp_pfd        = 0;
+        struct posix_fd      *pfd            = NULL;
+        DIR                  *dir            = NULL;
+        int                   ret            = -1;
+        size_t                filled         = 0;
+	int                   count          = 0;
+        int32_t               op_ret         = -1;
+        int32_t               op_errno       = 0;
+        gf_dirent_t          *this_entry     = NULL;
+	gf_dirent_t           entries;
+        struct dirent        *entry          = NULL;
+        off_t                 in_case        = -1;
+        int32_t               this_size      = -1;
+        char                 *real_path      = NULL;
+        int                   real_path_len  = -1;
+        char                 *entry_path     = NULL;
+        int                   entry_path_len = -1;
+        struct posix_private *priv           = NULL;
+        struct stat           stbuf          = {0, };
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
 	INIT_LIST_HEAD (&entries.list);
+
+        priv = this->private;
 
         ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
@@ -3609,25 +3610,41 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
                         break;
                 }
 
+                strcpy (entry_path + real_path_len + 1, entry->d_name);
+                lstat (entry_path, &stbuf);
+                /* Make sure we don't access another mountpoint inside export dir.
+                 * It may cause inode number to repeat from single export point,
+                 * which leads to severe problems..
+                 */
+                if (!priv->span_devices) {
+                        if (priv->st_device[0] != stbuf.st_dev) {
+                                continue;
+                        }
+                } else {
+                        op_ret = posix_scale_st_ino (priv, &stbuf);
+                        if (-1 == op_ret) {
+                                continue;
+                        }
+                }
 
-		this_entry = gf_dirent_for_name (entry->d_name);
+                entry->d_ino = stbuf.st_ino;
 
-		if (!this_entry) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"could not create gf_dirent for entry %s: (%s)",
-				entry->d_name, strerror (errno));
-			goto out;
-		}
-		this_entry->d_off = telldir (dir);
-		this_entry->d_ino = entry->d_ino;
+                this_entry = gf_dirent_for_name (entry->d_name);
 
-		list_add_tail (&this_entry->list, &entries.list);
+                if (!this_entry) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not create gf_dirent for entry %s: (%s)",
+                                entry->d_name, strerror (errno));
+                        goto out;
+                }
+                this_entry->d_off = telldir (dir);
+                this_entry->d_ino = entry->d_ino;
+                this_entry->d_stat = stbuf;
+
+                list_add_tail (&this_entry->list, &entries.list);
 
                 filled += this_size;
-		count ++;
-
-                strcpy (entry_path + real_path_len + 1, this_entry->d_name);
-                lstat (entry_path, &this_entry->d_stat);
+                count ++;
         }
 
         op_ret = count;
