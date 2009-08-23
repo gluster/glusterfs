@@ -29,9 +29,11 @@ fops to be implemented:
   the directory contents.
 
 * readdir
-  Cache the direntries returned in readdir_cbk in the context of fd. If the 
-  readdir is happening on non-expected offsets (means a seekdir/rewinddir 
-  has happened), cache has to be flushed.
+  1. Cache the direntries returned in readdir_cbk in the context of fd.
+  2. If the readdir is happening on non-expected offsets (means a seekdir/rewinddir 
+     has happened), cache has to be flushed.
+  3. Delete the entry corresponding to basename of path on which fd is opened 
+     from cache stored in parent.
 
 * chmod/fchmod
   Delete the entry corresponding to basename from cache stored in context of
