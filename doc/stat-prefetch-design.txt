@@ -1,0 +1,128 @@
+what is stat-prefetch?
+======================
+It is a translator which caches the dentries read in readdir. This dentry
+list is stored in the context of fd. Later when lookup happens on 
+[parent-inode, basename (path)] combination, this list is searched for the
+basename. The dentry thus searched is used to fill up the stat corresponding
+to path being looked upon, thereby short-cutting lookup calls. This cache is
+preserved till closedir is called on the fd. The purpose of this translator 
+is to optimize operations like 'ls -l', where a readdir is followed by 
+lookup (stat) calls on each directory entry.
+
+1. stat-prefetch harnesses the efficiency of short lookup calls 
+   (saves network roundtrip time for lookup calls from being accounted to 
+   the stat call).
+2. To maintain the correctness, it does lookup-behind - lookup is winded to 
+   underlying translators after it is unwound to upper translators. 
+   A lookup-behind is necessary as inode gets populated in server inode table
+   only in lookup-cbk. Also various translators store their contexts in inode
+   contexts during lookup calls.
+
+fops to be implemented:
+======================
+* lookup
+  Check the dentry cache stored in context of fds opened by the same process 
+  on parent inode for basename. If found unwind with cached stat, else wind
+  the lookup call to underlying translators. We also store the stat path in 
+  context of inode if the path being looked upon happens to be directory. 
+  This stat will be used to fill postparent stat when lookup happens on any of
+  the directory contents.
+
+* readdir
+  Cache the direntries returned in readdir_cbk in the context of fd. If the 
+  readdir is happening on non-expected offsets (means a seekdir/rewinddir 
+  has happened), cache has to be flushed.
+
+* chmod/fchmod
+  Delete the entry corresponding to basename from cache stored in context of
+  fds opened on parent inode, since these calls change st_mode and ctime of 
+  stat.
+ 
+* chown/fchown
+  Delete the entry corresponding to basename from cache stored in context of 
+  fds opened on parent inode, since these calls change st_uid/st_gid and 
+  st_ctime of stat.
+
+* truncate/ftruncate
+  Delete the entry corresponding to basename from cache stored in context of 
+  fds opened on parent inode, since these calls change st_size/st_mtime of stat.
+
+* utimens
+  Delete the entry corresponding to basename from cache stored in context of 
+  fds opened on parent inode, since this call changes st_atime/st_mtime of stat.
+
+* readlink
+  Delete the entry corresponding to basename from cache stored in context of fds
+  opened on parent inode, since this call changes st_atime of stat.
+ 
+* unlink
+  1. Delete the entry corresponding to basename from cache stored in context of 
+     fds opened on parent directory containing file being unlinked.
+  2. Delete the entry corresponding to basename of parent directory from cache
+     of its parent directory.
+
+* rmdir
+  1. Delete the entry corresponding to basename from cache stored in context of
+     fds opened on parent inode.
+  2. Remove the entire cache from all fds opened on inode corresponding to 
+     directory being removed.
+
+* readv
+  Delete the entry corresponding to basename from cache stored in context of fds
+  opened on parent inode, since readv changes st_atime of file. 
+
+* writev
+  Delete the entry corresponding to basename from cache stored in context of fds
+  opened on parent inode, since writev can possibly change st_size and definitely
+  changes st_mtime of file.
+
+* fsync
+  There is a confusion here as to whether fsync updates mtime/ctimes. Disk based
+  filesystems (atleast ext2) just writes the times stored in inode to disk 
+  during fsync and not the time at which fsync is being done. But in glusterfs, 
+  a translator like write-behind actually sends writes during fsync which will 
+  change mtime/ctime. Hence stat-prefetch implements fsync to delete the entry 
+  corresponding to basename from cache stored in context of fds opened on parent
+  inode.
+ 
+* rename
+  1. remove entry corresponding to oldname from cache stored in fd contexts of 
+     old parent directory.
+  2. remove entry corresponding to new parent directory from cache stored in
+     fd contexts of its parent directory.
+
+* create/mknod/mkdir/symlink/link
+  Delete entry corresponding to basename of directory in which these operations 
+  are happening, from cache stored in context of fds of parent directory. Note
+  that the parent directory containing the cahce is of the directory in which 
+  these operations are happening.
+
+* setxattr/removexattr
+  Delete the entry corresponding to basename from cache stored in context of fds
+  opened on parent inode, since setxattr changes st_ctime of file.
+
+* setdents/getdents/checksum/xattrop/fxattrop
+  These calls modify various times of stat structure, hence appropriate entries
+  have to be removed from the cache. I am leaving these calls unimplemented in 
+  stat-prefetch for timebeing. Once we have a working translator, these five fops
+  will be implemented.
+
+callbacks to be implemented:
+=======================
+* releasedir
+  Flush the stat-prefetch cache.
+
+* forget
+  Free the stat if the inode corresponds to a directory.
+
+limitations:
+============
+* since a readdir does not return extended attributes of file, if need_xattr is
+  set, short-cutting of lookup does not happen and lookup is passed to 
+  underlying translators.
+
+* posix_readdir does not check whether the dentries are spanning across multiple
+  mount points. Hence it is not transforming inode numbers in stat buffers if 
+  posix is configured to allow export directory spanning on multiple mountpoints.
+  This is a bug which needs to be fixed. posix_readdir should treat dentries the 
+  same way as if lookup is happening on dentries.

@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2009-2010 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -17,16 +17,16 @@
    <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _STAT_PREFETCH_H_
-#define _STAT_PREFETCH_H_
+#ifndef _STAT_PREFETCH_H
+#define _STAT_PREFETCH_H
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
 #endif
 
-#include <stdio.h>
-#include <sys/time.h>
+#include "glusterfs.h"
+#include "dict.h"
 #include "xlator.h"
 
-#endif /* _STAT_PREFETCH_H_ */
+#endif  /* #ifndef _STAT_PREFETCH_H */
