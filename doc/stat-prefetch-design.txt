@@ -110,7 +110,13 @@ fops to be implemented:
   Delete the entry corresponding to basename from cache stored in context of fds
   opened on parent inode, since setxattr changes st_ctime of file.
 
-* setdents/getdents/checksum/xattrop/fxattrop
+* setdents
+  1. remove entry corresponding to basename of path on which fd is opened from
+     cache stored in parent.
+  2. for each of the entry in the direntry list, delete from cache stored in 
+     context of fd, the entry corresponding to basename of path being passed.
+
+* getdents/checksum/xattrop/fxattrop
   These calls modify various times of stat structure, hence appropriate entries
   have to be removed from the cache. I am leaving these calls unimplemented in 
   stat-prefetch for timebeing. Once we have a working translator, these five fops
