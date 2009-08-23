@@ -525,6 +525,7 @@ sp_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 ret = sp_put_cache (this, fd, cache);
                 if (ret == -1) {
+                        sp_cache_free (cache);
                         goto out;
                 }
         }
