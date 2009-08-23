@@ -30,7 +30,7 @@
 #include "xlator.h"
 
 struct sp_cache {
-        gf_dirent_t entries;            /* Head of list of cached dirents. */
+        gf_dirent_t entries;            /* Head of list of cached dirents */
         uint64_t    expected_offset;    /* Offset where the next read will
                                          * happen.
                                          */
@@ -39,7 +39,8 @@ struct sp_cache {
 typedef struct sp_cache sp_cache_t;
 
 struct sp_local {
-        loc_t loc;
+        loc_t  loc;
+        fd_t  *fd;
 };
 typedef struct sp_local sp_local_t;
 
