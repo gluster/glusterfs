@@ -1215,7 +1215,7 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
 static void
 fuse_mkdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
-        struct fuse_mknod_in *fmi = msg;
+        struct fuse_mkdir_in *fmi = msg;
         char *name = (char *)(fmi + 1);
 
         fuse_state_t *state;
