@@ -3216,7 +3216,8 @@ glusterfs_listxattr (glusterfs_handle_t handle,
                      char *list,
                      size_t size)
 {
-        return ENOSYS;
+        errno = ENOSYS;
+        return -1;
 }
 
 ssize_t 
@@ -3225,7 +3226,8 @@ glusterfs_llistxattr (glusterfs_handle_t handle,
                       char *list,
                       size_t size)
 {
-        return ENOSYS;
+        errno = ENOSYS;
+        return -1;
 }
 
 ssize_t 
@@ -3233,7 +3235,8 @@ glusterfs_flistxattr (glusterfs_file_t fd,
                       char *list,
                       size_t size)
 {
-        return ENOSYS;
+        errno = ENOSYS;
+        return -1;
 }
 
 int 
@@ -3241,7 +3244,8 @@ glusterfs_removexattr (glusterfs_handle_t handle,
                        const char *path, 
                        const char *name)
 {
-        return ENOSYS;
+        errno = ENOSYS;
+        return -1;
 }
 
 int 
@@ -3249,14 +3253,16 @@ glusterfs_lremovexattr (glusterfs_handle_t handle,
                         const char *path, 
                         const char *name)
 {
-        return ENOSYS;
+        errno = ENOSYS;
+        return -1;
 }
 
 int 
 glusterfs_fremovexattr (glusterfs_file_t fd, 
                         const char *name)
 {
-        return ENOSYS;
+        errno = ENOSYS;
+        return -1;
 }
 
 int32_t
