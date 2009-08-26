@@ -2275,7 +2275,7 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
 	libglusterfs_client_ctx_t *ctx = handle;
 	char *file = NULL;
 	dict_t *xattr_req = NULL;
-        char *pathres = NULL;
+        char *pathres = NULL, *tmp = NULL ;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -2308,8 +2308,8 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
 		goto out;
 	}
 
-	file = strdup (pathres);
-	file = basename (file);
+	tmp = strdup (pathres);
+	file = basename (tmp);
         op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, file);
 	if (op_ret == -1) {
 		gf_log ("libglusterfsclient",
@@ -2359,8 +2359,8 @@ do_getx:
 	}
 
 out:
-	if (file) {
-		FREE (file);
+	if (tmp) {
+		FREE (tmp);
 	}
 
 	if (xattr_req) {
