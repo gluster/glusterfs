@@ -35,7 +35,7 @@ sp_cache_init (void)
         return cache;
 }
 
-
+        
 void
 sp_local_free (sp_local_t *local)
 {
@@ -119,9 +119,10 @@ sp_cache_free (sp_cache_t *cache)
 sp_cache_t *
 sp_get_cache_fd (xlator_t *this, fd_t *fd)
 {
-        sp_cache_t *cache = NULL;
-        uint64_t    value = 0;
-        int32_t     ret   = -1;
+        sp_cache_t  *cache     = NULL;
+        uint64_t     value     = 0;
+        int32_t      ret       = -1;
+        sp_fd_ctx_t *fd_ctx = NULL;
 
         if (fd == NULL) {
                 goto out;
@@ -132,29 +133,115 @@ sp_get_cache_fd (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        cache = (void *)(long) value;
+        fd_ctx = (void *)(long) value;
+
+        LOCK (&fd_ctx->lock);
+        {
+                cache = fd_ctx->cache;
+        }
+        UNLOCK (&fd_ctx->lock);
 out:
         return cache;
+}
+
+
+void
+sp_fd_ctx_free (sp_fd_ctx_t *fd_ctx)
+{
+        if (fd_ctx == NULL) {
+                goto out;
+        }
+
+        if (fd_ctx->parent_inode) {
+                inode_unref (fd_ctx->parent_inode);
+                fd_ctx->parent_inode = NULL;
+        }
+                
+        if (fd_ctx->name) {
+                FREE (fd_ctx->name);
+                fd_ctx->name = NULL;
+        }
+
+        if (fd_ctx->cache) {
+                sp_cache_free (fd_ctx->cache);
+        }
+
+        FREE (fd_ctx);
+out:
+        return;
+}
+ 
+
+inline sp_fd_ctx_t *
+sp_fd_ctx_init (void)
+{
+        sp_fd_ctx_t *fd_ctx = NULL;
+
+        fd_ctx = CALLOC (1, sizeof (*fd_ctx));
+        if (fd_ctx) {
+                LOCK_INIT (&fd_ctx->lock);
+        }
+
+        return fd_ctx;
+}
+
+
+sp_fd_ctx_t *
+sp_fd_ctx_new (xlator_t *this, inode_t *parent, char *name, sp_cache_t *cache)
+{
+        sp_fd_ctx_t *fd_ctx = NULL;
+
+        fd_ctx = sp_fd_ctx_init ();
+        if (fd_ctx == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
+
+        if (parent) {
+                fd_ctx->parent_inode = inode_ref (parent);
+        }
+
+        if (name) {
+                fd_ctx->name = strdup (name);
+                if (fd_ctx->name == NULL) {
+                        sp_fd_ctx_free (fd_ctx);
+                        fd_ctx = NULL;
+                }
+        }
+
+        fd_ctx->cache = cache;
+
+out:
+        return fd_ctx;
 }
 
 
 sp_cache_t *
 sp_del_cache_fd (xlator_t *this, fd_t *fd)
 {
-        sp_cache_t *cache = NULL;
-        uint64_t    value = 0;
-        int32_t     ret   = -1;
+        sp_cache_t  *cache = NULL;
+        uint64_t     value = 0;
+        int32_t      ret   = -1;
+        sp_fd_ctx_t *fd_ctx = NULL;
 
         if (fd == NULL) {
                 goto out;
         }
 
-        ret = fd_ctx_del (fd, this, &value);
+        ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
                 goto out;
         }
 
-        cache = (void *)(long) value;
+        fd_ctx = (void *)(long) value;
+
+        LOCK (&fd_ctx->lock);
+        {
+                cache = fd_ctx->cache;
+                fd_ctx->cache = NULL;
+        }
+        UNLOCK (&fd_ctx->lock);
+
 out:
         return cache;
 }
@@ -184,7 +271,40 @@ out:
 inline int32_t
 sp_put_cache (xlator_t *this, fd_t *fd, sp_cache_t *cache)
 {
-        return fd_ctx_set (fd, this, (long)(void *)cache);
+        sp_fd_ctx_t *fd_ctx = NULL;
+        int32_t      ret    = -1; 
+        uint64_t     value  = 0;
+
+        ret = fd_ctx_get (fd, this, &value);
+        if (!ret) {
+                fd_ctx = (void *)(long)value;
+        } else {
+                fd_ctx = sp_fd_ctx_init ();
+                if (fd_ctx == NULL) {
+                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = fd_ctx_set (fd, this, (long)(void *)fd_ctx);
+                if (ret == -1) {
+                        sp_fd_ctx_free (fd_ctx); 
+                        goto out;
+                }
+        }
+
+        LOCK (&fd_ctx->lock);
+        { 
+                if (fd_ctx->cache) {
+                        sp_cache_free (fd_ctx->cache);
+                }
+
+                fd_ctx->cache = cache;
+        }
+        UNLOCK (&fd_ctx->lock);
+
+out:
+        return ret;
 }
 
 

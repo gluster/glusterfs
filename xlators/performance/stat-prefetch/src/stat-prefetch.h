@@ -38,6 +38,19 @@ struct sp_cache {
 };
 typedef struct sp_cache sp_cache_t;
 
+struct sp_fd_ctx {
+        sp_cache_t *cache;
+        inode_t    *parent_inode;       /* 
+                                         * inode corresponding to dirname (path)
+                                         */
+        char       *name;               /*
+                                         * basename of path on which this fd is 
+                                         * opened
+                                         */
+        gf_lock_t    lock;
+};
+typedef struct sp_fd_ctx sp_fd_ctx_t;
+
 struct sp_local {
         loc_t  loc;
         fd_t  *fd;
