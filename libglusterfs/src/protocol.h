@@ -280,9 +280,12 @@ gf_flags_from_flags (uint32_t flags)
         XLATE_BIT (flags, gf_flags, O_DIRECT);
         XLATE_BIT (flags, gf_flags, O_DIRECTORY);
         XLATE_BIT (flags, gf_flags, O_NOFOLLOW);
+#ifdef O_NOATIME
         XLATE_BIT (flags, gf_flags, O_NOATIME);
+#endif
+#ifdef O_CLOEXEC
         XLATE_BIT (flags, gf_flags, O_CLOEXEC);
-
+#endif
         XLATE_BIT (flags, gf_flags, O_LARGEFILE);
 
         return gf_flags;
@@ -307,9 +310,12 @@ gf_flags_to_flags (uint32_t gf_flags)
         UNXLATE_BIT (gf_flags, flags, O_DIRECT);
         UNXLATE_BIT (gf_flags, flags, O_DIRECTORY);
         UNXLATE_BIT (gf_flags, flags, O_NOFOLLOW);
+#ifdef O_NOATIME
         UNXLATE_BIT (gf_flags, flags, O_NOATIME);
+#endif
+#ifdef O_CLOEXEC
         UNXLATE_BIT (gf_flags, flags, O_CLOEXEC);
-
+#endif
         UNXLATE_BIT (gf_flags, flags, O_LARGEFILE);
 
         return flags;
