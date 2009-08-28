@@ -1428,8 +1428,9 @@ _libgf_vmp_search_entry (char *path, int searchtype)
         }
 
         list_for_each_entry(entry, &vmplist.list, list) {
+                vmpcompcount = libgf_count_path_components (entry->vmp);
                 matchcount = libgf_vmp_entry_match (entry, path);
-                if (matchcount > maxcount) {
+                if ((matchcount > maxcount) && (matchcount == vmpcompcount)) {
                         maxcount = matchcount;
                         maxentry = entry;
                 }
@@ -1439,6 +1440,7 @@ _libgf_vmp_search_entry (char *path, int searchtype)
          * match, this is used to check whether duplicate entries are present
          * in the vmplist.
          */
+        vmpcompcount = 0;
         if ((searchtype == LIBGF_VMP_EXACT) && (maxentry)) {
                 vmpcompcount = libgf_count_path_components (maxentry->vmp);
                 if (vmpcompcount != matchcount)
