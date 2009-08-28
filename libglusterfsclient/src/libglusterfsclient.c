@@ -1443,6 +1443,7 @@ _libgf_vmp_search_entry (char *path, int searchtype)
         vmpcompcount = 0;
         if ((searchtype == LIBGF_VMP_EXACT) && (maxentry)) {
                 vmpcompcount = libgf_count_path_components (maxentry->vmp);
+                matchcount = libgf_count_path_components (path);
                 if (vmpcompcount != matchcount)
                         maxentry = NULL;
         }
