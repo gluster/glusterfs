@@ -293,8 +293,16 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         qr_file_t       *qr_file = NULL;
         qr_fd_ctx_t     *qr_fd_ctx = NULL;
         call_stub_t     *stub = NULL, *tmp = NULL;
+        char             is_open = 0;
 
         local = frame->local;
+        if (local == NULL) {
+                op_ret = -1;
+                op_errno = EINVAL;
+        } else {
+                is_open = local->is_open;
+        }
+
         INIT_LIST_HEAD (&waiting_ops);
 
         ret = fd_ctx_get (fd, this, &value);
@@ -347,7 +355,7 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 }
         }
 out: 
-        if (local && local->is_open) { 
+        if (is_open) {
                 STACK_UNWIND (frame, op_ret, op_errno, fd);
         }
 
