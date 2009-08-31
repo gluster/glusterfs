@@ -300,6 +300,8 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 op_ret = -1;
                 op_errno = EINVAL;
         } else {
+                local->op_ret = op_ret;
+                local->op_errno = op_errno;
                 is_open = local->is_open;
         }
 
@@ -557,8 +559,26 @@ unwind:
 int32_t
 qr_validate_cache_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-        STACK_WIND (frame, qr_validate_cache_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fstat, fd);
+        qr_local_t *local = NULL;
+        int32_t     op_ret = -1, op_errno = -1;
+        
+        local = frame->local;
+        if (local == NULL) {
+                op_ret = -1;
+                op_errno = EINVAL;
+        } else {
+                op_ret = local->op_ret;
+                op_errno = local->op_errno;
+        }
+
+        if (op_ret == -1) {
+                qr_validate_cache_cbk (frame, NULL, this, op_ret, op_errno,
+                                       NULL);
+        } else {
+                STACK_WIND (frame, qr_validate_cache_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->fstat, fd);
+        }
+
         return 0;
 }
 

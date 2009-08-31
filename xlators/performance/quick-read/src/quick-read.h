@@ -57,6 +57,8 @@ struct qr_local {
         char         is_open;
         fd_t        *fd;
         int          open_flags;
+        int32_t      op_ret;
+        int32_t      op_errno;
         call_stub_t *stub;
 };
 typedef struct qr_local qr_local_t;
