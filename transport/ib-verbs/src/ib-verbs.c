@@ -761,6 +761,7 @@ ib_verbs_create_qp (transport_t *this)
                         "%s: could not create QP",
                         this->xl->name);
                 ret = -1;
+                goto out;
         } else if (ibv_modify_qp (peer->qp, &attr,
                                   IBV_QP_STATE              |
                                   IBV_QP_PKEY_INDEX         |
@@ -771,6 +772,7 @@ ib_verbs_create_qp (transport_t *this)
                         "%s: failed to modify QP to INIT state",
                         this->xl->name);
                 ret = -1;
+                goto out;
         }
 
         peer->local_lid = ib_verbs_get_local_lid (device->context,
@@ -780,6 +782,7 @@ ib_verbs_create_qp (transport_t *this)
 
         ib_verbs_register_peer (device, peer->qp->qp_num, peer);
 
+out:
         if (ret == -1)
                 __ib_verbs_destroy_qp (this);
 
