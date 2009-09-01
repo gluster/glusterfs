@@ -709,6 +709,7 @@ char *
 libgf_trim_to_prev_dir (char * path)
 {
         char    *idx = NULL;
+        int      len = 0;
 
         if (!path)
                 return NULL;
@@ -716,8 +717,13 @@ libgf_trim_to_prev_dir (char * path)
         /* Check if we're already at root, if yes
          * then there is no prev dir.
          */
-        if (strlen (path) == 1)
+        len = strlen (path);
+        if (len == 1)
                 return path;
+
+        if (path[len - 1] == '/') {
+                path[len - 1] = '\0';
+        }
 
         idx = libgf_rrindex (path, '/', 1);
         /* Move to the char after the / */
