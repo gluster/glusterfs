@@ -6837,6 +6837,10 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
 
                         if (S_ISLNK (stbuf.st_mode)) {
                                 buf = calloc (1, path_max);
+                                if (buf == NULL) {
+                                        errno = ENOMEM;
+                                        goto err;
+                                }
 
                                 if (++num_links > MAXSYMLINKS)
                                 {
