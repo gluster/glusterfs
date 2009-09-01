@@ -6862,8 +6862,8 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
                                 }
 
                                 ret = glusterfs_glh_readlink (handle, rpath,
-                                                                buf,
-                                                                path_max - 1);
+                                                              buf,
+                                                              path_max - 1);
                                 if (ret < 0) {
                                         gf_log ("libglusterfsclient",
                                                 GF_LOG_ERROR,
@@ -6876,7 +6876,7 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
                                 buf[ret] = '\0';
 
                                 if (buf[0] != '/') {
-                                        tmppath = strdup (path);
+                                        tmppath = strdup (rpath);
                                         tmppath = dirname (tmppath);
                                         sprintf (absolute_path, "%s/%s",
                                                  tmppath, buf);
@@ -6885,9 +6885,14 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
                                         FREE (tmppath);
                                 }
 
-                                rpath = glusterfs_glh_realpath (handle, buf, rpath);
+                                rpath = glusterfs_glh_realpath (handle, buf,
+                                                                rpath);
                                 FREE (buf);
-                                goto out;
+                                if (rpath == NULL) {
+                                        goto out;
+                                }
+                                dest = rpath + strlen (rpath);
+
                         } else if (!S_ISDIR (stbuf.st_mode) && *end != '\0') {
                                 errno = ENOTDIR;
                                 goto err;
