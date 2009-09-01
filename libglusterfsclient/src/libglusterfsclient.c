@@ -6728,8 +6728,8 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
         int                             dest_offset = 0;
         char                            *rpath_limit = 0;
         int                             ret = 0, num_links = 0;
-        struct vmp_entry                *entry = NULL;
-        char                            *vpath = NULL;
+        char                            *vpath = NULL, *tmppath = NULL;
+        char                             absolute_path[PATH_MAX];
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -6836,11 +6836,12 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
                         }
 
                         if (S_ISLNK (stbuf.st_mode)) {
-                                buf = alloca (path_max);
+                                buf = calloc (1, path_max);
 
                                 if (++num_links > MAXSYMLINKS)
                                 {
                                         errno = ELOOP;
+                                        FREE (buf);
                                         goto err;
                                 }
 
@@ -6853,13 +6854,23 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
                                                 "glusterfs_readlink returned %d"
                                                 " for path (%s):(%s)",
                                                 ret, rpath, strerror (errno));
+                                        FREE (buf);
                                         goto err;
                                 }
                                 buf[ret] = '\0';
 
-                                entry = libgf_vmp_search_entry (buf);
-                                vpath = libgf_vmp_virtual_path (entry, buf);
-                                glusterfs_glh_realpath (handle, vpath, rpath);
+                                if (buf[0] != '/') {
+                                        tmppath = strdup (path);
+                                        tmppath = dirname (tmppath);
+                                        sprintf (absolute_path, "%s/%s",
+                                                 tmppath, buf);
+                                        FREE (buf);
+                                        buf = libgf_resolve_path_light ((char *)absolute_path);
+                                        FREE (tmppath);
+                                }
+
+                                glusterfs_glh_realpath (handle, buf, rpath);
+                                FREE (buf);
                                 goto out;
                         } else if (!S_ISDIR (stbuf.st_mode) && *end != '\0') {
                                 errno = ENOTDIR;
