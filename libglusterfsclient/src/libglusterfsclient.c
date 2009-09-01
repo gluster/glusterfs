@@ -5154,7 +5154,7 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
                 goto out;
         }
 
-        if (!S_ISDIR (loc.inode->st_mode)) {
+        if (!S_ISDIR (loc.inode->st_mode) && !S_ISLNK (loc.inode->st_mode)) {
                 errno = ENOTDIR;
                 op_ret = -1;
                 goto out;
