@@ -1426,6 +1426,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 	uint64_t      tmp_file = 0;
         call_stub_t  *stub = NULL;
         wb_local_t   *local = NULL;
+        int32_t       op_ret = 0, op_errno = 0; 
 
         if (vector != NULL) 
                 size = iov_length (vector, count);
@@ -1449,7 +1450,12 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
         LOCK (&file->lock);
         {
-                if (file->disabled || file->disable_till) {
+                op_ret = file->op_ret;
+                op_errno = file->op_errno;
+
+                file->op_ret = 0;
+
+                if ((op_ret == 0) && (file->disabled || file->disable_till)) {
                         if (size > file->disable_till) {
                                 file->disable_till = 0;
                         } else {
@@ -1459,6 +1465,11 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                 }
         }
         UNLOCK (&file->lock);
+
+        if (op_ret == -1) {
+                STACK_UNWIND (frame, op_ret, op_errno, NULL);
+                return 0;
+        }
 
         if (wb_disabled) {
                 STACK_WIND (frame, wb_writev_cbk,
