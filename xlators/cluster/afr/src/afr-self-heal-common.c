@@ -980,14 +980,22 @@ sh_missing_entries_mkdir (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->child_errno[i] == ENOENT) {
-			STACK_WIND_COOKIE (frame,
-					   sh_missing_entries_newentry_cbk,
-					   (void *) (long) i,
-					   priv->children[i],
-					   priv->children[i]->fops->mkdir,
-					   &local->loc, st_mode);
-			if (!--call_count)
-				break;
+                        if (!strcmp (local->loc.path, "/")) {
+                                /* We shouldn't try to create "/" */
+
+                                sh_missing_entries_finish (frame, this);
+
+                                return 0;
+                        } else {
+                                STACK_WIND_COOKIE (frame,
+                                                   sh_missing_entries_newentry_cbk,
+                                                   (void *) (long) i,
+                                                   priv->children[i],
+                                                   priv->children[i]->fops->mkdir,
+                                                   &local->loc, st_mode);
+                                if (!--call_count)
+                                        break;
+                        }
 		}
 	}
 
