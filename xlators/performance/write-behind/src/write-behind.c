@@ -298,6 +298,7 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         wb_file_t    *file = NULL;
         wb_request_t *request = NULL, *dummy = NULL;
         wb_local_t   *per_request_local = NULL;
+        fd_t         *fd = NULL;
 
 
         local = frame->local;
@@ -323,13 +324,14 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                         file->op_ret = op_ret;
                         file->op_errno = op_errno;
                 }
+                fd = file->fd;
         }
         UNLOCK (&file->lock);
 
         wb_process_queue (frame, file, 0);  
   
         /* safe place to do fd_unref */
-        fd_unref (file->fd);
+        fd_unref (fd);
 
         STACK_DESTROY (frame->root);
 
@@ -351,6 +353,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         size_t          bytes = 0, current_size = 0;
         size_t          bytecount = 0;
         wb_conf_t      *conf = NULL;
+        fd_t           *fd = NULL;
 
         conf = file->this->private;
         list_for_each_entry (request, winds, winds) {
@@ -409,12 +412,20 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         sync_frame = copy_frame (frame);  
                         sync_frame->local = local;
                         local->file = file;
-                        fd_ref (file->fd);
+                        
+                        LOCK (&file->lock);
+                        {
+                                fd = file->fd;
+                        }
+                        UNLOCK (&file->lock);
+
+                        fd_ref (fd);
+
                         STACK_WIND (sync_frame,
                                     wb_sync_cbk,
                                     FIRST_CHILD(sync_frame->this),
                                     FIRST_CHILD(sync_frame->this)->fops->writev,
-                                    file->fd, vector,
+                                    fd, vector,
                                     count,
                                     first_request->stub->args.writev.off,
                                     iobref);
@@ -441,6 +452,7 @@ wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         wb_request_t *request = NULL; 
         call_frame_t *process_frame = NULL;
         wb_file_t    *file = NULL;
+        fd_t         *fd   = NULL; 
   
         local = frame->local;
         file = local->file;
@@ -459,7 +471,13 @@ wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         }
 
         if (file) {
-                fd_unref (file->fd);
+                LOCK (&file->lock);
+                {
+                        fd = file->fd;
+                }
+                UNLOCK (&file->lock);
+
+                fd_unref (fd);
         }
 
         return 0;
@@ -612,6 +630,7 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         wb_request_t *request = NULL;
         wb_file_t    *file = NULL;
         call_frame_t *process_frame = NULL;
+        fd_t         *fd  = NULL;
 
         local = frame->local;
         file = local->file;
@@ -630,7 +649,13 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (file) {
-                fd_unref (file->fd);
+                LOCK (&file->lock);
+                {
+                        fd = file->fd;
+                }
+                UNLOCK (&file->lock);
+
+                fd_unref (fd);
         }
 
         return 0;
@@ -799,6 +824,7 @@ wb_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         wb_request_t *request = NULL;
         call_frame_t *process_frame = NULL; 
         wb_file_t    *file = NULL;
+        fd_t         *fd = NULL;
   
         local = frame->local;
         file = local->file;
@@ -817,7 +843,13 @@ wb_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (file) {
-                fd_unref (file->fd);
+                LOCK (&file->lock);
+                {
+                        fd = file->fd;
+                }
+                UNLOCK (&file->lock);
+
+                fd_unref (fd);
         }
 
         return 0;
@@ -1603,13 +1635,22 @@ wb_ffr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         wb_file_t  *file = NULL;
         wb_conf_t  *conf = NULL;
         char        unwind = 0;
+        int         disabled = 0;
+        int64_t     disable_till = 0;
 
         conf = this->private;
         local = frame->local;
         file = local->file;
 
+        LOCK (&file->lock);
+        {
+                disabled = file->disabled;
+                disable_till = file->disable_till;
+        }
+        UNLOCK (&file->lock);
+
         if (conf->flush_behind
-            && (!file->disabled) && (file->disable_till == 0)) {
+            && (!disabled) && (disable_till == 0)) {
                 unwind = 1;
         } else {
                 local->reply_count++;
@@ -1623,12 +1664,16 @@ wb_ffr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         }
 
         if (unwind) {
-                if (file->op_ret == -1) {
-                        op_ret = file->op_ret;
-                        op_errno = file->op_errno;
+                LOCK (&file->lock);
+                {
+                        if (file->op_ret == -1) {
+                                op_ret = file->op_ret;
+                                op_errno = file->op_errno;
 
-                        file->op_ret = 0;
+                                file->op_ret = 0;
+                        }
                 }
+                UNLOCK (&file->lock);
 
                 wb_process_queue (frame, file, 0);
                 
@@ -1649,6 +1694,8 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         call_stub_t  *stub = NULL;
         call_frame_t *process_frame = NULL;
         wb_local_t   *tmp_local = NULL;
+        int           disabled = 0;
+        int64_t       disable_till = 0;
 
         conf = this->private;
 
@@ -1673,9 +1720,16 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 return 0;
         }
 
+        LOCK (&file->lock);
+        {
+                disabled = file->disabled;
+                disable_till = file->disable_till;
+        }
+        UNLOCK (&file->lock);
+
         process_frame = copy_frame (frame);
         if (conf->flush_behind
-            && (!file->disabled) && (file->disable_till == 0)) {
+            && (!disabled) && (disable_till == 0)) {
                 tmp_local = CALLOC (1, sizeof (*local));
                 tmp_local->file = file;
 
@@ -1689,7 +1743,7 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         wb_process_queue (process_frame, file, 1); 
                 
         if (conf->flush_behind
-            && (!file->disabled) && (file->disable_till == 0)) {
+            && (!disabled) && (disable_till == 0)) {
                 STACK_WIND (process_frame,
                             wb_ffr_bg_cbk,
                             FIRST_CHILD(this),
@@ -1722,12 +1776,16 @@ wb_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         file = local->file;
         request = local->request;
 
-        if (file->op_ret == -1) {
-                op_ret = file->op_ret;
-                op_errno = file->op_errno;
+        LOCK (&file->lock);
+        {
+                if (file->op_ret == -1) {
+                        op_ret = file->op_ret;
+                        op_errno = file->op_errno;
 
-                file->op_ret = 0;
+                        file->op_ret = 0;
+                }
         }
+        UNLOCK (&file->lock);
 
         if (request) {
                 wb_request_unref (request);
