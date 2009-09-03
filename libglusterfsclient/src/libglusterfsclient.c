@@ -6873,7 +6873,7 @@ glusterfs_glh_realpath (glusterfs_handle_t handle, const char *path,
                                         FREE (tmppath);
                                 }
 
-                                glusterfs_glh_realpath (handle, buf, rpath);
+                                rpath = glusterfs_glh_realpath (handle, buf, rpath);
                                 FREE (buf);
                                 goto out;
                         } else if (!S_ISDIR (stbuf.st_mode) && *end != '\0') {
