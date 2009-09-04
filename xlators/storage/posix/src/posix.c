@@ -47,6 +47,7 @@
 #include "byte-order.h"
 #include "syscall.h"
 #include "statedump.h"
+#include "locking.h"
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -1490,7 +1491,11 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
 	fd_ctx_set (fd, this, (uint64_t)(long)pfd);
 
-        ((struct posix_private *)this->private)->stats.nr_files++;
+        LOCK (&priv->lock);
+        {
+                priv->stats.nr_files++;
+        }
+        UNLOCK (&priv->lock);
 
         op_ret = 0;
 
@@ -1561,7 +1566,11 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
 	fd_ctx_set (fd, this, (uint64_t)(long)pfd);
 
-        ((struct posix_private *)this->private)->stats.nr_files++;
+        LOCK (&priv->lock);
+        {
+                priv->stats.nr_files++;
+        }
+        UNLOCK (&priv->lock);
 
 #ifndef HAVE_SET_FSID
         if (flags & O_CREAT) {
@@ -1666,8 +1675,12 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        priv->read_value    += op_ret;
-        priv->interval_read += op_ret;
+        LOCK (&priv->lock);
+        {
+                priv->read_value    += op_ret;
+                priv->interval_read += op_ret;
+        }
+        UNLOCK (&priv->lock);
 
         vec.iov_base = iobuf->ptr;
         vec.iov_len  = op_ret;
@@ -1813,8 +1826,12 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        priv->write_value    += op_ret;
-        priv->interval_write += op_ret;
+        LOCK (&priv->lock);
+        {
+                priv->write_value    += op_ret;
+                priv->interval_write += op_ret;
+        }
+        UNLOCK (&priv->lock);
 
         if (op_ret >= 0) {
                 /* wiretv successful, we also need to get the stat of
@@ -1942,7 +1959,11 @@ posix_release (xlator_t *this,
 
         priv = this->private;
 
-        priv->stats.nr_files--;
+        LOCK (&priv->lock);
+        {
+                priv->stats.nr_files--;
+        }
+        UNLOCK (&priv->lock);
 
         ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
@@ -3811,27 +3832,31 @@ posix_stats (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        /* Read */
-        _time_ms  = (tv.tv_sec  - priv->init_time.tv_sec)  * 1000 +
-                ((tv.tv_usec - priv->init_time.tv_usec) / 1000);
+        LOCK (&priv->lock);
+        {
+                /* Read */
+                _time_ms  = (tv.tv_sec  - priv->init_time.tv_sec)  * 1000 +
+                        ((tv.tv_usec - priv->init_time.tv_usec) / 1000);
 
-        avg_read  = (_time_ms) ? (priv->read_value  / _time_ms) : 0; /* KBps */
-        avg_write = (_time_ms) ? (priv->write_value / _time_ms) : 0; /* KBps */
+                avg_read  = (_time_ms) ? (priv->read_value  / _time_ms) : 0; /* KBps */
+                avg_write = (_time_ms) ? (priv->write_value / _time_ms) : 0; /* KBps */
 
-        _time_ms  = (tv.tv_sec  - priv->prev_fetch_time.tv_sec)  * 1000 +
-                ((tv.tv_usec - priv->prev_fetch_time.tv_usec) / 1000);
+                _time_ms  = (tv.tv_sec  - priv->prev_fetch_time.tv_sec)  * 1000 +
+                        ((tv.tv_usec - priv->prev_fetch_time.tv_usec) / 1000);
 
-        if (_time_ms && ((priv->interval_read  / _time_ms) > priv->max_read)) {
-                priv->max_read  = (priv->interval_read / _time_ms);
+                if (_time_ms && ((priv->interval_read  / _time_ms) > priv->max_read)) {
+                        priv->max_read  = (priv->interval_read / _time_ms);
+                }
+
+                if (_time_ms &&
+                    ((priv->interval_write / _time_ms) > priv->max_write)) {
+                        priv->max_write = priv->interval_write / _time_ms;
+                }
+
+                stats->read_usage  = avg_read  / priv->max_read;
+                stats->write_usage = avg_write / priv->max_write;
         }
-
-        if (_time_ms &&
-	    ((priv->interval_write / _time_ms) > priv->max_write)) {
-                priv->max_write = priv->interval_write / _time_ms;
-        }
-
-        stats->read_usage  = avg_read  / priv->max_read;
-        stats->write_usage = avg_write / priv->max_write;
+        UNLOCK (&priv->lock);
 
         op_ret = gettimeofday (&(priv->prev_fetch_time), NULL);
         if (op_ret == -1) {
@@ -4079,6 +4104,8 @@ init (xlator_t *this)
 
         _private->base_path = strdup (dir_data->data);
         _private->base_path_length = strlen (_private->base_path);
+
+        LOCK_INIT (&_private->lock);
 
         ret = gethostname (_private->hostname, 256);
         if (ret < 0) {
