@@ -28,6 +28,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <errno.h>
+#include <libgen.h>
 #include <ftw.h>
 
 #ifndef GF_BSD_HOST_OS
@@ -236,6 +237,58 @@ posix_scale_st_ino (struct posix_private *priv, struct stat *buf)
         ret = 0;
  out:
         return ret;
+}
+
+
+/*
+ * If the parent directory of {real_path} has the setgid bit set,
+ * then set {gid} to the gid of the parent. Otherwise,
+ * leave {gid} unchanged.
+ */
+
+int
+setgid_override (char *real_path, gid_t *gid)
+{
+        char *                 tmp_path     = NULL;
+        char *                 parent_path  = NULL;
+        struct stat            parent_stbuf;
+
+        int op_ret = 0;
+
+        tmp_path = strdup (real_path);
+        if (!tmp_path) {
+                op_ret = -ENOMEM;
+                gf_log ("[storage/posix]", GF_LOG_ERROR,
+                        "Out of memory");
+                goto out;
+        }
+
+        parent_path = dirname (tmp_path);
+
+        op_ret = lstat (parent_path, &parent_stbuf);
+
+        if (op_ret == -1) {
+                op_ret = -errno;
+                gf_log ("[storage/posix]", GF_LOG_ERROR,
+                        "lstat on parent directory (%s) failed: %s",
+                        parent_path, strerror (errno));
+                goto out;
+        }
+
+        if (parent_stbuf.st_mode & S_ISGID) {
+                /*
+                   Entries created inside a setgid directory
+                   should inherit the gid from the parent
+                */
+
+                *gid = parent_stbuf.st_gid;
+        }
+out:
+
+        if (tmp_path)
+                FREE (tmp_path);
+
+        return op_ret;
 }
 
 
@@ -727,14 +780,23 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         char *      real_path = 0;
         struct stat stbuf     = { 0, };
 
+        gid_t       gid       = 0;
+
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
 
-        SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        gid = frame->root->gid;
+
+        op_ret = setgid_override (real_path, &gid);
+        if (op_ret < 0)
+                goto out;
+
+        SET_FS_ID (frame->root->uid, gid);
 
         op_ret = mknod (real_path, mode, dev);
 
@@ -757,7 +819,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         }
 
 #ifndef HAVE_SET_FSID
-        op_ret = lchown (real_path, frame->root->uid, frame->root->gid);
+        op_ret = lchown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -796,14 +858,23 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         char *      real_path = NULL;
         struct stat stbuf     = {0, };
 
+        gid_t                  gid          = 0;
+
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
 
-        SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        gid = frame->root->gid;
+
+        op_ret = setgid_override (real_path, &gid);
+        if (op_ret < 0)
+                goto out;
+
+        SET_FS_ID (frame->root->uid, gid);
 
         op_ret = mkdir (real_path, mode);
         if (op_ret == -1) {
@@ -815,7 +886,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         }
 
 #ifndef HAVE_SET_FSID
-        op_ret = chown (real_path, frame->root->uid, frame->root->gid);
+        op_ret = chown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -950,6 +1021,8 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         char *      real_path = 0;
         struct stat stbuf     = { 0, };
 
+        gid_t       gid       = 0;
+
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -957,8 +1030,15 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (linkname, out);
         VALIDATE_OR_GOTO (loc, out);
 
-        SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        gid = frame->root->gid;
+
+        op_ret = setgid_override (real_path, &gid);
+        if (op_ret < 0)
+                goto out;
+
+        SET_FS_ID (frame->root->uid, gid);
 
         op_ret = symlink (linkname, real_path);
 
@@ -971,7 +1051,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         }
 
 #ifndef HAVE_SET_FSID
-        op_ret = lchown (real_path, frame->root->uid, frame->root->gid);
+        op_ret = lchown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1332,6 +1412,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
         struct posix_fd *      pfd       = NULL;
         struct posix_private * priv      = NULL;
 
+        gid_t                  gid       = 0;
+
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1342,8 +1424,17 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        gid = frame->root->gid;
+
+        op_ret = setgid_override (real_path, &gid);
+
+        if (op_ret < 0) {
+                goto out;
+        }
+
+        SET_FS_ID (frame->root->uid, gid);
 
         if (!flags) {
                 _flags = O_CREAT | O_RDWR | O_EXCL;
@@ -1366,7 +1457,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         }
 
 #ifndef HAVE_SET_FSID
-        op_ret = chown (real_path, frame->root->uid, frame->root->gid);
+        op_ret = chown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1424,6 +1515,8 @@ posix_open (call_frame_t *frame, xlator_t *this,
         struct posix_fd *      pfd       = NULL;
         struct posix_private * priv      = NULL;
 
+        gid_t                  gid       = 0;
+
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1434,8 +1527,13 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        op_ret = setgid_override (real_path, &gid);
+        if (op_ret < 0)
+                goto out;
+
+        SET_FS_ID (frame->root->uid, gid);
 
         if (priv->o_direct)
                 flags |= O_DIRECT;
@@ -1466,7 +1564,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
 #ifndef HAVE_SET_FSID
         if (flags & O_CREAT) {
-                op_ret = chown (real_path, frame->root->uid, frame->root->gid);
+                op_ret = chown (real_path, frame->root->uid, gid);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR,
