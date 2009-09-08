@@ -1902,6 +1902,37 @@ fuse_opendir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 }
 
 
+unsigned char
+d_type_from_stat (struct stat *buf)
+{
+        unsigned char d_type;
+
+        if (buf->st_mode & S_IFREG) {
+                d_type = DT_REG;
+
+        } else if (buf->st_mode & S_IFDIR) {
+                d_type = DT_DIR;
+
+        } else if (buf->st_mode & S_IFIFO) {
+                d_type = DT_FIFO;
+
+        } else if (buf->st_mode & S_IFSOCK) {
+                d_type = DT_SOCK;
+
+        } else if (buf->st_mode & S_IFCHR) {
+                d_type = DT_CHR;
+
+        } else if (buf->st_mode & S_IFBLK) {
+                d_type = DT_BLK;
+
+        } else {
+                d_type = DT_UNKNOWN;
+        }
+
+        return d_type;
+}
+
+
 static int
 fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
@@ -1948,7 +1979,7 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fde = (struct fuse_dirent *)(buf + size);
                 fde->ino = entry->d_ino;
                 fde->off = entry->d_off;
-                fde->type = entry->d_type;
+                fde->type = d_type_from_stat (&entry->d_stat);
                 fde->namelen = strlen (entry->d_name);
                 strncpy (fde->name, entry->d_name, fde->namelen);
                 size += FUSE_DIRENT_SIZE (fde);
