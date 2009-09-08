@@ -247,31 +247,41 @@ do_open (int fd, const char *pathname, int flags, mode_t mode, booster_op_t op)
                 .stat_timeout = 600,
         };
       
+        gf_log ("booster", GF_LOG_DEBUG, "Opening using MPB: %s", pathname);
         size = fgetxattr (fd, "user.glusterfs-booster-volfile", NULL, 0);
         if (size == -1) {
+                gf_log ("booster", GF_LOG_ERROR, "Xattr "
+                        "user.glusterfs-booster-volfile not found: %s",
+                        strerror (errno));
                 goto out;
         }
 		
         specfile = calloc (1, size);
         if (!specfile) {
-                fprintf (stderr, "cannot allocate memory: %s\n",
-                         strerror (errno));
+                gf_log ("booster", GF_LOG_ERROR, "Memory allocation failed");
                 goto out;
         }
 
         ret = fgetxattr (fd, "user.glusterfs-booster-volfile", specfile,
                          size);
         if (ret == -1) {
+                gf_log ("booster", GF_LOG_ERROR, "Xattr "
+                        "user.glusterfs-booster-volfile not found: %s",
+                        strerror (errno));
                 goto out;
         }
     
         specfp = tmpfile ();
         if (!specfp) {
+                gf_log ("booster", GF_LOG_ERROR, "Temp file creation failed"
+                        ": %s", strerror (errno));
                 goto out;
         }
 
         ret = fwrite (specfile, size, 1, specfp);
         if (ret != 1) {
+                gf_log ("booster", GF_LOG_ERROR, "Failed to write volfile: %s",
+                        strerror (errno));
                 goto out;
         }
 		
@@ -279,16 +289,23 @@ do_open (int fd, const char *pathname, int flags, mode_t mode, booster_op_t op)
 
         size = fgetxattr (fd, "user.glusterfs-booster-mount", NULL, 0);
         if (size == -1) {
+                gf_log ("booster", GF_LOG_ERROR, "Xattr "
+                        "user.glusterfs-booster-mount not found: %s",
+                        strerror (errno));
                 goto out;
         }
         
         mount_point = calloc (size, sizeof (char));
         if (!mount_point) {
+                gf_log ("booster", GF_LOG_ERROR, "Memory allocation failed");
                 goto out;
         }
 	
         ret = fgetxattr (fd, "user.glusterfs-booster-mount", mount_point, size);
         if (ret == -1) {
+                gf_log ("booster", GF_LOG_ERROR, "Xattr "
+                        "user.glusterfs-booster-mount not found: %s",
+                        strerror (errno));
                 goto out;
         }
 
@@ -302,28 +319,38 @@ do_open (int fd, const char *pathname, int flags, mode_t mode, booster_op_t op)
                 iparams.logfile = strdup (BOOSTER_DEFAULT_LOG);
         }
 
+        gf_log ("booster", GF_LOG_DEBUG, "Using log-file: %s", iparams.logfile);
         iparams.specfp = specfp;
 
         ret = glusterfs_mount (mount_point, &iparams);
-        if ((ret == -1) && (errno != EEXIST)) {
-                goto out;
+        if (ret == -1) {
+                if (errno != EEXIST) {
+                        gf_log ("booster", GF_LOG_ERROR, "Mount failed over"
+                                " glusterfs");
+                        goto out;
+                } else
+                        gf_log ("booster", GF_LOG_ERROR, "Already mounted");
         }
 
         switch (op) {
         case BOOSTER_OPEN:
+                gf_log ("booster", GF_LOG_DEBUG, "Booster open call");
                 fh = glusterfs_open (pathname, flags, mode);
                 break;
 
         case BOOSTER_CREAT:
+                gf_log ("booster", GF_LOG_DEBUG, "Booster create call");
                 fh = glusterfs_creat (pathname, mode);
                 break;
         }
 
         if (!fh) {
+                gf_log ("booster", GF_LOG_ERROR, "Error performing operation");
                 goto out;
         }
 
         if (booster_fd_unused_get (booster_fdtable, fh, fd) == -1) {
+                gf_log ("booster", GF_LOG_ERROR, "Failed to get unused FD");
                 goto out;
         }
         fh = NULL;
@@ -366,15 +393,21 @@ vmp_open (const char *pathname, int flags, ...)
         else
                 fh = glusterfs_open (pathname, flags);
 
-        if (!fh)
+        if (!fh) {
+                gf_log ("booster", GF_LOG_ERROR, "VMP open failed");
                 goto out;
+        }
 
         fd = booster_get_process_fd ();
-        if (fd == -1)
+        if (fd == -1) {
+                gf_log ("booster", GF_LOG_ERROR, "Failed to create open fd");
                 goto fh_close_out;
+        }
 
-        if (booster_fd_unused_get (booster_fdtable, fh, fd) == -1)
+        if (booster_fd_unused_get (booster_fdtable, fh, fd) == -1) {
+                gf_log ("booster", GF_LOG_ERROR, "Failed to map fd into table");
                 goto realfd_close_out;
+        }
 
         return fd;
 
@@ -405,6 +438,7 @@ booster_open (const char *pathname, int use64, int flags, ...)
                 goto out;
         }
 
+        gf_log ("booster", GF_LOG_DEBUG, "Open: %s", pathname);
         /* First try opening through the virtual mount point.
          * The difference lies in the fact that:
          * 1. We depend on libglusterfsclient library to perform
@@ -427,19 +461,31 @@ booster_open (const char *pathname, int use64, int flags, ...)
          * actually was an error performing vmp_open. This must
          * be returned to the user.
          */
-        if (((ret < 0) && (errno != ENODEV)) || (ret > 0))
+        if ((ret < 0) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "Error in opening file over "
+                        " VMP: %s", strerror (errno));
                 goto out;
+        }
 
-        if (use64)
+        if (ret > 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "File opened");
+                goto out;
+        }
+
+        if (use64) {
+                gf_log ("booster", GF_LOG_DEBUG, "Using 64-bit open");
 		my_open = real_open64;
-        else
+        } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Using 32-bit open");
 		my_open = real_open;
+        }
 
         /* It is possible the RESOLVE macro is not able
          * to resolve the symbol of a function, in that case
          * we dont want to seg-fault on calling a NULL functor.
          */
         if (my_open == NULL) {
+                gf_log ("booster", GF_LOG_ERROR, "open not resolved");
                 ret = -1;
                 errno = ENOSYS;
                 goto out;
@@ -519,15 +565,22 @@ vmp_creat (const char *pathname, mode_t mode)
         glusterfs_file_t        fh = NULL;
 
         fh = glusterfs_creat (pathname, mode);
-        if (!fh)
+        if (!fh) {
+                gf_log ("booster", GF_LOG_ERROR, "Create failed: %s: %s",
+                        pathname, strerror (errno));
                 goto out;
+        }
 
         fd = booster_get_process_fd ();
-        if (fd == -1)
+        if (fd == -1) {
+                gf_log ("booster", GF_LOG_ERROR, "Failed to create fd");
                 goto close_out;
+        }
 
-        if ((booster_fd_unused_get (booster_fdtable, fh, fd)) == -1)
+        if ((booster_fd_unused_get (booster_fdtable, fh, fd)) == -1) {
+                gf_log ("booster", GF_LOG_ERROR, "Failed to map unused fd");
                 goto real_close_out;
+        }
 
         return fd;
 
@@ -551,10 +604,19 @@ creat (const char *pathname, mode_t mode)
                 goto out;
         }
 
+        gf_log ("booster", GF_LOG_DEBUG, "Create: %s", pathname);
         ret = vmp_creat (pathname, mode);
 
-        if (((ret == -1) && (errno != ENODEV)) || (ret > 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "VMP create failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret > 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "File created");
+                goto out;
+        }
 
         if (real_creat == NULL) {
                 errno = ENOSYS;
@@ -567,7 +629,9 @@ creat (const char *pathname, mode_t mode)
         if (ret != -1) {
                 do_open (ret, pathname, GF_O_WRONLY | GF_O_TRUNC, mode,
                          BOOSTER_CREAT);
-        }
+        } else
+                gf_log ("booster", GF_LOG_ERROR, "real create failed: %s",
+                        strerror (errno));
 
 out:
         return ret;
@@ -582,14 +646,18 @@ pread (int fd, void *buf, size_t count, unsigned long offset)
         ssize_t ret;
         glusterfs_file_t glfs_fd = 0;
 
+        gf_log ("booster", GF_LOG_DEBUG, "pread: fd %d, count %ld, offset %ld",
+                fd, count, offset);
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
         if (!glfs_fd) { 
+                gf_log ("booster", GF_LOG_DEBUG, "Not booster fd");
                 if (real_pread == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_pread (fd, buf, count, offset);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_pread (glfs_fd, buf, count, offset);
                 booster_fdptr_put (glfs_fd);
         }
@@ -604,14 +672,18 @@ pread64 (int fd, void *buf, size_t count, uint64_t offset)
         ssize_t ret;
         glusterfs_file_t glfs_fd = 0;
 
+        gf_log ("booster", GF_LOG_DEBUG, "pread64: fd %d, count %ld, offset"
+                " %ld", fd, count, offset);
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
         if (!glfs_fd) { 
+                gf_log ("booster", GF_LOG_DEBUG, "Not booster fd");
                 if (real_pread64 == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_pread64 (fd, buf, count, offset);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_pread (glfs_fd, buf, count, offset);
         }
 
@@ -625,14 +697,17 @@ read (int fd, void *buf, size_t count)
         int ret;
         glusterfs_file_t glfs_fd;
 
+        gf_log ("booster", GF_LOG_DEBUG, "read: fd %d, count %ld", fd, count);
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
         if (!glfs_fd) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not booster fd");
                 if (real_read == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_read (fd, buf, count);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_read (glfs_fd, buf, count);
                 booster_fdptr_put (glfs_fd);
         }
@@ -647,14 +722,17 @@ readv (int fd, const struct iovec *vector, int count)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
+        gf_log ("booster", GF_LOG_DEBUG, "readv: fd %d, iovecs %d", fd, count);
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
         if (!glfs_fd) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_readv == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_readv (fd, vector, count);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
 		ret = glusterfs_readv (glfs_fd, vector, count);
                 booster_fdptr_put (glfs_fd);
         }
@@ -669,15 +747,19 @@ write (int fd, const void *buf, size_t count)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
+        gf_log ("booster", GF_LOG_DEBUG, "write: fd %d, count %ld", fd, count);
+
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
 
         if (!glfs_fd) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_write == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_write (fd, buf, count);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_write (glfs_fd, buf, count);
                 booster_fdptr_put (glfs_fd);
         }
@@ -691,15 +773,18 @@ writev (int fd, const struct iovec *vector, int count)
         int ret = 0;
         glusterfs_file_t glfs_fd = 0; 
 
+        gf_log ("booster", GF_LOG_DEBUG, "writev: fd %d, iovecs %d", fd, count);
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
 
         if (!glfs_fd) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_writev == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_writev (fd, vector, count);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_writev (glfs_fd, vector, count);
                 booster_fdptr_put (glfs_fd);
         }
@@ -714,15 +799,19 @@ pwrite (int fd, const void *buf, size_t count, unsigned long offset)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
+        gf_log ("booster", GF_LOG_DEBUG, "pwrite: fd %d, count %ld, offset %ld"
+                , fd, count, offset);
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
 
         if (!glfs_fd) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_pwrite == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_pwrite (fd, buf, count, offset);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_pwrite (glfs_fd, buf, count, offset);
                 booster_fdptr_put (glfs_fd);
         }
@@ -737,15 +826,19 @@ pwrite64 (int fd, const void *buf, size_t count, uint64_t offset)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
+        gf_log ("booster", GF_LOG_DEBUG, "pwrite64: fd %d, count %ld, offset"
+                "%ld", fd, count, offset);
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
   
         if (!glfs_fd) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_pwrite64 == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_pwrite64 (fd, buf, count, offset);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_pwrite (glfs_fd, buf, count, offset);
                 booster_fdptr_put (glfs_fd);
         }
@@ -760,9 +853,11 @@ close (int fd)
         int ret = -1;
         glusterfs_file_t glfs_fd = 0;
 
+        gf_log ("booster", GF_LOG_DEBUG, "close: fd %s", fd);
 	glfs_fd = booster_fdptr_get (booster_fdtable, fd);
     
 	if (glfs_fd) {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
 		booster_fd_put (booster_fdtable, fd);
 		ret = glusterfs_close (glfs_fd);
 		booster_fdptr_put (glfs_fd);
@@ -781,11 +876,16 @@ lseek (int filedes, unsigned long offset, int whence)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
+        gf_log ("booster", GF_LOG_DEBUG, "lseek: fd %d, offset %ld",
+                filedes, offset);
+
         glfs_fd = booster_fdptr_get (booster_fdtable, filedes);
         if (glfs_fd) {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_lseek (glfs_fd, offset, whence);
                 booster_fdptr_put (glfs_fd);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_lseek == NULL) {
                         errno = ENOSYS;
                         ret = -1;
@@ -804,11 +904,15 @@ lseek64 (int filedes, uint64_t offset, int whence)
         glusterfs_file_t glfs_fd = 0;
 
 
+        gf_log ("booster", GF_LOG_DEBUG, "lseek: fd %d, offset %"PRIu64,
+                filedes, offset);
         glfs_fd = booster_fdptr_get (booster_fdtable, filedes);
         if (glfs_fd) {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_lseek (glfs_fd, offset, whence);
                 booster_fdptr_put (glfs_fd);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_lseek64 == NULL) {
                         errno = ENOSYS;
                         ret = -1;
@@ -825,14 +929,17 @@ dup (int oldfd)
         int ret = -1, new_fd = -1;
         glusterfs_file_t glfs_fd = 0;
 
+        gf_log ("booster", GF_LOG_DEBUG, "dup: fd %d", oldfd);
         glfs_fd = booster_fdptr_get (booster_fdtable, oldfd);
         new_fd = real_dup (oldfd);
 
         if (new_fd >=0 && glfs_fd) {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = booster_fd_unused_get (booster_fdtable, glfs_fd,
                                              new_fd);
                 fd_ref ((fd_t *)glfs_fd);
                 if (ret == -1) {
+                        gf_log ("booster", GF_LOG_ERROR,"Failed to map new fd");
                         real_close (new_fd);
                 } 
         }
@@ -893,10 +1000,19 @@ mkdir (const char *pathname, mode_t mode)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "mkdir: path %s", pathname);
         ret = glusterfs_mkdir (pathname, mode);
 
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "mkdir failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "directory created");
+                return ret;
+        }
 
         if (real_mkdir == NULL) {
                 ret = -1;
@@ -912,9 +1028,18 @@ rmdir (const char *pathname)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "rmdir: path %s", pathname);
         ret = glusterfs_rmdir (pathname);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "rmdir failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "directory removed");
+                return ret;
+        }
 
         if (real_rmdir == NULL) {
                 errno = ENOSYS;
@@ -930,9 +1055,18 @@ chmod (const char *pathname, mode_t mode)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "chmod: path %s", pathname);
         ret = glusterfs_chmod (pathname, mode);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "chmod failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "chmod succeeded");
+                return ret;
+        }
 
         if (real_chmod == NULL) {
                 errno = ENOSYS;
@@ -948,10 +1082,19 @@ chown (const char *pathname, uid_t owner, gid_t group)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "chown: path: %s", pathname);
         ret = glusterfs_chown (pathname, owner, group);
 
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "chown failed: %s\n",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "chown succeeded");
+                return ret;
+        }
 
         if (real_chown == NULL) {
                 errno = ENOSYS;
@@ -968,14 +1111,18 @@ fchown (int fd, uid_t owner, gid_t group)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
+        gf_log ("booster", GF_LOG_DEBUG, "fchown: fd %d, uid %d, gid %d", fd,
+                owner, group);
         fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_fchown == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_fchown (fd, owner, group);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_fchown (fh, owner, group);
                 booster_fdptr_put (fh);
         }
@@ -1001,8 +1148,11 @@ booster_init (void)
 		goto err;
         }
  
-        if (pipe (pipefd) == -1)
+        if (pipe (pipefd) == -1) {
+                gf_log ("booster-fstab", GF_LOG_ERROR, "Pipe creation failed:%s"
+                        , strerror (errno));
                 goto err;
+        }
 
         process_piped_fd = pipefd[0];
         real_close (pipefd[1]);
@@ -1016,10 +1166,17 @@ booster_init (void)
         if (booster_conf_path != NULL) {
                 if (strlen (booster_conf_path) > 0)
                         ret = booster_configure (booster_conf_path);
-                else
+                else {
+                        gf_log ("booster", GF_LOG_ERROR, "%s not defined, "
+                                "using default path: %s", BOOSTER_CONF_ENV_VAR,
+                                DEFAULT_BOOSTER_CONF);
                         ret = booster_configure (DEFAULT_BOOSTER_CONF);
-        } else
+                }
+        } else {
+                gf_log ("booster", GF_LOG_ERROR, "%s not defined, using default"
+                        " path: %s", BOOSTER_CONF_ENV_VAR,DEFAULT_BOOSTER_CONF);
                 ret = booster_configure (DEFAULT_BOOSTER_CONF);
+        }
 
         if (ret == 0)
                 gf_log ("booster", GF_LOG_DEBUG, "booster is inited");
@@ -1066,14 +1223,17 @@ fchmod (int fd, mode_t mode)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
+        gf_log ("booster", GF_LOG_DEBUG, "fchmod: fd %d, mode: 0x%x", fd, mode);
         fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_fchmod == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_fchmod (fd, mode);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_fchmod (fh, mode);
                 booster_fdptr_put (fh);
         }
@@ -1087,14 +1247,17 @@ fsync (int fd)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
+        gf_log ("booster", GF_LOG_DEBUG, "fsync: fd %d", fd);
         fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_fsync == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_fsync (fd);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_fsync (fh);
                 booster_fdptr_put (fh);
         }
@@ -1108,14 +1271,18 @@ ftruncate (int fd, off_t length)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
+        gf_log ("booster", GF_LOG_DEBUG, "ftruncate: fd %d, length: %ld", fd,
+                length);
         fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_ftruncate == NULL) {
                         errno = ENOSYS;
                         ret = -1;
                 } else
                         ret = real_ftruncate (fd, length);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_ftruncate (fh, length);
                 booster_fdptr_put (fh);
         }
@@ -1128,10 +1295,19 @@ link (const char *old, const char *new)
 {
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "link: old: %s, new: %s", old, new);
         ret = glusterfs_link (old, new);
 
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "Link failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "link call succeeded");
+                return ret;
+        }
 
         if (real_link == NULL) {
                 errno = ENOSYS;
@@ -1147,10 +1323,19 @@ rename (const char *old, const char *new)
 {
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "link: old: %s, new: %s", old, new);
         ret = glusterfs_rename (old, new);
 
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "Rename failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "Rename succeeded");
+                return ret;
+        }
 
         if (real_rename == NULL) {
                 errno = ENOSYS;
@@ -1166,9 +1351,18 @@ utimes (const char *path, const struct timeval times[2])
 {
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "utimes: path %s", path);
         ret = glusterfs_utimes (path, times);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "utimes failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "utimes succeeded");
+                return ret;
+        }
 
         if (real_utimes == NULL) {
                 errno = ENOSYS;
@@ -1184,10 +1378,19 @@ utime (const char *path, const struct utimbuf *buf)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "utime: path %s", path);
         ret = glusterfs_utime (path, buf);
 
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "utime failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "utime succeeded");
+                return ret;
+        }
 
         if (real_utime == NULL) {
                 errno = ENOSYS;
@@ -1203,9 +1406,18 @@ mknod (const char *path, mode_t mode, dev_t dev)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "mknod: path %s", path);
         ret = glusterfs_mknod (path, mode, dev);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "mknod failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "mknod succeeded");
+                return ret;
+        }
 
         if (real_mknod) {
                 errno = ENOSYS;
@@ -1221,9 +1433,18 @@ mkfifo (const  char *path, mode_t mode)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "mkfifo: path %s", path);
         ret = glusterfs_mkfifo (path, mode);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "mkfifo failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "mkfifo succeeded");
+                return ret;
+        }
 
         if (real_mkfifo == NULL) {
                 errno = ENOSYS;
@@ -1239,9 +1460,18 @@ unlink (const char *path)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "unlink: path %s", path);
         ret = glusterfs_unlink (path);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "unlink failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "unlink succeeded");
+                return ret;
+        }
 
         if (real_unlink == NULL) {
                 errno = ENOSYS;
@@ -1257,9 +1487,19 @@ symlink (const char *oldpath, const char *newpath)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "symlink: old: %s, new: %s",
+                oldpath, newpath);
         ret = glusterfs_symlink (oldpath, newpath);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "symlink failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "symlink succeeded");
+                return ret;
+        }
 
         if (real_symlink == NULL) {
                 errno = ENOSYS;
@@ -1275,9 +1515,18 @@ readlink (const char *path, char *buf, size_t bufsize)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "readlink: path %s", path);
         ret = glusterfs_readlink (path, buf, bufsize);
-        if (((ret == -1) && (errno != ENODEV)) || (ret > 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "readlink failed: %s",
+                        strerror (errno));
                 return ret;
+        }
+
+        if (ret > 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "readlink succeeded");
+                return ret;
+        }
 
         if (real_readlink == NULL) {
                 errno = ENOSYS;
@@ -1293,9 +1542,18 @@ realpath (const char *path, char *resolved_path)
 {
         char    *res = NULL;
 
+        gf_log ("booster", GF_LOG_DEBUG, "realpath: path %s", path);
         res = glusterfs_realpath (path, resolved_path);
-        if (((res == NULL) && (errno != ENODEV)) || (res != NULL))
+        if ((res == NULL) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "realpath failed: %s",
+                        strerror (errno));
                 return res;
+        }
+
+        if (res != NULL) {
+                gf_log ("booster", GF_LOG_DEBUG, "realpath succeeded");
+                return res;
+        }
 
         if (real_realpath == NULL) {
                 errno = ENOSYS;
@@ -1321,17 +1579,23 @@ opendir (const char *path)
         struct booster_dir_handle       *bh = NULL;
         DIR                             *pdir = NULL;
 
+        gf_log ("booster", GF_LOG_DEBUG, "opendir: path: %s", path);
         bh = calloc (1, sizeof (struct booster_dir_handle));
         if (!bh) {
+                gf_log ("booster", GF_LOG_ERROR, "memory allocation failed");
                 errno = ENOMEM;
                 goto out;
         }
 
         gdir = glusterfs_opendir (path);
         if (gdir) {
+                gf_log ("booster", GF_LOG_DEBUG, "Gluster dir opened");
                 bh->type = BOOSTER_GL_DIR;
                 bh->dirh = (void *)gdir;
                 goto out;
+        } else if ((!gdir) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "Opendir failed");
+                goto free_out;
         }
 
         if (real_opendir == NULL) {
@@ -1348,8 +1612,10 @@ opendir (const char *path)
         }
 
 free_out:
-        free (bh);
-        bh = NULL;
+        if (bh) {
+                free (bh);
+                bh = NULL;
+        }
 out:
         return (DIR *)bh;
 }
@@ -1371,10 +1637,12 @@ booster_false_readdir_r (DIR *dir, struct dirent *entry, struct dirent **result)
         }
 
         if (bh->type == BOOSTER_GL_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "readdir_r on gluster");
                 ret = glusterfs_readdir_r ((glusterfs_dir_t)bh->dirh, entry,
                                            result);
                 
         } else if (bh->type == BOOSTER_POSIX_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "readdir_r on posix");
                 if (real_readdir_r == NULL) {
                         ret = errno = ENOSYS;
                         goto out;
@@ -1402,10 +1670,12 @@ booster_false_readdir64_r (DIR *dir, struct dirent64 *entry,
         }
 
         if (bh->type == BOOSTER_GL_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "readdir_r on gluster");
                 ret = glusterfs_readdir_r ((glusterfs_dir_t)bh->dirh,
                                            (struct dirent *)entry,
                                            (struct dirent **)result);
         } else if (bh->type == BOOSTER_POSIX_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "readdir_r on posix");
                 if (real_readdir64_r == NULL) {
                         ret = errno = ENOSYS;
                         goto out;
@@ -1431,9 +1701,11 @@ booster_readdir (DIR *dir)
                 goto out;
         }
 
-        if (bh->type == BOOSTER_GL_DIR)
+        if (bh->type == BOOSTER_GL_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "readdir on gluster");
                 dirp = glusterfs_readdir ((glusterfs_dir_t)bh->dirh);
-        else if (bh->type == BOOSTER_POSIX_DIR) {
+        } else if (bh->type == BOOSTER_POSIX_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "readdir on posix");
                 if (real_readdir == NULL) {
                         errno = ENOSYS;
                         dirp = NULL;
@@ -1461,9 +1733,11 @@ closedir (DIR *dh)
                 goto out;
         }
 
-        if (bh->type == BOOSTER_GL_DIR)
+        if (bh->type == BOOSTER_GL_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "closedir on gluster");
                 ret = glusterfs_closedir ((glusterfs_dir_t)bh->dirh);
-        else if (bh->type == BOOSTER_POSIX_DIR) {
+        } else if (bh->type == BOOSTER_POSIX_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "closedir on posix");
                 if (real_closedir == NULL) {
                         errno = ENOSYS;
                         ret = -1;
@@ -1491,9 +1765,18 @@ booster_xstat (int ver, const char *path, void *buf)
         struct stat     *sbuf = (struct stat *)buf;
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "xstat: path: %s", path);
         ret = glusterfs_stat (path, sbuf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "xstat failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "xstat succeeded");
+                goto out;
+        }
 
         if (real___xstat == NULL) {
                 ret = -1;
@@ -1512,9 +1795,18 @@ booster_xstat64 (int ver, const char *path, void *buf)
         int             ret = -1;
         struct stat64   *sbuf = (struct stat64 *)buf;
 
+        gf_log ("booster", GF_LOG_DEBUG, "xstat64: path: %s", path);
         ret = glusterfs_stat (path, (struct stat *)sbuf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "xstat64 failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "xstat64 succeeded");
+                goto out;
+        }
 
         if (real___xstat64 == NULL) {
                 errno = ENOSYS;
@@ -1533,9 +1825,18 @@ booster_stat (const char *path, void *buf)
         struct stat     *sbuf = (struct stat *)buf;
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "stat: path: %s", path);
         ret = glusterfs_stat (path, sbuf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "stat failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "stat succeeded");
+                goto out;
+        }
 
         if (real_stat != NULL)
                 ret = real_stat (path, sbuf);
@@ -1558,9 +1859,18 @@ booster_stat64 (const char *path, void *buf)
         int             ret = -1;
         struct stat64   *sbuf = (struct stat64 *)buf;
 
+        gf_log ("booster", GF_LOG_DEBUG, "stat64: %s", path);
         ret = glusterfs_stat (path, (struct stat *)sbuf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "stat64 failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "stat64 succeeded");
+                goto out;
+        }
 
         if (real_stat64 != NULL)
                 ret = real_stat64 (path, sbuf);
@@ -1583,8 +1893,10 @@ booster_fxstat (int ver, int fd, void *buf)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
+        gf_log ("booster", GF_LOG_DEBUG, "fxstat: fd %d", fd);
         fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real___fxstat == NULL) {
                         errno = ENOSYS;
                         ret = -1;
@@ -1593,6 +1905,7 @@ booster_fxstat (int ver, int fd, void *buf)
 
                 ret = real___fxstat (ver, fd, sbuf);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_fstat (fh, sbuf);
                 booster_fdptr_put (fh);
         }
@@ -1608,8 +1921,10 @@ booster_fxstat64 (int ver, int fd, void *buf)
         struct stat64           *sbuf = (struct stat64 *)buf;
         glusterfs_file_t        fh = NULL;
 
+        gf_log ("booster", GF_LOG_DEBUG, "fxstat64: fd %d", fd);
         fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real___fxstat64 == NULL) {
                         ret = -1;
                         errno = ENOSYS;
@@ -1617,6 +1932,7 @@ booster_fxstat64 (int ver, int fd, void *buf)
                 }
                 ret = real___fxstat64 (ver, fd, sbuf);
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_fstat (fh, (struct stat *)sbuf);
                 booster_fdptr_put (fh);
         }
@@ -1632,8 +1948,10 @@ booster_fstat (int fd, void *buf)
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
 
+        gf_log ("booster", GF_LOG_DEBUG, "fstat: fd %d", fd);
         fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_fstat != NULL)
                         ret = real_fstat (fd, sbuf);
                 else if (real___fxstat != NULL)
@@ -1644,6 +1962,7 @@ booster_fstat (int fd, void *buf)
                         goto out;
                 }
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_fstat (fh, sbuf);
                 booster_fdptr_put (fh);
         }
@@ -1659,8 +1978,10 @@ booster_fstat64 (int fd, void *buf)
         struct stat64           *sbuf = (struct stat64 *)buf;
         glusterfs_file_t        fh = NULL;
 
+        gf_log ("booster", GF_LOG_DEBUG, "fstat64: fd %d", fd);
         fh = booster_fdptr_get (booster_fdtable, fd);
         if (!fh) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_fstat64 != NULL)
                         ret = real_fstat64 (fd, sbuf);
                 else if (real___fxstat64 != NULL)
@@ -1677,6 +1998,7 @@ booster_fstat64 (int fd, void *buf)
                         goto out;
                 }
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_fstat (fh, (struct stat *)sbuf);
                 booster_fdptr_put (fh);
         }
@@ -1691,9 +2013,18 @@ booster_lxstat (int ver, const char *path, void *buf)
         struct stat     *sbuf = (struct stat *)buf;
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "lxstat: path %s", path);
         ret = glusterfs_lstat (path, sbuf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "lxstat failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "lxstat succeeded");
+                goto out;
+        }
 
         if (real___lxstat == NULL) {
                 ret = -1;
@@ -1712,9 +2043,18 @@ booster_lxstat64 (int ver, const char *path, void *buf)
         int             ret = -1;
         struct stat64   *sbuf = (struct stat64 *)buf;
 
+        gf_log ("booster", GF_LOG_DEBUG, "lxstat64: path %s", path);
         ret = glusterfs_lstat (path, (struct stat *)sbuf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "lxstat64 failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "lxstat64 succeeded");
+                goto out;
+        }
 
         if (real___lxstat64 == NULL) {
                 errno = ENOSYS;
@@ -1733,9 +2073,18 @@ booster_lstat (const char *path, void *buf)
         struct stat     *sbuf = (struct stat *)buf;
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "lstat: path %s", path);
         ret = glusterfs_lstat (path, sbuf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "lstat failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "lstat succeeded");
+                goto out;
+        }
 
         if (real_lstat != NULL)
                 ret = real_lstat (path, sbuf);
@@ -1758,9 +2107,18 @@ booster_lstat64 (const char *path, void *buf)
         int             ret = -1;
         struct stat64   *sbuf = (struct stat64 *)buf;
 
+        gf_log ("booster", GF_LOG_DEBUG, "lstat64: path %s", path);
         ret = glusterfs_lstat (path, (struct stat *)sbuf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "lstat64 failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "lstat64 succeeded");
+                goto out;
+        }
 
         if (real_lstat64 != NULL)
                 ret = real_lstat64 (path, sbuf);
@@ -1781,9 +2139,18 @@ booster_statfs (const char *pathname, struct statfs *buf)
 {
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "statfs: path %s", pathname);
         ret = glusterfs_statfs (pathname, buf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "statfs failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "statfs succeeded");
+                goto out;
+        }
 
         if (real_statfs == NULL) {
                 ret = -1;
@@ -1802,9 +2169,18 @@ booster_statfs64 (const char *pathname, struct statfs64 *buf)
 {
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "stat64: path %s", pathname);
         ret = glusterfs_statfs (pathname, (struct statfs *)buf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "statfs64 failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "statfs64 succeeded");
+                goto out;
+        }
 
         if (real_statfs64 == NULL) {
                 ret = -1;
@@ -1823,9 +2199,18 @@ booster_statvfs (const char *pathname, struct statvfs *buf)
 {
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "statvfs: path %s", pathname);
         ret = glusterfs_statvfs (pathname, buf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "statvfs failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "statvfs succeeded");
+                goto out;
+        }
 
         if (real_statvfs == NULL) {
                 ret = -1;
@@ -1844,9 +2229,18 @@ booster_statvfs64 (const char *pathname, struct statvfs64 *buf)
 {
         int             ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "statvfs64: path %s", pathname);
         ret = glusterfs_statvfs (pathname, (struct statvfs *)buf);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "statvfs64 failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "statvfs64 succeeded");
+                goto out;
+        }
 
         if (real_statvfs64 == NULL) {
                 ret = -1;
@@ -1865,9 +2259,19 @@ getxattr (const char *path, const char *name, void *value, size_t size)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "getxattr: path %s, name %s", path,
+                name);
         ret = glusterfs_getxattr (path, name, value, size);
-        if (((ret == -1) && (ret != ENODEV)) || (ret > 0))
+        if ((ret == -1) && (ret != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "getxattr failed: %s",
+                        strerror (errno));
+                goto out;
+        }
+
+        if (ret > 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "getxattr succeeded");
                 return ret;
+        }
 
         if (real_getxattr == NULL) {
                 ret = -1;
@@ -1886,9 +2290,20 @@ lgetxattr (const char *path, const char *name, void *value, size_t size)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "lgetxattr: path %s, name %s", path,
+                name);
         ret = glusterfs_lgetxattr (path, name, value, size);
-        if (((ret == -1) && (ret != ENODEV)) || (ret > 0))
+        if ((ret == -1) && (ret != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "lgetxattr failed: %s",
+                        strerror (errno));
+
                 return ret;
+        }
+
+        if (ret > 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "lgetxattr succeeded");
+                return ret;
+        }
 
         if (real_lgetxattr == NULL) {
                 ret = -1;
@@ -1905,9 +2320,19 @@ int
 remove (const char *path)
 {
         int     ret = -1;
+
+        gf_log ("booster", GF_LOG_DEBUG, "remove: %s", path);
         ret = glusterfs_remove (path);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "remove failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_DEBUG, "remove succeeded");
+                goto out;
+        }
 
         if (real_remove == NULL) {
                 errno = ENOSYS;
@@ -1926,9 +2351,18 @@ lchown (const char *path, uid_t owner, gid_t group)
 {
         int     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "lchown: path %s", path);
         ret = glusterfs_lchown (path, owner, group);
-        if (((ret == -1) && (errno != ENODEV)) || (ret == 0))
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "lchown failed: %s",
+                        strerror (errno));
                 goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_ERROR, "lchown succeeded");
+                goto out;
+        }
 
         if (real_lchown == NULL) {
                 errno = ENOSYS;
@@ -1952,14 +2386,15 @@ booster_rewinddir (DIR *dir)
                 goto out;
         }
 
-        if (bh->type == BOOSTER_GL_DIR)
+        if (bh->type == BOOSTER_GL_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "rewinddir on glusterfs");
                 glusterfs_rewinddir ((glusterfs_dir_t)bh->dirh);
-        else if (bh->type == BOOSTER_POSIX_DIR) {
+        } else if (bh->type == BOOSTER_POSIX_DIR) {
                 if (real_rewinddir == NULL) {
                         errno = ENOSYS;
                         goto out;
                 }
-
+                gf_log ("booster", GF_LOG_DEBUG, "rewinddir on posix");
                 real_rewinddir ((DIR *)bh->dirh);
         } else
                 errno = EINVAL;
@@ -1977,14 +2412,16 @@ booster_seekdir (DIR *dir, off_t offset)
                 goto out;
         }
 
-        if (bh->type == BOOSTER_GL_DIR)
+        if (bh->type == BOOSTER_GL_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "seekdir on glusterfs");
                 glusterfs_seekdir ((glusterfs_dir_t)bh->dirh, offset);
-        else if (bh->type == BOOSTER_POSIX_DIR) {
+         } else if (bh->type == BOOSTER_POSIX_DIR) {
                 if (real_seekdir == NULL) {
                         errno = ENOSYS;
                         goto out;
                 }
 
+                gf_log ("booster", GF_LOG_DEBUG, "seekdir on posix");
                 real_seekdir ((DIR *)bh->dirh, offset);
         } else
                 errno = EINVAL;
@@ -2003,14 +2440,16 @@ booster_telldir (DIR *dir)
                 goto out;
         }
 
-        if (bh->type == BOOSTER_GL_DIR)
+        if (bh->type == BOOSTER_GL_DIR) {
+                gf_log ("booster", GF_LOG_DEBUG, "telldir on glusterfs");
                 offset = glusterfs_telldir ((glusterfs_dir_t)bh->dirh);
-        else if (bh->type == BOOSTER_POSIX_DIR) {
+        } else if (bh->type == BOOSTER_POSIX_DIR) {
                 if (real_telldir == NULL) {
                         errno = ENOSYS;
                         goto out;
                 }
 
+                gf_log ("booster", GF_LOG_DEBUG, "telldir on posix");
                 offset = real_telldir ((DIR *)bh->dirh);
         } else
                 errno = EINVAL;
@@ -2046,12 +2485,15 @@ sendfile (int out_fd, int in_fd, off_t *offset, size_t count)
         glusterfs_file_t            in_fh = NULL;
         ssize_t                     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "sendfile: in fd %d, out fd %d, offset"
+                " %ld, count %ld", in_fd, out_fd, offset, count);
         /*
          * handle sendfile in booster only if in_fd corresponds to a glusterfs
          * file handle 
          */
         in_fh = booster_fdptr_get (booster_fdtable, in_fd);
         if (!in_fh) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_sendfile == NULL) {
                         errno = ENOSYS;
                         ret = -1;
@@ -2059,6 +2501,7 @@ sendfile (int out_fd, int in_fd, off_t *offset, size_t count)
                         ret = real_sendfile (out_fd, in_fd, offset, count);
                 }
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_sendfile (out_fd, in_fh, offset, count);
                 booster_fdptr_put (in_fh);
         }
@@ -2072,12 +2515,15 @@ sendfile64 (int out_fd, int in_fd, off_t *offset, size_t count)
         glusterfs_file_t            in_fh = NULL;
         ssize_t                     ret = -1;
 
+        gf_log ("booster", GF_LOG_DEBUG, "sendfile64: in fd %d, out fd %d,"
+                " offset %ld, count %ld", in_fd, out_fd, offset, count);
         /*
          * handle sendfile in booster only if in_fd corresponds to a glusterfs
          * file handle 
          */
         in_fh = booster_fdptr_get (booster_fdtable, in_fd);
         if (!in_fh) {
+                gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                 if (real_sendfile64 == NULL) {
                         errno = ENOSYS;
                         ret = -1;
@@ -2085,6 +2531,7 @@ sendfile64 (int out_fd, int in_fd, off_t *offset, size_t count)
                         ret = real_sendfile64 (out_fd, in_fd, offset, count);
                 }
         } else {
+                gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_sendfile (out_fd, in_fh, offset, count);
                 booster_fdptr_put (in_fh);
         }
@@ -2104,6 +2551,7 @@ fcntl (int fd, int cmd, ...)
 
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
 
+        gf_log ("booster", GF_LOG_DEBUG, "fcntl: fd %d, cmd %d", fd, cmd);
 	switch (cmd) {
 	case F_DUPFD:
                 /* 
@@ -2119,6 +2567,7 @@ fcntl (int fd, int cmd, ...)
 	case F_GETSIG:
 	case F_GETLEASE:
                 if (glfs_fd) {
+                        gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                         ret = glusterfs_fcntl (glfs_fd, cmd);
                 } else {
                         if (!real_fcntl) {
@@ -2126,6 +2575,7 @@ fcntl (int fd, int cmd, ...)
                                 goto out;
                         }
 
+                        gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                         ret = real_fcntl (fd, cmd);
                 }
 		break;
@@ -2141,6 +2591,7 @@ fcntl (int fd, int cmd, ...)
                 va_end (ap);
 
                 if (glfs_fd) {
+                        gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                         ret = glusterfs_fcntl (glfs_fd, cmd, arg);
                 } else {
                         if (!real_fcntl) {
@@ -2148,6 +2599,7 @@ fcntl (int fd, int cmd, ...)
                                 goto out;
                         }
 
+                        gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                         ret = real_fcntl (fd, cmd, arg);
                 }
 		break;
@@ -2174,6 +2626,7 @@ fcntl (int fd, int cmd, ...)
                 }
 
                 if (glfs_fd) {
+                        gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                         ret = glusterfs_fcntl (glfs_fd, cmd, lock);
                 } else {
                         if (!real_fcntl) {
@@ -2181,6 +2634,7 @@ fcntl (int fd, int cmd, ...)
                                 goto out;
                         }
 
+                        gf_log ("booster", GF_LOG_DEBUG, "Not a booster fd");
                         ret = real_fcntl (fd, cmd, lock);
                 }
 		break;
