@@ -243,12 +243,15 @@ libgf_dcache_invalidate (fd_t *fd)
 
         fd_ctx = libgf_get_fd_ctx (fd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
                 return;
         }
 
-        if (!fd_ctx->dcache)
+        if (!fd_ctx->dcache) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No dcache present");
                 return;
+        }
 
         if (!list_empty (&fd_ctx->dcache->entries.list))
                 gf_dirent_free (&fd_ctx->dcache->entries);
@@ -278,12 +281,14 @@ libgf_dcache_update (libglusterfs_client_ctx_t *ctx, fd_t *fd,
 
         fd_ctx = libgf_get_fd_ctx (fd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
 		goto out;
         }
 
         /* dcache is not enabled. */
         if (!fd_ctx->dcache) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No dcache present");
                 op_ret = 0;
                 goto out;
         }
@@ -321,18 +326,23 @@ libgf_dcache_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
 
         fd_ctx = libgf_get_fd_ctx (fd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
                 goto out;
         }
 
-        if (!fd_ctx->dcache)
+        if (!fd_ctx->dcache) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No dcache present");
                 goto out;
+        }
 
         /* We've either run out of entries in the cache
          * or the cache is empty.
          */
-        if (!fd_ctx->dcache->next)
+        if (!fd_ctx->dcache->next) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "No entries present");
                 goto out;
+        }
 
         /* The dirent list is created as a circular linked list
          * so this check is needed to ensure, we dont start
@@ -340,8 +350,10 @@ libgf_dcache_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
          * If we're reached this situation, the cache is exhausted
          * and we'll need to pre-fetch more entries to continue serving.
          */
-        if (fd_ctx->dcache->next == &fd_ctx->dcache->entries)
+        if (fd_ctx->dcache->next == &fd_ctx->dcache->entries) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Entries exhausted");
                 goto out;
+        }
 
         /* During sequential reading we generally expect that the offset
          * requested is the same as the offset we served in the previous call
@@ -359,8 +371,13 @@ libgf_dcache_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
                  * zero because that is what we returned for the last dirent
                  * of the previous readdir block.
                  */
-                if ((*offset != 0) && (fd_ctx->dcache->prev_off == 0))
+                if ((*offset != 0) && (fd_ctx->dcache->prev_off == 0)) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Entries"
+                                " exhausted");
                         cachevalid = 1;
+                } else
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Dcache"
+                                " invalidated previously");
         } else
                 cachevalid = 1;
 
@@ -481,6 +498,8 @@ libgf_update_iattr_cache (inode_t *inode, int flags, struct stat *buf)
 
         inode_ctx = libgf_get_inode_ctx (inode);
         if (!inode_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No inode context"
+                        " present");
                 errno = EINVAL;
                 op_ret = -1;
                 goto out;
@@ -492,10 +511,13 @@ libgf_update_iattr_cache (inode_t *inode, int flags, struct stat *buf)
                  * lock.
                  */
                 current = time (NULL);
-                if (flags & LIBGF_UPDATE_LOOKUP)
+                if (flags & LIBGF_UPDATE_LOOKUP) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Updating lookup");
                         inode_ctx->previous_lookup_time = current;
+                }
 
                 if (flags & LIBGF_UPDATE_STAT) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Updating stat");
 
                         /* Update the cached stat struct only if a new
                          * stat buf is given.
@@ -524,16 +546,25 @@ libgf_invalidate_iattr_cache (inode_t *inode, int flags)
                 return -1;
 
         ictx = libgf_get_inode_ctx (inode);
-        if (!ictx)
+        if (!ictx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No inode context"
+                        " present");
                 return -1;
+        }
 
         pthread_mutex_lock (&ictx->lock);
         {
-                if (flags & LIBGF_INVALIDATE_LOOKUP)
+                if (flags & LIBGF_INVALIDATE_LOOKUP) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Invalidating"
+                                " lookup");
                         ictx->previous_lookup_time = 0;
+                }
 
-                if (flags & LIBGF_INVALIDATE_STAT)
+                if (flags & LIBGF_INVALIDATE_STAT) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Invalidating"
+                                " stat");
                         ictx->previous_stat_time = 0;
+                }
 
         }
         pthread_mutex_unlock (&ictx->lock);
@@ -560,9 +591,11 @@ libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
         {
                 current = time (NULL);
                 if (flags & LIBGF_VALIDATE_LOOKUP) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Checking lookup");
                         prev = inode_ctx->previous_lookup_time;
                         timeout = ctx->lookup_timeout;
                 } else {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Checking stat");
                         prev = inode_ctx->previous_stat_time;
                         timeout = ctx->stat_timeout;
                 }
@@ -576,23 +609,29 @@ libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
                  */
                 if (prev == 0) {
                         cache_valid = 0;
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Cache Invalid");
                         goto iattr_unlock_out;
                 }
 
                 /* Cache infinitely */
                 if (timeout == (time_t)-1) {
                         cache_valid = 1;
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Caching On and "
+                                "valid");
                         goto iattr_unlock_out;
                 }
 
                 /* Disable caching completely */
                 if (timeout == 0) {
                         cache_valid = 0;
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Cache disabled");
                         goto iattr_unlock_out;
                 }
 
-                if ((prev > 0) && (timeout >= (current - prev)))
+                if ((prev > 0) && (timeout >= (current - prev))) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Cache valid");
                         cache_valid = 1;
+                }
 
                 if (flags & LIBGF_VALIDATE_LOOKUP)
                         goto iattr_unlock_out;
@@ -764,8 +803,10 @@ libgf_resolve_path_light (char *path)
         mypath = strdup (path);
         len = strlen (mypath);
         respath = calloc (strlen(mypath) + 1, sizeof (char));
-        if (respath == NULL)
+        if (respath == NULL) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR,"Memory allocation failed");
                 goto out;
+        }
 
         /* The path only contains a / or a //, so simply add a /
          * and return.
@@ -800,6 +841,8 @@ libgf_resolve_path_light (char *path)
                 tok = strtok_r (NULL, "/", &saveptr);
         }
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Path: %s, Resolved Path: %s",
+                path, respath);
 out:
         if (mypath)
                 free (mypath);
@@ -1310,8 +1353,10 @@ libgf_init_vmpentry (char *vmp, glusterfs_handle_t *vmphandle)
         int                     appendslash = 0;
 
         entry = CALLOC (1, sizeof (struct vmp_entry));
-        if (!entry)
+        if (!entry) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR,"Memory allocation failed");
                 return NULL;
+        }
 
         vmplen = strlen (vmp);
         if (vmp[vmplen - 1] != '/') {
@@ -1326,6 +1371,7 @@ libgf_init_vmpentry (char *vmp, glusterfs_handle_t *vmphandle)
         entry->vmplen = vmplen;
         entry->handle = vmphandle;
         INIT_LIST_HEAD (&entry->list);
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "New VMP entry: %s", vmp);
         return entry;
 }
 
@@ -1427,6 +1473,8 @@ _libgf_vmp_search_entry (char *path, int searchtype)
         int                     maxcount = 0;
         int                     vmpcompcount = 0;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "VMP Search: path %s, type: %s",
+                path, (searchtype == LIBGF_VMP_EXACT)?"Exact":"LongestPrefix");
         if (vmplist.entries == 0) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Virtual Mount Point "
                         "list is empty.");
@@ -1436,6 +1484,8 @@ _libgf_vmp_search_entry (char *path, int searchtype)
         list_for_each_entry(entry, &vmplist.list, list) {
                 vmpcompcount = libgf_count_path_components (entry->vmp);
                 matchcount = libgf_vmp_entry_match (entry, path);
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Candidate VMP:  %s,"
+                        " Matchcount: %d", entry->vmp, matchcount);
                 if ((matchcount > maxcount) && (matchcount == vmpcompcount)) {
                         maxcount = matchcount;
                         maxentry = entry;
@@ -1450,8 +1500,14 @@ _libgf_vmp_search_entry (char *path, int searchtype)
         if ((searchtype == LIBGF_VMP_EXACT) && (maxentry)) {
                 vmpcompcount = libgf_count_path_components (maxentry->vmp);
                 matchcount = libgf_count_path_components (path);
-                if (vmpcompcount != matchcount)
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Exact Check: VMP: %s,"
+                        " CompCount: %d, Path: %s, CompCount: %d",
+                        maxentry->vmp, vmpcompcount, path, matchcount);
+                if (vmpcompcount != matchcount) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "No Match");
                         maxentry = NULL;
+                } else
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Matches!");
         }
 
 out:        
@@ -1519,13 +1575,18 @@ libgf_vmp_map_ghandle (char *vmp, glusterfs_handle_t *vmphandle)
         int                     ret = -1;
         struct vmp_entry        *vmpentry = NULL;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "New Entry: %s", vmp);
         vmpentry = libgf_init_vmpentry (vmp, vmphandle);
-        if (!vmpentry)
+        if (!vmpentry) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Failed to create VMP"
+                        " entry");
                 goto out;
+        }
 
         pthread_mutex_lock (&vmplock);
         {
                 if (vmplist.entries == 0) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Empty list");
                         INIT_LIST_HEAD (&vmplist.list);
                 }
 
@@ -1566,14 +1627,17 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ipars, out);
 
         vmp_resolved = libgf_resolve_path_light (vmp);
-        if (!vmp_resolved)
+        if (!vmp_resolved) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         vmphash = (dev_t)ReallySimpleHash (vmp, strlen (vmp));
         pthread_mutex_lock (&mountlock);
         {
                 vmp_entry = libgf_vmp_search_exact_entry (vmp);
                 if (vmp_entry) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Entry exists");
                         ret = 0;
                         goto unlock;
                 }
@@ -1581,11 +1645,15 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
                 vmphandle = glusterfs_init (ipars, vmphash);
                 if (!vmphandle) {
                         errno = EINVAL;
+                        gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "GlusterFS context"
+                                " init failed");
                         goto unlock;
                 }
 
                 ret = libgf_vmp_map_ghandle (vmp_resolved, vmphandle);
                 if (ret == -1) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Failed to map new"
+                                " handle: %s", vmp);
                         glusterfs_fini (vmphandle);
                 }
         }
@@ -1652,8 +1720,10 @@ glusterfs_umount (char *vmp)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, vmp, out);
 
         vmp_resolved = libgf_resolve_path_light (vmp);
-        if (!vmp_resolved)
+        if (!vmp_resolved) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         ret = libgf_umount (vmp_resolved);
 
@@ -1890,7 +1960,9 @@ glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, size %ld", path, size);
         if (size < 0) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Invalid size");
                 errno = EINVAL;
                 goto out;
         }
@@ -1901,8 +1973,10 @@ glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
         }
 
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
 	op_ret = libgf_client_path_lookup (&loc, ctx, 0);
 	if (op_ret == -1) {
@@ -1978,6 +2052,7 @@ glusterfs_get (const char *path, void *buf, size_t size, struct stat *stbuf)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, stbuf, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, size %ld", path, size);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -2290,8 +2365,12 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %ld,"
+                " op %d", path, name, size, whichop);
         if (name[0] == '\0') {
 		errno = EINVAL;
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Invalid argument: Name"
+                        " not NULL terminated");
 		goto out;
 	}
 
@@ -2302,12 +2381,16 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
 
         if (size < 0) {
                 errno = EINVAL;
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Invalid argument: size is"
+                        " less than zero");
                 goto out;
         }
 
         pathres = libgf_resolve_path_light ((char *)path);
-        if (!pathres)
+        if (!pathres) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         loc.path = strdup (pathres);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
@@ -2344,8 +2427,10 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
 
         libgf_client_loc_wipe (&loc);
         op_ret = libgf_realpath_loc_fill (ctx, (char *)pathres, &loc);
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "realpath failed");
                 goto out;
+        }
 
 do_getx:
 	op_ret = libgf_client_lookup (ctx, &loc, NULL, &dict, xattr_req);
@@ -2416,6 +2501,8 @@ glusterfs_getxattr (const char *path, const char *name, void *value,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %ld",
+                path, name, size);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -2444,6 +2531,8 @@ glusterfs_lgetxattr (const char *path, const char *name, void *value,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %ld",
+                path, name, size);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -2493,6 +2582,8 @@ libgf_client_open (libglusterfs_client_ctx_t *ctx,
         op_ret = stub->args.open_cbk.op_ret;
         errno = stub->args.open_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "open: path %s, status: %d, errno"
+                " %d", loc->path, op_ret, errno);
         if (op_ret != -1)
                 fd_bind (fd);
 	call_stub_destroy (stub);
@@ -2534,6 +2625,8 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
   
         op_ret = stub->args.create_cbk.op_ret;
         errno = stub->args.create_cbk.op_errno;
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Create: path %s, status: %d,"
+                " errno: %d", loc->path, op_ret, errno);
         if (op_ret == -1)
                 goto out;
 
@@ -2588,6 +2681,8 @@ libgf_client_opendir (libglusterfs_client_ctx_t *ctx,
 
         op_ret = stub->args.opendir_cbk.op_ret;
         errno = stub->args.opendir_cbk.op_errno;
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "opendir: path %s, status %d,"
+                " errno %d", loc->path, op_ret, errno);
         if (op_ret != -1)
                 fd_bind (fd);
 
@@ -2614,8 +2709,10 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         pathres = libgf_resolve_path_light ((char *)path);
-        if (!pathres)
+        if (!pathres) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
 	loc.path = strdup (pathres);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
@@ -2694,6 +2791,8 @@ op_over:
 
         if (!libgf_get_fd_ctx (fd)) {
                 if (!libgf_alloc_fd_ctx (ctx, fd)) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Failed to"
+                                " allocate fd context");
                         errno = EINVAL;
                         op_ret = -1;
                         goto out;
@@ -2733,6 +2832,7 @@ glusterfs_open (const char *path, int flags, ...)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -2756,6 +2856,7 @@ out:
 glusterfs_file_t 
 glusterfs_glh_creat (glusterfs_handle_t handle, const char *path, mode_t mode)
 {
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
 	return glusterfs_glh_open (handle, path,
 			       (O_CREAT | O_WRONLY | O_TRUNC), mode);
 }
@@ -2769,6 +2870,7 @@ glusterfs_creat (const char *path, mode_t mode)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -2831,6 +2933,7 @@ glusterfs_close (glusterfs_file_t fd)
 
         fd_ctx = libgf_get_fd_ctx (fd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
                 goto out;
         }
@@ -2885,6 +2988,8 @@ libgf_client_setxattr (libglusterfs_client_ctx_t *ctx,
         op_ret = stub->args.setxattr_cbk.op_ret;
         errno = stub->args.setxattr_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "path %s, name %s, status %d,"
+                "errno %d", loc->path, name, op_ret, errno);
         dict_unref (dict);
 	call_stub_destroy (stub);
         return op_ret;
@@ -2909,14 +3014,18 @@ __glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "path %s, name %s, op %d", path
+                ,name, whichop);
         if (size <= 0) {
                 errno = EINVAL;
                 goto out;
         }
 
         pathres = libgf_resolve_path_light ((char *)path);
-        if (!pathres)
+        if (!pathres) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         loc.path = strdup (pathres);
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
@@ -2993,6 +3102,7 @@ glusterfs_setxattr (const char *path, const char *name, const void *value,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "path %s, name %s", path, name);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -3021,6 +3131,7 @@ glusterfs_lsetxattr (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "path %s, name %s", path, name);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -3076,6 +3187,8 @@ libgf_client_fsetxattr (libglusterfs_client_ctx_t *ctx,
         op_ret = stub->args.fsetxattr_cbk.op_ret;
         errno = stub->args.fsetxattr_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "name %s, status %d, errno %d",
+                name, op_ret, errno);
         dict_unref (dict);
 	call_stub_destroy (stub);
 
@@ -3104,6 +3217,8 @@ glusterfs_fsetxattr (glusterfs_file_t fd,
         }
 
         if (size <= 0) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Invalid argument: size is"
+                        " less than or equal to zero");
                 errno = EINVAL;
                 op_ret = -1;
                 goto out;
@@ -3111,6 +3226,7 @@ glusterfs_fsetxattr (glusterfs_file_t fd,
 
         fd_ctx = libgf_get_fd_ctx (fd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
 		op_ret = -1;
 		goto out;
@@ -3182,6 +3298,8 @@ libgf_client_fgetxattr (libglusterfs_client_ctx_t *ctx,
                 }
         }
 	
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "name %s, status %d, errno %d",
+                name, op_ret, errno);
 	call_stub_destroy (stub);
         return op_ret;
 }
@@ -3197,6 +3315,7 @@ glusterfs_fgetxattr (glusterfs_file_t fd,
         fd_t *__fd = (fd_t *)fd;
         libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "name %s", name);
         if (size < 0) {
                 errno = EINVAL;
                 op_ret = -1;
@@ -3208,6 +3327,7 @@ glusterfs_fgetxattr (glusterfs_file_t fd,
 
         fd_ctx = libgf_get_fd_ctx (fd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
 		op_ret = -1;
 		goto out;
@@ -3326,6 +3446,8 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
                 libgf_invalidate_iattr_cache (fd->inode, LIBGF_INVALIDATE_STAT);
         }
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "size %ld, offset %ld", size,
+                offset);
 	call_stub_destroy (stub);
         return op_ret;
 }
@@ -3357,6 +3479,7 @@ glusterfs_read (glusterfs_file_t fd,
 
         fd_ctx = libgf_get_fd_ctx (fd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
 		goto out;
         }
@@ -3895,6 +4018,7 @@ glusterfs_readdir_r (glusterfs_dir_t dirfd, struct dirent *entry,
 
         fd_ctx = libgf_get_fd_ctx (dirfd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "fd context not present");
                 errno = EBADF;
 		goto out;
         }
@@ -3905,10 +4029,13 @@ glusterfs_readdir_r (glusterfs_dir_t dirfd, struct dirent *entry,
                 offset = fd_ctx->offset;
                 dirp = &fd_ctx->dirp;
 
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "offset %ld", offset);
                 memset (dirp, 0, sizeof (struct dirent));
                 op_ret = libgf_client_readdir (ctx, (fd_t *)dirfd, dirp,
                                                &offset);
                 if (op_ret <= 0) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "readdir failed:"
+                                " %s", strerror (errno));
                         if (result && (op_ret == 0)) {
                                 *result = NULL;
                         } else if (op_ret < 0){
@@ -3925,6 +4052,8 @@ glusterfs_readdir_r (glusterfs_dir_t dirfd, struct dirent *entry,
                         memcpy (entry, dirp, sizeof (*entry));
                 }
 
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "new offset %ld, entry %s",
+                        offset, entry->d_name);
                 op_ret = 0;
         }
 unlock:
@@ -3946,6 +4075,7 @@ glusterfs_readdir (glusterfs_dir_t dirfd)
 
         fd_ctx = libgf_get_fd_ctx (dirfd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "fd context not present");
                 errno = EBADF;
 		goto out;
         }
@@ -3958,10 +4088,13 @@ glusterfs_readdir (glusterfs_dir_t dirfd)
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "offset %ld", offset);
         memset (dirp, 0, sizeof (struct dirent));
         op_ret = libgf_client_readdir (ctx, (fd_t *)dirfd, dirp, &offset);
 
         if (op_ret <= 0) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "readdir failed: %s",
+                        strerror (errno));
                 dirp = NULL;
                 goto out;
         }
@@ -3972,6 +4105,8 @@ glusterfs_readdir (glusterfs_dir_t dirfd)
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "new offset %ld, entry %s",
+                offset, dirp->d_name);
 out:
         return dirp;
 }
@@ -4367,6 +4502,7 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
 
         if (libgf_is_iattr_cache_valid (ctx, loc->inode, &cachedbuf,
                                         LIBGF_VALIDATE_STAT)) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Cache will be used");
                 if (stbuf)
                         memcpy (stbuf, &cachedbuf, sizeof (struct stat));
                 goto out;
@@ -4380,6 +4516,8 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
         if (stbuf)
                 *stbuf = stub->args.stat_cbk.buf;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
+                loc->path, op_ret, errno);
         libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
                                         &stub->args.stat_cbk.buf);
 	call_stub_destroy (stub);
@@ -4441,9 +4579,13 @@ __glusterfs_stat (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, op: %d", path,
+                whichstat);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
@@ -4516,6 +4658,7 @@ glusterfs_stat (const char *path, struct stat *buf)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -4546,6 +4689,7 @@ glusterfs_lstat (const char *path, struct stat *buf)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -4595,6 +4739,7 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
                                         LIBGF_VALIDATE_STAT)) {
                 if (buf)
                         memcpy (buf, &cachedbuf, sizeof (struct stat));
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Cache will be used");
                 goto out;
         }
 
@@ -4606,6 +4751,8 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
         if (buf)
                 *buf = stub->args.fstat_cbk.buf;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "status %d, errno %d", op_ret,
+                errno);
         libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
                                         &stub->args.fstat_cbk.buf);
 	call_stub_destroy (stub);
@@ -4624,6 +4771,7 @@ glusterfs_fstat (glusterfs_file_t fd, struct stat *buf)
 
         fd_ctx = libgf_get_fd_ctx (fd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
 		op_ret = -1;
 		goto out;
@@ -4671,6 +4819,8 @@ libgf_client_mkdir (libglusterfs_client_ctx_t *ctx,
         op_ret = stub->args.mkdir_cbk.op_ret;
         errno = stub->args.mkdir_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
+                loc->path, op_ret, errno);
         if (op_ret == -1)
                 goto out;
 
@@ -4704,8 +4854,10 @@ glusterfs_glh_mkdir (glusterfs_handle_t handle, const char *path, mode_t mode)
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == 0) {
@@ -4757,6 +4909,7 @@ glusterfs_mkdir (const char *path, mode_t mode)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -4795,6 +4948,8 @@ libgf_client_rmdir (libglusterfs_client_ctx_t *ctx, loc_t *loc)
         op_ret = stub->args.rmdir_cbk.op_ret;
         errno = stub->args.rmdir_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
+                loc->path, op_ret, errno);
         if (stub->args.rmdir_cbk.op_ret != 0)
                 goto out;
 
@@ -4818,8 +4973,10 @@ glusterfs_glh_rmdir (glusterfs_handle_t handle, const char *path)
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
 	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 	if (op_ret == -1) {
@@ -4865,6 +5022,7 @@ glusterfs_rmdir (const char *path)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -4904,6 +5062,8 @@ libgf_client_chmod (libglusterfs_client_ctx_t *ctx, loc_t * loc, mode_t mode)
         op_ret = stub->args.chmod_cbk.op_ret;
         errno = stub->args.chmod_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
+                loc->path, op_ret, errno);
         if (op_ret == -1)
                 goto out;
 
@@ -4927,8 +5087,11 @@ glusterfs_glh_chmod (glusterfs_handle_t handle, const char *path, mode_t mode)
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
+
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1)
                 goto out;
@@ -4960,6 +5123,7 @@ glusterfs_chmod (const char *path, mode_t mode)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -5000,6 +5164,8 @@ libgf_client_chown (libglusterfs_client_ctx_t *ctx, loc_t *loc, uid_t uid,
         op_ret = stub->args.chown_cbk.op_ret;
         errno = stub->args.chown_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
+                loc->path, op_ret, errno);
         if (op_ret == -1)
                 goto out;
 
@@ -5028,9 +5194,12 @@ __glusterfs_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, op %d", path, whichop);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1)
@@ -5082,6 +5251,7 @@ glusterfs_chown (const char *path, uid_t owner, gid_t group)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -5112,6 +5282,7 @@ glusterfs_lchown (const char *path, uid_t owner, gid_t group)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -5138,9 +5309,12 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
 
         if (op_ret == -1)
@@ -5171,6 +5345,8 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
 
         if (!libgf_get_fd_ctx (dirfd)) {
                 if (!(libgf_alloc_fd_ctx (ctx, dirfd))) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Context "
+                                "allocation failed");
                         op_ret = -1;
                         errno = EINVAL;
                         goto out;
@@ -5198,6 +5374,7 @@ glusterfs_opendir (const char *path)
         glusterfs_dir_t         dir = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
 
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
@@ -5261,6 +5438,8 @@ libgf_client_fchmod (libglusterfs_client_ctx_t *ctx, fd_t *fd, mode_t mode)
         op_ret = stub->args.fchmod_cbk.op_ret;
         errno = stub->args.fchmod_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "status %d, errno %d", op_ret,
+                errno);
         if (op_ret == -1)
                 goto out;
 
@@ -5282,6 +5461,7 @@ glusterfs_fchmod (glusterfs_file_t fd, mode_t mode)
         fdctx = libgf_get_fd_ctx (fd);
 
         if (!fdctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "No fd context present");
                 errno = EBADF;
                 goto out;
         }
@@ -5319,6 +5499,8 @@ libgf_client_fchown (libglusterfs_client_ctx_t *ctx, fd_t *fd, uid_t uid,
         op_ret = stub->args.fchown_cbk.op_ret;
         errno = stub->args.fchown_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "status %d, errno %d", op_ret,
+                errno);
         if (op_ret == -1)
                 goto out;
 
@@ -5340,6 +5522,7 @@ glusterfs_fchown (glusterfs_file_t fd, uid_t uid, gid_t gid)
 
         fdctx = libgf_get_fd_ctx (fd);
         if (!fd) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
                 goto out;
         }
@@ -5375,6 +5558,8 @@ libgf_client_fsync (libglusterfs_client_ctx_t *ctx, fd_t *fd)
         op_ret = stub->args.fsync_cbk.op_ret;
         errno = stub->args.fsync_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "status %d, errno %d", op_ret,
+                errno);
         call_stub_destroy (stub);
 
         return op_ret;
@@ -5390,6 +5575,7 @@ glusterfs_fsync (glusterfs_file_t *fd)
 
         fdctx = libgf_get_fd_ctx ((fd_t *)fd);
         if (!fd) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
                 goto out;
         }
@@ -5470,6 +5656,7 @@ glusterfs_ftruncate (glusterfs_file_t fd, off_t length)
 
         fdctx = libgf_get_fd_ctx (fd);
         if (!fdctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
                 goto out;
         }
@@ -5509,6 +5696,8 @@ libgf_client_link (libglusterfs_client_ctx_t *ctx, loc_t *old, loc_t *new)
         op_ret = stub->args.link_cbk.op_ret;
         errno = stub->args.link_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "old %s, new %s, status %d,"
+                " errno %d", old->path, new->path, op_ret, errno);
         if (op_ret == -1)
                 goto out;
 
@@ -5539,9 +5728,13 @@ glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "old %s, new %s", oldpath,
+                newpath);
         old.path = libgf_resolve_path_light ((char *)oldpath);
-        if (!old.path)
+        if (!old.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&old, ctx, 1);
         if (op_ret == -1) {
@@ -5564,8 +5757,10 @@ glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
         }
 
         new.path = libgf_resolve_path_light ((char *)newpath);
-        if (!new.path)
+        if (!new.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&new, ctx, 1);
         if (op_ret == 0) {
@@ -5603,6 +5798,8 @@ glusterfs_link (const char *oldpath, const char *newpath)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "old %s, new %s", oldpath,
+                newpath);
         oldentry = libgf_vmp_search_entry ((char *)oldpath);
         if (!oldentry) {
                 errno = ENODEV;
@@ -5662,6 +5859,8 @@ libgf_client_statvfs (libglusterfs_client_ctx_t *ctx, loc_t *loc,
 
         op_ret = stub->args.statfs_cbk.op_ret;
         errno = stub->args.statfs_cbk.op_errno;
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
+                loc->path, op_ret, errno);
         if (op_ret == -1)
                 goto out;
 
@@ -5685,9 +5884,12 @@ glusterfs_glh_statfs (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
@@ -5753,6 +5955,7 @@ glusterfs_statfs (const char *path, struct statfs *buf)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -5779,9 +5982,12 @@ glusterfs_glh_statvfs (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
@@ -5824,6 +6030,7 @@ glusterfs_statvfs (const char *path, struct statvfs *buf)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -5865,6 +6072,8 @@ libgf_client_rename (libglusterfs_client_ctx_t *ctx, loc_t *oldloc,
         op_ret = stub->args.rename_cbk.op_ret;
         errno = stub->args.rename_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "old %s, new %s, status %d, errno"
+                " %d", oldloc->path, newloc->path, op_ret, errno);
         if (op_ret == -1)
                 goto out;
 
@@ -5895,9 +6104,13 @@ glusterfs_glh_rename (glusterfs_handle_t handle, const char *oldpath,
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "old %s, new %s", oldpath,
+                newpath);
         oldloc.path = libgf_resolve_path_light ((char *)oldpath);
-        if (!oldloc.path)
+        if (!oldloc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&oldloc, ctx, 1);
         if (op_ret == -1) {
@@ -5907,8 +6120,10 @@ glusterfs_glh_rename (glusterfs_handle_t handle, const char *oldpath,
         }
 
         newloc.path = libgf_resolve_path_light ((char *)newpath);
-        if (!newloc.path)
+        if (!newloc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&newloc, ctx, 1);
 
@@ -5959,6 +6174,8 @@ glusterfs_rename (const char *oldpath, const char *newpath)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Old %s, new %s", oldpath,
+                newpath);
         old = libgf_vmp_search_entry ((char *)oldpath);
         if (!old) {
                 errno = ENODEV;
@@ -6018,6 +6235,8 @@ libgf_client_utimens (libglusterfs_client_ctx_t *ctx, loc_t *loc,
         errno = stub->args.utimens_cbk.op_errno;
         stbuf = &stub->args.utimens_cbk.buf;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
+                loc->path, op_ret, errno);
         if (op_ret == -1)
                 goto out;
 
@@ -6042,9 +6261,12 @@ glusterfs_glh_utimes (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
@@ -6086,6 +6308,7 @@ glusterfs_utimes (const char *path, const struct timeval times[2])
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -6113,9 +6336,12 @@ glusterfs_glh_utime (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
@@ -6159,6 +6385,7 @@ glusterfs_utime (const char *path, const struct utimbuf *buf)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -6203,6 +6430,8 @@ libgf_client_mknod (libglusterfs_client_ctx_t *ctx, loc_t *loc, mode_t mode,
         if (op_ret == -1)
                 goto out;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
+                loc->path, op_ret, errno);
         inode = stub->args.mknod_cbk.inode;
         libgf_transform_devnum (ctx, &stub->args.mknod_cbk.buf);
         inode_link (inode, loc->parent, loc->name, &stub->args.mknod_cbk.buf);
@@ -6231,9 +6460,12 @@ glusterfs_glh_mknod(glusterfs_handle_t handle, const char *path, mode_t mode,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == 0) {
@@ -6279,6 +6511,7 @@ glusterfs_mknod(const char *pathname, mode_t mode, dev_t dev)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, pathname, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", pathname);
         entry = libgf_vmp_search_entry ((char *)pathname);
         if (!entry) {
                 errno = ENODEV;
@@ -6306,9 +6539,12 @@ glusterfs_glh_mkfifo (glusterfs_handle_t handle, const char *path, mode_t mode)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Failed to resolve name");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == 0) {
@@ -6354,6 +6590,7 @@ glusterfs_mkfifo (const char *path, mode_t mode)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -6393,6 +6630,7 @@ libgf_client_unlink (libglusterfs_client_ctx_t *ctx, loc_t *loc)
         op_ret = stub->args.unlink_cbk.op_ret;
         errno = stub->args.unlink_cbk.op_errno;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", loc->path);
         if (op_ret == -1)
                 goto out;
 
@@ -6414,9 +6652,12 @@ glusterfs_glh_unlink (glusterfs_handle_t handle, const char *path)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
@@ -6454,6 +6695,7 @@ glusterfs_unlink (const char *path)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -6498,6 +6740,8 @@ libgf_client_symlink (libglusterfs_client_ctx_t *ctx, const char *linkpath,
         if (op_ret == -1)
                 goto out;
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "target: %s, link: %s, status %d"
+                " errno %d", linkpath, loc->path, op_ret, errno);
         inode = stub->args.symlink_cbk.inode;
         libgf_transform_devnum (ctx, &stub->args.symlink_cbk.buf);
         inode_link (inode, loc->parent, loc->name,
@@ -6527,12 +6771,16 @@ glusterfs_glh_symlink (glusterfs_handle_t handle, const char *oldpath,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "target: %s, link: %s", oldpath,
+                newpath);
         /* Old path does not need to be interpreted or looked up */
         oldloc.path = strdup (oldpath);
 
 	newloc.path = libgf_resolve_path_light ((char *)newpath);
-        if (!newloc.path)
+        if (!newloc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
 	op_ret = libgf_client_path_lookup (&newloc, ctx, 1);
 	if (op_ret == 0) {
@@ -6586,6 +6834,8 @@ glusterfs_symlink (const char *oldpath, const char *newpath)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "target: %s, link: %s", oldpath,
+                newpath);
         entry = libgf_vmp_search_entry ((char *)newpath);
         if (!entry) {
                 errno = ENODEV;
@@ -6633,7 +6883,11 @@ libgf_client_readlink (libglusterfs_client_ctx_t *ctx, loc_t *loc, char *buf,
                 cpy_size = ((op_ret <= bufsize) ? op_ret : bufsize);
                 memcpy (buf, stub->args.readlink_cbk.buf, cpy_size);
                 op_ret = cpy_size;
-        }
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "link: %s, target: %s,"
+                        " status %d, errno %d", loc->path, buf, op_ret, errno);
+        } else
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "link: %s, status %d, "
+                        "errno %d", loc->path, op_ret, errno);
 
         call_stub_destroy (stub);
         return op_ret;
@@ -6651,6 +6905,7 @@ glusterfs_glh_readlink (glusterfs_handle_t handle, const char *path, char *buf,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         if (bufsize < 0) {
                 errno = EINVAL;
                 goto out;
@@ -6662,8 +6917,10 @@ glusterfs_glh_readlink (glusterfs_handle_t handle, const char *path, char *buf,
         }
 
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1) {
@@ -6703,6 +6960,7 @@ glusterfs_readlink (const char *path, char *buf, size_t bufsize)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -6922,6 +7180,7 @@ glusterfs_realpath (const char *path, char *resolved_path)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -6940,6 +7199,8 @@ glusterfs_realpath (const char *path, char *resolved_path)
         strncpy (realp, entry->vmp, entry->vmplen-1);
         strcat (realp, res);
         strcpy (resolved_path, realp);
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, resolved %s", path,
+                resolved_path);
 out:
         if (vpath)
                 free (vpath);
@@ -6958,9 +7219,12 @@ glusterfs_glh_remove (glusterfs_handle_t handle, const char *path)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, handle, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         loc.path = libgf_resolve_path_light ((char *)path);
-        if (!loc.path)
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
+        }
 
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
         if (op_ret == -1)
@@ -6993,6 +7257,7 @@ glusterfs_remove(const char *pathname)
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, pathname, out);
 
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", pathname);
         entry = libgf_vmp_search_entry ((char *)pathname);
         if (!entry) {
                 errno = ENODEV;
@@ -7015,6 +7280,7 @@ glusterfs_rewinddir (glusterfs_dir_t dirfd)
 
         fd_ctx = libgf_get_fd_ctx ((fd_t *)dirfd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
                 goto out;
         }
@@ -7022,6 +7288,8 @@ glusterfs_rewinddir (glusterfs_dir_t dirfd)
         pthread_mutex_lock (&fd_ctx->lock);
         {
                 fd_ctx->offset = 0;
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Offset: %ld",
+                        fd_ctx->offset);
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
@@ -7035,12 +7303,16 @@ glusterfs_seekdir (glusterfs_dir_t dirfd, off_t offset)
         libglusterfs_client_fd_ctx_t    *fd_ctx = NULL;
 
         fd_ctx = libgf_get_fd_ctx ((fd_t *)dirfd);
-        if (!fd_ctx)
+        if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 goto out;
+        }
 
         pthread_mutex_lock (&fd_ctx->lock);
         {
                 fd_ctx->offset = offset;
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Offset: %ld",
+                        fd_ctx->offset);
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
@@ -7056,6 +7328,7 @@ glusterfs_telldir (glusterfs_dir_t dirfd)
 
         fd_ctx = libgf_get_fd_ctx ((fd_t *)dirfd);
         if (!fd_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
                 goto out;
         }
@@ -7063,6 +7336,8 @@ glusterfs_telldir (glusterfs_dir_t dirfd)
         pthread_mutex_lock (&fd_ctx->lock);
         {
                 off = fd_ctx->offset;
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Offset: %ld",
+                        fd_ctx->offset);
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
