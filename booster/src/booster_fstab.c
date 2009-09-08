@@ -25,6 +25,7 @@
 #include "booster_fstab.h"
 #include <stdlib.h>
 #include <libglusterfsclient.h>
+#include <errno.h>
 
 /* The default timeout for inode and stat cache. */
 #define BOOSTER_DEFAULT_ATTR_TIMEO      5 /* In Secs */
@@ -36,13 +37,19 @@ glusterfs_fstab_init (const char *file, const char *mode)
 {
         glusterfs_fstab_t *handle = NULL;
         handle = calloc (1, sizeof (glusterfs_fstab_t));
-        if (!handle)
+        if (!handle) {
+                gf_log ("booster-fstab", GF_LOG_ERROR, "Memory allocation"
+                        " failed");
                 goto out;
+        }
 
+        gf_log ("booster-fstab", GF_LOG_DEBUG, "FSTAB file: %s", file);
         FILE *result = fopen (file,mode);
         if (result != NULL) {
                 handle->fp = result;
         } else {
+                gf_log ("booster-fstab", GF_LOG_ERROR, "FSTAB file open failed:"
+                        " %s", strerror (errno));
                 free (handle);
                 handle = NULL;
         }
@@ -372,8 +379,13 @@ booster_mount (struct glusterfs_mntent *ent)
         if (!ent)
                 return;
 
-        if ((strcmp (ent->mnt_type, "glusterfs") != 0))
+        gf_log ("booster-fstab", GF_LOG_DEBUG, "Mount entry: volfile: %s,"
+                " VMP: %s, Type: %s, Options: %s", ent->mnt_fsname,
+                ent->mnt_dir, ent->mnt_type, ent->mnt_opts);
+        if ((strcmp (ent->mnt_type, "glusterfs") != 0)) {
+                gf_log ("booster-fstab", GF_LOG_ERROR, "Type is not glusterfs");
                 return;
+        }
 
         memset (&ipars, 0, sizeof (glusterfs_init_params_t));
         if (ent->mnt_fsname)
@@ -408,7 +420,9 @@ booster_mount (struct glusterfs_mntent *ent)
         ipars.lookup_timeout = timeout;
         ipars.stat_timeout = timeout;
 
-        glusterfs_mount (ent->mnt_dir, &ipars);
+        if ((glusterfs_mount (ent->mnt_dir, &ipars)) == -1)
+                gf_log ("booster-fstab", GF_LOG_ERROR, "VMP mounting failed");
+
         clean_init_params (&ipars);
 }
 

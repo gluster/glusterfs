@@ -44,9 +44,7 @@ gf_roundup_power_of_two (uint nr)
         uint result = 1;
 
         if (nr < 0) {
-                gf_log ("server-protocol/fd",
-                                GF_LOG_ERROR,
-                                "Negative number passed");
+                gf_log ("booster-fd", GF_LOG_ERROR, "Negative number passed");
                 return -1;
         }
         
@@ -65,7 +63,7 @@ booster_fdtable_expand (booster_fdtable_t *fdtable, uint nr)
         int32_t ret = -1;
 
         if (fdtable == NULL || nr < 0) {
-                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+                gf_log ("booster-fd", GF_LOG_ERROR, "Invalid argument");
                 errno = EINVAL;
                 ret = -1;
                 goto out;
@@ -80,6 +78,7 @@ booster_fdtable_expand (booster_fdtable_t *fdtable, uint nr)
 
         fdtable->fds = CALLOC (nr, sizeof (fd_t *));
         if (fdtable->fds == NULL) {
+                gf_log ("booster-fd", GF_LOG_ERROR, "Memory allocation failed");
                 fdtable->fds = oldfds;
                 oldfds = NULL;
                 ret = -1;
@@ -93,6 +92,8 @@ booster_fdtable_expand (booster_fdtable_t *fdtable, uint nr)
                 memcpy (fdtable->fds, oldfds, cpy);
         }
 
+        gf_log ("booster-fd", GF_LOG_DEBUG, "FD-table expanded: Old: %d,New: %d"
+                , oldmax_fds, nr);
         ret = 0;
 out:
         FREE (oldfds);
@@ -118,6 +119,8 @@ booster_fdtable_alloc (void)
         UNLOCK (&fdtable->lock);
 
         if (ret == -1) {
+                gf_log ("booster-fd", GF_LOG_ERROR, "FD-table allocation "
+                        "failed");
                 FREE (fdtable);
                 fdtable = NULL;
         }
@@ -197,11 +200,12 @@ booster_fd_unused_get (booster_fdtable_t *fdtable, fd_t *fdptr, int fd)
         int error = 0;
 
         if (fdtable == NULL || fdptr == NULL || fd < 0) {
-                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+                gf_log ("booster-fd", GF_LOG_ERROR, "invalid argument");
                 errno = EINVAL;
                 return -1;
         }
 
+        gf_log ("booster-fd", GF_LOG_DEBUG, "Requested fd: %d", fd);
         LOCK (&fdtable->lock);
         {
                 while (fdtable->max_fds < fd) {
@@ -239,8 +243,10 @@ booster_fd_put (booster_fdtable_t *fdtable, int fd)
                 return;
         }
 
+        gf_log ("booster-fd", GF_LOG_DEBUG, "FD put: %d", fd);
         if (!(fd < fdtable->max_fds)) {
-                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+                gf_log ("booster-fd", GF_LOG_ERROR, "FD not in booster fd"
+                        " table");
                 return;
         }
 
@@ -266,8 +272,10 @@ booster_fdptr_get (booster_fdtable_t *fdtable, int fd)
                 return NULL;
         }
 
+        gf_log ("booster-fd", GF_LOG_DEBUG, "FD ptr request: %d", fd);
         if (!(fd < fdtable->max_fds)) {
-                gf_log ("booster-fd", GF_LOG_ERROR, "invalid argument");
+                gf_log ("booster-fd", GF_LOG_ERROR, "FD not in booster fd"
+                        " table");
                 errno = EINVAL;
                 return NULL;
         }
