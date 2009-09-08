@@ -642,7 +642,8 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
-                __filter_xattrs (dict);
+                if (op_ret >= 0 && dict)
+                        __filter_xattrs (dict);
 
 		AFR_STACK_UNWIND (frame, op_ret, op_errno, dict);
 	}
