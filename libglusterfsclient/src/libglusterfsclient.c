@@ -1937,6 +1937,13 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
         inode_t *inode = NULL;
         
         local = CALLOC (1, sizeof (*local));
+        if (!local) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Memory allocation"
+                        " failed");
+                errno = ENOMEM;
+                return -1;
+        }
+
         if (loc->inode) {
                 local->fop.lookup.is_revalidate = 1;
                 loc->ino = loc->inode->ino;
