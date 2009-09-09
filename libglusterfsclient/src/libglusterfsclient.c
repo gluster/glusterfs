@@ -587,6 +587,12 @@ libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
                 return 0;
 
         inode_ctx = libgf_get_inode_ctx (inode);
+        if (!inode_ctx) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No inode context"
+                        " present\n");
+                return 0;
+        }
+
         pthread_mutex_lock (&inode_ctx->lock);
         {
                 current = time (NULL);
