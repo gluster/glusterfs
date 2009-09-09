@@ -685,6 +685,7 @@ pread64 (int fd, void *buf, size_t count, uint64_t offset)
         } else {
                 gf_log ("booster", GF_LOG_DEBUG, "Is a booster fd");
                 ret = glusterfs_pread (glfs_fd, buf, count, offset);
+                booster_fdptr_put (glfs_fd);
         }
 
         return ret;
