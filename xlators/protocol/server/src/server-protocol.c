@@ -2837,7 +2837,8 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 
 	case GF_FOP_LINK:
 	{
-		if (stub->args.link.oldloc.inode == NULL) {
+		if ((stub->args.link.oldloc.inode == NULL)
+                    || (stub->args.link.oldloc.parent == NULL)) {
 			if (op_ret < 0) {
 				gf_log (stub->frame->this->name, GF_LOG_DEBUG,
 					"%"PRId64": LINK (%s -> %s) on %s returning "
