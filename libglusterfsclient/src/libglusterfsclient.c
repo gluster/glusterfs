@@ -5605,7 +5605,7 @@ glusterfs_fsync (glusterfs_file_t *fd)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
 
         fdctx = libgf_get_fd_ctx ((fd_t *)fd);
-        if (!fd) {
+        if (!fdctx) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "No fd context present");
                 errno = EBADF;
                 goto out;
