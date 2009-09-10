@@ -51,6 +51,7 @@
 #include <stdarg.h>
 #include <sys/statvfs.h>
 #include "hashfn.h"
+#include <sys/select.h>
 
 #define LIBGF_XL_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
@@ -1034,6 +1035,7 @@ glusterfs_init (glusterfs_init_params_t *init_ctx, uint32_t fakefsid)
         struct rlimit lim;
 	uint32_t xl_count = 0;
         loc_t       new_loc = {0, };
+        struct timeval tv = {0, };
 
         if (!init_ctx || (!init_ctx->specfile && !init_ctx->specfp)) {
                 errno = EINVAL;
@@ -1334,6 +1336,15 @@ glusterfs_init (glusterfs_init_params_t *init_ctx, uint32_t fakefsid)
                 }
         }
         pthread_mutex_unlock (&priv->lock);
+
+        /* 
+         * wait for some time to allow initialization of all children of 
+         * distribute before sending lookup on '/'
+         */
+
+        tv.tv_sec = 0;
+        tv.tv_usec = (100 * 1000);
+        select (0, NULL, NULL, NULL, &tv);
 
         /* workaround for xlators like dht which require lookup to be sent
          * on / */
