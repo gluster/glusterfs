@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2009-2010 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -17,16 +17,61 @@
    <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _STAT_PREFETCH_H_
-#define _STAT_PREFETCH_H_
+#ifndef _STAT_PREFETCH_H
+#define _STAT_PREFETCH_H
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
 #endif
 
-#include <stdio.h>
-#include <sys/time.h>
+#include "glusterfs.h"
+#include "dict.h"
 #include "xlator.h"
 
-#endif /* _STAT_PREFETCH_H_ */
+struct sp_cache {
+        gf_dirent_t entries;            /* Head of list of cached dirents */
+        uint64_t    expected_offset;    /* Offset where the next read will
+                                         * happen.
+                                         */
+        gf_lock_t   lock;
+};
+typedef struct sp_cache sp_cache_t;
+
+struct sp_fd_ctx {
+        sp_cache_t *cache;
+        inode_t    *parent_inode;       /* 
+                                         * inode corresponding to dirname (path)
+                                         */
+        char       *name;               /*
+                                         * basename of path on which this fd is 
+                                         * opened
+                                         */
+        gf_lock_t    lock;
+};
+typedef struct sp_fd_ctx sp_fd_ctx_t;
+
+struct sp_local {
+        loc_t  loc;
+        fd_t  *fd;
+};
+typedef struct sp_local sp_local_t;
+
+
+void sp_local_free (sp_local_t *local);
+
+#define SP_STACK_UNWIND(frame, params ...) do {    \
+        sp_local_t *__local = frame->local;        \
+        frame->local = NULL;                       \
+        STACK_UNWIND (frame, params);              \
+        sp_local_free (__local);                   \
+} while (0)
+
+#define SP_STACK_DESTROY(frame) do {         \
+        sp_local_t *__local = frame->local;  \
+        frame->local = NULL;                 \
+        STACK_DESTROY (frame->root);         \
+        sp_local_free (__local);             \
+} while (0)
+
+#endif  /* #ifndef _STAT_PREFETCH_H */
