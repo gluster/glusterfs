@@ -1267,7 +1267,6 @@ glusterfs_init (glusterfs_init_params_t *init_ctx, uint32_t fakefsid)
                 return NULL;
         }
 
-	set_global_ctx_ptr (&ctx->gf_ctx);
 	ctx->gf_ctx.process_uuid = zr_build_process_uuid ();
 
         if (xlator_graph_init (graph) == -1) {

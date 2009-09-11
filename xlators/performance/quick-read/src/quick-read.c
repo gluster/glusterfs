@@ -755,7 +755,7 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                                 }
                                         }
 
-                                        ctx = get_global_ctx_ptr ();
+                                        ctx = this->ctx;
                                         count = (op_ret / ctx->page_size) + 1; 
                                         vector = CALLOC (count,
                                                          sizeof (*vector));
