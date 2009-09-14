@@ -1,3 +1,3 @@
-SUBDIRS = write-behind read-ahead io-threads io-cache symlink-cache stat-prefetch
+SUBDIRS = write-behind read-ahead io-threads io-cache symlink-cache stat-prefetch quick-read
 
 CLEANFILES = 
