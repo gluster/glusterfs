@@ -553,9 +553,14 @@ ioc_get_priority (ioc_table_t *table, const char *path)
 	uint32_t            priority = 0;
 	struct ioc_priority *curr = NULL;
   
-	list_for_each_entry (curr, &table->priority_list, list) {
-		if (is_match (path, curr->pattern)) 
-			priority = curr->priority;
+	if (list_empty(&table->priority_list)) {
+		priority = 1;
+	}
+	else {
+		list_for_each_entry (curr, &table->priority_list, list) {
+			if (is_match (path, curr->pattern)) 
+				priority = curr->priority;
+		}
 	}
 
 	return priority;
@@ -581,7 +586,7 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 	ioc_table_t *table = NULL;
 	ioc_inode_t *ioc_inode = NULL;
 	inode_t     *inode = NULL;
-	uint32_t    weight = 0;
+	uint32_t    weight = 0xffffffff;
 	const char  *path = NULL;
 
         local = frame->local;
@@ -633,6 +638,13 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 			 */
 			fd_ctx_set (fd, this, 1);
 		}
+
+		/* weight = 0, we disable caching on it */
+		if (weight == 0) {
+			/* we allow a pattern-matched cache disable this way 
+			 */
+			fd_ctx_set (fd, this, 1);
+		}
 	}
 
 	FREE (local);
@@ -664,7 +676,7 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	ioc_local_t *local = NULL;
 	ioc_table_t *table = NULL;
 	ioc_inode_t *ioc_inode = NULL;
-	uint32_t    weight = 0;
+	uint32_t    weight = 0xffffffff;
 	const char  *path = NULL;
 
         local = frame->local;
@@ -699,6 +711,12 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			fd_ctx_set (fd, this, 1);
 		}
     
+		/* weight = 0, we disable caching on it */
+		if (weight == 0) {
+			/* we allow a pattern-matched cache disable this way 
+			 */
+			fd_ctx_set (fd, this, 1);
+		}
 	}
   
 	frame->local = NULL;
