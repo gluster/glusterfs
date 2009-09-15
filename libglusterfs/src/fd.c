@@ -692,7 +692,6 @@ void
 fd_dump (fd_t *fd, char *prefix)
 {
         char        key[GF_DUMP_MAX_BUF_LEN];
-        inode_t     *inode = NULL;
 
         if (!fd)
                 return;
@@ -704,9 +703,10 @@ fd_dump (fd_t *fd, char *prefix)
         gf_proc_dump_write(key, "%d", fd->refcount);
         gf_proc_dump_build_key(key, prefix, "flags");
         gf_proc_dump_write(key, "%d", fd->flags);
-        gf_proc_dump_build_key(key, prefix, "inode");
-        gf_proc_dump_add_section(key);
-        inode_dump(inode, key, NULL);
+        if (fd->inode) {
+                gf_proc_dump_build_key(key, prefix, "inode");
+                gf_proc_dump_write(key, "%ld", fd->inode->ino);
+        }
 }
 
 
@@ -726,12 +726,20 @@ fdentry_dump (fdentry_t *fdentry, char *prefix)
 void
 fdtable_dump (fdtable_t *fdtable, char *prefix)
 {
-        char        key[GF_DUMP_MAX_BUF_LEN];
-        int         i = 0;
+        char    key[GF_DUMP_MAX_BUF_LEN];
+        int     i = 0;
+        int     ret = -1;
 
         if (!fdtable)
                 return;
     
+	ret = pthread_mutex_trylock (&fdtable->lock);
+
+        if (ret) {
+		gf_log ("fd", GF_LOG_WARNING, "Unable to acquire lock");
+                return;
+        }
+
         memset(key, 0, sizeof(key));
         gf_proc_dump_build_key(key, prefix, "refcount");
         gf_proc_dump_write(key, "%d", fdtable->refcount);
@@ -739,8 +747,6 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
         gf_proc_dump_write(key, "%d", fdtable->max_fds);
         gf_proc_dump_build_key(key, prefix, "first_free");
         gf_proc_dump_write(key, "%d", fdtable->first_free);
-        gf_proc_dump_build_key(key, prefix, "lock");
-        gf_proc_dump_write(key, "%d", fdtable->lock);
 
         for ( i = 0 ; i < fdtable->max_fds; i++) {
                 if (GF_FDENTRY_ALLOCATED == 
@@ -750,5 +756,7 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
                         fdentry_dump(&fdtable->fdentries[i], key);
                 }
         }
+
+        pthread_mutex_unlock(&fdtable->lock);
 }
 
