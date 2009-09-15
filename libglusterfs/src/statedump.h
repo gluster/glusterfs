@@ -47,8 +47,6 @@ void _gf_proc_dump_build_key (char *key, const char *prefix, char *fmt,...)
         _gf_proc_dump_build_key(key, key_prefix, ##fmt);\
 }
 
-typedef void (*inode_priv_dump_fn) (inode_t *);
-
 void
 gf_proc_dump_init();
 
@@ -68,11 +66,11 @@ void
 gf_proc_dump_write(char *key, char *value,...);
 
 void
-inode_table_dump(inode_table_t *itable, char *prefix, inode_priv_dump_fn fn);
+inode_table_dump(inode_table_t *itable, char *prefix);
 
 void
 fdtable_dump(fdtable_t *fdtable, char *prefix);
 
 void
-inode_dump(inode_t *inode, char *prefix, inode_priv_dump_fn fn);
+inode_dump(inode_t *inode, char *prefix);
 #endif /* STATEDUMP_H */

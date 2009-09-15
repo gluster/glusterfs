@@ -2928,6 +2928,18 @@ fuse_thread_proc (void *data)
 }
 
 int32_t
+fuse_itable_dump (xlator_t  *this)
+{
+        if (!this)
+                 return -1;
+
+        gf_proc_dump_add_section("xlator.mount.fuse.itable");
+        inode_table_dump(this->itable, "xlator.mount.fuse.itable");
+
+	return 0;
+}
+
+int32_t
 fuse_priv_dump (xlator_t  *this)
 {
         fuse_private_t  *private = NULL;
@@ -3244,6 +3256,7 @@ struct xlator_mops mops = {
 
 struct xlator_dumpops dumpops = {
         .priv  = fuse_priv_dump,
+        .inode = fuse_itable_dump,
 };
 
 struct volume_options options[] = {
