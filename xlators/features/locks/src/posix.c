@@ -769,32 +769,34 @@ pl_forget (xlator_t *this,
 }
 
 
-void
-pl_dump_inode_priv (inode_t *inode)
+int32_t
+pl_dump_inode_priv (xlator_t *this, inode_t *inode)
 {
 
-        int ret = -1;
-        uint64_t   tmp_pl_inode = 0;
-        pl_inode_t *pl_inode = NULL;
-        char key[GF_DUMP_MAX_BUF_LEN];
+        int             ret = -1;
+        uint64_t        tmp_pl_inode = 0;
+        pl_inode_t      *pl_inode = NULL;
+        char            key[GF_DUMP_MAX_BUF_LEN];
 
         if (!inode)
-                return;
+                return -1;
 
-	ret = inode_ctx_get (inode, inode->table->xl, &tmp_pl_inode);
+	ret = inode_ctx_get (inode, this, &tmp_pl_inode);
 
 	if (ret != 0) 
-                return;
+                return ret;
                 
         pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
 
         if (!pl_inode) 
-                return;
+                return -1;
 
         gf_proc_dump_build_key(key, 
                                "xlator.feature.locks.inode",
-                               "%ld.%s",inode->ino, "mandatory");
+                               "%ld.mandatory",inode->ino);
         gf_proc_dump_write(key, "%d", pl_inode->mandatory);
+
+        return 0;
 }
 
 
@@ -916,7 +918,7 @@ struct xlator_mops mops = {
 };
 
 struct xlator_dumpops dumpops = {
-        .inode      = pl_dump_inode,
+        .inodectx    = pl_dump_inode_priv,
 };
 
 struct xlator_cbks cbks = {

@@ -1213,6 +1213,8 @@ inode_dump (inode_t *inode, char *prefix)
 {
         char            key[GF_DUMP_MAX_BUF_LEN];
         int             ret = -1;
+        xlator_t        *xl = NULL;
+        int             i = 0;
 
         if (!inode) 
                 return;
@@ -1236,6 +1238,19 @@ inode_dump (inode_t *inode, char *prefix)
         gf_proc_dump_build_key(key, prefix, "st_mode");
         gf_proc_dump_write(key, "%d", inode->st_mode);
 	UNLOCK(&inode->lock);
+	if (!inode->_ctx)
+	       goto out;
+
+	for (i = 0; i < inode->table->xl->ctx->xl_count; i++) {
+		if (inode->_ctx[i].key) {
+			xl = (xlator_t *)(long)inode->_ctx[i].key;
+			if (xl->dumpops && xl->dumpops->inodectx)
+				xl->dumpops->inodectx (xl, inode);
+		}
+	}
+
+out:
+        return;
 }
 
 void

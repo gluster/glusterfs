@@ -6105,7 +6105,7 @@ client_priv_dump (xlator_t *this)
 
         conf = this->private;
          if (!conf) {
-                gf_log (this->name, GF_LOG_WARNING,
+		gf_log (this->name, GF_LOG_WARNING,
                         "conf null in xlator");
                 return -1;
          }
@@ -6141,6 +6141,31 @@ client_priv_dump (xlator_t *this)
 
 }
 
+int32_t
+client_inodectx_dump (xlator_t *this, inode_t *inode)
+{
+	ino_t   par = 0;
+        int     ret = -1;
+        char    key[GF_DUMP_MAX_BUF_LEN];
+
+        if (!inode)
+                return -1;
+
+        if (!this)
+                return -1;
+
+	ret = inode_ctx_get (inode, this, &par);
+
+        if (ret != 0)
+                return ret;
+
+        gf_proc_dump_build_key(key, "xlator.protocol.client",
+                               "%s.inode.%ld.par",
+                                this->name,inode->ino);
+        gf_proc_dump_write(key, "%ld", par);
+
+        return 0;
+}
 
 /*
  * client_protocol_notify - notify function for client protocol
@@ -6358,6 +6383,7 @@ struct xlator_cbks cbks = {
 
 struct xlator_dumpops dumpops = {
         .priv      =  client_priv_dump,
+        .inodectx  =  client_inodectx_dump,
 };
 
 struct volume_options options[] = {
