@@ -811,8 +811,7 @@ pl_dump_inode (xlator_t *this)
         
         if (this->itable) {
                 inode_table_dump(this->itable,
-                                 "xlator.features.locks.inode_table",
-                                  pl_dump_inode_priv);
+                                 "xlator.features.locks.inode_table");
         }
 
 	return 0;

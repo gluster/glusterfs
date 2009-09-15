@@ -36,7 +36,7 @@
    move latest accessed dentry to list_head of inode
 */
 
-#define INODE_DUMP_LIST(head, key_buf, key_prefix, list_type, fn) \
+#define INODE_DUMP_LIST(head, key_buf, key_prefix, list_type) \
 { \
         int i = 1;\
         inode_t *inode = NULL;\
@@ -44,7 +44,7 @@
                 gf_proc_dump_build_key(key_buf, key_prefix, "%s.%d",list_type,\
                                 i++);\
                 gf_proc_dump_add_section(key_buf);\
-                inode_dump(inode, key, fn);\
+                inode_dump(inode, key);\
         }\
 }
 
@@ -1209,10 +1209,10 @@ unlock:
 }
 
 void
-inode_dump (inode_t *inode, char *prefix, inode_priv_dump_fn fn)
+inode_dump (inode_t *inode, char *prefix)
 {
-        char key[GF_DUMP_MAX_BUF_LEN];
-        int  ret;
+        char            key[GF_DUMP_MAX_BUF_LEN];
+        int             ret = -1;
 
         if (!inode) 
                 return;
@@ -1236,20 +1236,27 @@ inode_dump (inode_t *inode, char *prefix, inode_priv_dump_fn fn)
         gf_proc_dump_build_key(key, prefix, "st_mode");
         gf_proc_dump_write(key, "%d", inode->st_mode);
 	UNLOCK(&inode->lock);
-        if (fn)
-                fn (inode);
 }
 
 void
-inode_table_dump (inode_table_t *itable, char *prefix, inode_priv_dump_fn fn)
+inode_table_dump (inode_table_t *itable, char *prefix)
 {
     
-        char key[GF_DUMP_MAX_BUF_LEN];
+        char    key[GF_DUMP_MAX_BUF_LEN];
+        int     ret = 0;
 
         if (!itable)
                 return;
     
         memset(key, 0, sizeof(key));
+	ret = pthread_mutex_trylock(&itable->lock);
+
+        if (ret != 0) {
+                gf_log("", GF_LOG_WARNING, "Unable to dump inode table"
+                " errno: %d", errno);
+                return;
+        }
+
         gf_proc_dump_build_key(key, prefix, "hashsize");
         gf_proc_dump_write(key, "%d", itable->hashsize);
         gf_proc_dump_build_key(key, prefix, "name");
@@ -1264,9 +1271,10 @@ inode_table_dump (inode_table_t *itable, char *prefix, inode_priv_dump_fn fn)
         gf_proc_dump_build_key(key, prefix, "purge_size");
         gf_proc_dump_write(key, "%d", itable->purge_size);
 
-	pthread_mutex_lock(&itable->lock);
-        INODE_DUMP_LIST(&itable->active, key, prefix, "active", fn);
-        INODE_DUMP_LIST(&itable->lru, key, prefix, "lru", fn);
-        INODE_DUMP_LIST(&itable->purge, key, prefix, "purge", fn);
+        INODE_DUMP_LIST(&itable->active, key, prefix, "active");
+        INODE_DUMP_LIST(&itable->lru, key, prefix, "lru");
+        INODE_DUMP_LIST(&itable->purge, key, prefix, "purge");
+
+        pthread_mutex_unlock(&itable->lock);
 }
 

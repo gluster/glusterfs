@@ -7590,8 +7590,46 @@ server_priv (xlator_t *this)
 int
 server_inode (xlator_t *this)
 {
-        return 0;
+	 server_conf_t        *conf = NULL;
+	 server_connection_t  *trav = NULL;
+         char                 key[GF_DUMP_MAX_BUF_LEN];
+         int                  i = 1;
+         int                  ret = -1;
+
+         if (!this)
+                 return -1;
+
+         conf = this->private;
+         if (!conf) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"conf null in xlator");
+                return -1;
+         }
+
+         ret = pthread_mutex_trylock (&conf->mutex);
+         if (ret) {
+                gf_log("", GF_LOG_WARNING, "Unable to dump itable"
+                " errno: %d", errno);
+                return -1;
+        }
+
+        list_for_each_entry (trav, &conf->conns, list) {
+                 if (trav->bound_xl && trav->bound_xl->itable) {
+                         gf_proc_dump_build_key(key,
+                                          "xlator.protocol.server.conn",
+                                          "%d.bound_xl.%s",
+                                          i, trav->bound_xl->name);
+                         inode_table_dump(trav->bound_xl->itable,key);
+                         i++;
+                 }
+        }
+	pthread_mutex_unlock (&conf->mutex);
+
+
+	return 0;
 }
+
+
 static void
 get_auth_types (dict_t *this, char *key, data_t *value, void *data)
 {
