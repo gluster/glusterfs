@@ -595,8 +595,11 @@ out:
         return -1;
 }
 
+int __REDIRECT (booster_false_creat, (const char *pathname, mode_t mode),
+                creat) __nonnull ((1));
+
 int
-creat (const char *pathname, mode_t mode)
+booster_false_creat (const char *pathname, mode_t mode)
 {
         int     ret = -1;
         if (!pathname) {
