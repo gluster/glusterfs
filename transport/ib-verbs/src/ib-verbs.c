@@ -2212,6 +2212,8 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
 
         this->ops = trans->ops;
         this->xl = trans->xl;
+        this->init = trans->init;
+        this->fini = trans->fini;
 
         memcpy (&this->myinfo.sockaddr, &trans->myinfo.sockaddr, 
                 trans->myinfo.sockaddr_len);
