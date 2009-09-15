@@ -1382,7 +1382,7 @@ libgf_init_vmpentry (char *vmp, glusterfs_handle_t *vmphandle)
                 appendslash = 1;
         }
 
-        entry->vmp = CALLOC (vmplen, sizeof (char));
+        entry->vmp = CALLOC (vmplen + 1, sizeof (char));
         if (!entry->vmp) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Memory allocation "
                         "failed");
@@ -1390,8 +1390,11 @@ libgf_init_vmpentry (char *vmp, glusterfs_handle_t *vmphandle)
         }
 
         strcpy (entry->vmp, vmp);
-        if (appendslash)
+        if (appendslash) {
                 entry->vmp[vmplen-1] = '/';
+                entry->vmp[vmplen] = '\0';
+        }
+ 
         entry->vmplen = vmplen;
         entry->handle = vmphandle;
         INIT_LIST_HEAD (&entry->list);
