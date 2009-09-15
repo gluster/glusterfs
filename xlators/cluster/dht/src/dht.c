@@ -166,6 +166,34 @@ dht_priv_dump (xlator_t *this)
         return 0;
 }
 
+int32_t
+dht_inodectx_dump (xlator_t *this, inode_t *inode)
+{
+        int             ret = -1;
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
+        dht_layout_t    *layout = NULL;
+	uint64_t        tmp_layout = 0;
+
+        if (!inode)
+                return -1;
+
+	ret = inode_ctx_get (inode, this, &tmp_layout);
+
+        if (ret != 0)
+                return ret;
+
+        layout = (dht_layout_t *)(long)tmp_layout;
+
+        if (!layout)
+                return -1;
+
+        gf_proc_dump_build_key(key_prefix, "xlator.cluster.dht",
+                               "%s.inode.%ld", this->name, inode->ino);
+        dht_layout_dump(layout, key_prefix);
+
+        return 0;
+}
+
 int
 notify (xlator_t *this, int event, void *data, ...)
 {
@@ -373,6 +401,7 @@ struct xlator_mops mops = {
 
 struct xlator_dumpops dumpops = {
         .priv = dht_priv_dump,
+        .inodectx = dht_inodectx_dump,
 };
 
 
