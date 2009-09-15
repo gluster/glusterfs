@@ -1167,12 +1167,10 @@ main (int argc, char *argv[])
 		fprintf (stderr, "ignoring %s\n", 
 			 strerror (errno));
 	}
-#ifdef HAVE_MALLOC_STATS
 #ifdef DEBUG
 	mtrace ();
 #endif
 	signal (SIGUSR1, (sighandler_t) gf_proc_dump_info);
-#endif
 	signal (SIGSEGV, gf_print_trace);
 	signal (SIGABRT, gf_print_trace);
 	signal (SIGPIPE, SIG_IGN);
