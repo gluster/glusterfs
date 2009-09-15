@@ -374,10 +374,11 @@ posix_stat (call_frame_t *frame,
             xlator_t *this,
             loc_t *loc)
 {
-        struct stat buf       = {0,};
-        char *      real_path = NULL;
-        int32_t     op_ret    = -1;
-        int32_t     op_errno  = 0;
+        struct stat           buf       = {0,};
+        char *                real_path = NULL;
+        int32_t               op_ret    = -1;
+        int32_t               op_errno  = 0;
+        struct posix_private *priv      = NULL; 
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -385,17 +386,23 @@ posix_stat (call_frame_t *frame,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
 
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
         op_ret = lstat (real_path, &buf);
-
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "lstat on %s failed: %s", loc->path, 
                         strerror (op_errno));
                 goto out;
+        }
+
+        if (priv->span_devices) {
+                posix_scale_st_ino (priv, &buf);
         }
 
         op_ret = 0;
@@ -492,29 +499,33 @@ int32_t
 posix_getdents (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, size_t size, off_t off, int32_t flag)
 {
-        int32_t           op_ret         = -1;
-        int32_t           op_errno       = 0;
-        char *            real_path      = NULL;
-        dir_entry_t       entries        = {0, };
-        dir_entry_t *     tmp            = NULL;
-        DIR *             dir            = NULL;
-        struct dirent *   dirent         = NULL;
-        int               real_path_len  = -1;
-        int               entry_path_len = -1;
-        char *            entry_path     = NULL;
-        int               count          = 0;
-        struct posix_fd * pfd            = NULL;
-	uint64_t          tmp_pfd        = 0;
-        struct stat       buf            = {0,};
-        int               ret            = -1;
-        char              tmp_real_path[ZR_PATH_MAX];
-        char              linkpath[ZR_PATH_MAX];
+        int32_t               op_ret         = -1;
+        int32_t               op_errno       = 0;
+        char                 *real_path      = NULL;
+        dir_entry_t           entries        = {0, };
+        dir_entry_t          *tmp            = NULL;
+        DIR                  *dir            = NULL;
+        struct dirent        *dirent         = NULL;
+        int                   real_path_len  = -1;
+        int                   entry_path_len = -1;
+        char                 *entry_path     = NULL;
+        int                   count          = 0;
+        struct posix_fd      *pfd            = NULL;
+	uint64_t              tmp_pfd        = 0;
+        struct stat           buf            = {0,};
+        int                   ret            = -1;
+        char                  tmp_real_path[ZR_PATH_MAX];
+        char                  linkpath[ZR_PATH_MAX];
+        struct posix_private *priv           = NULL;
 
         DECLARE_OLD_FS_ID_VAR ;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
@@ -579,7 +590,8 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
 			 ZR_PATH_MAX - strlen (tmp_real_path));
 
                 strncat (tmp_real_path, dirent->d_name,
-                         ZR_PATH_MAX - strlen (tmp_real_path));
+                         ZR_PATH_MAX - (strlen (tmp_real_path) + 1));
+
                 ret = lstat (tmp_real_path, &buf);
 
                 if ((flag == GF_GET_DIR_ONLY)
@@ -587,6 +599,16 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
                         continue;
                 }
 
+                if ((!priv->span_devices)
+                    && (priv->st_device[0] != buf.st_dev)) {
+                        continue;
+                } else {
+                        op_ret = posix_scale_st_ino (priv, &buf);
+                        if (-1 == op_ret) {
+                                continue;
+                        }
+                }
+                
                 tmp = CALLOC (1, sizeof (*tmp));
 
                 if (!tmp) {
@@ -614,15 +636,7 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
 
                 strcpy (&entry_path[real_path_len+1], tmp->name);
 
-                ret = lstat (entry_path, &tmp->buf);
-
-                if (ret == -1) {
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR,
-				"lstat on %s failed: %s",
-                                entry_path, strerror (op_errno));
-                        goto out;
-                }
+                tmp->buf = buf; 
 
                 if (S_ISLNK(tmp->buf.st_mode)) {
 
@@ -776,13 +790,14 @@ int32_t
 posix_mknod (call_frame_t *frame, xlator_t *this,
              loc_t *loc, mode_t mode, dev_t dev)
 {
-	int         tmp_fd    = 0;
-        int32_t     op_ret    = -1;
-        int32_t     op_errno  = 0;
-        char *      real_path = 0;
-        struct stat stbuf     = { 0, };
-
-        gid_t       gid       = 0;
+	int                   tmp_fd      = 0;
+        int32_t               op_ret      = -1;
+        int32_t               op_errno    = 0;
+        char                 *real_path   = 0;
+        struct stat           stbuf       = { 0, };
+        char                  was_present = 1;
+        struct posix_private *priv        = NULL;
+        gid_t                 gid         = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -790,9 +805,17 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
 
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
         MAKE_REAL_PATH (real_path, this, loc->path);
 
         gid = frame->root->gid;
+
+        op_ret = lstat (real_path, &stbuf);
+        if ((op_ret == -1) && (errno == ENOENT)){
+                was_present = 0;
+        }
 
         op_ret = setgid_override (real_path, &gid);
         if (op_ret < 0)
@@ -832,13 +855,31 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 #endif
 
         op_ret = lstat (real_path, &stbuf);
-
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "mknod on %s failed: %s", loc->path, 
                         strerror (op_errno));
                 goto out;
+        }
+
+        if (!priv->span_devices) {
+                if (priv->st_device[0] != stbuf.st_dev) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: different mountpoint/device, returning "
+                                "EPERM", loc->path);
+                        goto out;
+                }
+        } else {
+                op_ret = posix_scale_st_ino (priv, &stbuf);
+                if (-1 == op_ret) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: from different mountpoint",
+                                loc->path);
+                        goto out;
+                }
         }
 
         op_ret = 0;
@@ -848,6 +889,10 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
+        if ((op_ret == -1) && (!was_present)) {
+                unlink (real_path);
+        }
+
         return 0;
 }
 
@@ -855,12 +900,13 @@ int32_t
 posix_mkdir (call_frame_t *frame, xlator_t *this,
              loc_t *loc, mode_t mode)
 {
-        int32_t     op_ret    = -1;
-        int32_t     op_errno  = 0;
-        char *      real_path = NULL;
-        struct stat stbuf     = {0, };
-
-        gid_t                  gid          = 0;
+        int32_t               op_ret      = -1;
+        int32_t               op_errno    = 0;
+        char                 *real_path   = NULL;
+        struct stat           stbuf       = {0, };
+        char                  was_present = 1;
+        struct posix_private *priv        = NULL;
+        gid_t                 gid         = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -868,9 +914,17 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
 
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
         MAKE_REAL_PATH (real_path, this, loc->path);
 
         gid = frame->root->gid;
+
+        op_ret = lstat (real_path, &stbuf);
+        if ((op_ret == -1) && (errno == ENOENT)) {
+                was_present = 0;
+        }
 
         op_ret = setgid_override (real_path, &gid);
         if (op_ret < 0)
@@ -907,12 +961,35 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (!priv->span_devices) {
+                if (priv->st_device[0] != stbuf.st_dev) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: different mountpoint/device, returning "
+                                "EPERM", loc->path);
+                        goto out;
+                }
+        } else {
+                op_ret = posix_scale_st_ino (priv, &stbuf);
+                if (-1 == op_ret) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: from different mountpoint",
+                                loc->path);
+                        goto out;
+                }
+        }
+
         op_ret = 0;
 
  out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
+
+        if ((op_ret == -1) && (!was_present)) {
+                unlink (real_path);
+        }
 
         return 0;
 }
@@ -1018,12 +1095,13 @@ int32_t
 posix_symlink (call_frame_t *frame, xlator_t *this,
                const char *linkname, loc_t *loc)
 {
-        int32_t     op_ret    = -1;
-        int32_t     op_errno  = 0;
-        char *      real_path = 0;
-        struct stat stbuf     = { 0, };
-
-        gid_t       gid       = 0;
+        int32_t               op_ret      = -1;
+        int32_t               op_errno    = 0;
+        char *                real_path   = 0;
+        struct stat           stbuf       = { 0, };
+        struct posix_private *priv        = NULL;
+        gid_t                 gid         = 0;
+        char                  was_present = 1; 
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1032,7 +1110,15 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (linkname, out);
         VALIDATE_OR_GOTO (loc, out);
 
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        op_ret = lstat (real_path, &stbuf);
+        if ((op_ret == -1) && (errno == ENOENT)){
+                was_present = 0;
+        }
 
         gid = frame->root->gid;
 
@@ -1071,12 +1157,35 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (!priv->span_devices) {
+                if (priv->st_device[0] != stbuf.st_dev) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: different mountpoint/device, returning "
+                                "EPERM", loc->path);
+                        goto out;
+                }
+        } else {
+                op_ret = posix_scale_st_ino (priv, &stbuf);
+                if (-1 == op_ret) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: from different mountpoint",
+                                loc->path);
+                        goto out;
+                }
+        }
+
         op_ret = 0;
 
  out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
+
+        if ((op_ret == -1) && (!was_present)) {
+                unlink (real_path);
+        }
 
         return 0;
 }
@@ -1086,11 +1195,13 @@ int
 posix_rename (call_frame_t *frame, xlator_t *this,
               loc_t *oldloc, loc_t *newloc)
 {
-        int32_t     op_ret       = -1;
-        int32_t     op_errno     = 0;
-        char *      real_oldpath = NULL;
-        char *      real_newpath = NULL;
-        struct stat stbuf        = {0, };
+        int32_t               op_ret       = -1;
+        int32_t               op_errno     = 0;
+        char                 *real_oldpath = NULL;
+        char                 *real_newpath = NULL;
+        struct stat           stbuf        = {0, };
+        struct posix_private *priv         = NULL;
+        char                  was_present  = 1; 
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1099,9 +1210,17 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (oldloc, out);
         VALIDATE_OR_GOTO (newloc, out);
 
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
         MAKE_REAL_PATH (real_newpath, this, newloc->path);
+
+        op_ret = lstat (real_newpath, &stbuf);
+        if ((op_ret == -1) && (errno == ENOENT)){
+                was_present = 0;
+        }
 
         op_ret = rename (real_oldpath, real_newpath);
         if (op_ret == -1) {
@@ -1122,12 +1241,35 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (!priv->span_devices) {
+                if (priv->st_device[0] != stbuf.st_dev) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: different mountpoint/device, returning "
+                                "EPERM", newloc->path);
+                        goto out;
+                }
+        } else {
+                op_ret = posix_scale_st_ino (priv, &stbuf);
+                if (-1 == op_ret) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: from different mountpoint",
+                                newloc->path);
+                        goto out;
+                }
+        }
+
         op_ret = 0;
 
  out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+        if ((op_ret == -1) && !was_present) {
+                unlink (real_newpath);
+        } 
 
         return 0;
 }
@@ -1137,12 +1279,13 @@ int
 posix_link (call_frame_t *frame, xlator_t *this,
             loc_t *oldloc, loc_t *newloc)
 {
-        int32_t     op_ret       = -1;
-        int32_t     op_errno     = 0;
-        char *      real_oldpath = 0;
-        char *      real_newpath = 0;
-        struct stat stbuf        = {0, };
-
+        int32_t               op_ret       = -1;
+        int32_t               op_errno     = 0;
+        char                 *real_oldpath = 0;
+        char                 *real_newpath = 0;
+        struct stat           stbuf        = {0, };
+        struct posix_private *priv         = NULL;
+        char                  was_present  = 1;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1151,9 +1294,17 @@ posix_link (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (oldloc, out);
         VALIDATE_OR_GOTO (newloc, out);
 
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
         MAKE_REAL_PATH (real_newpath, this, newloc->path);
+
+        op_ret = lstat (real_newpath, &stbuf);
+        if ((op_ret == -1) && (errno = ENOENT)) {
+                was_present = 0;
+        }
 
         op_ret = link (real_oldpath, real_newpath);
         if (op_ret == -1) {
@@ -1173,12 +1324,35 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (!priv->span_devices) {
+                if (priv->st_device[0] != stbuf.st_dev) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: different mountpoint/device, returning "
+                                "EPERM", newloc->path);
+                        goto out;
+                }
+        } else {
+                op_ret = posix_scale_st_ino (priv, &stbuf);
+                if (-1 == op_ret) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: from different mountpoint",
+                                newloc->path);
+                        goto out;
+                }
+        }
+
         op_ret = 0;
 
  out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND (frame, op_ret, op_errno, oldloc->inode, &stbuf);
+
+        if ((op_ret == -1) && (!was_present)) {
+                unlink (real_newpath);
+        }
 
         return 0;
 }
@@ -1188,16 +1362,20 @@ int
 posix_chmod (call_frame_t *frame, xlator_t *this,
              loc_t *loc, mode_t mode)
 {
-        int32_t     op_ret    = -1;
-        int32_t     op_errno  = 0;
-        char *      real_path = 0;
-        struct stat stbuf     = {0,};
+        int32_t               op_ret    = -1;
+        int32_t               op_errno  = 0;
+        char                 *real_path = 0;
+        struct stat           stbuf     = {0,};
+        struct posix_private *priv      = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
@@ -1212,6 +1390,11 @@ posix_chmod (call_frame_t *frame, xlator_t *this,
 				real_path, strerror (op_errno));
 			goto out;
 		}
+
+                if (priv->span_devices) {
+                        posix_scale_st_ino (priv, &stbuf);
+                }
+
 		op_ret = 0;
                 goto out;
         }
@@ -1238,6 +1421,10 @@ posix_chmod (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (priv->span_devices) {
+                posix_scale_st_ino (priv, &stbuf);
+        }
+
         op_ret = 0;
 
  out:
@@ -1253,16 +1440,20 @@ int
 posix_chown (call_frame_t *frame, xlator_t *this,
              loc_t *loc, uid_t uid, gid_t gid)
 {
-        int32_t     op_ret     = -1;
-        int32_t     op_errno   = 0;
-        char *      real_path  = 0;
-        struct stat stbuf      = {0,};
+        int32_t               op_ret     = -1;
+        int32_t               op_errno   = 0;
+        char                 *real_path  = 0;
+        struct stat           stbuf      = {0,};
+        struct posix_private *priv       = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
@@ -1285,6 +1476,10 @@ posix_chown (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (priv->span_devices) {
+                posix_scale_st_ino (priv, &stbuf);
+        }
+
         op_ret = 0;
 
  out:
@@ -1302,16 +1497,20 @@ posix_truncate (call_frame_t *frame,
                 loc_t *loc,
                 off_t offset)
 {
-        int32_t     op_ret    = -1;
-        int32_t     op_errno  = 0;
-        char *      real_path = 0;
-        struct stat stbuf     = {0,};
+        int32_t               op_ret    = -1;
+        int32_t               op_errno  = 0;
+        char                 *real_path = 0;
+        struct stat           stbuf     = {0,};
+        struct posix_private *priv      = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
@@ -1333,6 +1532,10 @@ posix_truncate (call_frame_t *frame,
                 goto out;
         }
 
+        if (priv->span_devices) {
+                posix_scale_st_ino (priv, &stbuf);
+        }
+
         op_ret = 0;
 
  out:
@@ -1348,17 +1551,21 @@ int
 posix_utimens (call_frame_t *frame, xlator_t *this,
                loc_t *loc, struct timespec ts[2])
 {
-        int32_t        op_ret    = -1;
-        int32_t        op_errno  = 0;
-        char *         real_path = 0;
-        struct stat    stbuf     = {0,};
-        struct timeval tv[2]     = {{0,},{0,}};
+        int32_t               op_ret    = -1;
+        int32_t               op_errno  = 0;
+        char                 *real_path = 0;
+        struct stat           stbuf     = {0,};
+        struct timeval        tv[2]     = {{0,},{0,}};
+        struct posix_private *priv      = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
@@ -1390,6 +1597,10 @@ posix_utimens (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (priv->span_devices) {
+                posix_scale_st_ino (priv, &stbuf);
+        }
+
         op_ret = 0;
 
  out:
@@ -1405,16 +1616,17 @@ posix_create (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int32_t flags, mode_t mode,
               fd_t *fd)
 {
-        int32_t                op_ret    = -1;
-        int32_t                op_errno  = 0;
-        int32_t                _fd       = -1;
-        int                    _flags    = 0;
-        char *                 real_path = NULL;
-        struct stat            stbuf     = {0, };
-        struct posix_fd *      pfd       = NULL;
-        struct posix_private * priv      = NULL;
+        int32_t                op_ret      = -1;
+        int32_t                op_errno    = 0;
+        int32_t                _fd         = -1;
+        int                    _flags      = 0;
+        char *                 real_path   = NULL;
+        struct stat            stbuf       = {0, };
+        struct posix_fd *      pfd         = NULL;
+        struct posix_private * priv        = NULL;
+        char                   was_present = 1;  
 
-        gid_t                  gid       = 0;
+        gid_t                  gid         = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1425,6 +1637,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, out);
 
         priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -1443,6 +1656,11 @@ posix_create (call_frame_t *frame, xlator_t *this,
         }
         else {
                 _flags = flags | O_CREAT;
+        }
+
+        op_ret = lstat (real_path, &stbuf);
+        if ((op_ret == -1) && (errno == ENOENT)) {
+                was_present = 0;
         }
 
         if (priv->o_direct)
@@ -1476,6 +1694,25 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (!priv->span_devices) {
+                if (priv->st_device[0] != stbuf.st_dev) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: different mountpoint/device, returning "
+                                "EPERM", loc->path);
+                        goto out;
+                }
+        } else {
+                op_ret = posix_scale_st_ino (priv, &stbuf);
+                if (-1 == op_ret) {
+                        op_errno = EPERM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: from different mountpoint",
+                                loc->path);
+                        goto out;
+                }
+        }
+
 	op_ret = -1;
         pfd = CALLOC (1, sizeof (*pfd));
 
@@ -1502,8 +1739,13 @@ posix_create (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        if ((-1 == op_ret) && (_fd != -1))
+        if ((-1 == op_ret) && (_fd != -1)) {
                 close (_fd);
+
+                if (!was_present) {
+                        unlink (real_path);
+                }
+        }
 
         STACK_UNWIND (frame, op_ret, op_errno, fd, loc->inode, &stbuf);
 
@@ -1514,14 +1756,15 @@ int32_t
 posix_open (call_frame_t *frame, xlator_t *this,
             loc_t *loc, int32_t flags, fd_t *fd)
 {
-        int32_t                op_ret    = -1;
-        int32_t                op_errno  = 0;
-        char *                 real_path = NULL;
-        int32_t                _fd       = -1;
-        struct posix_fd *      pfd       = NULL;
-        struct posix_private * priv      = NULL;
-
-        gid_t                  gid       = 0;
+        int32_t               op_ret       = -1;
+        int32_t               op_errno     = 0;
+        char                 *real_path    = NULL;
+        int32_t               _fd          = -1;
+        struct posix_fd      *pfd          = NULL;
+        struct posix_private *priv         = NULL;
+        char                  was_present  = 1;
+        gid_t                 gid          = 0;
+        struct stat           stbuf        = {0, };
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1532,6 +1775,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, out);
 
         priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -1543,6 +1787,11 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         if (priv->o_direct)
                 flags |= O_DIRECT;
+
+        op_ret = lstat (real_path, &stbuf);
+        if ((op_ret == -1) && (errno == ENOENT)) {
+                was_present = 0;
+        }
 
         _fd = open (real_path, flags, 0);
         if (_fd == -1) {
@@ -1584,6 +1833,35 @@ posix_open (call_frame_t *frame, xlator_t *this,
                 }
         }
 #endif
+
+        if (flags & O_CREAT) {
+                op_ret = lstat (real_path, &stbuf);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "lstat on (%s) "
+                                "failed: %s", real_path, strerror (op_errno));
+                        goto out;
+                }
+ 
+                if (!priv->span_devices) {
+                        if (priv->st_device[0] != stbuf.st_dev) {
+                                op_errno = EPERM;
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "%s: different mountpoint/device, "
+                                        "returning EPERM", loc->path);
+                                goto out;
+                        }
+                } else {
+                        op_ret = posix_scale_st_ino (priv, &stbuf);
+                        if (-1 == op_ret) {
+                                op_errno = EPERM;
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "%s: from different mountpoint",
+                                        loc->path);
+                                goto out;
+                        }
+                }
+        }
 
         op_ret = 0;
 
@@ -1628,6 +1906,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this->private, out);
 
         priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
@@ -1703,7 +1982,11 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                         strerror (op_errno));
                 goto out;
         }
-	
+
+        if (priv->span_devices) {
+                posix_scale_st_ino (priv, &stbuf);
+        }
+
 	op_ret = vec.iov_len;
  out:
 
@@ -1845,6 +2128,10 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                                 "fstat failed on fd=%p: %s",
                                 fd, strerror (op_errno));
                         goto out;
+                }
+
+                if (priv->span_devices) {
+                        posix_scale_st_ino (priv, &stbuf);
                 }
         }
 
@@ -2997,9 +3284,9 @@ int
 posix_access (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int32_t mask)
 {
-        int32_t op_ret    = -1;
-        int32_t op_errno  = 0;
-        char *  real_path = NULL;
+        int32_t                 op_ret    = -1;
+        int32_t                 op_errno  = 0;
+        char                   *real_path = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
         SET_FS_ID (frame->root->uid, frame->root->gid);
@@ -3017,7 +3304,6 @@ posix_access (call_frame_t *frame, xlator_t *this,
                         loc->path, strerror (op_errno));
                 goto out;
         }
-
         op_ret = 0;
 
  out:
@@ -3032,13 +3318,14 @@ int32_t
 posix_ftruncate (call_frame_t *frame, xlator_t *this,
                  fd_t *fd, off_t offset)
 {
-        int32_t           op_ret   = -1;
-        int32_t           op_errno = 0;
-        int               _fd      = -1;
-        struct stat       buf      = {0,};
-        struct posix_fd * pfd      = NULL;
-        int               ret      = -1;
-	uint64_t          tmp_pfd  = 0;
+        int32_t               op_ret   = -1;
+        int32_t               op_errno = 0;
+        int                   _fd      = -1;
+        struct stat           buf      = {0,};
+        struct posix_fd      *pfd      = NULL;
+        int                   ret      = -1;
+	uint64_t              tmp_pfd  = 0;
+        struct posix_private *priv     = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
         SET_FS_ID (frame->root->uid, frame->root->gid);
@@ -3046,6 +3333,9 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
@@ -3076,6 +3366,10 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (priv->span_devices) {
+                posix_scale_st_ino (priv, &buf);
+        }
+
         op_ret = 0;
 
  out:
@@ -3090,13 +3384,14 @@ int32_t
 posix_fchown (call_frame_t *frame, xlator_t *this,
               fd_t *fd, uid_t uid, gid_t gid)
 {
-        int32_t           op_ret   = -1;
-        int32_t           op_errno = 0;
-        int               _fd      = -1;
-        struct stat       buf      = {0,};
-        struct posix_fd * pfd      = NULL;
-        int               ret      = -1;
-	uint64_t          tmp_pfd  = 0;
+        int32_t               op_ret   = -1;
+        int32_t               op_errno = 0;
+        int                   _fd      = -1;
+        struct stat           buf      = {0,};
+        struct posix_fd      *pfd      = NULL;
+        int                   ret      = -1;
+	uint64_t              tmp_pfd  = 0;
+        struct posix_private *priv     = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -3105,6 +3400,9 @@ posix_fchown (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
@@ -3133,6 +3431,10 @@ posix_fchown (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (priv->span_devices) {
+                posix_scale_st_ino (priv, &buf);
+        }
+
         op_ret = 0;
 
  out:
@@ -3148,13 +3450,14 @@ int32_t
 posix_fchmod (call_frame_t *frame, xlator_t *this,
               fd_t *fd, mode_t mode)
 {
-        int32_t           op_ret   = -1;
-        int32_t           op_errno = 0;
-        int               _fd      = -1;
-        struct stat       buf      = {0,};
-        struct posix_fd * pfd      = NULL;
-        int               ret      = -1;
-	uint64_t          tmp_pfd  = 0;
+        int32_t               op_ret   = -1;
+        int32_t               op_errno = 0;
+        int                   _fd      = -1;
+        struct stat           buf      = {0,};
+        struct posix_fd      *pfd      = NULL;
+        int                   ret      = -1;
+	uint64_t              tmp_pfd  = 0;
+        struct posix_private *priv = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -3163,6 +3466,9 @@ posix_fchmod (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
@@ -3502,13 +3808,14 @@ int32_t
 posix_fstat (call_frame_t *frame, xlator_t *this,
              fd_t *fd)
 {
-        int               _fd      = -1;
-        int32_t           op_ret   = -1;
-        int32_t           op_errno = 0;
-        struct stat       buf      = {0,};
-        struct posix_fd * pfd      = NULL;
-	uint64_t          tmp_pfd  = 0;
-        int               ret      = -1;
+        int                   _fd      = -1;
+        int32_t               op_ret   = -1;
+        int32_t               op_errno = 0;
+        struct stat           buf      = {0,};
+        struct posix_fd      *pfd      = NULL;
+	uint64_t              tmp_pfd  = 0;
+        int                   ret      = -1;
+        struct posix_private *priv     = NULL; 
 
         DECLARE_OLD_FS_ID_VAR;
         SET_FS_ID (frame->root->uid, frame->root->gid);
@@ -3516,6 +3823,9 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
 
         ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
@@ -3529,12 +3839,15 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
         _fd = pfd->fd;
 
         op_ret = fstat (_fd, &buf);
-
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "fstat failed on fd=%p: %s",
                         fd, strerror (op_errno));
                 goto out;
+        }
+
+        if (priv->span_devices) {
+                posix_scale_st_ino (priv, &buf);
         }
 
         op_ret = 0;
