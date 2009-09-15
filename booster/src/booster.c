@@ -854,7 +854,7 @@ close (int fd)
         int ret = -1;
         glusterfs_file_t glfs_fd = 0;
 
-        gf_log ("booster", GF_LOG_DEBUG, "close: fd %s", fd);
+        gf_log ("booster", GF_LOG_DEBUG, "close: fd %d", fd);
 	glfs_fd = booster_fdptr_get (booster_fdtable, fd);
     
 	if (glfs_fd) {
