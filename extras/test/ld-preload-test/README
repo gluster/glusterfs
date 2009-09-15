@@ -1,0 +1,40 @@
+ld-preload-test
+===============
+1. The idea of this test tool is to check the sanity of the LD_PRELOAD
+mechanism in libc for the system on which booster needs to run.
+
+2. Basically, this test tool calls various system calls for which there is
+support in the booster library. Combined with the logging output from this
+tool and the preload-test-lib, one can determine whether the
+pre-loading mechanism is working working in order for booster to initialize.
+
+3. This tool does not test GlusterFS functionality running under booster
+although the path specified to the tool can be a GlusterFS mountpoint but
+that is not very useful.
+
+4. This tool is incomplete without the preload-test-lib and the
+accompanyung shell script that needs to be run for running the test.
+
+ld-preload-lib.so
+=================
+A very simple library that intercepts booster supported system calls
+and prints a log message to stdout.
+Combined with the ld-preload-test, we cam determine whether all system calls
+are getting redirected into this library when LD_PRELOAD'ed. This helps us
+conduct a basic test to ensure that the required syscalls actually will
+be intercepted by the booster library.
+
+
+Instructions
+============
+
+1. Build the binaries.
+        $ make
+
+(We've tested the tool on Debian and CentOS. If there are build errors or
+warnings, please do report them to glusterfs-devel@nongnu.org.)
+
+2. Run the test.
+        $ ./test-preload.sh > preload.log
+
+3. Mail the log to glusterfs-devel@nongnu.org.
