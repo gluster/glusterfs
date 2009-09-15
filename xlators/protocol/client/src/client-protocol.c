@@ -36,6 +36,7 @@
 #include "defaults.h"
 #include "compat.h"
 #include "compat-errno.h"
+#include "statedump.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -6089,6 +6090,57 @@ protocol_client_pollin (xlator_t *this, transport_t *trans)
 	return ret;
 }
 
+int
+client_priv_dump (xlator_t *this)
+{
+        client_conf_t   *conf = NULL;
+        int             ret   = -1;
+        client_fd_ctx_t *tmp = NULL;
+        int             i = 0;
+        char            key[GF_DUMP_MAX_BUF_LEN];
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
+
+        if (!this)
+                return -1;
+
+        conf = this->private;
+         if (!conf) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "conf null in xlator");
+                return -1;
+         }
+
+         ret = pthread_mutex_trylock(&conf->mutex);
+         if (ret) {
+                gf_log("", GF_LOG_WARNING, "Unable to lock client %s"
+                " errno: %d", this->name, errno);
+                return -1;
+        }
+
+        gf_proc_dump_build_key(key_prefix, "xlator.protocol.client",
+                                  "%s.priv", this->name);
+
+        gf_proc_dump_add_section(key_prefix);
+
+        list_for_each_entry(tmp, &conf->saved_fds, sfd_pos) {
+                gf_proc_dump_build_key(key, key_prefix,
+                                       "fd.%d.remote_fd", ++i);
+                gf_proc_dump_write(key, "%d", tmp->remote_fd);
+        }
+
+        gf_proc_dump_build_key(key, key_prefix, "connecting");
+        gf_proc_dump_write(key, "%d", conf->connecting);
+        gf_proc_dump_build_key(key, key_prefix, "last_sent");
+        gf_proc_dump_write(key, "%s", ctime(&conf->last_sent.tv_sec));
+        gf_proc_dump_build_key(key, key_prefix, "last_received");
+        gf_proc_dump_write(key, "%s", ctime(&conf->last_received.tv_sec));
+
+        pthread_mutex_unlock(&conf->mutex);
+
+        return 0;
+
+}
+
 
 /*
  * client_protocol_notify - notify function for client protocol
@@ -6303,6 +6355,10 @@ struct xlator_cbks cbks = {
 	.releasedir = client_releasedir
 };
 
+
+struct xlator_dumpops dumpops = {
+        .priv      =  client_priv_dump,
+};
 
 struct volume_options options[] = {
  	{ .key   = {"username"}, 
