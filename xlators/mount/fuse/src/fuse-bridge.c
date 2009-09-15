@@ -42,6 +42,7 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "common-utils.h"
+#include "statedump.h"
 
 #include "fuse_kernel.h"
 #include "fuse-misc.h"
@@ -2926,6 +2927,48 @@ fuse_thread_proc (void *data)
         return NULL;
 }
 
+int32_t
+fuse_priv_dump (xlator_t  *this)
+{
+        fuse_private_t  *private = NULL;
+
+        if (!this)
+                return -1;
+
+        private = this->private;
+
+        if (!private)
+                return -1;
+
+        gf_proc_dump_add_section("xlator.mount.fuse.priv");
+
+        gf_proc_dump_write("xlator.mount.fuse.priv.fd", "%d", private->fd);
+        gf_proc_dump_write("xlator.mount.fuse.priv.proto_minor", "%u",
+                            private->proto_minor);
+        gf_proc_dump_write("xlator.mount.fuse.priv.volfile", "%s",
+                            private->volfile?private->volfile:"None");
+        gf_proc_dump_write("xlator.mount.fuse.volfile_size", "%d",
+                            private->volfile_size);
+        gf_proc_dump_write("xlator.mount.fuse.mount_point", "%s",
+                            private->mount_point);
+        gf_proc_dump_write("xlator.mount.fuse.iobuf", "%u",
+                            private->iobuf);
+        gf_proc_dump_write("xlator.mount.fuse.fuse_thread_started", "%d",
+                            (int)private->fuse_thread_started);
+        gf_proc_dump_write("xlator.mount.fuse.direct_io_mode", "%d",
+                            private->direct_io_mode);
+        gf_proc_dump_write("xlator.mount.fuse.entry_timeout", "%lf",
+                            private->entry_timeout);
+        gf_proc_dump_write("xlator.mount.fuse.entry_timeout", "%lf",
+                            private->attribute_timeout);
+        gf_proc_dump_write("xlator.mount.fuse.first_call", "%d",
+                            (int)private->first_call);
+        gf_proc_dump_write("xlator.mount.fuse.strict_volfile_check", "%d",
+                            (int)private->strict_volfile_check);
+
+        return 0;
+}
+
 
 int32_t
 notify (xlator_t *this, int32_t event, void *data, ...)
@@ -3197,6 +3240,10 @@ struct xlator_cbks cbks = {
 };
 
 struct xlator_mops mops = {
+};
+
+struct xlator_dumpops dumpops = {
+        .priv  = fuse_priv_dump,
 };
 
 struct volume_options options[] = {
