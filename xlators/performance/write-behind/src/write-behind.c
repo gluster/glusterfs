@@ -585,7 +585,8 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
   	uint64_t     tmp_file = 0;
         call_stub_t *stub = NULL;
 
-        if (fd_ctx_get (fd, this, &tmp_file)) {
+        if ((!S_ISDIR (fd->inode->st_mode))
+            && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
@@ -776,7 +777,8 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 	uint64_t     tmp_file = 0;
         call_stub_t *stub = NULL;
 
-        if (fd_ctx_get (fd, this, &tmp_file)) {
+        if ((!S_ISDIR (fd->inode->st_mode))
+            && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
@@ -1463,7 +1465,8 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         if (vector != NULL) 
                 size = iov_length (vector, count);
 
-        if (fd_ctx_get (fd, this, &tmp_file)) {
+        if ((!S_ISDIR (fd->inode->st_mode))
+            && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
@@ -1580,7 +1583,8 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	uint64_t     tmp_file = 0;
         call_stub_t *stub = NULL;
 
-        if (fd_ctx_get (fd, this, &tmp_file)) {
+        if ((!S_ISDIR (fd->inode->st_mode))
+            && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
@@ -1699,7 +1703,8 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         conf = this->private;
 
-        if (fd_ctx_get (fd, this, &tmp_file)) {
+        if ((!S_ISDIR (fd->inode->st_mode))
+            && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
@@ -1819,7 +1824,8 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 	uint64_t     tmp_file = 0;
         call_stub_t *stub = NULL;
 
-        if (fd_ctx_get (fd, this, &tmp_file)) {
+        if ((!S_ISDIR (fd->inode->st_mode))
+            && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
