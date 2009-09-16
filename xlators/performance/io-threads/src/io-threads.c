@@ -3001,6 +3001,7 @@ struct xlator_fops fops = {
         .removexattr = iot_removexattr, /* U */
         .readdir     = iot_readdir,     /* O */
         .xattrop     = iot_xattrop,     /* U */
+	.fxattrop    = iot_fxattrop,    /* O */
 };
 
 struct xlator_mops mops = {
