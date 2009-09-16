@@ -1201,7 +1201,7 @@ ioc_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 int32_t
 ioc_get_priority_list (const char *opt_str, struct list_head *first)
 {
-	int32_t             max_pri = 0;
+	int32_t              max_pri = 1;
 	char                *tmp_str = NULL;
 	char                *tmp_str1 = NULL;
 	char                *tmp_str2 = NULL;
@@ -1309,6 +1309,7 @@ init (xlator_t *this)
 	}
 
 	INIT_LIST_HEAD (&table->priority_list);
+	table->max_pri = 1;
 	if (dict_get (options, "priority")) {
 		char *option_list = data_to_str (dict_get (options, 
 							   "priority"));
