@@ -1172,7 +1172,8 @@ stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame, void *cookie,
         stripe_private_t *priv = NULL;
         xlator_list_t    *trav = NULL;
 
-        LOCK (&frame->lock);
+        priv = this->private;
+	LOCK (&frame->lock);
         {
                 callcnt = --local->call_count;
     
@@ -1221,6 +1222,7 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_list_t    *trav = NULL;
         stripe_private_t *priv = NULL;
 
+	priv = this->private;
         local = frame->local;
 
         LOCK (&frame->lock);
@@ -1578,6 +1580,7 @@ stripe_create_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_list_t    *trav = NULL;
         int32_t           callcnt = 0;
 
+	priv = this->private;        
         local = frame->local;
 
         LOCK (&frame->lock);
