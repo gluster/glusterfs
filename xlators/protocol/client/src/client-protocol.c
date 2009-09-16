@@ -91,6 +91,26 @@ ret:
 
 
 client_fd_ctx_t *
+this_fd_del_ctx (fd_t *file, xlator_t *this)
+{
+	int         dict_ret = -1;
+	uint64_t    ctxaddr  = 0;
+
+	GF_VALIDATE_OR_GOTO ("client", this, out);
+	GF_VALIDATE_OR_GOTO (this->name, file, out);
+
+	dict_ret = fd_ctx_del (file, this, &ctxaddr);
+
+	if (dict_ret < 0) {
+		ctxaddr = 0;
+	}
+
+out:
+	return (client_fd_ctx_t *)(unsigned long)ctxaddr;
+}
+
+
+client_fd_ctx_t *
 this_fd_get_ctx (fd_t *file, xlator_t *this)
 {
 	int         dict_ret = -1;
@@ -1546,8 +1566,16 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	int64_t             remote_fd = -1;
 	int                 ret = -1;
         client_fd_ctx_t    *fdctx = NULL;
+        client_conf_t      *conf = NULL; 
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+ 
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx, EBADFD",
@@ -1603,8 +1631,16 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int64_t             remote_fd = -1;
 	int                 ret = -1;
         client_fd_ctx_t    *fdctx = NULL;
+        client_conf_t      *conf = NULL;
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -1710,8 +1746,16 @@ client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	int64_t              remote_fd = -1;
 	int                  ret = -1;
         client_fd_ctx_t     *fdctx = NULL;
+        client_conf_t       *conf = NULL;
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -1761,8 +1805,16 @@ client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 	int64_t             remote_fd = -1;
 	int32_t             ret = -1;
         client_fd_ctx_t    *fdctx = NULL;
+        client_conf_t      *conf = NULL;
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -1873,6 +1925,9 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int32_t                ret = -1;
 	ino_t                  ino = 0;
         client_fd_ctx_t       *fdctx = NULL;
+        client_conf_t         *conf  = NULL;
+
+        conf = this->private;
 
 	if (dict) {
 		dict_len = dict_serialized_length (dict);
@@ -1885,7 +1940,12 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	}
 
 	if (fd) {
-		fdctx = this_fd_get_ctx (fd, this);
+                pthread_mutex_lock (&conf->mutex);
+                {
+                        fdctx = this_fd_get_ctx (fd, this);
+                }
+                pthread_mutex_unlock (&conf->mutex);
+
 		if (fdctx == NULL) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"(%"PRId64"): failed to get fd ctx. "
@@ -2028,6 +2088,9 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int                     ret = -1;
 	int64_t                 remote_fd = -1;
         client_fd_ctx_t        *fdctx = NULL;
+        client_conf_t          *conf  = NULL;
+
+        conf = this->private;
 
 	dict_len = dict_serialized_length (dict);
 	if (dict_len < 0) {
@@ -2037,7 +2100,12 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		goto unwind;
 	}
 
-        fdctx = this_fd_get_ctx (fd, this);
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
         if (fdctx == NULL) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -2160,11 +2228,19 @@ client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	size_t                  namelen = 0;
 	ino_t                   ino = 0;
         client_fd_ctx_t        *fdctx = NULL;
+        client_conf_t          *conf  = NULL;
 
 	if (name)
 		namelen = STRLEN_0(name);
 
-        fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
         if (fdctx == NULL) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "(%"PRId64"): failed to get remote fd. EBADFD",
@@ -2338,8 +2414,16 @@ client_getdents (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int64_t                remote_fd = -1;
 	int                    ret = -1;
         client_fd_ctx_t       *fdctx = NULL;
+        client_conf_t         *conf = NULL;
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -2389,8 +2473,16 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	int64_t                remote_fd = -1;
 	int                    ret = -1;
         client_fd_ctx_t       *fdctx = NULL;
+        client_conf_t         *conf  = NULL;
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -2442,8 +2534,16 @@ client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 	int64_t                remote_fd = -1;
 	int32_t                ret = -1;
         client_fd_ctx_t       *fdctx = NULL;
+        client_conf_t         *conf  = NULL; 
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -2546,8 +2646,16 @@ client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	size_t                  hdrlen = -1;
 	int                     ret = -1;
         client_fd_ctx_t        *fdctx = NULL;
+        client_conf_t          *conf  = NULL;
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -2598,8 +2706,16 @@ client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	size_t              hdrlen = -1;
 	int                 ret = -1;
         client_fd_ctx_t    *fdctx = NULL;
+        client_conf_t      *conf  = NULL;
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -2654,8 +2770,16 @@ client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 	int32_t          gf_cmd = 0;
 	int32_t          gf_type = 0;
         client_fd_ctx_t *fdctx = NULL;
+        client_conf_t   *conf  = NULL; 
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -2828,10 +2952,18 @@ client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
 	int32_t                gf_type = 0;
 	int64_t                remote_fd = -1;
         client_fd_ctx_t       *fdctx = NULL;
+        client_conf_t         *conf  = NULL;
 
         vollen = STRLEN_0(volume);
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -2967,13 +3099,21 @@ client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 	size_t                  hdrlen = -1;
 	int                     ret = -1;
         client_fd_ctx_t        *fdctx = NULL;
+        client_conf_t          *conf  = NULL;
 
 	if (name)
 		namelen = STRLEN_0(name);
 
+        conf = this->private;
+
         vollen = STRLEN_0(volume);
 
-	fdctx = this_fd_get_ctx (fd, this);
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -3118,10 +3258,18 @@ client_fchmod (call_frame_t *frame, xlator_t *this, fd_t *fd, mode_t mode)
 	int32_t               op_errno = EINVAL;
 	int32_t               op_ret   = -1;
         client_fd_ctx_t      *fdctx = NULL;
+        client_conf_t        *conf  = NULL;
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		op_errno = EBADFD;
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -3164,10 +3312,18 @@ client_fchown (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid,
 	int32_t              op_errno = EINVAL;
 	int32_t              ret      = -1;
         client_fd_ctx_t     *fdctx = NULL;
+        client_conf_t       *conf  = NULL;
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		op_errno = EBADFD;
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -3220,10 +3376,18 @@ client_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
         struct iobref         *iobref = NULL;
         struct iobuf          *iobuf = NULL;
         client_fd_ctx_t       *fdctx = NULL;
+        client_conf_t         *conf  = NULL; 
 
 	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
-	fdctx = this_fd_get_ctx (fd, this);
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"(%"PRId64"): failed to get fd ctx. EBADFD",
@@ -3359,13 +3523,23 @@ client_releasedir (xlator_t *this, fd_t *fd)
 	GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
 	conf = this->private;
-	fdctx = this_fd_get_ctx (fd, this);
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_del_ctx (fd, this);
+                if (fdctx != NULL) {
+                        list_del_init (&fdctx->sfd_pos);
+                }
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
 	if (fdctx == NULL){
 		gf_log (this->name, GF_LOG_DEBUG,
 			"(%"PRId64"): failed to get fd ctx.",
 			fd->inode->ino);
 		goto out;
 	}
+
         remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
@@ -3375,14 +3549,8 @@ client_releasedir (xlator_t *this, fd_t *fd)
 
 	req->fd = hton64 (remote_fd);
 
-	{
-		pthread_mutex_lock (&conf->mutex);
-		{
-                        list_del (&fdctx->sfd_pos);
-		}
-		pthread_mutex_unlock (&conf->mutex);
-	}
         FREE (fdctx);
+
 	fr = create_frame (this, this->ctx->pool);
 	GF_VALIDATE_OR_GOTO (this->name, fr, out);
 
@@ -3420,13 +3588,22 @@ client_release (xlator_t *this, fd_t *fd)
 
 	conf = this->private;
 
-	fdctx = this_fd_get_ctx (fd, this);
-	if (fdctx == NULL) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get fd ctx.",
-			fd->inode->ino);
-		goto out;
-	}
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_del_ctx (fd, this);
+                if (fdctx != NULL) {
+                        list_del_init (&fdctx->sfd_pos);
+                }
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
+        if (fdctx == NULL) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "(%"PRId64"): failed to get fd ctx.",
+                        fd->inode->ino);
+                goto out;
+        }
+
         remote_fd = fdctx->remote_fd;
 	hdrlen = gf_hdr_len (req, 0);
 	hdr    = gf_hdr_new (req, 0);
@@ -3435,13 +3612,6 @@ client_release (xlator_t *this, fd_t *fd)
 
 	req->fd = hton64 (remote_fd);
 
-	{
-		pthread_mutex_lock (&conf->mutex);
-		{
-                        list_del (&fdctx->sfd_pos);
-		}
-		pthread_mutex_unlock (&conf->mutex);
-	}
         FREE (fdctx);
 
 	fr = create_frame (this, this->ctx->pool);
@@ -5601,14 +5771,15 @@ protocol_client_mark_fd_bad (xlator_t *this)
 
         conf = this->private;
 
-        list_for_each_entry_safe (fdctx, tmp, &conf->saved_fds, sfd_pos) {
-                fd_ctx_del (fdctx->fd, this, NULL);
-                list_del (&fdctx->sfd_pos);
-                FREE (fdctx);
-        }
-
- 	pthread_mutex_lock (&conf->mutex);
+        pthread_mutex_lock (&conf->mutex);
         {
+                list_for_each_entry_safe (fdctx, tmp, &conf->saved_fds,
+                                          sfd_pos) {
+                        fd_ctx_del (fdctx->fd, this, NULL);
+                        list_del_init (&fdctx->sfd_pos);
+                        FREE (fdctx);
+                }
+
                 INIT_LIST_HEAD(&conf->saved_fds);
         }
 	pthread_mutex_unlock (&conf->mutex);
