@@ -97,6 +97,7 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (setdents);
 	SET_DEFAULT_FOP (getdents);
 	SET_DEFAULT_FOP (checksum);
+	SET_DEFAULT_FOP (rchecksum);
 	SET_DEFAULT_FOP (xattrop);
 	SET_DEFAULT_FOP (fxattrop);
 	SET_DEFAULT_FOP (lock_notify);

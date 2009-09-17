@@ -797,6 +797,17 @@ typedef struct {
 
 
 typedef struct {
+        int64_t   fd;
+        uint64_t  offset;
+        uint32_t  len;
+} __attribute__((packed)) gf_fop_rchecksum_req_t;
+typedef struct {
+        uint32_t weak_checksum;
+        unsigned char strong_checksum[0];
+} __attribute__((packed)) gf_fop_rchecksum_rsp_t;
+
+
+typedef struct {
 	uint64_t  ino;
 	int32_t   timeout;
 } __attribute__((packed)) gf_fop_lock_notify_req_t;
