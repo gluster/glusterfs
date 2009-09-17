@@ -36,6 +36,8 @@
 #endif /* GF_BSD_HOST_OS */
 
 #include "glusterfs.h"
+#include "md5.h"
+#include "checksum.h"
 #include "dict.h"
 #include "logging.h"
 #include "posix.h"
@@ -4301,6 +4303,69 @@ posix_inode (xlator_t *this)
         return 0;
 }
 
+
+int32_t
+posix_rchecksum (call_frame_t *frame, xlator_t *this,
+                 fd_t *fd, off_t offset, int32_t len)
+{
+        char *buf = NULL;
+
+        int       _fd      = -1;
+        uint64_t  tmp_pfd  =  0;
+
+        struct posix_fd *pfd  = NULL;
+
+        int op_ret   = -1;
+        int op_errno = 0;
+
+        int ret = 0;
+
+        int32_t weak_checksum = 0;
+        uint8_t strong_checksum[MD5_DIGEST_LEN];
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        buf = CALLOC (1, len);
+        if (!buf) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto out;
+        }
+
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "pfd is NULL, fd=%p", fd);
+                op_errno = -ret;
+                goto out;
+        }
+	pfd = (struct posix_fd *)(long) tmp_pfd;
+
+        _fd = pfd->fd;
+
+        ret = pread (_fd, buf, len, offset);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "pread of %d bytes returned %d (%s)",
+                        len, ret, strerror (errno));
+
+                op_errno = errno;
+                goto out;
+        }
+
+        weak_checksum = gf_rsync_weak_checksum (buf, len);
+        gf_rsync_strong_checksum (buf, len, strong_checksum);
+
+        op_ret = 0;
+out:
+        STACK_UNWIND (frame, op_ret, op_errno, weak_checksum, strong_checksum);
+        return 0;
+}
+
+
 /**
  * notify - when parent sends PARENT_UP, send CHILD_UP event from here
  */
@@ -4603,6 +4668,7 @@ struct xlator_fops fops = {
         .setdents    = posix_setdents,
         .getdents    = posix_getdents,
         .checksum    = posix_checksum,
+        .rchecksum   = posix_rchecksum,
 	.xattrop     = posix_xattrop,
 	.fxattrop    = posix_fxattrop,
 };
