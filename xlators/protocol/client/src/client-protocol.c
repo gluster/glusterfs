@@ -5646,7 +5646,7 @@ client_setvolume_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                 if (!remote_subvol) 
                         goto out;
 
-		ctx = get_global_ctx_ptr ();
+		ctx = this->ctx;
                 
 		if (process_uuid && !strcmp (ctx->process_uuid,process_uuid)) {
                         ret = dict_get_uint64 (reply, "transport-ptr",
