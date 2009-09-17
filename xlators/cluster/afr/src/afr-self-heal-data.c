@@ -476,7 +476,25 @@ afr_sh_data_trim_sinks (call_frame_t *frame, xlator_t *this)
 struct afr_sh_algorithm *
 afr_sh_data_pick_algo (call_frame_t *frame, xlator_t *this)
 {
-        return &afr_self_heal_algorithms[1]; /* full  */
+        afr_private_t *priv = NULL;
+        int i = 0;
+
+        priv = this->private;
+
+        while (afr_self_heal_algorithms[i].name) {
+                if (!strcmp (priv->data_self_heal_algorithm,
+                             afr_self_heal_algorithms[i].name)) {
+                        goto out;
+                }
+
+                i++;
+        }
+
+        /* No match found, so fall back on "full" */
+
+        i = 0;
+out:
+        return &afr_self_heal_algorithms[i];
 }
 
 

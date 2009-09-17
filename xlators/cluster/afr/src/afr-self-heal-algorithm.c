@@ -582,4 +582,5 @@ afr_sh_algo_diff (call_frame_t *frame, xlator_t *this)
 struct afr_sh_algorithm afr_self_heal_algorithms[] = {
         {.name = "full",  .fn = afr_sh_algo_full},
         {.name = "diff",  .fn = afr_sh_algo_diff},
+        {0, 0},
 };

@@ -2341,6 +2341,7 @@ init (xlator_t *this)
 	char * read_subvol = NULL;
 	char * fav_child   = NULL;
 	char * self_heal   = NULL;
+        char * algo        = NULL;
 	char * change_log  = NULL;
 
 	int32_t lock_server_count = 1;
@@ -2388,6 +2389,14 @@ init (xlator_t *this)
 			priv->data_self_heal = 1;
 		} 
 	}
+
+        priv->data_self_heal_algorithm = "full";
+
+        dict_ret = dict_get_str (this->options, "data-self-heal-algorithm",
+                                 &algo);
+        if (dict_ret == 0) {
+                priv->data_self_heal_algorithm = strdup (algo);
+        }
 
 	dict_ret = dict_get_str (this->options, "metadata-self-heal",
 				 &self_heal);
@@ -2662,6 +2671,9 @@ struct volume_options options[] = {
 	{ .key  = {"data-self-heal"},  
 	  .type = GF_OPTION_TYPE_BOOL 
 	},
+        { .key  = {"data-self-heal-algorithm"},
+          .type = GF_OPTION_TYPE_STR
+        },
 	{ .key  = {"metadata-self-heal"},  
 	  .type = GF_OPTION_TYPE_BOOL
 	},
