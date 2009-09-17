@@ -92,7 +92,13 @@ typedef struct {
 	off_t offset;
 
 	loc_t parent_loc;
+
+        /* private data for the particular self-heal algorithm */
+        void *private;
+
 	int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
+        int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
+        int (*algo_abort_cbk) (call_frame_t *frame, xlator_t *this);
 	call_frame_t *sh_frame;
 } afr_self_heal_t;
 
