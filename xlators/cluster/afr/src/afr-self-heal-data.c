@@ -736,7 +736,7 @@ afr_sh_data_open (call_frame_t *frame, xlator_t *this)
 			   (void *) (long) source,
 			   priv->children[source],
 			   priv->children[source]->fops->open,
-			   &local->loc, O_RDONLY|O_LARGEFILE, fd);
+			   &local->loc, O_RDWR|O_LARGEFILE, fd);
 	call_count--;
 
 	/* open sinks */
@@ -749,7 +749,7 @@ afr_sh_data_open (call_frame_t *frame, xlator_t *this)
 				   priv->children[i], 
 				   priv->children[i]->fops->open,
 				   &local->loc, 
-				   O_WRONLY|O_LARGEFILE, fd); 
+				   O_RDWR|O_LARGEFILE, fd); 
 
 		if (!--call_count)
 			break;
