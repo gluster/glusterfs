@@ -5531,6 +5531,75 @@ client_checksum_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	return 0;
 }
 
+
+int
+client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                  int32_t len)
+{
+	gf_hdr_common_t        *hdr = NULL;
+	gf_fop_rchecksum_req_t *req = NULL;
+	size_t                  hdrlen = -1;
+	int                     ret = -1;
+
+        int64_t                remote_fd = -1;
+        client_fd_ctx_t       *fdctx     = NULL;
+
+	hdrlen = gf_hdr_len (req, 0);
+        hdr    = gf_hdr_new (req, 0);
+	req    = gf_param (hdr);
+
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
+		gf_log (this->name, GF_LOG_TRACE,
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
+			fd->inode->ino);
+		STACK_UNWIND (frame, -1, EBADFD, 0, NULL);
+		return 0;
+	}
+        remote_fd = fdctx->remote_fd;
+
+        req->fd     = hton64 (remote_fd);
+        req->offset = hton64 (offset);
+        req->len    = hton32 (len);
+
+	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
+				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RCHECKSUM,
+				    hdr, hdrlen, NULL, 0, NULL);
+
+	return ret;
+}
+
+
+int
+client_rchecksum_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
+                     struct iobuf *iobuf)
+{
+	gf_fop_rchecksum_rsp_t *rsp = NULL;
+
+	int32_t                op_ret = 0;
+	int32_t                op_errno = 0;
+	int32_t                gf_errno = 0;
+	uint32_t               weak_checksum = 0;
+	unsigned char         *strong_checksum = NULL;
+
+	rsp = gf_param (hdr);
+
+	op_ret   = ntoh32 (hdr->rsp.op_ret);
+	gf_errno = ntoh32 (hdr->rsp.op_errno);
+	op_errno = gf_error_to_errno (gf_errno);
+
+	if (op_ret >= 0) {
+		weak_checksum   = rsp->weak_checksum;
+		strong_checksum = rsp->strong_checksum;
+	}
+
+	STACK_UNWIND (frame, op_ret, op_errno, weak_checksum, strong_checksum);
+
+	return 0;
+}
+
+
 /*
  * client_setspec_cbk - setspec callback for client protocol
  * @frame: call frame
@@ -5897,6 +5966,7 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_ENTRYLK]        =  client_entrylk_cbk,
 	[GF_FOP_FENTRYLK]       =  client_fentrylk_cbk,
 	[GF_FOP_CHECKSUM]       =  client_checksum_cbk,
+	[GF_FOP_RCHECKSUM]      =  client_rchecksum_cbk,
 	[GF_FOP_XATTROP]        =  client_xattrop_cbk,
 	[GF_FOP_FXATTROP]       =  client_fxattrop_cbk,
 };
@@ -6536,6 +6606,7 @@ struct xlator_fops fops = {
 	.setdents    = client_setdents,
 	.getdents    = client_getdents,
 	.checksum    = client_checksum,
+	.rchecksum   = client_rchecksum,
 	.xattrop     = client_xattrop,
 	.fxattrop    = client_fxattrop,
 };
