@@ -1403,6 +1403,39 @@ default_checksum (call_frame_t *frame,
 }
 
 
+static int32_t
+default_rchecksum_cbk (call_frame_t *frame,
+                       void *cookie,
+                       xlator_t *this,
+                       int32_t op_ret,
+                       int32_t op_errno,
+                       uint32_t weak_checksum,
+                       uint8_t *strong_checksum)
+{
+	STACK_UNWIND (frame,
+		      op_ret,
+		      op_errno,
+		      weak_checksum,
+		      strong_checksum);
+	return 0;
+}
+
+
+int32_t
+default_rchecksum (call_frame_t *frame,
+                   xlator_t *this,
+                   fd_t *fd, off_t offset,
+                   int32_t len)
+{
+	STACK_WIND (frame,
+		    default_rchecksum_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->rchecksum,
+		    fd, offset, len);
+	return 0;
+}
+
+
 int32_t
 default_readdir_cbk (call_frame_t *frame,
 		     void *cookie,

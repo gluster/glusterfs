@@ -110,6 +110,14 @@ typedef int32_t (*fop_checksum_cbk_t) (call_frame_t *frame,
 				       uint8_t *file_checksum,
 				       uint8_t *dir_checksum);
 
+typedef int32_t (*fop_rchecksum_cbk_t) (call_frame_t *frame,
+                                        void *cookie,
+                                        xlator_t *this,
+                                        int32_t op_ret,
+                                        int32_t op_errno,
+                                        uint32_t weak_checksum,
+                                        uint8_t *strong_checksum);
+
 typedef int32_t (*mop_setvolume_t) (call_frame_t *frame,
 				    xlator_t *this,
 				    const char *volume);
@@ -131,6 +139,11 @@ typedef int32_t (*fop_checksum_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   loc_t *loc,
 				   int32_t flag);
+
+typedef int32_t (*fop_rchecksum_t) (call_frame_t *frame,
+                                    xlator_t *this,
+                                    fd_t *fd, off_t offset,
+                                    int32_t len);
 
 struct xlator_mops {
 	mop_stats_t            stats;
@@ -740,6 +753,7 @@ struct xlator_fops {
 	fop_setdents_t       setdents;
 	fop_getdents_t       getdents;
 	fop_checksum_t       checksum;
+	fop_rchecksum_t      rchecksum;
 	fop_xattrop_t        xattrop;
 	fop_fxattrop_t       fxattrop;
 	fop_lock_notify_t    lock_notify;
@@ -788,6 +802,7 @@ struct xlator_fops {
 	fop_setdents_cbk_t       setdents_cbk;
 	fop_getdents_cbk_t       getdents_cbk;
 	fop_checksum_cbk_t       checksum_cbk;
+	fop_rchecksum_cbk_t      rchecksum_cbk;
 	fop_xattrop_cbk_t        xattrop_cbk;
 	fop_fxattrop_cbk_t       fxattrop_cbk;
 	fop_lock_notify_cbk_t    lock_notify_cbk;

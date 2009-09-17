@@ -22,6 +22,9 @@
 #include "config.h"
 #endif
 
+#include <inttypes.h>
+
+#include "md5.h"
 #include "call-stub.h"
 
 
@@ -2084,6 +2087,61 @@ out:
 
 
 call_stub_t *
+fop_rchecksum_stub (call_frame_t *frame,
+                    fop_rchecksum_t fn,
+                    fd_t *fd, off_t offset,
+                    int32_t len)
+{
+	call_stub_t *stub = NULL;
+
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+	GF_VALIDATE_OR_GOTO ("call-stub", fd, out);
+
+	stub = stub_new (frame, 1, GF_FOP_RCHECKSUM);
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	stub->args.rchecksum.fn = fn;
+        stub->args.rchecksum.fd = fd_ref (fd);
+	stub->args.rchecksum.offset = offset;
+	stub->args.rchecksum.len    = len;
+out:
+	return stub;
+}
+
+
+call_stub_t *
+fop_rchecksum_cbk_stub (call_frame_t *frame,
+                        fop_rchecksum_cbk_t fn,
+                        int32_t op_ret,
+                        int32_t op_errno,
+                        uint32_t weak_checksum,
+                        uint8_t *strong_checksum)
+{
+	call_stub_t *stub = NULL;
+
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+	stub = stub_new (frame, 0, GF_FOP_RCHECKSUM);
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	stub->args.rchecksum_cbk.fn = fn;
+	stub->args.rchecksum_cbk.op_ret = op_ret;
+	stub->args.rchecksum_cbk.op_errno = op_errno;
+
+	if (op_ret >= 0)
+	{
+		stub->args.rchecksum_cbk.weak_checksum =
+                        weak_checksum;
+
+		stub->args.rchecksum_cbk.strong_checksum = 
+			memdup (strong_checksum, MD5_DIGEST_LEN);
+	}
+out:
+	return stub;
+}
+
+
+call_stub_t *
 fop_xattrop_cbk_stub (call_frame_t *frame,
 		      fop_xattrop_cbk_t fn,
 		      int32_t op_ret,
@@ -2656,6 +2714,17 @@ call_resume_wind (call_stub_t *stub)
 					stub->args.checksum.flags);
 		break;
 	}
+
+	case GF_FOP_RCHECKSUM:
+	{
+		stub->args.rchecksum.fn (stub->frame,
+                                         stub->frame->this,
+                                         stub->args.rchecksum.fd,
+                                         stub->args.rchecksum.offset,
+                                         stub->args.rchecksum.len);
+		break;
+	}
+
 	case GF_FOP_READDIR:
 	{
 		stub->args.readdir.fn (stub->frame,
@@ -3452,6 +3521,30 @@ call_resume_unwind (call_stub_t *stub)
 		break;
 	}
 
+	case GF_FOP_RCHECKSUM:
+	{
+		if (!stub->args.rchecksum_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.rchecksum_cbk.op_ret,
+				      stub->args.rchecksum_cbk.op_errno,
+				      stub->args.rchecksum_cbk.weak_checksum,
+				      stub->args.rchecksum_cbk.strong_checksum);
+		else
+			stub->args.rchecksum_cbk.fn (stub->frame, 
+                                                     stub->frame->cookie,
+                                                     stub->frame->this,
+                                                     stub->args.rchecksum_cbk.op_ret, 
+                                                     stub->args.rchecksum_cbk.op_errno,
+                                                     stub->args.rchecksum_cbk.weak_checksum,
+                                                     stub->args.rchecksum_cbk.strong_checksum);
+		if (stub->args.rchecksum_cbk.op_ret >= 0)
+		{
+			FREE (stub->args.rchecksum_cbk.strong_checksum);
+		}
+
+		break;
+	}
+
 	case GF_FOP_READDIR:
 	{
 		if (!stub->args.readdir_cbk.fn) 
@@ -3855,7 +3948,14 @@ call_stub_destroy_wind (call_stub_t *stub)
 		loc_wipe (&stub->args.checksum.loc);
 		break;
 	}
-  	break;
+
+	case GF_FOP_RCHECKSUM:
+	{
+                if (stub->args.rchecksum.fd)
+                        fd_unref (stub->args.rchecksum.fd);
+		break;
+	}
+
 	case GF_FOP_READDIR:
 	{
 		if (stub->args.readdir.fd)
@@ -4101,6 +4201,14 @@ call_stub_destroy_unwind (call_stub_t *stub)
 		if (stub->args.checksum_cbk.op_ret >= 0) {
 			FREE (stub->args.checksum_cbk.file_checksum);
 			FREE (stub->args.checksum_cbk.dir_checksum); 
+		}
+	}
+  	break;
+
+	case GF_FOP_RCHECKSUM:
+	{
+		if (stub->args.rchecksum_cbk.op_ret >= 0) {
+			FREE (stub->args.rchecksum_cbk.strong_checksum); 
 		}
 	}
   	break;
