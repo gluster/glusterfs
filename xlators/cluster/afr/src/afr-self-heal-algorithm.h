@@ -29,6 +29,14 @@ struct afr_sh_algorithm {
         afr_sh_algo_fn fn;
 };
 
-struct afr_sh_algorithm afr_self_heal_algorithms[1];
+struct afr_sh_algorithm afr_self_heal_algorithms[2];
+
+typedef struct {
+        uint8_t *checksum;     /* array of MD5 checksums for each child
+                                  Each checksum is MD5_DIGEST_LEN bytes long */
+
+        unsigned char *write_needed;
+        size_t block_size;
+} afr_sh_algo_diff_private_t;
 
 #endif /* __AFR_SELF_HEAL_ALGORITHM_H__ */
