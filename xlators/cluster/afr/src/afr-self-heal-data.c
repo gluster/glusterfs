@@ -476,7 +476,7 @@ afr_sh_data_trim_sinks (call_frame_t *frame, xlator_t *this)
 struct afr_sh_algorithm *
 afr_sh_data_pick_algo (call_frame_t *frame, xlator_t *this)
 {
-        return &afr_self_heal_algorithms[0]; /* full  */
+        return &afr_self_heal_algorithms[1]; /* full  */
 }
 
 
