@@ -47,7 +47,7 @@
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
 #include "afr-self-heal-common.h"
-
+#include "afr-self-heal-algorithm.h"
 
 
 int
@@ -473,171 +473,10 @@ afr_sh_data_trim_sinks (call_frame_t *frame, xlator_t *this)
 }
 
 
-int
-afr_sh_data_read_write_iter (call_frame_t *frame, xlator_t *this);
-
-int
-afr_sh_data_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		       int32_t op_ret, int32_t op_errno, struct stat *buf)
+struct afr_sh_algorithm *
+afr_sh_data_pick_algo (call_frame_t *frame, xlator_t *this)
 {
-	afr_private_t * priv = NULL;
-	afr_local_t * local  = NULL;
-	afr_self_heal_t *sh  = NULL;
-
-	int child_index = (long) cookie;
-	int call_count = 0;
-
-	priv = this->private;
-	local = frame->local;
-	sh = &local->self_heal;
-
-	gf_log (this->name, GF_LOG_TRACE,
-		"wrote %d bytes of data from %s to child %d, offset %"PRId64"", 
-		op_ret, local->loc.path, child_index, sh->offset - op_ret);
-
-	LOCK (&frame->lock);
-	{
-		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"write to %s failed on subvolume %s (%s)",
-				local->loc.path,
-				priv->children[child_index]->name,
-				strerror (op_errno));
-			sh->op_failed = 1;
-		}
-	}
-	UNLOCK (&frame->lock);
-
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0) {
-		afr_sh_data_read_write_iter (frame, this);
-	}
-
-	return 0;
-}
-
-
-int
-afr_sh_data_read_cbk (call_frame_t *frame, void *cookie,
-		      xlator_t *this, int32_t op_ret, int32_t op_errno,
-		      struct iovec *vector, int32_t count, struct stat *buf,
-                      struct iobref *iobref)
-{
-	afr_private_t * priv = NULL;
-	afr_local_t * local  = NULL;
-	afr_self_heal_t *sh  = NULL;
-
-	int child_index = (long) cookie;
-	int i = 0;
-	int call_count = 0;
-
-	off_t offset;
-
-	priv = this->private;
-	local = frame->local;
-	sh = &local->self_heal;
-
-	call_count = sh->active_sinks;
-
-	local->call_count = call_count;
-
-	gf_log (this->name, GF_LOG_TRACE,
-		"read %d bytes of data from %s on child %d, offset %"PRId64"",
-		op_ret, local->loc.path, child_index, sh->offset);
-
-	if (op_ret <= 0) {
-		afr_sh_data_trim_sinks (frame, this);
-		return 0;
-	}
-
-	/* what if we read less than block size? */
-	offset = sh->offset;
-	sh->offset += op_ret;
-
-	if (sh->file_has_holes) {
-		if (iov_0filled (vector, count) == 0) {
-			/* the iter function depends on the
-			   sh->offset already being updated 
-			   above
-			*/
-			afr_sh_data_read_write_iter (frame, this);
-			goto out;
-		}
-	}
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (sh->sources[i] || !local->child_up[i])
-			continue;
-
-		/* this is a sink, so write to it */
-		STACK_WIND_COOKIE (frame, afr_sh_data_write_cbk,
-				   (void *) (long) i,
-				   priv->children[i],
-				   priv->children[i]->fops->writev,
-				   sh->healing_fd, vector, count, offset,
-                                   iobref);
-
-		if (!--call_count)
-			break;
-	}
-
-out:
-	return 0;
-}
-
-
-int
-afr_sh_data_read_write (call_frame_t *frame, xlator_t *this)
-{
-	afr_private_t * priv = NULL;
-	afr_local_t * local  = NULL;
-	afr_self_heal_t *sh  = NULL;
-
-	priv = this->private;
-	local = frame->local;
-	sh = &local->self_heal;
-
-	STACK_WIND_COOKIE (frame, afr_sh_data_read_cbk,
-			   (void *) (long) sh->source,
-			   priv->children[sh->source],
-			   priv->children[sh->source]->fops->readv,
-			   sh->healing_fd, sh->block_size,
-			   sh->offset);
-
-	return 0;
-}
-
-
-int
-afr_sh_data_read_write_iter (call_frame_t *frame, xlator_t *this)
-{
-	afr_private_t * priv = NULL;
-	afr_local_t * local  = NULL;
-	afr_self_heal_t *sh  = NULL;
-
-	priv = this->private;
-	local = frame->local;
-	sh = &local->self_heal;
-
-	if (sh->op_failed) {
-		afr_sh_data_finish (frame, this);
-		goto out;
-	}
-
-	if (sh->offset >= sh->file_size) {
-		gf_log (this->name, GF_LOG_TRACE,
-			"closing fd's of %s",
-			local->loc.path);
-		afr_sh_data_trim_sinks (frame, this);
-
-		goto out;
-	}
-
-	afr_sh_data_read_write (frame, this);
-
-out:
-	return 0;
+        return &afr_self_heal_algorithms[0]; /* full  */
 }
 
 
@@ -650,6 +489,8 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_private_t   *priv = NULL;
 	int              call_count = 0;
 	int              child_index = 0;
+
+        struct afr_sh_algorithm *sh_algo = NULL;
 
 	local = frame->local;
 	sh = &local->self_heal;
@@ -690,7 +531,12 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			"sourcing file %s from %s to other sinks",
 			local->loc.path, priv->children[sh->source]->name);
 
-		afr_sh_data_read_write (frame, this);
+                sh->algo_completion_cbk = afr_sh_data_trim_sinks;
+                sh->algo_abort_cbk      = afr_sh_data_finish;
+
+                sh_algo = afr_sh_data_pick_algo (frame, this);
+
+		sh_algo->fn (frame, this);
 	}
 
 	return 0;
