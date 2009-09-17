@@ -240,6 +240,13 @@ set_global_ctx_ptr (glusterfs_ctx_t *ctx)
 	gf_global_ctx = ctx;
 }
 
+/* 
+ * Don't use this function other than in glusterfsd.c. libglusterfsclient does 
+ * not set gf_global_ctx since there can be multiple glusterfs-contexts 
+ * initialized in a single process. Instead access the context from ctx member
+ * of the xlator object.
+ */
+
 glusterfs_ctx_t *
 get_global_ctx_ptr (void)
 {
