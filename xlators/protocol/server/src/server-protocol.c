@@ -41,7 +41,7 @@
 #include "compat.h"
 #include "compat-errno.h"
 #include "statedump.h"
-
+#include "md5.h"
 
 static void
 protocol_server_reply (call_frame_t *frame, int type, int op,
@@ -6779,6 +6779,84 @@ server_checksum (call_frame_t *frame, xlator_t *bound_xl,
 }
 
 
+int
+server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno,
+                      uint32_t weak_checksum, uint8_t *strong_checksum)
+{
+	gf_hdr_common_t       *hdr = NULL;
+	gf_fop_rchecksum_rsp_t *rsp = NULL;
+	size_t                 hdrlen = 0;
+	int32_t                gf_errno = 0;
+
+	hdrlen = gf_hdr_len (rsp, MD5_DIGEST_LEN + 1);
+	hdr    = gf_hdr_new (rsp, MD5_DIGEST_LEN + 1);
+	rsp    = gf_param (hdr);
+
+	hdr->rsp.op_ret = hton32 (op_ret);
+	gf_errno        = gf_errno_to_error (op_errno);
+	hdr->rsp.op_errno = hton32 (gf_errno);
+
+	if (op_ret >= 0) {
+		rsp->weak_checksum = weak_checksum;
+
+		memcpy (rsp->strong_checksum,
+			strong_checksum, MD5_DIGEST_LEN);
+
+		rsp->strong_checksum[MD5_DIGEST_LEN] = '\0';
+	}
+
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RCHECKSUM,
+			       hdr, hdrlen, NULL, 0, NULL);
+
+	return 0;
+}
+
+
+int
+server_rchecksum (call_frame_t *frame, xlator_t *bound_xl,
+                  gf_hdr_common_t *hdr, size_t hdrlen,
+                  struct iobuf *iobuf)
+{
+	gf_fop_rchecksum_req_t  *req = NULL;
+	server_state_t          *state = NULL;
+	server_connection_t     *conn = NULL;
+
+	conn = SERVER_CONNECTION(frame);
+
+	req = gf_param (hdr);
+
+	state = CALL_STATE(frame);
+	{
+		state->fd_no = ntoh64 (req->fd);
+		if (state->fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (conn->fdtable,
+						     state->fd_no);
+
+		state->offset = ntoh64 (req->offset);
+                state->size   = ntoh32 (req->len);
+	}
+
+	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
+
+	gf_log (bound_xl->name, GF_LOG_TRACE,
+		"%"PRId64": RCHECKSUM \'fd=%"PRId64" (%"PRId64"); "
+		"offset=%"PRId64"\'",
+		frame->root->unique, state->fd_no, state->fd->inode->ino,
+		state->offset);
+
+	STACK_WIND (frame, server_rchecksum_cbk,
+		    bound_xl,
+		    bound_xl->fops->rchecksum,
+		    state->fd, state->offset, state->size);
+	return 0;
+fail:
+	server_rchecksum_cbk (frame, NULL, frame->this, -1, EINVAL, 0, NULL);
+
+	return 0;
+}
+
+
 /*
  * mop_unlock - unlock management function for server protocol
  * @frame: call frame
@@ -7397,6 +7475,7 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_ENTRYLK]      =  server_entrylk,
 	[GF_FOP_FENTRYLK]     =  server_fentrylk,
 	[GF_FOP_CHECKSUM]     =  server_checksum,
+        [GF_FOP_RCHECKSUM]    =  server_rchecksum,
 	[GF_FOP_XATTROP]      =  server_xattrop,
 	[GF_FOP_FXATTROP]     =  server_fxattrop,
 };
