@@ -176,6 +176,10 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        /* 
+         * FIXME: checking for qr_file and creating (adding in turn) should be
+         * atomic
+         */
         ret = inode_ctx_get (inode, this, &value);
         if (ret == -1) {
                 qr_file = CALLOC (1, sizeof (*qr_file));
@@ -210,6 +214,10 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&qr_file->lock);
 
 out:
+        /*
+         * FIXME: content size in dict can be greater than the size application 
+         * requested for. Applications need to be careful till this is fixed.
+         */
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
         return 0;
 }
@@ -248,8 +256,8 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                 }
         }
 
-        if (((conf->max_file_size > 0) && (content == NULL))
-            || (conf->max_file_size != requested_size)) {
+        if ((conf->max_file_size > 0)
+             && (conf->max_file_size != requested_size)) {
                 size = (conf->max_file_size > requested_size) ?
                         conf->max_file_size : requested_size;
 
@@ -373,14 +381,14 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         int32_t      ret = -1;
         uint64_t     filep = 0;
         char         content_cached = 0;
-        qr_fd_ctx_t *qr_fd_ctx = NULL;
+        qr_fd_ctx_t *qr_fd_ctx = NULL, *tmp_fd_ctx = NULL;
         int32_t      op_ret = -1, op_errno = -1;
         qr_local_t  *local = NULL;
         qr_conf_t   *conf = NULL;
 
         conf = this->private;
 
-        qr_fd_ctx = CALLOC (1, sizeof (*qr_fd_ctx));
+        tmp_fd_ctx = qr_fd_ctx = CALLOC (1, sizeof (*qr_fd_ctx));
         if (qr_fd_ctx == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -400,6 +408,7 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 op_errno = EINVAL;
                 goto unwind;
         }
+        tmp_fd_ctx = NULL;
 
         local = CALLOC (1, sizeof (*local));
         if (local == NULL) {
@@ -431,7 +440,6 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (content_cached && ((flags & O_DIRECTORY) == O_DIRECTORY)) {
                 op_ret = -1;
                 op_errno = ENOTDIR;
-                qr_fd_ctx = NULL;
                 goto unwind;
         }
 
@@ -455,14 +463,12 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         }
 
 unwind:
-        if (op_ret == -1) {
-                if (qr_fd_ctx != NULL) {
-                        qr_fd_ctx_free (qr_fd_ctx);
-                }
+        if (tmp_fd_ctx != NULL) {
+                qr_fd_ctx_free (tmp_fd_ctx);
+        }
 
-                if (local != NULL) {
-                        FREE (local);
-                }
+        if (local != NULL) {
+                FREE (local);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, fd);
@@ -506,10 +512,6 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint64_t    value = 0;
         int32_t     ret = 0;
 
-        if (op_ret == -1) {
-                goto unwind;
-        }
-
         local = frame->local; 
         if ((local == NULL) || ((local->fd) == NULL)) {
                 op_ret = -1;
@@ -517,6 +519,10 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
          
+        if (op_ret == -1) {
+                goto unwind;
+        }
+
         ret = inode_ctx_get (local->fd->inode, this, &value);
         if (ret == -1) {
                 op_ret = -1;
@@ -550,6 +556,11 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 unwind:
+        if (local && local->stub) {
+                call_stub_destroy (local->stub);
+                local->stub = NULL;
+        }
+
         /* this is actually unwind of readv */
         STACK_UNWIND (frame, op_ret, op_errno, NULL, -1, NULL, NULL);
         return 0;
@@ -697,25 +708,26 @@ int32_t
 qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
           off_t offset)
 {
-        qr_file_t       *file = NULL;
-        int32_t          ret = -1, op_ret = -1, op_errno = -1;
-        uint64_t         value = 0;
-        int              count = -1, flags = 0, i = 0;
-        char             content_cached = 0, need_validation = 0;
-        char             need_open = 0, can_wind = 0, need_unwind = 0;
-        struct iobuf    *iobuf = NULL;
-        struct iobref   *iobref = NULL; 
-        struct stat      stbuf = {0, }; 
-        data_t          *content = NULL;
-        qr_fd_ctx_t     *qr_fd_ctx = NULL; 
-        call_stub_t     *stub = NULL;
-        loc_t            loc = {0, };
-        qr_conf_t       *conf = NULL;
-        struct iovec    *vector = NULL;
-        char            *path = NULL;
-        glusterfs_ctx_t *ctx = NULL;
-        off_t            start = 0, end = 0;
-        size_t           len = 0;
+        qr_file_t         *file = NULL;
+        int32_t            ret = -1, op_ret = -1, op_errno = -1;
+        uint64_t           value = 0;
+        int                count = -1, flags = 0, i = 0;
+        char               content_cached = 0, need_validation = 0;
+        char               need_open = 0, can_wind = 0, need_unwind = 0;
+        struct iobuf      *iobuf = NULL;
+        struct iobref     *iobref = NULL; 
+        struct stat        stbuf = {0, }; 
+        data_t            *content = NULL;
+        qr_fd_ctx_t       *qr_fd_ctx = NULL; 
+        call_stub_t       *stub = NULL;
+        loc_t              loc = {0, };
+        qr_conf_t         *conf = NULL;
+        struct iovec      *vector = NULL;
+        char              *path = NULL;
+        glusterfs_ctx_t   *ctx = NULL;
+        off_t              start = 0, end = 0;
+        size_t             len = 0;
+        struct iobuf_pool *iobuf_pool = NULL; 
 
         op_ret = 0;
         conf = this->private;
@@ -724,6 +736,8 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (ret == 0) {
                 qr_fd_ctx = (qr_fd_ctx_t *)(long) value;
         }
+
+        iobuf_pool = this->ctx->iobuf_pool;
 
         ret = inode_ctx_get (fd->inode, this, &value);
         if (ret == 0) {
@@ -756,7 +770,7 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                         }
 
                                         ctx = this->ctx;
-                                        count = (op_ret / ctx->page_size) + 1; 
+                                        count = (op_ret / iobuf_pool->page_size) + 1; 
                                         vector = CALLOC (count,
                                                          sizeof (*vector));
                                         if (vector == NULL) {
@@ -775,7 +789,7 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                         }
 
                                         for (i = 0; i < count; i++) {
-                                                iobuf = iobuf_get (this->ctx->iobuf_pool);
+                                                iobuf = iobuf_get (iobuf_pool);
                                                 if (iobuf == NULL) {
                                                         op_ret = -1;
                                                         op_errno = ENOMEM;
@@ -783,14 +797,14 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                                         goto unlock;
                                                 }
                                         
-                                                start = offset + ctx->page_size * i;
+                                                start = offset + (iobuf_pool->page_size * i);
                                                 if (start > end) {
                                                         len = 0;
                                                 } else {
-                                                        len = (ctx->page_size
+                                                        len = (iobuf_pool->page_size
                                                                > (end - start))
                                                                 ? (end - start)
-                                                                : ctx->page_size;
+                                                                : iobuf_pool->page_size;
 
                                                         memcpy (iobuf->ptr,
                                                                 content->data + start,
