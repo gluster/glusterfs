@@ -176,42 +176,57 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        /* 
-         * FIXME: checking for qr_file and creating (adding in turn) should be
-         * atomic
-         */
-        ret = inode_ctx_get (inode, this, &value);
-        if (ret == -1) {
-                qr_file = CALLOC (1, sizeof (*qr_file));
-                if (qr_file == NULL) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        goto out;
-                }
-                
-                LOCK_INIT (&qr_file->lock);
-                inode_ctx_put (inode, this, (uint64_t)(long)qr_file);
-        } else {
-                qr_file = (qr_file_t *)(long)value;
-                if (qr_file == NULL) {
-                        op_ret = -1;
-                        op_errno = EINVAL;
-                        goto out;
-                }
+        if (inode == NULL) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
         }
 
-        LOCK (&qr_file->lock);
+        LOCK (&inode->lock);
         {
-                if (qr_file->xattr) {
-                        dict_unref (qr_file->xattr);
-                        qr_file->xattr = NULL;
+                ret = __inode_ctx_get (inode, this, &value);
+                if (ret == -1) {
+                        qr_file = CALLOC (1, sizeof (*qr_file));
+                        if (qr_file == NULL) {
+                                op_ret = -1;
+                                op_errno = ENOMEM;
+                                goto unlock;
+                        }
+                
+                        LOCK_INIT (&qr_file->lock);
+                        ret = __inode_ctx_put (inode, this,
+                                               (uint64_t)(long)qr_file);
+                        if (ret == -1) {
+                                FREE (qr_file);
+                                qr_file = NULL;
+                                op_ret = -1;
+                                op_errno = EINVAL;
+                        }
+                } else {
+                        qr_file = (qr_file_t *)(long)value;
+                        if (qr_file == NULL) {
+                                op_ret = -1;
+                                op_errno = EINVAL;
+                        }
                 }
-
-                qr_file->xattr = dict_ref (dict);
-                qr_file->stbuf = *buf;
-                gettimeofday (&qr_file->tv, NULL);
         }
-        UNLOCK (&qr_file->lock);
+unlock:
+        UNLOCK (&inode->lock);
+
+        if (qr_file != NULL) {
+                LOCK (&qr_file->lock);
+                {
+                        if (qr_file->xattr) {
+                                dict_unref (qr_file->xattr);
+                                qr_file->xattr = NULL;
+                        }
+
+                        qr_file->xattr = dict_ref (dict);
+                        qr_file->stbuf = *buf;
+                        gettimeofday (&qr_file->tv, NULL);
+                }
+                UNLOCK (&qr_file->lock);
+        }
 
 out:
         /*
