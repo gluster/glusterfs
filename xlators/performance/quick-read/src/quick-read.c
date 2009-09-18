@@ -794,7 +794,10 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                         content = dict_get (file->xattr,
                                                             GLUSTERFS_CONTENT_KEY);
 
+                                        
+                                        stbuf = file->stbuf;
                                         content_cached = 1;
+
                                         if (offset > content->len) {
                                                 op_ret = 0;
                                                 end = content->len;
@@ -810,7 +813,17 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                         }
 
                                         ctx = this->ctx;
-                                        count = (op_ret / iobuf_pool->page_size) + 1; 
+                                        count = (op_ret / iobuf_pool->page_size);
+                                        if ((op_ret % iobuf_pool->page_size)
+                                            != 0) {
+                                                count++;
+                                        }
+ 
+                                        if (count == 0) {
+                                                op_ret = 0;
+                                                goto unlock;
+                                        }
+
                                         vector = CALLOC (count,
                                                          sizeof (*vector));
                                         if (vector == NULL) {
@@ -857,8 +870,6 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                                 vector[i].iov_base = iobuf->ptr;
                                                 vector[i].iov_len = len;
                                         }
-                                        
-                                        stbuf = file->stbuf;
                                 }
                         }
                 unlock:
