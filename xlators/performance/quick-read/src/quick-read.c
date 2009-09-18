@@ -163,11 +163,6 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         conf = this->private;
 
-        content = dict_get (dict, GLUSTERFS_CONTENT_KEY);
-        if (content == NULL) {
-                goto out;
-        }
-
         if (buf->st_size > conf->max_file_size) {
                 goto out;
         }
@@ -181,6 +176,8 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
                 goto out;
         }
+
+        content = dict_get (dict, GLUSTERFS_CONTENT_KEY);
 
         LOCK (&inode->lock);
         {
@@ -216,13 +213,22 @@ unlock:
         if (qr_file != NULL) {
                 LOCK (&qr_file->lock);
                 {
-                        if (qr_file->xattr) {
+                        if (qr_file->xattr
+                            && (qr_file->stbuf.st_mtime != buf->st_mtime)) {
                                 dict_unref (qr_file->xattr);
                                 qr_file->xattr = NULL;
                         }
 
-                        qr_file->xattr = dict_ref (dict);
-                        qr_file->stbuf = *buf;
+                        if (content) {
+                                if (qr_file->xattr) {
+                                        dict_unref (qr_file->xattr);
+                                        qr_file->xattr = NULL;
+                                }
+
+                                qr_file->xattr = dict_ref (dict);
+                                qr_file->stbuf = *buf;
+                        }
+
                         gettimeofday (&qr_file->tv, NULL);
                 }
                 UNLOCK (&qr_file->lock);
@@ -245,13 +251,30 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         dict_t    *new_req_dict = NULL;
         int32_t    op_ret = -1, op_errno = -1;
         data_t    *content = NULL; 
-        uint64_t   requested_size = 0, size = 0; 
+        uint64_t   requested_size = 0, size = 0, value = 0; 
+        char       cached = 0;
+        qr_file_t *qr_file = NULL; 
 
         conf = this->private;
         if (conf == NULL) {
                 op_ret = -1;
                 op_errno = EINVAL;
                 goto unwind;
+        }
+
+        op_ret = inode_ctx_get (loc->inode, this, &value);
+        if (op_ret == 0) {
+                qr_file = (qr_file_t *)(long)value;
+        }
+
+        if (qr_file != NULL) {
+                LOCK (&qr_file->lock);
+                {
+                        if (qr_file->xattr) {
+                                cached = 1;
+                        }
+                }
+                UNLOCK (&qr_file->lock);
         }
 
         if ((xattr_req == NULL) && (conf->max_file_size > 0)) {
@@ -264,24 +287,26 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                 }
         }
 
-        if (xattr_req) {
-                content = dict_get (xattr_req, GLUSTERFS_CONTENT_KEY);
-                if (content) {
-                        requested_size = data_to_uint64 (content);
+        if (!cached) {
+                if (xattr_req) {
+                        content = dict_get (xattr_req, GLUSTERFS_CONTENT_KEY);
+                        if (content) {
+                                requested_size = data_to_uint64 (content);
+                        }
                 }
-        }
 
-        if ((conf->max_file_size > 0)
-             && (conf->max_file_size != requested_size)) {
-                size = (conf->max_file_size > requested_size) ?
-                        conf->max_file_size : requested_size;
+                if ((conf->max_file_size > 0)
+                    && (conf->max_file_size != requested_size)) {
+                        size = (conf->max_file_size > requested_size) ?
+                                conf->max_file_size : requested_size;
 
-                op_ret = dict_set (xattr_req, GLUSTERFS_CONTENT_KEY,
-                                   data_from_uint64 (size));
-                if (op_ret < 0) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        goto unwind;
+                        op_ret = dict_set (xattr_req, GLUSTERFS_CONTENT_KEY,
+                                           data_from_uint64 (size));
+                        if (op_ret < 0) {
+                                op_ret = -1;
+                                op_errno = ENOMEM;
+                                goto unwind;
+                        }
                 }
         }
 
