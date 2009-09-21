@@ -352,7 +352,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         struct iobref  *iobref = NULL;
         wb_local_t     *local = NULL;
         struct iovec   *vector = NULL;
-        size_t          bytes = 0, current_size = 0;
+        size_t          current_size = 0, bytes = 0;
         size_t          bytecount = 0;
         wb_conf_t      *conf = NULL;
         fd_t           *fd = NULL;
@@ -360,8 +360,9 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         conf = file->this->private;
         list_for_each_entry (request, winds, winds) {
                 total_count += request->stub->args.writev.count;
-                bytes += iov_length (request->stub->args.writev.vector,
-                                     request->stub->args.writev.count);
+                if (total_count > 0) {
+                        break;
+                }
         }
 
         if (!total_count) {
@@ -438,6 +439,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         iobref = NULL;
                         vector = NULL;
                         copied = count = 0;
+                        bytes += current_size;
                 }
         }
 
