@@ -1177,13 +1177,15 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
 }
 
 
-size_t
-__wb_get_window_size (list_head_t *list)
+char
+__wb_can_unwind (list_head_t *list, size_t window_conf,
+                 size_t *window_current_ptr)
 {
         wb_request_t *request = NULL;
-        size_t        size = 0;
+        size_t        window_current = 0;
         struct iovec *vector = NULL;
         int32_t       count = 0;
+        char          can_unwind = 1;
 
         list_for_each_entry (request, list, list)
         {
@@ -1198,11 +1200,19 @@ __wb_get_window_size (list_head_t *list)
                 if (request->flags.write_request.write_behind
                     && !request->flags.write_request.got_reply)
                 {
-                        size += iov_length (vector, count);
+                        window_current += iov_length (vector, count);
+                        if (window_current > window_conf) {
+                                can_unwind = 0;
+                                break;
+                        }
                 }
         }
 
-        return size;
+        if (can_unwind && (window_current_ptr != NULL)) {
+                *window_current_ptr = window_current;
+        }
+ 
+        return can_unwind;
 }
 
 
@@ -1239,19 +1249,15 @@ __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
 }
 
 
-int32_t 
+void
 __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds, size_t window_conf)
 {
         size_t window_current = 0;
 
-        window_current = __wb_get_window_size (list);
-        if (window_current <= window_conf)
-        {
-                window_current += __wb_mark_unwind_till (list, unwinds,
-                                                         window_conf - window_current);
+        if (__wb_can_unwind (list, window_conf, &window_current)) {
+                __wb_mark_unwind_till (list, unwinds,
+                                       window_conf - window_current);
         }
-
-        return window_current;
 }
 
 
