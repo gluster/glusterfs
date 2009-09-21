@@ -1815,12 +1815,6 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
 	fd_ctx_set (fd, this, (uint64_t)(long)pfd);
 
-        LOCK (&priv->lock);
-        {
-                priv->stats.nr_files++;
-        }
-        UNLOCK (&priv->lock);
-
 #ifndef HAVE_SET_FSID
         if (flags & O_CREAT) {
                 op_ret = chown (real_path, frame->root->uid, gid);
@@ -1862,6 +1856,12 @@ posix_open (call_frame_t *frame, xlator_t *this,
                         }
                 }
         }
+
+        LOCK (&priv->lock);
+        {
+                priv->stats.nr_files++;
+        }
+        UNLOCK (&priv->lock);
 
         op_ret = 0;
 
@@ -2246,12 +2246,6 @@ posix_release (xlator_t *this,
 
         priv = this->private;
 
-        LOCK (&priv->lock);
-        {
-                priv->stats.nr_files--;
-        }
-        UNLOCK (&priv->lock);
-
         ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
                 op_errno = -ret;
@@ -2279,6 +2273,12 @@ posix_release (xlator_t *this,
                         pfd->dir, fd);
                 goto out;
         }
+
+        LOCK (&priv->lock);
+        {
+                priv->stats.nr_files--;
+        }
+        UNLOCK (&priv->lock);
 
         op_ret = 0;
 
