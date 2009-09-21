@@ -2004,7 +2004,8 @@ glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, size %ld", path, size);
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, size %lu", path,
+                (long unsigned)size);
         if (size < 0) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Invalid size");
                 errno = EINVAL;
@@ -2096,7 +2097,8 @@ glusterfs_get (const char *path, void *buf, size_t size, struct stat *stbuf)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, stbuf, out);
 
-        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, size %ld", path, size);
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, size %lu", path,
+                (long unsigned)size);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -2409,8 +2411,8 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
 
-        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %ld,"
-                " op %d", path, name, size, whichop);
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %lu,"
+                " op %d", path, name, (long unsigned)size, whichop);
         if (name[0] == '\0') {
 		errno = EINVAL;
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Invalid argument: Name"
@@ -2545,8 +2547,8 @@ glusterfs_getxattr (const char *path, const char *name, void *value,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
 
-        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %ld",
-                path, name, size);
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %lu",
+                path, name, (long unsigned)size);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -2575,8 +2577,8 @@ glusterfs_lgetxattr (const char *path, const char *name, void *value,
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
 
-        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %ld",
-                path, name, size);
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %lu",
+                path, name, (long unsigned)size);
         entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
@@ -3496,8 +3498,8 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
                 libgf_invalidate_iattr_cache (fd->inode, LIBGF_INVALIDATE_STAT);
         }
 
-        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "size %ld, offset %ld", size,
-                offset);
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "size %lu, offset %"PRIu64,
+                (long unsigned)size, offset);
 	call_stub_destroy (stub);
         return op_ret;
 }
@@ -4079,7 +4081,7 @@ glusterfs_readdir_r (glusterfs_dir_t dirfd, struct dirent *entry,
                 offset = fd_ctx->offset;
                 dirp = &fd_ctx->dirp;
 
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "offset %ld", offset);
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "offset %"PRIu64, offset);
                 memset (dirp, 0, sizeof (struct dirent));
                 op_ret = libgf_client_readdir (ctx, (fd_t *)dirfd, dirp,
                                                &offset);
@@ -4102,8 +4104,8 @@ glusterfs_readdir_r (glusterfs_dir_t dirfd, struct dirent *entry,
                         memcpy (entry, dirp, sizeof (*entry));
                 }
 
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "new offset %ld, entry %s",
-                        offset, entry->d_name);
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "new offset %"PRIu64", "
+                        " entry %s", offset, entry->d_name);
                 op_ret = 0;
         }
 unlock:
@@ -4138,7 +4140,7 @@ glusterfs_readdir (glusterfs_dir_t dirfd)
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
-        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "offset %ld", offset);
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "offset %"PRIu64, offset);
         memset (dirp, 0, sizeof (struct dirent));
         op_ret = libgf_client_readdir (ctx, (fd_t *)dirfd, dirp, &offset);
 
@@ -4155,7 +4157,7 @@ glusterfs_readdir (glusterfs_dir_t dirfd)
         }
         pthread_mutex_unlock (&fd_ctx->lock);
 
-        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "new offset %ld, entry %s",
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "new offset %"PRIu64", entry %s",
                 offset, dirp->d_name);
 out:
         return dirp;
@@ -7338,7 +7340,7 @@ glusterfs_rewinddir (glusterfs_dir_t dirfd)
         pthread_mutex_lock (&fd_ctx->lock);
         {
                 fd_ctx->offset = 0;
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Offset: %ld",
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Offset: %"PRIu64,
                         fd_ctx->offset);
         }
         pthread_mutex_unlock (&fd_ctx->lock);
@@ -7361,7 +7363,7 @@ glusterfs_seekdir (glusterfs_dir_t dirfd, off_t offset)
         pthread_mutex_lock (&fd_ctx->lock);
         {
                 fd_ctx->offset = offset;
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Offset: %ld",
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Offset: %"PRIu64,
                         fd_ctx->offset);
         }
         pthread_mutex_unlock (&fd_ctx->lock);
@@ -7386,7 +7388,7 @@ glusterfs_telldir (glusterfs_dir_t dirfd)
         pthread_mutex_lock (&fd_ctx->lock);
         {
                 off = fd_ctx->offset;
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Offset: %ld",
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Offset: %"PRIu64,
                         fd_ctx->offset);
         }
         pthread_mutex_unlock (&fd_ctx->lock);
