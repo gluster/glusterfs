@@ -53,6 +53,7 @@ typedef struct wb_file {
         int32_t      op_ret;
         int32_t      op_errno;
         list_head_t  request;
+        list_head_t  passive_requests;
         fd_t        *fd;
         gf_lock_t    lock;
         xlator_t    *this;
@@ -262,6 +263,7 @@ wb_file_create (xlator_t *this, fd_t *fd)
         }
 
         INIT_LIST_HEAD (&file->request);
+        INIT_LIST_HEAD (&file->passive_requests);
 
         /* 
            fd_ref() not required, file should never decide the existance of
@@ -1596,6 +1598,70 @@ out:
 }
 
 
+/* this procedure assumes that write requests have only one vector to write */
+void
+__wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
+{
+
+        off_t         offset_expected = 0;
+        size_t        space_left      = 0, length = 0, *iov_len = NULL;
+        char         *ptr             = NULL, first_request = 1;
+        wb_request_t *request         = NULL, *tmp = NULL;
+
+        list_for_each_entry_safe (request, tmp, requests, list) {
+                if ((request->stub->fop != GF_FOP_WRITE)
+                    || (request->flags.write_request.stack_wound)) {
+                        space_left = 0;
+                        ptr = NULL;
+                        first_request = 1;
+                        continue;
+                }
+
+                if (request->flags.write_request.write_behind) {
+                        length = iov_length (request->stub->args.writev.vector,
+                                             request->stub->args.writev.count);
+
+                        if (first_request) {
+                                first_request = 0;
+                                offset_expected = request->stub->args.writev.off;
+                        }
+                        
+                        if (request->stub->args.writev.off != offset_expected) {
+                                offset_expected = request->stub->args.writev.off + length;
+                                space_left = page_size - length;
+                                ptr = request->stub->args.writev.vector[0].iov_base
+                                        + length;
+                                iov_len = &request->stub->args.writev.vector[0].iov_len;
+                                continue;
+                        }
+
+                        if (space_left >= length) {
+                                iov_unload (ptr,
+                                            request->stub->args.writev.vector,
+                                            request->stub->args.writev.count);
+                                space_left -= length;
+                                ptr += length;
+                                *iov_len = *iov_len + length;
+
+                                list_move_tail (&request->list,
+                                                &request->file->passive_requests);
+
+                                __wb_request_unref (request);
+                        } else {
+                                space_left = page_size - length;
+                                ptr = request->stub->args.writev.vector[0].iov_base
+                                        + length;
+                                iov_len = &request->stub->args.writev.vector[0].iov_len;
+                        }
+                } else { 
+                        break;
+                }
+
+                offset_expected += length;
+        }
+}
+
+
 int32_t 
 wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all) 
 {
@@ -1617,6 +1683,17 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all)
         size = conf->aggregate_size;
         LOCK (&file->lock);
         {
+                /* 
+                 * make sure requests are marked for unwinding and adjacent
+                 * continguous write buffers (each of size less than that of
+                 * an iobuf) are packed properly so that iobufs are filled to
+                 * their maximum capacity, before calling __wb_mark_winds.
+                 */
+                __wb_mark_unwinds (&file->request, &unwinds, conf->window_size);
+
+                __wb_collapse_write_bufs (&file->request,
+                                          file->this->ctx->page_size);
+
                 count = __wb_get_other_requests (&file->request,
                                                  &other_requests);
 
@@ -1625,7 +1702,6 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all)
                                          flush_all);
                 }
 
-                __wb_mark_unwinds (&file->request, &unwinds, conf->window_size);
         }
         UNLOCK (&file->lock);
 
