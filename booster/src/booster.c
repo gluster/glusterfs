@@ -2559,6 +2559,8 @@ fcntl (int fd, int cmd, ...)
         gf_log ("booster", GF_LOG_DEBUG, "fcntl: fd %d, cmd %d", fd, cmd);
 	switch (cmd) {
 	case F_DUPFD:
+                ret = dup (fd);
+                break;
                 /* 
                  * FIXME: Consider this case when implementing F_DUPFD, F_GETFD
                  *        etc flags in libglusterfsclient. Commenting it out for
