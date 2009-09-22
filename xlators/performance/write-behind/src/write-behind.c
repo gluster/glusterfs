@@ -370,7 +370,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         struct iobref  *iobref = NULL;
         wb_local_t     *local = NULL;
         struct iovec   *vector = NULL;
-        ssize_t         bytes = 0, current_size = 0;
+        ssize_t         current_size = 0, bytes = 0;
         size_t          bytecount = 0;
         wb_conf_t      *conf = NULL;
         fd_t           *fd   = NULL;
@@ -378,8 +378,9 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         conf = file->this->private;
         list_for_each_entry (request, winds, winds) {
                 total_count += request->stub->args.writev.count;
-                bytes += iov_length (request->stub->args.writev.vector,
-                                     request->stub->args.writev.count);
+                if (total_count > 0) {
+                        break;
+                }
         }
 
         if (total_count == 0) {
@@ -460,6 +461,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
 
                         fd_ref (fd);
 
+                        bytes += current_size;
                         STACK_WIND (sync_frame,
                                     wb_sync_cbk,
                                     FIRST_CHILD(sync_frame->this),
