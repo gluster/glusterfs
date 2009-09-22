@@ -1811,6 +1811,8 @@ fuse_flush (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GET_STATE (this, finh, state);
         fd = FH_TO_FD (ffi->fh);
         state->fd = fd;
+        if (fd)
+                fd->flush_unique = finh->unique;
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": FLUSH %p", finh->unique, fd);
@@ -1827,19 +1829,63 @@ fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_release_in *fri = msg;
 
+        fd_t     *fd = NULL;
+        int do_flush = 0;
+
         fuse_state_t *state = NULL;
 
         GET_STATE (this, finh, state);
-        state->fd = FH_TO_FD (fri->fh);
+        fd = FH_TO_FD (fri->fh);
+        state->fd = fd;
+#ifdef  GF_LINUX_HOST_OS
+        /* This is an ugly Linux specific hack, relying on subtle
+         * implementation details.
+         *
+         * The self-heal algorithm of replicate relies on being
+         * notified by means of a flush fop whenever a consumer
+         * of a file is done with that file. If this happens
+         * from userspace by means of close(2) or process termination,
+         * the kernel sends us a FLUSH message which we can handle with
+         * the flush fop (nb. this mechanism itself is Linux specific!!).
+         *
+         * However, if it happens from a kernel context, we get no FLUSH,
+         * just the final RELEASE when all references to the file are gone.
+         * We try to guess that this is the case by checking if the last FLUSH
+         * on the file was just the previous message. If not, we conjecture
+         * that this release is from a kernel context and call the flush fop
+         * here.
+         *
+         * Note #1: we check the above condition by means of looking at
+         * the "unique" values of the FUSE messages, relying on which is
+         * a big fat NO NO NO in any sane code.
+         *
+         * Note #2: there is no guarantee against false positives (in theory
+         * it's possible that the scheduler arranges an unrelated FUSE message
+         * in between FLUSH and RELEASE, although it seems to be unlikely), but
+         * extra flushes are not a problem.
+         *
+         * Note #3: cf. Bug #223.
+         */
+
+        if (fd && fd->flush_unique + 1 != finh->unique)
+                do_flush = 1;
+#endif
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                "%"PRIu64": RELEASE %p", finh->unique, state->fd);
+                "%"PRIu64": RELEASE %p%s", finh->unique, fd,
+                do_flush ? " (FLUSH implied)" : "");
 
-        fd_unref (state->fd);
+        if (do_flush) {
+                FUSE_FOP (state, fuse_err_cbk, GF_FOP_FLUSH, flush, fd);
+                fd_unref (fd);
+        } else {
+                fd_unref (fd);
 
-        send_fuse_err (this, finh, 0);
+                send_fuse_err (this, finh, 0);
 
-        free_state (state);
+                free_state (state);
+        }
+
         return;
 }
 
