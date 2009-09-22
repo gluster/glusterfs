@@ -1316,12 +1316,13 @@ __wb_mark_wind_all (list_head_t *list, list_head_t *winds)
 }
 
 
-size_t 
-__wb_get_aggregate_size (list_head_t *list, char *other_fop_in_queue,
-                         char *non_contiguous_writes)
+void
+__wb_can_wind (list_head_t *list, size_t aggregate_conf,
+               char *other_fop_in_queue, char *non_contiguous_writes,
+               char *incomplete_writes, char *enough_data_aggregated)
 {
         wb_request_t *request = NULL;
-        size_t        size = 0, length = 0;
+        size_t        aggregate_current = 0, length = 0;
         struct iovec *vector = NULL;
         int32_t       count = 0;
         char          first_request = 1;
@@ -1334,6 +1335,13 @@ __wb_get_aggregate_size (list_head_t *list, char *other_fop_in_queue,
                         if (request->stub && other_fop_in_queue) {
                                 *other_fop_in_queue = 1;
                         }
+                        break;
+                }
+
+                if (request->flags.write_request.stack_wound
+                    && !request->flags.write_request.got_reply
+                    && (incomplete_writes != NULL)) {
+                        *incomplete_writes = 1;
                         break;
                 }
 
@@ -1353,36 +1361,19 @@ __wb_get_aggregate_size (list_head_t *list, char *other_fop_in_queue,
                         }
 
                         length = iov_length (vector, count);
-                        size += length;
+                        aggregate_current += length;
                         offset_expected += length;
+
+                        if (aggregate_current >= aggregate_conf) {
+                                if (enough_data_aggregated != NULL) {
+                                        *enough_data_aggregated = 1;
+                                }
+                                break;
+                        }
                 }
         }
 
-        return size;
-}
-
-
-char
-__wb_any_incomplete_writes (list_head_t *list)
-{
-        wb_request_t *request = NULL;
-        char          incomplete_writes = 0;
-
-        list_for_each_entry (request, list, list)
-        {
-                if ((request->stub == NULL)
-                    || (request->stub->fop != GF_FOP_WRITE)) {
-                        break;
-                }
-
-                if (request->flags.write_request.stack_wound
-                    && !request->flags.write_request.got_reply) {
-                        incomplete_writes = 1;
-                        break;
-                }
-        }
-
-        return incomplete_writes;
+        return;
 }
 
 
@@ -1390,18 +1381,20 @@ ssize_t
 __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
                  char wind_all)
 {
-        size_t   aggregate_current = 0, size = 0;
+        size_t   size = 0;
         char     incomplete_writes = 0;
         char     other_fop_in_queue = 0;
         char     non_contiguous_writes = 0;
+        char     enough_data_aggregated = 0;
 
-        incomplete_writes = __wb_any_incomplete_writes (list); 
-
-        aggregate_current = __wb_get_aggregate_size (list, &other_fop_in_queue,
-                                                     &non_contiguous_writes);
+        if (!wind_all) {
+                __wb_can_wind (list, aggregate_conf, &other_fop_in_queue,
+                               &non_contiguous_writes, &incomplete_writes,
+                               &enough_data_aggregated);
+        }
 
         if ((!incomplete_writes) || (wind_all) || (non_contiguous_writes)
-            || (other_fop_in_queue) || (aggregate_current >= aggregate_conf)) {
+            || (other_fop_in_queue) || (enough_data_aggregated)) {
                 size = __wb_mark_wind_all (list, winds);
         } 
 
