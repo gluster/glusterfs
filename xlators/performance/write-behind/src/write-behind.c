@@ -88,6 +88,7 @@ struct wb_conf {
         uint64_t     disable_till;
         gf_boolean_t enable_O_SYNC;
         gf_boolean_t flush_behind;
+        gf_boolean_t enable_trickling_writes;
 };
 
 
@@ -114,7 +115,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds);
 
 ssize_t
 __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_size,
-                 char wind_all);
+                 char wind_all, char enable_trickling_writes);
 
 
 static void
@@ -1379,17 +1380,22 @@ __wb_can_wind (list_head_t *list, size_t aggregate_conf,
 
 ssize_t
 __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
-                 char wind_all)
+                 char wind_all, char enable_trickling_writes)
 {
-        size_t   size = 0;
-        char     incomplete_writes = 0;
-        char     other_fop_in_queue = 0;
-        char     non_contiguous_writes = 0;
+        size_t   size                   = 0;
+        char     other_fop_in_queue     = 0;
+        char     incomplete_writes      = 1; 
+        char     non_contiguous_writes  = 0;
         char     enough_data_aggregated = 0;
+        char    *trickling_writes       = NULL;
+
+        if (enable_trickling_writes) {
+                trickling_writes = &incomplete_writes;
+        }
 
         if (!wind_all) {
                 __wb_can_wind (list, aggregate_conf, &other_fop_in_queue,
-                               &non_contiguous_writes, &incomplete_writes,
+                               &non_contiguous_writes, trickling_writes,
                                &enough_data_aggregated);
         }
 
@@ -1700,7 +1706,8 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all)
 
                 if (count == 0) {
                         __wb_mark_winds (&file->request, &winds, size,
-                                         flush_all);
+                                         flush_all,
+                                         conf->enable_trickling_writes);
                 }
 
         }
@@ -2278,10 +2285,7 @@ init (xlator_t *this)
 {
         dict_t    *options = NULL;
         wb_conf_t *conf = NULL;
-        char      *window_size_string    = NULL;
-        char      *flush_behind_string   = NULL;
-        char      *disable_till_string = NULL;
-        char      *enable_O_SYNC_string = NULL;
+        char      *str = NULL;
         int32_t    ret = -1;
 
         if ((this->children == NULL)
@@ -2309,9 +2313,9 @@ init (xlator_t *this)
         
         conf->enable_O_SYNC = _gf_false;
         ret = dict_get_str (options, "enable-O_SYNC",
-                            &enable_O_SYNC_string);
+                            &str);
         if (ret == 0) {
-                ret = gf_string2boolean (enable_O_SYNC_string,
+                ret = gf_string2boolean (str,
                                          &conf->enable_O_SYNC);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2324,15 +2328,15 @@ init (xlator_t *this)
         conf->aggregate_size = WB_AGGREGATE_SIZE;
         conf->disable_till = 1;
         ret = dict_get_str (options, "disable-for-first-nbytes", 
-                            &disable_till_string);
+                            &str);
         if (ret == 0) {
-                ret = gf_string2bytesize (disable_till_string, 
+                ret = gf_string2bytesize (str, 
                                           &conf->disable_till);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_ERROR, 
                                 "invalid number format \"%s\" of \"option "
                                 "disable-for-first-nbytes\"", 
-                                disable_till_string);
+                                str);
                         return -1;
                 }
         }
@@ -2344,15 +2348,15 @@ init (xlator_t *this)
         /* configure 'option window-size <size>' */
         conf->window_size = WB_WINDOW_SIZE; 
         ret = dict_get_str (options, "cache-size", 
-                            &window_size_string);
+                            &str);
         if (ret == 0) {
-                ret = gf_string2bytesize (window_size_string, 
+                ret = gf_string2bytesize (str, 
                                           &conf->window_size);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_ERROR, 
                                 "invalid number format \"%s\" of \"option "
                                 "window-size\"", 
-                                window_size_string);
+                                str);
                         FREE (conf);
                         return -1;
                 }
@@ -2378,9 +2382,9 @@ init (xlator_t *this)
         /* configure 'option flush-behind <on/off>' */
         conf->flush_behind = 0;
         ret = dict_get_str (options, "flush-behind", 
-                            &flush_behind_string);
+                            &str);
         if (ret == 0) {
-                ret = gf_string2boolean (flush_behind_string, 
+                ret = gf_string2boolean (str, 
                                          &conf->flush_behind);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2393,6 +2397,21 @@ init (xlator_t *this)
 				"enabling flush-behind");
                 }
         }
+
+        conf->enable_trickling_writes = _gf_true;
+        ret = dict_get_str (options, "enable-trickling-writes",
+                            &str);
+        if (ret == 0) {
+                ret = gf_string2boolean (str,
+                                         &conf->enable_trickling_writes);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "'enable-trickling_writes' takes only boolean"
+                                " arguments");
+                        return -1;
+                }
+        }
+
         this->private = conf;
         return 0;
 }
