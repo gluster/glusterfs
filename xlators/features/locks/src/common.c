@@ -44,6 +44,57 @@ static void
 __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 		    gf_lk_domain_t dom);
 
+static pl_dom_list_t *
+allocate_domain(const char *volume)
+{
+        pl_dom_list_t *dom = NULL;
+
+        dom = CALLOC (1, sizeof (*dom));
+        if (!dom)
+                return NULL;
+
+
+        dom->domain = strdup(volume);
+	if (!dom->domain) {
+		gf_log ("posix-locks", GF_LOG_TRACE,
+			"Out of Memory");
+		return NULL;
+	}
+
+        gf_log ("posix-locks", GF_LOG_TRACE,
+                "New domain allocated: %s", dom->domain);
+
+        INIT_LIST_HEAD (&dom->inode_list);
+        INIT_LIST_HEAD (&dom->entrylk_list);
+        INIT_LIST_HEAD (&dom->blocked_entrylks);
+        INIT_LIST_HEAD (&dom->inodelk_list);
+
+        return dom;
+}
+
+/* Returns domain for the lock. If domain is not present,
+ * allocates a domain and returns it
+ */
+pl_dom_list_t *
+get_domain (pl_inode_t *pl_inode, const char *volume)
+{
+        pl_dom_list_t *dom = NULL;
+
+        list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
+                if (strcmp (dom->domain, volume) == 0)
+                        goto found;
+
+
+        }
+
+        dom = allocate_domain(volume);
+
+        if (dom)
+                list_add (&dom->inode_list, &pl_inode->dom_list);
+found:
+
+        return dom;
+}
 
 pl_inode_t *
 pl_inode_get (xlator_t *this, inode_t *inode)
@@ -73,7 +124,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 
 	pthread_mutex_init (&pl_inode->mutex, NULL);
 
-	INIT_LIST_HEAD (&pl_inode->dir_list);
+	INIT_LIST_HEAD (&pl_inode->dom_list);
 	INIT_LIST_HEAD (&pl_inode->ext_list);
 	INIT_LIST_HEAD (&pl_inode->int_list);
 	INIT_LIST_HEAD (&pl_inode->rw_list);

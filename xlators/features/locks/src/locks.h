@@ -61,30 +61,40 @@ struct __pl_rw_req_t {
 };
 typedef struct __pl_rw_req_t pl_rw_req_t;
 
+struct __pl_dom_list_t {
+        const char *domain;
+        struct list_head inode_list;       /* list_head back to pl_inode_t */
+        struct list_head entrylk_list;     /* List of entry locks */
+        struct list_head blocked_entrylks; /* List of all blocked entrylks */
+        struct list_head inodelk_list;     /* List of inode locks */
+};
+typedef struct __pl_dom_list_t pl_dom_list_t;
 
 struct __entry_lock {
-	struct list_head  inode_list;    /* list_head back to pl_inode_t */
-	struct list_head  blocked_locks; /* locks blocked due to this lock */
+	struct list_head  domain_list;    /* list_head back to pl_dom_list_t */
+	struct list_head  blocked_locks; /* list_head back to blocked_entrylks */
 
 	call_frame_t     *frame;
 	xlator_t         *this;
-	int               blocked;
-	
+
+        const char       *volume;
+
 	const char       *basename;
 	entrylk_type      type;
-	unsigned int      read_count;    /* number of read locks */
+
 	transport_t      *trans;
+	pid_t             client_pid;    /* pid of client process */
 };
 typedef struct __entry_lock pl_entry_lock_t;
 
 
-/* The "simulated" inode. This contains a list of all the locks associated 
+/* The "simulated" inode. This contains a list of all the locks associated
    with this file */
 
 struct __pl_inode {
 	pthread_mutex_t  mutex;
 
-	struct list_head dir_list;       /* list of entry locks */
+	struct list_head dom_list;       /* list of domains */
 	struct list_head ext_list;       /* list of fcntl locks */
 	struct list_head int_list;       /* list of internal locks */
 	struct list_head rw_list;        /* list of waiting r/w requests */
