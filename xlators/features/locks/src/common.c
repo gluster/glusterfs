@@ -38,11 +38,9 @@
 
 
 static int
-__is_lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock,
-		     gf_lk_domain_t dom);
+__is_lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock);
 static void
-__insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
-		    gf_lk_domain_t dom);
+__insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock);
 
 static pl_dom_list_t *
 allocate_domain(const char *volume)
@@ -68,6 +66,7 @@ allocate_domain(const char *volume)
         INIT_LIST_HEAD (&dom->entrylk_list);
         INIT_LIST_HEAD (&dom->blocked_entrylks);
         INIT_LIST_HEAD (&dom->inodelk_list);
+        INIT_LIST_HEAD (&dom->blocked_inodelks);
 
         return dom;
 }
@@ -116,6 +115,9 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 		goto out;
 	}
 
+        gf_log ("posix-locks", GF_LOG_TRACE,
+                "Allocating new pl inode");
+
 	st_mode  = inode->st_mode;
 	if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
 		pl_inode->mandatory = 1;
@@ -125,7 +127,6 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 
 	INIT_LIST_HEAD (&pl_inode->dom_list);
 	INIT_LIST_HEAD (&pl_inode->ext_list);
-	INIT_LIST_HEAD (&pl_inode->int_list);
 	INIT_LIST_HEAD (&pl_inode->rw_list);
 
 	ret = inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
@@ -196,7 +197,7 @@ posix_lock_to_flock (posix_lock_t *lock, struct flock *flock)
 
 /* Insert the lock into the inode's lock list */
 static void
-__insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t dom)
+__insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
 	list_add_tail (&lock->list, &pl_inode->ext_list);
 
@@ -230,7 +231,7 @@ same_owner (posix_lock_t *l1, posix_lock_t *l2)
 
 /* Delete all F_UNLCK locks */
 void
-__delete_unlck_locks (pl_inode_t *pl_inode, gf_lk_domain_t dom)
+__delete_unlck_locks (pl_inode_t *pl_inode)
 {
 	posix_lock_t *l = NULL;
 	posix_lock_t *tmp = NULL;
@@ -328,14 +329,13 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
 	return v;
 }
 
-/* 
+/*
    Start searching from {begin}, and return the first lock that
    conflicts, NULL if no conflict
    If {begin} is NULL, then start from the beginning of the list
 */
 static posix_lock_t *
-first_overlap (pl_inode_t *pl_inode, posix_lock_t *lock,
-	       gf_lk_domain_t dom)
+first_overlap (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
 	posix_lock_t *l = NULL;
 
@@ -354,8 +354,7 @@ first_overlap (pl_inode_t *pl_inode, posix_lock_t *lock,
 
 /* Return true if lock is grantable */
 static int
-__is_lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock,
-		     gf_lk_domain_t dom)
+__is_lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
 	posix_lock_t *l = NULL;
 	int           ret = 1;
@@ -379,8 +378,7 @@ extern void do_blocked_rw (pl_inode_t *);
 
 
 static void
-__insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
-		    gf_lk_domain_t dom)
+__insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
 	posix_lock_t  *conf = NULL;
 	posix_lock_t  *t = NULL;
@@ -400,11 +398,11 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 				sum->transport  = lock->transport;
 				sum->client_pid = lock->client_pid;
 
-				__delete_lock (pl_inode, conf); 
+				__delete_lock (pl_inode, conf);
 				__destroy_lock (conf);
 
 				__destroy_lock (lock);
-				__insert_and_merge (pl_inode, sum, dom);
+				__insert_and_merge (pl_inode, sum);
 
 				return;
 			} else {
@@ -415,7 +413,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 				sum->client_pid = conf->client_pid;
 
 				v = subtract_locks (sum, lock);
-	
+
 				__delete_lock (pl_inode, conf);
 				__destroy_lock (conf);
 
@@ -433,11 +431,11 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 						continue;
 					}
 					__insert_and_merge (pl_inode,
-							    v.locks[i], dom);
+							    v.locks[i]);
 				}
 
-				__delete_unlck_locks (pl_inode, dom);
-				return; 
+				__delete_unlck_locks (pl_inode);
+				return;
 			}
 		}
 
@@ -446,14 +444,14 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 		}
 
 		if ((conf->fl_type == F_RDLCK) && (lock->fl_type == F_RDLCK)) {
-			__insert_lock (pl_inode, lock, dom);
+			__insert_lock (pl_inode, lock);
 			return;
 		}
 	}
 
 	/* no conflicts, so just insert */
 	if (lock->fl_type != F_UNLCK) {
-		__insert_lock (pl_inode, lock, dom);
+		__insert_lock (pl_inode, lock);
 	} else {
 		__destroy_lock (lock);
 	}
@@ -461,8 +459,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 
 
 void
-__grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode,
-		       gf_lk_domain_t dom, struct list_head *granted)
+__grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode, struct list_head *granted)
 {
 	struct list_head  tmp_list;
 	posix_lock_t     *l = NULL;
@@ -473,7 +470,7 @@ __grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode,
 
 	list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
 		if (l->blocked) {
-			conf = first_overlap (pl_inode, l, dom);
+			conf = first_overlap (pl_inode, l);
 			if (conf)
 				continue;
 
@@ -485,12 +482,12 @@ __grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode,
 	list_for_each_entry_safe (l, tmp, &tmp_list, list) {
 		list_del_init (&l->list);
 
-		if (__is_lock_grantable (pl_inode, l, dom)) {
+		if (__is_lock_grantable (pl_inode, l)) {
 			conf = CALLOC (1, sizeof (*conf));
 
 			if (!conf) {
 				l->blocked = 1;
-				__insert_lock (pl_inode, l, dom);
+				__insert_lock (pl_inode, l);
 				continue;
 			}
 
@@ -506,19 +503,19 @@ __grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode,
 				l->user_flock.l_start,
 				l->user_flock.l_len);
 
-			__insert_and_merge (pl_inode, l, dom);
+			__insert_and_merge (pl_inode, l);
 
 			list_add (&conf->list, granted);
 		} else {
 			l->blocked = 1;
-			__insert_lock (pl_inode, l, dom);
+			__insert_lock (pl_inode, l);
 		}
 	}
 }
 
 
 void
-grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode, gf_lk_domain_t dom)
+grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode)
 {
 	struct list_head granted_list;
 	posix_lock_t     *tmp = NULL;
@@ -528,7 +525,7 @@ grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode, gf_lk_domain_t dom)
 
 	pthread_mutex_lock (&pl_inode->mutex);
 	{
-		__grant_blocked_locks (this, pl_inode, dom, &granted_list);
+		__grant_blocked_locks (this, pl_inode, &granted_list);
 	}
 	pthread_mutex_unlock (&pl_inode->mutex);
 
@@ -546,7 +543,7 @@ grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode, gf_lk_domain_t dom)
 
 int
 pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
-	  int can_block,  gf_lk_domain_t dom)
+	  int can_block)
 {
 	int              ret = 0;
 
@@ -554,14 +551,14 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
 	pthread_mutex_lock (&pl_inode->mutex);
 	{
-		if (__is_lock_grantable (pl_inode, lock, dom)) {
+		if (__is_lock_grantable (pl_inode, lock)) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
 				lock->user_flock.l_start,
 				lock->user_flock.l_len);
-			__insert_and_merge (pl_inode, lock, dom);
+			__insert_and_merge (pl_inode, lock);
 		} else if (can_block) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
@@ -570,7 +567,7 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 				lock->user_flock.l_start,
 				lock->user_flock.l_len);
 			lock->blocked = 1;
-			__insert_lock (pl_inode, lock, dom);
+			__insert_lock (pl_inode, lock);
 			ret = -1;
 		} else {
 			gf_log (this->name, GF_LOG_TRACE,
@@ -585,7 +582,7 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 	}
 	pthread_mutex_unlock (&pl_inode->mutex);
 
-	grant_blocked_locks (this, pl_inode, dom);
+	grant_blocked_locks (this, pl_inode);
 
 	do_blocked_rw (pl_inode);
 
@@ -594,11 +591,11 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
 
 posix_lock_t *
-pl_getlk (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t dom)
+pl_getlk (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
 	posix_lock_t *conf = NULL;
 
-	conf = first_overlap (pl_inode, lock, dom);
+	conf = first_overlap (pl_inode, lock);
 
 	if (conf == NULL) {
 		lock->fl_type = F_UNLCK;

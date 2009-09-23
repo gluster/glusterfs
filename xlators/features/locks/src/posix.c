@@ -248,14 +248,6 @@ __delete_locks_of_owner (pl_inode_t *pl_inode,
 		}
 	}
 
-	list_for_each_entry_safe (l, tmp, &pl_inode->int_list, list) {
-		if ((l->transport == transport)
-		    && (l->client_pid == pid)) {
-			__delete_lock (pl_inode, l);
-			__destroy_lock (l);
-		}
-	}
-
 	return;
 }
 
@@ -294,8 +286,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 	}
 	pthread_mutex_unlock (&pl_inode->mutex);
 
-	grant_blocked_locks (this, pl_inode, GF_LOCK_POSIX);
-	grant_blocked_locks (this, pl_inode, GF_LOCK_INTERNAL);
+	grant_blocked_locks (this, pl_inode);
 
 	do_blocked_rw (pl_inode);
 
@@ -651,7 +642,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 	case F_GETLK64:
 #endif
 	case F_GETLK:
-		conf = pl_getlk (pl_inode, reqlock, GF_LOCK_POSIX);
+		conf = pl_getlk (pl_inode, reqlock);
 		posix_lock_to_flock (conf, flock);
 		__destroy_lock (reqlock);
 
@@ -674,7 +665,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 	case F_SETLK:
 		memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
 		ret = pl_setlk (this, pl_inode, reqlock,
-				can_block, GF_LOCK_POSIX);
+				can_block);
 
 		if (ret == -1) {
 			if (can_block)
@@ -700,12 +691,12 @@ pl_forget (xlator_t *this,
 	   inode_t *inode)
 {
 	pl_inode_t   *pl_inode = NULL;
-        
+
         posix_lock_t *ext_tmp = NULL;
         posix_lock_t *ext_l   = NULL;
 
-        posix_lock_t *int_tmp = NULL;
-        posix_lock_t *int_l   = NULL;
+        pl_inode_lock_t *ino_tmp = NULL;
+        pl_inode_lock_t *ino_l   = NULL;
 
         pl_rw_req_t *rw_tmp = NULL;
         pl_rw_req_t *rw_req = NULL;
@@ -742,19 +733,19 @@ pl_forget (xlator_t *this,
                 }
 	}
 
-	if (!list_empty (&pl_inode->int_list)) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"Pending inode locks found, releasing.");
-
-                list_for_each_entry_safe (int_l, int_tmp, &pl_inode->int_list,
-                                          list) {
-
-                        __delete_lock (pl_inode, int_l);
-                        __destroy_lock (int_l);
-                }
-	}
 
         list_for_each_entry_safe (dom, dom_tmp, &pl_inode->dom_list, inode_list) {
+
+                if (!list_empty (&dom->inodelk_list)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Pending inode locks found, releasing.");
+
+                        list_for_each_entry_safe (ino_l, ino_tmp, &dom->inodelk_list, list) {
+                                __delete_inode_lock (ino_l);
+                                grant_blocked_inode_locks (pl_inode, ino_l, dom);
+                        }
+
+                }
                 if (!list_empty (&dom->entrylk_list)) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Pending entry locks found, releasing.");
@@ -762,13 +753,17 @@ pl_forget (xlator_t *this,
                         list_for_each_entry_safe (entry_l, entry_tmp, &dom->entrylk_list, domain_list) {
                                 list_del_init (&entry_l->domain_list);
                                 grant_blocked_entry_locks (this, pl_inode, entry_l, dom);
+
                                 if (entry_l->basename)
                                         FREE (entry_l->basename);
                                 FREE (entry_l);
                         }
 
                 }
+
                 list_del (&dom->inode_list);
+                gf_log ("posix-locks", GF_LOG_TRACE,
+                        " Cleaning up domain: %s", dom->domain);
                 FREE (dom->domain);
                 FREE (dom);
         }

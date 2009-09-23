@@ -54,6 +54,30 @@ struct __posix_lock {
 };
 typedef struct __posix_lock posix_lock_t;
 
+struct __pl_inode_lock {
+        struct list_head   list;
+        struct list_head   blocked_locks; /* list_head pointing to blocked_inodelks */
+
+        short              fl_type;
+        off_t              fl_start;
+        off_t              fl_end;
+
+        const char        *volume;
+
+        struct flock       user_flock; /* the flock supplied by the user */
+        xlator_t          *this;       /* required for blocked locks */
+        fd_t              *fd;
+
+        call_frame_t      *frame;
+
+        /* These two together serve to uniquely identify each process
+           across nodes */
+
+        transport_t       *transport;     /* to identify client node */
+        pid_t              client_pid;    /* pid of client process */
+};
+typedef struct __pl_inode_lock pl_inode_lock_t;
+
 struct __pl_rw_req_t {
 	struct list_head      list;
 	call_stub_t          *stub;
@@ -67,6 +91,7 @@ struct __pl_dom_list_t {
         struct list_head entrylk_list;     /* List of entry locks */
         struct list_head blocked_entrylks; /* List of all blocked entrylks */
         struct list_head inodelk_list;     /* List of inode locks */
+        struct list_head blocked_inodelks; /* List of all blocked inodelks */
 };
 typedef struct __pl_dom_list_t pl_dom_list_t;
 
@@ -96,16 +121,11 @@ struct __pl_inode {
 
 	struct list_head dom_list;       /* list of domains */
 	struct list_head ext_list;       /* list of fcntl locks */
-	struct list_head int_list;       /* list of internal locks */
 	struct list_head rw_list;        /* list of waiting r/w requests */
 	int              mandatory;      /* if mandatory locking is enabled */
 };
 typedef struct __pl_inode pl_inode_t;
 
-
-#define LOCKS_FOR_DOMAIN(inode,domain) (domain == GF_LOCK_POSIX \
-					? inode->fcntl_locks	\
-					: inode->inodelk_locks)
 
 struct __pl_fd {
 	gf_boolean_t nonblocking;       /* whether O_NONBLOCK has been set */

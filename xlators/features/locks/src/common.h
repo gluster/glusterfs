@@ -27,14 +27,14 @@ pl_inode_t *
 pl_inode_get (xlator_t *this, inode_t *inode);
 
 posix_lock_t *
-pl_getlk (pl_inode_t *inode, posix_lock_t *lock, gf_lk_domain_t domain);
+pl_getlk (pl_inode_t *inode, posix_lock_t *lock);
 
 int
 pl_setlk (xlator_t *this, pl_inode_t *inode, posix_lock_t *lock,
-	  int can_block, gf_lk_domain_t domain);
+	  int can_block);
 
 void
-grant_blocked_locks (xlator_t *this, pl_inode_t *inode, gf_lk_domain_t domain);
+grant_blocked_locks (xlator_t *this, pl_inode_t *inode);
 
 void
 posix_lock_to_flock (posix_lock_t *lock, struct flock *flock);
@@ -49,11 +49,20 @@ void __delete_lock (pl_inode_t *, posix_lock_t *);
 
 void __destroy_lock (posix_lock_t *);
 
+pl_dom_list_t *
+get_domain (pl_inode_t *pl_inode, const char *volume);
+
+void
+grant_blocked_inode_locks (pl_inode_t *pl_inode, pl_inode_lock_t *lock, pl_dom_list_t *dom);
+
+void
+__delete_inode_lock (pl_inode_lock_t *lock);
+
+void
+__destroy_inode_lock (pl_inode_lock_t *lock);
+
 void
 grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 			   pl_entry_lock_t *unlocked, pl_dom_list_t *dom);
-
-pl_dom_list_t *
-get_domain (pl_inode_t *pl_inode, const char *volume);
 
 #endif /* __COMMON_H__ */
