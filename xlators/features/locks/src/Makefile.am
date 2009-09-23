@@ -3,7 +3,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 locks_la_LDFLAGS = -module -avoidversion
 
-locks_la_SOURCES = common.c posix.c
+locks_la_SOURCES = common.c posix.c entrylk.c
 locks_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la 
 
 noinst_HEADERS = locks.h common.h

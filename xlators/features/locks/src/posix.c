@@ -713,15 +713,18 @@ pl_forget (xlator_t *this,
         pl_entry_lock_t *entry_tmp = NULL;
         pl_entry_lock_t *entry_l   = NULL;
 
+        pl_dom_list_t *dom = NULL;
+        pl_dom_list_t *dom_tmp = NULL;
+
 	pl_inode = pl_inode_get (this, inode);
 
 	if (!list_empty (&pl_inode->rw_list)) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Pending R/W requests found, releasing.");
-                
-                list_for_each_entry_safe (rw_req, rw_tmp, &pl_inode->rw_list, 
+
+                list_for_each_entry_safe (rw_req, rw_tmp, &pl_inode->rw_list,
                                           list) {
-                        
+
                         list_del (&rw_req->list);
                         FREE (rw_req);
                 }
@@ -731,9 +734,9 @@ pl_forget (xlator_t *this,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Pending fcntl locks found, releasing.");
 
-                list_for_each_entry_safe (ext_l, ext_tmp, &pl_inode->ext_list, 
+                list_for_each_entry_safe (ext_l, ext_tmp, &pl_inode->ext_list,
                                           list) {
-                        
+
                         __delete_lock (pl_inode, ext_l);
                         __destroy_lock (ext_l);
                 }
@@ -743,25 +746,32 @@ pl_forget (xlator_t *this,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Pending inode locks found, releasing.");
 
-                list_for_each_entry_safe (int_l, int_tmp, &pl_inode->int_list, 
+                list_for_each_entry_safe (int_l, int_tmp, &pl_inode->int_list,
                                           list) {
-                        
+
                         __delete_lock (pl_inode, int_l);
                         __destroy_lock (int_l);
                 }
 	}
 
-	if (!list_empty (&pl_inode->dir_list)) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"Pending entry locks found, releasing.");
-                
-                list_for_each_entry_safe (entry_l, entry_tmp, 
-                                          &pl_inode->dir_list, inode_list) {
-                        
-                        list_del (&entry_l->inode_list);
-                        FREE (entry_l);
+        list_for_each_entry_safe (dom, dom_tmp, &pl_inode->dom_list, inode_list) {
+                if (!list_empty (&dom->entrylk_list)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Pending entry locks found, releasing.");
+
+                        list_for_each_entry_safe (entry_l, entry_tmp, &dom->entrylk_list, domain_list) {
+                                list_del_init (&entry_l->domain_list);
+                                grant_blocked_entry_locks (this, pl_inode, entry_l, dom);
+                                if (entry_l->basename)
+                                        FREE (entry_l->basename);
+                                FREE (entry_l);
+                        }
+
                 }
-	}
+                list_del (&dom->inode_list);
+                FREE (dom->domain);
+                FREE (dom);
+        }
 
         FREE (pl_inode);
 

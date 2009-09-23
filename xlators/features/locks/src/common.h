@@ -49,4 +49,11 @@ void __delete_lock (pl_inode_t *, posix_lock_t *);
 
 void __destroy_lock (posix_lock_t *);
 
+void
+grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
+			   pl_entry_lock_t *unlocked, pl_dom_list_t *dom);
+
+pl_dom_list_t *
+get_domain (pl_inode_t *pl_inode, const char *volume);
+
 #endif /* __COMMON_H__ */
