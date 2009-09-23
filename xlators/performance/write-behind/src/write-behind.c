@@ -48,7 +48,8 @@ struct wb_file;
 typedef struct wb_file {
         int          disabled;
         uint64_t     disable_till;
-        size_t       window_size;
+        size_t       window_conf;
+        size_t       window_current;
         int32_t      refcount;
         int32_t      op_ret;
         int32_t      op_errno;
@@ -276,6 +277,7 @@ wb_file_create (xlator_t *this, fd_t *fd)
         file->disable_till = conf->disable_till;
         file->this = this;
         file->refcount = 1;
+        file->window_conf = conf->window_size;
 
         fd_ctx_set (fd, this, (uint64_t)(long)file);
 
@@ -330,6 +332,10 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                                 per_request_local = request->stub->frame->local;
                                 per_request_local->op_ret = op_ret;
                                 per_request_local->op_errno = op_errno;
+                        }
+
+                        if (request->flags.write_request.write_behind) {
+                                file->window_current -= request->write_size;
                         }
 
                         __wb_request_unref (request);
@@ -1186,7 +1192,7 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                             || ((flags & O_ACCMODE) == O_RDONLY)
                             || (((flags & O_SYNC) == O_SYNC)
                                 && conf->enable_O_SYNC == _gf_true)) { 
-                                file->window_size = 0;
+                                file->window_conf = 0;
                         }
                 }
 
@@ -1245,7 +1251,7 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             || ((flags & O_ACCMODE) == O_RDONLY)
                             || (((flags & O_SYNC) == O_SYNC)
                                 && (conf->enable_O_SYNC == _gf_true))) { 
-                                file->window_size = 0;
+                                file->window_conf = 0;
                         }
                 }
 
@@ -1397,45 +1403,19 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
 }
 
 
-char
-__wb_can_unwind (list_head_t *list, size_t window_conf,
-                 size_t *window_current_ptr)
-{
-        wb_request_t *request = NULL;
-        size_t        window_current = 0;
-        char          can_unwind = 1;
-
-        list_for_each_entry (request, list, list)
-        {
-                if ((request->stub == NULL)
-                    || (request->stub->fop != GF_FOP_WRITE)) {
-                        continue;
-                }
-
-                if (request->flags.write_request.write_behind
-                    && !request->flags.write_request.got_reply)
-                {
-                        window_current += request->write_size;
-                        if (window_current > window_conf) {
-                                can_unwind = 0;
-                                break;
-                        }
-                }
-        }
-
-        if (can_unwind && (window_current_ptr != NULL)) {
-                *window_current_ptr = window_current;
-        }
- 
-        return can_unwind;
-}
-
-
 size_t 
 __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
 {
         size_t        written_behind = 0;
-        wb_request_t *request = NULL;
+        wb_request_t *request        = NULL;
+        wb_file_t    *file           = NULL;
+
+        if (list_empty (list)) {
+                goto out;
+        }
+
+        request = list_entry (list->next, typeof (*request), list);
+        file = request->file;
 
         list_for_each_entry (request, list, list)
         {
@@ -1449,25 +1429,41 @@ __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
                                 written_behind += request->write_size;
                                 request->flags.write_request.write_behind = 1;
                                 list_add_tail (&request->unwinds, unwinds);
+                                
+                                if (!request->flags.write_request.got_reply) {
+                                        file->window_current += request->write_size;
+                                }
                         }
                 } else {
                         break;
                 }
         }
 
+out:
         return written_behind;
 }
 
 
 void
-__wb_mark_unwinds (list_head_t *list, list_head_t *unwinds, size_t window_conf)
+__wb_mark_unwinds (list_head_t *list, list_head_t *unwinds)
 {
-        size_t window_current = 0;
+        wb_request_t *request        = NULL;
+        wb_file_t    *file           = NULL;
 
-        if (__wb_can_unwind (list, window_conf, &window_current)) {
-                __wb_mark_unwind_till (list, unwinds,
-                                       window_conf - window_current);
+        if (list_empty (list)) {
+                goto out;
         }
+
+        request = list_entry (list->next, typeof (*request), list);
+        file = request->file;
+
+        if (file->window_current <= file->window_conf) {
+                __wb_mark_unwind_till (list, unwinds,
+                                       file->window_conf - file->window_current);
+        }
+
+out:
+        return;
 }
 
 
@@ -1676,7 +1672,7 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all)
                  * an iobuf) are packed properly so that iobufs are filled to
                  * their maximum capacity, before calling __wb_mark_winds.
                  */
-                __wb_mark_unwinds (&file->request, &unwinds, conf->window_size);
+                __wb_mark_unwinds (&file->request, &unwinds);
 
                 __wb_collapse_write_bufs (&file->request,
                                           file->this->ctx->page_size);
