@@ -46,6 +46,7 @@ struct _fd {
         pid_t             pid;
 	int32_t           flags;
         int32_t           refcount;
+        uint64_t          flush_unique;
         struct list_head  inode_list;
         struct _inode    *inode;
         struct _dict     *ctx;
