@@ -66,6 +66,7 @@ typedef struct wb_request {
         list_head_t  unwinds;
         list_head_t  other_requests;
         call_stub_t *stub;
+        size_t       write_size;
         int32_t      refcount;
         wb_file_t   *file;
         union {
@@ -227,7 +228,8 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
 
                 frame = stub->frame;
                 local = frame->local;
-                local->op_ret = iov_length (vector, count);
+                request->write_size = iov_length (vector, count);
+                local->op_ret = request->write_size;
                 local->op_errno = 0;
         }
 
@@ -421,8 +423,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         bytecount);
                 copied += bytecount;
       
-                current_size += iov_length (request->stub->args.writev.vector,
-                                            request->stub->args.writev.count);
+                current_size += request->write_size;
 
                 if (request->stub->args.writev.iobref) {
                         iobref_merge (iobref,
@@ -441,8 +442,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                 if ((!next)
                     || ((count + next->stub->args.writev.count)
                         > MAX_VECTOR_COUNT)
-                    || ((current_size + iov_length (next->stub->args.writev.vector,
-                                                    next->stub->args.writev.count))
+                    || ((current_size + next->write_size)
                         > conf->aggregate_size))
                 {
                         sync_frame = copy_frame (frame);  
@@ -1279,11 +1279,8 @@ __wb_mark_wind_all (list_head_t *list, list_head_t *winds)
 {
         wb_request_t *request = NULL;
         size_t        size = 0;
-        struct iovec *vector = NULL;
-        int32_t       count = 0;
         char          first_request = 1;
         off_t         offset_expected = 0;
-        size_t        length = 0;
 
         list_for_each_entry (request, list, list)
         {
@@ -1292,8 +1289,6 @@ __wb_mark_wind_all (list_head_t *list, list_head_t *winds)
                         break;
                 }
 
-                vector = request->stub->args.writev.vector;
-                count = request->stub->args.writev.count;
                 if (!request->flags.write_request.stack_wound) {
                         if (first_request) {
                                 first_request = 0;
@@ -1304,9 +1299,8 @@ __wb_mark_wind_all (list_head_t *list, list_head_t *winds)
                                 break;
                         }
 
-                        length = iov_length (vector, count);
-                        size += length;
-                        offset_expected += length;
+                        size += request->write_size;
+                        offset_expected += request->write_size;
 
                         request->flags.write_request.stack_wound = 1;
                         list_add_tail (&request->winds, winds);
@@ -1323,9 +1317,7 @@ __wb_can_wind (list_head_t *list, size_t aggregate_conf,
                char *incomplete_writes, char *enough_data_aggregated)
 {
         wb_request_t *request = NULL;
-        size_t        aggregate_current = 0, length = 0;
-        struct iovec *vector = NULL;
-        int32_t       count = 0;
+        size_t        aggregate_current = 0;
         char          first_request = 1;
         off_t         offset_expected = 0;
 
@@ -1346,8 +1338,6 @@ __wb_can_wind (list_head_t *list, size_t aggregate_conf,
                         break;
                 }
 
-                vector = request->stub->args.writev.vector;
-                count = request->stub->args.writev.count;
                 if (!request->flags.write_request.stack_wound) {
                         if (first_request) {
                                 first_request = 0;
@@ -1361,9 +1351,8 @@ __wb_can_wind (list_head_t *list, size_t aggregate_conf,
                                 break;
                         }
 
-                        length = iov_length (vector, count);
-                        aggregate_current += length;
-                        offset_expected += length;
+                        aggregate_current += request->write_size;
+                        offset_expected += request->write_size;
 
                         if (aggregate_current >= aggregate_conf) {
                                 if (enough_data_aggregated != NULL) {
@@ -1414,8 +1403,6 @@ __wb_can_unwind (list_head_t *list, size_t window_conf,
 {
         wb_request_t *request = NULL;
         size_t        window_current = 0;
-        struct iovec *vector = NULL;
-        int32_t       count = 0;
         char          can_unwind = 1;
 
         list_for_each_entry (request, list, list)
@@ -1425,13 +1412,10 @@ __wb_can_unwind (list_head_t *list, size_t window_conf,
                         continue;
                 }
 
-                vector = request->stub->args.writev.vector;
-                count = request->stub->args.writev.count;
-
                 if (request->flags.write_request.write_behind
                     && !request->flags.write_request.got_reply)
                 {
-                        window_current += iov_length (vector, count);
+                        window_current += request->write_size;
                         if (window_current > window_conf) {
                                 can_unwind = 0;
                                 break;
@@ -1452,8 +1436,6 @@ __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
 {
         size_t        written_behind = 0;
         wb_request_t *request = NULL;
-        struct iovec *vector = NULL;
-        int32_t       count = 0;
 
         list_for_each_entry (request, list, list)
         {
@@ -1462,12 +1444,9 @@ __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
                         continue;
                 }
 
-                vector = request->stub->args.writev.vector;
-                count = request->stub->args.writev.count;
-
                 if (written_behind <= size) {
                         if (!request->flags.write_request.write_behind) {
-                                written_behind += iov_length (vector, count);
+                                written_behind += request->write_size;
                                 request->flags.write_request.write_behind = 1;
                                 list_add_tail (&request->unwinds, unwinds);
                         }
@@ -1611,7 +1590,7 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
 {
 
         off_t         offset_expected = 0;
-        size_t        space_left      = 0, length = 0, *iov_len = NULL;
+        size_t        space_left      = 0, *iov_len = NULL, *write_size = NULL;
         char         *ptr             = NULL, first_request = 1;
         wb_request_t *request         = NULL, *tmp = NULL;
 
@@ -1625,46 +1604,47 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
                 }
 
                 if (request->flags.write_request.write_behind) {
-                        length = iov_length (request->stub->args.writev.vector,
-                                             request->stub->args.writev.count);
-
                         if (first_request) {
                                 first_request = 0;
                                 offset_expected = request->stub->args.writev.off;
                         }
                         
                         if (request->stub->args.writev.off != offset_expected) {
-                                offset_expected = request->stub->args.writev.off + length;
-                                space_left = page_size - length;
+                                offset_expected = request->stub->args.writev.off
+                                        + request->write_size;
+                                space_left = page_size - request->write_size;
                                 ptr = request->stub->args.writev.vector[0].iov_base
-                                        + length;
+                                        + request->write_size;
                                 iov_len = &request->stub->args.writev.vector[0].iov_len;
+                                write_size = &request->write_size;
                                 continue;
                         }
 
-                        if (space_left >= length) {
+                        if (space_left >= request->write_size) {
                                 iov_unload (ptr,
                                             request->stub->args.writev.vector,
                                             request->stub->args.writev.count);
-                                space_left -= length;
-                                ptr += length;
-                                *iov_len = *iov_len + length;
+                                space_left -= request->write_size;
+                                ptr += request->write_size;
+                                *iov_len = *iov_len + request->write_size;
+                                *write_size = *write_size + request->write_size;
 
                                 list_move_tail (&request->list,
                                                 &request->file->passive_requests);
 
                                 __wb_request_unref (request);
                         } else {
-                                space_left = page_size - length;
+                                space_left = page_size - request->write_size;
                                 ptr = request->stub->args.writev.vector[0].iov_base
-                                        + length;
+                                        + request->write_size;
                                 iov_len = &request->stub->args.writev.vector[0].iov_len;
+                                write_size = &request->write_size;
                         }
                 } else { 
                         break;
                 }
 
-                offset_expected += length;
+                offset_expected += request->write_size;
         }
 }
 
