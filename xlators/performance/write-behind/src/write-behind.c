@@ -50,6 +50,7 @@ typedef struct wb_file {
         uint64_t     disable_till;
         size_t       window_conf;
         size_t       window_current;
+        size_t       aggregate_current;
         int32_t      refcount;
         int32_t      op_ret;
         int32_t      op_errno;
@@ -243,6 +244,8 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
 
                         /* reference for stack unwinding */
                         __wb_request_ref (request);
+
+                        file->aggregate_current += request->write_size;
                 } else {
                         /*reference for resuming */
                         __wb_request_ref (request);
@@ -1281,7 +1284,7 @@ wb_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
 
 size_t
-__wb_mark_wind_all (list_head_t *list, list_head_t *winds)
+__wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
 {
         wb_request_t *request = NULL;
         size_t        size = 0;
@@ -1307,6 +1310,7 @@ __wb_mark_wind_all (list_head_t *list, list_head_t *winds)
 
                         size += request->write_size;
                         offset_expected += request->write_size;
+                        file->aggregate_current -= request->write_size;
 
                         request->flags.write_request.stack_wound = 1;
                         list_add_tail (&request->winds, winds);
@@ -1318,12 +1322,10 @@ __wb_mark_wind_all (list_head_t *list, list_head_t *winds)
 
 
 void
-__wb_can_wind (list_head_t *list, size_t aggregate_conf,
-               char *other_fop_in_queue, char *non_contiguous_writes,
-               char *incomplete_writes, char *enough_data_aggregated)
+__wb_can_wind (list_head_t *list, char *other_fop_in_queue,
+               char *non_contiguous_writes, char *incomplete_writes)
 {
         wb_request_t *request = NULL;
-        size_t        aggregate_current = 0;
         char          first_request = 1;
         off_t         offset_expected = 0;
 
@@ -1357,15 +1359,7 @@ __wb_can_wind (list_head_t *list, size_t aggregate_conf,
                                 break;
                         }
 
-                        aggregate_current += request->write_size;
                         offset_expected += request->write_size;
-
-                        if (aggregate_current >= aggregate_conf) {
-                                if (enough_data_aggregated != NULL) {
-                                        *enough_data_aggregated = 1;
-                                }
-                                break;
-                        }
                 }
         }
 
@@ -1377,28 +1371,37 @@ ssize_t
 __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
                  char wind_all, char enable_trickling_writes)
 {
-        size_t   size                   = 0;
-        char     other_fop_in_queue     = 0;
-        char     incomplete_writes      = 1; 
-        char     non_contiguous_writes  = 0;
-        char     enough_data_aggregated = 0;
-        char    *trickling_writes       = NULL;
+        size_t        size                   = 0;
+        char          other_fop_in_queue     = 0;
+        char          incomplete_writes      = 1; 
+        char          non_contiguous_writes  = 0;
+        char         *trickling_writes       = NULL;
+        wb_request_t *request                = NULL;
+        wb_file_t    *file                   = NULL;
 
-        if (enable_trickling_writes) {
-                trickling_writes = &incomplete_writes;
+        if (list_empty (list)) {
+                goto out;
         }
 
-        if (!wind_all) {
-                __wb_can_wind (list, aggregate_conf, &other_fop_in_queue,
-                               &non_contiguous_writes, trickling_writes,
-                               &enough_data_aggregated);
+        request = list_entry (list->next, typeof (*request), list);
+        file = request->file;
+
+        if (!wind_all && (file->aggregate_current < aggregate_conf)) {
+                if (enable_trickling_writes) {
+                        trickling_writes = &incomplete_writes;
+                }
+
+                __wb_can_wind (list, &other_fop_in_queue,
+                               &non_contiguous_writes, trickling_writes);
         }
 
         if ((!incomplete_writes) || (wind_all) || (non_contiguous_writes)
-            || (other_fop_in_queue) || (enough_data_aggregated)) {
-                size = __wb_mark_wind_all (list, winds);
+            || (other_fop_in_queue)
+            || (file->aggregate_current >= aggregate_conf)) {
+                size = __wb_mark_wind_all (file, list, winds);
         } 
 
+out:
         return size;
 }
 
