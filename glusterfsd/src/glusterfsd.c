@@ -32,6 +32,11 @@
 
 #include <stdint.h>
 #include <pthread.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <time.h>
+#include <semaphore.h>
+#include <errno.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -161,6 +166,87 @@ static struct argp_option gf_options[] = {
 
 static struct argp argp = { gf_options, parse_opts, argp_doc, gf_doc };
 
+/* Make use of semaphore to synchronize daemonization */
+int
+gf_daemon (sem_t **sem_id)
+{
+        pid_t		pid = -1;
+        struct timespec time_out_value;
+        char 		sem_name[28] = { 0 };
+	sem_t           *semid = SEM_FAILED;
+
+        snprintf (sem_name, sizeof (sem_name),
+                  "%s-%d", "/gluster-semaphore", getpid ());
+
+        if ((semid = sem_open (sem_name, O_CREAT | O_EXCL,0666, 0)) < 0) {
+                if (errno == EEXIST) {
+                 /* if stale semaphore exists unlink it first and
+		    create again */
+                        if (sem_unlink (sem_name) < 0) {
+			        gf_log ("glusterfs", GF_LOG_ERROR,
+					"stale semaphore unlink error: %s",
+					 strerror (errno));
+                                return -1;
+                        }
+
+                        semid = sem_open (sem_name, O_CREAT | O_EXCL,
+					  0666, 0);
+                }
+
+		if (semid == SEM_FAILED) {
+			gf_log ("glusterfs", GF_LOG_ERROR,
+				"semaphore create error: %s",
+				 strerror (errno));
+                        return -1;
+                }
+        }
+
+	*sem_id = semid;
+
+        if ((pid = fork ()) < 0) {
+	        gf_log ("glusterfs", GF_LOG_ERROR, "fork error: %s",
+			strerror (errno));
+                return -1;
+        } else if (pid != 0) {
+              /* parent process waits on semaphore until its value is > 0 */
+                time_out_value.tv_sec = 100;
+                time_out_value.tv_nsec = 0;
+
+                if ((sem_timedwait (semid, &time_out_value) < 0)
+				&& (errno != ETIMEDOUT)) {
+                        gf_log ("glusterfs", GF_LOG_ERROR,
+				"semaphore wait error: %s",
+				strerror (errno));
+                        return -1;
+                }
+
+                if (sem_close (semid) < 0) {
+		        gf_log ("glusterfs", GF_LOG_ERROR,
+				"close semaphore error: %s",
+				strerror (errno));
+                        return -1;
+                }
+
+                if (sem_unlink (sem_name) < 0) {
+		        gf_log ("glusterfs", GF_LOG_ERROR,
+				"semaphore unlink error: %s",
+				strerror (errno));
+                        return -1;
+                }
+
+                exit(0);
+        }
+
+        /*child continues*/
+	if (daemon (0, 0) == -1) {
+		gf_log ("glusterfs", GF_LOG_ERROR,
+			"unable to run in daemon mode: %s",
+			strerror (errno));
+		return -1;
+	}
+
+        return 0;
+}
 
 static void 
 _gf_dump_details (int argc, char **argv)
@@ -1036,6 +1122,7 @@ main (int argc, char *argv[])
 	int               fuse_volume_found = 0;
 	int               xl_count = 0;
 	uint8_t           process_mode = 0;
+        sem_t            *semid = SEM_FAILED;
 
         ret = glusterfs_globals_init ();
         if (ret)
@@ -1230,10 +1317,8 @@ main (int argc, char *argv[])
 		
 	/* daemonize now */
 	if (!cmd_args->no_daemon_mode) {
-		if (daemon (0, 0) == -1) {
-			fprintf (stderr, "unable to run in daemon mode: %s",
-				 strerror (errno));
-			gf_log ("glusterfs", GF_LOG_ERROR, 
+                if (gf_daemon (&semid) == -1) {
+			gf_log ("glusterfs", GF_LOG_ERROR,
 				"unable to run in daemon mode: %s",
 				strerror (errno));
 			return -1;
@@ -1271,8 +1356,14 @@ main (int argc, char *argv[])
 
 	ctx->graph = graph;
 	if (glusterfs_graph_init (graph, fuse_volume_found) != 0) {
-		gf_log ("glusterfs", GF_LOG_ERROR, 
+		gf_log ("glusterfs", GF_LOG_ERROR,
 			"translator initialization failed.  exiting");
+		if (sem_post (semid) < 0) {
+			gf_log ("glusterfs", GF_LOG_ERROR,
+                                "semaphore synchronization failed,"
+                                " daemonize problem.exiting: %s",
+                                 strerror (errno));
+		}
 		return -1;
 	}
 
@@ -1280,6 +1371,14 @@ main (int argc, char *argv[])
 	graph->notify (graph, GF_EVENT_PARENT_UP, ctx->graph);
 
 	gf_log ("glusterfs", GF_LOG_NORMAL, "Successfully started");
+
+	if (sem_post (semid) < 0) {
+		gf_log ("glusterfs", GF_LOG_ERROR,
+                        "semaphore synchronization failed,"
+                        " daemonize problem.  exiting: %s",
+                         strerror (errno));
+		return -1;
+	}
 	
         if (cmd_args->log_server) {
                 gf_log_central_init (ctx, cmd_args->log_server,
