@@ -44,9 +44,6 @@ static void
 __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 		    gf_lk_domain_t dom);
 
-#define DOMAIN_HEAD(pl_inode, dom) (dom == GF_LOCK_POSIX	\
-				    ? &pl_inode->ext_list	\
-				    : &pl_inode->int_list)
 
 pl_inode_t *
 pl_inode_get (xlator_t *this, inode_t *inode)
@@ -150,7 +147,7 @@ posix_lock_to_flock (posix_lock_t *lock, struct flock *flock)
 static void
 __insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock, gf_lk_domain_t dom)
 {
-	list_add_tail (&lock->list, DOMAIN_HEAD (pl_inode, dom));
+	list_add_tail (&lock->list, &pl_inode->ext_list);
 
 	return;
 }
@@ -187,7 +184,7 @@ __delete_unlck_locks (pl_inode_t *pl_inode, gf_lk_domain_t dom)
 	posix_lock_t *l = NULL;
 	posix_lock_t *tmp = NULL;
 
-	list_for_each_entry_safe (l, tmp, DOMAIN_HEAD (pl_inode, dom), list) {
+	list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
 		if (l->fl_type == F_UNLCK) {
 			__delete_lock (pl_inode, l);
 			__destroy_lock (l);
@@ -291,7 +288,7 @@ first_overlap (pl_inode_t *pl_inode, posix_lock_t *lock,
 {
 	posix_lock_t *l = NULL;
 
-	list_for_each_entry (l, DOMAIN_HEAD (pl_inode, dom), list) {
+	list_for_each_entry (l, &pl_inode->ext_list, list) {
 		if (l->blocked)
 			continue;
 
@@ -312,7 +309,7 @@ __is_lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock,
 	posix_lock_t *l = NULL;
 	int           ret = 1;
 
-	list_for_each_entry (l, DOMAIN_HEAD (pl_inode, dom), list) {
+	list_for_each_entry (l, &pl_inode->ext_list, list) {
 		if (!l->blocked && locks_overlap (lock, l)) {
 			if (((l->fl_type == F_WRLCK)
 			     || (lock->fl_type == F_WRLCK))
@@ -340,7 +337,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 	int            i = 0;
 	struct _values v = { .locks = {0, 0, 0} };
 
-	list_for_each_entry_safe (conf, t, DOMAIN_HEAD (pl_inode, dom), list) {
+	list_for_each_entry_safe (conf, t, &pl_inode->ext_list, list) {
 		if (!locks_overlap (conf, lock))
 			continue;
 
@@ -423,7 +420,7 @@ __grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode,
 
 	INIT_LIST_HEAD (&tmp_list);
 
-	list_for_each_entry_safe (l, tmp, DOMAIN_HEAD (pl_inode, dom), list) {
+	list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
 		if (l->blocked) {
 			conf = first_overlap (pl_inode, l, dom);
 			if (conf)
