@@ -234,6 +234,32 @@ afr_sh_algo_full (call_frame_t *frame, xlator_t *this)
  */
 
 
+static void
+sh_diff_private_cleanup (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t *             priv    = NULL;
+        afr_local_t *               local   = NULL;
+        afr_self_heal_t *           sh      = NULL;
+        afr_sh_algo_diff_private_t *sh_priv = NULL;
+
+        priv  = this->private;
+        local = frame->local;
+        sh    = &local->self_heal;
+
+        sh_priv = sh->private;
+
+        if (sh_priv) {
+                if (sh_priv->checksum)
+                        FREE (sh_priv->checksum);
+
+                if (sh_priv->write_needed)
+                        FREE (sh_priv->write_needed);
+
+                FREE (sh_priv);
+        }
+}
+
+
 static int
 sh_diff_number_of_writes_needed (unsigned char *write_needed, int child_count)
 {
@@ -530,6 +556,8 @@ sh_diff_iter (call_frame_t *frame, xlator_t *this)
 	sh    = &local->self_heal;
 
 	if (sh->op_failed) {
+                sh_diff_private_cleanup (frame, this);
+
 		local->self_heal.algo_abort_cbk (frame, this);
 		goto out;
 	}
@@ -538,6 +566,8 @@ sh_diff_iter (call_frame_t *frame, xlator_t *this)
 		gf_log (this->name, GF_LOG_TRACE,
 			"closing fd's of %s",
 			local->loc.path);
+
+                sh_diff_private_cleanup (frame, this);
 
 		local->self_heal.algo_completion_cbk (frame, this);
 
