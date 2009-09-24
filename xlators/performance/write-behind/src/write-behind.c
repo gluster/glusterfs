@@ -1594,7 +1594,8 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
         wb_request_t *request         = NULL, *tmp = NULL;
 
         list_for_each_entry_safe (request, tmp, requests, list) {
-                if ((request->stub->fop != GF_FOP_WRITE)
+                if ((request->stub == NULL)
+                    || (request->stub->fop != GF_FOP_WRITE)
                     || (request->flags.write_request.stack_wound)) {
                         space_left = 0;
                         ptr = NULL;
