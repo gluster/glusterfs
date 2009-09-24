@@ -341,7 +341,7 @@ libgf_dcache_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
          * or the cache is empty.
          */
         if (!fd_ctx->dcache->next) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "No entries present");
+                gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "No entries present");
                 goto out;
         }
 
@@ -352,7 +352,7 @@ libgf_dcache_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
          * and we'll need to pre-fetch more entries to continue serving.
          */
         if (fd_ctx->dcache->next == &fd_ctx->dcache->entries) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Entries exhausted");
+                gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Entries exhausted");
                 goto out;
         }
 
@@ -373,11 +373,11 @@ libgf_dcache_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
                  * of the previous readdir block.
                  */
                 if ((*offset != 0) && (fd_ctx->dcache->prev_off == 0)) {
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Entries"
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Entries"
                                 " exhausted");
                         cachevalid = 1;
                 } else
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Dcache"
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Dcache"
                                 " invalidated previously");
         } else
                 cachevalid = 1;
@@ -513,12 +513,12 @@ libgf_update_iattr_cache (inode_t *inode, int flags, struct stat *buf)
                  */
                 current = time (NULL);
                 if (flags & LIBGF_UPDATE_LOOKUP) {
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Updating lookup");
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Updating lookup");
                         inode_ctx->previous_lookup_time = current;
                 }
 
                 if (flags & LIBGF_UPDATE_STAT) {
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Updating stat");
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Updating stat");
 
                         /* Update the cached stat struct only if a new
                          * stat buf is given.
@@ -556,13 +556,13 @@ libgf_invalidate_iattr_cache (inode_t *inode, int flags)
         pthread_mutex_lock (&ictx->lock);
         {
                 if (flags & LIBGF_INVALIDATE_LOOKUP) {
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Invalidating"
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Invalidating"
                                 " lookup");
                         ictx->previous_lookup_time = 0;
                 }
 
                 if (flags & LIBGF_INVALIDATE_STAT) {
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Invalidating"
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Invalidating"
                                 " stat");
                         ictx->previous_stat_time = 0;
                 }
@@ -598,11 +598,11 @@ libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
         {
                 current = time (NULL);
                 if (flags & LIBGF_VALIDATE_LOOKUP) {
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Checking lookup");
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Checking lookup");
                         prev = inode_ctx->previous_lookup_time;
                         timeout = ctx->lookup_timeout;
                 } else {
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Checking stat");
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Checking stat");
                         prev = inode_ctx->previous_stat_time;
                         timeout = ctx->stat_timeout;
                 }
@@ -616,14 +616,14 @@ libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
                  */
                 if (prev == 0) {
                         cache_valid = 0;
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Cache Invalid");
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Cache Invalid");
                         goto iattr_unlock_out;
                 }
 
                 /* Cache infinitely */
                 if (timeout == (time_t)-1) {
                         cache_valid = 1;
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Caching On and "
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Caching On and "
                                 "valid");
                         goto iattr_unlock_out;
                 }
@@ -631,12 +631,12 @@ libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
                 /* Disable caching completely */
                 if (timeout == 0) {
                         cache_valid = 0;
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Cache disabled");
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Cache disabled");
                         goto iattr_unlock_out;
                 }
 
                 if ((prev > 0) && (timeout >= (current - prev))) {
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Cache valid");
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Cache valid");
                         cache_valid = 1;
                 }
 
@@ -1523,7 +1523,7 @@ _libgf_vmp_search_entry (char *path, int searchtype)
         list_for_each_entry(entry, &vmplist.list, list) {
                 vmpcompcount = libgf_count_path_components (entry->vmp);
                 matchcount = libgf_vmp_entry_match (entry, path);
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Candidate VMP:  %s,"
+                gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Candidate VMP:  %s,"
                         " Matchcount: %d", entry->vmp, matchcount);
                 if ((matchcount > maxcount) && (matchcount == vmpcompcount)) {
                         maxcount = matchcount;
@@ -1539,14 +1539,14 @@ _libgf_vmp_search_entry (char *path, int searchtype)
         if ((searchtype == LIBGF_VMP_EXACT) && (maxentry)) {
                 vmpcompcount = libgf_count_path_components (maxentry->vmp);
                 matchcount = libgf_count_path_components (path);
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Exact Check: VMP: %s,"
+                gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Exact Check: VMP: %s,"
                         " CompCount: %d, Path: %s, CompCount: %d",
                         maxentry->vmp, vmpcompcount, path, matchcount);
                 if (vmpcompcount != matchcount) {
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "No Match");
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "No Match");
                         maxentry = NULL;
                 } else
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Matches!");
+                        gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Matches!");
         }
 
 out:        
