@@ -1816,10 +1816,44 @@ void glusterfs_log_unlock (void)
 }
 
 
+void
+libgf_wait_for_frames_unwind (libglusterfs_client_ctx_t *ctx)
+{
+        call_pool_t     *pool = NULL;
+        int             canreturn = 0;
+
+        if (!ctx)
+                return;
+
+        pool = (call_pool_t *)ctx->gf_ctx.pool;
+        while (1) {
+                LOCK (&pool->lock);
+                {
+                        if (pool->cnt == 0) {
+                                canreturn = 1;
+                                goto unlock_out;
+                        }
+                }
+unlock_out:
+                UNLOCK (&pool->lock);
+
+                if (canreturn)
+                        break;
+
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Waiting for call frames");
+                sleep (1);
+        }
+
+        return;
+}
+
+
 int 
 glusterfs_fini (glusterfs_handle_t handle)
 {
 	libglusterfs_client_ctx_t *ctx = handle;
+
+        libgf_wait_for_frames_unwind (ctx);
 
 	FREE (ctx->gf_ctx.cmd_args.log_file);
 	FREE (ctx->gf_ctx.cmd_args.volume_file);
