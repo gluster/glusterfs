@@ -67,7 +67,6 @@ int
 libgf_realpath_loc_fill (libglusterfs_client_ctx_t *ctx, char *link,
                          loc_t *targetloc);
 static int first_init = 1;
-static int first_fini = 1;
 
 /* The global list of virtual mount points */
 struct {
@@ -1712,7 +1711,7 @@ _libgf_umount (char *vmp)
         struct vmp_entry *entry= NULL;
         int               ret = -1;
 
-        entry = libgf_vmp_search_exact_entry (vmp);
+        entry = _libgf_vmp_search_entry (vmp, LIBGF_VMP_EXACT);
         if (entry == NULL) {
                 gf_log ("libglusterfsclient", GF_LOG_ERROR,
                         "path (%s) not mounted", vmp);
@@ -1727,9 +1726,9 @@ _libgf_umount (char *vmp)
         }
 
         ret = glusterfs_fini (entry->handle);
+        list_del_init (&entry->list);
         libgf_free_vmp_entry (entry);
 
-        list_del_init (&entry->list);
         vmplist.entries--; 
 
 out:
@@ -1801,7 +1800,7 @@ glusterfs_reset (void)
         memset (&vmplock, 0, sizeof (vmplock));
         pthread_mutex_init (&vmplock, NULL);
 
-	first_fini = first_init = 1;
+	first_init = 1;
 }
 
 void 
@@ -1827,28 +1826,15 @@ glusterfs_fini (glusterfs_handle_t handle)
 	FREE (ctx->gf_ctx.cmd_args.volume_name);
 	FREE (ctx->gf_ctx.pool);
         FREE (ctx->gf_ctx.event_pool);
+        iobuf_pool_destroy (ctx->gf_ctx.iobuf_pool);
         ((gf_timer_registry_t *)ctx->gf_ctx.timer)->fin = 1;
-        /* inode_table_destroy (ctx->itable); */
 
 	xlator_graph_fini (ctx->gf_ctx.graph);
 	xlator_tree_free (ctx->gf_ctx.graph);
 	ctx->gf_ctx.graph = NULL;
-
-        /* FREE (ctx->gf_ctx.specfile); */
-
-        /* TODO complete cleanup of timer */
-        /*TODO 
-         * destroy the reply thread 
-         * destroy inode table
-         * FREE (ctx) 
-         */
+        pthread_cancel (ctx->reply_thread);
 
         FREE (ctx);
-
-	if (first_fini) {
-		;
-		//gf_log_cleanup ();
-	}
 
         return 0;
 }
