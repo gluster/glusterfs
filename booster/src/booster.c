@@ -1139,6 +1139,7 @@ fchown (int fd, uid_t owner, gid_t group)
 #define MOUNT_TABLE_HASH_SIZE 256
 
 
+static void booster_cleanup (void);
 static int 
 booster_init (void)
 {
@@ -1183,6 +1184,7 @@ booster_init (void)
                 ret = booster_configure (DEFAULT_BOOSTER_CONF);
         }
 
+        atexit (booster_cleanup);
         if (ret == 0)
                 gf_log ("booster", GF_LOG_DEBUG, "booster is inited");
 	return 0;
@@ -1198,27 +1200,15 @@ err:
 static void
 booster_cleanup (void)
 {
-	/* gf_fd_fdtable_destroy (booster_fdtable);*/
-	/*for (i=0; i < booster_fdtable->max_fds; i++) {
-		if (booster_fdtable->fds[i]) {
-			fd_t *fd = booster_fdtable->fds[i];
-			free (fd);			  
-		}
-		}*/
-
-	free (booster_fdtable);
-	booster_fdtable = NULL;
-
-        /*
-         * FIXME: there may be issues during execution of fini of individual
-         * xlators due to inconsistent lock states.
+        /* Ideally, we should be de-initing the fd-table
+         * here but the problem is that I've seen file accesses through booster
+         * continuing while the atexit registered function is called. That means
+         * , we cannot dealloc the fd-table since then there could be a crash
+         * while trying to determine whether a given fd is for libc or for
+         * libglusterfsclient.
+         * We should be satisfied with having cleaned up glusterfs contexts.
          */
-        
-        /* 
-         * as above FIXME says, glusterfs_umount_all indeed leads to memory 
-         * corruption, hence commenting out
-         */
-        /* glusterfs_umount_all (); */
+        glusterfs_umount_all ();
 	glusterfs_reset ();
 }
 
