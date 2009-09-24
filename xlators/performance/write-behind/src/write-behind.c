@@ -1663,7 +1663,8 @@ wb_ffr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
         conf = this->private;
         local = frame->local;
-        file = local->file;
+        if (local)
+                file = local->file;
 
         if (file == NULL) {
                 unwind = 1;
