@@ -103,6 +103,8 @@ __libgf_client_path_to_parenti (libglusterfs_client_ctx_t *ctx,
         inode_t *curr = NULL;
         inode_t *parent = NULL;
         size_t pathlen = 0;
+        loc_t rootloc = {0, };
+        int ret = -1;
 
         pathlen = STRLEN_0 (path);
         resolved_till = CALLOC (1, pathlen);
@@ -112,6 +114,27 @@ __libgf_client_path_to_parenti (libglusterfs_client_ctx_t *ctx,
         GF_VALIDATE_OR_GOTO("libglusterfsclient-dentry", pathdup, out);
 
         parent = inode_ref (itable->root);
+        /* If the root inode's is outdated, send a revalidate on it.
+         * A revalidate on root inode also reduces the window in which an
+         * op will fail over distribute because the layout of the root
+         * directory did not  get constructed when we sent the lookup on
+         * root in glusterfs_init. That can happen when not all children of a
+         * distribute volume were up at the time of glusterfs_init.
+         */
+        if (!libgf_is_iattr_cache_valid (ctx, parent, NULL,
+                                        LIBGF_VALIDATE_LOOKUP)) {
+                libgf_client_loc_fill (&rootloc, ctx, 1, 0, "/");
+                ret = libgf_client_lookup (ctx, &rootloc, NULL, NULL, NULL);
+                if (ret == -1) {
+                        gf_log ("libglusterfsclient-dentry", GF_LOG_ERROR,
+                                "Root inode revalidation failed");
+                        inode_unref (parent);
+                        parent = NULL;
+                        goto out;
+                }
+                libgf_client_loc_wipe (&rootloc);
+        }
+
         curr = NULL;
 
         component = strtok_r (pathdup, "/", &strtokptr);
