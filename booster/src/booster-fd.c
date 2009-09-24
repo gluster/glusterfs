@@ -92,7 +92,7 @@ booster_fdtable_expand (booster_fdtable_t *fdtable, uint nr)
                 memcpy (fdtable->fds, oldfds, cpy);
         }
 
-        gf_log ("booster-fd", GF_LOG_DEBUG, "FD-table expanded: Old: %d,New: %d"
+        gf_log ("booster-fd", GF_LOG_TRACE, "FD-table expanded: Old: %d,New: %d"
                 , oldmax_fds, nr);
         ret = 0;
 out:
@@ -205,7 +205,7 @@ booster_fd_unused_get (booster_fdtable_t *fdtable, fd_t *fdptr, int fd)
                 return -1;
         }
 
-        gf_log ("booster-fd", GF_LOG_DEBUG, "Requested fd: %d", fd);
+        gf_log ("booster-fd", GF_LOG_TRACE, "Requested fd: %d", fd);
         LOCK (&fdtable->lock);
         {
                 while (fdtable->max_fds < fd) {
@@ -243,7 +243,7 @@ booster_fd_put (booster_fdtable_t *fdtable, int fd)
                 return;
         }
 
-        gf_log ("booster-fd", GF_LOG_DEBUG, "FD put: %d", fd);
+        gf_log ("booster-fd", GF_LOG_TRACE, "FD put: %d", fd);
         if (!(fd < fdtable->max_fds)) {
                 gf_log ("booster-fd", GF_LOG_ERROR, "FD not in booster fd"
                         " table");
@@ -272,7 +272,7 @@ booster_fdptr_get (booster_fdtable_t *fdtable, int fd)
                 return NULL;
         }
 
-        gf_log ("booster-fd", GF_LOG_DEBUG, "FD ptr request: %d", fd);
+        gf_log ("booster-fd", GF_LOG_TRACE, "FD ptr request: %d", fd);
         if (!(fd < fdtable->max_fds)) {
                 gf_log ("booster-fd", GF_LOG_ERROR, "FD not in booster fd"
                         " table");
