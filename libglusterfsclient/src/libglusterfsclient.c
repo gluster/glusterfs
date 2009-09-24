@@ -1101,9 +1101,12 @@ glusterfs_init (glusterfs_init_params_t *init_ctx, uint32_t fakefsid)
                 } else if (!strncasecmp (init_ctx->loglevel, "ERROR",
                                          strlen ("ERROR"))) {
                         ctx->gf_ctx.cmd_args.log_level = GF_LOG_ERROR;
+                } else if (!strncasecmp (init_ctx->loglevel, "TRACE",
+                                         strlen ("TRACE"))) {
+                        ctx->gf_ctx.cmd_args.log_level = GF_LOG_TRACE;
                 } else {
 			fprintf (stderr, 
-				 "libglusterfsclient: %s:%s():%d: Unrecognized log-level \"%s\", possible values are \"DEBUG|WARNING|[ERROR]|CRITICAL|NONE\"\n",
+				 "libglusterfsclient: %s:%s():%d: Unrecognized log-level \"%s\", possible values are \"DEBUG|WARNING|[ERROR]|CRITICAL|NONE|TRACE\"\n",
                                  __FILE__, __PRETTY_FUNCTION__, __LINE__,
                                  init_ctx->loglevel);
 			FREE (ctx->gf_ctx.cmd_args.log_file);
