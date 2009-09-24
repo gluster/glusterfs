@@ -1300,7 +1300,7 @@ main (int argc, char *argv[])
 	if (glusterfs_graph_init (graph, fuse_volume_found) != 0) {
 		gf_log ("glusterfs", GF_LOG_ERROR,
 			"translator initialization failed.  exiting");
-		if (sem_post (semid) < 0) {
+		if (!cmd_args->no_daemon_mode && (sem_post (semid) < 0)) {
 			gf_log ("glusterfs", GF_LOG_ERROR,
                                 "semaphore synchronization failed,"
                                 " daemonize problem.exiting: %s",
@@ -1314,7 +1314,7 @@ main (int argc, char *argv[])
 
 	gf_log ("glusterfs", GF_LOG_NORMAL, "Successfully started");
 
-	if (sem_post (semid) < 0) {
+	if (!cmd_args->no_daemon_mode && (sem_post (semid) < 0)) {
 		gf_log ("glusterfs", GF_LOG_ERROR,
                         "semaphore synchronization failed,"
                         " daemonize problem.  exiting: %s",
