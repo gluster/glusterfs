@@ -101,6 +101,7 @@ void
 gf_log_logrotate (int signum);
 
 int gf_log_init (const char *filename);
+void gf_log_cleanup (void);
 
 int
 _gf_log (const char *domain, const char *file, const char *function,
