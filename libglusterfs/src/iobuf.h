@@ -104,6 +104,7 @@ struct iobuf_pool {
 
 
 struct iobuf_pool *iobuf_pool_new (size_t arena_size, size_t page_size);
+void iobuf_pool_destroy (struct iobuf_pool *iobuf_pool);
 struct iobuf *iobuf_get (struct iobuf_pool *iobuf_pool);
 void iobuf_unref (struct iobuf *iobuf);
 
