@@ -1781,11 +1781,14 @@ glusterfs_umount_all (void)
 
         pthread_mutex_lock (&vmplock);
         {
-                list_for_each_entry_safe (entry, tmp, &vmplist.list, list) {
-                        /* even if there are errors, continue with other
-                           mounts
-                        */
-                        _libgf_umount (entry->vmp);
+                if (vmplist.entries > 0) {
+                        list_for_each_entry_safe (entry, tmp, &vmplist.list,
+                                                  list) {
+                                /* even if there are errors, continue with other
+                                   mounts
+                                */
+                                _libgf_umount (entry->vmp);
+                        }
                 }
         }
         pthread_mutex_unlock (&vmplock);
