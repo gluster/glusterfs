@@ -1866,7 +1866,7 @@ glusterfs_fini (glusterfs_handle_t handle)
 	FREE (ctx->gf_ctx.cmd_args.volume_name);
 	FREE (ctx->gf_ctx.pool);
         FREE (ctx->gf_ctx.event_pool);
-        iobuf_pool_destroy (ctx->gf_ctx.iobuf_pool);
+        /* iobuf_pool_destroy (ctx->gf_ctx.iobuf_pool); */
         ((gf_timer_registry_t *)ctx->gf_ctx.timer)->fin = 1;
 
 	xlator_graph_fini (ctx->gf_ctx.graph);
