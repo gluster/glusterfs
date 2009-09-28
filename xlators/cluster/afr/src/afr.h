@@ -154,6 +154,7 @@ typedef struct _afr_local {
 
 	unsigned int read_child_index;
         unsigned char read_child_returned;
+        unsigned int first_up_child;
 
         pid_t saved_pid;
 

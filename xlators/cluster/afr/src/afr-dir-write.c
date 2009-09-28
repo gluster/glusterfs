@@ -124,7 +124,6 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	int call_count = -1;
 	int child_index = -1;
-        int first_up_child = 0;
 
 	local = frame->local;
 	priv  = this->private;
@@ -153,6 +152,11 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (local->success_count == 0) {
 				local->cont.create.buf        = *buf;
 
+                                local->cont.create.ino =
+                                        afr_itransform (buf->st_ino,
+                                                        priv->child_count,
+                                                        child_index);
+
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode, 
                                                             priv->read_child);
@@ -162,14 +166,12 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 }
 			}
                         
-                        first_up_child = afr_first_up_child (priv);
-
-                        if (child_index == first_up_child) {
+                        if (child_index == local->first_up_child) {
                                 local->cont.create.ino =
                                         afr_itransform (buf->st_ino,
                                                         priv->child_count,
-                                                        first_up_child);
-                }
+                                                        local->first_up_child);
+                        }
                         
                         if (child_index == local->read_child_index) {
                                 local->cont.create.read_child_buf = *buf;
@@ -352,6 +354,8 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
                         unwind_buf = &local->cont.mknod.buf;
                 }
 
+                unwind_buf->st_ino = local->cont.mknod.ino;
+
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  local->cont.mknod.inode,
 				  unwind_buf);
@@ -387,7 +391,7 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 			if (local->success_count == 0){
 				local->cont.mknod.buf   = *buf;
-				local->cont.mknod.buf.st_ino = 
+				local->cont.mknod.ino   = 
 					afr_itransform (buf->st_ino,
 							priv->child_count,
 							child_index);
@@ -400,6 +404,13 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                             local->read_child_index);
                                 }
 			}
+
+                        if (child_index == local->first_up_child) {
+                                local->cont.mknod.ino =
+                                        afr_itransform (buf->st_ino,
+                                                        priv->child_count,
+                                                        local->first_up_child);
+                        }
 
                         if (child_index == local->read_child_index) {
                                 local->cont.mknod.read_child_buf = *buf;
@@ -599,7 +610,6 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	int call_count = -1;
 	int child_index = -1;
-        int first_up_child = 0;
 
 	local = frame->local;
 	priv = this->private;
@@ -617,6 +627,11 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			if (local->success_count == 0) {
 				local->cont.mkdir.buf   = *buf;
 
+                                local->cont.mkdir.ino =
+                                        afr_itransform (buf->st_ino,
+                                                        priv->child_count,
+                                                        child_index);
+
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode,
                                                             priv->read_child);
@@ -626,13 +641,11 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 }
 			}
 
-                        first_up_child = afr_first_up_child (priv);
-
-                        if (child_index == first_up_child) {
+                        if (child_index == local->first_up_child) {
                                 local->cont.mkdir.ino =
                                         afr_itransform (buf->st_ino,
                                                         priv->child_count,
-                                                        first_up_child);
+                                                        local->first_up_child);
                         }
                         
                         if (child_index == local->read_child_index) {
@@ -850,10 +863,7 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 			if (local->success_count == 0) {
 				local->cont.link.buf        = *buf;
-				local->cont.link.buf.st_ino = 
-					afr_itransform (buf->st_ino, priv->child_count,
-							child_index);
-                                
+
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode,
                                                             priv->read_child);
@@ -862,7 +872,7 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                             local->read_child_index);
                                 }
 			}
-                        
+
                         if (child_index == local->read_child_index) {
                                 local->cont.link.read_child_buf = *buf;
                         }
@@ -1041,6 +1051,8 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
                         unwind_buf = &local->cont.symlink.buf;
                 }
 
+                unwind_buf->st_ino = local->cont.symlink.ino;
+
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
 				  local->cont.symlink.inode,
 				  unwind_buf);
@@ -1076,7 +1088,7 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 			if (local->success_count == 0) {
 				local->cont.symlink.buf        = *buf;
-				local->cont.symlink.buf.st_ino = 
+				local->cont.symlink.ino = 
 					afr_itransform (buf->st_ino, priv->child_count,
 							child_index);
                                 
@@ -1088,6 +1100,13 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                             local->read_child_index);
                                 }
 			}
+
+                        if (child_index == local->first_up_child) {
+                                local->cont.symlink.ino =
+                                        afr_itransform (buf->st_ino,
+                                                        priv->child_count,
+                                                        local->first_up_child);
+                        }
 
                         if (child_index == local->read_child_index) {
                                 local->cont.symlink.read_child_buf = *buf;
@@ -1212,7 +1231,6 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
         }
         UNLOCK (&priv->read_child_lock);
 
-	local->cont.symlink.ino      = loc->inode->ino;
 	local->cont.symlink.linkpath = strdup (linkpath);
 
 	local->transaction.fop    = afr_symlink_wind;
@@ -1261,13 +1279,13 @@ afr_rename_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		local->cont.rename.buf.st_ino = local->cont.rename.ino;
-
                 if (local->cont.rename.read_child_buf.st_ino) {
                         unwind_buf = &local->cont.rename.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.rename.buf;
                 }
+
+		unwind_buf->st_ino = local->cont.rename.ino;
 
 		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno, 
 				  unwind_buf);
@@ -1303,10 +1321,8 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		
                                 if (buf) {
                                         local->cont.rename.buf = *buf;
-                                        local->cont.rename.buf.st_ino = 
-                                                afr_itransform (buf->st_ino, priv->child_count,
-                                                                child_index);
                                 }
+
                                 local->success_count++;
                         }
 
