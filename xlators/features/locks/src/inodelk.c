@@ -324,7 +324,11 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
 
                         __delete_inode_lock (l);
 
-                        inode_path (inode, NULL, &path);
+                        if (inode_path (inode, NULL, &path) < 0) {
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "inode_path failed");
+                                goto unlock;
+                        }
 
                         gf_log (this->name, GF_LOG_TRACE,
                                 "releasing lock on %s held by "
@@ -332,12 +336,12 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                                 path, trans,
                                 (uint64_t) l->client_pid);
 
-                        if (path)
-                                FREE (path);
-
                 }
         }
 unlock:
+        if (path)
+                FREE (path);
+
         pthread_mutex_unlock (&pinode->mutex);
 
 	return 0;
