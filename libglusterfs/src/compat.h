@@ -29,7 +29,7 @@
 #include "dict.h"
 
 #ifndef LLONG_MAX
-#define LLONG_MAX LONG_LONG_MAX /* compat with old gcc */
+#define LLONG_MAX __LONG_LONG_MAX__ /* compat with old gcc */
 #endif /* LLONG_MAX */
 
 

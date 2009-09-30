@@ -8,6 +8,7 @@
  */
 
 #include <ctype.h>
+int strcasecmp(const char *, const char *);
 
 int strcasecmp(const char *s1, const char *s2)
 {
