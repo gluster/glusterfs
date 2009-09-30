@@ -197,3 +197,16 @@ mem_put (struct mem_pool *pool, void *ptr)
 	}
 	UNLOCK (&pool->lock);
 }
+
+void
+mem_pool_destroy (struct mem_pool *pool)
+{
+        if (!pool)
+                return;
+
+        LOCK_DESTROY (&pool->lock);
+        FREE (pool->pool);
+        FREE (pool);
+
+        return;
+}

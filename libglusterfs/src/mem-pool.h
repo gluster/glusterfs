@@ -51,5 +51,8 @@ mem_pool_new_fn (unsigned long sizeof_type, unsigned long count);
 
 void mem_put (struct mem_pool *pool, void *ptr);
 void *mem_get (struct mem_pool *pool);
+void
+mem_pool_destroy (struct mem_pool *pool);
+
 
 #endif /* _MEM_POOL_H */
