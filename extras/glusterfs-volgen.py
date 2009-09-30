@@ -196,8 +196,8 @@ def print_export_volume (exp_fd, export_dir):
     exp_fd.write ("# Cmd line:\n")
     exp_fd.write ("# $ %s\n\n" % cmdline)
 
-    mount_fd.write ("# TRANSPORT-TYPE %s\n" % transport_type)
-    mount_fd.write ("# PORT %d\n\n" % gfs_port)
+    exp_fd.write ("# TRANSPORT-TYPE %s\n" % transport_type)
+    exp_fd.write ("# PORT %d\n\n" % gfs_port)
 
     exp_fd.write ("volume posix\n")
     exp_fd.write ("  type storage/posix\n")
