@@ -742,7 +742,7 @@ pl_forget (xlator_t *this,
 
                         list_for_each_entry_safe (ino_l, ino_tmp, &dom->inodelk_list, list) {
                                 __delete_inode_lock (ino_l);
-                                grant_blocked_inode_locks (pl_inode, ino_l, dom);
+                                grant_blocked_inode_locks (this, pl_inode, ino_l, dom);
                         }
 
                 }

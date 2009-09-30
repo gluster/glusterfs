@@ -144,7 +144,7 @@ __owner_has_lock (pl_dom_list_t *dom, pl_inode_lock_t *newlock)
  * is blocking, adds it to the blocked_inodelks list of the domain.
  */
 static int
-__lock_inodelk (pl_inode_t *pl_inode, pl_inode_lock_t *lock,
+__lock_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 		int can_block,  pl_dom_list_t *dom)
 {
 	pl_inode_lock_t *conf = NULL;
@@ -158,7 +158,7 @@ __lock_inodelk (pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 
 		list_add_tail (&lock->blocked_locks, &dom->blocked_inodelks);
 
-			gf_log ("posix-locks", GF_LOG_TRACE,
+			gf_log (this->name, GF_LOG_TRACE,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
@@ -176,9 +176,9 @@ __lock_inodelk (pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 
                 list_add_tail (&lock->blocked_locks, &dom->blocked_inodelks);
 
-                gf_log ("posix-locks", GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_TRACE,
                         "Lock is grantable, but blocking to prevent starvation");
-		gf_log ("posix-locks", GF_LOG_TRACE,
+		gf_log (this->name, GF_LOG_TRACE,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
@@ -223,19 +223,19 @@ find_matching_inodelk (pl_inode_lock_t *lock, pl_dom_list_t *dom)
  * as the UNLCK lock specifies. If such a lock is not found, returns invalid
  */
 static pl_inode_lock_t *
-__inode_unlock_lock (pl_inode_lock_t *lock, pl_dom_list_t *dom)
+__inode_unlock_lock (xlator_t *this, pl_inode_lock_t *lock, pl_dom_list_t *dom)
 {
 
 	pl_inode_lock_t *conf = NULL;
 
 	conf = find_matching_inodelk (lock, dom);
 	if (!conf) {
-          gf_log ("posix-locks", GF_LOG_DEBUG,
+          gf_log (this->name, GF_LOG_DEBUG,
                   " Matching lock not found for unlock");
 		goto out;
         }
 	__delete_inode_lock (conf);
-          gf_log ("posix-locks", GF_LOG_DEBUG,
+          gf_log (this->name, GF_LOG_DEBUG,
                   " Matching lock found for unlock");
         __destroy_inode_lock (lock);
 
@@ -246,7 +246,7 @@ out:
 
 }
 static void
-__grant_blocked_inode_locks (pl_inode_t *pl_inode, pl_dom_list_t *dom)
+__grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom)
 {
 	int	      bl_ret = 0;
 	pl_inode_lock_t *bl = NULL;
@@ -259,10 +259,10 @@ __grant_blocked_inode_locks (pl_inode_t *pl_inode, pl_dom_list_t *dom)
 
 		list_del_init (&bl->blocked_locks);
 
-		bl_ret = __lock_inodelk (pl_inode, bl, 1, dom);
+		bl_ret = __lock_inodelk (this, pl_inode, bl, 1, dom);
 
 		if (bl_ret == 0) {
-                        gf_log ("posix-locks", GF_LOG_TRACE,
+                        gf_log (this->name, GF_LOG_TRACE,
                                 "%s (pid=%d) %"PRId64" - %"PRId64" => Granted",
                                 bl->fl_type == F_UNLCK ? "Unlock" : "Lock",
                                 bl->client_pid,
@@ -277,7 +277,7 @@ __grant_blocked_inode_locks (pl_inode_t *pl_inode, pl_dom_list_t *dom)
 
 /* Grant all inodelks blocked on a lock */
 void
-grant_blocked_inode_locks (pl_inode_t *pl_inode, pl_inode_lock_t *lock, pl_dom_list_t *dom)
+grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock, pl_dom_list_t *dom)
 {
 
         if (list_empty (&dom->blocked_inodelks)) {
@@ -285,7 +285,7 @@ grant_blocked_inode_locks (pl_inode_t *pl_inode, pl_inode_lock_t *lock, pl_dom_l
         }
 
 
-	__grant_blocked_inode_locks (pl_inode, dom);
+	__grant_blocked_inode_locks (this, pl_inode, dom);
         __destroy_inode_lock (lock);
 
 }
@@ -320,7 +320,7 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
 
                         list_del_init (&l->list);
 
-			grant_blocked_inode_locks (pinode, l, dom);
+			grant_blocked_inode_locks (this, pinode, l, dom);
 
                         __delete_inode_lock (l);
 
@@ -358,7 +358,7 @@ pl_inode_setlk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 	pthread_mutex_lock (&pl_inode->mutex);
 	{
 		if (lock->fl_type != F_UNLCK) {
-			ret = __lock_inodelk (pl_inode, lock, can_block, dom);
+			ret = __lock_inodelk (this, pl_inode, lock, can_block, dom);
 			if (ret == 0)
 				gf_log (this->name, GF_LOG_TRACE,
 				"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
@@ -379,7 +379,7 @@ pl_inode_setlk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 		}
 
 
-		retlock = __inode_unlock_lock (lock, dom);
+		retlock = __inode_unlock_lock (this, lock, dom);
 		if (!retlock) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"Bad Unlock issued on Inode lock");
@@ -395,7 +395,7 @@ pl_inode_setlk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 				lock->user_flock.l_len);
                         ret = 0;
 
-		grant_blocked_inode_locks (pl_inode, retlock, dom);
+                        grant_blocked_inode_locks (this, pl_inode, retlock, dom);
 	}
 out:
 	pthread_mutex_unlock (&pl_inode->mutex);
