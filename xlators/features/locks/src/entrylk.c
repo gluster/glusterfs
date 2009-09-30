@@ -456,7 +456,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 
 	dom = get_domain (pinode, volume);
 	if (!dom){
-		gf_log ("posix-locks", GF_LOG_ERROR,
+		gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory");
 		op_errno = ENOMEM;
 		goto out;

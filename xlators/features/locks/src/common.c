@@ -116,7 +116,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 		goto out;
 	}
 
-        gf_log ("posix-locks", GF_LOG_TRACE,
+        gf_log (this->name, GF_LOG_TRACE,
                 "Allocating new pl inode");
 
 	st_mode  = inode->st_mode;

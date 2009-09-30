@@ -53,7 +53,7 @@ pl_dom_list_t *
 get_domain (pl_inode_t *pl_inode, const char *volume);
 
 void
-grant_blocked_inode_locks (pl_inode_t *pl_inode, pl_inode_lock_t *lock, pl_dom_list_t *dom);
+grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock, pl_dom_list_t *dom);
 
 void
 __delete_inode_lock (pl_inode_lock_t *lock);
