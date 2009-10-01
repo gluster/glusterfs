@@ -50,6 +50,7 @@
 #include "syscall.h"
 #include "statedump.h"
 #include "locking.h"
+#include <libgen.h>
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -305,7 +306,9 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         int32_t     op_ret             = -1;
         int32_t     op_errno           = 0;
         dict_t *    xattr              = NULL;
-
+        char *      pathdup            = NULL;
+        char *      parentpath         = NULL;
+        struct stat postparent         = {0,};
         struct posix_private  *priv    = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -357,12 +360,30 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 						 xattr_req, &buf);
         }
 
+        pathdup = strdup (real_path);
+        GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
+
+        parentpath = dirname (pathdup);
+
+        op_ret = lstat (parentpath, &postparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "post-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
+
 	op_ret = 0;
 out:
+        if (pathdup)
+                FREE (pathdup);
+
         if (xattr)
                 dict_ref (xattr);
 
-        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &buf, xattr);
+        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &buf, xattr,
+                      &postparent);
 
         if (xattr)
                 dict_unref (xattr);
@@ -1021,6 +1042,7 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
         int32_t op_ret    = -1;
         int32_t op_errno  = 0;
         char *  real_path = NULL;
+        struct stat stbuf = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1043,10 +1065,19 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
 
         dest[op_ret] = 0;
 
+        op_ret = lstat (real_path, &stbuf);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "lstat on %s failed: %s", loc->path,
+                        strerror (op_errno));
+                goto out;
+        }
+
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, dest);
+        STACK_UNWIND (frame, op_ret, op_errno, dest, &stbuf);
 
         return 0;
 }
@@ -1063,6 +1094,10 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         char                  was_present = 1;
         struct posix_private *priv        = NULL;
         gid_t                 gid         = 0;
+        char                 *pathdup   = NULL;
+        struct stat           preparent = {0,};
+        struct stat           postparent = {0,};
+        char                 *parentpath = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1087,7 +1122,20 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         SET_FS_ID (frame->root->uid, gid);
+        pathdup = strdup (real_path);
+        GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
+        parentpath = dirname (pathdup);
+
+        op_ret = lstat (parentpath, &preparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
+ 
         op_ret = mknod (real_path, mode, dev);
 
         if (op_ret == -1) {
@@ -1147,12 +1195,25 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        op_ret = lstat (parentpath, &postparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "post-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
+
         op_ret = 0;
 
  out:
+        if (pathdup)
+                FREE (pathdup);
+
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf, &preparent,
+                      &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1172,6 +1233,10 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         char                  was_present = 1;
         struct posix_private *priv        = NULL;
         gid_t                 gid         = 0;
+        char                 *pathdup   = NULL;
+        char                 *parentpath = NULL;
+        struct stat           preparent = {0,};
+        struct stat           postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1196,6 +1261,19 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         SET_FS_ID (frame->root->uid, gid);
+        pathdup = strdup (real_path);
+        GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
+
+        parentpath = dirname (pathdup);
+
+        op_ret = lstat (parentpath, &preparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
 
         op_ret = mkdir (real_path, mode);
         if (op_ret == -1) {
@@ -1245,12 +1323,25 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        op_ret = lstat (parentpath, &postparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "post-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
+
         op_ret = 0;
 
  out:
+        if (pathdup)
+                FREE (pathdup);
+
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf, &preparent,
+                      &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1267,8 +1358,12 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         int32_t                  op_ret    = -1;
         int32_t                  op_errno  = 0;
         char                    *real_path = NULL;
+        char                    *pathdup   = NULL;
+        char                    *parentpath = NULL;
         int32_t                  fd = -1;
         struct posix_private    *priv      = NULL;
+        struct stat            preparent = {0,};
+        struct stat            postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1278,6 +1373,20 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        pathdup = strdup (real_path);
+        GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
+
+        parentpath = dirname (pathdup);
+
+        op_ret = lstat (parentpath, &preparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
 
         priv = this->private;
         if (priv->background_unlink) {
@@ -1303,12 +1412,24 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        op_ret = lstat (parentpath, &postparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "post-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
+
         op_ret = 0;
 
  out:
+        if (pathdup)
+                FREE (pathdup);
+
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND (frame, op_ret, op_errno, &preparent, &postparent);
 
         if (fd != -1) {
                 close (fd);
@@ -1323,7 +1444,11 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
 {
         int32_t op_ret    = -1;
         int32_t op_errno  = 0;
-        char *  real_path = 0;
+        char *  real_path = NULL;
+        char *  pathdup   = NULL;
+        char *  parentpath = NULL;
+        struct stat   preparent = {0,};
+        struct stat   postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1333,6 +1458,20 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        pathdup = strdup (real_path);
+        GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
+
+        parentpath = dirname (pathdup);
+
+        op_ret = lstat (parentpath, &preparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
 
         op_ret = rmdir (real_path);
         op_errno = errno;
@@ -1348,10 +1487,22 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        op_ret = lstat (parentpath, &postparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "post-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
+
  out:
+        if (pathdup)
+                FREE (pathdup);
+
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND (frame, op_ret, op_errno, &preparent, &postparent);
 
         return 0;
 }
@@ -1367,6 +1518,10 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         struct posix_private *priv        = NULL;
         gid_t                 gid         = 0;
         char                  was_present = 1; 
+        char                 *pathdup   = NULL;
+        char                 *parentpath = NULL;
+        struct stat           preparent = {0,};
+        struct stat           postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1392,6 +1547,19 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         SET_FS_ID (frame->root->uid, gid);
+        pathdup = strdup (real_path);
+        GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
+
+        parentpath = dirname (pathdup);
+
+        op_ret = lstat (parentpath, &preparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
 
         op_ret = symlink (linkname, real_path);
 
@@ -1441,12 +1609,25 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        op_ret = lstat (parentpath, &postparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "post-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
+ 
         op_ret = 0;
 
  out:
+        if (pathdup)
+                FREE (pathdup);
+
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf, &preparent,
+                      &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1467,6 +1648,14 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         struct stat           stbuf        = {0, };
         struct posix_private *priv         = NULL;
         char                  was_present  = 1; 
+        char                 *oldpathdup    = NULL;
+        char                 *oldparentpath = NULL;
+        char                 *newpathdup    = NULL;
+        char                 *newparentpath = NULL;
+        struct stat           preoldparent  = {0, };
+        struct stat           postoldparent = {0, };
+        struct stat           prenewparent  = {0, };
+        struct stat           postnewparent = {0, };
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1481,6 +1670,34 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
         MAKE_REAL_PATH (real_newpath, this, newloc->path);
+
+        oldpathdup = strdup (real_oldpath);
+        GF_VALIDATE_OR_GOTO (this->name, oldpathdup, out);
+
+        oldparentpath = dirname (oldpathdup);
+
+        op_ret = lstat (oldparentpath, &preoldparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation lstat on parent of %s failed: %s",
+                        oldloc->path, strerror (op_errno));
+                goto out;
+        }
+
+        newpathdup = strdup (real_newpath);
+        GF_VALIDATE_OR_GOTO (this->name, newpathdup, out);
+
+        newparentpath = dirname (newpathdup);
+
+        op_ret = lstat (newparentpath, &prenewparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation lstat on parent of %s failed: %s",
+                      newloc->path, strerror (op_errno));
+                goto out;
+        }
 
         op_ret = lstat (real_newpath, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)){
@@ -1525,12 +1742,38 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        op_ret = lstat (oldparentpath, &postoldparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "post-operation lstat on parent of %s failed: %s",
+                        oldloc->path, strerror (op_errno));
+                goto out;
+        }
+
+        op_ret = lstat (newparentpath, &postnewparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "post-operation lstat on parent of %s failed: %s",
+                        newloc->path, strerror (op_errno));
+                goto out;
+        }
+
         op_ret = 0;
 
  out:
+        if (oldpathdup)
+                FREE (oldpathdup);
+
+        if (newpathdup)
+                FREE (newpathdup);
+
+
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, &stbuf, &preoldparent,
+                      &postoldparent, &prenewparent, &postnewparent);
 
         if ((op_ret == -1) && !was_present) {
                 unlink (real_newpath);
@@ -1551,6 +1794,10 @@ posix_link (call_frame_t *frame, xlator_t *this,
         struct stat           stbuf        = {0, };
         struct posix_private *priv         = NULL;
         char                  was_present  = 1;
+        char                 *newpathdup   = NULL;
+        char                 *newparentpath = NULL;
+        struct stat           preparent = {0,};
+        struct stat           postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1571,6 +1818,22 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 was_present = 0;
         }
 
+        newpathdup  = strdup (real_newpath);
+        if (!newpathdup) {
+                gf_log (this->name, GF_LOG_ERROR, "strdup failed");
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        newparentpath = dirname (newpathdup);
+        op_ret = lstat (newparentpath, &preparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR, "lstat failed: %s: %s",
+                        newparentpath, strerror (op_errno));
+                goto out;
+        }
+
         op_ret = link (real_oldpath, real_newpath);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -1586,6 +1849,14 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_ERROR,
                         "lstat on %s failed: %s",
                         real_newpath, strerror (op_errno));
+                goto out;
+        }
+
+        op_ret = lstat (newparentpath, &postparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR, "lstat failed: %s: %s",
+                        newparentpath, strerror (op_errno));
                 goto out;
         }
 
@@ -1611,9 +1882,12 @@ posix_link (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
+        if (newpathdup)
+                FREE (newpathdup);
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, oldloc->inode, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, oldloc->inode, &stbuf,
+                      &preparent, &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_newpath);
@@ -1634,6 +1908,8 @@ posix_truncate (call_frame_t *frame,
         char                 *real_path = 0;
         struct stat           stbuf     = {0,};
         struct posix_private *priv      = NULL;
+        struct stat           prebuf    = {0,};
+        struct stat           postbuf   = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1647,6 +1923,15 @@ posix_truncate (call_frame_t *frame,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
+        op_ret = lstat (real_path, &prebuf);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation lstat on %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
+
         op_ret = truncate (real_path, offset);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -1656,7 +1941,7 @@ posix_truncate (call_frame_t *frame,
                 goto out;
         }
 
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = lstat (real_path, &postbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "lstat on %s failed: %s",
@@ -1673,7 +1958,7 @@ posix_truncate (call_frame_t *frame,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, &prebuf, &postbuf);
 
         return 0;
 }
@@ -1685,7 +1970,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
               fd_t *fd)
 {
         int32_t                op_ret      = -1;
-        int32_t                op_errno    = 0;
+        int32_t                op_errno    = EINVAL;
         int32_t                _fd         = -1;
         int                    _flags      = 0;
         char *                 real_path   = NULL;
@@ -1695,6 +1980,10 @@ posix_create (call_frame_t *frame, xlator_t *this,
         char                   was_present = 1;  
 
         gid_t                  gid         = 0;
+        char                  *pathdup   = NULL;
+        char                  *parentpath = NULL;
+        struct stat            preparent = {0,};
+        struct stat            postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1718,6 +2007,19 @@ posix_create (call_frame_t *frame, xlator_t *this,
         }
 
         SET_FS_ID (frame->root->uid, gid);
+        pathdup = strdup (real_path);
+        GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
+
+        parentpath = dirname (pathdup);
+
+        op_ret = lstat (parentpath, &preparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
 
         if (!flags) {
                 _flags = O_CREAT | O_RDWR | O_EXCL;
@@ -1781,6 +2083,15 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        op_ret = lstat (parentpath, &postparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "post-operation lstat on parent of %s failed: %s",
+                        loc->path, strerror (op_errno));
+                goto out;
+        }
+
 	op_ret = -1;
         pfd = CALLOC (1, sizeof (*pfd));
 
@@ -1805,6 +2116,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
+        if (pathdup)
+                FREE (pathdup);
         SET_TO_OLD_FS_ID ();
 
         if ((-1 == op_ret) && (_fd != -1)) {
@@ -1815,7 +2128,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, fd, loc->inode, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, fd, loc->inode, &stbuf,
+                      &preparent, &postparent);
 
         return 0;
 }
@@ -1880,6 +2194,8 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         pfd->flags = flags;
         pfd->fd    = _fd;
+        if (wbflags == GF_OPEN_FSYNC)
+                pfd->flushwrites = 1;
 
 	fd_ctx_set (fd, this, (uint64_t)(long)pfd);
 
@@ -2079,7 +2395,8 @@ posix_writev (call_frame_t *frame, xlator_t *this,
         int                    _fd      = -1;
         struct posix_private * priv     = NULL;
         struct posix_fd *      pfd      = NULL;
-        struct stat            stbuf    = {0,};
+        struct stat            preop    = {0,};
+        struct stat            postop    = {0,};
         int                      ret      = -1;
 
         int    idx          = 0;
@@ -2110,6 +2427,15 @@ posix_writev (call_frame_t *frame, xlator_t *this,
 	pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
+
+        op_ret = fstat (_fd, &preop);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation fstat failed on fd=%p: %s", fd,
+                        strerror (op_errno));
+                goto out;
+        }
 
         op_ret = lseek (_fd, offset, SEEK_SET);
 
@@ -2188,18 +2514,26 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                 /* wiretv successful, we also need to get the stat of
                  * the file we wrote to
                  */
-                ret = fstat (_fd, &stbuf);
+
+                if (pfd->flushwrites) {
+                        /* NOTE: ignore the error, if one occurs at this
+                         * point */
+                        fsync (_fd);
+                }
+
+                ret = fstat (_fd, &postop);
                 if (ret == -1) {
 			op_ret = -1;
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, 
-                                "fstat failed on fd=%p: %s",
+                                "post-operation fstat failed on fd=%p: %s",
                                 fd, strerror (op_errno));
                         goto out;
                 }
 
                 if (priv->span_devices) {
-                        posix_scale_st_ino (priv, &stbuf);
+                        posix_scale_st_ino (priv, &preop);
+                        posix_scale_st_ino (priv, &postop);
                 }
         }
 
@@ -2208,7 +2542,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                 FREE (alloc_buf);
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, &preop, &postop);
 
         return 0;
 }
@@ -2368,6 +2702,8 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         struct posix_fd * pfd      = NULL;
         int               ret      = -1;
 	uint64_t          tmp_pfd  = 0;
+        struct stat       preop = {0,};
+        struct stat       postop = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2394,6 +2730,15 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
 
         _fd = pfd->fd;
 
+        op_ret = fstat (_fd, &preop);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "pre-operation fstat failed on fd=%p: %s", fd,
+                        strerror (op_errno));
+                goto out;
+        }
+
         if (datasync) {
                 ;
 #ifdef HAVE_FDATASYNC
@@ -2406,7 +2751,17 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
                         gf_log (this->name, GF_LOG_ERROR, 
                                 "fsync on fd=%p failed: %s",
                                 fd, strerror (op_errno));
+                        goto out;
                 }
+        }
+
+        op_ret = fstat (_fd, &postop);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "post-operation fstat failed on fd=%p: %s", fd,
+                        strerror (op_errno));
+                goto out;
         }
 
         op_ret = 0;
@@ -2414,7 +2769,7 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND (frame, op_ret, op_errno, &preop, &postop);
 
         return 0;
 }
@@ -3389,7 +3744,8 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret   = -1;
         int32_t               op_errno = 0;
         int                   _fd      = -1;
-        struct stat           buf      = {0,};
+        struct stat           preop    = {0,};
+        struct stat           postop   = {0,};
         struct posix_fd      *pfd      = NULL;
         int                   ret      = -1;
 	uint64_t              tmp_pfd  = 0;
@@ -3416,6 +3772,15 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
 
         _fd = pfd->fd;
 
+        op_ret = fstat (_fd, &preop);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation fstat failed on fd=%p: %s", fd,
+                        strerror (op_errno));
+                goto out;
+        }
+
         op_ret = ftruncate (_fd, offset);
 
         if (op_ret == -1) {
@@ -3426,16 +3791,18 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = fstat (_fd, &buf);
+        op_ret = fstat (_fd, &postop);
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "fstat failed on fd=%p: %s",
+                gf_log (this->name, GF_LOG_ERROR,
+                        "post-operation fstat failed on fd=%p: %s",
                         fd, strerror (errno));
                 goto out;
         }
 
         if (priv->span_devices) {
-                posix_scale_st_ino (priv, &buf);
+                posix_scale_st_ino (priv, &preop);
+                posix_scale_st_ino (priv, &postop);
         }
 
         op_ret = 0;
@@ -3443,7 +3810,7 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &buf);
+        STACK_UNWIND (frame, op_ret, op_errno, &preop, &postop);
 
         return 0;
 }
