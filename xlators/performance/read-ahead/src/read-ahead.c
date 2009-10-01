@@ -48,12 +48,15 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	ra_conf_t  *conf = NULL;
 	ra_file_t  *file = NULL;
 	int         ret = 0;
+        long        wbflags = 0;
 
 	conf  = this->private;
 
 	if (op_ret == -1) {
 		goto unwind;
 	}
+
+        wbflags = (long)frame->local;
 
 	file = CALLOC (1, sizeof (*file));
 	if (!file) {
@@ -76,6 +79,10 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if ((fd->flags & O_DIRECT) || ((fd->flags & O_ACCMODE) == O_WRONLY))
 		file->disabled = 1;
+
+        if (wbflags & GF_OPEN_NOWB) {
+                file->disabled = 1;
+        }
 
 	file->offset = (unsigned long long) 0;
 	file->conf = conf;
@@ -101,6 +108,8 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (!file->disabled) {
 		file->page_count = 1;
 	}
+
+        frame->local = NULL;
 
 unwind:
 	STACK_UNWIND (frame, op_ret, op_errno, fd);
@@ -170,7 +179,8 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	pthread_mutex_init (&file->file_lock, NULL);
 
 unwind:
-	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf, preparent,
+                      postparent);
 
 	return 0;
 }
@@ -180,6 +190,8 @@ int
 ra_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, int32_t wbflags)
 {
+        frame->local = (void *)(long)wbflags;
+
 	STACK_WIND (frame, ra_open_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->open,
@@ -511,7 +523,7 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	return 0;
 
 unwind:
-	STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL, NULL);
 
 	return 0;
 }
@@ -595,7 +607,7 @@ ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 	return 0;
 
 unwind:
-	STACK_UNWIND (frame, -1, op_errno);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -656,7 +668,7 @@ ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 	return 0;
 
 unwind:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
