@@ -5622,6 +5622,8 @@ glusterfs_fchown (glusterfs_file_t fd, uid_t uid, gid_t gid)
 {
         int                             op_ret = -1;
         libglusterfs_client_fd_ctx_t    *fdctx = NULL;
+        struct stat                     stbuf = {0,};
+        int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
 
@@ -5631,8 +5633,12 @@ glusterfs_fchown (glusterfs_file_t fd, uid_t uid, gid_t gid)
                 errno = EBADF;
                 goto out;
         }
+        stbuf.st_uid = uid;
+        stbuf.st_gid = gid;
 
-        op_ret = libgf_client_fchown (fdctx->ctx, fd, uid, gid);
+        valid |= (GF_SET_ATTR_UID | GF_SET_ATTR_GID);
+
+        op_ret = libgf_client_fsetattr (fdctx->ctx, fd, &stbuf, valid);
 
 out:
         return op_ret;
