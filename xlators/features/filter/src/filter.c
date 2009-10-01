@@ -367,6 +367,7 @@ filter_truncate_cbk (call_frame_t *frame,
                      struct stat *postbuf)
 {
 	if (op_ret >= 0) {
+		update_stat (prebuf, this->private);
 		update_stat (postbuf, this->private);
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
@@ -389,13 +390,13 @@ filter_truncate (call_frame_t *frame,
 		if (loc->inode->st_mode & S_IWOTH)
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
-		STACK_UNWIND (frame, -1, EPERM, NULL);
+		STACK_UNWIND (frame, -1, EPERM, NULL, NULL);
 		return 0;
 		
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL);
+		STACK_UNWIND (frame, -1, EROFS, NULL, NULL);
 		return 0;
 	}			
 
@@ -418,6 +419,7 @@ filter_ftruncate_cbk (call_frame_t *frame,
                       struct stat *postbuf)
 {
 	if (op_ret >= 0) {
+		update_stat (prebuf, this->private);
 		update_stat (postbuf, this->private);
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
@@ -449,6 +451,9 @@ filter_readlink_cbk (call_frame_t *frame,
 		     const char *path,
                      struct stat *sbuf)
 {
+        if (op_ret >= 0)
+                update_stat (sbuf, this->private);
+
 	STACK_UNWIND (frame, op_ret, op_errno, path, sbuf);
 	return 0;
 }
@@ -502,8 +507,12 @@ filter_mknod_cbk (call_frame_t *frame,
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
 		}
+
+		update_stat (preparent, this->private);
+		update_stat (postparent, this->private);
 	}
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
+                      preparent, postparent);
 	return 0;
 }
 
@@ -525,13 +534,15 @@ filter_mknod (call_frame_t *frame,
 		if (parent->st_mode & S_IWOTH)
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
-		STACK_UNWIND (frame, -1, EPERM);
+		STACK_UNWIND (frame, -1, EPERM, NULL, NULL,
+                              NULL, NULL);
 		return 0;
 
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL, NULL);
+		STACK_UNWIND (frame, -1, EROFS, NULL, NULL,
+                              NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -561,8 +572,12 @@ filter_mkdir_cbk (call_frame_t *frame,
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
 		}
+
+		update_stat (preparent, this->private);
+		update_stat (postparent, this->private);
 	}
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
+                      preparent, postparent);
 	return 0;
 }
 
@@ -583,13 +598,15 @@ filter_mkdir (call_frame_t *frame,
 		if (parent->st_mode & S_IWOTH)
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
-		STACK_UNWIND (frame, -1, EPERM);
+		STACK_UNWIND (frame, -1, EPERM, NULL, NULL,
+                              NULL, NULL);
 		return 0;
 
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL, NULL);
+		STACK_UNWIND (frame, -1, EROFS, NULL, NULL,
+                              NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -609,7 +626,12 @@ filter_unlink_cbk (call_frame_t *frame,
                    struct stat *preparent,
                    struct stat *postparent)
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+        if (op_ret >= 0) {
+		update_stat (preparent, this->private);
+		update_stat (postparent, this->private);
+        }
+
+	STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
 	return 0;
 }
 
@@ -635,12 +657,12 @@ filter_unlink (call_frame_t *frame,
 		if (loc->inode->st_mode & S_IWOTH)
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
-		STACK_UNWIND (frame, -1, EPERM);
+		STACK_UNWIND (frame, -1, EPERM, NULL, NULL);
 		return 0;
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS);
+		STACK_UNWIND (frame, -1, EROFS, NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -660,7 +682,12 @@ filter_rmdir_cbk (call_frame_t *frame,
                   struct stat *preparent,
                   struct stat *postparent)
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+        if (op_ret >= 0) {
+		update_stat (preparent, this->private);
+		update_stat (postparent, this->private);
+        }
+
+	STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
 	return 0;
 }
 
@@ -686,13 +713,13 @@ filter_rmdir (call_frame_t *frame,
 		if (loc->inode->st_mode & S_IWOTH)
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
-		STACK_UNWIND (frame, -1, EPERM);
+		STACK_UNWIND (frame, -1, EPERM, NULL, NULL);
 		return 0;
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-			STACK_UNWIND (frame, -1, EROFS);
-			return 0;
+                STACK_UNWIND (frame, -1, EROFS, NULL, NULL);
+                return 0;
 	}			
 	STACK_WIND (frame,
 		    filter_rmdir_cbk,
@@ -721,8 +748,12 @@ filter_symlink_cbk (call_frame_t *frame,
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
 		}
+
+		update_stat (preparent, this->private);
+		update_stat (postparent, this->private);
 	}
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
+                      preparent, postparent);
 	return 0;
 }
 
@@ -743,13 +774,15 @@ filter_symlink (call_frame_t *frame,
 		if (parent->st_mode & S_IWOTH)
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
-		STACK_UNWIND (frame, -1, EPERM);
+		STACK_UNWIND (frame, -1, EPERM, NULL, NULL,
+                              NULL, NULL);
 		return 0;
 
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL, NULL);
+		STACK_UNWIND (frame, -1, EROFS, NULL, NULL,
+                              NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -775,8 +808,17 @@ filter_rename_cbk (call_frame_t *frame,
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
+
+		update_stat (preoldparent, this->private);
+		update_stat (postoldparent, this->private);
+
+		update_stat (prenewparent, this->private);
+		update_stat (postnewparent, this->private);
 	}
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+
+	STACK_UNWIND (frame, op_ret, op_errno, buf,
+                      preoldparent, postoldparent,
+                      prenewparent, postnewparent);
 	return 0;
 }
 
@@ -804,13 +846,17 @@ filter_rename (call_frame_t *frame,
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, 
 			"%s -> %s: returning permission denied", oldloc->path, newloc->path);
-		STACK_UNWIND (frame, -1, EPERM);
+		STACK_UNWIND (frame, -1, EPERM, NULL,
+                              NULL, NULL,
+                              NULL, NULL);
 		return 0;
 
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL);
+		STACK_UNWIND (frame, -1, EROFS, NULL,
+                              NULL, NULL,
+                              NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -841,8 +887,12 @@ filter_link_cbk (call_frame_t *frame,
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
 		}
+
+		update_stat (preparent, this->private);
+		update_stat (postparent, this->private);
 	}
-	STACK_UNWIND (frame, op_ret, op_errno, inode,	buf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
+                      preparent, postparent);
 	return 0;
 }
 
@@ -858,7 +908,8 @@ filter_link (call_frame_t *frame,
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL, NULL);
+		STACK_UNWIND (frame, -1, EROFS, NULL, NULL,
+                              NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
@@ -890,8 +941,11 @@ filter_create_cbk (call_frame_t *frame,
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
 		}
+		update_stat (preparent, this->private);
+		update_stat (postparent, this->private);
 	}
-	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf,
+                      preparent, postparent);
 	return 0;
 }
 
@@ -913,13 +967,15 @@ filter_create (call_frame_t *frame,
 		if (parent->st_mode & S_IWOTH)
 			break;
 		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
-		STACK_UNWIND (frame, -1, EPERM);
+		STACK_UNWIND (frame, -1, EPERM, NULL, NULL, NULL,
+                              NULL, NULL);
 		return 0;
 
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL, NULL, NULL);
+		STACK_UNWIND (frame, -1, EROFS, NULL, NULL, NULL,
+                              NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame, filter_create_cbk,
@@ -1041,6 +1097,7 @@ filter_writev_cbk (call_frame_t *frame,
 		   struct stat *postbuf)
 {
 	if (op_ret >= 0) {
+		update_stat (prebuf, this->private);
 		update_stat (postbuf, this->private);
 	}
 	STACK_UNWIND (frame,
@@ -1066,7 +1123,7 @@ filter_writev (call_frame_t *frame,
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL);
+		STACK_UNWIND (frame, -1, EROFS, NULL, NULL);
 		return 0;
 	}
 
