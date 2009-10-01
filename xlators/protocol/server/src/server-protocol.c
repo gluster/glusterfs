@@ -1160,6 +1160,12 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			      state->loc2.parent, state->loc2.name,
 			      state->loc.inode, stbuf);
 		gf_stat_from_stat (&rsp->stat, stbuf);
+
+		gf_stat_from_stat (&rsp->preoldparent, preoldparent);
+		gf_stat_from_stat (&rsp->postoldparent, postoldparent);
+
+		gf_stat_from_stat (&rsp->prenewparent, prenewparent);
+		gf_stat_from_stat (&rsp->postnewparent, postnewparent);
 	}
 
 	server_loc_wipe (&(state->loc));
@@ -1386,6 +1392,7 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (op_ret == 0) {
 		gf_stat_from_stat (&rsp->prestat, prebuf);
+		gf_stat_from_stat (&rsp->poststat, postbuf);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": TRUNCATE %s (%"PRId64") ==> %"PRId32" (%s)",
@@ -1481,6 +1488,7 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (op_ret == 0) {
 		gf_stat_from_stat (&rsp->prestat, prebuf);
+		gf_stat_from_stat (&rsp->poststat, postbuf);
 	} else {
 		state = CALL_STATE (frame);
 
@@ -1574,10 +1582,16 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	hdrlen = gf_hdr_len (rsp, 0);
 	hdr    = gf_hdr_new (rsp, 0);
+	rsp = gf_param (hdr);
 
 	hdr->rsp.op_ret = hton32 (op_ret);
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
+
+        if (op_ret >= 0) {
+                gf_stat_from_stat (&(rsp->prestat), prebuf);
+                gf_stat_from_stat (&(rsp->poststat), postbuf);
+        }
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNC,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1649,6 +1663,7 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret >= 0) {
+		gf_stat_from_stat (&rsp->prestat, prebuf);
 		gf_stat_from_stat (&rsp->poststat, postbuf);
 	} else {
 		state = CALL_STATE(frame);
@@ -1901,8 +1916,10 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
-	if (op_ret >= 0)
+	if (op_ret >= 0) {
+                gf_stat_from_stat (&(rsp->buf), sbuf);
 		strcpy (rsp->path, buf);
+        }
 
 	server_loc_wipe (&(state->loc));
 
@@ -2167,6 +2184,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		gf_stat_from_stat (&rsp->stat, stbuf);
+		gf_stat_from_stat (&rsp->postparent, postparent);
 
 		if (inode->ino == 0) {
 			inode_link (inode, state->loc.parent, 
