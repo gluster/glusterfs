@@ -250,7 +250,7 @@ sc_readlink_cbk (call_frame_t *frame, void *cookie,
 	inode_unref (frame->local);
 	frame->local = NULL;
 
-        STACK_UNWIND (frame, op_ret, op_errno, link);
+        STACK_UNWIND (frame, op_ret, op_errno, link, sbuf);
         return 0;
 }
 
@@ -260,6 +260,7 @@ sc_readlink (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, size_t size)
 {
 	char *link = NULL;
+        struct stat buf = {0, };
 
 	sc_cache_get (this, loc->inode, &link);
 
@@ -268,7 +269,13 @@ sc_readlink (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"cache hit %s -> %s",
 			loc->path, link);
-		STACK_UNWIND (frame, strlen (link), 0, link);
+
+                /*
+                  libglusterfsclient, nfs or any other translators
+                  using buf in readlink_cbk should be aware that @buf
+                  is 0 filled
+                */
+		STACK_UNWIND (frame, strlen (link), 0, link, &buf);
 		FREE (link);
 		return 0;
 	}
@@ -296,7 +303,8 @@ sc_symlink_cbk (call_frame_t *frame, void *cookie,
 		}
 	}
 
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
+                      postparent);
         return 0;
 }
 
@@ -327,7 +335,7 @@ sc_lookup_cbk (call_frame_t *frame, void *cookie,
 	else
 		sc_cache_flush (this, inode);
 
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr);
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr, postparent);
         return 0;
 }
 
