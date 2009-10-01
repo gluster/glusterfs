@@ -132,48 +132,32 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
 	return;
 }
 
-/* 
- * ioc_utimens_cbk -
- * 
- * @frame:
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- */
 int32_t
-ioc_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+ioc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno,
+                 struct stat *preop, struct stat *postop)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-	return 0;
+ 	STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
+ 	return 0;
 }
 
-/* 
- * ioc_utimens -
- * 
- * @frame:
- * @this:
- * @loc:
- * @tv:
- *
- */
 int32_t
-ioc_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             struct timespec *tv)
+ioc_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+             struct stat *stbuf, int32_t valid)
 {
-	uint64_t ioc_inode = 0;
-	inode_ctx_get (loc->inode, this, &ioc_inode);
+ 	uint64_t ioc_inode = 0;
 
-	if (ioc_inode)
-		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
+ 	inode_ctx_get (loc->inode, this, &ioc_inode);
 
-	STACK_WIND (frame, ioc_utimens_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->utimens, loc, tv);
+ 	if (ioc_inode
+            && ((valid & GF_SET_ATTR_ATIME)
+                || (valid & GF_SET_ATTR_MTIME)))
+ 		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-	return 0;
+ 	STACK_WIND (frame, ioc_setattr_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->setattr, loc, stbuf, valid);
+
+ 	return 0;
 }
 
 int32_t
@@ -1563,9 +1547,9 @@ struct xlator_fops fops = {
 	.writev      = ioc_writev,
 	.truncate    = ioc_truncate,
 	.ftruncate   = ioc_ftruncate,
-	.utimens     = ioc_utimens,
 	.lookup      = ioc_lookup,
-	.lk          = ioc_lk
+	.lk          = ioc_lk,
+        .setattr     = ioc_setattr
 };
 
 struct xlator_mops mops = {

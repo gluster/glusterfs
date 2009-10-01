@@ -217,6 +217,8 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_FSETXATTR]   = "FSETXATTR";
 	gf_fop_list[GF_FOP_FGETXATTR]   = "FGETXATTR";
         gf_fop_list[GF_FOP_RCHECKSUM]   = "RCHECKSUM";
+        gf_fop_list[GF_FOP_SETATTR]     = "SETATTR";
+        gf_fop_list[GF_FOP_FSETATTR]    = "FSETATTR";
 
 	gf_mop_list[GF_MOP_SETVOLUME]   = "SETVOLUME"; /* 0 */
 	gf_mop_list[GF_MOP_GETVOLUME]   = "GETVOLUME"; /* 1 */

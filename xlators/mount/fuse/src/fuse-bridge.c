@@ -159,6 +159,8 @@ typedef struct {
         dict_t        *dict;
         char          *name;
         char           is_revalidate;
+        int32_t        callcount;
+        gf_lock_t      lock;
 } fuse_state_t;
 
 
@@ -193,6 +195,67 @@ free_state (fuse_state_t *state)
 }
 
 
+static int
+__can_fuse_return (fuse_state_t *state,
+                   char success)
+{
+        int ret = 0;
+
+        if (success) {
+                if ((state->callcount == 0)
+                    || (state->callcount == 1))
+                        ret = 1;
+                else
+                        ret = 0;
+        } else {
+                if (state->callcount != -1)
+                        ret = 1;
+                else
+                        ret = 0;
+        }
+
+        return ret;
+}
+
+
+static void
+__fuse_mark_return (fuse_state_t *state,
+                    char success)
+{
+        if (success) {
+                if (state->callcount == 2)
+                        state->callcount--;
+                else
+                        state->callcount = 0;
+        } else {
+                if (state->callcount == 2)
+                        state->callcount = -1;
+                else
+                        state->callcount = 0;
+        }
+
+        return;
+}
+
+
+static int
+can_fuse_return (fuse_state_t *state,
+                 char success)
+{
+        int ret = 0;
+
+        LOCK(&state->lock);
+        {
+                ret = __can_fuse_return (state, success);
+
+                __fuse_mark_return (state, success);
+        }
+        UNLOCK(&state->lock);
+
+        return ret;
+}
+
+
 fuse_state_t *
 get_state (xlator_t *this, fuse_in_header_t *finh)
 {
@@ -205,6 +268,8 @@ get_state (xlator_t *this, fuse_in_header_t *finh)
         state->itable = this->itable;
         state->finh = finh;
         state->this = this;
+
+        LOCK_INIT (&state->lock);
 
         return state;
 }
@@ -659,11 +724,15 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.path ? state->loc.path : "ERR",
                         strerror (op_errno));
 
-                send_fuse_err (this, finh, op_errno);
+                if (can_fuse_return (state, 0))
+                        send_fuse_err (this, finh, op_errno);
         }
 
-        free_state (state);
-        STACK_DESTROY (frame->root);
+        if (state->callcount == 0) {
+                free_state (state);
+                STACK_DESTROY (frame->root);
+        }
+
         return 0;
 }
 
@@ -795,136 +864,71 @@ out:
 }
 
 
-static void
-do_chmod (xlator_t *this, fuse_in_header_t *finh, struct fuse_setattr_in *fsi)
+static int
+fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno,
+                  struct stat *statpre, struct stat *statpost)
 {
-        fuse_state_t *state = NULL;
-        fd_t         *fd = NULL;
-        int32_t       ret = -1;
+        fuse_state_t     *state;
+        fuse_in_header_t *finh;
+        fuse_private_t   *priv = NULL;
+        struct fuse_attr_out fao;
 
-        GET_STATE (this, finh, state);
-        if (fsi->valid & FATTR_FH) {
-                fd = FH_TO_FD (fsi->fh);
-                state->fd = fd;
-        }
+        priv  = this->private;
+        state = frame->root->state;
+        finh  = state->finh;
 
-        if (fd) {
+        if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": FCHMOD %p", finh->unique, fd);
+                        "%"PRIu64": %s() %s => %"PRId64, frame->root->unique,
+                        gf_fop_list[frame->root->op],
+                        state->loc.path ? state->loc.path : "ERR",
+                        statpost->st_ino);
 
-                FUSE_FOP (state, fuse_attr_cbk, GF_FOP_FCHMOD,
-                          fchmod, fd, fsi->mode);
-        } else {
-                ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
+                /* TODO: make these timeouts configurable via meta */
+                /* TODO: what if the inode number has changed by now */
 
-                if ((state->loc.inode == NULL) ||
-                    (ret < 0)) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "%"PRIu64": CHMOD %"PRIu64" (%s) (fuse_loc_fill() failed)",
-                                finh->unique, finh->nodeid,
-                                state->loc.path);
-                        send_fuse_err (this, finh, ENOENT);
-                        free_state (state);
-                        return;
+                statpost->st_blksize = this->ctx->page_size;
+
+                stat2attr (statpost, &fao.attr);
+
+                fao.attr_valid = calc_timeout_sec (priv->attribute_timeout);
+                fao.attr_valid_nsec =
+                  calc_timeout_nsec (priv->attribute_timeout);
+
+                if (can_fuse_return (state, 1)) {
+                        priv->proto_minor >= 9 ?
+                                send_fuse_obj (this, finh, &fao) :
+                                send_fuse_data (this, finh, &fao,
+                                                FUSE_COMPAT_ATTR_OUT_SIZE);
                 }
+        } else {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRIu64": %s() %s => -1 (%s)", frame->root->unique,
+                        gf_fop_list[frame->root->op],
+                        state->loc.path ? state->loc.path : "ERR",
+                        strerror (op_errno));
 
-
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": CHMOD %s", finh->unique,
-                        state->loc.path);
-
-                FUSE_FOP (state, fuse_attr_cbk, GF_FOP_CHMOD,
-                          chmod, &state->loc, fsi->mode);
+                if (can_fuse_return (state, 0))
+                        send_fuse_err (this, finh, op_errno);
         }
+
+        if (state->callcount == 0) {
+                free_state (state);
+                STACK_DESTROY (frame->root);
+        }
+
+        return 0;
 }
 
 
 static void
-do_chown (xlator_t *this, fuse_in_header_t *finh, struct fuse_setattr_in *fsi)
+fuse_do_truncate (fuse_state_t *state, struct fuse_setattr_in *fsi)
 {
-        fuse_state_t *state = NULL;
-        fd_t         *fd = NULL;
-        int32_t       ret = -1;
-        uid_t         uid = 0;
-        gid_t         gid = 0;
-
-        uid = (fsi->valid & FATTR_UID) ? fsi->uid : (uid_t) -1;
-        gid = (fsi->valid & FATTR_GID) ? fsi->gid : (gid_t) -1;
-        GET_STATE (this, finh, state);
-
-        if (fsi->valid & FATTR_FH) {
-                fd = FH_TO_FD (fsi->fh);
-                state->fd = fd;
-        }
-
-        if (fd) {
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": FCHOWN %p", finh->unique, fd);
-
-                FUSE_FOP (state, fuse_attr_cbk, GF_FOP_FCHOWN,
-                          fchown, fd, uid, gid);
-        } else {
-                ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
-                if ((state->loc.inode == NULL) ||
-                    (ret < 0)) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "%"PRIu64": CHOWN %"PRIu64" (%s) (fuse_loc_fill() failed)",
-                                finh->unique, finh->nodeid,
-                                state->loc.path);
-                        send_fuse_err (this, finh, ENOENT);
-                        free_state (state);
-                        return;
-                }
-
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": CHOWN %s", finh->unique,
-                        state->loc.path);
-
-                FUSE_FOP (state, fuse_attr_cbk, GF_FOP_CHOWN,
-                          chown, &state->loc, uid, gid);
-        }
-}
-
-
-static void
-do_truncate (xlator_t *this, fuse_in_header_t *finh, struct fuse_setattr_in *fsi)
-{
-        fuse_state_t *state = NULL;
-        fd_t         *fd = NULL;
-        int32_t       ret = -1;
-
-        GET_STATE (this, finh, state);
-
-        if (fsi->valid & FATTR_FH) {
-                fd = FH_TO_FD (fsi->fh);
-                state->fd = fd;
-        }
-
-        if (fd) {
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": FTRUNCATE %p/%"PRId64, finh->unique,
-                        fd, fsi->size);
-
+        if (state->fd) {
                 FUSE_FOP (state, fuse_attr_cbk, GF_FOP_FTRUNCATE,
-                          ftruncate, fd, fsi->size);
+                          ftruncate, state->fd, fsi->size);
         } else {
-                ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
-                if ((state->loc.inode == NULL) ||
-                    (ret < 0)) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "%"PRIu64": TRUNCATE %s/%"PRId64" (fuse_loc_fill() failed)",
-                                finh->unique, state->loc.path,
-                                fsi->size);
-                        send_fuse_err (this, finh, ENOENT);
-                        free_state (state);
-                        return;
-                }
-
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": TRUNCATE %s/%"PRId64"(%"PRIu64")",
-                        finh->unique,
-                        state->loc.path, fsi->size, finh->nodeid);
-
                 FUSE_FOP (state, fuse_attr_cbk, GF_FOP_TRUNCATE,
                           truncate, &state->loc, fsi->size);
         }
@@ -933,37 +937,34 @@ do_truncate (xlator_t *this, fuse_in_header_t *finh, struct fuse_setattr_in *fsi
 }
 
 
-static void
-do_utimes (xlator_t *this, fuse_in_header_t *finh, struct fuse_setattr_in *fsi)
+static int32_t
+fattr_to_gf_set_attr (int32_t valid)
 {
-        fuse_state_t    *state = NULL;
-        struct timespec  tv[2];
-        int32_t          ret = -1;
+        int32_t gf_valid = 0;
 
-        tv[0].tv_sec  = fsi->atime;
-        tv[0].tv_nsec = fsi->atimensec;
-        tv[1].tv_sec  = fsi->mtime;
-        tv[1].tv_nsec = fsi->mtimensec;
+        if (valid & FATTR_UID)
+                gf_valid |= GF_SET_ATTR_UID;
 
-        GET_STATE (this, finh, state);
-        ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
-        if ((state->loc.inode == NULL) ||
-            (ret < 0)) {
-                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "%"PRIu64": UTIMENS %s (fuse_loc_fill() failed)",
-                        finh->unique, state->loc.path);
-                send_fuse_err (this, finh, ENOENT);
-                free_state (state);
-                return;
-        }
+        if (valid & FATTR_GID)
+                gf_valid |= GF_SET_ATTR_GID;
 
-        gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                "%"PRIu64": UTIMENS (%"PRIu64")%s", finh->unique,
-                finh->nodeid, state->loc.path);
+        if (valid & FATTR_ATIME)
+                gf_valid |= GF_SET_ATTR_ATIME;
 
-        FUSE_FOP (state, fuse_attr_cbk, GF_FOP_UTIMENS,
-                  utimens, &state->loc, tv);
+        if (valid & FATTR_MTIME)
+                gf_valid |= GF_SET_ATTR_MTIME;
+
+        if (valid & FATTR_SIZE)
+                gf_valid |= GF_SET_ATTR_SIZE;
+
+        return gf_valid;
 }
+
+
+#define FATTR_MASK   (FATTR_SIZE                        \
+                      | FATTR_UID | FATTR_GID           \
+                      | FATTR_ATIME | FATTR_MTIME       \
+                      | FATTR_MODE)
 
 
 static void
@@ -971,20 +972,62 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_setattr_in *fsi = msg;
 
-        if (fsi->valid & FATTR_MODE)
-                do_chmod (this, finh, fsi);
-        else if (fsi->valid & (FATTR_UID | FATTR_GID))
-                do_chown (this, finh, fsi);
-        else if (fsi->valid & FATTR_SIZE)
-                do_truncate (this, finh, fsi);
-        else if (fsi->valid & (FATTR_ATIME | FATTR_MTIME))
-                do_utimes (this, finh, fsi);
-        else
-                /* As of now, getattr uses only the header.
-                 * If it happens to change, we'll have to
-                 * do some refactoring...
-                 */
-                fuse_getattr (this, finh, NULL);
+        struct stat attr;
+
+        fuse_state_t *state = NULL;
+        int32_t       ret   = -1;
+
+        GET_STATE (this, finh, state);
+
+        ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
+
+        if ((state->loc.inode == NULL) ||
+            (ret < 0)) {
+
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRIu64": SETATTR %s (fuse_loc_fill() failed)",
+                        finh->unique, state->loc.path);
+
+                send_fuse_err (this, finh, ENOENT);
+                free_state (state);
+
+                return;
+        }
+
+        gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                "%"PRIu64": SETATTR (%"PRIu64")%s", finh->unique,
+                finh->nodeid, state->loc.path);
+
+        if ((fsi->valid & FATTR_SIZE)
+            && ((fsi->valid & (FATTR_MASK)) != FATTR_SIZE)) {
+                state->callcount = 2;
+        }
+
+        state->fd = fd_lookup (state->loc.inode, finh->pid);
+
+        if (fsi->valid & FATTR_SIZE) {
+                fuse_do_truncate (state, fsi);
+        }
+
+        if ((fsi->valid & (FATTR_MASK)) != FATTR_SIZE) {
+                attr.st_size  = fsi->size;
+                attr.st_atime = fsi->atime;
+                attr.st_mtime = fsi->mtime;
+
+                attr.st_mode = fsi->mode;
+                attr.st_uid  = fsi->uid;
+                attr.st_gid  = fsi->gid;
+
+                if (state->fd) {
+                        FUSE_FOP (state, fuse_setattr_cbk, GF_FOP_FSETATTR,
+                                  fsetattr, state->fd, &attr,
+                                  fattr_to_gf_set_attr (fsi->valid));
+                } else {
+                        FUSE_FOP (state, fuse_setattr_cbk, GF_FOP_SETATTR,
+                                  setattr, &state->loc, &attr,
+                                  fattr_to_gf_set_attr (fsi->valid));
+                }
+        }
 }
 
 

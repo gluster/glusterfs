@@ -1763,40 +1763,103 @@ unify_opendir (call_frame_t *frame,
 }
 
 
-/**
- * unify_chmod - 
- */
 int32_t
-unify_chmod (call_frame_t *frame,
-	     xlator_t *this,
-	     loc_t *loc,
-	     mode_t mode)
+unify_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct stat *statpre,
+                   struct stat *statpost)
+{
+	int32_t callcnt = 0;
+	unify_private_t *priv = this->private;
+	unify_local_t *local = frame->local;
+	call_frame_t *prev_frame = cookie;
+
+	LOCK (&frame->lock);
+	{
+		callcnt = --local->call_count;
+    
+		if (op_ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"%s(): child(%s): path(%s): %s", 
+				gf_fop_list[frame->root->op],
+				prev_frame->this->name, 
+				(local->loc1.path)?local->loc1.path:"", 
+				strerror (op_errno));
+
+			local->op_errno = op_errno;
+			if ((op_errno == ENOENT) && priv->optimist) 
+				local->op_ret = 0;
+		}
+
+		if (op_ret >= 0) {
+			local->op_ret = 0;
+
+			if (NS (this) == prev_frame->this) {
+				local->st_ino = statpost->st_ino;
+				/* If the entry is directory, get the stat
+				   from NS node */
+				if (S_ISDIR (statpost->st_mode) || 
+				    !local->stpost.st_blksize) {
+					local->stpre = *statpre;
+                                        local->stpost = *statpost;
+				}
+			}
+
+			if ((!S_ISDIR (statpost->st_mode)) && 
+			    (NS (this) != prev_frame->this)) {
+				/* If file, take the stat info from Storage 
+				   node. */
+				local->stpre = *statpre;
+                                local->stpost = *statpost;
+			}
+		}
+	}
+	UNLOCK (&frame->lock);
+    
+	if (!callcnt) {
+		/* If the inode number is not filled, operation should
+		   fail */
+		if (!local->st_ino)
+			local->op_ret = -1;
+
+                local->stpre.st_ino = local->st_ino;
+		local->stpost.st_ino = local->st_ino;
+		unify_local_wipe (local);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+			      &local->stpre, &local->stpost);
+	}
+
+	return 0;
+}
+
+
+int32_t
+unify_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+               struct stat *stbuf, int32_t valid)
 {
 	unify_local_t *local = NULL;
 	unify_private_t *priv = this->private;
 	int32_t index = 0;
 	int32_t callcnt = 0;
-	uint64_t tmp_list = 0;
-		
-	UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
+  	uint64_t tmp_list = 0;
+
+        if (!(loc && loc->inode)) {                     
+                STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+                return 0;
+        }                                                    
 
 	/* Initialization */
 	INIT_LOCAL (frame, local);
-
 	loc_copy (&local->loc1, loc);
-	local->st_ino = loc->inode->ino;
 
 	if (S_ISDIR (loc->inode->st_mode)) {
-		local->call_count = priv->child_count + 1;
+		local->call_count = 1;
       
-		for (index = 0; index < (priv->child_count + 1); index++) {
-			STACK_WIND (frame,
-				    unify_buf_cbk,
-				    priv->xl_array[index],
-				    priv->xl_array[index]->fops->chmod,
-				    loc, mode);
-		}    
-	} else {
+                STACK_WIND (frame,
+                            unify_setattr_cbk,
+                            NS (this),
+                            NS (this)->fops->setattr,
+                            loc, stbuf, valid);
+        } else {
 		inode_ctx_get (loc->inode, this, &tmp_list);
 		local->list = (int16_t *)(long)tmp_list;
 
@@ -1807,11 +1870,11 @@ unify_chmod (call_frame_t *frame,
       
 		for (index = 0; local->list[index] != -1; index++) {
 			STACK_WIND (frame,
-				    unify_buf_cbk,
+				    unify_setattr_cbk,
 				    priv->xl_array[local->list[index]],
-				    priv->xl_array[local->list[index]]->fops->chmod,
-				    loc,
-				    mode);
+				    priv->xl_array[local->list[index]]->fops->setattr,
+				    loc, stbuf, valid);
+
 			if (!--callcnt)
 				break;
 		}
@@ -1820,59 +1883,39 @@ unify_chmod (call_frame_t *frame,
 	return 0;
 }
 
-/**
- * unify_chown - 
- */
+
 int32_t
-unify_chown (call_frame_t *frame,
-	     xlator_t *this,
-	     loc_t *loc,
-	     uid_t uid,
-	     gid_t gid)
+unify_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                struct stat *stbuf, int32_t valid)
 {
 	unify_local_t *local = NULL;
-	unify_private_t *priv = this->private;
-	int32_t index = 0;
-	int32_t callcnt = 0;
-  	uint64_t tmp_list = 0;
+	xlator_t *child = NULL;
+	uint64_t tmp_child = 0;
 
-	UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
+	UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
 
 	/* Initialization */
 	INIT_LOCAL (frame, local);
-	loc_copy (&local->loc1, loc);
-	local->st_ino = loc->inode->ino;
 
-	if (S_ISDIR (loc->inode->st_mode)) {
-		local->call_count = priv->child_count + 1;
-      
-		for (index = 0; index < (priv->child_count + 1); index++) {
-			STACK_WIND (frame,
-				    unify_buf_cbk,
-				    priv->xl_array[index],
-				    priv->xl_array[index]->fops->chown,
-				    loc, uid, gid);
-		}    
+	if (!fd_ctx_get (fd, this, &tmp_child)) {
+		/* If its set, then its file */
+		child = (xlator_t *)(long)tmp_child;		     
+
+		local->call_count = 2;
+
+		STACK_WIND (frame, unify_setattr_cbk, child,
+			    child->fops->fsetattr, fd, stbuf, valid);
+
+		STACK_WIND (frame, unify_setattr_cbk, NS(this),
+			    NS(this)->fops->fsetattr, fd, stbuf, valid);
 	} else {
-		inode_ctx_get (loc->inode, this, &tmp_list);
-		local->list = (int16_t *)(long)tmp_list;
-
-		for (index = 0; local->list[index] != -1; index++) {
-			local->call_count++;
-			callcnt++;
-		}
-      
-		for (index = 0; local->list[index] != -1; index++) {
-			STACK_WIND (frame,
-				    unify_buf_cbk,
-				    priv->xl_array[local->list[index]],
-				    priv->xl_array[local->list[index]]->fops->chown,
-				    loc, uid, gid);
-			if (!--callcnt)
-				break;
-		}
+		local->call_count = 1;
+    
+		STACK_WIND (frame, unify_setattr_cbk,
+			    NS(this), NS(this)->fops->fsetattr,
+			    fd, stbuf, valid);
 	}
-
+  
 	return 0;
 }
 
@@ -1942,6 +1985,7 @@ unify_truncate_cbk (call_frame_t *frame,
 	return 0;
 }
 
+
 /**
  * unify_truncate - 
  */
@@ -2001,62 +2045,6 @@ unify_truncate (call_frame_t *frame,
 		}
 	}
 
-	return 0;
-}
-
-/**
- * unify_utimens - 
- */
-int32_t 
-unify_utimens (call_frame_t *frame,
-	       xlator_t *this,
-	       loc_t *loc,
-	       struct timespec tv[2])
-{
-	unify_local_t *local = NULL;
-	unify_private_t *priv = this->private;
-	int32_t index = 0;
-	int32_t callcnt = 0;
-  	uint64_t tmp_list = 0;
-  
-	UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
-
-	/* Initialization */
-	INIT_LOCAL (frame, local);
-	loc_copy (&local->loc1, loc);
-	local->st_ino = loc->inode->ino;
-
-	if (S_ISDIR (loc->inode->st_mode)) {
-		local->call_count = priv->child_count + 1;
-      
-		for (index = 0; index < (priv->child_count + 1); index++) {
-			STACK_WIND (frame,
-				    unify_buf_cbk,
-				    priv->xl_array[index],
-				    priv->xl_array[index]->fops->utimens,
-				    loc, tv);
-		}
-	} else {
-		inode_ctx_get (loc->inode, this, &tmp_list);
-		local->list = (int16_t *)(long)tmp_list;
-
-		for (index = 0; local->list[index] != -1; index++) {
-			local->call_count++;
-			callcnt++;
-		}
-      
-		for (index = 0; local->list[index] != -1; index++) {
-			STACK_WIND (frame,
-				    unify_buf_cbk,
-				    priv->xl_array[local->list[index]],
-				    priv->xl_array[local->list[index]]->fops->utimens,
-				    loc,
-				    tv);
-			if (!--callcnt)
-				break;
-		}
-	}
-  
 	return 0;
 }
 
@@ -2330,90 +2318,6 @@ unify_ftruncate (call_frame_t *frame,
 	return 0;
 }
 
-
-/**
- * unify_fchmod - 
- */
-int32_t 
-unify_fchmod (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      mode_t mode)
-{
-	unify_local_t *local = NULL;
-	xlator_t *child = NULL;	
-	uint64_t tmp_child = 0;
-
-	UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
-
-	/* Initialization */
-	INIT_LOCAL (frame, local);
-	local->st_ino = fd->inode->ino;
-
-	if (!fd_ctx_get (fd, this, &tmp_child)) {
-		/* If its set, then its file */
-		child = (xlator_t *)(long)tmp_child;		     
-
-		local->call_count = 2;
-
-		STACK_WIND (frame, unify_buf_cbk, child, 
-			    child->fops->fchmod, fd, mode);
-
-		STACK_WIND (frame, unify_buf_cbk, NS(this),	
-			    NS(this)->fops->fchmod, fd, mode);
-
-	} else {
-		/* this is an directory */
-		local->call_count = 1;
-    
-		STACK_WIND (frame, unify_buf_cbk,
-			    NS(this), NS(this)->fops->fchmod, fd, mode);
-	}
-
-	return 0;
-}
-
-/**
- * unify_fchown - 
- */
-int32_t 
-unify_fchown (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      uid_t uid,
-	      gid_t gid)
-{
-	unify_local_t *local = NULL;
-	xlator_t *child = NULL;
-	uint64_t tmp_child = 0;
-
-	UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
-
-	/* Initialization */
-	INIT_LOCAL (frame, local);
-	local->st_ino = fd->inode->ino;
-
-	if (!fd_ctx_get (fd, this, &tmp_child)) {
-		/* If its set, then its file */
-		child = (xlator_t *)(long)tmp_child;		     
-
-		local->call_count = 2;
-
-		STACK_WIND (frame, unify_buf_cbk, child,
-			    child->fops->fchown, fd, uid, gid);
-
-		STACK_WIND (frame, unify_buf_cbk, NS(this),
-			    NS(this)->fops->fchown,	fd, uid, gid);
-	} else {
-		local->call_count = 1;
-    
-		STACK_WIND (frame, unify_buf_cbk,
-			    NS(this), NS(this)->fops->fchown,
-			    fd, uid, gid);
-	}
-  
-	return 0;
-}
 
 /**
  * unify_flush_cbk - 
@@ -4436,7 +4340,6 @@ fini (xlator_t *this)
 
 struct xlator_fops fops = {
 	.stat        = unify_stat,
-	.chmod       = unify_chmod,
 	.readlink    = unify_readlink,
 	.mknod       = unify_mknod,
 	.mkdir       = unify_mkdir,
@@ -4445,7 +4348,6 @@ struct xlator_fops fops = {
 	.symlink     = unify_symlink,
 	.rename      = unify_rename,
 	.link        = unify_link,
-	.chown       = unify_chown,
 	.truncate    = unify_truncate,
 	.create      = unify_create,
 	.open        = unify_open,
@@ -4464,9 +4366,6 @@ struct xlator_fops fops = {
 	.ftruncate   = unify_ftruncate,
 	.fstat       = unify_fstat,
 	.lk          = unify_lk,
-	.fchown      = unify_fchown,
-	.fchmod      = unify_fchmod,
-	.utimens     = unify_utimens,
 	.lookup      = unify_lookup,
 	.getdents    = unify_getdents,
 	.checksum    = unify_checksum,
@@ -4475,7 +4374,9 @@ struct xlator_fops fops = {
 	.entrylk     = unify_entrylk,
 	.fentrylk    = unify_fentrylk,
 	.xattrop     = unify_xattrop,
-	.fxattrop    = unify_fxattrop
+	.fxattrop    = unify_fxattrop,
+        .setattr     = unify_setattr, 
+        .fsetattr    = unify_fsetattr,
 };
 
 struct xlator_mops mops = {

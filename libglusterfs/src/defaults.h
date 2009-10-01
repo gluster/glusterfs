@@ -302,4 +302,16 @@ int32_t default_release (xlator_t *this,
 int32_t default_releasedir (xlator_t *this,
 			    fd_t *fd);
 
+int32_t default_setattr (call_frame_t *frame,
+                         xlator_t *this,
+                         loc_t *loc,
+                         struct stat *stbuf,
+                         int32_t valid);
+
+int32_t default_fsetattr (call_frame_t *frame,
+                          xlator_t *this,
+                          fd_t *fd,
+                          struct stat *stbuf,
+                          int32_t valid);
+
 #endif /* _DEFAULTS_H */

@@ -631,6 +631,36 @@ typedef struct {
 			int32_t op_ret;
 			int32_t op_errno;
 		} lock_fnotify_cbk;
+                
+                /* setattr */
+                struct {
+                        fop_setattr_t fn;
+                        loc_t loc;
+                        struct stat stbuf;
+                        int32_t valid;
+                } setattr;
+                struct {
+                        fop_setattr_cbk_t fn;
+                        int32_t op_ret;
+                        int32_t op_errno;
+                        struct stat statpre;
+                        struct stat statpost;
+                } setattr_cbk;
+
+                /* fsetattr */
+                struct {
+                        fop_fsetattr_t fn;
+                        fd_t *fd;
+                        struct stat stbuf;
+                        int32_t valid;
+                } fsetattr;
+                struct {
+                        fop_fsetattr_cbk_t fn;
+                        int32_t op_ret;
+                        int32_t op_errno;
+                        struct stat statpre;
+                        struct stat statpost;
+                } fsetattr_cbk;
 
 	} args;
 } call_stub_t;
@@ -1231,6 +1261,36 @@ fop_lock_fnotify_stub (call_frame_t *frame,
 		       fop_lock_fnotify_t fn,
 		       fd_t *fd,
 		       int32_t timeout);
+
+call_stub_t *
+fop_setattr_stub (call_frame_t *frame,
+                  fop_setattr_t fn,
+                  loc_t *loc,
+                  struct stat *stbuf,
+                  int32_t valid);
+
+call_stub_t *
+fop_setattr_cbk_stub (call_frame_t *frame,
+                      fop_setattr_cbk_t fn,
+                      int32_t op_ret,
+                      int32_t op_errno,
+                      struct stat *statpre,
+                      struct stat *statpost);
+
+call_stub_t *
+fop_fsetattr_stub (call_frame_t *frame,
+                   fop_fsetattr_t fn,
+                   fd_t *fd,
+                   struct stat *stbuf,
+                   int32_t valid);
+
+call_stub_t *
+fop_fsetattr_cbk_stub (call_frame_t *frame,
+                       fop_setattr_cbk_t fn,
+                       int32_t op_ret,
+                       int32_t op_errno,
+                       struct stat *statpre,
+                       struct stat *statpost);
 
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);

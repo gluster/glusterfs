@@ -365,58 +365,52 @@ out:
 
 
 int
-iot_chmod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *buf)
+iot_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno,
+                 struct stat *preop, struct stat *postop)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
         return 0;
 }
 
 
 int
-iot_chmod_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                   mode_t mode)
+iot_setattr_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                     struct stat *stbuf, int32_t valid)
 {
-        STACK_WIND (frame, iot_chmod_cbk,
+        STACK_WIND (frame, iot_setattr_cbk,
                     FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->chmod,
-                    loc, mode);
+                    FIRST_CHILD (this)->fops->setattr,
+                    loc, stbuf, valid);
         return 0;
 }
 
 
 int
-iot_chmod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+iot_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+             struct stat *stbuf, int32_t valid)
 {
         call_stub_t     *stub = NULL;
-        fd_t            *fd = NULL;
         int             ret = -1;
 
-        stub = fop_chmod_stub (frame, iot_chmod_wrapper, loc, mode);
+        stub = fop_setattr_stub (frame, iot_setattr_wrapper, loc, stbuf, valid);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create chmod stub"
-                        "(out of memory)");
+                gf_log (this->name, GF_LOG_ERROR, "Cannot create setattr stub"
+                        "(Out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
 
-	fd = fd_lookup (loc->inode, frame->root->pid);
-        if (fd == NULL)
-                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
-                                        loc->inode, stub);
-        else {
-                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
-                                            loc->inode, stub);
-                fd_unref (fd);
-        }
+        ret = iot_schedule_unordered ((iot_conf_t *)this->private,
+                                      loc->inode, stub);
 
 out:
         if (ret < 0) {
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
-                        
-                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                STACK_UNWIND (frame, -1, -ret, NULL, NULL);
         }
 
         return 0;
@@ -424,33 +418,36 @@ out:
 
 
 int
-iot_fchmod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *buf)
+iot_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno,
+                  struct stat *preop, struct stat *postop)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
         return 0;
 }
 
 
 int
-iot_fchmod_wrapper (call_frame_t *frame, xlator_t *this,
-                    fd_t *fd, mode_t mode)
+iot_fsetattr_wrapper (call_frame_t *frame, xlator_t *this,
+                      fd_t *fd, struct stat *stbuf, int32_t valid)
 {
-        STACK_WIND (frame, iot_fchmod_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fchmod, fd, mode);
+        STACK_WIND (frame, iot_fsetattr_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->fsetattr, fd, stbuf, valid);
         return 0;
 }
 
 
 int
-iot_fchmod (call_frame_t *frame, xlator_t *this, fd_t *fd, mode_t mode)
+iot_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+              struct stat *stbuf, int32_t valid)
 {
         call_stub_t     *stub = NULL;
         int             ret = -1;
 
-        stub = fop_fchmod_stub (frame, iot_fchmod_wrapper, fd, mode);
+        stub = fop_fsetattr_stub (frame, iot_fsetattr_wrapper, fd, stbuf,
+                                  valid);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create fchmod stub"
+                gf_log (this->name, GF_LOG_ERROR, "cannot create fsetattr stub"
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
@@ -461,114 +458,7 @@ iot_fchmod (call_frame_t *frame, xlator_t *this, fd_t *fd, mode_t mode)
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
-
-                if (stub != NULL) {
-                        call_stub_destroy (stub);
-                }
-        }
-        return 0;
-}
-
-
-int
-iot_chown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *buf)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
-        return 0;
-}
-
-
-int
-iot_chown_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid,
-                   gid_t gid)
-{
-        STACK_WIND (frame, iot_chown_cbk,
-                    FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->chown,
-                    loc, uid, gid);
-        return 0;
-}
-
-
-int
-iot_chown (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid,
-           gid_t gid)
-{
-        call_stub_t     *stub = NULL;
-        fd_t            *fd = NULL;
-        int             ret = -1;
-
-        stub = fop_chown_stub (frame, iot_chown_wrapper, loc, uid, gid);
-        if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create chown stub"
-                        "(out of memory)");
-                ret = -ENOMEM;
-                goto out;
-        }
-
-        fd = fd_lookup (loc->inode, frame->root->pid);
-        if (fd == NULL)
-                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
-                                        loc->inode, stub);
-        else {
-                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
-                                            loc->inode, stub);
-                fd_unref (fd);
-        }
-
-out:
-        if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
-
-                if (stub != NULL) {
-                        call_stub_destroy (stub);
-                }
-        }
-        return 0;
-}
-
-
-int
-iot_fchown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *buf)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
-        return 0;
-}
-
-
-int
-iot_fchown_wrapper (call_frame_t *frame, xlator_t *this,
-                    fd_t *fd, uid_t uid, gid_t gid)
-{
-        STACK_WIND (frame, iot_fchown_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fchown, fd, uid, gid);
-        return 0;
-}
-
-
-int
-iot_fchown (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid, gid_t gid)
-{
-        call_stub_t     *stub = NULL;
-        int             ret = -1;
-
-        stub = fop_fchown_stub (frame, iot_fchown_wrapper, fd, uid, gid);
-        if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create fchown stub"
-                        "(out of memory)");
-                ret = -ENOMEM;
-                goto out;
-        }
-
-        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
-                                    stub);
-
-out:
-        if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
+                STACK_UNWIND (frame, -1, -ret, NULL, NULL);
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
@@ -1494,67 +1384,6 @@ iot_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 	}
         ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
                                     stub);
-out:
-        if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret, NULL);
-
-                if (stub != NULL) {
-                        call_stub_destroy (stub);
-                }
-        }
-	return 0;
-}
-
-
-int
-iot_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno,
-                 struct stat *buf)
-{
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
-	return 0;
-}
-
-
-int
-iot_utimens_wrapper (call_frame_t *frame, xlator_t *this,
-                     loc_t *loc, struct timespec tv[2])
-{
-	STACK_WIND (frame, iot_utimens_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->utimens,
-		    loc, tv);
-  	return 0;
-}
-
-
-int
-iot_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             struct timespec tv[2])
-{
-	call_stub_t *stub;
-	fd_t        *fd = NULL;
-        int         ret = -1;
-
-	stub = fop_utimens_stub (frame, iot_utimens_wrapper, loc, tv);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot create fop_utimens call stub"
-                        "(out of memory)");
-                ret = -ENOMEM;
-                goto out;
-	}
-
-        fd = fd_lookup (loc->inode, frame->root->pid);
-        if (fd == NULL)
-                ret = iot_schedule_unordered ((iot_conf_t *)this->private,
-                                              loc->inode, stub);
-        else {
-                ret = iot_schedule_ordered ((iot_conf_t *)this->private,
-                                            loc->inode, stub);
-	        fd_unref (fd);
-        }
-
 out:
         if (ret < 0) {
 		STACK_UNWIND (frame, -1, -ret, NULL);
@@ -2975,14 +2804,11 @@ struct xlator_fops fops = {
 	.fstat       = iot_fstat,       /* O */
 	.truncate    = iot_truncate,    /* V */
 	.ftruncate   = iot_ftruncate,   /* O */
-	.utimens     = iot_utimens,     /* V */
 	.checksum    = iot_checksum,    /* U */
 	.unlink      = iot_unlink,      /* U */
         .lookup      = iot_lookup,      /* U */
-        .chmod       = iot_chmod,       /* V */
-        .fchmod      = iot_fchmod,      /* O */
-        .chown       = iot_chown,       /* V */
-        .fchown      = iot_fchown,      /* O */
+        .setattr     = iot_setattr,     /* U */
+        .fsetattr    = iot_fsetattr,    /* O */
         .access      = iot_access,      /* U */
         .readlink    = iot_readlink,    /* U */
         .mknod       = iot_mknod,       /* U */

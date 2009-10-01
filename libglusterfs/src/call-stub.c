@@ -2322,6 +2322,131 @@ fop_lock_fnotify_stub (call_frame_t *frame, fop_lock_fnotify_t fn,
 	return stub;
 }
 
+call_stub_t *
+fop_setattr_cbk_stub (call_frame_t *frame,
+                      fop_setattr_cbk_t fn,
+                      int32_t op_ret,
+                      int32_t op_errno,
+                      struct stat *statpre,
+                      struct stat *statpost)
+{
+        call_stub_t *stub = NULL;
+
+        if (frame == NULL)
+                goto out;
+
+	stub = stub_new (frame, 1, GF_FOP_SETATTR);
+	if (stub == NULL)
+                goto out;
+
+	stub->args.setattr_cbk.fn = fn;
+
+        stub->args.setattr_cbk.op_ret = op_ret;
+        stub->args.setattr_cbk.op_errno = op_errno;
+
+        if (statpre)
+                stub->args.setattr_cbk.statpre = *statpre;
+        if (statpost)
+                stub->args.setattr_cbk.statpost = *statpost;
+
+out:
+	return stub;
+}
+
+call_stub_t *
+fop_fsetattr_cbk_stub (call_frame_t *frame,
+                       fop_setattr_cbk_t fn,
+                       int32_t op_ret,
+                       int32_t op_errno,
+                       struct stat *statpre,
+                       struct stat *statpost)
+{
+        call_stub_t *stub = NULL;
+
+        if (frame == NULL)
+                goto out;
+
+	stub = stub_new (frame, 1, GF_FOP_FSETATTR);
+	if (stub == NULL)
+                goto out;
+
+	stub->args.fsetattr_cbk.fn = fn;
+
+        stub->args.fsetattr_cbk.op_ret = op_ret;
+        stub->args.fsetattr_cbk.op_errno = op_errno;
+
+        if (statpre)
+                stub->args.setattr_cbk.statpre = *statpre;
+        if (statpost)
+                stub->args.fsetattr_cbk.statpost = *statpost;
+out:
+	return stub;
+}
+
+call_stub_t *
+fop_setattr_stub (call_frame_t *frame,
+                  fop_setattr_t fn,
+                  loc_t *loc,
+                  struct stat *stbuf,
+                  int32_t valid)
+{
+        call_stub_t *stub = NULL;
+
+        if (frame == NULL)
+                goto out;
+
+        if (fn == NULL)
+                goto out;
+
+	stub = stub_new (frame, 1, GF_FOP_SETATTR);
+	if (stub == NULL)
+                goto out;
+
+	stub->args.setattr.fn = fn;
+
+	loc_copy (&stub->args.setattr.loc, loc);
+
+        if (stbuf)
+                stub->args.setattr.stbuf = *stbuf;
+
+        stub->args.setattr.valid = valid;
+
+out:
+	return stub;
+}
+
+call_stub_t *
+fop_fsetattr_stub (call_frame_t *frame,
+                   fop_fsetattr_t fn,
+                   fd_t *fd,
+                   struct stat *stbuf,
+                   int32_t valid)
+{
+        call_stub_t *stub = NULL;
+
+        if (frame == NULL)
+                goto out;
+
+        if (fn == NULL)
+                goto out;
+
+	stub = stub_new (frame, 1, GF_FOP_FSETATTR);
+	if (stub == NULL)
+                goto out;
+
+	stub->args.fsetattr.fn = fn;
+
+        if (fd)
+                stub->args.fsetattr.fd = fd_ref (fd);
+
+        if (stbuf)
+                stub->args.fsetattr.stbuf = *stbuf;
+
+        stub->args.fsetattr.valid = valid;
+
+out:
+	return stub;
+}
 
 static void
 call_resume_wind (call_stub_t *stub)
@@ -2770,6 +2895,24 @@ call_resume_wind (call_stub_t *stub)
 					    stub->args.lock_fnotify.timeout);
 		break;
 	}
+        case GF_FOP_SETATTR:
+        {
+                stub->args.setattr.fn (stub->frame,
+                                       stub->frame->this,
+                                       &stub->args.setattr.loc,
+                                       &stub->args.setattr.stbuf,
+                                       stub->args.setattr.valid);
+                break;
+        }
+        case GF_FOP_FSETATTR:
+        {
+                stub->args.fsetattr.fn (stub->frame,
+                                        stub->frame->this,
+                                        stub->args.fsetattr.fd,
+                                        &stub->args.fsetattr.stbuf,
+                                        stub->args.fsetattr.valid);
+                break;
+        }
 	default:
 	{
 		gf_log ("call-stub",
@@ -3632,6 +3775,44 @@ call_resume_unwind (call_stub_t *stub)
 							stub->args.lock_fnotify_cbk.op_errno);
 		break;
 	}
+        case GF_FOP_SETATTR:
+        {
+                if (!stub->args.setattr_cbk.fn)
+                        STACK_UNWIND (stub->frame,
+                                      stub->args.setattr_cbk.op_ret,
+                                      stub->args.setattr_cbk.op_errno,
+                                      &stub->args.setattr_cbk.statpre,
+                                      &stub->args.setattr_cbk.statpost);
+                else
+                        stub->args.setattr_cbk.fn (
+                                stub->frame,
+                                stub->frame->cookie,
+                                stub->frame->this,
+                                stub->args.setattr_cbk.op_ret,
+                                stub->args.setattr_cbk.op_errno,
+                                &stub->args.setattr_cbk.statpre,
+                                &stub->args.setattr_cbk.statpost);
+                break;
+        }
+        case GF_FOP_FSETATTR:
+        {
+                if (!stub->args.fsetattr_cbk.fn)
+                        STACK_UNWIND (stub->frame,
+                                      stub->args.fsetattr_cbk.op_ret,
+                                      stub->args.fsetattr_cbk.op_errno,
+                                      &stub->args.fsetattr_cbk.statpre,
+                                      &stub->args.fsetattr_cbk.statpost);
+                else
+                        stub->args.fsetattr_cbk.fn (
+                                stub->frame,
+                                stub->frame->cookie,
+                                stub->frame->this,
+                                stub->args.fsetattr_cbk.op_ret,
+                                stub->args.fsetattr_cbk.op_errno,
+                                &stub->args.fsetattr_cbk.statpre,
+                                &stub->args.fsetattr_cbk.statpost);
+                break;
+        }
 	case GF_FOP_MAXVALUE:
 	{
 		gf_log ("call-stub",
@@ -3986,6 +4167,17 @@ call_stub_destroy_wind (call_stub_t *stub)
 			fd_unref (stub->args.lock_fnotify.fd);
 		break;
 	}
+        case GF_FOP_SETATTR:
+        {
+                loc_wipe (&stub->args.setattr.loc);
+                break;
+        }
+        case GF_FOP_FSETATTR:
+        {
+                if (stub->args.fsetattr.fd)
+                        fd_unref (stub->args.fsetattr.fd);
+                break;
+        }
 	case GF_FOP_MAXVALUE:
 	{
 		gf_log ("call-stub",
@@ -4234,6 +4426,16 @@ call_stub_destroy_unwind (call_stub_t *stub)
 			dict_unref (stub->args.fxattrop_cbk.xattr);
 	}
 	break;
+        
+        case GF_FOP_SETATTR:
+        {
+                break;
+        }
+
+        case GF_FOP_FSETATTR:
+        {
+                break;
+        }
 
 	case GF_FOP_MAXVALUE:
 	{

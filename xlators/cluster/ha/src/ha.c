@@ -229,32 +229,25 @@ err:
 	return 0;	
 }
 
- int32_t
-ha_chmod_cbk (call_frame_t *frame,
-	      void *cookie,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      struct stat *buf)
+int32_t
+ha_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct stat *statpre,
+                struct stat *statpost)
 {
 	int ret = -1;
 
 	ret = ha_handle_cbk (frame, cookie, op_ret, op_errno);
 
 	if (ret == 0) {
-		STACK_UNWIND (frame,
-			      op_ret,
-			      op_errno,
-			      buf);
+		STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
 	}
 	return 0;
 }
 
+
 int32_t
-ha_chmod (call_frame_t *frame,
-	  xlator_t *this,
-	  loc_t *loc,
-	  mode_t mode)
+ha_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct stat *stbuf,
+            int32_t valid)
 {
 	ha_local_t *local = NULL;
 	int op_errno = 0;
@@ -265,152 +258,24 @@ ha_chmod (call_frame_t *frame,
 		goto err;
 	}
 	local = frame->local;
-	local->stub = fop_chmod_stub (frame, ha_chmod, loc, mode);
+	local->stub = fop_setattr_stub (frame, ha_setattr, loc, stbuf, valid);
 
 	STACK_WIND_COOKIE (frame,
-			   ha_chmod_cbk,
+			   ha_setattr_cbk,
 			   (void *)(long)local->active,
 			   HA_ACTIVE_CHILD(this, local),
-			   HA_ACTIVE_CHILD(this, local)->fops->chmod,
-			   loc,
-			   mode);
+			   HA_ACTIVE_CHILD(this, local)->fops->setattr,
+			   loc, stbuf, valid);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 	return 0;
 }
 
- int32_t
-ha_fchmod_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct stat *buf)
-{
-	int ret = -1;
-
-	ret = ha_handle_cbk (frame, cookie, op_ret, op_errno);
-
-	if (ret == 0) {
-		STACK_UNWIND (frame,
-			      op_ret,
-			      op_errno,
-			      buf);
-	}
-	return 0;
-}
-
-int32_t 
-ha_fchmod (call_frame_t *frame,
-	   xlator_t *this,
-	   fd_t *fd,
-	   mode_t mode)
-{
-	ha_local_t *local = NULL;
-	int op_errno = 0;
-
-	op_errno = ha_alloc_init_fd (frame, fd);
-	if (op_errno < 0) {
-		op_errno = -op_errno;
-		goto err;
-	}
-	local = frame->local;
-	local->stub = fop_fchmod_stub (frame, ha_fchmod, fd, mode);
-
-	STACK_WIND_COOKIE (frame,
-			   ha_fchmod_cbk,
-			   (void *)(long)local->active,
-			   HA_ACTIVE_CHILD(this, local),
-			   HA_ACTIVE_CHILD(this, local)->fops->fchmod,
-			   fd,
-			   mode);
-	return 0;
-err:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
-	return 0;
-}
-
- int32_t
-ha_chown_cbk (call_frame_t *frame,
-	      void *cookie,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      struct stat *buf)
-{
-	int ret = -1;
-
-	ret = ha_handle_cbk (frame, cookie, op_ret, op_errno);
-
-	if (ret == 0) {
-		STACK_UNWIND (frame,
-			      op_ret,
-			      op_errno,
-			      buf);
-	}
-	return 0;
-}
 
 int32_t
-ha_chown (call_frame_t *frame,
-	  xlator_t *this,
-	  loc_t *loc,
-	  uid_t uid,
-	  gid_t gid)
-{
-	ha_local_t *local = NULL;
-	int op_errno = 0;
-
-	op_errno = ha_alloc_init_inode (frame, loc->inode);
-	if (op_errno < 0) {
-		op_errno = -op_errno;
-		goto err;
-	}
-	local = frame->local;
-	local->stub = fop_chown_stub (frame, ha_chown, loc, uid, gid);
-
-	STACK_WIND_COOKIE (frame,	      
-			   ha_chown_cbk,
-			   (void *)(long)local->active,
-			   HA_ACTIVE_CHILD(this, local),
-			   HA_ACTIVE_CHILD(this, local)->fops->chown,
-			   loc,
-			   uid,
-			   gid);
-	return 0;
-err:
-	STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-	return 0;
-}
-
- int32_t
-ha_fchown_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct stat *buf)
-{
-	int ret = -1;
-
-	ret = ha_handle_cbk (frame, cookie, op_ret, op_errno);
-
-	if (ret == 0) {
-		STACK_UNWIND (frame,
-			      op_ret,
-			      op_errno,
-			      buf);
-	}
-	return 0;
-}
-
-int32_t 
-ha_fchown (call_frame_t *frame,
-	   xlator_t *this,
-	   fd_t *fd,
-	   uid_t uid,
-	   gid_t gid)
+ha_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct stat *stbuf,
+             int32_t valid)
 {
 	ha_local_t *local = NULL;
 	int op_errno = 0;
@@ -421,23 +286,22 @@ ha_fchown (call_frame_t *frame,
 		goto err;
 	}
 	local = frame->local;
-	local->stub = fop_fchown_stub (frame, ha_fchown, fd, uid, gid);
+	local->stub = fop_fsetattr_stub (frame, ha_fsetattr, fd, stbuf, valid);
 
 	STACK_WIND_COOKIE (frame,	      
-			   ha_fchown_cbk,
+			   ha_setattr_cbk,
 			   (void *)(long)local->active,
 			   HA_ACTIVE_CHILD(this, local),
-			   HA_ACTIVE_CHILD(this, local)->fops->fchown,
-			   fd,
-			   uid,
-			   gid);
+			   HA_ACTIVE_CHILD(this, local)->fops->fsetattr,
+			   fd, stbuf, valid);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 	return 0;
 }
 
- int32_t
+
+int32_t
 ha_truncate_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -532,57 +396,6 @@ ha_ftruncate (call_frame_t *frame,
 			   HA_ACTIVE_CHILD(this, local)->fops->ftruncate,
 			   fd,
 			   offset);
-	return 0;
-err:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
-	return 0;
-}
-
-int32_t 
-ha_utimens_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		struct stat *buf)
-{
-	int ret = -1;
-
-	ret = ha_handle_cbk (frame, cookie, op_ret, op_errno);
-
-	if (ret == 0) {
-		STACK_UNWIND (frame,
-			      op_ret,
-			      op_errno,
-			      buf);
-	}
-	return 0;
-}
-
-int32_t 
-ha_utimens (call_frame_t *frame,
-	    xlator_t *this,
-	    loc_t *loc,
-	    struct timespec tv[2])
-{
-	ha_local_t *local = NULL;
-	int op_errno = 0;
-
-	op_errno = ha_alloc_init_inode (frame, loc->inode);
-	if (op_errno < 0) {
-		op_errno = -op_errno;
-		goto err;
-	}
-	local = frame->local;
-	local->stub = fop_utimens_stub (frame, ha_utimens, loc, tv);
-
-	STACK_WIND_COOKIE (frame,
-			   ha_utimens_cbk,
-			   (void *)(long)local->active,
-			   HA_ACTIVE_CHILD(this, local),
-			   HA_ACTIVE_CHILD(this, local)->fops->utimens,
-			   loc,
-			   tv);
 	return 0;
 err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
@@ -3462,10 +3275,7 @@ struct xlator_fops fops = {
 	.symlink     = ha_symlink,
 	.rename      = ha_rename,
 	.link        = ha_link,
-	.chmod       = ha_chmod,
-	.chown       = ha_chown,
 	.truncate    = ha_truncate,
-	.utimens     = ha_utimens,
 	.create      = ha_create,
 	.open        = ha_open,
 	.readv       = ha_readv,
@@ -3484,13 +3294,13 @@ struct xlator_fops fops = {
 	.ftruncate   = ha_ftruncate,
 	.fstat       = ha_fstat,
 	.lk          = ha_lk,
-	.fchmod      = ha_fchmod,
-	.fchown      = ha_fchown,
 	.setdents    = ha_setdents,
 	.lookup_cbk  = ha_lookup_cbk,
 	.checksum    = ha_checksum,
 	.xattrop     = ha_xattrop,
-	.fxattrop    = ha_fxattrop
+	.fxattrop    = ha_fxattrop,
+        .setattr     = ha_setattr,
+        .fsetattr    = ha_fsetattr,
 };
 
 struct xlator_mops mops = {

@@ -498,124 +498,6 @@ stripe_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 
 /**
- * stripe_chmod -
- */
-int32_t
-stripe_chmod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
-{
-        int               send_fop_to_all = 0;
-        xlator_list_t    *trav = NULL;
-        stripe_local_t   *local = NULL;
-        stripe_private_t *priv = NULL;
-        int32_t           op_errno = 1;
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->path, err);
-        VALIDATE_OR_GOTO (loc->inode, err);
-
-        priv = this->private;
-        trav = this->children;
-
-        if (priv->first_child_down) {
-                op_errno = ENOTCONN;
-                goto err;
-        }
-
-        if (S_ISDIR (loc->inode->st_mode) || S_ISREG (loc->inode->st_mode))
-                send_fop_to_all = 1;
-
-        if (!send_fop_to_all) {
-                STACK_WIND (frame, stripe_common_buf_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->chmod, loc, mode);
-        } else {
-                /* Initialization */
-                local = CALLOC (1, sizeof (stripe_local_t));
-                if (!local) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
-                local->op_ret = -1;
-                frame->local = local;
-                local->inode = loc->inode;
-                local->call_count = priv->child_count;
-
-                while (trav) {
-                        STACK_WIND (frame, stripe_stack_unwind_buf_cbk,
-                                    trav->xlator, trav->xlator->fops->chmod,
-                                    loc, mode);
-                        trav = trav->next;
-                }
-        }
-        return 0;
- err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
-        return 0;
-}
-
-
-/**
- * stripe_chown - 
- */
-int32_t
-stripe_chown (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid,
-              gid_t gid)
-{
-        int               send_fop_to_all = 0;
-        xlator_list_t    *trav = NULL;
-        stripe_local_t   *local = NULL;
-        stripe_private_t *priv = NULL;
-        int32_t           op_errno = 1;
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->path, err);
-        VALIDATE_OR_GOTO (loc->inode, err);
-
-        priv = this->private;
-        trav = this->children;
-
-        if (priv->first_child_down) {
-                op_errno = ENOTCONN;
-                goto err;
-        }
-
-        if (S_ISDIR (loc->inode->st_mode) || S_ISREG (loc->inode->st_mode))
-                send_fop_to_all = 1;
-
-        if (!send_fop_to_all) {
-                STACK_WIND (frame, stripe_common_buf_cbk, trav->xlator,
-                            trav->xlator->fops->chown, loc, uid, gid);
-        } else {
-                /* Initialization */
-                local = CALLOC (1, sizeof (stripe_local_t));
-                if (!local) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
-                local->op_ret = -1;
-                frame->local = local;
-                local->inode = loc->inode;
-                local->call_count = priv->child_count;
-
-                while (trav) {
-                        STACK_WIND (frame, stripe_stack_unwind_buf_cbk,
-                                    trav->xlator, trav->xlator->fops->chown,
-                                    loc, uid, gid);
-                        trav = trav->next;
-                }
-        }
-
-        return 0;
- err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
-        return 0;
-}
-
-
-/**
  * stripe_statfs_cbk - 
  */
 int32_t
@@ -758,12 +640,91 @@ stripe_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 }
 
 
-/**
- * stripe_utimens - 
- */
 int32_t 
-stripe_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                struct timespec tv[2])
+stripe_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno,
+                    struct stat *preop, struct stat *postop)
+{
+        int32_t         callcnt = 0;
+        stripe_local_t *local = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s returned error %s",
+                                ((call_frame_t *)cookie)->this->name,
+                                strerror (op_errno));
+                        local->op_errno = op_errno;
+                        if (op_errno == ENOTCONN)
+                                local->failed = 1;
+                }
+
+                if (op_ret == 0) {
+                        local->op_ret = 0;
+
+                        if (local->stbuf.st_blksize == 0) {
+                                local->preop_buf = *preop;
+                                local->stbuf       = *postop;
+
+                                /* Because st_blocks gets added again */
+
+                                local->preop_buf.st_blocks = 0;
+                                local->stbuf.st_blocks     = 0;
+                        }
+
+                        if (FIRST_CHILD(this) ==
+                            ((call_frame_t *)cookie)->this) {
+                                /* Always, pass the inode number of
+                                   first child to the above layer */
+
+                                local->preop_buf.st_ino   = preop->st_ino;
+                                local->preop_buf.st_mtime = preop->st_mtime;
+
+                                local->stbuf.st_ino   = postop->st_ino;
+                                local->stbuf.st_mtime = postop->st_mtime;
+                        }
+
+                        local->preop_buf.st_blocks += preop->st_blocks;
+                        local->stbuf.st_blocks     += postop->st_blocks;
+
+
+                        if (local->stbuf.st_size < postop->st_size)
+                                local->preop_buf.st_size = preop->st_size;
+                                local->stbuf.st_size = postop->st_size;
+
+                        if (local->stbuf.st_blksize != postop->st_blksize) {
+                                /* TODO: add to blocks in terms of
+                                   original block size */
+                        }
+                }
+        }
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                if (local->failed)
+                        local->op_ret = -1;
+
+                if (local->loc.path)
+                        loc_wipe (&local->loc);
+                if (local->loc2.path)
+                        loc_wipe (&local->loc2);
+
+                STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                              &local->preop_buf, &local->stbuf);
+        }
+
+        return 0;
+}
+
+
+int32_t 
+stripe_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                struct stat *stbuf, int32_t valid)
 {
         int               send_fop_to_all = 0;
         xlator_list_t    *trav = NULL;
@@ -789,8 +750,8 @@ stripe_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 send_fop_to_all = 1;
 
         if (!send_fop_to_all) {
-                STACK_WIND (frame, stripe_common_buf_cbk, trav->xlator,
-                            trav->xlator->fops->utimens, loc, tv);
+                STACK_WIND (frame, stripe_setattr_cbk, trav->xlator,
+                            trav->xlator->fops->setattr, loc, stbuf, valid);
         } else {
                 /* Initialization */
                 local = CALLOC (1, sizeof (stripe_local_t));
@@ -804,16 +765,57 @@ stripe_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 local->call_count = priv->child_count;
     
                 while (trav) {
-                        STACK_WIND (frame, stripe_stack_unwind_buf_cbk,
-                                    trav->xlator, trav->xlator->fops->utimens,
-                                    loc, tv);
+                        STACK_WIND (frame, stripe_setattr_cbk,
+                                    trav->xlator, trav->xlator->fops->setattr,
+                                    loc, stbuf, valid);
                         trav = trav->next;
                 }
         }
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+
+int32_t 
+stripe_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                 struct stat *stbuf, int32_t valid)
+{
+        stripe_local_t   *local = NULL;
+        stripe_private_t *priv = NULL;
+        xlator_list_t    *trav = NULL;
+        int32_t           op_errno = 1;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+        VALIDATE_OR_GOTO (fd->inode, err);
+
+        priv = this->private;
+        trav = this->children;
+
+        /* Initialization */
+        local = CALLOC (1, sizeof (stripe_local_t));
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+        local->op_ret = -1;
+        frame->local = local;
+        local->inode = fd->inode;
+        local->call_count = priv->child_count;
+        
+        while (trav) {
+                STACK_WIND (frame, stripe_setattr_cbk, trav->xlator,
+                            trav->xlator->fops->fsetattr, fd, stbuf, valid);
+                trav = trav->next;
+        }
+
+        return 0;
+ err:
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2520,93 +2522,6 @@ stripe_fstat (call_frame_t *frame,
 
 
 /**
- * stripe_fchmod - 
- */
-int32_t 
-stripe_fchmod (call_frame_t *frame, xlator_t *this, fd_t *fd, mode_t mode)
-{
-        stripe_local_t   *local = NULL;
-        stripe_private_t *priv = NULL;
-        xlator_list_t    *trav = NULL;
-        int32_t           op_errno = 1;
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (fd, err);
-        VALIDATE_OR_GOTO (fd->inode, err);
-
-        priv = this->private;
-        trav = this->children;
-
-        /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
-        if (!local) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-        local->op_ret = -1;
-        frame->local = local;
-        local->inode = fd->inode;
-        local->call_count = priv->child_count;
-        
-        while (trav) {
-                STACK_WIND (frame, stripe_stack_unwind_buf_cbk, trav->xlator,
-                            trav->xlator->fops->fchmod, fd, mode);
-                trav = trav->next;
-        }
-
-        return 0;
- err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
-        return 0;
-}
-
-
-/**
- * stripe_fchown - 
- */
-int32_t 
-stripe_fchown (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid,
-               gid_t gid)
-{
-        stripe_local_t   *local = NULL;
-        stripe_private_t *priv = NULL;
-        xlator_list_t    *trav = NULL;
-        int32_t           op_errno = 1;
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (fd, err);
-        VALIDATE_OR_GOTO (fd->inode, err);
-
-        priv = this->private;
-        trav = this->children;
-
-        /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
-        if (!local) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-        local->op_ret = -1;
-        frame->local = local;
-        local->inode = fd->inode;
-        local->call_count = priv->child_count;
-        
-        while (trav) {
-                STACK_WIND (frame, stripe_stack_unwind_buf_cbk, trav->xlator,
-                            trav->xlator->fops->fchown, fd, uid, gid);
-                trav = trav->next;
-        }
-
-        return 0;
- err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
-        return 0;
-}
-
-
-/**
  * stripe_ftruncate - 
  */
 int32_t
@@ -3423,10 +3338,7 @@ struct xlator_fops fops = {
         .symlink     = stripe_symlink,
         .rename      = stripe_rename,
         .link        = stripe_link,
-        .chmod       = stripe_chmod,
-        .chown       = stripe_chown,
         .truncate    = stripe_truncate,
-        .utimens     = stripe_utimens,
         .create      = stripe_create,
         .open        = stripe_open,
         .readv       = stripe_readv,
@@ -3446,8 +3358,8 @@ struct xlator_fops fops = {
         .lk          = stripe_lk,
         .opendir     = stripe_opendir,
         .fsyncdir    = stripe_fsyncdir,
-        .fchmod      = stripe_fchmod,
-        .fchown      = stripe_fchown,
+        .setattr     = stripe_setattr,
+        .fsetattr    = stripe_fsetattr,
         .lookup      = stripe_lookup,
         .setdents    = stripe_setdents,
         .mknod       = stripe_mknod,

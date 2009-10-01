@@ -37,7 +37,16 @@
 #include "compat.h"
 #include "list.h"
 
+#include <fuse/fuse_lowlevel.h>
+
 #define FIRST_CHILD(xl) (xl->children->xlator)
+
+#define GF_SET_ATTR_MODE  0x1
+#define GF_SET_ATTR_UID   0x2
+#define GF_SET_ATTR_GID   0x4
+#define GF_SET_ATTR_SIZE  0x8
+#define GF_SET_ATTR_ATIME 0x10
+#define GF_SET_ATTR_MTIME 0x20
 
 struct _xlator;
 typedef struct _xlator xlator_t;
@@ -467,6 +476,22 @@ typedef int32_t (*fop_lock_fnotify_cbk_t) (call_frame_t *frame,
                                            int32_t op_ret,
                                            int32_t op_errno);
 
+typedef int32_t (*fop_setattr_cbk_t) (call_frame_t *frame,
+                                      void *cookie,
+                                      xlator_t *this,
+                                      int32_t op_ret,
+                                      int32_t op_errno,
+                                      struct stat *preop_stbuf,
+                                      struct stat *postop_stbuf);
+
+typedef int32_t (*fop_fsetattr_cbk_t) (call_frame_t *frame,
+                                       void *cookie,
+                                       xlator_t *this,
+                                       int32_t op_ret,
+                                       int32_t op_errno,
+                                       struct stat *preop_stbuf,
+                                       struct stat *postop_stbuf);
+
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *loc,
@@ -710,6 +735,19 @@ typedef int32_t (*fop_lock_fnotify_t) (call_frame_t *frame,
                                        xlator_t *this, fd_t *fd,
                                        int32_t timeout);
 
+typedef int32_t (*fop_setattr_t) (call_frame_t *frame,
+                                  xlator_t *this,
+                                  loc_t *loc,
+                                  struct stat *stbuf,
+                                  int32_t valid);
+
+typedef int32_t (*fop_fsetattr_t) (call_frame_t *frame,
+                                   xlator_t *this,
+                                   fd_t *fd,
+                                   struct stat *stbuf,
+                                   int32_t valid);
+
+
 struct xlator_fops {
 	fop_lookup_t         lookup;
 	fop_stat_t           stat;
@@ -758,6 +796,8 @@ struct xlator_fops {
 	fop_fxattrop_t       fxattrop;
 	fop_lock_notify_t    lock_notify;
 	fop_lock_fnotify_t   lock_fnotify;
+        fop_setattr_t        setattr;
+        fop_fsetattr_t       fsetattr;
 
 	/* these entries are used for a typechecking hack in STACK_WIND _only_ */
 	fop_lookup_cbk_t         lookup_cbk;
@@ -807,6 +847,8 @@ struct xlator_fops {
 	fop_fxattrop_cbk_t       fxattrop_cbk;
 	fop_lock_notify_cbk_t    lock_notify_cbk;
 	fop_lock_fnotify_cbk_t   lock_fnotify_cbk;
+        fop_setattr_cbk_t        setattr_cbk;
+        fop_fsetattr_cbk_t       fsetattr_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,

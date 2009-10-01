@@ -1327,116 +1327,6 @@ unwind:
 	return 0;
 }
 
-/**
- * client_chmod - chmod function for client protocol
- * @frame: call frame
- * @this: this translator structure
- * @loc: location
- * @mode:
- *
- * external reference through client_protocol_xlator->fops->chmod
- */
-
-int
-client_chmod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
-{
-	gf_hdr_common_t    *hdr = NULL;
-	gf_fop_chmod_req_t *req = NULL;
-	size_t              hdrlen = -1;
-	int                 ret = -1;
-	size_t              pathlen = 0;
-	ino_t               ino = 0;
-
-	pathlen = STRLEN_0(loc->path);
-
-	ret = inode_ctx_get (loc->inode, this, &ino);
-	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"CHMOD %"PRId64" (%s): "
-                        "failed to get remote inode number",
-			loc->inode->ino, loc->path);
-	}
-
-	hdrlen = gf_hdr_len (req, pathlen);
-	hdr    = gf_hdr_new (req, pathlen);
-	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
-
-	req    = gf_param (hdr);
-
-	req->ino     = hton64 (ino);
-	req->mode    = hton32 (mode);
-	strcpy (req->path, loc->path);
-
-	ret = protocol_client_xfer (frame, this,
-				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHMOD,
-				    hdr, hdrlen, NULL, 0, NULL);
-
-	return ret;
-unwind:
-	if (hdr)
-		free (hdr);
-	STACK_UNWIND(frame, -1, EINVAL, NULL);
-	return 0;
-
-}
-
-/**
- * client_chown - chown function for client protocol
- * @frame: call frame
- * @this: this translator structure
- * @loc: location
- * @uid: uid of new owner
- * @gid: gid of new owner group
- *
- * external reference through client_protocol_xlator->fops->chown
- */
-
-int
-client_chown (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid,
-              gid_t gid)
-{
-	gf_hdr_common_t    *hdr = NULL;
-	gf_fop_chown_req_t *req = NULL;
-	size_t              hdrlen = -1;
-	int                 ret = -1;
-	size_t              pathlen = 0;
-	ino_t               ino = 0;
-
-	pathlen = STRLEN_0(loc->path);
-
-	ret = inode_ctx_get (loc->inode, this, &ino);
-	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"CHOWN %"PRId64" (%s): "
-                        "failed to get remote inode number",
-			loc->inode->ino, loc->path);
-	}
-
-	hdrlen = gf_hdr_len (req, pathlen);
-	hdr    = gf_hdr_new (req, pathlen);
-	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
-
-	req    = gf_param (hdr);
-
-	req->ino = hton64 (ino);
-	req->uid = hton32 (uid);
-	req->gid = hton32 (gid);
-	strcpy (req->path, loc->path);
-
-	ret = protocol_client_xfer (frame, this,
-				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHOWN,
-				    hdr, hdrlen, NULL, 0, NULL);
-
-	return ret;
-unwind:
-	if (hdr)
-		free (hdr);
-	STACK_UNWIND(frame, -1, EINVAL, NULL);
-	return 0;
-
-}
 
 /**
  * client_truncate - truncate function for client protocol
@@ -1491,59 +1381,6 @@ unwind:
 
 }
 
-/**
- * client_utimes - utimes function for client protocol
- * @frame: call frame
- * @this: this translator structure
- * @loc: location
- * @tvp:
- *
- * external reference through client_protocol_xlator->fops->utimes
- */
-
-int
-client_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                struct timespec *tvp)
-{
-	gf_hdr_common_t      *hdr = NULL;
-	gf_fop_utimens_req_t *req = NULL;
-	size_t                hdrlen = -1;
-	int                   ret = -1;
-	size_t                pathlen = 0;
-	ino_t                 ino = 0;
-
-	pathlen = STRLEN_0(loc->path);
-	ret = inode_ctx_get (loc->inode, this, &ino);
-	if (loc->inode->ino && ret < 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"UTIMENS %"PRId64" (%s): "
-                        "failed to get remote inode number",
-			loc->inode->ino, loc->path);
-	}
-
-	hdrlen = gf_hdr_len (req, pathlen);
-	hdr    = gf_hdr_new (req, pathlen);
-	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
-
-	req    = gf_param (hdr);
-
-	req->ino = hton64 (ino);
-	gf_timespec_from_timespec (req->tv, tvp);
-	strcpy (req->path, loc->path);
-
-	ret = protocol_client_xfer (frame, this,
-				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_UTIMENS,
-				    hdr, hdrlen, NULL, 0, NULL);
-
-	return ret;
-unwind:
-	if (hdr)
-		free (hdr);
-	STACK_UNWIND(frame, -1, EINVAL, NULL);
-	return 0;
-
-}
 
 /**
  * client_readv - readv function for client protocol
@@ -3248,115 +3085,6 @@ unwind:
 
 
 int
-client_fchmod (call_frame_t *frame, xlator_t *this, fd_t *fd, mode_t mode)
-{
-	gf_hdr_common_t      *hdr = NULL;
-	gf_fop_fchmod_req_t  *req = NULL;
-	int64_t               remote_fd = -1;
-	size_t                hdrlen = -1;
-	int                   ret = -1;
-	int32_t               op_errno = EINVAL;
-	int32_t               op_ret   = -1;
-        client_fd_ctx_t      *fdctx = NULL;
-        client_conf_t        *conf  = NULL;
-
-	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
-
-        conf = this->private;
-
-        pthread_mutex_lock (&conf->mutex);
-        {
-                fdctx = this_fd_get_ctx (fd, this);
-        }
-        pthread_mutex_unlock (&conf->mutex);
-
-	if (fdctx == NULL) {
-		op_errno = EBADFD;
-		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get fd ctx. EBADFD",
-			fd->inode->ino);
-		goto unwind;
-	}
-        remote_fd = fdctx->remote_fd;
-	hdrlen = gf_hdr_len (req, 0);
-	hdr    = gf_hdr_new (req, 0);
-	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
-
-	req    = gf_param (hdr);
-
-	req->fd   = hton64 (remote_fd);
-	req->mode = hton32 (mode);
-
-	ret = protocol_client_xfer (frame, this,
-				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FCHMOD,
-				    hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-
-unwind:
-	STACK_UNWIND (frame, op_ret, op_errno, NULL);
-	return 0;
-}
-
-
-int
-client_fchown (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid,
-               gid_t gid)
-{
-	gf_hdr_common_t     *hdr = NULL;
-	gf_fop_fchown_req_t *req = NULL;
-	int64_t              remote_fd = 0;
-	size_t               hdrlen   = -1;
-	int32_t              op_ret   = -1;
-	int32_t              op_errno = EINVAL;
-	int32_t              ret      = -1;
-        client_fd_ctx_t     *fdctx = NULL;
-        client_conf_t       *conf  = NULL;
-
-	GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
-
-        conf = this->private;
-
-        pthread_mutex_lock (&conf->mutex);
-        {
-                fdctx = this_fd_get_ctx (fd, this);
-        }
-        pthread_mutex_unlock (&conf->mutex);
-
-	if (fdctx == NULL) {
-		op_errno = EBADFD;
-		gf_log (this->name, GF_LOG_DEBUG,
-			"(%"PRId64"): failed to get fd ctx. EBADFD",
-			fd->inode->ino);
-		goto unwind;
-	}
-        remote_fd = fdctx->remote_fd;
-	hdrlen = gf_hdr_len (req, 0);
-	hdr    = gf_hdr_new (req, 0);
-	GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
-
-	req    = gf_param (hdr);
-
-	req->fd  = hton64 (remote_fd);
-	req->uid = hton32 (uid);
-	req->gid = hton32 (gid);
-
-	ret = protocol_client_xfer (frame, this,
-				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FCHOWN,
-				    hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-
-unwind:
-	STACK_UNWIND (frame, op_ret, op_errno, NULL);
-	return 0;
-
-}
-
-
-int
 client_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
                  dir_entry_t *entries, int32_t count)
 {
@@ -3498,6 +3226,102 @@ unwind:
 	return 0;
 }
 
+int32_t client_setattr (call_frame_t *frame,
+                        xlator_t *this,
+                        loc_t *loc,
+                        struct stat *stbuf,
+                        int32_t valid)
+{
+	gf_hdr_common_t      *hdr = NULL;
+	gf_fop_setattr_req_t *req = NULL;
+	size_t             hdrlen = 0;
+        size_t             pathlen = 0;
+        ino_t              ino    = 0;
+        int ret = -1;
+
+	GF_VALIDATE_OR_GOTO ("client", this, unwind);
+	GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
+
+        pathlen = STRLEN_0(loc->path);
+
+	ret = inode_ctx_get (loc->inode, this, &ino);
+	if (loc->inode->ino && ret < 0) {
+		gf_log (this->name, GF_LOG_TRACE,
+			"SETATTR %"PRId64" (%s): "
+                        "failed to get remote inode number",
+			loc->inode->ino, loc->path);
+	}
+
+	hdrlen = gf_hdr_len (req, pathlen);
+	hdr    = gf_hdr_new (req, pathlen);
+        GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
+
+	req    = gf_param (hdr);
+
+	req->ino  = hton64 (ino);
+	strcpy (req->path, loc->path);
+
+        gf_stat_from_stat (&req->stbuf, stbuf);
+        req->valid = hton32 (valid);
+
+	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
+				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETATTR,
+				    hdr, hdrlen, NULL, 0, NULL);
+
+        return ret;
+unwind:
+        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        return 0;
+}
+
+int32_t client_fsetattr (call_frame_t *frame,
+                         xlator_t *this,
+                         fd_t *fd,
+                         struct stat *stbuf,
+                         int32_t valid)
+{
+	gf_hdr_common_t       *hdr = NULL;
+	gf_fop_fsetattr_req_t *req = NULL;
+	size_t                 hdrlen = 0;
+        int                    ret = -1;
+        client_fd_ctx_t       *fdctx = NULL;
+        int64_t                remote_fd = -1;
+
+	GF_VALIDATE_OR_GOTO ("client", this, unwind);
+	GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
+
+	fdctx = this_fd_get_ctx (fd, this);
+	if (fdctx == NULL) {
+		gf_log (this->name, GF_LOG_TRACE,
+			"(%"PRId64"): failed to get fd ctx. EBADFD",
+			fd->inode->ino);
+		STACK_UNWIND (frame, -1, EBADFD, NULL, NULL);
+		return 0;
+	}
+
+        remote_fd = fdctx->remote_fd;
+	hdrlen = gf_hdr_len (req, 0);
+	hdr    = gf_hdr_new (req, 0);
+	GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
+	req    = gf_param (hdr);
+
+	req->fd = hton64 (remote_fd);
+
+        gf_stat_from_stat (&req->stbuf, stbuf);
+        req->valid = hton32 (valid);
+
+	ret = protocol_client_xfer (frame, this,
+				    CLIENT_CHANNEL (this, CHANNEL_BULK),
+				    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSETATTR,
+				    hdr, hdrlen, NULL, 0, NULL);
+
+        return ret;
+unwind:
+        STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+        return 0;
+}
 
 /**
  * client_releasedir - releasedir function for client protocol
@@ -3787,63 +3611,6 @@ fail:
 }
 
 /*
- * client_chown_cbk -
- *
- * @frame:
- * @args:
- *
- * not for external reference
- */
-
-int
-client_fchown_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-                   struct iobuf *iobuf)
-{
-	struct stat          stbuf = {0, };
-	gf_fop_fchown_rsp_t *rsp = NULL;
-	int32_t              op_ret = 0;
-	int32_t              op_errno = 0;
-
-	rsp = gf_param (hdr);
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	if (op_ret == 0) {
-		gf_stat_to_stat (&rsp->stat, &stbuf);
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
-
-	return 0;
-}
-
-
-int
-client_fchmod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-                   struct iobuf *iobuf)
-{
-	struct stat          stbuf = {0, };
-	gf_fop_fchmod_rsp_t *rsp = NULL;
-	int32_t              op_ret = 0;
-	int32_t              op_errno = 0;
-
-	rsp = gf_param (hdr);
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	if (op_ret == 0) {
-		gf_stat_to_stat (&rsp->stat, &stbuf);
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
-
-	return 0;
-}
-
-
-/*
  * client_create_cbk - create callback function for client protocol
  * @frame: call frame
  * @args: arguments in dictionary
@@ -4011,98 +3778,6 @@ client_stat_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	return 0;
 }
 
-/*
- * client_utimens_cbk - utimens callback for client protocol
- * @frame: call frame
- * @args: argument dictionary
- *
- * not for external reference
- */
-
-int
-client_utimens_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-                    struct iobuf *iobuf)
-{
-	struct stat           stbuf = {0, };
-	gf_fop_utimens_rsp_t *rsp = NULL;
-	int32_t               op_ret = 0;
-	int32_t               op_errno = 0;
-
-	rsp = gf_param (hdr);
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	if (op_ret == 0) {
-		gf_stat_to_stat (&rsp->stat, &stbuf);
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
-
-	return 0;
-}
-
-/*
- * client_chmod_cbk - chmod for client protocol
- * @frame: call frame
- * @args: argument dictionary
- *
- * not for external reference
- */
-
-int
-client_chmod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-                  struct iobuf *iobuf)
-{
-	struct stat         stbuf = {0, };
-	gf_fop_chmod_rsp_t *rsp = NULL;
-	int32_t             op_ret = 0;
-	int32_t             op_errno = 0;
-
-	rsp = gf_param (hdr);
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	if (op_ret == 0) {
-		gf_stat_to_stat (&rsp->stat, &stbuf);
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
-
-	return 0;
-}
-
-/*
- * client_chown_cbk - chown for client protocol
- * @frame: call frame
- * @args: argument dictionary
- *
- * not for external reference
- */
-
-int
-client_chown_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-                  struct iobuf *iobuf)
-{
-	struct stat         stbuf = {0, };
-	gf_fop_chown_rsp_t *rsp = NULL;
-	int32_t             op_ret = 0;
-	int32_t             op_errno = 0;
-
-	rsp = gf_param (hdr);
-
-	op_ret   = ntoh32 (hdr->rsp.op_ret);
-	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-	if (op_ret == 0) {
-		gf_stat_to_stat (&rsp->stat, &stbuf);
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
-
-	return 0;
-}
 
 /*
  * client_mknod_cbk - mknod callback for client protocol
@@ -4839,6 +4514,56 @@ fail:
 
 	if (xattr)
 		dict_unref (xattr);
+
+	return 0;
+}
+
+static int32_t
+client_setattr_cbk (call_frame_t *frame,gf_hdr_common_t *hdr, size_t hdrlen,
+                    struct iobuf *iobuf)
+{
+	struct stat           statpre = {0, };
+	struct stat           statpost = {0, };
+	gf_fop_setattr_rsp_t *rsp = NULL;
+	int32_t               op_ret = 0;
+	int32_t               op_errno = 0;
+
+	rsp = gf_param (hdr);
+
+	op_ret   = ntoh32 (hdr->rsp.op_ret);
+	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
+
+	if (op_ret == 0) {
+		gf_stat_to_stat (&rsp->statpre, &statpre);
+		gf_stat_to_stat (&rsp->statpost, &statpost);
+	}
+
+	STACK_UNWIND (frame, op_ret, op_errno, &statpre, &statpost);
+
+	return 0;
+}
+
+static int32_t
+client_fsetattr_cbk (call_frame_t *frame,gf_hdr_common_t *hdr, size_t hdrlen,
+                     struct iobuf *iobuf)
+{
+	struct stat           statpre = {0, };
+	struct stat           statpost = {0, };
+	gf_fop_setattr_rsp_t *rsp = NULL;
+	int32_t               op_ret = 0;
+	int32_t               op_errno = 0;
+
+	rsp = gf_param (hdr);
+
+	op_ret   = ntoh32 (hdr->rsp.op_ret);
+	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
+
+	if (op_ret == 0) {
+		gf_stat_to_stat (&rsp->statpre, &statpre);
+		gf_stat_to_stat (&rsp->statpost, &statpost);
+	}
+
+	STACK_UNWIND (frame, op_ret, op_errno, &statpre, &statpost);
 
 	return 0;
 }
@@ -5935,8 +5660,6 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_SYMLINK]        =  client_symlink_cbk,
 	[GF_FOP_RENAME]         =  client_rename_cbk,
 	[GF_FOP_LINK]           =  client_link_cbk,
-	[GF_FOP_CHMOD]          =  client_chmod_cbk,
-	[GF_FOP_CHOWN]          =  client_chown_cbk,
 	[GF_FOP_TRUNCATE]       =  client_truncate_cbk,
 	[GF_FOP_OPEN]           =  client_open_cbk,
 	[GF_FOP_READ]           =  client_readv_cbk,
@@ -5955,9 +5678,6 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_FTRUNCATE]      =  client_ftruncate_cbk,
 	[GF_FOP_FSTAT]          =  client_fstat_cbk,
 	[GF_FOP_LK]             =  client_lk_common_cbk,
-	[GF_FOP_UTIMENS]        =  client_utimens_cbk,
-	[GF_FOP_FCHMOD]         =  client_fchmod_cbk,
-	[GF_FOP_FCHOWN]         =  client_fchown_cbk,
 	[GF_FOP_LOOKUP]         =  client_lookup_cbk,
 	[GF_FOP_SETDENTS]       =  client_setdents_cbk,
 	[GF_FOP_READDIR]        =  client_readdir_cbk,
@@ -5969,6 +5689,8 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_RCHECKSUM]      =  client_rchecksum_cbk,
 	[GF_FOP_XATTROP]        =  client_xattrop_cbk,
 	[GF_FOP_FXATTROP]       =  client_fxattrop_cbk,
+        [GF_FOP_SETATTR]        =  client_setattr_cbk,
+        [GF_FOP_FSETATTR]        =  client_fsetattr_cbk,
 };
 
 static gf_op_t gf_mops[] = {
@@ -6573,10 +6295,7 @@ struct xlator_fops fops = {
 	.symlink     = client_symlink,
 	.rename      = client_rename,
 	.link        = client_link,
-	.chmod       = client_chmod,
-	.chown       = client_chown,
 	.truncate    = client_truncate,
-	.utimens     = client_utimens,
 	.open        = client_open,
 	.readv       = client_readv,
 	.writev      = client_writev,
@@ -6601,14 +6320,14 @@ struct xlator_fops fops = {
 	.entrylk     = client_entrylk,
 	.fentrylk    = client_fentrylk,
 	.lookup      = client_lookup,
-	.fchmod      = client_fchmod,
-	.fchown      = client_fchown,
 	.setdents    = client_setdents,
 	.getdents    = client_getdents,
 	.checksum    = client_checksum,
 	.rchecksum   = client_rchecksum,
 	.xattrop     = client_xattrop,
 	.fxattrop    = client_fxattrop,
+        .setattr     = client_setattr,
+        .fsetattr    = client_fsetattr,
 };
 
 struct xlator_mops mops = {

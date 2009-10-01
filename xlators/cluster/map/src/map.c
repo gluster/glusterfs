@@ -48,75 +48,41 @@ map_stat_cbk (call_frame_t *frame,
 	return 0;
 }
 
-
 static int32_t
-map_chmod_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *buf)
+map_setattr_cbk (call_frame_t *frame,
+                 void *cookie,
+                 xlator_t *this,
+                 int32_t op_ret,
+                 int32_t op_errno,
+                 struct stat *statpre,
+                 struct stat *statpost)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
-	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	map_itransform (this, prev->this, statpre->st_ino, &statpre->st_ino);
+	map_itransform (this, prev->this, statpost->st_ino, &statpost->st_ino);
+
+	STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
 	return 0;
 }
 
-
 static int32_t
-map_fchmod_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
+map_fsetattr_cbk (call_frame_t *frame,
+                  void *cookie,
+                  xlator_t *this,
+                  int32_t op_ret,
+                  int32_t op_errno,
+                  struct stat *statpre,
+                  struct stat *statpost)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
-	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
-	return 0;
-}
+	map_itransform (this, prev->this, statpre->st_ino, &statpre->st_ino);
+	map_itransform (this, prev->this, statpost->st_ino, &statpost->st_ino);
 
-
-static int32_t
-map_chown_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *buf)
-{
-        call_frame_t *prev = NULL;
-        prev  = cookie;
-	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
-
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
-	return 0;
-}
-
-
-static int32_t
-map_fchown_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
-{
-        call_frame_t *prev = NULL;
-        prev  = cookie;
-	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
-
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
 	return 0;
 }
 
@@ -144,23 +110,6 @@ map_ftruncate_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno,
 		       struct stat *buf)
-{
-        call_frame_t *prev = NULL;
-        prev  = cookie;
-	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
-
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
-	return 0;
-}
-
-int32_t
-map_utimens_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *buf)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
@@ -928,21 +877,22 @@ map_stat (call_frame_t *frame,
 	return 0;
 }
 
-
 int32_t
-map_chmod (call_frame_t *frame,
-	   xlator_t *this,
-	   loc_t *loc,
-	   mode_t mode)
+map_setattr (call_frame_t *frame,
+             xlator_t *this,
+             loc_t *loc,
+             struct stat *stbuf,
+             int32_t valid)
 {
 	int32_t op_errno = 1;
 	xlator_t *subvol   = NULL;
 
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->inode, err);
-        VALIDATE_OR_GOTO (loc->path, err);
+        GF_VALIDATE_OR_GOTO ("map", this, err);
+        GF_VALIDATE_OR_GOTO (this->name, frame, err);
+        GF_VALIDATE_OR_GOTO (this->name, loc, err);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, err);
+        GF_VALIDATE_OR_GOTO (this->name, loc->path, err);
+        GF_VALIDATE_OR_GOTO (this->name, stbuf, err);
 
 	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
 	if (!subvol) {
@@ -950,8 +900,8 @@ map_chmod (call_frame_t *frame,
 		goto err;
 	}
 
-	STACK_WIND (frame, map_chmod_cbk, subvol, 
-                    subvol->fops->chmod, loc, mode);
+	STACK_WIND (frame, map_setattr_cbk, subvol,
+		    subvol->fops->setattr, loc, stbuf, valid);
 	return 0;
  err:
 	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
@@ -960,18 +910,19 @@ map_chmod (call_frame_t *frame,
 }
 
 int32_t
-map_fchmod (call_frame_t *frame,
-	    xlator_t *this,
-	    fd_t *fd,
-	    mode_t mode)
+map_fsetattr (call_frame_t *frame,
+              xlator_t *this,
+              fd_t *fd,
+              struct stat *stbuf,
+              int32_t valid)
 {
 	int32_t op_errno = 1;
 	xlator_t *subvol   = NULL;
 
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (fd, err);
-        VALIDATE_OR_GOTO (fd->inode, err);
+        GF_VALIDATE_OR_GOTO ("map", this, err);
+        GF_VALIDATE_OR_GOTO (this->name, frame, err);
+        GF_VALIDATE_OR_GOTO (this->name, fd, err);
+        GF_VALIDATE_OR_GOTO (this->name, stbuf, err);
 
 	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
 	if (!subvol) {
@@ -979,71 +930,8 @@ map_fchmod (call_frame_t *frame,
 		goto err;
 	}
 
-	STACK_WIND (frame, map_fchmod_cbk, subvol,
-		    subvol->fops->fchmod, fd, mode);
-
-	return 0;
- err:
-	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
-
-	return 0;
-}
-
-int32_t
-map_chown (call_frame_t *frame,
-	   xlator_t *this,
-	   loc_t *loc,
-	   uid_t uid,
-	   gid_t gid)
-{
-	int32_t op_errno = 1;
-	xlator_t *subvol   = NULL;
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->inode, err);
-        VALIDATE_OR_GOTO (loc->path, err);
-
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
-	if (!subvol) {
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	STACK_WIND (frame, map_chown_cbk, subvol,
-		    subvol->fops->chown, loc, uid, gid);
-	return 0;
- err:
-	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
-
-	return 0;
-}
-
-int32_t
-map_fchown (call_frame_t *frame,
-	    xlator_t *this,
-	    fd_t *fd,
-	    uid_t uid,
-	    gid_t gid)
-{
-	int32_t op_errno = 1;
-	xlator_t *subvol   = NULL;
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (fd, err);
-        VALIDATE_OR_GOTO (fd->inode, err);
-
-	subvol = get_mapping_subvol_from_ctx (this, fd->inode);
-	if (!subvol) {
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	STACK_WIND (frame, map_fchown_cbk, subvol,
-		    subvol->fops->fchown, fd, uid, gid);
-
+	STACK_WIND (frame, map_fsetattr_cbk, subvol,
+		    subvol->fops->fsetattr, fd, stbuf, valid);
 	return 0;
  err:
 	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
@@ -1104,37 +992,6 @@ map_ftruncate (call_frame_t *frame,
 
 	STACK_WIND (frame, map_ftruncate_cbk, subvol,
 		    subvol->fops->ftruncate, fd, offset);
-
-	return 0;
- err:
-	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
-
-	return 0;
-}
-
-int32_t
-map_utimens (call_frame_t *frame,
-	     xlator_t *this,
-	     loc_t *loc,
-	     struct timespec tv[2])
-{
-	int32_t op_errno = 1;
-	xlator_t *subvol   = NULL;
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->inode, err);
-        VALIDATE_OR_GOTO (loc->path, err);
-
-	subvol = get_mapping_subvol_from_ctx (this, loc->inode);
-	if (!subvol) {
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	STACK_WIND (frame, map_utimens_cbk, subvol,
-                    subvol->fops->utimens, loc, tv);
 
 	return 0;
  err:
@@ -2557,12 +2414,7 @@ struct xlator_fops fops = {
 	.create      = map_create,
 
 	.stat        = map_stat,
-	.chmod       = map_chmod,
-	.chown       = map_chown,
-	.fchown      = map_fchown,
-	.fchmod      = map_fchmod,
 	.fstat       = map_fstat,
-	.utimens     = map_utimens,
 	.truncate    = map_truncate,
 	.ftruncate   = map_ftruncate,
 	.access      = map_access,
@@ -2597,6 +2449,8 @@ struct xlator_fops fops = {
 	.setdents    = map_setdents,
 	.getdents    = map_getdents,
 	.checksum    = map_checksum,
+        .setattr     = map_setattr,
+        .fsetattr    = map_fsetattr,
 };
 
 struct xlator_mops mops = {

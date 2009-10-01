@@ -808,7 +808,8 @@ sh_missing_entries_finish (call_frame_t *frame, xlator_t *this)
 
 static int
 sh_destroy_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int32_t op_ret, int op_errno, struct stat *stbuf)
+		int32_t op_ret, int op_errno,
+                struct stat *preop, struct stat *postop)
 {
         afr_local_t *local = NULL;
 
@@ -830,66 +831,58 @@ static int
 sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 				 xlator_t *this,
 				 int32_t op_ret, int32_t op_errno,
-				 inode_t *inode, struct stat *stbuf)
+				 inode_t *inode, struct stat *buf)
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
-	call_frame_t    *chown_frame = NULL;
+	call_frame_t    *setattr_frame = NULL;
 	int              call_count = 0;
 	int              child_index = 0;
-	struct stat     *buf = NULL;
-
-        struct timespec ts[2];
+        
+	struct stat     stbuf;
+        int32_t         valid = 0;
 
 	local = frame->local;
 	sh    = &local->self_heal;
 	priv  = this->private;
 
-	buf = &sh->buf[sh->source];
 	child_index = (long) cookie;
 
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
-	ts[0] = sh->buf[sh->source].st_atim;
-	ts[1] = sh->buf[sh->source].st_mtim;
+	stbuf.st_atim = sh->buf[sh->source].st_atim;
+	stbuf.st_mtim = sh->buf[sh->source].st_mtim;
         
 #elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
-	ts[0] = sh->buf[sh->source].st_atimespec;
-	ts[1] = sh->buf[sh->source].st_mtimespec;
+	stbuf.st_atimespec = sh->buf[sh->source].st_atimespec;
+	stbuf.st_mtimespec = sh->buf[sh->source].st_mtimespec;
 #else
-	ts[0].tv_sec = sh->buf[sh->source].st_atime;
-	ts[1].tv_sec = sh->buf[sh->source].st_mtime;
+	stbuf.st_atime = sh->buf[sh->source].st_atime;
+	stbuf.st_mtime = sh->buf[sh->source].st_mtime;
 #endif
 
+        stbuf.st_uid = sh->buf[sh->source].st_uid;
+        stbuf.st_gid = sh->buf[sh->source].st_gid;
+        
+        valid = GF_SET_ATTR_UID   | GF_SET_ATTR_GID |
+                GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
+        
 	if (op_ret == 0) {
-		chown_frame = copy_frame (frame);
+		setattr_frame = copy_frame (frame);
                 
-                chown_frame->local = CALLOC (1, sizeof (afr_local_t));
+                setattr_frame->local = CALLOC (1, sizeof (afr_local_t));
 
-                ((afr_local_t *)chown_frame->local)->call_count = 2;
+                ((afr_local_t *)setattr_frame->local)->call_count = 1;
 
 		gf_log (this->name, GF_LOG_TRACE,
-			"chown %s to %d %d on subvolume %s",
-			local->loc.path, buf->st_uid, buf->st_gid,
-			priv->children[child_index]->name);
+			"setattr (%s) on subvolume %s",
+			local->loc.path, priv->children[child_index]->name);
 
-		STACK_WIND (chown_frame, sh_destroy_cbk,
+		STACK_WIND (setattr_frame, sh_destroy_cbk,
 			    priv->children[child_index],
-			    priv->children[child_index]->fops->chown,
-			    &local->loc,
-			    buf->st_uid, buf->st_gid);
-                
-                STACK_WIND (chown_frame, sh_destroy_cbk,
-                            priv->children[child_index],
-                            priv->children[child_index]->fops->utimens,
-                            &local->loc, ts);
-                            
+			    priv->children[child_index]->fops->setattr,
+			    &local->loc, &stbuf, valid);
 	}
-
-	LOCK (&frame->lock);
-	{
-	}
-	UNLOCK (&frame->lock);
 
 	call_count = afr_frame_return (frame);
 

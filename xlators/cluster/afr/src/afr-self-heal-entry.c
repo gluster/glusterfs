@@ -908,9 +908,10 @@ afr_sh_entry_impunge_entry_done (call_frame_t *frame, xlator_t *this,
 
 
 int
-afr_sh_entry_impunge_utimens_cbk (call_frame_t *impunge_frame, void *cookie,
-				  xlator_t *this, int32_t op_ret,
-				  int32_t op_errno, struct stat *stbuf)
+afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
+				  xlator_t *this,
+                                  int32_t op_ret, int32_t op_errno,
+                                  struct stat *preop, struct stat *postop)
 {
 	int              call_count = 0;
 	afr_private_t   *priv = NULL;
@@ -933,87 +934,17 @@ afr_sh_entry_impunge_utimens_cbk (call_frame_t *impunge_frame, void *cookie,
 
 	if (op_ret == 0) {
 		gf_log (this->name, GF_LOG_TRACE,
-			"utimes set for %s on %s",
+			"setattr done for %s on %s",
 			impunge_local->loc.path,
 			priv->children[child_index]->name);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"setting utimes of %s on %s failed (%s)",
+			"setattr (%s) on %s failed (%s)",
 			impunge_local->loc.path,
 			priv->children[child_index]->name,
 			strerror (op_errno));
 	}
 
-	LOCK (&impunge_frame->lock);
-	{
-		call_count = --impunge_local->call_count;
-	}
-	UNLOCK (&impunge_frame->lock);
-
-	if (call_count == 0) {
-		AFR_STACK_DESTROY (impunge_frame);
-		afr_sh_entry_impunge_entry_done (frame, this, active_src);
-	}
-
-	return 0;
-}
-
-
-int
-afr_sh_entry_impunge_chown_cbk (call_frame_t *impunge_frame, void *cookie,
-				xlator_t *this, int32_t op_ret,
-				int32_t op_errno, struct stat *stbuf)
-{
-	int              call_count = 0;
-	afr_private_t   *priv = NULL;
-	afr_local_t     *impunge_local = NULL;
-	afr_self_heal_t *impunge_sh = NULL;
-	call_frame_t    *frame = NULL;
-	int              active_src = 0;
-	int              child_index = 0;
-	struct timespec  ts[2];
-
-
-	priv = this->private;
-	impunge_local = impunge_frame->local;
-	impunge_sh = &impunge_local->self_heal;
-	frame = impunge_sh->sh_frame;
-	child_index = (long) cookie;
-
-	if (op_ret == 0) {
-		gf_log (this->name, GF_LOG_TRACE,
-			"ownership of %s on %s changed",
-			impunge_local->loc.path,
-			priv->children[child_index]->name);
-	} else {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"setting ownership of %s on %s failed (%s)",
-			impunge_local->loc.path,
-			priv->children[child_index]->name,
-			strerror (op_errno));
-		goto out;
-	}
-
-#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
-	ts[0] = impunge_local->cont.lookup.buf.st_atim;
-	ts[1] = impunge_local->cont.lookup.buf.st_mtim;
-#elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
-	ts[0] = impunge_local->cont.lookup.buf.st_atimespec;
-	ts[1] = impunge_local->cont.lookup.buf.st_mtimespec;
-#else
-	ts[0].tv_sec = impunge_local->cont.lookup.buf.st_atime;
-	ts[1].tv_sec = impunge_local->cont.lookup.buf.st_mtime;
-#endif
-	STACK_WIND_COOKIE (impunge_frame,
-			   afr_sh_entry_impunge_utimens_cbk,
-			   (void *) (long) child_index,
-			   priv->children[child_index],
-			   priv->children[child_index]->fops->utimens,
-			   &impunge_local->loc, ts);
-
-	return 0;
-
-out:
 	LOCK (&impunge_frame->lock);
 	{
 		call_count = --impunge_local->call_count;
@@ -1041,11 +972,13 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 	call_frame_t    *frame = NULL;
 	int              child_index = 0;
 
+        struct stat stbuf;
+        int32_t     valid = 0;
 
-	priv = this->private;
+	priv          = this->private;
 	impunge_local = impunge_frame->local;
-	impunge_sh = &impunge_local->self_heal;
-	frame = impunge_sh->sh_frame;
+	impunge_sh    = &impunge_local->self_heal;
+	frame         = impunge_sh->sh_frame;
 
 	child_index = (long) cookie;
 
@@ -1056,13 +989,30 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 		impunge_local->cont.lookup.buf.st_uid,
 		impunge_local->cont.lookup.buf.st_gid);
 
-	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_chown_cbk,
+#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
+	stbuf.st_atim = impunge_local->cont.lookup.buf.st_atim;
+	stbuf.st_mtim = impunge_local->cont.lookup.buf.st_mtim;
+
+#elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
+	stbuf.st_atimespec = impunge_local->cont.lookup.buf.st_atimespec;
+	stbuf.st_mtimespec = impunge_local->cont.lookup.buf.st_mtimespec;
+#else
+	stbuf.st_atime = impunge_local->cont.lookup.buf.st_atime;
+	stbuf.st_mtime = impunge_local->cont.lookup.buf.st_mtime;
+#endif
+
+        stbuf.st_uid = impunge_local->cont.lookup.buf.st_uid;
+        stbuf.st_gid = impunge_local->cont.lookup.buf.st_gid;
+
+        valid = GF_SET_ATTR_UID   | GF_SET_ATTR_GID |
+                GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
+
+	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_setattr_cbk,
 			   (void *) (long) child_index,
 			   priv->children[child_index],
-			   priv->children[child_index]->fops->chown,
+			   priv->children[child_index]->fops->setattr,
 			   &impunge_local->loc,
-			   impunge_local->cont.lookup.buf.st_uid,
-			   impunge_local->cont.lookup.buf.st_gid);
+                           &stbuf, valid);
         return 0;
 }
 

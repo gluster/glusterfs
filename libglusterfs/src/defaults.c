@@ -1557,3 +1557,58 @@ default_release (xlator_t *this,
 	return 0;
 }
 
+int32_t
+default_setattr_cbk (call_frame_t *frame,
+                     void *cookie,
+                     xlator_t *this,
+                     int32_t op_ret,
+                     int32_t op_errno,
+                     struct stat *statpre,
+                     struct stat *statpost)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
+	return 0;
+}
+
+int32_t
+default_setattr (call_frame_t *frame,
+                 xlator_t *this,
+                 loc_t *loc,
+                 struct stat *stbuf,
+                 int32_t valid)
+{
+	STACK_WIND (frame,
+		    default_setattr_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->setattr,
+		    loc, stbuf, valid);
+	return 0;
+}
+
+int32_t
+default_fsetattr_cbk (call_frame_t *frame,
+                      void *cookie,
+                      xlator_t *this,
+                      int32_t op_ret,
+                      int32_t op_errno,
+                      struct stat *statpre,
+                      struct stat *statpost)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
+	return 0;
+}
+
+int32_t
+default_fsetattr (call_frame_t *frame,
+                  xlator_t *this,
+                  fd_t *fd,
+                  struct stat *stbuf,
+                  int32_t valid)
+{
+	STACK_WIND (frame,
+		    default_fsetattr_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->fsetattr,
+		    fd, stbuf, valid);
+	return 0;
+}

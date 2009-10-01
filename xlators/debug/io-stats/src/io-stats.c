@@ -187,50 +187,15 @@ io_stats_fsync_cbk (call_frame_t *frame,
 }
 
 int32_t
-io_stats_chown_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    struct stat *buf)
+io_stats_setattr_cbk (call_frame_t *frame,
+                      void *cookie,
+                      xlator_t *this,
+                      int32_t op_ret,
+                      int32_t op_errno,
+                      struct stat *preop,
+                      struct stat *postop)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
-        return 0;
-}
-
-int32_t
-io_stats_chmod_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    struct stat *buf)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
-        return 0;
-}
-
-int32_t
-io_stats_fchmod_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     struct stat *buf)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
-        return 0;
-}
-
-int32_t
-io_stats_fchown_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     struct stat *buf)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
         return 0;
 }
 
@@ -857,39 +822,20 @@ io_stats_link (call_frame_t *frame,
 }
 
 int32_t
-io_stats_chmod (call_frame_t *frame,
-                xlator_t *this,
-                loc_t *loc,
-                mode_t mode)
+io_stats_setattr (call_frame_t *frame,
+                  xlator_t *this,
+                  loc_t *loc,
+                  struct stat *stbuf,
+                  int32_t valid)
 {
-        BUMP_HIT(CHMOD);
+        BUMP_HIT(SETATTR);
 
         STACK_WIND (frame,
-                    io_stats_chmod_cbk,
+                    io_stats_setattr_cbk,
                     FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->chmod,
+                    FIRST_CHILD(this)->fops->setattr,
                     loc,
-                    mode);
-
-        return 0;
-}
-
-int32_t
-io_stats_chown (call_frame_t *frame,
-                xlator_t *this,
-                loc_t *loc,
-                uid_t uid,
-                gid_t gid)
-{
-        BUMP_HIT(CHOWN);
-
-        STACK_WIND (frame,
-                    io_stats_chown_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->chown,
-                    loc,
-                    uid,
-                    gid);
+                    stbuf, valid);
 
         return 0;
 }
@@ -908,24 +854,6 @@ io_stats_truncate (call_frame_t *frame,
                     FIRST_CHILD(this)->fops->truncate,
                     loc,
                     offset);
-
-        return 0;
-}
-
-int32_t
-io_stats_utimens (call_frame_t *frame,
-                  xlator_t *this,
-                  loc_t *loc,
-                  struct timespec tv[2])
-{
-        BUMP_HIT(UTIMENS);
-
-        STACK_WIND (frame,
-                    io_stats_utimens_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->utimens,
-                    loc,
-                    tv);
 
         return 0;
 }
@@ -1238,38 +1166,20 @@ io_stats_ftruncate (call_frame_t *frame,
 }
 
 int32_t
-io_stats_fchown (call_frame_t *frame,
-                 xlator_t *this,
-                 fd_t *fd,
-                 uid_t uid,
-                 gid_t gid)
+io_stats_fsetattr (call_frame_t *frame,
+                   xlator_t *this,
+                   fd_t *fd,
+                   struct stat *stbuf,
+                   int32_t valid)
 {
-        BUMP_HIT(FCHOWN);
+        BUMP_HIT(FSETATTR);
 
         STACK_WIND (frame,
-                    io_stats_fchown_cbk,
+                    io_stats_setattr_cbk,
                     FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fchown,
+                    FIRST_CHILD(this)->fops->fsetattr,
                     fd,
-                    uid,
-                    gid);
-        return 0;
-}
-
-int32_t
-io_stats_fchmod (call_frame_t *frame,
-                 xlator_t *this,
-                 fd_t *fd,
-                 mode_t mode)
-{
-        BUMP_HIT(FCHMOD);
-
-        STACK_WIND (frame,
-                    io_stats_fchmod_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fchmod,
-                    fd,
-                    mode);
+                    stbuf, valid);
         return 0;
 }
 
@@ -1513,10 +1423,7 @@ struct xlator_fops fops = {
         .symlink     = io_stats_symlink,
         .rename      = io_stats_rename,
         .link        = io_stats_link,
-        .chmod       = io_stats_chmod,
-        .chown       = io_stats_chown,
         .truncate    = io_stats_truncate,
-        .utimens     = io_stats_utimens,
         .open        = io_stats_open,
         .readv       = io_stats_readv,
         .writev      = io_stats_writev,
@@ -1533,8 +1440,6 @@ struct xlator_fops fops = {
         .ftruncate   = io_stats_ftruncate,
         .fstat       = io_stats_fstat,
         .create      = io_stats_create,
-        .fchown      = io_stats_fchown,
-        .fchmod      = io_stats_fchmod,
         .lk          = io_stats_lk,
         .inodelk     = io_stats_inodelk,
         .finodelk    = io_stats_finodelk,
@@ -1545,6 +1450,8 @@ struct xlator_fops fops = {
         .checksum    = io_stats_checksum,
         .xattrop     = io_stats_xattrop,
         .fxattrop    = io_stats_fxattrop,
+        .setattr     = io_stats_setattr,
+        .fsetattr    = io_stats_fsetattr,
 };
 
 struct xlator_mops mops = {
