@@ -115,7 +115,8 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 		     int32_t op_ret, int32_t op_errno, 
-		     fd_t *fd, inode_t *inode, struct stat *buf)
+		     fd_t *fd, inode_t *inode, struct stat *buf,
+                     struct stat *preparent, struct stat *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -366,9 +367,10 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
 
 
 int
-afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		    int32_t op_ret, int32_t op_errno, 
-		    inode_t *inode, struct stat *buf)
+afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    struct stat *buf, struct stat *preparent,
+                    struct stat *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -601,9 +603,10 @@ afr_mkdir_unwind (call_frame_t *frame, xlator_t *this)
 
 
 int
-afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		    int32_t op_ret, int32_t op_errno, 
-		    inode_t *inode, struct stat *buf)
+afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    struct stat *buf, struct stat *preparent,
+                    struct stat *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -840,7 +843,8 @@ afr_link_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 		   int32_t op_ret, int32_t op_errno, inode_t *inode,
-		   struct stat *buf)
+                   struct stat *buf, struct stat *preparent,
+                   struct stat *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1065,7 +1069,8 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 		      int32_t op_ret, int32_t op_errno, inode_t *inode,
-		      struct stat *buf)
+                      struct stat *buf, struct stat *preparent,
+                      struct stat *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1297,7 +1302,9 @@ afr_rename_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		     int32_t op_ret, int32_t op_errno, struct stat *buf)
+		     int32_t op_ret, int32_t op_errno, struct stat *buf,
+                     struct stat *preoldparent, struct stat *postoldparent,
+                     struct stat *prenewparent, struct stat *postnewparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1496,7 +1503,8 @@ afr_unlink_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		     int32_t op_ret, int32_t op_errno)
+		     int32_t op_ret, int32_t op_errno, struct stat *preparent,
+                     struct stat *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1683,7 +1691,8 @@ afr_rmdir_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		    int32_t op_ret, int32_t op_errno)
+		    int32_t op_ret, int32_t op_errno, struct stat *preparent,
+                    struct stat *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;

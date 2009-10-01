@@ -316,7 +316,8 @@ fuse_lookup_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 inode_t *inode,
 		 struct stat *stat,
-		 dict_t *dict);
+                 dict_t *dict,
+                 struct stat *postparent);
 
 static int32_t
 fuse_entry_cbk (call_frame_t *frame,

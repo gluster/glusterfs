@@ -70,6 +70,19 @@ stripe_get_matching_bs (const char *path, struct stripe_options *opts,
 
 
 /*
+ * stripe_common_remove_cbk -
+ */
+int32_t
+stripe_common_remove_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno,
+                          struct stat *preparent, struct stat *postparent)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
+        return 0;
+}
+
+
+/*
  * stripe_common_cbk -
  */
 int32_t
@@ -127,6 +140,169 @@ stripe_stack_unwind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+
+int32_t
+stripe_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                  struct stat *postbuf)
+{
+        int32_t         callcnt = 0;
+        stripe_local_t *local   = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG, 
+                                "%s returned %s",
+                                ((call_frame_t *)cookie)->this->name,
+                                strerror (op_errno));
+                        local->op_errno = op_errno;
+                        if (op_errno == ENOTCONN)
+                                local->failed = 1;
+                }
+                if (op_ret >= 0)
+                        local->op_ret = op_ret;
+        }
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                if (local->failed)
+                        local->op_ret = -1;
+
+                if (local->loc.path)
+                        loc_wipe (&local->loc);
+                if (local->loc2.path)
+                        loc_wipe (&local->loc2);
+
+                STACK_UNWIND (frame, local->op_ret, local->op_errno);
+        }
+        return 0;
+}
+
+
+
+/**
+ * stripe_stack_unwind_remove_cbk -  This function is used for unlink
+ * _cbk without any extra arguments (other than the minimum given)
+ * This is called from functions like fsync,unlink,rmdir etc.
+ *
+ */
+int32_t
+stripe_stack_unwind_unlink_cbk (call_frame_t *frame, void *cookie,
+                                xlator_t *this, int32_t op_ret,
+                                int32_t op_errno, struct stat *preparent,
+                                struct stat *postparent)
+{
+        int32_t         callcnt = 0;
+        stripe_local_t *local   = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s returned %s",
+                                ((call_frame_t *)cookie)->this->name,
+                                strerror (op_errno));
+                        local->op_errno = op_errno;
+                        if (op_errno == ENOTCONN)
+                                local->failed = 1;
+                }
+                if (op_ret >= 0)
+                        local->op_ret = op_ret;
+        }
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                if (local->failed)
+                        local->op_ret = -1;
+
+                if (local->loc.path)
+                        loc_wipe (&local->loc);
+                if (local->loc2.path)
+                        loc_wipe (&local->loc2);
+
+                STACK_UNWIND (frame, local->op_ret, local->op_errno);
+        }
+        return 0;
+}
+
+
+int32_t
+stripe_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                     struct stat *postbuf)
+{
+        int32_t         callcnt = 0;
+        stripe_local_t *local = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s returned error %s",
+                                ((call_frame_t *)cookie)->this->name,
+                                strerror (op_errno));
+                        local->op_errno = op_errno;
+                        if (op_errno == ENOTCONN)
+                                local->failed = 1;
+                }
+
+                if (op_ret == 0) {
+                        local->op_ret = 0;
+                        if (local->stbuf.st_blksize == 0) {
+                                local->stbuf = *postbuf;
+                                /* Because st_blocks gets added again */
+                                local->stbuf.st_blocks = 0;
+                        }
+
+                        if (FIRST_CHILD(this) ==
+                            ((call_frame_t *)cookie)->this) {
+                                /* Always, pass the inode number of
+                                   first child to the above layer */
+                                local->stbuf.st_ino = postbuf->st_ino;
+                                local->stbuf.st_mtime = postbuf->st_mtime;
+                        }
+
+                        local->stbuf.st_blocks += postbuf->st_blocks;
+                        if (local->stbuf.st_size < postbuf->st_size)
+                                local->stbuf.st_size = postbuf->st_size;
+                        if (local->stbuf.st_blksize != postbuf->st_blksize) {
+                                /* TODO: add to blocks in terms of
+                                   original block size */
+                        }
+                }
+        }
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                if (local->failed)
+                        local->op_ret = -1;
+
+                if (local->loc.path)
+                        loc_wipe (&local->loc);
+                if (local->loc2.path)
+                        loc_wipe (&local->loc2);
+
+                STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                              &local->stbuf);
+        }
+
+        return 0;
+}
+
+
 int32_t 
 stripe_common_buf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct stat *buf)
@@ -134,6 +310,76 @@ stripe_common_buf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_UNWIND (frame, op_ret, op_errno, buf);
         return 0;
 }
+
+
+int32_t
+stripe_stack_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, struct stat *buf,
+                         struct stat *preoldparent, struct stat *postoldparent,
+                         struct stat *prenewparent, struct stat *postnewparent)
+{
+        int32_t         callcnt = 0;
+        stripe_local_t *local = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s returned error %s",
+                                ((call_frame_t *)cookie)->this->name,
+                                strerror (op_errno));
+                        local->op_errno = op_errno;
+                        if (op_errno == ENOTCONN)
+                                local->failed = 1;
+                }
+
+                if (op_ret == 0) {
+                        local->op_ret = 0;
+                        if (local->stbuf.st_blksize == 0) {
+                                local->stbuf = *buf;
+                                /* Because st_blocks gets added again */
+                                local->stbuf.st_blocks = 0;
+                        }
+
+                        if (FIRST_CHILD(this) ==
+                            ((call_frame_t *)cookie)->this) {
+                                /* Always, pass the inode number of
+                                   first child to the above layer */
+                                local->stbuf.st_ino = buf->st_ino;
+                                local->stbuf.st_mtime = buf->st_mtime;
+                        }
+
+                        local->stbuf.st_blocks += buf->st_blocks;
+                        if (local->stbuf.st_size < buf->st_size)
+                                local->stbuf.st_size = buf->st_size;
+                        if (local->stbuf.st_blksize != buf->st_blksize) {
+                                /* TODO: add to blocks in terms of
+                                   original block size */
+                        }
+                }
+        }
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                if (local->failed)
+                        local->op_ret = -1;
+
+                if (local->loc.path)
+                        loc_wipe (&local->loc);
+                if (local->loc2.path)
+                        loc_wipe (&local->loc2);
+
+                STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                              &local->stbuf);
+        }
+
+        return 0;
+}
+
 
 /**
  * stripe_stack_unwind_buf_cbk -  This function is used for all the _cbk with 
@@ -214,9 +460,11 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t 
 stripe_common_inode_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno, inode_t *inode,
-                         struct stat *buf)
+                         struct stat *buf, struct stat *preparent,
+                         struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
+                      postparent);
         return 0;
 }
 
@@ -232,7 +480,8 @@ int32_t
 stripe_stack_unwind_inode_cbk (call_frame_t *frame, void *cookie,
                                xlator_t *this, int32_t op_ret, 
                                int32_t op_errno, inode_t *inode,
-                               struct stat *buf)
+                               struct stat *buf, struct stat *preparent,
+                               struct stat *postparent)
 {
         int32_t         callcnt = 0;
         stripe_local_t *local   = NULL;
@@ -293,7 +542,7 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame, void *cookie,
 int32_t 
 stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
-                   struct stat *buf, dict_t *dict)
+                   struct stat *buf, dict_t *dict, struct stat *postparent)
 {
         int32_t         callcnt = 0;
         dict_t         *tmp_dict = NULL;
@@ -611,7 +860,7 @@ stripe_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 send_fop_to_all = 1;
 
         if (!send_fop_to_all) {
-                STACK_WIND (frame, stripe_common_buf_cbk, trav->xlator,
+                STACK_WIND (frame, stripe_truncate_cbk, trav->xlator,
                             trav->xlator->fops->truncate, loc, offset);
         } else {
                 /* Initialization */
@@ -626,7 +875,7 @@ stripe_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 local->call_count = priv->child_count;
     
                 while (trav) {
-                        STACK_WIND (frame, stripe_stack_unwind_buf_cbk,
+                        STACK_WIND (frame, stripe_truncate_cbk,
                                     trav->xlator, trav->xlator->fops->truncate,
                                     loc, offset);
                         trav = trav->next;
@@ -822,7 +1071,9 @@ stripe_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 int32_t 
 stripe_first_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct stat *buf)
+                         int32_t op_ret, int32_t op_errno, struct stat *buf,
+                         struct stat *preoldparent, struct stat *postoldparent,
+                         struct stat *prenewparent, struct stat *postnewparent)
 {
         stripe_local_t *local = NULL;
         xlator_list_t  *trav = NULL;
@@ -840,7 +1091,7 @@ stripe_first_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         trav = trav->next; /* Skip first child */
 
         while (trav) {
-                STACK_WIND (frame, stripe_stack_unwind_buf_cbk,
+                STACK_WIND (frame, stripe_stack_rename_cbk,
                             trav->xlator, trav->xlator->fops->rename,
                             &local->loc, &local->loc2);
                 trav = trav->next;
@@ -933,9 +1184,10 @@ stripe_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
  */
 int32_t 
 stripe_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, const char *path)
+                     int32_t op_ret, int32_t op_errno, const char *path,
+                     struct stat *sbuf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, path);
+        STACK_UNWIND (frame, op_ret, op_errno, path, sbuf);
         return 0;
 }
 
@@ -994,7 +1246,7 @@ stripe_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 send_fop_to_all = 1;
 
         if (!send_fop_to_all) {
-                STACK_WIND (frame, stripe_common_cbk, trav->xlator,
+                STACK_WIND (frame, stripe_common_remove_cbk, trav->xlator,
                             trav->xlator->fops->unlink, loc);
         } else {
                 /* Don't unlink a file if a node is down */
@@ -1014,7 +1266,7 @@ stripe_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 local->call_count = priv->child_count;
     
                 while (trav) {
-                        STACK_WIND (frame, stripe_stack_unwind_cbk,
+                        STACK_WIND (frame, stripe_stack_unwind_unlink_cbk,
                                     trav->xlator, trav->xlator->fops->unlink,
                                     loc);
                         trav = trav->next;
@@ -1030,7 +1282,9 @@ stripe_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 int32_t 
 stripe_first_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno)
+                        int32_t op_ret, int32_t op_errno,struct stat *preparent,
+                        struct stat *postparent)
+
 {
         xlator_list_t *trav = NULL;
         stripe_local_t *local = NULL;
@@ -1047,7 +1301,7 @@ stripe_first_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         trav = trav->next; /* Skip first child */
 
         while (trav) {
-                STACK_WIND (frame, stripe_stack_unwind_cbk, trav->xlator,
+                STACK_WIND (frame, stripe_stack_unwind_unlink_cbk, trav->xlator,
                             trav->xlator->fops->rmdir, &local->loc);
                 trav = trav->next;
         }
@@ -1139,7 +1393,8 @@ stripe_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 int32_t 
 stripe_mknod_ifreg_fail_unlink_cbk (call_frame_t *frame, void *cookie,
                                     xlator_t *this, int32_t op_ret,
-                                    int32_t op_errno)
+                                    int32_t op_errno, struct stat *preparent,
+                                    struct stat *postparent)
 {
         int32_t         callcnt = 0;
         stripe_local_t *local = NULL;
@@ -1216,7 +1471,8 @@ stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame, void *cookie,
 int32_t
 stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, inode_t *inode,
-                        struct stat *buf)
+                        struct stat *buf, struct stat *preparent,
+                        struct stat *postparent)
 {
         int               ret = 0;
         int32_t           callcnt = 0;
@@ -1544,7 +1800,8 @@ stripe_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 int32_t 
 stripe_create_fail_unlink_cbk (call_frame_t *frame, void *cookie,
                                xlator_t *this, int32_t op_ret,
-                               int32_t op_errno)
+                               int32_t op_errno, struct stat *preparent,
+                               struct stat *postparent)
 {
         int32_t         callcnt = 0;
         fd_t           *lfd = NULL;
@@ -1632,7 +1889,8 @@ stripe_create_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 stripe_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, fd_t *fd,
-                   inode_t *inode, struct stat *buf)
+                   inode_t *inode, struct stat *buf, struct stat *preparent,
+                   struct stat *postparent)
 {
         int32_t           callcnt = 0;
         stripe_local_t   *local = NULL;
@@ -2015,7 +2273,7 @@ stripe_open_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 while (trav) {
                         STACK_WIND (frame, stripe_open_cbk, trav->xlator,
                                     trav->xlator->fops->open, &local->loc, 
-                                    local->flags, local->fd);
+                                    local->flags, local->fd, 0);
                         trav = trav->next;
                 }
         }
@@ -2035,7 +2293,7 @@ stripe_open_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int32_t
 stripe_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             int32_t flags, fd_t *fd)
+             int32_t flags, fd_t *fd, int32_t wbflags)
 {
         stripe_local_t   *local = NULL;
         stripe_private_t *priv = NULL;
@@ -2100,7 +2358,8 @@ stripe_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 while (trav) {
                         STACK_WIND (frame, stripe_open_cbk, trav->xlator,
                                     trav->xlator->fops->open,
-                                    &local->loc, local->flags, local->fd);
+                                    &local->loc, local->flags, local->fd,
+                                    wbflags);
                         trav = trav->next;
                 }
         }
@@ -2464,7 +2723,7 @@ stripe_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         local->call_count = priv->child_count;
         
         while (trav) {
-                STACK_WIND (frame, stripe_stack_unwind_cbk, trav->xlator,
+                STACK_WIND (frame, stripe_fsync_cbk, trav->xlator,
                             trav->xlator->fops->fsync, fd, flags);
                 trav = trav->next;
         }
@@ -2552,7 +2811,7 @@ stripe_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         local->call_count = priv->child_count;
         
         while (trav) {
-                STACK_WIND (frame, stripe_stack_unwind_buf_cbk, trav->xlator,
+                STACK_WIND (frame, stripe_truncate_cbk, trav->xlator,
                             trav->xlator->fops->ftruncate, fd, offset);
                 trav = trav->next;
         }
@@ -2823,7 +3082,8 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
  */
 int32_t
 stripe_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                   struct stat *postbuf)
 {
         int32_t         callcnt = 0;
         stripe_local_t *local = NULL;
@@ -2844,7 +3104,7 @@ stripe_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 if (op_ret >= 0) {
                         local->op_ret += op_ret;
-                        local->stbuf = *stbuf;
+                        local->stbuf = *postbuf;
                 }
         }
         UNLOCK (&frame->lock);

@@ -316,7 +316,8 @@ out:
 int
 iot_lookup_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno,
-                inode_t *inode, struct stat *buf, dict_t *xattr)
+                inode_t *inode, struct stat *buf, dict_t *xattr,
+                struct stat *postparent)
 {
         STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr);
         return 0;
@@ -516,7 +517,8 @@ out:
 
 int
 iot_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, const char *path)
+                  int32_t op_ret, int32_t op_errno, const char *path,
+                  struct stat *sbuf)
 {
         STACK_UNWIND (frame, op_ret, op_errno, path);
         return 0;
@@ -568,7 +570,8 @@ out:
 int
 iot_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
-               struct stat *buf)
+               struct stat *buf, struct stat *preparent,
+               struct stat *postparent)
 {
         STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
         return 0;
@@ -618,7 +621,8 @@ out:
 int
 iot_mkdir_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
-               struct stat *buf)
+               struct stat *buf, struct stat *preparent,
+               struct stat *postparent)
 {
         STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
         return 0;
@@ -665,7 +669,8 @@ out:
 
 int
 iot_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno)
+               int32_t op_ret, int32_t op_errno, struct stat *preparent,
+               struct stat *postparent)
 {
         STACK_UNWIND (frame, op_ret, op_errno);
         return 0;
@@ -712,7 +717,8 @@ out:
 int
 iot_symlink_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
-                 struct stat *buf)
+                 struct stat *buf, struct stat *preparent,
+                 struct stat *postparent)
 {
         STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
         return 0;
@@ -762,7 +768,9 @@ out:
 
 int
 iot_rename_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *buf)
+                int32_t op_ret, int32_t op_errno, struct stat *buf,
+                struct stat *preoldparent, struct stat *postoldparent,
+                struct stat *prenewparent, struct stat *postnewparent)
 {
         STACK_UNWIND (frame, op_ret, op_errno, buf);
         return 0;
@@ -820,22 +828,22 @@ iot_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
 int
 iot_open_wrapper (call_frame_t * frame, xlator_t * this, loc_t *loc,
-                  int32_t flags, fd_t * fd)
+                  int32_t flags, fd_t * fd, int32_t wbflags)
 {
 	STACK_WIND (frame, iot_open_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->open, loc, flags, fd);
+                    FIRST_CHILD (this)->fops->open, loc, flags, fd, wbflags);
 	return 0;
 }
 
 
 int
 iot_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-          fd_t *fd)
+          fd_t *fd, int32_t wbflags)
 {
         call_stub_t	*stub = NULL;
         int             ret = -1;
 
-        stub = fop_open_stub (frame, iot_open_wrapper, loc, flags, fd);
+        stub = fop_open_stub (frame, iot_open_wrapper, loc, flags, fd, wbflags);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "cannot create open call stub"
@@ -863,7 +871,8 @@ out:
 int
 iot_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-                struct stat *stbuf)
+                struct stat *stbuf, struct stat *preparent,
+                struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
 	return 0;
@@ -1020,9 +1029,10 @@ out:
 
 int
 iot_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno)
+               int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+               struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1071,9 +1081,10 @@ out:
 
 int
 iot_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+                int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1288,9 +1299,10 @@ out:
 
 int
 iot_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *buf)
+                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                  struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1349,9 +1361,10 @@ out:
 
 int
 iot_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *buf)
+                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                   struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1450,7 +1463,8 @@ out:
 
 int
 iot_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int32_t op_ret, int32_t op_errno)
+		int32_t op_ret, int32_t op_errno, struct stat *preparent,
+                struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
@@ -1503,7 +1517,7 @@ out:
 int
 iot_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno, inode_t *inode,
-              struct stat *buf)
+              struct stat *buf, struct stat *preparent, struct stat *postparent)
 {
         STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
         return 0;

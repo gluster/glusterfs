@@ -337,6 +337,7 @@ typedef struct {
 	char     path[0];     /* NULL terminated */
 } __attribute__((packed)) gf_fop_readlink_req_t;
 typedef struct {
+        struct gf_stat buf;
 	char     path[0]; /* NULL terminated */
 } __attribute__((packed)) gf_fop_readlink_rsp_t;
 
@@ -350,6 +351,8 @@ typedef struct {
 } __attribute__((packed)) gf_fop_mknod_req_t;
 typedef struct {
 	struct gf_stat stat;
+        struct gf_stat preparent;
+        struct gf_stat postparent;
 } __attribute__((packed)) gf_fop_mknod_rsp_t;
 
 
@@ -361,6 +364,8 @@ typedef struct {
 } __attribute__((packed)) gf_fop_mkdir_req_t;
 typedef struct {
 	struct gf_stat stat;
+        struct gf_stat preparent;
+        struct gf_stat postparent;
 } __attribute__((packed)) gf_fop_mkdir_rsp_t;
 
 
@@ -370,6 +375,8 @@ typedef struct {
 	char     bname[0]; /* NULL terminated */
 } __attribute__((packed)) gf_fop_unlink_req_t;
 typedef struct {
+        struct gf_stat preparent;
+        struct gf_stat postparent;
 } __attribute__((packed)) gf_fop_unlink_rsp_t;
 
 
@@ -379,6 +386,8 @@ typedef struct {
 	char     bname[0]; /* NULL terminated */
 } __attribute__((packed)) gf_fop_rmdir_req_t;
 typedef struct {
+        struct gf_stat preparent;
+        struct gf_stat postparent;
 } __attribute__((packed)) gf_fop_rmdir_rsp_t;
 
 
@@ -390,6 +399,8 @@ typedef struct {
 } __attribute__((packed)) gf_fop_symlink_req_t;
 typedef struct {
 	struct gf_stat stat;
+        struct gf_stat preparent;
+        struct gf_stat postparent;
 }__attribute__((packed)) gf_fop_symlink_rsp_t;
 
 
@@ -403,6 +414,10 @@ typedef struct {
 } __attribute__((packed)) gf_fop_rename_req_t;
 typedef struct {
 	struct gf_stat stat;
+        struct gf_stat preoldparent;
+        struct gf_stat postoldparent;
+        struct gf_stat prenewparent;
+        struct gf_stat postnewparent;
 } __attribute__((packed)) gf_fop_rename_rsp_t;
 
 
@@ -415,6 +430,8 @@ typedef struct {
 }__attribute__((packed)) gf_fop_link_req_t;
 typedef struct {
 	struct gf_stat stat;
+        struct gf_stat preparent;
+        struct gf_stat postparent;
 } __attribute__((packed)) gf_fop_link_rsp_t;
 
 
@@ -445,13 +462,15 @@ typedef struct {
 	char     path[0];
 } __attribute__((packed)) gf_fop_truncate_req_t;
 typedef struct {
-	struct gf_stat stat;
+	struct gf_stat prestat;
+        struct gf_stat poststat;
 } __attribute__((packed)) gf_fop_truncate_rsp_t;
 
 
 typedef struct {
 	uint64_t ino;
 	uint32_t flags;
+        uint32_t wbflags;
 	char     path[0];
 } __attribute__((packed)) gf_fop_open_req_t;
 typedef struct {
@@ -478,7 +497,8 @@ typedef struct {
 	uint32_t size;
 } __attribute__((packed)) gf_fop_write_req_t;
 typedef struct {
-	struct gf_stat stat;
+	struct gf_stat prestat;
+        struct gf_stat poststat;
 } __attribute__((packed)) gf_fop_write_rsp_t;
 
 
@@ -504,6 +524,8 @@ typedef struct fsync_req {
 	uint32_t data;
 } __attribute__((packed)) gf_fop_fsync_req_t;
 typedef struct {
+        struct gf_stat prestat;
+        struct gf_stat poststat;
 } __attribute__((packed)) gf_fop_fsync_rsp_t;
 
 
@@ -636,6 +658,8 @@ typedef struct {
 typedef struct {
 	struct gf_stat stat;
 	uint64_t       fd;
+        struct gf_stat preparent;
+        struct gf_stat postparent;
 } __attribute__((packed)) gf_fop_create_rsp_t;
 
 
@@ -646,7 +670,8 @@ typedef struct {
 	uint64_t offset;
 } __attribute__((packed)) gf_fop_ftruncate_req_t;
 typedef struct {
-	struct gf_stat stat;
+	struct gf_stat prestat;
+        struct gf_stat poststat;
 } __attribute__((packed)) gf_fop_ftruncate_rsp_t;
 
 
@@ -757,6 +782,7 @@ typedef struct {
 } __attribute__((packed)) gf_fop_lookup_req_t;
 typedef struct {
 	struct gf_stat stat;
+        struct gf_stat postparent;
 	uint32_t       dict_len;
 	char           dict[0];
 } __attribute__((packed)) gf_fop_lookup_rsp_t;

@@ -163,7 +163,7 @@ ioc_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 int32_t
 ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int32_t op_ret,	int32_t op_errno, inode_t *inode,
-		struct stat *stbuf, dict_t *dict)
+		struct stat *stbuf, dict_t *dict, struct stat *postparent)
 {
 	ioc_inode_t   *ioc_inode = NULL;
 	ioc_local_t   *local = frame->local;
@@ -745,7 +745,8 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int32_t
 ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret,	int32_t op_errno, fd_t *fd,
-		inode_t *inode,	struct stat *buf)
+		inode_t *inode,	struct stat *buf, struct stat *preparent,
+                struct stat *postparent)
 {
 	ioc_local_t *local = NULL;
 	ioc_table_t *table = NULL;
@@ -811,7 +812,7 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int32_t
 ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-	  fd_t *fd)
+	  fd_t *fd, int32_t wbflags)
 {
   
 	ioc_local_t *local = NULL;
@@ -830,7 +831,7 @@ ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	frame->local = local;
         
 	STACK_WIND (frame, ioc_open_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->open, loc, flags, fd);
+                    FIRST_CHILD(this)->fops->open, loc, flags, fd, wbflags);
 
 	return 0;
 }
@@ -1160,7 +1161,8 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
  */
 int32_t
 ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int32_t op_ret,	int32_t op_errno, struct stat *stbuf)
+		int32_t op_ret,	int32_t op_errno, struct stat *prebuf,
+                struct stat *postbuf)
 {
 	ioc_local_t *local     = NULL;
 	uint64_t    ioc_inode = 0;
@@ -1171,7 +1173,7 @@ ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (ioc_inode)
 		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1230,12 +1232,36 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
  */
 int32_t 
 ioc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *buf)
+                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                  struct stat *postbuf)
 {
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
+
+
+/*
+ * ioc_ftruncate_cbk -
+ *
+ * @frame:
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @buf:
+ *
+ */
+int32_t
+ioc_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                  struct stat *postbuf)
+{
+
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	return 0;
+}
+
 
 /*
  * ioc_truncate -
@@ -1278,7 +1304,7 @@ ioc_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 	if (ioc_inode)
 		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-	STACK_WIND (frame, ioc_truncate_cbk, FIRST_CHILD(this),
+	STACK_WIND (frame, ioc_ftruncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->ftruncate, fd, offset);
 	return 0;
 }

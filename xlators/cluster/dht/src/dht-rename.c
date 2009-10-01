@@ -33,7 +33,9 @@
 
 int
 dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		    int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+		    int32_t op_ret, int32_t op_errno, struct stat *stbuf,
+                    struct stat *preoldparent, struct stat *postoldparent,
+                    struct stat *prenewparent, struct stat *postnewparent)
 {
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
@@ -213,7 +215,8 @@ err:
 
 int
 dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		       int32_t op_ret, int32_t op_errno)
+		       int32_t op_ret, int32_t op_errno, struct stat *preparent,
+                       struct stat *postparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
@@ -240,7 +243,9 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+		int32_t op_ret, int32_t op_errno, struct stat *stbuf,
+                struct stat *preoldparent, struct stat *postoldparent,
+                struct stat *prenewparent, struct stat *postnewparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
@@ -369,7 +374,8 @@ dht_do_rename (call_frame_t *frame)
 int
 dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		      int32_t op_ret, int32_t op_errno,
-		      inode_t *inode, struct stat *stbuf)
+                      inode_t *inode, struct stat *stbuf,
+                      struct stat *preparent, struct stat *postparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;

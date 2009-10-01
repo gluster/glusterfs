@@ -362,7 +362,7 @@ unlock:
 int32_t
 sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
-               struct stat *buf, dict_t *dict)
+               struct stat *buf, dict_t *dict, struct stat *postparent)
 {
         struct stat *stbuf = NULL;
         int32_t      ret = -1;
@@ -401,7 +401,7 @@ out:
 int32_t
 sp_lookup_behind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, inode_t *inode,
-                      struct stat *buf, dict_t *dict)
+                      struct stat *buf, dict_t *dict, struct stat *postparent)
 {
         sp_local_t *local = NULL;
         sp_cache_t *cache = NULL;
@@ -672,10 +672,24 @@ unwind:
 
 
 int32_t
-sp_stbuf_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct stat *buf)
+sp_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                 struct stat *postbuf)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno, buf);
+	SP_STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	return 0;
+}
+
+
+
+int32_t
+sp_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct stat *buf,
+               struct stat *preoldparent, struct stat *postoldparent,
+               struct stat *prenewparent, struct stat *postnewparent)
+{
+	SP_STACK_UNWIND (frame, op_ret, op_errno, buf, preoldparent,
+                         postoldparent, prenewparent, postnewparent);
 	return 0;
 }
 
@@ -712,7 +726,7 @@ out:
 
 int32_t
 sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-         fd_t *fd)
+         fd_t *fd, int wbflags)
 {
         sp_local_t *local = NULL;
         int32_t     ret   = -1;
@@ -728,7 +742,7 @@ sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         }
 
 	STACK_WIND (frame, sp_fd_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->open, loc, flags, fd);
+                    FIRST_CHILD(this)->fops->open, loc, flags, fd, wbflags);
         return 0;
 
 unwind:
@@ -740,7 +754,8 @@ unwind:
 static int32_t
 sp_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-               struct stat *buf)
+               struct stat *buf, struct stat *preparent,
+               struct stat *postparent)
 {
         sp_local_t  *local = NULL;
         sp_fd_ctx_t *fd_ctx = NULL;
@@ -837,9 +852,11 @@ unwind:
 int32_t
 sp_new_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
-                  struct stat *buf)
+                  struct stat *buf, struct stat *preparent,
+                  struct stat *postparent)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
+                      postparent);
 	return 0;
 }
 
@@ -972,7 +989,7 @@ sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 sp_cache_remove_entry (cache, (char *)loc->name, 0);
         }
 
-	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
+	STACK_WIND (frame, sp_truncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->truncate, loc, offset);
         return 0;
 
@@ -1007,7 +1024,7 @@ sp_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 sp_cache_remove_entry (cache, name, 0);
         }
 
-	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
+	STACK_WIND (frame, sp_truncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->ftruncate, fd, offset);
         return 0;
 
@@ -1054,9 +1071,10 @@ unwind:
 
 int32_t
 sp_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, const char *path)
+                 int32_t op_ret, int32_t op_errno, const char *path,
+                 struct stat *buf)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno, path);
+	SP_STACK_UNWIND (frame, op_ret, op_errno, path, buf);
         return 0;
 }
 
@@ -1083,6 +1101,16 @@ unwind:
         SP_STACK_UNWIND (frame, -1, errno, NULL);
         return 0;
 }
+
+int32_t
+sp_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct stat *preparent,
+               struct stat *postparent)
+{
+	SP_STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
+	return 0;
+}
+
 
 
 int32_t
@@ -1115,7 +1143,7 @@ sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto unwind;
         }
 
-	STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
+	STACK_WIND (frame, sp_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->unlink, loc);
         return 0;
 
@@ -1169,7 +1197,7 @@ sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto unwind;
         }
 
-        STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
+        STACK_WIND (frame, sp_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->rmdir, loc);
         return 0;
 
@@ -1251,7 +1279,7 @@ sp_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                 sp_cache_remove_entry (cache, name, 0);
         }
 
-	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
+	STACK_WIND (frame, sp_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count, off,
                     iobref);
         return 0;
@@ -1287,7 +1315,7 @@ sp_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
                 sp_cache_remove_entry (cache, name, 0);
         }
 
-	STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
+	STACK_WIND (frame, sp_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsync, fd, flags);
         return 0;
 
@@ -1338,7 +1366,7 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
                 sp_remove_caches_from_all_fds_opened (this, oldloc->inode);
         }
 
-        STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
+        STACK_WIND (frame, sp_rename_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->rename, oldloc, newloc);
         return 0;
 

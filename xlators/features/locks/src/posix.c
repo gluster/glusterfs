@@ -58,7 +58,8 @@ struct _truncate_ops {
 
 int
 pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		 int32_t op_ret, int32_t op_errno, struct stat *buf)
+		 int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                 struct stat *postbuf)
 {
 	struct _truncate_ops *local = NULL;
 
@@ -67,7 +68,7 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (local->op == TRUNCATE)
 		loc_wipe (&local->loc);
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -307,13 +308,13 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-pl_open (call_frame_t *frame, xlator_t *this,
-	 loc_t *loc, int32_t flags, fd_t *fd)
+pl_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+         fd_t *fd, int32_t wbflags)
 {
 	/* why isn't O_TRUNC being handled ? */
 	STACK_WIND (frame, pl_open_cbk, 
 		    FIRST_CHILD(this), FIRST_CHILD(this)->fops->open, 
-		    loc, flags & ~O_TRUNC, fd);
+		    loc, flags & ~O_TRUNC, fd, wbflags);
 
 	return 0;
 }
@@ -322,7 +323,8 @@ pl_open (call_frame_t *frame, xlator_t *this,
 int
 pl_create_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int32_t op_ret, int32_t op_errno,
-	       fd_t *fd, inode_t *inode, struct stat *buf)
+	       fd_t *fd, inode_t *inode, struct stat *buf,
+               struct stat *preparent, struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 
@@ -354,9 +356,10 @@ pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 pl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-	       int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+	       int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+               struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 
 	return 0;
 }

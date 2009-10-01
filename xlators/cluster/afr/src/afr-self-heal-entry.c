@@ -426,7 +426,9 @@ afr_sh_entry_expunge_entry_done (call_frame_t *frame, xlator_t *this,
 int
 afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
 				 xlator_t *this,
-				 int32_t op_ret, int32_t op_errno)
+				 int32_t op_ret, int32_t op_errno,
+                                 struct stat *preparent,
+                                 struct stat *postparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *expunge_local = NULL;
@@ -564,7 +566,8 @@ int
 afr_sh_entry_expunge_lookup_cbk (call_frame_t *expunge_frame, void *cookie,
 				xlator_t *this,
 				int32_t op_ret,	int32_t op_errno,
-				inode_t *inode, struct stat *buf, dict_t *x)
+                                inode_t *inode, struct stat *buf, dict_t *x,
+                                struct stat *postparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *expunge_local = NULL;
@@ -626,7 +629,8 @@ int
 afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 				xlator_t *this,
 				int32_t op_ret,	int32_t op_errno,
-				inode_t *inode, struct stat *buf, dict_t *x)
+                                inode_t *inode, struct stat *buf, dict_t *x,
+                                struct stat *postparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *expunge_local = NULL;
@@ -1021,7 +1025,9 @@ int
 afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 				  xlator_t *this,
 				  int32_t op_ret, int32_t op_errno,
-				  inode_t *inode, struct stat *stbuf)
+                                  inode_t *inode, struct stat *stbuf,
+                                  struct stat *preparent,
+                                  struct stat *postparent)
 {
 	int              call_count = 0;
 	afr_private_t   *priv = NULL;
@@ -1188,7 +1194,7 @@ int
 afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
 				   xlator_t *this,
 				   int32_t op_ret, int32_t op_errno,
-				   const char *linkname)
+				   const char *linkname, struct stat *sbuf)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1264,7 +1270,7 @@ afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
 					  void *cookie, xlator_t *this,
 					  int32_t op_ret, int32_t op_errno,
 					  inode_t *inode, struct stat *buf,
-					  dict_t *xattr)
+					  dict_t *xattr,struct stat *postparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1372,7 +1378,8 @@ int
 afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
 				xlator_t *this,
 				int32_t op_ret,	int32_t op_errno,
-				inode_t *inode, struct stat *buf, dict_t *x)
+                                inode_t *inode, struct stat *buf, dict_t *x,
+                                struct stat *postparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1861,7 +1868,8 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
 			 xlator_t *this, int32_t op_ret, int32_t op_errno,
-			 inode_t *inode, struct stat *buf, dict_t *xattr)
+                         inode_t *inode, struct stat *buf, dict_t *xattr,
+                         struct stat *postparent)
 {
 	afr_private_t   *priv  = NULL;
 	afr_local_t     *local = NULL;

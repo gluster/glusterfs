@@ -202,7 +202,8 @@ filter_lookup_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   inode_t *inode,
 		   struct stat *buf,
-		   dict_t *dict)
+		   dict_t *dict,
+                   struct stat *postparent)
 {
 	int ret = 0;
 	if (op_ret >= 0) {
@@ -360,12 +361,13 @@ filter_truncate_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct stat *buf)
+		     struct stat *prebuf,
+                     struct stat *postbuf)
 {
 	if (op_ret >= 0) {
-		update_stat (buf, this->private);
+		update_stat (postbuf, this->private);
 	}
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -410,12 +412,13 @@ filter_ftruncate_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      struct stat *buf)
+		      struct stat *prebuf,
+                      struct stat *postbuf)
 {
 	if (op_ret >= 0) {
-		update_stat (buf, this->private);
+		update_stat (postbuf, this->private);
 	}
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -441,9 +444,10 @@ filter_readlink_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     const char *path)
+		     const char *path,
+                     struct stat *sbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, path);
+	STACK_UNWIND (frame, op_ret, op_errno, path, sbuf);
 	return 0;
 }
 
@@ -483,7 +487,9 @@ filter_mknod_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-		  struct stat *buf)
+                  struct stat *buf,
+                  struct stat *preparent,
+                  struct stat *postparent)
 {
 	int ret = 0;
 
@@ -541,7 +547,9 @@ filter_mkdir_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-		  struct stat *buf)
+                  struct stat *buf,
+                  struct stat *preparent,
+                  struct stat *postparent)
 {
 	int ret = 0;
 	if (op_ret >= 0) {
@@ -595,7 +603,9 @@ filter_unlink_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
-		   int32_t op_errno)
+		   int32_t op_errno,
+                   struct stat *preparent,
+                   struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
@@ -644,7 +654,9 @@ filter_rmdir_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
-		  int32_t op_errno)
+		  int32_t op_errno,
+                  struct stat *preparent,
+                  struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
@@ -695,7 +707,9 @@ filter_symlink_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-		    struct stat *buf)
+                    struct stat *buf,
+                    struct stat *preparent,
+                    struct stat *postparent)
 {
 	int ret = 0;
 	if (op_ret >= 0) {
@@ -751,7 +765,11 @@ filter_rename_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   struct stat *buf)
+		   struct stat *buf,
+                   struct stat *preoldparent,
+                   struct stat *postoldparent,
+                   struct stat *prenewparent,
+                   struct stat *postnewparent)
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
@@ -809,7 +827,9 @@ filter_link_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-		 struct stat *buf)
+                 struct stat *buf,
+                 struct stat *preparent,
+                 struct stat *postparent)
 {
 	int ret = 0;
 	if (op_ret >= 0) {
@@ -856,7 +876,9 @@ filter_create_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   fd_t *fd,
 		   inode_t *inode,
-		   struct stat *buf)
+		   struct stat *buf,
+                   struct stat *preparent,
+                   struct stat *postparent)
 {
 	int ret = 0;
 	if (op_ret >= 0) {
@@ -922,7 +944,8 @@ filter_open (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
 	     int32_t flags, 
-	     fd_t *fd)
+	     fd_t *fd,
+             int32_t wbflags)
 {
 	int32_t ret = 0;
 	ret = update_frame (frame, loc->inode, this->private);
@@ -960,7 +983,7 @@ filter_open (call_frame_t *frame,
 		    filter_open_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->open,
-		    loc, flags, fd);
+		    loc, flags, fd, wbflags);
 	return 0;
 }
 
@@ -1012,15 +1035,17 @@ filter_writev_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   struct stat *stbuf)
+                   struct stat *prebuf,
+		   struct stat *postbuf)
 {
 	if (op_ret >= 0) {
-		update_stat (stbuf, this->private);
+		update_stat (postbuf, this->private);
 	}
 	STACK_UNWIND (frame,
 		      op_ret,
 		      op_errno,
-		      stbuf);
+		      prebuf,
+                      postbuf);
 	return 0;
 }
 

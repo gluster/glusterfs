@@ -708,7 +708,7 @@ unwind:
 
 int
 client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-             fd_t *fd)
+             fd_t *fd, int32_t wbflags)
 {
 	int                 ret = -1;
 	gf_hdr_common_t    *hdr = NULL;
@@ -744,6 +744,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
 	req->ino   = hton64 (ino);
 	req->flags = hton32 (gf_flags_from_flags (flags));
+        req->wbflags = hton32 (wbflags);
 	strcpy (req->path, loc->path);
 	
 	ret = protocol_client_xfer (frame, this,
@@ -3941,7 +3942,7 @@ client_truncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
 	if (op_ret == 0) {
-		gf_stat_to_stat (&rsp->stat, &stbuf);
+		gf_stat_to_stat (&rsp->prestat, &stbuf);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
@@ -4001,7 +4002,7 @@ client_ftruncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
 	if (op_ret == 0) {
-		gf_stat_to_stat (&rsp->stat, &stbuf);
+		gf_stat_to_stat (&rsp->prestat, &stbuf);
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
@@ -4078,7 +4079,7 @@ client_write_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
 	if (op_ret >= 0)
-		gf_stat_to_stat (&rsp->stat, &stbuf);
+		gf_stat_to_stat (&rsp->poststat, &stbuf);
 
 	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 

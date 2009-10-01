@@ -196,7 +196,8 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 int
 dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			    int op_ret, int op_errno,
-			    inode_t *inode, struct stat *stbuf)
+                            inode_t *inode, struct stat *stbuf,
+                            struct stat *preparent, struct stat *postparent)
 {
 	dht_local_t   *local = NULL;
 	dht_layout_t  *layout = NULL;

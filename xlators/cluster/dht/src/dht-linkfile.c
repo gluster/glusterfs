@@ -40,7 +40,7 @@ dht_linkfile_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 	local->linkfile.linkfile_cbk (frame, cookie, this, op_ret, op_errno,
 				      local->linkfile.inode,
-				      &local->linkfile.stbuf);
+				      &local->linkfile.stbuf, NULL, NULL);
 
 	return 0;
 }
@@ -48,8 +48,9 @@ dht_linkfile_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			 int op_ret, int op_errno,
-			 inode_t *inode, struct stat *stbuf)
+                         int op_ret, int op_errno, inode_t *inode,
+                         struct stat *stbuf, struct stat *preparent,
+                         struct stat *postparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
@@ -104,8 +105,8 @@ err:
 		str_data = NULL;
 	}
 
-	local->linkfile.linkfile_cbk (frame, cookie, this,
-				      op_ret, op_errno, inode, stbuf);
+        local->linkfile.linkfile_cbk (frame, cookie, this, op_ret, op_errno,
+                                      inode, stbuf, preparent, postparent);
 	return 0;
 }
 
@@ -132,7 +133,8 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 
 int
 dht_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			 int32_t op_ret, int32_t op_errno)
+			 int32_t op_ret, int32_t op_errno,
+                         struct stat *preparent, struct stat *postparent)
 {
 	dht_local_t   *local = NULL;
 	call_frame_t  *prev = NULL;

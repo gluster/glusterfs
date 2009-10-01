@@ -428,7 +428,7 @@ out:
 int32_t
 afr_readlink_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno,
-		  const char *buf)
+		  const char *buf, struct stat *sbuf)
 {
 	afr_private_t * priv     = NULL;
 	afr_local_t *   local    = NULL;

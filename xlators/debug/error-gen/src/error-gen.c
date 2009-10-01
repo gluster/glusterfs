@@ -52,7 +52,8 @@ error_gen_lookup_cbk (call_frame_t *frame,
 		      int32_t op_errno,
 		      inode_t *inode,
 		      struct stat *buf,
-		      dict_t *dict)
+		      dict_t *dict,
+                      struct stat *postparent)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -197,12 +198,14 @@ error_gen_truncate_cbk (call_frame_t *frame,
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno,
-			struct stat *buf)
+			struct stat *prebuf,
+                        struct stat *postbuf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
 		      op_errno,
-		      buf);
+		      prebuf,
+                      postbuf);
 	return 0;
 }
 
@@ -234,12 +237,14 @@ error_gen_ftruncate_cbk (call_frame_t *frame,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 struct stat *buf)
+			 struct stat *prebuf,
+                         struct stat *postbuf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
 		      op_errno,
-		      buf);
+		      prebuf,
+                      postbuf);
 	return 0;
 }
 
@@ -308,12 +313,14 @@ error_gen_readlink_cbk (call_frame_t *frame,
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno,
-			const char *path)
+			const char *path,
+                        struct stat *sbuf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
 		      op_errno,
-		      path);
+		      path,
+                      sbuf);
 	return 0;
 }
 
@@ -347,7 +354,9 @@ error_gen_mknod_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno,
 		     inode_t *inode,
-		     struct stat *buf)
+                     struct stat *buf,
+                     struct stat *preparent,
+                     struct stat *postparent)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -386,7 +395,9 @@ error_gen_mkdir_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno,
 		     inode_t *inode,
-		     struct stat *buf)
+                     struct stat *buf,
+                     struct stat *preparent,
+                     struct stat *postparent)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -422,7 +433,9 @@ error_gen_unlink_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
 		      int32_t op_ret,
-		      int32_t op_errno)
+		      int32_t op_errno,
+                      struct stat *preparent,
+                      struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
@@ -453,7 +466,9 @@ error_gen_rmdir_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
 		     int32_t op_ret,
-		     int32_t op_errno)
+		     int32_t op_errno,
+                     struct stat *preparent,
+                     struct stat *postparent)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -489,7 +504,9 @@ error_gen_symlink_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno,
 		       inode_t *inode,
-		       struct stat *buf)
+                       struct stat *buf,
+                       struct stat *preparent,
+                       struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode,	buf);
 	return 0;
@@ -523,7 +540,11 @@ error_gen_rename_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      struct stat *buf)
+		      struct stat *buf,
+                      struct stat *preoldparent,
+                      struct stat *postoldparent,
+                      struct stat *prenewparent,
+                      struct stat *postnewparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
@@ -558,7 +579,9 @@ error_gen_link_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-		    struct stat *buf)
+                    struct stat *buf,
+                    struct stat *preparent,
+                    struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode,	buf);
 	return 0;
@@ -594,7 +617,9 @@ error_gen_create_cbk (call_frame_t *frame,
 		      int32_t op_errno,
 		      fd_t *fd,
 		      inode_t *inode,
-		      struct stat *buf)
+		      struct stat *buf,
+                      struct stat *preparent,
+                      struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 	return 0;
@@ -641,7 +666,7 @@ int32_t
 error_gen_open (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
-		int32_t flags, fd_t *fd)
+		int32_t flags, fd_t *fd, int32_t wbflags)
 {
 	int op_errno = 0;
 	op_errno = error_gen(this);
@@ -655,7 +680,7 @@ error_gen_open (call_frame_t *frame,
 		    error_gen_open_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->open,
-		    loc, flags, fd);
+		    loc, flags, fd, wbflags);
 	return 0;
 }
 
@@ -713,12 +738,14 @@ error_gen_writev_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      struct stat *stbuf)
+                      struct stat *prebuf,
+		      struct stat *postbuf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
 		      op_errno,
-		      stbuf);
+                      prebuf,
+		      postbuf);
 	return 0;
 }
 
@@ -792,7 +819,9 @@ error_gen_fsync_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
 		     int32_t op_ret,
-		     int32_t op_errno)
+		     int32_t op_errno,
+                     struct stat *prebuf,
+                     struct stat *postbuf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
