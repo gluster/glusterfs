@@ -5472,6 +5472,47 @@ out:
         return op_ret;
 }
 
+
+int
+libgf_client_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno,
+                           struct stat *preop, struct stat *postop)
+{
+        libgf_client_local_t    *local = frame->local;
+
+        local->reply_stub = fop_fsetattr_cbk_stub (frame, NULL,
+                                                   op_ret, op_errno,
+                                                   preop, postop);
+        LIBGF_REPLY_NOTIFY (local);
+        return 0;
+}
+
+
+int
+libgf_client_fsetattr (libglusterfs_client_ctx_t *ctx, fd_t *fd,
+                       struct stat *stbuf, int32_t valid)
+{
+        int                     op_ret = -1;
+        libgf_client_local_t    *local = NULL;
+        call_stub_t             *stub = NULL;
+
+        LIBGF_CLIENT_FOP (ctx, stub, fsetattr, local, fd, stbuf, valid);
+
+        op_ret = stub->args.fsetattr_cbk.op_ret;
+        errno = stub->args.fsetattr_cbk.op_errno;
+
+        if (op_ret == -1)
+                goto out;
+
+        libgf_transform_devnum (ctx, &stub->args.fsetattr_cbk.statpost);
+        libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
+                                  &stub->args.fsetattr_cbk.statpost);
+out:
+        call_stub_destroy (stub);
+        return op_ret;
+}
+
+
 int
 libgf_client_fchmod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 int32_t op_ret, int32_t op_errno,
