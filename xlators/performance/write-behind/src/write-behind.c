@@ -97,6 +97,8 @@ struct wb_conf {
 
 typedef struct wb_local {
         list_head_t     winds;
+        int32_t         flags;
+        int32_t         wbflags;
         struct wb_file *file;
         wb_request_t   *request;
         int             op_ret;
@@ -591,7 +593,7 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	uint64_t      tmp_file = 0;
         call_stub_t  *stub = NULL;
         wb_request_t *request = NULL;
-        int32_t       ret = -1;
+        int32_t       ret = -1, op_errno = EINVAL;
 
         if (loc->inode) {
                 /* FIXME: fd_lookup extends life of fd till stat returns */
@@ -608,12 +610,8 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         local = CALLOC (1, sizeof (*local));
         if (local == NULL) {
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                
-                if (iter_fd != NULL) {
-                        fd_unref (iter_fd);
-                }
-                return 0;
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         local->file = file;
@@ -623,35 +621,20 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         if (file) {
                 stub = fop_stat_stub (frame, wb_stat_helper, loc);
                 if (stub == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-
-                        if (iter_fd != NULL) {
-                                fd_unref (iter_fd);
-                        }
-
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
                 
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        call_stub_destroy (stub);
-
-                        if (iter_fd != NULL) {
-                                fd_unref (iter_fd);
-                        }
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 ret = wb_process_queue (frame, file, 1);
                 if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        call_stub_destroy (stub);
-
-                        if (iter_fd != NULL) {
-                                fd_unref (iter_fd);
-                        }
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
         } else {
@@ -659,6 +642,17 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->stat,
                             loc);
+        }
+
+unwind:
+        STACK_UNWIND (frame, -1, op_errno, NULL);
+
+        if (stub) {
+                call_stub_destroy (stub);
+        }
+        
+        if (iter_fd != NULL) {
+                fd_unref (iter_fd);
         }
 
         return 0;
@@ -714,6 +708,7 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         call_stub_t  *stub = NULL;
         wb_request_t *request = NULL;
         int32_t       ret = -1;
+        int           op_errno = EINVAL;
 
         if ((!S_ISDIR (fd->inode->st_mode))
             && fd_ctx_get (fd, this, &tmp_file)) {
@@ -739,15 +734,14 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         if (file) {
                 stub = fop_fstat_stub (frame, wb_fstat_helper, fd);
                 if (stub == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
                 
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        call_stub_destroy (stub);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 /*
@@ -755,10 +749,8 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 */
                 ret = wb_process_queue (frame, file, 1);
                 if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        call_stub_destroy (stub);
-
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
         } else {
                 STACK_WIND (frame,
@@ -766,6 +758,14 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->fstat,
                             fd);
+        }
+
+        return 0;
+unwind:
+        STACK_UNWIND (frame, -1, op_errno, NULL);
+
+        if (stub) {
+                call_stub_destroy (stub);
         }
 
         return 0;
@@ -854,7 +854,7 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 	uint64_t      tmp_file = 0;
         call_stub_t  *stub = NULL;
         wb_request_t *request = NULL;
-        int32_t       ret = -1;
+        int32_t       ret = -1, op_errno = ENOMEM;
 
         if (loc->inode)
         {
@@ -874,8 +874,8 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
   
         local = CALLOC (1, sizeof (*local));
         if (local == NULL) {
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         local->file = file;
@@ -885,22 +885,20 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 stub = fop_truncate_stub (frame, wb_truncate_helper, loc,
                                           offset);
                 if (stub == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        call_stub_destroy (stub);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
                 
                 ret = wb_process_queue (frame, file, 1);
                 if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        call_stub_destroy (stub);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
         } else {
                 STACK_WIND (frame,
@@ -909,6 +907,15 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                             FIRST_CHILD(this)->fops->truncate,
                             loc,
                             offset);
+        }
+
+        return 0;
+
+unwind:
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+
+        if (stub) {
+                call_stub_destroy (stub);
         }
 
         return 0;
@@ -967,6 +974,7 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         call_stub_t  *stub = NULL;
         wb_request_t *request = NULL;
         int32_t       ret = -1; 
+        int           op_errno = EINVAL;
 
         if ((!S_ISDIR (fd->inode->st_mode))
             && fd_ctx_get (fd, this, &tmp_file)) {
@@ -994,22 +1002,20 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 stub = fop_ftruncate_stub (frame, wb_ftruncate_helper, fd,
                                            offset);
                 if (stub == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        call_stub_destroy (stub);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 ret = wb_process_queue (frame, file, 1);
                 if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        call_stub_destroy (stub);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
         } else {
                 STACK_WIND (frame,
@@ -1018,6 +1024,15 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                             FIRST_CHILD(this)->fops->ftruncate,
                             fd,
                             offset);
+        }
+
+        return 0;
+
+unwind:
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+
+        if (stub) {
+                call_stub_destroy (stub);
         }
 
         return 0;
@@ -1106,7 +1121,7 @@ wb_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	uint64_t      tmp_file = 0;
         call_stub_t  *stub = NULL;
         wb_request_t *request = NULL;
-        int32_t       ret = -1;
+        int32_t       ret = -1, op_errno = EINVAL;
 
         if (loc->inode) {
                 /* 
@@ -1126,8 +1141,8 @@ wb_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         local = CALLOC (1, sizeof (*local));
         if (local == NULL) {
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         local->file = file;
@@ -1137,22 +1152,20 @@ wb_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (file) {
                 stub = fop_utimens_stub (frame, wb_utimens_helper, loc, tv);
                 if (stub == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        call_stub_destroy (stub);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 ret = wb_process_queue (frame, file, 1);
                 if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                        call_stub_destroy (stub);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
         } else {
                 STACK_WIND (frame,
@@ -1164,21 +1177,43 @@ wb_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         return 0;
+unwind:
+        STACK_UNWIND (frame, -1, op_errno, NULL);
+
+        if (stub) {
+                call_stub_destroy (stub);
+        }
+
+        return 0;
 }
 
 int32_t
 wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, fd_t *fd)
 {
-        long       flags = 0;
-        wb_file_t *file = NULL;
-        wb_conf_t *conf = this->private;
+        int32_t     wbflags = 0, flags = 0;
+        wb_file_t  *file = NULL;
+        wb_conf_t  *conf = NULL;
+        wb_local_t *local = NULL;
+
+        conf = this->private;
+
+        local = frame->local;
+        if (local == NULL) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        flags = local->flags;
+        wbflags = local->wbflags;
 
         if (op_ret != -1) {
                 file = wb_file_create (this, fd);
                 if (file == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, fd);
-                        return 0;
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto out;
                 }
 
                 /* 
@@ -1191,21 +1226,21 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                         file->disabled = 1;
 
                 /* If O_DIRECT then, we disable chaching */
-                if (frame->local) {
-                        flags = (long)frame->local;
-                        if (((flags & O_DIRECT) == O_DIRECT)
-                            || ((flags & O_ACCMODE) == O_RDONLY)
-                            || (((flags & O_SYNC) == O_SYNC)
-                                && conf->enable_O_SYNC == _gf_true)) { 
-                                file->window_conf = 0;
-                        }
+                if (((flags & O_DIRECT) == O_DIRECT)
+                    || ((flags & O_ACCMODE) == O_RDONLY)
+                    || (((flags & O_SYNC) == O_SYNC)
+                        && conf->enable_O_SYNC == _gf_true)) { 
+                        file->window_conf = 0;
                 }
 
+                if (wbflags & GF_OPEN_NOWB) {
+                        file->disabled = 1;
+                }
+ 
                 LOCK_INIT (&file->lock);
         }
         
-        frame->local = NULL;
-
+out:
         STACK_UNWIND (frame, op_ret, op_errno, fd);
         return 0;
 }
@@ -1215,13 +1250,28 @@ int32_t
 wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, int32_t wbflags)
 {
-        frame->local = (void *)(long)flags;
+        wb_local_t *local = NULL;
+        int32_t     op_errno = EINVAL;
+
+        local = CALLOC (1, sizeof (*local));
+        if (local == NULL) {
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        local->flags = flags;
+        local->wbflags = wbflags;
+ 
+        frame->local = local;
 
         STACK_WIND (frame,
                     wb_open_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->open,
                     loc, flags, fd, wbflags);
+
+unwind:
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -1239,8 +1289,9 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret != -1) {
                 file = wb_file_create (this, fd);
                 if (file == NULL) {
-                        STACK_UNWIND (frame, -1, ENOMEM, fd, inode, buf);
-                        return 0;
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto out;
                 }
                 /* 
                  * If mandatory locking has been enabled on this file,
@@ -1265,8 +1316,10 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         
         frame->local = NULL;
-        
-        STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+
+out:        
+        STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf, preparent,
+                      postparent);
         return 0;
 }
 
@@ -1512,7 +1565,8 @@ wb_stack_unwind (list_head_t *unwinds)
                 frame = request->stub->frame;
                 local = frame->local;
 
-                STACK_UNWIND (frame, local->op_ret, local->op_errno, &buf);
+                STACK_UNWIND (frame, local->op_ret, local->op_errno, &buf,
+                              &buf);
 
                 wb_request_unref (request);
         }
@@ -1726,7 +1780,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         wb_local_t   *local = NULL;
         wb_request_t *request = NULL;
         int32_t       ret = -1;
-        int32_t       op_ret = -1, op_errno = -1; 
+        int32_t       op_ret = -1, op_errno = EINVAL; 
 
         if (vector != NULL) 
                 size = iov_length (vector, count);
@@ -1737,16 +1791,16 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
 
-                STACK_UNWIND (frame, -1, EBADFD, NULL);
-                return 0;
+                op_errno = EBADFD;
+                goto unwind;
         }
 
 	file = (wb_file_t *)(long)tmp_file;
         if (!file) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "wb_file not found for fd %p", fd);
-                STACK_UNWIND (frame, -1, EBADFD, NULL);
-                return 0;
+                op_errno = EBADFD;
+                goto unwind;
         }
 
         LOCK (&file->lock);
@@ -1782,14 +1836,14 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
         process_frame = copy_frame (frame);
         if (process_frame == NULL) {
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                return 0;
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         local = CALLOC (1, sizeof (*local));
         if (local == NULL) {
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-                STACK_DESTROY (process_frame->root);
+                op_errno = ENOMEM;
+                goto unwind;
                 return 0;
         }
 
@@ -1799,30 +1853,36 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         stub = fop_writev_stub (frame, NULL, fd, vector, count, offset,
                                 iobref);
         if (stub == NULL) {
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-
-                STACK_DESTROY (process_frame->root);
-                return 0;
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         request = wb_enqueue (file, stub);
         if (request == NULL) {
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-
-                STACK_DESTROY (process_frame->root);
-                call_stub_destroy (stub);
-                return 0;
+                op_errno = ENOMEM;
+                goto unwind;
         }
                 
         ret = wb_process_queue (process_frame, file, 0);
         if ((ret == -1) && (errno == ENOMEM)) {
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
-
-                STACK_DESTROY (process_frame->root);
-                call_stub_destroy (stub);
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         STACK_DESTROY (process_frame->root);
+
+        return 0;
+
+unwind:
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+
+        if (process_frame) {
+                STACK_DESTROY (process_frame->root);
+        }
+
+        if (stub) {
+                call_stub_destroy (stub);
+        }
 
         return 0;
 }
@@ -1847,8 +1907,8 @@ wb_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 
                 ret = wb_process_queue (frame, file, 0);
                 if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL, -1, NULL, NULL);
-                        return 0;
+                        op_ret = -1;
+                        op_errno = ENOMEM;
                 }
         }
 
@@ -2159,7 +2219,7 @@ wb_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 }
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
         
         return 0;
 }
