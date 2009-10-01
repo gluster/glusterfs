@@ -6347,48 +6347,6 @@ out:
         return op_ret;
 }
 
-int32_t
-libgf_client_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                                int32_t op_ret, int32_t op_errno,
-                                struct stat *buf)
-{
-        libgf_client_local_t *local = frame->local;
-
-        local->reply_stub = fop_utimens_cbk_stub (frame, NULL, op_ret,
-                                                        op_errno, buf);
-
-        LIBGF_REPLY_NOTIFY (local);
-
-        return 0;
-}
-
-int32_t
-libgf_client_utimens (libglusterfs_client_ctx_t *ctx, loc_t *loc,
-                      struct timespec ts[2])
-{
-        int                             op_ret = -1;
-        libgf_client_local_t            *local = NULL;
-        call_stub_t                     *stub = NULL;
-        struct stat                     *stbuf = NULL;
-
-        LIBGF_CLIENT_FOP (ctx, stub, utimens, local, loc, ts);
-
-        op_ret = stub->args.utimens_cbk.op_ret;
-        errno = stub->args.utimens_cbk.op_errno;
-        stbuf = &stub->args.utimens_cbk.buf;
-
-        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
-                loc->path, op_ret, errno);
-        if (op_ret == -1)
-                goto out;
-
-        libgf_transform_devnum (ctx, stbuf);
-        libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT, stbuf);
-
-out:
-        call_stub_destroy (stub);
-        return op_ret;
-}
 
 int
 glusterfs_glh_utimes (glusterfs_handle_t handle, const char *path,
