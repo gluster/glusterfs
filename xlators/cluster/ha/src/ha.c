@@ -107,6 +107,7 @@ ha_lookup_cbk (call_frame_t *frame,
 	if (local->op_ret == -1 && op_ret == 0) {
 		local->op_ret = 0;
 		local->buf = *buf;
+                local->postparent = *postparent;
 		if (dict)
 			local->dict = dict_ref (dict);
 	}
@@ -128,7 +129,8 @@ ha_lookup_cbk (call_frame_t *frame,
 			      local->op_errno,
 			      inode,
 			      &local->buf,
-			      ctx);
+			      ctx,
+                              &local->postparent);
 		if (inode)
 			inode_unref (inode);
 		if (ctx)
@@ -350,7 +352,7 @@ ha_truncate (call_frame_t *frame,
 			   offset);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 	return 0;
 }
 
@@ -402,7 +404,7 @@ ha_ftruncate (call_frame_t *frame,
 			   offset);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 	return 0;
 }
 
@@ -505,7 +507,7 @@ ha_readlink (call_frame_t *frame,
 			   size);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 	return 0;
 }
 
@@ -567,7 +569,8 @@ ha_mknod_lookup_cbk (call_frame_t *frame,
 			      local->op_ret,
 			      local->op_errno,
 			      local->stub->args.mknod.loc.inode,
-			      &local->buf);
+			      &local->buf, &local->preparent,
+                              &local->postparent);
 		call_stub_destroy (stub);
 	}
 	return 0;
@@ -631,7 +634,9 @@ ha_mknod_cbk (call_frame_t *frame,
 		call_stub_t *stub = local->stub;
 		FREE (local->state);
 		stub = local->stub;
-		STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stub->args.mknod.loc.inode, &local->buf);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                              local->stub->args.mknod.loc.inode, &local->buf,
+                              &local->preparent, &local->postparent);
 		call_stub_destroy (stub);
 		return 0;
 	}
@@ -758,8 +763,8 @@ ha_mkdir_lookup_cbk (call_frame_t *frame,
 		STACK_UNWIND (frame,
 			      local->op_ret,
 			      local->op_errno,
-			      local->stub->args.mkdir.loc.inode,
-			      &local->buf);
+			      local->stub->args.mkdir.loc.inode, &local->buf,
+			      &local->preparent, &local->postparent);
 		call_stub_destroy (stub);
 	}
 	return 0;
@@ -808,6 +813,8 @@ ha_mkdir_cbk (call_frame_t *frame,
 		local->op_ret = 0;
 		local->first_success = 1;
 		local->buf = *buf;
+                local->preparent = *preparent;
+                local->postparent = *postparent;
 	}
 	cnt = --local->call_count;
 	for (i = local->active + 1; i < child_count; i++) {
@@ -819,7 +826,9 @@ ha_mkdir_cbk (call_frame_t *frame,
 		call_stub_t *stub = local->stub;
 		FREE (local->state);
 		stub = local->stub;
-		STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stub->args.mkdir.loc.inode, &local->buf);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                              local->stub->args.mkdir.loc.inode, &local->buf,
+                              &local->preparent, &local->postparent);
 		call_stub_destroy (stub);
 		return 0;
 	}
@@ -906,7 +915,7 @@ ha_unlink_cbk (call_frame_t *frame,
 
 	ret = ha_handle_cbk (frame, cookie, op_ret, op_errno);
 	if (ret == 0) {
-		STACK_UNWIND (frame, op_ret, op_errno);
+		STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
 	}
 	return 0;
 }
@@ -936,7 +945,7 @@ ha_unlink (call_frame_t *frame,
 			   loc);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 	return 0;
 }
 
@@ -956,7 +965,9 @@ ha_rmdir_cbk (call_frame_t *frame,
 	if (ret == 0) {
 		STACK_UNWIND (frame,
 			      op_ret,
-			      op_errno);
+			      op_errno,
+                              preparent,
+                              postparent);
 	}
 	return 0;
 }
@@ -985,7 +996,7 @@ ha_rmdir (call_frame_t *frame,
 			   loc);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 	return 0;
 }
 
@@ -1088,6 +1099,8 @@ ha_symlink_cbk (call_frame_t *frame,
 		local->op_ret = 0;
 		local->first_success = 1;
 		local->buf = *buf;
+                local->preparent = *preparent;
+                local->postparent = *postparent;
 	}
 	cnt = --local->call_count;
 	for (i = local->active + 1; i < child_count; i++) {
@@ -1193,7 +1206,8 @@ ha_rename_cbk (call_frame_t *frame,
 	ret = ha_handle_cbk (frame, cookie, op_ret, op_errno);
 
 	if (ret == 0) {
-		STACK_UNWIND (frame, op_ret, op_errno, buf);
+		STACK_UNWIND (frame, op_ret, op_errno, buf, preoldparent,
+                              postoldparent, prenewparent, postnewparent);
 	}
 	return 0;
 }
@@ -1222,7 +1236,7 @@ ha_rename (call_frame_t *frame,
 			   oldloc, newloc);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
 	return 0;
 }
 
@@ -1275,8 +1289,8 @@ ha_link_lookup_cbk (call_frame_t *frame,
 		STACK_UNWIND (frame,
 			      local->op_ret,
 			      local->op_errno,
-			      local->stub->args.link.oldloc.inode,
-			      &local->buf);
+			      local->stub->args.link.oldloc.inode, &local->buf,
+                              &local->preparent, &local->postparent);
 		call_stub_destroy (stub);
 	}
 	return 0;
@@ -1324,6 +1338,8 @@ ha_link_cbk (call_frame_t *frame,
 		local->op_ret = 0;
 		local->first_success = 1;
 		local->buf = *buf;
+                local->preparent = *preparent;
+                local->postparent = *postparent;
 	}
 	cnt = --local->call_count;
 	for (i = local->active + 1; i < child_count; i++) {
@@ -1335,7 +1351,9 @@ ha_link_cbk (call_frame_t *frame,
 		call_stub_t *stub = local->stub;
 		FREE (local->state);
 		stub = local->stub;
-		STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stub->args.link.oldloc.inode, &local->buf);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                              local->stub->args.link.oldloc.inode, &local->buf,
+                              &local->preparent, &local->postparent);
 		call_stub_destroy (stub);
 		return 0;
 	}
@@ -1390,7 +1408,8 @@ ha_link (call_frame_t *frame,
 	if (stateino == NULL) {
 		gf_log (this->name, GF_LOG_ERROR, 
 			"newloc->inode's ctx is NULL, returning EINVAL");
-		STACK_UNWIND (frame, -1, EINVAL, oldloc->inode, NULL);
+		STACK_UNWIND (frame, -1, EINVAL, oldloc->inode, NULL, NULL,
+                              NULL);
 		return 0;
 	}
 
@@ -1481,6 +1500,8 @@ ha_create_cbk (call_frame_t *frame,
 		if (local->op_ret == -1) {
 			local->op_ret = 0;
 			local->buf = *buf;
+                        local->preparent = *preparent;
+                        local->postparent = *postparent;
 			local->first_success = 1;
 		}
 		local->stub->args.create.flags &= (~O_EXCL);
@@ -1499,7 +1520,8 @@ ha_create_cbk (call_frame_t *frame,
 		call_stub_t *stub = local->stub;
 		STACK_UNWIND (frame, local->op_ret, local->op_errno,
 			      stub->args.create.fd,
-			      stub->args.create.loc.inode, &local->buf);
+			      stub->args.create.loc.inode, &local->buf,
+                              &local->preparent, &local->postparent);
 		FREE (state);
 		call_stub_destroy (stub);
 		return 0;
@@ -1795,7 +1817,7 @@ ha_writev (call_frame_t *frame,
                            iobref);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno, NULL);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 	return 0;	
 }
 
@@ -2197,7 +2219,7 @@ ha_fsyncdir (call_frame_t *frame,
 			   flags);
 	return 0;
 err:
-	STACK_UNWIND (frame, -1, op_errno);
+	STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 	return 0;
 }
 
