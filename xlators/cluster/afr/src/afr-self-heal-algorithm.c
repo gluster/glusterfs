@@ -55,7 +55,8 @@ sh_full_read_write_iter (call_frame_t *frame, xlator_t *this);
 
 static int
 sh_full_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *buf)
+                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                   struct stat *postbuf)
 {
 	afr_private_t * priv = NULL;
 	afr_local_t * local  = NULL;
@@ -281,7 +282,8 @@ sh_diff_iter (call_frame_t *frame, xlator_t *this);
 
 static int
 sh_diff_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *buf)
+                   int32_t op_ret, int32_t op_errno, struct stat *buf,
+                   struct stat *postbuf)
 {
 	afr_private_t *   priv  = NULL;
 	afr_local_t *     local = NULL;

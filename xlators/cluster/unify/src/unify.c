@@ -328,7 +328,8 @@ unify_lookup_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  inode_t *inode,
 		  struct stat *buf,
-		  dict_t *dict)
+		  dict_t *dict,
+                  struct stat *postparent)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -788,7 +789,9 @@ unify_mkdir_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-		 struct stat *buf)
+                 struct stat *buf,
+                 struct stat *preparent,
+                 struct stat *postparent)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -849,7 +852,9 @@ unify_ns_mkdir_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-		    struct stat *buf)
+                    struct stat *buf,
+                    struct stat *preparent,
+                    struct stat *postparent)
 {
 	unify_private_t *priv = this->private;
 	unify_local_t *local = frame->local;
@@ -928,7 +933,9 @@ unify_rmdir_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
-		 int32_t op_errno)
+		 int32_t op_errno,
+                 struct stat *preparent,
+                 struct stat *postparent)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -960,7 +967,9 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
 		    int32_t op_ret,
-		    int32_t op_errno)
+		    int32_t op_errno,
+                    struct stat *preparent,
+                    struct stat *postparent)
 {
 	int16_t index = 0;
 	unify_private_t *priv = this->private;
@@ -1237,7 +1246,8 @@ unify_open (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
 	    int32_t flags,
-	    fd_t *fd)
+	    fd_t *fd,
+            int32_t wbflags)
 {
 	unify_private_t *priv = this->private;
 	unify_local_t *local = NULL;
@@ -1305,7 +1315,7 @@ unify_open (call_frame_t *frame,
 				   priv->xl_array[file_list[index]]->fops->open,
 				   loc,
 				   flags,
-				   fd);
+				   fd, wbflags);
 		if (need_break)
 			break;
 	}
@@ -1319,7 +1329,9 @@ unify_create_unlink_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
-			 int32_t op_errno)
+			 int32_t op_errno,
+                         struct stat *preparent,
+                         struct stat *postparent)
 {
 	unify_local_t *local = frame->local;
 	inode_t *inode = local->loc1.inode;
@@ -1432,7 +1444,8 @@ unify_create_lookup_cbk (call_frame_t *frame,
 			 int32_t op_errno,
 			 inode_t *inode,
 			 struct stat *buf,
-			 dict_t *dict)
+			 dict_t *dict,
+                         struct stat *postparent)
 {
 	int32_t callcnt = 0;
 	int16_t index = 0;
@@ -1514,7 +1527,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 					   priv->xl_array[file_list[index]]->fops->open,
 					   &local->loc1,
 					   local->flags,
-					   local->fd);
+					   local->fd, 0);
 			if (need_break)
 				break;
 		}
@@ -1535,7 +1548,9 @@ unify_create_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  fd_t *fd,
 		  inode_t *inode,
-		  struct stat *buf)
+		  struct stat *buf,
+                  struct stat *preparent,
+                  struct stat *postparent)
 {
 	int ret = 0;
 	unify_local_t *local = frame->local;
@@ -1592,7 +1607,9 @@ unify_ns_create_cbk (call_frame_t *frame,
 		     int32_t op_errno,
 		     fd_t *fd,
 		     inode_t *inode,
-		     struct stat *buf)
+		     struct stat *buf,
+                     struct stat *preparent,
+                     struct stat *postparent)
 {
 	struct sched_ops *sched_ops = NULL;
 	xlator_t *sched_xl = NULL;
@@ -1921,6 +1938,69 @@ unify_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 
 /**
+ * unify_ftruncate_cbk -
+ */
+int32_t
+unify_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+	int32_t callcnt = 0;
+	unify_private_t *priv = this->private;
+	unify_local_t *local = frame->local;
+	call_frame_t *prev_frame = cookie;
+
+	LOCK (&frame->lock);
+	{
+		callcnt = --local->call_count;
+
+		if (op_ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"child(%s): path(%s): %s",
+				prev_frame->this->name,
+				(local->loc1.path)?local->loc1.path:"",
+				strerror (op_errno));
+			local->op_errno = op_errno;
+			if (!((op_errno == ENOENT) && priv->optimist))
+				local->op_ret = -1;
+		}
+
+		if (op_ret >= 0) {
+			if (NS (this) == prev_frame->this) {
+				local->st_ino = buf->st_ino;
+				/* If the entry is directory, get the
+				   stat from NS node */
+				if (S_ISDIR (buf->st_mode) ||
+				    !local->stbuf.st_blksize) {
+					local->stbuf = *buf;
+				}
+			}
+
+			if ((!S_ISDIR (buf->st_mode)) &&
+			    (NS (this) != prev_frame->this)) {
+				/* If file, take the stat info from
+				   Storage node. */
+				local->stbuf = *buf;
+			}
+		}
+	}
+	UNLOCK (&frame->lock);
+
+	if (!callcnt) {
+		if (local->st_ino)
+			local->stbuf.st_ino = local->st_ino;
+		else
+			local->op_ret = -1;
+		unify_local_wipe (local);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno,
+			      &local->stbuf);
+	}
+
+	return 0;
+}
+
+
+
+/**
  * unify_truncate_cbk - 
  */
 int32_t
@@ -1929,7 +2009,8 @@ unify_truncate_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    struct stat *buf)
+		    struct stat *prebuf,
+                    struct stat *postbuf)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -1953,20 +2034,20 @@ unify_truncate_cbk (call_frame_t *frame,
 
 		if (op_ret >= 0) {
 			if (NS (this) == prev_frame->this) {
-				local->st_ino = buf->st_ino;
+				local->st_ino = postbuf->st_ino;
 				/* If the entry is directory, get the 
 				   stat from NS node */
-				if (S_ISDIR (buf->st_mode) || 
+				if (S_ISDIR (postbuf->st_mode) ||
 				    !local->stbuf.st_blksize) {
-					local->stbuf = *buf;
+					local->stbuf = *postbuf;
 				}
 			}
 
-			if ((!S_ISDIR (buf->st_mode)) && 
+			if ((!S_ISDIR (postbuf->st_mode)) &&
 			    (NS (this) != prev_frame->this)) {
 				/* If file, take the stat info from 
 				   Storage node. */
-				local->stbuf = *buf;
+				local->stbuf = *postbuf;
 			}
 		}
 	}
@@ -2027,7 +2108,7 @@ unify_truncate (call_frame_t *frame,
 		}
       
 		/* Don't send truncate to NS node */
-		STACK_WIND (frame, unify_truncate_cbk, NS(this),
+		STACK_WIND (frame, unify_ftruncate_cbk, NS(this),
 			    NS(this)->fops->stat, loc);
 		callcnt--;
 
@@ -2057,9 +2138,10 @@ unify_readlink_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    const char *path)
+		    const char *path,
+                    struct stat *sbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, path);
+	STACK_UNWIND (frame, op_ret, op_errno, path, sbuf);
 	return 0;
 }
 
@@ -2117,7 +2199,9 @@ unify_unlink_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
-		  int32_t op_errno)
+		  int32_t op_errno,
+                  struct stat *preparent,
+                  struct stat *postparent)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -2245,9 +2329,10 @@ unify_writev_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct stat *stbuf)
+                  struct stat *prebuf,
+		  struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -2307,11 +2392,11 @@ unify_ftruncate (call_frame_t *frame,
 
 	local->call_count = 2;
   
-	STACK_WIND (frame, unify_truncate_cbk, 
+	STACK_WIND (frame, unify_truncate_cbk,
 		    child, child->fops->ftruncate,
 		    fd, offset);
   
-	STACK_WIND (frame, unify_truncate_cbk, 
+	STACK_WIND (frame, unify_ftruncate_cbk,
 		    NS(this), NS(this)->fops->fstat,
 		    fd);
   
@@ -2363,9 +2448,11 @@ unify_fsync_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
-		 int32_t op_errno)
+		 int32_t op_errno,
+                 struct stat *prebuf,
+                 struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -3015,7 +3102,9 @@ unify_mknod_unlink_cbk (call_frame_t *frame,
 			void *cookie,
 			xlator_t *this,
 			int32_t op_ret,
-			int32_t op_errno)
+			int32_t op_errno,
+                        struct stat *preparent,
+                        struct stat *postparent)
 {
 	unify_local_t *local = frame->local;
 
@@ -3039,7 +3128,9 @@ unify_mknod_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-		 struct stat *buf)
+                 struct stat *buf,
+                 struct stat *preparent,
+                 struct stat *postparent)
 {
 	unify_local_t *local = frame->local;
 
@@ -3073,7 +3164,9 @@ unify_ns_mknod_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-		    struct stat *buf)
+                    struct stat *buf,
+                    struct stat *preparent,
+                    struct stat *postparent)
 {
 	struct sched_ops *sched_ops = NULL;
 	xlator_t *sched_xl = NULL;
@@ -3177,7 +3270,9 @@ unify_symlink_unlink_cbk (call_frame_t *frame,
 			  void *cookie,
 			  xlator_t *this,
 			  int32_t op_ret,
-			  int32_t op_errno)
+			  int32_t op_errno,
+                          struct stat *preparent,
+                          struct stat *postparent)
 {
 	unify_local_t *local = frame->local;
 	if (op_ret == -1)
@@ -3199,7 +3294,9 @@ unify_symlink_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-		   struct stat *buf)
+                   struct stat *buf,
+                   struct stat *preparent,
+                   struct stat *postparent)
 {
 	unify_local_t *local = frame->local;
 
@@ -3238,7 +3335,9 @@ unify_ns_symlink_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno,
 		      inode_t *inode,
-		      struct stat *buf)
+                      struct stat *buf,
+                      struct stat *preparent,
+                      struct stat *postparent)
 {
 
 	struct sched_ops *sched_ops = NULL;
@@ -3347,7 +3446,9 @@ unify_rename_unlink_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
-			 int32_t op_errno)
+			 int32_t op_errno,
+                         struct stat *preparent,
+                         struct stat *postparent)
 {
 	int32_t callcnt = 0;
 	unify_local_t *local = frame->local;
@@ -3382,7 +3483,11 @@ unify_ns_rename_undo_cbk (call_frame_t *frame,
 			  xlator_t *this,
 			  int32_t op_ret,
 			  int32_t op_errno,
-			  struct stat *buf)
+			  struct stat *buf,
+                          struct stat *preoldparent,
+                          struct stat *postoldparent,
+                          struct stat *prenewparent,
+                          struct stat *postnewparent)
 {
 	unify_local_t *local = frame->local;
 
@@ -3405,7 +3510,11 @@ unify_rename_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct stat *buf)
+		  struct stat *buf,
+                  struct stat *preoldparent,
+                  struct stat *postoldparent,
+                  struct stat *prenewparent,
+                  struct stat *postnewparent)
 {
 	int32_t index = 0;
 	int32_t callcnt = 0;
@@ -3561,7 +3670,11 @@ unify_ns_rename_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct stat *buf)
+		     struct stat *buf,
+                     struct stat *preoldparent,
+                     struct stat *postoldparent,
+                     struct stat *prenewparent,
+                     struct stat *postnewparent)
 {
 	int32_t index = 0;
 	int32_t callcnt = 0;
@@ -3680,7 +3793,9 @@ unify_link_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno,
 		inode_t *inode,
-		struct stat *buf)
+                struct stat *buf,
+                struct stat *preparent,
+                struct stat *postparent)
 {
 	unify_local_t *local = frame->local;
 
@@ -3704,7 +3819,9 @@ unify_ns_link_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-		   struct stat *buf)
+                   struct stat *buf,
+                   struct stat *preparent,
+                   struct stat *postparent)
 {
 	unify_private_t *priv = this->private;
 	unify_local_t *local = frame->local;

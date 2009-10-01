@@ -149,7 +149,7 @@ out:
 int32_t
 qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
-               struct stat *buf, dict_t *dict)
+               struct stat *buf, dict_t *dict, struct stat *postparent)
 {
         data_t    *content = NULL;
         qr_file_t *qr_file = NULL;
@@ -415,7 +415,7 @@ out:
 
 int32_t
 qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-         fd_t *fd)
+         fd_t *fd, int32_t wbflags)
 {
         qr_file_t   *qr_file = NULL;
         int32_t      ret = -1;
@@ -516,7 +516,7 @@ unwind:
 
 wind:
         STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->open, loc, flags, fd);
+                    FIRST_CHILD(this)->fops->open, loc, flags, fd, wbflags);
         return 0;
 }
 
@@ -709,7 +709,7 @@ qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open,
-                            &loc, flags, fd);
+                            &loc, flags, fd, 0);
                         
                 qr_loc_wipe (&loc);
         } else if (can_wind) {
@@ -949,7 +949,7 @@ out:
 
                         STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->open,
-                                    &loc, flags, fd);
+                                    &loc, flags, fd, 0);
                         
                         qr_loc_wipe (&loc);
                 } else if (can_wind) {
@@ -974,10 +974,11 @@ out:
 
 
 int32_t
-qr_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-               int32_t op_errno, struct stat *stbuf)
+qr_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+               struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1081,7 +1082,7 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
 
                 qr_loc_wipe (&loc);
         }
@@ -1174,7 +1175,7 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
 
                 qr_loc_wipe (&loc);
         }
@@ -1274,7 +1275,7 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
 
                 qr_loc_wipe (&loc);
         }
@@ -1372,7 +1373,7 @@ out:
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, open_flags,
-                            fd);
+                            fd, 0);
 
                 qr_loc_wipe (&loc);
         } 
@@ -1472,7 +1473,7 @@ out:
                 }
                 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
 
                 qr_loc_wipe (&loc);
         }
@@ -1644,7 +1645,7 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
 
                 qr_loc_wipe (&loc);
         }
@@ -1743,7 +1744,7 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
                 
                 qr_loc_wipe (&loc);
         }
@@ -1754,9 +1755,9 @@ out:
 
 int32_t
 qr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno)
+              int32_t op_errno, struct stat *prebuf, struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1836,7 +1837,7 @@ out:
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, open_flags,
-                            fd);
+                            fd, 0);
 
                 qr_loc_wipe (&loc);
         }
@@ -1847,7 +1848,8 @@ out:
 
 int32_t
 qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *buf)
+                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                  struct stat *postbuf)
 {
         int32_t     ret = 0;
         uint64_t    value = 0; 
@@ -1873,7 +1875,8 @@ qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (qr_file) {
                         LOCK (&qr_file->lock);
                         {
-                                if (qr_file->stbuf.st_size != buf->st_size) {
+                                if (qr_file->stbuf.st_size != postbuf->st_size)
+                                {
                                         dict_unref (qr_file->xattr);
                                         qr_file->xattr = NULL;
                                 }
@@ -1883,7 +1886,7 @@ qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
 
@@ -1977,7 +1980,7 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
 
                 qr_loc_wipe (&loc);
         }
@@ -2073,7 +2076,7 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
 
                 qr_loc_wipe (&loc);
         }

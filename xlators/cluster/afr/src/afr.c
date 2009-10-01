@@ -448,7 +448,8 @@ afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 int
 afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		xlator_t *this,	int32_t op_ret,	int32_t op_errno,
-		inode_t *inode,	struct stat *buf, dict_t *xattr)
+                inode_t *inode,	struct stat *buf, dict_t *xattr,
+                struct stat *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -789,7 +790,8 @@ out:
 
 int
 afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-			int32_t op_ret, int32_t op_errno, struct stat *buf)
+			int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                        struct stat *postbuf)
 {
 	afr_local_t * local = frame->local;
         int ret = 0;
@@ -864,8 +866,8 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 
 
 int
-afr_open (call_frame_t *frame, xlator_t *this,
-	  loc_t *loc, int32_t flags, fd_t *fd)
+afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+          fd_t *fd, int32_t wbflags)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t *   local = NULL;
@@ -910,7 +912,7 @@ afr_open (call_frame_t *frame, xlator_t *this,
 			STACK_WIND_COOKIE (frame, afr_open_cbk, (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->open,
-					   loc, wind_flags, fd);
+					   loc, wind_flags, fd, wbflags);
 			
 			if (!--call_count)
 				break;
@@ -1152,8 +1154,9 @@ out:
 /* {{{ fsync */
 
 int
-afr_fsync_cbk (call_frame_t *frame, void *cookie,
-	       xlator_t *this, int32_t op_ret, int32_t op_errno)
+afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+               struct stat *postbuf)
 {
 	afr_local_t *local = NULL;
 	
@@ -1294,7 +1297,7 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			STACK_WIND (frame, afr_fsync_cbk,
+			STACK_WIND (frame, afr_fsyncdir_cbk,
 				    priv->children[i],
 				    priv->children[i]->fops->fsyncdir,
 				    fd, datasync);

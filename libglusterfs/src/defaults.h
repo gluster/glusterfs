@@ -161,7 +161,8 @@ int32_t default_create (call_frame_t *frame,
 int32_t default_open (call_frame_t *frame,
 		      xlator_t *this,
 		      loc_t *loc,
-		      int32_t flags, fd_t *fd);
+		      int32_t flags, fd_t *fd,
+                      int32_t wbflags);
 
 int32_t default_readv (call_frame_t *frame,
 		       xlator_t *this,

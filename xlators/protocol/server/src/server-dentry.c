@@ -218,7 +218,8 @@ __do_path_resolve_cbk (call_frame_t *frame,
 		       int32_t op_errno,
 		       inode_t *inode,
 		       struct stat *stbuf,
-		       dict_t *dict)
+		       dict_t *dict,
+                       struct stat *postparent)
 {
 	server_state_t *state = NULL;
 	call_stub_t *stub = NULL;

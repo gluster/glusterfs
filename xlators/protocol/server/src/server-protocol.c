@@ -405,7 +405,8 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno)
+                  int32_t op_ret, int32_t op_errno, struct stat *preparent,
+                  struct stat *postparent)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_rmdir_rsp_t *rsp = NULL;
@@ -435,6 +436,11 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
+        if (op_ret == 0) {
+                gf_stat_from_stat (&rsp->preparent, preparent);
+                gf_stat_from_stat (&rsp->postparent, postparent);
+        }
+
 	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMDIR,
@@ -457,7 +463,8 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
-                  struct stat *stbuf)
+                  struct stat *stbuf, struct stat *preparent,
+                  struct stat *postparent)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_mkdir_rsp_t *rsp = NULL;
@@ -508,7 +515,8 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
-                  inode_t *inode, struct stat *stbuf)
+                  inode_t *inode, struct stat *stbuf, struct stat *preparent,
+                  struct stat *postparent)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_mknod_rsp_t *rsp = NULL;
@@ -1116,7 +1124,9 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+                   int32_t op_ret, int32_t op_errno, struct stat *stbuf,
+                   struct stat *preoldparent, struct stat *postoldparent,
+                   struct stat *prenewparent, struct stat *postnewparent)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_rename_rsp_t *rsp = NULL;
@@ -1174,7 +1184,8 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno)
+                   int32_t op_ret, int32_t op_errno, struct stat *preparent,
+                   struct stat *postparent)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_unlink_rsp_t  *rsp = NULL;
@@ -1210,6 +1221,11 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
+        if (op_ret == 0) {
+                gf_stat_from_stat (&rsp->preparent, preparent);
+                gf_stat_from_stat (&rsp->postparent, postparent);
+        }
+
 	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UNLINK,
@@ -1231,7 +1247,8 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
-                    struct stat *stbuf)
+                    struct stat *stbuf, struct stat *preparent,
+                    struct stat *postparent)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_symlink_rsp_t *rsp = NULL;
@@ -1283,7 +1300,8 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
-                 struct stat *stbuf)
+                 struct stat *stbuf, struct stat *preparent,
+                 struct stat *postparent)
 {
 	gf_hdr_common_t   *hdr = NULL;
 	gf_fop_link_rsp_t *rsp = NULL;
@@ -1347,7 +1365,8 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+                     int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                     struct stat *postbuf)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_truncate_rsp_t *rsp = NULL;
@@ -1366,7 +1385,7 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
 	if (op_ret == 0) {
-		gf_stat_from_stat (&rsp->stat, stbuf);
+		gf_stat_from_stat (&rsp->prestat, prebuf);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": TRUNCATE %s (%"PRId64") ==> %"PRId32" (%s)",
@@ -1443,7 +1462,8 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+                      int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                      struct stat *postbuf)
 {
 	gf_hdr_common_t        *hdr = NULL;
 	gf_fop_ftruncate_rsp_t *rsp = NULL;
@@ -1460,7 +1480,7 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
 	if (op_ret == 0) {
-		gf_stat_from_stat (&rsp->stat, stbuf);
+		gf_stat_from_stat (&rsp->prestat, prebuf);
 	} else {
 		state = CALL_STATE (frame);
 
@@ -1533,7 +1553,8 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno)
+                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                  struct stat *postbuf)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_fsync_rsp_t *rsp = NULL;
@@ -1610,7 +1631,8 @@ server_release_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                   struct stat *postbuf)
 {
 	gf_hdr_common_t    *hdr = NULL;
 	gf_fop_write_rsp_t *rsp = NULL;
@@ -1627,7 +1649,7 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
 	if (op_ret >= 0) {
-		gf_stat_from_stat (&rsp->stat, stbuf);
+		gf_stat_from_stat (&rsp->poststat, postbuf);
 	} else {
 		state = CALL_STATE(frame);
 
@@ -1772,7 +1794,8 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
-                   fd_t *fd, inode_t *inode, struct stat *stbuf)
+                   fd_t *fd, inode_t *inode, struct stat *stbuf,
+                   struct stat *preparent, struct stat *postparent)
 {
 	server_connection_t *conn = NULL;
 	gf_hdr_common_t     *hdr = NULL;
@@ -1848,7 +1871,8 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, const char *buf)
+                     int32_t op_ret, int32_t op_errno, const char *buf,
+                     struct stat *sbuf)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_readlink_rsp_t *rsp = NULL;
@@ -2064,7 +2088,8 @@ server_fsetattr_cbk (call_frame_t *frame,
 int
 server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
-                   inode_t *inode, struct stat *stbuf, dict_t *dict)
+                   inode_t *inode, struct stat *stbuf, dict_t *dict,
+                   struct stat *postparent)
 {
 	gf_hdr_common_t     *hdr = NULL;
 	gf_fop_lookup_rsp_t *rsp = NULL;
@@ -2346,7 +2371,8 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 			 */
 			server_rename_cbk (stub->frame, NULL,
 					   stub->frame->this,
-					   -1, ENOENT, NULL);
+					   -1, ENOENT, NULL, NULL, NULL, NULL,
+                                           NULL);
 			server_loc_wipe (&stub->args.rename.old);
 			server_loc_wipe (&stub->args.rename.new);
 			FREE (stub);
@@ -2438,7 +2464,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 			
 			server_lookup_cbk (stub->frame, NULL,
                                            stub->frame->this, -1, ENOENT,
-					   NULL, NULL, NULL);
+					   NULL, NULL, NULL, NULL);
 			server_loc_wipe (&stub->args.lookup.loc);
 			FREE (stub);
 			return 0;
@@ -2528,7 +2554,8 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 			server_unlink_cbk (stub->frame, NULL,
-                                           stub->frame->this, -1, ENOENT);
+                                           stub->frame->this, -1, ENOENT, NULL,
+                                           NULL);
 			server_loc_wipe (&stub->args.unlink.loc);
 			FREE (stub);
 			return 0;
@@ -2558,7 +2585,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 				op_ret, op_errno);
 			server_symlink_cbk (stub->frame, NULL,
                                             stub->frame->this, -1, ENOENT,
-					    NULL, NULL);
+					    NULL, NULL, NULL, NULL);
 			server_loc_wipe (&stub->args.symlink.loc);
 			FREE (stub);
 			return 0;
@@ -2587,7 +2614,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 				BOUND_XL(stub->frame)->name,
 				op_ret, op_errno);
 			server_rmdir_cbk (stub->frame, NULL, stub->frame->this,
-					  -1, ENOENT);
+					  -1, ENOENT, NULL, NULL);
 			server_loc_wipe (&stub->args.rmdir.loc);
 			FREE (stub);
 			return 0;
@@ -2621,7 +2648,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 
 				server_link_cbk (stub->frame, NULL,
 						 stub->frame->this, -1, ENOENT,
-						 NULL, NULL);
+						 NULL, NULL, NULL, NULL);
 				server_loc_wipe (&stub->args.link.oldloc);
 				server_loc_wipe (&stub->args.link.newloc);
 				FREE (stub);
@@ -2659,7 +2686,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 
 				server_link_cbk (stub->frame, NULL,
 						 stub->frame->this, -1, ENOENT,
-                                                 NULL, NULL);
+                                                 NULL, NULL, NULL, NULL);
 
 				server_loc_wipe (&stub->args.link.oldloc);
 				server_loc_wipe (&stub->args.link.newloc);
@@ -2698,7 +2725,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 
 			server_truncate_cbk (stub->frame, NULL,
                                              stub->frame->this, -1, ENOENT,
-					     NULL);
+					     NULL, NULL);
 			server_loc_wipe (&stub->args.truncate.loc);
 			FREE (stub);
 			return 0;
@@ -2918,7 +2945,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 
 			server_readlink_cbk (stub->frame, NULL,
 					     stub->frame->this, -1, ENOENT,
-					     NULL);
+					     NULL, NULL);
 			server_loc_wipe (&stub->args.readlink.loc);
 			FREE (stub);
 			return 0;
@@ -2948,7 +2975,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 
 			server_mkdir_cbk (stub->frame, NULL,
 					  stub->frame->this, -1, ENOENT,
-					  NULL, NULL);
+					  NULL, NULL, NULL, NULL);
 			server_loc_wipe (&stub->args.mkdir.loc);
 			FREE (stub);
 			break;
@@ -2979,7 +3006,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 
 			server_create_cbk (stub->frame, NULL,
 					   stub->frame->this, -1, ENOENT,
-					   NULL, NULL, NULL);
+					   NULL, NULL, NULL, NULL, NULL);
 			if (stub->args.create.fd)
 				fd_unref (stub->args.create.fd);
 			server_loc_wipe (&stub->args.create.loc);
@@ -3012,7 +3039,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 
 			server_mknod_cbk (stub->frame, NULL,
 					  stub->frame->this, -1, ENOENT, NULL,
-                                          NULL);
+                                          NULL, NULL, NULL);
 			server_loc_wipe (&stub->args.mknod.loc);
 			FREE (stub);
 			break;
@@ -3255,7 +3282,7 @@ server_lookup (call_frame_t *frame, xlator_t *bound_xl,
 	return 0;
 fail:
 	server_lookup_cbk (frame, NULL, frame->this, -1,EINVAL, NULL, NULL,
-                           NULL);
+                           NULL, NULL);
 	if (xattr_req)
 		dict_unref (xattr_req);
 
@@ -3515,7 +3542,7 @@ server_readlink (call_frame_t *frame, xlator_t *bound_xl,
 	}
 	return 0;
 fail:
-	server_readlink_cbk (frame, NULL,frame->this, -1, EINVAL, NULL);
+	server_readlink_cbk (frame, NULL,frame->this, -1, EINVAL, NULL, NULL);
 	return 0;
 }
 
@@ -3551,7 +3578,7 @@ server_create_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	return 0;
 fail:
 	server_create_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
-                           NULL);
+                           NULL, NULL, NULL);
 	return 0;
 }
 
@@ -3606,14 +3633,14 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
 	return 0;
 fail:
 	server_create_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
-                           NULL);
+                           NULL, NULL, NULL);
 	return 0;
 }
 
 
 int
 server_open_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                    int32_t flags, fd_t *fd)
+                    int32_t flags, fd_t *fd, int32_t wbflags)
 {
 	server_state_t  *state = NULL;
 	fd_t            *new_fd = NULL;
@@ -3633,7 +3660,7 @@ server_open_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	STACK_WIND (frame, server_open_cbk,
 		    BOUND_XL(frame),
 		    BOUND_XL(frame)->fops->open,
-		    loc, flags, state->fd);
+		    loc, flags, state->fd, wbflags);
 
 	return 0;
 fail:
@@ -3673,7 +3700,7 @@ server_open (call_frame_t *frame, xlator_t *bound_xl,
 
 	open_stub = fop_open_stub (frame,
 				   server_open_resume,
-				   &(state->loc), state->flags, NULL);
+				   &(state->loc), state->flags, NULL, 0);
 	GF_VALIDATE_OR_GOTO(bound_xl->name, open_stub, fail);
 
 	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) || 
@@ -3803,7 +3830,7 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 
 	return 0;
 fail:
-	server_writev_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
+	server_writev_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL);
 	
 	if (iobref)
 		iobref_unref (iobref);
@@ -3892,7 +3919,7 @@ server_fsync (call_frame_t *frame, xlator_t *bound_xl,
 		    state->fd, state->flags);
 	return 0;
 fail:
-	server_fsync_cbk (frame, NULL, frame->this, -1, EINVAL);
+	server_fsync_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL);
 
 	return 0;
 }
@@ -3990,7 +4017,7 @@ server_ftruncate (call_frame_t *frame, xlator_t *bound_xl,
 		    state->fd, state->offset);
 	return 0;
 fail:
-	server_ftruncate_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
+	server_ftruncate_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL);
 
 	return 0;
 }

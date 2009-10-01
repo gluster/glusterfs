@@ -82,7 +82,8 @@ fop_lookup_cbk_stub (call_frame_t *frame,
 		     int32_t op_errno,
 		     inode_t *inode,
 		     struct stat *buf,
-		     dict_t *dict)
+                     dict_t *dict,
+                     struct stat *postparent)
 {
 	call_stub_t *stub = NULL;
 
@@ -100,6 +101,8 @@ fop_lookup_cbk_stub (call_frame_t *frame,
 		stub->args.lookup_cbk.buf = *buf;
 	if (dict)
 		stub->args.lookup_cbk.dict = dict_ref (dict);
+        if (postparent)
+                stub->args.lookup_cbk.postparent = *postparent;
 out:
 	return stub;
 }
@@ -412,7 +415,8 @@ fop_truncate_cbk_stub (call_frame_t *frame,
 		       fop_truncate_cbk_t fn,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       struct stat *buf)
+		       struct stat *prebuf,
+                       struct stat *postbuf)
 {
 	call_stub_t *stub = NULL;
 
@@ -424,8 +428,10 @@ fop_truncate_cbk_stub (call_frame_t *frame,
 	stub->args.truncate_cbk.fn = fn;
 	stub->args.truncate_cbk.op_ret = op_ret;
 	stub->args.truncate_cbk.op_errno = op_errno;
-	if (buf)
-		stub->args.truncate_cbk.buf = *buf;
+	if (prebuf)
+		stub->args.truncate_cbk.prebuf = *prebuf;
+        if (postbuf)
+                stub->args.truncate_cbk.postbuf = *postbuf;
 out:
 	return stub;
 }
@@ -459,7 +465,8 @@ fop_ftruncate_cbk_stub (call_frame_t *frame,
 			fop_ftruncate_cbk_t fn,
 			int32_t op_ret,
 			int32_t op_errno,
-			struct stat *buf)
+			struct stat *prebuf,
+                        struct stat *postbuf)
 {
 	call_stub_t *stub = NULL;
 
@@ -471,8 +478,10 @@ fop_ftruncate_cbk_stub (call_frame_t *frame,
 	stub->args.ftruncate_cbk.fn = fn;
 	stub->args.ftruncate_cbk.op_ret = op_ret;
 	stub->args.ftruncate_cbk.op_errno = op_errno;
-	if (buf)
-		stub->args.ftruncate_cbk.buf = *buf;
+	if (prebuf)
+		stub->args.ftruncate_cbk.prebuf = *prebuf;
+	if (postbuf)
+		stub->args.ftruncate_cbk.postbuf = *postbuf;
 out:
 	return stub;
 }
@@ -595,7 +604,8 @@ fop_readlink_cbk_stub (call_frame_t *frame,
 		       fop_readlink_cbk_t fn,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       const char *path)
+		       const char *path,
+                       struct stat *sbuf)
 {
 	call_stub_t *stub = NULL;
 
@@ -609,6 +619,8 @@ fop_readlink_cbk_stub (call_frame_t *frame,
 	stub->args.readlink_cbk.op_errno = op_errno;
 	if (path)
 		stub->args.readlink_cbk.buf = strdup (path);
+        if (sbuf)
+                stub->args.readlink_cbk.sbuf = *sbuf;
 out:
 	return stub;
 }
@@ -644,7 +656,9 @@ fop_mknod_cbk_stub (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-		    struct stat *buf)
+                    struct stat *buf,
+                    struct stat *preparent,
+                    struct stat *postparent)
 {
 	call_stub_t *stub = NULL;
 
@@ -660,6 +674,10 @@ fop_mknod_cbk_stub (call_frame_t *frame,
 		stub->args.mknod_cbk.inode = inode_ref (inode);
 	if (buf)
 		stub->args.mknod_cbk.buf = *buf;
+        if (preparent)
+                stub->args.mknod_cbk.preparent = *preparent;
+        if (postparent)
+                stub->args.mknod_cbk.postparent = *postparent;
 out:
 	return stub;
 }
@@ -693,7 +711,9 @@ fop_mkdir_cbk_stub (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-		    struct stat *buf)
+                    struct stat *buf,
+                    struct stat *preparent,
+                    struct stat *postparent)
 {
 	call_stub_t *stub = NULL;
 
@@ -709,6 +729,10 @@ fop_mkdir_cbk_stub (call_frame_t *frame,
 		stub->args.mkdir_cbk.inode = inode_ref (inode);
 	if (buf)
 		stub->args.mkdir_cbk.buf = *buf;
+        if (preparent)
+                stub->args.mkdir_cbk.preparent = *preparent;
+        if (postparent)
+                stub->args.mkdir_cbk.postparent = *postparent;
 out:
 	return stub;
 }
@@ -738,7 +762,9 @@ call_stub_t *
 fop_unlink_cbk_stub (call_frame_t *frame,
 		     fop_unlink_cbk_t fn,
 		     int32_t op_ret,
-		     int32_t op_errno)
+		     int32_t op_errno,
+                     struct stat *preparent,
+                     struct stat *postparent)
 {
 	call_stub_t *stub = NULL;
 
@@ -750,6 +776,10 @@ fop_unlink_cbk_stub (call_frame_t *frame,
 	stub->args.unlink_cbk.fn = fn;
 	stub->args.unlink_cbk.op_ret = op_ret;
 	stub->args.unlink_cbk.op_errno = op_errno;
+        if (preparent)
+                stub->args.unlink_cbk.preparent = *preparent;
+        if (postparent)
+                stub->args.unlink_cbk.postparent = *postparent;
 out:
 	return stub;
 }
@@ -780,7 +810,9 @@ call_stub_t *
 fop_rmdir_cbk_stub (call_frame_t *frame,
 		    fop_rmdir_cbk_t fn,
 		    int32_t op_ret,
-		    int32_t op_errno)
+		    int32_t op_errno,
+                    struct stat *preparent,
+                    struct stat *postparent)
 {
 	call_stub_t *stub = NULL;
 
@@ -792,6 +824,10 @@ fop_rmdir_cbk_stub (call_frame_t *frame,
 	stub->args.rmdir_cbk.fn = fn;
 	stub->args.rmdir_cbk.op_ret = op_ret;
 	stub->args.rmdir_cbk.op_errno = op_errno;
+        if (preparent)
+                stub->args.rmdir_cbk.preparent = *preparent;
+        if (postparent)
+                stub->args.rmdir_cbk.postparent = *postparent;
 out:
 	return stub;
 }
@@ -826,7 +862,9 @@ fop_symlink_cbk_stub (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno,
 		      inode_t *inode,
-		      struct stat *buf)
+                      struct stat *buf,
+                      struct stat *preparent,
+                      struct stat *postparent)
 {
 	call_stub_t *stub = NULL;
 
@@ -842,6 +880,10 @@ fop_symlink_cbk_stub (call_frame_t *frame,
 		stub->args.symlink_cbk.inode = inode_ref (inode);
 	if (buf)
 		stub->args.symlink_cbk.buf = *buf;
+        if (preparent)
+                stub->args.symlink_cbk.preparent = *preparent;
+        if (postparent)
+                stub->args.symlink_cbk.postparent = *postparent;
 out:
 	return stub;
 }
@@ -875,7 +917,11 @@ fop_rename_cbk_stub (call_frame_t *frame,
 		     fop_rename_cbk_t fn,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct stat *buf)
+		     struct stat *buf,
+                     struct stat *preoldparent,
+                     struct stat *postoldparent,
+                     struct stat *prenewparent,
+                     struct stat *postnewparent)
 {
 	call_stub_t *stub = NULL;
 
@@ -889,6 +935,14 @@ fop_rename_cbk_stub (call_frame_t *frame,
 	stub->args.rename_cbk.op_errno = op_errno;
 	if (buf)
 		stub->args.rename_cbk.buf = *buf;
+        if (preoldparent)
+                stub->args.rename_cbk.preoldparent = *preoldparent;
+        if (postoldparent)
+                stub->args.rename_cbk.postoldparent = *postoldparent;
+        if (prenewparent)
+                stub->args.rename_cbk.prenewparent = *prenewparent;
+        if (postnewparent)
+                stub->args.rename_cbk.postnewparent = *postnewparent;
 out:
 	return stub;
 }
@@ -924,7 +978,9 @@ fop_link_cbk_stub (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-		   struct stat *buf)
+                   struct stat *buf,
+                   struct stat *preparent,
+                   struct stat *postparent)
 {
 	call_stub_t *stub = NULL;
 
@@ -940,6 +996,10 @@ fop_link_cbk_stub (call_frame_t *frame,
 		stub->args.link_cbk.inode = inode_ref (inode);
 	if (buf)
 		stub->args.link_cbk.buf = *buf;
+        if (preparent)
+                stub->args.link_cbk.preparent = *preparent;
+        if (postparent)
+                stub->args.link_cbk.postparent = *postparent;
 out:
 	return stub;
 }
@@ -978,7 +1038,9 @@ fop_create_cbk_stub (call_frame_t *frame,
 		     int32_t op_errno,
 		     fd_t *fd,
 		     inode_t *inode,
-		     struct stat *buf)
+		     struct stat *buf,
+                     struct stat *preparent,
+                     struct stat *postparent)
 {
 	call_stub_t *stub = NULL;
 
@@ -996,6 +1058,10 @@ fop_create_cbk_stub (call_frame_t *frame,
 		stub->args.create_cbk.inode = inode_ref (inode);
 	if (buf)
 		stub->args.create_cbk.buf = *buf;
+        if (preparent)
+                stub->args.create_cbk.preparent = *preparent;
+        if (postparent)
+                stub->args.create_cbk.postparent = *postparent;
 out:
 	return stub;
 }
@@ -1005,7 +1071,8 @@ call_stub_t *
 fop_open_stub (call_frame_t *frame,
 	       fop_open_t fn,
 	       loc_t *loc,
-	       int32_t flags, fd_t *fd)
+	       int32_t flags, fd_t *fd,
+               int32_t wbflags)
 {
 	call_stub_t *stub = NULL;
 
@@ -1018,6 +1085,7 @@ fop_open_stub (call_frame_t *frame,
 	stub->args.open.fn = fn;
 	loc_copy (&stub->args.open.loc, loc);
 	stub->args.open.flags = flags;
+        stub->args.open.wbflags = wbflags;
 	if (fd)
 		stub->args.open.fd = fd_ref (fd);
 out:
@@ -1140,7 +1208,8 @@ fop_writev_cbk_stub (call_frame_t *frame,
 		     fop_writev_cbk_t fn,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct stat *stbuf)
+                     struct stat *prebuf,
+		     struct stat *postbuf)
 
 {
 	call_stub_t *stub = NULL;
@@ -1154,7 +1223,9 @@ fop_writev_cbk_stub (call_frame_t *frame,
 	stub->args.writev_cbk.op_ret = op_ret;
 	stub->args.writev_cbk.op_errno = op_errno;
 	if (op_ret >= 0)
-		stub->args.writev_cbk.stbuf = *stbuf;
+		stub->args.writev_cbk.postbuf = *postbuf;
+        if (prebuf)
+                stub->args.writev_cbk.prebuf = *prebuf;
 out:
 	return stub;
 }
@@ -1231,8 +1302,9 @@ call_stub_t *
 fop_fsync_cbk_stub (call_frame_t *frame,
 		    fop_fsync_cbk_t fn,
 		    int32_t op_ret,
-		    int32_t op_errno)
-
+		    int32_t op_errno,
+                    struct stat *prebuf,
+                    struct stat *postbuf)
 {
 	call_stub_t *stub = NULL;
 
@@ -1244,6 +1316,10 @@ fop_fsync_cbk_stub (call_frame_t *frame,
 	stub->args.fsync_cbk.fn = fn;
 	stub->args.fsync_cbk.op_ret = op_ret;
 	stub->args.fsync_cbk.op_errno = op_errno;
+        if (prebuf)
+                stub->args.fsync_cbk.prebuf = *prebuf;
+        if (postbuf)
+                stub->args.fsync_cbk.postbuf = *postbuf;
 out:
 	return stub;
 }
@@ -2459,7 +2535,8 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.open.fn (stub->frame, 
 				    stub->frame->this,
 				    &stub->args.open.loc, 
-				    stub->args.open.flags, stub->args.open.fd);
+				    stub->args.open.flags, stub->args.open.fd,
+                                    stub->args.open.wbflags);
 		break;
 	}
 	case GF_FOP_CREATE:
@@ -2958,7 +3035,9 @@ call_resume_unwind (call_stub_t *stub)
 				      stub->args.create_cbk.op_errno,
 				      stub->args.create_cbk.fd,
 				      stub->args.create_cbk.inode,
-				      &stub->args.create_cbk.buf);
+				      &stub->args.create_cbk.buf,
+                                      &stub->args.create_cbk.preparent,
+                                      &stub->args.create_cbk.postparent);
 		else
 			stub->args.create_cbk.fn (stub->frame,
 						  stub->frame->cookie,
@@ -2967,7 +3046,9 @@ call_resume_unwind (call_stub_t *stub)
 						  stub->args.create_cbk.op_errno,
 						  stub->args.create_cbk.fd,
 						  stub->args.create_cbk.inode,
-						  &stub->args.create_cbk.buf);
+						  &stub->args.create_cbk.buf,
+                                                  &stub->args.create_cbk.preparent,
+                                                  &stub->args.create_cbk.postparent);
       
 		break;
 	}
@@ -2996,14 +3077,16 @@ call_resume_unwind (call_stub_t *stub)
 			STACK_UNWIND (stub->frame,
 				      stub->args.readlink_cbk.op_ret,
 				      stub->args.readlink_cbk.op_errno,
-				      stub->args.readlink_cbk.buf);
+				      stub->args.readlink_cbk.buf,
+                                      &stub->args.readlink_cbk.sbuf);
 		else
 			stub->args.readlink_cbk.fn (stub->frame,
 						    stub->frame->cookie,
 						    stub->frame->this,
 						    stub->args.readlink_cbk.op_ret,
 						    stub->args.readlink_cbk.op_errno,
-						    stub->args.readlink_cbk.buf);
+						    stub->args.readlink_cbk.buf,
+                                                    &stub->args.readlink_cbk.sbuf);
 
 		break;
 	}
@@ -3015,7 +3098,9 @@ call_resume_unwind (call_stub_t *stub)
 				      stub->args.mknod_cbk.op_ret,
 				      stub->args.mknod_cbk.op_errno,
 				      stub->args.mknod_cbk.inode,
-				      &stub->args.mknod_cbk.buf);
+                                      &stub->args.mknod_cbk.buf,
+                                      &stub->args.mknod_cbk.preparent,
+                                      &stub->args.mknod_cbk.postparent);
 		else
 			stub->args.mknod_cbk.fn (stub->frame,
 						 stub->frame->cookie,
@@ -3023,7 +3108,9 @@ call_resume_unwind (call_stub_t *stub)
 						 stub->args.mknod_cbk.op_ret,
 						 stub->args.mknod_cbk.op_errno,
 						 stub->args.mknod_cbk.inode,
-						 &stub->args.mknod_cbk.buf);
+                                                 &stub->args.mknod_cbk.buf,
+                                                 &stub->args.mknod_cbk.preparent,
+                                                 &stub->args.mknod_cbk.postparent);
 		break;
 	}
 
@@ -3034,7 +3121,9 @@ call_resume_unwind (call_stub_t *stub)
 				      stub->args.mkdir_cbk.op_ret,
 				      stub->args.mkdir_cbk.op_errno,
 				      stub->args.mkdir_cbk.inode,
-				      &stub->args.mkdir_cbk.buf);
+                                      &stub->args.mkdir_cbk.buf,
+                                      &stub->args.mkdir_cbk.preparent,
+                                      &stub->args.mkdir_cbk.postparent);
 		else
 			stub->args.mkdir_cbk.fn (stub->frame,
 						 stub->frame->cookie,
@@ -3042,7 +3131,9 @@ call_resume_unwind (call_stub_t *stub)
 						 stub->args.mkdir_cbk.op_ret,
 						 stub->args.mkdir_cbk.op_errno,
 						 stub->args.mkdir_cbk.inode,
-						 &stub->args.mkdir_cbk.buf);
+                                                 &stub->args.mkdir_cbk.buf,
+                                                 &stub->args.mkdir_cbk.preparent,
+                                                 &stub->args.mkdir_cbk.postparent);
 
 		if (stub->args.mkdir_cbk.inode)
 			inode_unref (stub->args.mkdir_cbk.inode);
@@ -3055,13 +3146,17 @@ call_resume_unwind (call_stub_t *stub)
 		if (!stub->args.unlink_cbk.fn)
 			STACK_UNWIND (stub->frame,
 				      stub->args.unlink_cbk.op_ret,
-				      stub->args.unlink_cbk.op_errno);
+				      stub->args.unlink_cbk.op_errno,
+                                      &stub->args.unlink_cbk.preparent,
+                                      &stub->args.unlink_cbk.postparent);
 		else
 			stub->args.unlink_cbk.fn (stub->frame,
 						  stub->frame->cookie,
 						  stub->frame->this,
 						  stub->args.unlink_cbk.op_ret,
-						  stub->args.unlink_cbk.op_errno);
+						  stub->args.unlink_cbk.op_errno,
+                                                  &stub->args.unlink_cbk.preparent,
+                                                  &stub->args.unlink_cbk.postparent);
 		break;
 	}
   
@@ -3070,13 +3165,17 @@ call_resume_unwind (call_stub_t *stub)
 		if (!stub->args.rmdir_cbk.fn)
 			STACK_UNWIND (stub->frame,
 				      stub->args.rmdir_cbk.op_ret,
-				      stub->args.rmdir_cbk.op_errno);
+				      stub->args.rmdir_cbk.op_errno,
+                                      &stub->args.rmdir_cbk.preparent,
+                                      &stub->args.rmdir_cbk.postparent);
 		else
 			stub->args.unlink_cbk.fn (stub->frame,
 						  stub->frame->cookie,
 						  stub->frame->this,
 						  stub->args.rmdir_cbk.op_ret,
-						  stub->args.rmdir_cbk.op_errno);
+						  stub->args.rmdir_cbk.op_errno,
+                                                  &stub->args.rmdir_cbk.preparent,
+                                                  &stub->args.rmdir_cbk.postparent);
 		break;
 	}
 
@@ -3087,7 +3186,9 @@ call_resume_unwind (call_stub_t *stub)
 				      stub->args.symlink_cbk.op_ret,
 				      stub->args.symlink_cbk.op_errno,
 				      stub->args.symlink_cbk.inode,
-				      &stub->args.symlink_cbk.buf);
+                                      &stub->args.symlink_cbk.buf,
+                                      &stub->args.symlink_cbk.preparent,
+                                      &stub->args.symlink_cbk.postparent);
 		else
 			stub->args.symlink_cbk.fn (stub->frame,
 						   stub->frame->cookie,
@@ -3095,7 +3196,9 @@ call_resume_unwind (call_stub_t *stub)
 						   stub->args.symlink_cbk.op_ret,
 						   stub->args.symlink_cbk.op_errno,
 						   stub->args.symlink_cbk.inode,
-						   &stub->args.symlink_cbk.buf);
+                                                   &stub->args.symlink_cbk.buf,
+                                                   &stub->args.symlink_cbk.preparent,
+                                                   &stub->args.symlink_cbk.postparent);
 	}
 	break;
   
@@ -3106,14 +3209,22 @@ call_resume_unwind (call_stub_t *stub)
 			STACK_UNWIND (stub->frame,
 				      stub->args.rename_cbk.op_ret,
 				      stub->args.rename_cbk.op_errno,
-				      &stub->args.rename_cbk.buf);
+				      &stub->args.rename_cbk.buf,
+                                      &stub->args.rename_cbk.preoldparent,
+                                      &stub->args.rename_cbk.postoldparent,
+                                      &stub->args.rename_cbk.prenewparent,
+                                      &stub->args.rename_cbk.postnewparent);
 		else
 			stub->args.rename_cbk.fn (stub->frame,
 						  stub->frame->cookie,
 						  stub->frame->this,
 						  stub->args.rename_cbk.op_ret,
 						  stub->args.rename_cbk.op_errno,
-						  &stub->args.rename_cbk.buf);
+						  &stub->args.rename_cbk.buf,
+                                                  &stub->args.rename_cbk.preoldparent,
+                                                  &stub->args.rename_cbk.postoldparent,
+                                                  &stub->args.rename_cbk.prenewparent,
+                                                  &stub->args.rename_cbk.postnewparent);
 #endif
 		break;
 	}
@@ -3133,7 +3244,9 @@ call_resume_unwind (call_stub_t *stub)
 						stub->args.link_cbk.op_ret,
 						stub->args.link_cbk.op_errno,
 						stub->args.link_cbk.inode,
-						&stub->args.link_cbk.buf);
+                                                &stub->args.link_cbk.buf,
+                                                &stub->args.link_cbk.preparent,
+                                                &stub->args.link_cbk.postparent);
 		break;
 	}
   
@@ -3177,14 +3290,16 @@ call_resume_unwind (call_stub_t *stub)
 			STACK_UNWIND (stub->frame,
 				      stub->args.truncate_cbk.op_ret,
 				      stub->args.truncate_cbk.op_errno,
-				      &stub->args.truncate_cbk.buf);
+				      &stub->args.truncate_cbk.prebuf,
+                                      &stub->args.truncate_cbk.postbuf);
 		else
 			stub->args.truncate_cbk.fn (stub->frame,
 						    stub->frame->cookie,
 						    stub->frame->this,
 						    stub->args.truncate_cbk.op_ret,
 						    stub->args.truncate_cbk.op_errno,
-						    &stub->args.truncate_cbk.buf);
+						    &stub->args.truncate_cbk.prebuf,
+                                                    &stub->args.truncate_cbk.postbuf);
 		break;
 	}
       
@@ -3217,14 +3332,16 @@ call_resume_unwind (call_stub_t *stub)
 			STACK_UNWIND (stub->frame,
 				      stub->args.writev_cbk.op_ret,
 				      stub->args.writev_cbk.op_errno,
-				      &stub->args.writev_cbk.stbuf);
+                                      &stub->args.writev_cbk.prebuf,
+				      &stub->args.writev_cbk.postbuf);
 		else
 			stub->args.writev_cbk.fn (stub->frame,
 						  stub->frame->cookie,
 						  stub->frame->this,
 						  stub->args.writev_cbk.op_ret,
 						  stub->args.writev_cbk.op_errno,
-						  &stub->args.writev_cbk.stbuf);
+                                                  &stub->args.writev_cbk.prebuf,
+						  &stub->args.writev_cbk.postbuf);
 		break;
 	}
   
@@ -3266,13 +3383,17 @@ call_resume_unwind (call_stub_t *stub)
 		if (!stub->args.fsync_cbk.fn)
 			STACK_UNWIND (stub->frame,
 				      stub->args.fsync_cbk.op_ret,
-				      stub->args.fsync_cbk.op_errno);
+				      stub->args.fsync_cbk.op_errno,
+                                      &stub->args.fsync_cbk.prebuf,
+                                      &stub->args.fsync_cbk.postbuf);
 		else
 			stub->args.fsync_cbk.fn (stub->frame,
 						 stub->frame->cookie,
 						 stub->frame->this,
 						 stub->args.fsync_cbk.op_ret,
-						 stub->args.fsync_cbk.op_errno);
+						 stub->args.fsync_cbk.op_errno,
+                                                 &stub->args.fsync_cbk.prebuf,
+                                                 &stub->args.fsync_cbk.postbuf);
 		break;
 	}
   
@@ -3433,14 +3554,16 @@ call_resume_unwind (call_stub_t *stub)
 			STACK_UNWIND (stub->frame,
 				      stub->args.ftruncate_cbk.op_ret,
 				      stub->args.ftruncate_cbk.op_errno,
-				      &stub->args.ftruncate_cbk.buf);
+				      &stub->args.ftruncate_cbk.prebuf,
+				      &stub->args.ftruncate_cbk.postbuf);
 		else
 			stub->args.ftruncate_cbk.fn (stub->frame,
 						     stub->frame->cookie,
 						     stub->frame->this,
 						     stub->args.ftruncate_cbk.op_ret,
 						     stub->args.ftruncate_cbk.op_errno,
-						     &stub->args.ftruncate_cbk.buf);
+						     &stub->args.ftruncate_cbk.prebuf,
+						     &stub->args.ftruncate_cbk.postbuf);
 		break;
 	}
   
@@ -3605,7 +3728,8 @@ call_resume_unwind (call_stub_t *stub)
 				      stub->args.lookup_cbk.op_errno,
 				      stub->args.lookup_cbk.inode,
 				      &stub->args.lookup_cbk.buf,
-				      stub->args.lookup_cbk.dict);
+                                      stub->args.lookup_cbk.dict,
+                                      &stub->args.lookup_cbk.postparent);
 		else
 			stub->args.lookup_cbk.fn (stub->frame, 
 						  stub->frame->cookie,
@@ -3613,8 +3737,9 @@ call_resume_unwind (call_stub_t *stub)
 						  stub->args.lookup_cbk.op_ret,
 						  stub->args.lookup_cbk.op_errno,
 						  stub->args.lookup_cbk.inode,
-						  &stub->args.lookup_cbk.buf, 
-						  stub->args.lookup_cbk.dict);
+                                                  &stub->args.lookup_cbk.buf,
+                                                  stub->args.lookup_cbk.dict,
+                                                  &stub->args.lookup_cbk.postparent);
 		/* FIXME NULL should not be passed */
 
 		if (stub->args.lookup_cbk.dict)

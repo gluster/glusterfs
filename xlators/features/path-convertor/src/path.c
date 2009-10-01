@@ -134,7 +134,9 @@ path_create_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 fd_t *fd,
 		 inode_t *inode,
-		 struct stat *buf)
+		 struct stat *buf,
+                 struct stat *preparent,
+                 struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 	return 0;
@@ -184,9 +186,10 @@ path_readlink_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   const char *buf)
+		   const char *buf,
+                   struct stat *sbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, buf, sbuf);
 	return 0;
 }
 
@@ -198,7 +201,8 @@ path_lookup_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 inode_t *inode,
 		 struct stat *buf,
-		 dict_t *xattr)
+		 dict_t *xattr,
+                 struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr);
 	return 0;
@@ -212,7 +216,9 @@ path_symlink_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-		  struct stat *buf)
+                  struct stat *buf,
+                  struct stat *preparent,
+                  struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -225,7 +231,9 @@ path_mknod_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno,
 		inode_t *inode,
-		struct stat *buf)
+                struct stat *buf,
+                struct stat *preparent,
+                struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -239,7 +247,9 @@ path_mkdir_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno,
 		inode_t *inode,
-		struct stat *buf)
+                struct stat *buf,
+                struct stat *preparent,
+                struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -252,7 +262,9 @@ path_link_cbk (call_frame_t *frame,
 	       int32_t op_ret,
 	       int32_t op_errno,
 	       inode_t *inode,
-	       struct stat *buf)
+               struct stat *buf,
+               struct stat *preparent,
+               struct stat *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -271,7 +283,25 @@ path_opendir_cbk (call_frame_t *frame,
 }
 
 
-int32_t 
+int32_t
+path_rename_buf_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     struct stat *buf,
+                     struct stat *preoldparent,
+                     struct stat *postoldparent,
+                     struct stat *prenewparent,
+                     struct stat *postnewparent)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	return 0;
+}
+
+
+
+int32_t
 path_common_buf_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
@@ -296,6 +326,25 @@ path_common_dict_cbk (call_frame_t *frame,
 }
 
 int32_t 
+path_common_remove_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno,struct stat *preparent,
+                        struct stat *postparent)
+{
+	STACK_UNWIND (frame, op_ret, op_errno);
+	return 0;
+}
+
+int32_t
+path_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno,struct stat *prebuf,
+                   struct stat *postbuf)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	return 0;
+}
+
+
+int32_t
 path_common_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -465,7 +514,7 @@ path_unlink (call_frame_t *frame,
 	loc->path = tmp_path;
 
 	STACK_WIND (frame, 
-		    path_common_cbk, 
+		    path_common_remove_cbk,
 		    FIRST_CHILD(this), 
 		    FIRST_CHILD(this)->fops->unlink, 
 		    loc);
@@ -492,7 +541,7 @@ path_rmdir (call_frame_t *frame,
 	loc->path = tmp_path;
 
 	STACK_WIND (frame, 
-		    path_common_cbk,
+		    path_common_remove_cbk,
 		    FIRST_CHILD(this), 
 		    FIRST_CHILD(this)->fops->rmdir, 
 		    loc);
@@ -558,7 +607,7 @@ path_rename (call_frame_t *frame,
 	newloc->path = tmp_newloc_path;
 
 	STACK_WIND (frame, 
-		    path_common_buf_cbk,
+		    path_rename_buf_cbk,
 		    FIRST_CHILD(this), 
 		    FIRST_CHILD(this)->fops->rename, 
 		    oldloc,
@@ -677,7 +726,7 @@ path_truncate (call_frame_t *frame,
 	loc->path = tmp_path;
 
 	STACK_WIND (frame, 
-		    path_common_buf_cbk, 
+		    path_truncate_cbk,
 		    FIRST_CHILD(this), 
 		    FIRST_CHILD(this)->fops->truncate, 
 		    loc, 
@@ -696,7 +745,8 @@ path_open (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc,
 	   int32_t flags,
-	   fd_t *fd)
+	   fd_t *fd,
+           int32_t wbflags)
 {
 	char *loc_path = (char *)loc->path;
 	char *tmp_path = NULL;
@@ -713,7 +763,8 @@ path_open (call_frame_t *frame,
 		    FIRST_CHILD(this)->fops->open, 
 		    loc, 
 		    flags,
-		    fd);
+		    fd,
+                    wbflags);
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)

@@ -56,14 +56,22 @@ trash_unlink_rename_cbk (call_frame_t *frame,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 struct stat *buf);
+			 struct stat *buf,
+                         struct stat *preoldparent,
+                         struct stat *postoldparent,
+                         struct stat *prenewparent,
+                         struct stat *postnewparent);
 int32_t
 trash_rename_rename_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 struct stat *buf);
+			 struct stat *buf,
+                         struct stat *preoldparent,
+                         struct stat *postoldparent,
+                         struct stat *prenewparent,
+                         struct stat *postnewparent);
 
 /**
  * trash_common_unwind_cbk -
@@ -73,7 +81,9 @@ trash_common_unwind_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
-			 int32_t op_errno)
+			 int32_t op_errno,
+                         struct stat *preparent,
+                         struct stat *postparent)
 {
 	trash_local_t *local = frame->local;
 
@@ -90,6 +100,39 @@ trash_common_unwind_cbk (call_frame_t *frame,
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
 }
+
+
+/**
+ * trash_rename_unwind_buf_cbk -
+ */
+int32_t
+trash_rename_unwind_buf_cbk (call_frame_t *frame,
+			     void *cookie,
+			     xlator_t *this,
+			     int32_t op_ret,
+			     int32_t op_errno,
+			     struct stat *buf,
+                             struct stat *preoldparent,
+                             struct stat *postoldparent,
+                             struct stat *prenewparent,
+                             struct stat *postnewparent)
+{
+	trash_local_t *local = frame->local;
+
+        if (!local)
+                goto out;
+
+	if (local->loc1.path)
+		loc_wipe (&local->loc1);
+
+	if (local->loc2.path)
+		loc_wipe (&local->loc2);
+
+ out:
+	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	return 0;
+}
+
 
 /**
  * trash_common_unwind_buf_cbk -
@@ -125,7 +168,9 @@ trash_mkdir_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-		 struct stat *stbuf)
+                 struct stat *stbuf,
+                 struct stat *preparent,
+                 struct stat *postparent)
 {
 	trash_local_t *local = frame->local;
 	char *tmp_str = strdup (local->newpath);
@@ -189,7 +234,11 @@ trash_unlink_rename_cbk (call_frame_t *frame,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 struct stat *buf)
+			 struct stat *buf,
+                         struct stat *preoldparent,
+                         struct stat *postoldparent,
+                         struct stat *prenewparent,
+                         struct stat *postnewparent)
 {
 	trash_local_t *local = frame->local;
 	if (op_ret == -1 && op_errno == ENOENT) {
@@ -302,7 +351,9 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno,
 			inode_t *inode,
-			struct stat *stbuf)
+                        struct stat *stbuf,
+                        struct stat *preparent,
+                        struct stat *postparent)
 {
 	trash_local_t *local = frame->local;
 	char *tmp_str = strdup (local->newpath);
@@ -367,7 +418,11 @@ trash_rename_rename_cbk (call_frame_t *frame,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 struct stat *buf)
+			 struct stat *buf,
+                         struct stat *preoldparent,
+                         struct stat *postoldparent,
+                         struct stat *prenewparent,
+                         struct stat *postnewparent)
 {
 	trash_local_t *local = frame->local;
 	if (op_ret == -1 && op_errno == ENOENT) {
@@ -407,7 +462,7 @@ trash_rename_rename_cbk (call_frame_t *frame,
 		.path = local->loc2.path,
 	};
 	STACK_WIND (frame,
-		    trash_common_unwind_buf_cbk,
+		    trash_rename_unwind_buf_cbk,
 		    this->children->xlator,
 		    this->children->xlator->fops->rename,
 		    &local->loc1,
@@ -427,13 +482,14 @@ trash_rename_lookup_cbk (call_frame_t *frame,
 			 int32_t op_errno,
 			 inode_t *inode,
 			 struct stat *buf,
-			 dict_t *xattr)
+			 dict_t *xattr,
+                         struct stat *postparent)
 {
 	trash_local_t *local = frame->local;
 
 	if (op_ret == -1) {
 		STACK_WIND (frame,
-			    trash_common_unwind_buf_cbk,
+			    trash_rename_unwind_buf_cbk,
 			    this->children->xlator,
 			    this->children->xlator->fops->rename,
 			    &local->loc1,
@@ -481,7 +537,7 @@ trash_rename (call_frame_t *frame,
 		/* Trying to rename from the trash can dir, 
 		   do the actual rename */
 		STACK_WIND (frame,
-			    trash_common_unwind_buf_cbk,
+			    trash_rename_unwind_buf_cbk,
 			    this->children->xlator,
 			    this->children->xlator->fops->rename,
 			    oldloc,

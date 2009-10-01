@@ -1888,7 +1888,8 @@ libgf_client_lookup_cbk (call_frame_t *frame,
                          int32_t op_errno,
                          inode_t *inode,
                          struct stat *buf,
-                         dict_t *dict)
+                         dict_t *dict,
+                         struct stat *postparent)
 {
         libgf_client_local_t *local = frame->local;
         libglusterfs_client_ctx_t *ctx = frame->root->state;
@@ -1959,7 +1960,7 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 
 out:
         local->reply_stub = fop_lookup_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                 inode, buf, dict);
+                                                 inode, buf, dict, postparent);
 
         LIBGF_REPLY_NOTIFY (local);
         return 0;
@@ -2150,7 +2151,8 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
                                int32_t op_errno,
                                inode_t *inode,
                                struct stat *stbuf,
-                               dict_t *dict)
+                               dict_t *dict,
+                               struct stat *postparent)
 {
         libglusterfs_client_async_local_t *local = frame->local;
         glusterfs_get_cbk_t lookup_cbk = local->fop.lookup_cbk.cbk;
@@ -2651,7 +2653,7 @@ libgf_client_open (libglusterfs_client_ctx_t *ctx,
         int32_t op_ret = 0;
         libgf_client_local_t *local = NULL;
 
-        LIBGF_CLIENT_FOP (ctx, stub, open, local, loc, flags, fd);
+        LIBGF_CLIENT_FOP (ctx, stub, open, local, loc, flags, fd, 0);
 
         op_ret = stub->args.open_cbk.op_ret;
         errno = stub->args.open_cbk.op_errno;
@@ -2672,12 +2674,15 @@ libgf_client_create_cbk (call_frame_t *frame,
                          int32_t op_errno,
                          fd_t *fd,
                          inode_t *inode,
-                         struct stat *buf)     
+                         struct stat *buf,
+                         struct stat *preparent,
+                         struct stat *postparent)
 {
         libgf_client_local_t *local = frame->local;
 
         local->reply_stub = fop_create_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                 fd, inode, buf);
+                                                 fd, inode, buf, preparent,
+                                                 postparent);
 
         LIBGF_REPLY_NOTIFY (local);
         return 0;
@@ -3752,12 +3757,13 @@ libgf_client_writev_cbk (call_frame_t *frame,
                          xlator_t *this,
                          int32_t op_ret,
                          int32_t op_errno,
-                         struct stat *stbuf)
+                         struct stat *prebuf,
+                         struct stat *postbuf)
 {
         libgf_client_local_t *local = frame->local;
 
         local->reply_stub = fop_writev_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                 stbuf);
+                                                 prebuf, postbuf);
 
         LIBGF_REPLY_NOTIFY (local);
         return 0;
@@ -4353,7 +4359,8 @@ libglusterfs_writev_async_cbk (call_frame_t *frame,
                                xlator_t *this,
                                int32_t op_ret,
                                int32_t op_errno,
-                               struct stat *stbuf)
+                               struct stat *prebuf,
+                               struct stat *postbuf)
 {
         libglusterfs_client_async_local_t *local = frame->local;
         fd_t *fd = NULL;
@@ -4867,12 +4874,15 @@ libgf_client_mkdir_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno,
 			inode_t *inode,
-			struct stat *buf)
+                        struct stat *buf,
+                        struct stat *preparent,
+                        struct stat *postparent)
 {
         libgf_client_local_t *local = frame->local;
 
         local->reply_stub = fop_mkdir_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                inode, buf);
+                                                inode, buf, preparent,
+                                                postparent);
 
         LIBGF_REPLY_NOTIFY (local);
         return 0;
@@ -5000,11 +5010,13 @@ out:
 
 static int32_t
 libgf_client_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-        int32_t op_ret, int32_t op_errno)
+                        int32_t op_ret, int32_t op_errno,struct stat *preparent,
+                        struct stat *postparent)
 {
         libgf_client_local_t *local = frame->local;
 
-        local->reply_stub = fop_rmdir_cbk_stub (frame, NULL, op_ret, op_errno);
+        local->reply_stub = fop_rmdir_cbk_stub (frame, NULL, op_ret, op_errno,
+                                                preparent, postparent);
 
         LIBGF_REPLY_NOTIFY (local);
         return 0;
@@ -5609,11 +5621,13 @@ out:
 
 int
 libgf_client_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *xlator,
-                                int32_t op_ret, int32_t op_errno)
+                        int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                        struct stat *postbuf)
 {
         libgf_client_local_t    *local = frame->local;
 
-        local->reply_stub = fop_fsync_cbk_stub (frame, NULL, op_ret, op_errno);
+        local->reply_stub = fop_fsync_cbk_stub (frame, NULL, op_ret, op_errno,
+                                                prebuf, postbuf);
 
         LIBGF_REPLY_NOTIFY (local);
 
@@ -5663,12 +5677,12 @@ out:
 int
 libgf_client_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *xlator
                                 ,int32_t op_ret, int32_t op_errno,
-                                struct stat *buf)
+                                struct stat *prebuf, struct stat *postbuf)
 {
         libgf_client_local_t    *local = frame->local;
 
         local->reply_stub = fop_ftruncate_cbk_stub (frame, NULL, op_ret,
-                                                        op_errno, buf);
+                                                    op_errno, prebuf, postbuf);
 
         LIBGF_REPLY_NOTIFY (local);
 
@@ -5698,9 +5712,9 @@ libgf_client_ftruncate (libglusterfs_client_ctx_t *ctx, fd_t *fd,
         if (op_ret == -1)
                 goto out;
 
-        libgf_transform_devnum (ctx, &stub->args.ftruncate_cbk.buf);
+        libgf_transform_devnum (ctx, &stub->args.ftruncate_cbk.postbuf);
         libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
-                                        &stub->args.ftruncate_cbk.buf);
+                                        &stub->args.ftruncate_cbk.postbuf);
 
         fdctx = libgf_get_fd_ctx (fd);
         if (!fd) {
@@ -5711,7 +5725,7 @@ libgf_client_ftruncate (libglusterfs_client_ctx_t *ctx, fd_t *fd,
 
         pthread_mutex_lock (&fdctx->lock);
         {
-                fdctx->offset = stub->args.ftruncate_cbk.buf.st_size;
+                fdctx->offset = stub->args.ftruncate_cbk.postbuf.st_size;
         }
         pthread_mutex_unlock (&fdctx->lock);
 
@@ -5744,12 +5758,14 @@ out:
 int
 libgf_client_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 int32_t op_ret, int32_t op_errno,
-                                inode_t *inode, struct stat *buf)
+                                inode_t *inode, struct stat *buf,
+                                struct stat *preparent, struct stat *postparent)
 {
         libgf_client_local_t            *local = frame->local;
 
         local->reply_stub = fop_link_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                inode, buf);
+                                               inode, buf, preparent,
+                                               postparent);
 
         LIBGF_REPLY_NOTIFY (local);
 
@@ -6121,13 +6137,16 @@ out:
 
 int32_t
 libgf_client_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                                int32_t op_ret, int32_t op_errno,
-                                struct stat *buf)
+                         int32_t op_ret, int32_t op_errno, struct stat *buf,
+                         struct stat *preoldparent, struct stat *postoldparent,
+                         struct stat *prenewparent, struct stat *postnewparent)
 {
         libgf_client_local_t *local = frame->local;
 
         local->reply_stub = fop_rename_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                 buf);
+                                                 buf, preoldparent,
+                                                 postoldparent, prenewparent,
+                                                 postnewparent);
 
         LIBGF_REPLY_NOTIFY (local);
         return 0;
@@ -6477,12 +6496,14 @@ out:
 static int32_t
 libgf_client_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 int32_t op_ret, int32_t op_errno,
-                                inode_t *inode, struct stat *buf)
+                                inode_t *inode, struct stat *buf,
+                                struct stat *preparent, struct stat *postparent)
 {
         libgf_client_local_t *local = frame->local;
 
         local->reply_stub = fop_mknod_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                inode, buf);
+                                                inode, buf, preparent,
+                                                postparent);
 
         LIBGF_REPLY_NOTIFY (local);
         return 0;
@@ -6681,12 +6702,13 @@ out:
 
 int32_t
 libgf_client_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                                int32_t op_ret, int32_t op_errno)
+                         int32_t op_ret, int32_t op_errno,
+                         struct stat *preparent, struct stat *postparent)
 {
         libgf_client_local_t    *local = frame->local;
 
-        local->reply_stub = fop_unlink_cbk_stub (frame, NULL, op_ret,
-                                                        op_errno);
+        local->reply_stub = fop_unlink_cbk_stub (frame, NULL, op_ret, op_errno,
+                                                 preparent, postparent);
 
         LIBGF_REPLY_NOTIFY (local);
         return 0;
@@ -6787,12 +6809,14 @@ out:
 static int32_t
 libgf_client_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 int32_t op_ret, int32_t op_errno,
-                                inode_t *inode, struct stat *buf)
+                                inode_t *inode, struct stat *buf,
+                                struct stat *preparent, struct stat *postparent)
 {
         libgf_client_local_t *local = frame->local;
 
         local->reply_stub = fop_symlink_cbk_stub (frame, NULL, op_ret,
-                                                  op_errno, inode, buf);
+                                                  op_errno, inode, buf,
+                                                  preparent, postparent);
 
         LIBGF_REPLY_NOTIFY (local);
         return 0;
@@ -6928,12 +6952,12 @@ out:
 int32_t
 libgf_client_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 int32_t op_ret, int32_t op_errno,
-                                const char *path)
+                                const char *path, struct stat *sbuf)
 {
         libgf_client_local_t    *local = frame->local;
 
         local->reply_stub = fop_readlink_cbk_stub (frame, NULL, op_ret,
-                                                   op_errno, path);
+                                                   op_errno, path, sbuf);
 
         LIBGF_REPLY_NOTIFY (local);
         return 0;

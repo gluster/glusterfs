@@ -310,7 +310,7 @@ wb_file_destroy (wb_file_t *file)
 
 int32_t
 wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, struct stat *stbuf)
+             int32_t op_errno, struct stat *prebuf, struct stat *postbuf)
 {
         wb_local_t   *local = NULL;
         list_head_t  *winds = NULL;
@@ -774,7 +774,8 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 int32_t
 wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct stat *buf)
+                 int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                 struct stat *postbuf)
 {
         wb_local_t   *local = NULL; 
         wb_request_t *request = NULL;
@@ -795,7 +796,7 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 
         if (request) {
                 wb_request_unref (request);
@@ -916,7 +917,8 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
 int32_t
 wb_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *buf)
+                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                  struct stat *postbuf)
 {
         wb_local_t   *local = NULL; 
         wb_request_t *request = NULL;
@@ -936,7 +938,7 @@ wb_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 
         return 0;
 }
@@ -1211,7 +1213,7 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
 int32_t
 wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-         fd_t *fd)
+         fd_t *fd, int32_t wbflags)
 {
         frame->local = (void *)(long)flags;
 
@@ -1219,7 +1221,7 @@ wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                     wb_open_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->open,
-                    loc, flags, fd);
+                    loc, flags, fd, wbflags);
         return 0;
 }
 
@@ -1227,7 +1229,8 @@ wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 int32_t
 wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-               struct stat *buf)
+               struct stat *buf, struct stat *preparent,
+               struct stat *postparent)
 {
         long       flags = 0;
         wb_file_t *file = NULL;
@@ -1702,9 +1705,10 @@ out:
 
 int32_t
 wb_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+               int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+               struct stat *postbuf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
 
@@ -2124,7 +2128,7 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 static int32_t
 wb_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno)
+              int32_t op_errno, struct stat *prebuf, struct stat *postbuf)
 {
         wb_local_t   *local = NULL;
         wb_file_t    *file = NULL;

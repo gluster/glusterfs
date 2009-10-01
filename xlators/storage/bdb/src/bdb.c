@@ -374,7 +374,8 @@ bdb_open (call_frame_t *frame,
           xlator_t *this,
           loc_t *loc,
           int32_t flags,
-          fd_t *fd)
+          fd_t *fd,
+          int32_t wbflags)
 {
         int32_t         op_ret     = -1;
         int32_t         op_errno   = EINVAL;

@@ -100,9 +100,10 @@ rot13_writev_cbk (call_frame_t *frame,
                   xlator_t *this,
                   int32_t op_ret,
                   int32_t op_errno,
-		  struct stat *stbuf)
+                  struct stat *prebuf,
+		  struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 

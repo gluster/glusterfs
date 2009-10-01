@@ -591,7 +591,8 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			    int32_t op_ret, int32_t op_errno,
-			    inode_t *inode, struct stat *buf, dict_t *xattr)
+                            inode_t *inode, struct stat *buf, dict_t *xattr,
+                            struct stat *postparent)
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;

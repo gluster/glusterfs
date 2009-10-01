@@ -395,7 +395,8 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
 
 int
 afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		      int32_t op_ret, int32_t op_errno, struct stat *buf)
+		      int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                      struct stat *postbuf)
 {
 	afr_private_t * priv = NULL;
 	afr_local_t * local  = NULL;
@@ -600,7 +601,7 @@ afr_sh_data_open (call_frame_t *frame, xlator_t *this)
 			   (void *) (long) source,
 			   priv->children[source],
 			   priv->children[source]->fops->open,
-			   &local->loc, O_RDWR|O_LARGEFILE, fd);
+			   &local->loc, O_RDWR|O_LARGEFILE, fd, 0);
 	call_count--;
 
 	/* open sinks */
@@ -613,7 +614,7 @@ afr_sh_data_open (call_frame_t *frame, xlator_t *this)
 				   priv->children[i], 
 				   priv->children[i]->fops->open,
 				   &local->loc, 
-				   O_RDWR|O_LARGEFILE, fd); 
+				   O_RDWR|O_LARGEFILE, fd, 0); 
 
 		if (!--call_count)
 			break;
@@ -758,7 +759,8 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_data_lookup_cbk (call_frame_t *frame, void *cookie,
 			xlator_t *this, int32_t op_ret, int32_t op_errno,
-			inode_t *inode, struct stat *buf, dict_t *xattr)
+                        inode_t *inode, struct stat *buf, dict_t *xattr,
+                        struct stat *postparent)
 {
 	afr_private_t   *priv  = NULL;
 	afr_local_t     *local = NULL;

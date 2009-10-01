@@ -63,7 +63,9 @@ trace_create_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  fd_t *fd,
 		  inode_t *inode,
-		  struct stat *buf)
+		  struct stat *buf,
+                  struct stat *preparent,
+                  struct stat *postparent)
 {
 	char atime_buf[256], mtime_buf[256], ctime_buf[256];
 	ERR_EINVAL_NORETURN (!this);
@@ -207,23 +209,24 @@ trace_writev_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct stat *buf)
+                  struct stat *prebuf,
+		  struct stat *postbuf)
 {
 	char atime_buf[256], mtime_buf[256], ctime_buf[256];
 	ERR_EINVAL_NORETURN (!this);
 
 	if (trace_fop_names[GF_FOP_WRITE].enabled) {
 		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
+			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&postbuf->st_atime));
+			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&postbuf->st_mtime));
+			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&postbuf->st_ctime));
 
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", "
 				"st_size=%"PRId64", st_blocks=%"PRId64", st_atime=%s, "
 				"st_mtime=%s, st_ctime=%s})",
-				frame->root->unique, op_ret, buf->st_ino, buf->st_size, 
-				buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+				frame->root->unique, op_ret, postbuf->st_ino, postbuf->st_size, 
+				postbuf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 		} else {
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -231,7 +234,7 @@ trace_writev_cbk (call_frame_t *frame,
 		}    
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -282,7 +285,9 @@ trace_fsync_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
-		 int32_t op_errno)
+		 int32_t op_errno,
+                 struct stat *prebuf,
+                 struct stat *postbuf)
 {
 	ERR_EINVAL_NORETURN (!this );
 
@@ -418,7 +423,9 @@ trace_unlink_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
-		  int32_t op_errno)
+		  int32_t op_errno,
+                  struct stat *preparent,
+                  struct stat *postparent)
 {
 	ERR_EINVAL_NORETURN (!this );
 
@@ -438,7 +445,11 @@ trace_rename_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct stat *buf)
+		  struct stat *buf,
+                  struct stat *preoldparent,
+                  struct stat *postoldparent,
+                  struct stat *prenewparent,
+                  struct stat *postnewparent)
 {
 	ERR_EINVAL_NORETURN (!this );
 
@@ -459,7 +470,8 @@ trace_readlink_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    const char *buf)
+		    const char *buf,
+                    struct stat *sbuf)
 {
 	ERR_EINVAL_NORETURN (!this );
 
@@ -481,7 +493,8 @@ trace_lookup_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  inode_t *inode,
 		  struct stat *buf,
-		  dict_t *xattr)
+		  dict_t *xattr,
+                  struct stat *postparent)
 {
 	ERR_EINVAL_NORETURN (!this );
 
@@ -514,7 +527,9 @@ trace_symlink_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-		   struct stat *buf)
+                   struct stat *buf,
+                   struct stat *preparent,
+                   struct stat *postparent)
 {
 	char atime_buf[256], mtime_buf[256], ctime_buf[256];
 	ERR_EINVAL_NORETURN (!this );
@@ -551,7 +566,9 @@ trace_mknod_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-		 struct stat *buf)
+                 struct stat *buf,
+                 struct stat *preparent,
+                 struct stat *postparent)
 {
 	char atime_buf[256], mtime_buf[256], ctime_buf[256];
 	ERR_EINVAL_NORETURN (!this );
@@ -591,7 +608,9 @@ trace_mkdir_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-		 struct stat *buf)
+                 struct stat *buf,
+                 struct stat *preparent,
+                 struct stat *postparent)
 {
 	ERR_EINVAL_NORETURN (!this );
 
@@ -613,7 +632,9 @@ trace_link_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno,
 		inode_t *inode,
-		struct stat *buf)
+                struct stat *buf,
+                struct stat *preparent,
+                struct stat *postparent)
 {
 	ERR_EINVAL_NORETURN (!this );
 
@@ -679,7 +700,9 @@ trace_rmdir_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
-		 int32_t op_errno)
+		 int32_t op_errno,
+                 struct stat *preparent,
+                 struct stat *postparent)
 {
 	ERR_EINVAL_NORETURN (!this );
 
@@ -699,7 +722,8 @@ trace_truncate_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    struct stat *buf)
+		    struct stat *prebuf,
+                    struct stat *postbuf)
 {
 	ERR_EINVAL_NORETURN (!this );
 
@@ -708,8 +732,8 @@ trace_truncate_cbk (call_frame_t *frame,
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, *buf {st_size=%"PRId64", st_blksize=%"
 				GF_PRI_BLKSIZE", st_blocks=%"PRId64"})",
-				frame->root->unique, op_ret, buf->st_size, buf->st_blksize, 
-				buf->st_blocks);
+				frame->root->unique, op_ret, postbuf->st_size, postbuf->st_blksize,
+				postbuf->st_blocks);
 		} else {
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -717,7 +741,7 @@ trace_truncate_cbk (call_frame_t *frame,
 		}    
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -855,7 +879,8 @@ trace_ftruncate_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct stat *buf)
+		     struct stat *prebuf,
+                     struct stat *postbuf)
 {
 	ERR_EINVAL_NORETURN (!this );
 
@@ -864,8 +889,8 @@ trace_ftruncate_cbk (call_frame_t *frame,
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, *buf {st_size=%"PRId64", "
 				"st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64"})",
-				frame->root->unique, op_ret, buf->st_size, buf->st_blksize, 
-				buf->st_blocks);
+				frame->root->unique, op_ret, postbuf->st_size, postbuf->st_blksize,
+				postbuf->st_blocks);
 		} else {
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -873,7 +898,7 @@ trace_ftruncate_cbk (call_frame_t *frame,
 		}    
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1554,7 +1579,7 @@ trace_open (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
 	    int32_t flags,
-	    fd_t *fd)
+	    fd_t *fd, int32_t wbflags)
 {
 	ERR_EINVAL_NORETURN (!this || !loc);
 
@@ -1570,7 +1595,7 @@ trace_open (call_frame_t *frame,
 		    FIRST_CHILD(this)->fops->open, 
 		    loc,
 		    flags,
-		    fd);
+		    fd, wbflags);
 	return 0;
 }
 

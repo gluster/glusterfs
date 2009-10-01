@@ -172,7 +172,8 @@ typedef int32_t (*fop_lookup_cbk_t) (call_frame_t *frame,
 				     int32_t op_errno,
 				     inode_t *inode,
 				     struct stat *buf,
-				     dict_t *xattr);
+                                     dict_t *xattr,
+                                     struct stat *postparent);
 
 typedef int32_t (*fop_stat_cbk_t) (call_frame_t *frame,
 				   void *cookie,
@@ -221,14 +222,16 @@ typedef int32_t (*fop_truncate_cbk_t) (call_frame_t *frame,
 				       xlator_t *this,
 				       int32_t op_ret,
 				       int32_t op_errno,
-				       struct stat *buf);
+				       struct stat *prebuf,
+                                       struct stat *postbuf);
 
 typedef int32_t (*fop_ftruncate_cbk_t) (call_frame_t *frame,
 					void *cookie,
 					xlator_t *this,
 					int32_t op_ret,
 					int32_t op_errno,
-					struct stat *buf);
+					struct stat *prebuf,
+                                        struct stat *postbuf);
 
 typedef int32_t (*fop_utimens_cbk_t) (call_frame_t *frame,
 				      void *cookie,
@@ -248,7 +251,8 @@ typedef int32_t (*fop_readlink_cbk_t) (call_frame_t *frame,
 				       xlator_t *this,
 				       int32_t op_ret,
 				       int32_t op_errno,
-				       const char *path);
+				       const char *path,
+                                       struct stat *buf);
 
 typedef int32_t (*fop_mknod_cbk_t) (call_frame_t *frame,
 				    void *cookie,
@@ -256,7 +260,9 @@ typedef int32_t (*fop_mknod_cbk_t) (call_frame_t *frame,
 				    int32_t op_ret,
 				    int32_t op_errno,
 				    inode_t *inode,
-				    struct stat *buf);
+                                    struct stat *buf,
+                                    struct stat *preparent,
+                                    struct stat *postparent);
 
 typedef int32_t (*fop_mkdir_cbk_t) (call_frame_t *frame,
 				    void *cookie,
@@ -264,19 +270,25 @@ typedef int32_t (*fop_mkdir_cbk_t) (call_frame_t *frame,
 				    int32_t op_ret,
 				    int32_t op_errno,
 				    inode_t *inode,
-				    struct stat *buf);
+                                    struct stat *buf,
+                                    struct stat *preparent,
+                                    struct stat *postparent);
 
 typedef int32_t (*fop_unlink_cbk_t) (call_frame_t *frame,
 				     void *cookie,
 				     xlator_t *this,
 				     int32_t op_ret,
-				     int32_t op_errno);
+				     int32_t op_errno,
+                                     struct stat *preparent,
+                                     struct stat *postparent);
 
 typedef int32_t (*fop_rmdir_cbk_t) (call_frame_t *frame,
 				    void *cookie,
 				    xlator_t *this,
 				    int32_t op_ret,
-				    int32_t op_errno);
+				    int32_t op_errno,
+                                    struct stat *preparent,
+                                    struct stat *postparent);
 
 typedef int32_t (*fop_symlink_cbk_t) (call_frame_t *frame,
 				      void *cookie,
@@ -284,14 +296,20 @@ typedef int32_t (*fop_symlink_cbk_t) (call_frame_t *frame,
 				      int32_t op_ret,
 				      int32_t op_errno,
 				      inode_t *inode,
-				      struct stat *buf);
+                                      struct stat *buf,
+                                      struct stat *preparent,
+                                      struct stat *postparent);
 
 typedef int32_t (*fop_rename_cbk_t) (call_frame_t *frame,
 				     void *cookie,
 				     xlator_t *this,
 				     int32_t op_ret,
 				     int32_t op_errno,
-				     struct stat *buf);
+				     struct stat *buf,
+                                     struct stat *preoldparent,
+                                     struct stat *postoldparent,
+                                     struct stat *prenewparent,
+                                     struct stat *postnewparent);
 
 typedef int32_t (*fop_link_cbk_t) (call_frame_t *frame,
 				   void *cookie,
@@ -299,7 +317,9 @@ typedef int32_t (*fop_link_cbk_t) (call_frame_t *frame,
 				   int32_t op_ret,
 				   int32_t op_errno,
 				   inode_t *inode,
-				   struct stat *buf);
+                                   struct stat *buf,
+                                   struct stat *preparent,
+                                   struct stat *postparent);
 
 typedef int32_t (*fop_create_cbk_t) (call_frame_t *frame,
 				     void *cookie,
@@ -308,7 +328,9 @@ typedef int32_t (*fop_create_cbk_t) (call_frame_t *frame,
 				     int32_t op_errno,
 				     fd_t *fd,
 				     inode_t *inode,
-				     struct stat *buf);
+				     struct stat *buf,
+                                     struct stat *preparent,
+                                     struct stat *postparent);
 
 typedef int32_t (*fop_open_cbk_t) (call_frame_t *frame,
 				   void *cookie,
@@ -332,7 +354,8 @@ typedef int32_t (*fop_writev_cbk_t) (call_frame_t *frame,
 				     xlator_t *this,
 				     int32_t op_ret,
 				     int32_t op_errno,
-				     struct stat *stbuf);
+				     struct stat *prebuf,
+                                     struct stat *postbuf);
 
 typedef int32_t (*fop_flush_cbk_t) (call_frame_t *frame,
 				    void *cookie,
@@ -344,7 +367,9 @@ typedef int32_t (*fop_fsync_cbk_t) (call_frame_t *frame,
 				    void *cookie,
 				    xlator_t *this,
 				    int32_t op_ret,
-				    int32_t op_errno);
+				    int32_t op_errno,
+                                    struct stat *prebuf,
+                                    struct stat *postbuf);
 
 typedef int32_t (*fop_opendir_cbk_t) (call_frame_t *frame,
 				      void *cookie,
@@ -593,11 +618,21 @@ typedef int32_t (*fop_create_t) (call_frame_t *frame,
 				 mode_t mode,
 				 fd_t *fd);
 
+/* Tell subsequent writes on the fd_t to fsync after every writev fop without
+ * requiring a fsync fop.
+ */
+#define GF_OPEN_FSYNC   0x01
+
+/* Tell write-behind to disable writing behind despite O_SYNC not being set.
+ */
+#define GF_OPEN_NOWB    0x02
+
 typedef int32_t (*fop_open_t) (call_frame_t *frame,
 			       xlator_t *this,
 			       loc_t *loc,
 			       int32_t flags,
-			       fd_t *fd);
+			       fd_t *fd,
+                               int32_t wbflags);
 
 typedef int32_t (*fop_readv_t) (call_frame_t *frame,
 				xlator_t *this,

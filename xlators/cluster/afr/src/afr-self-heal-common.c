@@ -831,7 +831,9 @@ static int
 sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 				 xlator_t *this,
 				 int32_t op_ret, int32_t op_errno,
-				 inode_t *inode, struct stat *buf)
+				 inode_t *inode, struct stat *buf,
+                                 struct stat *preparent,
+                                 struct stat *postparent)
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
@@ -1044,7 +1046,7 @@ static int
 sh_missing_entries_readlink_cbk (call_frame_t *frame, void *cookie,
 				 xlator_t *this,
 				 int32_t op_ret, int32_t op_errno,
-				 const char *link)
+				 const char *link, struct stat *sbuf)
 {
 	if (op_ret > 0)
 		sh_missing_entries_symlink (frame, this, link);
@@ -1164,7 +1166,8 @@ static int
 sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 			       xlator_t *this,
 			       int32_t op_ret, int32_t op_errno,
-			       inode_t *inode, struct stat *buf, dict_t *xattr)
+                               inode_t *inode, struct stat *buf, dict_t *xattr,
+                               struct stat *postparent)
 {
 	int              child_index = 0;
 	afr_local_t     *local = NULL;

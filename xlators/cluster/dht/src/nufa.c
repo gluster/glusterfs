@@ -30,7 +30,8 @@
 int 
 nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int op_ret, int op_errno,
-		       inode_t *inode, struct stat *stbuf, dict_t *xattr)
+                       inode_t *inode, struct stat *stbuf, dict_t *xattr,
+                       struct stat *postparent)
 {
 	dht_layout_t *layout      = NULL;
         xlator_t     *subvol      = NULL;
@@ -268,7 +269,9 @@ err:
 int
 nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie, 
 				 xlator_t *this, int op_ret, int op_errno,
-				 inode_t *inode, struct stat *stbuf)
+                                 inode_t *inode, struct stat *stbuf,
+                                 struct stat *preparent,
+                                 struct stat *postparent)
 {
  	dht_local_t  *local = NULL;
  	call_frame_t *prev = NULL;
@@ -374,8 +377,9 @@ err:
 
 int
 nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			 int op_ret, int op_errno,
-			 inode_t *inode, struct stat *stbuf)
+                         int op_ret, int op_errno, inode_t *inode,
+                         struct stat *stbuf, struct stat *preparent,
+                         struct stat *postparent)
 {
  	dht_local_t  *local = NULL;
  	call_frame_t *prev = NULL;

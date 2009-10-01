@@ -88,7 +88,8 @@ afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		     int32_t op_ret, int32_t op_errno, struct stat *buf)
+		     int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                     struct stat *postbuf)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -115,11 +116,11 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
 				local->op_ret   = op_ret;
-				local->cont.writev.buf = *buf;
+				local->cont.writev.buf = *postbuf;
 			}
 
                         if (child_index == read_child) {
-                                local->cont.writev.read_child_buf = *buf;
+                                local->cont.writev.read_child_buf = *postbuf;
                         }
 
 			local->success_count++;
@@ -323,7 +324,8 @@ afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		       int32_t op_ret, int32_t op_errno, struct stat *buf)
+		       int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                       struct stat *postbuf)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -350,11 +352,11 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
 				local->op_ret = op_ret;
-				local->cont.truncate.buf = *buf;
+				local->cont.truncate.buf = *postbuf;
 			}
 
                         if (child_index == read_child) {
-                                local->cont.truncate.read_child_buf = *buf;
+                                local->cont.truncate.read_child_buf = *postbuf;
                         }
 
 			local->success_count++;
@@ -543,7 +545,8 @@ afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-			int32_t op_ret, int32_t op_errno, struct stat *buf)
+			int32_t op_ret, int32_t op_errno, struct stat *prebuf,
+                        struct stat *postbuf)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -570,11 +573,11 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
 				local->op_ret = op_ret;
-				local->cont.ftruncate.buf = *buf;
+				local->cont.ftruncate.buf = *postbuf;
 			}
 
                         if (child_index == read_child) {
-                                local->cont.ftruncate.read_child_buf = *buf;
+                                local->cont.ftruncate.read_child_buf = *postbuf;
                         }
 
 			local->success_count++;
