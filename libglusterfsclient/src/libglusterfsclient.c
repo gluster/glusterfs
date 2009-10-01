@@ -5320,11 +5320,16 @@ __glusterfs_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
         char                            *name = NULL;
         loc_t                           *oploc = NULL;
         loc_t                           targetloc = {0, };
+        struct stat                     stbuf = {0,};
+        int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, op %d", path, whichop);
+        stbuf.st_uid = owner;
+        stbuf.st_gid = group;
+        valid |= (GF_SET_ATTR_UID | GF_SET_ATTR_GID);
         loc.path = libgf_resolve_path_light ((char *)path);
         if (!loc.path) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
@@ -5356,7 +5361,7 @@ __glusterfs_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
 
         oploc = &targetloc;
 do_lchown:
-        op_ret = libgf_client_chown (ctx, oploc, owner, group);
+        op_ret = libgf_client_setattr (ctx, oploc, &stbuf, valid);
 out:
         if (name)
                 FREE (name);
