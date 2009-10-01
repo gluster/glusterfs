@@ -5557,6 +5557,8 @@ glusterfs_fchmod (glusterfs_file_t fd, mode_t mode)
 {
         libglusterfs_client_fd_ctx_t    *fdctx = NULL;
         int                             op_ret = -1;
+        struct stat                     stbuf = {0,};
+        int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
         fdctx = libgf_get_fd_ctx (fd);
@@ -5567,8 +5569,10 @@ glusterfs_fchmod (glusterfs_file_t fd, mode_t mode)
                 goto out;
         }
 
-        op_ret = libgf_client_fchmod (fdctx->ctx, fd, mode);
+        stbuf.st_mode = mode;
+        valid |= GF_SET_ATTR_MODE;
 
+        op_ret = libgf_client_fsetattr (fdctx->ctx, fd, &stbuf, valid);
 out:
         return op_ret;
 }
