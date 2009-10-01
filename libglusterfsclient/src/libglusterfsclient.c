@@ -5208,10 +5208,14 @@ glusterfs_glh_chmod (glusterfs_handle_t handle, const char *path, mode_t mode)
         libglusterfs_client_ctx_t       *ctx = handle;
         loc_t                           loc = {0, };
         char                            *name = NULL;
+        struct stat                     stbuf = {0,};
+        int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
+        stbuf.st_mode = mode;
+        valid |= GF_SET_ATTR_MODE;
         loc.path = libgf_resolve_path_light ((char *)path);
         if (!loc.path) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
@@ -5230,7 +5234,7 @@ glusterfs_glh_chmod (glusterfs_handle_t handle, const char *path, mode_t mode)
                 goto out;
         }
 
-        op_ret = libgf_client_chmod (ctx, &loc, mode);
+        op_ret = libgf_client_setattr (ctx, &loc, &stbuf, valid);
 
 out:
         if (name)
