@@ -59,6 +59,7 @@ struct posix_fd {
 	int32_t flags;   /* flags for open/creat      */
 	char *  path;    /* used by setdents/getdents */
 	DIR *   dir;     /* handle returned by the kernel */
+        int     flushwrites;
 };
 
 struct posix_private {
