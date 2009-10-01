@@ -141,11 +141,17 @@ int ha_handle_cbk (call_frame_t *frame, void *cookie, int op_ret, int op_errno)
 			}
 		}
 	}
-	if (local->stub)
+	if (local->stub) {
 		call_stub_destroy (local->stub);
+                local->stub = NULL;
+        }
+
 	if (local->fd) {
 		FREE (local->state);
+                local->state = NULL;
+
 		fd_unref (local->fd);
+                local->fd = NULL;
 	}
 	return 0;
 }
