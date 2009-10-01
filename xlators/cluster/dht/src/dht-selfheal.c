@@ -212,6 +212,13 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev   = cookie;
 	subvol = prev->this;
 
+        dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
+        if (prev->this == local->hashed_subvol)
+                local->st_ino = local->stbuf.st_ino;
+
+        dht_stat_merge (this, &local->preparent, preparent, prev->this);
+        dht_stat_merge (this, &local->postparent, postparent, prev->this);
+
 	if ((op_ret == 0) || (op_errno == EEXIST)) {
 		for (i = 0; i < layout->cnt; i++) {
 			if (layout->list[i].xlator == subvol) {

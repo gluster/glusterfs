@@ -31,6 +31,7 @@
 #include "defaults.h"
 
 #include <sys/time.h>
+#include <libgen.h>
 
 /* TODO:
    - use volumename in xattr instead of "dht"
@@ -67,10 +68,12 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 				"could not find hashed subvolume for %s",
 				local->loc.path);
 		}
+
+                local->postparent.st_ino = local->loc.parent->ino;
 	}
 
 	DHT_STACK_UNWIND (frame, ret, local->op_errno, local->inode,
-			  &local->stbuf, local->xattr);
+			  &local->stbuf, local->xattr, &local->postparent);
 
 	return 0;
 }
@@ -82,13 +85,13 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     inode_t *inode, struct stat *stbuf, dict_t *xattr,
                     struct stat *postparent)
 {
-	dht_conf_t   *conf          = NULL;
-        dht_local_t  *local         = NULL;
-        int           this_call_cnt = 0;
-        call_frame_t *prev          = NULL;
-	dht_layout_t *layout        = NULL;
-	int           ret           = 0;
-	int           is_dir        = 0;
+	dht_conf_t   *conf                    = NULL;
+        dht_local_t  *local                   = NULL;
+        int           this_call_cnt           = 0;
+        call_frame_t *prev                    = NULL;
+	dht_layout_t *layout                  = NULL;
+	int           ret                     = 0;
+	int           is_dir                  = 0;
 
 	conf  = this->private;
         local = frame->local;
@@ -133,6 +136,8 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  			local->inode = inode_ref (inode);
 
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_stat_merge (this, &local->postparent, postparent,
+                                prev->this);
 
 		if (prev->this == local->hashed_subvol)
 			local->st_ino = local->stbuf.st_ino;
@@ -173,10 +178,13 @@ unlock:
 					"could not find hashed subvol for %s",
 					local->loc.path);
 			}
+
+                        local->postparent.st_ino = local->loc.parent->ino;
 		}
 
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				  local->inode, &local->stbuf, local->xattr);
+				  local->inode, &local->stbuf, local->xattr,
+                                  &local->postparent);
         }
 
 	return 0;
@@ -273,9 +281,12 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		} 
 		
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_stat_merge (this, &local->postparent, postparent,
+                                prev->this);
 		
 		local->op_ret = 0;
 		local->stbuf.st_ino = local->st_ino;
+                local->postparent.st_ino = local->loc.parent->ino;
 
 		if (!local->xattr)
 			local->xattr = dict_ref (xattr);
@@ -299,7 +310,8 @@ unlock:
 		}
 			
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				  local->inode, &local->stbuf, local->xattr);
+				  local->inode, &local->stbuf, local->xattr,
+                                  &local->postparent);
 	}
 
         return 0;
@@ -338,9 +350,12 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 		local->stbuf.st_mode |= S_ISVTX;
 	}
 
+        local->postparent.st_ino = local->loc.parent->ino;
+
 unwind:
 	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-			  local->inode, &local->stbuf, local->xattr);
+			  local->inode, &local->stbuf, local->xattr,
+                          &local->postparent);
 	return 0;
 }
 
@@ -411,6 +426,9 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "found on %s file %s",
                                         subvol->name, loc->path);
+                                
+                                dht_stat_merge (this, &local->postparent,
+                                                postparent, subvol);
                         } else {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "multiple subvolumes (%s and %s) have "
@@ -440,7 +458,8 @@ unlock:
                                 "and directory on another. "
                                 "Please fix it manually",
                                 loc->path);
-                        DHT_STACK_UNWIND (frame, -1, EIO, NULL, NULL, NULL);
+                        DHT_STACK_UNWIND (frame, -1, EIO, NULL, NULL, NULL,
+                                          NULL);
                         return 0;
                 }
 
@@ -450,7 +469,8 @@ unlock:
                 }
 
 		if (!cached_subvol) {
-			DHT_STACK_UNWIND (frame, -1, ENOENT, NULL, NULL, NULL);
+			DHT_STACK_UNWIND (frame, -1, ENOENT, NULL, NULL, NULL,
+                                          NULL);
 			return 0;
 		}
 
@@ -474,9 +494,12 @@ unlock:
                                 local->op_errno = EINVAL;
                         }
 
+                        local->postparent.st_ino = local->loc.parent->ino;
+
                         DHT_STACK_UNWIND (frame, local->op_ret,
                                           local->op_errno, local->inode,
-                                          &local->stbuf, local->xattr);
+                                          &local->stbuf, local->xattr,
+                                          &local->postparent);
                         return 0;
                 }
 
@@ -528,12 +551,12 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                          inode_t *inode, struct stat *stbuf, dict_t *xattr,
                          struct stat *postparent)
 {
-        call_frame_t *prev = NULL;
-	dht_local_t  *local = NULL;
-	dht_layout_t *layout = NULL;
-	xlator_t     *subvol = NULL;
-	loc_t        *loc = NULL;
-	dht_conf_t   *conf = NULL;
+        call_frame_t *prev          = NULL;
+	dht_local_t  *local         = NULL;
+	dht_layout_t *layout        = NULL;
+	xlator_t     *subvol        = NULL;
+	loc_t        *loc           = NULL;
+	dht_conf_t   *conf          = NULL;
 
         prev   = cookie;
 	subvol = prev->this;
@@ -567,7 +590,8 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 		stbuf->st_mode |= S_ISVTX;
 	}
         dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
-
+        postparent->st_ino = local->loc.parent->ino;
+        
 	layout = dht_layout_for_subvol (this, prev->this);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -581,7 +605,8 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 	inode_ctx_put (inode, this, (uint64_t)(long)layout);
 
 out:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr,
+                          postparent);
 
         return 0;
 
@@ -610,7 +635,7 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
         if (!local->layout) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
-                DHT_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
+                DHT_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
                 return 0;
         }
 		
@@ -630,15 +655,14 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode_t *inode, struct stat *stbuf, dict_t *xattr,
                 struct stat *postparent)
 {
-	dht_layout_t *layout      = NULL;
-        char          is_linkfile = 0;
-        char          is_dir      = 0;
-        xlator_t     *subvol      = NULL;
-        dht_conf_t   *conf        = NULL;
-        dht_local_t  *local       = NULL;
-        loc_t        *loc         = NULL;
-        call_frame_t *prev        = NULL;
-
+	dht_layout_t *layout        = NULL;
+        char          is_linkfile   = 0;
+        char          is_dir        = 0;
+        xlator_t     *subvol        = NULL;
+        dht_conf_t   *conf          = NULL;
+        dht_local_t  *local         = NULL;
+        loc_t        *loc           = NULL;
+        call_frame_t *prev          = NULL;
 
         conf  = this->private;
 
@@ -679,6 +703,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		dht_itransform (this, prev->this, stbuf->st_ino,
 				&stbuf->st_ino);
 
+                postparent->st_ino = loc->parent->ino;
+
 		layout = dht_layout_for_subvol (this, prev->this);
 		if (!layout) {
 			gf_log (this->name, GF_LOG_DEBUG,
@@ -712,7 +738,14 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 out:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
+        /* 
+         * FIXME: postparent->st_size and postparent->st_blocks do not have 
+         * correct values. since, postparent corresponds to a directory these 
+         * two members should have values equal to sum of corresponding values
+         * from each of the subvolume. See dht_stat_merge for reference.
+         */ 
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr,
+                          postparent);
         return 0;
 }
 
@@ -827,7 +860,8 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
  			call_cnt        = conf->subvolume_cnt;
  			local->call_cnt = call_cnt;
  			
- 			local->layout = dht_layout_new (this, conf->subvolume_cnt);
+ 			local->layout = dht_layout_new (this,
+                                                        conf->subvolume_cnt);
  			if (!local->layout) {
  				op_errno = ENOMEM;
  				gf_log (this->name, GF_LOG_ERROR,
@@ -853,7 +887,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-        DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+        DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -881,10 +915,14 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-		dht_stat_merge (this, &local->stbuf, prebuf, prev->this);
+                dht_stat_merge (this, &local->prebuf, prebuf, prev->this);
+		dht_stat_merge (this, &local->stbuf, postbuf, prev->this);
 
-		if (local->inode)
+		if (local->inode) {
 			local->stbuf.st_ino = local->inode->ino;
+                        local->prebuf.st_ino = local->inode->ino;
+                }
+
 		local->op_ret = 0;
 	}
 unlock:
@@ -893,7 +931,7 @@ unlock:
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				  &local->stbuf);
+				  &local->prebuf, &local->stbuf);
 
         return 0;
 }
@@ -1202,9 +1240,15 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 unlock:
 	UNLOCK (&frame->lock);
 
+        if (local && (op_ret == 0)) {
+                prebuf->st_ino = local->st_ino;
+                postbuf->st_ino = local->st_ino;
+        }
+
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                                  prebuf, postbuf);
 
         return 0;
 }
@@ -1239,8 +1283,9 @@ unlock:
 	UNLOCK (&frame->lock);
 
 	this_call_cnt = dht_frame_return (frame);
-	if (is_last_call (this_call_cnt))
+	if (is_last_call (this_call_cnt)) {
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+        }
 
         return 0;
 }
@@ -1297,6 +1342,16 @@ int
 dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, const char *path, struct stat *sbuf)
 {
+        dht_local_t *local = NULL;
+
+        local = frame->local;
+        if (local) {
+                sbuf->st_ino = local->st_ino;
+        } else {
+                op_ret = -1;
+                op_errno = EINVAL;
+        }
+
         DHT_STACK_UNWIND (frame, op_ret, op_errno, path, sbuf);
 
         return 0;
@@ -1309,7 +1364,7 @@ dht_readlink (call_frame_t *frame, xlator_t *this,
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-
+        dht_local_t  *local = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1325,6 +1380,16 @@ dht_readlink (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
+	local = dht_local_init (frame);
+	if (!local) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory");
+		goto err;
+	}
+
+        local->st_ino = loc->inode->ino;
+ 
 	STACK_WIND (frame, dht_readlink_cbk,
 		    subvol, subvol->fops->readlink,
 		    loc, size);
@@ -1379,7 +1444,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -1426,7 +1491,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -1564,7 +1629,7 @@ dht_open (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -1622,6 +1687,23 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int op_ret, int op_errno, struct stat *prebuf,
                 struct stat *postbuf)
 {
+        dht_local_t *local = NULL;
+
+        if (op_ret == -1) {
+                goto out;
+        }
+
+        local = frame->local;
+        if (!local) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        } 
+        
+        prebuf->st_ino = local->st_ino;
+        postbuf->st_ino = local->st_ino;
+
+out:
         DHT_STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 
         return 0;
@@ -1635,7 +1717,7 @@ dht_writev (call_frame_t *frame, xlator_t *this,
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-
+        dht_local_t  *local = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1649,6 +1731,16 @@ dht_writev (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
+        local = dht_local_init (frame);
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        local->st_ino = fd->inode->ino;
+
 	STACK_WIND (frame, dht_writev_cbk,
 		    subvol, subvol->fops->writev,
 		    fd, vector, count, off, iobref);
@@ -1657,7 +1749,7 @@ dht_writev (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, 0);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -1736,6 +1828,8 @@ dht_fsync (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 	local->call_cnt = 1;
+
+        local->st_ino = fd->inode->ino;
 
 	STACK_WIND (frame, dht_fsync_cbk,
 		    subvol, subvol->fops->fsync,
@@ -2122,7 +2216,7 @@ dht_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -2137,14 +2231,26 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	call_frame_t *prev = NULL;
 	dht_layout_t *layout = NULL;
 	int           ret = -1;
+        dht_local_t  *local = NULL;
 
 
 	if (op_ret == -1)
 		goto out;
 
+        local = frame->local;
+        if (!local) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
 	prev = cookie;
 
 	dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+
+        preparent->st_ino = local->loc.parent->ino;
+        postparent->st_ino = local->loc.parent->ino;
+
 	layout = dht_layout_for_subvol (this, prev->this);
 
 	if (!layout) {
@@ -2166,7 +2272,16 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
 out:
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+        /* 
+         * FIXME: st_size and st_blocks of preparent and postparent do not have 
+         * correct values. since, preparent and postparent buffers correspond
+         * to a directory these two members should have values equal to sum of
+         * corresponding values from each of the subvolume.
+         * See dht_stat_merge for reference.
+         */ 
+
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, preparent,
+                          postparent);
 	return 0;
 }
 
@@ -2192,7 +2307,7 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         return 0;
  err:
- 	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);	
+ 	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);	
  	return 0;
 }
 
@@ -2224,6 +2339,14 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
+        ret = loc_dup (loc, &local->loc);
+        if (ret == -1) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto err;
+        }
+
         if (!dht_is_subvol_filled (this, subvol)) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "creating %s on %s", loc->path, subvol->name);
@@ -2236,20 +2359,6 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                 if (avail_subvol != subvol) {
                         /* Choose the minimum filled volume, and create the 
                            files there */
-                        local = dht_local_init (frame);
-                        if (!local) {
-                                op_errno = ENOMEM;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory");
-                                goto err;
-                        }
-                        ret = loc_dup (loc, &local->loc);
-                        if (ret == -1) {
-                                op_errno = ENOMEM;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory");
-                                goto err;
-                        }
 
                         local->cached_subvol = avail_subvol;
                         local->mode = mode; 
@@ -2321,6 +2430,7 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	xlator_t    *cached_subvol = NULL;
 	xlator_t    *hashed_subvol = NULL;
+        int          ret = -1;
 	int          op_errno = -1;
 	dht_local_t *local = NULL;
 
@@ -2354,6 +2464,14 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 		goto err;
 	}
 
+	ret = loc_copy (&local->loc, loc);
+	if (ret == -1) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory");
+		goto err;
+	}
+
 	local->call_cnt = 1;
 	if (hashed_subvol != cached_subvol)
 		local->call_cnt++;
@@ -2369,7 +2487,7 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -2403,8 +2521,12 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	stbuf->st_ino = local->loc.inode->ino;
 
+        preparent->st_ino = local->loc2.parent->ino;
+        postparent->st_ino = local->loc2.parent->ino;
+
 out:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, preparent,
+                          postparent);
 
 	return 0;
 }
@@ -2433,7 +2555,8 @@ dht_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 
 err:
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, preparent,
+                          postparent);
 
 	return 0;
 }
@@ -2509,7 +2632,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -2524,13 +2647,25 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	call_frame_t *prev = NULL;
 	dht_layout_t *layout = NULL;
 	int           ret = -1;
+        dht_local_t  *local = NULL;
 
 	if (op_ret == -1)
 		goto out;
 
+        local = frame->local;
+        if (!local) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
 	prev = cookie;
 
 	dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+
+        preparent->st_ino = local->loc.parent->ino;
+        postparent->st_ino = local->loc.parent->ino;
+
 	layout = dht_layout_for_subvol (this, prev->this);
 
 	if (!layout) {
@@ -2552,7 +2687,8 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
 out:
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf, preparent,
+                          postparent);
 	return 0;
 }
 
@@ -2579,7 +2715,7 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         return 0;
  err:
- 	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);	
+ 	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
  	return 0;
 }
 
@@ -2619,6 +2755,21 @@ dht_create (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
+        local = dht_local_init (frame);
+        if (!local) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto err;
+        }
+        ret = loc_dup (loc, &local->loc);
+        if (ret == -1) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto err;
+        }
+
         if (!dht_is_subvol_filled (this, subvol)) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "creating %s on %s", loc->path, subvol->name);
@@ -2631,14 +2782,6 @@ dht_create (call_frame_t *frame, xlator_t *this,
                 /* TODO */
                 avail_subvol = dht_free_disk_available_subvol (this, subvol);
                 if (avail_subvol != subvol) {
-                        ret = loc_dup (loc, &local->loc);
-                        if (ret == -1) {
-                                op_errno = ENOMEM;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory");
-                                goto err;
-                        }
-
                         local->fd = fd_ref (fd);
                         local->flags = flags;
                         local->mode = mode;
@@ -2665,7 +2808,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -2687,10 +2830,13 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 		inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
 		local->selfheal.layout = NULL;
 		local->stbuf.st_ino = local->st_ino;
+                local->preparent.st_ino = local->loc.parent->ino;
+                local->postparent.st_ino = local->loc.parent->ino;
 	}
 
 	DHT_STACK_UNWIND (frame, op_ret, op_errno,
-			  local->inode, &local->stbuf);
+			  local->inode, &local->stbuf, &local->preparent,
+                          &local->postparent);
 
 	return 0;
 }
@@ -2730,6 +2876,9 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_stat_merge (this, &local->preparent, preparent, prev->this);
+                dht_stat_merge (this, &local->postparent, postparent,
+                                prev->this);
 	}
 unlock:
 	UNLOCK (&frame->lock);
@@ -2778,6 +2927,8 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 	local->op_ret = 0;
 
 	dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
+        dht_stat_merge (this, &local->preparent, preparent, prev->this);
+        dht_stat_merge (this, &local->postparent, postparent, prev->this);
 
 	local->st_ino = local->stbuf.st_ino;
 
@@ -2798,7 +2949,7 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 	}
 	return 0;
 err:
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -2870,7 +3021,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -2885,7 +3036,11 @@ dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 	local->layout = NULL;
 
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+        local->preparent.st_ino = local->loc.parent->ino;
+        local->postparent.st_ino = local->loc.parent->ino;
+
+	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                          &local->preparent, &local->postparent);
 
 	return 0;
 }
@@ -2920,6 +3075,10 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				strerror (op_errno));
 			goto unlock;
 		}
+
+                dht_stat_merge (this, &local->preparent, preparent, prev->this);
+                dht_stat_merge (this, &local->postparent, postparent,
+                                prev->this);
 	}
 unlock:
 	UNLOCK (&frame->lock);
@@ -2938,8 +3097,12 @@ unlock:
 			dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
 					      &local->loc, layout);
 		} else {
+                        local->preparent.st_ino = local->loc.parent->ino;
+                        local->postparent.st_ino = local->loc.parent->ino;
+
 			DHT_STACK_UNWIND (frame, local->op_ret,
-					  local->op_errno);
+					  local->op_errno, &local->preparent,
+                                          &local->postparent);
 		}
 	}
 
@@ -2972,7 +3135,8 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
 	return 0;
 
 err:
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                          &local->preparent, &local->postparent);
 	return 0;
 }
 
@@ -3405,7 +3569,7 @@ dht_fentrylk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -3434,12 +3598,12 @@ dht_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-		dht_stat_merge (this, &local->stpre, statpre, prev->this);
-                dht_stat_merge (this, &local->stpost, statpost, prev->this);
+		dht_stat_merge (this, &local->prebuf, statpre, prev->this);
+                dht_stat_merge (this, &local->stbuf, statpost, prev->this);
 		
 		if (local->inode) {
-			local->stpre.st_ino = local->inode->ino;
-                        local->stpost.st_ino = local->inode->ino;
+			local->prebuf.st_ino = local->inode->ino;
+                        local->stbuf.st_ino = local->inode->ino;
                 }
 
 		local->op_ret = 0;
@@ -3450,7 +3614,7 @@ unlock:
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				  &local->stpre, &local->stpost);
+				  &local->prebuf, &local->stbuf);
 
         return 0;
 }
@@ -3510,7 +3674,7 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
 
 	return 0;
 }

@@ -56,9 +56,14 @@ struct dht_local {
 	int                      op_ret;
 	int                      op_errno;
 	int                      layout_mismatch;
+        /* Use stbuf as the postbuf, when we require both
+         * pre and post attrs */
 	struct stat              stbuf;
-        struct stat              stpre;
-        struct stat              stpost;
+        struct stat              prebuf;
+        struct stat              preoldparent;
+        struct stat              postoldparent; 
+        struct stat              preparent;
+        struct stat              postparent;
 	struct statvfs           statvfs;
 	fd_t                    *fd;
 	inode_t                 *inode;
