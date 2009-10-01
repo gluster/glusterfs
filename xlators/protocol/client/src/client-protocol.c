@@ -3629,6 +3629,8 @@ client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	fd_t                 *fd = NULL;
 	inode_t              *inode = NULL;
 	struct stat           stbuf = {0, };
+	struct stat           preparent = {0, };
+	struct stat           postparent = {0, };
 	int64_t               remote_fd = 0;
 	int32_t               ret = -1;
 	client_local_t       *local = NULL;
@@ -3648,6 +3650,9 @@ client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	if (op_ret >= 0) {
 		remote_fd = ntoh64 (rsp->fd);
 		gf_stat_to_stat (&rsp->stat, &stbuf);
+
+		gf_stat_to_stat (&rsp->preparent, &preparent);
+		gf_stat_to_stat (&rsp->postparent, &postparent);
 	}
 
 	if (op_ret >= 0) {
@@ -3680,7 +3685,8 @@ client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		pthread_mutex_unlock (&conf->mutex);
 	}
 unwind_out:
-	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf,
+                      &preparent, &postparent);
 	
 	client_local_wipe (local);
 
@@ -3799,6 +3805,8 @@ client_mknod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	inode_t            *inode = NULL;
 	client_local_t     *local = NULL;
         int                 ret = 0;
+        struct stat         preparent = {0,};
+        struct stat         postparent = {0,};
 
 	local = frame->local;
 	frame->local = NULL;
@@ -3821,9 +3829,13 @@ client_mknod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.parent->ino, local->loc.name,
                                 local->loc.path);
                 }
+
+		gf_stat_to_stat (&rsp->preparent, &preparent);
+		gf_stat_to_stat (&rsp->postparent, &postparent);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf,
+                      &preparent, &postparent);
 	
 	client_local_wipe (local);
 
@@ -3846,6 +3858,8 @@ client_symlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	int32_t               op_ret = 0;
 	int32_t               op_errno = 0;
 	struct stat           stbuf = {0, };
+        struct stat           preparent = {0,};
+        struct stat           postparent = {0,};
 	inode_t              *inode = NULL;
 	client_local_t       *local = NULL;
         int                   ret = 0;
@@ -3871,9 +3885,12 @@ client_symlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.parent->ino, local->loc.name,
                                 local->loc.path);
                 }
+		gf_stat_to_stat (&rsp->preparent, &preparent);
+		gf_stat_to_stat (&rsp->postparent, &postparent);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf,
+                      &preparent, &postparent);
 	
 	client_local_wipe (local);
 
@@ -3898,6 +3915,8 @@ client_link_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	struct stat        stbuf = {0, };
 	inode_t           *inode = NULL;
 	client_local_t    *local = NULL;
+        struct stat        preparent = {0,};
+        struct stat        postparent = {0,};
 
 	local = frame->local;
 	frame->local = NULL;
@@ -3910,9 +3929,13 @@ client_link_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
+
+		gf_stat_to_stat (&rsp->preparent, &preparent);
+		gf_stat_to_stat (&rsp->postparent, &postparent);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf,
+                      &preparent, &postparent);
 	
 	client_local_wipe (local);
 
@@ -3931,10 +3954,11 @@ int
 client_truncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
 {
-	struct stat            stbuf = {0, };
 	gf_fop_truncate_rsp_t *rsp = NULL;
 	int32_t                op_ret = 0;
 	int32_t                op_errno = 0;
+	struct stat         prestat = {0, };
+	struct stat         poststat = {0, };
 
 	rsp = gf_param (hdr);
 
@@ -3942,10 +3966,11 @@ client_truncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
 	if (op_ret == 0) {
-		gf_stat_to_stat (&rsp->prestat, &stbuf);
+		gf_stat_to_stat (&rsp->prestat, &prestat);
+		gf_stat_to_stat (&rsp->poststat, &poststat);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, &prestat, &poststat);
 
 	return 0;
 }
@@ -3973,6 +3998,7 @@ client_fstat_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
+
 	}
 
 	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
@@ -3991,10 +4017,11 @@ int
 client_ftruncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                       struct iobuf *iobuf)
 {
-	struct stat             stbuf = {0, };
 	gf_fop_ftruncate_rsp_t *rsp = NULL;
 	int32_t                 op_ret = 0;
 	int32_t                 op_errno = 0;
+	struct stat             prestat = {0, };
+	struct stat             poststat = {0, };
 
 	rsp = gf_param (hdr);
 
@@ -4002,10 +4029,11 @@ client_ftruncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
 	if (op_ret == 0) {
-		gf_stat_to_stat (&rsp->prestat, &stbuf);
+                gf_stat_to_stat (&rsp->prestat, &prestat);
+                gf_stat_to_stat (&rsp->poststat, &poststat);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, &prestat, &poststat);
 
 	return 0;
 }
@@ -4071,17 +4099,20 @@ client_write_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	gf_fop_write_rsp_t *rsp = NULL;
 	int32_t             op_ret = 0;
 	int32_t             op_errno = 0;
-	struct stat         stbuf = {0, };
+	struct stat         prestat = {0, };
+	struct stat         poststat = {0, };
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	if (op_ret >= 0)
-		gf_stat_to_stat (&rsp->poststat, &stbuf);
+	if (op_ret >= 0) {
+		gf_stat_to_stat (&rsp->prestat, &prestat);
+		gf_stat_to_stat (&rsp->poststat, &poststat);
+        }
 
-	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, &prestat, &poststat);
 
 	return 0;
 }
@@ -4128,7 +4159,8 @@ int
 client_fsync_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-	struct stat         stbuf = {0, };
+	struct stat         prestat = {0, };
+        struct stat         poststat = {0,};
 	gf_fop_fsync_rsp_t *rsp = NULL;
 	int32_t             op_ret = 0;
 	int32_t             op_errno = 0;
@@ -4138,7 +4170,12 @@ client_fsync_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+        if (op_ret == 0) {
+                gf_stat_to_stat (&rsp->prestat, &prestat);
+                gf_stat_to_stat (&rsp->poststat, &poststat);
+        }
+
+	STACK_UNWIND (frame, op_ret, op_errno, &prestat, &poststat);
 
 	return 0;
 }
@@ -4158,13 +4195,20 @@ client_unlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	gf_fop_unlink_rsp_t *rsp = NULL;
 	int32_t              op_ret = 0;
 	int32_t              op_errno = 0;
+        struct stat          preparent = {0,};
+        struct stat          postparent = {0,};
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	STACK_UNWIND (frame, op_ret, op_errno);
+        if (op_ret == 0) {
+                gf_stat_to_stat (&rsp->preparent, &preparent);
+                gf_stat_to_stat (&rsp->postparent, &postparent);
+        }
+
+	STACK_UNWIND (frame, op_ret, op_errno, &preparent, &postparent);
 
 	return 0;
 }
@@ -4185,6 +4229,10 @@ client_rename_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	gf_fop_rename_rsp_t *rsp = NULL;
 	int32_t              op_ret = 0;
 	int32_t              op_errno = 0;
+	struct stat          preoldparent = {0, };
+	struct stat          postoldparent = {0, };
+	struct stat          prenewparent = {0, };
+	struct stat          postnewparent = {0, };
 
 	rsp = gf_param (hdr);
 
@@ -4193,9 +4241,14 @@ client_rename_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 	if (op_ret == 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
+		gf_stat_to_stat (&rsp->preoldparent, &preoldparent);
+		gf_stat_to_stat (&rsp->postoldparent, &postoldparent);
+		gf_stat_to_stat (&rsp->prenewparent, &prenewparent);
+		gf_stat_to_stat (&rsp->postnewparent, &postnewparent);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, &stbuf, &preoldparent,
+                      &postoldparent, &prenewparent, &postnewparent);
 
 	return 0;
 }
@@ -4217,6 +4270,7 @@ client_readlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	int32_t                op_ret = 0;
 	int32_t                op_errno = 0;
 	char                  *link = NULL;
+        struct stat            stbuf = {0,};
 
 	rsp = gf_param (hdr);
 
@@ -4225,9 +4279,10 @@ client_readlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 	if (op_ret > 0) {
 		link = rsp->path;
+                gf_stat_to_stat (&rsp->buf, &stbuf);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, link);
+	STACK_UNWIND (frame, op_ret, op_errno, link, &stbuf);
 	return 0;
 }
 
@@ -4250,6 +4305,8 @@ client_mkdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	inode_t            *inode = NULL;
 	client_local_t     *local = NULL;
         int                 ret = 0;
+        struct stat         preparent = {0,};
+        struct stat         postparent = {0,};
 
 	local = frame->local;
 	inode = local->loc.inode;
@@ -4271,9 +4328,13 @@ client_mkdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.parent->ino, local->loc.name,
                                 local->loc.path);
                 }
+
+		gf_stat_to_stat (&rsp->preparent, &preparent);
+		gf_stat_to_stat (&rsp->postparent, &postparent);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf,
+                      &preparent, &postparent);
 	
 	client_local_wipe (local);
 
@@ -4379,13 +4440,20 @@ client_rmdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	gf_fop_rmdir_rsp_t *rsp = NULL;
 	int32_t             op_ret = 0;
 	int32_t             op_errno = 0;
+        struct stat         preparent = {0,};
+        struct stat         postparent = {0,};
 
 	rsp = gf_param (hdr);
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 	op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-	STACK_UNWIND (frame, op_ret, op_errno);
+        if (op_ret == 0) {
+                gf_stat_to_stat (&rsp->preparent, &preparent);
+                gf_stat_to_stat (&rsp->postparent, &postparent);
+        }
+
+	STACK_UNWIND (frame, op_ret, op_errno, &preparent, &postparent);
 
 	return 0;
 }
@@ -4430,6 +4498,7 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
 	struct stat          stbuf = {0, };
+	struct stat          postparent = {0, };
 	inode_t             *inode = NULL;
 	dict_t              *xattr = NULL;
 	gf_fop_lookup_rsp_t *rsp = NULL;
@@ -4453,6 +4522,7 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	if (op_ret == 0) {
 		op_ret = -1;
 		gf_stat_to_stat (&rsp->stat, &stbuf);
+		gf_stat_to_stat (&rsp->postparent, &postparent);
                 
                 ret = inode_ctx_get (inode, frame->this, &oldino);
                 if (oldino != stbuf.st_ino) {
@@ -4506,7 +4576,8 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	op_errno = gf_error_to_errno (gf_errno);
 
 fail:
-	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf, xattr);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf, xattr,
+                      &postparent);
 	
 	client_local_wipe (local);
 
