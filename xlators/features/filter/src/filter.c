@@ -213,8 +213,10 @@ filter_lookup_cbk (call_frame_t *frame,
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
 		}
+
+		update_stat (postparent, this->private);
 	}
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict, postparent);
 	return 0;
 }
 

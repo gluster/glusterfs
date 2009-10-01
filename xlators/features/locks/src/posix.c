@@ -166,7 +166,7 @@ unwind:
 	if (local->op == TRUNCATE)
 		loc_wipe (&local->loc);
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, buf, NULL);
 	return 0;
 }
 
@@ -196,7 +196,7 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
 	return 0;
 
 unwind:
-	STACK_UNWIND (frame, -1, ENOMEM, NULL);
+	STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
 
 	return 0;
 }
@@ -226,7 +226,7 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 	return 0;
 
 unwind:
-	STACK_UNWIND (frame, -1, ENOMEM, NULL);
+	STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
 
 	return 0;
 }
@@ -326,7 +326,8 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
 	       fd_t *fd, inode_t *inode, struct stat *buf,
                struct stat *preparent, struct stat *postparent)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf,
+                      preparent, postparent);
 
 	return 0;
 }
@@ -596,7 +597,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                             fd, vector, count, offset, iobref);
 
 	if (op_ret == -1)
-		STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
+		STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
