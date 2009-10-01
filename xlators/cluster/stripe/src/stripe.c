@@ -141,6 +141,7 @@ stripe_stack_unwind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
+
 int32_t
 stripe_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
@@ -164,8 +165,38 @@ stripe_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (op_errno == ENOTCONN)
                                 local->failed = 1;
                 }
-                if (op_ret >= 0)
+                if (op_ret >= 0) {
                         local->op_ret = op_ret;
+                        if (!local->pre_buf.st_blksize) {
+                                local->pre_buf = *prebuf;
+                                local->pre_buf.st_blocks = 0;
+                        }
+                        if (!local->post_buf.st_blksize) {
+                                local->post_buf = *postbuf;
+                                local->post_buf.st_blocks = 0;
+                        }
+                        if (FIRST_CHILD(this) ==
+                           ((call_frame_t *)cookie)->this) {
+                                local->pre_buf.st_ino    = prebuf->st_ino;
+                                local->pre_buf.st_mtime  = prebuf->st_mtime;
+                                local->post_buf.st_ino   = postbuf->st_ino;
+                                local->post_buf.st_mtime = postbuf->st_mtime;
+                        }
+                        local->pre_buf.st_blocks += prebuf->st_blocks;
+                        if (local->pre_buf.st_size < prebuf->st_size)
+                                local->pre_buf.st_size = prebuf->st_size;
+                        if (local->pre_buf.st_blksize != prebuf->st_blksize) {
+                                /* TODO: add to blocks in terms of
+                                   original block size */
+                        }
+                        local->post_buf.st_blocks += postbuf->st_blocks;
+                        if (local->post_buf.st_size < postbuf->st_size)
+                                local->post_buf.st_size = postbuf->st_size;
+                        if (local->post_buf.st_blksize != postbuf->st_blksize) {
+                                /* TODO: add to blocks in terms of
+                                   original block size */
+                        }
+                }
         }
         UNLOCK (&frame->lock);
 
@@ -178,17 +209,16 @@ stripe_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->loc2.path)
                         loc_wipe (&local->loc2);
 
-                STACK_UNWIND (frame, local->op_ret, local->op_errno);
+                STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+                              &local->pre_buf, &local->post_buf);
         }
         return 0;
 }
 
 
-
 /**
- * stripe_stack_unwind_remove_cbk -  This function is used for unlink
- * _cbk without any extra arguments (other than the minimum given)
- * This is called from functions like fsync,unlink,rmdir etc.
+ * stripe_stack_unwind_unlink_cbk -  
+ * This is called from functions like unlink,rmdir.
  *
  */
 int32_t
@@ -215,8 +245,48 @@ stripe_stack_unwind_unlink_cbk (call_frame_t *frame, void *cookie,
                         if (op_errno == ENOTCONN)
                                 local->failed = 1;
                 }
-                if (op_ret >= 0)
+                if (op_ret >= 0) {
                         local->op_ret = op_ret;
+                        if (!local->pre_parent_buf.st_blksize) {
+                                local->pre_parent_buf = *preparent;
+                                local->pre_parent_buf.st_blocks = 0;
+                        }
+                        if (!local->post_parent_buf.st_blksize) {
+                                local->post_parent_buf = *postparent;
+                                local->post_parent_buf.st_blocks = 0;
+                        }
+                        if (FIRST_CHILD(this) ==
+                           ((call_frame_t *)cookie)->this) {
+                                local->pre_parent_buf.st_ino    = 
+                                        preparent->st_ino;
+                                local->pre_parent_buf.st_mtime  = 
+                                        preparent->st_mtime;
+                                local->post_parent_buf.st_ino   = 
+                                        postparent->st_ino;
+                                local->post_parent_buf.st_mtime = 
+                                        postparent->st_mtime;
+                        }
+                        local->pre_parent_buf.st_blocks += preparent->st_blocks;
+                        if (local->pre_parent_buf.st_size < preparent->st_size)
+                                local->pre_parent_buf.st_size = 
+                                        preparent->st_size;
+                        if (local->pre_parent_buf.st_blksize != 
+                            preparent->st_blksize) {
+                                /* TODO: add to blocks in terms of
+                                   original block size */
+                        }
+                        local->post_parent_buf.st_blocks += 
+                                postparent->st_blocks;
+                        if (local->post_parent_buf.st_size < 
+                            postparent->st_size)
+                                local->post_parent_buf.st_size = 
+                                        postparent->st_size;
+                        if (local->post_parent_buf.st_blksize != 
+                            postparent->st_blksize) {
+                                /* TODO: add to blocks in terms of
+                                   original block size */
+                        }
+                }
         }
         UNLOCK (&frame->lock);
 
@@ -229,11 +299,11 @@ stripe_stack_unwind_unlink_cbk (call_frame_t *frame, void *cookie,
                 if (local->loc2.path)
                         loc_wipe (&local->loc2);
 
-                STACK_UNWIND (frame, local->op_ret, local->op_errno);
+                STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+                              &local->pre_parent_buf, &local->post_parent_buf);
         }
         return 0;
 }
-
 
 int32_t
 stripe_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -261,24 +331,32 @@ stripe_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (op_ret == 0) {
                         local->op_ret = 0;
-                        if (local->stbuf.st_blksize == 0) {
-                                local->stbuf = *postbuf;
-                                /* Because st_blocks gets added again */
-                                local->stbuf.st_blocks = 0;
+                        if (!local->pre_buf.st_blksize) {
+                                local->pre_buf = *prebuf;
+                                local->pre_buf.st_blocks = 0;
                         }
-
+                        if (!local->post_buf.st_blksize) {
+                                local->post_buf = *postbuf;
+                                local->post_buf.st_blocks = 0;
+                        }
                         if (FIRST_CHILD(this) ==
-                            ((call_frame_t *)cookie)->this) {
-                                /* Always, pass the inode number of
-                                   first child to the above layer */
-                                local->stbuf.st_ino = postbuf->st_ino;
-                                local->stbuf.st_mtime = postbuf->st_mtime;
+                           ((call_frame_t *)cookie)->this) {
+                                local->pre_buf.st_ino    = prebuf->st_ino;
+                                local->pre_buf.st_mtime  = prebuf->st_mtime;
+                                local->post_buf.st_ino   = postbuf->st_ino;
+                                local->post_buf.st_mtime = postbuf->st_mtime;
                         }
-
-                        local->stbuf.st_blocks += postbuf->st_blocks;
-                        if (local->stbuf.st_size < postbuf->st_size)
-                                local->stbuf.st_size = postbuf->st_size;
-                        if (local->stbuf.st_blksize != postbuf->st_blksize) {
+                        local->pre_buf.st_blocks += prebuf->st_blocks;
+                        if (local->pre_buf.st_size < prebuf->st_size)
+                                local->pre_buf.st_size = prebuf->st_size;
+                        if (local->pre_buf.st_blksize != prebuf->st_blksize) {
+                                /* TODO: add to blocks in terms of
+                                   original block size */
+                        }
+                        local->post_buf.st_blocks += postbuf->st_blocks;
+                        if (local->post_buf.st_size < postbuf->st_size)
+                                local->post_buf.st_size = postbuf->st_size;
+                        if (local->post_buf.st_blksize != postbuf->st_blksize) {
                                 /* TODO: add to blocks in terms of
                                    original block size */
                         }
@@ -296,7 +374,7 @@ stripe_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         loc_wipe (&local->loc2);
 
                 STACK_UNWIND (frame, local->op_ret, local->op_errno,
-                              &local->stbuf);
+                              &local->pre_buf, &local->post_buf);
         }
 
         return 0;
@@ -310,76 +388,6 @@ stripe_common_buf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_UNWIND (frame, op_ret, op_errno, buf);
         return 0;
 }
-
-
-int32_t
-stripe_stack_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct stat *buf,
-                         struct stat *preoldparent, struct stat *postoldparent,
-                         struct stat *prenewparent, struct stat *postnewparent)
-{
-        int32_t         callcnt = 0;
-        stripe_local_t *local = NULL;
-
-        local = frame->local;
-
-        LOCK (&frame->lock);
-        {
-                callcnt = --local->call_count;
-
-                if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "%s returned error %s",
-                                ((call_frame_t *)cookie)->this->name,
-                                strerror (op_errno));
-                        local->op_errno = op_errno;
-                        if (op_errno == ENOTCONN)
-                                local->failed = 1;
-                }
-
-                if (op_ret == 0) {
-                        local->op_ret = 0;
-                        if (local->stbuf.st_blksize == 0) {
-                                local->stbuf = *buf;
-                                /* Because st_blocks gets added again */
-                                local->stbuf.st_blocks = 0;
-                        }
-
-                        if (FIRST_CHILD(this) ==
-                            ((call_frame_t *)cookie)->this) {
-                                /* Always, pass the inode number of
-                                   first child to the above layer */
-                                local->stbuf.st_ino = buf->st_ino;
-                                local->stbuf.st_mtime = buf->st_mtime;
-                        }
-
-                        local->stbuf.st_blocks += buf->st_blocks;
-                        if (local->stbuf.st_size < buf->st_size)
-                                local->stbuf.st_size = buf->st_size;
-                        if (local->stbuf.st_blksize != buf->st_blksize) {
-                                /* TODO: add to blocks in terms of
-                                   original block size */
-                        }
-                }
-        }
-        UNLOCK (&frame->lock);
-
-        if (!callcnt) {
-                if (local->failed)
-                        local->op_ret = -1;
-
-                if (local->loc.path)
-                        loc_wipe (&local->loc);
-                if (local->loc2.path)
-                        loc_wipe (&local->loc2);
-
-                STACK_UNWIND (frame, local->op_ret, local->op_errno,
-                              &local->stbuf);
-        }
-
-        return 0;
-}
-
 
 /**
  * stripe_stack_unwind_buf_cbk -  This function is used for all the _cbk with 
@@ -415,24 +423,24 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
     
                 if (op_ret == 0) {
                         local->op_ret = 0;
-                        if (local->stbuf.st_blksize == 0) {
-                                local->stbuf = *buf;
+                        if (local->post_buf.st_blksize == 0) {
+                                local->post_buf = *buf;
                                 /* Because st_blocks gets added again */
-                                local->stbuf.st_blocks = 0;
+                                local->post_buf.st_blocks = 0;
                         }
 
                         if (FIRST_CHILD(this) == 
                             ((call_frame_t *)cookie)->this) {
                                 /* Always, pass the inode number of 
                                    first child to the above layer */
-                                local->stbuf.st_ino = buf->st_ino;
-                                local->stbuf.st_mtime = buf->st_mtime;
+                                local->post_buf.st_ino = buf->st_ino;
+                                local->post_buf.st_mtime = buf->st_mtime;
                         }
 
-                        local->stbuf.st_blocks += buf->st_blocks;
-                        if (local->stbuf.st_size < buf->st_size)
-                                local->stbuf.st_size = buf->st_size;
-                        if (local->stbuf.st_blksize != buf->st_blksize) {
+                        local->post_buf.st_blocks += buf->st_blocks;
+                        if (local->post_buf.st_size < buf->st_size)
+                                local->post_buf.st_size = buf->st_size;
+                        if (local->post_buf.st_blksize != buf->st_blksize) {
                                 /* TODO: add to blocks in terms of 
                                    original block size */
                         }
@@ -450,7 +458,7 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         loc_wipe (&local->loc2);
 
                 STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-                              &local->stbuf);
+                              &local->post_buf);
         }
 
         return 0;
@@ -505,25 +513,43 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame, void *cookie,
                 if (op_ret >= 0) {
                         local->op_ret = 0;
 
-                        if (local->stbuf.st_blksize == 0) {
-                                local->inode = inode;
-                                local->stbuf = *buf;
-                                /* Because st_blocks gets added again */
-                                local->stbuf.st_blocks = 0;
+                        if (!local->post_buf.st_blksize) {
+                                local->post_buf = *buf;
+                                local->post_buf.st_blocks = 0;
                         }
-                        if (FIRST_CHILD(this) == 
+                        if (!local->pre_parent_buf.st_blksize) {
+                                local->pre_parent_buf = *preparent;
+                                local->pre_parent_buf.st_blocks = 0;
+                        }
+                        if (!local->post_parent_buf.st_blksize) {
+                                local->post_parent_buf = *postparent;
+                                local->post_parent_buf.st_blocks = 0;
+                        }
+                        if (FIRST_CHILD(this) ==
                             ((call_frame_t *)cookie)->this) {
-                                local->stbuf.st_ino = buf->st_ino;
-                                local->stbuf.st_mtime = buf->st_mtime;
-                        }
+                                local->post_buf.st_ino   = buf->st_ino;
+                                local->post_buf.st_mtime = buf->st_mtime;
 
-                        local->stbuf.st_blocks += buf->st_blocks;
-                        if (local->stbuf.st_size < buf->st_size)
-                                local->stbuf.st_size = buf->st_size;
-                        if (local->stbuf.st_blksize != buf->st_blksize) {
-                                /* TODO: add to blocks in terms of 
-                                   original block size */
+                                local->pre_parent_buf.st_ino = preparent->st_ino;
+                                local->pre_parent_buf.st_mtime = preparent->st_mtime;
+                                local->post_parent_buf.st_ino = postparent->st_ino;
+                                local->post_parent_buf.st_mtime = postparent->st_mtime;
                         }
+                        local->post_buf.st_blocks += buf->st_blocks;
+                        if (local->post_buf.st_size < buf->st_size)
+                                local->post_buf.st_size =  buf->st_size;
+
+                        local->pre_parent_buf.st_blocks += preparent->st_blocks;
+                        if (local->pre_parent_buf.st_size < 
+                            preparent->st_size)
+                                local->pre_parent_buf.st_size = 
+                                        preparent->st_size;
+                        local->post_parent_buf.st_blocks += 
+                                postparent->st_blocks;
+                        if (local->post_parent_buf.st_size < 
+                            postparent->st_size)
+                                local->post_parent_buf.st_size = 
+                                        postparent->st_size;
                 }
         }
         UNLOCK (&frame->lock);
@@ -533,7 +559,9 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame, void *cookie,
                         local->op_ret = -1;
 
                 STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-                              local->inode, &local->stbuf);
+                              local->inode, &local->post_buf, 
+                              &local->pre_parent_buf, 
+                              &local->post_parent_buf);
         }
 
         return 0;
@@ -580,15 +608,19 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (op_ret >= 0) {
                         local->op_ret = 0;
 
-                        if (local->stbuf.st_blksize == 0) {
+                        if (local->post_buf.st_blksize == 0) {
                                 local->inode = inode_ref (inode);
-                                local->stbuf = *buf;
+                                local->post_buf = *buf;
+                                local->post_parent_buf = *postparent;
                                 /* Because st_blocks gets added again */
-                                local->stbuf.st_blocks = 0;
+                                local->post_buf.st_blocks = 0;
+                                local->post_parent_buf.st_blocks = 0;
                         }
                         if (FIRST_CHILD(this) == prev->this) {
-                                local->stbuf.st_ino = buf->st_ino;
-                                local->stbuf.st_mtime = buf->st_mtime;
+                                local->post_buf.st_ino = buf->st_ino;
+                                local->post_buf.st_mtime = buf->st_mtime;
+                                local->post_parent_buf.st_ino = postparent->st_ino;
+                                local->post_parent_buf.st_mtime = postparent->st_mtime;
                                 if (local->dict)
                                         dict_unref (local->dict);
                                 local->dict = dict_ref (dict);
@@ -596,13 +628,12 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 if (!local->dict)
                                         local->dict = dict_ref (dict);
                         }
-                        local->stbuf.st_blocks += buf->st_blocks;
-                        if (local->stbuf.st_size < buf->st_size)
-                                local->stbuf.st_size = buf->st_size;
-                        if (local->stbuf.st_blksize != buf->st_blksize) {
-                                /* TODO: add to blocks in terms of 
-                                   original block size */
-                        }
+                        local->post_buf.st_blocks += buf->st_blocks;
+                        if (local->post_buf.st_size < buf->st_size)
+                                local->post_buf.st_size = buf->st_size;
+                        local->post_parent_buf.st_blocks += postparent->st_blocks;
+                        if (local->post_parent_buf.st_size < postparent->st_size)
+                                local->post_parent_buf.st_size = postparent->st_size;
                 }
         }
         UNLOCK (&frame->lock);
@@ -615,7 +646,8 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 tmp_inode = local->inode;
 
                 STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-                              local->inode, &local->stbuf, local->dict);
+                              local->inode, &local->post_buf, local->dict, 
+                              &local->post_parent_buf);
 
                 if (tmp_inode)
                         inode_unref (tmp_inode);
@@ -625,7 +657,6 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         return 0;
 }
-
 
 /**
  * stripe_lookup -
@@ -683,7 +714,7 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
   
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -884,7 +915,7 @@ stripe_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -917,12 +948,12 @@ stripe_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_ret = 0;
 
                         if (local->stbuf.st_blksize == 0) {
-                                local->preop_buf = *preop;
+                                local->pre_buf = *preop;
                                 local->stbuf       = *postop;
 
                                 /* Because st_blocks gets added again */
 
-                                local->preop_buf.st_blocks = 0;
+                                local->pre_buf.st_blocks = 0;
                                 local->stbuf.st_blocks     = 0;
                         }
 
@@ -931,19 +962,19 @@ stripe_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 /* Always, pass the inode number of
                                    first child to the above layer */
 
-                                local->preop_buf.st_ino   = preop->st_ino;
-                                local->preop_buf.st_mtime = preop->st_mtime;
+                                local->pre_buf.st_ino   = preop->st_ino;
+                                local->pre_buf.st_mtime = preop->st_mtime;
 
                                 local->stbuf.st_ino   = postop->st_ino;
                                 local->stbuf.st_mtime = postop->st_mtime;
                         }
 
-                        local->preop_buf.st_blocks += preop->st_blocks;
+                        local->pre_buf.st_blocks += preop->st_blocks;
                         local->stbuf.st_blocks     += postop->st_blocks;
 
 
                         if (local->stbuf.st_size < postop->st_size)
-                                local->preop_buf.st_size = preop->st_size;
+                                local->pre_buf.st_size = preop->st_size;
                                 local->stbuf.st_size = postop->st_size;
 
                         if (local->stbuf.st_blksize != postop->st_blksize) {
@@ -964,7 +995,7 @@ stripe_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         loc_wipe (&local->loc2);
 
                 STACK_UNWIND (frame, local->op_ret, local->op_errno,
-                              &local->preop_buf, &local->stbuf);
+                              &local->pre_buf, &local->stbuf);
         }
 
         return 0;
@@ -1068,6 +1099,85 @@ stripe_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
+int32_t
+stripe_stack_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, struct stat *buf,
+                         struct stat *preoldparent, struct stat *postoldparent,
+                         struct stat *prenewparent, struct stat *postnewparent)
+{
+        int32_t         callcnt = 0;
+        stripe_local_t *local = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s returned error %s",
+                                ((call_frame_t *)cookie)->this->name,
+                                strerror (op_errno));
+                        local->op_errno = op_errno;
+                        if (op_errno == ENOTCONN)
+                                local->failed = 1;
+                }
+
+                if (op_ret == 0) {
+                        local->op_ret = 0;
+ 
+                        local->post_buf.st_blocks += buf->st_blocks;
+                        if (local->post_buf.st_size < buf->st_size)
+                                local->post_buf.st_size =  buf->st_size;
+
+                        local->pre_parent_buf.st_blocks += 
+                                preoldparent->st_blocks;
+                        if (local->pre_parent_buf.st_size < 
+                            preoldparent->st_size)
+                                local->pre_parent_buf.st_size = 
+                                        preoldparent->st_size;
+                        local->post_parent_buf.st_blocks += 
+                                postoldparent->st_blocks;
+                        if (local->post_parent_buf.st_size < 
+                            postoldparent->st_size)
+                                local->post_parent_buf.st_size = 
+                                        postoldparent->st_size;
+                        
+                        local->pre_parent_buf.st_blocks += 
+                                prenewparent->st_blocks;
+                        if (local->pre_parent_buf.st_size < 
+                            prenewparent->st_size)
+                                local->pre_parent_buf.st_size = 
+                                        prenewparent->st_size;
+                        local->post_parent_buf.st_blocks += 
+                                postnewparent->st_blocks;
+                        if (local->post_parent_buf.st_size < 
+                            postnewparent->st_size)
+                                local->post_parent_buf.st_size = 
+                                        postnewparent->st_size;
+                }
+        }
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                if (local->failed)
+                        local->op_ret = -1;
+
+                if (local->loc.path)
+                        loc_wipe (&local->loc);
+                if (local->loc2.path)
+                        loc_wipe (&local->loc2);
+
+                STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                              &local->post_buf, &local->pre_parent_buf,
+                              &local->post_parent_buf, 
+                              &local->pre_newparent_buf, 
+                              &local->post_newparent_buf);
+        }
+
+        return 0;
+}
 
 int32_t 
 stripe_first_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1085,8 +1195,13 @@ stripe_first_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         trav = this->children;
 
+        local->post_buf = *buf;
+        local->pre_parent_buf = *preoldparent;
+        local->post_parent_buf = *postoldparent;
+        local->pre_newparent_buf = *prenewparent;
+        local->post_newparent_buf = *postnewparent;
+
         local->op_ret = 0;
-        local->stbuf = *buf;
         local->call_count--;
         trav = trav->next; /* Skip first child */
 
@@ -1099,7 +1214,8 @@ stripe_first_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
  unwind:
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, buf, preoldparent, 
+                      postoldparent, prenewparent, postnewparent);
         return 0;
 }
 /**
@@ -1150,10 +1266,9 @@ stripe_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
         return 0;
 }
-
 
 /**
  * stripe_access - 
@@ -1211,7 +1326,7 @@ stripe_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -1275,7 +1390,7 @@ stripe_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -1290,7 +1405,7 @@ stripe_first_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         stripe_local_t *local = NULL;
 
         if (op_ret == -1) {
-                STACK_UNWIND (frame, op_ret, op_errno);
+                STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
                 return 0;
         }
 
@@ -1300,6 +1415,9 @@ stripe_first_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->call_count--; /* First child successful */
         trav = trav->next; /* Skip first child */
 
+        local->pre_parent_buf  = *preparent;
+        local->post_parent_buf = *postparent;
+        
         while (trav) {
                 STACK_WIND (frame, stripe_stack_unwind_unlink_cbk, trav->xlator,
                             trav->xlator->fops->rmdir, &local->loc);
@@ -1352,7 +1470,7 @@ stripe_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -1410,7 +1528,8 @@ stripe_mknod_ifreg_fail_unlink_cbk (call_frame_t *frame, void *cookie,
         if (!callcnt) {
                 loc_wipe (&local->loc);
                 STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-                              local->inode, &local->stbuf);
+                              local->inode, &local->post_buf,
+                              &local->pre_parent_buf, &local->post_parent_buf);
         }
 
         return 0;
@@ -1461,7 +1580,8 @@ stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame, void *cookie,
 
                 loc_wipe (&local->loc);
                 STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-                              local->inode, &local->stbuf);
+                              local->inode, &local->post_buf,
+                              &local->pre_parent_buf, &local->post_parent_buf);
         }
         return 0;
 }
@@ -1500,25 +1620,36 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_ret = op_ret;
                         /* Get the mapping in inode private */
                         /* Get the stat buf right */
-                        if (local->stbuf.st_blksize == 0) {
-                                local->stbuf = *buf;
+                        if (local->post_buf.st_blksize == 0) {
+                                local->post_buf = *buf;
+                                local->pre_parent_buf = *preparent;
+                                local->post_parent_buf = *postparent;
                                 /* Because st_blocks gets added again */
-                                local->stbuf.st_blocks = 0;
+                                local->post_buf.st_blocks = 0;
+                                local->pre_buf.st_blocks = 0;
+                                local->post_parent_buf.st_blocks = 0;
                         }
 
                         /* Always, pass the inode number of first child 
                            to the above layer */
                         if (FIRST_CHILD(this) == 
-                            ((call_frame_t *)cookie)->this)
-                                local->stbuf.st_ino = buf->st_ino;
-      
-                        local->stbuf.st_blocks += buf->st_blocks;
-                        if (local->stbuf.st_size < buf->st_size)
-                                local->stbuf.st_size = buf->st_size;
-                        if (local->stbuf.st_blksize != buf->st_blksize) {
-                                /* TODO: add to blocks in terms of
-                                   original block size */
+                            ((call_frame_t *)cookie)->this) {
+                                local->post_buf.st_ino = buf->st_ino;
+                                local->pre_parent_buf.st_ino = preparent->st_ino;
+                                local->post_parent_buf.st_ino = postparent->st_ino;
                         }
+      
+                        local->post_buf.st_blocks += buf->st_blocks;
+                        if (local->post_buf.st_size < buf->st_size)
+                                local->post_buf.st_size = buf->st_size;
+
+                        local->pre_parent_buf.st_blocks += preparent->st_blocks;
+                        if (local->pre_parent_buf.st_size < preparent->st_size)
+                                local->pre_parent_buf.st_size = preparent->st_size;
+
+                        local->post_parent_buf.st_blocks += postparent->st_blocks;
+                        if (local->post_parent_buf.st_size < postparent->st_size)
+                                local->post_parent_buf.st_size = postparent->st_size;
                 }
         }
         UNLOCK (&frame->lock);
@@ -1571,7 +1702,9 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            without setxattring */
                         loc_wipe (&local->loc);
                         STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-                                      local->inode, &local->stbuf);
+                                      local->inode, &local->post_buf, 
+                                      &local->pre_parent_buf, 
+                                      &local->post_parent_buf);
                 }
         }
   
@@ -1653,7 +1786,7 @@ stripe_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1703,7 +1836,7 @@ stripe_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1731,7 +1864,7 @@ stripe_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
 
         return 0;
 }
@@ -1793,7 +1926,7 @@ stripe_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1819,7 +1952,8 @@ stripe_create_fail_unlink_cbk (call_frame_t *frame, void *cookie,
                 lfd = local->fd;
                 loc_wipe (&local->loc);
                 STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-                              local->fd, local->inode, &local->stbuf);
+                              local->fd, local->inode, &local->post_buf,
+                              &local->pre_parent_buf, &local->post_parent_buf);
                 fd_unref (lfd);
         }
         return 0;
@@ -1876,7 +2010,8 @@ stripe_create_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 lfd = local->fd;
                 loc_wipe (&local->loc);
                 STACK_UNWIND (frame, local->op_ret, local->op_errno,
-                              local->fd, local->inode, &local->stbuf);
+                              local->fd, local->inode, &local->post_buf,
+                              &local->pre_parent_buf, &local->post_parent_buf);
                 fd_unref (lfd);
         }
 
@@ -1918,25 +2053,43 @@ stripe_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_ret = op_ret;
                         /* Get the mapping in inode private */
                         /* Get the stat buf right */
-                        if (local->stbuf.st_blksize == 0) {
-                                local->stbuf = *buf;
-                                /* Because st_blocks gets added again */
-                                local->stbuf.st_blocks = 0;
+                        if (!local->post_buf.st_blksize) {
+                                local->post_buf = *buf;
+                                local->post_buf.st_blocks = 0;
                         }
-      
-                        /* Always, pass the inode number of first
-                           child to the above layer */
-                        if (FIRST_CHILD(this) == 
-                            ((call_frame_t *)cookie)->this)
-                                local->stbuf.st_ino = buf->st_ino;
-      
-                        local->stbuf.st_blocks += buf->st_blocks;
-                        if (local->stbuf.st_size < buf->st_size)
-                                local->stbuf.st_size = buf->st_size;
-                        if (local->stbuf.st_blksize != buf->st_blksize) {
-                                /* TODO: add to blocks in terms of 
-                                   original block size */
+                        if (!local->pre_parent_buf.st_blksize) {
+                                local->pre_parent_buf = *preparent;
+                                local->pre_parent_buf.st_blocks = 0;
                         }
+                        if (!local->post_parent_buf.st_blksize) {
+                                local->post_parent_buf = *postparent;
+                                local->post_parent_buf.st_blocks = 0;
+                        }
+                        if (FIRST_CHILD(this) ==
+                            ((call_frame_t *)cookie)->this) {
+                                local->post_buf.st_ino   = buf->st_ino;
+                                local->post_buf.st_mtime = buf->st_mtime;
+
+                                local->pre_parent_buf.st_ino = preparent->st_ino;
+                                local->pre_parent_buf.st_mtime = preparent->st_mtime;
+                                local->post_parent_buf.st_ino = postparent->st_ino;
+                                local->post_parent_buf.st_mtime = postparent->st_mtime;
+                        }
+                        local->post_buf.st_blocks += buf->st_blocks;
+                        if (local->post_buf.st_size < buf->st_size)
+                                local->post_buf.st_size =  buf->st_size;
+
+                        local->pre_parent_buf.st_blocks += preparent->st_blocks;
+                        if (local->pre_parent_buf.st_size < 
+                            preparent->st_size)
+                                local->pre_parent_buf.st_size = 
+                                        preparent->st_size;
+                        local->post_parent_buf.st_blocks += 
+                                postparent->st_blocks;
+                        if (local->post_parent_buf.st_size < 
+                            postparent->st_size)
+                                local->post_parent_buf.st_size = 
+                                        postparent->st_size;
                 }
         }
         UNLOCK (&frame->lock);
@@ -2002,7 +2155,9 @@ stripe_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         lfd = local->fd;
                         loc_wipe (&local->loc);
                         STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-                                      local->fd, local->inode, &local->stbuf);
+                                      local->fd, local->inode, &local->post_buf,
+                                      &local->pre_parent_buf, 
+                                      &local->post_parent_buf);
       
                         fd_unref (lfd);
                 }
@@ -2066,7 +2221,7 @@ stripe_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
        
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -2730,7 +2885,7 @@ stripe_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2818,7 +2973,7 @@ stripe_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
+        STACK_UNWIND (frame, -1, op_errno);
         return 0;
 }
 
@@ -2860,7 +3015,7 @@ stripe_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -3104,14 +3259,15 @@ stripe_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 if (op_ret >= 0) {
                         local->op_ret += op_ret;
-                        local->stbuf = *postbuf;
+                        local->post_buf = *postbuf;
+                        local->pre_buf = *prebuf;
                 }
         }
         UNLOCK (&frame->lock);
 
         if ((callcnt == local->wind_count) && local->unwind) {
-                STACK_UNWIND (frame, local->op_ret, 
-                              local->op_errno, &local->stbuf);
+                STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+                              &local->pre_buf, &local->post_buf);
         }
         return 0;
 }
