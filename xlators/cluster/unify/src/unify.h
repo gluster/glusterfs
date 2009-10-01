@@ -124,6 +124,17 @@ struct _unify_local_t {
 
 	struct unify_self_heal_struct *sh_struct;
 	loc_t loc1, loc2;
+
+        struct stat poststbuf;
+        /* When not used for rename, old*
+         * are used as the attrs for the current
+         * parent directory.
+         */
+        struct stat oldpreparent;
+        struct stat oldpostparent;
+        struct stat newpreparent;
+        struct stat newpostparent;
+        int32_t wbflags;
 };
 typedef struct _unify_local_t unify_local_t;
 

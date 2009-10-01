@@ -427,7 +427,7 @@ unify_lookup_cbk (call_frame_t *frame,
 							"Not enough memory");
 						STACK_UNWIND (frame, -1, 
 							      ENOMEM, inode, 
-							      NULL, NULL);
+							      NULL, NULL, NULL);
 						return 0;
 					}
 				}
@@ -454,6 +454,7 @@ unify_lookup_cbk (call_frame_t *frame,
 				if (S_ISDIR (buf->st_mode) || 
 				    !(local->stbuf.st_blksize)) {
 					local->stbuf = *buf;
+                                        local->oldpostparent = *postparent;
 				}
 			} else if (!S_ISDIR (buf->st_mode)) {
 				/* If file, then get the stat from 
@@ -555,7 +556,8 @@ unify_lookup_cbk (call_frame_t *frame,
 			tmp_inode = local->loc1.inode;
 			unify_local_wipe (local);
 			STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-				      tmp_inode, &local->stbuf, local->dict);
+				      tmp_inode, &local->stbuf, local->dict,
+                                      &local->oldpostparent);
 		}
 		if (local_dict) {
 			dict_unref (local_dict);
@@ -582,7 +584,7 @@ unify_lookup (call_frame_t *frame,
 	if (!(loc && loc->inode)) {
 		gf_log (this->name, GF_LOG_ERROR, 
 			"%s: Argument not right", loc?loc->path:"(null)");
-		STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL);
+		STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL, NULL);
 		return 0;
 	}
 
@@ -591,7 +593,7 @@ unify_lookup (call_frame_t *frame,
 	loc_copy (&local->loc1, loc);
 	if (local->loc1.path == NULL) {
 		gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
-		STACK_UNWIND (frame, -1, ENOMEM, loc->inode, NULL, NULL);
+		STACK_UNWIND (frame, -1, ENOMEM, loc->inode, NULL, NULL, NULL);
 		return 0;
 	}
         
@@ -626,7 +628,7 @@ unify_lookup (call_frame_t *frame,
 				}
 				unify_local_wipe (local);
 				STACK_UNWIND (frame, -1, ESTALE, 
-					      NULL, NULL, NULL);
+					      NULL, NULL, NULL, NULL);
 				return 0;  
 			} else {
 				/* There are more than 2 presences */
@@ -836,7 +838,8 @@ unify_mkdir_cbk (call_frame_t *frame,
 		unify_local_wipe (local);
 
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-			      tmp_inode, &local->stbuf);
+			      tmp_inode, &local->stbuf,
+                              &local->oldpreparent, &local->oldpostparent);
 	}
 
 	return 0;
@@ -868,13 +871,17 @@ unify_ns_mkdir_cbk (call_frame_t *frame,
 			"namespace: path(%s): %s", 
 			local->name, strerror (op_errno));
 		unify_local_wipe (local);
-		STACK_UNWIND (frame, op_ret, op_errno, inode, NULL);
+		STACK_UNWIND (frame, op_ret, op_errno, inode, NULL,
+                              NULL, NULL);
 		return 0;
 	}
   
 	/* Create one inode for this entry */
 	local->op_ret = 0;
 	local->stbuf = *buf;
+
+        local->oldpreparent = *preparent;
+        local->oldpostparent = *postparent;
 
 	local->call_count = priv->child_count;
 
@@ -953,7 +960,8 @@ unify_rmdir_cbk (call_frame_t *frame,
 
 	if (!callcnt) {
 		unify_local_wipe (local);
-		STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                              &local->oldpreparent, &local->oldpostparent);
 	}
 
 	return 0;
@@ -985,11 +993,14 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
 			"namespace: path(%s): %s", 
 			local->loc1.path, strerror (op_errno));
 		unify_local_wipe (local);
-		STACK_UNWIND (frame, op_ret, op_errno);
+		STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
 		return 0;
 	}
 
 	local->call_count = priv->child_count;
+
+        local->oldpreparent = *preparent;
+        local->oldpostparent = *postparent;
 
 	for (index = 0; index < priv->child_count; index++) {
 		STACK_WIND (frame,
@@ -1020,7 +1031,7 @@ unify_rmdir (call_frame_t *frame,
 	loc_copy (&local->loc1, loc);
 	if (local->loc1.path == NULL) {
 		gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
-		STACK_UNWIND (frame, -1, ENOMEM);
+		STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
 		return 0;
 	}
 
@@ -1179,7 +1190,7 @@ unify_open_lookup_cbk (call_frame_t *frame,
 					   priv->xl_array[file_list[index]]->fops->open,
 					   &local->loc1,
 					   local->flags,
-					   local->fd);
+					   local->fd, local->wbflags);
 			if (need_break)
 				break;
 		}
@@ -1263,6 +1274,7 @@ unify_open (call_frame_t *frame,
 	loc_copy (&local->loc1, loc);
 	local->fd    = fd;
 	local->flags = flags;
+        local->wbflags = wbflags;
 	inode_ctx_get (loc->inode, this, &tmp_list);
 	list = (int16_t *)(long)tmp_list;
 
@@ -1339,7 +1351,8 @@ unify_create_unlink_cbk (call_frame_t *frame,
 	unify_local_wipe (local);
 
 	STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd, 
-		      inode, &local->stbuf);
+		      inode, &local->stbuf,
+                      &local->oldpreparent, &local->oldpostparent);
   
 	return 0;
 }
@@ -1428,7 +1441,8 @@ unify_create_open_cbk (call_frame_t *frame,
 		inode = local->loc1.inode;
 		unify_local_wipe (local);
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, fd,
-			      inode, &local->stbuf);
+			      inode, &local->stbuf,
+                              &local->oldpreparent, &local->oldpostparent);
 	}
 	return 0;
 }
@@ -1511,7 +1525,8 @@ unify_create_lookup_cbk (call_frame_t *frame,
 					"returning EIO as file found on "
 					"only one node");
 				STACK_UNWIND (frame, -1, EIO, 
-					      local->fd, inode, NULL);
+					      local->fd, inode, NULL,
+                                              NULL, NULL);
 				return 0;
 			}
 		}
@@ -1590,7 +1605,8 @@ unify_create_cbk (call_frame_t *frame,
 	tmp_inode = local->loc1.inode;
 	unify_local_wipe (local);
 	STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd, 
-		      tmp_inode, &local->stbuf);
+		      tmp_inode, &local->stbuf,
+                      &local->oldpreparent, &local->oldpostparent);
 
 	return 0;
 }
@@ -1630,7 +1646,8 @@ unify_ns_create_cbk (call_frame_t *frame,
 				"namespace: path(%s): %s", 
 				local->loc1.path, strerror (op_errno));
 			unify_local_wipe (local);
-			STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+			STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf,
+                                      preparent, postparent);
 			return 0;
 		}
 	}
@@ -1639,6 +1656,9 @@ unify_ns_create_cbk (call_frame_t *frame,
 		/* Get the inode number from the NS node */
 		local->st_ino = buf->st_ino;
   
+                local->oldpreparent = *preparent;
+                local->oldpostparent = *postparent;
+
 		local->op_ret = -1;
 
 		/* Start the mapping list */
@@ -1729,7 +1749,8 @@ unify_create (call_frame_t *frame,
 	loc_copy (&local->loc1, loc);
 	if (local->loc1.path == NULL) {
 		gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
-		STACK_UNWIND (frame, -1, ENOMEM, fd, loc->inode, NULL);
+		STACK_UNWIND (frame, -1, ENOMEM, fd, loc->inode, NULL,
+                              NULL, NULL);
 		return 0;
 	}
 
@@ -1938,69 +1959,6 @@ unify_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 
 /**
- * unify_ftruncate_cbk -
- */
-int32_t
-unify_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct stat *buf)
-{
-	int32_t callcnt = 0;
-	unify_private_t *priv = this->private;
-	unify_local_t *local = frame->local;
-	call_frame_t *prev_frame = cookie;
-
-	LOCK (&frame->lock);
-	{
-		callcnt = --local->call_count;
-
-		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"child(%s): path(%s): %s",
-				prev_frame->this->name,
-				(local->loc1.path)?local->loc1.path:"",
-				strerror (op_errno));
-			local->op_errno = op_errno;
-			if (!((op_errno == ENOENT) && priv->optimist))
-				local->op_ret = -1;
-		}
-
-		if (op_ret >= 0) {
-			if (NS (this) == prev_frame->this) {
-				local->st_ino = buf->st_ino;
-				/* If the entry is directory, get the
-				   stat from NS node */
-				if (S_ISDIR (buf->st_mode) ||
-				    !local->stbuf.st_blksize) {
-					local->stbuf = *buf;
-				}
-			}
-
-			if ((!S_ISDIR (buf->st_mode)) &&
-			    (NS (this) != prev_frame->this)) {
-				/* If file, take the stat info from
-				   Storage node. */
-				local->stbuf = *buf;
-			}
-		}
-	}
-	UNLOCK (&frame->lock);
-
-	if (!callcnt) {
-		if (local->st_ino)
-			local->stbuf.st_ino = local->st_ino;
-		else
-			local->op_ret = -1;
-		unify_local_wipe (local);
-		STACK_UNWIND (frame, local->op_ret, local->op_errno,
-			      &local->stbuf);
-	}
-
-	return 0;
-}
-
-
-
-/**
  * unify_truncate_cbk - 
  */
 int32_t
@@ -2039,7 +1997,8 @@ unify_truncate_cbk (call_frame_t *frame,
 				   stat from NS node */
 				if (S_ISDIR (postbuf->st_mode) ||
 				    !local->stbuf.st_blksize) {
-					local->stbuf = *postbuf;
+					local->stbuf = *prebuf;
+                                        local->poststbuf = *postbuf;
 				}
 			}
 
@@ -2047,20 +2006,23 @@ unify_truncate_cbk (call_frame_t *frame,
 			    (NS (this) != prev_frame->this)) {
 				/* If file, take the stat info from 
 				   Storage node. */
-				local->stbuf = *postbuf;
+				local->stbuf = *prebuf;
+                                local->poststbuf = *postbuf;
 			}
 		}
 	}
 	UNLOCK (&frame->lock);
     
 	if (!callcnt) {
-		if (local->st_ino)
+		if (local->st_ino) {
 			local->stbuf.st_ino = local->st_ino;
-		else
+                        local->poststbuf.st_ino = local->st_ino;
+                } else {
 			local->op_ret = -1;
+                }
 		unify_local_wipe (local);
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-			      &local->stbuf);
+			      &local->stbuf, &local->poststbuf);
 	}
 
 	return 0;
@@ -2093,10 +2055,11 @@ unify_truncate (call_frame_t *frame,
 		local->call_count = 1;
       
 		STACK_WIND (frame,
-			    unify_buf_cbk,
+			    unify_truncate_cbk,
 			    NS(this),
-			    NS(this)->fops->stat,
-			    loc);
+			    NS(this)->fops->truncate,
+			    loc,
+                            0);
 	} else {
 		local->op_ret = 0;
 		inode_ctx_get (loc->inode, this, &tmp_list);
@@ -2107,9 +2070,9 @@ unify_truncate (call_frame_t *frame,
 			callcnt++;
 		}
       
-		/* Don't send truncate to NS node */
-		STACK_WIND (frame, unify_ftruncate_cbk, NS(this),
-			    NS(this)->fops->stat, loc);
+		/* Don't send offset to NS truncate */
+		STACK_WIND (frame, unify_truncate_cbk, NS(this),
+			    NS(this)->fops->truncate, loc, 0);
 		callcnt--;
 
 		for (index = 0; local->list[index] != -1; index++) {
@@ -2214,12 +2177,18 @@ unify_unlink_cbk (call_frame_t *frame,
 			local->op_ret = 0;
 		if (op_ret == -1)
 			local->op_errno = op_errno;
+
+                if (((call_frame_t *)cookie)->this == NS(this)) {
+                        local->oldpreparent = *preparent;
+                        local->oldpostparent = *postparent;
+                }
 	}
 	UNLOCK (&frame->lock);
 
 	if (!callcnt) {
 		unify_local_wipe (local);
-		STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                              &local->oldpreparent, &local->oldpostparent);
 	}
 
 	return 0;
@@ -2266,7 +2235,7 @@ unify_unlink (call_frame_t *frame,
 	} else {
 		gf_log (this->name, GF_LOG_ERROR,
 			"%s: returning ENOENT", loc->path);
-		STACK_UNWIND (frame, -1, ENOENT);
+		STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
 	}
 
 	return 0;
@@ -2332,7 +2301,18 @@ unify_writev_cbk (call_frame_t *frame,
                   struct stat *prebuf,
 		  struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	unify_local_t *local = NULL;
+
+        local = frame->local;
+
+        local->stbuf = *prebuf;
+        local->stbuf.st_ino = local->st_ino;
+
+        local->poststbuf = *postbuf;
+        local->poststbuf.st_ino = local->st_ino;
+
+	STACK_UNWIND (frame, op_ret, op_errno,
+                      &local->stbuf, &local->poststbuf);
 	return 0;
 }
 
@@ -2351,6 +2331,10 @@ unify_writev (call_frame_t *frame,
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
 	xlator_t *child = NULL;
 	uint64_t tmp_child = 0;
+	unify_local_t *local = NULL;
+
+	INIT_LOCAL (frame, local);
+        local->st_ino = fd->inode->ino;
 
 	fd_ctx_get (fd, this, &tmp_child);
 	child = (xlator_t *)(long)tmp_child;		     
@@ -2396,9 +2380,9 @@ unify_ftruncate (call_frame_t *frame,
 		    child, child->fops->ftruncate,
 		    fd, offset);
   
-	STACK_WIND (frame, unify_ftruncate_cbk,
-		    NS(this), NS(this)->fops->fstat,
-		    fd);
+	STACK_WIND (frame, unify_truncate_cbk,
+		    NS(this), NS(this)->fops->ftruncate,
+		    fd, 0);
   
 	return 0;
 }
@@ -3150,7 +3134,8 @@ unify_mknod_cbk (call_frame_t *frame,
 	local->stbuf = *buf;
 	local->stbuf.st_ino = local->st_ino;
 	unify_local_wipe (local);
-	STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf,
+                      &local->oldpreparent, &local->oldpostparent);
 	return 0;
 }
 
@@ -3185,7 +3170,8 @@ unify_ns_mknod_cbk (call_frame_t *frame,
 			prev_frame->this->name, local->loc1.path, 
 			strerror (op_errno));
 		unify_local_wipe (local);
-		STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+		STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
+                              preparent, postparent);
 		return 0;
 	}
   
@@ -3193,6 +3179,9 @@ unify_ns_mknod_cbk (call_frame_t *frame,
 	local->op_ret = 0;
 	local->stbuf = *buf;
 	local->st_ino = buf->st_ino;
+
+        local->oldpreparent = *preparent;
+        local->oldpostparent = *postparent;
 
 	list = CALLOC (1, sizeof (int16_t) * 3);
 	ERR_ABORT (list);
@@ -3320,7 +3309,8 @@ unify_symlink_cbk (call_frame_t *frame,
 	local->stbuf = *buf;
 	local->stbuf.st_ino = local->st_ino;
 	unify_local_wipe (local);
-	STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf,
+                      &local->oldpreparent, &local->oldpostparent);
 
 	return 0;
 }
@@ -3355,7 +3345,8 @@ unify_ns_symlink_cbk (call_frame_t *frame,
 			"namespace: path(%s): %s", 
 			local->loc1.path, strerror (op_errno));
 		unify_local_wipe (local);
-		STACK_UNWIND (frame, op_ret, op_errno, NULL, buf);
+		STACK_UNWIND (frame, op_ret, op_errno, NULL, buf,
+                              preparent, postparent);
 		return 0;
 	}
   
@@ -3363,6 +3354,9 @@ unify_ns_symlink_cbk (call_frame_t *frame,
 	local->op_ret = 0;
 	local->st_ino = buf->st_ino;
   
+        local->oldpreparent = *preparent;
+        local->oldpostparent = *postparent;
+
 	/* Start the mapping list */
 
 	list = CALLOC (1, sizeof (int16_t) * 3);
@@ -3545,7 +3539,10 @@ unify_rename_cbk (call_frame_t *frame,
 		local->stbuf.st_ino = local->st_ino;
 		if (S_ISDIR (local->loc1.inode->st_mode)) {
 			unify_local_wipe (local);
-			STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+			STACK_UNWIND (frame, local->op_ret, local->op_errno,
+                                      &local->stbuf, &local->oldpreparent,
+                                      &local->oldpostparent, &local->newpreparent,
+                                      &local->newpostparent);
 			return 0;
 		}
 
@@ -3658,7 +3655,9 @@ unify_rename_cbk (call_frame_t *frame,
 		/* Need not send 'unlink' to storage node */
 		unify_local_wipe (local);
 		STACK_UNWIND (frame, local->op_ret, 
-			      local->op_errno, &local->stbuf);
+			      local->op_errno, &local->stbuf,
+                              &local->oldpreparent, &local->oldpostparent,
+                              &local->newpreparent, &local->newpostparent);
 	}
 
 	return 0;
@@ -3690,12 +3689,19 @@ unify_ns_rename_cbk (call_frame_t *frame,
 			strerror (op_errno));
 
 		unify_local_wipe (local);
-		STACK_UNWIND (frame, op_ret, op_errno, buf);
+		STACK_UNWIND (frame, op_ret, op_errno, buf,
+                              preoldparent, postoldparent,
+                              prenewparent, postnewparent);
 		return 0;
 	}
 
 	local->stbuf = *buf;
 	local->st_ino = buf->st_ino;
+
+        local->oldpreparent = *preoldparent;
+        local->oldpostparent = *postoldparent;
+        local->newpreparent = *prenewparent;
+        local->newpostparent = *postnewparent;
 
 	/* Everything is fine. */
 	if (S_ISDIR (buf->st_mode)) {
@@ -3741,7 +3747,9 @@ unify_ns_rename_cbk (call_frame_t *frame,
 			"CRITICAL: source file not in storage node, "
 			"rename successful on namespace :O");
 		unify_local_wipe (local);
-		STACK_UNWIND (frame, -1, EIO, NULL);
+		STACK_UNWIND (frame, -1, EIO, NULL,
+                              NULL, NULL, /* preoldparent, postoldparent */
+                              NULL, NULL); /* prenewparent, postnewparent */
 	}
 	return 0;
 }
@@ -3767,7 +3775,9 @@ unify_rename (call_frame_t *frame,
 	if ((local->loc1.path == NULL) || 
 	    (local->loc2.path == NULL)) {
 		gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
-		STACK_UNWIND (frame, -1, ENOMEM, NULL);
+		STACK_UNWIND (frame, -1, ENOMEM, NULL,
+                              NULL, NULL, /* preoldparent, postoldparent */
+                              NULL, NULL); /* prenewparent, postnewparent */
 		return 0;
 	}
   
@@ -3804,7 +3814,8 @@ unify_link_cbk (call_frame_t *frame,
 	local->stbuf.st_ino = local->st_ino;
 
 	unify_local_wipe (local);
-	STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf,
+                      &local->oldpreparent, &local->oldpostparent);
 
 	return 0;
 }
@@ -3837,13 +3848,17 @@ unify_ns_link_cbk (call_frame_t *frame,
 			local->loc1.path, local->loc2.path, 
 			strerror (op_errno));
 		unify_local_wipe (local);
-		STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+		STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
+                              preparent, postparent);
 		return 0;
 	}
 
 	/* Update inode for this entry */
 	local->op_ret = 0;
 	local->st_ino = buf->st_ino;
+
+        local->oldpreparent = *preparent;
+        local->oldpostparent = *postparent;
 
 	/* Send link request to the node now */
 	for (index = 0; list[index] != -1; index++) {
