@@ -178,7 +178,8 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 			unify_local_wipe (local);
 			
 			STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-				      inode, &local->stbuf, local->dict);
+				      inode, &local->stbuf, local->dict,
+                                      &local->oldpostparent);
 			if (tmp_dict)
 				dict_unref (tmp_dict);
 		}
@@ -501,7 +502,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 
 		/* This is lookup_cbk ()'s UNWIND. */
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, inode,
-			      &local->stbuf, local->dict);
+			      &local->stbuf, local->dict, &local->oldpostparent);
 		if (tmp_dict)
 			dict_unref (tmp_dict);
 	}
@@ -628,7 +629,7 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 			      local->op_errno,
 			      inode,
 			      &local->stbuf,
-			      local->dict);
+			      local->dict, &local->oldpostparent);
 		if (tmp_dict)
 			dict_unref (tmp_dict);
 	}
@@ -1215,7 +1216,8 @@ zr_unify_self_heal (call_frame_t *frame,
 		      local->op_errno,
 		      tmp_inode,
 		      &local->stbuf,
-		      local->dict);
+		      local->dict,
+                      &local->oldpostparent);
 
 	if (tmp_dict)
 		dict_unref (tmp_dict);
