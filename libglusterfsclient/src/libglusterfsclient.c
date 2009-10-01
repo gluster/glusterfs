@@ -6397,13 +6397,20 @@ glusterfs_glh_utimes (glusterfs_handle_t handle, const char *path,
         int32_t                         op_ret = -1;
         loc_t                           loc = {0, };
         libglusterfs_client_ctx_t       *ctx = handle;
-        struct timespec                 ts[2] = {{0,},{0,}};
         char                            *name = NULL;
+        struct stat                     stbuf = {0,};
+        int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
+        stbuf.st_atime = times[0].tv_sec;
+        ST_ATIM_NSEC_SET (&stbuf, (times[0].tv_usec * 1000));
+        stbuf.st_mtime = times[1].tv_sec;
+        ST_MTIM_NSEC_SET (&stbuf, (times[1].tv_usec * 1000));
+        valid |= (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
+
         loc.path = libgf_resolve_path_light ((char *)path);
         if (!loc.path) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
@@ -6428,12 +6435,7 @@ glusterfs_glh_utimes (glusterfs_handle_t handle, const char *path,
                 goto out;
         }
 
-        ts[0].tv_sec = times[0].tv_sec;
-        ts[0].tv_nsec = times[0].tv_usec * 1000;
-        ts[1].tv_sec = times[1].tv_sec;
-        ts[1].tv_nsec = times[1].tv_usec * 1000;
-
-        op_ret = libgf_client_utimens (ctx, &loc, ts);
+        op_ret = libgf_client_setattr (ctx, &loc, &stbuf, valid);
 out:
         if (name)
                 FREE (name);
