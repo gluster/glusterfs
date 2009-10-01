@@ -5231,44 +5231,6 @@ out:
         return op_ret;
 }
 
-int
-libgf_client_chown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *sbuf)
-{
-        libgf_client_local_t    *local = frame->local;
-
-        local->reply_stub = fop_chown_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                sbuf);
-
-        LIBGF_REPLY_NOTIFY (local);
-        return 0;
-}
-
-int
-libgf_client_chown (libglusterfs_client_ctx_t *ctx, loc_t *loc, uid_t uid,
-                gid_t gid)
-{
-        call_stub_t             *stub = NULL;
-        libgf_client_local_t    *local = NULL;
-        int32_t                 op_ret = -1;
-
-        LIBGF_CLIENT_FOP (ctx, stub, chown, local, loc, uid, gid);
-
-        op_ret = stub->args.chown_cbk.op_ret;
-        errno = stub->args.chown_cbk.op_errno;
-
-        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
-                loc->path, op_ret, errno);
-        if (op_ret == -1)
-                goto out;
-
-        libgf_transform_devnum (ctx, &stub->args.chown_cbk.buf);
-        libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
-                                        &stub->args.chown_cbk.buf);
-out:
-        call_stub_destroy (stub);
-        return op_ret;
-}
 
 #define LIBGF_DO_CHOWN  1
 #define LIBGF_DO_LCHOWN 2
