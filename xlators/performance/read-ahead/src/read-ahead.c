@@ -725,39 +725,6 @@ ra_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 
 int
-ra_fchown (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid, gid_t gid)
-{
-	ra_file_t *file = NULL;
-	fd_t      *iter_fd = NULL;
-	inode_t   *inode = NULL;
-	int       ret = 0;
-	uint64_t  tmp_file = 0;
-
-	inode = fd->inode;
-
-	LOCK (&inode->lock);
-	{
-		list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
-			ret = fd_ctx_get (iter_fd, this, &tmp_file);
-			file = (ra_file_t *)(long)tmp_file;
-
-			if (!file)
-				continue;
-			flush_region (frame, file, 0,
-				      file->pages.prev->offset + 1);
-		}
-	}
-	UNLOCK (&inode->lock);
-
-	STACK_WIND (frame, ra_attr_cbk,
-		    FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->fchown,
-		    fd, uid, gid);
-	return 0;
-}
-
-
-int
 ra_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 {
 	ra_file_t *file = NULL;
@@ -892,7 +859,6 @@ struct xlator_fops fops = {
 	.truncate    = ra_truncate,
 	.ftruncate   = ra_ftruncate,
 	.fstat       = ra_fstat,
-	.fchown      = ra_fchown,
 };
 
 struct xlator_mops mops = {

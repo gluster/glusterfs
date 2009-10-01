@@ -771,7 +771,6 @@ typedef struct {
 } __attribute__((packed)) gf_fop_setdents_req_t;
 typedef struct { } __attribute__((packed)) gf_fop_setdents_rsp_t;
 
-
 typedef struct {
 	uint64_t ino;
 	int64_t  fd;
@@ -795,6 +794,26 @@ typedef struct {
 	unsigned char dchecksum[0];
 } __attribute__((packed)) gf_fop_checksum_rsp_t;
 
+typedef struct {
+        uint64_t ino;
+        struct gf_stat stbuf;
+        int32_t  valid;
+        char path[0];
+} __attribute__((packed)) gf_fop_setattr_req_t;
+typedef struct {
+        struct gf_stat statpre;
+        struct gf_stat statpost;
+} __attribute__((packed)) gf_fop_setattr_rsp_t;
+
+typedef struct {
+        int64_t fd;
+        struct gf_stat stbuf;
+        int32_t  valid;
+} __attribute__((packed)) gf_fop_fsetattr_req_t;
+typedef struct {
+        struct gf_stat statpre;
+        struct gf_stat statpost;
+} __attribute__((packed)) gf_fop_fsetattr_rsp_t;
 
 typedef struct {
         int64_t   fd;

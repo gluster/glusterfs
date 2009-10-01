@@ -306,8 +306,9 @@ afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-afr_sh_metadata_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			  int32_t op_ret, int32_t op_errno, struct stat *buf)
+afr_sh_metadata_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                             int32_t op_ret, int32_t op_errno,
+                             struct stat *preop, struct stat *postop)
 {
 	afr_sh_metadata_sync_cbk (frame, cookie, this, op_ret, op_errno);
 
@@ -335,8 +336,9 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 	int              active_sinks = 0;
 	int              call_count = 0;
 	int              i = 0;
-	struct timespec  ts[2];
 
+        struct stat      stbuf;
+        int32_t          valid = 0;
 
 	local = frame->local;
 	sh = &local->self_heal;
@@ -346,25 +348,35 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 	active_sinks = sh->active_sinks;
 
 	/*
-	 * 4 calls per sink - chown, chmod, utimes, setxattr
+	 * 2 calls per sink - setattr, setxattr
 	 */
 	if (xattr)
-		call_count = active_sinks * 4;
+		call_count = active_sinks * 2;
 	else
-		call_count = active_sinks * 3;
+		call_count = active_sinks;
 
 	local->call_count = call_count;
 
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
-	ts[0] = sh->buf[source].st_atim;
-	ts[1] = sh->buf[source].st_mtim;
+	stbuf.st_atim = sh->buf[source].st_atim;
+	stbuf.st_mtim = sh->buf[source].st_mtim;
+        
 #elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
-	ts[0] = sh->buf[source].st_atimespec;
-	ts[1] = sh->buf[source].st_mtimespec;
+	stbuf.st_atimespec = sh->buf[source].st_atimespec;
+	stbuf.st_mtimespec = sh->buf[source].st_mtimespec;
 #else
-	ts[0].tv_sec = sh->buf[source].st_atime;
-	ts[1].tv_sec = sh->buf[source].st_mtime;
+	stbuf.st_atime = sh->buf[source].st_atime;
+	stbuf.st_mtime = sh->buf[source].st_mtime;
 #endif
+
+        stbuf.st_uid = sh->buf[source].st_uid;
+        stbuf.st_gid = sh->buf[source].st_gid;
+
+        stbuf.st_mode = sh->buf[source].st_mode;
+        
+        valid = GF_SET_ATTR_MODE  | 
+                GF_SET_ATTR_UID   | GF_SET_ATTR_GID |
+                GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (call_count == 0) {
@@ -378,27 +390,13 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 			local->loc.path, priv->children[source]->name,
 			priv->children[i]->name);
 
-		STACK_WIND_COOKIE (frame, afr_sh_metadata_attr_cbk,
+		STACK_WIND_COOKIE (frame, afr_sh_metadata_setattr_cbk,
 				   (void *) (long) i,
 				   priv->children[i],
-				   priv->children[i]->fops->chown,
-				   &local->loc,
-				   sh->buf[source].st_uid,
-				   sh->buf[source].st_gid);
+				   priv->children[i]->fops->setattr,
+				   &local->loc, &stbuf, valid);
 
-		STACK_WIND_COOKIE (frame, afr_sh_metadata_attr_cbk,
-				   (void *) (long) i,
-				   priv->children[i],
-				   priv->children[i]->fops->chmod,
-				   &local->loc, sh->buf[source].st_mode);
-
-		STACK_WIND_COOKIE (frame, afr_sh_metadata_attr_cbk,
-				   (void *) (long) i,
-				   priv->children[i],
-				   priv->children[i]->fops->utimens,
-				   &local->loc, ts);
-
-		call_count = call_count - 3;
+		call_count--;
 
 		if (!xattr)
 			continue;

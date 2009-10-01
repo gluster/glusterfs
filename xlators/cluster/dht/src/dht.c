@@ -353,12 +353,7 @@ struct xlator_fops fops = {
 	.create      = dht_create,
 
 	.stat        = dht_stat,
-	.chmod       = dht_chmod,
-	.chown       = dht_chown,
-	.fchown      = dht_fchown,
-	.fchmod      = dht_fchmod,
 	.fstat       = dht_fstat,
-	.utimens     = dht_utimens,
 	.truncate    = dht_truncate,
 	.ftruncate   = dht_ftruncate,
 	.access      = dht_access,
@@ -388,6 +383,8 @@ struct xlator_fops fops = {
 	.fentrylk    = dht_fentrylk,
 	.xattrop     = dht_xattrop,
 	.fxattrop    = dht_fxattrop,
+        .setattr     = dht_setattr, 
+        .fsetattr    = dht_fsetattr,
 #if 0
 	.setdents    = dht_setdents,
 	.getdents    = dht_getdents,

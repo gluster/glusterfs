@@ -79,165 +79,6 @@ protocol_server_reply (call_frame_t *frame, int type, int op,
 
 
 /*
- * server_fchmod_cbk
- */
-int
-server_fchmod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *stbuf)
-{
-	gf_hdr_common_t     *hdr = NULL;
-	gf_fop_fchmod_rsp_t *rsp = NULL;
-	size_t               hdrlen = 0;
-	int32_t              gf_errno = 0;
-	server_state_t      *state = NULL;
-
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret = hton32 (op_ret);
-	gf_errno = gf_errno_to_error (op_errno);
-	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	if (op_ret == 0) {
-		gf_stat_from_stat (&rsp->stat, stbuf);
-	} else {
-		state = CALL_STATE (frame);
-
-		gf_log (this->name, GF_LOG_TRACE,
-			"%"PRId64": FCHMOD %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
-			state->fd ? state->fd->inode->ino : 0, op_ret,
-			strerror (op_errno));
-	}
-
-	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FCHMOD,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
-
-/*
- * server_fchmod
- *
- */
-int
-server_fchmod (call_frame_t *frame, xlator_t *bound_xl,
-               gf_hdr_common_t *hdr, size_t hdrlen,
-               struct iobuf *iobuf)
-{
-	server_connection_t  *conn = NULL;
-	gf_fop_fchmod_req_t  *req = NULL;
-	server_state_t       *state = NULL;
-	
-	conn = SERVER_CONNECTION(frame);
-
-	req   = gf_param (hdr);
-	state = CALL_STATE (frame);
-	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
-
-		state->mode   = ntoh32 (req->mode);
-	}
-
-	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
-
-	STACK_WIND (frame, server_fchmod_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->fchmod,
-		    state->fd, state->mode);
-
-	return 0;
-fail:
-	server_fchmod_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
-	return 0;
-}
-
-
-/*
- * server_fchown_cbk
- */
-int
-server_fchown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *stbuf)
-{
-	gf_hdr_common_t     *hdr = NULL;
-	gf_fop_fchown_rsp_t *rsp = NULL;
-	size_t               hdrlen = 0;
-	int32_t              gf_errno = 0;
-	server_state_t      *state = NULL;
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-	
-	hdr->rsp.op_ret   = hton32 (op_ret);
-	gf_errno = gf_errno_to_error (op_errno);
-	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	if (op_ret == 0) {
-		gf_stat_from_stat (&rsp->stat, stbuf);
-	} else { 
-		state = CALL_STATE(frame);
-
-		gf_log (this->name, GF_LOG_TRACE,
-			"%"PRId64": FCHOWN %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
-			state->fd ? state->fd->inode->ino : 0, op_ret,
-			strerror (op_errno));
-	}
-
-	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FCHOWN,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
-
-/*
- * server_fchown
- *
- */
-int
-server_fchown (call_frame_t *frame, xlator_t *bound_xl,
-               gf_hdr_common_t *hdr, size_t hdrlen,
-               struct iobuf *iobuf)
-{
-	server_connection_t  *conn = NULL;
-	gf_fop_fchown_req_t  *req = NULL;
-	server_state_t       *state = NULL;
-
-	conn = SERVER_CONNECTION(frame);
-
-	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
-
-		state->uid   = ntoh32 (req->uid);
-		state->gid   = ntoh32 (req->gid);
-	}
-
-	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
-
-	STACK_WIND (frame, server_fchown_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->fchown,
-		    state->fd, state->uid, state->gid);
-
-	return 0;
-fail:
-	server_fchown_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
-	return 0;
-}
-
-/*
  * server_setdents_cbk - writedir callback for server protocol
  * @frame: call frame
  * @cookie:
@@ -547,133 +388,6 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ACCESS,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
-
-/*
- * server_utimens_cbk - utimens callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-int
-server_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct stat *stbuf)
-{
-	gf_hdr_common_t      *hdr = NULL;
-	gf_fop_utimens_rsp_t *rsp = NULL;
-	server_state_t       *state = NULL;
-	size_t                hdrlen = 0;
-	int32_t               gf_errno = 0;
-
-
-	state = CALL_STATE(frame);
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret = hton32 (op_ret);
-	gf_errno        = gf_errno_to_error (op_errno);
-	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	if (op_ret == 0)
-		gf_stat_from_stat (&rsp->stat, stbuf);
-
-	server_loc_wipe (&(state->loc));
-
-	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UTIMENS,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
-
-/*
- * server_chmod_cbk - chmod callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-int
-server_chmod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *stbuf)
-{
-	gf_hdr_common_t     *hdr = NULL;
-	gf_fop_chmod_rsp_t  *rsp = NULL;
-	server_state_t      *state = NULL;
-	size_t               hdrlen = 0;
-	int32_t              gf_errno = 0;
-
-	state = CALL_STATE(frame);
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret = hton32 (op_ret);
-	gf_errno        = gf_errno_to_error (op_errno);
-	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	if (op_ret == 0)
-		gf_stat_from_stat (&rsp->stat, stbuf);
-
-	server_loc_wipe (&(state->loc));
-
-	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHMOD,
-			       hdr, hdrlen, NULL, 0, NULL);
-
-	return 0;
-}
-
-/*
- * server_chown_cbk - chown callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-int
-server_chown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *stbuf)
-{
-	gf_hdr_common_t    *hdr = NULL;
-	gf_fop_chown_rsp_t *rsp = NULL;
-	server_state_t     *state = NULL;
-	int32_t             gf_errno = 0;
-	size_t              hdrlen = 0;
-
-	state = CALL_STATE(frame);
-
-	hdrlen = gf_hdr_len (rsp, 0);
-	hdr    = gf_hdr_new (rsp, 0);
-	rsp    = gf_param (hdr);
-
-	hdr->rsp.op_ret = hton32 (op_ret);
-	gf_errno        = gf_errno_to_error (op_errno);
-	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	if (op_ret == 0)
-		gf_stat_from_stat (&rsp->stat, stbuf);
-
-	server_loc_wipe (&(state->loc));
-
-	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHOWN,
 			       hdr, hdrlen, NULL, 0, NULL);
 
 	return 0;
@@ -2223,6 +1937,117 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 }
 
+/*
+ * server_setattr_cbk - setattr callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+int
+server_setattr_cbk (call_frame_t *frame,
+                    void *cookie,
+                    xlator_t *this,
+                    int32_t op_ret,
+                    int32_t op_errno,
+                    struct stat *statpre,
+                    struct stat *statpost)
+{
+	gf_hdr_common_t   *hdr = NULL;
+	gf_fop_setattr_rsp_t *rsp = NULL;
+	server_state_t    *state = NULL;
+	size_t             hdrlen = 0;
+	int32_t            gf_errno = 0;
+
+	state  = CALL_STATE (frame);
+
+	hdrlen = gf_hdr_len (rsp, 0);
+	hdr    = gf_hdr_new (rsp, 0);
+	rsp    = gf_param (hdr);
+
+	hdr->rsp.op_ret = hton32 (op_ret);
+	gf_errno        = gf_errno_to_error (op_errno);
+	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
+
+	if (op_ret == 0) {
+		gf_stat_from_stat (&rsp->statpre, statpre);
+		gf_stat_from_stat (&rsp->statpost, statpost);
+	} else {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"%"PRId64": SETATTR %s (%"PRId64") ==> %"PRId32" (%s)",
+			frame->root->unique, state->loc.path,
+			state->loc.inode ? state->loc.inode->ino : 0,
+			op_ret, strerror (op_errno));
+	}
+
+	server_loc_wipe (&(state->loc));
+
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETATTR,
+			       hdr, hdrlen, NULL, 0, NULL);
+
+	return 0;
+}
+
+/*
+ * server_setattr_cbk - setattr callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+int
+server_fsetattr_cbk (call_frame_t *frame,
+                     void *cookie,
+                     xlator_t *this,
+                     int32_t op_ret,
+                     int32_t op_errno,
+                     struct stat *statpre,
+                     struct stat *statpost)
+{
+	gf_hdr_common_t       *hdr = NULL;
+	gf_fop_fsetattr_rsp_t *rsp = NULL;
+	server_state_t        *state = NULL;
+	size_t                 hdrlen = 0;
+	int32_t                gf_errno = 0;
+
+	state  = CALL_STATE (frame);
+
+	hdrlen = gf_hdr_len (rsp, 0);
+	hdr    = gf_hdr_new (rsp, 0);
+	rsp    = gf_param (hdr);
+
+	hdr->rsp.op_ret = hton32 (op_ret);
+	gf_errno        = gf_errno_to_error (op_errno);
+	hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
+
+	if (op_ret == 0) {
+		gf_stat_from_stat (&rsp->statpre, statpre);
+		gf_stat_from_stat (&rsp->statpost, statpost);
+	} else {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"%"PRId64": FSETATTR %"PRId64" (%"PRId64") ==> "
+                        "%"PRId32" (%s)",
+			frame->root->unique, state->fd_no,
+			state->fd ? state->fd->inode->ino : 0,
+			op_ret, strerror (op_errno));
+	}
+
+	server_loc_wipe (&(state->loc));
+
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSETATTR,
+			       hdr, hdrlen, NULL, 0, NULL);
+
+	return 0;
+}
+
 
 /*
  * server_lookup_cbk - lookup callback for server protocol
@@ -2779,62 +2604,6 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 		break;
 	}
 
-	case GF_FOP_CHMOD:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": CHMOD (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.chmod.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-			server_chmod_cbk (stub->frame, NULL, stub->frame->this,
-					  -1, ENOENT, NULL);
-			server_loc_wipe (&stub->args.chmod.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.chmod.loc.parent == NULL)
-			stub->args.chmod.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.chmod.loc.inode == NULL)) {
-			stub->args.chmod.loc.inode = inode_ref (server_inode);
-			stub->args.chmod.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_CHOWN:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": CHOWN (%s) on %s returning ENOENT: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.chown.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-			server_chown_cbk (stub->frame, NULL, stub->frame->this,
-					  -1, ENOENT, NULL);
-			server_loc_wipe (&stub->args.chown.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.chown.loc.parent == NULL)
-			stub->args.chown.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.chown.loc.inode == NULL)) {
-			stub->args.chown.loc.inode = inode_ref (server_inode);
-			stub->args.chown.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
 	case GF_FOP_LINK:
 	{
 		if ((stub->args.link.oldloc.inode == NULL)
@@ -3136,38 +2905,6 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 		break;
 	}
 
-
-	case GF_FOP_UTIMENS:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": UTIMENS (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.utimens.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_utimens_cbk (stub->frame, NULL,
-                                            stub->frame->this, -1, ENOENT,
-					    NULL);
-			server_loc_wipe (&stub->args.utimens.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.utimens.loc.parent == NULL)
-			stub->args.utimens.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.utimens.loc.inode == NULL)) {
-			stub->args.utimens.loc.inode = 
-				inode_ref (server_inode);
-			stub->args.utimens.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
 	case GF_FOP_READLINK:
 	{
 		if (op_ret < 0) {
@@ -3346,6 +3083,34 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 			stub->args.inodelk.loc.inode = 
 				inode_ref (server_inode);
 			stub->args.inodelk.loc.ino = server_inode->ino;
+		}
+		call_resume (stub);
+		break;
+	}
+	case GF_FOP_SETATTR:
+	{
+		if (op_ret < 0) {
+			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
+				"%"PRId64": SETATTR (%s) on %s returning error:"
+				" %"PRId32" (%"PRId32")",
+				stub->frame->root->unique,
+				stub->args.setattr.loc.path,
+				BOUND_XL(stub->frame)->name,
+				op_ret, op_errno);
+			server_setattr_cbk (stub->frame, NULL,
+                                            stub->frame->this,
+                                            -1, ENOENT, NULL, NULL);
+			server_loc_wipe (&stub->args.setattr.loc);
+			FREE (stub);
+			return 0;
+		}
+
+		if (stub->args.setattr.loc.parent == NULL)
+			stub->args.setattr.loc.parent = inode_ref (parent);
+
+		if (server_inode && (stub->args.setattr.loc.inode == NULL)) {
+			stub->args.setattr.loc.inode = inode_ref (server_inode);
+			stub->args.setattr.loc.ino = server_inode->ino;
 		}
 		call_resume (stub);
 		break;
@@ -3576,6 +3341,119 @@ fail:
 	return 0;
 }
 
+int
+server_setattr_resume (call_frame_t *frame,
+                       xlator_t *this,
+                       loc_t *loc,
+                       struct stat *stbuf,
+                       int32_t valid)
+{
+	server_state_t *state = NULL;
+
+	state = CALL_STATE(frame);
+
+	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
+		"%"PRId64": SETATTR \'%s (%"PRId64")\'",
+		frame->root->unique, state->loc.path, state->loc.ino);
+
+	STACK_WIND (frame, server_setattr_cbk,
+		    BOUND_XL(frame),
+		    BOUND_XL(frame)->fops->setattr,
+		    loc,
+                    stbuf, valid);
+	return 0;
+}
+
+/*
+ * server_setattr - setattr function for server
+ * @frame: call frame
+ * @bound_xl: translator this server is bound to
+ * @params: parameters dictionary
+ *
+ * not for external reference
+ */
+int
+server_setattr (call_frame_t *frame, xlator_t *bound_xl,
+                gf_hdr_common_t *hdr, size_t hdrlen,
+                struct iobuf *iobuf)
+{
+	call_stub_t          *setattr_stub = NULL;
+	gf_fop_setattr_req_t *req = NULL;
+	server_state_t       *state = NULL;
+	int32_t               ret = -1;
+	size_t                pathlen = 0;
+        struct stat           stbuf = {0,};
+        int32_t               valid = 0;
+
+	req   = gf_param (hdr);
+
+	state = CALL_STATE(frame);
+
+	state->ino  = ntoh64 (req->ino);
+	state->path = req->path;
+	pathlen     = STRLEN_0(state->path);
+
+        gf_stat_to_stat (&req->stbuf, &stbuf);
+
+        valid = ntoh32 (req->valid);
+
+	ret = server_loc_fill (&(state->loc), state, state->ino, state->par,
+                               state->bname, state->path);
+
+	setattr_stub = fop_setattr_stub (frame, server_setattr_resume,
+                                         &(state->loc), &stbuf, valid);
+	GF_VALIDATE_OR_GOTO(bound_xl->name, setattr_stub, fail);
+
+	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
+	    (state->loc.inode == NULL)) {
+		do_path_lookup (setattr_stub, &(state->loc));
+	} else {
+		call_resume (setattr_stub);
+	}
+	return 0;
+fail:
+	server_setattr_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL);
+	return 0;
+}
+
+int
+server_fsetattr (call_frame_t *frame, xlator_t *bound_xl,
+                 gf_hdr_common_t *hdr, size_t hdrlen,
+                 struct iobuf *iobuf)
+{
+	server_connection_t    *conn = NULL;
+	gf_fop_fsetattr_req_t  *req = NULL;
+	server_state_t         *state = NULL;
+        struct stat             stbuf = {0,};
+        int32_t                 valid = 0;
+
+	conn = SERVER_CONNECTION(frame);
+
+	req   = gf_param (hdr);
+	state = CALL_STATE (frame);
+	{
+		state->fd_no = ntoh64 (req->fd);
+		if (state->fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (conn->fdtable, 
+						     state->fd_no);
+
+                gf_stat_to_stat (&req->stbuf, &stbuf);
+
+                valid = ntoh32 (req->valid);
+	}
+
+	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
+
+	STACK_WIND (frame, server_fsetattr_cbk,
+		    BOUND_XL(frame),
+		    BOUND_XL(frame)->fops->fsetattr,
+		    state->fd, &stbuf, valid);
+
+	return 0;
+fail:
+	server_fsetattr_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL);
+	return 0;
+}
 
 int
 server_readlink_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
@@ -5344,205 +5222,6 @@ server_rmdir (call_frame_t *frame, xlator_t *bound_xl,
 		do_path_lookup (rmdir_stub, &(state->loc));
 	} else {
 		call_resume (rmdir_stub);
-	}
-
-	return 0;
-}
-
-
-int
-server_chown_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                     uid_t uid, gid_t gid)
-{
-	server_state_t *state = NULL;
-	
-	state = CALL_STATE (frame);
-
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": CHOWN \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
-
-	STACK_WIND (frame, server_chown_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->chown,
-		    loc, uid, gid);
-	return 0;
-}
-
-
-/*
- * server_chown - chown function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
-int
-server_chown (call_frame_t *frame, xlator_t *bound_xl,
-              gf_hdr_common_t *hdr, size_t hdrlen,
-              struct iobuf *iobuf)
-{
-	call_stub_t        *chown_stub = NULL;
-	gf_fop_chown_req_t *req = NULL;
-	server_state_t     *state = NULL;
-	int32_t             ret = -1;
-	size_t              pathlen = 0;
-
-	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		state->ino  = ntoh64 (req->ino);
-		state->path = req->path;
-		pathlen = STRLEN_0(state->path);
-		state->uid   = ntoh32 (req->uid);
-		state->gid   = ntoh32 (req->gid);
-	}
-
-	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
-                               state->path);
-
-	chown_stub = fop_chown_stub (frame, server_chown_resume,
-				     &(state->loc), state->uid, state->gid);
-
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (chown_stub, &(state->loc));
-	} else {
-		call_resume (chown_stub);
-	}
-
-	return 0;
-}
-
-
-int
-server_chmod_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                     mode_t mode)
-{
-	server_state_t *state = NULL;
-	
-	state = CALL_STATE(frame);
-
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": CHMOD \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
-
-	STACK_WIND (frame, server_chmod_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->chmod,
-		    loc, mode);
-	return 0;
-
-}
-
-/*
- * server_chmod - chmod function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
-int
-server_chmod (call_frame_t *frame, xlator_t *bound_xl,
-              gf_hdr_common_t *hdr, size_t hdrlen,
-              struct iobuf *iobuf)
-{
-	call_stub_t        *chmod_stub = NULL;
-	gf_fop_chmod_req_t *req = NULL;
-	server_state_t     *state = NULL;
-	int32_t             ret = -1;
-	size_t              pathlen = 0;
-
-	req       = gf_param (hdr);
-
-	state = CALL_STATE(frame);
-	{
-		state->ino  = ntoh64 (req->ino);
-		state->path = req->path;
-		pathlen = STRLEN_0(state->path);
-
-		state->mode = ntoh32 (req->mode);
-	}
-
-	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
-                               state->path);
-
-	chmod_stub = fop_chmod_stub (frame, server_chmod_resume,
-				     &(state->loc), state->mode);
-
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (chmod_stub, &(state->loc));
-	} else {
-		call_resume (chmod_stub);
-	}
-
-	return 0;
-}
-
-
-int
-server_utimens_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                       struct timespec *tv)
-{
-	server_state_t *state = NULL;
-	
-	state = CALL_STATE(frame);
-
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": UTIMENS \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
-
-	STACK_WIND (frame, server_utimens_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->utimens,
-		    loc, tv);
-	return 0;
-}
-
-/*
- * server_utimens - utimens function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
-int
-server_utimens (call_frame_t *frame, xlator_t *bound_xl,
-                gf_hdr_common_t *hdr, size_t hdrlen,
-                struct iobuf *iobuf)
-{
-	call_stub_t          *utimens_stub = NULL;
-	gf_fop_utimens_req_t *req = NULL;
-	server_state_t       *state = NULL;
-	int32_t               ret = -1;
-	size_t                pathlen = 0;
-
-	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		state->ino  = ntoh64 (req->ino);
-		state->path = req->path;
-		pathlen = STRLEN_0(state->path);
-
-		gf_timespec_to_timespec (req->tv, state->tv);
-	}
-
-
-	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
-                               state->path);
-
-	utimens_stub = fop_utimens_stub (frame, server_utimens_resume,
-					 &(state->loc), state->tv);
-
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (utimens_stub, &(state->loc));
-	} else {
-		call_resume (utimens_stub);
 	}
 
 	return 0;
@@ -7442,8 +7121,6 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_SYMLINK]      =  server_symlink,
 	[GF_FOP_RENAME]       =  server_rename,
 	[GF_FOP_LINK]         =  server_link,
-	[GF_FOP_CHMOD]        =  server_chmod,
-	[GF_FOP_CHOWN]        =  server_chown,
 	[GF_FOP_TRUNCATE]     =  server_truncate,
 	[GF_FOP_OPEN]         =  server_open,
 	[GF_FOP_READ]         =  server_readv,
@@ -7464,9 +7141,6 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_FTRUNCATE]    =  server_ftruncate,
 	[GF_FOP_FSTAT]        =  server_fstat,
 	[GF_FOP_LK]           =  server_lk,
-	[GF_FOP_UTIMENS]      =  server_utimens,
-	[GF_FOP_FCHMOD]       =  server_fchmod,
-	[GF_FOP_FCHOWN]       =  server_fchown,
 	[GF_FOP_LOOKUP]       =  server_lookup,
 	[GF_FOP_SETDENTS]     =  server_setdents,
 	[GF_FOP_READDIR]      =  server_readdir,
@@ -7478,6 +7152,8 @@ static gf_op_t gf_fops[] = {
         [GF_FOP_RCHECKSUM]    =  server_rchecksum,
 	[GF_FOP_XATTROP]      =  server_xattrop,
 	[GF_FOP_FXATTROP]     =  server_fxattrop,
+        [GF_FOP_SETATTR]      =  server_setattr,
+        [GF_FOP_FSETATTR]     =  server_fsetattr,
 };
 
 

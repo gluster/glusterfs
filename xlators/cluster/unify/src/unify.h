@@ -97,6 +97,8 @@ struct _unify_local_t {
 	int32_t count;    // dir_entry_t count;
 	fd_t *fd;
 	struct stat stbuf;
+        struct stat stpre;
+        struct stat stpost;
 	struct statvfs statvfs_buf;
 	struct timespec tv[2];
 	char *name;

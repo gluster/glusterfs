@@ -129,157 +129,67 @@ error_gen_stat (call_frame_t *frame,
 }
 
 int32_t
-error_gen_chmod_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *buf)
+error_gen_setattr_cbk (call_frame_t *frame,
+                       void *cookie,
+                       xlator_t *this,
+                       int32_t op_ret,
+                       int32_t op_errno,
+                       struct stat *preop,
+                       struct stat *postop)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
 		      op_errno,
-		      buf);
+		      preop, postop);
 	return 0;
 }
 
 int32_t
-error_gen_chmod (call_frame_t *frame,
-		 xlator_t *this,
-		 loc_t *loc,
-		 mode_t mode)
+error_gen_setattr (call_frame_t *frame,
+                   xlator_t *this,
+                   loc_t *loc,
+                   struct stat *stbuf,
+                   int32_t valid)
 {
 	int op_errno = 0;
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL);
+		STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
-		    error_gen_chmod_cbk,
+		    error_gen_setattr_cbk,
 		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->chmod,
+		    FIRST_CHILD(this)->fops->setattr,
 		    loc,
-		    mode);
-	return 0;
-}
-
-
-int32_t
-error_gen_fchmod_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      struct stat *buf)
-{
-	STACK_UNWIND (frame,
-		      op_ret,
-		      op_errno,
-		      buf);
+		    stbuf, valid);
 	return 0;
 }
 
 int32_t
-error_gen_fchmod (call_frame_t *frame,
-		  xlator_t *this,
-		  fd_t *fd,
-		  mode_t mode)
+error_gen_fsetattr (call_frame_t *frame,
+                    xlator_t *this,
+                    fd_t *fd,
+                    struct stat *stbuf,
+                    int32_t valid)
 {
 	int op_errno = 0;
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL);
+		STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 		return 0;
 	}
 	STACK_WIND (frame,
-		    error_gen_fchmod_cbk,
+		    error_gen_setattr_cbk,
 		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->fchmod,
+		    FIRST_CHILD(this)->fops->fsetattr,
 		    fd,
-		    mode);
+		    stbuf, valid);
 	return 0;
 }
 
-int32_t
-error_gen_chown_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *buf)
-{
-	STACK_UNWIND (frame,
-		      op_ret,
-		      op_errno,
-		      buf);
-	return 0;
-}
-
-int32_t
-error_gen_chown (call_frame_t *frame,
-		 xlator_t *this,
-		 loc_t *loc,
-		 uid_t uid,
-		 gid_t gid)
-{
-	int op_errno = 0;
-	op_errno = error_gen(this);
-	if (op_errno) {
-		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL);
-		return 0;
-	}
-	STACK_WIND (frame,
-		    error_gen_chown_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->chown,
-		    loc,
-		    uid,
-		    gid);
-	return 0;
-}
-
-int32_t
-error_gen_fchown_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      struct stat *buf)
-{
-	STACK_UNWIND (frame,
-		      op_ret,
-		      op_errno,
-		      buf);
-	return 0;
-}
-
-int32_t
-error_gen_fchown (call_frame_t *frame,
-		  xlator_t *this,
-		  fd_t *fd,
-		  uid_t uid,
-		  gid_t gid)
-{
-	int op_errno = 0;
-	op_errno = error_gen(this);
-	if (op_errno) {
-		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL);
-		return 0;
-	}
-	STACK_WIND (frame,
-		    error_gen_fchown_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->fchown,
-		    fd,
-		    uid,
-		    gid);
-	return 0;
-}
 
 int32_t
 error_gen_truncate_cbk (call_frame_t *frame,
@@ -355,43 +265,6 @@ error_gen_ftruncate (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-error_gen_utimens_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       struct stat *buf)
-{
-	STACK_UNWIND (frame,
-		      op_ret,
-		      op_errno,
-		      buf);
-	return 0;
-}
-
-
-int32_t
-error_gen_utimens (call_frame_t *frame,
-		   xlator_t *this,
-		   loc_t *loc,
-		   struct timespec tv[2])
-{
-	int op_errno = 0;
-	op_errno = error_gen(this);
-	if (op_errno) {
-		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL);
-		return 0;
-	}
-	STACK_WIND (frame,
-		    error_gen_utimens_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->utimens,
-		    loc,
-		    tv);
-	return 0;
-}
 
 int32_t
 error_gen_access_cbk (call_frame_t *frame,
@@ -1740,10 +1613,7 @@ struct xlator_fops fops = {
 	.symlink     = error_gen_symlink,
 	.rename      = error_gen_rename,
 	.link        = error_gen_link,
-	.chmod       = error_gen_chmod,
-	.chown       = error_gen_chown,
 	.truncate    = error_gen_truncate,
-	.utimens     = error_gen_utimens,
 	.create      = error_gen_create,
 	.open        = error_gen_open,
 	.readv       = error_gen_readv,
@@ -1762,8 +1632,6 @@ struct xlator_fops fops = {
 	.ftruncate   = error_gen_ftruncate,
 	.fstat       = error_gen_fstat,
 	.lk          = error_gen_lk,
-	.fchmod      = error_gen_fchmod,
-	.fchown      = error_gen_fchown,
 	.setdents    = error_gen_setdents,
 	.lookup_cbk  = error_gen_lookup_cbk,
 	.checksum    = error_gen_checksum,
@@ -1772,7 +1640,9 @@ struct xlator_fops fops = {
 	.inodelk     = error_gen_inodelk,
 	.finodelk    = error_gen_finodelk,
 	.entrylk     = error_gen_entrylk,
-	.fentrylk    = error_gen_fentrylk
+	.fentrylk    = error_gen_fentrylk,
+        .setattr     = error_gen_setattr,
+        .fsetattr    = error_gen_fsetattr,
 };
 
 struct xlator_mops mops = {

@@ -296,137 +296,122 @@ trace_fsync_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
-trace_chown_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct stat *buf)
+int32_t
+trace_setattr_cbk (call_frame_t *frame,
+                   void *cookie,
+                   xlator_t *this,
+                   int32_t op_ret,
+                   int32_t op_errno,
+                   struct stat *statpre,
+                   struct stat *statpost)
 {
-	char atime_buf[256], mtime_buf[256], ctime_buf[256];
+	char atime_pre[256] = {0,};
+        char mtime_pre[256] = {0,};
+        char ctime_pre[256] = {0,};
+	char atime_post[256] = {0,};
+        char mtime_post[256] = {0,};
+        char ctime_post[256] = {0,};
+
 	ERR_EINVAL_NORETURN (!this );
 
-	if (trace_fop_names[GF_FOP_CHOWN].enabled) {
+	if (trace_fop_names[GF_FOP_SETATTR].enabled) {
 		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
+			strftime (atime_pre, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpre->st_atime));
+			strftime (mtime_pre, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpre->st_mtime));
+			strftime (ctime_pre, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpre->st_ctime));
+
+			strftime (atime_post, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpost->st_atime));
+			strftime (mtime_post, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpost->st_mtime));
+			strftime (ctime_post, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpost->st_ctime));
     
-			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%o, "
-				"st_uid=%d, st_gid=%d, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				frame->root->unique, op_ret, buf->st_ino, buf->st_mode, 
-				buf->st_uid, buf->st_gid, atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL,
+				"%"PRId64": (op_ret=%d, *statpre "
+                                "{st_ino=%"PRIu64", st_mode=%o, st_uid=%d, "
+                                "st_gid=%d, st_atime=%s, st_mtime=%s, "
+                                "st_ctime=%s}, *statpost {st_ino=%"PRIu64", "
+                                "st_mode=%o, st_uid=%d, st_gid=%d, st_atime=%s,"
+                                " st_mtime=%s, st_ctime=%s})",
+				frame->root->unique, op_ret, statpre->st_ino,
+                                statpre->st_mode, statpre->st_uid,
+                                statpre->st_gid, atime_pre, mtime_pre,
+                                ctime_pre, statpost->st_ino, statpost->st_mode,
+                                statpost->st_uid, statpost->st_gid, atime_post,
+                                mtime_post, ctime_post);
 		} else {
-			gf_log (this->name, GF_LOG_NORMAL, 
+			gf_log (this->name, GF_LOG_NORMAL,
 				"%"PRId64": (op_ret=%d, op_errno=%d)",
 				frame->root->unique, op_ret, op_errno);
 		}    
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
 	return 0;
 }
 
-int32_t 
-trace_chmod_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct stat *buf)
+int32_t
+trace_fsetattr_cbk (call_frame_t *frame,
+                    void *cookie,
+                    xlator_t *this,
+                    int32_t op_ret,
+                    int32_t op_errno,
+                    struct stat *statpre,
+                    struct stat *statpost)
 {
-	char atime_buf[256], mtime_buf[256], ctime_buf[256];
+	char atime_pre[256] = {0,};
+        char mtime_pre[256] = {0,};
+        char ctime_pre[256] = {0,};
+	char atime_post[256] = {0,};
+        char mtime_post[256] = {0,};
+        char ctime_post[256] = {0,};
+
 	ERR_EINVAL_NORETURN (!this );
 
-	if (trace_fop_names[GF_FOP_CHMOD].enabled) {
+	if (trace_fop_names[GF_FOP_FSETATTR].enabled) {
 		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
+			strftime (atime_pre, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpre->st_atime));
+			strftime (mtime_pre, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpre->st_mtime));
+			strftime (ctime_pre, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpre->st_ctime));
+
+			strftime (atime_post, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpost->st_atime));
+			strftime (mtime_post, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpost->st_mtime));
+			strftime (ctime_post, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&statpost->st_ctime));
     
-			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%o, "
-				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				frame->root->unique, op_ret, buf->st_ino, buf->st_mode, 
-				atime_buf, mtime_buf, ctime_buf);
+			gf_log (this->name, GF_LOG_NORMAL,
+				"%"PRId64": (op_ret=%d, *statpre "
+                                "{st_ino=%"PRIu64", st_mode=%o, st_uid=%d, "
+                                "st_gid=%d, st_atime=%s, st_mtime=%s, "
+                                "st_ctime=%s}, *statpost {st_ino=%"PRIu64", "
+                                "st_mode=%o, st_uid=%d, st_gid=%d, st_atime=%s,"
+                                " st_mtime=%s, st_ctime=%s})",
+				frame->root->unique, op_ret, statpre->st_ino,
+                                statpre->st_mode, statpre->st_uid,
+                                statpre->st_gid, atime_pre, mtime_pre,
+                                ctime_pre, statpost->st_ino, statpost->st_mode,
+                                statpost->st_uid, statpost->st_gid, atime_post,
+                                mtime_post, ctime_post);
 		} else {
-			gf_log (this->name, GF_LOG_NORMAL, 
+			gf_log (this->name, GF_LOG_NORMAL,
 				"%"PRId64": (op_ret=%d, op_errno=%d)",
 				frame->root->unique, op_ret, op_errno);
 		}    
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
 	return 0;
 }
 
-int32_t 
-trace_fchmod_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
-{
-	char atime_buf[256], mtime_buf[256], ctime_buf[256];
-	ERR_EINVAL_NORETURN (!this );
-
-	if (trace_fop_names[GF_FOP_FCHMOD].enabled) {
-		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
-    
-			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%o, "
-				"st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				frame->root->unique, op_ret, buf->st_ino, buf->st_mode, 
-				atime_buf, mtime_buf, ctime_buf);
-		} else {
-			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, op_errno=%d)",
-				frame->root->unique, op_ret, op_errno);
-		}    
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
-	return 0;
-}
-
-int32_t 
-trace_fchown_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
-{
-	char atime_buf[256], mtime_buf[256], ctime_buf[256];
-	ERR_EINVAL_NORETURN (!this );
-
-	if (trace_fop_names[GF_FOP_FCHOWN].enabled) {  
-		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
-    
-			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, *buf {st_ino=%"PRIu64", st_mode=%o, "
-				"st_uid=%d, st_gid=%d, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-				frame->root->unique, op_ret, buf->st_ino, buf->st_mode, 
-				buf->st_uid, buf->st_gid, atime_buf, mtime_buf, ctime_buf);
-		} else {
-			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, op_errno=%d)",
-				frame->root->unique, op_ret, op_errno);
-		}    
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
-	return 0;
-}
 
 int32_t 
 trace_unlink_cbk (call_frame_t *frame,
@@ -725,38 +710,6 @@ trace_truncate_cbk (call_frame_t *frame,
 				GF_PRI_BLKSIZE", st_blocks=%"PRId64"})",
 				frame->root->unique, op_ret, buf->st_size, buf->st_blksize, 
 				buf->st_blocks);
-		} else {
-			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, op_errno=%d)",
-				frame->root->unique, op_ret, op_errno);
-		}    
-	}
-
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
-	return 0;
-}
-
-int32_t 
-trace_utimens_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *buf)
-{
-	char atime_buf[256], mtime_buf[256], ctime_buf[256];
-	ERR_EINVAL_NORETURN (!this );
-
-	if (trace_fop_names[GF_FOP_UTIMENS].enabled) {
-		if (op_ret >= 0) {
-			strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-			strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-			strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
-    
-			gf_log (this->name, GF_LOG_NORMAL, 
-				"%"PRId64": (op_ret=%d, *buf {st_atime=%s, st_mtime=%s, "
-				"st_ctime=%s})",
-				frame->root->unique, op_ret, atime_buf, mtime_buf, ctime_buf);
 		} else {
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -1469,52 +1422,105 @@ trace_link (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
-trace_chmod (call_frame_t *frame,
-	     xlator_t *this,
-	     loc_t *loc,
-	     mode_t mode)
+int32_t
+trace_setattr (call_frame_t *frame,
+               xlator_t *this,
+               loc_t *loc,
+               struct stat *stbuf,
+               int32_t valid)
 {
-	ERR_EINVAL_NORETURN (!this || !loc);
+	char actime_str[256] = {0,};
+	char modtime_str[256] = {0,};
 
-	if (trace_fop_names[GF_FOP_CHMOD].enabled) {  
-		gf_log (this->name, GF_LOG_NORMAL, 
-			"%"PRId64": (loc {path=%s, ino=%"PRIu64"}, mode=%o)",
-			frame->root->unique, loc->path, loc->inode->ino, mode);
+	ERR_EINVAL_NORETURN (!this || !loc || !stbuf);
+
+	if (trace_fop_names[GF_FOP_SETATTR].enabled) {
+                if (valid & GF_SET_ATTR_MODE) {
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "%"PRId64": (loc {path=%s, ino=%"PRIu64"},"
+                                " mode=%o)", frame->root->unique, loc->path,
+                                loc->inode->ino, stbuf->st_mode);
+                }
+
+                if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "%"PRId64": (loc {path=%s, ino=%"PRIu64"},"
+                                " uid=%o, gid=%o)",
+                                frame->root->unique, loc->path, loc->inode->ino,
+                                stbuf->st_uid, stbuf->st_gid);
+                }
+
+                if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
+                        strftime (actime_str, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&stbuf->st_atime));
+                        strftime (modtime_str, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&stbuf->st_mtime));
+
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "%"PRId64": (loc {path=%s, ino=%"PRIu64"}, "
+                                "*stbuf=%p {st_atime=%s, st_mtime=%s})",
+                                frame->root->unique, loc->path, loc->inode->ino,
+                                stbuf, actime_str, modtime_str);
+                }
 	}
 
-	STACK_WIND (frame, 
-		    trace_chmod_cbk, 
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->chmod, 
+	STACK_WIND (frame,
+		    trace_setattr_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->setattr,
 		    loc,
-		    mode);
-  
+		    stbuf, valid);
+
 	return 0;
 }
 
-int32_t 
-trace_chown (call_frame_t *frame,
-	     xlator_t *this,
-	     loc_t *loc,
-	     uid_t uid,
-	     gid_t gid)
+int32_t
+trace_fsetattr (call_frame_t *frame,
+                xlator_t *this,
+                fd_t *fd,
+                struct stat *stbuf,
+                int32_t valid)
 {
-	ERR_EINVAL_NORETURN (!this || !loc);
+	char actime_str[256] = {0,};
+	char modtime_str[256] = {0,};
 
-	if (trace_fop_names[GF_FOP_CHOWN].enabled) {  
-		gf_log (this->name, GF_LOG_NORMAL, 
-			"%"PRId64": (loc {path=%s, ino=%"PRIu64"}, uid=%d, gid=%d)",
-			frame->root->unique, loc->path, loc->inode->ino, uid, gid);
+	ERR_EINVAL_NORETURN (!this || !fd || !stbuf);
+
+	if (trace_fop_names[GF_FOP_FSETATTR].enabled) {
+                if (valid & GF_SET_ATTR_MODE) {
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "%"PRId64": (*fd=%p, mode=%o)",
+                                frame->root->unique, fd,
+                                stbuf->st_mode);
+                }
+
+                if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "%"PRId64": (*fd=%p, uid=%o, gid=%o)",
+                                frame->root->unique, fd,
+                                stbuf->st_uid, stbuf->st_gid);
+                }
+
+                if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
+                        strftime (actime_str, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&stbuf->st_atime));
+                        strftime (modtime_str, 256, "[%b %d %H:%M:%S]",
+                                  localtime (&stbuf->st_mtime));
+
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "%"PRId64": (*fd=%p"
+                                "*stbuf=%p {st_atime=%s, st_mtime=%s})",
+                                frame->root->unique, fd, stbuf, actime_str,
+                                modtime_str);
+                }
 	}
 
-	STACK_WIND (frame, 
-		    trace_chown_cbk, 
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->chown, 
-		    loc,
-		    uid,
-		    gid);
+	STACK_WIND (frame,
+		    trace_fsetattr_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->fsetattr,
+		    fd,
+		    stbuf, valid);
 
 	return 0;
 }
@@ -1540,38 +1546,6 @@ trace_truncate (call_frame_t *frame,
 		    loc,
 		    offset);
   
-	return 0;
-}
-
-int32_t 
-trace_utimens (call_frame_t *frame,
-	       xlator_t *this,
-	       loc_t *loc,
-	       struct timespec tv[2])
-{
-	char actime_str[256];
-	char modtime_str[256];
-  
-	ERR_EINVAL_NORETURN (!this || !loc || !tv);
-
-	if (trace_fop_names[GF_FOP_UTIMENS].enabled) {  
-		strftime (actime_str, 256, "[%b %d %H:%M:%S]", localtime (&tv[0].tv_sec));
-		strftime (modtime_str, 256, "[%b %d %H:%M:%S]", localtime (&tv[1].tv_sec));
-
-		gf_log (this->name, GF_LOG_NORMAL, 
-			"%"PRId64": (loc {path=%s, ino=%"PRIu64"}, "
-			"*tv=%p {actime=%s, modtime=%s})",
-			frame->root->unique, loc->path, loc->inode->ino, 
-			tv, actime_str, modtime_str);
-	}
-
-	STACK_WIND (frame, 
-		    trace_utimens_cbk, 
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->utimens, 
-		    loc,
-		    tv);
-
 	return 0;
 }
 
@@ -1972,54 +1946,6 @@ trace_ftruncate (call_frame_t *frame,
 }
 
 int32_t 
-trace_fchown (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      uid_t uid,
-	      gid_t gid)
-{
-	ERR_EINVAL_NORETURN (!this || !fd);
-
-	if (trace_fop_names[GF_FOP_FCHOWN].enabled) {  
-		gf_log (this->name, GF_LOG_NORMAL, 
-			"%"PRId64": (*fd=%p, uid=%d, gid=%d)", 
-			frame->root->unique, fd, uid, gid);
-	}
-
-	STACK_WIND (frame, 
-		    trace_fchown_cbk, 
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->fchown, 
-		    fd,
-		    uid,
-		    gid);
-	return 0;
-}
-
-int32_t 
-trace_fchmod (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      mode_t mode)
-{
-	ERR_EINVAL_NORETURN (!this || !fd);
-
-	if (trace_fop_names[GF_FOP_FCHMOD].enabled) {  
-		gf_log (this->name, GF_LOG_NORMAL, 
-			"%"PRId64": (mode=%o, *fd=%p)", 
-			frame->root->unique, mode, fd);
-	}
-
-	STACK_WIND (frame, 
-		    trace_fchmod_cbk, 
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->fchmod, 
-		    fd,
-		    mode);
-	return 0;
-}
-
-int32_t 
 trace_fstat (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd)
@@ -2275,10 +2201,7 @@ struct xlator_fops fops = {
   .symlink     = trace_symlink,
   .rename      = trace_rename,
   .link        = trace_link,
-  .chmod       = trace_chmod,
-  .chown       = trace_chown,
   .truncate    = trace_truncate,
-  .utimens     = trace_utimens,
   .open        = trace_open,
   .readv       = trace_readv,
   .writev      = trace_writev,
@@ -2295,8 +2218,6 @@ struct xlator_fops fops = {
   .ftruncate   = trace_ftruncate,
   .fstat       = trace_fstat,
   .create      = trace_create,
-  .fchown      = trace_fchown,
-  .fchmod      = trace_fchmod,
   .lk          = trace_lk,
   .inodelk     = trace_inodelk,
   .finodelk    = trace_finodelk,
@@ -2307,6 +2228,8 @@ struct xlator_fops fops = {
   .checksum    = trace_checksum,
   .xattrop     = trace_xattrop,
   .fxattrop    = trace_fxattrop,
+  .setattr     = trace_setattr,
+  .fsetattr    = trace_fsetattr,
 };
 
 struct xlator_mops mops = {

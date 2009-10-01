@@ -341,6 +341,22 @@ typedef struct _afr_local {
 		} utimens;
 
 		struct {
+			ino_t ino;
+			struct stat in_buf;
+                        int32_t valid;
+                        struct stat preop_buf;
+                        struct stat postop_buf;
+		} setattr;
+
+		struct {
+			ino_t ino;
+			struct stat in_buf;
+                        int32_t valid;
+                        struct stat preop_buf;
+                        struct stat postop_buf;
+		} fsetattr;
+
+		struct {
 			dict_t *dict;
 			int32_t flags;
 		} setxattr;

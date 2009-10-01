@@ -2628,6 +2628,8 @@ struct xlator_fops fops = {
 	.ftruncate   = afr_ftruncate,
 	.utimens     = afr_utimens,
 	.setxattr    = afr_setxattr,
+        .setattr     = afr_setattr,
+	.fsetattr    = afr_fsetattr,
 	.removexattr = afr_removexattr,
 
 	/* dir read */

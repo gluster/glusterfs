@@ -681,30 +681,6 @@ sp_stbuf_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
 
 int32_t
-sp_chmod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
-{
-        sp_cache_t *cache = NULL;
-
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
-
-        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)loc->name, 0);
-        }
-
-	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->chmod, loc, mode);
-        return 0;
-
-unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
-        return 0;
-}
-
-
-int32_t
 sp_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
            int32_t op_errno, fd_t *fd)
 {
@@ -983,100 +959,6 @@ unwind:
 
 
 int32_t
-sp_fchmod (call_frame_t *frame, xlator_t *this,	fd_t *fd, mode_t mode)
-{
-        sp_fd_ctx_t *fd_ctx = NULL;
-        sp_cache_t  *cache  = NULL;
-        uint64_t     value  = 0;
-        int32_t      ret    = 0; 
-        inode_t     *parent = NULL;
-        char        *name   = NULL; 
-
-        ret = fd_ctx_get (fd, this, &value);
-        if (ret == -1) {
-                errno = EINVAL;
-                goto unwind;
-        }
-
-        fd_ctx = (void *)(long)value;
-        name   = fd_ctx->name;
-        parent = fd_ctx->parent_inode;
-
-        cache = sp_get_cache_inode (this, parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, name, 0);
-        }
-
-	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fchmod, fd, mode);
-        return 0;
-
-unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
-        return 0;
-}
-
-
-int32_t
-sp_chown (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid, gid_t gid)
-{
-        sp_cache_t *cache = NULL;
-
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
-
-        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)loc->name, 0);
-        }
-
-	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->chown, loc, uid, gid);
-        return 0;
-
-unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
-        return 0;
-}
-
-
-int32_t
-sp_fchown (call_frame_t *frame, xlator_t *this,	fd_t *fd, uid_t uid, gid_t gid)
-{
-        sp_fd_ctx_t *fd_ctx = NULL;
-        sp_cache_t  *cache  = NULL;
-        uint64_t     value  = 0;
-        int32_t      ret    = 0; 
-        inode_t     *parent = NULL;
-        char        *name   = NULL; 
-
-        ret = fd_ctx_get (fd, this, &value);
-        if (ret == -1) {
-                errno = EINVAL;
-                goto unwind;
-        }
-
-        fd_ctx = (void *)(long)value;
-        name   = fd_ctx->name;
-        parent = fd_ctx->parent_inode;
-
-        cache = sp_get_cache_inode (this, parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, name, 0);
-        }
-
-	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fchown, fd, uid, gid);
-        return 0;
-
-unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
-        return 0;
-}
-
-
-int32_t
 sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
         sp_cache_t *cache = NULL;
@@ -1136,8 +1018,18 @@ unwind:
 
 
 int32_t
-sp_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
-            struct timespec tv[2])
+sp_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno,
+                struct stat *prestat, struct stat *poststat)
+{
+	SP_STACK_UNWIND (frame, op_ret, op_errno, poststat);
+	return 0;
+}
+
+
+int
+sp_setattr (call_frame_t *frame, xlator_t *this,
+            loc_t *loc, struct stat *buf, int32_t valid)
 {
         sp_cache_t *cache = NULL;
 
@@ -1150,8 +1042,8 @@ sp_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 sp_cache_remove_entry (cache, (char *)loc->name, 0);
         }
 
-	STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->utimens, loc, tv);
+	STACK_WIND (frame, sp_setattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->setattr, loc, buf, valid);
         return 0;
 
 unwind:
@@ -1798,7 +1690,6 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
         .lookup      = sp_lookup,
         .readdir     = sp_readdir,
-        .chmod       = sp_chmod,
         .open        = sp_open, 
         .create      = sp_create,
         .opendir     = sp_opendir,
@@ -1806,12 +1697,8 @@ struct xlator_fops fops = {
         .mknod       = sp_mknod,
         .symlink     = sp_symlink,
         .link        = sp_link,
-        .fchmod      = sp_fchmod,
-        .chown       = sp_chown,
-        .fchown      = sp_fchown,
         .truncate    = sp_truncate,
         .ftruncate   = sp_ftruncate,
-        .utimens     = sp_utimens,
         .readlink    = sp_readlink,
         .unlink      = sp_unlink,
         .rmdir       = sp_rmdir,
@@ -1826,6 +1713,7 @@ struct xlator_fops fops = {
         .checksum    = sp_checksum,
         .xattrop     = sp_xattrop,
         .fxattrop    = sp_fxattrop,
+        .setattr     = sp_setattr,
 };
 
 struct xlator_mops mops = {

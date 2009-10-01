@@ -53,6 +53,14 @@ int32_t
 afr_utimens (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, struct timespec tv[2]);
 
+int
+afr_setattr (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, struct stat *buf, int32_t valid);
+
+int
+afr_fsetattr (call_frame_t *frame, xlator_t *this,
+              fd_t *fd, struct stat *buf, int32_t valid);
+
 int32_t
 afr_setxattr (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, dict_t *dict, int32_t flags);

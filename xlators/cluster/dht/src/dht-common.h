@@ -57,6 +57,8 @@ struct dht_local {
 	int                      op_errno;
 	int                      layout_mismatch;
 	struct stat              stbuf;
+        struct stat              stpre;
+        struct stat              stpost;
 	struct statvfs           statvfs;
 	fd_t                    *fd;
 	inode_t                 *inode;

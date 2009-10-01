@@ -121,8 +121,6 @@ struct _server_state {
 	off_t             offset;
 	mode_t            mode;
 	dev_t             dev;
-	uid_t             uid;
-	gid_t             gid;
 	size_t            nr_count;
 	int               cmd;
 	int               type;
@@ -142,7 +140,6 @@ struct _server_state {
 	char              is_revalidate;
 	dict_t           *xattr_req;
 	struct flock      flock;
-	struct timespec   tv[2];
 	char             *resolved;
         const char       *volume;
 };

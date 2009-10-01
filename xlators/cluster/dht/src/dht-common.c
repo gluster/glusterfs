@@ -998,299 +998,6 @@ err:
 
 
 int
-dht_chmod (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode)
-{
-	dht_layout_t *layout = NULL;
-	dht_local_t  *local  = NULL;
-        int           op_errno = -1;
-	int           i = -1;
-
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->inode, err);
-        VALIDATE_OR_GOTO (loc->path, err);
-
-	layout = dht_layout_get (this, loc->inode);
-
-	if (!layout) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no layout for path=%s", loc->path);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	if (!layout_is_sane (layout)) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"layout is not sane for path=%s", loc->path);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	local = dht_local_init (frame);
-	if (!local) {
-		op_errno = ENOMEM;
-		gf_log (this->name, GF_LOG_DEBUG,
-			"memory allocation failed :(");
-		goto err;
-	}
-
-	local->inode = inode_ref (loc->inode);
-	local->call_cnt = layout->cnt;
-
-	for (i = 0; i < layout->cnt; i++) {
-		STACK_WIND (frame, dht_attr_cbk,
-			    layout->list[i].xlator,
-			    layout->list[i].xlator->fops->chmod,
-			    loc, mode);
-	}
-
-	return 0;
-
-err:
-	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
-
-	return 0;
-}
-
-
-int
-dht_chown (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, uid_t uid, gid_t gid)
-{
-	dht_layout_t *layout = NULL;
-	dht_local_t  *local  = NULL;
-        int           op_errno = -1;
-	int           i = -1;
-
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->inode, err);
-        VALIDATE_OR_GOTO (loc->path, err);
-
-	layout = dht_layout_get (this, loc->inode);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no layout for path=%s", loc->path);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	if (!layout_is_sane (layout)) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"layout is not sane for path=%s", loc->path);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	local = dht_local_init (frame);
-	if (!local) {
-		op_errno = ENOMEM;
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory");
-		goto err;
-	}
-
-	local->inode = inode_ref (loc->inode);
-	local->call_cnt = layout->cnt;
-
-	for (i = 0; i < layout->cnt; i++) {
-		STACK_WIND (frame, dht_attr_cbk,
-			    layout->list[i].xlator,
-			    layout->list[i].xlator->fops->chown,
-			    loc, uid, gid);
-	}
-
-	return 0;
-
-err:
-	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
-
-	return 0;
-}
-
-
-int
-dht_fchmod (call_frame_t *frame, xlator_t *this,
-	    fd_t *fd, mode_t mode)
-{
-	dht_layout_t *layout = NULL;
-	dht_local_t  *local  = NULL;
-        int           op_errno = -1;
-	int           i = -1;
-
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (fd, err);
-
-
-	layout = dht_layout_get (this, fd->inode);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no layout for fd=%p", fd);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	if (!layout_is_sane (layout)) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"layout is not sane for fd=%p", fd);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	local = dht_local_init (frame);
-	if (!local) {
-		op_errno = ENOMEM;
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory");
-		goto err;
-	}
-
-	local->inode = inode_ref (fd->inode);
-	local->call_cnt = layout->cnt;
-
-	for (i = 0; i < layout->cnt; i++) {
-		STACK_WIND (frame, dht_attr_cbk,
-			    layout->list[i].xlator,
-			    layout->list[i].xlator->fops->fchmod,
-			    fd, mode);
-	}
-
-	return 0;
-
-err:
-	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
-
-	return 0;
-}
-
-
-int
-dht_fchown (call_frame_t *frame, xlator_t *this,
-	    fd_t *fd, uid_t uid, gid_t gid)
-{
-	dht_layout_t *layout = NULL;
-	dht_local_t  *local  = NULL;
-        int           op_errno = -1;
-	int           i = -1;
-
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (fd, err);
-
-	layout = dht_layout_get (this, fd->inode);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no layout for fd=%p", fd);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	if (!layout_is_sane (layout)) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"layout is not sane for fd=%p", fd);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	local = dht_local_init (frame);
-	if (!local) {
-		op_errno = ENOMEM;
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory");
-		goto err;
-	}
-
-	local->inode = inode_ref (fd->inode);
-	local->call_cnt = layout->cnt;
-
-	for (i = 0; i < layout->cnt; i++) {
-		STACK_WIND (frame, dht_attr_cbk,
-			    layout->list[i].xlator,
-			    layout->list[i].xlator->fops->fchown,
-			    fd, uid, gid);
-	}
-
-	return 0;
-
-err:
-	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
-
-	return 0;
-}
-
-
-int
-dht_utimens (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, struct timespec tv[2])
-{
-	dht_layout_t *layout = NULL;
-	dht_local_t  *local  = NULL;
-        int           op_errno = -1;
-	int           i = -1;
-
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->inode, err);
-        VALIDATE_OR_GOTO (loc->path, err);
-
-	layout = dht_layout_get (this, loc->inode);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no layout for path=%s", loc->path);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	if (!layout_is_sane (layout)) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"layout is not sane for path=%s", loc->path);
-		op_errno = EINVAL;
-		goto err;
-	}
-
-	local = dht_local_init (frame);
-	if (!local) {
-		op_errno = ENOMEM;
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory");
-		goto err;
-	}
-
-	local->inode = inode_ref (loc->inode);
-	local->call_cnt = layout->cnt;
-
-	for (i = 0; i < layout->cnt; i++) {
-		STACK_WIND (frame, dht_attr_cbk,
-			    layout->list[i].xlator,
-			    layout->list[i].xlator->fops->utimens,
-			    loc, tv);
-	}
-
-	return 0;
-
-err:
-	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
-
-	return 0;
-}
-
-
-int
 dht_truncate (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, off_t offset)
 {
@@ -3569,6 +3276,168 @@ dht_fentrylk (call_frame_t *frame, xlator_t *this,
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
 	DHT_STACK_UNWIND (frame, -1, op_errno);
+
+	return 0;
+}
+
+
+int
+dht_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int op_ret, int op_errno, struct stat *statpre,
+                 struct stat *statpost)
+{
+	dht_local_t  *local = NULL;
+	int           this_call_cnt = 0;
+	call_frame_t *prev = NULL;
+
+
+	local = frame->local;
+	prev = cookie;
+
+	LOCK (&frame->lock);
+	{
+		if (op_ret == -1) {
+			local->op_errno = op_errno;
+			gf_log (this->name, GF_LOG_DEBUG,
+				"subvolume %s returned -1 (%s)",
+				prev->this->name, strerror (op_errno));
+			goto unlock;
+		}
+
+		dht_stat_merge (this, &local->stpre, statpre, prev->this);
+                dht_stat_merge (this, &local->stpost, statpost, prev->this);
+		
+		if (local->inode) {
+			local->stpre.st_ino = local->inode->ino;
+                        local->stpost.st_ino = local->inode->ino;
+                }
+
+		local->op_ret = 0;
+	}
+unlock:
+	UNLOCK (&frame->lock);
+
+	this_call_cnt = dht_frame_return (frame);
+	if (is_last_call (this_call_cnt))
+		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+				  &local->stpre, &local->stpost);
+
+        return 0;
+}
+
+
+int32_t
+dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+             struct stat *stbuf, int32_t valid)
+{
+	dht_layout_t *layout = NULL;
+	dht_local_t  *local  = NULL;
+        int           op_errno = -1;
+	int           i = -1;
+
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+        VALIDATE_OR_GOTO (loc->inode, err);
+        VALIDATE_OR_GOTO (loc->path, err);
+
+	layout = dht_layout_get (this, loc->inode);
+
+	if (!layout) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"no layout for path=%s", loc->path);
+		op_errno = EINVAL;
+		goto err;
+	}
+
+	if (!layout_is_sane (layout)) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"layout is not sane for path=%s", loc->path);
+		op_errno = EINVAL;
+		goto err;
+	}
+
+	local = dht_local_init (frame);
+	if (!local) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_DEBUG,
+			"memory allocation failed :(");
+		goto err;
+	}
+
+	local->inode = inode_ref (loc->inode);
+	local->call_cnt = layout->cnt;
+
+	for (i = 0; i < layout->cnt; i++) {
+		STACK_WIND (frame, dht_setattr_cbk,
+			    layout->list[i].xlator,
+			    layout->list[i].xlator->fops->setattr,
+			    loc, stbuf, valid);
+	}
+
+	return 0;
+
+err:
+	op_errno = (op_errno == -1) ? errno : op_errno;
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+
+	return 0;
+}
+
+
+int32_t
+dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct stat *stbuf,
+              int32_t valid)
+{
+	dht_layout_t *layout = NULL;
+	dht_local_t  *local  = NULL;
+        int           op_errno = -1;
+	int           i = -1;
+
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+
+	layout = dht_layout_get (this, fd->inode);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"no layout for fd=%p", fd);
+		op_errno = EINVAL;
+		goto err;
+	}
+
+	if (!layout_is_sane (layout)) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"layout is not sane for fd=%p", fd);
+		op_errno = EINVAL;
+		goto err;
+	}
+
+	local = dht_local_init (frame);
+	if (!local) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory");
+		goto err;
+	}
+
+	local->inode = inode_ref (fd->inode);
+	local->call_cnt = layout->cnt;
+
+	for (i = 0; i < layout->cnt; i++) {
+		STACK_WIND (frame, dht_setattr_cbk,
+			    layout->list[i].xlator,
+			    layout->list[i].xlator->fops->fsetattr,
+			    fd, stbuf, valid);
+	}
+
+	return 0;
+
+err:
+	op_errno = (op_errno == -1) ? errno : op_errno;
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }

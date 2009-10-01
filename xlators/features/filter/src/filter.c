@@ -262,25 +262,28 @@ filter_stat (call_frame_t *frame,
 }
 
 static int32_t
-filter_chmod_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
+filter_setattr_cbk (call_frame_t *frame,
+                    void *cookie,
+                    xlator_t *this,
+                    int32_t op_ret,
+                    int32_t op_errno,
+                    struct stat *preop,
+                    struct stat *postop)
 {
 	if (op_ret >= 0) {
-		update_stat (buf, this->private);
+		update_stat (preop, this->private);
+		update_stat (postop, this->private);
 	}
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
 	return 0;
 }
 
 int32_t
-filter_chmod (call_frame_t *frame,
-	      xlator_t *this,
-	      loc_t *loc,
-	      mode_t mode)
+filter_setattr (call_frame_t *frame,
+                xlator_t *this,
+                loc_t *loc,
+                struct stat *stbuf,
+                int32_t valid)
 {
 	int32_t ret = 0;
 	ret = update_frame (frame, loc->inode, this->private);
@@ -291,147 +294,65 @@ filter_chmod (call_frame_t *frame,
 	case GF_FILTER_MAP_BOTH:
 		if (loc->inode->st_mode & S_IWOTH)
 			break;
-		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
-		STACK_UNWIND (frame, -1, EPERM, NULL);
+		gf_log (this->name, GF_LOG_DEBUG,
+                        "%s: returning permission denied", loc->path);
+		STACK_UNWIND (frame, -1, EPERM, NULL, NULL, NULL);
 		return 0;
-		
+
 	case GF_FILTER_FILTER_UID:
 	case GF_FILTER_FILTER_GID:
 	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL);
+		STACK_UNWIND (frame, -1, EROFS, NULL, NULL);
 		return 0;
 	default:
 		break;
 	}
 
 	STACK_WIND (frame,
-		    filter_chmod_cbk,
+		    filter_setattr_cbk,
 		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->chmod,
+		    FIRST_CHILD(this)->fops->setattr,
 		    loc,
-		    mode);
+		    stbuf, valid);
 	return 0;
 }
 
-
 static int32_t
-filter_fchmod_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *buf)
+filter_fsetattr_cbk (call_frame_t *frame,
+                     void *cookie,
+                     xlator_t *this,
+                     int32_t op_ret,
+                     int32_t op_errno,
+                     struct stat *preop,
+                     struct stat *postop)
 {
 	if (op_ret >= 0) {
-		update_stat (buf, this->private);
+                update_stat (preop, this->private);
+		update_stat (postop, this->private);
 	}
 	STACK_UNWIND (frame,
 		      op_ret,
 		      op_errno,
-		      buf);
-	return 0;
-}
-
-int32_t 
-filter_fchmod (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       mode_t mode)
-{
-	STACK_WIND (frame,
-		    filter_fchmod_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->fchmod,
-		    fd,
-		    mode);
-	return 0;
-}
-
-static int32_t
-filter_chown_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
-{
-	if (op_ret >= 0) {
-		update_stat (buf, this->private);
-	}
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+		      preop, postop);
 	return 0;
 }
 
 int32_t
-filter_chown (call_frame_t *frame,
-	      xlator_t *this,
-	      loc_t *loc,
-	      uid_t uid,
-	      gid_t gid)
+filter_fsetattr (call_frame_t *frame,
+                 xlator_t *this,
+                 fd_t *fd,
+                 struct stat *stbuf,
+                 int32_t valid)
 {
-	int32_t ret = 0;
-	ret = update_frame (frame, loc->inode, this->private);
-	switch (ret) {
-	case GF_FILTER_MAP_UID:
-		if (loc->inode->st_mode & S_IWGRP)
-			break;
-	case GF_FILTER_MAP_BOTH:
-		if (loc->inode->st_mode & S_IWOTH)
-			break;
-		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
-		STACK_UNWIND (frame, -1, EPERM, NULL);
-		return 0;
-		
-	case GF_FILTER_FILTER_UID:
-	case GF_FILTER_FILTER_GID:
-	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL);
-		return 0;
-	default:
-		break;
-	}			
-
-	STACK_WIND (frame,	      
-		    filter_chown_cbk,
+	STACK_WIND (frame,
+		    filter_fsetattr_cbk,
 		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->chown,
-		    loc,
-		    uid,
-		    gid);
-	return 0;
-}
-
-static int32_t
-filter_fchown_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *buf)
-{
-	if (op_ret >= 0) {
-		update_stat (buf, this->private);
-	}
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
-	return 0;
-}
-
-int32_t 
-filter_fchown (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       uid_t uid,
-	       gid_t gid)
-{
-	STACK_WIND (frame,	      
-		    filter_fchown_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->fchown,
+		    FIRST_CHILD(this)->fops->fsetattr,
 		    fd,
-		    uid,
-		    gid);
+		    stbuf, valid);
 	return 0;
 }
+
 
 static int32_t
 filter_truncate_cbk (call_frame_t *frame,
@@ -513,56 +434,6 @@ filter_ftruncate (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
-filter_utimens_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
-{
-	if (op_ret >= 0) {
-		update_stat (buf, this->private);
-	}
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
-	return 0;
-}
-
-
-int32_t 
-filter_utimens (call_frame_t *frame,
-		xlator_t *this,
-		loc_t *loc,
-		struct timespec tv[2])
-{
-	int32_t ret = 0;
-	ret = update_frame (frame, loc->inode, this->private);
-	switch (ret) {
-	case GF_FILTER_MAP_UID:
-		if (loc->inode->st_mode & S_IWGRP)
-			break;
-	case GF_FILTER_MAP_BOTH:
-		if (loc->inode->st_mode & S_IWOTH)
-			break;
-		gf_log (this->name, GF_LOG_DEBUG, "%s: returning permission denied", loc->path);
-		STACK_UNWIND (frame, -1, EPERM, NULL);
-		return 0;
-		
-	case GF_FILTER_FILTER_UID:
-	case GF_FILTER_FILTER_GID:
-	case GF_FILTER_RO_FS:
-		STACK_UNWIND (frame, -1, EROFS, NULL);
-		return 0;
-	}
-
-	STACK_WIND (frame,
-		    filter_utimens_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->utimens,
-		    loc,
-		    tv);
-	return 0;
-}
 
 static int32_t
 filter_readlink_cbk (call_frame_t *frame,
@@ -1715,8 +1586,6 @@ struct xlator_fops fops = {
 	.lookup      = filter_lookup,
 	.stat        = filter_stat,
 	.fstat       = filter_fstat,
-	.chmod       = filter_chmod,
-	.fchmod      = filter_fchmod,
 	.readlink    = filter_readlink,
 	.mknod       = filter_mknod,
 	.mkdir       = filter_mkdir,
@@ -1725,8 +1594,6 @@ struct xlator_fops fops = {
 	.symlink     = filter_symlink,
 	.rename      = filter_rename,
 	.link        = filter_link,
-	.chown       = filter_chown,
-	.fchown      = filter_fchown,
 	.truncate    = filter_truncate,
 	.ftruncate   = filter_ftruncate,
 	.create      = filter_create,
@@ -1737,7 +1604,8 @@ struct xlator_fops fops = {
 	.getxattr    = filter_getxattr,
 	.removexattr = filter_removexattr,
 	.opendir     = filter_opendir,
-	.utimens     = filter_utimens,
+        .setattr     = filter_setattr,
+        .fsetattr    = filter_fsetattr,
 };
 
 struct xlator_mops mops = {

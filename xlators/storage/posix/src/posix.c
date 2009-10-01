@@ -416,6 +416,269 @@ posix_stat (call_frame_t *frame,
         return 0;
 }
 
+static int
+posix_do_chmod (xlator_t *this,
+                const char *path,
+                struct stat *stbuf)
+{
+        int32_t ret = -1;
+
+        ret = chmod (path, stbuf->st_mode);
+        if ((ret == -1) && (errno == ENOSYS)) {
+                ret = chmod (path, stbuf->st_mode);
+        }
+
+        return ret;
+}
+
+static int
+posix_do_chown (xlator_t *this,
+                const char *path,
+                struct stat *stbuf,
+                int32_t valid)
+{
+        int32_t ret = -1;
+        uid_t uid = -1;
+        gid_t gid = -1;
+
+        if (valid & GF_SET_ATTR_UID)
+                uid = stbuf->st_uid;
+
+        if (valid & GF_SET_ATTR_GID)
+                gid = stbuf->st_gid;
+
+        ret = chown (path, uid, gid);
+
+        return ret;
+}
+
+static int
+posix_do_utimes (xlator_t *this,
+                 const char *path,
+                 struct stat *stbuf)
+{
+        int32_t ret = -1;
+        struct timeval tv[2]     = {{0,},{0,}};
+
+        tv[0].tv_sec  = stbuf->st_atime;
+        tv[0].tv_usec = ST_ATIM_NSEC (stbuf) / 1000;
+        tv[1].tv_sec  = stbuf->st_mtime;
+        tv[1].tv_usec = ST_ATIM_NSEC (stbuf) / 1000;
+
+        ret = utimes (path, tv);
+
+        return ret;
+}
+
+int
+posix_setattr (call_frame_t *frame, xlator_t *this,
+               loc_t *loc, struct stat *stbuf, int32_t valid)
+{
+        int32_t        op_ret    = -1;
+        int32_t        op_errno  = 0;
+        char *         real_path = 0;
+        struct stat    statpre     = {0,};
+        struct stat    statpost    = {0,};
+
+        DECLARE_OLD_FS_ID_VAR;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (loc, out);
+
+        SET_FS_ID (frame->root->uid, frame->root->gid);
+        MAKE_REAL_PATH (real_path, this, loc->path);
+
+        op_ret = lstat (real_path, &statpre);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setattr (lstat) on %s failed: %s", real_path,
+                        strerror (op_errno));
+                goto out;
+        }
+
+        if (valid & GF_SET_ATTR_MODE) {
+                op_ret = posix_do_chmod (this, real_path, stbuf);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "setattr (chmod) on %s failed: %s", real_path,
+                                strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)){
+                op_ret = posix_do_chown (this, real_path, stbuf, valid);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "setattr (chown) on %s failed: %s", real_path,
+                                strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
+                op_ret = posix_do_utimes (this, real_path, stbuf);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "setattr (utimes) on %s failed: %s", real_path,
+                                strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        op_ret = lstat (real_path, &statpost);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setattr (lstat) on %s failed: %s", real_path,
+                        strerror (op_errno));
+                goto out;
+        }
+
+        op_ret = 0;
+
+out:
+        SET_TO_OLD_FS_ID ();
+
+        STACK_UNWIND (frame, op_ret, op_errno, &statpre, &statpost);
+
+        return 0;
+}
+
+int32_t
+posix_do_fchown (xlator_t *this,
+                 int fd,
+                 struct stat *stbuf,
+                 int32_t valid)
+{
+        int   ret      = -1;
+        uid_t uid = -1;
+        gid_t gid = -1;
+
+        if (valid & GF_SET_ATTR_UID)
+                uid = stbuf->st_uid;
+
+        if (valid & GF_SET_ATTR_GID)
+                gid = stbuf->st_gid;
+
+        ret = fchown (fd, uid, gid);
+
+        return ret;
+}
+
+
+int32_t
+posix_do_fchmod (xlator_t *this,
+                 int fd, struct stat *stbuf)
+{
+        return fchmod (fd, stbuf->st_mode);
+}
+
+static int
+posix_do_futimes (xlator_t *this,
+                  int fd,
+                  struct stat *stbuf)
+{
+        errno = ENOSYS;
+        return -1;
+}
+
+int
+posix_fsetattr (call_frame_t *frame, xlator_t *this,
+                fd_t *fd, struct stat *stbuf, int32_t valid)
+{
+        int32_t        op_ret    = -1;
+        int32_t        op_errno  = 0;
+        struct stat    statpre     = {0,};
+        struct stat    statpost    = {0,};
+        struct posix_fd *pfd = NULL;
+        uint64_t         tmp_pfd = 0;
+        int32_t          ret = -1;
+
+        DECLARE_OLD_FS_ID_VAR;
+
+        SET_FS_ID (frame->root->uid, frame->root->gid);
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        if (ret < 0) {
+                op_errno = -ret;
+                gf_log (this->name, GF_LOG_DEBUG,
+			"pfd is NULL from fd=%p", fd);
+                goto out;
+        }
+	pfd = (struct posix_fd *)(long)tmp_pfd;
+
+        op_ret = fstat (pfd->fd, &statpre);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "fsetattr (fstat) failed on fd=%p: %s", fd,
+                        strerror (op_errno));
+                goto out;
+        }
+
+        if (valid & GF_SET_ATTR_MODE) {
+                op_ret = posix_do_fchmod (this, pfd->fd, stbuf);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fsetattr (fchmod) failed on fd=%p: %s",
+                                fd, strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
+                op_ret = posix_do_fchown (this, pfd->fd, stbuf, valid);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fsetattr (fchown) failed on fd=%p: %s",
+                                fd, strerror (op_errno));
+                        goto out;
+                }
+
+        }
+
+        if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
+                op_ret = posix_do_futimes (this, pfd->fd, stbuf);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fsetattr (futimes) on failed fd=%p: %s", fd,
+                                strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        op_ret = fstat (pfd->fd, &statpost);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "fsetattr (fstat) failed on fd=%p: %s", fd,
+                        strerror (op_errno));
+                goto out;
+        }
+
+        op_ret = 0;
+
+out:
+        SET_TO_OLD_FS_ID ();
+
+        STACK_UNWIND (frame, op_ret, op_errno, &statpre, &statpost);
+
+        return 0;
+}
+
 int32_t
 posix_opendir (call_frame_t *frame, xlator_t *this,
                loc_t *loc, fd_t *fd)
@@ -1360,139 +1623,6 @@ posix_link (call_frame_t *frame, xlator_t *this,
 }
 
 
-int
-posix_chmod (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, mode_t mode)
-{
-        int32_t               op_ret    = -1;
-        int32_t               op_errno  = 0;
-        char                 *real_path = 0;
-        struct stat           stbuf     = {0,};
-        struct posix_private *priv      = NULL;
-
-        DECLARE_OLD_FS_ID_VAR;
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (loc, out);
-
-        priv = this->private;
-        VALIDATE_OR_GOTO (priv, out);
-
-        SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_path, this, loc->path);
-
-        if (S_ISLNK (loc->inode->st_mode)) {
-                /* chmod on a link should always succeed */
-		op_ret = lstat (real_path, &stbuf);
-		if (op_ret == -1) {
-			op_errno = errno;
-			gf_log (this->name, GF_LOG_ERROR,
-				"lstat on %s failed: %s",
-				real_path, strerror (op_errno));
-			goto out;
-		}
-
-                if (priv->span_devices) {
-                        posix_scale_st_ino (priv, &stbuf);
-                }
-
-		op_ret = 0;
-                goto out;
-        }
-
-        op_ret = lchmod (real_path, mode);
-        if ((op_ret == -1) && (errno == ENOSYS)) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "lchmod not implemented, falling back to chmod");
-                op_ret = chmod (real_path, mode);
-        }
-
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "chmod on %s failed: %s",
-                        loc->path, strerror (op_errno));
-                goto out;
-        }
-
-        op_ret = lstat (real_path, &stbuf);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "lstat on %s failed: %s",
-                        real_path, strerror (op_errno));
-                goto out;
-        }
-
-        if (priv->span_devices) {
-                posix_scale_st_ino (priv, &stbuf);
-        }
-
-        op_ret = 0;
-
- out:
-        SET_TO_OLD_FS_ID ();
-
-        STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
-
-        return 0;
-}
-
-
-int
-posix_chown (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, uid_t uid, gid_t gid)
-{
-        int32_t               op_ret     = -1;
-        int32_t               op_errno   = 0;
-        char                 *real_path  = 0;
-        struct stat           stbuf      = {0,};
-        struct posix_private *priv       = NULL;
-
-        DECLARE_OLD_FS_ID_VAR;
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (loc, out);
-
-        priv = this->private;
-        VALIDATE_OR_GOTO (priv, out);
-
-        SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_path, this, loc->path);
-
-        op_ret = lchown (real_path, uid, gid);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-			"lchown on %s failed: %s",
-                        loc->path, strerror (op_errno));
-                goto out;
-        }
-
-        op_ret = lstat (real_path, &stbuf);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-			"lstat on %s failed: %s",
-                        real_path, strerror (op_errno));
-                goto out;
-        }
-
-        if (priv->span_devices) {
-                posix_scale_st_ino (priv, &stbuf);
-        }
-
-        op_ret = 0;
-
- out:
-        SET_TO_OLD_FS_ID ();
-
-        STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
-
-        return 0;
-}
-
-
 int32_t
 posix_truncate (call_frame_t *frame,
                 xlator_t *this,
@@ -1548,70 +1678,6 @@ posix_truncate (call_frame_t *frame,
         return 0;
 }
 
-
-int
-posix_utimens (call_frame_t *frame, xlator_t *this,
-               loc_t *loc, struct timespec ts[2])
-{
-        int32_t               op_ret    = -1;
-        int32_t               op_errno  = 0;
-        char                 *real_path = 0;
-        struct stat           stbuf     = {0,};
-        struct timeval        tv[2]     = {{0,},{0,}};
-        struct posix_private *priv      = NULL;
-
-        DECLARE_OLD_FS_ID_VAR;
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (loc, out);
-
-        priv = this->private;
-        VALIDATE_OR_GOTO (priv, out);
-
-        SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_path, this, loc->path);
-
-        tv[0].tv_sec  = ts[0].tv_sec;
-        tv[0].tv_usec = ts[0].tv_nsec / 1000;
-        tv[1].tv_sec  = ts[1].tv_sec;
-        tv[1].tv_usec = ts[1].tv_nsec / 1000;
-
-        op_ret = lutimes (real_path, tv);
-        if ((op_ret == -1) && (errno == ENOSYS)) {
-                op_ret = utimes (real_path, tv);
-        }
-
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "utimes on %s failed: %s", real_path, 
-                        strerror (op_errno));
-                goto out;
-        }
-
-        op_ret = lstat (real_path, &stbuf);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "lstat on %s failed: %s", real_path, 
-                        strerror (op_errno));
-                goto out;
-        }
-
-        if (priv->span_devices) {
-                posix_scale_st_ino (priv, &stbuf);
-        }
-
-        op_ret = 0;
-
- out:
-        SET_TO_OLD_FS_ID ();
-
-        STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
-
-        return 0;
-}
 
 int32_t
 posix_create (call_frame_t *frame, xlator_t *this,
@@ -3382,135 +3448,6 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t
-posix_fchown (call_frame_t *frame, xlator_t *this,
-              fd_t *fd, uid_t uid, gid_t gid)
-{
-        int32_t               op_ret   = -1;
-        int32_t               op_errno = 0;
-        int                   _fd      = -1;
-        struct stat           buf      = {0,};
-        struct posix_fd      *pfd      = NULL;
-        int                   ret      = -1;
-	uint64_t              tmp_pfd  = 0;
-        struct posix_private *priv     = NULL;
-
-        DECLARE_OLD_FS_ID_VAR;
-
-        SET_FS_ID (frame->root->uid, frame->root->gid);
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (fd, out);
-
-        priv = this->private;
-        VALIDATE_OR_GOTO (priv, out);
-
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "pfd is NULL, fd=%p", fd);
-                op_errno = -ret;
-                goto out;
-        }
-	pfd = (struct posix_fd *)(long)tmp_pfd;
-
-        _fd = pfd->fd;
-
-        op_ret = fchown (_fd, uid, gid);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "fchown failed on fd=%p: %s",
-                        fd, strerror (op_errno));
-                goto out;
-        }
-
-        op_ret = fstat (_fd, &buf);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "fstat failed on fd=%p: %s",
-                        fd, strerror (op_errno));
-                goto out;
-        }
-
-        if (priv->span_devices) {
-                posix_scale_st_ino (priv, &buf);
-        }
-
-        op_ret = 0;
-
- out:
-        SET_TO_OLD_FS_ID ();
-
-        STACK_UNWIND (frame, op_ret, op_errno, &buf);
-
-        return 0;
-}
-
-
-int32_t
-posix_fchmod (call_frame_t *frame, xlator_t *this,
-              fd_t *fd, mode_t mode)
-{
-        int32_t               op_ret   = -1;
-        int32_t               op_errno = 0;
-        int                   _fd      = -1;
-        struct stat           buf      = {0,};
-        struct posix_fd      *pfd      = NULL;
-        int                   ret      = -1;
-	uint64_t              tmp_pfd  = 0;
-        struct posix_private *priv = NULL;
-
-        DECLARE_OLD_FS_ID_VAR;
-
-        SET_FS_ID (frame->root->uid, frame->root->gid);
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (fd, out);
-
-        priv = this->private;
-        VALIDATE_OR_GOTO (priv, out);
-
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "pfd is NULL fd=%p", fd);
-                op_errno = -ret;
-                goto out;
-        }
-	pfd = (struct posix_fd *)(long)tmp_pfd;
-
-        _fd = pfd->fd;
-
-        op_ret = fchmod (_fd, mode);
-
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-			"fchmod failed on fd=%p: %s", fd, strerror (errno));
-                goto out;
-        }
-
-        op_ret = fstat (_fd, &buf);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-			"fstat failed on fd=%p: %s",
-                        fd, strerror (errno));
-                goto out;
-        }
-
-        op_ret = 0;
-
- out:
-        SET_TO_OLD_FS_ID ();
-
-        STACK_UNWIND (frame, op_ret, op_errno, &buf);
-
-        return 0;
-}
-
 
 static int
 same_file_type (mode_t m1, mode_t m2)
@@ -4638,10 +4575,7 @@ struct xlator_fops fops = {
         .symlink     = posix_symlink,
         .rename      = posix_rename,
         .link        = posix_link,
-        .chmod       = posix_chmod,
-        .chown       = posix_chown,
         .truncate    = posix_truncate,
-        .utimens     = posix_utimens,
         .create      = posix_create,
         .open        = posix_open,
         .readv       = posix_readv,
@@ -4663,14 +4597,14 @@ struct xlator_fops fops = {
 	.finodelk    = posix_finodelk,
 	.entrylk     = posix_entrylk,
 	.fentrylk    = posix_fentrylk,
-        .fchown      = posix_fchown,
-        .fchmod      = posix_fchmod,
         .setdents    = posix_setdents,
         .getdents    = posix_getdents,
         .checksum    = posix_checksum,
         .rchecksum   = posix_rchecksum,
 	.xattrop     = posix_xattrop,
 	.fxattrop    = posix_fxattrop,
+        .setattr     = posix_setattr,
+        .fsetattr    = posix_fsetattr,
 };
 
 struct xlator_cbks cbks = {

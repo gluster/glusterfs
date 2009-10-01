@@ -618,64 +618,48 @@ path_link (call_frame_t *frame,
 }
 
 int32_t 
-path_chmod (call_frame_t *frame,
-	    xlator_t *this,
-	    loc_t *loc,
-	    mode_t mode)
+path_setattr_cbk (call_frame_t *frame,
+                  void *cookie,
+                  xlator_t *this,
+                  int32_t op_ret,
+                  int32_t op_errno,
+                  struct stat *preop,
+                  struct stat *postop)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
+	return 0;
+}
+
+int32_t
+path_setattr (call_frame_t *frame,
+              xlator_t *this,
+              loc_t *loc,
+              struct stat *stbuf,
+              int32_t valid)
 {
 	char *loc_path = (char *)loc->path;
 	char *tmp_path = NULL;
-	
+
 	if (!(tmp_path = path_this_to_that (this, loc->path))) {
 		STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
 		return 0;
 	}
 	loc->path = tmp_path;
 
-	STACK_WIND (frame, 
-		    path_common_buf_cbk, 
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->chmod, 
-		    loc, 
-		    mode);
-  
-	loc->path = loc_path;	
+	STACK_WIND (frame,
+		    path_setattr_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->setattr,
+		    loc,
+		    stbuf, valid);
+
+	loc->path = loc_path;
 	if (tmp_path != loc_path)
 		FREE (tmp_path);
 
 	return 0;
 }
 
-int32_t 
-path_chown (call_frame_t *frame,
-	    xlator_t *this,
-	    loc_t *loc,
-	    uid_t uid,
-	    gid_t gid)
-{
-	char *loc_path = (char *)loc->path;
-	char *tmp_path = NULL;
-	
-	if (!(tmp_path = path_this_to_that (this, loc->path))) {
-		STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
-		return 0;
-	}
-	loc->path = tmp_path;
-
-	STACK_WIND (frame, 
-		    path_common_buf_cbk, 
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->chown, 
-		    loc, 
-		    uid,
-		    gid);
-
-	loc->path = loc_path;	
-	if (tmp_path != loc_path)
-		FREE (tmp_path);
-
-	return 0;
-}
 
 int32_t 
 path_truncate (call_frame_t *frame,
@@ -706,34 +690,6 @@ path_truncate (call_frame_t *frame,
 	return 0;
 }
 
-int32_t 
-path_utimens (call_frame_t *frame,
-	      xlator_t *this,
-	      loc_t *loc,
-	      struct timespec tv[2])
-{
-	char *loc_path = (char *)loc->path;
-	char *tmp_path = NULL;
-	
-	if (!(tmp_path = path_this_to_that (this, loc->path))) {
-		STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
-		return 0;
-	}
-	loc->path = tmp_path;
-
-	STACK_WIND (frame, 
-		    path_common_buf_cbk, 
-		    FIRST_CHILD(this), 
-		    FIRST_CHILD(this)->fops->utimens, 
-		    loc, 
-		    tv);
-
-	loc->path = loc_path;	
-	if (tmp_path != loc_path)
-		FREE (tmp_path);
-
-	return 0;
-}
 
 int32_t 
 path_open (call_frame_t *frame,
@@ -1173,10 +1129,7 @@ struct xlator_fops fops = {
 	.symlink     = path_symlink,
 	.rename      = path_rename,
 	.link        = path_link,
-	.chmod       = path_chmod,
-	.chown       = path_chown,
 	.truncate    = path_truncate,
-	.utimens     = path_utimens,
 	.open        = path_open,
 	.setxattr    = path_setxattr,
 	.getxattr    = path_getxattr,
@@ -1189,6 +1142,7 @@ struct xlator_fops fops = {
 	.xattrop     = path_xattrop,
 	.entrylk     = path_entrylk,
 	.inodelk     = path_inodelk,
+        .setattr     = path_setattr,
 };
 
 

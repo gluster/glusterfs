@@ -1183,124 +1183,36 @@ out:
 }
 
 
-static int32_t
-qr_fchown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *buf)
+
+
+int32_t
+qr_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno,
+                 struct stat *preop, struct stat *postop)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
 	return 0;
 }
 
 
 int32_t
-qr_fchown_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, uid_t uid,
-                  gid_t gid)
+qr_fsetattr_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                    struct stat *stbuf, int32_t valid)
 {
-        STACK_WIND (frame, qr_fchown_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fchown, fd, uid, gid);
+        STACK_WIND(frame, qr_fsetattr_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->fsetattr, fd, stbuf,
+                   valid);
         return 0;
 }
 
 
 int32_t
-qr_fchown (call_frame_t *frame, xlator_t *this,	fd_t *fd, uid_t uid, gid_t gid)
+qr_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+             struct stat *stbuf, int32_t valid)
 {
         uint64_t     value = 0;
         int          flags = 0;
-        call_stub_t *stub = NULL;  
-        char        *path = NULL;
-        loc_t        loc = {0, };
-        qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret = -1, op_ret = -1, op_errno = -1;
-        char         need_open = 0, can_wind = 0, need_unwind = 0;
-
-        ret = fd_ctx_get (fd, this, &value);
-        if (ret == 0) {
-                qr_fd_ctx = (qr_fd_ctx_t *)(long) value;
-        }
-
-        if (qr_fd_ctx) {
-                LOCK (&qr_fd_ctx->lock);
-                {
-                        path = qr_fd_ctx->path;
-                        flags = qr_fd_ctx->flags;
-
-                        if (!(qr_fd_ctx->opened
-                              || qr_fd_ctx->open_in_transit)) {
-                                need_open = 1;
-                                qr_fd_ctx->open_in_transit = 1;
-                        }
-
-                        if (qr_fd_ctx->opened) {
-                                can_wind = 1;
-                        } else {
-                                stub = fop_fchown_stub (frame, qr_fchown_helper,
-                                                        fd, uid, gid);
-                                if (stub == NULL) {
-                                        op_ret = -1;
-                                        op_errno = ENOMEM;
-                                        need_unwind = 1;
-                                        qr_fd_ctx->open_in_transit = 0;
-                                        goto unlock;
-                                }
-
-                                list_add_tail (&stub->list,
-                                               &qr_fd_ctx->waiting_ops);
-                        }
-                }
-        unlock:
-                UNLOCK (&qr_fd_ctx->lock);
-        } else {
-                can_wind = 1;
-        }
-
-out:
-        if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno, NULL);
-        } else if (can_wind) {
-                STACK_WIND (frame, qr_fchown_cbk, FIRST_CHILD (this),
-                            FIRST_CHILD (this)->fops->fchown, fd, uid, gid);
-        } else if (need_open) {
-                op_ret = qr_loc_fill (&loc, fd->inode, path);
-                if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
-                        goto out;
-                }
-
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd);
-
-                qr_loc_wipe (&loc);
-        }
-        
-        return 0;
-}
-
-
-int32_t
-qr_fchmod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *buf)
-{
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
-	return 0;
-}
-
-
-int32_t
-qr_fchmod_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, mode_t mode)
-{
-        STACK_WIND(frame, qr_fchmod_cbk, FIRST_CHILD(this),
-                   FIRST_CHILD(this)->fops->fchmod, fd, mode);
-        return 0;
-}
-
-
-int32_t
-qr_fchmod (call_frame_t *frame, xlator_t *this,	fd_t *fd, mode_t mode)
-{
-        uint64_t     value = 0;
-        int          flags = 0;
-        call_stub_t *stub = NULL;  
+        call_stub_t *stub = NULL;
         char        *path = NULL;
         loc_t        loc = {0, };
         qr_fd_ctx_t *qr_fd_ctx = NULL;
@@ -1326,8 +1238,9 @@ qr_fchmod (call_frame_t *frame, xlator_t *this,	fd_t *fd, mode_t mode)
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
-                                stub = fop_fchmod_stub (frame, qr_fchmod_helper,
-                                                        fd, mode);
+                                stub = fop_fsetattr_stub (frame,
+                                                          qr_fsetattr_helper,
+                                                          fd, stbuf, valid);
                                 if (stub == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -1348,10 +1261,11 @@ qr_fchmod (call_frame_t *frame, xlator_t *this,	fd_t *fd, mode_t mode)
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno, NULL);
+                STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
         } else if (can_wind) {
-                STACK_WIND (frame, qr_fchmod_cbk, FIRST_CHILD (this),
-                            FIRST_CHILD (this)->fops->fchmod, fd, mode);
+                STACK_WIND (frame, qr_fsetattr_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->fsetattr, fd, stbuf,
+                            valid);
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
@@ -2292,8 +2206,6 @@ struct xlator_fops fops = {
         .readv       = qr_readv,
         .writev      = qr_writev,
         .fstat       = qr_fstat,
-        .fchown      = qr_fchown,
-        .fchmod      = qr_fchmod,
         .fsetxattr   = qr_fsetxattr,
         .fgetxattr   = qr_fgetxattr,
         .flush       = qr_flush,
@@ -2302,6 +2214,7 @@ struct xlator_fops fops = {
         .fsync       = qr_fsync,
         .ftruncate   = qr_ftruncate,
         .lk          = qr_lk,
+        .fsetattr    = qr_fsetattr,
 };
 
 

@@ -1867,23 +1867,79 @@ out:
         return 0;
 } /* bdb_symlink */
 
+static int
+bdb_do_chmod (xlator_t *this,
+              const char *path,
+              struct stat *stbuf)
+{
+        int32_t ret = -1;
+
+        ret = lchmod (path, stbuf->st_mode);
+        if ((ret == -1) && (errno == ENOSYS)) {
+                ret = chmod (path, stbuf->st_mode);
+        }
+
+        return ret;
+}
+
+static int
+bdb_do_chown (xlator_t *this,
+              const char *path,
+              struct stat *stbuf,
+              int32_t valid)
+{
+        int32_t ret = -1;
+        uid_t uid = -1;
+        gid_t gid = -1;
+
+        if (valid & GF_SET_ATTR_UID)
+                uid = stbuf->st_uid;
+
+        if (valid & GF_SET_ATTR_GID)
+                gid = stbuf->st_gid;
+
+        ret = lchown (path, uid, gid);
+
+        return ret;
+}
+
+static int
+bdb_do_utimes (xlator_t *this,
+               const char *path,
+               struct stat *stbuf)
+{
+        int32_t ret = -1;
+        struct timeval tv[2]     = {{0,},{0,}};
+
+        tv[0].tv_sec  = stbuf->st_atime;
+        tv[0].tv_usec = ST_ATIM_NSEC (stbuf) / 1000;
+        tv[1].tv_sec  = stbuf->st_mtime;
+        tv[1].tv_usec = ST_ATIM_NSEC (stbuf) / 1000;
+
+        ret = lutimes (path, tv);
+
+        return ret;
+}
+
 int32_t
-bdb_chmod (call_frame_t *frame,
-           xlator_t *this,
-           loc_t *loc,
-           mode_t mode)
+bdb_setattr (call_frame_t *frame,
+             xlator_t *this,
+             loc_t *loc,
+             struct stat *stbuf,
+             int32_t valid)
 {
         int32_t     op_ret    = -1;
         int32_t     op_errno  = EINVAL;
         char       *real_path = NULL;
-        struct stat stbuf     = {0,};
+        struct stat preop     = {0,};
+        struct stat postop    = {0,};
 
         GF_VALIDATE_OR_GOTO ("bdb", frame, out);
         GF_VALIDATE_OR_GOTO ("bdb", this, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
 
         MAKE_REAL_PATH (real_path, this, loc->path);
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = lstat (real_path, &preop);
         op_errno = errno;
         if (op_ret != 0) {
                 if (op_errno == ENOENT) {
@@ -1891,62 +1947,77 @@ bdb_chmod (call_frame_t *frame,
                 } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "CHMOD %"PRId64" (%s): %s"
-                                "(lstat failed)",
+                                "(pre-op lstat failed)",
                                 loc->ino, loc->path, strerror (op_errno));
                 }
                 goto out;
         }
 
         /* directory or symlink */
-        op_ret = chmod (real_path, mode);
+        if (valid & GF_SET_ATTR_MODE) {
+                op_ret = bdb_do_chmod (this, real_path, stbuf);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "setattr (chmod) on %s failed: %s", loc->path,
+                                strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)){
+                op_ret = bdb_do_chown (this, real_path, stbuf, valid);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "setattr (chown) on %s failed: %s", loc->path,
+                                strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
+                op_ret = bdb_do_utimes (this, real_path, stbuf);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "setattr (utimes) on %s failed: %s", loc->path,
+                                strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        op_ret = lstat (real_path, &postop);
         op_errno = errno;
+        if (op_ret != 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "CHMOD %"PRId64" (%s): %s"
+                                "(post-op lstat failed)",
+                                loc->ino, loc->path, strerror (op_errno));
+        }
 
 out:
-        STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, &preop, &postop);
 
         return 0;
-}/* bdb_chmod */
-
+}/* bdb_setattr */
 
 int32_t
-bdb_chown (call_frame_t *frame,
-           xlator_t *this,
-           loc_t *loc,
-           uid_t uid,
-           gid_t gid)
+bdb_fsetattr (call_frame_t *frame,
+              xlator_t *this,
+              fd_t *fd,
+              struct stat *stbuf,
+              int32_t valid)
 {
         int32_t     op_ret    = -1;
-        int32_t     op_errno  = EINVAL;
-        char       *real_path = NULL;
-        struct stat stbuf     = {0,};
+        int32_t     op_errno  = EPERM;
+        struct stat preop     = {0,};
+        struct stat postop    = {0,};
 
-        GF_VALIDATE_OR_GOTO ("bdb", frame, out);
-        GF_VALIDATE_OR_GOTO ("bdb", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, loc, out);
-
-        MAKE_REAL_PATH (real_path, this, loc->path);
-        op_ret = lstat (real_path, &stbuf);
-        if (op_ret != 0) {
-                op_errno = errno;
-                if (op_errno == ENOENT) {
-                        op_errno = EPERM;
-                } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "CHOWN %"PRId64" (%s): %s"
-                                "(lstat failed)",
-                                loc->ino, loc->path, strerror (op_errno));
-                }
-                goto out;
-        }
-
-        /* directory or symlink */
-        op_ret = lchown (real_path, uid, gid);
-        op_errno = errno;
-out:
-        STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+        STACK_UNWIND (frame, op_ret, op_errno, &preop, &postop);
 
         return 0;
-}/* bdb_chown */
+}/* bdb_fsetattr */
 
 
 int32_t
@@ -2022,72 +2093,6 @@ out:
         return 0;
 }/* bdb_truncate */
 
-
-int32_t
-bdb_utimens (call_frame_t *frame,
-             xlator_t *this,
-             loc_t *loc,
-             struct timespec ts[2])
-{
-        int32_t     op_ret    = -1;
-        int32_t     op_errno  = EPERM;
-        char       *real_path = NULL;
-        struct stat stbuf     = {0,};
-        struct timeval tv[2] = {{0,},};
-
-        GF_VALIDATE_OR_GOTO ("bdb", frame, out);
-        GF_VALIDATE_OR_GOTO ("bdb", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, loc, out);
-
-        MAKE_REAL_PATH (real_path, this, loc->path);
-        op_ret = sys_lstat (real_path, &stbuf);
-        if (op_ret != 0) {
-                op_errno = errno;
-                if (op_errno == ENOENT) {
-                        op_errno = EPERM;
-                } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "UTIMENS %"PRId64" (%s): %s",
-                                loc->ino, loc->path, strerror (op_errno));
-                }
-                goto out;
-        }
-
-        /* directory or symlink */
-        tv[0].tv_sec  = ts[0].tv_sec;
-        tv[0].tv_usec = ts[0].tv_nsec / 1000;
-        tv[1].tv_sec  = ts[1].tv_sec;
-        tv[1].tv_usec = ts[1].tv_nsec / 1000;
-
-        op_ret = lutimes (real_path, tv);
-        if ((op_ret == -1) && (errno == ENOSYS)) {
-                op_ret = sys_utimes (real_path, tv);
-        }
-
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "UTIMENS %"PRId64" (%s): %s",
-                        loc->ino, loc->path, strerror (op_errno));
-                goto out;
-        }
-
-        op_ret = sys_lstat (real_path, &stbuf);
-        if (op_ret != 0) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "UTIMENS %"PRId64" (%s): %s",
-                        loc->ino, loc->path, strerror (op_errno));
-                goto out;
-        }
-
-        stbuf.st_ino = loc->inode->ino;
-
-out:
-        STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
-
-        return 0;
-}/* bdb_utimens */
 
 int32_t
 bdb_statfs (call_frame_t *frame,
@@ -2578,49 +2583,7 @@ out:
         return 0;
 }
 
-int32_t
-bdb_fchown (call_frame_t *frame,
-            xlator_t *this,
-            fd_t *fd,
-            uid_t uid,
-            gid_t gid)
-{
-        int32_t op_ret = -1;
-        int32_t op_errno = EPERM;
-        struct stat buf = {0,};
 
-        GF_VALIDATE_OR_GOTO ("bdb", frame, out);
-        GF_VALIDATE_OR_GOTO ("bdb", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-        /* TODO: implement */
-out:
-        STACK_UNWIND (frame, op_ret, op_errno, &buf);
-
-        return 0;
-}
-
-
-int32_t
-bdb_fchmod (call_frame_t *frame,
-            xlator_t *this,
-            fd_t *fd,
-            mode_t mode)
-{
-        int32_t op_ret = -1;
-        int32_t op_errno = EPERM;
-        struct stat buf = {0,};
-
-        GF_VALIDATE_OR_GOTO ("bdb", frame, out);
-        GF_VALIDATE_OR_GOTO ("bdb", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-        /* TODO: impelement */
-out:
-        STACK_UNWIND (frame, op_ret, op_errno, &buf);
-
-        return 0;
-}
 
 int32_t
 bdb_setdents (call_frame_t *frame,
@@ -3503,10 +3466,7 @@ struct xlator_fops fops = {
         .symlink     = bdb_symlink,
         .rename      = bdb_rename,
         .link        = bdb_link,
-        .chmod       = bdb_chmod,
-        .chown       = bdb_chown,
         .truncate    = bdb_truncate,
-        .utimens     = bdb_utimens,
         .create      = bdb_create,
         .open        = bdb_open,
         .readv       = bdb_readv,
@@ -3526,11 +3486,11 @@ struct xlator_fops fops = {
         .finodelk    = bdb_finodelk,
         .entrylk     = bdb_entrylk,
         .fentrylk    = bdb_fentrylk,
-        .fchown      = bdb_fchown,
-        .fchmod      = bdb_fchmod,
         .setdents    = bdb_setdents,
         .getdents    = bdb_getdents,
         .checksum    = bdb_checksum,
+        .setattr     = bdb_setattr,
+        .fsetattr    = bdb_fsetattr,
 };
 
 struct xlator_cbks cbks = {

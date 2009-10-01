@@ -93,6 +93,8 @@ struct stripe_local {
 
         /* Used by _cbk functions */
         struct stat          stbuf;
+        struct stat          preop_buf;
+
         struct readv_replies *replies;
         struct statvfs       statvfs_buf;
         dir_entry_t         *entry;
