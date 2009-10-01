@@ -83,7 +83,8 @@ io_stats_create_cbk (call_frame_t *frame,
                      struct stat *preparent,
                      struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf,
+                      preparent, postparent);
         return 0;
 }
 
@@ -213,7 +214,7 @@ io_stats_unlink_cbk (call_frame_t *frame,
                      struct stat *preparent,
                      struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
         return 0;
 }
 
@@ -229,7 +230,9 @@ io_stats_rename_cbk (call_frame_t *frame,
                      struct stat *prenewparent,
                      struct stat *postnewparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, buf,
+                      preoldparent, postoldparent,
+                      prenewparent, postnewparent);
         return 0;
 }
 
@@ -255,9 +258,10 @@ io_stats_lookup_cbk (call_frame_t *frame,
                      inode_t *inode,
                      struct stat *buf,
                      dict_t *xattr,
-                     struct stat *postmaster)
+                     struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr);
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr,
+                      postparent);
         return 0;
 }
 
@@ -272,7 +276,8 @@ io_stats_symlink_cbk (call_frame_t *frame,
                       struct stat *preparent,
                       struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
+                      preparent, postparent);
         return 0;
 }
 
@@ -287,7 +292,8 @@ io_stats_mknod_cbk (call_frame_t *frame,
                     struct stat *preparent,
                     struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
+                      preparent, postparent);
         return 0;
 }
 
@@ -303,7 +309,8 @@ io_stats_mkdir_cbk (call_frame_t *frame,
                     struct stat *preparent,
                     struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
+                      preparent, postparent);
         return 0;
 }
 
@@ -318,7 +325,8 @@ io_stats_link_cbk (call_frame_t *frame,
                    struct stat *preparent,
                    struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
+                      preparent, postparent);
         return 0;
 }
 
@@ -355,7 +363,7 @@ io_stats_rmdir_cbk (call_frame_t *frame,
                     struct stat *preparent,
                     struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
         return 0;
 }
 
