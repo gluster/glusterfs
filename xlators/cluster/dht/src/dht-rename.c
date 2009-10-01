@@ -57,13 +57,35 @@ dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->op_errno = op_errno;
 	} else {
 		/* TODO: construct proper stbuf for dir */
-		local->stbuf = *stbuf;
+                /* 
+                 * FIXME: is this the correct way to build stbuf and
+                 * parent bufs?
+                */
+                dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_stat_merge (this, &local->preoldparent, preoldparent,
+                                prev->this);
+                dht_stat_merge (this, &local->postoldparent, postoldparent,
+                                prev->this);
+                dht_stat_merge (this, &local->preparent, prenewparent,
+                                prev->this);
+                dht_stat_merge (this, &local->postparent, postnewparent,
+                                prev->this);
 	}
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
+                local->stbuf.st_ino = local->loc.inode->ino;
+
+                local->preoldparent.st_ino = local->loc.parent->ino;
+                local->postoldparent.st_ino = local->loc.parent->ino;
+
+                local->preparent.st_ino = local->loc2.parent->ino;
+                local->postparent.st_ino = local->loc2.parent->ino;
+
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				  &local->stbuf);
+				  &local->stbuf, &local->preoldparent,
+                                  &local->postoldparent,
+                                  &local->preparent, local->postparent);
 	}
 
 	return 0;
@@ -97,7 +119,8 @@ dht_rename_dir_do (call_frame_t *frame, xlator_t *this)
 	return 0;
 
 err:
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno, NULL, NULL,
+                          NULL, NULL, NULL);
 	return 0;
 }
 
@@ -208,7 +231,7 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
 	return 0;
 }
 
@@ -235,7 +258,9 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (is_last_call (this_call_cnt))
 		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-				  &local->stbuf);
+				  &local->stbuf, &local->preoldparent,
+                                  &local->postoldparent, &local->preparent,
+                                  &local->postparent);
 
 	return 0;
 }
@@ -271,6 +296,20 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->op_errno = op_errno;
 		goto unwind;
 	}
+
+        dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
+        dht_stat_merge (this, &local->preoldparent, preoldparent, prev->this);
+        dht_stat_merge (this, &local->postoldparent, postoldparent, prev->this);
+        dht_stat_merge (this, &local->preparent, prenewparent, prev->this);
+        dht_stat_merge (this, &local->postparent, postnewparent, prev->this);
+
+        local->stbuf.st_ino = local->loc.inode->ino;
+
+        local->preoldparent.st_ino = local->loc.parent->ino;
+        local->postoldparent.st_ino = local->loc.parent->ino;
+
+        local->preparent.st_ino = local->loc2.parent->ino;
+        local->postparent.st_ino = local->loc2.parent->ino;
 	
 	/* NOTE: rename_subvol is the same subvolume from which dht_rename_cbk
 	 *       is called. since rename has already happened on rename_subvol,
@@ -330,7 +369,9 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 unwind:
 	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-			  &local->stbuf);
+			  &local->stbuf, &local->preoldparent,
+                          &local->postoldparent, &local->preparent,
+                          &local->postparent);
 
 	return 0;
 }
@@ -405,7 +446,9 @@ dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 unwind:
 	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-			  &local->stbuf);
+			  &local->stbuf, &local->preoldparent,
+                          &local->postoldparent, &local->preparent,
+                          &local->postparent);
 
 	return 0;
 }
@@ -562,7 +605,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
