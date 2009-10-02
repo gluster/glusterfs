@@ -2612,6 +2612,7 @@ struct xlator_fops fops = {
 	/* dir read */
 	.opendir     = afr_opendir,
 	.readdir     = afr_readdir,
+	.readdir     = afr_readdirp,
 	.getdents    = afr_getdents,
 
 	/* dir write */

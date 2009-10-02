@@ -180,8 +180,45 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 
 
 int32_t
-afr_readdir (call_frame_t *frame, xlator_t *this,
-	     fd_t *fd, size_t size, off_t offset)
+afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
+{
+        afr_private_t * priv     = NULL;
+        afr_local_t *   local    = NULL;
+        xlator_t **     children = NULL;
+        ino_t           inum = 0;
+
+        gf_dirent_t * entry = NULL;
+
+        int child_index = -1;
+
+        priv     = this->private;
+        children = priv->children;
+
+        local = frame->local;
+
+        child_index = (long) cookie;
+
+        if (op_ret != -1) {
+                list_for_each_entry (entry, &entries->list, list) {
+                        inum = afr_itransform (entry->d_ino, priv->child_count,
+                                               child_index);
+                        entry->d_ino = inum;
+                        inum  = afr_itransform (entry->d_stat.st_ino,
+                                                priv->child_count, child_index);
+                        entry->d_stat.st_ino = inum;
+                }
+        }
+
+        AFR_STACK_UNWIND (frame, op_ret, op_errno, entries);
+
+        return 0;
+}
+
+
+int32_t
+afr_do_readdir (call_frame_t *frame, xlator_t *this,
+	        fd_t *fd, size_t size, off_t offset, int whichop)
 {
 	afr_private_t * priv       = NULL;
 	xlator_t **     children   = NULL;
@@ -217,14 +254,22 @@ afr_readdir (call_frame_t *frame, xlator_t *this,
 		goto out;
 	}
 
-	local->fd                  = fd_ref (fd);
-	local->cont.readdir.size   = size;
-	local->cont.readdir.offset = offset;
+        local->fd                  = fd_ref (fd);
+        local->cont.readdir.size   = size;
+        local->cont.readdir.offset = offset;
 
-	STACK_WIND_COOKIE (frame, afr_readdir_cbk, (void *) (long) call_child,
-                           children[call_child], 
-                           children[call_child]->fops->readdir,
-                           fd, size, offset);
+        if (whichop == GF_FOP_READDIR)
+                STACK_WIND_COOKIE (frame, afr_readdir_cbk,
+                                   (void *) (long) call_child,
+                                   children[call_child],
+                                   children[call_child]->fops->readdir, fd,
+                                   size, offset);
+        else
+                STACK_WIND_COOKIE (frame, afr_readdirp_cbk,
+                                   (void *) (long) call_child,
+                                   children[call_child],
+                                   children[call_child]->fops->readdirp, fd,
+                                   size, offset);
 
 	op_ret = 0;
 out:
@@ -234,6 +279,23 @@ out:
 	return 0;
 }
 
+
+int32_t
+afr_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t offset)
+{
+        afr_do_readdir (frame, this, fd, size, offset, GF_FOP_READDIR);
+        return 0;
+}
+
+
+int32_t
+afr_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+              off_t offset)
+{
+        afr_do_readdir (frame, this, fd, size, offset, GF_FOP_READDIRP);
+        return 0;
+}
 
 int32_t
 afr_getdents_cbk (call_frame_t *frame, void *cookie,
