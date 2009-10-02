@@ -2293,6 +2293,67 @@ unwind:
 	return 0;
 }
 
+
+/**
+ * client_readdirp - readdirp function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ *
+ * external reference through client_protocol_xlator->fops->readdirp
+ */
+
+int
+client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                 off_t offset)
+{
+        gf_hdr_common_t         *hdr = NULL;
+        gf_fop_readdirp_req_t   *req = NULL;
+        size_t                  hdrlen = 0;
+        int64_t                 remote_fd = -1;
+        int                     ret = -1;
+        client_fd_ctx_t         *fdctx = NULL;
+        client_conf_t           *conf  = NULL;
+
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
+        if (fdctx == NULL) {
+                gf_log (this->name, GF_LOG_TRACE, "(%"PRId64"): failed to get"
+                        " fd ctx. EBADFD", fd->inode->ino);
+                goto unwind;
+        }
+        remote_fd = fdctx->remote_fd;
+        hdrlen = gf_hdr_len (req, 0);
+        hdr    = gf_hdr_new (req, 0);
+        GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
+        req    = gf_param (hdr);
+        GF_VALIDATE_OR_GOTO(this->name, hdr, unwind);
+
+        req->fd     = hton64 (remote_fd);
+        req->size   = hton32 (size);
+        req->offset = hton64 (offset);
+
+        ret = protocol_client_xfer (frame, this,
+                                    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
+                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_READDIRP,
+                                    hdr, hdrlen, NULL, 0, NULL);
+
+        return 0;
+unwind:
+        if (hdr)
+                free (hdr);
+        STACK_UNWIND (frame, -1, EBADFD, NULL);
+        return 0;
+
+}
+
+
 /**
  * client_readdir - readdir function for client protocol
  * @frame: call frame
@@ -4119,6 +4180,35 @@ client_write_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 
 int
+client_readdirp_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
+                     struct iobuf *iobuf)
+{
+        gf_fop_readdirp_rsp_t   *rsp = NULL;
+        int32_t                 op_ret = 0;
+        int32_t                 op_errno = 0;
+        uint32_t                buf_size = 0;
+        gf_dirent_t             entries;
+
+        rsp = gf_param (hdr);
+
+        op_ret    = ntoh32 (hdr->rsp.op_ret);
+        op_errno  = ntoh32 (hdr->rsp.op_errno);
+
+        INIT_LIST_HEAD (&entries.list);
+        if (op_ret > 0) {
+                buf_size = ntoh32 (rsp->size);
+                gf_dirent_unserialize (&entries, rsp->buf, buf_size);
+        }
+
+        STACK_UNWIND (frame, op_ret, op_errno, &entries);
+
+        gf_dirent_free (&entries);
+
+        return 0;
+}
+
+
+int
 client_readdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
 {
@@ -5753,6 +5843,7 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_LOOKUP]         =  client_lookup_cbk,
 	[GF_FOP_SETDENTS]       =  client_setdents_cbk,
 	[GF_FOP_READDIR]        =  client_readdir_cbk,
+	[GF_FOP_READDIRP]       =  client_readdirp_cbk,
 	[GF_FOP_INODELK]        =  client_inodelk_cbk,
 	[GF_FOP_FINODELK]       =  client_finodelk_cbk,
 	[GF_FOP_ENTRYLK]        =  client_entrylk_cbk,
