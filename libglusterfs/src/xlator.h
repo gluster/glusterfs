@@ -475,6 +475,13 @@ typedef int32_t (*fop_readdir_cbk_t) (call_frame_t *frame,
 				      int32_t op_errno,
 				      gf_dirent_t *entries);
 
+typedef int32_t (*fop_readdirp_cbk_t) (call_frame_t *frame,
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno,
+				       gf_dirent_t *entries);
+
 typedef int32_t (*fop_xattrop_cbk_t) (call_frame_t *frame,
 				      void *cookie,
 				      xlator_t *this,
@@ -750,6 +757,12 @@ typedef int32_t (*fop_readdir_t) (call_frame_t *frame,
 				  size_t size,
 				  off_t offset);
 
+typedef int32_t (*fop_readdirp_t) (call_frame_t *frame,
+			           xlator_t *this,
+				   fd_t *fd,
+				   size_t size,
+				   off_t offset);
+
 typedef int32_t (*fop_xattrop_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  loc_t *loc,
@@ -811,6 +824,7 @@ struct xlator_fops {
 	fop_fsync_t          fsync;
 	fop_opendir_t        opendir;
 	fop_readdir_t        readdir;
+	fop_readdirp_t       readdirp;
 	fop_fsyncdir_t       fsyncdir;
 	fop_statfs_t         statfs;
 	fop_setxattr_t       setxattr;
@@ -862,6 +876,7 @@ struct xlator_fops {
 	fop_fsync_cbk_t          fsync_cbk;
 	fop_opendir_cbk_t        opendir_cbk;
 	fop_readdir_cbk_t        readdir_cbk;
+	fop_readdirp_cbk_t       readdirp_cbk;
 	fop_fsyncdir_cbk_t       fsyncdir_cbk;
 	fop_statfs_cbk_t         statfs_cbk;
 	fop_setxattr_cbk_t       setxattr_cbk;

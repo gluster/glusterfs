@@ -1493,6 +1493,18 @@ default_readdir_cbk (call_frame_t *frame,
 
 
 int32_t
+default_readdirp_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      gf_dirent_t *entries)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, entries);
+	return 0;
+}
+
+int32_t
 default_readdir (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
@@ -1507,6 +1519,21 @@ default_readdir (call_frame_t *frame,
 	return 0;
 }
 
+
+int32_t
+default_readdirp (call_frame_t *frame,
+		  xlator_t *this,
+		  fd_t *fd,
+		  size_t size,
+		  off_t off)
+{
+	STACK_WIND (frame,
+		    default_readdirp_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->readdir,
+		    fd, size, off);
+	return 0;
+}
 
 int32_t
 default_lock_notify_cbk (call_frame_t *frame, void *cookie, xlator_t *this,

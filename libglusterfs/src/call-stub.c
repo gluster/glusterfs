@@ -2052,6 +2052,48 @@ out:
 }
 
 call_stub_t *
+fop_readdirp_cbk_stub (call_frame_t *frame,
+		       fop_readdirp_cbk_t fn,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       gf_dirent_t *entries)
+{
+	call_stub_t *stub = NULL;
+	gf_dirent_t *stub_entry = NULL, *entry = NULL;
+
+	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+	stub = stub_new (frame, 0, GF_FOP_READDIRP);
+	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+	stub->args.readdirp_cbk.fn = fn;
+	stub->args.readdirp_cbk.op_ret = op_ret;
+	stub->args.readdirp_cbk.op_errno = op_errno;
+	INIT_LIST_HEAD (&stub->args.readdirp_cbk.entries.list);
+
+        /* This check must come after the init of head above
+         * so we're sure the list is empty for list_empty.
+         */
+        if (!entries)
+                goto out;
+
+	if (op_ret > 0) {
+		list_for_each_entry (entry, &entries->list, list) {
+			stub_entry = gf_dirent_for_name (entry->d_name);
+			ERR_ABORT (stub_entry);
+			stub_entry->d_off = entry->d_off;
+			stub_entry->d_ino = entry->d_ino;
+
+			list_add_tail (&stub_entry->list,
+				       &stub->args.readdirp_cbk.entries.list);
+		}
+	}
+out:
+	return stub;
+}
+
+
+call_stub_t *
 fop_readdir_cbk_stub (call_frame_t *frame,
 		      fop_readdir_cbk_t fn,
 		      int32_t op_ret,
@@ -2109,6 +2151,25 @@ fop_readdir_stub (call_frame_t *frame,
 
   return stub;
 }
+
+call_stub_t *
+fop_readdirp_stub (call_frame_t *frame,
+		   fop_readdirp_t fn,
+		   fd_t *fd,
+		   size_t size,
+		   off_t off)
+{
+  call_stub_t *stub = NULL;
+
+  stub = stub_new (frame, 1, GF_FOP_READDIRP);
+  stub->args.readdirp.fn = fn;
+  stub->args.readdirp.fd = fd_ref (fd);
+  stub->args.readdirp.size = size;
+  stub->args.readdirp.off = off;
+
+  return stub;
+}
+
 call_stub_t *
 fop_checksum_stub (call_frame_t *frame,
 		   fop_checksum_t fn,
@@ -2936,6 +2997,17 @@ call_resume_wind (call_stub_t *stub)
 				       stub->args.readdir.off);
 		break;
 	}
+
+        case GF_FOP_READDIRP:
+	{
+		stub->args.readdirp.fn (stub->frame,
+				        stub->frame->this,
+				        stub->args.readdirp.fd,
+				        stub->args.readdirp.size,
+				        stub->args.readdirp.off);
+		break;
+	}
+
 	case GF_FOP_XATTROP:
 	{
 		stub->args.xattrop.fn (stub->frame,
@@ -3834,6 +3906,27 @@ call_resume_unwind (call_stub_t *stub)
 		break;
 	}
 
+        case GF_FOP_READDIRP:
+	{
+		if (!stub->args.readdirp_cbk.fn)
+			STACK_UNWIND (stub->frame,
+				      stub->args.readdirp_cbk.op_ret,
+				      stub->args.readdirp_cbk.op_errno,
+				      &stub->args.readdirp_cbk.entries);
+		else
+			stub->args.readdirp_cbk.fn (stub->frame,
+						    stub->frame->cookie,
+						    stub->frame->this,
+						    stub->args.readdirp_cbk.op_ret,
+						    stub->args.readdirp_cbk.op_errno,
+						    &stub->args.readdirp_cbk.entries);
+
+		if (stub->args.readdirp_cbk.op_ret > 0)
+			gf_dirent_free (&stub->args.readdirp_cbk.entries);
+
+		break;
+	}
+
 	case GF_FOP_XATTROP:
 	{
 		if (!stub->args.xattrop_cbk.fn)
@@ -4268,6 +4361,14 @@ call_stub_destroy_wind (call_stub_t *stub)
 			fd_unref (stub->args.readdir.fd);
 		break;
 	}
+
+        case GF_FOP_READDIRP:
+	{
+		if (stub->args.readdirp.fd)
+			fd_unref (stub->args.readdirp.fd);
+		break;
+	}
+
 	case GF_FOP_XATTROP:
 	{
 		loc_wipe (&stub->args.xattrop.loc);
@@ -4534,6 +4635,14 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	{
 		if (stub->args.readdir_cbk.op_ret > 0) {
 			gf_dirent_free (&stub->args.readdir_cbk.entries);
+		}
+	}
+	break;
+
+        case GF_FOP_READDIRP:
+	{
+		if (stub->args.readdirp_cbk.op_ret > 0) {
+			gf_dirent_free (&stub->args.readdirp_cbk.entries);
 		}
 	}
 	break;

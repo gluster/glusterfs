@@ -126,6 +126,7 @@ typedef enum {
         GF_FOP_RCHECKSUM,
         GF_FOP_SETATTR,
         GF_FOP_FSETATTR,
+        GF_FOP_READDIRP,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
