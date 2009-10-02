@@ -1605,6 +1605,33 @@ error_gen_readdir (call_frame_t *frame,
 }
 
 int32_t
+error_gen_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, entries);
+	return 0;
+}
+
+
+int32_t
+error_gen_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                    off_t off)
+{
+	int op_errno = 0;
+	op_errno = error_gen(this);
+	if (op_errno) {
+		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
+		STACK_UNWIND (frame, -1, op_errno, NULL);
+		return 0;
+	}
+
+	STACK_WIND (frame, error_gen_readdirp_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readdirp, fd, size, off);
+	return 0;
+}
+
+
+int32_t
 error_gen_closedir (xlator_t *this,
 		    fd_t *fd)
 {
@@ -1671,6 +1698,7 @@ struct xlator_fops fops = {
 	.removexattr = error_gen_removexattr,
 	.opendir     = error_gen_opendir,
 	.readdir     = error_gen_readdir,
+	.readdirp    = error_gen_readdirp,
 	.getdents    = error_gen_getdents,
 	.fsyncdir    = error_gen_fsyncdir,
 	.access      = error_gen_access,
