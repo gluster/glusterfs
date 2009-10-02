@@ -750,9 +750,36 @@ map_single_readdir_cbk (call_frame_t *frame,
 }
 
 
+int32_t
+map_single_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
+{
+        call_frame_t *prev = NULL;
+	gf_dirent_t  *orig_entry = NULL;
+
+        prev  = cookie;
+
+	list_for_each_entry (orig_entry, &entries->list, list) {
+		map_itransform (this, prev->this, orig_entry->d_ino,
+				&orig_entry->d_ino);
+                orig_entry->d_stat.st_ino = orig_entry->d_ino;
+	}
+	STACK_UNWIND (frame, op_ret, op_errno, entries);
+	return 0;
+}
+
 int
 map_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		 int op_ret, int op_errno, gf_dirent_t *orig_entries)
+                 int op_ret, int op_errno, gf_dirent_t *orig_entries);
+
+int
+map_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int op_ret, int op_errno, gf_dirent_t *orig_entries);
+
+int
+map_generic_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int op_ret, int op_errno, gf_dirent_t *orig_entries,
+                         int whichop)
 {
 	map_local_t  *local = NULL;
 	gf_dirent_t   entries;
@@ -787,6 +814,8 @@ map_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		map_itransform (this, subvol, orig_entry->d_off,
 				&entry->d_off);
 		
+                if (whichop == GF_FOP_READDIRP)
+                        entry->d_stat.st_ino = entry->d_ino;
 		entry->d_type = orig_entry->d_type;
 		entry->d_len  = orig_entry->d_len;
 		
@@ -812,9 +841,14 @@ done:
 			goto unwind;
 		}
 
-		STACK_WIND (frame, map_readdir_cbk,
-			    next_subvol, next_subvol->fops->readdir,
-			    local->fd, local->size, 0);
+                if (whichop == GF_FOP_READDIR)
+                        STACK_WIND (frame, map_readdir_cbk, next_subvol,
+                                    next_subvol->fops->readdir, local->fd,
+                                    local->size, 0);
+                else
+                        STACK_WIND (frame, map_readdirp_cbk, next_subvol,
+                                    next_subvol->fops->readdirp, local->fd,
+                                    local->size, 0);
 		return 0;
 	}
 
@@ -831,6 +865,26 @@ unwind:
 
 	gf_dirent_free (&entries);
 
+        return 0;
+}
+
+
+int
+map_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int op_ret, int op_errno, gf_dirent_t *orig_entries)
+{
+        map_generic_readdir_cbk (frame, cookie, this, op_ret, op_errno,
+                                 orig_entries, GF_FOP_READDIR);
+        return 0;
+}
+
+
+int
+map_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int op_ret, int op_errno, gf_dirent_t *orig_entries)
+{
+        map_generic_readdir_cbk (frame, cookie, this, op_ret, op_errno,
+                                 orig_entries, GF_FOP_READDIRP);
         return 0;
 }
 
@@ -2238,11 +2292,8 @@ map_opendir (call_frame_t *frame,
 
 
 int32_t
-map_readdir (call_frame_t *frame,
-	     xlator_t *this,
-	     fd_t *fd,
-	     size_t size,
-	     off_t yoff)
+map_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                off_t yoff, int whichop)
 {
 	int32_t        op_errno = EINVAL;
 	xlator_t      *subvol = NULL;
@@ -2265,8 +2316,12 @@ map_readdir (call_frame_t *frame,
 	}
 	
 	/* Just one callback */
-	STACK_WIND (frame, map_single_readdir_cbk, subvol,
-		    subvol->fops->readdir, fd, size, yoff);
+        if (whichop == GF_FOP_READDIR)
+                STACK_WIND (frame, map_single_readdir_cbk, subvol,
+                            subvol->fops->readdir, fd, size, yoff);
+        else
+                STACK_WIND (frame, map_single_readdirp_cbk, subvol,
+                            subvol->fops->readdirp, fd, size, yoff);
 
 	return 0;
 
@@ -2290,14 +2345,36 @@ map_readdir (call_frame_t *frame,
 
 	map_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
 
-	STACK_WIND (frame, map_readdir_cbk, xvol, 
-                    xvol->fops->readdir, fd, size, xoff);
+        if (whichop == GF_FOP_READDIR)
+                STACK_WIND (frame, map_readdir_cbk, xvol, xvol->fops->readdir,
+                            fd, size, xoff);
+        else
+                STACK_WIND (frame, map_readdirp_cbk, xvol, xvol->fops->readdirp,
+                            fd, size, xoff);
 
 	return 0;
  err:
 	STACK_UNWIND (frame, -1, op_errno, NULL);
 
 	return 0;
+}
+
+
+
+int32_t
+map_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t yoff)
+{
+        map_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIR);
+        return 0;
+}
+
+int32_t
+map_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+              off_t yoff)
+{
+        map_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIRP);
+        return 0;
 }
 
 
@@ -2455,6 +2532,7 @@ struct xlator_fops fops = {
 	.lk          = map_lk,
 	.opendir     = map_opendir,
 	.readdir     = map_readdir,
+	.readdirp    = map_readdirp,
 	.fsyncdir    = map_fsyncdir,
 	.symlink     = map_symlink,
 	.unlink      = map_unlink,
