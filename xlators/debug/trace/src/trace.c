@@ -310,6 +310,24 @@ trace_readdir_cbk (call_frame_t *frame,
 	return 0;
 }
 
+int32_t
+trace_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, gf_dirent_t *buf)
+{
+	ERR_EINVAL_NORETURN (!this );
+
+	if (trace_fop_names[GF_FOP_READDIRP].enabled) {
+		gf_log (this->name, GF_LOG_NORMAL,
+			"%"PRId64" :(op_ret=%d, op_errno=%d)",
+			frame->root->unique, op_ret, op_errno);
+	}
+
+	STACK_UNWIND (frame, op_ret, op_errno, buf);
+
+	return 0;
+}
+
+
 int32_t 
 trace_fsync_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -2097,6 +2115,24 @@ trace_getdents (call_frame_t *frame,
 	return 0;
 }
 
+int32_t
+trace_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+               off_t offset)
+{
+	ERR_EINVAL_NORETURN (!this || !fd);
+
+	if (trace_fop_names[GF_FOP_READDIRP].enabled) {
+		gf_log (this->name, GF_LOG_NORMAL,
+			"%"PRId64": (fd=%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
+			frame->root->unique, fd, size, offset);
+	}
+
+	STACK_WIND (frame, trace_readdirp_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readdirp, fd, size, offset);
+
+	return 0;
+}
+
 
 int32_t 
 trace_readdir (call_frame_t *frame,
@@ -2464,6 +2500,7 @@ struct xlator_fops fops = {
   .removexattr = trace_removexattr,
   .opendir     = trace_opendir,
   .readdir     = trace_readdir, 
+  .readdirp    = trace_readdirp,
   .fsyncdir    = trace_fsyncdir,
   .access      = trace_access,
   .ftruncate   = trace_ftruncate,
