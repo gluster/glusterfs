@@ -1976,6 +1976,56 @@ out:
         return 0;
 }
 
+
+int
+iot_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, entries);
+        return 0;
+}
+
+
+int
+iot_readdirp_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                      size_t size, off_t offset)
+{
+        STACK_WIND (frame, iot_readdirp_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->readdirp, fd, size, offset);
+        return 0;
+}
+
+
+int
+iot_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+              off_t offset)
+{
+        call_stub_t     *stub = NULL;
+        int             ret = -1;
+
+        stub = fop_readdirp_stub (frame, iot_readdirp_wrapper, fd, size,
+                                  offset);
+        if (!stub) {
+                gf_log (this->private, GF_LOG_ERROR,"cannot get readdir stub"
+                        "(out of memory)");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND (frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+        return 0;
+}
+
+
 int
 iot_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
@@ -2846,6 +2896,7 @@ struct xlator_fops fops = {
         .fsetxattr   = iot_fsetxattr,   /* O */
         .removexattr = iot_removexattr, /* U */
         .readdir     = iot_readdir,     /* O */
+        .readdirp    = iot_readdirp,    /* O */
         .xattrop     = iot_xattrop,     /* U */
 	.fxattrop    = iot_fxattrop,    /* O */
 };
