@@ -4038,12 +4038,9 @@ out:
 
 
 int32_t
-libgf_client_readdir_cbk (call_frame_t *frame,
-                          void *cookie,
-                          xlator_t *this,
-                          int32_t op_ret,
-                          int32_t op_errno,
-                          gf_dirent_t *entries)
+libgf_client_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno,
+                           gf_dirent_t *entries)
 {
         libgf_client_local_t *local = frame->local;
 
@@ -4052,8 +4049,8 @@ libgf_client_readdir_cbk (call_frame_t *frame,
          * dcache, thereby avoiding the need to perform more allocations and
          * copies.
          */
-        local->reply_stub = fop_readdir_cbk_stub (frame, NULL, op_ret, op_errno,
-                                                  NULL);
+        local->reply_stub = fop_readdirp_cbk_stub (frame, NULL, op_ret,
+                                                   op_errno, NULL);
         if (op_ret > 0)
                 libgf_dcache_update (frame->root->state, local->fd, entries);
         LIBGF_REPLY_NOTIFY (local);
@@ -4073,7 +4070,7 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx, fd_t *fd,
         local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
         local->fd = fd;
-        LIBGF_CLIENT_FOP (ctx, stub, readdir, local, fd,
+        LIBGF_CLIENT_FOP (ctx, stub, readdirp, local, fd,
                           LIBGF_READDIR_BLOCK, *offset);
 
         errno = stub->args.readdir_cbk.op_errno;
