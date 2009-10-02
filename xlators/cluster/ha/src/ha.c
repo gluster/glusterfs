@@ -3491,12 +3491,8 @@ err:
 }
 
 int32_t
-ha_readdir_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		gf_dirent_t *entries)
+ha_common_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
 	int ret = 0;
 
@@ -3507,11 +3503,15 @@ ha_readdir_cbk (call_frame_t *frame,
 }
 
 int32_t
-ha_readdir (call_frame_t *frame,
-	    xlator_t *this,
-	    fd_t *fd,
-	    size_t size,
-	    off_t off)
+ha_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+            off_t off);
+
+int32_t
+ha_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t off);
+int32_t
+ha_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+               off_t off, int whichop)
 {
 	ha_local_t *local = NULL;
 	int op_errno = 0;
@@ -3522,19 +3522,30 @@ ha_readdir (call_frame_t *frame,
 		goto err;
 	}
 	local = frame->local;
-	local->stub = fop_readdir_stub (frame, ha_readdir, fd, size, off);
+        if (whichop == GF_FOP_READDIR)
+                local->stub = fop_readdir_stub (frame, ha_readdir, fd, size,
+                                                off);
+        else
+                local->stub = fop_readdirp_stub (frame, ha_readdirp, fd, size,
+                                                 off);
         if (!local->stub) {
                 op_errno = ENOMEM; 
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto err;
         }
 
-	STACK_WIND_COOKIE (frame,
-			   ha_readdir_cbk,
-			   (void *)(long)local->active,
-			   HA_ACTIVE_CHILD(this, local),
-			   HA_ACTIVE_CHILD(this, local)->fops->readdir,
-			   fd, size, off);
+        if (whichop == GF_FOP_READDIR)
+                STACK_WIND_COOKIE (frame, ha_common_readdir_cbk,
+                                   (void *)(long)local->active,
+                                   HA_ACTIVE_CHILD(this, local),
+                                   HA_ACTIVE_CHILD(this, local)->fops->readdir,
+                                   fd, size, off);
+        else
+                STACK_WIND_COOKIE (frame, ha_common_readdir_cbk,
+                                   (void *)(long)local->active,
+                                   HA_ACTIVE_CHILD(this, local),
+                                   HA_ACTIVE_CHILD(this, local)->fops->readdirp,
+                                   fd, size, off);
 	return 0;
 err:
         local = frame->local;
@@ -3544,6 +3555,23 @@ err:
 
         ha_local_wipe (local);
 	return 0;
+}
+
+
+int32_t
+ha_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+            off_t off)
+{
+        ha_do_readdir (frame, this, fd, size, off, GF_FOP_READDIR);
+        return 0;
+}
+
+int32_t
+ha_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t off)
+{
+        ha_do_readdir (frame, this, fd, size, off, GF_FOP_READDIRP);
+        return 0;
 }
 
 /* Management operations */
@@ -3939,6 +3967,7 @@ struct xlator_fops fops = {
 	.removexattr = ha_removexattr,
 	.opendir     = ha_opendir,
 	.readdir     = ha_readdir,
+	.readdirp    = ha_readdirp,
 	.getdents    = ha_getdents,
 	.fsyncdir    = ha_fsyncdir,
 	.access      = ha_access,
