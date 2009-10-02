@@ -2572,6 +2572,29 @@ unify_readdir (call_frame_t *frame,
 }
 
 
+int32_t
+unify_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, gf_dirent_t *buf)
+{
+	STACK_UNWIND (frame, op_ret, op_errno, buf);
+
+	return 0;
+}
+
+
+int32_t
+unify_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                off_t offset)
+{
+	UNIFY_CHECK_FD_AND_UNWIND_ON_ERR (fd);
+
+	STACK_WIND (frame, unify_readdirp_cbk, NS(this),
+		    NS(this)->fops->readdirp, fd, size, offset);
+
+	return 0;
+}
+
+
 /**
  * unify_fsyncdir_cbk - 
  */
@@ -4493,6 +4516,7 @@ struct xlator_fops fops = {
 	.removexattr = unify_removexattr,
 	.opendir     = unify_opendir,
 	.readdir     = unify_readdir,
+	.readdirp    = unify_readdirp,
 	.fsyncdir    = unify_fsyncdir,
 	.access      = unify_access,
 	.ftruncate   = unify_ftruncate,
