@@ -168,6 +168,15 @@ io_stats_getdents_cbk (call_frame_t *frame,
 }
 
 int32_t
+io_stats_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, gf_dirent_t *buf)
+{
+        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        return 0;
+}
+
+
+int32_t
 io_stats_readdir_cbk (call_frame_t *frame,
                       void *cookie,
                       xlator_t *this,
@@ -1126,6 +1135,20 @@ io_stats_getdents (call_frame_t *frame,
 
 
 int32_t
+io_stats_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                   off_t offset)
+{
+        BUMP_HIT(READDIRP);
+
+        STACK_WIND (frame, io_stats_readdirp_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readdir, fd, size, offset);
+
+        return 0;
+}
+
+
+
+int32_t
 io_stats_readdir (call_frame_t *frame,
                   xlator_t *this,
                   fd_t *fd,
@@ -1468,6 +1491,7 @@ struct xlator_fops fops = {
         .removexattr = io_stats_removexattr,
         .opendir     = io_stats_opendir,
         .readdir     = io_stats_readdir,
+        .readdirp    = io_stats_readdirp,
         .fsyncdir    = io_stats_fsyncdir,
         .access      = io_stats_access,
         .ftruncate   = io_stats_ftruncate,
