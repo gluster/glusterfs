@@ -639,6 +639,18 @@ typedef struct {
 } __attribute__((packed)) gf_fop_readdir_rsp_t;
 
 
+typedef struct {
+	uint64_t ino;
+	int64_t  fd;
+	uint64_t offset;
+	uint32_t size;
+} __attribute__((packed)) gf_fop_readdirp_req_t;
+typedef struct {
+	uint32_t size;
+	char     buf[0];
+} __attribute__((packed)) gf_fop_readdirp_rsp_t;
+
+
 typedef struct  {
 	uint64_t ino;
 	uint32_t mask;

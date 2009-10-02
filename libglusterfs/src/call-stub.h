@@ -581,6 +581,19 @@ typedef struct {
 			gf_dirent_t entries;
 		} readdir_cbk;
 
+                /* readdirp */
+		struct {
+			fop_readdirp_t fn;
+			fd_t *fd;
+			size_t size;
+			off_t off;
+		} readdirp;
+		struct {
+			fop_readdirp_cbk_t fn;
+			int32_t op_ret, op_errno;
+			gf_dirent_t entries;
+		} readdirp_cbk;
+
 		/* checksum */
 		struct {
 			fop_checksum_t fn;
@@ -1228,6 +1241,20 @@ fop_readdir_stub (call_frame_t *frame,
 		  fd_t *fd,
 		  size_t size,
 		  off_t off);
+
+call_stub_t *
+fop_readdirp_stub (call_frame_t *frame,
+		   fop_readdir_t fn,
+		   fd_t *fd,
+		   size_t size,
+		   off_t off);
+
+call_stub_t *
+fop_readdirp_cbk_stub (call_frame_t *frame,
+		       fop_readdir_cbk_t fn,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       gf_dirent_t *entries);
 
 call_stub_t *
 fop_readdir_cbk_stub (call_frame_t *frame,
