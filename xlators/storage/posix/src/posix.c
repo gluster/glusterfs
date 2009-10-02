@@ -4247,8 +4247,8 @@ posix_fentrylk (call_frame_t *frame, xlator_t *this,
 
 
 int32_t
-posix_readdir (call_frame_t *frame, xlator_t *this,
-               fd_t *fd, size_t size, off_t off)
+posix_do_readdir (call_frame_t *frame, xlator_t *this,
+                  fd_t *fd, size_t size, off_t off, int whichop)
 {
 	uint64_t              tmp_pfd        = 0;
         struct posix_fd      *pfd            = NULL;
@@ -4358,23 +4358,26 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
                         break;
                 }
 
-                strcpy (entry_path + real_path_len + 1, entry->d_name);
-                lstat (entry_path, &stbuf);
-                /* Make sure we don't access another mountpoint inside export dir.
-                 * It may cause inode number to repeat from single export point,
-                 * which leads to severe problems..
+                /* Device spanning requires that we have a stat buf for the
+                 * file so we need to perform a stat on the two conditions
+                 * below.
                  */
-                if (!priv->span_devices) {
-                        if (priv->st_device[0] != stbuf.st_dev) {
-                                continue;
-                        }
-                } else {
+                if ((whichop == GF_FOP_READDIRP) || (priv->span_devices)) {
+                        strcpy (entry_path + real_path_len + 1, entry->d_name);
+                        lstat (entry_path, &stbuf);
                         op_ret = posix_scale_st_ino (priv, &stbuf);
-                        if (-1 == op_ret) {
+                        if (-1 == op_ret)
                                 continue;
-                        }
-                }
+                } else
+                        stbuf.st_ino = entry->d_ino;
 
+                /* So at this point stbuf ino is either:
+                 * a. the original inode number got from entry, in case this
+                 * was a readdir fop or if device spanning was disabled.
+                 *
+                 * b. the scaled inode number, if device spanning was enabled
+                 * or this was a readdirp fop.
+                 */
                 entry->d_ino = stbuf.st_ino;
 
                 this_entry = gf_dirent_for_name (entry->d_name);
@@ -4402,6 +4405,24 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
 
 	gf_dirent_free (&entries);
 
+        return 0;
+}
+
+
+int32_t
+posix_readdir (call_frame_t *frame, xlator_t *this,
+               fd_t *fd, size_t size, off_t off)
+{
+        posix_do_readdir (frame, this, fd, size, off, GF_FOP_READDIR);
+        return 0;
+}
+
+
+int32_t
+posix_readdirp (call_frame_t *frame, xlator_t *this,
+                fd_t *fd, size_t size, off_t off)
+{
+        posix_do_readdir (frame, this, fd, size, off, GF_FOP_READDIRP);
         return 0;
 }
 
@@ -4946,6 +4967,7 @@ struct xlator_fops fops = {
         .stat        = posix_stat,
         .opendir     = posix_opendir,
         .readdir     = posix_readdir,
+        .readdirp    = posix_readdirp,
         .readlink    = posix_readlink,
         .mknod       = posix_mknod,
         .mkdir       = posix_mkdir,
