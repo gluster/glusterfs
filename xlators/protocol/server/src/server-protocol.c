@@ -4947,6 +4947,114 @@ out:
 	return 0;
 }
 
+/*
+ * server_readdirp_cbk - getdents callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+int
+server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
+{
+	gf_hdr_common_t         *hdr = NULL;
+	gf_fop_readdirp_rsp_t   *rsp = NULL;
+	size_t                  hdrlen = 0;
+	size_t                  buf_size = 0;
+	int32_t                 gf_errno = 0;
+	server_state_t          *state = NULL;
+
+	if (op_ret > 0)
+		buf_size = gf_dirent_serialize (entries, NULL, 0);
+
+	hdrlen = gf_hdr_len (rsp, buf_size);
+	hdr    = gf_hdr_new (rsp, buf_size);
+	rsp    = gf_param (hdr);
+
+	hdr->rsp.op_ret = hton32 (op_ret);
+	gf_errno        = gf_errno_to_error (op_errno);
+	hdr->rsp.op_errno = hton32 (gf_errno);
+
+	if (op_ret > 0) {
+		rsp->size = hton32 (buf_size);
+		gf_dirent_serialize (entries, rsp->buf, buf_size);
+	} else {
+		state = CALL_STATE(frame);
+
+		gf_log (this->name, GF_LOG_TRACE,
+			"%"PRId64": READDIRP %"PRId64" (%"PRId64") ==>"
+                        "%"PRId32" (%s)",
+			frame->root->unique, state->fd_no,
+			state->fd ? state->fd->inode->ino : 0, op_ret,
+			strerror (op_errno));
+	}
+
+	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READDIRP,
+			       hdr, hdrlen, NULL, 0, NULL);
+
+	return 0;
+}
+
+
+
+/*
+ * server_readdirp - readdirp function for server protocol
+ * @frame: call frame
+ * @bound_xl:
+ * @params: parameter dictionary
+ *
+ * not for external reference
+ */
+int
+server_readdirp (call_frame_t *frame, xlator_t *bound_xl, gf_hdr_common_t *hdr,
+                 size_t hdrlen, struct iobuf *iobuf)
+{
+	gf_fop_readdirp_req_t *req = NULL;
+	server_state_t *state = NULL;
+	server_connection_t *conn = NULL;
+
+	conn = SERVER_CONNECTION(frame);
+
+	req   = gf_param (hdr);
+	state = CALL_STATE(frame);
+	{
+		state->fd_no = ntoh64 (req->fd);
+		if (state->fd_no >= 0)
+			state->fd = gf_fd_fdptr_get (conn->fdtable,
+						     state->fd_no);
+
+		state->size   = ntoh32 (req->size);
+		state->offset = ntoh64 (req->offset);
+	}
+
+
+	if (state->fd == NULL) {
+		gf_log (frame->this->name, GF_LOG_ERROR,
+			"fd - %"PRId64": unresolved fd",
+			state->fd_no);
+
+		server_readdirp_cbk (frame, NULL, frame->this, -1, EBADF, NULL);
+		goto out;
+	}
+
+	gf_log (bound_xl->name, GF_LOG_TRACE,
+		"%"PRId64": READDIRP \'fd=%"PRId64" (%"PRId64"); "
+		"offset=%"PRId64"; size=%"PRId64,
+		frame->root->unique, state->fd_no, state->fd->inode->ino,
+		state->offset, (int64_t)state->size);
+
+	STACK_WIND (frame, server_readdirp_cbk, bound_xl,
+                    bound_xl->fops->readdirp, state->fd, state->size,
+                    state->offset);
+out:
+	return 0;
+}
+
+
 
 /*
  * server_readdir - readdir function for server protocol
@@ -7189,6 +7297,7 @@ static gf_op_t gf_fops[] = {
 	[GF_FOP_LOOKUP]       =  server_lookup,
 	[GF_FOP_SETDENTS]     =  server_setdents,
 	[GF_FOP_READDIR]      =  server_readdir,
+	[GF_FOP_READDIRP]     =  server_readdirp,
 	[GF_FOP_INODELK]      =  server_inodelk,
 	[GF_FOP_FINODELK]     =  server_finodelk,
 	[GF_FOP_ENTRYLK]      =  server_entrylk,
