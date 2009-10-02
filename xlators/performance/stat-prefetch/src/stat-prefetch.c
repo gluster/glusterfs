@@ -661,7 +661,7 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         }
 
 	STACK_WIND (frame, sp_readdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readdir, fd, size, off);
+                    FIRST_CHILD(this)->fops->readdirp, fd, size, off);
 
         return 0;
 
@@ -1718,6 +1718,7 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
         .lookup      = sp_lookup,
         .readdir     = sp_readdir,
+        .readdirp    = sp_readdir,
         .open        = sp_open, 
         .create      = sp_create,
         .opendir     = sp_opendir,
