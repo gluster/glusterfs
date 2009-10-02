@@ -370,6 +370,7 @@ struct xlator_fops fops = {
 	.lk          = dht_lk,
 	.opendir     = dht_opendir,
 	.readdir     = dht_readdir,
+	.readdirp    = dht_readdirp,
 	.fsyncdir    = dht_fsyncdir,
 	.symlink     = dht_symlink,
 	.unlink      = dht_unlink,

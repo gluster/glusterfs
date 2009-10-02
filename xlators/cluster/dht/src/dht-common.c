@@ -2024,6 +2024,91 @@ err:
 
 
 int
+dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
+                  int op_errno, gf_dirent_t *orig_entries)
+{
+	dht_local_t  *local = NULL;
+	gf_dirent_t   entries;
+	gf_dirent_t  *orig_entry = NULL;
+	gf_dirent_t  *entry = NULL;
+	call_frame_t *prev = NULL;
+	xlator_t     *next_subvol = NULL;
+        off_t         next_offset = 0;
+	int           count = 0;
+
+
+	INIT_LIST_HEAD (&entries.list);
+	prev = cookie;
+	local = frame->local;
+
+	if (op_ret < 0)
+		goto done;
+
+	list_for_each_entry (orig_entry, (&orig_entries->list), list) {
+                next_offset = orig_entry->d_off;
+
+                if (check_is_linkfile (NULL, (&orig_entry->d_stat), NULL)
+                    || (check_is_dir (NULL, (&orig_entry->d_stat), NULL)
+                        && (prev->this != dht_first_up_subvol (this)))) {
+                        continue;
+                }
+
+                entry = gf_dirent_for_name (orig_entry->d_name);
+                if (!entry) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        goto unwind;
+                }
+
+                dht_itransform (this, prev->this, orig_entry->d_ino,
+                                &entry->d_ino);
+                dht_itransform (this, prev->this, orig_entry->d_off,
+                                &entry->d_off);
+
+                entry->d_stat.st_ino = entry->d_ino;
+                entry->d_type = orig_entry->d_type;
+                entry->d_len  = orig_entry->d_len;
+
+                list_add_tail (&entry->list, &entries.list);
+                count++;
+	}
+	op_ret = count;
+
+done:
+	if (count == 0) {
+                /* non-zero next_offset means that
+                   EOF is not yet hit on the current subvol
+                */
+                if (next_offset == 0) {
+                        next_subvol = dht_subvol_next (this, prev->this);
+                } else {
+                        next_subvol = prev->this;
+                }
+
+		if (!next_subvol) {
+			goto unwind;
+		}
+
+		STACK_WIND (frame, dht_readdirp_cbk,
+			    next_subvol, next_subvol->fops->readdirp,
+			    local->fd, local->size, next_offset);
+		return 0;
+	}
+
+unwind:
+	if (op_ret < 0)
+		op_ret = 0;
+
+	DHT_STACK_UNWIND (frame, op_ret, op_errno, &entries);
+
+	gf_dirent_free (&entries);
+
+        return 0;
+}
+
+
+
+int
 dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		 int op_ret, int op_errno, gf_dirent_t *orig_entries)
 {
@@ -2107,8 +2192,8 @@ unwind:
 
 
 int
-dht_readdir (call_frame_t *frame, xlator_t *this,
-	     fd_t *fd, size_t size, off_t yoff)
+dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                off_t yoff, int whichop)
 {
 	dht_local_t  *local  = NULL;
 	dht_conf_t   *conf = NULL;
@@ -2137,9 +2222,12 @@ dht_readdir (call_frame_t *frame, xlator_t *this,
 	dht_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
 
 	/* TODO: do proper readdir */
-	STACK_WIND (frame, dht_readdir_cbk,
-		    xvol, xvol->fops->readdir,
-		    fd, size, xoff);
+        if (whichop == GF_FOP_READDIR)
+                STACK_WIND (frame, dht_readdir_cbk, xvol, xvol->fops->readdir,
+                            fd, size, xoff);
+        else
+                STACK_WIND (frame, dht_readdirp_cbk, xvol, xvol->fops->readdirp,
+                            fd, size, xoff);
 
 	return 0;
 
@@ -2149,6 +2237,24 @@ err:
 
 	return 0;
 }
+
+
+int
+dht_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t yoff)
+{
+        dht_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIR);
+        return 0;
+}
+
+int
+dht_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+              off_t yoff)
+{
+        dht_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIRP);
+        return 0;
+}
+
 
 
 int
