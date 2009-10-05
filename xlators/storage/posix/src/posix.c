@@ -382,8 +382,8 @@ out:
         if (xattr)
                 dict_ref (xattr);
 
-        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &buf, xattr,
-                      &postparent);
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno,
+                             loc->inode, &buf, xattr, &postparent);
 
         if (xattr)
                 dict_unref (xattr);
@@ -432,7 +432,7 @@ posix_stat (call_frame_t *frame,
 
  out:
         SET_TO_OLD_FS_ID();
-        STACK_UNWIND (frame, op_ret, op_errno, &buf);
+        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, &buf);
 
         return 0;
 }
@@ -566,7 +566,8 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &statpre, &statpost);
+        STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno,
+                             &statpre, &statpost);
 
         return 0;
 }
@@ -695,7 +696,8 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &statpre, &statpost);
+        STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno,
+                             &statpre, &statpost);
 
         return 0;
 }
@@ -776,7 +778,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
         }
 
         SET_TO_OLD_FS_ID ();
-        STACK_UNWIND (frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd);
         return 0;
 }
 
@@ -958,7 +960,8 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
                         FREE (entry_path);
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, &entries, count);
+        STACK_UNWIND_STRICT (getdents, frame, op_ret, op_errno,
+                             &entries, count);
 
         if (op_ret == 0) {
                 while (entries.next) {
@@ -1077,7 +1080,7 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, dest, &stbuf);
+        STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, dest, &stbuf);
 
         return 0;
 }
@@ -1212,8 +1215,8 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf, &preparent,
-                      &postparent);
+        STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno,
+                             loc->inode, &stbuf, &preparent, &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1340,8 +1343,8 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf, &preparent,
-                      &postparent);
+        STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno,
+                             loc->inode, &stbuf, &preparent, &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1429,7 +1432,8 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &preparent, &postparent);
+        STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
+                             &preparent, &postparent);
 
         if (fd != -1) {
                 close (fd);
@@ -1502,7 +1506,8 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
 
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &preparent, &postparent);
+        STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno,
+                             &preparent, &postparent);
 
         return 0;
 }
@@ -1626,8 +1631,8 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf, &preparent,
-                      &postparent);
+        STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno,
+                             loc->inode, &stbuf, &preparent, &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1772,8 +1777,9 @@ posix_rename (call_frame_t *frame, xlator_t *this,
 
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &stbuf, &preoldparent,
-                      &postoldparent, &prenewparent, &postnewparent);
+        STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, &stbuf,
+                             &preoldparent, &postoldparent,
+                             &prenewparent, &postnewparent);
 
         if ((op_ret == -1) && !was_present) {
                 unlink (real_newpath);
@@ -1886,8 +1892,8 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 FREE (newpathdup);
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, oldloc->inode, &stbuf,
-                      &preparent, &postparent);
+        STACK_UNWIND_STRICT (link, frame, op_ret, op_errno,
+                             oldloc->inode, &stbuf, &preparent, &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_newpath);
@@ -1958,7 +1964,8 @@ posix_truncate (call_frame_t *frame,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &prebuf, &postbuf);
+        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
+                             &prebuf, &postbuf);
 
         return 0;
 }
@@ -2128,8 +2135,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, fd, loc->inode, &stbuf,
-                      &preparent, &postparent);
+        STACK_UNWIND_STRICT (create, frame, op_ret, op_errno,
+                             fd, loc->inode, &stbuf, &preparent, &postparent);
 
         return 0;
 }
@@ -2259,7 +2266,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
 
         return 0;
 }
@@ -2374,7 +2381,8 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 	op_ret = vec.iov_len;
  out:
 
-        STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf, iobref);
+        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
+                             &vec, 1, &stbuf, iobref);
 
         if (iobref)
                 iobref_unref (iobref);
@@ -2542,7 +2550,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                 FREE (alloc_buf);
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, &preop, &postop);
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, &preop, &postop);
 
         return 0;
 }
@@ -2589,7 +2597,7 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
-        STACK_UNWIND (frame, op_ret, op_errno, &buf);
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, &buf);
         return 0;
 }
 
@@ -2625,7 +2633,7 @@ posix_flush (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
 
         return 0;
 }
@@ -2769,7 +2777,7 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &preop, &postop);
+        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, &preop, &postop);
 
         return 0;
 }
@@ -2942,7 +2950,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno);
 
         return 0;
 }
@@ -3152,7 +3160,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
 
         if (dict)
                 dict_unref (dict);
@@ -3273,7 +3281,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
 
         if (dict)
                 dict_unref (dict);
@@ -3374,7 +3382,7 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno);
 
         return 0;
 }
@@ -3410,7 +3418,7 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno);
         return 0;
 }
 
@@ -3444,7 +3452,7 @@ posix_fsyncdir (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (fsyncdir, frame, op_ret, op_errno);
 
         return 0;
 }
@@ -3583,7 +3591,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 out:
 	if (array)
 		FREE (array);
-	STACK_UNWIND (frame, op_ret, op_errno, xattr);
+	STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr);
 	return 0;
 }
 
@@ -3698,7 +3706,7 @@ posix_fxattrop (call_frame_t *frame, xlator_t *this,
 out:
 	if (array)
 		FREE (array);
-	STACK_UNWIND (frame, op_ret, op_errno, xattr);
+	STACK_UNWIND_STRICT (fxattrop, frame, op_ret, op_errno, xattr);
 	return 0;
 }
 
@@ -3732,7 +3740,7 @@ posix_access (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (access, frame, op_ret, op_errno);
         return 0;
 }
 
@@ -3810,7 +3818,7 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &preop, &postop);
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, &preop, &postop);
 
         return 0;
 }
@@ -4103,7 +4111,7 @@ posix_setdents (call_frame_t *frame, xlator_t *this,
 
         op_ret = 0;
  out:
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (setdents, frame, op_ret, op_errno);
         if (entry_path)
                 FREE (entry_path);
 
@@ -4161,7 +4169,7 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
  out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND (frame, op_ret, op_errno, &buf);
+        STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, &buf);
         return 0;
 }
 
@@ -4180,7 +4188,7 @@ posix_lk (call_frame_t *frame, xlator_t *this,
 			     "not loaded. You need to use it for proper "
                              "functioning of your application.");
 
-        STACK_UNWIND (frame, -1, ENOSYS, &nullock);
+        STACK_UNWIND_STRICT (lk, frame, -1, ENOSYS, &nullock);
         return 0;
 }
 
@@ -4192,7 +4200,7 @@ posix_inodelk (call_frame_t *frame, xlator_t *this,
 		"\"features/locks\" translator is not loaded. "
 		"You need to use it for proper functioning of GlusterFS");
 
-        STACK_UNWIND (frame, -1, ENOSYS);
+        STACK_UNWIND_STRICT (inodelk, frame, -1, ENOSYS);
         return 0;
 }
 
@@ -4204,7 +4212,7 @@ posix_finodelk (call_frame_t *frame, xlator_t *this,
 		"\"features/locks\" translator is not loaded. "
 		"You need to use it for proper functioning of GlusterFS");
 
-        STACK_UNWIND (frame, -1, ENOSYS);
+        STACK_UNWIND_STRICT (finodelk, frame, -1, ENOSYS);
         return 0;
 }
 
@@ -4218,7 +4226,7 @@ posix_entrylk (call_frame_t *frame, xlator_t *this,
 		"\"features/locks\" translator is not loaded. "
 		"You need to use it for proper functioning of GlusterFS");
 
-        STACK_UNWIND (frame, -1, ENOSYS);
+        STACK_UNWIND_STRICT (entrylk, frame, -1, ENOSYS);
         return 0;
 }
 
@@ -4231,7 +4239,7 @@ posix_fentrylk (call_frame_t *frame, xlator_t *this,
 		"\"features/locks\" translator is not loaded. "
 		" You need to use it for proper functioning of GlusterFS");
 
-        STACK_UNWIND (frame, -1, ENOSYS);
+        STACK_UNWIND_STRICT (fentrylk, frame, -1, ENOSYS);
         return 0;
 }
 
@@ -4388,7 +4396,7 @@ posix_readdir (call_frame_t *frame, xlator_t *this,
         op_ret = count;
 
  out:
-        STACK_UNWIND (frame, op_ret, op_errno, &entries);
+        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries);
 
 	gf_dirent_free (&entries);
 
@@ -4563,7 +4571,8 @@ posix_checksum (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
  out:
-        STACK_UNWIND (frame, op_ret, op_errno, file_checksum, dir_checksum);
+        STACK_UNWIND_STRICT (checksum, frame, op_ret, op_errno,
+                             file_checksum, dir_checksum);
 
         return 0;
 }
@@ -4665,7 +4674,8 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
 
         op_ret = 0;
 out:
-        STACK_UNWIND (frame, op_ret, op_errno, weak_checksum, strong_checksum);
+        STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno,
+                             weak_checksum, strong_checksum);
         return 0;
 }
 
