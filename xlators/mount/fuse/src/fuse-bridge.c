@@ -1185,7 +1185,14 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 attr.st_uid  = fsi->uid;
                 attr.st_gid  = fsi->gid;
 
-                if (state->fd) {
+                if (state->fd &&
+                    !((fsi->valid & FATTR_ATIME) || (fsi->valid & FATTR_MTIME))) {
+
+                         /*
+                            there is no "futimes" call, so don't send
+                            fsetattr if ATIME or MTIME is set
+                         */
+
                         FUSE_FOP (state, fuse_setattr_cbk, GF_FOP_FSETATTR,
                                   fsetattr, state->fd, &attr,
                                   fattr_to_gf_set_attr (fsi->valid));
