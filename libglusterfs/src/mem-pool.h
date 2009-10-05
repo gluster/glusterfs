@@ -22,6 +22,7 @@
 
 #include "list.h"
 #include "locking.h"
+#include <stdlib.h>
 
 
 #define MALLOC(size) malloc(size)
