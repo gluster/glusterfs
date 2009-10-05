@@ -514,9 +514,6 @@ afr_up_children_count (int child_count, unsigned char *child_up);
 int
 afr_locked_nodes_count (unsigned char *locked_nodes, int child_count);
 
-int
-afr_first_up_child (afr_private_t *priv);
-
 ino64_t
 afr_itransform (ino64_t ino, int child_count, int child_index);
 
@@ -592,10 +589,39 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 }
 
 
+/**
+ * first_up_child - return the index of the first child that is up
+ */
+
+static inline int
+afr_first_up_child (afr_private_t *priv)
+{
+	xlator_t ** children = NULL;
+	int         ret      = -1;
+	int         i        = 0;
+
+	LOCK (&priv->lock);
+	{
+		children = priv->children;
+		for (i = 0; i < priv->child_count; i++) {
+			if (priv->child_up[i]) {
+				ret = i;
+				break;
+			}
+		}
+	}
+	UNLOCK (&priv->lock);
+
+	return ret;
+}
+
+
 static inline int
 afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
 {
         int i;
+
+        local->first_up_child = afr_first_up_child (priv);
 
 	local->child_errno = CALLOC (sizeof (*local->child_errno),
 				     priv->child_count);
