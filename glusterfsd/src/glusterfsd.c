@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+#include <sys/file.h>
 #include <netdb.h>
 #include <signal.h>
 #include <libgen.h>
@@ -152,85 +153,54 @@ static struct argp_option gf_options[] = {
 
 static struct argp argp = { gf_options, parse_opts, argp_doc, gf_doc };
 
-/* Make use of semaphore to synchronize daemonization */
+/* Make use of pipe to synchronize daemonization */
 int
-gf_daemon (sem_t **sem_id)
+gf_daemon (int *pipe_fd)
 {
         pid_t		pid = -1;
-        struct timespec time_out_value;
-        char 		sem_name[28] = { 0 };
-	sem_t           *semid = SEM_FAILED;
+        int             ret = -1;
+        char            gf_daemon_buff[50] = {0,};
 
-        snprintf (sem_name, sizeof (sem_name),
-                  "%s-%d", "/gluster-semaphore", getpid ());
-
-        if ((semid = sem_open (sem_name, O_CREAT | O_EXCL,0666, 0)) < 0) {
-                if (errno == EEXIST) {
-                 /* if stale semaphore exists unlink it first and
-		    create again */
-                        if (sem_unlink (sem_name) < 0) {
-			        gf_log ("glusterfs", GF_LOG_ERROR,
-					"stale semaphore unlink error: %s",
-					 strerror (errno));
-                                return -1;
-                        }
-
-                        semid = sem_open (sem_name, O_CREAT | O_EXCL,
-					  0666, 0);
-                }
-
-		if (semid == SEM_FAILED) {
-			gf_log ("glusterfs", GF_LOG_ERROR,
-				"semaphore create error: %s",
-				 strerror (errno));
-                        return -1;
-                }
+        if (pipe (pipe_fd) < 0) {
+                gf_log ("glusterfs", GF_LOG_ERROR,
+                        "pipe creation error- %s", strerror (errno));
+                return -1;
         }
-
-	*sem_id = semid;
 
         if ((pid = fork ()) < 0) {
 	        gf_log ("glusterfs", GF_LOG_ERROR, "fork error: %s",
 			strerror (errno));
                 return -1;
         } else if (pid != 0) {
-              /* parent process waits on semaphore until its value is > 0 */
-                time_out_value.tv_sec = 100;
-                time_out_value.tv_nsec = 0;
-
-                if ((sem_timedwait (semid, &time_out_value) < 0)
-				&& (errno != ETIMEDOUT)) {
+                close (pipe_fd[1]);
+                ret = read (pipe_fd[0], gf_daemon_buff,
+                            sizeof (gf_daemon_buff));
+                if (ret == -1) {
                         gf_log ("glusterfs", GF_LOG_ERROR,
-				"semaphore wait error: %s",
-				strerror (errno));
+                                "read error on pipe- %s", strerror (errno));
+                        return ret;
+                } else if (ret == 0) {
+                        gf_log ("glusterfs", GF_LOG_ERROR,
+                                "end of file- %s", strerror (errno));
                         return -1;
+                } else {
+                        if (!strncmp (gf_daemon_buff, "0", 1))
+                                exit (EXIT_SUCCESS);
+                        else {
+                                fprintf (stderr, "%s\n", gf_daemon_buff);
+                                exit (EXIT_FAILURE);
+                        }
                 }
-
-                if (sem_close (semid) < 0) {
-		        gf_log ("glusterfs", GF_LOG_ERROR,
-				"close semaphore error: %s",
-				strerror (errno));
-                        return -1;
-                }
-
-                if (sem_unlink (sem_name) < 0) {
-		        gf_log ("glusterfs", GF_LOG_ERROR,
-				"semaphore unlink error: %s",
-				strerror (errno));
-                        return -1;
-                }
-
-                exit(0);
         }
 
         /*child continues*/
+        close (pipe_fd[0]);
 	if (daemon (0, 0) == -1) {
 		gf_log ("glusterfs", GF_LOG_ERROR,
 			"unable to run in daemon mode: %s",
 			strerror (errno));
 		return -1;
 	}
-
         return 0;
 }
 
@@ -928,7 +898,7 @@ cleanup_and_exit (int signum)
 	gf_log ("glusterfs", GF_LOG_WARNING, "shutting down");
 
 	if (ctx->pidfp) {
-		gf_unlockfd (fileno (ctx->pidfp));
+		flock (fileno (ctx->pidfp), LOCK_UN);
 		fclose (ctx->pidfp);
 		ctx->pidfp = NULL;
 	}
@@ -1080,7 +1050,7 @@ main (int argc, char *argv[])
 	int               fuse_volume_found = 0;
 	int               xl_count = 0;
 	uint8_t           process_mode = 0;
-        sem_t            *semid = SEM_FAILED;
+        int               pipe_fd[2];
 
 	utime = time (NULL);
 	ctx = CALLOC (1, sizeof (glusterfs_ctx_t));
@@ -1123,37 +1093,8 @@ main (int argc, char *argv[])
 	ERR_ABORT (ctx->pool);
 	LOCK_INIT (&pool->lock);
 	INIT_LIST_HEAD (&pool->all_frames);
-	
- 	if (cmd_args->pid_file != NULL) {
- 		ctx->pidfp = fopen (cmd_args->pid_file, "a+");
- 		if (ctx->pidfp == NULL) {
- 			fprintf (stderr, 
-				 "unable to open pid file %s. %s. exiting\n", 
-				 cmd_args->pid_file, strerror (errno));
- 			/* do cleanup and exit ?! */
- 			return -1;
- 		}
- 		ret = gf_lockfd (fileno (ctx->pidfp));
- 		if (ret == -1) {
- 			fprintf (stderr, "unable to lock pid file %s. %s. "
-				 "Is another instance of %s running?!\n"
- 				 "exiting\n", cmd_args->pid_file, 
-				 strerror (errno), argv[0]);
- 			fclose (ctx->pidfp);
- 			return -1;
- 		}
- 		ret = ftruncate (fileno (ctx->pidfp), 0);
- 		if (ret == -1) {
- 			fprintf (stderr, 
-				 "unable to truncate file %s. %s. exiting\n", 
-				 cmd_args->pid_file, strerror (errno));
- 			gf_unlockfd (fileno (ctx->pidfp));
- 			fclose (ctx->pidfp);
- 			return -1;
- 		}
- 	}
-	
-	/* initializing logs */
+
+        /* initializing logs */
 	if (cmd_args->run_id) {
 		ret = stat (cmd_args->log_file, &stbuf);
 		/* If its /dev/null, or /dev/stdout, /dev/stderr, 
@@ -1259,7 +1200,7 @@ main (int argc, char *argv[])
 		
 	/* daemonize now */
 	if (!cmd_args->no_daemon_mode) {
-                if (gf_daemon (&semid) == -1) {
+                if (gf_daemon (pipe_fd) == -1) {
 			gf_log ("glusterfs", GF_LOG_ERROR,
 				"unable to run in daemon mode: %s",
 				strerror (errno));
@@ -1268,14 +1209,57 @@ main (int argc, char *argv[])
 		
 		/* we are daemon now */
                 _gf_dump_details (argc, argv);
+                if (cmd_args->pid_file != NULL) {
+                        ctx->pidfp = fopen (cmd_args->pid_file, "a+");
+                        if (ctx->pidfp == NULL) {
+                                gf_log ("glusterfs", GF_LOG_ERROR,
+                                        "unable to open pid file %s, %s.",
+                                        cmd_args->pid_file,
+                                        strerror (errno));
+                                if (write (pipe_fd[1], strerror (errno),
+                                           strlen (strerror (errno))) < 0) {
+                                        gf_log ("glusterfs", GF_LOG_ERROR,
+                                                "Write on pipe error");
+                                }
+                                /* do cleanup and exit ?! */
+                                return -1;
+                        }
+                        ret = flock (fileno (ctx->pidfp),
+                                     (LOCK_EX | LOCK_NB));
+                        if (ret == -1) {
+                                gf_log ("glusterfs", GF_LOG_ERROR,
+                                       "Is another instance of %s running?",
+                                        argv[0]);
+                                fclose (ctx->pidfp);
+                                if (write (pipe_fd[1], strerror (errno),
+                                           strlen (strerror (errno))) < 0) {
+                                        gf_log ("glusterfs", GF_LOG_ERROR,
+                                                "Write on pipe error");
+                                }
+                                return ret;
+                        }
+                        ret = ftruncate (fileno (ctx->pidfp), 0);
+                        if (ret == -1) {
+                                gf_log ("glusterfs", GF_LOG_ERROR,
+                                        "unable to truncate file %s. %s.",
+                                        cmd_args->pid_file,
+                                        strerror (errno));
+                                flock (fileno (ctx->pidfp), LOCK_UN);
+                                fclose (ctx->pidfp);
+                                if (write (pipe_fd[1], strerror (errno),
+                                           strlen (strerror (errno))) < 0) {
+                                        gf_log ("glusterfs", GF_LOG_ERROR,
+                                                "Write on pipe error");
+                                }
+                                return ret;
+                        }
 
- 		/* update pid file, if given */
- 		if (cmd_args->pid_file != NULL) {
- 			fprintf (ctx->pidfp, "%d\n", getpid ());
- 			fflush (ctx->pidfp);
- 			/* we close pid file on exit */
- 		}
-	} else {
+                        /* update pid file, if given */
+                        fprintf (ctx->pidfp, "%d\n", getpid ());
+                        fflush (ctx->pidfp);
+                        /* we close pid file on exit */
+                }
+        } else {
                 /*
                  * Need to have this line twice because PID is different
                  * in daemon and non-daemon cases.
@@ -1300,12 +1284,14 @@ main (int argc, char *argv[])
 	if (glusterfs_graph_init (graph, fuse_volume_found) != 0) {
 		gf_log ("glusterfs", GF_LOG_ERROR,
 			"translator initialization failed.  exiting");
-		if (!cmd_args->no_daemon_mode && (sem_post (semid) < 0)) {
+		if (!cmd_args->no_daemon_mode &&
+                    (write (pipe_fd[1], strerror (errno),
+                            strlen (strerror (errno))) < 0)) {
 			gf_log ("glusterfs", GF_LOG_ERROR,
-                                "semaphore synchronization failed,"
-                                " daemonize problem.exiting: %s",
+                                "Write on pipe failed,"
+                                "daemonize problem.exiting: %s",
                                  strerror (errno));
-		}
+                                 }
 		return -1;
 	}
 
@@ -1314,10 +1300,11 @@ main (int argc, char *argv[])
 
 	gf_log ("glusterfs", GF_LOG_NORMAL, "Successfully started");
 
-	if (!cmd_args->no_daemon_mode && (sem_post (semid) < 0)) {
+	if (!cmd_args->no_daemon_mode &&
+            (write (pipe_fd[1], "0", 2) < 0)) {
 		gf_log ("glusterfs", GF_LOG_ERROR,
-                        "semaphore synchronization failed,"
-                        " daemonize problem.  exiting: %s",
+                        "Write on pipe failed,"
+                        "daemonize problem.  exiting: %s",
                          strerror (errno));
 		return -1;
 	}
