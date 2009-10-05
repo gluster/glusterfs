@@ -10,10 +10,10 @@ DISTVERSION=   2.0.0rc1
 PORTVERSION=   2.0.0rc1
 PORTREVISION=  1
 CATEGORIES=    sysutils
-MASTER_SITES=  ftp://ftp.zresearch.com/pub/gluster/glusterfs/2.0/2.0.0/ \
+MASTER_SITES=  ftp://ftp.gluster.com/pub/gluster/glusterfs/2.0/2.0.0/ \
 		http://europe.gluster.org/glusterfs/2.0/2.0.0/
 
-MAINTAINER=    harsha@zresearch.com
+MAINTAINER=    harsha@gluster.com
 COMMENT=       GlusterFS is a clustered file-system
 
 BUILD_DEPENDS= fusefs-libs>2.6.3:${PORTSDIR}/sysutils/fusefs-libs

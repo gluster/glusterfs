@@ -142,7 +142,7 @@ Jacques Mattheij - for Europe mirror.
 
 Patrick Negri - for TCP non-blocking connect.
 @flushright
-http://gluster.org/core-team.php (@email{list-hacking@@zresearch.com})
+http://gluster.org/core-team.php (@email{list-hacking@@gluster.com})
 @email{@b{Z}} Research
 @end flushright
 
@@ -180,7 +180,7 @@ The GlusterFS documentation wiki is also useful: @*
 
 For commercial support, you can contact @email{@b{Z}} Research at:
 @cindex commercial support
-@cindex Z Research, Inc.
+@cindex Gluster, Inc.
 
 @display
 3194 Winding Vista Common
@@ -192,7 +192,7 @@ Toll free: +1 (888) 813 6309
 Fax: +1 (510) 372 0604
 @end display
 
-You can also email us at @email{support@@zresearch.com}.
+You can also email us at @email{support@@gluster.com}.
 
 @node Installation and Invocation
 @chapter Installation and Invocation
@@ -254,7 +254,7 @@ all users use the patched @acronym{FUSE}.
 
 The patched @acronym{FUSE} tarball can be downloaded from:
 
-@indicateurl{ftp://ftp.zresearch.com/pub/gluster/glusterfs/fuse/}
+@indicateurl{ftp://ftp.gluster.com/pub/gluster/glusterfs/fuse/}
 
 The specific changes made to @acronym{FUSE} are:
 
@@ -2135,11 +2135,11 @@ module, you need to apply the following patch.
 
 For fuse-2.6.2:
 
-@indicateurl{http://ftp.zresearch.com/pub/gluster/glusterfs/fuse/fuse-2.6.2-rhel-build.patch}
+@indicateurl{http://ftp.gluster.com/pub/gluster/glusterfs/fuse/fuse-2.6.2-rhel-build.patch}
 
 For fuse-2.6.3:
 
-@indicateurl{http://ftp.zresearch.com/pub/gluster/glusterfs/fuse/fuse-2.6.3-rhel-build.patch}
+@indicateurl{http://ftp.gluster.com/pub/gluster/glusterfs/fuse/fuse-2.6.3-rhel-build.patch}
 
 @section AppArmour and GlusterFS
 @cindex AppArmour

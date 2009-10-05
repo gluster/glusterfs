@@ -1,7 +1,7 @@
 /*
   FUSE: Filesystem in Userspace
   Copyright (C) 2001-2007  Miklos Szeredi <miklos@szeredi.hu>
-  Copyright (c) 2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2009 Gluster, Inc. <http://www.gluster.com>
 
   This program can be distributed under the terms of the GNU LGPLv2.
   See the file COPYING.LIB.

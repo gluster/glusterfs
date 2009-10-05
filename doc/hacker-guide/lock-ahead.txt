@@ -76,5 +76,5 @@ because of a universal lock held by someone else:
 
 ==============================================
 $ Last updated: Tue Feb 17 11:31:18 IST 2009 $
-$ Author: Vikas Gorur <vikas@zresearch.com>  $
+$ Author: Vikas Gorur <vikas@gluster.com>  $
 ==============================================

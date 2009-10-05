@@ -29,5 +29,5 @@ Steps to be followed when adding a new FOP to GlusterFS:
 ==========================================
 Last updated: Mon Oct 27 21:35:49 IST 2008
 
-Author: Vikas Gorur <vikas@zresearch.com>
+Author: Vikas Gorur <vikas@gluster.com>
 ==========================================

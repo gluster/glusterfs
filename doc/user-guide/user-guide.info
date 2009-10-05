@@ -129,7 +129,7 @@ suggestions.  A huge thanks to them all.
    Jacques Mattheij - for Europe mirror.
 
    Patrick Negri - for TCP non-blocking connect.
-        http://gluster.org/core-team.php (<list-hacking@zresearch.com>)
+        http://gluster.org/core-team.php (<list-hacking@gluster.com>)
                                                            <Z> Research
 
 
@@ -178,7 +178,7 @@ channel on Freenode (<irc.freenode.net>).
      Toll free: +1 (888) 813 6309
      Fax: +1 (510) 372 0604
 
-   You can also email us at <support@zresearch.com>.
+   You can also email us at <support@gluster.com>.
 
 
 File: user-guide.info,  Node: Installation and Invocation,  Next: Concepts,  Prev: Introduction,  Up: Top
@@ -226,7 +226,7 @@ recommended that all users use the patched FUSE.
 
    The patched FUSE tarball can be downloaded from:
 
-   <ftp://ftp.zresearch.com/pub/gluster/glusterfs/fuse/>
+   <ftp://ftp.gluster.com/pub/gluster/glusterfs/fuse/>
 
    The specific changes made to FUSE are:
 
@@ -2066,11 +2066,11 @@ module, you need to apply the following patch.
 
    For fuse-2.6.2:
 
-<http://ftp.zresearch.com/pub/gluster/glusterfs/fuse/fuse-2.6.2-rhel-build.patch>
+<http://ftp.gluster.com/pub/gluster/glusterfs/fuse/fuse-2.6.2-rhel-build.patch>
 
    For fuse-2.6.3:
 
-<http://ftp.zresearch.com/pub/gluster/glusterfs/fuse/fuse-2.6.3-rhel-build.patch>
+<http://ftp.gluster.com/pub/gluster/glusterfs/fuse/fuse-2.6.3-rhel-build.patch>
 
 6.3 AppArmour and GlusterFS
 ===========================
@@ -2641,7 +2641,7 @@ Index
 * unify (translator):                    Unify.               (line   6)
 * unify invariants:                      Unify.               (line  16)
 * write-behind (translator):             Write Behind.        (line   6)
-* Z Research, Inc.:                      Introduction.        (line  36)
+* Gluster, Inc.:                      Introduction.        (line  36)
 
 
 
