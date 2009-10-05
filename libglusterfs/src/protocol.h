@@ -54,7 +54,7 @@ struct gf_stat {
 	uint32_t blksize;
 	uint32_t atime;
 	uint32_t atime_nsec;
-	uint32_t mtime;
+	uint32_t mtime ;
 	uint32_t mtime_nsec;
 	uint32_t ctime;
 	uint32_t ctime_nsec;
@@ -434,28 +434,6 @@ typedef struct {
         struct gf_stat postparent;
 } __attribute__((packed)) gf_fop_link_rsp_t;
 
-
-typedef struct {
-	uint64_t  ino;
-	uint32_t  mode;
-	char      path[0];
-} __attribute__((packed)) gf_fop_chmod_req_t;
-typedef struct {
-	struct gf_stat stat;
-} __attribute__((packed)) gf_fop_chmod_rsp_t;
-
-
-typedef struct {
-	uint64_t ino;
-	uint32_t uid;
-	uint32_t gid;
-	char     path[0];
-} __attribute__((packed)) gf_fop_chown_req_t;
-typedef struct {
-	struct gf_stat stat;
-} __attribute__((packed)) gf_fop_chown_rsp_t;
-
-
 typedef struct {
 	uint64_t ino;
 	uint64_t offset;
@@ -752,36 +730,6 @@ typedef struct {
 } __attribute__((packed)) gf_fop_fentrylk_req_t;
 typedef struct {
 } __attribute__((packed)) gf_fop_fentrylk_rsp_t;
-
-typedef struct {
-	uint64_t           ino;
-	struct gf_timespec tv[2];
-	char               path[0];
-} __attribute__((packed)) gf_fop_utimens_req_t;
-typedef struct {
-	struct gf_stat stat;
-} __attribute__((packed)) gf_fop_utimens_rsp_t;
-
-typedef struct {
-	uint64_t  ino;
-	uint64_t  fd;
-	uint32_t  mode;
-} __attribute__((packed)) gf_fop_fchmod_req_t;
-typedef struct {
-	struct gf_stat stat;
-} __attribute__((packed)) gf_fop_fchmod_rsp_t;
-
-
-typedef struct {
-	uint64_t ino;
-	int64_t  fd;
-	uint32_t uid;
-	uint32_t gid;
-} __attribute__((packed)) gf_fop_fchown_req_t;
-typedef struct {
-	struct gf_stat stat;
-} __attribute__((packed)) gf_fop_fchown_rsp_t;
-
 
 typedef struct {
 	uint64_t ino; /* NOTE: used only in case of 'root' lookup */

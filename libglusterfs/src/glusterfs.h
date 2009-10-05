@@ -86,10 +86,8 @@ typedef enum {
         GF_FOP_SYMLINK,
         GF_FOP_RENAME,
         GF_FOP_LINK,
-        GF_FOP_CHMOD,
-        GF_FOP_CHOWN,      /* 10 */
         GF_FOP_TRUNCATE,
-        GF_FOP_OPEN,
+        GF_FOP_OPEN,       /* 10 */
         GF_FOP_READ,
         GF_FOP_WRITE,
         GF_FOP_STATFS,     /* 15 */
@@ -106,9 +104,6 @@ typedef enum {
         GF_FOP_FTRUNCATE,
         GF_FOP_FSTAT,
         GF_FOP_LK,
-        GF_FOP_UTIMENS,
-        GF_FOP_FCHMOD,     /* 30 */
-        GF_FOP_FCHOWN,
         GF_FOP_LOOKUP,
         GF_FOP_SETDENTS,
         GF_FOP_READDIR,

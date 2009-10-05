@@ -73,56 +73,6 @@ typedef struct {
 			struct stat buf;
 		} fstat_cbk;
 
-		/* chmod */
-		struct {
-			fop_chmod_t fn;
-			loc_t loc;
-			mode_t mode;
-		} chmod;
-		struct {
-			fop_chmod_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct stat buf;
-		} chmod_cbk;
-
-		/* fchmod */
-		struct {
-			fop_fchmod_t fn;
-			fd_t *fd;
-			mode_t mode;
-		} fchmod;
-		struct {
-			fop_fchmod_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct stat buf;
-		} fchmod_cbk;
-
-		/* chown */
-		struct {
-			fop_chown_t fn;
-			loc_t loc;
-			uid_t uid;
-			gid_t gid;
-		} chown;
-		struct {
-			fop_chown_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct stat buf;
-		} chown_cbk;
-
-		/* fchown */
-		struct {
-			fop_fchown_t fn;
-			fd_t *fd;
-			uid_t uid;
-			gid_t gid;
-		} fchown;
-		struct {
-			fop_fchown_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct stat buf;
-		} fchown_cbk;
-
 		/* truncate */
 		struct {
 			fop_truncate_t fn;
@@ -148,18 +98,6 @@ typedef struct {
 			struct stat prebuf;
                         struct stat postbuf;
 		} ftruncate_cbk;
-
-		/* utimens */
-		struct {
-			fop_utimens_t fn;
-			loc_t loc;
-			struct timespec tv[2];
-		} utimens;
-		struct {
-			fop_utimens_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct stat buf;
-		} utimens_cbk;
 
 		/* access */
 		struct {
@@ -739,55 +677,6 @@ fop_fstat_cbk_stub (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    struct stat *buf);
-call_stub_t *
-fop_chmod_stub (call_frame_t *frame,
-		fop_chmod_t fn,
-		loc_t *loc,
-		mode_t mode);
-call_stub_t *
-fop_chmod_cbk_stub (call_frame_t *frame,
-		    fop_chmod_cbk_t fn,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf);
-call_stub_t *
-fop_fchmod_stub (call_frame_t *frame,
-		 fop_fchmod_t fn,
-		 fd_t *fd,
-		 mode_t mode);
-call_stub_t *
-fop_fchmod_cbk_stub (call_frame_t *frame,
-		     fop_fchmod_cbk_t fn,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *buf);
-call_stub_t *
-fop_chown_stub (call_frame_t *frame,
-		fop_chown_t fn,
-		loc_t *loc,
-		uid_t uid,
-		gid_t gid);
-
-call_stub_t *
-fop_chown_cbk_stub (call_frame_t *frame,
-		    fop_chown_cbk_t fn,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf);
-
-call_stub_t *
-fop_fchown_stub (call_frame_t *frame,
-		 fop_fchown_t fn,
-		 fd_t *fd,
-		 uid_t uid,
-		 gid_t gid);
-
-call_stub_t *
-fop_fchown_cbk_stub (call_frame_t *frame,
-		     fop_fchown_cbk_t fn,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *buf);
 
 call_stub_t *
 fop_truncate_stub (call_frame_t *frame,
@@ -816,19 +705,6 @@ fop_ftruncate_cbk_stub (call_frame_t *frame,
 			int32_t op_errno,
 			struct stat *prebuf,
                         struct stat *postbuf);
-
-call_stub_t *
-fop_utimens_stub (call_frame_t *frame,
-		  fop_utimens_t fn,
-		  loc_t *loc,
-		  struct timespec tv[2]);
-
-call_stub_t *
-fop_utimens_cbk_stub (call_frame_t *frame,
-		      fop_utimens_cbk_t fn,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      struct stat *buf);
 
 call_stub_t *
 fop_access_stub (call_frame_t *frame,

@@ -1040,8 +1040,8 @@ unwind:
 
 
 int32_t 
-wb_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *buf)
+wb_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct stat *statpre, struct stat *statpost)
 {
         wb_local_t   *local = NULL;       
         wb_request_t *request = NULL;
@@ -1062,7 +1062,7 @@ wb_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
 
         if (request) {
                 wb_request_unref (request);
@@ -1097,23 +1097,24 @@ wb_utimens_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 static int32_t 
-wb_utimens_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                   struct timespec tv[2])
+wb_setattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                   struct stat *stbuf, int32_t valid)
 {
         STACK_WIND (frame,
-                    wb_utimens_cbk,
+                    wb_setattr_cbk,
                     FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->utimens,
+                    FIRST_CHILD(this)->fops->setattr,
                     loc,
-                    tv);
+                    stbuf,
+                    valid);
 
         return 0;
 }
 
 
 int32_t 
-wb_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
-            struct timespec tv[2])
+wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+            struct stat *stbuf, int32_t valid)
 {
         wb_file_t    *file = NULL;
         fd_t         *iter_fd = NULL;
@@ -1122,6 +1123,15 @@ wb_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
         call_stub_t  *stub = NULL;
         wb_request_t *request = NULL;
         int32_t       ret = -1, op_errno = EINVAL;
+
+        if (!(valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME))) {
+                STACK_WIND (frame,
+                            wb_setattr_cbk,
+                            FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->setattr,
+                            loc, stbuf, valid);
+                goto out;
+        }
 
         if (loc->inode) {
                 /* 
@@ -1150,7 +1160,7 @@ wb_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
         frame->local = local;
 
         if (file) {
-                stub = fop_utimens_stub (frame, wb_utimens_helper, loc, tv);
+                stub = fop_setattr_stub (frame, wb_setattr_helper, loc, stbuf, valid);
                 if (stub == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
@@ -1169,11 +1179,11 @@ wb_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
         } else {
                 STACK_WIND (frame,
-                            wb_utimens_cbk,
+                            wb_setattr_cbk,
                             FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->utimens,
+                            FIRST_CHILD(this)->fops->setattr,
                             loc,
-                            tv);
+                            stbuf, valid);
         }
 
         return 0;
@@ -1183,7 +1193,7 @@ unwind:
         if (stub) {
                 call_stub_destroy (stub);
         }
-
+out:
         return 0;
 }
 
@@ -2482,7 +2492,7 @@ struct xlator_fops fops = {
         .fstat       = wb_fstat,
         .truncate    = wb_truncate,
         .ftruncate   = wb_ftruncate,
-        .utimens     = wb_utimens,
+        .setattr     = wb_setattr,
 };
 
 struct xlator_mops mops = {
