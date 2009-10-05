@@ -68,7 +68,8 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (local->op == TRUNCATE)
 		loc_wipe (&local->loc);
 
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
+                             prebuf, postbuf);
 	return 0;
 }
 
@@ -166,7 +167,7 @@ unwind:
 	if (local->op == TRUNCATE)
 		loc_wipe (&local->loc);
 
-	STACK_UNWIND (frame, op_ret, op_errno, buf, NULL);
+	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, buf, NULL);
 	return 0;
 }
 
@@ -196,7 +197,7 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
 	return 0;
 
 unwind:
-	STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+	STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM, NULL, NULL);
 
 	return 0;
 }
@@ -226,7 +227,7 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 	return 0;
 
 unwind:
-	STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+	STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL);
 
 	return 0;
 }
@@ -257,7 +258,7 @@ int
 pl_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int32_t op_ret, int32_t op_errno)
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
 
 	return 0;
 }
@@ -276,7 +277,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 
 	if (!pl_inode) {
 		gf_log (this->name, GF_LOG_DEBUG, "Could not get inode.");
-		STACK_UNWIND (frame, -1, EBADFD);
+		STACK_UNWIND_STRICT (flush, frame, -1, EBADFD);
 		return 0;
 	}
 
@@ -301,7 +302,7 @@ int
 pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	     int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, fd);
+	STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
 
 	return 0;
 }
@@ -326,8 +327,8 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
 	       fd_t *fd, inode_t *inode, struct stat *buf,
                struct stat *preparent, struct stat *postparent)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf,
-                      preparent, postparent);
+	STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
+                             preparent, postparent);
 
 	return 0;
 }
@@ -350,7 +351,8 @@ pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      struct iovec *vector, int32_t count, struct stat *stbuf,
               struct iobref *iobref)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
+	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
+                             vector, count, stbuf, iobref);
 
 	return 0;
 }
@@ -360,7 +362,7 @@ pl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int32_t op_ret, int32_t op_errno, struct stat *prebuf,
                struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
 
 	return 0;
 }
@@ -503,7 +505,8 @@ pl_readv (call_frame_t *frame, xlator_t *this,
         }
 
 	if (op_ret == -1)
-		STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL, NULL);
+		STACK_UNWIND_STRICT (readv, frame, -1, op_errno,
+                                     NULL, 0, NULL, NULL);
 
 	return 0;
 }
@@ -597,7 +600,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                             fd, vector, count, offset, iobref);
 
 	if (op_ret == -1)
-		STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+		STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -683,7 +686,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 	}
 
 unwind:
-	STACK_UNWIND (frame, op_ret, op_errno, flock);
+	STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, flock);
 out:
 	return 0;
 }

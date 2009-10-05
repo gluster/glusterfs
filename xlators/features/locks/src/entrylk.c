@@ -360,7 +360,7 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 	list_for_each_entry_safe (lock, tmp, &granted_list, blocked_locks) {
 		list_del_init (&lock->blocked_locks);
 
-		STACK_UNWIND (lock->frame, 0, 0);
+		STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0);
 
 		FREE (lock->basename);
 		FREE (lock);
@@ -417,7 +417,7 @@ unlock:
 	list_for_each_entry_safe (lock, tmp, &granted, blocked_locks) {
 		list_del_init (&lock->blocked_locks);
 
-		STACK_UNWIND (lock->frame, 0, 0);
+		STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0);
 
 		if (lock->basename)
 			FREE (lock->basename);
@@ -535,7 +535,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (unwind) {
-		STACK_UNWIND (frame, op_ret, op_errno);
+		STACK_UNWIND_STRICT (entrylk, frame, op_ret, op_errno);
 	}
 
 	return 0;
