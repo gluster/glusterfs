@@ -66,10 +66,7 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (symlink);
 	SET_DEFAULT_FOP (rename);
 	SET_DEFAULT_FOP (link);
-	SET_DEFAULT_FOP (chmod);
-	SET_DEFAULT_FOP (chown);
 	SET_DEFAULT_FOP (truncate);
-	SET_DEFAULT_FOP (utimens);
 	SET_DEFAULT_FOP (readv);
 	SET_DEFAULT_FOP (writev);
 	SET_DEFAULT_FOP (statfs);
@@ -93,8 +90,6 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (entrylk);
 	SET_DEFAULT_FOP (fentrylk);
 	SET_DEFAULT_FOP (lookup);
-	SET_DEFAULT_FOP (fchown);
-	SET_DEFAULT_FOP (fchmod);
 	SET_DEFAULT_FOP (setdents);
 	SET_DEFAULT_FOP (getdents);
 	SET_DEFAULT_FOP (checksum);

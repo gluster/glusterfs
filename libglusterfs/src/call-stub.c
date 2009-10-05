@@ -198,194 +198,6 @@ out:
 }
 
 
-call_stub_t *
-fop_chmod_stub (call_frame_t *frame,
-		fop_chmod_t fn,
-		loc_t *loc,
-		mode_t mode)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-	GF_VALIDATE_OR_GOTO ("call-stub", loc, out);
-
-	stub = stub_new (frame, 1, GF_FOP_CHMOD);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.chmod.fn = fn;
-	loc_copy (&stub->args.chmod.loc, loc);
-	stub->args.chmod.mode = mode;
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_chmod_cbk_stub (call_frame_t *frame,
-		    fop_chmod_cbk_t fn,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 0, GF_FOP_CHMOD);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.chmod_cbk.fn = fn;
-	stub->args.chmod_cbk.op_ret = op_ret;
-	stub->args.chmod_cbk.op_errno = op_errno;
-	if (buf)
-		stub->args.chmod_cbk.buf = *buf;
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_fchmod_stub (call_frame_t *frame,
-		 fop_fchmod_t fn,
-		 fd_t *fd,
-		 mode_t mode)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 1, GF_FOP_FCHMOD);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.fchmod.fn = fn;
-	if (fd)
-		stub->args.fchmod.fd = fd_ref (fd);
-	stub->args.fchmod.mode = mode;
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_fchmod_cbk_stub (call_frame_t *frame,
-		     fop_fchmod_cbk_t fn,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *buf)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 0, GF_FOP_FCHMOD);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.fchmod_cbk.fn = fn;
-	stub->args.fchmod_cbk.op_ret = op_ret;
-	stub->args.fchmod_cbk.op_errno = op_errno;
-	if (buf)
-		stub->args.fchmod_cbk.buf = *buf;
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_chown_stub (call_frame_t *frame,
-		fop_chown_t fn,
-		loc_t *loc,
-		uid_t uid,
-		gid_t gid)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-	GF_VALIDATE_OR_GOTO ("call-stub", loc, out);
-
-	stub = stub_new (frame, 1, GF_FOP_CHOWN);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.chown.fn = fn;
-	loc_copy (&stub->args.chown.loc, loc);
-	stub->args.chown.uid = uid;
-	stub->args.chown.gid = gid;
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_chown_cbk_stub (call_frame_t *frame,
-		    fop_chown_cbk_t fn,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 0, GF_FOP_CHOWN);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.chown_cbk.fn = fn;
-	stub->args.chown_cbk.op_ret = op_ret;
-	stub->args.chown_cbk.op_errno = op_errno;
-	if (buf)
-		stub->args.chown_cbk.buf = *buf;
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_fchown_stub (call_frame_t *frame,
-		 fop_fchown_t fn,
-		 fd_t *fd,
-		 uid_t uid,
-		 gid_t gid)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 1, GF_FOP_FCHOWN);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.fchown.fn = fn;
-	if (fd)
-		stub->args.fchown.fd = fd_ref (fd);
-	stub->args.fchown.uid = uid;
-	stub->args.fchown.gid = gid;
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_fchown_cbk_stub (call_frame_t *frame,
-		     fop_fchown_cbk_t fn,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *buf)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 0, GF_FOP_FCHOWN);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.fchown_cbk.fn = fn;
-	stub->args.fchown_cbk.op_ret = op_ret;
-	stub->args.fchown_cbk.op_errno = op_errno;
-	if (buf)
-		stub->args.fchown_cbk.buf = *buf;
-out:
-	return stub;
-}
-
-
 /* truncate */
 
 call_stub_t *
@@ -482,53 +294,6 @@ fop_ftruncate_cbk_stub (call_frame_t *frame,
 		stub->args.ftruncate_cbk.prebuf = *prebuf;
 	if (postbuf)
 		stub->args.ftruncate_cbk.postbuf = *postbuf;
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_utimens_stub (call_frame_t *frame,
-		  fop_utimens_t fn,
-		  loc_t *loc,
-		  struct timespec tv[2])
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-	GF_VALIDATE_OR_GOTO ("call-stub", loc, out);
-
-	stub = stub_new (frame, 1, GF_FOP_UTIMENS);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.utimens.fn = fn;
-	loc_copy (&stub->args.utimens.loc, loc);
-	stub->args.utimens.tv[0] = tv[0];
-	stub->args.utimens.tv[1] = tv[1];
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_utimens_cbk_stub (call_frame_t *frame,
-		      fop_utimens_cbk_t fn,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      struct stat *buf)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 0, GF_FOP_UTIMENS);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.utimens_cbk.fn = fn;
-	stub->args.utimens_cbk.op_ret = op_ret;
-	stub->args.utimens_cbk.op_errno = op_errno;
-	if (buf)
-		stub->args.utimens_cbk.buf = *buf;
 out:
 	return stub;
 }
@@ -2688,24 +2453,6 @@ call_resume_wind (call_stub_t *stub)
 	}
 	break;
   
-	case GF_FOP_CHMOD:
-	{
-		stub->args.chmod.fn (stub->frame,
-				     stub->frame->this,
-				     &stub->args.chmod.loc,
-				     stub->args.chmod.mode);
-	}
-	break;
-
-	case GF_FOP_CHOWN:
-	{
-		stub->args.chown.fn (stub->frame,
-				     stub->frame->this,
-				     &stub->args.chown.loc,
-				     stub->args.chown.uid,
-				     stub->args.chown.gid);
-		break;
-	}
 	case GF_FOP_TRUNCATE:
 	{
 		stub->args.truncate.fn (stub->frame,
@@ -2919,35 +2666,7 @@ call_resume_wind (call_stub_t *stub)
 		break;
 	}
   
-	case GF_FOP_UTIMENS:
-	{
-		stub->args.utimens.fn (stub->frame,
-				       stub->frame->this,
-				       &stub->args.utimens.loc,
-				       stub->args.utimens.tv);
-		break;
-	}
-  
-  
 	break;
-	case GF_FOP_FCHMOD:
-	{
-		stub->args.fchmod.fn (stub->frame,
-				      stub->frame->this,
-				      stub->args.fchmod.fd,
-				      stub->args.fchmod.mode);
-		break;
-	}
-  
-	case GF_FOP_FCHOWN:
-	{
-		stub->args.fchown.fn (stub->frame,
-				      stub->frame->this,
-				      stub->args.fchown.fd,
-				      stub->args.fchown.uid,
-				      stub->args.fchown.gid);
-		break;
-	}
   
 	case GF_FOP_LOOKUP:
 	{
@@ -3319,40 +3038,6 @@ call_resume_unwind (call_stub_t *stub)
                                                 &stub->args.link_cbk.buf,
                                                 &stub->args.link_cbk.preparent,
                                                 &stub->args.link_cbk.postparent);
-		break;
-	}
-  
-	case GF_FOP_CHMOD:
-	{
-		if (!stub->args.chmod_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.chmod_cbk.op_ret,
-				      stub->args.chmod_cbk.op_errno,
-				      &stub->args.chmod_cbk.buf);
-		else
-			stub->args.chmod_cbk.fn (stub->frame,
-						 stub->frame->cookie,
-						 stub->frame->this,
-						 stub->args.chmod_cbk.op_ret,
-						 stub->args.chmod_cbk.op_errno,
-						 &stub->args.chmod_cbk.buf);
-		break;
-	}
-  
-	case GF_FOP_CHOWN:
-	{
-		if (!stub->args.chown_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.chown_cbk.op_ret,
-				      stub->args.chown_cbk.op_errno,
-				      &stub->args.chown_cbk.buf);
-		else
-			stub->args.chown_cbk.fn (stub->frame,
-						 stub->frame->cookie,
-						 stub->frame->this,
-						 stub->args.chown_cbk.op_ret,
-						 stub->args.chown_cbk.op_errno,
-						 &stub->args.chown_cbk.buf);
 		break;
 	}
   
@@ -3738,60 +3423,6 @@ call_resume_unwind (call_stub_t *stub)
 		break;
 	}
   
-	case GF_FOP_UTIMENS:
-	{
-		if (!stub->args.utimens_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.utimens_cbk.op_ret,
-				      stub->args.utimens_cbk.op_errno,
-				      &stub->args.utimens_cbk.buf);
-		else
-			stub->args.utimens_cbk.fn (stub->frame,
-						   stub->frame->cookie,
-						   stub->frame->this,
-						   stub->args.utimens_cbk.op_ret,
-						   stub->args.utimens_cbk.op_errno,
-						   &stub->args.utimens_cbk.buf);
-      
-		break;
-	}
-  
-  
-	break;
-	case GF_FOP_FCHMOD:
-	{
-		if (!stub->args.fchmod_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.fchmod_cbk.op_ret,
-				      stub->args.fchmod_cbk.op_errno,
-				      &stub->args.fchmod_cbk.buf);
-		else
-			stub->args.fchmod_cbk.fn (stub->frame,
-						  stub->frame->cookie,
-						  stub->frame->this,
-						  stub->args.fchmod_cbk.op_ret,
-						  stub->args.fchmod_cbk.op_errno,
-						  &stub->args.fchmod_cbk.buf);
-		break;
-	}
-  
-	case GF_FOP_FCHOWN:
-	{
-		if (!stub->args.fchown_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.fchown_cbk.op_ret,
-				      stub->args.fchown_cbk.op_errno,
-				      &stub->args.fchown_cbk.buf);
-		else
-			stub->args.fchown_cbk.fn (stub->frame,
-						  stub->frame->cookie,
-						  stub->frame->this,
-						  stub->args.fchown_cbk.op_ret,
-						  stub->args.fchown_cbk.op_errno,
-						  &stub->args.fchown_cbk.buf);
-		break;
-	}
-  
 	case GF_FOP_LOOKUP:
 	{
 		if (!stub->args.lookup_cbk.fn)
@@ -4118,17 +3749,6 @@ call_stub_destroy_wind (call_stub_t *stub)
 	}
 	break;
   
-	case GF_FOP_CHMOD:
-	{
-		loc_wipe (&stub->args.chmod.loc);
-	}
-	break;
-
-	case GF_FOP_CHOWN:
-	{
-		loc_wipe (&stub->args.chown.loc);
-		break;
-	}
 	case GF_FOP_TRUNCATE:
 	{
 		loc_wipe (&stub->args.truncate.loc);
@@ -4299,25 +3919,6 @@ call_stub_destroy_wind (call_stub_t *stub)
 			fd_unref (stub->args.fentrylk.fd);
 		break;
 	}
-	case GF_FOP_UTIMENS:
-	{
-		loc_wipe (&stub->args.utimens.loc);
-		break;
-	}
-	break;
-	case GF_FOP_FCHMOD:
-	{
-		if (stub->args.fchmod.fd)
-			fd_unref (stub->args.fchmod.fd);
-		break;
-	}
-  
-	case GF_FOP_FCHOWN:
-	{
-		if (stub->args.fchown.fd)
-			fd_unref (stub->args.fchown.fd);
-		break;
-	}
   
 	case GF_FOP_LOOKUP:
 	{
@@ -4485,12 +4086,6 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	}
 	break;
   
-	case GF_FOP_CHMOD:
-		break;
-
-	case GF_FOP_CHOWN:
-		break;
-
 	case GF_FOP_TRUNCATE:
 		break;
 
@@ -4592,15 +4187,6 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	case GF_FOP_FENTRYLK:
 		break;
 
-	case GF_FOP_UTIMENS:
-		break;
-
-	case GF_FOP_FCHMOD:
-		break;
-  
-	case GF_FOP_FCHOWN:
-		break;
-  
 	case GF_FOP_LOOKUP:
 	{
 		if (stub->args.lookup_cbk.inode)

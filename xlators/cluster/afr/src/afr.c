@@ -2596,14 +2596,9 @@ struct xlator_fops fops = {
 	.readv       = afr_readv,
 
 	/* inode write */
-	.chmod       = afr_chmod,
-	.chown       = afr_chown,
-	.fchmod      = afr_fchmod,
-	.fchown      = afr_fchown,
 	.writev      = afr_writev,
 	.truncate    = afr_truncate,
 	.ftruncate   = afr_ftruncate,
-	.utimens     = afr_utimens,
 	.setxattr    = afr_setxattr,
         .setattr     = afr_setattr,
 	.fsetattr    = afr_fsetattr,

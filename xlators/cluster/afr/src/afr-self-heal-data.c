@@ -106,8 +106,8 @@ afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-afr_sh_data_utimes_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, struct stat *buf)
+afr_sh_data_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, struct stat *statpre, struct stat *statpost)
 {
         afr_sh_data_flush_cbk (frame, cookie, this, op_ret, op_errno);
 
@@ -126,8 +126,9 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 	int  call_count   = 0;
         int  source       = 0;
         int  active_sinks = 0;
+        int32_t valid     = 0;
 
-        struct timespec ts[2];
+        struct stat stbuf = {0,};
         
         local = frame->local;
         sh    = &local->self_heal;
@@ -136,16 +137,18 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
         source       = sh->source;
         active_sinks = sh->active_sinks;
 
+        valid |= (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
+
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
-	ts[0] = sh->buf[source].st_atim;
-	ts[1] = sh->buf[source].st_mtim;
+	stbuf.st_atim = sh->buf[source].st_atim;
+	stbuf.st_mtim = sh->buf[source].st_mtim;
         
 #elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
-	ts[0] = sh->buf[source].st_atimespec;
-	ts[1] = sh->buf[source].st_mtimespec;
+	stbuf.st_atimespec = sh->buf[source].st_atimespec;
+	stbuf.st_mtimespec = sh->buf[source].st_mtimespec;
 #else
-	ts[0].tv_sec = sh->buf[source].st_atime;
-	ts[1].tv_sec = sh->buf[source].st_mtime;
+	stbuf.st_atime = sh->buf[source].st_atime;
+	stbuf.st_mtime = sh->buf[source].st_mtime;
 #endif
 
 	if (!sh->healing_fd) {
@@ -168,11 +171,11 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 			   sh->healing_fd);
 	call_count--;
 
-        STACK_WIND_COOKIE (frame, afr_sh_data_utimes_cbk,
+        STACK_WIND_COOKIE (frame, afr_sh_data_setattr_cbk,
                            (void *) (long) sh->source,
                            priv->children[sh->source],
-                           priv->children[sh->source]->fops->utimens,
-                           &local->loc, ts);
+                           priv->children[sh->source]->fops->setattr,
+                           &local->loc, &stbuf, valid);
         
         call_count--;
 
@@ -192,11 +195,11 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 
                 call_count--;
 
-                STACK_WIND_COOKIE (frame, afr_sh_data_utimes_cbk,
+                STACK_WIND_COOKIE (frame, afr_sh_data_setattr_cbk,
 				   (void *) (long) i,
 				   priv->children[i],
-				   priv->children[i]->fops->utimens,
-				   &local->loc, ts);
+				   priv->children[i]->fops->setattr,
+				   &local->loc, &stbuf, valid);
 
 		if (!--call_count)
 			break;

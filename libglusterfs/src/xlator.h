@@ -189,34 +189,6 @@ typedef int32_t (*fop_fstat_cbk_t) (call_frame_t *frame,
 				    int32_t op_errno,
 				    struct stat *buf);
 
-typedef int32_t (*fop_chmod_cbk_t) (call_frame_t *frame,
-				    void *cookie,
-				    xlator_t *this,
-				    int32_t op_ret,
-				    int32_t op_errno,
-				    struct stat *buf);
-
-typedef int32_t (*fop_fchmod_cbk_t) (call_frame_t *frame,
-				     void *cookie,
-				     xlator_t *this,
-				     int32_t op_ret,
-				     int32_t op_errno,
-				     struct stat *buf);
-
-typedef int32_t (*fop_chown_cbk_t) (call_frame_t *frame,
-				    void *cookie,
-				    xlator_t *this,
-				    int32_t op_ret,
-				    int32_t op_errno,
-				    struct stat *buf);
-
-typedef int32_t (*fop_fchown_cbk_t) (call_frame_t *frame,
-				     void *cookie,
-				     xlator_t *this,
-				     int32_t op_ret,
-				     int32_t op_errno,
-				     struct stat *buf);
-
 typedef int32_t (*fop_truncate_cbk_t) (call_frame_t *frame,
 				       void *cookie,
 				       xlator_t *this,
@@ -232,13 +204,6 @@ typedef int32_t (*fop_ftruncate_cbk_t) (call_frame_t *frame,
 					int32_t op_errno,
 					struct stat *prebuf,
                                         struct stat *postbuf);
-
-typedef int32_t (*fop_utimens_cbk_t) (call_frame_t *frame,
-				      void *cookie,
-				      xlator_t *this,
-				      int32_t op_ret,
-				      int32_t op_errno,
-				      struct stat *buf);
 
 typedef int32_t (*fop_access_cbk_t) (call_frame_t *frame,
 				     void *cookie,
@@ -537,28 +502,6 @@ typedef int32_t (*fop_fstat_t) (call_frame_t *frame,
 				xlator_t *this,
 				fd_t *fd);
 
-typedef int32_t (*fop_chmod_t) (call_frame_t *frame,
-				xlator_t *this,
-				loc_t *loc,
-				mode_t mode);
-
-typedef int32_t (*fop_fchmod_t) (call_frame_t *frame,
-				 xlator_t *this,
-				 fd_t *fd,
-				 mode_t mode);
-
-typedef int32_t (*fop_chown_t) (call_frame_t *frame,
-				xlator_t *this,
-				loc_t *loc,
-				uid_t uid,
-				gid_t gid);
-
-typedef int32_t (*fop_fchown_t) (call_frame_t *frame,
-				 xlator_t *this,
-				 fd_t *fd,
-				 uid_t uid,
-				 gid_t gid);
-
 typedef int32_t (*fop_truncate_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   loc_t *loc,
@@ -568,11 +511,6 @@ typedef int32_t (*fop_ftruncate_t) (call_frame_t *frame,
 				    xlator_t *this,
 				    fd_t *fd,
 				    off_t offset);
-
-typedef int32_t (*fop_utimens_t) (call_frame_t *frame,
-				  xlator_t *this,
-				  loc_t *loc,
-				  struct timespec tv[2]);
 
 typedef int32_t (*fop_access_t) (call_frame_t *frame,
 				 xlator_t *this,
@@ -800,13 +738,8 @@ struct xlator_fops {
 	fop_lookup_t         lookup;
 	fop_stat_t           stat;
 	fop_fstat_t          fstat;
-	fop_chmod_t          chmod;
-	fop_fchmod_t         fchmod;
-	fop_chown_t          chown;
-	fop_fchown_t         fchown;
 	fop_truncate_t       truncate;
 	fop_ftruncate_t      ftruncate;
-	fop_utimens_t        utimens;
 	fop_access_t         access;
 	fop_readlink_t       readlink;
 	fop_mknod_t          mknod;
@@ -852,13 +785,8 @@ struct xlator_fops {
 	fop_lookup_cbk_t         lookup_cbk;
 	fop_stat_cbk_t           stat_cbk;
 	fop_fstat_cbk_t          fstat_cbk;
-	fop_chmod_cbk_t          chmod_cbk;
-	fop_fchmod_cbk_t         fchmod_cbk;
-	fop_chown_cbk_t          chown_cbk;
-	fop_fchown_cbk_t         fchown_cbk;
 	fop_truncate_cbk_t       truncate_cbk;
 	fop_ftruncate_cbk_t      ftruncate_cbk;
-	fop_utimens_cbk_t        utimens_cbk;
 	fop_access_cbk_t         access_cbk;
 	fop_readlink_cbk_t       readlink_cbk;
 	fop_mknod_cbk_t          mknod_cbk;

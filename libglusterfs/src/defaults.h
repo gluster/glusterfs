@@ -71,28 +71,6 @@ int32_t default_fstat (call_frame_t *frame,
 		       xlator_t *this,
 		       fd_t *fd);
 
-int32_t default_chmod (call_frame_t *frame,
-		       xlator_t *this,
-		       loc_t *loc,
-		       mode_t mode);
-
-int32_t default_fchmod (call_frame_t *frame,
-			xlator_t *this,
-			fd_t *fd,
-			mode_t mode);
-
-int32_t default_chown (call_frame_t *frame,
-		       xlator_t *this,
-		       loc_t *loc,
-		       uid_t uid,
-		       gid_t gid);
-
-int32_t default_fchown (call_frame_t *frame,
-			xlator_t *this,
-			fd_t *fd,
-			uid_t uid,
-			gid_t gid);
-
 int32_t default_truncate (call_frame_t *frame,
 			  xlator_t *this,
 			  loc_t *loc,
@@ -102,11 +80,6 @@ int32_t default_ftruncate (call_frame_t *frame,
 			   xlator_t *this,
 			   fd_t *fd,
 			   off_t offset);
-
-int32_t default_utimens (call_frame_t *frame,
-			 xlator_t *this,
-			 loc_t *loc,
-			 struct timespec tv[2]);
 
 int32_t default_access (call_frame_t *frame,
 			xlator_t *this,
