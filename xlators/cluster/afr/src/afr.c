@@ -314,32 +314,6 @@ afr_frame_return (call_frame_t *frame)
 	return call_count;
 }
 
-/**
- * first_up_child - return the index of the first child that is up
- */
-
-int
-afr_first_up_child (afr_private_t *priv)
-{
-	xlator_t ** children = NULL;
-	int         ret      = -1;
-	int         i        = 0;
-
-	LOCK (&priv->lock);
-	{
-		children = priv->children;
-		for (i = 0; i < priv->child_count; i++) {
-			if (priv->child_up[i]) {
-				ret = i;
-				break;
-			}
-		}
-	}
-	UNLOCK (&priv->lock);
-
-	return ret;
-}
-
 
 /**
  * up_children_count - return the number of children that are up
