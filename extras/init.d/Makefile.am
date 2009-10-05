@@ -13,5 +13,5 @@ install-exec-local: $(GF_DISTRIBUTION)
 
 install-data-local: 
 if GF_DARWIN_HOST_OS
-	cp glusterfs-server.plist /Library/LaunchDaemons/com.zresearch.glusterfs.plist 
+	cp glusterfs-server.plist /Library/LaunchDaemons/com.gluster.glusterfs.plist 
 endif

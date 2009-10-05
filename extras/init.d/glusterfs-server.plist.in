@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
         <key>Label</key>
-        <string>com.zresearch.glusterfs</string>
+        <string>com.gluster.glusterfs</string>
         <key>ProgramArguments</key>
         <array>
                 <string>@prefix@/sbin/glusterfsd</string>

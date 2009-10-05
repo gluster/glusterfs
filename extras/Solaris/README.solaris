@@ -10,7 +10,7 @@ $ which glusterfs
 $ glusterfs --version
 glusterfs 2.0.0rc1 built on Jan 16 2009 03:36:59
 Repository revision: glusterfs--mainline--3.0--patch-844
-Copyright (c) 2006, 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>
+Copyright (c) 2006, 2007, 2008 Gluster Inc. <http://www.gluster.com>
 GlusterFS comes with ABSOLUTELY NO WARRANTY.
 You may redistribute copies of GlusterFS under the terms of the GNU General Public License.
 
