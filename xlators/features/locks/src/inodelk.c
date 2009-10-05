@@ -269,7 +269,7 @@ __grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t
                                 bl->user_flock.l_start,
                                 bl->user_flock.l_len);
 
-                        STACK_UNWIND (bl->frame, 0, 0, &bl->user_flock);
+                        STACK_UNWIND_STRICT (inodelk, bl->frame, 0, 0);
                 }
         }
 	return;
@@ -525,7 +525,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 
 unwind:
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
 out:
 	return 0;
 }
