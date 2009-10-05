@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2008-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2008-2009 Gluster, Inc. <http://www.gluster.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -63,7 +63,7 @@ static int32_t
 guts_print_version (void)
 {
   printf ("%s\n", argp_program_version);
-  printf ("Copyright (c) 2006-2009 Z RESEARCH Inc. <http://www.zresearch.com>\n");
+  printf ("Copyright (c) 2006-2009 Gluster Inc. <http://www.gluster.com>\n");
   printf ("GlusterFS comes with ABSOLUTELY NO WARRANTY.\nYou may redistribute copies of GlusterFS under the terms of the GNU General Public License.\n");
   exit (0);
 }

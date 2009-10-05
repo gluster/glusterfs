@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2006-2009 Gluster, Inc. <http://www.gluster.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -77,8 +77,8 @@ static char argp_doc[] = "--volfile-server=SERVER [MOUNT-POINT]\n"       \
 const char *argp_program_version = "" \
             PACKAGE_NAME" "PACKAGE_VERSION" built on "__DATE__" "__TIME__ \
             "\nRepository revision: " GLUSTERFS_REPOSITORY_REVISION "\n"  \
-            "Copyright (c) 2006-2009 Z RESEARCH Inc. "             \
-            "<http://www.zresearch.com>\n"                                \
+            "Copyright (c) 2006-2009 Gluster Inc. "             \
+            "<http://www.gluster.com>\n"                                \
             "GlusterFS comes with ABSOLUTELY NO WARRANTY.\n"              \
             "You may redistribute copies of GlusterFS under the terms of "\
             "the GNU General Public License.";

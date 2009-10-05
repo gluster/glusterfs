@@ -1,4 +1,4 @@
-;;; Copyright (C) 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>
+;;; Copyright (C) 2007-2009 Gluster Inc. <http://www.gluster.com>
 ;;;  
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by

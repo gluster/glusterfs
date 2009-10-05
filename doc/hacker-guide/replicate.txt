@@ -201,6 +201,6 @@ which is much larger than any real world requirement.
 
 ==============================================
 $ Last updated: Sun Oct 12 23:17:01 IST 2008 $
-$ Author: Vikas Gorur <vikas@zresearch.com>  $
+$ Author: Vikas Gorur <vikas@gluster.com>  $
 ==============================================
 

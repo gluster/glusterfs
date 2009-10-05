@@ -24,7 +24,7 @@ system. Run,
   bash# sudo /Library/Filesystems/fusefs.fs/Support/uninstall-macfuse-core.sh
 
 After this, install MacFUSE (mostly through .dmg available in macfuse homepage 
-or if Z Research Inc provides any custom built .dmg)
+or if Gluster Inc provides any custom built .dmg)
 
 Make sure the .dmg of glusterfs is built against the installed MacFUSE version
 (if not, any operations over mountpoint gives EIO ie, Input/Output Error). If 
@@ -40,7 +40,7 @@ after the entry is added in /etc/fstab, it can be mounted by 'mount' command.
 To start the server process one can use the 'launchd' mechanism. Follow below 
 steps after installation
 
-   bash# launchctl load /Library/LaunchDaemons/com.zresearch.glusterfs.plist
+   bash# launchctl load /Library/LaunchDaemons/com.gluster.glusterfs.plist
    
 No need to run the command if the machine reboots, as it will be loaded 
 automatically by launchd process.
@@ -51,17 +51,17 @@ Now copy the server volume file in the proper path
 
 NOTE: (If glusterfs is installed in different path other than '/opt/local' 
       update the volume file at the corresponding  path, and  also need to 
-      update the /Library/LaunchDaemons/com.zresearch.glusterfs.plist with 
+      update the /Library/LaunchDaemons/com.gluster.glusterfs.plist with 
       the proper path)
 
 Once the volume file is updated, administrator can start the server process by
 running,
 
-  bash# launchctl start com.zresearch.glusterfs
+  bash# launchctl start com.gluster.glusterfs
 
 and stop like
 
-  bash# launchctl stop com.zresearch.glusterfs
+  bash# launchctl stop com.gluster.glusterfs
 
 NOTE: To start the process by default when the loaded, one need to add the 
 following lines to .plist file

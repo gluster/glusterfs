@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2009-2010 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2009-2010 Gluster, Inc. <http://www.gluster.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify

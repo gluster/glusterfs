@@ -29,7 +29,7 @@ Version: @PACKAGE_VERSION@
 Release: %{release}
 License: GPLv3+
 Group: System Environment/Base
-Vendor: Z RESEARCH Inc
+Vendor: Gluster Inc
 Packager: @PACKAGE_BUGREPORT@
 URL: http://www.gluster.org/docs/index.php/GlusterFS
 Source0: ftp://ftp.gluster.com/pub/gluster/glusterfs/2.0/@PACKAGE_VERSION@/@PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz

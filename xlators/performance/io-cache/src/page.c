@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2007-2009 Z RESEARCH, Inc. <http://www.zresearch.com>
+  Copyright (c) 2007-2009 Gluster, Inc. <http://www.gluster.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -290,7 +290,7 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode, struct stat *stbuf)
 #endif
 
 #if 0
-	/* talk with avati@zresearch.com to enable this section */
+	/* talk with avati@gluster.com to enable this section */
 	if (!ioc_inode->mtime && stbuf) {
 		cache_still_valid = 1;
 		ioc_inode->mtime = stbuf->st_mtime;
