@@ -215,6 +215,24 @@ STACK_DESTROY (call_stack_t *stack)
 	} while (0)
 
 
+/* return from function in type-safe way */
+#define STACK_UNWIND_STRICT(op, frame, params ...)                      \
+	do {								\
+		fop_##op##_cbk_t      fn = NULL;                        \
+		call_frame_t *_parent = NULL;                           \
+                xlator_t     *old_THIS = NULL;                          \
+                                                                        \
+                fn = (fop_##op##_cbk_t )frame->ret;                     \
+                _parent = frame->parent;                                \
+		_parent->ref_count--;					\
+                old_THIS = THIS;                                        \
+                THIS = _parent->this;                                   \
+                frame->complete = _gf_true;                             \
+		fn (_parent, frame->cookie, _parent->this, params);	\
+                THIS = old_THIS;                                        \
+	} while (0)
+
+
 static inline call_frame_t *
 copy_frame (call_frame_t *frame)
 {
