@@ -10,3 +10,24 @@ Makefile.in
 missing
 *.sw?
 *~
+*lo
+*la
+*o
+.libs
+Makefile
+stamp-h1
+
+# Generated files
+extras/init.d/glusterfs-server.plist
+extras/init.d/glusterfsd-Debian
+extras/init.d/glusterfsd-Redhat
+extras/init.d/glusterfsd-SuSE
+glusterfs.spec
+libtool
+xlators/mount/fuse/utils/mount.glusterfs
+xlators/mount/fuse/utils/mount_glusterfs
+argp-standalone/libargp.a
+glusterfsd/src/glusterfsd
+libglusterfs/src/spec.lex.c
+libglusterfs/src/y.tab.c
+libglusterfs/src/y.tab.h
