@@ -110,7 +110,9 @@ _posix_xattr_get_set (dict_t *xattr_req,
 
 
     	/* should size be put into the data_t ? */
-	if (!strcmp (key, "glusterfs.content")) {
+	if (!strcmp (key, "glusterfs.content")
+            && S_ISREG (filler->stbuf->st_mode)) {
+
     		/* file content request */
 		req_size = data_to_uint64 (data);
 		if (req_size >= filler->stbuf->st_size) {
