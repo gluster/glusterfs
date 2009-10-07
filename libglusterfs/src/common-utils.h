@@ -116,13 +116,13 @@ extern char *gf_cbk_list[GF_CBK_MAXVALUE];
 		}						\
 	} while (0); 
 
-#define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, error) do { \
-                if (!arg) {                                          \
-                        errno = error;                               \
-                        gf_log (name, GF_LOG_ERROR,                  \
-                                "invalid argument: " #arg);          \
-                        goto label;                                  \
-                }                                                    \
+#define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, errno, error) do { \
+                if (!arg) {                                                 \
+                        errno = error;                                      \
+                        gf_log (name, GF_LOG_ERROR,                         \
+                                "invalid argument: " #arg);                 \
+                        goto label;                                         \
+                }                                                           \
         }while (0);
 
 #define GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO(name,arg,label)       \
