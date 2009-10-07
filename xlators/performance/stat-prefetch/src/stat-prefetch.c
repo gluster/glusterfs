@@ -1582,12 +1582,17 @@ int32_t
 sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 {
         call_stub_t *stub     = NULL;
+        sp_cache_t  *cache    = NULL;
         int32_t      ret      = 0, op_errno = -1; 
         char         can_wind = 0, need_lookup = 0, need_unwind = 1;
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc, out, op_errno,
                                         EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->inode, out,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->parent, out,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->name, out,
                                         op_errno, EINVAL);
 
 
@@ -1605,6 +1610,11 @@ sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "%s", strerror (op_errno));
                 goto out;
+        }
+
+        cache = sp_get_cache_inode (this, oldloc->parent, frame->root->pid);
+        if (cache) {
+                sp_cache_remove_entry (cache, (char *)oldloc->name, 0);
         }
 
         stub = fop_link_stub (frame, sp_link_helper, oldloc, newloc);
