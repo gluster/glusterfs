@@ -22,7 +22,14 @@
 #include "inode.h"
 #include <libgen.h>
 
+#define GF_SP_CACHE_BUCKETS 4096
 
+inline uint32_t
+sp_hashfn (void *data, int len)
+{
+        return gf_dm_hashfn ((const char *)data, len);
+}
+ 
 sp_cache_t *
 sp_cache_init (void)
 {
@@ -30,10 +37,19 @@ sp_cache_init (void)
 
         cache = CALLOC (1, sizeof (*cache));
         if (cache) {
-                INIT_LIST_HEAD (&cache->entries.list);
+                cache->table = rbthash_table_init (GF_SP_CACHE_BUCKETS,
+                                                   sp_hashfn,
+                                                   free);
+                if (cache->table == NULL) {
+                        FREE (cache);
+                        cache = NULL;
+                        goto out;
+                }
+
                 LOCK_INIT (&cache->lock);
         }
 
+out:
         return cache;
 }
 
@@ -51,8 +67,8 @@ sp_local_free (sp_local_t *local)
 int32_t
 sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
 {
-        int32_t      ret   = -1;
-        gf_dirent_t *entry = NULL, *tmp = NULL;
+        int32_t          ret   = -1;
+        rbthash_table_t *table = NULL;
 
         if ((cache == NULL) || ((name == NULL) && !remove_all)) {
                 goto out;
@@ -60,17 +76,20 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
 
         LOCK (&cache->lock);
         {
-                list_for_each_entry_safe (entry, tmp, &cache->entries.list,
-                                          list) {
-                        if (remove_all || (!strcmp (name, entry->d_name))) {
-                                list_del_init (&entry->list);
-                                FREE (entry);
+                if (remove_all) {
+                        table = cache->table;
+                        cache->table = rbthash_table_init (GF_SP_CACHE_BUCKETS,
+                                                           sp_hashfn,
+                                                           free);
+                        if (cache->table == NULL) {
+                                cache->table = table;
+                        } else {
+                                rbthash_table_destroy (table);
                                 ret = 0;
-
-                                if (!remove_all) {
-                                        break;
-                                }
                         }
+                } else {
+                        rbthash_remove (cache->table, name, strlen (name));
+                        ret = 0;
                 }
         }
         UNLOCK (&cache->lock);
@@ -92,14 +111,11 @@ sp_cache_get_entry (sp_cache_t *cache, char *name, gf_dirent_t *entry)
 
         LOCK (&cache->lock);
         {
-                list_for_each_entry (tmp, &cache->entries.list, list) {
-                        if (!strcmp (name, tmp->d_name)) {
-                                memcpy (entry, tmp, sizeof (*entry));
-                                ret = 0;
-                                break;
-                        }
+                tmp = rbthash_get (cache->table, name, strlen (name));
+                if (tmp != NULL) {
+                        memcpy (entry, tmp, sizeof (*entry));
+                        ret = 0;
                 }
-
         }
         UNLOCK (&cache->lock);
 
@@ -112,6 +128,7 @@ void
 sp_cache_free (sp_cache_t *cache)
 {
         sp_cache_remove_entry (cache, NULL, 1);
+        rbthash_table_destroy (cache->table);
         FREE (cache);
 }
 
@@ -313,20 +330,15 @@ out:
 int32_t
 sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
 {
-        gf_dirent_t  copy;
         gf_dirent_t *entry           = NULL, *new = NULL;
         int32_t      ret             = -1;
         uint64_t     expected_offset = 0;
         
-        memset (&copy, 0, sizeof (copy));
-        INIT_LIST_HEAD (&copy.list);
-
         LOCK (&cache->lock);
         {
                 list_for_each_entry (entry, &entries->list, list) {
                         new = gf_dirent_for_name (entry->d_name);
                         if (new == NULL) {
-                                gf_dirent_free (&copy);
                                 goto unlock;
                         }
 
@@ -336,19 +348,15 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
                         new->d_type = entry->d_type;
                         new->d_stat = entry->d_stat;
 
-                        list_add_tail (&new->list, &copy.list);
+                        ret = rbthash_insert (cache->table, new, new->d_name,
+                                              strlen (new->d_name));
+                        if (ret == -1) {
+                                FREE (new);
+                                continue;
+                        }
 
                         expected_offset = new->d_off;
                 }
-
-                /* 
-                 * splice entries in cache to copy, so that we have a list in
-                 * ascending order of offsets
-                 */
-                list_splice_init (&cache->entries.list, &copy.list);
-
-                /* splice back the copy into cache */
-                list_splice_init (&copy.list, &cache->entries.list);
 
                 cache->expected_offset = expected_offset;
 
