@@ -79,8 +79,8 @@ afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.writev.ino;
 
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
-				  unwind_buf);
+		AFR_STACK_UNWIND (writev, main_frame, local->op_ret,
+                                  local->op_errno, unwind_buf, NULL);
 	}
 	return 0;
 }
@@ -273,7 +273,7 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (writev, frame, op_ret, op_errno, NULL, NULL);
 	}
 
 	return 0;
@@ -313,9 +313,9 @@ afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.truncate.ino;
 
-                AFR_STACK_UNWIND (main_frame, local->op_ret,
+                AFR_STACK_UNWIND (truncate, main_frame, local->op_ret,
                                   local->op_errno,
-                                  unwind_buf);
+                                  unwind_buf, NULL);
         }
 
 	return 0;
@@ -495,7 +495,7 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (truncate, frame, op_ret, op_errno, NULL, NULL);
 	}
 
 	return 0;
@@ -536,8 +536,8 @@ afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.ftruncate.ino;
 
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
-				  unwind_buf);
+		AFR_STACK_UNWIND (ftruncate, main_frame, local->op_ret,
+                                  local->op_errno, unwind_buf, NULL);
 	}
 	return 0;
 }
@@ -716,7 +716,7 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (ftruncate, frame, op_ret, op_errno, NULL, NULL);
 	}
 
 	return 0;
@@ -748,7 +748,8 @@ afr_setattr_unwind (call_frame_t *frame, xlator_t *this)
                 local->cont.setattr.preop_buf.st_ino  = local->cont.setattr.ino;
                 local->cont.setattr.postop_buf.st_ino = local->cont.setattr.ino;
 
-                AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
+                AFR_STACK_UNWIND (setattr, main_frame, local->op_ret,
+                                  local->op_errno,
                                   &local->cont.setattr.preop_buf,
                                   &local->cont.setattr.postop_buf);
         }
@@ -935,7 +936,7 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (setattr, frame, op_ret, op_errno, NULL, NULL);
 	}
 
 	return 0;
@@ -967,7 +968,8 @@ afr_fsetattr_unwind (call_frame_t *frame, xlator_t *this)
                 local->cont.fsetattr.postop_buf.st_ino =
                         local->cont.fsetattr.ino;
 
-                AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
+                AFR_STACK_UNWIND (fsetattr, main_frame, local->op_ret,
+                                  local->op_errno,
                                   &local->cont.fsetattr.preop_buf,
                                   &local->cont.fsetattr.postop_buf);
         }
@@ -1154,7 +1156,7 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (fsetattr, frame, op_ret, op_errno, NULL, NULL);
 	}
 
 	return 0;
@@ -1183,7 +1185,8 @@ afr_setxattr_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno)
+		AFR_STACK_UNWIND (setxattr, main_frame,
+                                  local->op_ret, local->op_errno)
 	}
 	return 0;
 }
@@ -1343,7 +1346,7 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
 	}
 
 	return 0;
@@ -1373,7 +1376,8 @@ afr_removexattr_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno)
+		AFR_STACK_UNWIND (removexattr, main_frame,
+                                  local->op_ret, local->op_errno)
 	}
 	return 0;
 }
@@ -1532,7 +1536,7 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (removexattr, frame, op_ret, op_errno);
 	}
 
 	return 0;

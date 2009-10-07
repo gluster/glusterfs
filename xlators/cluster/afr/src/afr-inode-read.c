@@ -103,7 +103,7 @@ afr_access_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (access, frame, op_ret, op_errno);
 	}
 
 	return 0;
@@ -166,7 +166,7 @@ afr_access (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (access, frame, op_ret, op_errno);
 	}
 	return 0;
 }
@@ -224,7 +224,7 @@ out:
 		if (buf)
 			buf->st_ino = local->cont.stat.ino;
 
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
+		AFR_STACK_UNWIND (stat, frame, op_ret, op_errno, buf);
 	}
 
 	return 0;
@@ -289,7 +289,7 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (stat, frame, op_ret, op_errno, NULL);
 	}
 
 	return 0;
@@ -348,7 +348,7 @@ out:
 		if (buf)
 			buf->st_ino = local->cont.fstat.ino;
 
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
+		AFR_STACK_UNWIND (fstat, frame, op_ret, op_errno, buf);
 	}
 
 	return 0;
@@ -415,7 +415,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (fstat, frame, op_ret, op_errno, NULL);
 	}
 
 	return 0;
@@ -470,7 +470,7 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, buf);
+		AFR_STACK_UNWIND (readlink, frame, op_ret, op_errno, buf, sbuf);
 	}
 
 	return 0;
@@ -535,7 +535,7 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (readlink, frame, op_ret, op_errno, NULL, NULL);
 	}
 	return 0;
 }
@@ -645,7 +645,7 @@ out:
                 if (op_ret >= 0 && dict)
                         __filter_xattrs (dict);
 
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, dict);
+		AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
 	}
 
 	return 0;
@@ -718,7 +718,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, NULL);
 	}
 	return 0;
 }
@@ -800,8 +800,8 @@ out:
                 if (buf)
                         buf->st_ino = local->cont.readv.ino;
 
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf,
-                                  iobref);
+		AFR_STACK_UNWIND (readv, frame, op_ret, op_errno,
+                                  vector, count, buf, iobref);
 	}
 
 	return 0;
@@ -872,7 +872,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, 0, NULL,
+		AFR_STACK_UNWIND (readv, frame, op_ret, op_errno, NULL, 0, NULL,
                                   NULL);
 	}
 	return 0;

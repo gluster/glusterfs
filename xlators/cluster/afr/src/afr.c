@@ -410,10 +410,11 @@ afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
                 afr_set_split_brain (this, local->cont.lookup.inode, 0);
 	}
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 			  local->cont.lookup.inode,
 			  &local->cont.lookup.buf,
-			  local->cont.lookup.xattr);
+			  local->cont.lookup.xattr,
+                          NULL);
 
 	return 0;
 }
@@ -617,11 +618,12 @@ unlock:
 
 			afr_self_heal (frame, this, afr_self_heal_cbk);
 		} else {
-			AFR_STACK_UNWIND (frame, local->op_ret,
+			AFR_STACK_UNWIND (lookup, frame, local->op_ret,
 					  local->op_errno,
 					  local->cont.lookup.inode, 
 					  &local->cont.lookup.buf,
-					  local->cont.lookup.xattr);
+					  local->cont.lookup.xattr,
+                                          NULL);
 		}
 	}
 
@@ -699,7 +701,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	ret = 0;
 out:
 	if (ret == -1)
-		AFR_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+		AFR_STACK_UNWIND (lookup, frame, -1, op_errno,
+                                  NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -777,7 +780,7 @@ afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->op_errno = -ret;
         }
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+	AFR_STACK_UNWIND (open, frame, local->op_ret, local->op_errno,
 			  local->fd);
 	return 0;
 }
@@ -830,7 +833,7 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
                                 local->op_errno = -ret;
                         }
 
-                        AFR_STACK_UNWIND (frame, local->op_ret,
+                        AFR_STACK_UNWIND (open, frame, local->op_ret,
                                           local->op_errno, local->fd);
 		}
 	}
@@ -896,7 +899,7 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, fd);
+		AFR_STACK_UNWIND (open, frame, op_ret, op_errno, fd);
 	}
 
 	return 0;
@@ -925,7 +928,8 @@ afr_flush_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno);
+		AFR_STACK_UNWIND (flush, main_frame,
+                                  local->op_ret, local->op_errno);
 	}
         
 	return 0;
@@ -1089,7 +1093,7 @@ out:
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
 
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (flush, frame, op_ret, op_errno);
 	}
 
 	return 0;
@@ -1150,7 +1154,8 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		AFR_STACK_UNWIND (fsync, frame, local->op_ret, local->op_errno,
+                                  NULL, NULL);
 
 	return 0;
 }
@@ -1201,7 +1206,7 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (fsync, frame, op_ret, op_errno, NULL, NULL);
 	}
 	return 0;
 }
@@ -1232,7 +1237,8 @@ afr_fsyncdir_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		AFR_STACK_UNWIND (fsyncdir, frame, local->op_ret,
+                                  local->op_errno);
 
 	return 0;
 }
@@ -1283,7 +1289,7 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (fsyncdir, frame, op_ret, op_errno);
 	}
 	return 0;
 }
@@ -1315,7 +1321,8 @@ afr_xattrop_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, xattr);
+		AFR_STACK_UNWIND (xattrop, frame, local->op_ret, local->op_errno,
+                                  xattr);
 
 	return 0;
 }
@@ -1366,7 +1373,7 @@ afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (xattrop, frame, op_ret, op_errno, NULL);
 	}
 	return 0;
 }
@@ -1398,7 +1405,8 @@ afr_fxattrop_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, xattr);
+		AFR_STACK_UNWIND (fxattrop, frame, local->op_ret, local->op_errno,
+                                  xattr);
 
 	return 0;
 }
@@ -1449,7 +1457,7 @@ afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (fxattrop, frame, op_ret, op_errno, NULL);
 	}
 	return 0;
 }
@@ -1480,7 +1488,8 @@ afr_inodelk_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
+                                  local->op_errno);
 
 	return 0;
 }
@@ -1532,7 +1541,7 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (inodelk, frame, op_ret, op_errno);
 	}
 	return 0;
 }
@@ -1561,7 +1570,8 @@ afr_finodelk_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		AFR_STACK_UNWIND (finodelk, frame, local->op_ret,
+                                  local->op_errno);
 
 	return 0;
 }
@@ -1613,7 +1623,7 @@ afr_finodelk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (finodelk, frame, op_ret, op_errno);
 	}
 	return 0;
 }
@@ -1642,7 +1652,8 @@ afr_entrylk_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		AFR_STACK_UNWIND (entrylk, frame, local->op_ret,
+                                  local->op_errno);
 
 	return 0;
 }
@@ -1695,7 +1706,7 @@ afr_entrylk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (entrylk, frame, op_ret, op_errno);
 	}
 	return 0;
 }
@@ -1725,7 +1736,8 @@ afr_fentrylk_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		AFR_STACK_UNWIND (fentrylk, frame, local->op_ret,
+                                  local->op_errno);
 
 	return 0;
 }
@@ -1778,7 +1790,7 @@ afr_fentrylk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (fentrylk, frame, op_ret, op_errno);
 	}
 	return 0;
 }
@@ -1818,7 +1830,7 @@ afr_checksum_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		AFR_STACK_UNWIND (checksum, frame, local->op_ret, local->op_errno,
 				  local->cont.checksum.file_checksum, 
 				  local->cont.checksum.dir_checksum);
 
@@ -1872,7 +1884,8 @@ afr_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (checksum, frame, op_ret, op_errno,
+                                  NULL, NULL);
 	}
 	return 0;
 }
@@ -1912,7 +1925,7 @@ afr_statfs_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+		AFR_STACK_UNWIND (statfs, frame, local->op_ret, local->op_errno, 
 				  &local->cont.statfs.buf);
 
 	return 0;
@@ -1965,7 +1978,7 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (statfs, frame, op_ret, op_errno, NULL);
 	}
 	return 0;
 }
@@ -1983,7 +1996,7 @@ afr_lk_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
 				  lock);
 
 	return 0;
@@ -2006,7 +2019,7 @@ afr_lk_unlock (call_frame_t *frame, xlator_t *this)
 					     priv->child_count);
 
 	if (call_count == 0) {
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
 				  &local->cont.lk.flock);
 		return 0;
 	}
@@ -2074,11 +2087,11 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	} else if (local->op_ret == -1) {
 		/* all nodes have gone down */
 		
-		AFR_STACK_UNWIND (frame, -1, ENOTCONN, &local->cont.lk.flock);
+		AFR_STACK_UNWIND (lk, frame, -1, ENOTCONN, &local->cont.lk.flock);
 	} else {
 		/* locking has succeeded on all nodes that are up */
 		
-		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
 			      &local->cont.lk.flock);
 	}
 
@@ -2131,7 +2144,7 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (lk, frame, op_ret, op_errno, NULL);
 	}
 	return 0;
 }
