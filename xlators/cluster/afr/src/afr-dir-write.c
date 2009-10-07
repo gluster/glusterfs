@@ -102,10 +102,11 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.create.ino;
 
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
+		AFR_STACK_UNWIND (create, main_frame,
+                                  local->op_ret, local->op_errno,
 				  local->cont.create.fd,
 				  local->cont.create.inode,
-				  unwind_buf);
+				  unwind_buf, NULL, NULL);
         }
         
 	return 0;
@@ -319,7 +320,8 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (create, frame, op_ret, op_errno,
+                                  NULL, NULL, NULL, NULL, NULL);
 	}
 
 	return 0;
@@ -357,9 +359,10 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.mknod.ino;
 
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
+		AFR_STACK_UNWIND (mknod, main_frame,
+                                  local->op_ret, local->op_errno,
 				  local->cont.mknod.inode,
-				  unwind_buf);
+				  unwind_buf, NULL, NULL);
         }
 
 	return 0;
@@ -554,7 +557,8 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (mknod, frame, op_ret, op_errno,
+                                  NULL, NULL, NULL, NULL);
 	}
 
 	return 0;
@@ -593,9 +597,10 @@ afr_mkdir_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.mkdir.ino;
 
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
+		AFR_STACK_UNWIND (mkdir, main_frame,
+                                  local->op_ret, local->op_errno,
 				  local->cont.mkdir.inode,
-				  unwind_buf);
+				  unwind_buf, NULL, NULL);
         }
 
 	return 0;
@@ -792,7 +797,8 @@ out:
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
 
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (mkdir, frame, op_ret, op_errno,
+                                  NULL, NULL, NULL, NULL);
 	}
 
 	return 0;
@@ -831,9 +837,10 @@ afr_link_unwind (call_frame_t *frame, xlator_t *this)
 
 		unwind_buf->st_ino = local->cont.link.ino;
 
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno, 
+		AFR_STACK_UNWIND (link, main_frame,
+                                  local->op_ret, local->op_errno, 
 				  local->cont.link.inode,
-				  unwind_buf);
+				  unwind_buf, NULL, NULL);
 	}
 
 	return 0;
@@ -1018,7 +1025,8 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (link, frame, op_ret, op_errno,
+                                  NULL, NULL, NULL, NULL);
 	}
 
 	return 0;
@@ -1057,9 +1065,10 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.symlink.ino;
 
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno,
+		AFR_STACK_UNWIND (symlink, main_frame,
+                                  local->op_ret, local->op_errno,
 				  local->cont.symlink.inode,
-				  unwind_buf);
+				  unwind_buf, NULL, NULL);
         }
 
 	return 0;
@@ -1254,7 +1263,8 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
+		AFR_STACK_UNWIND (symlink, frame, op_ret, op_errno,
+                                  NULL, NULL, NULL, NULL);
 	}
 
 	return 0;
@@ -1292,8 +1302,10 @@ afr_rename_unwind (call_frame_t *frame, xlator_t *this)
 
 		unwind_buf->st_ino = local->cont.rename.ino;
 
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno, 
-				  unwind_buf);
+		AFR_STACK_UNWIND (rename, main_frame,
+                                  local->op_ret, local->op_errno, 
+				  unwind_buf,
+                                  NULL, NULL, NULL, NULL);
 	}
 
 	return 0;
@@ -1467,7 +1479,8 @@ out:
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
 
-		AFR_STACK_UNWIND (frame, op_ret, op_errno, NULL);
+		AFR_STACK_UNWIND (rename, frame, op_ret, op_errno,
+                                  NULL, NULL, NULL, NULL, NULL);
 	}
 
 	return 0;
@@ -1495,7 +1508,9 @@ afr_unlink_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame)
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno);
+		AFR_STACK_UNWIND (unlink, main_frame,
+                                  local->op_ret, local->op_errno,
+                                  NULL, NULL);
 
 	return 0;
 }
@@ -1653,7 +1668,8 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (unlink, frame, op_ret, op_errno,
+                                  NULL, NULL);
 	}
 
 	return 0;
@@ -1683,7 +1699,9 @@ afr_rmdir_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame)
-		AFR_STACK_UNWIND (main_frame, local->op_ret, local->op_errno);
+		AFR_STACK_UNWIND (rmdir, main_frame,
+                                  local->op_ret, local->op_errno,
+                                  NULL, NULL);
 
 	return 0;
 }
@@ -1840,7 +1858,8 @@ out:
 	if (op_ret == -1) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (rmdir, frame, op_ret, op_errno,
+                                  NULL, NULL);
 	}
 
 	return 0;
@@ -1932,7 +1951,7 @@ afr_setdents_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t * local = frame->local;
 
-	AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+	AFR_STACK_UNWIND (setdents, frame, local->op_ret, local->op_errno);
 	
 	return 0;
 }
@@ -1982,7 +2001,7 @@ afr_setdents (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		AFR_STACK_UNWIND (frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (setdents, frame, op_ret, op_errno);
 	}
 
 	return 0;

@@ -526,14 +526,14 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this);
 int
 afr_frame_return (call_frame_t *frame);
 
-#define AFR_STACK_UNWIND(frame, params ...)		\
+#define AFR_STACK_UNWIND(fop, frame, params ...)        \
 	do {						\
 		afr_local_t *__local = NULL;		\
 		xlator_t    *__this = NULL;		\
 		__local = frame->local;			\
 		__this = frame->this;			\
 		frame->local = NULL;                    \
-		STACK_UNWIND (frame, params);		\
+		STACK_UNWIND_STRICT (fop, frame, params);       \
 		afr_local_cleanup (__local, __this);	\
 		free (__local);				\
 } while (0);					
