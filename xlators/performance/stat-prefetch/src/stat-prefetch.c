@@ -543,7 +543,18 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                         op_errno = 0;
                         lookup_behind = 1;
                 } 
-        } 
+        } else if (S_ISDIR (loc->inode->st_mode)) {
+                cache = sp_get_cache_inode (this, loc->inode, frame->root->pid);
+                if (cache) {
+                        ret = sp_cache_get_entry (cache, ".", &dirent);
+                        if (ret == 0) {
+                                buf = &dirent.d_stat;
+                                op_ret = 0;
+                                op_errno = 0;
+                                lookup_behind = 1;
+                        }
+                }
+        }
 
 wind:
         if (lookup_behind) {
