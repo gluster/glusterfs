@@ -30,6 +30,10 @@
 #include "xlator.h"
 #include "rbthash.h"
 #include "hashfn.h"
+#include "call-stub.h"
+#include "locking.h"
+#include "inode.h"
+#include <libgen.h>
 
 struct sp_cache {
         rbthash_table_t *table;
@@ -55,9 +59,20 @@ struct sp_fd_ctx {
 };
 typedef struct sp_fd_ctx sp_fd_ctx_t;
 
+struct sp_inode_ctx {
+        char             looked_up;
+        char             lookup_in_progress;
+        int32_t          op_ret;
+        int32_t          op_errno;
+        gf_lock_t        lock;
+        struct list_head waiting_ops;
+};
+typedef struct sp_inode_ctx sp_inode_ctx_t;
+
 struct sp_local {
         loc_t  loc;
         fd_t  *fd;
+        char   is_lookup;
 };
 typedef struct sp_local sp_local_t;
 

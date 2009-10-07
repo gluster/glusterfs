@@ -18,9 +18,6 @@
 */
 
 #include "stat-prefetch.h"
-#include "locking.h"
-#include "inode.h"
-#include <libgen.h>
 
 #define GF_SP_CACHE_BUCKETS 4096
 
@@ -370,16 +367,6 @@ unlock:
 
 
 int32_t
-sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, inode_t *inode,
-               struct stat *buf, dict_t *dict)
-{
-	SP_STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
-        return 0;
-}
-
-
-int32_t
 sp_get_ancestors (char *path, char **parent, char **grand_parent)
 {
         int32_t  ret = -1, i = 0;
@@ -477,16 +464,170 @@ sp_is_empty (dict_t *this, char *key, data_t *value, void *data)
 
 
 int32_t
+sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               struct stat *buf, dict_t *dict)
+{
+        sp_inode_ctx_t      *inode_ctx   = NULL;
+        uint64_t             value       = 0;
+        int                  ret         = 0;
+        struct list_head     waiting_ops = {0, };
+        call_stub_t         *stub        = NULL, *tmp = NULL;
+        sp_local_t          *local       = NULL;
+        sp_cache_t          *cache       = NULL;
+
+        INIT_LIST_HEAD (&waiting_ops);
+
+        local = frame->local;
+        if (local == NULL) {
+                op_ret = -1;
+                op_errno = EINVAL;
+        } else if (op_ret == -1) {
+                cache = sp_get_cache_inode (this, local->loc.parent,
+                                            frame->root->pid);
+
+                if (cache) {
+                        sp_cache_remove_entry (cache, (char *)local->loc.name,
+                                               0);
+                }
+        }
+
+        ret = inode_ctx_get (inode, this, &value);
+        if (ret == 0) {
+                inode_ctx = (sp_inode_ctx_t *)(long)value; 
+                if (inode_ctx == NULL) {
+                        op_ret = -1;
+                        op_errno = EINVAL;
+                        goto out;
+                }
+
+                LOCK (&inode_ctx->lock);
+                {
+                        inode_ctx->op_ret = op_ret;
+                        inode_ctx->op_errno = op_errno;
+                        inode_ctx->looked_up = 1;
+                        inode_ctx->lookup_in_progress = 0;
+                        list_splice_init (&inode_ctx->waiting_ops,
+                                          &waiting_ops);
+                }
+                UNLOCK (&inode_ctx->lock);
+
+                list_for_each_entry_safe (stub, tmp, &waiting_ops, list) {
+                        list_del_init (&stub->list);
+                        call_resume (stub);
+                }
+        } else {
+                op_errno = EINVAL;
+                op_ret = -1;
+        }
+
+out:
+        if ((local != NULL) && (local->is_lookup)) {
+                SP_STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
+        }
+
+        return 0;
+}
+
+
+void
+sp_inode_ctx_free (xlator_t *this, sp_inode_ctx_t *ctx)
+{
+        call_stub_t *stub = NULL, *tmp = NULL;
+        
+        if (ctx == NULL) {
+                goto out;
+        }
+
+        LOCK (&ctx->lock);
+        {
+                if (!list_empty (&ctx->waiting_ops)) {
+                        gf_log (this->name, GF_LOG_CRITICAL, "inode ctx is "
+                                "being freed even when there are file "
+                                "operations waiting for lookup-behind to "
+                                "complete. The operations in the waiting list "
+                                "are:");
+                        list_for_each_entry_safe (stub, tmp, &ctx->waiting_ops,
+                                                  list) {
+                                gf_log (this->name, GF_LOG_CRITICAL,
+                                        "OP (%d)", stub->fop);
+
+                                list_del_init (&stub->list);
+                                call_stub_destroy (stub);
+                        }
+                }
+        }
+        UNLOCK (&ctx->lock);
+
+        LOCK_DESTROY (&ctx->lock);
+        FREE (ctx);
+
+out:
+        return;
+}
+
+
+sp_inode_ctx_t *
+sp_inode_ctx_init ()
+{
+        sp_inode_ctx_t *inode_ctx = NULL;
+
+        inode_ctx = CALLOC (1, sizeof (*inode_ctx));
+        if (inode_ctx == NULL) {
+                goto out;
+        }
+
+        LOCK_INIT (&inode_ctx->lock);
+        INIT_LIST_HEAD (&inode_ctx->waiting_ops);
+
+out:
+        return inode_ctx;
+}
+
+/* 
+ * TODO: implement sending lookups for every fop done on this path. As of now
+ * lookup on the path is sent only for the first fop on this path.
+ */
+
+
+int32_t
 sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
-        gf_dirent_t   dirent;     
-        int32_t       ret                = -1, op_ret = -1, op_errno = EINVAL; 
-        sp_cache_t   *cache              = NULL;
-        struct stat  *postparent         = NULL, *buf = NULL;
-        char          entry_cached       = 0;
-        char          xattr_req_empty    = 1;
+        gf_dirent_t     dirent;     
+        int32_t         ret             = -1, op_ret = -1, op_errno = EINVAL; 
+        sp_cache_t     *cache           = NULL;
+        struct stat    *buf             = NULL;
+        char            entry_cached    = 0;
+        char            xattr_req_empty = 1;
+        sp_inode_ctx_t *inode_ctx       = NULL;
+        uint64_t        value           = 0;
+        sp_local_t     *local           = NULL;
 
-        if (loc == NULL) {
+        if (loc == NULL || loc->inode == NULL) {
+                goto unwind;
+        }
+
+        LOCK (&loc->inode->lock);
+        {
+                ret = __inode_ctx_get (loc->inode, this, &value);
+                if (ret == 0) {
+                        inode_ctx = (sp_inode_ctx_t *)(long)value;
+                } else {
+                        inode_ctx = sp_inode_ctx_init ();
+                        if (inode_ctx != NULL) {
+                                ret = __inode_ctx_put (loc->inode, this,
+                                                      (long)inode_ctx);
+                                if (ret == -1) {
+                                        sp_inode_ctx_free (this, inode_ctx);
+                                        inode_ctx = NULL;
+                                }
+                        }
+                }
+        }
+        UNLOCK (&loc->inode->lock);
+
+        if (inode_ctx == NULL) {
+                op_errno = ENOMEM;
                 goto unwind;
         }
 
@@ -530,6 +671,32 @@ wind:
                 if (cache) {
                         cache->hits++;
                 }
+                LOCK (&inode_ctx->lock);
+                {
+                        if (!(inode_ctx->looked_up
+                              || inode_ctx->lookup_in_progress)) {
+                                inode_ctx->lookup_in_progress = 1;
+                        }
+                }
+                UNLOCK (&inode_ctx->lock);
+
+                op_errno = ENOMEM;
+                local = CALLOC (1, sizeof (*local));
+                GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local,
+                                                unwind, ENOMEM);
+                op_errno = 0;
+
+                frame->local = local;
+
+                ret = loc_copy (&local->loc, loc);
+                if (ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "%s",
+                                strerror (op_errno));
+                        goto unwind;
+                }
+
+                local->is_lookup = 1;
         } else {
                 if (cache) {
                         cache->miss++;
@@ -542,8 +709,7 @@ wind:
         }
 
 unwind:
-	SP_STACK_UNWIND (frame, op_ret, op_errno, loc->inode, buf, postparent,
-                         NULL);
+	SP_STACK_UNWIND (frame, op_ret, op_errno, loc->inode, buf, NULL);
         return 0;
 
 }
