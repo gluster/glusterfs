@@ -62,6 +62,7 @@ typedef struct sp_fd_ctx sp_fd_ctx_t;
 struct sp_inode_ctx {
         char             looked_up;
         char             lookup_in_progress;
+        char             need_unwind;
         int32_t          op_ret;
         int32_t          op_errno;
         gf_lock_t        lock;

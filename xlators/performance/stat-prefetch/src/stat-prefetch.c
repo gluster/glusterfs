@@ -2385,26 +2385,124 @@ unwind:
 
 
 int32_t
-sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
+sp_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
+                  loc_t *newloc)
 {
-        sp_cache_t *cache    = NULL;
-        int32_t     ret      = -1;
-        int32_t     op_errno = -1;
+        uint64_t        value               = 0;
+        char            need_unwind         = 0;
+        char            can_wind            = 0;
+        int32_t         ret                 = 0, op_errno = -1;
+        int32_t         old_op_ret          = -1, old_op_errno = -1;
+        int32_t         new_op_ret          = -1, new_op_errno = -1;
+        char            old_inode_looked_up = 0, new_inode_looked_up = 0; 
+        sp_inode_ctx_t *old_inode_ctx       = NULL, *new_inode_ctx = NULL;
+        
+        ret = inode_ctx_get (oldloc->inode, this, &value);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
+                        "(%p)", oldloc->inode);
+                op_errno = EINVAL;
+                goto unwind;
+        }
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc, unwind, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->path, unwind,
-                                        op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->name, unwind,
-                                        op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->parent, unwind,
-                                        op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->inode, unwind,
+        old_inode_ctx = (sp_inode_ctx_t *)(long) value;
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, old_inode_ctx, unwind,
                                         op_errno, EINVAL);
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc, unwind, op_errno,
+        LOCK (&old_inode_ctx->lock);
+        {
+                old_inode_looked_up = old_inode_ctx->looked_up;
+                old_op_ret = old_inode_ctx->op_ret;
+                old_op_errno = old_inode_ctx->op_errno;
+                need_unwind = old_inode_ctx->need_unwind;
+        }
+        UNLOCK (&old_inode_ctx->lock);
+
+        if (need_unwind) {
+                /* there was an error while queuing up lookup stub for newloc */
+                goto unwind;
+        }
+
+        if (newloc->inode != NULL) {
+                ret = inode_ctx_get (newloc->inode, this, &value);
+                if (ret == 0) {
+                        new_inode_ctx = (sp_inode_ctx_t *)(long)value;
+                        if (new_inode_ctx != NULL) {
+                                LOCK (&new_inode_ctx->lock);
+                                {
+                                        new_inode_looked_up = new_inode_ctx->looked_up;
+                                        new_op_ret = new_inode_ctx->op_ret;
+                                        new_op_errno = new_inode_ctx->op_errno;
+                                }
+                                UNLOCK (&new_inode_ctx->lock);
+                        }
+                }
+        }
+
+        if (new_inode_ctx == NULL) {
+                if (old_op_ret == -1) {
+                        op_errno = old_op_errno;
+                        goto unwind;
+                } else {
+                        can_wind = 1;
+                }
+        } else {
+                if (new_inode_looked_up && old_inode_looked_up) {
+                        if ((old_op_ret == -1)
+                            || ((new_op_ret == -1)
+                                && (new_op_errno != ENOENT))) {
+                                if (old_op_ret == -1) {
+                                        op_errno = old_op_errno;
+                                } else {
+                                        op_errno = new_op_errno;
+                                }
+
+                                goto unwind;
+                        } else {
+                                can_wind = 1;
+                        }
+                }
+        }
+
+        if (can_wind) {
+                STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->rename, oldloc, newloc);
+        }
+
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+        return 0;
+}
+
+
+int32_t
+sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
+{
+        char            need_unwind           = 1;
+        uint64_t        value                 = 0;
+        call_stub_t    *stub                  = NULL;
+        sp_cache_t     *cache                 = NULL;
+        sp_inode_ctx_t *inode_ctx             = NULL;
+        int32_t         ret                   = -1, op_errno = -1;
+        char            old_inode_can_wind    = 0, new_inode_can_wind = 0;
+        char            old_inode_need_lookup = 0, new_inode_need_lookup = 0; 
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->path, unwind,
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->path, out,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->name, out,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->parent, out,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->inode, out,
+                                        op_errno, EINVAL);
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc, out, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->path, out,
                                         op_errno, EINVAL);
 
         cache = sp_get_cache_inode (this, oldloc->parent, frame->root->pid);
@@ -2421,27 +2519,94 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
         if (ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "%s", strerror (op_errno));
-                goto unwind;
+                goto out;
         }
 
         ret = sp_cache_remove_parent_entry (frame, this, (char *)newloc->path);
         if (ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "%s", strerror (op_errno));
-                goto unwind;
+                goto out;
         }
 
         if (S_ISDIR (oldloc->inode->st_mode)) {
                 sp_remove_caches_from_all_fds_opened (this, oldloc->inode);
         }
 
-        STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rename, oldloc, newloc);
-        return 0;
+        stub = fop_rename_stub (frame, sp_rename_helper, oldloc, newloc);
+        if (stub == NULL) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
 
-unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
-	return 0;
+        ret = sp_process_inode_ctx (frame, this, oldloc, stub, &need_unwind,
+                                    &old_inode_need_lookup, &old_inode_can_wind,
+                                    &op_errno);
+        if (ret == -1) {
+                goto out;
+        }
+
+        if (newloc->inode != NULL) {
+                stub = fop_rename_stub (frame, sp_rename_helper, oldloc,
+                                        newloc);
+                if (stub == NULL) {
+                        op_errno = ENOMEM;
+                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                        goto out;
+                }
+
+                ret = sp_process_inode_ctx (frame, this, newloc, stub,
+                                            &need_unwind,
+                                            &new_inode_need_lookup,
+                                            &new_inode_can_wind, &op_errno);
+                if (ret == -1) {
+                        ret = inode_ctx_get (oldloc->inode, this, &value);
+                        if (ret == -1) {
+                                goto out;
+                        }
+
+                        inode_ctx = (sp_inode_ctx_t *)(long)value;
+                        if (inode_ctx == NULL) {
+                                goto out;
+                        }
+                        
+                        LOCK (&inode_ctx->lock);
+                        {
+                                if (!inode_ctx->looked_up) {
+                                        /* unwind in sp_rename_helper */
+                                        need_unwind = 0;
+                                        inode_ctx->need_unwind = 1;
+                                }
+                        }
+                        UNLOCK (&inode_ctx->lock);
+                }
+                        
+        } else {
+                new_inode_can_wind = 1;
+        }
+
+out:
+        if (need_unwind) {
+                SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+        } else if (old_inode_need_lookup || new_inode_need_lookup) {
+                if (old_inode_need_lookup) {
+                        STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->lookup, oldloc,
+                                    NULL);
+                }
+
+                if (new_inode_need_lookup) {
+                        STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->lookup, newloc,
+                                    NULL);
+                }
+        } else if (old_inode_can_wind && new_inode_can_wind) {
+                STACK_WIND (frame, sp_stbuf_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->rename, oldloc, newloc);
+        }
+        
+        return 0;
 }
 
 
