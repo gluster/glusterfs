@@ -2816,17 +2816,64 @@ out:
 
 
 int32_t
+sp_setxattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                    dict_t *dict, int32_t flags)
+{
+        uint64_t        value     = 0;
+        sp_inode_ctx_t *inode_ctx = NULL;
+        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        
+        ret = inode_ctx_get (loc->inode, this, &value);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
+                        "(%p)", loc->inode);
+                op_errno = EINVAL;
+                goto unwind;
+        }
+
+        inode_ctx = (sp_inode_ctx_t *)(long) value;
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
+                                        EINVAL);
+
+        LOCK (&inode_ctx->lock);
+        {
+                op_ret = inode_ctx->op_ret;
+                op_errno = inode_ctx->op_errno;
+        }
+        UNLOCK (&inode_ctx->lock);
+
+        if (op_ret == -1) {
+                goto unwind;
+        }
+
+        STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->setxattr, loc, dict,
+                    flags);
+
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, op_errno);
+        return 0;
+}
+
+
+int32_t
 sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
              int32_t flags)
 {
-        sp_cache_t *cache    = NULL;
-        int32_t     op_errno = -1;
+        sp_cache_t     *cache        = NULL;
+        int32_t         op_errno     = -1;
+        call_stub_t    *stub         = NULL;
+        char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
                                         op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
         cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
@@ -2834,12 +2881,28 @@ sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 sp_cache_remove_entry (cache, (char *)loc->name, 0);
         }
 
-	STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->setxattr, loc, dict, flags);
-        return 0;
+        stub = fop_setxattr_stub (frame, sp_setxattr_helper, loc, dict, flags);
+        if (stub == NULL) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
 
-unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno);
+        sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
+                              &need_lookup, &can_wind, &op_errno);
+
+out:
+        if (need_unwind) {
+                SP_STACK_UNWIND (frame, -1, op_errno);
+        } else if (need_lookup) {
+                STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->lookup, loc, NULL);
+        } else if (can_wind) {
+                STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->setxattr, loc, dict,
+                            flags);
+        }
+        
         return 0;
 }
 
