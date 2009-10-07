@@ -224,18 +224,14 @@ sp_cache_free (sp_cache_t *cache)
 
 
 sp_cache_t *
-sp_get_cache_fd (xlator_t *this, fd_t *fd)
+__sp_get_cache_fd (xlator_t *this, fd_t *fd)
 {
-        sp_cache_t  *cache     = NULL;
-        uint64_t     value     = 0;
-        int32_t      ret       = -1;
+        int32_t      ret   = -1;
+        sp_cache_t  *cache = NULL;
+        uint64_t     value = 0;
         sp_fd_ctx_t *fd_ctx = NULL;
 
-        if (fd == NULL) {
-                goto out;
-        }
-
-        ret = fd_ctx_get (fd, this, &value);
+        ret = __fd_ctx_get (fd, this, &value);
         if (ret == -1) {
                 goto out;
         }
@@ -244,9 +240,30 @@ sp_get_cache_fd (xlator_t *this, fd_t *fd)
 
         LOCK (&fd_ctx->lock);
         {
-                cache = fd_ctx->cache;
+                        cache = fd_ctx->cache;
         }
         UNLOCK (&fd_ctx->lock);
+
+out:
+        return cache;
+}
+
+
+sp_cache_t *
+sp_get_cache_fd (xlator_t *this, fd_t *fd)
+{
+        sp_cache_t  *cache     = NULL;
+
+        if (fd == NULL) {
+                goto out;
+        }
+
+        LOCK (&fd->lock);
+        {
+                cache = __sp_get_cache_fd (this, fd);
+        }
+        UNLOCK (&fd->lock);
+
 out:
         return cache;
 }
@@ -378,13 +395,13 @@ out:
 
 
 inline int32_t
-sp_put_cache (xlator_t *this, fd_t *fd, sp_cache_t *cache)
+__sp_put_cache (xlator_t *this, fd_t *fd, sp_cache_t *cache)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
         int32_t      ret    = -1; 
         uint64_t     value  = 0;
 
-        ret = fd_ctx_get (fd, this, &value);
+        ret = __fd_ctx_get (fd, this, &value);
         if (!ret) {
                 fd_ctx = (void *)(long)value;
         } else {
@@ -395,7 +412,7 @@ sp_put_cache (xlator_t *this, fd_t *fd, sp_cache_t *cache)
                         goto out;
                 }
 
-                ret = fd_ctx_set (fd, this, (long)(void *)fd_ctx);
+                ret = __fd_ctx_set (fd, this, (long)(void *)fd_ctx);
                 if (ret == -1) {
                         sp_fd_ctx_free (fd_ctx); 
                         goto out;
@@ -413,6 +430,23 @@ sp_put_cache (xlator_t *this, fd_t *fd, sp_cache_t *cache)
         UNLOCK (&fd_ctx->lock);
 
 out:
+        return ret;
+}
+
+
+inline int32_t
+sp_put_cache (xlator_t *this, fd_t *fd, sp_cache_t *cache)
+{
+        int32_t ret = -1;
+        
+        if (fd != NULL) { 
+                LOCK (&fd->lock);
+                {
+                        ret = __sp_put_cache (this, fd, cache);
+                }
+                UNLOCK (&fd->lock);
+        }
+
         return ret;
 }
 
@@ -823,21 +857,28 @@ sp_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         fd = local->fd;
 
-        cache = sp_get_cache_fd (this, fd);
-        if (cache == NULL) {
-                cache = sp_cache_init ();
+        LOCK (&fd->lock);
+        {
+                cache = __sp_get_cache_fd (this, fd);
                 if (cache == NULL) {
-                        goto out;
-                }
+                        cache = sp_cache_init ();
+                        if (cache == NULL) {
+                                goto unlock;
+                        }
 
-                ret = sp_put_cache (this, fd, cache);
-                if (ret == -1) {
-                        sp_cache_free (cache);
-                        goto out;
+                        ret = __sp_put_cache (this, fd, cache);
+                        if (ret == -1) {
+                                sp_cache_free (cache);
+                                goto unlock;
+                        }
                 }
         }
+unlock:
+        UNLOCK (&fd->lock);
 
-        sp_cache_add_entries (cache, entries);
+        if (cache != NULL) {
+                sp_cache_add_entries (cache, entries);
+        }
 
 out:
 	SP_STACK_UNWIND (frame, op_ret, op_errno, entries);
