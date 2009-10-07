@@ -494,22 +494,42 @@ out:
 }
 
 
+void
+sp_is_empty (dict_t *this, char *key, data_t *value, void *data)
+{
+        char *ptr = data;
+
+        if (ptr && *ptr) {
+                *ptr = 0;
+        }
+}
+
+
 int32_t
 sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
-        sp_local_t   *local      = NULL;
+        sp_local_t   *local              = NULL;
         gf_dirent_t   dirent;     
-        int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL; 
-        sp_cache_t   *cache      = NULL;
-        struct stat  *postparent = NULL, *buf = NULL;
-        call_frame_t *wind_frame = NULL;
-        char          lookup_behind = 0;
+        int32_t       ret                = -1, op_ret = -1, op_errno = EINVAL; 
+        sp_cache_t   *cache              = NULL;
+        struct stat  *postparent         = NULL, *buf = NULL;
+        call_frame_t *wind_frame         = NULL;
+        char          lookup_behind      = 0;
+        char          xattr_req_empty    = 1;
 
         if (loc == NULL) {
                 goto unwind;
         }
 
-        if (xattr_req || (loc->parent == NULL) || (loc->name == NULL)) {
+        if ((loc->parent == NULL) || (loc->name == NULL)) {
+                goto wind;
+        }
+
+        if (xattr_req != NULL) {
+                dict_foreach (xattr_req, sp_is_empty, &xattr_req_empty);
+        }
+
+        if (!xattr_req_empty) {
                 goto wind;
         }
 
