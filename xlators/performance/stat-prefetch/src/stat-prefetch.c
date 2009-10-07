@@ -263,6 +263,8 @@ sp_get_cache_inode (xlator_t *this, inode_t *inode, int32_t pid)
         }
 
         cache = sp_get_cache_fd (this, fd);
+
+        fd_unref (fd);
 out:
         return cache;
 }
@@ -364,35 +366,6 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
                struct stat *buf, dict_t *dict)
 {
-        struct stat *stbuf = NULL;
-        int32_t      ret = -1;
-
-        if (op_ret == -1) {
-                goto out;
-        }
-
-        if (S_ISDIR (buf->st_mode)) {
-                stbuf = CALLOC (1, sizeof (*stbuf));
-                if (stbuf == NULL) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
-                        goto out;
-                }
-
-                memcpy (stbuf, buf, sizeof (*stbuf));
-                ret = inode_ctx_put (inode, this, (long)stbuf);
-                if (ret == -1) {
-                        op_ret = -1;
-
-                        /* FIXME: EINVAL is not correct */ 
-                        op_errno = EINVAL;
-                        FREE (stbuf);
-                        goto out;
-                }
-        }
-
-out:
 	SP_STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
         return 0;
 }
@@ -521,7 +494,6 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL; 
         sp_cache_t   *cache      = NULL;
         struct stat  *postparent = NULL, *buf = NULL;
-        uint64_t      value      = 0; 
         call_frame_t *wind_frame = NULL;
         char          lookup_behind = 0;
 
@@ -538,18 +510,14 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         if (cache) {
                 ret = sp_cache_get_entry (cache, (char *)loc->name, &dirent);
                 if (ret == 0) {
-                        ret = inode_ctx_get (loc->parent, this, &value);
-                        if (ret == 0) {
-                                postparent = (void *)(long)value;
-                                buf = &dirent.d_stat;
-                                op_ret = 0;
-                                op_errno = 0;
-                                lookup_behind = 1;
-                        } 
+                        buf = &dirent.d_stat;
+                        op_ret = 0;
+                        op_errno = 0;
+                        lookup_behind = 1;
                 } 
         } 
 
-wind:        
+wind:
         if (lookup_behind) {
                 wind_frame = copy_frame (frame);
                 if (wind_frame == NULL) {
@@ -663,10 +631,17 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	STACK_WIND (frame, sp_readdir_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readdir, fd, size, off);
 
+        if (path != NULL) {
+                FREE (path);
+        }
+
         return 0;
 
 unwind:
         SP_STACK_UNWIND (frame, -1, errno, NULL);
+        if (path != NULL) {
+                FREE (path);
+        }
         return 0;
 }
 
@@ -1737,23 +1712,6 @@ unwind:
 
 
 int32_t
-sp_forget (xlator_t *this, inode_t *inode)
-{
-        struct stat *buf   = NULL;
-        uint64_t     value = 0;
-
-        inode_ctx_del (inode, this, &value);
-        
-        if (value) {
-                buf = (void *)(long)value;
-                FREE (buf);
-        }
-        
-        return 0;
-}
-
-
-int32_t
 sp_release (xlator_t *this, fd_t *fd)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
@@ -1832,7 +1790,6 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
-        .forget     = sp_forget,
         .release    = sp_release,
         .releasedir = sp_release
 };
