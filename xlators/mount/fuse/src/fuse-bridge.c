@@ -1109,6 +1109,9 @@ fattr_to_gf_set_attr (int32_t valid)
 {
         int32_t gf_valid = 0;
 
+        if (valid & FATTR_MODE)
+                gf_valid |= GF_SET_ATTR_MODE;
+
         if (valid & FATTR_UID)
                 gf_valid |= GF_SET_ATTR_UID;
 
