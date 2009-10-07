@@ -6472,6 +6472,7 @@ struct xlator_fops fops = {
 	.removexattr = client_removexattr,
 	.opendir     = client_opendir,
 	.readdir     = client_readdir,
+	.readdirp    = client_readdirp,
 	.fsyncdir    = client_fsyncdir,
 	.access      = client_access,
 	.ftruncate   = client_ftruncate,

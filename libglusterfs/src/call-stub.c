@@ -1848,7 +1848,7 @@ fop_readdirp_cbk_stub (call_frame_t *frame,
 			ERR_ABORT (stub_entry);
 			stub_entry->d_off = entry->d_off;
 			stub_entry->d_ino = entry->d_ino;
-
+			stub_entry->d_stat = entry->d_stat;
 			list_add_tail (&stub_entry->list,
 				       &stub->args.readdirp_cbk.entries.list);
 		}
@@ -2237,7 +2237,7 @@ fop_setattr_cbk_stub (call_frame_t *frame,
         if (frame == NULL)
                 goto out;
 
-	stub = stub_new (frame, 1, GF_FOP_SETATTR);
+	stub = stub_new (frame, 0, GF_FOP_SETATTR);
 	if (stub == NULL)
                 goto out;
 
