@@ -425,35 +425,6 @@ out:
 
 
 int32_t
-sp_lookup_behind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, inode_t *inode,
-                      struct stat *buf, dict_t *dict, struct stat *postparent)
-{
-        sp_local_t *local = NULL;
-        sp_cache_t *cache = NULL;
-
-        local = frame->local;
-        if (local == NULL) {
-                goto out;
-        }
-
-        if ((op_ret == -1) && (op_errno = ENOENT)) {
-                cache = sp_get_cache_inode (this, local->loc.parent,
-                                            frame->root->pid);
-
-                if (cache) {
-                        sp_cache_remove_entry (cache, (char *)local->loc.name,
-                                               0);
-                }
-        } 
-
-out:
-        SP_STACK_DESTROY (frame);
-        return 0;
-}
-
-
-int32_t
 sp_get_ancestors (char *path, char **parent, char **grand_parent)
 {
         int32_t  ret = -1, i = 0;
@@ -553,15 +524,13 @@ sp_is_empty (dict_t *this, char *key, data_t *value, void *data)
 int32_t
 sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
-        gf_dirent_t   dirent;     
-        sp_local_t   *local           = NULL;
-        int32_t       ret             = -1, op_ret = -1, op_errno = EINVAL; 
+        gf_dirent_t   dirent;
+        char          entry_cached    = 0; 
+        uint64_t      value           = 0;
+        char          xattr_req_empty = 1;
         sp_cache_t   *cache           = NULL;
         struct stat  *postparent      = NULL, *buf = NULL;
-        uint64_t      value           = 0; 
-        call_frame_t *wind_frame      = NULL;
-        char          lookup_behind   = 0;
-        char          xattr_req_empty = 1;
+        int32_t       ret             = -1, op_ret = -1, op_errno = EINVAL; 
 
         if (loc == NULL) {
                 goto unwind;
@@ -590,7 +559,7 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                                 buf = &dirent.d_stat;
                                 op_ret = 0;
                                 op_errno = 0;
-                                lookup_behind = 1;
+                                entry_cached = 1;
                         } 
                 } 
         } else if (S_ISDIR (loc->inode->st_mode)) {
@@ -601,37 +570,16 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                                 buf = &dirent.d_stat;
                                 op_ret = 0;
                                 op_errno = 0;
-                                lookup_behind = 1;
+                                entry_cached = 1;
                         }
                 }
         }
 
 wind:        
-        if (lookup_behind) {
+        if (entry_cached) {
                 if (cache) {
                         cache->hits++;
                 }
-
-                wind_frame = copy_frame (frame);
-                if (wind_frame == NULL) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
-                        goto unwind;
-                } 
-
-                local = CALLOC (1, sizeof (*local));
-                if (local == NULL) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        STACK_DESTROY (wind_frame->root);
-                        goto unwind;
-                }
-                
-                loc_copy (&local->loc, loc);
-                wind_frame->local = local;
-                STACK_WIND (wind_frame, sp_lookup_behind_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
         } else {
                 if (cache) {
                         cache->miss++;
