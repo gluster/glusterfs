@@ -158,12 +158,12 @@ typedef struct dht_disk_layout dht_disk_layout_t;
 
 #define layout_is_sane(layout) ((layout) && (layout->cnt > 0))
 
-#define DHT_STACK_UNWIND(frame, params ...) do {       \
-		dht_local_t *__local = NULL;           \
-		__local = frame->local;                \
-		frame->local = NULL;		       \
-		STACK_UNWIND (frame, params);          \
-		dht_local_wipe (__local);	       \
+#define DHT_STACK_UNWIND(fop, frame, params ...) do {           \
+		dht_local_t *__local = NULL;                    \
+		__local = frame->local;                         \
+		frame->local = NULL;                            \
+		STACK_UNWIND_STRICT (fop, frame, params);       \
+		dht_local_wipe (__local);                       \
 	} while (0)
 
 #define DHT_STACK_DESTROY(frame) do {		       \

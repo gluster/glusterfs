@@ -146,7 +146,8 @@ out:
 	return 0;
 
  err:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
+        DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno,
+                          inode, stbuf, xattr, NULL);
         return 0;
 }
 
@@ -262,7 +263,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-        DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+        DHT_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
 	return 0;
 }
 
@@ -291,7 +292,8 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
  	return 0;
 	
  err:
- 	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);	
+ 	DHT_STACK_UNWIND (create, frame, -1, op_errno,
+                          NULL, NULL, NULL, NULL, NULL);	
  	return 0;
 }
 
@@ -370,7 +372,8 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+	DHT_STACK_UNWIND (create, frame, -1, op_errno,
+                          NULL, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -398,7 +401,8 @@ nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  		return 0;
  	}
 	
- 	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+ 	DHT_STACK_UNWIND (link, frame, op_ret, op_errno,
+                          inode, stbuf, preparent, postparent);
  	return 0;
 }
 
@@ -477,7 +481,8 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (mknod, frame, -1, op_errno,
+                          NULL, NULL, NULL, NULL);
 
 	return 0;
 }
