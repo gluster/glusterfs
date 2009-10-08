@@ -28,9 +28,11 @@
 #include "glusterfs.h"
 #include "dict.h"
 #include "xlator.h"
+#include "rbthash.h"
+#include "hashfn.h"
 
 struct sp_cache {
-        gf_dirent_t entries;            /* Head of list of cached dirents */
+        rbthash_table_t *table;
         uint64_t    expected_offset;    /* Offset where the next read will
                                          * happen.
                                          */
