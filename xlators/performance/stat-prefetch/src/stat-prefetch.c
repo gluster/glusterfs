@@ -1222,7 +1222,7 @@ sp_mkdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1264,7 +1264,7 @@ sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
