@@ -21,6 +21,99 @@
 
 #define GF_SP_CACHE_BUCKETS 4096
 
+int32_t
+sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      call_stub_t *stub, char *need_unwind, char *need_lookup,
+                      char *can_wind, int32_t *error)
+{
+        int32_t         ret          = -1, op_errno = -1;
+        sp_local_t     *local        = NULL;
+        sp_inode_ctx_t *inode_ctx    = NULL;
+        uint64_t        value        = 0;
+
+        if (need_unwind != NULL) {
+                *need_unwind = 1;
+        }
+
+        if ((this == NULL) || (loc == NULL) || (loc->inode == NULL)
+            || (need_unwind == NULL) || (need_lookup == NULL)
+            || (can_wind == NULL)) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        ret = inode_ctx_get (loc->inode, this, &value);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
+                        "(%p)", loc->inode);
+                *can_wind = 1;
+                *need_unwind = 0;
+                op_errno = 0;
+                ret = 0;
+                goto out;
+        }
+
+        inode_ctx = (sp_inode_ctx_t *)(long) value;
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, out, op_errno,
+                                        EINVAL);
+
+        LOCK (&inode_ctx->lock);
+        {
+                if (inode_ctx->op_ret == -1) {
+                        op_errno = inode_ctx->op_errno;
+                        goto unlock;
+                }
+
+                if (!(inode_ctx->looked_up || inode_ctx->lookup_in_progress)) {
+                        *need_lookup = 1;
+                        inode_ctx->lookup_in_progress = 1;
+
+                        if (frame->local == NULL) {
+                                local = CALLOC (1, sizeof (*local));
+                                GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name,
+                                                                local,
+                                                                unlock,
+                                                                op_errno,
+                                                                ENOMEM);
+
+                                frame->local = local;
+
+                                ret = loc_copy (&local->loc, loc);
+                                if (ret == -1) {
+                                        op_errno = errno;
+                                        gf_log (this->name, GF_LOG_ERROR, "%s",
+                                                strerror (op_errno));
+                                        goto unlock;
+                                }
+                        }
+                } 
+
+                if (inode_ctx->looked_up) {
+                        *can_wind = 1;
+                } else {
+                        list_add_tail (&stub->list, &inode_ctx->waiting_ops);
+                        stub = NULL;
+                } 
+
+                *need_unwind = 0;
+                ret = 0;
+        }
+unlock:
+        UNLOCK (&inode_ctx->lock);
+
+out:
+        if (stub != NULL) {
+                call_stub_destroy (stub);
+        }
+
+        if (error != NULL) {
+                *error = op_errno;
+        }
+
+        return ret;
+}
+
+
 inline uint32_t
 sp_hashfn (void *data, int len)
 {
