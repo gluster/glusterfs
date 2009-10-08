@@ -1374,7 +1374,7 @@ default_readdirp (call_frame_t *frame,
 	STACK_WIND (frame,
 		    default_readdirp_cbk,
 		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->readdir,
+		    FIRST_CHILD(this)->fops->readdirp,
 		    fd, size, off);
 	return 0;
 }
