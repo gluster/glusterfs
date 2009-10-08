@@ -72,7 +72,7 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
                 local->postparent.st_ino = local->loc.parent->ino;
 	}
 
-	DHT_STACK_UNWIND (frame, ret, local->op_errno, local->inode,
+	DHT_STACK_UNWIND (lookup, frame, ret, local->op_errno, local->inode,
 			  &local->stbuf, local->xattr, &local->postparent);
 
 	return 0;
@@ -182,7 +182,7 @@ unlock:
                         local->postparent.st_ino = local->loc.parent->ino;
 		}
 
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
         }
@@ -309,7 +309,7 @@ unlock:
 			local->op_errno = ESTALE;
 		}
 			
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
 	}
@@ -353,7 +353,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         local->postparent.st_ino = local->loc.parent->ino;
 
 unwind:
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+	DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 			  local->inode, &local->stbuf, local->xattr,
                           &local->postparent);
 	return 0;
@@ -458,7 +458,7 @@ unlock:
                                 "and directory on another. "
                                 "Please fix it manually",
                                 loc->path);
-                        DHT_STACK_UNWIND (frame, -1, EIO, NULL, NULL, NULL,
+                        DHT_STACK_UNWIND (lookup, frame, -1, EIO, NULL, NULL, NULL,
                                           NULL);
                         return 0;
                 }
@@ -469,7 +469,7 @@ unlock:
                 }
 
 		if (!cached_subvol) {
-			DHT_STACK_UNWIND (frame, -1, ENOENT, NULL, NULL, NULL,
+			DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL, NULL, NULL,
                                           NULL);
 			return 0;
 		}
@@ -496,7 +496,7 @@ unlock:
 
                         local->postparent.st_ino = local->loc.parent->ino;
 
-                        DHT_STACK_UNWIND (frame, local->op_ret,
+                        DHT_STACK_UNWIND (lookup, frame, local->op_ret,
                                           local->op_errno, local->inode,
                                           &local->stbuf, local->xattr,
                                           &local->postparent);
@@ -605,7 +605,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 	inode_ctx_put (inode, this, (uint64_t)(long)layout);
 
 out:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr,
+        DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                           postparent);
 
         return 0;
@@ -635,7 +635,7 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
         if (!local->layout) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
-                DHT_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+                DHT_STACK_UNWIND (lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
                 return 0;
         }
 		
@@ -744,7 +744,7 @@ out:
          * two members should have values equal to sum of corresponding values
          * from each of the subvolume. See dht_stat_merge for reference.
          */ 
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr,
+        DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                           postparent);
         return 0;
 }
@@ -887,7 +887,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-        DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        DHT_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -930,7 +930,7 @@ unlock:
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (truncate, frame, local->op_ret, local->op_errno,
 				  &local->prebuf, &local->stbuf);
 
         return 0;
@@ -971,7 +971,7 @@ unlock:
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (stat, frame, local->op_ret, local->op_errno,
 				  &local->stbuf);
 
         return 0;
@@ -1026,7 +1026,7 @@ dht_stat (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (stat, frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1077,7 +1077,7 @@ dht_fstat (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (fstat, frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1125,7 +1125,7 @@ dht_truncate (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -1171,7 +1171,7 @@ dht_ftruncate (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -1207,7 +1207,8 @@ unlock:
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
+                                  NULL, NULL);
 
         return 0;
 }
@@ -1247,7 +1248,7 @@ unlock:
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (fsync, frame, local->op_ret, local->op_errno,
                                   prebuf, postbuf);
 
         return 0;
@@ -1284,7 +1285,7 @@ unlock:
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		DHT_STACK_UNWIND (setxattr, frame, local->op_ret, local->op_errno);
         }
 
         return 0;
@@ -1332,7 +1333,7 @@ dht_access (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (access, frame, -1, op_errno);
 
 	return 0;
 }
@@ -1352,7 +1353,7 @@ dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
         }
 
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, path, sbuf);
+        DHT_STACK_UNWIND (readlink, frame, op_ret, op_errno, path, sbuf);
 
         return 0;
 }
@@ -1398,7 +1399,7 @@ dht_readlink (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (readlink, frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -1408,7 +1409,7 @@ int
 dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, dict_t *xattr)
 {
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, xattr);
+        DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, xattr);
 
         return 0;
 }
@@ -1444,7 +1445,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (getxattr, frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1491,7 +1492,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (setxattr, frame, -1, op_errno);
 
 	return 0;
 }
@@ -1538,7 +1539,7 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (removexattr, frame, -1, op_errno);
 
 	return 0;
 }
@@ -1573,7 +1574,7 @@ unlock:
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (open, frame, local->op_ret, local->op_errno,
 				  local->fd);
 
         return 0;
@@ -1629,7 +1630,7 @@ dht_open (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (open, frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1641,7 +1642,7 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       struct iovec *vector, int count, struct stat *stbuf,
                struct iobref *iobref)
 {
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf,
+        DHT_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count, stbuf,
                           iobref);
 
         return 0;
@@ -1676,7 +1677,7 @@ dht_readv (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL, NULL);
+	DHT_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
 
 	return 0;
 }
@@ -1704,7 +1705,7 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         postbuf->st_ino = local->st_ino;
 
 out:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+        DHT_STACK_UNWIND (writev, frame, op_ret, op_errno, prebuf, postbuf);
 
         return 0;
 }
@@ -1749,7 +1750,7 @@ dht_writev (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -1793,7 +1794,7 @@ dht_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (flush, frame, -1, op_errno);
 
 	return 0;
 }
@@ -1839,7 +1840,7 @@ dht_fsync (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -1849,7 +1850,7 @@ int
 dht_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	    int op_ret, int op_errno, struct flock *flock)
 {
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, flock);
+        DHT_STACK_UNWIND (lk, frame, op_ret, op_errno, flock);
 
         return 0;
 }
@@ -1883,7 +1884,7 @@ dht_lk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (lk, frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -1928,7 +1929,7 @@ unlock:
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (statfs, frame, local->op_ret, local->op_errno,
 				  &local->statvfs);
 
         return 0;
@@ -1965,7 +1966,7 @@ dht_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (statfs, frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -2017,7 +2018,7 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (opendir, frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -2099,7 +2100,7 @@ unwind:
 	if (op_ret < 0)
 		op_ret = 0;
 
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, &entries);
+	DHT_STACK_UNWIND (readdirp, frame, op_ret, op_errno, &entries);
 
 	gf_dirent_free (&entries);
 
@@ -2183,7 +2184,7 @@ unwind:
 	if (op_ret < 0)
 		op_ret = 0;
 
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, &entries);
+	DHT_STACK_UNWIND (readdir, frame, op_ret, op_errno, &entries);
 
 	gf_dirent_free (&entries);
 
@@ -2233,7 +2234,7 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (readdir, frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -2279,7 +2280,7 @@ dht_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno);
+		DHT_STACK_UNWIND (fsyncdir, frame, local->op_ret, local->op_errno);
 
         return 0;
 }
@@ -2322,7 +2323,7 @@ dht_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (fsyncdir, frame, -1, op_errno);
 
 	return 0;
 }
@@ -2386,7 +2387,7 @@ out:
          * See dht_stat_merge for reference.
          */ 
 
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, preparent,
+	DHT_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode, stbuf, preparent,
                           postparent);
 	return 0;
 }
@@ -2413,7 +2414,7 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         return 0;
  err:
- 	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);	
+ 	DHT_STACK_UNWIND (mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL);	
  	return 0;
 }
 
@@ -2487,7 +2488,8 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (mknod, frame, -1, op_errno,
+                          NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -2525,7 +2527,8 @@ dht_symlink (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (link, frame, -1, op_errno,
+                          NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -2593,7 +2596,7 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+	DHT_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -2631,7 +2634,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         postparent->st_ino = local->loc2.parent->ino;
 
 out:
-        DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, preparent,
+        DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf, preparent,
                           postparent);
 
 	return 0;
@@ -2661,7 +2664,7 @@ dht_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 
 err:
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, preparent,
+	DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf, preparent,
                           postparent);
 
 	return 0;
@@ -2738,7 +2741,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+	DHT_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -2793,7 +2796,7 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
 out:
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf, preparent,
+	DHT_STACK_UNWIND (create, frame, op_ret, op_errno, fd, inode, stbuf, preparent,
                           postparent);
 	return 0;
 }
@@ -2821,7 +2824,7 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         return 0;
  err:
- 	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+ 	DHT_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
  	return 0;
 }
 
@@ -2914,7 +2917,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+	DHT_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -2940,7 +2943,7 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
                 local->postparent.st_ino = local->loc.parent->ino;
 	}
 
-	DHT_STACK_UNWIND (frame, op_ret, op_errno,
+	DHT_STACK_UNWIND (mkdir, frame, op_ret, op_errno,
 			  local->inode, &local->stbuf, &local->preparent,
                           &local->postparent);
 
@@ -3055,7 +3058,7 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 	}
 	return 0;
 err:
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+	DHT_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -3127,7 +3130,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+	DHT_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -3145,7 +3148,7 @@ dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->preparent.st_ino = local->loc.parent->ino;
         local->postparent.st_ino = local->loc.parent->ino;
 
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+	DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent);
 
 	return 0;
@@ -3206,7 +3209,7 @@ unlock:
                         local->preparent.st_ino = local->loc.parent->ino;
                         local->postparent.st_ino = local->loc.parent->ino;
 
-			DHT_STACK_UNWIND (frame, local->op_ret,
+			DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
 					  local->op_errno, &local->preparent,
                                           &local->postparent);
 		}
@@ -3241,7 +3244,7 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
 	return 0;
 
 err:
-	DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+	DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent);
 	return 0;
 }
@@ -3369,7 +3372,8 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (rmdir, frame, -1, op_errno,
+                          NULL, NULL);
 
 	return 0;
 }
@@ -3379,7 +3383,7 @@ int
 dht_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		 int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, dict);
+	DHT_STACK_UNWIND (xattrop, frame, op_ret, op_errno, dict);
 	return 0;
 }
 
@@ -3426,7 +3430,7 @@ dht_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -3436,7 +3440,7 @@ int
 dht_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno, dict);
+	DHT_STACK_UNWIND (fxattrop, frame, op_ret, op_errno, dict);
 	return 0;
 }
 
@@ -3469,7 +3473,7 @@ dht_fxattrop (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL);
+	DHT_STACK_UNWIND (fxattrop, frame, -1, op_errno, NULL);
 
 	return 0;
 }
@@ -3480,7 +3484,7 @@ dht_inodelk_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	DHT_STACK_UNWIND (inodelk, frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -3528,7 +3532,7 @@ dht_inodelk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (inodelk, frame, -1, op_errno);
 
 	return 0;
 }
@@ -3539,7 +3543,7 @@ dht_finodelk_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	DHT_STACK_UNWIND (finodelk, frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -3573,7 +3577,7 @@ dht_finodelk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (finodelk, frame, -1, op_errno);
 
 	return 0;
 }
@@ -3584,7 +3588,7 @@ dht_entrylk_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	DHT_STACK_UNWIND (entrylk, frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -3631,7 +3635,7 @@ dht_entrylk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno);
+	DHT_STACK_UNWIND (entrylk, frame, -1, op_errno);
 
 	return 0;
 }
@@ -3642,7 +3646,7 @@ dht_fentrylk_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
-	DHT_STACK_UNWIND (frame, op_ret, op_errno);
+	DHT_STACK_UNWIND (fentrylk, frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -3675,7 +3679,7 @@ dht_fentrylk (call_frame_t *frame, xlator_t *this,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (fentrylk, frame, -1, op_errno);
 
 	return 0;
 }
@@ -3719,7 +3723,7 @@ unlock:
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		DHT_STACK_UNWIND (setattr, frame, local->op_ret, local->op_errno,
 				  &local->prebuf, &local->stbuf);
 
         return 0;
@@ -3780,7 +3784,7 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+	DHT_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
@@ -3837,7 +3841,7 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct stat *stbuf,
 
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+	DHT_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
