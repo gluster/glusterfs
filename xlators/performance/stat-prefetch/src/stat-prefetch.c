@@ -263,6 +263,8 @@ sp_get_cache_inode (xlator_t *this, inode_t *inode, int32_t pid)
         }
 
         cache = sp_get_cache_fd (this, fd);
+
+        fd_unref (fd);
 out:
         return cache;
 }
@@ -365,31 +367,47 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct stat *buf, dict_t *dict, struct stat *postparent)
 {
         struct stat *stbuf = NULL;
-        int32_t      ret = -1;
+        int32_t      ret   = -1;
+        uint64_t     value = 0;
 
         if (op_ret == -1) {
                 goto out;
         }
 
         if (S_ISDIR (buf->st_mode)) {
-                stbuf = CALLOC (1, sizeof (*stbuf));
-                if (stbuf == NULL) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
-                        goto out;
-                }
+                LOCK (&inode->lock);
+                {
+                        ret = __inode_ctx_get (inode, this, &value);
+                        if (ret == 0) {
+                                stbuf = (struct stat *)(long)value;
+                        }
 
-                memcpy (stbuf, buf, sizeof (*stbuf));
-                ret = inode_ctx_put (inode, this, (long)stbuf);
-                if (ret == -1) {
-                        op_ret = -1;
+                        if (stbuf == NULL) {
+                                stbuf = CALLOC (1, sizeof (*stbuf));
+                                if (stbuf == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "out of memory");
+                                        goto unlock;
+                                }
 
-                        /* FIXME: EINVAL is not correct */ 
-                        op_errno = EINVAL;
-                        FREE (stbuf);
-                        goto out;
+                                ret = __inode_ctx_put (inode, this,
+                                                       (long)stbuf);
+                                if (ret == -1) {
+                                        op_ret = -1;
+                                
+                                        /* FIXME: EINVAL is not correct */ 
+                                        op_errno = EINVAL;
+                                        FREE (stbuf);
+                                        goto unlock;
+                                }
+                        }
+                        
+                        memcpy (stbuf, buf, sizeof (*stbuf));
                 }
+        unlock:
+                UNLOCK (&inode->lock);
         }
 
 out:
@@ -649,6 +667,9 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         }
   
         ret = sp_cache_remove_parent_entry (frame, this, path);
+
+        FREE (path);
+
         if (ret < 0) {
                 errno = -ret;
                 goto unwind;
