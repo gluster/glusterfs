@@ -553,7 +553,7 @@ sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this, char *path)
                         if (cache_gp) {
                                 cpy = strdup (parent);
                                 GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name,
-                                                                cpy, out,
+                                                                cpy, out, errno,
                                                                 ENOMEM);
                                 path = basename (cpy);
                                 sp_cache_remove_entry (cache_gp, path, 0);
@@ -696,11 +696,9 @@ wind:
                 }
                 UNLOCK (&inode_ctx->lock);
 
-                op_errno = ENOMEM;  
                 local = CALLOC (1, sizeof (*local));
                 GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind,
-                                                ENOMEM);
-                op_errno = 0;
+                                                op_errno, ENOMEM);
                 
                 frame->local = local;
 
@@ -851,11 +849,13 @@ sp_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         }
 
         local = frame->local;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
+                                        EINVAL);
 
         fd_ctx = sp_fd_ctx_new (this, local->loc.parent,
                                 (char *)local->loc.name, NULL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd_ctx, out, ENOMEM);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd_ctx, out, op_errno,
+                                        ENOMEM);
 
         op_ret = fd_ctx_set (fd, this, (long)(void *)fd_ctx);
         if (op_ret == -1) {
@@ -874,10 +874,11 @@ sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, int wbflags)
 {
         sp_local_t *local = NULL;
-        int32_t     ret   = -1;
+        int32_t     ret   = -1, op_errno = EINVAL;
 
         local = CALLOC (1, sizeof (*local));
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind, ENOMEM);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind, op_errno,
+                                        ENOMEM);
 
         frame->local = local;
 
@@ -891,7 +892,7 @@ sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, fd);
+        SP_STACK_UNWIND (frame, -1, op_errno, fd);
         return 0;
 }
 
@@ -910,11 +911,13 @@ sp_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
+                                        EINVAL);
 
         fd_ctx = sp_fd_ctx_new (this, local->loc.parent,
                                 (char *)local->loc.name, NULL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd_ctx, out, ENOMEM);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd_ctx, out, op_errno,
+                                        ENOMEM);
 
         op_ret = fd_ctx_set (fd, this, (long)(void *)fd_ctx);
         if (op_ret == -1) {
@@ -933,27 +936,35 @@ sp_create (call_frame_t *frame,	xlator_t *this,	loc_t *loc, int32_t flags,
            mode_t mode, fd_t *fd)
 {
         sp_local_t *local     = NULL;
-        int32_t     ret       = -1;
+        int32_t     ret       = -1, op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, unwind,
+                                        op_errno, EINVAL);
 
         ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
         if (ret == -1) {
+                op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto unwind;
         }
 
         local = CALLOC (1, sizeof (*local));
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind, ENOMEM);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind, op_errno,
+                                        ENOMEM);
 
         frame->local = local;
 
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {
+                op_errno = errno;
                 goto unwind;
         }
 
@@ -963,7 +974,7 @@ sp_create (call_frame_t *frame,	xlator_t *this,	loc_t *loc, int32_t flags,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, fd);
+        SP_STACK_UNWIND (frame, -1, op_errno, fd);
         return 0;
 }
 
@@ -972,15 +983,17 @@ int32_t
 sp_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 {
         sp_local_t *local = NULL;
-        int32_t     ret   = -1;
+        int32_t     ret   = -1, op_errno = EINVAL;
 
         local = CALLOC (1, sizeof (*local));
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind, ENOMEM);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind, op_errno,
+                                        ENOMEM);
 
         frame->local = local;
 
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {
+                op_errno = errno;
                 goto unwind;
         }
 
@@ -989,7 +1002,7 @@ sp_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, fd);
+        SP_STACK_UNWIND (frame, -1, op_errno, fd);
         return 0;
 }
 
@@ -1009,16 +1022,22 @@ sp_new_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 {
-        int32_t     ret = 0;
+        int32_t     ret = 0, op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, unwind,
+                                        op_errno, EINVAL);
 
         ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
         if (ret == -1) {
+                op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto unwind;
         }
@@ -1029,7 +1048,7 @@ sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, loc->inode, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, loc->inode, NULL);
         return 0;
 }
 
@@ -1038,16 +1057,22 @@ int32_t
 sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
           dev_t rdev)
 {
-        int32_t     ret = 0;
+        int32_t     ret = 0, op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, unwind,
+                                        op_errno, EINVAL);
 
         ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
         if (ret == -1) {
+                op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto unwind;
         }
@@ -1058,7 +1083,7 @@ sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, loc->inode, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, loc->inode, NULL);
         return 0;
 }
 
@@ -1067,16 +1092,22 @@ int32_t
 sp_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
             loc_t *loc)
 {
-        int32_t     ret = 0;
+        int32_t     ret = 0, op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, unwind,
+                                        op_errno, EINVAL);
 
         ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
         if (ret == -1) {
+                op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto unwind;
         }
@@ -1087,7 +1118,7 @@ sp_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, loc->inode, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, loc->inode, NULL);
         return 0;
 }
 
@@ -1095,16 +1126,22 @@ unwind:
 int32_t
 sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 {
-        int32_t     ret = 0;
+        int32_t     ret = 0, op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, newloc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, newloc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, newloc->path, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, newloc->name, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, newloc->inode, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->path, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->name, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->inode, unwind,
+                                        op_errno, EINVAL);
 
         ret = sp_cache_remove_parent_entry (frame, this, (char *)newloc->path);
         if (ret == -1) {
+                op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto unwind;
         }
@@ -1115,7 +1152,7 @@ sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, oldloc->inode, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, oldloc->inode, NULL);
         return 0;
 }
 
@@ -1123,11 +1160,15 @@ unwind:
 int32_t
 sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
-        sp_cache_t *cache = NULL;
+        sp_cache_t *cache    = NULL;
+        int32_t     op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
 
         cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
         if (cache) {
@@ -1139,7 +1180,7 @@ sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -1193,11 +1234,15 @@ int
 sp_setattr (call_frame_t *frame, xlator_t *this,
             loc_t *loc, struct stat *buf, int32_t valid)
 {
-        sp_cache_t *cache = NULL;
+        sp_cache_t *cache    = NULL;
+        int32_t     op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
 
         cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
         if (cache) {
@@ -1209,7 +1254,7 @@ sp_setattr (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -1227,11 +1272,15 @@ sp_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 sp_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 {
-        sp_cache_t *cache = NULL;
+        sp_cache_t *cache    = NULL;
+        int32_t     op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind,
+                                        op_errno, EINVAL);
 
         cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
         if (cache) {
@@ -1243,7 +1292,7 @@ sp_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -1271,11 +1320,14 @@ int32_t
 sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         sp_cache_t *cache = NULL;
-        int32_t     ret   = 0;
+        int32_t     ret   = 0, op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
 
         cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
         if (cache) {
@@ -1284,6 +1336,7 @@ sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
         if (ret == -1) {
+                op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto unwind;
         }
@@ -1293,7 +1346,7 @@ sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno);
+        SP_STACK_UNWIND (frame, -1, op_errno);
         return 0;
 }
 
@@ -1321,13 +1374,18 @@ int32_t
 sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         sp_cache_t *cache = NULL;
-        int32_t     ret   = -1;
+        int32_t     ret   = -1, op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
 
         sp_remove_caches_from_all_fds_opened (this, loc->inode);
 
@@ -1338,6 +1396,7 @@ sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
         if (ret == -1) {
+                op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto unwind;
         }
@@ -1347,7 +1406,7 @@ sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 
 unwind:
-        STACK_UNWIND (frame, -1, errno);
+        STACK_UNWIND (frame, -1, op_errno);
         return 0;
 }
 
@@ -1474,16 +1533,23 @@ int32_t
 sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
 {
         sp_cache_t *cache = NULL;
-        int32_t     ret   = -1;
+        int32_t     ret   = -1, op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, oldloc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, oldloc->path, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, oldloc->name, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, oldloc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, oldloc->inode, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->path, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->name, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->inode, unwind,
+                                        op_errno, EINVAL);
 
-        GF_VALIDATE_OR_GOTO (this->name, newloc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, newloc->path, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->path, unwind,
+                                        op_errno, EINVAL);
 
         cache = sp_get_cache_inode (this, oldloc->parent, frame->root->pid);
         if (cache) {
@@ -1516,7 +1582,7 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
 	return 0;
 }
 
@@ -1525,11 +1591,15 @@ int32_t
 sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
              int32_t flags)
 {
-        sp_cache_t *cache = NULL;
+        sp_cache_t *cache    = NULL;
+        int32_t     op_errno = EINVAL; 
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
 
         cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
         if (cache) {
@@ -1541,7 +1611,7 @@ sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno);
+        SP_STACK_UNWIND (frame, -1, op_errno);
         return 0;
 }
 
@@ -1550,11 +1620,15 @@ int32_t
 sp_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *name)
 {
-        sp_cache_t *cache = NULL;
+        sp_cache_t *cache    = NULL;
+        int32_t     op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
 
         cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
         if (cache) {
@@ -1710,11 +1784,15 @@ sp_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 sp_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
 {
-        sp_cache_t *cache = NULL;
+        sp_cache_t *cache    = NULL;
+        int32_t     op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind,
+                                        op_errno, EINVAL);
 
         cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
         if (cache) {
@@ -1726,7 +1804,7 @@ sp_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -1744,11 +1822,15 @@ int32_t
 sp_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
             gf_xattrop_flags_t flags, dict_t *dict)
 {
-        sp_cache_t *cache = NULL;
+        sp_cache_t *cache    = NULL;
+        int32_t     op_errno = EINVAL;
 
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->parent, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, unwind, op_errno,
+                                        EINVAL);
 
         cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
         if (cache) {
@@ -1760,7 +1842,7 @@ sp_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
         return 0;
 }
 
