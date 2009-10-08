@@ -2729,6 +2729,94 @@ unwind:
 
 
 int32_t
+sp_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+ 	STACK_UNWIND (frame, op_ret, op_errno, dict);
+ 	return 0;
+}
+
+
+int32_t
+sp_getxattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                    const char *name)
+{
+        uint64_t        value     = 0;
+        sp_inode_ctx_t *inode_ctx = NULL;
+        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+         
+        ret = inode_ctx_get (loc->inode, this, &value);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
+                        "(%p)", loc->inode);
+                op_errno = EINVAL;
+                goto unwind;
+        }
+
+        inode_ctx = (sp_inode_ctx_t *)(long) value;
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
+                                        EINVAL);
+
+        LOCK (&inode_ctx->lock);
+        {
+                op_ret = inode_ctx->op_ret;
+                op_errno = inode_ctx->op_errno;
+        }
+        UNLOCK (&inode_ctx->lock);
+
+        if (op_ret == -1) {
+                goto unwind;
+        }
+
+        STACK_WIND (frame, sp_getxattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->getxattr, loc, name);
+
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+        return 0;
+}
+
+
+int32_t
+sp_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name)
+{
+        int32_t         op_errno     = -1;
+        call_stub_t    *stub         = NULL;
+        char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
+                                        op_errno, EINVAL);
+
+        stub = fop_getxattr_stub (frame, sp_getxattr_helper, loc, name);
+        if (stub == NULL) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
+
+        sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
+                              &need_lookup, &can_wind, &op_errno);
+
+out:
+        if (need_unwind) {
+                SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+        } else if (need_lookup) {
+                STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->lookup, loc, NULL);
+        } else if (can_wind) {
+                STACK_WIND (frame, sp_getxattr_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->getxattr, loc, name);
+        }
+         
+        return 0;
+}
+
+
+int32_t
 sp_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
              dir_entry_t *entries, int32_t count)
 {
@@ -3285,6 +3373,7 @@ struct xlator_fops fops = {
         .setattr     = sp_setattr,
         .stat        = sp_stat,
         .access   = sp_access,
+        .getxattr    = sp_getxattr,
 };
 
 struct xlator_mops mops = {
