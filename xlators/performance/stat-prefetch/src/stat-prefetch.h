@@ -37,6 +37,8 @@ struct sp_cache {
                                          * happen.
                                          */
         gf_lock_t   lock;
+        unsigned long miss;
+        unsigned long hits;
 };
 typedef struct sp_cache sp_cache_t;
 

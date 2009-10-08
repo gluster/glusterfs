@@ -597,6 +597,10 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 
 wind:        
         if (lookup_behind) {
+                if (cache) {
+                        cache->hits++;
+                }
+
                 wind_frame = copy_frame (frame);
                 if (wind_frame == NULL) {
                         op_ret = -1;
@@ -618,6 +622,10 @@ wind:
                 STACK_WIND (wind_frame, sp_lookup_behind_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
         } else {
+                if (cache) {
+                        cache->miss++;
+                }
+
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
      
@@ -1728,10 +1736,17 @@ sp_release (xlator_t *this, fd_t *fd)
         sp_fd_ctx_t *fd_ctx = NULL;
         uint64_t     value  = 0;
         int32_t      ret    = 0;
+        sp_cache_t  *cache  = NULL;
 
         ret = fd_ctx_del (fd, this, &value);
         if (!ret) {
                 fd_ctx = (void *)(long) value;
+                cache = fd_ctx->cache;
+                if (cache) {
+                        gf_log (this->name, GF_LOG_DEBUG, "cache hits: %lu, "
+                                "cache miss: %lu", cache->hits, cache->miss);
+                }
+
                 sp_fd_ctx_free (fd_ctx);      
         }
 
