@@ -62,6 +62,7 @@ trace_stat_to_str (struct stat *stbuf)
 	char atime_buf[256] = {0,};
         char mtime_buf[256] = {0,};
         char ctime_buf[256] = {0,};
+        int  asprint_ret_value = 0;
 
         strftime (atime_buf, 256, "[%b %d %H:%M:%S]",
                   localtime (&stbuf->st_atime));
@@ -70,13 +71,16 @@ trace_stat_to_str (struct stat *stbuf)
         strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
                   localtime (&stbuf->st_ctime));
 
-        asprintf (&statstr,
-                  "st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
-                  "st_uid=%d, st_gid=%d, st_size=%"PRId64", st_blocks=%"PRId64
-                  ", st_atime=%s, st_mtime=%s, st_ctime=%s",
-                  stbuf->st_ino, stbuf->st_mode, stbuf->st_nlink, stbuf->st_uid,
-                  stbuf->st_gid, stbuf->st_size, stbuf->st_blocks, atime_buf,
-                  mtime_buf, ctime_buf);
+        asprint_ret_value = asprintf (&statstr,
+                                      "st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
+                                      "st_uid=%d, st_gid=%d, st_size=%"PRId64", st_blocks=%"PRId64
+                                      ", st_atime=%s, st_mtime=%s, st_ctime=%s",
+                                      stbuf->st_ino, stbuf->st_mode, stbuf->st_nlink, stbuf->st_uid,
+                                      stbuf->st_gid, stbuf->st_size, stbuf->st_blocks, atime_buf,
+                                      mtime_buf, ctime_buf);
+
+        if (asprint_ret_value < 0)
+                statstr = NULL;
 
         return statstr;
 }
