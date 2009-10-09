@@ -4902,7 +4902,7 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                 
                 ret = inode_ctx_get (inode, frame->this, &oldino);
                 if (oldino != stbuf.st_ino) {
-                        if (oldino)
+                        if (oldino) {
                                 gf_log (frame->this->name, GF_LOG_DEBUG,
                                         "LOOKUP %"PRId64"/%s (%s): "
                                         "inode number changed from "
@@ -4911,6 +4911,9 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                         local->loc.name,
                                         local->loc.path,
                                         oldino, stbuf.st_ino);
+                                op_errno = ESTALE;
+                                goto fail;
+                        }
                                 
                         ret = inode_ctx_put (inode, frame->this,
                                              stbuf.st_ino);
