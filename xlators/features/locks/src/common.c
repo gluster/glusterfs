@@ -426,10 +426,6 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 					if (!v.locks[i])
 						continue;
 
-					if (v.locks[i]->fl_type == F_UNLCK) {
-						__destroy_lock (v.locks[i]);
-						continue;
-					}
 					__insert_and_merge (pl_inode,
 							    v.locks[i]);
 				}
