@@ -2242,6 +2242,7 @@ init (xlator_t *this)
                 goto out;
         }
 
+        conf->max_file_size = 65536;
         ret = dict_get_str (this->options, "max-file-size", 
                             &str);
         if (ret == 0) {
@@ -2256,7 +2257,7 @@ init (xlator_t *this)
                 }
         }
 
-        conf->cache_timeout = -1;
+        conf->cache_timeout = 1;
         ret = dict_get_str (this->options, "cache-timeout", &str);
         if (ret == 0) {
                 ret = gf_string2uint_base10 (str, 
