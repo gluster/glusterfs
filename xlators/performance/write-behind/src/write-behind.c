@@ -2557,5 +2557,8 @@ struct volume_options options[] = {
         { .key = {"enable-O_SYNC"},
           .type = GF_OPTION_TYPE_BOOL,
         }, 
+        { .key = {"enable-trickling-writes"},
+          .type = GF_OPTION_TYPE_BOOL,
+        },
         { .key = {NULL} },
 };
