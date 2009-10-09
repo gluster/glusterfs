@@ -380,6 +380,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 					if (!v.locks[i])
 						continue;
 
+                                        INIT_LIST_HEAD (&v.locks[i]->list);
 					__insert_and_merge (pl_inode,
 							    v.locks[i], dom);
 				}
