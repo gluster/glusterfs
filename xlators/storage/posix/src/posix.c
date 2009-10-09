@@ -1486,12 +1486,15 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
 		/* Solaris sets errno = EEXIST instead of ENOTEMPTY */
 		op_errno = ENOTEMPTY;
 
+        /* No need to log a common error as ENOTEMPTY */
         if (op_ret == -1 && op_errno != ENOTEMPTY) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "rmdir of %s failed: %s", loc->path, 
                         strerror (op_errno));
-                goto out;
         }
+
+        if (op_ret == -1)
+                goto out;
 
         op_ret = lstat (parentpath, &postparent);
         if (op_ret == -1) {
