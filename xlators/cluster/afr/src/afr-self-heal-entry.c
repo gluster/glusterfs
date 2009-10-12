@@ -211,6 +211,7 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
 	int              call_count = 0;
 	int              i = 0;
 	dict_t          **erase_xattr = NULL;
+        int              need_unwind = 0;
 
 
 	local = frame->local;
@@ -230,6 +231,9 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
 			dict_ref (erase_xattr[i]);
 		}
 	}
+
+        if (call_count == 0)
+                need_unwind = 1;
 
 	afr_sh_delta_to_xattr (priv, sh->delta_matrix, erase_xattr,
 			       priv->child_count, AFR_ENTRY_TRANSACTION);
@@ -259,6 +263,9 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
 		}
 	}
 	FREE (erase_xattr);
+
+        if (need_unwind)
+                afr_sh_entry_finish (frame, this);
 
 	return 0;
 }
