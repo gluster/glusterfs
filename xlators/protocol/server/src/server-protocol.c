@@ -484,6 +484,9 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (op_ret >= 0) {
 		gf_stat_from_stat (&rsp->stat, stbuf);
+		gf_stat_from_stat (&rsp->preparent, preparent);
+		gf_stat_from_stat (&rsp->postparent, postparent);
+
 		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 		inode_lookup (inode);
 	} else {
@@ -536,6 +539,9 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (op_ret >= 0) {
 		gf_stat_from_stat (&rsp->stat, stbuf);
+                gf_stat_from_stat (&rsp->preparent, preparent);
+                gf_stat_from_stat (&rsp->postparent, postparent);
+
 		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 		inode_lookup (inode);
 	} else {
@@ -1274,6 +1280,9 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (op_ret >= 0) {
 		gf_stat_from_stat (&rsp->stat, stbuf);
+                gf_stat_from_stat (&rsp->preparent, preparent);
+                gf_stat_from_stat (&rsp->postparent, postparent);
+
 		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
 		inode_lookup (inode);
 	} else {
@@ -1327,7 +1336,11 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (op_ret == 0) {
 		stbuf->st_ino = state->loc.inode->ino;
+
 		gf_stat_from_stat (&rsp->stat, stbuf);
+		gf_stat_from_stat (&rsp->preparent, preparent);
+		gf_stat_from_stat (&rsp->postparent, postparent);
+
 		gf_log (state->bound_xl->name, GF_LOG_TRACE,
 			"%"PRId64": LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s",
 			frame->root->unique, inode->ino,
@@ -1862,8 +1875,11 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_errno = hton32 (gf_errno);
 	rsp->fd           = hton64 (state->fd_no);
 
-	if (op_ret >= 0)
+	if (op_ret >= 0) {
 		gf_stat_from_stat (&rsp->stat, stbuf);
+		gf_stat_from_stat (&rsp->preparent, preparent);
+		gf_stat_from_stat (&rsp->postparent, postparent);
+        }
 
 	server_loc_wipe (&(state->loc));
 
