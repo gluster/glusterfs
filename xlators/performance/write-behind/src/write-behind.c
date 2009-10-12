@@ -1725,7 +1725,7 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all)
 {
         list_head_t winds, unwinds, other_requests;
         size_t      size = 0;
-        wb_conf_t  *conf = file->this->private;
+        wb_conf_t  *conf = NULL;
         uint32_t    count = 0;
         int32_t     ret = -1; 
 
@@ -1738,6 +1738,7 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all)
                 goto out;
         }
 
+        conf = file->this->private;
         size = conf->aggregate_size;
         LOCK (&file->lock);
         {
