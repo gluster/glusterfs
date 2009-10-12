@@ -894,18 +894,11 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int done = 0;
 	int child_index = (long) cookie;
 
-	int call_count = 0;
-
 	local = frame->local;
 	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
-		if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
-			/* wait for the other lock to return */
-			call_count = --local->call_count;
-		}
-
 		if (op_ret == -1) {
 			if (op_errno == ENOSYS) {
 				/* return ENOTSUP */
@@ -922,16 +915,14 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 	UNLOCK (&frame->lock);
 	
-	if (call_count == 0) {
-		if ((local->op_ret == -1) &&
-		    (local->op_errno == ENOSYS)) {
-			afr_unlock (frame, this);
-		} else {
-			local->transaction.locked_nodes[child_index] = 1;
-			local->transaction.lock_count++;
-			afr_lock_rec (frame, this, child_index + 1);
-		}
-	}
+        if ((local->op_ret == -1) &&
+            (local->op_errno == ENOSYS)) {
+                afr_unlock (frame, this);
+        } else {
+                local->transaction.locked_nodes[child_index] = 1;
+                local->transaction.lock_count++;
+                afr_lock_rec (frame, this, child_index + 1);
+        }
 
 	return 0;
 }
@@ -951,6 +942,81 @@ lower_path (loc_t *l1, const char *b1, loc_t *l2, const char *b2)
 		return l1;
 	else
 		return l2;
+}
+
+
+int32_t
+afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno)
+{
+        afr_private_t *priv  = NULL;
+        afr_local_t   *local = NULL;
+
+        int child_index = (long) cookie;
+
+	loc_t * lower  = NULL;
+	loc_t * higher = NULL;
+
+	const char *lower_name  = NULL;
+	const char *higher_name = NULL;
+
+        priv  = this->private;
+        local = frame->local;
+
+	LOCK (&frame->lock);
+	{
+		if (op_ret == -1) {
+			if (op_errno == ENOSYS) {
+				/* return ENOTSUP */
+
+				gf_log (this->name, GF_LOG_ERROR,
+					"subvolume does not support locking. "
+					"please load features/posix-locks xlator on server");
+
+				local->op_ret   = op_ret;
+			}
+
+			local->child_up[child_index] = 0;
+			local->op_errno = op_errno;
+		}
+	}
+	UNLOCK (&frame->lock);
+
+        if (local->op_ret != 0) {
+                afr_unlock (frame, this);
+                goto out;
+        } else {
+                local->transaction.locked_nodes[child_index] = 1;
+        }
+
+        /* The lower path has been locked. Now lock the higher path */
+
+        lower = lower_path (&local->transaction.parent_loc,
+                            local->transaction.basename,
+                            &local->transaction.new_parent_loc,
+                            local->transaction.new_basename);
+
+        lower_name = (lower == &local->transaction.parent_loc ?
+                      local->transaction.basename :
+                      local->transaction.new_basename);
+
+        higher = (lower == &local->transaction.parent_loc ?
+                  &local->transaction.new_parent_loc :
+                  &local->transaction.parent_loc);
+
+        higher_name = (higher == &local->transaction.parent_loc ?
+                       local->transaction.basename :
+                       local->transaction.new_basename);
+
+        STACK_WIND_COOKIE (frame, afr_lock_cbk,
+                           (void *) (long) child_index,
+                           priv->children[child_index],
+                           priv->children[child_index]->fops->entrylk,
+                           this->name, higher, higher_name,
+                           ENTRYLK_LOCK, ENTRYLK_WRLCK);
+
+out:
+        return 0;
 }
 
 
@@ -1041,8 +1107,6 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 		
 	case AFR_ENTRY_RENAME_TRANSACTION:
 	{
-		local->call_count = 2;
-
 		lower = lower_path (&local->transaction.parent_loc, 
 				    local->transaction.basename,
 				    &local->transaction.new_parent_loc,
@@ -1060,21 +1124,11 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 			       local->transaction.basename :
 			       local->transaction.new_basename);
 
-
-		/* TODO: these locks should be blocking */
-
-		STACK_WIND_COOKIE (frame, afr_lock_cbk,
+		STACK_WIND_COOKIE (frame, afr_lock_lower_cbk,
 				   (void *) (long) child_index,
 				   priv->children[child_index], 
 				   priv->children[child_index]->fops->entrylk, 
 				   this->name, lower, lower_name,
-				   ENTRYLK_LOCK, ENTRYLK_WRLCK);
-
-		STACK_WIND_COOKIE (frame, afr_lock_cbk,
-				   (void *) (long) child_index,
-				   priv->children[child_index], 
-				   priv->children[child_index]->fops->entrylk, 
-				   this->name, higher, higher_name,
 				   ENTRYLK_LOCK, ENTRYLK_WRLCK);
 
 		break;
