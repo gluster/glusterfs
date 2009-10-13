@@ -919,8 +919,10 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
             (local->op_errno == ENOSYS)) {
                 afr_unlock (frame, this);
         } else {
-                local->transaction.locked_nodes[child_index] = 1;
-                local->transaction.lock_count++;
+                if (op_ret == 0) {
+                        local->transaction.locked_nodes[child_index] = 1;
+                        local->transaction.lock_count++;
+                }
                 afr_lock_rec (frame, this, child_index + 1);
         }
 
