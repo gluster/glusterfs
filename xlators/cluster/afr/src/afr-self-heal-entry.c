@@ -56,6 +56,7 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
+        int              i = 0;
 
 	local = frame->local;
 	sh = &local->self_heal;
@@ -64,6 +65,14 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 	/* 
 	   TODO: cleanup sh->* 
 	*/
+
+        if (sh->healing_fd)
+                fd_unref (sh->healing_fd);
+        sh->healing_fd = NULL;
+
+        for (i = 0; i < priv->child_count; i++) {
+                sh->locked_nodes[i] = 0;
+        }
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"self heal of %s completed",
@@ -107,9 +116,6 @@ afr_sh_entry_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
-		if (sh->healing_fd)
-			fd_unref (sh->healing_fd);
-		sh->healing_fd = NULL;
 		afr_sh_entry_done (frame, this);
 	}
 
@@ -132,12 +138,20 @@ afr_sh_entry_unlock (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	call_count = local->child_count;
+        for (i = 0; i < priv->child_count; i++) {
+                if (sh->locked_nodes[i])
+                        call_count++;
+        }
+
+        if (call_count == 0) {
+                afr_sh_entry_done (frame, this);
+                return 0;
+        }
 
 	local->call_count = call_count;		
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
+		if (sh->locked_nodes[i]) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"unlocking %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
@@ -1977,11 +1991,13 @@ afr_sh_entry_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret == -1) {
 			sh->op_failed = 1;
 
+                        sh->locked_nodes[child_index] = 0;
 			gf_log (this->name, GF_LOG_DEBUG,
 				"locking inode of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
 		} else {
+                        sh->locked_nodes[child_index] = 1;
 			gf_log (this->name, GF_LOG_TRACE,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);

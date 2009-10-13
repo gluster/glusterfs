@@ -84,6 +84,7 @@ typedef struct {
 	int active_source;
 	int active_sinks;
 	int *success;
+	int *locked_nodes;
 
 	fd_t *healing_fd;
 	int   op_failed;
