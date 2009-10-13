@@ -200,6 +200,9 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 	if (sh->success)
 		FREE (sh->success);
 
+	if (sh->locked_nodes)
+		FREE (sh->locked_nodes);
+
 	if (sh->healing_fd) {
 		fd_unref (sh->healing_fd);
 		sh->healing_fd = NULL;

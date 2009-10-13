@@ -713,7 +713,11 @@ afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
 
 //	memset (sh->child_errno, 0, sizeof (int) * priv->child_count);
 	memset (sh->buf, 0, sizeof (struct stat) * priv->child_count);
-	
+
+        for (i = 0; i < priv->child_count; i++) {
+                sh->locked_nodes[i] = 0;
+        }
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->xattr[i])
 			dict_unref (sh->xattr[i]);
@@ -780,12 +784,20 @@ sh_missing_entries_finish (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	call_count = local->child_count;
+        for (i = 0; i < priv->child_count; i++) {
+                if (sh->locked_nodes[i])
+                        call_count++;
+        }
+
+        if (call_count == 0) {
+                afr_sh_missing_entries_done (frame, this);
+                return 0;
+        }
 
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
+		if (sh->locked_nodes[i]) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"unlocking %"PRId64"/%s on subvolume %s",
 				sh->parent_loc.inode->ino, local->loc.name,
@@ -1280,11 +1292,13 @@ sh_missing_entries_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret == -1) {
 			sh->op_failed = 1;
 
+                        sh->locked_nodes[child_index] = 0;
 			gf_log (this->name, GF_LOG_DEBUG,
 				"locking inode of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
 		} else {
+                        sh->locked_nodes[child_index] = 1;
 			gf_log (this->name, GF_LOG_TRACE,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);
@@ -1333,12 +1347,13 @@ afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			STACK_WIND (frame, sh_missing_entries_lk_cbk,
-				    priv->children[i],
-				    priv->children[i]->fops->entrylk,
-                                    this->name,
-				    &sh->parent_loc, local->loc.name,
-				    ENTRYLK_LOCK_NB, ENTRYLK_WRLCK);
+			STACK_WIND_COOKIE (frame, sh_missing_entries_lk_cbk,
+                                           (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->entrylk,
+                                           this->name,
+                                           &sh->parent_loc, local->loc.name,
+                                           ENTRYLK_LOCK_NB, ENTRYLK_WRLCK);
 			if (!--call_count)
 				break;
 		}
@@ -1376,6 +1391,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 	sh->success = CALLOC (priv->child_count, sizeof (int));
 	sh->xattr = CALLOC (priv->child_count, sizeof (dict_t *));
 	sh->sources = CALLOC (sizeof (*sh->sources), priv->child_count);
+	sh->locked_nodes = CALLOC (sizeof (*sh->locked_nodes), priv->child_count);
 
 	sh->pending_matrix = CALLOC (sizeof (int32_t *), priv->child_count);
 	for (i = 0; i < priv->child_count; i++) {

@@ -64,7 +64,11 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 //	memset (sh->child_errno, 0, sizeof (int) * priv->child_count);
 	memset (sh->buf, 0, sizeof (struct stat) * priv->child_count);
 	memset (sh->success, 0, sizeof (int) * priv->child_count);
-	
+
+        for (i = 0; i < priv->child_count; i++) {
+                sh->locked_nodes[i] = 1;
+        }
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->xattr[i])
 			dict_unref (sh->xattr[i]);
@@ -137,7 +141,16 @@ afr_sh_metadata_finish (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	call_count = local->child_count;
+        for (i = 0; i < priv->child_count; i++) {
+                if (sh->locked_nodes[i])
+                        call_count++;
+        }
+
+        if (call_count == 0) {
+                afr_sh_metadata_done (frame, this);
+                return 0;
+        }
+
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {
@@ -145,7 +158,7 @@ afr_sh_metadata_finish (call_frame_t *frame, xlator_t *this)
 		flock.l_len     = 0;
 		flock.l_type    = F_UNLCK;
 
-		if (local->child_up[i]) {
+		if (sh->locked_nodes[i]) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"unlocking %s on subvolume %s",
 				local->loc.path, priv->children[i]->name);
@@ -713,11 +726,13 @@ afr_sh_metadata_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret == -1) {
 			sh->op_failed = 1;
 
+                        sh->locked_nodes[child_index] = 0;
 			gf_log (this->name, GF_LOG_DEBUG,
 				"locking of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
 		} else {
+                        sh->locked_nodes[child_index] = 1;
 			gf_log (this->name, GF_LOG_TRACE,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);
