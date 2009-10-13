@@ -443,6 +443,37 @@ afr_sh_entry_expunge_entry_done (call_frame_t *frame, xlator_t *this,
 	return 0;
 }
 
+int
+afr_sh_entry_expunge_parent_setattr_cbk (call_frame_t *expunge_frame,
+                                         void *cookie, xlator_t *this,
+                                         int32_t op_ret, int32_t op_errno,
+                                         struct stat *preop, struct stat *postop)
+{
+	afr_private_t   *priv          = NULL;
+	afr_local_t     *expunge_local = NULL;
+	afr_self_heal_t *expunge_sh    = NULL;
+        call_frame_t    *frame         = NULL;
+
+        int active_src = (long) cookie;
+
+        priv          = this->private;
+        expunge_local = expunge_frame->local;
+	expunge_sh    = &expunge_local->self_heal;
+	frame         = expunge_sh->sh_frame;
+
+        if (op_ret != 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "setattr on parent directory of %s on subvolume %s failed: %s",
+                        expunge_local->loc.path,
+                        priv->children[active_src]->name, strerror (op_errno));
+        }
+
+	AFR_STACK_DESTROY (expunge_frame);
+	afr_sh_entry_expunge_entry_done (frame, this, active_src);
+
+        return 0;
+}
+
 
 int
 afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
@@ -457,6 +488,8 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
 	int              active_src = 0;
 	call_frame_t    *frame = NULL;
 
+        loc_t parent_loc;
+        int32_t valid = 0;
 
 	priv = this->private;
 	expunge_local = expunge_frame->local;
@@ -478,10 +511,18 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
 			strerror (op_errno));
 	}
 
-	AFR_STACK_DESTROY (expunge_frame);
-	afr_sh_entry_expunge_entry_done (frame, this, active_src);
+        valid = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
+        afr_build_parent_loc (&parent_loc, &expunge_local->loc);
 
-	return 0;
+        STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_parent_setattr_cbk,
+                           (void *) (long) active_src,
+                           priv->children[active_src],
+                           priv->children[active_src]->fops->setattr,
+                           &parent_loc,
+                           &expunge_sh->parentbuf,
+                           valid);
+
+        return 0;
 }
 
 
@@ -674,6 +715,8 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 			"missing entry %s on %s",
 			expunge_local->loc.path,
 			priv->children[source]->name);
+
+                expunge_sh->parentbuf = *postparent;
 
 		afr_sh_entry_expunge_purge (expunge_frame, this, active_src);
 
@@ -1043,6 +1086,31 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 
 
 int
+afr_sh_entry_impunge_parent_setattr_cbk (call_frame_t *impunge_frame,
+                                         void *cookie, xlator_t *this,
+                                         int32_t op_ret, int32_t op_errno,
+                                         struct stat *preop, struct stat *postop)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *impunge_local = NULL;
+
+        int child_index = (long) cookie;
+
+        priv          = this->private;
+        impunge_local = impunge_frame->local;
+
+        if (op_ret != 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "setattr on parent directory of %s on subvolume %s failed: %s",
+                        impunge_local->loc.path,
+                        priv->children[child_index]->name, strerror (op_errno));
+        }
+
+        return 0;
+}
+
+
+int
 afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 				  xlator_t *this,
 				  int32_t op_ret, int32_t op_errno,
@@ -1063,6 +1131,9 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         int              idx = 0;
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
+
+        loc_t   parent_loc;
+        int32_t valid = 0;
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
@@ -1104,6 +1175,17 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 			   priv->children[active_src],
 			   priv->children[active_src]->fops->xattrop,
 			   &impunge_local->loc, GF_XATTROP_ADD_ARRAY, xattr);
+
+        valid = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
+        afr_build_parent_loc (&parent_loc, &impunge_local->loc);
+
+        STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_parent_setattr_cbk,
+                           (void *) (long) child_index,
+                           priv->children[child_index],
+                           priv->children[child_index]->fops->setattr,
+                           &parent_loc,
+                           &impunge_sh->parentbuf,
+                           valid);
 
         dict_unref (xattr);
 
@@ -1321,6 +1403,8 @@ afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
 		goto out;
 	}
 
+        impunge_sh->parentbuf = *postparent;
+
 	impunge_local->cont.lookup.buf = *buf;
 	type = (buf->st_mode & S_IFMT);
 
@@ -1434,6 +1518,8 @@ afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
 			"%s exists under %s",
 			impunge_local->loc.path,
 			priv->children[child_index]->name);
+
+                impunge_sh->parentbuf = *postparent;
 	} else {
 		gf_log (this->name, GF_LOG_TRACE,
 			"looking up %s under %s failed (%s)",
