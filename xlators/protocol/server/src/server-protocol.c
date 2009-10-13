@@ -2190,6 +2190,9 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
+        if (postparent)
+                gf_stat_from_stat (&rsp->postparent, postparent);
+
 	if (op_ret == 0) {
 		root_inode = BOUND_XL(frame)->itable->root;
 		if (inode == root_inode) {
@@ -2200,7 +2203,6 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		gf_stat_from_stat (&rsp->stat, stbuf);
-		gf_stat_from_stat (&rsp->postparent, postparent);
 
 		if (inode->ino == 0) {
 			inode_link (inode, state->loc.parent, 

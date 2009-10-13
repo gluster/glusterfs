@@ -4609,10 +4609,11 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
 	op_ret   = ntoh32 (hdr->rsp.op_ret);
 
+        gf_stat_to_stat (&rsp->postparent, &postparent);
+
 	if (op_ret == 0) {
 		op_ret = -1;
 		gf_stat_to_stat (&rsp->stat, &stbuf);
-		gf_stat_to_stat (&rsp->postparent, &postparent);
                 
                 ret = inode_ctx_get (inode, frame->this, &oldino);
                 if (oldino != stbuf.st_ino) {
@@ -4664,7 +4665,7 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	}
 	gf_errno = ntoh32 (hdr->rsp.op_errno);
 	op_errno = gf_error_to_errno (gf_errno);
-
+        
 fail:
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf, xattr,
                       &postparent);
