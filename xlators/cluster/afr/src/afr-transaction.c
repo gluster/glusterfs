@@ -915,8 +915,8 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 	UNLOCK (&frame->lock);
 	
-        if ((local->op_ret == -1) &&
-            (local->op_errno == ENOSYS)) {
+        if ((op_ret == -1) &&
+            (op_errno == ENOSYS)) {
                 afr_unlock (frame, this);
         } else {
                 if (op_ret == 0) {
@@ -984,7 +984,7 @@ afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 	UNLOCK (&frame->lock);
 
-        if (local->op_ret != 0) {
+        if (op_ret != 0) {
                 afr_unlock (frame, this);
                 goto out;
         } else {
