@@ -69,6 +69,7 @@ typedef struct _afr_private {
 typedef struct {
 	/* array of stat's, one for each child */
 	struct stat *buf;
+        struct stat parentbuf;
 
 	/* array of xattr's, one for each child */
 	dict_t **xattr;

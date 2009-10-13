@@ -853,9 +853,9 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 	call_frame_t    *setattr_frame = NULL;
 	int              call_count = 0;
 	int              child_index = 0;
-        
+
 	struct stat     stbuf;
-        int32_t         valid = 0;
+        int32_t valid;
 
 	local = frame->local;
 	sh    = &local->self_heal;
@@ -1204,6 +1204,7 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 				buf->st_mode);
 
 			local->self_heal.buf[child_index] = *buf;
+
 		} else {
 			gf_log (this->name, GF_LOG_TRACE,
 				"path %s on subvolume %s => -1 (%s)",
