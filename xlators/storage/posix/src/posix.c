@@ -306,6 +306,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         struct stat buf                = {0, };
         char *      real_path          = NULL;
         int32_t     op_ret             = -1;
+        int32_t     entry_ret          = 0;
         int32_t     op_errno           = 0;
         dict_t *    xattr              = NULL;
         char *      pathdup            = NULL;
@@ -331,7 +332,9 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 				"lstat on %s failed: %s",
 				loc->path, strerror (op_errno));
 		}
-                goto out;
+
+                entry_ret = -1;
+                goto parent;
         }
 
 	/* Make sure we don't access another mountpoint inside export dir.
@@ -362,6 +365,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 						 xattr_req, &buf);
         }
 
+parent:
         pathdup = strdup (real_path);
         GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
@@ -376,7 +380,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-	op_ret = 0;
+        op_ret = entry_ret;
 out:
         if (pathdup)
                 FREE (pathdup);
