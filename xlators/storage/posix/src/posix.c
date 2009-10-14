@@ -1986,7 +1986,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
               fd_t *fd)
 {
         int32_t                op_ret      = -1;
-        int32_t                op_errno    = EINVAL;
+        int32_t                op_errno    = 0;
         int32_t                _fd         = -1;
         int                    _flags      = 0;
         char *                 real_path   = NULL;
