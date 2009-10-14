@@ -1540,8 +1540,7 @@ qr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         unlock:
                 UNLOCK (&qr_fd_ctx->lock);
         } else {
-                op_ret = 0;
-                need_unwind = 1;
+                can_wind = 1;
         }
 
         if (need_unwind) {
