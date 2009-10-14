@@ -27,6 +27,12 @@
 #include <alloca.h>
 
 
+#define LOCKED_NO       0x0        /* no lock held */
+#define LOCKED_YES      0x1        /* for DATA, METADATA, ENTRY and higher_path
+                                      of RENAME */
+#define LOCKED_LOWER    0x2        /* for lower_path of RENAME */
+
+
 static void
 afr_pid_save (call_frame_t *frame)
 {
@@ -379,6 +385,43 @@ afr_lock_server_count (afr_private_t *priv, afr_transaction_type type)
 
 /* {{{ unlock */
 
+static int
+afr_transaction_locked_nodes_count (afr_local_t *local, int child_count)
+{
+        int i;
+        int call_count = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (local->transaction.locked_nodes[i] & LOCKED_YES)
+                        call_count++;
+
+                if ((local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION)
+                    && (local->transaction.locked_nodes[i] & LOCKED_LOWER)) {
+                        call_count++;
+                }
+        }
+
+        return call_count;
+}
+
+
+static loc_t *
+lower_path (loc_t *l1, const char *b1, loc_t *l2, const char *b2)
+{
+	int ret = 0;
+
+	ret = strcmp (l1->path, l2->path);
+	
+	if (ret == 0) 
+		ret = strcmp (b1, b2);
+
+	if (ret <= 0)
+		return l1;
+	else
+		return l2;
+}
+
+
 int32_t
 afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int32_t op_ret, int32_t op_errno)
@@ -413,6 +456,12 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 	afr_local_t *local = NULL;
 	afr_private_t * priv = this->private;
 
+        loc_t * lower  = NULL;
+        loc_t * higher = NULL;
+
+        const char *lower_name  = NULL;
+        const char *higher_name = NULL;
+
 	local = frame->local;
 
         /*
@@ -422,16 +471,13 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 
         frame->root->pid = (long) frame->root;
 
-	call_count = afr_locked_nodes_count (local->transaction.locked_nodes, 
-					     priv->child_count);
-	
+	call_count = afr_transaction_locked_nodes_count (local,
+                                                         priv->child_count);
+
 	if (call_count == 0) {
 		local->transaction.done (frame, this);
 		return 0;
 	}
-
-	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) 
-		call_count *= 2;
 
 	local->call_count = call_count;		
 
@@ -440,66 +486,101 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 		flock.l_len   = local->transaction.len;
 		flock.l_type  = F_UNLCK;			
 
-		if (local->transaction.locked_nodes[i]) {
-			switch (local->transaction.type) {
-			case AFR_DATA_TRANSACTION:
-			case AFR_METADATA_TRANSACTION:
-			case AFR_FLUSH_TRANSACTION:
+                switch (local->transaction.type) {
+                case AFR_DATA_TRANSACTION:
+                case AFR_METADATA_TRANSACTION:
+                case AFR_FLUSH_TRANSACTION:
 
-				if (local->fd) {
-					STACK_WIND (frame, afr_unlock_common_cbk,	
-						    priv->children[i], 
-						    priv->children[i]->fops->finodelk, 
-						    this->name, local->fd, 
+                        if (local->transaction.locked_nodes[i] & LOCKED_YES) {
+                                if (local->fd) {
+                                        STACK_WIND (frame, afr_unlock_common_cbk,	
+                                                    priv->children[i], 
+                                                    priv->children[i]->fops->finodelk, 
+                                                    this->name, local->fd, 
                                                     F_SETLK, &flock); 
-				} else {
-					STACK_WIND (frame, afr_unlock_common_cbk,	
-						    priv->children[i], 
-						    priv->children[i]->fops->inodelk, 
-						    this->name, &local->loc,
+                                } else {
+                                        STACK_WIND (frame, afr_unlock_common_cbk,	
+                                                    priv->children[i], 
+                                                    priv->children[i]->fops->inodelk, 
+                                                    this->name, &local->loc,
                                                     F_SETLK, &flock); 
-				}
-				
-				break;
+                                }
 
-			case AFR_ENTRY_RENAME_TRANSACTION:
-				
-				STACK_WIND (frame, afr_unlock_common_cbk,	
-					    priv->children[i], 
-					    priv->children[i]->fops->entrylk, 
+                                call_count--;
+                        }
+
+                        break;
+
+                case AFR_ENTRY_RENAME_TRANSACTION:
+                        lower = lower_path (&local->transaction.parent_loc,
+                                            local->transaction.basename,
+                                            &local->transaction.new_parent_loc,
+                                            local->transaction.new_basename);
+
+                        lower_name = (lower == &local->transaction.parent_loc ?
+                                      local->transaction.basename :
+                                      local->transaction.new_basename);
+
+                        higher = (lower == &local->transaction.parent_loc ?
+                                  &local->transaction.new_parent_loc :
+                                  &local->transaction.parent_loc);
+
+                        higher_name = (higher == &local->transaction.parent_loc ?
+                                       local->transaction.basename :
+                                       local->transaction.new_basename);
+
+                        if (local->transaction.locked_nodes[i] & LOCKED_LOWER) {
+                                STACK_WIND (frame, afr_unlock_common_cbk,	
+                                            priv->children[i], 
+                                            priv->children[i]->fops->entrylk, 
                                             this->name,
-					    &local->transaction.new_parent_loc, 
-					    local->transaction.new_basename,
-					    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+                                            lower, lower_name,
+                                            ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 
-				call_count--;
+                                call_count--;
+                        }
 
-				/* fall through */
+                        if (local->transaction.locked_nodes[i] & LOCKED_YES) {
+                                STACK_WIND (frame, afr_unlock_common_cbk,	
+                                            priv->children[i], 
+                                            priv->children[i]->fops->entrylk, 
+                                            this->name,
+                                            higher, higher_name,
+                                            ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 
-			case AFR_ENTRY_TRANSACTION:
-				if (local->fd) {
-					STACK_WIND (frame, afr_unlock_common_cbk,	
-						    priv->children[i], 
-						    priv->children[i]->fops->fentrylk, 
-						    this->name, local->fd, 
-						    local->transaction.basename,
-						    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
-				} else {
-					STACK_WIND (frame, afr_unlock_common_cbk,	
-						    priv->children[i], 
-						    priv->children[i]->fops->entrylk, 
-						    this->name,
+                                call_count--;
+                        }
+
+                        break;
+
+                case AFR_ENTRY_TRANSACTION:
+                        if (local->transaction.locked_nodes[i] & LOCKED_YES) {
+                                if (local->fd) {
+                                        STACK_WIND (frame, afr_unlock_common_cbk,	
+                                                    priv->children[i], 
+                                                    priv->children[i]->fops->fentrylk, 
+                                                    this->name, local->fd, 
+                                                    local->transaction.basename,
+                                                    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+                                } else {
+                                        STACK_WIND (frame, afr_unlock_common_cbk,	
+                                                    priv->children[i], 
+                                                    priv->children[i]->fops->entrylk, 
+                                                    this->name,
                                                     &local->transaction.parent_loc, 
-						    local->transaction.basename,
-						    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+                                                    local->transaction.basename,
+                                                    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
 
-				}
-				break;
-			}
-			
-			if (!--call_count)
-				break;
-		}
+                                }
+
+                                call_count--;
+                        }
+
+                        break;
+                }
+
+                if (!call_count)
+                        break;
 	}
 
 	return 0;
@@ -920,30 +1001,14 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 afr_unlock (frame, this);
         } else {
                 if (op_ret == 0) {
-                        local->transaction.locked_nodes[child_index] = 1;
+                        local->transaction.locked_nodes[child_index]
+                                |= LOCKED_YES;
                         local->transaction.lock_count++;
                 }
                 afr_lock_rec (frame, this, child_index + 1);
         }
 
 	return 0;
-}
-
-
-static loc_t *
-lower_path (loc_t *l1, const char *b1, loc_t *l2, const char *b2)
-{
-	int ret = 0;
-
-	ret = strcmp (l1->path, l2->path);
-	
-	if (ret == 0) 
-		ret = strcmp (b1, b2);
-
-	if (ret <= 0)
-		return l1;
-	else
-		return l2;
 }
 
 
@@ -988,7 +1053,7 @@ afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 afr_unlock (frame, this);
                 goto out;
         } else {
-                local->transaction.locked_nodes[child_index] = 1;
+                local->transaction.locked_nodes[child_index] |= LOCKED_LOWER;
         }
 
         /* The lower path has been locked. Now lock the higher path */
@@ -1057,7 +1122,7 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 		local->op_ret   = -1;
 		local->op_errno = EAGAIN;
 
-		local->transaction.done (frame, this);
+                afr_unlock (frame, this);
 		
 		return 0;
 
