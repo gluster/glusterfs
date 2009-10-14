@@ -369,7 +369,7 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
 out:
-	STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, dict);
+	STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, dict, postparent);
 
 	if (need_unref) {
 		dict_unref (dict);
@@ -399,7 +399,7 @@ ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 if (local == NULL) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "out of memory");
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
+                        STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
                         return 0;
                 }
 
@@ -797,7 +797,8 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	frame->local = NULL;
 	FREE (local);
 
-	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+        STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf, preparent,
+                      postparent);
 
 	return 0;
 }
