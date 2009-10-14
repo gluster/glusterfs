@@ -643,6 +643,7 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                             FIRST_CHILD(this)->fops->stat,
                             loc);
         }
+        return 0;
 
 unwind:
         STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL);
@@ -1828,7 +1829,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         }
 
 	file = (wb_file_t *)(long)tmp_file;
-        if ((!S_ISDIR (fd->inode->st_mode)) && (file != NULL)) {
+        if ((!S_ISDIR (fd->inode->st_mode)) && (file == NULL)) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "wb_file not found for fd %p", fd);
                 op_errno = EBADFD;
