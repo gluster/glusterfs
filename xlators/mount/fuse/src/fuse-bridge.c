@@ -1142,7 +1142,7 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_setattr_in *fsi = msg;
 
-        struct stat attr;
+        struct stat attr = {0, };
 
         fuse_state_t *state = NULL;
         int32_t       ret   = -1;
@@ -1183,6 +1183,8 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 attr.st_size  = fsi->size;
                 attr.st_atime = fsi->atime;
                 attr.st_mtime = fsi->mtime;
+                ST_ATIM_NSEC_SET (&attr, fsi->atimensec);
+                ST_MTIM_NSEC_SET (&attr, fsi->mtimensec);
 
                 attr.st_mode = fsi->mode;
                 attr.st_uid  = fsi->uid;
