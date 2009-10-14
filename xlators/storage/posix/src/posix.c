@@ -490,7 +490,7 @@ posix_do_utimes (xlator_t *this,
         tv[0].tv_sec  = stbuf->st_atime;
         tv[0].tv_usec = ST_ATIM_NSEC (stbuf) / 1000;
         tv[1].tv_sec  = stbuf->st_mtime;
-        tv[1].tv_usec = ST_ATIM_NSEC (stbuf) / 1000;
+        tv[1].tv_usec = ST_MTIM_NSEC (stbuf) / 1000;
 
         ret = utimes (path, tv);
 
