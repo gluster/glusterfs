@@ -2338,6 +2338,7 @@ init (xlator_t *this)
 	char * change_log  = NULL;
 
 	int32_t lock_server_count = 1;
+        int32_t window_size;
 
 	int    fav_ret       = -1;
 	int    read_ret      = -1;
@@ -2390,6 +2391,19 @@ init (xlator_t *this)
         if (dict_ret == 0) {
                 priv->data_self_heal_algorithm = strdup (algo);
         }
+
+
+        priv->data_self_heal_window_size = 16;
+
+	dict_ret = dict_get_int32 (this->options, "data-self-heal-window-size",
+				   &window_size);
+	if (dict_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Setting data self-heal window size to %d.",
+			window_size);
+
+		priv->data_self_heal_window_size = window_size;
+	}
 
 	dict_ret = dict_get_str (this->options, "metadata-self-heal",
 				 &self_heal);
@@ -2664,6 +2678,11 @@ struct volume_options options[] = {
 	},
         { .key  = {"data-self-heal-algorithm"},
           .type = GF_OPTION_TYPE_STR
+        },
+        { .key  = {"data-self-heal-window-size"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 1,
+          .max  = 1024
         },
 	{ .key  = {"metadata-self-heal"},  
 	  .type = GF_OPTION_TYPE_BOOL

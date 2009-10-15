@@ -45,8 +45,10 @@ typedef struct _afr_private {
 
         char **pending_key;
 
-	gf_boolean_t data_self_heal;           /* on/off */
-        char *       data_self_heal_algorithm; /* name of algorithm */
+	gf_boolean_t data_self_heal;              /* on/off */
+        char *       data_self_heal_algorithm;    /* name of algorithm */
+        unsigned int data_self_heal_window_size;  /* max number of pipelined
+                                                     read/writes */
 
 	gf_boolean_t metadata_self_heal;   /* on/off */
 	gf_boolean_t entry_self_heal;      /* on/off */
