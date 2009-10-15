@@ -191,6 +191,7 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 
 unwind:	
+        pl_update_refkeeper (this, loc->inode);
 	STACK_UNWIND (frame, op_ret, op_errno);
 out:
 	return 0;
@@ -293,6 +294,7 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 
 unwind:	
+        pl_update_refkeeper (this, fd->inode);
 	STACK_UNWIND (frame, op_ret, op_errno);
 out:
 	return 0;
@@ -782,6 +784,7 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 
 	op_ret = 0;
 out:
+        pl_update_refkeeper (this, loc->inode);
 	if (unwind) {
 		STACK_UNWIND (frame, op_ret, op_errno);
 	}
@@ -888,6 +891,7 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 
 	op_ret = 0;
 out:
+        pl_update_refkeeper (this, fd->inode);
 	if (unwind) {
 		STACK_UNWIND (frame, op_ret, op_errno);
 	}

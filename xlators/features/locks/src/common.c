@@ -35,6 +35,7 @@
 #include "common-utils.h"
 
 #include "locks.h"
+#include "common.h"
 
 
 static int
@@ -47,6 +48,53 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock,
 #define DOMAIN_HEAD(pl_inode, dom) (dom == GF_LOCK_POSIX	\
 				    ? &pl_inode->ext_list	\
 				    : &pl_inode->int_list)
+
+
+int
+__pl_inode_is_empty (pl_inode_t *pl_inode)
+{
+        int is_empty = 1;
+
+        if (!list_empty (&pl_inode->ext_list))
+                is_empty = 0;
+
+        if (!list_empty (&pl_inode->int_list))
+                is_empty = 0;
+
+        if (!list_empty (&pl_inode->dir_list))
+                is_empty = 0;
+
+        return is_empty;
+}
+
+void
+pl_update_refkeeper (xlator_t *this, inode_t *inode)
+{
+        pl_inode_t *pl_inode  = NULL;
+        int         is_empty  = 0;
+        int         need_unref = 0;
+
+        pl_inode = pl_inode_get (this, inode);
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                is_empty = __pl_inode_is_empty (pl_inode);
+
+                if (is_empty && pl_inode->refkeeper) {
+                        need_unref = 1;
+                        pl_inode->refkeeper = NULL;
+                }
+
+                if (!is_empty && !pl_inode->refkeeper) {
+                        pl_inode->refkeeper = inode_ref (inode);
+                }
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+        if (need_unref)
+                inode_unref (inode);
+}
+
 
 pl_inode_t *
 pl_inode_get (xlator_t *this, inode_t *inode)

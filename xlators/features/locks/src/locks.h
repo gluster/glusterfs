@@ -89,6 +89,9 @@ struct __pl_inode {
 	struct list_head int_list;       /* list of internal locks */
 	struct list_head rw_list;        /* list of waiting r/w requests */
 	int              mandatory;      /* if mandatory locking is enabled */
+
+        inode_t          *refkeeper;     /* hold refs on an inode while locks are
+                                            held to prevent pruning */
 };
 typedef struct __pl_inode pl_inode_t;
 

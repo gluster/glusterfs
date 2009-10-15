@@ -687,6 +687,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 	}
 
 unwind:
+        pl_update_refkeeper (this, fd->inode);
 	STACK_UNWIND (frame, op_ret, op_errno, flock);
 out:
 	return 0;

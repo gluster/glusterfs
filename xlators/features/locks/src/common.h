@@ -49,4 +49,6 @@ void __delete_lock (pl_inode_t *, posix_lock_t *);
 
 void __destroy_lock (posix_lock_t *);
 
+void pl_update_refkeeper (xlator_t *this, inode_t *inode);
+
 #endif /* __COMMON_H__ */
