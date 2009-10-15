@@ -344,10 +344,7 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         char             is_open = 0;
 
         local = frame->local;
-        if (local == NULL) {
-                op_ret = -1;
-                op_errno = EINVAL;
-        } else {
+        if (local != NULL) {
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
                 is_open = local->is_open;
