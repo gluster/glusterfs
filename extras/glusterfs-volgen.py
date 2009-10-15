@@ -1,5 +1,5 @@
 #!/usr/bin/python
-                                                              
+
 import getopt, sys, os, string
 
 transport_type = "tcp"
@@ -36,7 +36,7 @@ def print_mount_volume (mount_fd, servers):
     global num_replica
     global num_stripe
     global cache_size
-    
+
     # Make sure 'server list is uniq'
     tmp_servers = []
     for server in servers:
@@ -46,7 +46,7 @@ def print_mount_volume (mount_fd, servers):
         tmp_servers.append (server);
 
     num_servers = len (servers)
-    
+
     if num_servers is 0:
         print "no servers given, exiting"
         sys.exit (1)
@@ -57,7 +57,7 @@ def print_mount_volume (mount_fd, servers):
             print "raid type (%d) and number of of hosts (%d) not appropriate" % (raid_type, num_servers)
             sys.exit (1)
         num_stripe = 1
-        
+
     if raid_type == 0:
         if (num_servers % num_stripe) != 0:
             print "raid type (%d) and number of of hosts (%d) not appropriate" % (raid_type, num_servers)
@@ -92,7 +92,7 @@ def print_mount_volume (mount_fd, servers):
 
     subvolumes = []
     subvolumes.append (host)
-    
+
     # Stripe section.. if given
     if raid_type is 0 or raid_type is 10:
         subvolumes = []
@@ -136,7 +136,7 @@ def print_mount_volume (mount_fd, servers):
                 if (flag % num_replica) is 0:
                     subvolumes.append (string.join (temp, ' '))
                     temp = []
-                    
+
         max_mirror_idx = len (servers) / (num_replica * num_stripe)
         mirror_idx = 0
         while mirror_idx < max_mirror_idx:
@@ -151,7 +151,7 @@ def print_mount_volume (mount_fd, servers):
         subvolumes = []
         for host in servers:
             subvolumes.append (host)
-            
+
     elif raid_type is 0:
         subvolumes = []
         flag = 0
@@ -177,7 +177,7 @@ def print_mount_volume (mount_fd, servers):
     mount_fd.write ("    option cache-size 4MB\n")
     mount_fd.write ("    subvolumes %s\n" % subvolumes[0])
     mount_fd.write ("end-volume\n\n")
-    
+
     mount_fd.write ("volume io-cache\n")
     mount_fd.write ("    type performance/io-cache\n")
     mount_fd.write ("    option cache-size %s\n" % cache_size)
@@ -214,7 +214,7 @@ def print_export_volume (exp_fd, export_dir):
     exp_fd.write ("    option thread-count 8\n")
     exp_fd.write ("    subvolumes locks\n")
     exp_fd.write ("end-volume\n\n")
-    
+
     exp_fd.write ("volume server\n")
     exp_fd.write ("    type protocol/server\n")
     exp_fd.write ("    option transport-type %s\n" % transport_type)
@@ -222,7 +222,7 @@ def print_export_volume (exp_fd, export_dir):
     exp_fd.write ("    option listen-port %d\n" % gfs_port)
     exp_fd.write ("    subvolumes brick\n")
     exp_fd.write ("end-volume\n\n")
-    
+
     return
 
 def upgrade_mount_volume (volume_path, new_servers):
@@ -230,7 +230,7 @@ def upgrade_mount_volume (volume_path, new_servers):
     global transport_type
     global gfs_port
     global raid_type
-    
+
     try:
         tmp_read_fd = file (volume_path, "r")
     except:
@@ -244,21 +244,21 @@ def upgrade_mount_volume (volume_path, new_servers):
     for line in volume_file_buf:
         if line[0:6] == "# RAID":
             raid_type = int (line[7:])
-        
+
         volume_name = ""
         if line[0:6] == "volume":
             volume_name = line[7:]
             if (volume_name == "stripe-0" or volume_name == "mirror-0" or volume_name == "distribute"):
                 break
             old_servers.append (volume_name)
-        
+
         if (len (line) > 22 and line[7:21] == "transport-type"):
             transport_type = line[22:]
 
         if (len (line) > 20 and line[7:18] == "remote-port"):
             gfs_port = int (line[19:])
 
-        
+
     servers = old_servers + new_servers
 
     # Make sure 'server list is uniq'
@@ -268,7 +268,7 @@ def upgrade_mount_volume (volume_path, new_servers):
             print "duplicate entry in server list (%s).. exiting" % server
             sys.exit (1)
         tmp_servers.append (server);
-    
+
     try:
         tmp_fd = file (volume_path, "w")
     except:
@@ -286,7 +286,7 @@ def main ():
     global raid_type
     global num_replica
     global num_stripe
-    
+
     main_name = None
 
     needs_upgrade = None
@@ -295,8 +295,8 @@ def main ():
     export_dir = None
 
     # TODO: take this variable from --prefix option.
-    confdir = "/usr/local/etc/glusterfs" 
-    
+    confdir = "/usr/local/etc/glusterfs"
+
     #rport = $(($(ls ${confdir}/glusterfs/ | sort | head -n 1 | cut -f 1 -d -) - 10));
     #cache_size = "$(free | grep 'Mem:' | awk '{print $2 * .40}')KB"; # 40% of available memory
 
@@ -321,31 +321,31 @@ def main ():
     except getopt.GetoptError, (msg, opt):
         print msg
         sys.exit (1)
-                        
+
     for (o, val) in opt:
         if o == '--usage' or o == '--help':
             print_usage (sys.argv[0])
             sys.exit (0)
-            
+
         if o == '--upgrade':
             needs_upgrade = 1
 
         if o == '--num-stripe':
             num_stripe = int (val)
-            
+
         if o == '--num-replica':
             num_replica = int (val)
-            
+
         if o == '-n' or o == '--name':
             main_name = val
 
         if o == '-o' or o == '--conf-dir':
             print val
             confdir = val
-            
+
         if o == '-d' or o == '--export-directory':
             export_dir = val
-            
+
         if o == '-p' or o == '--port':
             gfs_port = int (val)
 
@@ -355,7 +355,7 @@ def main ():
         if o == '-r' or o == '--raid':
             if (val != "1" and val != "0" and val != "10"):
                 print "--raid: option " + val + " is not valid raid type"
-                sys.exit (1)                
+                sys.exit (1)
             raid_type = int (val)
 
         if o == '-t' or o == '--transport':
@@ -363,7 +363,7 @@ def main ():
                 print "--transport: option " + val + " is not valid transport type"
                 sys.exit (1)
             transport_type = val
-    
+
     if main_name is None:
         print "'--name' option not given, exiting"
         sys.exit (1)
@@ -373,7 +373,7 @@ def main ():
     mount_volume_path  = "%s/%s-mount.vol" % (confdir, main_name)
 
     num_servers = len (args)
-    
+
     if num_servers is 0:
         print "no servers given, exiting"
         sys.exit (1)
@@ -385,7 +385,7 @@ def main ():
     if export_dir is None:
         print "'--export-directory' option not given, exiting"
         sys.exit (1)
-        
+
     try:
         exp_fd = file (export_volume_path, "w")
     except:
