@@ -166,20 +166,9 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		struct stat *stbuf, dict_t *dict, struct stat *postparent)
 {
 	ioc_inode_t   *ioc_inode = NULL;
-	ioc_local_t   *local = frame->local;
 	ioc_table_t   *table = this->private;
-	ioc_page_t    *page = NULL;
-	data_t        *content_data = NULL;
-	char          *src = NULL;
-	char          need_unref = 0;
 	uint8_t       cache_still_valid = 0;
-	uint32_t      weight = 0;
 	uint64_t      tmp_ioc_inode = 0;
-	char          *buf = NULL;
-	char          *tmp = NULL;
-	int           i;
-        struct iobref *iobref = NULL;
-        struct iobuf  *iobuf = NULL;
 	
 	if (op_ret != 0) 
 		goto out;
@@ -208,179 +197,8 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		ioc_table_unlock (ioc_inode->table);
 	}
 	
-	if (local && stbuf->st_size && 
-	    local->need_xattr >= stbuf->st_size) {
-		if (!ioc_inode) {
-			weight = ioc_get_priority (table, 
-						   local->file_loc.path);
-			ioc_inode = ioc_inode_update (table, 
-						      inode, weight);
-                        if (ioc_inode == NULL) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "out of memory");
-                                op_ret = -1;
-                                op_errno = ENOMEM;
-                                goto out;
-                        }
-
-			inode_ctx_put (inode, this, 
-				       (uint64_t)(long)ioc_inode);
-		}
-		
-		ioc_inode_lock (ioc_inode);
-		{
-			content_data = dict_get (dict, "glusterfs.content");
-			page = ioc_page_get (ioc_inode, 0);
-			
-			if (content_data) {
-				if (page) {
-					iobref_unref (page->iobref);
-					free (page->vector);
-					page->vector = NULL;
-					
-					ioc_table_lock (table);
-					{
-						table->cache_used -= 
-							iobref_size (page->iobref);
-					}
-					ioc_table_unlock (table);
-				} else {
-					page = ioc_page_create (ioc_inode, 0);
-                                        if (page == NULL) {
-                                                op_ret = -1;
-                                                op_errno = ENOMEM;
-                                                gf_log (this->name,
-                                                        GF_LOG_ERROR,
-                                                        "out of memory");
-                                                goto out;
-                                        }
-				}
-
-				src = data_to_ptr (content_data);
-
-                                iobuf = iobuf_get (this->ctx->iobuf_pool);
-				page->iobref = iobref_new ();
-                                if (page->iobref == NULL) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "out of memory");
-                                        
-                                        ioc_page_destroy (page);
-                                        page = NULL;
-                                        op_ret = -1;
-                                        op_errno = ENOMEM;
-                                        goto out;
-                                }
-
-                                iobref_add (page->iobref, iobuf);
-				
-				memcpy (iobuf->ptr, src, stbuf->st_size);
-
-				page->vector = CALLOC (1, 
-						       sizeof (*page->vector));
-                                
-                                if (page->vector == NULL) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "out of memory");
-
-                                        op_ret = -1;
-                                        op_errno = ENOMEM;
-                                        ioc_page_destroy (page);
-                                        page = NULL;
-                                        goto out;
-                                }
-
-				page->vector->iov_base = iobuf->ptr;
-				page->vector->iov_len = stbuf->st_size;
-				page->count = 1;
-      
-				page->waitq = NULL;
-				page->size = stbuf->st_size;
-				page->ready = 1;
-
-				ioc_table_lock (table);
-				{
-					table->cache_used +=
-                                                iobref_size (page->iobref);
-				}
-				ioc_table_unlock (table);
-				
-			} else {
-				if (!(page && page->ready)) {
-					gf_log (this->name, GF_LOG_DEBUG,
-						"page not present");
-					
-					ioc_inode_unlock (ioc_inode);
-					STACK_WIND (frame, ioc_lookup_cbk,
-                                                    FIRST_CHILD (this),
-						    FIRST_CHILD (this)->fops->lookup,
-						    &local->file_loc,
-                                                    local->xattr_req);
-					return 0;
-				} 
-				buf = CALLOC (1, stbuf->st_size);
-                                if (buf == NULL) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "out of memory");
-                                        op_ret = -1;
-                                        op_errno = ENOMEM;
-                                        goto out;
-                                }
-
-				tmp = buf;
-
-				for (i = 0; i < page->count; i++) {
-					memcpy (tmp, page->vector[i].iov_base, 
-						page->vector[i].iov_len);
-					tmp += page->vector[i].iov_len;
-				}
-				
-				gf_log (this->name, GF_LOG_TRACE,
-					"serving file %s from cache", 
-					local->file_loc.path);
-				
-				if (!dict) {
-                                        dict = get_new_dict ();
-                                        if (dict == NULL) {
-                                                /* logged in get_new_dict() */
-                                                FREE (buf);
-                                                buf = tmp = NULL;
-                                                op_ret = -1;
-                                                op_errno = ENOMEM;
-                                                goto out;
-                                        }
-
-                                        need_unref = 1;
-                                        dict_ref (dict);
-				}
-				dict_set (dict, "glusterfs.content",
-					  data_from_dynptr (buf, 
-							    stbuf->st_size));
-			}
-
-			ioc_inode->mtime = stbuf->st_mtime;
-			gettimeofday (&ioc_inode->tv, NULL);
-		}
-		ioc_inode_unlock (ioc_inode);
-		
-		if (content_data && 
-		    ioc_need_prune (ioc_inode->table)) {
-			ioc_prune (ioc_inode->table);
-		}
-	}
-
 out:
 	STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, dict, postparent);
-
-	if (need_unref) {
-		dict_unref (dict);
-	}
-
-        if (iobref)
-                iobref_unref (iobref);
-
-        if (iobuf)
-                iobuf_unref (iobuf);
-
 	return 0;
 }
 
@@ -388,43 +206,6 @@ int32_t
 ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	    dict_t *xattr_req)
 {
-	uint64_t    content_limit = 0;
-        uint64_t    tmp_ioc_inode = 0;
-        ioc_inode_t *ioc_inode = NULL;
-        ioc_page_t  *page = NULL;
-        ioc_local_t *local = NULL;
-
-	if (GF_FILE_CONTENT_REQUESTED(xattr_req, &content_limit)) {
-                local = CALLOC (1, sizeof (*local));
-                if (local == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory");
-                        STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
-                        return 0;
-                }
-
-		local->need_xattr = content_limit;
-		local->file_loc.path = loc->path;
-		local->file_loc.inode = loc->inode;
-		frame->local = local;
-
-		inode_ctx_get (loc->inode, this, &tmp_ioc_inode);
-		ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
-
-		if (ioc_inode) {
-			ioc_inode_lock (ioc_inode);
-			{
-				page = ioc_page_get (ioc_inode, 0);
-				if ((content_limit <= 
-				     ioc_inode->table->page_size) && 
-				    page && page->ready) {
-					local->need_xattr = -1;
-				}
-			}
-			ioc_inode_unlock (ioc_inode);
-		}
-	}
-
 	STACK_WIND (frame, ioc_lookup_cbk, FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->lookup, loc, xattr_req);
 
