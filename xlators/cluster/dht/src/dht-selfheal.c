@@ -270,6 +270,27 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 	return 0;
 }
 
+
+int
+dht_selfheal_layout_alloc_start (xlator_t *this, loc_t *loc,
+                                 dht_layout_t *layout)
+{
+        int           start = 0;
+        dht_conf_t   *conf = NULL;
+        uint32_t      hashval = 0;
+        int           ret = 0;
+
+        conf = this->private;
+
+        ret = dht_hash_compute (layout->type, loc->path, &hashval);
+        if (ret == 0) {
+                start = (hashval % layout->cnt);
+        }
+
+        return start;
+}
+
+
 void
 dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 				   dht_layout_t *layout)
@@ -281,6 +302,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 	uint32_t     start = 0;
 	int          cnt = 0;
 	int          err = 0;
+        int          start_subvol = 0;
 
 	this = frame->this;
 	conf = this->private;
@@ -306,8 +328,28 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 
 	chunk = ((unsigned long) 0xffffffff) / cnt;
 
-	start = 0;
-	for (i = 0; i < layout->cnt; i++) {
+	start_subvol = dht_selfheal_layout_alloc_start (this, loc, layout);
+
+	for (i = start_subvol; i < layout->cnt; i++) {
+		err = layout->list[i].err;
+		if (err == -1) {
+			layout->list[i].start = start;
+			layout->list[i].stop  = start + chunk - 1;
+			
+			start = start + chunk;
+
+			gf_log (this->name, GF_LOG_TRACE,
+				"gave fix: %u - %u on %s for %s",
+				layout->list[i].start, layout->list[i].stop,
+				layout->list[i].xlator->name, loc->path);
+			if (--cnt == 0) {
+				layout->list[i].stop = 0xffffffff;
+				break;
+			}
+		}
+	}
+
+	for (i = 0; i < start_subvol; i++) {
 		err = layout->list[i].err;
 		if (err == -1) {
 			layout->list[i].start = start;
