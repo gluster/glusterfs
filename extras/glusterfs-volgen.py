@@ -304,7 +304,7 @@ def main ():
     mount_volume_path="/dev/stdout"
 
     try:
-        (opt, args) = getopt.getopt (sys.argv[1:], "r:t:c:p:d:n:uh",
+        (opt, args) = getopt.getopt (sys.argv[1:], "r:t:c:p:d:n:o:uh",
                                      ["raid=",
                                       "transport=",
                                       "cache-size=",
@@ -313,6 +313,7 @@ def main ():
                                       "num-stripe=",
                                       "num-replica=",
                                       "name=",
+                                      "conf-dir=",
                                       "upgrade",
                                       "usage",
                                       "help"])
@@ -337,6 +338,10 @@ def main ():
             
         if o == '-n' or o == '--name':
             main_name = val
+
+        if o == '-o' or o == '--conf-dir':
+            print val
+            confdir = val
             
         if o == '-d' or o == '--export-directory':
             export_dir = val
