@@ -1127,33 +1127,7 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         wb_request_t *request = NULL;
         int32_t       ret = -1, op_errno = EINVAL;
 
-	if (loc->inode)
-        {
-                /*
-		  FIXME: fd_lookup extends life of fd till the execution of
-                  setattr_cbk
-                */
-                iter_fd = fd_lookup (loc->inode, frame->root->pid);
-                if (iter_fd) {
-                        if (!fd_ctx_get (iter_fd, this, &tmp_file)){
-                                file = (wb_file_t *)(long)tmp_file;
-                        } else {
-                                fd_unref (iter_fd);
-                        }
-                }
-        }
-
-	local = CALLOC (1, sizeof (*local));
-        if (local == NULL) {
-                op_errno = ENOMEM;
-                goto unwind;
-        }
-
-        local->file = file;
-
-        frame->local = local;
-
-        if (!(valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME))) {
+	if (!(valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME))) {
                 STACK_WIND (frame,
                             wb_setattr_cbk,
                             FIRST_CHILD (this),
@@ -1178,6 +1152,15 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         }
 
+        local = CALLOC (1, sizeof (*local));
+        if (local == NULL) {
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        local->file = file;
+
+        frame->local = local;
 
         if (file) {
                 stub = fop_setattr_stub (frame, wb_setattr_helper, loc, stbuf, valid);
