@@ -2875,13 +2875,6 @@ dht_create (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-        local = dht_local_init (frame);
-        if (!local) {
-                op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
-                goto err;
-        }
         ret = loc_dup (loc, &local->loc);
         if (ret == -1) {
                 op_errno = ENOMEM;
