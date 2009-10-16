@@ -65,4 +65,6 @@ void
 grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 			   pl_entry_lock_t *unlocked, pl_dom_list_t *dom);
 
+void pl_update_refkeeper (xlator_t *this, inode_t *inode);
+
 #endif /* __COMMON_H__ */
