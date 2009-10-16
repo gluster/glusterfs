@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <time.h>
 
 #ifdef linux
 #ifdef __GLIBC__
@@ -107,6 +108,12 @@ struct posix_private {
 
         int             num_devices_to_span;
         dev_t          *st_device;
+
+/* a global generation number sequence is used to assign generation numbers in 
+   sequence.
+*/
+        uint64_t        gen_seq;
+        gf_lock_t       gen_lock;
 };
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
