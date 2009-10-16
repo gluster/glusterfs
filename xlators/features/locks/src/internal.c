@@ -618,6 +618,9 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 	list_for_each_entry_safe (lock, tmp, &granted_list, blocked_locks) {
 		list_del_init (&lock->blocked_locks);
 
+                entrylk_trace_out (this, lock->frame, NULL, NULL, NULL,
+                                   lock->basename, ENTRYLK_LOCK, lock->type,
+                                   0, 0);
 		STACK_UNWIND (lock->frame, 0, 0);
 
 		FREE (lock->basename);
@@ -715,6 +718,8 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 	pid       = frame->root->pid;
 	transport = frame->root->trans;
 
+        entrylk_trace_in (this, frame, volume, NULL, loc, basename, cmd, type);
+
 	if (pid == 0) {
 		/* 
 		   this is a special case that means release
@@ -786,8 +791,13 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 out:
         pl_update_refkeeper (this, loc->inode);
 	if (unwind) {
+                entrylk_trace_out (this, frame, volume, NULL, loc, basename,
+                                   cmd, type, op_ret, op_errno);
 		STACK_UNWIND (frame, op_ret, op_errno);
-	}
+	} else {
+                entrylk_trace_block (this, frame, volume, NULL, loc, basename,
+                                     cmd, type);
+        }
 	
 	return 0;
 }
@@ -824,6 +834,8 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 
 	pid       = frame->root->pid;
 	transport = frame->root->trans;
+
+        entrylk_trace_in (this, frame, volume, fd, NULL, basename, cmd, type);
 
 	if (pid == 0) {
 		/* 
@@ -893,8 +905,13 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 out:
         pl_update_refkeeper (this, fd->inode);
 	if (unwind) {
+                entrylk_trace_out (this, frame, volume, fd, NULL, basename,
+                                   cmd, type, op_ret, op_errno);
 		STACK_UNWIND (frame, op_ret, op_errno);
-	}
+	} else {
+                entrylk_trace_block (this, frame, volume, fd, NULL, basename,
+                                     cmd, type);
+        }
 	
 	return 0;
 }

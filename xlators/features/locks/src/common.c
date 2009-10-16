@@ -636,9 +636,13 @@ pl_print_lockee (char *str, int size, fd_t *fd, loc_t *loc)
                 return;
         }
 
-        ret = inode_path (inode, NULL, &ipath);
-        if (ret <= 0)
-                ipath = NULL;
+        if (loc && loc->path) {
+                ipath = strdup (loc->path);
+        } else {
+                ret = inode_path (inode, NULL, &ipath);
+                if (ret <= 0)
+                        ipath = NULL;
+        }
 
         snprintf (str, size, "ino=%llu, fd=%p, path=%s",
                   (unsigned long long) inode->ino, fd,
@@ -823,5 +827,126 @@ pl_trace_flush (xlator_t *this, call_frame_t *frame, fd_t *fd)
         gf_log (this->name, GF_LOG_NORMAL,
                 "[FLUSH] Locker = {%s} Lockee = {%s}",
                 pl_locker, pl_lockee);
+}
+
+
+
+void
+pl_print_entrylk (char *str, int size, entrylk_cmd cmd, entrylk_type type,
+                  const char *basename)
+{
+        char *cmd_str = NULL;
+        char *type_str = NULL;
+
+        switch (cmd) {
+        case ENTRYLK_LOCK:
+                cmd_str = "LOCK";
+                break;
+
+        case ENTRYLK_LOCK_NB:
+                cmd_str = "LOCK_NB";
+                break;
+
+        case ENTRYLK_UNLOCK:
+                cmd_str = "UNLOCK";
+                break;
+
+        default:
+                cmd_str = "UNKNOWN";
+                break;
+        }
+
+        switch (type) {
+        case ENTRYLK_RDLCK:
+                type_str = "READ";
+                break;
+        case ENTRYLK_WRLCK:
+                type_str = "WRITE";
+                break;
+        default:
+                type_str = "UNKNOWN";
+                break;
+        }
+
+        snprintf (str, size, "cmd=%s, type=%s, basename=%s",
+                  cmd_str, type_str, basename);
+}
+
+
+void
+entrylk_trace_in (xlator_t *this, call_frame_t *frame, const char *domain,
+                  fd_t *fd, loc_t *loc, const char *basename,
+                  entrylk_cmd cmd, entrylk_type type)
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_locker[256];
+        char                    pl_lockee[256];
+        char                    pl_entrylk[256];
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_print_locker (pl_locker, 256, this, frame);
+        pl_print_lockee (pl_lockee, 256, fd, loc);
+        pl_print_entrylk (pl_entrylk, 256, cmd, type, basename);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[REQUEST] Locker = {%s} Lockee = {%s} Lock = {%s}",
+                pl_locker, pl_lockee, pl_entrylk);
+}
+
+
+void
+entrylk_trace_out (xlator_t *this, call_frame_t *frame, const char *domain,
+                   fd_t *fd, loc_t *loc, const char *basename,
+                   entrylk_cmd cmd, entrylk_type type, int op_ret, int op_errno)
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_locker[256];
+        char                    pl_lockee[256];
+        char                    pl_entrylk[256];
+        char                    verdict[32];
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_print_locker (pl_locker, 256, this, frame);
+        pl_print_lockee (pl_lockee, 256, fd, loc);
+        pl_print_entrylk (pl_entrylk, 256, cmd, type, basename);
+        pl_print_verdict (verdict, 32, op_ret, op_errno);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[%s] Locker = {%s} Lockee = {%s} Lock = {%s}",
+                verdict, pl_locker, pl_lockee, pl_entrylk);
+}
+
+
+void
+entrylk_trace_block (xlator_t *this, call_frame_t *frame, const char *volume,
+                     fd_t *fd, loc_t *loc, const char *basename,
+                     entrylk_cmd cmd, entrylk_type type)
+
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_locker[256];
+        char                    pl_lockee[256];
+        char                    pl_entrylk[256];
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_print_locker (pl_locker, 256, this, frame);
+        pl_print_lockee (pl_lockee, 256, fd, loc);
+        pl_print_entrylk (pl_entrylk, 256, cmd, type, basename);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[BLOCKED] Locker = {%s} Lockee = {%s} Lock = {%s}",
+                pl_locker, pl_lockee, pl_entrylk);
 }
 

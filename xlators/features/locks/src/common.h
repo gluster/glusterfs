@@ -62,4 +62,17 @@ void pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, int cmd,
 
 void pl_trace_flush (xlator_t *this, call_frame_t *frame, fd_t *fd);
 
+void entrylk_trace_in (xlator_t *this, call_frame_t *frame, const char *volume,
+                       fd_t *fd, loc_t *loc, const char *basename,
+                       entrylk_cmd cmd, entrylk_type type);
+
+void entrylk_trace_out (xlator_t *this, call_frame_t *frame, const char *volume,
+                        fd_t *fd, loc_t *loc, const char *basename,
+                        entrylk_cmd cmd, entrylk_type type,
+                        int op_ret, int op_errno);
+
+void entrylk_trace_block (xlator_t *this, call_frame_t *frame, const char *volume,
+                          fd_t *fd, loc_t *loc, const char *basename,
+                          entrylk_cmd cmd, entrylk_type type);
+
 #endif /* __COMMON_H__ */
