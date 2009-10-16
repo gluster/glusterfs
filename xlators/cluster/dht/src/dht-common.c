@@ -701,7 +701,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		dht_itransform (this, prev->this, stbuf->st_ino,
 				&stbuf->st_ino);
-                postparent->st_ino = loc->parent->ino;
+                if (loc->parent)
+                        postparent->st_ino = loc->parent->ino;
 
 		ret = dht_layout_preset (this, prev->this, inode);
 		if (ret < 0) {
@@ -2426,6 +2427,14 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
 
         dht_get_du_info (frame, this, loc);
 
+	local = dht_local_init (frame);
+	if (!local) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory");
+		goto err;
+	}
+
 	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -2488,13 +2497,22 @@ int
 dht_symlink (call_frame_t *frame, xlator_t *this,
 	     const char *linkname, loc_t *loc)
 {
-	xlator_t  *subvol = NULL;
-	int        op_errno = -1;
+	xlator_t    *subvol = NULL;
+	int          op_errno = -1;
+        dht_local_t *local = NULL;
 
 
 	VALIDATE_OR_GOTO (frame, err);
 	VALIDATE_OR_GOTO (this, err);
 	VALIDATE_OR_GOTO (loc, err);
+
+	local = dht_local_init (frame);
+	if (!local) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory");
+		goto err;
+	}
 
 	subvol = dht_subvol_get_hashed (this, loc);
 	if (!subvol) {
