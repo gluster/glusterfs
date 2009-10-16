@@ -534,6 +534,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 
 	op_ret = 0;
 out:
+        pl_update_refkeeper (this, inode);
 	if (unwind) {
 		STACK_UNWIND_STRICT (entrylk, frame, op_ret, op_errno);
 	}

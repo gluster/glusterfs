@@ -86,12 +86,12 @@ struct __pl_rw_req_t {
 typedef struct __pl_rw_req_t pl_rw_req_t;
 
 struct __pl_dom_list_t {
-        const char *domain;
-        struct list_head inode_list;       /* list_head back to pl_inode_t */
-        struct list_head entrylk_list;     /* List of entry locks */
-        struct list_head blocked_entrylks; /* List of all blocked entrylks */
-        struct list_head inodelk_list;     /* List of inode locks */
-        struct list_head blocked_inodelks; /* List of all blocked inodelks */
+        struct list_head   inode_list;       /* list_head back to pl_inode_t */
+        const char        *domain;
+        struct list_head   entrylk_list;     /* List of entry locks */
+        struct list_head   blocked_entrylks; /* List of all blocked entrylks */
+        struct list_head   inodelk_list;     /* List of inode locks */
+        struct list_head   blocked_inodelks; /* List of all blocked inodelks */
 };
 typedef struct __pl_dom_list_t pl_dom_list_t;
 
@@ -123,6 +123,9 @@ struct __pl_inode {
 	struct list_head ext_list;       /* list of fcntl locks */
 	struct list_head rw_list;        /* list of waiting r/w requests */
 	int              mandatory;      /* if mandatory locking is enabled */
+
+        inode_t          *refkeeper;     /* hold refs on an inode while locks are
+                                            held to prevent pruning */
 };
 typedef struct __pl_inode pl_inode_t;
 

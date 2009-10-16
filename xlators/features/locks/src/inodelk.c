@@ -525,6 +525,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 	op_ret = 0;
 
 unwind:
+        pl_update_refkeeper (this, inode);
 	STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
 out:
 	return 0;
