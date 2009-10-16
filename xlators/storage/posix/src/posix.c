@@ -270,6 +270,7 @@ posix_lstat_with_gen (xlator_t *this, const char *path, struct stat *stbuf_p)
         }
 
         if (ret >= 0) {
+                ret = 0;
                 stbuf.st_dev = gen_val;
                 if (stbuf_p)
                         *stbuf_p = stbuf;
@@ -329,6 +330,7 @@ posix_fstat_with_gen (xlator_t *this, int fd, struct stat *stbuf_p)
         }
 
         if (ret >= 0) {
+                ret = 0;
                 stbuf.st_dev = gen_val;
                 if (stbuf_p)
                         *stbuf_p = stbuf;
