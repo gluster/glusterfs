@@ -1127,6 +1127,16 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         wb_request_t *request = NULL;
         int32_t       ret = -1, op_errno = EINVAL;
 
+        local = CALLOC (1, sizeof (*local));
+        if (local == NULL) {
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        local->file = file;
+
+        frame->local = local;
+
 	if (!(valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME))) {
                 STACK_WIND (frame,
                             wb_setattr_cbk,
@@ -1151,16 +1161,6 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
 
         }
-
-        local = CALLOC (1, sizeof (*local));
-        if (local == NULL) {
-                op_errno = ENOMEM;
-                goto unwind;
-        }
-
-        local->file = file;
-
-        frame->local = local;
 
         if (file) {
                 stub = fop_setattr_stub (frame, wb_setattr_helper, loc, stbuf, valid);
