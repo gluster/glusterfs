@@ -450,7 +450,7 @@ posix_do_chmod (xlator_t *this,
 {
         int32_t ret = -1;
 
-        ret = chmod (path, stbuf->st_mode);
+        ret = lchmod (path, stbuf->st_mode);
         if ((ret == -1) && (errno == ENOSYS)) {
                 ret = chmod (path, stbuf->st_mode);
         }
@@ -474,7 +474,7 @@ posix_do_chown (xlator_t *this,
         if (valid & GF_SET_ATTR_GID)
                 gid = stbuf->st_gid;
 
-        ret = chown (path, uid, gid);
+        ret = lchown (path, uid, gid);
 
         return ret;
 }
