@@ -312,6 +312,7 @@ init (xlator_t *this)
         }
 
 	LOCK_INIT (&conf->subvolume_lock);
+	LOCK_INIT (&conf->layout_lock);
 
 	conf->gen = 1;
 

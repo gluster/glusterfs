@@ -439,7 +439,7 @@ dht_selfheal_new_directory (call_frame_t *frame,
 	local = frame->local;
 
 	local->selfheal.dir_cbk = dir_cbk;
-	local->selfheal.layout = layout;
+	local->selfheal.layout = dht_layout_ref (frame->this, layout);
 
 	dht_layout_sort_volname (layout);
 	dht_selfheal_layout_new_directory (frame, &local->loc, layout);	
@@ -478,7 +478,7 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	misc     = local->selfheal.misc;
 
 	local->selfheal.dir_cbk = dir_cbk;
-	local->selfheal.layout = layout;
+	local->selfheal.layout = dht_layout_ref (this, layout);
 
 	if (down) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -526,7 +526,7 @@ dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	local = frame->local;
 
 	local->selfheal.dir_cbk = dir_cbk;
-	local->selfheal.layout = layout;
+	local->selfheal.layout = dht_layout_ref (frame->this, layout);
 
 	ret = dht_selfheal_dir_mkdir (frame, loc, layout, 1);
 

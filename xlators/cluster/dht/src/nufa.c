@@ -33,7 +33,6 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        inode_t *inode, struct stat *stbuf, dict_t *xattr,
                        struct stat *postparent)
 {
-	dht_layout_t *layout      = NULL;
         xlator_t     *subvol      = NULL;
         char          is_linkfile = 0;
         char          is_dir      = 0;
@@ -43,6 +42,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           i           = 0;
         call_frame_t *prev        = NULL;
 	int           call_cnt    = 0;
+        int           ret         = 0;
 
 
         conf  = this->private;
@@ -71,17 +71,16 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		dht_itransform (this, prev->this, stbuf->st_ino,
 				&stbuf->st_ino);
 
-		layout = dht_layout_for_subvol (this, prev->this);
-		if (!layout) {
+		ret = dht_layout_preset (this, prev->this, inode);
+		if (ret < 0) {
 			gf_log (this->name, GF_LOG_DEBUG,
-				"no pre-set layout for subvolume %s",
+				"could not set pre-set layout for subvol %s",
 				prev->this->name);
 			op_ret   = -1;
 			op_errno = EINVAL;
 			goto err;
 		}
 
-                inode_ctx_put (inode, this, (uint64_t)(long)layout);
                 goto out;
         }
 
@@ -205,7 +204,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 	local->hashed_subvol = hashed_subvol;
 
         if (is_revalidate (loc)) {
-		layout = dht_layout_get (this, loc->inode);
+		local->layout = layout = dht_layout_get (this, loc->inode);
 
                 if (!layout) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -219,8 +218,8 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 			gf_log (this->name, GF_LOG_DEBUG,
 				"incomplete layout failure for path=%s",
 				loc->path);
-			op_errno = ESTALE;
-			goto err;
+                        dht_layout_unref (this, local->layout);
+			goto do_fresh_lookup;
 		}
 
 		local->inode    = inode_ref (loc->inode);
@@ -246,6 +245,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 				break;
 		}
 	} else {
+        do_fresh_lookup:
 		ret = dict_set_uint32 (local->xattr_req, 
 				       "trusted.glusterfs.dht", 4 * 4);
 

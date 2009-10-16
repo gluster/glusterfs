@@ -54,6 +54,8 @@ dht_layout_new (xlator_t *this, int cnt)
 	layout->cnt = cnt;
         if (conf)
                 layout->gen = conf->gen;
+
+        layout->ref = 1;
 out:
 	return layout;
 }
@@ -62,12 +64,92 @@ out:
 dht_layout_t *
 dht_layout_get (xlator_t *this, inode_t *inode)
 {
-        uint64_t layout = 0;
-        int      ret    = -1;
+        dht_conf_t   *conf = NULL;
+        uint64_t      layout_int = 0;
+        dht_layout_t *layout = NULL;
+        int           ret    = -1;
 
-        ret = inode_ctx_get (inode, this, &layout);
+        conf = this->private;
+        LOCK (&conf->layout_lock);
+        {
+                ret = inode_ctx_get (inode, this, &layout_int);
+                if (ret == 0) {
+                        layout = (dht_layout_t *) (unsigned long) layout_int;
+                        layout->ref++;
+                }
+        }
+        UNLOCK (&conf->layout_lock);
 
-        return (dht_layout_t *)(long)layout;
+        return layout;
+}
+
+
+int
+dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout)
+{
+        dht_conf_t   *conf = NULL;
+        int           oldret = -1;
+        int           ret = 0;
+        dht_layout_t *old_layout;
+        uint64_t      old_layout_int;
+
+        conf = this->private;
+        LOCK (&conf->layout_lock);
+        {
+                oldret = inode_ctx_get (inode, this, &old_layout_int);
+
+                layout->ref++;
+                ret = inode_ctx_put (inode, this, (uint64_t) (unsigned long)
+                                     layout);
+        }
+        UNLOCK (&conf->layout_lock);
+
+        if (oldret == 0) {
+                old_layout = (dht_layout_t *) (unsigned long) old_layout_int;
+                dht_layout_unref (this, old_layout);
+        }
+
+        return ret;
+}
+
+
+void
+dht_layout_unref (xlator_t *this, dht_layout_t *layout)
+{
+        dht_conf_t  *conf = NULL;
+        int          ref = 0;
+
+        if (layout->preset)
+                return;
+
+        conf = this->private;
+        LOCK (&conf->layout_lock);
+        {
+                ref = --layout->ref;
+        }
+        UNLOCK (&conf->layout_lock);
+
+        if (!ref)
+                FREE (layout);
+}
+
+
+dht_layout_t *
+dht_layout_ref (xlator_t *this, dht_layout_t *layout)
+{
+        dht_conf_t  *conf = NULL;
+
+        if (layout->preset)
+                return layout;
+
+        conf = this->private;
+        LOCK (&conf->layout_lock);
+        {
+                layout->ref++;
+        }
+        UNLOCK (&conf->layout_lock);
+
+        return layout;
 }
 
 
@@ -599,10 +681,13 @@ out:
 
 
 int
-dht_layout_inode_set (xlator_t *this, xlator_t *subvol, inode_t *inode)
+dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode)
 {
         dht_layout_t *layout = NULL;
-        int ret = -1;
+        int           ret = -1;
+        dht_conf_t   *conf = NULL;
+
+        conf = this->private;
 
 	layout = dht_layout_for_subvol (this, subvol);
 	if (!layout) {
@@ -613,8 +698,12 @@ dht_layout_inode_set (xlator_t *this, xlator_t *subvol, inode_t *inode)
 		goto out;
 	}
 
-	inode_ctx_put (inode, this, (uint64_t)(long)layout);
-        
+        LOCK (&conf->layout_lock);
+        {
+                inode_ctx_put (inode, this, (uint64_t)(long)layout);
+        }
+        UNLOCK (&conf->layout_lock);
+
         ret = 0;
 out:
         return ret;
