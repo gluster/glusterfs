@@ -372,34 +372,34 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
     
 		memcpy (v.locks[1], small, sizeof (posix_lock_t));
 	}
-	else {
-		gf_log ("posix-locks", GF_LOG_ERROR,
-			"Unexpected case in subtract_locks. Please send "
+        else {
+                gf_log ("posix-locks", GF_LOG_ERROR,
+                        "Unexpected case in subtract_locks. Please send "
                         "a bug report to gluster-devel@nongnu.org");
-	}
+        }
 
-	return v;
+        return v;
 }
 
 /*
-   Start searching from {begin}, and return the first lock that
-   conflicts, NULL if no conflict
-   If {begin} is NULL, then start from the beginning of the list
+  Start searching from {begin}, and return the first lock that
+  conflicts, NULL if no conflict
+  If {begin} is NULL, then start from the beginning of the list
 */
 static posix_lock_t *
 first_overlap (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
-	posix_lock_t *l = NULL;
+        posix_lock_t *l = NULL;
 
-	list_for_each_entry (l, &pl_inode->ext_list, list) {
-		if (l->blocked)
-			continue;
+        list_for_each_entry (l, &pl_inode->ext_list, list) {
+                if (l->blocked)
+                        continue;
 
-		if (locks_overlap (l, lock))
-			return l;
-	}
+                if (locks_overlap (l, lock))
+                        return l;
+        }
 
-	return NULL;
+        return NULL;
 }
 
 
@@ -408,21 +408,21 @@ first_overlap (pl_inode_t *pl_inode, posix_lock_t *lock)
 static int
 __is_lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
-	posix_lock_t *l = NULL;
-	int           ret = 1;
+        posix_lock_t *l = NULL;
+        int           ret = 1;
 
-	list_for_each_entry (l, &pl_inode->ext_list, list) {
-		if (!l->blocked && locks_overlap (lock, l)) {
-			if (((l->fl_type == F_WRLCK)
-			     || (lock->fl_type == F_WRLCK))
-			    && (lock->fl_type != F_UNLCK)
-			    && !same_owner (l, lock)) {
-				ret = 0;
-				break;
-			}
-		}
-	}
-	return ret;
+        list_for_each_entry (l, &pl_inode->ext_list, list) {
+                if (!l->blocked && locks_overlap (lock, l)) {
+                        if (((l->fl_type == F_WRLCK)
+                             || (lock->fl_type == F_WRLCK))
+                            && (lock->fl_type != F_UNLCK)
+                            && !same_owner (l, lock)) {
+                                ret = 0;
+                                break;
+                        }
+                }
+        }
+        return ret;
 }
 
 
@@ -432,224 +432,224 @@ extern void do_blocked_rw (pl_inode_t *);
 static void
 __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
-	posix_lock_t  *conf = NULL;
-	posix_lock_t  *t = NULL;
-	posix_lock_t  *sum = NULL;
-	int            i = 0;
-	struct _values v = { .locks = {0, 0, 0} };
+        posix_lock_t  *conf = NULL;
+        posix_lock_t  *t = NULL;
+        posix_lock_t  *sum = NULL;
+        int            i = 0;
+        struct _values v = { .locks = {0, 0, 0} };
 
-	list_for_each_entry_safe (conf, t, &pl_inode->ext_list, list) {
-		if (!locks_overlap (conf, lock))
-			continue;
+        list_for_each_entry_safe (conf, t, &pl_inode->ext_list, list) {
+                if (!locks_overlap (conf, lock))
+                        continue;
 
-		if (same_owner (conf, lock)) {
-			if (conf->fl_type == lock->fl_type) {
-				sum = add_locks (lock, conf);
+                if (same_owner (conf, lock)) {
+                        if (conf->fl_type == lock->fl_type) {
+                                sum = add_locks (lock, conf);
 
-				sum->fl_type    = lock->fl_type;
-				sum->transport  = lock->transport;
-				sum->client_pid = lock->client_pid;
+                                sum->fl_type    = lock->fl_type;
+                                sum->transport  = lock->transport;
+                                sum->client_pid = lock->client_pid;
 
-				__delete_lock (pl_inode, conf);
-				__destroy_lock (conf);
+                                __delete_lock (pl_inode, conf);
+                                __destroy_lock (conf);
 
-				__destroy_lock (lock);
-				__insert_and_merge (pl_inode, sum);
+                                __destroy_lock (lock);
+                                __insert_and_merge (pl_inode, sum);
 
-				return;
-			} else {
-				sum = add_locks (lock, conf);
+                                return;
+                        } else {
+                                sum = add_locks (lock, conf);
 
-				sum->fl_type    = conf->fl_type;
-				sum->transport  = conf->transport;
-				sum->client_pid = conf->client_pid;
+                                sum->fl_type    = conf->fl_type;
+                                sum->transport  = conf->transport;
+                                sum->client_pid = conf->client_pid;
 
-				v = subtract_locks (sum, lock);
+                                v = subtract_locks (sum, lock);
 
-				__delete_lock (pl_inode, conf);
-				__destroy_lock (conf);
+                                __delete_lock (pl_inode, conf);
+                                __destroy_lock (conf);
 
-				__delete_lock (pl_inode, lock);
-				__destroy_lock (lock);
+                                __delete_lock (pl_inode, lock);
+                                __destroy_lock (lock);
 
-				__destroy_lock (sum);
+                                __destroy_lock (sum);
 
-				for (i = 0; i < 3; i++) {
-					if (!v.locks[i])
-						continue;
+                                for (i = 0; i < 3; i++) {
+                                        if (!v.locks[i])
+                                                continue;
 
                                         INIT_LIST_HEAD (&v.locks[i]->list);
-					__insert_and_merge (pl_inode,
-							    v.locks[i]);
-				}
+                                        __insert_and_merge (pl_inode,
+                                                            v.locks[i]);
+                                }
 
-				__delete_unlck_locks (pl_inode);
-				return;
-			}
-		}
+                                __delete_unlck_locks (pl_inode);
+                                return;
+                        }
+                }
 
-		if (lock->fl_type == F_UNLCK) {
-			continue;
-		}
+                if (lock->fl_type == F_UNLCK) {
+                        continue;
+                }
 
-		if ((conf->fl_type == F_RDLCK) && (lock->fl_type == F_RDLCK)) {
-			__insert_lock (pl_inode, lock);
-			return;
-		}
-	}
+                if ((conf->fl_type == F_RDLCK) && (lock->fl_type == F_RDLCK)) {
+                        __insert_lock (pl_inode, lock);
+                        return;
+                }
+        }
 
-	/* no conflicts, so just insert */
-	if (lock->fl_type != F_UNLCK) {
-		__insert_lock (pl_inode, lock);
-	} else {
-		__destroy_lock (lock);
-	}
+        /* no conflicts, so just insert */
+        if (lock->fl_type != F_UNLCK) {
+                __insert_lock (pl_inode, lock);
+        } else {
+                __destroy_lock (lock);
+        }
 }
 
 
 void
 __grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode, struct list_head *granted)
 {
-	struct list_head  tmp_list;
-	posix_lock_t     *l = NULL;
-	posix_lock_t     *tmp = NULL;
-	posix_lock_t     *conf = NULL;
+        struct list_head  tmp_list;
+        posix_lock_t     *l = NULL;
+        posix_lock_t     *tmp = NULL;
+        posix_lock_t     *conf = NULL;
 
-	INIT_LIST_HEAD (&tmp_list);
+        INIT_LIST_HEAD (&tmp_list);
 
-	list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
-		if (l->blocked) {
-			conf = first_overlap (pl_inode, l);
-			if (conf)
-				continue;
+        list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
+                if (l->blocked) {
+                        conf = first_overlap (pl_inode, l);
+                        if (conf)
+                                continue;
 
-			l->blocked = 0;
-			list_move_tail (&l->list, &tmp_list);
-		}
-	}
+                        l->blocked = 0;
+                        list_move_tail (&l->list, &tmp_list);
+                }
+        }
 
-	list_for_each_entry_safe (l, tmp, &tmp_list, list) {
-		list_del_init (&l->list);
+        list_for_each_entry_safe (l, tmp, &tmp_list, list) {
+                list_del_init (&l->list);
 
-		if (__is_lock_grantable (pl_inode, l)) {
-			conf = CALLOC (1, sizeof (*conf));
+                if (__is_lock_grantable (pl_inode, l)) {
+                        conf = CALLOC (1, sizeof (*conf));
 
-			if (!conf) {
-				l->blocked = 1;
-				__insert_lock (pl_inode, l);
-				continue;
-			}
+                        if (!conf) {
+                                l->blocked = 1;
+                                __insert_lock (pl_inode, l);
+                                continue;
+                        }
 
-			conf->frame = l->frame;
-			l->frame = NULL;
+                        conf->frame = l->frame;
+                        l->frame = NULL;
 
-			posix_lock_to_flock (l, &conf->user_flock);
+                        posix_lock_to_flock (l, &conf->user_flock);
 
-			gf_log (this->name, GF_LOG_TRACE,
-				"%s (pid=%d) %"PRId64" - %"PRId64" => Granted",
-				l->fl_type == F_UNLCK ? "Unlock" : "Lock",
-				l->client_pid,
-				l->user_flock.l_start,
-				l->user_flock.l_len);
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "%s (pid=%d) %"PRId64" - %"PRId64" => Granted",
+                                l->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                                l->client_pid,
+                                l->user_flock.l_start,
+                                l->user_flock.l_len);
 
-			__insert_and_merge (pl_inode, l);
+                        __insert_and_merge (pl_inode, l);
 
-			list_add (&conf->list, granted);
-		} else {
-			l->blocked = 1;
-			__insert_lock (pl_inode, l);
-		}
-	}
+                        list_add (&conf->list, granted);
+                } else {
+                        l->blocked = 1;
+                        __insert_lock (pl_inode, l);
+                }
+        }
 }
 
 
 void
 grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode)
 {
-	struct list_head granted_list;
-	posix_lock_t     *tmp = NULL;
-	posix_lock_t     *lock = NULL;
+        struct list_head granted_list;
+        posix_lock_t     *tmp = NULL;
+        posix_lock_t     *lock = NULL;
 
-	INIT_LIST_HEAD (&granted_list);
+        INIT_LIST_HEAD (&granted_list);
 
-	pthread_mutex_lock (&pl_inode->mutex);
-	{
-		__grant_blocked_locks (this, pl_inode, &granted_list);
-	}
-	pthread_mutex_unlock (&pl_inode->mutex);
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                __grant_blocked_locks (this, pl_inode, &granted_list);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
 
-	list_for_each_entry_safe (lock, tmp, &granted_list, list) {
-		list_del_init (&lock->list);
+        list_for_each_entry_safe (lock, tmp, &granted_list, list) {
+                list_del_init (&lock->list);
 
-		STACK_UNWIND (lock->frame, 0, 0, &lock->user_flock);
+                STACK_UNWIND (lock->frame, 0, 0, &lock->user_flock);
 
-		FREE (lock);
-	}
+                FREE (lock);
+        }
 
-	return;
+        return;
 }
 
 
 int
 pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
-	  int can_block)
+          int can_block)
 {
-	int              ret = 0;
+        int              ret = 0;
 
-	errno = 0;
+        errno = 0;
 
-	pthread_mutex_lock (&pl_inode->mutex);
-	{
-		if (__is_lock_grantable (pl_inode, lock)) {
-			gf_log (this->name, GF_LOG_TRACE,
-				"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
-				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-				lock->client_pid,
-				lock->user_flock.l_start,
-				lock->user_flock.l_len);
-			__insert_and_merge (pl_inode, lock);
-		} else if (can_block) {
-			gf_log (this->name, GF_LOG_TRACE,
-				"%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
-				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-				lock->client_pid,
-				lock->user_flock.l_start,
-				lock->user_flock.l_len);
-			lock->blocked = 1;
-			__insert_lock (pl_inode, lock);
-			ret = -1;
-		} else {
-			gf_log (this->name, GF_LOG_TRACE,
-				"%s (pid=%d) %"PRId64" - %"PRId64" => NOK",
-				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-				lock->client_pid,
-				lock->user_flock.l_start,
-				lock->user_flock.l_len);
-			errno = EAGAIN;
-			ret = -1;
-		}
-	}
-	pthread_mutex_unlock (&pl_inode->mutex);
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                if (__is_lock_grantable (pl_inode, lock)) {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "%s (pid=%d) %"PRId64" - %"PRId64" => OK",
+                                lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                                lock->client_pid,
+                                lock->user_flock.l_start,
+                                lock->user_flock.l_len);
+                        __insert_and_merge (pl_inode, lock);
+                } else if (can_block) {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
+                                lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                                lock->client_pid,
+                                lock->user_flock.l_start,
+                                lock->user_flock.l_len);
+                        lock->blocked = 1;
+                        __insert_lock (pl_inode, lock);
+                        ret = -1;
+                } else {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "%s (pid=%d) %"PRId64" - %"PRId64" => NOK",
+                                lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                                lock->client_pid,
+                                lock->user_flock.l_start,
+                                lock->user_flock.l_len);
+                        errno = EAGAIN;
+                        ret = -1;
+                }
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
 
-	grant_blocked_locks (this, pl_inode);
+        grant_blocked_locks (this, pl_inode);
 
-	do_blocked_rw (pl_inode);
+        do_blocked_rw (pl_inode);
 
-	return ret;
+        return ret;
 }
 
 
 posix_lock_t *
 pl_getlk (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
-	posix_lock_t *conf = NULL;
+        posix_lock_t *conf = NULL;
 
-	conf = first_overlap (pl_inode, lock);
+        conf = first_overlap (pl_inode, lock);
 
-	if (conf == NULL) {
-		lock->fl_type = F_UNLCK;
-		return lock;
-	}
+        if (conf == NULL) {
+                lock->fl_type = F_UNLCK;
+                return lock;
+        }
 
-	return conf;
+        return conf;
 }

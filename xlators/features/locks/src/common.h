@@ -31,7 +31,7 @@ pl_getlk (pl_inode_t *inode, posix_lock_t *lock);
 
 int
 pl_setlk (xlator_t *this, pl_inode_t *inode, posix_lock_t *lock,
-	  int can_block);
+          int can_block);
 
 void
 grant_blocked_locks (xlator_t *this, pl_inode_t *inode);
@@ -63,7 +63,7 @@ __destroy_inode_lock (pl_inode_lock_t *lock);
 
 void
 grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
-			   pl_entry_lock_t *unlocked, pl_dom_list_t *dom);
+                           pl_entry_lock_t *unlocked, pl_dom_list_t *dom);
 
 void pl_update_refkeeper (xlator_t *this, inode_t *inode);
 
