@@ -1821,10 +1821,31 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
 	afr_build_parent_loc (&local->transaction.parent_loc, loc);
 
-	local->transaction.main_frame = frame;
-	local->transaction.basename = AFR_BASENAME (loc->path);
+        /*
+         * We need to hold a lock on all names under the
+         * "victim" (directory being removed) to prevent
+         * attempts at creating entries. Without this lock
+         * rmdir on some subvolumes can fail because of
+         * entries that have been created under it.
+         * This leads to inconsistencies among subvolumes.
+         *
+         * Since the ENTRY_RENAME transaction already
+         * has the mechanism to hold locks on two loc_t's,
+         * we just use the same mechanism here.
+         *
+         * See http://bugs.gluster.com/cgi-bin/bugzilla3/show_bug.cgi?id=112
+         * for details.
+         */
 
-	afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
+        loc_copy (&local->transaction.new_parent_loc, loc);
+        local->transaction.new_basename = NULL;
+
+	local->transaction.main_frame = frame;
+
+	local->transaction.basename     = AFR_BASENAME (loc->path);
+
+
+	afr_transaction (transaction_frame, this, AFR_ENTRY_RENAME_TRANSACTION);
 
 	op_ret = 0;
 out:
