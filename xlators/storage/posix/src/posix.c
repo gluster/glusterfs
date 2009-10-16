@@ -192,6 +192,152 @@ _posix_xattr_get_set (dict_t *xattr_req,
 }
 
 
+static int 
+posix_scale_st_ino (struct posix_private *priv, struct stat *buf)
+{
+        int   i        = 0;
+        int   ret      = -1;
+        ino_t temp_ino = 0;
+        
+        for (i = 0; i < priv->num_devices_to_span; i++) {
+                if (buf->st_dev == priv->st_device[i])
+                        break;
+                if (priv->st_device[i] == 0) {
+                        priv->st_device[i] = buf->st_dev;
+                        break;
+                }
+        }
+        
+        if (i == priv->num_devices_to_span)
+                goto out;
+                
+        temp_ino = (buf->st_ino * priv->num_devices_to_span) + i;
+
+        buf->st_ino = temp_ino;
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
+int
+posix_lstat_with_gen (xlator_t *this, const char *path, struct stat *stbuf_p)
+{
+        struct posix_private  *priv    = NULL;
+        int                    ret     = 0;
+        char                   gen_key[256] = {0, };
+        uint64_t               gen_val_be = 0;
+        uint64_t               gen_val = 0;
+        struct stat            stbuf = {0, };
+
+        priv = this->private;
+
+        ret = lstat (path, &stbuf);
+        if (ret == -1)
+                return -1;
+
+        ret = posix_scale_st_ino (priv, &stbuf);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Access to %s (on dev %lld) is crossing device (%lld)",
+                        path, (unsigned long long) stbuf.st_dev,
+                        (unsigned long long) priv->st_device[0]);
+                errno = EXDEV;
+                return -1;
+        }
+
+        ret = snprintf (gen_key, 1024, "trusted.%s.gen", this->name);
+
+        if (ret == 1024)
+                return -1;
+
+        ret = sys_lgetxattr (path, gen_key, (void *) &gen_val_be,
+                             sizeof (gen_val_be));
+        if (ret == -1) {
+                LOCK (&priv->gen_lock);
+                {
+                        gen_val = ++priv->gen_seq;
+                }
+                UNLOCK (&priv->gen_lock);
+
+                gen_val_be = hton64 (gen_val);
+
+                ret = sys_lsetxattr (path, gen_key, &gen_val_be,
+                                     sizeof (gen_val_be), 0);
+        } else {
+                gen_val = ntoh64 (gen_val_be);
+        }
+
+        if (ret >= 0) {
+                stbuf.st_dev = gen_val;
+                if (stbuf_p)
+                        *stbuf_p = stbuf;
+        }
+
+        return ret;
+}
+
+
+int
+posix_fstat_with_gen (xlator_t *this, int fd, struct stat *stbuf_p)
+{
+        struct posix_private  *priv    = NULL;
+        int                    ret     = 0;
+        char                   gen_key[256] = {0, };
+        uint64_t               gen_val_be = 0;
+        uint64_t               gen_val = 0;
+        struct stat            stbuf = {0, };
+
+        priv = this->private;
+
+        ret = fstat (fd, &stbuf);
+        if (ret == -1)
+                return -1;
+
+        ret = posix_scale_st_ino (priv, &stbuf);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Access to fd %d (on dev %lld) is crossing device (%lld)",
+                        fd, (unsigned long long) stbuf.st_dev,
+                        (unsigned long long) priv->st_device[0]);
+                errno = EXDEV;
+                return -1;
+        }
+
+
+        ret = snprintf (gen_key, 1024, "trusted.%s.gen", this->name);
+
+        if (ret == 1024)
+                return -1;
+
+        ret = sys_fgetxattr (fd, gen_key, (void *) &gen_val_be,
+                             sizeof (gen_val_be));
+        if (ret == -1) {
+                LOCK (&priv->gen_lock);
+                {
+                        gen_val = ++priv->gen_seq;
+                }
+                UNLOCK (&priv->gen_lock);
+
+                gen_val_be = hton64 (gen_val);
+
+                ret = sys_fsetxattr (fd, gen_key, &gen_val_be,
+                                     sizeof (gen_val_be), 0);
+        } else {
+                gen_val = ntoh64 (gen_val_be);
+        }
+
+        if (ret >= 0) {
+                stbuf.st_dev = gen_val;
+                if (stbuf_p)
+                        *stbuf_p = stbuf;
+        }
+
+        return ret;
+}
+
+
 dict_t *
 posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
     			 dict_t *xattr_req, struct stat *buf)
@@ -218,35 +364,6 @@ out:
 }
 
 
-static int 
-posix_scale_st_ino (struct posix_private *priv, struct stat *buf)
-{
-        int   i        = 0;
-        int   ret      = -1;
-        ino_t temp_ino = 0;
-        
-        for (i = 0; i < priv->num_devices_to_span; i++) {
-                if (buf->st_dev == priv->st_device[i])
-                        break;
-                if (priv->st_device[i] == 0) {
-                        priv->st_device[i] = buf->st_dev;
-                        break;
-                }
-        }
-        
-        if (i == priv->num_devices_to_span)
-                goto out;
-                
-        temp_ino = (buf->st_ino * priv->num_devices_to_span) + i;
-
-        buf->st_ino = temp_ino;
-
-        ret = 0;
- out:
-        return ret;
-}
-
-
 /*
  * If the parent directory of {real_path} has the setgid bit set,
  * then set {gid} to the gid of the parent. Otherwise,
@@ -254,7 +371,7 @@ posix_scale_st_ino (struct posix_private *priv, struct stat *buf)
  */
 
 int
-setgid_override (char *real_path, gid_t *gid)
+setgid_override (xlator_t *this, char *real_path, gid_t *gid)
 {
         char *                 tmp_path     = NULL;
         char *                 parent_path  = NULL;
@@ -272,7 +389,7 @@ setgid_override (char *real_path, gid_t *gid)
 
         parent_path = dirname (tmp_path);
 
-        op_ret = lstat (parent_path, &parent_stbuf);
+        op_ret = posix_lstat_with_gen (this, parent_path, &parent_stbuf);
 
         if (op_ret == -1) {
                 op_ret = -errno;
@@ -323,7 +440,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        op_ret   = lstat (real_path, &buf);
+        op_ret   = posix_lstat_with_gen (this, real_path, &buf);
         op_errno = errno;
 
         if (op_ret == -1) {
@@ -337,47 +454,26 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 goto parent;
         }
 
-	/* Make sure we don't access another mountpoint inside export dir.
-	 * It may cause inode number to repeat from single export point,
-	 * which leads to severe problems..
-	 */
-        if (!priv->span_devices) {
-                if (priv->st_device[0] != buf.st_dev) {
-                        op_errno = ENOENT;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: different mountpoint/device, returning "
-                                "ENOENT", loc->path);
-                        goto out;
-                }
-        } else {
-                op_ret = posix_scale_st_ino (priv, &buf);
-                if (-1 == op_ret) {
-                        op_errno = ENOENT;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: from different mountpoint",
-                                loc->path);
-                        goto out;
-                }
-        }
-
         if (xattr_req && (op_ret == 0)) {
 		xattr = posix_lookup_xattr_fill (this, real_path, loc,
 						 xattr_req, &buf);
         }
 
 parent:
-        pathdup = strdup (real_path);
-        GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
+        if (loc->parent) {
+                pathdup = strdup (real_path);
+                GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
-        parentpath = dirname (pathdup);
+                parentpath = dirname (pathdup);
 
-        op_ret = lstat (parentpath, &postparent);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "post-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
-                goto out;
+                op_ret = posix_lstat_with_gen (this, parentpath, &postparent);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "post-operation lstat on parent of %s failed: %s",
+                                loc->path, strerror (op_errno));
+                        goto out;
+                }
         }
 
         op_ret = entry_ret;
@@ -421,17 +517,13 @@ posix_stat (call_frame_t *frame,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        op_ret = lstat (real_path, &buf);
+        op_ret = posix_lstat_with_gen (this, real_path, &buf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "lstat on %s failed: %s", loc->path, 
                         strerror (op_errno));
                 goto out;
-        }
-
-        if (priv->span_devices) {
-                posix_scale_st_ino (priv, &buf);
         }
 
         op_ret = 0;
@@ -516,7 +608,7 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        op_ret = lstat (real_path, &statpre);
+        op_ret = posix_lstat_with_gen (this, real_path, &statpre);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -558,7 +650,7 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = lstat (real_path, &statpost);
+        op_ret = posix_lstat_with_gen (this, real_path, &statpost);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -645,7 +737,7 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
         }
 	pfd = (struct posix_fd *)(long)tmp_pfd;
 
-        op_ret = fstat (pfd->fd, &statpre);
+        op_ret = posix_fstat_with_gen (this, pfd->fd, &statpre);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -688,7 +780,7 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = fstat (pfd->fd, &statpost);
+        op_ret = posix_fstat_with_gen (this, pfd->fd, &statpost);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -886,23 +978,13 @@ posix_getdents (call_frame_t *frame, xlator_t *this,
                 strncat (tmp_real_path, dirent->d_name,
                          ZR_PATH_MAX - (strlen (tmp_real_path) + 1));
 
-                ret = lstat (tmp_real_path, &buf);
+                ret = posix_lstat_with_gen (this, tmp_real_path, &buf);
 
                 if ((flag == GF_GET_DIR_ONLY)
                     && (ret != -1 && !S_ISDIR(buf.st_mode))) {
                         continue;
                 }
 
-                if ((!priv->span_devices)
-                    && (priv->st_device[0] != buf.st_dev)) {
-                        continue;
-                } else {
-                        op_ret = posix_scale_st_ino (priv, &buf);
-                        if (-1 == op_ret) {
-                                continue;
-                        }
-                }
-                
                 tmp = CALLOC (1, sizeof (*tmp));
 
                 if (!tmp) {
@@ -1074,7 +1156,7 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
 
         dest[op_ret] = 0;
 
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1121,12 +1203,12 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 
         gid = frame->root->gid;
 
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)){
                 was_present = 0;
         }
 
-        op_ret = setgid_override (real_path, &gid);
+        op_ret = setgid_override (this, real_path, &gid);
         if (op_ret < 0)
                 goto out;
 
@@ -1136,7 +1218,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 
         parentpath = dirname (pathdup);
 
-        op_ret = lstat (parentpath, &preparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1176,7 +1258,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         }
 #endif
 
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1185,26 +1267,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (!priv->span_devices) {
-                if (priv->st_device[0] != stbuf.st_dev) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: different mountpoint/device, returning "
-                                "EPERM", loc->path);
-                        goto out;
-                }
-        } else {
-                op_ret = posix_scale_st_ino (priv, &stbuf);
-                if (-1 == op_ret) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: from different mountpoint",
-                                loc->path);
-                        goto out;
-                }
-        }
-
-        op_ret = lstat (parentpath, &postparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1260,12 +1323,12 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
         gid = frame->root->gid;
 
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)) {
                 was_present = 0;
         }
 
-        op_ret = setgid_override (real_path, &gid);
+        op_ret = setgid_override (this, real_path, &gid);
         if (op_ret < 0)
                 goto out;
 
@@ -1275,7 +1338,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
         parentpath = dirname (pathdup);
 
-        op_ret = lstat (parentpath, &preparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1304,7 +1367,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         }
 #endif
 
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1313,26 +1376,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (!priv->span_devices) {
-                if (priv->st_device[0] != stbuf.st_dev) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: different mountpoint/device, returning "
-                                "EPERM", loc->path);
-                        goto out;
-                }
-        } else {
-                op_ret = posix_scale_st_ino (priv, &stbuf);
-                if (-1 == op_ret) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: from different mountpoint",
-                                loc->path);
-                        goto out;
-                }
-        }
-
-        op_ret = lstat (parentpath, &postparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1388,7 +1432,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         parentpath = dirname (pathdup);
 
-        op_ret = lstat (parentpath, &preparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1421,7 +1465,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = lstat (parentpath, &postparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1474,7 +1518,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
 
         parentpath = dirname (pathdup);
 
-        op_ret = lstat (parentpath, &preparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1500,7 +1544,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         if (op_ret == -1)
                 goto out;
 
-        op_ret = lstat (parentpath, &postparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1549,14 +1593,14 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)){
                 was_present = 0;
         }
 
         gid = frame->root->gid;
 
-        op_ret = setgid_override (real_path, &gid);
+        op_ret = setgid_override (this, real_path, &gid);
         if (op_ret < 0)
                 goto out;
 
@@ -1566,7 +1610,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
         parentpath = dirname (pathdup);
 
-        op_ret = lstat (parentpath, &preparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1595,7 +1639,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 #endif
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1604,26 +1648,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (!priv->span_devices) {
-                if (priv->st_device[0] != stbuf.st_dev) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: different mountpoint/device, returning "
-                                "EPERM", loc->path);
-                        goto out;
-                }
-        } else {
-                op_ret = posix_scale_st_ino (priv, &stbuf);
-                if (-1 == op_ret) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: from different mountpoint",
-                                loc->path);
-                        goto out;
-                }
-        }
-
-        op_ret = lstat (parentpath, &postparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1690,7 +1715,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
 
         oldparentpath = dirname (oldpathdup);
 
-        op_ret = lstat (oldparentpath, &preoldparent);
+        op_ret = posix_lstat_with_gen (this, oldparentpath, &preoldparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1704,7 +1729,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
 
         newparentpath = dirname (newpathdup);
 
-        op_ret = lstat (newparentpath, &prenewparent);
+        op_ret = posix_lstat_with_gen (this, newparentpath, &prenewparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1713,7 +1738,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = lstat (real_newpath, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_newpath, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)){
                 was_present = 0;
         }
@@ -1728,7 +1753,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = lstat (real_newpath, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_newpath, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1737,26 +1762,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (!priv->span_devices) {
-                if (priv->st_device[0] != stbuf.st_dev) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: different mountpoint/device, returning "
-                                "EPERM", newloc->path);
-                        goto out;
-                }
-        } else {
-                op_ret = posix_scale_st_ino (priv, &stbuf);
-                if (-1 == op_ret) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: from different mountpoint",
-                                newloc->path);
-                        goto out;
-                }
-        }
-
-        op_ret = lstat (oldparentpath, &postoldparent);
+        op_ret = posix_lstat_with_gen (this, oldparentpath, &postoldparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1765,7 +1771,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = lstat (newparentpath, &postnewparent);
+        op_ret = posix_lstat_with_gen (this, newparentpath, &postnewparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1828,7 +1834,7 @@ posix_link (call_frame_t *frame, xlator_t *this,
         MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
         MAKE_REAL_PATH (real_newpath, this, newloc->path);
 
-        op_ret = lstat (real_newpath, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_newpath, &stbuf);
         if ((op_ret == -1) && (errno = ENOENT)) {
                 was_present = 0;
         }
@@ -1841,7 +1847,7 @@ posix_link (call_frame_t *frame, xlator_t *this,
         }
 
         newparentpath = dirname (newpathdup);
-        op_ret = lstat (newparentpath, &preparent);
+        op_ret = posix_lstat_with_gen (this, newparentpath, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "lstat failed: %s: %s",
@@ -1858,7 +1864,7 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = lstat (real_newpath, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_newpath, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1867,31 +1873,12 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = lstat (newparentpath, &postparent);
+        op_ret = posix_lstat_with_gen (this, newparentpath, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "lstat failed: %s: %s",
                         newparentpath, strerror (op_errno));
                 goto out;
-        }
-
-        if (!priv->span_devices) {
-                if (priv->st_device[0] != stbuf.st_dev) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: different mountpoint/device, returning "
-                                "EPERM", newloc->path);
-                        goto out;
-                }
-        } else {
-                op_ret = posix_scale_st_ino (priv, &stbuf);
-                if (-1 == op_ret) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: from different mountpoint",
-                                newloc->path);
-                        goto out;
-                }
         }
 
         op_ret = 0;
@@ -1921,7 +1908,6 @@ posix_truncate (call_frame_t *frame,
         int32_t               op_ret    = -1;
         int32_t               op_errno  = 0;
         char                 *real_path = 0;
-        struct stat           stbuf     = {0,};
         struct posix_private *priv      = NULL;
         struct stat           prebuf    = {0,};
         struct stat           postbuf   = {0,};
@@ -1938,7 +1924,7 @@ posix_truncate (call_frame_t *frame,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        op_ret = lstat (real_path, &prebuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &prebuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1956,16 +1942,12 @@ posix_truncate (call_frame_t *frame,
                 goto out;
         }
 
-        op_ret = lstat (real_path, &postbuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &postbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "lstat on %s failed: %s",
                         real_path, strerror (op_errno));
                 goto out;
-        }
-
-        if (priv->span_devices) {
-                posix_scale_st_ino (priv, &stbuf);
         }
 
         op_ret = 0;
@@ -2016,7 +1998,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
         gid = frame->root->gid;
 
-        op_ret = setgid_override (real_path, &gid);
+        op_ret = setgid_override (this, real_path, &gid);
 
         if (op_ret < 0) {
                 goto out;
@@ -2028,7 +2010,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
         parentpath = dirname (pathdup);
 
-        op_ret = lstat (parentpath, &preparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -2044,7 +2026,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 _flags = flags | O_CREAT;
         }
 
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)) {
                 was_present = 0;
         }
@@ -2072,7 +2054,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         }
 #endif
 
-        op_ret = fstat (_fd, &stbuf);
+        op_ret = posix_fstat_with_gen (this, _fd, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -2080,26 +2062,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (!priv->span_devices) {
-                if (priv->st_device[0] != stbuf.st_dev) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: different mountpoint/device, returning "
-                                "EPERM", loc->path);
-                        goto out;
-                }
-        } else {
-                op_ret = posix_scale_st_ino (priv, &stbuf);
-                if (-1 == op_ret) {
-                        op_errno = EPERM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: from different mountpoint",
-                                loc->path);
-                        goto out;
-                }
-        }
-
-        op_ret = lstat (parentpath, &postparent);
+        op_ret = posix_lstat_with_gen (this, parentpath, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -2177,7 +2140,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        op_ret = setgid_override (real_path, &gid);
+        op_ret = setgid_override (this, real_path, &gid);
         if (op_ret < 0)
                 goto out;
 
@@ -2186,7 +2149,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
         if (priv->o_direct)
                 flags |= O_DIRECT;
 
-        op_ret = lstat (real_path, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)) {
                 was_present = 0;
         }
@@ -2229,31 +2192,12 @@ posix_open (call_frame_t *frame, xlator_t *this,
 #endif
 
         if (flags & O_CREAT) {
-                op_ret = lstat (real_path, &stbuf);
+                op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "lstat on (%s) "
                                 "failed: %s", real_path, strerror (op_errno));
                         goto out;
-                }
- 
-                if (!priv->span_devices) {
-                        if (priv->st_device[0] != stbuf.st_dev) {
-                                op_errno = EPERM;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "%s: different mountpoint/device, "
-                                        "returning EPERM", loc->path);
-                                goto out;
-                        }
-                } else {
-                        op_ret = posix_scale_st_ino (priv, &stbuf);
-                        if (-1 == op_ret) {
-                                op_errno = EPERM;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "%s: from different mountpoint",
-                                        loc->path);
-                                goto out;
-                        }
                 }
         }
 
@@ -2374,7 +2318,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
          *  we read from
          */
 
-        op_ret = fstat (_fd, &stbuf);
+        op_ret = posix_fstat_with_gen (this, _fd, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -2383,12 +2327,8 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (priv->span_devices) {
-                posix_scale_st_ino (priv, &stbuf);
-        }
-
 	op_ret = vec.iov_len;
- out:
+out:
 
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
                              &vec, 1, &stbuf, iobref);
@@ -2445,7 +2385,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
 
         _fd = pfd->fd;
 
-        op_ret = fstat (_fd, &preop);
+        op_ret = posix_fstat_with_gen (this, _fd, &preop);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -2538,7 +2478,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                         fsync (_fd);
                 }
 
-                ret = fstat (_fd, &postop);
+                ret = posix_fstat_with_gen (this, _fd, &postop);
                 if (ret == -1) {
 			op_ret = -1;
                         op_errno = errno;
@@ -2546,11 +2486,6 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                                 "post-operation fstat failed on fd=%p: %s",
                                 fd, strerror (op_errno));
                         goto out;
-                }
-
-                if (priv->span_devices) {
-                        posix_scale_st_ino (priv, &preop);
-                        posix_scale_st_ino (priv, &postop);
                 }
         }
 
@@ -2747,7 +2682,7 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
 
         _fd = pfd->fd;
 
-        op_ret = fstat (_fd, &preop);
+        op_ret = posix_fstat_with_gen (this, _fd, &preop);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -2772,7 +2707,7 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = fstat (_fd, &postop);
+        op_ret = posix_fstat_with_gen (this, _fd, &postop);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -2978,7 +2913,7 @@ get_file_contents (xlator_t *this, char *real_path,
         key = (char *) &(name[15]);
         sprintf (real_filepath, "%s/%s", real_path, key);
 
-        op_ret = lstat (real_filepath, &stbuf);
+        op_ret = posix_lstat_with_gen (this, real_filepath, &stbuf);
         if (op_ret == -1) {
                 op_ret = -errno;
                 gf_log (this->name, GF_LOG_ERROR, "lstat failed on %s: %s",
@@ -3789,7 +3724,7 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
 
         _fd = pfd->fd;
 
-        op_ret = fstat (_fd, &preop);
+        op_ret = posix_fstat_with_gen (this, _fd, &preop);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -3808,18 +3743,13 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = fstat (_fd, &postop);
+        op_ret = posix_fstat_with_gen (this, _fd, &postop);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "post-operation fstat failed on fd=%p: %s",
                         fd, strerror (errno));
                 goto out;
-        }
-
-        if (priv->span_devices) {
-                posix_scale_st_ino (priv, &preop);
-                posix_scale_st_ino (priv, &postop);
         }
 
         op_ret = 0;
@@ -3847,7 +3777,7 @@ ensure_file_type (xlator_t *this, char *pathname, mode_t mode)
         int         op_ret = 0;
         int         ret    = -1;
 
-        ret = lstat (pathname, &stbuf);
+        ret = posix_lstat_with_gen (this, pathname, &stbuf);
         if (ret == -1) {
                 op_ret = -errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -4161,7 +4091,7 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
 
         _fd = pfd->fd;
 
-        op_ret = fstat (_fd, &buf);
+        op_ret = posix_fstat_with_gen (this, _fd, &buf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "fstat failed on fd=%p: %s",
@@ -4169,13 +4099,9 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (priv->span_devices) {
-                posix_scale_st_ino (priv, &buf);
-        }
-
         op_ret = 0;
 
- out:
+out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, &buf);
@@ -4371,8 +4297,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                  */
                 if ((whichop == GF_FOP_READDIRP) || (priv->span_devices)) {
                         strcpy (entry_path + real_path_len + 1, entry->d_name);
-                        lstat (entry_path, &stbuf);
-                        op_ret = posix_scale_st_ino (priv, &stbuf);
+                        op_ret = posix_lstat_with_gen (this, entry_path, &stbuf);
                         if (-1 == op_ret)
                                 continue;
                 } else
@@ -4583,7 +4508,7 @@ posix_checksum (call_frame_t *frame, xlator_t *this,
                 strcpy (tmp_real_path, real_path);
                 strcat (tmp_real_path, "/");
                 strcat (tmp_real_path, dirent->d_name);
-                ret = lstat (tmp_real_path, &buf);
+                ret = posix_lstat_with_gen (this, tmp_real_path, &buf);
 
                 if (ret == -1)
                         continue;
@@ -4916,6 +4841,9 @@ init (xlator_t *this)
         
         /* Start with the base */
         _private->st_device[0] = buf.st_dev;
+
+        LOCK_INIT (&_private->gen_lock);
+        _private->gen_seq = (time (NULL) << 32);
 
 #ifndef GF_DARWIN_HOST_OS
         {
