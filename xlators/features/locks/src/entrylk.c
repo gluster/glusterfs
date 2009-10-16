@@ -253,10 +253,10 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 
         default:
 
-          gf_log (this->name, GF_LOG_DEBUG,
-                  "Invalid type for entrylk specified: %d", type);
-          ret = -EINVAL;
-          goto out;
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Invalid type for entrylk specified: %d", type);
+                ret = -EINVAL;
+                goto out;
 	}
 
 	ret = 0;
@@ -430,8 +430,8 @@ unlock:
 /* Common entrylk code called by pl_entrylk and pl_fentrylk */
 int
 pl_common_entrylk (call_frame_t *frame, xlator_t *this,
-	    const char *volume, inode_t *inode, const char *basename,
-	    entrylk_cmd cmd, entrylk_type type)
+                   const char *volume, inode_t *inode, const char *basename,
+                   entrylk_cmd cmd, entrylk_type type)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -467,8 +467,8 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 
 	if (pid == 0) {
 		/*
-		   this is a special case that means release
-		   all locks from this transport
+                  this is a special case that means release
+                  all locks from this transport
 		*/
 
 		gf_log (this->name, GF_LOG_TRACE,
@@ -516,7 +516,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 	case ENTRYLK_UNLOCK:
 		pthread_mutex_lock (&pinode->mutex);
 		{
-			 unlocked = __unlock_name (dom, basename, type);
+                        unlocked = __unlock_name (dom, basename, type);
 		}
 		pthread_mutex_unlock (&pinode->mutex);
 
@@ -554,9 +554,9 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 	    entrylk_cmd cmd, entrylk_type type)
 {
 
-  pl_common_entrylk (frame, this, volume, loc->inode, basename, cmd, type);
+        pl_common_entrylk (frame, this, volume, loc->inode, basename, cmd, type);
 
-  return 0;
+        return 0;
 }
 
 
@@ -568,11 +568,11 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 
 int
 pl_fentrylk (call_frame_t *frame, xlator_t *this,
-	     const char *volume, fd_t *fd, const char *basename,
-	     entrylk_cmd cmd, entrylk_type type)
+             const char *volume, fd_t *fd, const char *basename,
+             entrylk_cmd cmd, entrylk_type type)
 {
 
-  pl_common_entrylk (frame, this, volume, fd->inode, basename, cmd, type);
+        pl_common_entrylk (frame, this, volume, fd->inode, basename, cmd, type);
 
-	return 0;
+        return 0;
 }

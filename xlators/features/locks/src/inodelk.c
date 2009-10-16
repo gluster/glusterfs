@@ -34,13 +34,13 @@
 #include "common.h"
 
 void
- __delete_inode_lock (pl_inode_lock_t *lock)
+__delete_inode_lock (pl_inode_lock_t *lock)
 {
 	list_del (&lock->list);
 }
 
 void
- __destroy_inode_lock (pl_inode_lock_t *lock)
+__destroy_inode_lock (pl_inode_lock_t *lock)
 {
 	FREE (lock);
 }
@@ -117,7 +117,7 @@ __blocked_lock_conflict (pl_dom_list_t *dom, pl_inode_lock_t *lock)
                 }
 	}
 
-        out:
+out:
 	return ret;
 }
 
@@ -158,12 +158,12 @@ __lock_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 
 		list_add_tail (&lock->blocked_locks, &dom->blocked_inodelks);
 
-			gf_log (this->name, GF_LOG_TRACE,
-				"%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
-				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-				lock->client_pid,
-				lock->user_flock.l_start,
-				lock->user_flock.l_len);
+                gf_log (this->name, GF_LOG_TRACE,
+                        "%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
+                        lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                        lock->client_pid,
+                        lock->user_flock.l_start,
+                        lock->user_flock.l_len);
 
 
 		goto out;
@@ -179,11 +179,11 @@ __lock_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
                 gf_log (this->name, GF_LOG_TRACE,
                         "Lock is grantable, but blocking to prevent starvation");
 		gf_log (this->name, GF_LOG_TRACE,
-				"%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
-				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-				lock->client_pid,
-				lock->user_flock.l_start,
-				lock->user_flock.l_len);
+                        "%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
+                        lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                        lock->client_pid,
+                        lock->user_flock.l_start,
+                        lock->user_flock.l_len);
 
 
 		goto out;
@@ -230,13 +230,13 @@ __inode_unlock_lock (xlator_t *this, pl_inode_lock_t *lock, pl_dom_list_t *dom)
 
 	conf = find_matching_inodelk (lock, dom);
 	if (!conf) {
-          gf_log (this->name, GF_LOG_DEBUG,
-                  " Matching lock not found for unlock");
+                gf_log (this->name, GF_LOG_DEBUG,
+                        " Matching lock not found for unlock");
 		goto out;
         }
 	__delete_inode_lock (conf);
-          gf_log (this->name, GF_LOG_DEBUG,
-                  " Matching lock found for unlock");
+        gf_log (this->name, GF_LOG_DEBUG,
+                " Matching lock found for unlock");
         __destroy_inode_lock (lock);
 
 
@@ -361,11 +361,11 @@ pl_inode_setlk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 			ret = __lock_inodelk (this, pl_inode, lock, can_block, dom);
 			if (ret == 0)
 				gf_log (this->name, GF_LOG_TRACE,
-				"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
-				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-				lock->client_pid,
-				lock->fl_start,
-				lock->fl_end);
+                                        "%s (pid=%d) %"PRId64" - %"PRId64" => OK",
+                                        lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                                        lock->client_pid,
+                                        lock->fl_start,
+                                        lock->fl_end);
 
 			if (ret == -EAGAIN)
 				gf_log (this->name, GF_LOG_TRACE,
@@ -387,19 +387,19 @@ pl_inode_setlk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
                         goto out;
                 }
 
-			gf_log (this->name, GF_LOG_TRACE,
-				"%s (pid=%d) %"PRId64" - %"PRId64" => OK",
-				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-				lock->client_pid,
-				lock->user_flock.l_start,
-				lock->user_flock.l_len);
-                        ret = 0;
+                gf_log (this->name, GF_LOG_TRACE,
+                        "%s (pid=%d) %"PRId64" - %"PRId64" => OK",
+                        lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                        lock->client_pid,
+                        lock->user_flock.l_start,
+                        lock->user_flock.l_len);
+                ret = 0;
 
-                        grant_blocked_inode_locks (this, pl_inode, retlock, dom);
+                grant_blocked_inode_locks (this, pl_inode, retlock, dom);
 	}
 out:
 	pthread_mutex_unlock (&pl_inode->mutex);
-		return ret;
+        return ret;
 }
 
 /* Create a new inode_lock_t */
@@ -434,7 +434,7 @@ new_inode_lock (struct flock *flock, transport_t *transport, pid_t client_pid, c
 /* Common inodelk code called form pl_inodelk and pl_finodelk */
 int
 pl_common_inodelk (call_frame_t *frame, xlator_t *this,
-	    const char *volume, inode_t *inode, int32_t cmd, struct flock *flock)
+                   const char *volume, inode_t *inode, int32_t cmd, struct flock *flock)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -470,8 +470,8 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 
 	if (client_pid == 0) {
 		/*
-		   special case: this means release all locks
-		   from this transport
+                  special case: this means release all locks
+                  from this transport
 		*/
 		gf_log (this->name, GF_LOG_TRACE,
 			"Releasing all locks from transport %p", transport);
@@ -500,7 +500,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 	case F_SETLK:
 		memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
 		ret = pl_inode_setlk (this, pinode, reqlock,
-				can_block, dom);
+                                      can_block, dom);
 
 		if (ret < 0) {
                         if (can_block)
@@ -516,38 +516,38 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 	default:
 		op_errno = ENOTSUP;
 		gf_log (this->name, GF_LOG_DEBUG,
-			"Lock command F_GETLK not supported for [f]inodelk "
+                        "Lock command F_GETLK not supported for [f]inodelk "
                         "(cmd=%d)",
-			cmd);
-			goto unwind;
-	}
+                        cmd);
+                goto unwind;
+        }
 
-	op_ret = 0;
+        op_ret = 0;
 
 unwind:
         pl_update_refkeeper (this, inode);
-	STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
 out:
-	return 0;
+        return 0;
 }
 
 int
 pl_inodelk (call_frame_t *frame, xlator_t *this,
-	    const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
+            const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
 {
 
-	pl_common_inodelk (frame, this, volume, loc->inode, cmd, flock);
+        pl_common_inodelk (frame, this, volume, loc->inode, cmd, flock);
 
-	return 0;
+        return 0;
 }
 
 int
 pl_finodelk (call_frame_t *frame, xlator_t *this,
-	     const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
+             const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
 {
 
-	pl_common_inodelk (frame, this, volume, fd->inode, cmd, flock);
+        pl_common_inodelk (frame, this, volume, fd->inode, cmd, flock);
 
-	return 0;
+        return 0;
 
 }
