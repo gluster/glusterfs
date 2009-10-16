@@ -36,6 +36,7 @@ struct dht_layout {
 	int               preset;
         int               gen;
 	int               type;
+        int               ref;   /* use with dht_conf_t->layout_lock */
         struct {
 		int       err;   /* 0 = normal
 				   -1 = dir exists and no xattr
@@ -129,6 +130,7 @@ struct dht_conf {
         int32_t        refresh_interval;
         gf_boolean_t   unhashed_sticky_bit;
 	struct timeval last_stat_fetch;
+        gf_lock_t      layout_lock;
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -160,18 +162,22 @@ typedef struct dht_disk_layout dht_disk_layout_t;
 
 #define DHT_STACK_UNWIND(fop, frame, params ...) do {           \
 		dht_local_t *__local = NULL;                    \
+                xlator_t *__xl = NULL;                          \
+                __xl = frame->this;                             \
 		__local = frame->local;                         \
 		frame->local = NULL;                            \
 		STACK_UNWIND_STRICT (fop, frame, params);       \
-		dht_local_wipe (__local);                       \
+		dht_local_wipe (__xl, __local);                 \
 	} while (0)
 
 #define DHT_STACK_DESTROY(frame) do {		       \
 		dht_local_t *__local = NULL;           \
+                xlator_t *__xl = NULL;                 \
+                __xl = frame->this;                    \
 		__local = frame->local;                \
 		frame->local = NULL;		       \
 		STACK_DESTROY (frame->root);	       \
-		dht_local_wipe (__local);	       \
+		dht_local_wipe (__xl, __local);	       \
 	} while (0)
 
 dht_layout_t *dht_layout_new (xlator_t *this, int cnt);
@@ -208,7 +214,7 @@ int dht_itransform (xlator_t *this, xlator_t *subvol, uint64_t x, uint64_t *y);
 int dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol,
 		      uint64_t *x);
 
-void dht_local_wipe (dht_local_t *local);
+void dht_local_wipe (xlator_t *this, dht_local_t *local);
 dht_local_t *dht_local_init (call_frame_t *frame);
 int dht_stat_merge (xlator_t *this, struct stat *to, struct stat *from,
 		    xlator_t *subvol);
@@ -245,7 +251,10 @@ int dht_is_subvol_filled (xlator_t *this, xlator_t *subvol);
 xlator_t *dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol);
 int dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx);
 
-int dht_layout_inode_set (xlator_t *this, xlator_t *subvol, inode_t *inode);
+int dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode);
+int dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout);
+void dht_layout_unref (xlator_t *this, dht_layout_t *layout);
+dht_layout_t *dht_layout_ref (xlator_t *this, dht_layout_t *layout);
 xlator_t *dht_first_up_subvol (xlator_t *this);
 
 #endif /* _DHT_H */

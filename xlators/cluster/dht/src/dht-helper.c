@@ -108,7 +108,7 @@ dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol_p,
 
 
 void
-dht_local_wipe (dht_local_t *local)
+dht_local_wipe (xlator_t *this, dht_local_t *local)
 {
 	if (!local)
 		return;
@@ -122,8 +122,10 @@ dht_local_wipe (dht_local_t *local)
 	if (local->inode)
 		inode_unref (local->inode);
 
-	if (local->layout)
-		FREE (local->layout);
+	if (local->layout) {
+		dht_layout_unref (this, local->layout);
+                local->layout = NULL;
+        }
 
 	loc_wipe (&local->linkfile.loc);
 
@@ -140,6 +142,11 @@ dht_local_wipe (dht_local_t *local)
 	
 	if (local->xattr_req)
 		dict_unref (local->xattr_req);
+
+        if (local->selfheal.layout) {
+                dht_layout_unref (this, local->selfheal.layout);
+                local->selfheal.layout = NULL;
+        }
 
 	FREE (local);
 }
@@ -230,6 +237,10 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
         }
 
 out:
+        if (layout) {
+                dht_layout_unref (this, layout);
+        }
+
         return subvol;
 }
 
@@ -250,6 +261,10 @@ dht_subvol_get_cached (xlator_t *this, inode_t *inode)
 	subvol = layout->list[0].xlator;
 
 out:
+        if (layout) {
+                dht_layout_unref (this, layout);
+        }
+
         return subvol;
 }
 

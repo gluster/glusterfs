@@ -55,12 +55,8 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 
 	if (ret == 0) {
 		layout = local->selfheal.layout;
-		ret = inode_ctx_put (local->inode, this, 
-                                     (uint64_t)(long)layout);
+		ret = dht_layout_set (this, local->inode, layout);
 
-		if (ret == 0)
-			local->selfheal.layout = NULL;
-		
 		if (local->st_ino) {
 			local->stbuf.st_ino = local->st_ino;
 		} else {
@@ -160,8 +156,6 @@ unlock:
 		if (local->op_ret == 0) {
 			ret = dht_layout_normalize (this, &local->loc, layout);
 
-			local->layout = NULL;
-
 			if (ret != 0) {
 				gf_log (this->name, GF_LOG_DEBUG,
 					"fixing assignment on %s",
@@ -169,8 +163,7 @@ unlock:
 				goto selfheal;
 			}
 			
-			inode_ctx_put (local->inode, this,
-                                       (uint64_t)(long)layout);
+			dht_layout_set (this, local->inode, layout);
 			
 			if (local->st_ino) {
 				local->stbuf.st_ino = local->st_ino;
@@ -254,7 +247,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-		layout = dht_layout_get (this, inode);
+		layout = local->layout;
 		
 		is_dir = check_is_dir (inode, stbuf, xattr);
 		is_linkfile = check_is_linkfile (inode, stbuf, xattr);
@@ -338,7 +331,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 	cached_subvol = local->cached_subvol;
 	conf = this->private;
 
-        ret = dht_layout_inode_set (this, local->cached_subvol, inode);
+        ret = dht_layout_preset (this, local->cached_subvol, inode);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to set layout for subvolume %s",
@@ -488,8 +481,8 @@ unlock:
                         local->op_ret = 0;
                         local->op_errno = 0;
 
-                        ret = dht_layout_inode_set (frame->this, cached_subvol,
-                                                    local->inode);
+                        ret = dht_layout_preset (frame->this, cached_subvol,
+                                                 local->inode);
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "failed to set layout for subvol %s",
@@ -560,10 +553,10 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 {
         call_frame_t *prev          = NULL;
 	dht_local_t  *local         = NULL;
-	dht_layout_t *layout        = NULL;
 	xlator_t     *subvol        = NULL;
 	loc_t        *loc           = NULL;
 	dht_conf_t   *conf          = NULL;
+        int           ret           = 0;
 
         prev   = cookie;
 	subvol = prev->this;
@@ -600,17 +593,15 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
         if (local->loc.parent)
                 postparent->st_ino = local->loc.parent->ino;
         
-	layout = dht_layout_for_subvol (this, prev->this);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no pre-set layout for subvolume %s",
-			prev->this->name);
+	ret = dht_layout_preset (this, prev->this, inode);
+	if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to set layout for subvolume %s",
+                        prev->this->name);
 		op_ret   = -1;
 		op_errno = EINVAL;
 		goto out;
 	}
-
-	inode_ctx_put (inode, this, (uint64_t)(long)layout);
 
 out:
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
@@ -663,7 +654,6 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode_t *inode, struct stat *stbuf, dict_t *xattr,
                 struct stat *postparent)
 {
-	dht_layout_t *layout        = NULL;
         char          is_linkfile   = 0;
         char          is_dir        = 0;
         xlator_t     *subvol        = NULL;
@@ -671,6 +661,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local         = NULL;
         loc_t        *loc           = NULL;
         call_frame_t *prev          = NULL;
+        int           ret           = 0;
 
         conf  = this->private;
 
@@ -710,20 +701,17 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		dht_itransform (this, prev->this, stbuf->st_ino,
 				&stbuf->st_ino);
-
                 postparent->st_ino = loc->parent->ino;
 
-		layout = dht_layout_for_subvol (this, prev->this);
-		if (!layout) {
+		ret = dht_layout_preset (this, prev->this, inode);
+		if (ret < 0) {
 			gf_log (this->name, GF_LOG_DEBUG,
-				"no pre-set layout for subvolume %s",
+				"could not set pre-set layout for subvolume %s",
 				prev->this->name);
 			op_ret   = -1;
 			op_errno = EINVAL;
 			goto out;
 		}
-
-                inode_ctx_put (inode, this, (uint64_t)(long)layout);
                 goto out; 
 	}
 
@@ -812,7 +800,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 	local->hashed_subvol = hashed_subvol;
 
         if (is_revalidate (loc)) {
-		layout = dht_layout_get (this, loc->inode);
+		local->layout = layout = dht_layout_get (this, loc->inode);
 
                 if (!layout) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -826,8 +814,10 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 			gf_log (this->name, GF_LOG_TRACE,
 				"incomplete layout failure for path=%s",
 				loc->path);
-			op_errno = ESTALE;
-			goto err;
+
+                        dht_layout_unref (this, local->layout);
+                        local->layout = NULL;
+			goto do_fresh_lookup;
 		}
 
 		local->inode    = inode_ref (loc->inode);
@@ -853,6 +843,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 				break;
 		}
         } else {
+        do_fresh_lookup:
 		/* TODO: remove the hard-coding */
 		ret = dict_set_uint32 (local->xattr_req, 
 				       "trusted.glusterfs.dht", 4 * 4);
@@ -1003,19 +994,20 @@ dht_stat (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	layout = dht_layout_get (this, loc->inode);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no layout for path=%s", loc->path);
-		op_errno = EINVAL;
-		goto err;
-	}
 
 	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory");
+		goto err;
+	}
+
+	local->layout = layout = dht_layout_get (this, loc->inode);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"no layout for path=%s", loc->path);
+		op_errno = EINVAL;
 		goto err;
 	}
 
@@ -1055,19 +1047,19 @@ dht_fstat (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	layout = dht_layout_get (this, fd->inode);
-	if (!layout) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no layout for fd=%p", fd);
-		op_errno = EINVAL;
-		goto err;
-	}
-
 	local = dht_local_init (frame);
 	if (!local) {
 		op_errno = ENOMEM;
 		gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory");
+		goto err;
+	}
+
+	local->layout = layout = dht_layout_get (this, fd->inode);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"no layout for fd=%p", fd);
+		op_errno = EINVAL;
 		goto err;
 	}
 
@@ -2252,7 +2244,7 @@ int
 dht_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t yoff)
 {
-        dht_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIR);
+        dht_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIRP);
         return 0;
 }
 
@@ -2344,7 +2336,6 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  struct stat *postparent)
 {
 	call_frame_t *prev = NULL;
-	dht_layout_t *layout = NULL;
 	int           ret = -1;
         dht_local_t  *local = NULL;
 
@@ -2367,26 +2358,15 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 postparent->st_ino = local->loc.parent->ino;
         }
 
-	layout = dht_layout_for_subvol (this, prev->this);
-
-	if (!layout) {
+        ret = dht_layout_preset (this, prev->this, inode);
+	if (ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"no pre-set layout for subvolume %s",
+			"could not set pre-set layout for subvolume %s",
 			prev->this->name);
 		op_ret   = -1;
 		op_errno = EINVAL;
 		goto out;
 	}
-
-	ret = inode_ctx_put (inode, this, (uint64_t)(long)layout);
-	if (ret != 0) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"could not set inode context");
-		op_ret   = -1;
-		op_errno = EINVAL;
-		goto out;
-	}
-
 out:
         /* 
          * FIXME: st_size and st_blocks of preparent and postparent do not have 
@@ -2763,7 +2743,6 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  struct stat *preparent, struct stat *postparent)
 {
 	call_frame_t *prev = NULL;
-	dht_layout_t *layout = NULL;
 	int           ret = -1;
         dht_local_t  *local = NULL;
 
@@ -2785,22 +2764,11 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 postparent->st_ino = local->loc.parent->ino;
         }
 
-
-	layout = dht_layout_for_subvol (this, prev->this);
-
-	if (!layout) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no pre-set layout for subvolume %s",
-			prev->this->name);
-		op_ret   = -1;
-		op_errno = EINVAL;
-		goto out;
-	}
-
-	ret = inode_ctx_put (inode, this, (uint64_t)(long)layout);
+        ret = dht_layout_preset (this, prev->this, inode);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"could not set inode context");
+			"could not set preset layout for subvol %s",
+                        prev->this->name);
 		op_ret   = -1;
 		op_errno = EINVAL;
 		goto out;
@@ -2940,8 +2908,7 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 	layout = local->selfheal.layout;
 
 	if (op_ret == 0) {
-		inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
-		local->selfheal.layout = NULL;
+                dht_layout_set (this, local->inode, layout);
 		local->stbuf.st_ino = local->st_ino;
                 if (local->loc.parent) {
                         local->preparent.st_ino = local->loc.parent->ino;
@@ -3000,7 +2967,6 @@ unlock:
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
-		local->layout = NULL;
 		dht_selfheal_new_directory (frame, dht_mkdir_selfheal_cbk,
 					    layout);
 	}
@@ -3050,7 +3016,6 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 	local->call_cnt = conf->subvolume_cnt - 1;
 	
 	if (local->call_cnt == 0) {
-		local->layout = NULL;
 		dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
 					&local->loc, layout);
 	}
@@ -3149,7 +3114,6 @@ dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	dht_local_t  *local = NULL;
 
 	local = frame->local;
-	local->layout = NULL;
 
         if (local->loc.parent) {
                 local->preparent.st_ino = local->loc.parent->ino;
@@ -3168,11 +3132,9 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno, struct stat *preparent,
                struct stat *postparent)
 {
-	uint64_t      tmp_layout = 0;
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
 	call_frame_t *prev = NULL;
-	dht_layout_t *layout = NULL;
 
 	local = frame->local;
 	prev  = cookie;
@@ -3204,15 +3166,14 @@ unlock:
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
 		if (local->need_selfheal) {
-			inode_ctx_get (local->loc.inode, this, 
-				       &tmp_layout);
-			layout = (dht_layout_t *)(long)tmp_layout;
+                        local->layout =
+                                dht_layout_get (this, local->loc.inode);
 
 			/* TODO: neater interface needed below */
 			local->stbuf.st_mode = local->loc.inode->st_mode;
 
 			dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
-					      &local->loc, layout);
+					      &local->loc, local->layout);
 		} else {
                         if (local->loc.parent) {
                                 local->preparent.st_ino =
@@ -3742,7 +3703,7 @@ unlock:
 }
 
 
-int32_t
+int
 dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
              struct stat *stbuf, int32_t valid)
 {
@@ -3758,8 +3719,15 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-	layout = dht_layout_get (this, loc->inode);
+	local = dht_local_init (frame);
+	if (!local) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_DEBUG,
+			"memory allocation failed :(");
+		goto err;
+	}
 
+	local->layout = layout = dht_layout_get (this, loc->inode);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"no layout for path=%s", loc->path);
@@ -3771,14 +3739,6 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"layout is not sane for path=%s", loc->path);
 		op_errno = EINVAL;
-		goto err;
-	}
-
-	local = dht_local_init (frame);
-	if (!local) {
-		op_errno = ENOMEM;
-		gf_log (this->name, GF_LOG_DEBUG,
-			"memory allocation failed :(");
 		goto err;
 	}
 
@@ -3802,7 +3762,7 @@ err:
 }
 
 
-int32_t
+int
 dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct stat *stbuf,
               int32_t valid)
 {
@@ -3816,7 +3776,15 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct stat *stbuf,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-	layout = dht_layout_get (this, fd->inode);
+	local = dht_local_init (frame);
+	if (!local) {
+		op_errno = ENOMEM;
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory");
+		goto err;
+	}
+
+	local->layout = layout = dht_layout_get (this, fd->inode);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"no layout for fd=%p", fd);
@@ -3828,14 +3796,6 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct stat *stbuf,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"layout is not sane for fd=%p", fd);
 		op_errno = EINVAL;
-		goto err;
-	}
-
-	local = dht_local_init (frame);
-	if (!local) {
-		op_errno = ENOMEM;
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory");
 		goto err;
 	}
 
@@ -3871,8 +3831,7 @@ dht_forget (xlator_t *this, inode_t *inode)
 		return 0;
 
 	layout = (dht_layout_t *)(long)tmp_layout;
-	if (!layout->preset)
-		FREE (layout);
+        dht_layout_unref (this, layout);
 
 	return 0;
 }
