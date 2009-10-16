@@ -69,7 +69,8 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 				local->loc.path);
 		}
 
-                local->postparent.st_ino = local->loc.parent->ino;
+                if (local->loc.parent)
+                        local->postparent.st_ino = local->loc.parent->ino;
 	}
 
 	DHT_STACK_UNWIND (lookup, frame, ret, local->op_errno, local->inode,
@@ -179,7 +180,9 @@ unlock:
 					local->loc.path);
 			}
 
-                        local->postparent.st_ino = local->loc.parent->ino;
+                        if (local->loc.parent)
+                                local->postparent.st_ino =
+                                        local->loc.parent->ino;
 		}
 
 		DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
@@ -286,7 +289,8 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		
 		local->op_ret = 0;
 		local->stbuf.st_ino = local->st_ino;
-                local->postparent.st_ino = local->loc.parent->ino;
+                if (local->loc.parent)
+                        local->postparent.st_ino = local->loc.parent->ino;
 
 		if (!local->xattr)
 			local->xattr = dict_ref (xattr);
@@ -350,7 +354,8 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 		local->stbuf.st_mode |= S_ISVTX;
 	}
 
-        local->postparent.st_ino = local->loc.parent->ino;
+        if (local->loc.parent)
+                local->postparent.st_ino = local->loc.parent->ino;
 
 unwind:
 	DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
@@ -494,7 +499,9 @@ unlock:
                                 local->op_errno = EINVAL;
                         }
 
-                        local->postparent.st_ino = local->loc.parent->ino;
+                        if (local->loc.parent)
+                                local->postparent.st_ino =
+                                        local->loc.parent->ino;
 
                         DHT_STACK_UNWIND (lookup, frame, local->op_ret,
                                           local->op_errno, local->inode,
@@ -590,7 +597,8 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 		stbuf->st_mode |= S_ISVTX;
 	}
         dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
-        postparent->st_ino = local->loc.parent->ino;
+        if (local->loc.parent)
+                postparent->st_ino = local->loc.parent->ino;
         
 	layout = dht_layout_for_subvol (this, prev->this);
 	if (!layout) {
@@ -2354,9 +2362,10 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev = cookie;
 
 	dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
-
-        preparent->st_ino = local->loc.parent->ino;
-        postparent->st_ino = local->loc.parent->ino;
+        if (local->loc.parent) {
+                preparent->st_ino = local->loc.parent->ino;
+                postparent->st_ino = local->loc.parent->ino;
+        }
 
 	layout = dht_layout_for_subvol (this, prev->this);
 
@@ -2771,9 +2780,11 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev = cookie;
 
 	dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+        if (local->loc.parent) {
+                preparent->st_ino = local->loc.parent->ino;
+                postparent->st_ino = local->loc.parent->ino;
+        }
 
-        preparent->st_ino = local->loc.parent->ino;
-        postparent->st_ino = local->loc.parent->ino;
 
 	layout = dht_layout_for_subvol (this, prev->this);
 
@@ -2939,8 +2950,10 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 		inode_ctx_put (local->inode, this, (uint64_t)(long)layout);
 		local->selfheal.layout = NULL;
 		local->stbuf.st_ino = local->st_ino;
-                local->preparent.st_ino = local->loc.parent->ino;
-                local->postparent.st_ino = local->loc.parent->ino;
+                if (local->loc.parent) {
+                        local->preparent.st_ino = local->loc.parent->ino;
+                        local->postparent.st_ino = local->loc.parent->ino;
+                }
 	}
 
 	DHT_STACK_UNWIND (mkdir, frame, op_ret, op_errno,
@@ -3145,8 +3158,10 @@ dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 	local->layout = NULL;
 
-        local->preparent.st_ino = local->loc.parent->ino;
-        local->postparent.st_ino = local->loc.parent->ino;
+        if (local->loc.parent) {
+                local->preparent.st_ino = local->loc.parent->ino;
+                local->postparent.st_ino = local->loc.parent->ino;
+        }
 
 	DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent);
@@ -3206,8 +3221,12 @@ unlock:
 			dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
 					      &local->loc, layout);
 		} else {
-                        local->preparent.st_ino = local->loc.parent->ino;
-                        local->postparent.st_ino = local->loc.parent->ino;
+                        if (local->loc.parent) {
+                                local->preparent.st_ino =
+                                        local->loc.parent->ino;
+                                local->postparent.st_ino =
+                                        local->loc.parent->ino;
+                        }
 
 			DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
 					  local->op_errno, &local->preparent,
