@@ -81,9 +81,10 @@ typedef struct {
 int
 posix_forget (xlator_t *this, inode_t *inode)
 {
-	uint64_t tmp_cache = 0;
-	if (!inode_ctx_del (inode, this, &tmp_cache))
-		dict_destroy ((dict_t *)(long)tmp_cache);
+	uint64_t unlinked_fd = -1;
+
+	if (!inode_ctx_del (inode, this, &unlinked_fd))
+                close (unlinked_fd);
 
 	return 0;
 }
@@ -1002,8 +1003,11 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         int32_t                  op_ret    = -1;
         int32_t                  op_errno  = 0;
         char                    *real_path = NULL;
-        int32_t                  fd = -1;
+        int32_t                  fd        = -1;
         struct posix_private    *priv      = NULL;
+        uint64_t                tmp_fd     = -1;
+        struct stat             stbuf      = { 0, };
+        int32_t                 ret        = -1;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1026,6 +1030,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                                         strerror (op_errno));
                                 goto out;
                         }
+
                 }
         }
 
@@ -1046,9 +1051,33 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         STACK_UNWIND (frame, op_ret, op_errno);
 
         if (fd != -1) {
-                close (fd);
-        }
 
+                ret = fstat (fd, &stbuf);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fstat on %s failed: %s",
+                                real_path, strerror (errno));
+                        goto fail;
+                }
+
+                if (stbuf.st_nlink == 0) {
+                        ret =  ftruncate (fd, 0);
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "ftruncate failed on fd=%d: %s",
+                                        fd, strerror (errno));
+                                goto fail;
+                        }
+                }
+
+                if ((inode_ctx_get (loc->inode, this, &tmp_fd)) == 0)
+                        close (fd);
+                else
+                        inode_ctx_put (loc->inode, this, (uint64_t) fd);
+        }
+fail:
+        if (fd != -1)
+                close (fd);
         return 0;
 }
 
@@ -1060,6 +1089,9 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         int32_t op_errno  = 0;
         char *  real_path = 0;
 
+        uint64_t fd       = -1;
+        struct posix_private *  priv   = NULL;
+
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1068,6 +1100,20 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        priv = this->private;
+
+        if (priv->background_unlink) {
+                fd = open (real_path, O_RDONLY);
+                if (fd == -1){
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "open() failed on `%s': %s",
+                                real_path, strerror (op_errno));
+                        goto out;
+                }
+
+        }
 
         op_ret = rmdir (real_path);
         op_errno = errno;
@@ -1087,6 +1133,9 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND (frame, op_ret, op_errno);
+
+        if (fd != -1)
+                inode_ctx_put (loc->inode, this, (uint64_t) fd);
 
         return 0;
 }
