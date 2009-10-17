@@ -134,6 +134,8 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 		goto unwind;
 	}
 
+        pl_trace_in (this, frame, NULL, loc, cmd, flock);
+
 	if (client_pid == 0) {
 		/* 
 		   special case: this means release all locks 
@@ -169,8 +171,11 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 				can_block, GF_LOCK_INTERNAL);
 
 		if (ret == -1) {
-			if (can_block)
+			if (can_block) {
+                                pl_trace_block (this, frame, NULL, loc,
+                                                cmd, flock);
 				goto out;
+                        }
 
 			gf_log (this->name, GF_LOG_TRACE, "returning EAGAIN");
 			op_errno = EAGAIN;
@@ -192,6 +197,7 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 
 unwind:	
         pl_update_refkeeper (this, loc->inode);
+        pl_trace_out (this, frame, NULL, loc, cmd, flock, op_ret, op_errno);
 	STACK_UNWIND (frame, op_ret, op_errno);
 out:
 	return 0;
@@ -236,6 +242,8 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 		goto unwind;
 	}
 
+        pl_trace_in (this, frame, fd, NULL, cmd, flock);
+
 	if (client_pid == 0) {
 		/* 
 		   special case: this means release all locks 
@@ -272,8 +280,11 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 				can_block, GF_LOCK_INTERNAL);
 
 		if (ret == -1) {
-			if (can_block)
+			if (can_block) {
+                                pl_trace_block (this, frame, fd, NULL,
+                                                cmd, flock);
 				goto out;
+                        }
 
 			gf_log (this->name, GF_LOG_TRACE, "Returning EAGAIN");
 			op_errno = EAGAIN;
@@ -295,6 +306,7 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 
 unwind:	
         pl_update_refkeeper (this, fd->inode);
+        pl_trace_out (this, frame, fd, NULL, cmd, flock, op_ret, op_errno);
 	STACK_UNWIND (frame, op_ret, op_errno);
 out:
 	return 0;

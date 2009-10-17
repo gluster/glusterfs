@@ -51,14 +51,14 @@ void __destroy_lock (posix_lock_t *);
 
 void pl_update_refkeeper (xlator_t *this, inode_t *inode);
 
-void pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, int cmd,
-                  struct flock *flock);
+void pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
+                  int cmd, struct flock *flock);
 
-void pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, int cmd,
-                   struct flock *flock, int op_ret, int op_errno);
+void pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
+                   int cmd, struct flock *flock, int op_ret, int op_errno);
 
-void pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, int cmd,
-                     struct flock *flock);
+void pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
+                     int cmd, struct flock *flock);
 
 void pl_trace_flush (xlator_t *this, call_frame_t *frame, fd_t *fd);
 
