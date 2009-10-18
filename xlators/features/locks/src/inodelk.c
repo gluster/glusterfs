@@ -281,11 +281,12 @@ grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t
 {
 
         if (list_empty (&dom->blocked_inodelks)) {
-                return;
+                goto out;
         }
 
 
 	__grant_blocked_inode_locks (this, pl_inode, dom);
+out:
         __destroy_inode_lock (lock);
 
 }
