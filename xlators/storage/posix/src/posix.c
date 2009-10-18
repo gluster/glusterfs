@@ -226,7 +226,7 @@ posix_lstat_with_gen (xlator_t *this, const char *path, struct stat *stbuf_p)
 {
         struct posix_private  *priv    = NULL;
         int                    ret     = 0;
-        char                   gen_key[256] = {0, };
+        char                   gen_key[1024] = {0, };
         uint64_t               gen_val_be = 0;
         uint64_t               gen_val = 0;
         struct stat            stbuf = {0, };
@@ -285,7 +285,7 @@ posix_fstat_with_gen (xlator_t *this, int fd, struct stat *stbuf_p)
 {
         struct posix_private  *priv    = NULL;
         int                    ret     = 0;
-        char                   gen_key[256] = {0, };
+        char                   gen_key[1024] = {0, };
         uint64_t               gen_val_be = 0;
         uint64_t               gen_val = 0;
         struct stat            stbuf = {0, };
@@ -1133,6 +1133,7 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
 {
         char *  dest      = NULL;
         int32_t op_ret    = -1;
+        int32_t lstat_ret = -1;
         int32_t op_errno  = 0;
         char *  real_path = NULL;
         struct stat stbuf = {0,};
@@ -1158,8 +1159,9 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
 
         dest[op_ret] = 0;
 
-        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
-        if (op_ret == -1) {
+        lstat_ret = posix_lstat_with_gen (this, real_path, &stbuf);
+        if (lstat_ret == -1) {
+                op_ret = -1;
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "lstat on %s failed: %s", loc->path,
