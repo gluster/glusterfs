@@ -365,6 +365,30 @@ send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error)
         return send_fuse_iov (this, finh, &iov_out, 1);
 }
 
+static inode_t *
+fuse_ino_to_inode (fuse_ino_t ino, inode_table_t *table)
+{
+        inode_t *inode = NULL;
+
+        if (ino == 1) {
+                inode = table->root;
+        } else {
+                inode = (inode_t *) (unsigned long) ino;
+                inode_ref (inode);
+        }
+
+        return inode;
+}
+
+static fuse_ino_t
+inode_to_nodeid (inode_t *inode)
+{
+        if (!inode || inode->ino == 1)
+                return 1;
+
+        return (unsigned long) inode;
+}
+
 
 GF_MUST_CHECK static int32_t
 fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
@@ -380,56 +404,62 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
 
         inode = loc->inode;
 
-        if (!inode) {
-                if (ino)
-                        inode = inode_search (state->itable, ino, NULL);
-                if (par && name)
-                        inode = inode_search (state->itable, par, name);
+        if (name) {
+                parent = loc->parent;
+                if (!parent) {
+                        parent = fuse_ino_to_inode (par, state->itable);
+                        loc->parent = parent;
+                }
 
-                loc->inode = inode;
-                if (inode)
-                        loc->ino = inode->ino;
-        }
+                inode = loc->inode;
+                if (!inode) {
+                        inode = inode_grep (state->itable, parent, name);
+                        loc->inode = inode;
+                }
 
-        parent = loc->parent;
-        if (!parent) {
-                if (inode)
-                        parent = inode_parent (inode, par, name);
-                else
-                        parent = inode_search (state->itable, par, NULL);
-                loc->parent = parent;
-        }
-
-        if (name && parent) {
                 ret = inode_path (parent, name, &path);
                 if (ret <= 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                                 "inode_path failed for %"PRId64"/%s",
                                 parent->ino, name);
                         goto fail;
-                } else {
-                        loc->path = path;
                 }
-        } else         if (inode) {
+                loc->path = path;
+        } else {
+                inode = loc->inode;
+                if (!inode) {
+                        inode = fuse_ino_to_inode (ino, state->itable);
+                        loc->inode = inode;
+                }
+
+                parent = loc->parent;
+                if (!parent) {
+                        parent = inode_parent (inode, par, name);
+                        loc->parent = parent;
+                }
+
                 ret = inode_path (inode, NULL, &path);
                 if (ret <= 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                                 "inode_path failed for %"PRId64,
                                 inode->ino);
                         goto fail;
-                } else {
-                        loc->path = path;
                 }
+                loc->path = path;
         }
+
+        if (inode)
+                loc->ino = inode->ino;
+
         if (loc->path) {
                 loc->name = strrchr (loc->path, '/');
                 if (loc->name)
                         loc->name++;
-                else loc->name = "";
+                else
+                        loc->name = "";
         }
 
-        if ((ino != 1) &&
-            (parent == NULL)) {
+        if ((ino != 1) && (parent == NULL)) {
                 gf_log ("fuse-bridge", GF_LOG_DEBUG,
                         "failed to search parent for %"PRId64"/%s (%"PRId64")",
                         (ino_t)par, name, (ino_t)ino);
@@ -441,34 +471,6 @@ fail:
         return ret;
 }
 
-
-static int
-need_fresh_lookup (int32_t op_ret, int32_t op_errno,
-                   loc_t *loc, struct stat *buf)
-{
-        if (op_ret == -1) {
-                gf_log ("fuse-bridge", GF_LOG_DEBUG,
-                        "revalidate of %s failed (%s)",
-                        loc->path, strerror (op_errno));
-                return 1;
-        }
-
-        if (loc->inode->ino != buf->st_ino) {
-                gf_log ("fuse-bridge", GF_LOG_DEBUG,
-                        "inode num of %s changed %"PRId64" -> %"PRId64,
-                        loc->path, loc->inode->ino, buf->st_ino);
-                return 1;
-        }
-
-        if ((loc->inode->st_mode & S_IFMT) ^ (buf->st_mode & S_IFMT)) {
-                gf_log ("fuse-bridge", GF_LOG_DEBUG,
-                        "inode mode of %s changed 0%o -> 0%o",
-                        loc->path, loc->inode->st_mode, buf->st_mode);
-                return 1;
-        }
-
-        return 0;
-}
 
 /* courtesy of folly */
 static void
@@ -491,24 +493,18 @@ stat2attr (struct stat *st, struct fuse_attr *fa)
         fa->blksize    = st->st_blksize;
 }
 
-static int
-fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno,
-                 inode_t *inode, struct stat *stat, dict_t *dict,
-                 struct stat *postparent);
-
         
 static int
-fuse_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno,
-                   inode_t *inode, struct stat *buf, struct stat *preparent,
-                   struct stat *postparent)
+fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno,
+                inode_t *inode, struct stat *buf)
 {
         fuse_state_t            *state = NULL;
         fuse_in_header_t        *finh = NULL;
         struct fuse_entry_out    feo = {0, };
         struct fuse_attr_out    *fao = NULL;
         fuse_private_t          *priv = NULL;
+        inode_t                 *linked_inode = NULL;
 
         priv = this->private;
         state = frame->root->state;
@@ -518,34 +514,16 @@ fuse_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 buf->st_ino = 1;
         }
 
-        if (state->is_revalidate == 1
-            && need_fresh_lookup (op_ret, op_errno, &state->loc, buf)) {
-                inode_unref (state->loc.inode);
-                state->loc.inode = inode_new (state->itable);
-                state->is_revalidate = 2;
-
-                STACK_WIND (frame, fuse_lookup_cbk,
-                            FIRST_CHILD (this),
-                            FIRST_CHILD (this)->fops->lookup,
-                            &state->loc, state->dict);
-
-                return 0;
-        }
-
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": %s() %s => %"PRId64" (%"PRId64")",
                         frame->root->unique, gf_fop_list[frame->root->op],
                         state->loc.path, buf->st_ino, state->loc.ino);
 
-                inode_link (inode, state->loc.parent, state->loc.name, buf);
-
-                inode_lookup (inode);
-
                 buf->st_blksize = this->ctx->page_size;
                 stat2attr (buf, &feo.attr);
 
-                if (!inode->ino || !buf->st_ino) {
+                if (!buf->st_ino) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "%"PRIu64": %s() %s returning inode 0",
                                 frame->root->unique,
@@ -553,14 +531,17 @@ fuse_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 if (state->loc.parent) {
-                        /* TODO: make these timeouts configurable (via meta?) */
-                        feo.nodeid = inode->ino;
+                        linked_inode = inode_link (inode, state->loc.parent,
+                                                   state->loc.name, buf);
 
-#ifdef GF_DARWIN_HOST_OS
-                        feo.generation = 0;
-#else
-                        feo.generation = buf->st_ctime;
-#endif
+                        inode_lookup (linked_inode);
+
+                        /* TODO: make these timeouts configurable (via meta?) */
+                        feo.nodeid = inode_to_nodeid (linked_inode);
+
+                        feo.generation = linked_inode->generation;
+
+                        inode_unref (linked_inode);
 
                         feo.entry_valid =
                           calc_timeout_sec (priv->entry_timeout);
@@ -607,108 +588,12 @@ fuse_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 static int
-fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno,
-                inode_t *inode, struct stat *buf)
+fuse_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno,
+                   inode_t *inode, struct stat *buf, struct stat *preparent,
+                   struct stat *postparent)
 {
-        fuse_state_t            *state = NULL;
-        fuse_in_header_t        *finh = NULL;
-        struct fuse_entry_out    feo = {0, };
-        struct fuse_attr_out    *fao = NULL;
-        fuse_private_t          *priv = NULL;
-
-        priv = this->private;
-        state = frame->root->state;
-        finh = state->finh;
-
-        if (!op_ret && state->loc.ino == 1) {
-                buf->st_ino = 1;
-        }
-
-        if (state->is_revalidate == 1
-            && need_fresh_lookup (op_ret, op_errno, &state->loc, buf)) {
-                inode_unref (state->loc.inode);
-                state->loc.inode = inode_new (state->itable);
-                state->is_revalidate = 2;
-
-                STACK_WIND (frame, fuse_lookup_cbk,
-                            FIRST_CHILD (this),
-                            FIRST_CHILD (this)->fops->lookup,
-                            &state->loc, state->dict);
-
-                return 0;
-        }
-
-        if (op_ret == 0) {
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s() %s => %"PRId64" (%"PRId64")",
-                        frame->root->unique, gf_fop_list[frame->root->op],
-                        state->loc.path, buf->st_ino, state->loc.ino);
-
-                inode_link (inode, state->loc.parent, state->loc.name, buf);
-
-                inode_lookup (inode);
-
-                buf->st_blksize = this->ctx->page_size;
-                stat2attr (buf, &feo.attr);
-
-                if (!inode->ino || !buf->st_ino) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "%"PRIu64": %s() %s returning inode 0",
-                                frame->root->unique,
-                                gf_fop_list[frame->root->op], state->loc.path);
-                }
-
-                if (state->loc.parent) {
-                        /* TODO: make these timeouts configurable (via meta?) */
-                        feo.nodeid = inode->ino;
-
-#ifdef GF_DARWIN_HOST_OS
-                        feo.generation = 0;
-#else
-                        feo.generation = buf->st_ctime;
-#endif
-
-                        feo.entry_valid =
-                          calc_timeout_sec (priv->entry_timeout);
-                        feo.entry_valid_nsec =
-                          calc_timeout_nsec (priv->entry_timeout);
-                        feo.attr_valid =
-                          calc_timeout_sec (priv->attribute_timeout);
-                        feo.attr_valid_nsec =
-                          calc_timeout_nsec (priv->attribute_timeout);
-
-                        priv->proto_minor >= 9 ?
-                        send_fuse_obj (this, finh, &feo) :
-                        send_fuse_data (this, finh, &feo,
-                                        FUSE_COMPAT_ENTRY_OUT_SIZE);
-                } else {
-                        /* Refurbish the entry_out as attr_out. Too hacky?... */
-                        fao = (struct fuse_attr_out *)
-                               ((char *)&feo.attr -
-                                offsetof (struct fuse_attr_out, attr));
-
-                        fao->attr_valid =
-                          calc_timeout_sec (priv->attribute_timeout);
-                        fao->attr_valid_nsec =
-                          calc_timeout_nsec (priv->attribute_timeout);
-
-                        priv->proto_minor >= 9 ?
-                        send_fuse_obj (this, finh, fao) :
-                        send_fuse_data (this, finh, fao,
-                                        FUSE_COMPAT_ATTR_OUT_SIZE);
-                }
-        } else {
-                gf_log ("glusterfs-fuse",
-                        (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_WARNING),
-                        "%"PRIu64": %s() %s => -1 (%s)", frame->root->unique,
-                        gf_fop_list[frame->root->op], state->loc.path,
-                        strerror (op_errno));
-                send_fuse_err (this, state->finh, op_errno);
-        }
-
-        free_state (state);
-        STACK_DESTROY (frame->root);
+        fuse_entry_cbk (frame, cookie, this, op_ret, op_errno, inode, buf);
         return 0;
 }
 
@@ -780,16 +665,10 @@ fuse_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        fuse_inode = inode_search (this->itable, finh->nodeid, NULL);
-        if (fuse_inode) {
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "got forget on inode (%"PRIu64")", finh->nodeid);
-                inode_forget (fuse_inode, ffi->nlookup);
-                inode_unref (fuse_inode);
-        } else {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                        "got forget, but inode (%"PRIu64") not found", finh->nodeid);
-        }
+        fuse_inode = fuse_ino_to_inode (finh->nodeid, this->itable);
+
+        inode_forget (fuse_inode, ffi->nlookup);
+        inode_unref (fuse_inode);
 
         FREE (finh);
 }
@@ -847,8 +726,6 @@ fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         return 0;
 }
-
-
 
 
 static int
@@ -923,11 +800,6 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         free_state (state);
                         return;
                 }
-
-                if (state->loc.inode)
-                        state->is_revalidate = 1;
-                else
-                        state->is_revalidate = -1;
 
                 state->dict = dict_new ();
 
@@ -1767,7 +1639,9 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct fuse_out_header   fouh = {0, };
         struct fuse_entry_out    feo = {0, };
         struct fuse_open_out     foo = {0, };
-        struct iovec iov_out[3];
+        struct iovec             iov_out[3];
+        inode_t                 *linked_inode = NULL;
+
 
         state    = frame->root->state;
         priv     = this->private;
@@ -1789,26 +1663,34 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 buf->st_blksize = this->ctx->page_size;
                 stat2attr (buf, &feo.attr);
 
-                feo.nodeid = buf->st_ino;
+                inode_link (inode, state->loc.parent,
+                            state->loc.name, buf);
+                linked_inode = inode;
 
-#ifdef GF_DARWIN_HOST_OS
-                feo.generation = 0;
-#else
-                feo.generation = buf->st_ctime;
-#endif
+                if (linked_inode != inode) {
+                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                                "create(%s) inode (ptr=%p, ino=%"PRId64", "
+                                "gen=%"PRId64") found conflict (ptr=%p, "
+                                "ino=%"PRId64", gen=%"PRId64")",
+                                state->loc.path, inode, inode->ino,
+                                inode->generation, linked_inode,
+                                linked_inode->ino, linked_inode->generation);
+                }
+                inode_unref (linked_inode);
+
+                inode_lookup (inode);
+
+                fd_ref (fd);
+
+                feo.nodeid = inode_to_nodeid (inode);
+
+                feo.generation = inode->generation;
 
                 feo.entry_valid = calc_timeout_sec (priv->entry_timeout);
                 feo.entry_valid_nsec = calc_timeout_nsec (priv->entry_timeout);
                 feo.attr_valid = calc_timeout_sec (priv->attribute_timeout);
                 feo.attr_valid_nsec =
                   calc_timeout_nsec (priv->attribute_timeout);
-
-                inode_link (inode, state->loc.parent,
-                            state->loc.name, buf);
-
-                inode_lookup (inode);
-
-                fd_ref (fd);
 
                 fouh.error = 0;
                 iov_out[0].iov_base = &fouh;
@@ -3056,7 +2938,6 @@ fuse_root_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "first lookup on root succeeded.");
-                inode_lookup (inode);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "first lookup on root failed.");
@@ -3089,7 +2970,7 @@ fuse_root_lookup (xlator_t *this)
         loc.path = "/";
         loc.name = "";
         loc.ino = 1;
-        loc.inode = inode_search (this->itable, 1, NULL);
+        loc.inode = fuse_ino_to_inode (1, this->itable);
         loc.parent = NULL;
 
         dict = dict_new ();
