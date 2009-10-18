@@ -57,13 +57,17 @@ struct _inode_table {
         uint32_t           lru_size;    /* count of inodes in lru list  */
         struct list_head   purge;       /* list of inodes to be purged soon */
         uint32_t           purge_size;  /* count of inodes in purge list */
+
+        struct list_head   attic;       /* list of inodes which do not have the latest generation
+                                           number. inode_t's @hash is linked with @attic. It is
+                                           otherwise linked with @inode_hash */
+        uint32_t           attic_size;
 };
 
 
 struct _dentry {
         struct list_head   inode_list;   /* list of dentries of inode */
         struct list_head   hash;         /* hash table pointers */
-        struct list_head   parent_list;  /* list of dentries under the parent  */
         inode_t           *inode;        /* inode of this directory entry */
         char              *name;         /* name of the directory entry */
         inode_t           *parent;       /* directory of the entry */
@@ -77,20 +81,20 @@ struct _inode_ctx {
 };
 
 struct _inode {
-        inode_table_t    *table;         /* the table this inode belongs to */
-        gf_lock_t         lock;
-        uint64_t          nlookup;
-        uint64_t          generation;
-        uint32_t          ref;           /* reference count on this inode */
-        ino_t             ino;           /* inode number in the storage (persistent) */
-        mode_t            st_mode;       /* what kind of file */
-        struct list_head  fd_list;       /* list of open files on this inode */
-        struct list_head  dentry_list;   /* list of directory entries for this inode */
-        struct list_head  child_list;    /* list of directory entries under this inode */
-        struct list_head  hash;          /* hash table pointers */
-        struct list_head  list;          /* active/lru/purge */
+        inode_table_t       *table;         /* the table this inode belongs to */
+        gf_lock_t            lock;
+        uint64_t             nlookup;
+        uint64_t             generation;
+        uint32_t             in_attic;      /* whether @hash is linked with @inode_hash or @attic */
+        uint32_t             ref;           /* reference count on this inode */
+        ino_t                ino;           /* inode number in the storage (persistent) */
+        mode_t               st_mode;       /* what kind of file */
+        struct list_head     fd_list;       /* list of open files on this inode */
+        struct list_head     dentry_list;   /* list of directory entries for this inode */
+        struct list_head     hash;          /* hash table pointers */
+        struct list_head     list;          /* active/lru/purge */
 
-	struct _inode_ctx *_ctx;    /* replacement for dict_t *(inode->ctx) */
+	struct _inode_ctx   *_ctx;    /* replacement for dict_t *(inode->ctx) */
 };
 
 
@@ -103,14 +107,12 @@ inode_new (inode_table_t *table);
 inode_t *
 inode_search (inode_table_t *table, ino_t ino, const char *name);
 
-int
+inode_t *
 inode_link (inode_t *inode, inode_t *parent,
             const char *name, struct stat *stbuf);
 
 void
-inode_unlink (inode_t *inode,
-              inode_t *parent,
-              const char *name);
+inode_unlink (inode_t *inode, inode_t *parent, const char *name);
 
 inode_t *
 inode_parent (inode_t *inode, ino_t par, const char *name);
@@ -125,32 +127,27 @@ int
 inode_lookup (inode_t *inode);
 
 int
-inode_forget (inode_t *inode,
-	      uint64_t nlookup);
+inode_forget (inode_t *inode, uint64_t nlookup);
 
 int
-inode_rename (inode_table_t *table,
-	      inode_t *olddir,
-	      const char *oldname,
-	      inode_t *newdir,
-	      const char *newname,
-	      inode_t *inode,
-	      struct stat *stbuf);
-
-
-int32_t
-inode_path (inode_t *inode,
-	    const char *name,
-	    char **bufp);
+inode_rename (inode_table_t *table, inode_t *olddir, const char *oldname,
+	      inode_t *newdir, const char *newname,
+	      inode_t *inode, struct stat *stbuf);
 
 inode_t *
-inode_from_path (inode_table_t *table,
-		 const char *path);
+inode_grep (inode_table_t *table, inode_t *parent, const char *name);
+
+inode_t *
+inode_get (inode_table_t *table, ino_t ino, uint64_t gen);
+
+int
+inode_path (inode_t *inode, const char *name, char **bufp);
+
+inode_t *
+inode_from_path (inode_table_t *table, const char *path);
 
 dentry_t *
-dentry_search_for_inode (inode_t *inode,
-                         ino_t par,
-                         const char *name);
+dentry_search_for_inode (inode_t *inode, ino_t par, const char *name);
 
 int
 __inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
