@@ -648,6 +648,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	size_t               baselen = 0;
 	int32_t              ret = -1;
 	ino_t                par = 0;
+	uint64_t             gen = 0;
 	client_local_t      *local = NULL;
 
 
@@ -662,7 +663,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
 
-	ret = inode_ctx_get (loc->parent, this, &par);
+	ret = inode_ctx_get2 (loc->parent, this, &par, &gen);
 	if (loc->parent->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"CREATE %"PRId64"/%s (%s): failed to get remote inode "
@@ -679,6 +680,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	req->flags   = hton32 (gf_flags_from_flags (flags));
 	req->mode    = hton32 (mode);
 	req->par     = hton64 (par);
+	req->gen     = hton64 (gen);
 	strcpy (req->path, loc->path);
 	strcpy (req->bname + pathlen, loc->name);
 
@@ -716,6 +718,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	gf_fop_open_req_t  *req = NULL;
 	size_t              pathlen = 0;
 	ino_t               ino = 0;
+        uint64_t            gen = 0;
 	client_local_t     *local = NULL;
 
 	local = calloc (1, sizeof (*local));
@@ -728,7 +731,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
 	pathlen = STRLEN_0(loc->path);
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"OPEN %"PRId64" (%s): "
@@ -743,6 +746,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
+	req->gen   = hton64 (gen);
 	req->flags = hton32 (gf_flags_from_flags (flags));
         req->wbflags = hton32 (wbflags);
 	strcpy (req->path, loc->path);
@@ -780,10 +784,11 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	int32_t            ret = -1;
 	size_t             pathlen = 0;
 	ino_t              ino = 0;
+	ino_t              gen = 0;
 
 	pathlen = STRLEN_0(loc->path);
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"STAT %"PRId64" (%s): "
@@ -798,6 +803,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
+	req->gen  = hton64 (gen);
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
@@ -833,10 +839,11 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 	int                    ret = -1;
 	size_t                 pathlen = 0;
 	ino_t                  ino = 0;
+        uint64_t               gen = 0;
 
 	pathlen = STRLEN_0(loc->path);
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"READLINK %"PRId64" (%s): "
@@ -851,6 +858,7 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
+	req->gen  = hton64 (gen);
 	req->size = hton32 (size);
 	strcpy (req->path, loc->path);
 
@@ -890,6 +898,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 	size_t              pathlen = 0;
 	size_t              baselen = 0;
 	ino_t               par = 0;
+        uint64_t            gen = 0;
 	client_local_t     *local = NULL;
 
 	local = calloc (1, sizeof (*local));
@@ -901,7 +910,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	ret = inode_ctx_get (loc->parent, this, &par);
+	ret = inode_ctx_get2 (loc->parent, this, &par, &gen);
 	if (loc->parent->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"MKNOD %"PRId64"/%s (%s): failed to get remote inode "
@@ -916,6 +925,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 	req    = gf_param (hdr);
 
 	req->par  = hton64 (par);
+	req->gen  = hton64 (gen);
 	req->mode = hton32 (mode);
 	req->dev  = hton64 (dev);
 	strcpy (req->path, loc->path);
@@ -955,6 +965,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 	size_t              pathlen = 0;
 	size_t              baselen = 0;
 	ino_t               par = 0;
+        uint64_t            gen = 0;
 	client_local_t     *local = NULL;
 
 	local = calloc (1, sizeof (*local));
@@ -966,7 +977,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	ret = inode_ctx_get (loc->parent, this, &par);
+	ret = inode_ctx_get2 (loc->parent, this, &par, &gen);
 	if (loc->parent->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"MKDIR %"PRId64"/%s (%s): failed to get remote inode "
@@ -981,6 +992,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 	req    = gf_param (hdr);
 
 	req->par  = hton64 (par);
+	req->gen  = hton64 (gen);
 	req->mode = hton32 (mode);
 	strcpy (req->path, loc->path);
 	strcpy (req->bname + pathlen, loc->name);
@@ -1018,10 +1030,11 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	size_t               pathlen = 0;
 	size_t               baselen = 0;
 	ino_t                par = 0;
+        uint64_t             gen = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	ret = inode_ctx_get (loc->parent, this, &par);
+	ret = inode_ctx_get2 (loc->parent, this, &par, &gen);
 	if (loc->parent->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"UNLINK %"PRId64"/%s (%s): failed to get remote inode "
@@ -1036,6 +1049,7 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	req    = gf_param (hdr);
 
 	req->par  = hton64 (par);
+	req->gen  = hton64 (gen);
 	strcpy (req->path, loc->path);
 	strcpy (req->bname + pathlen, loc->name);
 
@@ -1072,10 +1086,11 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	size_t              pathlen = 0;
 	size_t              baselen = 0;
 	ino_t               par = 0;
+	uint64_t            gen = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	baselen = STRLEN_0(loc->name);
-	ret = inode_ctx_get (loc->parent, this, &par);
+	ret = inode_ctx_get2 (loc->parent, this, &par, &gen);
 	if (loc->parent->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"RMDIR %"PRId64"/%s (%s): failed to get remote inode "
@@ -1090,6 +1105,7 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	req    = gf_param (hdr);
 
 	req->par  = hton64 (par);
+	req->gen  = hton64 (gen);
 	strcpy (req->path, loc->path);
 	strcpy (req->bname + pathlen, loc->name);
 
@@ -1130,6 +1146,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
 	size_t                newlen  = 0;
 	size_t                baselen = 0;
 	ino_t                 par = 0;
+        uint64_t              gen = 0;
 	client_local_t       *local = NULL;
 
 	local = calloc (1, sizeof (*local));
@@ -1142,7 +1159,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
 	pathlen = STRLEN_0 (loc->path);
 	baselen = STRLEN_0 (loc->name);
 	newlen = STRLEN_0 (linkname);
-	ret = inode_ctx_get (loc->parent, this, &par);
+	ret = inode_ctx_get2 (loc->parent, this, &par, &gen);
 	if (loc->parent->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"SYMLINK %"PRId64"/%s (%s): failed to get remote inode"
@@ -1157,6 +1174,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
 	req    = gf_param (hdr);
 
 	req->par =  hton64 (par);
+	req->gen =  hton64 (gen);
 	strcpy (req->path, loc->path);
 	strcpy (req->bname + pathlen, loc->name);
 	strcpy (req->linkname + pathlen + baselen, linkname);
@@ -1197,13 +1215,15 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 	size_t               newpathlen = 0;
 	size_t               newbaselen = 0;
 	ino_t                oldpar = 0;
+        uint64_t             oldgen = 0;
 	ino_t                newpar = 0;
+        uint64_t             newgen = 0;
 
 	oldpathlen = STRLEN_0(oldloc->path);
 	oldbaselen = STRLEN_0(oldloc->name);
 	newpathlen = STRLEN_0(newloc->path);
 	newbaselen = STRLEN_0(newloc->name);
-	ret = inode_ctx_get (oldloc->parent, this, &oldpar);
+	ret = inode_ctx_get2 (oldloc->parent, this, &oldpar, &oldgen);
 	if (oldloc->parent->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"RENAME %"PRId64"/%s (%s): failed to get remote inode "
@@ -1211,7 +1231,7 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                         oldloc->parent->ino, oldloc->name, oldloc->path);
 	}
 
-	ret = inode_ctx_get (newloc->parent, this, &newpar);
+	ret = inode_ctx_get2 (newloc->parent, this, &newpar, &newgen);
 	if (newloc->parent->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"CREATE %"PRId64"/%s (%s): failed to get remote inode "
@@ -1229,7 +1249,9 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 	req    = gf_param (hdr);
 
 	req->oldpar = hton64 (oldpar);
+        req->oldgen = hton64 (oldgen);
 	req->newpar = hton64 (newpar);
+        req->newgen = hton64 (newgen);
 
 	strcpy (req->oldpath, oldloc->path);
 	strcpy (req->oldbname + oldpathlen, oldloc->name);
@@ -1271,7 +1293,9 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 	size_t             newpathlen = 0;
 	size_t             newbaselen = 0;
 	ino_t              oldino = 0;
+        uint64_t           oldgen = 0;
 	ino_t              newpar = 0;
+        uint64_t           newgen = 0;
 	client_local_t    *local = NULL;
 
 	local = calloc (1, sizeof (*local));
@@ -1285,7 +1309,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 	newpathlen = STRLEN_0(newloc->path);
 	newbaselen = STRLEN_0(newloc->name);
 
-	ret = inode_ctx_get (oldloc->inode, this, &oldino);
+	ret = inode_ctx_get2 (oldloc->inode, this, &oldino, &oldgen);
 	if (oldloc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"LINK %"PRId64"/%s (%s) ==> %"PRId64" (%s): "
@@ -1294,7 +1318,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                         oldloc->ino, oldloc->path);
 	}
 
-	ret = inode_ctx_get (newloc->parent, this, &newpar);
+	ret = inode_ctx_get2 (newloc->parent, this, &newpar, &newgen);
 	if (newloc->parent->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"LINK %"PRId64"/%s (%s) ==> %"PRId64" (%s): "
@@ -1314,7 +1338,9 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 	strcpy (req->newbname + oldpathlen + newpathlen, newloc->name);
 
 	req->oldino = hton64 (oldino);
+	req->oldgen = hton64 (oldgen);
 	req->newpar = hton64 (newpar);
+	req->newgen = hton64 (newgen);
 
 	ret = protocol_client_xfer (frame, this,
 				    CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
@@ -1348,9 +1374,10 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 	int                    ret = -1;
 	size_t                 pathlen = 0;
 	ino_t                  ino = 0;
+        uint64_t               gen = 0;
 
 	pathlen = STRLEN_0(loc->path);
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"TRUNCATE %"PRId64" (%s): "
@@ -1365,6 +1392,7 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 	req    = gf_param (hdr);
 
 	req->ino    = hton64 (ino);
+        req->gen    = hton64 (gen);
 	req->offset = hton64 (offset);
 	strcpy (req->path, loc->path);
 
@@ -1529,11 +1557,12 @@ client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	int                  ret = -1;
 	size_t               pathlen = 0;
 	ino_t                ino = 0;
+	ino_t                gen = 0;
 
 	pathlen = STRLEN_0(loc->path);
         
         if (loc->inode) {
-                ret = inode_ctx_get (loc->inode, this, &ino);
+                ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
                 if (loc->inode->ino && ret < 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "STATFS %"PRId64" (%s): "
@@ -1549,6 +1578,7 @@ client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	req    = gf_param (hdr);
 
 	req->ino = hton64 (ino);
+	req->gen = hton64 (gen);
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
@@ -1695,6 +1725,7 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	int32_t               ret = -1;
 	size_t                pathlen = 0;
 	ino_t                 ino = 0;
+        uint64_t              gen = 0;
         char                 *buf = NULL;
 
 	GF_VALIDATE_OR_GOTO("client", this, unwind);
@@ -1713,7 +1744,7 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 	pathlen = STRLEN_0(loc->path);
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"XATTROP %"PRId64" (%s): "
@@ -1735,6 +1766,7 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
 	req->ino = hton64 (ino);
+        req->gen = hton64 (gen);
 	strcpy (req->path + dict_len, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
@@ -1851,6 +1883,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	int                    ret = -1;
 	size_t                 pathlen = 0;
 	ino_t                  ino = 0;
+        uint64_t               gen = 0;
 
 	dict_len = dict_serialized_length (dict);
 	if (dict_len < 0) {
@@ -1862,7 +1895,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 	pathlen = STRLEN_0(loc->path);
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"SETXATTR %"PRId64" (%s): "
@@ -1877,6 +1910,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
+        req->gen   = hton64 (gen);
 	req->flags = hton32 (flags);
 	req->dict_len = hton32 (dict_len);
 
@@ -2006,12 +2040,13 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	size_t                 pathlen = 0;
 	size_t                 namelen = 0;
 	ino_t                  ino = 0;
+        uint64_t               gen = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	if (name)
 		namelen = STRLEN_0(name);
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"GETXATTR %"PRId64" (%s): "
@@ -2026,6 +2061,7 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
+        req->gen   = hton64 (gen);
 	req->namelen = hton32 (namelen);
 	strcpy (req->path, loc->path);
 	if (name)
@@ -2137,11 +2173,12 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	size_t                    namelen = 0;
 	size_t                    pathlen = 0;
 	ino_t                     ino = 0;
+        uint64_t                  gen = 0;
 
 	pathlen = STRLEN_0(loc->path);
 	namelen = STRLEN_0(name);
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"REMOVEXATTR %"PRId64" (%s): "
@@ -2156,6 +2193,7 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
+        req->gen   = hton64 (gen);
 	strcpy (req->path, loc->path);
 	strcpy (req->name + pathlen, name);
 
@@ -2189,6 +2227,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	size_t                hdrlen = 0;
 	int                   ret = -1;
 	ino_t                 ino = 0;
+        uint64_t              gen = 0;
 	size_t                pathlen = 0;
 	client_local_t       *local = NULL;
 
@@ -2200,7 +2239,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 	frame->local = local;
 	
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"OPENDIR %"PRId64" (%s): "
@@ -2217,6 +2256,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	req    = gf_param (hdr);
 
 	req->ino = hton64 (ino);
+        req->gen = hton64 (gen);
 	strcpy (req->path, loc->path);
 
 	ret = protocol_client_xfer (frame, this,
@@ -2488,9 +2528,10 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 	size_t               hdrlen = -1;
 	int                  ret = -1;
 	ino_t                ino = 0;
+        uint64_t             gen = 0;
 	size_t               pathlen = 0;
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"ACCESS %"PRId64" (%s): "
@@ -2507,6 +2548,7 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
+	req->gen  = hton64 (gen);
 	req->mask = hton32 (mask);
 	strcpy (req->path, loc->path);
 
@@ -2757,13 +2799,14 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
 	int32_t               gf_cmd = 0;
 	int32_t               gf_type = 0;
 	ino_t                 ino  = 0;
+	uint64_t              gen  = 0;
 	size_t                pathlen = 0;
         size_t                vollen  = 0;
 
 	pathlen = STRLEN_0(loc->path);
         vollen  = STRLEN_0(volume);
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"INODELK %"PRId64" (%s): "
@@ -2805,6 +2848,7 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         strcpy (req->path + pathlen, volume);
 
 	req->ino  = hton64 (ino);
+        req->gen  = hton64 (gen);
 
 	req->cmd  = hton32 (gf_cmd);
 	req->type = hton32 (gf_type);
@@ -2936,6 +2980,7 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 	size_t                hdrlen = -1;
 	int                   ret = -1;
 	ino_t                 ino = 0;
+        uint64_t              gen = 0;
 	size_t                namelen = 0;
 
 	pathlen = STRLEN_0(loc->path);
@@ -2944,7 +2989,7 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 	if (name)
 		namelen = STRLEN_0(name);
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"ENTRYLK %"PRId64" (%s): "
@@ -2959,6 +3004,7 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
+        req->gen  = hton64 (gen);
 	req->namelen = hton64 (namelen);
 
 	strcpy (req->path, loc->path);
@@ -3071,6 +3117,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	int                  ret = -1;
 	ino_t                ino = 0;
 	ino_t                par = 0;
+        uint64_t             gen = 0;
 	size_t               dictlen = 0;
 	size_t               pathlen = 0;
 	size_t               baselen = 0;
@@ -3090,7 +3137,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
 
 	if (loc->ino != 1) {
-                ret = inode_ctx_get (loc->parent, this, &par);
+                ret = inode_ctx_get2 (loc->parent, this, &par, &gen);
                 if (loc->parent->ino && ret < 0) {
                         gf_log (this->name, GF_LOG_TRACE,
                                 "LOOKUP %"PRId64"/%s (%s): failed to get "
@@ -3122,6 +3169,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	req    = gf_param (hdr);
 
 	req->ino   = hton64 (ino);
+        req->gen   = hton64 (gen);
 	req->par   = hton64 (par);
 	strcpy (req->path, loc->path);
 	if (baselen)
@@ -3288,25 +3336,24 @@ unwind:
 	return 0;
 }
 
-int32_t client_setattr (call_frame_t *frame,
-                        xlator_t *this,
-                        loc_t *loc,
-                        struct stat *stbuf,
-                        int32_t valid)
+int
+client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                struct stat *stbuf, int32_t valid)
 {
 	gf_hdr_common_t      *hdr = NULL;
 	gf_fop_setattr_req_t *req = NULL;
-	size_t             hdrlen = 0;
-        size_t             pathlen = 0;
-        ino_t              ino    = 0;
-        int ret = -1;
+	size_t                hdrlen = 0;
+        size_t                pathlen = 0;
+        ino_t                 ino = 0;
+        uint64_t              gen = 0;
+        int                   ret = -1;
 
 	GF_VALIDATE_OR_GOTO ("client", this, unwind);
 	GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
 
         pathlen = STRLEN_0(loc->path);
 
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"SETATTR %"PRId64" (%s): "
@@ -3321,6 +3368,7 @@ int32_t client_setattr (call_frame_t *frame,
 	req    = gf_param (hdr);
 
 	req->ino  = hton64 (ino);
+        req->gen  = hton64 (gen);
 	strcpy (req->path, loc->path);
 
         gf_stat_from_stat (&req->stbuf, stbuf);
@@ -3337,11 +3385,10 @@ unwind:
         return 0;
 }
 
-int32_t client_fsetattr (call_frame_t *frame,
-                         xlator_t *this,
-                         fd_t *fd,
-                         struct stat *stbuf,
-                         int32_t valid)
+
+int
+client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                 struct stat *stbuf, int32_t valid)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_fsetattr_req_t *req = NULL;
@@ -3717,8 +3764,8 @@ client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	}
 
 	if (op_ret >= 0) {
-                ret = inode_ctx_put (local->loc.inode, frame->this,
-                                     stbuf.st_ino);
+                ret = inode_ctx_put2 (local->loc.inode, frame->this,
+                                      stbuf.st_ino, stbuf.st_dev);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "CREATE %"PRId64"/%s (%s): failed to set "
@@ -3881,8 +3928,8 @@ client_mknod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 
-                ret = inode_ctx_put (local->loc.inode, frame->this,
-                                     stbuf.st_ino);
+                ret = inode_ctx_put2 (local->loc.inode, frame->this,
+                                      stbuf.st_ino, stbuf.st_dev);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "MKNOD %"PRId64"/%s (%s): failed to set remote"
@@ -3937,8 +3984,8 @@ client_symlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 
-                ret = inode_ctx_put (inode, frame->this,
-                                     stbuf.st_ino);
+                ret = inode_ctx_put2 (inode, frame->this,
+                                      stbuf.st_ino, stbuf.st_dev);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "SYMLINK %"PRId64"/%s (%s): failed to set "
@@ -4410,7 +4457,8 @@ client_mkdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	if (op_ret >= 0) {
 		gf_stat_to_stat (&rsp->stat, &stbuf);
 
-                ret = inode_ctx_put (inode, frame->this, stbuf.st_ino);
+                ret = inode_ctx_put2 (inode, frame->this, stbuf.st_ino,
+                                      stbuf.st_dev);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "MKDIR %"PRId64"/%s (%s): failed to set "
@@ -4600,6 +4648,7 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 	int32_t              gf_errno = 0;
 	client_local_t      *local = NULL;
         ino_t                oldino = 0;
+        uint64_t             oldgen = 0;
 
 	local = frame->local; 
 	inode = local->loc.inode;
@@ -4615,9 +4664,9 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 		op_ret = -1;
 		gf_stat_to_stat (&rsp->stat, &stbuf);
                 
-                ret = inode_ctx_get (inode, frame->this, &oldino);
-                if (oldino != stbuf.st_ino) {
-                        if (oldino)
+                ret = inode_ctx_get2 (inode, frame->this, &oldino, &oldgen);
+                if (oldino != stbuf.st_ino || oldgen != stbuf.st_dev) {
+                        if (oldino) {
                                 gf_log (frame->this->name, GF_LOG_DEBUG,
                                         "LOOKUP %"PRId64"/%s (%s): "
                                         "inode number changed from "
@@ -4626,9 +4675,11 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                         local->loc.name,
                                         local->loc.path,
                                         oldino, stbuf.st_ino);
+                                goto fail;
+                        }
                                 
-                        ret = inode_ctx_put (inode, frame->this,
-                                             stbuf.st_ino);
+                        ret = inode_ctx_put2 (inode, frame->this,
+                                              stbuf.st_ino, stbuf.st_dev);
                         if (ret < 0) {
                                 gf_log (frame->this->name, GF_LOG_DEBUG,
                                         "LOOKUP %"PRId64"/%s (%s) : "
@@ -5367,12 +5418,13 @@ client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
 	size_t                 hdrlen = -1;
 	int                    ret = -1;
 	ino_t                  ino = 0;
+        uint64_t               gen = 0;
 
 	hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
 	hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
 	req    = gf_param (hdr);
 	
-	ret = inode_ctx_get (loc->inode, this, &ino);
+	ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
 	if (loc->inode->ino && ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"CHECKSUM %"PRId64" (%s): "
@@ -5381,6 +5433,7 @@ client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
 	}
 
 	req->ino  = hton64 (ino);
+        req->gen  = hton64 (gen);
 	req->flag = hton32 (flag);
 	strcpy (req->path, loc->path);
 
