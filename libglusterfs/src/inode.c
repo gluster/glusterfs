@@ -1102,8 +1102,10 @@ inode_from_path (inode_table_t *itable, const char *path)
         return inode;
 }
 
+
 int
-__inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value)
+__inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
+                  uint64_t value2)
 {
         int ret = 0;
         int index = 0;
@@ -1116,25 +1118,28 @@ __inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value)
                         /* dont break, to check if key already exists
                            further on */
                 }
-                if (inode->_ctx[index].key == (uint64_t)(long) xlator) {
+                if (inode->_ctx[index].xl_key == xlator) {
                         put_idx = index;
                         break;
                 }
         }
-        
+
         if (put_idx == -1) {
                 ret = -1;
                 goto out;;
         }
 
-        inode->_ctx[put_idx].key   = (uint64_t)(long) xlator;
-        inode->_ctx[put_idx].value = value;
+        inode->_ctx[put_idx].xl_key = xlator;
+        inode->_ctx[put_idx].value1 = value1;
+        inode->_ctx[put_idx].value2 = value2;
 out:
         return ret;
 }
 
+
 int
-inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value)
+inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
+                uint64_t value2)
 {
         int ret = 0;
 
@@ -1143,21 +1148,23 @@ inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value)
 
         LOCK (&inode->lock);
         {
-                ret = __inode_ctx_put (inode, xlator, value);
+                ret = __inode_ctx_put2 (inode, xlator, value1, value2);
         }
         UNLOCK (&inode->lock);
 
         return ret;
 }
 
+
 int
-__inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value)
+__inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                  uint64_t *value2)
 {
         int index = 0;
         int ret = 0;
 
         for (index = 0; index < xlator->ctx->xl_count; index++) {
-                if (inode->_ctx[index].key == (uint64_t)(long)xlator)
+                if (inode->_ctx[index].xl_key == xlator)
                         break;
         }
 
@@ -1166,15 +1173,20 @@ __inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value)
                 goto out;
         }
 
-        if (value) 
-                *value = inode->_ctx[index].value;
+        if (value1)
+                *value1 = inode->_ctx[index].value1;
+
+        if (value2)
+                *value2 = inode->_ctx[index].value2;
 
 out:
         return ret;
 }
 
-int 
-inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value)
+
+int
+inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                uint64_t *value2)
 {
         int ret = 0;
 
@@ -1183,7 +1195,7 @@ inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value)
 
         LOCK (&inode->lock);
         {
-                ret = __inode_ctx_get (inode, xlator, value);
+                ret = __inode_ctx_get2 (inode, xlator, value1, value2);
         }
         UNLOCK (&inode->lock);
 
@@ -1191,8 +1203,9 @@ inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value)
 }
 
 
-int 
-inode_ctx_del (inode_t *inode, xlator_t *xlator, uint64_t *value)
+int
+inode_ctx_del2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                uint64_t *value2)
 {
         int index = 0;
         int ret = 0;
@@ -1203,7 +1216,7 @@ inode_ctx_del (inode_t *inode, xlator_t *xlator, uint64_t *value)
         LOCK (&inode->lock);
         {
                 for (index = 0; index < xlator->ctx->xl_count; index++) {
-                        if (inode->_ctx[index].key == (uint64_t)(long)xlator)
+                        if (inode->_ctx[index].xl_key == xlator)
                                 break;
                 }
 
@@ -1212,17 +1225,56 @@ inode_ctx_del (inode_t *inode, xlator_t *xlator, uint64_t *value)
                         goto unlock;
                 }
 
-                if (value)
-                        *value = inode->_ctx[index].value;              
+                if (value1)
+                        *value1 = inode->_ctx[index].value1;
+                if (value2)
+                        *value2 = inode->_ctx[index].value2;
 
-                inode->_ctx[index].key   = 0;
-                inode->_ctx[index].value = 0;
+                inode->_ctx[index].key    = 0;
+                inode->_ctx[index].value1 = 0;
+                inode->_ctx[index].value2 = 0;
         }
 unlock:
         UNLOCK (&inode->lock);
 
         return ret;
 }
+
+
+int
+__inode_ctx_put (inode_t *inode, xlator_t *key, uint64_t value)
+{
+        return __inode_ctx_put2 (inode, key, value, 0);
+}
+
+
+int
+inode_ctx_put (inode_t *inode, xlator_t *key, uint64_t value)
+{
+        return inode_ctx_put2 (inode, key, value, 0);
+}
+
+
+int
+__inode_ctx_get (inode_t *inode, xlator_t *key, uint64_t *value)
+{
+        return __inode_ctx_get2 (inode, key, value, 0);
+}
+
+
+int
+inode_ctx_get (inode_t *inode, xlator_t *key, uint64_t *value)
+{
+        return inode_ctx_get2 (inode, key, value, 0);
+}
+
+
+int
+inode_ctx_del (inode_t *inode, xlator_t *key, uint64_t *value)
+{
+        return inode_ctx_del2 (inode, key, value, 0);
+}
+
 
 void
 inode_dump (inode_t *inode, char *prefix)

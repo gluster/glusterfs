@@ -73,11 +73,19 @@ struct _dentry {
         inode_t           *parent;       /* directory of the entry */
 };
 
-//#define ZR_INODE_CTX_VALUE_LEN 2
 struct _inode_ctx {
-	uint64_t key;
-	uint64_t value;
-	//uint64_t value[ZR_INODE_CTX_VALUE_LEN];
+        union {
+                uint64_t    key;
+                xlator_t   *xl_key;
+        };
+        union {
+                uint64_t    value1;
+                void       *ptr1;
+        };
+        union {
+                uint64_t    value2;
+                void       *ptr2;
+        };
 };
 
 struct _inode {
@@ -155,7 +163,7 @@ __inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
 int
 inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
 
-int
+int 
 __inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value);
 
 int 
@@ -163,5 +171,17 @@ inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value);
 
 int 
 inode_ctx_del (inode_t *inode, xlator_t *xlator, uint64_t *value);
+
+int
+inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
+                uint64_t value2);
+
+int
+inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                uint64_t *value2);
+
+int
+inode_ctx_del2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                uint64_t *value2);
 
 #endif /* _INODE_H */
