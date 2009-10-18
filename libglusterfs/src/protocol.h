@@ -45,7 +45,7 @@ struct gf_stat {
 	uint64_t ino;
 	uint64_t size;
 	uint64_t blocks;
-	uint32_t dev;
+	uint64_t dev;
 	uint32_t rdev;
 	uint32_t mode;
 	uint32_t nlink;
@@ -64,7 +64,7 @@ struct gf_stat {
 static inline void
 gf_stat_to_stat (struct gf_stat *gf_stat, struct stat *stat)
 {
-	stat->st_dev          = ntoh32 (gf_stat->dev);
+	stat->st_dev          = ntoh64 (gf_stat->dev);
 	stat->st_ino          = ntoh64 (gf_stat->ino);
 	stat->st_mode         = ntoh32 (gf_stat->mode);
 	stat->st_nlink        = ntoh32 (gf_stat->nlink);
@@ -84,7 +84,7 @@ gf_stat_to_stat (struct gf_stat *gf_stat, struct stat *stat)
 static inline void
 gf_stat_from_stat (struct gf_stat *gf_stat, struct stat *stat)
 {
-	gf_stat->dev         = hton32 (stat->st_dev);
+	gf_stat->dev         = hton64 (stat->st_dev);
 	gf_stat->ino         = hton64 (stat->st_ino);
 	gf_stat->mode        = hton32 (stat->st_mode);
 	gf_stat->nlink       = hton32 (stat->st_nlink);
@@ -324,6 +324,7 @@ gf_flags_to_flags (uint32_t gf_flags)
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	char     path[0];     /* NULL terminated */
 } __attribute__((packed)) gf_fop_stat_req_t;;
 typedef struct {
@@ -333,6 +334,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	uint32_t size;
 	char     path[0];     /* NULL terminated */
 } __attribute__((packed)) gf_fop_readlink_req_t;
@@ -344,6 +346,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t par;
+        uint64_t gen;
 	uint64_t dev;
 	uint32_t mode;
 	char     path[0];     /* NULL terminated */
@@ -358,6 +361,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t par;
+        uint64_t gen;
 	uint32_t mode;
 	char     path[0];     /* NULL terminated */
 	char     bname[0]; /* NULL terminated */
@@ -371,6 +375,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t par;
+        uint64_t gen;
 	char     path[0];     /* NULL terminated */
 	char     bname[0]; /* NULL terminated */
 } __attribute__((packed)) gf_fop_unlink_req_t;
@@ -382,6 +387,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t par;
+        uint64_t gen;
 	char     path[0];
 	char     bname[0]; /* NULL terminated */
 } __attribute__((packed)) gf_fop_rmdir_req_t;
@@ -393,6 +399,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t par;
+        uint64_t gen;
 	char     path[0];
 	char     bname[0];
 	char     linkname[0];
@@ -406,7 +413,9 @@ typedef struct {
 
 typedef struct {
 	uint64_t   oldpar;
+        uint64_t   oldgen;
 	uint64_t   newpar;
+        uint64_t   newgen;
 	char       oldpath[0];
 	char       oldbname[0]; /* NULL terminated */
 	char       newpath[0];
@@ -423,7 +432,9 @@ typedef struct {
 
 typedef struct {
 	uint64_t   oldino;
+        uint64_t   oldgen;
 	uint64_t   newpar;
+        uint64_t   newgen;
 	char       oldpath[0];
 	char       newpath[0];
 	char       newbname[0];
@@ -436,6 +447,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	uint64_t offset;
 	char     path[0];
 } __attribute__((packed)) gf_fop_truncate_req_t;
@@ -447,6 +459,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	uint32_t flags;
         uint32_t wbflags;
 	char     path[0];
@@ -458,6 +471,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint64_t offset;
 	uint32_t size;
@@ -470,6 +484,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint64_t offset;
 	uint32_t size;
@@ -482,6 +497,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	char     path[0];
 } __attribute__((packed)) gf_fop_statfs_req_t;
 typedef struct {
@@ -491,6 +507,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 } __attribute__((packed)) gf_fop_flush_req_t;
 typedef struct { } __attribute__((packed)) gf_fop_flush_rsp_t;
@@ -498,6 +515,7 @@ typedef struct { } __attribute__((packed)) gf_fop_flush_rsp_t;
 
 typedef struct fsync_req {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint32_t data;
 } __attribute__((packed)) gf_fop_fsync_req_t;
@@ -509,6 +527,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	uint32_t flags;
 	uint32_t dict_len;
 	char     dict[0];
@@ -519,6 +538,7 @@ typedef struct { } __attribute__((packed)) gf_fop_setxattr_rsp_t;
 
 typedef struct {
         uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint32_t flags;
 	uint32_t dict_len;
@@ -529,6 +549,7 @@ typedef struct { } __attribute__((packed)) gf_fop_fsetxattr_rsp_t;
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	uint32_t flags;
 	uint32_t dict_len;
 	char     dict[0];
@@ -543,6 +564,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint32_t flags;
 	uint32_t dict_len;
@@ -557,6 +579,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	uint32_t namelen;
 	char     path[0];
 	char     name[0];
@@ -569,6 +592,7 @@ typedef struct {
 
 typedef struct {
         uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
         uint32_t namelen;
 	char     name[0];
@@ -581,6 +605,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	char     path[0];
 	char     name[0];
 } __attribute__((packed)) gf_fop_removexattr_req_t;
@@ -589,6 +614,7 @@ typedef struct { } __attribute__((packed)) gf_fop_removexattr_rsp_t;
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	char     path[0];
 } __attribute__((packed)) gf_fop_opendir_req_t;
 typedef struct {
@@ -598,6 +624,7 @@ typedef struct {
 
 typedef struct fsyncdir_req {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	int32_t  data;
 } __attribute__((packed)) gf_fop_fsyncdir_req_t;
@@ -607,6 +634,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint64_t offset;
 	uint32_t size;
@@ -619,6 +647,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint64_t offset;
 	uint32_t size;
@@ -631,6 +660,7 @@ typedef struct {
 
 typedef struct  {
 	uint64_t ino;
+        uint64_t gen;
 	uint32_t mask;
 	char     path[0];
 } __attribute__((packed)) gf_fop_access_req_t;
@@ -640,6 +670,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t par;
+        uint64_t gen;
 	uint32_t flags;
 	uint32_t mode;
 	char     path[0];
@@ -656,6 +687,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint64_t offset;
 } __attribute__((packed)) gf_fop_ftruncate_req_t;
@@ -667,6 +699,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 } __attribute__((packed)) gf_fop_fstat_req_t;
 typedef struct {
@@ -676,6 +709,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t        ino;
+        uint64_t        gen;
 	int64_t         fd;
 	uint32_t        cmd;
 	uint32_t        type;
@@ -687,6 +721,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	uint32_t cmd;
 	uint32_t type;
 	struct gf_flock flock;
@@ -698,6 +733,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint32_t cmd;
 	uint32_t type;
@@ -709,6 +745,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t  ino;
+        uint64_t  gen;
 	uint32_t  cmd;
 	uint32_t  type;
 	uint64_t  namelen;
@@ -721,6 +758,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t  ino;
+        uint64_t  gen;
 	int64_t   fd;
 	uint32_t  cmd;
 	uint32_t  type;
@@ -734,6 +772,7 @@ typedef struct {
 typedef struct {
 	uint64_t ino; /* NOTE: used only in case of 'root' lookup */
 	uint64_t par;
+        uint64_t gen;
 	uint32_t flags;
 	uint32_t dictlen;
 	char     path[0];
@@ -750,6 +789,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint32_t flags;
 	uint32_t count;
@@ -759,6 +799,7 @@ typedef struct { } __attribute__((packed)) gf_fop_setdents_rsp_t;
 
 typedef struct {
 	uint64_t ino;
+        uint64_t gen;
 	int64_t  fd;
 	uint64_t offset;
 	uint32_t size;
@@ -772,6 +813,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t  ino;
+        uint64_t  gen;
 	uint32_t  flag;
 	char      path[0];
 } __attribute__((packed)) gf_fop_checksum_req_t;
@@ -781,10 +823,11 @@ typedef struct {
 } __attribute__((packed)) gf_fop_checksum_rsp_t;
 
 typedef struct {
-        uint64_t ino;
+        uint64_t       ino;
+        uint64_t       gen;
         struct gf_stat stbuf;
-        int32_t  valid;
-        char path[0];
+        int32_t        valid;
+        char           path[0];
 } __attribute__((packed)) gf_fop_setattr_req_t;
 typedef struct {
         struct gf_stat statpre;
@@ -792,9 +835,9 @@ typedef struct {
 } __attribute__((packed)) gf_fop_setattr_rsp_t;
 
 typedef struct {
-        int64_t fd;
+        int64_t        fd;
         struct gf_stat stbuf;
-        int32_t  valid;
+        int32_t        valid;
 } __attribute__((packed)) gf_fop_fsetattr_req_t;
 typedef struct {
         struct gf_stat statpre;
@@ -814,6 +857,7 @@ typedef struct {
 
 typedef struct {
 	uint64_t  ino;
+        uint64_t  gen;
 	int32_t   timeout;
 } __attribute__((packed)) gf_fop_lock_notify_req_t;
 typedef struct { } __attribute__((packed)) gf_fop_lock_notify_rsp_t;
@@ -884,7 +928,8 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
-	int64_t fd;
+        uint64_t gen;
+	int64_t  fd;
 } __attribute__((packed)) gf_cbk_releasedir_req_t;
 typedef struct {
 } __attribute__((packed)) gf_cbk_releasedir_rsp_t;
@@ -892,7 +937,8 @@ typedef struct {
 
 typedef struct {
 	uint64_t ino;
-	int64_t fd;
+        uint64_t gen;
+	int64_t  fd;
 } __attribute__((packed)) gf_cbk_release_req_t;
 typedef struct {
 } __attribute__((packed)) gf_cbk_release_rsp_t;
