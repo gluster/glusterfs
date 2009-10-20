@@ -18,6 +18,7 @@
 */
 
 #include "quick-read.h"
+#include "statedump.h"
 
 int32_t
 qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
@@ -2127,6 +2128,36 @@ qr_forget (xlator_t *this, inode_t *inode)
         return 0;
 }
 
+int
+qr_priv_dump (xlator_t *this)
+{
+        qr_conf_t       *conf = NULL;
+        char            key[GF_DUMP_MAX_BUF_LEN];
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
+
+        if (!this)
+                return -1;
+
+        conf = this->private;
+        if (!conf) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "conf null in xlator");
+                return -1;
+        }
+
+        gf_proc_dump_build_key (key_prefix,
+                                "xlator.performance.quick-read",
+                                "priv");
+
+        gf_proc_dump_add_section (key_prefix);
+
+        gf_proc_dump_build_key (key, key_prefix, "max_file_size");
+        gf_proc_dump_write (key, "%d", conf->max_file_size);
+        gf_proc_dump_build_key (key, key_prefix, "cache_timeout");
+        gf_proc_dump_write (key, "%d", conf->cache_timeout);
+
+        return 0;
+}
 
 int32_t 
 init (xlator_t *this)
@@ -2225,6 +2256,10 @@ struct xlator_mops mops = {
 struct xlator_cbks cbks = {
         .forget  = qr_forget,
         .release = qr_release, 
+};
+
+struct xlator_dumpops dumpops = {
+        .priv      =  qr_priv_dump,
 };
 
 struct volume_options options[] = {
