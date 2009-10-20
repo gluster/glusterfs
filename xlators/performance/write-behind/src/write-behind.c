@@ -1134,7 +1134,6 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto unwind;
         }
 
-        local->file = file;
 
         frame->local = local;
 
@@ -1162,6 +1161,8 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
 
         }
+
+        local->file = file;
 
         if (file) {
                 stub = fop_setattr_stub (frame, wb_setattr_helper, loc, stbuf, valid);
