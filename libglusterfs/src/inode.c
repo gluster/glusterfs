@@ -516,11 +516,11 @@ inode_search (inode_table_t *table, ino_t ino, const char *name)
                         inode = __inode_search (table, ino);
                 } else {
                         dentry = __dentry_search (table, ino, name);
-      
+
                         if (dentry)
                                 inode = dentry->inode;
                 }
-    
+
                 if (inode)
                         __inode_ref (inode);
         }
@@ -577,6 +577,11 @@ __inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
 {
         inode_t   *inode = NULL;
 
+        if (ino == 1) {
+                inode = table->root;
+                goto out;
+        }
+
         inode = __inode_search (table, ino);
 
         if (gen) {
@@ -585,6 +590,7 @@ __inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
                 }
         }
 
+out:
         return inode;
 }
 
@@ -597,6 +603,8 @@ inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
         pthread_mutex_lock (&table->lock);
         {
                 inode = __inode_get (table, ino, gen);
+                if (inode)
+                        __inode_ref (inode);
         }
         pthread_mutex_unlock (&table->lock);
 
@@ -656,6 +664,8 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
                         } else {
                                 link_inode = old_inode;
                         }
+                } else {
+                        __inode_hash (inode);
                 }
         }
 
@@ -663,13 +673,12 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
         if (name) {
                 old_dentry = __dentry_grep (table, parent, name);
 
-                if (old_dentry) {
-                        if (old_dentry->inode != link_inode)
-                                __dentry_unset (old_dentry);
-                } else {
+                if (!old_dentry || old_dentry->inode != link_inode) {
                         dentry = __dentry_create (link_inode, parent, name);
-                        dentry->inode = link_inode;
                         __dentry_hash (dentry);
+
+                        if (old_dentry)
+                                __dentry_unset (old_dentry);
                 }
         }
 
@@ -745,11 +754,11 @@ __inode_unlink (inode_t *inode, inode_t *parent, const char *name)
         dentry = __dentry_search_for_inode (inode, parent->ino, name);
 
         /* dentry NULL for corrupted backend */
-        if (dentry) 
+        if (dentry)
                 __dentry_unset (dentry);
 }
 
-                              
+
 void
 inode_unlink (inode_t *inode, inode_t *parent, const char *name)
 {
@@ -852,7 +861,7 @@ inode_path (inode_t *inode, const char *name, char **bufp)
         int64_t        ret = 0;
         int            len = 0;
         char          *buf = NULL;
-        
+
         table = inode->table;
 
         pthread_mutex_lock (&table->lock);
@@ -1036,6 +1045,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
         INIT_LIST_HEAD (&new->active);
         INIT_LIST_HEAD (&new->lru);
         INIT_LIST_HEAD (&new->purge);
+        INIT_LIST_HEAD (&new->attic);
 
         ret = asprintf (&new->name, "%s/inode", xl->name);
         if (-1 == ret) {
