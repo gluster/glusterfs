@@ -34,6 +34,7 @@
 #include "dict.h"
 #include "xlator.h"
 #include "read-ahead.h"
+#include "statedump.h"
 #include <assert.h>
 #include <sys/time.h>
 
@@ -789,6 +790,48 @@ ra_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 	return 0;
 }
 
+int
+ra_priv_dump (xlator_t *this)
+{
+        ra_conf_t       *conf = NULL;
+        int             ret = -1;
+        char            key[GF_DUMP_MAX_BUF_LEN];
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
+
+        if (!this)
+                return -1;
+
+        conf = this->private;
+        if (!conf) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "conf null in xlator");
+                return -1;
+        }
+
+        ret = pthread_mutex_trylock (&conf->conf_lock);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Unable to lock client %s"
+                        " errno: %d", this->name, errno);
+                return -1;
+        }
+
+
+        gf_proc_dump_build_key (key_prefix,
+                                "xlator.performance.read-ahead",
+                                "priv");
+
+        gf_proc_dump_add_section (key_prefix);
+        gf_proc_dump_build_key (key, key_prefix, "page_size");
+        gf_proc_dump_write (key, "%d", conf->page_size);
+        gf_proc_dump_build_key (key, key_prefix, "page_count");
+        gf_proc_dump_write (key, "%d", conf->page_count);
+        gf_proc_dump_build_key (key, key_prefix, "force_atime_update");
+        gf_proc_dump_write (key, "%d", conf->force_atime_update);
+
+        pthread_mutex_unlock (&conf->conf_lock);
+
+        return 0;
+}
 
 int
 init (xlator_t *this)
@@ -900,6 +943,10 @@ struct xlator_mops mops = {
 
 struct xlator_cbks cbks = {
 	.release       = ra_release,
+};
+
+struct xlator_dumpops dumpops = {
+        .priv      =  ra_priv_dump,
 };
 
 struct volume_options options[] = {
