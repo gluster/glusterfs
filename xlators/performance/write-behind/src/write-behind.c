@@ -34,6 +34,7 @@
 #include "compat-errno.h"
 #include "common-utils.h"
 #include "call-stub.h"
+#include "statedump.h"
 
 #define MAX_VECTOR_COUNT 8
 #define WB_AGGREGATE_SIZE 131072 /* 128 KB */
@@ -2373,6 +2374,44 @@ wb_release (xlator_t *this, fd_t *fd)
         return 0;
 }
 
+int
+wb_priv_dump (xlator_t *this)
+{
+        wb_conf_t       *conf = NULL;
+        char            key[GF_DUMP_MAX_BUF_LEN];
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
+
+        if (!this)
+                return -1;
+
+        conf = this->private;
+        if (!conf) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "conf null in xlator");
+                return -1;
+        }
+
+        gf_proc_dump_build_key (key_prefix,
+                                "xlator.performance.write-behind",
+                                "priv");
+
+        gf_proc_dump_add_section (key_prefix);
+
+        gf_proc_dump_build_key (key, key_prefix, "aggregate_size");
+        gf_proc_dump_write (key, "%d", conf->aggregate_size);
+        gf_proc_dump_build_key (key, key_prefix, "window_size");
+        gf_proc_dump_write (key, "%d", conf->window_size);
+        gf_proc_dump_build_key (key, key_prefix, "disable_till");
+        gf_proc_dump_write (key, "%d", conf->disable_till);
+        gf_proc_dump_build_key (key, key_prefix, "enable_O_SYNC");
+        gf_proc_dump_write (key, "%d", conf->enable_O_SYNC);
+        gf_proc_dump_build_key (key, key_prefix, "flush_behind");
+        gf_proc_dump_write (key, "%d", conf->flush_behind);
+        gf_proc_dump_build_key (key, key_prefix, "enable_trickling_writes");
+        gf_proc_dump_write (key, "%d", conf->enable_trickling_writes);
+
+        return 0;
+}
 
 int32_t 
 init (xlator_t *this)
@@ -2540,6 +2579,10 @@ struct xlator_mops mops = {
 
 struct xlator_cbks cbks = {
         .release  = wb_release
+};
+
+struct xlator_dumpops dumpops = {
+        .priv      =  wb_priv_dump,
 };
 
 struct volume_options options[] = {
