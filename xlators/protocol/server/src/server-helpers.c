@@ -161,7 +161,7 @@ stat_to_str (struct stat *stbuf)
                         ctime,
                         ctime_nsec);
         if (-1 == ret) {
-                gf_log ("protocol/server", GF_LOG_DEBUG, 
+                gf_log ("protocol/server", GF_LOG_DEBUG,
                         "asprintf failed while setting up stat buffer string");
                 return NULL;
         }
@@ -172,31 +172,71 @@ stat_to_str (struct stat *stbuf)
 void
 server_loc_wipe (loc_t *loc)
 {
-	if (loc->parent)
+	if (loc->parent) {
 		inode_unref (loc->parent);
-	if (loc->inode)
+                loc->parent = NULL;
+        }
+
+	if (loc->inode) {
 		inode_unref (loc->inode);
+                loc->inode = NULL;
+        }
+
 	if (loc->path)
-		free ((char *)loc->path);
+		FREE (loc->path);
 }
+
+
+void
+server_resolve_wipe (server_resolve_t *resolve)
+{
+        if (resolve->path)
+                FREE (resolve->path);
+
+        if (resolve->bname)
+                FREE (resolve->bname);
+}
+
 
 void
 free_state (server_state_t *state)
 {
-	transport_t *trans = NULL;	
+	if (state->trans) {
+                transport_unref (state->trans);
+                state->trans = NULL;
+        }
 
-	trans    = state->trans;
-
-	if (state->fd)
+	if (state->fd) {
 		fd_unref (state->fd);
+                state->fd = NULL;
+        }
 
-	transport_unref (trans);
-	
-	if (state->xattr_req)
-		dict_unref (state->xattr_req);
+        if (state->iobref) {
+                iobref_unref (state->iobref);
+                state->iobref = NULL;
+        }
+
+        if (state->iobuf) {
+                iobuf_unref (state->iobuf);
+                state->iobuf = NULL;
+        }
+
+        if (state->dict) {
+                dict_unref (state->dict);
+                state->dict = NULL;
+        }
 
         if (state->volume)
                 FREE (state->volume);
+
+        if (state->name)
+                FREE (state->name);
+
+        server_loc_wipe (&state->loc);
+        server_loc_wipe (&state->loc2);
+
+        server_resolve_wipe (&state->resolve);
+        server_resolve_wipe (&state->resolve2);
 
 	FREE (state);
 }
@@ -223,19 +263,20 @@ server_copy_frame (call_frame_t *frame)
 	new_state->trans    = transport_ref (state->trans);
 	new_state->itable   = state->itable;
 
+        new_state->resolve.fd_no  = -1;
+        new_state->resolve2.fd_no = -1;
+
 	return new_frame;
 }
 
-int32_t
-gf_add_locker (struct _lock_table *table,
-               const char *volume,
-	       loc_t *loc,
-	       fd_t *fd,
-	       pid_t pid)
+
+int
+gf_add_locker (struct _lock_table *table, const char *volume,
+	       loc_t *loc, fd_t *fd, pid_t pid)
 {
-	int32_t ret = -1;
+	int32_t         ret = -1;
 	struct _locker *new = NULL;
-	uint8_t dir = 0;
+	uint8_t         dir = 0;
 
 	new = CALLOC (1, sizeof (struct _locker));
 	if (new == NULL) {
@@ -269,18 +310,17 @@ out:
 	return ret;
 }
 
-int32_t
-gf_del_locker (struct _lock_table *table,
-               const char *volume,
-	       loc_t *loc,
-	       fd_t *fd,
-	       pid_t pid)
+
+int
+gf_del_locker (struct _lock_table *table, const char *volume,
+	       loc_t *loc, fd_t *fd, pid_t pid)
 {
-	struct _locker *locker = NULL, *tmp = NULL;
-	int32_t ret = 0;
-	uint8_t dir = 0;
-	struct list_head *head = NULL;
-	struct list_head del;
+	struct _locker    *locker = NULL;
+        struct _locker    *tmp = NULL;
+	int32_t            ret = 0;
+	uint8_t            dir = 0;
+	struct list_head  *head = NULL;
+	struct list_head   del;
 
 	INIT_LIST_HEAD (&del);
 
@@ -299,8 +339,7 @@ gf_del_locker (struct _lock_table *table,
 		}
 
 		list_for_each_entry_safe (locker, tmp, head, lockers) {
-			if (locker->fd &&
-			    fd &&
+			if (locker->fd && fd &&
 			    (locker->fd == fd) && (locker->pid == pid)
                             && !strcmp (locker->volume, volume)) {
 				list_move_tail (&locker->lockers, &del);
@@ -332,16 +371,16 @@ gf_del_locker (struct _lock_table *table,
 	return ret;
 }
 
-int32_t
-gf_direntry_to_bin (dir_entry_t *head,
-		    char *buffer)
+
+int
+gf_direntry_to_bin (dir_entry_t *head, char *buffer)
 {
-	dir_entry_t *trav = NULL;
-	uint32_t len = 0;
-	uint32_t this_len = 0;
-	size_t buflen = -1;
-	char *ptr = NULL;
-	char *tmp_buf = NULL;
+	dir_entry_t   *trav = NULL;
+	uint32_t       len = 0;
+	uint32_t       this_len = 0;
+	size_t         buflen = -1;
+	char          *ptr = NULL;
+	char          *tmp_buf = NULL;
 
 	trav = head->next;
 	while (trav) {
@@ -497,11 +536,9 @@ out:
 }
 
 
-static int32_t
-server_connection_cleanup_flush_cbk (call_frame_t *frame,
-                                     void *cookie,
-                                     xlator_t *this,
-                                     int32_t op_ret,
+static int
+server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
+                                     xlator_t *this, int32_t op_ret,
                                      int32_t op_errno)
 {
         fd_t *fd = NULL;
@@ -542,11 +579,10 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
                         tmp_frame->root->trans = conn;
                         STACK_WIND (tmp_frame,
                                     server_connection_cleanup_flush_cbk,
-                                    bound_xl,
-                                    bound_xl->fops->flush,
-                                    fd);
+                                    bound_xl, bound_xl->fops->flush, fd);
                 }
         }
+
         FREE (fdentries);
         ret = 0;
 
@@ -558,8 +594,9 @@ int
 do_connection_cleanup (xlator_t *this, server_connection_t *conn,
                        struct _lock_table *ltable, fdentry_t *fdentries, int fd_count)
 {
-        int32_t       ret = 0, saved_ret = 0;
-	call_frame_t *frame = NULL;
+        int             ret = 0;
+        int             saved_ret = 0;
+	call_frame_t   *frame = NULL;
         server_state_t *state = NULL;
 
         frame = create_frame (this, this->ctx->pool);
@@ -587,6 +624,7 @@ do_connection_cleanup (xlator_t *this, server_connection_t *conn,
 out:
         return ret;
 }
+
 
 int
 server_connection_cleanup (xlator_t *this, server_connection_t *conn)

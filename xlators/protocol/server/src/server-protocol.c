@@ -43,6 +43,7 @@
 #include "statedump.h"
 #include "md5.h"
 
+
 static void
 protocol_server_reply (call_frame_t *frame, int type, int op,
                        gf_hdr_common_t *hdr, size_t hdrlen,
@@ -147,7 +148,7 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": LK %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no,
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -196,8 +197,6 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			state->loc.inode ? state->loc.inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
-	
-	server_loc_wipe (&state->loc);
 
  	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_INODELK,
  			       hdr, hdrlen, NULL, 0, NULL);
@@ -241,7 +240,7 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	} else if (op_errno != ENOSYS) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": FINODELK %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -301,8 +300,6 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			state->loc.inode ? state->loc.inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
-	
-	server_loc_wipe (&state->loc);
 
  	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ENTRYLK,
  			       hdr, hdrlen, NULL, 0, NULL);
@@ -343,7 +340,7 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	} else if (op_errno != ENOSYS) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": FENTRYLK %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -385,8 +382,6 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
 
-	server_loc_wipe (&(state->loc));
-
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ACCESS,
 			       hdr, hdrlen, NULL, 0, NULL);
 
@@ -413,17 +408,22 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_state_t     *state = NULL;
 	int32_t             gf_errno = 0;
 	size_t              hdrlen = 0;
+        inode_t            *parent = NULL;
 
 	state = CALL_STATE(frame);
 
 	if (op_ret == 0) {
-		inode_unlink (state->loc.inode, state->loc.parent, 
+		inode_unlink (state->loc.inode, state->loc.parent,
 			      state->loc.name);
-                inode_forget (state->loc.inode, 0);
+                parent = inode_parent (state->loc.inode, 0, NULL);
+                if (parent)
+                        inode_unref (parent);
+                else
+                        inode_forget (state->loc.inode, 0);
 	} else {
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": RMDIR %s (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->loc.path, 
+			frame->root->unique, state->loc.path,
 			state->loc.inode ? state->loc.inode->ino : 0,
 			op_ret, strerror (op_errno));
 	}
@@ -440,8 +440,6 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_stat (&rsp->preparent, preparent);
                 gf_stat_from_stat (&rsp->postparent, postparent);
         }
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMDIR,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -471,6 +469,7 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_state_t     *state = NULL;
 	size_t              hdrlen = 0;
 	int32_t             gf_errno = 0;
+        inode_t            *link_inode = NULL;
 
 	state = CALL_STATE(frame);
 
@@ -487,16 +486,16 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_stat_from_stat (&rsp->preparent, preparent);
 		gf_stat_from_stat (&rsp->postparent, postparent);
 
-		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
-		inode_lookup (inode);
+		link_inode = inode_link (inode, state->loc.parent,
+                                         state->loc.name, stbuf);
+		inode_lookup (link_inode);
+                inode_unref (link_inode);
 	} else {
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": MKDIR %s  ==> %"PRId32" (%s)",
-			frame->root->unique, state->loc.path, 
+			frame->root->unique, state->loc.path,
 			op_ret, strerror (op_errno));
 	}
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_MKDIR,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -526,6 +525,7 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_state_t     *state = NULL;
 	int32_t             gf_errno = 0;
 	size_t              hdrlen = 0;
+        inode_t            *link_inode = NULL;
 
 	state = CALL_STATE(frame);
 
@@ -542,16 +542,16 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_stat (&rsp->preparent, preparent);
                 gf_stat_from_stat (&rsp->postparent, postparent);
 
-		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
-		inode_lookup (inode);
+		link_inode = inode_link (inode, state->loc.parent,
+                                         state->loc.name, stbuf);
+		inode_lookup (link_inode);
+                inode_unref (link_inode);
 	} else {
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": MKNOD %s ==> %"PRId32" (%s)",
-			frame->root->unique, state->loc.path, 
+			frame->root->unique, state->loc.path,
 			op_ret, strerror (op_errno));
 	}
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_MKNOD,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -588,7 +588,7 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": FSYNCDIR %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -647,7 +647,7 @@ server_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			gf_log (this->name, GF_LOG_ERROR,
 				"fd - %"PRId64" (%"PRId64"): failed to convert "
 				"entries list to string buffer",
-				state->fd_no, state->fd->inode->ino);
+				state->resolve.fd_no, state->fd->inode->ino);
 			op_ret = -1;
 			op_errno = EINVAL;
 			goto out;
@@ -657,7 +657,7 @@ server_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (iobref == NULL) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"fd - %"PRId64" (%"PRId64"): failed to get iobref",
-				state->fd_no, state->fd->inode->ino);
+				state->resolve.fd_no, state->fd->inode->ino);
 			op_ret = -1;
 			op_errno = ENOMEM;
 			goto out;
@@ -672,7 +672,7 @@ server_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": GETDENTS %"PRId64" (%"PRId64"): %"PRId32" (%s)",
 			frame->root->unique,
-			state->fd_no, 
+			state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, 
 			op_ret, strerror (op_errno));
 		vector[0].iov_base = NULL;
@@ -742,7 +742,7 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": READDIR %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -809,6 +809,7 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_state_t        *state = NULL;
 	size_t                 hdrlen = 0;
 	int32_t                gf_errno = 0;
+        uint64_t               fd_no = 0;
 
 	conn = SERVER_CONNECTION (frame);
 
@@ -817,17 +818,14 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (op_ret >= 0) {
 		fd_bind (fd);
 
-		state->fd_no = gf_fd_unused_get (conn->fdtable, fd);
+		fd_no = gf_fd_unused_get (conn->fdtable, fd);
+                fd_ref (fd); // on behalf of the client
 	} else {
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": OPENDIR %s (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->loc.path, 
+			frame->root->unique, state->loc.path,
 			state->loc.inode ? state->loc.inode->ino : 0,
 			op_ret, strerror (op_errno));
-
-		/* NOTE: corresponding to fd_create()'s ref */
-		if (state->fd)
-			fd_unref (state->fd);
 	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -837,9 +835,7 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_ret = hton32 (op_ret);
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
-	rsp->fd           = hton64 (state->fd_no);
-
-	server_loc_wipe (&(state->loc));
+	rsp->fd           = hton64 (fd_no);
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPENDIR,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -882,8 +878,6 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_statfs_from_statfs (&rsp->statfs, buf);
 	}
 
-	server_loc_wipe (&(state->loc));
-
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_STATFS,
 			       hdr, hdrlen, NULL, 0, NULL);
 
@@ -919,8 +913,6 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_ret = hton32 (op_ret);
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_REMOVEXATTR,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -959,7 +951,7 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			gf_log (this->name, GF_LOG_ERROR,
 				"%s (%"PRId64"): failed to get serialized length of "
 				"reply dict",
-				state->loc.path, state->ino);
+				state->loc.path, state->resolve.ino);
 			op_ret   = -1;
 			op_errno = EINVAL;
 			len = 0;
@@ -975,7 +967,7 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (len < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"%s (%"PRId64"): failed to serialize reply dict",
-				state->loc.path, state->ino);
+				state->loc.path, state->resolve.ino);
 			op_ret = -1;
 			op_errno = -ret;
 		}
@@ -985,9 +977,6 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_ret = hton32 (op_ret);
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
-
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETXATTR,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1016,7 +1005,7 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			gf_log (this->name, GF_LOG_ERROR,
 				"%s (%"PRId64"): failed to get serialized length of "
 				"reply dict",
-				state->loc.path, state->ino);
+				state->loc.path, state->resolve.ino);
 			op_ret   = -1;
 			op_errno = EINVAL;
 			len = 0;
@@ -1032,7 +1021,7 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (len < 0) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"%s (%"PRId64"): failed to serialize reply dict",
-				state->loc.path, state->ino);
+				state->loc.path, state->resolve.ino);
 			op_ret = -1;
 			op_errno = -ret;
 		}
@@ -1042,8 +1031,6 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_ret = hton32 (op_ret);
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	fd_unref (state->fd);
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FGETXATTR,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1081,8 +1068,6 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_ret = hton32 (op_ret);
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETXATTR,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1157,10 +1142,10 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_log (state->bound_xl->name, GF_LOG_TRACE,
 			"%"PRId64": RENAME_CBK (%"PRId64") %"PRId64"/%s "
 			"==> %"PRId64"/%s",
-			frame->root->unique, state->loc.inode->ino, 
+			frame->root->unique, state->loc.inode->ino,
 			state->loc.parent->ino,	state->loc.name,
 			state->loc2.parent->ino, state->loc2.name);
-			
+
 		inode_rename (state->itable,
 			      state->loc.parent, state->loc.name,
 			      state->loc2.parent, state->loc2.name,
@@ -1173,9 +1158,6 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_stat_from_stat (&rsp->prenewparent, prenewparent);
 		gf_stat_from_stat (&rsp->postnewparent, postnewparent);
 	}
-
-	server_loc_wipe (&(state->loc));
-	server_loc_wipe (&(state->loc2));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RENAME,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1204,23 +1186,28 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_state_t       *state = NULL;
 	size_t                hdrlen = 0;
 	int32_t               gf_errno = 0;
+        inode_t              *parent = NULL;
 
 	state = CALL_STATE(frame);
 
 	if (op_ret == 0) {
 		gf_log (state->bound_xl->name, GF_LOG_TRACE,
 			"%"PRId64": UNLINK_CBK %"PRId64"/%s (%"PRId64")",
-			frame->root->unique, state->loc.parent->ino, 
+			frame->root->unique, state->loc.parent->ino,
 			state->loc.name, state->loc.inode->ino);
 
-		inode_unlink (state->loc.inode, state->loc.parent, 
+		inode_unlink (state->loc.inode, state->loc.parent,
 			      state->loc.name);
 
-                inode_forget (state->loc.inode, 0);
+                parent = inode_parent (state->loc.inode, 0, NULL);
+                if (parent)
+                        inode_unref (parent);
+                else
+                        inode_forget (state->loc.inode, 0);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": UNLINK %s (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->loc.path, 
+			frame->root->unique, state->loc.path,
 			state->loc.inode ? state->loc.inode->ino : 0,
 			op_ret, strerror (op_errno));
 	}
@@ -1237,8 +1224,6 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_stat (&rsp->preparent, preparent);
                 gf_stat_from_stat (&rsp->postparent, postparent);
         }
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UNLINK,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1267,6 +1252,7 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_state_t       *state = NULL;
 	size_t                hdrlen = 0;
 	int32_t               gf_errno = 0;
+        inode_t              *link_inode = NULL;
 
 	state = CALL_STATE(frame);
 
@@ -1283,17 +1269,17 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_stat (&rsp->preparent, preparent);
                 gf_stat_from_stat (&rsp->postparent, postparent);
 
-		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
-		inode_lookup (inode);
+		link_inode = inode_link (inode, state->loc.parent,
+                                         state->loc.name, stbuf);
+		inode_lookup (link_inode);
+                inode_unref (link_inode);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": SYMLINK %s (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->loc.path, 
+			frame->root->unique, state->loc.path,
 			state->loc.inode ? state->loc.inode->ino : 0,
 			op_ret, strerror (op_errno));
 	}
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SYMLINK,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1323,6 +1309,7 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_state_t    *state = NULL;
 	int32_t            gf_errno = 0;
 	size_t             hdrlen = 0;
+        inode_t           *link_inode = NULL;
 
 	state = CALL_STATE(frame);
 
@@ -1344,25 +1331,23 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_log (state->bound_xl->name, GF_LOG_TRACE,
 			"%"PRId64": LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s",
 			frame->root->unique, inode->ino,
-                        state->loc2.parent->ino, 
+                        state->loc2.parent->ino,
 			state->loc2.name, state->loc.parent->ino,
                         state->loc.name);
 
-		inode_link (inode, state->loc2.parent, 
-			    state->loc2.name, stbuf);
+		link_inode = inode_link (inode, state->loc2.parent,
+                                         state->loc2.name, stbuf);
+                inode_unref (link_inode);
 	} else {
 		gf_log (state->bound_xl->name, GF_LOG_DEBUG,
 			"%"PRId64": LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s "
 			" ==> %"PRId32" (%s)",
 			frame->root->unique, inode->ino,
-                        state->loc2.parent->ino, 
+                        state->loc2.parent->ino,
 			state->loc2.name, state->loc.parent->ino,
                         state->loc.name,
 			op_ret, strerror (op_errno));
 	}
-
-	server_loc_wipe (&(state->loc));
-	server_loc_wipe (&(state->loc2));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LINK,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1409,12 +1394,10 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": TRUNCATE %s (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->loc.path, 
+			frame->root->unique, state->loc.path,
 			state->loc.inode ? state->loc.inode->ino : 0,
 			op_ret, strerror (op_errno));
 	}
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_TRUNCATE,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1458,7 +1441,7 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": FSTAT %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -1507,7 +1490,7 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": FTRUNCATE %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -1544,7 +1527,7 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": FLUSH %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -1588,7 +1571,7 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": FSYNC %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -1683,7 +1666,7 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": WRITEV %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -1734,7 +1717,7 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": READV %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -1767,6 +1750,7 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_state_t       *state = NULL;
 	size_t                hdrlen = 0;
 	int32_t               gf_errno = 0;
+        uint64_t              fd_no = 0;
 
 	conn = SERVER_CONNECTION (frame);
 
@@ -1774,18 +1758,15 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (op_ret >= 0) {
 		fd_bind (fd);
-		
-		state->fd_no = gf_fd_unused_get (conn->fdtable, fd);
+
+		fd_no = gf_fd_unused_get (conn->fdtable, fd);
+                fd_ref (fd);
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": OPEN %s (%"PRId64") ==> %"PRId32" (%s)",
 			frame->root->unique, state->loc.path, 
 			state->loc.inode ? state->loc.inode->ino : 0,
 			op_ret, strerror (op_errno));
-
-		/* NOTE: corresponding to fd_create()'s ref */
-		if (state->fd)
-			fd_unref (state->fd);
 	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -1795,9 +1776,7 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_ret = hton32 (op_ret);
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
-	rsp->fd           = hton64 (state->fd_no);
-
-	server_loc_wipe (&(state->loc));
+	rsp->fd           = hton64 (fd_no);
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPEN,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1831,7 +1810,9 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	server_state_t      *state = NULL;
 	size_t               hdrlen = 0;
 	int32_t              gf_errno = 0;
-	
+        uint64_t             fd_no = 0;
+        inode_t             *link_inode = NULL;
+
 	conn = SERVER_CONNECTION (frame);
 
 	state = CALL_STATE (frame);
@@ -1839,31 +1820,29 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (op_ret >= 0) {
 		gf_log (state->bound_xl->name, GF_LOG_TRACE,
 			"%"PRId64": CREATE %"PRId64"/%s (%"PRId64")",
-			frame->root->unique, state->loc.parent->ino, 
+			frame->root->unique, state->loc.parent->ino,
 			state->loc.name, stbuf->st_ino);
 
-		inode_link (inode, state->loc.parent, state->loc.name, stbuf);
-		inode_lookup (inode);
-		
+		link_inode = inode_link (inode, state->loc.parent,
+                                         state->loc.name, stbuf);
+		inode_lookup (link_inode);
+                inode_unref (link_inode);
+
 		fd_bind (fd);
 
-		state->fd_no = gf_fd_unused_get (conn->fdtable, fd);
+		fd_no = gf_fd_unused_get (conn->fdtable, fd);
+                fd_ref (fd);
 
-		if ((state->fd_no < 0) || (fd == 0)) {
-			op_ret = state->fd_no;
+		if ((fd_no < 0) || (fd == 0)) {
+			op_ret = fd_no;
 			op_errno = errno;
 		}
 	} else {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": CREATE %s (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->loc.path, 
+			frame->root->unique, state->loc.path,
 			state->loc.inode ? state->loc.inode->ino : 0,
 			op_ret, strerror (op_errno));
-		
-                /* NOTE: corresponding to fd_create()'s ref */
-		if (state->fd)
-			fd_unref (state->fd);
-
 	}
 
 	hdrlen = gf_hdr_len (rsp, 0);
@@ -1873,15 +1852,13 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	hdr->rsp.op_ret = hton32 (op_ret);
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
-	rsp->fd           = hton64 (state->fd_no);
+	rsp->fd           = hton64 (fd_no);
 
 	if (op_ret >= 0) {
 		gf_stat_from_stat (&rsp->stat, stbuf);
 		gf_stat_from_stat (&rsp->preparent, preparent);
 		gf_stat_from_stat (&rsp->postparent, postparent);
         }
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CREATE,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -1937,8 +1914,6 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		strcpy (rsp->path, buf);
         }
 
-	server_loc_wipe (&(state->loc));
-
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READLINK,
 			       hdr, hdrlen, NULL, 0, NULL);
 
@@ -1986,8 +1961,6 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			op_ret, strerror (op_errno));
 	}
 
-	server_loc_wipe (&(state->loc));
-
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_STAT,
 			       hdr, hdrlen, NULL, 0, NULL);
 
@@ -2005,20 +1978,17 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
+
 int
-server_setattr_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    struct stat *statpre,
-                    struct stat *statpost)
+server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno,
+                    struct stat *statpre, struct stat *statpost)
 {
-	gf_hdr_common_t   *hdr = NULL;
-	gf_fop_setattr_rsp_t *rsp = NULL;
-	server_state_t    *state = NULL;
-	size_t             hdrlen = 0;
-	int32_t            gf_errno = 0;
+	gf_hdr_common_t       *hdr = NULL;
+	gf_fop_setattr_rsp_t  *rsp = NULL;
+	server_state_t        *state = NULL;
+	size_t                 hdrlen = 0;
+	int32_t                gf_errno = 0;
 
 	state  = CALL_STATE (frame);
 
@@ -2041,8 +2011,6 @@ server_setattr_cbk (call_frame_t *frame,
 			op_ret, strerror (op_errno));
 	}
 
-	server_loc_wipe (&(state->loc));
-
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETATTR,
 			       hdr, hdrlen, NULL, 0, NULL);
 
@@ -2061,13 +2029,9 @@ server_setattr_cbk (call_frame_t *frame,
  * not for external reference
  */
 int
-server_fsetattr_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     struct stat *statpre,
-                     struct stat *statpost)
+server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno,
+                     struct stat *statpre, struct stat *statpost)
 {
 	gf_hdr_common_t       *hdr = NULL;
 	gf_fop_fsetattr_rsp_t *rsp = NULL;
@@ -2092,12 +2056,10 @@ server_fsetattr_cbk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": FSETATTR %"PRId64" (%"PRId64") ==> "
                         "%"PRId32" (%s)",
-			frame->root->unique, state->fd_no,
+			frame->root->unique, state->resolve.fd_no,
 			state->fd ? state->fd->inode->ino : 0,
 			op_ret, strerror (op_errno));
 	}
-
-	server_loc_wipe (&(state->loc));
 
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSETATTR,
 			       hdr, hdrlen, NULL, 0, NULL);
@@ -2132,29 +2094,9 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	size_t               hdrlen = 0;
 	int32_t              gf_errno = 0;
 	int32_t              ret = -1;
-        loc_t                loc = {0,};
+        inode_t             *link_inode = NULL;
 
 	state = CALL_STATE(frame);
-	if ((op_errno == ESTALE) && (op_ret == -1)) {
-		/* Send lookup again with new ctx dictionary */
-
-		root_inode = BOUND_XL(frame)->itable->root;
-		if (state->loc.inode != root_inode) {
-			if (state->loc.inode)
-				inode_unref (state->loc.inode);
-			state->loc.inode = inode_new (BOUND_XL(frame)->itable);
-		}
-		loc.inode = state->loc.inode;
-		loc.path = state->path;
-		state->is_revalidate = 2;
-
-		STACK_WIND (frame, server_lookup_cbk,
-			    BOUND_XL(frame),
-			    BOUND_XL(frame)->fops->lookup,
-			    &loc,
-			    state->xattr_req);
-		return 0;
-	}
 
 	if (dict) {
 		dict_len = dict_serialized_length (dict);
@@ -2182,7 +2124,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			op_ret = -1;
 			op_errno = -ret;
 			dict_len = 0;
-		} 
+		}
 	}
 	rsp->dict_len = hton32 (dict_len);
 
@@ -2205,25 +2147,26 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_stat_from_stat (&rsp->stat, stbuf);
 
 		if (inode->ino == 0) {
-			inode_link (inode, state->loc.parent, 
-				    state->loc.name, stbuf);
-			inode_lookup (inode);
+			link_inode = inode_link (inode, state->loc.parent,
+                                                 state->loc.name, stbuf);
+			inode_lookup (link_inode);
+                        inode_unref (link_inode);
 		}
 	} else {
 		gf_log (this->name,
                         (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_DEBUG),
 			"%"PRId64": LOOKUP %s (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->loc.path, 
+			frame->root->unique, state->loc.path,
 			state->loc.inode ? state->loc.inode->ino : 0,
 			op_ret, strerror (op_errno));
 	}
 
-	server_loc_wipe (&state->loc);
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOOKUP,
 			       hdr, hdrlen, NULL, 0, NULL);
 
 	return 0;
 }
+
 
 int
 server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2281,8 +2224,6 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	gf_errno        = gf_errno_to_error (op_errno);
 	hdr->rsp.op_errno = hton32 (gf_errno);
 	
-	server_loc_wipe (&(state->loc));
-
 	protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_XATTROP,
 			       hdr, hdrlen, NULL, 0, NULL);
 
@@ -2307,7 +2248,7 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (op_ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%"PRId64": FXATTROP %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-			frame->root->unique, state->fd_no, 
+			frame->root->unique, state->resolve.fd_no, 
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -2318,7 +2259,7 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			gf_log (this->name, GF_LOG_ERROR,
 				"fd - %"PRId64" (%"PRId64"): failed to get "
 				"serialized length for reply dict", 
-				state->fd_no, state->fd->inode->ino);
+				state->resolve.fd_no, state->fd->inode->ino);
 			op_ret = -1;
 			op_errno = EINVAL;
 			len = 0;				
@@ -2335,7 +2276,7 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			gf_log (this->name, GF_LOG_ERROR,
 				"fd - %"PRId64" (%"PRId64"): failed to "
 				"serialize reply dict", 
-				state->fd_no, state->fd->inode->ino);
+				state->resolve.fd_no, state->fd->inode->ino);
 			op_ret = -1;
 			op_errno = -ret;
 			len = 0;
@@ -2354,882 +2295,33 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 }
 
-/*
- * server_stub_resume - this is callback function used whenever an fop does
- *                   STACK_WIND to fops->lookup in order to lookup the inode
- *                   for a pathname. this case of doing fops->lookup arises
- *                   when fop searches in inode table for pathname and search
- *                   fails.
- *
- * @stub: call stub
- * @op_ret:
- * @op_errno:
- * @inode:
- * @parent:
- *
- * not for external reference
- */
-int
-server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
-		    inode_t *inode, inode_t *parent)
-{
-	inode_t    *server_inode = NULL;
-        loc_t      *newloc = NULL;
-        dict_t     *dict = NULL;
-
-        server_inode = inode;
-
-	if (!stub) {
-		return 0;
-	}
-
-	switch (stub->fop)
-	{
-	case GF_FOP_RENAME:
-                if ((op_ret < 0 && stub->args.rename.old.inode == NULL) ||
-		    (op_ret < 0 && parent == NULL)) {
-			/* Either oldloc lookup failed OR newloc lookup 
-			 * failed and parent was not found
-			 */
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": RENAME (%s -> %s) on %s "
-				"returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.rename.old.path,
-				stub->args.rename.new.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-				
-			/* lookup of oldpath failed, UNWIND to
-			 * server_rename_cbk with ret=-1 and 
-			 * errno=ENOENT 
-			 */
-			server_rename_cbk (stub->frame, NULL,
-					   stub->frame->this,
-					   -1, ENOENT, NULL, NULL, NULL, NULL,
-                                           NULL);
-			server_loc_wipe (&stub->args.rename.old);
-			server_loc_wipe (&stub->args.rename.new);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.rename.old.inode == NULL) {
-			/* now we are called by lookup of oldpath. */
-			if (stub->args.rename.old.parent == NULL)
-				stub->args.rename.old.parent = 
-					inode_ref (parent);
-			
-			/* store inode information of oldpath in our stub 
-			 * and search for newpath in inode table. 
-			 */
-			if (server_inode) {
-				stub->args.rename.old.inode = 
-					inode_ref (server_inode);
-				
-				stub->args.rename.old.ino =
-					server_inode->ino;
-			}
-
-			/* now lookup for newpath */
-			newloc = &stub->args.rename.new;
-
-			if (newloc->parent == NULL) {
-				/* lookup for newpath */
-				do_path_lookup (stub, newloc);
-				break;
-			} else {
-				/* found newpath in inode cache */
-				call_resume (stub);
-				break;
-			}
-		} else {
-			/* we are called by the lookup of newpath */
-			if (stub->args.rename.new.parent == NULL)
-				stub->args.rename.new.parent = 
-					inode_ref (parent);
-		}
-		
-		/* after looking up for oldpath as well as newpath,
-		 * we are ready to resume */
-		{
-			call_resume (stub);
-		}
-		break;
-		
-	case GF_FOP_OPEN:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": OPEN (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.open.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-			
-			server_open_cbk (stub->frame, NULL, stub->frame->this,
-					 -1, ENOENT, NULL);
-			FREE (stub->args.open.loc.path);
-			FREE (stub);
-			return 0;
-		}
-		if (stub->args.open.loc.parent == NULL)
-			stub->args.open.loc.parent = inode_ref (parent);
-		
-		if (server_inode && (stub->args.open.loc.inode == NULL)) {
-			stub->args.open.loc.inode = inode_ref (server_inode);
-			stub->args.open.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-	
-	case GF_FOP_LOOKUP:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name,
-				GF_LOG_DEBUG,
-				"%"PRId64": LOOKUP (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.lookup.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-			
-			server_lookup_cbk (stub->frame, NULL,
-                                           stub->frame->this, -1, ENOENT,
-					   NULL, NULL, NULL, NULL);
-			server_loc_wipe (&stub->args.lookup.loc);
-			FREE (stub);
-			return 0;
-		}
-		
-		if (stub->args.lookup.loc.parent == NULL)
-			stub->args.lookup.loc.parent = inode_ref (parent);
-		
-		if (server_inode && (stub->args.lookup.loc.inode == NULL)) {
-			stub->args.lookup.loc.inode = inode_ref (server_inode);
-			stub->args.lookup.loc.ino = server_inode->ino;
-		}
-		
-		call_resume (stub);
-		
-		break;
-	}
-	
-	case GF_FOP_STAT:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": STAT (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.stat.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-			server_stat_cbk (stub->frame, NULL, stub->frame->this,
-					 -1, ENOENT, NULL);
-			server_loc_wipe (&stub->args.stat.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		/* TODO:reply from here only, we already have stat structure */
-		if (stub->args.stat.loc.parent == NULL)
-			stub->args.stat.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.stat.loc.inode == NULL)) {
-			stub->args.stat.loc.inode = inode_ref (server_inode);
-			stub->args.stat.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_XATTROP:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": XATTROP (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.xattrop.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-			server_xattrop_cbk (stub->frame, NULL,
-                                            stub->frame->this, -1, ENOENT,
-                                            NULL);
-			server_loc_wipe (&stub->args.xattrop.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.xattrop.loc.parent == NULL)
-			stub->args.xattrop.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.xattrop.loc.inode == NULL)) {
-			stub->args.xattrop.loc.inode = 
-				inode_ref (server_inode);
-
-			stub->args.xattrop.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_UNLINK:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": UNLINK (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.unlink.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-			server_unlink_cbk (stub->frame, NULL,
-                                           stub->frame->this, -1, ENOENT, NULL,
-                                           NULL);
-			server_loc_wipe (&stub->args.unlink.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.unlink.loc.parent == NULL)
-			stub->args.unlink.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.unlink.loc.inode == NULL)) {
-			stub->args.unlink.loc.inode = inode_ref (server_inode);
-			stub->args.unlink.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_SYMLINK:
-	{
-		if ((op_ret < 0) && (parent == NULL)) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": SYMLINK (%s -> %s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.symlink.loc.path,
-				stub->args.symlink.linkname,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-			server_symlink_cbk (stub->frame, NULL,
-                                            stub->frame->this, -1, ENOENT,
-					    NULL, NULL, NULL, NULL);
-			server_loc_wipe (&stub->args.symlink.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.symlink.loc.parent == NULL)
-			stub->args.symlink.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.symlink.loc.inode == NULL)) {
-			stub->args.symlink.loc.inode = 
-				inode_ref (server_inode);
-			stub->args.symlink.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_RMDIR:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": RMDIR (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.rmdir.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-			server_rmdir_cbk (stub->frame, NULL, stub->frame->this,
-					  -1, ENOENT, NULL, NULL);
-			server_loc_wipe (&stub->args.rmdir.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.rmdir.loc.parent == NULL)
-			stub->args.rmdir.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.rmdir.loc.inode == NULL)) {
-			stub->args.rmdir.loc.inode = inode_ref (server_inode);
-			stub->args.rmdir.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_LINK:
-	{
-		if ((stub->args.link.oldloc.inode == NULL)
-                    || (stub->args.link.oldloc.parent == NULL)) {
-			if (op_ret < 0) {
-				gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-					"%"PRId64": LINK (%s -> %s) on %s returning "
-					"error for oldloc: "
-					"%"PRId32" (%"PRId32")",
-					stub->frame->root->unique,
-					stub->args.link.oldloc.path,
-					stub->args.link.newloc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-
-				server_link_cbk (stub->frame, NULL,
-						 stub->frame->this, -1, ENOENT,
-						 NULL, NULL, NULL, NULL);
-				server_loc_wipe (&stub->args.link.oldloc);
-				server_loc_wipe (&stub->args.link.newloc);
-				FREE (stub);
-				return 0;
-			}
-
-			if (stub->args.link.oldloc.parent == NULL)
-				stub->args.link.oldloc.parent = 
-					inode_ref (parent);
-
-			if (server_inode && 
-			    (stub->args.link.oldloc.inode == NULL)) {
-				stub->args.link.oldloc.inode = 
-					inode_ref (server_inode);
-				stub->args.link.oldloc.ino = server_inode->ino;
-			}
-
-			if (stub->args.link.newloc.parent == NULL) {
-				do_path_lookup (stub, 
-						&(stub->args.link.newloc));
-				break;
-			}
-		} else {
-			/* we are called by the lookup of newpath */
-			if ((op_ret < 0) && (parent == NULL)) {
-				gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-					"%"PRId64": LINK (%s -> %s) on %s returning "
-					"error for newloc: "
-					"%"PRId32" (%"PRId32")",
-					stub->frame->root->unique,
-					stub->args.link.oldloc.path,
-					stub->args.link.newloc.path,
-					BOUND_XL(stub->frame)->name,
-					op_ret, op_errno);
-
-				server_link_cbk (stub->frame, NULL,
-						 stub->frame->this, -1, ENOENT,
-                                                 NULL, NULL, NULL, NULL);
-
-				server_loc_wipe (&stub->args.link.oldloc);
-				server_loc_wipe (&stub->args.link.newloc);
-				FREE (stub);
-				break;
-			}
-
-			if (stub->args.link.newloc.parent == NULL) {
-				stub->args.link.newloc.parent = 
-					inode_ref (parent);
-			}
-
-			if (server_inode && 
-			    (stub->args.link.newloc.inode == NULL)) {
-				/* as new.inode doesn't get forget, it
-				 * needs to be unref'd here */
-				stub->args.link.newloc.inode = 
-					inode_ref (server_inode);
-				stub->args.link.newloc.ino = server_inode->ino;
-			}
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_TRUNCATE:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": TRUNCATE (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.truncate.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_truncate_cbk (stub->frame, NULL,
-                                             stub->frame->this, -1, ENOENT,
-					     NULL, NULL);
-			server_loc_wipe (&stub->args.truncate.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.truncate.loc.parent == NULL)
-			stub->args.truncate.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.truncate.loc.inode == NULL)) {
-			stub->args.truncate.loc.inode = 
-				inode_ref (server_inode);
-			stub->args.truncate.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_STATFS:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": STATFS (%s) on %s returning ENOENT: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.statfs.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_statfs_cbk (stub->frame, NULL,
-                                           stub->frame->this, -1, ENOENT,
-                                           NULL);
-			server_loc_wipe (&stub->args.statfs.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.statfs.loc.parent == NULL)
-			stub->args.statfs.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.statfs.loc.inode == NULL)) {
-			stub->args.statfs.loc.inode = inode_ref (server_inode);
-			stub->args.statfs.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_SETXATTR:
-	{
-		dict = stub->args.setxattr.dict;
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": SETXATTR (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.setxattr.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_setxattr_cbk (stub->frame, NULL,
-                                             stub->frame->this, -1, ENOENT);
-
-			server_loc_wipe (&stub->args.setxattr.loc);
-			dict_unref (dict);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.setxattr.loc.parent == NULL)
-			stub->args.setxattr.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.setxattr.loc.inode == NULL)) {
-			stub->args.setxattr.loc.inode = 
-				inode_ref (server_inode);
-			stub->args.setxattr.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_GETXATTR:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": GETXATTR (%s) on %s for key %s "
-				"returning error: %"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.getxattr.loc.path,
-				BOUND_XL(stub->frame)->name,
-				stub->args.getxattr.name ? 
-				stub->args.getxattr.name : "<nul>",
-				op_ret, op_errno);
-
-			server_getxattr_cbk (stub->frame, NULL,
-					     stub->frame->this, -1, ENOENT,
-					     NULL);
-			server_loc_wipe (&stub->args.getxattr.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.getxattr.loc.parent == NULL)
-			stub->args.getxattr.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.getxattr.loc.inode == NULL)) {
-			stub->args.getxattr.loc.inode = 
-				inode_ref (server_inode);
-			stub->args.getxattr.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_REMOVEXATTR:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": REMOVEXATTR (%s) on %s for key %s "
-				"returning error: %"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.removexattr.loc.path,
-				BOUND_XL(stub->frame)->name,
-				stub->args.removexattr.name,
-				op_ret, op_errno);
-
-			server_removexattr_cbk (stub->frame, NULL,
-						stub->frame->this, -1,
-						ENOENT);
-			server_loc_wipe (&stub->args.removexattr.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.removexattr.loc.parent == NULL)
-			stub->args.removexattr.loc.parent = inode_ref (parent);
-
-		if (server_inode && 
-		    (stub->args.removexattr.loc.inode == NULL)) {
-			stub->args.removexattr.loc.inode = 
-				inode_ref (server_inode);
-			stub->args.removexattr.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_OPENDIR:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": OPENDIR (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.opendir.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_opendir_cbk (stub->frame, NULL,
-					    stub->frame->this, -1, ENOENT,
-					    NULL);
-			server_loc_wipe (&stub->args.opendir.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.opendir.loc.parent == NULL)
-			stub->args.opendir.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.opendir.loc.inode == NULL)) {
-			stub->args.opendir.loc.inode = 
-				inode_ref (server_inode);
-			stub->args.opendir.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_ACCESS:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": ACCESS (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.access.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_access_cbk (stub->frame, NULL,
-                                           stub->frame->this, -1, ENOENT);
-			server_loc_wipe (&stub->args.access.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.access.loc.parent == NULL)
-			stub->args.access.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.access.loc.inode == NULL)) {
-			stub->args.access.loc.inode = inode_ref (server_inode);
-			stub->args.access.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_READLINK:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": READLINK (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.readlink.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_readlink_cbk (stub->frame, NULL,
-					     stub->frame->this, -1, ENOENT,
-					     NULL, NULL);
-			server_loc_wipe (&stub->args.readlink.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.readlink.loc.parent == NULL)
-			stub->args.readlink.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.readlink.loc.inode == NULL)) {
-			stub->args.readlink.loc.inode = 
-				inode_ref (server_inode);
-			stub->args.readlink.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-	case GF_FOP_MKDIR:
-	{
-		if ((op_ret < 0) && (parent == NULL)) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": MKDIR (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.mkdir.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_mkdir_cbk (stub->frame, NULL,
-					  stub->frame->this, -1, ENOENT,
-					  NULL, NULL, NULL, NULL);
-			server_loc_wipe (&stub->args.mkdir.loc);
-			FREE (stub);
-			break;
-		}
-
-		if (stub->args.mkdir.loc.parent == NULL)
-			stub->args.mkdir.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.mkdir.loc.inode == NULL)) {
-			stub->args.mkdir.loc.inode = inode_ref (server_inode);
-			stub->args.mkdir.loc.ino = server_inode->ino;
-		}
-
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_CREATE:
-	{
-		if ((op_ret < 0) && (parent == NULL)) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": CREATE (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.create.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_create_cbk (stub->frame, NULL,
-					   stub->frame->this, -1, ENOENT,
-					   NULL, NULL, NULL, NULL, NULL);
-			if (stub->args.create.fd)
-				fd_unref (stub->args.create.fd);
-			server_loc_wipe (&stub->args.create.loc);
-			FREE (stub);
-			break;
-		}
-
-		if (stub->args.create.loc.parent == NULL)
-			stub->args.create.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.create.loc.inode == NULL)) {
-			stub->args.create.loc.inode = inode_ref (server_inode);
-			stub->args.create.loc.ino = server_inode->ino;
-		}
-
-		call_resume (stub);
-		break;
-	}
-
-	case GF_FOP_MKNOD:
-	{
-		if ((op_ret < 0) && (parent == NULL)) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": MKNOD (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.mknod.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_mknod_cbk (stub->frame, NULL,
-					  stub->frame->this, -1, ENOENT, NULL,
-                                          NULL, NULL, NULL);
-			server_loc_wipe (&stub->args.mknod.loc);
-			FREE (stub);
-			break;
-		}
-
-		if (stub->args.mknod.loc.parent == NULL)
-			stub->args.mknod.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.mknod.loc.inode == NULL)) {
-			stub->args.mknod.loc.inode = inode_ref (server_inode);
-			stub->args.mknod.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-	case GF_FOP_ENTRYLK:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": ENTRYLK (%s) on %s for key %s returning "
-				"error: %"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.entrylk.loc.path,
-				BOUND_XL(stub->frame)->name,
-				stub->args.entrylk.name ?
-				stub->args.entrylk.name : "<nul>",
-				op_ret, op_errno);
-
-			server_entrylk_cbk (stub->frame, NULL,
-					    stub->frame->this, -1, ENOENT);
-			server_loc_wipe (&stub->args.entrylk.loc);
-			FREE (stub);
-			break;
-		}
-
-		if (stub->args.entrylk.loc.parent == NULL)
-			stub->args.entrylk.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.entrylk.loc.inode == NULL)) {
-			stub->args.entrylk.loc.inode = inode_ref (server_inode);
-			stub->args.entrylk.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-	case GF_FOP_INODELK:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": INODELK (%s) on %s returning error: "
-				"%"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.inodelk.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-
-			server_inodelk_cbk (stub->frame, NULL,
-                                            stub->frame->this, -1, ENOENT);
-			server_loc_wipe (&stub->args.inodelk.loc);
-			FREE (stub);
-			break;
-		}
-
-		if (stub->args.inodelk.loc.parent == NULL)
-			stub->args.inodelk.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.inodelk.loc.inode == NULL)) {
-			stub->args.inodelk.loc.inode = 
-				inode_ref (server_inode);
-			stub->args.inodelk.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-	case GF_FOP_SETATTR:
-	{
-		if (op_ret < 0) {
-			gf_log (stub->frame->this->name, GF_LOG_DEBUG,
-				"%"PRId64": SETATTR (%s) on %s returning error:"
-				" %"PRId32" (%"PRId32")",
-				stub->frame->root->unique,
-				stub->args.setattr.loc.path,
-				BOUND_XL(stub->frame)->name,
-				op_ret, op_errno);
-			server_setattr_cbk (stub->frame, NULL,
-                                            stub->frame->this,
-                                            -1, ENOENT, NULL, NULL);
-			server_loc_wipe (&stub->args.setattr.loc);
-			FREE (stub);
-			return 0;
-		}
-
-		if (stub->args.setattr.loc.parent == NULL)
-			stub->args.setattr.loc.parent = inode_ref (parent);
-
-		if (server_inode && (stub->args.setattr.loc.inode == NULL)) {
-			stub->args.setattr.loc.inode = inode_ref (server_inode);
-			stub->args.setattr.loc.ino = server_inode->ino;
-		}
-		call_resume (stub);
-		break;
-	}
-	default:
-		call_resume (stub);
-	}
-
-	return 0;
-}
 
 int
-server_lookup_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-		      dict_t *xattr_req)
+server_lookup_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
-	server_state_t *state = NULL;
+        server_state_t    *state = NULL;
 
-	state = CALL_STATE(frame);
+        state = CALL_STATE (frame);
 
-	if ((state->loc.parent == NULL) && 
-	    (loc->parent))
-		state->loc.parent = inode_ref (loc->parent);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
-	if (state->loc.inode == NULL) {
-		if (loc->inode == NULL)
-			state->loc.inode = inode_new (state->itable);
-		else
-			/* FIXME: why another lookup? */
-			state->loc.inode = inode_ref (loc->inode);
-	} else {
-		if (loc->inode && (state->loc.inode != loc->inode)) {
-			if (state->loc.inode)
-				inode_unref (state->loc.inode);
-			state->loc.inode = inode_ref (loc->inode);
-		}
-	}
+        if (!state->loc.inode)
+                state->loc.inode = inode_new (state->itable);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": LOOKUP \'%"PRId64"/%s\'", 
-		frame->root->unique, state->par, state->bname);
+        STACK_WIND (frame, server_lookup_cbk,
+                    bound_xl, bound_xl->fops->lookup,
+                    &state->loc, state->dict);
 
-	STACK_WIND (frame, server_lookup_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->lookup,
-		    &(state->loc), xattr_req);
-	return 0;
+        return 0;
+err:
+        server_lookup_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                           state->resolve.op_errno, NULL, NULL, NULL, NULL);
+
+        return 0;
 }
 
-/*
- * server_lookup - lookup function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+
 int
 server_lookup (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
@@ -3237,7 +2329,6 @@ server_lookup (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_lookup_req_t *req = NULL;
 	server_state_t      *state = NULL;
-	call_stub_t         *lookup_stub = NULL;
 	int32_t              ret = -1;
 	size_t               pathlen = 0;
         size_t               baselen = 0;
@@ -3247,81 +2338,58 @@ server_lookup (call_frame_t *frame, xlator_t *bound_xl,
 
 	req = gf_param (hdr);
 
-	state = CALL_STATE(frame);
-	{
+	state = CALL_STATE (frame);
 
-		pathlen = STRLEN_0 (req->path);
-		dictlen = ntoh32 (req->dictlen);
-		
-		/* NOTE: lookup() uses req->ino only to identify if a lookup()
-		 *       is requested for 'root' or not 
-		 */
-		state->ino    = ntoh64 (req->ino);
-		if (state->ino != 1)
-			state->ino = 0;
+        pathlen = STRLEN_0 (req->path);
+        dictlen = ntoh32 (req->dictlen);
 
-		state->par    = ntoh64 (req->par);
-		state->path   = req->path;
-		if (IS_NOT_ROOT(pathlen)) {
-			state->bname = req->bname + pathlen;
-			baselen = STRLEN_0 (state->bname);
-		}
+        /* NOTE: lookup() uses req->ino only to identify if a lookup()
+         *       is requested for 'root' or not
+         */
+        state->resolve.ino    = ntoh64 (req->ino);
+        if (state->resolve.ino != 1)
+                state->resolve.ino = 0;
 
-		if (dictlen) {
-			/* Unserialize the dictionary */
-			req_dictbuf = memdup (req->dict + pathlen + baselen,
-                                              dictlen);
-			GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
-			
-			xattr_req = dict_new ();
-			GF_VALIDATE_OR_GOTO(bound_xl->name, xattr_req, fail);
+        state->resolve.type   = RESOLVE_DONTCARE;
+        state->resolve.par    = ntoh64 (req->par);
+        state->resolve.gen    = ntoh64 (req->gen);
+        state->resolve.path   = strdup (req->path);
 
-			ret = dict_unserialize (req_dictbuf, dictlen,
-                                                &xattr_req);
-			if (ret < 0) {
-				gf_log (bound_xl->name, GF_LOG_ERROR,
-					"%"PRId64": %s (%"PRId64"): failed to " 
-                                        "unserialize req-buffer to dictionary",
-					frame->root->unique, state->path, 
-                                        state->ino);
-				free (req_dictbuf);
-				goto fail;
-			} else{
-				xattr_req->extra_free = req_dictbuf;
-				state->xattr_req = xattr_req;
-				xattr_req = NULL;
-			}
-		}
+        if (IS_NOT_ROOT (pathlen)) {
+                state->resolve.bname = strdup (req->bname + pathlen);
+                baselen = STRLEN_0 (state->resolve.bname);
+        }
+
+        if (dictlen) {
+                /* Unserialize the dictionary */
+                req_dictbuf = memdup (req->dict + pathlen + baselen, dictlen);
+
+                xattr_req = dict_new ();
+
+                ret = dict_unserialize (req_dictbuf, dictlen, &xattr_req);
+                if (ret < 0) {
+                        gf_log (bound_xl->name, GF_LOG_ERROR,
+                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "unserialize req-buffer to dictionary",
+                                frame->root->unique, state->resolve.path,
+                                state->resolve.ino);
+                        FREE (req_dictbuf);
+                        goto err;
+                }
+
+                xattr_req->extra_free = req_dictbuf;
+                state->dict = xattr_req;
 	}
 
-	ret = server_loc_fill (&state->loc, state, state->ino, state->par,
-                               state->bname, state->path);
+        resolve_and_resume (frame, server_lookup_resume);
 
- 	if (state->loc.inode) {
-		/* revalidate */
-		state->is_revalidate = 1;
-	} else {
-		/* fresh lookup or inode was previously pruned out */
-		state->is_revalidate = -1;
-	}
-
-	lookup_stub = fop_lookup_stub (frame, server_lookup_resume,
-				       &(state->loc), state->xattr_req);
-	GF_VALIDATE_OR_GOTO(bound_xl->name, lookup_stub, fail);
-
-	if ((state->loc.parent == NULL) && 
-	    IS_NOT_ROOT(pathlen))
-		do_path_lookup (lookup_stub, &(state->loc));
-	else
-		call_resume (lookup_stub);
-	
 	return 0;
-fail:
-	server_lookup_cbk (frame, NULL, frame->this, -1,EINVAL, NULL, NULL,
-                           NULL, NULL);
+err:
 	if (xattr_req)
 		dict_unref (xattr_req);
 
+	server_lookup_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
+                           NULL, NULL);
 	return 0;
 }
 
@@ -3342,291 +2410,214 @@ server_forget (call_frame_t *frame, xlator_t *bound_xl,
 
 
 int
-server_stat_resume (call_frame_t *frame, xlator_t *this, loc_t *loc)
+server_stat_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
-	
-	state = CALL_STATE(frame);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": STAT \'%s (%"PRId64")\'", 
-		frame->root->unique, state->loc.path, state->loc.ino);
+	state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_stat_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->stat,
-		    loc);
+                    bound_xl, bound_xl->fops->stat, &state->loc);
 	return 0;
+err:
+        server_stat_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                         state->resolve.op_errno, NULL);
+        return 0;
 }
 
-/*
- * server_stat - stat function for server
- * @frame: call frame
- * @bound_xl: translator this server is bound to
- * @params: parameters dictionary
- *
- * not for external reference
- */
+
 int
 server_stat (call_frame_t *frame, xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
              struct iobuf *iobuf)
 {
-	call_stub_t       *stat_stub = NULL;
 	gf_fop_stat_req_t *req = NULL;
 	server_state_t    *state = NULL;
-	int32_t            ret = -1;
-	size_t             pathlen = 0;
 
 	req = gf_param (hdr);
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
+        {
+                state->resolve.type  = RESOLVE_MUST;
+                state->resolve.ino   = ntoh64 (req->ino);
+                state->resolve.gen   = ntoh64 (req->gen);
+                state->resolve.path  = strdup (req->path);
+        }
 
-	state->ino  = ntoh64 (req->ino);
-	state->path = req->path;
-	pathlen = STRLEN_0(state->path);
+        resolve_and_resume (frame, server_stat_resume);
 
-	ret = server_loc_fill (&(state->loc), state, state->ino, state->par,
-                               state->bname, state->path);
-
-	stat_stub = fop_stat_stub (frame, server_stat_resume,
-				   &(state->loc));
-	GF_VALIDATE_OR_GOTO(bound_xl->name, stat_stub, fail);
-
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) || 
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (stat_stub, &(state->loc));
-	} else {
-		call_resume (stat_stub);
-	}
-	return 0;
-fail:
-	server_stat_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
 	return 0;
 }
 
+
 int
-server_setattr_resume (call_frame_t *frame,
-                       xlator_t *this,
-                       loc_t *loc,
-                       struct stat *stbuf,
-                       int32_t valid)
+server_setattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": SETATTR \'%s (%"PRId64")\'",
-		frame->root->unique, state->loc.path, state->loc.ino);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_setattr_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->setattr,
-		    loc,
-                    stbuf, valid);
+                    bound_xl, bound_xl->fops->setattr,
+		    &state->loc, &state->stbuf, state->valid);
 	return 0;
+err:
+	server_setattr_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                            state->resolve.op_errno, NULL, NULL);
+
+        return 0;
 }
 
-/*
- * server_setattr - setattr function for server
- * @frame: call frame
- * @bound_xl: translator this server is bound to
- * @params: parameters dictionary
- *
- * not for external reference
- */
+
 int
 server_setattr (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
 {
-	call_stub_t          *setattr_stub = NULL;
 	gf_fop_setattr_req_t *req = NULL;
 	server_state_t       *state = NULL;
-	int32_t               ret = -1;
-	size_t                pathlen = 0;
-        struct stat           stbuf = {0,};
-        int32_t               valid = 0;
 
 	req   = gf_param (hdr);
+	state = CALL_STATE (frame);
 
-	state = CALL_STATE(frame);
+        state->resolve.type  = RESOLVE_MUST;
+	state->resolve.ino   = ntoh64 (req->ino);
+        state->resolve.gen   = ntoh64 (req->gen);
+	state->resolve.path  = strdup (req->path);
 
-	state->ino  = ntoh64 (req->ino);
-	state->path = req->path;
-	pathlen     = STRLEN_0(state->path);
+        gf_stat_to_stat (&req->stbuf, &state->stbuf);
+        state->valid = ntoh32 (req->valid);
 
-        gf_stat_to_stat (&req->stbuf, &stbuf);
+        resolve_and_resume (frame, server_setattr_resume);
 
-        valid = ntoh32 (req->valid);
-
-	ret = server_loc_fill (&(state->loc), state, state->ino, state->par,
-                               state->bname, state->path);
-
-	setattr_stub = fop_setattr_stub (frame, server_setattr_resume,
-                                         &(state->loc), &stbuf, valid);
-	GF_VALIDATE_OR_GOTO(bound_xl->name, setattr_stub, fail);
-
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (setattr_stub, &(state->loc));
-	} else {
-		call_resume (setattr_stub);
-	}
-	return 0;
-fail:
-	server_setattr_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL);
 	return 0;
 }
+
+
+int
+server_fsetattr_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+	server_state_t *state = NULL;
+
+	state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+	STACK_WIND (frame, server_fsetattr_cbk,
+                    bound_xl, bound_xl->fops->fsetattr,
+		    state->fd, &state->stbuf, state->valid);
+	return 0;
+err:
+	server_fsetattr_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno, NULL, NULL);
+
+        return 0;
+}
+
 
 int
 server_fsetattr (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	server_connection_t    *conn = NULL;
 	gf_fop_fsetattr_req_t  *req = NULL;
 	server_state_t         *state = NULL;
-        struct stat             stbuf = {0,};
-        int32_t                 valid = 0;
 
-	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE (frame);
-	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
 
-                gf_stat_to_stat (&req->stbuf, &stbuf);
+        state->resolve.type   = RESOLVE_MUST;
+        state->resolve.fd_no  = ntoh64 (req->fd);
 
-                valid = ntoh32 (req->valid);
-	}
+        gf_stat_to_stat (&req->stbuf, &state->stbuf);
+        state->valid = ntoh32 (req->valid);
 
-	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
+        resolve_and_resume (frame, server_fsetattr_resume);
 
-	STACK_WIND (frame, server_fsetattr_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->fsetattr,
-		    state->fd, &stbuf, valid);
-
-	return 0;
-fail:
-	server_fsetattr_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL);
 	return 0;
 }
 
+
 int
-server_readlink_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                        size_t size)
+server_readlink_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 	
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": READLINK \'%s (%"PRId64")\'", 
-		frame->root->unique, state->loc.path, state->loc.ino);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_readlink_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->readlink,
-		    loc, size);
+                    bound_xl, bound_xl->fops->readlink,
+                    &state->loc, state->size);
 	return 0;
+err:
+        server_readlink_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno, NULL, NULL);
+        return 0;
 }
 
-/*
- * server_readlink - readlink function for server
- * @frame: call frame
- * @bound_xl: translator this server is bound to
- * @params: parameters dictionary
- *
- * not for external reference
- */
+
 int
 server_readlink (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	call_stub_t           *readlink_stub = NULL;
 	gf_fop_readlink_req_t *req = NULL;
 	server_state_t        *state = NULL;
-	int32_t                ret = -1;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
+
+        state->resolve.type = RESOLVE_MUST;
+	state->resolve.ino  = ntoh64 (req->ino);
+	state->resolve.gen  = ntoh64 (req->ino);
+	state->resolve.path = strdup (req->path);
 
 	state->size  = ntoh32 (req->size);
 
-	state->ino  = ntoh64 (req->ino);
-	state->path = req->path;
+        resolve_and_resume (frame, server_readlink_resume);
 
-	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
-                               state->path);
-
-	readlink_stub = fop_readlink_stub (frame, server_readlink_resume,
-					   &(state->loc), state->size);
-	GF_VALIDATE_OR_GOTO(bound_xl->name, readlink_stub, fail);
-
-	if ((state->loc.parent == NULL) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (readlink_stub, &(state->loc));
-	} else {
-		call_resume (readlink_stub);
-	}
-	return 0;
-fail:
-	server_readlink_cbk (frame, NULL,frame->this, -1, EINVAL, NULL, NULL);
 	return 0;
 }
 
+
 int
-server_create_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-		      int32_t flags, mode_t mode, fd_t *fd)
+server_create_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 
-        state = CALL_STATE(frame);
+        state = CALL_STATE (frame);
 
-	if (state->loc.parent == NULL)
-		state->loc.parent = inode_ref (loc->parent);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	state->loc.inode = inode_new (state->itable);
-	GF_VALIDATE_OR_GOTO(BOUND_XL(frame)->name, state->loc.inode, fail);
 
 	state->fd = fd_create (state->loc.inode, frame->root->pid);
-	GF_VALIDATE_OR_GOTO(BOUND_XL(frame)->name, state->fd, fail);
-
-	state->fd->flags = flags;
-	state->fd = fd_ref (state->fd);
-
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": CREATE \'%"PRId64"/%s\'", 
-		frame->root->unique, state->par, state->bname);
+	state->fd->flags = state->flags;
 
 	STACK_WIND (frame, server_create_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->create,
-		    &(state->loc), flags, mode, state->fd);
+		    bound_xl, bound_xl->fops->create,
+		    &(state->loc), state->flags, state->mode, state->fd);
 
 	return 0;
-fail:
-	server_create_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
-                           NULL, NULL, NULL);
+err:
+	server_create_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                           state->resolve.op_errno, NULL, NULL, NULL,
+                           NULL, NULL);
 	return 0;
 }
 
 
-/*
- * server_create - create function for server
- * @frame: call frame
- * @bound_xl: translator this server is bound to
- * @params: parameters dictionary
- *
- * not for external reference
- */
 int
 server_create (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
@@ -3634,132 +2625,98 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_create_req_t *req = NULL;
 	server_state_t      *state = NULL;
-	call_stub_t         *create_stub = NULL;
-	int32_t              ret = -1;
-	size_t               pathlen = 0;
+        int                  pathlen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		pathlen = STRLEN_0(req->path);
-		
-		state->par  = ntoh64 (req->par);
-		state->path = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->bname = req->bname + pathlen;
+	state = CALL_STATE (frame);
 
-		state->mode  = ntoh32 (req->mode);
-		state->flags = gf_flags_to_flags (ntoh32 (req->flags));
-	}
+        pathlen = STRLEN_0 (req->path);
 
-	ret = server_loc_fill (&(state->loc), state,
-			       0, state->par, state->bname,
-			       state->path);
+        state->resolve.type   = RESOLVE_NOT;
+        state->resolve.par    = ntoh64 (req->par);
+        state->resolve.gen    = ntoh64 (req->gen);
+        state->resolve.path   = strdup (req->path);
+        state->resolve.bname  = strdup (req->bname + pathlen);
+        state->mode           = ntoh32 (req->mode);
+        state->flags          = gf_flags_to_flags (ntoh32 (req->flags));
 
-	create_stub = fop_create_stub (frame, server_create_resume,
-				       &(state->loc), state->flags, 
-				       state->mode, state->fd);
-	GF_VALIDATE_OR_GOTO(bound_xl->name, create_stub, fail);
+        resolve_and_resume (frame, server_create_resume);
 
-	if (state->loc.parent == NULL) {
-		do_path_lookup (create_stub, &state->loc);
-	} else {
-		call_resume (create_stub);
-	}
-	return 0;
-fail:
-	server_create_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
-                           NULL, NULL, NULL);
 	return 0;
 }
 
 
 int
-server_open_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                    int32_t flags, fd_t *fd, int32_t wbflags)
+server_open_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t  *state = NULL;
-	fd_t            *new_fd = NULL;
 
-        state = CALL_STATE(frame);
-	new_fd = fd_create (loc->inode, frame->root->pid);
-	GF_VALIDATE_OR_GOTO(BOUND_XL(frame)->name, new_fd, fail);
+        state = CALL_STATE (frame);
 
-	new_fd->flags = flags;
+        if (state->resolve.op_ret != 0)
+                goto err;
 
-	state->fd = fd_ref (new_fd);
-
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": OPEN \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
+	state->fd = fd_create (state->loc.inode, frame->root->pid);
+        state->fd->flags = state->flags;
 
 	STACK_WIND (frame, server_open_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->open,
-		    loc, flags, state->fd, wbflags);
+                    bound_xl, bound_xl->fops->open,
+		    &state->loc, state->flags, state->fd, 0);
 
 	return 0;
-fail:
-	server_open_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
+err:
+	server_open_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                         state->resolve.op_errno, NULL);
 	return 0;
 }
 
-/*
- * server_open - open function for server protocol
- * @frame: call frame
- * @bound_xl: translator this server protocol is bound to
- * @params: parameters dictionary
- *
- * not for external reference
- */
+
 int
 server_open (call_frame_t *frame, xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
              struct iobuf *iobuf)
 {
-	call_stub_t        *open_stub = NULL;
 	gf_fop_open_req_t  *req = NULL;
 	server_state_t     *state = NULL;
-	int32_t             ret = -1;
-	size_t              pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE (frame);
-	{
-		state->ino   = ntoh64 (req->ino);
-		state->path  = req->path;
-		pathlen = STRLEN_0(state->path);
-		state->flags = gf_flags_to_flags (ntoh32 (req->flags));
-	}
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
 
-	open_stub = fop_open_stub (frame,
-				   server_open_resume,
-				   &(state->loc), state->flags, NULL, 0);
-	GF_VALIDATE_OR_GOTO(bound_xl->name, open_stub, fail);
+        state->resolve.type  = RESOLVE_MUST;
+        state->resolve.ino   = ntoh64 (req->ino);
+        state->resolve.gen   = ntoh64 (req->gen);
+        state->resolve.path  = strdup (req->path);
 
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) || 
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (open_stub, &state->loc);
-	} else {
-		call_resume (open_stub);
-	}
-	return 0;
-fail:
-	server_open_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
+        state->flags = gf_flags_to_flags (ntoh32 (req->flags));
+
+        resolve_and_resume (frame, server_open_resume);
+
 	return 0;
 }
 
 
-/*
- * server_readv - readv function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+int
+server_readv_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t    *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_readv_cbk,
+                    bound_xl, bound_xl->fops->readv,
+                    state->fd, state->size, state->offset);
+
+        return 0;
+err:
+        server_readv_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                          state->resolve.op_errno, NULL, 0, NULL, NULL);
+        return 0;
+}
+
+
 int
 server_readv (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
@@ -3767,125 +2724,81 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_read_req_t   *req = NULL;
 	server_state_t      *state = NULL;
-	server_connection_t *conn = NULL;
 	
-	conn = SERVER_CONNECTION (frame);
-
 	req = gf_param (hdr);
-  
-	state = CALL_STATE(frame);
-	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
+	state = CALL_STATE (frame);
 
-		state->size   = ntoh32 (req->size);
-		state->offset = ntoh64 (req->offset);
-	}
+        state->resolve.type   = RESOLVE_MUST;
+        state->resolve.fd_no  = ntoh64 (req->fd);
+        state->size           = ntoh32 (req->size);
+        state->offset         = ntoh64 (req->offset);
 
-	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
+        resolve_and_resume (frame, server_readv_resume);
 
-	gf_log (bound_xl->name, GF_LOG_TRACE,
-		"%"PRId64": READV \'fd=%"PRId64" (%"PRId64"); "
-		"offset=%"PRId64"; size=%"PRId64,
-		frame->root->unique, state->fd_no, state->fd->inode->ino, 
-		state->offset, (int64_t)state->size);
-
-	STACK_WIND (frame, server_readv_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->readv,
-		    state->fd, state->size, state->offset);
-	return 0;
-fail:
-	server_readv_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, 0,
-                          NULL, NULL);
 	return 0;
 }
 
 
-/*
- * server_writev - writev function for server
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+int
+server_writev_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t   *state = NULL;
+        struct iovec      iov = {0, };
+
+	state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+	iov.iov_len  = state->size;
+
+        if (state->iobuf) {
+                iov.iov_base = state->iobuf->ptr;
+        }
+
+	STACK_WIND (frame, server_writev_cbk,
+                    bound_xl, bound_xl->fops->writev,
+		    state->fd, &iov, 1, state->offset, state->iobref);
+
+        return 0;
+err:
+	server_writev_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                           state->resolve.op_errno, NULL, NULL);
+        return 0;
+}
+
+
 int
 server_writev (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
-	server_connection_t *conn = NULL;
 	gf_fop_write_req_t  *req = NULL;
-	struct iovec         iov = {0, };
-        struct iobref       *iobref = NULL;
 	server_state_t      *state = NULL;
-	
-	conn = SERVER_CONNECTION(frame);
+        struct iobref       *iobref = NULL;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
+	state = CALL_STATE (frame);
 
-		state->offset = ntoh64 (req->offset);
-                state->size = ntoh32 (req->size);
-	}
+        state->resolve.type  = RESOLVE_MUST;
+        state->resolve.fd_no = ntoh64 (req->fd);
+        state->offset        = ntoh64 (req->offset);
+        state->size          = ntoh32 (req->size);
 
-	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
+        if (iobuf) {
+                iobref = iobref_new ();
+                iobref_add (iobref, state->iobuf);
 
-        if (iobuf)
-                iov.iov_base = iobuf->ptr;
-	iov.iov_len  = state->size;
+                state->iobuf = iobuf;
+                state->iobref = iobref;
+        }
 
-	iobref = iobref_new ();
-	GF_VALIDATE_OR_GOTO(bound_xl->name, iobref, fail);
-
-        iobref_add (iobref, iobuf);
-
-	gf_log (bound_xl->name, GF_LOG_TRACE,
-		"%"PRId64": WRITEV \'fd=%"PRId64" (%"PRId64"); "
-		"offset=%"PRId64"; size=%"PRId32,
-		frame->root->unique, state->fd_no, state->fd->inode->ino, 
-		state->offset, (int32_t)state->size);
-
-	STACK_WIND (frame, server_writev_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->writev,
-		    state->fd, &iov, 1, state->offset, iobref);
-	
-	if (iobref)
-		iobref_unref (iobref);
-        if (iobuf)
-                iobuf_unref (iobuf);
-
-	return 0;
-fail:
-	server_writev_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL);
-	
-	if (iobref)
-		iobref_unref (iobref);
-        if (iobuf)
-                iobuf_unref (iobuf);
+        resolve_and_resume (frame, server_writev_resume);
 
 	return 0;
 }
 
 
-
-/*
- * server_release - release function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
 int
 server_release (call_frame_t *frame, xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
@@ -3894,33 +2807,43 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
 	gf_cbk_release_req_t  *req = NULL;
 	server_state_t        *state = NULL;
 	server_connection_t   *conn = NULL;
-	
-	conn = SERVER_CONNECTION(frame);
 
-	req = gf_param (hdr);
-	state = CALL_STATE(frame);
-	
-	state->fd_no = ntoh64 (req->fd);
+	conn  = SERVER_CONNECTION (frame);
+	state = CALL_STATE (frame);
+	req   = gf_param (hdr);
 
-	gf_fd_put (conn->fdtable, state->fd_no);
+	state->resolve.fd_no = ntoh64 (req->fd);
 
-	gf_log (bound_xl->name, GF_LOG_TRACE,
-		"%"PRId64": RELEASE \'fd=%"PRId64"\'", 
-		frame->root->unique, state->fd_no);
+	gf_fd_put (conn->fdtable, state->resolve.fd_no);
 
 	server_release_cbk (frame, NULL, frame->this, 0, 0);
+
 	return 0;
 }
 
 
-/*
- * server_fsync - fsync function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameters dictionary
- *
- * not for external reference
- */
+int
+server_fsync_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t    *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+	STACK_WIND (frame, server_fsync_cbk,
+                    bound_xl, bound_xl->fops->fsync,
+		    state->fd, state->flags);
+	return 0;
+err:
+	server_fsync_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                          state->resolve.op_errno, NULL, NULL);
+
+	return 0;
+}
+
+
 int
 server_fsync (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
@@ -3928,94 +2851,85 @@ server_fsync (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_fsync_req_t  *req = NULL;
 	server_state_t      *state = NULL;
-	server_connection_t *conn = NULL;
 	
-	conn = SERVER_CONNECTION(frame);
-
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
+	state = CALL_STATE (frame);
 
-		state->flags = ntoh32 (req->data);
-	}
+        state->resolve.type  = RESOLVE_MUST;
+        state->resolve.fd_no = ntoh64 (req->fd);
+        state->flags         = ntoh32 (req->data);
 
-	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
+        resolve_and_resume (frame, server_fsync_resume);
 
-	gf_log (bound_xl->name, GF_LOG_TRACE,
-		"%"PRId64": FSYNC \'fd=%"PRId64" (%"PRId64")\'", 
-		frame->root->unique, state->fd_no, state->fd->inode->ino);
+        return 0;
+}
 
-	STACK_WIND (frame, server_fsync_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->fsync,
-		    state->fd, state->flags);
+
+
+int
+server_flush_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t    *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+	STACK_WIND (frame, server_flush_cbk,
+                    bound_xl, bound_xl->fops->flush, state->fd);
 	return 0;
-fail:
-	server_fsync_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL);
+err:
+	server_flush_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                          state->resolve.op_errno);
 
 	return 0;
 }
 
 
-/*
- * server_flush - flush function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
 int
 server_flush (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
-	gf_fop_flush_req_t  *req = NULL;
+	gf_fop_fsync_req_t  *req = NULL;
 	server_state_t      *state = NULL;
-	server_connection_t *conn = NULL;
 	
-	conn = SERVER_CONNECTION (frame);
-
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
-	}
+	state = CALL_STATE (frame);
 
-	GF_VALIDATE_OR_GOTO (bound_xl->name, state->fd, fail);
+        state->resolve.type  = RESOLVE_MUST;
+        state->resolve.fd_no = ntoh64 (req->fd);
 
-	gf_log (bound_xl->name, GF_LOG_TRACE,
-		"%"PRId64": FLUSH \'fd=%"PRId64" (%"PRId64")\'", 
-		frame->root->unique, state->fd_no, state->fd->inode->ino);
+        resolve_and_resume (frame, server_flush_resume);
 
-	STACK_WIND (frame, server_flush_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->flush,
-		    state->fd);
+        return 0;
+}
+
+
+
+int
+server_ftruncate_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t    *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+	STACK_WIND (frame, server_ftruncate_cbk,
+                    bound_xl, bound_xl->fops->ftruncate,
+                    state->fd, state->offset);
 	return 0;
-
-fail:
-	server_flush_cbk (frame, NULL, frame->this, -1, EINVAL);
+err:
+	server_ftruncate_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                              state->resolve.op_errno, NULL, NULL);
 
 	return 0;
 }
 
 
-/*
- * server_ftruncate - ftruncate function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameters dictionary
- *
- * not for external reference
- */
 int
 server_ftruncate (call_frame_t *frame, xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
@@ -4023,50 +2937,41 @@ server_ftruncate (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_ftruncate_req_t  *req = NULL;
 	server_state_t          *state = NULL;
-	server_connection_t     *conn = NULL;
-	
-	conn = SERVER_CONNECTION(frame);
 
 	req = gf_param (hdr);
+	state = CALL_STATE (frame);
 
-	state = CALL_STATE(frame);
-	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
+        state->resolve.type   = RESOLVE_MUST;
+        state->resolve.fd_no  = ntoh64 (req->fd);
+        state->offset         = ntoh64 (req->offset);
 
-		state->offset = ntoh64 (req->offset);
-	}
-
-	GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
-
-	gf_log (bound_xl->name, GF_LOG_TRACE,
-		"%"PRId64": FTRUNCATE \'fd=%"PRId64" (%"PRId64"); "
-		"offset=%"PRId64"\'", 
-		frame->root->unique, state->fd_no, state->fd->inode->ino, 
-		state->offset);
-
-	STACK_WIND (frame, server_ftruncate_cbk,
-		    bound_xl,
-		    bound_xl->fops->ftruncate,
-		    state->fd, state->offset);
-	return 0;
-fail:
-	server_ftruncate_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL);
+	resolve_and_resume (frame, server_ftruncate_resume);
 
 	return 0;
 }
 
 
-/*
- * server_fstat - fstat function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+int
+server_fstat_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t     *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+	STACK_WIND (frame, server_fstat_cbk,
+		    bound_xl, bound_xl->fops->fstat,
+		    state->fd);
+        return 0;
+err:
+        server_fstat_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                          state->resolve.op_errno, NULL);
+        return 0;
+}
+
+
 int
 server_fstat (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
@@ -4074,283 +2979,209 @@ server_fstat (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_fstat_req_t  *req = NULL;
 	server_state_t      *state = NULL;
-	server_connection_t *conn = NULL;
-	
-	conn = SERVER_CONNECTION (frame);
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
-	}
+	state = CALL_STATE (frame);
 
+        state->resolve.type    = RESOLVE_MUST;
+        state->resolve.fd_no   = ntoh64 (req->fd);
 
-	if (state->fd == NULL) {
-		gf_log (frame->this->name, GF_LOG_WARNING,
-			"fd - %"PRId64": unresolved fd", 
-			state->fd_no);
+        resolve_and_resume (frame, server_fstat_resume);
 
-		server_fstat_cbk (frame, NULL, frame->this,
-				  -1, EBADF, NULL);
-
-		goto out;
-	}
-
-	gf_log (bound_xl->name, GF_LOG_TRACE,
-		"%"PRId64": FSTAT \'fd=%"PRId64" (%"PRId64")\'", 
-		frame->root->unique, state->fd_no, state->fd->inode->ino);
-
-	STACK_WIND (frame, server_fstat_cbk,
-		    bound_xl,
-		    bound_xl->fops->fstat,
-		    state->fd);
-out:
 	return 0;
 }
 
 
 int
-server_truncate_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                        off_t offset)
+server_truncate_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 	
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": TRUNCATE \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_truncate_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->truncate,
-		    loc, offset);
+                    bound_xl, bound_xl->fops->truncate,
+		    &state->loc, state->offset);
+        return 0;
+err:
+        server_truncate_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno, NULL, NULL);
 	return 0;
 }
 
 
-/*
- * server_truncate - truncate function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params:
- *
- * not for external reference
- */
+
 int
 server_truncate (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	call_stub_t           *truncate_stub = NULL;
 	gf_fop_truncate_req_t *req = NULL;
 	server_state_t        *state = NULL;
-  	int32_t                ret = -1;
-	size_t                 pathlen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		pathlen = STRLEN_0(req->path);
-		state->offset = ntoh64 (req->offset);
+	state = CALL_STATE (frame);
 
-		state->path = req->path;
-		state->ino  = ntoh64 (req->ino);
-	}
+        state->resolve.type  = RESOLVE_MUST;
+        state->resolve.path  = strdup (req->path);
+        state->resolve.ino   = ntoh64 (req->ino);
+        state->resolve.gen   = ntoh64 (req->gen);
+        state->offset        = ntoh64 (req->offset);
 
-
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
-
-	truncate_stub = fop_truncate_stub (frame, server_truncate_resume,
-					   &(state->loc),
-					   state->offset);
-	if ((state->loc.parent == NULL) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (truncate_stub, &(state->loc));
-	} else {
-		call_resume (truncate_stub);
-	}
+        resolve_and_resume (frame, server_truncate_resume);
 
 	return 0;
 }
 
 
 int
-server_unlink_resume (call_frame_t *frame, xlator_t *this, loc_t *loc)
+server_unlink_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
-	if (state->loc.parent == NULL)
-		state->loc.parent = inode_ref (loc->parent);
-
-	if (state->loc.inode == NULL)
-		state->loc.inode = inode_ref (loc->inode);
-
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": UNLINK \'%"PRId64"/%s (%"PRId64")\'", 
-		frame->root->unique, state->par, state->path, 
-		state->loc.inode->ino);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_unlink_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->unlink,
-		    loc);
+                    bound_xl, bound_xl->fops->unlink,
+		    &state->loc);
 	return 0;
+err:
+        server_unlink_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                           state->resolve.op_errno, NULL, NULL);
+        return 0;
 }
 
-/*
- * server_unlink - unlink function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+
 int
 server_unlink (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
-	call_stub_t         *unlink_stub = NULL;
 	gf_fop_unlink_req_t *req = NULL;
 	server_state_t      *state = NULL;
-	int32_t              ret = -1;
-	size_t               pathlen = 0;
+        int                  pathlen = 0;
 
 	req   = gf_param (hdr);
 	state = CALL_STATE (frame);
 
-	pathlen = STRLEN_0(req->path);
-	
-	state->par   = ntoh64 (req->par);
-	state->path  = req->path;
-	if (IS_NOT_ROOT(pathlen))
-		state->bname = req->bname + pathlen;
+	pathlen = STRLEN_0 (req->path);
 
-	ret = server_loc_fill (&(state->loc), state, 0, state->par,
-                               state->bname, state->path);
+        state->resolve.type   = RESOLVE_MUST;
+	state->resolve.par    = ntoh64 (req->par);
+	state->resolve.gen    = ntoh64 (req->gen);
+	state->resolve.path   = strdup (req->path);
+        state->resolve.bname  = strdup (req->bname + pathlen);
 
-	unlink_stub = fop_unlink_stub (frame, server_unlink_resume,
-				       &(state->loc));
-
-	if ((state->loc.parent == NULL) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (unlink_stub, &state->loc);
-	} else {
-		call_resume (unlink_stub);
-	}
+        resolve_and_resume (frame, server_unlink_resume);
 
 	return 0;
 }
 
 
 int
-server_setxattr_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                        dict_t *dict, int32_t flags)
+server_setxattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
-	
-	state = CALL_STATE(frame);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": SETXATTR \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
+	state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_setxattr_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->setxattr,
-		    loc, dict, flags);
+                    bound_xl, bound_xl->fops->setxattr,
+		    &state->loc, state->dict, state->flags);
 	return 0;
+err:
+        server_setxattr_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno);
+
+        return 0;
 }
 
-/*
- * server_setxattr - setxattr function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
 
 int
 server_setxattr (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	call_stub_t           *setxattr_stub = NULL;
 	gf_fop_setxattr_req_t *req = NULL;
-	dict_t                *dict = NULL;
 	server_state_t        *state = NULL;
+	dict_t                *dict = NULL;
 	int32_t                ret = -1;
-	size_t                 pathlen = 0;
 	size_t                 dict_len = 0;
 	char                  *req_dictbuf = NULL;
 
 	req = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		dict_len = ntoh32 (req->dict_len);
+	state = CALL_STATE (frame);
 
-		state->path     = req->path + dict_len;
+        dict_len = ntoh32 (req->dict_len);
 
-		pathlen = STRLEN_0(state->path);
-		state->ino   = ntoh64 (req->ino);
+        state->resolve.type     = RESOLVE_MUST;
+        state->resolve.path     = strdup (req->path + dict_len);
+        state->resolve.ino      = ntoh64 (req->ino);
+        state->resolve.gen      = ntoh64 (req->gen);
+        state->flags            = ntoh32 (req->flags);
 
-		state->flags = ntoh32 (req->flags);
-	}
+        if (dict_len) {
+                req_dictbuf = memdup (req->dict, dict_len);
 
-	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
-                               state->path);
-	{
-		/* Unserialize the dictionary */
-		req_dictbuf = memdup (req->dict, dict_len);
-		GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
+                dict = dict_new ();
 
-		dict = dict_new ();
-		GF_VALIDATE_OR_GOTO(bound_xl->name, dict, fail);
+                ret = dict_unserialize (req_dictbuf, dict_len, &dict);
+                if (ret < 0) {
+                        gf_log (bound_xl->name, GF_LOG_ERROR,
+                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "unserialize request buffer to dictionary",
+                                frame->root->unique, state->loc.path,
+                                state->resolve.ino);
+                        FREE (req_dictbuf);
+                        goto err;
+                }
 
-		ret = dict_unserialize (req_dictbuf, dict_len, &dict);
-		if (ret < 0) {
-			gf_log (bound_xl->name, GF_LOG_ERROR,
-				"%"PRId64": %s (%"PRId64"): failed to "
-				"unserialize request buffer to dictionary", 
-				frame->root->unique, state->loc.path, 
-				state->ino);
-			free (req_dictbuf);
-			goto fail;
-		} else{
-			dict->extra_free = req_dictbuf;
-		}
-	}
+                dict->extra_free = req_dictbuf;
+                state->dict = dict;
+        }
 
-	setxattr_stub = fop_setxattr_stub (frame, server_setxattr_resume,
-					   &(state->loc), dict, state->flags);
-	GF_VALIDATE_OR_GOTO(bound_xl->name, setxattr_stub, fail);
+        resolve_and_resume (frame, server_setxattr_resume);
 
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (setxattr_stub, &(state->loc));
-	} else {
-		call_resume (setxattr_stub);
-	}
-	
+	return 0;
+err:
 	if (dict)
 		dict_unref (dict);
 
-	return 0;
-fail:
-	if (dict)
-		dict_unref (dict);
+	server_setxattr_cbk (frame, NULL, frame->this, -1, EINVAL);
 
-	server_setxattr_cbk (frame, NULL, frame->this, -1, ENOENT);
 	return 0;
 
+}
+
+
+int
+server_fsetxattr_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+	server_state_t *state = NULL;
+
+	state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+	STACK_WIND (frame, server_setxattr_cbk,
+                    bound_xl, bound_xl->fops->fsetxattr,
+		    state->fd, state->dict, state->flags);
+	return 0;
+err:
+        server_fsetxattr_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                              state->resolve.op_errno);
+
+        return 0;
 }
 
 
@@ -4359,68 +3190,73 @@ server_fsetxattr (call_frame_t *frame, xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-        server_connection_t    *conn = NULL;
 	gf_fop_fsetxattr_req_t *req = NULL;
-	dict_t                 *dict = NULL;
 	server_state_t         *state = NULL;
+	dict_t                 *dict = NULL;
 	int32_t                 ret = -1;
-	size_t                  pathlen = 0;
 	size_t                  dict_len = 0;
 	char                   *req_dictbuf = NULL;
 
-        conn = SERVER_CONNECTION (frame);
-
 	req = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-                state->fd_no = ntoh64 (req->fd);
-                if (state->fd_no >= 0)
-                        state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                                     state->fd_no);
-		dict_len = ntoh32 (req->dict_len);
+	state = CALL_STATE (frame);
 
-		pathlen = STRLEN_0(state->path);
-		state->ino   = ntoh64 (req->ino);
+        dict_len = ntoh32 (req->dict_len);
 
-		state->flags = ntoh32 (req->flags);
-	}
+        state->resolve.type      = RESOLVE_MUST;
+        state->resolve.fd_no     = ntoh64 (req->fd);
+        state->flags             = ntoh32 (req->flags);
 
-        /* Unserialize the dictionary */
-        req_dictbuf = memdup (req->dict, dict_len);
-        GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
+        if (dict_len) {
+                req_dictbuf = memdup (req->dict, dict_len);
 
-        dict = dict_new ();
-        GF_VALIDATE_OR_GOTO(bound_xl->name, dict, fail);
-        
-        ret = dict_unserialize (req_dictbuf, dict_len, &dict);
-        if (ret < 0) {
-                gf_log (bound_xl->name, GF_LOG_ERROR,
-                        "%"PRId64": %s (%"PRId64"): failed to "
-                        "unserialize request buffer to dictionary",
-                        frame->root->unique, state->loc.path,
-                        state->ino);
-                free (req_dictbuf);
-                goto fail;
-        } else{
+                dict = dict_new ();
+
+                ret = dict_unserialize (req_dictbuf, dict_len, &dict);
+                if (ret < 0) {
+                        gf_log (bound_xl->name, GF_LOG_ERROR,
+                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "unserialize request buffer to dictionary",
+                                frame->root->unique, state->loc.path,
+                                state->resolve.ino);
+                        FREE (req_dictbuf);
+                        goto err;
+                }
+
                 dict->extra_free = req_dictbuf;
+                state->dict = dict;
         }
 
-        STACK_WIND (frame, server_setxattr_cbk,
-                    BOUND_XL(frame),
-                    BOUND_XL(frame)->fops->fsetxattr,
-                    state->fd, dict, state->flags);
+        resolve_and_resume (frame, server_fsetxattr_resume);
 
-	if (dict)
-		dict_unref (dict);
-
-        return 0;
-fail:
-	if (dict)
-		dict_unref (dict);
-
-	server_fsetxattr_cbk (frame, NULL, frame->this,
-                              -1, ENOENT);
 	return 0;
+err:
+	if (dict)
+		dict_unref (dict);
+
+	server_setxattr_cbk (frame, NULL, frame->this, -1, EINVAL);
+
+	return 0;
+}
+
+
+int
+server_fxattrop_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+	server_state_t *state = NULL;
+
+	state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+	STACK_WIND (frame, server_fxattrop_cbk,
+                    bound_xl, bound_xl->fops->fxattrop,
+		    state->fd, state->flags, state->dict);
+	return 0;
+err:
+        server_fxattrop_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno, NULL);
+        return 0;
 }
 
 
@@ -4429,60 +3265,46 @@ server_fxattrop (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-	server_connection_t   *conn = NULL;
 	gf_fop_fxattrop_req_t *req = NULL;
 	dict_t                *dict = NULL;
 	server_state_t        *state = NULL;
 	size_t                 dict_len = 0;
 	char                  *req_dictbuf = NULL;
 	int32_t                ret = -1;
-	
-	conn = SERVER_CONNECTION(frame);
 
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
-	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
-			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
 
-		dict_len = ntoh32 (req->dict_len);
-		state->ino = ntoh64 (req->ino);
-		state->flags = ntoh32 (req->flags);
-	}
+        dict_len = ntoh32 (req->dict_len);
+
+        state->resolve.type    = RESOLVE_MUST;
+        state->resolve.fd_no   = ntoh64 (req->fd);
+
+        state->resolve.ino     = ntoh64 (req->ino);
+        state->resolve.gen     = ntoh64 (req->gen);
+        state->flags           = ntoh32 (req->flags);
 
 	if (dict_len) {
 		/* Unserialize the dictionary */
 		req_dictbuf = memdup (req->dict, dict_len);
-		GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
 
 		dict = dict_new ();
-		GF_VALIDATE_OR_GOTO(bound_xl->name, dict, fail);
 
 		ret = dict_unserialize (req_dictbuf, dict_len, &dict);
 		if (ret < 0) {
 			gf_log (bound_xl->name, GF_LOG_ERROR,
 				"fd - %"PRId64" (%"PRId64"): failed to unserialize "
-				"request buffer to dictionary", 
-				state->fd_no, state->fd->inode->ino);
+				"request buffer to dictionary",
+				state->resolve.fd_no, state->fd->inode->ino);
 			free (req_dictbuf);
 			goto fail;
-		} else {
-			dict->extra_free = req_dictbuf;
 		}
+                dict->extra_free = req_dictbuf;
+                state->dict = dict;
 	}
 
-	gf_log (bound_xl->name, GF_LOG_TRACE,
-		"%"PRId64": FXATTROP \'fd=%"PRId64" (%"PRId64")\'", 
-		frame->root->unique, state->fd_no, state->fd->inode->ino);
+        resolve_and_resume (frame, server_fxattrop_resume);
 
-	STACK_WIND (frame, server_fxattrop_cbk,
-		    bound_xl,
-		    bound_xl->fops->fxattrop,
-		    state->fd, state->flags, dict);
-	if (dict)
-		dict_unref (dict);
 	return 0;
 
 fail:
@@ -4495,22 +3317,23 @@ fail:
 
 
 int
-server_xattrop_resume (call_frame_t *frame, xlator_t *this,
-		       loc_t *loc, gf_xattrop_flags_t flags, dict_t *dict)
+server_xattrop_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 	
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": XATTROP \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_xattrop_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->xattrop,
-		    loc, flags, dict);
+                    bound_xl, bound_xl->fops->xattrop,
+		    &state->loc, state->flags, state->dict);
 	return 0;
+err:
+        server_xattrop_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                            state->resolve.op_errno, NULL);
+        return 0;
 }
 
 
@@ -4522,58 +3345,44 @@ server_xattrop (call_frame_t *frame, xlator_t *bound_xl,
 	gf_fop_xattrop_req_t  *req = NULL;
 	dict_t                *dict = NULL;
 	server_state_t        *state = NULL;
-	call_stub_t           *xattrop_stub = NULL;
-	int32_t                ret = -1;
-	size_t                 pathlen = 0;
 	size_t                 dict_len = 0;
 	char                  *req_dictbuf = NULL;
-	
+	int32_t                ret = -1;
+
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
-	{
-		dict_len = ntoh32 (req->dict_len);
-		state->ino = ntoh64 (req->ino);
-		state->path  = req->path + dict_len;
-		pathlen = STRLEN_0(state->path);
-		state->flags = ntoh32 (req->flags);
-	}
 
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
-	
+        dict_len = ntoh32 (req->dict_len);
+
+        state->resolve.type    = RESOLVE_MUST;
+        state->resolve.path    = strdup (req->path + dict_len);
+        state->resolve.ino     = ntoh64 (req->ino);
+        state->resolve.gen     = ntoh64 (req->gen);
+        state->flags           = ntoh32 (req->flags);
+
 	if (dict_len) {
 		/* Unserialize the dictionary */
 		req_dictbuf = memdup (req->dict, dict_len);
-		GF_VALIDATE_OR_GOTO(bound_xl->name, req_dictbuf, fail);
 
 		dict = dict_new ();
-		GF_VALIDATE_OR_GOTO(bound_xl->name, dict, fail);
 
 		ret = dict_unserialize (req_dictbuf, dict_len, &dict);
 		if (ret < 0) {
 			gf_log (bound_xl->name, GF_LOG_ERROR,
-				"%s (%"PRId64"): failed to unserialize "
-				"request buffer to dictionary", 
-				state->loc.path, state->ino);
+				"fd - %"PRId64" (%"PRId64"): failed to unserialize "
+				"request buffer to dictionary",
+				state->resolve.fd_no, state->fd->inode->ino);
+			free (req_dictbuf);
 			goto fail;
-		} else { 
-			dict->extra_free = req_dictbuf;
 		}
-	}
-	xattrop_stub = fop_xattrop_stub (frame, server_xattrop_resume,
-					 &(state->loc), state->flags, dict);
-	GF_VALIDATE_OR_GOTO(bound_xl->name, xattrop_stub, fail);
-
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (xattrop_stub, &(state->loc));
-	} else {
-		call_resume (xattrop_stub);
+                dict->extra_free = req_dictbuf;
+                state->dict = dict_ref (dict);
 	}
 
-	if (dict)
-		dict_unref (dict);
+        resolve_and_resume (frame, server_xattrop_resume);
+
 	return 0;
+
 fail:
 	if (dict)
 		dict_unref (dict);
@@ -4584,71 +3393,74 @@ fail:
 
 
 int
-server_getxattr_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                        const char *name)
+server_getxattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
-	
-	state = CALL_STATE(frame);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": GETXATTR \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
+	state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_getxattr_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->getxattr,
-		    loc, name);
+                    bound_xl, bound_xl->fops->getxattr,
+		    &state->loc, state->name);
 	return 0;
+err:
+        server_getxattr_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno, NULL);
+        return 0;
 }
 
-/*
- * server_getxattr - getxattr function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+
 int
 server_getxattr (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
 	gf_fop_getxattr_req_t  *req = NULL;
-	call_stub_t            *getxattr_stub = NULL;
 	server_state_t         *state = NULL;
-	int32_t                 ret = -1;
 	size_t                  namelen = 0;
 	size_t                  pathlen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		pathlen = STRLEN_0(req->path);
+	state = CALL_STATE (frame);
 
-		state->path = req->path;
-		state->ino  = ntoh64 (req->ino);
+        pathlen = STRLEN_0 (req->path);
 
-		namelen = ntoh32 (req->namelen);
-		if (namelen)
-			state->name = (req->name + pathlen);
-	}
+        state->resolve.type  = RESOLVE_MUST;
+        state->resolve.path  = strdup (req->path);
+        state->resolve.ino   = ntoh64 (req->ino);
+        state->resolve.gen   = ntoh64 (req->gen);
 
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
+        namelen = ntoh32 (req->namelen);
+        if (namelen)
+                state->name = strdup (req->name + pathlen);
 
-	getxattr_stub = fop_getxattr_stub (frame, server_getxattr_resume,
-					   &(state->loc), state->name);
-
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (getxattr_stub, &(state->loc));
-	} else {
-		call_resume (getxattr_stub);
-	}
+        resolve_and_resume (frame, server_getxattr_resume);
 
 	return 0;
+}
+
+
+int
+server_fgetxattr_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+	server_state_t *state = NULL;
+
+	state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+	STACK_WIND (frame, server_fgetxattr_cbk,
+                    bound_xl, bound_xl->fops->fgetxattr,
+		    state->fd, state->name);
+	return 0;
+err:
+        server_fgetxattr_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                              state->resolve.op_errno, NULL);
+        return 0;
 }
 
 
@@ -4657,112 +3469,94 @@ server_fgetxattr (call_frame_t *frame, xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-        server_connection_t    *conn = NULL;
-	gf_fop_fgetxattr_req_t *req  = NULL;
+	gf_fop_fgetxattr_req_t *req = NULL;
 	server_state_t         *state = NULL;
 	size_t                  namelen = 0;
 
-        conn = SERVER_CONNECTION (frame);
-
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-                state->fd_no   = ntoh64 (req->fd);
-                if (state->fd_no >= 0)
-                        state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                                     state->fd_no);
+	state = CALL_STATE (frame);
 
-		state->ino     = ntoh64 (req->ino);
+        state->resolve.type  = RESOLVE_MUST;
+        state->resolve.fd_no = ntoh64 (req->fd);
 
-		namelen = ntoh32 (req->namelen);
-		if (namelen)
-			state->name = (req->name);
-	}
+        namelen = ntoh32 (req->namelen);
+        if (namelen)
+                state->name = strdup (req->name);
 
-	STACK_WIND (frame, server_fgetxattr_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->fgetxattr,
-		    state->fd, state->name);
+        resolve_and_resume (frame, server_fgetxattr_resume);
+
 	return 0;
 }
 
 
 int
-server_removexattr_resume (call_frame_t *frame, xlator_t *this,
-                           loc_t *loc, const char *name)
+server_removexattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
-	
+
 	state = CALL_STATE (frame);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": REMOVEXATTR \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_removexattr_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->removexattr,
-		    loc, name);
+		    bound_xl, bound_xl->fops->removexattr,
+		    &state->loc, state->name);
 	return 0;
+err:
+        server_removexattr_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                                state->resolve.op_errno);
+        return 0;
 }
 
-/*
- * server_removexattr - removexattr function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+
 int
 server_removexattr (call_frame_t *frame, xlator_t *bound_xl,
                     gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
 {
 	gf_fop_removexattr_req_t  *req = NULL;
-	call_stub_t               *removexattr_stub = NULL;
 	server_state_t            *state = NULL;
-	int32_t                    ret = -1;
 	size_t                     pathlen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		pathlen = STRLEN_0(req->path);
+	state = CALL_STATE (frame);
+        pathlen = STRLEN_0 (req->path);
 
-		state->path = req->path;
-		state->ino  = ntoh64 (req->ino);
+        state->resolve.type   = RESOLVE_MUST;
+        state->resolve.path   = strdup (req->path);
+        state->resolve.ino    = ntoh64 (req->ino);
+        state->resolve.gen    = ntoh64 (req->gen);
+        state->name           = strdup (req->name + pathlen);
 
-		state->name = (req->name + pathlen);
-	}
-
-	ret = server_loc_fill (&(state->loc), state,
-			       state->ino, 0, NULL, state->path);
-
-	removexattr_stub = fop_removexattr_stub (frame,
-                                                 server_removexattr_resume,
-						 &(state->loc),
-						 state->name);
-
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (removexattr_stub, &(state->loc));
-	} else {
-		call_resume (removexattr_stub);
-	}
+        resolve_and_resume (frame, server_removexattr_resume);
 
 	return 0;
 }
 
 
-/*
- * server_statfs - statfs function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+int
+server_statfs_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t      *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret !=0)
+                goto err;
+
+        STACK_WIND (frame, server_statfs_cbk,
+                    bound_xl, bound_xl->fops->statfs,
+                    &state->loc);
+        return 0;
+
+err:
+        server_statfs_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                           state->resolve.op_errno, NULL);
+        return 0;
+}
+
+
 int
 server_statfs (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
@@ -4770,152 +3564,92 @@ server_statfs (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_statfs_req_t *req = NULL;
 	server_state_t      *state = NULL;
-	int32_t              ret = -1;
 
 	req = gf_param (hdr);
 
-	state = CALL_STATE(frame);
-	state->ino  = ntoh64 (req->ino);
-	state->path = req->path;
+	state = CALL_STATE (frame);
 
-	ret = server_loc_fill (&state->loc, state, state->ino, 0, NULL,
-                               state->path);
+        state->resolve.type   = RESOLVE_MUST;
+	state->resolve.ino    = ntoh64 (req->ino);
+        if (!state->resolve.ino)
+                state->resolve.ino = 1;
+	state->resolve.gen    = ntoh64 (req->gen);
+	state->resolve.path   = strdup (req->path);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": STATFS \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
-
-	STACK_WIND (frame, server_statfs_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->statfs,
-		    &(state->loc));
+        resolve_and_resume (frame, server_statfs_resume);
 
 	return 0;
 }
 
 
 int
-server_opendir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                       fd_t *fd)
+server_opendir_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t  *state = NULL;
-	fd_t            *new_fd = NULL;
 
         state = CALL_STATE (frame);
-	new_fd = fd_create (loc->inode, frame->root->pid);
-	state->fd = fd_ref (new_fd);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": OPENDIR \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+	state->fd = fd_create (state->loc.inode, frame->root->pid);
 
 	STACK_WIND (frame, server_opendir_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->opendir,
-		    loc, state->fd);
-
+                    bound_xl, bound_xl->fops->opendir,
+                    &state->loc, state->fd);
 	return 0;
+err:
+        server_opendir_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                            state->resolve.op_errno, NULL);
+        return 0;
 }
 
 
-/*
- * server_opendir - opendir function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
 int
 server_opendir (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
 {
-	call_stub_t           *opendir_stub = NULL;
 	gf_fop_opendir_req_t  *req = NULL;
 	server_state_t        *state = NULL;
-	int32_t                ret = -1;
-	size_t                 pathlen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		state->path  = req->path;
-		pathlen = STRLEN_0(state->path);
-		state->ino   = ntoh64 (req->ino);
-	}
+	state = CALL_STATE (frame);
 
-	ret = server_loc_fill (&state->loc, state, state->ino, 0, NULL,
-                               state->path);
+        state->resolve.type   = RESOLVE_MUST;
+        state->resolve.path   = strdup (req->path);
+        state->resolve.ino    = ntoh64 (req->ino);
+        state->resolve.gen    = ntoh64 (req->gen);
 
-	opendir_stub = fop_opendir_stub (frame, server_opendir_resume,
-					 &(state->loc), NULL);
-
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (opendir_stub, &(state->loc));
-	} else {
-		call_resume (opendir_stub);
-	}
+        resolve_and_resume (frame, server_opendir_resume);
 
 	return 0;
 }
 
 
-/*
- * server_releasedir - releasedir function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
 int
 server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
 		   gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
 	gf_cbk_releasedir_req_t *req = NULL;
-	server_state_t          *state = NULL;
 	server_connection_t     *conn = NULL;
+        uint64_t                 fd_no = 0;
 	
-	conn = SERVER_CONNECTION(frame);
+	conn = SERVER_CONNECTION (frame);
 
 	req = gf_param (hdr);
-	state = CALL_STATE(frame);
 
-	state->fd_no = ntoh64 (req->fd);
-	state->fd    = gf_fd_fdptr_get (conn->fdtable, state->fd_no);
+	fd_no = ntoh64 (req->fd);
 
-	if (state->fd == NULL) {
-		gf_log (frame->this->name, GF_LOG_ERROR,
-			"fd - %"PRId64": unresolved fd", 
-			state->fd_no);
-
-		server_releasedir_cbk (frame, NULL, frame->this, -1, EBADF);
-		goto out;
-	}
-
-	gf_log (bound_xl->name, GF_LOG_TRACE,
-		"%"PRId64": RELEASEDIR \'fd=%"PRId64" (%"PRId64")\'", 
-		frame->root->unique, state->fd_no, state->fd->inode->ino);
-
-	gf_fd_put (conn->fdtable, state->fd_no);
+	gf_fd_put (conn->fdtable, fd_no);
 
 	server_releasedir_cbk (frame, NULL, frame->this, 0, 0);
-out:
+
 	return 0;
 }
 
 
-/*
- * server_readdir - readdir function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
 int
 server_getdents (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
@@ -4930,10 +3664,10 @@ server_getdents (call_frame_t *frame, xlator_t *bound_xl,
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
+		state->resolve.fd_no = ntoh64 (req->fd);
+		if (state->resolve.fd_no >= 0)
 			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
+						     state->resolve.fd_no);
 
 		state->size = ntoh32 (req->size);
 		state->offset = ntoh64 (req->offset);
@@ -4944,7 +3678,7 @@ server_getdents (call_frame_t *frame, xlator_t *bound_xl,
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64": unresolved fd", 
-			state->fd_no);
+			state->resolve.fd_no);
 
 		server_getdents_cbk (frame, NULL, frame->this, -1, EBADF,
                                      NULL, 0);
@@ -4954,7 +3688,8 @@ server_getdents (call_frame_t *frame, xlator_t *bound_xl,
 	gf_log (bound_xl->name, GF_LOG_TRACE,
 		"%"PRId64": GETDENTS \'fd=%"PRId64" (%"PRId64"); "
 		"offset=%"PRId64"; size=%"PRId64, 
-		frame->root->unique, state->fd_no, state->fd->inode->ino, 
+		frame->root->unique, state->resolve.fd_no,
+                state->fd->inode->ino,
 		state->offset, (int64_t)state->size);
 
 	STACK_WIND (frame, server_getdents_cbk,
@@ -5006,7 +3741,7 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_log (this->name, GF_LOG_TRACE,
 			"%"PRId64": READDIRP %"PRId64" (%"PRId64") ==>"
                         "%"PRId32" (%s)",
-			frame->root->unique, state->fd_no,
+			frame->root->unique, state->resolve.fd_no,
 			state->fd ? state->fd->inode->ino : 0, op_ret,
 			strerror (op_errno));
 	}
@@ -5040,10 +3775,10 @@ server_readdirp (call_frame_t *frame, xlator_t *bound_xl, gf_hdr_common_t *hdr,
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
+		state->resolve.fd_no = ntoh64 (req->fd);
+		if (state->resolve.fd_no >= 0)
 			state->fd = gf_fd_fdptr_get (conn->fdtable,
-						     state->fd_no);
+						     state->resolve.fd_no);
 
 		state->size   = ntoh32 (req->size);
 		state->offset = ntoh64 (req->offset);
@@ -5053,7 +3788,7 @@ server_readdirp (call_frame_t *frame, xlator_t *bound_xl, gf_hdr_common_t *hdr,
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64": unresolved fd",
-			state->fd_no);
+			state->resolve.fd_no);
 
 		server_readdirp_cbk (frame, NULL, frame->this, -1, EBADF, NULL);
 		goto out;
@@ -5062,7 +3797,8 @@ server_readdirp (call_frame_t *frame, xlator_t *bound_xl, gf_hdr_common_t *hdr,
 	gf_log (bound_xl->name, GF_LOG_TRACE,
 		"%"PRId64": READDIRP \'fd=%"PRId64" (%"PRId64"); "
 		"offset=%"PRId64"; size=%"PRId64,
-		frame->root->unique, state->fd_no, state->fd->inode->ino,
+		frame->root->unique, state->resolve.fd_no,
+                state->fd->inode->ino,
 		state->offset, (int64_t)state->size);
 
 	STACK_WIND (frame, server_readdirp_cbk, bound_xl,
@@ -5096,10 +3832,10 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
+		state->resolve.fd_no = ntoh64 (req->fd);
+		if (state->resolve.fd_no >= 0)
 			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
+						     state->resolve.fd_no);
 
 		state->size   = ntoh32 (req->size);
 		state->offset = ntoh64 (req->offset);
@@ -5109,7 +3845,7 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64": unresolved fd", 
-			state->fd_no);
+			state->resolve.fd_no);
 
 		server_readdir_cbk (frame, NULL, frame->this, -1, EBADF, NULL);
 		goto out;
@@ -5118,7 +3854,8 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 	gf_log (bound_xl->name, GF_LOG_TRACE,
 		"%"PRId64": READDIR \'fd=%"PRId64" (%"PRId64"); "
 		"offset=%"PRId64"; size=%"PRId64,
-		frame->root->unique, state->fd_no, state->fd->inode->ino, 
+		frame->root->unique, state->resolve.fd_no,
+                state->fd->inode->ino, 
 		state->offset, (int64_t)state->size);
 
 	STACK_WIND (frame, server_readdir_cbk,
@@ -5153,10 +3890,10 @@ server_fsyncdir (call_frame_t *frame, xlator_t *bound_xl,
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
+		state->resolve.fd_no = ntoh64 (req->fd);
+		if (state->resolve.fd_no >= 0)
 			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
+						     state->resolve.fd_no);
 
 		state->flags = ntoh32 (req->data);
 	}
@@ -5164,7 +3901,7 @@ server_fsyncdir (call_frame_t *frame, xlator_t *bound_xl,
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64": unresolved fd", 
-			state->fd_no);
+			state->resolve.fd_no);
 
 		server_fsyncdir_cbk (frame, NULL, frame->this, -1, EBADF);
 		goto out;
@@ -5172,7 +3909,8 @@ server_fsyncdir (call_frame_t *frame, xlator_t *bound_xl,
 
 	gf_log (bound_xl->name, GF_LOG_TRACE,
 		"%"PRId64": FSYNCDIR \'fd=%"PRId64" (%"PRId64")\'", 
-		frame->root->unique, state->fd_no, state->fd->inode->ino);
+		frame->root->unique, state->resolve.fd_no,
+                state->fd->inode->ino);
 
 	STACK_WIND (frame, server_fsyncdir_cbk,
 		    bound_xl,
@@ -5184,38 +3922,30 @@ out:
 
 
 int
-server_mknod_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-		     mode_t mode, dev_t dev)
+server_mknod_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 
 	state = CALL_STATE (frame);
 
-	if (state->loc.parent == NULL)
-		state->loc.parent = inode_ref (loc->parent);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	state->loc.inode = inode_new (state->itable);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": MKNOD \'%"PRId64"/%s\'", 
-		frame->root->unique, state->par, state->bname);
-
 	STACK_WIND (frame, server_mknod_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->mknod,
-		    &(state->loc), mode, dev);
+                    bound_xl, bound_xl->fops->mknod,
+		    &(state->loc), state->mode, state->dev);
 
 	return 0;
+err:
+        server_mknod_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                          state->resolve.op_errno, NULL, NULL, NULL, NULL);
+        return 0;
 }
 
-/*
- * server_mknod - mknod function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+
+
 int
 server_mknod (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
@@ -5223,73 +3953,52 @@ server_mknod (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_mknod_req_t *req = NULL;
 	server_state_t     *state = NULL;
-	call_stub_t        *mknod_stub = NULL;
-	int32_t             ret = -1;
 	size_t              pathlen = 0;
-		
+
 	req   = gf_param (hdr);
 	state = CALL_STATE (frame);
-	{
-		pathlen = STRLEN_0(req->path);
-		
-		state->par  = ntoh64 (req->par);
-		state->path = req->path;
-		if (IS_NOT_ROOT(pathlen))
-			state->bname = req->bname + pathlen;
+        pathlen = STRLEN_0 (req->path);
 
-		state->mode = ntoh32 (req->mode);
-		state->dev  = ntoh64 (req->dev);
-	}
-	ret = server_loc_fill (&(state->loc), state, 0, state->par,
-                               state->bname, state->path);
+        state->resolve.type    = RESOLVE_NOT;
+        state->resolve.par     = ntoh64 (req->par);
+        state->resolve.gen     = ntoh64 (req->gen);
+        state->resolve.path    = strdup (req->path);
+        state->resolve.bname   = strdup (req->bname + pathlen);
 
-	mknod_stub = fop_mknod_stub (frame, server_mknod_resume,
-				     &(state->loc), state->mode, state->dev);
+        state->mode = ntoh32 (req->mode);
+        state->dev  = ntoh64 (req->dev);
 
-	if (state->loc.parent == NULL) {
-		do_path_lookup (mknod_stub, &(state->loc));
-	} else {
-		call_resume (mknod_stub);
-	}
+        resolve_and_resume (frame, server_mknod_resume);
 
 	return 0;
 }
 
 
 int
-server_mkdir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-		     mode_t mode)
+server_mkdir_resume (call_frame_t *frame, xlator_t *bound_xl)
 
 {
 	server_state_t *state = NULL;
 
 	state = CALL_STATE (frame);
 
-	if (state->loc.parent == NULL)
-		state->loc.parent = inode_ref (loc->parent);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	state->loc.inode = inode_new (state->itable);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": MKDIR \'%"PRId64"/%s\'", 
-		frame->root->unique, state->par, state->bname);
-
 	STACK_WIND (frame, server_mkdir_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->mkdir,
+                    bound_xl, bound_xl->fops->mkdir,
 		    &(state->loc), state->mode);
 
 	return 0;
+err:
+        server_mkdir_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                          state->resolve.op_errno, NULL, NULL, NULL, NULL);
+        return 0;
 }
 
-/*
- * server_mkdir - mkdir function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params:
- *
- * not for external reference
- */
+
 int
 server_mkdir (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
@@ -5297,134 +4006,88 @@ server_mkdir (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_mkdir_req_t *req = NULL;
 	server_state_t     *state = NULL;
-	call_stub_t        *mkdir_stub = NULL;
-	int32_t             ret = -1;
 	size_t              pathlen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		pathlen = STRLEN_0(req->path);
-		state->mode = ntoh32 (req->mode);
+	state = CALL_STATE (frame);
+        pathlen = STRLEN_0 (req->path);
 
-		state->path     = req->path;
-		state->bname = req->bname + pathlen;
-		state->par      = ntoh64 (req->par);
-	}
+        state->resolve.type    = RESOLVE_NOT;
+        state->resolve.par     = ntoh64 (req->par);
+        state->resolve.gen     = ntoh64 (req->gen);
+        state->resolve.path    = strdup (req->path);
+        state->resolve.bname   = strdup (req->bname + pathlen);
 
+        state->mode = ntoh32 (req->mode);
 
-	ret = server_loc_fill (&(state->loc), state, 0, state->par,
-                               state->bname, state->path);
-
-	mkdir_stub = fop_mkdir_stub (frame, server_mkdir_resume,
-				     &(state->loc), state->mode);
-
-	if (state->loc.parent == NULL) {
-		do_path_lookup (mkdir_stub, &(state->loc));
-	} else {
-		call_resume (mkdir_stub);
-	}
+        resolve_and_resume (frame, server_mkdir_resume);
 
 	return 0;
 }
 
 
 int
-server_rmdir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc)
+server_rmdir_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
-	if (state->loc.parent == NULL)
-		state->loc.parent = inode_ref (loc->parent);
-
-	if (state->loc.inode == NULL)
-		state->loc.inode = inode_ref (loc->inode);
-
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": RMDIR \'%"PRId64"/%s\'", 
-		frame->root->unique, state->par, state->bname);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_rmdir_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->rmdir,
-		    loc);
+                    bound_xl, bound_xl->fops->rmdir, &state->loc);
 	return 0;
+err:
+        server_rmdir_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                          state->resolve.op_errno, NULL, NULL);
+        return 0;
 }
 
-/*
- * server_rmdir - rmdir function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params:
- *
- * not for external reference
- */
 int
 server_rmdir (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
 {
-	call_stub_t        *rmdir_stub = NULL;
 	gf_fop_rmdir_req_t *req = NULL;
 	server_state_t     *state = NULL;
-	int32_t             ret = -1;
-	size_t              pathlen = 0;
+        int                 pathlen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		pathlen = STRLEN_0(req->path);
-		state->path = req->path;
-		state->par  = ntoh64 (req->par);
-		state->bname = req->bname + pathlen;
-	}
+	state = CALL_STATE (frame);
+        pathlen = STRLEN_0 (req->path);
 
+        state->resolve.type    = RESOLVE_MUST;
+        state->resolve.par     = ntoh64 (req->par);
+        state->resolve.gen     = ntoh64 (req->gen);
+        state->resolve.path    = strdup (req->path);
+        state->resolve.bname   = strdup (req->bname + pathlen);
 
-	ret = server_loc_fill (&(state->loc), state, state->ino, state->par,
-                               state->bname, state->path);
-
-	rmdir_stub = fop_rmdir_stub (frame, server_rmdir_resume,
-				     &(state->loc));
-
-	if ((state->loc.parent == NULL) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (rmdir_stub, &(state->loc));
-	} else {
-		call_resume (rmdir_stub);
-	}
+        resolve_and_resume (frame, server_rmdir_resume);
 
 	return 0;
 }
 
 
 int
-server_inodelk_resume (call_frame_t *frame, xlator_t *this,
-		       const char *volume, loc_t *loc, int32_t cmd,
-		       struct flock *flock)
+server_inodelk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 
-	state = CALL_STATE(frame);
-	if (state->loc.inode == NULL) {
-		state->loc.inode = inode_ref (loc->inode);
-	}
+	state = CALL_STATE (frame);
 
-	if (state->loc.parent == NULL) {
-		state->loc.parent = inode_ref (loc->parent);
-	}
-
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": INODELK \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
  	STACK_WIND (frame, server_inodelk_cbk,
- 		    BOUND_XL(frame),
- 		    BOUND_XL(frame)->fops->inodelk,
- 		    volume, loc, cmd, flock);
+                    bound_xl, bound_xl->fops->inodelk,
+ 		    state->volume, &state->loc, state->cmd, &state->flock);
  	return 0;
-
+err:
+        server_inodelk_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                            state->resolve.op_errno);
+        return 0;
 }
 
 
@@ -5433,65 +4096,53 @@ server_inodelk (call_frame_t *frame, xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
 {
- 	call_stub_t          *inodelk_stub = NULL;
  	gf_fop_inodelk_req_t *req = NULL;
  	server_state_t       *state = NULL;
 	size_t                pathlen = 0;
         size_t                vollen  = 0;
+        int                   cmd = 0;
 
  	req   = gf_param (hdr);
- 	state = CALL_STATE(frame);
-	{
-		state->cmd = ntoh32 (req->cmd);
-		switch (state->cmd) {
-		case GF_LK_GETLK:
-			state->cmd = F_GETLK;
-			break;
-		case GF_LK_SETLK:
-			state->cmd = F_SETLK;
-			break;
-		case GF_LK_SETLKW:
-			state->cmd = F_SETLKW;
-			break;
-		}
+ 	state = CALL_STATE (frame);
+        pathlen = STRLEN_0 (req->path);
+        vollen  = STRLEN_0 (req->volume + pathlen);
 
-		state->type = ntoh32 (req->type);
+        state->resolve.type    = RESOLVE_EXACT;
+        state->resolve.ino     = ntoh64 (req->ino);
+        state->resolve.gen     = ntoh64 (req->gen);
+        state->resolve.path    = strdup (req->path);
 
-		pathlen = STRLEN_0(req->path);
-                vollen  = STRLEN_0(req->volume + vollen);
+        cmd = ntoh32 (req->cmd);
+        switch (cmd) {
+        case GF_LK_GETLK:
+                state->cmd = F_GETLK;
+                break;
+        case GF_LK_SETLK:
+                state->cmd = F_SETLK;
+                break;
+        case GF_LK_SETLKW:
+                state->cmd = F_SETLKW;
+                break;
+        }
 
-		state->path = req->path;
-                state->volume = strdup (req->volume + vollen);
-		state->ino  = ntoh64 (req->ino);
+        state->type = ntoh32 (req->type);
+        state->volume = strdup (req->volume + pathlen);
 
-		gf_flock_to_flock (&req->flock, &state->flock);
+        gf_flock_to_flock (&req->flock, &state->flock);
 
-		switch (state->type) {
-		case GF_LK_F_RDLCK: 
-			state->flock.l_type = F_RDLCK; 
-			break;
-		case GF_LK_F_WRLCK: 
-			state->flock.l_type = F_WRLCK; 
-			break;
-		case GF_LK_F_UNLCK: 
-			state->flock.l_type = F_UNLCK; 
-			break;
-		}
-
+        switch (state->type) {
+        case GF_LK_F_RDLCK: 
+                state->flock.l_type = F_RDLCK; 
+                break;
+        case GF_LK_F_WRLCK: 
+                state->flock.l_type = F_WRLCK; 
+                break;
+        case GF_LK_F_UNLCK: 
+                state->flock.l_type = F_UNLCK; 
+                break;
 	}
 
-	server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
-                         state->path);
-
- 	inodelk_stub = fop_inodelk_stub (frame, server_inodelk_resume,
-					 state->volume, &state->loc, 
-                                         state->cmd, &state->flock);
-
-	if (state->loc.inode == NULL) {
-		do_path_lookup (inodelk_stub, &(state->loc));
-	} else {
-		call_resume (inodelk_stub);
-	}
+        resolve_and_resume (frame, server_inodelk_resume);
 
  	return 0;
 }
@@ -5513,10 +4164,10 @@ server_finodelk (call_frame_t *frame, xlator_t *bound_xl,
 	{
                 state->volume = strdup (req->volume);
 
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
+		state->resolve.fd_no = ntoh64 (req->fd);
+		if (state->resolve.fd_no >= 0)
 			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
+						     state->resolve.fd_no);
 
 		state->cmd = ntoh32 (req->cmd);
 		switch (state->cmd) {
@@ -5552,7 +4203,7 @@ server_finodelk (call_frame_t *frame, xlator_t *bound_xl,
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64": unresolved fd", 
-			state->fd_no);
+			state->resolve.fd_no);
 		
 		server_finodelk_cbk (frame, NULL, frame->this,
 				     -1, EBADF);
@@ -5561,7 +4212,8 @@ server_finodelk (call_frame_t *frame, xlator_t *bound_xl,
 
 	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
 		"%"PRId64": FINODELK \'fd=%"PRId64" (%"PRId64")\'", 
-		frame->root->unique, state->fd_no, state->fd->inode->ino);
+		frame->root->unique, state->resolve.fd_no,
+                state->fd->inode->ino);
 
 	STACK_WIND (frame, server_finodelk_cbk,
 		    BOUND_XL(frame), 
@@ -5572,41 +4224,27 @@ server_finodelk (call_frame_t *frame, xlator_t *bound_xl,
   
  
 int
-server_entrylk_resume (call_frame_t *frame, xlator_t *this,
-		       const char *volume, loc_t *loc, const char *name,
-		       entrylk_cmd cmd, entrylk_type type)
+server_entrylk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
 
-	if (state->loc.inode == NULL)
-		state->loc.inode = inode_ref (loc->inode);
-
-	if ((state->loc.parent == NULL) &&
-	    (loc->parent))
-		state->loc.parent = inode_ref (loc->parent);
-
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": ENTRYLK \'%s (%"PRId64") \'", 
-		frame->root->unique, state->path, state->ino);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
  	STACK_WIND (frame, server_entrylk_cbk,
- 		    BOUND_XL(frame),
- 		    BOUND_XL(frame)->fops->entrylk,
- 		    volume, loc, name, cmd, type);
+                    bound_xl, bound_xl->fops->entrylk,
+ 		    state->volume, &state->loc, state->name,
+                    state->cmd, state->type);
  	return 0;
-
+err:
+        server_entrylk_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                            state->resolve.op_errno);
+        return 0;
 }
 
-/*
- * server_entrylk - entrylk function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+
 int
 server_entrylk (call_frame_t *frame, xlator_t *bound_xl,
 		gf_hdr_common_t *hdr, size_t hdrlen,
@@ -5614,42 +4252,29 @@ server_entrylk (call_frame_t *frame, xlator_t *bound_xl,
 {
  	gf_fop_entrylk_req_t *req = NULL;
  	server_state_t       *state = NULL;
- 	call_stub_t          *entrylk_stub = NULL;
 	size_t                pathlen = 0;
 	size_t                namelen = 0;
         size_t                vollen  = 0;
 
  	req   = gf_param (hdr);
  	state = CALL_STATE (frame);
-	{
-		pathlen = STRLEN_0(req->path);
+        pathlen = STRLEN_0 (req->path);
+        namelen = ntoh64 (req->namelen);
+        vollen = STRLEN_0(req->volume + pathlen + namelen);
 
-		state->path = req->path;
-		state->ino  = ntoh64 (req->ino);
-		namelen = ntoh64 (req->namelen);
-		if (namelen)
-			state->name = req->name + pathlen;
+        state->resolve.type   = RESOLVE_EXACT;
+        state->resolve.path   = strdup (req->path);
+        state->resolve.ino    = ntoh64 (req->ino);
+        state->resolve.gen    = ntoh64 (req->gen);
 
-                vollen = STRLEN_0(req->volume + pathlen + namelen);
-                state->volume = strdup (req->volume + pathlen + namelen);
+        if (namelen)
+                state->name   = strdup (req->name + pathlen);
+        state->volume         = strdup (req->volume + pathlen + namelen);
 
-		state->cmd  = ntoh32 (req->cmd);
-		state->type = ntoh32 (req->type);
-	}
+        state->cmd            = ntoh32 (req->cmd);
+        state->type           = ntoh32 (req->type);
 
-
- 	server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
-                         state->path);
-
-  	entrylk_stub = fop_entrylk_stub (frame, server_entrylk_resume,
-                                         state->volume, &state->loc,
-                                         state->name, state->cmd, state->type);
-
- 	if (state->loc.inode == NULL) {
- 		do_path_lookup (entrylk_stub, &(state->loc));
- 	} else {
- 		call_resume (entrylk_stub);
- 	}
+        resolve_and_resume (frame, server_entrylk_resume);
 
  	return 0;
 }
@@ -5671,10 +4296,10 @@ server_fentrylk (call_frame_t *frame, xlator_t *bound_xl,
  	req   = gf_param (hdr);
  	state = CALL_STATE(frame);
 	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
+		state->resolve.fd_no = ntoh64 (req->fd);
+		if (state->resolve.fd_no >= 0)
 			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
+						     state->resolve.fd_no);
 
 		state->cmd  = ntoh32 (req->cmd);
 		state->type = ntoh32 (req->type);
@@ -5690,7 +4315,7 @@ server_fentrylk (call_frame_t *frame, xlator_t *bound_xl,
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64": unresolved fd", 
-			state->fd_no);
+			state->resolve.fd_no);
 		
 		server_fentrylk_cbk (frame, NULL, frame->this, -1, EBADF);
 		return -1;
@@ -5698,7 +4323,8 @@ server_fentrylk (call_frame_t *frame, xlator_t *bound_xl,
 
 	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
 		"%"PRId64": FENTRYLK \'fd=%"PRId64" (%"PRId64")\'", 
-		frame->root->unique, state->fd_no, state->fd->inode->ino);
+		frame->root->unique, state->resolve.fd_no,
+                state->fd->inode->ino);
 
 	STACK_WIND (frame, server_fentrylk_cbk,
 		    BOUND_XL(frame), 
@@ -5710,101 +4336,74 @@ server_fentrylk (call_frame_t *frame, xlator_t *bound_xl,
 
 
 int
-server_access_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                      int32_t mask)
+server_access_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 	
 	state = CALL_STATE (frame);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": ACCESS \'%s (%"PRId64")\'", 
-		frame->root->unique, state->path, state->ino);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
 	STACK_WIND (frame, server_access_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->access,
-		    loc, mask);
+                    bound_xl, bound_xl->fops->access,
+		    &state->loc, state->mask);
 	return 0;
+err:
+        server_access_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                           state->resolve.op_errno);
+        return 0;
 }
 
-/*
- * server_access - access function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+
 int
 server_access (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
 {
-	call_stub_t         *access_stub = NULL;
 	gf_fop_access_req_t *req = NULL;
 	server_state_t      *state = NULL;
-	int32_t              ret = -1;
-	size_t               pathlen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
+	state = CALL_STATE (frame);
+
+        state->resolve.type  = RESOLVE_MUST;
+        state->resolve.ino   = hton64 (req->ino);
+        state->resolve.gen   = hton64 (req->gen);
+	state->resolve.path  = strdup (req->path);
 
 	state->mask  = ntoh32 (req->mask);
 
-	state->ino  = ntoh64 (req->ino);
-	state->path = req->path;
-	pathlen = STRLEN_0(state->path);
-
-	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
-                               state->path);
-
-	access_stub = fop_access_stub (frame, server_access_resume,
-				       &(state->loc), state->mask);
-
-	if (((state->loc.parent == NULL) && IS_NOT_ROOT(pathlen)) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (access_stub, &(state->loc));
-	} else {
-		call_resume (access_stub);
-	}
+        resolve_and_resume (frame, server_access_resume);
 
 	return 0;
 }
 
 
 int
-server_symlink_resume (call_frame_t *frame, xlator_t *this,
-		       const char *linkname, loc_t *loc)
+server_symlink_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
 
 	state = CALL_STATE (frame);
-	if (state->loc.parent == NULL)
-		state->loc.parent = inode_ref (loc->parent);
 
-	state->loc.inode = inode_new (BOUND_XL(frame)->itable);
+        if (state->resolve.op_ret != 0)
+                goto err;
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": SYMLINK \'%"PRId64"/%s \'", 
-		frame->root->unique, state->par, state->bname);
+        state->loc.inode = inode_new (state->itable);
 
 	STACK_WIND (frame, server_symlink_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->symlink,
-		    linkname, &(state->loc));
+                    bound_xl, bound_xl->fops->symlink,
+		    state->name, &state->loc);
 
 	return 0;
+err:
+        server_symlink_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                            state->resolve.op_errno, NULL, NULL, NULL, NULL);
+        return 0;
 }
 
-/*
- * server_symlink- symlink function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+
 
 int
 server_symlink (call_frame_t *frame, xlator_t *bound_xl,
@@ -5813,84 +4412,61 @@ server_symlink (call_frame_t *frame, xlator_t *bound_xl,
 {
 	server_state_t       *state = NULL;
 	gf_fop_symlink_req_t *req = NULL;
-	call_stub_t          *symlink_stub = NULL;
-	int32_t               ret = -1;
 	size_t                pathlen = 0;
 	size_t                baselen = 0;
 
 	req   = gf_param (hdr);
-	state = CALL_STATE(frame);
-	{
-		pathlen = STRLEN_0(req->path);
-		baselen = STRLEN_0(req->bname + pathlen);
-		
-		state->par  = ntoh64 (req->par);
-		state->path = req->path;
-		state->bname = req->bname + pathlen;
+	state = CALL_STATE (frame);
+        pathlen = STRLEN_0 (req->path);
+        baselen = STRLEN_0 (req->bname + pathlen);
 
-		state->name = (req->linkname + pathlen + baselen);
-	}
+        state->resolve.type   = RESOLVE_NOT;
+        state->resolve.par    = ntoh64 (req->par);
+        state->resolve.gen    = ntoh64 (req->gen);
+        state->resolve.path   = strdup (req->path);
+        state->resolve.bname  = strdup (req->bname + pathlen);
+        state->name           = strdup (req->linkname + pathlen + baselen);
 
-	ret = server_loc_fill (&(state->loc), state, 0, state->par,
-                               state->bname, state->path);
-
-	symlink_stub = fop_symlink_stub (frame, server_symlink_resume,
-					 state->name, &(state->loc));
-
-	if (state->loc.parent == NULL) {
-		do_path_lookup (symlink_stub, &(state->loc));
-	} else {
-		call_resume (symlink_stub);
-	}
+        resolve_and_resume (frame, server_symlink_resume);
 
 	return 0;
 }
 
 
 int
-server_link_resume (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
-		    loc_t *newloc)
+server_link_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
+        int             op_ret = 0;
+        int             op_errno = 0;
 
 	state = CALL_STATE (frame);
 
-	if (state->loc.parent == NULL)
-		state->loc.parent = inode_ref (oldloc->parent);
+        if (state->resolve.op_ret != 0) {
+                op_ret   = state->resolve.op_ret;
+                op_errno = state->resolve.op_errno;
+                goto err;
+        }
 
-	if (state->loc.inode == NULL) {
-		state->loc.inode = inode_ref (oldloc->inode);
-	} else if (state->loc.inode != oldloc->inode) {
-		if (state->loc.inode)
-			inode_unref (state->loc.inode);
-		state->loc.inode = inode_ref (oldloc->inode);
-	}
-
-	if (state->loc2.parent == NULL)
-		state->loc2.parent = inode_ref (newloc->parent);
+        if (state->resolve2.op_ret != 0) {
+                op_ret   = state->resolve2.op_ret;
+                op_errno = state->resolve2.op_errno;
+                goto err;
+        }
 
 	state->loc2.inode = inode_ref (state->loc.inode);
 
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": LINK \'%"PRId64"/%s ==> %s (%"PRId64")\'", 
-		frame->root->unique, state->par2, state->bname2, 
-		state->path, state->ino);
-
 	STACK_WIND (frame, server_link_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->link,
-		    &(state->loc), &(state->loc2));
+                    bound_xl, bound_xl->fops->link,
+		    &state->loc, &state->loc2);
 	return 0;
+err:
+        server_link_cbk (frame, NULL, frame->this, op_ret, op_errno,
+                         NULL, NULL, NULL, NULL);
+        return 0;
 }
 
-/*
- * server_link - link function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params:
- *
- * not for external reference
- */
+
 int
 server_link (call_frame_t *frame, xlator_t *this,
              gf_hdr_common_t *hdr, size_t hdrlen,
@@ -5898,87 +4474,65 @@ server_link (call_frame_t *frame, xlator_t *this,
 {
 	gf_fop_link_req_t *req = NULL;
 	server_state_t    *state = NULL;
-	call_stub_t       *link_stub = NULL;
-	int32_t            ret = -1;
 	size_t             oldpathlen = 0;
 	size_t             newpathlen = 0;
 	size_t             newbaselen = 0;
 
 	req   = gf_param (hdr);
+	state = CALL_STATE (frame);
+        oldpathlen = STRLEN_0 (req->oldpath);
+        newpathlen = STRLEN_0 (req->newpath  + oldpathlen);
+        newbaselen = STRLEN_0 (req->newbname + oldpathlen + newpathlen);
 
-	state = CALL_STATE(frame);
-	{
-		oldpathlen = STRLEN_0(req->oldpath);
-		newpathlen = STRLEN_0(req->newpath     + oldpathlen);
-		newbaselen = STRLEN_0(req->newbname + oldpathlen + newpathlen);
+        state->resolve.type    = RESOLVE_MUST;
+        state->resolve.path    = strdup (req->oldpath);
+        state->resolve.ino     = ntoh64 (req->oldino);
+        state->resolve.gen     = ntoh64 (req->oldgen);
 
-		state->path      = req->oldpath;
-		state->path2     = req->newpath     + oldpathlen;
-		state->bname2 = req->newbname + oldpathlen + newpathlen;
-		state->ino   = ntoh64 (req->oldino);
-		state->par2  = ntoh64 (req->newpar);
-	}
+        state->resolve2.type   = RESOLVE_NOT;
+        state->resolve2.path   = strdup (req->newpath + oldpathlen);
+        state->resolve2.bname  = strdup (req->newbname + oldpathlen + newpathlen);
+        state->resolve2.par    = ntoh64 (req->newpar);
+        state->resolve2.gen    = ntoh64 (req->newgen);
 
-	ret = server_loc_fill (&(state->loc), state, state->ino, 0, NULL,
-			       state->path);
-	ret = server_loc_fill (&(state->loc2), state, 0, state->par2,
-                               state->bname2, state->path2);
-
-	link_stub = fop_link_stub (frame, server_link_resume,
-				   &(state->loc), &(state->loc2));
-
-	if ((state->loc.parent == NULL) ||
-	    (state->loc.inode == NULL)) {
-		do_path_lookup (link_stub, &(state->loc));
-	} else if (state->loc2.parent == NULL) {
-		do_path_lookup (link_stub, &(state->loc2));
-	} else {
-		call_resume (link_stub);
-	}
+        resolve_and_resume (frame, server_link_resume);
 
 	return 0;
 }
 
 
 int
-server_rename_resume (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
-                      loc_t *newloc)
+server_rename_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
 	server_state_t *state = NULL;
+        int             op_ret = 0;
+        int             op_errno = 0;
 
 	state = CALL_STATE (frame);
 
-	if (state->loc.parent == NULL)
-		state->loc.parent = inode_ref (oldloc->parent);
+        if (state->resolve.op_ret != 0) {
+                op_ret   = state->resolve.op_ret;
+                op_errno = state->resolve.op_errno;
+                goto err;
+        }
 
-	if (state->loc.inode == NULL) {
-		state->loc.inode = inode_ref (oldloc->inode);
-	}
-
-	if (state->loc2.parent == NULL)
-		state->loc2.parent = inode_ref (newloc->parent);
-
-
-	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-		"%"PRId64": RENAME %s (%"PRId64"/%s) ==> %s (%"PRId64"/%s)", 
-		frame->root->unique, state->path, state->par, state->bname,
-		state->path2, state->par2, state->bname2);
+        if (state->resolve2.op_ret != 0) {
+                op_ret   = state->resolve2.op_ret;
+                op_errno = state->resolve2.op_errno;
+                goto err;
+        }
 
 	STACK_WIND (frame, server_rename_cbk,
-		    BOUND_XL(frame),
-		    BOUND_XL(frame)->fops->rename,
-		    &(state->loc), &(state->loc2));
+                    bound_xl, bound_xl->fops->rename,
+		    &state->loc, &state->loc2);
 	return 0;
+err:
+        server_rename_cbk (frame, NULL, frame->this, op_ret, op_errno,
+                           NULL, NULL, NULL, NULL, NULL);
+        return 0;
 }
 
-/*
- * server_rename - rename function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
+
 int
 server_rename (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
@@ -5986,8 +4540,6 @@ server_rename (call_frame_t *frame, xlator_t *bound_xl,
 {
 	gf_fop_rename_req_t *req = NULL;
 	server_state_t      *state = NULL;
-	call_stub_t         *rename_stub = NULL;
-	int32_t              ret = -1;
 	size_t               oldpathlen = 0;
 	size_t               oldbaselen = 0;
 	size_t               newpathlen = 0;
@@ -5996,41 +4548,26 @@ server_rename (call_frame_t *frame, xlator_t *bound_xl,
 	req = gf_param (hdr);
 
 	state = CALL_STATE (frame);
-	{
-		oldpathlen = STRLEN_0(req->oldpath);
-		oldbaselen = STRLEN_0(req->oldbname + oldpathlen);
-		newpathlen = STRLEN_0(req->newpath  + oldpathlen + oldbaselen);
-		newbaselen = STRLEN_0(req->newbname + oldpathlen + 
-				      oldbaselen + newpathlen);
+        oldpathlen = STRLEN_0 (req->oldpath);
+        oldbaselen = STRLEN_0 (req->oldbname + oldpathlen);
+        newpathlen = STRLEN_0 (req->newpath  + oldpathlen + oldbaselen);
+        newbaselen = STRLEN_0 (req->newbname + oldpathlen +
+                               oldbaselen + newpathlen);
 
-		state->path   = req->oldpath;
-		state->bname  = req->oldbname + oldpathlen;
-		state->path2  = req->newpath  + oldpathlen + oldbaselen;
-		state->bname2 = (req->newbname + oldpathlen + oldbaselen + 
-				 newpathlen);
+        state->resolve.type   = RESOLVE_MUST;
+        state->resolve.path   = strdup (req->oldpath);
+        state->resolve.bname  = strdup (req->oldbname + oldpathlen);
+        state->resolve.par    = ntoh64 (req->oldpar);
+        state->resolve.gen    = ntoh64 (req->oldgen);
 
-		state->par   = ntoh64 (req->oldpar);
-		state->par2  = ntoh64 (req->newpar);
-	}
+        state->resolve2.type  = RESOLVE_MAY;
+        state->resolve2.path  = strdup (req->newpath  + oldpathlen + oldbaselen);
+        state->resolve2.bname = strdup (req->newbname + oldpathlen + oldbaselen +
+                                        newpathlen);
+        state->resolve2.par   = ntoh64 (req->newpar);
+        state->resolve2.gen   = ntoh64 (req->newgen);
 
-	ret = server_loc_fill (&(state->loc), state, 0, state->par,
-                               state->bname, state->path);
-	ret = server_loc_fill (&(state->loc2), state, 0, state->par2,
-                               state->bname2, state->path2);
-
-	rename_stub = fop_rename_stub (frame, server_rename_resume,
-				       &(state->loc), &(state->loc2));
-
-	if ((state->loc.parent == NULL) ||
-	    (state->loc.inode == NULL)){
-		do_path_lookup (rename_stub, &(state->loc));
-	} else if ((state->loc2.parent == NULL)){
-		do_path_lookup (rename_stub, &(state->loc2));
-	} else {
-		/* we have found inode for both oldpath and newpath in
-		 * inode cache. lets continue with fops->rename() */
-		call_resume (rename_stub);
-	}
+        resolve_and_resume (frame, server_rename_resume);
 
 	return 0;
 }
@@ -6060,10 +4597,10 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
 	req   = gf_param (hdr);
 	state = CALL_STATE (frame);
 	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
+		state->resolve.fd_no = ntoh64 (req->fd);
+		if (state->resolve.fd_no >= 0)
 			state->fd = gf_fd_fdptr_get (conn->fdtable, 
-						     state->fd_no);
+						     state->resolve.fd_no);
 
 		state->cmd =  ntoh32 (req->cmd);
 		state->type = ntoh32 (req->type);
@@ -6073,7 +4610,7 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64": unresolved fd", 
-			state->fd_no);
+			state->resolve.fd_no);
 
 		server_lk_cbk (frame, NULL, frame->this, -1, EBADF, NULL);
 		goto out;
@@ -6104,7 +4641,7 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
 	default:
 		gf_log (bound_xl->name, GF_LOG_ERROR,
 			"fd - %"PRId64" (%"PRId64"): Unknown lock type: %"PRId32"!", 
-			state->fd_no, state->fd->inode->ino, state->type);
+			state->resolve.fd_no, state->fd->inode->ino, state->type);
 		break;
 	}
 
@@ -6112,7 +4649,8 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
 
 	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
 		"%"PRId64": LK \'fd=%"PRId64" (%"PRId64")\'",
-		frame->root->unique, state->fd_no, state->fd->inode->ino);
+		frame->root->unique, state->resolve.fd_no,
+                state->fd->inode->ino);
 
 	STACK_WIND (frame, server_lk_cbk,
 		    BOUND_XL(frame), 
@@ -6154,17 +4692,17 @@ server_setdents (call_frame_t *frame, xlator_t *bound_xl,
 	req   = gf_param (hdr);
 	state = CALL_STATE(frame);
 
-	state->fd_no = ntoh64 (req->fd);
-	if (state->fd_no >= 0)
+	state->resolve.fd_no = ntoh64 (req->fd);
+	if (state->resolve.fd_no >= 0)
 		state->fd = gf_fd_fdptr_get (conn->fdtable, 
-					     state->fd_no);
+					     state->resolve.fd_no);
 	
 	state->nr_count = ntoh32 (req->count);
 
 	if (state->fd == NULL) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64": unresolved fd", 
-			state->fd_no);
+			state->resolve.fd_no);
 
 		server_setdents_cbk (frame, NULL, frame->this, -1, EBADF);
 
@@ -6175,7 +4713,7 @@ server_setdents (call_frame_t *frame, xlator_t *bound_xl,
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"fd - %"PRId64" (%"PRId64"): received a null buffer, "
 			"returning EINVAL",
-			state->fd_no, state->fd->inode->ino);
+			state->resolve.fd_no, state->fd->inode->ino);
 
 		server_setdents_cbk (frame, NULL, frame->this, -1, ENOMEM);
 
@@ -6274,7 +4812,7 @@ server_setdents (call_frame_t *frame, xlator_t *bound_xl,
 
 	gf_log (bound_xl->name, GF_LOG_TRACE,
 		"%"PRId64": SETDENTS \'fd=%"PRId64" (%"PRId64"); count=%"PRId64,
-		frame->root->unique, state->fd_no, state->fd->inode->ino, 
+		frame->root->unique, state->resolve.fd_no, state->fd->inode->ino,
 		(int64_t)state->nr_count);
 	
 	STACK_WIND (frame, server_setdents_cbk,
@@ -6678,10 +5216,10 @@ server_rchecksum (call_frame_t *frame, xlator_t *bound_xl,
 
 	state = CALL_STATE(frame);
 	{
-		state->fd_no = ntoh64 (req->fd);
-		if (state->fd_no >= 0)
+		state->resolve.fd_no = ntoh64 (req->fd);
+		if (state->resolve.fd_no >= 0)
 			state->fd = gf_fd_fdptr_get (conn->fdtable,
-						     state->fd_no);
+						     state->resolve.fd_no);
 
 		state->offset = ntoh64 (req->offset);
                 state->size   = ntoh32 (req->len);
@@ -6692,7 +5230,8 @@ server_rchecksum (call_frame_t *frame, xlator_t *bound_xl,
 	gf_log (bound_xl->name, GF_LOG_TRACE,
 		"%"PRId64": RCHECKSUM \'fd=%"PRId64" (%"PRId64"); "
 		"offset=%"PRId64"\'",
-		frame->root->unique, state->fd_no, state->fd->inode->ino,
+		frame->root->unique, state->resolve.fd_no,
+                state->fd->inode->ino,
 		state->offset);
 
 	STACK_WIND (frame, server_rchecksum_cbk,
@@ -6983,7 +5522,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 			"xlator=%s", lru_limit, conn->bound_xl->name);
 
 		conn->bound_xl->itable = 
-			inode_table_new (lru_limit,
+			inode_table_new (1048576,
 					 conn->bound_xl);
 	}
 
@@ -7228,6 +5767,8 @@ get_frame_for_transport (transport_t *trans)
 	}
 
 	state->trans = transport_ref (trans);
+        state->resolve.fd_no = -1;
+        state->resolve2.fd_no = -1;
 
 	frame->root->trans = conn;
 	frame->root->state = state;        /* which socket */
@@ -7795,7 +6336,7 @@ void
 fini (xlator_t *this)
 {
 	server_conf_t *conf = this->private;
-	
+
 	GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
 	if (conf->auth_modules) {
