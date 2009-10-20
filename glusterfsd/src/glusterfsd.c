@@ -173,7 +173,7 @@ gf_daemon (int *pipe_fd)
 {
         pid_t		pid = -1;
         int             ret = -1;
-        char            gf_daemon_buff[50] = {0,};
+        int             gf_daemon_buff = 0;
 
         if (pipe (pipe_fd) < 0) {
                 gf_log ("glusterfs", GF_LOG_ERROR,
@@ -187,8 +187,10 @@ gf_daemon (int *pipe_fd)
                 return -1;
         } else if (pid != 0) {
                 close (pipe_fd[1]);
-                ret = read (pipe_fd[0], gf_daemon_buff,
-                            sizeof (gf_daemon_buff));
+                ret = read (pipe_fd[0], &gf_daemon_buff,
+                            sizeof (int));
+                close (pipe_fd[0]);
+
                 if (ret == -1) {
                         gf_log ("glusterfs", GF_LOG_ERROR,
                                 "read error on pipe- %s", strerror (errno));
@@ -198,12 +200,10 @@ gf_daemon (int *pipe_fd)
                                 "end of file- %s", strerror (errno));
                         return -1;
                 } else {
-                        if (!strncmp (gf_daemon_buff, "0", 1))
+                        if (gf_daemon_buff == 0)
                                 exit (EXIT_SUCCESS);
-                        else {
-                                fprintf (stderr, "%s\n", gf_daemon_buff);
+                        else
                                 exit (EXIT_FAILURE);
-                        }
                 }
         }
 
@@ -1093,6 +1093,8 @@ main (int argc, char *argv[])
 	int               xl_count = 0;
 	uint8_t           process_mode = 0;
         int               pipe_fd[2];
+        int               gf_success = 0;
+        int               gf_failure = -1;
 
         ret = glusterfs_globals_init ();
         if (ret)
@@ -1274,8 +1276,8 @@ main (int argc, char *argv[])
                                         "unable to open pid file %s, %s.",
                                         cmd_args->pid_file,
                                         strerror (errno));
-                                if (write (pipe_fd[1], strerror (errno),
-                                           strlen (strerror (errno))) < 0) {
+                                if (write (pipe_fd[1], &gf_failure,
+                                           sizeof (int)) < 0) {
                                         gf_log ("glusterfs", GF_LOG_ERROR,
                                                 "Write on pipe error");
                                 }
@@ -1289,8 +1291,8 @@ main (int argc, char *argv[])
                                        "Is another instance of %s running?",
                                         argv[0]);
                                 fclose (ctx->pidfp);
-                                if (write (pipe_fd[1], strerror (errno),
-                                           strlen (strerror (errno))) < 0) {
+                                if (write (pipe_fd[1], &gf_failure,
+                                           sizeof (int)) < 0) {
                                         gf_log ("glusterfs", GF_LOG_ERROR,
                                                 "Write on pipe error");
                                 }
@@ -1304,8 +1306,8 @@ main (int argc, char *argv[])
                                         strerror (errno));
                                 flock (fileno (ctx->pidfp), LOCK_UN);
                                 fclose (ctx->pidfp);
-                                if (write (pipe_fd[1], strerror (errno),
-                                           strlen (strerror (errno))) < 0) {
+                                if (write (pipe_fd[1], &gf_failure,
+                                           sizeof (int)) < 0) {
                                         gf_log ("glusterfs", GF_LOG_ERROR,
                                                 "Write on pipe error");
                                 }
@@ -1343,8 +1345,7 @@ main (int argc, char *argv[])
 		gf_log ("glusterfs", GF_LOG_ERROR,
 			"translator initialization failed.  exiting");
 		if (!cmd_args->no_daemon_mode &&
-                    (write (pipe_fd[1], strerror (errno),
-                            strlen (strerror (errno))) < 0)) {
+                    (write (pipe_fd[1], &gf_failure, sizeof (int)) < 0)) {
 			gf_log ("glusterfs", GF_LOG_ERROR,
                                 "Write on pipe failed,"
                                 "daemonize problem.exiting: %s",
@@ -1359,7 +1360,7 @@ main (int argc, char *argv[])
 	gf_log ("glusterfs", GF_LOG_NORMAL, "Successfully started");
 
 	if (!cmd_args->no_daemon_mode &&
-            (write (pipe_fd[1], "0", 2) < 0)) {
+            (write (pipe_fd[1], &gf_success, sizeof (int)) < 0)) {
 		gf_log ("glusterfs", GF_LOG_ERROR,
                         "Write on pipe failed,"
                         "daemonize problem.  exiting: %s",
