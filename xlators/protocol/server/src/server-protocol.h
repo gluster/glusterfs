@@ -110,13 +110,58 @@ typedef struct {
 } server_conf_t;
 
 
+typedef enum {
+        RESOLVE_MUST = 1,
+        RESOLVE_NOT,
+        RESOLVE_MAY,
+        RESOLVE_DONTCARE,
+        RESOLVE_EXACT
+} server_resolve_type_t;
+
+typedef struct {
+        server_resolve_type_t  type;
+        uint64_t               fd_no;
+        ino_t                  ino;
+        uint64_t               gen;
+        ino_t                  par;
+        char                  *path;
+        char                  *bname;
+	char                  *resolved;
+        int                    op_ret;
+        int                    op_errno;
+} server_resolve_t;
+
+
+typedef int (*server_resume_fn_t) (call_frame_t *frame, xlator_t *bound_xl);
+
+int
+resolve_and_resume (call_frame_t *frame, server_resume_fn_t fn);
+
 struct _server_state {
 	transport_t      *trans;
 	xlator_t         *bound_xl;
+        inode_table_t    *itable;
+
+        server_resume_fn_t resume_fn;
+
 	loc_t             loc;
 	loc_t             loc2;
-	int               flags;
+        server_resolve_t  resolve;
+        server_resolve_t  resolve2;
+
+        /* used within resolve_and_resume */
+        loc_t            *loc_now;
+        server_resolve_t *resolve_now;
+
+        struct stat       stbuf;
+        int               valid;
+
 	fd_t             *fd;
+	int               flags;
+        int               wbflags;
+        struct iobuf     *iobuf;
+        struct iobref    *iobref;
+
 	size_t            size;
 	off_t             offset;
 	mode_t            mode;
@@ -126,30 +171,13 @@ struct _server_state {
 	int               type;
 	char             *name;
 	int               name_len;
-	inode_table_t    *itable;
-	int64_t           fd_no;
-	ino_t             ino;
-	ino_t             par;
-	ino_t             ino2;
-	ino_t             par2;
-	char             *path;
-	char             *path2;
-	char             *bname;
-	char             *bname2;
+
 	int               mask;
 	char              is_revalidate;
-	dict_t           *xattr_req;
+	dict_t           *dict;
 	struct flock      flock;
-	char             *resolved;
         const char       *volume;
 };
 
-
-int
-server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
-		    inode_t *inode, inode_t *parent);
-
-int
-do_path_lookup (call_stub_t *stub, const loc_t *loc);
 
 #endif

@@ -41,14 +41,6 @@
 
 #define IS_NOT_ROOT(pathlen) ((pathlen > 2)? 1 : 0)
 
-int32_t
-server_loc_fill (loc_t *loc,
-  		 server_state_t *state,
-  		 ino_t ino,
-  		 ino_t par,
-  		 const char *name,
-  		 const char *path);
-
 char *
 stat_to_str (struct stat *stbuf);
 
