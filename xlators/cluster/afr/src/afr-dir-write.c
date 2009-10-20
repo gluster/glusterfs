@@ -137,19 +137,18 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_fop_failed (frame, this, child_index);
                 
-                ret = afr_fd_ctx_set (this, fd);
-
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "could not set ctx on fd=%p", fd);
-
-                        local->op_ret   = -1;
-                        local->op_errno = -ret;
-                }
-
-		
 		if (op_ret != -1) {
 			local->op_ret = op_ret;
+
+                        ret = afr_fd_ctx_set (this, fd);
+
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "could not set ctx on fd=%p", fd);
+
+                                local->op_ret   = -1;
+                                local->op_errno = -ret;
+                        }
 
                         if (local->success_count == 0) {
 				local->cont.create.buf        = *buf;
