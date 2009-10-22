@@ -32,7 +32,7 @@
 #include <time.h>
 #include <assert.h>
 
-/* TODO: 
+/* TODO:
    move latest accessed dentry to list_head of inode
 */
 
@@ -246,7 +246,7 @@ dentry_search_for_inode (inode_t *inode, ino_t par, const char *name)
                 dentry = __dentry_search_for_inode (inode, par, name);
         }
         pthread_mutex_unlock (&inode->table->lock);
-        
+
         return dentry;
 }
 
@@ -286,7 +286,7 @@ __inode_destroy (inode_t *inode)
                         if (xl->cbks->forget)
                                 xl->cbks->forget (xl, inode);
                 }
-        }       
+        }
 
         FREE (inode->_ctx);
 noctx:
@@ -458,7 +458,7 @@ __inode_create (inode_table_t *table)
         list_add (&newi->list, &table->lru);
         table->lru_size++;
 
-        newi->_ctx = CALLOC (1, (sizeof (struct _inode_ctx) * 
+        newi->_ctx = CALLOC (1, (sizeof (struct _inode_ctx) *
                                  table->xl->ctx->xl_count));
 
         return newi;
@@ -871,14 +871,14 @@ inode_path (inode_t *inode, const char *name, char **bufp)
                         i ++; /* "/" */
                         i += strlen (trav->name);
                         if (i > PATH_MAX) {
-                                gf_log ("inode", GF_LOG_CRITICAL, 
+                                gf_log ("inode", GF_LOG_CRITICAL,
                                         "possible infinite loop detected, "
                                         "forcing break. name=(%s)", name);
                                 ret = -ENOENT;
                                 goto unlock;
                         }
                 }
-                
+
                 if ((inode->ino != 1) &&
                     (i == 0)) {
                         gf_log (table->name, GF_LOG_DEBUG,
@@ -959,7 +959,7 @@ inode_table_prune (inode_table_t *table)
         {
                 while (table->lru_limit
                        && table->lru_size > (table->lru_limit)) {
-        
+
                         entry = list_entry (table->lru.next, inode_t, list);
 
                         table->lru_size--;
@@ -1084,14 +1084,14 @@ inode_from_path (inode_table_t *itable, const char *path)
 
         while (component) {
                 curr = inode_search (itable, parent->ino, component);
-                
+
                 if (curr == NULL) {
                         component = strtok_r (NULL, "/", &strtokptr);
                         break;
                 }
 
                 next_component = strtok_r (NULL, "/", &strtokptr);
-                
+
                 if (next_component) {
                         inode_unref (parent);
                         parent = curr;
@@ -1099,10 +1099,10 @@ inode_from_path (inode_table_t *itable, const char *path)
                 } else {
                         inode = curr;
                 }
-                
+
                 component = next_component;
         }
-        
+
         if (parent)
                 inode_unref (parent);
 
@@ -1294,7 +1294,7 @@ inode_dump (inode_t *inode, char *prefix)
         xlator_t        *xl = NULL;
         int             i = 0;
 
-        if (!inode) 
+        if (!inode)
                 return;
 
         ret = TRY_LOCK(&inode->lock);
@@ -1334,13 +1334,13 @@ out:
 void
 inode_table_dump (inode_table_t *itable, char *prefix)
 {
-    
+
         char    key[GF_DUMP_MAX_BUF_LEN];
         int     ret = 0;
 
         if (!itable)
                 return;
-    
+
         memset(key, 0, sizeof(key));
         ret = pthread_mutex_trylock(&itable->lock);
 
@@ -1354,7 +1354,7 @@ inode_table_dump (inode_table_t *itable, char *prefix)
         gf_proc_dump_write(key, "%d", itable->hashsize);
         gf_proc_dump_build_key(key, prefix, "name");
         gf_proc_dump_write(key, "%s", itable->name);
-    
+
         gf_proc_dump_build_key(key, prefix, "lru_limit");
         gf_proc_dump_write(key, "%d", itable->lru_limit);
         gf_proc_dump_build_key(key, prefix, "active_size");
@@ -1370,4 +1370,3 @@ inode_table_dump (inode_table_t *itable, char *prefix)
 
         pthread_mutex_unlock(&itable->lock);
 }
-
