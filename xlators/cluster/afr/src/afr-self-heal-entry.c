@@ -488,7 +488,6 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
 	int              active_src = 0;
 	call_frame_t    *frame = NULL;
 
-        loc_t parent_loc;
         int32_t valid = 0;
 
 	priv = this->private;
@@ -512,13 +511,13 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
 	}
 
         valid = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
-        afr_build_parent_loc (&parent_loc, &expunge_local->loc);
+        afr_build_parent_loc (&expunge_sh->parent_loc, &expunge_local->loc);
 
         STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_parent_setattr_cbk,
                            (void *) (long) active_src,
                            priv->children[active_src],
                            priv->children[active_src]->fops->setattr,
-                           &parent_loc,
+                           &expunge_sh->parent_loc,
                            &expunge_sh->parentbuf,
                            valid);
 
@@ -1086,26 +1085,20 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 
 
 int
-afr_sh_entry_impunge_parent_setattr_cbk (call_frame_t *impunge_frame,
+afr_sh_entry_impunge_parent_setattr_cbk (call_frame_t *setattr_frame,
                                          void *cookie, xlator_t *this,
                                          int32_t op_ret, int32_t op_errno,
                                          struct stat *preop, struct stat *postop)
 {
-	afr_private_t   *priv = NULL;
-	afr_local_t     *impunge_local = NULL;
+        loc_t *parent_loc = cookie;
 
-        int child_index = (long) cookie;
+        gf_log (this->name, GF_LOG_DEBUG,
+                "setattr on directory %s failed: %s",
+                parent_loc->path, strerror (op_errno));
 
-        priv          = this->private;
-        impunge_local = impunge_frame->local;
+        loc_wipe (parent_loc);
 
-        if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "setattr on parent directory of %s on subvolume %s failed: %s",
-                        impunge_local->loc.path,
-                        priv->children[child_index]->name, strerror (op_errno));
-        }
-
+        AFR_STACK_DESTROY (setattr_frame);
         return 0;
 }
 
@@ -1132,8 +1125,10 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
 
+        call_frame_t *setattr_frame = NULL;
         loc_t   parent_loc;
         int32_t valid = 0;
+        struct stat parentbuf;
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
@@ -1170,22 +1165,23 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         ret = dict_set_static_bin (xattr, priv->pending_key[child_index],
                                    pending_array, sizeof (pending_array));
 
+        valid         = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
+        parentbuf     = impunge_sh->parentbuf;
+        setattr_frame = copy_frame (impunge_frame);
+
+        afr_build_parent_loc (&parent_loc, &impunge_local->loc);
+
 	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_xattrop_cbk,
 			   (void *) (long) child_index,
 			   priv->children[active_src],
 			   priv->children[active_src]->fops->xattrop,
 			   &impunge_local->loc, GF_XATTROP_ADD_ARRAY, xattr);
 
-        valid = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
-        afr_build_parent_loc (&parent_loc, &impunge_local->loc);
-
-        STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_parent_setattr_cbk,
-                           (void *) (long) child_index,
+        STACK_WIND_COOKIE (setattr_frame, afr_sh_entry_impunge_parent_setattr_cbk,
+                           (void *) (long) &parent_loc,
                            priv->children[child_index],
                            priv->children[child_index]->fops->setattr,
-                           &parent_loc,
-                           &impunge_sh->parentbuf,
-                           valid);
+                           &parent_loc, &parentbuf, valid);
 
         dict_unref (xattr);
 
