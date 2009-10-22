@@ -493,7 +493,7 @@ stat2attr (struct stat *st, struct fuse_attr *fa)
         fa->blksize    = st->st_blksize;
 }
 
-        
+
 static int
 fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno,
@@ -502,7 +502,6 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fuse_state_t            *state = NULL;
         fuse_in_header_t        *finh = NULL;
         struct fuse_entry_out    feo = {0, };
-        struct fuse_attr_out    *fao = NULL;
         fuse_private_t          *priv = NULL;
         inode_t                 *linked_inode = NULL;
 
@@ -530,48 +529,31 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 gf_fop_list[frame->root->op], state->loc.path);
                 }
 
-                if (state->loc.parent) {
-                        linked_inode = inode_link (inode, state->loc.parent,
-                                                   state->loc.name, buf);
+                linked_inode = inode_link (inode, state->loc.parent,
+                                           state->loc.name, buf);
 
-                        inode_lookup (linked_inode);
+                inode_lookup (linked_inode);
 
-                        /* TODO: make these timeouts configurable (via meta?) */
-                        feo.nodeid = inode_to_nodeid (linked_inode);
+                /* TODO: make these timeouts configurable (via meta?) */
+                feo.nodeid = inode_to_nodeid (linked_inode);
 
-                        feo.generation = linked_inode->generation;
+                feo.generation = linked_inode->generation;
 
-                        inode_unref (linked_inode);
+                inode_unref (linked_inode);
 
-                        feo.entry_valid =
-                          calc_timeout_sec (priv->entry_timeout);
-                        feo.entry_valid_nsec =
-                          calc_timeout_nsec (priv->entry_timeout);
-                        feo.attr_valid =
-                          calc_timeout_sec (priv->attribute_timeout);
-                        feo.attr_valid_nsec =
-                          calc_timeout_nsec (priv->attribute_timeout);
+                feo.entry_valid =
+                        calc_timeout_sec (priv->entry_timeout);
+                feo.entry_valid_nsec =
+                        calc_timeout_nsec (priv->entry_timeout);
+                feo.attr_valid =
+                        calc_timeout_sec (priv->attribute_timeout);
+                feo.attr_valid_nsec =
+                        calc_timeout_nsec (priv->attribute_timeout);
 
-                        priv->proto_minor >= 9 ?
+                priv->proto_minor >= 9 ?
                         send_fuse_obj (this, finh, &feo) :
                         send_fuse_data (this, finh, &feo,
                                         FUSE_COMPAT_ENTRY_OUT_SIZE);
-                } else {
-                        /* Refurbish the entry_out as attr_out. Too hacky?... */
-                        fao = (struct fuse_attr_out *)
-                               ((char *)&feo.attr -
-                                offsetof (struct fuse_attr_out, attr));
-
-                        fao->attr_valid =
-                          calc_timeout_sec (priv->attribute_timeout);
-                        fao->attr_valid_nsec =
-                          calc_timeout_nsec (priv->attribute_timeout);
-
-                        priv->proto_minor >= 9 ?
-                        send_fuse_obj (this, finh, fao) :
-                        send_fuse_data (this, finh, fao,
-                                        FUSE_COMPAT_ATTR_OUT_SIZE);
-                }
         } else {
                 gf_log ("glusterfs-fuse",
                         (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_WARNING),
@@ -604,6 +586,23 @@ fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  inode_t *inode, struct stat *stat, dict_t *dict,
                  struct stat *postparent)
 {
+        fuse_state_t            *state = NULL;
+        call_frame_t            *prev = NULL;
+
+        state = frame->root->state;
+        prev  = cookie;
+
+        if (op_ret == -1 && state->is_revalidate == 1) {
+                inode_unref (state->loc.inode);
+                state->loc.inode = inode_new (state->itable);
+                state->is_revalidate = 2;
+
+                STACK_WIND (frame, fuse_lookup_cbk,
+                            prev->this, prev->this->fops->lookup,
+                            &state->loc, state->dict);
+                return 0;
+        }
+
         fuse_entry_cbk (frame, cookie, this, op_ret, op_errno, inode, stat);
         return 0;
 }
@@ -636,8 +635,6 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         state->loc.path);
 
                 state->loc.inode = inode_new (state->itable);
-                /* to differntiate in entry_cbk what kind of call it is */
-                state->is_revalidate = -1;
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": LOOKUP %s(%"PRId64")", finh->unique,
@@ -672,8 +669,8 @@ fuse_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         FREE (finh);
 }
-        
-        
+
+
 static int
 fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct stat *buf,
@@ -781,6 +778,18 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
+static int
+fuse_root_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno,
+                      inode_t *inode, struct stat *stat, dict_t *dict,
+                      struct stat *postparent)
+{
+        fuse_attr_cbk (frame, cookie, this, op_ret, op_errno, stat);
+
+        return 0;
+}
+
+
 static void
 fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
@@ -803,7 +812,7 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
                 state->dict = dict_new ();
 
-                FUSE_FOP (state, fuse_lookup_cbk, GF_FOP_LOOKUP,
+                FUSE_FOP (state, fuse_root_lookup_cbk, GF_FOP_LOOKUP,
                           lookup, &state->loc, state->dict);
                 return;
         }
@@ -2926,10 +2935,10 @@ fuse_discard (xlator_t *this, fuse_in_header_t *finh, void *msg)
 static fuse_handler_t *fuse_ops[FUSE_712_OP_HIGH];
 
 int
-fuse_root_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno,
-                      inode_t *inode, struct stat *buf, dict_t *xattr,
-                      struct stat *postparent)
+fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno,
+                       inode_t *inode, struct stat *buf, dict_t *xattr,
+                       struct stat *postparent)
 {
         fuse_private_t *priv = NULL;
 
@@ -2954,7 +2963,7 @@ fuse_root_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-fuse_root_lookup (xlator_t *this)
+fuse_first_lookup (xlator_t *this)
 {
         fuse_private_t *priv = NULL;
         loc_t           loc;
@@ -2978,7 +2987,7 @@ fuse_root_lookup (xlator_t *this)
         frame->root->type = GF_OP_TYPE_FOP_REQUEST;
         xl = this->children->xlator;
 
-        STACK_WIND (frame, fuse_root_lookup_cbk, xl, xl->fops->lookup,
+        STACK_WIND (frame, fuse_first_lookup_cbk, xl, xl->fops->lookup,
                     &loc, dict);
         dict_unref (dict);
 
@@ -3048,7 +3057,7 @@ fuse_thread_proc (void *data)
                         if (priv->first_call > 1) {
                                 priv->first_call--;
                         } else {
-                                fuse_root_lookup (this);
+                                fuse_first_lookup (this);
                         }
                 }
 
