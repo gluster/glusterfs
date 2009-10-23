@@ -118,6 +118,14 @@ typedef enum {
         RESOLVE_EXACT
 } server_resolve_type_t;
 
+
+struct resolve_comp {
+        char      *basename;
+        ino_t      ino;
+        uint64_t   gen;
+        inode_t   *inode;
+};
+
 typedef struct {
         server_resolve_type_t  type;
         uint64_t               fd_no;
@@ -129,6 +137,9 @@ typedef struct {
 	char                  *resolved;
         int                    op_ret;
         int                    op_errno;
+        loc_t                  deep_loc;
+        struct resolve_comp   *components;
+        int                    comp_count;
 } server_resolve_t;
 
 

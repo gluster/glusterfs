@@ -190,11 +190,28 @@ server_loc_wipe (loc_t *loc)
 void
 server_resolve_wipe (server_resolve_t *resolve)
 {
+        struct resolve_comp *comp = NULL;
+        int                  i = 0;
+
         if (resolve->path)
                 FREE (resolve->path);
 
         if (resolve->bname)
                 FREE (resolve->bname);
+
+        if (resolve->resolved)
+                FREE (resolve->resolved);
+
+        loc_wipe (&resolve->deep_loc);
+
+        comp = resolve->components;
+        if (comp) {
+                for (i = 0; comp[i].basename; i++) {
+                        if (comp[i].inode)
+                                inode_unref (comp[i].inode);
+                }
+                FREE (resolve->components);
+        }
 }
 
 
