@@ -1368,6 +1368,101 @@ afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 }
 
 
+afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
+{
+        afr_private_t *priv = NULL;
+        afr_local_t *lc     = NULL;
+
+        priv = this->private;
+
+        lc = CALLOC (1, sizeof (afr_local_t));
+
+        memcpy (lc, l, sizeof (afr_local_t));
+
+        loc_copy (&lc->loc, &l->loc);
+
+        lc->child_up  = memdup (l->child_up, priv->child_count);
+        lc->xattr_req = dict_copy_with_ref (l->xattr_req, NULL);
+
+        lc->cont.lookup.inode = l->cont.lookup.inode;
+        lc->cont.lookup.xattr = dict_copy_with_ref (l->cont.lookup.xattr, NULL);
+
+        return lc;
+}
+
+
+int
+afr_bgsh_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
+{
+        afr_private_t *priv  = NULL;
+	afr_local_t *local   = NULL;
+        afr_self_heal_t *sh  = NULL;
+
+        priv  = this->private;
+	local = bgsh_frame->local;
+        sh    = &local->self_heal;
+
+	if (local->govinda_gOvinda) {
+                afr_set_split_brain (this, local->cont.lookup.inode, 1);
+	} else {
+                afr_set_split_brain (this, local->cont.lookup.inode, 0);
+	}
+
+        gf_log (this->name, GF_LOG_TRACE,
+                "background self-heal completed");
+
+        if (!sh->unwound) {
+                AFR_STACK_UNWIND (lookup, sh->orig_frame,
+                                  local->op_ret, local->op_errno,
+                                  local->cont.lookup.inode,
+                                  &local->cont.lookup.buf,
+                                  local->cont.lookup.xattr,
+                                  NULL);
+        }
+
+        LOCK (&priv->lock);
+        {
+                priv->background_self_heals_started--;
+        }
+        UNLOCK (&priv->lock);
+
+        AFR_STACK_DESTROY (bgsh_frame);
+
+	return 0;
+}
+
+
+int
+afr_bgsh_unwind (call_frame_t *bgsh_frame, xlator_t *this)
+{
+	afr_local_t *local   = NULL;
+        afr_self_heal_t *sh  = NULL;
+
+	local = bgsh_frame->local;
+        sh    = &local->self_heal;
+
+	if (local->govinda_gOvinda) {
+                afr_set_split_brain (this, local->cont.lookup.inode, 1);
+	} else {
+                afr_set_split_brain (this, local->cont.lookup.inode, 0);
+	}
+
+        gf_log (this->name, GF_LOG_TRACE,
+                "unwinding lookup and continuing self-heal in the background");
+
+        sh->unwound = _gf_true;
+
+        AFR_STACK_UNWIND (lookup, sh->orig_frame,
+                          local->op_ret, local->op_errno,
+                          local->cont.lookup.inode,
+                          &local->cont.lookup.buf,
+                          local->cont.lookup.xattr,
+                          NULL);
+
+	return 0;
+}
+
+
 int
 afr_self_heal (call_frame_t *frame, xlator_t *this,
 	       int (*completion_cbk) (call_frame_t *, xlator_t *))
@@ -1376,20 +1471,39 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
 	int              i = 0;
+        int background     = 0;
 
+        call_frame_t *sh_frame = NULL;
+        afr_local_t  *sh_local = NULL;
 
 	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
+	priv  = this->private;
 
-	gf_log (this->name, GF_LOG_TRACE,
-		"performing self heal on %s (metadata=%d data=%d entry=%d)",
-		local->loc.path,
-		local->need_metadata_self_heal,
-		local->need_data_self_heal,
-		local->need_entry_self_heal);
+        LOCK (&priv->lock);
+        {
+                if (priv->background_self_heals_started < priv->background_self_heal_count) {
+                        priv->background_self_heals_started++;
+                        background = 1;
+                }
+        }
+        UNLOCK (&priv->lock);
 
-	sh->completion_cbk = completion_cbk;
+        gf_log (this->name, GF_LOG_TRACE,
+                "performing self heal on %s (metadata=%d data=%d entry=%d)",
+                local->loc.path,
+                local->need_metadata_self_heal,
+                local->need_data_self_heal,
+                local->need_entry_self_heal);
+
+        sh_frame        = copy_frame (frame);
+        sh_local        = afr_local_copy (local, this);
+        sh_frame->local = sh_local;
+        sh              = &sh_local->self_heal;
+
+        sh->background     = _gf_true;
+        sh->orig_frame     = frame;
+        sh->completion_cbk = afr_bgsh_completion_cbk;
+        sh->unwind         = afr_bgsh_unwind;
 
 	sh->buf = CALLOC (priv->child_count, sizeof (struct stat));
 	sh->child_errno = CALLOC (priv->child_count, sizeof (int));
@@ -1411,12 +1525,13 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 	}
 
 	if (local->success_count && local->enoent_count) {
-		afr_self_heal_missing_entries (frame, this);
+		afr_self_heal_missing_entries (sh_frame, this);
 	} else {
 		gf_log (this->name, GF_LOG_TRACE,
 			"proceeding to metadata check on %s",
 			local->loc.path);
-		afr_sh_missing_entries_done (frame, this);
+
+		afr_sh_missing_entries_done (sh_frame, this);
 	}
 
 	return 0;

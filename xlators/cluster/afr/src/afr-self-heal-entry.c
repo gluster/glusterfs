@@ -1977,6 +1977,10 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
 	source = afr_sh_select_source (sh->sources, priv->child_count);
 	sh->source = source;
 
+        if (sh->background) {
+                sh->unwind (frame, this);
+        }
+
 	afr_sh_entry_sync_prepare (frame, this);
 
 	return 0;

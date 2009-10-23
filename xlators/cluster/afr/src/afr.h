@@ -50,6 +50,8 @@ typedef struct _afr_private {
         unsigned int data_self_heal_window_size;  /* max number of pipelined
                                                      read/writes */
 
+        unsigned int background_self_heal_count;
+        unsigned int background_self_heals_started;
 	gf_boolean_t metadata_self_heal;   /* on/off */
 	gf_boolean_t entry_self_heal;      /* on/off */
 
@@ -98,6 +100,11 @@ typedef struct {
 	off_t offset;
 
 	loc_t parent_loc;
+
+        call_frame_t *orig_frame;
+        gf_boolean_t unwound;
+        gf_boolean_t background;   /* is this self-heal in the background? */
+        int (*unwind) (call_frame_t *frame, xlator_t *this);
 
         /* private data for the particular self-heal algorithm */
         void *private;
@@ -529,6 +536,11 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this);
 
 int
 afr_frame_return (call_frame_t *frame);
+
+void
+afr_set_split_brain (xlator_t *this, inode_t *inode, int32_t split_brain);
+
+
 
 #define AFR_STACK_UNWIND(fop, frame, params ...)        \
 	do {						\
