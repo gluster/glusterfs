@@ -4143,7 +4143,7 @@ out:
 }
 
 
-struct dirent *
+void *
 glusterfs_readdir (glusterfs_dir_t dirfd)
 {
         int op_ret = -1;

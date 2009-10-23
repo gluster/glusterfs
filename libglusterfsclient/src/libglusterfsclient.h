@@ -633,7 +633,7 @@ glusterfs_rmdir (const char *path);
  * Returns the directory entry on success and NULL pointer on error
  * with errno set appropriately.
  */
-struct dirent *
+void *
 glusterfs_readdir (glusterfs_dir_t dirfd);
 
 

@@ -169,18 +169,6 @@ statvfs64 (const char *pathname, void *buf)
         return booster_statvfs64 (pathname, buf);
 }
 
-void *
-readdir (void *dir)
-{
-        return booster_readdir (dir);
-}
-
-void *
-readdir64 (void *dir)
-{
-        return booster_readdir (dir);
-}
-
 void
 rewinddir (void *dir)
 {
