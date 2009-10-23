@@ -1898,6 +1898,8 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
 	afr_private_t   *priv = NULL;
 	int              source = 0;
 
+        int nsources = 0;
+
 	local = frame->local;
 	sh = &local->self_heal;
 	priv = this->private;
@@ -1907,8 +1909,17 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
 
 	afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
-	afr_sh_mark_sources (sh, priv->child_count,
-			     AFR_SELF_HEAL_ENTRY);
+	nsources = afr_sh_mark_sources (sh, priv->child_count,
+                                        AFR_SELF_HEAL_ENTRY);
+
+        if (nsources == 0) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "No self-heal needed for %s",
+                        local->loc.path);
+
+                afr_sh_entry_finish (frame, this);
+                return 0;
+        }
 
 	afr_sh_supress_errenous_children (sh->sources, sh->child_errno,
 					  priv->child_count);
