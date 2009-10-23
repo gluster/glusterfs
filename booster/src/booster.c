@@ -151,6 +151,7 @@ static int (*real_readlink) (const char *path, char *buf, size_t bufsize);
 static char * (*real_realpath) (const char *path, char *resolved);
 static DIR * (*real_opendir) (const char *path);
 static struct dirent * (*real_readdir) (DIR *dir);
+static struct dirent64 * (*real_readdir64) (DIR *dir);
 static int (*real_readdir_r) (DIR *dir, struct dirent *entry,
                               struct dirent **result);
 static int (*real_readdir64_r) (DIR *dir, struct dirent64 *entry,
@@ -1686,7 +1687,13 @@ out:
 }
 
 struct dirent *
-booster_readdir (DIR *dir)
+__REDIRECT (booster_false_readdir, (DIR *dir), readdir) __nonnull ((1));
+
+struct dirent64 *
+__REDIRECT (booster_false_readdir64, (DIR *dir), readdir64) __nonnull ((1));
+
+struct dirent *
+booster_false_readdir (DIR *dir)
 {
         struct booster_dir_handle       *bh = (struct booster_dir_handle *)dir;
         struct dirent                   *dirp = NULL;
@@ -1708,6 +1715,38 @@ booster_readdir (DIR *dir)
                 }
 
                 dirp = real_readdir ((DIR *)bh->dirh);
+        } else {
+                dirp = NULL;
+                errno = EINVAL;
+        }
+
+out:
+        return  dirp;
+}
+
+struct dirent64 *
+booster_false_readdir64 (DIR *dir)
+{
+        struct booster_dir_handle       *bh = (struct booster_dir_handle *)dir;
+        struct dirent64                 *dirp = NULL;
+
+        if (!bh) {
+                errno = EFAULT;
+                goto out;
+        }
+
+        if (bh->type == BOOSTER_GL_DIR) {
+                gf_log ("booster", GF_LOG_TRACE, "readdir on gluster");
+                dirp = glusterfs_readdir ((glusterfs_dir_t)bh->dirh);
+        } else if (bh->type == BOOSTER_POSIX_DIR) {
+                gf_log ("booster", GF_LOG_TRACE, "readdir on posix");
+                if (real_readdir == NULL) {
+                        errno = ENOSYS;
+                        dirp = NULL;
+                        goto out;
+                }
+
+                dirp = real_readdir64 ((DIR *)bh->dirh);
         } else {
                 dirp = NULL;
                 errno = EINVAL;
@@ -2696,6 +2735,7 @@ booster_lib_init (void)
         RESOLVE (realpath);
         RESOLVE (opendir);
         RESOLVE (readdir);
+        RESOLVE (readdir64);
         RESOLVE (closedir);
         RESOLVE (__xstat);
         RESOLVE (__xstat64);
