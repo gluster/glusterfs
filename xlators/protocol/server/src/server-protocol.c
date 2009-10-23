@@ -2095,8 +2095,23 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int32_t              gf_errno = 0;
         int32_t              ret = -1;
         inode_t             *link_inode = NULL;
+        loc_t                fresh_loc = {0,};
 
         state = CALL_STATE(frame);
+
+        if (state->is_revalidate == 1 && op_ret == -1) {
+                state->is_revalidate = 2;
+                loc_copy (&fresh_loc, &state->loc);
+                inode_unref (fresh_loc.inode);
+                fresh_loc.inode = inode_new (state->itable);
+
+                STACK_WIND (frame, server_lookup_cbk,
+                            BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
+                            &fresh_loc, state->dict);
+
+                loc_wipe (&fresh_loc);
+                return 0;
+        }
 
         if (dict) {
                 dict_len = dict_serialized_length (dict);
@@ -2146,13 +2161,18 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 gf_stat_from_stat (&rsp->stat, stbuf);
 
-                if (inode->ino == 0) {
+                if (inode->ino != 1) {
                         link_inode = inode_link (inode, state->loc.parent,
                                                  state->loc.name, stbuf);
                         inode_lookup (link_inode);
                         inode_unref (link_inode);
                 }
         } else {
+                if (state->is_revalidate && op_errno == ENOENT) {
+                        inode_unlink (state->loc.inode, state->loc.parent,
+                                      state->loc.name);
+                }
+
                 gf_log (this->name,
                         (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_DEBUG),
                         "%"PRId64": LOOKUP %s (%"PRId64") ==> %"PRId32" (%s)",
@@ -2308,6 +2328,8 @@ server_lookup_resume (call_frame_t *frame, xlator_t *bound_xl)
 
         if (!state->loc.inode)
                 state->loc.inode = inode_new (state->itable);
+        else
+                state->is_revalidate = 1;
 
         STACK_WIND (frame, server_lookup_cbk,
                     bound_xl, bound_xl->fops->lookup,
