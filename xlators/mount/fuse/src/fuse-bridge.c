@@ -1027,6 +1027,7 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         fuse_state_t *state = NULL;
         int32_t       ret   = -1;
+        int32_t       valid = 0;
 
         GET_STATE (this, finh, state);
 
@@ -1049,6 +1050,8 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 "%"PRIu64": SETATTR (%"PRIu64")%s", finh->unique,
                 finh->nodeid, state->loc.path);
 
+        valid = fsi->valid;
+
         if ((fsi->valid & FATTR_SIZE)
             && ((fsi->valid & (FATTR_MASK)) != FATTR_SIZE)) {
                 state->callcount = 2;
@@ -1060,7 +1063,7 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 fuse_do_truncate (state, fsi);
         }
 
-        if ((fsi->valid & (FATTR_MASK)) != FATTR_SIZE) {
+        if ((valid & (FATTR_MASK)) != FATTR_SIZE) {
                 attr.st_size  = fsi->size;
                 attr.st_atime = fsi->atime;
                 attr.st_mtime = fsi->mtime;
