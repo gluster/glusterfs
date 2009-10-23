@@ -768,6 +768,10 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 			sh->sources[i] = 0;
 	}
 
+        if (sh->background) {
+                sh->unwind (frame, this);
+        }
+
 	afr_sh_data_sync_prepare (frame, this);
 
 	return 0;

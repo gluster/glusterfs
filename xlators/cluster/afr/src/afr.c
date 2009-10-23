@@ -2337,6 +2337,7 @@ init (xlator_t *this)
         char * algo        = NULL;
 	char * change_log  = NULL;
 
+        int32_t background_count  = 0;
 	int32_t lock_server_count = 1;
         int32_t window_size;
 
@@ -2365,6 +2366,18 @@ init (xlator_t *this)
 
 	fav_ret = dict_get_str (this->options, "favorite-child", &fav_child);
 	priv->favorite_child = -1;
+
+        priv->background_self_heal_count = 16;
+
+	dict_ret = dict_get_int32 (this->options, "background-self-heal-count",
+				   &background_count);
+	if (dict_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Setting background self-heal count to %d.",
+			window_size);
+
+		priv->background_self_heal_count = background_count;
+	}
 
 	/* Default values */
 
@@ -2673,6 +2686,10 @@ struct volume_options options[] = {
 	{ .key  = {"favorite-child"}, 
 	  .type = GF_OPTION_TYPE_XLATOR
 	},
+        { .key  = {"background-self-heal-count"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 0
+        },
 	{ .key  = {"data-self-heal"},  
 	  .type = GF_OPTION_TYPE_BOOL 
 	},
