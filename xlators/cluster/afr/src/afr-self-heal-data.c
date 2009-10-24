@@ -769,6 +769,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 	}
 
         if (sh->background) {
+                afr_set_read_child (this, local->loc.inode, sh->source);
                 sh->unwind (frame, this);
         }
 
