@@ -295,36 +295,6 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
-			mode_t mode;
-			struct stat buf;
-			struct stat read_child_buf;
-		} chmod;
-
-		struct {
-			ino_t ino;
-			mode_t mode;
-			struct stat buf;
-                        struct stat read_child_buf;
-		} fchmod;
-
-		struct {
-			ino_t ino;
-			uid_t uid;
-			gid_t gid;
-			struct stat buf;
-                        struct stat read_child_buf;
-		} chown;
-
-		struct {
-			ino_t ino;
-			uid_t uid;
-			gid_t gid;
-			struct stat buf;
-                        struct stat read_child_buf;
-		} fchown;
-		
-		struct {
-			ino_t ino;
 			struct stat prebuf;
 			struct stat postbuf;
 
@@ -355,13 +325,6 @@ typedef struct _afr_local {
 			struct stat prebuf;
                         struct stat postbuf;
 		} ftruncate;
-
-		struct {
-			ino_t ino;
-			struct timespec tv[2];
-			struct stat buf;
-                        struct stat read_child_buf;
-		} utimens;
 
 		struct {
 			ino_t ino;
