@@ -1295,6 +1295,184 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
 
 
 int
+afr_sh_entry_impunge_symlink_unlink_cbk (call_frame_t *impunge_frame,
+                                         void *cookie, xlator_t *this,
+                                         int32_t op_ret, int32_t op_errno,
+                                         struct stat *preparent,
+                                         struct stat *postparent)
+{
+        afr_private_t   *priv = NULL;
+	afr_local_t     *impunge_local = NULL;
+	afr_self_heal_t *impunge_sh = NULL;
+	int              child_index = -1;
+	call_frame_t    *frame = NULL;
+	int              call_count = -1;
+	int              active_src = -1;
+
+	priv          = this->private;
+	impunge_local = impunge_frame->local;
+	impunge_sh    = &impunge_local->self_heal;
+	frame         = impunge_sh->sh_frame;
+	active_src    = impunge_sh->active_source;
+
+	child_index = (long) cookie;
+
+	if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"unlink of %s on %s failed (%s)",
+			impunge_local->loc.path,
+			priv->children[child_index]->name,
+			strerror (op_errno));
+		goto out;
+	}
+
+        afr_sh_entry_impunge_symlink (impunge_frame, this, child_index,
+                                      impunge_sh->linkname);
+
+        return 0;
+out:
+	LOCK (&impunge_frame->lock);
+	{
+		call_count = --impunge_local->call_count;
+	}
+	UNLOCK (&impunge_frame->lock);
+
+	if (call_count == 0) {
+		AFR_STACK_DESTROY (impunge_frame);
+		afr_sh_entry_impunge_entry_done (frame, this, active_src);
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_impunge_symlink_unlink (call_frame_t *impunge_frame, xlator_t *this,
+                                     int child_index)
+{
+	afr_private_t   *priv          = NULL;
+	afr_local_t     *impunge_local = NULL;
+	afr_self_heal_t *impunge_sh    = NULL;
+
+	priv          = this->private;
+	impunge_local = impunge_frame->local;
+	impunge_sh    = &impunge_local->self_heal;
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"unlinking symlink %s with wrong target on %s",
+		impunge_local->loc.path,
+		priv->children[child_index]->name);
+
+        STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_symlink_unlink_cbk,
+                           (void *) (long) child_index,
+                           priv->children[child_index],
+                           priv->children[child_index]->fops->unlink,
+                           &impunge_local->loc);
+
+        return 0;
+}
+
+
+int
+afr_sh_entry_impunge_readlink_sink_cbk (call_frame_t *impunge_frame, void *cookie,
+                                        xlator_t *this,
+                                        int32_t op_ret, int32_t op_errno,
+                                        const char *linkname, struct stat *sbuf)
+{
+        afr_private_t   *priv = NULL;
+	afr_local_t     *impunge_local = NULL;
+	afr_self_heal_t *impunge_sh = NULL;
+	int              child_index = -1;
+	call_frame_t    *frame = NULL;
+	int              call_count = -1;
+	int              active_src = -1;
+
+	priv          = this->private;
+	impunge_local = impunge_frame->local;
+	impunge_sh    = &impunge_local->self_heal;
+	frame         = impunge_sh->sh_frame;
+	active_src    = impunge_sh->active_source;
+
+	child_index = (long) cookie;
+
+	if ((op_ret == -1) && (op_errno != ENOENT)) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"readlink of %s on %s failed (%s)",
+			impunge_local->loc.path,
+			priv->children[active_src]->name,
+			strerror (op_errno));
+		goto out;
+	}
+
+        /* symlink doesn't exist on the sink */
+
+        if ((op_ret == -1) && (op_errno == ENOENT)) {
+                afr_sh_entry_impunge_symlink (impunge_frame, this,
+                                              child_index, impunge_sh->linkname);
+                return 0;
+        }
+
+
+        /* symlink exists on the sink, so check if targets match */
+
+        if (strcmp (linkname, impunge_sh->linkname) == 0) {
+                /* targets match, nothing to do */
+
+                goto out;
+        } else {
+                /*
+                 * Hah! Sneaky wolf in sheep's clothing!
+                 */
+
+                afr_sh_entry_impunge_symlink_unlink (impunge_frame, this,
+                                                     child_index);
+                return 0;
+        }
+
+out:
+	LOCK (&impunge_frame->lock);
+	{
+		call_count = --impunge_local->call_count;
+	}
+	UNLOCK (&impunge_frame->lock);
+
+	if (call_count == 0) {
+		AFR_STACK_DESTROY (impunge_frame);
+		afr_sh_entry_impunge_entry_done (frame, this, active_src);
+	}
+
+	return 0;
+}
+
+
+int
+afr_sh_entry_impunge_readlink_sink (call_frame_t *impunge_frame, xlator_t *this,
+                                    int child_index)
+{
+	afr_private_t   *priv = NULL;
+	afr_local_t     *impunge_local = NULL;
+	afr_self_heal_t *impunge_sh = NULL;
+
+
+	priv = this->private;
+	impunge_local = impunge_frame->local;
+	impunge_sh = &impunge_local->self_heal;
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"checking symlink target of %s on %s",
+		impunge_local->loc.path, priv->children[child_index]->name);
+
+	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_readlink_sink_cbk,
+			   (void *) (long) child_index,
+			   priv->children[child_index],
+			   priv->children[child_index]->fops->readlink,
+			   &impunge_local->loc, 4096);
+
+	return 0;
+}
+
+
+int
 afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
 				   xlator_t *this,
 				   int32_t op_ret, int32_t op_errno,
@@ -1325,8 +1503,10 @@ afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
 		goto out;
 	}
 
-	afr_sh_entry_impunge_symlink (impunge_frame, this, child_index,
-				      linkname);
+        impunge_sh->linkname = strdup (linkname);
+
+	afr_sh_entry_impunge_readlink_sink (impunge_frame, this, child_index);
+
 	return 0;
 
 out:
@@ -1502,8 +1682,16 @@ afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
 	child_index = (long) cookie;
 	active_src = impunge_sh->active_source;
 
-	if (op_ret == -1 && op_errno == ENOENT) {
+	if ((op_ret == -1 && op_errno == ENOENT)
+            || (S_ISLNK (impunge_sh->impunging_entry_mode))) {
+
+                /*
+                 * A symlink's target might have changed, so
+                 * always go down the recreate path for them.
+                 */
+
 		/* decrease call_count in recreate-callback */
+
 		gf_log (this->name, GF_LOG_TRACE,
 			"missing entry %s on %s",
 			impunge_local->loc.path,
@@ -1546,7 +1734,7 @@ afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
 
 int
 afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
-			    char *name)
+			    gf_dirent_t *entry)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *local  = NULL;
@@ -1566,17 +1754,17 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 
 	active_src = sh->active_source;
 
-	if ((strcmp (name, ".") == 0)
-	    || (strcmp (name, "..") == 0)) {
+	if ((strcmp (entry->d_name, ".") == 0)
+	    || (strcmp (entry->d_name, "..") == 0)) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"skipping inspection of %s under %s",
-			name, local->loc.path);
+			entry->d_name, local->loc.path);
 		goto out;
 	}
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"inspecting existance of %s under %s",
-		name, local->loc.path);
+		entry->d_name, local->loc.path);
 
 	impunge_frame = copy_frame (frame);
 	if (!impunge_frame) {
@@ -1592,7 +1780,9 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 	impunge_sh->sh_frame = frame;
 	impunge_sh->active_source = active_src;
 
-	ret = build_child_loc (this, &impunge_local->loc, &local->loc, name);
+        impunge_sh->impunging_entry_mode = entry->d_stat.st_mode;
+
+	ret = build_child_loc (this, &impunge_local->loc, &local->loc, entry->d_name);
 	if (ret != 0) {
 		goto out;
 	}
@@ -1636,7 +1826,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 out:
 	if (ret == -1)
 		afr_sh_entry_impunge_entry_done (frame, this, active_src);
-	
+
 	return 0;
 }
 
@@ -1692,7 +1882,7 @@ afr_sh_entry_impunge_readdir_cbk (call_frame_t *frame, void *cookie,
 	local->call_count = entry_count;
 
 	list_for_each_entry (entry, &entries->list, list) {
-		afr_sh_entry_impunge_entry (frame, this, entry->d_name);
+		afr_sh_entry_impunge_entry (frame, this, entry);
 	}
 
 	return 0;
@@ -1713,7 +1903,7 @@ afr_sh_entry_impunge_subvol (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, afr_sh_entry_impunge_readdir_cbk,
 		    priv->children[active_src],
-		    priv->children[active_src]->fops->readdir,
+		    priv->children[active_src]->fops->readdirp,
 		    sh->healing_fd, sh->block_size, sh->offset);
 
 	return 0;
