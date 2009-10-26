@@ -102,11 +102,15 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.create.ino;
 
+                local->cont.create.preparent.st_ino  = local->cont.create.parent_ino;
+                local->cont.create.postparent.st_ino = local->cont.create.parent_ino;
+
 		AFR_STACK_UNWIND (create, main_frame,
                                   local->op_ret, local->op_errno,
 				  local->cont.create.fd,
 				  local->cont.create.inode,
-				  unwind_buf, NULL, NULL);
+				  unwind_buf, &local->cont.create.preparent,
+                                  &local->cont.create.postparent);
         }
         
 	return 0;
@@ -176,6 +180,8 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         
                         if (child_index == local->read_child_index) {
                                 local->cont.create.read_child_buf = *buf;
+                                local->cont.create.preparent      = *preparent;
+                                local->cont.create.postparent     = *postparent;
                         }
 
 			local->cont.create.inode = inode;
@@ -303,6 +309,9 @@ afr_create (call_frame_t *frame, xlator_t *this,
 	local->cont.create.mode  = mode;
 	local->cont.create.fd    = fd_ref (fd);
 
+        if (loc->parent)
+                local->cont.create.parent_ino = loc->parent->ino;
+
 	local->transaction.fop    = afr_create_wind;
 	local->transaction.done   = afr_create_done;
 	local->transaction.unwind = afr_create_unwind;
@@ -358,10 +367,14 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.mknod.ino;
 
+                local->cont.mknod.preparent.st_ino  = local->cont.mknod.parent_ino;
+                local->cont.mknod.postparent.st_ino = local->cont.mknod.parent_ino;
+
 		AFR_STACK_UNWIND (mknod, main_frame,
                                   local->op_ret, local->op_errno,
 				  local->cont.mknod.inode,
-				  unwind_buf, NULL, NULL);
+				  unwind_buf, &local->cont.mknod.preparent,
+                                  &local->cont.mknod.postparent);
         }
 
 	return 0;
@@ -418,6 +431,8 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (child_index == local->read_child_index) {
                                 local->cont.mknod.read_child_buf = *buf;
+                                local->cont.mknod.preparent      = *preparent;
+                                local->cont.mknod.postparent     = *postparent;
                         }
                         
 			local->cont.mknod.inode = inode;
@@ -540,6 +555,9 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 	local->cont.mknod.mode  = mode;
 	local->cont.mknod.dev   = dev;
 
+        if (loc->parent)
+                local->cont.mknod.parent_ino = loc->parent->ino;
+
 	local->transaction.fop    = afr_mknod_wind;
 	local->transaction.done   = afr_mknod_done;
 	local->transaction.unwind = afr_mknod_unwind;
@@ -596,10 +614,14 @@ afr_mkdir_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.mkdir.ino;
 
+                local->cont.mkdir.preparent.st_ino  = local->cont.mkdir.parent_ino;
+                local->cont.mkdir.postparent.st_ino = local->cont.mkdir.parent_ino;
+
 		AFR_STACK_UNWIND (mkdir, main_frame,
                                   local->op_ret, local->op_errno,
 				  local->cont.mkdir.inode,
-				  unwind_buf, NULL, NULL);
+				  unwind_buf, &local->cont.mkdir.preparent,
+                        &local->cont.mkdir.postparent);
         }
 
 	return 0;
@@ -657,6 +679,8 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         
                         if (child_index == local->read_child_index) {
                                 local->cont.mkdir.read_child_buf = *buf;
+                                local->cont.mkdir.preparent      = *preparent;
+                                local->cont.mkdir.postparent     = *postparent;
                         }
 
 			local->cont.mkdir.inode = inode;
@@ -779,6 +803,9 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 
 	local->cont.mkdir.mode  = mode;
 
+        if (loc->parent)
+                local->cont.mkdir.parent_ino = loc->parent->ino;
+
 	local->transaction.fop    = afr_mkdir_wind;
 	local->transaction.done   = afr_mkdir_done;
 	local->transaction.unwind = afr_mkdir_unwind;
@@ -836,10 +863,14 @@ afr_link_unwind (call_frame_t *frame, xlator_t *this)
 
 		unwind_buf->st_ino = local->cont.link.ino;
 
+                local->cont.link.preparent.st_ino  = local->cont.link.parent_ino;
+                local->cont.link.postparent.st_ino = local->cont.link.parent_ino;
+
 		AFR_STACK_UNWIND (link, main_frame,
                                   local->op_ret, local->op_errno, 
 				  local->cont.link.inode,
-				  unwind_buf, NULL, NULL);
+				  unwind_buf, &local->cont.link.preparent,
+                                  &local->cont.link.postparent);
 	}
 
 	return 0;
@@ -885,6 +916,8 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (child_index == local->read_child_index) {
                                 local->cont.link.read_child_buf = *buf;
+                                local->cont.link.preparent      = *preparent;
+                                local->cont.link.postparent     = *postparent;
                         }
 
 			local->cont.link.inode    = inode;
@@ -1007,6 +1040,9 @@ afr_link (call_frame_t *frame, xlator_t *this,
 
 	local->cont.link.ino = oldloc->inode->ino;
 
+        if (oldloc->parent)
+                local->cont.link.parent_ino = oldloc->parent->ino;
+
 	local->transaction.fop    = afr_link_wind;
 	local->transaction.done   = afr_link_done;
 	local->transaction.unwind = afr_link_unwind;
@@ -1064,10 +1100,14 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
 
                 unwind_buf->st_ino = local->cont.symlink.ino;
 
+                local->cont.symlink.preparent.st_ino  = local->cont.symlink.parent_ino;
+                local->cont.symlink.postparent.st_ino = local->cont.symlink.parent_ino;
+
 		AFR_STACK_UNWIND (symlink, main_frame,
                                   local->op_ret, local->op_errno,
 				  local->cont.symlink.inode,
-				  unwind_buf, NULL, NULL);
+				  unwind_buf, &local->cont.symlink.preparent,
+                                  &local->cont.symlink.postparent);
         }
 
 	return 0;
@@ -1123,6 +1163,8 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (child_index == local->read_child_index) {
                                 local->cont.symlink.read_child_buf = *buf;
+                                local->cont.symlink.preparent      = *preparent;
+                                local->cont.symlink.postparent     = *postparent;
                         }
 
 			local->cont.symlink.inode    = inode;
@@ -1246,6 +1288,9 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 
 	local->cont.symlink.linkpath = strdup (linkpath);
 
+        if (loc->parent)
+                local->cont.symlink.parent_ino = loc->parent->ino;
+
 	local->transaction.fop    = afr_symlink_wind;
 	local->transaction.done   = afr_symlink_done;
 	local->transaction.unwind = afr_symlink_unwind;
@@ -1301,10 +1346,18 @@ afr_rename_unwind (call_frame_t *frame, xlator_t *this)
 
 		unwind_buf->st_ino = local->cont.rename.ino;
 
+                local->cont.rename.preoldparent.st_ino  = local->cont.rename.oldparent_ino;
+                local->cont.rename.postoldparent.st_ino = local->cont.rename.oldparent_ino;
+                local->cont.rename.prenewparent.st_ino  = local->cont.rename.newparent_ino;
+                local->cont.rename.postnewparent.st_ino = local->cont.rename.newparent_ino;
+
 		AFR_STACK_UNWIND (rename, main_frame,
                                   local->op_ret, local->op_errno, 
 				  unwind_buf,
-                                  NULL, NULL, NULL, NULL);
+                                  &local->cont.rename.preoldparent,
+                                  &local->cont.rename.postoldparent,
+                                  &local->cont.rename.prenewparent,
+                                  &local->cont.rename.postnewparent);
 	}
 
 	return 0;
@@ -1346,6 +1399,11 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (child_index == local->read_child_index) {
                                 local->cont.rename.read_child_buf = *buf;
+
+                                local->cont.rename.preoldparent  = *preoldparent;
+                                local->cont.rename.postoldparent = *postoldparent;
+                                local->cont.rename.prenewparent  = *prenewparent;
+                                local->cont.rename.postnewparent = *postnewparent;
                         }
                 }
 
@@ -1459,6 +1517,11 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
 	local->cont.rename.ino = oldloc->inode->ino;
 
+        if (oldloc->parent)
+                local->cont.rename.oldparent_ino = oldloc->parent->ino;
+        if (newloc->parent)
+                local->cont.rename.newparent_ino = newloc->parent->ino;
+
 	local->transaction.fop    = afr_rename_wind;
 	local->transaction.done   = afr_rename_done;
 	local->transaction.unwind = afr_rename_unwind;
@@ -1506,10 +1569,15 @@ afr_unlink_unwind (call_frame_t *frame, xlator_t *this)
 	}
 	UNLOCK (&frame->lock);
 
-	if (main_frame)
+	if (main_frame) {
+                local->cont.unlink.preparent.st_ino  = local->cont.unlink.parent_ino;
+                local->cont.unlink.postparent.st_ino = local->cont.unlink.parent_ino;
+
 		AFR_STACK_UNWIND (unlink, main_frame,
                                   local->op_ret, local->op_errno,
-                                  NULL, NULL);
+                                  &local->cont.unlink.preparent,
+                                  &local->cont.unlink.postparent);
+        }
 
 	return 0;
 }
@@ -1526,22 +1594,38 @@ afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int call_count  = -1;
 	int child_index = (long) cookie;
 	int need_unwind = 0;
+        int read_child  = 0;
 
 	local = frame->local;
 	priv  = this->private;
-	
+
+        read_child = afr_read_child (this, local->loc.inode);
+
 	LOCK (&frame->lock);
 	{
+                if (child_index == local->read_child_index) {
+                        local->read_child_returned = _gf_true;
+                }
+
 		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_fop_failed (frame, this, child_index);
 
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
 				local->op_ret   = op_ret;
+                                local->cont.unlink.preparent  = *preparent;
+                                local->cont.unlink.postparent = *postparent;
 			}
+
+                        if (child_index == local->read_child_index) {
+                                local->cont.unlink.preparent  = *preparent;
+                                local->cont.unlink.postparent = *postparent;
+                        }
+
 			local->success_count++;
 
-			if (local->success_count == priv->wait_count) {
+			if ((local->success_count == priv->wait_count)
+                            && local->read_child_returned) {
 				need_unwind = 1;
 			}
 		}
@@ -1651,6 +1735,9 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 
 	loc_copy (&local->loc, loc);
 
+        if (loc->parent)
+                local->cont.unlink.parent_ino = loc->parent->ino;
+
 	local->transaction.fop    = afr_unlink_wind;
 	local->transaction.done   = afr_unlink_done;
 	local->transaction.unwind = afr_unlink_unwind;
@@ -1697,10 +1784,15 @@ afr_rmdir_unwind (call_frame_t *frame, xlator_t *this)
 	}
 	UNLOCK (&frame->lock);
 
-	if (main_frame)
+	if (main_frame) {
+                local->cont.rmdir.preparent.st_ino  = local->cont.rmdir.parent_ino;
+                local->cont.rmdir.postparent.st_ino = local->cont.rmdir.parent_ino;
+
 		AFR_STACK_UNWIND (rmdir, main_frame,
                                   local->op_ret, local->op_errno,
-                                  NULL, NULL);
+                                  &local->cont.rmdir.preparent,
+                                  &local->cont.rmdir.postparent);
+        }
 
 	return 0;
 }
@@ -1717,22 +1809,39 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int call_count  = -1;
 	int child_index = (long) cookie;
 	int need_unwind = 0;
+        int read_child  = 0;
 
 	local = frame->local;
 	priv = this->private;
 
+        read_child = afr_read_child (this, local->loc.inode);
+
 	LOCK (&frame->lock);
 	{
+                if (child_index == read_child) {
+                        local->read_child_returned = _gf_true;
+                }
+
 		if (afr_fop_failed (op_ret, op_errno))
 			afr_transaction_fop_failed (frame, this, child_index);
 
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
 				local->op_ret = op_ret;
+                                local->cont.rmdir.preparent  = *preparent;
+                                local->cont.rmdir.postparent = *postparent;
+
 			}
+
+                        if (child_index == read_child) {
+                                local->cont.rmdir.preparent  = *preparent;
+                                local->cont.rmdir.postparent = *postparent;
+                        }
+
 			local->success_count++;
 
-			if (local->success_count == priv->wait_count)
+			if ((local->success_count == priv->wait_count)
+                            && local->read_child_returned)
 				need_unwind = 1;
 		}
 
@@ -1840,6 +1949,9 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 	transaction_frame->local = local;
 
 	loc_copy (&local->loc, loc);
+
+        if (loc->parent)
+                local->cont.rmdir.parent_ino = loc->parent->ino;
 
 	local->transaction.fop    = afr_rmdir_wind;
 	local->transaction.done   = afr_rmdir_done;

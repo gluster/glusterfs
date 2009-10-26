@@ -57,8 +57,6 @@ afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
-        struct stat *   unwind_buf = NULL;
-
 	local = frame->local;
 	priv  = this->private;
 
@@ -71,16 +69,13 @@ afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                if (local->cont.writev.read_child_buf.st_ino) {
-                        unwind_buf = &local->cont.writev.read_child_buf;
-                } else {
-                        unwind_buf = &local->cont.writev.buf;
-                }
+                local->cont.writev.prebuf.st_ino  = local->cont.writev.ino;
+                local->cont.writev.postbuf.st_ino = local->cont.writev.ino;
 
-                unwind_buf->st_ino = local->cont.writev.ino;
-
-		AFR_STACK_UNWIND (writev, main_frame, local->op_ret,
-                                  local->op_errno, unwind_buf, NULL);
+		AFR_STACK_UNWIND (writev, main_frame,
+                                  local->op_ret, local->op_errno,
+                                  &local->cont.writev.prebuf,
+                                  &local->cont.writev.postbuf);
 	}
 	return 0;
 }
@@ -115,12 +110,14 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
-				local->op_ret   = op_ret;
-				local->cont.writev.buf = *postbuf;
+				local->op_ret              = op_ret;
+				local->cont.writev.prebuf  = *prebuf;
+				local->cont.writev.postbuf = *postbuf;
 			}
 
                         if (child_index == read_child) {
-                                local->cont.writev.read_child_buf = *postbuf;
+                                local->cont.writev.prebuf  = *prebuf;
+                                local->cont.writev.postbuf = *postbuf;
                         }
 
 			local->success_count++;
@@ -245,11 +242,11 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	transaction_frame->local = local;
 
 	local->op = GF_FOP_WRITE;
-	local->cont.writev.vector  = iov_dup (vector, count);
-	local->cont.writev.count   = count;
-	local->cont.writev.offset  = offset;
-	local->cont.writev.ino     = fd->inode->ino;
-        local->cont.writev.iobref  = iobref_ref (iobref);
+	local->cont.writev.vector     = iov_dup (vector, count);
+	local->cont.writev.count      = count;
+	local->cont.writev.offset     = offset;
+	local->cont.writev.ino        = fd->inode->ino;
+        local->cont.writev.iobref     = iobref_ref (iobref);
 
 	local->transaction.fop    = afr_writev_wind;
 	local->transaction.done   = afr_writev_done;
@@ -291,8 +288,6 @@ afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
 	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
-        struct stat *   unwind_buf = NULL;
-
 	local = frame->local;
 	priv  = this->private;
 
@@ -305,17 +300,13 @@ afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                if (local->cont.truncate.read_child_buf.st_ino) {
-                        unwind_buf = &local->cont.truncate.read_child_buf;
-                } else {
-                        unwind_buf = &local->cont.truncate.buf;
-                }
-
-                unwind_buf->st_ino = local->cont.truncate.ino;
+                local->cont.truncate.prebuf.st_ino  = local->cont.truncate.ino;
+                local->cont.truncate.postbuf.st_ino = local->cont.truncate.ino;
 
                 AFR_STACK_UNWIND (truncate, main_frame, local->op_ret,
                                   local->op_errno,
-                                  unwind_buf, NULL);
+                                  &local->cont.truncate.prebuf,
+                                  &local->cont.truncate.postbuf);
         }
 
 	return 0;
@@ -352,11 +343,13 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
 				local->op_ret = op_ret;
-				local->cont.truncate.buf = *postbuf;
+				local->cont.truncate.prebuf  = *prebuf;
+				local->cont.truncate.postbuf = *postbuf;
 			}
 
                         if (child_index == read_child) {
-                                local->cont.truncate.read_child_buf = *postbuf;
+                                local->cont.truncate.prebuf  = *prebuf;
+                                local->cont.truncate.postbuf = *postbuf;
                         }
 
 			local->success_count++;
@@ -514,8 +507,6 @@ afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
 	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
-        struct stat *   unwind_buf = NULL;
-
 	local = frame->local;
 	priv  = this->private;
 
@@ -528,16 +519,13 @@ afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                if (local->cont.ftruncate.read_child_buf.st_ino) {
-                        unwind_buf = &local->cont.ftruncate.read_child_buf;
-                } else {
-                        unwind_buf = &local->cont.ftruncate.buf;
-                }
-
-                unwind_buf->st_ino = local->cont.ftruncate.ino;
+                local->cont.ftruncate.prebuf.st_ino  = local->cont.ftruncate.ino;
+                local->cont.ftruncate.postbuf.st_ino = local->cont.ftruncate.ino;
 
 		AFR_STACK_UNWIND (ftruncate, main_frame, local->op_ret,
-                                  local->op_errno, unwind_buf, NULL);
+                                  local->op_errno,
+                                  &local->cont.ftruncate.prebuf,
+                                  &local->cont.ftruncate.postbuf);
 	}
 	return 0;
 }
@@ -573,11 +561,13 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret != -1) {
 			if (local->success_count == 0) {
 				local->op_ret = op_ret;
-				local->cont.ftruncate.buf = *postbuf;
+				local->cont.ftruncate.prebuf  = *prebuf;
+				local->cont.ftruncate.postbuf = *postbuf;
 			}
 
                         if (child_index == read_child) {
-                                local->cont.ftruncate.read_child_buf = *postbuf;
+                                local->cont.ftruncate.prebuf  = *prebuf;
+                                local->cont.ftruncate.postbuf = *postbuf;
                         }
 
 			local->success_count++;
