@@ -2601,7 +2601,7 @@ server_readlink (call_frame_t *frame, xlator_t *bound_xl,
 
         state->resolve.type = RESOLVE_MUST;
         state->resolve.ino  = ntoh64 (req->ino);
-        state->resolve.gen  = ntoh64 (req->ino);
+        state->resolve.gen  = ntoh64 (req->gen);
         state->resolve.path = strdup (req->path);
 
         state->size  = ntoh32 (req->size);
