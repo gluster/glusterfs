@@ -420,7 +420,7 @@ afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 			  local->cont.lookup.inode,
 			  &local->cont.lookup.buf,
 			  local->cont.lookup.xattr,
-                          NULL);
+                          &local->cont.lookup.postparent);
 
 	return 0;
 }
@@ -508,6 +508,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 				
 			local->cont.lookup.inode = inode;
 			local->cont.lookup.xattr = dict_ref (xattr);
+                        local->cont.lookup.postparent = *postparent;
 
 			*lookup_buf = *buf;
                         
@@ -562,6 +563,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
                                 
                                 local->cont.lookup.inode = inode;
                                 local->cont.lookup.xattr = dict_ref (xattr);
+                                local->cont.lookup.postparent = *postparent;
 
                                 *lookup_buf = *buf;
 
@@ -586,6 +588,8 @@ unlock:
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
+                local->cont.lookup.postparent.st_ino  = local->cont.lookup.parent_ino;
+
                 if (local->cont.lookup.ino) {
                         local->cont.lookup.buf.st_ino = local->cont.lookup.ino;
                 }
@@ -629,7 +633,7 @@ unlock:
 					  local->cont.lookup.inode, 
 					  &local->cont.lookup.buf,
 					  local->cont.lookup.xattr,
-                                          NULL);
+                                          &local->cont.lookup.postparent);
 		}
 	}
 
@@ -1146,12 +1150,34 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	
 	int call_count = -1;
 
+        int child_index = (long) cookie;
+        int read_child  = 0;
+
 	local = frame->local;
+
+        read_child = afr_read_child (this, local->fd->inode);
 
 	LOCK (&frame->lock);
 	{
-		if (op_ret == 0)
+                if (child_index == read_child) {
+                        local->read_child_returned = _gf_true;
+                }
+
+		if (op_ret == 0) {
 			local->op_ret = 0;
+
+			if (local->success_count == 0) {
+				local->cont.fsync.prebuf  = *prebuf;
+				local->cont.fsync.postbuf = *postbuf;
+			}
+
+                        if (child_index == read_child) {
+                                local->cont.fsync.prebuf  = *prebuf;
+                                local->cont.fsync.postbuf = *postbuf;
+                        }
+
+			local->success_count++;
+                }
 
 		local->op_errno = op_errno;
 	}
@@ -1159,9 +1185,14 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	call_count = afr_frame_return (frame);
 
-	if (call_count == 0)
+	if (call_count == 0) {
+                local->cont.fsync.prebuf.st_ino  = local->cont.fsync.ino;
+                local->cont.fsync.postbuf.st_ino = local->cont.fsync.ino;
+
 		AFR_STACK_UNWIND (fsync, frame, local->op_ret, local->op_errno,
-                                  NULL, NULL);
+                                  &local->cont.fsync.prebuf,
+                                  &local->cont.fsync.postbuf);
+        }
 
 	return 0;
 }
@@ -1198,12 +1229,15 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	call_count = local->call_count;
 	frame->local = local;
 
+        local->cont.fsync.ino = fd->inode->ino;
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			STACK_WIND (frame, afr_fsync_cbk,
-				    priv->children[i],
-				    priv->children[i]->fops->fsync,
-				    fd, datasync);
+			STACK_WIND_COOKIE (frame, afr_fsync_cbk,
+                                           (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->fsync,
+                                           fd, datasync);
 			if (!--call_count)
 				break;
 		}

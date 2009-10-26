@@ -207,7 +207,9 @@ typedef struct _afr_local {
 			inode_t *inode;
 			struct stat buf;
                         struct stat read_child_buf;
+                        struct stat postparent;
                         ino_t ino;
+                        ino_t parent_ino;
 			dict_t *xattr;
 		} lookup;
 
@@ -246,6 +248,7 @@ typedef struct _afr_local {
 		struct {
 			size_t size;
 			int last_tried;
+                        ino_t ino;
 		} readlink;
 
 		struct {
@@ -322,8 +325,8 @@ typedef struct _afr_local {
 		
 		struct {
 			ino_t ino;
-			struct stat buf;
-			struct stat read_child_buf;
+			struct stat prebuf;
+			struct stat postbuf;
 
 			int32_t op_ret;
 
@@ -333,18 +336,24 @@ typedef struct _afr_local {
 			off_t offset;
 		} writev;
 
+                struct {
+                        ino_t ino;
+                        struct stat prebuf;
+                        struct stat postbuf;
+                } fsync;
+
 		struct {
 			ino_t ino;
 			off_t offset;
-			struct stat buf;
-                        struct stat read_child_buf;
+			struct stat prebuf;
+                        struct stat postbuf;
 		} truncate;
 
 		struct {
 			ino_t ino;
 			off_t offset;
-			struct stat buf;
-                        struct stat read_child_buf;
+			struct stat prebuf;
+                        struct stat postbuf;
 		} ftruncate;
 
 		struct {
@@ -383,60 +392,87 @@ typedef struct _afr_local {
 		
 		struct {
 			ino_t ino;
+                        ino_t parent_ino;
 			fd_t *fd;
 			int32_t flags;
 			mode_t mode;
 			inode_t *inode;
 			struct stat buf;
+                        struct stat preparent;
+                        struct stat postparent;
                         struct stat read_child_buf;
 		} create;
 
 		struct {
 			ino_t ino;
+                        ino_t parent_ino;
 			dev_t dev;
 			mode_t mode;
 			inode_t *inode;
 			struct stat buf;
+                        struct stat preparent;
+                        struct stat postparent;
                         struct stat read_child_buf;
 		} mknod;
 
 		struct {
 			ino_t ino;
+                        ino_t parent_ino;
 			int32_t mode;
 			inode_t *inode;
 			struct stat buf;
                         struct stat read_child_buf;
+                        struct stat preparent;
+                        struct stat postparent;
 		} mkdir;
 
 		struct {
+                        ino_t parent_ino;
 			int32_t op_ret;
 			int32_t op_errno;
+                        struct stat preparent;
+                        struct stat postparent;
 		} unlink;
 
 		struct {
+                        ino_t parent_ino;
 			int32_t op_ret;
 			int32_t op_errno;
+                        struct stat preparent;
+                        struct stat postparent;
 		} rmdir;
 
 		struct {
+                        ino_t oldparent_ino;
+                        ino_t newparent_ino;
 			ino_t ino;
 			struct stat buf;
                         struct stat read_child_buf;
+                        struct stat preoldparent;
+                        struct stat prenewparent;
+                        struct stat postoldparent;
+                        struct stat postnewparent;
 		} rename;
 
 		struct {
 			ino_t ino;
+                        ino_t parent_ino;
 			inode_t *inode;
 			struct stat buf;
                         struct stat read_child_buf;
+                        struct stat preparent;
+                        struct stat postparent;
 		} link;
 
 		struct {
 			ino_t ino;
+                        ino_t parent_ino;
 			inode_t *inode;
 			struct stat buf;
                         struct stat read_child_buf;
 			char *linkpath;
+                        struct stat preparent;
+                        struct stat postparent;
 		} symlink;
 
 		struct {

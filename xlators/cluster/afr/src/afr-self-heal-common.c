@@ -1417,7 +1417,7 @@ afr_bgsh_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
                                   local->cont.lookup.inode,
                                   &local->cont.lookup.buf,
                                   local->cont.lookup.xattr,
-                                  NULL);
+                                  &local->cont.lookup.postparent);
         }
 
         LOCK (&priv->lock);
@@ -1457,7 +1457,7 @@ afr_bgsh_unwind (call_frame_t *bgsh_frame, xlator_t *this)
                           local->cont.lookup.inode,
                           &local->cont.lookup.buf,
                           local->cont.lookup.xattr,
-                          NULL);
+                          &local->cont.lookup.postparent);
 
 	return 0;
 }

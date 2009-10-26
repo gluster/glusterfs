@@ -470,6 +470,9 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
+                if (sbuf)
+                        sbuf->st_ino = local->cont.readlink.ino;
+
 		AFR_STACK_UNWIND (readlink, frame, op_ret, op_errno, buf, sbuf);
 	}
 
@@ -525,7 +528,9 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
         }
 
 	loc_copy (&local->loc, loc);
+
 	local->cont.readlink.size       = size;
+        local->cont.readlink.ino        = loc->inode->ino;
 
 	STACK_WIND_COOKIE (frame, afr_readlink_cbk,
 			   (void *) (long) call_child,
