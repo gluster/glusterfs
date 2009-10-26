@@ -34,11 +34,14 @@
 #include "xlator.h"
 #include "common-utils.h"
 #include "call-stub.h"
+#include "rbthash.h"
+#include "hashfn.h"
 #include <sys/time.h>
 #include <fnmatch.h>
 
 #define IOC_PAGE_SIZE    (1024 * 128)   /* 128KB */
 #define IOC_CACHE_SIZE   (32 * 1024 * 1024)
+#define IOC_PAGE_TABLE_BUCKET_COUNT 4096
 
 struct ioc_table;
 struct ioc_local;
@@ -110,7 +113,6 @@ struct ioc_local {
  *
  */
 struct ioc_page {
-	struct list_head    pages;
 	struct list_head    page_lru;
 	struct ioc_inode    *inode;   /* inode this page belongs to */
 	struct ioc_priority *priority;
@@ -125,28 +127,32 @@ struct ioc_page {
 	pthread_mutex_t     page_lock;
 };
 
+struct ioc_cache {
+        rbthash_table_t  *page_table;
+        struct list_head  page_lru;
+	time_t            mtime;       /*
+                                        * mtime of the server file when last
+                                        * cached
+                                        */
+	struct timeval    tv;          /*
+                                        * time-stamp at last re-validate
+                                        */
+};
+
 struct ioc_inode {
-	struct ioc_table *table;
-	struct list_head pages;      /* list of pages of this inode */
-	struct list_head inode_list; /*
-                                      * list of inodes, maintained by io-cache
-                                      * translator
-                                      */
-	struct list_head inode_lru;
-	struct list_head page_lru;
-	struct ioc_waitq *waitq;
-	pthread_mutex_t  inode_lock;
-	uint32_t         weight;      /*
-                                       * weight of the inode, increases on each
-                                       * read
-                                       */
-	time_t           mtime;       /*
-                                       * mtime of the server file when last
-                                       * cached
-                                       */
-	struct timeval   tv;          /*
-                                       * time-stamp at last re-validate
-                                       */
+	struct ioc_table      *table;
+        struct ioc_cache       cache;        
+	struct list_head       inode_list; /*
+                                            * list of inodes, maintained by
+                                            * io-cache translator
+                                            */
+	struct list_head       inode_lru;
+	struct ioc_waitq      *waitq;
+	pthread_mutex_t        inode_lock;
+	uint32_t               weight;      /*
+                                             * weight of the inode, increases
+                                             * on each read
+                                             */
 };
 
 struct ioc_table {

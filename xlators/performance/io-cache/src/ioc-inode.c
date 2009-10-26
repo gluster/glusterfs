@@ -25,6 +25,19 @@
 #include "io-cache.h"
 
 
+inline uint32_t
+ioc_hashfn (void *data, int len)
+{
+        uint32_t        hash = 0;
+        while (len > 0) {
+                hash ^= *(uint32_t *)data;
+                data += sizeof (uint32_t);
+                len -= sizeof (uint32_t);
+        }
+
+        return hash;
+}
+
 /*
  * str_to_ptr - convert a string to pointer
  * @string: string
@@ -163,8 +176,15 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 	ioc_inode->table = table;
  
 	/* initialize the list for pages */
-	INIT_LIST_HEAD (&ioc_inode->pages);
-	INIT_LIST_HEAD (&ioc_inode->page_lru);
+        ioc_inode->cache.page_table = rbthash_table_init (IOC_PAGE_TABLE_BUCKET_COUNT,
+                                                          ioc_hashfn, free);
+        if (ioc_inode->cache.page_table == NULL) {
+                FREE (ioc_inode);
+                ioc_inode = NULL;
+                goto out;
+        }
+
+	INIT_LIST_HEAD (&ioc_inode->cache.page_lru);
 
 	ioc_table_lock (table);
 
