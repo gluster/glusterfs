@@ -351,7 +351,8 @@ server_resolve_entry (call_frame_t *frame)
                 return 0;
         }
 
-        resolve_loc_touchup (frame);
+        if (ret == 0)
+                resolve_loc_touchup (frame);
 
         server_resolve_all (frame);
 
@@ -426,7 +427,8 @@ server_resolve_inode (call_frame_t *frame)
                 return 0;
         }
 
-        resolve_loc_touchup (frame);
+        if (ret == 0)
+                resolve_loc_touchup (frame);
 
         server_resolve_all (frame);
 
