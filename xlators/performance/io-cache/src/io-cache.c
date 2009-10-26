@@ -80,7 +80,7 @@ ioc_inode_need_revalidate (ioc_inode_t *ioc_inode)
 
 	ret = gettimeofday (&tv, NULL);
 
-	if (time_elapsed (&tv, &ioc_inode->tv) >= table->cache_timeout)
+	if (time_elapsed (&tv, &ioc_inode->cache.tv) >= table->cache_timeout)
 		need_revalidate = 1;
 
 	return need_revalidate;
@@ -100,7 +100,8 @@ __ioc_inode_flush (ioc_inode_t *ioc_inode)
 	int32_t    destroy_size = 0;
 	int32_t    ret = 0;
 
-	list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
+	list_for_each_entry_safe (curr, next, &ioc_inode->cache.page_lru,
+                                  page_lru) {
 		ret = ioc_page_destroy (curr);
     
 		if (ret != -1) 
@@ -185,7 +186,7 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		/* update the time-stamp of revalidation */
 		ioc_inode_lock (ioc_inode);
 		{
-			gettimeofday (&ioc_inode->tv, NULL);
+			gettimeofday (&ioc_inode->cache.tv, NULL);
 		}
 		ioc_inode_unlock (ioc_inode);
 		
@@ -271,7 +272,7 @@ ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		{
 			destroy_size = __ioc_inode_flush (ioc_inode);
 			if (op_ret >= 0)
-				ioc_inode->mtime = stbuf->st_mtime;
+				ioc_inode->cache.mtime = stbuf->st_mtime;
 		}
 		ioc_inode_unlock (ioc_inode);
 		local_stbuf = NULL;
@@ -290,7 +291,7 @@ ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   
 	ioc_inode_lock (ioc_inode);
 	{
-		gettimeofday (&ioc_inode->tv, NULL);
+		gettimeofday (&ioc_inode->cache.tv, NULL);
 	}
 	ioc_inode_unlock (ioc_inode);
 
@@ -1117,7 +1118,7 @@ ioc_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
 	ioc_inode_lock (ioc_inode);
 	{
-		gettimeofday (&ioc_inode->tv, NULL);
+		gettimeofday (&ioc_inode->cache.tv, NULL);
 	}
 	ioc_inode_unlock (ioc_inode);
 

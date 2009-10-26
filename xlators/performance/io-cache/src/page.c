@@ -30,35 +30,28 @@
 #include <assert.h>
 #include <sys/time.h>
 
+char
+ioc_empty (struct ioc_cache *cache)
+{
+        return list_empty (&cache->page_lru);
+}
+
 ioc_page_t *
 ioc_page_get (ioc_inode_t *ioc_inode, off_t offset)
 {
-	int8_t       found = 0;
-	ioc_page_t   *page = NULL;
-	ioc_table_t  *table = NULL;
-	off_t        rounded_offset = 0;
+	ioc_page_t   *page           = NULL;
+	ioc_table_t  *table          = NULL;
+	off_t         rounded_offset = 0;
 
         table = ioc_inode->table;
         rounded_offset = floor (offset, table->page_size);
  
-	if (list_empty (&ioc_inode->pages)) {
-		return NULL;
-	}
+        page = rbthash_get (ioc_inode->cache.page_table, &rounded_offset,
+                            sizeof (rounded_offset));
 
-	list_for_each_entry (page, &ioc_inode->pages, pages) {
-		if (page->offset == rounded_offset) {
-			found = 1;
-			break;
-		}
-	}
-
-	/* was previously returning ioc_inode itself.., 
-	 * 1st of its type and found one more downstairs :O */
-	if (!found){
-		page = NULL;
-	} else {
+        if (page != NULL) {
 		/* push the page to the end of the lru list */
-		list_move_tail (&page->page_lru, &ioc_inode->page_lru);
+		list_move_tail (&page->page_lru, &ioc_inode->cache.page_lru);
 	}
 
 	return page;
@@ -74,7 +67,7 @@ ioc_page_get (ioc_inode_t *ioc_inode, off_t offset)
 int64_t
 ioc_page_destroy (ioc_page_t *page)
 {
-	int64_t page_size = 0;
+	int64_t  page_size = 0;
 
 	page_size = iobref_size (page->iobref);
 
@@ -82,8 +75,8 @@ ioc_page_destroy (ioc_page_t *page)
 		/* frames waiting on this page, do not destroy this page */
 		page_size = -1;
 	} else {
-
-		list_del (&page->pages);
+                rbthash_remove (page->inode->cache.page_table, &page->offset,
+                                sizeof (page->offset));
 		list_del (&page->page_lru);
     
 		gf_log (page->inode->table->xl->name, GF_LOG_TRACE,
@@ -98,7 +91,6 @@ ioc_page_destroy (ioc_page_t *page)
 		}
     
 		page->inode = NULL;
-    
 	}
 
 	if (page_size != -1) {
@@ -140,8 +132,8 @@ ioc_prune (ioc_table_t *table)
 				/* { */
 
 				list_for_each_entry_safe (page, next, 
-							  &curr->page_lru, 
-							  page_lru) {
+							  &curr->cache.page_lru,
+                                                          page_lru) {
 					/* done with all pages, and not 
 					 * reached equilibrium yet??
 					 * continue with next inode in 
@@ -163,7 +155,7 @@ ioc_prune (ioc_table_t *table)
 					if (size_pruned >= size_to_prune)
 						break;
 				} /* list_for_each_entry_safe(page...) */
-				if (list_empty (&curr->pages)) {
+				if (ioc_empty (&curr->cache)) {
 					list_del_init (&curr->inode_lru);
 				}
 
@@ -194,10 +186,10 @@ ioc_prune (ioc_table_t *table)
 ioc_page_t *
 ioc_page_create (ioc_inode_t *ioc_inode, off_t offset)
 {
-	ioc_table_t *table = NULL;
-	ioc_page_t  *page = NULL;
-	off_t       rounded_offset = 0;
-	ioc_page_t  *newpage = NULL;
+	ioc_table_t *table          = NULL;
+	ioc_page_t  *page           = NULL;
+	off_t        rounded_offset = 0;
+	ioc_page_t  *newpage        = NULL;
   
         table = ioc_inode->table;
         rounded_offset = floor (offset, table->page_size);
@@ -219,8 +211,10 @@ ioc_page_create (ioc_inode_t *ioc_inode, off_t offset)
 	newpage->inode = ioc_inode;
 	pthread_mutex_init (&newpage->page_lock, NULL);
 
-	list_add_tail (&newpage->page_lru, &ioc_inode->page_lru);
-	list_add_tail (&newpage->pages, &ioc_inode->pages);
+        rbthash_insert (ioc_inode->cache.page_table, newpage, &rounded_offset,
+                        sizeof (rounded_offset));
+ 
+	list_add_tail (&newpage->page_lru, &ioc_inode->cache.page_lru);
 
 	page = newpage;
 
@@ -293,12 +287,12 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode, struct stat *stbuf)
 	int8_t cache_still_valid = 1;
   
 #if 0
-	if (!stbuf || (stbuf->st_mtime != ioc_inode->mtime) || 
+	if (!stbuf || (stbuf->st_mtime != ioc_inode->cache.mtime) || 
 	    (stbuf->st_mtim.tv_nsec != ioc_inode->stbuf.st_mtim.tv_nsec))
 		cache_still_valid = 0;
 
 #else
-	if (!stbuf || (stbuf->st_mtime != ioc_inode->mtime))
+	if (!stbuf || (stbuf->st_mtime != ioc_inode->cache.mtime))
 		cache_still_valid = 0;
 
 #endif
@@ -369,9 +363,9 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		} 
     
 		if (op_ret >= 0)
-			ioc_inode->mtime = stbuf->st_mtime;
+			ioc_inode->cache.mtime = stbuf->st_mtime;
     
-		gettimeofday (&ioc_inode->tv, NULL);
+		gettimeofday (&ioc_inode->cache.tv, NULL);
     
 		if (op_ret < 0) {
 			/* error, readv returned -1 */
@@ -571,7 +565,7 @@ ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 		frame, offset, size, page->size, local->wait_count);
 
 	/* immediately move this page to the end of the page_lru list */
-	list_move_tail (&page->page_lru, &ioc_inode->page_lru);
+	list_move_tail (&page->page_lru, &ioc_inode->cache.page_lru);
 	/* fill local->pending_size bytes from local->pending_offset */
 	if (local->op_ret != -1 && page->size) {
 		if (offset > page->offset)
