@@ -4676,6 +4676,7 @@ init (xlator_t *this)
         struct posix_private * _private = NULL;
         data_t *               dir_data = NULL;
 	data_t *               tmp_data = NULL;
+        uint64_t               time64   = 0;
 
         dir_data = dict_get (this->options, "directory");
 
@@ -4847,7 +4848,8 @@ init (xlator_t *this)
         _private->st_device[0] = buf.st_dev;
 
         LOCK_INIT (&_private->gen_lock);
-        _private->gen_seq = (time (NULL) << 32);
+        time64 = time (NULL);
+        _private->gen_seq = (time64 << 32);
 
 #ifndef GF_DARWIN_HOST_OS
         {
