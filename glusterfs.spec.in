@@ -161,7 +161,6 @@ find %{buildroot}%{_libdir}/glusterfs -name '*.la' | xargs rm -f
 
 %preun server
 if [ $1 -eq 0 ]; then 
-    /sbin/service glusterfsd stop &>/dev/null || :
     /sbin/chkconfig --del glusterfsd
 fi
 
