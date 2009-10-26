@@ -492,28 +492,81 @@ afr_sh_data_trim_sinks (call_frame_t *frame, xlator_t *this)
 }
 
 
-struct afr_sh_algorithm *
-afr_sh_data_pick_algo (call_frame_t *frame, xlator_t *this)
+static struct afr_sh_algorithm *
+sh_algo_from_name (xlator_t *this, char *name)
 {
-        afr_private_t *priv = NULL;
         int i = 0;
 
-        priv = this->private;
-
         while (afr_self_heal_algorithms[i].name) {
-                if (!strcmp (priv->data_self_heal_algorithm,
-                             afr_self_heal_algorithms[i].name)) {
-                        goto out;
+                if (!strcmp (name, afr_self_heal_algorithms[i].name)) {
+                        return &afr_self_heal_algorithms[i];
                 }
 
                 i++;
         }
 
-        /* No match found, so fall back on "full" */
+        return NULL;
+}
 
-        i = 0;
-out:
-        return &afr_self_heal_algorithms[i];
+
+static int
+sh_zero_byte_files_exist (afr_self_heal_t *sh, int child_count)
+{
+        int i;
+        int ret = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (sh->buf[i].st_size == 0) {
+                        ret = 1;
+                        break;
+                }
+        }
+
+        return ret;
+}
+
+
+struct afr_sh_algorithm *
+afr_sh_data_pick_algo (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t *           priv  = NULL;
+        struct afr_sh_algorithm * algo  = NULL;
+        afr_local_t *             local = NULL;
+        afr_self_heal_t *         sh    = NULL;
+
+        priv  = this->private;
+        local = frame->local;
+        sh    = &local->self_heal;
+        algo  = sh_algo_from_name (this, priv->data_self_heal_algorithm);
+
+        if (algo == NULL) {
+                /* option not set, so fall back on heuristics */
+
+                if ((local->enoent_count != 0)
+                    || sh_zero_byte_files_exist (sh, priv->child_count)
+                    || (sh->file_size <= (priv->data_self_heal_window_size * this->ctx->page_size))) {
+
+                        /*
+                         * If the file does not exist on one of the subvolumes,
+                         * or a zero-byte file exists (created by entry self-heal)
+                         * the entire content has to be copied anyway, so there
+                         * is no benefit from using the "diff" algorithm.
+                         *
+                         * If the file size is about the same as page size,
+                         * the entire file can be read and written with a few
+                         * (pipelined) STACK_WINDs, which will be faster
+                         * than "diff" which has to read checksums and then
+                         * read and write.
+                         */
+
+                        algo = sh_algo_from_name (this, "full");
+
+                } else {
+                        algo = sh_algo_from_name (this, "diff");
+                }
+        }
+
+        return algo;
 }
 
 

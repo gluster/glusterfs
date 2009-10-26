@@ -2400,7 +2400,7 @@ init (xlator_t *this)
 		} 
 	}
 
-        priv->data_self_heal_algorithm = "full";
+        priv->data_self_heal_algorithm = "";
 
         dict_ret = dict_get_str (this->options, "data-self-heal-algorithm",
                                  &algo);
