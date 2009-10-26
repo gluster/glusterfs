@@ -224,6 +224,9 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 		sh->healing_fd = NULL;
 	}
 
+        if (sh->linkname)
+                FREE (sh->linkname);
+
 	loc_wipe (&sh->parent_loc);
 }
 

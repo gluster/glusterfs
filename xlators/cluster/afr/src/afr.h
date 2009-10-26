@@ -91,6 +91,9 @@ typedef struct {
 	int *success;
 	int *locked_nodes;
 
+        mode_t impunging_entry_mode;
+        const char *linkname;
+
 	fd_t *healing_fd;
 	int   op_failed;
 
