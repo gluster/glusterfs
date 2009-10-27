@@ -2616,7 +2616,7 @@ static void
 fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_getxattr_in *fgxi = msg;
-        char         *name = (char *)(msg + 1);
+        char         *name = (char *)(fgxi + 1);
 
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
