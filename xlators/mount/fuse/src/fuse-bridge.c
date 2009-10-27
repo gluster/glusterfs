@@ -1057,7 +1057,9 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 state->callcount = 2;
         }
 
-        state->fd = fd_lookup (state->loc.inode, finh->pid);
+        if (fsi->valid & FATTR_FH) {
+                state->fd = FH_TO_FD (fsi->fh);
+        }
 
         if (fsi->valid & FATTR_SIZE) {
                 fuse_do_truncate (state, fsi);
