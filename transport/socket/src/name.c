@@ -19,6 +19,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <errno.h>
 #include <netdb.h>
 #include <string.h>
@@ -368,7 +369,21 @@ af_inet_server_get_local_sockaddr (transport_t *this,
         if (listen_host_data)
         {
                 listen_host = data_to_str (listen_host_data);
-        }
+        } else {
+		if (addr->sa_family == AF_INET6) {
+			struct sockaddr_in6 *in = (struct sockaddr_in6 *) addr;
+			in->sin6_addr = in6addr_any;
+			in->sin6_port = htons(listen_port);
+			*addr_len = sizeof(struct sockaddr_in6);
+                        goto out;
+		} else if (addr->sa_family == AF_INET) {
+			struct sockaddr_in *in = (struct sockaddr_in *) addr;
+			in->sin_addr.s_addr = htonl(INADDR_ANY);
+			in->sin_port = htons(listen_port);
+			*addr_len = sizeof(struct sockaddr_in);
+			goto out;
+		}
+	}
 
         memset (service, 0, sizeof (service));
         sprintf (service, "%d", listen_port);
@@ -384,7 +399,7 @@ af_inet_server_get_local_sockaddr (transport_t *this,
                         "getaddrinfo failed for host %s, service %s (%s)", 
                         listen_host, service, gai_strerror (ret));
                 ret = -1;
-                goto err;
+                goto out;
         }
 
         memcpy (addr, res->ai_addr, res->ai_addrlen);
@@ -392,7 +407,7 @@ af_inet_server_get_local_sockaddr (transport_t *this,
 
         freeaddrinfo (res);
 
-err:
+out:
         return ret;
 }
 
