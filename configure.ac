@@ -141,6 +141,12 @@ AC_ARG_WITH(mountutildir,
             [mountutildir='/sbin'])
 AC_SUBST(mountutildir)
 
+AC_ARG_WITH(initdir,
+            [  --with-initdir=DIR init.d scripts in DIR @<:@/etc/init.d@:>@],
+            [initdir=$withval],
+            [initdir='/etc/init.d'])
+AC_SUBST(initdir)
+
 # LEX needs a check
 AC_PROG_LEX
 if test  "x${LEX}" != "xflex" -a "x${FLEX}" != "xlex"; then
