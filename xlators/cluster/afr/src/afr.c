@@ -1229,6 +1229,7 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	call_count = local->call_count;
 	frame->local = local;
 
+        local->fd             = fd_ref (fd);
         local->cont.fsync.ino = fd->inode->ino;
 
 	for (i = 0; i < priv->child_count; i++) {
