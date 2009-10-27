@@ -3,7 +3,7 @@ EXTRA_DIST = glusterfsd-Debian glusterfsd-Redhat glusterfsd-SuSE glusterfs-serve
 
 CLEANFILES = 
 
-initdir = /etc/init.d
+initdir = @initdir@
 
 $(GF_DISTRIBUTION): 
 	$(mkdir_p) $(DESTDIR)$(initdir)	
