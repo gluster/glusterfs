@@ -673,7 +673,7 @@ fuse_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
 static int
 fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *buf,
+                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
                    struct stat *postbuf)
 {
         fuse_state_t     *state;
@@ -690,12 +690,12 @@ fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%"PRIu64": %s() %s => %"PRId64, frame->root->unique,
                         gf_fop_list[frame->root->op],
                         state->loc.path ? state->loc.path : "ERR",
-                        buf->st_ino);
+                        prebuf->st_ino);
 
                 /* TODO: make these timeouts configurable via meta */
                 /* TODO: what if the inode number has changed by now */
-                buf->st_blksize = this->ctx->page_size;
-                stat2attr (buf, &fao.attr);
+                postbuf->st_blksize = this->ctx->page_size;
+                stat2attr (postbuf, &fao.attr);
 
                 fao.attr_valid = calc_timeout_sec (priv->attribute_timeout);
                 fao.attr_valid_nsec =
