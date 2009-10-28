@@ -74,13 +74,13 @@ int32_t
 get_entrylk_count (xlator_t *this, inode_t *inode);
 
 void pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-                  int cmd, struct flock *flock);
+                  int cmd, struct flock *flock, const char *domain);
 
 void pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-                   int cmd, struct flock *flock, int op_ret, int op_errno);
+                   int cmd, struct flock *flock, int op_ret, int op_errno, const char *domain);
 
 void pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-                     int cmd, struct flock *flock);
+                     int cmd, struct flock *flock, const char *domain);
 
 void pl_trace_flush (xlator_t *this, call_frame_t *frame, fd_t *fd);
 
@@ -105,5 +105,8 @@ pl_print_lockee (char *str, int size, fd_t *fd, loc_t *loc);
 
 void
 pl_print_locker (char *str, int size, xlator_t *this, call_frame_t *frame);
+
+void
+pl_print_inodelk (char *str, int size, int cmd, struct flock *flock, const char *domain);
 
 #endif /* __COMMON_H__ */

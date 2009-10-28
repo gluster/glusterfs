@@ -218,7 +218,7 @@ pl_print_lock (char *str, int size, int cmd, struct flock *flock)
 
 void
 pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-             int cmd, struct flock *flock)
+             int cmd, struct flock *flock, const char *domain)
 {
         posix_locks_private_t  *priv = NULL;
         char                    pl_locker[256];
@@ -232,7 +232,10 @@ pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
 
         pl_print_locker (pl_locker, 256, this, frame);
         pl_print_lockee (pl_lockee, 256, fd, loc);
-        pl_print_lock (pl_lock, 256, cmd, flock);
+        if (domain)
+                pl_print_inodelk (pl_lock, 256, cmd, flock, domain);
+        else
+                pl_print_lock (pl_lock, 256, cmd, flock);
 
         gf_log (this->name, GF_LOG_NORMAL,
                 "[REQUEST] Locker = {%s} Lockee = {%s} Lock = {%s}",
@@ -263,7 +266,7 @@ pl_print_verdict (char *str, int size, int op_ret, int op_errno)
 
 void
 pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-              int cmd, struct flock *flock, int op_ret, int op_errno)
+              int cmd, struct flock *flock, int op_ret, int op_errno, const char *domain)
 
 {
         posix_locks_private_t  *priv = NULL;
@@ -279,7 +282,11 @@ pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
 
         pl_print_locker (pl_locker, 256, this, frame);
         pl_print_lockee (pl_lockee, 256, fd, loc);
-        pl_print_lock (pl_lock, 256, cmd, flock);
+        if (domain)
+                pl_print_inodelk (pl_lock, 256, cmd, flock, domain);
+        else
+                pl_print_lock (pl_lock, 256, cmd, flock);
+
         pl_print_verdict (verdict, 32, op_ret, op_errno);
 
         gf_log (this->name, GF_LOG_NORMAL,
@@ -290,7 +297,7 @@ pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
 
 void
 pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-                int cmd, struct flock *flock)
+                int cmd, struct flock *flock, const char *domain)
 
 {
         posix_locks_private_t  *priv = NULL;
@@ -305,7 +312,10 @@ pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
 
         pl_print_locker (pl_locker, 256, this, frame);
         pl_print_lockee (pl_lockee, 256, fd, loc);
-        pl_print_lock (pl_lock, 256, cmd, flock);
+        if (domain)
+                pl_print_inodelk (pl_lock, 256, cmd, flock, domain);
+        else
+                pl_print_lock (pl_lock, 256, cmd, flock);
 
         gf_log (this->name, GF_LOG_NORMAL,
                 "[BLOCKED] Locker = {%s} Lockee = {%s} Lock = {%s}",
@@ -804,7 +814,7 @@ grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode)
                 list_del_init (&lock->list);
 
                 pl_trace_out (this, lock->frame, NULL, NULL, F_SETLKW,
-                              &lock->user_flock, 0, 0);
+                              &lock->user_flock, 0, 0, NULL);
 
                 STACK_UNWIND (lock->frame, 0, 0, &lock->user_flock);
 

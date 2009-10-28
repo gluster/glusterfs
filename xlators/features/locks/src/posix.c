@@ -645,7 +645,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-        pl_trace_in (this, frame, fd, NULL, cmd, flock);
+        pl_trace_in (this, frame, fd, NULL, cmd, flock, NULL);
 
         switch (cmd) {
 
@@ -680,7 +680,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 
                 if (ret == -1) {
                         if (can_block) {
-                                pl_trace_block (this, frame, fd, NULL, cmd, flock);
+                                pl_trace_block (this, frame, fd, NULL, cmd, flock, NULL);
                                 goto out;
                         }
                         gf_log (this->name, GF_LOG_DEBUG, "returning EAGAIN");
@@ -691,7 +691,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         }
 
 unwind:
-        pl_trace_out (this, frame, fd, NULL, cmd, flock, op_ret, op_errno);
+        pl_trace_out (this, frame, fd, NULL, cmd, flock, op_ret, op_errno, NULL);
         pl_update_refkeeper (this, fd->inode);
         STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, flock);
 out:

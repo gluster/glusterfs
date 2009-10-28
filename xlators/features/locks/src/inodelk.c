@@ -55,6 +55,61 @@ inodelk_type_conflict (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 	return 0;
 }
 
+void
+pl_print_inodelk (char *str, int size, int cmd, struct flock *flock, const char *domain)
+{
+        char *cmd_str = NULL;
+        char *type_str = NULL;
+
+        switch (cmd) {
+#if F_GETLK != F_GETLK64
+        case F_GETLK64:
+#endif
+        case F_GETLK:
+                cmd_str = "GETLK";
+                break;
+
+#if F_SETLK != F_SETLK64
+        case F_SETLK64:
+#endif
+        case F_SETLK:
+                cmd_str = "SETLK";
+                break;
+
+#if F_SETLKW != F_SETLKW64
+        case F_SETLKW64:
+#endif
+        case F_SETLKW:
+                cmd_str = "SETLKW";
+                break;
+
+        default:
+                cmd_str = "UNKNOWN";
+                break;
+        }
+
+        switch (flock->l_type) {
+        case F_RDLCK:
+                type_str = "READ";
+                break;
+        case F_WRLCK:
+                type_str = "WRITE";
+                break;
+        case F_UNLCK:
+                type_str = "UNLOCK";
+                break;
+        default:
+                type_str = "UNKNOWN";
+                break;
+        }
+
+        snprintf (str, size, "cmd=%s, type=%s, domain: %s, start=%llu, len=%llu, pid=%llu",
+                  cmd_str, type_str, domain,
+                  (unsigned long long) flock->l_start,
+                  (unsigned long long) flock->l_len,
+                  (unsigned long long) flock->l_pid);
+}
+
 /* Determine if the two inodelks overlap reach other's lock regions */
 static int
 inodelk_overlap (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
@@ -269,6 +324,10 @@ __grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t
                                 bl->user_flock.l_start,
                                 bl->user_flock.l_len);
 
+                        pl_trace_out (this, bl->frame, NULL, NULL, F_SETLKW,
+                                      &bl->user_flock, 0, 0, bl->volume);
+
+
                         STACK_UNWIND_STRICT (inodelk, bl->frame, 0, 0);
                 }
         }
@@ -435,7 +494,8 @@ new_inode_lock (struct flock *flock, transport_t *transport, pid_t client_pid, c
 /* Common inodelk code called form pl_inodelk and pl_finodelk */
 int
 pl_common_inodelk (call_frame_t *frame, xlator_t *this,
-                   const char *volume, inode_t *inode, int32_t cmd, struct flock *flock)
+                   const char *volume, inode_t *inode, int32_t cmd,
+                   struct flock *flock, loc_t *loc, fd_t *fd)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -455,6 +515,8 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 		op_errno = EINVAL;
 		goto unwind;
 	}
+
+        pl_trace_in (this, frame, fd, loc, cmd, flock, volume);
 
 	transport  = frame->root->trans;
 	client_pid = frame->root->pid;
@@ -504,9 +566,11 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
                                       can_block, dom);
 
 		if (ret < 0) {
-                        if (can_block)
+                        if (can_block) {
+                                pl_trace_block (this, frame, fd, loc,
+                                                cmd, flock, volume);
 				goto out;
-
+                        }
 			gf_log (this->name, GF_LOG_TRACE, "returning EAGAIN");
 			op_errno = -ret;
 			__destroy_inode_lock (reqlock);
@@ -527,6 +591,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 
 unwind:
         pl_update_refkeeper (this, inode);
+        pl_trace_out (this, frame, fd, loc, cmd, flock, op_ret, op_errno, volume);
         STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
 out:
         return 0;
@@ -537,7 +602,7 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
             const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
 {
 
-        pl_common_inodelk (frame, this, volume, loc->inode, cmd, flock);
+        pl_common_inodelk (frame, this, volume, loc->inode, cmd, flock, loc, NULL);
 
         return 0;
 }
@@ -547,7 +612,7 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
              const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
 {
 
-        pl_common_inodelk (frame, this, volume, fd->inode, cmd, flock);
+        pl_common_inodelk (frame, this, volume, fd->inode, cmd, flock, NULL, fd);
 
         return 0;
 
