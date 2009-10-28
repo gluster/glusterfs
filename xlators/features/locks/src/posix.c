@@ -281,6 +281,8 @@ pl_flush (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
+        pl_trace_flush (this, frame, fd);
+
         pthread_mutex_lock (&pl_inode->mutex);
         {
                 __delete_locks_of_owner (pl_inode, frame->root->trans,
@@ -643,6 +645,8 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
+        pl_trace_in (this, frame, fd, NULL, cmd, flock);
+
         switch (cmd) {
 
 #if F_GETLK != F_GETLK64
@@ -675,9 +679,10 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                                 can_block);
 
                 if (ret == -1) {
-                        if (can_block)
+                        if (can_block) {
+                                pl_trace_block (this, frame, fd, NULL, cmd, flock);
                                 goto out;
-
+                        }
                         gf_log (this->name, GF_LOG_DEBUG, "returning EAGAIN");
                         op_ret = -1;
                         op_errno = EAGAIN;
@@ -686,6 +691,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         }
 
 unwind:
+        pl_trace_out (this, frame, fd, NULL, cmd, flock, op_ret, op_errno);
         pl_update_refkeeper (this, fd->inode);
         STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, flock);
 out:
@@ -1020,6 +1026,7 @@ init (xlator_t *this)
         posix_locks_private_t *priv = NULL;
         xlator_list_t         *trav = NULL;
         data_t                *mandatory = NULL;
+	data_t                *trace = NULL;
 
         if (!this->children || this->children->next) {
                 gf_log (this->name, GF_LOG_CRITICAL, 
@@ -1055,6 +1062,16 @@ init (xlator_t *this)
                         return -1;
                 }
         }
+
+	trace = dict_get (this->options, "trace");
+	if (trace) {
+		if (gf_string2boolean (trace->data,
+				       &priv->trace) == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"'trace' takes on only boolean values.");
+			return -1;
+		}
+	}
 
         this->private = priv;
         return 0;
@@ -1124,5 +1141,8 @@ struct volume_options options[] = {
         { .key  = { "mandatory-locks", "mandatory" }, 
           .type = GF_OPTION_TYPE_BOOL 
         },
+	{ .key  = { "trace" }, 
+	  .type = GF_OPTION_TYPE_BOOL 
+	},
         { .key = {NULL} },
 };

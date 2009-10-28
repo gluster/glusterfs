@@ -73,4 +73,37 @@ get_inodelk_count (xlator_t *this, inode_t *inode);
 int32_t
 get_entrylk_count (xlator_t *this, inode_t *inode);
 
+void pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
+                  int cmd, struct flock *flock);
+
+void pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
+                   int cmd, struct flock *flock, int op_ret, int op_errno);
+
+void pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
+                     int cmd, struct flock *flock);
+
+void pl_trace_flush (xlator_t *this, call_frame_t *frame, fd_t *fd);
+
+void entrylk_trace_in (xlator_t *this, call_frame_t *frame, const char *volume,
+                       fd_t *fd, loc_t *loc, const char *basename,
+                       entrylk_cmd cmd, entrylk_type type);
+
+void entrylk_trace_out (xlator_t *this, call_frame_t *frame, const char *volume,
+                        fd_t *fd, loc_t *loc, const char *basename,
+                        entrylk_cmd cmd, entrylk_type type,
+                        int op_ret, int op_errno);
+
+void entrylk_trace_block (xlator_t *this, call_frame_t *frame, const char *volume,
+                          fd_t *fd, loc_t *loc, const char *basename,
+                          entrylk_cmd cmd, entrylk_type type);
+
+void
+pl_print_verdict (char *str, int size, int op_ret, int op_errno);
+
+void
+pl_print_lockee (char *str, int size, fd_t *fd, loc_t *loc);
+
+void
+pl_print_locker (char *str, int size, xlator_t *this, call_frame_t *frame);
+
 #endif /* __COMMON_H__ */
