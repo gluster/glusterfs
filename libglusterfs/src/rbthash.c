@@ -80,7 +80,8 @@ err:
 
 
 rbthash_table_t *
-rbthash_table_init (int buckets, rbt_hasher_t hfunc, rbt_data_destroyer_t dfunc)
+rbthash_table_init (int buckets, rbt_hasher_t hfunc, rbt_data_destroyer_t dfunc,
+                    unsigned long expected_entries)
 {
         rbthash_table_t         *newtab = NULL;
         int                     ret = -1;
@@ -100,7 +101,7 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc, rbt_data_destroyer_t dfunc)
                 goto free_newtab;
         }
 
-        newtab->entrypool =  mem_pool_new (rbthash_entry_t, GF_RBTHASH_MEMPOOL);
+        newtab->entrypool =  mem_pool_new (rbthash_entry_t, expected_entries);
         if (!newtab->entrypool) {
                 gf_log (GF_RBTHASH, GF_LOG_ERROR,"Failed to allocate mem-pool");
                 goto free_buckets;

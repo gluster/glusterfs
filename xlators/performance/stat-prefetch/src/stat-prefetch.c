@@ -20,6 +20,7 @@
 #include "stat-prefetch.h"
 
 #define GF_SP_CACHE_BUCKETS 4096
+#define GF_SP_CACHE_ENTRIES_EXPECTED 1048576
 
 int32_t
 sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
@@ -129,7 +130,8 @@ sp_cache_init (void)
         if (cache) {
                 cache->table = rbthash_table_init (GF_SP_CACHE_BUCKETS,
                                                    sp_hashfn,
-                                                   free);
+                                                   free,
+                                                   GF_SP_CACHE_ENTRIES_EXPECTED);
                 if (cache->table == NULL) {
                         FREE (cache);
                         cache = NULL;
@@ -170,7 +172,8 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
                         table = cache->table;
                         cache->table = rbthash_table_init (GF_SP_CACHE_BUCKETS,
                                                            sp_hashfn,
-                                                           free);
+                                                           free,
+                                                           GF_SP_CACHE_ENTRIES_EXPECTED);
                         if (cache->table == NULL) {
                                 cache->table = table;
                         } else {
