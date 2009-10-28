@@ -26,7 +26,7 @@
 
 #include <pthread.h>
 
-#define GF_RBTHASH_MEMPOOL      1048576
+#define GF_RBTHASH_MEMPOOL      16384 //1048576
 #define GF_RBTHASH              "rbthash"
 
 struct rbthash_bucket {
@@ -56,7 +56,7 @@ typedef struct rbthash_table {
 
 extern rbthash_table_t *
 rbthash_table_init (int buckets, rbt_hasher_t hfunc,
-                    rbt_data_destroyer_t dfunc);
+                    rbt_data_destroyer_t dfunc, unsigned long expected_entries);
 
 extern int
 rbthash_insert (rbthash_table_t *tbl, void *data, void *key, int keylen);

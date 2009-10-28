@@ -166,18 +166,23 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
 ioc_inode_t *
 ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 {
-	ioc_inode_t *ioc_inode = NULL;
-        
+	ioc_inode_t     *ioc_inode   = NULL;
+        unsigned long    no_of_pages = 0;
+
         ioc_inode = CALLOC (1, sizeof (ioc_inode_t));
         if (ioc_inode == NULL) {
                 goto out;
         }
   
 	ioc_inode->table = table;
- 
+
+        no_of_pages = (table->cache_size / table->page_size)
+                + ((table->cache_size % table->page_size) ? 1 : 0);
+
 	/* initialize the list for pages */
         ioc_inode->cache.page_table = rbthash_table_init (IOC_PAGE_TABLE_BUCKET_COUNT,
-                                                          ioc_hashfn, NULL);
+                                                          ioc_hashfn, NULL,
+                                                          no_of_pages);
         if (ioc_inode->cache.page_table == NULL) {
                 FREE (ioc_inode);
                 ioc_inode = NULL;
