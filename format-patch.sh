@@ -51,9 +51,9 @@ function main()
     }
 
     if [ -z "$bug" ]; then
-        git format-patch "$@";
+        git format-patch -s "$@";
     else
-        git format-patch --subject-prefix="PATCH BRANCH:release-2.0 BUG:$bug" "$@";
+        git format-patch -s --subject-prefix="PATCH BRANCH:release-2.0 BUG:$bug" "$@";
     fi
 }
 
