@@ -149,6 +149,125 @@ names_equal (const char *n1, const char *n2)
 	return (n1 == NULL && n2 == NULL) || (n1 && n2 && !strcmp (n1, n2));
 }
 
+void
+pl_print_entrylk (char *str, int size, entrylk_cmd cmd, entrylk_type type,
+                  const char *basename, const char *domain)
+{
+        char *cmd_str = NULL;
+        char *type_str = NULL;
+
+        switch (cmd) {
+        case ENTRYLK_LOCK:
+                cmd_str = "LOCK";
+                break;
+
+        case ENTRYLK_LOCK_NB:
+                cmd_str = "LOCK_NB";
+                break;
+
+        case ENTRYLK_UNLOCK:
+                cmd_str = "UNLOCK";
+                break;
+
+        default:
+                cmd_str = "UNKNOWN";
+                break;
+        }
+
+        switch (type) {
+        case ENTRYLK_RDLCK:
+                type_str = "READ";
+                break;
+        case ENTRYLK_WRLCK:
+                type_str = "WRITE";
+                break;
+        default:
+                type_str = "UNKNOWN";
+                break;
+        }
+
+        snprintf (str, size, "cmd=%s, type=%s, basename=%s, domain: %s",
+                  cmd_str, type_str, basename, domain);
+}
+
+
+void
+entrylk_trace_in (xlator_t *this, call_frame_t *frame, const char *domain,
+                  fd_t *fd, loc_t *loc, const char *basename,
+                  entrylk_cmd cmd, entrylk_type type)
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_locker[256];
+        char                    pl_lockee[256];
+        char                    pl_entrylk[256];
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_print_locker (pl_locker, 256, this, frame);
+        pl_print_lockee (pl_lockee, 256, fd, loc);
+        pl_print_entrylk (pl_entrylk, 256, cmd, type, basename, domain);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[REQUEST] Locker = {%s} Lockee = {%s} Lock = {%s}",
+                pl_locker, pl_lockee, pl_entrylk);
+}
+
+
+void
+entrylk_trace_out (xlator_t *this, call_frame_t *frame, const char *domain,
+                   fd_t *fd, loc_t *loc, const char *basename,
+                   entrylk_cmd cmd, entrylk_type type, int op_ret, int op_errno)
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_locker[256];
+        char                    pl_lockee[256];
+        char                    pl_entrylk[256];
+        char                    verdict[32];
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_print_locker (pl_locker, 256, this, frame);
+        pl_print_lockee (pl_lockee, 256, fd, loc);
+        pl_print_entrylk (pl_entrylk, 256, cmd, type, basename, domain);
+        pl_print_verdict (verdict, 32, op_ret, op_errno);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[%s] Locker = {%s} Lockee = {%s} Lock = {%s}",
+                verdict, pl_locker, pl_lockee, pl_entrylk);
+}
+
+
+void
+entrylk_trace_block (xlator_t *this, call_frame_t *frame, const char *volume,
+                     fd_t *fd, loc_t *loc, const char *basename,
+                     entrylk_cmd cmd, entrylk_type type)
+
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_locker[256];
+        char                    pl_lockee[256];
+        char                    pl_entrylk[256];
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_print_locker (pl_locker, 256, this, frame);
+        pl_print_lockee (pl_lockee, 256, fd, loc);
+        pl_print_entrylk (pl_entrylk, 256, cmd, type, basename, volume);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[BLOCKED] Locker = {%s} Lockee = {%s} Lock = {%s}",
+                pl_locker, pl_lockee, pl_entrylk);
+}
+
 /**
  * __find_most_matching_lock - find the lock struct which most matches in order of:
  *                           lock on the exact basename ||
@@ -360,6 +479,10 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 	list_for_each_entry_safe (lock, tmp, &granted_list, blocked_locks) {
 		list_del_init (&lock->blocked_locks);
 
+                entrylk_trace_out (this, lock->frame, NULL, NULL, NULL,
+                                   lock->basename, ENTRYLK_LOCK, lock->type,
+                                   0, 0);
+
 		STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0);
 
 		FREE (lock->basename);
@@ -431,7 +554,7 @@ unlock:
 int
 pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                    const char *volume, inode_t *inode, const char *basename,
-                   entrylk_cmd cmd, entrylk_type type)
+                   entrylk_cmd cmd, entrylk_type type, loc_t *loc, fd_t *fd)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -461,6 +584,8 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 		op_errno = ENOMEM;
 		goto out;
 	}
+
+        entrylk_trace_in (this, frame, volume, fd, loc, basename, cmd, type);
 
 	pid       = frame->root->pid;
 	transport = frame->root->trans;
@@ -536,8 +661,15 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 out:
         pl_update_refkeeper (this, inode);
 	if (unwind) {
+                entrylk_trace_out (this, frame, volume, fd, loc, basename,
+                                   cmd, type, op_ret, op_errno);
+
 		STACK_UNWIND_STRICT (entrylk, frame, op_ret, op_errno);
-	}
+	} else {
+                entrylk_trace_block (this, frame, volume, fd, loc, basename,
+                                     cmd, type);
+        }
+
 
 	return 0;
 }
@@ -554,7 +686,7 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 	    entrylk_cmd cmd, entrylk_type type)
 {
 
-        pl_common_entrylk (frame, this, volume, loc->inode, basename, cmd, type);
+        pl_common_entrylk (frame, this, volume, loc->inode, basename, cmd, type, loc, NULL);
 
         return 0;
 }
@@ -572,7 +704,7 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
              entrylk_cmd cmd, entrylk_type type)
 {
 
-        pl_common_entrylk (frame, this, volume, fd->inode, basename, cmd, type);
+        pl_common_entrylk (frame, this, volume, fd->inode, basename, cmd, type, NULL, fd);
 
         return 0;
 }
