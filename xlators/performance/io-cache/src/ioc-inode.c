@@ -177,7 +177,7 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
  
 	/* initialize the list for pages */
         ioc_inode->cache.page_table = rbthash_table_init (IOC_PAGE_TABLE_BUCKET_COUNT,
-                                                          ioc_hashfn, free);
+                                                          ioc_hashfn, NULL);
         if (ioc_inode->cache.page_table == NULL) {
                 FREE (ioc_inode);
                 ioc_inode = NULL;
