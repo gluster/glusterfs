@@ -67,6 +67,9 @@
 #define ZR_FILE_CONTENT_STRLEN 15
 
 #define GLUSTERFS_OPEN_FD_COUNT "glusterfs.open-fd-count"
+#define GLUSTERFS_INODELK_COUNT "glusterfs.inodelk-count"
+#define GLUSTERFS_ENTRYLK_COUNT "glusterfs.entrylk-count"
+#define GLUSTERFS_POSIXLK_COUNT "glusterfs.posixlk-count"
 
 #define ZR_FILE_CONTENT_REQUEST(key) (!strncmp(key, ZR_FILE_CONTENT_STR, \
 					       ZR_FILE_CONTENT_STRLEN))

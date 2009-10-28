@@ -140,5 +140,10 @@ typedef struct {
         gf_boolean_t    mandatory;      /* if mandatory locking is enabled */
 } posix_locks_private_t;
 
+typedef struct {
+        gf_boolean_t   entrylk_count_req;
+        gf_boolean_t   inodelk_count_req;
+        gf_boolean_t   posixlk_count_req;
+} pl_local_t;
 
 #endif /* __POSIX_LOCKS_H__ */
