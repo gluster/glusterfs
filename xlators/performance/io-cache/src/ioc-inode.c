@@ -24,18 +24,16 @@
 
 #include "io-cache.h"
 
+int ioc_log2_page_size;
 
 inline uint32_t
 ioc_hashfn (void *data, int len)
 {
-        uint32_t        hash = 0;
-        while (len > 0) {
-                hash ^= *(uint32_t *)data;
-                data += sizeof (uint32_t);
-                len -= sizeof (uint32_t);
-        }
+        off_t offset;
 
-        return hash;
+        offset = *(off_t *) data;
+
+        return (offset >> ioc_log2_page_size);
 }
 
 /*
