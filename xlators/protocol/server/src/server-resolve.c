@@ -123,7 +123,7 @@ resolve_loc_touchup (call_frame_t *frame)
         if (loc->name)
                 loc->name++;
 
-        if (!loc->parent) {
+        if (!loc->parent && loc->inode) {
                 loc->parent = inode_parent (loc->inode, 0, NULL);
         }
 
@@ -151,8 +151,7 @@ resolve_deep_continue (call_frame_t *frame)
         else
                 ret = resolve_inode_simple (frame);
 
-        if (ret == 0)
-                resolve_loc_touchup (frame);
+        resolve_loc_touchup (frame);
 
         server_resolve_all (frame);
 
@@ -230,8 +229,9 @@ resolve_path_deep (call_frame_t *frame)
         this  = frame->this;
         resolve = state->resolve_now;
 
-        gf_log (frame->this->name, GF_LOG_WARNING,
-                "seeking deep resolution of %s", resolve->path);
+        gf_log (BOUND_XL (frame)->name, GF_LOG_WARNING,
+                "RESOLVE %s() seeking deep resolution of %s",
+                gf_fop_list[frame->root->op], resolve->path);
 
         prepare_components (frame);
 
@@ -296,6 +296,9 @@ resolve_entry_simple (call_frame_t *frame)
                 case RESOLVE_DONTCARE:
                 case RESOLVE_NOT:
                         ret = 0;
+                        break;
+                case RESOLVE_MAY:
+                        ret = 1;
                         break;
                 default:
                         resolve->op_ret   = -1;
@@ -489,6 +492,10 @@ server_resolve (call_frame_t *frame)
                 server_resolve_inode (frame);
 
         } else {
+
+                resolve->op_ret = -1;
+                resolve->op_errno = EINVAL;
+
                 server_resolve_all (frame);
         }
 
