@@ -56,6 +56,21 @@ struct dnscache6 {
 	struct addrinfo *next;
 };
 
+
+int
+gf_log2 (unsigned long x)
+{
+        int val = 0;
+
+        while (x != 1) {
+                x /= 2;
+                val++;
+        }
+
+        return val;
+}
+
+
 int32_t
 gf_resolve_ip6 (const char *hostname, 
 		uint16_t port, 

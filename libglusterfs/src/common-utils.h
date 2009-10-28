@@ -330,6 +330,7 @@ int gf_lockfd (int fd);
 int gf_unlockfd (int fd);
 
 int get_checksum_for_file (int fd, uint32_t *checksum);
+int gf_log2 (unsigned long x);
 
 #endif /* _COMMON_UTILS_H */
 

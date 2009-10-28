@@ -30,6 +30,8 @@
 #include <assert.h>
 #include <sys/time.h>
 
+extern int ioc_log2_page_size;
+
 uint32_t
 ioc_get_priority (ioc_table_t *table, const char *path);
 
@@ -1234,11 +1236,12 @@ out:
 int32_t 
 init (xlator_t *this)
 {
-	ioc_table_t *table = NULL;
-	dict_t      *options = this->options;
-	uint32_t    index = 0;
-	char        *cache_size_string = NULL;
-        int32_t     ret = -1;
+	ioc_table_t     *table = NULL;
+	dict_t          *options = this->options;
+	uint32_t         index = 0;
+	char            *cache_size_string = NULL;
+        int32_t          ret = -1;
+        glusterfs_ctx_t *ctx = NULL;
 
 	if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1319,6 +1322,9 @@ init (xlator_t *this)
 	pthread_mutex_init (&table->table_lock, NULL);
 	this->private = table;
         ret = 0;
+
+        ctx = this->ctx;
+        ioc_log2_page_size = gf_log2 (ctx->page_size);
 
 out:
         if (ret == -1) {
