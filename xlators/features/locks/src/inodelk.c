@@ -552,3 +552,70 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
         return 0;
 
 }
+
+
+static int32_t
+__get_inodelk_count (xlator_t *this, pl_inode_t *pl_inode)
+{
+        int32_t            count  = 0;
+        pl_inode_lock_t   *lock   = NULL;
+        pl_dom_list_t     *dom    = NULL;
+
+        list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
+                list_for_each_entry (lock, &dom->inodelk_list, list) {
+
+			gf_log (this->name, GF_LOG_DEBUG,
+                                " XATTR DEBUG"
+				" domain: %s %s (pid=%d) %"PRId64" - %"PRId64" state = Active",
+                                dom->domain,
+				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+				lock->client_pid,
+				lock->user_flock.l_start,
+				lock->user_flock.l_len);
+
+                        count++;
+                }
+
+                list_for_each_entry (lock, &dom->blocked_inodelks, blocked_locks) {
+
+			gf_log (this->name, GF_LOG_DEBUG,
+                                " XATTR DEBUG"
+				" domain: %s %s (pid=%d) %"PRId64" - %"PRId64" state = Blocked",
+                                dom->domain,
+				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+				lock->client_pid,
+				lock->user_flock.l_start,
+				lock->user_flock.l_len);
+
+                        count++;
+                }
+
+        }
+
+        return count;
+}
+
+int32_t
+get_inodelk_count (xlator_t *this, inode_t *inode)
+{
+        pl_inode_t   *pl_inode = NULL;
+        uint64_t      tmp_pl_inode = 0;
+        int           ret      = 0;
+        int32_t       count    = 0;
+
+        ret = inode_ctx_get (inode, this, &tmp_pl_inode);
+        if (ret != 0) {
+                goto out;
+        }
+
+        pl_inode = (pl_inode_t *)(long) tmp_pl_inode;
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                count = __get_inodelk_count (this, pl_inode);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+out:
+        return count;
+}

@@ -576,3 +576,64 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 }
+
+
+static int32_t
+__get_entrylk_count (xlator_t *this, pl_inode_t *pl_inode)
+{
+        int32_t            count = 0;
+        pl_entry_lock_t   *lock  = NULL;
+        pl_dom_list_t     *dom   = NULL;
+
+        list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
+                list_for_each_entry (lock, &dom->entrylk_list, domain_list) {
+
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                " XATTR DEBUG"
+                                " domain: %s  %s on %s state = Active",
+                                dom->domain,
+                                lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" : 
+                                "ENTRYLK_WRLCK", lock->basename);
+                        count++;
+                }
+
+                list_for_each_entry (lock, &dom->blocked_entrylks, blocked_locks) {
+
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                " XATTR DEBUG"
+                                " domain: %s  %s on %s state = Blocked",
+                                dom->domain,
+                                lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" : 
+                                "ENTRYLK_WRLCK", lock->basename);
+                        count++;
+                }
+
+        }
+
+        return count;
+}
+
+int32_t
+get_entrylk_count (xlator_t *this, inode_t *inode)
+{
+        pl_inode_t   *pl_inode = NULL;
+        uint64_t      tmp_pl_inode = 0;
+        int           ret      = 0;
+        int32_t       count    = 0;
+
+        ret = inode_ctx_get (inode, this, &tmp_pl_inode);
+        if (ret != 0) {
+                goto out;
+        }
+
+        pl_inode = (pl_inode_t *)(long) tmp_pl_inode;
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                count = __get_entrylk_count (this, pl_inode);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+out:
+        return count;
+}
