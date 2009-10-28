@@ -118,6 +118,228 @@ __pl_inode_is_empty (pl_inode_t *pl_inode)
 }
 
 void
+pl_print_locker (char *str, int size, xlator_t *this, call_frame_t *frame)
+{
+        snprintf (str, size, "Pid=%llu, Transport=%p, Frame=%llu",
+                  (unsigned long long) frame->root->pid,
+                  (void *)frame->root->trans,
+                  (unsigned long long) frame->root->unique);
+}
+
+
+void
+pl_print_lockee (char *str, int size, fd_t *fd, loc_t *loc)
+{
+        inode_t  *inode = NULL;
+        char     *ipath = NULL;
+        int       ret = 0;
+
+        if (fd)
+                inode = fd->inode;
+        if (loc)
+                inode = loc->inode;
+
+        if (!inode) {
+                snprintf (str, size, "<nul>");
+                return;
+        }
+
+        if (loc && loc->path) {
+                ipath = strdup (loc->path);
+        } else {
+                ret = inode_path (inode, NULL, &ipath);
+                if (ret <= 0)
+                        ipath = NULL;
+        }
+
+        snprintf (str, size, "ino=%llu, fd=%p, path=%s",
+                  (unsigned long long) inode->ino, fd,
+                  ipath ? ipath : "<nul>");
+
+        if (ipath)
+                FREE (ipath);
+}
+
+
+void
+pl_print_lock (char *str, int size, int cmd, struct flock *flock)
+{
+        char *cmd_str = NULL;
+        char *type_str = NULL;
+
+        switch (cmd) {
+#if F_GETLK != F_GETLK64
+        case F_GETLK64:
+#endif
+        case F_GETLK:
+                cmd_str = "GETLK";
+                break;
+
+#if F_SETLK != F_SETLK64
+        case F_SETLK64:
+#endif
+        case F_SETLK:
+                cmd_str = "SETLK";
+                break;
+
+#if F_SETLKW != F_SETLKW64
+        case F_SETLKW64:
+#endif
+        case F_SETLKW:
+                cmd_str = "SETLKW";
+                break;
+
+        default:
+                cmd_str = "UNKNOWN";
+                break;
+        }
+
+        switch (flock->l_type) {
+        case F_RDLCK:
+                type_str = "READ";
+                break;
+        case F_WRLCK:
+                type_str = "WRITE";
+                break;
+        case F_UNLCK:
+                type_str = "UNLOCK";
+                break;
+        default:
+                type_str = "UNKNOWN";
+                break;
+        }
+
+        snprintf (str, size, "cmd=%s, type=%s, start=%llu, len=%llu, pid=%llu",
+                  cmd_str, type_str, (unsigned long long) flock->l_start,
+                  (unsigned long long) flock->l_len,
+                  (unsigned long long) flock->l_pid);
+}
+
+
+void
+pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
+             int cmd, struct flock *flock)
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_locker[256];
+        char                    pl_lockee[256];
+        char                    pl_lock[256];
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_print_locker (pl_locker, 256, this, frame);
+        pl_print_lockee (pl_lockee, 256, fd, loc);
+        pl_print_lock (pl_lock, 256, cmd, flock);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[REQUEST] Locker = {%s} Lockee = {%s} Lock = {%s}",
+                pl_locker, pl_lockee, pl_lock);
+}
+
+
+void
+pl_print_verdict (char *str, int size, int op_ret, int op_errno)
+{
+        char *verdict = NULL;
+
+        if (op_ret == 0) {
+                verdict = "GRANTED";
+        } else {
+                switch (op_errno) {
+                case EAGAIN:
+                        verdict = "TRYAGAIN";
+                        break;
+                default:
+                        verdict = strerror (op_errno);
+                }
+        }
+
+        snprintf (str, size, verdict);
+}
+
+
+void
+pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
+              int cmd, struct flock *flock, int op_ret, int op_errno)
+
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_locker[256];
+        char                    pl_lockee[256];
+        char                    pl_lock[256];
+        char                    verdict[32];
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_print_locker (pl_locker, 256, this, frame);
+        pl_print_lockee (pl_lockee, 256, fd, loc);
+        pl_print_lock (pl_lock, 256, cmd, flock);
+        pl_print_verdict (verdict, 32, op_ret, op_errno);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[%s] Locker = {%s} Lockee = {%s} Lock = {%s}",
+                verdict, pl_locker, pl_lockee, pl_lock);
+}
+
+
+void
+pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
+                int cmd, struct flock *flock)
+
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_locker[256];
+        char                    pl_lockee[256];
+        char                    pl_lock[256];
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_print_locker (pl_locker, 256, this, frame);
+        pl_print_lockee (pl_lockee, 256, fd, loc);
+        pl_print_lock (pl_lock, 256, cmd, flock);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[BLOCKED] Locker = {%s} Lockee = {%s} Lock = {%s}",
+                pl_locker, pl_lockee, pl_lock);
+}
+
+
+void
+pl_trace_flush (xlator_t *this, call_frame_t *frame, fd_t *fd)
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_locker[256];
+        char                    pl_lockee[256];
+        pl_inode_t             *pl_inode = NULL;
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_inode = pl_inode_get (this, fd->inode);
+
+        if (pl_inode && __pl_inode_is_empty (pl_inode))
+                return;
+
+        pl_print_locker (pl_locker, 256, this, frame);
+        pl_print_lockee (pl_lockee, 256, fd, NULL);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[FLUSH] Locker = {%s} Lockee = {%s}",
+                pl_locker, pl_lockee);
+}
+
+void
 pl_update_refkeeper (xlator_t *this, inode_t *inode)
 {
         pl_inode_t *pl_inode  = NULL;
@@ -579,6 +801,9 @@ grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode)
 
         list_for_each_entry_safe (lock, tmp, &granted_list, list) {
                 list_del_init (&lock->list);
+
+                pl_trace_out (this, lock->frame, NULL, NULL, F_SETLKW,
+                              &lock->user_flock, 0, 0);
 
                 STACK_UNWIND (lock->frame, 0, 0, &lock->user_flock);
 
