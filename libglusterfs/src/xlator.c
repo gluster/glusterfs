@@ -815,7 +815,7 @@ xlator_search_by_name (xlator_t *any, const char *name)
 static int32_t
 xlator_init_rec (xlator_t *xl)
 {
-	xlator_list_t *trav = NULL;
+	xlator_t *trav = NULL;
 	int32_t ret = 0;
 
 	if (xl == NULL)	{
@@ -823,35 +823,29 @@ xlator_init_rec (xlator_t *xl)
 		return 0;
 	}
 
-	trav = xl->children;
+	trav = xl;
+        while (trav->prev)
+                trav = trav->prev;
 
-	while (trav) {
-		ret = 0;
-		ret = xlator_init_rec (trav->xlator);
-		if (ret != 0)
-			break;
-		gf_log (trav->xlator->name, GF_LOG_TRACE,
-			"Initialization done");
-		trav = trav->next;
-	}
-
-	if (!ret && !xl->ready) {
+        while (trav) {
 		ret = -1;
-		if (xl->init) {
-			ret = xlator_init (xl);
+		if (trav->init && !trav->ready) {
+			ret = xlator_init (trav);
 			if (ret) {
-				gf_log ("xlator", GF_LOG_ERROR,
+				gf_log (trav->name, GF_LOG_ERROR,
 					"Initialization of volume '%s' failed,"
 					" review your volfile again",
-					xl->name);
+					trav->name);
+                                break;
 			} else {
-				xl->init_succeeded = 1;
+				trav->init_succeeded = 1;
 			}
 		} else {
-			gf_log (xl->name, GF_LOG_DEBUG, "No init() found");
+			gf_log (trav->name, GF_LOG_DEBUG, "No init() found");
 		}
 		/* This 'xl' is checked */
-		xl->ready = 1;
+		trav->ready = 1;
+                trav = trav->next;
 	}
 
 	return ret;
