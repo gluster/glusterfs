@@ -227,6 +227,7 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
 	ioc_table_unlock (table);
   
 	ioc_inode_flush (ioc_inode);
+        rbthash_table_destroy (ioc_inode->cache.page_table);
 
 	pthread_mutex_destroy (&ioc_inode->inode_lock);
 	free (ioc_inode);
