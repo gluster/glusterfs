@@ -3092,7 +3092,8 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 
 	data_pair_t     *trav = NULL;
 
-        char *path = NULL;
+        char *    path  = NULL;
+        inode_t * inode = NULL;
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (xattr, out);
@@ -3117,64 +3118,76 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 		MAKE_REAL_PATH (real_path, this, loc->path);
 
         if (loc) {
-                path = strdup (loc->path);
+                path  = strdup (loc->path);
+                inode = loc->inode;
         } else {
                 inode_path (fd->inode, NULL, &path);
+                inode = fd->inode;
         }
 
 	while (trav) {
 		count = trav->value->len / sizeof (int32_t);
 		array = CALLOC (count, sizeof (int32_t));
 
-                if (loc) {
-                        size = sys_lgetxattr (real_path, trav->key, (char *)array, 
-                                              trav->value->len);
-                } else {
-                        size = sys_fgetxattr (_fd, trav->key, (char *)array, 
-                                              trav->value->len);
+                LOCK (&inode->lock);
+                {
+                        if (loc) {
+                                size = sys_lgetxattr (real_path, trav->key, (char *)array, 
+                                                      trav->value->len);
+                        } else {
+                                size = sys_fgetxattr (_fd, trav->key, (char *)array, 
+                                                      trav->value->len);
+                        }
+
+                        op_errno = errno;
+                        if ((size == -1) && (op_errno != ENODATA) && 
+                            (op_errno != ENOATTR)) {
+                                if (op_errno == ENOTSUP) {
+                                        GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log,
+                                                            this->name,GF_LOG_WARNING, 
+                                                            "Extended attributes not "
+                                                            "supported by filesystem");
+                                } else 	{
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "getxattr failed on %s while doing "
+                                                "xattrop: %s", path,
+                                                strerror (op_errno));
+                                }
+
+                                op_ret = -1;
+                                goto unlock;
+                        }
+
+                        switch (optype) {
+
+                        case GF_XATTROP_ADD_ARRAY:
+                                __add_array (array, (int32_t *) trav->value->data, 
+                                             trav->value->len / 4);
+                                break;
+
+                        default:
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unknown xattrop type (%d) on %s. Please send "
+                                        "a bug report to gluster-devel@nongnu.org",
+                                        optype, path);
+                                op_ret = -1;
+                                op_errno = EINVAL;
+                                goto unlock;
+                        }
+
+                        if (loc) {
+                                size = sys_lsetxattr (real_path, trav->key, array,
+                                                      trav->value->len, 0);
+                        } else {
+                                size = sys_fsetxattr (_fd, trav->key, (char *)array,
+                                                      trav->value->len, 0);
+                        }
                 }
+        unlock:
+                UNLOCK (&inode->lock);
 
-		op_errno = errno;
-		if ((size == -1) && (op_errno != ENODATA) && 
-		    (op_errno != ENOATTR)) {
-			if (op_errno == ENOTSUP) {
-                                GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log,
-						    this->name,GF_LOG_WARNING, 
-						    "Extended attributes not "
-						    "supported by filesystem");
-			} else 	{
-				gf_log (this->name, GF_LOG_ERROR,
-					"getxattr failed on %s while doing "
-                                        "xattrop: %s", path,
-					strerror (op_errno));
-			}
-			goto out;
-		}
-
-		switch (optype) {
-
-		case GF_XATTROP_ADD_ARRAY:
-			__add_array (array, (int32_t *) trav->value->data, 
-                                     trav->value->len / 4);
-			break;
-
-		default:
-			gf_log (this->name, GF_LOG_ERROR,
-				"Unknown xattrop type (%d) on %s. Please send "
-                                "a bug report to gluster-devel@nongnu.org",
-				optype, path);
-			op_ret = -1;
-			op_errno = EINVAL;
-			goto out;
-		}
-
-                if (loc) {
-                        size = sys_lsetxattr (real_path, trav->key, array,
-                                              trav->value->len, 0);
-                } else {
-                        size = sys_fsetxattr (_fd, trav->key, (char *)array,
-                                              trav->value->len, 0);
-                }
+                if (op_ret == -1)
+                        goto out;
 
 		op_errno = errno;
 		if (size == -1) {
