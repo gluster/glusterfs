@@ -6063,6 +6063,10 @@ init (xlator_t *this)
 	this->private = conf;
 
 	for (i = 0; i < CHANNEL_MAX; i++) {
+                if (CHANNEL_LOWLAT == i) {
+                        dict_set (this->options, "transport.socket.lowlat",
+                                  data_from_dynstr (strdup ("true")));
+                }
 		trans = transport_load (this->options, this);
 		if (trans == NULL) {
 			gf_log (this->name, GF_LOG_DEBUG, 
