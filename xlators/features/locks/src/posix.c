@@ -935,7 +935,6 @@ pl_lookup (call_frame_t *frame,
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
-        VALIDATE_OR_GOTO (xattr_req, out);
 
         local = CALLOC (1, sizeof (*local));
         if (!local) {
