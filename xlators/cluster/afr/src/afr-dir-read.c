@@ -155,6 +155,7 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 	xlator_t **     children = NULL;
 
         gf_dirent_t * entry = NULL;
+        gf_dirent_t * tmp   = NULL;
 
         int child_index = -1;
 
@@ -166,10 +167,16 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
         child_index = (long) cookie;
 
 	if (op_ret != -1) {
-                list_for_each_entry (entry, &entries->list, list) {
+                list_for_each_entry_safe (entry, tmp, &entries->list, list) {
                         entry->d_ino = afr_itransform (entry->d_ino,
                                                        priv->child_count,
                                                        child_index);
+
+                        if ((local->fd->inode == local->fd->inode->table->root)
+                            && !strcmp (entry->d_name, AFR_TRASH_DIR)) {
+                                list_del_init (&entry->list);
+                                FREE (entry);
+                        }
                 }
     	}
 
@@ -189,6 +196,7 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ino_t           inum = 0;
 
         gf_dirent_t * entry = NULL;
+        gf_dirent_t * tmp   = NULL;
 
         int child_index = -1;
 
@@ -200,13 +208,19 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         child_index = (long) cookie;
 
         if (op_ret != -1) {
-                list_for_each_entry (entry, &entries->list, list) {
+                list_for_each_entry_safe (entry, tmp, &entries->list, list) {
                         inum = afr_itransform (entry->d_ino, priv->child_count,
                                                child_index);
                         entry->d_ino = inum;
                         inum  = afr_itransform (entry->d_stat.st_ino,
                                                 priv->child_count, child_index);
                         entry->d_stat.st_ino = inum;
+
+                        if ((local->fd->inode == local->fd->inode->table->root)
+                            && !strcmp (entry->d_name, AFR_TRASH_DIR)) {
+                                list_del_init (&entry->list);
+                                FREE (entry);
+                        }
                 }
         }
 
