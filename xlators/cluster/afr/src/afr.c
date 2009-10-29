@@ -662,6 +662,11 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
+        if (!strcmp (loc->path, "/" AFR_TRASH_DIR)) {
+                op_errno = ENOENT;
+                goto out;
+        }
+
 	loc_copy (&local->loc, loc);
 
         ret = inode_ctx_get (loc->inode, this, &ctx);

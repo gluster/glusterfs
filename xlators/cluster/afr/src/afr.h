@@ -31,6 +31,7 @@
 #include "compat-errno.h"
 
 #define AFR_XATTR_PREFIX "trusted.afr"
+#define AFR_TRASH_DIR    ".trash"
 
 typedef struct _afr_private {
 	gf_lock_t lock;               /* to guard access to child_count, etc */
