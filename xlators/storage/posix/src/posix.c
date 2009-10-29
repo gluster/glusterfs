@@ -3466,8 +3466,8 @@ __add_array (int32_t *dest, int32_t *src, int count)
  */
 
 int
-posix_xattrop (call_frame_t *frame, xlator_t *this,
-	       loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr)
+do_xattrop (call_frame_t *frame, xlator_t *this,
+            loc_t *loc, fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
 {
 	char            *real_path = NULL;
 	int32_t         *array = NULL;
@@ -3477,113 +3477,13 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 	int              op_ret = 0;
 	int              op_errno = 0;
 
-	data_pair_t     *trav = NULL;
-
-	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (xattr, out);
-	VALIDATE_OR_GOTO (this, out);
-
-	trav = xattr->members_list;
-
-	if (loc->path)
-		MAKE_REAL_PATH (real_path, this, loc->path);
-
-	while (trav) {
-		count = trav->value->len / sizeof (int32_t);
-		array = CALLOC (count, sizeof (int32_t));
-		
-		size = sys_lgetxattr (real_path, trav->key, (char *)array, 
-                                      trav->value->len);
-
-		op_errno = errno;
-		if ((size == -1) && (op_errno != ENODATA) && 
-		    (op_errno != ENOATTR)) {
-			if (op_errno == ENOTSUP) {
-                                GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log,
-						    this->name,GF_LOG_WARNING, 
-						    "Extended attributes not "
-						    "supported by filesystem");
-			} else 	{
-				gf_log (this->name, GF_LOG_ERROR,
-					"getxattr failed on %s while doing "
-                                        "xattrop: %s", loc->path,
-					strerror (op_errno));
-			}
-			goto out;
-		}
-
-		switch (optype) {
-
-		case GF_XATTROP_ADD_ARRAY:
-			__add_array (array, (int32_t *) trav->value->data, 
-                                     trav->value->len / 4);
-			break;
-
-		default:
-			gf_log (this->name, GF_LOG_ERROR,
-				"Unknown xattrop type (%d) on %s. Please send "
-                                "a bug report to gluster-devel@nongnu.org",
-				optype, loc->path);
-			op_ret = -1;
-			op_errno = EINVAL;
-			goto out;
-		}
-
-		size = sys_lsetxattr (real_path, trav->key, array,
-                                      trav->value->len, 0);
-
-		op_errno = errno;
-		if (size == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"setxattr failed on %s while doing xattrop: "
-                                "key=%s (%s)", loc->path,
-				trav->key, strerror (op_errno));
-			op_ret = -1;
-			goto out;
-		} else {
-			size = dict_set_bin (xattr, trav->key, array, 
-					     trav->value->len);
-
-			if (size != 0) {
-				gf_log (this->name, GF_LOG_DEBUG,
-					"dict_set_bin failed (path=%s): "
-                                        "key=%s (%s)", loc->path, 
-					trav->key, strerror (-size));
-				op_ret = -1;
-				op_errno = EINVAL;
-				goto out;
-			}
-			array = NULL;
-		}
-	       
-		array = NULL;
-		trav = trav->next;
-	}
-	
-out:
-	if (array)
-		FREE (array);
-	STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr);
-	return 0;
-}
-
-
-int
-posix_fxattrop (call_frame_t *frame, xlator_t *this,
-		fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
-{
-	int32_t         *array = NULL;
-	int              size = 0;
-	int              count = 0;
-
-	int              op_ret = 0;
-	int              op_errno = 0;
-
+        int              ret = 0;
 	int              _fd = -1;
 	struct posix_fd *pfd = NULL;
 
 	data_pair_t     *trav = NULL;
-	int32_t          ret = -1;
+
+        char *path = NULL;
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (xattr, out);
@@ -3604,54 +3504,74 @@ posix_fxattrop (call_frame_t *frame, xlator_t *this,
 		_fd = pfd->fd;
 	}
 
+	if (loc && loc->path)
+		MAKE_REAL_PATH (real_path, this, loc->path);
+
+        if (loc) {
+                path = strdup (loc->path);
+        } else {
+                inode_path (fd->inode, NULL, &path);
+        }
+
 	while (trav) {
 		count = trav->value->len / sizeof (int32_t);
 		array = CALLOC (count, sizeof (int32_t));
-		
-		size = sys_fgetxattr (_fd, trav->key, (char *)array, 
-                                      trav->value->len);
+
+                if (loc) {
+                        size = sys_lgetxattr (real_path, trav->key, (char *)array, 
+                                              trav->value->len);
+                } else {
+                        size = sys_fgetxattr (_fd, trav->key, (char *)array, 
+                                              trav->value->len);
+                }
 
 		op_errno = errno;
-		if ((size == -1) && ((op_errno != ENODATA) && 
-				     (op_errno != ENOATTR))) {
+		if ((size == -1) && (op_errno != ENODATA) && 
+		    (op_errno != ENOATTR)) {
 			if (op_errno == ENOTSUP) {
                                 GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log,
 						    this->name,GF_LOG_WARNING, 
-						    "extended attributes not "
+						    "Extended attributes not "
 						    "supported by filesystem");
 			} else 	{
 				gf_log (this->name, GF_LOG_ERROR,
-					"fgetxattr failed on fd=%d while: "
-                                        "doing xattrop: %s", _fd,
+					"getxattr failed on %s while doing "
+                                        "xattrop: %s", path,
 					strerror (op_errno));
 			}
 			goto out;
 		}
 
 		switch (optype) {
+
 		case GF_XATTROP_ADD_ARRAY:
 			__add_array (array, (int32_t *) trav->value->data, 
                                      trav->value->len / 4);
 			break;
+
 		default:
 			gf_log (this->name, GF_LOG_ERROR,
-				"Unknown xattrop type (%d) on fd=%d."
-                                "Please send a bug report to "
-                                "gluster-devel@nongnu.org",
-				optype, _fd);
+				"Unknown xattrop type (%d) on %s. Please send "
+                                "a bug report to gluster-devel@nongnu.org",
+				optype, path);
 			op_ret = -1;
 			op_errno = EINVAL;
 			goto out;
 		}
 
-		size = sys_fsetxattr (_fd, trav->key, (char *)array,
-                                      trav->value->len, 0);
+                if (loc) {
+                        size = sys_lsetxattr (real_path, trav->key, array,
+                                              trav->value->len, 0);
+                } else {
+                        size = sys_fsetxattr (_fd, trav->key, (char *)array,
+                                              trav->value->len, 0);
+                }
 
 		op_errno = errno;
 		if (size == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
-				"fsetxattr failed on fd=%d while doing: "
-                                "xattrop. key=%s (%s)", _fd,
+				"setxattr failed on %s while doing xattrop: "
+                                "key=%s (%s)", path,
 				trav->key, strerror (op_errno));
 			op_ret = -1;
 			goto out;
@@ -3661,8 +3581,8 @@ posix_fxattrop (call_frame_t *frame, xlator_t *this,
 
 			if (size != 0) {
 				gf_log (this->name, GF_LOG_DEBUG,
-					"dict_set_bin failed (fd=%d): "
-                                        "key=%s (%s)", _fd, 
+					"dict_set_bin failed (path=%s): "
+                                        "key=%s (%s)", path,
 					trav->key, strerror (-size));
 				op_ret = -1;
 				op_errno = EINVAL;
@@ -3670,16 +3590,38 @@ posix_fxattrop (call_frame_t *frame, xlator_t *this,
 			}
 			array = NULL;
 		}
-	       
+
 		array = NULL;
 		trav = trav->next;
 	}
-	
+
 out:
 	if (array)
 		FREE (array);
-	STACK_UNWIND_STRICT (fxattrop, frame, op_ret, op_errno, xattr);
+
+        if (path)
+                FREE (path);
+
+	STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr);
 	return 0;
+}
+
+
+int
+posix_xattrop (call_frame_t *frame, xlator_t *this,
+               loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr)
+{
+        do_xattrop (frame, this, loc, NULL, optype, xattr);
+        return 0;
+}
+
+
+int
+posix_fxattrop (call_frame_t *frame, xlator_t *this,
+		fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
+{
+        do_xattrop (frame, this, NULL, fd, optype, xattr);
+        return 0;
 }
 
 
