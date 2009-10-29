@@ -777,6 +777,186 @@ pl_forget (xlator_t *this,
 	return 0;
 }
 
+static int32_t
+__get_posixlk_count (xlator_t *this, pl_inode_t *pl_inode)
+{
+        posix_lock_t *lock   = NULL;
+        int32_t       count  = 0;
+
+        list_for_each_entry (lock, &pl_inode->ext_list, list) {
+
+			gf_log (this->name, GF_LOG_DEBUG,
+                                " XATTR DEBUG"
+				"%s (pid=%d) %"PRId64" - %"PRId64" state: %s",
+				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+				lock->client_pid,
+				lock->user_flock.l_start,
+				lock->user_flock.l_len,
+                                lock->blocked == 1 ? "Blocked" : "Active");
+
+                count++;
+        }
+
+        return count;
+}
+
+int32_t
+get_posixlk_count (xlator_t *this, inode_t *inode)
+{
+        pl_inode_t   *pl_inode = NULL;
+        uint64_t      tmp_pl_inode = 0;
+        int           ret      = 0;
+        int32_t       count    = 0;
+
+        ret = inode_ctx_get (inode, this, &tmp_pl_inode);
+        if (ret != 0) {
+                goto out;
+        }
+
+        pl_inode = (pl_inode_t *)(long) tmp_pl_inode;
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                count = __get_posixlk_count (this, pl_inode);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+out:
+        return count;
+}
+
+void pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode, 
+                            dict_t *dict)
+{
+        int32_t     count = 0;
+        int         ret   = -1;
+
+        count = get_entrylk_count (this, inode);
+        ret = dict_set_int32 (dict, GLUSTERFS_ENTRYLK_COUNT, count);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        " dict_set failed on key %s", GLUSTERFS_ENTRYLK_COUNT);
+        }
+
+}
+
+void pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode, 
+                            dict_t *dict)
+{
+        int32_t     count = 0;
+        int         ret   = -1;
+
+        count = get_inodelk_count (this, inode);
+        ret = dict_set_int32 (dict, GLUSTERFS_INODELK_COUNT, count);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        " dict_set failed on key %s", GLUSTERFS_INODELK_COUNT);
+        }
+
+}
+
+void pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode, 
+                            dict_t *dict)
+{
+        int32_t     count = 0;
+        int         ret   = -1;
+
+        count = get_posixlk_count (this, inode);
+        ret = dict_set_int32 (dict, GLUSTERFS_POSIXLK_COUNT, count);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        " dict_set failed on key %s", GLUSTERFS_POSIXLK_COUNT);
+        }
+
+}
+
+int32_t
+pl_lookup_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    inode_t *inode,
+		    struct stat *buf,
+		    dict_t *dict)
+{
+        pl_local_t *local = NULL;
+
+        if (!frame->local) {
+                goto out;
+        }
+
+        local = frame->local;
+
+        if (local->entrylk_count_req)
+                pl_entrylk_xattr_fill (this, inode, dict);
+        if (local->inodelk_count_req)
+                pl_inodelk_xattr_fill (this, inode, dict);
+        if (local->posixlk_count_req)
+                pl_posixlk_xattr_fill (this, inode, dict);
+
+
+        frame->local = NULL;
+
+        if (local != NULL)
+                FREE (local);
+
+out:
+	STACK_UNWIND (frame,
+		      op_ret,
+		      op_errno,
+		      inode,
+		      buf,
+		      dict);
+
+	return 0;
+}
+
+int32_t
+pl_lookup (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc,
+		dict_t *xattr_req)
+
+{
+        pl_local_t *local  = NULL;
+        int         ret    = -1;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (loc, out);
+
+        local = CALLOC (1, sizeof (*local));
+        if (!local) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        " Out of memory");
+                goto out;
+        }
+
+        if (dict_get (xattr_req, GLUSTERFS_ENTRYLK_COUNT))
+                local->entrylk_count_req = 1;
+        if (dict_get (xattr_req, GLUSTERFS_INODELK_COUNT))
+                local->inodelk_count_req = 1;
+        if (dict_get (xattr_req, GLUSTERFS_POSIXLK_COUNT))
+                local->posixlk_count_req = 1;
+
+        frame->local = local;
+
+	STACK_WIND (frame,
+		    pl_lookup_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->lookup,
+		    loc,
+		    xattr_req);
+
+        ret = 0;
+out:
+        if (ret == -1)
+                STACK_UNWIND (frame, -1, 0, NULL, NULL, NULL, NULL);
+
+	return 0;
+}
 
 int
 init (xlator_t *this)
@@ -867,6 +1047,7 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 	     entrylk_cmd cmd, entrylk_type type);
 
 struct xlator_fops fops = {
+        .lookup      = pl_lookup,
 	.create      = pl_create,
 	.truncate    = pl_truncate,
 	.ftruncate   = pl_ftruncate,

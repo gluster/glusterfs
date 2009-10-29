@@ -927,3 +927,109 @@ out:
 	
 	return 0;
 }
+
+static int32_t
+__get_inodelk_count (xlator_t *this, pl_inode_t *pl_inode)
+{
+        int32_t            count  = 0;
+        posix_lock_t      *lock   = NULL;
+
+        list_for_each_entry (lock, &pl_inode->int_list, list) {
+
+			gf_log (this->name, GF_LOG_DEBUG,
+                                " XATTR DEBUG"
+				"%s (pid=%d) %"PRId64" - %"PRId64" state: %s",
+				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+				lock->client_pid,
+				lock->user_flock.l_start,
+				lock->user_flock.l_len,
+                                lock->blocked == 1 ? "Blocked" : "Active");
+
+                count++;
+        }
+
+        return count;
+}
+
+int32_t
+get_inodelk_count (xlator_t *this, inode_t *inode)
+{
+        pl_inode_t   *pl_inode = NULL;
+        uint64_t      tmp_pl_inode = 0;
+        int           ret      = 0;
+        int32_t       count    = 0;
+
+        ret = inode_ctx_get (inode, this, &tmp_pl_inode);
+        if (ret != 0) {
+                goto out;
+        }
+
+        pl_inode = (pl_inode_t *)(long) tmp_pl_inode;
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                count = __get_inodelk_count (this, pl_inode);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+out:
+        return count;
+}
+
+static int32_t
+__get_entrylk_count (xlator_t *this, pl_inode_t *pl_inode)
+{
+        int32_t            count = 0;
+        pl_entry_lock_t   *lock  = NULL;
+        pl_entry_lock_t   *bl_lock = NULL;
+
+        list_for_each_entry (lock, &pl_inode->dir_list, inode_list) {
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        " XATTR DEBUG"
+                        " %s on %s state = Active",
+                        lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" : "ENTRYLK_WRLCK",
+                        lock->basename);
+                count++;
+
+                list_for_each_entry (bl_lock, &lock->blocked_locks, blocked_locks) {
+
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                " XATTR DEBUG"
+                                " %s on %s state = Blocked",
+                                bl_lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" : "ENTRYLK_WRLCK",
+                                bl_lock->basename);
+
+                        count++;
+
+                }
+
+        }
+
+        return count;
+}
+
+int32_t
+get_entrylk_count (xlator_t *this, inode_t *inode)
+{
+        pl_inode_t   *pl_inode = NULL;
+        uint64_t      tmp_pl_inode = 0;
+        int           ret      = 0;
+        int32_t       count    = 0;
+
+        ret = inode_ctx_get (inode, this, &tmp_pl_inode);
+        if (ret != 0) {
+                goto out;
+        }
+
+        pl_inode = (pl_inode_t *)(long) tmp_pl_inode;
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                count = __get_entrylk_count (this, pl_inode);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+out:
+        return count;
+}

@@ -75,4 +75,10 @@ void entrylk_trace_block (xlator_t *this, call_frame_t *frame, const char *volum
                           fd_t *fd, loc_t *loc, const char *basename,
                           entrylk_cmd cmd, entrylk_type type);
 
+int32_t
+get_inodelk_count (xlator_t *this, inode_t *inode);
+
+int32_t
+get_entrylk_count (xlator_t *this, inode_t *inode);
+
 #endif /* __COMMON_H__ */
