@@ -1021,7 +1021,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         if (priv->background_unlink) {
                 if (S_ISREG (loc->inode->st_mode)) {
-                        fd = open (real_path, O_RDONLY);
+                        fd = open (real_path, O_RDWR);
                         if (fd == -1) {
                                 op_ret = -1;
                                 op_errno = errno;
