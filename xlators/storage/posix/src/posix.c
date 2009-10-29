@@ -652,6 +652,18 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        if (!valid) {
+                op_ret = lchown (real_path, -1, -1);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "lchown (%s, -1, -1) failed => (%s)",
+                                real_path, strerror (op_errno));
+
+                        goto out;
+                }
+        }
+
         op_ret = posix_lstat_with_gen (this, real_path, &statpost);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -778,6 +790,18 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fsetattr (futimes) on failed fd=%p: %s", fd,
                                 strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        if (!valid) {
+                op_ret = fchown (pfd->fd, -1, -1);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fchown (%d, -1, -1) failed => (%s)",
+                                pfd->fd, strerror (op_errno));
+
                         goto out;
                 }
         }
