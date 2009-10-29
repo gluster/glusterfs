@@ -3342,6 +3342,7 @@ server_fxattrop (call_frame_t *frame, xlator_t *bound_xl,
                 }
                 dict->extra_free = req_dictbuf;
                 state->dict = dict;
+                dict = NULL;
         }
 
         resolve_and_resume (frame, server_fxattrop_resume);
@@ -3417,7 +3418,8 @@ server_xattrop (call_frame_t *frame, xlator_t *bound_xl,
                         goto fail;
                 }
                 dict->extra_free = req_dictbuf;
-                state->dict = dict_ref (dict);
+                state->dict = dict;
+                dict = NULL;
         }
 
         resolve_and_resume (frame, server_xattrop_resume);
