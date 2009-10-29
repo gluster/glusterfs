@@ -35,6 +35,7 @@
 
 #include <fcntl.h>
 #include <errno.h>
+#include <netinet/tcp.h>
 
 
 #define GF_LOG_ERRNO(errno) ((errno == ENOTCONN) ? GF_LOG_DEBUG : GF_LOG_ERROR)
@@ -228,6 +229,21 @@ __socket_nonblock (int fd)
         return ret;
 }
 
+
+int
+__socket_nodelay (int fd)
+{
+        int     on = 1;
+        int     ret = -1;
+
+        ret = setsockopt (fd, IPPROTO_TCP, TCP_NODELAY,
+			  &on, sizeof (on));
+        if (!ret)
+                gf_log ("", GF_LOG_TRACE,
+                        "NODELAY enabled for socket %d", fd);
+
+        return ret;
+}
 
 int
 __socket_connect_finish (int fd)
@@ -863,6 +879,16 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 }
                         }
 
+                        if (priv->nodelay) {
+                                ret = __socket_nodelay (new_sock);
+                                if (ret == -1) {
+                                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                                "setsockopt() failed for "
+                                                "NODELAY (%s)",
+                                                strerror (errno));
+                                }
+                        }
+
                         new_trans = CALLOC (1, sizeof (*new_trans));
                         new_trans->xl = this->xl;
                         new_trans->fini = this->fini;
@@ -1017,6 +1043,16 @@ socket_connect (transport_t *this)
                                 strerror (errno));
                 }
 
+
+                if (priv->nodelay && priv->lowlat) {
+                        ret = __socket_nodelay (priv->sock);
+                        if (ret == -1) {
+                                gf_log (this->xl->name, GF_LOG_ERROR,
+                                        "setsockopt() failed for NODELAY (%s)",
+                                        strerror (errno));
+                        }
+                }
+
                 if (!priv->bio) {
                         ret = __socket_nonblock (priv->sock);
 
@@ -1146,6 +1182,15 @@ socket_listen (transport_t *this)
                                "setting send window size failed: %d: %d: "
                                 "%s", priv->sock, priv->windowsize,
                                 strerror (errno));
+                }
+
+                if (priv->nodelay) {
+                        ret = __socket_nodelay (priv->sock);
+                        if (ret == -1) {
+                                gf_log (this->xl->name, GF_LOG_ERROR,
+                                        "setsockopt() failed for NODELAY (%s)",
+                                        strerror (errno));
+                        }
                 }
 
                 if (!priv->bio) {
@@ -1364,6 +1409,27 @@ socket_init (transport_t *this)
         }
 
         optstr = NULL;
+        if (dict_get (this->xl->options, "transport.socket.nodelay")) {
+                optstr = data_to_str (dict_get (this->xl->options,
+                                                "transport.socket.nodelay"));
+
+                if (gf_string2boolean (optstr, &tmp_bool) == -1) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "'transport.socket.nodelay' takes only "
+                                 "boolean options, not taking any action");
+                        tmp_bool = 1;
+                }
+                // By default, we enable NODELAY
+                priv->nodelay = 1;
+                if (!tmp_bool) {
+                        priv->nodelay = 0;
+                        gf_log (this->xl->name, GF_LOG_DEBUG,
+                                "disabling nodelay");
+                }
+        }
+
+
+        optstr = NULL;
         if (dict_get_str (this->xl->options, "transport.window-size",
                           &optstr) == 0) {
                 if (gf_string2bytesize (optstr, &windowsize) != 0) {
@@ -1372,6 +1438,14 @@ socket_init (transport_t *this)
                         return -1;
                 }
         }
+
+        optstr = NULL;
+
+        if (dict_get_str (this->xl->options, "transport.socket.lowlat",
+                          &optstr) == 0) {
+                priv->lowlat = 1;
+        }
+
         priv->windowsize = (int)windowsize;
         this->private = priv;
 
@@ -1441,6 +1515,12 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_SIZET,
           .min   = GF_MIN_SOCKET_WINDOW_SIZE,
           .max   = GF_MAX_SOCKET_WINDOW_SIZE,
+        },
+        { .key   = {"transport.socket.nodelay"},
+          .type  = GF_OPTION_TYPE_BOOL
+        },
+        { .key   = {"transport.socket.lowlat"},
+          .type  = GF_OPTION_TYPE_BOOL
         },
         { .key = {NULL} }
 };
