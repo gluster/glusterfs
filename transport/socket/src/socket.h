@@ -116,6 +116,8 @@ typedef struct {
         } incoming;
         pthread_mutex_t        lock;
         int                    windowsize;
+        char                   lowlat;
+        char                   nodelay;
 } socket_private_t;
 
 
