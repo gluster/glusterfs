@@ -1677,22 +1677,29 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 buf->st_blksize = this->ctx->page_size;
                 stat2attr (buf, &feo.attr);
 
-                inode_link (inode, state->loc.parent,
-                            state->loc.name, buf);
-                linked_inode = inode;
+                linked_inode = inode_link (inode, state->loc.parent,
+                                           state->loc.name, buf);
 
                 if (linked_inode != inode) {
-                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                        gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                                 "create(%s) inode (ptr=%p, ino=%"PRId64", "
                                 "gen=%"PRId64") found conflict (ptr=%p, "
                                 "ino=%"PRId64", gen=%"PRId64")",
                                 state->loc.path, inode, inode->ino,
                                 inode->generation, linked_inode,
                                 linked_inode->ino, linked_inode->generation);
-                }
-                inode_unref (linked_inode);
 
-                inode_lookup (inode);
+                        /*
+                           VERY racy code (if used anywhere else)
+                           -- don't do this without understanding
+                        */
+                        inode_unref (fd->inode);
+                        fd->inode = inode_ref (linked_inode);
+                }
+
+                inode_lookup (linked_inode);
+
+                inode_unref (linked_inode);
 
                 fd_ref (fd);
 
