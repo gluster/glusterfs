@@ -3980,7 +3980,7 @@ call_stub_destroy_wind (call_stub_t *stub)
 	{
 		if (stub->args.fxattrop.fd)
 			fd_unref (stub->args.fxattrop.fd);
-		dict_unref (stub->args.xattrop.xattr);
+		dict_unref (stub->args.fxattrop.xattr);
 		break;
 	}
 	case GF_FOP_LOCK_NOTIFY:
