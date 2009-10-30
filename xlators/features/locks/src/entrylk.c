@@ -431,15 +431,16 @@ __grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 	pl_entry_lock_t *bl   = NULL;
 	pl_entry_lock_t *tmp  = NULL;
 
-	list_for_each_entry_safe (bl, tmp, &dom->blocked_entrylks,
-				  blocked_locks) {
+        struct list_head blocked_list;
 
-                if (__lock_grantable (dom, bl->basename, bl->type))
-                        continue;
+        INIT_LIST_HEAD (&blocked_list);
+        list_splice_init (&dom->blocked_entrylks, &blocked_list);
+        
+	list_for_each_entry_safe (bl, tmp, &blocked_list,
+				  blocked_locks) {
 
 		list_del_init (&bl->blocked_locks);
 
-		/* TODO: error checking */
 
 		gf_log ("locks", GF_LOG_TRACE,
 			"Trying to unblock: {pinode=%p, basename=%s}",
