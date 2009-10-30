@@ -670,7 +670,7 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
         }
 
         /* use only link_inode beyond this point */
-        if (name) {
+        if (parent) {
                 old_dentry = __dentry_grep (table, parent, name);
 
                 if (!old_dentry || old_dentry->inode != link_inode) {
