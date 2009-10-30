@@ -192,6 +192,9 @@ typedef struct _afr_local {
 	
 	dict_t  *xattr_req;
 	int      open_fd_count;
+	int32_t  inodelk_count;
+	int32_t  entrylk_count;
+
 	/* 
 	   This struct contains the arguments for the "continuation"
 	   (scheme-like) of fops
