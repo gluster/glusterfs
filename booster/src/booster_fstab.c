@@ -375,6 +375,7 @@ booster_mount (struct glusterfs_mntent *ent)
         time_t                  timeout = BOOSTER_DEFAULT_ATTR_TIMEO;
         char                    *timeostr = NULL;
         char                    *endptr = NULL;
+        char			*optval = NULL;
 
         if (!ent)
                 return;
@@ -419,6 +420,13 @@ booster_mount (struct glusterfs_mntent *ent)
 
         ipars.lookup_timeout = timeout;
         ipars.stat_timeout = timeout;
+
+        opt = glusterfs_fstab_hasoption (ent, "relativepaths");
+        if (opt) {
+                optval = get_option_value (opt);
+                if (strcmp (optval, "on") == 0)
+                        ipars.relativepaths = 1;
+        }
 
         if ((glusterfs_mount (ent->mnt_dir, &ipars)) == -1)
                 gf_log ("booster-fstab", GF_LOG_ERROR, "VMP mounting failed");
