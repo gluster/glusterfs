@@ -825,8 +825,9 @@ out:
         return count;
 }
 
-void pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode, 
-                            dict_t *dict)
+void
+pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
+                       dict_t *dict)
 {
         int32_t     count = 0;
         int         ret   = -1;
@@ -840,8 +841,9 @@ void pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
 
 }
 
-void pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode, 
-                            dict_t *dict)
+void
+pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode,
+                       dict_t *dict)
 {
         int32_t     count = 0;
         int         ret   = -1;
@@ -855,8 +857,9 @@ void pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode,
 
 }
 
-void pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode, 
-                            dict_t *dict)
+void
+pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode,
+                       dict_t *dict)
 {
         int32_t     count = 0;
         int         ret   = -1;
@@ -885,6 +888,9 @@ pl_lookup_cbk (call_frame_t *frame,
         if (!frame->local) {
                 goto out;
         }
+
+        if (op_ret)
+                goto out;
 
         local = frame->local;
 
