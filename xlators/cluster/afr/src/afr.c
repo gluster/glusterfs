@@ -420,6 +420,9 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
         int             first_up_child  = -1;
 
 	uint32_t        open_fd_count = 0;
+        uint32_t        inodelk_count = 0;
+        uint32_t        entrylk_count = 0;
+
 	int             ret = 0;
 
 	child_index = (long) cookie;
@@ -463,6 +466,13 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 				       &open_fd_count);
 		local->open_fd_count += open_fd_count;
 
+                ret = dict_get_uint32 (xattr, GLUSTERFS_INODELK_COUNT,
+                                       &inodelk_count);
+                local->inodelk_count += inodelk_count;
+
+                ret = dict_get_uint32 (xattr, GLUSTERFS_ENTRYLK_COUNT,
+                                       &entrylk_count);
+                local->entrylk_count += entrylk_count;
 
                 first_up_child = afr_first_up_child (priv);
 
@@ -593,7 +603,9 @@ unlock:
 		if ((local->need_metadata_self_heal
 		     || local->need_data_self_heal
 		     || local->need_entry_self_heal)
-		    && (!local->open_fd_count)) {
+		    && (!local->open_fd_count &&
+                        !local->inodelk_count &&
+                        !local->entrylk_count)) {
 
 			if (!local->cont.lookup.inode->st_mode) {
 				/* fix for RT #602 */
@@ -674,6 +686,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         }
 
 	ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_OPEN_FD_COUNT, 0);
+        ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_INODELK_COUNT, 0);
+        ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_ENTRYLK_COUNT, 0);
 
 	for (i = 0; i < priv->child_count; i++) {
 		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
