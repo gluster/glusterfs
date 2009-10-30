@@ -313,7 +313,7 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight);
 int64_t 
 ioc_page_destroy (ioc_page_t *page);
 
-int32_t
+int64_t
 __ioc_inode_flush (ioc_inode_t *ioc_inode);
 
 void

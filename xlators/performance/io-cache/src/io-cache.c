@@ -95,12 +95,12 @@ ioc_inode_need_revalidate (ioc_inode_t *ioc_inode)
  *
  * assumes lock is held
  */
-int32_t
+int64_t
 __ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
 	ioc_page_t *curr = NULL, *next = NULL;
-	int32_t    destroy_size = 0;
-	int32_t    ret = 0;
+	int64_t    destroy_size = 0;
+	int64_t    ret = 0;
 
 	list_for_each_entry_safe (curr, next, &ioc_inode->cache.page_lru,
                                   page_lru) {
@@ -116,7 +116,7 @@ __ioc_inode_flush (ioc_inode_t *ioc_inode)
 void
 ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
-	int32_t destroy_size = 0;    
+	int64_t destroy_size = 0;    
 
 	ioc_inode_lock (ioc_inode);
 	{
