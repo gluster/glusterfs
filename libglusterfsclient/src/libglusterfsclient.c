@@ -1904,7 +1904,10 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 
 		parent = local->fop.lookup.loc->parent;
                 libgf_transform_devnum (ctx, buf);
-                inode_link (inode, parent, local->fop.lookup.loc->name, buf);
+                if (inode->ino != 1) {
+                        inode_link (inode, parent, local->fop.lookup.loc->name, buf);
+                }
+
 		inode_lookup (inode);
         } else {
                 if ((local->fop.lookup.is_revalidate == 0) 
