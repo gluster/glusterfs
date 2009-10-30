@@ -2296,7 +2296,7 @@ getxattr (const char *path, const char *name, void *value, size_t size)
         gf_log ("booster", GF_LOG_TRACE, "getxattr: path %s, name %s", path,
                 name);
         ret = glusterfs_getxattr (path, name, value, size);
-        if ((ret == -1) && (ret != ENODEV)) {
+        if ((ret == -1) && (errno != ENODEV)) {
                 gf_log ("booster", GF_LOG_ERROR, "getxattr failed: %s",
                         strerror (errno));
                 goto out;
@@ -2327,11 +2327,11 @@ lgetxattr (const char *path, const char *name, void *value, size_t size)
         gf_log ("booster", GF_LOG_TRACE, "lgetxattr: path %s, name %s", path,
                 name);
         ret = glusterfs_lgetxattr (path, name, value, size);
-        if ((ret == -1) && (ret != ENODEV)) {
+        if ((ret == -1) && (errno != ENODEV)) {
                 gf_log ("booster", GF_LOG_ERROR, "lgetxattr failed: %s",
                         strerror (errno));
 
-                return ret;
+                goto out;
         }
 
         if (ret > 0) {
