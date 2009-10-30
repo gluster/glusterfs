@@ -805,6 +805,9 @@ __dentry_search_arbit (inode_t *inode)
         dentry_t *dentry = NULL;
         dentry_t *trav = NULL;
 
+        if (!inode)
+                return NULL;
+
         list_for_each_entry (trav, &inode->dentry_list, inode_list) {
                 if (__is_dentry_hashed (trav)) {
                         dentry = trav;
