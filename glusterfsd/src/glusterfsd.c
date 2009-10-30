@@ -1139,7 +1139,7 @@ main (int argc, char *argv[])
         }
 
         ctx->page_size  = 128 * GF_UNIT_KB;
-        ctx->iobuf_pool = iobuf_pool_new (8 * GF_UNIT_MB, ctx->page_size + 4096);
+        ctx->iobuf_pool = iobuf_pool_new (8 * GF_UNIT_MB, ctx->page_size);
         ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
         pthread_mutex_init (&(ctx->lock), NULL);
         pool = ctx->pool = CALLOC (1, sizeof (call_pool_t));
