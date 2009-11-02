@@ -4775,7 +4775,7 @@ init (xlator_t *this)
 				       &_private->background_unlink) == -1) {
 			ret = -1;
 			gf_log (this->name, GF_LOG_ERROR,
-				"'export-statfs-size' takes only boolean "
+				"'background-unlink' takes only boolean "
 				"options");
 			goto out;
 		}
