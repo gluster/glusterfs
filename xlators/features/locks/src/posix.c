@@ -75,8 +75,8 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 static int
-truncate_allowed (pl_inode_t *pl_inode, 
-                  transport_t *transport, pid_t client_pid, 
+truncate_allowed (pl_inode_t *pl_inode,
+                  transport_t *transport, pid_t client_pid,
                   off_t offset)
 {
         posix_lock_t *l = NULL;
@@ -119,8 +119,8 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "got error (errno=%d, stderror=%s) from child", 
+                gf_log (this->name, GF_LOG_ERROR,
+                        "got error (errno=%d, stderror=%s) from child",
                         op_errno, strerror (op_errno));
                 goto unwind;
         }
@@ -315,8 +315,8 @@ pl_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, int32_t wbflags)
 {
         /* why isn't O_TRUNC being handled ? */
-        STACK_WIND (frame, pl_open_cbk, 
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->open, 
+        STACK_WIND (frame, pl_open_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
                     loc, flags & ~O_TRUNC, fd, wbflags);
 
         return 0;
@@ -341,7 +341,7 @@ pl_create (call_frame_t *frame, xlator_t *this,
            loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
         STACK_WIND (frame, pl_create_cbk,
-                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->create, 
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
                     loc, flags, mode, fd);
         return 0;
 }
@@ -360,7 +360,7 @@ pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-pl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+pl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct stat *prebuf,
                struct stat *postbuf)
 {
@@ -454,7 +454,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                 region.fl_end     = offset + size - 1;
                 region.transport  = frame->root->trans;
                 region.client_pid = frame->root->pid;
-    
+
                 pthread_mutex_lock (&pl_inode->mutex);
                 {
                         wind_needed = __rw_allowable (pl_inode, &region,
@@ -501,7 +501,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 
 
         if (wind_needed) {
-                STACK_WIND (frame, pl_readv_cbk, 
+                STACK_WIND (frame, pl_readv_cbk,
                             FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
                             fd, size, offset);
         }
@@ -549,7 +549,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 region.fl_end     = offset + iov_length (vector, count) - 1;
                 region.transport  = frame->root->trans;
                 region.client_pid = frame->root->pid;
-    
+
                 pthread_mutex_lock (&pl_inode->mutex);
                 {
                         wind_needed = __rw_allowable (pl_inode, &region,
@@ -597,7 +597,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 
         if (wind_needed)
-                STACK_WIND (frame, pl_writev_cbk, 
+                STACK_WIND (frame, pl_writev_cbk,
                             FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
                             fd, vector, count, offset, iobref);
 
@@ -835,8 +835,9 @@ out:
         return count;
 }
 
-void pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode, 
-                            dict_t *dict)
+void
+pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
+                       dict_t *dict)
 {
         int32_t     count = 0;
         int         ret   = -1;
@@ -850,8 +851,9 @@ void pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
 
 }
 
-void pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode, 
-                            dict_t *dict)
+void
+pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode,
+                       dict_t *dict)
 {
         int32_t     count = 0;
         int         ret   = -1;
@@ -865,8 +867,9 @@ void pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode,
 
 }
 
-void pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode, 
-                            dict_t *dict)
+void
+pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode,
+                       dict_t *dict)
 {
         int32_t     count = 0;
         int         ret   = -1;
@@ -894,6 +897,10 @@ pl_lookup_cbk (call_frame_t *frame,
         pl_local_t *local = NULL;
 
         if (!frame->local) {
+                goto out;
+        }
+
+        if (op_ret) {
                 goto out;
         }
 
@@ -963,7 +970,7 @@ pl_lookup (call_frame_t *frame,
 out:
         if (ret == -1)
                 STACK_UNWIND_STRICT (lookup, frame, -1, 0, NULL, NULL, NULL, NULL);
-    
+
 	return 0;
 }
 
@@ -981,15 +988,15 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
 
         ret = inode_ctx_get (inode, this, &tmp_pl_inode);
 
-        if (ret != 0) 
+        if (ret != 0)
                 return ret;
-                
+
         pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
 
-        if (!pl_inode) 
+        if (!pl_inode)
                 return -1;
 
-        gf_proc_dump_build_key(key, 
+        gf_proc_dump_build_key(key,
                                "xlator.feature.locks.inode",
                                "%ld.mandatory",inode->ino);
         gf_proc_dump_write(key, "%d", pl_inode->mandatory);
@@ -1008,7 +1015,7 @@ pl_dump_inode (xlator_t *this)
 {
 
         assert(this);
-        
+
         if (this->itable) {
                 inode_table_dump(this->itable,
                                  "xlator.features.locks.inode_table");
@@ -1028,7 +1035,7 @@ init (xlator_t *this)
 	data_t                *trace = NULL;
 
         if (!this->children || this->children->next) {
-                gf_log (this->name, GF_LOG_CRITICAL, 
+                gf_log (this->name, GF_LOG_CRITICAL,
                         "FATAL: posix-locks should have exactly one child");
                 return -1;
         }
@@ -1090,21 +1097,21 @@ fini (xlator_t *this)
 
 
 int
-pl_inodelk (call_frame_t *frame, xlator_t *this, 
+pl_inodelk (call_frame_t *frame, xlator_t *this,
             const char *volume, loc_t *loc, int32_t cmd, struct flock *flock);
 
 int
-pl_finodelk (call_frame_t *frame, xlator_t *this, 
+pl_finodelk (call_frame_t *frame, xlator_t *this,
              const char *volume, fd_t *fd, int32_t cmd, struct flock *flock);
 
 int
-pl_entrylk (call_frame_t *frame, xlator_t *this, 
-            const char *volume, loc_t *loc, const char *basename, 
+pl_entrylk (call_frame_t *frame, xlator_t *this,
+            const char *volume, loc_t *loc, const char *basename,
             entrylk_cmd cmd, entrylk_type type);
 
 int
-pl_fentrylk (call_frame_t *frame, xlator_t *this, 
-             const char *volume, fd_t *fd, const char *basename, 
+pl_fentrylk (call_frame_t *frame, xlator_t *this,
+             const char *volume, fd_t *fd, const char *basename,
              entrylk_cmd cmd, entrylk_type type);
 
 struct xlator_fops fops = {
@@ -1137,11 +1144,11 @@ struct xlator_cbks cbks = {
 
 
 struct volume_options options[] = {
-        { .key  = { "mandatory-locks", "mandatory" }, 
-          .type = GF_OPTION_TYPE_BOOL 
+        { .key  = { "mandatory-locks", "mandatory" },
+          .type = GF_OPTION_TYPE_BOOL
         },
-	{ .key  = { "trace" }, 
-	  .type = GF_OPTION_TYPE_BOOL 
+	{ .key  = { "trace" },
+	  .type = GF_OPTION_TYPE_BOOL
 	},
         { .key = {NULL} },
 };
