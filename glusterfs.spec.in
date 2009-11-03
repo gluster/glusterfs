@@ -171,6 +171,7 @@ fi
 %if 0%{!?_without_client:1}
 %exclude %{_libdir}/glusterfs/%{version}/xlator/mount
 %endif
+%{_bindir}/glusterfs-volgen
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
