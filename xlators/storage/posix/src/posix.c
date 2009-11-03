@@ -4680,9 +4680,9 @@ init (xlator_t *this)
 
         umask (000); // umask `masking' is done at the client side
 
-        /* Check whether the specified directory exists, if not create it. */
+        /* Check whether the specified directory exists, if not log it. */
         op_ret = stat (dir_data->data, &buf);
-        if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
+        if ((op_ret != 0) || !S_ISDIR (buf.st_mode)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Directory '%s' doesn't exist, exiting.",
 			dir_data->data);
