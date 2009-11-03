@@ -447,12 +447,6 @@ pl_inode_setlk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
                         goto out;
                 }
 
-                gf_log (this->name, GF_LOG_TRACE,
-                        "%s (pid=%d) %"PRId64" - %"PRId64" => OK",
-                        lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-                        lock->client_pid,
-                        lock->user_flock.l_start,
-                        lock->user_flock.l_len);
                 ret = 0;
 
                 grant_blocked_inode_locks (this, pl_inode, retlock, dom);
