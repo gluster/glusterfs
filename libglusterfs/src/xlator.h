@@ -37,8 +37,6 @@
 #include "compat.h"
 #include "list.h"
 
-#include <fuse/fuse_lowlevel.h>
-
 #define FIRST_CHILD(xl) (xl->children->xlator)
 
 #define GF_SET_ATTR_MODE  0x1
