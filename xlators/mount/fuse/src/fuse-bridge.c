@@ -366,7 +366,7 @@ send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error)
 }
 
 static inode_t *
-fuse_ino_to_inode (fuse_ino_t ino, inode_table_t *table)
+fuse_ino_to_inode (uint64_t ino, inode_table_t *table)
 {
         inode_t *inode = NULL;
 
@@ -380,7 +380,7 @@ fuse_ino_to_inode (fuse_ino_t ino, inode_table_t *table)
         return inode;
 }
 
-static fuse_ino_t
+static uint64_t
 inode_to_nodeid (inode_t *inode)
 {
         if (!inode || inode->ino == 1)
