@@ -350,7 +350,8 @@ spawn:
 
                         sh_priv->loops_running++;
 
-                        loop = 1;
+                        if (sh_priv->offset < sh->file_size)
+                                loop = 1;
                 }
         }
         UNLOCK (&sh_priv->lock);
@@ -842,7 +843,6 @@ sh_diff_loop_driver (call_frame_t *frame, xlator_t *this)
                                 local->loc.path);
 
                         sh_diff_private_cleanup (frame, this);
-
                         local->self_heal.algo_abort_cbk (frame, this);
                 }
 
@@ -857,7 +857,6 @@ sh_diff_loop_driver (call_frame_t *frame, xlator_t *this)
 
 
                         sh_diff_private_cleanup (frame, this);
-
                         local->self_heal.algo_completion_cbk (frame, this);
                 }
 
@@ -881,7 +880,8 @@ spawn:
 
                         sh_priv->loops_running++;
 
-                        loop = 1;
+                        if (sh_priv->offset < sh->file_size)
+                                loop = 1;
                 }
         }
         UNLOCK (&sh_priv->lock);
