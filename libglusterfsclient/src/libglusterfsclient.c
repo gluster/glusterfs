@@ -1376,7 +1376,6 @@ glusterfs_init (glusterfs_init_params_t *init_ctx, uint32_t fakefsid)
                 return NULL;
         }
         libgf_client_loc_wipe (&new_loc);
-        libgf_alloc_inode_ctx (ctx, ctx->itable->root);
 
 	first_init = 0;
  
