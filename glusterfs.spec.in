@@ -7,10 +7,6 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ibverbs
 %{?_without_ibverbs:%define _without_ibverbs --disable-ibverbs}
 
-# if you wish to compile an rpm without building the client RPMs...
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without client
-%{?_without_client:%define _without_client --disable-fuse-client}
-
 # if you wish to compile an rpm without BDB translator...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without bdb
 %{?_without_bdb:%define _without_bdb --disable-bdb}
@@ -22,6 +18,10 @@
 # if you wish to compile an rpm without libglusterfsclient...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without epoll
 %{?_without_epoll:%define _without_epoll --disable-epoll}
+
+# if you wish to compile an rpm without fusermount...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without fusermount
+%{?_without_fusermount:%define _without_fusermount --disable-fusermount}
 
 Summary: Cluster File System
 Name: @PACKAGE_NAME@
@@ -40,7 +40,6 @@ Requires(postun): /sbin/service
 
 %{!?_without_ibverbs:BuildRequires: libibverbs-devel}
 %{!?_without_bdb:BuildRequires: db4-devel}
-%{!?_without_client:BuildRequires: fuse-devel}
 
 BuildRequires: bison flex 
 BuildRequires: gcc make
@@ -75,7 +74,6 @@ translator modules common to both GlusterFS server and client framework.
 %package client
 Summary: GlusterFS Client
 Group: Applications/File
-Requires: fuse
 Requires: %{name}-common = %{version}-%{release}
 
 %description client
@@ -171,10 +169,14 @@ fi
 %if 0%{!?_without_client:1}
 %exclude %{_libdir}/glusterfs/%{version}/xlator/mount
 %endif
+%if 0%{!?_without_fusermount:1}
+%exclude %{_bindir}/fusermount-glusterfs 
+%endif
+%{_bindir}/glusterfs-volgen
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
-%{_mandir}/man8/glusterfs.8*
+%{_mandir}/man8/*glusterfs.8*
 %dir /var/log/glusterfs
 
 %if 0%{!?_without_client:1}

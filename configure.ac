@@ -39,8 +39,6 @@ AC_CONFIG_FILES([Makefile
 		xlators/storage/Makefile
 		xlators/storage/posix/Makefile
 		xlators/storage/posix/src/Makefile
-		xlators/storage/bdb/Makefile
-		xlators/storage/bdb/src/Makefile
 		xlators/cluster/Makefile
 		xlators/cluster/unify/Makefile
 		xlators/cluster/unify/src/Makefile
@@ -228,9 +226,8 @@ AC_SUBST(FUSE_CLIENT_SUBDIR)
 
 # FUSERMOUNT section
 AC_ARG_ENABLE([fusermount],
-              AC_HELP_STRING([--enable-fusermount],
-                             [Build fusermount]),
-              [], [enable_fusermount=no])
+              AC_HELP_STRING([--disable-fusermount],
+                             [Do not build fusermount]))
 
 BUILD_FUSERMOUNT="no"
 
