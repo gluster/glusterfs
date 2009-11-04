@@ -644,9 +644,6 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         list_del_init (&stub->list);
                         call_resume (stub);
                 }
-        } else {
-                op_errno = EINVAL;
-                op_ret = -1;
         }
 
 out:
