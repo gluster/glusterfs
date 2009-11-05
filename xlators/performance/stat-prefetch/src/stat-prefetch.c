@@ -847,6 +847,10 @@ sp_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fd_t       *fd    = NULL;
         int32_t     ret   = 0;
 
+        if (op_ret == -1) {
+                goto out;
+        }
+
         local = frame->local;
         if (local == NULL) {
                 goto out;
