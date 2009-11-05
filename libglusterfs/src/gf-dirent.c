@@ -39,7 +39,7 @@ struct gf_dirent_nb {
 	uint32_t       d_len;
 	uint32_t       d_type;
         struct gf_stat d_stat;
-	char           d_name[0];
+	char           d_name[1];
 } __attribute__((packed));
 
 
