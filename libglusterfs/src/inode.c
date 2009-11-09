@@ -1086,7 +1086,7 @@ inode_from_path (inode_table_t *itable, const char *path)
                 inode = inode_ref (parent);
 
         while (component) {
-                curr = inode_search (itable, parent->ino, component);
+                curr = inode_grep (itable, parent, component);
 
                 if (curr == NULL) {
                         component = strtok_r (NULL, "/", &strtokptr);
