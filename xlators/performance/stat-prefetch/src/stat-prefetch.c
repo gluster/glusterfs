@@ -796,6 +796,11 @@ wind:
                 if (cache) {
                         cache->hits++;
                 }
+        } else {
+                if (cache) {
+                        cache->miss++;
+                }
+
                 LOCK (&inode_ctx->lock);
                 {
                         if (!(inode_ctx->looked_up
@@ -820,10 +825,6 @@ wind:
                 }
 
                 local->is_lookup = 1;
-        } else {
-                if (cache) {
-                        cache->miss++;
-                }
 
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
