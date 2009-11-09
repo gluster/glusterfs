@@ -418,5 +418,8 @@ struct volume_options options[] = {
         { .key  = {"min-free-disk"},
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
         },
+        { .key = {"unhashed-sticky-bit"},
+          .type = GF_OPTION_TYPE_BOOL
+        },
 	{ .key  = {NULL} },
 };
