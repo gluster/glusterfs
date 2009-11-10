@@ -1549,6 +1549,8 @@ stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame, void *cookie,
         xlator_list_t    *trav = NULL;
 
         priv = this->private;
+        local = frame->local;
+
 	LOCK (&frame->lock);
         {
                 callcnt = --local->call_count;
