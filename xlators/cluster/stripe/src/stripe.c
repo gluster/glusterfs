@@ -492,7 +492,8 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame, void *cookie,
                                struct stat *postparent)
 {
         int32_t         callcnt = 0;
-        stripe_local_t *local   = NULL;
+        stripe_local_t  *local   = NULL;
+        inode_t         *local_inode = NULL;
 
         local = frame->local;
 
@@ -512,6 +513,8 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame, void *cookie,
  
                 if (op_ret >= 0) {
                         local->op_ret = 0;
+                        if (!local->inode)
+                                local->inode = inode_ref (inode);
 
                         if (!local->post_buf.st_blksize) {
                                 local->post_buf = *buf;
@@ -558,10 +561,13 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame, void *cookie,
                 if (local->failed)
                         local->op_ret = -1;
 
+                local_inode = local->inode;
                 STACK_UNWIND (frame, local->op_ret, local->op_errno, 
                               local->inode, &local->post_buf, 
                               &local->pre_parent_buf, 
                               &local->post_parent_buf);
+                if (local_inode)
+                        inode_unref (local_inode);
         }
 
         return 0;
