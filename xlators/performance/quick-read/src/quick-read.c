@@ -2266,6 +2266,8 @@ init (xlator_t *this)
                 } 
         }
 
+        ret = 0;
+
         this->private = conf;
 out:
         if ((ret == -1) && conf) {
