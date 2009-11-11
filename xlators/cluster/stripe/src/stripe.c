@@ -893,6 +893,17 @@ stripe_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 goto err;
         }
 
+        /* Initialization */
+        local = CALLOC (1, sizeof (stripe_local_t));
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+        local->op_ret = -1;
+        frame->local = local;
+        local->inode = loc->inode;
+        local->call_count = 1;
+
         if (S_ISDIR (loc->inode->st_mode) || S_ISREG (loc->inode->st_mode))
                 send_fop_to_all = 1;
 
@@ -900,15 +911,6 @@ stripe_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 STACK_WIND (frame, stripe_truncate_cbk, trav->xlator,
                             trav->xlator->fops->truncate, loc, offset);
         } else {
-                /* Initialization */
-                local = CALLOC (1, sizeof (stripe_local_t));
-                if (!local) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
-                local->op_ret = -1;
-                frame->local = local;
-                local->inode = loc->inode;
                 local->call_count = priv->child_count;
     
                 while (trav) {
@@ -1032,6 +1034,17 @@ stripe_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto err;
         }
 
+        /* Initialization */
+        local = CALLOC (1, sizeof (stripe_local_t));
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+        local->op_ret = -1;
+        frame->local = local;
+        local->inode = loc->inode;
+        local->call_count = 1;
+
         if (S_ISDIR (loc->inode->st_mode) || S_ISREG (loc->inode->st_mode))
                 send_fop_to_all = 1;
 
@@ -1039,15 +1052,6 @@ stripe_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 STACK_WIND (frame, stripe_setattr_cbk, trav->xlator,
                             trav->xlator->fops->setattr, loc, stbuf, valid);
         } else {
-                /* Initialization */
-                local = CALLOC (1, sizeof (stripe_local_t));
-                if (!local) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
-                local->op_ret = -1;
-                frame->local = local;
-                local->inode = loc->inode;
                 local->call_count = priv->child_count;
     
                 while (trav) {
