@@ -72,6 +72,10 @@ typedef struct _afr_private {
 } afr_private_t;
 
 typedef struct {
+        /* Is this a self-heal triggered to forcibly merge the
+           directories? */
+        gf_boolean_t forced_merge;
+
 	/* array of stat's, one for each child */
 	struct stat *buf;
         struct stat parentbuf;
@@ -273,6 +277,8 @@ typedef struct _afr_local {
 			int success_count;
 			int32_t op_ret;
 			int32_t op_errno;
+
+                        uint32_t *checksum;
 		} opendir;
 
 		struct {
@@ -546,7 +552,11 @@ afr_frame_return (call_frame_t *frame);
 void
 afr_set_split_brain (xlator_t *this, inode_t *inode, int32_t split_brain);
 
+void
+afr_set_opendir_done (xlator_t *this, inode_t *inode, int32_t opendir_done);
 
+uint64_t
+afr_is_opendir_done (xlator_t *this, inode_t *inode);
 
 #define AFR_STACK_UNWIND(fop, frame, params ...)        \
 	do {						\

@@ -42,8 +42,173 @@
 #include "common-utils.h"
 #include "compat-errno.h"
 #include "compat.h"
+#include "checksum.h"
 
 #include "afr.h"
+#include "afr-self-heal.h"
+
+
+int
+afr_examine_dir_completion_cbk (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *local  = NULL;
+        afr_self_heal_t *sh = NULL;
+
+        local = frame->local;
+        sh    = &local->self_heal;
+
+        afr_set_opendir_done (this, local->fd->inode, 1);
+
+        AFR_STACK_UNWIND (opendir, sh->orig_frame, local->op_ret,
+                          local->op_errno, local->fd);
+
+        return 0;
+}
+
+
+gf_boolean_t
+__checksums_differ (uint32_t *checksum, int child_count)
+{
+        int ret = _gf_false;
+        int i = 0;
+
+        uint32_t cksum;
+
+        cksum = checksum[0];
+
+        while (i < child_count) {
+                if (cksum != checksum[i]) {
+                        ret = _gf_true;
+                        break;
+                }
+
+                cksum = checksum[i];
+                i++;
+        }
+
+        return ret;
+}
+
+
+int32_t
+afr_examine_dir_readdir_cbk (call_frame_t *frame, void *cookie,
+                             xlator_t *this, int32_t op_ret, int32_t op_errno,
+                             gf_dirent_t *entries)
+{
+	afr_private_t * priv     = NULL;
+	afr_local_t *   local    = NULL;
+
+        gf_dirent_t * entry = NULL;
+        gf_dirent_t * tmp   = NULL;
+
+        int child_index = 0;
+
+        uint32_t entry_cksum;
+
+        int call_count    = 0;
+        off_t last_offset = 0;
+
+        priv  = this->private;
+        local = frame->local;
+
+        child_index = (long) cookie;
+
+        if (op_ret == -1) {
+                local->op_ret = -1;
+                goto out;
+        }
+
+        if (op_ret == 0)
+                goto out;
+
+        list_for_each_entry_safe (entry, tmp, &entries->list, list) {
+                entry_cksum = gf_rsync_weak_checksum (entry->d_name,
+                                                      strlen (entry->d_name));
+                local->cont.opendir.checksum[child_index] ^= entry_cksum;
+        }
+
+        list_for_each_entry (entry, &entries->list, list) {
+                last_offset = entry->d_off;
+        }
+
+        /* read more entries */
+
+        STACK_WIND_COOKIE (frame, afr_examine_dir_readdir_cbk,
+                           (void *) (long) child_index,
+                           priv->children[child_index],
+                           priv->children[child_index]->fops->readdir,
+                           local->fd, 131072, last_offset);
+
+out:
+        if ((op_ret == 0) || (op_ret == -1)) {
+                call_count = afr_frame_return (frame);
+
+                if (call_count == 0) {
+                        if (__checksums_differ (local->cont.opendir.checksum,
+                                                priv->child_count)) {
+
+                                local->need_entry_self_heal   = _gf_true;
+                                local->self_heal.forced_merge = _gf_true;
+
+                                local->cont.lookup.buf.st_mode = local->fd->inode->st_mode;
+
+                                local->child_count = afr_up_children_count (priv->child_count,
+                                                                            local->child_up);
+
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "checksums of directory %s differ,"
+                                        " triggering forced merge",
+                                        local->loc.path);
+
+                                afr_self_heal (frame, this,
+                                               afr_examine_dir_completion_cbk);
+                        } else {
+                                afr_set_opendir_done (this, local->fd->inode, 1);
+
+                                AFR_STACK_UNWIND (opendir, frame, local->op_ret,
+                                                  local->op_errno, local->fd);
+                        }
+                }
+        }
+
+        return 0;
+}
+
+
+int
+afr_examine_dir (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t * priv  = NULL;
+        afr_local_t *   local = NULL;
+
+        int i;
+        int call_count = 0;
+
+        local = frame->local;
+        priv  = this->private;
+
+        local->cont.opendir.checksum = CALLOC (priv->child_count,
+                                               sizeof (*local->cont.opendir.checksum));
+
+        call_count = afr_up_children_count (priv->child_count, local->child_up);
+
+        local->call_count = call_count;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i]) {
+                        STACK_WIND_COOKIE (frame, afr_examine_dir_readdir_cbk,
+                                           (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->readdir,
+                                           local->fd, 131072, 0);
+
+                        if (!--call_count)
+                                break;
+                }
+        }
+
+        return 0;
+}
 
 
 int32_t
@@ -69,8 +234,29 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
-		AFR_STACK_UNWIND (opendir, frame, local->op_ret,
-				  local->op_errno, local->fd);
+                if ((local->op_ret == 0) &&
+                    !afr_is_opendir_done (this, fd->inode)) {
+
+                        /*
+                         * This is the first opendir on this inode. We need
+                         * to check if the directory's entries are the same
+                         * on all subvolumes. This is needed in addition
+                         * to regular entry self-heal because the readdir
+                         * call is sent only to the first subvolume, and
+                         * thus files that exist only there will never be healed
+                         * otherwise (assuming changelog shows no anamolies).
+                         */
+
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "reading contents of directory %s looking for mismatch",
+                                local->loc.path);
+
+                        afr_examine_dir (frame, this);
+
+                } else {
+                        AFR_STACK_UNWIND (opendir, frame, local->op_ret,
+                                          local->op_errno, local->fd);
+                }
 	}
 
 	return 0;
@@ -107,6 +293,8 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
 		op_errno = -ret;
 		goto out;
 	}
+
+        loc_copy (&local->loc, loc);
 
 	frame->local = local;
 	local->fd    = fd_ref (fd);
