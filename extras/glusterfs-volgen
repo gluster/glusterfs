@@ -10,18 +10,30 @@ num_stripe = 4
 cache_size = "1GB"
 
 def print_usage (name):
-    print name, " --name <volume-name> "
-    print "    [--raid 0|1|10] "
-    print "    [--transport tcp|ib-verbs] "
-    print "    [--cache-size <cache-size>] "
-    print "    [--port <port>] "
-    print "    [--export-directory <export-dir>] "
-    print "    [--num-stripe n] "
-    print "    [--num-replica m] "
-    print "    [--usage] "
-    print "    [--upgrade] "
-    print "    host1 host2 ... hostN "
+    spaces = ' ' * (len(name) + 1)
+    print name, " --name <volume-name>"
+    print "%s[--raid 0|1|10]" % spaces
+    print "%s[--transport tcp|ib-verbs]" % spaces
+    print "%s[--cache-size <cache-size>]" % spaces
+    print "%s[--port <port>]" % spaces
+    print "%s[--export-directory <export-dir>]" % spaces
+    print "%s[--num-stripe n]"  % spaces
+    print "%s[--num-replica m]" % spaces
+    print "%s[--usage, --help]" % spaces
+    print "%s[--upgrade]" % spaces
+    print "%s[--version]" % spaces
+    print "%sserver1 server2 ... serverN" % spaces
     return
+
+def print_version (version):
+    print "glusterfs-volgen %s: A tool to generate volume files for GlusterFS." % version
+    print "Copyright (C) 2009 Gluster, Inc. <http://www.gluster.com>"
+    print """License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law."""
+
+def print_error (msg):
+    print "%s: %s" % (sys.argv[0], msg)
 
 def setup_env ():
 #    os.system ("mkdir -p "confdir"/glusterfs")
@@ -54,19 +66,19 @@ def print_mount_volume (mount_fd, servers):
     # Make sure proper RAID type is given
     if raid_type == 1:
         if (num_servers % num_replica) != 0:
-            print "raid type (%d) and number of of hosts (%d) not appropriate" % (raid_type, num_servers)
+            print_error ("raid type (%d) and number of of hosts (%d) not appropriate" % (raid_type, num_servers))
             sys.exit (1)
         num_stripe = 1
 
     if raid_type == 0:
         if (num_servers % num_stripe) != 0:
-            print "raid type (%d) and number of of hosts (%d) not appropriate" % (raid_type, num_servers)
+            print_error ("raid type (%d) and number of of hosts (%d) not appropriate" % (raid_type, num_servers))
             sys.exit (1)
         num_replica = 1
 
     if raid_type == 10:
         if (num_servers % (num_replica * num_stripe)) != 0:
-            print "raid type (%d) and number of of hosts (%d) not appropriate" % (raid_type, num_servers)
+            print_error ("raid type (%d) and number of of hosts (%d) not appropriate" % (raid_type, num_servers))
             sys.exit (1)
 
     cmdline = string.join (sys.argv, ' ')
@@ -233,8 +245,8 @@ def upgrade_mount_volume (volume_path, new_servers):
 
     try:
         tmp_read_fd = file (volume_path, "r")
-    except:
-        print "open failed"
+    except IOError, (errno, strerror):
+        print_error ("open of %s failed: %s" % (volume_path, strerror))
         sys.exit (1)
 
     volume_file_buf = tmp_read_fd.readlines ()
@@ -265,17 +277,18 @@ def upgrade_mount_volume (volume_path, new_servers):
     tmp_servers = []
     for server in servers:
         if server in tmp_servers:
-            print "duplicate entry in server list (%s).. exiting" % server
+            print_error ("duplicate entry in server list (%s)." % server)
             sys.exit (1)
         tmp_servers.append (server);
 
     try:
         tmp_fd = file (volume_path, "w")
-    except:
-        print "open failed"
+    except IOError, (errno, strerror):
+        print_error ("open of %s failed: %s" % (volume_path, strerror))
         sys.exit (1)
 
     print_mount_volume (tmp_fd, servers)
+    print "Wrote new mount file %s" % volume_path
     return
 
 
@@ -294,6 +307,10 @@ def main ():
     volume_name = None
     export_dir = None
 
+    if len(sys.argv) == 1:
+        print_usage (sys.argv[0])
+        sys.exit (1)
+
     # TODO: take this variable from --prefix option.
     confdir = "/usr/local/etc/glusterfs"
 
@@ -304,7 +321,7 @@ def main ():
     mount_volume_path="/dev/stdout"
 
     try:
-        (opt, args) = getopt.getopt (sys.argv[1:], "r:t:c:p:d:n:o:uh",
+        (opt, args) = getopt.getopt (sys.argv[1:], "r:t:c:p:d:n:o:v:uh",
                                      ["raid=",
                                       "transport=",
                                       "cache-size=",
@@ -316,6 +333,7 @@ def main ():
                                       "conf-dir=",
                                       "upgrade",
                                       "usage",
+                                      "version",
                                       "help"])
 
     except getopt.GetoptError, (msg, opt):
@@ -354,18 +372,25 @@ def main ():
 
         if o == '-r' or o == '--raid':
             if (val != "1" and val != "0" and val != "10"):
-                print "--raid: option " + val + " is not valid raid type"
+                print_error ("--raid: '" + val + "' is not a valid RAID type.")
+                print_usage (sys.argv[0])
                 sys.exit (1)
             raid_type = int (val)
 
         if o == '-t' or o == '--transport':
             if (val != "tcp" and val != "ib-verbs"):
-                print "--transport: option " + val + " is not valid transport type"
+                print_error ("--transport: '" + val + "' is not a valid transport type.")
+                print_usage (sys.argv[0])
                 sys.exit (1)
             transport_type = val
 
+        if o == '-v' or o == '--version':
+            print_version (version_num)
+            sys.exit (0)
+
     if main_name is None:
-        print "'--name' option not given, exiting"
+        print_error ("'--name' not specified.")
+        print_usage (sys.argv[0])
         sys.exit (1)
 
     setup_env()
@@ -375,7 +400,8 @@ def main ():
     num_servers = len (args)
 
     if num_servers is 0:
-        print "no servers given, exiting"
+        print_error ("no servers specified.")
+        print_usage (sys.argv[0])
         sys.exit (1)
 
     if needs_upgrade is 1:
@@ -383,24 +409,25 @@ def main ():
         sys.exit (0)
 
     if export_dir is None:
-        print "'--export-directory' option not given, exiting"
+        print_error ("'--export-directory' not specified.")
         sys.exit (1)
 
     try:
         exp_fd = file (export_volume_path, "w")
-    except:
-        print "open failed"
+    except IOError, (errno, strerror):
+        print_error ("open of %s failed: %s" % (export_volume_path, strerror))
         sys.exit (1)
 
     try:
         mount_fd = file (mount_volume_path, "w")
-    except:
-        print "open failed"
+    except IOError, (errno, strerror):
+        print_error ("open of %s failed: %s" % (mount_volume_path, strerror))
         sys.exit (1)
 
-    print "printing volume files"
     print_export_volume (exp_fd, export_dir)
+    print "Wrote export file %s" % export_volume_path
     print_mount_volume (mount_fd, args)
+    print "Wrote mount file %s" % mount_volume_path
     return
 
 main ()
