@@ -299,6 +299,8 @@ sh_full_loop_driver (call_frame_t *frame, xlator_t *this)
         afr_sh_algo_full_private_t *sh_priv = NULL;
 
         int   loop    = 0;
+        int   recurse = 0;
+
         off_t offset  = 0;
 
 	priv    = this->private;
@@ -334,7 +336,8 @@ sh_full_loop_driver (call_frame_t *frame, xlator_t *this)
 	}
 
 spawn:
-        loop = 0;
+        loop    = 0;
+        recurse = 0;
 
         LOCK (&sh_priv->lock);
         {
@@ -350,15 +353,18 @@ spawn:
 
                         sh_priv->loops_running++;
 
+                        loop = 1;
+
                         if (sh_priv->offset < sh->file_size)
-                                loop = 1;
+                                recurse = 1;
                 }
         }
         UNLOCK (&sh_priv->lock);
 
         if (loop) {
                 sh_full_read_write (frame, this, offset);
-                goto spawn;
+                if (recurse)
+                        goto spawn;
         }
 
 out:
@@ -828,7 +834,9 @@ sh_diff_loop_driver (call_frame_t *frame, xlator_t *this)
 	afr_self_heal_t * sh    = NULL;
         afr_sh_algo_diff_private_t *sh_priv = NULL;
 
-        int   loop   = 0;
+        int   loop    = 0;
+        int   recurse = 0;
+
         off_t offset = 0;
  
 	priv    = this->private;
@@ -864,7 +872,8 @@ sh_diff_loop_driver (call_frame_t *frame, xlator_t *this)
 	}
 
 spawn:
-        loop = 0;
+        loop    = 0;
+        recurse = 0;
 
         LOCK (&sh_priv->lock);
         {
@@ -880,15 +889,18 @@ spawn:
 
                         sh_priv->loops_running++;
 
+                        loop = 1;
+
                         if (sh_priv->offset < sh->file_size)
-                                loop = 1;
+                                recurse = 1;
                 }
         }
         UNLOCK (&sh_priv->lock);
 
         if (loop) {
                 sh_diff_checksum (frame, this, offset);
-                goto spawn;
+                if (recurse)
+                    goto spawn;
         }
 
 out:
