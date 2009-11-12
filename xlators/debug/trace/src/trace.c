@@ -116,10 +116,10 @@ trace_create_cbk (call_frame_t *frame,
 
                         if (statstr)
                                 FREE (statstr);
-                        if (preparent)
-                                FREE (preparent);
-                        if (postparent)
-                                FREE (postparent);
+                        if (preparentstr)
+                                FREE (preparentstr);
+                        if (postparentstr)
+                                FREE (postparentstr);
 		} else {
 			gf_log (this->name, GF_LOG_NORMAL, 
 				"%"PRId64": (op_ret=%d, op_errno=%d)",
