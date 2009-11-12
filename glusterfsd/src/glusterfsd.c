@@ -1368,12 +1368,10 @@ main (int argc, char *argv[])
                 return -1;
         }
 
+
         if (cmd_args->log_server) {
                 gf_log_central_init (ctx, cmd_args->log_server,
                                      "socket", cmd_args->log_server_port);
-        } else if (cmd_args->volfile_server) {
-                gf_log_central_init (ctx, cmd_args->volfile_server,
-                                     "socket", cmd_args->volfile_server_port);
         }
 
         event_dispatch (ctx->event_pool);
