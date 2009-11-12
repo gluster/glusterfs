@@ -31,6 +31,7 @@
 #include <stddef.h>
 #include <dirent.h>
 #include <sys/mount.h>
+#include <sys/time.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -64,6 +65,8 @@
 #define FUSE_712_OP_HIGH (FUSE_POLL + 1)
 #define GLUSTERFS_XATTR_LEN_MAX  65536
 
+#define MAX_FUSE_PROC_DELAY 1
+
 typedef struct fuse_in_header fuse_in_header_t;
 typedef void (fuse_handler_t) (xlator_t *this, fuse_in_header_t *finh,
                                void *msg);
@@ -85,6 +88,10 @@ struct fuse_private {
         pthread_mutex_t      first_call_mutex;
         char                 first_call;
         gf_boolean_t         strict_volfile_check;
+        pthread_cond_t       child_up_cond;
+        pthread_mutex_t      child_up_mutex;
+        char                 child_up_value;
+
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -3029,6 +3036,10 @@ fuse_thread_proc (void *data)
         struct iovec iov_in[2];
         void *msg = NULL;
         const size_t msg0_size = sizeof (*finh) + 128;
+        int             ret  = -1;
+
+        struct timeval  now;
+        struct timespec timeout;
 
         this = data;
         priv = this->private;
@@ -3039,6 +3050,28 @@ fuse_thread_proc (void *data)
         iov_in[1].iov_len = ((struct iobuf_pool *)this->ctx->iobuf_pool)
                               ->page_size;
         priv->msg0_len_p = &iov_in[0].iov_len;
+
+        pthread_mutex_lock (&priv->child_up_mutex);
+        {
+                gettimeofday (&now, NULL);
+                timeout.tv_sec = now.tv_sec + MAX_FUSE_PROC_DELAY;
+                timeout.tv_nsec = now.tv_usec * 1000;
+
+                while (priv->child_up_value) {
+
+                        ret = pthread_cond_timedwait (&priv->child_up_cond,
+                                                &priv->child_up_mutex,
+                                                &timeout);
+                        if (ret != 0)
+                                break;
+
+                }
+        }
+        pthread_mutex_unlock (&priv->child_up_mutex);
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                " pthread_cond_timedout returned non zero value"
+                " ret: %d errno: %d", ret, errno);
 
         for (;;) {
                 iobuf = iobuf_get (this->ctx->iobuf_pool);
@@ -3223,6 +3256,18 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         case GF_EVENT_CHILD_UP:
         case GF_EVENT_CHILD_CONNECTING:
         {
+                pthread_mutex_lock (&private->child_up_mutex);
+                {
+                        private->child_up_value = 0;
+                        pthread_cond_broadcast (&private->child_up_cond);
+                }
+                pthread_mutex_unlock (&private->child_up_mutex);
+
+                break;
+        }
+
+        case GF_EVENT_PARENT_UP:
+        {
                 if (!private->fuse_thread_started)
                 {
                         private->fuse_thread_started = 1;
@@ -3240,11 +3285,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                                 raise (SIGTERM);
                         }
                 }
-                break;
-        }
 
-        case GF_EVENT_PARENT_UP:
-        {
                 default_notify (this, GF_EVENT_PARENT_UP, data);
                 break;
         }
@@ -3397,6 +3438,10 @@ init (xlator_t *this_xl)
         this_xl->ctx->top = this_xl;
 
         priv->first_call = 2;
+
+        pthread_cond_init (&priv->child_up_cond, NULL);
+        pthread_mutex_init (&priv->child_up_mutex, NULL);
+        priv->child_up_value = 1;
 
         for (i = 0; i < FUSE_712_OP_HIGH; i++)
                 fuse_ops[i] = fuse_enosys;
