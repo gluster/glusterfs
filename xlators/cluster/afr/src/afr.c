@@ -56,6 +56,10 @@
 #include "afr-self-heal.h"
 
 
+#define AFR_ICTX_SPLIT_BRAIN_MASK    0x0000000100000000ULL
+#define AFR_ICTX_READ_CHILD_MASK     0x00000000FFFFFFFFULL
+
+
 uint64_t
 afr_is_split_brain (xlator_t *this, inode_t *inode)
 {
@@ -73,7 +77,7 @@ afr_is_split_brain (xlator_t *this, inode_t *inode)
                 if (ret < 0)
                         goto unlock;
                 
-                split_brain = ctx & 0xFFFFFFFF00000000ULL;
+                split_brain = ctx & AFR_ICTX_SPLIT_BRAIN_MASK;
         }
 unlock:
         UNLOCK (&inode->lock);
@@ -99,8 +103,8 @@ afr_set_split_brain (xlator_t *this, inode_t *inode, int32_t split_brain)
                         ctx = 0;
                 }
 
-                ctx = (0x00000000FFFFFFFFULL & ctx)
-                        | (split_brain & 0xFFFFFFFF00000000ULL);
+                ctx = (~AFR_ICTX_SPLIT_BRAIN_MASK & ctx)
+                        | (split_brain & AFR_ICTX_SPLIT_BRAIN_MASK);
 
                 __inode_ctx_put (inode, this, ctx);
         }
@@ -127,7 +131,7 @@ afr_read_child (xlator_t *this, inode_t *inode)
                 if (ret < 0)
                         goto unlock;
                 
-                read_child = ctx & 0x00000000FFFFFFFFULL;
+                read_child = ctx & AFR_ICTX_READ_CHILD_MASK;
         }
 unlock:
         UNLOCK (&inode->lock);
@@ -153,8 +157,8 @@ afr_set_read_child (xlator_t *this, inode_t *inode, int32_t read_child)
                         ctx = 0;
                 }
 
-                ctx = (0xFFFFFFFF00000000ULL & ctx) 
-                        | (0x00000000FFFFFFFFULL & read_child);
+                ctx = (~AFR_ICTX_READ_CHILD_MASK & ctx) 
+                        | (AFR_ICTX_READ_CHILD_MASK & read_child);
 
                 __inode_ctx_put (inode, this, ctx);
         }
