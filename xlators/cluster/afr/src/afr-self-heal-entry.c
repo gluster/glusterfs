@@ -2317,6 +2317,11 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
+        if (sh->forced_merge) {
+                sh->source = -1;
+                goto heal;
+        }
+
 	afr_sh_build_pending_matrix (priv, sh->pending_matrix, sh->xattr, 
 				     priv->child_count, AFR_ENTRY_TRANSACTION);
 
@@ -2338,12 +2343,14 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
 					  priv->child_count);
 
 	source = afr_sh_select_source (sh->sources, priv->child_count);
-	sh->source = source;
+
+        sh->source = source;
 
         if (sh->background) {
                 sh->unwind (frame, this);
         }
 
+heal:
 	afr_sh_entry_sync_prepare (frame, this);
 
 	return 0;

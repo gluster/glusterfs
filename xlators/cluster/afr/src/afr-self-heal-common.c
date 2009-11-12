@@ -1382,10 +1382,12 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         loc_copy (&lc->loc, &l->loc);
 
         lc->child_up  = memdup (l->child_up, priv->child_count);
-        lc->xattr_req = dict_copy_with_ref (l->xattr_req, NULL);
+        if (l->xattr_req)
+                lc->xattr_req = dict_copy_with_ref (l->xattr_req, NULL);
 
         lc->cont.lookup.inode = l->cont.lookup.inode;
-        lc->cont.lookup.xattr = dict_copy_with_ref (l->cont.lookup.xattr, NULL);
+        if (l->cont.lookup.xattr)
+                lc->cont.lookup.xattr = dict_copy_with_ref (l->cont.lookup.xattr, NULL);
 
         return lc;
 }
@@ -1502,7 +1504,12 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 
         sh->background     = _gf_true;
         sh->orig_frame     = frame;
-        sh->completion_cbk = afr_bgsh_completion_cbk;
+
+        if (completion_cbk == NULL)
+                sh->completion_cbk = afr_bgsh_completion_cbk;
+        else
+                sh->completion_cbk = completion_cbk;
+
         sh->unwind         = afr_bgsh_unwind;
 
 	sh->buf = CALLOC (priv->child_count, sizeof (struct stat));

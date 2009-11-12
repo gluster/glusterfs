@@ -55,9 +55,9 @@
 
 #include "afr-self-heal.h"
 
-
-#define AFR_ICTX_SPLIT_BRAIN_MASK    0x0000000100000000ULL
-#define AFR_ICTX_READ_CHILD_MASK     0x00000000FFFFFFFFULL
+#define AFR_ICTX_OPENDIR_DONE_MASK     0x0000000200000000ULL
+#define AFR_ICTX_SPLIT_BRAIN_MASK      0x0000000100000000ULL
+#define AFR_ICTX_READ_CHILD_MASK       0x00000000FFFFFFFFULL
 
 
 uint64_t
@@ -105,6 +105,60 @@ afr_set_split_brain (xlator_t *this, inode_t *inode, int32_t split_brain)
 
                 ctx = (~AFR_ICTX_SPLIT_BRAIN_MASK & ctx)
                         | (split_brain & AFR_ICTX_SPLIT_BRAIN_MASK);
+
+                __inode_ctx_put (inode, this, ctx);
+        }
+        UNLOCK (&inode->lock);
+out:
+        return;
+}
+
+
+uint64_t
+afr_is_opendir_done (xlator_t *this, inode_t *inode)
+{
+        int ret = 0;
+
+        uint64_t ctx          = 0;
+        uint64_t opendir_done = 0;
+
+        VALIDATE_OR_GOTO (inode, out);
+
+        LOCK (&inode->lock);
+        {
+                ret = __inode_ctx_get (inode, this, &ctx);
+
+                if (ret < 0)
+                        goto unlock;
+                
+                opendir_done = ctx & AFR_ICTX_OPENDIR_DONE_MASK;
+        }
+unlock:
+        UNLOCK (&inode->lock);
+
+out:
+        return opendir_done;
+}
+
+
+void
+afr_set_opendir_done (xlator_t *this, inode_t *inode, int32_t opendir_done)
+{
+        uint64_t ctx = 0;
+        int      ret = 0;
+
+        VALIDATE_OR_GOTO (inode, out);
+
+        LOCK (&inode->lock);
+        {
+                ret = __inode_ctx_get (inode, this, &ctx);
+
+                if (ret < 0) {
+                        ctx = 0;
+                }
+
+                ctx = (~AFR_ICTX_OPENDIR_DONE_MASK & ctx)
+                        | (opendir_done & AFR_ICTX_OPENDIR_DONE_MASK);
 
                 __inode_ctx_put (inode, this, ctx);
         }
@@ -320,6 +374,11 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 	{ /* symlink */
 		FREE (local->cont.symlink.linkpath);
 	}
+
+        { /* opendir */
+                if (local->cont.opendir.checksum)
+                        FREE (local->cont.opendir.checksum);
+        }
 }
 
 
@@ -642,7 +701,7 @@ unlock:
 					lookup_buf->st_mode;
 			}
 
-			afr_self_heal (frame, this, afr_self_heal_cbk);
+			afr_self_heal (frame, this, NULL);
 		} else {
 			AFR_STACK_UNWIND (lookup, frame, local->op_ret,
 					  local->op_errno,
