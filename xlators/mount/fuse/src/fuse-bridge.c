@@ -2244,8 +2244,8 @@ fuse_readdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 "%"PRIu64": READDIR (%p, size=%"PRIu32", offset=%"PRId64")",
                 finh->unique, fd, fri->size, fri->offset);
 
-        FUSE_FOP (state, fuse_readdir_cbk, GF_FOP_READDIR,
-                  readdir, fd, fri->size, fri->offset);
+        FUSE_FOP (state, fuse_readdir_cbk, GF_FOP_READDIRP,
+                  readdirp, fd, fri->size, fri->offset);
 }
 
 
