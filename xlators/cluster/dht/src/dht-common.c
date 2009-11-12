@@ -2245,7 +2245,7 @@ int
 dht_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t yoff)
 {
-        dht_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIRP);
+        dht_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIR);
         return 0;
 }
 
