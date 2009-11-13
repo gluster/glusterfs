@@ -111,6 +111,8 @@ typedef struct {
 	fd_t              *fd;
         gf_op_t            op;
         client_fd_ctx_t   *fdctx;
+        uint32_t           flags;
+        uint32_t           wbflags;
 } client_local_t;
 
 

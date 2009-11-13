@@ -660,6 +660,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         local->fd = fd_ref (fd);
         loc_copy (&local->loc, loc);
+        local->flags = flags;
 
         frame->local = local;
 
@@ -729,6 +730,8 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         local->fd = fd_ref (fd);
         loc_copy (&local->loc, loc);
+        local->flags = flags;
+        local->wbflags = wbflags;
 
         frame->local = local;
 
@@ -3951,6 +3954,7 @@ client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                 fdctx->inode     = inode_ref (fd->inode);
                 fdctx->ino       = ino;
                 fdctx->gen       = gen;
+                fdctx->flags     = local->flags;
 
                 INIT_LIST_HEAD (&fdctx->sfd_pos);
 
@@ -4029,6 +4033,8 @@ client_open_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                 fdctx->inode     = inode_ref (fd->inode);
                 fdctx->ino       = ino;
                 fdctx->gen       = gen;
+                fdctx->flags     = local->flags;
+                fdctx->wbflags   = local->wbflags;
 
                 INIT_LIST_HEAD (&fdctx->sfd_pos);
 
