@@ -30,6 +30,7 @@
 #include "inode.h"
 #include "timer.h"
 #include "byte-order.h"
+#include "saved-frames.h"
 
 #define CLIENT_PORT_CEILING        1023
 
@@ -65,15 +66,17 @@ typedef struct client_connection client_connection_t;
 #include "protocol.h"
 
 typedef struct _client_fd_ctx {
-        int               remote_fd;
         struct list_head  sfd_pos;      /*  Stores the reference to this
                                             fd's position in the saved_fds list.
                                         */
-        fd_t              *fd;          /* Reverse reference to the fd itself.
-                                           This is needed to delete this fdctx
-                                           from the fd's context in
-                                           protocol_client_mark_fd_bad.
-                                        */
+        int64_t           remote_fd;
+        inode_t          *inode;
+        uint64_t          ino;
+        uint64_t          gen;
+        char              is_dir;
+        char              released;
+        int32_t           flags;
+        int32_t           wbflags;
 } client_fd_ctx_t;
 
 struct _client_conf {
@@ -103,9 +106,11 @@ struct client_connection {
 };
 
 typedef struct {
-	loc_t loc;
-	loc_t loc2;
-	fd_t *fd;
+	loc_t              loc;
+	loc_t              loc2;
+	fd_t              *fd;
+        gf_op_t            op;
+        client_fd_ctx_t   *fdctx;
 } client_local_t;
 
 
