@@ -38,15 +38,15 @@
 
 #define CLIENT_CONF(this) ((client_conf_t *)(this->private))
 
-#define RECEIVE_TIMEOUT(_cprivate,_current)         \
-		((_cprivate->last_received.tv_sec + \
-                  _cprivate->frame_timeout) <   \
-                  _current.tv_sec)
+#define RECEIVE_TIMEOUT(_cprivate,_current)     \
+        ((_cprivate->last_received.tv_sec +     \
+          _cprivate->frame_timeout) <           \
+         _current.tv_sec)
 
-#define SEND_TIMEOUT(_cprivate,_current)          \
-		((_cprivate->last_sent.tv_sec +   \
-                  _cprivate->frame_timeout) < \
-                  _current.tv_sec)
+#define SEND_TIMEOUT(_cprivate,_current)        \
+        ((_cprivate->last_sent.tv_sec +         \
+          _cprivate->frame_timeout) <           \
+         _current.tv_sec)
 
 enum {
 	CHANNEL_BULK = 0,
@@ -65,15 +65,15 @@ typedef struct client_connection client_connection_t;
 #include "protocol.h"
 
 typedef struct _client_fd_ctx {
-        int remote_fd;
-        struct list_head sfd_pos;      /*  Stores the reference to this
-                                           fd's position in the saved_fds list.
-                                           */
-        fd_t *fd;                       /* Reverse reference to the fd itself.
+        int               remote_fd;
+        struct list_head  sfd_pos;      /*  Stores the reference to this
+                                            fd's position in the saved_fds list.
+                                        */
+        fd_t              *fd;          /* Reverse reference to the fd itself.
                                            This is needed to delete this fdctx
                                            from the fd's context in
                                            protocol_client_mark_fd_bad.
-                                           */
+                                        */
 } client_fd_ctx_t;
 
 struct _client_conf {
@@ -146,7 +146,7 @@ gf_string_to_stat(char *string, struct stat *stbuf)
 		&mtime_nsec,
 		&ctime,
 		&ctime_nsec);
-	
+
 	stbuf->st_dev   = dev;
 	stbuf->st_ino   = ino;
 	stbuf->st_mode  = mode;
@@ -157,11 +157,11 @@ gf_string_to_stat(char *string, struct stat *stbuf)
 	stbuf->st_size  = size;
 	stbuf->st_blksize = blksize;
 	stbuf->st_blocks  = blocks;
-	
+
 	stbuf->st_atime = atime;
 	stbuf->st_mtime = mtime;
 	stbuf->st_ctime = ctime;
-	
+
 	ST_ATIM_NSEC_SET(stbuf, atime_nsec);
 	ST_MTIM_NSEC_SET(stbuf, mtime_nsec);
 	ST_CTIM_NSEC_SET(stbuf, ctime_nsec);
