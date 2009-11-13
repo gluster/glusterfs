@@ -981,8 +981,9 @@ stripe_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->stbuf.st_blocks     += postop->st_blocks;
 
 
-                        if (local->stbuf.st_size < postop->st_size)
+                        if (local->stbuf.st_size < preop->st_size)
                                 local->pre_buf.st_size = preop->st_size;
+                        if (local->stbuf.st_size < postop->st_size)
                                 local->stbuf.st_size = postop->st_size;
 
                         if (local->stbuf.st_blksize != postop->st_blksize) {
@@ -3196,7 +3197,7 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
          */
         rounded_start = floor (offset, stripe_size);
         rounded_end = roof (offset+size, stripe_size);
-        num_stripe = (rounded_end - rounded_start) / stripe_size;
+        num_stripe = rounded_end/stripe_size - rounded_start/stripe_size;
         
         local = CALLOC (1, sizeof (stripe_local_t));
         if (!local) {
