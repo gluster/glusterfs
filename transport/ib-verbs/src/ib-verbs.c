@@ -497,7 +497,7 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
 
                 priv->data_ptr = NULL;
                 data_len = priv->data_len;
-                /* pthread_cond_broadcast (&priv->recv_cond); */
+                pthread_cond_broadcast (&priv->recv_cond);
         }
         pthread_mutex_unlock (&priv->recv_mutex);
 
@@ -1137,9 +1137,9 @@ ib_verbs_recv_completion_proc (void *data)
         
                                 pthread_mutex_lock (&priv->recv_mutex);
                                 {
-/*        while (priv->data_ptr)
-          pthread_cond_wait (&priv->recv_cond, &priv->recv_mutex);
-*/
+                                        while (priv->data_ptr)
+                                                pthread_cond_wait (&priv->recv_cond,
+                                                                   &priv->recv_mutex);
           
                                         priv->data_ptr = post->buf;
                                         priv->data_offset = 0;
@@ -1555,7 +1555,7 @@ ib_verbs_init (transport_t *this)
         pthread_mutex_init (&priv->read_mutex, NULL);
         pthread_mutex_init (&priv->write_mutex, NULL);
         pthread_mutex_init (&priv->recv_mutex, NULL);
-        /*  pthread_cond_init (&priv->recv_cond, NULL); */
+        pthread_cond_init (&priv->recv_cond, NULL);
 
         return 0;
 }
