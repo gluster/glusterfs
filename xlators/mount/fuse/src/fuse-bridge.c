@@ -1710,9 +1710,9 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 fd_ref (fd);
 
-                feo.nodeid = inode_to_nodeid (inode);
+                feo.nodeid = inode_to_nodeid (linked_inode);
 
-                feo.generation = inode->generation;
+                feo.generation = linked_inode->generation;
 
                 feo.entry_valid = calc_timeout_sec (priv->entry_timeout);
                 feo.entry_valid_nsec = calc_timeout_nsec (priv->entry_timeout);
