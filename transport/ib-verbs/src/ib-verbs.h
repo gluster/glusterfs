@@ -202,6 +202,7 @@ struct _ib_verbs_private {
         char handshake_ret;
 
         pthread_mutex_t recv_mutex;
+        pthread_cond_t  recv_cond;
 
         /* used during ib_verbs_handshake */
         struct {
