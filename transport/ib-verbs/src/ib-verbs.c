@@ -691,22 +691,43 @@ ib_verbs_unregister_peer (ib_verbs_device_t *device,
 
 
 static ib_verbs_peer_t *
-ib_verbs_lookup_peer (ib_verbs_device_t *device,
-                      int32_t qp_num)
+__ib_verbs_lookup_peer (ib_verbs_device_t *device, int32_t qp_num)
 {
-        struct _qpent *ent;
-        ib_verbs_qpreg_t *qpreg = &device->qpreg;
-        ib_verbs_peer_t *peer;
-        int32_t hash = qp_num % 42;
+        struct _qpent    *ent   = NULL;
+        ib_verbs_peer_t  *peer  = NULL;
+        ib_verbs_qpreg_t *qpreg = NULL;
+        int32_t hash            = 0;
 
-        pthread_mutex_lock (&qpreg->lock);
+        hash = qp_num % 42;
         ent = qpreg->ents[hash].next;
         while ((ent != &qpreg->ents[hash]) && (ent->qp_num != qp_num))
                 ent = ent->next;
-        peer = ent->peer;
-        pthread_mutex_unlock (&qpreg->lock);
+
+        if (ent != &qpreg->ents[hash]) {
+                peer = ent->peer;
+        }
+
         return peer;
 }
+
+/*
+static ib_verbs_peer_t *
+ib_verbs_lookup_peer (ib_verbs_device_t *device,
+                      int32_t qp_num)
+{
+        ib_verbs_qpreg_t *qpreg = NULL;
+        ib_verbs_peer_t  *peer  = NULL;
+ 
+        qpreg = &device->qpreg;
+        pthread_mutex_lock (&qpreg->lock);
+        {
+                peer = __ib_verbs_lookup_peer (device, qp_num);
+        }
+        pthread_mutex_unlock (&qpreg->lock);
+
+        return peer;
+}
+*/
 
 
 static void
@@ -1115,7 +1136,23 @@ ib_verbs_recv_completion_proc (void *data)
 
                 while ((ret = ibv_poll_cq (event_cq, 1, &wc)) > 0) {
                         post = (ib_verbs_post_t *) (long) wc.wr_id;
-                        peer = ib_verbs_lookup_peer (device, wc.qp_num);
+
+                        pthread_mutex_lock (&device->qpreg.lock);
+                        {
+                                peer = __ib_verbs_lookup_peer (device,
+                                                               wc.qp_num);
+
+                                /*
+                                 * keep a refcount on transport so that it
+                                 * doesnot get freed because of some error
+                                 * indicated by wc.status till we are done
+                                 * with usage of peer and thereby that of trans.
+                                 */
+                                if (peer != NULL) {
+                                        transport_ref (peer->trans);
+                                }
+                        }
+                        pthread_mutex_unlock (&device->qpreg.lock);
 
                         if (wc.status != IBV_WC_SUCCESS) {
                                 gf_log ("transport/ib-verbs", GF_LOG_ERROR,
@@ -1123,8 +1160,10 @@ ib_verbs_recv_completion_proc (void *data)
                                         "error (%d)",
                                         device->device_name,
                                         wc.status);
-                                if (peer)
+                                if (peer) {
+                                        transport_unref (peer->trans);
                                         transport_disconnect (peer->trans);
+                                }
 
                                 if (post) {
                                         ib_verbs_post_recv (device->srq, post);
@@ -1159,6 +1198,8 @@ ib_verbs_recv_completion_proc (void *data)
                                                 peer->trans->xl->name);
                                         transport_disconnect (peer->trans);
                                 }
+
+                                transport_unref (peer->trans);
                         } else {
                                 gf_log ("transport/ib-verbs",
                                         GF_LOG_DEBUG,
@@ -1216,7 +1257,23 @@ ib_verbs_send_completion_proc (void *data)
 
                 while ((ret = ibv_poll_cq (event_cq, 1, &wc)) > 0) {
                         post = (ib_verbs_post_t *) (long) wc.wr_id;
-                        peer = ib_verbs_lookup_peer (device, wc.qp_num);
+
+                        pthread_mutex_lock (&device->qpreg.lock);
+                        {
+                                peer = __ib_verbs_lookup_peer (device,
+                                                               wc.qp_num);
+
+                                /*
+                                 * keep a refcount on transport so that it
+                                 * doesnot get freed because of some error
+                                 * indicated by wc.status till we are done
+                                 * with usage of peer and thereby that of trans.
+                                 */
+                                if (peer != NULL) {
+                                        transport_ref (peer->trans);
+                                }
+                        }
+                        pthread_mutex_unlock (&device->qpreg.lock);
 
                         if (wc.status != IBV_WC_SUCCESS) {
                                 gf_log ("transport/ib-verbs", GF_LOG_ERROR,
@@ -1254,6 +1311,8 @@ ib_verbs_send_completion_proc (void *data)
                                                 "failed to send message");
                                         
                                 }
+
+                                transport_unref (peer->trans);
                         } else {
                                 gf_log ("transport/ib-verbs", GF_LOG_DEBUG,
                                         "could not lookup peer for qp_num: %d",
