@@ -3479,6 +3479,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 
         int              ret = 0;
 	int              _fd = -1;
+        uint64_t         tmp_pfd = 0;
 	struct posix_fd *pfd = NULL;
 
 	data_pair_t     *trav = NULL;
@@ -3493,7 +3494,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 	trav = xattr->members_list;
 
 	if (fd) {
-		ret = fd_ctx_get (fd, this, (uint64_t *)&pfd);
+		ret = fd_ctx_get (fd, this, &tmp_pfd);
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"failed to get pfd from fd=%p",
@@ -3502,6 +3503,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 			op_errno = EBADFD;
 			goto out;
 		}
+                pfd = (struct posix_fd *)(long)tmp_pfd;
 		_fd = pfd->fd;
 	}
 
