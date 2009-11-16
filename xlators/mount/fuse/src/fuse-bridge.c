@@ -62,7 +62,7 @@
 #define ZR_DIRECT_IO_OPT        "direct-io-mode"
 #define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 
-#define FUSE_712_OP_HIGH (FUSE_POLL + 1)
+#define FUSE_713_OP_HIGH (FUSE_POLL + 1)
 #define GLUSTERFS_XATTR_LEN_MAX  65536
 
 #define MAX_FUSE_PROC_DELAY 1
@@ -2914,6 +2914,12 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 priv->direct_io_mode = 0;
                 fino.flags |= FUSE_BIG_WRITES;
         }
+        if (fini->minor >= 13) {
+                /* these values seemed to work fine during testing */
+
+                fino.max_background = 64;
+                fino.congestion_threshold = 48;
+        }
         if (fini->minor < 9)
                 *priv->msg0_len_p = sizeof(*finh) + FUSE_COMPAT_WRITE_IN_SIZE;
 
@@ -2951,7 +2957,7 @@ fuse_discard (xlator_t *this, fuse_in_header_t *finh, void *msg)
         FREE (finh);
 }
 
-static fuse_handler_t *fuse_ops[FUSE_712_OP_HIGH];
+static fuse_handler_t *fuse_ops[FUSE_713_OP_HIGH];
 
 int
 fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -3443,7 +3449,7 @@ init (xlator_t *this_xl)
         pthread_mutex_init (&priv->child_up_mutex, NULL);
         priv->child_up_value = 1;
 
-        for (i = 0; i < FUSE_712_OP_HIGH; i++)
+        for (i = 0; i < FUSE_713_OP_HIGH; i++)
                 fuse_ops[i] = fuse_enosys;
         fuse_ops[FUSE_INIT]        = fuse_init;
         fuse_ops[FUSE_DESTROY]     = fuse_discard;
