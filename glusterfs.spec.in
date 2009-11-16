@@ -196,7 +196,6 @@ fi
 %{_includedir}/glusterfs
 %{_includedir}/libglusterfsclient.h
 %exclude %{_includedir}/glusterfs/y.tab.h
-%{_libdir}/*.a
 %exclude %{_libdir}/*.la
 %{_libdir}/*.so
 
