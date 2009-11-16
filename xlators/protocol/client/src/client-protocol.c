@@ -6566,8 +6566,8 @@ init (xlator_t *this)
                         "setting ping-timeout to %d", ping_timeout);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "defaulting ping-timeout to 10");
-                ping_timeout = 10;
+                        "defaulting ping-timeout to 42");
+                ping_timeout = GF_UNIVERSAL_ANSWER;
         }
 
         conf = CALLOC (1, sizeof (client_conf_t));
