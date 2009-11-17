@@ -3670,7 +3670,7 @@ init (xlator_t *this)
                 goto out;
 
         priv->state = CALLOC (count, sizeof (int8_t));
-        if (!priv->xl_array)
+        if (!priv->state)
                 goto out;
 
         priv->child_count = count;
