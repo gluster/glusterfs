@@ -340,13 +340,11 @@ grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t
 {
 
         if (list_empty (&dom->blocked_inodelks)) {
-                goto out;
+                gf_log (this->name, GF_LOG_TRACE,
+                        "No locks for domain: %s", dom->domain);
         }
 
-
 	__grant_blocked_inode_locks (this, pl_inode, dom);
-out:
-        __destroy_inode_lock (lock);
 
 }
 
@@ -378,11 +376,11 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                         if (l->transport != trans)
                                 continue;
 
-                        list_del_init (&l->list);
+                        __delete_inode_lock (l);
 
 			grant_blocked_inode_locks (this, pinode, l, dom);
 
-                        __delete_inode_lock (l);
+                        __destroy_inode_lock (l);
 
                         if (inode_path (inode, NULL, &path) < 0) {
                                 gf_log (this->name, GF_LOG_TRACE,
