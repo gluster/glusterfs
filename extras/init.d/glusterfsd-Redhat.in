@@ -8,7 +8,7 @@
 . /etc/rc.d/init.d/functions
 
 BASE=glusterfsd
-GLUSTERFSD_BIN=@prefix@/sbin/$BASE
+GLUSTERFSD_BIN=@exec_prefix@/sbin/$BASE
 CONFIGFILE=/etc/glusterfs/glusterfsd.vol
 GLUSTERFSD_OPTS="-f $CONFIGFILE"
 GSERVER="$GLUSTERFSD_BIN $GLUSTERFSD_OPTS"
