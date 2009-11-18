@@ -7843,6 +7843,70 @@ out:
 }
 
 
+char *
+glusterfs_getcwd (char *buf, size_t size)
+{
+        char              *res      = NULL;
+        size_t             len      = 0; 
+        loc_t              loc      = {0, };
+        glusterfs_handle_t handle   = NULL;
+        char               vpath[PATH_MAX];
+        int32_t            op_ret   = 0; 
+
+        pthread_mutex_lock (&cwdlock);
+        {
+                if (!cwd_inited) {
+                        errno = ENODEV;
+                        goto unlock;
+                }
+
+                if (buf == NULL) {
+                        buf = CALLOC (1, len);
+                        if (buf == NULL) {
+                                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR,
+                                        "out of memory");
+                                goto unlock;
+                        }
+                } else {
+                        if (size == 0) {
+                                errno = EINVAL;
+                                goto unlock;
+                        }
+
+                        if (len > size) {
+                                errno = ERANGE;
+                                goto unlock;
+                        }
+                }
+
+                strcpy (buf, cwd);
+                res = buf; 
+        }
+unlock:
+        pthread_mutex_unlock (&cwdlock);
+
+        if (res != NULL) {
+                handle = libgf_resolved_path_handle (res, vpath);
+
+                if (handle != NULL)  {
+                        loc.path = strdup (vpath);
+                        if (loc.path == NULL) {
+                                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR,
+                                        "strdup failed");
+                        } else {
+                                op_ret = libgf_client_path_lookup (&loc, handle,
+                                                                   0);
+                                if (op_ret == -1) {
+                                        res = NULL;
+                                }
+                        }
+                }
+        }
+
+        return res;
+}
+
+
 static struct xlator_fops libgf_client_fops = {
 };
 
