@@ -189,7 +189,7 @@ out:
 }
 
 libglusterfs_client_fd_ctx_t *
-libgf_alloc_fd_ctx (libglusterfs_client_ctx_t *ctx, fd_t *fd)
+libgf_alloc_fd_ctx (libglusterfs_client_ctx_t *ctx, fd_t *fd, char *vpath)
 {
         libglusterfs_client_fd_ctx_t    *fdctx = NULL;
         uint64_t                        ctxaddr = 0;
@@ -217,6 +217,14 @@ libgf_alloc_fd_ctx (libglusterfs_client_ctx_t *ctx, fd_t *fd)
                          */
                 }
         }
+
+        if (vpath != NULL) {
+                strcpy (fdctx->vpath, vpath);
+                if (vpath[strlen(vpath) - 1] != '/') {
+                        strcat (fdctx->vpath, "/");
+                }
+        }
+
         fd_ctx_set (fd, libgf_inode_to_xlator (fd->inode), ctxaddr);
 out:
         return fdctx;
@@ -1575,6 +1583,48 @@ libgf_vmp_entry_match (struct vmp_entry *entry, char *path)
 
 #define LIBGF_VMP_EXACT          1
 #define LIBGF_VMP_LONGESTPREFIX  0
+
+
+/* copies vmp from the vmp-entry having glusterfs handle @handle, into @vmp */
+char *
+libgf_vmp_search_vmp (glusterfs_handle_t handle, char *vmp, size_t vmp_size)
+{
+        char             *res   = NULL;
+        struct vmp_entry *entry = NULL;
+
+        if (handle == NULL) {
+                goto out;
+        }
+
+        pthread_mutex_lock (&vmplock);
+        {
+                if (vmplist.entries == 0) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Virtual Mount Point "
+                                "list is empty.");
+                        goto unlock;
+                }
+
+                list_for_each_entry(entry, &vmplist.list, list) {
+                        if (entry->handle == handle) {
+                                if ((vmp_size) < (strlen (entry->vmp) + 1)) {
+                                        errno = ENAMETOOLONG;
+                                        goto unlock;
+                                }
+
+                                strcpy (vmp, entry->vmp);
+                                res = vmp;
+                                break;
+                        }
+                }
+        }
+unlock:
+        pthread_mutex_unlock (&vmplock);
+
+out:
+        return res;
+}
+
+
 struct vmp_entry *
 _libgf_vmp_search_entry (char *path, int searchtype)
 {
@@ -2889,6 +2939,7 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
         mode_t mode = 0;
         va_list ap;
         char *pathres = NULL;
+        char *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -2974,8 +3025,13 @@ op_over:
                 goto out;
         }
 
+        vpath = NULL;
+        if (S_ISDIR (loc.inode->st_mode)) {
+                vpath = (char *)path;
+        }
+
         if (!libgf_get_fd_ctx (fd)) {
-                if (!libgf_alloc_fd_ctx (ctx, fd)) {
+                if (!libgf_alloc_fd_ctx (ctx, fd, vpath)) {
                         gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Failed to"
                                 " allocate fd context");
                         errno = EINVAL;
@@ -2985,7 +3041,7 @@ op_over:
         }
 
         if ((flags & O_TRUNC) && (((flags & O_ACCMODE) == O_RDWR)
-                        || ((flags & O_ACCMODE) == O_WRONLY))) {
+                                  || ((flags & O_ACCMODE) == O_WRONLY))) {
                 inode_ctx = libgf_get_inode_ctx (fd->inode);
                 if (S_ISREG (inode_ctx->stbuf.st_mode)) {
                                 inode_ctx->stbuf.st_size = 0;
@@ -5495,7 +5551,7 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
         }
 
         if (!libgf_get_fd_ctx (dirfd)) {
-                if (!(libgf_alloc_fd_ctx (ctx, dirfd))) {
+                if (!(libgf_alloc_fd_ctx (ctx, dirfd, (char *)path))) {
                         gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Context "
                                 "allocation failed");
                         op_ret = -1;
@@ -7684,6 +7740,75 @@ libgf_client_chdir (const char *path)
 unlock:
         pthread_mutex_unlock (&cwdlock);
 
+        return op_ret;
+}
+
+
+int
+glusterfs_fchdir (glusterfs_file_t fd)
+{
+        int                           op_ret = -1;
+        char                          vpath[PATH_MAX];
+        char                          vmp[PATH_MAX]; 
+        char                         *res    = NULL;
+        libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
+        glusterfs_handle_t            handle = NULL;
+        
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
+
+        /* FIXME: there is a race-condition between glusterfs_fchdir and
+           glusterfs_close. If two threads of application call glusterfs_fchdir
+           and glusterfs_close on the same fd, there is a possibility of
+           glusterfs_fchdir accessing freed memory of fd_ctx.
+        */
+
+        fd_ctx = libgf_get_fd_ctx (fd);
+        if (!fd_ctx) {
+                errno = EBADF;
+		goto out;
+        }
+
+        pthread_mutex_lock (&fd_ctx->lock);
+        {
+                handle = fd_ctx->ctx;
+                strcpy (vpath, fd_ctx->vpath);
+        }
+        pthread_mutex_unlock (&fd_ctx->lock);
+
+        if (vpath[0] == '\0') {
+                errno = ENOTDIR;
+                goto out;
+        }
+
+        res = libgf_vmp_search_vmp (handle, vmp, PATH_MAX);
+        if (res == NULL) {
+                errno = EBADF;
+                goto out;
+        }
+
+        /* both vmp and vpath are terminated with '/'. Also path starts with a
+           '/'. Hence the extra '/' amounts to NULL character at the end of the
+           string.
+        */
+        if ((strlen (vmp) + strlen (vpath)) > PATH_MAX) {
+                errno = ENAMETOOLONG;
+                goto out;
+        }
+
+        pthread_mutex_lock (&cwdlock);
+        {
+                strcpy (cwd, vmp);
+                res = vpath;
+                if (res[0] == '/') {
+                        res++;
+                }
+
+                strcat (cwd, res);
+        }
+        pthread_mutex_unlock (&cwdlock);
+
+        op_ret = 0; 
+out:
         return op_ret;
 }
 
