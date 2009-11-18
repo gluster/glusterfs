@@ -4730,13 +4730,18 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
         op_ret = stub->args.stat_cbk.op_ret;
         errno = stub->args.stat_cbk.op_errno;
         libgf_transform_iattr (ctx, loc->inode, &stub->args.stat_cbk.buf);
-        if (stbuf)
-                *stbuf = stub->args.stat_cbk.buf;
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
                 loc->path, op_ret, errno);
-        libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
-                                        &stub->args.stat_cbk.buf);
+
+        if (op_ret == 0) {
+                if (stbuf)
+                        *stbuf = stub->args.stat_cbk.buf;
+
+                libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
+                                          &stub->args.stat_cbk.buf);
+        }
+
 	call_stub_destroy (stub);
 
 out:
@@ -4962,14 +4967,17 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
  
         op_ret = stub->args.fstat_cbk.op_ret;
         errno = stub->args.fstat_cbk.op_errno;
-        libgf_transform_iattr (ctx, fd->inode, &stub->args.fstat_cbk.buf);
-        if (buf)
-                *buf = stub->args.fstat_cbk.buf;
-
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "status %d, errno %d", op_ret,
                 errno);
-        libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
-                                        &stub->args.fstat_cbk.buf);
+
+        if (op_ret == 0) {
+                libgf_transform_iattr (ctx, fd->inode,
+                                       &stub->args.fstat_cbk.buf);
+                if (buf)
+                        *buf = stub->args.fstat_cbk.buf;
+                libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
+                                          &stub->args.fstat_cbk.buf);
+        }
 	call_stub_destroy (stub);
 
 out:
@@ -7913,15 +7921,22 @@ libgf_client_truncate (libglusterfs_client_ctx_t *ctx,
  
         op_ret = stub->args.truncate_cbk.op_ret;
         errno = stub->args.truncate_cbk.op_errno;
-        libgf_transform_iattr (ctx, loc->inode,
-                               &stub->args.truncate_cbk.postbuf);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
                 loc->path, op_ret, errno);
+
+        if (op_ret == -1) {
+                goto out;
+        }
+
+        libgf_transform_iattr (ctx, loc->inode,
+                               &stub->args.truncate_cbk.postbuf);
+
         libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
                                   &stub->args.truncate_cbk.postbuf);
 	call_stub_destroy (stub);
 
+out:
         return op_ret;
 }
 
