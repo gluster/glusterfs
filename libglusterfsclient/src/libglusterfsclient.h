@@ -1325,6 +1325,20 @@ glusterfs_chdir (const char *path);
 int
 glusterfs_fchdir (glusterfs_file_t fd);
 
+/* copies the current working directory into @buf if it is big enough
+ *
+ * @buf: buffer to copy into it. If @buf is NULL, a buffer will be allocated.
+ *       The size of the buffer will be @size if it is not zero, otherwise the
+ *       size will be big enough to hold the current working directory.
+ * @size: size of the buffer.
+ *
+ * Returns the pointer to buffer holding current working directory on success
+ * and NULL on failure.
+ */
+
+char *
+glusterfs_getcwd (char *buf, size_t size);
+
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
