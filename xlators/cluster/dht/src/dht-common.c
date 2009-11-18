@@ -2062,6 +2062,8 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                         goto unwind;
                 }
 
+                entry->d_stat = orig_entry->d_stat;
+
                 dht_itransform (this, prev->this, orig_entry->d_ino,
                                 &entry->d_ino);
                 dht_itransform (this, prev->this, orig_entry->d_off,
