@@ -338,6 +338,7 @@ __do_path_resolve (loc_t *loc, libglusterfs_client_ctx_t *ctx,
                 }
         }
 
+        op_ret = 0;
 out:
         loc->inode = inode;
         loc->parent = parent;
