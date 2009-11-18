@@ -191,6 +191,8 @@ static ssize_t (*real_sendfile64) (int out_fd, int in_fd, off_t *offset,
                                    size_t count);
 static int (*real_fcntl) (int fd, int cmd, ...);
 static int (*real_chdir) (const char *path);
+static int (*real_fchdir) (int fd);  
+static char * (*real_getcwd) (char *buf, size_t size);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -2740,6 +2742,45 @@ unlock:
 }
 
 
+int
+fchdir (int fd)
+{
+        int              ret     = -1;
+        glusterfs_file_t glfs_fd = 0;
+        char             cwd[PATH_MAX]; 
+        char            *res     = NULL;
+
+        glfs_fd = booster_fdptr_get (booster_fdtable, fd);
+
+        if (!glfs_fd) {
+                gf_log ("booster", GF_LOG_TRACE, "Not a booster fd");
+                if (real_write == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                } else {
+                        ret = real_fchdir (fd);
+                        if (ret == 0) {
+                                res = real_getcwd (cwd, PATH_MAX);
+                                if (res == NULL) {
+                                        gf_log ("booster", GF_LOG_ERROR,
+                                                "getcwd failed (%s)",
+                                                strerror (errno));
+                                        ret = -1;
+                                } else {
+                                        glusterfs_chdir (cwd);
+                                }
+                        }
+                }
+        } else {
+                gf_log ("booster", GF_LOG_TRACE, "Is a booster fd");
+                ret = glusterfs_fchdir (glfs_fd);
+                booster_fdptr_put (glfs_fd);
+        }
+ 
+        return ret;
+}
+
+
 void
 booster_lib_init (void)
 {
@@ -2818,6 +2859,8 @@ booster_lib_init (void)
         RESOLVE (readdir64_r);
         RESOLVE (fcntl);
         RESOLVE (chdir);
+        RESOLVE (fchdir);
+        RESOLVE (getcwd);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
