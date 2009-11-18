@@ -1890,7 +1890,7 @@ _libgf_umount (char *vmp)
                 goto out;
         }
 
-        ret = glusterfs_fini (entry->handle);
+/*        ret = glusterfs_fini (entry->handle); */
         list_del_init (&entry->list);
         libgf_free_vmp_entry (entry);
 
