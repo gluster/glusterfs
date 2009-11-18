@@ -197,6 +197,12 @@ static int (*real_fchdir) (int fd);
 static char * (*real_getcwd) (char *buf, size_t size);
 static int (*real_truncate) (const char *path, off_t length);
 static int (*real_truncate64) (const char *path, loff_t length);
+static int (*real_setxattr) (const char *path, const char *name,
+                             const void *value, size_t size, int flags);
+static int (*real_lsetxattr) (const char *path, const char *name,
+                              const void *value, size_t size, int flags);
+static int (*real_fsetxattr) (int filedes, const char *name,
+                              const void *value, size_t size, int flags);
 
 
 #define RESOLVE(sym) do {                                       \
@@ -2946,6 +2952,98 @@ out:
 }
 
 
+int
+setxattr (const char *path, const char *name, const void *value, size_t size,
+          int flags)
+{
+        int             ret = -1;
+
+        gf_log ("booster", GF_LOG_TRACE, "setxattr: path: %s", path);
+        ret = glusterfs_setxattr (path, name, value, size, flags);
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "setxattr failed: %s",
+                        strerror (errno));
+                goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_TRACE, "setxattr succeeded");
+                goto out;
+        }
+
+        if (real_setxattr != NULL)
+                ret = real_setxattr (path, name, value, size, flags);
+        else {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+
+int
+lsetxattr (const char *path, const char *name, const void *value, size_t size,
+           int flags)
+{
+        int             ret = -1;
+
+        gf_log ("booster", GF_LOG_TRACE, "lsetxattr: path: %s", path);
+        ret = glusterfs_lsetxattr (path, name, value, size, flags);
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "lsetxattr failed: %s",
+                        strerror (errno));
+                goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_TRACE, "lsetxattr succeeded");
+                goto out;
+        }
+
+        if (real_lsetxattr != NULL)
+                ret = real_lsetxattr (path, name, value, size, flags);
+        else {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+
+int
+fsetxattr (int fd, const char *name, const void *value, size_t size, int flags)
+{
+        int                     ret = -1;
+        glusterfs_file_t        fh = NULL;
+
+        gf_log ("booster", GF_LOG_TRACE, "fsetxattr: fd %d", fd);
+        fh = booster_fdptr_get (booster_fdtable, fd);
+        if (!fh) {
+                gf_log ("booster", GF_LOG_TRACE, "Not a booster fd");
+                if (real_fsetxattr != NULL)
+                        ret = real_fsetxattr (fd, name, value, size, flags);
+                else {
+                        ret = -1;
+                        errno = ENOSYS;
+                        goto out;
+                }
+        } else {
+                gf_log ("booster", GF_LOG_TRACE, "Is a booster fd");
+                ret = glusterfs_fsetxattr (fh, name, value, size, flags);
+                booster_fdptr_put (fh);
+        }
+
+out:
+        return ret;
+}
+
+
 void
 booster_lib_init (void)
 {
@@ -3030,6 +3128,9 @@ booster_lib_init (void)
         RESOLVE (getcwd);
         RESOLVE (truncate);
         RESOLVE (truncate64);
+        RESOLVE (setxattr);
+        RESOLVE (lsetxattr);
+        RESOLVE (fsetxattr);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
